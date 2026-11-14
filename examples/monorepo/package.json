@@ -18,7 +18,7 @@
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit -p tsconfig.json && bun run --filter '*' typecheck",
-    "test": "bun run --filter '*' test",
+    "test": "bun test ./tests && bun run --filter '*' test",
     "quality:fallow": "node_modules/.bin/fallow audit --format json --quiet --type-aware --type-aware-require complete --gate all",
     "check": "bun run lint && bun run format:check && bun run typecheck && bun run test && bun run --silent quality:fallow",
     "format:check": "biome format .",

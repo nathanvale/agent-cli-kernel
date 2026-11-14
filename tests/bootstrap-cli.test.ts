@@ -434,6 +434,19 @@ describe("public bootstrap CLI", () => {
       const check = runIn(destination, ["run", "check"], {});
       requireSuccess(check, "durable generated check");
       expect(check.stdout).toContain('"verdict":"pass"');
+      if (variant === "monorepo") {
+        const testPath = join(destination, "tests/cli.test.ts");
+        const original = await readFile(testPath, "utf8");
+        await writeFile(
+          testPath,
+          original +
+            '\ntest("root CLI tests are executed", () => { throw new Error("ROOT_CLI_TEST_SENTINEL"); });\n',
+        );
+        const failed = runIn(destination, ["run", "test"], {});
+        expect(failed.exitCode).not.toBe(0);
+        expect(failed.stderr).toContain("ROOT_CLI_TEST_SENTINEL");
+        await writeFile(testPath, original);
+      }
     }
   }, 120_000);
 

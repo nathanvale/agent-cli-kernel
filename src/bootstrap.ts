@@ -90,7 +90,7 @@ Usage:
 
 Profiles:
   scratch  Dump-and-run repository with only run, typecheck, and test essentials.
-  durable  Maintained repository with Biome, native Fallow, and uniform checks.
+  durable  Maintained repository with typed ESLint, Biome formatting, native Fallow and uniform checks.
 
 CLI starters:
   simple   Read-only CLI with Contract Core 2.0 help and discovery.

@@ -13,25 +13,22 @@ generation time.
 
 ## Pinned toolchain
 
-- Bun `1.4.0` (`packageManager`, `bunfig.toml` `install.auto = "disable"`)
-- TypeScript `7.0.2` (exact devDependency)
+- Bun `1.4.4` (`packageManager`, `bunfig.toml` `install.auto = "disable"`)
+- Native TypeScript `7.0.2` for compilation, TypeScript `6.0.2` for linting
+- ESLint `10.15.0` with typescript-eslint `8.72.2` and its recommended typed preset
 - `@types/bun` `1.4.0` (exact devDependency)
-- Biome `2.4.15` (exact)
-- Fallow `3.19.0` (exact; TypeScript and Fallow move as a pinned pair)
+- Biome `2.6.7` for formatting only
+- Fallow and its semantic companion `3.43.0` (exact)
 
 ## Checks this profile includes
 
 `bun run check` runs, in order:
 
-1. `biome:check`: `biome check --diagnostic-level=error .`
-2. `typecheck`: `tsc --noEmit -p tsconfig.json`. The full `tsconfig.base.json`
-   is inherited as-is: `strict`, `verbatimModuleSyntax`,
-   `exactOptionalPropertyTypes`, and `noUncheckedIndexedAccess` are all on and
-   are not relaxed anywhere in this profile.
-3. `test`: `bun test`
-4. `quality:fallow`: `node_modules/.bin/fallow audit --format json --quiet
-   --type-aware --type-aware-require best-effort` (gate follows the audit
-   `verdict`; a type-aware incompleteness is advisory, not blocking)
+1. `lint`: typed ESLint on source and tests, including repository-local rules.
+2. `format:check`: Biome formatting without writes; lint and assist are disabled.
+3. `typecheck`: native TypeScript, inheriting the strict base configuration.
+4. `test`: Bun tests, including the repository CLI process tests.
+5. `quality:fallow`: complete native semantic evidence and all findings gated.
 
 ## CI
 
@@ -41,8 +38,7 @@ promoted from scratch.
 
 ## Bootstrap
 
-Bootstrap does not initialize Git. Fallow's `new-only` audit gate needs a
-comparison base. Establish an empty local baseline before the first check so
+Bootstrap does not initialize Git. Fallow's audit needs a Git comparison base even when all findings are gated. Establish an empty local baseline before the first check so
 the generated scaffold remains visible as new work:
 
 ```sh
