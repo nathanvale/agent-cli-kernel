@@ -1,3 +1,5 @@
+import { inventoryApplicationClis } from "./cli-inventory.ts";
+import { resolveToolchain } from "./toolchain-resolution.ts";
 import { createHash } from "node:crypto";
 import type { Dirent } from "node:fs";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
@@ -150,7 +152,12 @@ async function checkPolicy(options: Options): Promise<Document> {
       `policy:${file}`,
     );
   }
-  for (const file of [".gitignore", "bunfig.toml"]) {
+  for (const file of [
+    ".gitignore",
+    "bunfig.toml",
+    "eslint.config.mjs",
+    "eslint-rules.mjs",
+  ]) {
     compare(
       await readFile(join(options.project, file), "utf8"),
       await readFile(join(packet, file), "utf8"),
@@ -188,7 +195,10 @@ function checkLockedResolutions(packages: Document, pins: Document): void {
     const resolved = packages[name];
     requireValue(Array.isArray(resolved), `policy:bun.lock.packages.${name}`);
     requireValue(
-      resolved[0] === `${name}@${version}`,
+      resolved[0] ===
+        (String(version).startsWith("npm:")
+          ? String(version).slice(4)
+          : `${name}@${String(version)}`),
       `policy:bun.lock.packages.${name}`,
     );
   }
@@ -308,7 +318,7 @@ async function discoveryScope(
   const listing = parseReceipt(receipt);
   compare(
     normalizedPaths(options.project, listing.files),
-    paths,
+    [...paths, "eslint.config.mjs", "eslint-rules.mjs"].sort(),
     "scope:fallow-files",
   );
   const entries = listing.entry_points;
@@ -324,7 +334,11 @@ async function discoveryScope(
   requireValue(required.length > 1, "scope:tests-missing");
   for (const path of required)
     requireValue(entryPaths.includes(path), `scope:entry-missing:${path}`);
-  return required;
+  requireValue(
+    entryPaths.includes("eslint-rules.mjs"),
+    "scope:eslint-rule-entry-missing",
+  );
+  return [...required, "eslint-rules.mjs"];
 }
 
 function wholeReportScope(whole: Document, requiredEntries: string[]): void {
@@ -332,7 +346,7 @@ function wholeReportScope(whole: Document, requiredEntries: string[]): void {
   const entries = document(report.entry_points, "scope:whole-entries");
   const sources = document(entries.sources, "scope:whole-entry-sources");
   requireValue(
-    sources.manual_entry === requiredEntries.length,
+    sources.manual_entry === requiredEntries.length - 1,
     "scope:whole-manual-entries",
   );
   compare(report.workspace_diagnostics ?? [], [], "scope:whole-diagnostics");
@@ -409,7 +423,7 @@ async function fallowPass(
     throw new Refusal(`${name}:native-error`);
   }
   requireValue(
-    report.kind === "dead-code" && report.version === "3.19.0",
+    report.kind === "dead-code" && report.version === "3.43.0",
     `${name}:identity`,
   );
   const semantic = semanticState(report, name);
@@ -424,13 +438,24 @@ async function admission(options: Options): Promise<Document> {
     JSON.stringify(before, null, 2) + "\n",
   );
   const packageJson = await checkPolicy(options);
+  await writeFile(
+    join(options.evidence, "toolchain.json"),
+    JSON.stringify(resolveToolchain(options.project), null, 2) + "\n",
+  );
   const paths = sourcePaths(before);
   await compilerScope(options, paths);
   const requiredEntries = await discoveryScope(options, paths);
-  await successful(options, "biome", [
+  const entries = await inventoryApplicationClis(options.project);
+  requireValue(entries.length === 1, `cli:entry-count:${entries.length}`);
+  await successful(options, "eslint", [
+    "node_modules/.bin/eslint",
+    ".",
+    "--max-warnings",
+    "0",
+  ]);
+  await successful(options, "format", [
     "node_modules/.bin/biome",
-    "check",
-    "--diagnostic-level=error",
+    "format",
     ".",
   ]);
   await successful(options, "compiler", [

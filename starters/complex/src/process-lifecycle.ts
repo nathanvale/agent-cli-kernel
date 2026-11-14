@@ -1,3 +1,4 @@
+import { finishActiveDiagnostics } from "./diagnostics.ts";
 type TimerHandle = ReturnType<typeof setTimeout>;
 
 interface ProcessLifecycleDependencies {
@@ -84,6 +85,7 @@ function createProcessLifecycle(
   return {
     async complete(code) {
       await outputFinished;
+      await dependencies.finishDiagnostics();
       if (stopping) return;
       const finalCode = outputFailed ? 1 : code;
       dependencies.setExitCode(finalCode);
@@ -116,6 +118,7 @@ function createProcessLifecycle(
 }
 
 async function finishDiagnostics(): Promise<void> {
+  await finishActiveDiagnostics();
   if (process.env.NODE_ENV !== "test") return;
   const milliseconds = Number(
     process.env.CLI_EXAMPLE_TEST_DIAGNOSTIC_FLUSH_MS ?? "0",
@@ -141,7 +144,11 @@ export function systemProcessLifecycle(
     writeStderr: (text) => process.stderr.write(text),
     writeStdout: (text, callback) => process.stdout.write(text, callback),
   });
-  process.stdout.on("error", (error) => lifecycle.outputError(error));
+  process.stdout.on("error", (error: unknown) =>
+    lifecycle.outputError(
+      error instanceof Error ? error : new Error("stdout failed"),
+    ),
+  );
   process.on("uncaughtException", () => lifecycle.crash());
   process.on("unhandledRejection", () => lifecycle.crash());
   return lifecycle;

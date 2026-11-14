@@ -10,10 +10,6 @@ function emptyEffects() {
   };
 }
 
-export function validateSetInput(value: string, preview: boolean) {
-  return SetInput.safeParse({ preview, value });
-}
-
 function invalidSetArguments() {
   return SetInput.safeParse({ preview: false, value: undefined });
 }

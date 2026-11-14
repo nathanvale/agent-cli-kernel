@@ -466,7 +466,7 @@ async function copyDirectoryContents(
   destination: string,
 ): Promise<void> {
   for (const entry of await readdir(source, { withFileTypes: true })) {
-    if (entry.name === "TEMPLATE-SOURCE.md") {
+    if (["TEMPLATE-SOURCE.md", "composition-tests"].includes(entry.name)) {
       continue;
     }
     await cp(join(source, entry.name), join(destination, entry.name), {
@@ -568,6 +568,72 @@ async function installStaging(
   }
 }
 
+async function copyCliSources(
+  staging: string,
+  options: BootstrapOptions,
+): Promise<void> {
+  const roots =
+    options.starter === undefined ? ["shared", "simple"] : ["shared"];
+  for (const starter of roots) await copyCliFolders(staging, starter);
+}
+
+async function copyCliFolders(staging: string, starter: string): Promise<void> {
+  for (const folder of starter === "shared" ? ["src"] : ["src", "tests"]) {
+    await mkdir(join(staging, folder), { recursive: true });
+    await copyDirectoryContents(
+      join(TEMPLATE_ROOT, "starters", starter, folder),
+      join(staging, folder),
+    );
+  }
+}
+
+function templateIdentity(args: string[]) {
+  const child = Bun.spawnSync(["git", "-C", TEMPLATE_ROOT, ...args], {
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  if (child.exitCode !== 0)
+    throw new CliError(
+      "template_revision_unavailable",
+      "Cannot inspect the source template identity",
+      "Restore the template Git checkout and retry",
+      1,
+      false,
+    );
+  return child.stdout.toString().trim();
+}
+
+async function writeRepositoryContext(
+  staging: string,
+  options: BootstrapOptions,
+): Promise<void> {
+  const revision = templateIdentity(["rev-parse", "HEAD"]);
+  const dirty = templateIdentity(["status", "--porcelain"]);
+  const metadata = {
+    specRevision: "4",
+    templateRevision: revision,
+    templateDirty: dirty.length > 0,
+    sourcePacket: options.sourcePacket,
+    starter: options.starter ?? "simple",
+    profile: options.profile,
+    entryPoint: "src/cli.ts",
+    commandOwner: "src/commands.ts",
+    registrationVersion: 1,
+  };
+  await writeFile(
+    join(staging, ".cli-design-template.json"),
+    `${JSON.stringify(metadata, null, 2)}\n`,
+  );
+  const check =
+    options.profile === "scratch"
+      ? "bun run typecheck && bun run test"
+      : "bun run check";
+  await writeFile(
+    join(staging, "AGENTS.md"),
+    `# Repository commands\n\nUse the existing repository CLI at src/cli.ts. Add commands through src/commands.ts.\nKeep domain implementation in separate files and preserve one public application CLI.\n\nRun checks: ${check}\nSmoke: bun run start --help\nSource packet: ${options.sourcePacket}\nTemplate source: ${metadata.templateRevision}\n`,
+  );
+}
+
 async function bootstrap(options: BootstrapOptions): Promise<BootstrapResult> {
   const destinationState = await validateDestination(options.destination);
   const variant = options.monorepo ? "monorepo" : "single-package";
@@ -580,6 +646,8 @@ async function bootstrap(options: BootstrapOptions): Promise<BootstrapResult> {
   );
   try {
     await copySources(sources, staging);
+    await copyCliSources(staging, options);
+    await writeRepositoryContext(staging, options);
     const generatedFiles = await substituteTokens(staging, options);
     await installStaging(staging, options.destination, destinationState);
     return {

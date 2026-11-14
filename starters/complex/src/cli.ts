@@ -1,51 +1,20 @@
 import { writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
-import { stationsFor } from "./branch-station-catalog.ts";
 import { envelope } from "./command-contract.ts";
-import { attemptEmergencyDiagnostic, recordDiagnostic } from "./diagnostics.ts";
 import {
-  completed,
-  inspected,
-  invalidInput,
-  invalidPersistedState,
-  journalLockHeld,
-  parseSetArguments,
-  previewed,
-  priorRunPending,
-  recovered,
-} from "./engine.ts";
+  attemptEmergencyDiagnostic,
+  diagnosticRunIdentity,
+  finalizeDiagnostics,
+} from "./diagnostics.ts";
+import { inspected, invalidInput } from "./engine.ts";
 import { systemProcessLifecycle } from "./process-lifecycle.ts";
-import {
-  InvalidStateDocumentError,
-  inspectRecovery,
-  inspectState,
-  setState,
-} from "./runtime.ts";
+import { commands } from "./commands.ts";
+import { commandSummaries } from "./commands-contract.ts";
 
 const lifecycle = systemProcessLifecycle(attemptEmergencyDiagnostic);
 process.on("SIGINT", () => lifecycle.terminate(130));
 process.on("SIGTERM", () => lifecycle.terminate(143));
 
-const COMMANDS = [
-  {
-    commandIdentity: "example.status",
-    effectClass: "inspect",
-    route: ["status"],
-    summary: "Inspect current state.",
-  },
-  {
-    commandIdentity: "example.set",
-    effectClass: "repository-local",
-    route: ["set"],
-    summary: "Preview or apply a local state change.",
-  },
-  {
-    commandIdentity: "example.recover",
-    effectClass: "inspect",
-    route: ["recover"],
-    summary: "Inspect an interrupted state change without replaying it.",
-  },
-] as const;
+const COMMANDS = commandSummaries(commands);
 
 const HUMAN_HELP = `Usage: example status | set --value VALUE [--preview] | recover [--json]
 
@@ -64,10 +33,6 @@ function hasJson(argv: string[]): boolean {
   return (separator === -1 ? argv : argv.slice(0, separator)).includes(
     "--json",
   );
-}
-
-function statePath(): string {
-  return resolve(process.env.CLI_EXAMPLE_STATE ?? "example-state.json");
 }
 
 async function waitForLifecycleTest(): Promise<void> {
@@ -89,7 +54,22 @@ async function waitForLifecycleTest(): Promise<void> {
   }
 }
 
-function writeResult(result: ReturnType<typeof envelope>, json: boolean): void {
+async function writeResult(
+  result: ReturnType<typeof envelope>,
+  json: boolean,
+): Promise<void> {
+  result.availablePaths = [
+    "example.command-discovery",
+    "example.discovery",
+    "example.help",
+    ...COMMANDS.map((command) => command.commandIdentity),
+  ].sort();
+  const diagnostics = await finalizeDiagnostics();
+  result.result.runId = diagnosticRunIdentity;
+  const output = {
+    ...result,
+    ...(diagnostics === undefined ? {} : { diagnostics }),
+  };
   if (process.env.NODE_ENV === "test") {
     const paddingBytes = Number(
       process.env.CLI_EXAMPLE_TEST_OUTPUT_BYTES ?? "0",
@@ -102,7 +82,7 @@ function writeResult(result: ReturnType<typeof envelope>, json: boolean): void {
     }
   }
   if (json) {
-    lifecycle.stdout(`${JSON.stringify(result)}\n`);
+    lifecycle.stdout(`${JSON.stringify(output)}\n`);
     return;
   }
   const line = `${result.message}\n`;
@@ -148,8 +128,11 @@ async function main(argv: string[]): Promise<number> {
         "example status | set --value VALUE [--preview] | recover [--json]",
     };
     result.message = "Show help.";
-    if (json) writeResult(envelope(result), true);
-    else lifecycle.stdout(HUMAN_HELP);
+    if (json) await writeResult(envelope(result), true);
+    else
+      lifecycle.stdout(
+        `${HUMAN_HELP}\n${COMMANDS.map((command) => command.route.join(" ")).join("\n")}\n`,
+      );
     return 0;
   }
   if (args.length === 1 && args[0] === "--discover") {
@@ -157,7 +140,7 @@ async function main(argv: string[]): Promise<number> {
     result.commandIdentity = "example.discovery";
     result.data = discoveryData();
     result.message = "Describe commands.";
-    writeResult(envelope(result), json);
+    await writeResult(envelope(result), json);
     return 0;
   }
   if (args[0] === "--discover-command" && args.length === 2) {
@@ -170,51 +153,29 @@ async function main(argv: string[]): Promise<number> {
       result.data = {
         command,
         semantics: "possible-outcomes",
-        stations: stationsFor(command.commandIdentity),
+        stations:
+          commands
+            .find(
+              (candidate) =>
+                candidate.commandIdentity === command.commandIdentity,
+            )
+            ?.stations() ?? [],
       };
       result.message = `Describe ${command.commandIdentity}.`;
-      writeResult(envelope(result), json);
+      await writeResult(envelope(result), json);
       return 0;
     }
   }
-  if (args.length === 1 && args[0] === "status") {
-    await recordDiagnostic("example.status");
+  const command = commands.find(
+    (candidate) =>
+      candidate.route.every((token, index) => token === args[index]) &&
+      (candidate.effectClass !== "inspect" ||
+        candidate.route.length === args.length),
+  );
+  if (command !== undefined) {
     await waitForLifecycleTest();
-    let result: ReturnType<typeof inspected>;
-    try {
-      result = inspected(await inspectState(statePath()));
-    } catch (error) {
-      if (!(error instanceof InvalidStateDocumentError)) throw error;
-      result = invalidPersistedState();
-    }
-    writeResult(envelope(result), json);
-    return result.exitCode;
-  }
-  if (args.length === 1 && args[0] === "recover") {
-    await recordDiagnostic("example.recover");
-    const result = recovered(await inspectRecovery(statePath()));
-    writeResult(envelope(result), json);
-    return result.exitCode;
-  }
-  if (args[0] === "set") {
-    const parsed = parseSetArguments(args.slice(1));
-    if (!parsed.success) {
-      const result = invalidInput("The set value is invalid.");
-      writeResult(envelope(result), json);
-      return result.exitCode;
-    }
-    await recordDiagnostic("example.set");
-    const result = parsed.data.preview
-      ? previewed(parsed.data.value)
-      : await (async () => {
-          const state = await setState(statePath(), parsed.data.value);
-          if (state.status === "locked") return journalLockHeld();
-          if (state.status === "blocked") {
-            return priorRunPending(state.effectId);
-          }
-          return completed(parsed.data.value, state.effectId);
-        })();
-    writeResult(envelope(result), json);
+    const result = await command.execute(args.slice(command.route.length));
+    await writeResult(envelope(result), json);
     return result.exitCode;
   }
   const result = invalidInput("Choose status or set --value VALUE.");
@@ -222,7 +183,7 @@ async function main(argv: string[]): Promise<number> {
   result.causeCode = "USAGE_INVALID_INVOCATION";
   result.exitCode = 2;
   result.failureClass = "usage";
-  writeResult(envelope(result), json);
+  await writeResult(envelope(result), json);
   return result.exitCode;
 }
 

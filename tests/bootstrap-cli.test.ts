@@ -29,13 +29,22 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.4.0
+          bun-version: 1.4.4
       - run: bun install --frozen-lockfile
       - run: bun run check
 `;
 
 const STARTER_FILES = {
   simple: [
+    ".cli-design-template.json",
+    "eslint-rules.mjs",
+    "AGENTS.md",
+    "eslint.config.mjs",
+    "src/commands-contract.ts",
+    "src/commands.ts",
+    "src/domains/status.ts",
+    "src/domains/result.ts",
+    "src/domains/template.ts",
     ".fallowrc.json",
     ".github/workflows/ci.yml",
     ".gitignore",
@@ -50,6 +59,14 @@ const STARTER_FILES = {
     "tsconfig.json",
   ],
   complex: [
+    ".cli-design-template.json",
+    "eslint-rules.mjs",
+    "AGENTS.md",
+    "eslint.config.mjs",
+    "src/commands-contract.ts",
+    "src/commands.ts",
+    "src/domains/state.ts",
+    "src/diagnostics-custody.ts",
     ".fallowrc.json",
     ".github/workflows/ci.yml",
     ".gitignore",
@@ -80,6 +97,17 @@ const SOURCE_PACKET_DATA_MESSAGE =
   "HTTP(S) source packet URLs must not contain username, password, or query data";
 const SOURCE_PACKET_DATA_REPAIR =
   "remove username, password, or query data, or use an absolute local packet path";
+
+function parsePackage(text: string) {
+  const value: unknown = JSON.parse(text);
+  return value as {
+    name: string;
+    packageManager: string;
+    scripts: Record<string, string>;
+    devDependencies: Record<string, string>;
+    catalog: Record<string, string>;
+  };
+}
 
 interface Invocation {
   exitCode: number;
@@ -136,12 +164,12 @@ async function temporaryRoot(): Promise<string> {
   return root;
 }
 
-async function expectRejectedSourcePacket(
+function expectRejectedSourcePacket(
   root: string,
   name: string,
   packet: string,
   redactedParts: readonly string[],
-): Promise<void> {
+): void {
   const destination = join(root, name);
   const result = invoke(
     "--profile",
@@ -189,7 +217,7 @@ async function listFiles(root: string, prefix = ""): Promise<string[]> {
 function requireSuccess(result: Invocation, operation: string): void {
   if (result.exitCode !== 0) {
     throw new Error(
-      `${operation} failed with exit ${result.exitCode}: ${result.stderr}`,
+      `${operation} failed with exit ${result.exitCode}: ${result.stderr}\n${result.stdout}`,
     );
   }
 }
@@ -262,7 +290,7 @@ describe("public bootstrap CLI", () => {
       status: "created",
     });
     const files = await listFiles(destination);
-    const packageJson = JSON.parse(
+    const packageJson = parsePackage(
       await readFile(join(destination, "package.json"), "utf8"),
     );
     expect(packageJson.scripts).not.toHaveProperty("quality:fallow");
@@ -290,18 +318,18 @@ describe("public bootstrap CLI", () => {
     };
     for (const command of [
       ["install", "--frozen-lockfile"],
-      ["run", "start"],
+      ["run", "start", "--", "status"],
       ["run", "check"],
     ]) {
       const commandResult = runIn(destination, command, runtimeEnv);
-      expect(commandResult.exitCode).toBe(0);
+      requireSuccess(commandResult, command.join(" "));
     }
     expect(await Bun.file(invocationMarker).exists()).toBe(false);
   });
 
   test("rejects username-only source packets before writing or output", async () => {
     const root = await temporaryRoot();
-    await expectRejectedSourcePacket(
+    expectRejectedSourcePacket(
       root,
       "username",
       "https://demo@example.test/vault/projects/example/",
@@ -311,7 +339,7 @@ describe("public bootstrap CLI", () => {
 
   test("rejects password-only source packets before writing or output", async () => {
     const root = await temporaryRoot();
-    await expectRejectedSourcePacket(
+    expectRejectedSourcePacket(
       root,
       "password",
       "https://:secret@example.test/",
@@ -321,7 +349,7 @@ describe("public bootstrap CLI", () => {
 
   test("rejects query source packets before writing or output", async () => {
     const root = await temporaryRoot();
-    await expectRejectedSourcePacket(
+    expectRejectedSourcePacket(
       root,
       "query",
       "https://example.test/vault/projects/example/?access=example-only",
@@ -356,20 +384,24 @@ describe("public bootstrap CLI", () => {
         variant,
       });
       const generatedFiles = await listFiles(destination);
-      const packageJson = JSON.parse(
+      const packageJson = parsePackage(
         await readFile(join(destination, "package.json"), "utf8"),
       );
       const readme = await readFile(join(destination, "README.md"), "utf8");
       expect(packageJson.name).toBe(name);
-      expect(packageJson.packageManager).toBe("bun@1.4.0");
-      expect(packageJson.devDependencies["@biomejs/biome"]).toBe("2.4.15");
-      expect(packageJson.devDependencies.fallow).toBe("3.19.0");
+      expect(packageJson.packageManager).toBe("bun@1.4.4");
+      expect(packageJson.devDependencies["@biomejs/biome"]).toBe("2.6.7");
+      expect(packageJson.devDependencies.fallow).toBe("3.43.0");
       if (variant === "monorepo") {
-        expect(packageJson.catalog.typescript).toBe("7.0.2");
+        expect(packageJson.catalog.typescript).toBe("npm:typescript@7.0.2");
         expect(packageJson.catalog["@types/bun"]).toBe("1.4.0");
-        expect(packageJson.devDependencies.typescript).toBe("catalog:");
+        expect(packageJson.devDependencies.typescript).toBe(
+          "npm:@typescript/typescript6@6.0.2",
+        );
       } else {
-        expect(packageJson.devDependencies.typescript).toBe("7.0.2");
+        expect(packageJson.devDependencies.typescript).toBe(
+          "npm:@typescript/typescript6@6.0.2",
+        );
         expect(packageJson.devDependencies["@types/bun"]).toBe("1.4.0");
       }
       expect(generatedFiles).not.toContain("TEMPLATE-SOURCE.md");
@@ -400,7 +432,7 @@ describe("public bootstrap CLI", () => {
         runIn(destination, ["install", "--frozen-lockfile"], {}).exitCode,
       ).toBe(0);
       const check = runIn(destination, ["run", "check"], {});
-      expect(check.exitCode).toBe(0);
+      requireSuccess(check, "durable generated check");
       expect(check.stdout).toContain('"verdict":"pass"');
     }
   }, 120_000);
@@ -483,7 +515,7 @@ describe("public bootstrap CLI", () => {
         variant: "single-package",
       });
       const files = await listFiles(destination);
-      expect(files).toEqual([...STARTER_FILES[starter]]);
+      expect(files).toEqual([...STARTER_FILES[starter]].sort());
       expect(
         await readFile(join(destination, ".github/workflows/ci.yml"), "utf8"),
       ).toBe(GENERATED_CI);
@@ -557,7 +589,10 @@ describe("public bootstrap CLI", () => {
       expect(
         runIn(freshCheckout, ["install", "--frozen-lockfile"], {}).exitCode,
       ).toBe(0);
-      expect(runIn(freshCheckout, ["run", "check"], {}).exitCode).toBe(0);
+      requireSuccess(
+        runIn(freshCheckout, ["run", "check"], {}),
+        "fresh generated check",
+      );
       expect(
         runCommand(freshCheckout, ["git", "status", "--short"]).stdout,
       ).toBe("");
@@ -588,3 +623,234 @@ describe("public bootstrap CLI", () => {
     }
   });
 });
+
+function admitCli(root: string): Invocation {
+  return runCommand(ROOT, [
+    process.execPath,
+    "run",
+    "src/cli-inventory.ts",
+    root,
+  ]);
+}
+
+test("one-CLI admission covers scratch, durable and workspace entry points", async () => {
+  for (const [profile, extra] of [
+    ["scratch", []],
+    ["durable", []],
+    ["durable", ["--monorepo"]],
+  ] as const) {
+    const root = await temporaryRoot();
+    const destination = join(root, "repository");
+    requireSuccess(
+      invoke(
+        "--profile",
+        profile,
+        "--destination",
+        destination,
+        "--source-packet",
+        "https://example.test/spec",
+        ...extra,
+        "--json",
+      ),
+      "generate repository",
+    );
+    await writeFile(
+      join(destination, "src/args.ts"),
+      "export function cliArgs() { return process.argv.slice(2); }\n",
+    );
+    const entryPath = join(destination, "src/cli.ts");
+    await writeFile(
+      entryPath,
+      'import { cliArgs } from "./args.ts";\nvoid cliArgs;\n' +
+        (await readFile(entryPath, "utf8")),
+    );
+    const initial = admitCli(destination);
+    expect(initial.exitCode).toBe(0);
+    expect(JSON.parse(initial.stdout)).toMatchObject({
+      entries: ["src/cli.ts"],
+      status: "admitted",
+    });
+    const manifestPath = join(destination, "package.json");
+    const manifest = parsePackage(await readFile(manifestPath, "utf8"));
+    manifest.scripts["cli-alias"] = "bun run ./src/cli.ts --help";
+    manifest.scripts["build:sample"] =
+      "bun build src/cli.ts --outfile dist/cli.js";
+    manifest.scripts["build:custom"] = "bun run scripts/build.ts";
+    await mkdir(join(destination, "scripts"));
+    await writeFile(
+      join(destination, "scripts/build.ts"),
+      'const minify = process.argv.includes("--minify");\nvoid Bun.build({entrypoints: ["src/cli.ts"], outdir: "dist", minify});\n',
+    );
+    await writeFile(
+      join(destination, "BUILD.md"),
+      "Build with `bun run scripts/build.ts --minify`.\n",
+    );
+    await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
+    expect(admitCli(destination).exitCode).toBe(0);
+    await writeFile(
+      join(destination, "src/second.ts"),
+      'if (import.meta.main) process.stdout.write("second CLI\\n");\n',
+    );
+    const refused = admitCli(destination);
+    expect(refused.exitCode).toBe(1);
+    expect(JSON.parse(refused.stdout)).toMatchObject({
+      entries: ["src/cli.ts", "src/second.ts"],
+      status: "refused",
+    });
+  }
+});
+
+test("one-CLI admission finds a documented executable and workspace bin", async () => {
+  const root = await temporaryRoot();
+  const destination = join(root, "workspace");
+  requireSuccess(
+    invoke(
+      "--profile",
+      "durable",
+      "--monorepo",
+      "--destination",
+      destination,
+      "--source-packet",
+      "https://example.test/spec",
+      "--json",
+    ),
+    "generate workspace",
+  );
+  await writeFile(
+    join(destination, "src/documented.ts"),
+    'process.stdout.write("documented CLI\\n");\n',
+  );
+  const readme = join(destination, "README.md");
+  await writeFile(
+    readme,
+    (await readFile(readme, "utf8")) +
+      "\nAdditional application: `bun run src/documented.ts`.\n",
+  );
+  expect(admitCli(destination).exitCode).toBe(1);
+  await writeFile(
+    join(destination, "src/documented.ts"),
+    "export const libraryValue = 1;\n",
+  );
+  await writeFile(readme, "# Workspace\nRun: `bun run src/cli.ts`.\n");
+  const memberPath = join(destination, "packages/example-lib/package.json");
+  const member = JSON.parse(await readFile(memberPath, "utf8")) as Record<
+    string,
+    unknown
+  >;
+  member.bin = { extra: "src/index.ts" };
+  await writeFile(memberPath, JSON.stringify(member, null, 2) + "\n");
+  const refused = admitCli(destination);
+  expect(refused.exitCode).toBe(1);
+  expect(JSON.parse(refused.stdout)).toMatchObject({
+    entries: ["packages/example-lib/src/index.ts", "src/cli.ts"],
+  });
+});
+
+test("domain loading failures preserve help, discovery and unrelated commands", async () => {
+  const root = await temporaryRoot();
+  const destination = join(root, "domains");
+  requireSuccess(
+    invoke(
+      "--profile",
+      "scratch",
+      "--destination",
+      destination,
+      "--source-packet",
+      "https://example.test/spec",
+      "--json",
+    ),
+    "generate domain specimen",
+  );
+  await writeFile(
+    join(destination, "src/domains/status.ts"),
+    'throw new Error("provider configuration unavailable");\nexport function inspectStatus(): never { throw new Error("unavailable"); }\n',
+  );
+  for (const args of [
+    ["--help", "--json"],
+    ["--discover", "--json"],
+    ["template", "info", "--json"],
+  ]) {
+    const result = runIn(
+      destination,
+      ["run", "--silent", "start", "--", ...args],
+      {},
+    );
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+  }
+  const unavailable = runIn(
+    destination,
+    ["run", "--silent", "start", "--", "status", "--json"],
+    {},
+  );
+  expect(unavailable.exitCode).toBe(1);
+  expect(unavailable.stderr).toBe("");
+  expect(JSON.parse(unavailable.stdout)).toMatchObject({
+    result: {
+      commandIdentity: "example.status",
+      causeCode: "INTERNAL_RESULT_UNCHANGED",
+      transactionState: "unchanged",
+    },
+  });
+});
+
+test("lint, local rules, formatting and native type errors fail independent read-only checks", async () => {
+  const root = await temporaryRoot();
+  const destination = join(root, "gates");
+  requireSuccess(
+    invoke(
+      "--profile",
+      "durable",
+      "--starter",
+      "simple",
+      "--destination",
+      destination,
+      "--source-packet",
+      "https://example.test/spec",
+      "--json",
+    ),
+    "generate gate specimen",
+  );
+  requireSuccess(
+    runIn(destination, ["install", "--frozen-lockfile"], {}),
+    "install gate specimen",
+  );
+  requireSuccess(
+    runIn(destination, ["run", "lint"], {}),
+    "positive lint and local rule control",
+  );
+  const path = join(destination, "src/domains/status.ts");
+  const original = await readFile(path, "utf8");
+  const mutations = [
+    {
+      source: original + '\nprocess.stdout.write("forbidden");\n',
+      phase: "lint",
+      diagnostic: "repository/no-domain-output",
+    },
+    {
+      source: original + "\nexport const unsafe: any = 1;\n",
+      phase: "lint",
+      diagnostic: "@typescript-eslint/no-explicit-any",
+    },
+    {
+      source: original + "\n\n",
+      phase: "format:check",
+      diagnostic: "Formatter would have printed",
+    },
+    {
+      source: "export function inspectStatus(): string {\n  return 42;\n}\n",
+      phase: "typecheck",
+      diagnostic: "TS2322",
+    },
+  ];
+  for (const mutation of mutations) {
+    await writeFile(path, mutation.source);
+    const result = runIn(destination, ["run", "check"], {});
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toContain(
+      `script "${mutation.phase}" exited with code 1`,
+    );
+    expect(result.stdout + result.stderr).toContain(mutation.diagnostic);
+    expect(await readFile(path, "utf8")).toBe(mutation.source);
+  }
+}, 120_000);

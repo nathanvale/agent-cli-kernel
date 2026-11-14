@@ -8,8 +8,35 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import type { OperationResult } from "../../src/commands-contract.ts";
 import { appendJournal, valueHash } from "../../src/journal.ts";
+
+interface ObservedDocument {
+  result: Omit<OperationResult, "message"> & { runId: string };
+  [key: string]: unknown;
+  phase: string;
+  runId: string;
+  effectId: string;
+  journalVersion: number;
+  expectedValueHash: string;
+  ownerToken: string;
+}
+function parseObserved(text: string | undefined): ObservedDocument {
+  if (text === undefined) throw new Error("Missing observed JSON document.");
+  const value: unknown = JSON.parse(text);
+  if (value === null || typeof value !== "object" || Array.isArray(value))
+    throw new Error("Expected an observed JSON object.");
+  return value as ObservedDocument;
+}
+function journalEntry(
+  rows: ObservedDocument[],
+  index: number,
+): ObservedDocument {
+  const row = rows[index];
+  if (row === undefined) throw new Error(`Missing journal row ${index}`);
+  return row;
+}
 
 const ROOT = resolve(import.meta.dir, "../..");
 const roots: string[] = [];
@@ -27,7 +54,11 @@ function invoke(state: string, ...args: string[]) {
     [process.execPath, "run", "src/cli.ts", ...args],
     {
       cwd: ROOT,
-      env: { ...process.env, CLI_EXAMPLE_STATE: state },
+      env: {
+        ...process.env,
+        CLI_EXAMPLE_STATE: state,
+        XDG_STATE_HOME: join(dirname(state), "diagnostics-state"),
+      },
       stderr: "pipe",
       stdout: "pipe",
     },
@@ -94,7 +125,7 @@ test("human help and selected-command discovery expose the supported routes", as
   );
   expect(discovery.exitCode).toBe(0);
   expect(discovery.stderr).toBe("");
-  expect(JSON.parse(discovery.stdout)).toMatchObject({
+  expect(parseObserved(discovery.stdout)).toMatchObject({
     result: {
       data: {
         command: { commandIdentity: "example.status" },
@@ -119,46 +150,53 @@ test("preview preserves state and apply writes exactly once", async () => {
   );
   expect(preview.exitCode).toBe(0);
   expect(await Bun.file(state).exists()).toBe(false);
-  expect(JSON.parse(preview.stdout).result.transactionState).toBe("unchanged");
+  expect(parseObserved(preview.stdout).result.transactionState).toBe(
+    "unchanged",
+  );
 
   const apply = invoke(state, "set", "--value", "enabled", "--json");
   expect(apply.exitCode).toBe(0);
   expect(apply.stderr).toBe("");
-  expect(JSON.parse(apply.stdout).result.transactionState).toBe("completed");
-  expect(JSON.parse(await readFile(state, "utf8"))).toEqual({
+  expect(parseObserved(apply.stdout).result.transactionState).toBe("completed");
+  expect(JSON.parse(await readFile(state, "utf8")) as unknown).toEqual({
     value: "enabled",
   });
   const journal = (await readFile(journalPath(state), "utf8"))
     .trim()
     .split("\n")
-    .map((line) => JSON.parse(line));
+    .map((line) => parseObserved(line));
   expect(journal.map((record) => record.phase)).toEqual([
     "intent",
     "completed",
   ]);
-  expect(journal[0].runId).toBe(journal[1].runId);
+  expect(journalEntry(journal, 0).runId).toBe(journalEntry(journal, 1).runId);
 });
 
 test.each([
   ["malformed JSON", "{broken"],
   ["schema-invalid JSON", `${JSON.stringify({ value: 42 })}\n`],
-])("status reports %s as a deterministic internal failure", async (_case, contents) => {
-  const root = await mkdtemp(join(tmpdir(), "complex-starter-invalid-state-"));
-  roots.push(root);
-  const state = join(root, "state.json");
-  await writeFile(state, contents);
+])(
+  "status reports %s as a deterministic internal failure",
+  async (_case, contents) => {
+    const root = await mkdtemp(
+      join(tmpdir(), "complex-starter-invalid-state-"),
+    );
+    roots.push(root);
+    const state = join(root, "state.json");
+    await writeFile(state, contents);
 
-  const result = invoke(state, "status", "--json");
-  expect(result.exitCode).toBe(1);
-  expect(result.stderr).toBe("");
-  expect(JSON.parse(result.stdout).result).toMatchObject({
-    causeCode: "INTERNAL_RESULT_UNCHANGED",
-    commandIdentity: "example.status",
-    outcome: "failed",
-    retryable: false,
-    transactionState: "unchanged",
-  });
-});
+    const result = invoke(state, "status", "--json");
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toBe("");
+    expect(parseObserved(result.stdout).result).toMatchObject({
+      causeCode: "INTERNAL_RESULT_UNCHANGED",
+      commandIdentity: "example.status",
+      outcome: "failed",
+      retryable: false,
+      transactionState: "unchanged",
+    });
+  },
+);
 
 test("two processes serialize one completed set and one safe refusal", async () => {
   const root = await mkdtemp(join(tmpdir(), "complex-starter-concurrent-set-"));
@@ -210,10 +248,10 @@ test("two processes serialize one completed set and one safe refusal", async () 
   const claimed = (await readdir(barrier)).find((entry) =>
     entry.endsWith(".claimed"),
   );
-  const owner = JSON.parse(await readFile(lockPath(state), "utf8"));
+  const owner = parseObserved(await readFile(lockPath(state), "utf8"));
   expect(owner).toMatchObject({
     lockVersion: 1,
-    pid: expect.any(Number),
+    pid: expect.any(Number) as unknown,
   });
   expect(["contender-first", "contender-second"]).toContain(owner.ownerToken);
   expect(claimed).toBe(`${owner.ownerToken}.claimed`);
@@ -227,19 +265,21 @@ test("two processes serialize one completed set and one safe refusal", async () 
   expect(results.every((result) => result.stderr === "")).toBe(true);
   const completed = results.find((result) => result.exitCode === 0);
   expect(completed).toBeDefined();
-  expect(JSON.parse(refused.stdout).result).toMatchObject({
+  if (completed === undefined)
+    throw new Error("No successful contender was observed.");
+  expect(parseObserved(refused.stdout).result).toMatchObject({
     causeCode: "DOMAIN_PRECONDITION_UNMET",
     outcome: "refused",
     retryable: false,
     transactionState: "unchanged",
   });
-  expect(JSON.parse(await readFile(state, "utf8"))).toEqual({
-    value: completed?.value,
+  expect(JSON.parse(await readFile(state, "utf8")) as unknown).toEqual({
+    value: completed.value,
   });
   const journal = (await readFile(journalPath(state), "utf8"))
     .trim()
     .split("\n")
-    .map((line) => JSON.parse(line));
+    .map((line) => parseObserved(line));
   expect(journal).toHaveLength(2);
   expect(journal.map((record) => record.phase)).toEqual([
     "intent",
@@ -250,10 +290,12 @@ test("two processes serialize one completed set and one safe refusal", async () 
     "effect.set-state",
   ]);
   expect(journal.map((record) => record.journalVersion)).toEqual([1, 1]);
-  expect(journal[0].runId).toBe(journal[1].runId);
-  expect(journal[0].runId).toBe(completed?.ownerToken);
-  expect(journal[0].expectedValueHash).toBe(journal[1].expectedValueHash);
-  expect(journal[0].expectedValueHash).toMatch(/^[0-9a-f]{64}$/);
+  expect(journalEntry(journal, 0).runId).toBe(journalEntry(journal, 1).runId);
+  expect(journalEntry(journal, 0).runId).toBe(completed.ownerToken);
+  expect(journalEntry(journal, 0).expectedValueHash).toBe(
+    journalEntry(journal, 1).expectedValueHash,
+  );
+  expect(journalEntry(journal, 0).expectedValueHash).toMatch(/^[0-9a-f]{64}$/);
   expect(await Bun.file(lockPath(state)).exists()).toBe(false);
 });
 
@@ -274,7 +316,7 @@ test("recover inspects a pending journal intent and never replays it", async () 
   const recovered = invoke(state, "recover", "--json");
   expect(recovered.exitCode).toBe(0);
   expect(recovered.stderr).toBe("");
-  expect(JSON.parse(recovered.stdout).result).toMatchObject({
+  expect(parseObserved(recovered.stdout).result).toMatchObject({
     causeCode: "SUCCESS_COMPLETED",
     commandIdentity: "example.recover",
     retryable: false,
@@ -304,7 +346,7 @@ test("recover keeps a pending effect unknown when persisted state is invalid", a
   const recovered = invoke(state, "recover", "--json");
   expect(recovered.exitCode).toBe(1);
   expect(recovered.stderr).toBe("");
-  expect(JSON.parse(recovered.stdout).result).toMatchObject({
+  expect(parseObserved(recovered.stdout).result).toMatchObject({
     causeCode: "INTERNAL_RESULT_UNKNOWN",
     effects: { uncertain: ["effect.set-state"] },
     outcome: "failed",
@@ -337,49 +379,49 @@ test("public routes ignore held-open stdin and finish after stdout drains", asyn
   ]);
   expect(exitCode).toBe(0);
   expect(stderr).toBe("");
-  expect(JSON.parse(stdout).result.commandIdentity).toBe("example.status");
-  child.stdin.end();
+  expect(parseObserved(stdout).result.commandIdentity).toBe("example.status");
+  await child.stdin.end();
 });
 
-test.each([
-  "SIGINT",
-  "SIGTERM",
-] as const)("%s after handler readiness stops output at the 500ms flush deadline", async (signal) => {
-  const root = await mkdtemp(join(tmpdir(), "complex-starter-signal-"));
-  roots.push(root);
-  const ready = join(root, "ready");
-  const child = Bun.spawn(
-    [process.execPath, "run", "src/cli.ts", "status", "--json"],
-    {
-      cwd: ROOT,
-      env: {
-        ...process.env,
-        CLI_EXAMPLE_STATE: join(root, "state.json"),
-        CLI_EXAMPLE_TEST_DELAY_MS: "2000",
-        CLI_EXAMPLE_TEST_DIAGNOSTIC_FLUSH_MS: "2000",
-        CLI_EXAMPLE_TEST_READY_PATH: ready,
-        NODE_ENV: "test",
+test.each(["SIGINT", "SIGTERM"] as const)(
+  "%s after handler readiness stops output at the 500ms flush deadline",
+  async (signal) => {
+    const root = await mkdtemp(join(tmpdir(), "complex-starter-signal-"));
+    roots.push(root);
+    const ready = join(root, "ready");
+    const child = Bun.spawn(
+      [process.execPath, "run", "src/cli.ts", "status", "--json"],
+      {
+        cwd: ROOT,
+        env: {
+          ...process.env,
+          CLI_EXAMPLE_STATE: join(root, "state.json"),
+          CLI_EXAMPLE_TEST_DELAY_MS: "2000",
+          CLI_EXAMPLE_TEST_DIAGNOSTIC_FLUSH_MS: "2000",
+          CLI_EXAMPLE_TEST_READY_PATH: ready,
+          NODE_ENV: "test",
+        },
+        stdin: "ignore",
+        stderr: "pipe",
+        stdout: "pipe",
       },
-      stdin: "ignore",
-      stderr: "pipe",
-      stdout: "pipe",
-    },
-  );
-  await waitFor(ready);
-  const started = performance.now();
-  child.kill(signal);
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(child.stdout).text(),
-    new Response(child.stderr).text(),
-    child.exited,
-  ]);
-  const elapsed = performance.now() - started;
-  expect(elapsed).toBeGreaterThanOrEqual(400);
-  expect(elapsed).toBeLessThan(750);
-  expect(exitCode).toBe(signal === "SIGINT" ? 130 : 143);
-  expect(stdout).toBe("");
-  expect(stderr).toBe("");
-});
+    );
+    await waitFor(ready);
+    const started = performance.now();
+    child.kill(signal);
+    const [stdout, stderr, exitCode] = await Promise.all([
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+      child.exited,
+    ]);
+    const elapsed = performance.now() - started;
+    expect(elapsed).toBeGreaterThanOrEqual(400);
+    expect(elapsed).toBeLessThan(750);
+    expect(exitCode).toBe(signal === "SIGINT" ? 130 : 143);
+    expect(stdout).toBe("");
+    expect(stderr).toBe("");
+  },
+);
 
 test("a repeated termination exits immediately during diagnostic flush", async () => {
   const root = await mkdtemp(join(tmpdir(), "complex-starter-repeat-"));
@@ -418,41 +460,41 @@ test("a repeated termination exits immediately during diagnostic flush", async (
   expect(stderr).toBe("");
 });
 
-test.each([
-  "uncaught",
-  "unhandled",
-] as const)("%s crash makes one silent emergency exit", async (crash) => {
-  const root = await mkdtemp(join(tmpdir(), "complex-starter-crash-"));
-  roots.push(root);
-  const ready = join(root, "ready");
-  const state = join(root, "state.json");
-  const child = Bun.spawn(
-    [process.execPath, "run", "src/cli.ts", "status", "--json"],
-    {
-      cwd: ROOT,
-      env: {
-        ...process.env,
-        CLI_EXAMPLE_STATE: state,
-        CLI_EXAMPLE_TEST_CRASH: crash,
-        CLI_EXAMPLE_TEST_READY_PATH: ready,
-        NODE_ENV: "test",
+test.each(["uncaught", "unhandled"] as const)(
+  "%s crash makes one silent emergency exit",
+  async (crash) => {
+    const root = await mkdtemp(join(tmpdir(), "complex-starter-crash-"));
+    roots.push(root);
+    const ready = join(root, "ready");
+    const state = join(root, "state.json");
+    const child = Bun.spawn(
+      [process.execPath, "run", "src/cli.ts", "status", "--json"],
+      {
+        cwd: ROOT,
+        env: {
+          ...process.env,
+          CLI_EXAMPLE_STATE: state,
+          CLI_EXAMPLE_TEST_CRASH: crash,
+          CLI_EXAMPLE_TEST_READY_PATH: ready,
+          NODE_ENV: "test",
+        },
+        stdin: "ignore",
+        stderr: "pipe",
+        stdout: "pipe",
       },
-      stdin: "ignore",
-      stderr: "pipe",
-      stdout: "pipe",
-    },
-  );
-  await waitFor(ready);
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(child.stdout).text(),
-    new Response(child.stderr).text(),
-    child.exited,
-  ]);
-  expect(exitCode).toBe(1);
-  expect(stdout).toBe("");
-  expect(stderr).toBe("");
-  expect(await Bun.file(state).exists()).toBe(false);
-});
+    );
+    await waitFor(ready);
+    const [stdout, stderr, exitCode] = await Promise.all([
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+      child.exited,
+    ]);
+    expect(exitCode).toBe(1);
+    expect(stdout).toBe("");
+    expect(stderr).toBe("");
+    expect(await Bun.file(state).exists()).toBe(false);
+  },
+);
 
 test("consumer disappearance before a large stdout drain exits internal", async () => {
   const root = await mkdtemp(join(tmpdir(), "complex-starter-epipe-"));
@@ -506,7 +548,9 @@ test("a live consumer receives the complete large envelope before normal exit", 
   ]);
   expect(exitCode).toBe(0);
   expect(stderr).toBe("");
-  expect(JSON.parse(stdout).result.data.padding).toHaveLength(1_000_000);
+  expect(
+    (parseObserved(stdout).result.data as { padding: string }).padding,
+  ).toHaveLength(1_000_000);
 });
 
 test("an interrupted set leaves intent, refuses replay, and recovers read-only", async () => {
@@ -556,11 +600,13 @@ test("an interrupted set leaves intent, refuses replay, and recovers read-only",
 
   const replay = invoke(state, "set", "--value", "enabled", "--json");
   expect(replay.exitCode).toBe(3);
-  expect(JSON.parse(replay.stdout).result).toMatchObject({
+  expect(parseObserved(replay.stdout).result).toMatchObject({
     causeCode: "DOMAIN_PRECONDITION_UNMET",
     handoff: {
       owner: "operator",
-      summary: expect.stringContaining("Remove crash residue only after"),
+      summary: expect.stringContaining(
+        "Remove crash residue only after",
+      ) as unknown,
     },
     outcome: "refused",
     retryable: false,
@@ -571,7 +617,7 @@ test("an interrupted set leaves intent, refuses replay, and recovers read-only",
 
   const recovery = invoke(state, "recover", "--json");
   expect(recovery.exitCode).toBe(1);
-  expect(JSON.parse(recovery.stdout).result).toMatchObject({
+  expect(parseObserved(recovery.stdout).result).toMatchObject({
     causeCode: "INTERNAL_RESULT_UNKNOWN",
     outcome: "failed",
     retryable: false,

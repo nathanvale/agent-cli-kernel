@@ -1,21 +1,18 @@
 import { randomUUID } from "node:crypto";
+import { commands } from "./commands.ts";
+import {
+  commandSummaries,
+  type CommandDefinition,
+} from "./commands-contract.ts";
 
 const CONTRACT_VERSION = "2.0.0";
-const COMMANDS = [
-  {
-    commandIdentity: "example.status",
-    effectClass: "inspect",
-    route: ["status"],
-    summary: "Inspect the starter without changing data.",
-  },
-] as const;
-
+const COMMANDS = commandSummaries(commands);
 const AVAILABLE_PATHS = [
   "example.command-discovery",
   "example.discovery",
   "example.help",
-  "example.status",
-];
+  ...COMMANDS.map((command) => command.commandIdentity),
+].sort();
 
 function effects() {
   return {
@@ -75,7 +72,7 @@ function refusal(message: string) {
 }
 
 type InternalFailureStationBase = {
-  commandIdentity: "example.status";
+  commandIdentity: string;
   effectClass: "inspect";
   exitCode: 1;
   failureClass: "internal";
@@ -102,7 +99,30 @@ type OutputEmissionFailureStation = InternalFailureStationBase & {
 
 type InternalFailureStation =
   | SerializationFailureStation
-  | OutputEmissionFailureStation;
+  | OutputEmissionFailureStation
+  | UnexpectedCommandFailureStation;
+
+type UnexpectedCommandFailureStation = InternalFailureStationBase & {
+  causeCode: "INTERNAL_RESULT_UNCHANGED";
+  message: "The command could not be completed.";
+  repairAction: "Check the selected domain configuration and implementation before retrying.";
+  trigger: "The selected read-only domain cannot load or complete.";
+};
+const COMMAND_FAILURE_STATION: UnexpectedCommandFailureStation = {
+  commandIdentity: "example.status",
+  effectClass: "inspect",
+  exitCode: 1,
+  failureClass: "internal",
+  causeCode: "INTERNAL_RESULT_UNCHANGED",
+  message: "The command could not be completed.",
+  nextAction: "Repair the selected domain or choose an unrelated command.",
+  outcome: "failed",
+  repairAction:
+    "Check the selected domain configuration and implementation before retrying.",
+  retryable: false,
+  transactionState: "unchanged",
+  trigger: "The selected read-only domain cannot load or complete.",
+};
 
 const SERIALIZATION_FAILURE_STATION: SerializationFailureStation = {
   commandIdentity: "example.status",
@@ -179,14 +199,20 @@ function discoveryData() {
   };
 }
 
-function commandDiscovery() {
+function commandDiscovery(
+  command: ReturnType<typeof commandSummaries>[number],
+) {
   return {
-    command: COMMANDS[0],
+    command,
     semantics: "possible-outcomes",
     stations: [
+      failureDiscoveryStation({
+        ...COMMAND_FAILURE_STATION,
+        commandIdentity: command.commandIdentity,
+      }),
       {
         causeCode: "SUCCESS_UNCHANGED",
-        commandIdentity: "example.status",
+        commandIdentity: command.commandIdentity,
         effectClass: "inspect",
         exitCode: 0,
         failureClass: null,
@@ -200,8 +226,14 @@ function commandDiscovery() {
         trigger: "The status inspection completes.",
         unreachableRationale: null,
       },
-      failureDiscoveryStation(SERIALIZATION_FAILURE_STATION),
-      failureDiscoveryStation(OUTPUT_EMISSION_FAILURE_STATION),
+      failureDiscoveryStation({
+        ...SERIALIZATION_FAILURE_STATION,
+        commandIdentity: command.commandIdentity,
+      }),
+      failureDiscoveryStation({
+        ...OUTPUT_EMISSION_FAILURE_STATION,
+        commandIdentity: command.commandIdentity,
+      }),
     ],
   };
 }
@@ -273,92 +305,170 @@ function reportInternalFailure(
 }
 
 let asynchronousStdoutFailure = false;
+let activeCommandIdentity = "example.status";
 
 function reportAsynchronousStdoutFailure(): void {
   asynchronousStdoutFailure = true;
   process.exitCode = 1;
   reportInternalFailureToStderr(
-    internalFailure(OUTPUT_EMISSION_FAILURE_STATION),
+    internalFailure({
+      ...OUTPUT_EMISSION_FAILURE_STATION,
+      commandIdentity: activeCommandIdentity,
+    }),
   );
+}
+
+function showHelp(json: boolean): number {
+  render(
+    success(
+      "example.help",
+      {
+        commands: COMMANDS,
+        options: [
+          {
+            name: "--json",
+            summary: "Emit one Contract Core envelope.",
+            valueName: null,
+          },
+        ],
+        summary: "Read-only example CLI.",
+        usage: "example COMMAND [--json]",
+      },
+      "Show help.",
+    ),
+    json,
+    `Usage: example COMMAND [--json]\n${COMMANDS.map((command) => command.route.join(" ")).join("\n")}`,
+  );
+  return 0;
+}
+
+function showDiscovery(json: boolean): number {
+  render(
+    success("example.discovery", discoveryData(), "Describe commands."),
+    json,
+    `Commands: ${COMMANDS.map((command) => command.route.join(" ")).join(", ")}`,
+  );
+  return 0;
+}
+
+function showInspection(
+  option: string | undefined,
+  json: boolean,
+): number | undefined {
+  switch (option) {
+    case "--help":
+    case "-h":
+      return showHelp(json);
+    case "--discover":
+      return showDiscovery(json);
+    default:
+      return undefined;
+  }
+}
+
+function showCommand(
+  identity: string | undefined,
+  json: boolean,
+): number | undefined {
+  const command = COMMANDS.find(
+    (candidate) => candidate.commandIdentity === identity,
+  );
+  if (command === undefined) return undefined;
+  render(
+    success(
+      "example.command-discovery",
+      commandDiscovery(command),
+      `Describe ${command.commandIdentity}.`,
+    ),
+    json,
+    `${command.commandIdentity}: success/unchanged`,
+  );
+  return 0;
+}
+
+function runInspection(args: string[], json: boolean): number | undefined {
+  if (args.length === 1) return showInspection(args[0], json);
+  if (args.length === 2 && args[0] === "--discover-command")
+    return showCommand(args[1], json);
+  return undefined;
+}
+
+function formatOperation(
+  result: ReturnType<typeof success>,
+  message: string,
+  json: boolean,
+): string {
+  return json ? serialize(result) : `${message}\n`;
+}
+
+async function runSelectedCommand(
+  selected: CommandDefinition,
+  json: boolean,
+): Promise<number> {
+  activeCommandIdentity = selected.commandIdentity;
+  process.stdout.on("error", reportAsynchronousStdoutFailure);
+  let operation;
+  try {
+    operation = await selected.execute([]);
+  } catch {
+    return reportInternalFailure(
+      { ...COMMAND_FAILURE_STATION, commandIdentity: selected.commandIdentity },
+      json,
+    );
+  }
+  const { message, ...facts } = operation;
+  const result = success(operation.commandIdentity, operation.data, message);
+  Object.assign(result.result, facts);
+  let output: string;
+  try {
+    output = formatOperation(result, message, json);
+  } catch {
+    return reportInternalFailure(
+      {
+        ...SERIALIZATION_FAILURE_STATION,
+        commandIdentity: selected.commandIdentity,
+      },
+      json,
+    );
+  }
+  try {
+    emit(output);
+  } catch {
+    return reportInternalFailure(
+      {
+        ...OUTPUT_EMISSION_FAILURE_STATION,
+        commandIdentity: selected.commandIdentity,
+      },
+      json,
+    );
+  }
+  return operation.exitCode;
+}
+
+function reportUsage(json: boolean): number {
+  const failure = refusal("Choose a supported command.");
+  if (json) process.stdout.write(`${JSON.stringify(failure)}\n`);
+  else
+    process.stderr.write("Choose a supported command. Run example --help.\n");
+  return 2;
 }
 
 async function main(argv: string[]): Promise<number> {
   const json = hasJson(argv);
-  const args = argv.filter((value) => value !== "--json");
-  if (args.length === 1 && (args[0] === "--help" || args[0] === "-h")) {
-    render(
-      success(
-        "example.help",
-        {
-          commands: COMMANDS,
-          options: [
-            {
-              name: "--json",
-              summary: "Emit one Contract Core envelope.",
-              valueName: null,
-            },
-          ],
-          summary: "Read-only example CLI.",
-          usage: "example status [--json]",
-        },
-        "Show help.",
-      ),
-      json,
-      "Usage: example status [--json]",
-    );
-    return 0;
-  }
-  if (args.length === 1 && args[0] === "--discover") {
-    render(
-      success("example.discovery", discoveryData(), "Describe commands."),
-      json,
-      "Commands: status (inspect)",
-    );
-    return 0;
-  }
-  if (
-    args[0] === "--discover-command" &&
-    args[1] === "example.status" &&
-    args.length === 2
-  ) {
-    render(
-      success(
-        "example.command-discovery",
-        commandDiscovery(),
-        "Describe example.status.",
-      ),
-      json,
-      "example.status: success/unchanged",
-    );
-    return 0;
-  }
-  if (args.length === 1 && args[0] === "status") {
-    process.stdout.on("error", reportAsynchronousStdoutFailure);
-    const result = success(
-      "example.status",
-      { ready: true },
-      "Starter is ready.",
-    );
-    let output: string;
-    try {
-      output = json ? serialize(result) : "Starter is ready.\n";
-    } catch {
-      return reportInternalFailure(SERIALIZATION_FAILURE_STATION, json);
-    }
-    try {
-      emit(output);
-    } catch {
-      return reportInternalFailure(OUTPUT_EMISSION_FAILURE_STATION, json);
-    }
-    return 0;
-  }
-  const failure = refusal("Choose a supported command.");
-  if (json) {
-    process.stdout.write(`${JSON.stringify(failure)}\n`);
-  } else {
-    process.stderr.write("Choose a supported command. Run example --help.\n");
-  }
-  return 2;
+  const separator = argv.indexOf("--");
+  const args = argv.filter(
+    (value, index) =>
+      value !== "--json" || (separator >= 0 && index > separator),
+  );
+  const inspection = runInspection(args, json);
+  if (inspection !== undefined) return inspection;
+  const selected = commands.find(
+    (command) =>
+      command.route.length === args.length &&
+      command.route.every((token, index) => token === args[index]),
+  );
+  if (selected !== undefined) return await runSelectedCommand(selected, json);
+  return reportUsage(json);
 }
 
 const exitCode = await main(process.argv.slice(2));

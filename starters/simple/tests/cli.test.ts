@@ -1,3 +1,16 @@
+function parseEnvelope(text: string) {
+  const value: unknown = JSON.parse(text);
+  return value as {
+    result: {
+      runId: string;
+      data: {
+        command: { commandIdentity: string };
+        stations: { causeCode: string; outcome: string }[];
+      };
+    };
+  };
+}
+
 import { afterEach, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -195,7 +208,7 @@ test("machine status emits a strict internal fallback after serialization fails"
   expect(result.exitCode).toBe(1);
   expect(result.stderr).toBe("");
   expect(result.stdout.trim().split("\n")).toHaveLength(1);
-  const envelope = JSON.parse(result.stdout);
+  const envelope = parseEnvelope(result.stdout);
   expect(Object.keys(envelope).sort()).toEqual([
     "availablePaths",
     "contractVersion",
@@ -209,6 +222,7 @@ test("machine status emits a strict internal fallback after serialization fails"
       "example.discovery",
       "example.help",
       "example.status",
+      "example.template.info",
     ],
     contractVersion: "2.0.0",
     envelopeVersion: 2,
@@ -306,13 +320,15 @@ test("human help names the supported invocation", () => {
   const result = invoke("--help");
   expect(result.exitCode).toBe(0);
   expect(result.stderr).toBe("");
-  expect(result.stdout).toBe("Usage: example status [--json]\n");
+  expect(result.stdout).toBe(
+    "Usage: example COMMAND [--json]\nstatus\ntemplate info\n",
+  );
 });
 
 test("selected-command discovery describes the status stations", () => {
   const result = invoke("--discover-command", "example.status", "--json");
   expect(result.exitCode).toBe(0);
-  const envelope = JSON.parse(result.stdout);
+  const envelope = parseEnvelope(result.stdout);
   expect(envelope.result.data.command.commandIdentity).toBe("example.status");
   expect(
     envelope.result.data.stations
@@ -323,6 +339,7 @@ test("selected-command discovery describes the status stations", () => {
   ).toEqual([
     "INTERNAL_RESULT_EMISSION|failed",
     "INTERNAL_RESULT_SERIALIZATION|failed",
+    "INTERNAL_RESULT_UNCHANGED|failed",
     "SUCCESS_UNCHANGED|success",
   ]);
   expect(

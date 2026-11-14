@@ -23,7 +23,7 @@ specifically needs it.
 
 ```sh
 bun install --frozen-lockfile
-bun run start
+bun run start -- status
 bun run check
 ```
 
