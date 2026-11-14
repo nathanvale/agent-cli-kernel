@@ -883,6 +883,11 @@ for (const [name, source, entries] of [
     ["src/cli.ts", "src/second.ts"],
   ],
   [
+    "argv bound to an inherited property name",
+    'import { argv as __proto__ } from "node:process"; console.log(__proto__);',
+    ["src/cli.ts", "src/second.ts"],
+  ],
+  [
     "renamed non-argv import shadows globals",
     'import { env as process, exit as Bun } from "node:process"; console.log(process.argv, Bun.argv);',
     ["src/cli.ts"],

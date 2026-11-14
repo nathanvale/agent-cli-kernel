@@ -261,10 +261,11 @@ function processBindingReferences(
   scanner: Bun.Transpiler,
   marker: string,
 ) {
-  const define: Record<string, string> = {
-    "Bun.argv": marker,
-    "process.argv": marker,
-  };
+  // A Map keeps names such as __proto__ as data, not inherited setters.
+  const define = new Map([
+    ["Bun.argv", marker],
+    ["process.argv", marker],
+  ]);
   const imports = processImportCount(original, scanner);
   // Bun prints process imports in this form, named lists possibly multiline.
   const source = original.replace(
@@ -275,12 +276,13 @@ function processBindingReferences(
       // A matching line inside template text is not an import: ask the parser.
       if (processImportCount(without, scanner) === imports) return statement;
       const { references, bound } = processImportBindings(clause);
-      for (const reference of references) define[reference] = marker;
+      for (const reference of references) define.set(reference, marker);
       // A renamed non-argv import such as `env as process` must stay bound.
       return bound.length === 0 ? "" : `let ${bound.join(", ")};`;
     },
   );
-  return { source, define };
+  // Object.fromEntries and spread both create own data properties.
+  return { source, define: Object.fromEntries(define) };
 }
 
 function executableSource(
