@@ -7,7 +7,13 @@ export interface Station {
   exitCode: number;
   failureClass: "domain" | "internal" | "schema" | "usage" | null;
   guidance:
-    | { handoff: { owner: string; summary: string } }
+    | {
+        handoff: {
+          owner: "human" | "operator";
+          reason: string;
+          inspect: string[];
+        };
+      }
     | { nextAction: string };
   outcome: Outcome;
   reachability: "required";
@@ -45,8 +51,10 @@ const STATIONS: Station[] = [
     guidance: {
       handoff: {
         owner: "operator",
-        summary:
-          "Inspect or repair the persisted state before another status run.",
+        reason: "Persisted state is invalid.",
+        inspect: [
+          "Inspect the persisted state and its schema before another status run.",
+        ],
       },
     },
     outcome: "failed",
@@ -64,47 +72,41 @@ const STATIONS: Station[] = [
     effectClass: "inspect",
     exitCode: 0,
     failureClass: null,
-    guidance: { nextAction: "No follow-up is required." },
+    guidance: {
+      nextAction:
+        "Do not replay an observed completed effect. A separately requested set reconciles confirmed completion under the writer lock.",
+    },
     outcome: "success",
     reachability: "required",
     repairAction: null,
     retryable: false,
     retryDelayPolicy: { kind: "none" },
     transactionState: "unchanged",
-    trigger: "No journal intent is pending.",
+    trigger:
+      "No journal intent is pending, or the pending intent matches the observed state.",
     unreachableRationale: null,
   },
   {
-    causeCode: "SUCCESS_COMPLETED",
-    commandIdentity: "example.recover",
-    effectClass: "inspect",
-    exitCode: 0,
-    failureClass: null,
-    guidance: { nextAction: "Do not replay the completed effect." },
-    outcome: "success",
-    reachability: "required",
-    repairAction: null,
-    retryable: false,
-    retryDelayPolicy: { kind: "none" },
-    transactionState: "completed",
-    trigger: "A pending journal intent matches the observed state.",
-    unreachableRationale: null,
-  },
-  {
-    causeCode: "INTERNAL_RESULT_UNKNOWN",
+    causeCode: "INTERNAL_RESULT_UNCHANGED",
     commandIdentity: "example.recover",
     effectClass: "inspect",
     exitCode: 1,
     failureClass: "internal",
     guidance: {
-      nextAction: "Inspect the state and journal, then hand off if unresolved.",
+      handoff: {
+        owner: "operator",
+        reason: "Recovery could not establish the pending effect.",
+        inspect: [
+          "Inspect the state and journal before choosing another action.",
+        ],
+      },
     },
     outcome: "failed",
     reachability: "required",
     repairAction: "Resolve the uncertain effect without replaying it.",
     retryable: false,
     retryDelayPolicy: { kind: "none" },
-    transactionState: "unknown",
+    transactionState: "unchanged",
     trigger: "A pending journal intent cannot be reconciled to current state.",
     unreachableRationale: null,
   },
@@ -115,7 +117,7 @@ const STATIONS: Station[] = [
     exitCode: 0,
     failureClass: null,
     guidance: {
-      nextAction: "Apply without --preview when the proposed value is correct.",
+      nextAction: "No follow-up is required.",
     },
     outcome: "success",
     reachability: "required",
@@ -123,7 +125,8 @@ const STATIONS: Station[] = [
     retryable: false,
     retryDelayPolicy: { kind: "none" },
     transactionState: "unchanged",
-    trigger: "A valid change is previewed.",
+    trigger:
+      "A valid change is previewed, or a confirmed interrupted effect already has the requested value.",
     unreachableRationale: null,
   },
   {
@@ -167,15 +170,20 @@ const STATIONS: Station[] = [
     exitCode: 3,
     failureClass: "domain",
     guidance: {
-      nextAction:
-        "Run recover and inspect the pending effect before another set.",
+      handoff: {
+        owner: "operator",
+        reason: "A prior set has an unresolved journal intent.",
+        inspect: [
+          "Run recover and inspect the state and journal without replaying the prior set.",
+        ],
+      },
     },
-    outcome: "failed",
+    outcome: "refused",
     reachability: "required",
     repairAction: "Inspect recovery state; do not replay the prior set.",
     retryable: false,
     retryDelayPolicy: { kind: "none" },
-    transactionState: "unknown",
+    transactionState: "unchanged",
     trigger: "A prior set has an unresolved journal intent.",
     unreachableRationale: null,
   },
@@ -186,11 +194,8 @@ const STATIONS: Station[] = [
     exitCode: 3,
     failureClass: "domain",
     guidance: {
-      handoff: {
-        owner: "operator",
-        summary:
-          "Inspect the lock and journal. Remove crash residue only after effects are reconciled and no owner process remains.",
-      },
+      nextAction:
+        "Inspect the lock and journal. Remove crash residue only after effects are reconciled and no owner process remains.",
     },
     outcome: "refused",
     reachability: "required",

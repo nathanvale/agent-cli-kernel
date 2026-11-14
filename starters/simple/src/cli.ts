@@ -1,16 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { commands } from "./commands.ts";
 import {
+  builtInCommandSummaries,
+  builtInStations,
   commandSummaries,
   type CommandDefinition,
 } from "./commands-contract.ts";
 
 const CONTRACT_VERSION = "2.0.0";
-const COMMANDS = commandSummaries(commands);
+const COMMANDS = [...builtInCommandSummaries(), ...commandSummaries(commands)];
 const AVAILABLE_PATHS = [
-  "example.command-discovery",
-  "example.discovery",
-  "example.help",
   ...COMMANDS.map((command) => command.commandIdentity),
 ].sort();
 
@@ -83,14 +82,14 @@ type InternalFailureStationBase = {
 };
 
 type SerializationFailureStation = InternalFailureStationBase & {
-  causeCode: "INTERNAL_RESULT_SERIALIZATION";
+  causeCode: "INTERNAL_RESULT_UNCHANGED";
   message: "The machine result could not be serialized.";
   repairAction: "Inspect the serialization failure before retrying.";
   trigger: "The machine status result cannot be serialized.";
 };
 
 type OutputEmissionFailureStation = InternalFailureStationBase & {
-  causeCode: "INTERNAL_RESULT_EMISSION";
+  causeCode: "INTERNAL_RESULT_UNCHANGED";
   message: "The status output could not be emitted.";
   nextAction: "Inspect the status output and retry example status.";
   repairAction: "Inspect the status output stream before retrying.";
@@ -129,7 +128,7 @@ const SERIALIZATION_FAILURE_STATION: SerializationFailureStation = {
   effectClass: "inspect",
   exitCode: 1,
   failureClass: "internal",
-  causeCode: "INTERNAL_RESULT_SERIALIZATION",
+  causeCode: "INTERNAL_RESULT_UNCHANGED",
   message: "The machine result could not be serialized.",
   nextAction: "Inspect the runtime and retry example status.",
   outcome: "failed",
@@ -144,7 +143,7 @@ const OUTPUT_EMISSION_FAILURE_STATION: OutputEmissionFailureStation = {
   effectClass: "inspect",
   exitCode: 1,
   failureClass: "internal",
-  causeCode: "INTERNAL_RESULT_EMISSION",
+  causeCode: "INTERNAL_RESULT_UNCHANGED",
   message: "The status output could not be emitted.",
   nextAction: "Inspect the status output and retry example status.",
   outcome: "failed",
@@ -168,9 +167,16 @@ function internalFailure(station: InternalFailureStation) {
       effects: effects(),
       exitCode: station.exitCode,
       failureClass: station.failureClass,
-      nextAction: station.nextAction,
+      handoff: {
+        owner: "operator",
+        reason: "The read-only command could not produce its result.",
+        inspect: [
+          "Inspect the command implementation and output transport before another run.",
+        ],
+      },
       outcome: station.outcome,
-      repairAction: station.repairAction,
+      repairAction:
+        "Repair the command or output transport before another run.",
       retryable: station.retryable,
       runId: randomUUID(),
       transactionState: station.transactionState,
@@ -202,6 +208,9 @@ function discoveryData() {
 function commandDiscovery(
   command: ReturnType<typeof commandSummaries>[number],
 ) {
+  const builtIns = builtInStations(command.commandIdentity);
+  if (builtIns.length > 0)
+    return { command, semantics: "possible-outcomes", stations: builtIns };
   return {
     command,
     semantics: "possible-outcomes",
@@ -226,14 +235,6 @@ function commandDiscovery(
         trigger: "The status inspection completes.",
         unreachableRationale: null,
       },
-      failureDiscoveryStation({
-        ...SERIALIZATION_FAILURE_STATION,
-        commandIdentity: command.commandIdentity,
-      }),
-      failureDiscoveryStation({
-        ...OUTPUT_EMISSION_FAILURE_STATION,
-        commandIdentity: command.commandIdentity,
-      }),
     ],
   };
 }
@@ -245,10 +246,18 @@ function failureDiscoveryStation(station: InternalFailureStation) {
     effectClass: station.effectClass,
     exitCode: station.exitCode,
     failureClass: station.failureClass,
-    guidance: { nextAction: station.nextAction },
+    guidance: {
+      handoff: {
+        owner: "operator",
+        reason: "The read-only command could not produce its result.",
+        inspect: [
+          "Inspect the command implementation and output transport before another run.",
+        ],
+      },
+    },
     outcome: station.outcome,
     reachability: "required",
-    repairAction: station.repairAction,
+    repairAction: "Repair the command or output transport before another run.",
     retryable: station.retryable,
     retryDelayPolicy: { kind: "none" },
     transactionState: station.transactionState,
@@ -283,7 +292,7 @@ function reportInternalFailureToStderr(
   if (internalFailureReported) return;
   internalFailureReported = true;
   process.stderr.write(
-    `${failure.message}\nRepair: ${failure.result.repairAction}\n`,
+    `${failure.message} Repair: ${failure.result.repairAction}\n`,
   );
 }
 
@@ -296,7 +305,7 @@ function reportInternalFailure(
     try {
       render(failure, true, failure.message);
     } catch {
-      reportInternalFailureToStderr(failure);
+      // Once machine result delivery fails, preserve silent transport failure.
     }
   } else {
     reportInternalFailureToStderr(failure);
@@ -310,6 +319,7 @@ let activeCommandIdentity = "example.status";
 function reportAsynchronousStdoutFailure(): void {
   asynchronousStdoutFailure = true;
   process.exitCode = 1;
+  if (hasJson(process.argv.slice(2))) return;
   reportInternalFailureToStderr(
     internalFailure({
       ...OUTPUT_EMISSION_FAILURE_STATION,
@@ -337,7 +347,7 @@ function showHelp(json: boolean): number {
       "Show help.",
     ),
     json,
-    `Usage: example COMMAND [--json]\n${COMMANDS.map((command) => command.route.join(" ")).join("\n")}`,
+    `Usage: example COMMAND [--json]\n${commands.map((command) => command.route.join(" ")).join("\n")}`,
   );
   return 0;
 }

@@ -44,6 +44,7 @@ export async function setState(
   | { effectId: string; status: "blocked" }
   | { effectId: string; status: "completed" }
   | { effectId: string; status: "locked" }
+  | { effectId: string; status: "unchanged" }
 > {
   const effectId = "effect.set-state";
   const runId =
@@ -67,7 +68,15 @@ export async function setState(
   try {
     const pending = await pendingJournalIntent(path);
     if (pending !== null) {
-      return { effectId: pending.effectId, status: "blocked" };
+      const observation = await inspectRecovery(path);
+      if (observation.state !== "completed") {
+        return { effectId: pending.effectId, status: "blocked" };
+      }
+      // Reconcile only under the writer lock, without repeating the old effect.
+      await appendJournal(path, { ...pending, phase: "completed" });
+      if (pending.expectedValueHash === valueHash(value)) {
+        return { effectId: pending.effectId, status: "unchanged" };
+      }
     }
     const expectedValueHash = valueHash(value);
     await mkdir(dirname(path), { recursive: true });

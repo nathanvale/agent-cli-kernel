@@ -1,5 +1,4 @@
 import { writeFile } from "node:fs/promises";
-import { envelope } from "./command-contract.ts";
 import {
   attemptEmergencyDiagnostic,
   diagnosticRunIdentity,
@@ -8,13 +7,18 @@ import {
 import { inspected, invalidInput } from "./engine.ts";
 import { systemProcessLifecycle } from "./process-lifecycle.ts";
 import { commands } from "./commands.ts";
-import { commandSummaries } from "./commands-contract.ts";
+import {
+  builtInCommandSummaries,
+  builtInStations,
+  commandSummaries,
+  type OperationResult,
+} from "./commands-contract.ts";
 
 const lifecycle = systemProcessLifecycle(attemptEmergencyDiagnostic);
 process.on("SIGINT", () => lifecycle.terminate(130));
 process.on("SIGTERM", () => lifecycle.terminate(143));
 
-const COMMANDS = commandSummaries(commands);
+const COMMANDS = [...builtInCommandSummaries(), ...commandSummaries(commands)];
 
 const HUMAN_HELP = `Usage: example status | set --value VALUE [--preview] | recover [--json]
 
@@ -54,14 +58,44 @@ async function waitForLifecycleTest(): Promise<void> {
   }
 }
 
+function envelope(result: OperationResult) {
+  return {
+    availablePaths: [
+      "example.command-discovery",
+      "example.discovery",
+      "example.help",
+      "example.recover",
+      "example.set",
+      "example.status",
+    ],
+    contractVersion: "2.0.0",
+    envelopeVersion: 2,
+    message: result.message,
+    result: {
+      causeCode: result.causeCode,
+      commandIdentity: result.commandIdentity,
+      data: result.data,
+      effectClass: result.effectClass,
+      effects: result.effects,
+      exitCode: result.exitCode,
+      failureClass: result.failureClass,
+      ...(result.handoff === undefined
+        ? { nextAction: result.nextAction ?? "No follow-up is required." }
+        : { handoff: result.handoff }),
+      outcome: result.outcome,
+      repairAction: result.repairAction,
+      retryable: result.retryable,
+      runId: diagnosticRunIdentity,
+      transactionState: result.transactionState,
+    },
+  };
+}
+
 async function writeResult(
   result: ReturnType<typeof envelope>,
   json: boolean,
 ): Promise<void> {
   result.availablePaths = [
-    "example.command-discovery",
-    "example.discovery",
-    "example.help",
     ...COMMANDS.map((command) => command.commandIdentity),
   ].sort();
   const diagnostics = await finalizeDiagnostics();
@@ -159,7 +193,7 @@ async function main(argv: string[]): Promise<number> {
               (candidate) =>
                 candidate.commandIdentity === command.commandIdentity,
             )
-            ?.stations() ?? [],
+            ?.stations() ?? builtInStations(command.commandIdentity),
       };
       result.message = `Describe ${command.commandIdentity}.`;
       await writeResult(envelope(result), json);
@@ -181,8 +215,11 @@ async function main(argv: string[]): Promise<number> {
   const result = invalidInput("Choose status or set --value VALUE.");
   result.commandIdentity = "example.dispatch";
   result.causeCode = "USAGE_INVALID_INVOCATION";
+  result.effectClass = "inspect";
   result.exitCode = 2;
   result.failureClass = "usage";
+  result.nextAction = "Run example --help and choose a listed command.";
+  result.repairAction = "Choose one supported command and retry.";
   await writeResult(envelope(result), json);
   return result.exitCode;
 }

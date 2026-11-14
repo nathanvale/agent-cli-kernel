@@ -299,34 +299,78 @@ test("two processes serialize one completed set and one safe refusal", async () 
   expect(await Bun.file(lockPath(state)).exists()).toBe(false);
 });
 
-test("recover inspects a pending journal intent and never replays it", async () => {
-  const root = await mkdtemp(join(tmpdir(), "complex-starter-recover-"));
-  roots.push(root);
-  const state = join(root, "state.json");
-  await appendJournal(state, {
-    effectId: "effect.set-state",
-    expectedValueHash: valueHash("enabled"),
-    journalVersion: 1,
-    phase: "intent",
-    runId: "interrupted-run",
-  });
-  await writeFile(state, `${JSON.stringify({ value: "enabled" })}\n`);
-  const before = await readFile(state);
+test.each(["enabled", "next"])(
+  "recovery followed by set %s reconciles completion without replaying it",
+  async (requestedValue) => {
+    const root = await mkdtemp(join(tmpdir(), "complex-starter-recover-"));
+    roots.push(root);
+    const state = join(root, "state.json");
+    // Independent fixture: the resource write completed, but its receipt did not.
+    await writeFile(
+      journalPath(state),
+      `${JSON.stringify({
+        effectId: "effect.set-state",
+        expectedValueHash:
+          "fb9cf75606b4070dd6a9705810906bba28d0e2ea74ff301b999a91dbb68c7d98",
+        journalVersion: 1,
+        phase: "intent",
+        runId: "interrupted-run",
+      })}\n`,
+    );
+    await writeFile(state, '{"value":"enabled"}\n');
+    const before = await readFile(state);
+    const beforeStat = await stat(state);
+    const journalBefore = await readFile(journalPath(state));
 
-  const recovered = invoke(state, "recover", "--json");
-  expect(recovered.exitCode).toBe(0);
-  expect(recovered.stderr).toBe("");
-  expect(parseObserved(recovered.stdout).result).toMatchObject({
-    causeCode: "SUCCESS_COMPLETED",
-    commandIdentity: "example.recover",
-    retryable: false,
-    transactionState: "completed",
-  });
-  expect(await readFile(state)).toEqual(before);
-  expect(
-    (await readFile(journalPath(state), "utf8")).trim().split("\n"),
-  ).toHaveLength(1);
-});
+    const recovered = invoke(state, "recover", "--json");
+    expect(recovered.exitCode).toBe(0);
+    expect(recovered.stderr).toBe("");
+    expect(parseObserved(recovered.stdout).result).toMatchObject({
+      causeCode: "SUCCESS_UNCHANGED",
+      commandIdentity: "example.recover",
+      transactionState: "unchanged",
+      effects: {
+        completed: [],
+        remaining: [],
+        uncertain: [],
+        inventoryComplete: true,
+      },
+      data: { pendingEffect: "effect.set-state", observedState: "completed" },
+    });
+    expect(await readFile(state)).toEqual(before);
+    expect(await readFile(journalPath(state))).toEqual(journalBefore);
+
+    const next = invoke(state, "set", "--value", requestedValue, "--json");
+    expect(next.exitCode).toBe(0);
+    expect(next.stderr).toBe("");
+    expect(JSON.parse(await readFile(state, "utf8")) as unknown).toEqual({
+      value: requestedValue,
+    });
+    const records = (await readFile(journalPath(state), "utf8"))
+      .trim()
+      .split("\n")
+      .map(parseObserved);
+    expect(records.map((row) => row.phase)).toEqual(
+      requestedValue === "enabled"
+        ? ["intent", "completed"]
+        : ["intent", "completed", "intent", "completed"],
+    );
+    expect(journalEntry(records, 1).runId).toBe("interrupted-run");
+    if (requestedValue === "enabled") {
+      expect((await stat(state)).ino).toBe(beforeStat.ino);
+      expect((await stat(state)).mtimeMs).toBe(beforeStat.mtimeMs);
+      expect(parseObserved(next.stdout).result.transactionState).toBe(
+        "unchanged",
+      );
+    }
+    expect(invoke(state, "recover", "--json").exitCode).toBe(0);
+    const following = invoke(state, "set", "--value", "final", "--json");
+    expect(following.exitCode).toBe(0);
+    expect(JSON.parse(await readFile(state, "utf8")) as unknown).toEqual({
+      value: "final",
+    });
+  },
+);
 
 test("recover keeps a pending effect unknown when persisted state is invalid", async () => {
   const root = await mkdtemp(
@@ -347,11 +391,31 @@ test("recover keeps a pending effect unknown when persisted state is invalid", a
   expect(recovered.exitCode).toBe(1);
   expect(recovered.stderr).toBe("");
   expect(parseObserved(recovered.stdout).result).toMatchObject({
-    causeCode: "INTERNAL_RESULT_UNKNOWN",
-    effects: { uncertain: ["effect.set-state"] },
+    causeCode: "INTERNAL_RESULT_UNCHANGED",
+    effects: {
+      completed: [],
+      remaining: [],
+      uncertain: [],
+      inventoryComplete: true,
+    },
     outcome: "failed",
     retryable: false,
-    transactionState: "unknown",
+    transactionState: "unchanged",
+  });
+  const next = invoke(state, "set", "--value", "next", "--json");
+  expect(next.exitCode).toBe(3);
+  expect(next.stderr).toBe("");
+  expect(parseObserved(next.stdout).result).toMatchObject({
+    causeCode: "DOMAIN_PRIOR_RUN_PENDING",
+    outcome: "refused",
+    transactionState: "unchanged",
+    data: null,
+    effects: {
+      completed: [],
+      remaining: [],
+      uncertain: [],
+      inventoryComplete: true,
+    },
   });
   expect(await readFile(state, "utf8")).toBe("{broken");
   expect(
@@ -602,12 +666,9 @@ test("an interrupted set leaves intent, refuses replay, and recovers read-only",
   expect(replay.exitCode).toBe(3);
   expect(parseObserved(replay.stdout).result).toMatchObject({
     causeCode: "DOMAIN_PRECONDITION_UNMET",
-    handoff: {
-      owner: "operator",
-      summary: expect.stringContaining(
-        "Remove crash residue only after",
-      ) as unknown,
-    },
+    nextAction: expect.stringContaining(
+      "Remove crash residue only after",
+    ) as unknown,
     outcome: "refused",
     retryable: false,
     transactionState: "unchanged",
@@ -618,10 +679,10 @@ test("an interrupted set leaves intent, refuses replay, and recovers read-only",
   const recovery = invoke(state, "recover", "--json");
   expect(recovery.exitCode).toBe(1);
   expect(parseObserved(recovery.stdout).result).toMatchObject({
-    causeCode: "INTERNAL_RESULT_UNKNOWN",
+    causeCode: "INTERNAL_RESULT_UNCHANGED",
     outcome: "failed",
     retryable: false,
-    transactionState: "unknown",
+    transactionState: "unchanged",
   });
   expect(
     (await readFile(journalPath(state), "utf8")).trim().split("\n"),

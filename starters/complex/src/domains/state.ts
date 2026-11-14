@@ -56,7 +56,14 @@ export async function execute(
           const state = await setState(statePath(), parsed.data.value);
           if (state.status === "locked") return journalLockHeld();
           if (state.status === "blocked") {
-            return priorRunPending(state.effectId);
+            return priorRunPending();
+          }
+          if (state.status === "unchanged") {
+            const result = previewed(parsed.data.value);
+            result.data = { preview: false, value: parsed.data.value };
+            result.message =
+              "The requested value is already present; it was not replayed.";
+            return result;
           }
           return completed(parsed.data.value, state.effectId);
         })();

@@ -220,6 +220,7 @@ test("machine status emits a strict internal fallback after serialization fails"
     availablePaths: [
       "example.command-discovery",
       "example.discovery",
+      "example.dispatch",
       "example.help",
       "example.status",
       "example.template.info",
@@ -228,7 +229,7 @@ test("machine status emits a strict internal fallback after serialization fails"
     envelopeVersion: 2,
     message: "The machine result could not be serialized.",
     result: {
-      causeCode: "INTERNAL_RESULT_SERIALIZATION",
+      causeCode: "INTERNAL_RESULT_UNCHANGED",
       commandIdentity: "example.status",
       data: null,
       effectClass: "inspect",
@@ -240,9 +241,16 @@ test("machine status emits a strict internal fallback after serialization fails"
       },
       exitCode: 1,
       failureClass: "internal",
-      nextAction: "Inspect the runtime and retry example status.",
+      handoff: {
+        owner: "operator",
+        reason: "The read-only command could not produce its result.",
+        inspect: [
+          "Inspect the command implementation and output transport before another run.",
+        ],
+      },
       outcome: "failed",
-      repairAction: "Inspect the serialization failure before retrying.",
+      repairAction:
+        "Repair the command or output transport before another run.",
       retryable: false,
       transactionState: "unchanged",
     },
@@ -255,7 +263,7 @@ test("machine status emits a strict internal fallback after serialization fails"
     "effects",
     "exitCode",
     "failureClass",
-    "nextAction",
+    "handoff",
     "outcome",
     "repairAction",
     "retryable",
@@ -280,10 +288,17 @@ test("machine status emits a distinct internal fallback after stdout emission fa
   expect(JSON.parse(result.stdout)).toMatchObject({
     message: "The status output could not be emitted.",
     result: {
-      causeCode: "INTERNAL_RESULT_EMISSION",
-      nextAction: "Inspect the status output and retry example status.",
+      causeCode: "INTERNAL_RESULT_UNCHANGED",
+      handoff: {
+        owner: "operator",
+        reason: "The read-only command could not produce its result.",
+        inspect: [
+          "Inspect the command implementation and output transport before another run.",
+        ],
+      },
       outcome: "failed",
-      repairAction: "Inspect the status output stream before retrying.",
+      repairAction:
+        "Repair the command or output transport before another run.",
     },
   });
 });
@@ -297,10 +312,7 @@ test("machine status reports repair guidance after a real stdout reader closes",
 
   expect(result.exitCode).toBe(1);
   expect(result.stdout).toBe("");
-  expect(result.stderr).toBe(
-    "The status output could not be emitted.\n" +
-      "Repair: Inspect the status output stream before retrying.\n",
-  );
+  expect(result.stderr).toBe("");
   expect(result.stderr).not.toContain("EPIPE");
   expect(result.stderr).not.toContain("Bun v");
 });
@@ -311,8 +323,7 @@ test("human status reports a repair action after stdout emission fails", async (
   expect(result.exitCode).toBe(1);
   expect(result.stdout).toBe("");
   expect(result.stderr).toBe(
-    "The status output could not be emitted.\n" +
-      "Repair: Inspect the status output stream before retrying.\n",
+    "The status output could not be emitted. Repair: Repair the command or output transport before another run.\n",
   );
 });
 
@@ -336,23 +347,24 @@ test("selected-command discovery describes the status stations", () => {
         [station.causeCode, station.outcome].join("|"),
       )
       .sort(),
-  ).toEqual([
-    "INTERNAL_RESULT_EMISSION|failed",
-    "INTERNAL_RESULT_SERIALIZATION|failed",
-    "INTERNAL_RESULT_UNCHANGED|failed",
-    "SUCCESS_UNCHANGED|success",
-  ]);
+  ).toEqual(["INTERNAL_RESULT_UNCHANGED|failed", "SUCCESS_UNCHANGED|success"]);
   expect(
     envelope.result.data.stations.find(
       (station: { causeCode: string }) =>
-        station.causeCode === "INTERNAL_RESULT_EMISSION",
+        station.causeCode === "INTERNAL_RESULT_UNCHANGED",
     ),
   ).toMatchObject({
     guidance: {
-      nextAction: "Inspect the status output and retry example status.",
+      handoff: {
+        owner: "operator",
+        reason: "The read-only command could not produce its result.",
+        inspect: [
+          "Inspect the command implementation and output transport before another run.",
+        ],
+      },
     },
-    repairAction: "Inspect the status output stream before retrying.",
-    trigger: "The status output cannot be emitted.",
+    repairAction: "Repair the command or output transport before another run.",
+    trigger: "The selected read-only domain cannot load or complete.",
   });
 });
 
