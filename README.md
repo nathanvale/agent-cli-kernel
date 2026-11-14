@@ -6,10 +6,10 @@ or modify agent/plugin configuration.
 
 ## Choose a profile
 
-| Profile | Use it for | Included checks |
-| --- | --- | --- |
-| `scratch` | A contained, dump-and-run experiment | TypeScript and focused tests only |
-| `durable` | Maintained code, reusable tools, or shared libraries | TypeScript, tests, Biome, and native Fallow |
+| Profile   | Use it for                                           | Included checks                                                |
+| --------- | ---------------------------------------------------- | -------------------------------------------------------------- |
+| `scratch` | A contained, dump-and-run experiment                 | TypeScript and focused tests only                              |
+| `durable` | Maintained code, reusable tools, or shared libraries | Typed ESLint, TypeScript, tests, formatting, and native Fallow |
 
 The monorepo layout is an optional durable example. It is never part of the
 scratch profile.
@@ -59,6 +59,21 @@ bun run check
 ```
 
 This repository follows the durable toolchain proven in the dotfiles workspace:
-Bun 1.4.0, TypeScript 7.0.2, Biome 2.4.15, and native Fallow 3.19.0. Generated
+Bun 1.4.4, TypeScript 7.0.2 for compilation, TypeScript 6.0.2 for ESLint
+10.15.0 with typescript-eslint 8.72.2, Biome 2.6.7 for formatting only, and
+native Fallow plus its semantic companion at 3.43.0. Generated
 scratch repositories intentionally omit Biome, Fallow, CI, hooks, release
 tooling, and monorepo structure.
+
+Every generated repository has one application CLI. Its commands live in
+separate internal files. A workspace exposes the root CLI and keeps member
+packages as libraries. `bun run admit:cli -- <repository-root>` checks its
+entry points across source, manifests, scripts and documented invocations.
+
+Generated `AGENTS.md` gives the exact install, check and smoke commands.
+`.cli-design-template.json` records source-packet and template provenance,
+including whether the source checkout had uncommitted changes.
+
+`eslint-rules.mjs` demonstrates one local custom rule. Its ownership rule
+prevents domain modules from writing to stdout or stderr; it does not add a
+project-specific catalogue of rules. Formatting checks never rewrite files.

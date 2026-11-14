@@ -14,9 +14,9 @@ jobs:
           fetch-depth: 0
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.4.0
+          bun-version: 1.4.4
       - run: bun install --frozen-lockfile
-      - run: bun run biome:check && bun run typecheck && bun run test
+      - run: bun run lint && bun run biome:check && bun run typecheck && bun run test
       - if: github.event_name == 'pull_request'
         run: bun run --silent quality:fallow --base "origin/${{ github.base_ref }}"
       - if: github.event_name == 'push'

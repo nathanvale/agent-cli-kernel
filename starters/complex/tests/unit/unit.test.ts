@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { parseSetArguments, validateSetInput } from "../../src/engine.ts";
+import { parseSetArguments } from "../../src/engine.ts";
 
 const ROOT = resolve(import.meta.dir, "../..");
 
@@ -11,16 +11,19 @@ test.each([
   ["", false],
   ["x".repeat(129), false],
 ])("set input requires a bounded nonempty value %#", (value, success) => {
-  expect(validateSetInput(value, false).success).toBe(success);
+  expect(parseSetArguments(["--value", value]).success).toBe(success);
 });
 
 test.each([
   [["--value", "enabled"], { preview: false, value: "enabled" }],
   [["--value", "enabled", "--preview"], { preview: true, value: "enabled" }],
   [["--preview", "--value", "enabled"], { preview: true, value: "enabled" }],
-] as const)("set arguments accept the exact supported shape %#", (args, data) => {
-  expect(parseSetArguments([...args])).toEqual({ data, success: true });
-});
+] as const)(
+  "set arguments accept the exact supported shape %#",
+  (args, data) => {
+    expect(parseSetArguments([...args])).toEqual({ data, success: true });
+  },
+);
 
 test.each([
   [[]],
@@ -61,7 +64,9 @@ test("a rejected public set invocation does not create the state path", async ()
 
     expect(result.exitCode).toBe(4);
     expect(result.stderr.toString()).toBe("");
-    expect(JSON.parse(result.stdout.toString()).result).toMatchObject({
+    expect(
+      (JSON.parse(result.stdout.toString()) as { result: unknown }).result,
+    ).toMatchObject({
       causeCode: "SCHEMA_INVALID_INPUT",
       outcome: "refused",
       transactionState: "unchanged",

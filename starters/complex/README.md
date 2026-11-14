@@ -1,8 +1,8 @@
-# __REPOSITORY_NAME__
+# `__REPOSITORY_NAME__`
 
 State-changing Bun CLI generated from the canonical complex starter.
 
-Source packet: __SOURCE_PACKET__
+Source packet: `__SOURCE_PACKET__`
 
 ```sh
 bun install --frozen-lockfile

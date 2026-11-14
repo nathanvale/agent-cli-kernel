@@ -4,12 +4,12 @@ Self-contained multi-package layout for the durable profile. Not required for
 single-package use. Adopt only when the durable profile grows into more than
 one package.
 
-Same pinned toolchain and check contract: Bun `1.4.0`, TypeScript `7.0.2`,
-Biome `2.4.15`, Fallow `3.19.0`, one shared `tsconfig.base.json` inherited in
+Same pinned toolchain and check contract: Bun `1.4.4`, native TypeScript `7.0.2`,
+ESLint `10.15.0` with TypeScript `6.0.2` and typescript-eslint `8.72.2`,
+Biome `2.6.7` for formatting, Fallow and its semantic companion `3.43.0`, one shared `tsconfig.base.json` inherited in
 full (`strict`, `verbatimModuleSyntax`, `exactOptionalPropertyTypes`,
-`noUncheckedIndexedAccess` all on, not relaxed by any member package). Every
-workspace member declares `lint` and `test`; TypeScript members also declare
-`typecheck`.
+`noUncheckedIndexedAccess` all on, not relaxed by any member package). Root lint covers source and tests across all packages. Root CLI tests run
+before member tests; members declare `test` and `typecheck`.
 
 CI is optional here too: this example ships no CI workflow, and adopting the
 monorepo layout does not by itself require adding one.
@@ -23,8 +23,7 @@ generation time.
 
 ## Bootstrap
 
-Bootstrap does not initialize Git. Fallow's `new-only` audit gate needs a
-comparison base. Establish an empty local baseline before the first check so
+Bootstrap does not initialize Git. Fallow's audit needs a Git comparison base even when all findings are gated. Establish an empty local baseline before the first check so
 the generated scaffold remains visible as new work:
 
 ```sh

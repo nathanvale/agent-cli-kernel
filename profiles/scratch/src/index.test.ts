@@ -1,6 +1,6 @@
-import { expect, test } from "bun:test"
-import { greet } from "./index"
+import { expect, test } from "bun:test";
+import { greet } from "./index";
 
 test("greet returns a friendly message", () => {
-  expect(greet("world")).toBe("Hello, world!")
-})
+  expect(greet("world")).toBe("Hello, world!");
+});

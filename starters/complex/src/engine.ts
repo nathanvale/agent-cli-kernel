@@ -10,10 +10,6 @@ function emptyEffects() {
   };
 }
 
-export function validateSetInput(value: string, preview: boolean) {
-  return SetInput.safeParse({ preview, value });
-}
-
 function invalidSetArguments() {
   return SetInput.safeParse({ preview: false, value: undefined });
 }
@@ -76,8 +72,10 @@ export function invalidPersistedState(): OperationResult {
     failureClass: "internal",
     handoff: {
       owner: "operator",
-      summary:
-        "Inspect or repair the persisted state before another status run.",
+      reason: "Persisted state is invalid.",
+      inspect: [
+        "Inspect the persisted state and its schema before another status run.",
+      ],
     },
     message: "Persisted state is invalid.",
     outcome: "failed",
@@ -126,29 +124,27 @@ export function completed(value: string, effectId: string): OperationResult {
   };
 }
 
-export function priorRunPending(effectId: string): OperationResult {
+export function priorRunPending(): OperationResult {
   return {
     causeCode: "DOMAIN_PRIOR_RUN_PENDING",
     commandIdentity: "example.set",
-    data: { pendingEffect: effectId },
+    data: null,
     effectClass: "repository-local",
-    effects: {
-      completed: [],
-      inventoryComplete: true,
-      remaining: [],
-      uncertain: [effectId],
-    },
+    effects: emptyEffects(),
     exitCode: 3,
     failureClass: "domain",
     handoff: {
       owner: "operator",
-      summary: "Run recover and inspect the pending effect before another set.",
+      reason: "A prior set has an unresolved journal intent.",
+      inspect: [
+        "Run recover and inspect the state and journal without replaying the prior set.",
+      ],
     },
-    message: "A prior set may still have effects.",
-    outcome: "failed",
+    message: "A prior set may still have effects; this set did not start.",
+    outcome: "refused",
     repairAction: "Inspect recovery state; do not replay the prior set.",
     retryable: false,
-    transactionState: "unknown",
+    transactionState: "unchanged",
   };
 }
 
@@ -161,11 +157,8 @@ export function journalLockHeld(): OperationResult {
     effects: emptyEffects(),
     exitCode: 3,
     failureClass: "domain",
-    handoff: {
-      owner: "operator",
-      summary:
-        "Inspect the lock and journal. Remove crash residue only after effects are reconciled and no owner process remains.",
-    },
+    nextAction:
+      "Inspect the lock and journal. Remove crash residue only after effects are reconciled and no owner process remains.",
     message:
       "Another writer or conservative crash residue holds the journal lock.",
     outcome: "refused",
@@ -201,56 +194,47 @@ export function recovered(
 ): OperationResult {
   if (observation.state === "unknown") {
     return {
-      causeCode: "INTERNAL_RESULT_UNKNOWN",
+      causeCode: "INTERNAL_RESULT_UNCHANGED",
       commandIdentity: "example.recover",
       data: null,
       effectClass: "inspect",
-      effects: {
-        completed: [],
-        inventoryComplete: true,
-        remaining: [],
-        uncertain: [observation.effectId],
-      },
+      effects: emptyEffects(),
       exitCode: 1,
       failureClass: "internal",
       handoff: {
         owner: "operator",
-        summary:
+        reason: "Recovery could not establish the pending effect.",
+        inspect: [
           "Inspect the state and journal before choosing another action.",
+        ],
       },
       message: "Recovery could not establish the pending effect.",
       outcome: "failed",
       repairAction: "Resolve the uncertain effect without replaying it.",
       retryable: false,
-      transactionState: "unknown",
+      transactionState: "unchanged",
     };
   }
-  const completedEffects =
-    observation.state === "completed" ? [observation.effectId] : [];
   return {
-    causeCode:
-      observation.state === "completed"
-        ? "SUCCESS_COMPLETED"
-        : "SUCCESS_UNCHANGED",
+    causeCode: "SUCCESS_UNCHANGED",
     commandIdentity: "example.recover",
-    data: { pendingEffect: observation.effectId },
-    effectClass: "inspect",
-    effects: {
-      completed: completedEffects,
-      inventoryComplete: true,
-      remaining: [],
-      uncertain: [],
+    data: {
+      pendingEffect: observation.effectId,
+      observedState: observation.state,
     },
+    effectClass: "inspect",
+    effects: emptyEffects(),
     exitCode: 0,
     failureClass: null,
     message:
       observation.state === "completed"
         ? "The pending effect is already present; it was not replayed."
         : "No pending effect requires recovery.",
+    nextAction:
+      "Do not replay an observed completed effect. A separately requested set reconciles confirmed completion under the writer lock.",
     outcome: "success",
     repairAction: null,
     retryable: false,
-    transactionState:
-      observation.state === "completed" ? "completed" : "unchanged",
+    transactionState: "unchanged",
   };
 }

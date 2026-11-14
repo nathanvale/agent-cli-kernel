@@ -1,3 +1,17 @@
+function parseEnvelope(text: string) {
+  const value: unknown = JSON.parse(text);
+  return value as {
+    result: {
+      runId: string;
+      commandIdentity: string;
+      data: {
+        command: { commandIdentity: string };
+        stations: { causeCode: string; outcome: string }[];
+      };
+    };
+  };
+}
+
 import { afterEach, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -195,7 +209,7 @@ test("machine status emits a strict internal fallback after serialization fails"
   expect(result.exitCode).toBe(1);
   expect(result.stderr).toBe("");
   expect(result.stdout.trim().split("\n")).toHaveLength(1);
-  const envelope = JSON.parse(result.stdout);
+  const envelope = parseEnvelope(result.stdout);
   expect(Object.keys(envelope).sort()).toEqual([
     "availablePaths",
     "contractVersion",
@@ -207,14 +221,16 @@ test("machine status emits a strict internal fallback after serialization fails"
     availablePaths: [
       "example.command-discovery",
       "example.discovery",
+      "example.dispatch",
       "example.help",
       "example.status",
+      "example.template.info",
     ],
     contractVersion: "2.0.0",
     envelopeVersion: 2,
     message: "The machine result could not be serialized.",
     result: {
-      causeCode: "INTERNAL_RESULT_SERIALIZATION",
+      causeCode: "INTERNAL_RESULT_UNCHANGED",
       commandIdentity: "example.status",
       data: null,
       effectClass: "inspect",
@@ -226,9 +242,16 @@ test("machine status emits a strict internal fallback after serialization fails"
       },
       exitCode: 1,
       failureClass: "internal",
-      nextAction: "Inspect the runtime and retry example status.",
+      handoff: {
+        owner: "operator",
+        reason: "The read-only command could not produce its result.",
+        inspect: [
+          "Inspect the command implementation and output transport before another run.",
+        ],
+      },
       outcome: "failed",
-      repairAction: "Inspect the serialization failure before retrying.",
+      repairAction:
+        "Repair the command or output transport before another run.",
       retryable: false,
       transactionState: "unchanged",
     },
@@ -241,7 +264,7 @@ test("machine status emits a strict internal fallback after serialization fails"
     "effects",
     "exitCode",
     "failureClass",
-    "nextAction",
+    "handoff",
     "outcome",
     "repairAction",
     "retryable",
@@ -266,10 +289,17 @@ test("machine status emits a distinct internal fallback after stdout emission fa
   expect(JSON.parse(result.stdout)).toMatchObject({
     message: "The status output could not be emitted.",
     result: {
-      causeCode: "INTERNAL_RESULT_EMISSION",
-      nextAction: "Inspect the status output and retry example status.",
+      causeCode: "INTERNAL_RESULT_UNCHANGED",
+      handoff: {
+        owner: "operator",
+        reason: "The read-only command could not produce its result.",
+        inspect: [
+          "Inspect the command implementation and output transport before another run.",
+        ],
+      },
       outcome: "failed",
-      repairAction: "Inspect the status output stream before retrying.",
+      repairAction:
+        "Repair the command or output transport before another run.",
     },
   });
 });
@@ -283,10 +313,7 @@ test("machine status reports repair guidance after a real stdout reader closes",
 
   expect(result.exitCode).toBe(1);
   expect(result.stdout).toBe("");
-  expect(result.stderr).toBe(
-    "The status output could not be emitted.\n" +
-      "Repair: Inspect the status output stream before retrying.\n",
-  );
+  expect(result.stderr).toBe("");
   expect(result.stderr).not.toContain("EPIPE");
   expect(result.stderr).not.toContain("Bun v");
 });
@@ -297,8 +324,7 @@ test("human status reports a repair action after stdout emission fails", async (
   expect(result.exitCode).toBe(1);
   expect(result.stdout).toBe("");
   expect(result.stderr).toBe(
-    "The status output could not be emitted.\n" +
-      "Repair: Inspect the status output stream before retrying.\n",
+    "The status output could not be emitted. Repair: Repair the command or output transport before another run.\n",
   );
 });
 
@@ -306,13 +332,15 @@ test("human help names the supported invocation", () => {
   const result = invoke("--help");
   expect(result.exitCode).toBe(0);
   expect(result.stderr).toBe("");
-  expect(result.stdout).toBe("Usage: example status [--json]\n");
+  expect(result.stdout).toBe(
+    "Usage: example COMMAND [--json]\nstatus\ntemplate info\n",
+  );
 });
 
 test("selected-command discovery describes the status stations", () => {
   const result = invoke("--discover-command", "example.status", "--json");
   expect(result.exitCode).toBe(0);
-  const envelope = JSON.parse(result.stdout);
+  const envelope = parseEnvelope(result.stdout);
   expect(envelope.result.data.command.commandIdentity).toBe("example.status");
   expect(
     envelope.result.data.stations
@@ -320,22 +348,24 @@ test("selected-command discovery describes the status stations", () => {
         [station.causeCode, station.outcome].join("|"),
       )
       .sort(),
-  ).toEqual([
-    "INTERNAL_RESULT_EMISSION|failed",
-    "INTERNAL_RESULT_SERIALIZATION|failed",
-    "SUCCESS_UNCHANGED|success",
-  ]);
+  ).toEqual(["INTERNAL_RESULT_UNCHANGED|failed", "SUCCESS_UNCHANGED|success"]);
   expect(
     envelope.result.data.stations.find(
       (station: { causeCode: string }) =>
-        station.causeCode === "INTERNAL_RESULT_EMISSION",
+        station.causeCode === "INTERNAL_RESULT_UNCHANGED",
     ),
   ).toMatchObject({
     guidance: {
-      nextAction: "Inspect the status output and retry example status.",
+      handoff: {
+        owner: "operator",
+        reason: "The read-only command could not produce its result.",
+        inspect: [
+          "Inspect the command implementation and output transport before another run.",
+        ],
+      },
     },
-    repairAction: "Inspect the status output stream before retrying.",
-    trigger: "The status output cannot be emitted.",
+    repairAction: "Repair the command or output transport before another run.",
+    trigger: "The selected read-only domain cannot load or complete.",
   });
 });
 
@@ -351,3 +381,208 @@ test("missing command is a focused usage refusal", () => {
     },
   });
 });
+
+async function operationPreload(
+  guidance: Record<string, unknown> | string,
+): Promise<string> {
+  const root = await mkdtemp("/tmp/simple-starter-test-");
+  scratchRoots.push(root);
+  const preload = join(root, "operation.ts");
+  await writeFile(
+    preload,
+    `import { commands } from ${JSON.stringify(join(ROOT, "src/commands.ts"))};
+commands[0].execute = async () => ({
+  commandIdentity: "example.status", data: null, message: "Inspection failed.",
+  causeCode: "INTERNAL_RESULT_UNCHANGED", effectClass: "inspect",
+  effects: { completed: [], remaining: [], uncertain: [], inventoryComplete: true },
+  exitCode: 1, failureClass: "internal", outcome: "failed", repairAction: "Inspect implementation.",
+  retryable: false, transactionState: "unchanged", ...${typeof guidance === "string" ? guidance : JSON.stringify(guidance)}
+});
+`,
+  );
+  return preload;
+}
+
+test("domain handoff guidance excludes the success nextAction", async () => {
+  const handoff = {
+    owner: "operator",
+    reason: "Implementation needs repair.",
+    inspect: ["Inspect implementation."],
+  };
+  const observed = invokeWithPreload(
+    await operationPreload({ handoff }),
+    "status",
+    "--json",
+  );
+  expect(observed.exitCode).toBe(1);
+  expect(observed.stderr).toBe("");
+  expect(observed.stdout.trim().split("\n")).toHaveLength(1);
+  const envelope = parseEnvelope(observed.stdout);
+  expect(envelope.result).toMatchObject({
+    commandIdentity: "example.status",
+    outcome: "failed",
+    handoff,
+  });
+  expect(envelope.result).not.toHaveProperty("nextAction");
+});
+
+test("domain handoff guidance preserves a valid optional resource", async () => {
+  const handoff = {
+    owner: "human",
+    reason: "Inspect the recorded file.",
+    inspect: ["Inspect the recorded file independently."],
+    resource: { kind: "file", id: "example" },
+  };
+  const observed = invokeWithPreload(
+    await operationPreload({ handoff }),
+    "status",
+    "--json",
+  );
+  expect(observed.exitCode).toBe(1);
+  expect(observed.stderr).toBe("");
+  expect(parseEnvelope(observed.stdout).result).toMatchObject({ handoff });
+  expect(parseEnvelope(observed.stdout).result).not.toHaveProperty(
+    "nextAction",
+  );
+});
+
+const invalidGuidance: [string, Record<string, unknown> | string][] = [
+  ["missing", {}],
+  [
+    "both",
+    {
+      nextAction: "Inspect implementation.",
+      handoff: {
+        owner: "operator",
+        reason: "Repair needed.",
+        inspect: ["Inspect implementation."],
+      },
+    },
+  ],
+  [
+    "undefined nextAction on success",
+    '{ nextAction: undefined, exitCode: 0, outcome: "success", causeCode: "SUCCESS_UNCHANGED", failureClass: null, repairAction: null }',
+  ],
+  ["null nextAction", { nextAction: null }],
+  ["blank nextAction", { nextAction: "  " }],
+  ["numeric nextAction", { nextAction: 1 }],
+  ["undefined handoff", "{ handoff: undefined }"],
+  ["null handoff", { handoff: null }],
+  [
+    "unknown owner",
+    {
+      handoff: {
+        owner: "agent",
+        reason: "Repair needed.",
+        inspect: ["Inspect implementation."],
+      },
+    },
+  ],
+  [
+    "blank reason",
+    {
+      handoff: {
+        owner: "operator",
+        reason: " ",
+        inspect: ["Inspect implementation."],
+      },
+    },
+  ],
+  [
+    "empty inspection",
+    { handoff: { owner: "operator", reason: "Repair needed.", inspect: [] } },
+  ],
+  [
+    "blank inspection",
+    {
+      handoff: { owner: "operator", reason: "Repair needed.", inspect: [" "] },
+    },
+  ],
+  [
+    "unknown handoff key",
+    {
+      handoff: {
+        owner: "operator",
+        reason: "Repair needed.",
+        inspect: ["Inspect implementation."],
+        extra: true,
+      },
+    },
+  ],
+  [
+    "undefined resource",
+    '{ handoff: { owner: "operator", reason: "Repair needed.", inspect: ["Inspect implementation."], resource: undefined } }',
+  ],
+  [
+    "blank resource id",
+    {
+      handoff: {
+        owner: "operator",
+        reason: "Repair needed.",
+        inspect: ["Inspect implementation."],
+        resource: { kind: "file", id: " " },
+      },
+    },
+  ],
+  [
+    "unknown resource key",
+    {
+      handoff: {
+        owner: "operator",
+        reason: "Repair needed.",
+        inspect: ["Inspect implementation."],
+        resource: { kind: "file", id: "example", extra: true },
+      },
+    },
+  ],
+];
+
+for (const [name, guidance] of invalidGuidance) {
+  test(`invalid domain guidance uses bounded fallback: ${name}`, async () => {
+    const observed = invokeWithPreload(
+      await operationPreload(guidance),
+      "status",
+      "--json",
+    );
+    expect(observed.exitCode).toBe(1);
+    expect(observed.stderr).toBe("");
+    expect(observed.stdout.trim().split("\n")).toHaveLength(1);
+    expect(JSON.parse(observed.stdout)).toMatchObject({
+      message: "The machine result could not be serialized.",
+      result: {
+        commandIdentity: "example.status",
+        outcome: "failed",
+        causeCode: "INTERNAL_RESULT_UNCHANGED",
+        handoff: { owner: "operator" },
+      },
+    });
+    expect(parseEnvelope(observed.stdout).result).not.toHaveProperty(
+      "nextAction",
+    );
+  });
+}
+
+for (const [args, identity, exitCode] of [
+  [["--help"], "example.help", 0],
+  [["--discover"], "example.discovery", 0],
+  [["--discover-command", "example.status"], "example.command-discovery", 0],
+  [[], "example.dispatch", 2],
+] as const) {
+  test(`builtin stdout errors are handled before dispatch: ${identity}`, async () => {
+    const normal = invoke(...args, "--json");
+    expect(normal.exitCode).toBe(exitCode);
+    expect(normal.stderr).toBe("");
+    expect(parseEnvelope(normal.stdout).result.commandIdentity).toBe(identity);
+    const root = await mkdtemp("/tmp/simple-starter-test-");
+    scratchRoots.push(root);
+    const preload = join(root, "async-output.ts");
+    await writeFile(
+      preload,
+      'process.stdout.write = () => { queueMicrotask(() => process.stdout.emit("error", Object.assign(new Error("fixture transport failure"), { code: "EPIPE" }))); return true; };\n',
+    );
+    const failed = invokeWithPreload(preload, ...args, "--json");
+    expect(failed.exitCode).toBe(1);
+    expect(failed.stdout).toBe("");
+    expect(failed.stderr).toBe("");
+  });
+}

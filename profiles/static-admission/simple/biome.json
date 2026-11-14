@@ -1,75 +1,26 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.15/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.6.7/schema.json",
   "files": {
     "ignoreUnknown": true,
-    "includes": ["src/**/*.ts", "tests/**/*.ts"]
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!**/dist",
+      "!**/coverage",
+      "!**/.fallow",
+      "!**/bun.lock"
+    ]
   },
   "formatter": {
-    "enabled": false,
+    "enabled": true,
     "indentStyle": "space",
     "indentWidth": 2
   },
   "linter": {
-    "enabled": true,
-    "rules": {
-      "recommended": true,
-      "correctness": {
-        "noUndeclaredDependencies": "error"
-      },
-      "style": {
-        "noNonNullAssertion": "error",
-        "noRestrictedImports": {
-          "level": "error",
-          "options": {
-            "paths": {
-              "node:child_process": {
-                "message": "Simple commands may not spawn subprocesses."
-              }
-            },
-            "patterns": [
-              {
-                "group": ["@logtape/*"],
-                "message": "Simple commands may not depend on LogTape."
-              }
-            ]
-          }
-        }
-      },
-      "suspicious": {
-        "noConsole": "error",
-        "noExplicitAny": "error"
-      }
-    }
-  },
-  "overrides": [
-    {
-      "includes": ["src/cli.ts"],
-      "linter": {
-        "rules": {
-          "suspicious": {
-            "noConsole": {
-              "level": "error",
-              "options": {
-                "allow": ["log"]
-              }
-            }
-          }
-        }
-      }
-    }
-  ],
-  "javascript": {
-    "formatter": {
-      "quoteStyle": "double"
-    }
+    "enabled": false
   },
   "assist": {
-    "enabled": false,
-    "actions": {
-      "source": {
-        "organizeImports": "on"
-      }
-    }
+    "enabled": false
   },
   "vcs": {
     "enabled": true,

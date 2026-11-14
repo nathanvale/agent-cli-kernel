@@ -1,128 +1,26 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.15/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.6.7/schema.json",
   "files": {
     "ignoreUnknown": true,
-    "includes": ["src/**/*.ts", "tests/**/*.ts"]
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!**/dist",
+      "!**/coverage",
+      "!**/.fallow",
+      "!**/bun.lock"
+    ]
   },
   "formatter": {
-    "enabled": false,
+    "enabled": true,
     "indentStyle": "space",
     "indentWidth": 2
   },
   "linter": {
-    "enabled": true,
-    "rules": {
-      "recommended": true,
-      "correctness": {
-        "noUndeclaredDependencies": "error"
-      },
-      "style": {
-        "noNonNullAssertion": "error"
-      },
-      "suspicious": {
-        "noConsole": "error",
-        "noExplicitAny": "error"
-      }
-    }
-  },
-  "overrides": [
-    {
-      "includes": ["src/cli.ts"],
-      "linter": {
-        "rules": {
-          "suspicious": {
-            "noConsole": {
-              "level": "error",
-              "options": {
-                "allow": ["log"]
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "includes": [
-        "src/**/*.ts",
-        "tests/**/*.ts",
-        "!src/runtime.ts",
-        "!src/diagnostics.ts"
-      ],
-      "linter": {
-        "rules": {
-          "style": {
-            "noRestrictedImports": {
-              "level": "error",
-              "options": {
-                "paths": {
-                  "node:child_process": {
-                    "message": "Only the runtime effect owner may spawn subprocesses."
-                  }
-                },
-                "patterns": [
-                  {
-                    "group": ["@logtape/*"],
-                    "message": "Only the diagnostics owner may import LogTape."
-                  }
-                ]
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "includes": ["src/runtime.ts"],
-      "linter": {
-        "rules": {
-          "style": {
-            "noRestrictedImports": {
-              "level": "error",
-              "options": {
-                "patterns": [
-                  {
-                    "group": ["@logtape/*"],
-                    "message": "Only the diagnostics owner may import LogTape."
-                  }
-                ]
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "includes": ["src/diagnostics.ts"],
-      "linter": {
-        "rules": {
-          "style": {
-            "noRestrictedImports": {
-              "level": "error",
-              "options": {
-                "paths": {
-                  "node:child_process": {
-                    "message": "Only the runtime effect owner may spawn subprocesses."
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  ],
-  "javascript": {
-    "formatter": {
-      "quoteStyle": "double"
-    }
+    "enabled": false
   },
   "assist": {
-    "enabled": false,
-    "actions": {
-      "source": {
-        "organizeImports": "on"
-      }
-    }
+    "enabled": false
   },
   "vcs": {
     "enabled": true,

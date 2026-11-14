@@ -11,11 +11,10 @@ test("the catalogue declares the exact routed tuple vocabulary", () => {
     [station.commandIdentity, station.outcome, station.causeCode].join("|"),
   );
   const expectedIdentities = [
-    "example.recover|failed|INTERNAL_RESULT_UNKNOWN",
-    "example.recover|success|SUCCESS_COMPLETED",
+    "example.recover|failed|INTERNAL_RESULT_UNCHANGED",
     "example.recover|success|SUCCESS_UNCHANGED",
-    "example.set|failed|DOMAIN_PRIOR_RUN_PENDING",
     "example.set|refused|DOMAIN_PRECONDITION_UNMET",
+    "example.set|refused|DOMAIN_PRIOR_RUN_PENDING",
     "example.set|refused|SCHEMA_INVALID_INPUT",
     "example.set|success|SUCCESS_COMPLETED",
     "example.set|success|SUCCESS_UNCHANGED",
@@ -27,7 +26,7 @@ test("the catalogue declares the exact routed tuple vocabulary", () => {
   expect(new Set(identities).size).toBe(allStations.length);
   expect(stationsFor("example.status")).toHaveLength(2);
   expect(stationsFor("example.set")).toHaveLength(5);
-  expect(stationsFor("example.recover")).toHaveLength(3);
+  expect(stationsFor("example.recover")).toHaveLength(2);
 });
 
 test("status declares its successful unchanged inspection station", () => {
@@ -67,8 +66,10 @@ test("status declares invalid persisted state as failed and unchanged", () => {
     guidance: {
       handoff: {
         owner: "operator",
-        summary:
-          "Inspect or repair the persisted state before another status run.",
+        reason: "Persisted state is invalid.",
+        inspect: [
+          "Inspect the persisted state and its schema before another status run.",
+        ],
       },
     },
     outcome: "failed",
@@ -82,26 +83,25 @@ test("status declares invalid persisted state as failed and unchanged", () => {
   }); // Independent literal oracle for the invalid-state station contract.
 });
 
-test("set declares completed, unchanged, schema, and unknown states", () => {
+test("set declares completed effects and unchanged preflight refusals", () => {
   const stations = stationsFor("example.set");
   expect(stations.map((station) => station.transactionState).sort()).toEqual([
     "completed",
     "unchanged",
     "unchanged",
     "unchanged",
-    "unknown",
+    "unchanged",
   ]);
 });
 
-test("recovery declares no-pending, confirmed-completed, and unknown outcomes", () => {
+test("recovery reports previous effects without claiming current-run mutations", () => {
   const stations = stationsFor("example.recover");
-  expect(stations).toHaveLength(3);
-  expect(stations.map((station) => station.transactionState).sort()).toEqual([
-    "completed",
+  expect(stations).toHaveLength(2);
+  expect(stations.map((station) => station.transactionState)).toEqual([
     "unchanged",
-    "unknown",
+    "unchanged",
   ]);
   expect(
-    stations.find((station) => station.transactionState === "unknown"),
+    stations.find((station) => station.outcome === "failed"),
   ).toMatchObject({ exitCode: 1, retryable: false });
 });

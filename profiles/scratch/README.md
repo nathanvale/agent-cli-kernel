@@ -5,7 +5,7 @@ production-readiness claim. Dump code here, run it, throw it away when done.
 
 ## What this profile includes
 
-- Bun 1.4.0 (`packageManager` pin) and TypeScript 7.0.2 as a dev dependency,
+- Bun 1.4.4 (`packageManager` pin) and TypeScript 7.0.2 as a dev dependency,
   type-checked with `tsc --noEmit`.
 - `bun test` for proportionate tests.
 
@@ -23,7 +23,7 @@ specifically needs it.
 
 ```sh
 bun install --frozen-lockfile
-bun run start
+bun run start -- status
 bun run check
 ```
 

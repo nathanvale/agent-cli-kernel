@@ -117,7 +117,7 @@ const EXPECTED_FILES: Record<Profile, string[]> = {
 
 const EXPECTED_SCRIPTS = {
   start: "bun run src/cli.ts",
-  biome: "biome check --diagnostic-level=error .",
+  biome: "bun run format:check",
   config: "tsc --showConfig -p tsconfig.json",
   typecheck: "tsc --noEmit -p tsconfig.json",
   test: "bun test",
@@ -139,23 +139,33 @@ const EXPECTED_DEPENDENCY_PINS: Record<
   simple: {
     dependencies: {},
     devDependencies: {
-      "@biomejs/biome": "2.4.15",
+      "@biomejs/biome": "2.6.7",
       "@types/bun": "1.4.0",
-      fallow: "3.19.0",
-      typescript: "7.0.2",
+      fallow: "3.43.0",
+      "@typescript/native": "npm:typescript@7.0.2",
+      typescript: "npm:@typescript/typescript6@6.0.2",
+      eslint: "10.15.0",
+      "@eslint/js": "10.0.1",
+      "typescript-eslint": "8.72.2",
+      "fallow-type-aware": "3.43.0",
     },
   },
   complex: {
     dependencies: {
-      "@logtape/logtape": "2.3.1",
-      "@logtape/redaction": "2.3.1",
+      "@logtape/logtape": "2.4.2",
+      "@logtape/redaction": "2.4.2",
       zod: "4.4.3",
     },
     devDependencies: {
-      "@biomejs/biome": "2.4.15",
+      "@biomejs/biome": "2.6.7",
       "@types/bun": "1.4.0",
-      fallow: "3.19.0",
-      typescript: "7.0.2",
+      fallow: "3.43.0",
+      "@typescript/native": "npm:typescript@7.0.2",
+      typescript: "npm:@typescript/typescript6@6.0.2",
+      eslint: "10.15.0",
+      "@eslint/js": "10.0.1",
+      "typescript-eslint": "8.72.2",
+      "fallow-type-aware": "3.43.0",
     },
   },
 };
@@ -222,21 +232,37 @@ const OFF_FALLOW_RULES = [
 const EXPECTED_BOUNDARIES: Record<Profile, Record<string, unknown>> = {
   simple: {
     zones: [
+      { name: "tooling", patterns: ["eslint.config.mjs", "eslint-rules.mjs"] },
       { name: "front-door", patterns: ["src/cli.ts"] },
       { name: "tests", patterns: ["tests/**/*.ts"] },
+      {
+        name: "domains",
+        patterns: [
+          "src/domains/**/*.ts",
+          "src/commands.ts",
+          "src/commands-contract.ts",
+        ],
+      },
     ],
     rules: [
-      { from: "front-door", allow: [] },
-      { from: "tests", allow: ["front-door"] },
+      { from: "tooling", allow: ["tooling"] },
+      { from: "front-door", allow: ["domains"] },
+      { from: "tests", allow: ["front-door", "domains"] },
+      { from: "domains", allow: ["domains"] },
     ],
     coverage: { requireAllFiles: true },
   },
   complex: {
     zones: [
+      { name: "tooling", patterns: ["eslint.config.mjs", "eslint-rules.mjs"] },
       { name: "front-door", patterns: ["src/cli.ts"] },
       {
         name: "contract",
-        patterns: ["src/command-contract.ts", "src/model.ts"],
+        patterns: [
+          "src/command-contract.ts",
+          "src/model.ts",
+          "src/commands-contract.ts",
+        ],
       },
       { name: "engine", patterns: ["src/engine.ts"] },
       {
@@ -248,19 +274,33 @@ const EXPECTED_BOUNDARIES: Record<Profile, Record<string, unknown>> = {
         ],
       },
       { name: "catalog", patterns: ["src/branch-station-catalog.ts"] },
-      { name: "diagnostics", patterns: ["src/diagnostics.ts"] },
+      {
+        name: "diagnostics",
+        patterns: ["src/diagnostics.ts", "src/diagnostics-custody.ts"],
+      },
       { name: "unit-tests", patterns: ["tests/unit/**/*.ts"] },
       { name: "integration-tests", patterns: ["tests/integration/**/*.ts"] },
       { name: "catalog-tests", patterns: ["tests/catalog/**/*.ts"] },
+      { name: "dispatch", patterns: ["src/commands.ts"] },
+      { name: "domains", patterns: ["src/domains/state.ts"] },
     ],
     rules: [
+      { from: "tooling", allow: ["tooling"] },
       {
         from: "front-door",
-        allow: ["contract", "engine", "runtime", "catalog", "diagnostics"],
+        allow: [
+          "contract",
+          "engine",
+          "runtime",
+          "catalog",
+          "diagnostics",
+          "dispatch",
+          "domains",
+        ],
       },
       { from: "contract", allow: [] },
       { from: "engine", allow: ["contract"] },
-      { from: "runtime", allow: ["contract", "runtime"] },
+      { from: "runtime", allow: ["contract", "runtime", "diagnostics"] },
       { from: "catalog", allow: ["contract"] },
       { from: "diagnostics", allow: ["contract"] },
       {
@@ -287,6 +327,28 @@ const EXPECTED_BOUNDARIES: Record<Profile, Record<string, unknown>> = {
           "runtime",
           "catalog",
           "diagnostics",
+        ],
+      },
+      {
+        from: "dispatch",
+        allow: [
+          "contract",
+          "engine",
+          "runtime",
+          "catalog",
+          "diagnostics",
+          "domains",
+        ],
+      },
+      {
+        from: "domains",
+        allow: [
+          "contract",
+          "engine",
+          "runtime",
+          "catalog",
+          "diagnostics",
+          "domains",
         ],
       },
     ],
@@ -343,7 +405,7 @@ function toolPath(name: string): string {
   return name;
 }
 
-const BIOME = toolPath("biome");
+const ESLINT = toolPath("eslint");
 
 type FallowPass = "whole-project" | "production-dependencies";
 
@@ -521,7 +583,9 @@ const COMPLEX_SOURCE = {
     'import { redactByPattern } from "@logtape/redaction";',
     "",
     "export function diagnosticsReady(): boolean {",
-    '  return typeof getLogger === "function" && typeof redactByPattern === "function";',
+    "  return (",
+    '    typeof getLogger === "function" && typeof redactByPattern === "function"',
+    "  );",
     "}",
     "",
   ].join("\n"),
@@ -600,7 +664,15 @@ async function createProject(profile: Profile): Promise<string> {
   }
   await linkDependencies(root, profile);
   git(root, "init", "-q", "-b", "main");
-  git(root, "add", ".");
+  git(
+    root,
+    "add",
+    "--",
+    ...git(root, "ls-files", "--others", "--modified", "--exclude-standard")
+      .trim()
+      .split("\n")
+      .filter(Boolean),
+  );
   git(
     root,
     "-c",
@@ -635,17 +707,6 @@ function assertCompilerDocument(
   expect(files).toEqual([...EXPECTED_FILES[profile]].sort());
 }
 
-function requiredBiomeOverride(
-  overrides: Array<Record<string, unknown>>,
-  index: number,
-): Record<string, unknown> {
-  const override = overrides[index];
-  if (override === undefined) {
-    throw new Error(`Biome override ${index} is missing`);
-  }
-  return override;
-}
-
 async function assertLockPolicy(
   root: string,
   expectedPins: (typeof EXPECTED_DEPENDENCY_PINS)[Profile],
@@ -671,7 +732,11 @@ async function assertLockPolicy(
     if (!Array.isArray(resolved)) {
       throw new Error(`bun.lock is missing ${packageName}'s resolved record`);
     }
-    expect(resolved[0]).toBe(`${packageName}@${version}`);
+    expect(resolved[0]).toBe(
+      version.startsWith("npm:")
+        ? version.slice(4)
+        : `${packageName}@${version}`,
+    );
   }
 }
 
@@ -681,10 +746,14 @@ async function assertPacketPolicy(
 ): Promise<void> {
   const packageJson = await readJson(join(root, "package.json"));
   const expectedPins = EXPECTED_DEPENDENCY_PINS[profile];
-  expect(packageJson.packageManager).toBe("bun@1.4.0");
+  expect(packageJson.packageManager).toBe("bun@1.4.4");
   expect(packageJson.scripts).toEqual({
     start: EXPECTED_SCRIPTS.start,
     "biome:check": EXPECTED_SCRIPTS.biome,
+    lint: "eslint . --max-warnings 0",
+    "format:check": "biome format .",
+    format: "biome format --write .",
+    "check:write": "bun run format",
     "check:config": EXPECTED_SCRIPTS.config,
     typecheck: EXPECTED_SCRIPTS.typecheck,
     test: EXPECTED_SCRIPTS.test,
@@ -692,7 +761,7 @@ async function assertPacketPolicy(
     "quality:fallow:changed": EXPECTED_SCRIPTS.changed,
     "quality:fallow:dependencies": EXPECTED_SCRIPTS.dependencies,
     check:
-      "bun run biome:check && bun run typecheck && bun run test && bun run --silent quality:fallow && bun run --silent quality:fallow:dependencies",
+      "bun run lint && bun run format:check && bun run typecheck && bun run test && bun run --silent quality:fallow && bun run --silent quality:fallow:dependencies",
   });
   expect(packageJson.dependencies ?? {}).toEqual(expectedPins.dependencies);
   expect(packageJson.devDependencies).toEqual(expectedPins.devDependencies);
@@ -724,79 +793,27 @@ async function assertPacketPolicy(
 
   const biome = await readJson(join(root, "biome.json"));
   const biomeFiles = (biome.files as Record<string, unknown>).includes;
-  expect(biomeFiles).toEqual(["src/**/*.ts", "tests/**/*.ts"]);
-  const linter = biome.linter as Record<string, unknown>;
-  const lintRules = linter.rules as Record<string, unknown>;
-  expect(lintRules.recommended).toBe(true);
-  expect(
-    (lintRules.correctness as Record<string, unknown>).noUndeclaredDependencies,
-  ).toBe("error");
-  expect((lintRules.suspicious as Record<string, unknown>).noConsole).toBe(
-    "error",
-  );
-  expect((lintRules.suspicious as Record<string, unknown>).noExplicitAny).toBe(
-    "error",
-  );
-  expect((lintRules.style as Record<string, unknown>).noNonNullAssertion).toBe(
-    "error",
-  );
-  const overrides = biome.overrides as Array<Record<string, unknown>>;
-  const frontDoorOverride = requiredBiomeOverride(overrides, 0);
-  expect(frontDoorOverride.includes).toEqual(["src/cli.ts"]);
-  const outputRules = (
-    (frontDoorOverride.linter as Record<string, unknown>).rules as Record<
-      string,
-      unknown
-    >
-  ).suspicious as Record<string, unknown>;
-  expect(outputRules.noConsole).toEqual({
-    level: "error",
-    options: { allow: ["log"] },
-  });
-
-  if (profile === "simple") {
-    const restricted = (lintRules.style as Record<string, unknown>)
-      .noRestrictedImports as Record<string, unknown>;
-    expect(restricted.level).toBe("error");
-    expect(restricted.options).toEqual({
-      paths: {
-        "node:child_process": {
-          message: "Simple commands may not spawn subprocesses.",
-        },
-      },
-      patterns: [
-        {
-          group: ["@logtape/*"],
-          message: "Simple commands may not depend on LogTape.",
-        },
-      ],
-    });
-    expect(overrides).toHaveLength(1);
-  } else {
-    expect(overrides).toHaveLength(4);
-    expect(requiredBiomeOverride(overrides, 1).includes).toEqual([
-      "src/**/*.ts",
-      "tests/**/*.ts",
-      "!src/runtime.ts",
-      "!src/diagnostics.ts",
-    ]);
-    expect(requiredBiomeOverride(overrides, 2).includes).toEqual([
-      "src/runtime.ts",
-    ]);
-    expect(requiredBiomeOverride(overrides, 3).includes).toEqual([
-      "src/diagnostics.ts",
-    ]);
-  }
+  expect(biomeFiles).toEqual([
+    "**",
+    "!**/node_modules",
+    "!**/dist",
+    "!**/coverage",
+    "!**/.fallow",
+    "!**/bun.lock",
+  ]);
+  expect(biome.linter).toEqual({ enabled: false });
+  expect(biome.assist).toEqual({ enabled: false });
+  expect((biome.formatter as Record<string, unknown>).enabled).toBe(true);
 
   const fallow = await readJson(join(root, ".fallowrc.json"));
   expect(fallow.entry).toEqual(
     profile === "simple"
-      ? ["src/cli.ts", "tests/cli.test.ts"]
+      ? ["tests/cli.test.ts", "eslint-rules.mjs"]
       : [
-          "src/cli.ts",
           "tests/unit/**/*.test.ts",
           "tests/integration/**/*.test.ts",
           "tests/catalog/**/*.test.ts",
+          "eslint-rules.mjs",
         ],
   );
   expect(fallow.typeAware).toEqual({
@@ -809,12 +826,32 @@ async function assertPacketPolicy(
     css: false,
     cssDeep: false,
   });
-  expect(fallow.boundaries).toEqual(EXPECTED_BOUNDARIES[profile]);
+  const boundaries = fallow.boundaries as {
+    zones: { name: string }[];
+    rules: { from: string }[];
+    coverage: unknown;
+  };
+  const expectedBoundaries = EXPECTED_BOUNDARIES[profile] as typeof boundaries;
+  expect({
+    ...boundaries,
+    zones: [...boundaries.zones].sort((a, b) => a.name.localeCompare(b.name)),
+    rules: [...boundaries.rules].sort((a, b) => a.from.localeCompare(b.from)),
+  }).toEqual({
+    ...expectedBoundaries,
+    zones: [...expectedBoundaries.zones].sort((a, b) =>
+      a.name.localeCompare(b.name),
+    ),
+    rules: [...expectedBoundaries.rules].sort((a, b) =>
+      a.from.localeCompare(b.from),
+    ),
+  });
 
   const rules = fallow.rules as Record<string, unknown>;
-  expect(Object.keys(rules).sort()).toEqual(
-    [...SELECTED_FALLOW_RULES, ...OFF_FALLOW_RULES].sort(),
-  );
+  for (const key of [...SELECTED_FALLOW_RULES, ...OFF_FALLOW_RULES])
+    expect(Object.hasOwn(rules, key)).toBe(true);
+  for (const [key, level] of Object.entries(rules))
+    if (!(SELECTED_FALLOW_RULES as readonly string[]).includes(key))
+      expect(level).toBe("off");
   for (const rule of SELECTED_FALLOW_RULES) {
     expect(rules[rule]).toBe("error");
   }
@@ -823,15 +860,15 @@ async function assertPacketPolicy(
   }
 }
 
-async function runBiome(root: string): Promise<Invocation> {
-  const args = ["check", "--diagnostic-level=error", "."];
+async function runLint(root: string): Promise<Invocation> {
+  const args = [".", "--max-warnings", "0"];
   const fileHashes = await hashProjectFiles(root);
-  const invocation = runNative(root, BIOME, args);
+  const invocation = runNative(root, ESLINT, args);
   const captureDirectory = process.env.STATIC_ADMISSION_CAPTURE_DIR;
   if (captureDirectory) {
     await mkdir(captureDirectory, { recursive: true });
     await writeJson(join(captureDirectory, `biome-${basename(root)}.json`), {
-      argv: [BIOME, ...args],
+      argv: [ESLINT, ...args],
       cwd: root,
       fileHashes,
       ...invocation,
@@ -1030,7 +1067,7 @@ function describeCaptureFailure(
     return { name: failure.name, message: failure.message };
   }
   if (failure === undefined) return null;
-  return String(failure);
+  return JSON.stringify(failure);
 }
 
 async function finishFallowCapture(
@@ -1147,7 +1184,15 @@ async function assertFallowRefusal(
   expectedRules: Record<string, number | FallowRuleExpectation>,
   pass: FallowPass = "whole-project",
 ): Promise<void> {
-  git(root, "add", ".");
+  git(
+    root,
+    "add",
+    "--",
+    ...git(root, "ls-files", "--others", "--modified", "--exclude-standard")
+      .trim()
+      .split("\n")
+      .filter(Boolean),
+  );
   git(
     root,
     "-c",
@@ -1233,7 +1278,9 @@ test("admits simple and threshold-met complex projects through native gates", as
     const root = await createProject(profile);
     await assertPacketPolicy(root, profile);
     const observed = await runAdmission(root, profile);
-    expect(observed.result).toMatchObject({ status: "admitted" });
+    expect(observed.result, JSON.stringify(observed.result)).toMatchObject({
+      status: "admitted",
+    });
     expect(observed.invocation.exitCode).toBe(0);
     expect(observed.invocation.stderr).toBe("");
     expect(observed.result.authoredFiles).toEqual(EXPECTED_FILES[profile]);
@@ -1310,65 +1357,25 @@ function packageMutations(profile: Profile): PolicyMutation[] {
   return mutations;
 }
 
-function biomeMutations(profile: Profile): PolicyMutation[] {
-  const mutations: PolicyMutation[] = [];
-  for (const [group, rule] of [
-    ["suspicious", "noConsole"],
-    ["suspicious", "noExplicitAny"],
-    ["style", "noNonNullAssertion"],
-    ["correctness", "noUndeclaredDependencies"],
-  ]) {
-    if (!group || !rule) throw new Error("Independent Biome oracle incomplete");
-    for (const replacement of [undefined, "warn"]) {
-      mutations.push({
-        file: "biome.json",
-        path: ["linter", "rules", group, rule],
-        replacement,
-        cause: `policy:biome.json.linter.rules.${group}.${rule}`,
-      });
-    }
-  }
-  if (profile === "simple") {
-    for (const replacement of [undefined, "warn"]) {
-      mutations.push({
-        file: "biome.json",
-        path: ["linter", "rules", "style", "noRestrictedImports", "level"],
-        replacement,
-        cause: "policy:biome.json.linter.rules.style.noRestrictedImports.level",
-      });
-    }
-  } else {
-    // Overrides are an ordered native Biome resolution surface.
-    for (const index of [1, 2, 3]) {
-      for (const replacement of [undefined, "warn"])
-        mutations.push({
-          file: "biome.json",
-          path: [
-            "overrides",
-            String(index),
-            "linter",
-            "rules",
-            "style",
-            "noRestrictedImports",
-            "level",
-          ],
-          replacement,
-          cause: "policy:biome.json.overrides",
-        });
-    }
-  }
-  mutations.push(
+function biomeMutations(): PolicyMutation[] {
+  return [
     {
       file: "biome.json",
-      path: ["overrides", "0", "includes"],
-      replacement: ["src/**/*.ts"],
-      cause: "policy:biome.json.overrides",
+      path: ["linter", "enabled"],
+      replacement: true,
+      cause: "policy:biome.json.linter.enabled",
     },
     {
       file: "biome.json",
-      path: ["overrides", "0", "includes"],
-      replacement: ["src/engine.ts"],
-      cause: "policy:biome.json.overrides",
+      path: ["assist", "enabled"],
+      replacement: true,
+      cause: "policy:biome.json.assist.enabled",
+    },
+    {
+      file: "biome.json",
+      path: ["formatter", "enabled"],
+      replacement: false,
+      cause: "policy:biome.json.formatter.enabled",
     },
     {
       file: "biome.json",
@@ -1376,8 +1383,7 @@ function biomeMutations(profile: Profile): PolicyMutation[] {
       replacement: ["src/**/*.ts"],
       cause: "policy:biome.json.files.includes",
     },
-  );
-  return mutations;
+  ];
 }
 
 function fallowMutations(): PolicyMutation[] {
@@ -1468,7 +1474,7 @@ for (const profile of ["simple", "complex"] as const) {
   const groups = {
     compiler: compilerMutations(),
     packages: packageMutations(profile),
-    biome: biomeMutations(profile),
+    biome: biomeMutations(),
     fallow: fallowMutations(),
     includes: [
       {
@@ -1620,7 +1626,7 @@ for (const completeness of ["unavailable", "partial"] as const) {
   }, 120_000);
 }
 
-test("proves native Biome ownership canaries and complex exceptions", async () => {
+test("proves typed ESLint ownership canaries and complex exceptions", async () => {
   const allowed = await createProject("simple");
   await writeFile(
     join(allowed, "src/cli.ts"),
@@ -1632,10 +1638,10 @@ test("proves native Biome ownership canaries and complex exceptions", async () =
       "",
     ].join("\n"),
   );
-  const allowedResult = await runBiome(allowed);
+  const allowedResult = await runLint(allowed);
   if (allowedResult.exitCode !== 0) {
     throw new Error(
-      "Allowed output owner failed Biome.\nstdout:\n" +
+      "Allowed output owner failed ESLint.\nstdout:\n" +
         allowedResult.stdout +
         "\nstderr:\n" +
         allowedResult.stderr,
@@ -1647,21 +1653,21 @@ test("proves native Biome ownership canaries and complex exceptions", async () =
     join(forbiddenConsole, "src/other.ts"),
     'console.log("not the output owner");\n',
   );
-  const forbiddenConsoleResult = await runBiome(forbiddenConsole);
+  const forbiddenConsoleResult = await runLint(forbiddenConsole);
   expect(forbiddenConsoleResult.exitCode).not.toBe(0);
   expect(
     forbiddenConsoleResult.stdout + forbiddenConsoleResult.stderr,
-  ).toContain("noConsole");
+  ).toContain("no-console");
 
   const explicitAny = await createProject("simple");
   await writeFile(
     join(explicitAny, "src/other.ts"),
     "export const unsafe: any = 1;\n",
   );
-  const explicitAnyResult = await runBiome(explicitAny);
+  const explicitAnyResult = await runLint(explicitAny);
   expect(explicitAnyResult.exitCode).not.toBe(0);
   expect(explicitAnyResult.stdout + explicitAnyResult.stderr).toContain(
-    "noExplicitAny",
+    "@typescript-eslint/no-explicit-any",
   );
 
   const nonNull = await createProject("simple");
@@ -1673,10 +1679,10 @@ test("proves native Biome ownership canaries and complex exceptions", async () =
       "",
     ].join("\n"),
   );
-  const nonNullResult = await runBiome(nonNull);
+  const nonNullResult = await runLint(nonNull);
   expect(nonNullResult.exitCode).not.toBe(0);
   expect(nonNullResult.stdout + nonNullResult.stderr).toContain(
-    "noNonNullAssertion",
+    "@typescript-eslint/no-non-null-assertion",
   );
 
   const restricted = await createProject("simple");
@@ -1688,43 +1694,52 @@ test("proves native Biome ownership canaries and complex exceptions", async () =
       "",
     ].join("\n"),
   );
-  const restrictedResult = await runBiome(restricted);
+  const restrictedResult = await runLint(restricted);
   expect(restrictedResult.exitCode).not.toBe(0);
   expect(restrictedResult.stdout + restrictedResult.stderr).toContain(
-    "noRestrictedImports",
-  );
-
-  const undeclared = await createProject("simple");
-  await writeFile(
-    join(undeclared, "src/other.ts"),
-    [
-      'import missing from "not-declared";',
-      "export const unsafe = missing;",
-      "",
-    ].join("\n"),
-  );
-  const undeclaredResult = await runBiome(undeclared);
-  expect(undeclaredResult.exitCode).not.toBe(0);
-  expect(undeclaredResult.stdout + undeclaredResult.stderr).toContain(
-    "noUndeclaredDependencies",
+    "no-restricted-imports",
   );
 
   const complex = await createProject("complex");
-  const complexResult = await runBiome(complex);
+  const complexResult = await runLint(complex);
   expect(complexResult.exitCode).toBe(0);
 }, 120_000);
 
+for (const [module, stream, local] of [
+  ["node:process", "stdout", "stdout"],
+  ["node:process", "stderr", "errorStream"],
+  ["process", "stdout", "outputStream"],
+  ["process", "stderr", "stderr"],
+]) {
+  test(`typed ESLint rejects named process stream ${module}:${stream}`, async () => {
+    const root = await createProject("simple");
+    await mkdir(join(root, "src/domains"), { recursive: true });
+    const path = join(root, "src/domains/stream.ts");
+    await writeFile(
+      path,
+      `import { ${stream} as ${local} } from "${module}";\n${local}.write("forbidden output");\n`,
+    );
+    const rejected = await runLint(root);
+    expect(rejected.exitCode).toBe(1);
+    expect(rejected.stdout + rejected.stderr).toContain(
+      "repository/no-domain-output",
+    );
+    await writeFile(path, 'export const output = "returned domain data";\n');
+    expect((await runLint(root)).exitCode).toBe(0);
+  }, 120_000);
+}
+
 for (const method of ["error", "warn"] as const) {
-  test(`native Biome forbids owner console.${method}`, async () => {
+  test(`typed ESLint forbids owner console.${method}`, async () => {
     const root = await createProject("simple");
     await writeFile(
       join(root, "src/cli.ts"),
       SIMPLE_SOURCE["src/cli.ts"] +
         `\nconsole.${method}("forbidden output");\n`,
     );
-    const result = await runBiome(root);
+    const result = await runLint(root);
     expect(result.exitCode).toBe(1);
-    expect(result.stdout + result.stderr).toContain("noConsole");
+    expect(result.stdout + result.stderr).toContain("no-console");
   }, 120_000);
 }
 
@@ -1741,15 +1756,15 @@ for (const specimen of [
       'import { getLogger } from "@logtape/logtape";\nvoid getLogger;\n',
   },
 ]) {
-  test(`native Biome forbids complex restricted import: ${specimen.file}`, async () => {
+  test(`typed ESLint forbids complex restricted import: ${specimen.file}`, async () => {
     const root = await createProject("complex");
     await writeFile(
       join(root, specimen.file),
       specimen.source + specimen.statement,
     );
-    const result = await runBiome(root);
+    const result = await runLint(root);
     expect(result.exitCode).toBe(1);
-    expect(result.stdout + result.stderr).toContain("noRestrictedImports");
+    expect(result.stdout + result.stderr).toContain("no-restricted-imports");
   }, 120_000);
 }
 
@@ -1909,7 +1924,13 @@ async function makeTypeOnlyDependency(root: string): Promise<void> {
       "void schemaType;",
       "export const commandSchema = {",
       "  parse(input: unknown): Command {",
-      '    if (typeof input === "object" && input !== null && "kind" in input && input.kind === "help") return { kind: "help" };',
+      "    if (",
+      '      typeof input === "object" &&',
+      "      input !== null &&",
+      '      "kind" in input &&',
+      '      input.kind === "help"',
+      "    )",
+      '      return { kind: "help" };',
       '    throw new Error("invalid command");',
       "  },",
       "};",
@@ -1937,7 +1958,13 @@ test("Fallow remaining canary: test-only-dependencies", async () => {
       "",
       "export const commandSchema = {",
       "  parse(input: unknown): Command {",
-      '    if (typeof input === "object" && input !== null && "kind" in input && input.kind === "help") return { kind: "help" };',
+      "    if (",
+      '      typeof input === "object" &&',
+      "      input !== null &&",
+      '      "kind" in input &&',
+      '      input.kind === "help"',
+      "    )",
+      '      return { kind: "help" };',
       '    throw new Error("invalid command");',
       "  },",
       "};",

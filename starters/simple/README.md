@@ -1,8 +1,8 @@
-# __REPOSITORY_NAME__
+# `__REPOSITORY_NAME__`
 
 Read-only Bun CLI generated from the canonical simple starter.
 
-Source packet: __SOURCE_PACKET__
+Source packet: `__SOURCE_PACKET__`
 
 ```sh
 bun install --frozen-lockfile
