@@ -4,9 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const entryPoint = fileURLToPath(
-  new URL("__CLI_ENTRY_POINT__", import.meta.url),
-);
+const entryPath = "__CLI_ENTRY_POINT__";
+const entryPoint = fileURLToPath(new URL(entryPath, import.meta.url));
 const cases = [
   [["status"], "example.status"],
   [["set", "--value", "enabled", "--preview"], "example.set"],
