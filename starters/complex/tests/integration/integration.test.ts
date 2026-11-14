@@ -2,6 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import {
   mkdtemp,
   readdir,
+  realpath,
   readFile,
   rm,
   stat,
@@ -105,7 +106,9 @@ afterEach(async () => {
 });
 
 test("human help and selected-command discovery expose the supported routes", async () => {
-  const root = await mkdtemp(join(tmpdir(), "complex-starter-help-"));
+  const root = await realpath(
+    await mkdtemp(join(tmpdir(), "complex-starter-help-")),
+  );
   roots.push(root);
   const state = join(root, "state.json");
 
@@ -137,7 +140,9 @@ test("human help and selected-command discovery expose the supported routes", as
 });
 
 test("preview preserves state and apply writes exactly once", async () => {
-  const root = await mkdtemp(join(tmpdir(), "complex-starter-"));
+  const root = await realpath(
+    await mkdtemp(join(tmpdir(), "complex-starter-")),
+  );
   roots.push(root);
   const state = join(root, "state.json");
   const preview = invoke(
@@ -199,7 +204,9 @@ test.each([
 );
 
 test("two processes serialize one completed set and one safe refusal", async () => {
-  const root = await mkdtemp(join(tmpdir(), "complex-starter-concurrent-set-"));
+  const root = await realpath(
+    await mkdtemp(join(tmpdir(), "complex-starter-concurrent-set-")),
+  );
   roots.push(root);
   const state = join(root, "state.json");
   const barrier = join(root, "barrier");
@@ -219,6 +226,7 @@ test("two processes serialize one completed set and one safe refusal", async () 
         env: {
           ...process.env,
           CLI_EXAMPLE_STATE: state,
+          XDG_STATE_HOME: join(root, "diagnostics-state"),
           CLI_EXAMPLE_TEST_LOCK_BARRIER_PATH: barrier,
           CLI_EXAMPLE_TEST_LOCK_OWNER_TOKEN: ownerToken,
           NODE_ENV: "test",
@@ -302,7 +310,9 @@ test("two processes serialize one completed set and one safe refusal", async () 
 test.each(["enabled", "next"])(
   "recovery followed by set %s reconciles completion without replaying it",
   async (requestedValue) => {
-    const root = await mkdtemp(join(tmpdir(), "complex-starter-recover-"));
+    const root = await realpath(
+      await mkdtemp(join(tmpdir(), "complex-starter-recover-")),
+    );
     roots.push(root);
     const state = join(root, "state.json");
     // Independent fixture: the resource write completed, but its receipt did not.
@@ -424,13 +434,19 @@ test("recover keeps a pending effect unknown when persisted state is invalid", a
 });
 
 test("public routes ignore held-open stdin and finish after stdout drains", async () => {
-  const root = await mkdtemp(join(tmpdir(), "complex-starter-lifecycle-"));
+  const root = await realpath(
+    await mkdtemp(join(tmpdir(), "complex-starter-lifecycle-")),
+  );
   roots.push(root);
   const child = Bun.spawn(
     [process.execPath, "run", "src/cli.ts", "status", "--json"],
     {
       cwd: ROOT,
-      env: { ...process.env, CLI_EXAMPLE_STATE: join(root, "state.json") },
+      env: {
+        ...process.env,
+        CLI_EXAMPLE_STATE: join(root, "state.json"),
+        XDG_STATE_HOME: join(root, "diagnostics-state"),
+      },
       stdin: "pipe",
       stderr: "pipe",
       stdout: "pipe",
@@ -450,7 +466,9 @@ test("public routes ignore held-open stdin and finish after stdout drains", asyn
 test.each(["SIGINT", "SIGTERM"] as const)(
   "%s after handler readiness stops output at the 500ms flush deadline",
   async (signal) => {
-    const root = await mkdtemp(join(tmpdir(), "complex-starter-signal-"));
+    const root = await realpath(
+      await mkdtemp(join(tmpdir(), "complex-starter-signal-")),
+    );
     roots.push(root);
     const ready = join(root, "ready");
     const child = Bun.spawn(
@@ -460,6 +478,7 @@ test.each(["SIGINT", "SIGTERM"] as const)(
         env: {
           ...process.env,
           CLI_EXAMPLE_STATE: join(root, "state.json"),
+          XDG_STATE_HOME: join(root, "diagnostics-state"),
           CLI_EXAMPLE_TEST_DELAY_MS: "2000",
           CLI_EXAMPLE_TEST_DIAGNOSTIC_FLUSH_MS: "2000",
           CLI_EXAMPLE_TEST_READY_PATH: ready,
@@ -488,7 +507,9 @@ test.each(["SIGINT", "SIGTERM"] as const)(
 );
 
 test("a repeated termination exits immediately during diagnostic flush", async () => {
-  const root = await mkdtemp(join(tmpdir(), "complex-starter-repeat-"));
+  const root = await realpath(
+    await mkdtemp(join(tmpdir(), "complex-starter-repeat-")),
+  );
   roots.push(root);
   const ready = join(root, "ready");
   const child = Bun.spawn(
@@ -498,6 +519,7 @@ test("a repeated termination exits immediately during diagnostic flush", async (
       env: {
         ...process.env,
         CLI_EXAMPLE_STATE: join(root, "state.json"),
+        XDG_STATE_HOME: join(root, "diagnostics-state"),
         CLI_EXAMPLE_TEST_DELAY_MS: "2000",
         CLI_EXAMPLE_TEST_DIAGNOSTIC_FLUSH_MS: "2000",
         CLI_EXAMPLE_TEST_READY_PATH: ready,
@@ -527,7 +549,9 @@ test("a repeated termination exits immediately during diagnostic flush", async (
 test.each(["uncaught", "unhandled"] as const)(
   "%s crash makes one silent emergency exit",
   async (crash) => {
-    const root = await mkdtemp(join(tmpdir(), "complex-starter-crash-"));
+    const root = await realpath(
+      await mkdtemp(join(tmpdir(), "complex-starter-crash-")),
+    );
     roots.push(root);
     const ready = join(root, "ready");
     const state = join(root, "state.json");
@@ -538,6 +562,7 @@ test.each(["uncaught", "unhandled"] as const)(
         env: {
           ...process.env,
           CLI_EXAMPLE_STATE: state,
+          XDG_STATE_HOME: join(root, "diagnostics-state"),
           CLI_EXAMPLE_TEST_CRASH: crash,
           CLI_EXAMPLE_TEST_READY_PATH: ready,
           NODE_ENV: "test",
@@ -561,7 +586,9 @@ test.each(["uncaught", "unhandled"] as const)(
 );
 
 test("consumer disappearance before a large stdout drain exits internal", async () => {
-  const root = await mkdtemp(join(tmpdir(), "complex-starter-epipe-"));
+  const root = await realpath(
+    await mkdtemp(join(tmpdir(), "complex-starter-epipe-")),
+  );
   roots.push(root);
   const child = Bun.spawn(
     [process.execPath, "run", "src/cli.ts", "status", "--json"],
@@ -570,6 +597,7 @@ test("consumer disappearance before a large stdout drain exits internal", async 
       env: {
         ...process.env,
         CLI_EXAMPLE_STATE: join(root, "state.json"),
+        XDG_STATE_HOME: join(root, "diagnostics-state"),
         CLI_EXAMPLE_TEST_OUTPUT_BYTES: "4000000",
         NODE_ENV: "test",
       },
@@ -588,7 +616,9 @@ test("consumer disappearance before a large stdout drain exits internal", async 
 });
 
 test("a live consumer receives the complete large envelope before normal exit", async () => {
-  const root = await mkdtemp(join(tmpdir(), "complex-starter-drain-"));
+  const root = await realpath(
+    await mkdtemp(join(tmpdir(), "complex-starter-drain-")),
+  );
   roots.push(root);
   const child = Bun.spawn(
     [process.execPath, "run", "src/cli.ts", "status", "--json"],
@@ -597,6 +627,7 @@ test("a live consumer receives the complete large envelope before normal exit", 
       env: {
         ...process.env,
         CLI_EXAMPLE_STATE: join(root, "state.json"),
+        XDG_STATE_HOME: join(root, "diagnostics-state"),
         CLI_EXAMPLE_TEST_OUTPUT_BYTES: "1000000",
         NODE_ENV: "test",
       },
@@ -618,7 +649,9 @@ test("a live consumer receives the complete large envelope before normal exit", 
 });
 
 test("an interrupted set leaves intent, refuses replay, and recovers read-only", async () => {
-  const root = await mkdtemp(join(tmpdir(), "complex-starter-interrupted-"));
+  const root = await realpath(
+    await mkdtemp(join(tmpdir(), "complex-starter-interrupted-")),
+  );
   roots.push(root);
   const state = join(root, "state.json");
   const ready = join(root, "intent-ready");
@@ -637,6 +670,7 @@ test("an interrupted set leaves intent, refuses replay, and recovers read-only",
       env: {
         ...process.env,
         CLI_EXAMPLE_STATE: state,
+        XDG_STATE_HOME: join(root, "diagnostics-state"),
         CLI_EXAMPLE_TEST_AFTER_INTENT_DELAY_MS: "2000",
         CLI_EXAMPLE_TEST_AFTER_INTENT_READY_PATH: ready,
         NODE_ENV: "test",

@@ -5,6 +5,7 @@ import {
   builtInStations,
   commandSummaries,
   type CommandDefinition,
+  type OperationResult,
 } from "./commands-contract.ts";
 
 const CONTRACT_VERSION = "2.0.0";
@@ -314,12 +315,14 @@ function reportInternalFailure(
 }
 
 let asynchronousStdoutFailure = false;
-let activeCommandIdentity = "example.status";
+let activeCommandIdentity = "example.dispatch";
 
-function reportAsynchronousStdoutFailure(): void {
+function reportAsynchronousStdoutFailure(
+  error: Error & { code?: string },
+): void {
   asynchronousStdoutFailure = true;
   process.exitCode = 1;
-  if (hasJson(process.argv.slice(2))) return;
+  if (error.code === "EPIPE" || hasJson(process.argv.slice(2))) return;
   reportInternalFailureToStderr(
     internalFailure({
       ...OUTPUT_EMISSION_FAILURE_STATION,
@@ -329,6 +332,7 @@ function reportAsynchronousStdoutFailure(): void {
 }
 
 function showHelp(json: boolean): number {
+  activeCommandIdentity = "example.help";
   render(
     success(
       "example.help",
@@ -353,6 +357,7 @@ function showHelp(json: boolean): number {
 }
 
 function showDiscovery(json: boolean): number {
+  activeCommandIdentity = "example.discovery";
   render(
     success("example.discovery", discoveryData(), "Describe commands."),
     json,
@@ -384,6 +389,7 @@ function showCommand(
     (candidate) => candidate.commandIdentity === identity,
   );
   if (command === undefined) return undefined;
+  activeCommandIdentity = "example.command-discovery";
   render(
     success(
       "example.command-discovery",
@@ -403,11 +409,82 @@ function runInspection(args: string[], json: boolean): number | undefined {
   return undefined;
 }
 
+function nonemptyGuidance(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function isGuidanceRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function guidanceRecord(
+  value: unknown,
+  required: string[],
+  optional: string[] = [],
+): value is Record<string, unknown> {
+  if (!isGuidanceRecord(value)) return false;
+  return (
+    required.every((key) => Object.hasOwn(value, key)) &&
+    Object.keys(value).every(
+      (key) => required.includes(key) || optional.includes(key),
+    )
+  );
+}
+
+function validGuidanceResource(value: unknown): boolean {
+  return (
+    guidanceRecord(value, ["kind", "id"]) &&
+    nonemptyGuidance(value.kind) &&
+    nonemptyGuidance(value.id)
+  );
+}
+
+function validInspection(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    Array.from(value).every(nonemptyGuidance)
+  );
+}
+
+function validHandoffDetails(value: Record<string, unknown>): boolean {
+  return (
+    ["human", "operator"].some((owner) => value.owner === owner) &&
+    nonemptyGuidance(value.reason) &&
+    validInspection(value.inspect)
+  );
+}
+
+function validHandoff(value: unknown): boolean {
+  if (!guidanceRecord(value, ["owner", "reason", "inspect"], ["resource"]))
+    return false;
+  return (
+    validHandoffDetails(value) &&
+    (!Object.hasOwn(value, "resource") || validGuidanceResource(value.resource))
+  );
+}
+
+function validateGuidance(
+  guidance: Pick<OperationResult, "nextAction" | "handoff">,
+): void {
+  if (
+    Object.hasOwn(guidance, "nextAction") ===
+      Object.hasOwn(guidance, "handoff") ||
+    !(Object.hasOwn(guidance, "nextAction")
+      ? nonemptyGuidance(guidance.nextAction)
+      : validHandoff(guidance.handoff))
+  )
+    throw new Error(
+      "Command results require exactly one valid guidance branch.",
+    );
+}
+
 function formatOperation(
-  result: ReturnType<typeof success>,
+  result: { result: Omit<OperationResult, "message"> & { runId: string } },
   message: string,
   json: boolean,
 ): string {
+  validateGuidance(result.result);
   return json ? serialize(result) : `${message}\n`;
 }
 
@@ -416,7 +493,6 @@ async function runSelectedCommand(
   json: boolean,
 ): Promise<number> {
   activeCommandIdentity = selected.commandIdentity;
-  process.stdout.on("error", reportAsynchronousStdoutFailure);
   let operation;
   try {
     operation = await selected.execute([]);
@@ -427,8 +503,13 @@ async function runSelectedCommand(
     );
   }
   const { message, ...facts } = operation;
-  const result = success(operation.commandIdentity, operation.data, message);
-  Object.assign(result.result, facts);
+  const result = {
+    availablePaths: AVAILABLE_PATHS,
+    contractVersion: CONTRACT_VERSION,
+    envelopeVersion: 2,
+    message,
+    result: { ...facts, runId: randomUUID() },
+  };
   let output: string;
   try {
     output = formatOperation(result, message, json);
@@ -464,6 +545,7 @@ function reportUsage(json: boolean): number {
 }
 
 async function main(argv: string[]): Promise<number> {
+  process.stdout.on("error", reportAsynchronousStdoutFailure);
   const json = hasJson(argv);
   const separator = argv.indexOf("--");
   const args = argv.filter(

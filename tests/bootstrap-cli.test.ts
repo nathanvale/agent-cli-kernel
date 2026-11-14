@@ -85,6 +85,7 @@ const STARTER_FILES = {
     "src/process-lifecycle.ts",
     "src/runtime.ts",
     "tests/catalog/catalog.test.ts",
+    "tests/integration/diagnostics.test.ts",
     "tests/integration/integration.test.ts",
     "tests/unit/unit.test.ts",
     "tsconfig.base.json",
@@ -645,6 +646,164 @@ function admitCli(root: string): Invocation {
     root,
   ]);
 }
+
+const inventoryRegressions = [
+  {
+    name: "environment-prefixed application script",
+    scripts: {
+      start: "bun src/cli.ts",
+      extra: "MODE=one bun run src/second.ts",
+    },
+    files: {
+      "src/cli.ts": "export const main = true;",
+      "src/second.ts": "export const second = true;",
+    },
+    entries: ["src/cli.ts", "src/second.ts"],
+  },
+  {
+    name: "quoted environment prefixes and tooling script",
+    scripts: {
+      start: "MODE='one two' EMPTY= bun src/cli.ts",
+      "build:custom": 'MODE="build mode" bun scripts/build.ts',
+    },
+    files: {
+      "src/cli.ts": "export const main = true;",
+      "scripts/build.ts": "void process.argv;",
+    },
+    entries: ["src/cli.ts"],
+  },
+  ...[
+    ["js", "ts"],
+    ["mjs", "mts"],
+    ["cjs", "cts"],
+  ].map(([emitted, source]) => ({
+    name: `emitted .${emitted} import resolves .${source} helper`,
+    scripts: { start: "bun src/cli.ts" },
+    files: {
+      "src/cli.ts": `import "./args.${emitted}";`,
+      [`src/args.${source}`]: "export const args = process.argv;",
+    },
+    entries: ["src/cli.ts"],
+  })),
+  {
+    name: "TypeScript generic arrow and TSX source",
+    scripts: { start: "bun src/cli.ts" },
+    files: {
+      "src/cli.ts":
+        'import "./view.tsx"; const identity = <T>(value: T) => value; void identity(1);',
+      "src/view.tsx": "export const view = <div />;",
+    },
+    entries: ["src/cli.ts"],
+  },
+  {
+    name: "tooling argument helper stays in import graph",
+    scripts: {
+      start: "bun src/cli.ts",
+      "build:custom": "bun scripts/build.ts",
+    },
+    files: {
+      "src/cli.ts": "export const main = true;",
+      "scripts/build.ts": 'import "./options.ts";',
+      "scripts/options.ts": "export const args = process.argv;",
+    },
+    entries: ["src/cli.ts"],
+  },
+  {
+    name: "comments and strings are not executable evidence",
+    scripts: { start: "bun src/cli.ts" },
+    files: {
+      "src/cli.ts": 'import "./domain.ts";',
+      "src/domain.ts":
+        '// import.meta.main belongs in the front door\nexport const text = "import.meta.main";',
+      "src/note.ts": '/* process.argv */ export const note = "process.argv";',
+    },
+    entries: ["src/cli.ts"],
+  },
+  {
+    name: "regex and template text are not executable evidence",
+    scripts: { start: "bun src/cli.ts" },
+    files: {
+      "src/cli.ts": "export const main = true;",
+      "src/notes.ts":
+        "export const pattern = /import.meta.main|process.argv/; export const note = `import.meta.main process.argv`;",
+    },
+    entries: ["src/cli.ts"],
+  },
+  {
+    name: "references inside template interpolation count",
+    scripts: { start: "bun src/cli.ts" },
+    files: {
+      "src/cli.ts": "export const main = true;",
+      "src/second.ts": "export const args = `${process.argv}`;",
+    },
+    entries: ["src/cli.ts", "src/second.ts"],
+  },
+  {
+    name: "reference markers in literal text do not count",
+    scripts: { start: "bun src/cli.ts" },
+    files: {
+      "src/cli.ts": "export const main = true;",
+      "src/notes.ts":
+        'export const note = "__cliInventoryMain __cliInventoryArgv"; export const escaped = "\\u005f_cliInventoryMain";',
+    },
+    entries: ["src/cli.ts"],
+  },
+  {
+    name: "imported executable source still counts",
+    scripts: { start: "bun src/cli.ts" },
+    files: {
+      "src/cli.ts": 'import "./second.ts";',
+      "src/second.ts": 'if (import.meta.main) process.stdout.write("second");',
+    },
+    entries: ["src/cli.ts", "src/second.ts"],
+  },
+];
+
+for (const specimen of inventoryRegressions) {
+  test(`one-CLI inventory regression: ${specimen.name}`, async () => {
+    const root = await temporaryRoot();
+    await writeFile(
+      join(root, "package.json"),
+      JSON.stringify({ scripts: specimen.scripts }),
+    );
+    for (const [name, source] of Object.entries(specimen.files)) {
+      const path = join(root, name);
+      await mkdir(resolve(path, ".."), { recursive: true });
+      await writeFile(path, source);
+    }
+    const observed = admitCli(root);
+    expect(observed.stderr).toBe("");
+    expect(JSON.parse(observed.stdout)).toEqual({
+      entries: specimen.entries,
+      status: specimen.entries.length === 1 ? "admitted" : "refused",
+    });
+    expect(observed.exitCode).toBe(specimen.entries.length === 1 ? 0 : 1);
+  });
+}
+
+test("one-CLI inventory runs as an extracted module without host dependencies", async () => {
+  const root = await temporaryRoot();
+  await mkdir(join(root, "src"));
+  await writeFile(
+    join(root, "src/cli.ts"),
+    "if (import.meta.main) void process.argv;\n",
+  );
+  await writeFile(
+    join(root, "src/domain.ts"),
+    'export const note = "import.meta.main";\n',
+  );
+  const source = await readFile(join(ROOT, "src/cli-inventory.ts"), "utf8");
+  const javascript = new Bun.Transpiler({
+    loader: "ts",
+    target: "bun",
+  }).transformSync(source);
+  const moduleUrl = `data:text/javascript;base64,${Buffer.from(javascript).toString("base64")}`;
+  const script = `const { inventoryApplicationClis } = await import(${JSON.stringify(moduleUrl)}); process.stdout.write(JSON.stringify(await inventoryApplicationClis(process.cwd())));`;
+  const observed = runCommand(root, [process.execPath, "--eval", script]);
+  expect(observed.stderr).toBe("");
+  expect(observed.exitCode).toBe(0);
+  expect(JSON.parse(observed.stdout)).toEqual(["src/cli.ts"]);
+});
 
 test("one-CLI admission covers scratch, durable and workspace entry points", async () => {
   for (const [profile, extra] of [

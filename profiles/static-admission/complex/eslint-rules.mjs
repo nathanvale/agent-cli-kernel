@@ -11,6 +11,16 @@ export default {
       },
       create(context) {
         return {
+          ImportSpecifier(node) {
+            if (!["node:process", "process"].includes(node.parent.source.value))
+              return;
+            if (
+              ["stdout", "stderr"].includes(
+                node.imported.name ?? node.imported.value,
+              )
+            )
+              context.report({ node, messageId: "output" });
+          },
           MemberExpression(node) {
             const property = node.computed
               ? node.property.value

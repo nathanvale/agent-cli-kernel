@@ -50,8 +50,13 @@ async function filesIn(root: string, directory = root): Promise<string[]> {
 }
 
 function scriptTarget(value: string): string | undefined {
+  // Shell assignment words may contain quoted spaces; they precede the runtime.
+  const command = value.replace(
+    /^(?:[A-Za-z_][A-Za-z0-9_]*=(?:[^\s"'\\]|\\.|"(?:[^"\\]|\\.)*"|'[^']*')*\s+)*/,
+    "",
+  );
   return /^(?:bun|node|tsx)\s+(?:run\s+)?(?:--[\w=-]+\s+)*["']?([^\s"']+\.(?:[cm]?[jt]sx?))["']?(?:\s|$)/.exec(
-    value,
+    command,
   )?.[1];
 }
 
@@ -163,16 +168,33 @@ function importedFile(
   const base = resolve(dirname(path), specifier);
   return [
     base,
+    ...emittedSourceCandidates(base),
     ...[...SOURCE].map((extension) => base + extension),
     ...[...SOURCE].map((extension) => join(base, "index" + extension)),
   ].find((candidate) => files.has(candidate));
 }
 
+function emittedSourceCandidates(path: string): string[] {
+  const extensions: Record<string, string[]> = {
+    ".js": [".ts", ".tsx"],
+    ".jsx": [".tsx"],
+    ".mjs": [".mts"],
+    ".cjs": [".cts"],
+  };
+  const extension = extname(path);
+  return (extensions[extension] ?? []).map(
+    (sourceExtension) => path.slice(0, -extension.length) + sourceExtension,
+  );
+}
+
 async function importedSources(paths: string[]): Promise<Set<string>> {
   const files = new Set(paths);
   const imported = new Set<string>();
-  const scanner = new Bun.Transpiler({ loader: "tsx" });
   for (const path of paths) {
+    const scanner = new Bun.Transpiler({
+      loader:
+        extname(path) === ".tsx" || extname(path) === ".jsx" ? "tsx" : "ts",
+    });
     const source = await readFile(path, "utf8");
     for (const item of scanner.scan(source).imports) {
       const target = importedFile(path, item.path, files);
@@ -182,17 +204,50 @@ async function importedSources(paths: string[]): Promise<Set<string>> {
   return imported;
 }
 
-function executableSource(source: string, imported: boolean): boolean {
-  if (/\bimport\.meta\.main\b/.test(source)) return true;
-  return !imported && /\bprocess\.argv\b/.test(source);
+function referenceMarker(source: string, name: string): string {
+  let marker = name;
+  while (source.includes(marker)) marker += "_";
+  return marker;
 }
 
-async function sourceEntries(root: string, paths: string[]): Promise<string[]> {
+function executableSource(
+  path: string,
+  source: string,
+  imported: boolean,
+): boolean {
+  const options: Bun.TranspilerOptions = {
+    loader: extname(path) === ".tsx" ? "tsx" : "ts",
+    deadCodeElimination: false,
+    treeShaking: false,
+  };
+  const original = new Bun.Transpiler(options).transformSync(source);
+  // Avoid collisions even when the parser normalizes escaped literal text.
+  const occupied = source + original;
+  const main = referenceMarker(occupied, "__cliInventoryMain");
+  const argv = referenceMarker(occupied, "__cliInventoryArgv");
+  const transformed = new Bun.Transpiler({
+    ...options,
+    define: { "import.meta.main": main, "process.argv": argv },
+  }).transformSync(source);
+  // Bun substitutes syntax references, never comments, regexes or literal text.
+  return (
+    transformed.includes(main) || (!imported && transformed.includes(argv))
+  );
+}
+
+async function sourceEntries(
+  root: string,
+  paths: string[],
+  tooling: Set<string>,
+): Promise<string[]> {
   const entries: string[] = [];
   const sources = paths.filter((path) => applicationSource(root, path));
   const imported = await importedSources(sources);
   for (const path of sources) {
-    if (executableSource(await readFile(path, "utf8"), imported.has(path)))
+    if (
+      !tooling.has(path) &&
+      executableSource(path, await readFile(path, "utf8"), imported.has(path))
+    )
       entries.push(relative(root, path));
   }
   return entries;
@@ -205,8 +260,7 @@ export async function inventoryApplicationClis(
   const paths = await filesIn(root);
   const files = new Set(paths);
   const tooling = await toolingEntries(paths);
-  const applicationPaths = paths.filter((path) => !tooling.has(path));
-  const entries = await sourceEntries(root, applicationPaths);
+  const entries = await sourceEntries(root, paths, tooling);
   for (const path of paths.filter((path) => path.endsWith("package.json")))
     entries.push(...(await manifestEntries(root, path)));
   for (const path of paths.filter((path) => path.endsWith(".md")))

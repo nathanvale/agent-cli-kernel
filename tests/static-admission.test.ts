@@ -1705,6 +1705,30 @@ test("proves typed ESLint ownership canaries and complex exceptions", async () =
   expect(complexResult.exitCode).toBe(0);
 }, 120_000);
 
+for (const [module, stream, local] of [
+  ["node:process", "stdout", "stdout"],
+  ["node:process", "stderr", "errorStream"],
+  ["process", "stdout", "outputStream"],
+  ["process", "stderr", "stderr"],
+]) {
+  test(`typed ESLint rejects named process stream ${module}:${stream}`, async () => {
+    const root = await createProject("simple");
+    await mkdir(join(root, "src/domains"), { recursive: true });
+    const path = join(root, "src/domains/stream.ts");
+    await writeFile(
+      path,
+      `import { ${stream} as ${local} } from "${module}";\n${local}.write("forbidden output");\n`,
+    );
+    const rejected = await runLint(root);
+    expect(rejected.exitCode).toBe(1);
+    expect(rejected.stdout + rejected.stderr).toContain(
+      "repository/no-domain-output",
+    );
+    await writeFile(path, 'export const output = "returned domain data";\n');
+    expect((await runLint(root)).exitCode).toBe(0);
+  }, 120_000);
+}
+
 for (const method of ["error", "warn"] as const) {
   test(`typed ESLint forbids owner console.${method}`, async () => {
     const root = await createProject("simple");
