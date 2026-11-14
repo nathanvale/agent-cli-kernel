@@ -187,11 +187,18 @@ function emittedSourceCandidates(path: string): string[] {
   );
 }
 
+function sourceTranspiler(options: Bun.TranspilerOptions): Bun.Transpiler {
+  // Bun 1.4.4 supports macro:false; bun-types 1.4.0 omits the boolean overload.
+  // src/runtime/api/JSTranspiler.rs sets no_macros from this runtime option.
+  const macroControl: Record<string, boolean> = { macro: false };
+  return new Bun.Transpiler({ ...options, ...macroControl });
+}
+
 async function importedSources(paths: string[]): Promise<Set<string>> {
   const files = new Set(paths);
   const imported = new Set<string>();
   for (const path of paths) {
-    const scanner = new Bun.Transpiler({
+    const scanner = sourceTranspiler({
       loader:
         extname(path) === ".tsx" || extname(path) === ".jsx" ? "tsx" : "ts",
     });
@@ -210,6 +217,72 @@ function referenceMarker(source: string, name: string): string {
   return marker;
 }
 
+function processImportCount(source: string, scanner: Bun.Transpiler): number {
+  return scanner
+    .scan(source)
+    .imports.filter(
+      (item) => item.path === "node:process" || item.path === "process",
+    ).length;
+}
+
+interface ProcessBinding {
+  reference?: string;
+  bound?: string;
+}
+
+// An argv read becomes a define key; any other named import stays bound.
+function namedProcessBinding(specifier: string): ProcessBinding {
+  const [imported = "", local = imported] = specifier.trim().split(/\s+as\s+/u);
+  if (imported === "default") return { reference: `${local}.argv` };
+  if (imported === "argv") return { reference: local };
+  return local === "" ? {} : { bound: local };
+}
+
+function processImportBindings(clause: string) {
+  const named = (/\{([^}]*)\}/u.exec(clause)?.[1] ?? "")
+    .split(",")
+    .map(namedProcessBinding);
+  const bindings = clause
+    .replace(/\{[^}]*\}/u, "")
+    .matchAll(
+      /(?:^|,)\s*(?:\* as\s+)?([\p{ID_Start}$_][\p{ID_Continue}$‌‍]*)\s*(?=,|$)/gu,
+    );
+  return {
+    references: [
+      ...[...bindings].map((match) => `${match[1]}.argv`),
+      ...named.flatMap((binding) => binding.reference ?? []),
+    ],
+    bound: named.flatMap((binding) => binding.bound ?? []),
+  };
+}
+
+function processBindingReferences(
+  original: string,
+  scanner: Bun.Transpiler,
+  marker: string,
+) {
+  const define: Record<string, string> = {
+    "Bun.argv": marker,
+    "process.argv": marker,
+  };
+  const imports = processImportCount(original, scanner);
+  // Bun prints process imports in this form, named lists possibly multiline.
+  const source = original.replace(
+    /^import ([^;"'`]+?) from "(?:node:)?process";$/gmu,
+    (statement: string, clause: string, offset: number) => {
+      const without =
+        original.slice(0, offset) + original.slice(offset + statement.length);
+      // A matching line inside template text is not an import: ask the parser.
+      if (processImportCount(without, scanner) === imports) return statement;
+      const { references, bound } = processImportBindings(clause);
+      for (const reference of references) define[reference] = marker;
+      // A renamed non-argv import such as `env as process` must stay bound.
+      return bound.length === 0 ? "" : `let ${bound.join(", ")};`;
+    },
+  );
+  return { source, define };
+}
+
 function executableSource(
   path: string,
   source: string,
@@ -220,15 +293,17 @@ function executableSource(
     deadCodeElimination: false,
     treeShaking: false,
   };
-  const original = new Bun.Transpiler(options).transformSync(source);
+  const scanner = sourceTranspiler(options);
+  const original = scanner.transformSync(source);
   // Avoid collisions even when the parser normalizes escaped literal text.
   const occupied = source + original;
   const main = referenceMarker(occupied, "__cliInventoryMain");
   const argv = referenceMarker(occupied, "__cliInventoryArgv");
-  const transformed = new Bun.Transpiler({
+  const references = processBindingReferences(original, scanner, argv);
+  const transformed = sourceTranspiler({
     ...options,
-    define: { "import.meta.main": main, "process.argv": argv },
-  }).transformSync(source);
+    define: { ...references.define, "import.meta.main": main },
+  }).transformSync(references.source);
   // Bun substitutes syntax references, never comments, regexes or literal text.
   return (
     transformed.includes(main) || (!imported && transformed.includes(argv))

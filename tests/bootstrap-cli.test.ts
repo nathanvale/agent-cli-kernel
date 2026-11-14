@@ -781,6 +781,17 @@ for (const specimen of inventoryRegressions) {
   });
 }
 
+async function admitExtractedCli(root: string): Promise<Invocation> {
+  const source = await readFile(join(ROOT, "src/cli-inventory.ts"), "utf8");
+  const javascript = new Bun.Transpiler({
+    loader: "ts",
+    target: "bun",
+  }).transformSync(source);
+  const moduleUrl = `data:text/javascript;base64,${Buffer.from(javascript).toString("base64")}`;
+  const script = `const { inventoryApplicationClis } = await import(${JSON.stringify(moduleUrl)}); process.stdout.write(JSON.stringify(await inventoryApplicationClis(process.cwd())));`;
+  return runCommand(root, [process.execPath, "--eval", script]);
+}
+
 test("one-CLI inventory runs as an extracted module without host dependencies", async () => {
   const root = await temporaryRoot();
   await mkdir(join(root, "src"));
@@ -792,18 +803,125 @@ test("one-CLI inventory runs as an extracted module without host dependencies", 
     join(root, "src/domain.ts"),
     'export const note = "import.meta.main";\n',
   );
-  const source = await readFile(join(ROOT, "src/cli-inventory.ts"), "utf8");
-  const javascript = new Bun.Transpiler({
-    loader: "ts",
-    target: "bun",
-  }).transformSync(source);
-  const moduleUrl = `data:text/javascript;base64,${Buffer.from(javascript).toString("base64")}`;
-  const script = `const { inventoryApplicationClis } = await import(${JSON.stringify(moduleUrl)}); process.stdout.write(JSON.stringify(await inventoryApplicationClis(process.cwd())));`;
-  const observed = runCommand(root, [process.execPath, "--eval", script]);
+  const observed = await admitExtractedCli(root);
   expect(observed.stderr).toBe("");
   expect(observed.exitCode).toBe(0);
   expect(JSON.parse(observed.stdout)).toEqual(["src/cli.ts"]);
 });
+
+for (const extracted of [false, true]) {
+  test(`one-CLI inventory never executes macros: ${extracted ? "extracted" : "standalone"}`, async () => {
+    const root = await temporaryRoot();
+    const effectsRoot = await temporaryRoot();
+    const marker = join(effectsRoot, "executed.txt");
+    const macro = join(effectsRoot, "effect.ts");
+    await writeFile(
+      macro,
+      `import { appendFileSync } from "node:fs"; export function effect() { appendFileSync(${JSON.stringify(marker)}, "executed\\n"); return 1; }`,
+    );
+    await mkdir(join(root, "src"));
+    await writeFile(
+      join(root, "package.json"),
+      JSON.stringify({ scripts: { start: "bun src/cli.ts" } }),
+    );
+    await writeFile(
+      join(root, "src/cli.ts"),
+      `import { effect } from ${JSON.stringify(macro)} with { type: "macro" }; export const value = effect();`,
+    );
+    const observed = extracted ? await admitExtractedCli(root) : admitCli(root);
+    expect(existsSync(marker)).toBe(false);
+    expect(observed.exitCode).toBe(1);
+    if (extracted) expect(observed.stderr).toContain("Macros are disabled");
+    else
+      expect(JSON.parse(observed.stdout)).toMatchObject({
+        status: "refused",
+        reason: "Macros are disabled",
+      });
+  });
+}
+
+for (const [name, source, entries] of [
+  [
+    "default process",
+    'import process from "node:process"; console.log(process.argv);',
+    ["src/cli.ts", "src/second.ts"],
+  ],
+  [
+    "namespace process",
+    'import * as process from "node:process"; console.log(process.argv);',
+    ["src/cli.ts", "src/second.ts"],
+  ],
+  [
+    "default alias",
+    'import proc from "process"; console.log(proc.argv);',
+    ["src/cli.ts", "src/second.ts"],
+  ],
+  [
+    "namespace alias interpolation",
+    'import * as proc from "node:process"; console.log(`${proc.argv}`);',
+    ["src/cli.ts", "src/second.ts"],
+  ],
+  [
+    "named argv",
+    'import { argv } from "node:process"; console.log(argv);',
+    ["src/cli.ts", "src/second.ts"],
+  ],
+  [
+    "multiline named argv alias",
+    "import {\n  env,\n  argv as args,\n} from 'process';\nconsole.log(env, args);",
+    ["src/cli.ts", "src/second.ts"],
+  ],
+  [
+    "default as named with argv",
+    'import proc, { default as other } from "node:process"; console.log(proc, other.argv);',
+    ["src/cli.ts", "src/second.ts"],
+  ],
+  ["Bun argv", "console.log(Bun.argv);", ["src/cli.ts", "src/second.ts"]],
+  [
+    "non-ASCII process binding",
+    'import ñ from "process"; import { argv as \\u00e9 } from "process"; console.log(ñ.argv, \\u00e9);',
+    ["src/cli.ts", "src/second.ts"],
+  ],
+  [
+    "renamed non-argv import shadows globals",
+    'import { env as process, exit as Bun } from "node:process"; console.log(process.argv, Bun.argv);',
+    ["src/cli.ts"],
+  ],
+  [
+    "named process import without argv",
+    'import { env } from "node:process"; console.log(env, "Bun.argv");',
+    ["src/cli.ts"],
+  ],
+  [
+    "imported process literal",
+    'import process from "node:process"; void process; export const note = "process.argv";',
+    ["src/cli.ts"],
+  ],
+  [
+    "fake import in template",
+    'import proc from "node:process"; void proc; export const note = `\nimport fake from "node:process";\n`; console.log(fake.argv);',
+    ["src/cli.ts"],
+  ],
+] as const) {
+  test(`one-CLI inventory imported process: ${name}`, async () => {
+    const root = await temporaryRoot();
+    await mkdir(join(root, "src"));
+    await writeFile(
+      join(root, "package.json"),
+      JSON.stringify({ scripts: { start: "bun src/cli.ts" } }),
+    );
+    await writeFile(join(root, "src/cli.ts"), "export const main = true;");
+    await writeFile(join(root, "src/second.ts"), source);
+    const observed = admitCli(root);
+    expect(observed.stderr).toBe("");
+    expect(JSON.parse(observed.stdout)).toMatchObject({ entries });
+    expect(observed.exitCode).toBe(entries.length === 1 ? 0 : 1);
+    const extracted = await admitExtractedCli(root);
+    expect(extracted.stderr).toBe("");
+    expect(extracted.exitCode).toBe(0);
+    expect(JSON.parse(extracted.stdout)).toEqual(entries);
+  });
+}
 
 test("one-CLI admission covers scratch, durable and workspace entry points", async () => {
   for (const [profile, extra] of [
