@@ -161,6 +161,7 @@ export type OperandFit = {
 
 export type Launched = {
   readonly pid: number;
+  readonly running: () => boolean;
   readonly operand: OperandFit | undefined;
   readonly dir: string;
   readonly ledgerPath: string;
@@ -323,6 +324,7 @@ export async function launch(options: {
   })();
   return {
     pid: child.pid,
+    running: () => child.exitCode === null && child.signalCode === null,
     operand: fitted?.fit,
     dir,
     ledgerPath,
@@ -458,12 +460,55 @@ export function requireTools(): void {
     throw new Error(`UNPROVED on this host: missing ${missing.join(", ")}.`);
 }
 
+// R1: a case that fails or hangs leaves no fixture process behind. The wait
+// is bounded below the test timeout; release kills the CLI if it is still
+// running, then every child its fixture ledgered, then removes the temporary
+// directory.
+export async function exitWithin(
+  launched: Launched,
+  milliseconds = 20_000,
+): Promise<Observed> {
+  const observed = await Promise.race([
+    launched.done,
+    Bun.sleep(milliseconds).then(() => undefined),
+  ]);
+  if (!observed)
+    throw new Error(`The CLI did not exit within ${milliseconds} ms.`);
+  return observed;
+}
+const ledgeredChildren = ["child-started", "grandchild", "escaped"];
+export async function release(launched: Launched): Promise<void> {
+  if (launched.running()) launched.signal("SIGKILL");
+  const observed = await launched.done;
+  for (const line of readLedger(launched.ledgerPath)) {
+    const [prefix, value] = line.split(" ");
+    const pid = Number(value);
+    if (
+      prefix &&
+      ledgeredChildren.includes(prefix) &&
+      Number.isSafeInteger(pid) &&
+      pid > 0
+    )
+      try {
+        process.kill(pid, "SIGKILL");
+      } catch {
+        // Already gone.
+      }
+  }
+  await cleanup(observed);
+}
+
 export async function run(
   entry: Case,
   extra: Partial<Parameters<typeof launch>[0]> = {},
 ) {
   const launched = await launchCase(entry, extra);
-  return launched.done;
+  try {
+    return await exitWithin(launched);
+  } catch (error) {
+    await release(launched);
+    throw error;
+  }
 }
 
 // Independent process-table probe.
@@ -556,16 +601,19 @@ export function resultOf(envelope: Record<string, unknown>) {
   return result;
 }
 
-export function containerDepth(value: unknown): number {
+// B2 (Nathan, 16 November 2026): the level of the deepest value. The root is
+// level 0, each value inside a container is one level deeper, and scalars
+// count. Test-owned; never imported from the kernel.
+export function deepestLevel(value: unknown): number {
   let deepest = 0;
-  const stack: { readonly value: unknown; readonly depth: number }[] = [
-    { value, depth: 1 },
+  const stack: { readonly value: unknown; readonly level: number }[] = [
+    { value, level: 0 },
   ];
   for (let item = stack.pop(); item; item = stack.pop()) {
+    deepest = Math.max(deepest, item.level);
     if (item.value === null || typeof item.value !== "object") continue;
-    deepest = Math.max(deepest, item.depth);
     for (const child of Object.values(item.value))
-      stack.push({ value: child, depth: item.depth + 1 });
+      stack.push({ value: child, level: item.level + 1 });
   }
   return deepest;
 }

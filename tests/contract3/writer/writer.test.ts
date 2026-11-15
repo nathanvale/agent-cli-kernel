@@ -4,9 +4,11 @@ import { describe, expect, test } from "bun:test";
 import { encodeBounded } from "../../../starters/contract3/src/kernel/fallback.ts";
 import { assertEnvelope, assertHuman, receipt } from "../lifecycle/checks.ts";
 import { sliceCases } from "../lifecycle/coverage.ts";
+import { json } from "../../../starters/contract3/src/kernel/validation/primitives.ts";
 import {
   caseById,
   cleanup,
+  deepestLevel,
   envelopeOf,
   n,
   resultOf,
@@ -121,9 +123,99 @@ describe("fallback encoder bound (component support for F04 encoding)", () => {
     expect(encodeBounded("x".repeat(16_381))).toBe(`"${"x".repeat(16_381)}"`);
     expect(encodeBounded("x".repeat(16_382))).toBeUndefined();
     expect(encodeBounded([[[[[[[[]]]]]]]])).toBe("[[[[[[[[]]]]]]]]");
-    expect(encodeBounded([[[[[[[[[]]]]]]]]])).toBeUndefined();
+    // B2 (Nathan, 16 November 2026): root level 0, every value counts.
+    expect(encodeBounded([[[[[[[[[]]]]]]]]])).toBe("[[[[[[[[[]]]]]]]]]");
+    expect(encodeBounded([[[[[[[[[[]]]]]]]]]])).toBeUndefined();
+    expect(encodeBounded([[[[[[[[1]]]]]]]])).toBe("[[[[[[[[1]]]]]]]]");
+    expect(encodeBounded([[[[[[[[[1]]]]]]]]])).toBeUndefined();
     expect(encodeBounded({ a: Number.NaN })).toBeUndefined();
     expect(encodeBounded({ a: new Date(0) })).toBeUndefined();
     expect(encodeBounded([undefined])).toBeUndefined();
   });
+});
+
+// B2 (Nathan, 16 November 2026): one depth rule for both limits. The root is
+// level 0, every value inside a container is one level deeper, scalars count,
+// and a value above the limit is rejected.
+function arrays(count: number, scalar?: number | string): unknown {
+  let value: unknown = scalar === undefined ? [] : [scalar];
+  for (let level = 1; level < count; level++) value = [value];
+  return value;
+}
+
+describe("one depth rule for the 64 and 8 limits (supporting B2)", () => {
+  test("B2.01.encoder-boundary-table", () => {
+    for (const [input, admitted] of [
+      [arrays(8), true],
+      [arrays(9), true],
+      [arrays(10), false],
+      [arrays(8, 1), true],
+      [arrays(9, 1), false],
+    ] as const)
+      expect(encodeBounded(input) !== undefined).toBe(admitted);
+  });
+
+  test("B2.04.one-rule-two-limits", () => {
+    const envelope = (data: unknown) => ({
+      contractVersion: "3.0.0",
+      message: "m",
+      availablePaths: [],
+      result: { data },
+    });
+    // Result guard at 64, measured from the envelope (data sits at level 2).
+    for (const [data, admitted] of [
+      [arrays(63), true],
+      [arrays(64), false],
+      [arrays(62, 1), true],
+      [arrays(63, 1), false],
+    ] as const) {
+      const whole = envelope(data);
+      expect(deepestLevel(whole) <= 64).toBe(admitted);
+      expect(json(whole)).toBe(admitted);
+    }
+    // Fallback encoder at 8, measured from its root.
+    for (const input of [
+      arrays(8),
+      arrays(9),
+      arrays(10),
+      arrays(8, 1),
+      arrays(9, 1),
+    ])
+      expect(encodeBounded(input) !== undefined).toBe(deepestLevel(input) <= 8);
+  });
+
+  for (const [depth, causeCode, exit] of [
+    [62, "SUCCESS_UNCHANGED", 0],
+    [63, "INTERNAL_RESULT_UNCHANGED", 1],
+  ] as const)
+    test(
+      `B2.03.result-guard-scalar-at-level-${String(depth + 2)}`,
+      async () => {
+        const entry = {
+          ...caseById("W04.max-depth-twin"),
+          id: `B2.03.scalar-${String(depth)}`,
+          argv: [
+            "bad",
+            "--variant",
+            "depth-scalar",
+            "--depth",
+            String(depth),
+            "--json",
+          ],
+          expect: {
+            commandIdentity: "fx.bad",
+            causeCode,
+            exit,
+            ...(exit === 1 ? { fallback: true } : {}),
+          },
+        };
+        const observed = await run(entry);
+        try {
+          assertEnvelope(entry, observed);
+        } finally {
+          await cleanup(observed);
+        }
+      },
+      timeout,
+    );
 });

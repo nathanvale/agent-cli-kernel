@@ -1,18 +1,20 @@
 // T2 lifecycle process cases (L01 to L05, L07 to L12, R02).
 import { describe, expect, test } from "bun:test";
 import { comparableEnvelope } from "../../../starters/contract3/src/kernel/comparison.ts";
-import { assertEnvelope, receipt } from "./checks.ts";
+import { assertEnvelope, authorityDefaults, receipt } from "./checks.ts";
 import { sliceCases } from "./coverage.ts";
 import {
   caseById,
   cleanup,
   decliningHost,
   envelopeOf,
+  exitWithin,
   frontDoorStart,
   goneWithin,
   launch,
   launchCase,
   n,
+  release,
   resultOf,
   run,
   slowSmallChunkRun,
@@ -38,7 +40,8 @@ function childPid(observed: { readonly ledger: readonly string[] }) {
   const line = observed.ledger.find((entry) =>
     entry.startsWith("child-started"),
   );
-  return line ? Number(line.split(" ")[1]) : undefined;
+  const pid = line ? Number(line.split(" ")[1]) : Number.NaN;
+  return Number.isSafeInteger(pid) && pid > 0 ? pid : undefined;
 }
 function deadlineOf(entry: Case) {
   const index = entry.argv.indexOf("--deadline-ms");
@@ -51,7 +54,7 @@ async function start(
   return launchCase(entry, extra);
 }
 async function finish(entry: Case, launched: Launched, extra: object = {}) {
-  const observed = await launched.done;
+  const observed = await exitWithin(launched);
   receipt(entry, observed, extra);
   return observed;
 }
@@ -97,16 +100,27 @@ function reportOperandFit(entry: Case, fit: OperandFit) {
     );
 }
 
+// B1 (Nathan, 16 November 2026): a command without deadline support refuses
+// `--deadline-ms` under its own identity; a malformed value is refused by
+// `<cli>.dispatch`. Test-owned binding table keyed by the frozen L07 IDs,
+// which carry `identityPending` (t2-cases.json is not edited).
+const l07Binding: Readonly<Record<string, string>> = {
+  "L07.usage-unsupported-command": "fx.read",
+  "L07.usage-zero": "fx.dispatch",
+  "L07.usage-negative": "fx.dispatch",
+  "L07.usage-non-integer": "fx.dispatch",
+};
+
 const checks: Record<string, (entry: Case) => Promise<void>> = {
   async L01(entry) {
     const atDispatch = entry.expect.barrier === "dispatch-start";
     const launched = await start(entry, {
       env: atDispatch ? { FX_HOLD_MS: "400" } : {},
     });
-    await launched.barrier(atDispatch ? "dispatch-start" : "child-started");
-    const sent = launched.signal(signalName(entry.expect.signal));
-    const observed = await finish(entry, launched);
     try {
+      await launched.barrier(atDispatch ? "dispatch-start" : "child-started");
+      const sent = launched.signal(signalName(entry.expect.signal));
+      const observed = await finish(entry, launched);
       expect(observed.signal).toBeNull();
       expect(observed.code).toBe(n(entry.expect.exit));
       assertNoOutput(observed);
@@ -119,15 +133,15 @@ const checks: Record<string, (entry: Case) => Promise<void>> = {
           observed.ledger.some((line) => line.startsWith("child-started")),
         ).toBe(false);
     } finally {
-      await cleanup(observed);
+      await release(launched);
     }
   },
   async L02(entry) {
     const launched = await start(entry, { reader: "pause-after-first" });
-    await launched.partialRead;
-    const sent = launched.signal(signalName(entry.expect.signal));
-    const observed = await finish(entry, launched);
     try {
+      await launched.partialRead;
+      const sent = launched.signal(signalName(entry.expect.signal));
+      const observed = await finish(entry, launched);
       // LIFE-3: the same 500 ms grace as a first signal before emission.
       expect(observed.exitedAt - sent).toBeLessThanOrEqual(500 + tolerance);
       expect(observed.signal).toBeNull();
@@ -137,48 +151,48 @@ const checks: Record<string, (entry: Case) => Promise<void>> = {
       expect(raw.split('{"contractVersion"').length - 1).toBe(1);
       expect(() => envelopeOf(observed.stdout)).toThrow();
     } finally {
-      await cleanup(observed);
+      await release(launched);
     }
   },
   async L03(entry) {
     const launched = await start(entry);
-    await launched.barrier("drained");
-    launched.signal(signalName(entry.expect.signal));
-    const observed = await finish(entry, launched);
     try {
+      await launched.barrier("drained");
+      launched.signal(signalName(entry.expect.signal));
+      const observed = await finish(entry, launched);
       const { result } = assertEnvelope(entry, observed);
       expect(result.exitCode).toBe(entry.expect.envelopeExitCode);
     } finally {
-      await cleanup(observed);
+      await release(launched);
     }
   },
   async L04(entry) {
     const signals = entry.expect.signals;
     if (!Array.isArray(signals)) throw new Error("L04 needs two signals.");
     const launched = await start(entry);
-    await launched.barrier("child-started");
-    launched.signal(signalName(signals[0]));
-    await launched.barrier("child-term-received");
-    const second = launched.signal(signalName(signals[1]));
-    const observed = await finish(entry, launched);
     try {
+      await launched.barrier("child-started");
+      launched.signal(signalName(signals[0]));
+      await launched.barrier("child-term-received");
+      const second = launched.signal(signalName(signals[1]));
+      const observed = await finish(entry, launched);
       expect(observed.signal).toBeNull();
       expect(observed.code).toBe(n(entry.expect.exit));
       assertNoOutput(observed);
       expect(observed.exitedAt - second).toBeLessThanOrEqual(
-        Number(entry.expect.withinMillisecondsOfSecond) + tolerance,
+        n(entry.expect.withinMillisecondsOfSecond) + tolerance,
       );
       const pid = childPid(observed);
-      expect(pid).toBeNumber();
-      expect(await goneWithin(pid ?? 0, 1000)).toBe(true);
+      if (pid === undefined) throw new Error("No owned child pid.");
+      expect(await goneWithin(pid, 1000)).toBe(true);
     } finally {
-      await cleanup(observed);
+      await release(launched);
     }
   },
   async L05(entry) {
-    const observed = await run(entry);
-    receipt(entry, observed);
+    const launched = await start(entry);
     try {
+      const observed = await finish(entry, launched);
       expect(observed.signal).toBeNull();
       expect(observed.code).toBe(1);
       assertNoOutput(observed);
@@ -186,17 +200,23 @@ const checks: Record<string, (entry: Case) => Promise<void>> = {
         observed.ledger.filter((line) => line.startsWith("emergency")).length,
       ).toBe(n(entry.expect.emergencyWrites));
       const pid = childPid(observed);
-      expect(pid).toBeNumber();
-      expect(await goneWithin(pid ?? 0, 1000)).toBe(true);
+      if (pid === undefined) throw new Error("No owned child pid.");
+      expect(await goneWithin(pid, 1000)).toBe(true);
     } finally {
-      await cleanup(observed);
+      await release(launched);
     }
   },
   async L07(entry) {
     const observed = await run(entry);
     receipt(entry, observed);
     try {
-      assertEnvelope(entry, observed);
+      const { result } = assertEnvelope(entry, observed);
+      // B1: identities the frozen cases left pending are now asserted.
+      if (entry.expect.identityPending === true) {
+        const bound = l07Binding[entry.id];
+        if (!bound) throw new Error(`${entry.id} has no B1 binding.`);
+        expect(result.commandIdentity).toBe(bound);
+      }
       expect(observed.ledger.includes("dispatch-start")).toBe(false);
     } finally {
       await cleanup(observed);
@@ -436,8 +456,18 @@ describe("CMD-9 steps 3 to 6 order (supporting C2)", () => {
       receipt(entry, observed);
       try {
         const { result } = assertEnvelope(entry, observed);
-        const handoff = result.handoff;
-        expect(handoff).toMatchObject({ owner: "human" });
+        // B3.02: the runtime denial carries the binding default words.
+        expect({
+          guidance: { handoff: result.handoff },
+          repairAction: result.repairAction,
+        }).toEqual(authorityDefaults);
+        expect(result.data).toBeNull();
+        expect(result.effects).toEqual({
+          completed: [],
+          remaining: [],
+          uncertain: [],
+          inventoryComplete: true,
+        });
         expect(observed.ledger).toContain("attach approval");
         expect(observed.ledger).not.toContain("attach programs");
         expect(
@@ -565,6 +595,147 @@ describe("front-door timers and listeners in one process (supporting F6)", () =>
         );
       } finally {
         await cleanup(finished);
+      }
+    },
+    timeout,
+  );
+});
+
+describe("B1 deadline refusal identity (Nathan, 16 November 2026)", () => {
+  const usage = (id: string, argv: readonly string[], identity: string) =>
+    supporting(id, {
+      argv,
+      expect: {
+        commandIdentity: identity,
+        causeCode: "USAGE_INVALID_INVOCATION",
+      },
+    });
+  const cases = [
+    // B1.01: the command without deadline support refuses under its identity.
+    usage(
+      "B1.01.option-after-route",
+      ["read", "--deadline-ms", "100", "--json"],
+      "fx.read",
+    ),
+    usage(
+      "B1.01.option-before-route",
+      ["--deadline-ms", "100", "read", "--json"],
+      "fx.read",
+    ),
+    // B1.02: a malformed value is refused by dispatch, before command support.
+    usage(
+      "B1.02.zero",
+      ["slow", "--deadline-ms", "0", "--json"],
+      "fx.dispatch",
+    ),
+    usage(
+      "B1.02.negative",
+      ["slow", "--deadline-ms", "-5", "--json"],
+      "fx.dispatch",
+    ),
+    usage(
+      "B1.02.non-integer",
+      ["slow", "--deadline-ms", "1.5", "--json"],
+      "fx.dispatch",
+    ),
+    usage(
+      "B1.02.word",
+      ["slow", "--deadline-ms", "abc", "--json"],
+      "fx.dispatch",
+    ),
+    usage("B1.02.missing", ["slow", "--json", "--deadline-ms"], "fx.dispatch"),
+    usage(
+      "B1.02.zero-on-unsupported",
+      ["read", "--deadline-ms", "0", "--json"],
+      "fx.dispatch",
+    ),
+    // B1.04: built-in routes. Bound by the coordinator's reading of B1
+    // (today's behaviour, matching DISC-1's incompatible built-in options
+    // row), reported to Nathan for confirmation.
+    usage(
+      "B1.04.help",
+      ["--help", "--deadline-ms", "100", "--json"],
+      "fx.dispatch",
+    ),
+    usage(
+      "B1.04.discover",
+      ["--discover", "--deadline-ms", "100", "--json"],
+      "fx.dispatch",
+    ),
+    usage(
+      "B1.04.discover-command",
+      ["--discover-command", "fx.read", "--deadline-ms", "100", "--json"],
+      "fx.dispatch",
+    ),
+  ];
+  for (const entry of cases)
+    test(
+      entry.id,
+      async () => {
+        const observed = await run(entry);
+        receipt(entry, observed);
+        try {
+          assertEnvelope(entry, observed);
+          expect(observed.ledger.includes("dispatch-start")).toBe(false);
+        } finally {
+          await cleanup(observed);
+        }
+      },
+      timeout,
+    );
+
+  test(
+    "B1.03.supported-command-twin",
+    async () => {
+      const entry = supporting("B1.03.supported", {
+        argv: ["slow", "--deadline-ms", "1000", "--json"],
+        expect: {
+          commandIdentity: "fx.slow",
+          causeCode: "DOMAIN_DEADLINE_UNCHANGED",
+        },
+      });
+      const launched = await launchCase(entry);
+      try {
+        const observed = await finish(entry, launched);
+        assertEnvelope(entry, observed);
+        expect(observed.ledger).toContain("dispatch-start");
+      } finally {
+        await release(launched);
+      }
+    },
+    timeout,
+  );
+});
+
+describe("B3 declared denial tuple at runtime (Nathan, 16 November 2026)", () => {
+  test(
+    "B3.03.declared-tuple-overrides-at-runtime",
+    async () => {
+      const entry = supporting("B3.03.owned-denial", {
+        argv: ["guarded-owned", "--go", "--json"],
+        state: true,
+        expect: {
+          commandIdentity: "fx.guarded-owned",
+          causeCode: "DOMAIN_AUTHORITY_REQUIRED",
+        },
+      });
+      const observed = await run(entry, { env: { FX_APPROVAL: "deny" } });
+      receipt(entry, observed);
+      try {
+        const { result } = assertEnvelope(entry, observed);
+        // Test-owned literals: the fixture command's declared words.
+        expect(result.handoff).toEqual({
+          owner: "operator",
+          reason: "The fixture desk must approve this item.",
+          inspect: [
+            { kind: "instruction", text: "Fixture desk: review the item." },
+          ],
+        });
+        expect(result.repairAction).toBe(
+          "Ask the fixture desk for an exact-item grant.",
+        );
+      } finally {
+        await cleanup(observed);
       }
     },
     timeout,

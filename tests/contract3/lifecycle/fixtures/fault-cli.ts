@@ -208,6 +208,7 @@ const read = command({
   input: { ...none, options: [integer("--size", 0, 8_388_608)] },
   capabilities: {},
   run: (input, context) => {
+    ledger("dispatch-start");
     if (scenario.has("abort")) process.abort();
     return context.result(
       { commandIdentity: "fx.read", causeCode: "SUCCESS_UNCHANGED" },
@@ -404,13 +405,15 @@ const badVariants = [
   "class-instance",
   "map",
   "depth",
+  "depth-scalar",
   "throw",
 ] as const;
 class FixtureThing {
   readonly field = marker;
 }
-function nested(levels: number): JsonValue {
-  let value: JsonValue = [];
+// A(n): n nested arrays with an empty innermost; A(n, s) holds one scalar.
+function nested(levels: number, scalar?: string): JsonValue {
+  let value: JsonValue = scalar === undefined ? [] : [scalar];
   for (let level = 1; level < levels; level++) value = [value];
   return value;
 }
@@ -430,6 +433,7 @@ function badData(variant: string, depth: number): JsonValue {
   if (variant === "cycle") box.self = box;
   else if (variant === "over-depth") box.value = nested(70);
   else if (variant === "depth") return nested(depth);
+  else if (variant === "depth-scalar") return nested(depth, "x");
   else if (variant === "function-tojson")
     Reflect.set(box, "toJSON", () => marker);
   else if (variant === "throw") throw new Error(marker);
@@ -889,7 +893,11 @@ const changeModes = [
   "deadline-stall",
 ] as const;
 const coordination = <
-  const Identity extends "fx.change" | "fx.wide" | "fx.guarded",
+  const Identity extends
+    | "fx.change"
+    | "fx.wide"
+    | "fx.guarded"
+    | "fx.guarded-owned",
 >(
   identity: Identity,
 ) =>
@@ -1115,6 +1123,51 @@ function makeGuarded(state: StateAddonDescriptor) {
   });
 }
 
+// B3.03: a second approval command that declares its own denial tuple with a
+// specific owner (DISC-11b). Only its denial path is exercised.
+function makeGuardedOwned(state: StateAddonDescriptor) {
+  return changing({
+    identity: "fx.guarded-owned",
+    route: ["guarded-owned"],
+    summary: "Apply one fixture effect the fixture desk approves.",
+    input: { ...none, options: [flag("--go")] },
+    capabilities: { approval: true },
+    approval: () => ({
+      authority: authority("fx.desk"),
+      resource: resource("fx.item"),
+      resourceRevision: "1",
+      effects: ["fx.alpha"],
+    }),
+    effectClass: "repository-local",
+    effects: ["fx.alpha"],
+    ifNoResult: state.ifNoResult,
+    heldLockCause: "DOMAIN_FX_LOCK_HELD",
+    unresolvedCaseCause: "DOMAIN_FX_UNRESOLVED",
+    stations: [
+      ...coordination("fx.guarded-owned"),
+      station(allCauses, {
+        ...words,
+        commandIdentity: "fx.guarded-owned",
+        causeCode: "DOMAIN_AUTHORITY_REQUIRED",
+        trigger: "The fixture desk has not approved this item.",
+        repairAction: "Ask the fixture desk for an exact-item grant.",
+        guidance: {
+          handoff: {
+            owner: "operator",
+            reason: "The fixture desk must approve this item.",
+            inspect: [
+              { kind: "instruction", text: "Fixture desk: review the item." },
+            ],
+          },
+        },
+        independentObservable: "fx.guarded-owned:denial",
+      }),
+    ],
+    run: () =>
+      Promise.reject(new Error("The owned denial fixture never dispatches.")),
+  });
+}
+
 function corrupt(kind: string, value: unknown): unknown {
   if (!record(value) || !record(value.result)) return value;
   const envelope = structuredClone(value);
@@ -1314,6 +1367,7 @@ export async function main(state?: StateAddonDescriptor): Promise<number> {
           makeChange(state),
           makeWide(state),
           makeGuarded(state),
+          makeGuardedOwned(state),
         ],
         causes,
         state,

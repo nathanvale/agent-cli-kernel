@@ -1,4 +1,10 @@
 import type { JsonValue } from "../types.ts";
+import {
+  childLevel,
+  resultLevelLimit,
+  rootLevel,
+  withinLevel,
+} from "./level.ts";
 export function record(value: unknown): value is Record<string, unknown> {
   if (value === null || typeof value !== "object" || Array.isArray(value))
     return false;
@@ -25,10 +31,10 @@ export function keys(
 }
 export function json(
   value: unknown,
-  depth = 0,
+  depth = rootLevel,
   ancestors = new Set<object>(),
 ): value is JsonValue {
-  if (depth > 64) return false;
+  if (!withinLevel(depth, resultLevelLimit)) return false;
   if (value === null || typeof value === "boolean" || typeof value === "string")
     return true;
   if (typeof value === "number") return Number.isFinite(value);
@@ -47,7 +53,9 @@ export function json(
   const values: unknown[] = Array.isArray(value)
     ? Array.from(value)
     : Object.values(value);
-  const valid = values.every((child) => json(child, depth + 1, ancestors));
+  const valid = values.every((child) =>
+    json(child, childLevel(depth), ancestors),
+  );
   ancestors.delete(value);
   return valid;
 }
