@@ -6,18 +6,11 @@ import {
   station,
 } from "../../../starters/contract3/src/kernel/index.ts";
 import { buildUnchecked, runFamily } from "./harness.ts";
+import { emptyInput as empty, unchanged } from "./shapes.ts";
 
 // R05 (F05). After the F01 admission check, a declaration carrying the
 // empty-args root step is refused before any envelope exists; refusal at
 // admission therefore satisfies "refused" as well as refusal by validate.
-const empty = {
-  arguments: [],
-  options: [],
-  constraints: [],
-  deadlineSupported: false,
-  additionalArguments: false,
-  additionalOptions: false,
-} as const;
 const withFlag = {
   ...empty,
   options: [
@@ -30,12 +23,6 @@ const withFlag = {
       value: null,
     },
   ],
-} as const;
-const unchanged = {
-  completed: [],
-  remaining: [],
-  uncertain: [],
-  inventoryComplete: true,
 } as const;
 const hold = {
   outcome: "refused",

@@ -15,15 +15,8 @@ import type {
 } from "../../../starters/contract3/src/kernel/index.ts";
 import { frozenInputs } from "./cases.ts";
 import { runFamily, stateFixture } from "./harness.ts";
+import { emptyInput as empty } from "./shapes.ts";
 
-const empty = {
-  arguments: [],
-  options: [],
-  constraints: [],
-  deadlineSupported: false,
-  additionalArguments: false,
-  additionalOptions: false,
-} as const;
 const withOperand = {
   ...empty,
   arguments: [

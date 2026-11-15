@@ -1,5 +1,14 @@
 import { expect, test } from "bun:test";
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  cp,
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { familyCases } from "./cases.ts";
@@ -29,43 +38,162 @@ export function runFamily(
   }
 }
 
-// State fixtures must live in the canonical state add-on folder, so each run
-// copies the current kernel into a disposable tree and executes the fixture
-// there as a child process. The fixture prints one JSON object of observations.
-export async function stateFixture(
-  name: string,
-  env: Readonly<Record<string, string>> = {},
-): Promise<unknown> {
-  const directory = await mkdtemp(join(tmpdir(), "contract3-repair-"));
-  try {
-    const source = join(directory, "starters/contract3/src");
-    await mkdir(join(source, "addons/state"), { recursive: true });
-    await cp(
-      new URL("../../../starters/contract3/src/kernel", import.meta.url),
-      join(source, "kernel"),
-      { recursive: true },
-    );
-    const fixture = join(source, `addons/state/${name}.ts`);
+const repository = new URL("../../../", import.meta.url).pathname;
+const stateModules = [
+  "repair-shared",
+  "state-repair",
+  "admission-changing",
+  "context-changing",
+  "r18-changing",
+] as const;
+export const materialisedFixtures: readonly string[] = [
+  ...stateModules.map(
+    (name) => `starters/contract3/src/addons/state/${name}.ts`,
+  ),
+  "tests/contract3/kernel-repair/driver.ts",
+  "tests/contract3/kernel-repair/r18-spec.ts",
+  "tests/contract3/kernel-repair/shapes.ts",
+];
+
+// State fixtures must live in the canonical state add-on folder. Each tree is
+// a disposable copy of the kernel with the fixture modules, a tests-scope
+// driver, and the contract3 lint configuration rooted at the tree.
+export async function materialise(): Promise<string> {
+  const root = await mkdtemp(
+    join(await realpath(tmpdir()), "contract3-repair-"),
+  );
+  const source = join(root, "starters/contract3/src");
+  const tests = join(root, "tests/contract3/kernel-repair");
+  await mkdir(join(source, "addons/state"), { recursive: true });
+  await mkdir(tests, { recursive: true });
+  await cp(
+    join(repository, "starters/contract3/src/kernel"),
+    join(source, "kernel"),
+    {
+      recursive: true,
+    },
+  );
+  for (const name of stateModules)
     await writeFile(
-      fixture,
+      join(source, `addons/state/${name}.ts`),
       await readFile(new URL(`fixtures/${name}.ts.txt`, import.meta.url)),
     );
-    const child = Bun.spawn([process.execPath, fixture], {
-      env: { ...process.env, ...env },
-      stdout: "pipe",
-      stderr: "pipe",
+  await writeFile(
+    join(tests, "driver.ts"),
+    await readFile(new URL("fixtures/driver.ts.txt", import.meta.url)),
+  );
+  for (const name of ["r18-spec.ts", "shapes.ts"])
+    await cp(new URL(name, import.meta.url), join(tests, name));
+  await symlink(join(repository, "node_modules"), join(root, "node_modules"));
+  await writeFile(
+    join(root, "tsconfig.json"),
+    JSON.stringify({
+      extends: join(repository, "tsconfig.base.json"),
+      include: ["starters/contract3/src/**/*.ts", "tests/**/*.ts"],
+    }),
+  );
+  await writeFile(
+    join(root, "eslint.config.mjs"),
+    [
+      `import contract3 from ${JSON.stringify(join(repository, "config/contract3-eslint.mjs"))};`,
+      "export default [",
+      "  ...contract3,",
+      `  { files: ["**/*.ts"], languageOptions: { parserOptions: { projectService: true, tsconfigRootDir: ${JSON.stringify(root)} } } },`,
+      "];",
+      "",
+    ].join("\n"),
+  );
+  return root;
+}
+
+async function spawnText(argv: readonly string[], cwd: string) {
+  const child = Bun.spawn([...argv], { cwd, stdout: "pipe", stderr: "pipe" });
+  const [stdout, stderr, exit] = await Promise.all([
+    new Response(child.stdout).text(),
+    new Response(child.stderr).text(),
+    child.exited,
+  ]);
+  return { stdout, stderr, exit };
+}
+
+// Runs one fixture through the driver and returns its observations.
+export async function stateFixture(name: string): Promise<unknown> {
+  const root = await materialise();
+  try {
+    const run = await spawnText(
+      [process.execPath, "tests/contract3/kernel-repair/driver.ts", name],
+      root,
+    );
+    expect({ exit: run.exit, stderr: run.stderr }).toEqual({
+      exit: 0,
+      stderr: "",
     });
-    const [stdout, stderr, exit] = await Promise.all([
-      new Response(child.stdout).text(),
-      new Response(child.stderr).text(),
-      child.exited,
-    ]);
-    expect({ exit, stderr }).toEqual({ exit: 0, stderr: "" });
-    const parsed: unknown = JSON.parse(stdout);
+    const parsed: unknown = JSON.parse(run.stdout);
     return parsed;
   } finally {
-    await rm(directory, { recursive: true, force: true });
+    await rm(root, { recursive: true, force: true });
   }
+}
+
+// Lints a materialised tree with the contract3 configuration and returns each
+// linted file (relative to the tree) with its message count.
+export async function lintTree(root: string) {
+  const run = await spawnText(
+    [
+      join(root, "node_modules/.bin/eslint"),
+      "--max-warnings",
+      "0",
+      "--format",
+      "json",
+      ".",
+    ],
+    root,
+  );
+  const report: unknown = JSON.parse(run.stdout);
+  const files = Array.isArray(report)
+    ? report.flatMap((entry: unknown) => {
+        const path: unknown =
+          typeof entry === "object" && entry !== null
+            ? Reflect.get(entry, "filePath")
+            : undefined;
+        const messages: unknown =
+          typeof entry === "object" && entry !== null
+            ? Reflect.get(entry, "messages")
+            : undefined;
+        return typeof path === "string" && Array.isArray(messages)
+          ? [
+              {
+                file: path.slice(root.length + 1),
+                messages: messages.length,
+                rules: messages.map((message: unknown) =>
+                  String(
+                    typeof message === "object" && message !== null
+                      ? Reflect.get(message, "ruleId")
+                      : "",
+                  ),
+                ),
+              },
+            ]
+          : [];
+      })
+    : [];
+  return { exit: run.exit, stderr: run.stderr, files };
+}
+
+// Type-checks a materialised tree with the native compiler.
+export function typecheckTree(root: string) {
+  return spawnText(
+    [
+      process.execPath,
+      join(repository, "node_modules/@typescript/native/bin/tsc"),
+      "--noEmit",
+      "--pretty",
+      "false",
+      "-p",
+      join(root, "tsconfig.json"),
+    ],
+    root,
+  );
 }
 
 // Calls contract.build with values the static types forbid, so runtime

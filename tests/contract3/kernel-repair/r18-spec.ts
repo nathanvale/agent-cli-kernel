@@ -4,6 +4,7 @@ import type {
   DeclaredStation,
   InputSchema,
 } from "../../../starters/contract3/src/kernel/index.ts";
+import { emptyInput } from "./shapes.ts";
 
 // R18 (F01) test-owned targets and step rows, written from
 // expectations-f01.md (sha256 6cdc603e...). The same module drives the
@@ -13,14 +14,7 @@ export type KernelValues = Pick<
   typeof Kernel,
   "command" | "station" | "commonCauses"
 >;
-const base = {
-  arguments: [],
-  options: [],
-  constraints: [],
-  deadlineSupported: false,
-  additionalArguments: false,
-  additionalOptions: false,
-} as const;
+const base = emptyInput;
 const text = {
   kind: "string",
   minLength: 1,

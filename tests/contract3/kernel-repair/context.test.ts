@@ -4,29 +4,17 @@ import {
   contractFor,
 } from "../../../starters/contract3/src/kernel/index.ts";
 import { runFamily, stateFixture } from "./harness.ts";
+import { emptyInput, unchanged } from "./shapes.ts";
 
 // R12 (F10): never enter a handler with a declared capability absent or
 // different from the one that passed validation.
-const unchanged = {
-  completed: [],
-  remaining: [],
-  uncertain: [],
-  inventoryComplete: true,
-} as const;
 const received: unknown[] = [];
 function fixture() {
   const read = command({
     identity: "specimen.read",
     route: ["read"],
     summary: "Read.",
-    input: {
-      arguments: [],
-      options: [],
-      constraints: [],
-      deadlineSupported: false,
-      additionalArguments: false,
-      additionalOptions: false,
-    },
+    input: emptyInput,
     capabilities: { diagnostics: true },
     run: (_input, context) => {
       received.push(context.diagnostics);

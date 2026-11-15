@@ -6,6 +6,7 @@ import {
 } from "../../../starters/contract3/src/kernel/index.ts";
 import { sameJson } from "../../../starters/contract3/src/kernel/validation/json-equality.ts";
 import { buildUnchecked, runFamily } from "./harness.ts";
+import { emptyInput, unchanged } from "./shapes.ts";
 
 // R15 (F16). NFC and NFD spellings of e-acute are distinct keys that a
 // locale collation ranks equal (WIRE-1: member order carries no meaning).
@@ -19,12 +20,6 @@ const pairs = () => ({
   order: sameJson({ b: 1, a: 2 }, { a: 2, b: 1 }),
   changed: sameJson({ b: 1, a: 2 }, { a: 3, b: 1 }),
 });
-const unchanged = {
-  completed: [],
-  remaining: [],
-  uncertain: [],
-  inventoryComplete: true,
-} as const;
 function reversed(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(reversed);
   if (typeof value !== "object" || value === null) return value;
@@ -69,14 +64,7 @@ process.stdout.write(JSON.stringify([sameJson({ [a]: 1, [b]: 2 }, { [b]: 2, [a]:
       identity: "specimen.read",
       route: ["read"],
       summary: "Read.",
-      input: {
-        arguments: [],
-        options: [],
-        constraints: [],
-        deadlineSupported: false,
-        additionalArguments: false,
-        additionalOptions: false,
-      },
+      input: emptyInput,
       capabilities: {},
       run: () => {
         throw new Error("Never entered.");

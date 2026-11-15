@@ -1,10 +1,6 @@
 import { expect } from "bun:test";
-import {
-  envelope,
-  envelopeContract,
-  readStation,
-  unchanged,
-} from "./envelope-fixture.ts";
+import { envelope, envelopeContract, readStation } from "./envelope-fixture.ts";
+import { unchanged } from "./shapes.ts";
 import { runFamily } from "./harness.ts";
 
 runFamily("R06", {

@@ -1,38 +1,139 @@
 // R18 (F01) changing() construction path and the changing-target guard.
-// Rows and targets come from the test-owned spec module named by R18_SPEC.
+// Materialised at starters/contract3/src/addons/state/r18-changing.ts and
+// linted there. The test-owned rows arrive as a parameter from the driver,
+// because source code never imports tests.
 import * as kernel from "../../kernel/index.ts";
-const { changing, command, commonCauses, contractFor, station } = kernel;
-const specPath = process.env.R18_SPEC;
-if (!specPath) throw new Error("R18_SPEC is required.");
-const spec = await import(specPath);
-const input = { arguments: [], options: [], constraints: [], deadlineSupported: false, additionalArguments: false, additionalOptions: false } as const;
-const empty = { completed: [], remaining: [], uncertain: [], inventoryComplete: true } as const;
-const refusal = { outcome: "refused", transactionState: "unchanged", failureClass: "domain", exitCode: 3, retryable: false, guidance: "handoff" } as const;
-const causes = { HELD: refusal, PRIOR: refusal, HOLD: spec.hold } as const;
-const words = { retryDelayPolicy: { kind: "none" }, reachability: "required", unreachableRationale: null, independentObservable: "r18-fixture" } as const;
-const state = contractFor.stateAddon((issuer) => ({ ifNoResult: issuer.ifNoResult({ kind: "command", command: "specimen.pending", args: [] }), attach() { throw new Error("No state execution in R18 fixture."); } }));
-const recovery = command({ identity: "specimen.pending", route: ["pending"], summary: "Inspect pending.", input, capabilities: {}, stations: [station(commonCauses, { commandIdentity: "specimen.pending", causeCode: "SUCCESS_UNCHANGED", trigger: "Read pending.", guidance: { next: { kind: "instruction", text: "Inspect pending state." } }, repairAction: null, ...words })], run: (_input, context) => context.result({ commandIdentity: "specimen.pending", causeCode: "SUCCESS_UNCHANGED" }, { message: "Read pending.", data: null, effects: empty }) });
-const coordination = (identity: string) => (["HELD", "PRIOR"] as const).map((causeCode) => station(causes, { commandIdentity: identity, causeCode, trigger: "Coordination refusal.", repairAction: "Inspect.", guidance: { handoff: { owner: "operator", reason: "Inspect.", inspect: [{ kind: "instruction", text: "Inspect." }] } }, ...words }));
-function changingSource(identity: string, route: string[], extra: unknown[], futureBindings: Record<string, string>) {
-  return changing({ identity, route, summary: "Change.", input: spec.sourceInput, futureBindings, capabilities: {}, effectClass: "repository-local", effects: ["e"], ifNoResult: state.ifNoResult, heldLockCause: "HELD", unresolvedCaseCause: "PRIOR", stations: [...coordination(identity), ...extra], run: async () => { throw new Error("Never entered."); } });
+import type {
+  CauseRow,
+  CommandDeclaration,
+  DeclaredStation,
+  InputSchema,
+} from "../../kernel/index.ts";
+import {
+  admissionInstallation,
+  causes,
+  coordination,
+  input,
+  recovery,
+  words,
+} from "./repair-shared.ts";
+
+type Row = {
+  readonly target: string;
+  readonly args: readonly string[];
+  readonly callerOwned?: string;
+};
+type KernelValues = Pick<typeof kernel, "command" | "station" | "commonCauses">;
+export type R18Spec = {
+  readonly rows: Readonly<Record<string, Row>>;
+  readonly hold: CauseRow;
+  readonly sourceInput: InputSchema;
+  readonly stepStation: (
+    values: KernelValues,
+    source: string,
+    arm: "next" | "handoff",
+    row: Row,
+  ) => DeclaredStation;
+  readonly futureBindings: (row: Row) => Readonly<Record<string, string>>;
+  readonly targets: (values: KernelValues) => CommandDeclaration[];
+  readonly observe: (admit: () => unknown, source: string, row: Row) => unknown;
+};
+
+function unchecked(target: unknown, spec: object): unknown {
+  if (typeof target !== "function") throw new Error("Not callable.");
+  const result: unknown = Reflect.apply(target, undefined, [spec]);
+  return result;
 }
-const out: Record<string, unknown> = {};
-for (const [suffix, row] of Object.entries(spec.rows))
-  for (const arm of ["next", "handoff"] as const) {
-    let observation: unknown;
-    try {
-      const source = changingSource("specimen.source", ["source"], [spec.stepStation(kernel, "specimen.source", arm, row)], spec.futureBindings(row));
-      observation = spec.observe(() => contractFor({ cli: "specimen", commands: [source, recovery, ...spec.targets(kernel)], causes, state, installedAddons: ["state"] }), "specimen.source", row);
-    } catch (error) {
-      observation = { constructionRefused: error instanceof Error ? error.message : String(error) };
+
+export function observeR18Changing(spec: R18Spec): Record<string, unknown> {
+  const state = admissionInstallation();
+  const tableCauses = { ...causes, HOLD: spec.hold };
+  const source = (
+    identity: string,
+    route: readonly string[],
+    extra: readonly DeclaredStation[],
+    futureBindings: Readonly<Record<string, string>>,
+  ) =>
+    unchecked(kernel.changing, {
+      identity,
+      route,
+      summary: "Change.",
+      input: spec.sourceInput,
+      futureBindings,
+      capabilities: {},
+      effectClass: "repository-local",
+      effects: ["e"],
+      ifNoResult: state.ifNoResult,
+      heldLockCause: "HELD",
+      unresolvedCaseCause: "PRIOR",
+      stations: [...coordination(identity), ...extra],
+      run: () => Promise.reject(new Error("Never entered.")),
+    });
+  const admit = (commands: readonly unknown[]) => () =>
+    unchecked(kernel.contractFor, {
+      cli: "specimen",
+      commands,
+      causes: tableCauses,
+      state,
+      installedAddons: ["state"],
+    });
+  const out: Record<string, unknown> = {};
+  for (const [suffix, row] of Object.entries(spec.rows))
+    for (const arm of ["next", "handoff"] as const) {
+      let observation: unknown;
+      try {
+        const declared = source(
+          "specimen.source",
+          ["source"],
+          [spec.stepStation(kernel, "specimen.source", arm, row)],
+          spec.futureBindings(row),
+        );
+        observation = spec.observe(
+          admit([declared, recovery(), ...spec.targets(kernel)]),
+          "specimen.source",
+          row,
+        );
+      } catch (error) {
+        observation = {
+          constructionRefused:
+            error instanceof Error ? error.message : String(error),
+        };
+      }
+      out[`R18.${suffix}.${arm}.changing`] = observation;
     }
-    out[`R18.${suffix}.${arm}.changing`] = observation;
-  }
-{
-  const target = changingSource("specimen.target", ["target"], [], {});
-  const inspector = command({ identity: "specimen.inspector", route: ["inspector"], summary: "Inspect.", input, capabilities: {}, stations: [station(causes, { commandIdentity: "specimen.inspector", causeCode: "HOLD", trigger: "Held.", guidance: { handoff: { owner: "operator", reason: "Inspect.", inspect: [{ kind: "command", command: "specimen.target", args: [] }] } }, repairAction: "Inspect.", ...words })], run: () => { throw new Error("Never entered."); } });
+  const target = source("specimen.target", ["target"], [], {});
+  const inspector = kernel.command({
+    identity: "specimen.inspector",
+    route: ["inspector"],
+    summary: "Inspect.",
+    input,
+    capabilities: {},
+    stations: [
+      kernel.station(tableCauses, {
+        commandIdentity: "specimen.inspector",
+        causeCode: "HOLD",
+        trigger: "Held.",
+        guidance: {
+          handoff: {
+            owner: "operator",
+            reason: "Inspect.",
+            inspect: [{ kind: "command", command: "specimen.target", args: [] }],
+          },
+        },
+        repairAction: "Inspect.",
+        ...words,
+      }),
+    ],
+    run: () => {
+      throw new Error("Never entered.");
+    },
+  });
   let refused = false;
-  try { contractFor({ cli: "specimen", commands: [target, inspector, recovery], causes, state, installedAddons: ["state"] }); } catch { refused = true; }
+  try {
+    admit([target, inspector, recovery()])();
+  } catch {
+    refused = true;
+  }
   out["R18.u3.changing-target"] = { refused };
+  return out;
 }
-process.stdout.write(JSON.stringify(out));

@@ -1,5 +1,4 @@
 import { expect } from "bun:test";
-import { resolve } from "node:path";
 import * as kernel from "../../../starters/contract3/src/kernel/index.ts";
 import { frozenInputs } from "./cases.ts";
 import { contractUnchecked, runFamily, stateFixture } from "./harness.ts";
@@ -13,6 +12,7 @@ import {
   targets,
 } from "./r18-spec.ts";
 import type { Row } from "./r18-spec.ts";
+import { unchanged } from "./shapes.ts";
 
 // R18 (F01, option 2): contractFor refuses a command-step template whose
 // vector no single-token value can make parse; value-dependent steps stay
@@ -36,12 +36,7 @@ function commandSource(arm: "next" | "handoff", row: Row) {
         {
           message: "Source.",
           data: null,
-          effects: {
-            completed: [],
-            remaining: [],
-            uncertain: [],
-            inventoryComplete: true,
-          },
+          effects: unchanged,
         },
       );
     },
@@ -67,9 +62,7 @@ const admit = (declaration: object) => () =>
   });
 let changingRun: Promise<unknown> | undefined;
 async function changingObserved(id: string): Promise<unknown> {
-  changingRun ??= stateFixture("r18-changing", {
-    R18_SPEC: resolve(import.meta.dir, "r18-spec.ts"),
-  });
+  changingRun ??= stateFixture("r18-changing");
   const all: unknown = await changingRun;
   return typeof all === "object" && all !== null
     ? Reflect.get(all, id)

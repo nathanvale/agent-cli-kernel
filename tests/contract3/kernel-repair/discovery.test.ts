@@ -4,6 +4,7 @@ import {
   contractFor,
 } from "../../../starters/contract3/src/kernel/index.ts";
 import { buildUnchecked, runFamily } from "./harness.ts";
+import { emptyInput as input, unchanged } from "./shapes.ts";
 
 // WIRE-14 exit owner and LIFE-4 signal exits, written from the contract.
 const exitOwner = {
@@ -18,20 +19,6 @@ const signals: Readonly<Record<string, string>> = {
   "130": "SIGINT",
   "143": "SIGTERM",
 };
-const unchanged = {
-  completed: [],
-  remaining: [],
-  uncertain: [],
-  inventoryComplete: true,
-} as const;
-const input = {
-  arguments: [],
-  options: [],
-  constraints: [],
-  deadlineSupported: false,
-  additionalArguments: false,
-  additionalOptions: false,
-} as const;
 
 function fixture() {
   const read = command({

@@ -4,23 +4,10 @@ import {
   contractFor,
   station,
 } from "../../../starters/contract3/src/kernel/index.ts";
+import { emptyInput as input, unchanged } from "./shapes.ts";
 
 // One inspect command whose success station names a command step, so
 // validation takes its asynchronous step-parsing path (R06, R07, R08).
-const input = {
-  arguments: [],
-  options: [],
-  constraints: [],
-  deadlineSupported: false,
-  additionalArguments: false,
-  additionalOptions: false,
-} as const;
-export const unchanged = {
-  completed: [],
-  remaining: [],
-  uncertain: [],
-  inventoryComplete: true,
-} as const;
 const step = { kind: "command", command: "specimen.help", args: [] } as const;
 export const readStation = station(commonCauses, {
   commandIdentity: "specimen.read",
