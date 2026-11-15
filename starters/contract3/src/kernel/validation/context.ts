@@ -1,5 +1,17 @@
 import type { CapabilitySelection, HandlerContext } from "../capabilities.ts";
 import { record } from "./primitives.ts";
+// One owner for the add-on capability names and the methods each must expose.
+// A command declaring any other name is refused when the front door is built.
+export const addonNames = [
+  "programs",
+  "approval",
+  "diagnostics",
+] as const satisfies readonly (keyof CapabilitySelection)[];
+export const capabilityMethods = {
+  programs: ["inspect", "supplied", "domain"],
+  approval: ["check"],
+  diagnostics: ["record"],
+} as const satisfies Record<keyof CapabilitySelection, readonly string[]>;
 export function handlerContext<C extends CapabilitySelection>(
   value: unknown,
   selection: C,
@@ -12,11 +24,6 @@ export function handlerContext<C extends CapabilitySelection>(
     )
   )
     return false;
-  const methods = {
-    programs: ["inspect", "supplied", "domain"],
-    approval: ["check"],
-    diagnostics: ["record"],
-  } as const;
   return Object.entries(selection).every(([key, enabled]) => {
     if (
       enabled !== true ||
@@ -26,7 +33,9 @@ export function handlerContext<C extends CapabilitySelection>(
     const capability = value[key];
     return (
       record(capability) &&
-      methods[key].every((name) => typeof capability[name] === "function")
+      capabilityMethods[key].every(
+        (name) => typeof capability[name] === "function",
+      )
     );
   });
 }
