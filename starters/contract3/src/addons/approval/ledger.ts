@@ -55,14 +55,22 @@ export async function consumeOnce(
     if (errorCode(error) === "EEXIST") return false;
     throw new ApprovalRejection("store-unavailable", error);
   }
+  // The marker exists from here on: every later failure, including a failing
+  // close, is reported as consumed.
+  let failure: { readonly error: unknown } | undefined;
   try {
     await handle.writeFile(record);
     await handle.sync();
   } catch (error) {
-    throw new ApprovalRejection("durability-unconfirmed", error);
-  } finally {
-    await handle.close();
+    failure = { error };
   }
+  try {
+    await handle.close();
+  } catch (error) {
+    failure ??= { error };
+  }
+  if (failure)
+    throw new ApprovalRejection("durability-unconfirmed", failure.error);
   await syncDirectory(dirname(path));
   return true;
 }
