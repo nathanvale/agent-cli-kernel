@@ -35,29 +35,57 @@ runFamily("R15", {
   "R15.member-order": () => expect(pairs().order).toBe(true),
   "R15.value-change": () => expect(pairs().changed).toBe(false),
   "R15.locale-independent": async () => {
+    // N2: Bun 1.4.4 keeps its default collation locale (en-US) whatever
+    // LC_ALL and LANG say, so varying them alone proves nothing. Each child
+    // therefore also replaces the runtime's collation with named locales, and
+    // asserts the replacement is in effect: a host without that locale data
+    // fails here instead of passing silently.
     const module = resolve(
       import.meta.dir,
       "../../../starters/contract3/src/kernel/validation/json-equality.ts",
     );
     const source = `const { sameJson } = await import(${JSON.stringify(module)});
-const a = "\\u00e9", b = "e\\u0301";
-process.stdout.write(JSON.stringify([sameJson({ [a]: 1, [b]: 2 }, { [b]: 2, [a]: 1 }), sameJson({ z: 1, "\\u00e4": 2, a: 3 }, { a: 3, "\\u00e4": 2, z: 1 })]));`;
-    const answers = new Set<string>();
+const nfc = "\\u00e9", nfd = "e\\u0301";
+const answers = () => [
+  sameJson({ [nfc]: 1, [nfd]: 2 }, { [nfd]: 2, [nfc]: 1 }),
+  sameJson({ z: 1, "\\u00e4": 2, a: 3 }, { a: 3, "\\u00e4": 2, z: 1 }),
+  sameJson({ a: 1, A: 2 }, { A: 2, a: 1 }),
+];
+const native = String.prototype.localeCompare;
+const arms = [{ name: "runtime-default", locale: null, answers: answers() }];
+for (const [locale, options] of [["sv", {}], ["tr", {}], ["en", { sensitivity: "base" }]]) {
+  const collator = new Intl.Collator(locale, options);
+  String.prototype.localeCompare = function (other) { return collator.compare(String(this), String(other)); };
+  arms.push({ name: locale, locale: collator.resolvedOptions().locale, tie: "a".localeCompare("A") === 0, answers: answers() });
+  String.prototype.localeCompare = native;
+}
+process.stdout.write(JSON.stringify({ defaultLocale: new Intl.Collator().resolvedOptions().locale, arms }));`;
+    const observed: unknown[] = [];
     for (const locale of ["C", "en_US.UTF-8", "sv_SE.UTF-8", "tr_TR.UTF-8"]) {
       const child = Bun.spawn([process.execPath, "-e", source], {
         env: { ...process.env, LC_ALL: locale, LANG: locale },
         stdout: "pipe",
         stderr: "pipe",
       });
-      const [stdout, stderr] = await Promise.all([
+      const [stdout, stderr, exit] = await Promise.all([
         new Response(child.stdout).text(),
         new Response(child.stderr).text(),
         child.exited,
       ]);
-      expect(stderr).toBe("");
-      answers.add(stdout);
+      expect({ exit, stderr }).toEqual({ exit: 0, stderr: "" });
+      const parsed: unknown = JSON.parse(stdout);
+      observed.push(parsed);
     }
-    expect([...answers]).toEqual(["[true,true]"]);
+    const same = [true, true, true];
+    for (const child of observed)
+      expect(child).toMatchObject({
+        arms: [
+          { name: "runtime-default", locale: null, answers: same },
+          { name: "sv", locale: "sv", tie: false, answers: same },
+          { name: "tr", locale: "tr", tie: false, answers: same },
+          { name: "en", locale: "en", tie: true, answers: same },
+        ],
+      });
   },
   "R15.reordered-discovery-validates": async () => {
     const read = command({
