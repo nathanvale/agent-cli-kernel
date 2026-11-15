@@ -2,7 +2,7 @@ import { appendFileSync } from "node:fs";
 import { expect } from "bun:test";
 import { record } from "../../../starters/contract3/src/kernel/validation/primitives.ts";
 import {
-  containerDepth,
+  deepestLevel,
   envelopeOf,
   expectedRow,
   n,
@@ -48,6 +48,25 @@ const marker = "FX-REJECTED-PAYLOAD";
 // this test rather than move the expectation with it.
 const independentFallbackMessage =
   "The result could not be delivered safely. Follow the guidance and inspect effects independently before any new run.";
+
+// Independent oracle: the binding default words (B3).
+export const authorityDefaults = {
+  guidance: {
+    handoff: {
+      owner: "human",
+      reason:
+        "This command needs an exact-item grant from its authority owner before it can run.",
+      inspect: [
+        {
+          kind: "instruction",
+          text: "Authority owner: review the requested item and decide whether to grant it.",
+        },
+      ],
+    },
+  },
+  repairAction:
+    "Obtain an exact-item grant from the command's authority owner, then decide on a new run.",
+} as const;
 
 // Raw receipts go to the evidence owner when T2_EVIDENCE names a file.
 export function receipt(entry: Case, observed: Observed, extra: object = {}) {
@@ -101,7 +120,8 @@ function assertFallback(
   expect(result.retryable).toBe(false);
   expect(raw.includes(marker)).toBe(false);
   expect(observed.stdout.byteLength).toBeLessThanOrEqual(16_384);
-  expect(containerDepth(envelope)).toBeLessThanOrEqual(8);
+  // B2.05: deepest value level, envelope at level 0, at most 8 (LIFE-9).
+  expect(deepestLevel(envelope)).toBeLessThanOrEqual(8);
   keysWithin(envelope, envelopeKeys);
   keysWithin(result, resultKeys);
   keysWithin(result.effects, effectKeys);

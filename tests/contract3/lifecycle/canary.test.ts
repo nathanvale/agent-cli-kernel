@@ -6,9 +6,11 @@ import {
   canaryCli,
   cleanup,
   envelopeOf,
+  exitWithin,
   expectedRow,
   goneWithin,
   launch,
+  release,
   resultOf,
 } from "./harness.ts";
 
@@ -52,10 +54,10 @@ describe("public-seam canary (supporting S7, not a frozen case)", () => {
         argv: ["wait", "--json"],
         script: canaryCli,
       });
-      await launched.barrier("child-started");
-      const sent = launched.signal("SIGINT");
-      const observed = await launched.done;
       try {
+        await launched.barrier("child-started");
+        const sent = launched.signal("SIGINT");
+        const observed = await exitWithin(launched);
         expect(observed.signal).toBeNull();
         expect(observed.code).toBe(130);
         expect(observed.stdout.byteLength).toBe(0);
@@ -69,7 +71,7 @@ describe("public-seam canary (supporting S7, not a frozen case)", () => {
           throw new Error("No owned child pid.");
         expect(await goneWithin(child, 300)).toBe(true);
       } finally {
-        await cleanup(observed);
+        await release(launched);
       }
     },
     timeout,

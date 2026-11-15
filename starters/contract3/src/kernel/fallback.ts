@@ -6,14 +6,23 @@ import {
   unchangedEffects,
 } from "./state-causes.ts";
 import type { Effects } from "./types.ts";
+import {
+  childLevel,
+  fallbackLevelLimit,
+  rootLevel,
+  withinLevel,
+} from "./validation/level.ts";
 import { record } from "./validation/primitives.ts";
 
 // LIFE-9 and LIFE-10: one bounded fallback, always contract 3.0.0.
 export const fallbackMessage =
   "The result could not be delivered safely. Follow the guidance and inspect effects independently before any new run.";
 // The 16,384-byte bound includes the trailing newline. Depth counts nested
-// containers, the envelope object being depth 1.
-export const fallbackLimits = { bytes: 16_384, depth: 8 } as const;
+// The level limit follows the one nesting rule in validation/level.ts.
+export const fallbackLimits = {
+  bytes: 16_384,
+  level: fallbackLevelLimit,
+} as const;
 
 export type TrustedRun = {
   readonly runId: string;
@@ -116,11 +125,12 @@ export async function fallbackText(
 }
 
 type Frame = {
+  readonly level: number;
   readonly close: "]" | "}";
   readonly items: readonly (readonly [string | undefined, unknown])[];
   index: number;
 };
-export type Limits = { readonly bytes: number; readonly depth: number };
+export type Limits = { readonly bytes: number; readonly level: number };
 
 function scalar(value: unknown): string | undefined {
   return value === null ||
@@ -131,15 +141,16 @@ function scalar(value: unknown): string | undefined {
     : undefined;
 }
 
-function frame(value: unknown): Frame | undefined {
+function frame(value: unknown, level: number): Frame | undefined {
   if (Array.isArray(value))
     return {
+      level,
       close: "]",
       items: Array.from(value, (item: unknown) => [undefined, item] as const),
       index: 0,
     };
   if (record(value))
-    return { close: "}", items: Object.entries(value), index: 0 };
+    return { level, close: "}", items: Object.entries(value), index: 0 };
   return undefined;
 }
 
@@ -162,31 +173,35 @@ class Output {
   }
 }
 
-// Writes one value: a scalar, or the opening of a container frame.
+// Writes one value at `level`: a scalar, or the opening of a container frame.
+// Every value, scalar or container, must sit within the level limit.
 function open(
   value: unknown,
+  level: number,
   stack: Frame[],
   output: Output,
   limits: Limits,
 ): boolean {
+  if (!withinLevel(level, limits.level)) return false;
   const literal = scalar(value);
   if (literal !== undefined) return output.push(literal);
-  const next = frame(value);
-  if (!next || stack.length + 1 > limits.depth) return false;
+  const next = frame(value, level);
+  if (!next) return false;
   stack.push(next);
   return output.push(next.close === "]" ? "[" : "{");
 }
 
 // The guarded nonrecursive encoder used only by the fallback. It accepts plain
-// JSON values, at most `fallbackLimits.depth` nested containers and at most
-// `fallbackLimits.bytes` UTF-8 bytes including the trailing newline.
+// JSON values with every value at most `fallbackLimits.level` levels below the
+// root (level 0) and at most `fallbackLimits.bytes` UTF-8 bytes including the
+// trailing newline.
 export function encodeBounded(
   value: unknown,
   limits: Limits = fallbackLimits,
 ): string | undefined {
   const output = new Output(limits.bytes);
   const stack: Frame[] = [];
-  if (!open(value, stack, output, limits)) return undefined;
+  if (!open(value, rootLevel, stack, output, limits)) return undefined;
   for (let top = stack.at(-1); top; top = stack.at(-1)) {
     const entry = top.items[top.index];
     if (!entry) {
@@ -196,7 +211,10 @@ export function encodeBounded(
     }
     const separator = top.index++ > 0 ? "," : "";
     const key = entry[0] === undefined ? "" : `${JSON.stringify(entry[0])}:`;
-    if (!output.push(separator + key) || !open(entry[1], stack, output, limits))
+    if (
+      !output.push(separator + key) ||
+      !open(entry[1], childLevel(top.level), stack, output, limits)
+    )
       return undefined;
   }
   return output.text();
