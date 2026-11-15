@@ -3,10 +3,13 @@ import { record } from "./primitives.ts";
 export function handlerContext<C extends CapabilitySelection>(
   value: unknown,
   selection: C,
+  changing = false,
 ): value is HandlerContext<C> {
   if (
     !record(value) ||
-    Object.keys(value).some((key) => !Object.hasOwn(selection, key))
+    Object.keys(value).some(
+      (key) => !(changing && key === "state") && !Object.hasOwn(selection, key),
+    )
   )
     return false;
   const methods = {
@@ -26,4 +29,20 @@ export function handlerContext<C extends CapabilitySelection>(
       methods[key].every((name) => typeof capability[name] === "function")
     );
   });
+}
+
+export function approvalContext(value: unknown): value is {
+  readonly approval: import("../capabilities.ts").ApprovalCapability;
+} {
+  return (
+    record(value) &&
+    record(value.approval) &&
+    typeof value.approval.check === "function"
+  );
+}
+export function withState(
+  value: unknown,
+  state: import("../capabilities.ts").StateCapability<string> | undefined,
+): unknown {
+  return record(value) ? { ...value, state } : { state };
 }

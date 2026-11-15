@@ -9,6 +9,8 @@ import type {
   NextStep,
   ResultFor,
   WireResult,
+  TransactionState,
+  Outcome,
 } from "../types.ts";
 import {
   integer,
@@ -107,13 +109,20 @@ function effectState(value: WireResult): boolean {
       e.inventoryComplete &&
       e.completed.length + e.remaining.length + e.uncertain.length === 0
     );
-  switch (value.transactionState) {
+  return transactionEffects(value.transactionState, e, value.outcome);
+}
+export function transactionEffects(
+  state: TransactionState,
+  e: Effects,
+  outcome: Outcome,
+): boolean {
+  switch (state) {
     case "unchanged":
       return (
         e.inventoryComplete &&
         e.completed.length === 0 &&
         e.uncertain.length === 0 &&
-        (value.outcome !== "success" || e.remaining.length === 0)
+        (outcome !== "success" || e.remaining.length === 0)
       );
     case "completed":
       return (

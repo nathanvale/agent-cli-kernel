@@ -79,8 +79,9 @@ function constraintsHold(
 ): boolean {
   return schema.constraints.every((item) =>
     item.kind === "requires"
-      ? !(item.ifPresent in values) || item.thenPresent in values
-      : item.members.filter((name) => name in values).length <= 1,
+      ? !Object.hasOwn(values, item.ifPresent) ||
+        Object.hasOwn(values, item.thenPresent)
+      : item.members.filter((name) => Object.hasOwn(values, name)).length <= 1,
   );
 }
 type ParseState = {
@@ -104,7 +105,10 @@ function selectSlot(
     return { ok: false, path: "argv", reason: "unknown option" };
   const slot = option ?? schema.arguments[state.operand++];
   if (!slot) return { ok: false, path: "argv", reason: "additional argument" };
-  if (slot.name in state.values && !("repeatable" in slot && slot.repeatable))
+  if (
+    Object.hasOwn(state.values, slot.name) &&
+    !("repeatable" in slot && slot.repeatable)
+  )
     return { ok: false, path: slot.name, reason: "repeated slot" };
   return {
     ok: true,
@@ -117,12 +121,14 @@ function saveValue(
   value: string | number | boolean,
 ): void {
   if (!("repeatable" in slot && slot.repeatable)) {
-    state.values[slot.name] = value;
+    setValue(state.values, slot.name, value);
     return;
   }
-  const previous: unknown = state.values[slot.name];
+  const previous: unknown = Object.hasOwn(state.values, slot.name)
+    ? state.values[slot.name]
+    : undefined;
   const entries: readonly unknown[] = Array.isArray(previous) ? previous : [];
-  state.values[slot.name] = [...entries, value];
+  setValue(state.values, slot.name, [...entries, value]);
 }
 async function parseToken(
   schema: InputSchema,
@@ -174,4 +180,17 @@ export async function parseInput<I extends InputSchema>(
     constraintsHold(schema, state.values)
     ? { ok: true, value: state.values }
     : { ok: false, path: "input", reason: "required slot or constraint" };
+}
+
+function setValue(
+  values: Record<string, unknown>,
+  name: string,
+  value: unknown,
+): void {
+  Object.defineProperty(values, name, {
+    value,
+    enumerable: true,
+    configurable: true,
+    writable: true,
+  });
 }

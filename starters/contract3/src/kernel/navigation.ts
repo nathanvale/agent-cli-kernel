@@ -66,18 +66,28 @@ function kernelWords(
 ):
   | { readonly next: NextStep; readonly handoff?: never }
   | { readonly handoff: Handoff; readonly next?: never } {
-  if (causeCode.startsWith("INTERNAL_RESULT_"))
+  if (
+    causeCode.startsWith("INTERNAL_RESULT_") ||
+    [
+      "DOMAIN_AUTHORITY_REQUIRED",
+      "DOMAIN_DEADLINE_COMPLETED",
+      "DOMAIN_DEADLINE_PARTIAL",
+      "DOMAIN_DEADLINE_UNKNOWN",
+    ].includes(causeCode)
+  )
     return {
       handoff: {
         owner: "operator",
         reason:
           "Inspect result production and independently confirmed effects.",
-        inspect: [
-          {
-            kind: "instruction",
-            text: "Inspect the command's resource and retained history without repeating its operation.",
-          },
-        ],
+        inspect: command.ifNoResult
+          ? [command.ifNoResult.step]
+          : [
+              {
+                kind: "instruction",
+                text: "Inspect the command's resource and retained history without repeating its operation.",
+              },
+            ],
       },
     };
   if (causeCode === "SUCCESS_UNCHANGED") return { next: { kind: "done" } };
@@ -110,6 +120,7 @@ export function stationsFor(
     needed.unshift("SUCCESS_UNCHANGED");
   if (command.commandIdentity === `${cli}.command-discovery`)
     needed.unshift("USAGE_UNKNOWN_COMMAND");
+  addEffectStations(command, needed);
   return addKernelStations(command, cli, causes, needed);
 }
 function addKernelStations(
@@ -163,3 +174,22 @@ export const exitMeanings = {
   "75": "transient",
 } as const;
 export const signalExits = { "130": "SIGINT", "143": "SIGTERM" } as const;
+
+function addEffectStations(
+  command: CommandDeclaration,
+  needed: string[],
+): void {
+  if (command.effectClass !== "inspect") {
+    needed.push("INTERNAL_RESULT_COMPLETED", "INTERNAL_RESULT_UNKNOWN");
+    if ((command.effects?.length ?? 0) > 1)
+      needed.push("INTERNAL_RESULT_PARTIAL");
+  }
+  if (command.input.deadlineSupported) {
+    needed.push("DOMAIN_DEADLINE_BEFORE_START", "DOMAIN_DEADLINE_UNCHANGED");
+    if (command.effectClass !== "inspect")
+      needed.push("DOMAIN_DEADLINE_COMPLETED", "DOMAIN_DEADLINE_UNKNOWN");
+    if ((command.effects?.length ?? 0) > 1)
+      needed.push("DOMAIN_DEADLINE_PARTIAL");
+  }
+  if (command.capabilities.approval) needed.push("DOMAIN_AUTHORITY_REQUIRED");
+}

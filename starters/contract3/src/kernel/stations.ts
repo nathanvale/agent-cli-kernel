@@ -43,9 +43,11 @@ export function freeze<T>(value: T): T {
 export function station<C extends CauseTable, const S extends StationInput<C>>(
   causes: C,
   spec: S,
-): DeclaredStation & {
+): Omit<DeclaredStation, "row" | "guidance"> & {
   readonly causeCode: S["causeCode"];
   readonly commandIdentity: S["commandIdentity"];
+  readonly row: C[S["causeCode"]];
+  readonly guidance: S["guidance"];
 } {
   const row = causes[spec.causeCode];
   if (!row || !causeRow(row)) throw new Error("Invalid cause row.");
