@@ -1,0 +1,186 @@
+import type { DeclaredStation } from "./stations.ts";
+import type { Handoff, NextStep, WireResult } from "./types.ts";
+export type TemplateSlot = {
+  readonly text: string;
+  readonly bindingAllowed: boolean;
+  readonly runValue: boolean;
+};
+function stepSlots(step: NextStep): TemplateSlot[] {
+  switch (step.kind) {
+    case "command":
+      return step.args.map((text) => ({
+        text,
+        bindingAllowed: true,
+        runValue: true,
+      }));
+    case "instruction":
+      return [{ text: step.text, bindingAllowed: false, runValue: false }];
+    case "retry":
+    case "done":
+      return [];
+  }
+}
+export function templateSlots(
+  station: DeclaredStation,
+): readonly TemplateSlot[] {
+  const slots: TemplateSlot[] =
+    station.repairAction === null
+      ? []
+      : [
+          {
+            text: station.repairAction,
+            bindingAllowed: false,
+            runValue: false,
+          },
+        ];
+  if (station.guidance.next)
+    return [...slots, ...stepSlots(station.guidance.next)];
+  const handoff = station.guidance.handoff;
+  slots.push({ text: handoff.reason, bindingAllowed: false, runValue: false });
+  if (handoff.resource)
+    slots.push(
+      { text: handoff.resource.kind, bindingAllowed: false, runValue: false },
+      { text: handoff.resource.id, bindingAllowed: true, runValue: true },
+    );
+  for (const entry of handoff.inspect) slots.push(...stepSlots(entry));
+  return slots;
+}
+const tokens = [
+  "runId",
+  "completedEffects",
+  "remainingEffects",
+  "uncertainEffects",
+  "idempotencyKey",
+];
+export function bindingNames(station: DeclaredStation): readonly string[] {
+  const names = new Set<string>();
+  for (const slot of templateSlots(station)) {
+    const matches = [...slot.text.matchAll(/\{([^{}]*)\}/g)];
+    if (slot.text.replace(/\{[^{}]*\}/g, "").match(/[{}]/))
+      throw new Error("Malformed template token.");
+    for (const match of matches) {
+      const token = match[1];
+      if (token === undefined) throw new Error("Empty template token.");
+      if (tokens.includes(token)) continue;
+      if (
+        !/^binding\.[a-z][A-Za-z0-9]*$/.test(token) ||
+        !slot.bindingAllowed ||
+        slot.text !== `{${token}}`
+      )
+        throw new Error("Invalid binding placement or template token.");
+      names.add(token.slice(8));
+    }
+  }
+  return [...names].sort();
+}
+export function safeRunValue(
+  value: string,
+  routeTokens: readonly string[],
+  argument: boolean,
+): boolean {
+  return (
+    value.trim().length > 0 &&
+    new TextEncoder().encode(value).byteLength <= 1024 &&
+    !value.startsWith("-") &&
+    !/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(value) &&
+    (!argument || !routeTokens.includes(value))
+  );
+}
+export function substitute(text: string, result: WireResult): string {
+  return text.replace(/\{([^{}]*)\}/g, (_whole, token: string) => {
+    switch (token) {
+      case "runId":
+        return result.runId;
+      case "completedEffects":
+        return JSON.stringify(result.effects.completed);
+      case "remainingEffects":
+        return JSON.stringify(result.effects.remaining);
+      case "uncertainEffects":
+        return JSON.stringify(result.effects.uncertain);
+      case "idempotencyKey":
+        if (result.idempotencyKey === undefined)
+          throw new Error("Missing idempotency key.");
+        return result.idempotencyKey;
+      default: {
+        const value = result.bindings?.[token.slice(8)];
+        if (value === undefined) throw new Error("Missing binding.");
+        return value;
+      }
+    }
+  });
+}
+function renderStep(step: NextStep, result: WireResult): NextStep {
+  switch (step.kind) {
+    case "command":
+      return { ...step, args: step.args.map((arg) => substitute(arg, result)) };
+    case "instruction":
+      return { ...step, text: substitute(step.text, result) };
+    case "retry":
+    case "done":
+      return step;
+  }
+}
+function renderHandoff(handoff: Handoff, result: WireResult): Handoff {
+  const renderInspection = (entry: Handoff["inspect"][number]) =>
+    entry.kind === "command"
+      ? { ...entry, args: entry.args.map((arg) => substitute(arg, result)) }
+      : { ...entry, text: substitute(entry.text, result) };
+  const [first, ...rest] = handoff.inspect;
+  return {
+    ...handoff,
+    reason: substitute(handoff.reason, result),
+    inspect: [renderInspection(first), ...rest.map(renderInspection)],
+    ...(handoff.resource
+      ? {
+          resource: {
+            kind: substitute(handoff.resource.kind, result),
+            id: substitute(handoff.resource.id, result),
+          },
+        }
+      : {}),
+  };
+}
+export function renderGuidance(station: DeclaredStation, result: WireResult) {
+  return {
+    repairAction:
+      station.repairAction === null
+        ? null
+        : substitute(station.repairAction, result),
+    ...(station.guidance.next
+      ? { next: renderStep(station.guidance.next, result) }
+      : { handoff: renderHandoff(station.guidance.handoff, result) }),
+  };
+}
+export function templatesAgree(
+  station: DeclaredStation,
+  result: WireResult,
+  routeTokens: readonly string[],
+): boolean {
+  try {
+    const names = bindingNames(station);
+    if (
+      names.length === 0
+        ? result.bindings !== undefined
+        : result.bindings === undefined ||
+          JSON.stringify(Object.keys(result.bindings).sort()) !==
+            JSON.stringify(names)
+    )
+      return false;
+    for (const slot of templateSlots(station)) {
+      if (!slot.runValue) continue;
+      for (const match of slot.text.matchAll(/\{([^{}]*)\}/g))
+        if (!safeRunValue(substitute(match[0], result), routeTokens, true))
+          return false;
+    }
+    const rendered = renderGuidance(station, result);
+    return (
+      rendered.repairAction === result.repairAction &&
+      JSON.stringify("next" in rendered ? rendered.next : undefined) ===
+        JSON.stringify(result.next) &&
+      JSON.stringify("handoff" in rendered ? rendered.handoff : undefined) ===
+        JSON.stringify(result.handoff)
+    );
+  } catch {
+    return false;
+  }
+}

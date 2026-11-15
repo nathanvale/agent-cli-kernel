@@ -1,8 +1,10 @@
+import contract3 from "./tests/contract3/lint-config.mjs";
 import js from "@eslint/js";
 import localRules from "./eslint-rules.mjs";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
+  ...contract3,
   {
     ignores: [
       "node_modules/**",
@@ -12,7 +14,9 @@ export default tseslint.config(
       ".worktrees/**",
       "profiles/**",
       "examples/**",
-      "starters/**",
+      "starters/simple/**",
+      "starters/complex/**",
+      "starters/shared/**",
       "proofs/**",
     ],
   },
