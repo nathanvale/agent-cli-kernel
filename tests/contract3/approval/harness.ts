@@ -437,40 +437,66 @@ type FileSearch = {
     unreadable: number;
   };
 };
+type Rejection = keyof FileSearch["rejected"];
+// The first file precondition the entry fails, or undefined when it holds.
+async function fileRejection(path: string): Promise<Rejection | undefined> {
+  let facts;
+  try {
+    facts = await lstat(path);
+  } catch {
+    return "unreadable";
+  }
+  const caller = process.getuid?.();
+  const checks: readonly (readonly [
+    Rejection,
+    () => boolean | Promise<boolean>,
+  ])[] = [
+    ["notRegular", () => !facts.isFile()],
+    ["callerOwned", () => caller === undefined || facts.uid === caller],
+    ["groupOrWorldWritable", () => (facts.mode & 0o022) !== 0],
+    ["callerWritable", () => writable(path)],
+  ];
+  for (const [reason, failed] of checks) if (await failed()) return reason;
+  return undefined;
+}
 async function judgeFile(
   path: string,
   directory: string,
   search: FileSearch,
   chains: Map<string, boolean>,
 ): Promise<boolean> {
-  const caller = process.getuid?.();
-  let facts;
-  try {
-    facts = await lstat(path);
-  } catch {
-    search.rejected.unreadable++;
-    return false;
-  }
-  if (!facts.isFile()) {
-    search.rejected.notRegular++;
-    return false;
-  }
-  if (caller === undefined || facts.uid === caller) {
-    search.rejected.callerOwned++;
-    return false;
-  }
-  if ((facts.mode & 0o022) !== 0) {
-    search.rejected.groupOrWorldWritable++;
-    return false;
-  }
-  if (await writable(path)) {
-    search.rejected.callerWritable++;
+  const reason = await fileRejection(path);
+  if (reason) {
+    search.rejected[reason]++;
     return false;
   }
   const chain = chains.get(directory) ?? (await foreignChain(directory));
   chains.set(directory, chain);
   if (!chain) search.rejected.directoryChain++;
   return chain;
+}
+async function isDirectoryEntry(path: string): Promise<boolean> {
+  try {
+    return (await lstat(path)).isDirectory();
+  } catch {
+    return false;
+  }
+}
+// Judges one entry: a foreign directory is queued, anything else is
+// judged as a candidate file.
+async function searchEntry(
+  path: string,
+  directory: string,
+  search: FileSearch,
+  chains: Map<string, boolean>,
+  subdirectories: string[],
+): Promise<void> {
+  search.examined++;
+  if (await isDirectoryEntry(path)) {
+    // Only foreign directories can lead to a foreign chain.
+    if (await foreignDirectory(path)) subdirectories.push(path);
+  } else if (await judgeFile(path, directory, search, chains))
+    search.found = path;
 }
 async function searchDirectory(
   directory: string,
@@ -489,19 +515,13 @@ async function searchDirectory(
   const subdirectories: string[] = [];
   for (const name of names) {
     if (search.found || search.examined >= searchBound) return;
-    const path = join(directory, name);
-    search.examined++;
-    let directoryEntry = false;
-    try {
-      directoryEntry = (await lstat(path)).isDirectory();
-    } catch {
-      // judgeFile counts it as unreadable.
-    }
-    if (directoryEntry) {
-      // Only foreign directories can lead to a foreign chain.
-      if (await foreignDirectory(path)) subdirectories.push(path);
-    } else if (await judgeFile(path, directory, search, chains))
-      search.found = path;
+    await searchEntry(
+      join(directory, name),
+      directory,
+      search,
+      chains,
+      subdirectories,
+    );
   }
   if (depth > 0)
     for (const path of subdirectories)
