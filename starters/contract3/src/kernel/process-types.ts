@@ -1,0 +1,60 @@
+import type { CapabilitySelection, HandlerContext } from "./capabilities.ts";
+import type { CapabilityAddonName } from "./validation/context.ts";
+
+export type StopSignal = "SIGINT" | "SIGTERM";
+
+// The process streams, exit, signals, crash hooks and clock, owned by the one
+// writer and the lifecycle. Kernel-internal: the public RunSetup cannot
+// replace it. The real adapter is processHost().
+export type ProcessHost = {
+  // Resolves true after the bytes drained to the stream, false on any error.
+  readonly write: (
+    stream: "stdout" | "stderr",
+    bytes: Uint8Array,
+  ) => Promise<boolean>;
+  readonly exit: (code: number) => void;
+  readonly onSignal: (listener: (signal: StopSignal) => void) => void;
+  readonly onCrash: (listener: () => void) => void;
+  // Monotonic milliseconds.
+  readonly now: () => number;
+};
+
+// What an add-on learns about the run it serves. `signal` aborts at the first
+// stop request or at the deadline: no new work may start after that.
+export type RunControl = {
+  readonly runId: string;
+  readonly commandIdentity: string;
+  readonly summary: string;
+  readonly signal: AbortSignal;
+};
+
+export type AttachedAddon<Capability> = {
+  readonly capability: Capability;
+  // Bounded shutdown of owned resources. `limitMilliseconds` caps every
+  // declared budget. Resolves true only when every owned resource was observed
+  // stopped; an attempt is never reported as termination.
+  readonly settle: (limitMilliseconds?: number) => Promise<boolean>;
+  // Synchronous forced termination attempt with no waiting.
+  readonly killNow: () => void;
+};
+
+export type RunAddon<Capability> = {
+  readonly attach: (run: RunControl) => AttachedAddon<Capability>;
+};
+
+export type EmergencyFacts = {
+  readonly runId: string;
+  readonly commandIdentity: string | null;
+  readonly phase: "preparing" | "dispatched" | "emitting" | "drained";
+};
+
+// One add-on per declared capability name (validation/context.ts owns them).
+export type CapabilityFor = HandlerContext<Required<CapabilitySelection>>;
+export type RunSetup = {
+  readonly addons?: {
+    readonly [K in CapabilityAddonName]?: RunAddon<CapabilityFor[K]>;
+  };
+  // At most one bounded synchronous recording attempt on a catchable crash
+  // (LIFE-6a). The state add-on supplies it; without one nothing is written.
+  readonly emergencyRecord?: (facts: EmergencyFacts) => void;
+};

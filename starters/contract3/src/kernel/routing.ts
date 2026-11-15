@@ -91,6 +91,14 @@ async function resolveCommand(
         command.commandIdentity,
       );
 }
+// The command tokens resolveInvocation routed on: global switches and a
+// declared deadline removed. The process front door passes the tail after the
+// route to the command's own executable parser.
+export function invocationTokens(argv: readonly string[]): readonly string[] {
+  const { tokens } = globalSwitches(argv);
+  const split = splitDeadline(tokens);
+  return split.ok ? split.value.tokens : tokens;
+}
 export async function resolveInvocation(
   cli: string,
   commands: readonly CommandDeclaration[],

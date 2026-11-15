@@ -193,4 +193,21 @@ export default tseslint.config(
     files: ["starters/contract3/src/addons/state/**/*.{ts,mts,cts}"],
     rules: { "no-restricted-properties": ["error", ...programProperties] },
   },
+  {
+    // CMD-14: only the programs add-on folder may start programs, and only
+    // through the asynchronous Bun.spawn.
+    files: ["starters/contract3/src/addons/programs/**/*.{ts,mts,cts}"],
+    rules: {
+      "no-restricted-properties": [
+        "error",
+        ...programProperties.filter((entry) => entry.property !== "spawn"),
+        installerProperty,
+      ],
+    },
+  },
+  {
+    // GATE-12: the kernel writer's process adapter is the one output owner.
+    files: ["starters/contract3/src/kernel/process-host.ts"],
+    rules: { "repository/no-domain-output": "off" },
+  },
 );
