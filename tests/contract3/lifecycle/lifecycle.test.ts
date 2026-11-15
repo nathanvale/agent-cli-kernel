@@ -4,7 +4,9 @@ import { comparableEnvelope } from "../../../starters/contract3/src/kernel/compa
 import { assertEnvelope, receipt } from "./checks.ts";
 import { sliceCases } from "./coverage.ts";
 import {
+  caseById,
   cleanup,
+  decliningHost,
   envelopeOf,
   frontDoorStart,
   goneWithin,
@@ -14,9 +16,10 @@ import {
   resultOf,
   run,
   slowSmallChunkRun,
+  spawnableLength,
   text,
 } from "./harness.ts";
-import type { Case, Launched, Observed } from "./harness.ts";
+import type { Case, Launched, Observed, OperandFit } from "./harness.ts";
 
 const timeout = 30_000;
 // Harness observation tolerance added to every contract bound. Calibrated
@@ -68,6 +71,30 @@ function assertDeadlineLag(entry: Case, observed: Observed) {
   expect(lag).toBeLessThanOrEqual(
     n(entry.expect.withinMillisecondsAfterDeadline) + tolerance,
   );
+}
+
+function longestArgument(argv: readonly string[]): number {
+  return argv.reduce(
+    (best, arg, index) =>
+      arg.length > (argv[best]?.length ?? 0) ? index : best,
+    0,
+  );
+}
+
+// H1: a frozen operand longer than the host can spawn is reported, never
+// silently shortened: the lengths go to stderr in the test log and to the
+// receipt. The case still asserts its frozen observation at the exercised
+// length, which must stay above the 64 KiB input bound to mean "very long".
+const veryLongFloor = 65_537;
+function reportOperandFit(entry: Case, fit: OperandFit) {
+  if (fit.refusedLength === null) return;
+  process.stderr.write(
+    `${entry.id}: the OS refused the frozen ${fit.refusedLength}-byte operand (shortest refused ${String(fit.shortestRefusedLength)} bytes); exercised ${fit.exercisedLength} bytes.\n`,
+  );
+  if (fit.exercisedLength < veryLongFloor)
+    throw new Error(
+      `UNPROVED on this host: the longest spawnable operand is ${fit.exercisedLength} bytes.`,
+    );
 }
 
 const checks: Record<string, (entry: Case) => Promise<void>> = {
@@ -237,17 +264,26 @@ const checks: Record<string, (entry: Case) => Promise<void>> = {
     }
   },
   async L12(entry) {
-    const raw = entry.argv[1] ?? "";
+    const rawShell = entry.id === "L12.invalid-utf8-operand";
+    const longest = longestArgument(entry.argv);
     const launched = await start(
       entry,
-      entry.id === "L12.invalid-utf8-operand"
+      rawShell
         ? {
             rawArgvShell: 'exec "$0" "$1" read "$(printf "\\377\\376")" --json',
           }
-        : {},
+        : { fitOperand: longest },
     );
-    const observed = await finish(entry, launched);
+    const observed = await finish(entry, launched, {
+      operand: launched.operand ?? null,
+    });
     try {
+      const fit = launched.operand;
+      if (fit) reportOperandFit(entry, fit);
+      const raw = (entry.argv[longest] ?? "").slice(
+        0,
+        fit?.exercisedLength ?? undefined,
+      );
       assertEnvelope(entry, observed);
       if (entry.expect.noEcho === true) {
         const out = text(observed.stdout);
@@ -440,6 +476,95 @@ describe("CMD-9 steps 3 to 6 order (supporting C2)", () => {
         expect(at("guarded-child")).toBeLessThan(at("applied fx.alpha"));
       } finally {
         await cleanup(observed);
+      }
+    },
+    timeout,
+  );
+});
+
+describe("host argument limits (supporting H1)", () => {
+  test(
+    "H1s.long-operand-shortened-and-reported-under-a-small-budget",
+    async () => {
+      // Nine 100 KB variables leave Darwin about 150 KB of its 1 MB total
+      // and stay inside Linux's per-string and total limits, so the frozen
+      // 200,000-byte operand is refused on both and the case is shortened.
+      const entry = caseById("L12.long-operand");
+      const pad = Object.fromEntries(
+        Array.from({ length: 9 }, (_unused, index) => [
+          `FX_PAD_${index}`,
+          "p".repeat(100_000),
+        ]),
+      );
+      const launched = await launchCase(entry, { fitOperand: 1, env: pad });
+      const observed = await finish(entry, launched, {
+        operand: launched.operand ?? null,
+      });
+      try {
+        const fit = launched.operand;
+        if (!fit) throw new Error("The operand was not fitted.");
+        expect(fit.refusedLength).toBe(200_000);
+        expect(fit.exercisedLength).toBeLessThan(200_000);
+        reportOperandFit(entry, fit);
+        assertEnvelope(entry, observed);
+        expect(text(observed.stdout).includes("L".repeat(64))).toBe(false);
+      } finally {
+        await cleanup(observed);
+      }
+    },
+    timeout,
+  );
+
+  test(
+    "H1s.spawnable-length-probe-finds-the-host-limit",
+    () => {
+      // 4 MB exceeds Darwin's total ARG_MAX and Linux's 131,072-byte limit on
+      // one argument, so every supported host takes the shortening path.
+      const env = { PATH: "/usr/bin:/bin" };
+      const build = (length: number) => ["probe", "L".repeat(length)];
+      const wanted = 4_000_000;
+      const fits = spawnableLength(build, env, wanted);
+      expect(fits).toBeLessThan(wanted);
+      expect(fits).toBeGreaterThanOrEqual(65_537);
+      const spawn = (length: number) =>
+        Bun.spawnSync(["/bin/sh", "-c", ":", ...build(length)], {
+          env,
+          stdout: "ignore",
+          stderr: "ignore",
+        }).success;
+      expect(spawn(fits)).toBe(true);
+      expect(() => spawn(fits + 1)).toThrow();
+    },
+    timeout,
+  );
+});
+
+describe("front-door timers and listeners in one process (supporting F6)", () => {
+  test(
+    "F6s.declining-host-runs-twice-without-stale-timers-or-listeners",
+    async () => {
+      const launched = await launch({ argv: [], script: decliningHost });
+      // The deadline is 60 s; a timer left armed would hold the process open.
+      const finished = await Promise.race([
+        launched.done,
+        Bun.sleep(10_000).then(() => undefined),
+      ]);
+      if (!finished) {
+        launched.signal("SIGKILL");
+        await cleanup(await launched.done);
+        throw new Error("A stale timer kept the process alive for 10 s.");
+      }
+      try {
+        expect(finished.code).toBe(0);
+        expect(finished.stderr.byteLength).toBe(0);
+        expect(
+          finished.ledger.filter((line) => line === "declined-exit 0").length,
+        ).toBe(2);
+        expect(finished.ledger).toContain(
+          "listeners SIGINT=1 SIGTERM=1 uncaughtException=1 unhandledRejection=1",
+        );
+      } finally {
+        await cleanup(finished);
       }
     },
     timeout,
