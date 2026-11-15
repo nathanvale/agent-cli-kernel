@@ -4,7 +4,7 @@ import { commonCauses } from "./causes.ts";
 import type { CauseTable } from "./types.ts";
 import { causeRow } from "./validation/result.ts";
 import { bindingNames, guidanceTargets } from "./guidance.ts";
-import { inputSchema } from "./validation/input.ts";
+import { admitHostInput } from "./host-input.ts";
 import { text } from "./validation/primitives.ts";
 export type AddonName = "state" | "programs" | "approval" | "diagnostics";
 export function admitCauses(causes: CauseTable): void {
@@ -99,8 +99,7 @@ export function admitCommands(
   if (new Set(hostRoutes).size !== hostRoutes.length)
     throw new Error("Duplicate command route.");
   for (const command of commands) {
-    if (!inputSchema(command.input))
-      throw new Error("Invalid input declaration.");
+    admitHostInput(command.input);
     for (const name of Object.keys(command.capabilities))
       if (!installed.some((entry) => entry === name))
         throw new Error("Declared capability add-on is not installed.");
