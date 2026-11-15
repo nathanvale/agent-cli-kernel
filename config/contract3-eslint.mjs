@@ -13,6 +13,14 @@ const installerProperty = {
   message:
     "State installer authoring belongs only to the canonical stamped state add-on folder.",
 };
+// CMD-14: no-restricted-imports sees static imports only, so the dynamic
+// import of the process module is banned by syntax in every source scope (F09).
+const childProcessImport = {
+  selector:
+    "ImportExpression:matches([source.value=/^(node:)?child_process$/], [source.quasis.0.value.cooked=/^(node:)?child_process$/])",
+  message:
+    "Contract 3 source starts programs only through the programs add-on.",
+};
 const programProperties = [
   { object: "Bun", property: "spawn" },
   { object: "Bun", property: "spawnSync" },
@@ -76,6 +84,10 @@ export default tseslint.config(
     plugins: { repository },
     rules: {
       "repository/no-domain-output": "error",
+      "no-restricted-syntax": [
+        ...rules["no-restricted-syntax"],
+        childProcessImport,
+      ],
       "no-restricted-imports": [
         "error",
         { patterns: ["**/tests/**", "node:child_process", "child_process"] },
@@ -93,6 +105,7 @@ export default tseslint.config(
     rules: {
       "no-restricted-syntax": [
         ...rules["no-restricted-syntax"],
+        childProcessImport,
         {
           selector:
             "ImportExpression[source.value=/(^|\\x2f)kernel\\x2f(?!index[.](ts|mts|cts)$)/]",
@@ -121,6 +134,7 @@ export default tseslint.config(
       "no-restricted-properties": ["error", ...programProperties],
       "no-restricted-syntax": [
         ...rules["no-restricted-syntax"],
+        childProcessImport,
         {
           selector:
             ":matches(MemberExpression[property.name='stateAddon'], MemberExpression[computed=true][property.value='stateAddon']):not(AssignmentExpression[operator='='][left.object.name='contractFor'][left.property.name='stateAddon'][right.name='createStateAddon'] > MemberExpression.left)",
@@ -157,6 +171,7 @@ export default tseslint.config(
             "CallExpression[callee.object.name='Object']:matches([callee.property.name='assign'], [callee.computed=true][callee.property.value='assign'])",
           message: "Object.assign is forbidden.",
         },
+        childProcessImport,
       ],
     },
   },
