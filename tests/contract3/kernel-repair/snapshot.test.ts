@@ -12,9 +12,14 @@ runFamily("R06", {
     Reflect.set(value.result, "data", () => 1);
     Reflect.set(value, "extra", 1);
     const checked = await pending;
+    // Either branch is allowed by R06; each asserts its own observable.
     if (checked.ok) {
       expect(checked.value).not.toBe(value);
       expect<unknown>(checked.value).toEqual(pristine);
+    } else {
+      expect(checked.path).toBeTypeOf("string");
+      expect(checked.reason).toBeTypeOf("string");
+      expect(checked.path.length).toBeGreaterThan(0);
     }
   },
   "R06.mutation-after-resolve": async () => {

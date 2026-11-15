@@ -5,12 +5,14 @@ import {
   contractFor,
   station,
 } from "../../../starters/contract3/src/kernel/index.ts";
+import { validateEnvelope } from "../../../starters/contract3/src/kernel/validation/envelope.ts";
 import { buildUnchecked, runFamily } from "./harness.ts";
 import { emptyInput as empty, unchanged } from "./shapes.ts";
 
 // R05 (F05). After the F01 admission check, a declaration carrying the
-// empty-args root step is refused before any envelope exists; refusal at
-// admission therefore satisfies "refused" as well as refusal by validate.
+// empty-args root step is refused before any envelope exists. Each case
+// records which layer refused, and the envelope validator is also exercised
+// directly on the declared stations so the F05 rule keeps its own proof.
 const withFlag = {
   ...empty,
   options: [
@@ -40,7 +42,7 @@ const words = {
   independentObservable: "repair-steps",
 } as const;
 
-function fixture(args: readonly string[]) {
+function declarations(args: readonly string[]) {
   const step = { kind: "command", command: "specimen.root", args } as const;
   const root = command({
     identity: "specimen.root",
@@ -82,18 +84,41 @@ function fixture(args: readonly string[]) {
       throw new Error("Never entered.");
     },
   });
+  return { root, read };
+}
+function fixture(args: readonly string[]) {
+  const { root, read } = declarations(args);
   return contractFor({
     cli: "specimen",
     commands: [root, read],
     causes: { HOLD: hold },
   });
 }
-function admitted(args: readonly string[]) {
+// Records which layer refused: admission (after F01) or the built contract.
+function attempt(args: readonly string[]) {
   try {
-    return fixture(args);
-  } catch {
-    return undefined;
+    return { contract: fixture(args), refusal: "" };
+  } catch (error) {
+    return {
+      contract: undefined,
+      refusal: error instanceof Error ? error.message : String(error),
+    };
   }
+}
+function admissionNamesRootStep(refusal: string) {
+  expect(refusal).toContain("specimen.root");
+  expect(refusal).toContain("root operation");
+}
+// The F05 rule itself, independent of admission: the envelope validator over
+// the declared stations, without contractFor.
+function validatedDirectly(arm: "next" | "handoff", args: readonly string[]) {
+  const { root, read } = declarations(args);
+  return validateEnvelope(
+    envelope(arm, args),
+    causes,
+    [root, read],
+    new Map([["specimen.read", read.stations]]),
+  );
 }
 // Envelope fields written from the WIRE-15 rows, not from kernel output.
 function envelope(arm: "next" | "handoff", args: readonly string[]) {
@@ -134,19 +159,30 @@ function envelope(arm: "next" | "handoff", args: readonly string[]) {
   };
 }
 async function refusedEnvelope(arm: "next" | "handoff") {
-  const contract = admitted([]);
-  if (!contract) return;
-  expect(await contract.validate(envelope(arm, []))).toMatchObject({
+  expect(await validatedDirectly(arm, ["--all"])).toMatchObject({ ok: true });
+  expect(await validatedDirectly(arm, [])).toEqual({
     ok: false,
+    path: "result",
+    reason: "invalid command step",
   });
+  const admitted = attempt([]);
+  if (admitted.contract)
+    expect(await admitted.contract.validate(envelope(arm, []))).toMatchObject({
+      ok: false,
+    });
+  else admissionNamesRootStep(admitted.refusal);
 }
 
 runFamily("R05", {
   "R05.next-empty-root-refused": () => refusedEnvelope("next"),
   "R05.handoff-empty-root-refused": () => refusedEnvelope("handoff"),
   "R05.build-empty-root-refused": async () => {
-    const contract = admitted([]);
-    if (!contract) return;
+    const admitted = attempt([]);
+    if (!admitted.contract) {
+      admissionNamesRootStep(admitted.refusal);
+      return;
+    }
+    const contract = admitted.contract;
     for (const [causeCode, facts] of [
       ["SUCCESS_UNCHANGED", { data: null }],
       ["HOLD", { data: null }],

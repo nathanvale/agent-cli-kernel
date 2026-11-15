@@ -194,29 +194,48 @@ runFamily("R03", {
       ).toMatch(/reserved/i);
   },
   "R03.base-words-retained": () => {
+    // A command that declares host words for an admissible cause keeps the
+    // base's words on every reserved station, identical to a twin with no
+    // host station; the literal reserved variant itself is refused.
+    const hostSchema = station(commonCauses, {
+      commandIdentity: "specimen.read",
+      causeCode: "SCHEMA_INVALID_INPUT",
+      trigger: `${hostWords} schema trigger.`,
+      repairAction: `${hostWords} schema repair.`,
+      guidance: { next: { kind: "instruction", text: "Fix the item." } },
+      ...stationWordsBase,
+    });
     const twin = admit([raw("specimen.read", [], ["read"], withOperand)]);
-    for (const causeCode of frozenInputs.reservedCauses) {
-      let attempt: ReturnType<typeof admit> | undefined;
-      try {
-        attempt = admit([
-          raw(
-            "specimen.read",
-            [literal("specimen.read", causeCode)],
-            ["read"],
-            withOperand,
-          ),
-        ]);
-      } catch {
-        attempt = undefined;
-      }
-      if (attempt)
-        expect(stationWords(attempt, "specimen.read", causeCode)).toEqual(
-          stationWords(twin, "specimen.read", causeCode),
-        );
+    const hosted = admit([
+      raw("specimen.read", [hostSchema], ["read"], withOperand),
+    ]);
+    const reservedIn = (contract: ReturnType<typeof admit>) =>
+      (contract.discoverCommand("specimen.read")?.stations ?? []).filter(
+        (item) =>
+          frozenInputs.reservedCauses.some((cause) => cause === item.causeCode),
+      );
+    // LIFE-9: an inspect command's fallback selects INTERNAL_PREPARATION
+    // before dispatch and INTERNAL_RESULT_UNCHANGED after it.
+    expect(
+      reservedIn(twin)
+        .map((item) => item.causeCode)
+        .sort(),
+    ).toEqual(["INTERNAL_PREPARATION", "INTERNAL_RESULT_UNCHANGED"]);
+    expect(reservedIn(hosted)).toEqual(reservedIn(twin));
+    expect(JSON.stringify(reservedIn(hosted))).not.toContain(hostWords);
+    for (const causeCode of frozenInputs.reservedCauses)
       expect(
-        JSON.stringify(twin.discoverCommand("specimen.read")),
-      ).not.toContain(hostWords);
-    }
+        refusal(() =>
+          admit([
+            raw(
+              "specimen.read",
+              [literal("specimen.read", causeCode)],
+              ["read"],
+              withOperand,
+            ),
+          ]),
+        ),
+      ).toMatch(/reserved/i);
   },
   "R03.schema-station-twin": () => {
     const schema = station(commonCauses, {
