@@ -1,5 +1,6 @@
 import { validateWords } from "./stations.ts";
 import type { CommandDeclaration } from "./declarations.ts";
+import { admitCommandIdentity, admitRootOperation } from "./declarations.ts";
 import { commonCauses } from "./causes.ts";
 import type { CauseTable } from "./types.ts";
 import { causeRow } from "./validation/result.ts";
@@ -99,7 +100,10 @@ export function admitCommands(
   if (new Set(hostRoutes).size !== hostRoutes.length)
     throw new Error("Duplicate command route.");
   for (const command of commands) {
+    admitCommandIdentity(command.commandIdentity);
     admitHostInput(command.input);
+    if (command.commandIdentity !== `${cli}.dispatch`)
+      admitRootOperation(command.route, command.input);
     for (const name of Object.keys(command.capabilities))
       if (!installed.some((entry) => entry === name))
         throw new Error("Declared capability add-on is not installed.");
