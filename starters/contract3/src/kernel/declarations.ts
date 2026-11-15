@@ -10,7 +10,7 @@ import type { InputSchema, ParsedInput } from "./input-types.ts";
 import { parseInput, acceptsRootInput } from "./input.ts";
 import { admitHostInput } from "./host-input.ts";
 import { handlerContext, approvalContext } from "./validation/context.ts";
-import { text } from "./validation/primitives.ts";
+import { record, text } from "./validation/primitives.ts";
 import { freeze } from "./stations.ts";
 import type { DeclaredStation } from "./stations.ts";
 import type { Validation } from "./types.ts";
@@ -63,6 +63,22 @@ export function admitRootOperation(
     input.options.length === 0
   )
     throw new Error("Root operation requires a declared option or operand.");
+}
+// Reads each own context property once into a plain object. The handler then
+// receives exactly the values that were validated; a hidden or accessor
+// property is refused instead of being read twice or dropped by a spread (F10).
+function contextSnapshot(value: unknown): Record<string, unknown> | undefined {
+  if (!record(value)) return undefined;
+  const snapshot: Record<string, unknown> = {};
+  for (const key of Reflect.ownKeys(value)) {
+    const descriptor =
+      typeof key === "string"
+        ? Object.getOwnPropertyDescriptor(value, key)
+        : undefined;
+    if (!descriptor?.enumerable || !("value" in descriptor)) return undefined;
+    snapshot[String(key)] = descriptor.value;
+  }
+  return snapshot;
 }
 export function command<
   const Identity extends string,
@@ -129,7 +145,8 @@ export function command<
         registration,
       );
       if (!future.ok) return future;
-      if (!handlerContext(context, capabilities))
+      const checked = contextSnapshot(context);
+      if (!checked || !handlerContext(checked, capabilities))
         return {
           ok: false,
           path: "capabilities",
@@ -137,7 +154,7 @@ export function command<
         };
       return checkedResult(
         await spec.run(parsed.value, {
-          ...context,
+          ...checked,
           ...resultContext(declaration, runId, invocation),
         }),
         spec.identity,
@@ -239,21 +256,23 @@ export function changing<
         registration,
       );
       if (!future.ok) return future;
+      const checked = contextSnapshot(context);
       if (
-        !handlerContext(context, spec.capabilities, true) ||
-        !stateContext(context, spec.effects)
+        !checked ||
+        !handlerContext(checked, spec.capabilities, true) ||
+        !stateContext(checked, spec.effects)
       )
         return { ok: false, path: "capabilities", reason: "state unavailable" };
       if (
         spec.capabilities?.approval &&
         (!spec.approval ||
-          !approvalContext(context) ||
-          !(await context.approval.check(spec.approval(parsed.value))))
+          !approvalContext(checked) ||
+          !(await checked.approval.check(spec.approval(parsed.value))))
       )
         return { ok: false, path: "approval", reason: "approval required" };
       return checkedResult(
         await spec.run(parsed.value, {
-          ...context,
+          ...checked,
           ...resultContext(declaration, runId, invocation),
         }),
         spec.identity,
