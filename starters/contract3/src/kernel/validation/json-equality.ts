@@ -15,7 +15,8 @@ function canonical(
   if (record(value))
     return `object:${JSON.stringify(
       Object.entries(value)
-        .sort(([left], [right]) => left.localeCompare(right))
+        // Code-unit order: total, locale-free, and never ties distinct keys (F16).
+        .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
         .map(([name, entry]) => [name, canonical(entry, unordered, name)]),
     )}`;
   return `scalar:${JSON.stringify(value) ?? ""}`;
