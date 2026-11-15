@@ -23,9 +23,7 @@ export function keys(
     )
   );
 }
-// Every own property is traversed, not only enumerable values: a hidden key
-// or hidden toJSON would otherwise validate one shape and serialise another
-// (F06, LIFE-7 step 2). An array has exactly its index keys and its length.
+// A canonical array index below the array's length.
 function arrayIndex(key: string, length: number): boolean {
   const index = Number(key);
   return (
@@ -67,8 +65,11 @@ function ownJsonValues(value: object): unknown[] | undefined {
   return values;
 }
 // Shared subgraphs are revisited per path, so a small value can describe
-// exponential work. One traversal visits at most this many JSON values, then
-// refuses (F17; an engineering bound, about 50 ms, pending a contract number).
+// exponential work (F17). One traversal visits at most this many JSON values,
+// then refuses. ENGINEERING NUMBER, NO CONTRACT SOURCE: no clause sets a
+// total-work bound; this one keeps a traversal near 50 ms (measured on the
+// repair host) so the first signal can still end the run within LIFE-3.
+// Revisit it if the contract binds a number.
 const jsonValueBudget = 1_000_000;
 export function json(
   value: unknown,
