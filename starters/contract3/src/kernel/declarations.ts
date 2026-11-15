@@ -1,3 +1,4 @@
+import type { InputRegistration } from "./future-input.ts";
 import { resultContext, checkedResult } from "./command-result.ts";
 import type { CommandResult, ResultContext } from "./command-result.ts";
 import { validateFutureInputs } from "./future-input.ts";
@@ -34,6 +35,7 @@ export type CommandDeclaration<Identity extends string = string> =
       context: unknown,
       runId: string,
       invocation?: object,
+      registration?: InputRegistration,
     ) => Promise<Validation<CommandResult<Identity>>>;
   };
 export function command<
@@ -86,10 +88,15 @@ export function command<
       context: unknown,
       runId: string,
       invocation: object = Object.freeze({}),
+      registration?: InputRegistration,
     ): Promise<Validation<CommandResult<Identity>>> {
       const parsed = await parseInput(input, argv);
       if (!parsed.ok) return parsed;
-      const future = await validateFutureInputs(declaration, parsed.value);
+      const future = await validateFutureInputs(
+        declaration,
+        parsed.value,
+        registration,
+      );
       if (!future.ok) return future;
       if (!handlerContext(context, capabilities))
         return {
@@ -182,10 +189,15 @@ export function changing<
       context: unknown,
       runId: string,
       invocation: object = Object.freeze({}),
+      registration?: InputRegistration,
     ): Promise<Validation<CommandResult<Identity>>> {
       const parsed = await parseInput(spec.input, argv);
       if (!parsed.ok) return parsed;
-      const future = await validateFutureInputs(declaration, parsed.value);
+      const future = await validateFutureInputs(
+        declaration,
+        parsed.value,
+        registration,
+      );
       if (!future.ok) return future;
       if (
         !handlerContext(context, spec.capabilities, true) ||

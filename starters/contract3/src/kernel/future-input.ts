@@ -3,13 +3,17 @@ import type { ValueSchema } from "./input-types.ts";
 import type { Validation } from "./types.ts";
 import { parseValue } from "./input.ts";
 import { safeRunValue, guidanceTargets } from "./guidance.ts";
+const inputRegistration = Symbol("kernel.inputRegistration");
+export type InputRegistration = { readonly [inputRegistration]: true };
 const contexts = new WeakMap<object, readonly CommandDeclaration[]>();
 export function registerInputs(
-  command: object,
   commands: readonly CommandDeclaration[],
-): void {
-  contexts.set(command, commands);
+): InputRegistration {
+  const registration = Object.freeze({ [inputRegistration]: true as const });
+  contexts.set(registration, commands);
+  return registration;
 }
+
 function targetSlots(
   command: CommandDeclaration,
   args: readonly string[],
@@ -39,11 +43,12 @@ function targetSlots(
 export async function validateFutureInputs(
   command: CommandDeclaration,
   values: Readonly<Record<string, unknown>>,
+  registration: InputRegistration | undefined,
 ): Promise<Validation<null>> {
   const mapping = command.futureBindings ?? {};
   if (Object.keys(mapping).length === 0) return { ok: true, value: null };
-  const commands = contexts.get(command);
-  if (!commands)
+  const commands = registration ? contexts.get(registration) : undefined;
+  if (!commands?.includes(command))
     return { ok: false, path: "bindings", reason: "command is not registered" };
   const routes = commands.flatMap((entry) => entry.route);
   for (const [binding, source] of Object.entries(mapping)) {
