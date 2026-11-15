@@ -2,6 +2,7 @@ import type { CommandDeclaration, CommandSummary } from "./declarations.ts";
 import { emptyInput } from "./input.ts";
 import type { DeclaredStation } from "./stations.ts";
 import type { CauseTable, Handoff, NextStep } from "./types.ts";
+import { exits } from "./types.ts";
 export function builtins(cli: string): readonly CommandDeclaration[] {
   return [
     {
@@ -165,14 +166,9 @@ export function publicStation(
   void _arm;
   return { ...words, ...fixed, effectClass };
 }
-export const exitMeanings = {
-  "0": "success",
-  "1": "internal",
-  "2": "usage",
-  "3": "domain",
-  "4": "schema",
-  "75": "transient",
-} as const;
+export const exitMeanings = Object.fromEntries(
+  Object.entries(exits).map(([meaning, code]) => [code, meaning] as const),
+);
 export const signalExits = { "130": "SIGINT", "143": "SIGTERM" } as const;
 
 function addEffectStations(

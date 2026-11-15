@@ -55,12 +55,7 @@ export type ProgramsCapability = {
   ) => ProgramHandle<Effect>;
 };
 export type ApprovalCapability = {
-  readonly check: (request: {
-    readonly authority: AuthorityId;
-    readonly resource: ResourceId;
-    readonly resourceRevision: string;
-    readonly effects: readonly string[];
-  }) => Promise<boolean>;
+  readonly check: (request: ApprovalRequest) => Promise<boolean>;
 };
 export type DiagnosticsCapability = {
   readonly record: (event: string, facts: JsonValue) => void;
