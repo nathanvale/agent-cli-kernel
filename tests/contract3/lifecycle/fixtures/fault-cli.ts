@@ -11,13 +11,11 @@ import {
   command,
   commonCauses,
   contractFor,
-  runProcess,
   station,
 } from "../../../../starters/contract3/src/kernel/index.ts";
 import type {
   CauseTable,
   JsonValue,
-  ProcessHost,
   ProgramRequest,
   ProgramsCapability,
   RecordedEffect,
@@ -27,23 +25,34 @@ import type {
   StateIssuer,
   StateObservation,
   StateRegistration,
+  ApprovalCapability,
+  RunAddon,
 } from "../../../../starters/contract3/src/kernel/index.ts";
 import {
   callerProgramDisclosure,
   programDetails,
   programsAddon,
 } from "../../../../starters/contract3/src/addons/programs/index.ts";
-import { fallbackMessage } from "../../../../starters/contract3/src/kernel/fallback.ts";
+import { runProcessOn } from "../../../../starters/contract3/src/kernel/lifecycle.ts";
 import { processHost } from "../../../../starters/contract3/src/kernel/process-host.ts";
+import type { ProcessHost } from "../../../../starters/contract3/src/kernel/process-types.ts";
 import {
   registerRuntime,
   runtimeOf,
 } from "../../../../starters/contract3/src/kernel/runtime.ts";
 import type { ContractRuntime } from "../../../../starters/contract3/src/kernel/runtime.ts";
-import { path } from "../../../../starters/contract3/src/kernel/validation/brands.ts";
+import {
+  authority,
+  path,
+  resource,
+} from "../../../../starters/contract3/src/kernel/validation/brands.ts";
 import { record } from "../../../../starters/contract3/src/kernel/validation/primitives.ts";
 
 const ledgerPath = process.env.FX_LEDGER;
+const streamProbe = new URL(
+  "../../programs/fixtures/stream-probe.sh",
+  import.meta.url,
+).pathname;
 const scenario = new Set((process.env.FX_SCENARIO ?? "").split("+"));
 const marker = "FX-REJECTED-PAYLOAD";
 
@@ -198,15 +207,17 @@ const read = command({
   summary: "Read fixture data.",
   input: { ...none, options: [integer("--size", 0, 8_388_608)] },
   capabilities: {},
-  run: (input, context) =>
-    context.result(
+  run: (input, context) => {
+    if (scenario.has("abort")) process.abort();
+    return context.result(
       { commandIdentity: "fx.read", causeCode: "SUCCESS_UNCHANGED" },
       {
         message: "Read fixture data.",
         data: { text: "x".repeat(input["--size"] ?? 16) },
         effects: empty,
       },
-    ),
+    );
+  },
 });
 
 const refuse = command({
@@ -486,10 +497,11 @@ const slow = command({
 });
 
 const programModes = {
-  isolation: program(
-    'bytes=$(/bin/cat | /usr/bin/wc -c | /usr/bin/tr -d " "); echo "child-stdin-bytes $bytes" >> "$FX_LEDGER"; /usr/bin/yes FX-CHILD-STREAM-MARKER | /usr/bin/head -c 2000000; /usr/bin/yes FX-CHILD-STREAM-MARKER | /usr/bin/head -c 2000000 >&2',
-    { timeoutMilliseconds: 10_000 },
-  ),
+  isolation: {
+    ...program(""),
+    args: [streamProbe],
+    timeoutMilliseconds: 10_000,
+  },
   capture: program(
     "/usr/bin/yes FX | /usr/bin/head -c 268435456; /usr/bin/yes FX | /usr/bin/head -c 268435456 >&2",
     { timeoutMilliseconds: 20_000 },
@@ -594,6 +606,91 @@ const supplied = command({
         },
         effects: empty,
       },
+    );
+  },
+});
+
+// C2: caller-supplied future bindings are input (CMD-9 step 3).
+const itemArgument = (choices: readonly string[] | null) =>
+  ({
+    name: "item",
+    summary: "Fixture item.",
+    required: true,
+    value: {
+      kind: "string",
+      minLength: 1,
+      maxLength: 16,
+      choices: choices === null ? null : [...choices],
+      pattern: null,
+    },
+  }) as const;
+
+const target = command({
+  identity: "fx.target",
+  route: ["target"],
+  summary: "Read one fixture target.",
+  input: { ...none, arguments: [itemArgument(["alpha"])] },
+  capabilities: {},
+  run: (_input, context) =>
+    context.result(
+      { commandIdentity: "fx.target", causeCode: "SUCCESS_UNCHANGED" },
+      { message: "Read the fixture target.", data: null, effects: empty },
+    ),
+});
+
+const sourceStation = station(allCauses, {
+  ...words,
+  commandIdentity: "fx.source",
+  causeCode: "SUCCESS_UNCHANGED",
+  trigger: "The fixture source was read.",
+  repairAction: null,
+  guidance: {
+    next: { kind: "command", command: "fx.target", args: ["{binding.item}"] },
+  },
+  independentObservable: "fx:source",
+});
+
+const source = command({
+  identity: "fx.source",
+  route: ["source"],
+  summary: "Read one fixture source.",
+  input: {
+    ...none,
+    deadlineSupported: true,
+    arguments: [itemArgument(null)],
+  },
+  futureBindings: { item: "item" },
+  capabilities: {},
+  stations: [sourceStation],
+  run: (input, context) => {
+    ledger("dispatch-start");
+    return context.result(sourceStation, {
+      message: "Read the fixture source.",
+      data: null,
+      bindings: { item: input.item },
+      effects: empty,
+    });
+  },
+});
+
+// C3: a command that calls supplied() without the disclosure in its summary.
+const undisclosed = command({
+  identity: "fx.undisclosed",
+  route: ["undisclosed"],
+  summary: "Run one fixture program.",
+  input: { ...none, arguments: [{ ...supplied.input.arguments[0] }] },
+  capabilities: { programs: true },
+  run: async (input, context) => {
+    await context.programs.supplied({
+      executable: path(input.program),
+      args: [],
+      timeoutMilliseconds: 10_000,
+      outputLimitBytes: 4096,
+      shutdownMilliseconds: 1000,
+    });
+    return context.result(
+      { commandIdentity: "fx.undisclosed", causeCode: "SUCCESS_UNCHANGED" },
+      { message: "The program finished.", data: null, effects: empty },
     );
   },
 });
@@ -791,7 +888,9 @@ const changeModes = [
   "deadline-partial",
   "deadline-stall",
 ] as const;
-const coordination = <const Identity extends "fx.change" | "fx.wide">(
+const coordination = <
+  const Identity extends "fx.change" | "fx.wide" | "fx.guarded",
+>(
   identity: Identity,
 ) =>
   [
@@ -969,6 +1068,53 @@ function makeWide(state: StateAddonDescriptor) {
   });
 }
 
+// C2: a changing command behind approval. Only approval attaches before the
+// handler; programs attach on first use.
+function makeGuarded(state: StateAddonDescriptor) {
+  return changing({
+    identity: "fx.guarded",
+    route: ["guarded"],
+    summary: "Apply one approved fixture effect.",
+    input: { ...none, options: [flag("--go")] },
+    capabilities: { programs: true, approval: true },
+    approval: () => ({
+      authority: authority("fx.owner"),
+      resource: resource("fx.item"),
+      resourceRevision: "1",
+      effects: ["fx.alpha"],
+    }),
+    effectClass: "repository-local",
+    effects: ["fx.alpha"],
+    ifNoResult: state.ifNoResult,
+    heldLockCause: "DOMAIN_FX_LOCK_HELD",
+    unresolvedCaseCause: "DOMAIN_FX_UNRESOLVED",
+    stations: [...coordination("fx.guarded")],
+    run: async (_input, context) => {
+      intended = undefined;
+      await context.programs.inspect(
+        program('echo "guarded-child $$" >> "$FX_LEDGER"', {
+          timeoutMilliseconds: 5_000,
+        }),
+      );
+      const proof = await context.state.transaction(async (transaction) => {
+        await transaction.record(
+          "fx.alpha",
+          () => Promise.resolve(ledger("applied fx.alpha")),
+          () => Promise.resolve(true),
+        );
+      });
+      return context.result(
+        { commandIdentity: "fx.guarded", causeCode: "SUCCESS_COMPLETED" },
+        {
+          message: "Applied the approved effect.",
+          data: null,
+          transaction: proof,
+        },
+      );
+    },
+  });
+}
+
 function corrupt(kind: string, value: unknown): unknown {
   if (!record(value) || !record(value.result)) return value;
   const envelope = structuredClone(value);
@@ -1028,15 +1174,17 @@ function faultRuntime(runtime: ContractRuntime): ContractRuntime {
         ]),
       )
     : runtime.stations;
-  const tamper = (built: Awaited<ReturnType<ContractRuntime["build"]>>) =>
+  const tamper = (
+    built: Awaited<ReturnType<ContractRuntime["buildKernelStation"]>>,
+  ) =>
     kind && built.ok
       ? ({ ok: true, value: corrupt(kind, built.value) } as const)
       : built;
   return {
     ...runtime,
     stations,
-    build: async (selected, facts, trusted) =>
-      tamper(await runtime.build(selected, facts, trusted)),
+    buildKernelStation: async (selected, facts, effects) =>
+      tamper(await runtime.buildKernelStation(selected, facts, effects)),
     buildResult: async (result) => tamper(await runtime.buildResult(result)),
     validate: scenario.has("validation-always-fails")
       ? () =>
@@ -1049,6 +1197,23 @@ function faultRuntime(runtime: ContractRuntime): ContractRuntime {
   };
 }
 
+// Classifies a stdout write by the contract, not by production constants: a
+// complete envelope whose cause is one the fallback alone may select
+// (INTERNAL_PREPARATION or INTERNAL_RESULT_*, DISC-11b).
+function fallbackCause(bytes: Uint8Array): boolean {
+  try {
+    const parsed: unknown = JSON.parse(new TextDecoder().decode(bytes));
+    const result = record(parsed) ? parsed.result : undefined;
+    const cause = record(result) ? result.causeCode : undefined;
+    return (
+      cause === "INTERNAL_PREPARATION" ||
+      (typeof cause === "string" && cause.startsWith("INTERNAL_RESULT_"))
+    );
+  } catch {
+    return false;
+  }
+}
+
 function faultHost(host: ProcessHost): ProcessHost {
   const clockStart = host.now();
   let clockCalls = 0;
@@ -1056,9 +1221,7 @@ function faultHost(host: ProcessHost): ProcessHost {
   return {
     async write(stream, bytes) {
       if (stream !== "stdout") return host.write(stream, bytes);
-      const fallback = new TextDecoder()
-        .decode(bytes.subarray(0, 512))
-        .includes(`"message":${JSON.stringify(fallbackMessage)}`);
+      const fallback = fallbackCause(bytes);
       ledger(`stdout-write ${fallback ? "fallback" : "result"}`);
       if (scenario.has("fallback-write-fails") && fallback) return false;
       if (scenario.has("output-began-fails")) {
@@ -1089,7 +1252,11 @@ function faultHost(host: ProcessHost): ProcessHost {
           host.exit(code);
       }, 5);
     },
-    onSignal: (listener) => host.onSignal(listener),
+    onSignal(listener) {
+      if (scenario.has("hook-install-fails"))
+        throw new Error("Fixture hook installation failure.");
+      host.onSignal(listener);
+    },
     onCrash: (listener) => host.onCrash(listener),
     now() {
       clockCalls += 1;
@@ -1100,6 +1267,25 @@ function faultHost(host: ProcessHost): ProcessHost {
     },
   };
 }
+
+// Test-owned add-ons that ledger when they attach (C2 ordering evidence).
+function ledgered<C>(name: string, addon: RunAddon<C>): RunAddon<C> {
+  return {
+    attach(run) {
+      ledger(`attach ${name}`);
+      return addon.attach(run);
+    },
+  };
+}
+const approvalAddon: RunAddon<ApprovalCapability> = {
+  attach: () => ({
+    capability: Object.freeze({
+      check: () => Promise.resolve(process.env.FX_APPROVAL === "grant"),
+    }),
+    settle: () => Promise.resolve(true),
+    killNow: () => undefined,
+  }),
+};
 
 export async function main(state?: StateAddonDescriptor): Promise<number> {
   const inspectCommands = [
@@ -1112,16 +1298,24 @@ export async function main(state?: StateAddonDescriptor): Promise<number> {
     slow,
     programCommand,
     supplied,
+    undisclosed,
+    source,
+    target,
     crash,
     pending,
   ] as const;
   const contract = state
     ? contractFor({
         cli: "fx",
-        commands: [...inspectCommands, makeChange(state), makeWide(state)],
+        commands: [
+          ...inspectCommands,
+          makeChange(state),
+          makeWide(state),
+          makeGuarded(state),
+        ],
         causes,
         state,
-        installedAddons: ["state", "programs"],
+        installedAddons: ["state", "programs", "approval"],
       })
     : contractFor({
         cli: "fx",
@@ -1134,8 +1328,10 @@ export async function main(state?: StateAddonDescriptor): Promise<number> {
   const faulted = {};
   registerRuntime(faulted, faultRuntime(runtime));
   const setup: RunSetup = {
-    host: faultHost(processHost()),
-    addons: { programs: programsAddon() },
+    addons: {
+      programs: ledgered("programs", programsAddon()),
+      approval: ledgered("approval", approvalAddon),
+    },
     ...(scenario.has("emergency-recorder")
       ? {
           emergencyRecord: (facts) =>
@@ -1145,7 +1341,11 @@ export async function main(state?: StateAddonDescriptor): Promise<number> {
         }
       : {}),
   };
-  return runProcess(faulted, setup)(process.argv.slice(2));
+  // Wall-clock front-door start, for deadline timing measured by the harness.
+  ledger(`front-door-start ${Date.now()}`);
+  return runProcessOn(faulted, setup, () => faultHost(processHost()))(
+    process.argv.slice(2),
+  );
 }
 
 if (import.meta.main) await main();

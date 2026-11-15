@@ -11,6 +11,7 @@ import { record } from "../../../starters/contract3/src/kernel/validation/primit
 const here = import.meta.dir;
 const repository = resolve(here, "../../..");
 const faultCli = join(here, "fixtures/fault-cli.ts");
+export const canaryCli = join(here, "fixtures/canary-cli.ts");
 
 export type Expectation = Readonly<Record<string, unknown>>;
 export type Case = {
@@ -130,8 +131,7 @@ export type Reader =
   | "pause-after-first"
   | "closed-at-start"
   | "close-after-first-chunk"
-  | "close-after-envelope"
-  | "slow-chunks";
+  | "close-after-envelope";
 
 export type Observed = {
   readonly stdout: Uint8Array;
@@ -202,18 +202,22 @@ export async function launch(options: {
   readonly reader?: Reader;
   readonly env?: Readonly<Record<string, string>>;
   readonly rawArgvShell?: string;
+  readonly script?: string;
 }): Promise<Launched> {
+  requireTools();
   const dir = await mkdtemp(join(tmpdir(), "contract3-t2-"));
   const ledgerPath = join(dir, "ledger");
   const work = join(dir, "work");
   const temp = join(dir, "tmp");
   await mkdir(work);
   await mkdir(temp);
-  const entry = options.state ? await materialiseStateEntry(dir) : faultCli;
+  const entry =
+    options.script ??
+    (options.state ? await materialiseStateEntry(dir) : faultCli);
   const command = options.rawArgvShell
     ? ["/bin/sh", "-c", options.rawArgvShell, process.execPath, entry]
     : [process.execPath, entry, ...options.argv];
-  const spawnedAt = performance.now();
+  const spawnedAt = Date.now();
   const child = Bun.spawn(command, {
     cwd: work,
     stdin: "pipe",
@@ -250,10 +254,10 @@ export async function launch(options: {
     for (;;) {
       const next = await stream.read();
       if (next.done) return;
-      firstStdoutAt ??= performance.now();
+      firstStdoutAt ??= Date.now();
       chunks.push(next.value);
       if (reader === "pause-after-first") {
-        markPartial(performance.now());
+        markPartial(Date.now());
         return;
       }
       if (reader === "close-after-first-chunk") {
@@ -265,13 +269,12 @@ export async function launch(options: {
         await writeFile(`${ledgerPath}.release`, "release");
         return;
       }
-      if (reader === "slow-chunks") await Bun.sleep(1);
     }
   })();
   const stderrDone = new Response(child.stderr).arrayBuffer();
   const done = (async (): Promise<Observed> => {
     await child.exited;
-    const exitedAt = performance.now();
+    const exitedAt = Date.now();
     const [, stderr] = await Promise.all([
       Promise.race([stdoutDone, Bun.sleep(2000)]),
       stderrDone,
@@ -297,13 +300,13 @@ export async function launch(options: {
     spawnedAt,
     signal(name) {
       child.kill(name);
-      return performance.now();
+      return Date.now();
     },
     async barrier(prefix, milliseconds = 10_000) {
-      const until = performance.now() + milliseconds;
-      while (performance.now() < until) {
+      const until = Date.now() + milliseconds;
+      while (Date.now() < until) {
         if (readLedger(ledgerPath).some((line) => line.startsWith(prefix)))
-          return performance.now();
+          return Date.now();
         await Bun.sleep(2);
       }
       throw new Error(`Barrier ${prefix} not reached: case unproved.`);
@@ -317,17 +320,56 @@ export async function cleanup(observed: { readonly dir: string }) {
   await rm(observed.dir, { recursive: true, force: true });
 }
 
-export async function run(
+// Launches one frozen case: every case field reaches the process; overrides
+// only add what the case leaves to the harness.
+export async function launchCase(
   entry: Case,
-  extra: Partial<Parameters<typeof launch>[0]> = {},
+  overrides: Partial<Parameters<typeof launch>[0]> = {},
 ) {
-  const launched = await launch({
+  return launch({
     argv: entry.argv,
     state: entry.state,
     scenario: entry.scenario,
     stdin: entry.stdin,
-    ...extra,
+    ...overrides,
   });
+}
+
+// The fixture's wall-clock front-door start, ledgered before runProcess.
+export function frontDoorStart(observed: Observed): number {
+  const line = observed.ledger.find((entry) =>
+    entry.startsWith("front-door-start "),
+  );
+  const value = line ? Number(line.split(" ")[1]) : Number.NaN;
+  if (!Number.isFinite(value))
+    throw new Error("UNPROVED: the fixture ledgered no front-door start.");
+  return value;
+}
+
+// C8: tools the fixture programs and probes rely on. A missing tool makes the
+// case fail as unproved; it is never skipped or passed.
+const requiredTools = [
+  "/bin/sh",
+  "/bin/cat",
+  "/bin/sleep",
+  "/bin/ps",
+  "/usr/bin/perl",
+  "/usr/bin/yes",
+  "/usr/bin/head",
+  "/usr/bin/wc",
+  "/usr/bin/tr",
+] as const;
+export function requireTools(): void {
+  const missing = requiredTools.filter((tool) => !existsSync(tool));
+  if (missing.length > 0)
+    throw new Error(`UNPROVED on this host: missing ${missing.join(", ")}.`);
+}
+
+export async function run(
+  entry: Case,
+  extra: Partial<Parameters<typeof launch>[0]> = {},
+) {
+  const launched = await launchCase(entry, extra);
   return launched.done;
 }
 
@@ -341,21 +383,63 @@ export function alive(pid: number): boolean {
   }
 }
 export async function goneWithin(pid: number, milliseconds: number) {
-  const until = performance.now() + milliseconds;
+  const until = Date.now() + milliseconds;
   while (alive(pid)) {
-    if (performance.now() > until) return false;
+    if (Date.now() > until) return false;
     await Bun.sleep(5);
   }
   return true;
 }
+// POSIX ps(1) fields; procps on Linux and BSD ps on Darwin both print them.
+function psField(field: "pgid" | "rss", pid: number): number | undefined {
+  const result = Bun.spawnSync([
+    "/bin/ps",
+    "-o",
+    `${field}=`,
+    "-p",
+    String(pid),
+  ]);
+  const value = Number(result.stdout.toString().trim());
+  return result.exitCode === 0 && Number.isFinite(value) && value > 0
+    ? value
+    : undefined;
+}
 export function processGroup(pid: number): number | undefined {
-  const result = Bun.spawnSync(["/bin/ps", "-o", "pgid=", "-p", String(pid)]);
-  const text = result.stdout.toString().trim();
-  return text ? Number(text) : undefined;
+  return psField("pgid", pid);
+}
+export function residentKilobytes(pid: number): number | undefined {
+  return psField("rss", pid);
 }
 
 export async function listing(dir: string): Promise<readonly string[]> {
   return existsSync(dir) ? (await readdir(dir)).sort() : [];
+}
+
+// C5: a consumer that takes 4 KiB per read with a real pause between reads.
+// The CLI's stdout feeds a Perl relay (sysread of 4,096 bytes, then 2 ms);
+// the CLI's own exit status and the relay's read count go to the ledger.
+// Bun's subprocess streams offer no BYOB reader, and node:child_process in
+// paused mode drops buffered data at child exit on Bun 1.4.4.
+const relay =
+  "$|=1; my $n=0; while (my $r = sysread(STDIN, my $b, 4096)) { syswrite(STDOUT, $b); $n++; select(undef, undef, undef, 0.002); } open(my $f, '>>', $ENV{FX_LEDGER}); print $f \"relay-reads $n\\n\";";
+function quoted(token: string): string {
+  return `'${token.replaceAll("'", "'\\''")}'`;
+}
+export async function slowSmallChunkRun(entry: Case) {
+  const shell = `{ "$0" "$1" ${entry.argv.map(quoted).join(" ")}; echo "cli-exit $?" >> "$FX_LEDGER"; } | /usr/bin/perl -e ${quoted(relay)}`;
+  const observed = await (await launchCase(entry, { rawArgvShell: shell }))
+    .done;
+  const field = (prefix: string) => {
+    const line = observed.ledger.find((item) => item.startsWith(`${prefix} `));
+    const value = line ? Number(line.split(" ")[1]) : Number.NaN;
+    if (!Number.isSafeInteger(value))
+      throw new Error(`UNPROVED: the relay ledgered no ${prefix}.`);
+    return value;
+  };
+  return {
+    observed: { ...observed, code: field("cli-exit") },
+    reads: field("relay-reads"),
+  };
 }
 
 const decoder = new TextDecoder();

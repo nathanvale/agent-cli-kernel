@@ -2,9 +2,11 @@ import type { RunProcess } from "./capabilities.ts";
 import type { TrustedRun } from "./fallback.ts";
 import { processHost } from "./process-host.ts";
 import type {
+  AddonName,
   AttachedAddon,
   EmergencyFacts,
   ProcessHost,
+  RunAddon,
   RunControl,
   RunSetup,
   StopSignal,
@@ -14,7 +16,14 @@ import type { ContractRuntime, Resolution } from "./runtime.ts";
 import type { CommandResult } from "./command-result.ts";
 import type { CommandDeclaration } from "./declarations.ts";
 import type { StateObservation } from "./state-seam.ts";
+import {
+  deadlineCause,
+  incompleteEffects,
+  unchangedEffects,
+} from "./state-causes.ts";
 import type { Effects, JsonValue, Validation } from "./types.ts";
+import { addonNames, capabilityMethods } from "./validation/context.ts";
+import { record } from "./validation/primitives.ts";
 import { createWriter } from "./writer.ts";
 
 // LIFE-3, LIFE-6 and LIFE-11 bounds. A first stop request exits within the
@@ -37,20 +46,6 @@ const messages = {
   commandDiscovery: "Discovery data for one command.",
 } as const;
 
-const unchanged: Effects = {
-  completed: [],
-  remaining: [],
-  uncertain: [],
-  inventoryComplete: true,
-};
-const incomplete: Effects = { ...unchanged, inventoryComplete: false };
-const deadlineCause = {
-  unchanged: "DOMAIN_DEADLINE_UNCHANGED",
-  completed: "DOMAIN_DEADLINE_COMPLETED",
-  "partially-completed": "DOMAIN_DEADLINE_PARTIAL",
-  unknown: "DOMAIN_DEADLINE_UNKNOWN",
-} as const;
-
 type Execution =
   | {
       readonly kind: "returned";
@@ -58,46 +53,80 @@ type Execution =
     }
   | { readonly kind: "threw" };
 
-function delay(milliseconds: number): Promise<undefined> {
-  return new Promise((resolve) =>
-    setTimeout(() => resolve(undefined), Math.max(0, milliseconds)),
-  );
+// Races a promise against a timer and always clears the timer, so a host that
+// declines to exit is never held open by a stale deadline or stop bound.
+async function within<T>(
+  promise: Promise<T>,
+  milliseconds: number,
+): Promise<T | undefined> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expiry = new Promise<undefined>((resolve) => {
+    timer = setTimeout(() => resolve(undefined), Math.max(0, milliseconds));
+  });
+  try {
+    return await Promise.race([promise, expiry]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
-function addonFor(setup: RunSetup, name: string) {
-  switch (name) {
-    case "programs":
-      return setup.addons?.programs;
-    case "approval":
-      return setup.addons?.approval;
-    case "diagnostics":
-      return setup.addons?.diagnostics;
-    default:
-      return undefined;
+type Plan = { readonly name: AddonName; readonly addon: RunAddon<unknown> };
+type CommandPlan = {
+  readonly command: CommandDeclaration;
+  readonly addons: readonly Plan[];
+};
+
+// Fixed at construction: every declared capability resolves to its add-on,
+// or the front door refuses to build.
+function plansFor(
+  runtime: ContractRuntime,
+  setup: RunSetup,
+): ReadonlyMap<string, CommandPlan> {
+  const plans = new Map<string, CommandPlan>();
+  for (const command of runtime.commands) {
+    const addons: Plan[] = [];
+    for (const name of addonNames) {
+      if (command.capabilities[name] !== true) continue;
+      const addon: RunAddon<unknown> | undefined = setup.addons?.[name];
+      if (!addon)
+        throw new Error(
+          `${command.commandIdentity} declares ${name}; supply its add-on.`,
+        );
+      addons.push({ name, addon });
+    }
+    if (addons.length !== Object.keys(command.capabilities).length)
+      throw new Error(`${command.commandIdentity} declares an unknown add-on.`);
+    plans.set(command.commandIdentity, { command, addons });
   }
+  return plans;
 }
 
 // The process front door (CMD-5, CMD-9). It installs the stream, signal and
 // crash hooks before dispatch, routes, refuses, dispatches, enforces the
 // deadline, settles owned programs and hands one result to the one writer.
-// It owns process termination: the returned promise settles only when a
-// wrapped host declines to exit.
+// It owns process termination through the real process adapter.
 export function runProcess(contract: object, setup: RunSetup = {}): RunProcess {
+  return runProcessOn(contract, setup, processHost);
+}
+
+// Kernel-internal entry used by runProcess and by the labelled test-only
+// fault fixture, which wraps the process adapter. Not on the public index.
+export function runProcessOn(
+  contract: object,
+  setup: RunSetup,
+  host: () => ProcessHost,
+): RunProcess {
   const runtime = runtimeOf(contract);
   if (!runtime)
     throw new Error("runProcess needs a contract composed by contractFor.");
-  for (const command of runtime.commands)
-    for (const name of Object.keys(command.capabilities))
-      if (!addonFor(setup, name))
-        throw new Error(
-          `${command.commandIdentity} declares ${name}; supply its add-on.`,
-        );
-  return (argv) => runInvocation(runtime, setup, argv);
+  const plans = plansFor(runtime, setup);
+  return (argv) => runInvocation(runtime, setup, plans, host(), argv);
 }
 
 type Run = {
   readonly runtime: ContractRuntime;
   readonly setup: RunSetup;
+  readonly plans: ReadonlyMap<string, CommandPlan>;
   readonly host: ProcessHost;
   readonly runId: string;
   readonly startedAt: number;
@@ -142,10 +171,10 @@ function installHooks(run: Run) {
     }
     run.stopped = signal;
     run.controller.abort();
-    void Promise.race([
+    void within(
       settleAll(run, settleLimitMilliseconds),
-      delay(stopBoundMilliseconds),
-    ]).then(() => run.host.exit(code));
+      stopBoundMilliseconds,
+    ).then(() => run.host.exit(code));
   });
   run.host.onCrash(() => {
     killAll(run);
@@ -191,10 +220,10 @@ async function kernelResult(
     readonly summary?: StateObservation | undefined;
   } = {},
 ): Promise<Delivery> {
-  const candidate = await run.runtime.build(
+  const candidate = await run.runtime.buildKernelStation(
     { commandIdentity: identity, causeCode },
     { runId: run.runId, message, data: options.data ?? null },
-    options.effects ?? unchanged,
+    options.effects ?? unchangedEffects,
   );
   return {
     candidate,
@@ -226,22 +255,54 @@ function builtin(run: Run, value: Resolved) {
   }
 }
 
-// CMD-9 step 6: attach only the declared capabilities.
-function attach(run: Run, command: CommandDeclaration) {
-  const control: RunControl = {
+function control(run: Run, command: CommandDeclaration): RunControl {
+  return {
     runId: run.runId,
     commandIdentity: command.commandIdentity,
     summary: command.summary,
     signal: run.controller.signal,
   };
+}
+
+function attachNow(
+  run: Run,
+  command: CommandDeclaration,
+  addon: RunAddon<unknown>,
+): AttachedAddon<unknown> {
+  const instance = addon.attach(control(run, command));
+  run.attached.push(instance);
+  return instance;
+}
+
+// A capability whose add-on attaches on first use, so any attach-time effect
+// happens only inside the handler, after every non-consuming preflight.
+function deferred(run: Run, command: CommandDeclaration, plan: Plan) {
+  let instance: AttachedAddon<unknown> | undefined;
+  const methods = capabilityMethods[plan.name].map((method) => {
+    const call = (...args: unknown[]): unknown => {
+      instance ??= attachNow(run, command, plan.addon);
+      const target = instance.capability;
+      const operation: unknown = record(target) ? target[method] : undefined;
+      if (typeof operation !== "function")
+        throw new Error(`The ${plan.name} add-on lacks ${method}.`);
+      const result: unknown = Reflect.apply(operation, target, args);
+      return result;
+    };
+    return [method, call] as const;
+  });
+  return Object.freeze(Object.fromEntries(methods));
+}
+
+// CMD-9 steps 5 and 6: only the approval add-on attaches before the handler,
+// because its check is the step 5 preflight. Every other declared capability
+// attaches when the handler first uses it.
+function capabilities(run: Run, plan: CommandPlan): Record<string, unknown> {
   const context: Record<string, unknown> = {};
-  for (const name of Object.keys(command.capabilities)) {
-    const addon = addonFor(run.setup, name);
-    if (!addon) return undefined;
-    const instance: AttachedAddon<unknown> = addon.attach(control);
-    run.attached.push(instance);
-    context[name] = instance.capability;
-  }
+  for (const entry of plan.addons)
+    context[entry.name] =
+      entry.name === "approval"
+        ? attachNow(run, plan.command, entry.addon).capability
+        : deferred(run, plan.command, entry);
   return context;
 }
 
@@ -254,11 +315,8 @@ async function afterDeadline(
 ): Promise<Delivery> {
   run.controller.abort();
   const [late] = await Promise.all([
-    Promise.race([execution, delay(cancellationMilliseconds)]),
-    Promise.race([
-      settleAll(run, settleLimitMilliseconds),
-      delay(cancellationMilliseconds),
-    ]),
+    within(execution, cancellationMilliseconds),
+    within(settleAll(run, settleLimitMilliseconds), cancellationMilliseconds),
   ]);
   const summary =
     late?.kind === "returned" && late.outcome.ok
@@ -266,13 +324,13 @@ async function afterDeadline(
       : undefined;
   const selected =
     command.effectClass === "inspect"
-      ? { causeCode: deadlineCause.unchanged, effects: unchanged }
+      ? { causeCode: deadlineCause.unchanged, effects: unchangedEffects }
       : summary
         ? {
             causeCode: deadlineCause[summary.transactionState],
             effects: summary.effects,
           }
-        : { causeCode: deadlineCause.unknown, effects: incomplete };
+        : { causeCode: deadlineCause.unknown, effects: incompleteEffects };
   return kernelResult(
     run,
     command.commandIdentity,
@@ -323,10 +381,9 @@ async function afterHandler(
 
 async function dispatch(run: Run, value: Resolved): Promise<Delivery> {
   const identity = value.commandIdentity;
-  const command = run.runtime.commands.find(
-    (item) => item.commandIdentity === identity,
-  );
-  if (!command)
+  const plan = run.plans.get(identity);
+  // Type-forced guard: routing resolves only declared commands.
+  if (!plan)
     return kernelResult(
       run,
       identity,
@@ -343,14 +400,7 @@ async function dispatch(run: Run, value: Resolved): Promise<Delivery> {
       messages.DOMAIN_DEADLINE_BEFORE_START,
     );
   if (run.stopped) return undefined;
-  const context = attach(run, command);
-  if (!context)
-    return kernelResult(
-      run,
-      identity,
-      "INTERNAL_PREPARATION",
-      messages.INTERNAL_PREPARATION,
-    );
+  const context = capabilities(run, plan);
   run.phase = "dispatched";
   const execution: Promise<Execution> = run.runtime
     .execute(identity, value.args, run.runId, context)
@@ -361,14 +411,9 @@ async function dispatch(run: Run, value: Resolved): Promise<Delivery> {
   const first =
     deadline === undefined
       ? await execution
-      : await Promise.race([
-          execution,
-          delay(run.startedAt + deadline - run.host.now()).then(
-            () => "deadline" as const,
-          ),
-        ]);
-  return first === "deadline"
-    ? afterDeadline(run, command, execution)
+      : await within(execution, run.startedAt + deadline - run.host.now());
+  return first === undefined
+    ? afterDeadline(run, plan.command, execution)
     : afterHandler(run, identity, first);
 }
 
@@ -399,12 +444,14 @@ async function route(run: Run, resolution: Resolution): Promise<Delivery> {
 async function runInvocation(
   runtime: ContractRuntime,
   setup: RunSetup,
+  plans: ReadonlyMap<string, CommandPlan>,
+  host: ProcessHost,
   argv: unknown,
 ): Promise<number> {
-  const host = setup.host ?? processHost();
   const run: Run = {
     runtime,
     setup,
+    plans,
     host,
     runId: crypto.randomUUID(),
     startedAt: host.now(),

@@ -9,8 +9,8 @@ import type {
 } from "../../kernel/index.ts";
 
 // CMD-14: a command that runs a caller-supplied program says so in its
-// summary. The exact words are pending review; `supplied` refuses to start a
-// program for a command whose summary omits them.
+// summary. `supplied` refuses to start a program for a command whose summary
+// omits these words.
 export const callerProgramDisclosure = "Runs a program supplied by the caller.";
 
 export type ShutdownAttempt = {
@@ -71,12 +71,15 @@ function requestProblem(request: ProgramRequest): string | undefined {
 // only to that group, and never after the group was observed empty.
 class OwnedGroup {
   readonly attempts: ShutdownAttempt[] = [];
+  readonly pid: number;
   private empty = false;
-  constructor(
-    readonly pid: number,
-    private readonly started: number,
-    private readonly shutdownMilliseconds: number,
-  ) {}
+  private readonly started: number;
+  private readonly shutdownMilliseconds: number;
+  constructor(pid: number, started: number, shutdownMilliseconds: number) {
+    this.pid = pid;
+    this.started = started;
+    this.shutdownMilliseconds = shutdownMilliseconds;
+  }
 
   gone(): boolean {
     if (this.empty) return true;

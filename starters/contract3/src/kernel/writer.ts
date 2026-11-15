@@ -54,34 +54,49 @@ export function createWriter(options: {
     return host.write(stream, encoder.encode(text));
   }
 
+  // Admission never throws: any fault before a write is a writer failure,
+  // which takes LIFE-9's single fallback attempt.
+  async function admitted(candidate: Validation<unknown>, trusted: TrustedRun) {
+    if (!candidate.ok) return undefined;
+    try {
+      const value = await admit(candidate.value, trusted);
+      return value
+        ? { ...value, target: output(value.text, value.envelope) }
+        : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  // LIFE-9: exactly one fallback attempt, only before any stdout write. Any
+  // construction, validation, encoding or write failure ends with exit 1.
+  async function fallback(trusted: TrustedRun) {
+    try {
+      const text = await fallbackText(runtime, trusted);
+      if (text === undefined) return 1;
+      const drained = machine
+        ? await write("stdout", `${text}\n`)
+        : await write(
+            "stderr",
+            `${oneLine(runtime.cli)}: ${fallbackMessage}\n`,
+          );
+      return drained === undefined ? undefined : 1;
+    } catch {
+      return 1;
+    }
+  }
+
   return {
     async emit(candidate, trusted) {
       if (used || stopping()) return undefined;
       used = true;
-      try {
-        const admitted = candidate.ok
-          ? await admit(candidate.value, trusted)
-          : undefined;
-        if (admitted) {
-          const target = output(admitted.text, admitted.envelope);
-          const drained = await write(target.stream, target.text);
-          if (drained === undefined) return undefined;
-          return drained ? admitted.envelope.result.exitCode : 1;
-        }
-        // LIFE-9: exactly one fallback attempt, only before any stdout write.
-        const fallback = await fallbackText(runtime, trusted);
-        if (fallback === undefined) return 1;
-        const target = machine
-          ? ({ stream: "stdout", text: `${fallback}\n` } as const)
-          : ({
-              stream: "stderr",
-              text: `${oneLine(runtime.cli)}: ${fallbackMessage}\n`,
-            } as const);
-        const drained = await write(target.stream, target.text);
-        return drained === undefined ? undefined : 1;
-      } catch {
-        return 1;
-      }
+      const ready = await admitted(candidate, trusted);
+      if (!ready) return fallback(trusted);
+      const drained = await write(ready.target.stream, ready.target.text).catch(
+        () => false,
+      );
+      if (drained === undefined) return undefined;
+      return drained ? ready.envelope.result.exitCode : 1;
     },
   };
 }

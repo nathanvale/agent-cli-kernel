@@ -1,6 +1,5 @@
 import { appendFileSync } from "node:fs";
 import { expect } from "bun:test";
-import { fallbackMessage } from "../../../starters/contract3/src/kernel/fallback.ts";
 import { record } from "../../../starters/contract3/src/kernel/validation/primitives.ts";
 import {
   containerDepth,
@@ -44,6 +43,11 @@ const effectKeys = ["completed", "remaining", "uncertain", "inventoryComplete"];
 const handoffKeys = ["owner", "reason", "inspect", "resource"];
 const stepKinds = ["command", "instruction", "retry", "done"];
 const marker = "FX-REJECTED-PAYLOAD";
+// Independent oracle: the fallback's fixed bounded message, restated here from
+// the frozen T2 binding (component-handoff-a). A changed literal must fail
+// this test rather than move the expectation with it.
+const independentFallbackMessage =
+  "The result could not be delivered safely. Follow the guidance and inspect effects independently before any new run.";
 
 // Raw receipts go to the evidence owner when T2_EVIDENCE names a file.
 export function receipt(entry: Case, observed: Observed, extra: object = {}) {
@@ -92,7 +96,7 @@ function assertFallback(
   const result = resultOf(envelope);
   const raw = text(observed.stdout);
   expect(envelope.contractVersion).toBe("3.0.0");
-  expect(envelope.message).toBe(fallbackMessage);
+  expect(envelope.message).toBe(independentFallbackMessage);
   expect(result.data).toBeNull();
   expect(result.retryable).toBe(false);
   expect(raw.includes(marker)).toBe(false);
@@ -115,24 +119,17 @@ function assertFallback(
     });
 }
 
-// One validated envelope at the independently expected station.
-export function assertEnvelope(entry: Case, observed: Observed) {
-  const expected = entry.expect;
-  const causeCode = expected.causeCode;
-  if (typeof causeCode !== "string")
-    throw new Error(`${entry.id} has no cause.`);
+// The guidance arm a printed result carries: N, N:retry, H or invalid.
+function armOf(result: Record<string, unknown>): string {
+  const hasNext = result.next !== undefined;
+  const hasHandoff = result.handoff !== undefined;
+  if (hasNext === hasHandoff) return "invalid";
+  if (hasHandoff) return "H";
+  return record(result.next) && result.next.kind === "retry" ? "N:retry" : "N";
+}
+
+function assertStation(result: Record<string, unknown>, causeCode: string) {
   const row = expectedRow(causeCode);
-  expect(observed.stderr.byteLength).toBe(0);
-  const envelope = envelopeOf(observed.stdout);
-  const result = resultOf(envelope);
-  const arm =
-    result.handoff !== undefined && result.next === undefined
-      ? "H"
-      : result.next !== undefined && result.handoff === undefined
-        ? record(result.next) && result.next.kind === "retry"
-          ? "N:retry"
-          : "N"
-        : "invalid";
   expect({
     causeCode: result.causeCode,
     outcome: result.outcome,
@@ -140,7 +137,7 @@ export function assertEnvelope(entry: Case, observed: Observed) {
     failureClass: result.failureClass,
     exitCode: result.exitCode,
     retryable: result.retryable,
-    arm,
+    arm: armOf(result),
   }).toEqual({
     causeCode,
     outcome: row.outcome,
@@ -150,22 +147,80 @@ export function assertEnvelope(entry: Case, observed: Observed) {
     retryable: row.retryable,
     arm: row.guidance,
   });
-  if (expected.identityPending !== true)
-    expect(result.commandIdentity).toBe(expected.commandIdentity);
-  const realExit =
-    typeof expected.exit === "number" ? expected.exit : row.exitCode;
+  return row;
+}
+
+function assertExit(
+  expected: Case["expect"],
+  observed: Observed,
+  result: Record<string, unknown>,
+  rowExit: number,
+) {
   expect(observed.signal).toBeNull();
-  expect(observed.code).toBe(realExit);
+  expect(observed.code).toBe(
+    expected.exit === undefined ? rowExit : n(expected.exit),
+  );
   if (expected.signal === undefined)
     expect(observed.code).toBe(n(result.exitCode));
+}
+
+// One validated envelope at the independently expected station.
+export function assertEnvelope(entry: Case, observed: Observed) {
+  const expected = entry.expect;
+  const causeCode = expected.causeCode;
+  if (typeof causeCode !== "string")
+    throw new Error(`${entry.id} has no cause.`);
+  expect(observed.stderr.byteLength).toBe(0);
+  const envelope = envelopeOf(observed.stdout);
+  const result = resultOf(envelope);
+  const row = assertStation(result, causeCode);
+  if (expected.identityPending !== true)
+    expect(result.commandIdentity).toBe(expected.commandIdentity);
+  assertExit(expected, observed, result, row.exitCode);
   if (expected.effects !== undefined)
     expect(result.effects).toEqual(expected.effects);
-  if (typeof expected.minimumBytes === "number")
+  if (expected.minimumBytes !== undefined)
     expect(observed.stdout.byteLength).toBeGreaterThanOrEqual(
-      expected.minimumBytes,
+      n(expected.minimumBytes),
     );
   if (expected.fallback === true) assertFallback(entry, observed, envelope);
   return { envelope, result };
+}
+
+// N14: what each human navigation page must show, authored from DISC-1,
+// DISC-3, DISC-5 and DISC-6 and the fixture's declared routes.
+const humanContent: Readonly<Record<string, readonly string[]>> = {
+  "W02.help-stdout": [
+    "Usage:",
+    "read",
+    "refuse",
+    "--json",
+    "--help",
+    "--discover",
+    "--discover-command",
+  ],
+  "W02.discover-stdout": [
+    "3.0.0",
+    "fx.read",
+    "fx.help",
+    "fx.discovery",
+    "fx.command-discovery",
+    "fx.dispatch",
+  ],
+  "W02.discover-command-stdout": ["fx.read", "read", "SUCCESS_UNCHANGED"],
+};
+
+function assertHumanText(entry: Case, out: string) {
+  const words = humanContent[entry.id];
+  if (!words) throw new Error(`${entry.id} has no human content oracle.`);
+  expect(out.trimStart().startsWith("{")).toBe(false);
+  for (const word of words) expect(out).toContain(word);
+}
+
+function assertLine(err: string) {
+  expect(err.endsWith("\n")).toBe(true);
+  expect(err.indexOf("\n")).toBe(err.length - 1);
+  expect(err.trim().length).toBeGreaterThan(0);
 }
 
 export function assertHuman(entry: Case, observed: Observed) {
@@ -175,14 +230,7 @@ export function assertHuman(entry: Case, observed: Observed) {
   const out = text(observed.stdout);
   const err = text(observed.stderr);
   if (expected.stdout === "empty") expect(out).toBe("");
-  if (expected.stdout === "text") {
-    expect(out.length).toBeGreaterThan(0);
-    expect(out.trimStart().startsWith("{")).toBe(false);
-  }
+  if (expected.stdout === "text") assertHumanText(entry, out);
   if (expected.stderr === "empty") expect(err).toBe("");
-  if (expected.stderr === "line") {
-    expect(err.endsWith("\n")).toBe(true);
-    expect(err.indexOf("\n")).toBe(err.length - 1);
-    expect(err.trim().length).toBeGreaterThan(0);
-  }
+  if (expected.stderr === "line") assertLine(err);
 }

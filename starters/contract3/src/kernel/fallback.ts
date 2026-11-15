@@ -1,5 +1,10 @@
 import type { ContractRuntime } from "./runtime.ts";
 import type { StateObservation } from "./state-seam.ts";
+import {
+  incompleteEffects,
+  internalResultCause,
+  unchangedEffects,
+} from "./state-causes.ts";
 import type { Effects } from "./types.ts";
 import { record } from "./validation/primitives.ts";
 
@@ -19,37 +24,24 @@ export type TrustedRun = {
   readonly summary?: StateObservation;
 };
 
-const unchanged: Effects = {
-  completed: [],
-  remaining: [],
-  uncertain: [],
-  inventoryComplete: true,
-};
-const incomplete: Effects = {
-  completed: [],
-  remaining: [],
-  uncertain: [],
-  inventoryComplete: false,
-};
-const causeForState = {
-  unchanged: "INTERNAL_RESULT_UNCHANGED",
-  completed: "INTERNAL_RESULT_COMPLETED",
-  "partially-completed": "INTERNAL_RESULT_PARTIAL",
-  unknown: "INTERNAL_RESULT_UNKNOWN",
-} as const;
-
 function select(
   effectClass: string,
   trusted: TrustedRun,
 ): { readonly causeCode: string; readonly effects: Effects } {
   if (!trusted.dispatched)
-    return { causeCode: "INTERNAL_PREPARATION", effects: unchanged };
+    return { causeCode: "INTERNAL_PREPARATION", effects: unchangedEffects };
   if (effectClass === "inspect")
-    return { causeCode: "INTERNAL_RESULT_UNCHANGED", effects: unchanged };
+    return {
+      causeCode: internalResultCause.unchanged,
+      effects: unchangedEffects,
+    };
   if (!trusted.summary)
-    return { causeCode: "INTERNAL_RESULT_UNKNOWN", effects: incomplete };
+    return {
+      causeCode: internalResultCause.unknown,
+      effects: incompleteEffects,
+    };
   return {
-    causeCode: causeForState[trusted.summary.transactionState],
+    causeCode: internalResultCause[trusted.summary.transactionState],
     effects: {
       completed: [...trusted.summary.effects.completed],
       remaining: [...trusted.summary.effects.remaining],
@@ -111,8 +103,8 @@ export async function fallbackText(
     if (text === undefined && trusted.summary)
       text = encodeBounded(
         construct(runtime, trusted, {
-          causeCode: "INTERNAL_RESULT_UNKNOWN",
-          effects: incomplete,
+          causeCode: internalResultCause.unknown,
+          effects: incompleteEffects,
         }),
       );
     if (text === undefined) return undefined;
@@ -156,7 +148,10 @@ class Output {
   private readonly encoder = new TextEncoder();
   private readonly parts: string[] = [];
   private bytes = 1;
-  constructor(private readonly limit: number) {}
+  private readonly limit: number;
+  constructor(limit: number) {
+    this.limit = limit;
+  }
   push(text: string): boolean {
     this.bytes += this.encoder.encode(text).byteLength;
     this.parts.push(text);

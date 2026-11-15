@@ -1,26 +1,30 @@
 // T2 lifecycle process cases (L01 to L05, L07 to L12, R02).
 import { describe, expect, test } from "bun:test";
-import { comparableEnvelope } from "../../../starters/contract3/src/kernel/index.ts";
+import { comparableEnvelope } from "../../../starters/contract3/src/kernel/comparison.ts";
 import { assertEnvelope, receipt } from "./checks.ts";
 import { sliceCases } from "./coverage.ts";
 import {
   cleanup,
   envelopeOf,
+  frontDoorStart,
   goneWithin,
   launch,
+  launchCase,
   n,
   resultOf,
   run,
+  slowSmallChunkRun,
   text,
 } from "./harness.ts";
-import type { Case, Launched, Observed, Reader } from "./harness.ts";
+import type { Case, Launched, Observed } from "./harness.ts";
 
 const timeout = 30_000;
-// Harness scheduling tolerance added to every contract bound.
-const tolerance = 200;
-// Process start to front-door start is not independently observable; this
-// allowance bounds it for deadline timing (recorded with each receipt).
-const startupAllowance = 600;
+// Harness observation tolerance added to every contract bound. Calibrated
+// from receipts: process exit observation adds about 2 to 20 ms on this host
+// (L01 exits 10 to 20 ms after the signal; spawn to front-door start 20 to
+// 40 ms is excluded by the ledgered front-door clock). 100 ms keeps a
+// first-signal exit at 650 ms or a 1,000 ms deadline wait RED.
+const tolerance = 100;
 
 type Signal = "SIGINT" | "SIGTERM";
 function signalName(value: unknown): Signal {
@@ -39,15 +43,9 @@ function deadlineOf(entry: Case) {
 }
 async function start(
   entry: Case,
-  extra: Parameters<typeof launch>[0] | object = {},
+  extra: Partial<Parameters<typeof launch>[0]> = {},
 ) {
-  return launch({
-    argv: entry.argv,
-    state: entry.state,
-    scenario: entry.scenario,
-    stdin: entry.stdin,
-    ...extra,
-  });
+  return launchCase(entry, extra);
 }
 async function finish(entry: Case, launched: Launched, extra: object = {}) {
   const observed = await launched.done;
@@ -57,6 +55,19 @@ async function finish(entry: Case, launched: Launched, extra: object = {}) {
 function assertNoOutput(observed: Observed) {
   expect(observed.stdout.byteLength).toBe(0);
   expect(observed.stderr.byteLength).toBe(0);
+}
+
+// LIFE-6: emission starts at most 500 ms after the deadline, measured from
+// the fixture's ledgered front-door start (the deadline's own origin).
+function assertDeadlineLag(entry: Case, observed: Observed) {
+  const deadlineAt = frontDoorStart(observed) + deadlineOf(entry);
+  const emitted = observed.firstStdoutAt;
+  expect(emitted).toBeNumber();
+  const lag = (emitted ?? Number.POSITIVE_INFINITY) - deadlineAt;
+  expect(lag).toBeGreaterThanOrEqual(0);
+  expect(lag).toBeLessThanOrEqual(
+    n(entry.expect.withinMillisecondsAfterDeadline) + tolerance,
+  );
 }
 
 const checks: Record<string, (entry: Case) => Promise<void>> = {
@@ -87,9 +98,11 @@ const checks: Record<string, (entry: Case) => Promise<void>> = {
   async L02(entry) {
     const launched = await start(entry, { reader: "pause-after-first" });
     await launched.partialRead;
-    launched.signal(signalName(entry.expect.signal));
+    const sent = launched.signal(signalName(entry.expect.signal));
     const observed = await finish(entry, launched);
     try {
+      // LIFE-3: the same 500 ms grace as a first signal before emission.
+      expect(observed.exitedAt - sent).toBeLessThanOrEqual(500 + tolerance);
       expect(observed.signal).toBeNull();
       expect(observed.code).toBe(n(entry.expect.exit));
       expect(observed.stderr.byteLength).toBe(0);
@@ -167,14 +180,7 @@ const checks: Record<string, (entry: Case) => Promise<void>> = {
     const observed = await finish(entry, launched);
     try {
       assertEnvelope(entry, observed);
-      const deadline = deadlineOf(entry);
-      const emitted = (observed.firstStdoutAt ?? Infinity) - observed.spawnedAt;
-      expect(emitted).toBeGreaterThanOrEqual(deadline);
-      expect(emitted - deadline).toBeLessThanOrEqual(
-        Number(entry.expect.withinMillisecondsAfterDeadline) +
-          startupAllowance +
-          tolerance,
-      );
+      assertDeadlineLag(entry, observed);
       expect(
         observed.ledger.some((line) => line.startsWith("late-start ")),
       ).toBe(false);
@@ -218,12 +224,14 @@ const checks: Record<string, (entry: Case) => Promise<void>> = {
     }
   },
   async L11(entry) {
-    const launched = await start(entry, {
-      reader: "slow-chunks" satisfies Reader,
-    });
-    const observed = await finish(entry, launched);
+    // No hard drain bound exists (LIFE-6): only the test timeout limits it.
+    const { observed, reads } = await slowSmallChunkRun(entry);
+    receipt(entry, observed, { reads });
     try {
       assertEnvelope(entry, observed);
+      expect(reads).toBeGreaterThanOrEqual(
+        Math.floor(n(entry.expect.minimumBytes) / 4096),
+      );
     } finally {
       await cleanup(observed);
     }
@@ -304,4 +312,136 @@ describe("T2 lifecycle process cases", () => {
       },
       timeout,
     );
+});
+
+// Supporting cases with their own identities (not in the frozen case file).
+function supporting(
+  id: string,
+  fields: Partial<Omit<Case, "id" | "family" | "status">>,
+): Case {
+  return {
+    id,
+    family: id.split(".")[0] ?? id,
+    status: "supporting",
+    argv: [],
+    scenario: undefined,
+    state: false,
+    stdin: "closed",
+    expect: {},
+    supplier: undefined,
+    note: undefined,
+    ...fields,
+  };
+}
+
+describe("L06 excluded terminations without T3 (supporting C7)", () => {
+  for (const [id, scenario] of [
+    ["L06s.abort", "abort"],
+    ["L06s.hook-install-failure", "hook-install-fails"],
+  ] as const)
+    test(
+      id,
+      async () => {
+        const entry = supporting(id, { argv: ["read", "--json"], scenario });
+        const observed = await run(entry);
+        // Host or runtime dependent exit: recorded, not asserted (lifecycle
+        // table row 8). The required observation is the missing envelope.
+        receipt(entry, observed);
+        try {
+          expect(observed.stdout.byteLength).toBe(0);
+          expect(observed.code === 0).toBe(false);
+          if (scenario === "abort") expect(observed.signal).toBe("SIGABRT");
+        } finally {
+          await cleanup(observed);
+        }
+      },
+      timeout,
+    );
+});
+
+describe("CMD-9 steps 3 to 6 order (supporting C2)", () => {
+  test(
+    "C2s.future-binding-refused-before-deadline",
+    async () => {
+      for (const [item, causeCode] of [
+        ["beta", "USAGE_INVALID_INVOCATION"],
+        ["alpha", "DOMAIN_DEADLINE_BEFORE_START"],
+      ] as const) {
+        const entry = supporting(`C2s.binding-${item}`, {
+          argv: ["source", item, "--deadline-ms", "1000", "--json"],
+          scenario: "clock-jump",
+          expect: { commandIdentity: "fx.source", causeCode },
+        });
+        const observed = await run(entry);
+        receipt(entry, observed);
+        try {
+          assertEnvelope(entry, observed);
+          expect(observed.ledger).not.toContain("dispatch-start");
+        } finally {
+          await cleanup(observed);
+        }
+      }
+    },
+    timeout,
+  );
+
+  test(
+    "C2s.approval-denied-attaches-only-approval",
+    async () => {
+      const entry = supporting("C2s.approval-denied", {
+        argv: ["guarded", "--go", "--json"],
+        state: true,
+        expect: {
+          commandIdentity: "fx.guarded",
+          causeCode: "DOMAIN_AUTHORITY_REQUIRED",
+        },
+      });
+      const observed = await run(entry, { env: { FX_APPROVAL: "deny" } });
+      receipt(entry, observed);
+      try {
+        const { result } = assertEnvelope(entry, observed);
+        const handoff = result.handoff;
+        expect(handoff).toMatchObject({ owner: "human" });
+        expect(observed.ledger).toContain("attach approval");
+        expect(observed.ledger).not.toContain("attach programs");
+        expect(
+          observed.ledger.some(
+            (line) =>
+              line.startsWith("guarded-child") || line.startsWith("applied"),
+          ),
+        ).toBe(false);
+      } finally {
+        await cleanup(observed);
+      }
+    },
+    timeout,
+  );
+
+  test(
+    "C2s.approval-granted-attaches-programs-on-use",
+    async () => {
+      const entry = supporting("C2s.approval-granted", {
+        argv: ["guarded", "--go", "--json"],
+        state: true,
+        expect: {
+          commandIdentity: "fx.guarded",
+          causeCode: "SUCCESS_COMPLETED",
+        },
+      });
+      const observed = await run(entry, { env: { FX_APPROVAL: "grant" } });
+      receipt(entry, observed);
+      try {
+        assertEnvelope(entry, observed);
+        const at = (prefix: string) =>
+          observed.ledger.findIndex((line) => line.startsWith(prefix));
+        expect(at("attach approval")).toBeGreaterThanOrEqual(0);
+        expect(at("attach approval")).toBeLessThan(at("attach programs"));
+        expect(at("attach programs")).toBeLessThan(at("guarded-child"));
+        expect(at("guarded-child")).toBeLessThan(at("applied fx.alpha"));
+      } finally {
+        await cleanup(observed);
+      }
+    },
+    timeout,
+  );
 });

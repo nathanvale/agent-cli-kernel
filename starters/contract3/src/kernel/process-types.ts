@@ -1,14 +1,10 @@
-import type {
-  ApprovalCapability,
-  DiagnosticsCapability,
-  ProgramsCapability,
-} from "./capabilities.ts";
+import type { CapabilitySelection, HandlerContext } from "./capabilities.ts";
 
 export type StopSignal = "SIGINT" | "SIGTERM";
 
 // The process streams, exit, signals, crash hooks and clock, owned by the one
-// writer and the lifecycle. The real adapter is processHost(); a test-owned
-// fault fixture may wrap it. Host command code never receives it.
+// writer and the lifecycle. Kernel-internal: the public RunSetup cannot
+// replace it. The real adapter is processHost().
 export type ProcessHost = {
   // Resolves true after the bytes drained to the stream, false on any error.
   readonly write: (
@@ -51,12 +47,12 @@ export type EmergencyFacts = {
   readonly phase: "preparing" | "dispatched" | "emitting" | "drained";
 };
 
+// One add-on per declared capability name (CapabilitySelection owns the names).
+export type AddonName = keyof CapabilitySelection;
+export type CapabilityFor = HandlerContext<Required<CapabilitySelection>>;
 export type RunSetup = {
-  readonly host?: ProcessHost;
   readonly addons?: {
-    readonly programs?: RunAddon<ProgramsCapability>;
-    readonly approval?: RunAddon<ApprovalCapability>;
-    readonly diagnostics?: RunAddon<DiagnosticsCapability>;
+    readonly [K in AddonName]?: RunAddon<CapabilityFor[K]>;
   };
   // At most one bounded synchronous recording attempt on a catchable crash
   // (LIFE-6a). The state add-on supplies it; without one nothing is written.

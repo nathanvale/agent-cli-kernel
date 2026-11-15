@@ -16,8 +16,10 @@ import type { CauseTable, Effects } from "./types.ts";
 import { proofValue } from "./validation/state.ts";
 import { invocationTokens, resolveInvocation } from "./routing.ts";
 import { registerRuntime } from "./runtime.ts";
+import type { KernelFacts } from "./runtime.ts";
 import { authority, resource, path } from "./validation/brands.ts";
 import type { CommandDeclaration } from "./declarations.ts";
+import type { DeclaredStation } from "./stations.ts";
 import { parseInput, acceptsRootInput } from "./input.ts";
 import { builtins, stationsFor } from "./navigation.ts";
 import { freeze } from "./stations.ts";
@@ -30,15 +32,12 @@ import { wireResult } from "./validation/result.ts";
 
 export { command, changing } from "./declarations.ts";
 export { runProcess } from "./lifecycle.ts";
-export { comparableEnvelope } from "./comparison.ts";
 export type {
   AttachedAddon,
   EmergencyFacts,
-  ProcessHost,
   RunAddon,
   RunControl,
   RunSetup,
-  StopSignal,
 } from "./process-types.ts";
 export { station } from "./stations.ts";
 export { commonCauses } from "./causes.ts";
@@ -108,54 +107,29 @@ export function contractFor<
       : checked;
   }
 
-  async function buildRegistered(
-    selected: { readonly commandIdentity: string; readonly causeCode: string },
-    facts: Readonly<Record<string, unknown>>,
-    trusted?: Effects,
-  ) {
+  function stationOf(selected: {
+    readonly commandIdentity: string;
+    readonly causeCode: string;
+  }) {
     const station = stationMap
       .get(selected.commandIdentity)
       ?.find((item) => item.causeCode === selected.causeCode);
     const command = commands.find(
       (item) => item.commandIdentity === selected.commandIdentity,
     );
-    if (!command || !station)
-      return {
-        ok: false,
-        path: "station",
-        reason: "undeclared station",
-      } as const;
+    return command && station ? { command, station } : undefined;
+  }
+
+  // Assembles and validates one envelope from a declared station and the
+  // run facts already admitted by the caller.
+  async function assemble(
+    command: CommandDeclaration,
+    station: DeclaredStation,
+    runFacts: Readonly<Record<string, unknown>>,
+    message: unknown,
+  ) {
     const { guidance: arm, ...row } = station.row;
     void arm;
-    const runFacts: Record<string, unknown> = {};
-    for (const key of [
-      "runId",
-      "data",
-      "effects",
-      "retryDelayMilliseconds",
-      "attemptedEffect",
-      "idempotencyKey",
-      "bindings",
-    ])
-      if (key in facts) runFacts[key] = Reflect.get(facts, key);
-    if (trusted) runFacts.effects = trusted;
-    else if (
-      command.effectClass !== "inspect" &&
-      station.row.outcome !== "refused"
-    ) {
-      const proof = facts.transaction;
-      if (
-        typeof facts.runId !== "string" ||
-        !proofValue(proof, facts.runId, spec.state) ||
-        proof.transactionState !== station.row.transactionState
-      )
-        return {
-          ok: false,
-          path: "transaction",
-          reason: "state-issued transaction proof required",
-        } as const;
-      runFacts.effects = proof.effects;
-    }
     const result = {
       ...runFacts,
       ...row,
@@ -174,7 +148,7 @@ export function contractFor<
     try {
       return await validate({
         contractVersion: "3.0.0",
-        message: facts.message,
+        message,
         availablePaths: commands.map((item) => item.commandIdentity),
         result: { ...result, ...renderGuidance(station, result) },
       });
@@ -185,6 +159,68 @@ export function contractFor<
         reason: "invalid template values",
       } as const;
     }
+  }
+
+  const undeclared = {
+    ok: false,
+    path: "station",
+    reason: "undeclared station",
+  } as const;
+
+  async function buildRegistered(
+    selected: { readonly commandIdentity: string; readonly causeCode: string },
+    facts: Readonly<Record<string, unknown>>,
+  ) {
+    const found = stationOf(selected);
+    if (!found) return undeclared;
+    const { command, station } = found;
+    const runFacts: Record<string, unknown> = {};
+    for (const key of [
+      "runId",
+      "data",
+      "effects",
+      "retryDelayMilliseconds",
+      "attemptedEffect",
+      "idempotencyKey",
+      "bindings",
+    ])
+      if (key in facts) runFacts[key] = Reflect.get(facts, key);
+    if (
+      command.effectClass !== "inspect" &&
+      station.row.outcome !== "refused"
+    ) {
+      const proof = facts.transaction;
+      if (
+        typeof facts.runId !== "string" ||
+        !proofValue(proof, facts.runId, spec.state) ||
+        proof.transactionState !== station.row.transactionState
+      )
+        return {
+          ok: false,
+          path: "transaction",
+          reason: "state-issued transaction proof required",
+        } as const;
+      runFacts.effects = proof.effects;
+    }
+    return assemble(command, station, runFacts, facts.message);
+  }
+
+  // Kernel-selected stations only (usage, deadline and navigation results).
+  // The kernel supplies effects from its own observation; this builder is
+  // reachable only through the private runtime record, never from `build`.
+  async function buildKernelStation(
+    selected: { readonly commandIdentity: string; readonly causeCode: string },
+    facts: KernelFacts,
+    effects: Effects,
+  ) {
+    const found = stationOf(selected);
+    if (!found) return undeclared;
+    return assemble(
+      found.command,
+      found.station,
+      { runId: facts.runId, data: facts.data, effects },
+      facts.message,
+    );
   }
 
   async function executeCommand(
@@ -305,10 +341,28 @@ export function contractFor<
       const resolved = await resolveInvocation(spec.cli, commands, argv);
       if (!resolved.ok) return resolved;
       const raw: readonly unknown[] = Array.isArray(argv) ? argv : [];
-      const route =
-        commands.find(
-          (item) => item.commandIdentity === resolved.value.commandIdentity,
-        )?.route ?? [];
+      const selected = commands.find(
+        (item) => item.commandIdentity === resolved.value.commandIdentity,
+      );
+      // CMD-9 step 3: caller-supplied future bindings are input too, so they
+      // are refused before the deadline check (step 4) and any preflight.
+      if (
+        selected &&
+        !(
+          await validateFutureInputs(
+            selected,
+            resolved.value.input,
+            inputRegistration,
+          )
+        ).ok
+      )
+        return {
+          ok: false,
+          commandIdentity: selected.commandIdentity,
+          causeCode: "USAGE_INVALID_INVOCATION",
+          machine: resolved.value.machine,
+        } as const;
+      const route = selected?.route ?? [];
       const tokens = invocationTokens(
         raw.map((token) => (typeof token === "string" ? token : "")),
       );
@@ -324,8 +378,7 @@ export function contractFor<
     },
     execute: (identity, argv, runId, context) =>
       executeCommand(identity, argv, runId, context),
-    build: (selected, facts, trusted) =>
-      buildRegistered(selected, facts, trusted),
+    buildKernelStation,
     buildResult: (result) => contract.buildResult(result),
     validate,
     trustedSummary(result, runId) {

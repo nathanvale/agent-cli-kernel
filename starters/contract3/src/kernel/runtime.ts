@@ -46,12 +46,13 @@ export type ContractRuntime = {
     runId: string,
     context: unknown,
   ) => Promise<Validation<CommandResult>>;
-  // Builds a kernel-selected station. `trusted` effects replace a handler's
-  // transaction proof and come only from the kernel's own observation.
-  readonly build: (
+  // Builds a kernel-selected station with effects from the kernel's own
+  // observation. Handler results never reach it: they go through buildResult
+  // and the state-issued proof rule.
+  readonly buildKernelStation: (
     selected: { readonly commandIdentity: string; readonly causeCode: string },
     facts: KernelFacts,
-    trusted: Effects,
+    effects: Effects,
   ) => Promise<Validation<unknown>>;
   readonly buildResult: (result: CommandResult) => Promise<Validation<unknown>>;
   readonly validate: (value: unknown) => Promise<Validation<Envelope>>;
