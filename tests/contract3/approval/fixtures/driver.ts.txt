@@ -31,6 +31,7 @@ import type {
   ClosureItem,
   StopItem,
 } from "../../../starters/contract3/src/addons/approval/index.ts";
+import type { ExclusiveScope } from "../../../starters/contract3/src/kernel/index.ts";
 import {
   FixtureLock,
   exclusiveScope,
@@ -101,7 +102,8 @@ type Common = {
     | "released"
     | "foreign-scope"
     | "foreign-run"
-    | "lost-after-consume";
+    | "lost-after-consume"
+    | "forged";
   // Marker whose appearance triggers lost-after-consume.
   readonly lostMarker: string;
   readonly barriers: readonly Barrier[];
@@ -136,6 +138,7 @@ function common(map: Fields): Common {
           "foreign-scope",
           "foreign-run",
           "lost-after-consume",
+          "forged",
         ])
       : "held",
     lostMarker: map.has("lostMarker") ? text(map, "lostMarker") : "",
@@ -172,7 +175,22 @@ function revision(place: World): string {
   return readFileSync(place.revision, "utf8");
 }
 
-async function acquire(settings: Common, scopeName: string) {
+// Reviewer probe P2: what untyped code could pass instead of a kernel-issued
+// scope, a plain look-alike for the right run and resource that stays active
+// while the real fixture lock is held.
+type Forged = {
+  readonly runId: string;
+  readonly scope: string;
+  readonly isActive: () => boolean;
+};
+type Held =
+  | { readonly lock: FixtureLock; readonly scope: ExclusiveScope }
+  | { readonly lock: FixtureLock; readonly forged: Forged };
+
+async function acquire(
+  settings: Common,
+  scopeName: string,
+): Promise<Held | undefined> {
   const lock = new FixtureLock(
     settings.lock === "private"
       ? `${settings.world.lock}-${settings.runId}`
@@ -192,6 +210,11 @@ async function acquire(settings: Common, scopeName: string) {
       lock.release();
     return lock.active();
   };
+  if (settings.coordination === "forged")
+    return {
+      lock,
+      forged: { runId: settings.runId, scope: scopeName, isActive: active },
+    };
   const scope = exclusiveScope(
     settings.coordination === "foreign-run"
       ? `${settings.runId}-other`
@@ -204,6 +227,17 @@ async function acquire(settings: Common, scopeName: string) {
 }
 
 const boundary = contractFor({ cli: "boundary", commands: [] }).boundary;
+
+// Hands a forged look-alike to a consume method the way untyped code could,
+// through Reflect.apply, so the driver needs no type assertion.
+async function untyped(
+  method: (...args: never[]) => unknown,
+  owner: object,
+  args: readonly unknown[],
+): Promise<Fields> {
+  const result: unknown = await Reflect.apply(method, owner, args);
+  return fields(result);
+}
 
 // L2 test-side injection, no production seam: once the consumption marker
 // exists, the next FileHandle close (the marker's own) closes for real and
@@ -237,12 +271,12 @@ async function apply(map: Fields): Promise<void> {
   const closeFailure = map.has("failCloseAfter")
     ? text(map, "failCloseAfter")
     : "";
-  const { runtime } = approval({
+  const runtime = approval({
     operation: text(map, "operation"),
     runId: settings.runId,
     store: { grants: place.grants, ledger: place.ledger },
     now: () => now(place),
-  });
+  }).runtime(state);
   const request = (resourceRevision: string, withPreview: boolean) => ({
     authority: boundary.authority(text(map, "authority")),
     resource: boundary.resource(text(map, "resource")),
@@ -266,12 +300,19 @@ async function apply(map: Fields): Promise<void> {
   if (closeFailure) await failCloseAfter(closeFailure);
   let consumed: boolean;
   try {
-    consumed = (
-      await runtime.revalidateAndConsume(
-        request(revision(place), !dropPreview),
-        held.scope,
-      )
-    ).admitted;
+    const current = request(revision(place), !dropPreview);
+    if ("forged" in held) {
+      const admitted = (
+        await untyped(runtime.revalidateAndConsume, runtime, [
+          current,
+          held.forged,
+        ])
+      ).get("admitted");
+      if (typeof admitted !== "boolean") throw new Error("Admission shape.");
+      consumed = admitted;
+    } else
+      consumed = (await runtime.revalidateAndConsume(current, held.scope))
+        .admitted;
   } catch (error) {
     held.lock.release();
     return emit({ phase: "consume", ...failure(error) });
@@ -334,13 +375,24 @@ async function authority(map: Fields): Promise<void> {
     if (kind === "closure") {
       const item = closureItem(fresh);
       return scope
-        ? verifier.closure.consume(item, scope)
+        ? verifier.closure.consume(item, scope, state)
         : verifier.closure.preflight(item);
     }
     const item = stopItem(fresh);
     return scope
-      ? verifier.stop.consume(item, scope)
+      ? verifier.stop.consume(item, scope, state)
       : verifier.stop.preflight(item);
+  };
+  const forgedStep = async (forged: Forged) => {
+    const fresh = readItem(itemPath);
+    const [slot, item] =
+      kind === "closure"
+        ? [verifier.closure, closureItem(fresh)]
+        : [verifier.stop, stopItem(fresh)];
+    return text(
+      await untyped(slot.consume, slot, [item, forged, state]),
+      "status",
+    );
   };
   const first = await step();
   emit({ phase: "preflight", status: first.status });
@@ -351,8 +403,11 @@ async function authority(map: Fields): Promise<void> {
   emit({ phase: "acquired" });
   await barrier("after-acquire", settings.barriers);
   try {
-    const verdict = await step(held.scope);
-    emit({ phase: "consume", status: verdict.status });
+    const verdict =
+      "forged" in held
+        ? await forgedStep(held.forged)
+        : (await step(held.scope)).status;
+    emit({ phase: "consume", status: verdict });
   } catch (error) {
     emit({ phase: "consume", ...failure(error) });
   }

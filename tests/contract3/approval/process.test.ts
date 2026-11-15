@@ -907,6 +907,45 @@ test("T4S.r1-stop-coordination-lost: attestation consumed, no refund", async () 
   ]);
 });
 
+// S1, reviewer probe P2: a plain look-alike scope (right run, right
+// resource, active, real fixture lock held) is not kernel-issued, so it is
+// refused before anything is consumed and the authority stays usable.
+const notHeld = JSON.stringify({
+  phase: "consume",
+  error: "coordination-not-held",
+  consumed: false,
+});
+test("T4S.s1-forged-scope-approval: an unissued look-alike scope consumes nothing", async () => {
+  await writeGrant(world, grant);
+  const before = await snapshot(world);
+  const forged = await apply("forged", { coordination: "forged" });
+  expect(phases(forged.events)).toContain(notHeld);
+  const after = await snapshot(world);
+  expect(after.markers).toEqual([]);
+  expect(after.effects).toEqual([]);
+  expect(after.authority).toBe(before.authority);
+  expect(await lockHeld()).toBe(false);
+  expect(applyOutcome((await apply("later")).events)).toBe("admitted");
+});
+
+test("T4S.s1-forged-scope-authority: closure and stop refuse a look-alike scope", async () => {
+  await placeAuthority();
+  for (const [kind, item] of [
+    ["closure", closureItem],
+    ["stop", stopItem],
+  ] as const) {
+    await itemFile(item);
+    const before = await snapshot(world);
+    const forged = await runClean(
+      authorityConfig(kind, `forged-${kind}`, { coordination: "forged" }),
+    );
+    expect(phases(forged.events)).toContain(notHeld);
+    expect((await snapshot(world)).markers).toEqual(before.markers);
+    const later = await runClean(authorityConfig(kind, `later-${kind}`));
+    expect(authorityOutcome(later.events)).toBe("verified");
+  }
+});
+
 test("T4S.r7-no-preview-under-lock: revalidation without a preview denies and preserves", async () => {
   await writeGrant(world, grant);
   const dropped = await apply("dropped", { dropPreviewUnderLock: true });
