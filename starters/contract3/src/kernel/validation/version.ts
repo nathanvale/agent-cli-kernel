@@ -21,6 +21,8 @@ export type MinorFields = {
   >;
   readonly commonCauses: readonly string[];
 };
+// Field names are own keys only: an inherited name such as toString is never a
+// declared field, in a table or in a payload from another CLI (F07, F08).
 export function versionReader(tables: readonly MinorFields[]) {
   if (
     tables.length === 0 ||
@@ -46,15 +48,18 @@ export function versionReader(tables: readonly MinorFields[]) {
       const table = admitted[Number(version.split(".")[1])];
       return (
         table !== undefined &&
-        Object.keys(value).every((key) => key in table.fields) &&
+        Object.keys(value).every((key) => Object.hasOwn(table.fields, key)) &&
         Object.entries(table.fields).every(
-          ([key, field]) => !field.required || key in value,
+          ([key, field]) => !field.required || Object.hasOwn(value, key),
         )
       );
     },
     meaning(version: string, key: string): string | undefined {
       if (this.classify(version) !== "accepted") return undefined;
-      return admitted[Number(version.split(".")[1])]?.fields[key]?.meaning;
+      const fields = admitted[Number(version.split(".")[1])]?.fields;
+      return fields && Object.hasOwn(fields, key)
+        ? fields[key]?.meaning
+        : undefined;
     },
   };
 }
@@ -66,7 +71,9 @@ function compatibleMinor(older: MinorFields, newer: MinorFields): void {
   )
     throw new Error("Common causes change only with a major.");
   for (const [key, field] of Object.entries(older.fields)) {
-    const candidate = newer.fields[key];
+    const candidate = Object.hasOwn(newer.fields, key)
+      ? newer.fields[key]
+      : undefined;
     if (
       !candidate ||
       candidate.meaning !== field.meaning ||
@@ -77,6 +84,6 @@ function compatibleMinor(older: MinorFields, newer: MinorFields): void {
       );
   }
   for (const [key, field] of Object.entries(newer.fields))
-    if (!(key in older.fields) && field.required)
+    if (!Object.hasOwn(older.fields, key) && field.required)
       throw new Error("A new minor field must be optional.");
 }
