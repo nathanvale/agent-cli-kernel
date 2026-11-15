@@ -1,3 +1,4 @@
+import { deadlineOption } from "../deadline.ts";
 import type { CommandDeclaration } from "../declarations.ts";
 import {
   exitMeanings,
@@ -60,6 +61,9 @@ export function navigationData(
         .filter((command) => !builtinIdentities.has(command.commandIdentity))
         .map(summary),
       options: [
+        ...(commands.some((command) => command.input.deadlineSupported)
+          ? [deadlineOption]
+          : []),
         {
           name: "--json",
           valueName: null,
