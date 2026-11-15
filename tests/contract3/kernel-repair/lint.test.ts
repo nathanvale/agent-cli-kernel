@@ -1,32 +1,37 @@
 import { afterAll, beforeAll, expect } from "bun:test";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { mkdir, rm, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { ESLint } from "eslint";
-import { runFamily } from "./harness.ts";
+import { materialise, runFamily } from "./harness.ts";
 
 // R11 (F09): the generated lint configuration bans starting programs outside
-// the programs add-on (CMD-14), including through a dynamic import.
-const root = resolve(import.meta.dir, "../../..");
-const eslint = new ESLint({ cwd: root });
+// the programs add-on (CMD-14), including through a dynamic import. The probes
+// live in a disposable materialised tree linted with the contract3
+// configuration, never in the repository's source tree (N-5).
+let root = "";
+let eslint: ESLint | undefined;
 let hostFile = "";
-let hostDirectory = "";
+let kernelFiles: readonly string[] = [];
 beforeAll(async () => {
-  const parent = resolve(root, "starters/contract3/src/handlers");
-  await mkdir(parent, { recursive: true });
-  hostDirectory = await mkdtemp(`${parent}/repair-lint-`);
-  hostFile = `${hostDirectory}/control.ts`;
+  root = await materialise();
+  eslint = new ESLint({ cwd: root });
+  await mkdir(join(root, "starters/contract3/src/handlers"), {
+    recursive: true,
+  });
+  hostFile = join(root, "starters/contract3/src/handlers/control.ts");
   await writeFile(hostFile, "export {};\n");
+  kernelFiles = [
+    "starters/contract3/src/kernel/types.ts",
+    "starters/contract3/src/kernel/index.ts",
+    "starters/contract3/src/kernel/validation/brands.ts",
+  ].map((file) => join(root, file));
 });
 afterAll(async () => {
-  await rm(hostDirectory, { recursive: true, force: true });
+  await rm(root, { recursive: true, force: true });
 });
-const kernelFiles = [
-  "starters/contract3/src/kernel/types.ts",
-  "starters/contract3/src/kernel/index.ts",
-  "starters/contract3/src/kernel/validation/brands.ts",
-].map((file) => resolve(root, file));
 
 async function errors(source: string, filePath: string) {
+  if (!eslint) throw new Error("Lint tree not materialised.");
   const results = await eslint.lintText(source, { filePath });
   expect(results).toHaveLength(1);
   return results
