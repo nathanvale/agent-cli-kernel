@@ -68,7 +68,7 @@ test("a valid inspect envelope is accepted and wrong correlations are rejected",
       causeCode: "SUCCESS_UNCHANGED",
       failureClass: null,
       exitCode: 0,
-      data: null,
+      data: contract.discover(),
       retryable: false,
       repairAction: null,
       effects: {

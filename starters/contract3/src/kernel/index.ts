@@ -17,14 +17,7 @@ import { resolveInvocation } from "./routing.ts";
 import { authority, resource, path } from "./validation/brands.ts";
 import type { CommandDeclaration } from "./declarations.ts";
 import { parseInput } from "./input.ts";
-import {
-  builtins,
-  exitMeanings,
-  publicStation,
-  signalExits,
-  stationsFor,
-  summary,
-} from "./navigation.ts";
+import { builtins, stationsFor } from "./navigation.ts";
 import { freeze } from "./stations.ts";
 import { commonCauses } from "./causes.ts";
 
@@ -90,8 +83,16 @@ export function contractFor<
     ]),
   );
   const acceptedResults = new WeakSet<object>();
-  function validate(value: unknown) {
-    return validateEnvelope(value, causes, commands, stationMap);
+  const navigation = navigationData(spec.cli, commands, stationMap);
+  async function validate(value: unknown) {
+    const checked = await validateEnvelope(value, causes, commands, stationMap);
+    return checked.ok && !navigation.validData(checked.value.result)
+      ? ({
+          ok: false,
+          path: "result.data",
+          reason: "invalid navigation data",
+        } as const)
+      : checked;
   }
 
   async function buildRegistered(
@@ -225,57 +226,9 @@ export function contractFor<
     resolve(argv: unknown) {
       return resolveInvocation(spec.cli, commands, argv);
     },
-    help() {
-      return {
-        usage: `${spec.cli} <command> [options]`,
-        summary: `Commands for ${spec.cli}.`,
-        commands: hostCommands.map(summary),
-        options: [
-          {
-            name: "--json",
-            valueName: null,
-            summary: "Emit one machine-readable result.",
-          },
-          { name: "--help", valueName: null, summary: "Show help." },
-          {
-            name: "--discover",
-            valueName: null,
-            summary: "Discover commands.",
-          },
-          {
-            name: "--discover-command",
-            valueName: "identity",
-            summary: "Discover one command.",
-          },
-        ],
-      };
-    },
-    discover() {
-      return {
-        contractVersion: "3.0.0",
-        commands: commands.map(summary),
-        exitMeanings,
-        signalExits,
-        effectExclusions: [
-          "Incidental journal maintenance.",
-          "Incidental diagnostic maintenance.",
-        ],
-      };
-    },
-    discoverCommand(identity: string) {
-      const item = commands.find((entry) => entry.commandIdentity === identity);
-      return item
-        ? {
-            command: summary(item),
-            semantics: "possible-outcomes",
-            ifNoResult: item.ifNoResult?.step ?? null,
-            input: item.input,
-            stations: (stationMap.get(identity) ?? []).map((entry) =>
-              publicStation(entry, item.effectClass),
-            ),
-          }
-        : undefined;
-    },
+    help: navigation.help,
+    discover: navigation.discover,
+    discoverCommand: navigation.discoverCommand,
     async parse(identity: string, argv: unknown) {
       const item = commands.find((entry) => entry.commandIdentity === identity);
       return item
@@ -392,3 +345,4 @@ export type {
   AllowedCause,
   SelectedRow,
 } from "./command-result.ts";
+import { navigationData } from "./validation/discovery.ts";
