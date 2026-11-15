@@ -2,7 +2,8 @@ import { createHash } from "node:crypto";
 import { constants } from "node:fs";
 import { lstat, open } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { errorCode, storeUnavailable } from "./read.ts";
+import { errorCode } from "./read.ts";
+import { ApprovalRejection } from "./rejection.ts";
 
 // Atomic consumption primitive: exclusive creation (O_CREAT|O_EXCL) of one
 // marker per authority item, then fsync of the marker and its directory
@@ -10,8 +11,9 @@ import { errorCode, storeUnavailable } from "./read.ts";
 // on a local POSIX filesystem, so two contenders can never both create the
 // marker even if coordination were wrong. Any directory entry at the marker
 // path, including an empty, torn, directory or symlink entry, means
-// consumed: ambiguity never becomes reusable authority. Evidence covers
-// process crash and file flush only, never power loss (CMD-11).
+// consumed: ambiguity never becomes reusable authority. The fsyncs are
+// source-reviewed, not test-proved: process-crash evidence cannot observe a
+// missing flush, and nothing here claims power-loss durability (CMD-11).
 
 export function itemKey(parts: readonly string[]): string {
   return createHash("sha256").update(JSON.stringify(parts)).digest("hex");
@@ -28,11 +30,13 @@ export async function isConsumed(path: string): Promise<boolean> {
     return true;
   } catch (error) {
     if (errorCode(error) === "ENOENT") return false;
-    throw storeUnavailable();
+    throw new ApprovalRejection("store-unavailable", error);
   }
 }
 
 // Returns false when another contender (or an earlier run) consumed first.
+// Rejects as store-unavailable when nothing was created, and as
+// durability-unconfirmed (consumed) once the marker exists.
 export async function consumeOnce(
   path: string,
   record: string,
@@ -49,14 +53,13 @@ export async function consumeOnce(
     );
   } catch (error) {
     if (errorCode(error) === "EEXIST") return false;
-    throw storeUnavailable();
+    throw new ApprovalRejection("store-unavailable", error);
   }
   try {
     await handle.writeFile(record);
     await handle.sync();
-  } catch {
-    // The marker exists, so the item stays consumed; no effect may start.
-    throw storeUnavailable();
+  } catch (error) {
+    throw new ApprovalRejection("durability-unconfirmed", error);
   } finally {
     await handle.close();
   }
@@ -72,7 +75,7 @@ async function syncDirectory(directory: string): Promise<void> {
     } finally {
       await handle.close();
     }
-  } catch {
-    throw storeUnavailable();
+  } catch (error) {
+    throw new ApprovalRejection("durability-unconfirmed", error);
   }
 }

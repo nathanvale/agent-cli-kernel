@@ -3,9 +3,9 @@
 // command; the handler receives only `capability`, while the state add-on's
 // transaction receives `runtime` to revalidate and consume under exclusive
 // coordination before the approved effect (CMD-9 step 7).
-import { access, stat } from "node:fs/promises";
+import { access, lstat } from "node:fs/promises";
 import { constants } from "node:fs";
-import { isAbsolute, join } from "node:path";
+import { dirname, isAbsolute, join, normalize, sep } from "node:path";
 import type {
   ApprovalCapability,
   ApprovalRequest,
@@ -15,10 +15,15 @@ import type {
 } from "../../kernel/index.ts";
 import { consumeOnce, isConsumed, itemKey, markerPath } from "./ledger.ts";
 import { readUntrusted } from "./read.ts";
+import type { RecordFacts } from "./read.ts";
 import { parseClosure, parseGrant, parseStop, sameSet } from "./records.ts";
 import type { ClosureItem, Grant, StopItem } from "./records.ts";
+import { ApprovalRejection } from "./rejection.ts";
 
 export type { ClosureItem, StopItem } from "./records.ts";
+export type { RecordFacts } from "./read.ts";
+export { ApprovalRejection } from "./rejection.ts";
+export type { RejectionReason } from "./rejection.ts";
 
 export type ApprovalStore = {
   // Directory of grant records, one per preview, named by grantLocation.
@@ -38,19 +43,42 @@ export function grantLocation(store: ApprovalStore, preview: string): string {
   return join(absolute(store.grants), `${itemKey(["approval", preview])}.json`);
 }
 
-function assertCoordination(
+// The kernel brand makes an ExclusiveScope unforgeable to type-checked code
+// only; nothing here proves at run time that the kernel issued it.
+function held(
   coordination: ExclusiveScope,
   runId: string,
   scope: string,
-): void {
-  // A coordination fault is not an authority denial: the grant stays
-  // unconsumed and the caller reports its own coordination outcome.
-  if (
-    coordination.isActive() !== true ||
-    coordination.runId !== runId ||
-    coordination.scope !== scope
-  )
-    throw new Error("Exclusive coordination for this item is not held.");
+): boolean {
+  return (
+    coordination.isActive() === true &&
+    coordination.runId === runId &&
+    coordination.scope === scope
+  );
+}
+
+// Consumes one marker under coordination. Coordination is checked before
+// the fresh read, again before exclusive creation, and once more after the
+// marker is durable, so a lost coordination is reported with whether the
+// item was consumed.
+async function consumeHeld(
+  coordination: ExclusiveScope,
+  runId: string,
+  scope: string,
+  current: () => Promise<string | undefined>,
+  record: () => string,
+): Promise<boolean> {
+  if (!held(coordination, runId, scope))
+    throw new ApprovalRejection("coordination-not-held");
+  // Fresh under-lock read; the preflight result is never reused.
+  const marker = await current();
+  if (marker === undefined) return false;
+  if (!held(coordination, runId, scope))
+    throw new ApprovalRejection("coordination-not-held");
+  const admitted = await consumeOnce(marker, record());
+  if (admitted && !held(coordination, runId, scope))
+    throw new ApprovalRejection("coordination-lost");
+  return admitted;
 }
 
 function grantMatches(
@@ -70,6 +98,19 @@ function grantMatches(
   );
 }
 
+// Interface:
+// - check(request): non-consuming preflight. true only for a valid,
+//   unconsumed grant that matches every binding. Never writes.
+// - revalidateAndConsume(request, coordination): under the caller's held
+//   ExclusiveScope (same runId, scope equal to request.resource), rereads,
+//   revalidates and consumes durably. { admitted: true } means the approved
+//   effect may start.
+// - Every denial is the same false / { admitted: false }; no reason leaks.
+// - Rejections are ApprovalRejection, never a denial:
+//   coordination-not-held and store-unavailable leave the grant unconsumed;
+//   coordination-lost and durability-unconfirmed mean consumed: the effect
+//   must not start, the grant is never refunded, and the caller reports the
+//   observed state under REC-1 to REC-10. Read `error.consumed`.
 export function approval(options: {
   readonly operation: string;
   readonly runId: string;
@@ -84,10 +125,10 @@ export function approval(options: {
   // Every denial reason collapses here into one indistinguishable value.
   async function currentGrant(request: ApprovalRequest) {
     if (typeof request.preview !== "string") return undefined;
-    const read = await readUntrusted(
+    const opened = await readUntrusted(
       grantLocation(options.store, request.preview),
     );
-    const grant = read.kind === "value" ? parseGrant(read.value) : undefined;
+    const grant = opened && parseGrant(opened.value);
     return grant && grantMatches(grant, request, options.operation, now())
       ? markerPath(ledger, itemKey(["approval", request.preview]))
       : undefined;
@@ -101,17 +142,13 @@ export function approval(options: {
       request: ApprovalRequest,
       coordination: ExclusiveScope,
     ) {
-      assertCoordination(coordination, options.runId, request.resource);
-      // Fresh under-lock read; the preflight result is never reused.
-      const marker = await currentGrant(request);
-      if (marker === undefined) return { admitted: false };
-      assertCoordination(coordination, options.runId, request.resource);
-      const admitted = await consumeOnce(
-        marker,
-        consumption("approval", options.runId, now()),
+      const admitted = await consumeHeld(
+        coordination,
+        options.runId,
+        request.resource,
+        () => currentGrant(request),
+        () => consumption("approval", options.runId, now()),
       );
-      if (admitted)
-        assertCoordination(coordination, options.runId, request.resource);
       return { admitted };
     },
   });
@@ -132,10 +169,12 @@ function consumption(kind: string, runId: string, at: number): string {
 // domain approval.
 export type AuthoritySource = {
   readonly directory: string;
-  // True only when the calling process cannot create or alter a valid
-  // record at this path with its own credentials. Host-owned
-  // qualification (V-42); fileSeparation is the add-on's own probe.
-  readonly separated: (record: string) => Promise<boolean>;
+  // Host-owned qualification (V-42). Called first without a record (could
+  // the caller create one here?), then with the opened record's descriptor
+  // facts (could the caller have created or altered this one?). True only
+  // when the calling process cannot, with its own credentials.
+  // fileSeparation is the add-on's own probe.
+  readonly separated: (record?: RecordFacts) => Promise<boolean>;
 };
 
 export type AuthorityVerdict =
@@ -161,31 +200,92 @@ function unavailable(): AuthorityVerdict {
 const refused: AuthorityVerdict = Object.freeze({ status: "refused" });
 const verified: AuthorityVerdict = Object.freeze({ status: "verified" });
 
-// The add-on's own caller-credential probe for a file-backed source. A
-// directory or record the caller owns or can write is self-issuable, so it
-// never qualifies, whatever the record says about who granted it.
+// The add-on's own caller-credential probe for a file-backed source.
+// Separation requires a normalized path whose every component from "/" to
+// the source directory is a real directory (no symlink) that the caller
+// neither owns nor can write, so the caller cannot swap any part of the
+// path after the check. A record is judged on its opened descriptor and
+// must still be the entry at its path. Root callers never qualify.
 export function fileSeparation(
   directory: string,
-): (record: string) => Promise<boolean> {
+): (record?: RecordFacts) => Promise<boolean> {
   const root = absolute(directory);
-  return async (record) =>
-    (await foreign(root, true)) && (await foreign(record, false));
+  return async (record) => {
+    const caller = process.getuid?.();
+    if (caller === undefined || caller === 0 || normalize(root) !== root)
+      return false;
+    const groups = process.getgroups?.() ?? [];
+    if (!(await foreignPath(root, caller, groups))) return false;
+    return (
+      record === undefined ||
+      (await foreignRecord(root, record, caller, groups))
+    );
+  };
 }
 
-async function foreign(path: string, required: boolean): Promise<boolean> {
-  const caller = process.getuid?.();
-  if (caller === undefined) return false;
-  try {
-    const info = await stat(path);
-    if (info.uid === caller) return false;
-  } catch {
-    return !required;
-  }
+function foreignOwner(
+  facts: { readonly uid: number; readonly gid: number; readonly mode: number },
+  caller: number,
+  groups: readonly number[],
+): boolean {
+  const groupWritable =
+    (facts.mode & 0o020) !== 0 && groups.includes(facts.gid);
+  return facts.uid !== caller && (facts.mode & 0o002) === 0 && !groupWritable;
+}
+
+async function callerWritable(path: string): Promise<boolean> {
   try {
     await access(path, constants.W_OK);
-    return false;
-  } catch {
     return true;
+  } catch {
+    return false;
+  }
+}
+
+async function foreignPath(
+  root: string,
+  caller: number,
+  groups: readonly number[],
+): Promise<boolean> {
+  const parts = root.split(sep).filter((part) => part.length > 0);
+  const paths = parts.map((_, index) =>
+    join(sep, ...parts.slice(0, index + 1)),
+  );
+  for (const path of [sep, ...paths]) {
+    let facts;
+    try {
+      facts = await lstat(path);
+    } catch {
+      return false;
+    }
+    if (
+      facts.isSymbolicLink() ||
+      !facts.isDirectory() ||
+      !foreignOwner(facts, caller, groups) ||
+      (await callerWritable(path))
+    )
+      return false;
+  }
+  return true;
+}
+
+async function foreignRecord(
+  root: string,
+  record: RecordFacts,
+  caller: number,
+  groups: readonly number[],
+): Promise<boolean> {
+  if (dirname(record.path) !== root || !foreignOwner(record, caller, groups))
+    return false;
+  try {
+    const entry = await lstat(record.path);
+    return (
+      entry.dev === record.dev &&
+      entry.ino === record.ino &&
+      !(await callerWritable(record.path))
+    );
+  } catch {
+    return false;
   }
 }
 
@@ -197,6 +297,19 @@ export type AuthoritySlot<Item> = {
   ) => Promise<AuthorityVerdict>;
 };
 
+type Kind = "closure" | "stop";
+function closureKey(item: Pick<ClosureItem, "operation">): readonly string[] {
+  return ["closure", item.operation];
+}
+function stopKey(
+  item: Pick<StopItem, "operation" | "owner">,
+): readonly string[] {
+  return ["stop", item.operation, item.owner];
+}
+function recordPath(source: AuthoritySource, key: readonly string[]): string {
+  return join(absolute(source.directory), `${itemKey(key)}.json`);
+}
+
 function slot<Item extends { readonly scope: string }>(
   options: {
     readonly runId: string;
@@ -204,19 +317,18 @@ function slot<Item extends { readonly scope: string }>(
     readonly now: () => number;
     readonly source: AuthoritySource | undefined;
   },
-  kind: "closure" | "stop",
+  kind: Kind,
   key: (item: Item) => readonly string[],
   matches: (record: unknown, item: Item, now: number) => boolean,
 ): AuthoritySlot<Item> {
-  async function current(item: Item) {
+  async function current(item: Item): Promise<string | AuthorityVerdict> {
     const source = options.source;
-    const name = itemKey([kind, ...key(item)]);
-    const record = source && join(absolute(source.directory), `${name}.json`);
-    if (!source || !record || !(await source.separated(record)))
-      return unavailable();
-    const read = await readUntrusted(record);
-    return read.kind === "value" && matches(read.value, item, options.now())
-      ? markerPath(options.ledger, name)
+    if (!source || !(await source.separated())) return unavailable();
+    const opened = await readUntrusted(recordPath(source, key(item)));
+    if (!opened) return refused;
+    if (!(await source.separated(opened.facts))) return unavailable();
+    return matches(opened.value, item, options.now())
+      ? markerPath(options.ledger, itemKey(key(item)))
       : refused;
   }
   return Object.freeze({
@@ -226,16 +338,20 @@ function slot<Item extends { readonly scope: string }>(
       return (await isConsumed(marker)) ? refused : verified;
     },
     async consume(item: Item, coordination: ExclusiveScope) {
-      assertCoordination(coordination, options.runId, item.scope);
-      const marker = await current(item);
-      if (typeof marker !== "string") return marker;
-      assertCoordination(coordination, options.runId, item.scope);
-      const done = await consumeOnce(
-        marker,
-        consumption(kind, options.runId, options.now()),
+      let verdict: AuthorityVerdict = refused;
+      const done = await consumeHeld(
+        coordination,
+        options.runId,
+        item.scope,
+        async () => {
+          const marker = await current(item);
+          if (typeof marker === "string") return marker;
+          verdict = marker;
+          return undefined;
+        },
+        () => consumption(kind, options.runId, options.now()),
       );
-      if (done) assertCoordination(coordination, options.runId, item.scope);
-      return done ? verified : refused;
+      return done ? verified : verdict;
     },
   });
 }
@@ -269,6 +385,7 @@ function stopMatches(record: unknown, item: StopItem, now: number): boolean {
   );
 }
 
+// consume() rejects with ApprovalRejection exactly as revalidateAndConsume.
 export function authorityVerifier(options: {
   readonly runId: string;
   readonly ledger: string;
@@ -288,23 +405,35 @@ export function authorityVerifier(options: {
     closure: slot(
       { ...shared, source: options.closure },
       "closure",
-      (item: ClosureItem) => [item.operation],
+      closureKey,
       closureMatches,
     ),
     stop: slot(
       { ...shared, source: options.stop },
       "stop",
-      (item: StopItem) => [item.operation, item.owner],
+      stopKey,
       stopMatches,
     ),
   });
 }
 
-// Where a qualified authority integration writes one record.
+// Where a qualified authority integration writes the record for one item.
+export function authorityLocation(
+  source: AuthoritySource,
+  kind: "closure",
+  item: ClosureItem,
+): string;
+export function authorityLocation(
+  source: AuthoritySource,
+  kind: "stop",
+  item: StopItem,
+): string;
 export function authorityLocation(
   source: AuthoritySource,
   kind: "closure" | "stop",
-  parts: readonly string[],
+  item: ClosureItem | StopItem,
 ): string {
-  return join(absolute(source.directory), `${itemKey([kind, ...parts])}.json`);
+  if (kind === "closure") return recordPath(source, closureKey(item));
+  if ("owner" in item) return recordPath(source, stopKey(item));
+  throw new Error("A stop record location needs a stop item.");
 }

@@ -1,24 +1,26 @@
 import { constants } from "node:fs";
 import { open } from "node:fs/promises";
 import type { FileHandle } from "node:fs/promises";
+import { ApprovalRejection } from "./rejection.ts";
 
 // Hardened read of one untrusted authority record (CMD-9a, CMD-15).
-// "absent" and "invalid" become an ordinary denial. Any other I/O failure
-// is an operational failure and rejects; it is never folded into a denial
-// or an admission (coordinator A04 caution).
-export type UntrustedRead =
-  | { readonly kind: "absent" }
-  | { readonly kind: "invalid" }
-  | { readonly kind: "value"; readonly value: unknown };
+// `undefined` (absent or invalid) becomes an ordinary denial. Any other I/O
+// failure rejects as store-unavailable with its cause; it is never folded
+// into a denial or an admission (coordinator A04 caution).
+
+// Facts about the opened descriptor, taken with fstat on the same handle
+// that is read, so a path swapped after a check cannot substitute content.
+export type RecordFacts = {
+  readonly path: string;
+  readonly uid: number;
+  readonly gid: number;
+  readonly mode: number;
+  readonly dev: number;
+  readonly ino: number;
+};
 
 const limitBytes = 16 * 1024;
 const depthLimit = 8;
-const absent = Object.freeze({ kind: "absent" as const });
-const invalid = Object.freeze({ kind: "invalid" as const });
-
-export function storeUnavailable(): Error {
-  return new Error("Approval authority store is unavailable.");
-}
 
 export function errorCode(error: unknown): string | undefined {
   return error instanceof Error &&
@@ -28,7 +30,11 @@ export function errorCode(error: unknown): string | undefined {
     : undefined;
 }
 
-export async function readUntrusted(path: string): Promise<UntrustedRead> {
+export async function readUntrusted(
+  path: string,
+): Promise<
+  { readonly value: unknown; readonly facts: RecordFacts } | undefined
+> {
   let handle: FileHandle;
   try {
     handle = await open(
@@ -37,22 +43,23 @@ export async function readUntrusted(path: string): Promise<UntrustedRead> {
     );
   } catch (error) {
     const code = errorCode(error);
-    if (code === "ENOENT") return absent;
-    // A symlink at the record location is a caller-controlled substitution.
-    if (code === "ELOOP" || code === "EMLINK") return invalid;
-    throw storeUnavailable();
+    // Absent, or a symlink at the record location (caller substitution).
+    if (code === "ENOENT" || code === "ELOOP" || code === "EMLINK")
+      return undefined;
+    throw new ApprovalRejection("store-unavailable", error);
   }
   try {
-    const bytes = await boundedBytes(handle);
-    return bytes ? decode(bytes) : invalid;
+    const read = await boundedBytes(handle, path);
+    const value = read && decode(read.bytes);
+    return read && value
+      ? { value: value.parsed, facts: read.facts }
+      : undefined;
   } finally {
     await handle.close();
   }
 }
 
-async function boundedBytes(
-  handle: FileHandle,
-): Promise<Uint8Array | undefined> {
+async function boundedBytes(handle: FileHandle, path: string) {
   let length = 0;
   const buffer = new Uint8Array(limitBytes + 1);
   try {
@@ -70,20 +77,26 @@ async function boundedBytes(
       length += bytesRead;
       if (length > limitBytes) return undefined;
     }
-  } catch {
-    throw storeUnavailable();
+    const { uid, gid, mode, dev, ino } = status;
+    return {
+      bytes: buffer.subarray(0, length),
+      facts: { path, uid, gid, mode, dev, ino },
+    };
+  } catch (error) {
+    throw new ApprovalRejection("store-unavailable", error);
   }
-  return buffer.subarray(0, length);
 }
 
-function decode(bytes: Uint8Array): UntrustedRead {
-  let value: unknown;
+function decode(bytes: Uint8Array): { readonly parsed: unknown } | undefined {
+  let parsed: unknown;
   try {
-    value = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+    parsed = JSON.parse(
+      new TextDecoder("utf-8", { fatal: true }).decode(bytes),
+    );
   } catch {
-    return invalid;
+    return undefined;
   }
-  return withinDepth(value, 0) ? { kind: "value", value } : invalid;
+  return withinDepth(parsed, 0) ? { parsed } : undefined;
 }
 
 function withinDepth(value: unknown, depth: number): boolean {

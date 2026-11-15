@@ -48,14 +48,12 @@ function fields(
   )
     return undefined;
   const map = new Map<string, unknown>(Object.entries(value));
-  return map.get("format") === format &&
-    map.get("version") === 1 &&
-    expiry(map.get("expiresAt")) !== undefined
+  return map.get("format") === format && map.get("version") === 1
     ? map
     : undefined;
 }
 
-export function identity(value: unknown): string | undefined {
+function identity(value: unknown): string | undefined {
   return typeof value === "string" &&
     value.length > 0 &&
     new TextEncoder().encode(value).byteLength <= 256 &&
@@ -64,7 +62,7 @@ export function identity(value: unknown): string | undefined {
     : undefined;
 }
 
-export function identitySet(value: unknown): readonly string[] | undefined {
+function identitySet(value: unknown): readonly string[] | undefined {
   if (!Array.isArray(value) || value.length === 0 || value.length > 64)
     return undefined;
   const items: unknown[] = value;
@@ -83,62 +81,65 @@ function expiry(value: unknown): number | undefined {
     : undefined;
 }
 
-function text(map: ReadonlyMap<string, unknown>, key: string): string {
-  // fields() admitted the exact key set; identity() rejects anything else.
-  return identity(map.get(key)) ?? "";
-}
-
-function allIdentities(
-  map: ReadonlyMap<string, unknown>,
-  keys: readonly string[],
-): boolean {
-  return keys.every((key) => identity(map.get(key)) !== undefined);
-}
-
 export function parseGrant(value: unknown): Grant | undefined {
-  const keys = [
+  const map = fields(value, formats.approval, [
     "operation",
     "preview",
     "authority",
     "resource",
     "resourceRevision",
-  ];
-  const map = fields(value, formats.approval, [...keys, "effects"]);
-  const effects = map && identitySet(map.get("effects"));
-  const expiresAt = map && expiry(map.get("expiresAt"));
-  if (!map || !allIdentities(map, keys) || !effects || !expiresAt)
-    return undefined;
-  return {
-    operation: text(map, "operation"),
-    preview: text(map, "preview"),
-    authority: text(map, "authority"),
-    resource: text(map, "resource"),
-    resourceRevision: text(map, "resourceRevision"),
-    effects,
-    expiresAt,
-  };
+    "effects",
+  ]);
+  if (!map) return undefined;
+  const operation = identity(map.get("operation"));
+  const preview = identity(map.get("preview"));
+  const authority = identity(map.get("authority"));
+  const resource = identity(map.get("resource"));
+  const resourceRevision = identity(map.get("resourceRevision"));
+  const effects = identitySet(map.get("effects"));
+  const expiresAt = expiry(map.get("expiresAt"));
+  return operation &&
+    preview &&
+    authority &&
+    resource &&
+    resourceRevision &&
+    effects &&
+    expiresAt
+    ? {
+        operation,
+        preview,
+        authority,
+        resource,
+        resourceRevision,
+        effects,
+        expiresAt,
+      }
+    : undefined;
 }
 
 export function parseClosure(
   value: unknown,
 ): (ClosureItem & { readonly expiresAt: number }) | undefined {
-  const keys = ["operation", "evidence", "scope"];
-  const map = fields(value, formats.closure, [...keys, "disposition"]);
-  const expiresAt = map && expiry(map.get("expiresAt"));
-  if (
-    !map ||
-    !allIdentities(map, keys) ||
-    !expiresAt ||
-    map.get("disposition") !== "outcome-unknown"
-  )
-    return undefined;
-  return {
-    operation: text(map, "operation"),
-    disposition: "outcome-unknown",
-    evidence: text(map, "evidence"),
-    scope: text(map, "scope"),
-    expiresAt,
-  };
+  const map = fields(value, formats.closure, [
+    "operation",
+    "disposition",
+    "evidence",
+    "scope",
+  ]);
+  if (!map || map.get("disposition") !== "outcome-unknown") return undefined;
+  const operation = identity(map.get("operation"));
+  const evidence = identity(map.get("evidence"));
+  const scope = identity(map.get("scope"));
+  const expiresAt = expiry(map.get("expiresAt"));
+  return operation && evidence && scope && expiresAt
+    ? {
+        operation,
+        disposition: "outcome-unknown",
+        evidence,
+        scope,
+        expiresAt,
+      }
+    : undefined;
 }
 
 export function parseStop(
@@ -146,19 +147,21 @@ export function parseStop(
 ):
   | (Omit<StopItem, "liveConflict"> & { readonly expiresAt: number })
   | undefined {
-  const keys = ["operation", "owner", "scope"];
-  const map = fields(value, formats.stop, [...keys, "writers"]);
-  const writers = map && identitySet(map.get("writers"));
-  const expiresAt = map && expiry(map.get("expiresAt"));
-  if (!map || !allIdentities(map, keys) || !writers || !expiresAt)
-    return undefined;
-  return {
-    operation: text(map, "operation"),
-    owner: text(map, "owner"),
-    writers,
-    scope: text(map, "scope"),
-    expiresAt,
-  };
+  const map = fields(value, formats.stop, [
+    "operation",
+    "owner",
+    "writers",
+    "scope",
+  ]);
+  if (!map) return undefined;
+  const operation = identity(map.get("operation"));
+  const owner = identity(map.get("owner"));
+  const writers = identitySet(map.get("writers"));
+  const scope = identity(map.get("scope"));
+  const expiresAt = expiry(map.get("expiresAt"));
+  return operation && owner && writers && scope && expiresAt
+    ? { operation, owner, writers, scope, expiresAt }
+    : undefined;
 }
 
 // Compares a caller-supplied list against a parsed, sorted, unique set.
