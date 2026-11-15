@@ -1,0 +1,86 @@
+import type { CommandDeclaration } from "./declarations.ts";
+import type { ValueSchema } from "./input-types.ts";
+import type { Validation } from "./types.ts";
+import { parseValue } from "./input.ts";
+import { safeRunValue, guidanceTargets } from "./guidance.ts";
+const contexts = new WeakMap<object, readonly CommandDeclaration[]>();
+export function registerInputs(
+  command: object,
+  commands: readonly CommandDeclaration[],
+): void {
+  contexts.set(command, commands);
+}
+function targetSlots(
+  command: CommandDeclaration,
+  args: readonly string[],
+): readonly { readonly template: string; readonly value: ValueSchema }[] {
+  const result: { template: string; value: ValueSchema }[] = [];
+  let operand = 0;
+  let literal = false;
+  for (let index = 0; index < args.length; index++) {
+    const token = args[index];
+    if (token === undefined) continue;
+    if (!literal && token === "--") {
+      literal = true;
+      continue;
+    }
+    const option = !literal
+      ? command.input.options.find(
+          (entry) => entry.name === token || entry.aliases.includes(token),
+        )
+      : undefined;
+    const slot = option ?? command.input.arguments[operand++];
+    if (!slot?.value) continue;
+    const template = option ? args[++index] : token;
+    if (template !== undefined) result.push({ template, value: slot.value });
+  }
+  return result;
+}
+export async function validateFutureInputs(
+  command: CommandDeclaration,
+  values: Readonly<Record<string, unknown>>,
+): Promise<Validation<null>> {
+  const mapping = command.futureBindings ?? {};
+  if (Object.keys(mapping).length === 0) return { ok: true, value: null };
+  const commands = contexts.get(command);
+  if (!commands)
+    return { ok: false, path: "bindings", reason: "command is not registered" };
+  const routes = commands.flatMap((entry) => entry.route);
+  for (const [binding, source] of Object.entries(mapping)) {
+    const value = Object.hasOwn(values, source) ? values[source] : undefined;
+    if (value === undefined) continue;
+    if (typeof value !== "string" || !safeRunValue(value, routes, true))
+      return { ok: false, path: source, reason: "invalid future binding" };
+    const checked = await validateTargetValue(
+      command,
+      commands,
+      binding,
+      value,
+    );
+    if (!checked.ok) return { ...checked, path: source };
+  }
+  return { ok: true, value: null };
+}
+
+async function validateTargetValue(
+  command: CommandDeclaration,
+  commands: readonly CommandDeclaration[],
+  binding: string,
+  value: string,
+): Promise<Validation<null>> {
+  const token =
+    binding === "idempotencyKey" ? "{idempotencyKey}" : `{binding.${binding}}`;
+  for (const { target, args } of guidanceTargets(command, commands)) {
+    if (!target)
+      return { ok: false, path: binding, reason: "undeclared binding target" };
+    for (const slot of targetSlots(target, args)) {
+      if (!slot.template.includes(token)) continue;
+      const parsed = await parseValue(
+        slot.template.replaceAll(token, value),
+        slot.value,
+      );
+      if (!parsed.ok) return parsed;
+    }
+  }
+  return { ok: true, value: null };
+}

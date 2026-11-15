@@ -101,6 +101,14 @@ export async function validateEnvelope<C extends CauseTable>(
       )
     )
       return reject("availablePaths", "undeclared identity");
+    if (
+      [
+        ...value.result.effects.completed,
+        ...value.result.effects.remaining,
+        ...value.result.effects.uncertain,
+      ].some((effect) => !command.effects?.includes(effect))
+    )
+      return reject("effects", "undeclared effect");
     if (!stationMatches(value.result, station, commands))
       return reject("result", "station guidance or delay mismatch");
     if (!(await commandSteps(value.result, commands)))

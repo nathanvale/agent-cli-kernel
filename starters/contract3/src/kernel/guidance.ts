@@ -3,7 +3,7 @@ import type { Handoff, NextStep, WireResult } from "./types.ts";
 export type TemplateSlot = {
   readonly text: string;
   readonly bindingAllowed: boolean;
-  readonly runValue: boolean;
+  readonly runValue: "argument" | "resource" | false;
 };
 function stepSlots(step: NextStep): TemplateSlot[] {
   switch (step.kind) {
@@ -11,7 +11,7 @@ function stepSlots(step: NextStep): TemplateSlot[] {
       return step.args.map((text) => ({
         text,
         bindingAllowed: true,
-        runValue: true,
+        runValue: "argument",
       }));
     case "instruction":
       return [{ text: step.text, bindingAllowed: false, runValue: false }];
@@ -40,7 +40,7 @@ export function templateSlots(
   if (handoff.resource)
     slots.push(
       { text: handoff.resource.kind, bindingAllowed: false, runValue: false },
-      { text: handoff.resource.id, bindingAllowed: true, runValue: true },
+      { text: handoff.resource.id, bindingAllowed: true, runValue: "resource" },
     );
   for (const entry of handoff.inspect) slots.push(...stepSlots(entry));
   return slots;
@@ -169,7 +169,13 @@ export function templatesAgree(
     for (const slot of templateSlots(station)) {
       if (!slot.runValue) continue;
       for (const match of slot.text.matchAll(/\{([^{}]*)\}/g))
-        if (!safeRunValue(substitute(match[0], result), routeTokens, true))
+        if (
+          !safeRunValue(
+            substitute(match[0], result),
+            routeTokens,
+            slot.runValue === "argument",
+          )
+        )
           return false;
     }
     const rendered = renderGuidance(station, result);
@@ -183,4 +189,31 @@ export function templatesAgree(
   } catch {
     return false;
   }
+}
+
+export type GuidanceTarget = {
+  readonly target: import("./declarations.ts").CommandDeclaration | undefined;
+  readonly args: readonly string[];
+  readonly inspection: boolean;
+};
+export function guidanceTargets(
+  command: import("./declarations.ts").CommandDeclaration,
+  commands: readonly import("./declarations.ts").CommandDeclaration[],
+): readonly GuidanceTarget[] {
+  const targets: GuidanceTarget[] = [];
+  for (const station of command.stations) {
+    const steps = station.guidance.next
+      ? [station.guidance.next]
+      : station.guidance.handoff.inspect;
+    for (const step of steps)
+      if (step.kind === "command")
+        targets.push({
+          target: commands.find(
+            (entry) => entry.commandIdentity === step.command,
+          ),
+          args: step.args,
+          inspection: station.guidance.handoff !== undefined,
+        });
+  }
+  return targets;
 }

@@ -190,7 +190,7 @@ export function parsedInput<I extends InputSchema>(
   )
     return false;
   return slots.every((slot) => {
-    const item = value[slot.name];
+    const item = Object.hasOwn(value, slot.name) ? value[slot.name] : undefined;
     if (item === undefined) return !slot.required;
     const scalar = (entry: unknown) =>
       slot.value === null

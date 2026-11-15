@@ -35,7 +35,20 @@ test("declared stations bind identity and words, with built-ins and fallback sta
     summary: "List notes.",
     input,
     stations: [success],
-    run: () => null,
+    run: (_input, context) =>
+      context.result(
+        { commandIdentity: "notes.list", causeCode: "SUCCESS_UNCHANGED" },
+        {
+          message: "Read.",
+          data: null,
+          effects: {
+            completed: [],
+            remaining: [],
+            uncertain: [],
+            inventoryComplete: true,
+          },
+        },
+      ),
   });
   const contract = contractFor({ cli: "notes", commands: [list] });
   expect(
@@ -67,8 +80,6 @@ test("declared stations bind identity and words, with built-ins and fallback sta
       uncertain: [],
       inventoryComplete: true,
     },
-    causeCode: "TRANSIENT_NOT_STARTED",
-    exitCode: 75,
   });
   expect(built).toMatchObject({
     ok: true,
@@ -99,9 +110,21 @@ test("navigation rejects colliding identities and route resolution never initial
     route: ["list"],
     summary: "List.",
     input,
-    run: () => {
+    run: (_input, context) => {
       calls++;
-      return ["note-1"];
+      return context.result(
+        { commandIdentity: "notes.list", causeCode: "SUCCESS_UNCHANGED" },
+        {
+          message: "Read.",
+          data: ["note-1"],
+          effects: {
+            completed: [],
+            remaining: [],
+            uncertain: [],
+            inventoryComplete: true,
+          },
+        },
+      );
     },
   });
   expect(() => contractFor({ cli: "notes", commands: [list, list] })).toThrow();
@@ -112,7 +135,13 @@ test("navigation rejects colliding identities and route resolution never initial
     value: { commandIdentity: "notes.list", machine: true, input: {} },
   });
   expect(calls).toBe(0);
-  expect(await list.execute([], {})).toEqual({ ok: true, value: ["note-1"] });
+  const result = await contract.execute("notes.list", [], "run-1");
+  expect(result.ok).toBe(true);
+  if (!result.ok) throw new Error("Expected handler result.");
+  expect(await contract.buildResult(result.value)).toMatchObject({
+    ok: true,
+    value: { result: { data: ["note-1"] } },
+  });
   expect(calls).toBe(1);
   expect(await contract.resolve([])).toMatchObject({
     ok: false,
@@ -148,7 +177,20 @@ test("output validates declarations, diagnostic variants and fixed guidance", as
         summary: "List.",
         input,
         stations: [success],
-        run: () => null,
+        run: (_input, context) =>
+          context.result(
+            { commandIdentity: "notes.list", causeCode: "SUCCESS_UNCHANGED" },
+            {
+              message: "Read.",
+              data: null,
+              effects: {
+                completed: [],
+                remaining: [],
+                uncertain: [],
+                inventoryComplete: true,
+              },
+            },
+          ),
       }),
     ],
   });
@@ -204,5 +246,191 @@ test("output validates declarations, diagnostic variants and fixed guidance", as
         diagnostics: { status: "unavailable", reason: "made-up", trusted: {} },
       })
     ).ok,
+  ).toBe(false);
+});
+
+test("binding and idempotency values are rejected consistently at build and wire ingress", async () => {
+  const target = command({
+    identity: "notes.inspect",
+    route: ["inspect"],
+    summary: "Read.",
+    capabilities: {},
+    input: {
+      ...input,
+      arguments: [
+        {
+          name: "item",
+          summary: "Item.",
+          required: true,
+          value: {
+            kind: "string",
+            minLength: 0,
+            maxLength: 4096,
+            choices: null,
+            pattern: null,
+          },
+        },
+      ],
+    },
+    run: (_input, context) =>
+      context.result(
+        { commandIdentity: "notes.inspect", causeCode: "SUCCESS_UNCHANGED" },
+        {
+          message: "Read.",
+          data: null,
+          effects: {
+            completed: [],
+            remaining: [],
+            uncertain: [],
+            inventoryComplete: true,
+          },
+        },
+      ),
+  });
+  const selected = station(commonCauses, {
+    commandIdentity: "notes.issue",
+    causeCode: "SUCCESS_UNCHANGED",
+    trigger: "Read reference.",
+    guidance: {
+      next: {
+        kind: "command",
+        command: "notes.inspect",
+        args: ["{binding.item}"],
+      },
+    },
+    repairAction: null,
+    retryDelayPolicy: { kind: "none" },
+    reachability: "required",
+    unreachableRationale: null,
+    independentObservable: "binding-output",
+  });
+  const issue = command({
+    identity: "notes.issue",
+    route: ["issue"],
+    summary: "Read reference.",
+    input,
+    capabilities: {},
+    stations: [selected],
+    run: (_input, context) =>
+      context.result(
+        { commandIdentity: "notes.issue", causeCode: "SUCCESS_UNCHANGED" },
+        {
+          message: "Read.",
+          data: null,
+          effects: {
+            completed: [],
+            remaining: [],
+            uncertain: [],
+            inventoryComplete: true,
+          },
+        },
+      ),
+  });
+  const contract = contractFor({ cli: "notes", commands: [issue, target] });
+  const facts = {
+    runId: "run-1",
+    message: "Read.",
+    data: null,
+    effects: {
+      completed: [],
+      remaining: [],
+      uncertain: [],
+      inventoryComplete: true,
+    },
+  } as const;
+  const valid = await contract.build(selected, {
+    ...facts,
+    bindings: { item: "alpha" },
+  });
+  expect(valid.ok).toBe(true);
+  if (!valid.ok) throw new Error("Valid control refused.");
+  const invalid = [
+    "",
+    "  ",
+    "x".repeat(1025),
+    "--force",
+    "a\nb",
+    "a\u200bb",
+    "a\u2028b",
+    "a\u2029b",
+    "inspect",
+  ];
+  expect(invalid).toHaveLength(9);
+  for (const item of invalid) {
+    expect(
+      (await contract.build(selected, { ...facts, bindings: { item } })).ok,
+    ).toBe(false);
+    expect(
+      (
+        await contract.validate({
+          ...valid.value,
+          result: {
+            ...valid.value.result,
+            bindings: { item },
+            next: { kind: "command", command: "notes.inspect", args: [item] },
+          },
+        })
+      ).ok,
+    ).toBe(false);
+  }
+  for (const bindings of [undefined, {}, { item: "alpha", extra: "beta" }])
+    expect(
+      (
+        await contract.validate({
+          ...valid.value,
+          result: { ...valid.value.result, bindings },
+        })
+      ).ok,
+    ).toBe(false);
+  expect(
+    Reflect.set(issue.stations[0]?.guidance.next ?? {}, "kind", "retry"),
+  ).toBe(false);
+  const keyed = station(commonCauses, {
+    ...selected,
+    repairAction: null,
+    commandIdentity: "notes.keyed",
+    guidance: {
+      next: {
+        kind: "command",
+        command: "notes.inspect",
+        args: ["{idempotencyKey}"],
+      },
+    },
+  });
+  const keyedContract = contractFor({
+    cli: "notes",
+    commands: [
+      target,
+      command({
+        identity: "notes.keyed",
+        route: ["keyed"],
+        summary: "Read key.",
+        input,
+        capabilities: {},
+        stations: [keyed],
+        run: (_input, context) =>
+          context.result(
+            { commandIdentity: "notes.keyed", causeCode: "SUCCESS_UNCHANGED" },
+            {
+              message: "Read.",
+              data: null,
+              effects: {
+                completed: [],
+                remaining: [],
+                uncertain: [],
+                inventoryComplete: true,
+              },
+            },
+          ),
+      }),
+    ],
+  });
+  expect(
+    (await keyedContract.build(keyed, { ...facts, idempotencyKey: "alpha" }))
+      .ok,
+  ).toBe(true);
+  expect(
+    (await keyedContract.build(keyed, { ...facts, idempotencyKey: "--force" }))
+      .ok,
   ).toBe(false);
 });

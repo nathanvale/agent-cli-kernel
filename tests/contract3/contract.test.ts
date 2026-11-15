@@ -1,5 +1,9 @@
+import expected from "./common-causes.json";
 import { expect, test } from "bun:test";
-import { contractFor } from "../../starters/contract3/src/kernel/index.ts";
+import {
+  contractFor,
+  versionReader,
+} from "../../starters/contract3/src/kernel/index.ts";
 
 test("the contract preserves every independently specified common cause correlation", () => {
   const contract = contractFor({ cli: "specimen", commands: [] });
@@ -100,4 +104,92 @@ test("a valid inspect envelope is accepted and wrong correlations are rejected",
       ).ok,
     ).toBe(false);
   }
+});
+
+test("all twenty common cause rows match the independently admitted oracle", () => {
+  const contract = contractFor({ cli: "specimen", commands: [] });
+  expect(expected.rows).toHaveLength(20);
+  expect(Object.keys(contract.causes).sort()).toEqual(
+    expected.rows.map((row) => row.causeCode).sort(),
+  );
+  for (const expectedRow of expected.rows) {
+    const actual: unknown = Reflect.get(contract.causes, expectedRow.causeCode);
+    const { causeCode, guidance, ...fields } = expectedRow;
+    expect(causeCode.length).toBeGreaterThan(0);
+    expect(actual).toEqual({
+      ...fields,
+      guidance: guidance === "H" ? "handoff" : "next",
+    });
+  }
+});
+
+test("test-only minor tables retain old meanings and reject incompatible evolution", () => {
+  const base = {
+    minor: 0,
+    fields: { message: { required: true, meaning: "Observed result." } },
+    commonCauses: ["SUCCESS_UNCHANGED"],
+  } as const;
+  const next = {
+    minor: 1,
+    fields: {
+      ...base.fields,
+      hint: {
+        required: false,
+        meaning:
+          "Optional additional context; absence preserves the prior result.",
+      },
+    },
+    commonCauses: base.commonCauses,
+  } as const;
+  const reader = versionReader([base, next]);
+  expect(reader.classify("3.0.0")).toBe("accepted");
+  expect(reader.classify("3.1.0")).toBe("accepted");
+  expect(reader.classify("3.2.0")).toBe("newer-minor");
+  expect(reader.classify("4.0.0")).toBe("other-major");
+  expect(reader.classify("3.0.1")).toBe("malformed");
+  expect(reader.classify("3.0")).toBe("malformed");
+  expect(reader.fields("3.0.0", { message: "Read." })).toBe(true);
+  expect(reader.fields("3.0.0", { message: "Read.", hint: "future" })).toBe(
+    false,
+  );
+  expect(reader.fields("3.1.0", { message: "Read." })).toBe(true);
+  expect(reader.meaning("3.0.0", "message")).toBe("Observed result.");
+  for (const fields of [
+    {},
+    { renamed: base.fields.message },
+    {
+      ...base.fields,
+      hint: { required: true, meaning: "New required field." },
+    },
+    { message: { required: true, meaning: "Changed meaning." } },
+  ])
+    expect(() => versionReader([base, { ...next, fields }])).toThrow();
+  expect(() =>
+    versionReader([
+      base,
+      { ...next, commonCauses: [...base.commonCauses, "NEW_COMMON_CAUSE"] },
+    ]),
+  ).toThrow();
+});
+
+test("admitted cause rows cannot be changed through discovery or the original input object", () => {
+  const custom = {
+    outcome: "success",
+    transactionState: "unchanged",
+    failureClass: null,
+    exitCode: 0,
+    retryable: false,
+    guidance: "next",
+  } as const;
+  const contract = contractFor({
+    cli: "specimen",
+    commands: [],
+    causes: { READ_COMPLETE: custom },
+  });
+  Reflect.set(custom, "exitCode", 75);
+  expect(contract.causes.READ_COMPLETE?.exitCode).toBe(0);
+  expect(Reflect.set(contract.causes.READ_COMPLETE ?? {}, "exitCode", 75)).toBe(
+    false,
+  );
+  expect(contract.causes.READ_COMPLETE?.exitCode).toBe(0);
 });
