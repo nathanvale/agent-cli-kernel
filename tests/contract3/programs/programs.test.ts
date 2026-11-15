@@ -104,17 +104,37 @@ function assertDeadlineLag(entry: Case, observed: Observed) {
   );
 }
 
+// First time the process table no longer shows `pid`, polled every 2 ms.
+async function deathAfter(pid: number, from: number, limit: number) {
+  while (Date.now() - from < limit) {
+    if (!alive(pid)) return Date.now();
+    await Bun.sleep(2);
+  }
+  return Number.POSITIVE_INFINITY;
+}
+// Polling and kill latency for that observation (baseline death ~305 ms).
+const killObservationTolerance = 30;
+
 const p08: Record<string, (entry: Case) => Promise<Observed>> = {
   "P08.first-signal": async (entry) => {
     const launched = await launchCase(entry);
+    await launched.barrier("child-started");
+    const child = requirePid(readLedger(launched.ledgerPath), "child-started");
     const sent = await signalSent(entry, launched);
+    const died = await deathAfter(child, sent, 2_000);
     const observed = await launched.done;
     receipt(entry, observed, {
       signalToExitMilliseconds: observed.exitedAt - sent,
+      signalToOwnedChildDeathMilliseconds: died - sent,
     });
     assertNoEnvelope(entry, observed);
     expect(observed.exitedAt - sent).toBeLessThanOrEqual(
       signalBound(entry) + tolerance,
+    );
+    // LIFE-11: SIGKILL reaches the TERM-ignoring child before the 500 ms
+    // bound expires, observed independently in the process table.
+    expect(died - sent).toBeLessThanOrEqual(
+      signalBound(entry) + killObservationTolerance,
     );
     return observed;
   },
