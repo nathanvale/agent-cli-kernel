@@ -8,7 +8,7 @@ import type {
   WireResult,
 } from "../types.ts";
 import { templatesAgree } from "../guidance.ts";
-import { parseInput } from "../input.ts";
+import { acceptsRootInput, parseInput } from "../input.ts";
 import { diagnostics } from "./diagnostics.ts";
 import { json, record } from "./primitives.ts";
 import { envelopeShape, typedResult } from "./result.ts";
@@ -38,7 +38,11 @@ async function commandSteps(
       (result.handoff !== undefined && command.effectClass !== "inspect")
     )
       return false;
-    if (!(await parseInput(command.input, step.args)).ok) return false;
+    // The same input rule as parse, resolve and execute: a root operation
+    // needs an option or operand (DISC-4, STEP-6; F05).
+    const parsed = await parseInput(command.input, step.args);
+    if (!parsed.ok || !acceptsRootInput(command.route, parsed.value))
+      return false;
   }
   return true;
 }
