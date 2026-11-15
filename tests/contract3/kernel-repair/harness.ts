@@ -32,7 +32,10 @@ export function runFamily(
 // State fixtures must live in the canonical state add-on folder, so each run
 // copies the current kernel into a disposable tree and executes the fixture
 // there as a child process. The fixture prints one JSON object of observations.
-export async function stateFixture(name: string): Promise<unknown> {
+export async function stateFixture(
+  name: string,
+  env: Readonly<Record<string, string>> = {},
+): Promise<unknown> {
   const directory = await mkdtemp(join(tmpdir(), "contract3-repair-"));
   try {
     const source = join(directory, "starters/contract3/src");
@@ -48,6 +51,7 @@ export async function stateFixture(name: string): Promise<unknown> {
       await readFile(new URL(`fixtures/${name}.ts.txt`, import.meta.url)),
     );
     const child = Bun.spawn([process.execPath, fixture], {
+      env: { ...process.env, ...env },
       stdout: "pipe",
       stderr: "pipe",
     });
@@ -78,4 +82,11 @@ export async function buildUnchecked(
     facts,
   ]);
   return result;
+}
+
+// Calls contractFor with declarations the static types forbid.
+export function contractUnchecked(contractFor: unknown, spec: object): unknown {
+  if (typeof contractFor !== "function") throw new Error("No contractFor.");
+  const contract: unknown = Reflect.apply(contractFor, undefined, [spec]);
+  return contract;
 }

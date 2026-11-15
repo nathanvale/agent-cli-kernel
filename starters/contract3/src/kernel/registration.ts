@@ -10,6 +10,7 @@ import type { CauseTable } from "./types.ts";
 import { causeRow } from "./validation/result.ts";
 import { bindingNames, guidanceTargets } from "./guidance.ts";
 import { admitHostInput } from "./host-input.ts";
+import { stepVectorProblem } from "./step-vector.ts";
 import { text } from "./validation/primitives.ts";
 export type AddonName = "state" | "programs" | "approval" | "diagnostics";
 export function admitCauses(causes: CauseTable): void {
@@ -139,6 +140,20 @@ export function admitCommands(
     admitStationSet(command, causes);
     admitRecovery(command, commands);
     admitGuidance(command, commands);
+    admitStepVectors(command, commands);
+  }
+}
+// F01 (option 2): refuse a step template no single-token value can satisfy.
+function admitStepVectors(
+  command: CommandDeclaration,
+  commands: readonly CommandDeclaration[],
+): void {
+  for (const { target, args } of guidanceTargets(command, commands)) {
+    const problem = target ? stepVectorProblem(target, args) : undefined;
+    if (target && problem)
+      throw new Error(
+        `Command step ${target.commandIdentity} ${JSON.stringify(args)} from ${command.commandIdentity} can never parse: ${problem}.`,
+      );
   }
 }
 
