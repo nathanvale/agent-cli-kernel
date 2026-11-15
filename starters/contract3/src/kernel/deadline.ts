@@ -12,12 +12,34 @@ export type DeadlineInput = {
 export type DeadlineValidation<T> = Validation<T> & {
   readonly deadlineMilliseconds?: number;
 };
+export function parseDeadlineValue(value: string): Validation<number> {
+  return /^[1-9][0-9]*$/.test(value) && Number.isSafeInteger(Number(value))
+    ? { ok: true, value: Number(value) }
+    : {
+        ok: false,
+        path: deadlineOption.name,
+        reason: "expected a positive safe integer deadline",
+      };
+}
 export function splitDeadline(
   argv: readonly unknown[],
 ): Validation<DeadlineInput> {
+  const split = splitDeadlineTokens(argv);
+  if (!split.ok) return split;
+  const { tokens, deadlineValue } = split.value;
+  if (deadlineValue === undefined) return { ok: true, value: { tokens } };
+  const parsed = parseDeadlineValue(deadlineValue);
+  return parsed.ok
+    ? { ok: true, value: { tokens, deadlineMilliseconds: parsed.value } }
+    : parsed;
+}
+export function splitDeadlineTokens(argv: readonly unknown[]): Validation<{
+  readonly tokens: readonly string[];
+  readonly deadlineValue?: string;
+}> {
   const tokens: string[] = [];
   let literal = false;
-  let deadlineMilliseconds: number | undefined;
+  let deadlineValue: string | undefined;
   for (let index = 0; index < argv.length; index++) {
     const token = argv[index];
     if (typeof token !== "string")
@@ -28,24 +50,19 @@ export function splitDeadline(
       continue;
     }
     const value = argv[++index];
-    if (
-      deadlineMilliseconds !== undefined ||
-      typeof value !== "string" ||
-      !/^[1-9][0-9]*$/.test(value) ||
-      !Number.isSafeInteger(Number(value))
-    )
+    if (deadlineValue !== undefined || typeof value !== "string")
       return {
         ok: false,
         path: deadlineOption.name,
-        reason: "expected one positive safe integer deadline",
+        reason: "expected one deadline value",
       };
-    deadlineMilliseconds = Number(value);
+    deadlineValue = value;
   }
   return {
     ok: true,
     value: {
       tokens,
-      ...(deadlineMilliseconds === undefined ? {} : { deadlineMilliseconds }),
+      ...(deadlineValue === undefined ? {} : { deadlineValue }),
     },
   };
 }
