@@ -907,6 +907,109 @@ test("T4S.r1-stop-coordination-lost: attestation consumed, no refund", async () 
   ]);
 });
 
+// B3.04 (bindings B3; CMD-15, WIRE-9, WIRE-18): through the real front door,
+// on a command that declares no DOMAIN_AUTHORITY_REQUIRED tuple, the
+// missing, stale (expired and revision), consumed and mismatched grant
+// variants give byte-identical public output once the run identity is
+// removed, each carrying the kernel's default authority words. The words are
+// a test-owned literal copy, never imported from the kernel.
+const defaultAuthorityWords = {
+  handoff: {
+    owner: "human",
+    reason:
+      "This command needs an exact-item grant from its authority owner before it can run.",
+    inspect: [
+      {
+        kind: "instruction",
+        text: "Authority owner: review the requested item and decide whether to grant it.",
+      },
+    ],
+  },
+  repairAction:
+    "Obtain an exact-item grant from the command's authority owner, then decide on a new run.",
+} as const;
+function field(value: unknown, key: string): unknown {
+  return typeof value === "object" && value !== null
+    ? Object.entries(value).find(([name]) => name === key)?.[1]
+    : undefined;
+}
+async function frontDoor(argv: readonly string[]) {
+  const child = Bun.spawn(
+    [
+      process.execPath,
+      tree.driver,
+      JSON.stringify({ mode: "front-door", world, argv }),
+    ],
+    { stdout: "pipe", stderr: "pipe" },
+  );
+  const [stdout, stderr, exit] = await Promise.all([
+    new Response(child.stdout).text(),
+    new Response(child.stderr).text(),
+    child.exited,
+  ]);
+  return { stdout, stderr, exit };
+}
+test("B3.04.identical-denials-carry-defaults", async () => {
+  const variants: readonly (() => Promise<void>)[] = [
+    () => Promise.resolve(),
+    () => writeGrant(world, { ...grant, expiresAt: 1000 }),
+    () => writeGrant(world, { ...grant, resourceRevision: "r9" }),
+    async () => {
+      await writeGrant(world, grant);
+      await writeFile(join(world.ledger, approvalMarker), "");
+    },
+    () => writeGrant(world, { ...grant, operation: "x.y" }),
+  ];
+  const argv = ["approve", grant.preview, "--json"];
+  const outputs: string[] = [];
+  const runIds = new Set<string>();
+  for (const prepare of variants) {
+    for (const directory of [world.grants, world.ledger]) {
+      await removeAll(directory);
+      await mkdir(directory);
+    }
+    await prepare();
+    const before = await snapshot(world);
+    const denied = await frontDoor(argv);
+    expect({ exit: denied.exit, stderr: denied.stderr }).toEqual({
+      exit: 3,
+      stderr: "",
+    });
+    const result = field(JSON.parse(denied.stdout), "result");
+    expect(result).toMatchObject({
+      outcome: "refused",
+      transactionState: "unchanged",
+      failureClass: "domain",
+      exitCode: 3,
+      retryable: false,
+      causeCode: "DOMAIN_AUTHORITY_REQUIRED",
+      commandIdentity: "fixture.approve",
+      data: null,
+    });
+    expect(field(result, "handoff")).toEqual(defaultAuthorityWords.handoff);
+    expect(field(result, "repairAction")).toBe(
+      defaultAuthorityWords.repairAction,
+    );
+    const runId = field(result, "runId");
+    if (typeof runId !== "string") throw new Error("No run identity.");
+    runIds.add(runId);
+    outputs.push(denied.stdout.replaceAll(runId, "<run>"));
+    expect(await snapshot(world)).toEqual(before);
+  }
+  expect(runIds.size).toBe(variants.length);
+  expect(outputs).toHaveLength(variants.length);
+  expect(new Set(outputs).size).toBe(1);
+  // Valid twin: the same invocation with a valid grant reaches the handler.
+  for (const directory of [world.grants, world.ledger]) {
+    await removeAll(directory);
+    await mkdir(directory);
+  }
+  await writeGrant(world, grant);
+  const twin = await frontDoor(argv);
+  expect(twin.stdout).toContain('{"phase":"handler"}');
+  expect(twin.stdout).not.toContain("DOMAIN_AUTHORITY_REQUIRED");
+}, 60_000);
+
 // S1, reviewer probe P2: a plain look-alike scope (right run, right
 // resource, active, real fixture lock held) is not kernel-issued, so it is
 // refused before anything is consumed and the authority stays usable.

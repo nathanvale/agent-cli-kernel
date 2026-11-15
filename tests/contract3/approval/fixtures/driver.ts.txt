@@ -20,6 +20,7 @@ import {
   command,
   commonCauses,
   contractFor,
+  runProcess,
   station,
 } from "../../../starters/contract3/src/kernel/index.ts";
 import {
@@ -636,6 +637,29 @@ async function kernel(map: Fields): Promise<void> {
   }
 }
 
+// B3.04: one invocation through the real front door with the approval
+// add-on attached per run. The kernel's writer owns stdout and the exit
+// code, so this mode emits nothing itself.
+async function frontDoor(map: Fields): Promise<void> {
+  const place = world(map);
+  await runProcess(kernelContract(place), {
+    addons: {
+      approval: {
+        attach: (run) => ({
+          capability: approval({
+            operation: "fixture.approve",
+            runId: run.runId,
+            store: { grants: place.grants, ledger: place.ledger },
+            now: () => now(place),
+          }).capability,
+          settle: () => Promise.resolve(true),
+          killNow: () => undefined,
+        }),
+      },
+    },
+  })(texts(map, "argv"));
+}
+
 // S3: the kernel issues a scope only for a run it has attached (CMD-9 step
 // 7). Each apply or authority flow therefore runs inside the handler of a
 // changing fixture command executed through the real kernel, which attaches
@@ -695,7 +719,13 @@ function attached(settings: Common, work: () => Promise<void>) {
     : flow();
 }
 
-const mode = oneOf(input, "mode", ["hold", "apply", "authority", "kernel"]);
+const mode = oneOf(input, "mode", [
+  "hold",
+  "apply",
+  "authority",
+  "kernel",
+  "front-door",
+]);
 switch (mode) {
   case "hold":
     await hold(world(input));
@@ -708,6 +738,9 @@ switch (mode) {
     break;
   case "kernel":
     await kernel(input);
+    break;
+  case "front-door":
+    await frontDoor(input);
     break;
 }
 process.exit(0);
