@@ -85,6 +85,34 @@ describe("T2 writer process cases", () => {
     test(entry.id, () => check(entry), timeout);
 });
 
+describe("writer guard after kernel build (supporting W04, not a frozen case)", () => {
+  test(
+    "a non-JSON value injected after build never reaches stdout coerced",
+    async () => {
+      const observed = await run({
+        ...caseById("W04.nan"),
+        argv: ["read", "--json"],
+        scenario: "corrupt:nan-data",
+      });
+      try {
+        assertEnvelope(
+          {
+            ...caseById("W04.nan"),
+            expect: {
+              ...caseById("W04.nan").expect,
+              commandIdentity: "fx.read",
+            },
+          },
+          observed,
+        );
+      } finally {
+        await cleanup(observed);
+      }
+    },
+    timeout,
+  );
+});
+
 describe("fallback encoder bound (component support for F04 encoding)", () => {
   test("rejects values above the byte or depth bound and non-plain values", () => {
     expect(encodeBounded({ a: [1, "x", null, true] })).toBe(

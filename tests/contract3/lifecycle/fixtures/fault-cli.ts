@@ -1006,6 +1006,9 @@ function corrupt(kind: string, value: unknown): unknown {
     case "both-arms":
       result.handoff = inspectLedger;
       break;
+    case "nan-data":
+      result.data = { value: Number.NaN };
+      break;
     default:
       envelope.message = "";
   }
