@@ -1,6 +1,7 @@
 import type { CauseRow, CauseTable, RowGuidance } from "./types.ts";
 import { causeRow, handoff, nextStep } from "./validation/result.ts";
 import { integer, text } from "./validation/primitives.ts";
+import { internalResultCode } from "./state-causes.ts";
 export type RetryDelayPolicy =
   | { readonly kind: "none" }
   | {
@@ -35,10 +36,7 @@ export type DeclaredStation = StationWords & {
 };
 // DISC-11b: the stations the fallback can select keep the base's fixed words.
 export function reservedFallbackCause(causeCode: string): boolean {
-  return (
-    causeCode.startsWith("INTERNAL_RESULT_") ||
-    causeCode === "INTERNAL_PREPARATION"
-  );
+  return internalResultCode(causeCode) || causeCode === "INTERNAL_PREPARATION";
 }
 export function freeze<T>(value: T): T {
   if (value !== null && typeof value === "object") {

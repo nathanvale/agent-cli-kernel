@@ -3,6 +3,11 @@ import { emptyInput } from "./input.ts";
 import type { DeclaredStation } from "./stations.ts";
 import type { CauseTable, Handoff, NextStep } from "./types.ts";
 import { exits } from "./types.ts";
+import {
+  deadlineCause,
+  internalResultCause,
+  internalResultCode,
+} from "./state-causes.ts";
 export function builtins(cli: string): readonly CommandDeclaration[] {
   return [
     {
@@ -91,12 +96,12 @@ function kernelWords(
   // specific owner declares this tuple with its own words (DISC-11b).
   if (causeCode === "DOMAIN_AUTHORITY_REQUIRED") return authorityWords;
   if (
-    causeCode.startsWith("INTERNAL_RESULT_") ||
+    internalResultCode(causeCode) ||
     [
-      "DOMAIN_DEADLINE_COMPLETED",
-      "DOMAIN_DEADLINE_PARTIAL",
-      "DOMAIN_DEADLINE_UNKNOWN",
-    ].includes(causeCode)
+      deadlineCause.completed,
+      deadlineCause["partially-completed"],
+      deadlineCause.unknown,
+    ].some((cause) => cause === causeCode)
   )
     return {
       handoff: {
@@ -121,12 +126,9 @@ export function stationsFor(
   cli: string,
   causes: CauseTable,
 ): readonly DeclaredStation[] {
-  const host = ![
-    `${cli}.help`,
-    `${cli}.discovery`,
-    `${cli}.command-discovery`,
-    `${cli}.dispatch`,
-  ].includes(command.commandIdentity);
+  const host = !builtins(cli).some(
+    (item) => item.commandIdentity === command.commandIdentity,
+  );
   const needed = host
     ? [
         "USAGE_INVALID_INVOCATION",
@@ -134,9 +136,9 @@ export function stationsFor(
           ? ["SCHEMA_INVALID_INPUT"]
           : []),
         "INTERNAL_PREPARATION",
-        "INTERNAL_RESULT_UNCHANGED",
+        internalResultCause.unchanged,
       ]
-    : ["INTERNAL_PREPARATION", "INTERNAL_RESULT_UNCHANGED"];
+    : ["INTERNAL_PREPARATION", internalResultCause.unchanged];
   if (command.commandIdentity === `${cli}.dispatch`)
     needed.unshift("USAGE_INVALID_INVOCATION", "USAGE_UNKNOWN_COMMAND");
   else if (!host || command.stations.length === 0)
@@ -195,16 +197,16 @@ function addEffectStations(
   needed: string[],
 ): void {
   if (command.effectClass !== "inspect") {
-    needed.push("INTERNAL_RESULT_COMPLETED", "INTERNAL_RESULT_UNKNOWN");
+    needed.push(internalResultCause.completed, internalResultCause.unknown);
     if ((command.effects?.length ?? 0) > 1)
-      needed.push("INTERNAL_RESULT_PARTIAL");
+      needed.push(internalResultCause["partially-completed"]);
   }
   if (command.input.deadlineSupported) {
-    needed.push("DOMAIN_DEADLINE_BEFORE_START", "DOMAIN_DEADLINE_UNCHANGED");
+    needed.push("DOMAIN_DEADLINE_BEFORE_START", deadlineCause.unchanged);
     if (command.effectClass !== "inspect")
-      needed.push("DOMAIN_DEADLINE_COMPLETED", "DOMAIN_DEADLINE_UNKNOWN");
+      needed.push(deadlineCause.completed, deadlineCause.unknown);
     if ((command.effects?.length ?? 0) > 1)
-      needed.push("DOMAIN_DEADLINE_PARTIAL");
+      needed.push(deadlineCause["partially-completed"]);
   }
   if (command.capabilities.approval) needed.push("DOMAIN_AUTHORITY_REQUIRED");
 }

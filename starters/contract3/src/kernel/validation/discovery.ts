@@ -1,6 +1,7 @@
 import { deadlineOption } from "../deadline.ts";
 import type { CommandDeclaration } from "../declarations.ts";
 import {
+  builtins,
   exitMeanings,
   publicStation,
   signalExits,
@@ -32,12 +33,9 @@ export function navigationData(
   commands: readonly CommandDeclaration[],
   stations: ReadonlyMap<string, readonly DeclaredStation[]>,
 ) {
-  const builtinIdentities = new Set([
-    `${cli}.help`,
-    `${cli}.discovery`,
-    `${cli}.command-discovery`,
-    `${cli}.dispatch`,
-  ]);
+  const builtinIdentities = new Set(
+    builtins(cli).map((item) => item.commandIdentity),
+  );
   function help() {
     return {
       usage: `${cli} <command> [options]`,

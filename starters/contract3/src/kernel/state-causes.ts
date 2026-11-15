@@ -16,12 +16,21 @@ export const incompleteEffects: Effects = Object.freeze({
   inventoryComplete: false,
 });
 
+// DISC-11b reserves every INTERNAL_RESULT_* cause, not only the four the base
+// selects, so the family is defined by this one prefix.
+const internalResultPrefix = "INTERNAL_RESULT_";
+export function internalResultCode(causeCode: string): boolean {
+  return causeCode.startsWith(internalResultPrefix);
+}
 export const internalResultCause = {
   unchanged: "INTERNAL_RESULT_UNCHANGED",
   completed: "INTERNAL_RESULT_COMPLETED",
   "partially-completed": "INTERNAL_RESULT_PARTIAL",
   unknown: "INTERNAL_RESULT_UNKNOWN",
-} as const satisfies Record<TransactionState, string>;
+} as const satisfies Record<
+  TransactionState,
+  `${typeof internalResultPrefix}${string}`
+>;
 
 export const deadlineCause = {
   unchanged: "DOMAIN_DEADLINE_UNCHANGED",
