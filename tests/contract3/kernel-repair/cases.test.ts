@@ -79,7 +79,7 @@ test("frozen repair counts per family", () => {
     R15: [5, 0],
     R16: [0, 1],
     R17: [3, 0],
-    R18: [140, 2],
+    R18: [147, 2],
   });
 });
 
@@ -117,9 +117,9 @@ test("frozen inputs named by the expectations", () => {
     "--",
     "-x",
   ]);
-  expect(frozenInputs.r18Rejected).toHaveLength(15);
+  expect(frozenInputs.r18Rejected).toHaveLength(16);
   expect(frozenInputs.r18Admitted).toHaveLength(8);
   expect(
     familyCases("R18").filter((item) => item.id.startsWith("R18.r")),
-  ).toHaveLength(15 * 2 * 3);
+  ).toHaveLength(16 * 2 * 3);
 });

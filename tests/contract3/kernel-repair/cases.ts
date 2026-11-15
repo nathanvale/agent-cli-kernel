@@ -505,6 +505,11 @@ const r18Rejected: readonly (readonly [string, string])[] = [
   ["r13.deadline-unsupported", "Tnodl ['--deadline-ms', '{binding.d}']"],
   ["r14.deadline-literal-invalid", "Tdl ['--deadline-ms', 'abc']"],
   ["r15.separator-shift", "T2op ['--', '--x', '{runId}', 'z']"],
+  // Added by expectations-f01-ruling.md (sha256 30fb2435...), under R18's rule.
+  [
+    "r16.repeated-deadline",
+    "Tdl ['--deadline-ms', '10', '--deadline-ms', '20']",
+  ],
 ];
 const r18Admitted: readonly (readonly [string, string])[] = [
   ["a1.valid-twin", "T2op ['{binding.item}', '{runId}']"],
@@ -549,6 +554,12 @@ const r18Guards = active("R18", ["F01"], "runtime", [
   [
     "u3.existing-admission-unchanged",
     "An undeclared target, or a handoff inspection naming a changing command, is still refused.",
+  ],
+  // Added by expectations-f01-ruling.md: the broader-than-R18 refusal keeps
+  // its own reason and one rejected case.
+  [
+    "u4.templated-option-token",
+    "Topt ['--target', 'main', '--x{runId}']: contractFor refuses because a run value would select an option, with that reason rather than an unknown-option reason.",
   ],
 ]);
 

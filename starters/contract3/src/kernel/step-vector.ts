@@ -15,7 +15,8 @@ import type {
 // of templated elements stay value-dependent and are checked at emission, as
 // are literal values aimed at a pattern slot (pattern matching is
 // asynchronous and admission is not). A templated element whose literal text
-// begins with "-" is an option token whose name no declared option has.
+// begins with "-" is refused for its own reason: a run value would select an
+// option the author did not write (STEP-9a, STEP-10; ruled acceptable).
 const templated = (element: string) => /\{[^{}]*\}/.test(element);
 
 function literalValue(token: string, schema: ValueSchema): boolean {
@@ -57,7 +58,10 @@ function slotFor(
     const option = input.options.find(
       (slot) => slot.name === token || slot.aliases.includes(token),
     );
-    if (!option) return `${token} is not an option of the target`;
+    if (!option)
+      return templated(token)
+        ? `a run value in ${token} would select an option the step does not name`
+        : `${token} is not an option of the target`;
     if (state.present.has(option.name) && !option.repeatable)
       return `${option.name} repeats`;
     return option;

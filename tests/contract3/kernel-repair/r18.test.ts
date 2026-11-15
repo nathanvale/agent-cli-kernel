@@ -147,4 +147,17 @@ implementations["R18.u3.existing-admission-unchanged"] = async () => {
   });
 };
 
+implementations["R18.u4.templated-option-token"] = () => {
+  const row = { target: "Topt", args: ["--target", "main", "--x{runId}"] };
+  let message = "";
+  try {
+    admit(rawSource("next", row))();
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error);
+  }
+  expect(message).toContain("specimen.topt");
+  expect(message).toContain("run value");
+  expect(message).not.toContain("is not an option");
+};
+
 runFamily("R18", implementations, 60000);

@@ -165,7 +165,10 @@ test("untrusted patterns terminate within the reader budget and invalid declarat
   expect(performance.now() - start).toBeLessThan(2000);
 });
 
-test.each([
+// Rows ruled by t1-repair/expectations-f01-ruling.md (F01 option 2): steps no
+// single-token value can make parse are refused at contractFor; admitted rows
+// keep the guarantee that invalid target values are refused before the handler.
+const admittedFutureRows = [
   {
     name: "noninteger dynamic deadline",
     args: ["--deadline-ms", "{binding.delay}", "{binding.item}"],
@@ -202,135 +205,217 @@ test.each([
     accepted: true,
   },
   {
-    name: "literal deadline operand",
+    name: "literal deadline operand, wide literal slot",
     args: ["--", "--deadline-ms", "{binding.item}"],
     accepted: true,
+    literalMaxLength: 16,
+  },
+];
+const rejectedFutureRows = [
+  {
+    name: "literal deadline operand",
+    args: ["--", "--deadline-ms", "{binding.item}"],
+    literalMaxLength: 12,
+    reason: /literal value for literal/,
   },
   {
     name: "malformed deadline",
     args: ["--deadline-ms", "0", "{binding.item}"],
-    accepted: false,
+    reason: /literal deadline/,
   },
   {
     name: "repeated deadline",
     args: ["--deadline-ms", "10", "--deadline-ms", "20", "{binding.item}"],
-    accepted: false,
+    reason: /deadline option/,
   },
-])(
-  "future bindings reject invalid target values before the handler: $name",
-  async ({ args, accepted, name, delay, runtimeOwned }) => {
-    const sourceArgs = (item: string) => ["--delay", delay ?? "10", "--", item];
-    let guarded = 0;
-    const pending = command({
-      identity: "items.pending",
-      route: ["pending"],
-      summary: "Read an item.",
-      input: {
-        ...input,
-        deadlineSupported: true,
-        arguments: [
-          ...(name === "literal deadline operand"
-            ? [{ ...input.arguments[0], name: "literal" }]
-            : []),
-          {
-            ...input.arguments[0],
-            value: {
-              kind: "string",
-              minLength: 1,
-              maxLength: 8,
-              choices: ["alpha"],
-              pattern: null,
-            },
+];
+function futureDeclarations(row: {
+  readonly name: string;
+  readonly args: readonly string[];
+  readonly delay?: string;
+  readonly runtimeOwned?: boolean;
+  readonly literalMaxLength?: number;
+}) {
+  const handled = { count: 0 };
+  const pending = command({
+    identity: "items.pending",
+    route: ["pending"],
+    summary: "Read an item.",
+    input: {
+      ...input,
+      deadlineSupported: true,
+      arguments: [
+        ...(row.literalMaxLength === undefined
+          ? []
+          : [
+              {
+                ...input.arguments[0],
+                name: "literal",
+                value: {
+                  ...input.arguments[0].value,
+                  maxLength: row.literalMaxLength,
+                },
+              },
+            ]),
+        {
+          ...input.arguments[0],
+          value: {
+            kind: "string",
+            minLength: 1,
+            maxLength: 8,
+            choices: ["alpha"],
+            pattern: null,
           },
-        ],
-      },
-      capabilities: {},
-      run: (_input, context) =>
-        context.result(
-          { commandIdentity: "items.pending", causeCode: "SUCCESS_UNCHANGED" },
-          {
-            message: "Read.",
-            data: null,
-            effects: {
-              completed: [],
-              remaining: [],
-              uncertain: [],
-              inventoryComplete: true,
-            },
-          },
-        ),
-    });
-    const issued = station(commonCauses, {
-      commandIdentity: "items.issue",
-      causeCode: "SUCCESS_UNCHANGED",
-      trigger: "Read reference.",
-      guidance: {
-        next: {
-          kind: "command",
-          command: "items.pending",
-          args,
         },
-      },
-      repairAction: null,
-      retryDelayPolicy: { kind: "none" },
-      reachability: "required",
-      unreachableRationale: null,
-      independentObservable: "handler-not-entered",
-    });
-    const issue = command({
-      identity: "items.issue",
-      route: ["issue"],
-      summary: "Issue a reference.",
-      input: {
-        ...input,
-        options: [
-          ...input.options,
-          {
-            name: "--delay",
-            aliases: [],
-            summary: "Future deadline.",
-            required: true,
-            repeatable: false,
-            value: input.arguments[0].value,
+      ],
+    },
+    capabilities: {},
+    run: (_input, context) =>
+      context.result(
+        { commandIdentity: "items.pending", causeCode: "SUCCESS_UNCHANGED" },
+        {
+          message: "Read.",
+          data: null,
+          effects: {
+            completed: [],
+            remaining: [],
+            uncertain: [],
+            inventoryComplete: true,
           },
-        ],
-        arguments: [
-          {
-            ...input.arguments[0],
-            value: {
-              kind: "string",
-              minLength: 0,
-              maxLength: 4096,
-              choices: null,
-              pattern: null,
-            },
-          },
-        ],
+        },
+      ),
+  });
+  const issued = station(commonCauses, {
+    commandIdentity: "items.issue",
+    causeCode: "SUCCESS_UNCHANGED",
+    trigger: "Read reference.",
+    guidance: {
+      next: {
+        kind: "command",
+        command: "items.pending",
+        args: row.args,
       },
-      capabilities: {},
-      futureBindings:
-        !runtimeOwned && args.some((token) => token === "{binding.delay}")
-          ? { item: "item", delay: "--delay" }
-          : { item: "item" },
-      stations: [issued],
-      run: (_input, context) => {
-        guarded++;
-        return context.result(
-          { commandIdentity: "items.issue", causeCode: "SUCCESS_UNCHANGED" },
-          {
-            message: "Read.",
-            data: null,
-            effects: {
-              completed: [],
-              remaining: [],
-              uncertain: [],
-              inventoryComplete: true,
-            },
+    },
+    repairAction: null,
+    retryDelayPolicy: { kind: "none" },
+    reachability: "required",
+    unreachableRationale: null,
+    independentObservable: "handler-not-entered",
+  });
+  const issue = command({
+    identity: "items.issue",
+    route: ["issue"],
+    summary: "Issue a reference.",
+    input: {
+      ...input,
+      options: [
+        ...input.options,
+        {
+          name: "--delay",
+          aliases: [],
+          summary: "Future deadline.",
+          required: true,
+          repeatable: false,
+          value: input.arguments[0].value,
+        },
+      ],
+      arguments: [
+        {
+          ...input.arguments[0],
+          value: {
+            kind: "string",
+            minLength: 0,
+            maxLength: 4096,
+            choices: null,
+            pattern: null,
           },
-        );
-      },
-    });
-    const contract = contractFor({ cli: "items", commands: [issue, pending] });
+        },
+      ],
+    },
+    capabilities: {},
+    futureBindings:
+      !row.runtimeOwned && row.args.some((token) => token === "{binding.delay}")
+        ? { item: "item", delay: "--delay" }
+        : { item: "item" },
+    stations: [issued],
+    run: (parsed, context) => {
+      handled.count++;
+      return context.result(
+        { commandIdentity: "items.issue", causeCode: "SUCCESS_UNCHANGED" },
+        {
+          message: "Read.",
+          data: null,
+          ...(row.literalMaxLength === undefined
+            ? {}
+            : { bindings: { item: parsed.item } }),
+          effects: {
+            completed: [],
+            remaining: [],
+            uncertain: [],
+            inventoryComplete: true,
+          },
+        },
+      );
+    },
+  });
+  return { issue, pending, handled };
+}
+
+test("future binding rows are exactly the ruled admitted and rejected sets", () => {
+  expect(admittedFutureRows.map((row) => row.name).sort()).toEqual(
+    [
+      "noninteger dynamic deadline",
+      "runtime-owned deadline",
+      "dynamic deadline",
+      "invalid dynamic deadline",
+      "ordinary target",
+      "deadline target",
+      "deadline and delimiter",
+      "literal deadline operand, wide literal slot",
+    ].sort(),
+  );
+  expect(rejectedFutureRows.map((row) => row.name).sort()).toEqual(
+    [
+      "literal deadline operand",
+      "malformed deadline",
+      "repeated deadline",
+    ].sort(),
+  );
+});
+
+test.each(rejectedFutureRows)(
+  "future binding steps that can never parse are refused at declaration: $name",
+  (row) => {
+    const { issue, pending, handled } = futureDeclarations(row);
+    let message = "";
+    try {
+      contractFor({ cli: "items", commands: [issue, pending] });
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error);
+    }
+    expect(message).toContain("items.pending");
+    expect(message).toContain("items.issue");
+    expect(message).toMatch(row.reason);
+    expect(handled.count).toBe(0);
+  },
+);
+
+test.each(admittedFutureRows)(
+  "future bindings reject invalid target values before the handler: $name",
+  async (row) => {
+    const { args, accepted, delay } = row;
+    const sourceArgs = (item: string) => ["--delay", delay ?? "10", "--", item];
+    const { issue, pending, handled } = futureDeclarations(row);
+    const admitted = (() => {
+      try {
+        return contractFor({ cli: "items", commands: [issue, pending] });
+      } catch {
+        return undefined;
+      }
+    })();
+    expect(admitted).toBeDefined();
+    if (!admitted) return;
+    const contract = admitted;
     const invalid = [
       "",
       " ",
@@ -352,7 +437,7 @@ test.each([
         false,
       );
     }
-    expect(guarded).toBe(0);
+    expect(handled.count).toBe(0);
     expect(
       (
         await contract.parse(
@@ -365,10 +450,26 @@ test.each([
         )
       ).ok,
     ).toBe(false);
-    expect(
-      (await contract.execute("items.issue", sourceArgs("alpha"), "run-2")).ok,
-    ).toBe(accepted);
-    expect(guarded).toBe(accepted ? 1 : 0);
+    const run = await contract.execute(
+      "items.issue",
+      sourceArgs("alpha"),
+      "run-2",
+    );
+    expect(run.ok).toBe(accepted);
+    expect(handled.count).toBe(accepted ? 1 : 0);
+    if (row.literalMaxLength === undefined || !run.ok) return;
+    const emitted = ["--", "--deadline-ms", "alpha"];
+    const built = await contract.buildResult(run.value);
+    expect(built.ok).toBe(true);
+    if (built.ok)
+      expect(built.value.result.next).toEqual({
+        kind: "command",
+        command: "items.pending",
+        args: emitted,
+      });
+    const parsed = await contract.parse("items.pending", emitted);
+    expect(parsed.ok).toBe(true);
+    expect(parsed.ok && parsed.deadlineMilliseconds).toBeUndefined();
   },
 );
 

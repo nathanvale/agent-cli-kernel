@@ -9,7 +9,10 @@ import type {
 // expectations-f01.md (sha256 6cdc603e...). The same module drives the
 // in-process command() and raw paths and the changing() state fixture, which
 // passes its own kernel copy, so nothing here imports kernel values.
-export type KernelValues = Pick<typeof Kernel, "command" | "station" | "commonCauses">;
+export type KernelValues = Pick<
+  typeof Kernel,
+  "command" | "station" | "commonCauses"
+>;
 const base = {
   arguments: [],
   options: [],
@@ -85,8 +88,7 @@ const routes: Readonly<Record<string, readonly string[]>> = {
   Tdl: ["deadline"],
   Tnodl: ["nodeadline"],
 };
-const targetIdentity = (name: string) =>
-  `specimen.${name.toLowerCase()}`;
+const targetIdentity = (name: string) => `specimen.${name.toLowerCase()}`;
 export function targets(kernel: KernelValues): CommandDeclaration[] {
   return Object.keys(inputs).map((name) =>
     kernel.command({
@@ -144,6 +146,10 @@ export const rows: Readonly<Record<string, Row>> = {
   "r15.separator-shift": {
     target: "T2op",
     args: ["--", "--x", "{runId}", "z"],
+  },
+  "r16.repeated-deadline": {
+    target: "Tdl",
+    args: ["--deadline-ms", "10", "--deadline-ms", "20"],
   },
   "a1.valid-twin": {
     target: "T2op",
