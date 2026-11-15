@@ -82,7 +82,7 @@ export function contractFor<
   )
     throw new Error("Recovery route belongs to another state installation.");
   freeze(commands);
-  for (const item of commands) registerInputs(item, commands);
+  const inputRegistration = registerInputs(commands);
   const stationMap = new Map(
     commands.map((item) => [
       item.commandIdentity,
@@ -190,7 +190,11 @@ export function contractFor<
         } as const;
       const parsed = await parseInput(selected.input, argv);
       if (!parsed.ok) return parsed;
-      const future = await validateFutureInputs(selected, parsed.value);
+      const future = await validateFutureInputs(
+        selected,
+        parsed.value,
+        inputRegistration,
+      );
       if (!future.ok) return future;
       const executionContext =
         selected.effectClass === "inspect"
@@ -207,6 +211,7 @@ export function contractFor<
         executionContext,
         runId,
         invocation,
+        inputRegistration,
       );
       if (!outcome.ok) return outcome;
       if (!resultMatches(outcome.value, identity, runId, invocation))
@@ -392,3 +397,5 @@ export type {
   AllowedCause,
   SelectedRow,
 } from "./command-result.ts";
+
+export type { InputRegistration } from "./future-input.ts";

@@ -319,3 +319,121 @@ test("admitted prototype-like input names behave as own dictionary keys", async 
     });
   }
 });
+
+test("reused declarations validate future inputs against their current contract", async () => {
+  const schema = {
+    arguments: [
+      {
+        name: "item",
+        summary: "Item.",
+        required: true,
+        value: {
+          kind: "string",
+          minLength: 1,
+          maxLength: 8,
+          choices: null,
+          pattern: null,
+        },
+      },
+    ],
+    options: [],
+    constraints: [],
+    deadlineSupported: false,
+    additionalArguments: false,
+    additionalOptions: false,
+  } as const;
+  const selected = station(commonCauses, {
+    commandIdentity: "items.source",
+    causeCode: "SUCCESS_UNCHANGED",
+    trigger: "Read.",
+    guidance: {
+      next: {
+        kind: "command",
+        command: "items.target",
+        args: ["{binding.item}"],
+      },
+    },
+    repairAction: null,
+    retryDelayPolicy: { kind: "none" },
+    reachability: "required",
+    unreachableRationale: null,
+    independentObservable: "input-registry",
+  });
+  let calls = 0;
+  const source = command({
+    identity: "items.source",
+    route: ["source"],
+    summary: "Read reference.",
+    input: schema,
+    capabilities: {},
+    futureBindings: { item: "item" },
+    stations: [selected],
+    run: (input, context) => {
+      calls++;
+      return context.result(selected, {
+        message: "Read.",
+        data: null,
+        bindings: { item: input.item },
+        effects: {
+          completed: [],
+          remaining: [],
+          uncertain: [],
+          inventoryComplete: true,
+        },
+      });
+    },
+  });
+  function target(choice: string) {
+    return command({
+      identity: "items.target",
+      route: ["target"],
+      summary: "Read target.",
+      input: {
+        ...schema,
+        arguments: [
+          {
+            ...schema.arguments[0],
+            value: { ...schema.arguments[0].value, choices: [choice] },
+          },
+        ],
+      },
+      capabilities: {},
+      run: (_input, context) =>
+        context.result(
+          { commandIdentity: "items.target", causeCode: "SUCCESS_UNCHANGED" },
+          {
+            message: "Read.",
+            data: null,
+            effects: {
+              completed: [],
+              remaining: [],
+              uncertain: [],
+              inventoryComplete: true,
+            },
+          },
+        ),
+    });
+  }
+  const first = contractFor({
+    cli: "items",
+    commands: [source, target("alpha")],
+  });
+  const second = contractFor({
+    cli: "items",
+    commands: [source, target("beta")],
+  });
+  expect((await first.execute("items.source", ["beta"], "run-1")).ok).toBe(
+    false,
+  );
+  expect(calls).toBe(0);
+  expect((await first.execute("items.source", ["alpha"], "run-2")).ok).toBe(
+    true,
+  );
+  expect((await second.execute("items.source", ["beta"], "run-3")).ok).toBe(
+    true,
+  );
+  expect((await second.execute("items.source", ["alpha"], "run-4")).ok).toBe(
+    false,
+  );
+  expect(calls).toBe(2);
+});
