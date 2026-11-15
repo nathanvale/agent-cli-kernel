@@ -178,4 +178,14 @@ export default tseslint.config(
     files: ["starters/contract3/src/addons/state/**/*.{ts,mts,cts}"],
     rules: { "no-restricted-properties": ["error", ...programProperties] },
   },
+  {
+    // CMD-14: only the programs add-on folder may start programs.
+    files: ["starters/contract3/src/addons/programs/**/*.{ts,mts,cts}"],
+    rules: { "no-restricted-properties": ["error", installerProperty] },
+  },
+  {
+    // GATE-12: the kernel writer's process adapter is the one output owner.
+    files: ["starters/contract3/src/kernel/process-host.ts"],
+    rules: { "repository/no-domain-output": "off" },
+  },
 );

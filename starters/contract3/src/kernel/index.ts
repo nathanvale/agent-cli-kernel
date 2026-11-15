@@ -12,9 +12,10 @@ import type {
 } from "./registration.ts";
 import { admittedState, createStateAddon, attachState } from "./state-seam.ts";
 import type { StateAddonDescriptor } from "./state-seam.ts";
-import type { CauseTable } from "./types.ts";
+import type { CauseTable, Effects } from "./types.ts";
 import { proofValue } from "./validation/state.ts";
-import { resolveInvocation } from "./routing.ts";
+import { invocationTokens, resolveInvocation } from "./routing.ts";
+import { registerRuntime } from "./runtime.ts";
 import { authority, resource, path } from "./validation/brands.ts";
 import type { CommandDeclaration } from "./declarations.ts";
 import { parseInput, acceptsRootInput } from "./input.ts";
@@ -28,6 +29,17 @@ import { renderGuidance } from "./guidance.ts";
 import { wireResult } from "./validation/result.ts";
 
 export { command, changing } from "./declarations.ts";
+export { runProcess } from "./lifecycle.ts";
+export { comparableEnvelope } from "./comparison.ts";
+export type {
+  AttachedAddon,
+  EmergencyFacts,
+  ProcessHost,
+  RunAddon,
+  RunControl,
+  RunSetup,
+  StopSignal,
+} from "./process-types.ts";
 export { station } from "./stations.ts";
 export { commonCauses } from "./causes.ts";
 export function contractFor<
@@ -99,6 +111,7 @@ export function contractFor<
   async function buildRegistered(
     selected: { readonly commandIdentity: string; readonly causeCode: string },
     facts: Readonly<Record<string, unknown>>,
+    trusted?: Effects,
   ) {
     const station = stationMap
       .get(selected.commandIdentity)
@@ -125,7 +138,8 @@ export function contractFor<
       "bindings",
     ])
       if (key in facts) runFacts[key] = Reflect.get(facts, key);
-    if (
+    if (trusted) runFacts.effects = trusted;
+    else if (
       command.effectClass !== "inspect" &&
       station.row.outcome !== "refused"
     ) {
@@ -173,62 +187,71 @@ export function contractFor<
     }
   }
 
-  return {
+  async function executeCommand(
+    identity: string,
+    argv: unknown,
+    runId: string,
+    context: unknown = {},
+  ) {
+    const selected = commands.find(
+      (entry) => entry.commandIdentity === identity,
+    );
+    if (!selected?.execute)
+      return {
+        ok: false,
+        path: "commandIdentity",
+        reason: "unknown executable command",
+      } as const;
+    const parsed = await parseInput(selected.input, argv);
+    if (!parsed.ok) return parsed;
+    const future = await validateFutureInputs(
+      selected,
+      parsed.value,
+      inputRegistration,
+    );
+    if (!future.ok) return future;
+    const executionContext =
+      selected.effectClass === "inspect"
+        ? context
+        : withState(
+            context,
+            spec.state
+              ? attachState(spec.state, runId, selected.effects ?? [])
+              : undefined,
+          );
+    const invocation = Object.freeze({});
+    const outcome = await selected.execute(
+      argv,
+      executionContext,
+      runId,
+      invocation,
+      inputRegistration,
+    );
+    if (!outcome.ok) return outcome;
+    if (!resultMatches(outcome.value, identity, runId, invocation))
+      return {
+        ok: false,
+        path: "result",
+        reason: "result belongs to another invocation",
+      } as const;
+    acceptedResults.add(outcome.value);
+    return {
+      ...outcome,
+      ...(parsed.deadlineMilliseconds === undefined
+        ? {}
+        : { deadlineMilliseconds: parsed.deadlineMilliseconds }),
+    };
+  }
+
+  const contract = {
     boundary: { authority, resource, path },
-    async execute(
+    execute(
       identity: D[number]["commandIdentity"],
       argv: unknown,
       runId: string,
       context: unknown = {},
     ) {
-      const selected = commands.find(
-        (entry) => entry.commandIdentity === identity,
-      );
-      if (!selected?.execute)
-        return {
-          ok: false,
-          path: "commandIdentity",
-          reason: "unknown executable command",
-        } as const;
-      const parsed = await parseInput(selected.input, argv);
-      if (!parsed.ok) return parsed;
-      const future = await validateFutureInputs(
-        selected,
-        parsed.value,
-        inputRegistration,
-      );
-      if (!future.ok) return future;
-      const executionContext =
-        selected.effectClass === "inspect"
-          ? context
-          : withState(
-              context,
-              spec.state
-                ? attachState(spec.state, runId, selected.effects ?? [])
-                : undefined,
-            );
-      const invocation = Object.freeze({});
-      const outcome = await selected.execute(
-        argv,
-        executionContext,
-        runId,
-        invocation,
-        inputRegistration,
-      );
-      if (!outcome.ok) return outcome;
-      if (!resultMatches(outcome.value, identity, runId, invocation))
-        return {
-          ok: false,
-          path: "result",
-          reason: "result belongs to another invocation",
-        } as const;
-      acceptedResults.add(outcome.value);
-      return {
-        ...outcome,
-        ...(parsed.deadlineMilliseconds === undefined
-          ? {}
-          : { deadlineMilliseconds: parsed.deadlineMilliseconds }),
-      };
+      return executeCommand(identity, argv, runId, context);
     },
     cli: spec.cli,
     causes,
@@ -274,6 +297,45 @@ export function contractFor<
           } as const);
     },
   };
+  registerRuntime(contract, {
+    cli: spec.cli,
+    commands,
+    stations: stationMap,
+    async resolve(argv: unknown) {
+      const resolved = await resolveInvocation(spec.cli, commands, argv);
+      if (!resolved.ok) return resolved;
+      const raw: readonly unknown[] = Array.isArray(argv) ? argv : [];
+      const route =
+        commands.find(
+          (item) => item.commandIdentity === resolved.value.commandIdentity,
+        )?.route ?? [];
+      const tokens = invocationTokens(
+        raw.map((token) => (typeof token === "string" ? token : "")),
+      );
+      return {
+        ok: true,
+        value: { ...resolved.value, args: tokens.slice(route.length) },
+      };
+    },
+    navigation: {
+      help: navigation.help,
+      discover: navigation.discover,
+      discoverCommand: navigation.discoverCommand,
+    },
+    execute: (identity, argv, runId, context) =>
+      executeCommand(identity, argv, runId, context),
+    build: (selected, facts, trusted) =>
+      buildRegistered(selected, facts, trusted),
+    buildResult: (result) => contract.buildResult(result),
+    validate,
+    trustedSummary(result, runId) {
+      const proof: unknown = acceptedResults.has(result)
+        ? resultPlan(result)?.facts.transaction
+        : undefined;
+      return proofValue(proof, runId, spec.state) ? proof : undefined;
+    },
+  });
+  return contract;
 }
 export type {
   AuthorityId,
