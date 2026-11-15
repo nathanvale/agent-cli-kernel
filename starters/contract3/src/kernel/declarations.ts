@@ -44,6 +44,15 @@ export function admitCommandIdentity(identity: string): void {
       "Command identity must be nonempty and at most 128 UTF-8 bytes.",
     );
 }
+// CMD-9 steps 1 and 2: switches are removed before exact route matching, so an
+// empty or option-like token could never select its command (F04).
+export function admitRouteTokens(route: readonly string[]): void {
+  for (const token of route)
+    if (!text(token) || token.startsWith("-"))
+      throw new Error(
+        `Route token ${JSON.stringify(token)} is empty or option-like and can never be matched.`,
+      );
+}
 export function admitRootOperation(
   route: readonly string[],
   input: InputSchema,
@@ -180,6 +189,7 @@ export function changing<
   admitHostInput(spec.input);
   admitCommandIdentity(spec.identity);
   admitRootOperation(spec.route, spec.input);
+  admitRouteTokens(spec.route);
   if (!knownRoute(spec.ifNoResult))
     throw new Error("ifNoResult must come from the admitted state add-on.");
   if (

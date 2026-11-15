@@ -1,6 +1,10 @@
 import { validateWords } from "./stations.ts";
 import type { CommandDeclaration } from "./declarations.ts";
-import { admitCommandIdentity, admitRootOperation } from "./declarations.ts";
+import {
+  admitCommandIdentity,
+  admitRootOperation,
+  admitRouteTokens,
+} from "./declarations.ts";
 import { commonCauses } from "./causes.ts";
 import type { CauseTable } from "./types.ts";
 import { causeRow } from "./validation/result.ts";
@@ -29,6 +33,12 @@ function admitStationSet(
 ): void {
   const seen = new Set<string>();
   for (const station of command.stations) {
+    // DISC-11b: the fallback's stations keep the base's fixed words (F12).
+    if (
+      station.causeCode.startsWith("INTERNAL_RESULT_") ||
+      station.causeCode === "INTERNAL_PREPARATION"
+    )
+      throw new Error("Fallback station words are reserved.");
     const row = causes[station.causeCode];
     if (
       !row ||
@@ -81,6 +91,27 @@ function admitRecovery(
       throw new Error("Coordination refusal requires an unchanged handoff.");
   }
 }
+// Host route tokens are checked before collisions so a route that names a
+// built-in switch is refused with its own token (F04, CMD-1).
+function admitRoutes(
+  cli: string,
+  commands: readonly CommandDeclaration[],
+): void {
+  const builtinIdentities = [
+    `${cli}.help`,
+    `${cli}.discovery`,
+    `${cli}.command-discovery`,
+    `${cli}.dispatch`,
+  ];
+  for (const command of commands)
+    if (!builtinIdentities.includes(command.commandIdentity))
+      admitRouteTokens(command.route);
+  const hostRoutes = commands
+    .filter((item) => item.commandIdentity !== `${cli}.dispatch`)
+    .map((item) => JSON.stringify(item.route));
+  if (new Set(hostRoutes).size !== hostRoutes.length)
+    throw new Error("Duplicate command route.");
+}
 export function admitCommands(
   cli: string,
   commands: readonly CommandDeclaration[],
@@ -94,11 +125,7 @@ export function admitCommands(
     commands.length
   )
     throw new Error("Duplicate command identity.");
-  const hostRoutes = commands
-    .filter((item) => item.commandIdentity !== `${cli}.dispatch`)
-    .map((item) => JSON.stringify(item.route));
-  if (new Set(hostRoutes).size !== hostRoutes.length)
-    throw new Error("Duplicate command route.");
+  admitRoutes(cli, commands);
   for (const command of commands) {
     admitCommandIdentity(command.commandIdentity);
     admitHostInput(command.input);

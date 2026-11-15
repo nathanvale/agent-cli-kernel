@@ -1,0 +1,31 @@
+// changing() construction paths for R03 (F12) and R04 (F04). Prints
+// observations keyed by frozen case identity; the parent owns expectations.
+import { changing, commonCauses, contractFor, command, station } from "../../kernel/index.ts";
+const input = { arguments: [], options: [], constraints: [], deadlineSupported: false, additionalArguments: false, additionalOptions: false } as const;
+const flags = { ...input, options: [{ name: "--change", aliases: [], summary: "Select change.", required: false, repeatable: false, value: null }] } as const;
+const empty = { completed: [], remaining: [], uncertain: [], inventoryComplete: true } as const;
+const refusal = { outcome: "refused", transactionState: "unchanged", failureClass: "domain", exitCode: 3, retryable: false, guidance: "handoff" } as const;
+const causes = { HELD: refusal, PRIOR: refusal } as const;
+const words = { retryDelayPolicy: { kind: "none" }, reachability: "required", unreachableRationale: null, independentObservable: "admission-fixture" } as const;
+const state = contractFor.stateAddon((issuer) => ({ ifNoResult: issuer.ifNoResult({ kind: "command", command: "specimen.pending", args: [] }), attach() { throw new Error("No state execution in admission fixture."); } }));
+const recovery = command({ identity: "specimen.pending", route: ["pending"], summary: "Inspect pending.", input, capabilities: {}, stations: [station(commonCauses, { commandIdentity: "specimen.pending", causeCode: "SUCCESS_UNCHANGED", trigger: "Read pending.", guidance: { next: { kind: "instruction", text: "Inspect pending state." } }, repairAction: null, ...words })], run: (_input, context) => context.result({ commandIdentity: "specimen.pending", causeCode: "SUCCESS_UNCHANGED" }, { message: "Read pending.", data: null, effects: empty }) });
+const coordination = (["HELD", "PRIOR"] as const).map((causeCode) => station(causes, { commandIdentity: "specimen.change", causeCode, trigger: "Coordination refusal.", repairAction: "Inspect.", guidance: { handoff: { owner: "operator", reason: "Inspect.", inspect: [{ kind: "instruction", text: "Inspect." }] } }, ...words }));
+let entered = 0;
+function declare(route: readonly string[], extra: readonly object[] = []) {
+  return changing({ identity: "specimen.change", route, summary: "Change.", input: flags, capabilities: {}, effectClass: "repository-local", effects: ["a", "b"], ifNoResult: state.ifNoResult, heldLockCause: "HELD", unresolvedCaseCause: "PRIOR", stations: [...coordination, ...extra] as typeof coordination, run: async () => { entered++; throw new Error("Admission fixture never enters a handler."); } });
+}
+function outcome(action: () => unknown) {
+  try { action(); return { refused: false, message: "" }; } catch (error) { return { refused: true, message: error instanceof Error ? error.message : String(error) }; }
+}
+function literal(causeCode: keyof typeof commonCauses) {
+  const row = commonCauses[causeCode];
+  return { commandIdentity: "specimen.change", causeCode, row, trigger: "HOST-WORDS trigger.", repairAction: "HOST-WORDS repair.", guidance: row.guidance === "handoff" ? { handoff: { owner: "operator", reason: "HOST-WORDS reason.", inspect: [{ kind: "instruction", text: "HOST-WORDS inspect." }] } } : { next: { kind: "instruction", text: "HOST-WORDS next." } }, ...words };
+}
+const out: Record<string, unknown> = {};
+out["R03.changing-literal-refused"] = (["INTERNAL_PREPARATION", "INTERNAL_RESULT_UNCHANGED", "INTERNAL_RESULT_COMPLETED", "INTERNAL_RESULT_PARTIAL", "INTERNAL_RESULT_UNKNOWN"] as const).map((cause) => {
+  const result = outcome(() => contractFor({ cli: "specimen", commands: [declare(["change"], [literal(cause)]), recovery], causes, state, installedAddons: ["state"] }));
+  return { cause, refused: result.refused, reserved: /reserved/i.test(result.message) };
+});
+out["R04.changing-builder-refused"] = ["", " ", "--json", "--deadline-ms", "--help", "--discover", "--discover-command", "--", "-x"].map((token) => ({ token, refused: outcome(() => declare([token])).refused }));
+out.entered = entered;
+process.stdout.write(JSON.stringify(out));
