@@ -391,8 +391,10 @@ test("A08.a-locked-contenders", async () => {
 // Widened race (R3): several barrier-released rounds of several contenders,
 // each holding only a private fixture scope, so exclusive creation alone
 // must decide. Every round needs exactly one admission and one marker.
-const atomicRounds = 5;
-const atomicContenders = 6;
+// Measured against a real check-then-write (repair-1 receipts): 5 rounds of
+// 6 missed 2 of 50 runs; this size is the reliability margin.
+const atomicRounds = 16;
+const atomicContenders = 8;
 test("A08.b-consumption-atomic-without-lock", async () => {
   for (let round = 0; round < atomicRounds; round++) {
     const preview = `p-r${round}`;
