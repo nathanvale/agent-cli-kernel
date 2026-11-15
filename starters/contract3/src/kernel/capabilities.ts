@@ -83,6 +83,9 @@ export type ApprovalRequest = {
   readonly resource: ResourceId;
   readonly resourceRevision: string;
   readonly effects: readonly string[];
+  // CMD-10b: the unconsumed preview this apply is bound to. An approval
+  // add-on refuses a request without it.
+  readonly preview?: string;
 };
 export type ApprovalRuntime = {
   readonly check: (request: ApprovalRequest) => Promise<boolean>;
