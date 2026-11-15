@@ -36,6 +36,7 @@ import {
   grant,
   grantPath,
   markerName,
+  foreignFile,
   observation,
   platformPaths,
   removeAll,
@@ -512,8 +513,8 @@ async function factsOf(path: string, override: Partial<RecordFacts> = {}) {
   const { uid, gid, mode, dev, ino } = await lstat(path);
   return { path, uid, gid, mode, dev, ino, ...override };
 }
-const noForeignFile =
-  "no regular, single-link, foreign, non-writable file under /usr/share with a foreign directory chain";
+// Count-only reason from the bounded search, for a hosted run to explain.
+const noForeignFile = paths.foreignFileMissing;
 
 testWhen(
   paths.foreignFile,
@@ -596,6 +597,19 @@ testWhen(
     expect(await fileSeparation(linked)()).toBe(false);
   },
 );
+
+test("T4S.l1-search-diagnostics: an unproved file search reports counts, not paths", async () => {
+  // Every candidate here is caller-owned, so nothing may qualify and the
+  // reason must count that rejection without naming any path.
+  await mkdir(join(world.root, "nested"));
+  await writeFile(join(world.root, "nested", "mine.json"), "{}");
+  const result = await foreignFile([world.root]);
+  expect(result.found).toBeUndefined();
+  expect(result.missing).toMatch(/^no qualifying file in 1 roots /);
+  expect(result.missing).toMatch(/caller-owned [1-9]\d*,/);
+  expect(result.missing).not.toContain(world.root);
+  expect(result.missing).not.toContain("/");
+});
 
 // F2 isolating controls: each fileSeparation guard has its own failing test.
 test("T4S.f2-descriptor-wiring: the verifier judges the opened record even when the path check passes", async () => {
