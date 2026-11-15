@@ -63,3 +63,19 @@ export async function stateFixture(name: string): Promise<unknown> {
     await rm(directory, { recursive: true, force: true });
   }
 }
+
+// Calls contract.build with values the static types forbid, so runtime
+// admission is what the case observes.
+export async function buildUnchecked(
+  contract: object,
+  selected: unknown,
+  facts: unknown,
+): Promise<unknown> {
+  const build: unknown = Reflect.get(contract, "build");
+  if (typeof build !== "function") throw new Error("Contract has no build.");
+  const result: unknown = await Reflect.apply(build, contract, [
+    selected,
+    facts,
+  ]);
+  return result;
+}

@@ -86,7 +86,8 @@ export function contractFor<
   const stationMap = new Map(
     commands.map((item) => [
       item.commandIdentity,
-      stationsFor(item, spec.cli, causes),
+      // Generated kernel stations are frozen like declared ones (F02).
+      freeze(stationsFor(item, spec.cli, causes)),
     ]),
   );
   const acceptedResults = new WeakSet<object>();

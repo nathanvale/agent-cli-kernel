@@ -7,6 +7,7 @@ import {
   summary,
 } from "../navigation.ts";
 import type { DeclaredStation } from "../stations.ts";
+import { freeze } from "../stations.ts";
 import type { WireResult } from "../types.ts";
 import { record } from "./primitives.ts";
 import { sameJson } from "./json-equality.ts";
@@ -63,24 +64,26 @@ export function navigationData(
       ],
     };
   }
+  // Each view is a fresh frozen copy: no caller can rewrite the process-wide
+  // exit and signal tables or a station's words through it (F02, F03).
   function discover() {
-    return {
+    return freeze({
       contractVersion: "3.0.0",
       commands: commands.map(summary),
-      exitMeanings,
-      signalExits,
+      exitMeanings: { ...exitMeanings },
+      signalExits: { ...signalExits },
       effectExclusions: [
         "Incidental journal maintenance.",
         "Incidental diagnostic maintenance.",
       ],
-    };
+    });
   }
   function discoverCommand(identity: string) {
     const command = commands.find(
       (entry) => entry.commandIdentity === identity,
     );
     return command
-      ? {
+      ? freeze({
           command: summary(command),
           semantics: "possible-outcomes",
           ifNoResult: command.ifNoResult?.step ?? null,
@@ -88,7 +91,7 @@ export function navigationData(
           stations: (stations.get(identity) ?? []).map((station) =>
             publicStation(station, command.effectClass),
           ),
-        }
+        })
       : undefined;
   }
   function validData(result: WireResult): boolean {
