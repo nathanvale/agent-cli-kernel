@@ -1,10 +1,9 @@
-import contract3 from "./tests/contract3/lint-config.mjs";
+import contract3 from "./config/contract3-eslint.mjs";
 import js from "@eslint/js";
 import localRules from "./eslint-rules.mjs";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  ...contract3,
   {
     ignores: [
       "node_modules/**",
@@ -48,4 +47,5 @@ export default tseslint.config(
     plugins: { repository: localRules },
     rules: { "repository/no-domain-output": "error" },
   },
+  ...contract3,
 );
