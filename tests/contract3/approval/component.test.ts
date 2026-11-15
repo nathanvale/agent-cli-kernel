@@ -2,9 +2,18 @@
 // hardened read, exact-item binding and the human-authority verifier.
 // Consumption under coordination is proved in process.test.ts.
 import { afterEach, beforeEach, expect, test } from "bun:test";
-import { chmod, link, mkdir, symlink, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  link,
+  lstat,
+  mkdir,
+  symlink,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import { basename, join } from "node:path";
 import {
+  ApprovalRejection,
   approval,
   authorityLocation,
   authorityVerifier,
@@ -13,18 +22,26 @@ import {
 import type {
   AuthoritySource,
   ClosureItem,
+  RecordFacts,
   StopItem,
 } from "../../../starters/contract3/src/addons/approval/index.ts";
 import { contractFor } from "../../../starters/contract3/src/kernel/index.ts";
 import {
+  adversarialSource,
+  authorityRecordPath,
+  closureItem,
+  closureRecord,
   createWorld,
-  expectedFor,
+  expectCase,
   grant,
   grantPath,
   markerName,
   observation,
   removeAll,
   snapshot,
+  stopItem,
+  stopRecord,
+  unorderedStopItem,
   writeGrant,
 } from "./harness.ts";
 import type { World } from "./harness.ts";
@@ -73,7 +90,9 @@ async function preflight(
       ? "admitted"
       : "denied";
   } catch (error) {
-    return error instanceof Error &&
+    return error instanceof ApprovalRejection &&
+      error.reason === "store-unavailable" &&
+      !error.consumed &&
       error.message === "Approval authority store is unavailable."
       ? "operational-failure"
       : "unexpected-error";
@@ -92,8 +111,9 @@ async function observed(
 
 test("A01.a-preflight-non-consuming", async () => {
   await writeGrant(world, grant);
-  expect(await observed(async () => {}, preflight)).toEqual(
-    expectedFor("A01.a-preflight-non-consuming"),
+  expectCase(
+    "A01.a-preflight-non-consuming",
+    await observed(async () => {}, preflight),
   );
   // Inspection is repeatable because nothing was consumed.
   expect(await preflight()).toBe("admitted");
@@ -133,9 +153,7 @@ for (const [id, setup] of denials)
       await capability().check(request()),
     ];
     expect(results).toEqual([false, false]);
-    expect(observation("denied", before, await snapshot(world))).toEqual(
-      expectedFor(id),
-    );
+    expectCase(id, observation("denied", before, await snapshot(world)));
     // Existing invalid state is preserved, not rewritten to look unused.
     expect(await snapshot(world)).toEqual(before);
   });
@@ -218,7 +236,7 @@ const hostile: readonly (readonly [string, () => Promise<void>])[] = [
 ];
 for (const [id, setup] of hostile)
   test(id, async () => {
-    expect(await observed(setup, preflight)).toEqual(expectedFor(id));
+    expectCase(id, await observed(setup, preflight));
   });
 
 test("A04.h-invalid-utf8", async () => {
@@ -231,7 +249,7 @@ test("A04.h-invalid-utf8", async () => {
     () => writeFile(grantPath(world, grant.preview), bytes),
     () => preflight({ authority: "owner-\uFFFD" }),
   );
-  expect(outcome).toEqual(expectedFor("A04.h-invalid-utf8"));
+  expectCase("A04.h-invalid-utf8", outcome);
 });
 
 test("A04.l-traversal-preview", async () => {
@@ -245,7 +263,7 @@ test("A04.l-traversal-preview", async () => {
     async () => {},
     () => preflight({ preview: "../evil" }),
   );
-  expect(outcome).toEqual(expectedFor("A04.l-traversal-preview"));
+  expectCase("A04.l-traversal-preview", outcome);
   expect(basename(grantPath(world, "../evil"))).toMatch(/^[0-9a-f]{64}\.json$/);
 });
 
@@ -270,9 +288,37 @@ test("A04.m-unreadable", async () => {
     "operational-failure",
     "operational-failure",
   ]);
-  expect(observation(fileOutcome, before, await snapshot(world))).toEqual(
-    expectedFor("A04.m-unreadable"),
+  expectCase(
+    "A04.m-unreadable",
+    observation(fileOutcome, before, await snapshot(world)),
   );
+});
+
+test("T4S.r7-no-preview-preflight: a request without a preview denies", async () => {
+  await writeGrant(world, grant);
+  const { preview, ...withoutPreview } = request();
+  expect(preview).toBe(grant.preview);
+  expect(await capability().check(withoutPreview)).toBe(false);
+  expect(await capability().check(request())).toBe(true);
+});
+
+test("T4S.r6-operational-cause: a store failure keeps its cause and fixed message", async () => {
+  await writeGrant(world, grant);
+  await chmod(world.grants, 0o000);
+  const failure = await capability()
+    .check(request())
+    .then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+  await chmod(world.grants, 0o700);
+  expect(failure).toBeInstanceOf(ApprovalRejection);
+  expect(failure).toMatchObject({
+    reason: "store-unavailable",
+    consumed: false,
+    message: "Approval authority store is unavailable.",
+    cause: { code: "EACCES" },
+  });
 });
 
 const noSetup = () => Promise.resolve();
@@ -310,7 +356,7 @@ const bindings: readonly (readonly [
 for (const [id, setup, act] of bindings)
   test(id, async () => {
     await writeGrant(world, grant);
-    expect(await observed(setup, act)).toEqual(expectedFor(id));
+    expectCase(id, await observed(setup, act));
     // Identical twin with every binding equal admits.
     await writeGrant(world, grant);
     expect(await preflight()).toBe("admitted");
@@ -323,43 +369,9 @@ test("A05 effect sets compare as sets, not sequences", async () => {
   );
 });
 
-// Adversarial test authority: claims separation so verifier logic can be
-// exercised. It never qualifies production authority (REC-5).
-function fixtureSource(): AuthoritySource {
-  return { directory: world.authority, separated: () => Promise.resolve(true) };
-}
-const closureRecord = {
-  format: "contract3.closure-authority",
-  version: 1,
-  operation: "op-1",
-  disposition: "outcome-unknown",
-  evidence: "ev-1",
-  scope: "resource-1",
-  expiresAt: 5000,
-} as const;
-const closureItem: ClosureItem = {
-  operation: "op-1",
-  disposition: "outcome-unknown",
-  evidence: "ev-1",
-  scope: "resource-1",
-};
-const stopRecord = {
-  format: "contract3.stop-attestation",
-  version: 1,
-  operation: "op-1",
-  owner: "owner-1",
-  writers: ["w-1", "w-2"],
-  scope: "resource-1",
-  expiresAt: 5000,
-} as const;
-const stopItem: StopItem = {
-  operation: "op-1",
-  owner: "owner-1",
-  writers: ["w-2", "w-1"],
-  scope: "resource-1",
-  liveConflict: false,
-};
-function verifier(source: AuthoritySource | "none" = fixtureSource()) {
+function verifier(
+  source: AuthoritySource | "none" = adversarialSource(world.authority),
+) {
   return authorityVerifier({
     runId: "component",
     ledger: world.ledger,
@@ -367,15 +379,19 @@ function verifier(source: AuthoritySource | "none" = fixtureSource()) {
     ...(source === "none" ? {} : { closure: source, stop: source }),
   });
 }
+// Writes a record at the independently restated location for these parts.
 async function place(
   kind: "closure" | "stop",
   parts: readonly string[],
   record: unknown,
 ): Promise<void> {
   await writeFile(
-    authorityLocation(fixtureSource(), kind, parts),
+    authorityRecordPath(world, kind, parts),
     JSON.stringify(record),
   );
+}
+function fileSource(directory: string): AuthoritySource {
+  return { directory, separated: fileSeparation(directory) };
 }
 
 const closureMismatches: readonly (readonly [string, ClosureItem, unknown])[] =
@@ -396,7 +412,7 @@ for (const [id, item, record] of closureMismatches)
       async () => {},
       async () => (await verifier().closure.preflight(item)).status,
     );
-    expect(outcome).toEqual(expectedFor(id));
+    expectCase(id, outcome);
   });
 
 test("C02 valid twin verifies without consuming", async () => {
@@ -413,21 +429,40 @@ test("C02 valid twin verifies without consuming", async () => {
   });
 });
 
+test("T4S.r7-closure-expiry: an expired closure grant refuses", async () => {
+  await place("closure", ["op-1"], { ...closureRecord, expiresAt: 1000 });
+  expect((await verifier().closure.preflight(closureItem)).status).toBe(
+    "refused",
+  );
+  await place("closure", ["op-1"], { ...closureRecord, expiresAt: 1001 });
+  expect((await verifier().closure.preflight(closureItem)).status).toBe(
+    "verified",
+  );
+});
+
+test("T4S.r6-authority-location: records are addressed by their item", () => {
+  const source = adversarialSource(world.authority);
+  expect(authorityLocation(source, "closure", closureItem)).toBe(
+    authorityRecordPath(world, "closure", ["op-1"]),
+  );
+  expect(authorityLocation(source, "stop", stopItem)).toBe(
+    authorityRecordPath(world, "stop", ["op-1", "owner-1"]),
+  );
+});
+
 const humanHandoff = {
   status: "unavailable",
   handoff: { owner: "human" },
 };
 
 test("C03.a-same-user-file", async () => {
-  const source = {
-    directory: world.authority,
-    separated: fileSeparation(world.authority),
-  };
+  const source = fileSource(world.authority);
   await place("closure", ["op-1"], closureRecord);
-  await writeFile(
-    authorityLocation(source, "closure", ["op-2"]),
-    JSON.stringify({ ...closureRecord, operation: "op-2", grantedBy: "human" }),
-  );
+  await place("closure", ["op-2"], {
+    ...closureRecord,
+    operation: "op-2",
+    grantedBy: "human",
+  });
   const before = await snapshot(world);
   const verdicts = [
     await verifier(source).closure.preflight(closureItem),
@@ -437,27 +472,97 @@ test("C03.a-same-user-file", async () => {
     }),
   ];
   for (const verdict of verdicts) expect(verdict).toMatchObject(humanHandoff);
-  expect(observation("unavailable", before, await snapshot(world))).toEqual(
-    expectedFor("C03.a-same-user-file"),
+  expectCase(
+    "C03.a-same-user-file",
+    observation("unavailable", before, await snapshot(world)),
   );
 });
 
 test("C03.b-caller-created-record", async () => {
-  const source = {
-    directory: world.authority,
-    separated: fileSeparation(world.authority),
-  };
+  const source = fileSource(world.authority);
   const before = await snapshot(world);
   // Caller creates the record, then drops its own write permissions.
   await place("closure", ["op-1"], closureRecord);
-  await chmod(authorityLocation(source, "closure", ["op-1"]), 0o444);
+  await chmod(authorityRecordPath(world, "closure", ["op-1"]), 0o444);
   await chmod(world.authority, 0o555);
   const verdict = await verifier(source).closure.preflight(closureItem);
   await chmod(world.authority, 0o700);
   expect(verdict).toMatchObject(humanHandoff);
-  expect(observation(verdict.status, before, await snapshot(world))).toEqual(
-    expectedFor("C03.b-caller-created-record"),
+  expectCase(
+    "C03.b-caller-created-record",
+    observation(verdict.status, before, await snapshot(world)),
   );
+});
+
+// R4 supporting checks. The true positive path for a qualified source still
+// needs a second account and stays pending with T8 (C03.c).
+const foreignRoot = "/usr/share";
+const foreignFile = "/usr/share/firmlinks";
+async function factsOf(path: string, override: Partial<RecordFacts> = {}) {
+  const { uid, gid, mode, dev, ino } = await lstat(path);
+  return { path, uid, gid, mode, dev, ino, ...override };
+}
+
+test("T4S.r4-probe-positive-control: a root-owned read-only path separates", async () => {
+  // Supporting control on this macOS host, not authority qualification.
+  const probe = fileSeparation(foreignRoot);
+  expect(await probe()).toBe(true);
+  expect(await probe(await factsOf(foreignFile))).toBe(true);
+  // End to end, the probe passes and an absent record is an ordinary refusal.
+  expect(
+    (await verifier(fileSource(foreignRoot)).closure.preflight(closureItem))
+      .status,
+  ).toBe("refused");
+});
+
+test("T4S.r4-foreign-writable-root: a world-writable foreign root never separates", async () => {
+  const probe = fileSeparation("/private/tmp");
+  expect(await probe()).toBe(false);
+  expect(
+    await verifier(fileSource("/private/tmp")).closure.preflight(closureItem),
+  ).toMatchObject(humanHandoff);
+});
+
+test("T4S.r4-caller-owned-record: a caller-owned or writable record in a foreign root never separates", async () => {
+  const probe = fileSeparation(foreignRoot);
+  const caller = process.getuid?.() ?? -1;
+  expect(await probe(await factsOf(foreignFile, { uid: caller }))).toBe(false);
+  expect(await probe(await factsOf(foreignFile, { mode: 0o100666 }))).toBe(
+    false,
+  );
+  // The descriptor must still be the entry at its path.
+  expect(await probe(await factsOf(foreignFile, { ino: 1 }))).toBe(false);
+  // The record must sit directly in the judged root.
+  expect(
+    await probe(await factsOf(foreignFile, { path: "/usr/firmlinks" })),
+  ).toBe(false);
+});
+
+test("T4S.r4-symlink-swap: a swapped symlinked source cannot verify a self-issued record", async () => {
+  // Reviewer probe P5: the source path is a caller-owned symlink pointing at
+  // a foreign directory during the check, swapped to a caller directory
+  // before the read.
+  const mine = join(world.root, "mine");
+  await mkdir(mine);
+  await writeFile(
+    join(mine, basename(authorityRecordPath(world, "closure", ["op-1"]))),
+    JSON.stringify(closureRecord),
+  );
+  const linked = join(world.root, "authority-link");
+  await symlink(foreignRoot, linked);
+  const probe = fileSeparation(linked);
+  const source: AuthoritySource = {
+    directory: linked,
+    separated: async (record) => {
+      const verdict = await probe(record);
+      await unlink(linked);
+      await symlink(mine, linked);
+      return verdict;
+    },
+  };
+  const verdict = await verifier(source).closure.preflight(closureItem);
+  expect(verdict).toMatchObject(humanHandoff);
+  expect(await fileSeparation(linked)()).toBe(false);
 });
 
 test("C04.a-no-source", async () => {
@@ -475,8 +580,9 @@ test("C04.a-no-source", async () => {
   ];
   for (const verdict of verdicts) expect(verdict).toMatchObject(humanHandoff);
   expect(verdicts[0]).toEqual(verdicts[1]);
-  expect(observation("unavailable", before, await snapshot(world))).toEqual(
-    expectedFor("C04.a-no-source"),
+  expectCase(
+    "C04.a-no-source",
+    observation("unavailable", before, await snapshot(world)),
   );
 });
 
@@ -512,12 +618,15 @@ for (const [id, item, record, prior] of stopProblems)
       async () => {},
       async () => (await verifier().stop.preflight(item)).status,
     );
-    expect(outcome).toEqual(expectedFor(id));
+    expectCase(id, outcome);
   });
 
-test("S02 valid twin verifies without consuming", async () => {
+test("S02 valid twins verify without consuming, writers as a set", async () => {
   await place("stop", ["op-1", "owner-1"], stopRecord);
   expect((await verifier().stop.preflight(stopItem)).status).toBe("verified");
+  expect((await verifier().stop.preflight(unorderedStopItem)).status).toBe(
+    "verified",
+  );
   expect(await snapshot(world)).toMatchObject({ markers: [] });
 });
 
@@ -527,7 +636,7 @@ test("S06.a-stop-not-closure", async () => {
     async () => {},
     async () => (await verifier().closure.preflight(closureItem)).status,
   );
-  expect(outcome).toEqual(expectedFor("S06.a-stop-not-closure"));
+  expectCase("S06.a-stop-not-closure", outcome);
 });
 
 test("S06.b-closure-not-stop", async () => {
@@ -536,5 +645,5 @@ test("S06.b-closure-not-stop", async () => {
     async () => {},
     async () => (await verifier().stop.preflight(stopItem)).status,
   );
-  expect(outcome).toEqual(expectedFor("S06.b-closure-not-stop"));
+  expectCase("S06.b-closure-not-stop", outcome);
 });

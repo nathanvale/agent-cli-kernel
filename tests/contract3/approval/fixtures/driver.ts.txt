@@ -1,16 +1,87 @@
-// Test-owned child driver, materialized at commands/driver.ts beside a copy
-// of the stamped kernel and the approval add-on under test. It composes the
-// real add-on with the disposable coordination fixture and stops at named
-// readiness barriers: it prints {"barrier": name} and waits for one stdin
-// line before continuing, so the parent orders phases without sleeps.
-import { appendFileSync, closeSync, fsyncSync, openSync, readFileSync, writeSync } from "node:fs";
+// Test-owned child driver, materialized at tests/contract3/approval/driver.ts
+// in a temporary tree beside a copy of the stamped kernel and the approval
+// add-on under test, and linted there with the contract3 configuration. It
+// composes the real add-on with the disposable coordination fixture and stops
+// at named readiness barriers: it prints {"barrier": name} and waits for one
+// stdin line before continuing, so the parent orders phases without sleeps.
+import {
+  appendFileSync,
+  closeSync,
+  existsSync,
+  fsyncSync,
+  openSync,
+  readFileSync,
+  writeSync,
+} from "node:fs";
 import { createInterface } from "node:readline";
-import { changing, command, commonCauses, contractFor, station } from "../kernel/index.ts";
-import { approval, authorityVerifier } from "../addons/approval/index.ts";
-import type { ClosureItem, StopItem } from "../addons/approval/index.ts";
-import { FixtureLock, exclusiveScope, state } from "../addons/state/coordination.ts";
+import {
+  changing,
+  command,
+  commonCauses,
+  contractFor,
+  station,
+} from "../../../starters/contract3/src/kernel/index.ts";
+import {
+  ApprovalRejection,
+  approval,
+  authorityVerifier,
+} from "../../../starters/contract3/src/addons/approval/index.ts";
+import type {
+  ClosureItem,
+  StopItem,
+} from "../../../starters/contract3/src/addons/approval/index.ts";
+import {
+  FixtureLock,
+  exclusiveScope,
+  state,
+} from "../../../starters/contract3/src/addons/state/coordination.ts";
+import { adversarialSource } from "./harness.ts";
 
-type Barrier = "after-preflight" | "after-acquire" | "after-consume" | "after-effect";
+// Narrow runtime parse of the parent's argv and item files. Any mismatch
+// throws, so a malformed config fails the child run instead of guessing.
+type Fields = ReadonlyMap<string, unknown>;
+function fields(value: unknown): Fields {
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    throw new Error("Driver input must be an object.");
+  return new Map<string, unknown>(Object.entries(value));
+}
+function text(map: Fields, key: string): string {
+  const value = map.get(key);
+  if (typeof value !== "string") throw new Error(`Driver ${key} must be text.`);
+  return value;
+}
+function texts(map: Fields, key: string): readonly string[] {
+  const value = map.get(key);
+  if (!Array.isArray(value)) throw new Error(`Driver ${key} must be a list.`);
+  const items: unknown[] = value;
+  return items.map((item) => {
+    if (typeof item !== "string") throw new Error(`Driver ${key} item.`);
+    return item;
+  });
+}
+function oneOf<const T extends string>(
+  map: Fields,
+  key: string,
+  options: readonly T[],
+): T {
+  const value = map.get(key);
+  const found = options.find((option) => option === value);
+  if (found === undefined) throw new Error(`Driver ${key} is not admitted.`);
+  return found;
+}
+function flag(map: Fields, key: string): boolean {
+  const value = map.get(key) ?? false;
+  if (typeof value !== "boolean") throw new Error(`Driver ${key} flag.`);
+  return value;
+}
+
+const barrierNames = [
+  "after-preflight",
+  "after-acquire",
+  "after-consume",
+  "after-effect",
+] as const;
+type Barrier = (typeof barrierNames)[number];
 type World = {
   readonly grants: string;
   readonly ledger: string;
@@ -24,93 +95,162 @@ type Common = {
   readonly world: World;
   readonly runId: string;
   readonly lock: "refuse" | "wait" | "private";
-  readonly coordination?: "released" | "foreign-scope" | "foreign-run";
+  readonly coordination:
+    | "held"
+    | "released"
+    | "foreign-scope"
+    | "foreign-run"
+    | "lost-after-consume";
+  // Marker whose appearance triggers lost-after-consume.
+  readonly lostMarker: string;
   readonly barriers: readonly Barrier[];
 };
-type Config =
-  | { readonly mode: "hold"; readonly world: World }
-  | (Common & {
-      readonly mode: "apply";
-      readonly operation: string;
-      readonly preview: string;
-      readonly authority: string;
-      readonly resource: string;
-      readonly effects: readonly string[];
-    })
-  | (Common & {
-      readonly mode: "authority";
-      readonly kind: "closure" | "stop";
-      readonly source: string;
-      readonly item: string;
-    })
-  | { readonly mode: "kernel"; readonly world: World; readonly invocations: readonly (readonly string[])[] };
 
-// Validation boundary: the parent test writes this argv value.
-const config = JSON.parse(process.argv[2] ?? "null") as Config;
-const lines = createInterface({ input: process.stdin })[Symbol.asyncIterator]();
+function world(map: Fields): World {
+  const value = fields(map.get("world"));
+  return {
+    grants: text(value, "grants"),
+    ledger: text(value, "ledger"),
+    effects: text(value, "effects"),
+    revision: text(value, "revision"),
+    clock: text(value, "clock"),
+    lock: text(value, "lock"),
+    contacts: text(value, "contacts"),
+  };
+}
+function common(map: Fields): Common {
+  const barriers = texts(map, "barriers").map((name) => {
+    const found = barrierNames.find((item) => item === name);
+    if (found === undefined) throw new Error("Unknown barrier.");
+    return found;
+  });
+  return {
+    world: world(map),
+    runId: text(map, "runId"),
+    lock: oneOf(map, "lock", ["refuse", "wait", "private"]),
+    coordination: map.has("coordination")
+      ? oneOf(map, "coordination", [
+          "held",
+          "released",
+          "foreign-scope",
+          "foreign-run",
+          "lost-after-consume",
+        ])
+      : "held",
+    lostMarker: map.has("lostMarker") ? text(map, "lostMarker") : "",
+    barriers,
+  };
+}
+
+const raw: unknown = JSON.parse(process.argv[2] ?? "null");
+const input = fields(raw);
+const lines = createInterface({ input: process.stdin })[
+  Symbol.asyncIterator
+]();
 function emit(event: Record<string, unknown>): void {
   process.stdout.write(`${JSON.stringify(event)}\n`);
 }
-async function barrier(name: Barrier, wanted: readonly Barrier[]): Promise<void> {
+function failure(error: unknown): Record<string, unknown> {
+  return error instanceof ApprovalRejection
+    ? { error: error.reason, consumed: error.consumed }
+    : { error: "unexpected" };
+}
+async function barrier(
+  name: Barrier,
+  wanted: readonly Barrier[],
+): Promise<void> {
   if (!wanted.includes(name)) return;
   emit({ barrier: name });
   const line = await lines.next();
-  if (line.done) throw new Error("Parent closed the barrier.");
+  if (line.done === true) throw new Error("Parent closed the barrier.");
 }
-function now(world: World): number {
-  return Number(readFileSync(world.clock, "utf8"));
+function now(place: World): number {
+  return Number(readFileSync(place.clock, "utf8"));
 }
-function revision(world: World): string {
-  return readFileSync(world.revision, "utf8");
+function revision(place: World): string {
+  return readFileSync(place.revision, "utf8");
 }
 
 async function acquire(settings: Common, scopeName: string) {
-  const lock = new FixtureLock(settings.lock === "private" ? `${settings.world.lock}-${settings.runId}` : settings.world.lock);
-  const acquired = settings.lock === "wait" ? await lock.waitAcquire(10_000) : lock.tryAcquire();
+  const lock = new FixtureLock(
+    settings.lock === "private"
+      ? `${settings.world.lock}-${settings.runId}`
+      : settings.world.lock,
+  );
+  const acquired =
+    settings.lock === "wait"
+      ? await lock.waitAcquire(10_000)
+      : lock.tryAcquire();
   if (!acquired) return undefined;
+  const active = () => {
+    // Lose the real fixture lock once the consumption marker is durable.
+    if (
+      settings.coordination === "lost-after-consume" &&
+      existsSync(settings.lostMarker)
+    )
+      lock.release();
+    return lock.active();
+  };
   const scope = exclusiveScope(
-    settings.coordination === "foreign-run" ? `${settings.runId}-other` : settings.runId,
+    settings.coordination === "foreign-run"
+      ? `${settings.runId}-other`
+      : settings.runId,
     settings.coordination === "foreign-scope" ? `${scopeName}-other` : scopeName,
-    () => lock.active(),
+    active,
   );
   if (settings.coordination === "released") lock.release();
   return { lock, scope };
 }
 
-async function apply(settings: Extract<Config, { mode: "apply" }>): Promise<void> {
-  const { world } = settings;
+const boundary = contractFor({ cli: "boundary", commands: [] }).boundary;
+
+async function apply(map: Fields): Promise<void> {
+  const settings = common(map);
+  const place = settings.world;
+  const preview = text(map, "preview");
+  const dropPreview = flag(map, "dropPreviewUnderLock");
   const { runtime } = approval({
-    operation: settings.operation,
+    operation: text(map, "operation"),
     runId: settings.runId,
-    store: { grants: world.grants, ledger: world.ledger },
-    now: () => now(world),
+    store: { grants: place.grants, ledger: place.ledger },
+    now: () => now(place),
   });
-  const request = (resourceRevision: string) => ({
-    authority: contract.boundary.authority(settings.authority),
-    resource: contract.boundary.resource(settings.resource),
+  const request = (resourceRevision: string, withPreview: boolean) => ({
+    authority: boundary.authority(text(map, "authority")),
+    resource: boundary.resource(text(map, "resource")),
     resourceRevision,
-    effects: settings.effects,
-    preview: settings.preview,
+    effects: texts(map, "effects"),
+    ...(withPreview ? { preview } : {}),
   });
-  const admitted = await runtime.check(request(revision(world)));
+  let admitted: boolean;
+  try {
+    admitted = await runtime.check(request(revision(place), true));
+  } catch (error) {
+    return emit({ phase: "preflight", ...failure(error) });
+  }
   emit({ phase: "preflight", admitted });
   if (!admitted) return;
   await barrier("after-preflight", settings.barriers);
-  const held = await acquire(settings, settings.resource);
+  const held = await acquire(settings, text(map, "resource"));
   if (!held) return emit({ phase: "lock-refused" });
   emit({ phase: "acquired" });
   await barrier("after-acquire", settings.barriers);
   let consumed: boolean;
   try {
-    consumed = (await runtime.revalidateAndConsume(request(revision(world)), held.scope)).admitted;
+    consumed = (
+      await runtime.revalidateAndConsume(
+        request(revision(place), !dropPreview),
+        held.scope,
+      )
+    ).admitted;
   } catch (error) {
     held.lock.release();
-    return emit({ phase: "consume", error: error instanceof Error ? error.message : "unknown" });
+    return emit({ phase: "consume", ...failure(error) });
   }
   emit({ phase: "consume", admitted: consumed });
   if (!consumed) return held.lock.release();
   await barrier("after-consume", settings.barriers);
-  const descriptor = openSync(world.effects, "a");
+  const descriptor = openSync(place.effects, "a");
   writeSync(descriptor, `${settings.runId}\n`);
   fsyncSync(descriptor);
   closeSync(descriptor);
@@ -120,41 +260,80 @@ async function apply(settings: Extract<Config, { mode: "apply" }>): Promise<void
   emit({ phase: "done" });
 }
 
-async function authority(settings: Extract<Config, { mode: "authority" }>): Promise<void> {
-  const { world } = settings;
-  // Adversarial test authority: this fixture source claims separation. It
-  // proves verifier behaviour only and never qualifies production authority.
-  const source = { directory: settings.source, separated: () => Promise.resolve(true) };
+function closureItem(map: Fields): ClosureItem {
+  return {
+    operation: text(map, "operation"),
+    disposition: oneOf(map, "disposition", ["outcome-unknown"]),
+    evidence: text(map, "evidence"),
+    scope: text(map, "scope"),
+  };
+}
+function stopItem(map: Fields): StopItem {
+  const liveConflict = map.get("liveConflict");
+  if (typeof liveConflict !== "boolean") throw new Error("liveConflict.");
+  return {
+    operation: text(map, "operation"),
+    owner: text(map, "owner"),
+    writers: texts(map, "writers"),
+    scope: text(map, "scope"),
+    liveConflict,
+  };
+}
+function readItem(path: string): Fields {
+  const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
+  return fields(parsed);
+}
+
+async function authority(map: Fields): Promise<void> {
+  const settings = common(map);
+  const place = settings.world;
+  const kind = oneOf(map, "kind", ["closure", "stop"]);
+  const itemPath = text(map, "item");
+  // Adversarial test authority from the harness owner: it proves verifier
+  // behaviour only and never qualifies production authority.
+  const source = adversarialSource(text(map, "source"));
   const verifier = authorityVerifier({
     runId: settings.runId,
-    ledger: world.ledger,
-    now: () => now(world),
-    ...(settings.kind === "closure" ? { closure: source } : { stop: source }),
+    ledger: place.ledger,
+    now: () => now(place),
+    ...(kind === "closure" ? { closure: source } : { stop: source }),
   });
-  const read = () => JSON.parse(readFileSync(settings.item, "utf8")) as ClosureItem & StopItem;
-  const slot = settings.kind === "closure" ? verifier.closure : verifier.stop;
-  const first = await slot.preflight(read());
+  type Scope = Parameters<typeof verifier.closure.consume>[1];
+  // Rereads the current item from its file at every step.
+  const step = (scope?: Scope) => {
+    const fresh = readItem(itemPath);
+    if (kind === "closure") {
+      const item = closureItem(fresh);
+      return scope
+        ? verifier.closure.consume(item, scope)
+        : verifier.closure.preflight(item);
+    }
+    const item = stopItem(fresh);
+    return scope
+      ? verifier.stop.consume(item, scope)
+      : verifier.stop.preflight(item);
+  };
+  const first = await step();
   emit({ phase: "preflight", status: first.status });
   if (first.status !== "verified") return;
   await barrier("after-preflight", settings.barriers);
-  const item = read();
-  const held = await acquire(settings, item.scope);
+  const held = await acquire(settings, text(readItem(itemPath), "scope"));
   if (!held) return emit({ phase: "lock-refused" });
   emit({ phase: "acquired" });
   await barrier("after-acquire", settings.barriers);
   try {
-    const verdict = await slot.consume(read(), held.scope);
+    const verdict = await step(held.scope);
     emit({ phase: "consume", status: verdict.status });
   } catch (error) {
-    emit({ phase: "consume", error: error instanceof Error ? error.message : "unknown" });
+    emit({ phase: "consume", ...failure(error) });
   }
   await barrier("after-consume", settings.barriers);
   held.lock.release();
   emit({ phase: "done" });
 }
 
-async function hold(world: World): Promise<void> {
-  const lock = new FixtureLock(world.lock);
+async function hold(place: World): Promise<void> {
+  const lock = new FixtureLock(place.lock);
   if (!lock.tryAcquire()) return emit({ phase: "lock-refused" });
   emit({ barrier: "holding" });
   await lines.next();
@@ -165,9 +344,18 @@ async function hold(world: World): Promise<void> {
 const handoff = {
   owner: "operator",
   reason: "Fixture coordination refusal.",
-  inspect: [{ kind: "command", command: "fixture.case", args: ["{binding.preview}"] }],
+  inspect: [
+    { kind: "command", command: "fixture.case", args: ["{binding.preview}"] },
+  ],
 } as const;
-const refusal = { outcome: "refused", transactionState: "unchanged", failureClass: "domain", exitCode: 3, retryable: false, guidance: "handoff" } as const;
+const refusal = {
+  outcome: "refused",
+  transactionState: "unchanged",
+  failureClass: "domain",
+  exitCode: 3,
+  retryable: false,
+  guidance: "handoff",
+} as const;
 const causes = { FIXTURE_LOCK_HELD: refusal, FIXTURE_UNRESOLVED: refusal };
 function stationFor(causeCode: "FIXTURE_LOCK_HELD" | "FIXTURE_UNRESOLVED") {
   return station(causes, {
@@ -182,25 +370,52 @@ function stationFor(causeCode: "FIXTURE_LOCK_HELD" | "FIXTURE_UNRESOLVED") {
     independentObservable: "fixture-effect-ledger",
   });
 }
-const text = (maxLength: number) => ({ kind: "string", minLength: 1, maxLength, choices: null, pattern: null }) as const;
-const noInput = { arguments: [], options: [], constraints: [], deadlineSupported: false, additionalArguments: false, additionalOptions: false } as const;
-const contract = contractFor({ cli: "boundary", commands: [] });
+const textValue = (maxLength: number) =>
+  ({
+    kind: "string",
+    minLength: 1,
+    maxLength,
+    choices: null,
+    pattern: null,
+  }) as const;
+const noInput = {
+  arguments: [],
+  options: [],
+  constraints: [],
+  deadlineSupported: false,
+  additionalArguments: false,
+  additionalOptions: false,
+} as const;
 
-function kernelContract(world: World) {
+function kernelContract(place: World) {
   const lockHeld = stationFor("FIXTURE_LOCK_HELD");
   const unresolved = stationFor("FIXTURE_UNRESOLVED");
   const pending = command({
     identity: "fixture.pending",
     route: ["pending"],
     summary: "Inspect pending fixture work.",
-    input: { ...noInput, options: [{ name: "--all", aliases: [], summary: "All.", required: false, repeatable: false, value: null }] },
+    input: {
+      ...noInput,
+      options: [
+        {
+          name: "--all",
+          aliases: [],
+          summary: "All.",
+          required: false,
+          repeatable: false,
+          value: null,
+        },
+      ],
+    },
     capabilities: {},
     stations: [
       station(commonCauses, {
         commandIdentity: "fixture.pending",
         causeCode: "SUCCESS_UNCHANGED",
         trigger: "Read pending fixture work.",
-        guidance: { next: { kind: "instruction", text: "Inspect pending fixture state." } },
+        guidance: {
+          next: { kind: "instruction", text: "Inspect pending fixture state." },
+        },
         repairAction: null,
         retryDelayPolicy: { kind: "none" },
         reachability: "required",
@@ -216,7 +431,17 @@ function kernelContract(world: World) {
     identity: "fixture.case",
     route: ["case"],
     summary: "Inspect one fixture case.",
-    input: { ...noInput, arguments: [{ name: "operation", summary: "Case.", required: true, value: text(8) }] },
+    input: {
+      ...noInput,
+      arguments: [
+        {
+          name: "operation",
+          summary: "Case.",
+          required: true,
+          value: textValue(8),
+        },
+      ],
+    },
     capabilities: {},
     run: () => {
       throw new Error("Not exercised.");
@@ -226,7 +451,17 @@ function kernelContract(world: World) {
     identity: "fixture.approve",
     route: ["approve"],
     summary: "Apply one approved fixture preview.",
-    input: { ...noInput, arguments: [{ name: "preview", summary: "Preview.", required: true, value: text(64) }] },
+    input: {
+      ...noInput,
+      arguments: [
+        {
+          name: "preview",
+          summary: "Preview.",
+          required: true,
+          value: textValue(64),
+        },
+      ],
+    },
     futureBindings: { preview: "preview" },
     capabilities: { approval: true },
     effectClass: "repository-local",
@@ -235,52 +470,84 @@ function kernelContract(world: World) {
     heldLockCause: "FIXTURE_LOCK_HELD",
     unresolvedCaseCause: "FIXTURE_UNRESOLVED",
     stations: [lockHeld, unresolved],
-    approval: (input) => ({
-      authority: contract.boundary.authority("owner-a"),
-      resource: contract.boundary.resource("resource-1"),
-      resourceRevision: revision(world),
+    approval: (parsed) => ({
+      authority: boundary.authority("owner-a"),
+      resource: boundary.resource("resource-1"),
+      resourceRevision: revision(place),
       effects: ["note.write"],
-      preview: input.preview,
+      preview: parsed.preview,
     }),
-    run: (_input, context) => {
+    run: (_parsed, context) => {
       emit({ phase: "handler" });
-      return Promise.resolve(context.result(lockHeld, { message: "Fixture handler reached.", data: null, bindings: { preview: "p" }, effects: { completed: [], remaining: [], uncertain: [], inventoryComplete: true } }));
+      return Promise.resolve(
+        context.result(lockHeld, {
+          message: "Fixture handler reached.",
+          data: null,
+          bindings: { preview: "p" },
+          effects: {
+            completed: [],
+            remaining: [],
+            uncertain: [],
+            inventoryComplete: true,
+          },
+        }),
+      );
     },
   });
-  return contractFor({ cli: "fixture", commands: [approve, pending, inspectCase], causes, state, installedAddons: ["state", "approval"] });
+  return contractFor({
+    cli: "fixture",
+    commands: [approve, pending, inspectCase],
+    causes,
+    state,
+    installedAddons: ["state", "approval"],
+  });
 }
 
-async function kernel(settings: Extract<Config, { mode: "kernel" }>): Promise<void> {
-  const { world } = settings;
-  const kernelUnderTest = kernelContract(world);
-  for (const [index, argv] of settings.invocations.entries()) {
+async function kernel(map: Fields): Promise<void> {
+  const place = world(map);
+  const kernelUnderTest = kernelContract(place);
+  const raws = map.get("invocations");
+  if (!Array.isArray(raws)) throw new Error("Driver invocations.");
+  const invocations: unknown[] = raws;
+  for (const [index, argv] of invocations.entries()) {
     const runId = `kernel-${index}`;
-    const { capability } = approval({ operation: "fixture.approve", runId, store: { grants: world.grants, ledger: world.ledger }, now: () => now(world) });
+    const { capability } = approval({
+      operation: "fixture.approve",
+      runId,
+      store: { grants: place.grants, ledger: place.ledger },
+      now: () => now(place),
+    });
     const observed = {
       approval: {
         check(request: Parameters<typeof capability.check>[0]) {
-          appendFileSync(world.contacts, `${runId}\n`);
+          appendFileSync(place.contacts, `${runId}\n`);
           return capability.check(request);
         },
       },
     };
-    const result = await kernelUnderTest.execute("fixture.approve", argv, runId, observed);
+    const result = await kernelUnderTest.execute(
+      "fixture.approve",
+      argv,
+      runId,
+      observed,
+    );
     emit({ phase: "kernel", index, result: result.ok ? { ok: true } : result });
   }
 }
 
-switch (config.mode) {
+const mode = oneOf(input, "mode", ["hold", "apply", "authority", "kernel"]);
+switch (mode) {
   case "hold":
-    await hold(config.world);
+    await hold(world(input));
     break;
   case "apply":
-    await apply(config);
+    await apply(input);
     break;
   case "authority":
-    await authority(config);
+    await authority(input);
     break;
   case "kernel":
-    await kernel(config);
+    await kernel(input);
     break;
 }
 process.exit(0);

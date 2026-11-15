@@ -20,16 +20,16 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { join } from "node:path";
-import {
-  approval,
-  authorityLocation,
-} from "../../../starters/contract3/src/addons/approval/index.ts";
+import { approval } from "../../../starters/contract3/src/addons/approval/index.ts";
 import { contractFor } from "../../../starters/contract3/src/kernel/index.ts";
 import {
   Driver,
   applyConfig,
+  authorityRecordPath,
+  closureItem,
+  closureRecord,
   createWorld,
-  expectedFor,
+  expectCase,
   grant,
   markerName,
   materialize,
@@ -37,6 +37,9 @@ import {
   removeAll,
   run,
   snapshot,
+  stopItem,
+  stopLiveDrivers,
+  stopRecord,
   writeGrant,
 } from "./harness.ts";
 import type { DriverConfig, World } from "./harness.ts";
@@ -53,6 +56,7 @@ beforeEach(async () => {
   world = await createWorld();
 });
 afterEach(async () => {
+  await stopLiveDrivers();
   await removeAll(world.root);
 });
 
@@ -63,25 +67,56 @@ const clean = { exit: 0, signal: null, stderr: "" };
 function phases(events: readonly unknown[]): string[] {
   return events.map((event) => JSON.stringify(event));
 }
+// Positive classification: each outcome needs the exact phase and result
+// the child reported. Anything else, including a crash, is "unexpected".
 function applyOutcome(events: readonly unknown[]): string {
   const seen = phases(events);
-  if (seen.includes('{"phase":"lock-refused"}')) return "lock-refused";
-  if (seen.some((item) => item.startsWith('{"phase":"consume","error"')))
+  const has = (event: object) => seen.includes(JSON.stringify(event));
+  if (has({ phase: "lock-refused" })) return "lock-refused";
+  if (
+    has({ phase: "consume", error: "coordination-not-held", consumed: false })
+  )
     return "coordination-error";
-  if (seen.includes('{"phase":"effect"}') && seen.includes('{"phase":"done"}'))
+  if (has({ phase: "consume", error: "coordination-lost", consumed: true }))
+    return "coordination-lost";
+  if (
+    has({ phase: "consume", admitted: true }) &&
+    has({ phase: "effect" }) &&
+    has({ phase: "done" })
+  )
     return "admitted";
-  return "denied";
+  if (
+    has({ phase: "preflight", admitted: false }) ||
+    has({ phase: "consume", admitted: false })
+  )
+    return "denied";
+  return "unexpected";
 }
 function authorityOutcome(events: readonly unknown[]): string {
   const seen = phases(events);
-  if (seen.some((item) => item.startsWith('{"phase":"consume","error"')))
+  const has = (event: object) => seen.includes(JSON.stringify(event));
+  if (
+    has({ phase: "consume", error: "coordination-not-held", consumed: false })
+  )
     return "coordination-error";
-  if (seen.includes('{"phase":"consume","status":"verified"}'))
-    return "verified";
-  return "refused";
+  if (has({ phase: "consume", error: "coordination-lost", consumed: true }))
+    return "coordination-lost";
+  if (has({ phase: "consume", status: "verified" })) return "verified";
+  if (
+    has({ phase: "preflight", status: "refused" }) ||
+    has({ phase: "consume", status: "refused" })
+  )
+    return "refused";
+  return "unexpected";
+}
+// Every complete child run must exit cleanly with empty stderr.
+async function runClean(config: DriverConfig) {
+  const result = await run(tree.driver, config);
+  expect(result).toMatchObject(clean);
+  return result;
 }
 function apply(runId: string, overrides: DriverConfig = {}) {
-  return run(tree.driver, applyConfig(world, runId, overrides));
+  return runClean(applyConfig(world, runId, overrides));
 }
 function startApply(runId: string, overrides: DriverConfig = {}) {
   return new Driver(tree.driver, applyConfig(world, runId, overrides));
@@ -139,8 +174,9 @@ test("A01.b-apply-consumes-once", async () => {
   expect(result).toMatchObject(clean);
   expect(after.markers).toEqual([approvalMarker]);
   expect(after.effects).toEqual(["run-1"]);
-  expect(observation(applyOutcome(result.events), before, after)).toEqual(
-    expectedFor("A01.b-apply-consumes-once"),
+  expectCase(
+    "A01.b-apply-consumes-once",
+    observation(applyOutcome(result.events), before, after),
   );
 });
 
@@ -154,7 +190,7 @@ for (const [id, argv] of inputCases)
   test(id, async () => {
     await writeGrant(world, grant);
     const before = await snapshot(world);
-    const result = await run(tree.driver, {
+    const result = await runClean({
       mode: "kernel",
       world,
       invocations: [argv, ["p-1"]],
@@ -173,7 +209,7 @@ for (const [id, argv] of inputCases)
     const outcome = JSON.stringify(refusal).includes('"path":"approval"')
       ? "denied"
       : "input-refused";
-    expect(observation(outcome, before, after)).toEqual(expectedFor(id));
+    expectCase(id, observation(outcome, before, after));
   });
 
 test("A03.f-identical-kernel-refusal", async () => {
@@ -195,7 +231,7 @@ test("A03.f-identical-kernel-refusal", async () => {
     "p-op",
   );
   const before = await snapshot(world);
-  const result = await run(tree.driver, {
+  const result = await runClean({
     mode: "kernel",
     world,
     invocations: [["p-miss"], ["p-exp"], ["p-rev"], ["p-used"], ["p-op"]],
@@ -217,8 +253,9 @@ test("A03.f-identical-kernel-refusal", async () => {
     ),
   );
   expect(phases(result.events)).not.toContain('{"phase":"handler"}');
-  expect(observation("denied", before, after)).toEqual(
-    expectedFor("A03.f-identical-kernel-refusal"),
+  expectCase(
+    "A03.f-identical-kernel-refusal",
+    observation("denied", before, after),
   );
 });
 
@@ -248,8 +285,9 @@ test("A03.g-identical-consume-refusal", async () => {
     consumeEvents.push(
       ...phases(driver.events).filter((item) => item.includes('"consume"')),
     );
-    expect(observation(applyOutcome(driver.events), before, after)).toEqual(
-      expectedFor("A03.g-identical-consume-refusal"),
+    expectCase(
+      "A03.g-identical-consume-refusal",
+      observation(applyOutcome(driver.events), before, after),
     );
   }
   expect(consumeEvents).toEqual(
@@ -290,9 +328,10 @@ for (const [id, change] of waits)
     expect(phases(driver.events)).toContain(
       '{"phase":"consume","admitted":false}',
     );
-    expect(
+    expectCase(
+      id,
       observation(applyOutcome(driver.events), before, await snapshot(world)),
-    ).toEqual(expectedFor(id));
+    );
   });
 
 test("A07.a-refusal-preserves and A07.b-later-success-once", async () => {
@@ -302,15 +341,17 @@ test("A07.a-refusal-preserves and A07.b-later-success-once", async () => {
   const refused = await apply("refused");
   const middle = await snapshot(world);
   expect(refused).toMatchObject(clean);
-  expect(observation(applyOutcome(refused.events), before, middle)).toEqual(
-    expectedFor("A07.a-refusal-preserves"),
+  expectCase(
+    "A07.a-refusal-preserves",
+    observation(applyOutcome(refused.events), before, middle),
   );
   await held.go();
   expect(await held.finish()).toMatchObject(clean);
   const later = await apply("later");
   const after = await snapshot(world);
-  expect(observation(applyOutcome(later.events), middle, after)).toEqual(
-    expectedFor("A07.b-later-success-once"),
+  expectCase(
+    "A07.b-later-success-once",
+    observation(applyOutcome(later.events), middle, after),
   );
   expect(applyOutcome((await apply("again")).events)).toBe("denied");
   expect((await snapshot(world)).effects).toEqual(["later"]);
@@ -344,36 +385,53 @@ test("A08.a-locked-contenders", async () => {
     '{"phase":"consume","admitted":true}',
   ]);
   expect(after.markers).toEqual([approvalMarker]);
-  expect(observation("admitted", before, after)).toEqual(
-    expectedFor("A08.a-locked-contenders"),
-  );
+  expectCase("A08.a-locked-contenders", observation("admitted", before, after));
 });
 
+// Widened race (R3): several barrier-released rounds of several contenders,
+// each holding only a private fixture scope, so exclusive creation alone
+// must decide. Every round needs exactly one admission and one marker.
+const atomicRounds = 5;
+const atomicContenders = 6;
 test("A08.b-consumption-atomic-without-lock", async () => {
-  await writeGrant(world, grant);
-  const contenders = ["left", "right"].map((runId) =>
-    startApply(runId, { lock: "private", barriers: ["after-acquire"] }),
-  );
-  for (const contender of contenders) {
-    expect(await contender.next()).toEqual({
-      phase: "preflight",
-      admitted: true,
-    });
-    expect(await contender.next()).toEqual({ phase: "acquired" });
-    expect(await contender.next()).toEqual({ barrier: "after-acquire" });
+  for (let round = 0; round < atomicRounds; round++) {
+    const preview = `p-r${round}`;
+    await writeGrant(world, { ...grant, preview }, preview);
+    const contenders = Array.from({ length: atomicContenders }, (_, index) =>
+      startApply(`r${round}-c${index}`, {
+        preview,
+        lock: "private",
+        barriers: ["after-acquire"],
+      }),
+    );
+    for (const contender of contenders) {
+      expect(await contender.next()).toEqual({
+        phase: "preflight",
+        admitted: true,
+      });
+      expect(await contender.next()).toEqual({ phase: "acquired" });
+      expect(await contender.next()).toEqual({ barrier: "after-acquire" });
+    }
+    const before = await snapshot(world);
+    await Promise.all(contenders.map((contender) => contender.go()));
+    for (const contender of contenders)
+      expect(await contender.finish()).toMatchObject(clean);
+    const after = await snapshot(world);
+    const outcomes = contenders.map((contender) =>
+      applyOutcome(contender.events),
+    );
+    expect(outcomes.filter((item) => item === "admitted").length).toBe(1);
+    expect(outcomes.filter((item) => item === "denied").length).toBe(
+      atomicContenders - 1,
+    );
+    expect(after.markers).toEqual(
+      [...before.markers, markerName(["approval", preview])].sort(),
+    );
+    expectCase(
+      "A08.b-consumption-atomic-without-lock",
+      observation("admitted", before, after),
+    );
   }
-  const before = await snapshot(world);
-  await Promise.all(contenders.map((contender) => contender.go()));
-  for (const contender of contenders)
-    expect(await contender.finish()).toMatchObject(clean);
-  const after = await snapshot(world);
-  const admitted = contenders.filter((contender) =>
-    phases(contender.events).includes('{"phase":"consume","admitted":true}'),
-  );
-  expect(admitted.length).toBe(1);
-  expect(observation("admitted", before, after)).toEqual(
-    expectedFor("A08.b-consumption-atomic-without-lock"),
-  );
 });
 
 test("A09.a-phase-observations", async () => {
@@ -395,7 +453,7 @@ test("A09.a-phase-observations", async () => {
   expect(await driver.next()).toEqual({ phase: "acquired" });
   expect(await driver.next()).toEqual({ barrier: "after-acquire" });
   expect(await snapshot(world)).toEqual(before);
-  const probe = await run(tree.driver, { mode: "hold", world });
+  const probe = await runClean({ mode: "hold", world });
   expect(phases(probe.events)).toEqual(['{"phase":"lock-refused"}']);
   await driver.go();
   expect(await driver.next()).toEqual({ phase: "consume", admitted: true });
@@ -414,9 +472,10 @@ test("A09.a-phase-observations", async () => {
   await driver.go();
   expect(await driver.finish()).toMatchObject(clean);
   expect(await lockHeld()).toBe(false);
-  expect(
+  expectCase(
+    "A09.a-phase-observations",
     observation(applyOutcome(driver.events), before, await snapshot(world)),
-  ).toEqual(expectedFor("A09.a-phase-observations"));
+  );
 });
 
 test("A09.b-inactive-coordination", async () => {
@@ -424,9 +483,10 @@ test("A09.b-inactive-coordination", async () => {
   const before = await snapshot(world);
   const result = await apply("released", { coordination: "released" });
   expect(result).toMatchObject(clean);
-  expect(
+  expectCase(
+    "A09.b-inactive-coordination",
     observation(applyOutcome(result.events), before, await snapshot(world)),
-  ).toEqual(expectedFor("A09.b-inactive-coordination"));
+  );
   expect(await inspect()).toBe(true);
 });
 
@@ -440,8 +500,9 @@ test("A09.c-foreign-scope", async () => {
     outcomes.push(applyOutcome(result.events));
   }
   expect(outcomes).toEqual(["coordination-error", "coordination-error"]);
-  expect(observation(outcomes[0] ?? "", before, await snapshot(world))).toEqual(
-    expectedFor("A09.c-foreign-scope"),
+  expectCase(
+    "A09.c-foreign-scope",
+    observation(outcomes[0] ?? "", before, await snapshot(world)),
   );
 });
 
@@ -467,8 +528,9 @@ test("A10.a-kill-after-preflight", async () => {
   const killed = await killAt("after-preflight");
   expect(killed.signal).toBe("SIGKILL");
   const after = await snapshot(world);
-  expect(observation("killed", before, after)).toEqual(
-    expectedFor("A10.a-kill-after-preflight"),
+  expectCase(
+    "A10.a-kill-after-preflight",
+    observation("killed", before, after),
   );
   expect(await inspect()).toBe(true);
   expect((await snapshot(world)).effects).toEqual([]);
@@ -479,8 +541,9 @@ test("A10.b-kill-after-acquire", async () => {
   const before = await snapshot(world);
   const killed = await killAt("after-acquire");
   expect(killed.signal).toBe("SIGKILL");
-  expect(observation("killed", before, await snapshot(world))).toEqual(
-    expectedFor("A10.b-kill-after-acquire"),
+  expectCase(
+    "A10.b-kill-after-acquire",
+    observation("killed", before, await snapshot(world)),
   );
   expect(await lockHeld()).toBe(true);
   expect(applyOutcome((await apply("blocked")).events)).toBe("lock-refused");
@@ -494,8 +557,9 @@ test("A11.a-kill-after-consume", async () => {
   const before = await snapshot(world);
   const killed = await killAt("after-consume");
   expect(killed.signal).toBe("SIGKILL");
-  expect(observation("killed", before, await snapshot(world))).toEqual(
-    expectedFor("A11.a-kill-after-consume"),
+  expectCase(
+    "A11.a-kill-after-consume",
+    observation("killed", before, await snapshot(world)),
   );
   await qualifiedFixtureRelease();
   expect(await inspect()).toBe(false);
@@ -510,8 +574,9 @@ test("A12.a-kill-after-effect", async () => {
   const before = await snapshot(world);
   const killed = await killAt("after-effect");
   expect(killed.signal).toBe("SIGKILL");
-  expect(observation("killed", before, await snapshot(world))).toEqual(
-    expectedFor("A12.a-kill-after-effect"),
+  expectCase(
+    "A12.a-kill-after-effect",
+    observation("killed", before, await snapshot(world)),
   );
   await qualifiedFixtureRelease();
   expect(applyOutcome((await apply("repeat")).events)).toBe("denied");
@@ -539,9 +604,10 @@ test("A13.a-torn-marker", async () => {
     expect(await inspect()).toBe(false);
     await driver.go();
     expect(await driver.finish()).toMatchObject(clean);
-    expect(
+    expectCase(
+      "A13.a-torn-marker",
       observation(applyOutcome(driver.events), before, await snapshot(world)),
-    ).toEqual(expectedFor("A13.a-torn-marker"));
+    );
   }
 });
 
@@ -551,14 +617,16 @@ test("A14.a-reuse-denied and A14.b-reissued-grant-denied", async () => {
   const before = await snapshot(world);
   const reuse = await apply("reuse");
   const middle = await snapshot(world);
-  expect(observation(applyOutcome(reuse.events), before, middle)).toEqual(
-    expectedFor("A14.a-reuse-denied"),
+  expectCase(
+    "A14.a-reuse-denied",
+    observation(applyOutcome(reuse.events), before, middle),
   );
   await writeGrant(world, { ...grant, expiresAt: 9000 });
   const reissued = await apply("reissued");
-  expect(
+  expectCase(
+    "A14.b-reissued-grant-denied",
     observation(applyOutcome(reissued.events), middle, await snapshot(world)),
-  ).toEqual(expectedFor("A14.b-reissued-grant-denied"));
+  );
   expect((await snapshot(world)).effects).toEqual(["first"]);
 });
 
@@ -575,54 +643,19 @@ test("A15.a-inspection-under-held-lock", async () => {
     '{"barrier":"holding"}',
     '{"phase":"done"}',
   ]);
-  expect(observation(admitted ? "admitted" : "denied", before, after)).toEqual(
-    expectedFor("A15.a-inspection-under-held-lock"),
+  expectCase(
+    "A15.a-inspection-under-held-lock",
+    observation(admitted ? "admitted" : "denied", before, after),
   );
 });
 
-// Human authority records for the adversarial test source in the driver.
-const closureRecord = {
-  format: "contract3.closure-authority",
-  version: 1,
-  operation: "op-1",
-  disposition: "outcome-unknown",
-  evidence: "ev-1",
-  scope: "resource-1",
-  expiresAt: 5000,
-};
-const closureItem = {
-  operation: "op-1",
-  disposition: "outcome-unknown",
-  evidence: "ev-1",
-  scope: "resource-1",
-};
-const stopRecord = {
-  format: "contract3.stop-attestation",
-  version: 1,
-  operation: "op-1",
-  owner: "owner-1",
-  writers: ["w-1", "w-2"],
-  scope: "resource-1",
-  expiresAt: 5000,
-};
-const stopItem = {
-  operation: "op-1",
-  owner: "owner-1",
-  writers: ["w-1", "w-2"],
-  scope: "resource-1",
-  liveConflict: false,
-};
-const source = () => ({
-  directory: world.authority,
-  separated: () => Promise.resolve(true),
-});
 async function placeAuthority(): Promise<void> {
   await writeFile(
-    authorityLocation(source(), "closure", ["op-1"]),
+    authorityRecordPath(world, "closure", ["op-1"]),
     JSON.stringify(closureRecord),
   );
   await writeFile(
-    authorityLocation(source(), "stop", ["op-1", "owner-1"]),
+    authorityRecordPath(world, "stop", ["op-1", "owner-1"]),
     JSON.stringify(stopRecord),
   );
 }
@@ -675,10 +708,8 @@ for (const [id, kind, item, parts] of exactAuthority)
     expect(await driver.finish()).toMatchObject(clean);
     const after = await snapshot(world);
     expect(after.markers).toEqual([markerName(parts)]);
-    expect(observation(authorityOutcome(driver.events), before, after)).toEqual(
-      expectedFor(id),
-    );
-    const again = await run(tree.driver, authorityConfig(kind, "again"));
+    expectCase(id, observation(authorityOutcome(driver.events), before, after));
+    const again = await runClean(authorityConfig(kind, "again"));
     expect(phases(again.events)).toEqual([
       '{"phase":"preflight","status":"refused"}',
     ]);
@@ -721,13 +752,14 @@ for (const [id, kind, item, changed] of changedWhileWaiting)
     await held.go();
     expect(await held.finish()).toMatchObject(clean);
     expect(await driver.finish()).toMatchObject(clean);
-    expect(
+    expectCase(
+      id,
       observation(
         authorityOutcome(driver.events),
         before,
         await snapshot(world),
       ),
-    ).toEqual(expectedFor(id));
+    );
   });
 
 test("S03.a-inactive-coordination", async () => {
@@ -739,15 +771,16 @@ test("S03.a-inactive-coordination", async () => {
     authorityConfig("stop", "released", { coordination: "released" }),
   );
   expect(released).toMatchObject(clean);
-  expect(
+  expectCase(
+    "S03.a-inactive-coordination",
     observation(
       authorityOutcome(released.events),
       before,
       await snapshot(world),
     ),
-  ).toEqual(expectedFor("S03.a-inactive-coordination"));
+  );
   // The still-valid attestation remains usable under real coordination.
-  const later = await run(tree.driver, authorityConfig("stop", "later"));
+  const later = await runClean(authorityConfig("stop", "later"));
   expect(authorityOutcome(later.events)).toBe("verified");
 });
 
@@ -769,17 +802,18 @@ test("S05.a-kill-after-attestation-consume", async () => {
   expect((await driver.finish()).signal).toBe("SIGKILL");
   const after = await snapshot(world);
   expect(after.markers).toEqual([markerName(["stop", "op-1", "owner-1"])]);
-  expect(observation("killed", before, after)).toEqual(
-    expectedFor("S05.a-kill-after-attestation-consume"),
+  expectCase(
+    "S05.a-kill-after-attestation-consume",
+    observation("killed", before, after),
   );
   // No refund; closure and domain approval stay unconsumed.
   await qualifiedFixtureRelease();
-  const repeat = await run(tree.driver, authorityConfig("stop", "repeat"));
+  const repeat = await runClean(authorityConfig("stop", "repeat"));
   expect(phases(repeat.events)).toEqual([
     '{"phase":"preflight","status":"refused"}',
   ]);
   await itemFile(closureItem);
-  const closure = await run(tree.driver, authorityConfig("closure", "closure"));
+  const closure = await runClean(authorityConfig("closure", "closure"));
   expect(phases(closure.events)[0]).toBe(
     '{"phase":"preflight","status":"verified"}',
   );
@@ -790,11 +824,115 @@ test("S06.c-approval-separate", async () => {
   await placeAuthority();
   await writeGrant(world, grant);
   await itemFile(stopItem);
-  const takeover = await run(tree.driver, authorityConfig("stop", "takeover"));
+  const takeover = await runClean(authorityConfig("stop", "takeover"));
   expect(authorityOutcome(takeover.events)).toBe("verified");
   const before = await snapshot(world);
   const applied = await apply("domain");
-  expect(
+  expectCase(
+    "S06.c-approval-separate",
     observation(applyOutcome(applied.events), before, await snapshot(world)),
-  ).toEqual(expectedFor("S06.c-approval-separate"));
+  );
 });
+
+// R1 supporting cases: coordination lost after the marker is durable.
+test("T4S.r1-approval-coordination-lost: consumed, no effect, no refund", async () => {
+  await writeGrant(world, grant);
+  const before = await snapshot(world);
+  const lost = await apply("lost", {
+    coordination: "lost-after-consume",
+    lostMarker: join(world.ledger, approvalMarker),
+  });
+  expect(applyOutcome(lost.events)).toBe("coordination-lost");
+  const after = await snapshot(world);
+  expect(after.markers).toEqual([approvalMarker]);
+  expect(after.effects).toEqual([]);
+  expect(await lockHeld()).toBe(false);
+  expect(before.authority).toBe(after.authority);
+  // The consumed grant is not refunded.
+  expect(applyOutcome((await apply("repeat")).events)).toBe("denied");
+  expect((await snapshot(world)).effects).toEqual([]);
+});
+
+test("T4S.r1-not-held-preserves: coordination missing before consumption keeps the grant", async () => {
+  await writeGrant(world, grant);
+  const released = await apply("released", { coordination: "released" });
+  expect(phases(released.events)).toContain(
+    JSON.stringify({
+      phase: "consume",
+      error: "coordination-not-held",
+      consumed: false,
+    }),
+  );
+  expect((await snapshot(world)).markers).toEqual([]);
+  expect(applyOutcome((await apply("later")).events)).toBe("admitted");
+});
+
+test("T4S.r1-stop-coordination-lost: attestation consumed, no refund", async () => {
+  await placeAuthority();
+  await itemFile(stopItem);
+  const marker = markerName(["stop", "op-1", "owner-1"]);
+  const lost = await runClean(
+    authorityConfig("stop", "lost", {
+      coordination: "lost-after-consume",
+      lostMarker: join(world.ledger, marker),
+    }),
+  );
+  expect(authorityOutcome(lost.events)).toBe("coordination-lost");
+  expect((await snapshot(world)).markers).toEqual([marker]);
+  const repeat = await runClean(authorityConfig("stop", "repeat"));
+  expect(phases(repeat.events)).toEqual([
+    '{"phase":"preflight","status":"refused"}',
+  ]);
+});
+
+test("T4S.r7-no-preview-under-lock: revalidation without a preview denies and preserves", async () => {
+  await writeGrant(world, grant);
+  const dropped = await apply("dropped", { dropPreviewUnderLock: true });
+  expect(phases(dropped.events)).toContain(
+    '{"phase":"consume","admitted":false}',
+  );
+  const after = await snapshot(world);
+  expect(after.markers).toEqual([]);
+  expect(after.effects).toEqual([]);
+  expect(applyOutcome((await apply("with-preview")).events)).toBe("admitted");
+});
+
+// R5: the materialized fixtures are linted with the contract3 configuration.
+test("T4S.r5-fixture-lint: the materialized tree passes contract3 lint", async () => {
+  const child = Bun.spawn(
+    [
+      join(tree.root, "node_modules/.bin/eslint"),
+      "--max-warnings",
+      "0",
+      "--format",
+      "json",
+      ".",
+    ],
+    { cwd: tree.root, stdout: "pipe", stderr: "pipe" },
+  );
+  const [stdout, stderr, exit] = await Promise.all([
+    new Response(child.stdout).text(),
+    new Response(child.stderr).text(),
+    child.exited,
+  ]);
+  expect({ exit, stderr }).toEqual({ exit: 0, stderr: "" });
+  const report: unknown = JSON.parse(stdout);
+  const files = Array.isArray(report)
+    ? report.flatMap((entry: unknown) =>
+        typeof entry === "object" &&
+        entry !== null &&
+        "filePath" in entry &&
+        typeof entry.filePath === "string" &&
+        "messages" in entry &&
+        Array.isArray(entry.messages)
+          ? [[entry.filePath.slice(tree.root.length), entry.messages.length]]
+          : [],
+      )
+    : [];
+  // The fixtures were linted, not silently skipped, and have no findings.
+  expect(files).toContainEqual(["/tests/contract3/approval/driver.ts", 0]);
+  expect(files).toContainEqual([
+    "/starters/contract3/src/addons/state/coordination.ts",
+    0,
+  ]);
+}, 120_000);
