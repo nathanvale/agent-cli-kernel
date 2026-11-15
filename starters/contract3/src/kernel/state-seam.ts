@@ -63,6 +63,20 @@ export type StateIssuer = {
   ) => ExclusiveScope;
 };
 const routes = new WeakSet<object>();
+// One attachment allows one transaction and one proof (F13). An earlier proof
+// can therefore never stand in for a later transaction on the same attachment.
+type AttachedRun = {
+  transactionStarted: boolean;
+  proofState: TransactionState | undefined;
+};
+const attachedRuns = new WeakMap<object, AttachedRun>();
+type IssuedScope = {
+  readonly runId: string;
+  readonly installation: object;
+  readonly run: object;
+  readonly isActive: () => boolean;
+};
+const scopes = new WeakMap<object, IssuedScope>();
 const proofs = new WeakMap<
   object,
   {
@@ -88,9 +102,48 @@ export function knownProof(
     registration.runs.get(runId) === proof.run
   );
 }
+// A changing result without a proof (a refusal) may follow no transaction, or
+// only one whose proof reports `unchanged`; anything else would hide effects.
+export function proofFreeResultAllowed(
+  runId: string,
+  descriptor: StateAddonDescriptor | undefined,
+): boolean {
+  const run = descriptor
+    ? registrations.get(descriptor)?.runs.get(runId)
+    : undefined;
+  const attached = run ? attachedRuns.get(run) : undefined;
+  return !attached?.transactionStarted || attached.proofState === "unchanged";
+}
+// Runtime counterpart of the ExclusiveScope brand (K2): true only for the
+// kernel-issued object itself, for the run's current attachment, from the
+// given installation when a descriptor is supplied, while isActive() is true.
+export function issuedScope(
+  value: unknown,
+  runId: string,
+  descriptor?: StateAddonDescriptor,
+): boolean {
+  const issued =
+    typeof value === "object" && value !== null ? scopes.get(value) : undefined;
+  const registration = descriptor ? registrations.get(descriptor) : undefined;
+  if (
+    !issued ||
+    issued.runId !== runId ||
+    (descriptor !== undefined &&
+      registration?.installation !== issued.installation) ||
+    installationRuns.get(issued.installation)?.get(runId) !== issued.run
+  )
+    return false;
+  try {
+    return issued.isActive() === true;
+  } catch {
+    return false;
+  }
+}
+const installationRuns = new WeakMap<object, ReadonlyMap<string, object>>();
 function stateIssuer(
   installation: object,
   active: AsyncLocalStorage<{ readonly runId: string; readonly run: object }>,
+  runs: ReadonlyMap<string, object>,
 ): StateIssuer {
   return Object.freeze({
     ifNoResult<Identity extends string>(
@@ -138,6 +191,9 @@ function stateIssuer(
       if (!execution || execution.runId !== runId)
         throw new Error("Transaction proof requires the active attached run.");
       const run = execution.run;
+      const attached = attachedRuns.get(run);
+      if (!attached || attached.proofState !== undefined)
+        throw new Error("One transaction proof per attached run.");
       const proof: TransactionProof<Effect> = {
         ...structuredClone(observation),
         [transactionProof]: true,
@@ -149,6 +205,7 @@ function stateIssuer(
       Object.freeze(proof.effects);
       Object.freeze(proof);
       proofs.set(proof, { runId, installation, run });
+      attached.proofState = proof.transactionState;
       return proof;
     },
     exclusiveScope(
@@ -156,12 +213,16 @@ function stateIssuer(
       scope: string,
       isActive: () => boolean,
     ): ExclusiveScope {
-      return Object.freeze({
+      const run = runs.get(runId);
+      if (!run) throw new Error("Exclusive scope requires the attached run.");
+      const issued = Object.freeze({
         [exclusiveScope]: true as const,
         runId,
         scope,
         isActive,
       });
+      scopes.set(issued, { runId, installation, run, isActive });
+      return issued;
     },
   });
 }
@@ -199,7 +260,8 @@ export function createStateAddon(
     readonly runId: string;
     readonly run: object;
   }>();
-  const registration = install(stateIssuer(installation, active));
+  installationRuns.set(installation, runs);
+  const registration = install(stateIssuer(installation, active, runs));
   if (!knownRoute(registration.ifNoResult))
     throw new Error(
       "State installer did not provide an issued recovery route.",
@@ -223,11 +285,21 @@ export function attachState<Effect extends string>(
   const state = registrations.get(descriptor);
   if (!state) throw new Error("Unadmitted state descriptor.");
   const run = Object.freeze({});
+  const status: AttachedRun = {
+    transactionStarted: false,
+    proofState: undefined,
+  };
+  attachedRuns.set(run, status);
   state.runs.set(runId, run);
   const attached = state.registration.attach(runId, effects);
   const capability: import("./capabilities.ts").StateCapability<Effect> =
     Object.freeze({
       transaction(work) {
+        // Refused before the work starts, so overlapping and later calls
+        // cannot complete an effect the first proof does not report.
+        if (status.transactionStarted)
+          return Promise.reject(new Error("One transaction per attached run."));
+        status.transactionStarted = true;
         return state.active.run({ runId, run }, () =>
           attached.transaction(work),
         );

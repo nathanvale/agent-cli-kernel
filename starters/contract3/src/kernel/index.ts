@@ -10,7 +10,12 @@ import type {
   RunFacts,
   AddonName,
 } from "./registration.ts";
-import { admittedState, createStateAddon, attachState } from "./state-seam.ts";
+import {
+  admittedState,
+  createStateAddon,
+  attachState,
+  proofFreeResultAllowed,
+} from "./state-seam.ts";
 import type { StateAddonDescriptor } from "./state-seam.ts";
 import type { CauseTable } from "./types.ts";
 import { proofValue } from "./validation/state.ts";
@@ -29,6 +34,7 @@ import { wireResult } from "./validation/result.ts";
 
 export { command, changing } from "./declarations.ts";
 export { station } from "./stations.ts";
+export { issuedScope } from "./state-seam.ts";
 export { commonCauses } from "./causes.ts";
 export function contractFor<
   const Cli extends string,
@@ -141,7 +147,16 @@ export function contractFor<
           reason: "state-issued transaction proof required",
         } as const;
       runFacts.effects = proof.effects;
-    }
+    } else if (
+      command.effectClass !== "inspect" &&
+      typeof facts.runId === "string" &&
+      !proofFreeResultAllowed(facts.runId, spec.state)
+    )
+      return {
+        ok: false,
+        path: "transaction",
+        reason: "a transaction on this run requires its proof",
+      } as const;
     const result = {
       ...runFacts,
       ...row,
