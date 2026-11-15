@@ -126,11 +126,13 @@ function saveValue(
     setValue(state.values, slot.name, value);
     return;
   }
+  // Append in place to this parse's own array: linear, ordered, never shared
+  // across parses (R1).
   const previous: unknown = Object.hasOwn(state.values, slot.name)
     ? state.values[slot.name]
     : undefined;
-  const entries: readonly unknown[] = Array.isArray(previous) ? previous : [];
-  setValue(state.values, slot.name, [...entries, value]);
+  if (Array.isArray(previous)) previous.push(value);
+  else setValue(state.values, slot.name, [value]);
 }
 async function parseToken(
   schema: InputSchema,
