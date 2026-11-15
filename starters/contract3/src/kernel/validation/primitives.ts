@@ -23,6 +23,49 @@ export function keys(
     )
   );
 }
+// Every own property is traversed, not only enumerable values: a hidden key
+// or hidden toJSON would otherwise validate one shape and serialise another
+// (F06, LIFE-7 step 2). An array has exactly its index keys and its length.
+function arrayIndex(key: string, length: number): boolean {
+  const index = Number(key);
+  return (
+    String(index) === key &&
+    Number.isInteger(index) &&
+    index >= 0 &&
+    index < length
+  );
+}
+// An array has exactly its index keys and its length, on Array.prototype.
+function exactArray(value: object): boolean {
+  if (!Array.isArray(value)) return true;
+  const keys = Reflect.ownKeys(value);
+  return (
+    Object.getPrototypeOf(value) === Array.prototype &&
+    keys.length === value.length + 1 &&
+    keys.every(
+      (key) =>
+        key === "length" ||
+        (typeof key === "string" && arrayIndex(key, value.length)),
+    )
+  );
+}
+// Every own property is traversed, not only enumerable values: a hidden key
+// or hidden toJSON would otherwise validate one shape and serialise another
+// (F06, LIFE-7 step 2).
+function ownJsonValues(value: object): unknown[] | undefined {
+  if (!exactArray(value)) return undefined;
+  const values: unknown[] = [];
+  for (const key of Reflect.ownKeys(value)) {
+    if (Array.isArray(value) && key === "length") continue;
+    const descriptor =
+      typeof key === "string"
+        ? Object.getOwnPropertyDescriptor(value, key)
+        : undefined;
+    if (!descriptor?.enumerable || !("value" in descriptor)) return undefined;
+    values.push(descriptor.value);
+  }
+  return values;
+}
 export function json(
   value: unknown,
   depth = 0,
@@ -34,19 +77,9 @@ export function json(
   if (typeof value === "number") return Number.isFinite(value);
   if (typeof value !== "object" || ancestors.has(value)) return false;
   if (!Array.isArray(value) && !record(value)) return false;
-  if (Reflect.ownKeys(value).some((key) => typeof key === "symbol"))
-    return false;
-  const descriptors = Object.getOwnPropertyDescriptors(value);
-  if (
-    Object.values(descriptors).some(
-      (descriptor) => descriptor.get || descriptor.set,
-    )
-  )
-    return false;
+  const values = ownJsonValues(value);
+  if (!values) return false;
   ancestors.add(value);
-  const values: unknown[] = Array.isArray(value)
-    ? Array.from(value)
-    : Object.values(value);
   const valid = values.every((child) => json(child, depth + 1, ancestors));
   ancestors.delete(value);
   return valid;
