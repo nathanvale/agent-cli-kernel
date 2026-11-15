@@ -11,7 +11,7 @@ import {
   unlink,
   writeFile,
 } from "node:fs/promises";
-import { basename, join } from "node:path";
+import { basename, dirname, join, sep } from "node:path";
 import {
   ApprovalRejection,
   approval,
@@ -37,6 +37,7 @@ import {
   grantPath,
   markerName,
   observation,
+  platformPaths,
   removeAll,
   snapshot,
   stopItem,
@@ -495,75 +496,154 @@ test("C03.b-caller-created-record", async () => {
 });
 
 // R4 supporting checks. The true positive path for a qualified source still
-// needs a second account and stays pending with T8 (C03.c).
-const foreignRoot = "/usr/share";
-const foreignFile = "/usr/share/firmlinks";
+// needs a second account and stays pending with T8 (C03.c). Foreign paths
+// are derived per platform (F1); a missing one is an explicit UNPROVED skip.
+const paths = await platformPaths();
+function testWhen(
+  found: unknown,
+  name: string,
+  missing: string,
+  body: () => Promise<void>,
+): void {
+  if (found) test(name, body);
+  else test.skip(`${name} [UNPROVED on this host: ${missing}]`, body);
+}
 async function factsOf(path: string, override: Partial<RecordFacts> = {}) {
   const { uid, gid, mode, dev, ino } = await lstat(path);
   return { path, uid, gid, mode, dev, ino, ...override };
 }
+const noForeignFile =
+  "no regular, single-link, foreign, non-writable file under /usr/share with a foreign directory chain";
 
-test("T4S.r4-probe-positive-control: a root-owned read-only path separates", async () => {
-  // Supporting control on this macOS host, not authority qualification.
-  const probe = fileSeparation(foreignRoot);
-  expect(await probe()).toBe(true);
-  expect(await probe(await factsOf(foreignFile))).toBe(true);
-  // End to end, the probe passes and an absent record is an ordinary refusal.
-  expect(
-    (await verifier(fileSource(foreignRoot)).closure.preflight(closureItem))
-      .status,
-  ).toBe("refused");
-});
+testWhen(
+  paths.foreignFile,
+  "T4S.r4-probe-positive-control: a foreign read-only path separates",
+  noForeignFile,
+  async () => {
+    // Host-derived supporting control, not authority qualification.
+    const file = paths.foreignFile ?? "";
+    const root = dirname(file);
+    const probe = fileSeparation(root);
+    expect(await probe()).toBe(true);
+    expect(await probe(await factsOf(file))).toBe(true);
+    // End to end, the probe passes and an absent record is an ordinary refusal.
+    expect(
+      (await verifier(fileSource(root)).closure.preflight(closureItem)).status,
+    ).toBe("refused");
+  },
+);
 
-test("T4S.r4-foreign-writable-root: a world-writable foreign root never separates", async () => {
-  const probe = fileSeparation("/private/tmp");
-  expect(await probe()).toBe(false);
-  expect(
-    await verifier(fileSource("/private/tmp")).closure.preflight(closureItem),
-  ).toMatchObject(humanHandoff);
-});
+testWhen(
+  paths.writableRoot,
+  "T4S.r4-foreign-writable-root: a world-writable foreign root never separates",
+  "no foreign, world-writable resolved temp root (/tmp or the system temp directory)",
+  async () => {
+    const root = paths.writableRoot ?? "";
+    expect(await fileSeparation(root)()).toBe(false);
+    expect(
+      await verifier(fileSource(root)).closure.preflight(closureItem),
+    ).toMatchObject(humanHandoff);
+  },
+);
 
-test("T4S.r4-caller-owned-record: a caller-owned or writable record in a foreign root never separates", async () => {
-  const probe = fileSeparation(foreignRoot);
-  const caller = process.getuid?.() ?? -1;
-  expect(await probe(await factsOf(foreignFile, { uid: caller }))).toBe(false);
-  expect(await probe(await factsOf(foreignFile, { mode: 0o100666 }))).toBe(
-    false,
-  );
-  // The descriptor must still be the entry at its path.
-  expect(await probe(await factsOf(foreignFile, { ino: 1 }))).toBe(false);
-  // The record must sit directly in the judged root.
-  expect(
-    await probe(await factsOf(foreignFile, { path: "/usr/firmlinks" })),
-  ).toBe(false);
-});
+testWhen(
+  paths.foreignFile,
+  "T4S.r4-caller-owned-record: a caller-owned or writable record in a foreign root never separates",
+  noForeignFile,
+  async () => {
+    const file = paths.foreignFile ?? "";
+    const probe = fileSeparation(dirname(file));
+    const caller = process.getuid?.() ?? -1;
+    expect(await probe(await factsOf(file, { uid: caller }))).toBe(false);
+    expect(await probe(await factsOf(file, { mode: 0o100666 }))).toBe(false);
+    // The descriptor must still be the entry at its path.
+    expect(await probe(await factsOf(file, { ino: 1 }))).toBe(false);
+    // The record must sit directly in the judged root.
+    expect(
+      await probe(await factsOf(file, { path: join(sep, basename(file)) })),
+    ).toBe(false);
+  },
+);
 
-test("T4S.r4-symlink-swap: a swapped symlinked source cannot verify a self-issued record", async () => {
-  // Reviewer probe P5: the source path is a caller-owned symlink pointing at
-  // a foreign directory during the check, swapped to a caller directory
-  // before the read.
-  const mine = join(world.root, "mine");
-  await mkdir(mine);
-  await writeFile(
-    join(mine, basename(authorityRecordPath(world, "closure", ["op-1"]))),
-    JSON.stringify(closureRecord),
-  );
-  const linked = join(world.root, "authority-link");
-  await symlink(foreignRoot, linked);
-  const probe = fileSeparation(linked);
+testWhen(
+  paths.foreignFile,
+  "T4S.r4-symlink-swap: a swapped symlinked source cannot verify a self-issued record",
+  noForeignFile,
+  async () => {
+    // Reviewer probe P5: the source path is a caller-owned symlink pointing
+    // at a foreign directory during the check, swapped to a caller directory
+    // before the read.
+    const mine = join(world.root, "mine");
+    await mkdir(mine);
+    await writeFile(
+      join(mine, basename(authorityRecordPath(world, "closure", ["op-1"]))),
+      JSON.stringify(closureRecord),
+    );
+    const linked = join(world.root, "authority-link");
+    await symlink(dirname(paths.foreignFile ?? ""), linked);
+    const probe = fileSeparation(linked);
+    const source: AuthoritySource = {
+      directory: linked,
+      separated: async (record) => {
+        const verdict = await probe(record);
+        await unlink(linked);
+        await symlink(mine, linked);
+        return verdict;
+      },
+    };
+    const verdict = await verifier(source).closure.preflight(closureItem);
+    expect(verdict).toMatchObject(humanHandoff);
+    expect(await fileSeparation(linked)()).toBe(false);
+  },
+);
+
+// F2 isolating controls: each fileSeparation guard has its own failing test.
+test("T4S.f2-descriptor-wiring: the verifier judges the opened record even when the path check passes", async () => {
+  // Reviewer probe P5c: a source whose path check reports separated while
+  // the record check delegates to the real probe. Only the verifier's
+  // separated(facts) call stands between it and a caller-owned record.
+  await place("closure", ["op-1"], closureRecord);
+  const realProbe = fileSeparation(world.authority);
   const source: AuthoritySource = {
-    directory: linked,
-    separated: async (record) => {
-      const verdict = await probe(record);
-      await unlink(linked);
-      await symlink(mine, linked);
-      return verdict;
-    },
+    directory: world.authority,
+    separated: (record) =>
+      record === undefined ? Promise.resolve(true) : realProbe(record),
   };
-  const verdict = await verifier(source).closure.preflight(closureItem);
-  expect(verdict).toMatchObject(humanHandoff);
-  expect(await fileSeparation(linked)()).toBe(false);
+  expect(await verifier(source).closure.preflight(closureItem)).toMatchObject(
+    humanHandoff,
+  );
 });
+
+testWhen(
+  paths.foreignFile,
+  "T4S.f2-caller-ancestor-link: a caller symlink above an otherwise foreign directory never separates",
+  noForeignFile,
+  async () => {
+    // Reviewer probe P5b: only the walk from "/" sees the caller-owned link
+    // and the caller-owned directories above the judged root.
+    const target = dirname(paths.foreignFile ?? "");
+    const linked = join(world.root, "ancestor-link");
+    await symlink(dirname(target), linked);
+    expect(await fileSeparation(target)()).toBe(true);
+    expect(await fileSeparation(join(linked, basename(target)))()).toBe(false);
+  },
+);
+
+testWhen(
+  paths.symlinked,
+  "T4S.f2-system-ancestor-link: a foreign directory judged through a system symlink never separates",
+  "no root-owned symlink near / (macOS /etc, merged-usr /lib) with a foreign child directory",
+  async () => {
+    const { viaLink, resolved } = paths.symlinked ?? {
+      viaLink: "",
+      resolved: "",
+    };
+    // Twin: the same directory by its resolved path does separate.
+    expect(await fileSeparation(resolved)()).toBe(true);
+    // Through the symlinked ancestor it must refuse.
+    expect(await fileSeparation(viaLink)()).toBe(false);
+  },
+);
 
 test("C04.a-no-source", async () => {
   await place("closure", ["op-1"], closureRecord);

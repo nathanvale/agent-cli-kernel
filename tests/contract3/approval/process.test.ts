@@ -12,6 +12,7 @@ import {
   test,
 } from "bun:test";
 import {
+  chmod,
   mkdir,
   readFile,
   rmdir,
@@ -79,6 +80,10 @@ function applyOutcome(events: readonly unknown[]): string {
     return "coordination-error";
   if (has({ phase: "consume", error: "coordination-lost", consumed: true }))
     return "coordination-lost";
+  if (
+    has({ phase: "consume", error: "durability-unconfirmed", consumed: true })
+  )
+    return "durability-unconfirmed";
   if (
     has({ phase: "consume", admitted: true }) &&
     has({ phase: "effect" }) &&
@@ -164,7 +169,7 @@ test("the materialized fixture tree compiles against the stamped sources", async
     child.exited,
   ]);
   expect({ exit, stdout }).toEqual({ exit: 0, stdout: "" });
-});
+}, 120_000);
 
 test("A01.b-apply-consumes-once", async () => {
   await writeGrant(world, grant);
@@ -386,9 +391,11 @@ test("A08.a-locked-contenders", async () => {
   ]);
   expect(after.markers).toEqual([approvalMarker]);
   expectCase("A08.a-locked-contenders", observation("admitted", before, after));
-});
+}, 120_000);
 
 // Widened race (R3): several barrier-released rounds of several contenders,
+// with an explicit timeout because 128 child processes can outlast Bun's
+// 5 s default on a slower CI runner.
 // each holding only a private fixture scope, so exclusive creation alone
 // must decide. Every round needs exactly one admission and one marker.
 // Measured against a real check-then-write (repair-1 receipts): 5 rounds of
@@ -434,7 +441,7 @@ test("A08.b-consumption-atomic-without-lock", async () => {
       observation("admitted", before, after),
     );
   }
-});
+}, 120_000);
 
 test("A09.a-phase-observations", async () => {
   await writeGrant(world, grant);
@@ -938,3 +945,25 @@ test("T4S.r5-fixture-lint: the materialized tree passes contract3 lint", async (
     0,
   ]);
 }, 120_000);
+
+// N5: the marker exists but its directory flush fails. The ledger allows
+// create and search (0o300) but not the read needed to open it for fsync.
+test("T4S.n5-durability-unconfirmed: a failed flush after creation reports consumption", async () => {
+  await writeGrant(world, grant);
+  const before = await snapshot(world);
+  await chmod(world.ledger, 0o300);
+  let unflushed;
+  try {
+    unflushed = await apply("unflushed");
+  } finally {
+    await chmod(world.ledger, 0o700);
+  }
+  expect(applyOutcome(unflushed.events)).toBe("durability-unconfirmed");
+  const after = await snapshot(world);
+  expect(after.markers).toEqual([approvalMarker]);
+  expect(after.effects).toEqual([]);
+  expect(before.authority).toBe(after.authority);
+  // No refund: the ambiguous consumption stays consumed.
+  expect(applyOutcome((await apply("repeat")).events)).toBe("denied");
+  expect((await snapshot(world)).effects).toEqual([]);
+});

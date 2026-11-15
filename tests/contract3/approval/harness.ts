@@ -6,8 +6,9 @@
 // grant, ledger and effect state independently of the add-on.
 import { expect } from "bun:test";
 import { createHash } from "node:crypto";
-import { appendFileSync } from "node:fs";
+import { appendFileSync, constants } from "node:fs";
 import {
+  access,
   cp,
   lstat,
   mkdir,
@@ -20,7 +21,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import type {
   AuthoritySource,
   ClosureItem,
@@ -378,4 +379,123 @@ export function expectCase(id: string, observed: Observation): void {
   expect(observed).toEqual(expectedFor(id));
   const log = process.env.T4_ORACLE_LOG;
   if (log) appendFileSync(log, `${id}\n`);
+}
+
+// Platform-derived foreign paths for the fileSeparation supporting checks.
+// Each is found from what exists on this host and checked against the
+// precondition its test relies on, using only test-owned reads. A missing
+// one is reported as UNPROVED by name, never passed silently.
+async function foreignEntry(path: string, directory: boolean) {
+  const caller = process.getuid?.();
+  try {
+    const facts = await lstat(path);
+    const kindOk = directory
+      ? facts.isDirectory()
+      : facts.isFile() && facts.nlink === 1;
+    return (
+      caller !== undefined &&
+      kindOk &&
+      facts.uid !== caller &&
+      (facts.mode & 0o022) === 0 &&
+      !(await writable(path))
+    );
+  } catch {
+    return false;
+  }
+}
+async function writable(path: string): Promise<boolean> {
+  try {
+    await access(path, constants.W_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+// Every component from "/" is a real, foreign, non-writable directory.
+async function foreignChain(directory: string): Promise<boolean> {
+  const parts = directory.split(sep).filter((part) => part.length > 0);
+  for (const [index] of [undefined, ...parts].entries()) {
+    const path = join(sep, ...parts.slice(0, index));
+    if (!(await foreignEntry(path, true))) return false;
+  }
+  return true;
+}
+async function firstForeignFile(
+  directory: string,
+  depth: number,
+): Promise<string | undefined> {
+  let names: string[];
+  try {
+    names = (await readdir(directory)).sort();
+  } catch {
+    return undefined;
+  }
+  for (const name of names) {
+    const path = join(directory, name);
+    if ((await foreignEntry(path, false)) && (await foreignChain(directory)))
+      return path;
+  }
+  if (depth === 0) return undefined;
+  for (const name of names) {
+    const path = join(directory, name);
+    if (await foreignEntry(path, true)) {
+      const found = await firstForeignFile(path, depth - 1);
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+async function writableForeignRoot(): Promise<string | undefined> {
+  const caller = process.getuid?.();
+  for (const candidate of ["/tmp", tmpdir()]) {
+    try {
+      const path = await realpath(candidate);
+      const facts = await lstat(path);
+      if (
+        facts.isDirectory() &&
+        facts.uid !== caller &&
+        (facts.mode & 0o002) !== 0 &&
+        (await writable(path))
+      )
+        return path;
+    } catch {
+      // Candidate absent on this platform.
+    }
+  }
+  return undefined;
+}
+// A root-owned symlink near "/" (macOS /etc, merged-usr Linux /lib) whose
+// resolved child directory is fully foreign: judged through the link, the
+// child must refuse; judged by its resolved path, it must separate.
+async function symlinkedForeignRoot() {
+  for (const link of ["/etc", "/var", "/lib", "/bin", "/sbin", "/lib64"]) {
+    try {
+      const facts = await lstat(link);
+      if (!facts.isSymbolicLink() || facts.uid === process.getuid?.()) continue;
+      const resolved = await realpath(link);
+      for (const name of (await readdir(resolved)).sort()) {
+        const child = join(resolved, name);
+        if ((await foreignEntry(child, true)) && (await foreignChain(child)))
+          return { viaLink: join(link, name), resolved: child };
+      }
+    } catch {
+      // Candidate absent on this platform.
+    }
+  }
+  return undefined;
+}
+
+export type PlatformPaths = {
+  readonly foreignFile: string | undefined;
+  readonly writableRoot: string | undefined;
+  readonly symlinked:
+    | { readonly viaLink: string; readonly resolved: string }
+    | undefined;
+};
+export async function platformPaths(): Promise<PlatformPaths> {
+  return {
+    foreignFile: await firstForeignFile("/usr/share", 2),
+    writableRoot: await writableForeignRoot(),
+    symlinked: await symlinkedForeignRoot(),
+  };
 }
