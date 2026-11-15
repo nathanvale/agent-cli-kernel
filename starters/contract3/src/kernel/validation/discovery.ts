@@ -7,7 +7,8 @@ import {
 } from "../navigation.ts";
 import type { DeclaredStation } from "../stations.ts";
 import type { WireResult } from "../types.ts";
-import { json, record } from "./primitives.ts";
+import { record } from "./primitives.ts";
+import { sameJson } from "./json-equality.ts";
 
 // Catalogue order is not a contract constraint. Argument and route order is.
 const unordered = new Set([
@@ -20,25 +21,8 @@ const unordered = new Set([
   "members",
 ]);
 
-function canonical(value: unknown, key = ""): string {
-  if (Array.isArray(value)) {
-    const entries: unknown[] = Array.from(value);
-    const encoded = entries.map((entry) => canonical(entry));
-    return `array:${JSON.stringify(unordered.has(key) ? encoded.sort() : encoded)}`;
-  }
-  if (record(value))
-    return `object:${JSON.stringify(
-      Object.entries(value)
-        .sort(([left], [right]) => left.localeCompare(right))
-        .map(([name, entry]) => [name, canonical(entry, name)]),
-    )}`;
-  return `scalar:${JSON.stringify(value) ?? ""}`;
-}
-
 function sameProjection(actual: unknown, expected: unknown): boolean {
-  return (
-    json(actual) && json(expected) && canonical(actual) === canonical(expected)
-  );
+  return sameJson(actual, expected, unordered);
 }
 
 export function navigationData(

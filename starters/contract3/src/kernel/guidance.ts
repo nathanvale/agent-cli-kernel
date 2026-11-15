@@ -1,5 +1,6 @@
 import type { DeclaredStation } from "./stations.ts";
 import type { Handoff, NextStep, WireResult } from "./types.ts";
+import { sameJson } from "./validation/json-equality.ts";
 export type TemplateSlot = {
   readonly text: string;
   readonly bindingAllowed: boolean;
@@ -181,10 +182,11 @@ export function templatesAgree(
     const rendered = renderGuidance(station, result);
     return (
       rendered.repairAction === result.repairAction &&
-      JSON.stringify("next" in rendered ? rendered.next : undefined) ===
-        JSON.stringify(result.next) &&
-      JSON.stringify("handoff" in rendered ? rendered.handoff : undefined) ===
-        JSON.stringify(result.handoff)
+      sameJson("next" in rendered ? rendered.next : undefined, result.next) &&
+      sameJson(
+        "handoff" in rendered ? rendered.handoff : undefined,
+        result.handoff,
+      )
     );
   } catch {
     return false;

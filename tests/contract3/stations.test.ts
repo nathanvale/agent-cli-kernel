@@ -14,6 +14,79 @@ const input = {
   additionalOptions: false,
 } as const;
 
+test("handoff objects ignore key order while inspection arrays preserve declaration order", async () => {
+  const refused = station(commonCauses, {
+    commandIdentity: "notes.check",
+    causeCode: "DOMAIN_AUTHORITY_REQUIRED",
+    trigger: "Authority is unavailable.",
+    guidance: {
+      handoff: {
+        owner: "operator",
+        reason: "Inspect authority.",
+        inspect: [
+          { kind: "instruction", text: "Inspect the requested item." },
+          { kind: "instruction", text: "Inspect its authority." },
+        ],
+      },
+    },
+    repairAction: "Resolve the authority requirement.",
+    retryDelayPolicy: { kind: "none" },
+    reachability: "required",
+    unreachableRationale: null,
+    independentObservable: "authority-refusal",
+  });
+  const facts = {
+    message: "Authority required.",
+    data: null,
+    effects: {
+      completed: [],
+      remaining: [],
+      uncertain: [],
+      inventoryComplete: true,
+    },
+  } as const;
+  const check = command({
+    capabilities: {},
+    identity: "notes.check",
+    route: ["check"],
+    summary: "Check notes.",
+    input,
+    stations: [refused],
+    run: (_input, context) => context.result(refused, facts),
+  });
+  const contract = contractFor({ cli: "notes", commands: [check] });
+  const built = await contract.build(refused, { ...facts, runId: "run-1" });
+  expect(built.ok).toBe(true);
+  if (!built.ok) throw new Error("Expected authority refusal.");
+  const reordered = {
+    inspect: [
+      { text: "Inspect the requested item.", kind: "instruction" },
+      { text: "Inspect its authority.", kind: "instruction" },
+    ],
+    reason: "Inspect authority.",
+    owner: "operator",
+  };
+  expect(
+    (
+      await contract.validate({
+        ...built.value,
+        result: { ...built.value.result, handoff: reordered },
+      })
+    ).ok,
+  ).toBe(true);
+  expect(
+    (
+      await contract.validate({
+        ...built.value,
+        result: {
+          ...built.value.result,
+          handoff: { ...reordered, inspect: [...reordered.inspect].reverse() },
+        },
+      })
+    ).ok,
+  ).toBe(false);
+});
+
 test("declared stations bind identity and words, with built-ins and fallback stations discoverable", async () => {
   const success = station(commonCauses, {
     commandIdentity: "notes.list",
@@ -92,6 +165,29 @@ test("declared stations bind identity and words, with built-ins and fallback sta
       },
     },
   });
+  if (!built.ok) throw new Error("Expected valid instruction result.");
+  expect(
+    (
+      await contract.validate({
+        ...built.value,
+        result: {
+          ...built.value.result,
+          next: { text: "Inspect the listed notes.", kind: "instruction" },
+        },
+      })
+    ).ok,
+  ).toBe(true);
+  expect(
+    (
+      await contract.validate({
+        ...built.value,
+        result: {
+          ...built.value.result,
+          next: { text: "Different instruction.", kind: "instruction" },
+        },
+      })
+    ).ok,
+  ).toBe(false);
   expect(() =>
     station(commonCauses, {
       ...success,
