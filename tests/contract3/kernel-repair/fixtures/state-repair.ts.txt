@@ -13,7 +13,9 @@ import type {
   EffectTransaction,
   ExclusiveScope,
   StateAddonDescriptor,
+  StateIssuer,
   StateObservation,
+  StateRegistration,
 } from "../../kernel/index.ts";
 import {
   buildUnchecked,
@@ -40,6 +42,7 @@ type ScopeMode = "active" | "inactive" | "throw";
 type World = {
   readonly ledger: { readonly runId: string; readonly effect: string }[];
   readonly scopes: Map<string, ExclusiveScope>;
+  readonly issuers: Map<string, StateIssuer>;
   scopeMode: ScopeMode;
   workStarts: number;
   doubleProof: boolean;
@@ -51,6 +54,7 @@ type World = {
 const world: World = {
   ledger: [],
   scopes: new Map(),
+  issuers: new Map(),
   scopeMode: "active",
   workStarts: 0,
   doubleProof: false,
@@ -61,7 +65,13 @@ const world: World = {
 };
 
 function installation(name: string): StateAddonDescriptor {
-  return contractFor.stateAddon((issuer) => ({
+  return contractFor.stateAddon((issuer) => {
+    world.issuers.set(name, issuer);
+    return installer(name, issuer);
+  });
+}
+function installer(name: string, issuer: StateIssuer): StateRegistration {
+  return {
     ifNoResult: issuer.ifNoResult({
       kind: "command",
       command: "specimen.pending",
@@ -120,7 +130,7 @@ function installation(name: string): StateAddonDescriptor {
         },
       };
     },
-  }));
+  };
 }
 
 const recordE = async (transaction: EffectTransaction<"e">) => {
@@ -407,7 +417,26 @@ export async function observeStateRepair(): Promise<Record<string, unknown>> {
   }
   // S2: the kernel check alone, without the runtime's own isActive and runId
   // checks.
-  const direct = (scope: unknown) => issuedScope(scope, "r1", a.state);
+  const direct = (scope: unknown, runId = "r1") =>
+    issuedScope(scope, runId, a.state);
+  // S4: issuance itself refuses a run this installation never attached, so no
+  // scope exists to present.
+  const issuerA = world.issuers.get("A");
+  if (!issuerA) throw new Error("Issuer A was not captured.");
+  let unattachedIssue: { issued: boolean; namesAttachment: boolean };
+  try {
+    const scope = issuerA.exclusiveScope("never-attached", "resource-1", () => true);
+    unattachedIssue = {
+      issued: true,
+      namesAttachment: issuedScope(scope, "never-attached", a.state),
+    };
+  } catch (error) {
+    unattachedIssue = {
+      issued: false,
+      namesAttachment:
+        error instanceof Error && /attached run/.test(error.message),
+    };
+  }
   out["R02.public-index-export"] = {
     exported: typeof issuedScope === "function",
   };
@@ -421,7 +450,12 @@ export async function observeStateRepair(): Promise<Record<string, unknown>> {
     symbolCarrier: attempt("r1", carrier),
     cloneError,
   };
-  out["R02.other-run-refused"] = attempt("r2", s1);
+  out["R02.other-run-refused"] = {
+    ...attempt("r2", s1),
+    // S5: the kernel's own run check, without the runtime's runId comparison.
+    directOtherRun: direct(s1, "r2"),
+    unattachedIssue,
+  };
   out["R02.other-installation-refused"] = attempt("r1", sB);
   out["R02.issued-twin-consumed-once"] = {
     ...attempt("r1", s1),

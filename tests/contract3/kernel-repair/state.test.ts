@@ -87,7 +87,11 @@ runFamily(
         cloneError: "DataCloneError",
       }),
     "R02.other-run-refused": async () =>
-      expect(await observed("R02.other-run-refused")).toEqual(refused),
+      expect(await observed("R02.other-run-refused")).toEqual({
+        ...refused,
+        directOtherRun: false,
+        unattachedIssue: { issued: false, namesAttachment: true },
+      }),
     "R02.other-installation-refused": async () =>
       expect(await observed("R02.other-installation-refused")).toEqual(refused),
     "R02.issued-twin-consumed-once": async () =>
