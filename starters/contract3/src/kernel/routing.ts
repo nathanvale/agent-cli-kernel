@@ -1,5 +1,6 @@
+import { splitDeadline } from "./deadline.ts";
 import type { CommandDeclaration } from "./declarations.ts";
-import { parseInput } from "./input.ts";
+import { parseInput, acceptsRootInput } from "./input.ts";
 function refused(
   cli: string,
   causeCode: "USAGE_INVALID_INVOCATION" | "USAGE_UNKNOWN_COMMAND",
@@ -30,7 +31,10 @@ async function resolveBuiltin(
   tokens: readonly string[],
   machine: boolean,
   flag: string | undefined,
+  deadlineMilliseconds?: number,
 ) {
+  if (deadlineMilliseconds !== undefined)
+    return refused(cli, "USAGE_INVALID_INVOCATION", machine);
   const command = commands.find((item) => item.route[0] === flag);
   const expected = flag === "--discover-command" ? 2 : 1;
   if (!command || tokens[0] !== flag || tokens.length !== expected)
@@ -45,22 +49,39 @@ async function resolveBuiltin(
       machine,
       command.commandIdentity,
     );
-  return resolveCommand(cli, command, tokens.slice(1), machine);
+  return resolveCommand(
+    cli,
+    command,
+    tokens.slice(1),
+    machine,
+    deadlineMilliseconds,
+  );
 }
 async function resolveCommand(
   cli: string,
   command: CommandDeclaration,
   args: readonly string[],
   machine: boolean,
+  deadlineMilliseconds?: number,
 ) {
+  if (deadlineMilliseconds !== undefined && !command.input.deadlineSupported)
+    return refused(
+      cli,
+      "USAGE_INVALID_INVOCATION",
+      machine,
+      command.commandIdentity,
+    );
   const parsed = await parseInput(command.input, args);
-  return parsed.ok
+  return parsed.ok && acceptsRootInput(command.route, parsed.value)
     ? ({
         ok: true,
         value: {
           commandIdentity: command.commandIdentity,
           machine,
           input: parsed.value,
+          ...(deadlineMilliseconds === undefined
+            ? {}
+            : { deadlineMilliseconds }),
         },
       } as const)
     : refused(
@@ -80,11 +101,21 @@ export async function resolveInvocation(
     !argv.every((token: unknown) => typeof token === "string")
   )
     return refused(cli, "USAGE_INVALID_INVOCATION", false);
-  const { tokens, machine, navigation } = globalSwitches(argv);
+  const { tokens: globalTokens, machine, navigation } = globalSwitches(argv);
+  const deadline = splitDeadline(globalTokens);
+  if (!deadline.ok) return refused(cli, "USAGE_INVALID_INVOCATION", machine);
+  const { tokens, deadlineMilliseconds } = deadline.value;
   if (!tokens.length || navigation.length > 1)
     return refused(cli, "USAGE_INVALID_INVOCATION", machine);
   if (navigation.length === 1)
-    return resolveBuiltin(cli, commands, tokens, machine, navigation[0]);
+    return resolveBuiltin(
+      cli,
+      commands,
+      tokens,
+      machine,
+      navigation[0],
+      deadlineMilliseconds,
+    );
   const candidates = commands
     .filter(
       (item) =>
@@ -94,6 +125,12 @@ export async function resolveInvocation(
     .sort((a, b) => b.route.length - a.route.length);
   const command = candidates[0];
   return command
-    ? resolveCommand(cli, command, tokens.slice(command.route.length), machine)
+    ? resolveCommand(
+        cli,
+        command,
+        tokens.slice(command.route.length),
+        machine,
+        deadlineMilliseconds,
+      )
     : refused(cli, "USAGE_UNKNOWN_COMMAND", machine);
 }

@@ -17,7 +17,7 @@ import { proofValue } from "./validation/state.ts";
 import { resolveInvocation } from "./routing.ts";
 import { authority, resource, path } from "./validation/brands.ts";
 import type { CommandDeclaration } from "./declarations.ts";
-import { parseInput } from "./input.ts";
+import { parseInput, acceptsRootInput } from "./input.ts";
 import { builtins, stationsFor } from "./navigation.ts";
 import { freeze } from "./stations.ts";
 import { commonCauses } from "./causes.ts";
@@ -223,7 +223,12 @@ export function contractFor<
           reason: "result belongs to another invocation",
         } as const;
       acceptedResults.add(outcome.value);
-      return outcome;
+      return {
+        ...outcome,
+        ...(parsed.deadlineMilliseconds === undefined
+          ? {}
+          : { deadlineMilliseconds: parsed.deadlineMilliseconds }),
+      };
     },
     cli: spec.cli,
     causes,
@@ -237,13 +242,20 @@ export function contractFor<
     discoverCommand: navigation.discoverCommand,
     async parse(identity: string, argv: unknown) {
       const item = commands.find((entry) => entry.commandIdentity === identity);
-      return item
-        ? parseInput(item.input, argv)
-        : ({
+      if (!item)
+        return {
+          ok: false,
+          path: "commandIdentity",
+          reason: "unknown command",
+        } as const;
+      const parsed = await parseInput(item.input, argv);
+      return parsed.ok && !acceptsRootInput(item.route, parsed.value)
+        ? ({
             ok: false,
-            path: "commandIdentity",
-            reason: "unknown command",
-          } as const);
+            path: "input",
+            reason: "root operation requires a command-specific input",
+          } as const)
+        : parsed;
     },
     build<const S extends RegisteredStation<D>>(
       selected: S,

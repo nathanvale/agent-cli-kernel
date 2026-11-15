@@ -1,3 +1,5 @@
+import { splitDeadline } from "./deadline.ts";
+import type { DeadlineValidation } from "./deadline.ts";
 import type {
   ArgumentSchema,
   InputSchema,
@@ -153,27 +155,49 @@ async function parseToken(
 export async function parseInput<I extends InputSchema>(
   schema: I,
   argv: unknown,
-): Promise<Validation<ParsedInput<I>>> {
+): Promise<DeadlineValidation<ParsedInput<I>>> {
   if (
     !Array.isArray(argv) ||
     !argv.every((token: unknown) => typeof token === "string")
   )
     return { ok: false, path: "argv", reason: "expected string tokens" };
+  const deadline = splitDeadline(argv);
+  if (!deadline.ok) return deadline;
+  const { tokens, deadlineMilliseconds } = deadline.value;
+  if (deadlineMilliseconds !== undefined && !schema.deadlineSupported)
+    return {
+      ok: false,
+      path: "--deadline-ms",
+      reason: "command does not support deadlines",
+    };
+  const parsed = await parseDomainInput(schema, tokens);
+  return parsed.ok
+    ? {
+        ...parsed,
+        ...(deadlineMilliseconds === undefined ? {} : { deadlineMilliseconds }),
+      }
+    : parsed;
+}
+
+async function parseDomainInput<I extends InputSchema>(
+  schema: I,
+  tokens: readonly string[],
+): Promise<Validation<ParsedInput<I>>> {
   const state: ParseState = {
     index: 0,
     operand: 0,
     literal: false,
     values: {},
   };
-  for (; state.index < argv.length; state.index++) {
-    const token: unknown = argv[state.index];
+  for (; state.index < tokens.length; state.index++) {
+    const token: unknown = tokens[state.index];
     if (typeof token !== "string")
       return { ok: false, path: "argv", reason: "expected string" };
     if (!state.literal && token === "--") {
       state.literal = true;
       continue;
     }
-    const parsed = await parseToken(schema, state, argv, token);
+    const parsed = await parseToken(schema, state, tokens, token);
     if (!parsed.ok) return parsed;
   }
   return parsedInput(state.values, schema) &&
@@ -193,4 +217,11 @@ function setValue(
     configurable: true,
     writable: true,
   });
+}
+
+export function acceptsRootInput(
+  route: readonly string[],
+  input: object,
+): boolean {
+  return route.length > 0 || Object.keys(input).length > 0;
 }
