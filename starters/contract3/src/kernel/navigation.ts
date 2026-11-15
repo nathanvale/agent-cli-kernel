@@ -60,6 +60,25 @@ export function summary(command: CommandDeclaration): CommandSummary {
     effectClass: command.effectClass,
   };
 }
+const authorityWords = {
+  handoff: {
+    owner: "human",
+    reason:
+      "This command needs an exact-item grant from its authority owner before it can run.",
+    inspect: [
+      {
+        kind: "instruction",
+        text: "Authority owner: review the requested item and decide whether to grant it.",
+      },
+    ],
+  },
+} as const satisfies { readonly handoff: Handoff };
+function kernelRepair(causeCode: string, success: boolean): string | null {
+  if (success) return null;
+  return causeCode === "DOMAIN_AUTHORITY_REQUIRED"
+    ? "Obtain an exact-item grant from the command's authority owner, then decide on a new run."
+    : "Inspect the command, its input and independently observable resource before a new run.";
+}
 function kernelWords(
   causeCode: string,
   command: CommandDeclaration,
@@ -67,10 +86,13 @@ function kernelWords(
 ):
   | { readonly next: NextStep; readonly handoff?: never }
   | { readonly handoff: Handoff; readonly next?: never } {
+  // CMD-15 and WIRE-18: every approval denial is one handoff naming the
+  // authority owner. The base names that owner's role; a command that needs a
+  // specific owner declares this tuple with its own words (DISC-11b).
+  if (causeCode === "DOMAIN_AUTHORITY_REQUIRED") return authorityWords;
   if (
     causeCode.startsWith("INTERNAL_RESULT_") ||
     [
-      "DOMAIN_AUTHORITY_REQUIRED",
       "DOMAIN_DEADLINE_COMPLETED",
       "DOMAIN_DEADLINE_PARTIAL",
       "DOMAIN_DEADLINE_UNKNOWN",
@@ -144,10 +166,7 @@ function addKernelStations(
           ? command.summary
           : `Kernel ${causeCode}.`,
       guidance: kernelWords(causeCode, command, cli),
-      repairAction:
-        row.outcome === "success"
-          ? null
-          : "Inspect the command, its input and independently observable resource before a new run.",
+      repairAction: kernelRepair(causeCode, row.outcome === "success"),
       retryDelayPolicy: { kind: "none" },
       reachability: "required",
       unreachableRationale: null,
