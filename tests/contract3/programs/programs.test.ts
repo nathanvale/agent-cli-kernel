@@ -9,6 +9,7 @@ import { sliceCases } from "../lifecycle/coverage.ts";
 import {
   alive,
   cleanup,
+  exitWithin,
   frontDoorStart,
   goneWithin,
   launch,
@@ -17,6 +18,7 @@ import {
   n,
   processGroup,
   readLedger,
+  release as releaseLaunched,
   requireTools,
   residentKilobytes,
   run,
@@ -43,14 +45,6 @@ function requirePid(ledger: readonly string[], prefix: string): number {
 function data(result: Record<string, unknown>) {
   if (!record(result.data)) throw new Error("Expected program data.");
   return result.data;
-}
-function kill(pid: number | undefined) {
-  if (pid === undefined) return;
-  try {
-    process.kill(pid, "SIGKILL");
-  } catch {
-    // Already gone.
-  }
 }
 function withProbe(entry: Case): readonly string[] {
   return entry.argv.map((arg) =>
@@ -123,19 +117,11 @@ async function begin(entry: Case, tracker: Tracker) {
   return tracker.launched;
 }
 async function end(tracker: Tracker, launched: Launched) {
-  tracker.observed = await launched.done;
+  tracker.observed = await exitWithin(launched);
   return tracker.observed;
 }
 async function release(tracker: Tracker) {
-  const { launched } = tracker;
-  if (launched && !tracker.observed) {
-    launched.signal("SIGKILL");
-    tracker.observed = await launched.done;
-  }
-  const observed = tracker.observed;
-  if (!observed) return;
-  kill(pidAfter(observed.ledger, "child-started"));
-  await cleanup(observed);
+  if (tracker.launched) await releaseLaunched(tracker.launched);
 }
 
 const p08: Record<string, (entry: Case, tracker: Tracker) => Promise<void>> = {
@@ -197,21 +183,21 @@ const checks: Record<string, (entry: Case) => Promise<void>> = {
   P05: isolation,
   async P06(entry) {
     const launched = await launchCase(entry);
-    let peak = 0;
-    let samples = 0;
-    const sampling = (async () => {
-      for (;;) {
-        const rss = residentKilobytes(launched.pid);
-        if (rss === undefined) return;
-        samples += 1;
-        peak = Math.max(peak, rss);
-        await Bun.sleep(20);
-      }
-    })();
-    const observed = await launched.done;
-    await sampling;
-    receipt(entry, observed, { peakRssKilobytes: peak, samples });
     try {
+      let peak = 0;
+      let samples = 0;
+      const sampling = (async () => {
+        for (;;) {
+          const rss = residentKilobytes(launched.pid);
+          if (rss === undefined) return;
+          samples += 1;
+          peak = Math.max(peak, rss);
+          await Bun.sleep(20);
+        }
+      })();
+      const observed = await exitWithin(launched);
+      await sampling;
+      receipt(entry, observed, { peakRssKilobytes: peak, samples });
       // A host whose ps cannot sample the CLI leaves memory unproved.
       expect(samples).toBeGreaterThan(0);
       const { result } = assertEnvelope(entry, observed);
@@ -227,7 +213,7 @@ const checks: Record<string, (entry: Case) => Promise<void>> = {
       expect(await listing(join(observed.dir, "work"))).toEqual([]);
       expect(await listing(join(observed.dir, "tmp"))).toEqual([]);
     } finally {
-      await cleanup(observed);
+      await releaseLaunched(launched);
     }
   },
   async P07(entry) {
@@ -237,18 +223,17 @@ const checks: Record<string, (entry: Case) => Promise<void>> = {
       stderr: "ignore",
     });
     const launched = await launchCase(entry);
-    await launched.barrier("grandchild");
-    const cliGroup = processGroup(launched.pid);
-    const observed = await launched.done;
-    receipt(entry, observed, { cliGroup });
-    const grandchild = pidAfter(observed.ledger, "grandchild");
     try {
+      await launched.barrier("grandchild");
+      const cliGroup = processGroup(launched.pid);
+      const observed = await exitWithin(launched);
+      receipt(entry, observed, { cliGroup });
+      const grandchild = requirePid(observed.ledger, "grandchild");
       const { result } = assertEnvelope(entry, observed);
       const childGroup = pidAfter(observed.ledger, "child-pgid");
       expect(childGroup).toBeNumber();
       expect(cliGroup).toBeNumber();
       expect(childGroup).not.toBe(cliGroup);
-      if (grandchild === undefined) throw new Error("No grandchild pid.");
       expect(await goneWithin(grandchild, 1000)).toBe(true);
       expect(alive(sentinel.pid)).toBe(true);
       const detail = data(result);
@@ -257,8 +242,7 @@ const checks: Record<string, (entry: Case) => Promise<void>> = {
       expect(detail.terminationConfirmed).toBe(true);
     } finally {
       sentinel.kill("SIGKILL");
-      kill(grandchild);
-      await cleanup(observed);
+      await releaseLaunched(launched);
     }
   },
   async P08(entry) {
@@ -279,42 +263,36 @@ const checks: Record<string, (entry: Case) => Promise<void>> = {
   // LIFE-11 excludes a cleanup guarantee here; it does not require
   // survivors. Survival is recorded as an observation, never asserted.
   async P09(entry) {
-    if (entry.id === "P09.parent-sigkill") {
-      const launched = await launchCase(entry);
-      await launched.barrier("child-started");
-      launched.signal("SIGKILL");
-      const observed = await launched.done;
-      const child = requirePid(observed.ledger, "child-started");
-      await Bun.sleep(300);
-      receipt(entry, observed, {
-        ownedChildAliveAfterParentSigkill: alive(child),
-      });
-      try {
+    const launched = await launchCase(entry);
+    try {
+      if (entry.id === "P09.parent-sigkill") {
+        await launched.barrier("child-started");
+        launched.signal("SIGKILL");
+        const observed = await exitWithin(launched);
+        const child = requirePid(observed.ledger, "child-started");
+        await Bun.sleep(300);
+        receipt(entry, observed, {
+          ownedChildAliveAfterParentSigkill: alive(child),
+        });
         expect(observed.signal).toBe("SIGKILL");
         expect(observed.stdout.byteLength).toBe(0);
-      } finally {
-        kill(child);
-        await cleanup(observed);
+        return;
       }
-      return;
-    }
-    const launched = await launchCase(entry);
-    const observed = await launched.done;
-    const escaped = requirePid(readLedger(launched.ledgerPath), "escaped");
-    receipt(entry, observed, { escapedAlive: alive(escaped) });
-    try {
+      const observed = await exitWithin(launched);
+      const escaped = requirePid(readLedger(launched.ledgerPath), "escaped");
+      receipt(entry, observed, { escapedAlive: alive(escaped) });
       // No result claims cleanup or undone effects: an inspect envelope.
       assertEnvelope(entry, observed);
     } finally {
-      kill(escaped);
-      await cleanup(observed);
+      // Survivors were recorded above; the harness now removes them.
+      await releaseLaunched(launched);
     }
   },
   async P10(entry) {
     const launched = await launchCase(entry);
-    const observed = await launched.done;
-    receipt(entry, observed);
     try {
+      const observed = await exitWithin(launched);
+      receipt(entry, observed);
       const { result } = assertEnvelope(entry, observed);
       const command = data(result).command;
       expect(record(command)).toBe(true);
@@ -330,7 +308,7 @@ const checks: Record<string, (entry: Case) => Promise<void>> = {
         "supplied by the caller",
       );
     } finally {
-      await cleanup(observed);
+      await releaseLaunched(launched);
     }
   },
 };
