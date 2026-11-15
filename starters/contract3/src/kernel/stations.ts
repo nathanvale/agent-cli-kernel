@@ -33,6 +33,13 @@ export type DeclaredStation = StationWords & {
     | { readonly next: import("./types.ts").NextStep; readonly handoff?: never }
     | { readonly handoff: import("./types.ts").Handoff; readonly next?: never };
 };
+// DISC-11b: the stations the fallback can select keep the base's fixed words.
+export function reservedFallbackCause(causeCode: string): boolean {
+  return (
+    causeCode.startsWith("INTERNAL_RESULT_") ||
+    causeCode === "INTERNAL_PREPARATION"
+  );
+}
 export function freeze<T>(value: T): T {
   if (value !== null && typeof value === "object") {
     for (const item of Object.values(value)) freeze(item);
@@ -51,10 +58,7 @@ export function station<C extends CauseTable, const S extends StationInput<C>>(
 } {
   const row = causes[spec.causeCode];
   if (!row || !causeRow(row)) throw new Error("Invalid cause row.");
-  if (
-    String(spec.causeCode).startsWith("INTERNAL_RESULT_") ||
-    spec.causeCode === "INTERNAL_PREPARATION"
-  )
+  if (reservedFallbackCause(String(spec.causeCode)))
     throw new Error("Fallback station words are reserved.");
   validateWords(spec, row);
   return freeze({

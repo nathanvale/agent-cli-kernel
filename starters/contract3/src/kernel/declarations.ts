@@ -104,11 +104,8 @@ export function command<
   admitHostInput(spec.input);
   admitCommandIdentity(spec.identity);
   admitRootOperation(spec.route, spec.input);
-  if (
-    !text(spec.summary) ||
-    spec.route.some((token) => !text(token) || token.startsWith("-"))
-  )
-    throw new Error("Invalid command declaration.");
+  admitRouteTokens(spec.route);
+  if (!text(spec.summary)) throw new Error("Invalid command declaration.");
   if (
     spec.stations?.some((station) => station.commandIdentity !== spec.identity)
   )

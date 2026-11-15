@@ -1,4 +1,5 @@
-import { validateWords } from "./stations.ts";
+import { reservedFallbackCause, validateWords } from "./stations.ts";
+import { builtins } from "./navigation.ts";
 import type { CommandDeclaration } from "./declarations.ts";
 import {
   admitCommandIdentity,
@@ -35,10 +36,7 @@ function admitStationSet(
   const seen = new Set<string>();
   for (const station of command.stations) {
     // DISC-11b: the fallback's stations keep the base's fixed words (F12).
-    if (
-      station.causeCode.startsWith("INTERNAL_RESULT_") ||
-      station.causeCode === "INTERNAL_PREPARATION"
-    )
+    if (reservedFallbackCause(station.causeCode))
       throw new Error("Fallback station words are reserved.");
     const row = causes[station.causeCode];
     if (
@@ -98,12 +96,7 @@ function admitRoutes(
   cli: string,
   commands: readonly CommandDeclaration[],
 ): void {
-  const builtinIdentities = [
-    `${cli}.help`,
-    `${cli}.discovery`,
-    `${cli}.command-discovery`,
-    `${cli}.dispatch`,
-  ];
+  const builtinIdentities = builtins(cli).map((item) => item.commandIdentity);
   for (const command of commands)
     if (!builtinIdentities.includes(command.commandIdentity))
       admitRouteTokens(command.route);
