@@ -1,3 +1,4 @@
+import type { InputSchema } from "../../starters/contract3/src/kernel/index.ts";
 import { expect, test } from "bun:test";
 import {
   command,
@@ -436,4 +437,90 @@ test("reused declarations validate future inputs against their current contract"
     false,
   );
   expect(calls).toBe(2);
+});
+
+test("host pattern declarations reject invalid Unicode syntax before publication", async () => {
+  function schema(pattern: string, option: boolean): InputSchema {
+    const value = {
+      kind: "string",
+      minLength: 1,
+      maxLength: 12,
+      choices: null,
+      pattern,
+    } as const;
+    return {
+      ...input,
+      arguments: option ? [] : [{ ...input.arguments[0], value }],
+      options: option
+        ? [
+            {
+              name: "--value",
+              aliases: [],
+              summary: "Value.",
+              required: true,
+              repeatable: false,
+              value,
+            },
+          ]
+        : [],
+    };
+  }
+  function declared(pattern: string, option: boolean) {
+    return command({
+      identity: "items.pattern",
+      route: ["pattern"],
+      summary: "Read pattern input.",
+      input: schema(pattern, option),
+      capabilities: {},
+      run: (_input, context) =>
+        context.result(
+          { commandIdentity: "items.pattern", causeCode: "SUCCESS_UNCHANGED" },
+          {
+            message: "Read.",
+            data: null,
+            effects: {
+              completed: [],
+              remaining: [],
+              uncertain: [],
+              inventoryComplete: true,
+            },
+          },
+        ),
+    });
+  }
+  for (const option of [false, true]) {
+    const valid = declared("\\p{L}+", option);
+    const contract = contractFor({ cli: "items", commands: [valid] });
+    expect(contract.discoverCommand("items.pattern")?.input).toMatchObject(
+      option
+        ? {
+            options: [
+              {
+                name: "--value",
+                value: { kind: "string", pattern: "\\p{L}+" },
+              },
+            ],
+          }
+        : {
+            arguments: [
+              { name: "item", value: { kind: "string", pattern: "\\p{L}+" } },
+            ],
+          },
+    );
+    expect(
+      (
+        await contract.parse(
+          "items.pattern",
+          option ? ["--value", "αβ"] : ["αβ"],
+        )
+      ).ok,
+    ).toBe(true);
+    for (const pattern of ["[", "\\u{110000}"]) {
+      expect(() => declared(pattern, option)).toThrow();
+      const invalid = { ...valid, input: schema(pattern, option) };
+      expect(() =>
+        contractFor({ cli: "items", commands: [invalid] }),
+      ).toThrow();
+    }
+  }
 });

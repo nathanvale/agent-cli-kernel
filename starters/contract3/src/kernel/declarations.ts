@@ -8,7 +8,7 @@ import type { IfNoResult, StateCapability } from "./capabilities.ts";
 import type { CapabilitySelection, HandlerContext } from "./capabilities.ts";
 import type { InputSchema, ParsedInput } from "./input-types.ts";
 import { parseInput } from "./input.ts";
-import { inputSchema } from "./validation/input.ts";
+import { admitHostInput } from "./host-input.ts";
 import { handlerContext, approvalContext } from "./validation/context.ts";
 import { text } from "./validation/primitives.ts";
 import { freeze } from "./stations.ts";
@@ -59,8 +59,7 @@ export function command<
   ) => CommandResult<Identity> | Promise<CommandResult<Identity>>;
 }) {
   freeze(spec);
-  if (!inputSchema(spec.input))
-    throw new Error("Invalid executable input declaration.");
+  admitHostInput(spec.input);
   if (
     !text(spec.identity) ||
     new TextEncoder().encode(spec.identity).byteLength > 128 ||
@@ -165,8 +164,8 @@ export function changing<
     throw new Error(
       "Changing commands need distinct coordination refusal stations.",
     );
+  admitHostInput(spec.input);
   if (
-    !inputSchema(spec.input) ||
     spec.effects.length === 0 ||
     new Set(spec.effects).size !== spec.effects.length
   )
