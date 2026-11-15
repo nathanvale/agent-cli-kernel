@@ -541,6 +541,7 @@ const programCommand = command({
           markerSeen: result.stdout.includes("FX-CHILD-STREAM-MARKER"),
           exitCode: result.exitCode,
           terminationConfirmed: result.terminationConfirmed,
+          outputTruncated: result.outputTruncated,
           timedOut: detail?.timedOut ?? null,
           stdoutTruncated: detail?.stdoutTruncated ?? null,
           stderrTruncated: detail?.stderrTruncated ?? null,

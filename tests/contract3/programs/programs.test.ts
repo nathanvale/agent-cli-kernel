@@ -286,3 +286,29 @@ describe("T2 programs add-on process cases", () => {
       timeout,
     );
 });
+
+describe("ProgramResult reports truncation (supporting C6, not a frozen case)", () => {
+  for (const [mode, truncated] of [
+    ["capture", true],
+    ["timeout", false],
+  ] as const)
+    test(
+      `P06s.output-truncated-${String(truncated)}`,
+      async () => {
+        const launched = await launch({
+          argv: ["program", "--mode", mode, "--json"],
+        });
+        const observed = await launched.done;
+        try {
+          expect(observed.code).toBe(0);
+          const envelope: unknown = JSON.parse(text(observed.stdout));
+          const result = record(envelope) ? envelope.result : undefined;
+          const fields = record(result) ? data(result) : {};
+          expect(fields.outputTruncated).toBe(truncated);
+        } finally {
+          await cleanup(observed);
+        }
+      },
+      timeout,
+    );
+});

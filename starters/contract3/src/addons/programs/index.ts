@@ -225,6 +225,7 @@ function attachPrograms(run: RunControl): AttachedAddon<ProgramsCapability> {
       stderr: stderr.text,
       exitCode: child.exitCode,
       terminationConfirmed: groupEmpty,
+      outputTruncated: stdout.truncated || stderr.truncated,
     });
     details.set(
       result,

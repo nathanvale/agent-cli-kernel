@@ -42,6 +42,9 @@ export type ProgramResult = {
   readonly stderr: string;
   readonly exitCode: number | null;
   readonly terminationConfirmed: boolean;
+  // True when either captured stream was cut at its declared bound or
+  // abandoned, so the handler knows stdout or stderr is incomplete.
+  readonly outputTruncated: boolean;
 };
 export type ProgramHandle<Effect extends string = string> = {
   readonly effect: Effect;
