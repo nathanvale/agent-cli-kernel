@@ -15,14 +15,14 @@ const input = {
   additionalArguments: false,
   additionalOptions: false,
 } as const;
-const unchanged = {
+export const unchanged = {
   completed: [],
   remaining: [],
   uncertain: [],
   inventoryComplete: true,
 } as const;
 const step = { kind: "command", command: "specimen.help", args: [] } as const;
-const readStation = station(commonCauses, {
+export const readStation = station(commonCauses, {
   commandIdentity: "specimen.read",
   causeCode: "SUCCESS_UNCHANGED",
   trigger: "Read.",

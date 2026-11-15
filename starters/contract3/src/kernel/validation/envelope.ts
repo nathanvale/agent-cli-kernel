@@ -13,6 +13,7 @@ import { diagnostics } from "./diagnostics.ts";
 import { json, record } from "./primitives.ts";
 import { envelopeShape, typedResult } from "./result.ts";
 import { classifyVersion } from "./version.ts";
+import { freeze } from "../stations.ts";
 function declaredEnvelope<C extends CauseTable>(
   value: unknown,
   causes: C,
@@ -84,22 +85,25 @@ export async function validateEnvelope<C extends CauseTable>(
     const version = classifyVersion(observed);
     if (version !== "accepted") return reject("contractVersion", version);
     if (!json(value)) return reject("$", "not plain bounded JSON");
-    if (!declaredEnvelope(value, causes))
+    // Validate and return a private snapshot taken before the first await, so
+    // a caller cannot change the checked value while steps are parsed (F15).
+    const snapshot: unknown = structuredClone(value);
+    if (!declaredEnvelope(snapshot, causes))
       return reject("$", "invalid envelope shape or correlation");
     const command = commands.find(
-      (item) => item.commandIdentity === value.result.commandIdentity,
+      (item) => item.commandIdentity === snapshot.result.commandIdentity,
     );
     const station = stations
-      .get(value.result.commandIdentity)
-      ?.find((item) => item.causeCode === value.result.causeCode);
+      .get(snapshot.result.commandIdentity)
+      ?.find((item) => item.causeCode === snapshot.result.causeCode);
     if (
       !command ||
       !station ||
-      command.effectClass !== value.result.effectClass
+      command.effectClass !== snapshot.result.effectClass
     )
       return reject("result", "undeclared command, station or effect class");
     if (
-      value.availablePaths.some(
+      snapshot.availablePaths.some(
         (identity) =>
           !commands.some((item) => item.commandIdentity === identity),
       )
@@ -107,17 +111,17 @@ export async function validateEnvelope<C extends CauseTable>(
       return reject("availablePaths", "undeclared identity");
     if (
       [
-        ...value.result.effects.completed,
-        ...value.result.effects.remaining,
-        ...value.result.effects.uncertain,
+        ...snapshot.result.effects.completed,
+        ...snapshot.result.effects.remaining,
+        ...snapshot.result.effects.uncertain,
       ].some((effect) => !command.effects?.includes(effect))
     )
       return reject("effects", "undeclared effect");
-    if (!stationMatches(value.result, station, commands))
+    if (!stationMatches(snapshot.result, station, commands))
       return reject("result", "station guidance or delay mismatch");
-    if (!(await commandSteps(value.result, commands)))
+    if (!(await commandSteps(snapshot.result, commands)))
       return reject("result", "invalid command step");
-    return { ok: true, value };
+    return { ok: true, value: freeze(snapshot) };
   } catch {
     return reject("$", "unreadable external value");
   }
