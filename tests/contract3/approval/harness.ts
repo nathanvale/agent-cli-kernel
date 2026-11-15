@@ -385,16 +385,13 @@ export function expectCase(id: string, observed: Observation): void {
 // Each is found from what exists on this host and checked against the
 // precondition its test relies on, using only test-owned reads. A missing
 // one is reported as UNPROVED by name, never passed silently.
-async function foreignEntry(path: string, directory: boolean) {
+async function foreignDirectory(path: string): Promise<boolean> {
   const caller = process.getuid?.();
   try {
     const facts = await lstat(path);
-    const kindOk = directory
-      ? facts.isDirectory()
-      : facts.isFile() && facts.nlink === 1;
     return (
       caller !== undefined &&
-      kindOk &&
+      facts.isDirectory() &&
       facts.uid !== caller &&
       (facts.mode & 0o022) === 0 &&
       !(await writable(path))
@@ -416,34 +413,151 @@ async function foreignChain(directory: string): Promise<boolean> {
   const parts = directory.split(sep).filter((part) => part.length > 0);
   for (const [index] of [undefined, ...parts].entries()) {
     const path = join(sep, ...parts.slice(0, index));
-    if (!(await foreignEntry(path, true))) return false;
+    if (!(await foreignDirectory(path))) return false;
   }
   return true;
 }
-async function firstForeignFile(
+// Bounded, self-diagnosing search for a foreign regular file. Each
+// candidate is judged by the first precondition it fails, so an unproved
+// skip can report counts (never paths) for one hosted run to explain.
+// Link count is not a precondition: fileSeparation never judges it.
+const fileRoots = ["/usr/share", "/usr/lib", "/etc", "/usr/include"];
+const searchDepth = 3;
+const searchBound = 4000;
+type FileSearch = {
+  found: string | undefined;
+  examined: number;
+  directories: number;
+  rejected: {
+    notRegular: number;
+    callerOwned: number;
+    groupOrWorldWritable: number;
+    callerWritable: number;
+    directoryChain: number;
+    unreadable: number;
+  };
+};
+type Rejection = keyof FileSearch["rejected"];
+// The first file precondition the entry fails, or undefined when it holds.
+async function fileRejection(path: string): Promise<Rejection | undefined> {
+  let facts;
+  try {
+    facts = await lstat(path);
+  } catch {
+    return "unreadable";
+  }
+  const caller = process.getuid?.();
+  const checks: readonly (readonly [
+    Rejection,
+    () => boolean | Promise<boolean>,
+  ])[] = [
+    ["notRegular", () => !facts.isFile()],
+    ["callerOwned", () => caller === undefined || facts.uid === caller],
+    ["groupOrWorldWritable", () => (facts.mode & 0o022) !== 0],
+    ["callerWritable", () => writable(path)],
+  ];
+  for (const [reason, failed] of checks) if (await failed()) return reason;
+  return undefined;
+}
+async function judgeFile(
+  path: string,
+  directory: string,
+  search: FileSearch,
+  chains: Map<string, boolean>,
+): Promise<boolean> {
+  const reason = await fileRejection(path);
+  if (reason) {
+    search.rejected[reason]++;
+    return false;
+  }
+  const chain = chains.get(directory) ?? (await foreignChain(directory));
+  chains.set(directory, chain);
+  if (!chain) search.rejected.directoryChain++;
+  return chain;
+}
+async function isDirectoryEntry(path: string): Promise<boolean> {
+  try {
+    return (await lstat(path)).isDirectory();
+  } catch {
+    return false;
+  }
+}
+// Judges one entry: a foreign directory is queued, anything else is
+// judged as a candidate file.
+async function searchEntry(
+  path: string,
+  directory: string,
+  search: FileSearch,
+  chains: Map<string, boolean>,
+  subdirectories: string[],
+): Promise<void> {
+  search.examined++;
+  if (await isDirectoryEntry(path)) {
+    // Only foreign directories can lead to a foreign chain.
+    if (await foreignDirectory(path)) subdirectories.push(path);
+  } else if (await judgeFile(path, directory, search, chains))
+    search.found = path;
+}
+async function searchDirectory(
   directory: string,
   depth: number,
-): Promise<string | undefined> {
+  search: FileSearch,
+  chains: Map<string, boolean>,
+): Promise<void> {
   let names: string[];
   try {
     names = (await readdir(directory)).sort();
   } catch {
-    return undefined;
+    search.rejected.unreadable++;
+    return;
   }
+  search.directories++;
+  const subdirectories: string[] = [];
   for (const name of names) {
-    const path = join(directory, name);
-    if ((await foreignEntry(path, false)) && (await foreignChain(directory)))
-      return path;
+    if (search.found || search.examined >= searchBound) return;
+    await searchEntry(
+      join(directory, name),
+      directory,
+      search,
+      chains,
+      subdirectories,
+    );
   }
-  if (depth === 0) return undefined;
-  for (const name of names) {
-    const path = join(directory, name);
-    if (await foreignEntry(path, true)) {
-      const found = await firstForeignFile(path, depth - 1);
-      if (found) return found;
-    }
-  }
-  return undefined;
+  if (depth > 0)
+    for (const path of subdirectories)
+      await searchDirectory(path, depth - 1, search, chains);
+}
+async function foreignFileSearch(
+  roots: readonly string[],
+): Promise<FileSearch> {
+  const search: FileSearch = {
+    found: undefined,
+    examined: 0,
+    directories: 0,
+    rejected: {
+      notRegular: 0,
+      callerOwned: 0,
+      groupOrWorldWritable: 0,
+      callerWritable: 0,
+      directoryChain: 0,
+      unreadable: 0,
+    },
+  };
+  const chains = new Map<string, boolean>();
+  for (const root of roots)
+    if (!search.found) await searchDirectory(root, searchDepth, search, chains);
+  return search;
+}
+function describeSearch(search: FileSearch, roots: number): string {
+  const r = search.rejected;
+  return [
+    `no qualifying file in ${roots} roots (depth ${searchDepth}, bound ${searchBound}):`,
+    `examined ${search.examined} entries in ${search.directories} directories;`,
+    `rejected not-regular ${r.notRegular}, caller-owned ${r.callerOwned},`,
+    `group-or-world-writable ${r.groupOrWorldWritable},`,
+    `caller-writable ${r.callerWritable}, directory-chain ${r.directoryChain},`,
+    `unreadable ${r.unreadable}`,
+  ].join(" ");
 }
 async function writableForeignRoot(): Promise<string | undefined> {
   const caller = process.getuid?.();
@@ -475,7 +589,7 @@ async function symlinkedForeignRoot() {
       const resolved = await realpath(link);
       for (const name of (await readdir(resolved)).sort()) {
         const child = join(resolved, name);
-        if ((await foreignEntry(child, true)) && (await foreignChain(child)))
+        if ((await foreignDirectory(child)) && (await foreignChain(child)))
           return { viaLink: join(link, name), resolved: child };
       }
     } catch {
@@ -487,14 +601,28 @@ async function symlinkedForeignRoot() {
 
 export type PlatformPaths = {
   readonly foreignFile: string | undefined;
+  // Why no foreign file qualified, as counts only; empty when one did.
+  readonly foreignFileMissing: string;
   readonly writableRoot: string | undefined;
   readonly symlinked:
     | { readonly viaLink: string; readonly resolved: string }
     | undefined;
 };
-export async function platformPaths(): Promise<PlatformPaths> {
+// The foreign file and, when none qualifies, the count-only reason.
+export async function foreignFile(
+  roots: readonly string[] = fileRoots,
+): Promise<{ readonly found: string | undefined; readonly missing: string }> {
+  const search = await foreignFileSearch(roots);
   return {
-    foreignFile: await firstForeignFile("/usr/share", 2),
+    found: search.found,
+    missing: search.found ? "" : describeSearch(search, roots.length),
+  };
+}
+export async function platformPaths(): Promise<PlatformPaths> {
+  const file = await foreignFile();
+  return {
+    foreignFile: file.found,
+    foreignFileMissing: file.missing,
     writableRoot: await writableForeignRoot(),
     symlinked: await symlinkedForeignRoot(),
   };
