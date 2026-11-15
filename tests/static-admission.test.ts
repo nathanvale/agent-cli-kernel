@@ -714,7 +714,10 @@ async function assertLockPolicy(
   const lock = Bun.JSONC.parse(
     await Bun.file(join(root, "bun.lock")).text(),
   ) as Record<string, unknown>;
-  expect(lock.lockfileVersion).toBe(2);
+  expect(lock.lockfileVersion).toBe(3);
+  expect(lock.overrides).toEqual({
+    "@typescript/old@npm:typescript@^6": { ".": "npm:typescript@6.0.2" },
+  });
   const workspaces = lock.workspaces as Record<string, unknown>;
   const workspace = workspaces[""] as Record<string, unknown> | undefined;
   if (workspace === undefined) {
@@ -724,6 +727,10 @@ async function assertLockPolicy(
   expect(workspace.devDependencies).toEqual(expectedPins.devDependencies);
 
   const packages = lock.packages as Record<string, unknown>;
+  expect(packages["@typescript/old"]).toBeArray();
+  expect((packages["@typescript/old"] as unknown[])[0]).toBe(
+    "typescript@6.0.2",
+  );
   for (const [packageName, version] of Object.entries({
     ...expectedPins.dependencies,
     ...expectedPins.devDependencies,
@@ -765,6 +772,9 @@ async function assertPacketPolicy(
   });
   expect(packageJson.dependencies ?? {}).toEqual(expectedPins.dependencies);
   expect(packageJson.devDependencies).toEqual(expectedPins.devDependencies);
+  expect(packageJson.overrides).toEqual({
+    "@typescript/old@npm:typescript@^6": "npm:typescript@6.0.2",
+  });
   await assertLockPolicy(root, expectedPins);
 
   const tsconfig = await readJson(join(root, "tsconfig.json"));
@@ -1315,6 +1325,22 @@ function compilerMutations(): PolicyMutation[] {
 
 function packageMutations(profile: Profile): PolicyMutation[] {
   const mutations: PolicyMutation[] = [
+    {
+      file: "package.json",
+      path: ["overrides"],
+      cause: "policy:package.json.overrides",
+    },
+    {
+      file: "bun.lock",
+      path: ["overrides"],
+      cause: "policy:bun.lock.overrides",
+    },
+    {
+      file: "bun.lock",
+      path: ["packages", "@typescript/old"],
+      replacement: ["typescript@6.0.3"],
+      cause: "policy:bun.lock.packages.@typescript/old",
+    },
     {
       file: "package.json",
       path: ["packageManager"],
