@@ -66,12 +66,17 @@ function ownJsonValues(value: object): unknown[] | undefined {
   }
   return values;
 }
+// Shared subgraphs are revisited per path, so a small value can describe
+// exponential work. One traversal visits at most this many JSON values, then
+// refuses (F17; an engineering bound, about 50 ms, pending a contract number).
+const jsonValueBudget = 1_000_000;
 export function json(
   value: unknown,
   depth = 0,
   ancestors = new Set<object>(),
+  budget = { remaining: jsonValueBudget },
 ): value is JsonValue {
-  if (depth > 64) return false;
+  if (depth > 64 || --budget.remaining < 0) return false;
   if (value === null || typeof value === "boolean" || typeof value === "string")
     return true;
   if (typeof value === "number") return Number.isFinite(value);
@@ -80,7 +85,9 @@ export function json(
   const values = ownJsonValues(value);
   if (!values) return false;
   ancestors.add(value);
-  const valid = values.every((child) => json(child, depth + 1, ancestors));
+  const valid = values.every((child) =>
+    json(child, depth + 1, ancestors, budget),
+  );
   ancestors.delete(value);
   return valid;
 }
