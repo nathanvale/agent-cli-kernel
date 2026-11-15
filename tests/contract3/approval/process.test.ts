@@ -70,49 +70,62 @@ function phases(events: readonly unknown[]): string[] {
 }
 // Positive classification: each outcome needs the exact phase and result
 // the child reported. Anything else, including a crash, is "unexpected".
-function applyOutcome(events: readonly unknown[]): string {
+type Rules = readonly (readonly [string, readonly (readonly object[])[]])[];
+// Ordered rules: the first outcome with one fully reported alternative wins.
+function classify(events: readonly unknown[], rules: Rules): string {
   const seen = phases(events);
-  const has = (event: object) => seen.includes(JSON.stringify(event));
-  if (has({ phase: "lock-refused" })) return "lock-refused";
-  if (
-    has({ phase: "consume", error: "coordination-not-held", consumed: false })
-  )
-    return "coordination-error";
-  if (has({ phase: "consume", error: "coordination-lost", consumed: true }))
-    return "coordination-lost";
-  if (
-    has({ phase: "consume", error: "durability-unconfirmed", consumed: true })
-  )
-    return "durability-unconfirmed";
-  if (
-    has({ phase: "consume", admitted: true }) &&
-    has({ phase: "effect" }) &&
-    has({ phase: "done" })
-  )
-    return "admitted";
-  if (
-    has({ phase: "preflight", admitted: false }) ||
-    has({ phase: "consume", admitted: false })
-  )
-    return "denied";
+  for (const [outcome, alternatives] of rules)
+    if (
+      alternatives.some((all) =>
+        all.every((event) => seen.includes(JSON.stringify(event))),
+      )
+    )
+      return outcome;
   return "unexpected";
 }
+const rejected = (error: string, consumed: boolean) => [
+  [{ phase: "consume", error, consumed }],
+];
+const applyRules: Rules = [
+  ["lock-refused", [[{ phase: "lock-refused" }]]],
+  ["coordination-error", rejected("coordination-not-held", false)],
+  ["coordination-lost", rejected("coordination-lost", true)],
+  ["durability-unconfirmed", rejected("durability-unconfirmed", true)],
+  [
+    "admitted",
+    [
+      [
+        { phase: "consume", admitted: true },
+        { phase: "effect" },
+        { phase: "done" },
+      ],
+    ],
+  ],
+  [
+    "denied",
+    [
+      [{ phase: "preflight", admitted: false }],
+      [{ phase: "consume", admitted: false }],
+    ],
+  ],
+];
+const authorityRules: Rules = [
+  ["coordination-error", rejected("coordination-not-held", false)],
+  ["coordination-lost", rejected("coordination-lost", true)],
+  ["verified", [[{ phase: "consume", status: "verified" }]]],
+  [
+    "refused",
+    [
+      [{ phase: "preflight", status: "refused" }],
+      [{ phase: "consume", status: "refused" }],
+    ],
+  ],
+];
+function applyOutcome(events: readonly unknown[]): string {
+  return classify(events, applyRules);
+}
 function authorityOutcome(events: readonly unknown[]): string {
-  const seen = phases(events);
-  const has = (event: object) => seen.includes(JSON.stringify(event));
-  if (
-    has({ phase: "consume", error: "coordination-not-held", consumed: false })
-  )
-    return "coordination-error";
-  if (has({ phase: "consume", error: "coordination-lost", consumed: true }))
-    return "coordination-lost";
-  if (has({ phase: "consume", status: "verified" })) return "verified";
-  if (
-    has({ phase: "preflight", status: "refused" }) ||
-    has({ phase: "consume", status: "refused" })
-  )
-    return "refused";
-  return "unexpected";
+  return classify(events, authorityRules);
 }
 // Every complete child run must exit cleanly with empty stderr.
 async function runClean(config: DriverConfig) {
