@@ -12,6 +12,7 @@ const here = import.meta.dir;
 const repository = resolve(here, "../../..");
 const faultCli = join(here, "fixtures/fault-cli.ts");
 export const canaryCli = join(here, "fixtures/canary-cli.ts");
+export const decliningHost = join(here, "fixtures/declining-host.ts");
 
 export type Expectation = Readonly<Record<string, unknown>>;
 export type Case = {
@@ -144,10 +145,23 @@ export type Observed = {
   readonly firstStdoutAt: number | undefined;
   readonly ledger: readonly string[];
   readonly dir: string;
+  // Set when the harness fitted one operand to the host's argument limits.
+  readonly operand?: OperandFit;
+};
+// H1: the frozen operand length, the length the host refused (if any) and
+// the length actually exercised.
+export type OperandFit = {
+  readonly frozenLength: number;
+  // The frozen length when the host refused it, otherwise null.
+  readonly refusedLength: number | null;
+  // The shortest length the host refused, when it refused any.
+  readonly shortestRefusedLength: number | null;
+  readonly exercisedLength: number;
 };
 
 export type Launched = {
   readonly pid: number;
+  readonly operand: OperandFit | undefined;
   readonly dir: string;
   readonly ledgerPath: string;
   readonly spawnedAt: number;
@@ -203,6 +217,8 @@ export async function launch(options: {
   readonly env?: Readonly<Record<string, string>>;
   readonly rawArgvShell?: string;
   readonly script?: string;
+  // Index of one argv operand to shorten to the longest the host can spawn.
+  readonly fitOperand?: number;
 }): Promise<Launched> {
   requireTools();
   const dir = await mkdtemp(join(tmpdir(), "contract3-t2-"));
@@ -214,24 +230,35 @@ export async function launch(options: {
   const entry =
     options.script ??
     (options.state ? await materialiseStateEntry(dir) : faultCli);
+  const env = {
+    PATH: process.env.PATH ?? "/usr/bin:/bin",
+    HOME: process.env.HOME ?? dir,
+    TMPDIR: temp,
+    BUN_RUNTIME_TRANSPILER_CACHE_PATH: "0",
+    FX_LEDGER: ledgerPath,
+    FX_SCENARIO: options.scenario ?? "",
+    ...options.env,
+  };
+  const fitted =
+    options.fitOperand === undefined
+      ? undefined
+      : fitOperand(
+          [process.execPath, entry],
+          options.argv,
+          options.fitOperand,
+          env,
+        );
+  const argv = fitted?.argv ?? options.argv;
   const command = options.rawArgvShell
     ? ["/bin/sh", "-c", options.rawArgvShell, process.execPath, entry]
-    : [process.execPath, entry, ...options.argv];
+    : [process.execPath, entry, ...argv];
   const spawnedAt = Date.now();
   const child = Bun.spawn(command, {
     cwd: work,
     stdin: "pipe",
     stdout: "pipe",
     stderr: "pipe",
-    env: {
-      PATH: process.env.PATH ?? "/usr/bin:/bin",
-      HOME: process.env.HOME ?? dir,
-      TMPDIR: temp,
-      BUN_RUNTIME_TRANSPILER_CACHE_PATH: "0",
-      FX_LEDGER: ledgerPath,
-      FX_SCENARIO: options.scenario ?? "",
-      ...options.env,
-    },
+    env,
   });
   if (options.stdin === "held-open") {
     void child.stdin.write(heldBytes);
@@ -291,10 +318,12 @@ export async function launch(options: {
       firstStdoutAt,
       ledger: readLedger(ledgerPath),
       dir,
+      ...(fitted ? { operand: fitted.fit } : {}),
     };
   })();
   return {
     pid: child.pid,
+    operand: fitted?.fit,
     dir,
     ledgerPath,
     spawnedAt,
@@ -318,6 +347,70 @@ export async function launch(options: {
 
 export async function cleanup(observed: { readonly dir: string }) {
   await rm(observed.dir, { recursive: true, force: true });
+}
+
+// H1: whether the host will start a process with this exact argv and
+// environment. Linux refuses any single argument of 131,072 bytes or more
+// (MAX_ARG_STRLEN, terminator included); Darwin limits only the total
+// (ARG_MAX). The probe runs /bin/sh with the same arguments and environment
+// plus three short tokens, so a length that fits here fits the real spawn.
+function spawns(
+  argv: readonly string[],
+  env: Readonly<Record<string, string>>,
+): boolean {
+  try {
+    return Bun.spawnSync(["/bin/sh", "-c", ":", ...argv], {
+      env,
+      stdout: "ignore",
+      stderr: "ignore",
+    }).success;
+  } catch {
+    return false;
+  }
+}
+
+// The longest prefix of `wanted` characters (ASCII) for which `build` still
+// spawns: the result fits and one more character does not.
+export function spawnableLength(
+  build: (length: number) => readonly string[],
+  env: Readonly<Record<string, string>>,
+  wanted: number,
+): number {
+  if (spawns(build(wanted), env)) return wanted;
+  let fits = 0;
+  let refused = wanted;
+  while (refused - fits > 1) {
+    const middle = Math.floor((fits + refused) / 2);
+    if (spawns(build(middle), env)) fits = middle;
+    else refused = middle;
+  }
+  return fits;
+}
+
+function fitOperand(
+  prefix: readonly string[],
+  argv: readonly string[],
+  index: number,
+  env: Readonly<Record<string, string>>,
+): { readonly argv: readonly string[]; readonly fit: OperandFit } {
+  const operand = argv[index] ?? "";
+  const build = (length: number) => [
+    ...prefix,
+    ...argv.slice(0, index),
+    operand.slice(0, length),
+    ...argv.slice(index + 1),
+  ];
+  const exercised = spawnableLength(build, env, operand.length);
+  return {
+    argv: build(exercised).slice(prefix.length),
+    fit: {
+      frozenLength: operand.length,
+      refusedLength: exercised === operand.length ? null : operand.length,
+      shortestRefusedLength:
+        exercised === operand.length ? null : exercised + 1,
+      exercisedLength: exercised,
+    },
+  };
 }
 
 // Launches one frozen case: every case field reaches the process; overrides

@@ -1198,8 +1198,10 @@ function faultRuntime(runtime: ContractRuntime): ContractRuntime {
 }
 
 // Classifies a stdout write by the contract, not by production constants: a
-// complete envelope whose cause is one the fallback alone may select
-// (INTERNAL_PREPARATION or INTERNAL_RESULT_*, DISC-11b).
+// complete envelope whose cause is one the fallback may select
+// (INTERNAL_PREPARATION or INTERNAL_RESULT_*, DISC-11b). The front door also
+// builds INTERNAL_PREPARATION for its own preparation refusals, which would be
+// counted here too; no current case produces one outside a fallback.
 function fallbackCause(bytes: Uint8Array): boolean {
   try {
     const parsed: unknown = JSON.parse(new TextDecoder().decode(bytes));

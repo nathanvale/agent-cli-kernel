@@ -115,14 +115,37 @@ async function deathAfter(pid: number, from: number, limit: number) {
 // Polling and kill latency for that observation (baseline death ~305 ms).
 const killObservationTolerance = 30;
 
-const p08: Record<string, (entry: Case) => Promise<Observed>> = {
-  "P08.first-signal": async (entry) => {
-    const launched = await launchCase(entry);
+// D3: every P08 shape records what it launched, so the wrapper's cleanup
+// runs even when an assertion fails inside the shape.
+type Tracker = { launched?: Launched; observed?: Observed };
+async function begin(entry: Case, tracker: Tracker) {
+  tracker.launched = await launchCase(entry);
+  return tracker.launched;
+}
+async function end(tracker: Tracker, launched: Launched) {
+  tracker.observed = await launched.done;
+  return tracker.observed;
+}
+async function release(tracker: Tracker) {
+  const { launched } = tracker;
+  if (launched && !tracker.observed) {
+    launched.signal("SIGKILL");
+    tracker.observed = await launched.done;
+  }
+  const observed = tracker.observed;
+  if (!observed) return;
+  kill(pidAfter(observed.ledger, "child-started"));
+  await cleanup(observed);
+}
+
+const p08: Record<string, (entry: Case, tracker: Tracker) => Promise<void>> = {
+  "P08.first-signal": async (entry, tracker) => {
+    const launched = await begin(entry, tracker);
     await launched.barrier("child-started");
     const child = requirePid(readLedger(launched.ledgerPath), "child-started");
     const sent = await signalSent(entry, launched);
     const died = await deathAfter(child, sent, 2_000);
-    const observed = await launched.done;
+    const observed = await end(tracker, launched);
     receipt(entry, observed, {
       signalToExitMilliseconds: observed.exitedAt - sent,
       signalToOwnedChildDeathMilliseconds: died - sent,
@@ -136,12 +159,11 @@ const p08: Record<string, (entry: Case) => Promise<Observed>> = {
     expect(died - sent).toBeLessThanOrEqual(
       signalBound(entry) + killObservationTolerance,
     );
-    return observed;
   },
-  "P08.repeated-signal": async (entry) => {
-    const launched = await launchCase(entry);
+  "P08.repeated-signal": async (entry, tracker) => {
+    const launched = await begin(entry, tracker);
     const sent = await signalSent(entry, launched);
-    const observed = await launched.done;
+    const observed = await end(tracker, launched);
     receipt(entry, observed, {
       signalToExitMilliseconds: observed.exitedAt - sent,
     });
@@ -149,29 +171,25 @@ const p08: Record<string, (entry: Case) => Promise<Observed>> = {
     expect(observed.exitedAt - sent).toBeLessThanOrEqual(
       signalBound(entry) + tolerance,
     );
-    return observed;
   },
-  "P08.catchable-crash": async (entry) => {
-    const observed = await run(entry);
+  "P08.catchable-crash": async (entry, tracker) => {
+    const observed = await end(tracker, await begin(entry, tracker));
     receipt(entry, observed);
     assertNoEnvelope(entry, observed);
     expect(
       observed.ledger.filter((line) => line.startsWith("emergency")).length,
     ).toBe(n(entry.expect.emergencyWrites));
-    return observed;
   },
-  "P08.deadline": async (entry) => {
-    const observed = await run(entry);
+  "P08.deadline": async (entry, tracker) => {
+    const observed = await end(tracker, await begin(entry, tracker));
     receipt(entry, observed);
     assertEnvelope(entry, observed);
     assertDeadlineLag(entry, observed);
-    return observed;
   },
-  "P08.normal-completion": async (entry) => {
-    const observed = await run(entry);
+  "P08.normal-completion": async (entry, tracker) => {
+    const observed = await end(tracker, await begin(entry, tracker));
     receipt(entry, observed);
     assertEnvelope(entry, observed);
-    return observed;
   },
 };
 
@@ -246,15 +264,16 @@ const checks: Record<string, (entry: Case) => Promise<void>> = {
   async P08(entry) {
     const shape = p08[entry.id];
     if (!shape) throw new Error(`No P08 shape for ${entry.id}.`);
-    const observed = await shape(entry);
-    const child = pidAfter(observed.ledger, "child-started");
+    const tracker: Tracker = {};
     try {
-      if (child === undefined) throw new Error("No owned child pid.");
+      await shape(entry, tracker);
+      const observed = tracker.observed;
+      if (!observed) throw new Error("The P08 shape observed no process.");
+      const child = requirePid(observed.ledger, "child-started");
       // The owned TERM-ignoring child is gone: a forced kill was attempted.
       expect(await goneWithin(child, 300)).toBe(true);
     } finally {
-      kill(child);
-      await cleanup(observed);
+      await release(tracker);
     }
   },
   // LIFE-11 excludes a cleanup guarantee here; it does not require
@@ -362,13 +381,32 @@ describe("caller-program disclosure guard (supporting C3, not a frozen case)", (
         await launch({ argv: ["undisclosed", streamProbe, "--json"] })
       ).done;
       try {
-        // No child started (the probe ledgers its stdin read when it runs)
-        // and the command did not succeed.
+        // D2: the undisclosed command routed and its handler failed on the
+        // refused start, taking the fallback; no child started (the probe
+        // ledgers its stdin read when it runs).
+        assertEnvelope(
+          {
+            id: "P10s.undisclosed-command-starts-no-program",
+            family: "P10s",
+            status: "supporting",
+            argv: ["undisclosed", streamProbe, "--json"],
+            scenario: undefined,
+            state: false,
+            stdin: "closed",
+            expect: {
+              commandIdentity: "fx.undisclosed",
+              causeCode: "INTERNAL_RESULT_UNCHANGED",
+              fallback: true,
+            },
+            supplier: undefined,
+            note: undefined,
+          },
+          observed,
+        );
+        expect(observed.ledger).toContain("attach programs");
         expect(
           observed.ledger.some((line) => line.startsWith("child-stdin-bytes")),
         ).toBe(false);
-        expect(observed.code === 0).toBe(false);
-        expect(observed.stderr.byteLength).toBe(0);
       } finally {
         await cleanup(observed);
       }

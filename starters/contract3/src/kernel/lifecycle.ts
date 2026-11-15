@@ -2,7 +2,6 @@ import type { RunProcess } from "./capabilities.ts";
 import type { TrustedRun } from "./fallback.ts";
 import { processHost } from "./process-host.ts";
 import type {
-  AddonName,
   AttachedAddon,
   EmergencyFacts,
   ProcessHost,
@@ -23,6 +22,7 @@ import {
 } from "./state-causes.ts";
 import type { Effects, JsonValue, Validation } from "./types.ts";
 import { addonNames, capabilityMethods } from "./validation/context.ts";
+import type { CapabilityAddonName } from "./validation/context.ts";
 import { record } from "./validation/primitives.ts";
 import { createWriter } from "./writer.ts";
 
@@ -70,7 +70,10 @@ async function within<T>(
   }
 }
 
-type Plan = { readonly name: AddonName; readonly addon: RunAddon<unknown> };
+type Plan = {
+  readonly name: CapabilityAddonName;
+  readonly addon: RunAddon<unknown>;
+};
 type CommandPlan = {
   readonly command: CommandDeclaration;
   readonly addons: readonly Plan[];

@@ -1,4 +1,5 @@
 import type { CapabilitySelection, HandlerContext } from "./capabilities.ts";
+import type { CapabilityAddonName } from "./validation/context.ts";
 
 export type StopSignal = "SIGINT" | "SIGTERM";
 
@@ -47,12 +48,11 @@ export type EmergencyFacts = {
   readonly phase: "preparing" | "dispatched" | "emitting" | "drained";
 };
 
-// One add-on per declared capability name (CapabilitySelection owns the names).
-export type AddonName = keyof CapabilitySelection;
+// One add-on per declared capability name (validation/context.ts owns them).
 export type CapabilityFor = HandlerContext<Required<CapabilitySelection>>;
 export type RunSetup = {
   readonly addons?: {
-    readonly [K in AddonName]?: RunAddon<CapabilityFor[K]>;
+    readonly [K in CapabilityAddonName]?: RunAddon<CapabilityFor[K]>;
   };
   // At most one bounded synchronous recording attempt on a catchable crash
   // (LIFE-6a). The state add-on supplies it; without one nothing is written.
