@@ -56,6 +56,9 @@ export type StateIssuer = {
     runId: string,
     observation: StateObservation<Effect>,
   ) => TransactionProof<Effect>;
+  // Issues a scope only for a run this installation has attached; it throws
+  // otherwise. A production scope is always acquired for an attached run before
+  // the approved effect (CMD-9 step 7), so an unattached run fails early.
   readonly exclusiveScope: (
     runId: string,
     scope: string,
@@ -115,22 +118,24 @@ export function proofFreeResultAllowed(
   return !attached?.transactionStarted || attached.proofState === "unchanged";
 }
 // Runtime counterpart of the ExclusiveScope brand (K2): true only for the
-// kernel-issued object itself, for the run's current attachment, from the
-// given installation when a descriptor is supplied, while isActive() is true.
+// kernel-issued object itself, issued by `descriptor`'s installation for the
+// run's current attachment, while isActive() returns true (a throw is false).
+// The descriptor is required so a scope from another installation for the
+// same run can never pass.
 export function issuedScope(
   value: unknown,
   runId: string,
-  descriptor?: StateAddonDescriptor,
+  descriptor: StateAddonDescriptor,
 ): boolean {
   const issued =
     typeof value === "object" && value !== null ? scopes.get(value) : undefined;
-  const registration = descriptor ? registrations.get(descriptor) : undefined;
+  const registration = registrations.get(descriptor);
   if (
     !issued ||
+    !registration ||
     issued.runId !== runId ||
-    (descriptor !== undefined &&
-      registration?.installation !== issued.installation) ||
-    installationRuns.get(issued.installation)?.get(runId) !== issued.run
+    registration.installation !== issued.installation ||
+    registration.runs.get(runId) !== issued.run
   )
     return false;
   try {
@@ -139,7 +144,6 @@ export function issuedScope(
     return false;
   }
 }
-const installationRuns = new WeakMap<object, ReadonlyMap<string, object>>();
 function stateIssuer(
   installation: object,
   active: AsyncLocalStorage<{ readonly runId: string; readonly run: object }>,
@@ -260,7 +264,6 @@ export function createStateAddon(
     readonly runId: string;
     readonly run: object;
   }>();
-  installationRuns.set(installation, runs);
   const registration = install(stateIssuer(installation, active, runs));
   if (!knownRoute(registration.ifNoResult))
     throw new Error(

@@ -17,7 +17,7 @@ const recovery = command({ identity: "specimen.pending", route: ["pending"], sum
 // effect's operation ran, before read-back is judged.
 const ledger: { runId: string; effect: string; installation: string }[] = [];
 const scopes = new Map<string, unknown>();
-let scopeActive = true;
+let scopeMode: "active" | "inactive" | "throw" = "active";
 let workStarts = 0;
 let doubleProof = false;
 let doubleProofSecond = "not-run";
@@ -28,7 +28,7 @@ function installation(name: string) {
       return {
         async transaction(work) {
           workStarts++;
-          scopes.set(`${name}:${runId}`, issuer.exclusiveScope(runId, "resource-1", () => scopeActive));
+          scopes.set(`${name}:${runId}`, issuer.exclusiveScope(runId, "resource-1", () => { if (scopeMode === "throw") throw new Error("Coordination lost."); return scopeMode === "active"; }));
           const confirmed: string[] = [];
           await work({
             async record(effect, operation, readBack) {
@@ -172,10 +172,15 @@ out["R02.plain-object-refused"] = await attempt("r1", { runId: "r1", scope: "res
 out["R02.copy-refused"] = { spread: await attempt("r1", { ...s1 }), symbolCarrier: await attempt("r1", carrier), cloneError };
 out["R02.other-run-refused"] = await attempt("r2", s1);
 out["R02.other-installation-refused"] = await attempt("r1", sB);
-out["R02.issued-twin-consumed-once"] = await attempt("r1", s1);
-scopeActive = false;
-out["R02.inactive-refused"] = await attempt("r1", s1);
-scopeActive = true;
+// S2: the kernel check alone, without the runtime's own isActive and runId checks.
+const direct = (scope: unknown) => typeof issuedScope === "function" ? issuedScope(scope, "r1", a.state) : "missing";
+out["R02.issued-twin-consumed-once"] = { ...(await attempt("r1", s1)), direct: direct(s1) };
+scopeMode = "inactive";
+const inactiveDirect = direct(s1);
+const inactiveAttempt = await attempt("r1", s1);
+scopeMode = "throw";
+out["R02.inactive-refused"] = { ...inactiveAttempt, directInactive: inactiveDirect, directThrowing: direct(s1) };
+scopeMode = "active";
 await a.contract.execute("specimen.change", [], "r1");
 out["R02.superseded-attachment-refused"] = await attempt("r1", s1);
 process.stdout.write(JSON.stringify(out));

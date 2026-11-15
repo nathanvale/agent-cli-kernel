@@ -94,9 +94,14 @@ runFamily(
       expect(await observed("R02.issued-twin-consumed-once")).toEqual({
         admitted: true,
         consumed: 1,
+        direct: true,
       }),
     "R02.inactive-refused": async () =>
-      expect(await observed("R02.inactive-refused")).toEqual(refused),
+      expect(await observed("R02.inactive-refused")).toEqual({
+        ...refused,
+        directInactive: false,
+        directThrowing: false,
+      }),
     "R02.superseded-attachment-refused": async () =>
       expect(await observed("R02.superseded-attachment-refused")).toEqual(
         refused,
