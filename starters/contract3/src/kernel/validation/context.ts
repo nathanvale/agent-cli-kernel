@@ -1,17 +1,22 @@
 import type { CapabilitySelection, HandlerContext } from "../capabilities.ts";
 import { record } from "./primitives.ts";
-// One owner for the add-on capability names and the methods each must expose.
-// A command declaring any other name is refused when the front door is built.
-export const addonNames = [
-  "programs",
-  "approval",
-  "diagnostics",
-] as const satisfies readonly (keyof CapabilitySelection)[];
+// One owner for the capability add-on names and the methods each must expose:
+// the keys below are the only spelling, checked complete against
+// CapabilitySelection. A command declaring any other name is refused when the
+// front door is built. (The installation manifest's AddonName in
+// registration.ts also lists "state", which is not a capability.)
 export const capabilityMethods = {
   programs: ["inspect", "supplied", "domain"],
   approval: ["check"],
   diagnostics: ["record"],
 } as const satisfies Record<keyof CapabilitySelection, readonly string[]>;
+export type CapabilityAddonName = keyof typeof capabilityMethods;
+export function capabilityAddonName(key: string): key is CapabilityAddonName {
+  return Object.hasOwn(capabilityMethods, key);
+}
+export const addonNames: readonly CapabilityAddonName[] = Object.freeze(
+  Object.keys(capabilityMethods).filter(capabilityAddonName),
+);
 export function handlerContext<C extends CapabilitySelection>(
   value: unknown,
   selection: C,
@@ -25,11 +30,7 @@ export function handlerContext<C extends CapabilitySelection>(
   )
     return false;
   return Object.entries(selection).every(([key, enabled]) => {
-    if (
-      enabled !== true ||
-      (key !== "programs" && key !== "approval" && key !== "diagnostics")
-    )
-      return false;
+    if (enabled !== true || !capabilityAddonName(key)) return false;
     const capability = value[key];
     return (
       record(capability) &&
