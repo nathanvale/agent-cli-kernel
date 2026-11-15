@@ -980,3 +980,21 @@ test("T4S.n5-durability-unconfirmed: a failed flush after creation reports consu
   expect(applyOutcome((await apply("repeat")).events)).toBe("denied");
   expect((await snapshot(world)).effects).toEqual([]);
 });
+
+// L2: a failing close after the marker exists (reviewer probe, test-side
+// FileHandle prototype patch in the driver) reports consumption.
+test("T4S.l2-close-failure: a failed close after creation reports consumption", async () => {
+  await writeGrant(world, grant);
+  const before = await snapshot(world);
+  const failed = await apply("close-fails", {
+    failCloseAfter: join(world.ledger, approvalMarker),
+  });
+  expect(applyOutcome(failed.events)).toBe("durability-unconfirmed");
+  const after = await snapshot(world);
+  expect(after.markers).toEqual([approvalMarker]);
+  expect(after.effects).toEqual([]);
+  expect(before.authority).toBe(after.authority);
+  // No refund: the ambiguous consumption stays consumed.
+  expect(applyOutcome((await apply("repeat")).events)).toBe("denied");
+  expect((await snapshot(world)).effects).toEqual([]);
+});
