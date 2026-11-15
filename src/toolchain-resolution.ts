@@ -16,10 +16,16 @@ function version(value: unknown): string {
 
 function acceptedBackends(
   lint: string,
+  lintPackage: string,
   compiler: string,
   semantic: string,
 ): void {
-  if (lint !== "6.0.2" || compiler !== "7.0.2" || semantic !== "7.0.2")
+  if (
+    lint !== "6.0.2" ||
+    lintPackage !== "6.0.2" ||
+    compiler !== "7.0.2" ||
+    semantic !== "7.0.2"
+  )
     throw new Error(
       "The installed lint, compiler and semantic backends do not match the accepted toolchain.",
     );
@@ -31,7 +37,8 @@ export function resolveToolchain(project: string) {
   const companion = createRequire(
     local.resolve("fallow-type-aware/package.json"),
   );
-  const lint: unknown = eslint("typescript/package.json");
+  const lint: unknown = eslint("typescript");
+  const lintPackage: unknown = eslint("typescript/package.json");
   const native: unknown = local("@typescript/native/package.json");
   const semantic: unknown = companion("typescript/package.json");
   const compiler = Bun.spawnSync(
@@ -45,10 +52,16 @@ export function resolveToolchain(project: string) {
     throw new Error("The project compiler is not native TypeScript 7.0.2.");
   const receipt = {
     lint: version(lint),
+    lintPackage: version(lintPackage),
     compiler: version(native),
     semantic: version(semantic),
     compilerExecutable: compiler.stdout.toString().trim(),
   };
-  acceptedBackends(receipt.lint, receipt.compiler, receipt.semantic);
+  acceptedBackends(
+    receipt.lint,
+    receipt.lintPackage,
+    receipt.compiler,
+    receipt.semantic,
+  );
   return receipt;
 }
