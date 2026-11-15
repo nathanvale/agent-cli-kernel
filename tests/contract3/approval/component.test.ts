@@ -192,15 +192,6 @@ const hostile: readonly (readonly [string, () => Promise<void>])[] = [
     },
   ],
   [
-    "A04.h-invalid-utf8",
-    () => {
-      const text = JSON.stringify({ ...grant, authority: "owner-?" });
-      const bytes = Buffer.from(text, "utf8");
-      bytes[bytes.indexOf("?")] = 0xff;
-      return writeFile(grantPath(world, grant.preview), bytes);
-    },
-  ],
-  [
     "A04.i-excess-depth",
     () =>
       writeFile(
@@ -229,6 +220,19 @@ for (const [id, setup] of hostile)
   test(id, async () => {
     expect(await observed(setup, preflight)).toEqual(expectedFor(id));
   });
+
+test("A04.h-invalid-utf8", async () => {
+  // The request names U+FFFD, so lossy decoding of the 0xff byte would
+  // otherwise turn the invalid bytes into a matching authority.
+  const text = JSON.stringify({ ...grant, authority: "owner-?" });
+  const bytes = Buffer.from(text, "utf8");
+  bytes[bytes.indexOf("?")] = 0xff;
+  const outcome = await observed(
+    () => writeFile(grantPath(world, grant.preview), bytes),
+    () => preflight({ authority: "owner-\uFFFD" }),
+  );
+  expect(outcome).toEqual(expectedFor("A04.h-invalid-utf8"));
+});
 
 test("A04.l-traversal-preview", async () => {
   // Names are digests, so a traversal identity addresses nothing else.
