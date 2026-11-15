@@ -7,7 +7,7 @@ import { knownRoute } from "./state-seam.ts";
 import type { IfNoResult, StateCapability } from "./capabilities.ts";
 import type { CapabilitySelection, HandlerContext } from "./capabilities.ts";
 import type { InputSchema, ParsedInput } from "./input-types.ts";
-import { parseInput } from "./input.ts";
+import { parseInput, acceptsRootInput } from "./input.ts";
 import { admitHostInput } from "./host-input.ts";
 import { handlerContext, approvalContext } from "./validation/context.ts";
 import { text } from "./validation/primitives.ts";
@@ -38,6 +38,23 @@ export type CommandDeclaration<Identity extends string = string> =
       registration?: InputRegistration,
     ) => Promise<Validation<CommandResult<Identity>>>;
   };
+export function admitCommandIdentity(identity: string): void {
+  if (!text(identity) || new TextEncoder().encode(identity).byteLength > 128)
+    throw new Error(
+      "Command identity must be nonempty and at most 128 UTF-8 bytes.",
+    );
+}
+export function admitRootOperation(
+  route: readonly string[],
+  input: InputSchema,
+): void {
+  if (
+    route.length === 0 &&
+    input.arguments.length === 0 &&
+    input.options.length === 0
+  )
+    throw new Error("Root operation requires a declared option or operand.");
+}
 export function command<
   const Identity extends string,
   const I extends InputSchema,
@@ -60,9 +77,9 @@ export function command<
 }) {
   freeze(spec);
   admitHostInput(spec.input);
+  admitCommandIdentity(spec.identity);
+  admitRootOperation(spec.route, spec.input);
   if (
-    !text(spec.identity) ||
-    new TextEncoder().encode(spec.identity).byteLength > 128 ||
     !text(spec.summary) ||
     spec.route.some((token) => !text(token) || token.startsWith("-"))
   )
@@ -91,6 +108,12 @@ export function command<
     ): Promise<Validation<CommandResult<Identity>>> {
       const parsed = await parseInput(input, argv);
       if (!parsed.ok) return parsed;
+      if (!acceptsRootInput(spec.route, parsed.value))
+        return {
+          ok: false,
+          path: "input",
+          reason: "Root operation requires an option or operand.",
+        };
       const future = await validateFutureInputs(
         declaration,
         parsed.value,
@@ -154,6 +177,9 @@ export function changing<
     : { readonly approval?: never }),
 ) {
   freeze(spec);
+  admitHostInput(spec.input);
+  admitCommandIdentity(spec.identity);
+  admitRootOperation(spec.route, spec.input);
   if (!knownRoute(spec.ifNoResult))
     throw new Error("ifNoResult must come from the admitted state add-on.");
   if (
@@ -164,7 +190,6 @@ export function changing<
     throw new Error(
       "Changing commands need distinct coordination refusal stations.",
     );
-  admitHostInput(spec.input);
   if (
     spec.effects.length === 0 ||
     new Set(spec.effects).size !== spec.effects.length
@@ -192,6 +217,12 @@ export function changing<
     ): Promise<Validation<CommandResult<Identity>>> {
       const parsed = await parseInput(spec.input, argv);
       if (!parsed.ok) return parsed;
+      if (!acceptsRootInput(spec.route, parsed.value))
+        return {
+          ok: false,
+          path: "input",
+          reason: "Root operation requires an option or operand.",
+        };
       const future = await validateFutureInputs(
         declaration,
         parsed.value,
