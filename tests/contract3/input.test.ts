@@ -165,125 +165,212 @@ test("untrusted patterns terminate within the reader budget and invalid declarat
   expect(performance.now() - start).toBeLessThan(2000);
 });
 
-test("caller values for later commands are validated before the current handler", async () => {
-  let guarded = 0;
-  const pending = command({
-    identity: "items.pending",
-    route: ["pending"],
-    summary: "Read an item.",
-    input: {
-      ...input,
-      arguments: [
-        {
-          ...input.arguments[0],
-          value: {
-            kind: "string",
-            minLength: 1,
-            maxLength: 8,
-            choices: ["alpha"],
-            pattern: null,
+test.each([
+  {
+    name: "noninteger dynamic deadline",
+    args: ["--deadline-ms", "{binding.delay}", "{binding.item}"],
+    accepted: false,
+    delay: "not-int",
+  },
+  {
+    name: "runtime-owned deadline",
+    args: ["--deadline-ms", "{binding.delay}", "{binding.item}"],
+    accepted: true,
+    runtimeOwned: true,
+  },
+  {
+    name: "dynamic deadline",
+    args: ["--deadline-ms", "{binding.delay}", "{binding.item}"],
+    accepted: true,
+    delay: "10",
+  },
+  {
+    name: "invalid dynamic deadline",
+    args: ["--deadline-ms", "{binding.delay}", "{binding.item}"],
+    accepted: false,
+    delay: "0",
+  },
+  { name: "ordinary target", args: ["{binding.item}"], accepted: true },
+  {
+    name: "deadline target",
+    args: ["--deadline-ms", "10", "{binding.item}"],
+    accepted: true,
+  },
+  {
+    name: "deadline and delimiter",
+    args: ["--deadline-ms", "10", "--", "{binding.item}"],
+    accepted: true,
+  },
+  {
+    name: "literal deadline operand",
+    args: ["--", "--deadline-ms", "{binding.item}"],
+    accepted: true,
+  },
+  {
+    name: "malformed deadline",
+    args: ["--deadline-ms", "0", "{binding.item}"],
+    accepted: false,
+  },
+  {
+    name: "repeated deadline",
+    args: ["--deadline-ms", "10", "--deadline-ms", "20", "{binding.item}"],
+    accepted: false,
+  },
+])(
+  "future bindings reject invalid target values before the handler: $name",
+  async ({ args, accepted, name, delay, runtimeOwned }) => {
+    const sourceArgs = (item: string) => ["--delay", delay ?? "10", "--", item];
+    let guarded = 0;
+    const pending = command({
+      identity: "items.pending",
+      route: ["pending"],
+      summary: "Read an item.",
+      input: {
+        ...input,
+        deadlineSupported: true,
+        arguments: [
+          ...(name === "literal deadline operand"
+            ? [{ ...input.arguments[0], name: "literal" }]
+            : []),
+          {
+            ...input.arguments[0],
+            value: {
+              kind: "string",
+              minLength: 1,
+              maxLength: 8,
+              choices: ["alpha"],
+              pattern: null,
+            },
           },
-        },
-      ],
-    },
-    capabilities: {},
-    run: (_input, context) =>
-      context.result(
-        { commandIdentity: "items.pending", causeCode: "SUCCESS_UNCHANGED" },
-        {
-          message: "Read.",
-          data: null,
-          effects: {
-            completed: [],
-            remaining: [],
-            uncertain: [],
-            inventoryComplete: true,
-          },
-        },
-      ),
-  });
-  const issued = station(commonCauses, {
-    commandIdentity: "items.issue",
-    causeCode: "SUCCESS_UNCHANGED",
-    trigger: "Read reference.",
-    guidance: {
-      next: {
-        kind: "command",
-        command: "items.pending",
-        args: ["{binding.item}"],
+        ],
       },
-    },
-    repairAction: null,
-    retryDelayPolicy: { kind: "none" },
-    reachability: "required",
-    unreachableRationale: null,
-    independentObservable: "handler-not-entered",
-  });
-  const issue = command({
-    identity: "items.issue",
-    route: ["issue"],
-    summary: "Issue a reference.",
-    input: {
-      ...input,
-      arguments: [
-        {
-          ...input.arguments[0],
-          value: {
-            kind: "string",
-            minLength: 0,
-            maxLength: 4096,
-            choices: null,
-            pattern: null,
+      capabilities: {},
+      run: (_input, context) =>
+        context.result(
+          { commandIdentity: "items.pending", causeCode: "SUCCESS_UNCHANGED" },
+          {
+            message: "Read.",
+            data: null,
+            effects: {
+              completed: [],
+              remaining: [],
+              uncertain: [],
+              inventoryComplete: true,
+            },
           },
+        ),
+    });
+    const issued = station(commonCauses, {
+      commandIdentity: "items.issue",
+      causeCode: "SUCCESS_UNCHANGED",
+      trigger: "Read reference.",
+      guidance: {
+        next: {
+          kind: "command",
+          command: "items.pending",
+          args,
         },
-      ],
-    },
-    capabilities: {},
-    futureBindings: { item: "item" },
-    stations: [issued],
-    run: (_input, context) => {
-      guarded++;
-      return context.result(
-        { commandIdentity: "items.issue", causeCode: "SUCCESS_UNCHANGED" },
-        {
-          message: "Read.",
-          data: null,
-          effects: {
-            completed: [],
-            remaining: [],
-            uncertain: [],
-            inventoryComplete: true,
+      },
+      repairAction: null,
+      retryDelayPolicy: { kind: "none" },
+      reachability: "required",
+      unreachableRationale: null,
+      independentObservable: "handler-not-entered",
+    });
+    const issue = command({
+      identity: "items.issue",
+      route: ["issue"],
+      summary: "Issue a reference.",
+      input: {
+        ...input,
+        options: [
+          ...input.options,
+          {
+            name: "--delay",
+            aliases: [],
+            summary: "Future deadline.",
+            required: true,
+            repeatable: false,
+            value: input.arguments[0].value,
           },
-        },
+        ],
+        arguments: [
+          {
+            ...input.arguments[0],
+            value: {
+              kind: "string",
+              minLength: 0,
+              maxLength: 4096,
+              choices: null,
+              pattern: null,
+            },
+          },
+        ],
+      },
+      capabilities: {},
+      futureBindings:
+        !runtimeOwned && args.some((token) => token === "{binding.delay}")
+          ? { item: "item", delay: "--delay" }
+          : { item: "item" },
+      stations: [issued],
+      run: (_input, context) => {
+        guarded++;
+        return context.result(
+          { commandIdentity: "items.issue", causeCode: "SUCCESS_UNCHANGED" },
+          {
+            message: "Read.",
+            data: null,
+            effects: {
+              completed: [],
+              remaining: [],
+              uncertain: [],
+              inventoryComplete: true,
+            },
+          },
+        );
+      },
+    });
+    const contract = contractFor({ cli: "items", commands: [issue, pending] });
+    const invalid = [
+      "",
+      " ",
+      "x".repeat(1025),
+      "--force",
+      "a\nb",
+      "a\u200bb",
+      "a\u2028b",
+      "a\u2029b",
+      "pending",
+      "beta",
+    ];
+    expect(invalid).toHaveLength(10);
+    for (const value of invalid) {
+      expect(
+        (await contract.execute("items.issue", sourceArgs(value), "run-1")).ok,
+      ).toBe(false);
+      expect((await issue.execute(sourceArgs(value), {}, "run-1")).ok).toBe(
+        false,
       );
-    },
-  });
-  const contract = contractFor({ cli: "items", commands: [issue, pending] });
-  const invalid = [
-    "",
-    " ",
-    "x".repeat(1025),
-    "--force",
-    "a\nb",
-    "a\u200bb",
-    "a\u2028b",
-    "a\u2029b",
-    "pending",
-    "beta",
-  ];
-  expect(invalid).toHaveLength(10);
-  for (const value of invalid) {
+    }
+    expect(guarded).toBe(0);
     expect(
-      (await contract.execute("items.issue", ["--", value], "run-1")).ok,
+      (
+        await contract.parse(
+          "items.pending",
+          args.map((token) =>
+            token
+              .replace("{binding.item}", "beta")
+              .replace("{binding.delay}", delay ?? "10"),
+          ),
+        )
+      ).ok,
     ).toBe(false);
-    expect((await issue.execute(["--", value], {}, "run-1")).ok).toBe(false);
-  }
-  expect(guarded).toBe(0);
-  expect(
-    await contract.execute("items.issue", ["alpha"], "run-2"),
-  ).toMatchObject({ ok: true, value: { commandIdentity: "items.issue" } });
-  expect(guarded).toBe(1);
-});
+    expect(
+      (await contract.execute("items.issue", sourceArgs("alpha"), "run-2")).ok,
+    ).toBe(accepted);
+    expect(guarded).toBe(accepted ? 1 : 0);
+  },
+);
 
 test("admitted prototype-like input names behave as own dictionary keys", async () => {
   for (const name of ["constructor", "toString", "__proto__", "item"]) {
