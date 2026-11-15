@@ -159,38 +159,57 @@ export type RowGuidance<
           : CommandStep<Identity> | InstructionStep;
       readonly handoff?: never;
     };
+// RowResult distributes over its naked row parameter and then over the row's
+// transaction state, so a widened cause table (the CauseRow union, whose
+// success member allows two states) still yields one correlated result per
+// row and state (F14).
+export type RowResult<
+  R extends CauseRow,
+  K extends string,
+  Identity extends string,
+  InspectIdentity extends string,
+> = R extends CauseRow
+  ? StateResult<R, R["transactionState"], K, Identity, InspectIdentity>
+  : never;
+export type StateResult<
+  R extends CauseRow,
+  S extends TransactionState,
+  K extends string,
+  Identity extends string,
+  InspectIdentity extends string,
+> = S extends TransactionState
+  ? Omit<R, "guidance" | "transactionState"> & {
+      readonly transactionState: S;
+      readonly runId: string;
+      readonly commandIdentity: Identity;
+      readonly causeCode: K;
+      readonly data: R["outcome"] extends "success" ? JsonValue : null;
+      readonly repairAction: R["outcome"] extends "success" ? null : string;
+      readonly bindings?: Readonly<Record<string, string>>;
+      readonly idempotencyKey?: string;
+    } & RowGuidance<R, Identity, InspectIdentity> &
+      (R extends { retryable: true }
+        ? { readonly retryDelayMilliseconds: number }
+        : { readonly retryDelayMilliseconds?: never }) &
+      (R extends { outcome: "failed" }
+        ? { readonly attemptedEffect?: string }
+        : { readonly attemptedEffect?: never }) &
+      (S extends "unchanged"
+        ? {
+            readonly effectClass: EffectClass;
+            readonly effects: StateEffects<"unchanged", R["outcome"]>;
+          }
+        : {
+            readonly effectClass: Exclude<EffectClass, "inspect">;
+            readonly effects: StateEffects<S, R["outcome"]>;
+          })
+  : never;
 export type ResultFor<
   C extends CauseTable,
   Identity extends string = string,
   InspectIdentity extends string = string,
 > = {
-  [K in keyof C & string]: Omit<C[K], "guidance"> & {
-    readonly runId: string;
-    readonly commandIdentity: Identity;
-    readonly causeCode: K;
-    readonly data: C[K]["outcome"] extends "success" ? JsonValue : null;
-    readonly repairAction: C[K]["outcome"] extends "success" ? null : string;
-    readonly bindings?: Readonly<Record<string, string>>;
-    readonly idempotencyKey?: string;
-  } & RowGuidance<C[K], Identity, InspectIdentity> &
-    (C[K] extends { retryable: true }
-      ? { readonly retryDelayMilliseconds: number }
-      : { readonly retryDelayMilliseconds?: never }) &
-    (C[K] extends { outcome: "failed" }
-      ? { readonly attemptedEffect?: string }
-      : { readonly attemptedEffect?: never }) &
-    (C[K] extends { transactionState: "unchanged" }
-      ? {
-          readonly effectClass: EffectClass;
-          readonly effects: StateEffects<"unchanged", C[K]["outcome"]>;
-        }
-      : {
-          readonly effectClass: Exclude<EffectClass, "inspect">;
-          readonly effects: StateEffects<
-            C[K]["transactionState"],
-            C[K]["outcome"]
-          >;
-        });
+  [K in keyof C & string]: RowResult<C[K], K, Identity, InspectIdentity>;
 }[keyof C & string];
 export type WireResult = {
   readonly runId: string;

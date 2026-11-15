@@ -48,11 +48,16 @@ export type ValueType<V> = V extends null
 export type SlotValue<S extends ArgumentSchema | OptionSchema> = ValueType<
   S["value"]
 >;
+// A widened `repeatable: boolean` may be either shape at run time (F11).
 export type ParsedSlot<S extends ArgumentSchema | OptionSchema> = S extends {
   repeatable: true;
 }
   ? readonly SlotValue<S>[]
-  : SlotValue<S>;
+  : S extends { repeatable: false }
+    ? SlotValue<S>
+    : S extends { repeatable: boolean }
+      ? readonly SlotValue<S>[] | SlotValue<S>
+      : SlotValue<S>;
 export type Slots<I extends InputSchema> =
   | I["arguments"][number]
   | I["options"][number];
