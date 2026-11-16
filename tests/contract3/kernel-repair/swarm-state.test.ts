@@ -117,3 +117,35 @@ test(
   },
   processTimeout,
 );
+
+test(
+  "X-K2S2.run-identity-reuse: a second execution under a run identity that holds a completed proof builds no refusal",
+  async () => {
+    // WIRE-7: runId is a unique invocation identity; WIRE-12: `unchanged`
+    // is a confirmed no-change. Run R completes "e" under a proof, so no
+    // envelope for R may then claim refused and unchanged.
+    const completed = {
+      executed: true,
+      runId: "R",
+      causeCode: "SUCCESS_COMPLETED",
+      transactionState: "completed",
+      completed: ["e"],
+    };
+    expect(await printed("run-reuse", { SECOND_RUN_ID: "R" })).toEqual({
+      first: completed,
+      second: { executed: false },
+    });
+    // Twin: a fresh run identity builds the HELD refusal normally.
+    expect(await printed("run-reuse", { SECOND_RUN_ID: "R2" })).toEqual({
+      first: completed,
+      second: {
+        executed: true,
+        runId: "R2",
+        causeCode: "HELD",
+        transactionState: "unchanged",
+        completed: [],
+      },
+    });
+  },
+  processTimeout,
+);

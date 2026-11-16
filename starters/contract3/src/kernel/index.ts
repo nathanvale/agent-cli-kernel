@@ -14,6 +14,7 @@ import {
   admittedState,
   createStateAddon,
   attachState,
+  claimRun,
   proofFreeResultAllowed,
 } from "./state-seam.ts";
 import type { StateAddonDescriptor } from "./state-seam.ts";
@@ -268,6 +269,16 @@ export function contractFor<
       inputRegistration,
     );
     if (!future.ok) return future;
+    if (
+      selected.effectClass !== "inspect" &&
+      spec.state &&
+      !claimRun(spec.state, runId)
+    )
+      return {
+        ok: false,
+        path: "runId",
+        reason: "run identity already attached",
+      } as const;
     const executionContext =
       selected.effectClass === "inspect"
         ? context

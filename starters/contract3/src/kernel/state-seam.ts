@@ -284,6 +284,20 @@ export function admittedState(descriptor: object): boolean {
   return registrations.has(descriptor);
 }
 
+// WIRE-7: a run identity is unique. A second attachment of one runId to an
+// installation is refused, and the earlier attachment is superseded, so no
+// proof or scope from either execution stands for that identity
+// (K2-spec-2). True when the run identity is fresh for this installation.
+export function claimRun(
+  descriptor: StateAddonDescriptor,
+  runId: string,
+): boolean {
+  const state = registrations.get(descriptor);
+  if (!state) return false;
+  if (!state.runs.has(runId)) return true;
+  state.runs.delete(runId);
+  return false;
+}
 export function attachState<Effect extends string>(
   descriptor: StateAddonDescriptor,
   runId: string,
