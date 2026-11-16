@@ -1,5 +1,5 @@
 // LABELLED TEST-ONLY SPECIMEN CLI "dxs" for the T5 diagnostics cases. It
-// composes the public kernel index with the diagnostics add-on exactly as a
+// wires the public kernel index with the diagnostics add-on exactly as a
 // host would. DXS_SCRIPT (JSON) drives what the handler records; DXS_FAULT
 // swaps in the labelled fault adapter. Never registered, never ships.
 import { existsSync, readFileSync, writeFileSync } from "node:fs";

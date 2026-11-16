@@ -49,7 +49,7 @@ const marker = "FX-REJECTED-PAYLOAD";
 const independentFallbackMessage =
   "The result could not be delivered safely. Follow the guidance and inspect effects independently before any new run.";
 
-// Independent oracle: the binding default words (B3).
+// Independent oracle: the default station words (accepted decision B3).
 export const authorityDefaults = {
   guidance: {
     handoff: {

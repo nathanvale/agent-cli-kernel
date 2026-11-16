@@ -87,7 +87,7 @@ const barrierNames = [
 type Barrier = (typeof barrierNames)[number];
 type World = {
   readonly grants: string;
-  readonly ledger: string;
+  readonly consumed: string;
   readonly effects: string;
   readonly revision: string;
   readonly clock: string;
@@ -114,7 +114,7 @@ function world(map: Fields): World {
   const value = fields(map.get("world"));
   return {
     grants: text(value, "grants"),
-    ledger: text(value, "ledger"),
+    consumed: text(value, "consumed"),
     effects: text(value, "effects"),
     revision: text(value, "revision"),
     clock: text(value, "clock"),
@@ -275,7 +275,7 @@ async function apply(map: Fields): Promise<void> {
   const runtime = approval({
     operation: text(map, "operation"),
     runId: settings.runId,
-    store: { grants: place.grants, ledger: place.ledger },
+    store: { grants: place.grants, consumed: place.consumed },
     now: () => now(place),
   }).runtime(state);
   const request = (resourceRevision: string, withPreview: boolean) => ({
@@ -308,12 +308,12 @@ async function apply(map: Fields): Promise<void> {
           current,
           held.forged,
         ])
-      ).get("admitted");
+      ).get("consumed");
       if (typeof admitted !== "boolean") throw new Error("Admission shape.");
       consumed = admitted;
     } else
       consumed = (await runtime.revalidateAndConsume(current, held.scope))
-        .admitted;
+        .consumed;
   } catch (error) {
     held.lock.release();
     return emit({ phase: "consume", ...failure(error) });
@@ -365,7 +365,7 @@ async function authority(map: Fields): Promise<void> {
   const source = adversarialSource(text(map, "source"));
   const verifier = authorityVerifier({
     runId: settings.runId,
-    ledger: place.ledger,
+    consumed: place.consumed,
     now: () => now(place),
     ...(kind === "closure" ? { closure: source } : { stop: source }),
   });
@@ -616,7 +616,7 @@ async function kernel(map: Fields): Promise<void> {
     const { capability } = approval({
       operation: "fixture.approve",
       runId,
-      store: { grants: place.grants, ledger: place.ledger },
+      store: { grants: place.grants, consumed: place.consumed },
       now: () => now(place),
     });
     const observed = {
@@ -649,7 +649,7 @@ async function frontDoor(map: Fields): Promise<void> {
           capability: approval({
             operation: "fixture.approve",
             runId: run.runId,
-            store: { grants: place.grants, ledger: place.ledger },
+            store: { grants: place.grants, consumed: place.consumed },
             now: () => now(place),
           }).capability,
           settle: () => Promise.resolve(true),

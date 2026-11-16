@@ -35,8 +35,8 @@ export function unavailableStatus(
 export type TrustedRun = {
   readonly runId: string;
   readonly commandIdentity: string;
-  // True once the operation was dispatched to its handler.
-  readonly dispatched: boolean;
+  // True once handler entry happened.
+  readonly handlerEntered: boolean;
   // The state add-on's transaction proof for this run, when one exists.
   readonly summary?: StateObservation;
   // The diagnostics status the writer froze and validated (LIFE-7 step 1),
@@ -48,7 +48,7 @@ function select(
   effectClass: string,
   trusted: TrustedRun,
 ): { readonly causeCode: string; readonly effects: Effects } {
-  if (!trusted.dispatched)
+  if (!trusted.handlerEntered)
     return { causeCode: "INTERNAL_PREPARATION", effects: unchangedEffects };
   if (effectClass === "inspect")
     return {

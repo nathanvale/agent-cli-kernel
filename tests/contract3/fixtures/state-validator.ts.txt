@@ -1,6 +1,8 @@
 import { expect } from "bun:test";
 const checks: (() => Promise<void>)[] = [];
-function test(_name: string, check: () => Promise<void>) { checks.push(check); }
+// Counted as each control actually runs, never printed as constants (K1-4s).
+const tally = { checks: 0, truthRows: 0, effectControls: 0, custodyControls: 0, approvalControls: 0 };
+function test(_name: string, check: () => Promise<void>) { checks.push(async () => { await check(); tally.checks++; }); }
 import { changing, command, commonCauses, contractFor, station } from "../../kernel/index.ts";
 import type { CauseRow, Effects, WireResult } from "../../kernel/index.ts";
 const input = { arguments: [], options: [], constraints: [], deadlineSupported: false, additionalArguments: false, additionalOptions: false } as const;
@@ -41,7 +43,8 @@ const stations = cases.map(({code, row}) => ({ row, commandIdentity: "specimen.c
 const recovery = command({ identity: "specimen.pending", route: ["pending"], summary: "Inspect pending.", input, capabilities: {}, stations: [station(commonCauses, { commandIdentity: "specimen.pending", causeCode: "SUCCESS_UNCHANGED", trigger: "Read pending.", guidance: { next: {kind: "instruction", text: "Inspect pending state."}}, repairAction: null, retryDelayPolicy: {kind: "none"}, reachability: "required", unreachableRationale: null, independentObservable: "pending-read" })], run: (_input, context) => context.result({commandIdentity: "specimen.pending", causeCode: "SUCCESS_UNCHANGED"}, {message: "Read pending.", data: null, effects: empty}) });
 function fixture() {
   const state = contractFor.stateAddon((issuer) => ({ ifNoResult: issuer.ifNoResult({kind: "command", command: "specimen.pending", args: []}), attach() { throw new Error("No state execution in validator fixture."); } }));
-  const change = { commandIdentity: "specimen.change", route: ["change"], summary: "Change.", input, capabilities: {}, effectClass: "repository-local", effects: ["a", "b"], ifNoResult: state.ifNoResult, heldLockCause: "ROW_3", unresolvedCaseCause: "ROW_5", stations } as const;
+  // Built with changing(): a changing declaration needs the constructor's two-phase entry (delta review F1). Its handler never runs here.
+  const change = changing({ identity: "specimen.change", route: ["change"], summary: "Change.", input, capabilities: {}, effectClass: "repository-local", effects: ["a", "b"], ifNoResult: state.ifNoResult, heldLockCause: "ROW_3", unresolvedCaseCause: "ROW_5", stations, run: () => Promise.reject(new Error("Validator fixture never runs.")) });
   return contractFor({ cli: "specimen", commands: [change, recovery], causes, state, installedAddons: ["state"] });
 }
 function inventory(row: CauseRow): Effects {
@@ -67,6 +70,7 @@ test("every truth-table arm validates its literal correlation and rejects a wron
     const value = specimen(index);
     expect(await contract.validate(value)).toMatchObject({ok: true});
     expect((await contract.validate({...value, result: {...value.result, exitCode: 99}})).ok).toBe(false);
+    tally.truthRows++;
   }
 });
 test("effect-state inventories reject wrong, overlapping, unsorted and incomplete claims", async () => {
@@ -83,6 +87,7 @@ test("effect-state inventories reject wrong, overlapping, unsorted and incomplet
   for (const {index, effects} of invalid) {
     const value = specimen(index);
     expect((await contract.validate({...value, result: {...value.result, effects}})).ok).toBe(false);
+    tally.effectControls++;
   }
   const unknown = specimen(24);
   expect((await contract.validate({...unknown, result: {...unknown.result, effects: {...empty, inventoryComplete: false}}})).ok).toBe(true);
@@ -112,6 +117,7 @@ function executable() {
 test("cloned descriptors and forged, cloned, foreign and superseded proofs are refused", async () => {
   const first = executable();
   expect(() => contractFor({cli: "specimen", commands: [], installedAddons: ["state"], state: {...first.state}})).toThrow();
+  tally.custodyControls++;
   const run = await first.contract.execute("specimen.change", [], "same-run-text");
   expect(run.ok).toBe(true);
   if (!run.ok) throw new Error("Fixture execution refused.");
@@ -120,10 +126,13 @@ test("cloned descriptors and forged, cloned, foreign and superseded proofs are r
   expect(await Reflect.apply(first.contract.build, undefined, [first.completed, facts])).toMatchObject({ok: true});
   const second = executable();
   expect(await Reflect.apply(second.contract.build, undefined, [second.completed, facts])).toMatchObject({ok: false, path: "transaction"});
-  for (const transaction of [{runId: "same-run-text", transactionState: "completed", effects: {...empty, completed: ["a"]}}, structuredClone(issued)]) expect(await Reflect.apply(first.contract.build, undefined, [first.completed, {...facts, transaction}])).toMatchObject({ok: false, path: "transaction"});
+  tally.custodyControls++;
+  for (const transaction of [{runId: "same-run-text", transactionState: "completed", effects: {...empty, completed: ["a"]}}, structuredClone(issued)]) { expect(await Reflect.apply(first.contract.build, undefined, [first.completed, {...facts, transaction}])).toMatchObject({ok: false, path: "transaction"}); tally.custodyControls++; }
   expect(await Reflect.apply(first.contract.build, undefined, [first.completed, {...facts, runId: "other-run"}])).toMatchObject({ok: false, path: "transaction"});
+  tally.custodyControls++;
   await first.contract.execute("specimen.change", [], "same-run-text");
   expect(await Reflect.apply(first.contract.build, undefined, [first.completed, facts])).toMatchObject({ok: false, path: "transaction"});
+  tally.custodyControls++;
 });
 test("changing selected capabilities and declared approval precede handler entry", async () => {
   const fixture = executable();
@@ -134,10 +143,12 @@ test("changing selected capabilities and declared approval precede handler entry
   const diagnostics = {record() { events.push("diagnostic"); }};
   expect(await contract.execute("specimen.authorised", [], "denied", {programs, diagnostics, approval: {async check() {events.push("approval-denied"); return false;}}})).toMatchObject({ok: false, path: "approval"});
   expect(events).toEqual(["approval-denied"]);
+  tally.approvalControls++;
   events.length = 0;
   expect(await contract.execute("specimen.authorised", [], "admitted", {programs, diagnostics, approval: {async check() {events.push("approval-accepted"); return true;}}})).toMatchObject({ok: true});
   expect(events).toEqual(["approval-accepted", "handler", "diagnostic"]);
+  tally.approvalControls++;
 });
 
 for (const check of checks) await check();
-process.stdout.write(JSON.stringify({ truthRows: 27, effectControls: 6, custodyControls: 6, approvalControls: 2 }));
+process.stdout.write(JSON.stringify(tally));

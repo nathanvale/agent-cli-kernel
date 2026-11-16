@@ -16,6 +16,7 @@ import type {
 import { frozenInputs } from "./cases.ts";
 import { runFamily, stateFixture } from "./harness.ts";
 import { emptyInput as empty } from "./shapes.ts";
+import { neverRuns } from "./handlers.ts";
 
 const withOperand = {
   ...empty,
@@ -123,6 +124,7 @@ function raw(
     capabilities: {},
     stations,
     effectClass: "inspect",
+    execute: neverRuns,
   };
 }
 function executable(

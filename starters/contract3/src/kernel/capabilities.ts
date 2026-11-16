@@ -95,5 +95,5 @@ export type ApprovalRuntime = {
   readonly revalidateAndConsume: (
     request: ApprovalRequest,
     coordination: ExclusiveScope,
-  ) => Promise<{ readonly admitted: boolean }>;
+  ) => Promise<{ readonly consumed: boolean }>;
 };

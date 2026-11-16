@@ -1,6 +1,6 @@
 // D05 to D08: record and buffer bounds, per-run and aggregate allocation,
 // pruning eligibility and concurrent pruners, through real processes. Limits
-// come from t5-cases.json (DIAG-9); disk truth from the harness's own reader.
+// come from t5-cases.json (DIAG-9); disk truth from the test harness's own reader.
 import { afterAll, describe, expect, test } from "bun:test";
 import {
   chmodSync,
@@ -22,7 +22,7 @@ import {
   tree,
   waitForFile,
 } from "./harness.ts";
-import type { Run, Tree } from "./harness.ts";
+import type { Observed, Run, Tree } from "./harness.ts";
 import {
   expectAvailable,
   expectUnavailable,
@@ -54,6 +54,31 @@ function status(result: Run) {
 
 function logs(dir: string) {
   return observe(dir).files.filter((entry) => entry.name.endsWith(".jsonl"));
+}
+
+// Which log a file is, told by what no other file can be given: its name (the
+// run identity) and its first record. An inode number is not such a mark:
+// ext4 hands a freed inode number to the next file created, so a pruned
+// log's number can come back on the new run's own log (the hosted Linux
+// failure of D06.file-count-near-cap). The inode is still compared where it
+// proves the same file is still there, never alone.
+type Identity = { name: string; ino: number; first: string };
+
+function identify(entry: Observed): Identity {
+  const [first = ""] = readFileSync(entry.path, "utf8").split("\n");
+  return { name: entry.name, ino: entry.ino, first };
+}
+
+function expectRemoved(dir: string, removed: Identity | undefined) {
+  if (!removed) throw new Error("no log to prove removed");
+  const now = logs(dir).map(identify);
+  expect(now.map((entry) => entry.name)).not.toContain(removed.name);
+  expect(now.map((entry) => entry.first)).not.toContain(removed.first);
+}
+
+function expectKept(dir: string, kept: Identity | undefined) {
+  if (!kept) throw new Error("no log to prove kept");
+  expect(logs(dir).map(identify)).toContainEqual(kept);
 }
 
 // About 975,000 bytes of records: just under the per-run cap.
@@ -245,7 +270,7 @@ describe("D06 per-run and aggregate allocation", () => {
     "D06.aggregate-near-cap: active and closed logs together stay within 10,000,000 bytes",
     async () => {
       const where = tree();
-      const before = await closedLogs(where, 10, fullRun);
+      const before = (await closedLogs(where, 10, fullRun)).map(identify);
       expect(observe(where.dir).fileBytes).toBeGreaterThan(9_000_000);
       const result = await run({ argv: read, tree: where, script: fullRun });
       expectSuccess(result);
@@ -253,9 +278,7 @@ describe("D06 per-run and aggregate allocation", () => {
       expect(after.fileBytes).toBeLessThanOrEqual(limits.aggregateBytes);
       expect(after.files.length).toBeLessThanOrEqual(limits.files);
       // Room was made from the oldest confirmed-closed log, and this run wrote.
-      expect(after.files.map((entry) => entry.ino)).not.toContain(
-        before[0]?.ino,
-      );
+      expectRemoved(where.dir, before[0]);
       expect(status(result).sinkFailure).toBeNull();
     },
     timeout,
@@ -265,15 +288,15 @@ describe("D06 per-run and aggregate allocation", () => {
     "D06.file-count-near-cap: no more than 50 files, the oldest closed log making room",
     async () => {
       const where = tree();
-      const before = await closedLogs(where, limits.files, { records: 1 }, 10);
+      const before = (
+        await closedLogs(where, limits.files, { records: 1 }, 10)
+      ).map(identify);
       expect(before).toHaveLength(limits.files);
       const result = await run({ argv: read, tree: where });
       expectSuccess(result);
       const after = observe(where.dir);
       expect(after.files.length).toBeLessThanOrEqual(limits.files);
-      expect(after.files.map((entry) => entry.ino)).not.toContain(
-        before[0]?.ino,
-      );
+      expectRemoved(where.dir, before[0]);
       expect(status(result).sinkFailure).toBeNull();
       process.stderr.write(
         `D06.file-count-near-cap fixture: ${fixture.capacityRetries} capacity retries so far\n`,
@@ -316,11 +339,10 @@ describe("D07 pruning eligibility", () => {
       if (!first || !second || !third) throw new Error("setup");
       age(second.path, limits.pruneClosedOlderThanDays + 1);
       age(first.path, limits.pruneClosedOlderThanDays - 1);
+      const [kept, pruned, newest] = [first, second, third].map(identify);
       expectSuccess(await run({ argv: read, tree: where }));
-      const inodes = logs(where.dir).map((entry) => entry.ino);
-      expect(inodes).not.toContain(second.ino);
-      expect(inodes).toContain(first.ino);
-      expect(inodes).toContain(third.ino);
+      expectRemoved(where.dir, pruned);
+      for (const survivor of [kept, newest]) expectKept(where.dir, survivor);
     },
     timeout,
   );
@@ -329,12 +351,10 @@ describe("D07 pruning eligibility", () => {
     "D07.oldest-closed-pruned-for-room: only the oldest confirmed-closed log goes when room is needed",
     async () => {
       const where = tree();
-      const before = await closedLogs(where, 10, fullRun);
+      const before = (await closedLogs(where, 10, fullRun)).map(identify);
       expectSuccess(await run({ argv: read, tree: where }));
-      const inodes = logs(where.dir).map((entry) => entry.ino);
-      expect(inodes).not.toContain(before[0]?.ino);
-      for (const survivor of before.slice(1))
-        expect(inodes).toContain(survivor.ino);
+      expectRemoved(where.dir, before[0]);
+      for (const survivor of before.slice(1)) expectKept(where.dir, survivor);
     },
     timeout,
   );
@@ -344,7 +364,7 @@ describe("D07 pruning eligibility", () => {
     async () => {
       const where = tree();
       const before = new Set(
-        (await closedLogs(where, 9, fullRun)).map((entry) => entry.ino),
+        (await closedLogs(where, 9, fullRun)).map((entry) => entry.name),
       );
       const ready = join(where.root, "ready");
       const go = join(where.root, "go");
@@ -354,17 +374,21 @@ describe("D07 pruning eligibility", () => {
         script: { records: 2, hold: { after: 1, ready, go } },
       });
       await waitForFile(ready);
-      let active = logs(where.dir).find((entry) => !before.has(entry.ino));
+      let active = logs(where.dir).find((entry) => !before.has(entry.name));
       const until = performance.now() + 30_000;
       while (!active) {
         if (performance.now() > until)
           throw new Error("No active log appeared.");
         await Bun.sleep(2);
-        active = logs(where.dir).find((entry) => !before.has(entry.ino));
+        active = logs(where.dir).find((entry) => !before.has(entry.name));
       }
       age(active.path, 30);
       expectSuccess(await run({ argv: read, tree: where, script: fullRun }));
-      expect(logs(where.dir).map((entry) => entry.ino)).toContain(active.ino);
+      // Still growing, so no first record to compare: the same name on the
+      // same inode is the same file.
+      expect(
+        logs(where.dir).map((entry) => ({ name: entry.name, ino: entry.ino })),
+      ).toContainEqual({ name: active.name, ino: active.ino });
       open(go);
       expectSuccess(await held.finished);
       expect(observe(where.dir).fileBytes).toBeLessThanOrEqual(
@@ -389,9 +413,10 @@ describe("D07 pruning eligibility", () => {
       const [log] = logs(where.dir);
       if (!log) throw new Error("no log");
       age(log.path, 30);
+      const timedOutLog = identify(log);
       await closedLogs(where, 9, fullRun);
       expectSuccess(await run({ argv: read, tree: where, script: fullRun }));
-      expect(logs(where.dir).map((entry) => entry.ino)).toContain(log.ino);
+      expectKept(where.dir, timedOutLog);
     },
     timeout,
   );

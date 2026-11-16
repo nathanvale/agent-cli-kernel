@@ -213,7 +213,7 @@ function session(
       const remaining = line.bytes.length - offset;
       const accepted = await io.write(descriptor, line.bytes.subarray(offset));
       if (!Number.isSafeInteger(accepted) || accepted <= 0)
-        throw new Error("The descriptor accepted no bytes.");
+        throw new Error("The file descriptor accepted no bytes.");
       // A sink that claims more than it was given breaks the accounting.
       if (accepted > remaining) accounting = "invalid";
       writtenBytes += accepted;

@@ -1,12 +1,12 @@
 import type { DeclaredStation } from "./stations.ts";
 import type { Handoff, NextStep, WireResult } from "./types.ts";
 import { sameJson } from "./validation/json-equality.ts";
-export type TemplateSlot = {
+export type GuidanceTemplateSlot = {
   readonly text: string;
   readonly bindingAllowed: boolean;
   readonly runValue: "argument" | "resource" | false;
 };
-function stepSlots(step: NextStep): TemplateSlot[] {
+function stepSlots(step: NextStep): GuidanceTemplateSlot[] {
   switch (step.kind) {
     case "command":
       return step.args.map((text) => ({
@@ -21,10 +21,10 @@ function stepSlots(step: NextStep): TemplateSlot[] {
       return [];
   }
 }
-export function templateSlots(
+export function guidanceTemplateSlots(
   station: DeclaredStation,
-): readonly TemplateSlot[] {
-  const slots: TemplateSlot[] =
+): readonly GuidanceTemplateSlot[] {
+  const slots: GuidanceTemplateSlot[] =
     station.repairAction === null
       ? []
       : [
@@ -55,20 +55,23 @@ const tokens = [
 ];
 export function bindingNames(station: DeclaredStation): readonly string[] {
   const names = new Set<string>();
-  for (const slot of templateSlots(station)) {
+  for (const slot of guidanceTemplateSlots(station)) {
     const matches = [...slot.text.matchAll(/\{([^{}]*)\}/g)];
     if (slot.text.replace(/\{[^{}]*\}/g, "").match(/[{}]/))
-      throw new Error("Malformed template token.");
+      throw new Error("Malformed guidance template token.");
     for (const match of matches) {
       const token = match[1];
-      if (token === undefined) throw new Error("Empty template token.");
+      if (token === undefined)
+        throw new Error("Empty guidance template token.");
       if (tokens.includes(token)) continue;
       if (
         !/^binding\.[a-z][A-Za-z0-9]*$/.test(token) ||
         !slot.bindingAllowed ||
         slot.text !== `{${token}}`
       )
-        throw new Error("Invalid binding placement or template token.");
+        throw new Error(
+          "Invalid run binding placement or guidance template token.",
+        );
       names.add(token.slice(8));
     }
   }
@@ -104,7 +107,7 @@ export function substitute(text: string, result: WireResult): string {
         return result.idempotencyKey;
       default: {
         const value = result.bindings?.[token.slice(8)];
-        if (value === undefined) throw new Error("Missing binding.");
+        if (value === undefined) throw new Error("Missing run binding.");
         return value;
       }
     }
@@ -152,7 +155,7 @@ export function renderGuidance(station: DeclaredStation, result: WireResult) {
       : { handoff: renderHandoff(station.guidance.handoff, result) }),
   };
 }
-export function templatesAgree(
+export function guidanceTemplatesAgree(
   station: DeclaredStation,
   result: WireResult,
   routeTokens: readonly string[],
@@ -167,7 +170,7 @@ export function templatesAgree(
             JSON.stringify(names)
     )
       return false;
-    for (const slot of templateSlots(station)) {
+    for (const slot of guidanceTemplateSlots(station)) {
       if (!slot.runValue) continue;
       for (const match of slot.text.matchAll(/\{([^{}]*)\}/g))
         if (

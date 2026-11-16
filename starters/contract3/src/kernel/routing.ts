@@ -9,6 +9,7 @@ function refused(
 ) {
   return { ok: false, commandIdentity, causeCode, machine } as const;
 }
+const navigationSwitches = ["--help", "--discover", "--discover-command"];
 function globalSwitches(argv: readonly unknown[]) {
   const tokens: string[] = [];
   let literal = false,
@@ -21,9 +22,17 @@ function globalSwitches(argv: readonly unknown[]) {
   const separator = tokens.indexOf("--");
   const globalTokens = separator < 0 ? tokens : tokens.slice(0, separator);
   const navigation = globalTokens.filter((token) =>
-    ["--help", "--discover", "--discover-command"].includes(token),
+    navigationSwitches.includes(token),
   );
   return { tokens, machine, navigation };
+}
+// INPUT-3 and STEP-6: true when the tokens carry a switch the front door
+// handles before command parsing: `--json` or a navigation switch before
+// `--`. A command step carrying one would not run as written (K1-2), while
+// the same token after `--` is an operand (K1-13).
+export function carriesGlobalSwitch(argv: readonly unknown[]): boolean {
+  const { machine, navigation } = globalSwitches(argv);
+  return machine || navigation.length > 0;
 }
 async function resolveBuiltin(
   cli: string,
@@ -92,7 +101,7 @@ async function resolveCommand(
       );
 }
 // The command tokens resolveInvocation routed on: global switches and a
-// declared deadline removed. The process front door passes the tail after the
+// declared deadline removed. The kernel process entry passes the tail after the
 // route to the command's own executable parser.
 export function invocationTokens(argv: readonly string[]): readonly string[] {
   const { tokens } = globalSwitches(argv);

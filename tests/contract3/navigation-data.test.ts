@@ -1,5 +1,10 @@
 import { expect, test } from "bun:test";
-import { contractFor } from "../../starters/contract3/src/kernel/index.ts";
+import {
+  command,
+  contractFor,
+} from "../../starters/contract3/src/kernel/index.ts";
+import { readsUnchanged } from "./kernel-repair/handlers.ts";
+import { emptyInput } from "./kernel-repair/shapes.ts";
 
 const cli = contractFor({ cli: "specimen", commands: [] });
 
@@ -31,8 +36,19 @@ function envelope(commandIdentity: string, data: unknown) {
   };
 }
 
+// Help lists host commands, so its test declares one (K1-18).
+const read = command({
+  identity: "specimen.read",
+  route: ["read"],
+  summary: "Read a note.",
+  input: emptyInput,
+  capabilities: {},
+  run: readsUnchanged("specimen.read"),
+});
+const helpCli = contractFor({ cli: "specimen", commands: [read] });
+
 test("help data is complete and agrees with executable declarations", async () => {
-  const valid = cli.help();
+  const valid = helpCli.help();
   // Independent DISC-3/5 expectations, not generated from the implementation.
   expect(Object.keys(valid).sort()).toEqual([
     "commands",
@@ -40,24 +56,35 @@ test("help data is complete and agrees with executable declarations", async () =
     "summary",
     "usage",
   ]);
-  expect(valid.commands).toEqual([]);
+  // DISC-3: every host command, by its declared summary; no built-in.
+  expect(valid.commands).toEqual([
+    {
+      commandIdentity: "specimen.read",
+      route: ["read"],
+      summary: "Read a note.",
+      effectClass: "inspect",
+    },
+  ]);
   expect(valid.options.map((option) => option.name).sort()).toEqual([
     "--discover",
     "--discover-command",
     "--help",
     "--json",
   ]);
-  expect((await cli.validate(envelope("specimen.help", valid))).ok).toBe(true);
+  expect((await helpCli.validate(envelope("specimen.help", valid))).ok).toBe(
+    true,
+  );
   const invalid = [
     null,
+    { ...valid, commands: [] },
     { ...valid, usage: undefined },
     { ...valid, extra: true },
     { ...valid, options: [] },
     { ...valid, commands: [{ commandIdentity: "invented" }] },
   ];
-  expect(invalid).toHaveLength(5);
+  expect(invalid).toHaveLength(6);
   for (const data of invalid)
-    expect((await cli.validate(envelope("specimen.help", data))).ok).toBe(
+    expect((await helpCli.validate(envelope("specimen.help", data))).ok).toBe(
       false,
     );
 });

@@ -1,12 +1,9 @@
 // P family and O01 to O03: scope, admission and coordination, through real
 // concurrent specimen processes. The test holds coordination locks itself
-// with its own Darwin O_EXLOCK open, independent of the add-on.
+// through the test-owned holder (holder.ts), independent of the add-on.
 import { expect } from "bun:test";
 import {
-  closeSync,
-  constants,
   linkSync,
-  openSync,
   readdirSync,
   renameSync,
   symlinkSync,
@@ -24,6 +21,7 @@ import {
   writeSyntheticOperation,
 } from "./harness.ts";
 import type { Run, World } from "./harness.ts";
+import { holdLock, lockFree } from "./holder.ts";
 
 const apply = (name: string, content = "v1", ...extra: string[]) => [
   "apply",
@@ -43,24 +41,6 @@ async function within(body: (world: World) => Promise<void>): Promise<void> {
   }
 }
 const plain = (body: (world: World) => Promise<void>) => () => within(body);
-
-// Test-owned coordination lock holder (DESIGN.md section 7 primitive).
-function holdLock(path: string): () => void {
-  const descriptor = openSync(
-    path,
-    constants.O_RDWR | constants.O_CREAT | constants.O_NONBLOCK | 0x20,
-    0o600,
-  );
-  return () => closeSync(descriptor);
-}
-function lockFree(path: string): boolean {
-  try {
-    holdLock(path)();
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 function only(world: World): string {
   const [first, ...rest] = world.operations();

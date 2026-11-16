@@ -19,8 +19,8 @@ export function itemKey(parts: readonly string[]): string {
   return createHash("sha256").update(JSON.stringify(parts)).digest("hex");
 }
 
-export function markerPath(ledger: string, key: string): string {
-  return join(ledger, `${key}.consumed`);
+export function markerPath(directory: string, key: string): string {
+  return join(directory, `${key}.consumed`);
 }
 
 // Non-consuming inspection for preflight.

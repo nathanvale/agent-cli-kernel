@@ -10,6 +10,8 @@
 //   SX_BARRIER_DIR barrier files         SX_BARRIER   phases to hold at
 //   SX_FAULT       one named fault       SX_QUALIFICATION=fixture
 //   SX_ADMISSION_WAIT  admission wait bound in milliseconds
+//   SX_COORDINATION_LIBRARY  C library for the coordination route's
+//                  self-check (test seam; a missing one fails it)
 import {
   appendFileSync,
   existsSync,
@@ -131,6 +133,9 @@ const state = stateAddonWithTestSeams(
   {
     ...(process.env.SX_QUALIFICATION === "fixture"
       ? { fixtureLabel: "specimen" }
+      : {}),
+    ...(process.env.SX_COORDINATION_LIBRARY
+      ? { coordinationLibrary: process.env.SX_COORDINATION_LIBRARY }
       : {}),
     phase: (name: Phase) => barrier(name),
   },
@@ -547,6 +552,7 @@ function refusalPlan(outcome: {
   readonly kind: string;
   readonly operationId?: string;
   readonly reason?: string;
+  readonly detail?: string;
 }): Plan {
   switch (outcome.kind) {
     case "held-lock":
@@ -581,7 +587,7 @@ function refusalPlan(outcome: {
     default:
       return refused(
         "DOMAIN_SX_UNAVAILABLE",
-        `State unavailable: ${outcome.reason ?? outcome.kind}.`,
+        `State unavailable: ${outcome.reason ?? outcome.kind}${outcome.detail ? ` (${outcome.detail})` : ""}.`,
       );
   }
 }
@@ -1091,7 +1097,7 @@ const audit = changing({
 // ---- Approved change (CMD-9 step 7) ----------------------------------------
 const approvalStore = {
   grants: join(world, "approval", "grants"),
-  ledger: join(world, "approval", "ledger"),
+  consumed: join(world, "approval", "consumed"),
 };
 let approvalRuntime: ApprovalRuntime | undefined;
 const approvalAddon: RunAddon<ApprovalCapability> = {
@@ -1331,7 +1337,7 @@ function closePlan(
     case "not-unresolved":
       return closeBound(
         "DOMAIN_SX_CLOSE_CONFLICT",
-        "The case already has a different settlement.",
+        "The case already has a different closure.",
         operationId,
       );
     case "stale-revision":
@@ -1432,7 +1438,7 @@ const close = changing({
     ),
     closeRefusal(
       "DOMAIN_SX_CLOSE_CONFLICT",
-      "The case already has a different settlement.",
+      "The case already has a different closure.",
       "Inspect the retained closure; closures are never rewritten.",
     ),
     closeRefusal(

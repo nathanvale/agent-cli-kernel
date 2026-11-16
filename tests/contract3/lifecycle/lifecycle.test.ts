@@ -458,7 +458,7 @@ describe("CMD-9 steps 3 to 6 order (supporting C2)", () => {
       receipt(entry, observed);
       try {
         const { result } = assertEnvelope(entry, observed);
-        // B3.02: the runtime denial carries the binding default words.
+        // B3.02: the runtime denial carries the default station words (accepted decision B3).
         expect({
           guidance: { handoff: result.handoff },
           repairAction: result.repairAction,
@@ -651,7 +651,7 @@ describe("B1 deadline refusal identity (Nathan, 16 November 2026)", () => {
       ["read", "--deadline-ms", "0", "--json"],
       "fx.dispatch",
     ),
-    // B1.04: built-in routes. Bound by the coordinator's reading of B1
+    // B1.04: built-in routes. Set by accepted decision B1
     // (today's behaviour, matching DISC-1's incompatible built-in options
     // row), reported to Nathan for confirmation.
     usage(
@@ -744,7 +744,7 @@ describe("B3 declared denial tuple at runtime (Nathan, 16 November 2026)", () =>
   );
 });
 
-// Findings round, finding 1 (Nathan, 16 November 2026: every admitted value
+// Findings round, finding 1 (Nathan, 16 November 2026: every accepted value
 // is honoured, no cap). LIMIT is the largest delay a runtime timer holds; a
 // raw timer armed above it fires after about 1 ms with a stderr warning. The
 // expectations are c3-expect-t2t5's (findings-round/expectations.md).
@@ -799,7 +799,7 @@ describe("T01 a deadline above the timer limit lets the work finish (finding 1)"
     );
 });
 
-describe("T02(a) a deadline above the timer limit that passed before dispatch (finding 1)", () => {
+describe("T02(a) a deadline above the timer limit that passed before handler entry (finding 1)", () => {
   for (const deadline of [3_000_000_000, Number.MAX_SAFE_INTEGER])
     test(
       `T02.deadline-above-limit-expiry-before-start D=${deadline}`,
@@ -823,7 +823,7 @@ describe("T02(a) a deadline above the timer limit that passed before dispatch (f
             },
           },
         );
-        // P3: the fault host's clock jumps past the deadline before dispatch.
+        // P3: the fault host's clock jumps past the deadline before handler entry.
         const observed = await run(entry, {
           env: { FX_CLOCK_JUMP_MS: String(deadline + 1) },
         });

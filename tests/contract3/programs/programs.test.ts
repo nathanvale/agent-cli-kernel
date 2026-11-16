@@ -392,7 +392,7 @@ describe("caller-program disclosure guard (supporting C3, not a frozen case)", (
   );
 });
 
-// Findings round, finding 1 (Nathan, 16 November 2026: every admitted value
+// Findings round, finding 1 (Nathan, 16 November 2026: every accepted value
 // is honoured, no cap). LIMIT is the largest delay a runtime timer holds; a
 // raw timer armed above it fires after about 1 ms with a stderr warning.
 // Expectations: c3-expect-t2t5, findings-round/expectations.md.

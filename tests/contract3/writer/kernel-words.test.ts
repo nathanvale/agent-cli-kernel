@@ -1,6 +1,6 @@
 // B3 (Nathan, 16 November 2026): on DOMAIN_AUTHORITY_REQUIRED, naming the
 // authority owner's role is enough and the owner is `human`; the base's
-// default words are binding. A command may declare its own tuple (DISC-11b)
+// default station words are an accepted decision. A command may declare its own tuple (DISC-11b)
 // and is not required to. Expected words are test-owned literals.
 import { expect, test } from "bun:test";
 import {
@@ -9,6 +9,10 @@ import {
   contractFor,
   station,
 } from "../../../starters/contract3/src/kernel/index.ts";
+import {
+  authority,
+  resource,
+} from "../../../starters/contract3/src/kernel/validation/brands.ts";
 import { record } from "../../../starters/contract3/src/kernel/validation/primitives.ts";
 import { authorityDefaults } from "../lifecycle/checks.ts";
 
@@ -49,17 +53,35 @@ function stationOf(data: unknown, causeCode: string): Record<string, unknown> {
   return found;
 }
 
+// DISC-10: a command that declares approval declares its station table and
+// its approval request (X-K1-3 case B); the denial tuple stays undeclared,
+// so its words are the base's defaults.
+const granted = station(commonCauses, {
+  commandIdentity: "grants.read",
+  causeCode: "SUCCESS_UNCHANGED",
+  trigger: "The granted item was read.",
+  guidance: { next: { kind: "done" } },
+  repairAction: null,
+  retryDelayPolicy: { kind: "none" },
+  reachability: "required",
+  unreachableRationale: null,
+  independentObservable: "grants:read",
+});
 const defaults = command({
   identity: "grants.read",
   route: ["read"],
   summary: "Read one granted item.",
   input: none,
   capabilities: { approval: true },
+  approval: () => ({
+    authority: authority("grants.desk"),
+    resource: resource("grants.item"),
+    resourceRevision: "1",
+    effects: [],
+  }),
+  stations: [granted],
   run: (_input, context) =>
-    context.result(
-      { commandIdentity: "grants.read", causeCode: "SUCCESS_UNCHANGED" },
-      { message: "Read.", data: null, effects: empty },
-    ),
+    context.result(granted, { message: "Read.", data: null, effects: empty }),
 });
 
 const ownedDenial = station(commonCauses, {
@@ -78,6 +100,12 @@ const owned = command({
   summary: "Read one item the grants desk approves.",
   input: none,
   capabilities: { approval: true },
+  approval: () => ({
+    authority: authority("grants.desk"),
+    resource: resource("grants.item"),
+    resourceRevision: "1",
+    effects: [],
+  }),
   stations: [ownedDenial],
   run: (_input, context) =>
     context.result(ownedDenial, {

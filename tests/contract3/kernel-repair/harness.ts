@@ -12,6 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { familyCases } from "./cases.ts";
+import { spawnBounded } from "./swarm-process.ts";
 
 // Registers one test per frozen case after asserting that the file implements
 // exactly the family's active identities: no missing, extra or renamed case.
@@ -45,14 +46,17 @@ const stateModules = [
   "admission-changing",
   "context-changing",
   "r18-changing",
+  "swarm-state",
 ] as const;
 export const materialisedFixtures: readonly string[] = [
   ...stateModules.map(
     (name) => `starters/contract3/src/addons/state/${name}.ts`,
   ),
   "tests/contract3/kernel-repair/driver.ts",
+  "tests/contract3/kernel-repair/swarm-state-cli.ts",
   "tests/contract3/kernel-repair/r18-spec.ts",
   "tests/contract3/kernel-repair/shapes.ts",
+  "tests/contract3/kernel-repair/swarm-approval.ts",
 ];
 
 // State fixtures must live in the canonical state add-on folder. Each tree is
@@ -73,16 +77,23 @@ export async function materialise(): Promise<string> {
       recursive: true,
     },
   );
+  // The shipped approval add-on, for the swarm state cases (X-S6).
+  await cp(
+    join(repository, "starters/contract3/src/addons/approval"),
+    join(source, "addons/approval"),
+    { recursive: true },
+  );
   for (const name of stateModules)
     await writeFile(
       join(source, `addons/state/${name}.ts`),
       await readFile(new URL(`fixtures/${name}.ts.txt`, import.meta.url)),
     );
-  await writeFile(
-    join(tests, "driver.ts"),
-    await readFile(new URL("fixtures/driver.ts.txt", import.meta.url)),
-  );
-  for (const name of ["r18-spec.ts", "shapes.ts"])
+  for (const name of ["driver", "swarm-state-cli"])
+    await writeFile(
+      join(tests, `${name}.ts`),
+      await readFile(new URL(`fixtures/${name}.ts.txt`, import.meta.url)),
+    );
+  for (const name of ["r18-spec.ts", "shapes.ts", "swarm-approval.ts"])
     await cp(new URL(name, import.meta.url), join(tests, name));
   await symlink(join(repository, "node_modules"), join(root, "node_modules"));
   await writeFile(
@@ -106,23 +117,23 @@ export async function materialise(): Promise<string> {
   return root;
 }
 
-async function spawnText(argv: readonly string[], cwd: string) {
-  const child = Bun.spawn([...argv], { cwd, stdout: "pipe", stderr: "pipe" });
-  const [stdout, stderr, exit] = await Promise.all([
-    new Response(child.stdout).text(),
-    new Response(child.stderr).text(),
-    child.exited,
-  ]);
-  return { stdout, stderr, exit };
+// Lint and type-check (not driver runs) are the slowest children; their
+// bound stays below fixture-lint's 120,000 ms test timeout so a hang is
+// still released (S5, S10).
+const treeBound = 110_000;
+function spawnText(argv: readonly string[], cwd: string) {
+  return spawnBounded(argv, { cwd, boundMilliseconds: treeBound });
 }
 
 // Runs one fixture through the driver and returns its observations.
 export async function stateFixture(name: string): Promise<unknown> {
   const root = await materialise();
   try {
-    const run = await spawnText(
+    // A driver run is bounded by exitBound (20,000 ms), below runFamily's
+    // 30,000 ms test timeout, so a hung driver is released (delta F5).
+    const run = await spawnBounded(
       [process.execPath, "tests/contract3/kernel-repair/driver.ts", name],
-      root,
+      { cwd: root },
     );
     expect({ exit: run.exit, stderr: run.stderr }).toEqual({
       exit: 0,

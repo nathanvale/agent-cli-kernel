@@ -1,7 +1,7 @@
 # T5 diagnostics add-on: design note
 
 Frozen 16 November 2026 before production code; the section "Seam decision"
-was completed by the coordinator's ruling the same day. Case identities are
+was completed by the foundation coordinator's ruling the same day. Case identities are
 in `t5-cases.json` beside this note and do not change after this commit.
 
 Authority: accepted contract manifest
@@ -11,16 +11,16 @@ Authority: accepted contract manifest
 `16e02a3ea6ba1420b1d6e47bfb6cd1327758bca161d8ddd1d818f60f544460e4`); T5
 test-design brief (SHA-256
 `257f4d8a6cc32e57160c3b08fd1ccc86e14c1c28abacfca5592d05013c3d274f`) and its
-coordinator review. Expected values come from those sources, never from the
+foundation coordinator review. Expected values come from those sources, never from the
 add-on.
 
-## Settled bindings
+## Accepted decisions and provisional readings
 
-- Trigger (coordinator review note 1): diagnostics are triggered when the
+- Trigger (foundation coordinator review note 1): diagnostics are triggered when the
   add-on is installed (`installedAddons` lists `diagnostics` and
-  `runProcess` receives `addons.diagnostics`) and the dispatched command
+  `runProcess` receives `addons.diagnostics`) and the command at handler entry
   declares `capabilities.diagnostics`. No global switch, command option or
-  environment toggle exists. A run that never dispatched a declaring command
+  environment toggle exists. A run that never reached handler entry for a declaring command
   (routing refusal, usage refusal, deadline before start) is not triggered
   and carries no key.
 - Location: `$XDG_STATE_HOME/<cli>/diagnostics` when `XDG_STATE_HOME` is an
@@ -47,7 +47,7 @@ folder index:
   O_NONBLOCK` at `0600` (mode enforced with `fchmod` on the descriptor
   before the first byte, so umask cannot widen or narrow it). Every write
   goes to that descriptor; nothing reopens by path.
-- allocation: under a coordination lock (exclusively created lock file in
+- allocation: under the allocation lock (exclusively created lock file in
   the directory, holder pid inside, stale only when that pid is not alive),
   prune and reserve. Confirmed-closed logs are those whose last line is the
   add-on's closure record; anything else is ambiguous and never pruned.
@@ -82,9 +82,9 @@ owner (`c3-t2-lifecycle`) adds a status seam in its own labelled commit; this
 unit never edits the kernel. The add-on side follows the interface note
 `seam-interface-needs.md` in the evidence owner: a status-reporting
 `RunAddon` (`reportsStatus: true`) is attached, effect-free, when its
-declaring command is dispatched, and its `AttachedAddon.freeze(limit)` is
+declaring command reaches handler entry, and its `AttachedAddon.freeze(limit)` is
 called once after the result is frozen; the kernel validates the value alone.
-Pre-dispatch results carry no key: Nathan's accepted decision of 16 November
+Results refused before handler entry carry no key: Nathan's accepted decision of 16 November
 2026, 14:19 (no `diagnostics` key on a result refused before handler entry).
 
 The gap as found at `d1db0d5`, kept for the record:
@@ -106,7 +106,7 @@ Each needs `kernel/lifecycle.ts`, which this unit may not edit.
 
 ## Test design
 
-- Real CLI processes of a synthetic host specimen composed with
+- Real CLI processes of a synthetic host specimen built with
   `contractFor` and `runProcess`, run against a test-owned `HOME` and
   `XDG_STATE_HOME` tree. A labelled test-only fault fixture composes the same
   add-on with an injected sink fault; it adds no production option.
@@ -130,7 +130,7 @@ this section is the record; the case identities do not change.
 - Closure is confirmed by a sibling `0700` marker directory named
   `<log>.closed-<device>-<inode>-<size>`, created after a successful close
   with the file's identity unchanged, not by a closure record line.
-- The coordination lock is a populated directory (`.allocation-lock` holding
+- The allocation lock is a populated directory (`.allocation-lock` holding
   one `owner-<pid>-<host hash>` file) moved onto the path by rename, not a
   lock file. Its owner is proven gone when its pid is dead on this host, or,
   for another host, when the lock is older than one minute. The lock wait is

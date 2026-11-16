@@ -1,8 +1,9 @@
 import type { CommandDeclaration } from "./declarations.ts";
 import type { DeclaredStation } from "./stations.ts";
-import { freeze } from "./stations.ts";
+import { hostKernelCauses } from "./navigation.ts";
+import { freeze, reservedFallbackCause } from "./stations.ts";
 import type { Validation, EffectClass } from "./types.ts";
-import type { FactsForRow } from "./registration.ts";
+import type { FactsForRow } from "./declaration-checks.ts";
 import { commonCauses } from "./causes.ts";
 const resultIdentity = Symbol("kernel.commandResult");
 export type CommandResult<Identity extends string = string> = {
@@ -56,12 +57,14 @@ export function resultContext<
       const declared = command.stations.some(
         (station) => station.causeCode === selected.causeCode,
       );
-      const implicit =
-        command.stations.length === 0 &&
-        selected.causeCode === "SUCCESS_UNCHANGED";
+      // DISC-11b: a handler may select a station the base adds, except the
+      // ones the fallback reserves (K1-6).
+      const baseAdded =
+        !reservedFallbackCause(selected.causeCode) &&
+        hostKernelCauses(command).includes(selected.causeCode);
       if (
         selected.commandIdentity !== command.commandIdentity ||
-        (!declared && !implicit)
+        (!declared && !baseAdded)
       )
         throw new Error(
           "Result station belongs to another command or is undeclared.",

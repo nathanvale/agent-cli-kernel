@@ -4,12 +4,12 @@ import {
   effects as validEffects,
   transactionEffects,
 } from "./validation/result.ts";
-const noResultRoute = Symbol("state.ifNoResult");
+const ifNoResultStep = Symbol("state.ifNoResult");
 const recordedEffect = Symbol("state.recordedEffect");
 const transactionProof = Symbol("state.transactionProof");
 const exclusiveScope = Symbol("state.exclusiveScope");
 export type IfNoResult<Identity extends string = string> = {
-  readonly [noResultRoute]: true;
+  readonly [ifNoResultStep]: true;
   readonly step: CommandStep<Identity>;
 };
 export type RecordedEffect<Effect extends string = string> = {
@@ -56,7 +56,7 @@ export type StateIssuer = {
     runId: string,
     observation: StateObservation<Effect>,
   ) => TransactionProof<Effect>;
-  // Issues a scope only for a run this installation has attached; it throws
+  // Issues a scope only for a run this state add-on instance has attached; it throws
   // otherwise. A production scope is always acquired for an attached run before
   // the approved effect (CMD-9 step 7), so an unattached run fails early.
   readonly exclusiveScope: (
@@ -75,7 +75,7 @@ type AttachedRun = {
 const attachedRuns = new WeakMap<object, AttachedRun>();
 type IssuedScope = {
   readonly runId: string;
-  readonly installation: object;
+  readonly stateInstance: object;
   readonly run: object;
   readonly isActive: () => boolean;
 };
@@ -84,11 +84,11 @@ const proofs = new WeakMap<
   object,
   {
     readonly runId: string;
-    readonly installation: object;
+    readonly stateInstance: object;
     readonly run: object;
   }
 >();
-export function knownRoute(value: IfNoResult): boolean {
+export function isIssuedIfNoResult(value: IfNoResult): boolean {
   return routes.has(value);
 }
 export function knownProof(
@@ -101,7 +101,7 @@ export function knownProof(
   return (
     proof !== undefined &&
     proof.runId === runId &&
-    registration?.installation === proof.installation &&
+    registration?.stateInstance === proof.stateInstance &&
     registration.runs.get(runId) === proof.run
   );
 }
@@ -118,9 +118,9 @@ export function proofFreeResultAllowed(
   return !attached?.transactionStarted || attached.proofState === "unchanged";
 }
 // Runtime counterpart of the ExclusiveScope brand (K2): true only for the
-// kernel-issued object itself, issued by `descriptor`'s installation for the
+// kernel-issued object itself, issued by `descriptor`'s state add-on instance for the
 // run's current attachment, while isActive() returns true (a throw is false).
-// The descriptor is required so a scope from another installation for the
+// The descriptor is required so a scope from another state add-on instance for the
 // same run can never pass.
 export function issuedScope(
   value: unknown,
@@ -134,7 +134,7 @@ export function issuedScope(
     !issued ||
     !registration ||
     issued.runId !== runId ||
-    registration.installation !== issued.installation ||
+    registration.stateInstance !== issued.stateInstance ||
     registration.runs.get(runId) !== issued.run
   )
     return false;
@@ -145,7 +145,7 @@ export function issuedScope(
   }
 }
 function stateIssuer(
-  installation: object,
+  stateInstance: object,
   active: AsyncLocalStorage<{ readonly runId: string; readonly run: object }>,
   runs: ReadonlyMap<string, object>,
 ): StateIssuer {
@@ -160,7 +160,7 @@ function stateIssuer(
       )
         throw new Error("Invalid ifNoResult literal step.");
       const route = Object.freeze({
-        [noResultRoute]: true as const,
+        [ifNoResultStep]: true as const,
         step: Object.freeze({ ...step, args: Object.freeze([...step.args]) }),
       });
       routes.add(route);
@@ -182,11 +182,15 @@ function stateIssuer(
       runId: string,
       observation: StateObservation<Effect>,
     ): TransactionProof<Effect> {
+      // Read the installer's observation exactly once; the proof is built
+      // from the same plain copy that was validated, so an accessor cannot
+      // report one state to the check and another to the proof (K2-spec-1).
+      const snapshot = structuredClone(observation);
       if (
-        !validEffects(observation.effects) ||
+        !validEffects(snapshot.effects) ||
         !transactionEffects(
-          observation.transactionState,
-          observation.effects,
+          snapshot.transactionState,
+          snapshot.effects,
           "failed",
         )
       )
@@ -199,7 +203,7 @@ function stateIssuer(
       if (!attached || attached.proofState !== undefined)
         throw new Error("One transaction proof per attached run.");
       const proof: TransactionProof<Effect> = {
-        ...structuredClone(observation),
+        ...snapshot,
         [transactionProof]: true,
         runId,
       };
@@ -208,7 +212,7 @@ function stateIssuer(
       Object.freeze(proof.effects.uncertain);
       Object.freeze(proof.effects);
       Object.freeze(proof);
-      proofs.set(proof, { runId, installation, run });
+      proofs.set(proof, { runId, stateInstance, run });
       attached.proofState = proof.transactionState;
       return proof;
     },
@@ -225,14 +229,14 @@ function stateIssuer(
         scope,
         isActive,
       });
-      scopes.set(issued, { runId, installation, run, isActive });
+      scopes.set(issued, { runId, stateInstance, run, isActive });
       return issued;
     },
   });
 }
 
 const stateAddonDescriptor = Symbol("state.addonDescriptor");
-export type StateRegistration = {
+export type StateFactoryResult = {
   readonly ifNoResult: IfNoResult;
   readonly attach: <Effect extends string>(
     runId: string,
@@ -246,9 +250,11 @@ export type StateAddonDescriptor = {
 const registrations = new WeakMap<
   object,
   {
-    readonly registration: StateRegistration;
-    readonly installation: object;
+    readonly registration: StateFactoryResult;
+    readonly stateInstance: object;
     readonly runs: Map<string, object>;
+    // Every run identity this state add-on instance has claimed (WIRE-7).
+    readonly used: Set<string>;
     readonly active: AsyncLocalStorage<{
       readonly runId: string;
       readonly run: object;
@@ -256,27 +262,33 @@ const registrations = new WeakMap<
   }
 >();
 export function createStateAddon(
-  install: (issuer: StateIssuer) => StateRegistration,
+  install: (issuer: StateIssuer) => StateFactoryResult,
 ): StateAddonDescriptor {
-  const installation = Object.freeze({});
+  const stateInstance = Object.freeze({});
   const runs = new Map<string, object>();
   const active = new AsyncLocalStorage<{
     readonly runId: string;
     readonly run: object;
   }>();
-  const registration = install(stateIssuer(installation, active, runs));
-  if (!knownRoute(registration.ifNoResult))
+  const registration = install(stateIssuer(stateInstance, active, runs));
+  if (!isIssuedIfNoResult(registration.ifNoResult))
     throw new Error(
-      "State installer did not provide an issued recovery route.",
+      "The state add-on factory did not provide an issued ifNoResult step.",
     );
   const descriptor = Object.freeze({
     [stateAddonDescriptor]: true as const,
     ifNoResult: registration.ifNoResult,
   });
-  registrations.set(descriptor, { registration, installation, runs, active });
+  registrations.set(descriptor, {
+    registration,
+    stateInstance,
+    runs,
+    active,
+    used: new Set(),
+  });
   return descriptor;
 }
-export function admittedState(descriptor: object): boolean {
+export function isStateDescriptor(descriptor: object): boolean {
   return registrations.has(descriptor);
 }
 
@@ -284,9 +296,28 @@ export function attachState<Effect extends string>(
   descriptor: StateAddonDescriptor,
   runId: string,
   effects: readonly Effect[],
-): import("./capabilities.ts").StateCapability<Effect> {
+):
+  | {
+      readonly capability: import("./capabilities.ts").StateCapability<Effect>;
+      readonly close: () => void;
+    }
+  | undefined {
   const state = registrations.get(descriptor);
-  if (!state) throw new Error("Unadmitted state descriptor.");
+  if (!state)
+    throw new Error(
+      "State descriptor was not created by contractFor.stateAddon.",
+    );
+  // WIRE-7: a run identity is unique. Claiming it and attaching happen here
+  // together, at handler entry (CMD-9 step 6; delta review F2). A used
+  // identity stays used: the reuse is refused (undefined) and the earlier
+  // attachment is superseded, so no proof or scope of that identity stands
+  // (K2-spec-2, repair 1 B2).
+  if (state.used.has(runId)) {
+    state.runs.delete(runId);
+    return undefined;
+  }
+  state.used.add(runId);
+  let open = true;
   const run = Object.freeze({});
   const status: AttachedRun = {
     transactionStarted: false,
@@ -298,6 +329,12 @@ export function attachState<Effect extends string>(
   const capability: import("./capabilities.ts").StateCapability<Effect> =
     Object.freeze({
       transaction(work) {
+        // Refused once the handler has returned: its result already exists,
+        // and a refusal must precede any attempted change (WIRE-15).
+        if (!open)
+          return Promise.reject(
+            new Error("The state capability closed when the handler returned."),
+          );
         // Refused before the work starts, so overlapping and later calls
         // cannot complete an effect the first proof does not report.
         if (status.transactionStarted)
@@ -309,7 +346,12 @@ export function attachState<Effect extends string>(
       },
     });
   capabilities.set(capability, [...effects]);
-  return capability;
+  return {
+    capability,
+    close: () => {
+      open = false;
+    },
+  };
 }
 
 const capabilities = new WeakMap<object, readonly string[]>();

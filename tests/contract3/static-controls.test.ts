@@ -240,7 +240,7 @@ test("review-owned specimens expose lint limits without claiming soundness", asy
   }
 });
 
-test("host cannot take or alias the state installer authoring property", async () => {
+test("host cannot take or alias the state add-on factory property", async () => {
   const file = `${probes}/control.ts`;
   const prefix = "declare const kernel: { stateAddon: () => void }; ";
   for (const source of [
@@ -255,7 +255,7 @@ test("host cannot take or alias the state installer authoring property", async (
   }
 });
 
-test("canonical state source can reference installer authoring", async () => {
+test("canonical state source can reference the state add-on factory", async () => {
   expect(
     await findings(
       "declare const kernel: { stateAddon: () => void }; export const factory = kernel.stateAddon;",
@@ -264,7 +264,7 @@ test("canonical state source can reference installer authoring", async () => {
   ).toEqual([]);
 });
 
-test("host source imports kernel only through the public index", async () => {
+test("add-on source imports kernel only through the public index", async () => {
   const file = `${stateProbes}/control.ts`;
   for (const source of [
     'import { commonCauses } from "../../../kernel/causes.ts"; export { commonCauses };',
@@ -282,7 +282,7 @@ test("host source imports kernel only through the public index", async () => {
   ).toEqual([]);
 });
 
-test("kernel index allows only the exact state factory declaration", async () => {
+test("kernel index allows only the exact state add-on factory declaration", async () => {
   const file = resolve(root, "starters/contract3/src/kernel/index.ts");
   const prefix =
     "declare function contractFor(): void; declare function createStateAddon(): void; ";
@@ -301,7 +301,7 @@ test("kernel index allows only the exact state factory declaration", async () =>
   }
 });
 
-test("dynamic host imports use only the kernel public index", async () => {
+test("dynamic add-on imports use only the kernel public index", async () => {
   const file = `${stateProbes}/control.ts`;
   expect(
     (

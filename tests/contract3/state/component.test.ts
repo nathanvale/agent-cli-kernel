@@ -2,8 +2,7 @@
 // the internal framing and scope seams. Component evidence never satisfies a
 // process row; these bind what the process layer cannot reach directly.
 import { afterEach, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   changing,
@@ -33,7 +32,9 @@ import {
   canonicalise,
   conflicts,
 } from "../../../starters/contract3/src/addons/state/scope.ts";
-import { caseTest, readFramed, readOperations } from "./harness.ts";
+import { checkedFlock } from "../../../starters/contract3/src/addons/state/linux-flock.ts";
+import { caseTest, readFramed, readOperations, testFolder } from "./harness.ts";
+import { coordinationExpected, lockFree } from "./holder.ts";
 
 const causes = {
   DOMAIN_CX_LOCK_HELD: {
@@ -123,7 +124,7 @@ afterEach(() => {
     rmSync(root, { recursive: true, force: true });
 });
 function temporaryRoot(prefix: string): string {
-  const root = mkdtempSync(join(tmpdir(), prefix));
+  const root = testFolder(prefix);
   temporaryRoots.push(root);
   return root;
 }
@@ -141,12 +142,15 @@ async function inTransaction(
     readonly resource: (value: unknown) => ResourceId;
     readonly authority: (value: unknown) => AuthorityId;
   }) => Approval,
+  // An existing state root to reuse, and host conflict keys to declare.
+  options: { readonly root?: string; readonly keys?: readonly string[] } = {},
 ): Promise<{
   readonly root: string;
   readonly state: ReturnType<typeof stateAddon>;
   readonly outcome: Outcome | undefined;
 }> {
-  const root = join(temporaryRoot("c3-state-component-"), "state");
+  const root =
+    options.root ?? join(temporaryRoot("c3-state-component-"), "state");
   let outcome: Outcome | undefined;
   const composed: {
     boundary?: {
@@ -218,7 +222,11 @@ async function inTransaction(
         context.state,
         {
           command: "cx.change",
-          scope: { resources: [{ resource: "r", key: "component" }] },
+          scope: {
+            resources: options.keys
+              ? options.keys.map((key) => ({ resource: `r-${key}`, key }))
+              : [{ resource: "r", key: "component" }],
+          },
           ...(approval && boundary ? { approval: approval(boundary) } : {}),
         },
         async (transaction) => {
@@ -346,7 +354,7 @@ caseTest("B04.a-emergency-record", async () => {
         const facts = {
           runId: recorded.runId,
           commandIdentity: "cx.change",
-          phase: "dispatched",
+          phase: "handler-entered",
         } as const;
         host.state.emergencyRecord(facts);
         host.state.emergencyRecord(facts);
@@ -366,7 +374,7 @@ caseTest("B04.a-emergency-record", async () => {
     (entry) => entry.kind === "emergency",
   );
   expect(emergencies.map((entry) => entry.payload.phase)).toEqual([
-    "dispatched",
+    "handler-entered",
   ]);
 });
 
@@ -491,7 +499,7 @@ caseTest("Q01.b-fixture-never-enables", async () => {
     // A fixture-enabled proof is reported fixture-only, never available.
     expect(fixtureAddon.capabilities().qualification).toBe("fixture:q01b");
     expect(fixtureAddon.capabilities().stoppedOwnerProof).toBe(
-      process.platform === "darwin" ? "fixture-only" : "unavailable",
+      coordinationExpected ? "fixture-only" : "unavailable",
     );
     expect(production.capabilities().qualification).toBe("unqualified");
     expect(production.capabilities().stoppedOwnerProof).toBe("unavailable");
@@ -636,4 +644,103 @@ caseTest("B06.a-effect-recorded-once", async () => {
   expect(eventKinds(root).filter((kind) => kind === "effect-started")).toEqual([
     "effect-started",
   ]);
+});
+
+// Linux expectations section 2 item 7: a coordination call that fails after
+// admission began releases the admission and every key coordination lock
+// already taken, and refuses. Checked inside the live process, because a
+// process that exits releases everything anyway: the test's own open of
+// the same file is refused while this process still holds it.
+caseTest("C01.j-failure-after-admission-releases-everything", async () => {
+  const keys = ["k1", "k2", "k3"];
+  const first = await inTransaction(() => Promise.resolve(), undefined, {
+    keys,
+  });
+  expect(first.outcome?.kind).toBe("ran");
+  const coordination = join(first.root, "coordination");
+  const files = readdirSync(coordination)
+    .filter((name) => name.startsWith("k-"))
+    .sort();
+  expect(files.length).toBe(3);
+  // The last key coordination file in acquisition order becomes a symbolic
+  // link, which the O_NOFOLLOW open refuses after the first two were taken.
+  const last = join(coordination, files.at(-1) ?? "");
+  rmSync(last);
+  writeFileSync(join(first.root, "..", "elsewhere.lock"), "");
+  symlinkSync(join(first.root, "..", "elsewhere.lock"), last);
+  const second = await inTransaction(() => Promise.resolve(), undefined, {
+    keys,
+    root: first.root,
+  });
+  expect(second.outcome?.kind).toBe("unavailable");
+  expect(
+    second.outcome?.kind === "unavailable" ? second.outcome.reason : "",
+  ).toBe("coordination-failed");
+  expect(lockFree(join(coordination, "admission.lock"))).toBe(true);
+  for (const name of files.slice(0, -1))
+    expect(lockFree(join(coordination, name))).toBe(true);
+  expect(readOperations(first.root).length).toBe(1);
+});
+
+// Review follow-up (contract F1): the Linux route's start-up self-check
+// decides from the calls' return values alone. Expected values are the
+// expectations' rule, restated: accept flock(-1) returning -1 with EBADF
+// (9); refuse 0, -1 with any other code, and an unreadable code. Then the
+// accepted route maps 0 to held, EAGAIN (11) to busy, anything else to
+// failed.
+caseTest("C01.k-self-check-decision", async () => {
+  const verdict = (returned: number, errno: number | undefined) => {
+    const calls: { fd: number; operation: number }[] = [];
+    const route = checkedFlock("test-library", {
+      flock: (fd, operation) => {
+        calls.push({ fd, operation });
+        return returned;
+      },
+      errno: () => errno,
+    });
+    // The probe is flock(-1, LOCK_EX | LOCK_NB): 2 | 4.
+    expect(calls).toEqual([{ fd: -1, operation: 6 }]);
+    return route.ok ? "accepted" : route.step;
+  };
+  expect(verdict(-1, 9)).toBe("accepted");
+  expect(verdict(0, 9)).toBe("flock(-1) returned 0, expected -1 with EBADF");
+  expect(verdict(0, undefined)).toBe(
+    "flock(-1) returned 0, expected -1 with EBADF",
+  );
+  for (const [errno, word] of [
+    [11, "EAGAIN"],
+    [22, "EINVAL"],
+    [37, "ENOLCK"],
+    [38, "ENOSYS"],
+    [95, "EOPNOTSUPP"],
+    [0, "errno-0"],
+  ] as const)
+    expect(verdict(-1, errno)).toBe(
+      `flock(-1) returned -1 with ${word}, expected -1 with EBADF`,
+    );
+  expect(verdict(-1, undefined)).toBe(
+    "flock(-1) returned -1 with an unreadable error code, expected -1 with EBADF",
+  );
+
+  let next: { returned: number; errno: number | undefined } = {
+    returned: -1,
+    errno: 9,
+  };
+  const route = checkedFlock("test-library", {
+    flock: () => next.returned,
+    errno: () => next.errno,
+  });
+  if (!route.ok) throw new Error("The self-check refused a valid binding.");
+  next = { returned: 0, errno: undefined };
+  expect(route.lock(5)).toEqual({ kind: "held" });
+  next = { returned: -1, errno: 11 };
+  expect(route.lock(5)).toEqual({ kind: "busy" });
+  next = { returned: -1, errno: 22 };
+  expect(route.lock(5)).toEqual({ kind: "failed", code: "EINVAL" });
+  next = { returned: -1, errno: undefined };
+  expect(route.lock(5)).toEqual({
+    kind: "failed",
+    code: "an unreadable error code",
+  });
+  await Promise.resolve();
 });

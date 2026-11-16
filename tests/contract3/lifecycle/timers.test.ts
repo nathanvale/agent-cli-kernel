@@ -1,4 +1,4 @@
-// Finding 1, kernel side: the deadline timer honours every admitted value
+// Finding 1, kernel side: the deadline timer honours every accepted value
 // (Nathan, 16 November 2026: no cap). Expectations: c3-expect-t2t5,
 // findings-round/expectations.md, T02(b) and T06.
 //
@@ -64,7 +64,7 @@ function causeOf(text: string): unknown {
     : undefined;
 }
 
-describe("T02(b) expiry after dispatch for a deadline above the timer limit (finding 1)", () => {
+describe("T02(b) expiry after handler entry for a deadline above the timer limit (finding 1)", () => {
   for (const deadline of overLimitBoundary)
     test(`T02.deadline-above-limit-expiry-after-dispatch D=${deadline}`, async () => {
       const run = await heldUntilDeadline(deadline);

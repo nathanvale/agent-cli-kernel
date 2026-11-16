@@ -2,28 +2,29 @@ import { navigationData } from "./validation/discovery.ts";
 import { resultPlan, resultMatches } from "./command-result.ts";
 import type { CommandResult } from "./command-result.ts";
 import { withState } from "./validation/context.ts";
-import { registerInputs, validateFutureInputs } from "./future-input.ts";
-import { admitCauses, admitCommands } from "./registration.ts";
+import { buildInputTable, validateFutureInputs } from "./future-input.ts";
+import { validateCauses, validateCommands } from "./declaration-checks.ts";
 import type {
-  RegisteredCommands,
-  RegisteredStation,
+  ValidatedCommands,
+  ValidatedStation,
   RunFacts,
   AddonName,
-} from "./registration.ts";
+} from "./declaration-checks.ts";
 import {
-  admittedState,
+  isStateDescriptor,
   createStateAddon,
   attachState,
   proofFreeResultAllowed,
 } from "./state-seam.ts";
 import type { StateAddonDescriptor } from "./state-seam.ts";
-import type { CauseTable, Effects } from "./types.ts";
+import type { CauseTable, Effects, Validation } from "./types.ts";
 import { proofValue } from "./validation/state.ts";
 import { invocationTokens, resolveInvocation } from "./routing.ts";
-import { registerRuntime } from "./runtime.ts";
+import { recordRuntime } from "./runtime.ts";
 import type { KernelFacts } from "./runtime.ts";
 import { authority, resource, path } from "./validation/brands.ts";
 import type { CommandDeclaration } from "./declarations.ts";
+import { preparerOf } from "./declarations.ts";
 import type { DeclaredStation } from "./stations.ts";
 import { parseInput, acceptsRootInput } from "./input.ts";
 import { builtins, stationsFor } from "./navigation.ts";
@@ -52,7 +53,7 @@ export function contractFor<
   const D extends readonly CommandDeclaration[],
 >(spec: {
   readonly cli: Cli;
-  readonly commands: D & RegisteredCommands<D, Cli>;
+  readonly commands: D & ValidatedCommands<D, Cli>;
   readonly state?: StateAddonDescriptor;
   readonly causes?: CauseTable;
   readonly installedAddons?: readonly AddonName[];
@@ -63,26 +64,30 @@ export function contractFor<
     throw new Error("Host callbacks never receive a state issuer.");
   if (
     installed.includes("state") &&
-    (!spec.state || !admittedState(spec.state))
+    (!spec.state || !isStateDescriptor(spec.state))
   )
-    throw new Error("State requires its admitted stamped descriptor.");
+    throw new Error(
+      "State requires the descriptor created by contractFor.stateAddon.",
+    );
   if (
     spec.state &&
-    (!installed.includes("state") || !admittedState(spec.state))
+    (!installed.includes("state") || !isStateDescriptor(spec.state))
   )
-    throw new Error("State descriptor is not installed or admitted.");
+    throw new Error(
+      "State is not in installedAddons, or its descriptor was not created by contractFor.stateAddon.",
+    );
   const hostCommands = [...spec.commands];
   const causes: typeof commonCauses & CauseTable = structuredClone({
     ...commonCauses,
     ...spec.causes,
   });
   freeze(causes);
-  admitCauses(causes);
+  validateCauses(causes);
   const commands: CommandDeclaration[] = [
     ...hostCommands,
     ...builtins(spec.cli),
   ].sort((a, b) => (a.commandIdentity < b.commandIdentity ? -1 : 1));
-  admitCommands(spec.cli, commands, causes, installed);
+  validateCommands(spec.cli, commands, causes, installed);
   if (
     spec.state &&
     commands.some(
@@ -91,9 +96,11 @@ export function contractFor<
         item.ifNoResult !== spec.state?.ifNoResult,
     )
   )
-    throw new Error("Recovery route belongs to another state installation.");
+    throw new Error(
+      "A changing command's ifNoResult step comes from a different state add-on descriptor.",
+    );
   freeze(commands);
-  const inputRegistration = registerInputs(commands);
+  const inputTable = buildInputTable(commands);
   const stationMap = new Map(
     commands.map((item) => [
       item.commandIdentity,
@@ -104,7 +111,13 @@ export function contractFor<
   const acceptedResults = new WeakSet<object>();
   const navigation = navigationData(spec.cli, commands, stationMap);
   async function validate(value: unknown) {
-    const checked = await validateEnvelope(value, causes, commands, stationMap);
+    const checked = await validateEnvelope(
+      spec.cli,
+      value,
+      causes,
+      commands,
+      stationMap,
+    );
     return checked.ok && !navigation.validData(checked.value.result)
       ? ({
           ok: false,
@@ -128,7 +141,7 @@ export function contractFor<
   }
 
   // Assembles and validates one envelope from a declared station and the
-  // run facts already admitted by the caller.
+  // run facts already validated by the caller.
   async function assemble(
     command: CommandDeclaration,
     station: DeclaredStation,
@@ -163,7 +176,7 @@ export function contractFor<
       return {
         ok: false,
         path: "bindings",
-        reason: "invalid template values",
+        reason: "invalid run binding values",
       } as const;
     }
   }
@@ -239,12 +252,16 @@ export function contractFor<
     );
   }
 
-  async function executeCommand(
+  // CMD-9 steps 3 to 5, then step 6. `prepare` refuses invocation, input
+  // and approval before anything attaches; its entry attaches state and runs
+  // the handler (K3-spec-6). A raw declaration without a two-phase entry runs
+  // through its own execute at entry.
+  async function prepareCommand(
     identity: string,
     argv: unknown,
     runId: string,
     context: unknown = {},
-  ) {
+  ): Promise<Validation<() => Promise<Validation<CommandResult>>>> {
     const selected = commands.find(
       (entry) => entry.commandIdentity === identity,
     );
@@ -253,32 +270,70 @@ export function contractFor<
         ok: false,
         path: "commandIdentity",
         reason: "unknown executable command",
-      } as const;
+      };
     const parsed = await parseInput(selected.input, argv);
     if (!parsed.ok) return parsed;
     const future = await validateFutureInputs(
       selected,
       parsed.value,
-      inputRegistration,
+      inputTable,
     );
     if (!future.ok) return future;
-    const executionContext =
-      selected.effectClass === "inspect"
-        ? context
-        : withState(
-            context,
-            spec.state
-              ? attachState(spec.state, runId, selected.effects ?? [])
-              : undefined,
-          );
+    const changingCommand = selected.effectClass !== "inspect";
     const invocation = Object.freeze({});
-    const outcome = await selected.execute(
-      argv,
-      executionContext,
-      runId,
-      invocation,
-      inputRegistration,
-    );
+    const prepare = preparerOf(selected);
+    const ready = prepare
+      ? await prepare(argv, context, runId, invocation, inputTable)
+      : undefined;
+    if (ready && !ready.ok) return ready;
+    const execute = selected.execute;
+    // One entry per run: a second call would attach and enter again under
+    // the same run identity (delta review F2).
+    let entered = false;
+    const enter = async (): Promise<Validation<CommandResult>> => {
+      if (entered)
+        return {
+          ok: false,
+          path: "entry",
+          reason: "handler entry already used",
+        };
+      entered = true;
+      const attached =
+        changingCommand && spec.state
+          ? attachState(spec.state, runId, selected.effects ?? [])
+          : undefined;
+      if (changingCommand && spec.state && !attached)
+        return {
+          ok: false,
+          path: "runId",
+          reason: "run identity already attached",
+        };
+      // WIRE-15: the capability closes when the handler returns, so no
+      // transaction can start after the result exists (K2-spec-3).
+      const outcome = await (ready
+        ? ready.value(attached?.capability)
+        : execute(
+            argv,
+            changingCommand
+              ? withState(context, attached?.capability)
+              : context,
+            runId,
+            invocation,
+            inputTable,
+          )
+      ).finally(() => attached?.close());
+      return accepted(outcome, identity, runId, invocation, parsed);
+    };
+    return { ok: true, value: enter };
+  }
+
+  function accepted(
+    outcome: Validation<CommandResult>,
+    identity: string,
+    runId: string,
+    invocation: object,
+    parsed: { readonly deadlineMilliseconds?: number },
+  ) {
     if (!outcome.ok) return outcome;
     if (!resultMatches(outcome.value, identity, runId, invocation))
       return {
@@ -293,6 +348,16 @@ export function contractFor<
         ? {}
         : { deadlineMilliseconds: parsed.deadlineMilliseconds }),
     };
+  }
+
+  async function executeCommand(
+    identity: string,
+    argv: unknown,
+    runId: string,
+    context: unknown = {},
+  ) {
+    const prepared = await prepareCommand(identity, argv, runId, context);
+    return prepared.ok ? prepared.value() : prepared;
   }
 
   const contract = {
@@ -332,7 +397,7 @@ export function contractFor<
           } as const)
         : parsed;
     },
-    build<const S extends RegisteredStation<D>>(
+    build<const S extends ValidatedStation<D>>(
       selected: S,
       facts: RunFacts<NoInfer<S>, D>,
     ) {
@@ -349,7 +414,7 @@ export function contractFor<
           } as const);
     },
   };
-  registerRuntime(contract, {
+  recordRuntime(contract, {
     cli: spec.cli,
     commands,
     stations: stationMap,
@@ -365,11 +430,7 @@ export function contractFor<
       if (
         selected &&
         !(
-          await validateFutureInputs(
-            selected,
-            resolved.value.input,
-            inputRegistration,
-          )
+          await validateFutureInputs(selected, resolved.value.input, inputTable)
         ).ok
       )
         return {
@@ -394,6 +455,8 @@ export function contractFor<
     },
     execute: (identity, argv, runId, context) =>
       executeCommand(identity, argv, runId, context),
+    prepare: (identity, argv, runId, context) =>
+      prepareCommand(identity, argv, runId, context),
     buildKernelStation,
     buildResult: (result) => contract.buildResult(result),
     validate,
@@ -460,13 +523,13 @@ export type {
   RetryDelayPolicy,
 } from "./stations.ts";
 
-// Supporting stamped-add-on authoring seam. Source admission permits references
-// only in the exact pinned state add-on; ordinary host composition passes its
+// State add-on factory seam. Source rules permit references only in the
+// exact pinned state add-on; ordinary host wiring passes its
 // opaque descriptor. This is not a same-process isolation guarantee.
 contractFor.stateAddon = createStateAddon;
 export type {
   StateAddonDescriptor,
-  StateRegistration,
+  StateFactoryResult,
   StateObservation,
   ExclusiveScope,
 } from "./state-seam.ts";
@@ -474,11 +537,11 @@ export type { ApprovalRequest, ApprovalRuntime } from "./capabilities.ts";
 
 export type {
   RunFacts,
-  RegisteredStation,
-  RegisteredCommands,
+  ValidatedStation,
+  ValidatedCommands,
   CommandIdentity,
   InspectIdentity,
-} from "./registration.ts";
+} from "./declaration-checks.ts";
 
 export { exits } from "./types.ts";
 export { versionReader } from "./validation/version.ts";
@@ -494,4 +557,4 @@ export type {
   AllowedCause,
   SelectedRow,
 } from "./command-result.ts";
-export type { InputRegistration } from "./future-input.ts";
+export type { InputTable } from "./future-input.ts";

@@ -13,6 +13,7 @@ import {
 } from "./r18-spec.ts";
 import type { Row } from "./r18-spec.ts";
 import { unchanged } from "./shapes.ts";
+import { neverRuns } from "./handlers.ts";
 
 // R18 (F01, option 2): contractFor refuses a command-step template whose
 // vector no single-token value can make parse; value-dependent steps stay
@@ -52,6 +53,7 @@ function rawSource(arm: "next" | "handoff", row: Row) {
     capabilities: {},
     stations: [stepStation(kernel, source, arm, row)],
     effectClass: "inspect",
+    execute: neverRuns,
   };
 }
 const admit = (declaration: object) => () =>

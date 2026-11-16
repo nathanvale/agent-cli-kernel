@@ -22,6 +22,7 @@ import {
   str,
 } from "./harness.ts";
 import type { World } from "./harness.ts";
+import { coordinationExpected } from "./holder.ts";
 
 const apply = (name: string, content = "v1") => [
   "apply",
@@ -576,10 +577,15 @@ caseTest(
       ),
     );
     expectRefusedUnchanged(refused, "DOMAIN_SX_UNAVAILABLE");
-    if (process.platform === "darwin")
-      expect(str(refused.envelope.message)).toContain(
-        "human-assisted-takeover-unqualified",
-      );
+    // O10.b runs on every platform: with a route it reaches the takeover
+    // gate; without one it refuses earlier, for that reason.
+    expect(str(refused.envelope.message)).toContain(
+      coordinationExpected
+        ? "human-assisted-takeover-unqualified"
+        : process.platform === "linux"
+          ? "coordination-self-check-failed"
+          : "coordination-unqualified-platform",
+    );
     expect(readFileSync(attestation, "utf8")).toBe(content);
     expect(world.operations()).toEqual([]);
   }),
@@ -588,7 +594,7 @@ caseTest(
 caseTest(
   "H02.a-attestation-cannot-bypass-exclusivity",
   fixture(async (world) => {
-    if (process.platform !== "darwin") {
+    if (!coordinationExpected) {
       // On a platform without coordination the refusal is still unavailable.
       const refused = await world.run(
         closeArgs(

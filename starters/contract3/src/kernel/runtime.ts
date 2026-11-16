@@ -4,7 +4,7 @@ import type { DeclaredStation } from "./stations.ts";
 import type { StateObservation } from "./state-seam.ts";
 import type { Effects, Envelope, JsonValue, Validation } from "./types.ts";
 
-// The kernel's private view of one composed contract. The process front door
+// The kernel's private view of one built contract. The kernel process entry
 // reads it; host code only ever holds the opaque contract object.
 export type Resolution =
   | {
@@ -46,6 +46,15 @@ export type ContractRuntime = {
     runId: string,
     context: unknown,
   ) => Promise<Validation<CommandResult>>;
+  // The same execution in its two CMD-9 phases: steps 3 to 5 (input, future
+  // bindings, approval guard) attach nothing; the returned entry attaches
+  // state and runs the handler (step 6). execute is prepare then entry.
+  readonly prepare: (
+    identity: string,
+    argv: readonly string[],
+    runId: string,
+    context: unknown,
+  ) => Promise<Validation<() => Promise<Validation<CommandResult>>>>;
   // Builds a kernel-selected station with effects from the kernel's own
   // observation. Handler results never reach it: they go through buildResult
   // and the state-issued proof rule.
@@ -64,7 +73,7 @@ export type ContractRuntime = {
 
 const runtimes = new WeakMap<object, ContractRuntime>();
 
-export function registerRuntime(contract: object, runtime: ContractRuntime) {
+export function recordRuntime(contract: object, runtime: ContractRuntime) {
   runtimes.set(contract, runtime);
 }
 
