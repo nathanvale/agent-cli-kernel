@@ -7,7 +7,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { spawnBounded } from "../kernel-repair/swarm-process.ts";
+import { exitBound } from "../lifecycle/harness.ts";
 
 // The test harness for the KF cases: it materialises the `kf` entry inside
 // a disposable state add-on folder (only that folder may name the state add-on
@@ -47,8 +47,9 @@ export type KfRun = {
   readonly envelope: Readonly<Record<string, unknown>> | undefined;
   readonly result: Readonly<Record<string, unknown>> | undefined;
   readonly ledger: readonly string[];
-  // Milliseconds from spawn to exit, as the parent measured them.
-  readonly elapsed: number;
+  // Milliseconds from the CLI's own `start` ledger line (wall clock) to the
+  // parent's receipt of the first stdout byte; undefined without either.
+  readonly firstByte: number | undefined;
 };
 
 function record(value: unknown): Readonly<Record<string, unknown>> | undefined {
@@ -65,32 +66,78 @@ export async function runKf(
   env: Readonly<Record<string, string>> = {},
 ): Promise<KfRun> {
   const ledger = join(entry, "..", `ledger-${sequence++}.txt`);
-  const started = performance.now();
-  const child = await spawnBounded([process.execPath, entry, ...argv], {
-    env: {
-      PATH: process.env.PATH ?? "/usr/bin:/bin",
-      HOME: process.env.HOME ?? "",
-      TMPDIR: process.env.TMPDIR ?? tmpdir(),
-      KF_SCENARIO: scenario,
-      KF_LEDGER: ledger,
-      ...env,
-    },
+  const child = await spawnFirstByte([process.execPath, entry, ...argv], {
+    PATH: process.env.PATH ?? "/usr/bin:/bin",
+    HOME: process.env.HOME ?? "",
+    TMPDIR: process.env.TMPDIR ?? tmpdir(),
+    KF_SCENARIO: scenario,
+    KF_LEDGER: ledger,
+    ...env,
   });
-  const elapsed = performance.now() - started;
   await Bun.sleep(1000);
-  const lines = (await readFile(ledger, "utf8").catch(() => ""))
+  const all = (await readFile(ledger, "utf8").catch(() => ""))
     .split("\n")
     .filter((line) => line !== "");
+  const start = all.find((line) => line.startsWith("start "));
+  const lines = all.filter((line) => !line.startsWith("start "));
   const envelope = argv.includes("--json")
     ? record(child.stdout.trim() === "" ? undefined : JSON.parse(child.stdout))
     : undefined;
   return {
-    ...child,
+    exit: child.exit,
+    stdout: child.stdout,
+    stderr: child.stderr,
     envelope,
     result: record(envelope?.result),
     ledger: lines,
-    elapsed,
+    firstByte:
+      start === undefined || child.firstByteAt === undefined
+        ? undefined
+        : child.firstByteAt - Number(start.slice("start ".length)),
   };
+}
+
+// As spawnBounded (bounded below the test timeout; a hang is killed and
+// named), and it also records the wall-clock time of the first stdout byte.
+async function spawnFirstByte(
+  argv: readonly string[],
+  env: Readonly<Record<string, string>>,
+) {
+  const child = Bun.spawn([...argv], {
+    env: { ...env },
+    stdin: "ignore",
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  let firstByteAt: number | undefined;
+  const chunks: Uint8Array[] = [];
+  const readStdout = async () => {
+    for await (const chunk of child.stdout) {
+      firstByteAt ??= Date.now();
+      chunks.push(chunk);
+    }
+    return new TextDecoder().decode(Buffer.concat(chunks));
+  };
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expired = new Promise<undefined>((resolve) => {
+    timer = setTimeout(() => resolve(undefined), exitBound);
+  });
+  const finished = await Promise.race([
+    Promise.all([
+      readStdout(),
+      new Response(child.stderr).text(),
+      child.exited,
+    ]),
+    expired,
+  ]);
+  clearTimeout(timer);
+  if (!finished) {
+    child.kill("SIGKILL");
+    await child.exited;
+    throw new Error(`${argv.join(" ")} did not exit within ${exitBound} ms.`);
+  }
+  const [stdout, stderr, exit] = finished;
+  return { stdout, stderr, exit, firstByteAt };
 }
 
 // The KF Conventions: one envelope is exactly one JSON object and one "\n";

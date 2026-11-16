@@ -32,6 +32,8 @@ const env = process.env;
 function note(line: string): void {
   if (env.KF_LEDGER) appendFileSync(env.KF_LEDGER, `${line}\n`);
 }
+// The process start on the wall clock, for the parent's first-byte bound.
+note(`start ${Date.now()}`);
 const sleep = (milliseconds: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
 // A synchronous block: no timer or I/O callback runs while it lasts.
@@ -608,8 +610,117 @@ function layered(): { state: StateAddonDescriptor; transact: Transact } {
   };
 }
 
+// Decision 3 (KF3). kf.apply and kf.watch start one owned program through
+// the host programs add-on (KF_SETTLE decides its settle), then wait KF_WAIT
+// ms ignoring cancellation (0: return at once). kf.apply first runs the
+// KF_PROOF transaction (`none`: no transaction).
+const waitMilliseconds = Number(env.KF_WAIT ?? "0");
+function programsApply(state: StateAddonDescriptor) {
+  const effects =
+    variantEffects[proofVariant === "none" ? "completed" : proofVariant];
+  if (!effects) throw new Error(`Unknown proof variant ${proofVariant}.`);
+  return changing({
+    identity: "kf.apply",
+    route: ["apply"],
+    summary: "Apply the kf effects and run one owned program.",
+    input,
+    capabilities: { programs: true },
+    effectClass: "repository-local",
+    effects,
+    ifNoResult: state.ifNoResult,
+    heldLockCause: "KF_HELD",
+    unresolvedCaseCause: "KF_PRIOR",
+    stations: [
+      ...coordination("kf.apply"),
+      completed("kf.apply"),
+      station(table, {
+        ...words,
+        commandIdentity: "kf.apply",
+        causeCode: "KF_PARTIAL",
+        trigger: "A known subset of the kf effects completed.",
+        repairAction: "Inspect the kf effects.",
+        guidance: {
+          handoff: {
+            owner: "operator",
+            reason: "Inspect the kf effects.",
+            inspect: [{ kind: "command", command: "kf.pending", args: [] }],
+          },
+        },
+        independentObservable: "kf.apply:partial",
+      }),
+    ],
+    run: async (_input, context) => {
+      note("handler-entered");
+      const proof =
+        proofVariant === "none"
+          ? undefined
+          : await context.state.transaction(variantWork);
+      await context.programs.inspect(program);
+      if (waitMilliseconds > 0) await sleep(waitMilliseconds);
+      note("handler-returned");
+      const selected =
+        proof?.transactionState === "completed"
+          ? "SUCCESS_COMPLETED"
+          : proof?.transactionState === "partially-completed"
+            ? "KF_PARTIAL"
+            : "KF_HELD";
+      return context.result(
+        { commandIdentity: "kf.apply", causeCode: selected } as never,
+        {
+          message: "Done.",
+          data: null,
+          effects: empty,
+          ...(proof ? { transaction: proof } : {}),
+        } as never,
+      );
+    },
+  });
+}
+const watch = command({
+  identity: "kf.watch",
+  route: ["watch"],
+  summary: "Watch with one owned program.",
+  input,
+  capabilities: { programs: true },
+  stations: [success("kf.watch")],
+  run: async (_input, context) => {
+    note("handler-entered");
+    await context.programs.inspect(program);
+    if (waitMilliseconds > 0) await sleep(waitMilliseconds);
+    return context.result(
+      { commandIdentity: "kf.watch", causeCode: "SUCCESS_UNCHANGED" },
+      { message: "Watched.", data: null, effects: empty },
+    );
+  },
+});
+
 const scenarios: Readonly<Record<string, (argv: string[]) => Promise<unknown>>> =
   {
+    // KF3.a, KF3.c.
+    "programs-apply": (argv) => {
+      const state = seamState();
+      return runProcess(
+        contractFor({
+          cli: "kf",
+          commands: [programsApply(state), pending],
+          causes,
+          state,
+          installedAddons: ["state", "programs"],
+        }),
+        { addons: { programs: programsAddon() } },
+      )(argv);
+    },
+    // KF3.d (and KF3.b once its station is built).
+    watch: (argv) =>
+      runProcess(
+        contractFor({
+          cli: "kf",
+          commands: [watch],
+          causes,
+          installedAddons: ["programs"],
+        }),
+        { addons: { programs: programsAddon() } },
+      )(argv),
     // KF2.
     proof: (argv) => {
       const { state, transact } = layered();
@@ -674,7 +785,6 @@ const scenarios: Readonly<Record<string, (argv: string[]) => Promise<unknown>>> 
       )(argv),
   };
 
-void sleep;
 const run = scenarios[env.KF_SCENARIO ?? ""];
 if (!run) throw new Error(`Unknown scenario ${env.KF_SCENARIO ?? ""}.`);
 await run(process.argv.slice(2));

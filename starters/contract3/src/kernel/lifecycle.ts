@@ -226,9 +226,41 @@ async function settleEach(
   return settled.every(Boolean);
 }
 
-// Every attached add-on: the stop and deadline paths.
-function settleAll(run: Run, limit?: number) {
-  return settleEach(run.attached, limit);
+// Every attached add-on: the stop and deadline paths. True only when every
+// owned resource was confirmed stopped; the status reporter is settled too,
+// but it is not an owned program, so it never decides confirmation.
+async function settleAll(run: Run, limit?: number) {
+  const settled = await Promise.all(
+    run.attached.map(async (addon) => ({
+      owned: addon !== run.reporter,
+      stopped: await settleOne(addon, limit),
+    })),
+  );
+  return settled.every((item) => !item.owned || item.stopped);
+}
+
+// Accepted decisions (contract question 5 of 8; points N2 and N3, 16:25):
+// with an owned program not confirmed stopped the run claims no certainty.
+// The proof's completed and remaining effects are kept, nothing moves to
+// uncertain, and the inventory is incomplete; without a proof, nothing is
+// known.
+function unconfirmedSummary(
+  summary: StateObservation | undefined,
+): StateObservation {
+  if (!summary)
+    return {
+      transactionState: "unknown",
+      effects: {
+        completed: [],
+        remaining: [],
+        uncertain: [],
+        inventoryComplete: false,
+      },
+    };
+  return {
+    transactionState: "unknown",
+    effects: { ...summary.effects, inventoryComplete: false },
+  };
 }
 
 // Normal completion (LIFE-11): the owned resources only; the status reporter
@@ -514,7 +546,7 @@ async function afterDeadline(
   execution: Promise<Execution>,
 ): Promise<Delivery> {
   run.controller.abort();
-  await Promise.all([
+  const [, stopped] = await Promise.all([
     within(execution, cancellationMilliseconds, run.host.now),
     within(
       settleAll(run, settleLimitMilliseconds),
@@ -522,7 +554,10 @@ async function afterDeadline(
       run.host.now,
     ),
   ]);
-  const summary = run.runtime.trustedSummary(run.runId);
+  // An owned program not confirmed stopped within the wait leaves the
+  // effects unconfirmed: "Unconfirmed effects are unknown" (LIFE-11).
+  const issued = run.runtime.trustedSummary(run.runId);
+  const summary = stopped === true ? issued : unconfirmedSummary(issued);
   const selected =
     command.effectClass === "inspect"
       ? { causeCode: deadlineCause.unchanged, effects: unchangedEffects }
@@ -555,11 +590,12 @@ async function afterHandler(
     return afterDeadline(run, command, Promise.resolve(execution));
   // After handler entry the trusted summary is the issued proof, whatever
   // the handler then did (contract question 4 of 8, LIFE-9).
+  const issued = run.runtime.trustedSummary(run.runId);
   const trusted = trustedRun(
     run,
     identity,
     true,
-    run.runtime.trustedSummary(run.runId),
+    clean ? issued : unconfirmedSummary(issued),
   );
   if (execution.kind === "threw")
     return {
