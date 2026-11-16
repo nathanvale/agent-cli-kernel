@@ -135,8 +135,12 @@ export type Reader =
   | "close-after-envelope";
 
 export type Observed = {
+  // K3-12: reading a stream that was still open `streamWait` ms after the
+  // CLI exited throws "UNPROVED", so no assertion passes on a cut stream.
   readonly stdout: Uint8Array;
   readonly stderr: Uint8Array;
+  readonly stdoutComplete: boolean;
+  readonly stderrComplete: boolean;
   readonly code: number | null;
   readonly signal: string | null;
   readonly pid: number;
@@ -205,6 +209,15 @@ function concat(parts: readonly Uint8Array[]): Uint8Array {
     offset += part.byteLength;
   }
   return out;
+}
+
+// K3-12: how long the harness keeps reading after the CLI exited. A stream
+// still open then is reported incomplete, never as complete output.
+const streamWait = 2_000;
+function incomplete(stream: string): Error {
+  return new Error(
+    `UNPROVED: ${stream} was still open ${streamWait} ms after the CLI exited.`,
+  );
 }
 
 const heldBytes = new TextEncoder().encode("FX-HELD-STDIN-BYTES\n".repeat(64));
@@ -303,14 +316,28 @@ export async function launch(options: {
   const done = (async (): Promise<Observed> => {
     await child.exited;
     const exitedAt = Date.now();
-    const [, stderr] = await Promise.all([
-      Promise.race([stdoutDone, Bun.sleep(2000)]),
-      stderrDone,
+    const [stdoutComplete, stderrRead] = await Promise.all([
+      Promise.race([
+        stdoutDone.then(() => true),
+        Bun.sleep(streamWait).then(() => false),
+      ]),
+      Promise.race([stderrDone, Bun.sleep(streamWait).then(() => undefined)]),
     ]);
     if (options.stdin === "held-open") void child.stdin.end();
+    const stdout = concat(chunks);
+    const stderr = new Uint8Array(stderrRead ?? new ArrayBuffer(0));
+    const stderrComplete = stderrRead !== undefined;
     return {
-      stdout: concat(chunks),
-      stderr: new Uint8Array(stderr),
+      get stdout() {
+        if (!stdoutComplete) throw incomplete("stdout");
+        return stdout;
+      },
+      get stderr() {
+        if (!stderrComplete) throw incomplete("stderr");
+        return stderr;
+      },
+      stdoutComplete,
+      stderrComplete,
       code: child.signalCode ? null : child.exitCode,
       signal: child.signalCode,
       pid: child.pid,
@@ -481,8 +508,12 @@ export async function exitWithin(
     launched.done,
     Bun.sleep(milliseconds).then(() => undefined),
   ]);
-  if (!observed)
+  if (!observed) {
+    // K3-3 (swarm triage): every caller is covered, so a hang leaves no
+    // fixture process or temporary directory behind.
+    await release(launched);
     throw new Error(`The CLI did not exit within ${milliseconds} ms.`);
+  }
   return observed;
 }
 // N2: a ledgered pid is killed only while it is still in the process group
@@ -491,11 +522,15 @@ export async function exitWithin(
 // group (setsid), and that whole group is killed, so their own children go
 // too; a grandchild stays in its parent's ledgered `child-pgid`.
 const ledgeredLeaders = ["child-started", "escaped", "late-child"];
+// The one parser for the fixture's `<prefix> <pid>` ledger lines.
 function ledgeredPid(ledger: readonly string[], prefix: string) {
   return ledger
     .filter((line) => line.startsWith(`${prefix} `))
     .map((line) => Number(line.split(" ")[1]))
     .filter((pid) => Number.isSafeInteger(pid) && pid > 0);
+}
+export function firstPid(ledger: readonly string[], prefix: string) {
+  return ledgeredPid(ledger, prefix)[0];
 }
 function stillOwned(ledger: readonly string[]) {
   const owned = ledgeredLeaders.flatMap((prefix) =>
@@ -524,13 +559,7 @@ export async function run(
   extra: Partial<Parameters<typeof launch>[0]> = {},
   bound = exitBound,
 ) {
-  const launched = await launchCase(entry, extra);
-  try {
-    return await exitWithin(launched, bound);
-  } catch (error) {
-    await release(launched);
-    throw error;
-  }
+  return exitWithin(await launchCase(entry, extra), bound);
 }
 
 // Independent process-table probe.
@@ -587,8 +616,9 @@ function quoted(token: string): string {
 }
 export async function slowSmallChunkRun(entry: Case) {
   const shell = `{ "$0" "$1" ${entry.argv.map(quoted).join(" ")}; echo "cli-exit $?" >> "$FX_LEDGER"; } | /usr/bin/perl -e ${quoted(relay)}`;
-  const observed = await (await launchCase(entry, { rawArgvShell: shell }))
-    .done;
+  const observed = await exitWithin(
+    await launchCase(entry, { rawArgvShell: shell }),
+  );
   const field = (prefix: string) => {
     const line = observed.ledger.find((item) => item.startsWith(`${prefix} `));
     const value = line ? Number(line.split(" ")[1]) : Number.NaN;
