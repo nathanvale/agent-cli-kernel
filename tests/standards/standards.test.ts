@@ -33,9 +33,7 @@ afterAll(() => {
 type Row = { rule: string; today: string; gates: string; guide: string };
 type Gate = { kind: "script" | "lint" | "job"; id: string };
 
-// Front matter and fenced code are not links a reader follows, so they are
-// blanked; blanking keeps the line numbers the problems report.
-function prose(path: string): string {
+function readWithCodeBlanked(path: string): string {
   let fenced = false;
   return readFileSync(path, "utf8")
     .replace(/^---\n[\s\S]*?\n---\n/, (front) => front.replace(/[^\n]/g, ""))
@@ -110,7 +108,7 @@ function linkProblem(
   if (anchor === undefined) return undefined;
   if (!statSync(resolved).isFile())
     return `link ${target} puts an anchor on folder ${shown}. Link a Markdown file.`;
-  const slugs = headings(prose(resolved)).map(({ slug }) => slug);
+  const slugs = headings(readWithCodeBlanked(resolved)).map(({ slug }) => slug);
   return slugs.includes(anchor)
     ? undefined
     : `link ${target} names #${anchor}, which no heading in ${shown} gives. Use one of: ${slugs.map((slug) => `#${slug}`).join(", ")}.`;
@@ -119,7 +117,7 @@ function linkProblem(
 async function linkProblems(repository: string): Promise<string[]> {
   const problems: string[] = [];
   for (const view of await matching(repository, agentFiles)) {
-    const text = prose(join(repository, view));
+    const text = readWithCodeBlanked(join(repository, view));
     for (const { target, line } of links(text)) {
       if (/^[a-z][a-z0-9+.-]*:/i.test(target)) continue;
       const problem = linkProblem(repository, view, target);
@@ -201,7 +199,12 @@ async function citationProblems(repository: string): Promise<string[]> {
   const fetch = fetchHint(repository, history);
   const files = await matching(repository, [standards, "docs/standards/*.md"]);
   return files.flatMap((file) =>
-    citationsIn(file, prose(join(repository, file)), history, fetch),
+    citationsIn(
+      file,
+      readWithCodeBlanked(join(repository, file)),
+      history,
+      fetch,
+    ),
   );
 }
 
@@ -210,7 +213,7 @@ function ruleTable(repository: string): {
   gateNotes: string[];
   problems: string[];
 } {
-  const text = prose(join(repository, standards));
+  const text = readWithCodeBlanked(join(repository, standards));
   const section = (name: string) =>
     text.split(/^## /m).find((part) => part.startsWith(`${name}\n`)) ?? "";
   const lines = section("Rule table")
