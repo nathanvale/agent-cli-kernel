@@ -1,3 +1,4 @@
+import { carriesGlobalSwitch } from "../routing.ts";
 import { exits } from "../types.ts";
 import type {
   CauseRow,
@@ -151,7 +152,7 @@ export function nextStep(value: unknown): value is NextStep {
         text(value.command) &&
         Array.isArray(value.args) &&
         value.args.every((arg: unknown) => typeof arg === "string") &&
-        !value.args.includes("--json")
+        !carriesGlobalSwitch(value.args)
       );
     case "instruction":
       return keys(value, ["kind", "text"]) && text(value.text);

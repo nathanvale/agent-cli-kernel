@@ -1,6 +1,7 @@
 import type { CauseRow, CauseTable, RowGuidance } from "./types.ts";
 import { causeRow, handoff, nextStep } from "./validation/result.ts";
-import { integer, text } from "./validation/primitives.ts";
+import { carriesGlobalSwitch } from "./routing.ts";
+import { integer, record, text } from "./validation/primitives.ts";
 import { internalResultCode } from "./state-causes.ts";
 export type RetryDelayPolicy =
   | { readonly kind: "none" }
@@ -91,6 +92,8 @@ export function validateWords(
   )
     throw new Error("Invalid repair action.");
   const guidance = spec.guidance;
+  if (commandSteps(guidance).some((step) => carriesGlobalSwitch(step.args)))
+    throw new Error("Command step args carry a global switch before --.");
   if (
     row.guidance === "handoff"
       ? !handoff(guidance.handoff)
@@ -102,6 +105,23 @@ export function validateWords(
   if ((guidance.next?.kind === "retry") !== row.retryable)
     throw new Error("Retry correlation.");
   validateDelay(spec.retryDelayPolicy, row.retryable);
+}
+// The command steps a declared guidance arm names, read defensively because
+// a raw declaration reaches this check before its shape is proven.
+function commandSteps(
+  guidance: DeclaredStation["guidance"],
+): readonly { readonly args: readonly unknown[] }[] {
+  const inspect: unknown = guidance.handoff?.inspect;
+  const steps: readonly unknown[] = guidance.next
+    ? [guidance.next]
+    : Array.isArray(inspect)
+      ? inspect
+      : [];
+  return steps.flatMap((step) =>
+    record(step) && step.kind === "command" && Array.isArray(step.args)
+      ? [{ args: step.args }]
+      : [],
+  );
 }
 function validateDelay(policy: RetryDelayPolicy, retryable: boolean): void {
   if (!retryable) {
