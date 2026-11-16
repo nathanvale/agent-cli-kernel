@@ -251,7 +251,7 @@ function unlinkIfPresent(path: string): boolean {
 
 // rmdir succeeds only while the lock is still empty, so a fresh populated
 // lock moved onto the path meanwhile is never removed.
-function recoverStale(lock: string): boolean {
+function removeStaleLock(lock: string): boolean {
   const info = lookup(lock);
   if (!info) return true;
   if (!info.isDirectory() || info.uid !== uid) return false;
@@ -296,12 +296,12 @@ function tryLock(directory: string): (() => void) | undefined {
     ),
   );
   // The staging directory is removed on every path that does not hold the
-  // lock, even when recovery throws, so no run leaves residue behind.
+  // lock, even when stale-lock removal throws, so no run leaves residue behind.
   let held = false;
   try {
     held =
       moveOnto(staging, lock) ||
-      (recoverStale(lock) && moveOnto(staging, lock));
+      (removeStaleLock(lock) && moveOnto(staging, lock));
   } finally {
     if (!held) discard(staging);
   }
