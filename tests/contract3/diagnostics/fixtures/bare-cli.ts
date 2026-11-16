@@ -7,7 +7,7 @@ import {
   contractFor,
   runProcess,
 } from "../../../../starters/contract3/src/kernel/index.ts";
-import { empty, input, none, plain } from "./declarations.ts";
+import { empty, input, none, plain, readData } from "./declarations.ts";
 
 function records(): number {
   const raw: unknown = JSON.parse(process.env.DXS_SCRIPT ?? "{}");
@@ -31,7 +31,7 @@ const read = command({
           { commandIdentity: "dxs.read", causeCode: "SUCCESS_UNCHANGED" },
           {
             message: "Read specimen data.",
-            data: { records: records() },
+            data: readData(records()),
             effects: empty,
           },
         ),

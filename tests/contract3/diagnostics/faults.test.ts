@@ -107,7 +107,7 @@ describe("D10 sink faults and the stuck flush", () => {
   );
 
   test(
-    "D10.late-completion-ignored (component layer; the process row is R1.late-completion-process): a write that completes after the freeze changes nothing and writes nothing",
+    "D10.late-completion-ignored (component layer; the process row is R2.late-completion-observed): a write that completes after the freeze changes nothing and writes nothing",
     async () => {
       // Component support: a real process exits right after its envelope, so
       // the late completion is driven in process with a held write.

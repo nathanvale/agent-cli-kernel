@@ -89,7 +89,7 @@ describe("D13 result noninterference", () => {
   test(
     "D13.log-corrupted: corrupting the log mid-run changes nothing in the result",
     async () => {
-      const { result } = await heldRun(script, (tree) =>
+      const { where, result } = await heldRun(script, (tree) =>
         appendFileSync(onlyLog(tree.dir).path, "CORRUPT\n"),
       );
       expectSuccess(result);
@@ -98,6 +98,11 @@ describe("D13 result noninterference", () => {
       expectUnavailable(status, "status-invalid");
       expect(get(status, "status")).toBe("unavailable");
       expect(get(status, "reason")).toBe("status-invalid");
+      // A log someone else wrote into is ambiguous (DIAG-10): no closure was
+      // confirmed for it, so nothing but the log itself is in the directory.
+      expect(observe(where.dir).entries.map((entry) => entry.kind)).toEqual([
+        "file",
+      ]);
     },
     timeout,
   );

@@ -54,3 +54,19 @@ export const plain = command({
       },
     ),
 });
+
+// The read command's data, the same in both specimens. `dataBytes` pads it
+// past the 64 KiB pipe buffer, so a test can hold the CLI in stdout drain.
+export function readData(records: number): {
+  records: number;
+  padding?: string;
+} {
+  const raw: unknown = JSON.parse(process.env.DXS_SCRIPT ?? "{}");
+  const bytes: unknown =
+    typeof raw === "object" && raw !== null
+      ? Reflect.get(raw, "dataBytes")
+      : undefined;
+  return typeof bytes === "number"
+    ? { records, padding: "y".repeat(bytes) }
+    : { records };
+}

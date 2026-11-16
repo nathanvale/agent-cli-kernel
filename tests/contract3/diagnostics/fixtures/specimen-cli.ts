@@ -8,7 +8,7 @@ import {
   contractFor,
   runProcess,
 } from "../../../../starters/contract3/src/kernel/index.ts";
-import { empty, input, none, plain } from "./declarations.ts";
+import { empty, input, none, plain, readData } from "./declarations.ts";
 import type { JsonValue } from "../../../../starters/contract3/src/kernel/index.ts";
 import { diagnosticsAddon } from "../../../../starters/contract3/src/addons/diagnostics/index.ts";
 import type { StatusAddon } from "../../../../starters/contract3/src/addons/diagnostics/index.ts";
@@ -109,9 +109,21 @@ function hostile(facts: JsonValue): JsonValue {
 async function held(path: string) {
   const until = Date.now() + 60_000;
   while (!existsSync(path)) {
+    // 70 is sysexits' EX_SOFTWARE: a fixture fault, never a contract exit.
     if (Date.now() > until) process.exit(70);
     await new Promise((resolve) => setTimeout(resolve, 2));
   }
+}
+
+// A host may record a secret as the number or boolean it reads as.
+function typedForm(token: string | undefined): JsonValue {
+  if (token === "true" || token === "false") return token === "true";
+  const number = Number(token);
+  return token !== undefined &&
+    Number.isFinite(number) &&
+    String(number) === token
+    ? number
+    : null;
 }
 
 // The handler reads a declared secret file as a host would, and treats an
@@ -141,6 +153,9 @@ async function perform(
         contents: contentsOf(parsed["--token-file"]),
         environment: process.env.DXS_TOKEN ?? null,
         sentence: `the value ${parsed["--token"] ?? ""} appears in prose`,
+        // The same secret as a JSON number or boolean when it reads as one.
+        typed: typedForm(parsed["--token"]),
+        nested: { inner: [typedForm(parsed["--token"])] },
       }
     : {};
   // Forms outside the named redaction coverage, recorded to report limits.
@@ -197,7 +212,11 @@ const read = command({
     const records = await perform(context.diagnostics, parsed);
     return context.result(
       { commandIdentity: "dxs.read", causeCode: "SUCCESS_UNCHANGED" },
-      { message: "Read specimen data.", data: { records }, effects: empty },
+      {
+        message: "Read specimen data.",
+        data: readData(records),
+        effects: empty,
+      },
     );
   },
 });

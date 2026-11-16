@@ -60,17 +60,32 @@ function logs(dir: string) {
 const fullRun = { records: 64, size: 15_000, pace: true } as const;
 
 // Closed logs from earlier real runs, oldest first.
+// Closed logs from earlier real runs, oldest first. Runs launched together
+// contend for the shared allocation lock; under host load one may wait past
+// the lock bound and disclose `capacity` with no log (the cause of the
+// D06.file-count-near-cap flake: 48 of 50). The fixture checks every run's
+// status, accepts only that disclosure, and launches again until `count`
+// closed logs exist. Retries are counted for the receipt.
+const fixture = { capacityRetries: 0 };
 async function closedLogs(
   where: Tree,
   count: number,
   script: Record<string, unknown>,
   parallel = 1,
 ) {
-  for (let done = 0; done < count; done += parallel) {
-    const batch = Array.from({ length: Math.min(parallel, count - done) }, () =>
+  for (let attempts = 0; logs(where.dir).length < count; attempts += 1) {
+    if (attempts > count * 3)
+      throw new Error("Closed-log fixture never filled.");
+    const missing = count - logs(where.dir).length;
+    const batch = Array.from({ length: Math.min(parallel, missing) }, () =>
       run({ argv: read, tree: where, script }),
     );
-    for (const result of await Promise.all(batch)) expectSuccess(result);
+    for (const result of await Promise.all(batch)) {
+      expectSuccess(result);
+      const failure = get(statusOf(result), "sinkFailure");
+      if (failure === "capacity") fixture.capacityRetries += 1;
+      else expect(failure).toBeNull();
+    }
   }
   return logs(where.dir).sort((a, b) => a.mtimeMs - b.mtimeMs);
 }
@@ -260,6 +275,9 @@ describe("D06 per-run and aggregate allocation", () => {
         before[0]?.ino,
       );
       expect(status(result).sinkFailure).toBeNull();
+      process.stderr.write(
+        `D06.file-count-near-cap fixture: ${fixture.capacityRetries} capacity retries so far\n`,
+      );
     },
     timeout,
   );

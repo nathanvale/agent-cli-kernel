@@ -110,6 +110,10 @@ export type Launch = {
   readonly env?: Readonly<Record<string, string>>;
   // A bash command line; "$@" is the runtime and the specimen.
   readonly shell?: string;
+  // Hold the CLI's stdout in an unread OS pipe until this file exists. Bun's
+  // own spawn pipe is drained eagerly, so only a relay that does not read
+  // gives the CLI real backpressure (it waits in drain past the pipe buffer).
+  readonly holdStdoutUntil?: string;
 };
 
 function environment(launch: Launch): Record<string, string> {
@@ -128,9 +132,25 @@ function environment(launch: Launch): Record<string, string> {
   return env;
 }
 
+// Runs ARGV[1..] with stdout on a fresh OS pipe that is not read until the
+// file ARGV[0] exists (60 s deadline), then relays it and exits with the
+// child's code.
+const stdoutRelay = [
+  "my $release = shift @ARGV;",
+  "pipe(my $r, my $w) or die 'pipe';",
+  "my $pid = fork() // die 'fork';",
+  "if ($pid == 0) { close $r; open(STDOUT, '>&', $w) or die 'dup'; close $w; exec { $ARGV[0] } @ARGV or die 'exec'; }",
+  "close $w;",
+  "my $until = time + 60;",
+  "select(undef, undef, undef, 0.005) until -e $release || time > $until;",
+  "binmode $r; binmode STDOUT; my $buffer;",
+  "while (my $n = sysread($r, $buffer, 65536)) { syswrite(STDOUT, $buffer, $n); }",
+  "waitpid($pid, 0); exit($? >> 8);",
+].join("\n");
+
 export function start(launch: Launch) {
   const file = launch.bare ? bareCli : specimenCli;
-  const cmd =
+  const direct =
     launch.shell !== undefined
       ? ["/bin/bash", "-c", launch.shell, "bash", process.execPath, file]
       : launch.umask === undefined
@@ -143,6 +163,10 @@ export function start(launch: Launch) {
             file,
             ...launch.argv,
           ];
+  const cmd =
+    launch.holdStdoutUntil === undefined
+      ? direct
+      : ["/usr/bin/perl", "-e", stdoutRelay, launch.holdStdoutUntil, ...direct];
   const began = performance.now();
   const child = Bun.spawn({
     cmd,
