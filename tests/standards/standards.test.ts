@@ -154,10 +154,13 @@ function git(
 
 async function citationProblems(repository: string): Promise<string[]> {
   const history = git(repository, ["rev-list", "HEAD"]).split("\n");
-  const shallow =
-    git(repository, ["rev-parse", "--is-shallow-repository"]) === "true";
-  const fetch = shallow
-    ? " This clone is shallow, so older history is missing: run `git fetch --unshallow` and rerun."
+  const graft = resolve(
+    repository,
+    git(repository, ["rev-parse", "--git-path", "shallow"]),
+  );
+  const cut = existsSync(graft) ? readFileSync(graft, "utf8").split("\n") : [];
+  const fetch = history.some((sha) => cut.includes(sha))
+    ? " HEAD's history is cut short in this shallow clone: run `git fetch --unshallow` and rerun."
     : "";
   const problems: string[] = [];
   const files = await matching(repository, [standards, "docs/standards/*.md"]);
@@ -354,19 +357,44 @@ const fixtureGitEnv = {
 };
 const absent = "0123456789abcdef0123456789abcdef01234567";
 
+function folder(): string {
+  const path = testFolder("standards-");
+  folders.push(path);
+  return path;
+}
+
 function fixture(
   change: (files: Record<string, string>, sha: string) => void,
+  { shallow = false } = {},
 ): string {
-  const repository = testFolder("standards-");
-  folders.push(repository);
-  git(repository, ["init", "--quiet", "--initial-branch=main"], fixtureGitEnv);
-  git(
-    repository,
-    ["commit", "--quiet", "--allow-empty", "-m", "base"],
-    fixtureGitEnv,
-  );
-  const sha = git(repository, ["rev-parse", "HEAD"]);
+  const origin = folder();
+  const commit = (subject: string) =>
+    git(
+      origin,
+      ["commit", "--quiet", "--allow-empty", "-m", subject],
+      fixtureGitEnv,
+    );
+  git(origin, ["init", "--quiet", "--initial-branch=main"], fixtureGitEnv);
+  commit("base");
+  const sha = git(origin, ["rev-parse", "HEAD"]);
   const short = sha.slice(0, 7);
+  let repository = origin;
+  if (shallow) {
+    commit("tip");
+    repository = join(folder(), "clone");
+    git(
+      origin,
+      [
+        "clone",
+        "--quiet",
+        "--depth",
+        "1",
+        pathToFileURL(origin).href,
+        repository,
+      ],
+      fixtureGitEnv,
+    );
+  }
   const files: Record<string, string> = {
     "package.json": '{"scripts":{"faults":"true"}}',
     "eslint.config.mjs":
@@ -472,3 +500,16 @@ test.each([
     expect(await allProblems(fixture(change))).toEqual(expected);
   },
 );
+
+test("a shallow clone that cuts a cited commit fails and says to fetch the history", async () => {
+  const repository = fixture(() => {}, { shallow: true });
+  const sha = readFileSync(join(repository, standards), "utf8").match(
+    /commit\/([0-9a-f]{40})/,
+  )?.[1];
+  const fetch =
+    "HEAD's history is cut short in this shallow clone: run `git fetch --unshallow` and rerun.";
+  expect(await citationProblems(repository)).toEqual([
+    `CODING_STANDARDS.md:16: [${sha?.slice(0, 7)}] cites ${sha}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA. ${fetch}`,
+    `docs/standards/guide.md:7: [${sha?.slice(0, 7)}] cites ${sha}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA. ${fetch}`,
+  ]);
+});
