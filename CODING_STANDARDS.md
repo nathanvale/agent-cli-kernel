@@ -80,10 +80,17 @@ now enforces.
 ### Test proof
 
 - Lint `repository/require-to-throw-message` refuses `toThrow()`,
-  `toThrowError()` and `rejects.toThrow()` with no argument in `tests/`.
-  `.not.toThrow()` passes.
-- A message that another guard also throws stays review. So do a refusal
-  asserted without `toThrow`, and input that more than one guard refuses.
+  `toThrowError()` and `rejects.toThrow()` in `tests/` with no argument, or
+  with one that names no message: `undefined` or `void 0`, an empty string,
+  or a regular expression that matches a lone NUL character, as `/.*/`,
+  `/.+/`, `/^/` and `/(?:)/` do. It reads through a type-only wrapper such
+  as `undefined as never`. `.not.toThrow()` passes.
+- A message that another guard also throws stays review. So do an error
+  class or `expect.anything()` as the argument, a refusal asserted without
+  `toThrow`, and input that more than one guard refuses.
+- Review only, because the argument is built at run time: `new RegExp("")`,
+  `String()`, a template with an expression such as `${""}`, and
+  `expect.stringContaining("")`.
 - Witnessed: [185c90d].
 
 ### Planted faults
@@ -99,41 +106,69 @@ now enforces.
 
 ### Time
 
-- Lint `repository/tests-no-sleep` refuses `Bun.sleep`, `Bun.sleepSync`,
-  the `node:timers/promises` `setTimeout`, and a `setTimeout` that only
-  resolves a promise, in `tests/`.
-- A `setTimeout` that rejects, aborts or resolves with a sentinel passes as
-  a bounded watchdog. A poll on `Date.now()` and a race control too narrow to
-  catch its fault stay review.
+- Lint `repository/tests-no-sleep` refuses, in `tests/`: `Bun.sleep` and
+  `Bun.sleepSync`, also as `Bun["sleep"]` or destructured from `Bun`; the `node:timers/promises` `setTimeout` import; a
+  default, namespace, `import()` or `require()` of that module.
+- It also refuses a `setTimeout` inside a `new Promise` executor whose
+  callback is the executor's `resolve`, or a function whose only statement
+  calls `resolve()`, `resolve(undefined)` or `resolve(void 0)`, or that
+  passes `resolve` with no value after the delay. It traces `setTimeout` to
+  the global, `globalThis` or `node:timers`, under any import name, through
+  aliases, `(0, setTimeout)` and type-only wrappers.
+- A `setTimeout` that rejects, aborts or resolves with a value passes as a
+  bounded watchdog, as in `spawnBounded`, which resolves `"expired"`.
+  `setTimeout(resolve, ms, "timeout")` resolves a value too. Clearing the
+  handle does not admit a delay: an awaited delay runs to its end first.
+- Review only: `setInterval`, `Atomics.wait`, a `Date.now()` poll, a race
+  control too narrow to catch its fault, and `scheduler.wait` from a named
+  `node:timers/promises` import.
+- Also review only: a resolver from `Promise.withResolvers`, a resolver
+  pulled out of its promise or aliased inside the executor, a callback that
+  resolves another way (`r.bind(null)`, `() => void r()`, `(r(), 0)`, a
+  body of more than one statement), and a timer reached through `window`,
+  `Bun.setTimeout` or a computed key.
 - Witnessed: [d1436c0].
 
 ### Untrusted values
 
 - Lint `repository/no-locale-compare` refuses `localeCompare` and
-  `Intl.Collator` in `src/`, `scripts/` and `starters/contract3/src/`.
+  `Collator` in `src/`, `scripts/` and `starters/contract3/src/`: as a
+  property, a destructured name, or a constant string such as
+  `Reflect.get(Intl, "Collator")`.
 - Tests stay review. The R15 locale arm in
   `tests/contract3/kernel-repair/equality.test.ts` swaps the collation on
   purpose.
-- Lint `repository/no-in-operator` refuses the `in` operator in
-  `starters/contract3/src/`. A private `#name in value` check passes.
-- The `in` operator outside Contract 3 source stays review. So do a bracket
-  read of an inherited name, a second read of a value, and a spread that
-  drops properties.
+- Lint `repository/no-in-operator` refuses `key in value` and
+  `Reflect.has(value, key)` in `starters/contract3/src/` when the type of
+  `value` declares no member named `key`. That is a probe of an unknown
+  shape. Narrowing a union by a key one member declares passes, and so does
+  a private `#name in value` check. It also refuses every `for...in`.
+- Source outside Contract 3 stays review. So do a bracket read of an
+  inherited name, a second read of a value, and a spread that drops
+  properties.
 - Witnessed: [b456208], [5cbff3a].
 
 ### One owner
 
-- Lint `repository/cause-literal-owner` refuses a string literal shaped like
-  a cause code in `starters/contract3/src/`, outside `kernel/causes.ts`,
-  `kernel/state-causes.ts` and `kernel/stations.ts`. The shape is `SUCCESS_`,
-  `USAGE_`, `SCHEMA_`, `DOMAIN_`, `TRANSIENT_` or `INTERNAL_`, then upper
-  snake case.
-- A cause literal in a type position passes. Route tokens, built-in
-  identities, shape helpers and test fakes stay review.
+- Lint `repository/cause-literal-owner` refuses a common cause code in
+  `starters/contract3/src/` when the compiler does not check it against
+  `keyof typeof commonCauses`. It reads the codes from `kernel/causes.ts`.
+  It skips `kernel/causes.ts`, `kernel/state-causes.ts` and
+  `kernel/stations.ts`.
+- It sees a code spelt as a literal, or built from constants with `+`, a
+  template or `.join()`. It passes a code whose place, or whose comparison
+  partner, takes only listed string literals.
+- A code built from a runtime value, a host's own codes, route tokens,
+  built-in identities, shape helpers and test fakes stay review.
 - Lint `repository/tests-use-test-folder` refuses `tmpdir()`, `mkdtemp()`
   and `mkdtempSync()` in `tests/`, outside `tests/support/test-folder.ts`.
   That shared `tests/support/` module owns test folders through
   `testFolder()`, which honours `STATE_TEST_DIR`.
+- The lint traces a callee to the name it was imported or read as: a named,
+  renamed, default or namespace import, `require()`, `import()`,
+  destructuring, an alias, or a member with a string key. A key built at
+  runtime, a function passed in as a parameter, and a helper module that
+  re-exports one under another name stay review.
 - Witnessed: [e7c771c], [c0b4bf5].
 
 ### Recorded hits
@@ -143,6 +178,9 @@ now enforces.
 - `bun run lint` fails on a new hit. It also fails when a recorded hit is
   fixed and the file is not pruned. Run
   `bunx eslint . --prune-suppressions` after the fix.
+- `no-in-operator` and `cause-literal-owner` run only from
+  `eslint.config.mjs`, where that file applies. The Contract 3
+  configuration that lints a materialised test tree leaves them out.
 
 ## Review routine
 

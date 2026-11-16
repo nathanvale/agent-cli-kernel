@@ -61,4 +61,15 @@ export default tseslint.config(
     },
   },
   ...contract3,
+  // These rules have recorded hits, so they run only here, where
+  // eslint-suppressions.json applies. A materialised Contract 3 tree lints
+  // with the Contract 3 configuration alone, and the copy has no record.
+  {
+    files: ["starters/contract3/src/**/*.{ts,mts,cts}"],
+    plugins: { repository: localRules },
+    rules: {
+      "repository/no-in-operator": "error",
+      "repository/cause-literal-owner": "error",
+    },
+  },
 );

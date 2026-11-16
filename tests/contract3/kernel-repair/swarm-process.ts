@@ -77,8 +77,8 @@ export async function spawnBounded(
     return new TextDecoder().decode(Buffer.concat(chunks));
   };
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const expired = new Promise<undefined>((resolve) => {
-    timer = setTimeout(() => resolve(undefined), bound);
+  const expired = new Promise<"expired">((resolve) => {
+    timer = setTimeout(() => resolve("expired"), bound);
   });
   const finished = await Promise.race([
     Promise.all([
@@ -90,7 +90,7 @@ export async function spawnBounded(
   ]);
   clearTimeout(timer);
   clearInterval(poll);
-  if (!finished) {
+  if (finished === "expired") {
     child.kill("SIGKILL");
     await child.exited;
     throw new Error(`${argv.join(" ")} did not exit within ${bound} ms.`);
