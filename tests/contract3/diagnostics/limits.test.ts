@@ -126,22 +126,39 @@ describe("D05 record and buffer limits", () => {
   test(
     "D05.buffer-1000000-bytes: buffered bytes stay within 1,000,000 including overhead",
     async () => {
+      // Measure one line with the harness's own reader, then size records
+      // so 250 of them fit in 1,000,000 bytes of payload but not once the
+      // per-record queue overhead is counted. Only the buffer's byte bound
+      // can then stop admission: the record bound (256) and the per-run
+      // bound (payload bytes only) would both admit all 250.
+      const probe = tree();
+      expectSuccess(
+        await run({
+          argv: read,
+          tree: probe,
+          script: { records: 1, size: 16 },
+        }),
+      );
+      const [probed] = observe(probe.dir).files;
+      if (!probed) throw new Error("no probe log");
+      const records = 250;
+      const target = 3_970;
       const where = tree();
       const result = await run({
         argv: read,
         tree: where,
         fault: "write-stalls",
-        script: { records: 100, size: 20_000 },
+        script: { records, size: target - (probed.size - 16) },
       });
       expectSuccess(result);
       const counts = status(result);
-      // Each line holds at least 20,000 bytes of payload: at most 50 fit, and
-      // the byte bound (not the record bound) is what stopped admission.
-      expect(counts.unflushed).toBeLessThanOrEqual(
-        Math.floor(limits.bufferBytes / 20_000),
-      );
-      expect(counts.unflushed).toBeGreaterThanOrEqual(45);
-      expect(counts.unflushed + counts.dropped).toBe(100);
+      // Each line is at most target + 8 bytes (wider counters), so all 250
+      // fit by payload alone.
+      expect(records * (target + 8)).toBeLessThanOrEqual(limits.bufferBytes);
+      expect(counts.sinkFailure).toBe("flush-timeout");
+      expect(counts.unflushed).toBeLessThan(records);
+      expect(counts.unflushed * target).toBeLessThanOrEqual(limits.bufferBytes);
+      expect(counts.unflushed + counts.dropped).toBe(records);
     },
     timeout,
   );
