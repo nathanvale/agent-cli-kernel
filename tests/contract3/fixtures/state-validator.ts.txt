@@ -1,6 +1,8 @@
 import { expect } from "bun:test";
 const checks: (() => Promise<void>)[] = [];
-function test(_name: string, check: () => Promise<void>) { checks.push(check); }
+// Counted as each control actually runs, never printed as constants (K1-4s).
+const tally = { checks: 0, truthRows: 0, effectControls: 0, custodyControls: 0, approvalControls: 0 };
+function test(_name: string, check: () => Promise<void>) { checks.push(async () => { await check(); tally.checks++; }); }
 import { changing, command, commonCauses, contractFor, station } from "../../kernel/index.ts";
 import type { CauseRow, Effects, WireResult } from "../../kernel/index.ts";
 const input = { arguments: [], options: [], constraints: [], deadlineSupported: false, additionalArguments: false, additionalOptions: false } as const;
@@ -67,6 +69,7 @@ test("every truth-table arm validates its literal correlation and rejects a wron
     const value = specimen(index);
     expect(await contract.validate(value)).toMatchObject({ok: true});
     expect((await contract.validate({...value, result: {...value.result, exitCode: 99}})).ok).toBe(false);
+    tally.truthRows++;
   }
 });
 test("effect-state inventories reject wrong, overlapping, unsorted and incomplete claims", async () => {
@@ -83,6 +86,7 @@ test("effect-state inventories reject wrong, overlapping, unsorted and incomplet
   for (const {index, effects} of invalid) {
     const value = specimen(index);
     expect((await contract.validate({...value, result: {...value.result, effects}})).ok).toBe(false);
+    tally.effectControls++;
   }
   const unknown = specimen(24);
   expect((await contract.validate({...unknown, result: {...unknown.result, effects: {...empty, inventoryComplete: false}}})).ok).toBe(true);
@@ -112,6 +116,7 @@ function executable() {
 test("cloned descriptors and forged, cloned, foreign and superseded proofs are refused", async () => {
   const first = executable();
   expect(() => contractFor({cli: "specimen", commands: [], installedAddons: ["state"], state: {...first.state}})).toThrow();
+  tally.custodyControls++;
   const run = await first.contract.execute("specimen.change", [], "same-run-text");
   expect(run.ok).toBe(true);
   if (!run.ok) throw new Error("Fixture execution refused.");
@@ -120,10 +125,13 @@ test("cloned descriptors and forged, cloned, foreign and superseded proofs are r
   expect(await Reflect.apply(first.contract.build, undefined, [first.completed, facts])).toMatchObject({ok: true});
   const second = executable();
   expect(await Reflect.apply(second.contract.build, undefined, [second.completed, facts])).toMatchObject({ok: false, path: "transaction"});
-  for (const transaction of [{runId: "same-run-text", transactionState: "completed", effects: {...empty, completed: ["a"]}}, structuredClone(issued)]) expect(await Reflect.apply(first.contract.build, undefined, [first.completed, {...facts, transaction}])).toMatchObject({ok: false, path: "transaction"});
+  tally.custodyControls++;
+  for (const transaction of [{runId: "same-run-text", transactionState: "completed", effects: {...empty, completed: ["a"]}}, structuredClone(issued)]) { expect(await Reflect.apply(first.contract.build, undefined, [first.completed, {...facts, transaction}])).toMatchObject({ok: false, path: "transaction"}); tally.custodyControls++; }
   expect(await Reflect.apply(first.contract.build, undefined, [first.completed, {...facts, runId: "other-run"}])).toMatchObject({ok: false, path: "transaction"});
+  tally.custodyControls++;
   await first.contract.execute("specimen.change", [], "same-run-text");
   expect(await Reflect.apply(first.contract.build, undefined, [first.completed, facts])).toMatchObject({ok: false, path: "transaction"});
+  tally.custodyControls++;
 });
 test("changing selected capabilities and declared approval precede handler entry", async () => {
   const fixture = executable();
@@ -134,10 +142,12 @@ test("changing selected capabilities and declared approval precede handler entry
   const diagnostics = {record() { events.push("diagnostic"); }};
   expect(await contract.execute("specimen.authorised", [], "denied", {programs, diagnostics, approval: {async check() {events.push("approval-denied"); return false;}}})).toMatchObject({ok: false, path: "approval"});
   expect(events).toEqual(["approval-denied"]);
+  tally.approvalControls++;
   events.length = 0;
   expect(await contract.execute("specimen.authorised", [], "admitted", {programs, diagnostics, approval: {async check() {events.push("approval-accepted"); return true;}}})).toMatchObject({ok: true});
   expect(events).toEqual(["approval-accepted", "handler", "diagnostic"]);
+  tally.approvalControls++;
 });
 
 for (const check of checks) await check();
-process.stdout.write(JSON.stringify({ truthRows: 27, effectControls: 6, custodyControls: 6, approvalControls: 2 }));
+process.stdout.write(JSON.stringify(tally));
