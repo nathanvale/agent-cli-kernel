@@ -38,6 +38,14 @@ const loggingImports = {
   ],
   message: "Only the diagnostics add-on imports a logging library.",
 };
+// REC-7b, Q01: the state add-on's test seams (fixture.ts) and its internal
+// implementation (install.ts and the rest) are never host-reachable; only its
+// public index is.
+const stateIndexOnly = {
+  regex: "(?:^|/)addons/state/(?!index\\.(?:ts|mts|cts)$)",
+  message:
+    "Host code imports the state add-on through its public index only; its fixture and internals are test-only or internal.",
+};
 const kernelIndexOnly = {
   regex: "(?:^|/)kernel/(?!index\\.(?:ts|mts|cts)$)",
   message:
@@ -139,6 +147,12 @@ export default tseslint.config(
           message:
             "Host code imports the stamped kernel through its public index only.",
         },
+        {
+          selector:
+            "ImportExpression[source.value=/(^|\\x2f)addons\\x2fstate\\x2f(?!index[.](ts|mts|cts)$)/]",
+          message:
+            "Host code imports the state add-on through its public index only.",
+        },
       ],
       "no-restricted-imports": [
         "error",
@@ -147,6 +161,7 @@ export default tseslint.config(
             { group: ["**/tests/**", "node:child_process", "child_process"] },
             kernelIndexOnly,
             loggingImports,
+            stateIndexOnly,
           ],
         },
       ],
@@ -223,6 +238,7 @@ export default tseslint.config(
           patterns: [
             { group: ["**/tests/**", "node:child_process", "child_process"] },
             kernelIndexOnly,
+            stateIndexOnly,
             {
               group: [
                 ...loggingImports.group.filter((name) => name !== "@logtape/*"),

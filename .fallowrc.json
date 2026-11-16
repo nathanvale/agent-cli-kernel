@@ -32,10 +32,12 @@
     "starters/contract3/src/addons/diagnostics/index.ts",
     "tests/contract3/diagnostics/fixtures/specimen-cli.ts",
     "tests/contract3/diagnostics/fixtures/bare-cli.ts",
+    "starters/contract3/src/addons/state/index.ts",
     "tests/contract3/lifecycle/fixtures/fault-cli.ts",
     "tests/contract3/lifecycle/fixtures/canary-cli.ts",
     "tests/contract3/lifecycle/fixtures/declining-host.ts",
     "tests/contract3/lifecycle/fixtures/status-cli.ts",
+    "tests/contract3/state/fixtures/specimen.ts",
     "tests/contract3/locks/fixtures.ts"
   ]
 }

@@ -14,10 +14,12 @@ import {
   envelopeOf,
   exitBound,
   exitWithin,
+  firstPid,
   frontDoorStart,
   goneWithin,
   launch,
   launchCase,
+  listing,
   n,
   readLedger,
   release,
@@ -28,14 +30,16 @@ import {
   text,
 } from "./harness.ts";
 import type { Case, Launched, Observed, OperandFit } from "./harness.ts";
+import {
+  killObservationTolerance,
+  stopBound,
+  supporting,
+  timerLimit,
+  tolerance,
+  unchangedEffects,
+} from "./oracle.ts";
 
 const timeout = 30_000;
-// Harness observation tolerance added to every contract bound. Calibrated
-// from receipts: process exit observation adds about 2 to 20 ms on this host
-// (L01 exits 10 to 20 ms after the signal; spawn to front-door start 20 to
-// 40 ms is excluded by the ledgered front-door clock). 100 ms keeps a
-// first-signal exit at 650 ms or a 1,000 ms deadline wait RED.
-const tolerance = 100;
 
 type Signal = "SIGINT" | "SIGTERM";
 function signalName(value: unknown): Signal {
@@ -43,12 +47,7 @@ function signalName(value: unknown): Signal {
   throw new Error("Expected a stop signal.");
 }
 function childPid(observed: { readonly ledger: readonly string[] }) {
-  return childPidOf(observed.ledger);
-}
-function childPidOf(ledger: readonly string[]) {
-  const line = ledger.find((entry) => entry.startsWith("child-started"));
-  const pid = line ? Number(line.split(" ")[1]) : Number.NaN;
-  return Number.isSafeInteger(pid) && pid > 0 ? pid : undefined;
+  return firstPid(observed.ledger, "child-started");
 }
 function deadlineOf(entry: Case) {
   const index = entry.argv.indexOf("--deadline-ms");
@@ -116,6 +115,16 @@ const l07Binding: Readonly<Record<string, string>> = {
   "L07.usage-zero": "fx.dispatch",
   "L07.usage-negative": "fx.dispatch",
   "L07.usage-non-integer": "fx.dispatch",
+};
+
+// K3-1 (swarm triage): the R02 mutations each frozen case must detect.
+const r02Mutations: Readonly<Record<string, readonly string[]>> = {
+  "R02.domain-difference-detected": [
+    "data",
+    "effects",
+    "causeCode",
+    "handoff-or-next",
+  ],
 };
 
 const checks: Record<string, (entry: Case) => Promise<void>> = {
@@ -339,24 +348,26 @@ const checks: Record<string, (entry: Case) => Promise<void>> = {
         ...b,
         result: { ...resultOf(b), runId: "" },
       });
-      const mutations = entry.expect.mutations;
-      if (Array.isArray(mutations))
-        for (const mutation of mutations) {
-          const changed = structuredClone(b);
-          const result = resultOf(changed);
-          if (mutation === "data") result.data = { text: "y" };
-          if (mutation === "effects")
-            result.effects = {
-              completed: [],
-              remaining: ["fx.other"],
-              uncertain: [],
-              inventoryComplete: true,
-            };
-          if (mutation === "causeCode") result.causeCode = "SUCCESS_COMPLETED";
-          if (mutation === "handoff-or-next")
-            result.next = { kind: "instruction", text: "Other." };
-          expect(comparableEnvelope(changed)).not.toBe(comparableEnvelope(a));
-        }
+      // K3-1: the mutation list is a test-owned literal per frozen case, so
+      // a missing or emptied frozen list fails instead of passing vacuously.
+      const mutations = r02Mutations[entry.id] ?? [];
+      expect(entry.expect.mutations ?? []).toEqual(mutations);
+      for (const mutation of mutations) {
+        const changed = structuredClone(b);
+        const result = resultOf(changed);
+        if (mutation === "data") result.data = { text: "y" };
+        if (mutation === "effects")
+          result.effects = {
+            completed: [],
+            remaining: ["fx.other"],
+            uncertain: [],
+            inventoryComplete: true,
+          };
+        if (mutation === "causeCode") result.causeCode = "SUCCESS_COMPLETED";
+        if (mutation === "handoff-or-next")
+          result.next = { kind: "instruction", text: "Other." };
+        expect(comparableEnvelope(changed)).not.toBe(comparableEnvelope(a));
+      }
     } finally {
       await cleanup(first);
       await cleanup(second);
@@ -376,26 +387,6 @@ describe("T2 lifecycle process cases", () => {
       timeout,
     );
 });
-
-// Supporting cases with their own identities (not in the frozen case file).
-function supporting(
-  id: string,
-  fields: Partial<Omit<Case, "id" | "family" | "status">>,
-): Case {
-  return {
-    id,
-    family: id.split(".")[0] ?? id,
-    status: "supporting",
-    argv: [],
-    scenario: undefined,
-    state: false,
-    stdin: "closed",
-    expect: {},
-    supplier: undefined,
-    note: undefined,
-    ...fields,
-  };
-}
 
 describe("L06 excluded terminations without T3 (supporting C7)", () => {
   for (const [id, scenario] of [
@@ -757,13 +748,6 @@ describe("B3 declared denial tuple at runtime (Nathan, 16 November 2026)", () =>
 // is honoured, no cap). LIMIT is the largest delay a runtime timer holds; a
 // raw timer armed above it fires after about 1 ms with a stderr warning. The
 // expectations are c3-expect-t2t5's (findings-round/expectations.md).
-const timerLimit = 2_147_483_647;
-const unchangedEffects = {
-  completed: [],
-  remaining: [],
-  uncertain: [],
-  inventoryComplete: true,
-};
 const handlerLines = new Set(["handler-entered", "handler-done"]);
 
 describe("T01 a deadline above the timer limit lets the work finish (finding 1)", () => {
@@ -864,8 +848,6 @@ async function deathAfter(pid: number, from: number, limit: number) {
   }
   return Number.POSITIVE_INFINITY;
 }
-// Polling and kill latency for that observation, as in P08.
-const killObservationTolerance = 30;
 const stopShapes = {
   // (a) the handler awaits a TERM-cooperative program.
   a: { argv: ["slow", "--json"], barrier: "child-started" },
@@ -894,7 +876,10 @@ describe("S01 the stop path's bounds hold when the handler returns in the window
           const launched = await launchCase(entry);
           try {
             await launched.barrier(setup.barrier);
-            const owned = childPidOf(readLedger(launched.ledgerPath));
+            const owned = firstPid(
+              readLedger(launched.ledgerPath),
+              "child-started",
+            );
             const sent = launched.signal(signal);
             const died =
               owned === undefined
@@ -910,7 +895,7 @@ describe("S01 the stop path's bounds hold when the handler returns in the window
             expect(observed.code).toBe(code);
             assertNoOutput(observed);
             expect(observed.exitedAt - sent).toBeLessThanOrEqual(
-              500 + tolerance,
+              stopBound + tolerance,
             );
             expect(
               observed.ledger.some((line) => line.startsWith("late-start ")),
@@ -919,7 +904,7 @@ describe("S01 the stop path's bounds hold when the handler returns in the window
             // LIFE-11: the stop path's SIGKILL, not the 2,000 ms budget.
             if (died !== undefined)
               expect(died - sent).toBeLessThanOrEqual(
-                500 + killObservationTolerance,
+                stopBound + killObservationTolerance,
               );
           } finally {
             await release(launched);
@@ -939,7 +924,7 @@ test(
     const inside = Bun.spawn(["/bin/sleep", "30"], { detached: true });
     const launched = await launch({ argv: ["read", "--json"] });
     try {
-      await launched.done;
+      await exitWithin(launched);
       await appendFile(
         launched.ledgerPath,
         `child-started ${outside.pid}\nescaped ${inside.pid}\n`,
@@ -955,6 +940,181 @@ test(
     } finally {
       outside.kill("SIGKILL");
       inside.kill("SIGKILL");
+    }
+  },
+  timeout,
+);
+
+// Contract review F2: the grandchild branch. A ledgered grandchild is killed
+// only while it is still in the ledgered `child-pgid`; a pid outside it is
+// spared.
+test(
+  "N2s.release-spares-a-grandchild-outside-the-ledgered-group",
+  async () => {
+    const outside = Bun.spawn(["/bin/sleep", "30"]);
+    const group = Bun.spawn(
+      ["/bin/sh", "-c", "/bin/sleep 30 >/dev/null & echo $!; wait"],
+      { detached: true, stdout: "pipe" },
+    );
+    // The shell prints its background member's pid, then waits on it.
+    const first = await group.stdout.getReader().read();
+    const member = Number(new TextDecoder().decode(first.value).trim());
+    const launched = await launch({ argv: ["read", "--json"] });
+    try {
+      expect(Number.isSafeInteger(member) && member > 0).toBe(true);
+      await exitWithin(launched);
+      await appendFile(
+        launched.ledgerPath,
+        `child-pgid ${group.pid}\ngrandchild ${member}\ngrandchild ${outside.pid}\n`,
+      );
+      await release(launched);
+      expect(await goneWithin(member, 2_000)).toBe(true);
+      expect(alive(outside.pid)).toBe(true);
+      expect(outside.exitCode).toBeNull();
+    } finally {
+      outside.kill("SIGKILL");
+      try {
+        process.kill(-group.pid, "SIGKILL");
+      } catch {
+        // Already gone.
+      }
+    }
+  },
+  timeout,
+);
+
+// Swarm triage, test honesty. K3-12: a CLI that exits while a descendant
+// still holds its stdout gives an incomplete observation, and reading it
+// fails as unproved instead of looking like empty output.
+describe("test harness honesty (swarm triage K3-3, K3-12)", () => {
+  const lateWriter =
+    '/usr/bin/perl -e \'open(my $f, ">>", $ENV{FX_LEDGER}); print $f "late-writer $$\\n"; close $f; close STDERR; select(undef, undef, undef, 2.5); print "late-written\\n"\' &';
+  for (const [variant, shell, complete] of [
+    ["late writer", `${lateWriter} exit 0`, false],
+    ["twin", "exit 0", true],
+  ] as const)
+    test(
+      `K3-12.open-stdout-is-unproved ${variant}`,
+      async () => {
+        const launched = await launch({ argv: [], rawArgvShell: shell });
+        try {
+          const observed = await exitWithin(launched);
+          expect(observed.code).toBe(0);
+          expect(observed.stdoutComplete).toBe(complete);
+          if (complete) expect(observed.stdout.byteLength).toBe(0);
+          else expect(() => observed.stdout).toThrow("UNPROVED");
+        } finally {
+          const writer = firstPid(
+            readLedger(launched.ledgerPath),
+            "late-writer",
+          );
+          if (writer !== undefined)
+            try {
+              process.kill(writer, "SIGKILL");
+            } catch {
+              // Already gone.
+            }
+          await release(launched);
+        }
+      },
+      timeout,
+    );
+
+  // K3-3: a CLI that never exits is released by the bounded wait itself.
+  test(
+    "K3-3.hang-releases-fixture",
+    async () => {
+      const launched = await launch({
+        argv: [],
+        rawArgvShell: "exec /bin/sleep 30",
+      });
+      const failure = await exitWithin(launched, 500).then(
+        () => undefined,
+        (error: unknown) => error,
+      );
+      expect(failure instanceof Error ? failure.message : "").toContain(
+        "did not exit within 500 ms",
+      );
+      expect(await goneWithin(launched.pid, 1_000)).toBe(true);
+      expect(await listing(launched.dir)).toEqual([]);
+    },
+    timeout,
+  );
+});
+
+// X-S3 (swarm triage): the deadline covers dispatch and work (LIFE-6), so it
+// also bounds the settlement of owned programs after the handler returns.
+test(
+  "K3S3.deadline-bounds-post-handler-settle",
+  async () => {
+    const entry = supporting("K3S3.deadline-bounds-post-handler-settle", {
+      argv: ["spawn-return", "--deadline-ms", "300", "--json"],
+      expect: {
+        commandIdentity: "fx.spawn-return",
+        causeCode: "DOMAIN_DEADLINE_UNCHANGED",
+        effects: unchangedEffects,
+        withinMillisecondsAfterDeadline: 500,
+      },
+    });
+    const launched = await launchCase(entry);
+    try {
+      await launched.barrier("child-started");
+      const child = firstPid(readLedger(launched.ledgerPath), "child-started");
+      if (child === undefined) throw new Error("UNPROVED: no owned child.");
+      const died = await deathAfter(child, launched.spawnedAt, 10_000);
+      const observed = await exitWithin(launched);
+      receipt(entry, observed, { childDiedAt: died });
+      assertEnvelope(entry, observed);
+      assertDeadlineLag(entry, observed);
+      // LIFE-11 deadline row: SIGTERM, then SIGKILL, before emission.
+      const order = observed.ledger.filter(
+        (line) =>
+          line === "child-term-received" || line.startsWith("stdout-write"),
+      );
+      expect(order).toEqual(["child-term-received", "stdout-write result"]);
+      expect(died).toBeLessThanOrEqual(
+        (observed.firstStdoutAt ?? 0) + killObservationTolerance,
+      );
+    } finally {
+      await release(launched);
+    }
+  },
+  timeout,
+);
+
+// Part 4 repair (contract reviewer): the handler returns about 300 ms into a
+// 500 ms deadline and its owned child exits about 400 ms after SIGTERM. With
+// the bound at the deadline the result is the deadline row; a bound that
+// expired late lets the settle finish first and reports success instead.
+test(
+  "K3S3b.post-handler-bound-near-deadline",
+  async () => {
+    const entry = supporting("K3S3b.post-handler-bound-near-deadline", {
+      argv: [
+        "spawn-return",
+        "--slow-term",
+        "--return-after-ms",
+        "300",
+        "--deadline-ms",
+        "500",
+        "--json",
+      ],
+      expect: {
+        commandIdentity: "fx.spawn-return",
+        causeCode: "DOMAIN_DEADLINE_UNCHANGED",
+        effects: unchangedEffects,
+        withinMillisecondsAfterDeadline: 500,
+      },
+    });
+    const observed = await run(entry);
+    receipt(entry, observed);
+    try {
+      // The handler returned before the deadline: this is the post-handler path.
+      expect(observed.ledger).toContain("handler-returned");
+      assertEnvelope(entry, observed);
+      assertDeadlineLag(entry, observed);
+    } finally {
+      await cleanup(observed);
     }
   },
   timeout,

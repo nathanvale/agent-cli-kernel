@@ -26,6 +26,7 @@ import type {
   StateObservation,
   StateRegistration,
   ApprovalCapability,
+  DiagnosticsCapability,
   RunAddon,
 } from "../../../../starters/contract3/src/kernel/index.ts";
 import {
@@ -524,7 +525,8 @@ const wait = command({
 });
 
 // S04 (findings round): an owned TERM-ignoring program holds the stop path
-// while the handler, after the test's "stop-sent" line, asks for one more.
+// while the handler, once that program received the stop path's SIGTERM,
+// asks for one more.
 const lateStart = command({
   identity: "fx.late-start",
   route: ["late-start"],
@@ -537,7 +539,10 @@ const lateStart = command({
       .catch(() => undefined);
     await ledgerHas("child-started", 5_000);
     ledger("handler-ready");
-    await ledgerHas("stop-sent", 5_000);
+    // The owned child ledgers SIGTERM only when the stop path settles it,
+    // which happens after the CLI aborted the run; a line the test writes
+    // after sending the signal can arrive before the CLI handled it.
+    await ledgerHas("child-term-received", 5_000);
     ledger("late-call");
     try {
       await context.programs.inspect(program(lateChild));
@@ -551,6 +556,39 @@ const lateStart = command({
     );
   },
 });
+// X-S3 (swarm triage): the handler starts one TERM-ignoring program with a
+// 5,000 ms shutdown budget, does not await it, and returns at once.
+const spawnReturn = command({
+  identity: "fx.spawn-return",
+  route: ["spawn-return"],
+  summary: "Start a program and return without awaiting it.",
+  input: {
+    ...none,
+    deadlineSupported: true,
+    options: [integer("--return-after-ms", 1, 60_000), flag("--slow-term")],
+  },
+  capabilities: { programs: true },
+  run: async (input, context) => {
+    // `--slow-term`: the child exits about 400 ms after SIGTERM, so a
+    // post-handler bound that expired late would let the settle finish.
+    const child =
+      input["--slow-term"] === true
+        ? `trap 'echo child-term-received >> "$FX_LEDGER"; /bin/sleep 0.4; exit 0' TERM; echo "child-started $$" >> "$FX_LEDGER"; while :; do /bin/sleep 0.05; done`
+        : longChild(true);
+    void context.programs
+      .inspect(program(child, { shutdownMilliseconds: 5_000 }))
+      .catch(() => undefined);
+    await ledgerHas("child-started", 5_000);
+    const after = input["--return-after-ms"];
+    if (after !== undefined) await sleep(after);
+    ledger("handler-returned");
+    return context.result(
+      { commandIdentity: "fx.spawn-return", causeCode: "SUCCESS_UNCHANGED" },
+      { message: "Started a program.", data: null, effects: empty },
+    );
+  },
+});
+
 // The marker makes a late child visible in the process table.
 const lateChild =
   ': FX-LATE-MARKER; echo "late-child $$" >> "$FX_LEDGER"; /bin/sleep 30';
@@ -978,7 +1016,9 @@ const coordination = <
     | "fx.change"
     | "fx.wide"
     | "fx.guarded"
-    | "fx.guarded-owned",
+    | "fx.guarded-owned"
+    | "fx.wide-status"
+    | "fx.guarded-status",
 >(
   identity: Identity,
 ) =>
@@ -1116,6 +1156,8 @@ function makeChange(state: StateAddonDescriptor) {
   });
 }
 
+// Part 4 repair 2: how many wide effects a run records (default all 40).
+const wideCount = Number(process.env.FX_WIDE_COUNT ?? "40");
 const wideEffects = Array.from(
   { length: 40 },
   (_unused, index) =>
@@ -1130,7 +1172,7 @@ function makeWide(state: StateAddonDescriptor) {
     input: { ...none, options: [flag("--go")] },
     capabilities: {},
     effectClass: "repository-local",
-    effects: [wideEffects[0] ?? "fx.wide", ...wideEffects.slice(1)],
+    effects: [wideEffects[0] ?? "fx.wide", ...wideEffects.slice(1, wideCount)],
     ifNoResult: state.ifNoResult,
     heldLockCause: "DOMAIN_FX_LOCK_HELD",
     unresolvedCaseCause: "DOMAIN_FX_UNRESOLVED",
@@ -1138,7 +1180,7 @@ function makeWide(state: StateAddonDescriptor) {
     run: async (_input, context) => {
       intended = undefined;
       const proof = await context.state.transaction(async (transaction) => {
-        for (const effect of wideEffects)
+        for (const effect of wideEffects.slice(0, wideCount))
           await transaction.record(
             effect,
             () => Promise.resolve(undefined),
@@ -1248,6 +1290,123 @@ function makeGuardedOwned(state: StateAddonDescriptor) {
       Promise.reject(new Error("The owned denial fixture never dispatches.")),
   });
 }
+
+// Part 4 repair (R1, R2): twins of fx.wide and fx.guarded-owned that also
+// declare diagnostics, so a status reporter attaches at dispatch.
+function makeWideStatus(state: StateAddonDescriptor) {
+  return changing({
+    identity: "fx.wide-status",
+    route: ["wide-status"],
+    summary: "Apply many fixture effects.",
+    input: { ...none, options: [flag("--go")] },
+    capabilities: { diagnostics: true },
+    effectClass: "repository-local",
+    effects: [
+      wideEffects[0] ?? "fx.wide-status",
+      ...wideEffects.slice(1, wideCount),
+    ],
+    ifNoResult: state.ifNoResult,
+    heldLockCause: "DOMAIN_FX_LOCK_HELD",
+    unresolvedCaseCause: "DOMAIN_FX_UNRESOLVED",
+    stations: [...coordination("fx.wide-status")],
+    run: async (_input, context) => {
+      intended = undefined;
+      const proof = await context.state.transaction(async (transaction) => {
+        for (const effect of wideEffects.slice(0, wideCount))
+          await transaction.record(
+            effect,
+            () => Promise.resolve(undefined),
+            () => Promise.resolve(true),
+          );
+      });
+      return context.result(
+        { commandIdentity: "fx.wide-status", causeCode: "SUCCESS_COMPLETED" },
+        {
+          message: "Applied many fixture effects.",
+          data: null,
+          transaction: proof,
+        },
+      );
+    },
+  });
+}
+
+function makeGuardedStatus(state: StateAddonDescriptor) {
+  return changing({
+    identity: "fx.guarded-status",
+    route: ["guarded-status"],
+    summary: "Apply one fixture effect the fixture desk approves.",
+    input: { ...none, options: [flag("--go")] },
+    capabilities: { approval: true, diagnostics: true },
+    approval: () => ({
+      authority: authority("fx.desk"),
+      resource: resource("fx.item"),
+      resourceRevision: "1",
+      effects: ["fx.alpha"],
+    }),
+    effectClass: "repository-local",
+    effects: ["fx.alpha"],
+    ifNoResult: state.ifNoResult,
+    heldLockCause: "DOMAIN_FX_LOCK_HELD",
+    unresolvedCaseCause: "DOMAIN_FX_UNRESOLVED",
+    stations: [
+      ...coordination("fx.guarded-status"),
+      station(allCauses, {
+        ...words,
+        commandIdentity: "fx.guarded-status",
+        causeCode: "DOMAIN_AUTHORITY_REQUIRED",
+        trigger: "The fixture desk has not approved this item.",
+        repairAction: "Ask the fixture desk for an exact-item grant.",
+        guidance: {
+          handoff: {
+            owner: "operator",
+            reason: "The fixture desk must approve this item.",
+            inspect: [
+              { kind: "instruction", text: "Fixture desk: review the item." },
+            ],
+          },
+        },
+        independentObservable: "fx.guarded-status:denial",
+      }),
+    ],
+    run: () =>
+      Promise.reject(new Error("The owned denial fixture never dispatches.")),
+  });
+}
+
+// Part 4 repair: a stand-in status reporter for the twins above. Not the T5
+// add-on; it reports one fixed, valid, small status.
+const fixtureStatus = {
+  status: "available",
+  file: "/private/state/st/diagnostics/run.log",
+  sinkFailure: null,
+  droppedRecords: 0,
+  unflushedRecords: 0,
+  truncatedRecords: 0,
+  countsComplete: true,
+  closed: true,
+};
+const statusReporter: RunAddon<DiagnosticsCapability> = {
+  reportsStatus: true,
+  attach(run) {
+    ledger(`status-attach ${run.commandIdentity}`);
+    return {
+      capability: Object.freeze({ record: () => undefined }),
+      settle: () => Promise.resolve(true),
+      killNow: () => undefined,
+      freeze() {
+        ledger("freeze-start");
+        // Part 4 repair 2: FX_STATUS_FILE_LENGTH sizes a still-valid status.
+        const length = Number(process.env.FX_STATUS_FILE_LENGTH ?? "0");
+        return Promise.resolve(
+          length > 1
+            ? { ...fixtureStatus, file: `/${"f".repeat(length - 1)}` }
+            : fixtureStatus,
+        );
+      },
+    };
+  },
+};
 
 function corrupt(kind: string, value: unknown): unknown {
   if (!record(value) || !record(value.result)) return value;
@@ -1437,6 +1596,7 @@ export async function main(state?: StateAddonDescriptor): Promise<number> {
     slow,
     wait,
     lateStart,
+    spawnReturn,
     programCommand,
     supplied,
     undisclosed,
@@ -1454,10 +1614,12 @@ export async function main(state?: StateAddonDescriptor): Promise<number> {
           makeWide(state),
           makeGuarded(state),
           makeGuardedOwned(state),
+          makeWideStatus(state),
+          makeGuardedStatus(state),
         ],
         causes,
         state,
-        installedAddons: ["state", "programs", "approval"],
+        installedAddons: ["state", "programs", "approval", "diagnostics"],
       })
     : contractFor({
         cli: "fx",
@@ -1473,6 +1635,7 @@ export async function main(state?: StateAddonDescriptor): Promise<number> {
     addons: {
       programs: ledgered("programs", programsAddon()),
       approval: ledgered("approval", approvalAddon),
+      diagnostics: statusReporter,
     },
     ...(scenario.has("emergency-recorder")
       ? {

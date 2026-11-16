@@ -1,4 +1,8 @@
-import { fallbackMessage, fallbackText } from "./fallback.ts";
+import {
+  fallbackMessage,
+  fallbackText,
+  unavailableStatus,
+} from "./fallback.ts";
 import type { TrustedRun } from "./fallback.ts";
 import { oneLine, renderHuman } from "./human.ts";
 import type { ProcessHost } from "./process-types.ts";
@@ -25,7 +29,7 @@ export type Writer = {
 // LIFE-7 step 1 and DIAG-4: the diagnostics object is validated on its own,
 // on a plain-JSON copy, after the domain result is frozen. An invalid one
 // becomes the unavailable variant; this step never takes the fallback.
-export function frozenDiagnostics(report: StatusReport): Diagnostics {
+function frozenDiagnostics(report: StatusReport): Diagnostics {
   try {
     const copy: unknown = json(report.value)
       ? JSON.parse(JSON.stringify(report.value))
@@ -34,7 +38,7 @@ export function frozenDiagnostics(report: StatusReport): Diagnostics {
   } catch {
     // An unreadable status is an invalid one.
   }
-  return { status: "unavailable", reason: "status-invalid", trusted: {} };
+  return unavailableStatus("status-invalid");
 }
 
 // The frozen status joins the frozen candidate as the top-level key.

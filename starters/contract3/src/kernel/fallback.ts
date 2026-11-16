@@ -24,6 +24,14 @@ export const fallbackLimits = {
   level: fallbackLevelLimit,
 } as const;
 
+// The one owner of the diagnostics unavailable variant the kernel builds
+// (DIAG-3): no independently trusted field survives, so `trusted` is empty.
+export function unavailableStatus(
+  reason: "status-invalid" | "status-unavailable",
+): Diagnostics {
+  return { status: "unavailable", reason, trusted: {} };
+}
+
 export type TrustedRun = {
   readonly runId: string;
   readonly commandIdentity: string;
@@ -110,16 +118,30 @@ export async function fallbackText(
     );
     if (!command) return undefined;
     const selected = select(command.effectClass, trusted);
-    let text = encodeBounded(construct(runtime, trusted, selected));
-    // Trusted effect identities that do not fit are reported as unknown with
-    // an incomplete inventory; nothing is fabricated.
-    if (text === undefined && trusted.summary)
-      text = encodeBounded(
-        construct(runtime, trusted, {
-          causeCode: internalResultCause.unknown,
-          effects: incompleteEffects,
-        }),
-      );
+    // Rule (DIAG-4, Part 4 repair 2): the status is given up before any
+    // trusted effect identity, so a status's presence, absence or size never
+    // changes the cause, effects or exit this fallback would have without it.
+    // In order, the first that fits the bound: as selected; the status as
+    // unavailable (seam review S1); effects that do not fit reported as
+    // unknown with an incomplete inventory, keeping a small valid status
+    // (repair R2); both.
+    const unknown = trusted.summary
+      ? { causeCode: internalResultCause.unknown, effects: incompleteEffects }
+      : undefined;
+    const degraded: TrustedRun | undefined = trusted.diagnostics
+      ? { ...trusted, diagnostics: unavailableStatus("status-unavailable") }
+      : undefined;
+    const attempts = [
+      [trusted, selected],
+      [degraded, selected],
+      [trusted, unknown],
+      [degraded, unknown],
+    ] as const;
+    let text: string | undefined;
+    for (const [run, chosen] of attempts) {
+      if (text !== undefined || !run || !chosen) continue;
+      text = encodeBounded(construct(runtime, run, chosen));
+    }
     if (text === undefined) return undefined;
     const checked = await runtime.validate(JSON.parse(text));
     return checked.ok ? text : undefined;
