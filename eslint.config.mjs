@@ -57,6 +57,7 @@ export default tseslint.config(
     rules: {
       "repository/require-to-throw-message": "error",
       "repository/tests-use-test-folder": "error",
+      "repository/tests-no-sleep": "error",
     },
   },
   ...contract3,

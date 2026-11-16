@@ -3,6 +3,10 @@ const causeShape =
 const causeOwners = /\/kernel\/(?:causes|state-causes|stations)\.ts$/;
 const testFolderOwner = "/tests/support/test-folder.ts";
 const folderCalls = new Set(["tmpdir", "mkdtemp", "mkdtempSync"]);
+const timerPromises = new Set(["node:timers/promises", "timers/promises"]);
+const isFunction = (node) =>
+  node?.type === "ArrowFunctionExpression" ||
+  node?.type === "FunctionExpression";
 
 export default {
   rules: {
@@ -115,6 +119,64 @@ export default {
                 messageId: "folder",
                 data: { name: node.name },
               });
+          },
+        };
+      },
+    },
+    "tests-no-sleep": {
+      meta: {
+        type: "problem",
+        schema: [],
+        messages: {
+          sleep:
+            "Wait on the event the test is about: a ready file, a ledger line, a barrier or the process exit, or drive the fake clock in tests/contract3/lifecycle/recording-host.ts. {{what}} waits on wall time, so the test passes on a fast host and fails on a loaded one. To bound a wait, race the event against a setTimeout that rejects or aborts.",
+        },
+      },
+      create(context) {
+        const report = (node, what) =>
+          context.report({ node, messageId: "sleep", data: { what } });
+        // A delay passes the executor's resolve itself, or calls it with no
+        // value. A watchdog rejects, aborts or resolves with a sentinel.
+        const resolves = (callback, resolve) => {
+          if (callback?.type === "Identifier") return callback.name === resolve;
+          if (!isFunction(callback)) return false;
+          const { body } = callback;
+          const call =
+            body.type !== "BlockStatement"
+              ? body
+              : body.body.length === 1 &&
+                  body.body[0].type === "ExpressionStatement"
+                ? body.body[0].expression
+                : undefined;
+          return (
+            call?.type === "CallExpression" &&
+            call.callee.name === resolve &&
+            call.arguments.length === 0
+          );
+        };
+        return {
+          "MemberExpression[object.name='Bun'][property.name=/^sleep(?:Sync)?$/]"(
+            node,
+          ) {
+            report(node, `Bun.${node.property.name}`);
+          },
+          "ImportSpecifier[imported.name='setTimeout']"(node) {
+            if (timerPromises.has(node.parent.source.value))
+              report(node, "The node:timers/promises setTimeout");
+          },
+          "CallExpression[callee.name='setTimeout']"(node) {
+            const executor = context.sourceCode
+              .getAncestors(node)
+              .findLast(
+                (ancestor) =>
+                  isFunction(ancestor) &&
+                  ancestor.parent.type === "NewExpression" &&
+                  ancestor.parent.callee.name === "Promise" &&
+                  ancestor.parent.arguments[0] === ancestor,
+              );
+            const resolve = executor?.params[0]?.name;
+            if (resolve && resolves(node.arguments[0], resolve))
+              report(node, "A promise that setTimeout only resolves");
           },
         };
       },

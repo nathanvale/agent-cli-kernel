@@ -121,6 +121,36 @@ const cases = [
     line: 5,
     fix: "testFolder(prefix) from tests/support/test-folder.ts",
   },
+  {
+    rule: "tests-no-sleep",
+    witness: "d1436c0",
+    filePath: "tests/contract3/lifecycle/harness.ts",
+    failing: [
+      "export async function exitWithin(done: Promise<number>, ms: number) {",
+      "  const observed = await Promise.race([",
+      "    done,",
+      "    Bun.sleep(ms).then(() => undefined),",
+      "  ]);",
+      "  if (observed === undefined) throw new Error(`No exit within ${ms} ms.`);",
+      "  return observed;",
+      "}",
+    ],
+    passing: [
+      "export async function exitWithin(done: Promise<number>, ms: number) {",
+      "  let timer: ReturnType<typeof setTimeout> | undefined;",
+      "  const bound = new Promise<never>((_, reject) => {",
+      "    timer = setTimeout(() => reject(new Error(`No exit within ${ms} ms.`)), ms);",
+      "  });",
+      "  try {",
+      "    return await Promise.race([done, bound]);",
+      "  } finally {",
+      "    clearTimeout(timer);",
+      "  }",
+      "}",
+    ],
+    line: 4,
+    fix: "Wait on the event the test is about",
+  },
 ];
 
 for (const item of cases)
@@ -160,4 +190,32 @@ test("tests-use-test-folder admits the folder calls inside its owner module", as
       await Bun.file(resolve(import.meta.dir, "support/test-folder.ts")).text(),
     ),
   ).toEqual([]);
+});
+
+const sleeps = [
+  ["await new Promise((r) => setTimeout(r, 5));", true],
+  [
+    "await new Promise<void>((resolve) => { setTimeout(() => resolve(), 5); });",
+    true,
+  ],
+  ['import { setTimeout as delay } from "node:timers/promises";', true],
+  ["Bun.sleepSync(2);", true],
+  [
+    'new Promise((_, reject) => setTimeout(() => reject(new Error("bound")), 5));',
+    false,
+  ],
+  ["const controller = new AbortController();", false],
+  ["setTimeout(() => controller.abort(), 5);", false],
+  ['new Promise((resolve) => setTimeout(() => resolve("timeout"), 5));', false],
+] as const;
+
+test("tests-no-sleep refuses a promise delay and admits a watchdog", async () => {
+  const found = await hits(
+    "tests-no-sleep",
+    "tests/contract3/lifecycle/stop-flow.test.ts",
+    sleeps.map(([line]) => line).join("\n"),
+  );
+  expect(found.map(({ line }) => line)).toEqual(
+    sleeps.flatMap(([, refused], index) => (refused ? [index + 1] : [])),
+  );
 });
