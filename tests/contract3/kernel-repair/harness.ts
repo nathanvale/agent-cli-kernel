@@ -12,6 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { familyCases } from "./cases.ts";
+import { spawnBounded } from "./swarm-process.ts";
 
 // Registers one test per frozen case after asserting that the file implements
 // exactly the family's active identities: no missing, extra or renamed case.
@@ -116,14 +117,12 @@ export async function materialise(): Promise<string> {
   return root;
 }
 
-async function spawnText(argv: readonly string[], cwd: string) {
-  const child = Bun.spawn([...argv], { cwd, stdout: "pipe", stderr: "pipe" });
-  const [stdout, stderr, exit] = await Promise.all([
-    new Response(child.stdout).text(),
-    new Response(child.stderr).text(),
-    child.exited,
-  ]);
-  return { stdout, stderr, exit };
+// Lint and type-check of a materialised tree are the slowest children; their
+// bound stays below fixture-lint's 120,000 ms test timeout so a hang is
+// still released (S5, S10).
+const treeBound = 110_000;
+function spawnText(argv: readonly string[], cwd: string) {
+  return spawnBounded(argv, { cwd, boundMilliseconds: treeBound });
 }
 
 // Runs one fixture through the driver and returns its observations.

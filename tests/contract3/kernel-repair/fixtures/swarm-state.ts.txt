@@ -120,7 +120,10 @@ function applyContract(
         )
         .then(
           () => record("proof-issued"),
-          () => record("transaction-refused"),
+          (error: unknown) =>
+            record(
+              `transaction-refused: ${error instanceof Error ? error.message : String(error)}`,
+            ),
         );
       record("handler-returned");
       return context.result(held, heldFacts);

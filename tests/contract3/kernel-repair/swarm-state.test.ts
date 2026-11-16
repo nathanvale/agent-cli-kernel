@@ -3,14 +3,15 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { materialise } from "./harness.ts";
-import { runScenario } from "./swarm-process.ts";
+import { processWatchdog, runScenario } from "./swarm-process.ts";
 
 // Swarm-triage expectations that need a state installation (X-K1-4,
 // X-K1-10, X-K2S1, X-K2S2, X-K2S3). The installation is a test-only fixture
 // in a materialised addons/state folder; each case runs the materialised
 // CLI entry as a real child process. Expected values come from the triage
 // file's expectations, written from the frozen contract.
-const processTimeout = 120_000;
+// Each test here runs at most six child processes; X-K2S3 runs twelve.
+const processTimeout = processWatchdog(6);
 let root = "";
 beforeAll(async () => {
   root = await materialise();
@@ -164,6 +165,11 @@ test(
     // `effect-applied` to an independent ledger the parent reads after exit.
     const ledgers = await mkdtemp(join(tmpdir(), "contract3-swarm-ledger-"));
     try {
+      // The hop counts are the triage's observed window (triage K2-spec-3):
+      // at 0 and 5 hops the transaction starts before the result is built,
+      // so the build refuses and the honest fallback prints; from 24 hops
+      // the process exits first. 8 to 20 is where the refusal printed beside
+      // an applied effect. Three rounds each, as X-K2S3 asks.
       const observed: {
         hops: number;
         refusedUnchanged: boolean;
@@ -183,27 +189,31 @@ test(
           observed.push({
             hops,
             refusedUnchanged:
-              child.result?.outcome === "refused" &&
+              child.result?.causeCode === "HELD" &&
+              child.result.outcome === "refused" &&
               child.result.transactionState === "unchanged",
             ledger: lines,
           });
         }
-      expect(observed).toHaveLength(12);
-      // Every run entered the handler and printed one envelope.
-      for (const entry of observed)
-        expect(entry.ledger).toContain("handler-returned");
-      // No run printed refused-unchanged beside an applied effect.
-      expect(
-        observed.filter(
-          (entry) =>
-            entry.refusedUnchanged && entry.ledger.includes("effect-applied"),
+      // Per run (S4): the refusal printed, the late transaction was
+      // attempted and refused before its work, and no effect was applied.
+      expect(observed).toEqual(
+        [8, 12, 16, 20].flatMap((hops) =>
+          [0, 1, 2].map(() => ({
+            hops,
+            refusedUnchanged: true,
+            ledger: [
+              "handler-returned",
+              "transaction-refused: The state capability closed when the handler returned.",
+            ],
+          })),
         ),
-      ).toEqual([]);
+      );
     } finally {
       await rm(ledgers, { recursive: true, force: true });
     }
   },
-  processTimeout,
+  processWatchdog(12),
 );
 
 test(

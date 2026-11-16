@@ -14,12 +14,13 @@ import {
 } from "./swarm-commands.ts";
 import { buildUnchecked, contractUnchecked } from "./harness.ts";
 import { emptyInput, unchanged } from "./shapes.ts";
-import { runScenario } from "./swarm-process.ts";
+import { processWatchdog, runScenario } from "./swarm-process.ts";
 
 // Swarm-triage expectations for input and command-step admission. Expected
 // values come from the triage file's "Expectations for confirmed findings"
 // (X-K1-*), written from the frozen contract, never from kernel output.
-const processTimeout = 60_000;
+// Each test here runs at most two child processes.
+const processTimeout = processWatchdog(2);
 
 test(
   "X-K1-1.pattern-validity: an invalid Unicode pattern is refused at declaration; a valid one matches the whole operand",

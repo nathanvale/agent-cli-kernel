@@ -3,13 +3,14 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { selectingLoad } from "./swarm-commands.ts";
-import type { Observed } from "./swarm-process.ts";
-import { runScenario } from "./swarm-process.ts";
+import type { ScenarioRun } from "./swarm-process.ts";
+import { processWatchdog, runScenario } from "./swarm-process.ts";
 
 // Swarm-triage expectations for kernel-supplied stations (X-K1-6, X-K1-8).
 // Expected values come from the triage file's expectations, written from the
 // frozen contract, never from kernel output.
-const processTimeout = 60_000;
+// Each test here runs at most three child processes.
+const processTimeout = processWatchdog(3);
 
 function stationsOf(contract: object, identity: string): unknown[] {
   const discover: unknown = Reflect.get(contract, "discoverCommand");
@@ -71,7 +72,7 @@ function nextKind(station: unknown): unknown {
     ? Reflect.get(next, "kind")
     : undefined;
 }
-function discovered(observed: Observed, causeCode: string): unknown {
+function discovered(observed: ScenarioRun, causeCode: string): unknown {
   const data: unknown = observed.result?.data;
   const stations: unknown =
     typeof data === "object" && data !== null

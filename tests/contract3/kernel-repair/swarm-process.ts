@@ -1,15 +1,17 @@
+import { exitBound } from "../lifecycle/harness.ts";
+
 // Runs one swarm-triage scenario as a real child process and returns what an
 // agent observes: exit code, both streams and the parsed machine envelope.
 const entry = new URL("swarm-cli.ts", import.meta.url).pathname;
 
-export type Observed = {
+export type ScenarioRun = {
   readonly exit: number;
   readonly stdout: string;
   readonly stderr: string;
   readonly result: Readonly<Record<string, unknown>> | undefined;
 };
 
-function resultOf(stdout: string): Observed["result"] {
+function resultOf(stdout: string): ScenarioRun["result"] {
   if (stdout.trim() === "") return undefined;
   const envelope: unknown = JSON.parse(stdout);
   const result: unknown =
@@ -21,21 +23,62 @@ function resultOf(stdout: string): Observed["result"] {
     : undefined;
 }
 
+// One bounded process runner for the kernel-repair tests (repair 1, S5),
+// after the lifecycle harness's R1 rule: a case that hangs leaves no fixture
+// process behind. The wait is bounded below the test timeout; on expiry the
+// child is killed and awaited, then the case fails naming the bound.
+export async function spawnBounded(
+  argv: readonly string[],
+  options: {
+    readonly cwd?: string;
+    readonly env?: Readonly<Record<string, string | undefined>>;
+    readonly boundMilliseconds?: number;
+  } = {},
+): Promise<{ stdout: string; stderr: string; exit: number }> {
+  const bound = options.boundMilliseconds ?? exitBound;
+  const child = Bun.spawn([...argv], {
+    ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
+    ...(options.env === undefined ? {} : { env: { ...options.env } }),
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expired = new Promise<undefined>((resolve) => {
+    timer = setTimeout(() => resolve(undefined), bound);
+  });
+  const finished = await Promise.race([
+    Promise.all([
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+      child.exited,
+    ]),
+    expired,
+  ]);
+  clearTimeout(timer);
+  if (!finished) {
+    child.kill("SIGKILL");
+    await child.exited;
+    throw new Error(`${argv.join(" ")} did not exit within ${bound} ms.`);
+  }
+  const [stdout, stderr, exit] = finished;
+  return { stdout, stderr, exit };
+}
+
+// Harness watchdog, not a contract number (S10): a test that runs `runs`
+// child processes waits at most `runs` exitBounds, plus a margin for
+// materialising a fixture tree, so spawnBounded releases a hang first.
+export function processWatchdog(runs: number): number {
+  return runs * exitBound + 10_000;
+}
+
 export async function runScenario(
   scenario: string,
   argv: readonly string[],
   env: Readonly<Record<string, string>> = {},
   path = entry,
-): Promise<Observed> {
-  const child = Bun.spawn([process.execPath, path, scenario, ...argv], {
+): Promise<ScenarioRun> {
+  const run = await spawnBounded([process.execPath, path, scenario, ...argv], {
     env: { ...process.env, ...env },
-    stdout: "pipe",
-    stderr: "pipe",
   });
-  const [stdout, stderr, exit] = await Promise.all([
-    new Response(child.stdout).text(),
-    new Response(child.stderr).text(),
-    child.exited,
-  ]);
-  return { exit, stdout, stderr, result: resultOf(stdout) };
+  return { ...run, result: resultOf(run.stdout) };
 }
