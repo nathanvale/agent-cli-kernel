@@ -118,26 +118,28 @@ export async function fallbackText(
     );
     if (!command) return undefined;
     const selected = select(command.effectClass, trusted);
-    let text = encodeBounded(construct(runtime, trusted, selected));
-    // Seam review S1: a valid status too large for the bound is replaced by
-    // the unavailable variant, as effects that do not fit are, so the status
-    // never stops the one fallback envelope.
-    if (text === undefined && trusted.diagnostics) {
-      trusted = {
-        ...trusted,
-        diagnostics: unavailableStatus("status-unavailable"),
-      };
-      text = encodeBounded(construct(runtime, trusted, selected));
+    // In order, the first that fits the bound: as selected; trusted effect
+    // identities that do not fit reported as unknown with an incomplete
+    // inventory (nothing fabricated); then, only if the envelope still does
+    // not fit, the status replaced by the unavailable variant (seam review
+    // S1, Part 4 repair R2: a small valid status is kept).
+    const unknown = trusted.summary
+      ? { causeCode: internalResultCause.unknown, effects: incompleteEffects }
+      : undefined;
+    const degraded: TrustedRun | undefined = trusted.diagnostics
+      ? { ...trusted, diagnostics: unavailableStatus("status-unavailable") }
+      : undefined;
+    const attempts = [
+      [trusted, selected],
+      [trusted, unknown],
+      [degraded, selected],
+      [degraded, unknown],
+    ] as const;
+    let text: string | undefined;
+    for (const [run, chosen] of attempts) {
+      if (text !== undefined || !run || !chosen) continue;
+      text = encodeBounded(construct(runtime, run, chosen));
     }
-    // Trusted effect identities that do not fit are reported as unknown with
-    // an incomplete inventory; nothing is fabricated.
-    if (text === undefined && trusted.summary)
-      text = encodeBounded(
-        construct(runtime, trusted, {
-          causeCode: internalResultCause.unknown,
-          effects: incompleteEffects,
-        }),
-      );
     if (text === undefined) return undefined;
     const checked = await runtime.validate(JSON.parse(text));
     return checked.ok ? text : undefined;

@@ -215,13 +215,32 @@ function settleOne(addon: AttachedAddon<unknown>, limit?: number) {
   }
 }
 
-async function settleAll(run: Run, limit?: number, ownedOnly = false) {
+async function settleEach(
+  addons: readonly AttachedAddon<unknown>[],
+  limit?: number,
+) {
   const settled = await Promise.all(
-    run.attached
-      .filter((addon) => !ownedOnly || addon !== run.reporter)
-      .map((addon) => settleOne(addon, limit)),
+    addons.map((addon) => settleOne(addon, limit)),
   );
   return settled.every(Boolean);
+}
+
+// Every attached add-on: the stop and deadline paths.
+function settleAll(run: Run, limit?: number) {
+  return settleEach(run.attached, limit);
+}
+
+// Normal completion (LIFE-11): the owned resources only; the status reporter
+// is not an owned program, and `freeze` replaces its settle after the result
+// is frozen. X-S3 (swarm triage): LIFE-6's deadline covers dispatch and work,
+// so a deadline also bounds this settlement; undefined means it expired.
+function settleOwned(run: Run, deadlineAt: number | undefined) {
+  const settling = settleEach(
+    run.attached.filter((addon) => addon !== run.reporter),
+  );
+  return deadlineAt === undefined
+    ? settling
+    : within(settling, deadlineAt - run.host.now(), run.host.now);
 }
 
 // DIAG-14 step 2: the status-reporting add-on freezes its status within the
@@ -330,7 +349,11 @@ async function kernelResult(
 // the run was dispatched, or for any refusal under the other reading, when
 // the command declares a status-reporting add-on.
 function reporterFor(run: Run, trusted: TrustedRun) {
-  if (trusted.dispatched || !statusOnPreHandlerRefusal) return run.reporter;
+  if (trusted.dispatched) return run.reporter;
+  // Part 4 repair R1: under the shipped reading no refusal before the
+  // handler carries a status, even one raised after the reporter attached
+  // (an approval denial or a capabilities refusal inside `execute`).
+  if (!statusOnPreHandlerRefusal) return undefined;
   const plan = run.plans.get(trusted.commandIdentity);
   const entry = plan?.addons.find((item) => item.addon.reportsStatus === true);
   if (plan && entry && !run.reporter)
@@ -488,13 +511,7 @@ async function afterHandler(
   const identity = command.commandIdentity;
   // The status-reporting add-on is not an owned program: `freeze` replaces
   // its settle on this path, after the result is frozen.
-  const settling = settleAll(run, undefined, true);
-  // X-S3 (swarm triage): LIFE-6's deadline covers dispatch and work, so it
-  // also bounds this settlement. If it expires here, the deadline rows apply.
-  const clean =
-    deadlineAt === undefined
-      ? await settling
-      : await within(settling, deadlineAt - run.host.now(), run.host.now);
+  const clean = await settleOwned(run, deadlineAt);
   if (clean === undefined)
     return afterDeadline(run, command, Promise.resolve(execution));
   if (execution.kind === "threw")
