@@ -4,6 +4,19 @@ const causeOwners = /\/kernel\/(?:causes|state-causes|stations)\.ts$/;
 const testFolderOwner = "/tests/support/test-folder.ts";
 const folderCalls = new Set(["tmpdir", "mkdtemp", "mkdtempSync"]);
 const timerPromises = new Set(["node:timers/promises", "timers/promises"]);
+const bunSleeps = new Set(["sleep", "sleepSync"]);
+const typeWrappers = new Set([
+  "TSAsExpression",
+  "TSSatisfiesExpression",
+  "TSNonNullExpression",
+  "TSTypeAssertion",
+  "TSInstantiationExpression",
+]);
+const bare = (node) =>
+  typeWrappers.has(node?.type) ? bare(node.expression) : node;
+const isUndefined = (node) =>
+  (node.type === "Identifier" && node.name === "undefined") ||
+  (node.type === "UnaryExpression" && node.operator === "void");
 const isFunction = (node) =>
   node?.type === "ArrowFunctionExpression" ||
   node?.type === "FunctionExpression";
@@ -63,10 +76,11 @@ const traceIdentifier = (node, next, context) => {
   if (!def)
     return node.name === "globalThis"
       ? { module: "global" }
-      : { module: "global", name: node.name };
+      : node.name === "Bun"
+        ? { module: "bun" }
+        : { module: "global", name: node.name };
   return definitionTracers[def.type]?.(def, node, next) ?? { name: node.name };
 };
-const unwrap = (node, next) => next(node.expression);
 // What an expression names: the module it came from ("global" for a
 // global) and the export, or only a name when the origin is not traced. A
 // result with no name is the module object itself.
@@ -84,18 +98,19 @@ const tracers = {
       : undefined,
   ImportExpression: (node) => moduleObject(node.source),
   AwaitExpression: (node, next) => next(node.argument),
-  ChainExpression: unwrap,
-  TSAsExpression: unwrap,
-  TSNonNullExpression: unwrap,
+  ChainExpression: (node, next) => next(node.expression),
+  SequenceExpression: (node, next) => next(node.expressions.at(-1)),
 };
-const origin = (context, node, depth = 0) =>
-  node && depth < 8
-    ? tracers[node.type]?.(
-        node,
-        (inner) => origin(context, inner, depth + 1),
+const origin = (context, node, depth = 0) => {
+  const inner = bare(node);
+  return inner && depth < 8
+    ? tracers[inner.type]?.(
+        inner,
+        (next) => origin(context, next, depth + 1),
         context,
       )
     : undefined;
+};
 const isTimer = (traced, name) =>
   traced?.name === name &&
   (traced.module === "global" || traced.module === "timers");
@@ -109,54 +124,35 @@ const executorResolve = (context, node) =>
         ancestor.parent.callee.name === "Promise" &&
         ancestor.parent.arguments[0] === ancestor,
     )?.params[0]?.name;
-const noValue = ({ arguments: values }) =>
-  values.length === 0 ||
-  (values.length === 1 &&
-    values[0].type === "Identifier" &&
-    values[0].name === "undefined");
-const resolves = (callback, resolve) => {
-  if (callback?.type === "Identifier") return callback.name === resolve;
+const noValue = (values) =>
+  values.length === 0 || (values.length === 1 && isUndefined(bare(values[0])));
+const resolves = ([wrapped, , ...values], resolve) => {
+  const callback = bare(wrapped);
+  if (callback?.type === "Identifier")
+    return callback.name === resolve && noValue(values);
   const call = isFunction(callback) ? onlyCall(callback) : undefined;
-  return call?.callee.name === resolve && noValue(call);
+  return call?.callee.name === resolve && noValue(call.arguments);
 };
-const handle = ({ parent }) =>
-  parent.type === "AssignmentExpression"
-    ? parent.left
-    : parent.type === "VariableDeclarator"
-      ? parent.id
-      : undefined;
-const cleared = (context, node) => {
-  const target = handle(node);
-  return (
-    target?.type === "Identifier" &&
-    lookup(context, target)?.references.some(
-      ({ identifier }) =>
-        identifier.parent.type === "CallExpression" &&
-        identifier.parent.arguments[0] === identifier &&
-        isTimer(origin(context, identifier.parent.callee), "clearTimeout"),
-    )
-  );
-};
-// A delay passes the executor's resolve itself, or calls it with no value
-// or undefined. A watchdog rejects, aborts, resolves with a sentinel, or
-// keeps its handle for clearTimeout, which no awaited delay needs.
+// A delay resolves with no value: it passes the executor's resolve with no
+// extra argument, or calls resolve() or resolve(undefined). A watchdog
+// rejects, aborts or resolves with a value.
 const delays = (context, node) => {
   const resolve = executorResolve(context, node);
-  return (
-    resolve !== undefined &&
-    resolves(node.arguments[0], resolve) &&
-    !cleared(context, node)
-  );
+  return resolve !== undefined && resolves(node.arguments, resolve);
 };
 // A pattern that matches a lone NUL character matches every message.
-const namesNothing = (node) =>
-  (node.type === "Identifier" && node.name === "undefined") ||
-  (node.type === "Literal" && node.value === "") ||
-  (node.type === "TemplateLiteral" &&
-    node.expressions.length === 0 &&
-    node.quasis[0].value.cooked === "") ||
-  (node.regex !== undefined &&
-    new RegExp(node.regex.pattern, node.regex.flags).test("\0"));
+const namesNothing = (wrapped) => {
+  const node = bare(wrapped);
+  return (
+    isUndefined(node) ||
+    (node.type === "Literal" && node.value === "") ||
+    (node.type === "TemplateLiteral" &&
+      node.expressions.length === 0 &&
+      node.quasis[0].value.cooked === "") ||
+    (node.regex !== undefined &&
+      new RegExp(node.regex.pattern, node.regex.flags).test("\0"))
+  );
+};
 
 export default {
   rules: {
@@ -293,10 +289,10 @@ export default {
         const report = (node, what) =>
           context.report({ node, messageId: "sleep", data: { what } });
         return {
-          "MemberExpression[object.name='Bun'][property.name=/^sleep(?:Sync)?$/]"(
-            node,
-          ) {
-            report(node, `Bun.${node.property.name}`);
+          "MemberExpression, CallExpression > Identifier.callee"(node) {
+            const traced = origin(context, node);
+            if (traced?.module === "bun" && bunSleeps.has(traced.name))
+              report(node, `Bun.${traced.name}`);
           },
           "ImportSpecifier[imported.name='setTimeout']"(node) {
             if (timerPromises.has(node.parent.source.value))

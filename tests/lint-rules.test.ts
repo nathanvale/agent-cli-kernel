@@ -322,8 +322,64 @@ const bypasses = [
   ],
   [
     "tests-no-sleep",
-    "let t: ReturnType<typeof setTimeout> | undefined;\nconst expired = new Promise<undefined>((resolve) => {\n  t = setTimeout(() => resolve(undefined), 5);\n});\nawait Promise.race([expired]);\nclearTimeout(t);",
+    "let t: ReturnType<typeof setTimeout> | undefined;\nconst p = new Promise((r) => { t = setTimeout(r, 5); });\nawait p;\nclearTimeout(t);",
+    "A promise that setTimeout only resolves",
+  ],
+  [
+    "tests-no-sleep",
+    "await new Promise((r) => setTimeout(r, 5, undefined));",
+    "A promise that setTimeout only resolves",
+  ],
+  [
+    "tests-no-sleep",
+    'await Promise.race([work, new Promise((resolve) => setTimeout(resolve, 5, "timeout"))]);',
     undefined,
+  ],
+  ["tests-no-sleep", 'await Bun["sleep"](5);', "Bun.sleep waits"],
+  [
+    "tests-no-sleep",
+    "const { sleep } = Bun;\nawait sleep(5);",
+    "Bun.sleep waits",
+  ],
+  [
+    "tests-no-sleep",
+    "const Bun = { sleep: (ms: number) => ms };\nBun.sleep(5);",
+    undefined,
+  ],
+  [
+    "tests-no-sleep",
+    "await new Promise((r) => (0, setTimeout)(r, 5));",
+    "A promise that setTimeout only resolves",
+  ],
+  [
+    "tests-no-sleep",
+    "await new Promise((r) => setTimeout(r as () => void, 5));",
+    "A promise that setTimeout only resolves",
+  ],
+  [
+    "tests-no-sleep",
+    "await new Promise((r) => (setTimeout as typeof setTimeout)(r, 5));",
+    "A promise that setTimeout only resolves",
+  ],
+  [
+    "tests-no-sleep",
+    "await new Promise((r) => setTimeout(() => r(void 0), 5));",
+    "A promise that setTimeout only resolves",
+  ],
+  [
+    "tests-no-sleep",
+    "const g = globalThis;\nconst t = g.setTimeout;\nconst u = t;\nawait new Promise((r) => u(r, 5));",
+    "A promise that setTimeout only resolves",
+  ],
+  [
+    "require-to-throw-message",
+    "expect(fn).toThrow(undefined as never);",
+    "toThrow(undefined as never) names no message",
+  ],
+  [
+    "require-to-throw-message",
+    "expect(fn).toThrow(void 0);",
+    "toThrow(void 0) names no message",
   ],
 ] as const;
 
@@ -349,7 +405,7 @@ test("tests-use-test-folder admits the folder calls inside its owner module", as
   ).toEqual([]);
 });
 
-test("tests-no-sleep admits the spawnBounded watchdog, which clears its handle", async () => {
+test("tests-no-sleep admits the spawnBounded watchdog, which resolves a named value", async () => {
   expect(
     await hits(
       "tests-no-sleep",
