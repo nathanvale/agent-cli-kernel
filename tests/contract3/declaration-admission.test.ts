@@ -7,21 +7,11 @@ import {
   contractFor,
 } from "../../starters/contract3/src/kernel/index.ts";
 import type { InputSchema } from "../../starters/contract3/src/kernel/index.ts";
+import {
+  emptyInput as empty,
+  unchanged as effects,
+} from "./kernel-repair/shapes.ts";
 
-const empty = {
-  arguments: [],
-  options: [],
-  constraints: [],
-  deadlineSupported: false,
-  additionalArguments: false,
-  additionalOptions: false,
-} as const;
-const effects = {
-  completed: [],
-  remaining: [],
-  uncertain: [],
-  inventoryComplete: true,
-} as const;
 function host(
   identity: string,
   input: InputSchema = empty,

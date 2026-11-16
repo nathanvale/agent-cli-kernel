@@ -4,6 +4,7 @@ import {
   contractFor,
   command,
 } from "../../starters/contract3/src/kernel/index.ts";
+import { emptyInput, unchanged } from "./kernel-repair/shapes.ts";
 
 test("a declared installed name or arbitrary host callback cannot acquire the state issuer", () => {
   let called = false;
@@ -42,14 +43,7 @@ test("a handler cannot return a cloned result or a prior invocation with reused 
     identity: "specimen.read",
     route: ["read"],
     summary: "Read.",
-    input: {
-      arguments: [],
-      options: [],
-      constraints: [],
-      deadlineSupported: false,
-      additionalArguments: false,
-      additionalOptions: false,
-    },
+    input: emptyInput,
     capabilities: {},
     run: (_input, context) => {
       if (previous) return copy ? { ...previous } : previous;
@@ -58,12 +52,7 @@ test("a handler cannot return a cloned result or a prior invocation with reused 
         {
           message: "Read.",
           data: null,
-          effects: {
-            completed: [],
-            remaining: [],
-            uncertain: [],
-            inventoryComplete: true,
-          },
+          effects: unchanged,
         },
       );
       previous = result;

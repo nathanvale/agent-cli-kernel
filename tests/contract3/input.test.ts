@@ -6,6 +6,8 @@ import {
   station,
   contractFor,
 } from "../../starters/contract3/src/kernel/index.ts";
+import { unchanged } from "./kernel-repair/shapes.ts";
+import { readsUnchanged } from "./kernel-repair/handlers.ts";
 
 const input = {
   arguments: [
@@ -53,20 +55,7 @@ test("one executable declaration projects input and strictly parses literal case
     route: ["show"],
     summary: "Show an item.",
     input,
-    run: (_input, context) =>
-      context.result(
-        { commandIdentity: "items.show", causeCode: "SUCCESS_UNCHANGED" },
-        {
-          message: "Read.",
-          data: null,
-          effects: {
-            completed: [],
-            remaining: [],
-            uncertain: [],
-            inventoryComplete: true,
-          },
-        },
-      ),
+    run: readsUnchanged("items.show"),
   });
   const contract = contractFor({ cli: "items", commands: [show] });
   expect(contract.discoverCommand("items.show")?.input).toEqual(input);
@@ -114,20 +103,7 @@ test("untrusted patterns terminate within the reader budget and invalid declarat
           { kind: "requires", ifPresent: "absent", thenPresent: "item" },
         ],
       },
-      run: (_input, context) =>
-        context.result(
-          { commandIdentity: "bad", causeCode: "SUCCESS_UNCHANGED" },
-          {
-            message: "Read.",
-            data: null,
-            effects: {
-              completed: [],
-              remaining: [],
-              uncertain: [],
-              inventoryComplete: true,
-            },
-          },
-        ),
+      run: readsUnchanged("bad"),
     }),
   ).toThrow();
   const hostile = command({
@@ -150,20 +126,7 @@ test("untrusted patterns terminate within the reader budget and invalid declarat
         },
       ],
     },
-    run: (_input, context) =>
-      context.result(
-        { commandIdentity: "items.hostile", causeCode: "SUCCESS_UNCHANGED" },
-        {
-          message: "Read.",
-          data: null,
-          effects: {
-            completed: [],
-            remaining: [],
-            uncertain: [],
-            inventoryComplete: true,
-          },
-        },
-      ),
+    run: readsUnchanged("items.hostile"),
   });
   const contract = contractFor({ cli: "items", commands: [hostile] });
   const start = performance.now();
@@ -278,20 +241,7 @@ function futureDeclarations(row: {
       ],
     },
     capabilities: {},
-    run: (_input, context) =>
-      context.result(
-        { commandIdentity: "items.pending", causeCode: "SUCCESS_UNCHANGED" },
-        {
-          message: "Read.",
-          data: null,
-          effects: {
-            completed: [],
-            remaining: [],
-            uncertain: [],
-            inventoryComplete: true,
-          },
-        },
-      ),
+    run: readsUnchanged("items.pending"),
   });
   const issued = station(commonCauses, {
     commandIdentity: "items.issue",
@@ -356,12 +306,7 @@ function futureDeclarations(row: {
           ...(row.literalMaxLength === undefined
             ? {}
             : { bindings: { item: parsed.item } }),
-          effects: {
-            completed: [],
-            remaining: [],
-            uncertain: [],
-            inventoryComplete: true,
-          },
+          effects: unchanged,
         },
       );
     },
@@ -489,20 +434,7 @@ test("admitted prototype-like input names behave as own dictionary keys", async 
       summary: "Read.",
       input: { ...input, arguments: [{ ...input.arguments[0], name }] },
       capabilities: {},
-      run: (_input, context) =>
-        context.result(
-          { commandIdentity: "items.read", causeCode: "SUCCESS_UNCHANGED" },
-          {
-            message: "Read.",
-            data: null,
-            effects: {
-              completed: [],
-              remaining: [],
-              uncertain: [],
-              inventoryComplete: true,
-            },
-          },
-        ),
+      run: readsUnchanged("items.read"),
     });
     const contract = contractFor({ cli: "items", commands: [read] });
     const expected = Object.fromEntries([[name, "alpha"]]);
@@ -571,12 +503,7 @@ test("reused declarations validate future inputs against their current contract"
         message: "Read.",
         data: null,
         bindings: { item: input.item },
-        effects: {
-          completed: [],
-          remaining: [],
-          uncertain: [],
-          inventoryComplete: true,
-        },
+        effects: unchanged,
       });
     },
   });
@@ -595,20 +522,7 @@ test("reused declarations validate future inputs against their current contract"
         ],
       },
       capabilities: {},
-      run: (_input, context) =>
-        context.result(
-          { commandIdentity: "items.target", causeCode: "SUCCESS_UNCHANGED" },
-          {
-            message: "Read.",
-            data: null,
-            effects: {
-              completed: [],
-              remaining: [],
-              uncertain: [],
-              inventoryComplete: true,
-            },
-          },
-        ),
+      run: readsUnchanged("items.target"),
     });
   }
   const first = contractFor({
@@ -668,20 +582,7 @@ test("host pattern declarations reject invalid Unicode syntax before publication
       summary: "Read pattern input.",
       input: schema(pattern, option),
       capabilities: {},
-      run: (_input, context) =>
-        context.result(
-          { commandIdentity: "items.pattern", causeCode: "SUCCESS_UNCHANGED" },
-          {
-            message: "Read.",
-            data: null,
-            effects: {
-              completed: [],
-              remaining: [],
-              uncertain: [],
-              inventoryComplete: true,
-            },
-          },
-        ),
+      run: readsUnchanged("items.pattern"),
     });
   }
   for (const option of [false, true]) {
