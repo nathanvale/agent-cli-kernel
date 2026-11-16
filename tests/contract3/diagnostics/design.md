@@ -8,7 +8,9 @@ Authority: accepted contract manifest
 `c162c9850ca506fd839ce36b2b1a8172f064516b0f229dd34a5678b366b02b9d`
 (DIAG-1 to DIAG-17, CMD-16, CMD-17, LIFE-7, LIFE-9, DISC-6, V-24); oracle
 `tests/contract3/expectations.json` in the `agent-engineering` repository at
-commit `83ac9b4186841c89914281c097ed524fd62a5919` (SHA-256
+published commit `83ac9b4186841c89914281c097ed524fd62a5919` (frozen as
+`719c89e0cd9e35629d6fb3ee918ed729166b7b57`, mapped by
+`references/contract-3/redaction-2026-11-16.md`; SHA-256
 `16e02a3ea6ba1420b1d6e47bfb6cd1327758bca161d8ddd1d818f60f544460e4`); T5
 test-design brief (SHA-256
 `257f4d8a6cc32e57160c3b08fd1ccc86e14c1c28abacfca5592d05013c3d274f`) and its
