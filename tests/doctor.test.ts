@@ -85,24 +85,50 @@ const doctor = "scripts/doctor.ts";
 const testArea = "scripts/test-area.ts";
 
 describe("doctor", () => {
-  test("a running Bun other than the pin fails, naming both versions and the repair", () => {
-    const result = run(project({ packageManager: "bun@0.0.1" }), doctor);
+  function bunRepair(pin: string) {
+    const result = run(project({ packageManager: `bun@${pin}` }), doctor);
+    const line = result.lines.find((entry) => entry.startsWith("FAIL bun: "));
+    return {
+      exitCode: result.exitCode,
+      line,
+      repair: line?.split("Repair: ")[1],
+    };
+  }
 
-    expect(result.exitCode).toBe(1);
-    expect(result.lines).toContain(
-      `FAIL bun: found Bun ${Bun.version}, pinned 0.0.1. Repair: mise exec bun@0.0.1 -- <your command>, or open a new shell, if Bun 0.0.1 is installed and another Bun is first on PATH. Otherwise install Bun 0.0.1 (mise install bun@0.0.1, or setup-bun in CI), then bun install --frozen-lockfile.`,
-    );
+  test.each([
+    ["older than", "99.0.0"],
+    ["newer than", "0.0.1"],
+  ])(
+    "a running Bun %s the pin fails, naming both versions and the repair",
+    (_order, pin) => {
+      const { exitCode, line } = bunRepair(pin);
+
+      expect(exitCode).toBe(1);
+      expect(line).toBe(
+        `FAIL bun: found Bun ${Bun.version}, pinned ${pin}. Repair: run each command as mise exec bun@${pin} -- <command>. If mise reports bun@${pin} missing, run mise install bun@${pin} first. In CI, set bun-version: ${pin} on setup-bun.`,
+      );
+    },
+  );
+
+  test.each([
+    [
+      "the pinned Bun is installed and another is first on PATH",
+      "run each command as mise exec bun@0.0.1 -- <command>.",
+    ],
+    [
+      "the pinned Bun is not installed",
+      "If mise reports bun@0.0.1 missing, run mise install bun@0.0.1 first.",
+    ],
+    ["the job runs in CI", "In CI, set bun-version: 0.0.1 on setup-bun."],
+  ])("the Bun repair covers the case where %s", (_case, route) => {
+    expect(bunRepair("0.0.1").repair).toContain(route);
   });
 
-  test("the Bun repair names the mise exec route before the install route", () => {
-    const result = run(project({ packageManager: "bun@0.0.1" }), doctor);
-    const repair = result.lines
-      .find((line) => line.startsWith("FAIL bun: "))
-      ?.split("Repair: ")[1];
+  test("every bun command in the Bun repair runs through the pinned Bun", () => {
+    const { repair } = bunRepair("0.0.1");
 
-    expect(repair).toMatch(
-      /^mise exec bun@0\.0\.1 -- <your command>.*mise install bun@0\.0\.1/,
-    );
+    expect(repair).not.toContain("new shell");
+    expect(repair?.match(/(?<!-- )\bbun (install|run|test|x)\b/g)).toBeNull();
   });
 
   test("a corepack pin with a hash suffix compares only its version", () => {
