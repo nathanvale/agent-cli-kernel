@@ -34,6 +34,16 @@ const gitEnv = {
   GIT_COMMITTER_NAME: "Fixture",
   GIT_COMMITTER_EMAIL: "fixture@example.invalid",
 };
+// A git hook runs the suite with these set, and they would point the
+// fixture's git at the caller's repository.
+const gitLocation = new Set([
+  "GIT_DIR",
+  "GIT_WORK_TREE",
+  "GIT_INDEX_FILE",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  "GIT_COMMON_DIR",
+]);
 const { scripts: production } = (await Bun.file(
   join(repository, "package.json"),
 ).json()) as { scripts: Record<string, string> };
@@ -51,6 +61,12 @@ afterAll(() => {
   for (const folder of folders) rmSync(folder, { recursive: true });
 });
 
+function inherited(): Record<string, string | undefined> {
+  return Object.fromEntries(
+    Object.entries(process.env).filter(([name]) => !gitLocation.has(name)),
+  );
+}
+
 function folder(prefix: string): string {
   const path = mkdtempSync(join(tmpdir(), prefix));
   folders.push(path);
@@ -60,7 +76,7 @@ function folder(prefix: string): string {
 function git(root: string, ...args: string[]): string {
   const result = Bun.spawnSync(["git", ...args], {
     cwd: root,
-    env: { ...process.env, ...gitEnv },
+    env: { ...inherited(), ...gitEnv },
     stdout: "pipe",
     stderr: "pipe",
   });
@@ -125,7 +141,7 @@ async function checkCommits(
       : entry,
     {
       cwd: root,
-      env: { ...process.env, ...gitEnv, TMPDIR: temporary, ...env },
+      env: { ...inherited(), ...gitEnv, TMPDIR: temporary, ...env },
       ...(signalAt === undefined ? {} : { signalAt }),
     },
   );
@@ -218,7 +234,7 @@ exec '${Bun.which("git")}' "$@"`,
 async function paste(root: string, command: string) {
   const run = await spawnBounded(["sh", "-c", command], {
     cwd: root,
-    env: { ...process.env, ...gitEnv },
+    env: { ...inherited(), ...gitEnv },
   });
   const output = run.stdout + run.stderr;
   return { exit: run.exit, output, lines: output.split("\n") };
@@ -813,6 +829,35 @@ describe("check:commits", () => {
       "persist-credentials": false,
     });
   });
+
+  test(
+    "a caller's git location variables, as a git hook sets them, never reach the fixture",
+    async () => {
+      const planted = folder("check-commits-planted-");
+      const location = {
+        GIT_DIR: join(planted, "dir"),
+        GIT_INDEX_FILE: join(planted, "index"),
+      };
+      Object.assign(process.env, location);
+      try {
+        const { root, base, commit } = repositoryAt();
+        const green = commit("green under a hook", { "a.txt": "a" });
+
+        const run = await checkCommits(root, [base.sha], {
+          CHECK_COMMITS_SINCE: base.sha,
+        });
+
+        expect(run.exit).toBe(0);
+        expect(verdicts(run.lines)).toEqual([
+          `GREEN ${green.short} green under a hook`,
+        ]);
+        expect(readdirSync(planted)).toEqual([]);
+      } finally {
+        for (const name of Object.keys(location)) delete process.env[name];
+      }
+    },
+    processWatchdog(1),
+  );
 
   test(
     "a running Bun other than the pin refuses before checking any commit",
