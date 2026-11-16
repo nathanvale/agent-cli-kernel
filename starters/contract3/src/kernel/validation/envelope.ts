@@ -9,7 +9,6 @@ import type {
 } from "../types.ts";
 import { templatesAgree } from "../guidance.ts";
 import { acceptsRootInput, parseInput } from "../input.ts";
-import { diagnostics } from "./diagnostics.ts";
 import { json, record } from "./primitives.ts";
 import { envelopeShape, typedResult } from "./result.ts";
 import { classifyVersion } from "./version.ts";
@@ -18,11 +17,7 @@ function declaredEnvelope<C extends CauseTable>(
   value: unknown,
   causes: C,
 ): value is Envelope<ResultFor<C>> {
-  return (
-    envelopeShape(value) &&
-    typedResult(value.result, causes) &&
-    (value.diagnostics === undefined || diagnostics(value.diagnostics))
-  );
+  return envelopeShape(value) && typedResult(value.result, causes);
 }
 async function commandSteps(
   cli: string,

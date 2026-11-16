@@ -1,5 +1,6 @@
 import { carriesGlobalSwitch } from "../routing.ts";
 import { exits } from "../types.ts";
+import { diagnostics } from "./diagnostics.ts";
 import type {
   CauseRow,
   CauseTable,
@@ -326,6 +327,8 @@ export function envelopeShape(value: unknown): value is Envelope {
     typeof value.contractVersion === "string" &&
     text(value.message) &&
     sortedStrings(value.availablePaths) &&
-    wireResult(value.result)
+    wireResult(value.result) &&
+    // The predicate claims Envelope, so it owns the diagnostics check (K2-6).
+    (value.diagnostics === undefined || diagnostics(value.diagnostics))
   );
 }
