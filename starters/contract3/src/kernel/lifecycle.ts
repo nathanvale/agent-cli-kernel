@@ -36,8 +36,9 @@ const cancellationMilliseconds = 500;
 const flushMilliseconds = 500;
 // Provisional reading (coordinator ruling, 16 November 2026, to be judged by
 // the T5 reviewer): a status is due only once the handler was reached, so a
-// routing, usage or approval refusal and a deadline before start carry no
-// `diagnostics` key. Set to true to give pre-handler refusals a status too.
+// usage or approval refusal and a deadline before start carry no
+// `diagnostics` key. Set to true to give every refusal of a command that
+// declares a status-reporting add-on a status too (see `refused`).
 const statusOnPreHandlerRefusal = false;
 
 const messages = {
@@ -322,6 +323,18 @@ async function kernelResult(
   };
 }
 
+// Every kernel refusal of a routed command passes here, so the provisional
+// reading above is one constant. Under the other reading the command's
+// status-reporting add-on attaches (effect-free) and its status is frozen.
+function refused(run: Run, identity: string, delivery: Delivery): Delivery {
+  if (!statusOnPreHandlerRefusal || !delivery) return delivery;
+  const plan = run.plans.get(identity);
+  const entry = plan?.addons.find((item) => item.addon.reportsStatus === true);
+  if (plan && entry && !run.reporter)
+    run.reporter = attachNow(run, plan.command, entry.addon);
+  return { ...delivery, statusDue: run.reporter !== undefined };
+}
+
 function builtin(run: Run, value: Resolved) {
   const { cli, navigation } = run.runtime;
   switch (value.commandIdentity) {
@@ -461,13 +474,11 @@ async function afterHandler(
         : outcome.path === "capabilities"
           ? "INTERNAL_PREPARATION"
           : "USAGE_INVALID_INVOCATION";
-    const refusal = await kernelResult(
+    return refused(
       run,
       identity,
-      causeCode,
-      messages[causeCode],
+      await kernelResult(run, identity, causeCode, messages[causeCode]),
     );
-    return refusal && { ...refusal, statusDue: statusOnPreHandlerRefusal };
   }
   if (!outcome.ok)
     return {
@@ -508,11 +519,15 @@ async function dispatch(run: Run, value: Resolved): Promise<Delivery> {
   const deadline = value.deadlineMilliseconds;
   // CMD-9 step 4.
   if (deadline !== undefined && run.host.now() - run.startedAt >= deadline)
-    return kernelResult(
+    return refused(
       run,
       identity,
-      "DOMAIN_DEADLINE_BEFORE_START",
-      messages.DOMAIN_DEADLINE_BEFORE_START,
+      await kernelResult(
+        run,
+        identity,
+        "DOMAIN_DEADLINE_BEFORE_START",
+        messages.DOMAIN_DEADLINE_BEFORE_START,
+      ),
     );
   if (run.stopped) return undefined;
   const context = capabilities(run, plan);
@@ -539,11 +554,15 @@ async function dispatch(run: Run, value: Resolved): Promise<Delivery> {
 async function route(run: Run, resolution: Resolution): Promise<Delivery> {
   if (!resolution.ok) {
     run.commandIdentity = resolution.commandIdentity;
-    return kernelResult(
+    return refused(
       run,
       resolution.commandIdentity,
-      resolution.causeCode,
-      messages[resolution.causeCode],
+      await kernelResult(
+        run,
+        resolution.commandIdentity,
+        resolution.causeCode,
+        messages[resolution.causeCode],
+      ),
     );
   }
   const value = resolution.value;

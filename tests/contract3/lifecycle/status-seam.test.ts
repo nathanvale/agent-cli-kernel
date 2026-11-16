@@ -61,8 +61,9 @@ const statusUnavailable = {
 };
 
 // Provisional reading (coordinator ruling, to be judged by the T5 reviewer):
-// a routing or usage refusal and a deadline before start carry no key.
-// Change this one line if the reading is overturned.
+// a usage refusal and a deadline before start of a declaring command carry
+// no key. If the reading is overturned, change this one line to
+// `ownAvailable` (and the kernel's `statusOnPreHandlerRefusal` to true).
 const preDispatchStatus: unknown = undefined;
 
 async function runStatus(
@@ -215,8 +216,21 @@ describe("DS04 and DS05 when the key is absent", () => {
     },
     timeout,
   );
+  // An unknown command declares nothing: no key under either reading.
+  test(
+    "DS05.pre-dispatch-results-carry-no-key routing",
+    async () => {
+      const observed = await runStatus(["nope", "--json"], "available");
+      const { envelope, result } = parsed(observed);
+      expect(result.outcome).toBe("refused");
+      expect(envelope).not.toHaveProperty("diagnostics");
+      expect(observed.ledger.some((entry) => entry.startsWith("status-"))).toBe(
+        false,
+      );
+    },
+    timeout,
+  );
   for (const [variant, argv, env] of [
-    ["routing", ["nope", "--json"], {}],
     ["usage", ["report", "--wait-ms", "0", "--json"], {}],
     [
       "deadline-before-start",
