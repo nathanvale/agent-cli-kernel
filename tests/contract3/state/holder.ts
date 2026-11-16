@@ -9,6 +9,8 @@
 // - Negative controls (expectations 4.5): lockf(F_TLOCK), a POSIX record
 //   lock owned by the process, which fails C4a and C4c by mechanism; and a
 //   holder that hands its locked descriptor to a child, which fails C4b.
+//   (A close-on-exec-cleared twin cannot fail through Bun.spawn, which
+//   passes no descriptor beyond stdio; DESIGN.md section 7.)
 import { dlopen, read } from "bun:ffi";
 import { closeSync, constants, openSync } from "node:fs";
 
@@ -20,13 +22,11 @@ const library = linux ? "libc.so.6" : "libSystem.B.dylib";
 const lockExclusive = 2; // LOCK_EX
 const lockNonBlocking = 4; // LOCK_NB
 const testLock = 2; // F_TLOCK
-const setDescriptorFlags = 2; // F_SETFD (Linux)
 const contention: readonly number[] = linux ? [11, 13] : [35, 13]; // EAGAIN, EACCES
 
 type Calls = {
   readonly flock: (fd: number, operation: number) => number;
   readonly lockf: (fd: number, command: number, length: bigint) => number;
-  readonly clearCloseOnExec: ((fd: number) => number) | undefined;
   readonly errno: () => number;
 };
 
@@ -43,15 +43,11 @@ function loadLinux(): Calls {
   const { symbols } = dlopen(library, {
     flock: { args: ["i32", "i32"], returns: "i32" },
     lockf: { args: ["i32", "i32", "i64"], returns: "i32" },
-    // fcntl is variadic; a fixed three-integer signature is sound on Linux
-    // x86_64 and aarch64 only, never on Darwin arm64.
-    fcntl: { args: ["i32", "i32", "i32"], returns: "i32" },
     __errno_location: { args: [], returns: "ptr" },
   });
   return {
     flock: (fd, operation) => symbols.flock(fd, operation),
     lockf: (fd, command, length) => symbols.lockf(fd, command, length),
-    clearCloseOnExec: (fd) => symbols.fcntl(fd, setDescriptorFlags, 0),
     errno: errnoReader(() => symbols.__errno_location()),
   };
 }
@@ -65,7 +61,6 @@ function loadDarwin(): Calls {
   return {
     flock: (fd, operation) => symbols.flock(fd, operation),
     lockf: (fd, command, length) => symbols.lockf(fd, command, length),
-    clearCloseOnExec: undefined,
     errno: errnoReader(() => symbols.__error()),
   };
 }
@@ -157,12 +152,6 @@ export function attemptPosixLock(path: string): Attempt {
   if (!calls) return { kind: "error", code: "no-test-route" };
   const fd = openSync(path, plainFlags, 0o600);
   return fromCall(fd, calls.lockf(fd, testLock, 0n));
-}
-
-// Negative control helper (Linux only): clear close-on-exec on a held
-// descriptor so a plainly spawned child could inherit it.
-export function clearCloseOnExec(fd: number): boolean {
-  return calls?.clearCloseOnExec?.(fd) === 0;
 }
 
 // Holds the coordination lock on `path`; throws when it is not acquired.

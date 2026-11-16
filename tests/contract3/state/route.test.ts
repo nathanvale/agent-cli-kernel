@@ -86,6 +86,8 @@ function start(route: string, mode: string, file: string, option = ""): Worker {
     exited: child.exited,
     kill: (signal) => child.kill(signal),
     async report() {
+      // A worker reports within milliseconds; 30 s stays under the case's
+      // 90 s timeout (caseTest), so a hang fails here with a reason.
       const until = Date.now() + 30_000;
       while (!existsSync(report)) {
         if (exited) {
@@ -211,9 +213,12 @@ caseTest("C01.b-coordination-nonblocking", async () => {
   const contender = await attempt("addon", file);
   const waited = performance.now() - heldSince;
   expect(contender.result).toBe("refused");
+  // Linux expectations section 3.3, C2: a refusal in under 100 ms.
   expect(Number(contender.elapsedMs)).toBeLessThan(100);
   // It returned while the holder still held (the holder never released).
   expect(alive(worker.pid)).toBe(true);
+  // Bounded well below a blocking wait: a blocking contender returns only
+  // when the holder (killed below, never released) goes away.
   expect(waited).toBeLessThan(2_000);
   await killed(worker);
 });
@@ -277,6 +282,8 @@ caseTest("C01.g-stopped-holder-still-holds", async () => {
   // deliver SIGSTOP (observed on this Mac, 16 November 2026).
   process.kill(worker.pid, "SIGSTOP");
   try {
+    // SIGSTOP takes effect within milliseconds; 5 s is a generous bound
+    // that still fails well inside the case timeout.
     const until = Date.now() + 5_000;
     while (state(worker.pid) !== "T" && Date.now() < until) await Bun.sleep(5);
     expect(state(worker.pid)).toBe("T");

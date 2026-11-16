@@ -1,6 +1,12 @@
-// LABELLED PROBE (test-only): candidate coordination locks for the state
-// add-on on Linux and macOS. It changes no production code and asserts no
-// winner. It PRINTS one line per observation in the grammar of
+// OBSERVATION INSTRUMENT, NOT A TEST OF BEHAVIOUR. A passing row here
+// proves nothing by itself: the rows pass whatever the candidates do, and
+// fail only when the instrument itself breaks. Its value is the PROBE lines
+// it prints, which a reviewer judges against t3-linux/expectations.md (the
+// hosted Linux qualification keeps them). The state add-on's behaviour is
+// proved by the case table (C01 and the rebound cases), not here.
+//
+// Candidate coordination locks for the state add-on on Linux and macOS. It
+// changes no production code and asserts no winner. It PRINTS one line per observation in the grammar of
 // t3-linux/expectations.md section 3:
 //   PROBE <candidate> <property> <observation> [key=value ...]
 //   PROBE <candidate> <property> UNOBSERVED <reason>
@@ -275,7 +281,9 @@ function probeFolders(): readonly { label: string; path: string }[] {
 
 const probeFolderList = probeFolders();
 
-test("PROBE environment", () => {
+const label = "OBSERVATION ONLY, proves nothing by itself:";
+
+test(`${label} PROBE environment`, () => {
   line(`env platform ${process.platform}`);
   line(`env arch ${process.arch}`);
   line(`env kernel ${release()}`);
@@ -296,17 +304,16 @@ test("PROBE environment", () => {
 for (const folder of probeFolderList)
   for (const candidate of candidates)
     test(
-      `PROBE ${candidate} in ${folder.label}`,
+      `${label} PROBE ${candidate} in ${folder.label}`,
       () => observe(candidate, folder.label, folder.path),
       120_000,
     );
 
-test("PROBE error codes", () => {
+test(`${label} PROBE error codes`, () => {
   for (const candidate of candidates)
     line(
       `${candidate} error-codes ${[...(errorCodes.get(candidate) ?? [])].sort().join(",") || "none"}`,
     );
-  expect(errorCodes.size).toBeGreaterThanOrEqual(0);
 });
 
 // ---- Properties ------------------------------------------------------------

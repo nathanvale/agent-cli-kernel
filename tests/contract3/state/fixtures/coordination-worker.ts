@@ -8,7 +8,6 @@
 //          posix-control   lockf(F_TLOCK): process-owned (negative control)
 //          shared-control  test holder; the child gets the locked descriptor
 //                          as its stdin (negative control for C4b)
-//          cloexec-control test holder with close-on-exec cleared (Linux)
 //   mode   hold            acquire, report, stay alive until killed. option
 //                          "other-descriptor": open the file again and close
 //                          that descriptor first; "child": spawn a
@@ -24,7 +23,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { resolveCoordination } from "../../../../starters/contract3/src/addons/state/coordination.ts";
-import { attemptLock, attemptPosixLock, clearCloseOnExec } from "../holder.ts";
+import { attemptLock, attemptPosixLock } from "../holder.ts";
 import type { Attempt } from "../holder.ts";
 
 const [route = "", mode = "", file = "", report = "", option = ""] =
@@ -78,7 +77,6 @@ function take(path: string): { outcome: Outcome; keep: () => void } {
     case "posix-control":
       return fromTest(attemptPosixLock(path));
     case "shared-control":
-    case "cloexec-control":
       return fromTest(attemptLock(path));
     default:
       throw new Error(`Unknown route ${route}.`);
@@ -100,8 +98,6 @@ function stayAlive(): void {
 
 function spawnChild(fd: number | null): number {
   const sharing = route === "shared-control" && fd !== null;
-  if (route === "cloexec-control" && (fd === null || !clearCloseOnExec(fd)))
-    throw new Error("close-on-exec could not be cleared on this platform");
   const child = Bun.spawn(
     [process.execPath, "-e", "setInterval(() => {}, 1000000)"],
     {

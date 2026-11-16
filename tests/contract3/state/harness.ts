@@ -68,7 +68,13 @@ async function failClosedControl(): Promise<void> {
     const run = await world.run(["apply", "a", "--content", "x", "--json"]);
     expect(run.exit).toBe(3);
     expect(run.result.causeCode).toBe("DOMAIN_SX_UNAVAILABLE");
-    expect(run.envelope.message).toContain("coordination-unqualified-platform");
+    // The reason the add-on gives without a qualified route: Linux has a
+    // route whose self-check failed; any other platform has none.
+    expect(run.envelope.message).toContain(
+      process.platform === "linux"
+        ? "coordination-self-check-failed"
+        : "coordination-unqualified-platform",
+    );
     expect(world.ledger()).toEqual([]);
     // Fail closed before any write: the state root was never created.
     expect(existsSync(world.root)).toBe(false);

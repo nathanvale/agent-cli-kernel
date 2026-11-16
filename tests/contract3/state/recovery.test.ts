@@ -577,10 +577,15 @@ caseTest(
       ),
     );
     expectRefusedUnchanged(refused, "DOMAIN_SX_UNAVAILABLE");
-    if (coordinationExpected)
-      expect(str(refused.envelope.message)).toContain(
-        "human-assisted-takeover-unqualified",
-      );
+    // O10.b runs on every platform: with a route it reaches the takeover
+    // gate; without one it refuses earlier, for that reason.
+    expect(str(refused.envelope.message)).toContain(
+      coordinationExpected
+        ? "human-assisted-takeover-unqualified"
+        : process.platform === "linux"
+          ? "coordination-self-check-failed"
+          : "coordination-unqualified-platform",
+    );
     expect(readFileSync(attestation, "utf8")).toBe(content);
     expect(world.operations()).toEqual([]);
   }),
