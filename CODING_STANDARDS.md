@@ -81,30 +81,41 @@ now enforces.
 
 - Lint `repository/require-to-throw-message` refuses `toThrow()`,
   `toThrowError()` and `rejects.toThrow()` in `tests/` with no argument, or
-  with one that names no message: `undefined`, an empty string, or a regular
-  expression that matches a lone NUL character, as `/.*/`, `/.+/`, `/^/` and
-  `/(?:)/` do. `.not.toThrow()` passes.
+  with one that names no message: `undefined` or `void 0`, an empty string,
+  or a regular expression that matches a lone NUL character, as `/.*/`,
+  `/.+/`, `/^/` and `/(?:)/` do. It reads through a type-only wrapper such
+  as `undefined as never`. `.not.toThrow()` passes.
 - A message that another guard also throws stays review. So do an error
   class or `expect.anything()` as the argument, a refusal asserted without
   `toThrow`, and input that more than one guard refuses.
+- Review only, because the argument is built at run time: `new RegExp("")`,
+  `String()`, a template with an expression such as `${""}`, and
+  `expect.stringContaining("")`.
 - Witnessed: [185c90d].
 
 ### Time
 
 - Lint `repository/tests-no-sleep` refuses, in `tests/`: `Bun.sleep` and
-  `Bun.sleepSync`; the `node:timers/promises` `setTimeout` import; a
+  `Bun.sleepSync`, also as `Bun["sleep"]` or destructured from `Bun`; the `node:timers/promises` `setTimeout` import; a
   default, namespace, `import()` or `require()` of that module.
 - It also refuses a `setTimeout` inside a `new Promise` executor whose
   callback is the executor's `resolve`, or a function whose only statement
-  calls `resolve()` or `resolve(undefined)`. It traces `setTimeout` to the
-  global, `globalThis` or `node:timers`, under any import name.
-- A `setTimeout` that rejects, aborts or resolves with another value passes
-  as a bounded watchdog. So does one whose handle reaches `clearTimeout`,
-  as in `spawnBounded`: an awaited delay never needs clearing.
-- Review only: a `Date.now()` poll, a race control too narrow to catch its
-  fault, a callback that resolves another way (`r.bind(null)`, `void 0`),
-  `sleep` destructured from `Bun`, and `scheduler.wait` from a named
+  calls `resolve()`, `resolve(undefined)` or `resolve(void 0)`, or that
+  passes `resolve` with no value after the delay. It traces `setTimeout` to
+  the global, `globalThis` or `node:timers`, under any import name, through
+  aliases, `(0, setTimeout)` and type-only wrappers.
+- A `setTimeout` that rejects, aborts or resolves with a value passes as a
+  bounded watchdog, as in `spawnBounded`, which resolves `"expired"`.
+  `setTimeout(resolve, ms, "timeout")` resolves a value too. Clearing the
+  handle does not admit a delay: an awaited delay runs to its end first.
+- Review only: `setInterval`, `Atomics.wait`, a `Date.now()` poll, a race
+  control too narrow to catch its fault, and `scheduler.wait` from a named
   `node:timers/promises` import.
+- Also review only: a resolver from `Promise.withResolvers`, a resolver
+  pulled out of its promise or aliased inside the executor, a callback that
+  resolves another way (`r.bind(null)`, `() => void r()`, `(r(), 0)`, a
+  body of more than one statement), and a timer reached through `window`,
+  `Bun.setTimeout` or a computed key.
 - Witnessed: [d1436c0].
 
 ### Untrusted values
