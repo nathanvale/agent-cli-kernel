@@ -1,3 +1,144 @@
+import { posix } from "node:path";
+import ts from "typescript";
+
+const localeNames = new Set(["localeCompare", "Collator"]);
+const contractRoot = /^(.*\/starters\/contract3\/src)\//;
+const comparisons = new Set(["===", "!==", "==", "!="]);
+const folding = new Set(["TemplateLiteral", "BinaryExpression"]);
+const comma = { type: "Literal", value: "," };
+const ownerKeys = new WeakMap();
+
+// The string a source spells from constants only: literals, + and templates
+// over them, [...].join(separator), and const bindings to any of these.
+function constantText(context, node, depth = 0) {
+  if (!node || depth > 8) return undefined;
+  return folders[node.type]?.(context, node, depth + 1);
+}
+
+function foldAll(context, nodes, depth) {
+  const parts = nodes.map((node) => constantText(context, node, depth));
+  return parts.includes(undefined) ? undefined : parts;
+}
+
+function findVariable(scope, name) {
+  for (let current = scope; current; current = current.upper) {
+    const variable = current.set.get(name);
+    if (variable) return variable;
+  }
+  return undefined;
+}
+
+const folders = {
+  Literal: (context, node) =>
+    typeof node.value === "string" ? node.value : undefined,
+  TemplateLiteral(context, node, depth) {
+    const parts = foldAll(context, node.expressions, depth);
+    return parts
+      ?.map((part, index) => node.quasis[index].value.cooked + part)
+      .concat(node.quasis.at(-1).value.cooked)
+      .join("");
+  },
+  BinaryExpression(context, node, depth) {
+    if (node.operator !== "+") return undefined;
+    return foldAll(context, [node.left, node.right], depth)?.join("");
+  },
+  CallExpression(context, { callee, arguments: args }, depth) {
+    const list = callee.property?.name === "join" ? callee.object : undefined;
+    if (list?.type !== "ArrayExpression") return undefined;
+    const parts = foldAll(
+      context,
+      [...args, comma].concat(list.elements),
+      depth,
+    );
+    return parts?.slice(args.length + 1).join(parts[0]);
+  },
+  Identifier(context, node, depth) {
+    const definition = findVariable(
+      context.sourceCode.getScope(node),
+      node.name,
+    )?.defs[0];
+    const simple =
+      definition?.parent?.kind === "const" &&
+      definition.node.id === definition.name;
+    return simple
+      ? constantText(context, definition.node.init, depth)
+      : undefined;
+  },
+};
+
+// Only the outermost constant expression is judged, so a code built from
+// parts is reported once.
+function outermost(context, node) {
+  return (
+    !folding.has(node.parent?.type) ||
+    constantText(context, node.parent) === undefined
+  );
+}
+
+function typeServices(context) {
+  const services = context.sourceCode.parserServices;
+  return services?.program ? services : undefined;
+}
+
+function members(type) {
+  return type.isUnion() ? type.types : [type];
+}
+
+function closedStrings(type) {
+  const parts = members(type);
+  const absent = ts.TypeFlags.Undefined | ts.TypeFlags.Null;
+  return (
+    parts.some((part) => part.isStringLiteral()) &&
+    parts.every((part) => part.isStringLiteral() || part.flags & absent)
+  );
+}
+
+function readCauseKeys(program, checker, path) {
+  const declaration = program
+    .getSourceFile(path)
+    ?.statements.filter(ts.isVariableStatement)
+    .flatMap((statement) => statement.declarationList.declarations)
+    .find(
+      (item) => ts.isIdentifier(item.name) && item.name.text === "commonCauses",
+    );
+  const properties = declaration
+    ? checker.getTypeAtLocation(declaration.name).getProperties()
+    : [];
+  return new Set(properties.map((property) => property.name));
+}
+
+function commonCauseKeys(program, checker, path) {
+  const cache = ownerKeys.get(program) ?? new Map();
+  ownerKeys.set(program, cache);
+  if (!cache.has(path)) cache.set(path, readCauseKeys(program, checker, path));
+  return cache.get(path);
+}
+
+const partners = {
+  BinaryExpression: (parent, node) =>
+    comparisons.has(parent.operator)
+      ? [parent.left, parent.right].find((side) => side !== node)
+      : undefined,
+  SwitchCase: (parent, node) =>
+    parent.test === node ? parent.parent.discriminant : undefined,
+};
+
+function ownerImport(context, file, root) {
+  const imported = context.sourceCode.scopeManager.scopes.some(
+    (scope) => scope.type === "module" && scope.set.has("commonCauses"),
+  );
+  if (imported) return "";
+  const owner = file.startsWith(`${root}/kernel/`) ? "causes.ts" : "index.ts";
+  const from = posix.relative(posix.dirname(file), `${root}/kernel/${owner}`);
+  return `import type { commonCauses } from "${from.startsWith(".") ? from : `./${from}`}"; `;
+}
+
+function camelName(code) {
+  return code
+    .toLowerCase()
+    .replace(/_([a-z0-9])/g, (_, letter) => letter.toUpperCase());
+}
+
 const causeShape =
   /^(?:SUCCESS|USAGE|SCHEMA|DOMAIN|TRANSIENT|INTERNAL)_[A-Z0-9_]+$/;
 const causeOwners = /\/kernel\/(?:causes|state-causes|stations)\.ts$/;
@@ -10,16 +151,28 @@ export default {
         schema: [],
         messages: {
           locale:
-            "Compare code units with < and >, as in (a, b) => (a < b ? -1 : a > b ? 1 : 0). localeCompare and Intl.Collator tie distinct keys and follow the runtime collation.",
+            "localeCompare and Intl.Collator tie distinct keys and follow the runtime collation. Compare code units with < and >. Fix: (a, b) => (a < b ? -1 : a > b ? 1 : 0)",
         },
       },
       create(context) {
-        return {
-          "MemberExpression[property.name='localeCompare'], MemberExpression[property.value='localeCompare'], MemberExpression[object.name='Intl'][property.name='Collator']"(
-            node,
-          ) {
+        const report = (node, name) => {
+          if (localeNames.has(name))
             context.report({ node, messageId: "locale" });
+        };
+        const constant = (node) => {
+          if (outermost(context, node))
+            report(node, constantText(context, node));
+        };
+        return {
+          "MemberExpression[computed=false]"(node) {
+            report(node.property, node.property.name);
           },
+          "ObjectPattern > Property[computed=false]"(node) {
+            report(node.key, node.key.name);
+          },
+          Literal: constant,
+          TemplateLiteral: constant,
+          "BinaryExpression[operator='+']": constant,
         };
       },
     },
@@ -28,15 +181,56 @@ export default {
         type: "problem",
         schema: [],
         messages: {
-          in: "Check own data with Object.hasOwn on a snapshot of own data, not the in operator, and read the value as unknown: Object.hasOwn(value, key) ? Reflect.get(value, key) : undefined. The in operator also finds Object.prototype members such as toString.",
+          in: "{{key}} is not declared on this type, and {{how}} also finds inherited members such as toString. Read own data as unknown. Fix: const ownValue: unknown = Object.hasOwn({{target}}, {{key}}) ? Reflect.get({{target}}, {{key}}) : undefined;",
+          forIn:
+            "for...in also walks inherited enumerable keys. Walk own keys. Fix: for (const key of Object.keys({{target}}))",
         },
       },
       create(context) {
+        const services = typeServices(context);
+        if (!services) return {};
+        const checker = services.program.getTypeChecker();
+        const text = (node) => context.sourceCode.getText(node);
+        // A key every union member leaves undeclared is a probe of unknown
+        // shape. Narrowing a union by a key one member declares is not.
+        const declared = (keyNode, targetNode) => {
+          const keys = members(services.getTypeAtLocation(keyNode));
+          const targets = members(services.getTypeAtLocation(targetNode)).map(
+            (type) => checker.getApparentType(type),
+          );
+          return keys.every(
+            (key) =>
+              key.isStringLiteral() &&
+              targets.some((type) =>
+                checker.getPropertyOfType(type, key.value),
+              ),
+          );
+        };
+        const check = (node, keyNode, targetNode, how) => {
+          if (!declared(keyNode, targetNode))
+            context.report({
+              node,
+              messageId: "in",
+              data: { key: text(keyNode), target: text(targetNode), how },
+            });
+        };
         return {
           "BinaryExpression[operator='in']:not([left.type='PrivateIdentifier'])"(
             node,
           ) {
-            context.report({ node, messageId: "in" });
+            check(node, node.left, node.right, "the in operator");
+          },
+          "CallExpression[callee.object.name='Reflect'][callee.property.name='has'][arguments.length=2]"(
+            node,
+          ) {
+            check(node, node.arguments[1], node.arguments[0], "Reflect.has");
+          },
+          ForInStatement(node) {
+            context.report({
+              node,
+              messageId: "forIn",
+              data: { target: text(node.right) },
+            });
           },
         };
       },
@@ -46,26 +240,56 @@ export default {
         type: "problem",
         schema: [],
         messages: {
-          kernel:
-            'Cause code "{{code}}" is copied here. Import it from its owner: kernel/causes.ts (commonCauses), kernel/state-causes.ts (deadlineCause, internalResultCause, internalResultCode) or kernel/stations.ts (reservedFallbackCause). If the owner has no export for it, add one there.',
-          host: 'Cause code "{{code}}" is copied here. Outside the kernel, read cause data from the kernel public index (kernel/index.ts exports commonCauses), never a restated literal.',
+          free: 'Cause code "{{code}}" is a free string here, so a renamed or removed code still compiles. Type it with the owner\'s keys and use {{name}} in its place. Fix: {{imports}}const {{name}}: keyof typeof commonCauses = "{{code}}";',
         },
       },
       create(context) {
         const file = context.filename.replaceAll("\\", "/");
-        if (causeOwners.test(file)) return {};
-        const messageId = file.includes("/kernel/") ? "kernel" : "host";
-        const check = (node, code) => {
-          if (causeShape.test(code))
-            context.report({ node, messageId, data: { code } });
+        const root = contractRoot.exec(file)?.[1];
+        const services = typeServices(context);
+        if (!root || !services || causeOwners.test(file)) return {};
+        const checker = services.program.getTypeChecker();
+        const keys = commonCauseKeys(
+          services.program,
+          checker,
+          `${root}/kernel/causes.ts`,
+        );
+        const closed = (node) =>
+          node !== undefined && closedStrings(services.getTypeAtLocation(node));
+        // The compiler already ties a literal whose place, or whose
+        // comparison partner, accepts only listed string literals.
+        const tied = (node) => {
+          const contextual = checker.getContextualType(
+            services.esTreeNodeToTSNodeMap.get(node),
+          );
+          return (
+            (contextual !== undefined && closedStrings(contextual)) ||
+            closed(partners[node.parent.type]?.(node.parent, node))
+          );
+        };
+        const judged = (node) =>
+          node.parent?.type !== "TSLiteralType" && outermost(context, node);
+        const causeAt = (node) => {
+          const code = judged(node) ? constantText(context, node) : undefined;
+          return keys.has(code) && causeShape.test(code) && !tied(node)
+            ? code
+            : undefined;
+        };
+        const imports = ownerImport(context, file, root);
+        const check = (node) => {
+          const code = causeAt(node);
+          if (code)
+            context.report({
+              node,
+              messageId: "free",
+              data: { code, name: camelName(code), imports },
+            });
         };
         return {
-          ":not(TSLiteralType) > Literal"(node) {
-            if (typeof node.value === "string") check(node, node.value);
-          },
-          "TemplateLiteral[expressions.length=0]"(node) {
-            check(node, node.quasis[0].value.cooked);
-          },
+          Literal: check,
+          TemplateLiteral: check,
+          "BinaryExpression[operator='+']": check,
+          "CallExpression[callee.property.name='join']": check,
         };
       },
     },
