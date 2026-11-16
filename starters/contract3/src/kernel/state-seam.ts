@@ -302,9 +302,13 @@ export function attachState<Effect extends string>(
   descriptor: StateAddonDescriptor,
   runId: string,
   effects: readonly Effect[],
-): import("./capabilities.ts").StateCapability<Effect> {
+): {
+  readonly capability: import("./capabilities.ts").StateCapability<Effect>;
+  readonly close: () => void;
+} {
   const state = registrations.get(descriptor);
   if (!state) throw new Error("Unadmitted state descriptor.");
+  let open = true;
   const run = Object.freeze({});
   const status: AttachedRun = {
     transactionStarted: false,
@@ -316,6 +320,12 @@ export function attachState<Effect extends string>(
   const capability: import("./capabilities.ts").StateCapability<Effect> =
     Object.freeze({
       transaction(work) {
+        // Refused once the handler has returned: its result already exists,
+        // and a refusal must precede any attempted change (WIRE-15).
+        if (!open)
+          return Promise.reject(
+            new Error("The state capability closed when the handler returned."),
+          );
         // Refused before the work starts, so overlapping and later calls
         // cannot complete an effect the first proof does not report.
         if (status.transactionStarted)
@@ -327,7 +337,12 @@ export function attachState<Effect extends string>(
       },
     });
   capabilities.set(capability, [...effects]);
-  return capability;
+  return {
+    capability,
+    close: () => {
+      open = false;
+    },
+  };
 }
 
 const capabilities = new WeakMap<object, readonly string[]>();

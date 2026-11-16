@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { materialise } from "./harness.ts";
 import { runScenario } from "./swarm-process.ts";
@@ -146,6 +147,57 @@ test(
         completed: [],
       },
     });
+  },
+  processTimeout,
+);
+
+test(
+  "X-K2S3.closed-after-result: no effect is applied after a refusal that said unchanged",
+  async () => {
+    // WIRE-15: a refusal precedes any attempted change; WIRE-12: unchanged is
+    // a confirmed no-change. The handler queues a transaction behind N
+    // microtask hops and returns HELD at once; the transaction's work writes
+    // `effect-applied` to an independent ledger the parent reads after exit.
+    const ledgers = await mkdtemp(join(tmpdir(), "contract3-swarm-ledger-"));
+    try {
+      const observed: {
+        hops: number;
+        refusedUnchanged: boolean;
+        ledger: string[];
+      }[] = [];
+      for (const hops of [8, 12, 16, 20])
+        for (let round = 0; round < 3; round++) {
+          const ledger = join(ledgers, `${hops}-${round}.txt`);
+          const child = await run("late-transaction", ["apply", "--json"], {
+            HOPS: String(hops),
+            LEDGER: ledger,
+          });
+          expect(child.stderr).toBe("");
+          const lines = (await readFile(ledger, "utf8").catch(() => ""))
+            .split("\n")
+            .filter((line) => line !== "");
+          observed.push({
+            hops,
+            refusedUnchanged:
+              child.result?.outcome === "refused" &&
+              child.result.transactionState === "unchanged",
+            ledger: lines,
+          });
+        }
+      expect(observed).toHaveLength(12);
+      // Every run entered the handler and printed one envelope.
+      for (const entry of observed)
+        expect(entry.ledger).toContain("handler-returned");
+      // No run printed refused-unchanged beside an applied effect.
+      expect(
+        observed.filter(
+          (entry) =>
+            entry.refusedUnchanged && entry.ledger.includes("effect-applied"),
+        ),
+      ).toEqual([]);
+    } finally {
+      await rm(ledgers, { recursive: true, force: true });
+    }
   },
   processTimeout,
 );

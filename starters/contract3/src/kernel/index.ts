@@ -279,23 +279,20 @@ export function contractFor<
         path: "runId",
         reason: "run identity already attached",
       } as const;
+    const attached =
+      selected.effectClass !== "inspect" && spec.state
+        ? attachState(spec.state, runId, selected.effects ?? [])
+        : undefined;
     const executionContext =
       selected.effectClass === "inspect"
         ? context
-        : withState(
-            context,
-            spec.state
-              ? attachState(spec.state, runId, selected.effects ?? [])
-              : undefined,
-          );
+        : withState(context, attached?.capability);
     const invocation = Object.freeze({});
-    const outcome = await selected.execute(
-      argv,
-      executionContext,
-      runId,
-      invocation,
-      inputRegistration,
-    );
+    // WIRE-15: the capability closes when the handler returns, so no
+    // transaction can start after the result exists (K2-spec-3).
+    const outcome = await selected
+      .execute(argv, executionContext, runId, invocation, inputRegistration)
+      .finally(() => attached?.close());
     if (!outcome.ok) return outcome;
     if (!resultMatches(outcome.value, identity, runId, invocation))
       return {
