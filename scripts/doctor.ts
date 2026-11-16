@@ -16,7 +16,7 @@ async function pinnedBun(root: string): Promise<string | undefined> {
     const manifest = (await Bun.file(join(root, "package.json")).json()) as {
       packageManager?: unknown;
     };
-    return /^bun@(.+)$/.exec(String(manifest.packageManager))?.[1];
+    return /^bun@([^+]+)/.exec(String(manifest.packageManager))?.[1];
   } catch {
     return undefined;
   }
@@ -29,7 +29,7 @@ async function bunVersion(root: string): Promise<Finding> {
       status: "FAIL",
       check: "bun",
       detail:
-        "package.json has no packageManager pin of the form bun@<version>.",
+        'package.json has no packageManager pin of the form bun@<version>. Repair: add "packageManager": "bun@<version>" to package.json.',
     };
   if (pinned === Bun.version)
     return {
@@ -60,7 +60,8 @@ function toolchain(root: string): Finding {
         "node_modules resolves the accepted lint, compiler and semantic backends.",
     };
   } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
+    const message = error instanceof Error ? error.message : String(error);
+    const reason = message.split("\n")[0]?.replace(/\.?$/, ".");
     return {
       status: "FAIL",
       check: "toolchain",
@@ -89,4 +90,5 @@ export async function doctor(root: string): Promise<boolean> {
   return findings.every((finding) => finding.status !== "FAIL");
 }
 
-if (import.meta.main) process.exitCode = (await doctor(process.cwd())) ? 0 : 1;
+if (import.meta.main)
+  process.exitCode = (await doctor(join(import.meta.dir, ".."))) ? 0 : 1;
