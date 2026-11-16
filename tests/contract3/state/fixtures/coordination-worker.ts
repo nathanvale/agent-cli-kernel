@@ -11,14 +11,18 @@
 //   mode   hold            acquire, report, stay alive until killed. option
 //                          "other-descriptor": open the file again and close
 //                          that descriptor first; "child": spawn a
-//                          long-lived child and report its pid.
-//          try             one attempt; report result, code, elapsed time.
+//                          long-lived child and report its pid;
+//                          "native-child": the same, started by the C
+//                          library's system(), outside Bun.spawn.
+//          try            one attempt; report result, code, elapsed time.
 //          same-process    acquire, then a second open in this process
 //                          attempts; report the second result.
+import { dlopen } from "bun:ffi";
 import {
   closeSync,
   constants,
   openSync,
+  readFileSync,
   renameSync,
   writeFileSync,
 } from "node:fs";
@@ -110,6 +114,21 @@ function spawnChild(fd: number | null): number {
   return child.pid;
 }
 
+// system() starts the shell with every descriptor that is not close-on-exec,
+// so this child holds the lock unless the route set the flag itself
+// (accepted decision BN-03, 17 November 2026).
+function spawnNativeChild(): number {
+  const pidFile = `${report}.child`;
+  const library =
+    process.platform === "linux" ? "libc.so.6" : "libSystem.B.dylib";
+  const { symbols } = dlopen(library, {
+    system: { args: ["cstring"], returns: "i32" },
+  });
+  const command = `/bin/sleep 1000 </dev/null >/dev/null 2>&1 & echo $! > '${pidFile}'`;
+  symbols.system(Buffer.from(`${command}\0`));
+  return Number(readFileSync(pidFile, "utf8").trim());
+}
+
 function hold(): void {
   const taken = take(file);
   retained.push(taken.keep());
@@ -121,10 +140,14 @@ function hold(): void {
     );
     closeSync(second);
   }
-  const child =
-    option === "child" && taken.outcome.result === "acquired"
+  const acquired = taken.outcome.result === "acquired";
+  const child = !acquired
+    ? null
+    : option === "child"
       ? spawnChild(taken.outcome.fd)
-      : null;
+      : option === "native-child"
+        ? spawnNativeChild()
+        : null;
   writeReport({ ...taken.outcome, child });
   stayAlive();
 }
