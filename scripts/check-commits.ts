@@ -22,7 +22,10 @@ type Result =
   | { status: "red"; failed: Step; output: string };
 type Checked = Commit & { result: Result };
 
-const active: { dir?: string; child?: Subprocess } = {};
+// A terminal sends SIGINT on Ctrl-C and SIGHUP when it closes. A CI runner
+// cancels with SIGINT, then SIGTERM. SIGKILL cannot be caught.
+const signals = ["SIGHUP", "SIGINT", "SIGTERM"] as const;
+const active: { child?: Subprocess; stoppedBy?: (typeof signals)[number] } = {};
 // `bun run` puts the caller's node_modules/.bin folders on PATH. A commit is
 // judged only with what its own tree installs, so its steps never see them.
 const ownTools = {
@@ -77,12 +80,11 @@ async function run(cwd: string, step: Step) {
     child.exited,
   ]);
   delete active.child;
-  return { ok: exitCode === 0, output: stdout + stderr };
+  return { exitCode, signalCode: child.signalCode, output: stdout + stderr };
 }
 
 async function check(commit: Commit): Promise<Checked> {
   const dir = mkdtempSync(join(tmpdir(), "check-commits-"));
-  active.dir = dir;
   try {
     const added = git([
       "worktree",
@@ -94,14 +96,21 @@ async function check(commit: Commit): Promise<Checked> {
     ]);
     if (!added.ok) throw new Error(added.stderr.trim());
     for (const step of steps) {
-      const { ok, output } = await run(dir, step);
-      if (!ok)
+      const { exitCode, signalCode, output } = await run(dir, step);
+      if (active.stoppedBy !== undefined)
+        throw new Error(
+          `Stopped by ${active.stoppedBy} while checking ${commit.short}, so it has no verdict.`,
+        );
+      if (signalCode !== null)
+        throw new Error(
+          `${shown(step)} was killed by ${signalCode} while checking ${commit.short}, so it has no verdict.`,
+        );
+      if (exitCode !== 0)
         return { ...commit, result: { status: "red", failed: step, output } };
     }
     return { ...commit, result: { status: "green" } };
   } finally {
     release(dir);
-    delete active.dir;
   }
 }
 
@@ -152,14 +161,10 @@ function commitsToCheck(base: string, head: string): Commit[] {
     });
 }
 
-for (const signal of ["SIGINT", "SIGTERM"] as const)
+for (const signal of signals)
   process.on(signal, () => {
-    void (async () => {
-      active.child?.kill("SIGTERM");
-      await active.child?.exited;
-      if (active.dir !== undefined) release(active.dir);
-      process.exit(128 + constants.signals[signal]);
-    })();
+    active.stoppedBy ??= signal;
+    active.child?.kill("SIGTERM");
   });
 
 async function main(argv: readonly string[]): Promise<number> {
@@ -201,3 +206,5 @@ try {
   );
   process.exitCode = 2;
 }
+if (active.stoppedBy !== undefined)
+  process.exitCode = 128 + constants.signals[active.stoppedBy];

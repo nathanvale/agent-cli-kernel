@@ -11,7 +11,10 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { spawnBounded } from "./contract3/kernel-repair/swarm-process.ts";
+import {
+  type SignalAt,
+  spawnBounded,
+} from "./contract3/kernel-repair/swarm-process.ts";
 
 const repository = join(import.meta.dir, "..");
 const sources = [
@@ -107,6 +110,7 @@ async function checkCommits(
   root: string,
   args: string[],
   env: Record<string, string> = {},
+  signalAt?: SignalAt,
 ) {
   const temporary = folder("check-commits-tmp-");
   const run = await spawnBounded(
@@ -115,9 +119,22 @@ async function checkCommits(
       cwd: root,
       env: { ...process.env, ...gitEnv, TMPDIR: temporary, ...env },
       boundMilliseconds: bound,
+      ...(signalAt === undefined ? {} : { signalAt }),
     },
   );
   return { ...run, temporary, lines: run.stdout.split("\n") };
+}
+
+function worktrees(root: string): string[] {
+  return git(root, "worktree", "list", "--porcelain")
+    .split("\n")
+    .filter((line) => line.startsWith("worktree "));
+}
+
+// The step writes `started` to the ledger, then waits. On a signal it exits 3,
+// a plain failure, so only the stop check keeps the commit from reading RED.
+function blockUntilSignalled(ledger: string): string {
+  return `test ! -e block || { trap 'kill $!; exit 3' HUP INT TERM; echo started >> '${ledger}'; sleep 30 & wait; }`;
 }
 
 function verdicts(lines: readonly string[]): string[] {
@@ -343,11 +360,7 @@ describe("check:commits", () => {
       });
 
       expect(run.exit).toBe(1);
-      expect(
-        git(root, "worktree", "list", "--porcelain")
-          .split("\n")
-          .filter((line) => line.startsWith("worktree ")),
-      ).toHaveLength(1);
+      expect(worktrees(root)).toHaveLength(1);
       expect(readdirSync(run.temporary)).toEqual([]);
     },
     timeout,
@@ -419,6 +432,66 @@ describe("check:commits", () => {
         `FAIL bun: found Bun ${Bun.version}, pinned 0.0.1. Repair: install Bun 0.0.1 (mise install bun@0.0.1, or setup-bun in CI), then bun install --frozen-lockfile.`,
       );
       expect(existsSync(join(root, "..", `red-${red.short}`))).toBe(false);
+    },
+    timeout,
+  );
+
+  for (const [signal, exit] of [
+    ["SIGHUP", 129],
+    ["SIGINT", 130],
+    ["SIGTERM", 143],
+  ] as const)
+    test(
+      `${signal} leaves no worktree and no verdict for the interrupted commit`,
+      async () => {
+        const ledger = join(folder("check-commits-ledger-"), "ledger");
+        const { root, base, commit } = repositoryAt({
+          scripts: { ...markers, typecheck: blockUntilSignalled(ledger) },
+        });
+        const before = commit("green before the stop", { "a.txt": "a" });
+        const stopped = commit("block until stopped", { block: "" });
+
+        const run = await checkCommits(
+          root,
+          [base.sha],
+          { CHECK_COMMITS_SINCE: base.sha },
+          { ledger, line: "started", signal },
+        );
+
+        expect(run.exit).toBe(exit);
+        expect(verdicts(run.lines)).toEqual([
+          `GREEN ${before.short} green before the stop`,
+        ]);
+        expect(run.stderr.split("\n")).toContain(
+          `Stopped by ${signal} while checking ${stopped.short}, so it has no verdict.`,
+        );
+        expect(worktrees(root)).toHaveLength(1);
+        expect(readdirSync(run.temporary)).toEqual([]);
+      },
+      timeout,
+    );
+
+  test(
+    "a step killed by a signal the run did not receive gives no verdict and exits 2",
+    async () => {
+      const { root, base, commit } = repositoryAt({
+        scripts: {
+          ...markers,
+          typecheck: "test ! -e kill || kill -KILL $PPID",
+        },
+      });
+      const killed = commit("kill the typecheck step", { kill: "" });
+
+      const run = await checkCommits(root, [base.sha], {
+        CHECK_COMMITS_SINCE: base.sha,
+      });
+
+      expect(run.exit).toBe(2);
+      expect(verdicts(run.lines)).toEqual([]);
+      expect(run.stderr.split("\n")).toContain(
+        `bun run typecheck was killed by SIGKILL while checking ${killed.short}, so it has no verdict.`,
+      );
+      expect(worktrees(root)).toHaveLength(1);
     },
     timeout,
   );
