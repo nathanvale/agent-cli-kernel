@@ -151,7 +151,7 @@ describe("LOW record lines stay valid with a short secret", () => {
   );
 });
 
-describe("SF3 a stale coordination lock from another host", () => {
+describe("SF3 a stale allocation lock from another host", () => {
   const localHost = createHash("sha256")
     .update(hostname())
     .digest("hex")

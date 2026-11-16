@@ -35,7 +35,7 @@ function hasKey(result: Run): boolean {
 }
 
 // Every regular file the run could have created, outside the home directory
-// itself and the harness's own files.
+// itself and the test harness's own files.
 function created(where: Tree): string[] {
   const found: string[] = [];
   const walk = (directory: string) => {

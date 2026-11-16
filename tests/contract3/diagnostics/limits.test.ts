@@ -1,6 +1,6 @@
 // D05 to D08: record and buffer bounds, per-run and aggregate allocation,
 // pruning eligibility and concurrent pruners, through real processes. Limits
-// come from t5-cases.json (DIAG-9); disk truth from the harness's own reader.
+// come from t5-cases.json (DIAG-9); disk truth from the test harness's own reader.
 import { afterAll, describe, expect, test } from "bun:test";
 import {
   chmodSync,
