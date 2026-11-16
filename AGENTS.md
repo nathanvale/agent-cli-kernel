@@ -29,3 +29,4 @@
   areas; extra arguments reach `bun test`, so `-t "<case id>"` works.
 - Full suite and timing-sensitive cases: the Mac mini gate or hosted CI, never
   a loaded laptop. `bun run doctor` warns when this host is too loaded.
+- Review: apply `CODING_STANDARDS.md` to the diff; each row names its gate.
