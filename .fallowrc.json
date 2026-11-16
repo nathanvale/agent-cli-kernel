@@ -34,6 +34,7 @@
     "tests/contract3/lifecycle/fixtures/canary-cli.ts",
     "tests/contract3/lifecycle/fixtures/declining-host.ts",
     "tests/contract3/state/fixtures/specimen.ts",
+    "tests/contract3/state/fixtures/linux-coordination-probe-worker.ts",
     "tests/contract3/locks/fixtures.ts"
   ]
 }
