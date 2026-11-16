@@ -16,7 +16,7 @@ import type {
 import { runProcessOn } from "../../../starters/contract3/src/kernel/lifecycle.ts";
 import { receipt } from "./checks.ts";
 import { exitWithin, launch, readLedger, release } from "./harness.ts";
-import { stopBound, supporting } from "./oracle.ts";
+import { stopBound, supporting, tolerance } from "./oracle.ts";
 import {
   deferred,
   holdContract,
@@ -29,7 +29,6 @@ import {
 } from "./recording-host.ts";
 
 const timeout = 30_000;
-const tolerance = 100;
 const stops = [
   ["SIGTERM", 143],
   ["SIGINT", 130],

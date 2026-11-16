@@ -1,6 +1,7 @@
 // S7: the production default composition, run as a process with no fault
 // wrappers: runProcess(contractFor(...)) with the default process adapter.
 // Expectations come from the frozen oracle rows.
+import { tolerance } from "./oracle.ts";
 import { describe, expect, test } from "bun:test";
 import {
   canaryCli,
@@ -15,7 +16,6 @@ import {
 } from "./harness.ts";
 
 const timeout = 30_000;
-const tolerance = 100;
 
 describe("public-seam canary (supporting S7, not a frozen case)", () => {
   for (const [id, route, identity, causeCode] of [

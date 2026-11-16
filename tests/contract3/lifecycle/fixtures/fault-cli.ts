@@ -26,6 +26,7 @@ import type {
   StateObservation,
   StateRegistration,
   ApprovalCapability,
+  DiagnosticsCapability,
   RunAddon,
 } from "../../../../starters/contract3/src/kernel/index.ts";
 import {
@@ -557,13 +558,19 @@ const spawnReturn = command({
   identity: "fx.spawn-return",
   route: ["spawn-return"],
   summary: "Start a program and return without awaiting it.",
-  input: { ...none, deadlineSupported: true },
+  input: {
+    ...none,
+    deadlineSupported: true,
+    options: [integer("--return-after-ms", 1, 60_000)],
+  },
   capabilities: { programs: true },
-  run: async (_input, context) => {
+  run: async (input, context) => {
     void context.programs
       .inspect(program(longChild(true), { shutdownMilliseconds: 5_000 }))
       .catch(() => undefined);
     await ledgerHas("child-started", 5_000);
+    const after = input["--return-after-ms"];
+    if (after !== undefined) await sleep(after);
     ledger("handler-returned");
     return context.result(
       { commandIdentity: "fx.spawn-return", causeCode: "SUCCESS_UNCHANGED" },
@@ -999,7 +1006,9 @@ const coordination = <
     | "fx.change"
     | "fx.wide"
     | "fx.guarded"
-    | "fx.guarded-owned",
+    | "fx.guarded-owned"
+    | "fx.wide-status"
+    | "fx.guarded-status",
 >(
   identity: Identity,
 ) =>
@@ -1270,6 +1279,114 @@ function makeGuardedOwned(state: StateAddonDescriptor) {
   });
 }
 
+// Part 4 repair (R1, R2): twins of fx.wide and fx.guarded-owned that also
+// declare diagnostics, so a status reporter attaches at dispatch.
+function makeWideStatus(state: StateAddonDescriptor) {
+  return changing({
+    identity: "fx.wide-status",
+    route: ["wide-status"],
+    summary: "Apply many fixture effects.",
+    input: { ...none, options: [flag("--go")] },
+    capabilities: { diagnostics: true },
+    effectClass: "repository-local",
+    effects: [wideEffects[0] ?? "fx.wide-status", ...wideEffects.slice(1)],
+    ifNoResult: state.ifNoResult,
+    heldLockCause: "DOMAIN_FX_LOCK_HELD",
+    unresolvedCaseCause: "DOMAIN_FX_UNRESOLVED",
+    stations: [...coordination("fx.wide-status")],
+    run: async (_input, context) => {
+      intended = undefined;
+      const proof = await context.state.transaction(async (transaction) => {
+        for (const effect of wideEffects)
+          await transaction.record(
+            effect,
+            () => Promise.resolve(undefined),
+            () => Promise.resolve(true),
+          );
+      });
+      return context.result(
+        { commandIdentity: "fx.wide-status", causeCode: "SUCCESS_COMPLETED" },
+        {
+          message: "Applied many fixture effects.",
+          data: null,
+          transaction: proof,
+        },
+      );
+    },
+  });
+}
+
+function makeGuardedStatus(state: StateAddonDescriptor) {
+  return changing({
+    identity: "fx.guarded-status",
+    route: ["guarded-status"],
+    summary: "Apply one fixture effect the fixture desk approves.",
+    input: { ...none, options: [flag("--go")] },
+    capabilities: { approval: true, diagnostics: true },
+    approval: () => ({
+      authority: authority("fx.desk"),
+      resource: resource("fx.item"),
+      resourceRevision: "1",
+      effects: ["fx.alpha"],
+    }),
+    effectClass: "repository-local",
+    effects: ["fx.alpha"],
+    ifNoResult: state.ifNoResult,
+    heldLockCause: "DOMAIN_FX_LOCK_HELD",
+    unresolvedCaseCause: "DOMAIN_FX_UNRESOLVED",
+    stations: [
+      ...coordination("fx.guarded-status"),
+      station(allCauses, {
+        ...words,
+        commandIdentity: "fx.guarded-status",
+        causeCode: "DOMAIN_AUTHORITY_REQUIRED",
+        trigger: "The fixture desk has not approved this item.",
+        repairAction: "Ask the fixture desk for an exact-item grant.",
+        guidance: {
+          handoff: {
+            owner: "operator",
+            reason: "The fixture desk must approve this item.",
+            inspect: [
+              { kind: "instruction", text: "Fixture desk: review the item." },
+            ],
+          },
+        },
+        independentObservable: "fx.guarded-status:denial",
+      }),
+    ],
+    run: () =>
+      Promise.reject(new Error("The owned denial fixture never dispatches.")),
+  });
+}
+
+// Part 4 repair: a stand-in status reporter for the twins above. Not the T5
+// add-on; it reports one fixed, valid, small status.
+const fixtureStatus = {
+  status: "available",
+  file: "/private/state/st/diagnostics/run.log",
+  sinkFailure: null,
+  droppedRecords: 0,
+  unflushedRecords: 0,
+  truncatedRecords: 0,
+  countsComplete: true,
+  closed: true,
+};
+const statusReporter: RunAddon<DiagnosticsCapability> = {
+  reportsStatus: true,
+  attach(run) {
+    ledger(`status-attach ${run.commandIdentity}`);
+    return {
+      capability: Object.freeze({ record: () => undefined }),
+      settle: () => Promise.resolve(true),
+      killNow: () => undefined,
+      freeze() {
+        ledger("freeze-start");
+        return Promise.resolve(fixtureStatus);
+      },
+    };
+  },
+};
+
 function corrupt(kind: string, value: unknown): unknown {
   if (!record(value) || !record(value.result)) return value;
   const envelope = structuredClone(value);
@@ -1476,10 +1593,12 @@ export async function main(state?: StateAddonDescriptor): Promise<number> {
           makeWide(state),
           makeGuarded(state),
           makeGuardedOwned(state),
+          makeWideStatus(state),
+          makeGuardedStatus(state),
         ],
         causes,
         state,
-        installedAddons: ["state", "programs", "approval"],
+        installedAddons: ["state", "programs", "approval", "diagnostics"],
       })
     : contractFor({
         cli: "fx",
@@ -1495,6 +1614,7 @@ export async function main(state?: StateAddonDescriptor): Promise<number> {
     addons: {
       programs: ledgered("programs", programsAddon()),
       approval: ledgered("approval", approvalAddon),
+      diagnostics: statusReporter,
     },
     ...(scenario.has("emergency-recorder")
       ? {

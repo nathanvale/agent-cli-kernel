@@ -24,11 +24,15 @@ import {
   text,
 } from "./harness.ts";
 import type { Observed } from "./harness.ts";
-import { flushBound, stopBound } from "./oracle.ts";
+import {
+  flushBound,
+  stopBound,
+  tolerance,
+  unchangedEffects,
+} from "./oracle.ts";
 import { recordingHost } from "./recording-host.ts";
 
 const timeout = 30_000;
-const tolerance = 100;
 const statusCli = join(import.meta.dir, "fixtures/status-cli.ts");
 const payloadMarker = "FX-STATUS-PAYLOAD";
 
@@ -245,6 +249,7 @@ describe("DS04 and DS05 when the key is absent", () => {
         const observed = await runStatus(argv, "available", env);
         const { envelope, result } = parsed(observed);
         expect(result.outcome).toBe("refused");
+        expect("diagnostics" in envelope).toBe(preDispatchStatus !== undefined);
         expect(envelope.diagnostics).toEqual(preDispatchStatus);
         expect(observed.ledger).not.toContain("handler-entered");
         // A status is frozen exactly when the reading gives one.
@@ -372,12 +377,7 @@ describe("DS09 one status-reporting add-on per command", () => {
           {
             message: "Done.",
             data: null,
-            effects: {
-              completed: [],
-              remaining: [],
-              uncertain: [],
-              inventoryComplete: true,
-            },
+            effects: unchangedEffects,
           },
         ),
     });
@@ -560,7 +560,146 @@ describe("seam review: hostile statuses and a failing reporter attach", () => {
       expect(observed.code).toBe(0);
       expect(observed.ledger).toContain("handler-done");
       expect(envelope.diagnostics).toEqual(statusUnavailable);
+      // DIAG-4: the domain result equals an intact twin's.
+      const twin = parsed(
+        await runStatus(["report", "--record", "--json"], "available"),
+      );
+      expect(comparableEnvelope(envelope)).toBe(
+        comparableEnvelope(twin.envelope),
+      );
     },
     timeout,
   );
+});
+
+// Part 4 repair R1: refusals raised after the reporter attached (inside
+// `execute`) follow the same one-line provisional reading as DS05.
+describe("DS05 refusals after the reporter attached (Part 4 repair R1)", () => {
+  test(
+    "DS05.pre-dispatch-results-carry-no-key capabilities refusal",
+    async () => {
+      const observed = await runStatus(["report", "--json"], "bad-capability");
+      const { envelope, result } = parsed(observed);
+      expect(result.causeCode).toBe("INTERNAL_PREPARATION");
+      expect(
+        observed.ledger.some((line) => line.startsWith("status-attach")),
+      ).toBe(true);
+      expect(observed.ledger).not.toContain("handler-entered");
+      expect("diagnostics" in envelope).toBe(preDispatchStatus !== undefined);
+      expect(envelope.diagnostics).toEqual(preDispatchStatus);
+    },
+    timeout,
+  );
+  test(
+    "DS05.pre-dispatch-results-carry-no-key approval denial",
+    async () => {
+      const launched = await launch({
+        argv: ["guarded-status", "--go", "--json"],
+        state: true,
+        env: { FX_APPROVAL: "deny" },
+      });
+      try {
+        const observed = await exitWithin(launched);
+        const { envelope, result } = parsed(observed);
+        expect(result.causeCode).toBe("DOMAIN_AUTHORITY_REQUIRED");
+        expect(observed.code).toBe(3);
+        expect(
+          observed.ledger.some((line) => line.startsWith("status-attach")),
+        ).toBe(true);
+        expect("diagnostics" in envelope).toBe(preDispatchStatus !== undefined);
+        expect(envelope.diagnostics).toEqual(preDispatchStatus);
+      } finally {
+        await release(launched);
+      }
+    },
+    timeout,
+  );
+});
+
+// Part 4 repair R2: effects are degraded before the status, so a small valid
+// status survives a fallback that was too large because of its effects.
+test(
+  "F02.diagnostics-in-fallback wide effects small status",
+  async () => {
+    const launched = await launch({
+      argv: ["wide-status", "--json"],
+      state: true,
+      scenario: "corrupt:generic",
+    });
+    try {
+      const observed = await exitWithin(launched);
+      const { envelope, result } = parsed(observed);
+      expect(result.causeCode).toBe("INTERNAL_RESULT_UNKNOWN");
+      expect(result.effects).toEqual({
+        completed: [],
+        remaining: [],
+        uncertain: [],
+        inventoryComplete: false,
+      });
+      expect(observed.stdout.byteLength).toBeLessThanOrEqual(16_384);
+      expect(envelope.diagnostics).toEqual(ownAvailable);
+    } finally {
+      await release(launched);
+    }
+  },
+  timeout,
+);
+
+// Part 4 repair (contract reviewer): an asynchronous rejection twin of K3K5.
+describe("K3K5 a rejected settle keeps the exit path", () => {
+  const settleRejects = { FX_SETTLE_THROWS: "async" };
+  test(
+    "K3K5.settle-fault-keeps-exit-path async sigterm",
+    async () => {
+      const launched = await launch({
+        script: statusCli,
+        argv: ["report", "--program", "--wait-ms", "2000", "--json"],
+        env: { FX_STATUS: "available", ...settleRejects },
+      });
+      try {
+        await launched.barrier("program-done");
+        launched.signal("SIGTERM");
+        const observed = await exitWithin(launched);
+        expect(observed.code).toBe(143);
+        expect(observed.stdout.byteLength).toBe(0);
+        expect(observed.stderr.byteLength).toBe(0);
+      } finally {
+        await release(launched);
+      }
+    },
+    timeout,
+  );
+  for (const [variant, argv, cause, code] of [
+    [
+      "normal",
+      ["report", "--program", "--json"],
+      "INTERNAL_RESULT_UNCHANGED",
+      1,
+    ],
+    [
+      "deadline",
+      [
+        "report",
+        "--program",
+        "--wait-ms",
+        "2000",
+        "--deadline-ms",
+        "300",
+        "--json",
+      ],
+      "DOMAIN_DEADLINE_UNCHANGED",
+      3,
+    ],
+  ] as const)
+    test(
+      `K3K5.settle-fault-keeps-exit-path async ${variant}`,
+      async () => {
+        const observed = await runStatus(argv, "available", settleRejects);
+        const { result } = parsed(observed);
+        expect(result.causeCode).toBe(cause);
+        expect(observed.code).toBe(code);
+        expect(observed.ledger).toContain("settle-throws");
+      },
+      timeout,
+    );
 });

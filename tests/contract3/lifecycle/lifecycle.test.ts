@@ -31,19 +31,15 @@ import {
 } from "./harness.ts";
 import type { Case, Launched, Observed, OperandFit } from "./harness.ts";
 import {
+  killObservationTolerance,
   stopBound,
   supporting,
   timerLimit,
+  tolerance,
   unchangedEffects,
 } from "./oracle.ts";
 
 const timeout = 30_000;
-// Harness observation tolerance added to every contract bound. Calibrated
-// from receipts: process exit observation adds about 2 to 20 ms on this host
-// (L01 exits 10 to 20 ms after the signal; spawn to front-door start 20 to
-// 40 ms is excluded by the ledgered front-door clock). 100 ms keeps a
-// first-signal exit at 650 ms or a 1,000 ms deadline wait RED.
-const tolerance = 100;
 
 type Signal = "SIGINT" | "SIGTERM";
 function signalName(value: unknown): Signal {
@@ -852,8 +848,6 @@ async function deathAfter(pid: number, from: number, limit: number) {
   }
   return Number.POSITIVE_INFINITY;
 }
-// Polling and kill latency for that observation, as in P08.
-const killObservationTolerance = 30;
 const stopShapes = {
   // (a) the handler awaits a TERM-cooperative program.
   a: { argv: ["slow", "--json"], barrier: "child-started" },
@@ -1083,6 +1077,42 @@ test(
       );
     } finally {
       await release(launched);
+    }
+  },
+  timeout,
+);
+
+// Part 4 repair (contract reviewer): the handler returns about 300 ms into a
+// 500 ms deadline, so the post-handler settle has little left; a bound that
+// expired late would push emission past the 500 + 100 ms lag.
+test(
+  "K3S3b.post-handler-bound-near-deadline",
+  async () => {
+    const entry = supporting("K3S3b.post-handler-bound-near-deadline", {
+      argv: [
+        "spawn-return",
+        "--return-after-ms",
+        "300",
+        "--deadline-ms",
+        "500",
+        "--json",
+      ],
+      expect: {
+        commandIdentity: "fx.spawn-return",
+        causeCode: "DOMAIN_DEADLINE_UNCHANGED",
+        effects: unchangedEffects,
+        withinMillisecondsAfterDeadline: 500,
+      },
+    });
+    const observed = await run(entry);
+    receipt(entry, observed);
+    try {
+      // The handler returned before the deadline: this is the post-handler path.
+      expect(observed.ledger).toContain("handler-returned");
+      assertEnvelope(entry, observed);
+      assertDeadlineLag(entry, observed);
+    } finally {
+      await cleanup(observed);
     }
   },
   timeout,

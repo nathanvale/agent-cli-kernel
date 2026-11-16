@@ -17,6 +17,16 @@ export const overLimitBoundary = [
   2 * timerLimit + 1,
 ] as const;
 
+// Harness observation tolerance added to every contract bound. Calibrated
+// from receipts: process exit observation adds about 2 to 20 ms on this host
+// (L01 exits 10 to 20 ms after the signal; spawn to front-door start 20 to
+// 40 ms is excluded by the ledgered front-door clock). 100 ms keeps a
+// first-signal exit at 650 ms or a 1,000 ms deadline wait RED.
+export const tolerance = 100;
+// Polling and kill latency when the process table is watched for an owned
+// child's death (baseline death about 305 ms, P08).
+export const killObservationTolerance = 30;
+
 // LIFE-3 and the lifecycle table: a first stop request exits within 500 ms.
 export const stopBound = 500;
 // DIAG-9 and DIAG-14: the diagnostics flush takes at most 500 ms.
@@ -28,7 +38,7 @@ export const unchangedEffects = {
   remaining: [],
   uncertain: [],
   inventoryComplete: true,
-};
+} as const;
 
 // A supporting case with its own identity (not in the frozen case file).
 export function supporting(

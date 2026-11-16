@@ -97,7 +97,8 @@ async function frozen(limit: number): Promise<unknown> {
       await sleep(300);
       return statuses.available;
     default:
-      return statuses[mode];
+      // Modes that only change attach report the ordinary available status.
+      return statuses[mode] ?? availableStatus;
   }
 }
 
@@ -108,10 +109,14 @@ const statusAddon: RunAddon<DiagnosticsCapability> = {
   attach(run) {
     ledger(`status-attach ${run.commandIdentity}`);
     if (mode === "attach-throws") throw new Error("Fixture attach fault.");
+    const capability = {
+      record: (event: string) => ledger(`record ${event}`),
+    };
+    // `bad-capability` offers no `record`, so the kernel refuses the
+    // context before the handler (INTERNAL_PREPARATION).
+    if (mode === "bad-capability") Reflect.deleteProperty(capability, "record");
     return {
-      capability: Object.freeze({
-        record: (event: string) => ledger(`record ${event}`),
-      }),
+      capability: Object.freeze(capability),
       settle(limit) {
         ledger(`status-settle ${limit ?? "none"}`);
         return Promise.resolve(true);
@@ -250,6 +255,8 @@ function throwingSettle<C>(addon: RunAddon<C>): RunAddon<C> {
         ...attached,
         settle() {
           ledger("settle-throws");
+          if (process.env.FX_SETTLE_THROWS === "async")
+            return Promise.reject(new Error("Fixture settle rejection."));
           throw new Error("Fixture settle fault.");
         },
       };
@@ -257,7 +264,7 @@ function throwingSettle<C>(addon: RunAddon<C>): RunAddon<C> {
   };
 }
 const programs =
-  process.env.FX_SETTLE_THROWS === "1"
+  process.env.FX_SETTLE_THROWS !== undefined
     ? throwingSettle(programsAddon())
     : programsAddon();
 

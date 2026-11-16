@@ -8,6 +8,7 @@ import { assertEnvelope, receipt } from "../lifecycle/checks.ts";
 import { sliceCases } from "../lifecycle/coverage.ts";
 import {
   alive,
+  firstPid,
   cleanup,
   exitWithin,
   frontDoorStart,
@@ -26,24 +27,19 @@ import {
 } from "../lifecycle/harness.ts";
 import type { Case, Launched, Observed } from "../lifecycle/harness.ts";
 import {
+  killObservationTolerance,
   supporting,
   timerLimit,
+  tolerance,
   unchangedEffects,
 } from "../lifecycle/oracle.ts";
 
 const timeout = 60_000;
-// Same calibrated observation tolerance as the lifecycle cases.
-const tolerance = 100;
 // The one owned stream probe, also used by the fixture's isolation mode.
 const streamProbe = join(import.meta.dir, "fixtures/stream-probe.sh");
 
-function pidAfter(ledger: readonly string[], prefix: string) {
-  const line = ledger.find((entry) => entry.startsWith(`${prefix} `));
-  const pid = line ? Number(line.split(" ")[1]) : Number.NaN;
-  return Number.isSafeInteger(pid) && pid > 0 ? pid : undefined;
-}
 function requirePid(ledger: readonly string[], prefix: string): number {
-  const pid = pidAfter(ledger, prefix);
+  const pid = firstPid(ledger, prefix);
   if (pid === undefined) throw new Error(`No ${prefix} pid was ledgered.`);
   return pid;
 }
@@ -111,8 +107,6 @@ async function deathAfter(pid: number, from: number, limit: number) {
   }
   return Number.POSITIVE_INFINITY;
 }
-// Polling and kill latency for that observation (baseline death ~305 ms).
-const killObservationTolerance = 30;
 
 // D3: every P08 shape records what it launched, so the wrapper's cleanup
 // runs even when an assertion fails inside the shape.
@@ -235,7 +229,7 @@ const checks: Record<string, (entry: Case) => Promise<void>> = {
       receipt(entry, observed, { cliGroup });
       const grandchild = requirePid(observed.ledger, "grandchild");
       const { result } = assertEnvelope(entry, observed);
-      const childGroup = pidAfter(observed.ledger, "child-pgid");
+      const childGroup = firstPid(observed.ledger, "child-pgid");
       expect(childGroup).toBeNumber();
       expect(cliGroup).toBeNumber();
       expect(childGroup).not.toBe(cliGroup);

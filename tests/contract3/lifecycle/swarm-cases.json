@@ -8,6 +8,11 @@
       "home": "lifecycle/lifecycle.test.ts"
     },
     {
+      "id": "K3S3b.post-handler-bound-near-deadline",
+      "expectation": "X-S3, Part 4 repair (contract reviewer): a handler that returns near the deadline pins the bound",
+      "home": "lifecycle/lifecycle.test.ts"
+    },
+    {
       "id": "K3K5.settle-fault-keeps-exit-path",
       "expectation": "X-K5",
       "home": "lifecycle/status-seam.test.ts",

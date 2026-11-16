@@ -16,7 +16,7 @@ import type {
   StopSignal,
 } from "../../../starters/contract3/src/kernel/process-types.ts";
 import { path } from "../../../starters/contract3/src/kernel/validation/brands.ts";
-import { timerLimit } from "./oracle.ts";
+import { timerLimit, unchangedEffects } from "./oracle.ts";
 
 type Recorded = {
   readonly stream: "stdout" | "stderr";
@@ -144,13 +144,6 @@ export function shell(
   };
 }
 
-const empty = {
-  completed: [],
-  remaining: [],
-  uncertain: [],
-  inventoryComplete: true,
-} as const;
-
 // One inspect command with deadline support and the programs capability.
 // `work` is the handler body; the test controls when it returns.
 export function holdContract(
@@ -173,7 +166,7 @@ export function holdContract(
       await work(context.programs);
       return context.result(
         { commandIdentity: "rc.hold", causeCode: "SUCCESS_UNCHANGED" },
-        { message: "Released.", data: null, effects: empty },
+        { message: "Released.", data: null, effects: unchangedEffects },
       );
     },
   });
