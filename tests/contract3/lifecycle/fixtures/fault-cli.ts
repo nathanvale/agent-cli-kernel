@@ -500,6 +500,66 @@ const slow = command({
   },
 });
 
+// P1 (findings round): a program-free inspect handler with deadline support
+// that works for a fixed time by its own timer (T01, S01 b).
+const wait = command({
+  identity: "fx.wait",
+  route: ["wait"],
+  summary: "Wait for a fixed time, then finish.",
+  input: {
+    ...none,
+    deadlineSupported: true,
+    options: [integer("--wait-ms", 1, 60_000)],
+  },
+  capabilities: {},
+  run: async (input, context) => {
+    ledger("handler-entered");
+    await sleep(input["--wait-ms"] ?? 300);
+    ledger("handler-done");
+    return context.result(
+      { commandIdentity: "fx.wait", causeCode: "SUCCESS_UNCHANGED" },
+      { message: "The fixture wait finished.", data: null, effects: empty },
+    );
+  },
+});
+
+// S04 (findings round): an owned TERM-ignoring program holds the stop path
+// while the handler, after the test's "stop-sent" line, asks for one more.
+const lateStart = command({
+  identity: "fx.late-start",
+  route: ["late-start"],
+  summary: "Ask for a program after a stop request.",
+  input: none,
+  capabilities: { programs: true },
+  run: async (_input, context) => {
+    void context.programs
+      .inspect(program(longChild(true)))
+      .catch(() => undefined);
+    await ledgerHas("child-started", 5_000);
+    ledger("handler-ready");
+    await ledgerHas("stop-sent", 5_000);
+    ledger("late-call");
+    try {
+      await context.programs.inspect(program(lateChild));
+      ledger("late-returned");
+    } catch {
+      ledger("late-refused");
+    }
+    return context.result(
+      { commandIdentity: "fx.late-start", causeCode: "SUCCESS_UNCHANGED" },
+      { message: "The late program finished.", data: null, effects: empty },
+    );
+  },
+});
+// The marker makes a late child visible in the process table.
+const lateChild =
+  ': FX-LATE-MARKER; echo "late-child $$" >> "$FX_LEDGER"; /bin/sleep 30';
+
+// T04: a writer in its own session keeps the inherited stdout pipe and writes
+// ten 200-byte lines over about one second, after the direct child exited.
+// The pipe handshake makes the parent exit only after setsid().
+const escapedWriter = `/usr/bin/perl -e 'use POSIX qw(setsid); pipe(my $r, my $w); my $p = fork(); if ($p == 0) { close $r; setsid(); open(my $f, ">>", $ENV{FX_LEDGER}); print $f "escaped $$\\n"; close $f; close $w; close STDERR; $| = 1; for my $i (0 .. 9) { print sprintf("FX-DRAIN-%02d-", $i) . ("d" x 187) . "\\n"; select(undef, undef, undef, 0.1); } exit 0 } close $w; my $b; sysread($r, $b, 1); exit 0'`;
+
 const programModes = {
   isolation: {
     ...program(""),
@@ -519,6 +579,10 @@ const programModes = {
     { timeoutMilliseconds: 300, shutdownMilliseconds: 300 },
   ),
   orphan: program(longChild(true), { shutdownMilliseconds: 300 }),
+  "term-trap-sleeper": program(
+    'trap \'echo term-received >> "$FX_LEDGER"\' TERM; /bin/sleep 0.3; echo child-done >> "$FX_LEDGER"; exit 0',
+  ),
+  "escaped-writer": program(escapedWriter, { timeoutMilliseconds: 10_000 }),
   escape: program(
     `/usr/bin/perl -e 'use POSIX qw(setsid); my $p = fork(); if ($p == 0) { setsid(); open(my $f, ">>", $ENV{FX_LEDGER}); print $f "escaped $$\\n"; close $f; close STDOUT; close STDERR; sleep 1000; exit 0 } waitpid(-1, 1); exit 0'; /bin/sleep 0.2`,
     { timeoutMilliseconds: 5_000, shutdownMilliseconds: 500 },
@@ -529,14 +593,28 @@ const programCommand = command({
   identity: "fx.program",
   route: ["program"],
   summary: "Run one fixture inspection program.",
-  input: { ...none, options: [choice("--mode", Object.keys(programModes))] },
+  input: {
+    ...none,
+    options: [
+      choice("--mode", Object.keys(programModes)),
+      integer("--timeout-ms", 1, Number.MAX_SAFE_INTEGER),
+      integer("--shutdown-ms", 1, Number.MAX_SAFE_INTEGER),
+    ],
+  },
   capabilities: { programs: true },
   run: async (input, context) => {
     const mode = input["--mode"];
-    const request = Object.entries(programModes).find(
+    const chosen = Object.entries(programModes).find(
       ([name]) => name === mode,
     )?.[1];
-    if (!request) throw new Error("Unknown fixture mode.");
+    if (!chosen) throw new Error("Unknown fixture mode.");
+    const timeoutMs = input["--timeout-ms"];
+    const shutdownMs = input["--shutdown-ms"];
+    const request: ProgramRequest = {
+      ...chosen,
+      ...(timeoutMs === undefined ? {} : { timeoutMilliseconds: timeoutMs }),
+      ...(shutdownMs === undefined ? {} : { shutdownMilliseconds: shutdownMs }),
+    };
     if (mode === "orphan") {
       void context.programs.inspect(request).catch(() => undefined);
       await ledgerHas("child-started", 5_000);
@@ -555,6 +633,9 @@ const programCommand = command({
           stdoutBytes: new TextEncoder().encode(result.stdout).byteLength,
           stderrBytes: new TextEncoder().encode(result.stderr).byteLength,
           markerSeen: result.stdout.includes("FX-CHILD-STREAM-MARKER"),
+          stdoutSha256: new Bun.CryptoHasher("sha256")
+            .update(result.stdout)
+            .digest("hex"),
           exitCode: result.exitCode,
           terminationConfirmed: result.terminationConfirmed,
           outputTruncated: result.outputTruncated,
@@ -1269,6 +1350,9 @@ function fallbackCause(bytes: Uint8Array): boolean {
   }
 }
 
+// P3: the clock-jump magnitude; T02(a) needs more than its deadline.
+const clockJump = Number(process.env.FX_CLOCK_JUMP_MS ?? "1000000000");
+
 function faultHost(host: ProcessHost): ProcessHost {
   const clockStart = host.now();
   let clockCalls = 0;
@@ -1317,7 +1401,7 @@ function faultHost(host: ProcessHost): ProcessHost {
       clockCalls += 1;
       const real = host.now();
       return scenario.has("clock-jump") && clockCalls > 1
-        ? clockStart + 1_000_000_000 + (real - clockStart)
+        ? clockStart + clockJump + (real - clockStart)
         : real;
     },
   };
@@ -1351,6 +1435,8 @@ export async function main(state?: StateAddonDescriptor): Promise<number> {
     json,
     bad,
     slow,
+    wait,
+    lateStart,
     programCommand,
     supplied,
     undisclosed,
