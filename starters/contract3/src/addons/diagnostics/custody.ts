@@ -179,15 +179,35 @@ function alive(pid: number): boolean {
   }
 }
 
+// Entries listed here may vanish under a concurrent run (another sweeper, or
+// a holder releasing): "already gone" is success, never a setup failure.
+function entriesOf(directory: string): string[] | undefined {
+  try {
+    return readdirSync(directory);
+  } catch (error) {
+    if (errorCode(error) === "ENOENT") return undefined;
+    throw error;
+  }
+}
+
+function removeIfPresent(remove: () => void): void {
+  try {
+    remove();
+  } catch (error) {
+    if (errorCode(error) !== "ENOENT") throw error;
+  }
+}
+
 function discard(entry: string): void {
   const info = lookup(entry);
   if (!info) return;
   if (!info.isDirectory()) {
-    unlinkSync(entry);
+    removeIfPresent(() => unlinkSync(entry));
     return;
   }
-  for (const name of readdirSync(entry)) unlinkSync(join(entry, name));
-  rmdirSync(entry);
+  for (const name of entriesOf(entry) ?? [])
+    removeIfPresent(() => unlinkSync(join(entry, name)));
+  removeIfPresent(() => rmdirSync(entry));
 }
 
 // Staging and retiring names never hold the shared lock path. Only a
@@ -235,7 +255,9 @@ function recoverStale(lock: string): boolean {
   const info = lookup(lock);
   if (!info) return true;
   if (!info.isDirectory() || info.uid !== uid) return false;
-  const entries = readdirSync(lock);
+  // The holder may release between the failed move and this read.
+  const entries = entriesOf(lock);
+  if (entries === undefined) return true;
   if (!ownerProvenGone(info, entries)) return false;
   if (entries.some((name) => !unlinkIfPresent(join(lock, name)))) return false;
   try {
@@ -273,12 +295,17 @@ function tryLock(directory: string): (() => void) | undefined {
       0o600,
     ),
   );
-  const held =
-    moveOnto(staging, lock) || (recoverStale(lock) && moveOnto(staging, lock));
-  if (!held) {
-    discard(staging);
-    return undefined;
+  // The staging directory is removed on every path that does not hold the
+  // lock, even when recovery throws, so no run leaves residue behind.
+  let held = false;
+  try {
+    held =
+      moveOnto(staging, lock) ||
+      (recoverStale(lock) && moveOnto(staging, lock));
+  } finally {
+    if (!held) discard(staging);
   }
+  if (!held) return undefined;
   return () => {
     try {
       renameSync(lock, retiring);
