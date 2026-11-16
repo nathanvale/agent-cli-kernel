@@ -1,21 +1,26 @@
 // Coordination locks (DESIGN.md section 7). One lock family on every
 // supported platform: non-blocking, exclusive, owned by the open file
-// description and released by the kernel when the descriptor closes
-// (including SIGKILL). Darwin takes it at open time with numeric O_EXLOCK;
+// description and released by the operating-system kernel when the
+// descriptor closes (including SIGKILL). Darwin takes it at open time with numeric O_EXLOCK;
 // Linux takes it with flock(LOCK_EX | LOCK_NB) after open (linux-flock.ts).
 // Lock files are permanent: never truncated, unlinked or renamed, so every
 // contender locks the same inode. No route ever falls back to a lock file,
 // a lock age or an owner identity: an unavailable route refuses.
 import { arch, release } from "node:os";
 import { closeSync, constants, openSync } from "node:fs";
-import { loadLinuxFlock } from "./linux-flock.ts";
+import { glibc, loadLinuxFlock } from "./linux-flock.ts";
 import type { FlockResult } from "./linux-flock.ts";
 
 // <sys/fcntl.h>: O_EXLOCK 0x00000020. Only Darwin gives it lock meaning.
 const darwinExclusiveLock = 0x20;
 
-const qualifiedScope =
-  "qualified: darwin O_EXLOCK at open; linux glibc flock(LOCK_EX|LOCK_NB) through libc.so.6";
+// One description per route; the "qualified on" text is derived from them,
+// so it cannot drift from the route actually used.
+const routes = {
+  darwin: "darwin O_EXLOCK at open",
+  linux: (library: string) => `linux flock(LOCK_EX|LOCK_NB) through ${library}`,
+} as const;
+const qualifiedOn = `qualified on: ${routes.darwin}; ${routes.linux(glibc)}`;
 
 export type LockAttempt =
   | { readonly kind: "held"; readonly release: () => void }
@@ -25,9 +30,9 @@ export type LockAttempt =
 export type CoordinationRoute =
   | {
       readonly available: true;
-      // The route and the facts it was accepted on (N4: the scope actually
+      // The route and the facts it was accepted on (N4: what was actually
       // observed, reported by capabilities()).
-      readonly scope: string;
+      readonly basis: string;
       // One non-blocking attempt. `create` false refuses a missing file
       // instead of creating it (used for an existing owner lease).
       readonly tryLock: (path: string, create?: boolean) => LockAttempt;
@@ -37,12 +42,12 @@ export type CoordinationRoute =
       readonly reason:
         | "coordination-unqualified-platform"
         | "coordination-self-check-failed";
-      // Observed facts and the qualified scope, for a person to act on.
+      // Observed facts and what is qualified, for a person to act on.
       readonly detail: string;
     };
 
 function facts(): string {
-  return `platform ${process.platform} ${arch()}, kernel ${release()}`;
+  return `platform ${process.platform} ${arch()}, kernel release ${release()}`;
 }
 
 export function errorCode(error: unknown): string {
@@ -63,7 +68,7 @@ function opened(descriptor: number): LockAttempt {
       try {
         closeSync(descriptor);
       } catch {
-        // The kernel still releases the lock when the process ends.
+        // The operating system still releases it when the process ends.
       }
     },
   };
@@ -98,7 +103,14 @@ function flockTryLock(lock: (fd: number) => FlockResult) {
     } catch (error) {
       return { kind: "failed", code: errorCode(error) };
     }
-    const result = lock(descriptor);
+    let result: FlockResult;
+    try {
+      result = lock(descriptor);
+    } catch {
+      // A throw after the call (reading errno) must never keep a descriptor
+      // that holds no coordination lock.
+      result = { kind: "failed", code: "flock-call-threw" };
+    }
     if (result.kind === "held") return opened(descriptor);
     closeSync(descriptor);
     return result;
@@ -113,25 +125,25 @@ export function resolveCoordination(library?: string): CoordinationRoute {
   if (library === undefined && process.platform === "darwin")
     return {
       available: true,
-      scope: `darwin O_EXLOCK at open; ${facts()}`,
+      basis: `${routes.darwin}; ${facts()}`,
       tryLock: darwinTryLock,
     };
   if (library === undefined && process.platform !== "linux")
     return {
       available: false,
       reason: "coordination-unqualified-platform",
-      detail: `${facts()}; no coordination route; ${qualifiedScope}`,
+      detail: `${facts()}; no coordination route; ${qualifiedOn}`,
     };
   const loaded = loadLinuxFlock(library);
   if (!loaded.ok)
     return {
       available: false,
       reason: "coordination-self-check-failed",
-      detail: `${facts()}; flock through ${loaded.library}: ${loaded.step}; ${qualifiedScope}`,
+      detail: `${facts()}; ${routes.linux(loaded.library)}: ${loaded.step}; ${qualifiedOn}`,
     };
   return {
     available: true,
-    scope: `linux flock(LOCK_EX|LOCK_NB) through ${loaded.library}; ${facts()}; filesystem not checked`,
+    basis: `${routes.linux(loaded.library)}; ${facts()}; filesystem not checked`,
     tryLock: flockTryLock(loaded.lock),
   };
 }

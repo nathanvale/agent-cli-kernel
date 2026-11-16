@@ -1089,6 +1089,15 @@ export const stateCases: readonly StateCase[] = [
       "In one live process, a key coordination call that fails after the admission and earlier key coordination locks were taken refuses coordination-failed, publishes nothing, and leaves the admission and every earlier key coordination lock free to a separate open in the same process.",
     red: "Return the refusal without releasing what was taken (invisible to a process that exits).",
   },
+  {
+    id: "C01.k-self-check-decision",
+    ...component,
+    sources:
+      "Linux route decision (Nathan, 16 November 2026, 14:22); REC-8; Linux review follow-up F1",
+    observation:
+      "The start-up self-check calls flock(-1, LOCK_EX | LOCK_NB) once and accepts only -1 with EBADF; 0, -1 with any other code and an unreadable code each refuse with a step naming what was returned. An accepted route maps 0 to held, EAGAIN to busy and anything else, including an unreadable code, to failed.",
+    red: "Accept the binding whatever flock(-1) returns.",
+  },
   // Q01.e and Q01.f: the delta review follow-up F1 and the bun:ffi
   // confinement, both lint controls, added with the Linux route.
   {

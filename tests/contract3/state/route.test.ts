@@ -329,7 +329,7 @@ caseTest("C01.h-no-fallback-when-route-unavailable", async () => {
       expect(message).not.toContain("coordination-unqualified-platform");
       expect(message).toContain(process.platform);
       expect(message).toContain(release());
-      expect(message).toContain("qualified:");
+      expect(message).toContain("qualified on:");
       expect(message).not.toMatch(/unlink|delete|remove/i);
       // Before any write: no state root, no effect.
       expect(existsSync(world.root)).toBe(false);

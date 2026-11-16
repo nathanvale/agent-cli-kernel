@@ -32,6 +32,7 @@ import {
   canonicalise,
   conflicts,
 } from "../../../starters/contract3/src/addons/state/scope.ts";
+import { checkedFlock } from "../../../starters/contract3/src/addons/state/linux-flock.ts";
 import { caseTest, readFramed, readOperations, testFolder } from "./harness.ts";
 import { coordinationExpected, lockFree } from "./holder.ts";
 
@@ -679,4 +680,67 @@ caseTest("C01.j-failure-after-admission-releases-everything", async () => {
   for (const name of files.slice(0, -1))
     expect(lockFree(join(coordination, name))).toBe(true);
   expect(readOperations(first.root).length).toBe(1);
+});
+
+// Review follow-up (contract F1): the Linux route's start-up self-check
+// decides from the calls' return values alone. Expected values are the
+// expectations' rule, restated: accept flock(-1) returning -1 with EBADF
+// (9); refuse 0, -1 with any other code, and an unreadable code. Then the
+// accepted route maps 0 to held, EAGAIN (11) to busy, anything else to
+// failed.
+caseTest("C01.k-self-check-decision", async () => {
+  const verdict = (returned: number, errno: number | undefined) => {
+    const calls: { fd: number; operation: number }[] = [];
+    const route = checkedFlock("test-library", {
+      flock: (fd, operation) => {
+        calls.push({ fd, operation });
+        return returned;
+      },
+      errno: () => errno,
+    });
+    // The probe is flock(-1, LOCK_EX | LOCK_NB): 2 | 4.
+    expect(calls).toEqual([{ fd: -1, operation: 6 }]);
+    return route.ok ? "accepted" : route.step;
+  };
+  expect(verdict(-1, 9)).toBe("accepted");
+  expect(verdict(0, 9)).toBe("flock(-1) returned 0, expected -1 with EBADF");
+  expect(verdict(0, undefined)).toBe(
+    "flock(-1) returned 0, expected -1 with EBADF",
+  );
+  for (const [errno, word] of [
+    [11, "EAGAIN"],
+    [22, "EINVAL"],
+    [37, "ENOLCK"],
+    [38, "ENOSYS"],
+    [95, "EOPNOTSUPP"],
+    [0, "errno-0"],
+  ] as const)
+    expect(verdict(-1, errno)).toBe(
+      `flock(-1) returned -1 with ${word}, expected -1 with EBADF`,
+    );
+  expect(verdict(-1, undefined)).toBe(
+    "flock(-1) returned -1 with an unreadable error code, expected -1 with EBADF",
+  );
+
+  let next: { returned: number; errno: number | undefined } = {
+    returned: -1,
+    errno: 9,
+  };
+  const route = checkedFlock("test-library", {
+    flock: () => next.returned,
+    errno: () => next.errno,
+  });
+  if (!route.ok) throw new Error("The self-check refused a valid binding.");
+  next = { returned: 0, errno: undefined };
+  expect(route.lock(5)).toEqual({ kind: "held" });
+  next = { returned: -1, errno: 11 };
+  expect(route.lock(5)).toEqual({ kind: "busy" });
+  next = { returned: -1, errno: 22 };
+  expect(route.lock(5)).toEqual({ kind: "failed", code: "EINVAL" });
+  next = { returned: -1, errno: undefined };
+  expect(route.lock(5)).toEqual({
+    kind: "failed",
+    code: "an unreadable error code",
+  });
+  await Promise.resolve();
 });

@@ -42,10 +42,10 @@ test("the frozen T3 case table keeps its admitted identities and counts", () => 
     "S05",
   ]);
   // 112 and 103 at the component head; the Linux route added C01.a to
-  // C01.j, Q01.e and Q01.f (12 rows, all executable).
-  expect(stateCases.length).toBe(124);
+  // C01.k, Q01.e and Q01.f (13 rows, all executable).
+  expect(stateCases.length).toBe(125);
   const executable = stateCases.filter((row) => row.status === "executable");
-  expect(executable.length).toBe(115);
+  expect(executable.length).toBe(116);
   // Linux expectations 4.1 and 4.3: no executable row is bound to Darwin
   // alone, and exactly the three permission-denial rows need a non-root run.
   for (const row of executable)

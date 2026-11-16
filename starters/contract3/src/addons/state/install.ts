@@ -457,8 +457,9 @@ function closureObservation(paths: Layout, operation: Operation): Observation {
 
 type Held = { readonly release: () => void };
 
-// The store layout plus this installation's coordination route (DESIGN.md
-// section 7). Without a route every attempt fails, so nothing is acquired.
+// The store layout plus this state add-on instance's coordination route
+// (DESIGN.md section 7). Without a route an attempt throws: run() refuses
+// before any attempt, so nothing is ever acquired.
 type Locked = Layout & {
   readonly tryLock: (path: string, create?: boolean) => LockAttempt;
 };
@@ -627,9 +628,13 @@ export function install(options: StateOptions, seams: Seams) {
   const route = seams.coordination;
   const paths: Locked = {
     ...layout(options.root),
+    // run() refuses first when the route is unavailable (the one owner of
+    // fail closed); reaching this stand-in would be a bypass, so it is loud.
     tryLock: route.available
       ? route.tryLock
-      : () => ({ kind: "failed", code: route.reason }),
+      : () => {
+          throw new Error("Coordination route unavailable.");
+        },
   };
   const observers = options.observers ?? {};
   const phase = seams.phase;
@@ -1338,7 +1343,7 @@ export function install(options: StateOptions, seams: Seams) {
       qualification: qualification.label,
       coordination,
       coordinationRoute: route.available
-        ? route.scope
+        ? route.basis
         : `${route.reason}: ${route.detail}`,
       stoppedOwnerProof: stopped,
       automaticReclaim: "unavailable",
