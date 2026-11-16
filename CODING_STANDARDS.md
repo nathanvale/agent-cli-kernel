@@ -1,8 +1,16 @@
 # Coding Standards
 
-Read at review. This file extends the global standards at
-`$HOME/code/dotfiles/docs/standards/CODING_STANDARDS.md` and holds only lessons
-this repository witnessed in review feedback or repair commits.
+Read at review. This file holds only lessons this repository witnessed in
+review feedback or repair commits. It extends Engineering's shared coding
+standard, which the guides call the shared standard and cite by rule title.
+
+- Apply the shared standard your task brief supplies.
+- Its current source is `docs/standards/CODING_STANDARDS.md` in
+  `nathanvale/dotfiles-private`, pinned at [6bcadfd][shared-standard].
+- No approved route yet delivers it to a fresh checkout; MAG-65 owns that
+  route.
+- When neither the brief nor the pinned source is available, apply this file
+  and its guides, and report the shared standard as missing context.
 
 A row enters with at least two witnesses. Its guide cites them, or its gate
 note does when the guide lives outside `docs/standards/`. A guide bullet cites
@@ -15,8 +23,8 @@ Each row names what enforces it today:
 - **Partial**: a gate covers the part its gate note names; the reviewer
   applies the guide to the rest.
 - **Planned (parked)**: agreed future work that does not exist yet. These
-  gates are plan units U4 to U6, parked until the Contract 3 coordinator gives
-  them a slot. [MAG-98] is the Contract 3 scope issue; it does not list them
+  gates are plan units U4 to U6 in a private planning record, not yet
+  scheduled. [MAG-98] is the Contract 3 scope issue; it does not list them
   yet.
 
 When a planned gate lands, move it to "Today" and cut the guide bullets it
@@ -75,5 +83,6 @@ now enforces.
 4. Report each finding with its row and the guide bullet it breaks.
 
 [MAG-98]: https://linear.app/myagentdojo/issue/MAG-98/command-contract-30-foundation-accepted-implementation-scope
+[shared-standard]: https://github.com/nathanvale/dotfiles-private/blob/6bcadfd752107a980ce4f0a8982ff18399dc78f2/docs/standards/CODING_STANDARDS.md
 [2784de0]: https://github.com/nathanvale/bun-typescript-template/commit/2784de083f90d5f72f1b10037bfc64a8eeccff3f
 [356cce9]: https://github.com/nathanvale/bun-typescript-template/commit/356cce90dd2c4a75c7462f5d8f789b52bdaefaed

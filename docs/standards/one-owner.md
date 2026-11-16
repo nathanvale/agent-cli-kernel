@@ -1,6 +1,6 @@
 # One Owner
 
-The global rule "One owner per sealed vocabulary and per test fake" applies.
+The shared rule "One owner per sealed vocabulary and per test fake" applies.
 This repository also drifted on constants and helpers, so the rule covers them
 here.
 

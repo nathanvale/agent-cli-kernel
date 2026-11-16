@@ -9,8 +9,10 @@ description: Build, repair, or review Contract 3 code in `starters/contract3/` o
 Paths below are from the repository root. These owners hold the rules; follow
 each pointer rather than a copy:
 
-- [AGENTS.md authority](../../../AGENTS.md#authority): frozen Contract 3 text,
-  foundation spec, findings ledger, glossary.
+- [AGENTS.md authority](../../../AGENTS.md#authority): frozen Contract 3 text
+  and glossary terms.
+- [AGENTS.md coordination context](../../../AGENTS.md#coordination-context):
+  private planning records your task brief supplies.
 - [AGENTS.md checks](../../../AGENTS.md#checks): focused runs and where the
   full suite runs.
 - [CODING_STANDARDS.md](../../../CODING_STANDARDS.md): the rule table, its
@@ -29,8 +31,7 @@ diff.
 3. For each new refusal or bound, apply the
    [planted-fault guide](../../../docs/standards/test-proof.md#planted-faults).
 4. Send the full suite and timing-sensitive cases where
-   [AGENTS.md checks](../../../AGENTS.md#checks) sends them. This repository
-   does not record the Mac mini gate route: ask the coordinator for it.
+   [AGENTS.md checks](../../../AGENTS.md#checks) sends them.
 
 Done when each item holds at the pushed head:
 
