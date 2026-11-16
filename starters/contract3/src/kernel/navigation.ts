@@ -121,31 +121,46 @@ function kernelWords(
   if (causeCode === "SUCCESS_UNCHANGED") return { next: { kind: "done" } };
   return { next: { kind: "command", command: `${cli}.help`, args: [] } };
 }
+// DISC-10 and DISC-11: the causes the base adds to a host command, in
+// publication order. A handler may select any of them that the fallback does
+// not reserve (DISC-11b, K1-6).
+export function hostKernelCauses(command: CommandDeclaration): string[] {
+  const needed = [
+    ...(command.stations.length === 0 ? ["SUCCESS_UNCHANGED"] : []),
+    "USAGE_INVALID_INVOCATION",
+    ...(command.input.arguments.length + command.input.options.length > 0
+      ? ["SCHEMA_INVALID_INPUT"]
+      : []),
+    "INTERNAL_PREPARATION",
+    internalResultCause.unchanged,
+  ];
+  addEffectStations(command, needed);
+  return needed;
+}
+function builtinKernelCauses(
+  command: CommandDeclaration,
+  cli: string,
+): string[] {
+  const needed = ["INTERNAL_PREPARATION", internalResultCause.unchanged];
+  if (command.commandIdentity === `${cli}.dispatch`)
+    needed.unshift("USAGE_INVALID_INVOCATION", "USAGE_UNKNOWN_COMMAND");
+  else needed.unshift("SUCCESS_UNCHANGED");
+  if (command.commandIdentity === `${cli}.command-discovery`)
+    needed.unshift("USAGE_UNKNOWN_COMMAND");
+  addEffectStations(command, needed);
+  return needed;
+}
 export function stationsFor(
   command: CommandDeclaration,
   cli: string,
   causes: CauseTable,
 ): readonly DeclaredStation[] {
-  const host = !builtins(cli).some(
+  const builtin = builtins(cli).some(
     (item) => item.commandIdentity === command.commandIdentity,
   );
-  const needed = host
-    ? [
-        "USAGE_INVALID_INVOCATION",
-        ...(command.input.arguments.length + command.input.options.length > 0
-          ? ["SCHEMA_INVALID_INPUT"]
-          : []),
-        "INTERNAL_PREPARATION",
-        internalResultCause.unchanged,
-      ]
-    : ["INTERNAL_PREPARATION", internalResultCause.unchanged];
-  if (command.commandIdentity === `${cli}.dispatch`)
-    needed.unshift("USAGE_INVALID_INVOCATION", "USAGE_UNKNOWN_COMMAND");
-  else if (!host || command.stations.length === 0)
-    needed.unshift("SUCCESS_UNCHANGED");
-  if (command.commandIdentity === `${cli}.command-discovery`)
-    needed.unshift("USAGE_UNKNOWN_COMMAND");
-  addEffectStations(command, needed);
+  const needed = builtin
+    ? builtinKernelCauses(command, cli)
+    : hostKernelCauses(command);
   return addKernelStations(command, cli, causes, needed);
 }
 function addKernelStations(

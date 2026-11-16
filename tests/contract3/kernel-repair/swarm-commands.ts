@@ -114,21 +114,21 @@ export function filterShow() {
   });
 }
 
-// The success station of x.go: its next step is `TARGET ARGS`.
-export function goStation(args: readonly string[], target = "x.show") {
+// The success station of x.go: its next step is `x.show ARGS`.
+export function goStation(args: readonly string[]) {
   return station(commonCauses, {
     commandIdentity: "x.go",
     causeCode: "SUCCESS_UNCHANGED",
     trigger: "Went.",
-    guidance: { next: { kind: "command", command: target, args: [...args] } },
+    guidance: { next: { kind: "command", command: "x.show", args: [...args] } },
     repairAction: null,
     ...words,
   });
 }
 
-// x.go: one inspect command whose only success names `TARGET ARGS`.
-export function go(args: readonly string[], target = "x.show") {
-  const went = goStation(args, target);
+// x.go: one inspect command whose only success names `x.show ARGS`.
+export function go(args: readonly string[]) {
+  const went = goStation(args);
   return command({
     identity: "x.go",
     route: ["go"],
@@ -145,6 +145,55 @@ export function go(args: readonly string[], target = "x.show") {
   });
 }
 
+// X-K1-6: an inspect command with one required operand and no declared
+// stations whose handler selects the base-added SCHEMA_INVALID_INPUT for a
+// bad persisted-state shape. The static result type lists only declared
+// stations, so the declaration is built and admitted unchecked.
+export function schemaLoad(): object {
+  const run = (_input: unknown, context: unknown) => {
+    const result: unknown =
+      typeof context === "object" && context !== null
+        ? Reflect.get(context, "result")
+        : undefined;
+    if (typeof result !== "function") throw new Error("No result builder.");
+    const selected: unknown = Reflect.apply(result, context, [
+      { commandIdentity: "x.load", causeCode: "SCHEMA_INVALID_INPUT" },
+      {
+        message: "The persisted record has a bad shape.",
+        data: null,
+        effects: unchanged,
+      },
+    ]);
+    return selected;
+  };
+  const declaration: unknown = Reflect.apply(command, undefined, [
+    {
+      identity: "x.load",
+      route: ["load"],
+      summary: "Load a persisted record.",
+      input: {
+        ...emptyInput,
+        arguments: [
+          {
+            name: "id",
+            summary: "Record id.",
+            required: true,
+            value: text(20, null),
+          },
+        ],
+      },
+      capabilities: {},
+      run,
+    },
+  ]);
+  const contract: unknown = Reflect.apply(contractFor, undefined, [
+    { cli: "x", commands: [declaration] },
+  ]);
+  if (typeof contract !== "object" || contract === null)
+    throw new Error("Expected a contract.");
+  return contract;
+}
+
 // Process scenarios run by swarm-cli.ts; each reads its variant from the
 // environment the parent test sets.
 export const scenarios: Readonly<Record<string, () => object>> = {
@@ -158,6 +207,7 @@ export const scenarios: Readonly<Record<string, () => object>> = {
       cli: "x",
       commands: [titledShow(), go(["--title", process.env.VALUE ?? ""])],
     }),
+  "schema-station": schemaLoad,
   "json-after-delimiter": () =>
     contractFor({ cli: "x", commands: [filterShow(), go(["--", "--json"])] }),
 };
