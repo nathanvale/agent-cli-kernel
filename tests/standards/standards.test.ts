@@ -4,6 +4,7 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   rmSync,
   statSync,
   symlinkSync,
@@ -124,14 +125,26 @@ async function linkProblems(repository: string): Promise<string[]> {
       if (problem !== undefined) problems.push(`${view}:${line}: ${problem}`);
     }
   }
+  return [...problems, ...skillLinkProblems(repository)];
+}
+
+function skillLinkProblems(repository: string): string[] {
   const skills = join(repository, ".agents/skills");
   const skillNames = existsSync(skills) ? readdirSync(skills) : [];
-  for (const skill of skillNames)
-    if (!existsSync(join(repository, ".claude/skills", skill, "SKILL.md")))
-      problems.push(
-        `.agents/skills/${skill} has no Claude Code link. Run: ln -s ../../.agents/skills/${skill} .claude/skills/${skill}`,
-      );
-  return problems;
+  return skillNames.flatMap((skill) => {
+    const link = join(repository, ".claude/skills", skill);
+    const relink = `ln -s ../../.agents/skills/${skill} .claude/skills/${skill}`;
+    if (!existsSync(join(link, "SKILL.md")))
+      return [
+        `.agents/skills/${skill} has no Claude Code link. Run: ${relink}`,
+      ];
+    const target = realpathSync(link);
+    return target === realpathSync(join(skills, skill))
+      ? []
+      : [
+          `.claude/skills/${skill} resolves to ${relative(realpathSync(repository), target)}, not .agents/skills/${skill}. Run: rm .claude/skills/${skill} && ${relink}`,
+        ];
+  });
 }
 
 function git(
@@ -161,51 +174,105 @@ function fetchHint(repository: string, history: string[]): string {
     : "";
 }
 
-function citationsIn(
+const commitPage =
+  "https://github.com/nathanvale/bun-typescript-template/commit/";
+const shortSha = /^[0-9a-f]{7,40}$/;
+const bareSha = /\b(?=[0-9a-f]*\d)(?=[0-9a-f]*[a-f])[0-9a-f]{7,40}\b/g;
+
+type Ancestry = { isAncestor: (sha: string) => boolean; fetch: string };
+
+function ancestry(repository: string): Ancestry {
+  const history = git(repository, ["rev-list", "HEAD"]).split("\n");
+  return {
+    isAncestor: (sha) => history.some((each) => each.startsWith(sha)),
+    fetch: fetchHint(repository, history),
+  };
+}
+
+function notAncestor(sha: string, { fetch }: Ancestry): string {
+  return `${sha}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA.${fetch}`;
+}
+
+function commitLinkProblems(
   file: string,
   text: string,
-  history: string[],
-  fetch: string,
-): string[] {
+  history: Ancestry,
+): { defined: Set<string>; problems: string[] } {
   const problems: string[] = [];
   const defined = new Set<string>();
-  for (const match of text.matchAll(
-    /^ {0,3}\[([^\]]+)\]:\s*\S*\/commit\/([0-9a-f]{7,40})\b/gm,
-  )) {
-    const [, label = "", sha = ""] = match;
-    const where = `${file}:${lineOf(text, match.index)}`;
+  for (const match of text.matchAll(/^ {0,3}\[([^\]]+)\]:\s*(\S+)/gm)) {
+    const [, label = "", target = ""] = match;
+    if (!shortSha.test(label) && !target.includes("/commit/")) continue;
+    const where = `${file}:${lineOf(text, match.index)}: [${label}]`;
     defined.add(label);
-    if (/^[0-9a-f]{7,40}$/.test(label) && !sha.startsWith(label))
+    const sha = target.startsWith(commitPage)
+      ? target.slice(commitPage.length)
+      : "";
+    if (!/^[0-9a-f]{40}$/.test(sha))
       problems.push(
-        `${where}: [${label}] links commit ${sha}. Make the label the start of that SHA.`,
+        `${where} links ${target}, which is not a commit page of this repository. Link ${commitPage}<full sha>.`,
       );
-    if (!history.some((each) => each.startsWith(sha)))
+    else if (shortSha.test(label) && !sha.startsWith(label))
       problems.push(
-        `${where}: [${label}] cites ${sha}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA.${fetch}`,
+        `${where} links commit ${sha}. Make the label the start of that SHA.`,
       );
+    else if (!history.isAncestor(sha))
+      problems.push(`${where} cites ${notAncestor(sha, history)}`);
   }
+  return { defined, problems };
+}
+
+function citationsIn(file: string, text: string, history: Ancestry): string[] {
+  const { defined, problems } = commitLinkProblems(file, text, history);
   for (const match of text.matchAll(/\[([0-9a-f]{7,40})\](?![[(:])/g)) {
     const [, label = ""] = match;
     if (!defined.has(label))
       problems.push(
-        `${file}:${lineOf(text, match.index)}: [${label}] has no commit link. Add [${label}]: https://github.com/<owner>/<repo>/commit/<full sha> at the end of the file.`,
+        `${file}:${lineOf(text, match.index)}: [${label}] has no commit link. Add [${label}]: ${commitPage}<full sha> at the end of the file.`,
       );
   }
+  const prose = text
+    .replace(/^ {0,3}\[[^\]]+\]:.*$/gm, "")
+    .replace(/\]\([^)]*\)/g, "]")
+    .replace(/\[[0-9a-f]{7,40}\](?:\[[^\]]*\])?/g, "");
+  for (const match of prose.matchAll(bareSha))
+    if (!history.isAncestor(match[0]))
+      problems.push(
+        `${file}:${lineOf(prose, match.index)}: names commit ${notAncestor(match[0], history)}`,
+      );
   return problems;
 }
 
+function faultSourceProblems(repository: string, history: Ancestry): string[] {
+  const manifest = "tests/faults/manifest.json";
+  const path = join(repository, manifest);
+  if (!existsSync(path)) return [];
+  const records = JSON.parse(readFileSync(path, "utf8")) as {
+    id?: string;
+    source?: string;
+  }[];
+  return records.flatMap(({ id, source = "" }) => {
+    const sha = /^[0-9a-f]{7,40}(?= )/.exec(source)?.[0];
+    const where = `${manifest}: record "${id}"`;
+    if (sha === undefined)
+      return [
+        `${where} has source "${source}", which does not start with its fix commit's SHA. Write "<short sha> <subject>", as bun run faults:add does.`,
+      ];
+    return history.isAncestor(sha)
+      ? []
+      : [`${where} names source ${notAncestor(sha, history)}`];
+  });
+}
+
 async function citationProblems(repository: string): Promise<string[]> {
-  const history = git(repository, ["rev-list", "HEAD"]).split("\n");
-  const fetch = fetchHint(repository, history);
+  const history = ancestry(repository);
   const files = await matching(repository, [standards, "docs/standards/*.md"]);
-  return files.flatMap((file) =>
-    citationsIn(
-      file,
-      readWithCodeBlanked(join(repository, file)),
-      history,
-      fetch,
+  return [
+    ...files.flatMap((file) =>
+      citationsIn(file, readWithCodeBlanked(join(repository, file)), history),
     ),
-  );
+    ...faultSourceProblems(repository, history),
+  ];
 }
 
 function ruleTable(repository: string): {
@@ -446,10 +513,10 @@ function fixture(
       "",
       `- Witnessed: [${short}].`,
       "",
-      `[${short}]: https://github.com/owner/repo/commit/${sha}`,
+      `[${short}]: ${commitPage}${sha}`,
       "",
     ].join("\n"),
-    "docs/standards/guide.md": `# Guide\n\n## Lesson\n\n- Witnessed: [${short}].\n\n[${short}]: https://github.com/owner/repo/commit/${sha}\n`,
+    "docs/standards/guide.md": `# Guide\n\n## Lesson\n\n- Witnessed: [${short}].\n\n[${short}]: ${commitPage}${sha}\n`,
     ".agents/skills/fixture/SKILL.md":
       "---\nname: fixture\n---\n\n[checks](../../../AGENTS.md#checks)\n",
   };
@@ -575,6 +642,81 @@ test.each([
     expect(await allProblems(fixture(change))).toEqual(expected);
   },
 );
+
+test.each([
+  [
+    "a commit link to another repository",
+    (files: Record<string, string>) => {
+      files["docs/standards/guide.md"] = (
+        files["docs/standards/guide.md"] ?? ""
+      ).replace(commitPage, "https://github.com/owner/other/commit/");
+    },
+    (sha: string) => [
+      `docs/standards/guide.md:7: [${sha.slice(0, 7)}] links https://github.com/owner/other/commit/${sha}, which is not a commit page of this repository. Link ${commitPage}<full sha>.`,
+    ],
+  ],
+  [
+    "a commit link on another host",
+    (files: Record<string, string>) => {
+      files[standards] = (files[standards] ?? "").replace(
+        commitPage,
+        "https://gitlab.com/nathanvale/bun-typescript-template/-/commit/",
+      );
+    },
+    (sha: string) => [
+      `CODING_STANDARDS.md:16: [${sha.slice(0, 7)}] links https://gitlab.com/nathanvale/bun-typescript-template/-/commit/${sha}, which is not a commit page of this repository. Link ${commitPage}<full sha>.`,
+    ],
+  ],
+  [
+    "an unbracketed SHA in prose that is not an ancestor",
+    (files: Record<string, string>) => {
+      files[standards] =
+        `${files[standards] ?? ""}\nFixed in ${absent.slice(0, 12)}.\n`;
+      files["docs/standards/guide.md"] =
+        `${files["docs/standards/guide.md"] ?? ""}\nSee ${absent}.\n`;
+    },
+    () => [
+      `CODING_STANDARDS.md:18: names commit ${absent.slice(0, 12)}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA.`,
+      `docs/standards/guide.md:9: names commit ${absent}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA.`,
+    ],
+  ],
+  [
+    "a fault record whose source is not an ancestor or names no commit",
+    (files: Record<string, string>, sha: string) => {
+      files["tests/faults/manifest.json"] = JSON.stringify([
+        { id: "kept", source: `${sha.slice(0, 7)} fix: kept` },
+        { id: "lost", source: `${absent.slice(0, 7)} fix: lost` },
+        { id: "bare", source: "fix: no commit" },
+      ]);
+    },
+    () => [
+      `tests/faults/manifest.json: record "lost" names source ${absent.slice(0, 7)}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA.`,
+      'tests/faults/manifest.json: record "bare" has source "fix: no commit", which does not start with its fix commit\'s SHA. Write "<short sha> <subject>", as bun run faults:add does.',
+    ],
+  ],
+])(
+  "%s fails, naming the commit and the fix",
+  async (_fault, change, expected) => {
+    const repository = fixture(change);
+    expect(await allProblems(repository)).toEqual(
+      expected(git(repository, ["rev-parse", "HEAD"])),
+    );
+  },
+);
+
+test("a .claude/skills link to another skill fails and says how to relink it", async () => {
+  const repository = fixture((files) => {
+    files[".agents/skills/other/SKILL.md"] =
+      files[".agents/skills/fixture/SKILL.md"] ?? "";
+  });
+  symlinkSync(
+    "../../.agents/skills/fixture",
+    join(repository, ".claude/skills/other"),
+  );
+  expect(await allProblems(repository)).toEqual([
+    ".claude/skills/other resolves to .agents/skills/fixture, not .agents/skills/other. Run: rm .claude/skills/other && ln -s ../../.agents/skills/other .claude/skills/other",
+  ]);
+});
 
 test("a shallow clone that cuts a cited commit fails and says to fetch the history", async () => {
   const repository = fixture(() => {}, { shallow: true });
