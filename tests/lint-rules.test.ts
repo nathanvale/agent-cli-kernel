@@ -130,6 +130,22 @@ const fixes = [
   },
   {
     rule: "no-in-operator",
+    filePath: "starters/contract3/src/kernel/validation/result.ts",
+    failing:
+      'export const payload = (next: () => object) => ("payload" in next() ? 1 : 0);',
+    fixed: ([fix]: string[]) =>
+      `export const payload = (next: () => object): unknown => {\n  ${fix}\n  return own;\n};`,
+  },
+  {
+    rule: "no-in-operator",
+    filePath: "starters/contract3/src/kernel/validation/result.ts",
+    failing:
+      'export const ahead = (read: () => object) => Reflect.has(read(), "next");',
+    fixed: ([fix]: string[]) =>
+      `export const ahead = (read: () => object): unknown => {\n  ${fix}\n  return own;\n};`,
+  },
+  {
+    rule: "no-in-operator",
     filePath: "starters/contract3/src/addons/approval/read.ts",
     failing:
       'export const code = (error: Error): unknown => ("code" in error ? error.code : undefined);',
@@ -200,6 +216,28 @@ for (const item of fixes)
     expect(typeErrors(item.filePath, fixed)).toEqual([]);
     expect(await messages(item.filePath, fixed)).toEqual([]);
   }, 60_000);
+
+test("no-in-operator: a fix for a call operand evaluates it once, in the checked order", async () => {
+  const filePath = "starters/contract3/src/kernel/validation/result.ts";
+  const [inOperator] = await fixesFor(
+    "no-in-operator",
+    filePath,
+    "export const a = (next: () => string, value: object) => next() in value;",
+  );
+  const [reflected] = await fixesFor(
+    "no-in-operator",
+    filePath,
+    'export const b = (read: () => object) => Reflect.has(read(), "next");',
+  );
+  expect(inOperator?.split("next()")).toHaveLength(2);
+  expect(inOperator?.indexOf("const key")).toBeLessThan(
+    inOperator?.indexOf("const target") ?? -1,
+  );
+  expect(reflected?.split("read()")).toHaveLength(2);
+  expect(reflected?.indexOf("const target")).toBeLessThan(
+    reflected?.indexOf("const key") ?? -1,
+  );
+});
 
 const refused = [
   {

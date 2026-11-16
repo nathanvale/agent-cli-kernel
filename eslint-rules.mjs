@@ -90,6 +90,17 @@ function members(type) {
   return type.isUnion() ? type.types : [type];
 }
 
+// An operand the fix may spell twice: reading it again yields the same value.
+function stable(node) {
+  if (node.type === "Identifier" || node.type === "Literal") return true;
+  if (node.type === "TemplateLiteral") return node.expressions.length === 0;
+  return (
+    node.type === "MemberExpression" &&
+    stable(node.object) &&
+    (!node.computed || stable(node.property))
+  );
+}
+
 function closedStrings(type) {
   const parts = members(type);
   const absent = ts.TypeFlags.Undefined | ts.TypeFlags.Null;
@@ -182,6 +193,8 @@ export default {
         schema: [],
         messages: {
           in: "{{key}} is not declared on this type, and {{how}} also finds inherited members such as toString. Read the own value into a place typed unknown. Fix: (Object.hasOwn({{target}}, {{key}}) ? Reflect.get({{target}}, {{key}}) : undefined)",
+          inBound:
+            "{{key}} is not declared on this type, and {{how}} also finds inherited members such as toString. A second evaluation of {{target}} or {{key}} may yield another value, so bind both once, in the order {{how}} evaluates them, then read the own value into a place typed unknown. Fix: {{bindings}} const own: unknown = Object.hasOwn(target, key) ? Reflect.get(target, key) : undefined;",
           forIn:
             "for...in also walks inherited enumerable keys. Walk own keys. Fix: for (const key of Object.keys({{target}}))",
         },
@@ -220,12 +233,21 @@ export default {
           );
         };
         const check = (node, keyNode, targetNode, how) => {
-          if (!declared(keyNode, targetNode))
-            context.report({
-              node,
-              messageId: "in",
-              data: { key: text(keyNode), target: text(targetNode), how },
-            });
+          if (declared(keyNode, targetNode)) return;
+          const data = { key: text(keyNode), target: text(targetNode), how };
+          if (stable(keyNode) && stable(targetNode)) {
+            context.report({ node, messageId: "in", data });
+            return;
+          }
+          const key = `const key = ${data.key};`;
+          const target = `const target = ${data.target};`;
+          const bindings =
+            how === "Reflect.has" ? `${target} ${key}` : `${key} ${target}`;
+          context.report({
+            node,
+            messageId: "inBound",
+            data: { ...data, bindings },
+          });
         };
         return {
           "BinaryExpression[operator='in']:not([left.type='PrivateIdentifier'])"(
