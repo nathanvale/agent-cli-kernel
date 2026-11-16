@@ -246,7 +246,10 @@ describe("DS04 and DS05 when the key is absent", () => {
         expect(result.outcome).toBe("refused");
         expect(envelope.diagnostics).toEqual(preDispatchStatus);
         expect(observed.ledger).not.toContain("handler-entered");
-        expect(line(observed, "freeze-start ")).toBeUndefined();
+        // A status is frozen exactly when the reading gives one.
+        expect(line(observed, "freeze-start ") !== undefined).toBe(
+          preDispatchStatus !== undefined,
+        );
       },
       timeout,
     );
