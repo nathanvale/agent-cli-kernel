@@ -13,7 +13,7 @@ import { dirname, join } from "node:path";
 import { spawnBounded } from "./contract3/kernel-repair/swarm-process.ts";
 
 const repository = join(import.meta.dir, "..");
-const scripts = [
+const sources = [
   "scripts/check-commits.ts",
   "scripts/doctor.ts",
   "src/toolchain-resolution.ts",
@@ -29,6 +29,13 @@ const gitEnv = {
 };
 const bound = 15_000;
 const timeout = 20_000;
+const { scripts: production } = (await Bun.file(
+  join(repository, "package.json"),
+).json()) as { scripts: Record<string, string> };
+const markers = {
+  typecheck: "test ! -e type-error",
+  lint: "test ! -e lint-error",
+};
 
 afterAll(() => {
   for (const folder of folders) rmSync(folder, { recursive: true });
@@ -52,19 +59,20 @@ function git(root: string, ...args: string[]): string {
   return result.stdout.toString().trim();
 }
 
-function manifest(pin: string): string {
+function manifest(pin: string, scripts: Record<string, string>): string {
   return JSON.stringify({
     packageManager: `bun@${pin}`,
     scripts: {
-      typecheck: "test ! -e type-error",
-      lint: "test ! -e lint-error",
+      "check:commits": production["check:commits"],
+      doctor: production.doctor,
+      ...scripts,
     },
   });
 }
 
-function repositoryAt(pin = Bun.version) {
-  const root = folder("check-commits-repo-");
-  for (const path of scripts) {
+function repositoryAt({ pin = Bun.version, scripts = markers } = {}) {
+  const root = join(folder("check-commits-repo-"), "repo");
+  for (const path of sources) {
     mkdirSync(dirname(join(root, path)), { recursive: true });
     copyFileSync(join(repository, path), join(root, path));
   }
@@ -83,7 +91,7 @@ function repositoryAt(pin = Bun.version) {
       short: git(root, "rev-parse", "--short", "HEAD"),
     };
   };
-  const base = commit("base", { "package.json": manifest(pin) });
+  const base = commit("base", { "package.json": manifest(pin, scripts) });
   return { root, base, commit };
 }
 
@@ -94,7 +102,7 @@ async function checkCommits(
 ) {
   const temporary = folder("check-commits-tmp-");
   const run = await spawnBounded(
-    [process.execPath, join(root, "scripts/check-commits.ts"), ...args],
+    [process.execPath, "run", "check:commits", ...args],
     {
       cwd: root,
       env: { ...process.env, ...gitEnv, TMPDIR: temporary, ...env },
@@ -255,7 +263,7 @@ describe("check:commits", () => {
   test(
     "a running Bun other than the pin refuses before checking any commit",
     async () => {
-      const { root, base, commit } = repositoryAt("0.0.1");
+      const { root, base, commit } = repositoryAt({ pin: "0.0.1" });
       commit("never checked", { "a.txt": "a" });
 
       const run = await checkCommits(root, [base.sha], {
