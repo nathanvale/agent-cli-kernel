@@ -120,10 +120,13 @@ function spawnChild(fd: number | null): number {
 // 60 s, under the case's 90 s timeout.
 function spawnNativeChild(): number {
   const pidFile = `${report}.child`;
+  // Single-quoted for the shell; an apostrophe in the test root is closed,
+  // escaped and reopened.
+  const quoted = `'${pidFile.replaceAll("'", "'\\''")}'`;
   const { symbols } = dlopen(library, {
     system: { args: ["cstring"], returns: "i32" },
   });
-  const command = `/bin/sleep 60 </dev/null >/dev/null 2>&1 & echo $! > '${pidFile}'`;
+  const command = `/bin/sleep 60 </dev/null >/dev/null 2>&1 & echo $! > ${quoted}`;
   const status = symbols.system(Buffer.from(`${command}\0`));
   if (status !== 0)
     throw new Error(`native-child: system() returned ${status}`);
