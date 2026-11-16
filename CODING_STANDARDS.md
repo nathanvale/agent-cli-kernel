@@ -28,8 +28,9 @@ Each row names what enforces it today:
 - **Partial**: the gates in its Gates cell cover the part its gate note
   names; the reviewer applies the guide to the rest.
 
-The Gates cell names each gate as `script`, `lint` or `job` with its id, and
-links the gate note. **Planned (parked)** names agreed gates that do not exist
+The Gates cell names each gate as `script`, `lint`, `job` or `fault` with its
+id, and links the gate note. A `fault` id is a record id in
+`tests/faults/manifest.json`. **Planned (parked)** names agreed gates that do not exist
 yet. Plan units U4 to U6 in the description of [#8] first named them. The
 lints and the fault replay have landed. The rest has no slot, and [MAG-98],
 the Contract 3 scope issue, does not list them.

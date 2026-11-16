@@ -32,7 +32,7 @@ afterAll(() => {
 });
 
 type Row = { rule: string; today: string; gates: string; guide: string };
-type Gate = { kind: "script" | "lint" | "job"; id: string };
+type Gate = { kind: "script" | "lint" | "job" | "fault"; id: string };
 
 function readWithCodeBlanked(path: string): string {
   let fenced = false;
@@ -243,15 +243,20 @@ function citationsIn(file: string, text: string, history: Ancestry): string[] {
   return problems;
 }
 
-function faultSourceProblems(repository: string, history: Ancestry): string[] {
-  const manifest = "tests/faults/manifest.json";
+const manifest = "tests/faults/manifest.json";
+
+function faultRecords(repository: string): { id?: string; source?: string }[] {
   const path = join(repository, manifest);
-  if (!existsSync(path)) return [];
-  const records = JSON.parse(readFileSync(path, "utf8")) as {
-    id?: string;
-    source?: string;
-  }[];
-  return records.flatMap(({ id, source = "" }) => {
+  return existsSync(path)
+    ? (JSON.parse(readFileSync(path, "utf8")) as {
+        id?: string;
+        source?: string;
+      }[])
+    : [];
+}
+
+function faultSourceProblems(repository: string, history: Ancestry): string[] {
+  return faultRecords(repository).flatMap(({ id, source = "" }) => {
     const sha = /^[0-9a-f]{7,40}(?= )/.exec(source)?.[0];
     const where = `${manifest}: record "${id}"`;
     if (sha === undefined)
@@ -319,7 +324,7 @@ function ruleTable(repository: string): {
 }
 
 function gatesOf(row: Row): Gate[] {
-  return [...row.gates.matchAll(/\b(script|lint|job) `([^`]+)`/g)].map(
+  return [...row.gates.matchAll(/\b(script|lint|job|fault) `([^`]+)`/g)].map(
     ([, kind, id]) => ({ kind: kind as Gate["kind"], id: id ?? "" }),
   );
 }
@@ -329,7 +334,7 @@ const levels = new Map([
     "Partial",
     {
       gated: true,
-      fix: "is Partial but names no gate. Name each gate in the Gates cell as script, lint or job with its id, or mark the row Review only.",
+      fix: "is Partial but names no gate. Name each gate in the Gates cell as script, lint, job or fault with its id, or mark the row Review only.",
     },
   ],
   [
@@ -457,6 +462,10 @@ async function gateProblems(repository: string): Promise<string[]> {
       owner:
         "no workflow in .github/workflows/ that runs on pull_request defines as a job",
     },
+    fault: {
+      ids: new Set(faultRecords(repository).map(({ id }) => id)),
+      owner: `no record in ${manifest} has as its id`,
+    },
   };
   return ruleTable(repository).rows.flatMap((row) =>
     gatesOf(row)
@@ -547,7 +556,7 @@ function fixture(
       "",
       "| Rule | Today | Gates | Guide |",
       "| --- | --- | --- | --- |",
-      "| Gated rule | Partial | [script `faults`, lint `repository/rule`, job `faults`](#gated) | None |",
+      "| Gated rule | Partial | [script `faults`, lint `repository/rule`, job `faults`, fault `fixture`](#gated) | None |",
       "| Guided rule | Review only | None | [Guide](docs/standards/guide.md#lesson) |",
       "",
       "## Gate notes",
@@ -562,6 +571,7 @@ function fixture(
     "docs/standards/guide.md": `# Guide\n\n## Lesson\n\n- Witnessed: [${short}].\n\n[${short}]: ${commitPage}${sha}\n`,
     ".agents/skills/fixture/SKILL.md":
       "---\nname: fixture\n---\n\n[checks](../../../AGENTS.md#checks)\n",
+    [manifest]: JSON.stringify([{ id: "fixture", source: `${short} base` }]),
   };
   change(files, sha);
   for (const [path, content] of Object.entries(files)) {
@@ -645,6 +655,15 @@ test.each([
     ],
   ],
   [
+    "a row whose fault record is gone",
+    (files: Record<string, string>) => {
+      files[manifest] = "[]";
+    },
+    [
+      'CODING_STANDARDS.md: row "Gated rule" names fault `fixture`, which no record in tests/faults/manifest.json has as its id. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
+    ],
+  ],
+  [
     "a row whose lint is on only for files that do not exist",
     (files: Record<string, string>) => {
       files["eslint.config.mjs"] =
@@ -668,12 +687,12 @@ test.each([
     "a Partial row that names no gate",
     (files: Record<string, string>) => {
       files[standards] = (files[standards] ?? "").replace(
-        "[script `faults`, lint `repository/rule`, job `faults`](#gated)",
+        "[script `faults`, lint `repository/rule`, job `faults`, fault `fixture`](#gated)",
         "[Gated](#gated)",
       );
     },
     [
-      'CODING_STANDARDS.md: row "Gated rule" is Partial but names no gate. Name each gate in the Gates cell as script, lint or job with its id, or mark the row Review only.',
+      'CODING_STANDARDS.md: row "Gated rule" is Partial but names no gate. Name each gate in the Gates cell as script, lint, job or fault with its id, or mark the row Review only.',
     ],
   ],
   [
@@ -748,7 +767,7 @@ test.each([
     "a fault record whose source is not an ancestor or names no commit",
     (files: Record<string, string>, sha: string) => {
       files["tests/faults/manifest.json"] = JSON.stringify([
-        { id: "kept", source: `${sha.slice(0, 7)} fix: kept` },
+        { id: "fixture", source: `${sha.slice(0, 7)} fix: kept` },
         { id: "lost", source: `${absent.slice(0, 7)} fix: lost` },
         { id: "bare", source: "fix: no commit" },
       ]);
@@ -792,5 +811,6 @@ test("a shallow clone that cuts a cited commit fails and says to fetch the histo
   expect(await citationProblems(repository)).toEqual([
     `CODING_STANDARDS.md:16: [${sha?.slice(0, 7)}] cites ${sha}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA. ${fetch}`,
     `docs/standards/guide.md:7: [${sha?.slice(0, 7)}] cites ${sha}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA. ${fetch}`,
+    `tests/faults/manifest.json: record "fixture" names source ${sha?.slice(0, 7)}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA. ${fetch}`,
   ]);
 });

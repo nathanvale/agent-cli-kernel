@@ -78,8 +78,9 @@ Done when each item holds:
    `bun run faults <id>` prints `KILLED`.
 3. For a lint, record the existing hits as the recorded hits note says, with
    `bunx eslint . --suppress-rule repository/<rule id>`.
-4. Move the row: name the gate in its Gates cell, link its gate note, mark it
-   Partial, and drop the gate from Planned (parked). Write the gate note:
+4. Move the row: name the gate in its Gates cell, as
+   ``lint `repository/<rule id>` `` or ``fault `<record id>` ``, link its
+   gate note, mark it Partial, and drop the gate from Planned (parked). Write the gate note:
    what the gate refuses and where, what stays review, and `Witnessed:`.
 5. Cut each guide bullet the gate now enforces in full, and narrow each one
    it enforces in part. Move a cut bullet's witnesses to the gate note.
