@@ -16,7 +16,7 @@ import { closeSync, constants, openSync } from "node:fs";
 
 const linux = process.platform === "linux";
 const darwin = process.platform === "darwin";
-const library = linux ? "libc.so.6" : "libSystem.B.dylib";
+export const library = linux ? "libc.so.6" : "libSystem.B.dylib";
 // Independent oracle: the C constants restated from <sys/file.h>,
 // <unistd.h> and <errno.h>, not taken from the add-on.
 const lockExclusive = 2; // LOCK_EX

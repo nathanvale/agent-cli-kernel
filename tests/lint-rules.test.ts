@@ -130,6 +130,22 @@ const fixes = [
   },
   {
     rule: "no-in-operator",
+    filePath: "starters/contract3/src/kernel/validation/result.ts",
+    failing:
+      'export const payload = (next: () => object) => ("payload" in next() ? 1 : 0);',
+    fixed: ([fix]: string[]) =>
+      `export const payload = (next: () => object): unknown => {\n  ${fix}\n  return own;\n};`,
+  },
+  {
+    rule: "no-in-operator",
+    filePath: "starters/contract3/src/kernel/validation/result.ts",
+    failing:
+      'export const ahead = (read: () => object) => Reflect.has(read(), "next");',
+    fixed: ([fix]: string[]) =>
+      `export const ahead = (read: () => object): unknown => {\n  ${fix}\n  return own;\n};`,
+  },
+  {
+    rule: "no-in-operator",
     filePath: "starters/contract3/src/addons/approval/read.ts",
     failing:
       'export const code = (error: Error): unknown => ("code" in error ? error.code : undefined);',
@@ -201,6 +217,28 @@ for (const item of fixes)
     expect(await messages(item.filePath, fixed)).toEqual([]);
   }, 60_000);
 
+test("no-in-operator: a fix for a call operand evaluates it once, in the checked order", async () => {
+  const filePath = "starters/contract3/src/kernel/validation/result.ts";
+  const [inOperator] = await fixesFor(
+    "no-in-operator",
+    filePath,
+    "export const a = (next: () => string, value: object) => next() in value;",
+  );
+  const [reflected] = await fixesFor(
+    "no-in-operator",
+    filePath,
+    'export const b = (read: () => object) => Reflect.has(read(), "next");',
+  );
+  expect(inOperator?.split("next()")).toHaveLength(2);
+  expect(inOperator?.indexOf("const key")).toBeLessThan(
+    inOperator?.indexOf("const target") ?? -1,
+  );
+  expect(reflected?.split("read()")).toHaveLength(2);
+  expect(reflected?.indexOf("const target")).toBeLessThan(
+    reflected?.indexOf("const key") ?? -1,
+  );
+});
+
 const refused = [
   {
     rule: "no-locale-compare",
@@ -233,8 +271,9 @@ const refused = [
       'export const second = localeCompare.call("a", "b");',
       'export const third = Reflect.get(Intl, "Coll" + "ator");',
       "export const fourth = new Collator();",
+      'export const fifth = Reflect.get(Intl, ["Coll", "ator"].join(""));',
     ],
-    lines: [1, 2, 3, 5],
+    lines: [1, 2, 3, 5, 7],
   },
   {
     rule: "no-in-operator",
@@ -295,6 +334,17 @@ const refused = [
     ],
     lines: [2, 3, 4],
   },
+  {
+    rule: "cause-literal-owner",
+    witness: "local literal union",
+    filePath: "starters/contract3/src/kernel/routing.ts",
+    code: [
+      'type LocalCode = "INTERNAL_PREPARATION";',
+      'export const code: LocalCode = "INTERNAL_PREPARATION";',
+      'export const same = (local: LocalCode) => local === "INTERNAL_PREPARATION";',
+    ],
+    lines: [2, 3],
+  },
 ];
 
 for (const item of refused)
@@ -347,6 +397,25 @@ const admitted = [
     code: [
       "interface Function { readonly kind: string }",
       'export const kinded = (value: Function) => "kind" in value;',
+    ],
+  },
+  {
+    rule: "no-in-operator",
+    reason: "checks a numeric key its type declares",
+    filePath: "starters/contract3/src/kernel/validation/result.ts",
+    code: [
+      "export const first = (value: { 0: string }) => 0 in value;",
+      "export const reflected = (value: { 0: string }) => Reflect.has(value, 0);",
+    ],
+  },
+  {
+    rule: "no-in-operator",
+    reason: "checks a unique-symbol key its type declares",
+    filePath: "starters/contract3/src/kernel/validation/result.ts",
+    code: [
+      'const tag: unique symbol = Symbol("tag");',
+      "export const tagged = (value: { [tag]: string }) => tag in value;",
+      "export const reflected = (value: { [tag]: string }) => Reflect.has(value, tag);",
     ],
   },
   {
@@ -531,6 +600,20 @@ const bypasses = [
   ],
   ["require-to-throw-message", "expect(fn).toThrow(/limit/);", undefined],
   ["require-to-throw-message", "expect(fn).not.toThrow(undefined);", undefined],
+  ["require-to-throw-message", 'expect(fn)["toThrow"]();', "bare toThrow()"],
+  [
+    "require-to-throw-message",
+    'expect(fn)["toThrowError"]("");',
+    'toThrowError("") names no message',
+  ],
+  [
+    "require-to-throw-message",
+    'await expect(work)["rejects"]["toThrow"]();',
+    "bare toThrow()",
+  ],
+  ["require-to-throw-message", 'expect(fn)["not"].toThrow();', undefined],
+  ["require-to-throw-message", 'expect(fn)["not"]["toThrow"]();', undefined],
+  ["require-to-throw-message", 'expect(fn)["toThrow"]("limit");', undefined],
   [
     "tests-use-test-folder",
     'import { tmpdir as td2 } from "node:os";\ntd2();',
@@ -576,6 +659,21 @@ const bypasses = [
     'import { homedir as td } from "node:os";\ntd();',
     undefined,
   ],
+  [
+    "tests-use-test-folder",
+    'import * as os from "node:os";\nconst { tmpdir: td, ...rest } = os;\ntd();\nrest.homedir();',
+    "not tmpdir()",
+  ],
+  ...[
+    "const { ...rest } = { value: 1 };\nexpect(rest.value).toBe(1);",
+    "const { ...copy } = service;\ncopy.run();",
+    "const { a: { b }, c = { d: 1 }, ...rest } = source;\nb.run();\nc.d.toString();\nrest.run();",
+    "const [, first, [second] = [], { third }, ...others] = list;\nfirst.run();\nsecond.run();\nthird.run();\nothers.at(0);",
+  ].flatMap((code) =>
+    (["tests-use-test-folder", "tests-no-sleep"] as const).map(
+      (rule) => [rule, code, undefined] as const,
+    ),
+  ),
   [
     "tests-no-sleep",
     'import timers from "node:timers/promises";\nawait timers.setTimeout(5);',

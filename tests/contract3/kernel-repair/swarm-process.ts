@@ -29,7 +29,9 @@ function resultOf(stdout: string): ScenarioRun["result"] {
 // process behind. The wait is bounded below the test timeout; on expiry the
 // child is killed and awaited, then the case fails naming the bound. It
 // also records the wall-clock time of the first stdout byte (KF3, LIFE-6).
-// Sends `signal` once `ledger` holds the line `line` (a barrier).
+// Sends `signal` once `ledger` holds the line `line` (a barrier). With
+// `processGroup`, the child leads its own process group and expiry kills
+// the whole group, so a wrapper's own children go with it.
 export type SignalAt = {
   readonly ledger: string;
   readonly line: string;
@@ -42,6 +44,7 @@ export async function spawnBounded(
     readonly env?: Readonly<Record<string, string | undefined>>;
     readonly boundMilliseconds?: number;
     readonly signalAt?: SignalAt;
+    readonly processGroup?: boolean;
   } = {},
 ): Promise<{
   stdout: string;
@@ -55,6 +58,7 @@ export async function spawnBounded(
     ...(options.env === undefined ? {} : { env: { ...options.env } }),
     stdout: "pipe",
     stderr: "pipe",
+    detached: options.processGroup === true,
   });
   const barrier = options.signalAt;
   const poll = barrier
@@ -91,7 +95,13 @@ export async function spawnBounded(
   clearTimeout(timer);
   clearInterval(poll);
   if (finished === "expired") {
-    child.kill("SIGKILL");
+    if (options.processGroup !== true) child.kill("SIGKILL");
+    else
+      try {
+        process.kill(-child.pid, "SIGKILL");
+      } catch (error) {
+        if (Reflect.get(Object(error), "code") !== "ESRCH") throw error;
+      }
     await child.exited;
     throw new Error(`${argv.join(" ")} did not exit within ${bound} ms.`);
   }

@@ -1,111 +1,32 @@
 diff --git a/starters/contract3/src/kernel/index.ts b/starters/contract3/src/kernel/index.ts
-index 041c220..a44489a 100644
+index 2de9550..69a9022 100644
 --- a/starters/contract3/src/kernel/index.ts
 +++ b/starters/contract3/src/kernel/index.ts
-@@ -21,7 +21,7 @@ import type { CauseTable, Effects, Validation } from "./types.ts";
- import { proofValue } from "./validation/state.ts";
- import { invocationTokens, resolveInvocation } from "./routing.ts";
- import { recordRuntime } from "./runtime.ts";
--import type { Attach, Enter, KernelFacts } from "./runtime.ts";
-+import type { KernelFacts } from "./runtime.ts";
- import { authority, resource, path } from "./validation/brands.ts";
- import type { CommandDeclaration } from "./declarations.ts";
- import { preparerOf } from "./declarations.ts";
-@@ -253,16 +253,15 @@ export function contractFor<
-   }
- 
-   // CMD-9 steps 3 to 5, then step 6. `prepare` refuses invocation, input
--  // and approval before anything attaches; its attach claims the run
--  // identity and attaches state, before handler entry, and returns the entry
--  // that runs the handler (K3-spec-6, K3-spec-5). A raw declaration without
--  // a two-phase entry runs through its own execute at entry.
-+  // and approval before anything attaches; its entry attaches state and runs
-+  // the handler (K3-spec-6). A raw declaration without a two-phase entry runs
-+  // through its own execute at entry.
-   async function prepareCommand(
-     identity: string,
-     argv: unknown,
-     runId: string,
-     context: unknown = {},
--  ): Promise<Validation<Attach>> {
-+  ): Promise<Validation<() => Promise<Validation<CommandResult>>>> {
-     const selected = commands.find(
-       (entry) => entry.commandIdentity === identity,
-     );
-@@ -288,17 +287,17 @@ export function contractFor<
-       : undefined;
-     if (ready && !ready.ok) return ready;
-     const execute = selected.execute;
--    // One attach per run: a second call would attach and enter again under
-+    // One entry per run: a second call would attach and enter again under
-     // the same run identity (delta review F2).
--    let used = false;
--    const attach: Attach = () => {
--      if (used)
-+    let entered = false;
-+    const enter = async (): Promise<Validation<CommandResult>> => {
-+      if (entered)
-         return {
-           ok: false,
-           path: "entry",
+@@ -301,17 +301,17 @@ export function contractFor<
            reason: "handler entry already used",
          };
--      used = true;
-+      entered = true;
-       const attached =
-         changingCommand && spec.state
-           ? attachState(spec.state, runId, selected.effects ?? [])
-@@ -309,26 +308,23 @@ export function contractFor<
-           path: "runId",
-           reason: "run identity already attached",
-         };
--      const enter: Enter = async () => {
--        // WIRE-15: the capability closes when the handler returns, so no
--        // transaction can start after the result exists (K2-spec-3).
--        const outcome = await (ready
--          ? ready.value(attached?.capability)
--          : execute(
--              argv,
--              changingCommand
--                ? withState(context, attached?.capability)
--                : context,
--              runId,
--              invocation,
--              inputTable,
--            )
--        ).finally(() => attached?.close());
--        return accepted(outcome, identity, runId, invocation, parsed);
--      };
--      return { ok: true, value: enter };
-+      // WIRE-15: the capability closes when the handler returns, so no
-+      // transaction can start after the result exists (K2-spec-3).
-+      const outcome = await (ready
-+        ? ready.value(attached?.capability)
-+        : execute(
-+            argv,
-+            changingCommand
-+              ? withState(context, attached?.capability)
-+              : context,
-+            runId,
-+            invocation,
-+            inputTable,
-+          )
-+      ).finally(() => attached?.close());
-+      return accepted(outcome, identity, runId, invocation, parsed);
-     };
--    return { ok: true, value: attach };
-+    return { ok: true, value: enter };
-   }
- 
-   function accepted(
-@@ -361,9 +357,7 @@ export function contractFor<
-     context: unknown = {},
-   ) {
-     const prepared = await prepareCommand(identity, argv, runId, context);
--    if (!prepared.ok) return prepared;
--    const entry = prepared.value();
--    return entry.ok ? entry.value() : entry;
-+    return prepared.ok ? prepared.value() : prepared;
-   }
- 
-   const contract = {
+       used = true;
+-      const attached =
+-        changingCommand && spec.state
+-          ? attachState(spec.state, runId, selected.effects ?? [])
+-          : undefined;
+-      if (changingCommand && spec.state && !attached)
+-        return {
+-          ok: false,
+-          path: "runId",
+-          reason: "run identity already attached",
+-        };
+       const enter: Enter = async () => {
++        const attached =
++          changingCommand && spec.state
++            ? attachState(spec.state, runId, selected.effects ?? [])
++            : undefined;
++        if (changingCommand && spec.state && !attached)
++          return {
++            ok: false,
++            path: "runId",
++            reason: "run identity already attached",
++          };
+         // WIRE-15: the capability closes when the handler returns, so no
+         // transaction can start after the result exists (K2-spec-3).
+         const outcome = await (ready

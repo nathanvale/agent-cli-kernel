@@ -2,6 +2,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import {
   appendFileSync,
   chmodSync,
+  existsSync,
   mkdirSync,
   readdirSync,
   readFileSync,
@@ -18,10 +19,20 @@ import { testFolder } from "./support/test-folder.ts";
 
 const repository = join(import.meta.dir, "..");
 const folders: string[] = [];
+const pidLedgers: string[] = [];
 const gitEnv = {
   GIT_CONFIG_GLOBAL: "/dev/null",
   GIT_CONFIG_NOSYSTEM: "1",
 };
+// A caller such as a git hook can export these, and they override `cwd`.
+const repositoryLocation = new Set([
+  "GIT_DIR",
+  "GIT_WORK_TREE",
+  "GIT_INDEX_FILE",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  "GIT_COMMON_DIR",
+]);
 const fixtureAuthor = {
   GIT_AUTHOR_NAME: "Fixture",
   GIT_AUTHOR_EMAIL: "fixture@example.invalid",
@@ -45,8 +56,13 @@ const guarded = `export function limit(value: number): number {
 `;
 const refusalTest = `expect(() => limit(Number.NaN)).toThrow("limit must be a number")`;
 const tests = (refusal: string) => `import { expect, test } from "bun:test";
-import { appendFileSync, writeFileSync } from "node:fs";
+import { appendFileSync } from "node:fs";
 import { limit } from "../src/limit.ts";
+
+appendFileSync(
+  process.env.FAULTS_PIDS ?? "/dev/null",
+  \`\${process.pid} \${process.ppid}\\n\`,
+);
 
 test("L.refuses NaN", () => {
   ${refusal};
@@ -64,13 +80,20 @@ test("L.dies by a signal nobody sent the run", () => {
   process.kill(process.pid, "SIGKILL");
 });
 test("L.blocks until stopped", async () => {
-  writeFileSync(process.env.FAULTS_PID ?? "", String(process.pid));
+  appendFileSync(process.env.FAULTS_LEDGER ?? "", "started\\n");
+  await new Promise(() => undefined);
+}, 60_000);
+test("L.traps SIGTERM and blocks", async () => {
+  process.on("SIGTERM", () => {
+    appendFileSync(process.env.FAULTS_LEDGER ?? "", "trapped\\n");
+  });
   appendFileSync(process.env.FAULTS_LEDGER ?? "", "started\\n");
   await new Promise(() => undefined);
 }, 60_000);
 `;
 
-afterAll(() => {
+afterAll(async () => {
+  for (const ledger of pidLedgers) await release(ledger);
   for (const folder of folders) rmSync(folder, { recursive: true });
 });
 
@@ -83,13 +106,96 @@ function folder(prefix: string): string {
 function git(root: string, ...args: string[]): string {
   const result = Bun.spawnSync(["git", ...args], {
     cwd: root,
-    env: { ...process.env, ...gitEnv, ...fixtureAuthor },
+    env: { ...fixtureEnv(), ...fixtureAuthor },
     stdout: "pipe",
     stderr: "pipe",
   });
   if (result.exitCode !== 0)
     throw new Error(`git ${args.join(" ")}: ${result.stderr.toString()}`);
   return result.stdout.toString();
+}
+
+// Each replayed test process appends "<pid> <replay script pid>" here.
+function pidLedger(): string {
+  const path = join(folder("faults-pids-"), "pids");
+  pidLedgers.push(path);
+  return path;
+}
+
+function ledgered(ledger: string): { pid: number; parent: number }[] {
+  if (!existsSync(ledger)) return [];
+  return readFileSync(ledger, "utf8")
+    .split("\n")
+    .filter((line) => line !== "")
+    .map((line) => {
+      const [pid = Number.NaN, parent = Number.NaN] = line
+        .split(" ")
+        .map(Number);
+      return { pid, parent };
+    });
+}
+
+function running(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    if (Reflect.get(Object(error), "code") === "ESRCH") return false;
+    throw error;
+  }
+}
+
+// An orphan is reaped by init, not by this process, so wait for it to go.
+function exited(pid: number, boundMilliseconds = 5_000): Promise<boolean> {
+  return new Promise((resolve) => {
+    const started = Date.now();
+    const poll = setInterval(() => {
+      const gone = !running(pid);
+      if (!gone && Date.now() - started < boundMilliseconds) return;
+      clearInterval(poll);
+      resolve(gone);
+    }, 5);
+  });
+}
+
+// The replay gives each test process its own process group, so a test
+// process is killed only while it still leads that group.
+async function release(ledger: string): Promise<void> {
+  for (const { pid } of ledgered(ledger)) {
+    const group = Bun.spawnSync(["ps", "-o", "pgid=", "-p", String(pid)])
+      .stdout.toString()
+      .trim();
+    if (group !== String(pid)) continue;
+    try {
+      process.kill(-pid, "SIGKILL");
+    } catch (error) {
+      if (Reflect.get(Object(error), "code") !== "ESRCH") throw error;
+    }
+    await exited(pid);
+  }
+}
+
+function worktrees(root: string): string[] {
+  return git(root, "worktree", "list", "--porcelain")
+    .split("\n")
+    .filter((line) => line.startsWith("worktree "))
+    .map((line) => line.slice("worktree ".length));
+}
+
+function releaseWorktrees(root: string): void {
+  for (const tree of worktrees(root))
+    if (tree !== root) git(root, "worktree", "remove", "--force", tree);
+}
+
+function fixtureEnv(): Record<string, string | undefined> {
+  return {
+    ...Object.fromEntries(
+      Object.entries(process.env).filter(
+        ([name]) => !repositoryLocation.has(name),
+      ),
+    ),
+    ...gitEnv,
+  };
 }
 
 function write(root: string, path: string, content: string): void {
@@ -117,23 +223,39 @@ async function faults(
     signalAt,
     env = {},
     launcher = [],
+    boundMilliseconds = bound,
+    pids = pidLedger(),
   }: {
     signalAt?: SignalAt;
     env?: Readonly<Record<string, string>>;
     launcher?: readonly string[];
+    boundMilliseconds?: number;
+    pids?: string;
   } = {},
 ) {
   const temporary = folder("faults-tmp-");
-  const run = await spawnBounded(
-    [...launcher, process.execPath, "run", "--silent", "faults", ...args],
-    {
-      cwd: root,
-      env: { ...process.env, ...gitEnv, TMPDIR: temporary, ...env },
-      boundMilliseconds: bound,
-      ...(signalAt === undefined ? {} : { signalAt }),
-    },
-  );
-  return { ...run, temporary, lines: run.stdout.split("\n") };
+  try {
+    const run = await spawnBounded(
+      [...launcher, process.execPath, "run", "--silent", "faults", ...args],
+      {
+        cwd: root,
+        env: {
+          ...fixtureEnv(),
+          TMPDIR: temporary,
+          FAULTS_PIDS: pids,
+          ...env,
+        },
+        boundMilliseconds,
+        processGroup: true,
+        ...(signalAt === undefined ? {} : { signalAt }),
+      },
+    );
+    return { ...run, temporary, pids, lines: run.stdout.split("\n") };
+  } catch (error) {
+    await release(pids);
+    releaseWorktrees(root);
+    throw error;
+  }
 }
 
 function addFault(
@@ -154,7 +276,7 @@ function addFault(
       testFile,
       title,
     ],
-    { cwd: root, env: { ...process.env, ...gitEnv }, boundMilliseconds: bound },
+    { cwd: root, env: fixtureEnv(), boundMilliseconds: bound },
   );
 }
 
@@ -225,7 +347,7 @@ async function repositoryWithFault(
 
 function verdicts(lines: readonly string[]): string[] {
   return lines
-    .filter((line) => /^(KILLED|SURVIVED|STALE|BROKEN) /.test(line))
+    .filter((line) => /^(KILLED|SURVIVED|STALE|BROKEN|TIMEOUT) /.test(line))
     .map((line) => line.split(" ", 2).join(" "));
 }
 
@@ -235,12 +357,28 @@ function lineOf(lines: readonly string[], start: string): string {
   return line;
 }
 
+// A step limit long enough for worktree add and install on a loaded host,
+// and a run bound that covers it plus the SIGKILL grace.
+const stepSeconds = 3;
+const hangBound = 30_000;
+// Long enough for the blocking test to start on a loaded host, so the
+// forced expiry finds it running.
+const forcedBound = 10_000;
+
+function hangLedger() {
+  const ledger = join(folder("faults-hang-"), "ledger");
+  appendFileSync(ledger, "");
+  return { ledger, lines: () => readFileSync(ledger, "utf8").split("\n") };
+}
+
+function expectOneTestProcessGone(pids: string): void {
+  const [only, ...more] = ledgered(pids);
+  expect(more).toEqual([]);
+  expect(only !== undefined && running(only.pid)).toBe(false);
+}
+
 function expectNoLeftovers(root: string, temporary: string): void {
-  expect(
-    git(root, "worktree", "list", "--porcelain")
-      .split("\n")
-      .filter((line) => line.startsWith("worktree ")),
-  ).toEqual([`worktree ${root}`]);
+  expect(worktrees(root)).toEqual([root]);
   expect(readdirSync(temporary)).toEqual([]);
 }
 
@@ -476,26 +614,151 @@ describe("bun run faults", () => {
         const { root } = await repositoryWithFault({
           blocks: "^L\\.blocks ",
         });
-        const signals = folder("faults-signal-");
-        const ledger = join(signals, "ledger");
-        const pidFile = join(signals, "pid");
-        appendFileSync(ledger, "");
+        const hang = hangLedger();
         const run = await faults(root, ["blocks"], {
-          signalAt: { ledger, line: "started", signal },
-          env: { FAULTS_LEDGER: ledger, FAULTS_PID: pidFile },
+          signalAt: { ledger: hang.ledger, line: "started", signal },
+          env: { FAULTS_LEDGER: hang.ledger },
         });
         expect(run.stderr).toContain(
           `Stopped by ${signal} while replaying blocks, so it has no verdict.\n`,
         );
         expect(verdicts(run.lines)).toEqual([]);
         expect(run.exit).toBe(exit);
-        expect(() =>
-          process.kill(Number(readFileSync(pidFile, "utf8")), 0),
-        ).toThrow("kill() failed: ESRCH: No such process");
+        expectOneTestProcessGone(run.pids);
         expectNoLeftovers(root, run.temporary);
       },
       timeout,
     );
+
+  for (const [id, title, trapped] of [
+    ["blocks", "^L\\.blocks ", []],
+    ["traps", "^L\\.traps ", ["trapped"]],
+  ] as const)
+    test(
+      `FR.o a replayed test that ${id === "traps" ? "traps SIGTERM and " : ""}hangs past the step limit is TIMEOUT by id, exits 1, and leaves no process or worktree`,
+      async () => {
+        const { root } = await repositoryWithFault({ [id]: title });
+        const hang = hangLedger();
+        const run = await faults(root, [id], {
+          env: {
+            FAULTS_LEDGER: hang.ledger,
+            FAULTS_STEP_SECONDS: String(stepSeconds),
+          },
+          boundMilliseconds: hangBound,
+        });
+        expect(verdicts(run.lines)).toEqual([`TIMEOUT ${id}`]);
+        expect(lineOf(run.lines, "TIMEOUT")).toMatch(
+          new RegExp(
+            `^TIMEOUT ${id} in [\\d.]+ s\\. \\S+ test \\./tests/limit\\.test\\.ts -t \\^L\\\\\\.${id}  did not finish within ${stepSeconds} s, so the fault has no verdict\\. Find the hang, or raise FAULTS_STEP_SECONDS\\.$`,
+          ),
+        );
+        expect(run.lines).toContain(`Rerun: bun run faults ${id}`);
+        expect(run.exit).toBe(1);
+        expect(hang.lines().filter((line) => line === "trapped")).toEqual([
+          ...trapped,
+        ]);
+        expectOneTestProcessGone(run.pids);
+        expectNoLeftovers(root, run.temporary);
+      },
+      hangBound + 10_000,
+    );
+
+  test(
+    "FR.p a SIGINT to a replay whose test traps SIGTERM escalates to SIGKILL, exits 130, and leaves no process or worktree",
+    async () => {
+      const { root } = await repositoryWithFault({ traps: "^L\\.traps " });
+      const hang = hangLedger();
+      const run = await faults(root, ["traps"], {
+        signalAt: { ledger: hang.ledger, line: "started", signal: "SIGINT" },
+        env: { FAULTS_LEDGER: hang.ledger },
+        boundMilliseconds: hangBound,
+      });
+      expect(run.stderr).toContain(
+        "Stopped by SIGINT while replaying traps, so it has no verdict.\n",
+      );
+      expect(verdicts(run.lines)).toEqual([]);
+      expect(run.exit).toBe(130);
+      expect(hang.lines()).toContain("trapped");
+      expectOneTestProcessGone(run.pids);
+      expectNoLeftovers(root, run.temporary);
+    },
+    hangBound + 10_000,
+  );
+
+  test(
+    "FR.r a run that outlives its test bound leaves no replay script, test process or worktree behind",
+    async () => {
+      const { root } = await repositoryWithFault({ blocks: "^L\\.blocks " });
+      const hang = hangLedger();
+      const pids = pidLedger();
+      const outcome = await faults(root, ["blocks"], {
+        env: { FAULTS_LEDGER: hang.ledger },
+        boundMilliseconds: forcedBound,
+        pids,
+      }).then(
+        () => "exited",
+        (error: unknown) => String(error),
+      );
+      expect(outcome).toEndWith(`did not exit within ${forcedBound} ms.`);
+      expect(hang.lines()).toContain("started");
+      const [test, ...more] = ledgered(pids);
+      expect(more).toEqual([]);
+      if (test === undefined) throw new Error("No test process was ledgered.");
+      expect(await exited(test.pid)).toBe(true);
+      expect(await exited(test.parent)).toBe(true);
+      expect(worktrees(root)).toEqual([root]);
+    },
+    forcedBound + 15_000,
+  );
+
+  test(
+    "FR.s a caller's GIT_DIR does not redirect the fixture's git, faults:add or replay to another repository",
+    async () => {
+      const unrelated = join(folder("faults-caller-"), "repo");
+      mkdirSync(unrelated);
+      git(unrelated, "init", "--quiet", "--initial-branch=main");
+      commit(unrelated, "caller", { "caller.txt": "caller\n" });
+      const state = () =>
+        [
+          git(unrelated, "log", "--format=%H %s", "--all"),
+          git(unrelated, "worktree", "list", "--porcelain"),
+          git(unrelated, "status", "--porcelain=v1", "--untracked-files=all"),
+          git(unrelated, "config", "--local", "--list"),
+        ].join("\n--\n");
+      const before = state();
+      process.env.GIT_DIR = join(unrelated, ".git");
+      try {
+        const { root, id } = await repositoryWithFault({});
+        const run = await faults(root);
+        expect(verdicts(run.lines)).toEqual([`KILLED ${id}`]);
+        expect(run.exit).toBe(0);
+        expect(git(root, "log", "--format=%s")).toBe(
+          "record the faults\nfix: refuse a NaN limit\nbase\n",
+        );
+      } finally {
+        delete process.env.GIT_DIR;
+      }
+      expect(state()).toBe(before);
+    },
+    processWatchdog(3),
+  );
+
+  test(
+    "FR.q a step limit that is not a positive number is refused with exit 2 and runs nothing",
+    async () => {
+      const { root } = await repositoryWithFault({});
+      const run = await faults(root, [], {
+        env: { FAULTS_STEP_SECONDS: "0" },
+      });
+      expect(run.stderr).toBe(
+        "FAULTS_STEP_SECONDS is '0'. Set it to a positive number of seconds, or unset it for 300 s.\n",
+      );
+      expect(verdicts(run.lines)).toEqual([]);
+      expect(run.exit).toBe(2);
+      expectNoLeftovers(root, run.temporary);
+    },
+    timeout,
+  );
 
   test(
     "FR.l a stop that finds the step's process group holding only zombies still exits 130 (macOS answers EPERM there)",

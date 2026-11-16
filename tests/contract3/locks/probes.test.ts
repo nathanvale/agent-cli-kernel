@@ -13,25 +13,29 @@ const mistyped = probe('const planted: number = "x";\nexport {};\n');
 const clean = probe("export const fine = 1;\n");
 const nativeOnly = probe("export const native = 1;\n", ["native"]);
 
-test("a probe that fails to parse leaves every other probe's type check intact", async () => {
-  for (const compiler of ["native", "lint-view"] as const) {
-    const broken = await unparsable.compile(compiler);
-    expect(broken.exit).not.toBe(0);
-    expect(broken.diagnostics).toEqual([
-      { file: unparsable.file, line: 1, code: 1109 },
-    ]);
-    const typed = await mistyped.compile(compiler);
-    expect(typed.exit).not.toBe(0);
-    expect(typed.diagnostics).toEqual([
-      { file: mistyped.file, line: 1, code: 2322 },
-    ]);
-    expect(await clean.compile(compiler)).toMatchObject({
-      exit: 0,
-      stdout: "",
-      stderr: "",
-    });
-  }
-});
+test(
+  "a probe that fails to parse leaves every other probe's type check intact",
+  async () => {
+    for (const compiler of ["native", "lint-view"] as const) {
+      const broken = await unparsable.compile(compiler);
+      expect(broken.exit).not.toBe(0);
+      expect(broken.diagnostics).toEqual([
+        { file: unparsable.file, line: 1, code: 1109 },
+      ]);
+      const typed = await mistyped.compile(compiler);
+      expect(typed.exit).not.toBe(0);
+      expect(typed.diagnostics).toEqual([
+        { file: mistyped.file, line: 1, code: 2322 },
+      ]);
+      expect(await clean.compile(compiler)).toMatchObject({
+        exit: 0,
+        stdout: "",
+        stderr: "",
+      });
+    }
+  },
+  probe.timeout(),
+);
 
 const leakProbe = probeBatch("contract3-probes-leaks-");
 const leaks = [
@@ -65,60 +69,157 @@ const leaks = [
 }));
 
 for (const leak of leaks)
-  test(`a probe that writes the global scope by ${leak.name} reaches no other probe`, async () => {
-    for (const writer of leak.writers)
-      expect(await writer.compile("native")).toMatchObject({
-        exit: 0,
-        stdout: "",
-        stderr: "",
-      });
-    const read = await leak.reader.compile("native");
-    expect(read.diagnostics).toEqual([
-      { file: leak.reader.file, line: 1, code: leak.code },
-    ]);
-  });
+  test(
+    `a probe that writes the global scope by ${leak.name} reaches no other probe`,
+    async () => {
+      for (const writer of leak.writers)
+        expect(await writer.compile("native")).toMatchObject({
+          exit: 0,
+          stdout: "",
+          stderr: "",
+        });
+      const read = await leak.reader.compile("native");
+      expect(read.diagnostics).toEqual([
+        { file: leak.reader.file, line: 1, code: leak.code },
+      ]);
+    },
+    leakProbe.timeout(),
+  );
 
 const fixtureDirectory = testFolder("contract3-probes-fixture-");
-const fixture = join(fixtureDirectory, "shared-fixture.ts");
-writeFileSync(fixture, 'export const planted: number = "x";\n');
 afterAll(() => rm(fixtureDirectory, { recursive: true, force: true }));
-const importer = probeBatch("contract3-probes-importers-");
-const importers = [
-  importer(
-    `import { planted } from ${JSON.stringify(fixture)};\nexport const a = planted;\n`,
-  ),
-  importer(
-    `import { planted } from ${JSON.stringify(fixture)};\nexport const b = planted;\n`,
-  ),
-];
-
-test("an error in a file the probes import fails every probe that imports it", async () => {
-  for (const compiler of ["native", "lint-view"] as const)
-    for (const reader of importers) {
-      const read = await reader.compile(compiler);
-      expect(read.exit).not.toBe(0);
-      expect(
-        read.diagnostics.map((found) => ({
-          ...found,
-          file: basename(found.file),
-        })),
-      ).toEqual([{ file: "shared-fixture.ts", line: 1, code: 2322 }]);
-    }
+const sharedFaults = [
+  {
+    name: "a type error",
+    source: 'export const planted: number = "x";\n',
+    code: 2322,
+  },
+  {
+    name: "a syntax error",
+    source: "export const planted: number = ;\n",
+    code: 1109,
+  },
+].map((fault, index) => {
+  const fixture = join(fixtureDirectory, `shared-fixture-${index}.ts`);
+  writeFileSync(fixture, fault.source);
+  const importer = probeBatch(`contract3-probes-importers-${index}-`);
+  return {
+    ...fault,
+    fixture: basename(fixture),
+    importers: ["a", "b"].map((name) =>
+      importer(
+        `import { planted } from ${JSON.stringify(fixture)};\nexport const ${name} = planted;\n`,
+      ),
+    ),
+    unrelated: importer("export const unrelated = 1;\n"),
+    timeout: importer.timeout(),
+  };
 });
 
-test("registering a probe after the first compile is refused", async () => {
-  await clean.compile("native");
-  expect(() => probe("export const late = 1;\n")).toThrow(
-    "Register every probe at module load, before the first compile.",
+for (const fault of sharedFaults)
+  test(
+    `${fault.name} in a file the probes import fails only the probes that import it`,
+    async () => {
+      for (const compiler of ["native", "lint-view"] as const) {
+        for (const reader of fault.importers) {
+          const read = await reader.compile(compiler);
+          expect(read.exit).not.toBe(0);
+          expect(
+            read.diagnostics.map((found) => ({
+              ...found,
+              file: basename(found.file),
+            })),
+          ).toEqual([{ file: fault.fixture, line: 1, code: fault.code }]);
+        }
+        expect(await fault.unrelated.compile(compiler)).toMatchObject({
+          exit: 0,
+          stdout: "",
+          stderr: "",
+        });
+      }
+    },
+    fault.timeout,
+  );
+
+test(
+  "registering a probe after the first compile is refused",
+  async () => {
+    await clean.compile("native");
+    expect(() => probe("export const late = 1;\n")).toThrow(
+      "Register every probe at module load, before the first compile.",
+    );
+  },
+  probe.timeout(),
+);
+
+const sizedProbe = probeBatch("contract3-probes-sized-");
+sizedProbe("export const early = 1;\n");
+test("registering a probe after its batch sized a test timeout is refused", () => {
+  sizedProbe.timeout();
+  expect(() => sizedProbe("export const late = 1;\n")).toThrow(
+    "Register every probe before sizing a test timeout with timeout().",
   );
 });
 
-test("compiling a probe with a compiler it was not registered for is refused", async () => {
-  expect(await nativeOnly.compile("native")).toMatchObject({ exit: 0 });
-  expect(await nativeOnly.compile("lint-view").catch(String)).toBe(
-    `Error: ${nativeOnly.file} (source starts "export const native = 1;") was not registered for lint-view. Add "lint-view" to the compilers passed when registering it.`,
-  );
+test(
+  "compiling a probe with a compiler it was not registered for is refused",
+  async () => {
+    expect(await nativeOnly.compile("native")).toMatchObject({ exit: 0 });
+    expect(await nativeOnly.compile("lint-view").catch(String)).toBe(
+      `Error: ${nativeOnly.file} (source starts "export const native = 1;") was not registered for lint-view. Add "lint-view" to the compilers passed when registering it.`,
+    );
+  },
+  probe.timeout(),
+);
+
+// The lint-view parser overflows its stack on the deep nesting in this
+// imported file and exits at once, while the sibling still instantiates a
+// 999-element tuple chain. Declaring global gives the crasher its own program.
+const deep = join(fixtureDirectory, "deep.ts");
+writeFileSync(
+  deep,
+  `export const deep = ${"(".repeat(50_000)}1${")".repeat(50_000)};\n`,
+);
+const crasher = `import { deep } from ${JSON.stringify(deep)};\ndeclare global {}\nexport const read = deep;\n`;
+const slow =
+  'type Count<N extends number, A extends 0[] = []> = A["length"] extends N ? A : Count<N, [...A, 0]>;\nexport const slow: Count<999>["length"] = 999;\n';
+
+async function running(prefix: string): Promise<string[]> {
+  const ps = Bun.spawn(["ps", "-Aww", "-o", "args="], { stdout: "pipe" });
+  const listed = await new Response(ps.stdout).text();
+  await ps.exited;
+  return listed.split("\n").filter((line) => line.includes(prefix));
+}
+
+const drains = (
+  [
+    ["programs", "lint-view"],
+    ["compilers", "native"],
+  ] as const
+).map(([join, sibling]) => {
+  const prefix = `contract3-probes-drain-${join}-`;
+  const drained = probeBatch(prefix);
+  drained(slow, [sibling]);
+  return {
+    join,
+    prefix,
+    crasher: drained(crasher, ["lint-view"]),
+    timeout: drained.timeout(),
+  };
 });
+
+for (const drained of drains)
+  test(
+    `a failed compiler run reports only after its sibling ${drained.join} exit`,
+    async () => {
+      const failure = await drained.crasher
+        .compile("lint-view")
+        .catch((error: unknown) => error);
+      expect(await running(drained.prefix)).toEqual([]);
+      expect(String(failure)).toContain("lint-view did not complete normally");
+    },
+    drained.timeout,
+  );
 
 const files = ["locks/probe-0.ts", "locks/probe-1.ts"];
 const typeError = "locks/probe-0.ts(1,7): error TS2322: planted.\n";
@@ -130,8 +231,8 @@ test("a clean probe reads exit 0 only from a run that completed normally", () =>
     stderr: "",
     exit: 1,
   });
-  expect(read.get("locks/probe-0.ts")).toMatchObject({ exit: 1 });
-  expect(read.get("locks/probe-1.ts")).toEqual({
+  expect(read.settled.get("locks/probe-0.ts")).toMatchObject({ exit: 1 });
+  expect(read.settled.get("locks/probe-1.ts")).toEqual({
     stdout: "",
     stderr: "",
     exit: 0,
