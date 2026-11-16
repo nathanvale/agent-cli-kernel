@@ -392,3 +392,112 @@ describe("caller-program disclosure guard (supporting C3, not a frozen case)", (
     timeout,
   );
 });
+
+// Findings round, finding 1 (Nathan, 16 November 2026: every admitted value
+// is honoured, no cap). LIMIT is the largest delay a runtime timer holds; a
+// raw timer armed above it fires after about 1 ms with a stderr warning.
+// Expectations: c3-expect-t2t5, findings-round/expectations.md.
+const timerLimit = 2_147_483_647;
+const overLimit = [
+  timerLimit,
+  timerLimit + 1,
+  3_000_000_000,
+  Number.MAX_SAFE_INTEGER,
+] as const;
+const unchangedEffects = {
+  completed: [],
+  remaining: [],
+  uncertain: [],
+  inventoryComplete: true,
+};
+function programCase(id: string, argv: readonly string[]): Case {
+  return {
+    id,
+    family: id.split(".")[0] ?? id,
+    status: "supporting",
+    argv,
+    scenario: undefined,
+    state: false,
+    stdin: "closed",
+    expect: {
+      commandIdentity: "fx.program",
+      causeCode: "SUCCESS_UNCHANGED",
+      effects: unchangedEffects,
+    },
+    supplier: undefined,
+    note: undefined,
+  };
+}
+async function programRun(entry: Case) {
+  const launched = await launchCase(entry);
+  try {
+    const observed = await exitWithin(launched);
+    receipt(entry, observed);
+    // One envelope, the command's own success station, zero CLI stderr.
+    const { result } = assertEnvelope(entry, observed);
+    return { fields: data(result), ledger: observed.ledger };
+  } finally {
+    await releaseLaunched(launched);
+  }
+}
+
+describe("T03 a program timeout above the timer limit (finding 1)", () => {
+  for (const value of overLimit)
+    test(
+      `T03.program-timeout-above-limit T=${value}`,
+      async () => {
+        const { fields, ledger } = await programRun(
+          programCase("T03.program-timeout-above-limit", [
+            "program",
+            "--mode",
+            "term-trap-sleeper",
+            "--timeout-ms",
+            String(value),
+            "--json",
+          ]),
+        );
+        expect(fields.exitCode).toBe(0);
+        expect(fields.terminationConfirmed).toBe(true);
+        expect(fields.outputTruncated).toBe(false);
+        expect(fields.timedOut).toBe(false);
+        expect(fields.attempts).toEqual([]);
+        expect(ledger).toContain("child-done");
+        expect(ledger).not.toContain("term-received");
+      },
+      timeout,
+    );
+});
+
+// Test-owned: ten 200-byte lines, as the fixture's escaped writer prints them.
+const drainPattern = Array.from(
+  { length: 10 },
+  (_, index) =>
+    `FX-DRAIN-${String(index).padStart(2, "0")}-${"d".repeat(187)}\n`,
+).join("");
+const drainHash = new Bun.CryptoHasher("sha256")
+  .update(drainPattern)
+  .digest("hex");
+
+describe("T04 an output-drain budget above the timer limit (finding 1)", () => {
+  for (const value of overLimit)
+    test(
+      `T04.drain-timer-above-limit S=${value}`,
+      async () => {
+        const { fields, ledger } = await programRun(
+          programCase("T04.drain-timer-above-limit", [
+            "program",
+            "--mode",
+            "escaped-writer",
+            "--shutdown-ms",
+            String(value),
+            "--json",
+          ]),
+        );
+        expect(ledger.some((line) => line.startsWith("escaped "))).toBe(true);
+        expect(fields.stdoutBytes).toBe(drainPattern.length);
+        expect(fields.stdoutSha256).toBe(drainHash);
+        expect(fields.outputTruncated).toBe(false);
+      },
+      timeout,
+    );
+});

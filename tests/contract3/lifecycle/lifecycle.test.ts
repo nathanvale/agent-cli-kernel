@@ -6,6 +6,7 @@ import { sliceCases } from "./coverage.ts";
 import {
   abortExitBound,
   abortTimeout,
+  alive,
   caseById,
   cleanup,
   decliningHost,
@@ -17,6 +18,7 @@ import {
   launch,
   launchCase,
   n,
+  readLedger,
   release,
   resultOf,
   run,
@@ -40,9 +42,10 @@ function signalName(value: unknown): Signal {
   throw new Error("Expected a stop signal.");
 }
 function childPid(observed: { readonly ledger: readonly string[] }) {
-  const line = observed.ledger.find((entry) =>
-    entry.startsWith("child-started"),
-  );
+  return childPidOf(observed.ledger);
+}
+function childPidOf(ledger: readonly string[]) {
+  const line = ledger.find((entry) => entry.startsWith("child-started"));
   const pid = line ? Number(line.split(" ")[1]) : Number.NaN;
   return Number.isSafeInteger(pid) && pid > 0 ? pid : undefined;
 }
@@ -747,4 +750,180 @@ describe("B3 declared denial tuple at runtime (Nathan, 16 November 2026)", () =>
     },
     timeout,
   );
+});
+
+// Findings round, finding 1 (Nathan, 16 November 2026: every admitted value
+// is honoured, no cap). LIMIT is the largest delay a runtime timer holds; a
+// raw timer armed above it fires after about 1 ms with a stderr warning. The
+// expectations are c3-expect-t2t5's (findings-round/expectations.md).
+const timerLimit = 2_147_483_647;
+const unchangedEffects = {
+  completed: [],
+  remaining: [],
+  uncertain: [],
+  inventoryComplete: true,
+};
+const handlerLines = new Set(["handler-entered", "handler-done"]);
+
+describe("T01 a deadline above the timer limit lets the work finish (finding 1)", () => {
+  for (const deadline of [
+    timerLimit,
+    timerLimit + 1,
+    timerLimit + 60_000,
+    3_000_000_000,
+    Number.MAX_SAFE_INTEGER,
+  ])
+    test(
+      `T01.deadline-above-limit-work-finishes D=${deadline}`,
+      async () => {
+        const entry = supporting("T01.deadline-above-limit-work-finishes", {
+          argv: [
+            "wait",
+            "--wait-ms",
+            "300",
+            "--deadline-ms",
+            String(deadline),
+            "--json",
+          ],
+          expect: {
+            commandIdentity: "fx.wait",
+            causeCode: "SUCCESS_UNCHANGED",
+            effects: unchangedEffects,
+          },
+        });
+        const observed = await run(entry);
+        receipt(entry, observed, { deadline });
+        try {
+          // One envelope at the handler's own station, exit 0, zero stderr.
+          assertEnvelope(entry, observed);
+          expect(observed.code).toBe(0);
+          expect(
+            observed.ledger.filter(
+              (line) => handlerLines.has(line) || line.startsWith("stdout-"),
+            ),
+          ).toEqual(["handler-entered", "handler-done", "stdout-write result"]);
+          expect(observed.firstStdoutAt).toBeNumber();
+          expect(
+            (observed.firstStdoutAt ?? 0) - frontDoorStart(observed),
+          ).toBeGreaterThanOrEqual(300);
+        } finally {
+          await cleanup(observed);
+        }
+      },
+      timeout,
+    );
+});
+
+describe("T02(a) a deadline above the timer limit that passed before dispatch (finding 1)", () => {
+  for (const deadline of [3_000_000_000, Number.MAX_SAFE_INTEGER])
+    test(
+      `T02.deadline-above-limit-expiry-before-start D=${deadline}`,
+      async () => {
+        const entry = supporting(
+          "T02.deadline-above-limit-expiry-before-start",
+          {
+            argv: [
+              "wait",
+              "--wait-ms",
+              "300",
+              "--deadline-ms",
+              String(deadline),
+              "--json",
+            ],
+            scenario: "clock-jump",
+            expect: {
+              commandIdentity: "fx.wait",
+              causeCode: "DOMAIN_DEADLINE_BEFORE_START",
+              effects: unchangedEffects,
+            },
+          },
+        );
+        // P3: the fault host's clock jumps past the deadline before dispatch.
+        const observed = await run(entry, {
+          env: { FX_CLOCK_JUMP_MS: String(deadline + 1) },
+        });
+        receipt(entry, observed, { deadline });
+        try {
+          assertEnvelope(entry, observed);
+          expect(observed.code).toBe(3);
+          expect(observed.ledger).not.toContain("handler-entered");
+        } finally {
+          await cleanup(observed);
+        }
+      },
+      timeout,
+    );
+});
+
+// Finding 2. First time the process table no longer shows `pid`.
+async function deathAfter(pid: number, from: number, limit: number) {
+  while (Date.now() - from < limit) {
+    if (!alive(pid)) return Date.now();
+    await Bun.sleep(2);
+  }
+  return Number.POSITIVE_INFINITY;
+}
+// Polling and kill latency for that observation, as in P08.
+const killObservationTolerance = 30;
+const stopShapes = {
+  // (a) the handler awaits a TERM-cooperative program.
+  a: { argv: ["slow", "--json"], barrier: "child-started" },
+  // (b) the handler returns by its own timer about 100 ms after the signal.
+  b: {
+    argv: ["wait", "--wait-ms", "100", "--json"],
+    barrier: "handler-entered",
+  },
+  // (c) a TERM-ignoring program whose declared shutdown budget is 2,000 ms.
+  c: { argv: ["slow", "--ignore-term", "--json"], barrier: "child-started" },
+} as const;
+
+describe("S01 the stop path's bounds hold when the handler returns in the window (finding 2)", () => {
+  for (const [shape, setup] of Object.entries(stopShapes))
+    for (const [signal, code] of [
+      ["SIGTERM", 143],
+      ["SIGINT", 130],
+    ] as const)
+      test(
+        `S01.stop-path-bounds-hold-when-handler-returns-in-window ${shape} ${signal}`,
+        async () => {
+          const entry = supporting(
+            "S01.stop-path-bounds-hold-when-handler-returns-in-window",
+            { argv: setup.argv },
+          );
+          const launched = await launchCase(entry);
+          try {
+            await launched.barrier(setup.barrier);
+            const owned = childPidOf(readLedger(launched.ledgerPath));
+            const sent = launched.signal(signal);
+            const died =
+              owned === undefined
+                ? undefined
+                : await deathAfter(owned, sent, 2_000);
+            const observed = await exitWithin(launched);
+            receipt(entry, observed, {
+              signalToExitMilliseconds: observed.exitedAt - sent,
+              signalToOwnedChildDeathMilliseconds:
+                died === undefined ? null : died - sent,
+            });
+            expect(observed.signal).toBeNull();
+            expect(observed.code).toBe(code);
+            assertNoOutput(observed);
+            expect(observed.exitedAt - sent).toBeLessThanOrEqual(
+              500 + tolerance,
+            );
+            expect(
+              observed.ledger.some((line) => line.startsWith("late-start ")),
+            ).toBe(false);
+            if (shape !== "b") expect(owned).toBeNumber();
+            // LIFE-11: the stop path's SIGKILL, not the 2,000 ms budget.
+            if (died !== undefined)
+              expect(died - sent).toBeLessThanOrEqual(
+                500 + killObservationTolerance,
+              );
+          } finally {
+            await release(launched);
+          }
+        },
+        timeout,
+      );
 });

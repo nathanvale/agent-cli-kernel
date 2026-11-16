@@ -53,20 +53,51 @@ type Execution =
     }
   | { readonly kind: "threw" };
 
+// Finding 1 (Nathan, 16 November 2026): every admitted duration is honoured,
+// with no cap. A runtime timer holds at most 2,147,483,647 ms and fires a
+// longer delay after 1 ms. A longer wait is armed in steps of at most that
+// limit and re-measured on the front door's clock after each step, so it
+// fires neither early nor a step late. A wait within the limit arms once,
+// with its exact delay. The programs add-on keeps its own copy, because an
+// add-on imports only the fixed public index (CMD-5, CMD-17).
+const timerLimit = 2_147_483_647;
+function afterDelay(
+  milliseconds: number,
+  fire: () => void,
+  now: () => number,
+): () => void {
+  const due = now() + milliseconds;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const arm = (delay: number) => {
+    const stepped = delay > timerLimit;
+    timer = setTimeout(
+      () => {
+        const left = due - now();
+        if (stepped && left > 0) arm(left);
+        else fire();
+      },
+      Math.min(delay, timerLimit),
+    );
+  };
+  arm(Math.max(0, milliseconds));
+  return () => clearTimeout(timer);
+}
+
 // Races a promise against a timer and always clears the timer, so a host that
 // declines to exit is never held open by a stale deadline or stop bound.
 async function within<T>(
   promise: Promise<T>,
   milliseconds: number,
+  now: () => number,
 ): Promise<T | undefined> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  let cancel: () => void = () => undefined;
   const expiry = new Promise<undefined>((resolve) => {
-    timer = setTimeout(() => resolve(undefined), Math.max(0, milliseconds));
+    cancel = afterDelay(milliseconds, () => resolve(undefined), now);
   });
   try {
     return await Promise.race([promise, expiry]);
   } finally {
-    clearTimeout(timer);
+    cancel();
   }
 }
 
@@ -177,6 +208,7 @@ function installHooks(run: Run) {
     void within(
       settleAll(run, settleLimitMilliseconds),
       stopBoundMilliseconds,
+      run.host.now,
     ).then(() => run.host.exit(code));
   });
   run.host.onCrash(() => {
@@ -318,8 +350,12 @@ async function afterDeadline(
 ): Promise<Delivery> {
   run.controller.abort();
   const [late] = await Promise.all([
-    within(execution, cancellationMilliseconds),
-    within(settleAll(run, settleLimitMilliseconds), cancellationMilliseconds),
+    within(execution, cancellationMilliseconds, run.host.now),
+    within(
+      settleAll(run, settleLimitMilliseconds),
+      cancellationMilliseconds,
+      run.host.now,
+    ),
   ]);
   const summary =
     late?.kind === "returned" && late.outcome.ok
@@ -414,7 +450,11 @@ async function dispatch(run: Run, value: Resolved): Promise<Delivery> {
   const first =
     deadline === undefined
       ? await execution
-      : await within(execution, run.startedAt + deadline - run.host.now());
+      : await within(
+          execution,
+          run.startedAt + deadline - run.host.now(),
+          run.host.now,
+        );
   return first === undefined
     ? afterDeadline(run, plan.command, execution)
     : afterHandler(run, identity, first);
