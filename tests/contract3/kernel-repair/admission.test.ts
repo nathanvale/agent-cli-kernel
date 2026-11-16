@@ -123,7 +123,16 @@ function raw(
     capabilities: {},
     stations,
     effectClass: "inspect",
+    execute: neverRuns,
   };
+}
+// A raw declaration needs a handler to be admitted (K1-5); these never run.
+function neverRuns() {
+  return Promise.resolve({
+    ok: false,
+    path: "handler",
+    reason: "Raw admission fixture never runs.",
+  } as const);
 }
 function executable(
   identity: string,

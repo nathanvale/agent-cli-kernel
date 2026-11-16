@@ -1,7 +1,7 @@
 import type { CauseRow, CauseTable, RowGuidance } from "./types.ts";
 import { causeRow, handoff, nextStep } from "./validation/result.ts";
 import { carriesGlobalSwitch } from "./routing.ts";
-import { integer, record, text } from "./validation/primitives.ts";
+import { integer, keys, record, text } from "./validation/primitives.ts";
 import { internalResultCode } from "./state-causes.ts";
 export type RetryDelayPolicy =
   | { readonly kind: "none" }
@@ -80,6 +80,11 @@ export function validateWords(
   if (!text(spec.trigger) || !text(spec.independentObservable))
     throw new Error("Station needs trigger and independent observable.");
   if (
+    spec.reachability !== "required" &&
+    spec.reachability !== "declared-unreachable"
+  )
+    throw new Error("Unknown reachability.");
+  if (
     spec.reachability === "required"
       ? spec.unreachableRationale !== null
       : !text(spec.unreachableRationale)
@@ -94,10 +99,13 @@ export function validateWords(
   const guidance = spec.guidance;
   if (commandSteps(guidance).some((step) => carriesGlobalSwitch(step.args)))
     throw new Error("Command step args carry a global switch before --.");
+  // DISC-8: guidance is strict `{ next }` or strict `{ handoff }` (K1-5).
   if (
-    row.guidance === "handoff"
+    !record(guidance) ||
+    !keys(guidance, [row.guidance]) ||
+    (row.guidance === "handoff"
       ? !handoff(guidance.handoff)
-      : !nextStep(guidance.next)
+      : !nextStep(guidance.next))
   )
     throw new Error("Wrong guidance arm.");
   if (guidance.next?.kind === "done" && row.outcome !== "success")
@@ -123,13 +131,17 @@ function commandSteps(
       : [],
   );
 }
+// DISC-8: the policy is strict; an extra key is never published (K1-5).
 function validateDelay(policy: RetryDelayPolicy, retryable: boolean): void {
+  if (!record(policy)) throw new Error("Invalid retry bounds.");
   if (!retryable) {
-    if (policy.kind !== "none") throw new Error("Unexpected delay policy.");
+    if (policy.kind !== "none" || !keys(policy, ["kind"]))
+      throw new Error("Unexpected delay policy.");
     return;
   }
   if (
     policy.kind !== "bounded" ||
+    !keys(policy, ["kind", "minimumMilliseconds", "maximumMilliseconds"]) ||
     !integer(policy.minimumMilliseconds) ||
     policy.minimumMilliseconds < 1 ||
     !integer(policy.maximumMilliseconds) ||

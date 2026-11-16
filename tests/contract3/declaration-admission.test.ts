@@ -35,6 +35,13 @@ function host(
     capabilities: {},
     stations: [],
     effectClass: "inspect",
+    // A raw declaration needs a handler to be admitted (K1-5); never run.
+    execute: () =>
+      Promise.resolve({
+        ok: false,
+        path: "handler",
+        reason: "Raw admission fixture never runs.",
+      } as const),
   } as const;
 }
 function executable(

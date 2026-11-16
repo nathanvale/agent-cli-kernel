@@ -23,6 +23,13 @@ function declaration(causeCode: string) {
     input: emptyInput,
     capabilities: {},
     effectClass: "inspect",
+    // A raw declaration needs a handler to be admitted (K1-5); never run.
+    execute: () =>
+      Promise.resolve({
+        ok: false,
+        path: "handler",
+        reason: "Raw admission fixture never runs.",
+      } as const),
     stations: [
       {
         commandIdentity: "specimen.read",

@@ -52,6 +52,13 @@ function rawSource(arm: "next" | "handoff", row: Row) {
     capabilities: {},
     stations: [stepStation(kernel, source, arm, row)],
     effectClass: "inspect",
+    // A raw declaration needs a handler to be admitted (K1-5); never run.
+    execute: () =>
+      Promise.resolve({
+        ok: false,
+        path: "handler",
+        reason: "Raw admission fixture never runs.",
+      } as const),
   };
 }
 const admit = (declaration: object) => () =>

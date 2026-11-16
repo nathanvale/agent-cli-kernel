@@ -12,7 +12,7 @@ import { causeRow } from "./validation/result.ts";
 import { bindingNames, guidanceTargets } from "./guidance.ts";
 import { admitHostInput } from "./host-input.ts";
 import { stepVectorProblem } from "./step-vector.ts";
-import { text } from "./validation/primitives.ts";
+import { keys, record, text } from "./validation/primitives.ts";
 export type AddonName = "state" | "programs" | "approval" | "diagnostics";
 export function admitCauses(causes: CauseTable): void {
   for (const [code, row] of Object.entries(causes)) {
@@ -29,12 +29,32 @@ export function admitCauses(causes: CauseTable): void {
       throw new Error("Common cause rows cannot be replaced.");
   }
 }
+// The exact key set of a declared station: station() builds exactly these,
+// so a raw declaration may carry no other (WIRE-1, DISC-8; K1-5).
+const stationKeys = [
+  "commandIdentity",
+  "causeCode",
+  "row",
+  "trigger",
+  "guidance",
+  "repairAction",
+  "retryDelayPolicy",
+  "reachability",
+  "unreachableRationale",
+  "independentObservable",
+];
 function admitStationSet(
   command: CommandDeclaration,
   causes: CauseTable,
 ): void {
   const seen = new Set<string>();
   for (const station of command.stations) {
+    if (
+      !record(station) ||
+      !keys(station, stationKeys) ||
+      !causeRow(station.row)
+    )
+      throw new Error("Station is not a strict declared station.");
     // DISC-11b: the fallback's stations keep the base's fixed words (F12).
     if (reservedFallbackCause(station.causeCode))
       throw new Error("Fallback station words are reserved.");
@@ -90,6 +110,29 @@ function admitRecovery(
       throw new Error("Coordination refusal requires an unchanged handoff.");
   }
 }
+// The rules command() and changing() apply, applied again here because a raw
+// CommandDeclaration reaches contractFor without a constructor (K1-5).
+function admitHostDeclaration(command: CommandDeclaration): void {
+  if (command.effectClass === "inspect") {
+    if (!text(command.summary)) throw new Error("Invalid command declaration.");
+    // DISC-13: for an inspect command ifNoResult is null.
+    if (command.ifNoResult !== undefined)
+      throw new Error("An inspect command has no ifNoResult.");
+    return;
+  }
+  if (
+    command.effectClass !== "repository-local" &&
+    command.effectClass !== "external"
+  )
+    throw new Error("Unknown effect class.");
+  const effects = command.effects ?? [];
+  if (
+    effects.length === 0 ||
+    new Set(effects).size !== effects.length ||
+    command.heldLockCause === command.unresolvedCaseCause
+  )
+    throw new Error("Invalid changing declaration.");
+}
 // Host route tokens are checked before collisions so a route that names a
 // built-in switch is refused with its own token (F04, CMD-1).
 function admitRoutes(
@@ -120,21 +163,38 @@ export function admitCommands(
   )
     throw new Error("Duplicate command identity.");
   admitRoutes(cli, commands);
-  for (const command of commands) {
-    admitCommandIdentity(command.commandIdentity);
-    admitHostInput(command.input);
-    if (command.commandIdentity !== `${cli}.dispatch`)
-      admitRootOperation(command.route, command.input);
-    for (const name of Object.keys(command.capabilities))
-      if (!installed.some((entry) => entry === name))
-        throw new Error("Declared capability add-on is not installed.");
-    if (command.effectClass !== "inspect" && !installed.includes("state"))
-      throw new Error("Changing commands require the state add-on.");
-    admitStationSet(command, causes);
-    admitRecovery(command, commands);
-    admitGuidance(command, commands);
-    admitStepVectors(cli, command, commands);
-  }
+  const builtinIdentities = builtins(cli).map((item) => item.commandIdentity);
+  for (const command of commands)
+    admitCommand(cli, command, commands, causes, installed, {
+      host: !builtinIdentities.includes(command.commandIdentity),
+    });
+}
+// Every admission rule for one declaration, in refusal-priority order.
+function admitCommand(
+  cli: string,
+  command: CommandDeclaration,
+  commands: readonly CommandDeclaration[],
+  causes: CauseTable,
+  installed: readonly AddonName[],
+  { host }: { readonly host: boolean },
+): void {
+  if (host) admitHostDeclaration(command);
+  admitCommandIdentity(command.commandIdentity);
+  admitHostInput(command.input);
+  if (command.commandIdentity !== `${cli}.dispatch`)
+    admitRootOperation(command.route, command.input);
+  for (const name of Object.keys(command.capabilities))
+    if (!installed.some((entry) => entry === name))
+      throw new Error("Declared capability add-on is not installed.");
+  if (command.effectClass !== "inspect" && !installed.includes("state"))
+    throw new Error("Changing commands require the state add-on.");
+  admitStationSet(command, causes);
+  admitRecovery(command, commands);
+  admitGuidance(command, commands);
+  admitStepVectors(cli, command, commands);
+  // Last, so a more specific refusal of the same declaration wins.
+  if (host && typeof command.execute !== "function")
+    throw new Error("Host command needs an executable handler.");
 }
 // F01 (option 2): refuse a step template no single-token value can satisfy.
 function admitStepVectors(
