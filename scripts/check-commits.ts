@@ -1,6 +1,6 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { constants, tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, delimiter, dirname, join } from "node:path";
 import type { Subprocess } from "bun";
 import { doctor } from "./doctor.ts";
 
@@ -23,6 +23,19 @@ type Result =
 type Checked = Commit & { result: Result };
 
 const active: { dir?: string; child?: Subprocess } = {};
+// `bun run` puts the caller's node_modules/.bin folders on PATH. A commit is
+// judged only with what its own tree installs, so its steps never see them.
+const ownTools = {
+  ...process.env,
+  PATH: (process.env.PATH ?? "")
+    .split(delimiter)
+    .filter(
+      (entry) =>
+        basename(entry) !== ".bin" ||
+        basename(dirname(entry)) !== "node_modules",
+    )
+    .join(delimiter),
+};
 
 function git(args: readonly string[]) {
   const result = Bun.spawnSync(["git", ...args], {
@@ -53,6 +66,7 @@ function release(dir: string): void {
 async function run(cwd: string, step: Step) {
   const child = Bun.spawn([process.execPath, ...step], {
     cwd,
+    env: ownTools,
     stdout: "pipe",
     stderr: "pipe",
   });

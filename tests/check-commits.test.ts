@@ -261,6 +261,32 @@ describe("check:commits", () => {
   );
 
   test(
+    "a commit is judged only with the tools its own tree installs",
+    async () => {
+      const { root, base, commit } = repositoryAt({
+        scripts: { ...markers, typecheck: "fallow --version" },
+      });
+      const red = commit("use a tool this commit does not install", {
+        "a.txt": "a",
+      });
+
+      const run = await checkCommits(root, [base.sha], {
+        CHECK_COMMITS_SINCE: base.sha,
+      });
+
+      expect(run.exit).toBe(1);
+      expect(run.lines).toContain(
+        `RED ${red.short} use a tool this commit does not install`,
+      );
+      expect(run.lines).toContain("Failed: bun run typecheck");
+      expect(run.stdout).toContain(
+        'error: script "typecheck" exited with code 127',
+      );
+    },
+    timeout,
+  );
+
+  test(
     "a running Bun other than the pin refuses before checking any commit",
     async () => {
       const { root, base, commit } = repositoryAt({ pin: "0.0.1" });
