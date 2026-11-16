@@ -18,13 +18,14 @@ import {
   proofFreeResultAllowed,
 } from "./state-seam.ts";
 import type { StateAddonDescriptor } from "./state-seam.ts";
-import type { CauseTable, Effects } from "./types.ts";
+import type { CauseTable, Effects, Validation } from "./types.ts";
 import { proofValue } from "./validation/state.ts";
 import { invocationTokens, resolveInvocation } from "./routing.ts";
 import { registerRuntime } from "./runtime.ts";
 import type { KernelFacts } from "./runtime.ts";
 import { authority, resource, path } from "./validation/brands.ts";
 import type { CommandDeclaration } from "./declarations.ts";
+import { preparerOf } from "./declarations.ts";
 import type { DeclaredStation } from "./stations.ts";
 import { parseInput, acceptsRootInput } from "./input.ts";
 import { builtins, stationsFor } from "./navigation.ts";
@@ -246,12 +247,16 @@ export function contractFor<
     );
   }
 
-  async function executeCommand(
+  // CMD-9 steps 3 to 5, then step 6. `prepare` refuses invocation, input
+  // and approval before anything attaches; its entry attaches state and runs
+  // the handler (K3-spec-6). A raw declaration without a two-phase entry runs
+  // through its own execute at entry.
+  async function prepareCommand(
     identity: string,
     argv: unknown,
     runId: string,
     context: unknown = {},
-  ) {
+  ): Promise<Validation<() => Promise<Validation<CommandResult>>>> {
     const selected = commands.find(
       (entry) => entry.commandIdentity === identity,
     );
@@ -260,7 +265,7 @@ export function contractFor<
         ok: false,
         path: "commandIdentity",
         reason: "unknown executable command",
-      } as const;
+      };
     const parsed = await parseInput(selected.input, argv);
     if (!parsed.ok) return parsed;
     const future = await validateFutureInputs(
@@ -269,30 +274,51 @@ export function contractFor<
       inputRegistration,
     );
     if (!future.ok) return future;
-    if (
-      selected.effectClass !== "inspect" &&
-      spec.state &&
-      !claimRun(spec.state, runId)
-    )
+    const changingCommand = selected.effectClass !== "inspect";
+    if (changingCommand && spec.state && !claimRun(spec.state, runId))
       return {
         ok: false,
         path: "runId",
         reason: "run identity already attached",
-      } as const;
-    const attached =
-      selected.effectClass !== "inspect" && spec.state
-        ? attachState(spec.state, runId, selected.effects ?? [])
-        : undefined;
-    const executionContext =
-      selected.effectClass === "inspect"
-        ? context
-        : withState(context, attached?.capability);
+      };
     const invocation = Object.freeze({});
-    // WIRE-15: the capability closes when the handler returns, so no
-    // transaction can start after the result exists (K2-spec-3).
-    const outcome = await selected
-      .execute(argv, executionContext, runId, invocation, inputRegistration)
-      .finally(() => attached?.close());
+    const prepare = preparerOf(selected);
+    const ready = prepare
+      ? await prepare(argv, context, runId, invocation, inputRegistration)
+      : undefined;
+    if (ready && !ready.ok) return ready;
+    const execute = selected.execute;
+    const enter = async (): Promise<Validation<CommandResult>> => {
+      const attached =
+        changingCommand && spec.state
+          ? attachState(spec.state, runId, selected.effects ?? [])
+          : undefined;
+      // WIRE-15: the capability closes when the handler returns, so no
+      // transaction can start after the result exists (K2-spec-3).
+      const outcome = await (ready
+        ? ready.value(attached?.capability)
+        : execute(
+            argv,
+            changingCommand
+              ? withState(context, attached?.capability)
+              : context,
+            runId,
+            invocation,
+            inputRegistration,
+          )
+      ).finally(() => attached?.close());
+      return accepted(outcome, identity, runId, invocation, parsed);
+    };
+    return { ok: true, value: enter };
+  }
+
+  function accepted(
+    outcome: Validation<CommandResult>,
+    identity: string,
+    runId: string,
+    invocation: object,
+    parsed: { readonly deadlineMilliseconds?: number },
+  ) {
     if (!outcome.ok) return outcome;
     if (!resultMatches(outcome.value, identity, runId, invocation))
       return {
@@ -307,6 +333,16 @@ export function contractFor<
         ? {}
         : { deadlineMilliseconds: parsed.deadlineMilliseconds }),
     };
+  }
+
+  async function executeCommand(
+    identity: string,
+    argv: unknown,
+    runId: string,
+    context: unknown = {},
+  ) {
+    const prepared = await prepareCommand(identity, argv, runId, context);
+    return prepared.ok ? prepared.value() : prepared;
   }
 
   const contract = {
@@ -408,6 +444,8 @@ export function contractFor<
     },
     execute: (identity, argv, runId, context) =>
       executeCommand(identity, argv, runId, context),
+    prepare: (identity, argv, runId, context) =>
+      prepareCommand(identity, argv, runId, context),
     buildKernelStation,
     buildResult: (result) => contract.buildResult(result),
     validate,

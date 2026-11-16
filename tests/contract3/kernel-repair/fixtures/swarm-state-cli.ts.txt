@@ -4,12 +4,29 @@
 // <scenario> then the CLI argv. Admission scenarios print what contractFor
 // did; process scenarios run through the real process front door.
 import { appendFileSync } from "node:fs";
-import { runProcess } from "../../../starters/contract3/src/kernel/index.ts";
+import {
+  changing,
+  contractFor,
+  runProcess,
+} from "../../../starters/contract3/src/kernel/index.ts";
+import {
+  authority,
+  resource,
+} from "../../../starters/contract3/src/kernel/validation/brands.ts";
+import {
+  causes,
+  coordination,
+  empty,
+  input,
+  recovery,
+} from "../../../starters/contract3/src/addons/state/repair-shared.ts";
+import { approvalAddon } from "./swarm-approval.ts";
 import {
   coordinationContract,
   ifNoResultContract,
   lateTransactionContract,
   proofAccessorContract,
+  recordingInstallation,
   runReuse,
 } from "../../../starters/contract3/src/addons/state/swarm-state.ts";
 
@@ -27,6 +44,48 @@ function admission(compose: () => object): void {
   }
 }
 const ledger = process.env.LEDGER ?? "";
+const note = (line: string) => appendFileSync(ledger, `${line}\n`);
+// X-S6: a changing command behind approval whose state installation and
+// handler both report to the ledger.
+function guardedContract() {
+  const state = recordingInstallation(() => note("state-attached"));
+  const guarded = changing({
+    identity: "specimen.guarded",
+    route: ["guarded"],
+    summary: "Apply e behind approval.",
+    input,
+    capabilities: { approval: true },
+    approval: () => ({
+      authority: authority("specimen.owner"),
+      resource: resource("specimen.item"),
+      resourceRevision: "1",
+      effects: ["e"],
+      preview: "preview-1",
+    }),
+    effectClass: "repository-local",
+    effects: ["e"],
+    ifNoResult: state.ifNoResult,
+    heldLockCause: "HELD",
+    unresolvedCaseCause: "PRIOR",
+    stations: coordination("specimen.guarded"),
+    run: (_input, context) => {
+      note("handler-entered");
+      return Promise.resolve(
+        context.result(
+          { commandIdentity: "specimen.guarded", causeCode: "HELD" },
+          { message: "Held.", data: null, effects: empty },
+        ),
+      );
+    },
+  });
+  return contractFor({
+    cli: "specimen",
+    commands: [guarded, recovery()],
+    causes,
+    state,
+    installedAddons: ["state", "approval"],
+  });
+}
 const scenarios: Readonly<Record<string, (argv: string[]) => Promise<unknown>>> =
   {
     "ifnoresult-required": () =>
@@ -45,9 +104,13 @@ const scenarios: Readonly<Record<string, (argv: string[]) => Promise<unknown>>> 
     "late-transaction": (argv) =>
       runProcess(
         lateTransactionContract(Number(process.env.HOPS ?? "0"), (line) =>
-          appendFileSync(ledger, `${line}\n`),
+          note(line),
         ),
       )(argv),
+    "approval-attach": (argv) =>
+      runProcess(guardedContract(), {
+        addons: { approval: approvalAddon("specimen.guarded", note) },
+      })(argv),
     "run-reuse": async () =>
       process.stdout.write(
         JSON.stringify(await runReuse(process.env.SECOND_RUN_ID ?? "")),

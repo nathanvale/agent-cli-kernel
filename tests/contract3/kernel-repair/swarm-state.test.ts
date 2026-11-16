@@ -201,3 +201,52 @@ test(
   },
   processTimeout,
 );
+
+test(
+  "X-S6.state-not-attached-on-denial: an approval denial attaches no state and enters no handler",
+  async () => {
+    // CMD-9: step 5's non-consuming preflight precedes step 6, which
+    // attaches the declared capabilities and enters the handler.
+    const ledgers = await mkdtemp(join(tmpdir(), "contract3-swarm-attach-"));
+    try {
+      const attempt = async (name: string, env: Record<string, string>) => {
+        const ledger = join(ledgers, `${name}.txt`);
+        const child = await run("approval-attach", ["guarded", "--json"], {
+          ...env,
+          LEDGER: ledger,
+        });
+        const lines = (await readFile(ledger, "utf8").catch(() => ""))
+          .split("\n")
+          .filter((line) => line !== "");
+        return { child, lines };
+      };
+      // The shipped approval add-on over an empty grant store denies.
+      const denied = await attempt("denied", {
+        GRANTS: join(ledgers, "store"),
+      });
+      expect({ exit: denied.child.exit, stderr: denied.child.stderr }).toEqual({
+        exit: 3,
+        stderr: "",
+      });
+      expect(denied.child.result).toMatchObject({
+        commandIdentity: "specimen.guarded",
+        outcome: "refused",
+        transactionState: "unchanged",
+        causeCode: "DOMAIN_AUTHORITY_REQUIRED",
+      });
+      expect(denied.lines).toEqual([]);
+      // Twin: an accepting check attaches state, then enters the handler.
+      const admitted = await attempt("admitted", { CHECK: "true" });
+      expect(admitted.child.exit).toBe(3);
+      expect(admitted.child.result).toMatchObject({ causeCode: "HELD" });
+      expect(admitted.lines).toEqual([
+        "check",
+        "state-attached",
+        "handler-entered",
+      ]);
+    } finally {
+      await rm(ledgers, { recursive: true, force: true });
+    }
+  },
+  processTimeout,
+);

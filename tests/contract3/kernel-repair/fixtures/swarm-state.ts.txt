@@ -42,6 +42,7 @@ const completedObservation: Observe = <Effect extends string>(
 function installation(
   observe: Observe,
   pendingArgs: readonly string[] = [],
+  onAttach: () => void = () => undefined,
 ): StateAddonDescriptor {
   return contractFor.stateAddon((issuer) => ({
     ifNoResult: issuer.ifNoResult({
@@ -50,6 +51,7 @@ function installation(
       args: [...pendingArgs],
     }),
     attach<Effect extends string>(runId: string, effects: readonly Effect[]) {
+      onAttach();
       return {
         async transaction(
           work: (transaction: EffectTransaction<Effect>) => Promise<void>,
@@ -341,4 +343,9 @@ export async function runReuse(secondRunId: string) {
       : { executed: true, built: false };
   };
   return { first: await view("R"), second: await view(secondRunId) };
+}
+
+// X-S6: an installation whose attach reports each attachment.
+export function recordingInstallation(onAttach: () => void) {
+  return installation(completedObservation, [], onAttach);
 }

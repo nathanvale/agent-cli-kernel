@@ -55,6 +55,7 @@ export const materialisedFixtures: readonly string[] = [
   "tests/contract3/kernel-repair/swarm-state-cli.ts",
   "tests/contract3/kernel-repair/r18-spec.ts",
   "tests/contract3/kernel-repair/shapes.ts",
+  "tests/contract3/kernel-repair/swarm-approval.ts",
 ];
 
 // State fixtures must live in the canonical state add-on folder. Each tree is
@@ -75,6 +76,12 @@ export async function materialise(): Promise<string> {
       recursive: true,
     },
   );
+  // The shipped approval add-on, for the swarm state cases (X-S6).
+  await cp(
+    join(repository, "starters/contract3/src/addons/approval"),
+    join(source, "addons/approval"),
+    { recursive: true },
+  );
   for (const name of stateModules)
     await writeFile(
       join(source, `addons/state/${name}.ts`),
@@ -85,7 +92,7 @@ export async function materialise(): Promise<string> {
       join(tests, `${name}.ts`),
       await readFile(new URL(`fixtures/${name}.ts.txt`, import.meta.url)),
     );
-  for (const name of ["r18-spec.ts", "shapes.ts"])
+  for (const name of ["r18-spec.ts", "shapes.ts", "swarm-approval.ts"])
     await cp(new URL(name, import.meta.url), join(tests, name));
   await symlink(join(repository, "node_modules"), join(root, "node_modules"));
   await writeFile(

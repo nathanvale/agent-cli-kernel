@@ -1,4 +1,7 @@
 import { expect, test } from "bun:test";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { schemaLoad } from "./swarm-commands.ts";
 import type { Observed } from "./swarm-process.ts";
 import { runScenario } from "./swarm-process.ts";
@@ -125,6 +128,75 @@ test(
     expect(discovered(read, "USAGE_INVALID_INVOCATION")).toMatchObject({
       guidance: { next: { kind: "command", command: "x.help", args: [] } },
     });
+  },
+  processTimeout,
+);
+
+// Runs the inspect-approval scenario with a fresh ledger and returns what an
+// agent sees plus the independent ledger lines.
+async function approvalRun(env: Readonly<Record<string, string>>) {
+  const directory = await mkdtemp(join(tmpdir(), "contract3-swarm-approval-"));
+  try {
+    const ledger = join(directory, "ledger.txt");
+    const observed = await runScenario("inspect-approval", ["read", "--json"], {
+      ...env,
+      LEDGER: ledger,
+      ...(env.GRANTS === "" ? { GRANTS: join(directory, "store") } : {}),
+    });
+    const lines = (await readFile(ledger, "utf8").catch(() => ""))
+      .split("\n")
+      .filter((line) => line !== "");
+    return { observed, lines };
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+}
+const denied = {
+  commandIdentity: "x.read",
+  outcome: "refused",
+  transactionState: "unchanged",
+  causeCode: "DOMAIN_AUTHORITY_REQUIRED",
+  exitCode: 3,
+  handoff: { owner: "human" },
+};
+
+test(
+  "X-K1-3.inspect-approval-guard: an inspect command that declares approval is guarded before its handler",
+  async () => {
+    // CMD-3, CMD-4, CMD-15: the approval guard runs on an inspect command
+    // too, after input validation and before the handler (CMD-9 step 5).
+    const refused = await approvalRun({ CHECK: "false" });
+    expect(refused.observed.exit).toBe(3);
+    expect(refused.observed.result).toMatchObject(denied);
+    expect(refused.lines).toEqual(["check"]);
+    // Twin: an accepting check enters the handler once.
+    const admitted = await approvalRun({ CHECK: "true" });
+    expect(admitted.observed.exit).toBe(0);
+    expect(admitted.observed.result).toMatchObject({
+      commandIdentity: "x.read",
+      causeCode: "SUCCESS_UNCHANGED",
+    });
+    expect(admitted.lines).toEqual(["check", "handler-entered"]);
+  },
+  processTimeout,
+);
+
+test(
+  "X-S7.inspect-approval-guard: the shipped approval add-on with no grant denies an inspect command",
+  async () => {
+    // CMD-15 first bullet; CMD-4; DISC-12 for the required station; B3:
+    // the base's default words name the owner role `human`.
+    const shipped = await approvalRun({ GRANTS: "" });
+    expect({
+      exit: shipped.observed.exit,
+      stderr: shipped.observed.stderr,
+    }).toEqual({
+      exit: 3,
+      stderr: "",
+    });
+    expect(shipped.observed.result).toMatchObject(denied);
+    expect(shipped.observed.stdout.trim().split("\n")).toHaveLength(1);
+    expect(shipped.lines).toEqual([]);
   },
   processTimeout,
 );

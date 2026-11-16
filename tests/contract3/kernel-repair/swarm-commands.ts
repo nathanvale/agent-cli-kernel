@@ -8,6 +8,10 @@ import {
   contractFor,
   station,
 } from "../../../starters/contract3/src/kernel/index.ts";
+import {
+  authority,
+  resource,
+} from "../../../starters/contract3/src/kernel/validation/brands.ts";
 import { emptyInput, unchanged } from "./shapes.ts";
 
 const words = {
@@ -220,6 +224,42 @@ function deadlineRead() {
         { commandIdentity: "x.read", causeCode: "SUCCESS_UNCHANGED" },
         { message: "Read.", data: null, effects: unchanged },
       ),
+  });
+}
+
+// X-K1-3 and X-S7: an inspect command that declares approval and its own
+// success station; `entered` records handler entry.
+export function approvedRead(entered: () => void) {
+  const read = station(commonCauses, {
+    commandIdentity: "x.read",
+    causeCode: "SUCCESS_UNCHANGED",
+    trigger: "Read the granted item.",
+    guidance: { next: { kind: "done" } },
+    repairAction: null,
+    ...words,
+  });
+  return command({
+    identity: "x.read",
+    route: ["read"],
+    summary: "Read one granted item.",
+    input: emptyInput,
+    capabilities: { approval: true },
+    approval: () => ({
+      authority: authority("x.owner"),
+      resource: resource("x.item"),
+      resourceRevision: "1",
+      effects: [],
+      preview: "preview-1",
+    }),
+    stations: [read],
+    run: (_input, context) => {
+      entered();
+      return context.result(read, {
+        message: "Read.",
+        data: null,
+        effects: unchanged,
+      });
+    },
   });
 }
 
