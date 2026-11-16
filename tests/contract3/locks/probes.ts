@@ -11,7 +11,10 @@ import {
 import { tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
 import ts from "typescript";
-import { spawnBounded } from "../kernel-repair/swarm-process.ts";
+import {
+  processWatchdog,
+  spawnBounded,
+} from "../kernel-repair/swarm-process.ts";
 
 export type Compiler = "native" | "lint-view";
 export type Compilation = {
@@ -174,6 +177,7 @@ export function probeBatch(prefix: string) {
   const registered: Registered[] = [];
   let directory: string | undefined;
   let runs = 0;
+  let sized = false;
   let batch: Promise<Record<Compiler, Map<string, Compilation>>> | undefined;
 
   afterAll(async () => {
@@ -258,13 +262,22 @@ export function probeBatch(prefix: string) {
     return { native, "lint-view": lintView };
   }
 
-  return function probe(
-    source: string,
-    compilers: readonly Compiler[] = both,
-  ): Probe {
+  // Each compiler's longest chain of bounded runs: the shared program, the
+  // rest after a parse failure, then the apart programs fallbackWidth at a
+  // time. The two compilers run side by side.
+  function timeout(): number {
+    sized = true;
+    return processWatchdog(2 + Math.ceil(registered.length / fallbackWidth));
+  }
+
+  function probe(source: string, compilers: readonly Compiler[] = both): Probe {
     if (batch)
       throw new Error(
         "Register every probe at module load, before the first compile.",
+      );
+    if (sized)
+      throw new Error(
+        "Register every probe before sizing a test timeout with timeout().",
       );
     const file = `locks/probe-${registered.length}.ts`;
     registered.push({
@@ -293,5 +306,8 @@ export function probeBatch(prefix: string) {
         return result;
       },
     };
-  };
+  }
+
+  probe.timeout = timeout;
+  return probe;
 }

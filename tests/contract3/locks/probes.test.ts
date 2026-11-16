@@ -13,25 +13,29 @@ const mistyped = probe('const planted: number = "x";\nexport {};\n');
 const clean = probe("export const fine = 1;\n");
 const nativeOnly = probe("export const native = 1;\n", ["native"]);
 
-test("a probe that fails to parse leaves every other probe's type check intact", async () => {
-  for (const compiler of ["native", "lint-view"] as const) {
-    const broken = await unparsable.compile(compiler);
-    expect(broken.exit).not.toBe(0);
-    expect(broken.diagnostics).toEqual([
-      { file: unparsable.file, line: 1, code: 1109 },
-    ]);
-    const typed = await mistyped.compile(compiler);
-    expect(typed.exit).not.toBe(0);
-    expect(typed.diagnostics).toEqual([
-      { file: mistyped.file, line: 1, code: 2322 },
-    ]);
-    expect(await clean.compile(compiler)).toMatchObject({
-      exit: 0,
-      stdout: "",
-      stderr: "",
-    });
-  }
-});
+test(
+  "a probe that fails to parse leaves every other probe's type check intact",
+  async () => {
+    for (const compiler of ["native", "lint-view"] as const) {
+      const broken = await unparsable.compile(compiler);
+      expect(broken.exit).not.toBe(0);
+      expect(broken.diagnostics).toEqual([
+        { file: unparsable.file, line: 1, code: 1109 },
+      ]);
+      const typed = await mistyped.compile(compiler);
+      expect(typed.exit).not.toBe(0);
+      expect(typed.diagnostics).toEqual([
+        { file: mistyped.file, line: 1, code: 2322 },
+      ]);
+      expect(await clean.compile(compiler)).toMatchObject({
+        exit: 0,
+        stdout: "",
+        stderr: "",
+      });
+    }
+  },
+  probe.timeout(),
+);
 
 const leakProbe = probeBatch("contract3-probes-leaks-");
 const leaks = [
@@ -65,18 +69,22 @@ const leaks = [
 }));
 
 for (const leak of leaks)
-  test(`a probe that writes the global scope by ${leak.name} reaches no other probe`, async () => {
-    for (const writer of leak.writers)
-      expect(await writer.compile("native")).toMatchObject({
-        exit: 0,
-        stdout: "",
-        stderr: "",
-      });
-    const read = await leak.reader.compile("native");
-    expect(read.diagnostics).toEqual([
-      { file: leak.reader.file, line: 1, code: leak.code },
-    ]);
-  });
+  test(
+    `a probe that writes the global scope by ${leak.name} reaches no other probe`,
+    async () => {
+      for (const writer of leak.writers)
+        expect(await writer.compile("native")).toMatchObject({
+          exit: 0,
+          stdout: "",
+          stderr: "",
+        });
+      const read = await leak.reader.compile("native");
+      expect(read.diagnostics).toEqual([
+        { file: leak.reader.file, line: 1, code: leak.code },
+      ]);
+    },
+    leakProbe.timeout(),
+  );
 
 const fixtureDirectory = mkdtempSync(
   join(realpathSync(tmpdir()), "contract3-probes-fixture-"),
@@ -106,43 +114,65 @@ const sharedFaults = [
       ),
     ),
     unrelated: importer("export const unrelated = 1;\n"),
+    timeout: importer.timeout(),
   };
 });
 
 for (const fault of sharedFaults)
-  test(`${fault.name} in a file the probes import fails only the probes that import it`, async () => {
-    for (const compiler of ["native", "lint-view"] as const) {
-      for (const reader of fault.importers) {
-        const read = await reader.compile(compiler);
-        expect(read.exit).not.toBe(0);
-        expect(
-          read.diagnostics.map((found) => ({
-            ...found,
-            file: basename(found.file),
-          })),
-        ).toEqual([{ file: fault.fixture, line: 1, code: fault.code }]);
+  test(
+    `${fault.name} in a file the probes import fails only the probes that import it`,
+    async () => {
+      for (const compiler of ["native", "lint-view"] as const) {
+        for (const reader of fault.importers) {
+          const read = await reader.compile(compiler);
+          expect(read.exit).not.toBe(0);
+          expect(
+            read.diagnostics.map((found) => ({
+              ...found,
+              file: basename(found.file),
+            })),
+          ).toEqual([{ file: fault.fixture, line: 1, code: fault.code }]);
+        }
+        expect(await fault.unrelated.compile(compiler)).toMatchObject({
+          exit: 0,
+          stdout: "",
+          stderr: "",
+        });
       }
-      expect(await fault.unrelated.compile(compiler)).toMatchObject({
-        exit: 0,
-        stdout: "",
-        stderr: "",
-      });
-    }
-  });
+    },
+    fault.timeout,
+  );
 
-test("registering a probe after the first compile is refused", async () => {
-  await clean.compile("native");
-  expect(() => probe("export const late = 1;\n")).toThrow(
-    "Register every probe at module load, before the first compile.",
+test(
+  "registering a probe after the first compile is refused",
+  async () => {
+    await clean.compile("native");
+    expect(() => probe("export const late = 1;\n")).toThrow(
+      "Register every probe at module load, before the first compile.",
+    );
+  },
+  probe.timeout(),
+);
+
+const sizedProbe = probeBatch("contract3-probes-sized-");
+sizedProbe("export const early = 1;\n");
+test("registering a probe after its batch sized a test timeout is refused", () => {
+  sizedProbe.timeout();
+  expect(() => sizedProbe("export const late = 1;\n")).toThrow(
+    "Register every probe before sizing a test timeout with timeout().",
   );
 });
 
-test("compiling a probe with a compiler it was not registered for is refused", async () => {
-  expect(await nativeOnly.compile("native")).toMatchObject({ exit: 0 });
-  expect(await nativeOnly.compile("lint-view").catch(String)).toBe(
-    `Error: ${nativeOnly.file} (source starts "export const native = 1;") was not registered for lint-view. Add "lint-view" to the compilers passed when registering it.`,
-  );
-});
+test(
+  "compiling a probe with a compiler it was not registered for is refused",
+  async () => {
+    expect(await nativeOnly.compile("native")).toMatchObject({ exit: 0 });
+    expect(await nativeOnly.compile("lint-view").catch(String)).toBe(
+      `Error: ${nativeOnly.file} (source starts "export const native = 1;") was not registered for lint-view. Add "lint-view" to the compilers passed when registering it.`,
+    );
+  },
+  probe.timeout(),
+);
 
 const files = ["locks/probe-0.ts", "locks/probe-1.ts"];
 const typeError = "locks/probe-0.ts(1,7): error TS2322: planted.\n";
