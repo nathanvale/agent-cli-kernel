@@ -137,8 +137,12 @@ test("F2.one-shot-entry: the handler entry a check phase returns runs once", asy
   if (!runtime) throw new Error("No runtime.");
   const prepared = await runtime.prepare("x.show", ["a"], "run-once", {});
   if (!prepared.ok) throw new Error("Expected a handler entry.");
-  expect(await prepared.value()).toMatchObject({ ok: true });
-  expect(await prepared.value()).toEqual({
+  // The check phase returns the CMD-9 step 6 attach, which yields the
+  // entry (K3-spec-5); the attach and its entry are used once per run.
+  const attached = prepared.value();
+  if (!attached.ok) throw new Error("Expected the attach to succeed.");
+  expect(await attached.value()).toMatchObject({ ok: true });
+  expect(prepared.value()).toEqual({
     ok: false,
     path: "entry",
     reason: "handler entry already used",
