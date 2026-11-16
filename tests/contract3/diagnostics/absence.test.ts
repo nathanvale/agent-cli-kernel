@@ -355,7 +355,7 @@ describe("D20 sole owner and pin", () => {
   test("D20.sole-logging-import: only the diagnostics add-on imports a logging library", () => {
     const source = join(repository, "starters/contract3/src");
     const logging =
-      /from\s+["'](@logtape\/[^"']+|pino[^"']*|winston[^"']*|bunyan|log4js|loglevel|consola|signale)["']|import\(\s*["']@logtape/;
+      /(?:from|import|require)\s*\(?\s*["'](@logtape\/[^"']+|pino[^"']*|winston[^"']*|bunyan|log4js|loglevel|consola|signale)["']/;
     const offenders = files(source)
       .filter((path) => path.endsWith(".ts"))
       .filter(
