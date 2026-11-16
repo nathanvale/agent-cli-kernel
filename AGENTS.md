@@ -7,6 +7,8 @@
   first.
 - Contract 3 work (`starters/contract3/`, `tests/contract3/`): use the
   `contract3-work` skill.
+- After an operator correction or a review finding, or to gate a rule row:
+  use the `repo-steward` skill.
 
 ## Authority
 
@@ -56,4 +58,7 @@ owner from this list.
 - Full suite and timing-sensitive cases: run them on hosted CI or on the test
   host your task brief names, not on a loaded laptop. `bun run doctor` warns
   when this host is too loaded.
+- Commits: run `bun run check:commits <base>` before you push.
+- Planted faults: run `bun run faults` when your diff touches a file that
+  `tests/faults/manifest.json` names.
 - Review: apply `CODING_STANDARDS.md` to the diff; each row names its gate.
