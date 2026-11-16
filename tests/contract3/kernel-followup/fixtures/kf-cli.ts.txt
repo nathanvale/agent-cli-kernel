@@ -463,7 +463,7 @@ function applyApproved(state: StateAddonDescriptor) {
 // `throw`, `refusal` (KF_HELD without a proof), `invalid` (a success whose
 // data is NaN, without a proof), `result` (the station matching the proof),
 // or `before` (it throws before calling the transaction). KF_LAYER `seam`
-// uses the seam installation, `addon` the shipped state add-on over
+// uses the seam's state add-on instance, `addon` the shipped state add-on over
 // KF_STATE_ROOT.
 const proofVariant = env.KF_PROOF ?? "completed";
 function wideEffects(count: number): readonly [string, ...string[]] {

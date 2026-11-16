@@ -9,7 +9,7 @@ import type { KfRun } from "./harness.ts";
 // summary is any proof the kernel's state seam issued for the run, whether
 // or not the handler returned. LIFE-9 steps 1 and 2, LIFE-10, WIRE-12,
 // WIRE-15 failed rows, WIRE-18 INTERNAL_RESULT_* (H), DISC-11b. Each case runs
-// on two layers: `seam` (a state installation through the kernel's state
+// on two layers: `seam` (a state add-on instance through the kernel's state
 // seam) and `addon` (the shipped state add-on). Expected values come from
 // expectations.md (KF2).
 let entry = "";

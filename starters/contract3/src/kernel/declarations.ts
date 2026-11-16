@@ -71,7 +71,7 @@ export function admitInspectShape(declaration: {
 // supports a deadline declares its program-stop station, a failed and
 // unchanged station with a handoff (WIRE-13, WIRE-14, WIRE-15). The kernel
 // does not enforce its name (N1e, 17:24).
-export function admitProgramStop(declaration: {
+export function requireProgramStopStation(declaration: {
   readonly commandIdentity: string;
   readonly input: { readonly deadlineSupported: boolean };
   readonly capabilities: CapabilitySelection;
@@ -277,7 +277,7 @@ export function command<
     >;
     readonly capabilities: C;
     readonly stations?: S;
-    // Checked at declaration against the station table (admitProgramStop).
+    // Checked at declaration against the station table (requireProgramStopStation).
     readonly programStopCause?: P;
     readonly run: (
       input: ParsedInput<I>,
@@ -352,7 +352,7 @@ export function command<
   });
   if (spec.programStopCause !== undefined)
     recordProgramStop(declaration, spec.programStopCause);
-  admitProgramStop(declaration);
+  requireProgramStopStation(declaration);
   return register(declaration, prepare);
 }
 

@@ -5,10 +5,10 @@ import { processWatchdog } from "../kernel-repair/swarm-process.ts";
 import { emptyComplete, materialiseKf, oneEnvelope, runKf } from "./harness.ts";
 import type { KfRun } from "./harness.ts";
 
-// Delta-2 review follow-up F1 (K3-spec-1): the deadline is re-checked at
-// handler entry. LIFE-6 ("At the deadline the command stops starting
-// work"), the lifecycle row "Deadline before operation dispatch" read as
-// before handler entry, WIRE-15, CMD-9 steps 4 to 6. The window is opened by
+// The deadline is re-checked at handler entry (K3-spec-1). LIFE-6:
+// "At the deadline the command stops starting work". The lifecycle row
+// "Deadline before operation dispatch" is read as before handler entry.
+// WIRE-15, CMD-9 steps 4 to 6. The window is opened by
 // a synchronous block (a stated proof gap: an I/O completion handled before
 // the expired timer opens the same window and is not reproduced). Expected
 // values come from expectations.md (KF7).

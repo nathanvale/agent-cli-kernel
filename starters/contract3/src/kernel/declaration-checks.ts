@@ -9,7 +9,7 @@ import {
   admitChangingShape,
   validateCommandIdentity,
   admitInspectShape,
-  admitProgramStop,
+  requireProgramStopStation,
   preparerOf,
   validateRootOperation,
   validateRouteTokens,
@@ -199,7 +199,7 @@ function admitCommand(
   if (host)
     if (command.effectClass === "inspect") {
       admitInspectShape(command);
-      admitProgramStop(command);
+      requireProgramStopStation(command);
     } else admitChangingShape(command);
   validateCommandIdentity(command.commandIdentity);
   validateHostInput(command.input);

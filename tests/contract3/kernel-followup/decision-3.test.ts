@@ -27,7 +27,7 @@ afterAll(async () => {
 
 const pendingStep = { kind: "command", command: "kf.pending", args: [] };
 // LIFE-6: the first stdout byte within the deadline plus the 500 ms wait,
-// plus the harness tolerance (lifecycle oracle).
+// plus the test harness tolerance (lifecycle oracle).
 const deadlineBound = 300 + 500 + tolerance;
 
 function deadlineRun(proof: string, settle: string) {

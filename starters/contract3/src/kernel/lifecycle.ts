@@ -653,7 +653,10 @@ async function afterHandler(
   };
 }
 
-async function enterHandler(run: Run, value: Resolved): Promise<Delivery> {
+async function runDeclaredCommand(
+  run: Run,
+  value: Resolved,
+): Promise<Delivery> {
   const identity = value.commandIdentity;
   const plan = run.plans.get(identity);
   // Type-forced guard: routing resolves only declared commands.
@@ -707,7 +710,7 @@ type CheckPhase =
   | { readonly kind: "refused"; readonly delivery: Delivery }
   | { readonly kind: "entry"; readonly attach: Attach };
 // Runs the runtime's check phase raced against the deadline. Every refusal
-// here keeps the handler-entry fact false (`dispatched` unset), so it never
+// here keeps the handler-entry fact false (`handlerEntered` unset), so it never
 // carries a status (Nathan, 16 November 2026, 14:19; DS05).
 async function checkPhase(
   run: Run,
@@ -805,7 +808,7 @@ async function route(run: Run, resolution: Resolution): Promise<Delivery> {
   const value = resolution.value;
   run.commandIdentity = value.commandIdentity;
   const navigation = builtin(run, value);
-  if (!navigation) return enterHandler(run, value);
+  if (!navigation) return runDeclaredCommand(run, value);
   run.phase = "handler-entered";
   return kernelResult(
     run,
