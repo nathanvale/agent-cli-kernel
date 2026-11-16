@@ -7,6 +7,7 @@ import {
 } from "../../../starters/contract3/src/kernel/index.ts";
 import { envelopeShape } from "../../../starters/contract3/src/kernel/validation/result.ts";
 import { envelope } from "./envelope-fixture.ts";
+import { neverRuns } from "./handlers.ts";
 import { contractUnchecked } from "./harness.ts";
 import { emptyInput, unchanged } from "./shapes.ts";
 
@@ -53,12 +54,7 @@ test("K2-12: a fault inside validation after the snapshot propagates instead of 
       if (armed) throw defect;
       return emptyInput;
     },
-    execute: () =>
-      Promise.resolve({
-        ok: false,
-        path: "handler",
-        reason: "Never runs.",
-      } as const),
+    execute: neverRuns,
   };
   const step = {
     kind: "command",

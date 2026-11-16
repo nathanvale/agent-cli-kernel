@@ -12,6 +12,7 @@ import {
   authority,
   resource,
 } from "../../../starters/contract3/src/kernel/validation/brands.ts";
+import { readsUnchanged } from "./handlers.ts";
 import { emptyInput, unchanged } from "./shapes.ts";
 
 const words = {
@@ -231,11 +232,7 @@ function deadlineRead() {
       ],
     },
     capabilities: {},
-    run: (_input, context) =>
-      context.result(
-        { commandIdentity: "x.read", causeCode: "SUCCESS_UNCHANGED" },
-        { message: "Read.", data: null, effects: unchanged },
-      ),
+    run: readsUnchanged("x.read"),
   });
 }
 

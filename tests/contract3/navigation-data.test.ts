@@ -3,7 +3,8 @@ import {
   command,
   contractFor,
 } from "../../starters/contract3/src/kernel/index.ts";
-import { emptyInput, unchanged } from "./kernel-repair/shapes.ts";
+import { readsUnchanged } from "./kernel-repair/handlers.ts";
+import { emptyInput } from "./kernel-repair/shapes.ts";
 
 const cli = contractFor({ cli: "specimen", commands: [] });
 
@@ -42,11 +43,7 @@ const read = command({
   summary: "Read a note.",
   input: emptyInput,
   capabilities: {},
-  run: (_input, context) =>
-    context.result(
-      { commandIdentity: "specimen.read", causeCode: "SUCCESS_UNCHANGED" },
-      { message: "Read.", data: null, effects: unchanged },
-    ),
+  run: readsUnchanged("specimen.read"),
 });
 const helpCli = contractFor({ cli: "specimen", commands: [read] });
 

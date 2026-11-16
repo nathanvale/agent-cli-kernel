@@ -16,6 +16,7 @@ import type {
 import { frozenInputs } from "./cases.ts";
 import { runFamily, stateFixture } from "./harness.ts";
 import { emptyInput as empty } from "./shapes.ts";
+import { neverRuns } from "./handlers.ts";
 
 const withOperand = {
   ...empty,
@@ -125,14 +126,6 @@ function raw(
     effectClass: "inspect",
     execute: neverRuns,
   };
-}
-// A raw declaration needs a handler to be admitted (K1-5); these never run.
-function neverRuns() {
-  return Promise.resolve({
-    ok: false,
-    path: "handler",
-    reason: "Raw admission fixture never runs.",
-  } as const);
 }
 function executable(
   identity: string,
