@@ -10,6 +10,7 @@
     "check:write": "bun run format",
     "quality:fallow": "node_modules/.bin/fallow audit --format json --quiet --type-aware --type-aware-require best-effort",
     "doctor": "bun run scripts/doctor.ts",
+    "check:commits": "bun run scripts/check-commits.ts",
     "pretest": "bun run doctor",
     "test": "bun test --parallel --path-ignore-patterns 'starters/**'",
     "test:area": "bun run scripts/test-area.ts",
