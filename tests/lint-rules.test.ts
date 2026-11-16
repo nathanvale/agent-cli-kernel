@@ -288,6 +288,15 @@ const admitted = [
   },
   {
     rule: "no-in-operator",
+    reason: "narrows a union by a declared key through Reflect.has",
+    filePath: "starters/contract3/src/kernel/lifecycle.ts",
+    code: [
+      "type Attached = { readonly enter: number } | { readonly delivery: string };",
+      'export const delivered = (attached: Attached) => Reflect.has(attached, "delivery");',
+    ],
+  },
+  {
+    rule: "no-in-operator",
     reason:
       "checks a key its type declares itself, though Object.prototype has it too",
     filePath: "starters/contract3/src/kernel/validation/result.ts",
@@ -314,6 +323,15 @@ const admitted = [
       'import type { commonCauses } from "./causes.ts";',
       "const refuse = (code: keyof typeof commonCauses) => code;",
       'export const refused = refuse("USAGE_INVALID_INVOCATION");',
+    ],
+  },
+  {
+    rule: "cause-literal-owner",
+    reason: "is compared with a value typed by the owner's keys",
+    filePath: "starters/contract3/src/kernel/routing.ts",
+    code: [
+      'import type { commonCauses } from "./causes.ts";',
+      'export const unchanged = (code: keyof typeof commonCauses) => code === "SUCCESS_UNCHANGED";',
     ],
   },
   {
