@@ -114,21 +114,21 @@ export function filterShow() {
   });
 }
 
-// The success station of x.go: its next step is `x.show ARGS`.
-export function goStation(args: readonly string[]) {
+// The success station of x.go: its next step is `TARGET ARGS`.
+export function goStation(args: readonly string[], target = "x.show") {
   return station(commonCauses, {
     commandIdentity: "x.go",
     causeCode: "SUCCESS_UNCHANGED",
     trigger: "Went.",
-    guidance: { next: { kind: "command", command: "x.show", args: [...args] } },
+    guidance: { next: { kind: "command", command: target, args: [...args] } },
     repairAction: null,
     ...words,
   });
 }
 
-// x.go: one inspect command whose only success names `x.show ARGS`.
-export function go(args: readonly string[]) {
-  const went = goStation(args);
+// x.go: one inspect command whose only success names `TARGET ARGS`.
+export function go(args: readonly string[], target = "x.show") {
+  const went = goStation(args, target);
   return command({
     identity: "x.go",
     route: ["go"],

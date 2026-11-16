@@ -95,6 +95,7 @@ function occurrences(
 function presenceProblem(
   target: CommandDeclaration,
   present: ReadonlySet<string>,
+  rootRule: boolean,
 ): string | undefined {
   const input = target.input;
   const missing = [...input.arguments, ...input.options].find(
@@ -107,13 +108,16 @@ function presenceProblem(
       : item.members.filter((name) => present.has(name)).length > 1,
   );
   if (broken) return "it breaks an input constraint";
-  return target.route.length === 0 && present.size === 0
+  return rootRule && target.route.length === 0 && present.size === 0
     ? "a root operation needs an option or operand"
     : undefined;
 }
+// `rootRule` is false only for `<cli>.dispatch`: DISC-4's operand rule binds
+// a host root operation, and DISC-5 admits dispatch as a step (K1-12).
 export function stepVectorProblem(
   target: CommandDeclaration,
   args: readonly string[],
+  rootRule: boolean,
 ): string | undefined {
   const split = splitDeadlineTokens(args);
   if (!split.ok) return "its deadline option has no single value";
@@ -122,5 +126,5 @@ export function stepVectorProblem(
   const present = occurrences(target.input, split.value.tokens);
   return typeof present === "string"
     ? present
-    : presenceProblem(target, present);
+    : presenceProblem(target, present, rootRule);
 }

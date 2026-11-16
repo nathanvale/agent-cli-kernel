@@ -7,6 +7,7 @@ import {
   patternShow,
   titledShow,
 } from "./swarm-commands.ts";
+import { buildUnchecked, contractUnchecked } from "./harness.ts";
 import { runScenario } from "./swarm-process.ts";
 
 // Swarm-triage expectations for input and command-step admission. Expected
@@ -141,3 +142,37 @@ test(
   },
   processTimeout,
 );
+
+test("X-K1-12.dispatch-step: `<cli>.dispatch` with no arguments is an admitted command step", async () => {
+  // DISC-5: each built-in may appear as a `command` step; DISC-4's operand
+  // rule binds a host root operation, not `<cli>.dispatch` (DISC-1).
+  const source = go([], "x.dispatch");
+  // The static step type omits dispatch, so admission is called unchecked.
+  const contract = contractUnchecked(contractFor, {
+    cli: "x",
+    commands: [source],
+  });
+  if (typeof contract !== "object" || contract === null)
+    throw new Error("Expected an admitted contract.");
+  const built = await buildUnchecked(contract, goStation([], "x.dispatch"), {
+    runId: "run-dispatch-step",
+    message: "Went.",
+    data: null,
+    effects: {
+      completed: [],
+      remaining: [],
+      uncertain: [],
+      inventoryComplete: true,
+    },
+  });
+  expect(built).toMatchObject({
+    ok: true,
+    value: {
+      result: { next: { kind: "command", command: "x.dispatch", args: [] } },
+    },
+  });
+  const resolve: unknown = Reflect.get(contract, "resolve");
+  if (typeof resolve !== "function") throw new Error("No resolve.");
+  const resolved: unknown = await Reflect.apply(resolve, contract, [[]]);
+  expect(resolved).toMatchObject({ commandIdentity: "x.dispatch" });
+});

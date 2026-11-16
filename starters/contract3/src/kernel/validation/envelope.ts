@@ -25,6 +25,7 @@ function declaredEnvelope<C extends CauseTable>(
   );
 }
 async function commandSteps(
+  cli: string,
   result: WireResult,
   commands: readonly CommandDeclaration[],
 ): Promise<boolean> {
@@ -39,10 +40,15 @@ async function commandSteps(
       (result.handoff !== undefined && command.effectClass !== "inspect")
     )
       return false;
-    // The same input rule as parse, resolve and execute: a root operation
-    // needs an option or operand (DISC-4, STEP-6; F05).
+    // The same input rule as parse, resolve and execute: a host root
+    // operation needs an option or operand (DISC-4, STEP-6; F05). DISC-5
+    // admits `<cli>.dispatch` itself as a step (K1-12).
     const parsed = await parseInput(command.input, step.args);
-    if (!parsed.ok || !acceptsRootInput(command.route, parsed.value))
+    if (
+      !parsed.ok ||
+      (command.commandIdentity !== `${cli}.dispatch` &&
+        !acceptsRootInput(command.route, parsed.value))
+    )
       return false;
   }
   return true;
@@ -67,6 +73,7 @@ function stationMatches(
   );
 }
 export async function validateEnvelope<C extends CauseTable>(
+  cli: string,
   value: unknown,
   causes: C,
   commands: readonly CommandDeclaration[],
@@ -119,7 +126,7 @@ export async function validateEnvelope<C extends CauseTable>(
       return reject("effects", "undeclared effect");
     if (!stationMatches(snapshot.result, station, commands))
       return reject("result", "station guidance or delay mismatch");
-    if (!(await commandSteps(snapshot.result, commands)))
+    if (!(await commandSteps(cli, snapshot.result, commands)))
       return reject("result", "invalid command step");
     return { ok: true, value: freeze(snapshot) };
   } catch {

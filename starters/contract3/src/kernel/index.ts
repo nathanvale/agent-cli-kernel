@@ -104,7 +104,13 @@ export function contractFor<
   const acceptedResults = new WeakSet<object>();
   const navigation = navigationData(spec.cli, commands, stationMap);
   async function validate(value: unknown) {
-    const checked = await validateEnvelope(value, causes, commands, stationMap);
+    const checked = await validateEnvelope(
+      spec.cli,
+      value,
+      causes,
+      commands,
+      stationMap,
+    );
     return checked.ok && !navigation.validData(checked.value.result)
       ? ({
           ok: false,
