@@ -163,9 +163,11 @@ checks that every cited commit, link and named gate exists.
 ## Review routine
 
 1. List the rows the diff touches.
-2. For each Partial row, confirm its gate ran green on hosted CI at this head.
-3. For each Review only or Partial row, open its guide and apply every bullet
-   to the diff.
+2. For each Partial row, find each of its gates in the hosted CI result for
+   this head that your caller passed in the prompt. Report a gate the result
+   does not show green as **unproved**, never as a pass.
+3. For each Review only or Partial row, open its guide, or its gate note when
+   it has no guide, and apply every bullet to the diff.
 4. Report each finding with its row and the guide bullet it breaks.
 
 [MAG-98]: https://linear.app/myagentdojo/issue/MAG-98/command-contract-30-foundation-accepted-implementation-scope
