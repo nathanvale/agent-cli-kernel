@@ -67,3 +67,23 @@ test(
   },
   processTimeout,
 );
+
+test(
+  "X-K1-10.coordination-causes-host-owned: a common cause is refused as a held-lock or unresolved-case cause",
+  async () => {
+    // CMD-10: a distinct unresolved-case refusal with a host-owned cause.
+    // CMD-12: the held-lock refusal is owned by that CLI; the state add-on
+    // adds no common cause. WIRE-19: a domain-specific cause is command-owned.
+    const refused = {
+      admission: "refused",
+      reason: "Coordination refusal causes are host-owned.",
+    };
+    expect(await printed("coordination-lock-common")).toEqual(refused);
+    expect(await printed("coordination-unresolved-common")).toEqual(refused);
+    // Twin: the host causes HELD and PRIOR are admitted.
+    expect(await printed("coordination-host")).toEqual({
+      admission: "admitted",
+    });
+  },
+  processTimeout,
+);

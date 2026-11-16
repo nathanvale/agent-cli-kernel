@@ -108,6 +108,10 @@ function admitRecovery(
   if (!success || success.guidance.next?.kind === "done")
     throw new Error("ifNoResult needs explicit further inspection guidance.");
   for (const cause of [command.heldLockCause, command.unresolvedCaseCause]) {
+    // CMD-10 and CMD-12: each coordination refusal has a cause owned by this
+    // CLI; the state add-on adds no common cause (WIRE-19; K1-10).
+    if (cause === undefined || Object.hasOwn(commonCauses, cause))
+      throw new Error("Coordination refusal causes are host-owned.");
     const station = command.stations.find((item) => item.causeCode === cause);
     if (
       !station ||
