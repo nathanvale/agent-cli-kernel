@@ -270,6 +270,61 @@ const bypasses = [
     'import { homedir as td } from "node:os";\ntd();',
     undefined,
   ],
+  [
+    "tests-no-sleep",
+    'import timers from "node:timers/promises";\nawait timers.setTimeout(5);',
+    "The node:timers/promises module",
+  ],
+  [
+    "tests-no-sleep",
+    'import * as tp from "timers/promises";\nawait tp.setTimeout(5);',
+    "The node:timers/promises module",
+  ],
+  [
+    "tests-no-sleep",
+    'const { setTimeout: s } = await import("node:timers/promises");\nawait s(5);',
+    "The node:timers/promises module",
+  ],
+  [
+    "tests-no-sleep",
+    'import { setImmediate } from "node:timers/promises";\nawait setImmediate();',
+    undefined,
+  ],
+  [
+    "tests-no-sleep",
+    "await new Promise((r) => setTimeout(() => r(undefined), 5));",
+    "A promise that setTimeout only resolves",
+  ],
+  [
+    "tests-no-sleep",
+    "await new Promise((r) => setTimeout(() => { r(undefined); }, 5));",
+    "A promise that setTimeout only resolves",
+  ],
+  [
+    "tests-no-sleep",
+    "await new Promise((r) => globalThis.setTimeout(r, 5));",
+    "A promise that setTimeout only resolves",
+  ],
+  [
+    "tests-no-sleep",
+    'import { setTimeout as st } from "node:timers";\nawait new Promise((r) => st(r, 5));',
+    "A promise that setTimeout only resolves",
+  ],
+  [
+    "tests-no-sleep",
+    'import timers from "timers";\nawait new Promise((r) => timers.setTimeout(r, 5));',
+    "A promise that setTimeout only resolves",
+  ],
+  [
+    "tests-no-sleep",
+    "await new Promise((r) => { const t = setTimeout(() => r(undefined), 5); String(t); });",
+    "A promise that setTimeout only resolves",
+  ],
+  [
+    "tests-no-sleep",
+    "let t: ReturnType<typeof setTimeout> | undefined;\nconst expired = new Promise<undefined>((resolve) => {\n  t = setTimeout(() => resolve(undefined), 5);\n});\nawait Promise.race([expired]);\nclearTimeout(t);",
+    undefined,
+  ],
 ] as const;
 
 for (const [rule, code, fix] of bypasses)
@@ -290,6 +345,18 @@ test("tests-use-test-folder admits the folder calls inside its owner module", as
       "tests-use-test-folder",
       "tests/support/test-folder.ts",
       await Bun.file(resolve(import.meta.dir, "support/test-folder.ts")).text(),
+    ),
+  ).toEqual([]);
+});
+
+test("tests-no-sleep admits the spawnBounded watchdog, which clears its handle", async () => {
+  expect(
+    await hits(
+      "tests-no-sleep",
+      "tests/contract3/kernel-repair/swarm-process.ts",
+      await Bun.file(
+        resolve(import.meta.dir, "contract3/kernel-repair/swarm-process.ts"),
+      ).text(),
     ),
   ).toEqual([]);
 });

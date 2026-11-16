@@ -91,12 +91,20 @@ now enforces.
 
 ### Time
 
-- Lint `repository/tests-no-sleep` refuses `Bun.sleep`, `Bun.sleepSync`,
-  the `node:timers/promises` `setTimeout`, and a `setTimeout` that only
-  resolves a promise, in `tests/`.
-- A `setTimeout` that rejects, aborts or resolves with a sentinel passes as
-  a bounded watchdog. A poll on `Date.now()` and a race control too narrow to
-  catch its fault stay review.
+- Lint `repository/tests-no-sleep` refuses, in `tests/`: `Bun.sleep` and
+  `Bun.sleepSync`; the `node:timers/promises` `setTimeout` import; a
+  default, namespace, `import()` or `require()` of that module.
+- It also refuses a `setTimeout` inside a `new Promise` executor whose
+  callback is the executor's `resolve`, or a function whose only statement
+  calls `resolve()` or `resolve(undefined)`. It traces `setTimeout` to the
+  global, `globalThis` or `node:timers`, under any import name.
+- A `setTimeout` that rejects, aborts or resolves with another value passes
+  as a bounded watchdog. So does one whose handle reaches `clearTimeout`,
+  as in `spawnBounded`: an awaited delay never needs clearing.
+- Review only: a `Date.now()` poll, a race control too narrow to catch its
+  fault, a callback that resolves another way (`r.bind(null)`, `void 0`),
+  `sleep` destructured from `Bun`, and `scheduler.wait` from a named
+  `node:timers/promises` import.
 - Witnessed: [d1436c0].
 
 ### Untrusted values

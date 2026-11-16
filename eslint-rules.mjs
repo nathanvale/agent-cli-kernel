@@ -96,6 +96,58 @@ const origin = (context, node, depth = 0) =>
         context,
       )
     : undefined;
+const isTimer = (traced, name) =>
+  traced?.name === name &&
+  (traced.module === "global" || traced.module === "timers");
+const executorResolve = (context, node) =>
+  context.sourceCode
+    .getAncestors(node)
+    .findLast(
+      (ancestor) =>
+        isFunction(ancestor) &&
+        ancestor.parent.type === "NewExpression" &&
+        ancestor.parent.callee.name === "Promise" &&
+        ancestor.parent.arguments[0] === ancestor,
+    )?.params[0]?.name;
+const noValue = ({ arguments: values }) =>
+  values.length === 0 ||
+  (values.length === 1 &&
+    values[0].type === "Identifier" &&
+    values[0].name === "undefined");
+const resolves = (callback, resolve) => {
+  if (callback?.type === "Identifier") return callback.name === resolve;
+  const call = isFunction(callback) ? onlyCall(callback) : undefined;
+  return call?.callee.name === resolve && noValue(call);
+};
+const handle = ({ parent }) =>
+  parent.type === "AssignmentExpression"
+    ? parent.left
+    : parent.type === "VariableDeclarator"
+      ? parent.id
+      : undefined;
+const cleared = (context, node) => {
+  const target = handle(node);
+  return (
+    target?.type === "Identifier" &&
+    lookup(context, target)?.references.some(
+      ({ identifier }) =>
+        identifier.parent.type === "CallExpression" &&
+        identifier.parent.arguments[0] === identifier &&
+        isTimer(origin(context, identifier.parent.callee), "clearTimeout"),
+    )
+  );
+};
+// A delay passes the executor's resolve itself, or calls it with no value
+// or undefined. A watchdog rejects, aborts, resolves with a sentinel, or
+// keeps its handle for clearTimeout, which no awaited delay needs.
+const delays = (context, node) => {
+  const resolve = executorResolve(context, node);
+  return (
+    resolve !== undefined &&
+    resolves(node.arguments[0], resolve) &&
+    !cleared(context, node)
+  );
+};
 // A pattern that matches a lone NUL character matches every message.
 const namesNothing = (node) =>
   (node.type === "Identifier" && node.name === "undefined") ||
@@ -240,13 +292,6 @@ export default {
       create(context) {
         const report = (node, what) =>
           context.report({ node, messageId: "sleep", data: { what } });
-        // A delay passes the executor's resolve itself, or calls it with no
-        // value. A watchdog rejects, aborts or resolves with a sentinel.
-        const resolves = (callback, resolve) => {
-          if (callback?.type === "Identifier") return callback.name === resolve;
-          const call = isFunction(callback) ? onlyCall(callback) : undefined;
-          return call?.callee.name === resolve && call.arguments.length === 0;
-        };
         return {
           "MemberExpression[object.name='Bun'][property.name=/^sleep(?:Sync)?$/]"(
             node,
@@ -257,18 +302,19 @@ export default {
             if (timerPromises.has(node.parent.source.value))
               report(node, "The node:timers/promises setTimeout");
           },
-          "CallExpression[callee.name='setTimeout']"(node) {
-            const executor = context.sourceCode
-              .getAncestors(node)
-              .findLast(
-                (ancestor) =>
-                  isFunction(ancestor) &&
-                  ancestor.parent.type === "NewExpression" &&
-                  ancestor.parent.callee.name === "Promise" &&
-                  ancestor.parent.arguments[0] === ancestor,
-              );
-            const resolve = executor?.params[0]?.name;
-            if (resolve && resolves(node.arguments[0], resolve))
+          "ImportDefaultSpecifier, ImportNamespaceSpecifier"(node) {
+            if (timerPromises.has(node.parent.source.value))
+              report(node, "The node:timers/promises module");
+          },
+          "ImportExpression, CallExpression[callee.name='require']"(node) {
+            if (origin(context, node)?.module === "timers/promises")
+              report(node, "The node:timers/promises module");
+          },
+          CallExpression(node) {
+            if (
+              isTimer(origin(context, node.callee), "setTimeout") &&
+              delays(context, node)
+            )
               report(node, "A promise that setTimeout only resolves");
           },
         };
