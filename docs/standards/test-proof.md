@@ -1,7 +1,7 @@
 # Test Proof
 
 A test earns its name when it goes **red** for the reason the name gives. The
-global independent-oracle rule applies; this guide lists the ways this
+shared independent-oracle rule applies; this guide lists the ways this
 repository broke it.
 
 ## Refusals and bounds
@@ -22,13 +22,13 @@ repository broke it.
 ## Production entry
 
 - Build a process proof's subject through `index.ts`, the production seam
-  the global test-execution rule asks for. A test entry such as `fixture.ts`,
+  the shared test-execution rule asks for. A test entry such as `fixture.ts`,
   or a fault-wrapped CLI, proves only the fixture. Witnessed: [e55f94a],
   [7ea1ee3].
 
 ## Planted faults
 
-- Apply the global RED-then-GREEN rule to every new refusal or bound.
+- Apply the shared RED-then-GREEN rule to every new refusal or bound.
 - Record each planted fault as a `RED:` line in the commit body.
 - Treat a surviving fault as a missing test. Witnessed: [d72cd9e], [640ba05].
 
