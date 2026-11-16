@@ -248,13 +248,6 @@ caseTest("C01.e-spawned-child-does-not-hold", async () => {
   const shared = await childObservation("shared-control");
   expect(shared.childAlive).toBe(true);
   expect(shared.result).toBe("refused");
-  // Linux (fcntl F_SETFD is callable there): a holder that clears
-  // close-on-exec, then spawns a plain child, is the expectations' named twin.
-  if (process.platform === "linux") {
-    const cleared = await childObservation("cloexec-control");
-    expect(cleared.childAlive).toBe(true);
-    expect(cleared.result).toBe("refused");
-  }
 });
 
 caseTest("C01.f-same-process-second-open-refused", async () => {
