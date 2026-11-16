@@ -610,6 +610,8 @@ caseTest(
 // Supporting V-23 process control owed by T3 (kernel F-proof rule, T1 repair):
 // a handler that refuses after a completed transaction never yields a
 // refused, unchanged envelope. Not a frozen case; reported separately.
+// Accepted decision "Contract question 4 of 8": the issued proof is the
+// trusted summary, so the fallback reports the completed change it proved.
 supportingTest(
   "V-23 supporting: refusal after a completed transaction is never unchanged",
   () =>
@@ -620,9 +622,14 @@ supportingTest(
       expect(run.exit).toBe(1);
       expect(run.stderr).toBe("");
       expect(run.result.outcome).toBe("failed");
-      expect(run.result.transactionState).toBe("unknown");
-      expect(run.result.causeCode).toBe("INTERNAL_RESULT_UNKNOWN");
-      expect(at(run.result.raw, "effects", "inventoryComplete")).toBe(false);
+      expect(run.result.transactionState).toBe("completed");
+      expect(run.result.causeCode).toBe("INTERNAL_RESULT_COMPLETED");
+      expect(at(run.result.raw, "effects")).toEqual({
+        completed: ["note.write"],
+        remaining: [],
+        uncertain: [],
+        inventoryComplete: true,
+      });
       expect(at(run.result.raw, "handoff")).toBeDefined();
       expect(at(run.result.raw, "next")).toBeUndefined();
       expect(world.noteLedger("a")).toBe(1);

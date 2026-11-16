@@ -5,9 +5,12 @@
 import { appendFileSync } from "node:fs";
 import {
   command,
+  commonCauses,
   contractFor,
+  station,
 } from "../../../../starters/contract3/src/kernel/index.ts";
 import type {
+  ApprovalCapability,
   DiagnosticsCapability,
   RunAddon,
 } from "../../../../starters/contract3/src/kernel/index.ts";
@@ -20,7 +23,12 @@ import {
   runtimeOf,
 } from "../../../../starters/contract3/src/kernel/runtime.ts";
 import type { ContractRuntime } from "../../../../starters/contract3/src/kernel/runtime.ts";
-import { path } from "../../../../starters/contract3/src/kernel/validation/brands.ts";
+import {
+  authority,
+  path,
+  resource,
+} from "../../../../starters/contract3/src/kernel/validation/brands.ts";
+import { programStopRow, programStopStation } from "../program-stop.ts";
 
 const ledgerPath = process.env.FX_LEDGER;
 const mode = process.env.FX_STATUS ?? "available";
@@ -48,6 +56,31 @@ const statuses: Readonly<Record<string, unknown>> = {
     status: "unavailable",
     reason: "status-unavailable",
     trusted: { droppedRecords: 2, countsComplete: false },
+  },
+  // KF6 (decision 6): each line of the human Diagnostics words.
+  incomplete: {
+    ...availableStatus,
+    file: "/private/run.log",
+    sinkFailure: "flush-timeout",
+    closed: false,
+  },
+  "no-file": { ...availableStatus, file: null, sinkFailure: "setup" },
+  "no-file-no-failure": { ...availableStatus, file: null, sinkFailure: null },
+  "trusted-file": {
+    status: "unavailable",
+    reason: "status-invalid",
+    trusted: { file: "/private/run.log" },
+  },
+  "trusted-file-null": {
+    status: "unavailable",
+    reason: "status-unavailable",
+    trusted: { file: null },
+  },
+  // DIAG-3: a reason never claims a sink failure, even with one in `trusted`.
+  "trusted-sink": {
+    status: "unavailable",
+    reason: "status-invalid",
+    trusted: { sinkFailure: "write" },
   },
   // `file` must be absolute and the variant strict: two faults.
   invalid: {
@@ -159,6 +192,18 @@ const input = {
   additionalOptions: false,
 } as const;
 
+const stOwnCauses = {
+  DOMAIN_ST_DEADLINE_PROGRAM_STOP_UNCONFIRMED: programStopRow,
+  DOMAIN_ST_REPORT_REFUSED: {
+    outcome: "refused",
+    transactionState: "unchanged",
+    failureClass: "domain",
+    exitCode: 3,
+    retryable: false,
+    guidance: "next",
+  },
+} as const;
+const stCauses = { ...commonCauses, ...stOwnCauses } as const;
 const report = command({
   identity: "st.report",
   route: ["report"],
@@ -171,9 +216,44 @@ const report = command({
       flag("--bad"),
       flag("--throw"),
       flag("--program"),
+      flag("--refuse"),
     ],
   },
   capabilities: { diagnostics: true, programs: true },
+  // N1b (17:06): st.report runs programs and supports a deadline.
+  stations: [
+    station(commonCauses, {
+      commandIdentity: "st.report",
+      causeCode: "SUCCESS_UNCHANGED",
+      trigger: "The fixture work finished.",
+      guidance: { next: { kind: "done" } },
+      repairAction: null,
+      retryDelayPolicy: { kind: "none" },
+      reachability: "required",
+      unreachableRationale: null,
+      independentObservable: "st.report:done",
+    }),
+    programStopStation(
+      stCauses,
+      "st.report",
+      "DOMAIN_ST_DEADLINE_PROGRAM_STOP_UNCONFIRMED",
+    ),
+    // KF6.c: a host-owned refusal the handler selects.
+    station(stCauses, {
+      commandIdentity: "st.report",
+      causeCode: "DOMAIN_ST_REPORT_REFUSED",
+      trigger: "The fixture refused.",
+      guidance: {
+        next: { kind: "instruction", text: "Inspect the fixture input." },
+      },
+      repairAction: "Correct the fixture input.",
+      retryDelayPolicy: { kind: "none" },
+      reachability: "required",
+      unreachableRationale: null,
+      independentObservable: "st.report:refused",
+    }),
+  ],
+  programStopCause: "DOMAIN_ST_DEADLINE_PROGRAM_STOP_UNCONFIRMED",
   run: async (options, context) => {
     ledger("handler-entered");
     if (options["--record"] === true) context.diagnostics.record("work", null);
@@ -189,6 +269,11 @@ const report = command({
     const wait = options["--wait-ms"];
     if (wait !== undefined) await sleep(wait);
     if (options["--throw"] === true) throw new Error("FX handler fault");
+    if (options["--refuse"] === true)
+      return context.result(
+        { commandIdentity: "st.report", causeCode: "DOMAIN_ST_REPORT_REFUSED" },
+        { message: "The fixture refused.", data: null, effects: empty },
+      );
     ledger("handler-done");
     return context.result(
       { commandIdentity: "st.report", causeCode: "SUCCESS_UNCHANGED" },
@@ -213,6 +298,69 @@ const plain = command({
       { message: "The plain work finished.", data: null, effects: empty },
     ),
 });
+
+// st.guarded declares diagnostics and approval (KF1.d, KF8). FX_APPROVAL
+// selects the approval add-on: `grant` (default) grants at once; `delay`
+// grants after 200 ms; `reject` rejects; `sync-throw` throws synchronously;
+// `attach-throws` throws while the kernel attaches it.
+const guarded = command({
+  identity: "st.guarded",
+  route: ["guarded"],
+  summary: "Do fixture work behind approval that may be observed.",
+  input: { ...input, options: [] },
+  capabilities: { diagnostics: true, approval: true },
+  approval: () => ({
+    authority: authority("st.owner"),
+    resource: resource("st.item"),
+    resourceRevision: "1",
+    effects: [],
+    preview: "st-preview",
+  }),
+  stations: [
+    station(commonCauses, {
+      commandIdentity: "st.guarded",
+      causeCode: "SUCCESS_UNCHANGED",
+      trigger: "The guarded fixture work finished.",
+      guidance: { next: { kind: "done" } },
+      repairAction: null,
+      retryDelayPolicy: { kind: "none" },
+      reachability: "required",
+      unreachableRationale: null,
+      independentObservable: "st.guarded:done",
+    }),
+  ],
+  run: (_options, context) => {
+    ledger("handler-entered");
+    return context.result(
+      { commandIdentity: "st.guarded", causeCode: "SUCCESS_UNCHANGED" },
+      { message: "The guarded work finished.", data: null, effects: empty },
+    );
+  },
+});
+const approvalMode = process.env.FX_APPROVAL ?? "grant";
+const approvalAddon: RunAddon<ApprovalCapability> = {
+  attach() {
+    ledger("approval-attach");
+    if (approvalMode === "attach-throws")
+      throw new Error("Fixture approval attach fault.");
+    return {
+      capability: {
+        check() {
+          ledger("check-start");
+          if (approvalMode === "sync-throw")
+            throw new Error("Fixture check fault.");
+          if (approvalMode === "reject")
+            return Promise.reject(new Error("Fixture check rejection."));
+          return approvalMode === "delay"
+            ? sleep(200).then(() => true)
+            : Promise.resolve(approvalMode !== "deny");
+        },
+      },
+      settle: () => Promise.resolve(true),
+      killNow: () => undefined,
+    };
+  },
+};
 
 // Ledgers when the kernel has built (frozen) a result, so the order of
 // "result-built" and "freeze-start" is observable (DIAG-14).
@@ -270,8 +418,9 @@ const programs =
 
 const contract = contractFor({
   cli: "st",
-  commands: [report, plain],
-  installedAddons: ["diagnostics", "programs"],
+  commands: [report, plain, guarded],
+  causes: stOwnCauses,
+  installedAddons: ["diagnostics", "programs", "approval"],
 });
 const runtime = runtimeOf(contract);
 if (!runtime) throw new Error("Fixture contract has no runtime.");
@@ -280,6 +429,6 @@ recordRuntime(wrapped, observed(runtime));
 ledger(`front-door-start ${Date.now()}`);
 await runProcessOn(
   wrapped,
-  { addons: { diagnostics: statusAddon, programs } },
+  { addons: { diagnostics: statusAddon, programs, approval: approvalAddon } },
   () => host(processHost()),
 )(process.argv.slice(2));

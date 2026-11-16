@@ -1,3 +1,4 @@
+import { programStopOf, recordProgramStop } from "./program-stop.ts";
 import type { InputTable } from "./future-input.ts";
 import { resultContext, checkedResult } from "./command-result.ts";
 import type { CommandResult, ResultContext } from "./command-result.ts";
@@ -65,6 +66,36 @@ export function admitInspectShape(declaration: {
   // DISC-13: for an inspect command ifNoResult is null.
   if (declaration.ifNoResult !== undefined)
     throw new Error("An inspect command has no ifNoResult.");
+}
+// Accepted decision N1b: an inspect command that runs programs and
+// supports a deadline declares its program-stop station, a failed and
+// unchanged station with a handoff (WIRE-13, WIRE-14, WIRE-15). The kernel
+// does not enforce its name (N1e).
+function requireProgramStopStation(declaration: {
+  readonly commandIdentity: string;
+  readonly input: { readonly deadlineSupported: boolean };
+  readonly capabilities: CapabilitySelection;
+  readonly stations: readonly DeclaredStation[];
+}): void {
+  if (
+    declaration.capabilities.programs !== true ||
+    !declaration.input.deadlineSupported
+  )
+    return;
+  const cause = programStopOf(declaration);
+  const station = declaration.stations.find((item) => item.causeCode === cause);
+  if (!station)
+    throw new Error(
+      `${declaration.commandIdentity} runs programs and supports a deadline, so it must declare its program-stop station (programStopCause).`,
+    );
+  if (
+    station.row.outcome !== "failed" ||
+    station.row.transactionState !== "unchanged" ||
+    !station.guidance.handoff
+  )
+    throw new Error(
+      `${declaration.commandIdentity}'s program-stop station ${station.causeCode} must be failed and unchanged, with a handoff.`,
+    );
 }
 export function admitChangingShape(declaration: {
   readonly effectClass: unknown;
@@ -234,6 +265,7 @@ export function command<
   const I extends InputSchema,
   const C extends CapabilitySelection = Record<never, never>,
   const S extends readonly DeclaredStation[] = readonly [],
+  const P extends string = never,
 >(
   spec: {
     readonly identity: Identity;
@@ -245,9 +277,11 @@ export function command<
     >;
     readonly capabilities: C;
     readonly stations?: S;
+    // Checked at declaration against the station table (requireProgramStopStation).
+    readonly programStopCause?: P;
     readonly run: (
       input: ParsedInput<I>,
-      context: HandlerContext<C> & ResultContext<Identity, S, "inspect">,
+      context: HandlerContext<C> & ResultContext<Identity, S, "inspect", C, P>,
     ) => CommandResult<Identity> | Promise<CommandResult<Identity>>;
   } & (C extends { readonly approval: true }
     ? {
@@ -316,6 +350,9 @@ export function command<
     capabilities: capabilities ?? {},
     execute: executeVia(prepare),
   });
+  if (spec.programStopCause !== undefined)
+    recordProgramStop(declaration, spec.programStopCause);
+  requireProgramStopStation(declaration);
   return register(declaration, prepare);
 }
 
@@ -345,6 +382,9 @@ export function changing<
       input: ParsedInput<I>,
       context: HandlerContext<C> & {
         readonly state: StateCapability<Effect>;
+        // The authority exclusion without approval (N6 a) stays runtime-only
+        // here: the T3 specimen's typed handlers select from a union that
+        // includes its declared-unreachable DOMAIN_AUTHORITY_REQUIRED.
       } & ResultContext<Identity, S, "repository-local" | "external">,
     ) => Promise<CommandResult<Identity>>;
   } & (C extends { readonly approval: true }

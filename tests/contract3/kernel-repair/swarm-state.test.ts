@@ -105,11 +105,20 @@ test(
       exit: 1,
       stderr: "",
     });
+    // The issuer issues its proof from the one read (completed, "e"), and
+    // that proof is the trusted summary (contract question 4 of 8).
     expect(shifting.result).toMatchObject({
       commandIdentity: "specimen.apply",
       outcome: "failed",
+      causeCode: "INTERNAL_RESULT_COMPLETED",
+      transactionState: "completed",
+      effects: {
+        completed: ["e"],
+        remaining: [],
+        uncertain: [],
+        inventoryComplete: true,
+      },
     });
-    expect(String(shifting.result?.causeCode)).toStartWith("INTERNAL_RESULT_");
     // Twin: a steady unchanged observation admits the HELD refusal.
     const steady = await run("proof-steady", ["apply", "--json"]);
     expect(steady.exit).toBe(3);

@@ -484,7 +484,13 @@ describe("K3K5 a settle fault keeps the exit path", () => {
         settleThrows,
       );
       const { result } = parsed(observed);
-      expect(result.causeCode).toBe("DOMAIN_DEADLINE_UNCHANGED");
+      // Accepted decisions of 16:23 and 17:06 (KF3.b): a settle fault is an
+      // owned program not confirmed stopped, so the inspect command's
+      // declared program-stop station prints, with its handoff.
+      expect(result.causeCode).toBe(
+        "DOMAIN_ST_DEADLINE_PROGRAM_STOP_UNCONFIRMED",
+      );
+      expect(result).toHaveProperty("handoff");
       expect(observed.code).toBe(3);
       expect(observed.ledger).toContain("settle-throws");
     },
@@ -687,7 +693,8 @@ describe("K3K5 a rejected settle keeps the exit path", () => {
         "300",
         "--json",
       ],
-      "DOMAIN_DEADLINE_UNCHANGED",
+      // Accepted decisions of 16:23 and 17:06 (KF3.b).
+      "DOMAIN_ST_DEADLINE_PROGRAM_STOP_UNCONFIRMED",
       3,
     ],
   ] as const)
@@ -760,3 +767,337 @@ test(
   },
   timeout,
 );
+
+// Kernel follow-up KF1.d and KF8 (expectations.md, KF family): the accepted
+// decision "Contract question 1 of 8" (no `diagnostics` key on a result
+// before handler entry) at the check-phase sites, on `st.guarded`, which
+// declares diagnostics and approval. Each case has a flipped twin after
+// handler entry that does carry the key. Expected values are test-owned.
+describe("KF1.d and KF8 no key at the check-phase sites", () => {
+  const preparation = {
+    outcome: "refused",
+    transactionState: "unchanged",
+    failureClass: "internal",
+    exitCode: 1,
+    causeCode: "INTERNAL_PREPARATION",
+    effects: unchangedEffects,
+  };
+  async function guardedRun(
+    status: string,
+    approval: string,
+    extra: readonly string[] = [],
+  ) {
+    const observed = await runStatus(["guarded", ...extra, "--json"], status, {
+      FX_APPROVAL: approval,
+    });
+    return { observed, ...parsed(observed) };
+  }
+  // The flipped twin: after handler entry the key carries the status.
+  async function expectTwinCarriesKey() {
+    const twin = await guardedRun("available", "grant");
+    expect(twin.observed.code).toBe(0);
+    expect(twin.result.causeCode).toBe("SUCCESS_UNCHANGED");
+    expect(twin.observed.ledger).toContain("handler-entered");
+    expect(twin.envelope.diagnostics).toEqual(ownAvailable);
+  }
+  test(
+    "KF1.d reporter-attach-fault-beside-approval-fault",
+    async () => {
+      const both = await guardedRun("attach-throws", "attach-throws");
+      expect(both.observed.code).toBe(1);
+      expect(both.result).toMatchObject({
+        commandIdentity: "st.guarded",
+        ...preparation,
+      });
+      expect(both.envelope).not.toHaveProperty("diagnostics");
+      expect(both.observed.ledger).toContain("approval-attach");
+      expect(both.observed.ledger).not.toContain("handler-entered");
+      // Twin: only the reporter attach throws: DS11's result.
+      const twin = await guardedRun("attach-throws", "grant");
+      expect(twin.observed.code).toBe(0);
+      expect(twin.result.causeCode).toBe("SUCCESS_UNCHANGED");
+      expect(twin.envelope.diagnostics).toEqual(statusUnavailable);
+    },
+    timeout,
+  );
+  test(
+    "KF8.a check-phase-deadline-no-key",
+    async () => {
+      const late = await guardedRun("available", "delay", [
+        "--deadline-ms",
+        "50",
+      ]);
+      expect(late.observed.code).toBe(3);
+      expect(late.result).toMatchObject({
+        outcome: "refused",
+        causeCode: "DOMAIN_DEADLINE_BEFORE_START",
+      });
+      expect(late.envelope).not.toHaveProperty("diagnostics");
+      expect(late.observed.ledger).toContain("check-start");
+      expect(late.observed.ledger).not.toContain("handler-entered");
+      expect(line(late.observed, "freeze-start ")).toBeUndefined();
+      await expectTwinCarriesKey();
+    },
+    timeout,
+  );
+  for (const variant of ["reject", "sync-throw"] as const)
+    test(
+      `KF8.b thrown-check-no-key ${variant}`,
+      async () => {
+        const thrown = await guardedRun("available", variant);
+        expect(thrown.observed.code).toBe(1);
+        expect(thrown.result).toMatchObject(preparation);
+        expect(thrown.envelope).not.toHaveProperty("diagnostics");
+        expect(thrown.observed.ledger).toContain("check-start");
+        expect(thrown.observed.ledger).not.toContain("handler-entered");
+        await expectTwinCarriesKey();
+      },
+      timeout,
+    );
+  // A guard on the add-on order: approval attaches before the status
+  // reporter, so no status exists at an approval attach fault. It turns red
+  // only under the compound fault "reporter attached first and the attach
+  // fault marked after handler entry"; KF8.a and KF8.b carry the protection
+  // against marking a check-phase site after handler entry.
+  test(
+    "KF8.c attach-fault-no-key: guards the add-on order (approval attaches before the status reporter)",
+    async () => {
+      const fault = await guardedRun("available", "attach-throws");
+      expect(fault.observed.code).toBe(1);
+      expect(fault.result).toMatchObject(preparation);
+      expect(fault.envelope).not.toHaveProperty("diagnostics");
+      expect(fault.observed.ledger).toContain("approval-attach");
+      expect(line(fault.observed, "freeze-start ")).toBeUndefined();
+      await expectTwinCarriesKey();
+    },
+    timeout,
+  );
+});
+
+// Kernel follow-up KF6 (accepted decision "Contract question 8 of 8"; N4a,
+// N4b at 17:06; N4c at 17:24): in human mode a result that carries a
+// diagnostics status prints one `Diagnostics:` line, always on stdout, after
+// the result text on success and beside the one stderr line on a refusal or
+// failure. The words are test-owned literals from the ruled table.
+describe("KF6 the human Diagnostics line", () => {
+  async function human(
+    argv: readonly string[],
+    status: string,
+    env: Readonly<Record<string, string>> = {},
+  ) {
+    const observed = await runStatus(argv, status, env);
+    return {
+      code: observed.code,
+      stdout: text(observed.stdout),
+      stderr: text(observed.stderr),
+      ledger: observed.ledger,
+    };
+  }
+  const lastLine = (value: string) => value.split("\n").at(-2);
+  const lineCount = (value: string) => value.split("\n").length - 1;
+  // The machine twin prints no Diagnostics line (KF6.a to KF6.c, KF6.e).
+  async function machineTwin(
+    argv: readonly string[],
+    status: string,
+    env: Readonly<Record<string, string>> = {},
+  ) {
+    const observed = await runStatus([...argv, "--json"], status, env);
+    const { envelope, result } = parsed(observed);
+    expect(text(observed.stdout)).not.toContain("Diagnostics:");
+    return { code: observed.code, envelope, result };
+  }
+  for (const [variant, status, expected] of [
+    [
+      "incomplete",
+      "incomplete",
+      "Diagnostics: /private/run.log (incomplete: flush-timeout)",
+    ],
+    ["no-file", "no-file", "Diagnostics: no log file (setup)"],
+    ["available", "available", `Diagnostics: ${ownAvailable.file}`],
+  ] as const)
+    test(
+      `KF6.a human-line-available ${variant}`,
+      async () => {
+        const run = await human(["report"], status);
+        expect({ code: run.code, stderr: run.stderr }).toEqual({
+          code: 0,
+          stderr: "",
+        });
+        expect(lastLine(run.stdout)).toBe(expected);
+        const before = run.stdout.slice(0, -(expected.length + 1));
+        expect(before).not.toBe("");
+        expect(before).not.toContain("Diagnostics:");
+      },
+      timeout,
+    );
+  test(
+    "KF6.a twin: a command that declares no diagnostics prints no line",
+    async () => {
+      const run = await human(["plain"], "available");
+      expect(run.code).toBe(0);
+      expect(run.stdout).not.toBe("");
+      expect(run.stdout + run.stderr).not.toContain("Diagnostics:");
+    },
+    timeout,
+  );
+  for (const [variant, status, expected] of [
+    ["invalid", "invalid", "Diagnostics: unavailable (status-invalid)"],
+    ["throws", "throws", "Diagnostics: unavailable (status-unavailable)"],
+    [
+      "trusted-file",
+      "trusted-file",
+      "Diagnostics: unavailable (status-invalid); log file /private/run.log",
+    ],
+    [
+      "trusted-file-null",
+      "trusted-file-null",
+      "Diagnostics: unavailable (status-unavailable)",
+    ],
+    [
+      "trusted-sink",
+      "trusted-sink",
+      "Diagnostics: unavailable (status-invalid)",
+    ],
+  ] as const)
+    test(
+      `KF6.b human-line-unavailable ${variant}`,
+      async () => {
+        const run = await human(["report"], status);
+        expect({ code: run.code, stderr: run.stderr }).toEqual({
+          code: 0,
+          stderr: "",
+        });
+        expect(lastLine(run.stdout)).toBe(expected);
+      },
+      timeout,
+    );
+  for (const [variant, argv] of [
+    ["handler-throws", ["report", "--throw"]],
+    ["deadline", ["report", "--wait-ms", "2000", "--deadline-ms", "100"]],
+    ["host-refusal", ["report", "--refuse"]],
+  ] as const)
+    test(
+      `KF6.c human-line-on-failure-after-entry ${variant}`,
+      async () => {
+        const run = await human(argv, "available");
+        const twin = await machineTwin(argv, "available");
+        expect(twin.envelope.diagnostics).toEqual(ownAvailable);
+        expect(lineCount(run.stderr)).toBe(1);
+        expect(run.stdout).toBe(`Diagnostics: ${ownAvailable.file}\n`);
+      },
+      timeout,
+    );
+  // KF6.e (DIAG-4): the line never changes the result. Every KF6.a, KF6.b,
+  // KF6.c and KF6.f variant exits as its machine twin does, and a failure's
+  // human stderr line names the twin's cause. The st fixture writes no
+  // effect ledger, so the ledger half of KF6.e is not compared.
+  test(
+    "KF6.e line-never-changes-result: each human exit and cause equal the machine twin's",
+    async () => {
+      const variants: ReadonlyArray<readonly [readonly string[], string]> = [
+        ...[
+          "incomplete",
+          "no-file",
+          "available",
+          "invalid",
+          "throws",
+          "trusted-file",
+          "trusted-file-null",
+          "trusted-sink",
+          "no-file-no-failure",
+        ].map((status) => [["report"], status] as const),
+        [["report", "--throw"], "available"],
+        [["report", "--wait-ms", "2000", "--deadline-ms", "100"], "available"],
+        [["report", "--refuse"], "available"],
+      ];
+      const humanSide: unknown[] = [];
+      const machineSide: unknown[] = [];
+      for (const [argv, status] of variants) {
+        const run = await human(argv, status);
+        const twin = await machineTwin(argv, status);
+        const variant = `${argv.join(" ")} ${status}`;
+        humanSide.push({
+          variant,
+          code: run.code,
+          cause: /\[([A-Z0-9_]+)\]$/mu.exec(run.stderr)?.[1] ?? null,
+        });
+        machineSide.push({
+          variant,
+          code: twin.code,
+          cause: twin.code === 0 ? null : String(twin.result.causeCode),
+        });
+      }
+      expect(humanSide).toEqual(machineSide);
+    },
+    timeout,
+  );
+  for (const [variant, argv, status, env] of [
+    ["usage", ["report", "--bogus"], "available", {}],
+    ["unknown", ["nope"], "available", {}],
+    [
+      "before-start",
+      ["report", "--deadline-ms", "1000"],
+      "available",
+      { FX_CLOCK_JUMP_MS: "1000000" },
+    ],
+    ["denied", ["guarded"], "available", { FX_APPROVAL: "deny" }],
+    ["preparation", ["guarded"], "available", { FX_APPROVAL: "attach-throws" }],
+  ] as const)
+    test(
+      `KF6.d no-line-before-entry-or-without-status ${variant}`,
+      async () => {
+        const run = await human(argv, status, env);
+        expect(run.code).not.toBe(0);
+        expect(run.stdout).toBe("");
+        expect(lineCount(run.stderr)).toBe(1);
+        expect(run.stderr).not.toContain("Diagnostics:");
+      },
+      timeout,
+    );
+  for (const argv of [["--help"], ["--discover"]])
+    test(
+      `KF6.d no-line ${argv[0]}`,
+      async () => {
+        const run = await human(argv, "available");
+        expect({ code: run.code, stderr: run.stderr }).toEqual({
+          code: 0,
+          stderr: "",
+        });
+        expect(run.stdout).not.toBe("");
+        expect(run.stdout).not.toContain("Diagnostics:");
+      },
+      timeout,
+    );
+  test(
+    "KF6.d no-line stop: SIGTERM during the handler prints nothing",
+    async () => {
+      const launched = await launch({
+        script: statusCli,
+        argv: ["report", "--wait-ms", "2000"],
+        env: { FX_STATUS: "available" },
+      });
+      try {
+        await launched.barrier("handler-entered");
+        launched.signal("SIGTERM");
+        const observed = await exitWithin(launched);
+        expect(observed.code).toBe(143);
+        expect(observed.stdout.byteLength + observed.stderr.byteLength).toBe(0);
+      } finally {
+        await release(launched);
+      }
+    },
+    timeout,
+  );
+  test(
+    "KF6.f human-line-no-file-no-failure",
+    async () => {
+      const run = await human(["report"], "no-file-no-failure");
+      expect({ code: run.code, stderr: run.stderr }).toEqual({
+        code: 0,
+        stderr: "",
+      });
+      expect(lastLine(run.stdout)).toBe("Diagnostics: no log file");
+    },
+    timeout,
+  );
+});

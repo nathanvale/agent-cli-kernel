@@ -70,8 +70,30 @@ const routes = new WeakSet<object>();
 // can therefore never stand in for a later transaction on the same attachment.
 type AttachedRun = {
   transactionStarted: boolean;
-  proofState: TransactionState | undefined;
+  proof: TransactionProof | undefined;
+  // Why the capability refuses new work: the handler returned, or the
+  // deadline passed (LIFE-6; K2-spec-3).
+  closed: "returned" | "deadline" | undefined;
 };
+const closedReason = {
+  returned: "The state capability closed when the handler returned.",
+  deadline: "The state capability closed at the deadline.",
+} as const;
+// LIFE-6: at the deadline the run starts no transaction and records no
+// effect. Returns whether a transaction had started on the run's current
+// attachment, or undefined when the run has none.
+export function closeAtDeadline(
+  runId: string,
+  descriptor: StateAddonDescriptor | undefined,
+): boolean | undefined {
+  const run = descriptor
+    ? registrations.get(descriptor)?.runs.get(runId)
+    : undefined;
+  const status = run ? attachedRuns.get(run) : undefined;
+  if (!status) return undefined;
+  status.closed ??= "deadline";
+  return status.transactionStarted;
+}
 const attachedRuns = new WeakMap<object, AttachedRun>();
 type IssuedScope = {
   readonly runId: string;
@@ -115,7 +137,22 @@ export function proofFreeResultAllowed(
     ? registrations.get(descriptor)?.runs.get(runId)
     : undefined;
   const attached = run ? attachedRuns.get(run) : undefined;
-  return !attached?.transactionStarted || attached.proofState === "unchanged";
+  return (
+    !attached?.transactionStarted ||
+    attached.proof?.transactionState === "unchanged"
+  );
+}
+// Accepted decision (contract question 4 of 8): the trusted summary is any
+// proof this state add-on instance issued for the run's current attachment,
+// whether or not the handler returned.
+export function issuedProof(
+  runId: string,
+  descriptor: StateAddonDescriptor | undefined,
+): TransactionProof | undefined {
+  const run = descriptor
+    ? registrations.get(descriptor)?.runs.get(runId)
+    : undefined;
+  return run ? attachedRuns.get(run)?.proof : undefined;
 }
 // Runtime counterpart of the ExclusiveScope brand (K2): true only for the
 // kernel-issued object itself, issued by `descriptor`'s state add-on instance for the
@@ -171,6 +208,12 @@ function stateIssuer(
       effect: Effect,
       admitStart: RecordedEffect<Effect>["admitStart"],
     ): RecordedEffect<Effect> {
+      // Each effect is refused before its operation once the run's
+      // capability has closed (LIFE-6; K2-spec-3): an installer issues
+      // the recorded effect before it runs the operation.
+      const run = runs.get(runId);
+      const closed = run ? attachedRuns.get(run)?.closed : undefined;
+      if (closed) throw new Error(closedReason[closed]);
       return Object.freeze({
         [recordedEffect]: true as const,
         runId,
@@ -200,7 +243,7 @@ function stateIssuer(
         throw new Error("Transaction proof requires the active attached run.");
       const run = execution.run;
       const attached = attachedRuns.get(run);
-      if (!attached || attached.proofState !== undefined)
+      if (!attached || attached.proof !== undefined)
         throw new Error("One transaction proof per attached run.");
       const proof: TransactionProof<Effect> = {
         ...snapshot,
@@ -213,7 +256,7 @@ function stateIssuer(
       Object.freeze(proof.effects);
       Object.freeze(proof);
       proofs.set(proof, { runId, stateInstance, run });
-      attached.proofState = proof.transactionState;
+      attached.proof = proof;
       return proof;
     },
     exclusiveScope(
@@ -317,11 +360,11 @@ export function attachState<Effect extends string>(
     return undefined;
   }
   state.used.add(runId);
-  let open = true;
   const run = Object.freeze({});
   const status: AttachedRun = {
     transactionStarted: false,
-    proofState: undefined,
+    proof: undefined,
+    closed: undefined,
   };
   attachedRuns.set(run, status);
   state.runs.set(runId, run);
@@ -329,12 +372,11 @@ export function attachState<Effect extends string>(
   const capability: import("./capabilities.ts").StateCapability<Effect> =
     Object.freeze({
       transaction(work) {
-        // Refused once the handler has returned: its result already exists,
-        // and a refusal must precede any attempted change (WIRE-15).
-        if (!open)
-          return Promise.reject(
-            new Error("The state capability closed when the handler returned."),
-          );
+        // Refused once the handler has returned (its result already exists,
+        // and a refusal must precede any attempted change, WIRE-15) or the
+        // deadline has passed (LIFE-6).
+        if (status.closed)
+          return Promise.reject(new Error(closedReason[status.closed]));
         // Refused before the work starts, so overlapping and later calls
         // cannot complete an effect the first proof does not report.
         if (status.transactionStarted)
@@ -349,7 +391,7 @@ export function attachState<Effect extends string>(
   return {
     capability,
     close: () => {
-      open = false;
+      status.closed ??= "returned";
     },
   };
 }

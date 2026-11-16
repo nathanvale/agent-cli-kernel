@@ -48,6 +48,7 @@ import {
   resource,
 } from "../../../../starters/contract3/src/kernel/validation/brands.ts";
 import { record } from "../../../../starters/contract3/src/kernel/validation/primitives.ts";
+import { programStopRow, programStopStation } from "../program-stop.ts";
 
 const ledgerPath = process.env.FX_LEDGER;
 const streamProbe = new URL(
@@ -120,8 +121,35 @@ const causes = {
     retryable: false,
     guidance: "handoff",
   },
+  DOMAIN_FX_DEADLINE_PROGRAM_STOP_UNCONFIRMED: programStopRow,
 } as const satisfies CauseTable;
 const allCauses = { ...commonCauses, ...causes };
+
+// N1b (17:06): fx.slow and fx.spawn-return run programs and support a
+// deadline, so each declares its success and program-stop stations.
+function programStopDeclaration<const Identity extends string>(
+  identity: Identity,
+) {
+  return {
+    stations: [
+      station(allCauses, {
+        ...words,
+        commandIdentity: identity,
+        causeCode: "SUCCESS_UNCHANGED",
+        trigger: "The fixture program finished.",
+        guidance: { next: { kind: "done" } },
+        repairAction: null,
+        independentObservable: `${identity}:done`,
+      }),
+      programStopStation(
+        allCauses,
+        identity,
+        "DOMAIN_FX_DEADLINE_PROGRAM_STOP_UNCONFIRMED",
+      ),
+    ],
+    programStopCause: "DOMAIN_FX_DEADLINE_PROGRAM_STOP_UNCONFIRMED",
+  } as const;
+}
 
 const none = {
   arguments: [],
@@ -492,6 +520,7 @@ const slow = command({
   summary: "Run one long fixture program.",
   input: { ...none, deadlineSupported: true, options: [flag("--ignore-term")] },
   capabilities: { programs: true },
+  ...programStopDeclaration("fx.slow"),
   run: async (input, context) => {
     await slowWork(context.programs, input["--ignore-term"] === true);
     return context.result(
@@ -568,6 +597,7 @@ const spawnReturn = command({
     options: [integer("--return-after-ms", 1, 60_000), flag("--slow-term")],
   },
   capabilities: { programs: true },
+  ...programStopDeclaration("fx.spawn-return"),
   run: async (input, context) => {
     // `--slow-term`: the child exits about 400 ms after SIGTERM, so a
     // post-handler bound that expired late would let the settle finish.
