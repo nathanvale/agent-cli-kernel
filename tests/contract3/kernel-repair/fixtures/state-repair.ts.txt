@@ -15,7 +15,7 @@ import type {
   StateAddonDescriptor,
   StateIssuer,
   StateObservation,
-  StateRegistration,
+  StateFactoryResult,
 } from "../../kernel/index.ts";
 import {
   buildUnchecked,
@@ -70,7 +70,7 @@ function installation(name: string): StateAddonDescriptor {
     return installer(name, issuer);
   });
 }
-function installer(name: string, issuer: StateIssuer): StateRegistration {
+function installer(name: string, issuer: StateIssuer): StateFactoryResult {
   return {
     ifNoResult: issuer.ifNoResult({
       kind: "command",
@@ -353,9 +353,9 @@ function approvalRuntime(runId: string, descriptor: StateAddonDescriptor) {
         field(coordination, "runId") !== runId ||
         field(coordination, "scope") !== "resource-1"
       )
-        return { admitted: false };
+        return { consumed: false };
       consumed.push(runId);
-      return { admitted: true };
+      return { consumed: true };
     },
   };
 }
@@ -400,7 +400,7 @@ export async function observeStateRepair(): Promise<Record<string, unknown>> {
   const attempt = (runId: string, coordination: unknown) => {
     const runtime = approvalRuntime(runId, a.state);
     const result = runtime.revalidateAndConsume(coordination);
-    return { admitted: result.admitted, consumed: runtime.consumed.length };
+    return { admitted: result.consumed, consumed: runtime.consumed.length };
   };
   const carrier: Record<string | symbol, unknown> = {
     runId: s1.runId,

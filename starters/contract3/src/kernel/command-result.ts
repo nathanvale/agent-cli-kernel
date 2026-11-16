@@ -3,7 +3,7 @@ import type { DeclaredStation } from "./stations.ts";
 import { hostKernelCauses } from "./navigation.ts";
 import { freeze, reservedFallbackCause } from "./stations.ts";
 import type { Validation, EffectClass } from "./types.ts";
-import type { FactsForRow } from "./registration.ts";
+import type { FactsForRow } from "./declaration-checks.ts";
 import { commonCauses } from "./causes.ts";
 const resultIdentity = Symbol("kernel.commandResult");
 export type CommandResult<Identity extends string = string> = {

@@ -35,17 +35,17 @@ export function versionReader(tables: readonly MinorFields[]) {
     if (!older || !newer) throw new Error("Missing minor table.");
     compatibleMinor(older, newer);
   }
-  const admitted = structuredClone(tables);
+  const acceptedTables = structuredClone(tables);
   return {
     classify(value: unknown): VersionClassification {
       const base = classifyVersion(value);
       if (base !== "newer-minor" || typeof value !== "string") return base;
       const minor = Number(value.split(".")[1]);
-      return minor < admitted.length ? "accepted" : "newer-minor";
+      return minor < acceptedTables.length ? "accepted" : "newer-minor";
     },
     fields(version: string, value: Readonly<Record<string, unknown>>): boolean {
       if (this.classify(version) !== "accepted") return false;
-      const table = admitted[Number(version.split(".")[1])];
+      const table = acceptedTables[Number(version.split(".")[1])];
       return (
         table !== undefined &&
         Object.keys(value).every((key) => Object.hasOwn(table.fields, key)) &&
@@ -56,7 +56,7 @@ export function versionReader(tables: readonly MinorFields[]) {
     },
     meaning(version: string, key: string): string | undefined {
       if (this.classify(version) !== "accepted") return undefined;
-      const fields = admitted[Number(version.split(".")[1])]?.fields;
+      const fields = acceptedTables[Number(version.split(".")[1])]?.fields;
       return fields && Object.hasOwn(fields, key)
         ? fields[key]?.meaning
         : undefined;

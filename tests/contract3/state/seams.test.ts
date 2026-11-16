@@ -33,7 +33,7 @@ afterAll(async () => {
 type Rule = "state" | "kernel" | "ffi";
 const wording: Record<Rule, string> = {
   state: "state add-on",
-  kernel: "stamped kernel",
+  kernel: "Code outside the kernel",
   ffi: "bun:ffi",
 };
 

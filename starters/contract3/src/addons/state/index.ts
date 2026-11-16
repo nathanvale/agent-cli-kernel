@@ -1,11 +1,11 @@
 // State add-on public entry (CMD-10a to CMD-13a, REC-1 to REC-10). The only
 // module of this add-on that host code imports. It fixes the production
-// seams: the reviewed qualification table (empty in the foundation), the
+// seams: the reviewed capability qualification table (empty in the foundation), the
 // platform's coordination route after its start-up self-check, and no
 // observation hook. Test seams live only in the labelled fixture.ts.
 //
 // Interface for a host:
-// - stateAddon(options) installs once and returns:
+// - stateAddon(options) creates one state add-on instance and returns:
 //   - descriptor: give it to contractFor({ state }) and to approval runtime().
 //   - emergencyRecord: give it to runProcess(contract, { emergencyRecord }).
 //   - transaction(ctx.state, declaration, work): the only way a changing
@@ -22,7 +22,7 @@ import { resolveCoordination } from "./coordination.ts";
 import { resolveQualification } from "./qualification.ts";
 
 export type {
-  CloseOutcome,
+  CloseResult,
   CloseRequest,
   Declaration,
   Disposition,
@@ -35,7 +35,7 @@ export type {
   ReportResult,
   ScopeDeclaration,
   StateOptions,
-  TransactionOutcome,
+  TransactionResult,
   UnfinishedEntry,
 } from "./install.ts";
 export type { CapabilityReport } from "./qualification.ts";

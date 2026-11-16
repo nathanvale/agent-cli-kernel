@@ -1,5 +1,5 @@
 // Finding 1, programs add-on side: the program timeout and the output-drain
-// timer honour every admitted value (Nathan, 16 November 2026: no cap).
+// timer honour every accepted value (Nathan, 16 November 2026: no cap).
 // Expectations: c3-expect-t2t5, findings-round/expectations.md, T05 and T06.
 // Time control (P4, proposed for review) as in lifecycle/timers.test.ts: Bun's
 // fake timers move performance.now(); the children are real processes.

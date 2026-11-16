@@ -8,10 +8,10 @@ const scopes = [
   "tests/contract3/**/*.{ts,mts,cts}",
 ];
 const boundary = "starters/contract3/src/kernel/validation/**/*.{ts,mts,cts}";
-const installerProperty = {
+const stateFactoryProperty = {
   property: "stateAddon",
   message:
-    "State installer authoring belongs only to the canonical stamped state add-on folder.",
+    "Only the stamped state add-on folder may author the state add-on factory.",
 };
 // CMD-14: no-restricted-imports sees static imports only, so the dynamic
 // import of the process module is banned by syntax in every source scope (F09).
@@ -44,12 +44,12 @@ const loggingImports = {
 const stateIndexOnly = {
   regex: "(?:^|/)addons/state/(?!index\\.(?:ts|mts|cts)$)",
   message:
-    "Host code imports the state add-on through its public index only; its fixture and internals are test-only or internal.",
+    "Code outside the state add-on imports it through its public index only; its fixture and internals are test-only or internal.",
 };
 const kernelIndexOnly = {
   regex: "(?:^|/)kernel/(?!index\\.(?:ts|mts|cts)$)",
   message:
-    "Host code imports the stamped kernel through its public index only.",
+    "Code outside the kernel imports the stamped kernel through its public index only.",
 };
 // Linux route decision (16 November 2026): bun:ffi only in the state
 // add-on's linux-flock.ts, the one module that owns the coordination lock's
@@ -67,9 +67,9 @@ const ffiImport = {
 // add-on's internals without matching the canonical path. Lint is a guard
 // against accident, not isolation.
 const literalMessage =
-  "Host code imports the stamped kernel and the state add-on through their public index only, by a literal specifier: no computed or template import(), require, createRequire or import.meta.require.";
+  "Code outside the kernel and the state add-on imports them through their public index only, by a literal specifier: no computed or template-literal import(), require, createRequire or import.meta.require.";
 const canonicalMessage =
-  "Host code imports the stamped kernel and the state add-on through their public index only, spelled canonically: no doubled slash, no leading ./ before .., and no . or .. segment inside a path.";
+  "Code outside the kernel and the state add-on imports them through their public index only, spelled canonically: no doubled slash, no leading ./ before .., and no . or .. segment inside a path.";
 const reachability = [
   {
     selector: "ImportExpression:not([source.type='Literal'])",
@@ -89,7 +89,7 @@ const reachability = [
     selector:
       "ImportExpression[source.value=/^[.][.]\\x2fstate\\x2f(?!index[.](ts|mts|cts)$)/]",
     message:
-      "Host code imports the state add-on through its public index only.",
+      "Code outside the state add-on imports it through its public index only.",
   },
 ];
 const programProperties = [
@@ -98,7 +98,7 @@ const programProperties = [
   { object: "Bun", property: "$" },
 ];
 const rules = {
-  "no-restricted-properties": ["error", installerProperty],
+  "no-restricted-properties": ["error", stateFactoryProperty],
   "@typescript-eslint/no-explicit-any": "error",
   "@typescript-eslint/no-non-null-assertion": "error",
   "@typescript-eslint/consistent-type-assertions": [
@@ -149,13 +149,13 @@ function hostRules({ banFfi = true, logging = loggingImports } = {}) {
         selector:
           "ImportExpression[source.value=/(^|\\x2f)kernel\\x2f(?!index[.](ts|mts|cts)$)/]",
         message:
-          "Host code imports the stamped kernel through its public index only.",
+          "Code outside the kernel imports the stamped kernel through its public index only.",
       },
       {
         selector:
           "ImportExpression[source.value=/(^|\\x2f)addons\\x2fstate\\x2f(?!index[.](ts|mts|cts)$)/]",
         message:
-          "Host code imports the state add-on through its public index only.",
+          "Code outside the state add-on imports it through its public index only.",
       },
     ],
     "no-restricted-imports": [
@@ -189,7 +189,7 @@ function hostRules({ banFfi = true, logging = loggingImports } = {}) {
           {
             regex: "^\\.\\./state/(?!index\\.(?:ts|mts|cts)$)",
             message:
-              "Host code imports the state add-on through its public index only; its fixture and internals are test-only or internal.",
+              "Code outside the state add-on imports it through its public index only; its fixture and internals are test-only or internal.",
           },
         ],
       },
@@ -235,7 +235,7 @@ export default tseslint.config(
       "no-restricted-properties": [
         "error",
         ...programProperties,
-        installerProperty,
+        stateFactoryProperty,
       ],
     },
   },
@@ -261,13 +261,13 @@ export default tseslint.config(
           selector:
             ":matches(MemberExpression[property.name='stateAddon'], MemberExpression[computed=true][property.value='stateAddon']):not(AssignmentExpression[operator='='][left.object.name='contractFor'][left.property.name='stateAddon'][right.name='createStateAddon'] > MemberExpression.left)",
           message:
-            "Only the canonical state factory declaration may name stateAddon here.",
+            "Only the state add-on factory declaration may name stateAddon here.",
         },
         {
           selector:
             "ObjectPattern > :matches(Property[key.name='stateAddon'], Property[key.value='stateAddon'])",
           message:
-            "State factory extraction belongs only to the stamped state owner.",
+            "Only the stamped state add-on may extract the state add-on factory.",
         },
       ],
     },
@@ -340,7 +340,7 @@ export default tseslint.config(
       "no-restricted-properties": [
         "error",
         ...programProperties.filter((entry) => entry.property !== "spawn"),
-        installerProperty,
+        stateFactoryProperty,
       ],
     },
   },

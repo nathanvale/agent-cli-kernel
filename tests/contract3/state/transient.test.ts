@@ -171,7 +171,7 @@ caseTest(
 // ---- S: approval consumption inside the transaction ------------------------
 const store = (world: World) => ({
   grants: join(world.world, "approval", "grants"),
-  ledger: join(world.world, "approval", "ledger"),
+  consumed: join(world.world, "approval", "consumed"),
 });
 function writeGrant(
   world: World,
@@ -180,7 +180,7 @@ function writeGrant(
 ): string {
   const locations = store(world);
   mkdirSync(locations.grants, { recursive: true, mode: 0o700 });
-  mkdirSync(locations.ledger, { recursive: true, mode: 0o700 });
+  mkdirSync(locations.consumed, { recursive: true, mode: 0o700 });
   chmodSync(join(world.world, "approval"), 0o700);
   const path = grantLocation(locations, preview);
   writeFileSync(
@@ -202,7 +202,7 @@ function writeGrant(
   return path;
 }
 function markers(world: World): readonly string[] {
-  const directory = store(world).ledger;
+  const directory = store(world).consumed;
   return existsSync(directory) ? readdirSync(directory) : [];
 }
 const approvedArgs = (preview: string) => [
@@ -265,13 +265,13 @@ caseTest(
       SX_BARRIER: "pre-admission",
     });
     await child.reached("pre-admission");
-    chmodSync(store(world).ledger, 0o500);
+    chmodSync(store(world).consumed, 0o500);
     child.release("pre-admission");
     let run: Run;
     try {
       run = await child.done;
     } finally {
-      chmodSync(store(world).ledger, 0o700);
+      chmodSync(store(world).consumed, 0o700);
     }
     expectRefusedUnchanged(run, "DOMAIN_SX_APPROVAL_STORE");
     expect(world.operations()).toEqual([]);

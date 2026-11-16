@@ -354,7 +354,7 @@ caseTest("B04.a-emergency-record", async () => {
         const facts = {
           runId: recorded.runId,
           commandIdentity: "cx.change",
-          phase: "dispatched",
+          phase: "handler-entered",
         } as const;
         host.state.emergencyRecord(facts);
         host.state.emergencyRecord(facts);
@@ -374,7 +374,7 @@ caseTest("B04.a-emergency-record", async () => {
     (entry) => entry.kind === "emergency",
   );
   expect(emergencies.map((entry) => entry.payload.phase)).toEqual([
-    "dispatched",
+    "handler-entered",
   ]);
 });
 

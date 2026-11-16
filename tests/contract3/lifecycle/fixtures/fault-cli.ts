@@ -24,7 +24,7 @@ import type {
   StateCapability,
   StateIssuer,
   StateObservation,
-  StateRegistration,
+  StateFactoryResult,
   ApprovalCapability,
   DiagnosticsCapability,
   RunAddon,
@@ -38,7 +38,7 @@ import { runProcessOn } from "../../../../starters/contract3/src/kernel/lifecycl
 import { processHost } from "../../../../starters/contract3/src/kernel/process-host.ts";
 import type { ProcessHost } from "../../../../starters/contract3/src/kernel/process-types.ts";
 import {
-  registerRuntime,
+  recordRuntime,
   runtimeOf,
 } from "../../../../starters/contract3/src/kernel/runtime.ts";
 import type { ContractRuntime } from "../../../../starters/contract3/src/kernel/runtime.ts";
@@ -937,7 +937,7 @@ function observe<Effect extends string>(
       };
 }
 
-export function syntheticState(issuer: StateIssuer): StateRegistration {
+export function syntheticState(issuer: StateIssuer): StateFactoryResult {
   return {
     ifNoResult: issuer.ifNoResult({
       kind: "command",
@@ -1292,7 +1292,7 @@ function makeGuardedOwned(state: StateAddonDescriptor) {
 }
 
 // Part 4 repair (R1, R2): twins of fx.wide and fx.guarded-owned that also
-// declare diagnostics, so a status reporter attaches at dispatch.
+// declare diagnostics, so a status reporter attaches at handler entry.
 function makeWideStatus(state: StateAddonDescriptor) {
   return changing({
     identity: "fx.wide-status",
@@ -1630,7 +1630,7 @@ export async function main(state?: StateAddonDescriptor): Promise<number> {
   const runtime = runtimeOf(contract);
   if (!runtime) throw new Error("Fixture contract has no runtime.");
   const faulted = {};
-  registerRuntime(faulted, faultRuntime(runtime));
+  recordRuntime(faulted, faultRuntime(runtime));
   const setup: RunSetup = {
     addons: {
       programs: ledgered("programs", programsAddon()),

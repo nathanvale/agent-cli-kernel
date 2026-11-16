@@ -7,22 +7,22 @@ import { builtins } from "./navigation.ts";
 import type { CommandDeclaration } from "./declarations.ts";
 import {
   admitChangingShape,
-  admitCommandIdentity,
+  validateCommandIdentity,
   admitInspectShape,
   preparerOf,
-  admitRootOperation,
-  admitRouteTokens,
+  validateRootOperation,
+  validateRouteTokens,
 } from "./declarations.ts";
 import { commonCauses } from "./causes.ts";
 import type { CauseTable } from "./types.ts";
 import { causeRow } from "./validation/result.ts";
 import { bindingNames, guidanceTargets } from "./guidance.ts";
-import { admitHostInput } from "./host-input.ts";
+import { validateHostInput } from "./host-input.ts";
 import { carriesGlobalSwitch } from "./routing.ts";
 import { stepVectorProblem } from "./step-vector.ts";
 import { keys, record, text } from "./validation/primitives.ts";
 export type AddonName = "state" | "programs" | "approval" | "diagnostics";
-export function admitCauses(causes: CauseTable): void {
+export function validateCauses(causes: CauseTable): void {
   for (const [code, row] of Object.entries(causes)) {
     if (!text(code) || !causeRow(row)) throw new Error("Invalid cause row.");
   }
@@ -37,7 +37,7 @@ export function admitCauses(causes: CauseTable): void {
       throw new Error("Common cause rows cannot be replaced.");
   }
 }
-function admitStationSet(
+function validateStationSet(
   command: CommandDeclaration,
   causes: CauseTable,
 ): void {
@@ -77,7 +77,7 @@ function admitStationSet(
     seen.add(station.causeCode);
   }
 }
-function admitRecovery(
+function validateIfNoResult(
   command: CommandDeclaration,
   commands: readonly CommandDeclaration[],
 ): void {
@@ -124,21 +124,21 @@ function admitRecovery(
 }
 // Host route tokens are checked before collisions so a route that names a
 // built-in switch is refused with its own token (F04, CMD-1).
-function admitRoutes(
+function validateRoutes(
   cli: string,
   commands: readonly CommandDeclaration[],
 ): void {
   const builtinIdentities = builtins(cli).map((item) => item.commandIdentity);
   for (const command of commands)
     if (!builtinIdentities.includes(command.commandIdentity))
-      admitRouteTokens(command.route);
+      validateRouteTokens(command.route);
   const hostRoutes = commands
     .filter((item) => item.commandIdentity !== `${cli}.dispatch`)
     .map((item) => JSON.stringify(item.route));
   if (new Set(hostRoutes).size !== hostRoutes.length)
     throw new Error("Duplicate command route.");
 }
-export function admitCommands(
+export function validateCommands(
   cli: string,
   commands: readonly CommandDeclaration[],
   causes: CauseTable,
@@ -151,7 +151,7 @@ export function admitCommands(
     commands.length
   )
     throw new Error("Duplicate command identity.");
-  admitRoutes(cli, commands);
+  validateRoutes(cli, commands);
   const builtinIdentities = builtins(cli).map((item) => item.commandIdentity);
   for (const command of commands)
     admitCommand(cli, command, commands, causes, installed, {
@@ -171,19 +171,19 @@ function admitCommand(
   if (host)
     if (command.effectClass === "inspect") admitInspectShape(command);
     else admitChangingShape(command);
-  admitCommandIdentity(command.commandIdentity);
-  admitHostInput(command.input);
+  validateCommandIdentity(command.commandIdentity);
+  validateHostInput(command.input);
   if (command.commandIdentity !== `${cli}.dispatch`)
-    admitRootOperation(command.route, command.input);
+    validateRootOperation(command.route, command.input);
   for (const name of Object.keys(command.capabilities))
     if (!installed.some((entry) => entry === name))
       throw new Error("Declared capability add-on is not installed.");
   if (command.effectClass !== "inspect" && !installed.includes("state"))
     throw new Error("Changing commands require the state add-on.");
-  admitStationSet(command, causes);
-  admitRecovery(command, commands);
-  admitGuidance(command, commands);
-  admitStepVectors(cli, command, commands);
+  validateStationSet(command, causes);
+  validateIfNoResult(command, commands);
+  validateGuidance(command, commands);
+  validateStepVectors(cli, command, commands);
   // Last, so a more specific refusal of the same declaration wins.
   if (host && typeof command.execute !== "function")
     throw new Error("Host command needs an executable handler.");
@@ -202,7 +202,7 @@ function admitCommand(
     );
 }
 // F01 (option 2): refuse a step template no single-token value can satisfy.
-function admitStepVectors(
+function validateStepVectors(
   cli: string,
   command: CommandDeclaration,
   commands: readonly CommandDeclaration[],
@@ -228,7 +228,7 @@ export type InspectIdentity<D extends readonly CommandDeclaration[]> = Extract<
   D[number],
   { readonly effectClass: "inspect" }
 >["commandIdentity"];
-export type RegisteredCommands<
+export type ValidatedCommands<
   D extends readonly CommandDeclaration[],
   Cli extends string,
 > = {
@@ -251,7 +251,7 @@ export type RegisteredCommands<
     }[];
   };
 };
-export type RegisteredStation<D extends readonly CommandDeclaration[]> =
+export type ValidatedStation<D extends readonly CommandDeclaration[]> =
   D[number]["stations"][number];
 export type RunFacts<
   S extends import("./stations.ts").DeclaredStation,
@@ -301,7 +301,7 @@ export type FactsForRow<
           readonly transaction: import("./state-seam.ts").TransactionProof;
         });
 
-function admitGuidance(
+function validateGuidance(
   command: CommandDeclaration,
   commands: readonly CommandDeclaration[],
 ): void {

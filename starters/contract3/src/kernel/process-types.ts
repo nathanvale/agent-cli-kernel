@@ -47,8 +47,8 @@ export type AttachedAddon<Capability> = {
 
 export type RunAddon<Capability> = {
   readonly attach: (run: RunControl) => AttachedAddon<Capability>;
-  // A status-reporting add-on attaches when its declaring command is
-  // dispatched, before the handler, so a status exists even when the handler
+  // A status-reporting add-on attaches when its declaring command reaches
+  // handler entry, before the handler runs, so a status exists even when the handler
   // never uses it. Its attach must be effect-free. At most one per command.
   readonly reportsStatus?: true;
 };
@@ -56,7 +56,7 @@ export type RunAddon<Capability> = {
 export type EmergencyFacts = {
   readonly runId: string;
   readonly commandIdentity: string | null;
-  readonly phase: "preparing" | "dispatched" | "emitting" | "drained";
+  readonly phase: "preparing" | "handler-entered" | "emitting" | "drained";
 };
 
 // One add-on per declared capability name (validation/context.ts owns them).

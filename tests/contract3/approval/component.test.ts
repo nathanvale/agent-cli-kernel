@@ -79,7 +79,7 @@ function capability(operation: string = grant.operation) {
   return approval({
     operation,
     runId: "component",
-    store: { grants: world.grants, ledger: world.ledger },
+    store: { grants: world.grants, consumed: world.consumed },
     now: () => 1000,
   }).capability;
 }
@@ -136,7 +136,7 @@ const denials: readonly (readonly [string, () => Promise<void>])[] = [
     async () => {
       await writeGrant(world, grant);
       await writeFile(
-        join(world.ledger, markerName(["approval", grant.preview])),
+        join(world.consumed, markerName(["approval", grant.preview])),
         "prior\n",
       );
     },
@@ -376,7 +376,7 @@ function verifier(
 ) {
   return authorityVerifier({
     runId: "component",
-    ledger: world.ledger,
+    consumed: world.consumed,
     now: () => 1000,
     ...(source === "none" ? {} : { closure: source, stop: source }),
   });
@@ -694,7 +694,7 @@ const stopProblems: readonly (readonly [
     stopRecord,
     () =>
       writeFile(
-        join(world.ledger, markerName(["stop", "op-1", "owner-1"])),
+        join(world.consumed, markerName(["stop", "op-1", "owner-1"])),
         "",
       ),
   ],

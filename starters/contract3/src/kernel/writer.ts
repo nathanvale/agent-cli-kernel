@@ -65,7 +65,7 @@ export function createWriter(options: {
 
   // Steps 2 and 3: the plain-JSON guard before any serialisation, then strict
   // validation of exactly the bytes that will be written.
-  async function admit(value: unknown, trusted: TrustedRun) {
+  async function validateForWrite(value: unknown, trusted: TrustedRun) {
     if (!json(value)) return undefined;
     const text = JSON.stringify(value);
     const checked = await runtime.validate(JSON.parse(text));
@@ -88,12 +88,15 @@ export function createWriter(options: {
     return host.write(stream, encoder.encode(text));
   }
 
-  // Admission never throws: any fault before a write is a writer failure,
+  // Pre-write validation never throws: any fault before a write is a writer failure,
   // which takes LIFE-9's single fallback attempt.
-  async function admitted(candidate: Validation<unknown>, trusted: TrustedRun) {
+  async function validateCandidateForWrite(
+    candidate: Validation<unknown>,
+    trusted: TrustedRun,
+  ) {
     if (!candidate.ok) return undefined;
     try {
-      const value = await admit(candidate.value, trusted);
+      const value = await validateForWrite(candidate.value, trusted);
       return value
         ? { ...value, target: output(value.text, value.envelope) }
         : undefined;
@@ -126,7 +129,10 @@ export function createWriter(options: {
       used = true;
       const status = report ? frozenDiagnostics(report) : undefined;
       const run = status ? { ...trusted, diagnostics: status } : trusted;
-      const ready = await admitted(withStatus(candidate, status), run);
+      const ready = await validateCandidateForWrite(
+        withStatus(candidate, status),
+        run,
+      );
       if (!ready) return fallback(run);
       const drained = await write(ready.target.stream, ready.target.text).catch(
         () => false,

@@ -23,7 +23,7 @@ test("a declared installed name or arbitrary host callback cannot acquire the st
   expect(called).toBe(false);
   expect(() =>
     contractFor({ cli: "specimen", installedAddons: ["state"], commands: [] }),
-  ).toThrow("admitted stamped descriptor");
+  ).toThrow("descriptor created by contractFor.stateAddon");
   expect(() => {
     Reflect.apply(contractFor, undefined, [
       {
@@ -33,7 +33,7 @@ test("a declared installed name or arbitrary host callback cannot acquire the st
         commands: [],
       },
     ]);
-  }).toThrow("admitted stamped descriptor");
+  }).toThrow("descriptor created by contractFor.stateAddon");
 });
 
 test("a handler cannot return a cloned result or a prior invocation with reused run text", async () => {

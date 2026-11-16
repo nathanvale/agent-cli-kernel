@@ -7,7 +7,7 @@ import type {
   Validation,
   WireResult,
 } from "../types.ts";
-import { templatesAgree } from "../guidance.ts";
+import { guidanceTemplatesAgree } from "../guidance.ts";
 import { acceptsRootInput, parseInput } from "../input.ts";
 import { json, record } from "./primitives.ts";
 import { envelopeShape, typedResult } from "./result.ts";
@@ -61,7 +61,7 @@ function stationMatches(
       result.retryDelayMilliseconds > policy.maximumMilliseconds)
   )
     return false;
-  return templatesAgree(
+  return guidanceTemplatesAgree(
     station,
     result,
     commands.flatMap((item) => item.route),

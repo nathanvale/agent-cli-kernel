@@ -8,13 +8,13 @@ import type { ValueSchema } from "./input-types.ts";
 import type { Validation } from "./types.ts";
 import { parseValue } from "./input.ts";
 import { safeRunValue, guidanceTargets, bindingNames } from "./guidance.ts";
-const inputRegistration = Symbol("kernel.inputRegistration");
-export type InputRegistration = { readonly [inputRegistration]: true };
+const inputTableKey = Symbol("kernel.inputRegistration");
+export type InputTable = { readonly [inputTableKey]: true };
 const contexts = new WeakMap<object, readonly CommandDeclaration[]>();
-export function registerInputs(
+export function buildInputTable(
   commands: readonly CommandDeclaration[],
-): InputRegistration {
-  const registration = Object.freeze({ [inputRegistration]: true as const });
+): InputTable {
+  const registration = Object.freeze({ [inputTableKey]: true as const });
   contexts.set(registration, commands);
   return registration;
 }
@@ -114,13 +114,17 @@ function callerBinding(
 export async function validateFutureInputs(
   command: CommandDeclaration,
   values: Readonly<Record<string, unknown>>,
-  registration: InputRegistration | undefined,
+  registration: InputTable | undefined,
 ): Promise<Validation<null>> {
   const mapping = command.futureBindings ?? {};
   if (Object.keys(mapping).length === 0) return { ok: true, value: null };
   const commands = registration ? contexts.get(registration) : undefined;
   if (!commands?.includes(command))
-    return { ok: false, path: "bindings", reason: "command is not registered" };
+    return {
+      ok: false,
+      path: "bindings",
+      reason: "command is not declared in this contract",
+    };
   const routes = commands.flatMap((entry) => entry.route);
   for (const [binding, source] of Object.entries(mapping)) {
     const value = Object.hasOwn(values, source) ? values[source] : undefined;

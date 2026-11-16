@@ -1097,7 +1097,7 @@ const audit = changing({
 // ---- Approved change (CMD-9 step 7) ----------------------------------------
 const approvalStore = {
   grants: join(world, "approval", "grants"),
-  ledger: join(world, "approval", "ledger"),
+  consumed: join(world, "approval", "consumed"),
 };
 let approvalRuntime: ApprovalRuntime | undefined;
 const approvalAddon: RunAddon<ApprovalCapability> = {
@@ -1337,7 +1337,7 @@ function closePlan(
     case "not-unresolved":
       return closeBound(
         "DOMAIN_SX_CLOSE_CONFLICT",
-        "The case already has a different settlement.",
+        "The case already has a different closure.",
         operationId,
       );
     case "stale-revision":
@@ -1438,7 +1438,7 @@ const close = changing({
     ),
     closeRefusal(
       "DOMAIN_SX_CLOSE_CONFLICT",
-      "The case already has a different settlement.",
+      "The case already has a different closure.",
       "Inspect the retained closure; closures are never rewritten.",
     ),
     closeRefusal(

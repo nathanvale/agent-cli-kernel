@@ -8,7 +8,7 @@ note, never the reverse. Clause tags refer to the frozen Contract 3 text
 on 16 November 2026).
 
 This note claims design only. What is implemented, tested and qualified is
-reported in the component handback, never here.
+reported in the state add-on's handback, never here.
 
 ## 1. Scope and owners
 
@@ -478,7 +478,7 @@ second column leaves the durable state in the third.
 | X21 | closure retried with the same identity        | prior disposition; no new record                          | K06.a               |
 | X22 | later change after closure                    | closure unchanged; case not relisted                      | K07.a               |
 
-## 12. Interface for other components
+## 12. Interface for other modules
 
 - Host (`index.ts` only): `stateAddon(options)` returns the descriptor for `contractFor`, the
   `emergencyRecord` for `runProcess`, `transaction(ctx.state, declaration,
@@ -492,7 +492,7 @@ second column leaves the durable state in the third.
 - Writer and lifecycle: `emergencyRecord(facts)` makes one synchronous,
   bounded append to the active operation's `events` and never throws.
 
-## 13. Open points for the coordinator
+## 13. Open points for the foundation coordinator
 
 - Human-authority item identity (T4 R8) is not chosen here. The closure
   record needs a stable reference to the consumed item. Under option 3
