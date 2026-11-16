@@ -21,9 +21,9 @@ const read = ["read", ...machine] as const;
 const timeout = 60_000;
 const repository = join(import.meta.dir, "../../..");
 
-// Provisional reading (coordinator ruling, judged by the T5 reviewer): a
-// result that never dispatched a declaring command carries no key. If the
-// reading is overturned, this one line changes.
+// Accepted decision (Nathan, 16 November 2026, 14:19, contract question 1
+// of 8): a result refused before handler entry carries no key; the key
+// appears only after handler entry, for a command that declares diagnostics.
 const preDispatchKey = false;
 
 function hasKey(result: Run): boolean {

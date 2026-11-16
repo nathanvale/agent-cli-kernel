@@ -142,8 +142,13 @@ test("T5 ledger: every repair control is bound to a test", () => {
 const processRowUnproved = {
   "D17.no-change-after-freeze":
     "the process exits at drain, so post-freeze activity cannot be observed there; component evidence only",
+} as const;
+// Verified not applicable to this component, with the accepted decision as
+// the reason: the host owns redaction of public output (Nathan, 16 November
+// 2026, 14:37, contract question 2 of 8); this add-on proves its sink point.
+const notApplicableHere = {
   "D15 public-output redaction point":
-    "no owner in the kernel or host (open with Nathan); only the sink point is proved",
+    "the host owns public-output redaction (accepted decision, contract question 2 of 8); proved at T8, not by this add-on",
 } as const;
 const processRowObservedByRepair = {
   "D10.late-completion-ignored": "R2.late-completion-observed",
@@ -165,6 +170,11 @@ test("R1.platform-outcomes-pinned: nothing is skipped, and every platform-bound 
   }
   for (const [row, reason] of Object.entries(processRowUnproved))
     reportUnproved(row, reason);
+  expect(Object.keys(notApplicableHere)).toEqual([
+    "D15 public-output redaction point",
+  ]);
+  for (const [row, reason] of Object.entries(notApplicableHere))
+    process.stderr.write(`NOT APPLICABLE ${row}: ${reason}\n`);
   expect(Object.keys(processRowObservedByRepair)).toEqual([
     "D10.late-completion-ignored",
   ]);

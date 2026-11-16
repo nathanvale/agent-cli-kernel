@@ -148,3 +148,7 @@ this section is the record; the case identities do not change.
   runs as an explicit `UNPROVED` outcome that prints one line, and the case
   ledger pins the list per platform (`platform.ts`).
 - Every number has one owner with its source: `addons/diagnostics/limits.ts`.
+- Accepted decisions, 16 November 2026: a result refused before handler
+  entry carries no `diagnostics` key (14:19), and the host, not the kernel or
+  this add-on, owns redaction of public output (14:37); this add-on redacts
+  at its own sink only.
