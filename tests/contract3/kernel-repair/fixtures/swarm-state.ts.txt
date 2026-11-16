@@ -187,6 +187,54 @@ export function ifNoResultContract(requiredOperand: boolean) {
   );
 }
 
+// B1 (repair round 1): `specimen.pending` takes a required `--title`; the
+// installation's ifNoResult names it with `--title VALUE`; the handler throws.
+export function ifNoResultTitleContract(value: string) {
+  const title = {
+    name: "--title",
+    aliases: [],
+    summary: "Title.",
+    required: true,
+    repeatable: false,
+    value: {
+      kind: "string",
+      minLength: 1,
+      maxLength: 30,
+      choices: null,
+      pattern: null,
+    },
+  } as const;
+  const pending = command({
+    identity: "specimen.pending",
+    route: ["pending"],
+    summary: "Inspect pending.",
+    input: { ...input, options: [title] },
+    capabilities: {},
+    stations: [
+      station(commonCauses, {
+        commandIdentity: "specimen.pending",
+        causeCode: "SUCCESS_UNCHANGED",
+        trigger: "Read pending.",
+        guidance: {
+          next: { kind: "instruction", text: "Inspect pending state." },
+        },
+        repairAction: null,
+        ...words,
+      }),
+    ],
+    run: (_input, context) =>
+      context.result(
+        { commandIdentity: "specimen.pending", causeCode: "SUCCESS_UNCHANGED" },
+        { message: "Read pending.", data: null, effects: empty },
+      ),
+  });
+  return applyContract(
+    installation(completedObservation, ["--title", value]),
+    { kind: "throw" },
+    pending,
+  );
+}
+
 // X-K1-10: a coordination refusal cause that is a common cause.
 export function coordinationContract(
   variant: "lock-common" | "unresolved-common" | "host",

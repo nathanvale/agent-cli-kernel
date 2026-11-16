@@ -250,3 +250,49 @@ test(
   },
   processTimeout,
 );
+
+test(
+  "B1.ifnoresult-global-switch: an ifNoResult step carrying a global switch is refused at declaration",
+  async () => {
+    // DISC-13: the recovery step is a command step (STEP-6) checked when
+    // declared, so the fallback can always be produced (DISC-11b, LIFE-9);
+    // INPUT-3: a switch value would route the step to navigation.
+    for (const value of [
+      "--help",
+      "--discover",
+      "--discover-command",
+      "--json",
+    ])
+      expect(
+        await printed("ifnoresult-title-admission", { VALUE: value }),
+      ).toEqual({
+        admission: "refused",
+        reason: `ifNoResult step specimen.pending ${JSON.stringify(["--title", value])} carries a global switch before --.`,
+      });
+    // Twin: a plain value is admitted and the fallback prints with the step.
+    expect(
+      await printed("ifnoresult-title-admission", { VALUE: "plain" }),
+    ).toEqual({ admission: "admitted" });
+    const twin = await run("ifnoresult-title", ["apply", "--json"], {
+      VALUE: "plain",
+    });
+    expect({ exit: twin.exit, stderr: twin.stderr }).toEqual({
+      exit: 1,
+      stderr: "",
+    });
+    expect(twin.result).toMatchObject({
+      commandIdentity: "specimen.apply",
+      causeCode: "INTERNAL_RESULT_UNKNOWN",
+      handoff: {
+        inspect: [
+          {
+            kind: "command",
+            command: "specimen.pending",
+            args: ["--title", "plain"],
+          },
+        ],
+      },
+    });
+  },
+  processTimeout,
+);

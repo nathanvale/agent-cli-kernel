@@ -24,6 +24,7 @@ import { approvalAddon } from "./swarm-approval.ts";
 import {
   coordinationContract,
   ifNoResultContract,
+  ifNoResultTitleContract,
   lateTransactionContract,
   proofAccessorContract,
   recordingInstallation,
@@ -91,6 +92,12 @@ const scenarios: Readonly<Record<string, (argv: string[]) => Promise<unknown>>> 
     "ifnoresult-required": () =>
       Promise.resolve(admission(() => ifNoResultContract(true))),
     "ifnoresult-none": (argv) => runProcess(ifNoResultContract(false))(argv),
+    "ifnoresult-title-admission": () =>
+      Promise.resolve(
+        admission(() => ifNoResultTitleContract(process.env.VALUE ?? "")),
+      ),
+    "ifnoresult-title": (argv) =>
+      runProcess(ifNoResultTitleContract(process.env.VALUE ?? ""))(argv),
     "coordination-lock-common": () =>
       Promise.resolve(admission(() => coordinationContract("lock-common"))),
     "coordination-unresolved-common": () =>

@@ -11,6 +11,7 @@ import type { CauseTable } from "./types.ts";
 import { causeRow } from "./validation/result.ts";
 import { bindingNames, guidanceTargets } from "./guidance.ts";
 import { admitHostInput } from "./host-input.ts";
+import { carriesGlobalSwitch } from "./routing.ts";
 import { stepVectorProblem } from "./step-vector.ts";
 import { keys, record, text } from "./validation/primitives.ts";
 export type AddonName = "state" | "programs" | "approval" | "diagnostics";
@@ -97,6 +98,12 @@ function admitRecovery(
   // DISC-13 and DISC-14(1): the step is a command step (STEP-6) checked when
   // the command is declared, because the base copies it into the fallback;
   // a step its target cannot parse would leave the fallback unproducible.
+  // The same global-switch rule as every station step (INPUT-3, STEP-6):
+  // a switch value would route the copied step to navigation (B1).
+  if (carriesGlobalSwitch(route.args))
+    throw new Error(
+      `ifNoResult step ${target.commandIdentity} ${JSON.stringify(route.args)} carries a global switch before --.`,
+    );
   const problem = stepVectorProblem(target, route.args, true);
   if (problem)
     throw new Error(
