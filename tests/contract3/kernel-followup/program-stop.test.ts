@@ -1,8 +1,20 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import {
+  command,
+  commonCauses,
+  contractFor,
+  station,
+} from "../../../starters/contract3/src/kernel/index.ts";
+import { contractUnchecked } from "../kernel-repair/harness.ts";
+import { emptyInput, unchanged } from "../kernel-repair/shapes.ts";
 import { processWatchdog } from "../kernel-repair/swarm-process.ts";
 import { tolerance } from "../lifecycle/oracle.ts";
+import {
+  programStopRow,
+  programStopStation,
+} from "../lifecycle/program-stop.ts";
 import {
   emptyComplete,
   humanOneLine,
@@ -190,4 +202,64 @@ describe("KF3.f program-stop-station-required", () => {
     },
     processWatchdog(4),
   );
+});
+
+// A raw declaration has no program-stop station the kernel can read
+// (programStopCause lives on command() only), so contractFor refuses a raw
+// inspect declaration that runs programs and supports a deadline, as it
+// refuses a raw one that declares approval or changes state.
+test("KF3.f raw: a raw inspect declaration that runs programs and supports a deadline is refused", () => {
+  const cause = "DOMAIN_X_DEADLINE_PROGRAM_STOP_UNCONFIRMED";
+  const causes = { ...commonCauses, [cause]: programStopRow };
+  const watch = command({
+    identity: "x.watch",
+    route: ["watch"],
+    summary: "Watch.",
+    input: { ...emptyInput, deadlineSupported: true },
+    capabilities: { programs: true },
+    stations: [
+      station(causes, {
+        commandIdentity: "x.watch",
+        causeCode: "SUCCESS_UNCHANGED",
+        trigger: "Watched.",
+        guidance: { next: { kind: "done" } },
+        repairAction: null,
+        retryDelayPolicy: { kind: "none" },
+        reachability: "required",
+        unreachableRationale: null,
+        independentObservable: "x.watch:done",
+      }),
+      programStopStation(causes, "x.watch", cause),
+    ],
+    programStopCause: cause,
+    run: (_input, context) =>
+      context.result(
+        { commandIdentity: "x.watch", causeCode: "SUCCESS_UNCHANGED" },
+        { message: "Never runs.", data: null, effects: unchanged },
+      ),
+  });
+  const admission = (declaration: object) => {
+    try {
+      contractUnchecked(contractFor, {
+        cli: "x",
+        commands: [declaration],
+        causes,
+        installedAddons: ["programs"],
+      });
+      return "admitted";
+    } catch (error) {
+      return error instanceof Error ? error.message : String(error);
+    }
+  };
+  const refusal =
+    "A command that runs programs and supports a deadline must be built with command().";
+  expect({
+    constructed: admission(watch),
+    raw: admission({ ...watch }),
+    rawNamingItsStation: admission({ ...watch, programStopCause: cause }),
+  }).toEqual({
+    constructed: "admitted",
+    raw: refusal,
+    rawNamingItsStation: refusal,
+  });
 });

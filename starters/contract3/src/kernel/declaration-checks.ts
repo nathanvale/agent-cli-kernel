@@ -9,7 +9,6 @@ import {
   admitChangingShape,
   validateCommandIdentity,
   admitInspectShape,
-  requireProgramStopStation,
   preparerOf,
   validateRootOperation,
   validateRouteTokens,
@@ -197,10 +196,8 @@ function admitCommand(
 ): void {
   // K1-5: a raw declaration meets the same shape rules as a constructed one.
   if (host)
-    if (command.effectClass === "inspect") {
-      admitInspectShape(command);
-      requireProgramStopStation(command);
-    } else admitChangingShape(command);
+    if (command.effectClass === "inspect") admitInspectShape(command);
+    else admitChangingShape(command);
   validateCommandIdentity(command.commandIdentity);
   validateHostInput(command.input);
   if (command.commandIdentity !== `${cli}.dispatch`)
@@ -217,18 +214,25 @@ function admitCommand(
   // Last, so a more specific refusal of the same declaration wins.
   if (host && typeof command.execute !== "function")
     throw new Error("Host command needs an executable handler.");
-  // CMD-9 steps 5 and 6: only command() and changing() register the
-  // two-phase entry that runs the approval guard before any attachment, so
-  // a declaration without it may neither declare approval nor change state
-  // (delta review F1). A raw read-only declaration stays admitted (K1-5).
+  if (host && !preparerOf(command)) refuseRawWhereConstructorNeeded(command);
+}
+// CMD-9 steps 5 and 6: only command() and changing() register the
+// two-phase entry that runs the approval guard before any attachment, so a
+// raw declaration may neither declare approval nor change state. Only
+// command() records the program-stop station (N1b), so a raw one may not
+// both run programs and support a deadline. Any other raw read-only
+// declaration stays admitted (K1-5).
+function refuseRawWhereConstructorNeeded(command: CommandDeclaration): void {
   if (
-    host &&
-    !preparerOf(command) &&
-    (command.capabilities.approval === true ||
-      command.effectClass !== "inspect")
+    command.capabilities.approval === true ||
+    command.effectClass !== "inspect"
   )
     throw new Error(
       "A command that declares approval or changes state must be built with command() or changing().",
+    );
+  if (command.capabilities.programs === true && command.input.deadlineSupported)
+    throw new Error(
+      "A command that runs programs and supports a deadline must be built with command().",
     );
 }
 // F01 (option 2): refuse a step template no single-token value can satisfy.
