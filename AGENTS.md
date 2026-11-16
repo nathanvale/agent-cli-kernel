@@ -51,8 +51,10 @@ owner from this list.
 
 - Focused: `bun run test:area <area>`. Run it without an area to list the
   areas; extra arguments reach `bun test`, so `-t "<case id>"` works.
-- Workers: `bun run test` runs test files in parallel workers, one per core.
-  `bun run test:area` runs its area in one process.
+- Workers: `bun run test` runs test files in parallel workers, then runs the
+  timing-sensitive files that fail under workers in one serial call;
+  `serialFiles` in `scripts/test.ts` lists them. `bun run test:area` runs its
+  area in one process.
 - Full suite and timing-sensitive cases: run them on hosted CI or on the test
   host your task brief names, not on a loaded laptop. `bun run doctor` warns
   when this host is too loaded.
