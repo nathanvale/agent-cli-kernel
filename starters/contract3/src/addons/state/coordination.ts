@@ -13,6 +13,13 @@ import type { FlockResult } from "./linux-flock.ts";
 
 // <sys/fcntl.h>: O_EXLOCK 0x00000020. Only Darwin gives it lock meaning.
 const darwinExclusiveLock = 0x20;
+// O_CLOEXEC, set by the route itself (accepted decision BN-03, 17 November
+// 2026). Bun's node:fs leaves it off on 1.4.0 and 1.4.2 (observed) and sets
+// it on 1.4.4, and a child started outside Bun.spawn inherits a descriptor
+// without it and keeps the lock after its owner dies.
+// Darwin <sys/fcntl.h>; Linux <asm-generic/fcntl.h>.
+const darwinCloseOnExec = 0x01000000;
+const linuxCloseOnExec = 0o2000000;
 
 // One description per route; the "qualified on" text is derived from them,
 // so it cannot drift from the route actually used.
@@ -80,6 +87,7 @@ function darwinTryLock(path: string, create = true): LockAttempt {
     constants.O_NONBLOCK |
     constants.O_NOFOLLOW |
     darwinExclusiveLock |
+    darwinCloseOnExec |
     (create ? constants.O_CREAT : 0);
   try {
     return opened(openSync(path, flags, 0o600));
@@ -96,6 +104,7 @@ function flockTryLock(lock: (fd: number) => FlockResult) {
     const flags =
       constants.O_RDWR |
       constants.O_NOFOLLOW |
+      linuxCloseOnExec |
       (create ? constants.O_CREAT : 0);
     let descriptor: number;
     try {

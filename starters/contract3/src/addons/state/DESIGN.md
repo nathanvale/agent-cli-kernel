@@ -221,11 +221,11 @@ unlinked or renamed to recover it. It is advisory among cooperating add-on
 processes only; nothing protects against a process that ignores it. One
 route per platform, behind one interface (`coordination.ts`):
 
-| Platform      | Route                                                                                                                                                | Refusal                                              |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| Darwin        | the numeric flag `O_EXLOCK` (`0x20`) at open, with `O_RDWR`, `O_CREAT`, `O_NONBLOCK` and `O_NOFOLLOW` (unchanged)                                    | `EAGAIN` from `open`                                 |
-| Linux (glibc) | `open` through `node:fs` with `O_RDWR`, `O_CREAT` and `O_NOFOLLOW` (Bun opens close-on-exec), then `flock(fd, LOCK_EX \| LOCK_NB)` through `bun:ffi` | `EAGAIN` (11, also named `EWOULDBLOCK`) from `flock` |
-| any other     | none                                                                                                                                                 | every changing route refuses (below)                 |
+| Platform      | Route                                                                                                                                                             | Refusal                                              |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| Darwin        | the numeric flag `O_EXLOCK` (`0x20`) at open, with `O_RDWR`, `O_CREAT`, `O_NONBLOCK`, `O_NOFOLLOW` and the numeric `O_CLOEXEC` (`0x01000000`)                     | `EAGAIN` from `open`                                 |
+| Linux (glibc) | `open` through `node:fs` with `O_RDWR`, `O_CREAT`, `O_NOFOLLOW` and the numeric `O_CLOEXEC` (`0o2000000`), then `flock(fd, LOCK_EX \| LOCK_NB)` through `bun:ffi` | `EAGAIN` (11, also named `EWOULDBLOCK`) from `flock` |
+| any other     | none                                                                                                                                                              | every changing route refuses (below)                 |
 
 - Linux route decision: Nathan, 16 November 2026, 14:22 (route A). The
   POSIX record lock family (`fcntl` `F_SETLK`, `lockf`, and `bun:sqlite`,
@@ -273,7 +273,12 @@ route per platform, behind one interface (`coordination.ts`):
     did not hold it, because `Bun.spawn` passes no descriptor beyond stdio.
     So no single-guard fault for this property can be built through
     `Bun.spawn`; case C01.e's detected twin hands the locked descriptor to
-    the child as its stdin.
+    the child as its stdin. Both routes also set `O_CLOEXEC` themselves
+    (accepted decision BN-03, 17 November 2026), and C01.e starts a child
+    through the C library's `system()`, which inherits every descriptor
+    without it. Without the flag that observation was seen failing on Bun
+    1.4.0 (macOS) and 1.4.2 (Linux) and passing on Bun 1.4.4, which sets
+    the flag itself; the supported runtime is the pinned Bun 1.4.4.
 - Qualified where (observed, never implied beyond it):
   - Darwin: lock probe, 16 November 2026, macOS 26.6, APFS local volume,
     Bun 1.4.4.
