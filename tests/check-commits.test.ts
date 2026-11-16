@@ -151,6 +151,16 @@ function printed(lines: readonly string[], label: string): string {
   return line.slice(`${label}: `.length);
 }
 
+// tests/doctor.test.ts owns the repair wording; this file checks only that
+// the doctor refused the running Bun.
+function wrongBunRefusals(lines: readonly string[]): string[] {
+  return lines.filter((line) =>
+    line.startsWith(
+      `FAIL bun: found Bun ${Bun.version}, pinned 0.0.1. Repair: `,
+    ),
+  );
+}
+
 function rerunOf(lines: readonly string[]): string {
   return printed(lines, "Rerun locally");
 }
@@ -478,9 +488,7 @@ describe("check:commits", () => {
       const pasted = await paste(root, rerunOf(run.lines));
 
       expect(pasted.exit).toBe(1);
-      expect(pasted.lines).toContain(
-        `FAIL bun: found Bun ${Bun.version}, pinned 0.0.1. Repair: install Bun 0.0.1 (mise install bun@0.0.1, or setup-bun in CI), then bun install --frozen-lockfile.`,
-      );
+      expect(wrongBunRefusals(pasted.lines)).toHaveLength(1);
       expect(existsSync(join(root, ".worktrees", `red-${red.short}`))).toBe(
         false,
       );
@@ -626,8 +634,9 @@ describe("check:commits", () => {
       });
 
       expect(run.exit).toBe(1);
+      expect(wrongBunRefusals(run.lines)).toHaveLength(1);
       expect(run.lines).toContain(
-        `FAIL bun: found Bun ${Bun.version}, pinned 0.0.1. Repair: install Bun 0.0.1 (mise install bun@0.0.1, or setup-bun in CI), then bun install --frozen-lockfile.`,
+        "Refused: repair the doctor's FAIL lines, then rerun.",
       );
       expect(verdicts(run.lines)).toEqual([]);
     },
