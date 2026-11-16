@@ -12,6 +12,7 @@ import {
 } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { ESLint } from "eslint";
 import { testFolder } from "../support/test-folder.ts";
 
 const root = join(import.meta.dir, "../..");
@@ -381,50 +382,25 @@ function rowProblems(repository: string): string[] {
   return problems;
 }
 
-type LintConfig = {
-  files?: unknown[];
-  ignores?: unknown[];
-  rules?: Record<string, unknown>;
-};
-
-function matchesAny(patterns: unknown[], path: string, other: boolean) {
-  return patterns.some((pattern) =>
-    typeof pattern === "string" ? new Bun.Glob(pattern).match(path) : other,
-  );
-}
-
 async function lintIds(repository: string): Promise<Set<string>> {
-  const url = pathToFileURL(join(repository, "eslint.config.mjs")).href;
-  const { default: configs } = (await import(url)) as {
-    default: LintConfig[];
-  };
-  const off = (setting: unknown) => {
-    const severity: unknown = Array.isArray(setting) ? setting[0] : setting;
-    return severity === 0 || severity === "off";
-  };
-  const ignored = configs
-    .filter((config) =>
-      Object.keys(config).every((key) => key === "ignores" || key === "name"),
-    )
-    .flatMap(({ ignores = [] }) => ignores);
+  const eslint = new ESLint({ cwd: repository });
   const paths = git(repository, [
     "ls-files",
     "--cached",
     "--others",
     "--exclude-standard",
-  ])
-    .split("\n")
-    .filter((path) => !matchesAny(ignored, path, false));
-  const reachesAFile = ({ files, ignores = [] }: LintConfig) =>
-    files === undefined ||
-    paths.some(
-      (path) =>
-        matchesAny(files, path, true) && !matchesAny(ignores, path, false),
-    );
+  ]).split("\n");
+  const configs = (await Promise.all(
+    paths.map((path) => eslint.calculateConfigForFile(path)),
+  )) as ({ rules?: Record<string, unknown> } | undefined)[];
+  const on = (setting: unknown) => {
+    const severity: unknown = Array.isArray(setting) ? setting[0] : setting;
+    return severity !== 0 && severity !== "off";
+  };
   return new Set(
-    configs.filter(reachesAFile).flatMap((config) =>
-      Object.entries(config.rules ?? {})
-        .filter(([, setting]) => !off(setting))
+    configs.flatMap((config) =>
+      Object.entries(config?.rules ?? {})
+        .filter(([, setting]) => on(setting))
         .map(([id]) => id),
     ),
   );
@@ -513,6 +489,11 @@ const fixtureGitEnv = {
   GIT_COMMITTER_EMAIL: "fixture@example.invalid",
 };
 const absent = "0123456789abcdef0123456789abcdef01234567";
+const gateOn = '{ rules: { "repository/rule": "error" } }';
+
+function lintConfig(...entries: string[]): string {
+  return `const repository = { rules: { rule: { create: () => ({}) } } };\nexport default [{ plugins: { repository } }, ${entries.join(", ")}];\n`;
+}
 
 function folder(): string {
   const path = testFolder("standards-");
@@ -554,8 +535,7 @@ function fixture(
   }
   const files: Record<string, string> = {
     "package.json": '{"scripts":{"faults":"true"}}',
-    "eslint.config.mjs":
-      'export default [{ rules: { "repository/rule": "error" } }];\n',
+    "eslint.config.mjs": lintConfig(gateOn),
     ".github/workflows/ci.yml":
       "on: pull_request\njobs:\n  faults:\n    runs-on: ubuntu-latest\n",
     "AGENTS.md": "# Fixture\n\n## Checks\n",
@@ -666,7 +646,7 @@ test.each([
   [
     "a row whose lint and job are gone",
     (files: Record<string, string>) => {
-      files["eslint.config.mjs"] = "export default [{ rules: {} }];\n";
+      files["eslint.config.mjs"] = lintConfig("{ rules: {} }");
       files[".github/workflows/ci.yml"] =
         "on: pull_request\njobs:\n  other:\n    runs-on: x\n";
     },
@@ -687,8 +667,21 @@ test.each([
   [
     "a row whose lint is on only for files that do not exist",
     (files: Record<string, string>) => {
-      files["eslint.config.mjs"] =
-        'export default [{ files: ["nowhere/**/*.ts"], rules: { "repository/rule": "error" } }];\n';
+      files["eslint.config.mjs"] = lintConfig(
+        '{ files: ["nowhere/**/*.ts"], rules: { "repository/rule": "error" } }',
+      );
+    },
+    [
+      'CODING_STANDARDS.md: row "Gated rule" names lint `repository/rule`, which no config in eslint.config.mjs turns on for a file in the repository. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
+    ],
+  ],
+  [
+    "a row whose lint a later config turns off everywhere it applies",
+    (files: Record<string, string>) => {
+      files["eslint.config.mjs"] = lintConfig(
+        gateOn,
+        '{ files: ["**/*.mjs"], rules: { "repository/rule": "off" } }',
+      );
     },
     [
       'CODING_STANDARDS.md: row "Gated rule" names lint `repository/rule`, which no config in eslint.config.mjs turns on for a file in the repository. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
