@@ -1,10 +1,19 @@
-import { fallbackMessage, fallbackText } from "./fallback.ts";
+import {
+  fallbackMessage,
+  fallbackText,
+  unavailableStatus,
+} from "./fallback.ts";
 import type { TrustedRun } from "./fallback.ts";
 import { oneLine, renderHuman } from "./human.ts";
 import type { ProcessHost } from "./process-types.ts";
 import type { ContractRuntime } from "./runtime.ts";
-import type { Envelope, Validation } from "./types.ts";
-import { json } from "./validation/primitives.ts";
+import type { Diagnostics, Envelope, Validation } from "./types.ts";
+import { diagnostics } from "./validation/diagnostics.ts";
+import { json, record } from "./validation/primitives.ts";
+
+// A status report from the status seam: present only when a status is due.
+// `value` is untrusted.
+export type StatusReport = { readonly value: unknown };
 
 export type Writer = {
   // Serialises one result for this run (LIFE-7). Resolves the process exit
@@ -13,8 +22,33 @@ export type Writer = {
   readonly emit: (
     candidate: Validation<unknown>,
     trusted: TrustedRun,
+    report?: StatusReport,
   ) => Promise<number | undefined>;
 };
+
+// LIFE-7 step 1 and DIAG-4: the diagnostics object is validated on its own,
+// on a plain-JSON copy, after the domain result is frozen. An invalid one
+// becomes the unavailable variant; this step never takes the fallback.
+function frozenDiagnostics(report: StatusReport): Diagnostics {
+  try {
+    const copy: unknown = json(report.value)
+      ? JSON.parse(JSON.stringify(report.value))
+      : undefined;
+    if (diagnostics(copy)) return copy;
+  } catch {
+    // An unreadable status is an invalid one.
+  }
+  return unavailableStatus("status-invalid");
+}
+
+// The frozen status joins the frozen candidate as the top-level key.
+function withStatus(
+  candidate: Validation<unknown>,
+  status: Diagnostics | undefined,
+): Validation<unknown> {
+  if (!status || !candidate.ok || !record(candidate.value)) return candidate;
+  return { ok: true, value: { ...candidate.value, diagnostics: status } };
+}
 
 const encoder = new TextEncoder();
 
@@ -87,11 +121,13 @@ export function createWriter(options: {
   }
 
   return {
-    async emit(candidate, trusted) {
+    async emit(candidate, trusted, report) {
       if (used || stopping()) return undefined;
       used = true;
-      const ready = await admitted(candidate, trusted);
-      if (!ready) return fallback(trusted);
+      const status = report ? frozenDiagnostics(report) : undefined;
+      const run = status ? { ...trusted, diagnostics: status } : trusted;
+      const ready = await admitted(withStatus(candidate, status), run);
+      if (!ready) return fallback(run);
       const drained = await write(ready.target.stream, ready.target.text).catch(
         () => false,
       );

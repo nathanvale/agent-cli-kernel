@@ -16,6 +16,7 @@ import type {
   StopSignal,
 } from "../../../starters/contract3/src/kernel/process-types.ts";
 import { path } from "../../../starters/contract3/src/kernel/validation/brands.ts";
+import { timerLimit, unchangedEffects } from "./oracle.ts";
 
 type Recorded = {
   readonly stream: "stdout" | "stderr";
@@ -96,7 +97,6 @@ export async function until(
 // after each, so a timer armed by async work after a callback is armed at the
 // fake time it would be armed in real life. A sentinel timer at the target
 // (never above the runtime limit) stops each step from overshooting.
-const timerLimit = 2_147_483_647;
 export async function advance(milliseconds: number): Promise<void> {
   const target = performance.now() + milliseconds;
   while (performance.now() < target) {
@@ -144,13 +144,6 @@ export function shell(
   };
 }
 
-const empty = {
-  completed: [],
-  remaining: [],
-  uncertain: [],
-  inventoryComplete: true,
-} as const;
-
 // One inspect command with deadline support and the programs capability.
 // `work` is the handler body; the test controls when it returns.
 export function holdContract(
@@ -173,7 +166,7 @@ export function holdContract(
       await work(context.programs);
       return context.result(
         { commandIdentity: "rc.hold", causeCode: "SUCCESS_UNCHANGED" },
-        { message: "Released.", data: null, effects: empty },
+        { message: "Released.", data: null, effects: unchangedEffects },
       );
     },
   });

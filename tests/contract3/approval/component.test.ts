@@ -160,7 +160,7 @@ for (const [id, setup] of denials)
     expect(await snapshot(world)).toEqual(before);
   });
 
-test("A03 valid twin of the denial variants admits", async () => {
+test("A03 valid twin of the denial variants passes preflight", async () => {
   await writeGrant(world, grant);
   expect(await preflight()).toBe("admitted");
 });
@@ -269,7 +269,7 @@ test("A04.l-traversal-preview", async () => {
   expect(basename(grantPath(world, "../evil"))).toMatch(/^[0-9a-f]{64}\.json$/);
 });
 
-test("A04 valid twins admit: bounded size, regular single-link file", async () => {
+test("A04 valid twins pass preflight: bounded size, regular single-link file", async () => {
   await writeFile(
     grantPath(world, grant.preview),
     `${JSON.stringify(grant)}${" ".repeat(1024)}`,
@@ -359,7 +359,7 @@ for (const [id, setup, act] of bindings)
   test(id, async () => {
     await writeGrant(world, grant);
     expectCase(id, await observed(setup, act));
-    // Identical twin with every binding equal admits.
+    // Identical twin with every binding equal passes preflight.
     await writeGrant(world, grant);
     expect(await preflight()).toBe("admitted");
   });

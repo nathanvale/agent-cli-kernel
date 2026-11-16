@@ -1,5 +1,5 @@
-// The only ways admission or authority consumption rejects. None is an
-// authority denial (a denial is `false`, `{ admitted: false }` or `refused`).
+// The only ways approval or authority consumption rejects. None is an
+// authority denial (a denial is `false`, a not-consumed result or `refused`).
 // `consumed` states whether the item's consumption marker exists after the
 // rejection: when true the approved effect must not start, the item is never
 // refunded, and the caller reports the observed state under REC-1 to REC-10.

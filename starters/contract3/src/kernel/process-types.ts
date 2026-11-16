@@ -36,10 +36,21 @@ export type AttachedAddon<Capability> = {
   readonly settle: (limitMilliseconds?: number) => Promise<boolean>;
   // Synchronous forced termination attempt with no waiting.
   readonly killNow: () => void;
+  // Status seam (LIFE-7 step 1, DIAG-14). Offered only by an add-on whose
+  // RunAddon sets `reportsStatus`. Called at most once, after the domain
+  // result and recovery are frozen, with the flush budget (500 ms). Resolves
+  // the raw diagnostics status; the kernel treats it as untrusted, bounds the
+  // wait itself and validates the value alone. On this path it replaces
+  // `settle`: the add-on is not counted as an owned program.
+  readonly freeze?: (limitMilliseconds: number) => Promise<unknown>;
 };
 
 export type RunAddon<Capability> = {
   readonly attach: (run: RunControl) => AttachedAddon<Capability>;
+  // A status-reporting add-on attaches when its declaring command is
+  // dispatched, before the handler, so a status exists even when the handler
+  // never uses it. Its attach must be effect-free. At most one per command.
+  readonly reportsStatus?: true;
 };
 
 export type EmergencyFacts = {

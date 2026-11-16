@@ -17,11 +17,10 @@ import {
   recordingHost,
   turns,
 } from "./recording-host.ts";
+import { overLimitBoundary, timerLimit } from "./oracle.ts";
 
-const timerLimit = 2_147_483_647;
 // LIFE-6: at the deadline, wait at most 500 ms for cancellation.
 const cancellationWait = 500;
-const tolerance = 100;
 
 afterEach(() => {
   jest.useRealTimers();
@@ -66,7 +65,7 @@ function causeOf(text: string): unknown {
 }
 
 describe("T02(b) expiry after dispatch for a deadline above the timer limit (finding 1)", () => {
-  for (const deadline of [timerLimit + 60_000, 3_000_000_000])
+  for (const deadline of overLimitBoundary)
     test(`T02.deadline-above-limit-expiry-after-dispatch D=${deadline}`, async () => {
       const run = await heldUntilDeadline(deadline);
       try {
@@ -81,9 +80,10 @@ describe("T02(b) expiry after dispatch for a deadline above the timer limit (fin
         expect(causeOf(write?.text ?? "null")).toBe(
           "DOMAIN_DEADLINE_UNCHANGED",
         );
-        const at = (write?.at ?? 0) - run.startedAt;
-        expect(at).toBeGreaterThanOrEqual(deadline);
-        expect(at).toBeLessThanOrEqual(deadline + cancellationWait + tolerance);
+        // Under fake time the result is written at exactly D + 500 ms.
+        expect((write?.at ?? 0) - run.startedAt).toBe(
+          deadline + cancellationWait,
+        );
         expect(run.recorder.exits).toEqual([3]);
       } finally {
         await run.finish();
@@ -109,4 +109,20 @@ describe("T06 small and boundary deadlines keep their exact timing (finding 1)",
         await run.finish();
       }
     });
+});
+
+// Contract review F3: P4 rests on two facts about Bun 1.4.4's fake timers. If
+// a Bun upgrade changes either, this fails by name before any T02(b), T05 or
+// T06 result is trusted.
+test("P4.canary fake timers advance the clock and fire a raw over-limit delay early", () => {
+  jest.useFakeTimers();
+  const before = performance.now();
+  let rawFired = false;
+  const raw = setTimeout(() => {
+    rawFired = true;
+  }, timerLimit + 1);
+  jest.advanceTimersByTime(5);
+  clearTimeout(raw);
+  expect(performance.now() - before).toBe(5);
+  expect(rawFired).toBe(true);
 });

@@ -8,6 +8,7 @@ import { assertEnvelope, receipt } from "../lifecycle/checks.ts";
 import { sliceCases } from "../lifecycle/coverage.ts";
 import {
   alive,
+  firstPid,
   cleanup,
   exitWithin,
   frontDoorStart,
@@ -25,20 +26,20 @@ import {
   text,
 } from "../lifecycle/harness.ts";
 import type { Case, Launched, Observed } from "../lifecycle/harness.ts";
+import {
+  killObservationTolerance,
+  supporting,
+  timerLimit,
+  tolerance,
+  unchangedEffects,
+} from "../lifecycle/oracle.ts";
 
 const timeout = 60_000;
-// Same calibrated observation tolerance as the lifecycle cases.
-const tolerance = 100;
 // The one owned stream probe, also used by the fixture's isolation mode.
 const streamProbe = join(import.meta.dir, "fixtures/stream-probe.sh");
 
-function pidAfter(ledger: readonly string[], prefix: string) {
-  const line = ledger.find((entry) => entry.startsWith(`${prefix} `));
-  const pid = line ? Number(line.split(" ")[1]) : Number.NaN;
-  return Number.isSafeInteger(pid) && pid > 0 ? pid : undefined;
-}
 function requirePid(ledger: readonly string[], prefix: string): number {
-  const pid = pidAfter(ledger, prefix);
+  const pid = firstPid(ledger, prefix);
   if (pid === undefined) throw new Error(`No ${prefix} pid was ledgered.`);
   return pid;
 }
@@ -106,8 +107,6 @@ async function deathAfter(pid: number, from: number, limit: number) {
   }
   return Number.POSITIVE_INFINITY;
 }
-// Polling and kill latency for that observation (baseline death ~305 ms).
-const killObservationTolerance = 30;
 
 // D3: every P08 shape records what it launched, so the wrapper's cleanup
 // runs even when an assertion fails inside the shape.
@@ -230,7 +229,7 @@ const checks: Record<string, (entry: Case) => Promise<void>> = {
       receipt(entry, observed, { cliGroup });
       const grandchild = requirePid(observed.ledger, "grandchild");
       const { result } = assertEnvelope(entry, observed);
-      const childGroup = pidAfter(observed.ledger, "child-pgid");
+      const childGroup = firstPid(observed.ledger, "child-pgid");
       expect(childGroup).toBeNumber();
       expect(cliGroup).toBeNumber();
       expect(childGroup).not.toBe(cliGroup);
@@ -334,9 +333,9 @@ describe("ProgramResult reports truncation (supporting C6, not a frozen case)", 
     test(
       `P06s.output-truncated-${String(truncated)}`,
       async () => {
-        const observed = await (
-          await launch({ argv: ["program", "--mode", mode, "--json"] })
-        ).done;
+        const observed = await exitWithin(
+          await launch({ argv: ["program", "--mode", mode, "--json"] }),
+        );
         try {
           expect(observed.code).toBe(0);
           const envelope: unknown = JSON.parse(text(observed.stdout));
@@ -355,9 +354,9 @@ describe("caller-program disclosure guard (supporting C3, not a frozen case)", (
   test(
     "P10s.undisclosed-command-starts-no-program",
     async () => {
-      const observed = await (
-        await launch({ argv: ["undisclosed", streamProbe, "--json"] })
-      ).done;
+      const observed = await exitWithin(
+        await launch({ argv: ["undisclosed", streamProbe, "--json"] }),
+      );
       try {
         // D2: the undisclosed command routed and its handler failed on the
         // refused start, taking the fallback; no child started (the probe
@@ -397,36 +396,21 @@ describe("caller-program disclosure guard (supporting C3, not a frozen case)", (
 // is honoured, no cap). LIMIT is the largest delay a runtime timer holds; a
 // raw timer armed above it fires after about 1 ms with a stderr warning.
 // Expectations: c3-expect-t2t5, findings-round/expectations.md.
-const timerLimit = 2_147_483_647;
 const overLimit = [
   timerLimit,
   timerLimit + 1,
   3_000_000_000,
   Number.MAX_SAFE_INTEGER,
 ] as const;
-const unchangedEffects = {
-  completed: [],
-  remaining: [],
-  uncertain: [],
-  inventoryComplete: true,
-};
 function programCase(id: string, argv: readonly string[]): Case {
-  return {
-    id,
-    family: id.split(".")[0] ?? id,
-    status: "supporting",
+  return supporting(id, {
     argv,
-    scenario: undefined,
-    state: false,
-    stdin: "closed",
     expect: {
       commandIdentity: "fx.program",
       causeCode: "SUCCESS_UNCHANGED",
       effects: unchangedEffects,
     },
-    supplier: undefined,
-    note: undefined,
-  };
+  });
 }
 async function programRun(entry: Case) {
   const launched = await launchCase(entry);

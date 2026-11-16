@@ -7,7 +7,7 @@ import { ApprovalRejection } from "./rejection.ts";
 
 // Atomic consumption primitive: exclusive creation (O_CREAT|O_EXCL) of one
 // marker per authority item, then fsync of the marker and its directory
-// before admission returns. Exclusive creation is atomic across processes
+// before consumption returns. Exclusive creation is atomic across processes
 // on a local POSIX filesystem, so two contenders can never both create the
 // marker even if coordination were wrong. Any directory entry at the marker
 // path, including an empty, torn, directory or symlink entry, means

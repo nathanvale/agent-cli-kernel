@@ -21,6 +21,36 @@ const childProcessImport = {
   message:
     "Contract 3 source starts programs only through the programs add-on.",
 };
+// DIAG-17, CMD-16: only the diagnostics add-on folder imports a logging
+// library, and only the pinned LogTape packages.
+const loggingImports = {
+  group: [
+    "@logtape/*",
+    "pino",
+    "pino-*",
+    "winston",
+    "winston-*",
+    "bunyan",
+    "log4js",
+    "loglevel",
+    "consola",
+    "signale",
+  ],
+  message: "Only the diagnostics add-on imports a logging library.",
+};
+// REC-7b, Q01: the state add-on's test seams (fixture.ts) and its internal
+// implementation (install.ts and the rest) are never host-reachable; only its
+// public index is.
+const stateIndexOnly = {
+  regex: "(?:^|/)addons/state/(?!index\\.(?:ts|mts|cts)$)",
+  message:
+    "Host code imports the state add-on through its public index only; its fixture and internals are test-only or internal.",
+};
+const kernelIndexOnly = {
+  regex: "(?:^|/)kernel/(?!index\\.(?:ts|mts|cts)$)",
+  message:
+    "Host code imports the stamped kernel through its public index only.",
+};
 // Linux route decision (16 November 2026): bun:ffi only in the state
 // add-on's linux-flock.ts, the one module that owns the coordination lock's
 // foreign call.
@@ -103,9 +133,11 @@ const rules = {
   ],
   "no-console": "error",
 };
-// Source outside the kernel: the public-index bans, the F1 spellings and,
-// except in the Linux route module, the bun:ffi ban.
-function hostRules(banFfi) {
+// Source outside the kernel: the public-index bans, the logging ban, the F1
+// spellings and, except in the Linux route module, the bun:ffi ban. The
+// diagnostics folder passes its own logging group (the pinned LogTape
+// packages allowed) and keeps every other rule.
+function hostRules({ banFfi = true, logging = loggingImports } = {}) {
   return {
     "no-restricted-syntax": [
       ...rules["no-restricted-syntax"],
@@ -143,19 +175,9 @@ function hostRules(banFfi) {
         ],
         patterns: [
           { group: ["**/tests/**", "node:child_process", "child_process"] },
-          {
-            regex: "(?:^|/)kernel/(?!index\\.(?:ts|mts|cts)$)",
-            message:
-              "Host code imports the stamped kernel through its public index only.",
-          },
-          {
-            // REC-7b, Q01: the state add-on's test seams (fixture.ts) and
-            // its internal implementation (install.ts and the rest) are
-            // never host-reachable; only its public index is.
-            regex: "(?:^|/)addons/state/(?!index\\.(?:ts|mts|cts)$)",
-            message:
-              "Host code imports the state add-on through its public index only; its fixture and internals are test-only or internal.",
-          },
+          kernelIndexOnly,
+          logging,
+          stateIndexOnly,
           {
             regex: "//|/\\.(?:/|$)|(?:^|/)(?!\\.\\.?/)[^/]+/\\.\\.(?:/|$)",
             message: canonicalMessage,
@@ -200,7 +222,10 @@ export default tseslint.config(
         "error",
         {
           paths: [ffiPath],
-          patterns: ["**/tests/**", "node:child_process", "child_process"],
+          patterns: [
+            { group: ["**/tests/**", "node:child_process", "child_process"] },
+            loggingImports,
+          ],
         },
       ],
       "no-restricted-properties": [
@@ -213,12 +238,12 @@ export default tseslint.config(
   {
     files: ["starters/contract3/src/**/*.{ts,mts,cts}"],
     ignores: ["starters/contract3/src/kernel/**", ffiRoute],
-    rules: hostRules(true),
+    rules: hostRules(),
   },
   {
     // The one module that may import bun:ffi; every other host rule holds.
     files: [ffiRoute],
-    rules: hostRules(false),
+    rules: hostRules({ banFfi: false }),
   },
   {
     files: ["starters/contract3/src/kernel/index.ts"],
@@ -282,6 +307,22 @@ export default tseslint.config(
         },
       ],
     },
+  },
+  {
+    // DIAG-17: the one folder that may import the pinned logging packages.
+    // Every other host rule (public indexes, F1 spellings, bun:ffi) holds.
+    files: ["starters/contract3/src/addons/diagnostics/**/*.{ts,mts,cts}"],
+    rules: hostRules({
+      logging: {
+        group: [
+          ...loggingImports.group.filter((name) => name !== "@logtape/*"),
+          "@logtape/*",
+          "!@logtape/logtape",
+          "!@logtape/redaction",
+        ],
+        message: loggingImports.message,
+      },
+    }),
   },
   {
     files: ["starters/contract3/src/addons/state/**/*.{ts,mts,cts}"],
