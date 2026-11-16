@@ -54,7 +54,10 @@ export default tseslint.config(
   {
     files: ["tests/**/*.{ts,mts,cts}"],
     plugins: { repository: localRules },
-    rules: { "repository/require-to-throw-message": "error" },
+    rules: {
+      "repository/require-to-throw-message": "error",
+      "repository/tests-use-test-folder": "error",
+    },
   },
   ...contract3,
 );

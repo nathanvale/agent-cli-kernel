@@ -103,6 +103,24 @@ const cases = [
     line: 2,
     fix: "Pass the message or the cause that the test's name gives",
   },
+  {
+    rule: "tests-use-test-folder",
+    witness: "c0b4bf5",
+    filePath: "tests/contract3/state/route.test.ts",
+    failing: [
+      'import { mkdtempSync, realpathSync } from "node:fs";',
+      'import { tmpdir } from "node:os";',
+      'import { join } from "node:path";',
+      "export const folder = () =>",
+      '  realpathSync.native(mkdtempSync(join(tmpdir(), "c3-route-")));',
+    ],
+    passing: [
+      'import { testFolder } from "../../support/test-folder.ts";',
+      'export const folder = () => testFolder("c3-route-");',
+    ],
+    line: 5,
+    fix: "testFolder(prefix) from tests/support/test-folder.ts",
+  },
 ];
 
 for (const item of cases)
@@ -132,4 +150,14 @@ test("require-to-throw-message refuses a bare rejects.toThrow()", async () => {
     'await expect(Promise.reject(new Error("limit"))).rejects.toThrow();',
   );
   expect(found.map(({ line }) => line)).toEqual([1]);
+});
+
+test("tests-use-test-folder admits the folder calls inside its owner module", async () => {
+  expect(
+    await hits(
+      "tests-use-test-folder",
+      "tests/support/test-folder.ts",
+      await Bun.file(resolve(import.meta.dir, "support/test-folder.ts")).text(),
+    ),
+  ).toEqual([]);
 });

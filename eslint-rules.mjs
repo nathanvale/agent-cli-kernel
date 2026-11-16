@@ -1,6 +1,8 @@
 const causeShape =
   /^(?:SUCCESS|USAGE|SCHEMA|DOMAIN|TRANSIENT|INTERNAL)_[A-Z0-9_]+$/;
 const causeOwners = /\/kernel\/(?:causes|state-causes|stations)\.ts$/;
+const testFolderOwner = "/tests/support/test-folder.ts";
+const folderCalls = new Set(["tmpdir", "mkdtemp", "mkdtempSync"]);
 
 export default {
   rules: {
@@ -87,6 +89,32 @@ export default {
               messageId: "bare",
               data: { name: node.property.name },
             });
+          },
+        };
+      },
+    },
+    "tests-use-test-folder": {
+      meta: {
+        type: "problem",
+        schema: [],
+        messages: {
+          folder:
+            "Make a test folder with testFolder(prefix) from tests/support/test-folder.ts, not {{name}}(). It honours STATE_TEST_DIR, so a run on a chosen filesystem reaches every test folder.",
+        },
+      },
+      create(context) {
+        if (context.filename.replaceAll("\\", "/").endsWith(testFolderOwner))
+          return {};
+        return {
+          "CallExpression > Identifier.callee, CallExpression > MemberExpression.callee[computed=false] > Identifier.property"(
+            node,
+          ) {
+            if (folderCalls.has(node.name))
+              context.report({
+                node,
+                messageId: "folder",
+                data: { name: node.name },
+              });
           },
         };
       },

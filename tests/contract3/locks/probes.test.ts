@@ -1,8 +1,8 @@
 import { afterAll, expect, test } from "bun:test";
-import { mkdtempSync, realpathSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
+import { testFolder } from "../../support/test-folder.ts";
 import { probeBatch, readRun } from "./probes.ts";
 
 const root = resolve(import.meta.dir, "../../..");
@@ -78,9 +78,7 @@ for (const leak of leaks)
     ]);
   });
 
-const fixtureDirectory = mkdtempSync(
-  join(realpathSync(tmpdir()), "contract3-probes-fixture-"),
-);
+const fixtureDirectory = testFolder("contract3-probes-fixture-");
 const fixture = join(fixtureDirectory, "shared-fixture.ts");
 writeFileSync(fixture, 'export const planted: number = "x";\n');
 afterAll(() => rm(fixtureDirectory, { recursive: true, force: true }));
