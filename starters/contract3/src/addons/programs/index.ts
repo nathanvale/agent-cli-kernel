@@ -7,6 +7,7 @@ import type {
   RunAddon,
   RunControl,
 } from "../../kernel/index.ts";
+import { afterDelay } from "./timer.ts";
 
 // CMD-14: a command that runs a caller-supplied program says so in its
 // summary. `supplied` refuses to start a program for a command whose summary
@@ -211,17 +212,17 @@ function attachPrograms(run: RunControl): AttachedAddon<ProgramsCapability> {
       capture(child.stderr, request.outputLimitBytes, abandon),
     ]);
     let timedOut = false;
-    const timer = setTimeout(() => {
+    const cancelTimeout = afterDelay(request.timeoutMilliseconds, () => {
       timedOut = true;
       void group.stop();
-    }, request.timeoutMilliseconds);
+    });
     await child.exited;
-    clearTimeout(timer);
+    cancelTimeout();
     // Remaining group members are owned too: stop them within the budget.
     const groupEmpty = await group.stop();
-    const late = setTimeout(release, request.shutdownMilliseconds);
+    const cancelDrain = afterDelay(request.shutdownMilliseconds, release);
     const [stdout, stderr] = await output;
-    clearTimeout(late);
+    cancelDrain();
     if (groupEmpty) owned.delete(group);
     const result: ProgramResult = Object.freeze({
       stdout: stdout.text,

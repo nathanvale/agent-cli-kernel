@@ -485,25 +485,37 @@ export async function exitWithin(
     throw new Error(`The CLI did not exit within ${milliseconds} ms.`);
   return observed;
 }
-const ledgeredChildren = ["child-started", "grandchild", "escaped"];
+// N2: a ledgered pid is killed only while it is still in the process group
+// its ledger says it belongs to, so a pid the OS reused for an unrelated
+// process is left alone. Program children and escaped writers lead their own
+// group (setsid), and that whole group is killed, so their own children go
+// too; a grandchild stays in its parent's ledgered `child-pgid`.
+const ledgeredLeaders = ["child-started", "escaped", "late-child"];
+function ledgeredPid(ledger: readonly string[], prefix: string) {
+  return ledger
+    .filter((line) => line.startsWith(`${prefix} `))
+    .map((line) => Number(line.split(" ")[1]))
+    .filter((pid) => Number.isSafeInteger(pid) && pid > 0);
+}
+function stillOwned(ledger: readonly string[]) {
+  const owned = ledgeredLeaders.flatMap((prefix) =>
+    ledgeredPid(ledger, prefix).map((pid) => ({ pid, group: pid })),
+  );
+  const [group] = ledgeredPid(ledger, "child-pgid");
+  if (group !== undefined)
+    for (const pid of ledgeredPid(ledger, "grandchild"))
+      owned.push({ pid, group });
+  return owned.filter((entry) => processGroup(entry.pid) === entry.group);
+}
 export async function release(launched: Launched): Promise<void> {
   if (launched.running()) launched.signal("SIGKILL");
   const observed = await launched.done;
-  for (const line of readLedger(launched.ledgerPath)) {
-    const [prefix, value] = line.split(" ");
-    const pid = Number(value);
-    if (
-      prefix &&
-      ledgeredChildren.includes(prefix) &&
-      Number.isSafeInteger(pid) &&
-      pid > 0
-    )
-      try {
-        process.kill(pid, "SIGKILL");
-      } catch {
-        // Already gone.
-      }
-  }
+  for (const { pid, group } of stillOwned(readLedger(launched.ledgerPath)))
+    try {
+      process.kill(pid === group ? -group : pid, "SIGKILL");
+    } catch {
+      // Already gone.
+    }
   await cleanup(observed);
 }
 
