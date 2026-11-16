@@ -225,6 +225,51 @@ const bypasses = [
   ],
   ["require-to-throw-message", "expect(fn).toThrow(/limit/);", undefined],
   ["require-to-throw-message", "expect(fn).not.toThrow(undefined);", undefined],
+  [
+    "tests-use-test-folder",
+    'import { tmpdir as td2 } from "node:os";\ntd2();',
+    "not tmpdir()",
+  ],
+  [
+    "tests-use-test-folder",
+    'import * as os from "node:os";\nconst { tmpdir: td } = os;\ntd();',
+    "not tmpdir()",
+  ],
+  [
+    "tests-use-test-folder",
+    'import os from "os";\nos["tmpdir"]();',
+    "not tmpdir()",
+  ],
+  [
+    "tests-use-test-folder",
+    'import * as os from "node:os";\nconst td = os.tmpdir;\ntd();',
+    "not tmpdir()",
+  ],
+  [
+    "tests-use-test-folder",
+    'import { mkdtempSync as make } from "fs";\nmake("x");',
+    "not mkdtempSync()",
+  ],
+  [
+    "tests-use-test-folder",
+    'import fsp from "node:fs/promises";\nawait fsp["mkdtemp"]("x");',
+    "not mkdtemp()",
+  ],
+  [
+    "tests-use-test-folder",
+    'const { mkdtemp: make } = await import("fs/promises");\nawait make("x");',
+    "not mkdtemp()",
+  ],
+  [
+    "tests-use-test-folder",
+    'const { tmpdir: td } = require("node:os");\ntd();',
+    "not tmpdir()",
+  ],
+  [
+    "tests-use-test-folder",
+    'import { homedir as td } from "node:os";\ntd();',
+    undefined,
+  ],
 ] as const;
 
 for (const [rule, code, fix] of bypasses)

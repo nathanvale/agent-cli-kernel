@@ -14,6 +14,88 @@ const onlyCall = ({ body }) => {
       : body;
   return expression?.type === "CallExpression" ? expression : undefined;
 };
+const propertyName = (node) =>
+  node.computed
+    ? typeof node.property.value === "string"
+      ? node.property.value
+      : undefined
+    : node.property.name;
+const lookup = (context, node) => {
+  for (
+    let scope = context.sourceCode.getScope(node);
+    scope;
+    scope = scope.upper
+  )
+    if (scope.set.has(node.name)) return scope.set.get(node.name);
+};
+const moduleObject = (source) =>
+  typeof source?.value === "string"
+    ? { module: source.value.replace(/^node:/, "") }
+    : undefined;
+const memberOf = (base, name) =>
+  base?.module && base.name === undefined
+    ? { module: base.module, name }
+    : { name };
+const definitionTracers = {
+  ImportBinding: (def) => ({
+    module: def.parent.source.value.replace(/^node:/, ""),
+    name:
+      def.node.type === "ImportSpecifier"
+        ? (def.node.imported.name ?? def.node.imported.value)
+        : undefined,
+  }),
+  Variable: (def, node, next) => {
+    const { id, init } = def.node;
+    if (id === def.name) return next(init) ?? { name: node.name };
+    const property = id.properties?.find(
+      ({ value }) => (value.left ?? value) === def.name,
+    );
+    if (!property) return { name: node.name };
+    const { key, computed } = property;
+    return memberOf(
+      next(init),
+      key.type === "Literal" ? key.value : computed ? undefined : key.name,
+    );
+  },
+};
+const traceIdentifier = (node, next, context) => {
+  const def = lookup(context, node)?.defs[0];
+  if (!def)
+    return node.name === "globalThis"
+      ? { module: "global" }
+      : { module: "global", name: node.name };
+  return definitionTracers[def.type]?.(def, node, next) ?? { name: node.name };
+};
+const unwrap = (node, next) => next(node.expression);
+// What an expression names: the module it came from ("global" for a
+// global) and the export, or only a name when the origin is not traced. A
+// result with no name is the module object itself.
+const tracers = {
+  Identifier: traceIdentifier,
+  MemberExpression: (node, next) => {
+    const name = propertyName(node);
+    return typeof name === "string"
+      ? memberOf(next(node.object), name)
+      : undefined;
+  },
+  CallExpression: (node) =>
+    node.callee.type === "Identifier" && node.callee.name === "require"
+      ? moduleObject(node.arguments[0])
+      : undefined,
+  ImportExpression: (node) => moduleObject(node.source),
+  AwaitExpression: (node, next) => next(node.argument),
+  ChainExpression: unwrap,
+  TSAsExpression: unwrap,
+  TSNonNullExpression: unwrap,
+};
+const origin = (context, node, depth = 0) =>
+  node && depth < 8
+    ? tracers[node.type]?.(
+        node,
+        (inner) => origin(context, inner, depth + 1),
+        context,
+      )
+    : undefined;
 // A pattern that matches a lone NUL character matches every message.
 const namesNothing = (node) =>
   (node.type === "Identifier" && node.name === "undefined") ||
@@ -133,14 +215,14 @@ export default {
         if (context.filename.replaceAll("\\", "/").endsWith(testFolderOwner))
           return {};
         return {
-          "CallExpression > Identifier.callee, CallExpression > MemberExpression.callee[computed=false] > Identifier.property"(
-            node,
-          ) {
-            if (folderCalls.has(node.name))
+          CallExpression({ callee }) {
+            const name = origin(context, callee)?.name;
+            if (folderCalls.has(name))
               context.report({
-                node,
+                node:
+                  callee.type === "MemberExpression" ? callee.property : callee,
                 messageId: "folder",
-                data: { name: node.name },
+                data: { name },
               });
           },
         };

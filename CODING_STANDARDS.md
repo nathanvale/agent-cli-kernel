@@ -126,6 +126,11 @@ now enforces.
   and `mkdtempSync()` in `tests/`, outside `tests/support/test-folder.ts`.
   That shared `tests/support/` module owns test folders through
   `testFolder()`, which honours `STATE_TEST_DIR`.
+- The lint traces a callee to the name it was imported or read as: a named,
+  renamed, default or namespace import, `require()`, `import()`,
+  destructuring, an alias, or a member with a string key. A key built at
+  runtime, a function passed in as a parameter, and a helper module that
+  re-exports one under another name stay review.
 - Witnessed: [e7c771c], [c0b4bf5].
 
 ### Recorded hits
