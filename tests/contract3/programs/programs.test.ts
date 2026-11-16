@@ -339,9 +339,9 @@ describe("ProgramResult reports truncation (supporting C6, not a frozen case)", 
     test(
       `P06s.output-truncated-${String(truncated)}`,
       async () => {
-        const observed = await (
-          await launch({ argv: ["program", "--mode", mode, "--json"] })
-        ).done;
+        const observed = await exitWithin(
+          await launch({ argv: ["program", "--mode", mode, "--json"] }),
+        );
         try {
           expect(observed.code).toBe(0);
           const envelope: unknown = JSON.parse(text(observed.stdout));
@@ -360,9 +360,9 @@ describe("caller-program disclosure guard (supporting C3, not a frozen case)", (
   test(
     "P10s.undisclosed-command-starts-no-program",
     async () => {
-      const observed = await (
-        await launch({ argv: ["undisclosed", streamProbe, "--json"] })
-      ).done;
+      const observed = await exitWithin(
+        await launch({ argv: ["undisclosed", streamProbe, "--json"] }),
+      );
       try {
         // D2: the undisclosed command routed and its handler failed on the
         // refused start, taking the fallback; no child started (the probe

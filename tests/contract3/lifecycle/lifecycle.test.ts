@@ -19,6 +19,7 @@ import {
   goneWithin,
   launch,
   launchCase,
+  listing,
   n,
   readLedger,
   release,
@@ -118,6 +119,16 @@ const l07Binding: Readonly<Record<string, string>> = {
   "L07.usage-zero": "fx.dispatch",
   "L07.usage-negative": "fx.dispatch",
   "L07.usage-non-integer": "fx.dispatch",
+};
+
+// K3-1 (swarm triage): the R02 mutations each frozen case must detect.
+const r02Mutations: Readonly<Record<string, readonly string[]>> = {
+  "R02.domain-difference-detected": [
+    "data",
+    "effects",
+    "causeCode",
+    "handoff-or-next",
+  ],
 };
 
 const checks: Record<string, (entry: Case) => Promise<void>> = {
@@ -341,24 +352,26 @@ const checks: Record<string, (entry: Case) => Promise<void>> = {
         ...b,
         result: { ...resultOf(b), runId: "" },
       });
-      const mutations = entry.expect.mutations;
-      if (Array.isArray(mutations))
-        for (const mutation of mutations) {
-          const changed = structuredClone(b);
-          const result = resultOf(changed);
-          if (mutation === "data") result.data = { text: "y" };
-          if (mutation === "effects")
-            result.effects = {
-              completed: [],
-              remaining: ["fx.other"],
-              uncertain: [],
-              inventoryComplete: true,
-            };
-          if (mutation === "causeCode") result.causeCode = "SUCCESS_COMPLETED";
-          if (mutation === "handoff-or-next")
-            result.next = { kind: "instruction", text: "Other." };
-          expect(comparableEnvelope(changed)).not.toBe(comparableEnvelope(a));
-        }
+      // K3-1: the mutation list is a test-owned literal per frozen case, so
+      // a missing or emptied frozen list fails instead of passing vacuously.
+      const mutations = r02Mutations[entry.id] ?? [];
+      expect(entry.expect.mutations ?? []).toEqual(mutations);
+      for (const mutation of mutations) {
+        const changed = structuredClone(b);
+        const result = resultOf(changed);
+        if (mutation === "data") result.data = { text: "y" };
+        if (mutation === "effects")
+          result.effects = {
+            completed: [],
+            remaining: ["fx.other"],
+            uncertain: [],
+            inventoryComplete: true,
+          };
+        if (mutation === "causeCode") result.causeCode = "SUCCESS_COMPLETED";
+        if (mutation === "handoff-or-next")
+          result.next = { kind: "instruction", text: "Other." };
+        expect(comparableEnvelope(changed)).not.toBe(comparableEnvelope(a));
+      }
     } finally {
       await cleanup(first);
       await cleanup(second);
@@ -917,7 +930,7 @@ test(
     const inside = Bun.spawn(["/bin/sleep", "30"], { detached: true });
     const launched = await launch({ argv: ["read", "--json"] });
     try {
-      await launched.done;
+      await exitWithin(launched);
       await appendFile(
         launched.ledgerPath,
         `child-started ${outside.pid}\nescaped ${inside.pid}\n`,
@@ -955,7 +968,7 @@ test(
     const launched = await launch({ argv: ["read", "--json"] });
     try {
       expect(Number.isSafeInteger(member) && member > 0).toBe(true);
-      await launched.done;
+      await exitWithin(launched);
       await appendFile(
         launched.ledgerPath,
         `child-pgid ${group.pid}\ngrandchild ${member}\ngrandchild ${outside.pid}\n`,
@@ -975,3 +988,62 @@ test(
   },
   timeout,
 );
+
+// Swarm triage, test honesty. K3-12: a CLI that exits while a descendant
+// still holds its stdout gives an incomplete observation, and reading it
+// fails as unproved instead of looking like empty output.
+describe("test harness honesty (swarm triage K3-3, K3-12)", () => {
+  const lateWriter =
+    '/usr/bin/perl -e \'open(my $f, ">>", $ENV{FX_LEDGER}); print $f "late-writer $$\\n"; close $f; close STDERR; select(undef, undef, undef, 2.5); print "late-written\\n"\' &';
+  for (const [variant, shell, complete] of [
+    ["late writer", `${lateWriter} exit 0`, false],
+    ["twin", "exit 0", true],
+  ] as const)
+    test(
+      `K3-12.open-stdout-is-unproved ${variant}`,
+      async () => {
+        const launched = await launch({ argv: [], rawArgvShell: shell });
+        try {
+          const observed = await exitWithin(launched);
+          expect(observed.code).toBe(0);
+          expect(observed.stdoutComplete).toBe(complete);
+          if (complete) expect(observed.stdout.byteLength).toBe(0);
+          else expect(() => observed.stdout).toThrow("UNPROVED");
+        } finally {
+          const writer = firstPid(
+            readLedger(launched.ledgerPath),
+            "late-writer",
+          );
+          if (writer !== undefined)
+            try {
+              process.kill(writer, "SIGKILL");
+            } catch {
+              // Already gone.
+            }
+          await release(launched);
+        }
+      },
+      timeout,
+    );
+
+  // K3-3: a CLI that never exits is released by the bounded wait itself.
+  test(
+    "K3-3.hang-releases-fixture",
+    async () => {
+      const launched = await launch({
+        argv: [],
+        rawArgvShell: "exec /bin/sleep 30",
+      });
+      const failure = await exitWithin(launched, 500).then(
+        () => undefined,
+        (error: unknown) => error,
+      );
+      expect(failure instanceof Error ? failure.message : "").toContain(
+        "did not exit within 500 ms",
+      );
+      expect(await goneWithin(launched.pid, 1_000)).toBe(true);
+      expect(await listing(launched.dir)).toEqual([]);
+    },
+    timeout,
+  );
+});

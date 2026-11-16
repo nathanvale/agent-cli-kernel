@@ -25,9 +25,9 @@ describe("public-seam canary (supporting S7, not a frozen case)", () => {
     test(
       id,
       async () => {
-        const observed = await (
-          await launch({ argv: [route, "--json"], script: canaryCli })
-        ).done;
+        const observed = await exitWithin(
+          await launch({ argv: [route, "--json"], script: canaryCli }),
+        );
         try {
           const row = expectedRow(causeCode);
           const result = resultOf(envelopeOf(observed.stdout));
