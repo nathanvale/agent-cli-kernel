@@ -116,13 +116,10 @@ function spawnChild(fd: number | null): number {
 
 // system() starts the shell with every descriptor that is not close-on-exec,
 // so this child holds the lock unless the route set the flag itself
-// (accepted decision BN-03, 17 November 2026). The child lives 60 s, under
-// the case's 90 s timeout, so a failure before its pid is reported cannot
-// leave it running past the case.
+// (accepted decision BN-03, 17 November 2026). The child lives at most
+// 60 s, under the case's 90 s timeout.
 function spawnNativeChild(): number {
   const pidFile = `${report}.child`;
-  if (pidFile.includes("'"))
-    throw new Error(`native-child: pid file path has a quote: ${pidFile}`);
   const { symbols } = dlopen(library, {
     system: { args: ["cstring"], returns: "i32" },
   });

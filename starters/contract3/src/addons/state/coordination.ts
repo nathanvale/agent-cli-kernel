@@ -14,9 +14,10 @@ import type { FlockResult } from "./linux-flock.ts";
 // <sys/fcntl.h>: O_EXLOCK 0x00000020. Only Darwin gives it lock meaning.
 const darwinExclusiveLock = 0x20;
 // O_CLOEXEC, set by the route itself (accepted decision BN-03, 17 November
-// 2026). Bun's node:fs adds it only from 1.4.3, and a child started outside
-// Bun.spawn inherits a descriptor without it and keeps the lock after its
-// owner dies. Darwin <sys/fcntl.h>; Linux <asm-generic/fcntl.h>.
+// 2026). Bun's node:fs leaves it off on 1.4.0 and 1.4.2 (observed) and sets
+// it on 1.4.4, and a child started outside Bun.spawn inherits a descriptor
+// without it and keeps the lock after its owner dies.
+// Darwin <sys/fcntl.h>; Linux <asm-generic/fcntl.h>.
 const darwinCloseOnExec = 0x01000000;
 const linuxCloseOnExec = 0o2000000;
 

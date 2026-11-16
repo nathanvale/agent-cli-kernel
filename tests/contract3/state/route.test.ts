@@ -250,9 +250,9 @@ caseTest("C01.e-spawned-child-does-not-hold", async () => {
   expect(addon.childAlive).toBe(true);
   expect(addon.result).toBe("acquired");
   // A child the C library starts inherits every descriptor that is not
-  // close-on-exec. Without the route's own flag this fails only on Bun
-  // before 1.4.3; the supported runtime is the pinned 1.4.4, which sets the
-  // flag too, so here it guards against a Bun that stops setting it.
+  // close-on-exec. Without the route's own flag this was seen failing on
+  // Bun 1.4.0 and 1.4.2; the supported runtime is the pinned 1.4.4, which
+  // sets the flag too, so here it guards against a Bun that stops setting it.
   const native = await childObservation("addon", "native-child");
   expect(native.childAlive).toBe(true);
   expect(native.result).toBe("acquired");
