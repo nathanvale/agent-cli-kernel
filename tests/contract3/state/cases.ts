@@ -46,6 +46,9 @@ const component = {
   layer: "component",
   platform: "any",
 } as const;
+// A component case that needs a real admitted transaction, so the qualified
+// coordination primitive.
+const transactionComponent = { ...component, platform: "darwin" } as const;
 const unqualified = {
   status: "pending",
   supplier: "qualification",
@@ -853,7 +856,7 @@ export const stateCases: readonly StateCase[] = [
   // B: supporting, start admission and emergency record (outcome 7)
   {
     id: "B01.a-admit-start-active-effect",
-    ...component,
+    ...transactionComponent,
     sources: "CMD-14; V-21",
     observation:
       "admitStart for the current run and active effect appends delegate-admitted before calling start.",
@@ -861,7 +864,7 @@ export const stateCases: readonly StateCase[] = [
   },
   {
     id: "B02.a-admit-start-after-close-rejected",
-    ...component,
+    ...transactionComponent,
     sources: "CMD-14; GATE-7 K3",
     observation:
       "A retained capability used after its effect closed is rejected before start is called.",
@@ -869,7 +872,7 @@ export const stateCases: readonly StateCase[] = [
   },
   {
     id: "B03.a-admit-start-wrong-run-or-effect",
-    ...component,
+    ...transactionComponent,
     sources: "CMD-14",
     observation:
       "Wrong run identity or wrong effect is rejected before start is called.",
@@ -877,7 +880,7 @@ export const stateCases: readonly StateCase[] = [
   },
   {
     id: "B04.a-emergency-record",
-    ...component,
+    ...transactionComponent,
     sources: "LIFE-6a",
     observation:
       "emergencyRecord appends one emergency event to the active operation, at most once, and never throws.",
@@ -885,7 +888,7 @@ export const stateCases: readonly StateCase[] = [
   },
   {
     id: "B05.a-closing-waits-for-admitted-start",
-    ...component,
+    ...transactionComponent,
     sources: "CMD-14; T2 P04",
     observation:
       "An admitted start in flight delays the effect's read-back until it settles; a start requested after closing began is rejected.",

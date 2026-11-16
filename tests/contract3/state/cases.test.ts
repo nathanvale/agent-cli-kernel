@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { stateCases } from "./cases.ts";
+import { caseTest } from "./harness.ts";
 
 const briefFamilies = [
   ...["J01", "J02", "J03", "J04", "J05", "J06", "J07"],
@@ -63,7 +64,7 @@ test("the frozen T3 case table keeps its admitted identities and counts", () => 
 
 // Q01.c (REC-8): every frozen transition maps to at least one case identity,
 // and every identity the design names exists in this table.
-test("Q01.c-transitions-mapped", async () => {
+caseTest("Q01.c-transitions-mapped", async () => {
   const design = await Bun.file(
     new URL(
       "../../../starters/contract3/src/addons/state/DESIGN.md",
@@ -89,4 +90,31 @@ test("Q01.c-transitions-mapped", async () => {
       (_, index) => `X${String(index + 1).padStart(2, "0")}`,
     ),
   );
+});
+
+// Every executable case is registered exactly once through caseTest, and no
+// pending case is claimed. Bun reports each registered case by its identity.
+test("every executable case is registered once and no pending case is claimed", async () => {
+  const files = [
+    "cases.test.ts",
+    "journal.test.ts",
+    "recovery.test.ts",
+    "coordination.test.ts",
+    "transient.test.ts",
+    "component.test.ts",
+  ];
+  const sources = await Promise.all(
+    files.map((name) => Bun.file(new URL(name, import.meta.url)).text()),
+  );
+  const registered = sources.flatMap((source) =>
+    [...source.matchAll(/caseTest\(\s*"([^"]+)"/g)].map(
+      (match) => match[1] ?? "",
+    ),
+  );
+  const executable = stateCases
+    .filter((row) => row.status === "executable")
+    .map((row) => row.id)
+    .sort();
+  expect([...registered].sort()).toEqual(executable);
+  expect(new Set(registered).size).toBe(registered.length);
 });

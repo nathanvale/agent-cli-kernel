@@ -29,9 +29,12 @@
     "starters/contract3/src/kernel/index.ts",
     "starters/contract3/src/kernel/pattern-worker.ts",
     "starters/contract3/src/addons/programs/index.ts",
+    "starters/contract3/src/addons/state/index.ts",
+    "starters/contract3/src/addons/state/fixture.ts",
     "tests/contract3/lifecycle/fixtures/fault-cli.ts",
     "tests/contract3/lifecycle/fixtures/canary-cli.ts",
     "tests/contract3/lifecycle/fixtures/declining-host.ts",
+    "tests/contract3/state/fixtures/specimen.ts",
     "tests/contract3/locks/fixtures.ts"
   ]
 }
