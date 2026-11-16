@@ -54,77 +54,14 @@
       "file": "starters/contract3/src/addons/approval/index.ts",
       "term": "Composer / Composition",
       "surface": "comment",
-      "text": "index (CMD-17). The host composition creates one instance per run and",
-      "count": 1
-    },
-    {
-      "file": "starters/contract3/src/addons/approval/index.ts",
-      "term": "Composer / Composition",
-      "surface": "comment",
       "text": "the host composition (the descriptor it gives contractFor) or the state",
       "count": 1
     },
     {
-      "file": "starters/contract3/src/addons/approval/index.ts",
-      "term": "Outcome",
-      "surface": "comment",
-      "text": "Human authority for unknown-outcome closure (REC-5) and stop",
-      "count": 1
-    },
-    {
-      "file": "starters/contract3/src/addons/approval/index.ts",
-      "term": "State add-on factory and instance",
-      "surface": "comment",
-      "text": "(K2). That needs the state installation's opaque descriptor, which this",
-      "count": 1
-    },
-    {
-      "file": "starters/contract3/src/addons/approval/index.ts",
-      "term": "State add-on factory and instance",
-      "surface": "comment",
-      "text": "- runtime(state): the consuming runtime, bound to the state installation",
-      "count": 1
-    },
-    {
-      "file": "starters/contract3/src/addons/approval/index.ts",
-      "term": "State add-on factory and instance",
-      "surface": "comment",
-      "text": "attachment is current and active. A look-alike or another installation's",
-      "count": 1
-    },
-    {
-      "file": "starters/contract3/src/addons/approval/index.ts",
-      "term": "State add-on factory and instance",
-      "surface": "comment",
-      "text": "consume takes the descriptor of the state installation that issued the",
-      "count": 1
-    },
-    {
-      "file": "starters/contract3/src/addons/approval/index.ts",
-      "term": "State add-on factory and instance",
-      "surface": "comment",
-      "text": "held ExclusiveScope that `state`'s installation issued for this run's",
-      "count": 1
-    },
-    {
-      "file": "starters/contract3/src/addons/approval/index.ts",
-      "term": "State add-on factory and instance",
-      "surface": "comment",
-      "text": "issued, for this run, from `state`'s installation, while that run's",
-      "count": 1
-    },
-    {
-      "file": "starters/contract3/src/addons/approval/ledger.ts",
+      "file": "starters/contract3/src/addons/approval/store.ts",
       "term": "Approval store",
       "surface": "internal-identifier",
       "text": "ledger",
-      "count": 1
-    },
-    {
-      "file": "starters/contract3/src/addons/approval/read.ts",
-      "term": "Coordinator",
-      "surface": "comment",
-      "text": "into a denial or an admission (coordinator A04 caution).",
       "count": 1
     },
     {
@@ -318,9 +255,23 @@
     },
     {
       "file": "starters/contract3/src/kernel/lifecycle.ts",
+      "term": "Closure and settled case",
+      "surface": "comment",
+      "text": "so a deadline also bounds this settlement; undefined means it expired.",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/lifecycle.ts",
       "term": "Composer / Composition",
       "surface": "visible-text",
       "text": "runProcess needs a contract composed by contractFor.",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/lifecycle.ts",
+      "term": "Coordinator",
+      "surface": "comment",
+      "text": "Provisional reading (coordinator ruling, 16 November 2026; DIAG-1's",
       "count": 1
     },
     {
@@ -343,6 +294,27 @@
       "surface": "internal-identifier",
       "text": "dispatched",
       "count": 2
+    },
+    {
+      "file": "starters/contract3/src/kernel/lifecycle.ts",
+      "term": "Handler entry",
+      "surface": "comment",
+      "text": "run was dispatched, so a usage or approval refusal and a deadline before",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/lifecycle.ts",
+      "term": "Handler entry",
+      "surface": "comment",
+      "text": "the run was dispatched, or for any refusal under the other reading, when",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/process-types.ts",
+      "term": "Handler entry",
+      "surface": "comment",
+      "text": "dispatched, before the handler, so a status exists even when the handler",
+      "count": 1
     },
     {
       "file": "starters/contract3/src/kernel/registration.ts",
@@ -471,6 +443,20 @@
       "count": 1
     },
     {
+      "file": "tests/contract3/diagnostics/absence.test.ts",
+      "term": "Test harness",
+      "surface": "comment",
+      "text": "itself and the harness's own files.",
+      "count": 1
+    },
+    {
+      "file": "tests/contract3/diagnostics/limits.test.ts",
+      "term": "Test harness",
+      "surface": "comment",
+      "text": "come from t5-cases.json (DIAG-9); disk truth from the harness's own reader.",
+      "count": 1
+    },
+    {
       "file": "tests/contract3/kernel-repair/admission.test.ts",
       "term": "Handler entry",
       "surface": "comment",
@@ -506,6 +492,13 @@
       "count": 1
     },
     {
+      "file": "tests/contract3/lifecycle/fixtures/status-cli.ts",
+      "term": "Handler entry",
+      "surface": "comment",
+      "text": "P3-style clock jump for a deadline that passed before dispatch.",
+      "count": 1
+    },
+    {
       "file": "tests/contract3/lifecycle/harness.ts",
       "term": "Test harness",
       "surface": "comment",
@@ -517,6 +510,13 @@
       "term": "Accepted decision",
       "surface": "comment",
       "text": "B3.02: the runtime denial carries the binding default words.",
+      "count": 1
+    },
+    {
+      "file": "tests/contract3/lifecycle/lifecycle.test.ts",
+      "term": "Closure and settled case",
+      "surface": "comment",
+      "text": "also bounds the settlement of owned programs after the handler returns.",
       "count": 1
     },
     {

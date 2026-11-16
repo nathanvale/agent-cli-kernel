@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "glossary": "Linear 'Agent ecosystem glossary (living)', as of 16 November 2026 14:42 AEDT (19 code terms accepted; 'Possible results:' accepted)",
+  "glossary": "Linear 'Agent ecosystem glossary (living)', as of 16 November 2026 14:42 AEDT (19 code terms accepted; 'Possible results:' accepted; the diagnostics add-on's allocation lock is a third, qualified lock)",
   "owner": "Read by tests/glossary/glossary.test.ts. Wire names are never listed here; the check skips them by shape.",
   "scope": [
     "starters/contract3/src/**/*.{ts,mts,cts,md}",
@@ -229,13 +229,14 @@
         "held-lock",
         "compile-time lock",
         "compiler lock",
-        "lockfile"
+        "lockfile",
+        "allocation lock"
       ],
       "avoid": [
         {
-          "pattern": "(?<![.\\w-])(?<!coordination )(?<!admission )(?<!compile-time )(?<!compiler )\\block\\b(?!file)",
+          "pattern": "(?<![.\\w-])(?<!coordination )(?<!admission )(?<!allocation )(?<!compile-time )(?<!compiler )\\block\\b(?!file)",
           "surfaces": ["visible-text"],
-          "message": "Qualify the lock: coordination lock, admission lock or compile-time lock."
+          "message": "Qualify the lock: coordination lock, admission lock, allocation lock (diagnostics only) or compile-time lock."
         }
       ]
     },
