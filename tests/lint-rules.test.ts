@@ -334,6 +334,17 @@ const refused = [
     ],
     lines: [2, 3, 4],
   },
+  {
+    rule: "cause-literal-owner",
+    witness: "local literal union",
+    filePath: "starters/contract3/src/kernel/routing.ts",
+    code: [
+      'type LocalCode = "INTERNAL_PREPARATION";',
+      'export const code: LocalCode = "INTERNAL_PREPARATION";',
+      'export const same = (local: LocalCode) => local === "INTERNAL_PREPARATION";',
+    ],
+    lines: [2, 3],
+  },
 ];
 
 for (const item of refused)

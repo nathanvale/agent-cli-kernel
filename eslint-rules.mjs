@@ -295,17 +295,27 @@ export default {
           checker,
           `${root}/kernel/causes.ts`,
         );
-        const closed = (node) =>
-          node !== undefined && closedStrings(services.getTypeAtLocation(node));
-        // The compiler already ties a literal whose place, or whose
-        // comparison partner, accepts only listed string literals.
-        const tied = (node) => {
-          const contextual = checker.getContextualType(
-            services.esTreeNodeToTSNodeMap.get(node),
+        // A closed literal union that holds every owner key is the owner's
+        // keyof or built from it, so renaming a key breaks the literal. A
+        // local union that copies some keys does not.
+        const ownerTyped = (type) =>
+          type !== undefined &&
+          closedStrings(type) &&
+          [...keys].every((key) =>
+            members(type).some(
+              (part) => part.isStringLiteral() && part.value === key,
+            ),
           );
+        const tied = (node) => {
+          const partner = partners[node.parent.type]?.(node.parent, node);
           return (
-            (contextual !== undefined && closedStrings(contextual)) ||
-            closed(partners[node.parent.type]?.(node.parent, node))
+            ownerTyped(
+              checker.getContextualType(
+                services.esTreeNodeToTSNodeMap.get(node),
+              ),
+            ) ||
+            (partner !== undefined &&
+              ownerTyped(services.getTypeAtLocation(partner)))
           );
         };
         const judged = (node) =>
