@@ -117,7 +117,7 @@ export async function materialise(): Promise<string> {
   return root;
 }
 
-// Lint and type-check of a materialised tree are the slowest children; their
+// Lint and type-check (not driver runs) are the slowest children; their
 // bound stays below fixture-lint's 120,000 ms test timeout so a hang is
 // still released (S5, S10).
 const treeBound = 110_000;
@@ -129,9 +129,11 @@ function spawnText(argv: readonly string[], cwd: string) {
 export async function stateFixture(name: string): Promise<unknown> {
   const root = await materialise();
   try {
-    const run = await spawnText(
+    // A driver run is bounded by exitBound (20,000 ms), below runFamily's
+    // 30,000 ms test timeout, so a hung driver is released (delta F5).
+    const run = await spawnBounded(
       [process.execPath, "tests/contract3/kernel-repair/driver.ts", name],
-      root,
+      { cwd: root },
     );
     expect({ exit: run.exit, stderr: run.stderr }).toEqual({
       exit: 0,

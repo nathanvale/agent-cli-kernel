@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { selectingLoad } from "./swarm-commands.ts";
@@ -141,10 +141,13 @@ async function approvalRun(env: Readonly<Record<string, string>>) {
   const directory = await mkdtemp(join(tmpdir(), "contract3-swarm-approval-"));
   try {
     const ledger = join(directory, "ledger.txt");
+    // An empty grant store is an existing, empty directory (delta F7).
+    const store = join(directory, "store");
+    await mkdir(store);
     const observed = await runScenario("inspect-approval", ["read", "--json"], {
       ...env,
       LEDGER: ledger,
-      ...(env.GRANTS === "" ? { GRANTS: join(directory, "store") } : {}),
+      ...(env.GRANTS === "" ? { GRANTS: store } : {}),
     });
     const lines = (await readFile(ledger, "utf8").catch(() => ""))
       .split("\n")

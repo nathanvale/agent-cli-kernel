@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { materialise } from "./harness.ts";
@@ -234,10 +234,11 @@ test(
           .filter((line) => line !== "");
         return { child, lines };
       };
-      // The shipped approval add-on over an empty grant store denies.
-      const denied = await attempt("denied", {
-        GRANTS: join(ledgers, "store"),
-      });
+      // The shipped approval add-on over an empty grant store (an existing,
+      // empty directory; delta F7) denies.
+      const store = join(ledgers, "store");
+      await mkdir(store);
+      const denied = await attempt("denied", { GRANTS: store });
       expect({ exit: denied.child.exit, stderr: denied.child.stderr }).toEqual({
         exit: 3,
         stderr: "",
