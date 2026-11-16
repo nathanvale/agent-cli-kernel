@@ -87,3 +87,33 @@ test(
   },
   processTimeout,
 );
+
+test(
+  "X-K2S1.proof-single-read: a proof is built from the one observation read it was validated on",
+  async () => {
+    // WIRE-12: `unchanged` means completed is empty, a confirmed no-change;
+    // CMD-10a: a handler cannot assert a transaction state. An observation
+    // that reads `completed` then `unchanged` must not yield a proof that
+    // lets the HELD refusal print with empty effects.
+    const shifting = await run("proof-accessor", ["apply", "--json"]);
+    expect({ exit: shifting.exit, stderr: shifting.stderr }).toEqual({
+      exit: 1,
+      stderr: "",
+    });
+    expect(shifting.result).toMatchObject({
+      commandIdentity: "specimen.apply",
+      outcome: "failed",
+    });
+    expect(String(shifting.result?.causeCode)).toStartWith("INTERNAL_RESULT_");
+    // Twin: a steady unchanged observation admits the HELD refusal.
+    const steady = await run("proof-steady", ["apply", "--json"]);
+    expect(steady.exit).toBe(3);
+    expect(steady.result).toMatchObject({
+      commandIdentity: "specimen.apply",
+      causeCode: "HELD",
+      outcome: "refused",
+      transactionState: "unchanged",
+    });
+  },
+  processTimeout,
+);

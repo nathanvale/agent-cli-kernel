@@ -182,11 +182,15 @@ function stateIssuer(
       runId: string,
       observation: StateObservation<Effect>,
     ): TransactionProof<Effect> {
+      // Read the installer's observation exactly once; the proof is built
+      // from the same plain copy that was validated, so an accessor cannot
+      // report one state to the check and another to the proof (K2-spec-1).
+      const snapshot = structuredClone(observation);
       if (
-        !validEffects(observation.effects) ||
+        !validEffects(snapshot.effects) ||
         !transactionEffects(
-          observation.transactionState,
-          observation.effects,
+          snapshot.transactionState,
+          snapshot.effects,
           "failed",
         )
       )
@@ -199,7 +203,7 @@ function stateIssuer(
       if (!attached || attached.proofState !== undefined)
         throw new Error("One transaction proof per attached run.");
       const proof: TransactionProof<Effect> = {
-        ...structuredClone(observation),
+        ...snapshot,
         [transactionProof]: true,
         runId,
       };
