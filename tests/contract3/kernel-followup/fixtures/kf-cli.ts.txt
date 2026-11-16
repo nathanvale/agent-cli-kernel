@@ -1096,6 +1096,76 @@ function apply2(state: StateAddonDescriptor) {
   });
 }
 
+// KF10: kf.show carries the probe's input (an operand with a pattern,
+// --title, --mode, --count, --flag, deadline support) behind approval, and
+// its handler copies --title into its own message (the host-prose twin).
+// kf.change reads --title and throws before any transaction (the fallback).
+const titleOption = {
+  name: "--title",
+  aliases: [],
+  summary: "Probe title.",
+  required: false,
+  repeatable: false,
+  value: { kind: "string", minLength: 1, maxLength: 12, choices: null, pattern: null },
+} as const;
+const titleOf = (parsed: unknown) => String(Reflect.get(Object(parsed), "--title"));
+const show = command({
+  identity: "kf.show",
+  route: ["show"],
+  summary: "Show one kf value.",
+  input: {
+    ...input,
+    arguments: [
+      {
+        name: "item",
+        summary: "Probe item.",
+        required: false,
+        value: { kind: "string", minLength: 1, maxLength: 12, choices: null, pattern: "[a-z]+" },
+      },
+    ],
+    options: [
+      titleOption,
+      {
+        ...titleOption,
+        name: "--mode",
+        summary: "Probe mode.",
+        value: { kind: "string", minLength: 1, maxLength: 64, choices: ["a", "b"], pattern: null },
+      },
+      { ...titleOption, name: "--count", summary: "Probe count.", value: { kind: "integer", minimum: 1, maximum: 9 } },
+      { ...titleOption, name: "--flag", summary: "Probe flag.", value: null },
+    ],
+  },
+  capabilities: { approval: true },
+  approval: approvalRequest,
+  stations: [success("kf.show")],
+  run: (parsed, context) => {
+    note("handler-entered");
+    return context.result(
+      { commandIdentity: "kf.show", causeCode: "SUCCESS_UNCHANGED" },
+      { message: `Shown ${titleOf(parsed)}.`, data: null, effects: empty },
+    );
+  },
+} as never);
+function change(state: StateAddonDescriptor) {
+  return changing({
+    identity: "kf.change",
+    route: ["change"],
+    summary: "Change kf.e.",
+    input: { ...input, options: [titleOption] },
+    capabilities: {},
+    effectClass: "repository-local",
+    effects: ["kf.e"],
+    ifNoResult: state.ifNoResult,
+    heldLockCause: "KF_HELD",
+    unresolvedCaseCause: "KF_PRIOR",
+    stations: [...coordination("kf.change"), completed("kf.change")],
+    run: (parsed) => {
+      note("handler-entered");
+      throw new Error(`Fixture fault for ${titleOf(parsed)}.`);
+    },
+  } as never);
+}
+
 const scenarios: Readonly<Record<string, (argv: string[]) => Promise<unknown>>> =
   {
     // KF5.a setup B.
@@ -1238,6 +1308,20 @@ const scenarios: Readonly<Record<string, (argv: string[]) => Promise<unknown>>> 
           state,
           installedAddons: ["state"],
         }),
+      )(argv);
+    },
+    // KF10.
+    show: (argv) => {
+      const state = seamState();
+      return runProcess(
+        contractFor({
+          cli: "kf",
+          commands: [show, change(state), pending],
+          causes,
+          state,
+          installedAddons: ["state", "approval"],
+        } as never),
+        { addons: { approval: approvalAddon("kf.show") } },
       )(argv);
     },
     // KF1.e.
