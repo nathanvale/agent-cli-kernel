@@ -12,6 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
+  processWatchdog,
   type SignalAt,
   spawnBounded,
 } from "./contract3/kernel-repair/swarm-process.ts";
@@ -31,8 +32,6 @@ const gitEnv = {
   GIT_COMMITTER_NAME: "Fixture",
   GIT_COMMITTER_EMAIL: "fixture@example.invalid",
 };
-const bound = 15_000;
-const timeout = 20_000;
 const { scripts: production } = (await Bun.file(
   join(repository, "package.json"),
 ).json()) as { scripts: Record<string, string> };
@@ -116,7 +115,6 @@ async function checkCommits(
     {
       cwd: root,
       env: { ...process.env, ...gitEnv, TMPDIR: temporary, ...env },
-      boundMilliseconds: bound,
       ...(signalAt === undefined ? {} : { signalAt }),
     },
   );
@@ -147,7 +145,6 @@ async function paste(root: string, command: string) {
   const run = await spawnBounded(["sh", "-c", command], {
     cwd: root,
     env: { ...process.env, ...gitEnv },
-    boundMilliseconds: bound,
   });
   const output = run.stdout + run.stderr;
   return { exit: run.exit, output, lines: output.split("\n") };
@@ -171,7 +168,7 @@ describe("check:commits", () => {
         `&& (cd ../red-${red.short} && bun install --frozen-lockfile && bun run typecheck && bun run lint)`,
       );
     },
-    timeout,
+    processWatchdog(1),
   );
 
   test(
@@ -211,7 +208,7 @@ describe("check:commits", () => {
         run.lines.filter((line) => line.startsWith("1 of 3 commits are red")),
       ).toHaveLength(1);
     },
-    timeout,
+    processWatchdog(1),
   );
 
   test(
@@ -229,7 +226,7 @@ describe("check:commits", () => {
       expect(rerun).toContain(` ${red.sha}`);
       expect(rerun).not.toContain(fix.sha);
     },
-    timeout,
+    processWatchdog(1),
   );
 
   test(
@@ -253,7 +250,7 @@ describe("check:commits", () => {
         "error: lockfile had changes, but lockfile is frozen",
       );
     },
-    timeout,
+    processWatchdog(1),
   );
 
   test(
@@ -278,7 +275,7 @@ describe("check:commits", () => {
         ),
       ).toHaveLength(1);
     },
-    timeout,
+    processWatchdog(1),
   );
 
   test(
@@ -296,7 +293,7 @@ describe("check:commits", () => {
       expect(run.lines).toContain(`GREEN ${after.short} fixed after since`);
       expect(run.stdout).not.toContain(red.short);
     },
-    timeout,
+    processWatchdog(1),
   );
 
   test(
@@ -317,7 +314,7 @@ describe("check:commits", () => {
         `RED ${red.short} red with no since in the clone`,
       );
     },
-    timeout,
+    processWatchdog(1),
   );
 
   test(
@@ -342,7 +339,7 @@ describe("check:commits", () => {
       expect(run.lines).toContain(`GREEN ${right.short} add right`);
       expect(run.lines).toContain(`RED ${merge} merge side`);
     },
-    timeout,
+    processWatchdog(1),
   );
 
   test(
@@ -359,7 +356,7 @@ describe("check:commits", () => {
       expect(worktrees(root)).toHaveLength(1);
       expect(readdirSync(run.temporary)).toEqual([]);
     },
-    timeout,
+    processWatchdog(1),
   );
 
   test(
@@ -385,7 +382,7 @@ describe("check:commits", () => {
         'error: script "typecheck" exited with code 127',
       );
     },
-    timeout,
+    processWatchdog(1),
   );
 
   test(
@@ -408,7 +405,7 @@ describe("check:commits", () => {
         );
       }
     },
-    timeout,
+    processWatchdog(3),
   );
 
   test(
@@ -429,7 +426,7 @@ describe("check:commits", () => {
       );
       expect(existsSync(join(root, "..", `red-${red.short}`))).toBe(false);
     },
-    timeout,
+    processWatchdog(2),
   );
 
   for (const [signal, exit] of [
@@ -467,7 +464,7 @@ describe("check:commits", () => {
         expect(worktrees(root)).toHaveLength(1);
         expect(readdirSync(run.temporary)).toEqual([]);
       },
-      timeout,
+      processWatchdog(1),
     );
 
   test(
@@ -492,7 +489,7 @@ describe("check:commits", () => {
       );
       expect(worktrees(root)).toHaveLength(1);
     },
-    timeout,
+    processWatchdog(1),
   );
 
   test(
@@ -511,6 +508,6 @@ describe("check:commits", () => {
       );
       expect(verdicts(run.lines)).toEqual([]);
     },
-    timeout,
+    processWatchdog(1),
   );
 });
