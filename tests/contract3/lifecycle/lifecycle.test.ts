@@ -1,4 +1,5 @@
 // T2 lifecycle process cases (L01 to L05, L07 to L12, R02).
+import { appendFile } from "node:fs/promises";
 import { describe, expect, test } from "bun:test";
 import { comparableEnvelope } from "../../../starters/contract3/src/kernel/comparison.ts";
 import { assertEnvelope, authorityDefaults, receipt } from "./checks.ts";
@@ -927,3 +928,34 @@ describe("S01 the stop path's bounds hold when the handler returns in the window
         timeout,
       );
 });
+
+// N2 (round 3 confirmation): release() kills a ledgered pid only while it is
+// still in the process group its ledger names. A pid the OS reused for an
+// unrelated process (here, one in the test runner's own group) is spared.
+test(
+  "N2s.release-kills-only-pids-still-in-their-ledgered-group",
+  async () => {
+    const outside = Bun.spawn(["/bin/sleep", "30"]);
+    const inside = Bun.spawn(["/bin/sleep", "30"], { detached: true });
+    const launched = await launch({ argv: ["read", "--json"] });
+    try {
+      await launched.done;
+      await appendFile(
+        launched.ledgerPath,
+        `child-started ${outside.pid}\nescaped ${inside.pid}\n`,
+      );
+      await release(launched);
+      const ended = await Promise.race([
+        inside.exited.then(() => inside.signalCode),
+        Bun.sleep(2_000).then(() => "still running"),
+      ]);
+      expect(ended).toBe("SIGKILL");
+      expect(alive(outside.pid)).toBe(true);
+      expect(outside.exitCode).toBeNull();
+    } finally {
+      outside.kill("SIGKILL");
+      inside.kill("SIGKILL");
+    }
+  },
+  timeout,
+);
