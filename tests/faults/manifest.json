@@ -1,0 +1,30 @@
+[
+  {
+    "id": "6021454-install",
+    "patch": "tests/faults/patches/6021454-install.patch",
+    "testFile": "tests/contract3/state/component.test.ts",
+    "title": "^NW\\.[ab] ",
+    "source": "6021454 fix(state): refuse a wait limit that is not a number"
+  },
+  {
+    "id": "b456208-json-equality",
+    "patch": "tests/faults/patches/b456208-json-equality.patch",
+    "testFile": "tests/contract3/kernel-repair/equality.test.ts",
+    "title": "^R15\\.",
+    "source": "b456208 fix(contract3): JSON equality sorts keys by code unit, not locale (F16)"
+  },
+  {
+    "id": "e55f94a-framing",
+    "patch": "tests/faults/patches/e55f94a-framing.patch",
+    "testFile": "tests/contract3/state/journal.test.ts",
+    "title": "^J04\\.g-",
+    "source": "e55f94a fix(contract3-state): repair round 1, test seams off the host path and missing controls"
+  },
+  {
+    "id": "1a93f4b-index",
+    "patch": "tests/faults/patches/1a93f4b-index.patch",
+    "testFile": "tests/contract3/kernel-followup/decision-1.test.ts",
+    "title": "^KF1\\.c ",
+    "source": "1a93f4b feat(contract3): refuse an add-on attach fault before handler entry as a preparation fault (KF1)"
+  }
+]
