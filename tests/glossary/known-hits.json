@@ -37,6 +37,20 @@
       "count": 1
     },
     {
+      "file": "starters/contract3/src/kernel/index.ts",
+      "term": "Descriptor",
+      "surface": "visible-text",
+      "text": "State is not in installedAddons, or its descriptor was not created by contractFor.stateAddon.",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/index.ts",
+      "term": "Descriptor",
+      "surface": "visible-text",
+      "text": "State requires the descriptor created by contractFor.stateAddon.",
+      "count": 1
+    },
+    {
       "file": "starters/contract3/src/kernel/lifecycle.ts",
       "term": "Closure and settled case",
       "surface": "comment",
@@ -72,6 +86,13 @@
       "count": 1
     },
     {
+      "file": "tests/contract3/approval/harness.ts",
+      "term": "Test harness",
+      "surface": "comment",
+      "text": "The driver imports the harness for the one adversarial source owner.",
+      "count": 1
+    },
+    {
       "file": "tests/contract3/kernel-repair/admission.test.ts",
       "term": "Handler entry",
       "surface": "comment",
@@ -79,17 +100,73 @@
       "count": 1
     },
     {
+      "file": "tests/contract3/kernel-repair/budget.test.ts",
+      "term": "Test harness",
+      "surface": "comment",
+      "text": "Harness watchdog, not a contract number: a validation that has not answered",
+      "count": 1
+    },
+    {
+      "file": "tests/contract3/kernel-repair/fixtures/repair-shared.ts.txt",
+      "term": "State add-on factory and instance",
+      "surface": "comment",
+      "text": "An installation for admission-only fixtures: it never runs a transaction.",
+      "count": 1
+    },
+    {
+      "file": "tests/contract3/kernel-repair/fixtures/state-repair.ts.txt",
+      "term": "State add-on factory and instance",
+      "surface": "comment",
+      "text": "S4: issuance itself refuses a run this installation never attached, so no",
+      "count": 1
+    },
+    {
       "file": "tests/contract3/kernel-repair/fixtures/state-repair.ts.txt",
       "term": "State add-on factory and instance",
       "surface": "comment",
       "text": "one and present it for another run and to another installation's contract.",
-      "count": 1
+      "count": 2
     },
     {
       "file": "tests/contract3/kernel-repair/fixtures/swarm-state-cli.ts.txt",
       "term": "State add-on factory and instance",
       "surface": "comment",
       "text": "X-S6: a changing command behind approval whose state installation and",
+      "count": 2
+    },
+    {
+      "file": "tests/contract3/kernel-repair/fixtures/swarm-state.ts.txt",
+      "term": "State add-on factory and instance",
+      "surface": "comment",
+      "text": "X-S6: an installation whose attach reports each attachment.",
+      "count": 1
+    },
+    {
+      "file": "tests/contract3/kernel-repair/fixtures/swarm-state.ts.txt",
+      "term": "State add-on factory and instance",
+      "surface": "comment",
+      "text": "installation through the stamped seam, not the T3 state add-on. Callers",
+      "count": 1
+    },
+    {
+      "file": "tests/contract3/kernel-repair/fixtures/swarm-state.ts.txt",
+      "term": "State add-on factory and instance",
+      "surface": "comment",
+      "text": "installation's ifNoResult names it with `--title VALUE`; the handler throws.",
+      "count": 1
+    },
+    {
+      "file": "tests/contract3/kernel-repair/fixtures/swarm-state.ts.txt",
+      "term": "State add-on factory and instance",
+      "surface": "comment",
+      "text": "installation's ifNoResult names it with no arguments; the handler throws.",
+      "count": 1
+    },
+    {
+      "file": "tests/contract3/kernel-repair/swarm-process.ts",
+      "term": "Test harness",
+      "surface": "comment",
+      "text": "Harness watchdog, not a contract number (S10): a test that runs `runs`",
       "count": 1
     },
     {
@@ -101,16 +178,16 @@
     },
     {
       "file": "tests/contract3/kernel-repair/swarm-state.test.ts",
-      "term": "Handler entry",
+      "term": "State add-on factory and instance",
       "surface": "comment",
-      "text": "The lifecycle row \"Deadline before operation dispatch\" (read: before",
-      "count": 1
+      "text": "Swarm-triage expectations that need a state installation (X-K1-4,",
+      "count": 2
     },
     {
       "file": "tests/contract3/kernel-repair/swarm-state.test.ts",
       "term": "State add-on factory and instance",
       "surface": "comment",
-      "text": "Swarm-triage expectations that need a state installation (X-K1-4,",
+      "text": "X-K1-10, X-K2S1, X-K2S2, X-K2S3). The installation is a test-only fixture",
       "count": 1
     },
     {
@@ -131,7 +208,28 @@
       "file": "tests/contract3/lifecycle/harness.ts",
       "term": "Test harness",
       "surface": "comment",
+      "text": "K3-12: how long the harness keeps reading after the CLI exited. A stream",
+      "count": 1
+    },
+    {
+      "file": "tests/contract3/lifecycle/harness.ts",
+      "term": "Test harness",
+      "surface": "comment",
       "text": "Process harness for the T2 slice A cases. It runs the labelled fault-fixture",
+      "count": 1
+    },
+    {
+      "file": "tests/contract3/lifecycle/harness.ts",
+      "term": "Test harness",
+      "surface": "comment",
+      "text": "Set when the harness fitted one operand to the host's argument limits.",
+      "count": 1
+    },
+    {
+      "file": "tests/contract3/lifecycle/harness.ts",
+      "term": "Test harness",
+      "surface": "comment",
+      "text": "table and the harness clock. Expected values come only from t2-cases.json.",
       "count": 1
     },
     {
