@@ -263,8 +263,18 @@ route per platform, behind one interface (`coordination.ts`):
 - Qualified where (observed, never implied beyond it):
   - Darwin: lock probe, 16 November 2026, macOS 26.6, APFS local volume,
     Bun 1.4.4.
-  - Linux: the environments named in the component handback only. The
-    qualification table (section 10) stays empty either way.
+  - Linux, observed 16 November 2026: one environment only, an offline
+    OrbStack container on a Mac mini: Ubuntu 24.04, arm64, kernel
+    `7.2.12-orbstack-00394-gbecdd6130068`, glibc 2.39, Bun 1.4.4
+    (`38afee6c8`), non-root (euid 1000); state roots on overlay (the
+    container root and `/tmp`) and on a btrfs volume; the lock probe also on
+    tmpfs (`/dev/shm`). The hosted `ubuntu-latest` runner (x86_64, its own
+    kernel and filesystems) is not yet observed and is owed before any claim
+    there. Nothing else is implied: other distributions, kernels,
+    architectures, musl, other filesystems, network or shared filesystems,
+    root and namespaces stay unproved.
+  - The qualification table (section 10) stays empty either way:
+    coordination is not stopped-owner qualification.
 
 ### 7.1 Admission ordering (one documented order)
 
