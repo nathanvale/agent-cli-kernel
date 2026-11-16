@@ -1,0 +1,66 @@
+# Test Proof
+
+A test earns its name when it goes **red** for the reason the name gives. The
+global independent-oracle rule applies; this guide lists the ways this
+repository broke it.
+
+## Refusals and bounds
+
+- Assert the exact refusal the named guard produces. An assertion that only
+  something threw stays green when an earlier guard refuses first. Witnessed:
+  [185c90d], [640ba05], [96ab832], [5990897], [c193c51].
+- Pin a bound with a tolerance tighter than the fault it must catch. A
+  first-signal kill at 550 ms passed a 500 ms bound plus its tolerance.
+  Witnessed: [b8760b4], [e07d962], [8485278].
+
+## Production entry
+
+- Build the subject through its production entry (`index.ts`). A test entry
+  such as `fixture.ts` proves the fixture. Witnessed: [e55f94a]; the test
+  audit in the [PR #6] description.
+
+## Planted faults
+
+- For each new refusal or bound, plant one fault that removes it, watch the
+  named test go red, then restore green. Record it as a `RED:` line in the
+  commit body.
+- Treat a surviving fault as a missing test. Witnessed: 42 of 47 planted
+  faults survived every test ([PR #6] description).
+
+## Processes
+
+- Bound every child below its test timeout. Reuse `spawnBounded`
+  (`tests/contract3/kernel-repair/swarm-process.ts`) or `exitWithin`
+  (`tests/contract3/lifecycle/harness.ts`). Witnessed: [e990da6], [4a32366].
+- Release in `finally`: the CLI, then each ledgered child, then the temporary
+  folder. Witnessed: [d592b6d].
+- At teardown, send SIGKILL, and only to a pid still in its ledgered process
+  group. Witnessed: [0ebe7cf], [1a29b19].
+
+## Time
+
+- Wait on an event the subject produces (a ready file, ledger line, or
+  barrier), or drive the fake clock in
+  `tests/contract3/lifecycle/recording-host.ts`. Witnessed: [b077b0b],
+  [4386b03].
+- Widen a race control until it catches its fault on every run. Witnessed:
+  [2b2907a] (caught in 48 of 50 runs before widening).
+
+[PR #6]: https://github.com/nathanvale/bun-typescript-template/pull/6
+[185c90d]: https://github.com/nathanvale/bun-typescript-template/commit/185c90d11dd167ee4874e383ba26cd7d64a70964
+[640ba05]: https://github.com/nathanvale/bun-typescript-template/commit/640ba05881da2694fbdfad9b1d124bd85d36c0e4
+[96ab832]: https://github.com/nathanvale/bun-typescript-template/commit/96ab832e7e7aa6fb992a0762fba6f833c172f800
+[5990897]: https://github.com/nathanvale/bun-typescript-template/commit/5990897fadd6e452119666769b96d72452a197ab
+[c193c51]: https://github.com/nathanvale/bun-typescript-template/commit/c193c5148054184659d921150f714603a72d48d0
+[b8760b4]: https://github.com/nathanvale/bun-typescript-template/commit/b8760b478768ab711252b16f9a4a2c97a0dd6d44
+[e07d962]: https://github.com/nathanvale/bun-typescript-template/commit/e07d962f016dc07ca442724621fd0406084521cc
+[8485278]: https://github.com/nathanvale/bun-typescript-template/commit/8485278bf38a457d7d1823ba98daa153a9bb35a8
+[e55f94a]: https://github.com/nathanvale/bun-typescript-template/commit/e55f94a5b7dcb78f9b25f5d0a723a2196bd8c452
+[e990da6]: https://github.com/nathanvale/bun-typescript-template/commit/e990da67151a9c3b6a0e90c240f7e0860856c4d2
+[4a32366]: https://github.com/nathanvale/bun-typescript-template/commit/4a32366bf79ea95479bda515313b33b849031507
+[d592b6d]: https://github.com/nathanvale/bun-typescript-template/commit/d592b6d1eb13754bd46e041313511e7530e9804e
+[0ebe7cf]: https://github.com/nathanvale/bun-typescript-template/commit/0ebe7cf570b901653e090cb9062d0b438a5c25d1
+[1a29b19]: https://github.com/nathanvale/bun-typescript-template/commit/1a29b19ac6e32452d230dcbf46ccecc4f60223fc
+[b077b0b]: https://github.com/nathanvale/bun-typescript-template/commit/b077b0bc152a2ea1f9d8b17b49ba0cf61435111a
+[4386b03]: https://github.com/nathanvale/bun-typescript-template/commit/4386b03503e12787b7d20062c9ae1b4f6942fbdf
+[2b2907a]: https://github.com/nathanvale/bun-typescript-template/commit/2b2907a6b15e23a3ca8b8111b251ca6c68f467c3
