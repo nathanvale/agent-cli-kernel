@@ -627,17 +627,18 @@ describe("check:commits", () => {
   );
 
   test(
-    "a failed removal never deletes the folder a rewritten .git file points to, and names the registration it leaves",
+    "a failed removal never deletes the sibling registration a rewritten .git file points to",
     async () => {
-      const decoy = folder("check-commits-decoy-");
-      writeFileSync(join(decoy, "keep"), "");
       const { root, base, commit } = repositoryAt({
         scripts: {
           ...markers,
-          typecheck: `test ! -e block || echo 'gitdir: ${decoy}' > .git`,
+          typecheck:
+            'test ! -e block || echo "gitdir: $(git rev-parse --path-format=absolute --git-common-dir)/worktrees/extra" > .git',
         },
       });
-      const blocked = commit("point .git outside the worktrees folder", {
+      const extra = join(dirname(root), "extra");
+      git(root, "worktree", "add", "--quiet", "--detach", extra);
+      const blocked = commit("point .git at a sibling registration", {
         block: "",
       });
 
@@ -648,9 +649,38 @@ describe("check:commits", () => {
 
       expect(run.exit).toBe(0);
       expect(verdicts(run.lines)).toEqual([
-        `GREEN ${blocked.short} point .git outside the worktrees folder`,
+        `GREEN ${blocked.short} point .git at a sibling registration`,
       ]);
-      expect(existsSync(join(decoy, "keep"))).toBe(true);
+      expect(worktrees(root).sort()).toEqual(
+        [root, extra].map((path) => `worktree ${realpathSync(path)}`).sort(),
+      );
+      expect(run.stderr).not.toContain("git worktree remove failed");
+      expect(readdirSync(run.temporary)).toEqual([]);
+    },
+    processWatchdog(1),
+  );
+
+  test(
+    "a failed removal keeps an admin folder that no longer names the worktree, and names the repair",
+    async () => {
+      const { root, base, commit } = repositoryAt({
+        scripts: {
+          ...markers,
+          typecheck:
+            'test ! -e block || echo /elsewhere/.git > "$(git rev-parse --git-dir)/gitdir"',
+        },
+      });
+      const blocked = commit("repoint the admin folder", { block: "" });
+
+      const run = await checkCommits(root, [base.sha], {
+        CHECK_COMMITS_SINCE: base.sha,
+        ...atRemovalOfABlock("exit 1"),
+      });
+
+      expect(run.exit).toBe(0);
+      expect(verdicts(run.lines)).toEqual([
+        `GREEN ${blocked.short} repoint the admin folder`,
+      ]);
       expect(
         run.stderr
           .split("\n")
@@ -658,7 +688,7 @@ describe("check:commits", () => {
             (line) =>
               line.startsWith("git worktree remove failed for ") &&
               line.endsWith(
-                "so its registration stays. Repair: git worktree prune",
+                "no longer names it, so that registration stays. Repair: git worktree prune",
               ),
           ),
       ).toHaveLength(1);
