@@ -33,6 +33,13 @@ const timeout = 20_000;
 const { scripts: production } = (await Bun.file(
   join(repository, "package.json"),
 ).json()) as { scripts: Record<string, string> };
+// A lockfile that still lists a dependency its manifest dropped. Only
+// `--frozen-lockfile` refuses it, and it needs no network.
+const staleLockfile = JSON.stringify({
+  lockfileVersion: 1,
+  workspaces: { "": { dependencies: { dep: "file:./dep" } } },
+  packages: { dep: ["dep@file:dep", {}] },
+});
 const markers = {
   typecheck: "test ! -e type-error",
   lint: "test ! -e lint-error",
@@ -113,6 +120,10 @@ async function checkCommits(
   return { ...run, temporary, lines: run.stdout.split("\n") };
 }
 
+function verdicts(lines: readonly string[]): string[] {
+  return lines.filter((line) => /^(GREEN|RED) /.test(line));
+}
+
 function rerunOf(lines: readonly string[]): string {
   const line = lines.find((each) => each.startsWith("Rerun locally: "));
   if (line === undefined) throw new Error("No Rerun locally line.");
@@ -151,29 +162,89 @@ describe("check:commits", () => {
   );
 
   test(
-    "a later fix commit does not hide the earlier red commit",
+    "a commit that fails the real TypeScript compiler stays red after a later fix",
     async () => {
-      const { root, base, commit } = repositoryAt();
-      const red = commit("add a type error", { "type-error": "" });
-      const fix = commit("remove the type error", { "type-error": null });
+      const { root, base, commit } = repositoryAt({
+        scripts: {
+          ...markers,
+          typecheck: `"${join(repository, "node_modules/.bin/tsc")}" --noEmit typed.ts`,
+        },
+      });
+      const green = commit("type a number", {
+        "typed.ts": "export const count: number = 1;\n",
+      });
+      const red = commit("assign a string to the number", {
+        "typed.ts": 'export const count: number = "one";\n',
+      });
+      const fix = commit("assign a number again", {
+        "typed.ts": "export const count: number = 2;\n",
+      });
 
       const run = await checkCommits(root, [base.sha], {
         CHECK_COMMITS_SINCE: base.sha,
       });
 
       expect(run.exit).toBe(1);
-      expect(run.lines).toContain(`RED ${red.short} add a type error`);
+      expect(run.lines).toContain(`GREEN ${green.short} type a number`);
+      expect(run.lines).toContain(
+        `RED ${red.short} assign a string to the number`,
+      );
       expect(run.lines).toContain("Failed: bun run typecheck");
-      expect(run.lines).toContain(`GREEN ${fix.short} remove the type error`);
+      expect(run.lines).toContain(
+        "typed.ts(1,14): error TS2322: Type 'string' is not assignable to type 'number'.",
+      );
+      expect(run.lines).toContain(`GREEN ${fix.short} assign a number again`);
       expect(
-        run.lines.filter((line) => line.startsWith("1 of 2 commits are red")),
+        run.lines.filter((line) => line.startsWith("1 of 3 commits are red")),
       ).toHaveLength(1);
     },
     timeout,
   );
 
   test(
-    "a clean range exits 0 with a one-line summary",
+    "the rerun checks out the red commit, not the head that fixed it",
+    async () => {
+      const { root, base, commit } = repositoryAt();
+      const red = commit("add a type error", { "type-error": "" });
+      commit("remove the type error", { "type-error": null });
+
+      const run = await checkCommits(root, [base.sha], {
+        CHECK_COMMITS_SINCE: base.sha,
+      });
+
+      expect(rerunOf(run.lines)).toContain(
+        `git worktree add --detach ../red-${red.short} ${red.sha};`,
+      );
+    },
+    timeout,
+  );
+
+  test(
+    "a commit whose lockfile does not match its manifest is red at bun install --frozen-lockfile",
+    async () => {
+      const { root, base, commit } = repositoryAt();
+      const red = commit("keep a lockfile for a removed dependency", {
+        "bun.lock": staleLockfile,
+      });
+
+      const run = await checkCommits(root, [base.sha], {
+        CHECK_COMMITS_SINCE: base.sha,
+      });
+
+      expect(run.exit).toBe(1);
+      expect(run.lines).toContain(
+        `RED ${red.short} keep a lockfile for a removed dependency`,
+      );
+      expect(run.lines).toContain("Failed: bun install --frozen-lockfile");
+      expect(run.lines).toContain(
+        "error: lockfile had changes, but lockfile is frozen",
+      );
+    },
+    timeout,
+  );
+
+  test(
+    "a clean range is reported oldest first and exits 0 with a one-line summary",
     async () => {
       const { root, base, commit } = repositoryAt();
       const first = commit("first green", { "a.txt": "a" });
@@ -184,9 +255,10 @@ describe("check:commits", () => {
       });
 
       expect(run.exit).toBe(0);
-      expect(run.lines).toContain(`GREEN ${first.short} first green`);
-      expect(run.lines).toContain(`GREEN ${second.short} second green`);
-      expect(run.lines.some((line) => line.startsWith("RED "))).toBe(false);
+      expect(verdicts(run.lines)).toEqual([
+        `GREEN ${first.short} first green`,
+        `GREEN ${second.short} second green`,
+      ]);
       expect(
         run.lines.filter((line) =>
           line.startsWith("Checked 2 commits: all green"),
@@ -236,13 +308,15 @@ describe("check:commits", () => {
   );
 
   test(
-    "a merge commit in the range is checked and named",
+    "a merge commit is checked at its own tree, not at a parent",
     async () => {
-      const { root, base, commit } = repositoryAt();
+      const { root, base, commit } = repositoryAt({
+        scripts: { ...markers, lint: "test ! -e left -o ! -e right" },
+      });
       git(root, "switch", "--quiet", "--create", "side");
-      commit("side green", { "side.txt": "side" });
+      const left = commit("add left", { left: "" });
       git(root, "switch", "--quiet", "main");
-      commit("main green", { "main.txt": "main" });
+      const right = commit("add right", { right: "" });
       git(root, "merge", "--quiet", "--no-ff", "-m", "merge side", "side");
       const merge = git(root, "rev-parse", "--short", "HEAD");
 
@@ -250,8 +324,10 @@ describe("check:commits", () => {
         CHECK_COMMITS_SINCE: base.sha,
       });
 
-      expect(run.exit).toBe(0);
-      expect(run.lines).toContain(`GREEN ${merge} merge side`);
+      expect(run.exit).toBe(1);
+      expect(run.lines).toContain(`GREEN ${left.short} add left`);
+      expect(run.lines).toContain(`GREEN ${right.short} add right`);
+      expect(run.lines).toContain(`RED ${merge} merge side`);
     },
     timeout,
   );
@@ -361,7 +437,7 @@ describe("check:commits", () => {
       expect(run.lines).toContain(
         `FAIL bun: found Bun ${Bun.version}, pinned 0.0.1. Repair: install Bun 0.0.1 (mise install bun@0.0.1, or setup-bun in CI), then bun install --frozen-lockfile.`,
       );
-      expect(run.lines.some((line) => /^(GREEN|RED) /.test(line))).toBe(false);
+      expect(verdicts(run.lines)).toEqual([]);
     },
     timeout,
   );
