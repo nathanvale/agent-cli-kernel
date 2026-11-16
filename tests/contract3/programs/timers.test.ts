@@ -13,7 +13,8 @@ import {
   programsAddon,
 } from "../../../starters/contract3/src/addons/programs/index.ts";
 import type { ProgramResult } from "../../../starters/contract3/src/kernel/index.ts";
-import { alive } from "../lifecycle/harness.ts";
+import { alive, firstPid } from "../lifecycle/harness.ts";
+import { overLimitBoundary, timerLimit } from "../lifecycle/oracle.ts";
 import {
   advance,
   realPause,
@@ -23,7 +24,6 @@ import {
 } from "../lifecycle/recording-host.ts";
 
 const timeout = 30_000;
-const timerLimit = 2_147_483_647;
 // The add-on polls a stopping group every 10 ms.
 const pollLatency = 10;
 // Under fake time a timer fires at exactly its due time; any rounding, extra
@@ -60,23 +60,29 @@ async function startUnderFakeTime(
   jest.useFakeTimers();
   const attached = programsAddon().attach(control());
   let result: ProgramResult | undefined;
-  void attached.capability
-    .inspect(shell(script(ledger), durations))
-    .then((value) => {
+  let failure: unknown;
+  void attached.capability.inspect(shell(script(ledger), durations)).then(
+    (value) => {
       result = value;
-    });
+    },
+    (error: unknown) => {
+      failure = error;
+    },
+  );
   const lines = () =>
     existsSync(ledger) ? readFileSync(ledger, "utf8").split("\n") : [];
-  const pid = (prefix: string) => {
-    const line = lines().find((entry) => entry.startsWith(`${prefix} `));
-    const value = line ? Number(line.split(" ")[1]) : Number.NaN;
-    return Number.isSafeInteger(value) && value > 0 ? value : undefined;
-  };
+  const pid = (prefix: string) => firstPid(lines(), prefix);
   return {
     ledger,
     lines,
     pid,
-    outcome: () => result,
+    outcome: () => {
+      if (failure !== undefined)
+        throw new Error("The program request was rejected.", {
+          cause: failure,
+        });
+      return result;
+    },
     async cleanup() {
       jest.useRealTimers();
       for (const prefix of ["child-started", "escaped"]) {
@@ -171,16 +177,18 @@ async function drainExpiry(value: number) {
 }
 
 describe("T05 program timers expire only after a duration above the timer limit (finding 1)", () => {
-  test(
-    "T05.program-timers-expiry-above-limit timeout 3000000000",
-    () => timeoutExpiry(3_000_000_000),
-    timeout,
-  );
-  test(
-    "T05.program-timers-expiry-above-limit drain 3000000000",
-    () => drainExpiry(3_000_000_000),
-    timeout,
-  );
+  for (const value of overLimitBoundary) {
+    test(
+      `T05.program-timers-expiry-above-limit timeout ${value}`,
+      () => timeoutExpiry(value),
+      timeout,
+    );
+    test(
+      `T05.program-timers-expiry-above-limit drain ${value}`,
+      () => drainExpiry(value),
+      timeout,
+    );
+  }
 });
 
 describe("T06 small program timers keep their exact timing (finding 1)", () => {
