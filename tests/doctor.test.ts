@@ -186,6 +186,10 @@ describe("test:area", () => {
       'import { test } from "bun:test";\ntest("chosen case", () => {});\ntest("other case", () => {});\n',
     "tests/contract3/probe-seam.test.ts":
       'import { test } from "bun:test";\ntest("chosen seam case", () => {});\n',
+    "tests/first.test.ts":
+      'import { test } from "bun:test";\ntest("first root case", () => {});\n',
+    "tests/second.test.ts":
+      'import { test } from "bun:test";\ntest("second root case", () => {});\n',
   };
 
   test("an unknown area exits 2 listing the areas found on disk from any working directory", () => {
@@ -194,7 +198,7 @@ describe("test:area", () => {
 
     expect(result.exitCode).toBe(2);
     expect(result.stderr).toBe(
-      'Usage: bun run test:area <area> [bun test options]. Unknown area "nope". Valid areas: kernel, probe.\n',
+      'Usage: bun run test:area <area> [bun test options]. Unknown area "nope". Valid areas: kernel, probe, template.\n',
     );
   });
 
@@ -209,5 +213,13 @@ describe("test:area", () => {
     expect(result.stderr).toContain(" 1 pass\n");
     expect(result.stderr).toContain(" 1 filtered out\n");
     expect(result.stderr).toContain("Ran 1 test across 1 file.");
+  });
+
+  test("the template area runs only the test files directly under tests", () => {
+    const result = run(withToolchain("6.0.2", probe), testArea, ["template"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toContain(" 2 pass\n");
+    expect(result.stderr).toContain("Ran 2 tests across 2 files.");
   });
 });

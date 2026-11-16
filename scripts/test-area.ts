@@ -1,4 +1,4 @@
-import { existsSync, readdirSync } from "node:fs";
+import { type Dirent, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { doctor } from "./doctor.ts";
 
@@ -17,22 +17,27 @@ function holdsTests(directory: string): boolean {
   );
 }
 
-function areas(root: string): Map<string, string[]> {
-  const entries = existsSync(join(root, contract3))
-    ? readdirSync(join(root, contract3), { withFileTypes: true })
+function entries(directory: string): Dirent[] {
+  return existsSync(directory)
+    ? readdirSync(directory, { withFileTypes: true })
     : [];
+}
+
+function testFiles(root: string, directory: string): string[] {
+  return entries(join(root, directory))
+    .filter((entry) => entry.isFile() && isTest(entry.name))
+    .map((entry) => `./${directory}/${entry.name}`);
+}
+
+function areas(root: string): Map<string, string[]> {
   const candidates: [string, string[]][] = [
-    [
-      "kernel",
-      entries
-        .filter((entry) => entry.isFile() && isTest(entry.name))
-        .map((entry) => `./${contract3}/${entry.name}`),
-    ],
+    ["template", testFiles(root, "tests")],
+    ["kernel", testFiles(root, contract3)],
     [
       "glossary",
       holdsTests(join(root, "tests/glossary")) ? ["./tests/glossary"] : [],
     ],
-    ...entries
+    ...entries(join(root, contract3))
       .filter(
         (entry) =>
           entry.isDirectory() && holdsTests(join(root, contract3, entry.name)),
