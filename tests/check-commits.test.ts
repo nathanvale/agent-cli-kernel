@@ -263,8 +263,8 @@ describe("check:commits", () => {
       });
 
       expect(run.exit).toBe(1);
-      expect(run.lines).toContain(
-        `FAIL bun: found Bun ${Bun.version}, pinned 0.0.1. Repair: install Bun 0.0.1 (mise install bun@0.0.1, or setup-bun in CI), then bun install --frozen-lockfile.`,
+      expect(run.stdout).toContain(
+        `FAIL bun: found Bun ${Bun.version}, pinned 0.0.1. Repair: `,
       );
       expect(run.lines.some((line) => /^(GREEN|RED) /.test(line))).toBe(false);
     },

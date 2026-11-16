@@ -90,7 +90,18 @@ describe("doctor", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.lines).toContain(
-      `FAIL bun: found Bun ${Bun.version}, pinned 0.0.1. Repair: install Bun 0.0.1 (mise install bun@0.0.1, or setup-bun in CI), then bun install --frozen-lockfile.`,
+      `FAIL bun: found Bun ${Bun.version}, pinned 0.0.1. Repair: mise exec bun@0.0.1 -- <your command>, or open a new shell, if Bun 0.0.1 is installed and another Bun is first on PATH. Otherwise install Bun 0.0.1 (mise install bun@0.0.1, or setup-bun in CI), then bun install --frozen-lockfile.`,
+    );
+  });
+
+  test("the Bun repair names the mise exec route before the install route", () => {
+    const result = run(project({ packageManager: "bun@0.0.1" }), doctor);
+    const repair = result.lines
+      .find((line) => line.startsWith("FAIL bun: "))
+      ?.split("Repair: ")[1];
+
+    expect(repair).toMatch(
+      /^mise exec bun@0\.0\.1 -- <your command>.*mise install bun@0\.0\.1/,
     );
   });
 
