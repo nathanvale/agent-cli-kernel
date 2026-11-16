@@ -5,9 +5,12 @@
 import { appendFileSync } from "node:fs";
 import {
   command,
+  commonCauses,
   contractFor,
+  station,
 } from "../../../../starters/contract3/src/kernel/index.ts";
 import type {
+  ApprovalCapability,
   DiagnosticsCapability,
   RunAddon,
 } from "../../../../starters/contract3/src/kernel/index.ts";
@@ -20,7 +23,11 @@ import {
   runtimeOf,
 } from "../../../../starters/contract3/src/kernel/runtime.ts";
 import type { ContractRuntime } from "../../../../starters/contract3/src/kernel/runtime.ts";
-import { path } from "../../../../starters/contract3/src/kernel/validation/brands.ts";
+import {
+  authority,
+  path,
+  resource,
+} from "../../../../starters/contract3/src/kernel/validation/brands.ts";
 
 const ledgerPath = process.env.FX_LEDGER;
 const mode = process.env.FX_STATUS ?? "available";
@@ -214,6 +221,69 @@ const plain = command({
     ),
 });
 
+// st.guarded declares diagnostics and approval (KF1.d, KF8). FX_APPROVAL
+// selects the approval add-on: `grant` (default) grants at once; `delay`
+// grants after 200 ms; `reject` rejects; `sync-throw` throws synchronously;
+// `attach-throws` throws while the kernel attaches it.
+const guarded = command({
+  identity: "st.guarded",
+  route: ["guarded"],
+  summary: "Do fixture work behind approval that may be observed.",
+  input: { ...input, options: [] },
+  capabilities: { diagnostics: true, approval: true },
+  approval: () => ({
+    authority: authority("st.owner"),
+    resource: resource("st.item"),
+    resourceRevision: "1",
+    effects: [],
+    preview: "st-preview",
+  }),
+  stations: [
+    station(commonCauses, {
+      commandIdentity: "st.guarded",
+      causeCode: "SUCCESS_UNCHANGED",
+      trigger: "The guarded fixture work finished.",
+      guidance: { next: { kind: "done" } },
+      repairAction: null,
+      retryDelayPolicy: { kind: "none" },
+      reachability: "required",
+      unreachableRationale: null,
+      independentObservable: "st.guarded:done",
+    }),
+  ],
+  run: (_options, context) => {
+    ledger("handler-entered");
+    return context.result(
+      { commandIdentity: "st.guarded", causeCode: "SUCCESS_UNCHANGED" },
+      { message: "The guarded work finished.", data: null, effects: empty },
+    );
+  },
+});
+const approvalMode = process.env.FX_APPROVAL ?? "grant";
+const approvalAddon: RunAddon<ApprovalCapability> = {
+  attach() {
+    ledger("approval-attach");
+    if (approvalMode === "attach-throws")
+      throw new Error("Fixture approval attach fault.");
+    return {
+      capability: {
+        check() {
+          ledger("check-start");
+          if (approvalMode === "sync-throw")
+            throw new Error("Fixture check fault.");
+          if (approvalMode === "reject")
+            return Promise.reject(new Error("Fixture check rejection."));
+          return approvalMode === "delay"
+            ? sleep(200).then(() => true)
+            : Promise.resolve(true);
+        },
+      },
+      settle: () => Promise.resolve(true),
+      killNow: () => undefined,
+    };
+  },
+};
+
 // Ledgers when the kernel has built (frozen) a result, so the order of
 // "result-built" and "freeze-start" is observable (DIAG-14).
 function observed(runtime: ContractRuntime): ContractRuntime {
@@ -270,8 +340,8 @@ const programs =
 
 const contract = contractFor({
   cli: "st",
-  commands: [report, plain],
-  installedAddons: ["diagnostics", "programs"],
+  commands: [report, plain, guarded],
+  installedAddons: ["diagnostics", "programs", "approval"],
 });
 const runtime = runtimeOf(contract);
 if (!runtime) throw new Error("Fixture contract has no runtime.");
@@ -280,6 +350,6 @@ recordRuntime(wrapped, observed(runtime));
 ledger(`front-door-start ${Date.now()}`);
 await runProcessOn(
   wrapped,
-  { addons: { diagnostics: statusAddon, programs } },
+  { addons: { diagnostics: statusAddon, programs, approval: approvalAddon } },
   () => host(processHost()),
 )(process.argv.slice(2));

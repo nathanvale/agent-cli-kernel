@@ -1,0 +1,501 @@
+// Test-owned process entry `kf` for the kernel follow-up cases (KF family).
+// Materialised at starters/contract3/src/addons/state/kf-cli.ts in a
+// disposable tree, because only the state add-on folder may name the state
+// add-on factory; __KERNEL__ and __ADDONS__ are replaced with the absolute
+// paths of the checkout's kernel and add-on folders, so a fault placed in the
+// kernel reaches this process. KF_SCENARIO selects the CLI; argv is the CLI
+// argv. Every observable step is appended to the independent ledger KF_LEDGER.
+import { appendFileSync } from "node:fs";
+import {
+  changing,
+  command,
+  commonCauses,
+  contractFor,
+  runProcess,
+  station,
+} from "__KERNEL__/index.ts";
+import type {
+  ApprovalCapability,
+  AttachedAddon,
+  EffectTransaction,
+  ProgramsCapability,
+  RecordedEffect,
+  RunAddon,
+  StateAddonDescriptor,
+  StateObservation,
+} from "__KERNEL__/index.ts";
+import { authority, path, resource } from "__KERNEL__/validation/brands.ts";
+import { approval } from "__ADDONS__/approval/index.ts";
+
+const env = process.env;
+function note(line: string): void {
+  if (env.KF_LEDGER) appendFileSync(env.KF_LEDGER, `${line}\n`);
+}
+const sleep = (milliseconds: number) =>
+  new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
+// A synchronous block: no timer or I/O callback runs while it lasts.
+function block(milliseconds: number): void {
+  const until = performance.now() + milliseconds;
+  while (performance.now() < until) {
+    // Busy wait on purpose.
+  }
+}
+
+const words = {
+  retryDelayPolicy: { kind: "none" },
+  reachability: "required",
+  unreachableRationale: null,
+} as const;
+const empty = {
+  completed: [],
+  remaining: [],
+  uncertain: [],
+  inventoryComplete: true,
+} as const;
+const input = {
+  arguments: [],
+  options: [],
+  constraints: [],
+  deadlineSupported: true,
+  additionalArguments: false,
+  additionalOptions: false,
+} as const;
+const refusal = {
+  outcome: "refused",
+  transactionState: "unchanged",
+  failureClass: "domain",
+  exitCode: 3,
+  retryable: false,
+  guidance: "handoff",
+} as const;
+const causes = {
+  KF_HELD: refusal,
+  KF_PRIOR: refusal,
+} as const;
+const table = { ...commonCauses, ...causes };
+const lockHandoff = {
+  handoff: {
+    owner: "operator",
+    reason: "Inspect the lock owner.",
+    inspect: [{ kind: "instruction", text: "Inspect the lock." }],
+  },
+} as const;
+function coordination<const Identity extends string>(identity: Identity) {
+  const words2 = {
+    ...words,
+    trigger: "Coordination refusal.",
+    repairAction: "Inspect the lock.",
+    guidance: lockHandoff,
+    independentObservable: `${identity}:lock`,
+  } as const;
+  return [
+    station(table, { ...words2, commandIdentity: identity, causeCode: "KF_HELD" }),
+    station(table, { ...words2, commandIdentity: identity, causeCode: "KF_PRIOR" }),
+  ] as const;
+}
+function success<const Identity extends string>(identity: Identity) {
+  return station(commonCauses, {
+    ...words,
+    commandIdentity: identity,
+    causeCode: "SUCCESS_UNCHANGED",
+    trigger: "Read.",
+    guidance: { next: { kind: "done" } },
+    repairAction: null,
+    independentObservable: `${identity}:read`,
+  });
+}
+function completed<const Identity extends string>(identity: Identity) {
+  return station(commonCauses, {
+    ...words,
+    commandIdentity: identity,
+    causeCode: "SUCCESS_COMPLETED",
+    trigger: "Applied.",
+    guidance: { next: { kind: "done" } },
+    repairAction: null,
+    independentObservable: `${identity}:applied`,
+  });
+}
+
+// kf.pending: the ifNoResult command (inspect, no required slot).
+const pending = command({
+  identity: "kf.pending",
+  route: ["pending"],
+  summary: "Inspect pending kf changes.",
+  input,
+  capabilities: {},
+  stations: [
+    station(commonCauses, {
+      ...words,
+      commandIdentity: "kf.pending",
+      causeCode: "SUCCESS_UNCHANGED",
+      trigger: "Read pending.",
+      guidance: {
+        next: { kind: "instruction", text: "Inspect the pending kf changes." },
+      },
+      repairAction: null,
+      independentObservable: "kf.pending:read",
+    }),
+  ],
+  run: (_input, context) =>
+    context.result(
+      { commandIdentity: "kf.pending", causeCode: "SUCCESS_UNCHANGED" },
+      { message: "Read pending.", data: null, effects: empty },
+    ),
+});
+
+// The seam layer: a state add-on instance through the kernel's state seam.
+// Each recorded effect whose read-back says true is completed, false or a
+// throw is uncertain; a declared effect never recorded is remaining.
+function seamState(): StateAddonDescriptor {
+  return contractFor.stateAddon((issuer) => ({
+    ifNoResult: issuer.ifNoResult({
+      kind: "command",
+      command: "kf.pending",
+      args: [],
+    }),
+    attach<Effect extends string>(runId: string, effects: readonly Effect[]) {
+      note("attach state");
+      const attachBlock = Number(env.KF_STATE_ATTACH_BLOCK ?? "0");
+      if (attachBlock > 0) block(attachBlock);
+      if (env.KF_STATE_ATTACH === "throw")
+        throw new Error("Fixture state attach fault.");
+      return {
+        async transaction(
+          work: (transaction: EffectTransaction<Effect>) => Promise<void>,
+        ) {
+          const done = new Set<Effect>();
+          const unsure = new Set<Effect>();
+          await work({
+            async record<T>(
+              effect: Effect,
+              operation: (capability: RecordedEffect<Effect>) => Promise<T>,
+              readBack: (result: T) => Promise<boolean>,
+            ) {
+              const value = await operation(
+                issuer.recordedEffect(runId, effect, (_run, _effect, start) =>
+                  start(),
+                ),
+              );
+              let confirmed = false;
+              try {
+                confirmed = await readBack(value);
+              } catch {
+                confirmed = false;
+              }
+              (confirmed ? done : unsure).add(effect);
+              return value;
+            },
+          });
+          return issuer.transactionProof(runId, observe(effects, done, unsure));
+        },
+      };
+    },
+  }));
+}
+function observe<Effect extends string>(
+  declared: readonly Effect[],
+  done: ReadonlySet<Effect>,
+  unsure: ReadonlySet<Effect>,
+): StateObservation<Effect> {
+  const completedList = declared.filter((effect) => done.has(effect));
+  const uncertain = declared.filter((effect) => unsure.has(effect));
+  const remaining = declared.filter(
+    (effect) => !done.has(effect) && !unsure.has(effect),
+  );
+  const [firstUnsure, ...moreUnsure] = uncertain;
+  if (firstUnsure !== undefined)
+    return {
+      transactionState: "unknown",
+      effects: {
+        completed: completedList,
+        remaining,
+        uncertain: [firstUnsure, ...moreUnsure],
+        inventoryComplete: true,
+      },
+    };
+  const [firstDone, ...moreDone] = completedList;
+  if (firstDone === undefined)
+    return {
+      transactionState: "unchanged",
+      effects: { completed: [], remaining, uncertain: [], inventoryComplete: true },
+    };
+  const [firstRemaining, ...moreRemaining] = remaining;
+  return firstRemaining === undefined
+    ? {
+        transactionState: "completed",
+        effects: {
+          completed: [firstDone, ...moreDone],
+          remaining: [],
+          uncertain: [],
+          inventoryComplete: true,
+        },
+      }
+    : {
+        transactionState: "partially-completed",
+        effects: {
+          completed: [firstDone, ...moreDone],
+          remaining: [firstRemaining, ...moreRemaining],
+          uncertain: [],
+          inventoryComplete: true,
+        },
+      };
+}
+
+// Approval add-ons. KF_APPROVAL: `shipped` is the shipped approval add-on
+// over the directory KF_GRANTS (relative or absolute); `sync-throw` and
+// `reject` are host add-ons whose attach throws or returns a rejected
+// promise; `grant` answers true. Each check ledgers `check-start`.
+const approvalRequest = () => ({
+  authority: authority("kf.owner"),
+  resource: resource("kf.item"),
+  resourceRevision: "1",
+  effects: ["kf.e"],
+  preview: "kf-preview",
+});
+function approvalAddon(operation: string): RunAddon<ApprovalCapability> {
+  const mode = env.KF_APPROVAL ?? "grant";
+  const settle = () => {
+    note("settle approval");
+    return Promise.resolve(true);
+  };
+  if (mode === "reject")
+    return {
+      attach: (() =>
+        Promise.reject(
+          new Error("Fixture approval attach rejection."),
+        )) as unknown as RunAddon<ApprovalCapability>["attach"],
+    };
+  return {
+    attach(run) {
+      if (mode === "sync-throw")
+        throw new Error("Fixture approval attach fault.");
+      const shipped =
+        mode === "shipped"
+          ? approval({
+              operation,
+              runId: run.runId,
+              store: {
+                grants: env.KF_GRANTS ?? "",
+                consumed: env.KF_GRANTS ?? "",
+              },
+            }).capability
+          : undefined;
+      note("attach approval");
+      const checkBlock = Number(env.KF_CHECK_BLOCK ?? "0");
+      return {
+        capability: {
+          check(request) {
+            note("check-start");
+            if (checkBlock > 0) block(checkBlock);
+            return shipped ? shipped.check(request) : Promise.resolve(true);
+          },
+        },
+        settle,
+        killNow: () => undefined,
+      };
+    },
+  };
+}
+
+// A host programs add-on. KF_PROGRAMS_ATTACH=reject: its first-use attach
+// returns a rejected promise. KF_SETTLE: `false` resolves unconfirmed,
+// `throw` throws, anything else resolves confirmed.
+function programsAddon(): RunAddon<ProgramsCapability> {
+  if (env.KF_PROGRAMS_ATTACH === "reject")
+    return {
+      attach: (() =>
+        Promise.reject(
+          new Error("Fixture programs attach rejection."),
+        )) as unknown as RunAddon<ProgramsCapability>["attach"],
+    };
+  return {
+    attach(): AttachedAddon<ProgramsCapability> {
+      note("attach programs");
+      const started = () => {
+        note("program-started");
+        return Promise.resolve({
+          stdout: "",
+          stderr: "",
+          exitCode: 0,
+          terminationConfirmed: true,
+          outputTruncated: false,
+        });
+      };
+      return {
+        capability: {
+          inspect: started,
+          supplied: started,
+          domain: () => {
+            throw new Error("Fixture programs add-on offers no domain program.");
+          },
+        },
+        settle() {
+          note("settle programs");
+          if (env.KF_SETTLE === "throw") throw new Error("Fixture settle fault.");
+          return Promise.resolve(env.KF_SETTLE !== "false");
+        },
+        killNow: () => undefined,
+      };
+    },
+  };
+}
+const program = {
+  executable: path("/bin/sh"),
+  args: ["-c", "exit 0"],
+  timeoutMilliseconds: 5_000,
+  outputLimitBytes: 1024,
+  shutdownMilliseconds: 500,
+};
+
+// kf.read: an inspect command that declares approval and its station table.
+const read = command({
+  identity: "kf.read",
+  route: ["read"],
+  summary: "Read the kf item behind approval.",
+  input,
+  capabilities: { approval: true },
+  approval: approvalRequest,
+  stations: [success("kf.read")],
+  run: (_input, context) => {
+    note("handler-entered");
+    return context.result(
+      { commandIdentity: "kf.read", causeCode: "SUCCESS_UNCHANGED" },
+      { message: "Read the item.", data: null, effects: empty },
+    );
+  },
+});
+
+// kf.run: an inspect command whose programs add-on attaches on first use.
+const runPrograms = command({
+  identity: "kf.run",
+  route: ["run"],
+  summary: "Run one owned program.",
+  input,
+  capabilities: { programs: true },
+  stations: [success("kf.run")],
+  run: async (_input, context) => {
+    note("handler-entered");
+    await context.programs.inspect(program);
+    return context.result(
+      { commandIdentity: "kf.run", causeCode: "SUCCESS_UNCHANGED" },
+      { message: "Ran the program.", data: null, effects: empty },
+    );
+  },
+});
+
+// kf.apply: a changing command with effect kf.e that completes it.
+function applyEffect(transaction: EffectTransaction<"kf.e">) {
+  return transaction.record(
+    "kf.e",
+    () => {
+      note("effect-applied kf.e");
+      return Promise.resolve();
+    },
+    () => Promise.resolve(true),
+  );
+}
+function apply(state: StateAddonDescriptor) {
+  return changing({
+    identity: "kf.apply",
+    route: ["apply"],
+    summary: "Apply kf.e.",
+    input,
+    capabilities: {},
+    effectClass: "repository-local",
+    effects: ["kf.e"],
+    ifNoResult: state.ifNoResult,
+    heldLockCause: "KF_HELD",
+    unresolvedCaseCause: "KF_PRIOR",
+    stations: [...coordination("kf.apply"), completed("kf.apply")],
+    run: async (_input, context) => {
+      note("handler-entered");
+      const proof = await context.state.transaction(applyEffect);
+      return context.result(
+        { commandIdentity: "kf.apply", causeCode: "SUCCESS_COMPLETED" },
+        { message: "Applied.", data: null, transaction: proof },
+      );
+    },
+  });
+}
+function applyApproved(state: StateAddonDescriptor) {
+  return changing({
+    identity: "kf.apply",
+    route: ["apply"],
+    summary: "Apply kf.e behind approval.",
+    input,
+    capabilities: { approval: true },
+    approval: approvalRequest,
+    effectClass: "repository-local",
+    effects: ["kf.e"],
+    ifNoResult: state.ifNoResult,
+    heldLockCause: "KF_HELD",
+    unresolvedCaseCause: "KF_PRIOR",
+    stations: [...coordination("kf.apply"), completed("kf.apply")],
+    run: async (_input, context) => {
+      note("handler-entered");
+      const proof = await context.state.transaction(applyEffect);
+      return context.result(
+        { commandIdentity: "kf.apply", causeCode: "SUCCESS_COMPLETED" },
+        { message: "Applied.", data: null, transaction: proof },
+      );
+    },
+  });
+}
+
+const scenarios: Readonly<Record<string, (argv: string[]) => Promise<unknown>>> =
+  {
+    // KF1.a inspect, KF1.b, KF7.a inspect.
+    read: (argv) =>
+      runProcess(
+        contractFor({
+          cli: "kf",
+          commands: [read],
+          causes,
+          installedAddons: ["approval"],
+        }),
+        { addons: { approval: approvalAddon("kf.read") } },
+      )(argv),
+    // KF1.a changing, KF7.a changing.
+    "apply-approved": (argv) => {
+      const state = seamState();
+      return runProcess(
+        contractFor({
+          cli: "kf",
+          commands: [applyApproved(state), pending],
+          causes,
+          state,
+          installedAddons: ["state", "approval"],
+        }),
+        { addons: { approval: approvalAddon("kf.apply") } },
+      )(argv);
+    },
+    // KF1.c, KF7.b.
+    apply: (argv) => {
+      const state = seamState();
+      return runProcess(
+        contractFor({
+          cli: "kf",
+          commands: [apply(state), pending],
+          causes,
+          state,
+          installedAddons: ["state"],
+        }),
+      )(argv);
+    },
+    // KF1.e.
+    run: (argv) =>
+      runProcess(
+        contractFor({
+          cli: "kf",
+          commands: [runPrograms],
+          causes,
+          installedAddons: ["programs"],
+        }),
+        { addons: { programs: programsAddon() } },
+      )(argv),
+  };
+
+void sleep;
+const run = scenarios[env.KF_SCENARIO ?? ""];
+if (!run) throw new Error(`Unknown scenario ${env.KF_SCENARIO ?? ""}.`);
+await run(process.argv.slice(2));

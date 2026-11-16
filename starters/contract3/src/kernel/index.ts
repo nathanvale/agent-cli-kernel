@@ -21,7 +21,7 @@ import type { CauseTable, Effects, Validation } from "./types.ts";
 import { proofValue } from "./validation/state.ts";
 import { invocationTokens, resolveInvocation } from "./routing.ts";
 import { recordRuntime } from "./runtime.ts";
-import type { KernelFacts } from "./runtime.ts";
+import type { Attach, Enter, KernelFacts } from "./runtime.ts";
 import { authority, resource, path } from "./validation/brands.ts";
 import type { CommandDeclaration } from "./declarations.ts";
 import { preparerOf } from "./declarations.ts";
@@ -253,15 +253,16 @@ export function contractFor<
   }
 
   // CMD-9 steps 3 to 5, then step 6. `prepare` refuses invocation, input
-  // and approval before anything attaches; its entry attaches state and runs
-  // the handler (K3-spec-6). A raw declaration without a two-phase entry runs
-  // through its own execute at entry.
+  // and approval before anything attaches; its attach claims the run
+  // identity and attaches state, before handler entry, and returns the entry
+  // that runs the handler (K3-spec-6, K3-spec-5). A raw declaration without
+  // a two-phase entry runs through its own execute at entry.
   async function prepareCommand(
     identity: string,
     argv: unknown,
     runId: string,
     context: unknown = {},
-  ): Promise<Validation<() => Promise<Validation<CommandResult>>>> {
+  ): Promise<Validation<Attach>> {
     const selected = commands.find(
       (entry) => entry.commandIdentity === identity,
     );
@@ -287,17 +288,17 @@ export function contractFor<
       : undefined;
     if (ready && !ready.ok) return ready;
     const execute = selected.execute;
-    // One entry per run: a second call would attach and enter again under
+    // One attach per run: a second call would attach and enter again under
     // the same run identity (delta review F2).
-    let entered = false;
-    const enter = async (): Promise<Validation<CommandResult>> => {
-      if (entered)
+    let used = false;
+    const attach: Attach = () => {
+      if (used)
         return {
           ok: false,
           path: "entry",
           reason: "handler entry already used",
         };
-      entered = true;
+      used = true;
       const attached =
         changingCommand && spec.state
           ? attachState(spec.state, runId, selected.effects ?? [])
@@ -308,23 +309,26 @@ export function contractFor<
           path: "runId",
           reason: "run identity already attached",
         };
-      // WIRE-15: the capability closes when the handler returns, so no
-      // transaction can start after the result exists (K2-spec-3).
-      const outcome = await (ready
-        ? ready.value(attached?.capability)
-        : execute(
-            argv,
-            changingCommand
-              ? withState(context, attached?.capability)
-              : context,
-            runId,
-            invocation,
-            inputTable,
-          )
-      ).finally(() => attached?.close());
-      return accepted(outcome, identity, runId, invocation, parsed);
+      const enter: Enter = async () => {
+        // WIRE-15: the capability closes when the handler returns, so no
+        // transaction can start after the result exists (K2-spec-3).
+        const outcome = await (ready
+          ? ready.value(attached?.capability)
+          : execute(
+              argv,
+              changingCommand
+                ? withState(context, attached?.capability)
+                : context,
+              runId,
+              invocation,
+              inputTable,
+            )
+        ).finally(() => attached?.close());
+        return accepted(outcome, identity, runId, invocation, parsed);
+      };
+      return { ok: true, value: enter };
     };
-    return { ok: true, value: enter };
+    return { ok: true, value: attach };
   }
 
   function accepted(
@@ -357,7 +361,9 @@ export function contractFor<
     context: unknown = {},
   ) {
     const prepared = await prepareCommand(identity, argv, runId, context);
-    return prepared.ok ? prepared.value() : prepared;
+    if (!prepared.ok) return prepared;
+    const entry = prepared.value();
+    return entry.ok ? entry.value() : entry;
   }
 
   const contract = {

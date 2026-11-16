@@ -760,3 +760,49 @@ test(
   },
   timeout,
 );
+
+// Kernel follow-up KF1.d and KF8 (expectations.md, KF family): the accepted
+// decision "Contract question 1 of 8" (no `diagnostics` key on a result
+// before handler entry) at the check-phase sites, on `st.guarded`, which
+// declares diagnostics and approval. Each case has a flipped twin after
+// handler entry that does carry the key. Expected values are test-owned.
+describe("KF1.d no key at the check-phase sites", () => {
+  const preparation = {
+    outcome: "refused",
+    transactionState: "unchanged",
+    failureClass: "internal",
+    exitCode: 1,
+    causeCode: "INTERNAL_PREPARATION",
+    effects: unchangedEffects,
+  };
+  async function guardedRun(
+    status: string,
+    approval: string,
+    extra: readonly string[] = [],
+  ) {
+    const observed = await runStatus(["guarded", ...extra, "--json"], status, {
+      FX_APPROVAL: approval,
+    });
+    return { observed, ...parsed(observed) };
+  }
+  test(
+    "KF1.d reporter-attach-fault-beside-approval-fault",
+    async () => {
+      const both = await guardedRun("attach-throws", "attach-throws");
+      expect(both.observed.code).toBe(1);
+      expect(both.result).toMatchObject({
+        commandIdentity: "st.guarded",
+        ...preparation,
+      });
+      expect(both.envelope).not.toHaveProperty("diagnostics");
+      expect(both.observed.ledger).toContain("approval-attach");
+      expect(both.observed.ledger).not.toContain("handler-entered");
+      // Twin: only the reporter attach throws: DS11's result.
+      const twin = await guardedRun("attach-throws", "grant");
+      expect(twin.observed.code).toBe(0);
+      expect(twin.result.causeCode).toBe("SUCCESS_UNCHANGED");
+      expect(twin.envelope.diagnostics).toEqual(statusUnavailable);
+    },
+    timeout,
+  );
+});

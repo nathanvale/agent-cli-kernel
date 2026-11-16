@@ -12,7 +12,7 @@ import type {
   StopSignal,
 } from "./process-types.ts";
 import { runtimeOf } from "./runtime.ts";
-import type { ContractRuntime, Resolution } from "./runtime.ts";
+import type { Attach, ContractRuntime, Enter, Resolution } from "./runtime.ts";
 import type { CommandResult } from "./command-result.ts";
 import type { CommandDeclaration } from "./declarations.ts";
 import type { StateObservation } from "./state-seam.ts";
@@ -349,16 +349,16 @@ async function kernelResult(
 // The one place that decides whether a status is due (standards F1): once
 // handler entry happened, or for any refusal under the other reading, when
 // the command declares a status-reporting add-on.
-function reporterFor(run: Run, trusted: TrustedRun) {
+async function reporterFor(run: Run, trusted: TrustedRun) {
   if (trusted.handlerEntered) return run.reporter;
   // Part 4 repair R1: under the shipped reading no refusal before the
   // handler carries a status, even one raised after the reporter attached
-  // (an approval denial or a capabilities refusal inside `execute`).
+  // (an approval denial or a capabilities refusal in the check phase).
   if (!statusOnPreHandlerRefusal) return undefined;
   const plan = run.plans.get(trusted.commandIdentity);
   const entry = plan?.addons.find((item) => item.addon.reportsStatus === true);
   if (plan && entry && !run.reporter)
-    run.reporter = attachReporter(run, plan.command, entry);
+    run.reporter = await attachReporter(run, plan.command, entry);
   return run.reporter;
 }
 
@@ -390,26 +390,43 @@ function control(run: Run, command: CommandDeclaration): RunControl {
   };
 }
 
+// Attaches one add-on. A host add-on may break its synchronous type and
+// return a promise; its resolved instance is attached, and its rejection
+// reaches the caller instead of the crash hook.
 function attachNow(
   run: Run,
   command: CommandDeclaration,
   addon: RunAddon<unknown>,
-): AttachedAddon<unknown> {
-  const instance = addon.attach(control(run, command));
-  run.attached.push(instance);
-  return instance;
+): AttachedAddon<unknown> | Promise<AttachedAddon<unknown>> {
+  const value: AttachedAddon<unknown> | Promise<AttachedAddon<unknown>> =
+    addon.attach(control(run, command));
+  const keep = (instance: AttachedAddon<unknown>) => {
+    run.attached.push(instance);
+    return instance;
+  };
+  return value instanceof Promise ? value.then(keep) : keep(value);
+}
+
+// An add-on the kernel attaches before handler entry. A synchronous throw
+// and a rejection both reject here.
+function attachEarly(
+  run: Run,
+  command: CommandDeclaration,
+  addon: RunAddon<unknown>,
+): Promise<AttachedAddon<unknown>> {
+  return Promise.resolve().then(() => attachNow(run, command, addon));
 }
 
 // Seam review S2 (DIAG-12b): a status-reporting add-on whose attach throws
 // never takes the crash path. The handler gets an inert capability whose
 // calls do nothing, and the status is the unavailable variant (no freeze).
-function attachReporter(
+async function attachReporter(
   run: Run,
   command: CommandDeclaration,
   plan: Plan,
-): AttachedAddon<unknown> {
+): Promise<AttachedAddon<unknown>> {
   try {
-    return attachNow(run, command, plan.addon);
+    return await attachEarly(run, command, plan.addon);
   } catch {
     const inert = Object.fromEntries(
       capabilityMethods[plan.name].map((method) => [method, () => undefined]),
@@ -422,19 +439,34 @@ function attachReporter(
   }
 }
 
+function invoke(
+  plan: Plan,
+  instance: AttachedAddon<unknown>,
+  method: string,
+  args: readonly unknown[],
+): unknown {
+  const target = instance.capability;
+  const operation: unknown = record(target) ? target[method] : undefined;
+  if (typeof operation !== "function")
+    throw new Error(`The ${plan.name} add-on lacks ${method}.`);
+  const result: unknown = Reflect.apply(operation, target, args);
+  return result;
+}
+
 // A capability whose add-on attaches on first use, so any attach-time effect
-// happens only inside the handler, after every non-consuming preflight.
+// happens only inside the handler, after every non-consuming preflight. An
+// attach fault there is a handler fault (LIFE-9 step 1, after handler entry).
 function deferred(run: Run, command: CommandDeclaration, plan: Plan) {
-  let instance: AttachedAddon<unknown> | undefined;
+  let instance:
+    | AttachedAddon<unknown>
+    | Promise<AttachedAddon<unknown>>
+    | undefined;
   const methods = capabilityMethods[plan.name].map((method) => {
     const call = (...args: unknown[]): unknown => {
       instance ??= attachNow(run, command, plan.addon);
-      const target = instance.capability;
-      const operation: unknown = record(target) ? target[method] : undefined;
-      if (typeof operation !== "function")
-        throw new Error(`The ${plan.name} add-on lacks ${method}.`);
-      const result: unknown = Reflect.apply(operation, target, args);
-      return result;
+      return instance instanceof Promise
+        ? instance.then((attached) => invoke(plan, attached, method, args))
+        : invoke(plan, instance, method, args);
     };
     return [method, call] as const;
   });
@@ -445,20 +477,31 @@ function deferred(run: Run, command: CommandDeclaration, plan: Plan) {
 // because its check is the step 5 preflight, and so does a status-reporting
 // add-on, whose attach is effect-free, so its status exists even when the
 // handler never uses it. Every other declared capability attaches when the
-// handler first uses it.
-function capabilities(run: Run, plan: CommandPlan): Record<string, unknown> {
+// handler first uses it. Undefined when an approval attach throws or
+// rejects: a preparation fault before handler entry (accepted decision,
+// contract question 3 of 8).
+async function capabilities(
+  run: Run,
+  plan: CommandPlan,
+): Promise<Record<string, unknown> | undefined> {
   const context: Record<string, unknown> = {};
   for (const entry of plan.addons) {
     if (entry.name !== "approval" && entry.addon.reportsStatus !== true) {
       context[entry.name] = deferred(run, plan.command, entry);
       continue;
     }
-    const instance =
-      entry.addon.reportsStatus === true
-        ? attachReporter(run, plan.command, entry)
-        : attachNow(run, plan.command, entry.addon);
-    if (entry.addon.reportsStatus === true) run.reporter = instance;
-    context[entry.name] = instance.capability;
+    if (entry.addon.reportsStatus === true) {
+      run.reporter = await attachReporter(run, plan.command, entry);
+      context[entry.name] = run.reporter.capability;
+      continue;
+    }
+    try {
+      context[entry.name] = (
+        await attachEarly(run, plan.command, entry.addon)
+      ).capability;
+    } catch {
+      return undefined;
+    }
   }
   return context;
 }
@@ -519,15 +562,8 @@ async function afterHandler(
       trusted: trustedRun(run, identity, true),
     };
   const outcome = execution.outcome;
-  if (!outcome.ok && outcome.path !== "result") {
-    const causeCode =
-      outcome.path === "approval"
-        ? "DOMAIN_AUTHORITY_REQUIRED"
-        : outcome.path === "capabilities"
-          ? "INTERNAL_PREPARATION"
-          : "USAGE_INVALID_INVOCATION";
-    return await kernelResult(run, identity, causeCode, messages[causeCode]);
-  }
+  if (!outcome.ok && outcome.path !== "result")
+    return refusal(run, identity, outcome.path);
   if (!outcome.ok)
     return {
       candidate: outcome,
@@ -554,13 +590,7 @@ async function enterHandler(run: Run, value: Resolved): Promise<Delivery> {
   const identity = value.commandIdentity;
   const plan = run.plans.get(identity);
   // Type-forced guard: routing resolves only declared commands.
-  if (!plan)
-    return kernelResult(
-      run,
-      identity,
-      "INTERNAL_PREPARATION",
-      messages.INTERNAL_PREPARATION,
-    );
+  if (!plan) return preparationFault(run, identity);
   const deadline = value.deadlineMilliseconds;
   // CMD-9 step 4.
   if (deadline !== undefined && run.host.now() - run.startedAt >= deadline)
@@ -571,7 +601,8 @@ async function enterHandler(run: Run, value: Resolved): Promise<Delivery> {
       messages.DOMAIN_DEADLINE_BEFORE_START,
     );
   if (run.stopped) return undefined;
-  const context = capabilities(run, plan);
+  const context = await capabilities(run, plan);
+  if (!context) return preparationFault(run, identity);
   const deadlineAt =
     deadline === undefined ? undefined : run.startedAt + deadline;
   // CMD-9 steps 3 to 5, the check phase, before handler entry: it attaches
@@ -589,9 +620,11 @@ async function enterHandler(run: Run, value: Resolved): Promise<Delivery> {
     );
   }
   if (checked.kind === "refused") return checked.delivery;
+  const attached = await attachState(run, identity, checked.attach);
+  if ("delivery" in attached) return attached.delivery;
   // Handler entry (CMD-9 step 6): the phase records it immediately before.
   run.phase = "handler-entered";
-  const execution: Promise<Execution> = checked.enter().then(
+  const execution: Promise<Execution> = attached.enter().then(
     (outcome) => ({ kind: "returned", outcome }) as const,
     () => ({ kind: "threw" }) as const,
   );
@@ -607,10 +640,7 @@ async function enterHandler(run: Run, value: Resolved): Promise<Delivery> {
 type CheckPhase =
   | { readonly kind: "deadline" }
   | { readonly kind: "refused"; readonly delivery: Delivery }
-  | {
-      readonly kind: "entry";
-      readonly enter: () => Promise<Validation<CommandResult>>;
-    };
+  | { readonly kind: "entry"; readonly attach: Attach };
 // Runs the runtime's check phase raced against the deadline. Every refusal
 // here keeps the handler-entry fact false (`dispatched` unset), so it never
 // carries a status (Nathan, 16 November 2026, 14:19; DS05).
@@ -635,27 +665,51 @@ async function checkPhase(
   // A thrown check or grant-store fault is a preparation fault (LIFE-9 step
   // 1, before handler entry; X-S2b).
   if (settled.kind === "threw")
-    return {
-      kind: "refused",
-      delivery: await kernelResult(
-        run,
-        identity,
-        "INTERNAL_PREPARATION",
-        messages.INTERNAL_PREPARATION,
-      ),
-    };
+    return { kind: "refused", delivery: await preparationFault(run, identity) };
   const outcome = settled.outcome;
-  if (outcome.ok) return { kind: "entry", enter: outcome.value };
-  const causeCode =
-    outcome.path === "approval"
-      ? "DOMAIN_AUTHORITY_REQUIRED"
-      : outcome.path === "capabilities"
-        ? "INTERNAL_PREPARATION"
-        : "USAGE_INVALID_INVOCATION";
+  if (outcome.ok) return { kind: "entry", attach: outcome.value };
   return {
     kind: "refused",
-    delivery: await kernelResult(run, identity, causeCode, messages[causeCode]),
+    delivery: await refusal(run, identity, outcome.path),
   };
+}
+
+// The one mapping from a refusal before handler entry to its cause.
+function refusal(run: Run, identity: string, path: string): Promise<Delivery> {
+  const causeCode =
+    path === "approval"
+      ? "DOMAIN_AUTHORITY_REQUIRED"
+      : path === "capabilities"
+        ? "INTERNAL_PREPARATION"
+        : "USAGE_INVALID_INVOCATION";
+  return kernelResult(run, identity, causeCode, messages[causeCode]);
+}
+
+function preparationFault(run: Run, identity: string): Promise<Delivery> {
+  return kernelResult(
+    run,
+    identity,
+    "INTERNAL_PREPARATION",
+    messages.INTERNAL_PREPARATION,
+  );
+}
+
+// CMD-9 step 6 before handler entry: claims the run identity and attaches
+// state. A throw is a preparation fault (K3-spec-5).
+async function attachState(
+  run: Run,
+  identity: string,
+  attach: Attach,
+): Promise<{ readonly enter: Enter } | { readonly delivery: Delivery }> {
+  let entry: Validation<Enter>;
+  try {
+    entry = attach();
+  } catch {
+    return { delivery: await preparationFault(run, identity) };
+  }
+  return entry.ok
+    ? { enter: entry.value }
+    : { delivery: await refusal(run, identity, entry.path) };
 }
 
 async function route(run: Run, resolution: Resolution): Promise<Delivery> {
@@ -716,7 +770,7 @@ async function runInvocation(
   if (!delivery) return 1;
   // DIAG-14: the domain result and recovery are frozen in `delivery`; only
   // now does the status-reporting add-on flush and freeze its status.
-  const reporter = reporterFor(run, delivery.trusted);
+  const reporter = await reporterFor(run, delivery.trusted);
   const report =
     reporter && !run.stopped ? await freezeStatus(run, reporter) : undefined;
   run.phase = "emitting";
