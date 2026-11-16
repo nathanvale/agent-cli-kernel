@@ -96,9 +96,22 @@ function field(report: Report | undefined, key: string): string {
       ? "null"
       : "none";
 }
+// One read, no existence check first: the worker renames each phase's report
+// over the last, and a shared host folder showed the path missing between
+// a check and the read (ENOENT, stress run 17 November 2026).
 function readReport(path: string): Report | undefined {
-  if (!existsSync(path)) return undefined;
-  const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
+  let text: string;
+  try {
+    text = readFileSync(path, "utf8");
+  } catch (error) {
+    const code: unknown =
+      typeof error === "object" && error !== null
+        ? Reflect.get(error, "code")
+        : undefined;
+    if (code === "ENOENT") return undefined;
+    throw error;
+  }
+  const parsed: unknown = JSON.parse(text);
   if (typeof parsed !== "object" || parsed === null) return undefined;
   const report: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(parsed)) report[key] = value;
