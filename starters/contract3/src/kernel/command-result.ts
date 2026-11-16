@@ -13,8 +13,8 @@ export type CommandResult<Identity extends string = string> = {
   readonly commandIdentity: Identity;
   readonly [resultIdentity]: true;
 };
-// Accepted decisions (contract question 7 of 8; N7 at 17:06; N7b at
-// 17:24): the stations the base alone produces, at the stage they describe.
+// Accepted decisions (contract question 7 of 8; N7, N7b): the stations the
+// base alone produces, at the stage they describe.
 // Declaring one for its words (DISC-11b) grants a handler no selection
 // (reading N5 (a)). The approval denial is one too on a command without
 // approval (N6 (a)), and so is the command's own program-stop station.

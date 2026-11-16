@@ -1,5 +1,5 @@
 // The station the kernel selects when the deadline passed and an owned
-// program was not confirmed stopped (accepted decisions of 17:06 and 17:24,
+// program was not confirmed stopped (accepted decisions N1b and N1e,
 // form H): command()'s `programStopCause`, kept here rather than on
 // CommandDeclaration. A raw declaration has none (contractFor refuses one
 // that would need it).

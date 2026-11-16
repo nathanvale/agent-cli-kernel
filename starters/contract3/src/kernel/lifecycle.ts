@@ -53,7 +53,7 @@ const messages = {
   DOMAIN_DEADLINE_BEFORE_START:
     "The deadline passed before the operation started. Its handler never ran.",
   deadline: "The deadline passed after the operation started.",
-  // N1f (open, small): the expectations author's recommended words.
+  // The run message with the program-stop station (N1f).
   programStop:
     "The deadline passed. Nothing changed, but a program this command started was not confirmed stopped.",
   help: "Help for this CLI.",
@@ -243,7 +243,7 @@ async function settleAll(run: Run, limit?: number) {
   return settled.every((item) => !item.owned || item.stopped);
 }
 
-// Accepted decision N9 (17:06): no transaction started before the deadline,
+// Accepted decision N9: no transaction started before the deadline,
 // and the closed capability refuses every later one, so nothing changed and
 // every declared effect remains. The kernel's own observation, used on the
 // deadline path only; it does not widen the trusted summary elsewhere.
@@ -259,7 +259,7 @@ function noneStarted(command: CommandDeclaration): StateObservation {
   };
 }
 
-// Accepted decisions (contract question 5 of 8; points N2 and N3, 16:25):
+// Accepted decisions (contract question 5 of 8; N2, N3):
 // with an owned program not confirmed stopped the run claims no certainty.
 // The proof's completed and remaining effects are kept, nothing moves to
 // uncertain, and the inventory is incomplete; without a proof, nothing is
@@ -581,8 +581,9 @@ async function afterDeadline(
     run.runtime.trustedSummary(run.runId) ??
     (started === false ? noneStarted(command) : undefined);
   const summary = stopped === true ? issued : unconfirmedSummary(issued);
-  // Accepted decisions (16:23, 17:06): an inspect command with an owned
-  // program not confirmed stopped gets its declared program-stop station.
+  // Accepted decisions (contract question 5 of 8; form H): an inspect
+  // command with an owned program not confirmed stopped gets its declared
+  // program-stop station.
   const programStop =
     command.effectClass === "inspect" && stopped !== true
       ? programStopOf(command)
@@ -685,9 +686,9 @@ async function runDeclaredCommand(
   if (checked.kind === "refused") return checked.delivery;
   const attached = await attachState(run, identity, checked.attach);
   if ("delivery" in attached) return attached.delivery;
-  // Delta-2 review F1: a check or an attach that finished after the
-  // deadline, before the deadline timer ran, still never enters the handler
-  // (LIFE-6: at the deadline the command stops starting work).
+  // A check or an attach that finished after the deadline, before the
+  // deadline timer ran, still never enters the handler (LIFE-6: at the
+  // deadline the command stops starting work; K3-spec-1).
   if (run.stopped) return undefined;
   if (expired(run, deadlineAt)) return beforeStart(run, identity);
   // Handler entry (CMD-9 step 6): the phase records it immediately before.
@@ -711,7 +712,7 @@ type CheckPhase =
   | { readonly kind: "entry"; readonly attach: Attach };
 // Runs the runtime's check phase raced against the deadline. Every refusal
 // here keeps the handler-entry fact false (`handlerEntered` unset), so it never
-// carries a status (Nathan, 16 November 2026, 14:19; DS05).
+// carries a status (accepted decision DIAG-1; DS05).
 async function checkPhase(
   run: Run,
   value: Resolved,

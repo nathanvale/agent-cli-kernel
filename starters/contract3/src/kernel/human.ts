@@ -74,7 +74,7 @@ export type HumanWrite = {
   readonly text: string;
 };
 
-// Accepted decision (contract question 8 of 8; N4b at 17:06, N4c at 17:24):
+// Accepted decision (contract question 8 of 8; N4b, N4c):
 // the exact words for each diagnostics status. Paths are printed in full;
 // no counter ever appears.
 function diagnosticsWords(status: Diagnostics): string {
@@ -93,9 +93,9 @@ function diagnosticsWords(status: Diagnostics): string {
     : `${status.file} (incomplete: ${status.sinkFailure})`;
 }
 
-// N4a (17:06): the line always goes to stdout, after the result text on
-// success and beside the one stderr line on a refusal or failure, so
-// LIFE-2's one stderr line stays literally true. No status, no line.
+// Accepted decision N4a: the line always goes to stdout, after the result
+// text on success and beside the one stderr line on a refusal or failure,
+// so LIFE-2's one stderr line stays literally true. No status, no line.
 function diagnosticsLine(
   status: Diagnostics | undefined,
 ): readonly HumanWrite[] {
