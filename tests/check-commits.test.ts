@@ -188,11 +188,11 @@ function signalOwnGroupAtCheckoutOf(root: string, signal: string): void {
   );
 }
 
-function signalOwnGroupAtRemovalOf(signal: string): Record<string, string> {
+function atRemovalOfABlock(script: string): Record<string, string> {
   const bin = folder("check-commits-bin-");
   executable(
     join(bin, "git"),
-    `if [ "$1 $2" = "worktree remove" ] && [ -e "$4/block" ]; then kill -s ${signal.slice(3)} 0; fi
+    `if [ "$1 $2" = "worktree remove" ] && [ -e "$4/block" ]; then ${script}; fi
 exec '${Bun.which("git")}' "$@"`,
   );
   return { PATH: `${bin}:${process.env.PATH ?? ""}` };
@@ -580,7 +580,7 @@ describe("check:commits", () => {
         [base.sha],
         {
           CHECK_COMMITS_SINCE: base.sha,
-          ...signalOwnGroupAtRemovalOf("SIGTERM"),
+          ...atRemovalOfABlock("kill -s TERM 0"),
         },
         { ownGroup: true },
       );
@@ -593,6 +593,75 @@ describe("check:commits", () => {
         `Stopped by SIGTERM while checking ${stopped.short}, so it has no verdict.`,
       );
       expect(worktrees(root)).toHaveLength(1);
+      expect(readdirSync(run.temporary)).toEqual([]);
+    },
+    processWatchdog(1),
+  );
+
+  test(
+    "a failed removal from a linked checkout deletes only the script's own registration",
+    async () => {
+      const { root, base, commit } = repositoryAt();
+      const extra = join(dirname(root), "extra");
+      git(root, "worktree", "add", "--quiet", "--detach", extra);
+      const blocked = commit("fail the removal", { block: "" });
+      const caller = linkedCheckout(root);
+
+      const run = await checkCommits(caller, [base.sha], {
+        CHECK_COMMITS_SINCE: base.sha,
+        ...atRemovalOfABlock("exit 1"),
+      });
+
+      expect(run.exit).toBe(0);
+      expect(verdicts(run.lines)).toEqual([
+        `GREEN ${blocked.short} fail the removal`,
+      ]);
+      expect(worktrees(root).sort()).toEqual(
+        [root, caller, extra]
+          .map((path) => `worktree ${realpathSync(path)}`)
+          .sort(),
+      );
+      expect(readdirSync(run.temporary)).toEqual([]);
+    },
+    processWatchdog(1),
+  );
+
+  test(
+    "a failed removal never deletes the folder a rewritten .git file points to, and names the registration it leaves",
+    async () => {
+      const decoy = folder("check-commits-decoy-");
+      writeFileSync(join(decoy, "keep"), "");
+      const { root, base, commit } = repositoryAt({
+        scripts: {
+          ...markers,
+          typecheck: `test ! -e block || echo 'gitdir: ${decoy}' > .git`,
+        },
+      });
+      const blocked = commit("point .git outside the worktrees folder", {
+        block: "",
+      });
+
+      const run = await checkCommits(root, [base.sha], {
+        CHECK_COMMITS_SINCE: base.sha,
+        ...atRemovalOfABlock("exit 1"),
+      });
+
+      expect(run.exit).toBe(0);
+      expect(verdicts(run.lines)).toEqual([
+        `GREEN ${blocked.short} point .git outside the worktrees folder`,
+      ]);
+      expect(existsSync(join(decoy, "keep"))).toBe(true);
+      expect(
+        run.stderr
+          .split("\n")
+          .filter(
+            (line) =>
+              line.startsWith("git worktree remove failed for ") &&
+              line.endsWith(
+                "so its registration stays. Repair: git worktree prune",
+              ),
+          ),
+      ).toHaveLength(1);
       expect(readdirSync(run.temporary)).toEqual([]);
     },
     processWatchdog(1),
