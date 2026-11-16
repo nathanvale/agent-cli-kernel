@@ -38,7 +38,7 @@ now enforces.
 | Rule                                          | Today       | Planned (parked)                  | Guide                                                               |
 | --------------------------------------------- | ----------- | --------------------------------- | ------------------------------------------------------------------- |
 | Each test fails for the reason its name gives | Partial     | Typed rule ids                    | [Test proof](docs/standards/test-proof.md#refusals-and-bounds)      |
-| Each new refusal or bound has a planted fault | Review only | `bun run faults` replay           | [Test proof](docs/standards/test-proof.md#planted-faults)           |
+| Each new refusal or bound has a planted fault | Partial     | None                              | [Test proof](docs/standards/test-proof.md#planted-faults)           |
 | Process proofs use the production entry       | Review only | None                              | [Test proof](docs/standards/test-proof.md#production-entry)         |
 | Test processes are bounded and released       | Review only | Lint `tests-use-bounded-runner`   | [Test proof](docs/standards/test-proof.md#processes)                |
 | Tests wait on events, not wall time           | Partial     | None                              | [Test proof](docs/standards/test-proof.md#time)                     |
@@ -85,6 +85,17 @@ now enforces.
 - A message that another guard also throws stays review. So do a refusal
   asserted without `toThrow`, and input that more than one guard refuses.
 - Witnessed: [185c90d].
+
+### Planted faults
+
+- `bun run faults` replays each record in `tests/faults/manifest.json` in a
+  temporary worktree. The `faults` job in `.github/workflows/ci.yml` runs it
+  on every pull request.
+- It fails on a record whose named test passes with the fault applied, fails
+  without it, or whose patch no longer applies.
+- A new refusal or bound with no record stays review. So does a record whose
+  test title matches more tests than the fault reaches.
+- Witnessed: [d72cd9e], [640ba05].
 
 ### Time
 
@@ -148,6 +159,8 @@ now enforces.
 [MAG-78]: https://linear.app/myagentdojo/issue/MAG-78/name-and-create-the-deployment-repository
 [shared-standard]: https://github.com/nathanvale/dotfiles-private/blob/6bcadfd752107a980ce4f0a8982ff18399dc78f2/docs/standards/CODING_STANDARDS.md
 [185c90d]: https://github.com/nathanvale/bun-typescript-template/commit/185c90d11dd167ee4874e383ba26cd7d64a70964
+[d72cd9e]: https://github.com/nathanvale/bun-typescript-template/commit/d72cd9e28a0e7d7d0ec1fc4f67ebc030e387c914
+[640ba05]: https://github.com/nathanvale/bun-typescript-template/commit/640ba05881da2694fbdfad9b1d124bd85d36c0e4
 [d1436c0]: https://github.com/nathanvale/bun-typescript-template/commit/d1436c0c13b2906e5eee1c08dfcea41c611f0bef
 [c0b4bf5]: https://github.com/nathanvale/bun-typescript-template/commit/c0b4bf5e77558cc08922d5b303f5d9ba0af87066
 [b456208]: https://github.com/nathanvale/bun-typescript-template/commit/b456208a45baa1f912a27a60eb70353c1e64d251
