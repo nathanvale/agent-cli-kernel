@@ -78,11 +78,9 @@ function print(line: string): void {
   process.stdout.write(`${line}\n`);
 }
 
-function adminFolderOf(dir: string): string | undefined {
-  const link = join(dir, ".git");
-  if (!existsSync(link)) return undefined;
+function adminFolderOf(link: string): string | undefined {
   const admin = resolve(
-    dir,
+    dirname(link),
     readFileSync(link, "utf8")
       .replace(/^gitdir: /, "")
       .trim(),
@@ -91,13 +89,21 @@ function adminFolderOf(dir: string): string | undefined {
 }
 
 // Deleting this one worktree's admin folder is what `git worktree prune`
-// does for it, without pruning anyone else's worktree.
+// does for it, without pruning anyone else's worktree. The checked commit's
+// own steps can rewrite its .git file, so only a folder under the common
+// worktrees folder is ever deleted.
 function release(dir: string): void {
-  const admin = adminFolderOf(dir);
+  const link = join(dir, ".git");
+  const registered = existsSync(link);
+  const admin = registered ? adminFolderOf(link) : undefined;
   const removed = git(["worktree", "remove", "--force", dir]).ok;
   rmSync(dir, { recursive: true, force: true });
-  if (!removed && admin !== undefined)
-    rmSync(admin, { recursive: true, force: true });
+  if (removed || !registered) return;
+  if (admin === undefined)
+    process.stderr.write(
+      `git worktree remove failed for ${dir}, and its .git file points outside ${worktreesFolder}, so its registration stays. Repair: git worktree prune\n`,
+    );
+  else rmSync(admin, { recursive: true, force: true });
 }
 
 function haltIfStopped(commit: Commit): void {
