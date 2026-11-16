@@ -4,10 +4,13 @@ import { comparableEnvelope } from "../../../starters/contract3/src/kernel/compa
 import { assertEnvelope, authorityDefaults, receipt } from "./checks.ts";
 import { sliceCases } from "./coverage.ts";
 import {
+  abortExitBound,
+  abortTimeout,
   caseById,
   cleanup,
   decliningHost,
   envelopeOf,
+  exitBound,
   exitWithin,
   frontDoorStart,
   goneWithin,
@@ -399,7 +402,11 @@ describe("L06 excluded terminations without T3 (supporting C7)", () => {
       id,
       async () => {
         const entry = supporting(id, { argv: ["read", "--json"], scenario });
-        const observed = await run(entry);
+        const observed = await run(
+          entry,
+          {},
+          scenario === "abort" ? abortExitBound : exitBound,
+        );
         // Host or runtime dependent exit: recorded, not asserted (lifecycle
         // table row 8). The required observation is the missing envelope.
         receipt(entry, observed);
@@ -411,7 +418,7 @@ describe("L06 excluded terminations without T3 (supporting C7)", () => {
           await cleanup(observed);
         }
       },
-      timeout,
+      scenario === "abort" ? abortTimeout : timeout,
     );
 });
 

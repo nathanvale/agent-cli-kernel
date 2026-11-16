@@ -464,9 +464,18 @@ export function requireTools(): void {
 // is bounded below the test timeout; release kills the CLI if it is still
 // running, then every child its fixture ledgered, then removes the temporary
 // directory.
+export const exitBound = 20_000;
+// H2: a CLI that calls abort() is reported gone only after the host has dealt
+// with the aborted process. Hosted ubuntu runners took 23,798 ms (run
+// 43768259751) and 27,461 ms (run 43771790891) for L06s.abort, and more than
+// 20,000 ms in run 43780233662; Darwin takes milliseconds. Only the abort
+// scenario waits this long, about twice the slowest observation, and its own
+// test timeout (abortTimeout) stays above it so R1 still releases a real hang.
+export const abortExitBound = 60_000;
+export const abortTimeout = 75_000;
 export async function exitWithin(
   launched: Launched,
-  milliseconds = 20_000,
+  milliseconds = exitBound,
 ): Promise<Observed> {
   const observed = await Promise.race([
     launched.done,
@@ -501,10 +510,11 @@ export async function release(launched: Launched): Promise<void> {
 export async function run(
   entry: Case,
   extra: Partial<Parameters<typeof launch>[0]> = {},
+  bound = exitBound,
 ) {
   const launched = await launchCase(entry, extra);
   try {
-    return await exitWithin(launched);
+    return await exitWithin(launched, bound);
   } catch (error) {
     await release(launched);
     throw error;
