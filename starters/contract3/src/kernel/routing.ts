@@ -1,4 +1,4 @@
-import { splitDeadline } from "./deadline.ts";
+import { splitDeadline, splitDeadlineTokens } from "./deadline.ts";
 import type { CommandDeclaration } from "./declarations.ts";
 import { parseInput, acceptsRootInput } from "./input.ts";
 function refused(
@@ -108,6 +108,36 @@ export function invocationTokens(argv: readonly string[]): readonly string[] {
   const split = splitDeadline(tokens);
   return split.ok ? split.value.tokens : tokens;
 }
+// CMD-9 step 2: the host command whose route is the longest exact prefix of
+// the command tokens.
+function selectCommand(
+  cli: string,
+  commands: readonly CommandDeclaration[],
+  tokens: readonly string[],
+): CommandDeclaration | undefined {
+  return commands
+    .filter(
+      (item) =>
+        item.commandIdentity !== `${cli}.dispatch` &&
+        item.route.every((token, index) => tokens[index] === token),
+    )
+    .sort((a, b) => b.route.length - a.route.length)[0];
+}
+// Accepted decision (contract question 6 of 8): the host command a declared
+// step's final vector (route, then args) routes to, by the same selection
+// as an invocation, or undefined when it would reach no host command.
+export function routedIdentity(
+  cli: string,
+  commands: readonly CommandDeclaration[],
+  vector: readonly string[],
+): string | undefined {
+  // The deadline value may be a binding element, so only its position is
+  // read here; the step-vector rule judges the value itself.
+  const { tokens, navigation } = globalSwitches(vector);
+  const deadline = splitDeadlineTokens(tokens);
+  if (!deadline.ok || navigation.length > 0) return undefined;
+  return selectCommand(cli, commands, deadline.value.tokens)?.commandIdentity;
+}
 export async function resolveInvocation(
   cli: string,
   commands: readonly CommandDeclaration[],
@@ -133,14 +163,7 @@ export async function resolveInvocation(
       navigation[0],
       deadlineMilliseconds,
     );
-  const candidates = commands
-    .filter(
-      (item) =>
-        item.commandIdentity !== `${cli}.dispatch` &&
-        item.route.every((token, index) => tokens[index] === token),
-    )
-    .sort((a, b) => b.route.length - a.route.length);
-  const command = candidates[0];
+  const command = selectCommand(cli, commands, tokens);
   return command
     ? resolveCommand(
         cli,

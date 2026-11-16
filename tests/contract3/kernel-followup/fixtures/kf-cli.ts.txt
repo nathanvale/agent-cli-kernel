@@ -694,8 +694,177 @@ const watch = command({
   },
 });
 
+// Decision 4 (KF4). KF_STEP picks the step under test on kf.go's success
+// station (`next`), on its KF_HELD handoff (`inspect-entry`), as kf.apply's
+// ifNoResult (`if-no-result`), or to the root operation (`root`) or a deep
+// route (`deep`). KF_ARGS is the step's JSON argument list.
+const stepArgs: readonly string[] = JSON.parse(env.KF_ARGS ?? "[]") as string[];
+const operand = (name: string) => ({
+  name,
+  summary: `Fixture ${name}.`,
+  required: false,
+  value: { kind: "string", minLength: 1, maxLength: 40, choices: null, pattern: null },
+}) as const;
+function lister<const Identity extends string>(
+  identity: Identity,
+  route: readonly string[],
+  operands: readonly string[],
+) {
+  return command({
+    identity,
+    route,
+    summary: `List for ${identity}.`,
+    input: { ...input, arguments: operands.map(operand) },
+    capabilities: {},
+    stations: [success(identity)],
+    run: (parsed, context) => {
+      note("handler-entered");
+      return context.result(
+        { commandIdentity: identity, causeCode: "SUCCESS_UNCHANGED" } as never,
+        {
+          message: "Listed.",
+          data: { operands: operands.map((name) => (parsed as Record<string, unknown>)[name] ?? null) },
+          effects: empty,
+        } as never,
+      );
+    },
+  });
+}
+function stepCommands() {
+  const variant = env.KF_STEP ?? "next";
+  const target =
+    variant === "root" ? "kf.root" : variant === "deep" ? "kf.a" : "kf.list";
+  const step = { kind: "command", command: target, args: [...stepArgs] } as const;
+  const go = command({
+    identity: "kf.go",
+    route: ["go"],
+    summary: "Go somewhere next.",
+    input,
+    capabilities: {},
+    stations: [
+      station(commonCauses, {
+        ...words,
+        commandIdentity: "kf.go",
+        causeCode: "SUCCESS_UNCHANGED",
+        trigger: "Went.",
+        guidance: {
+          next: variant === "inspect-entry" || variant === "if-no-result"
+            ? { kind: "done" }
+            : step,
+        },
+        repairAction: null,
+        independentObservable: "kf.go:went",
+      }),
+      ...(variant === "inspect-entry"
+        ? [
+            station(table, {
+              ...words,
+              commandIdentity: "kf.go",
+              causeCode: "KF_HELD",
+              trigger: "Held.",
+              repairAction: "Inspect the list.",
+              guidance: {
+                handoff: {
+                  owner: "operator",
+                  reason: "Inspect the list.",
+                  inspect: [step],
+                },
+              },
+              independentObservable: "kf.go:held",
+            }),
+          ]
+        : []),
+    ],
+    run: (_input, context) => {
+      note("handler-entered");
+      return context.result(
+        { commandIdentity: "kf.go", causeCode: "SUCCESS_UNCHANGED" },
+        { message: "Went.", data: null, effects: empty },
+      );
+    },
+  });
+  const commands = [
+    go,
+    lister("kf.list", ["list"], ["name"]),
+    lister("kf.list-all", ["list", "all"], []),
+    ...(variant === "root" ? [lister("kf.root", [], ["name"])] : []),
+    ...(variant === "deep"
+      ? [
+          lister("kf.a", ["a"], ["first", "second"]),
+          lister("kf.a-b-c", ["a", "b", "c"], []),
+        ]
+      : []),
+  ];
+  if (variant !== "if-no-result")
+    return contractFor({ cli: "kf", commands, causes } as never);
+  const state = contractFor.stateAddon((issuer) => ({
+    ifNoResult: issuer.ifNoResult({
+      kind: "command",
+      command: "kf.pending",
+      args: [...stepArgs],
+    }),
+    attach() {
+      throw new Error("No state execution in an admission fixture.");
+    },
+  }));
+  const pendingList = command({
+    identity: "kf.pending",
+    route: ["pending"],
+    summary: "Inspect pending kf changes.",
+    input: { ...input, arguments: [operand("scope")] },
+    capabilities: {},
+    stations: [
+      station(commonCauses, {
+        ...words,
+        commandIdentity: "kf.pending",
+        causeCode: "SUCCESS_UNCHANGED",
+        trigger: "Read pending.",
+        guidance: {
+          next: { kind: "instruction", text: "Inspect the pending kf changes." },
+        },
+        repairAction: null,
+        independentObservable: "kf.pending:read",
+      }),
+    ],
+    run: (_input, context) =>
+      context.result(
+        { commandIdentity: "kf.pending", causeCode: "SUCCESS_UNCHANGED" },
+        { message: "Read pending.", data: null, effects: empty },
+      ),
+  });
+  return contractFor({
+    cli: "kf",
+    commands: [
+      ...commands,
+      apply(state),
+      pendingList,
+      lister("kf.pending-all", ["pending", "all"], []),
+    ],
+    causes,
+    state,
+    installedAddons: ["state"],
+  } as never);
+}
+
 const scenarios: Readonly<Record<string, (argv: string[]) => Promise<unknown>>> =
   {
+    // KF4: what contractFor did with the declared step.
+    "step-admission": () => {
+      try {
+        stepCommands();
+        process.stdout.write(JSON.stringify({ admission: "admitted" }));
+      } catch (error) {
+        process.stdout.write(
+          JSON.stringify({
+            admission: "refused",
+            reason: error instanceof Error ? error.message : String(error),
+          }),
+        );
+      }
+      return Promise.resolve();
+    },
+    // KF4 twins as processes.
+    steps: (argv) => runProcess(stepCommands() as never)(argv),
     // KF3.a, KF3.c.
     "programs-apply": (argv) => {
       const state = seamState();

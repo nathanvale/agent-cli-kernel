@@ -18,7 +18,7 @@ import type { CauseTable } from "./types.ts";
 import { causeRow } from "./validation/result.ts";
 import { bindingNames, guidanceTargets } from "./guidance.ts";
 import { validateHostInput } from "./host-input.ts";
-import { carriesGlobalSwitch } from "./routing.ts";
+import { carriesGlobalSwitch, routedIdentity } from "./routing.ts";
 import { stepVectorProblem } from "./step-vector.ts";
 import { keys, record, text } from "./validation/primitives.ts";
 export type AddonName = "state" | "programs" | "approval" | "diagnostics";
@@ -77,7 +77,29 @@ function validateStationSet(
     seen.add(station.causeCode);
   }
 }
+// Accepted decision (contract question 6 of 8; INPUT-3, STEP-6): a declared
+// step to a host command must route to that command. Returns the identity
+// it would reach instead, if any. A binding element is a token equal to no
+// route token, so it never reroutes (STEP-10).
+function reroutes(
+  cli: string,
+  target: CommandDeclaration,
+  args: readonly string[],
+  commands: readonly CommandDeclaration[],
+): string | undefined {
+  if (
+    builtins(cli).some(
+      (item) => item.commandIdentity === target.commandIdentity,
+    )
+  )
+    return undefined;
+  const routed = routedIdentity(cli, commands, [...target.route, ...args]);
+  return routed === target.commandIdentity
+    ? undefined
+    : (routed ?? "no command");
+}
 function validateIfNoResult(
+  cli: string,
   command: CommandDeclaration,
   commands: readonly CommandDeclaration[],
 ): void {
@@ -101,6 +123,11 @@ function validateIfNoResult(
   if (problem)
     throw new Error(
       `ifNoResult step ${target.commandIdentity} ${JSON.stringify(route.args)} can never parse: ${problem}.`,
+    );
+  const routed = reroutes(cli, target, route.args, commands);
+  if (routed)
+    throw new Error(
+      `ifNoResult step ${target.commandIdentity} ${JSON.stringify(route.args)} routes to ${routed}.`,
     );
   const success = target.stations.find(
     (item) => item.row.outcome === "success",
@@ -181,7 +208,7 @@ function admitCommand(
   if (command.effectClass !== "inspect" && !installed.includes("state"))
     throw new Error("Changing commands require the state add-on.");
   validateStationSet(command, causes);
-  validateIfNoResult(command, commands);
+  validateIfNoResult(cli, command, commands);
   validateGuidance(command, commands);
   validateStepVectors(cli, command, commands);
   // Last, so a more specific refusal of the same declaration wins.
@@ -218,6 +245,11 @@ function validateStepVectors(
     if (target && problem)
       throw new Error(
         `Command step ${target.commandIdentity} ${JSON.stringify(args)} from ${command.commandIdentity} can never parse: ${problem}.`,
+      );
+    const routed = target && reroutes(cli, target, args, commands);
+    if (target && routed)
+      throw new Error(
+        `Command step ${target.commandIdentity} ${JSON.stringify(args)} from ${command.commandIdentity} routes to ${routed}.`,
       );
   }
 }
