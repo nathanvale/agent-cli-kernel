@@ -5,14 +5,8 @@ import {
   contractFor,
   station,
 } from "../../starters/contract3/src/kernel/index.ts";
-const input = {
-  arguments: [],
-  options: [],
-  constraints: [],
-  deadlineSupported: false,
-  additionalArguments: false,
-  additionalOptions: false,
-} as const;
+import { emptyInput as input, unchanged } from "./kernel-repair/shapes.ts";
+import { readsUnchanged } from "./kernel-repair/handlers.ts";
 
 test("handoff objects ignore key order while inspection arrays preserve declaration order", async () => {
   const refused = station(commonCauses, {
@@ -38,12 +32,7 @@ test("handoff objects ignore key order while inspection arrays preserve declarat
   const facts = {
     message: "Authority required.",
     data: null,
-    effects: {
-      completed: [],
-      remaining: [],
-      uncertain: [],
-      inventoryComplete: true,
-    },
+    effects: unchanged,
   } as const;
   const check = command({
     capabilities: {},
@@ -108,20 +97,7 @@ test("declared stations bind identity and words, with built-ins and fallback sta
     summary: "List notes.",
     input,
     stations: [success],
-    run: (_input, context) =>
-      context.result(
-        { commandIdentity: "notes.list", causeCode: "SUCCESS_UNCHANGED" },
-        {
-          message: "Read.",
-          data: null,
-          effects: {
-            completed: [],
-            remaining: [],
-            uncertain: [],
-            inventoryComplete: true,
-          },
-        },
-      ),
+    run: readsUnchanged("notes.list"),
   });
   const contract = contractFor({ cli: "notes", commands: [list] });
   expect(
@@ -147,12 +123,7 @@ test("declared stations bind identity and words, with built-ins and fallback sta
     runId: "run-1",
     message: "Listed notes.",
     data: [],
-    effects: {
-      completed: [],
-      remaining: [],
-      uncertain: [],
-      inventoryComplete: true,
-    },
+    effects: unchanged,
   });
   expect(built).toMatchObject({
     ok: true,
@@ -195,7 +166,7 @@ test("declared stations bind identity and words, with built-ins and fallback sta
       repairAction: "Repair preparation.",
       guidance: { next: { kind: "instruction", text: "Repair preparation." } },
     }),
-  ).toThrow();
+  ).toThrow("Fallback station words are reserved.");
 });
 
 test("navigation rejects colliding identities and route resolution never initialises a handler", async () => {
@@ -213,17 +184,16 @@ test("navigation rejects colliding identities and route resolution never initial
         {
           message: "Read.",
           data: ["note-1"],
-          effects: {
-            completed: [],
-            remaining: [],
-            uncertain: [],
-            inventoryComplete: true,
-          },
+          effects: unchanged,
         },
       );
     },
   });
-  expect(() => contractFor({ cli: "notes", commands: [list, list] })).toThrow();
+  // The duplicate-identity rule itself, not the duplicate-route rule that
+  // the same pair also breaks (K1-17).
+  expect(() => contractFor({ cli: "notes", commands: [list, list] })).toThrow(
+    "Duplicate command identity.",
+  );
   const contract = contractFor({ cli: "notes", commands: [list] });
   expect(contract.help().commands).toHaveLength(1);
   expect(await contract.resolve(["list", "--json"])).toMatchObject({
@@ -273,20 +243,7 @@ test("output validates declarations, diagnostic variants and fixed guidance", as
         summary: "List.",
         input,
         stations: [success],
-        run: (_input, context) =>
-          context.result(
-            { commandIdentity: "notes.list", causeCode: "SUCCESS_UNCHANGED" },
-            {
-              message: "Read.",
-              data: null,
-              effects: {
-                completed: [],
-                remaining: [],
-                uncertain: [],
-                inventoryComplete: true,
-              },
-            },
-          ),
+        run: readsUnchanged("notes.list"),
       }),
     ],
   });
@@ -294,12 +251,7 @@ test("output validates declarations, diagnostic variants and fixed guidance", as
     runId: "run-2",
     message: "Listed.",
     data: null,
-    effects: {
-      completed: [],
-      remaining: [],
-      uncertain: [],
-      inventoryComplete: true,
-    },
+    effects: unchanged,
   });
   expect(built.ok).toBe(true);
   if (!built.ok) throw new Error("Expected valid result.");
@@ -368,20 +320,7 @@ test("binding and idempotency values are rejected consistently at build and wire
         },
       ],
     },
-    run: (_input, context) =>
-      context.result(
-        { commandIdentity: "notes.inspect", causeCode: "SUCCESS_UNCHANGED" },
-        {
-          message: "Read.",
-          data: null,
-          effects: {
-            completed: [],
-            remaining: [],
-            uncertain: [],
-            inventoryComplete: true,
-          },
-        },
-      ),
+    run: readsUnchanged("notes.inspect"),
   });
   const selected = station(commonCauses, {
     commandIdentity: "notes.issue",
@@ -407,32 +346,14 @@ test("binding and idempotency values are rejected consistently at build and wire
     input,
     capabilities: {},
     stations: [selected],
-    run: (_input, context) =>
-      context.result(
-        { commandIdentity: "notes.issue", causeCode: "SUCCESS_UNCHANGED" },
-        {
-          message: "Read.",
-          data: null,
-          effects: {
-            completed: [],
-            remaining: [],
-            uncertain: [],
-            inventoryComplete: true,
-          },
-        },
-      ),
+    run: readsUnchanged("notes.issue"),
   });
   const contract = contractFor({ cli: "notes", commands: [issue, target] });
   const facts = {
     runId: "run-1",
     message: "Read.",
     data: null,
-    effects: {
-      completed: [],
-      remaining: [],
-      uncertain: [],
-      inventoryComplete: true,
-    },
+    effects: unchanged,
   } as const;
   const valid = await contract.build(selected, {
     ...facts,
@@ -504,20 +425,7 @@ test("binding and idempotency values are rejected consistently at build and wire
         input,
         capabilities: {},
         stations: [keyed],
-        run: (_input, context) =>
-          context.result(
-            { commandIdentity: "notes.keyed", causeCode: "SUCCESS_UNCHANGED" },
-            {
-              message: "Read.",
-              data: null,
-              effects: {
-                completed: [],
-                remaining: [],
-                uncertain: [],
-                inventoryComplete: true,
-              },
-            },
-          ),
+        run: readsUnchanged("notes.keyed"),
       }),
     ],
   });

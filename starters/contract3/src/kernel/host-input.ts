@@ -10,8 +10,11 @@ export function admitHostInput(schema: InputSchema): void {
     if (value === null || value.kind !== "string" || value.pattern === null)
       continue;
     try {
-      // inputSchema already enforces the finite source-length bound. Compile
-      // the same Unicode, whole-string grammar as the worker; never match here.
+      // inputSchema already enforces the finite source-length bound. INPUT-2:
+      // the declared text itself must be a valid Unicode regular expression;
+      // `a)|(?:b` compiles only inside the wrapper, so compile both (K1-1).
+      // Then the same whole-string grammar as the worker; never match here.
+      void new RegExp(value.pattern, "u");
       void new RegExp(`^(?:${value.pattern})$`, "u");
     } catch {
       throw new Error("Invalid Unicode pattern in input declaration.");

@@ -31,6 +31,7 @@ test("the admitted state specimen validates 27 truth arms and six invalid effect
     ]);
     expect({ code, stderr }).toEqual({ code: 0, stderr: "" });
     expect(JSON.parse(stdout)).toEqual({
+      checks: 4,
       truthRows: 27,
       effectControls: 6,
       custodyControls: 6,

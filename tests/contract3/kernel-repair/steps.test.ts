@@ -114,6 +114,7 @@ function admissionNamesRootStep(refusal: string) {
 function validatedDirectly(arm: "next" | "handoff", args: readonly string[]) {
   const { root, read } = declarations(args);
   return validateEnvelope(
+    "specimen",
     envelope(arm, args),
     causes,
     [root, read],

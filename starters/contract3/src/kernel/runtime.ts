@@ -46,6 +46,15 @@ export type ContractRuntime = {
     runId: string,
     context: unknown,
   ) => Promise<Validation<CommandResult>>;
+  // The same execution in its two CMD-9 phases: steps 3 to 5 (input, future
+  // bindings, approval guard) attach nothing; the returned entry attaches
+  // state and runs the handler (step 6). execute is prepare then entry.
+  readonly prepare: (
+    identity: string,
+    argv: readonly string[],
+    runId: string,
+    context: unknown,
+  ) => Promise<Validation<() => Promise<Validation<CommandResult>>>>;
   // Builds a kernel-selected station with effects from the kernel's own
   // observation. Handler results never reach it: they go through buildResult
   // and the state-issued proof rule.

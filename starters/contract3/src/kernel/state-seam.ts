@@ -182,11 +182,15 @@ function stateIssuer(
       runId: string,
       observation: StateObservation<Effect>,
     ): TransactionProof<Effect> {
+      // Read the installer's observation exactly once; the proof is built
+      // from the same plain copy that was validated, so an accessor cannot
+      // report one state to the check and another to the proof (K2-spec-1).
+      const snapshot = structuredClone(observation);
       if (
-        !validEffects(observation.effects) ||
+        !validEffects(snapshot.effects) ||
         !transactionEffects(
-          observation.transactionState,
-          observation.effects,
+          snapshot.transactionState,
+          snapshot.effects,
           "failed",
         )
       )
@@ -199,7 +203,7 @@ function stateIssuer(
       if (!attached || attached.proofState !== undefined)
         throw new Error("One transaction proof per attached run.");
       const proof: TransactionProof<Effect> = {
-        ...structuredClone(observation),
+        ...snapshot,
         [transactionProof]: true,
         runId,
       };
@@ -249,6 +253,8 @@ const registrations = new WeakMap<
     readonly registration: StateRegistration;
     readonly installation: object;
     readonly runs: Map<string, object>;
+    // Every run identity this installation has claimed (WIRE-7).
+    readonly used: Set<string>;
     readonly active: AsyncLocalStorage<{
       readonly runId: string;
       readonly run: object;
@@ -273,7 +279,13 @@ export function createStateAddon(
     [stateAddonDescriptor]: true as const,
     ifNoResult: registration.ifNoResult,
   });
-  registrations.set(descriptor, { registration, installation, runs, active });
+  registrations.set(descriptor, {
+    registration,
+    installation,
+    runs,
+    active,
+    used: new Set(),
+  });
   return descriptor;
 }
 export function admittedState(descriptor: object): boolean {
@@ -284,9 +296,25 @@ export function attachState<Effect extends string>(
   descriptor: StateAddonDescriptor,
   runId: string,
   effects: readonly Effect[],
-): import("./capabilities.ts").StateCapability<Effect> {
+):
+  | {
+      readonly capability: import("./capabilities.ts").StateCapability<Effect>;
+      readonly close: () => void;
+    }
+  | undefined {
   const state = registrations.get(descriptor);
   if (!state) throw new Error("Unadmitted state descriptor.");
+  // WIRE-7: a run identity is unique. Claiming it and attaching happen here
+  // together, at handler entry (CMD-9 step 6; delta review F2). A used
+  // identity stays used: the reuse is refused (undefined) and the earlier
+  // attachment is superseded, so no proof or scope of that identity stands
+  // (K2-spec-2, repair 1 B2).
+  if (state.used.has(runId)) {
+    state.runs.delete(runId);
+    return undefined;
+  }
+  state.used.add(runId);
+  let open = true;
   const run = Object.freeze({});
   const status: AttachedRun = {
     transactionStarted: false,
@@ -298,6 +326,12 @@ export function attachState<Effect extends string>(
   const capability: import("./capabilities.ts").StateCapability<Effect> =
     Object.freeze({
       transaction(work) {
+        // Refused once the handler has returned: its result already exists,
+        // and a refusal must precede any attempted change (WIRE-15).
+        if (!open)
+          return Promise.reject(
+            new Error("The state capability closed when the handler returned."),
+          );
         // Refused before the work starts, so overlapping and later calls
         // cannot complete an effect the first proof does not report.
         if (status.transactionStarted)
@@ -309,7 +343,12 @@ export function attachState<Effect extends string>(
       },
     });
   capabilities.set(capability, [...effects]);
-  return capability;
+  return {
+    capability,
+    close: () => {
+      open = false;
+    },
+  };
 }
 
 const capabilities = new WeakMap<object, readonly string[]>();

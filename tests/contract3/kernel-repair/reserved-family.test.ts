@@ -3,6 +3,7 @@ import { contractFor } from "../../../starters/contract3/src/kernel/index.ts";
 import { reservedFallbackCause } from "../../../starters/contract3/src/kernel/stations.ts";
 import { contractUnchecked } from "./harness.ts";
 import { emptyInput } from "./shapes.ts";
+import { neverRuns } from "./handlers.ts";
 
 // F-1: DISC-11b reserves every INTERNAL_RESULT_* cause, not only the four the
 // base selects. Not a frozen case identity: a control beside R03, which lists
@@ -23,6 +24,7 @@ function declaration(causeCode: string) {
     input: emptyInput,
     capabilities: {},
     effectClass: "inspect",
+    execute: neverRuns,
     stations: [
       {
         commandIdentity: "specimen.read",
