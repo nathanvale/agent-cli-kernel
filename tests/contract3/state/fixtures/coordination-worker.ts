@@ -14,7 +14,7 @@
 //                          long-lived child and report its pid;
 //                          "native-child": the same, started by the C
 //                          library's system(), outside Bun.spawn.
-//          try            one attempt; report result, code, elapsed time.
+//          try             one attempt; report result, code, elapsed time.
 //          same-process    acquire, then a second open in this process
 //                          attempts; report the second result.
 import { dlopen } from "bun:ffi";
@@ -27,7 +27,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { resolveCoordination } from "../../../../starters/contract3/src/addons/state/coordination.ts";
-import { attemptLock, attemptPosixLock } from "../holder.ts";
+import { attemptLock, attemptPosixLock, library } from "../holder.ts";
 import type { Attempt } from "../holder.ts";
 
 const [route = "", mode = "", file = "", report = "", option = ""] =
@@ -116,16 +116,20 @@ function spawnChild(fd: number | null): number {
 
 // system() starts the shell with every descriptor that is not close-on-exec,
 // so this child holds the lock unless the route set the flag itself
-// (accepted decision BN-03, 17 November 2026).
+// (accepted decision BN-03, 17 November 2026). The child lives 60 s, under
+// the case's 90 s timeout, so a failure before its pid is reported cannot
+// leave it running past the case.
 function spawnNativeChild(): number {
   const pidFile = `${report}.child`;
-  const library =
-    process.platform === "linux" ? "libc.so.6" : "libSystem.B.dylib";
+  if (pidFile.includes("'"))
+    throw new Error(`native-child: pid file path has a quote: ${pidFile}`);
   const { symbols } = dlopen(library, {
     system: { args: ["cstring"], returns: "i32" },
   });
-  const command = `/bin/sleep 1000 </dev/null >/dev/null 2>&1 & echo $! > '${pidFile}'`;
-  symbols.system(Buffer.from(`${command}\0`));
+  const command = `/bin/sleep 60 </dev/null >/dev/null 2>&1 & echo $! > '${pidFile}'`;
+  const status = symbols.system(Buffer.from(`${command}\0`));
+  if (status !== 0)
+    throw new Error(`native-child: system() returned ${status}`);
   return Number(readFileSync(pidFile, "utf8").trim());
 }
 

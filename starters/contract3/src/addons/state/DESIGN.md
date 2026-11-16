@@ -273,7 +273,11 @@ route per platform, behind one interface (`coordination.ts`):
     did not hold it, because `Bun.spawn` passes no descriptor beyond stdio.
     So no single-guard fault for this property can be built through
     `Bun.spawn`; case C01.e's detected twin hands the locked descriptor to
-    the child as its stdin.
+    the child as its stdin. Both routes also set `O_CLOEXEC` themselves
+    (accepted decision BN-03, 17 November 2026), and C01.e starts a child
+    through the C library's `system()`, which inherits every descriptor
+    without it. That observation fails without the flag only on Bun before
+    1.4.3; the supported runtime is the pinned Bun 1.4.4.
 - Qualified where (observed, never implied beyond it):
   - Darwin: lock probe, 16 November 2026, macOS 26.6, APFS local volume,
     Bun 1.4.4.

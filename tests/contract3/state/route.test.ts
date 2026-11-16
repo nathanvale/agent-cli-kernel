@@ -123,7 +123,10 @@ async function holder(
 ): Promise<{ readonly worker: Worker; readonly report: Report }> {
   const worker = start(route, "hold", file, option);
   const report = await worker.report();
-  expect(report.result).toBe("acquired");
+  expect({ result: report.result, code: report.code }).toEqual({
+    result: "acquired",
+    code: "none",
+  });
   return { worker, report };
 }
 
@@ -247,7 +250,9 @@ caseTest("C01.e-spawned-child-does-not-hold", async () => {
   expect(addon.childAlive).toBe(true);
   expect(addon.result).toBe("acquired");
   // A child the C library starts inherits every descriptor that is not
-  // close-on-exec; red on Bun 1.4.0 without the route's own flag.
+  // close-on-exec. Without the route's own flag this fails only on Bun
+  // before 1.4.3; the supported runtime is the pinned 1.4.4, which sets the
+  // flag too, so here it guards against a Bun that stops setting it.
   const native = await childObservation("addon", "native-child");
   expect(native.childAlive).toBe(true);
   expect(native.result).toBe("acquired");
