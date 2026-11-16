@@ -118,7 +118,7 @@ test("registering a probe after the first compile is refused", async () => {
 test("compiling a probe with a compiler it was not registered for is refused", async () => {
   expect(await nativeOnly.compile("native")).toMatchObject({ exit: 0 });
   expect(await nativeOnly.compile("lint-view").catch(String)).toBe(
-    `Error: ${nativeOnly.file} was not registered for lint-view.`,
+    `Error: ${nativeOnly.file} (source starts "export const native = 1;") was not registered for lint-view. Add "lint-view" to the compilers passed when registering it.`,
   );
 });
 

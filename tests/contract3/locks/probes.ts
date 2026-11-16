@@ -253,7 +253,9 @@ export function probeBatch(prefix: string) {
         batch ??= compileAll();
         const result = (await batch)[compiler].get(file);
         if (!result)
-          throw new Error(`${file} was not registered for ${compiler}.`);
+          throw new Error(
+            `${file} (source starts ${JSON.stringify(source.split("\n")[0])}) was not registered for ${compiler}. Add "${compiler}" to the compilers passed when registering it.`,
+          );
         const evidence = process.env.CONTRACT3_COMPILER_EVIDENCE;
         if (evidence) {
           const { stdout, stderr, exit } = result;
