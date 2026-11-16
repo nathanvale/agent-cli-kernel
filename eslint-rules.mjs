@@ -7,6 +7,13 @@ const timerPromises = new Set(["node:timers/promises", "timers/promises"]);
 const isFunction = (node) =>
   node?.type === "ArrowFunctionExpression" ||
   node?.type === "FunctionExpression";
+const onlyCall = ({ body }) => {
+  const expression =
+    body.type === "BlockStatement"
+      ? body.body.length === 1 && body.body[0].expression
+      : body;
+  return expression?.type === "CallExpression" ? expression : undefined;
+};
 
 export default {
   rules: {
@@ -139,20 +146,8 @@ export default {
         // value. A watchdog rejects, aborts or resolves with a sentinel.
         const resolves = (callback, resolve) => {
           if (callback?.type === "Identifier") return callback.name === resolve;
-          if (!isFunction(callback)) return false;
-          const { body } = callback;
-          const call =
-            body.type !== "BlockStatement"
-              ? body
-              : body.body.length === 1 &&
-                  body.body[0].type === "ExpressionStatement"
-                ? body.body[0].expression
-                : undefined;
-          return (
-            call?.type === "CallExpression" &&
-            call.callee.name === resolve &&
-            call.arguments.length === 0
-          );
+          const call = isFunction(callback) ? onlyCall(callback) : undefined;
+          return call?.callee.name === resolve && call.arguments.length === 0;
         };
         return {
           "MemberExpression[object.name='Bun'][property.name=/^sleep(?:Sync)?$/]"(
