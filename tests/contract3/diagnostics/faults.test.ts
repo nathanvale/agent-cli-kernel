@@ -18,7 +18,8 @@ import {
 } from "./harness.ts";
 import type { Run } from "./harness.ts";
 import {
-  expectStatusShape,
+  expectAvailable,
+  expectUnavailable,
   expectSuccess,
   expectTwinEqual,
   machine,
@@ -31,7 +32,14 @@ const timeout = 60_000;
 
 function status(result: Run) {
   const value = statusOf(result);
-  expectStatusShape(value);
+  if (get(value, "status") === "available") expectAvailable(value);
+  else
+    expectUnavailable(
+      value,
+      get(value, "reason") === "status-invalid"
+        ? "status-invalid"
+        : "status-unavailable",
+    );
   return value;
 }
 
@@ -99,7 +107,7 @@ describe("D10 sink faults and the stuck flush", () => {
   );
 
   test(
-    "D10.late-completion-ignored: a write that completes after the freeze changes nothing and writes nothing",
+    "D10.late-completion-ignored (component layer; the process row is R1.late-completion-process): a write that completes after the freeze changes nothing and writes nothing",
     async () => {
       // Component support: a real process exits right after its envelope, so
       // the late completion is driven in process with a held write.

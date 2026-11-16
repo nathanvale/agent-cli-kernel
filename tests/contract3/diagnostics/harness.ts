@@ -72,7 +72,17 @@ export function tree(): Tree {
   return { root, home, state, dir: join(state, cli, "diagnostics") };
 }
 
+const children: {
+  readonly kill: () => void;
+  readonly exitCode: number | null;
+  readonly signalCode: string | null;
+}[] = [];
+
+// Teardown: kill every child this harness started that is still running,
+// then remove the trees. A failing held-run test leaves nothing behind.
 export function cleanTrees(): void {
+  for (const child of children.splice(0))
+    if (child.exitCode === null && child.signalCode === null) child.kill();
   for (const root of roots.splice(0))
     rmSync(root, { recursive: true, force: true });
 }
@@ -139,6 +149,7 @@ export function start(launch: Launch) {
     stdout: "pipe",
     stderr: "pipe",
   });
+  children.push(child);
   const finished = (async (): Promise<Run> => {
     const [stdout, stderr] = await Promise.all([
       new Response(child.stdout).text(),

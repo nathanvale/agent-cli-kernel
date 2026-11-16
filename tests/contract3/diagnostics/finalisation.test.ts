@@ -25,7 +25,8 @@ import {
   waitForLog,
 } from "./harness.ts";
 import {
-  expectStatusShape,
+  expectAvailable,
+  expectUnavailable,
   expectSuccess,
   expectTwinEqual,
   machine,
@@ -66,7 +67,8 @@ async function heldRun(
 }
 
 describe("D13 result noninterference", () => {
-  const script = { records: 4 };
+  // Paced: records keep arriving after each fault is established.
+  const script = { records: 4, pace: true };
 
   test(
     "D13.directory-deleted-mid-run: deleting the diagnostics tree mid-run changes nothing in the result",
@@ -76,7 +78,9 @@ describe("D13 result noninterference", () => {
       );
       expectSuccess(result);
       await expectTwinEqual(result, { argv: read, script });
-      expectStatusShape(statusOf(result));
+      expectAvailable(statusOf(result));
+      expect(get(statusOf(result), "sinkFailure")).toBeNull();
+      expect(get(statusOf(result), "closed")).toBe(true);
       expect(existsSync(where.dir)).toBe(false);
     },
     timeout,
@@ -91,7 +95,7 @@ describe("D13 result noninterference", () => {
       expectSuccess(result);
       await expectTwinEqual(result, { argv: read, script });
       const status = statusOf(result);
-      expectStatusShape(status);
+      expectUnavailable(status, "status-invalid");
       expect(get(status, "status")).toBe("unavailable");
       expect(get(status, "reason")).toBe("status-invalid");
     },
@@ -128,7 +132,7 @@ describe("D13 result noninterference", () => {
 
 describe("D17 finalisation freeze", () => {
   test(
-    "D17.no-change-after-freeze: after the freeze no record is admitted and the log never changes",
+    "D17.no-change-after-freeze (component layer; the process row is UNPROVED): after the freeze no record is admitted and the log never changes",
     async () => {
       // Component support: the process exits at drain, so post-freeze activity
       // is driven in process against the real filesystem.

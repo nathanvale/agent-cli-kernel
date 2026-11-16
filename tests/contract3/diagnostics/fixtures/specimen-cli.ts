@@ -104,9 +104,25 @@ function hostile(facts: JsonValue): JsonValue {
   return value;
 }
 
+// A barrier with a deadline: a test that fails before opening it can never
+// leave this process polling for ever.
 async function held(path: string) {
-  while (!existsSync(path))
+  const until = Date.now() + 60_000;
+  while (!existsSync(path)) {
+    if (Date.now() > until) process.exit(70);
     await new Promise((resolve) => setTimeout(resolve, 2));
+  }
+}
+
+// The handler reads a declared secret file as a host would, and treats an
+// unreadable one as absent, so the domain result never depends on it.
+function contentsOf(path: string | undefined): string | null {
+  if (path === undefined) return null;
+  try {
+    return readFileSync(path, "utf8");
+  } catch {
+    return null;
+  }
 }
 
 type Recorder = { readonly record: (event: string, facts: JsonValue) => void };
@@ -122,9 +138,7 @@ async function perform(
     ? {
         note: parsed["--token"] ?? null,
         token: parsed["--token"] ?? null,
-        contents: parsed["--token-file"]
-          ? readFileSync(parsed["--token-file"], "utf8")
-          : null,
+        contents: contentsOf(parsed["--token-file"]),
         environment: process.env.DXS_TOKEN ?? null,
         sentence: `the value ${parsed["--token"] ?? ""} appears in prose`,
       }

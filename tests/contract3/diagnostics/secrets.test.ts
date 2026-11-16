@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { cleanTrees, get, lines, observe, run, tree } from "./harness.ts";
 import type { Run, Tree } from "./harness.ts";
 import {
-  expectStatusShape,
+  expectAvailable,
   expectSuccess,
   expectTwinEqual,
   machine,
@@ -53,7 +53,7 @@ async function secretAbsentAfterPositive(
   });
   await expectTwinEqual(result, launch);
   const status = statusOf(result);
-  expectStatusShape(status);
+  expectAvailable(status);
   expect(get(status, "sinkFailure")).toBeNull();
   const [log] = observe(where.dir).files;
   if (!log) throw new Error("no log to inspect");
@@ -259,7 +259,7 @@ describe("D16 record context", () => {
       expectSuccess(result);
       expect(result.stdout.trim().split("\n")).toHaveLength(1);
       const status = statusOf(result);
-      expectStatusShape(status);
+      expectAvailable(status);
       expect(get(status, "countsComplete")).toBe(false);
       expect(get(status, "droppedRecords")).toBe(2_000);
       expect(observe(where.state).exists).toBe(true);

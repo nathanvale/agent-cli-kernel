@@ -8,7 +8,9 @@ import { empty, plain } from "./fixtures/declarations.ts";
 import { cleanTrees, get, observe, run, tree } from "./harness.ts";
 import type { Run, Tree } from "./harness.ts";
 import {
-  expectStatusShape,
+  expectAvailable,
+  expectTwinEqual,
+  expectUnavailable,
   expectSuccess,
   machine,
   statusOf,
@@ -145,8 +147,7 @@ describe("D01 absent when disabled", () => {
       expectSuccess(result);
       expect(hasKey(result)).toBe(true);
       const status = statusOf(result);
-      expectStatusShape(status);
-      expect(get(status, "status")).toBe("available");
+      expectAvailable(status);
       expect(get(status, "file")).toBeString();
     },
     timeout,
@@ -211,8 +212,7 @@ describe("Fallback with the add-on (T2 F02 and W06 through this add-on)", () => 
         "INTERNAL_RESULT_",
       );
       const status = statusOf(result);
-      expectStatusShape(status);
-      expect(get(status, "status")).toBe("available");
+      expectAvailable(status);
       const [log] = observe(where.dir).files;
       expect(get(status, "file")).toBe(log?.path);
     },
@@ -222,15 +222,23 @@ describe("Fallback with the add-on (T2 F02 and W06 through this add-on)", () => 
   test(
     "D11.invalid-no-fallback and W06.diagnostics-fault-no-fallback (T5 add-on): a diagnostics fault never takes the fallback",
     async () => {
-      for (const fault of [
-        "write-lies",
-        "size-throws",
-        "write-stalls",
-        "close-throws",
-      ]) {
+      const expected = [
+        { fault: "write-lies", variant: "status-invalid" },
+        { fault: "size-throws", variant: "status-unavailable" },
+        { fault: "write-stalls", variant: "flush-timeout" },
+        { fault: "close-throws", variant: "close" },
+      ] as const;
+      for (const { fault, variant } of expected) {
         const result = await run({ argv: read, tree: tree(), fault });
         expectSuccess(result);
-        expectStatusShape(statusOf(result));
+        await expectTwinEqual(result, { argv: read });
+        const status = statusOf(result);
+        if (variant === "status-invalid" || variant === "status-unavailable")
+          expectUnavailable(status, variant);
+        else {
+          expectAvailable(status);
+          expect(get(status, "sinkFailure")).toBe(variant);
+        }
       }
     },
     timeout,

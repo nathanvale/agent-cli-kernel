@@ -24,7 +24,8 @@ import {
 } from "./harness.ts";
 import type { Run, Tree } from "./harness.ts";
 import {
-  expectStatusShape,
+  expectAvailable,
+  expectUnavailable,
   expectSuccess,
   expectTwinEqual,
   machine,
@@ -38,7 +39,8 @@ const day = 24 * 60 * 60 * 1000;
 
 function status(result: Run) {
   const value = statusOf(result);
-  expectStatusShape(value);
+  if (get(value, "status") === "available") expectAvailable(value);
+  else expectUnavailable(value, "status-invalid");
   return {
     sinkFailure: get(value, "sinkFailure"),
     dropped: Number(get(value, "droppedRecords")),
@@ -335,7 +337,10 @@ describe("D07 pruning eligibility", () => {
       });
       await waitForFile(ready);
       let active = logs(where.dir).find((entry) => !before.has(entry.ino));
+      const until = performance.now() + 30_000;
       while (!active) {
+        if (performance.now() > until)
+          throw new Error("No active log appeared.");
         await Bun.sleep(2);
         active = logs(where.dir).find((entry) => !before.has(entry.ino));
       }
@@ -447,7 +452,9 @@ describe("D08 concurrent pruners", () => {
       for (const result of results) {
         expectSuccess(result);
         await expectTwinEqual(result, { argv: read, script: fullRun });
-        expectStatusShape(statusOf(result));
+        expectAvailable(statusOf(result));
+        const failure = get(statusOf(result), "sinkFailure");
+        expect(failure === null || failure === "capacity").toBe(true);
       }
     },
     timeout,

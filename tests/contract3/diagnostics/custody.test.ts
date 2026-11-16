@@ -24,8 +24,9 @@ import {
   waitForLog,
 } from "./harness.ts";
 import type { Tree } from "./harness.ts";
+import { reportUnproved, unprovedHere } from "./platform.ts";
 import {
-  expectStatusShape,
+  expectAvailable,
   expectSuccess,
   expectTwinEqual,
   machine,
@@ -35,6 +36,10 @@ import {
 afterAll(cleanTrees);
 const read = ["read", ...machine] as const;
 const timeout = 60_000;
+// Paced records: the first triggers the sink's setup (and its fault), the
+// rest are recorded after that fault is established, so a fault that reached
+// the handler would change the result (SF1, repair round 1).
+const afterFault = { records: 3, pace: true } as const;
 
 function onlyLog(dir: string) {
   const files = observe(dir).files.filter((entry) =>
@@ -47,7 +52,7 @@ function onlyLog(dir: string) {
 }
 
 function expectSetupRefusal(status: unknown) {
-  expectStatusShape(status);
+  expectAvailable(status);
   expect(get(status, "status")).toBe("available");
   expect(get(status, "sinkFailure")).toBe("setup");
   expect(get(status, "file")).toBeNull();
@@ -177,13 +182,13 @@ describe("D02 private location and modes", () => {
       privateParents(where);
       mkdirSync(where.dir);
       chmodSync(where.dir, 0o755);
-      const result = await run({ argv: read, tree: where });
+      const result = await run({ argv: read, tree: where, script: afterFault });
       expectSuccess(result);
       expectSetupRefusal(statusOf(result));
       const view = observe(where.dir);
       expect(view.mode).toBe(0o755);
       expect(view.entries).toHaveLength(0);
-      await expectTwinEqual(result, { argv: read });
+      await expectTwinEqual(result, { argv: read, script: afterFault });
     },
     timeout,
   );
@@ -226,6 +231,7 @@ describe("D03 hostile final components", () => {
       const result = await run({
         argv: read,
         tree: where,
+        script: afterFault,
         fault: "plant-file:SENTINEL-BYTES",
       });
       expectSuccess(result);
@@ -235,7 +241,7 @@ describe("D03 hostile final components", () => {
       expect(planted ? readFileSync(planted.path, "utf8") : "").toBe(
         "SENTINEL-BYTES",
       );
-      await expectTwinEqual(result, { argv: read });
+      await expectTwinEqual(result, { argv: read, script: afterFault });
     },
     timeout,
   );
@@ -251,6 +257,7 @@ describe("D03 hostile final components", () => {
       const result = await run({
         argv: read,
         tree: where,
+        script: afterFault,
         fault: `plant-symlink:${sentinel}`,
       });
       expectSuccess(result);
@@ -260,7 +267,7 @@ describe("D03 hostile final components", () => {
       expect(after.ino).toBe(before.ino);
       expect(after.mode & 0o7777).toBe(0o644);
       expect(after.mtimeMs).toBe(before.mtimeMs);
-      await expectTwinEqual(result, { argv: read });
+      await expectTwinEqual(result, { argv: read, script: afterFault });
     },
     timeout,
   );
@@ -273,12 +280,12 @@ describe("D03 hostile final components", () => {
       const target = join(where.root, "target");
       mkdirSync(target, { mode: 0o700 });
       symlinkSync(target, where.dir);
-      const result = await run({ argv: read, tree: where });
+      const result = await run({ argv: read, tree: where, script: afterFault });
       expectSuccess(result);
       expectSetupRefusal(statusOf(result));
       expect(observe(target).entries).toHaveLength(0);
       expect(lstatSync(where.dir).isSymbolicLink()).toBe(true);
-      await expectTwinEqual(result, { argv: read });
+      await expectTwinEqual(result, { argv: read, script: afterFault });
     },
     timeout,
   );
@@ -290,6 +297,7 @@ describe("D03 hostile final components", () => {
       const result = await run({
         argv: read,
         tree: where,
+        script: afterFault,
         fault: "plant-fifo",
       });
       expectSuccess(result);
@@ -297,7 +305,7 @@ describe("D03 hostile final components", () => {
       expect(observe(where.dir).entries.map((entry) => entry.kind)).toContain(
         "fifo",
       );
-      await expectTwinEqual(result, { argv: read });
+      await expectTwinEqual(result, { argv: read, script: afterFault });
     },
     timeout,
   );
@@ -308,11 +316,11 @@ describe("D03 hostile final components", () => {
       const where = tree();
       privateParents(where);
       mkfifo(where.dir);
-      const result = await run({ argv: read, tree: where });
+      const result = await run({ argv: read, tree: where, script: afterFault });
       expectSuccess(result);
       expectSetupRefusal(statusOf(result));
       expect(observe(where.dir).kind).toBe("fifo");
-      await expectTwinEqual(result, { argv: read });
+      await expectTwinEqual(result, { argv: read, script: afterFault });
     },
     timeout,
   );
@@ -336,11 +344,11 @@ describe("D03 hostile final components", () => {
       const where = tree();
       mkdirSync(where.state);
       chmodSync(where.state, 0o777);
-      const result = await run({ argv: read, tree: where });
+      const result = await run({ argv: read, tree: where, script: afterFault });
       expectSuccess(result);
       expectSetupRefusal(statusOf(result));
       expect(observe(where.state).entries).toHaveLength(0);
-      await expectTwinEqual(result, { argv: read });
+      await expectTwinEqual(result, { argv: read, script: afterFault });
     },
     timeout,
   );
@@ -389,7 +397,7 @@ describe("D04 handle custody", () => {
         argv: read,
         tree: where,
         fault: `open-barrier:${ready}:${go}`,
-        script: { records: 3 },
+        script: afterFault,
       });
       await waitForFile(ready);
       renameSync(where.dir, `${where.dir}.orig`);
@@ -402,7 +410,7 @@ describe("D04 handle custody", () => {
       // the sink refuses it and writes nothing there.
       for (const entry of observe(elsewhere).files) expect(entry.size).toBe(0);
       expect(observe(`${where.dir}.orig`).files).toHaveLength(0);
-      await expectTwinEqual(result, { argv: read, script: { records: 3 } });
+      await expectTwinEqual(result, { argv: read, script: afterFault });
     },
     timeout,
   );
@@ -416,12 +424,13 @@ describe("D09 setup faults", () => {
       const result = await run({
         argv: read,
         tree: where,
+        script: afterFault,
         xdg: false,
         home: false,
       });
       expectSuccess(result);
       expectSetupRefusal(statusOf(result));
-      await expectTwinEqual(result, { argv: read });
+      await expectTwinEqual(result, { argv: read, script: afterFault });
     },
     timeout,
   );
@@ -433,11 +442,15 @@ describe("D09 setup faults", () => {
       mkdirSync(where.state, { mode: 0o500 });
       chmodSync(where.state, 0o500);
       try {
-        const result = await run({ argv: read, tree: where });
+        const result = await run({
+          argv: read,
+          tree: where,
+          script: afterFault,
+        });
         expectSuccess(result);
         expectSetupRefusal(statusOf(result));
         expect(observe(where.state).entries).toHaveLength(0);
-        await expectTwinEqual(result, { argv: read });
+        await expectTwinEqual(result, { argv: read, script: afterFault });
       } finally {
         chmodSync(where.state, 0o700);
       }
@@ -445,72 +458,81 @@ describe("D09 setup faults", () => {
     timeout,
   );
 
-  const darwin = process.platform === "darwin";
-  test.skipIf(!darwin)(
-    `D09.no-space-volume: a full state volume leaves the result unchanged${darwin ? "" : ` (UNPROVED on ${process.platform}: no unprivileged size-limited volume)`}`,
-    async () => {
-      const where = tree();
-      const image = join(where.root, "vol.dmg");
-      const mount = join(where.root, "vol");
-      mkdirSync(mount);
-      const made = Bun.spawnSync([
-        "/usr/bin/hdiutil",
-        "create",
-        "-size",
-        "2m",
-        "-fs",
-        "HFS+",
-        "-volname",
-        "t5diag",
-        image,
-      ]);
-      if (made.exitCode !== 0)
-        throw new Error(
-          `UNPROVED on this host: hdiutil create refused (${made.stderr.toString()})`,
-        );
-      const attached = Bun.spawnSync([
-        "/usr/bin/hdiutil",
-        "attach",
-        "-nobrowse",
-        "-mountpoint",
-        mount,
-        image,
-      ]);
-      if (attached.exitCode !== 0)
-        throw new Error(
-          `UNPROVED on this host: hdiutil attach refused (${attached.stderr.toString()})`,
-        );
-      try {
-        const state = join(mount, "state");
-        mkdirSync(join(state, "dxs", "diagnostics"), {
-          recursive: true,
-          mode: 0o700,
-        });
-        for (const path of [
-          state,
-          join(state, "dxs"),
-          join(state, "dxs", "diagnostics"),
-        ])
-          chmodSync(path, 0o700);
-        // Fill the volume so no record byte fits.
-        const filler = join(mount, "filler");
-        Bun.spawnSync(["/bin/dd", "if=/dev/zero", `of=${filler}`, "bs=64k"]);
-        const result = await run({
-          argv: read,
-          tree: { ...where, state, dir: join(state, "dxs", "diagnostics") },
-          script: { records: 20, size: 4000 },
-        });
-        expectSuccess(result);
-        const status = statusOf(result);
-        expectStatusShape(status);
-        expect(
-          ["setup", "write"].includes(String(get(status, "sinkFailure"))),
-        ).toBe(true);
-        await expectTwinEqual(result, { argv: read, script: { records: 20 } });
-      } finally {
-        Bun.spawnSync(["/usr/bin/hdiutil", "detach", mount, "-force"]);
-      }
-    },
-    timeout,
-  );
+  const noSpaceUnproved = unprovedHere("D09.no-space-volume");
+  if (noSpaceUnproved !== undefined)
+    test(`D09.no-space-volume: UNPROVED on ${process.platform}`, () => {
+      expect(noSpaceUnproved.length).toBeGreaterThan(0);
+      reportUnproved("D09.no-space-volume", noSpaceUnproved);
+    });
+  else
+    test(
+      "D09.no-space-volume: a full state volume leaves the result unchanged",
+      async () => {
+        const where = tree();
+        const image = join(where.root, "vol.dmg");
+        const mount = join(where.root, "vol");
+        mkdirSync(mount);
+        const made = Bun.spawnSync([
+          "/usr/bin/hdiutil",
+          "create",
+          "-size",
+          "2m",
+          "-fs",
+          "HFS+",
+          "-volname",
+          "t5diag",
+          image,
+        ]);
+        if (made.exitCode !== 0)
+          throw new Error(
+            `UNPROVED on this host: hdiutil create refused (${made.stderr.toString()})`,
+          );
+        const attached = Bun.spawnSync([
+          "/usr/bin/hdiutil",
+          "attach",
+          "-nobrowse",
+          "-mountpoint",
+          mount,
+          image,
+        ]);
+        if (attached.exitCode !== 0)
+          throw new Error(
+            `UNPROVED on this host: hdiutil attach refused (${attached.stderr.toString()})`,
+          );
+        try {
+          const state = join(mount, "state");
+          mkdirSync(join(state, "dxs", "diagnostics"), {
+            recursive: true,
+            mode: 0o700,
+          });
+          for (const path of [
+            state,
+            join(state, "dxs"),
+            join(state, "dxs", "diagnostics"),
+          ])
+            chmodSync(path, 0o700);
+          // Fill the volume so no record byte fits.
+          const filler = join(mount, "filler");
+          Bun.spawnSync(["/bin/dd", "if=/dev/zero", `of=${filler}`, "bs=64k"]);
+          const result = await run({
+            argv: read,
+            tree: { ...where, state, dir: join(state, "dxs", "diagnostics") },
+            script: { records: 20, size: 4000 },
+          });
+          expectSuccess(result);
+          const status = statusOf(result);
+          expectAvailable(status);
+          expect(
+            ["setup", "write"].includes(String(get(status, "sinkFailure"))),
+          ).toBe(true);
+          await expectTwinEqual(result, {
+            argv: read,
+            script: { records: 20 },
+          });
+        } finally {
+          Bun.spawnSync(["/usr/bin/hdiutil", "detach", mount, "-force"]);
+        }
+      },
+      timeout,
+    );
 });
