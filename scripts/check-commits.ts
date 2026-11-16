@@ -1,7 +1,6 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { constants, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import type { Subprocess } from "bun";
 import { runWithOwnTools } from "./child-env.ts";
 import { doctor } from "./doctor.ts";
 
@@ -27,7 +26,7 @@ type Checked = Commit & { result: Result };
 // SIGTERM.
 const signals = ["SIGHUP", "SIGINT", "SIGTERM"] as const;
 type StopSignal = (typeof signals)[number];
-const active: { child?: Subprocess; stoppedBy?: StopSignal } = {};
+const active: { stop?: () => void; stoppedBy?: StopSignal } = {};
 
 function isStopSignal(signal: string | undefined): signal is StopSignal {
   return signals.some((each) => each === signal);
@@ -182,7 +181,7 @@ function commitsToCheck(base: string, head: string): Commit[] {
 for (const signal of signals)
   process.on(signal, () => {
     active.stoppedBy ??= signal;
-    active.child?.kill("SIGTERM");
+    active.stop?.();
   });
 
 async function main(argv: readonly string[]): Promise<number> {

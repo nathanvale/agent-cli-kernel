@@ -8,7 +8,6 @@ import {
 } from "node:fs";
 import { constants, tmpdir } from "node:os";
 import { basename, join } from "node:path";
-import type { Subprocess } from "bun";
 import { runWithOwnTools } from "./child-env.ts";
 
 const root = join(import.meta.dir, "..");
@@ -26,13 +25,13 @@ type Verdict =
   | { kind: "KILLED"; failing: readonly string[] }
   | { kind: "SURVIVED" }
   | { kind: "STALE"; output: string }
-  | { kind: "BROKEN"; output: string };
+  | { kind: "BROKEN"; output: string }
+  | { kind: "TIMEOUT"; step: string };
 
 const signals = ["SIGHUP", "SIGINT", "SIGTERM"] as const;
-// The step's group has no live process to stop. ESRCH: every member is
-// reaped. EPERM: macOS answers it when every member left is a zombie.
-const groupGone = new Set<unknown>(["ESRCH", "EPERM"]);
-const active: { child?: Subprocess; stoppedBy?: (typeof signals)[number] } = {};
+const active: { stop?: () => void; stoppedBy?: (typeof signals)[number] } = {};
+const stepLimitVariable = "FAULTS_STEP_SECONDS";
+const defaultStepLimitSeconds = 300;
 const snapshotAuthor = {
   GIT_AUTHOR_NAME: "faults",
   GIT_AUTHOR_EMAIL: "faults@localhost",
@@ -148,6 +147,24 @@ function commitWorkingTreeInScratchIndex(): string {
   }
 }
 
+function stepLimitMilliseconds(): number {
+  const given = process.env[stepLimitVariable];
+  if (given === undefined || given === "")
+    return defaultStepLimitSeconds * 1000;
+  const seconds = Number(given);
+  if (!Number.isFinite(seconds) || seconds <= 0)
+    throw new Error(
+      `${stepLimitVariable} is ${quoted(given)}. Set it to a positive number of seconds, or unset it for ${defaultStepLimitSeconds} s.`,
+    );
+  return seconds * 1000;
+}
+
+class StepTimedOut extends Error {
+  constructor(readonly step: string) {
+    super(`${step} did not finish within its limit.`);
+  }
+}
+
 function haltIfStopped(id: string): void {
   if (active.stoppedBy !== undefined)
     throw new Error(
@@ -155,14 +172,20 @@ function haltIfStopped(id: string): void {
     );
 }
 
-async function step(id: string, cwd: string, argv: readonly string[]) {
-  const { exitCode, signalCode, output } = await runWithOwnTools(
+async function step(
+  id: string,
+  cwd: string,
+  argv: readonly string[],
+  limitMilliseconds: number,
+) {
+  const { exitCode, signalCode, timedOut, output } = await runWithOwnTools(
     argv,
     cwd,
     active,
-    { detached: true },
+    { detached: true, limitMilliseconds },
   );
   haltIfStopped(id);
+  if (timedOut) throw new StepTimedOut(argv.join(" "));
   if (signalCode !== null)
     throw new Error(
       `${argv.join(" ")} was killed by ${signalCode} while replaying ${id}, so it has no verdict.`,
@@ -192,24 +215,25 @@ async function removeWorktree(dir: string): Promise<void> {
   }).exited;
 }
 
-async function replay(fault: Fault, commit: string): Promise<Verdict> {
+async function replay(
+  fault: Fault,
+  commit: string,
+  limitMilliseconds: number,
+): Promise<Verdict> {
   const patch = join(root, fault.patch);
   const folder = mkdtempSync(join(tmpdir(), "faults-"));
   const dir = join(folder, "tree");
   const gitInTree = (argv: readonly string[]) =>
-    step(fault.id, dir, ["git", ...argv]);
+    step(fault.id, dir, ["git", ...argv], limitMilliseconds);
   const bunInTree = (argv: readonly string[]) =>
-    step(fault.id, dir, [process.execPath, ...argv]);
+    step(fault.id, dir, [process.execPath, ...argv], limitMilliseconds);
   try {
-    const added = await step(fault.id, root, [
-      "git",
-      "worktree",
-      "add",
-      "--detach",
-      "--quiet",
-      dir,
-      commit,
-    ]);
+    const added = await step(
+      fault.id,
+      root,
+      ["git", "worktree", "add", "--detach", "--quiet", dir, commit],
+      limitMilliseconds,
+    );
     if (!added.passed) throw new Error(added.output.trim());
     const applies = await gitInTree(["apply", "--check", patch]);
     if (!applies.passed) return { kind: "STALE", output: applies.output };
@@ -225,13 +249,22 @@ async function replay(fault: Fault, commit: string): Promise<Verdict> {
     const faulted = await bunInTree(testArgs(fault));
     if (faulted.passed) return { kind: "SURVIVED" };
     return { kind: "KILLED", failing: failingTests(faulted.output) };
+  } catch (error) {
+    if (error instanceof StepTimedOut)
+      return { kind: "TIMEOUT", step: error.step };
+    throw error;
   } finally {
     await removeWorktree(dir);
     rmSync(folder, { recursive: true, force: true });
   }
 }
 
-function report(fault: Fault, verdict: Verdict, seconds: number): void {
+function report(
+  fault: Fault,
+  verdict: Verdict,
+  seconds: number,
+  limitMilliseconds: number,
+): void {
   const took = `in ${seconds.toFixed(1)} s`;
   const shown = `bun test ./${fault.testFile} -t ${quoted(fault.title)}`;
   const rerun = `Rerun: bun run faults ${fault.id}`;
@@ -264,6 +297,12 @@ function report(fault: Fault, verdict: Verdict, seconds: number): void {
       process.stdout.write(verdict.output.replace(/\n?$/, "\n"));
       print(rerun);
       return;
+    case "TIMEOUT":
+      print(
+        `TIMEOUT ${fault.id} ${took}. ${verdict.step} did not finish within ${limitMilliseconds / 1000} s, so the fault has no verdict. Find the hang, or raise ${stepLimitVariable}.`,
+      );
+      print(rerun);
+      return;
   }
 }
 
@@ -282,14 +321,20 @@ async function replayAll(ids: readonly string[]): Promise<number> {
     print(`No faults recorded in ${manifestPath}.`);
     return 0;
   }
+  const limitMilliseconds = stepLimitMilliseconds();
   const commit = commitWorkingTreeInScratchIndex();
   const started = performance.now();
   let killed = 0;
   for (const fault of chosen) {
     const begun = performance.now();
-    const verdict = await replay(fault, commit);
+    const verdict = await replay(fault, commit, limitMilliseconds);
     haltIfStopped(fault.id);
-    report(fault, verdict, (performance.now() - begun) / 1000);
+    report(
+      fault,
+      verdict,
+      (performance.now() - begun) / 1000,
+      limitMilliseconds,
+    );
     if (verdict.kind === "KILLED") killed += 1;
   }
   const seconds = (performance.now() - started) / 1000;
@@ -351,13 +396,7 @@ for (const signal of signals)
   process.on(signal, () => {
     active.stoppedBy ??= signal;
     process.exitCode = 128 + constants.signals[active.stoppedBy];
-    const pid = active.child?.pid;
-    if (pid === undefined) return;
-    try {
-      process.kill(-pid, "SIGTERM");
-    } catch (error) {
-      if (!groupGone.has(Reflect.get(Object(error), "code"))) throw error;
-    }
+    active.stop?.();
   });
 
 async function main([command, ...rest]: readonly string[]): Promise<number> {
