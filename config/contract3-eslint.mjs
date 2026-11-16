@@ -217,6 +217,7 @@ export default tseslint.config(
     plugins: { repository },
     rules: {
       "repository/no-domain-output": "error",
+      "repository/no-locale-compare": "error",
       "no-restricted-syntax": [
         ...rules["no-restricted-syntax"],
         childProcessImport,

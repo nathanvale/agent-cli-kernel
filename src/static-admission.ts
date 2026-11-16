@@ -118,7 +118,7 @@ async function inventory(root: string): Promise<Record<string, string>> {
   const files: Record<string, string> = {};
   await visitDirectory(root, root, files);
   return Object.fromEntries(
-    Object.entries(files).sort(([a], [b]) => a.localeCompare(b)),
+    Object.entries(files).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
   );
 }
 

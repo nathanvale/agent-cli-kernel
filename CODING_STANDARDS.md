@@ -44,11 +44,11 @@ now enforces.
 | Tests wait on events, not wall time           | Review only | Lint `tests-no-sleep`                           | [Test proof](docs/standards/test-proof.md#time)                     |
 | One rule holds on every construction route    | Review only | `AdmittedCommand` brand                         | [One rule, one path](docs/standards/one-rule-one-path.md)           |
 | Every exit path emits exactly one envelope    | Partial     | None                                            | [Failure envelopes](docs/standards/failure-envelopes.md)            |
-| Untrusted values are read once, as own data   | Review only | Lint `no-in-operator`, `no-locale-compare`      | [Untrusted values](docs/standards/untrusted-values.md#object-model) |
+| Untrusted values are read once, as own data   | Partial     | None                                            | [Untrusted values](docs/standards/untrusted-values.md#object-model) |
 | Delays, waits, and work have stated bounds    | Review only | `Milliseconds` and `Bound` brands               | [Untrusted values](docs/standards/untrusted-values.md#bounds)       |
 | Behaviour holds on Linux and macOS            | Partial     | Lint `no-host-path-literal`                     | [Platform parity](docs/standards/platform-parity.md)                |
 | Glossary terms only                           | Partial     | Lint `glossary-term`                            | [Glossary authority](AGENTS.md#authority)                           |
-| One owner per constant, fake, and helper      | Review only | Shared `tests/support/` module                  | [One owner](docs/standards/one-owner.md)                            |
+| One owner per constant, fake, and helper      | Partial     | Shared `tests/support/` module                  | [One owner](docs/standards/one-owner.md)                            |
 
 ## Gate notes
 
@@ -77,6 +77,52 @@ now enforces.
   config. `src/`, the other starters, and docs are review only.
 - Witnessed: [2784de0], [356cce9].
 
+### Untrusted values
+
+- Lint `repository/no-locale-compare` refuses `localeCompare` and
+  `Collator` in `src/`, `scripts/` and `starters/contract3/src/`: as a
+  property, a destructured name, or a constant string such as
+  `Reflect.get(Intl, "Collator")`.
+- Tests stay review. The R15 locale arm in
+  `tests/contract3/kernel-repair/equality.test.ts` swaps the collation on
+  purpose.
+- Lint `repository/no-in-operator` refuses `key in value` and
+  `Reflect.has(value, key)` in `starters/contract3/src/` when the type of
+  `value` declares no member named `key`. That is a probe of an unknown
+  shape. A member the type has only from `Object.prototype` or
+  `Function.prototype`, such as `constructor`, counts as undeclared.
+  Narrowing a union by a key one member declares passes, and so does
+  a private `#name in value` check. It also refuses every `for...in`.
+- Source outside Contract 3 stays review. So do a bracket read of an
+  inherited name, a second read of a value, and a spread that drops
+  properties.
+- Witnessed: [b456208], [5cbff3a].
+
+### One owner
+
+- Lint `repository/cause-literal-owner` refuses a common cause code in
+  `starters/contract3/src/` when the compiler does not check it against
+  `keyof typeof commonCauses`. It reads the codes from `kernel/causes.ts`.
+  It skips `kernel/causes.ts`, `kernel/state-causes.ts` and
+  `kernel/stations.ts`.
+- It sees a code spelt as a literal, or built from constants with `+`, a
+  template or `.join()`. It passes a code whose place, or whose comparison
+  partner, takes only listed string literals.
+- A code built from a runtime value, a host's own codes, route tokens,
+  built-in identities, shape helpers and test fakes stay review.
+- Witnessed: [e7c771c].
+
+### Recorded hits
+
+- `eslint-suppressions.json` records the hits each lint found when it
+  landed. They are existing violations, not reviewed exceptions.
+- `bun run lint` fails on a new hit. It also fails when a recorded hit is
+  fixed and the file is not pruned. Run
+  `bunx eslint . --prune-suppressions` after the fix.
+- `no-in-operator` and `cause-literal-owner` run only from
+  `eslint.config.mjs`, where that file applies. The Contract 3
+  configuration that lints a materialised test tree leaves them out.
+
 ## Review routine
 
 1. List the rows the diff touches.
@@ -91,5 +137,8 @@ now enforces.
 [MAG-88]: https://linear.app/myagentdojo/issue/MAG-88/epic-reproducible-repository-foundations
 [MAG-78]: https://linear.app/myagentdojo/issue/MAG-78/name-and-create-the-deployment-repository
 [shared-standard]: https://github.com/nathanvale/dotfiles-private/blob/6bcadfd752107a980ce4f0a8982ff18399dc78f2/docs/standards/CODING_STANDARDS.md
+[b456208]: https://github.com/nathanvale/bun-typescript-template/commit/b456208a45baa1f912a27a60eb70353c1e64d251
+[5cbff3a]: https://github.com/nathanvale/bun-typescript-template/commit/5cbff3a87746defffd2672320038c48fbd1ddbc6
+[e7c771c]: https://github.com/nathanvale/bun-typescript-template/commit/e7c771c89f63ffeeb609b03e4f670e9d43ea53fb
 [2784de0]: https://github.com/nathanvale/bun-typescript-template/commit/2784de083f90d5f72f1b10037bfc64a8eeccff3f
 [356cce9]: https://github.com/nathanvale/bun-typescript-template/commit/356cce90dd2c4a75c7462f5d8f789b52bdaefaed
