@@ -1,0 +1,593 @@
+{
+  "about": "Shrinking list. These avoid-word hits existed when the glossary check was introduced (16 November 2026). The check fails on any hit not listed here, and on any listed hit that no longer exists: remove or lower an entry in the same commit that fixes it. Never add an entry. When the list is empty, delete this file and the check is absolute.",
+  "hits": [
+    {
+      "file": "config/contract3-eslint.mjs",
+      "term": "Host CLI",
+      "surface": "visible-text",
+      "text": "Host code imports the stamped kernel through its public index only.",
+      "count": 2
+    },
+    {
+      "file": "config/contract3-eslint.mjs",
+      "term": "Host CLI",
+      "surface": "visible-text",
+      "text": "Host code imports the state add-on through its public index only.",
+      "count": 1
+    },
+    {
+      "file": "config/contract3-eslint.mjs",
+      "term": "Host CLI",
+      "surface": "visible-text",
+      "text": "Host code imports the state add-on through its public index only; its fixture and internals are test-only or internal.",
+      "count": 1
+    },
+    {
+      "file": "config/contract3-eslint.mjs",
+      "term": "State add-on factory and instance",
+      "surface": "visible-text",
+      "text": "Only the canonical state factory declaration may name stateAddon here.",
+      "count": 1
+    },
+    {
+      "file": "config/contract3-eslint.mjs",
+      "term": "State add-on factory and instance",
+      "surface": "visible-text",
+      "text": "State factory extraction belongs only to the stamped state owner.",
+      "count": 1
+    },
+    {
+      "file": "config/contract3-eslint.mjs",
+      "term": "State add-on factory and instance",
+      "surface": "visible-text",
+      "text": "State installer authoring belongs only to the canonical stamped state add-on folder.",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/addons/approval/index.ts",
+      "term": "Approval store",
+      "surface": "internal-identifier",
+      "text": "ledger",
+      "count": 4
+    },
+    {
+      "file": "starters/contract3/src/addons/approval/index.ts",
+      "term": "Composer / Composition",
+      "surface": "comment",
+      "text": "index (CMD-17). The host composition creates one instance per run and",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/addons/approval/index.ts",
+      "term": "Composer / Composition",
+      "surface": "comment",
+      "text": "the host composition (the descriptor it gives contractFor) or the state",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/addons/approval/index.ts",
+      "term": "Outcome",
+      "surface": "comment",
+      "text": "Human authority for unknown-outcome closure (REC-5) and stop",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/addons/approval/index.ts",
+      "term": "State add-on factory and instance",
+      "surface": "comment",
+      "text": "(K2). That needs the state installation's opaque descriptor, which this",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/addons/approval/index.ts",
+      "term": "State add-on factory and instance",
+      "surface": "comment",
+      "text": "- runtime(state): the consuming runtime, bound to the state installation",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/addons/approval/index.ts",
+      "term": "State add-on factory and instance",
+      "surface": "comment",
+      "text": "attachment is current and active. A look-alike or another installation's",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/addons/approval/index.ts",
+      "term": "State add-on factory and instance",
+      "surface": "comment",
+      "text": "consume takes the descriptor of the state installation that issued the",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/addons/approval/index.ts",
+      "term": "State add-on factory and instance",
+      "surface": "comment",
+      "text": "held ExclusiveScope that `state`'s installation issued for this run's",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/addons/approval/index.ts",
+      "term": "State add-on factory and instance",
+      "surface": "comment",
+      "text": "issued, for this run, from `state`'s installation, while that run's",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/addons/approval/ledger.ts",
+      "term": "Approval store",
+      "surface": "internal-identifier",
+      "text": "ledger",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/addons/approval/read.ts",
+      "term": "Coordinator",
+      "surface": "comment",
+      "text": "into a denial or an admission (coordinator A04 caution).",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/addons/state/DESIGN.md",
+      "term": "Module (design words)",
+      "surface": "doc",
+      "text": "## 12. Interface for other components",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/addons/state/index.ts",
+      "term": "Capability qualification table",
+      "surface": "comment",
+      "text": "seams: the reviewed qualification table (empty in the foundation) and no",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/addons/state/install.ts",
+      "term": "Closure and settled case",
+      "surface": "comment",
+      "text": "A case already settled: the same closure again, a different settlement,",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/addons/state/install.ts",
+      "term": "Outcome",
+      "surface": "public-identifier",
+      "text": "CloseOutcome",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/addons/state/install.ts",
+      "term": "Outcome",
+      "surface": "public-identifier",
+      "text": "TransactionOutcome",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/declarations.ts",
+      "term": "Admitted",
+      "surface": "public-identifier",
+      "text": "admitCommandIdentity",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/declarations.ts",
+      "term": "Admitted",
+      "surface": "public-identifier",
+      "text": "admitRootOperation",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/declarations.ts",
+      "term": "Admitted",
+      "surface": "public-identifier",
+      "text": "admitRouteTokens",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/declarations.ts",
+      "term": "Admitted",
+      "surface": "visible-text",
+      "text": "ifNoResult must come from the admitted state add-on.",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/fallback.ts",
+      "term": "Handler entry",
+      "surface": "comment",
+      "text": "True once the operation was dispatched to its handler.",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/fallback.ts",
+      "term": "Handler entry",
+      "surface": "internal-identifier",
+      "text": "dispatched",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/guidance.ts",
+      "term": "Template",
+      "surface": "visible-text",
+      "text": "Empty template token.",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/guidance.ts",
+      "term": "Template",
+      "surface": "visible-text",
+      "text": "Invalid binding placement or template token.",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/guidance.ts",
+      "term": "Template",
+      "surface": "visible-text",
+      "text": "Malformed template token.",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/host-input.ts",
+      "term": "Admitted",
+      "surface": "public-identifier",
+      "text": "admitHostInput",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/human.ts",
+      "term": "Outcome",
+      "surface": "visible-text",
+      "text": "Possible outcomes:",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/index.ts",
+      "term": "Admitted",
+      "surface": "visible-text",
+      "text": "State descriptor is not installed or admitted.",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/index.ts",
+      "term": "Admitted",
+      "surface": "visible-text",
+      "text": "State requires its admitted stamped descriptor.",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/index.ts",
+      "term": "Composer / Composition",
+      "surface": "comment",
+      "text": "only in the exact pinned state add-on; ordinary host composition passes its",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/index.ts",
+      "term": "Stamped source",
+      "surface": "visible-text",
+      "text": "State requires its admitted stamped descriptor.",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/index.ts",
+      "term": "Stamped source",
+      "surface": "comment",
+      "text": "Supporting stamped-add-on authoring seam. Source admission permits references",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/index.ts",
+      "term": "State add-on factory and instance",
+      "surface": "visible-text",
+      "text": "Recovery route belongs to another state installation.",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/index.ts",
+      "term": "State add-on factory and instance",
+      "surface": "comment",
+      "text": "Supporting stamped-add-on authoring seam. Source admission permits references",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/index.ts",
+      "term": "Template",
+      "surface": "visible-text",
+      "text": "invalid template values",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/lifecycle.ts",
+      "term": "CLI front door",
+      "surface": "comment",
+      "text": "The process front door (CMD-5, CMD-9). It installs the stream, signal and",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/lifecycle.ts",
+      "term": "CLI front door",
+      "surface": "comment",
+      "text": "limit and re-measured on the front door's clock after each step, so it",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/lifecycle.ts",
+      "term": "CLI front door",
+      "surface": "comment",
+      "text": "or the front door refuses to build.",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/lifecycle.ts",
+      "term": "Composer / Composition",
+      "surface": "visible-text",
+      "text": "runProcess needs a contract composed by contractFor.",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/lifecycle.ts",
+      "term": "Handler entry",
+      "surface": "visible-text",
+      "text": "The deadline passed before the operation started. Nothing was dispatched.",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/lifecycle.ts",
+      "term": "Handler entry",
+      "surface": "comment",
+      "text": "crash hooks before dispatch, routes, refuses, dispatches, enforces the",
+      "count": 2
+    },
+    {
+      "file": "starters/contract3/src/kernel/lifecycle.ts",
+      "term": "Handler entry",
+      "surface": "internal-identifier",
+      "text": "dispatched",
+      "count": 2
+    },
+    {
+      "file": "starters/contract3/src/kernel/registration.ts",
+      "term": "Admitted",
+      "surface": "public-identifier",
+      "text": "admitCauses",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/registration.ts",
+      "term": "Admitted",
+      "surface": "public-identifier",
+      "text": "admitCommands",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/routing.ts",
+      "term": "CLI front door",
+      "surface": "comment",
+      "text": "declared deadline removed. The process front door passes the tail after the",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/runtime.ts",
+      "term": "CLI front door",
+      "surface": "comment",
+      "text": "The kernel's private view of one composed contract. The process front door",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/runtime.ts",
+      "term": "Composer / Composition",
+      "surface": "comment",
+      "text": "The kernel's private view of one composed contract. The process front door",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/state-seam.ts",
+      "term": "Admitted",
+      "surface": "visible-text",
+      "text": "Unadmitted state descriptor.",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/state-seam.ts",
+      "term": "Admitted",
+      "surface": "public-identifier",
+      "text": "admittedState",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/state-seam.ts",
+      "term": "If no result",
+      "surface": "visible-text",
+      "text": "State installer did not provide an issued recovery route.",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/state-seam.ts",
+      "term": "If no result",
+      "surface": "internal-identifier",
+      "text": "noResultRoute",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/state-seam.ts",
+      "term": "State add-on factory and instance",
+      "surface": "visible-text",
+      "text": "State installer did not provide an issued recovery route.",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/state-seam.ts",
+      "term": "State add-on factory and instance",
+      "surface": "comment",
+      "text": "The descriptor is required so a scope from another installation for the",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/state-seam.ts",
+      "term": "State add-on factory and instance",
+      "surface": "comment",
+      "text": "kernel-issued object itself, issued by `descriptor`'s installation for the",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/validation/context.ts",
+      "term": "CLI front door",
+      "surface": "comment",
+      "text": "front door is built. (The installation manifest's AddonName in",
+      "count": 1
+    },
+    {
+      "file": "starters/contract3/src/kernel/validation/level.ts",
+      "term": "Accepted decision",
+      "surface": "comment",
+      "text": "at 8), as bound by Nathan on 16 November 2026 (B2): the root value is level",
+      "count": 1
+    },
+    {
+      "file": "tests/contract3/approval/cases.test.ts",
+      "term": "Test harness",
+      "surface": "comment",
+      "text": "harness logs an ID only after its expectCase comparison passed, so each",
+      "count": 1
+    },
+    {
+      "file": "tests/contract3/approval/fixtures/driver.ts.txt",
+      "term": "Test harness",
+      "surface": "comment",
+      "text": "Adversarial test authority from the harness owner: it proves verifier",
+      "count": 1
+    },
+    {
+      "file": "tests/contract3/approval/harness.ts",
+      "term": "Test harness",
+      "surface": "comment",
+      "text": "Test-owned harness for T4 approval cases. It owns the test identities",
+      "count": 1
+    },
+    {
+      "file": "tests/contract3/approval/process.test.ts",
+      "term": "Accepted decision",
+      "surface": "comment",
+      "text": "B3.04 (bindings B3; CMD-15, WIRE-9, WIRE-18): through the real front door,",
+      "count": 1
+    },
+    {
+      "file": "tests/contract3/kernel-repair/admission.test.ts",
+      "term": "Handler entry",
+      "surface": "comment",
+      "text": "before dispatch and INTERNAL_RESULT_UNCHANGED after it.",
+      "count": 1
+    },
+    {
+      "file": "tests/contract3/kernel-repair/fixtures/state-repair.ts.txt",
+      "term": "State add-on factory and instance",
+      "surface": "comment",
+      "text": "one and present it for another run and to another installation's contract.",
+      "count": 1
+    },
+    {
+      "file": "tests/contract3/lifecycle/checks.ts",
+      "term": "Accepted decision",
+      "surface": "comment",
+      "text": "Independent oracle: the binding default words (B3).",
+      "count": 1
+    },
+    {
+      "file": "tests/contract3/lifecycle/fixtures/fault-cli.ts",
+      "term": "State add-on factory and instance",
+      "surface": "comment",
+      "text": "host port from this file. Its synthetic state installer is not the T3 state",
+      "count": 1
+    },
+    {
+      "file": "tests/contract3/lifecycle/fixtures/state-entry.ts.txt",
+      "term": "Test harness",
+      "surface": "comment",
+      "text": "LABELLED TEST-ONLY ENTRY, materialised by the T2 lifecycle harness under a",
+      "count": 1
+    },
+    {
+      "file": "tests/contract3/lifecycle/harness.ts",
+      "term": "Test harness",
+      "surface": "comment",
+      "text": "Process harness for the T2 slice A cases. It runs the labelled fault-fixture",
+      "count": 1
+    },
+    {
+      "file": "tests/contract3/lifecycle/lifecycle.test.ts",
+      "term": "Accepted decision",
+      "surface": "comment",
+      "text": "B3.02: the runtime denial carries the binding default words.",
+      "count": 1
+    },
+    {
+      "file": "tests/contract3/lifecycle/lifecycle.test.ts",
+      "term": "Handler entry",
+      "surface": "comment",
+      "text": "P3: the fault host's clock jumps past the deadline before dispatch.",
+      "count": 1
+    },
+    {
+      "file": "tests/contract3/lifecycle/lifecycle.test.ts",
+      "term": "Handler entry",
+      "surface": "test-title",
+      "text": "T02(a) a deadline above the timer limit that passed before dispatch (finding 1)",
+      "count": 1
+    },
+    {
+      "file": "tests/contract3/lifecycle/timers.test.ts",
+      "term": "Handler entry",
+      "surface": "test-title",
+      "text": "T02(b) expiry after dispatch for a deadline above the timer limit (finding 1)",
+      "count": 1
+    },
+    {
+      "file": "tests/contract3/programs/programs.test.ts",
+      "term": "Test harness",
+      "surface": "comment",
+      "text": "Survivors were recorded above; the harness now removes them.",
+      "count": 1
+    },
+    {
+      "file": "tests/contract3/static-controls.test.ts",
+      "term": "Host CLI",
+      "surface": "test-title",
+      "text": "dynamic host imports use only the kernel public index",
+      "count": 1
+    },
+    {
+      "file": "tests/contract3/static-controls.test.ts",
+      "term": "Host CLI",
+      "surface": "test-title",
+      "text": "host source imports kernel only through the public index",
+      "count": 1
+    },
+    {
+      "file": "tests/contract3/static-controls.test.ts",
+      "term": "State add-on factory and instance",
+      "surface": "test-title",
+      "text": "canonical state source can reference installer authoring",
+      "count": 1
+    },
+    {
+      "file": "tests/contract3/static-controls.test.ts",
+      "term": "State add-on factory and instance",
+      "surface": "test-title",
+      "text": "host cannot take or alias the state installer authoring property",
+      "count": 1
+    },
+    {
+      "file": "tests/contract3/static-controls.test.ts",
+      "term": "State add-on factory and instance",
+      "surface": "test-title",
+      "text": "kernel index allows only the exact state factory declaration",
+      "count": 1
+    },
+    {
+      "file": "tests/contract3/writer/kernel-words.test.ts",
+      "term": "Accepted decision",
+      "surface": "comment",
+      "text": "default words are binding. A command may declare its own tuple (DISC-11b)",
+      "count": 1
+    }
+  ]
+}
