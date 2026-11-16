@@ -9,7 +9,7 @@ import {
 import { constants, tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import type { Subprocess } from "bun";
-import { ownTools } from "./child-env.ts";
+import { runWithOwnTools } from "./child-env.ts";
 
 const root = join(import.meta.dir, "..");
 const manifestPath = "tests/faults/manifest.json";
@@ -156,26 +156,18 @@ function haltIfStopped(id: string): void {
 }
 
 async function step(id: string, cwd: string, argv: readonly string[]) {
-  const child = Bun.spawn([...argv], {
+  const { exitCode, signalCode, output } = await runWithOwnTools(
+    argv,
     cwd,
-    env: ownTools,
-    stdout: "pipe",
-    stderr: "pipe",
-    detached: true,
-  });
-  active.child = child;
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(child.stdout).text(),
-    new Response(child.stderr).text(),
-    child.exited,
-  ]);
-  delete active.child;
+    active,
+    { detached: true },
+  );
   haltIfStopped(id);
-  if (child.signalCode !== null)
+  if (signalCode !== null)
     throw new Error(
-      `${argv.join(" ")} was killed by ${child.signalCode} while replaying ${id}, so it has no verdict.`,
+      `${argv.join(" ")} was killed by ${signalCode} while replaying ${id}, so it has no verdict.`,
     );
-  return { passed: exitCode === 0, output: stdout + stderr };
+  return { passed: exitCode === 0, output };
 }
 
 function failingTests(output: string): string[] {

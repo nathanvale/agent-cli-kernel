@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { constants, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import type { Subprocess } from "bun";
-import { ownTools } from "./child-env.ts";
+import { runWithOwnTools } from "./child-env.ts";
 import { doctor } from "./doctor.ts";
 
 // The head of codex/contract-3-foundation when this gate was written. A commit
@@ -101,23 +101,6 @@ function haltIfStopped(commit: Commit): void {
     );
 }
 
-async function run(cwd: string, step: Step) {
-  const child = Bun.spawn([process.execPath, ...step], {
-    cwd,
-    env: ownTools,
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  active.child = child;
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(child.stdout).text(),
-    new Response(child.stderr).text(),
-    child.exited,
-  ]);
-  delete active.child;
-  return { exitCode, signalCode: child.signalCode, output: stdout + stderr };
-}
-
 async function check(commit: Commit): Promise<Checked> {
   const dir = mkdtempSync(join(tmpdir(), "check-commits-"));
   try {
@@ -132,7 +115,11 @@ async function check(commit: Commit): Promise<Checked> {
     haltIfStopped(commit);
     if (!added.ok) throw new Error(added.stderr.trim());
     for (const step of steps) {
-      const { exitCode, signalCode, output } = await run(dir, step);
+      const { exitCode, signalCode, output } = await runWithOwnTools(
+        [process.execPath, ...step],
+        dir,
+        active,
+      );
       haltIfStopped(commit);
       if (signalCode !== null)
         throw new Error(
