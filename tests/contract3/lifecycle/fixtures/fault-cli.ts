@@ -551,6 +551,27 @@ const lateStart = command({
     );
   },
 });
+// X-S3 (swarm triage): the handler starts one TERM-ignoring program with a
+// 5,000 ms shutdown budget, does not await it, and returns at once.
+const spawnReturn = command({
+  identity: "fx.spawn-return",
+  route: ["spawn-return"],
+  summary: "Start a program and return without awaiting it.",
+  input: { ...none, deadlineSupported: true },
+  capabilities: { programs: true },
+  run: async (_input, context) => {
+    void context.programs
+      .inspect(program(longChild(true), { shutdownMilliseconds: 5_000 }))
+      .catch(() => undefined);
+    await ledgerHas("child-started", 5_000);
+    ledger("handler-returned");
+    return context.result(
+      { commandIdentity: "fx.spawn-return", causeCode: "SUCCESS_UNCHANGED" },
+      { message: "Started a program.", data: null, effects: empty },
+    );
+  },
+});
+
 // The marker makes a late child visible in the process table.
 const lateChild =
   ': FX-LATE-MARKER; echo "late-child $$" >> "$FX_LEDGER"; /bin/sleep 30';
@@ -1437,6 +1458,7 @@ export async function main(state?: StateAddonDescriptor): Promise<number> {
     slow,
     wait,
     lateStart,
+    spawnReturn,
     programCommand,
     supplied,
     undisclosed,

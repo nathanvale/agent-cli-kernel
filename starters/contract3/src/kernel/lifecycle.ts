@@ -207,11 +207,22 @@ function killAll(run: Run) {
     }
 }
 
+// X-K5 (swarm triage): a settle that throws, synchronously or not, is an
+// unconfirmed termination (LIFE-11), never a crash of the stop, deadline or
+// normal path.
+function settleOne(addon: AttachedAddon<unknown>, limit?: number) {
+  try {
+    return addon.settle(limit).catch(() => false);
+  } catch {
+    return Promise.resolve(false);
+  }
+}
+
 async function settleAll(run: Run, limit?: number, ownedOnly = false) {
   const settled = await Promise.all(
     run.attached
       .filter((addon) => !ownedOnly || addon !== run.reporter)
-      .map((addon) => addon.settle(limit).catch(() => false)),
+      .map((addon) => settleOne(addon, limit)),
   );
   return settled.every(Boolean);
 }
@@ -455,12 +466,22 @@ async function afterDeadline(
 // their declared budgets before the result is frozen.
 async function afterHandler(
   run: Run,
-  identity: string,
+  command: CommandDeclaration,
   execution: Execution,
+  deadlineAt: number | undefined,
 ): Promise<Delivery> {
+  const identity = command.commandIdentity;
   // The status-reporting add-on is not an owned program: `freeze` replaces
   // its settle on this path, after the result is frozen.
-  const clean = await settleAll(run, undefined, true);
+  const settling = settleAll(run, undefined, true);
+  // X-S3 (swarm triage): LIFE-6's deadline covers dispatch and work, so it
+  // also bounds this settlement. If it expires here, the deadline rows apply.
+  const clean =
+    deadlineAt === undefined
+      ? await settling
+      : await within(settling, deadlineAt - run.host.now(), run.host.now);
+  if (clean === undefined)
+    return afterDeadline(run, command, Promise.resolve(execution));
   if (execution.kind === "threw")
     return {
       candidate: { ok: false, path: "handler", reason: "handler threw" },
@@ -549,7 +570,12 @@ async function dispatch(run: Run, value: Resolved): Promise<Delivery> {
         );
   return first === undefined
     ? afterDeadline(run, plan.command, execution)
-    : afterHandler(run, identity, first);
+    : afterHandler(
+        run,
+        plan.command,
+        first,
+        deadline === undefined ? undefined : run.startedAt + deadline,
+      );
 }
 
 async function route(run: Run, resolution: Resolution): Promise<Delivery> {

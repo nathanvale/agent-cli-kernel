@@ -1047,3 +1047,43 @@ describe("test harness honesty (swarm triage K3-3, K3-12)", () => {
     timeout,
   );
 });
+
+// X-S3 (swarm triage): the deadline covers dispatch and work (LIFE-6), so it
+// also bounds the settlement of owned programs after the handler returns.
+test(
+  "K3S3.deadline-bounds-post-handler-settle",
+  async () => {
+    const entry = supporting("K3S3.deadline-bounds-post-handler-settle", {
+      argv: ["spawn-return", "--deadline-ms", "300", "--json"],
+      expect: {
+        commandIdentity: "fx.spawn-return",
+        causeCode: "DOMAIN_DEADLINE_UNCHANGED",
+        effects: unchangedEffects,
+        withinMillisecondsAfterDeadline: 500,
+      },
+    });
+    const launched = await launchCase(entry);
+    try {
+      await launched.barrier("child-started");
+      const child = firstPid(readLedger(launched.ledgerPath), "child-started");
+      if (child === undefined) throw new Error("UNPROVED: no owned child.");
+      const died = await deathAfter(child, launched.spawnedAt, 10_000);
+      const observed = await exitWithin(launched);
+      receipt(entry, observed, { childDiedAt: died });
+      assertEnvelope(entry, observed);
+      assertDeadlineLag(entry, observed);
+      // LIFE-11 deadline row: SIGTERM, then SIGKILL, before emission.
+      const order = observed.ledger.filter(
+        (line) =>
+          line === "child-term-received" || line.startsWith("stdout-write"),
+      );
+      expect(order).toEqual(["child-term-received", "stdout-write result"]);
+      expect(died).toBeLessThanOrEqual(
+        (observed.firstStdoutAt ?? 0) + killObservationTolerance,
+      );
+    } finally {
+      await release(launched);
+    }
+  },
+  timeout,
+);

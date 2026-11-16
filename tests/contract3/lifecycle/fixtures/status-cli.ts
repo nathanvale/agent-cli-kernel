@@ -216,6 +216,27 @@ function host(real: ProcessHost): ProcessHost {
   };
 }
 
+// X-K5 (swarm triage): a non-conforming add-on whose settle throws
+// synchronously instead of resolving.
+function throwingSettle<C>(addon: RunAddon<C>): RunAddon<C> {
+  return {
+    attach(run) {
+      const attached = addon.attach(run);
+      return {
+        ...attached,
+        settle() {
+          ledger("settle-throws");
+          throw new Error("Fixture settle fault.");
+        },
+      };
+    },
+  };
+}
+const programs =
+  process.env.FX_SETTLE_THROWS === "1"
+    ? throwingSettle(programsAddon())
+    : programsAddon();
+
 const contract = contractFor({
   cli: "st",
   commands: [report, plain],
@@ -228,6 +249,6 @@ registerRuntime(wrapped, observed(runtime));
 ledger(`front-door-start ${Date.now()}`);
 await runProcessOn(
   wrapped,
-  { addons: { diagnostics: statusAddon, programs: programsAddon() } },
+  { addons: { diagnostics: statusAddon, programs } },
   () => host(processHost()),
 )(process.argv.slice(2));

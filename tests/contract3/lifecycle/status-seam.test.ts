@@ -420,3 +420,74 @@ describe("DS09 one status-reporting add-on per command", () => {
     ).toThrow("more than one status-reporting add-on");
   });
 });
+
+// X-K5 (swarm triage): a settle that throws is an unconfirmed termination,
+// never a crash. Fixture: the programs add-on's settle throws synchronously.
+describe("K3K5 a settle fault keeps the exit path", () => {
+  const settleThrows = { FX_SETTLE_THROWS: "1" };
+  test(
+    "K3K5.settle-fault-keeps-exit-path sigterm",
+    async () => {
+      const launched = await launch({
+        script: statusCli,
+        argv: ["report", "--program", "--wait-ms", "2000", "--json"],
+        env: { FX_STATUS: "available", ...settleThrows },
+      });
+      try {
+        await launched.barrier("program-done");
+        const sent = launched.signal("SIGTERM");
+        const observed = await exitWithin(launched);
+        expect(observed.signal).toBeNull();
+        expect(observed.code).toBe(143);
+        expect(observed.stdout.byteLength).toBe(0);
+        expect(observed.stderr.byteLength).toBe(0);
+        expect(observed.exitedAt - sent).toBeLessThanOrEqual(
+          stopBound + tolerance,
+        );
+      } finally {
+        await release(launched);
+      }
+    },
+    timeout,
+  );
+  test(
+    "K3K5.settle-fault-keeps-exit-path normal",
+    async () => {
+      const observed = await runStatus(
+        ["report", "--program", "--json"],
+        "available",
+        settleThrows,
+      );
+      const { result } = parsed(observed);
+      // LIFE-11 normal row: termination not confirmed, so a handoff.
+      expect(result.causeCode).toBe("INTERNAL_RESULT_UNCHANGED");
+      expect(result).toHaveProperty("handoff");
+      expect(observed.code).toBe(1);
+      expect(observed.ledger).toContain("settle-throws");
+    },
+    timeout,
+  );
+  test(
+    "K3K5.settle-fault-keeps-exit-path deadline",
+    async () => {
+      const observed = await runStatus(
+        [
+          "report",
+          "--program",
+          "--wait-ms",
+          "2000",
+          "--deadline-ms",
+          "300",
+          "--json",
+        ],
+        "available",
+        settleThrows,
+      );
+      const { result } = parsed(observed);
+      expect(result.causeCode).toBe("DOMAIN_DEADLINE_UNCHANGED");
+      expect(observed.code).toBe(3);
+      expect(observed.ledger).toContain("settle-throws");
+    },
+    timeout,
+  );
+});
