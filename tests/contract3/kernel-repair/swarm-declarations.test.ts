@@ -5,7 +5,7 @@ import {
   contractFor,
   station,
 } from "../../../starters/contract3/src/kernel/index.ts";
-import { neverRuns } from "./handlers.ts";
+import { neverRuns, readsUnchanged } from "./handlers.ts";
 import { contractUnchecked } from "./harness.ts";
 import { approvedRead } from "./swarm-commands.ts";
 import { emptyInput, unchanged } from "./shapes.ts";
@@ -240,4 +240,48 @@ test("F1.unguarded-raw-refused: a declaration without the two-phase entry may no
   // that declares no approval stays admitted (X-K1-5).
   expect(refusalOf(admitGuarded(guarded))).toBe("admitted");
   expect(refusalOf(admit({ ...base(), stations: [unmet] }))).toBe("admitted");
+});
+
+test("X-K1-3.case-b-station-table: an inspect command that declares approval declares its station table", () => {
+  // DISC-10: only an inspect command that declares no approval and no cause
+  // of its own may omit a station table.
+  const refusal =
+    "An inspect command that declares approval declares its station table.";
+  const tableless = () =>
+    command({
+      identity: "x.read",
+      route: ["read"],
+      summary: "Read one granted item.",
+      input: emptyInput,
+      capabilities: { approval: true },
+      approval: () => {
+        throw new Error("Never asked.");
+      },
+      run: readsUnchanged("x.read"),
+    });
+  expect(refusalOf(tableless)).toBe(refusal);
+  // The raw form of the same declaration is refused by contractFor too.
+  const { stations: _stations, ...withoutTable } = approvedRead(
+    () => undefined,
+  );
+  void _stations;
+  expect(
+    refusalOf(() =>
+      contractUnchecked(contractFor, {
+        cli: "x",
+        commands: [{ ...withoutTable, stations: [] }],
+        installedAddons: ["approval"],
+      }),
+    ),
+  ).toBe(refusal);
+  // Twin: with its own station table the command is admitted.
+  expect(
+    refusalOf(() =>
+      contractFor({
+        cli: "x",
+        commands: [approvedRead(() => undefined)],
+        installedAddons: ["approval"],
+      }),
+    ),
+  ).toBe("admitted");
 });

@@ -48,9 +48,20 @@ export type CommandDeclaration<Identity extends string = string> =
 export function admitInspectShape(declaration: {
   readonly summary: unknown;
   readonly ifNoResult?: unknown;
+  readonly capabilities: CapabilitySelection;
+  readonly stations: readonly unknown[];
 }): void {
   if (!text(declaration.summary))
     throw new Error("Invalid command declaration.");
+  // DISC-10: only an inspect command that declares no approval may omit
+  // its station table (X-K1-3 case B).
+  if (
+    declaration.capabilities.approval === true &&
+    declaration.stations.length === 0
+  )
+    throw new Error(
+      "An inspect command that declares approval declares its station table.",
+    );
   // DISC-13: for an inspect command ifNoResult is null.
   if (declaration.ifNoResult !== undefined)
     throw new Error("An inspect command has no ifNoResult.");
@@ -240,9 +251,10 @@ export function command<
     ) => CommandResult<Identity> | Promise<CommandResult<Identity>>;
   } & (C extends { readonly approval: true }
     ? {
-        // CMD-4: an inspect command's approval request. Optional while
-        // existing declarations omit it; without it the guard denies.
-        readonly approval?: (input: ParsedInput<I>) => ApprovalRequest;
+        // CMD-4: an inspect command's approval request. A raw declaration
+        // cannot reach the guard without one (F1); the guard still denies
+        // if it is missing.
+        readonly approval: (input: ParsedInput<I>) => ApprovalRequest;
       }
     : { readonly approval?: never }),
 ) {
@@ -251,7 +263,11 @@ export function command<
   admitCommandIdentity(spec.identity);
   admitRootOperation(spec.route, spec.input);
   admitRouteTokens(spec.route);
-  admitInspectShape({ summary: spec.summary });
+  admitInspectShape({
+    summary: spec.summary,
+    capabilities: spec.capabilities,
+    stations: spec.stations ?? [],
+  });
   if (
     spec.stations?.some((station) => station.commandIdentity !== spec.identity)
   )
