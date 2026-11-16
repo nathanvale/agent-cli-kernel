@@ -53,13 +53,23 @@ function typeErrors(filePath: string, code: string): string[] {
     .map((item) => ts.flattenDiagnosticMessageText(item.messageText, "\n"));
 }
 
-// The fix is read from the rule's own message, so the message and this
+// Each fix is read from the rule's own message, so the message and this
 // proof cannot drift apart.
-async function fixFor(rule: string, filePath: string, failing: string) {
-  const [found] = await hits(rule, filePath, failing);
-  const fix = found?.message.split(" Fix: ")[1];
-  if (fix === undefined) throw new Error(`No fix in ${found?.message}.`);
-  return { fix, message: found?.message ?? "" };
+async function fixesFor(rule: string, filePath: string, failing: string) {
+  const found = await hits(rule, filePath, failing);
+  if (found.length === 0) throw new Error(`No ${rule} hit in ${failing}.`);
+  return found.map(({ message }) => {
+    const fix = message.split(" Fix: ")[1];
+    if (fix === undefined) throw new Error(`No fix in ${message}.`);
+    return fix;
+  });
+}
+
+async function ownerImport(rule: string, filePath: string, failing: string) {
+  const [first] = await hits(rule, filePath, failing);
+  const line = / Import the owner once: (.*;) Fix: /.exec(first?.message ?? "");
+  if (line?.[1] === undefined) throw new Error(`No import in ${failing}.`);
+  return line[1];
 }
 
 const fixes = [
@@ -68,7 +78,7 @@ const fixes = [
     filePath: "src/static-admission.ts",
     failing:
       "export const sorted = (names: string[]) => names.sort((a, b) => a.localeCompare(b));",
-    fixed: (fix: string) =>
+    fixed: ([fix]: string[]) =>
       `export const sorted = (names: string[]) => names.sort(${fix});`,
   },
   {
@@ -76,7 +86,7 @@ const fixes = [
     filePath: "starters/contract3/src/kernel/validation/json-equality.ts",
     failing:
       "export const sorted = (names: string[]) => names.sort((a, b) => a.localeCompare(b));",
-    fixed: (fix: string) =>
+    fixed: ([fix]: string[]) =>
       `export const sorted = (names: string[]) => names.sort(${fix});`,
   },
   {
@@ -84,22 +94,37 @@ const fixes = [
     filePath: "starters/contract3/src/kernel/validation/result.ts",
     failing:
       'export const next = (value: Record<string, unknown>) => ("next" in value ? value.next : undefined);',
-    fixed: (fix: string) =>
-      `export const next = (value: Record<string, unknown>): unknown => {\n  ${fix}\n  return ownValue;\n};`,
+    fixed: ([fix]: string[]) =>
+      `export const next = (value: Record<string, unknown>): unknown => ${fix};`,
+  },
+  {
+    rule: "no-in-operator",
+    filePath: "starters/contract3/src/kernel/validation/result.ts",
+    failing: [
+      "export const ends = (value: Record<string, unknown>): readonly unknown[] => [",
+      '  "next" in value ? value.next : undefined, "handoff" in value ? value.handoff : undefined,',
+      "];",
+    ].join("\n"),
+    fixed: ([next, handoff]: string[]) =>
+      `export const ends = (value: Record<string, unknown>): readonly unknown[] => [${next}, ${handoff}];`,
   },
   {
     rule: "no-in-operator",
     filePath: "starters/contract3/src/kernel/pattern-worker.ts",
     failing: [
-      "export const pattern = (value: unknown): unknown =>",
-      '  typeof value === "object" && value !== null && "pattern" in value ? value.pattern : undefined;',
+      "export const job = (value: unknown): readonly unknown[] =>",
+      '  typeof value === "object" && value !== null && "pattern" in value && "input" in value',
+      "    ? [value.pattern, value.input]",
+      "    : [];",
     ].join("\n"),
-    fixed: (fix: string) =>
+    fixed: ([pattern, input]: string[]) =>
       [
-        "export const pattern = (value: unknown): unknown => {",
-        '  if (typeof value !== "object" || value === null) return undefined;',
-        `  ${fix}`,
-        "  return ownValue;",
+        "export const job = (value: unknown): readonly unknown[] => {",
+        '  if (typeof value !== "object" || value === null) return [];',
+        `  const first: unknown = ${pattern};`,
+        `  const second: unknown = ${input};`,
+        `  const again: unknown = ${pattern};`,
+        "  return [first, second, again];",
         "};",
       ].join("\n"),
   },
@@ -108,8 +133,8 @@ const fixes = [
     filePath: "starters/contract3/src/addons/approval/read.ts",
     failing:
       'export const code = (error: Error): unknown => ("code" in error ? error.code : undefined);',
-    fixed: (fix: string) =>
-      `export const code = (error: Error): unknown => {\n  ${fix}\n  return ownValue;\n};`,
+    fixed: ([fix]: string[]) =>
+      `export const code = (error: Error): unknown => ${fix};`,
   },
   {
     rule: "no-in-operator",
@@ -121,7 +146,7 @@ const fixes = [
       "  return found;",
       "};",
     ].join("\n"),
-    fixed: (fix: string) =>
+    fixed: ([fix]: string[]) =>
       [
         "export const names = (value: object): string[] => {",
         "  const found: string[] = [];",
@@ -135,23 +160,43 @@ const fixes = [
     filePath: "starters/contract3/src/kernel/declaration-checks.ts",
     failing:
       'export const reserved = (causeCode: string) => causeCode === "INTERNAL_PREPARATION";',
-    fixed: (fix: string) =>
-      `${fix}\nexport const reserved = (causeCode: string) => causeCode === internalPreparation;`,
+    fixed: ([fix]: string[], imported: string) =>
+      `${imported}\nexport const reserved = (causeCode: string) => causeCode === ${fix};`,
   },
   {
     rule: "cause-literal-owner",
     filePath: "starters/contract3/src/addons/state/scope.ts",
     failing:
       'export const needed = (codes: string[]) => codes.includes("DOMAIN_DEADLINE_UNKNOWN");',
-    fixed: (fix: string) =>
-      `${fix}\nexport const needed = (codes: string[]) => codes.includes(domainDeadlineUnknown);`,
+    fixed: ([fix]: string[], imported: string) =>
+      `${imported}\nexport const needed = (codes: string[]) => codes.includes(${fix});`,
+  },
+  {
+    rule: "cause-literal-owner",
+    filePath: "starters/contract3/src/kernel/declaration-checks.ts",
+    failing: [
+      "export const twice = (causeCode: string) =>",
+      '  causeCode === "INTERNAL_PREPARATION" || causeCode.endsWith("INTERNAL_PREPARATION");',
+    ].join("\n"),
+    fixed: ([first, second]: string[], imported: string) =>
+      [
+        imported,
+        "export const twice = (causeCode: string) => {",
+        `  if (causeCode === ${first}) return true;`,
+        `  return causeCode.endsWith(${second});`,
+        "};",
+      ].join("\n"),
   },
 ];
 
 for (const item of fixes)
   test(`${item.rule}: the fix its message names compiles and lints clean in ${item.filePath}`, async () => {
-    const { fix } = await fixFor(item.rule, item.filePath, item.failing);
-    const fixed = item.fixed(fix);
+    const found = await fixesFor(item.rule, item.filePath, item.failing);
+    const imported =
+      item.rule === "cause-literal-owner"
+        ? await ownerImport(item.rule, item.filePath, item.failing)
+        : "";
+    const fixed = item.fixed(found, imported);
     expect(typeErrors(item.filePath, fixed)).toEqual([]);
     expect(await messages(item.filePath, fixed)).toEqual([]);
   }, 60_000);
@@ -216,6 +261,18 @@ const refused = [
     lines: [1, 4],
   },
   {
+    rule: "no-in-operator",
+    witness: "inherited keys",
+    filePath: "starters/contract3/src/kernel/validation/result.ts",
+    code: [
+      'export const built = (value: Record<string, unknown>) => "constructor" in value;',
+      'export const printed = (value: unknown) => typeof value === "object" && value !== null && "toString" in value;',
+      'export const owned = (value: Record<string, unknown>) => Reflect.has(value, "hasOwnProperty");',
+      'export const callable = (value: () => void) => "call" in value;',
+    ],
+    lines: [1, 2, 3, 4],
+  },
+  {
     rule: "cause-literal-owner",
     witness: "e7c771c",
     filePath: "starters/contract3/src/kernel/declaration-checks.ts",
@@ -258,6 +315,24 @@ const admitted = [
   },
   {
     rule: "no-in-operator",
+    reason: "narrows a union by a declared key through Reflect.has",
+    filePath: "starters/contract3/src/kernel/lifecycle.ts",
+    code: [
+      "type Attached = { readonly enter: number } | { readonly delivery: string };",
+      'export const delivered = (attached: Attached) => Reflect.has(attached, "delivery");',
+    ],
+  },
+  {
+    rule: "no-in-operator",
+    reason:
+      "checks a key its type declares itself, though Object.prototype has it too",
+    filePath: "starters/contract3/src/kernel/validation/result.ts",
+    code: [
+      'export const printable = (value: { toString(): string }) => "toString" in value;',
+    ],
+  },
+  {
+    rule: "no-in-operator",
     reason: "tells a data descriptor from an accessor",
     filePath: "starters/contract3/src/kernel/validation/primitives.ts",
     code: [
@@ -275,6 +350,15 @@ const admitted = [
       'import type { commonCauses } from "./causes.ts";',
       "const refuse = (code: keyof typeof commonCauses) => code;",
       'export const refused = refuse("USAGE_INVALID_INVOCATION");',
+    ],
+  },
+  {
+    rule: "cause-literal-owner",
+    reason: "is compared with a value typed by the owner's keys",
+    filePath: "starters/contract3/src/kernel/routing.ts",
+    code: [
+      'import type { commonCauses } from "./causes.ts";',
+      'export const unchanged = (code: keyof typeof commonCauses) => code === "SUCCESS_UNCHANGED";',
     ],
   },
   {
