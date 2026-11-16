@@ -4,6 +4,7 @@
 import { expect } from "bun:test";
 import { createHash } from "node:crypto";
 import {
+  chmodSync,
   existsSync,
   readFileSync,
   renameSync,
@@ -628,5 +629,63 @@ caseTest(
     expect(JSON.stringify(world.operations())).toBe(before);
     expect(await world.pendingIds()).toEqual([id]);
     renameSync(attestation, `${attestation}.kept`);
+  }),
+);
+
+// ---- Repair round 1 controls -----------------------------------------------
+
+caseTest(
+  "K06.f-same-identity-different-content",
+  fixture(async (world) => {
+    await world.killAt(apply("a"), "effect");
+    const id = only(world);
+    const revision = await world.revision(id);
+    expectCompleted(await world.run(closeArgs(id, revision)));
+    const bytes = readFileSync(closurePath(world, id));
+    // Same closure identity, different disposition: conflicting content.
+    expectRefusedUnchanged(
+      await world.run(closeArgs(id, revision, "not-applied", "c1")),
+      "DOMAIN_SX_CLOSE_CONFLICT",
+    );
+    // Same closure identity and disposition, different reason.
+    const otherReason = closeArgs(id, revision).map((token) =>
+      token === "independent evidence reviewed" ? "another reason" : token,
+    );
+    expectRefusedUnchanged(
+      await world.run(otherReason),
+      "DOMAIN_SX_CLOSE_CONFLICT",
+    );
+    expect(readFileSync(closurePath(world, id))).toEqual(bytes);
+  }),
+);
+
+caseTest(
+  "K06.g-unknown-operation-not-found",
+  fixture(async (world) => {
+    expectCompleted(await world.run(apply("seed")));
+    const refused = await world.run(
+      closeArgs(`op-${"a".repeat(32)}`, `r-${"0".repeat(64)}`),
+    );
+    expectRefusedUnchanged(refused, "DOMAIN_SX_CASE_NOT_FOUND");
+  }),
+);
+
+caseTest(
+  "K06.h-unreadable-case-unavailable",
+  fixture(async (world) => {
+    await world.killAt(apply("a"), "effect");
+    const id = only(world);
+    const revision = await world.revision(id);
+    const directory = join(world.root, "operations", id);
+    chmodSync(directory, 0o000);
+    let refused;
+    try {
+      refused = await world.run(closeArgs(id, revision));
+    } finally {
+      chmodSync(directory, 0o700);
+    }
+    expectRefusedUnchanged(refused, "DOMAIN_SX_UNAVAILABLE");
+    expect(str(refused.envelope.message)).toContain("store-unreadable");
+    expect(existsSync(closurePath(world, id))).toBe(false);
   }),
 );

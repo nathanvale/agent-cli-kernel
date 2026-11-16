@@ -10,6 +10,7 @@
 // separately from the 46 brief families.
 
 export type Supplier =
+  | "T3-after-R8"
   | "T2-slice-B"
   | "T4"
   | "T5"
@@ -359,14 +360,17 @@ export const stateCases: readonly StateCase[] = [
   {
     id: "K04.b-unknown-closure-with-fixture-authority",
     status: "pending",
-    supplier: "T4",
+    supplier: "T3-after-R8",
     reason:
-      "Needs the T4 C01 fixture authority composed into a process specimen with R8 item identity decided; the state side records the item fields only.",
+      "The state-side human closure path is not built: outcome-unknown is refused unconditionally and close() has no authority input. T3 builds it after the R8 item-identity decision, with T4's C01 fixture authority; the state side records the item fields only.",
     sources: "REC-4; REC-5; T4 C01 C04",
     observation:
       "With a valid fixture grant, outcome-unknown ends the case; original facts byte-identical; no replay.",
     red: "Rewrite original effect facts into the closure.",
   },
+  // K05.a passes today because outcome-unknown closure is disabled outright,
+  // not because a forged authority was examined: no authority input exists
+  // yet, so its named defect cannot be detected until K04.b's path is built.
   {
     id: "K05.a-forged-closure-authority",
     ...darwin,
@@ -817,6 +821,97 @@ export const stateCases: readonly StateCase[] = [
     observation:
       "Every transition row in the frozen design maps to at least one case identity in this table.",
     red: "Add an unmapped transition.",
+  },
+
+  // Repair round 1 controls (new identities; frozen rows above unchanged)
+  {
+    id: "Q01.d-host-cannot-import-test-seams",
+    ...component,
+    sources: "REC-7b; Q01; CMD-17",
+    observation:
+      "A host-like module importing the state add-on's fixture or internals, statically or dynamically, fails lint; importing its index does not.",
+    red: "Drop the state deep-import ban.",
+  },
+
+  {
+    id: "J04.g-mid-file-length-damage-refuses",
+    ...darwin,
+    sources: "CMD-11; DISC-14 item 5; DESIGN.md section 4",
+    observation:
+      "A record length running past the end of the file while valid records follow is corrupt, and the report refuses.",
+    red: "Read a short record as a torn tail without looking for a later record.",
+  },
+  {
+    id: "J04.h-final-lf-missing-not-state",
+    ...darwin,
+    sources: "CMD-11; DESIGN.md section 4",
+    observation:
+      "A final completion record missing only its trailing LF is not state: the case is listed again.",
+    red: "Accept a final record without its LF.",
+  },
+  {
+    id: "K06.f-same-identity-different-content",
+    ...darwin,
+    sources: "REC-4",
+    observation:
+      "The same closure identity with another disposition or reason is refused as conflicting; closure bytes unchanged.",
+    red: "Treat any closure with the same identity as already closed.",
+  },
+  {
+    id: "K06.g-unknown-operation-not-found",
+    ...darwin,
+    sources: "REC-3; REC-6",
+    observation:
+      "Closing a well-formed operation identity that names no case is refused as not found.",
+    red: "Report a missing case as a corrupt store.",
+  },
+  {
+    id: "K06.h-unreadable-case-unavailable",
+    ...darwin,
+    sources: "REC-3; DISC-14 item 5",
+    observation:
+      "Closing an existing but unreadable case is refused as unavailable with its reason, never as not found; no closure.",
+    red: "Fold a read failure into not found.",
+  },
+  {
+    id: "P03.c-incomplete-scope-conflicts",
+    ...darwin,
+    sources: "REC-2; REC-9 row 11",
+    observation:
+      "A declaration where one of two resources cannot be resolved conflicts with an unresolved case on a different resource.",
+    red: "Drop an unresolvable resource instead of making the scope unknown.",
+  },
+  {
+    id: "P06.c-admission-held-until-intent-published",
+    ...darwin,
+    sources: "REC-2; CMD-12",
+    observation:
+      "While an unknown-scope writer is staged under the admission lock, an overlapping contender gets the temporary refusal and is never admitted.",
+    red: "Release the admission lock before the intent is published.",
+  },
+  {
+    id: "P06.d-unresolved-scan-under-admission",
+    ...darwin,
+    sources: "REC-2; CMD-12",
+    observation:
+      "An unresolved case that appears while a contender waits for the admission lock is seen by that contender's scan after it acquires the lock.",
+    red: "Read the unresolved scan before acquiring coordination.",
+  },
+  {
+    id: "S05.a-approval-lost-versus-unavailable",
+    ...transactionComponent,
+    sources: "CMD-15",
+    observation:
+      "A rejection with consumed true is approval-lost and one with consumed false is approval-unavailable; neither publishes an intent.",
+    red: "Merge approval-lost into approval-unavailable.",
+  },
+  {
+    id: "B06.a-effect-recorded-once",
+    ...transactionComponent,
+    sources: "CMD-11; DESIGN.md section 8 step 1",
+    observation:
+      "A second record of the same effect in one run is rejected and writes no second effect-started.",
+    red: "Allow an effect to be recorded twice.",
   },
 
   // S: supporting, approval consumption inside the transaction (outcome 6)

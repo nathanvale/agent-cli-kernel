@@ -53,9 +53,30 @@ async function failClosedControl(): Promise<void> {
     expect(run.result.causeCode).toBe("DOMAIN_SX_UNAVAILABLE");
     expect(run.envelope.message).toContain("coordination-unqualified-platform");
     expect(world.ledger()).toEqual([]);
+    // Fail closed before any write: the state root was never created.
+    expect(existsSync(world.root)).toBe(false);
   } finally {
     world.dispose();
   }
+}
+
+// A supporting (non-frozen) control bound to the Darwin primitive follows the
+// same policy as caseTest: off Darwin it runs the fail-closed control under a
+// title ending UNPROVED, never a silent skip.
+export function supportingTest(
+  title: string,
+  body: () => Promise<void>,
+  timeout = 90_000,
+): void {
+  if (!darwin) {
+    test(
+      `${title} UNPROVED on ${process.platform}: fail-closed control only`,
+      failClosedControl,
+      timeout,
+    );
+    return;
+  }
+  test(title, body, timeout);
 }
 
 // ---- Envelope access without assertions ------------------------------------
@@ -163,49 +184,107 @@ export type FileRead = {
   readonly corrupt: boolean;
 };
 
+const recordStart = /(^|\n)C3S1 [a-z-]{1,24} \d{10} [0-9a-f]{64}\n/;
+const headerLine = /^C3S1 ([a-z-]{1,24}) (\d{10}) ([0-9a-f]{64})$/;
+const decoder = new TextDecoder();
+
+// One record at `offset`, or undefined when the bytes there are damaged.
+function readRecordAt(
+  bytes: Uint8Array,
+  offset: number,
+): { readonly record: Record_; readonly end: number } | undefined {
+  const newline = bytes.indexOf(10, offset);
+  if (newline < 0) return undefined;
+  const match = headerLine.exec(
+    decoder.decode(bytes.subarray(offset, newline)),
+  );
+  if (!match?.[1] || !match[2] || !match[3]) return undefined;
+  const start = newline + 1;
+  const end = start + Number(match[2]);
+  if (end + 1 > bytes.length || bytes[end] !== 10) return undefined;
+  const body = bytes.subarray(start, end);
+  const digest = createHash("sha256")
+    .update(`${match[1]}\n`)
+    .update(body)
+    .digest("hex");
+  if (digest !== match[3]) return undefined;
+  const payload = parsePayload(body);
+  return payload && payload.kind === match[1] && payload.format === 1
+    ? { record: { kind: match[1], payload }, end: end + 1 }
+    : undefined;
+}
+
+function parsePayload(body: Uint8Array): { [key: string]: Json } | undefined {
+  try {
+    const payload = json(JSON.parse(decoder.decode(body)));
+    return payload !== null &&
+      typeof payload === "object" &&
+      !Array.isArray(payload)
+      ? payload
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+// DESIGN.md section 4, written independently of the add-on: damage is torn
+// only when no later record start follows it; otherwise the file is corrupt.
 export function readFramed(bytes: Uint8Array): FileRead {
   const records: Record_[] = [];
   let offset = 0;
-  const text = new TextDecoder();
   while (offset < bytes.length) {
-    const newline = bytes.indexOf(10, offset);
-    const header =
-      newline < 0 ? "" : text.decode(bytes.subarray(offset, newline));
-    const match = /^C3S1 ([a-z-]{1,24}) (\d{10}) ([0-9a-f]{64})$/.exec(header);
-    const length = match ? Number(match[2]) : -1;
-    const start = newline + 1;
-    const end = start + length;
-    const bad = (): FileRead => {
-      const rest = text.decode(
-        bytes.subarray(newline < 0 ? bytes.length : start),
-      );
-      const more = /(^|\n)C3S1 [a-z-]{1,24} \d{10} [0-9a-f]{64}\n/.test(rest);
+    const next = readRecordAt(bytes, offset);
+    if (!next) {
+      const newline = bytes.indexOf(10, offset);
+      const rest = bytes.subarray(newline < 0 ? bytes.length : newline + 1);
+      const more = recordStart.test(decoder.decode(rest));
       return { records, torn: !more, corrupt: more };
-    };
-    if (!match || end + 1 > bytes.length || bytes[end] !== 10) return bad();
-    const body = bytes.subarray(start, end);
-    const digest = createHash("sha256")
-      .update(`${match[1]}\n`)
-      .update(body)
-      .digest("hex");
-    if (digest !== match[3]) return bad();
-    let payload: Json;
-    try {
-      payload = json(JSON.parse(text.decode(body)));
-    } catch {
-      return bad();
     }
-    if (
-      payload === null ||
-      typeof payload !== "object" ||
-      Array.isArray(payload)
-    )
-      return bad();
-    if (payload.kind !== match[1] || payload.format !== 1) return bad();
-    records.push({ kind: match[1] ?? "", payload });
-    offset = end + 1;
+    records.push(next.record);
+    offset = next.end;
   }
   return { records, torn: false, corrupt: false };
+}
+
+// Test-owned writer for a synthetic unresolved operation (S1 control): an
+// intent naming `path`, an empty events file and a free owner lease. It uses
+// this file's own framing, never the add-on's encoder.
+export function writeSyntheticOperation(root: string, path: string): string {
+  const id = `op-${createHash("sha256").update(path).digest("hex").slice(0, 32)}`;
+  const directory = join(root, "operations", id);
+  mkdirSync(directory);
+  const payload = JSON.stringify({
+    operationId: id,
+    commandIdentity: "test.synthetic",
+    runId: "synthetic-run",
+    effects: ["note.write"],
+    scope: {
+      resources: [{ resource: "note:synthetic", path, keys: [] }],
+      invariants: [],
+      unknown: false,
+      keys: [],
+    },
+    revisions: {},
+    facts: null,
+    approval: null,
+    closes: null,
+    owner: { lease: "owner.lease", pid: 0, startedAt: 0 },
+    coordination: [],
+    format: 1,
+    kind: "intent",
+  });
+  const body = new TextEncoder().encode(payload);
+  const digest = createHash("sha256")
+    .update("intent\n")
+    .update(body)
+    .digest("hex");
+  writeFileSync(
+    join(directory, "intent"),
+    `C3S1 intent ${String(body.length).padStart(10, "0")} ${digest}\n${payload}\n`,
+  );
+  writeFileSync(join(directory, "events"), "");
+  writeFileSync(join(directory, "owner.lease"), "");
+  return id;
 }
 
 export type Observed = {

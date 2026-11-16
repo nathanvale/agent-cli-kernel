@@ -150,16 +150,9 @@ export type Intent = {
   readonly coordination: readonly string[];
 };
 
-export type EventKind =
-  | "effect-started"
-  | "delegate-admitted"
-  | "effect-confirmed"
-  | "effect-unconfirmed"
-  | "completion"
-  | "not-applied"
-  | "outcome"
-  | "emergency";
-const eventKinds: readonly EventKind[] = [
+// One owner per journal vocabulary (SF-3): each type derives from its array.
+export const recordKinds = { intent: "intent", closure: "closure" } as const;
+const eventKinds = [
   "effect-started",
   "delegate-admitted",
   "effect-confirmed",
@@ -168,6 +161,14 @@ const eventKinds: readonly EventKind[] = [
   "not-applied",
   "outcome",
   "emergency",
+] as const;
+export type EventKind = (typeof eventKinds)[number];
+// Events that name one of the intent's declared effects.
+const effectEvents: readonly EventKind[] = [
+  "effect-started",
+  "delegate-admitted",
+  "effect-confirmed",
+  "effect-unconfirmed",
 ];
 export type JournalEvent = {
   readonly kind: EventKind;
@@ -175,7 +176,12 @@ export type JournalEvent = {
   readonly payload: Readonly<Record<string, unknown>>;
 };
 
-export type Disposition = "completed" | "not-applied" | "outcome-unknown";
+export const dispositions = [
+  "completed",
+  "not-applied",
+  "outcome-unknown",
+] as const;
+export type Disposition = (typeof dispositions)[number];
 export type Closure = {
   readonly operationId: string;
   readonly closureId: string;
@@ -283,7 +289,8 @@ function parseIntent(record: ParsedRecord, id: string): Intent | undefined {
   const coordination = texts(value.coordination);
   const approval = parseApproval(value.approval);
   const closes = value.closes === null ? null : text(value.closes);
-  if (record.kind !== "intent" || value.operationId !== id) return undefined;
+  if (record.kind !== recordKinds.intent || value.operationId !== id)
+    return undefined;
   if (!commandIdentity || !runId || !effects || !scope || !revisions)
     return undefined;
   if (!owner || !coordination || approval === undefined || closes === undefined)
@@ -310,12 +317,10 @@ function parseEvent(
   const kind = eventKinds.find((entry) => entry === record.kind);
   if (!kind) return undefined;
   const effect = text(record.payload.effect);
-  const needsEffect =
-    kind === "effect-started" ||
-    kind === "delegate-admitted" ||
-    kind === "effect-confirmed" ||
-    kind === "effect-unconfirmed";
-  if (needsEffect && (effect === undefined || !effects.includes(effect)))
+  if (
+    effectEvents.includes(kind) &&
+    (effect === undefined || !effects.includes(effect))
+  )
     return undefined;
   return effect === undefined
     ? { kind, payload: record.payload }
@@ -324,16 +329,14 @@ function parseEvent(
 
 function parseClosure(record: ParsedRecord, id: string): Closure | undefined {
   const value = record.payload;
-  const disposition = (
-    ["completed", "not-applied", "outcome-unknown"] as const
-  ).find((entry) => entry === value.disposition);
+  const disposition = dispositions.find((entry) => entry === value.disposition);
   const closureId = text(value.closureId);
   const reason = text(value.reason);
   const journalRevision = text(value.journalRevision);
   const qualification = text(value.qualification);
   const recoveryRunId = text(value.recoveryRunId);
   if (
-    record.kind !== "closure" ||
+    record.kind !== recordKinds.closure ||
     value.operationId !== id ||
     !disposition ||
     !closureId ||
@@ -521,7 +524,10 @@ export async function publishOperation(
   const releaseLease = lockLease(join(staged, "owner.lease"));
   if (!releaseLease) return { ok: false };
   try {
-    writeDurable(join(staged, "intent"), encodeRecord("intent", intent));
+    writeDurable(
+      join(staged, "intent"),
+      encodeRecord(recordKinds.intent, intent),
+    );
     writeDurable(join(staged, "events"), new Uint8Array(0));
     flushDirectory(staged);
     await beforePublish();
@@ -568,7 +574,7 @@ export function publishClosure(
   beforeLink: () => Promise<void>,
 ): Promise<"published" | "exists"> {
   const staged = join(paths.staging, `closure-${crypto.randomUUID()}`);
-  writeDurable(staged, encodeRecord("closure", closure));
+  writeDurable(staged, encodeRecord(recordKinds.closure, closure));
   return beforeLink().then(() => {
     try {
       linkSync(staged, join(paths.operation(closure.operationId), "closure"));

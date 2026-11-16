@@ -33,14 +33,16 @@ test("the frozen T3 case table keeps its admitted identities and counts", () => 
     "B03",
     "B04",
     "B05",
+    "B06",
     "S01",
     "S02",
     "S03",
     "S04",
+    "S05",
   ]);
-  expect(stateCases.length).toBe(101);
+  expect(stateCases.length).toBe(112);
   const executable = stateCases.filter((row) => row.status === "executable");
-  expect(executable.length).toBe(92);
+  expect(executable.length).toBe(103);
   const pending = stateCases.filter((row) => row.status === "pending");
   expect(pending.map((row) => row.id).sort()).toEqual([
     "H01.a-attestation-satisfies-stop-only",
@@ -102,6 +104,7 @@ test("every executable case is registered once and no pending case is claimed", 
     "coordination.test.ts",
     "transient.test.ts",
     "component.test.ts",
+    "seams.test.ts",
   ];
   const sources = await Promise.all(
     files.map((name) => Bun.file(new URL(name, import.meta.url)).text()),

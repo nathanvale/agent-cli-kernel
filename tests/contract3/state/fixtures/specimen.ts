@@ -38,12 +38,12 @@ import type {
   JsonValue,
   RunAddon,
 } from "../../../../starters/contract3/src/kernel/index.ts";
-import { stateAddon } from "../../../../starters/contract3/src/addons/state/index.ts";
-import type {
-  Observer,
-  Phase,
-} from "../../../../starters/contract3/src/addons/state/index.ts";
-import { fixtureQualification } from "../../../../starters/contract3/src/addons/state/fixture.ts";
+import type { Observer } from "../../../../starters/contract3/src/addons/state/index.ts";
+// Labelled test entry: barrier observation points, and the fixture
+// qualification in `fixture` worlds. Production worlds use the production
+// qualification through the same entry.
+import { stateAddonWithTestSeams } from "../../../../starters/contract3/src/addons/state/fixture.ts";
+import type { Phase } from "../../../../starters/contract3/src/addons/state/fixture.ts";
 import { approval } from "../../../../starters/contract3/src/addons/approval/index.ts";
 
 const root = process.env.SX_ROOT ?? "";
@@ -120,19 +120,21 @@ const observers: Readonly<Record<string, Observer>> = {
   "audit.emit": () => Promise.resolve("unobservable"),
 };
 
-const qualification =
-  process.env.SX_QUALIFICATION === "fixture"
-    ? fixtureQualification("specimen")
-    : undefined;
 const waitBound = Number(process.env.SX_ADMISSION_WAIT ?? "2000");
-const state = stateAddon({
-  root,
-  report: "sx.pending",
-  observers,
-  ...(qualification ? { qualification } : {}),
-  admissionWaitMilliseconds: Number.isFinite(waitBound) ? waitBound : 2000,
-  phase: (name: Phase) => barrier(name),
-});
+const state = stateAddonWithTestSeams(
+  {
+    root,
+    report: "sx.pending",
+    observers,
+    admissionWaitMilliseconds: Number.isFinite(waitBound) ? waitBound : 2000,
+  },
+  {
+    ...(process.env.SX_QUALIFICATION === "fixture"
+      ? { fixtureLabel: "specimen" }
+      : {}),
+    phase: (name: Phase) => barrier(name),
+  },
+);
 
 // ---- Causes and station words ----------------------------------------------
 const handoffRefusal = {

@@ -71,7 +71,8 @@ Every record, in every file, has this exact framing:
 
 - `kind`: 1 to 24 characters of `[a-z-]`.
 - `length`: exactly 10 decimal digits, the payload byte length, at most
-  65,536.
+  65,536 (intents, events and closures are small JSON objects; the bound
+  keeps a damaged length from directing a reader at an unbounded read).
 - `checksum`: 64 lowercase hex digits, SHA-256 over `kind`, one LF, then the
   payload bytes.
 - `payload`: UTF-8 JSON object whose `kind` equals the header kind and whose
@@ -190,6 +191,9 @@ Conflict keys:
 
 - Folding is Unicode NFC then lower case. On a case-sensitive volume this can
   only add conflicts, never remove them.
+- Resource identities, host keys and invariant names are 1 to 256
+  characters of letters, digits and `._:/@+-`; anything else makes the scope
+  unknown (bounded record size, no control characters in records).
 - Symbolic link aliases resolve to the same real path; hard links and
   renames keep the same inode key; case and normalisation aliases fold to the
   same name key.
@@ -221,8 +225,12 @@ closes, including on SIGKILL. It is advisory among cooperating writers.
 
 1. Validate input; declare and canonicalise scope (no coordination yet).
 2. Acquire `coordination/admission.lock`: bounded wait, 10 ms polling, at
-   most 2,000 ms. Expiry refuses as a temporary confirmed-unchanged
-   condition (`busy`), never as the held-lock station.
+   most 2,000 ms by default; a host may set 1 to 10,000 ms. Admission holds
+   this lock only for a scan and one publication (milliseconds), so 2,000 ms
+   absorbs contention on a loaded host while staying well inside the
+   LIFE-6 stop bound for a person; 10 ms polling keeps the wait cheap.
+   Expiry refuses as a temporary confirmed-unchanged condition (`busy`),
+   never as the held-lock station.
 3. Acquire every conflict-key coordination lock in ascending lock-file name
    order, non-blocking. Any `EAGAIN`: release what was taken, in reverse,
    then refuse `held-lock`.
@@ -346,7 +354,17 @@ foundation table is empty. Capabilities:
 
 A labelled test-only fixture module may supply a fixture qualification to a
 test host. It never alters the production table; any closure it enables is
-stamped `fixture:<label>`, and the history route reports it.
+stamped `fixture:<label>`, the history route reports it, and
+`capabilities()` reports the proof as `fixture-only`, never `available`.
+
+Module placement (repair round 1): `index.ts` is the only host entry and
+fixes the production seams (reviewed table, no observation hook);
+`install.ts` is internal; `fixture.ts` is the labelled test entry that can
+set a fixture qualification and the observation hook (`admission-wait`,
+`staged`, `closure-staged`). The repository lint configuration bans every
+import of `addons/state/` other than `index.ts` from source outside that
+folder; tests are exempt. A generated host's configuration needs the same
+ban.
 
 ## 11. Transition table and crash boundaries (REC-8)
 
@@ -381,7 +399,7 @@ second column leaves the durable state in the third.
 
 ## 12. Interface for other components
 
-- Host: `stateAddon(options)` returns the descriptor for `contractFor`, the
+- Host (`index.ts` only): `stateAddon(options)` returns the descriptor for `contractFor`, the
   `emergencyRecord` for `runProcess`, `transaction(ctx.state, declaration,
   work)` for changing handlers, and read functions for the report and the
   case history inspect commands, plus `close(...)` for recovery commands.

@@ -22,49 +22,38 @@ export const qualificationRows: readonly QualificationRow[] = Object.freeze([]);
 
 // What a closure needs before its stopped-owner condition may be evaluated.
 // `label` is stamped into every closure the qualification enables.
+// `source` is "production" for a reviewed row or the unqualified default, and
+// "fixture" only for the labelled test entry (fixture.ts), which a host
+// never imports.
 export type Qualification = {
   readonly label: string;
+  readonly source: "production" | "fixture";
   readonly stoppedOwner: "lease-and-no-delegate" | "unavailable";
 };
 
-const fixtures = new WeakSet<object>();
-export function registerFixture(value: Qualification): Qualification {
-  const frozen = Object.freeze({ ...value });
-  fixtures.add(frozen);
-  return frozen;
-}
-
-// Production: the row matching this environment, if any. A host cannot pass
-// its own object as a qualification: only the labelled fixture module's
-// registered values are accepted, and those are stamped `fixture:`.
-export function resolveQualification(supplied: unknown): Qualification {
-  if (
-    typeof supplied === "object" &&
-    supplied !== null &&
-    fixtures.has(supplied)
-  ) {
-    const label: unknown = Reflect.get(supplied, "label");
-    const stoppedOwner: unknown = Reflect.get(supplied, "stoppedOwner");
-    return {
-      label: `fixture:${typeof label === "string" ? label : "unnamed"}`,
-      stoppedOwner:
-        stoppedOwner === "lease-and-no-delegate"
-          ? "lease-and-no-delegate"
-          : "unavailable",
-    };
-  }
+// Production: the reviewed row matching this environment, if any. Takes no
+// input, so a caller cannot choose its own qualification.
+export function resolveQualification(): Qualification {
   const row = qualificationRows.find(
     (entry) => entry.os === process.platform && entry.osRelease === release(),
   );
   return row
-    ? { label: row.id, stoppedOwner: "lease-and-no-delegate" }
-    : { label: "unqualified", stoppedOwner: "unavailable" };
+    ? {
+        label: row.id,
+        source: "production",
+        stoppedOwner: "lease-and-no-delegate",
+      }
+    : {
+        label: "unqualified",
+        source: "production",
+        stoppedOwner: "unavailable",
+      };
 }
 
 export type CapabilityReport = {
   readonly qualification: string;
   readonly coordination: "available" | "unavailable";
-  readonly stoppedOwnerProof: "available" | "unavailable";
+  readonly stoppedOwnerProof: "available" | "fixture-only" | "unavailable";
   readonly automaticReclaim: "unavailable";
   readonly humanAssistedTakeover: "unavailable";
   readonly humanOutcomeUnknownClosure: "available" | "unavailable";

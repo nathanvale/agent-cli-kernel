@@ -1,7 +1,7 @@
 // Component cases (O01.b, T03.b, Q01.b, B01 to B05) and supporting checks of
 // the internal framing and scope seams. Component evidence never satisfies a
 // process row; these bind what the process layer cannot reach directly.
-import { expect, test } from "bun:test";
+import { afterEach, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -13,11 +13,14 @@ import {
   station,
 } from "../../../starters/contract3/src/kernel/index.ts";
 import type {
+  ApprovalRuntime,
+  AuthorityId,
   CauseTable,
   RecordedEffect,
+  ResourceId,
 } from "../../../starters/contract3/src/kernel/index.ts";
 import { stateAddon } from "../../../starters/contract3/src/addons/state/index.ts";
-import { fixtureQualification } from "../../../starters/contract3/src/addons/state/fixture.ts";
+import { stateAddonWithTestSeams } from "../../../starters/contract3/src/addons/state/fixture.ts";
 import {
   qualificationRows,
   resolveQualification,
@@ -113,14 +116,44 @@ type Scenario = (
 
 // One in-process host with one changing command whose handler runs a
 // scenario inside a real admitted transaction.
-async function inTransaction(scenario: Scenario): Promise<{
+// Every temporary root is removed after its test, pass or fail (N5).
+const temporaryRoots: string[] = [];
+afterEach(() => {
+  for (const root of temporaryRoots.splice(0))
+    rmSync(root, { recursive: true, force: true });
+});
+function temporaryRoot(prefix: string): string {
+  const root = mkdtempSync(join(tmpdir(), prefix));
+  temporaryRoots.push(root);
+  return root;
+}
+
+type Approval = NonNullable<
+  Parameters<ReturnType<typeof stateAddon>["transaction"]>[1]["approval"]
+>;
+type Outcome = Awaited<
+  ReturnType<ReturnType<typeof stateAddon>["transaction"]>
+>;
+
+async function inTransaction(
+  scenario: Scenario,
+  approval?: (boundary: {
+    readonly resource: (value: unknown) => ResourceId;
+    readonly authority: (value: unknown) => AuthorityId;
+  }) => Approval,
+): Promise<{
   readonly root: string;
   readonly state: ReturnType<typeof stateAddon>;
+  readonly outcome: Outcome | undefined;
 }> {
-  const root = join(
-    mkdtempSync(join(tmpdir(), "c3-state-component-")),
-    "state",
-  );
+  const root = join(temporaryRoot("c3-state-component-"), "state");
+  let outcome: Outcome | undefined;
+  const composed: {
+    boundary?: {
+      readonly resource: (value: unknown) => ResourceId;
+      readonly authority: (value: unknown) => AuthorityId;
+    };
+  } = {};
   const state = stateAddon({ root, report: "cx.pending" });
   const pending = command({
     identity: "cx.pending",
@@ -180,11 +213,13 @@ async function inTransaction(scenario: Scenario): Promise<{
     unresolvedCaseCause: "DOMAIN_CX_UNRESOLVED",
     stations: [heldStation, unresolvedStation],
     run: async (_input, context) => {
-      await state.transaction(
+      const boundary = composed.boundary;
+      outcome = await state.transaction(
         context.state,
         {
           command: "cx.change",
           scope: { resources: [{ resource: "r", key: "component" }] },
+          ...(approval && boundary ? { approval: approval(boundary) } : {}),
         },
         async (transaction) => {
           await scenario(
@@ -215,6 +250,7 @@ async function inTransaction(scenario: Scenario): Promise<{
     causes,
     installedAddons: ["state"],
   });
+  composed.boundary = contract.boundary;
   const executed = await contract.execute(
     "cx.change",
     ["x"],
@@ -225,7 +261,7 @@ async function inTransaction(scenario: Scenario): Promise<{
     throw new Error(
       `Component host failed: ${executed.path} ${executed.reason}`,
     );
-  return { root, state };
+  return { root, state, outcome };
 }
 
 function eventKinds(root: string): readonly string[] {
@@ -253,7 +289,6 @@ caseTest("B01.a-admit-start-active-effect", async () => {
     "effect-confirmed",
     "outcome",
   ]);
-  rmSync(join(root, ".."), { recursive: true, force: true });
 });
 
 caseTest("B02.a-admit-start-after-close-rejected", async () => {
@@ -279,7 +314,6 @@ caseTest("B02.a-admit-start-after-close-rejected", async () => {
   expect(rejected).toBe(true);
   expect(started).toBe(0);
   expect(eventKinds(root)).not.toContain("delegate-admitted");
-  rmSync(join(root, ".."), { recursive: true, force: true });
 });
 
 caseTest("B03.a-admit-start-wrong-run-or-effect", async () => {
@@ -302,7 +336,6 @@ caseTest("B03.a-admit-start-wrong-run-or-effect", async () => {
   expect(rejections).toEqual(["run", "effect"]);
   expect(started).toBe(0);
   expect(eventKinds(root)).not.toContain("delegate-admitted");
-  rmSync(join(root, ".."), { recursive: true, force: true });
 });
 
 caseTest("B04.a-emergency-record", async () => {
@@ -335,7 +368,6 @@ caseTest("B04.a-emergency-record", async () => {
   expect(emergencies.map((entry) => entry.payload.phase)).toEqual([
     "dispatched",
   ]);
-  rmSync(join(root, ".."), { recursive: true, force: true });
 });
 
 caseTest("B05.a-closing-waits-for-admitted-start", async () => {
@@ -358,7 +390,10 @@ caseTest("B05.a-closing-waits-for-admitted-start", async () => {
         return 0;
       });
       order.push("operation-returned");
-      setTimeout(() => finish?.(), 20);
+      // Release the in-flight start on the next event-loop turn, after the
+      // record has marked the effect closing (event-loop order, not a timed
+      // delay): closing must still wait for the start to settle.
+      setImmediate(() => finish?.());
       return Promise.resolve();
     });
     order.push("record-returned");
@@ -374,11 +409,10 @@ caseTest("B05.a-closing-waits-for-admitted-start", async () => {
   expect(kinds.indexOf("delegate-admitted")).toBeLessThan(
     kinds.indexOf("effect-confirmed"),
   );
-  rmSync(join(root, ".."), { recursive: true, force: true });
 });
 
 caseTest("O01.b-admission-rejects-missing-stations", async () => {
-  const root = mkdtempSync(join(tmpdir(), "c3-state-o01b-"));
+  const root = temporaryRoot("c3-state-o01b-");
   const state = stateAddon({ root: join(root, "state"), report: "cx.pending" });
   const base = {
     identity: "cx.change",
@@ -444,36 +478,55 @@ caseTest("T03.b-bad-bounds-rejected", async () => {
 });
 
 caseTest("Q01.b-fixture-never-enables", async () => {
-  const root = mkdtempSync(join(tmpdir(), "c3-state-q01b-"));
-  const fixtureAddon = stateAddon({
-    root: join(root, "a"),
-    report: "cx.pending",
-    qualification: fixtureQualification("q01b"),
-  });
-  const production = stateAddon({
-    root: join(root, "b"),
-    report: "cx.pending",
-  });
-  expect(fixtureAddon.capabilities().qualification).toBe("fixture:q01b");
-  expect(production.capabilities().qualification).toBe("unqualified");
-  expect(production.capabilities().stoppedOwnerProof).toBe("unavailable");
-  for (const report of [
-    fixtureAddon.capabilities(),
-    production.capabilities(),
-  ]) {
-    expect(report.automaticReclaim).toBe("unavailable");
-    expect(report.humanAssistedTakeover).toBe("unavailable");
-    expect(report.humanOutcomeUnknownClosure).toBe("unavailable");
+  const root = temporaryRoot("c3-state-q01b-");
+  try {
+    const fixtureAddon = stateAddonWithTestSeams(
+      { root: join(root, "a"), report: "cx.pending" },
+      { fixtureLabel: "q01b" },
+    );
+    const production = stateAddon({
+      root: join(root, "b"),
+      report: "cx.pending",
+    });
+    // A fixture-enabled proof is reported fixture-only, never available.
+    expect(fixtureAddon.capabilities().qualification).toBe("fixture:q01b");
+    expect(fixtureAddon.capabilities().stoppedOwnerProof).toBe(
+      process.platform === "darwin" ? "fixture-only" : "unavailable",
+    );
+    expect(production.capabilities().qualification).toBe("unqualified");
+    expect(production.capabilities().stoppedOwnerProof).toBe("unavailable");
+    for (const report of [
+      fixtureAddon.capabilities(),
+      production.capabilities(),
+    ]) {
+      expect(report.automaticReclaim).toBe("unavailable");
+      expect(report.humanAssistedTakeover).toBe("unavailable");
+      expect(report.humanOutcomeUnknownClosure).toBe("unavailable");
+    }
+    expect(qualificationRows).toEqual([]);
+    expect(resolveQualification()).toEqual({
+      label: "unqualified",
+      source: "production",
+      stoppedOwner: "unavailable",
+    });
+    // The production entry ignores a smuggled qualification or hook: it has
+    // no such option, whatever an untyped caller passes.
+    const smuggled = {
+      root: join(root, "c"),
+      report: "cx.pending",
+      qualification: {
+        label: "forged",
+        source: "production",
+        stoppedOwner: "lease-and-no-delegate",
+      },
+      phase: () => Promise.reject(new Error("never called")),
+    };
+    const forged = stateAddon(smuggled).capabilities();
+    expect(forged.qualification).toBe("unqualified");
+    expect(forged.stoppedOwnerProof).toBe("unavailable");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
-  expect(qualificationRows).toEqual([]);
-  // A look-alike object is not a registered fixture and qualifies nothing.
-  expect(
-    resolveQualification({
-      label: "forged",
-      stoppedOwner: "lease-and-no-delegate",
-    }),
-  ).toEqual({ label: "unqualified", stoppedOwner: "unavailable" });
-  rmSync(root, { recursive: true, force: true });
   await Promise.resolve();
 });
 
@@ -502,7 +555,7 @@ test("framing: torn tails are not state; damage before more bytes is corrupt", (
 });
 
 test("scope: aliases share keys; distinct names and unknown scope behave", () => {
-  const directory = mkdtempSync(join(tmpdir(), "c3-scope-"));
+  const directory = temporaryRoot("c3-scope-");
   writeFileSync(join(directory, "a"), "x");
   symlinkSync(join(directory, "a"), join(directory, "link"));
   const a = canonicalise({
@@ -524,4 +577,63 @@ test("scope: aliases share keys; distinct names and unknown scope behave", () =>
     canonicalise({ resources: [{ resource: "r", path: "relative" }] }).unknown,
   ).toBe(true);
   rmSync(directory, { recursive: true, force: true });
+});
+
+// ---- Repair round 1 controls -----------------------------------------------
+
+// A rejection shaped as the approval add-on reports it; `consumed` decides
+// whether the item was consumed (CMD-15). The state add-on reads it
+// structurally and never imports the approval add-on.
+class RejectionDouble extends Error {
+  readonly consumed: boolean;
+  constructor(consumed: boolean) {
+    super("approval rejection double");
+    this.consumed = consumed;
+  }
+}
+
+caseTest("S05.a-approval-lost-versus-unavailable", async () => {
+  const kinds: string[] = [];
+  for (const consumed of [true, false]) {
+    const runtime: ApprovalRuntime = {
+      check: () => Promise.resolve(true),
+      revalidateAndConsume: () => Promise.reject(new RejectionDouble(consumed)),
+    };
+    const { root, outcome } = await inTransaction(
+      () => Promise.resolve(),
+      (boundary) => ({
+        runtime,
+        request: {
+          authority: boundary.authority("owner"),
+          resource: boundary.resource("r"),
+          resourceRevision: "observed",
+          effects: ["e.one"],
+          preview: "p1",
+        },
+      }),
+    );
+    kinds.push(outcome?.kind ?? "none");
+    // Neither outcome publishes an intent or starts an effect.
+    expect(readOperations(root)).toEqual([]);
+  }
+  expect(kinds).toEqual(["approval-lost", "approval-unavailable"]);
+});
+
+caseTest("B06.a-effect-recorded-once", async () => {
+  let second = "not attempted";
+  const { root } = await inTransaction(async (record) => {
+    await record(() => Promise.resolve());
+    await record(() => Promise.resolve()).then(
+      () => {
+        second = "recorded";
+      },
+      () => {
+        second = "rejected";
+      },
+    );
+  });
+  expect(second).toBe("rejected");
+  expect(eventKinds(root).filter((kind) => kind === "effect-started")).toEqual([
+    "effect-started",
+  ]);
 });

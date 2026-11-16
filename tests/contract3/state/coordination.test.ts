@@ -21,6 +21,7 @@ import {
   expectRefusedUnchanged,
   makeWorld,
   str,
+  writeSyntheticOperation,
 } from "./harness.ts";
 import type { Run, World } from "./harness.ts";
 
@@ -452,4 +453,72 @@ caseTest(
       release();
     }
   }),
+);
+
+// ---- Repair round 1 controls -----------------------------------------------
+
+caseTest(
+  "P03.c-incomplete-scope-conflicts",
+  plain(async (world) => {
+    await world.killAt(apply("c"), "intent");
+    const id = only(world);
+    // One of two declared resources cannot be resolved (relative path), so
+    // the scope is unknown and conflicts with the case on another resource.
+    expectUnresolvedBy(
+      await world.run(apply("x", "v1", "--path", "relative/x", "--also", "b")),
+      id,
+    );
+    expect(world.noteLedger("b")).toBe(0);
+  }),
+);
+
+caseTest(
+  "P06.c-admission-held-until-intent-published",
+  plain(async (world) => {
+    // An unknown-scope writer holds no key coordination lock; only the
+    // admission lock, held until its intent is published, keeps an
+    // overlapping contender out.
+    const writer = world.start(apply("w", "v1", "--unknown-scope"), {
+      SX_BARRIER: "staged",
+    });
+    await writer.reached("staged");
+    const contender = await world.run(apply("y"), {
+      SX_ADMISSION_WAIT: "300",
+    });
+    expect(contender.exit).toBe(75);
+    expect(contender.result.causeCode).toBe("TRANSIENT_NOT_STARTED");
+    expect(world.noteLedger("y")).toBe(0);
+    expect(world.operations()).toEqual([]);
+    writer.release("staged");
+    expectCompleted(await writer.done);
+  }),
+);
+
+caseTest(
+  "P06.d-unresolved-scan-under-admission",
+  plain(async (world) => {
+    expectCompleted(await world.run(apply("seed")));
+    const release = holdLock(
+      join(world.root, "coordination", "admission.lock"),
+    );
+    let released = false;
+    try {
+      const contender = world.start(apply("a"), {
+        SX_BARRIER: "admission-wait",
+        SX_ADMISSION_WAIT: "20000",
+      });
+      await contender.reached("admission-wait");
+      contender.release("admission-wait");
+      // While the contender waits, an unresolved case on the same resource
+      // appears. The scan must happen under the admission lock, after it.
+      const synthetic = writeSyntheticOperation(world.root, world.note("a"));
+      release();
+      released = true;
+      expectUnresolvedBy(await contender.done, synthetic);
+      expect(world.noteLedger("a")).toBe(0);
+    } finally {
+      if (!released) release();
+    }
+  }),
+  60_000,
 );
