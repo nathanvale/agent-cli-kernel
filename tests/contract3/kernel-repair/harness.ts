@@ -45,12 +45,14 @@ const stateModules = [
   "admission-changing",
   "context-changing",
   "r18-changing",
+  "swarm-state",
 ] as const;
 export const materialisedFixtures: readonly string[] = [
   ...stateModules.map(
     (name) => `starters/contract3/src/addons/state/${name}.ts`,
   ),
   "tests/contract3/kernel-repair/driver.ts",
+  "tests/contract3/kernel-repair/swarm-state-cli.ts",
   "tests/contract3/kernel-repair/r18-spec.ts",
   "tests/contract3/kernel-repair/shapes.ts",
 ];
@@ -78,10 +80,11 @@ export async function materialise(): Promise<string> {
       join(source, `addons/state/${name}.ts`),
       await readFile(new URL(`fixtures/${name}.ts.txt`, import.meta.url)),
     );
-  await writeFile(
-    join(tests, "driver.ts"),
-    await readFile(new URL("fixtures/driver.ts.txt", import.meta.url)),
-  );
+  for (const name of ["driver", "swarm-state-cli"])
+    await writeFile(
+      join(tests, `${name}.ts`),
+      await readFile(new URL(`fixtures/${name}.ts.txt`, import.meta.url)),
+    );
   for (const name of ["r18-spec.ts", "shapes.ts"])
     await cp(new URL(name, import.meta.url), join(tests, name));
   await symlink(join(repository, "node_modules"), join(root, "node_modules"));

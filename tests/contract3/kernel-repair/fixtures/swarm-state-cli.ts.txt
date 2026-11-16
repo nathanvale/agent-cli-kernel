@@ -1,0 +1,59 @@
+// Test-owned process entry for the swarm-triage state cases, materialised at
+// tests/contract3/kernel-repair/swarm-state-cli.ts in a disposable tree beside
+// a copy of the kernel and the state fixtures, and linted there. argv is
+// <scenario> then the CLI argv. Admission scenarios print what contractFor
+// did; process scenarios run through the real process front door.
+import { appendFileSync } from "node:fs";
+import { runProcess } from "../../../starters/contract3/src/kernel/index.ts";
+import {
+  coordinationContract,
+  ifNoResultContract,
+  lateTransactionContract,
+  proofAccessorContract,
+  runReuse,
+} from "../../../starters/contract3/src/addons/state/swarm-state.ts";
+
+function admission(compose: () => object): void {
+  try {
+    compose();
+    process.stdout.write(JSON.stringify({ admission: "admitted" }));
+  } catch (error) {
+    process.stdout.write(
+      JSON.stringify({
+        admission: "refused",
+        reason: error instanceof Error ? error.message : String(error),
+      }),
+    );
+  }
+}
+const ledger = process.env.LEDGER ?? "";
+const scenarios: Readonly<Record<string, (argv: string[]) => Promise<unknown>>> =
+  {
+    "ifnoresult-required": () =>
+      Promise.resolve(admission(() => ifNoResultContract(true))),
+    "ifnoresult-none": (argv) => runProcess(ifNoResultContract(false))(argv),
+    "coordination-lock-common": () =>
+      Promise.resolve(admission(() => coordinationContract("lock-common"))),
+    "coordination-unresolved-common": () =>
+      Promise.resolve(
+        admission(() => coordinationContract("unresolved-common")),
+      ),
+    "coordination-host": () =>
+      Promise.resolve(admission(() => coordinationContract("host"))),
+    "proof-accessor": (argv) => runProcess(proofAccessorContract(false))(argv),
+    "proof-steady": (argv) => runProcess(proofAccessorContract(true))(argv),
+    "late-transaction": (argv) =>
+      runProcess(
+        lateTransactionContract(Number(process.env.HOPS ?? "0"), (line) =>
+          appendFileSync(ledger, `${line}\n`),
+        ),
+      )(argv),
+    "run-reuse": async () =>
+      process.stdout.write(
+        JSON.stringify(await runReuse(process.env.SECOND_RUN_ID ?? "")),
+      ),
+  };
+const [scenario = "", ...argv] = process.argv.slice(2);
+const run = scenarios[scenario];
+if (!run) throw new Error(`Unknown scenario ${scenario}.`);
+await run(argv);

@@ -94,6 +94,14 @@ function admitRecovery(
   );
   if (!route || !target || target.effectClass !== "inspect")
     throw new Error("ifNoResult must name a declared inspect command.");
+  // DISC-13 and DISC-14(1): the step is a command step (STEP-6) checked when
+  // the command is declared, because the base copies it into the fallback;
+  // a step its target cannot parse would leave the fallback unproducible.
+  const problem = stepVectorProblem(target, route.args, true);
+  if (problem)
+    throw new Error(
+      `ifNoResult step ${target.commandIdentity} ${JSON.stringify(route.args)} can never parse: ${problem}.`,
+    );
   const success = target.stations.find(
     (item) => item.row.outcome === "success",
   );
