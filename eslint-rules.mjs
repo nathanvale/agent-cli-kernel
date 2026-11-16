@@ -6,6 +6,12 @@ const contractRoot = /^(.*\/starters\/contract3\/src)\//;
 const comparisons = new Set(["===", "!==", "==", "!="]);
 const folding = new Set(["TemplateLiteral", "BinaryExpression"]);
 const comma = { type: "Literal", value: "," };
+const prototypeOwners = new Set([
+  "Object",
+  "Function",
+  "CallableFunction",
+  "NewableFunction",
+]);
 const ownerKeys = new WeakMap();
 
 // The string a source spells from constants only: literals, + and templates
@@ -130,13 +136,7 @@ function ownerImport(context, file, root) {
   if (imported) return "";
   const owner = file.startsWith(`${root}/kernel/`) ? "causes.ts" : "index.ts";
   const from = posix.relative(posix.dirname(file), `${root}/kernel/${owner}`);
-  return `import type { commonCauses } from "${from.startsWith(".") ? from : `./${from}`}"; `;
-}
-
-function camelName(code) {
-  return code
-    .toLowerCase()
-    .replace(/_([a-z0-9])/g, (_, letter) => letter.toUpperCase());
+  return ` Import the owner once: import type { commonCauses } from "${from.startsWith(".") ? from : `./${from}`}";`;
 }
 
 const causeShape =
@@ -333,7 +333,7 @@ export default {
         type: "problem",
         schema: [],
         messages: {
-          in: "{{key}} is not declared on this type, and {{how}} also finds inherited members such as toString. Read own data as unknown. Fix: const ownValue: unknown = Object.hasOwn({{target}}, {{key}}) ? Reflect.get({{target}}, {{key}}) : undefined;",
+          in: "{{key}} is not declared on this type, and {{how}} also finds inherited members such as toString. Read the own value into a place typed unknown. Fix: (Object.hasOwn({{target}}, {{key}}) ? Reflect.get({{target}}, {{key}}) : undefined)",
           forIn:
             "for...in also walks inherited enumerable keys. Walk own keys. Fix: for (const key of Object.keys({{target}}))",
         },
@@ -341,8 +341,21 @@ export default {
       create(context) {
         const services = typeServices(context);
         if (!services) return {};
-        const checker = services.program.getTypeChecker();
+        const { program } = services;
+        const checker = program.getTypeChecker();
         const text = (node) => context.sourceCode.getText(node);
+        // Every object type resolves the Object.prototype members, and
+        // every function type the Function.prototype ones, so a key found
+        // only there is inherited, not declared.
+        const inherited = (declaration) =>
+          ts.isInterfaceDeclaration(declaration.parent) &&
+          prototypeOwners.has(declaration.parent.name.text) &&
+          program.isSourceFileDefaultLibrary(declaration.getSourceFile());
+        const own = (symbol) =>
+          symbol !== undefined &&
+          !(
+            symbol.declarations?.length && symbol.declarations.every(inherited)
+          );
         // A key every union member leaves undeclared is a probe of unknown
         // shape. Narrowing a union by a key one member declares is not.
         const declared = (keyNode, targetNode) => {
@@ -354,7 +367,7 @@ export default {
             (key) =>
               key.isStringLiteral() &&
               targets.some((type) =>
-                checker.getPropertyOfType(type, key.value),
+                own(checker.getPropertyOfType(type, key.value)),
               ),
           );
         };
@@ -392,7 +405,7 @@ export default {
         type: "problem",
         schema: [],
         messages: {
-          free: 'Cause code "{{code}}" is a free string here, so a renamed or removed code still compiles. Type it with the owner\'s keys and use {{name}} in its place. Fix: {{imports}}const {{name}}: keyof typeof commonCauses = "{{code}}";',
+          free: 'Cause code "{{code}}" is a free string here, so a renamed or removed code still compiles. Check it against the owner\'s keys where it stands.{{imports}} Fix: ("{{code}}" satisfies keyof typeof commonCauses)',
         },
       },
       create(context) {
@@ -434,7 +447,7 @@ export default {
             context.report({
               node,
               messageId: "free",
-              data: { code, name: camelName(code), imports },
+              data: { code, imports },
             });
         };
         return {
