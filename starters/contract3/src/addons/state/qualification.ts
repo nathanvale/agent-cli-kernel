@@ -53,6 +53,9 @@ export function resolveQualification(): Qualification {
 export type CapabilityReport = {
   readonly qualification: string;
   readonly coordination: "available" | "unavailable";
+  // The route and the facts it was accepted or refused on (DESIGN.md
+  // section 7, N4).
+  readonly coordinationRoute: string;
   readonly stoppedOwnerProof: "available" | "fixture-only" | "unavailable";
   readonly automaticReclaim: "unavailable";
   readonly humanAssistedTakeover: "unavailable";

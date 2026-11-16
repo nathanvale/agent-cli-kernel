@@ -51,6 +51,47 @@ const kernelIndexOnly = {
   message:
     "Host code imports the stamped kernel through its public index only.",
 };
+// Linux route decision (16 November 2026): bun:ffi only in the state
+// add-on's linux-flock.ts, the one module that owns the coordination lock's
+// foreign call.
+const ffiRoute = "starters/contract3/src/addons/state/linux-flock.ts";
+const ffiMessage =
+  "bun:ffi belongs only to the state add-on's linux-flock.ts (the Linux coordination lock call).";
+const ffiPath = { name: "bun:ffi", message: ffiMessage };
+const ffiImport = {
+  selector:
+    "ImportExpression:matches([source.value='bun:ffi'], [source.quasis.0.value.cooked='bun:ffi'])",
+  message: ffiMessage,
+};
+// T3 delta review F1: the spellings that reach the kernel's or the state
+// add-on's internals without matching the canonical path. Lint is a guard
+// against accident, not isolation.
+const literalMessage =
+  "Host code imports the stamped kernel and the state add-on through their public index only, by a literal specifier: no computed or template import(), require, createRequire or import.meta.require.";
+const canonicalMessage =
+  "Host code imports the stamped kernel and the state add-on through their public index only, spelled canonically: no doubled slash, no leading ./ before .., and no . or .. segment inside a path.";
+const reachability = [
+  {
+    selector: "ImportExpression:not([source.type='Literal'])",
+    message: literalMessage,
+  },
+  {
+    selector:
+      ":matches(CallExpression[callee.name='require'], CallExpression[callee.name='createRequire'], MemberExpression[object.type='MetaProperty'][property.name='require'])",
+    message: literalMessage,
+  },
+  {
+    selector:
+      "ImportExpression[source.value=/\\x2f\\x2f|\\x2f[.]\\x2f|^[.]\\x2f[.][.]\\x2f/]",
+    message: canonicalMessage,
+  },
+  {
+    selector:
+      "ImportExpression[source.value=/^[.][.]\\x2fstate\\x2f(?!index[.](ts|mts|cts)$)/]",
+    message:
+      "Host code imports the state add-on through its public index only.",
+  },
+];
 const programProperties = [
   { object: "Bun", property: "spawn" },
   { object: "Bun", property: "spawnSync" },
@@ -93,6 +134,68 @@ const rules = {
   ],
   "no-console": "error",
 };
+// Source outside the kernel: the public-index bans, the logging ban, the F1
+// spellings and, except in the Linux route module, the bun:ffi ban. The
+// diagnostics folder passes its own logging group (the pinned LogTape
+// packages allowed) and keeps every other rule.
+function hostRules({ banFfi = true, logging = loggingImports } = {}) {
+  return {
+    "no-restricted-syntax": [
+      ...rules["no-restricted-syntax"],
+      childProcessImport,
+      ...(banFfi ? [ffiImport] : []),
+      ...reachability,
+      {
+        selector:
+          "ImportExpression[source.value=/(^|\\x2f)kernel\\x2f(?!index[.](ts|mts|cts)$)/]",
+        message:
+          "Host code imports the stamped kernel through its public index only.",
+      },
+      {
+        selector:
+          "ImportExpression[source.value=/(^|\\x2f)addons\\x2fstate\\x2f(?!index[.](ts|mts|cts)$)/]",
+        message:
+          "Host code imports the state add-on through its public index only.",
+      },
+    ],
+    "no-restricted-imports": [
+      "error",
+      {
+        paths: [
+          ...(banFfi ? [ffiPath] : []),
+          {
+            name: "node:module",
+            importNames: ["createRequire"],
+            message: literalMessage,
+          },
+          {
+            name: "module",
+            importNames: ["createRequire"],
+            message: literalMessage,
+          },
+        ],
+        patterns: [
+          { group: ["**/tests/**", "node:child_process", "child_process"] },
+          kernelIndexOnly,
+          logging,
+          stateIndexOnly,
+          {
+            // A doubled slash, a "." segment after a slash, a leading
+            // "./" before "..", or a named segment followed by "..".
+            regex:
+              "//|/\\.(?:/|$)|^\\./\\.\\.(?:/|$)|(?:^|/)(?!\\.\\.?/)[^/]+/\\.\\.(?:/|$)",
+            message: canonicalMessage,
+          },
+          {
+            regex: "^\\.\\./state/(?!index\\.(?:ts|mts|cts)$)",
+            message:
+              "Host code imports the state add-on through its public index only; its fixture and internals are test-only or internal.",
+          },
+        ],
+      },
+    ],
+  };
+}
 export default tseslint.config(
   {
     files: scopes,
@@ -117,10 +220,12 @@ export default tseslint.config(
       "no-restricted-syntax": [
         ...rules["no-restricted-syntax"],
         childProcessImport,
+        ffiImport,
       ],
       "no-restricted-imports": [
         "error",
         {
+          paths: [ffiPath],
           patterns: [
             { group: ["**/tests/**", "node:child_process", "child_process"] },
             loggingImports,
@@ -136,36 +241,13 @@ export default tseslint.config(
   },
   {
     files: ["starters/contract3/src/**/*.{ts,mts,cts}"],
-    ignores: ["starters/contract3/src/kernel/**"],
-    rules: {
-      "no-restricted-syntax": [
-        ...rules["no-restricted-syntax"],
-        childProcessImport,
-        {
-          selector:
-            "ImportExpression[source.value=/(^|\\x2f)kernel\\x2f(?!index[.](ts|mts|cts)$)/]",
-          message:
-            "Host code imports the stamped kernel through its public index only.",
-        },
-        {
-          selector:
-            "ImportExpression[source.value=/(^|\\x2f)addons\\x2fstate\\x2f(?!index[.](ts|mts|cts)$)/]",
-          message:
-            "Host code imports the state add-on through its public index only.",
-        },
-      ],
-      "no-restricted-imports": [
-        "error",
-        {
-          patterns: [
-            { group: ["**/tests/**", "node:child_process", "child_process"] },
-            kernelIndexOnly,
-            loggingImports,
-            stateIndexOnly,
-          ],
-        },
-      ],
-    },
+    ignores: ["starters/contract3/src/kernel/**", ffiRoute],
+    rules: hostRules(),
+  },
+  {
+    // The one module that may import bun:ffi; every other host rule holds.
+    files: [ffiRoute],
+    rules: hostRules({ banFfi: false }),
   },
   {
     files: ["starters/contract3/src/kernel/index.ts"],
@@ -174,6 +256,7 @@ export default tseslint.config(
       "no-restricted-syntax": [
         ...rules["no-restricted-syntax"],
         childProcessImport,
+        ffiImport,
         {
           selector:
             ":matches(MemberExpression[property.name='stateAddon'], MemberExpression[computed=true][property.value='stateAddon']):not(AssignmentExpression[operator='='][left.object.name='contractFor'][left.property.name='stateAddon'][right.name='createStateAddon'] > MemberExpression.left)",
@@ -211,6 +294,7 @@ export default tseslint.config(
           message: "Object.assign is forbidden.",
         },
         childProcessImport,
+        ffiImport,
       ],
     },
   },
@@ -230,28 +314,19 @@ export default tseslint.config(
   },
   {
     // DIAG-17: the one folder that may import the pinned logging packages.
+    // Every other host rule (public indexes, F1 spellings, bun:ffi) holds.
     files: ["starters/contract3/src/addons/diagnostics/**/*.{ts,mts,cts}"],
-    rules: {
-      "no-restricted-imports": [
-        "error",
-        {
-          patterns: [
-            { group: ["**/tests/**", "node:child_process", "child_process"] },
-            kernelIndexOnly,
-            stateIndexOnly,
-            {
-              group: [
-                ...loggingImports.group.filter((name) => name !== "@logtape/*"),
-                "@logtape/*",
-                "!@logtape/logtape",
-                "!@logtape/redaction",
-              ],
-              message: loggingImports.message,
-            },
-          ],
-        },
-      ],
-    },
+    rules: hostRules({
+      logging: {
+        group: [
+          ...loggingImports.group.filter((name) => name !== "@logtape/*"),
+          "@logtape/*",
+          "!@logtape/logtape",
+          "!@logtape/redaction",
+        ],
+        message: loggingImports.message,
+      },
+    }),
   },
   {
     files: ["starters/contract3/src/addons/state/**/*.{ts,mts,cts}"],

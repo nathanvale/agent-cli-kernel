@@ -20,12 +20,8 @@ import type {
   StateObservation,
   TransactionProof,
 } from "../../kernel/index.ts";
-import {
-  coordinationAvailable,
-  errorCode,
-  tryLock,
-  waitLock,
-} from "./coordination.ts";
+import { errorCode, waitLock } from "./coordination.ts";
+import type { CoordinationRoute, LockAttempt } from "./coordination.ts";
 import type { CapabilityReport, Qualification } from "./qualification.ts";
 import { canonicalise, conflicts, currentKeys } from "./scope.ts";
 import type { CanonicalScope, ScopeDeclaration } from "./scope.ts";
@@ -93,7 +89,12 @@ export type Refusal =
   | { readonly kind: "denied" }
   | { readonly kind: "approval-lost" }
   | { readonly kind: "approval-unavailable" }
-  | { readonly kind: "unavailable"; readonly reason: string };
+  | {
+      readonly kind: "unavailable";
+      readonly reason: string;
+      // Observed facts a person can act on (coordination refusals).
+      readonly detail?: string;
+    };
 
 export type TransactionOutcome<Effect extends string> = {
   readonly proof: TransactionProof<Effect>;
@@ -456,11 +457,18 @@ function closureObservation(paths: Layout, operation: Operation): Observation {
 
 type Held = { readonly release: () => void };
 
+// The store layout plus this state add-on instance's coordination route
+// (DESIGN.md section 7). Without a route an attempt throws: run() refuses
+// before any attempt, so nothing is ever acquired.
+type Locked = Layout & {
+  readonly tryLock: (path: string, create?: boolean) => LockAttempt;
+};
+
 // Admission ordering (DESIGN.md section 7.1 steps 2 and 3): the admission
 // coordination lock first (bounded wait), then key coordination locks in
 // ascending lock-file name order, non-blocking.
 async function acquire(
-  paths: Layout,
+  paths: Locked,
   keys: readonly string[],
   boundMilliseconds: number,
   beforeWait: () => Promise<void>,
@@ -474,13 +482,21 @@ async function acquire(
   | { readonly ok: false; readonly refusal: Refusal }
 > {
   await beforeWait();
-  const admission = await waitLock(paths.admission, boundMilliseconds);
+  const admission = await waitLock(
+    paths.tryLock,
+    paths.admission,
+    boundMilliseconds,
+  );
   if (admission.kind === "busy")
     return { ok: false, refusal: { kind: "busy" } };
   if (admission.kind === "failed")
     return {
       ok: false,
-      refusal: { kind: "unavailable", reason: "coordination-failed" },
+      refusal: {
+        kind: "unavailable",
+        reason: "coordination-failed",
+        detail: `admission.lock: ${admission.code}`,
+      },
     };
   const files = [...new Set(keys.map(paths.keyLock))].sort();
   const held: (() => void)[] = [];
@@ -489,7 +505,7 @@ async function acquire(
     held.length = 0;
   };
   for (const file of files) {
-    const attempt = tryLock(file);
+    const attempt = paths.tryLock(file);
     if (attempt.kind === "held") {
       held.push(attempt.release);
       continue;
@@ -503,8 +519,12 @@ async function acquire(
     return {
       ok: false,
       refusal:
-        attempt.kind !== "busy"
-          ? { kind: "unavailable", reason: "coordination-failed" }
+        attempt.kind === "failed"
+          ? {
+              kind: "unavailable",
+              reason: "coordination-failed",
+              detail: `${file.slice(file.lastIndexOf("/") + 1)}: ${attempt.code}`,
+            }
           : owner === undefined
             ? { kind: "busy" }
             : { kind: "held-lock", operationId: owner },
@@ -520,7 +540,7 @@ async function acquire(
 
 // The live operation whose scope conflicts with `keys`, whatever its status.
 function liveHolder(
-  paths: Layout,
+  paths: Locked,
   keys: readonly string[],
 ): string | undefined {
   const store = readStore(paths);
@@ -537,7 +557,7 @@ function liveHolder(
 // A live closure holds its target's lease, so a held target lease names the
 // closing recovery run's operation, not the target's (stopped) owner.
 function liveClosers(
-  paths: Layout,
+  paths: Locked,
   operations: readonly Operation[],
 ): ReadonlyMap<string, string> {
   const closers = new Map<string, string>();
@@ -554,8 +574,11 @@ function liveClosers(
 }
 
 // Live-owner probe of one case's lease (section 7.2). "live" when held.
-function probeLease(paths: Layout, id: string): "live" | "free" {
-  const attempt = tryLock(join(paths.operation(id), "owner.lease"), false);
+function probeLease(paths: Locked, id: string): "live" | "free" {
+  const attempt = paths.tryLock(
+    join(paths.operation(id), "owner.lease"),
+    false,
+  );
   if (attempt.kind === "held") {
     attempt.release();
     return "free";
@@ -565,7 +588,7 @@ function probeLease(paths: Layout, id: string): "live" | "free" {
 
 // Under coordination: the first conflicting case, live owners first.
 function blocking(
-  paths: Layout,
+  paths: Locked,
   operations: readonly Operation[],
   keys: readonly string[] | undefined,
   options: { readonly liveOnly: boolean; readonly except?: string },
@@ -597,10 +620,22 @@ function rejectionConsumed(error: unknown): boolean | undefined {
 export type Seams = {
   readonly qualification: Qualification;
   readonly phase: (name: Phase) => Promise<void>;
+  // The coordination route, resolved once with its start-up self-check.
+  readonly coordination: CoordinationRoute;
 };
 
 export function install(options: StateOptions, seams: Seams) {
-  const paths = layout(options.root);
+  const route = seams.coordination;
+  const paths: Locked = {
+    ...layout(options.root),
+    // run() refuses first when the route is unavailable (the one owner of
+    // fail closed); reaching this stand-in would be a bypass, so it is loud.
+    tryLock: route.available
+      ? route.tryLock
+      : () => {
+          throw new Error("Coordination route unavailable.");
+        },
+  };
   const observers = options.observers ?? {};
   const phase = seams.phase;
   const bound = Math.min(
@@ -644,10 +679,12 @@ export function install(options: StateOptions, seams: Seams) {
       slot.outcome = refusal;
       return issuer.transactionProof(runId, unchangedObservation<Effect>([]));
     };
-    if (!coordinationAvailable())
+    // Fail closed before any write (DESIGN.md section 7).
+    if (!route.available)
       return refuse({
         kind: "unavailable",
-        reason: "coordination-unqualified-platform",
+        reason: route.reason,
+        detail: route.detail,
       });
     if (!ensureStore(paths))
       return refuse({ kind: "unavailable", reason: "store" });
@@ -673,7 +710,7 @@ export function install(options: StateOptions, seams: Seams) {
       paths,
       full,
       (lease) => {
-        const attempt = tryLock(lease);
+        const attempt = paths.tryLock(lease);
         return attempt.kind === "held" ? attempt.release : undefined;
       },
       async () => {
@@ -1053,7 +1090,10 @@ export function install(options: StateOptions, seams: Seams) {
             ? { kind: "owner-live" }
             : admitted.refusal,
       };
-    const lease = tryLock(join(paths.operation(id), "owner.lease"), false);
+    const lease = paths.tryLock(
+      join(paths.operation(id), "owner.lease"),
+      false,
+    );
     const target = admitted.operations.find(
       (operation) => operation.intent.operationId === id,
     );
@@ -1289,7 +1329,7 @@ export function install(options: StateOptions, seams: Seams) {
 
   function capabilities(): CapabilityReport {
     const qualification = seams.qualification;
-    const coordination = coordinationAvailable() ? "available" : "unavailable";
+    const coordination = route.available ? "available" : "unavailable";
     // A fixture-enabled proof is never reported as available (Q01): only a
     // reviewed production row could make it available.
     const stopped =
@@ -1302,14 +1342,17 @@ export function install(options: StateOptions, seams: Seams) {
     return {
       qualification: qualification.label,
       coordination,
+      coordinationRoute: route.available
+        ? route.basis
+        : `${route.reason}: ${route.detail}`,
       stoppedOwnerProof: stopped,
       automaticReclaim: "unavailable",
       humanAssistedTakeover: "unavailable",
       humanOutcomeUnknownClosure: "unavailable",
       reasons: [
-        ...(coordination === "unavailable"
-          ? ["No qualified coordination primitive on this platform."]
-          : []),
+        ...(route.available
+          ? []
+          : [`Coordination unavailable (${route.reason}): ${route.detail}.`]),
         ...(stopped === "fixture-only"
           ? [
               "The stopped-owner condition is enabled only by a labelled test fixture; it never enables production closure.",
