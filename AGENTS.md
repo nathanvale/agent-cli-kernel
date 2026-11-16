@@ -5,6 +5,8 @@
 - Run `bun run doctor`. It checks the Bun pin, the installed toolchain and
   host load, and prints the repair when a check fails. `bun run test` runs it
   first.
+- Contract 3 work (`starters/contract3/`, `tests/contract3/`): use the
+  `contract3-work` skill.
 
 ## Authority
 
