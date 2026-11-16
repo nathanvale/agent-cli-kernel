@@ -645,18 +645,16 @@ async function enterHandler(run: Run, value: Resolved): Promise<Delivery> {
   // here is before handler entry (K3-spec-1, K3-spec-2).
   const checked = await checkPhase(run, value, context, deadlineAt);
   if (run.stopped) return undefined;
-  if (checked.kind === "deadline") {
-    run.controller.abort();
-    return await kernelResult(
-      run,
-      identity,
-      "DOMAIN_DEADLINE_BEFORE_START",
-      messages.DOMAIN_DEADLINE_BEFORE_START,
-    );
-  }
+  if (checked.kind === "deadline" || expired(run, deadlineAt))
+    return beforeStart(run, identity);
   if (checked.kind === "refused") return checked.delivery;
   const attached = await attachState(run, identity, checked.attach);
   if ("delivery" in attached) return attached.delivery;
+  // Delta-2 review F1: a check or an attach that finished after the
+  // deadline, before the deadline timer ran, still never enters the handler
+  // (LIFE-6: at the deadline the command stops starting work).
+  if (run.stopped) return undefined;
+  if (expired(run, deadlineAt)) return beforeStart(run, identity);
   // Handler entry (CMD-9 step 6): the phase records it immediately before.
   run.phase = "handler-entered";
   const execution: Promise<Execution> = attached.enter().then(
@@ -707,6 +705,21 @@ async function checkPhase(
     kind: "refused",
     delivery: await refusal(run, identity, outcome.path),
   };
+}
+
+function expired(run: Run, deadlineAt: number | undefined): boolean {
+  return deadlineAt !== undefined && run.host.now() >= deadlineAt;
+}
+
+// The deadline passed before handler entry: stop the run and refuse.
+function beforeStart(run: Run, identity: string): Promise<Delivery> {
+  run.controller.abort();
+  return kernelResult(
+    run,
+    identity,
+    "DOMAIN_DEADLINE_BEFORE_START",
+    messages.DOMAIN_DEADLINE_BEFORE_START,
+  );
 }
 
 // The one mapping from a refusal before handler entry to its cause.
