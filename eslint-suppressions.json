@@ -1,9 +1,4 @@
 {
-  "starters/contract3/src/addons/approval/index.ts": {
-    "repository/no-in-operator": {
-      "count": 1
-    }
-  },
   "starters/contract3/src/addons/approval/read.ts": {
     "repository/no-in-operator": {
       "count": 1
@@ -19,24 +14,9 @@
       "count": 1
     }
   },
-  "starters/contract3/src/addons/state/install.ts": {
-    "repository/no-in-operator": {
-      "count": 1
-    }
-  },
-  "starters/contract3/src/addons/state/scope.ts": {
-    "repository/no-in-operator": {
-      "count": 2
-    }
-  },
   "starters/contract3/src/kernel/command-result.ts": {
     "repository/cause-literal-owner": {
       "count": 3
-    }
-  },
-  "starters/contract3/src/kernel/declarations.ts": {
-    "repository/no-in-operator": {
-      "count": 1
     }
   },
   "starters/contract3/src/kernel/fallback.ts": {
@@ -44,30 +24,14 @@
       "count": 1
     }
   },
-  "starters/contract3/src/kernel/guidance.ts": {
-    "repository/no-in-operator": {
-      "count": 2
-    }
-  },
   "starters/contract3/src/kernel/index.ts": {
-    "repository/cause-literal-owner": {
-      "count": 1
-    },
     "repository/no-in-operator": {
       "count": 1
-    }
-  },
-  "starters/contract3/src/kernel/input.ts": {
-    "repository/no-in-operator": {
-      "count": 2
     }
   },
   "starters/contract3/src/kernel/lifecycle.ts": {
     "repository/cause-literal-owner": {
       "count": 7
-    },
-    "repository/no-in-operator": {
-      "count": 1
     }
   },
   "starters/contract3/src/kernel/navigation.ts": {
@@ -78,26 +42,6 @@
   "starters/contract3/src/kernel/pattern-worker.ts": {
     "repository/no-in-operator": {
       "count": 2
-    }
-  },
-  "starters/contract3/src/kernel/routing.ts": {
-    "repository/cause-literal-owner": {
-      "count": 9
-    }
-  },
-  "starters/contract3/src/kernel/step-vector.ts": {
-    "repository/no-in-operator": {
-      "count": 1
-    }
-  },
-  "starters/contract3/src/kernel/validation/input.ts": {
-    "repository/no-in-operator": {
-      "count": 1
-    }
-  },
-  "starters/contract3/src/kernel/validation/primitives.ts": {
-    "repository/no-in-operator": {
-      "count": 1
     }
   },
   "starters/contract3/src/kernel/validation/result.ts": {

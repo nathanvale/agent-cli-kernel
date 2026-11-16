@@ -10,6 +10,7 @@ import {
 } from "node:fs";
 import { delimiter, dirname, join } from "node:path";
 import {
+  processWatchdog,
   type SignalAt,
   spawnBounded,
 } from "./contract3/kernel-repair/swarm-process.ts";
@@ -55,6 +56,12 @@ test("L.weak keeps a number", () => {
 });
 test("L.red is red without the fault", () => {
   expect(limit(1)).toBe(2);
+});
+test("L.tools sees only the tools its own tree installs", () => {
+  expect(Bun.which("faults-caller-tool")).toBeNull();
+});
+test("L.dies by a signal nobody sent the run", () => {
+  process.kill(process.pid, "SIGKILL");
 });
 test("L.blocks until stopped", async () => {
   writeFileSync(process.env.FAULTS_PID ?? "", String(process.pid));
@@ -129,7 +136,13 @@ async function faults(
   return { ...run, temporary, lines: run.stdout.split("\n") };
 }
 
-function addFault(root: string, fix: string, sourcePath: string) {
+function addFault(
+  root: string,
+  fix: string,
+  sourcePath: string,
+  testFile = "tests/limit.test.ts",
+  title = "^L\\.refuses ",
+) {
   return spawnBounded(
     [
       process.execPath,
@@ -138,8 +151,8 @@ function addFault(root: string, fix: string, sourcePath: string) {
       "faults:add",
       fix,
       sourcePath,
-      "tests/limit.test.ts",
-      "^L\\.refuses ",
+      testFile,
+      title,
     ],
     { cwd: root, env: { ...process.env, ...gitEnv }, boundMilliseconds: bound },
   );
@@ -375,6 +388,83 @@ describe("bun run faults", () => {
     timeout,
   );
 
+  for (const [field, testFile, title, refusal] of [
+    [
+      "an empty title",
+      "tests/limit.test.ts",
+      "",
+      "faults:add needs a non-empty string title. Name the bun test -t pattern that selects the test that kills the fault.",
+    ],
+    [
+      "a missing test file",
+      "tests/missing.test.ts",
+      "^L\\.refuses ",
+      "faults:add names testFile tests/missing.test.ts, which does not exist. Name a test file relative to the repository root.",
+    ],
+  ] as const)
+    test(
+      `FR.m faults:add refuses ${field} by name with its fix, and writes nothing`,
+      async () => {
+        const { root, id } = await repositoryWithFault({});
+        const reworded = commit(root, "fix: reword the refusal", {
+          "src/limit.ts": guarded.replace("must be", "has to be"),
+          "tests/limit.test.ts": tests(
+            refusalTest.replace("must be", "has to be"),
+          ),
+        });
+        const before = readFileSync(
+          join(root, "tests/faults/manifest.json"),
+          "utf8",
+        );
+        const added = await addFault(
+          root,
+          reworded,
+          "src/limit.ts",
+          testFile,
+          title,
+        );
+        expect(added.stderr).toBe(`${refusal}\n`);
+        expect(added.exit).toBe(2);
+        expect(
+          readFileSync(join(root, "tests/faults/manifest.json"), "utf8"),
+        ).toBe(before);
+        expect(readdirSync(join(root, "tests/faults/patches"))).toEqual([
+          `${id}.patch`,
+        ]);
+      },
+      processWatchdog(2),
+    );
+
+  test(
+    "FR.j a replayed test sees only the tools its own tree installs, not the caller's node_modules/.bin",
+    async () => {
+      const { root } = await repositoryWithFault({
+        tools: "^L\\.(refuses|tools) ",
+      });
+      write(root, "node_modules/.bin/faults-caller-tool", "#!/bin/sh\n");
+      chmodSync(join(root, "node_modules/.bin/faults-caller-tool"), 0o755);
+      const run = await faults(root, ["tools"]);
+      expect(verdicts(run.lines)).toEqual(["KILLED tools"]);
+      expect(run.exit).toBe(0);
+    },
+    processWatchdog(2),
+  );
+
+  test(
+    "FR.k a test killed by a signal the run did not receive gives no verdict and exits 2",
+    async () => {
+      const { root } = await repositoryWithFault({ dies: "^L\\.dies " });
+      const run = await faults(root, ["dies"]);
+      expect(run.stderr).toContain(
+        " was killed by SIGKILL while replaying dies, so it has no verdict.\n",
+      );
+      expect(verdicts(run.lines)).toEqual([]);
+      expect(run.exit).toBe(2);
+      expectNoLeftovers(root, run.temporary);
+    },
+    processWatchdog(2),
+  );
+
   for (const [signal, exit] of [
     ["SIGHUP", 129],
     ["SIGINT", 130],
@@ -408,6 +498,82 @@ describe("bun run faults", () => {
     );
 
   test(
+    "FR.l a stop that finds the step's process group holding only zombies still exits 130 (macOS answers EPERM there)",
+    async () => {
+      const { root, id } = await repositoryWithFault({});
+      // The shim leaves a zombie in git's process group and holds git's
+      // output open from another group, so the script still tracks git
+      // when the stop arrives. The 2 s hold is the window for the stop
+      // handler to run before the step ends.
+      const tools = folder("faults-zombie-");
+      const realGit = Bun.which("git");
+      if (realGit === null) throw new Error("git is not on PATH.");
+      write(
+        tools,
+        "bin/git",
+        `#!/bin/sh
+if [ "$1" = worktree ] && [ "$2" = add ]; then
+  perl -e '
+    my ($faults, $shim) = @ARGV;
+    if (!fork) { exit 0 }
+    setpgrp(0, 0);
+    select(undef, undef, undef, 0.01) while getppid() == $shim;
+    kill "INT", $faults;
+    select(undef, undef, undef, 2);
+  ' "$PPID" "$$" &
+fi
+exec '${realGit}' "$@"
+`,
+      );
+      chmodSync(join(tools, "bin/git"), 0o755);
+      const run = await faults(root, [], {
+        env: { PATH: `${join(tools, "bin")}${delimiter}${process.env.PATH}` },
+      });
+      expect(run.stderr).toContain(
+        `Stopped by SIGINT while replaying ${id}, so it has no verdict.\n`,
+      );
+      expect(verdicts(run.lines)).toEqual([]);
+      expect(run.exit).toBe(130);
+      expectNoLeftovers(root, run.temporary);
+    },
+    processWatchdog(2),
+  );
+
+  test(
+    "FR.n a SIGINT while git removes a record's worktree stops on that record, before the next one starts",
+    async () => {
+      const { root, id } = await repositoryWithFault({ next: "^L\\.refuses " });
+      const tools = folder("faults-remove-");
+      const once = join(tools, "signalled");
+      const realGit = Bun.which("git");
+      if (realGit === null) throw new Error("git is not on PATH.");
+      write(
+        tools,
+        "bin/git",
+        `#!/bin/sh
+if [ "$1" = worktree ] && [ "$2" = remove ] && [ ! -e '${once}' ]; then
+  : > '${once}'
+  kill -INT "$PPID"
+fi
+exec '${realGit}' "$@"
+`,
+      );
+      chmodSync(join(tools, "bin/git"), 0o755);
+      const run = await faults(root, [], {
+        env: { PATH: `${join(tools, "bin")}${delimiter}${process.env.PATH}` },
+      });
+      expect(run.stderr).toContain(
+        `Stopped by SIGINT while replaying ${id}, so it has no verdict.\n`,
+      );
+      expect(run.stderr).not.toContain("while replaying next");
+      expect(verdicts(run.lines)).toEqual([]);
+      expect(run.exit).toBe(130);
+      expectNoLeftovers(root, run.temporary);
+    },
+    processWatchdog(2),
+  );
+
+  test(
     "FR.h a terminal's group SIGINT while git removes the worktree still removes it, and exits 130",
     async () => {
       const { root } = await repositoryWithFault({});
@@ -419,7 +585,7 @@ describe("bun run faults", () => {
         "bin/git",
         `#!/bin/sh
 if [ "$1" = worktree ] && [ "$2" = remove ]; then
-  kill -INT -- -"$(ps -o pgid= -p "$PPID" | tr -d ' ')"
+  kill -INT -"$(ps -o pgid= -p "$PPID" | tr -d ' ')"
 fi
 exec '${realGit}' "$@"
 `,

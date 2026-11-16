@@ -9,7 +9,7 @@ import {
 import { constants, tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import type { Subprocess } from "bun";
-import { ownTools } from "./child-env.ts";
+import { runWithOwnTools } from "./child-env.ts";
 
 const root = join(import.meta.dir, "..");
 const manifestPath = "tests/faults/manifest.json";
@@ -29,6 +29,9 @@ type Verdict =
   | { kind: "BROKEN"; output: string };
 
 const signals = ["SIGHUP", "SIGINT", "SIGTERM"] as const;
+// The step's group has no live process to stop. ESRCH: every member is
+// reaped. EPERM: macOS answers it when every member left is a zombie.
+const groupGone = new Set<unknown>(["ESRCH", "EPERM"]);
 const active: { child?: Subprocess; stoppedBy?: (typeof signals)[number] } = {};
 const snapshotAuthor = {
   GIT_AUTHOR_NAME: "faults",
@@ -75,7 +78,16 @@ function gitOrThrow(
   return result.stdout;
 }
 
-function parseFault(entry: unknown, index: number): Fault {
+const fixFor: { readonly [name in keyof Fault]: string } = {
+  id: "Name it <fix short sha>-<source file name>.",
+  patch: `Name the fault's patch under ${patchFolder}.`,
+  testFile: "Name a test file relative to the repository root.",
+  title:
+    "Name the bun test -t pattern that selects the test that kills the fault.",
+  source: "Name it <fix short sha> <fix subject>.",
+};
+
+function parseFault(entry: unknown, where: string): Fault {
   const own = new Map<string, unknown>(
     typeof entry === "object" && entry !== null ? Object.entries(entry) : [],
   );
@@ -83,17 +95,22 @@ function parseFault(entry: unknown, index: number): Fault {
     const value = own.get(name);
     if (typeof value !== "string" || value === "")
       throw new Error(
-        `${manifestPath} record ${index} needs a non-empty string ${name}.`,
+        `${where} needs a non-empty string ${name}. ${fixFor[name]}`,
       );
     return value;
   };
-  return {
+  const fault = {
     id: field("id"),
     patch: field("patch"),
     testFile: field("testFile"),
     title: field("title"),
     source: field("source"),
   };
+  if (!existsSync(join(root, fault.testFile)))
+    throw new Error(
+      `${where} names testFile ${fault.testFile}, which does not exist. ${fixFor.testFile}`,
+    );
+  return fault;
 }
 
 function readManifest(): Fault[] {
@@ -102,7 +119,9 @@ function readManifest(): Fault[] {
   const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
   if (!Array.isArray(parsed))
     throw new Error(`${manifestPath} must hold an array of fault records.`);
-  const faults = parsed.map(parseFault);
+  const faults = parsed.map((entry, index) =>
+    parseFault(entry, `${manifestPath} record ${index}`),
+  );
   const ids = new Set<string>();
   for (const { id } of faults) {
     if (ids.has(id)) throw new Error(`${manifestPath} lists ${id} twice.`);
@@ -129,30 +148,26 @@ function commitWorkingTreeInScratchIndex(): string {
   }
 }
 
-async function step(id: string, cwd: string, argv: readonly string[]) {
-  const child = Bun.spawn([...argv], {
-    cwd,
-    env: ownTools,
-    stdout: "pipe",
-    stderr: "pipe",
-    detached: true,
-  });
-  active.child = child;
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(child.stdout).text(),
-    new Response(child.stderr).text(),
-    child.exited,
-  ]);
-  delete active.child;
+function haltIfStopped(id: string): void {
   if (active.stoppedBy !== undefined)
     throw new Error(
       `Stopped by ${active.stoppedBy} while replaying ${id}, so it has no verdict.`,
     );
-  if (child.signalCode !== null)
+}
+
+async function step(id: string, cwd: string, argv: readonly string[]) {
+  const { exitCode, signalCode, output } = await runWithOwnTools(
+    argv,
+    cwd,
+    active,
+    { detached: true },
+  );
+  haltIfStopped(id);
+  if (signalCode !== null)
     throw new Error(
-      `${argv.join(" ")} was killed by ${child.signalCode} while replaying ${id}, so it has no verdict.`,
+      `${argv.join(" ")} was killed by ${signalCode} while replaying ${id}, so it has no verdict.`,
     );
-  return { passed: exitCode === 0, output: stdout + stderr };
+  return { passed: exitCode === 0, output };
 }
 
 function failingTests(output: string): string[] {
@@ -163,6 +178,18 @@ function failingTests(output: string): string[] {
 
 function testArgs(fault: Fault): string[] {
   return ["test", `./${fault.testFile}`, "-t", fault.title];
+}
+
+// Awaited rather than run synchronously, so a stop that arrives during the
+// removal reaches the handler before the next record starts. It is not the
+// active child, so the stop does not cut the removal short.
+async function removeWorktree(dir: string): Promise<void> {
+  await Bun.spawn(["git", "worktree", "remove", "--force", dir], {
+    cwd: root,
+    stdout: "ignore",
+    stderr: "ignore",
+    detached: true,
+  }).exited;
 }
 
 async function replay(fault: Fault, commit: string): Promise<Verdict> {
@@ -199,7 +226,7 @@ async function replay(fault: Fault, commit: string): Promise<Verdict> {
     if (faulted.passed) return { kind: "SURVIVED" };
     return { kind: "KILLED", failing: failingTests(faulted.output) };
   } finally {
-    git(["worktree", "remove", "--force", dir]);
+    await removeWorktree(dir);
     rmSync(folder, { recursive: true, force: true });
   }
 }
@@ -261,6 +288,7 @@ async function replayAll(ids: readonly string[]): Promise<number> {
   for (const fault of chosen) {
     const begun = performance.now();
     const verdict = await replay(fault, commit);
+    haltIfStopped(fault.id);
     report(fault, verdict, (performance.now() - begun) / 1000);
     if (verdict.kind === "KILLED") killed += 1;
   }
@@ -293,15 +321,24 @@ function add(argv: readonly string[]): number {
     return 2;
   }
   const id = `${short}-${basename(sourcePath).replace(/\.[^.]+$/, "")}`;
+  const fault = parseFault(
+    {
+      id,
+      patch: `${patchFolder}/${id}.patch`,
+      testFile,
+      title,
+      source: `${short} ${subject}`,
+    },
+    "faults:add",
+  );
   const faults = readManifest();
-  if (faults.some((fault) => fault.id === id)) {
+  if (faults.some((each) => each.id === id)) {
     process.stderr.write(`${manifestPath} already lists ${id}.\n`);
     return 2;
   }
-  const patch = `${patchFolder}/${id}.patch`;
   mkdirSync(join(root, patchFolder), { recursive: true });
-  writeFileSync(join(root, patch), reverse);
-  faults.push({ id, patch, testFile, title, source: `${short} ${subject}` });
+  writeFileSync(join(root, fault.patch), reverse);
+  faults.push(fault);
   writeFileSync(
     join(root, manifestPath),
     `${JSON.stringify(faults, null, 2)}\n`,
@@ -319,7 +356,7 @@ for (const signal of signals)
     try {
       process.kill(-pid, "SIGTERM");
     } catch (error) {
-      if (Reflect.get(Object(error), "code") !== "ESRCH") throw error;
+      if (!groupGone.has(Reflect.get(Object(error), "code"))) throw error;
     }
   });
 
