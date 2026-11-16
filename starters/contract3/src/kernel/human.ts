@@ -61,7 +61,7 @@ function commandDiscovery(data: unknown): string[] {
     `${texts(command, "commandIdentity")} (${texts(command, "effectClass")})`,
     texts(command, "summary"),
     `Route: ${route(command)}`,
-    "Possible outcomes:",
+    "Possible results:",
     ...list(data, "stations").map(
       (item) =>
         `  ${texts(item, "outcome")} ${texts(item, "causeCode")}  ${texts(item, "trigger")}`,

@@ -4,7 +4,7 @@ import type { DeclaredStation } from "./stations.ts";
 import type { StateObservation } from "./state-seam.ts";
 import type { Effects, Envelope, JsonValue, Validation } from "./types.ts";
 
-// The kernel's private view of one composed contract. The process front door
+// The kernel's private view of one built contract. The kernel process entry
 // reads it; host code only ever holds the opaque contract object.
 export type Resolution =
   | {
@@ -73,7 +73,7 @@ export type ContractRuntime = {
 
 const runtimes = new WeakMap<object, ContractRuntime>();
 
-export function registerRuntime(contract: object, runtime: ContractRuntime) {
+export function recordRuntime(contract: object, runtime: ContractRuntime) {
   runtimes.set(contract, runtime);
 }
 

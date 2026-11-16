@@ -2,16 +2,16 @@ import { navigationData } from "./validation/discovery.ts";
 import { resultPlan, resultMatches } from "./command-result.ts";
 import type { CommandResult } from "./command-result.ts";
 import { withState } from "./validation/context.ts";
-import { registerInputs, validateFutureInputs } from "./future-input.ts";
-import { admitCauses, admitCommands } from "./registration.ts";
+import { buildInputTable, validateFutureInputs } from "./future-input.ts";
+import { validateCauses, validateCommands } from "./declaration-checks.ts";
 import type {
-  RegisteredCommands,
-  RegisteredStation,
+  ValidatedCommands,
+  ValidatedStation,
   RunFacts,
   AddonName,
-} from "./registration.ts";
+} from "./declaration-checks.ts";
 import {
-  admittedState,
+  isStateDescriptor,
   createStateAddon,
   attachState,
   proofFreeResultAllowed,
@@ -20,7 +20,7 @@ import type { StateAddonDescriptor } from "./state-seam.ts";
 import type { CauseTable, Effects, Validation } from "./types.ts";
 import { proofValue } from "./validation/state.ts";
 import { invocationTokens, resolveInvocation } from "./routing.ts";
-import { registerRuntime } from "./runtime.ts";
+import { recordRuntime } from "./runtime.ts";
 import type { KernelFacts } from "./runtime.ts";
 import { authority, resource, path } from "./validation/brands.ts";
 import type { CommandDeclaration } from "./declarations.ts";
@@ -53,7 +53,7 @@ export function contractFor<
   const D extends readonly CommandDeclaration[],
 >(spec: {
   readonly cli: Cli;
-  readonly commands: D & RegisteredCommands<D, Cli>;
+  readonly commands: D & ValidatedCommands<D, Cli>;
   readonly state?: StateAddonDescriptor;
   readonly causes?: CauseTable;
   readonly installedAddons?: readonly AddonName[];
@@ -64,26 +64,30 @@ export function contractFor<
     throw new Error("Host callbacks never receive a state issuer.");
   if (
     installed.includes("state") &&
-    (!spec.state || !admittedState(spec.state))
+    (!spec.state || !isStateDescriptor(spec.state))
   )
-    throw new Error("State requires its admitted stamped descriptor.");
+    throw new Error(
+      "State requires the descriptor created by contractFor.stateAddon.",
+    );
   if (
     spec.state &&
-    (!installed.includes("state") || !admittedState(spec.state))
+    (!installed.includes("state") || !isStateDescriptor(spec.state))
   )
-    throw new Error("State descriptor is not installed or admitted.");
+    throw new Error(
+      "State is not in installedAddons, or its descriptor was not created by contractFor.stateAddon.",
+    );
   const hostCommands = [...spec.commands];
   const causes: typeof commonCauses & CauseTable = structuredClone({
     ...commonCauses,
     ...spec.causes,
   });
   freeze(causes);
-  admitCauses(causes);
+  validateCauses(causes);
   const commands: CommandDeclaration[] = [
     ...hostCommands,
     ...builtins(spec.cli),
   ].sort((a, b) => (a.commandIdentity < b.commandIdentity ? -1 : 1));
-  admitCommands(spec.cli, commands, causes, installed);
+  validateCommands(spec.cli, commands, causes, installed);
   if (
     spec.state &&
     commands.some(
@@ -92,9 +96,11 @@ export function contractFor<
         item.ifNoResult !== spec.state?.ifNoResult,
     )
   )
-    throw new Error("Recovery route belongs to another state installation.");
+    throw new Error(
+      "A changing command's ifNoResult step comes from a different state add-on descriptor.",
+    );
   freeze(commands);
-  const inputRegistration = registerInputs(commands);
+  const inputTable = buildInputTable(commands);
   const stationMap = new Map(
     commands.map((item) => [
       item.commandIdentity,
@@ -135,7 +141,7 @@ export function contractFor<
   }
 
   // Assembles and validates one envelope from a declared station and the
-  // run facts already admitted by the caller.
+  // run facts already validated by the caller.
   async function assemble(
     command: CommandDeclaration,
     station: DeclaredStation,
@@ -170,7 +176,7 @@ export function contractFor<
       return {
         ok: false,
         path: "bindings",
-        reason: "invalid template values",
+        reason: "invalid run binding values",
       } as const;
     }
   }
@@ -270,14 +276,14 @@ export function contractFor<
     const future = await validateFutureInputs(
       selected,
       parsed.value,
-      inputRegistration,
+      inputTable,
     );
     if (!future.ok) return future;
     const changingCommand = selected.effectClass !== "inspect";
     const invocation = Object.freeze({});
     const prepare = preparerOf(selected);
     const ready = prepare
-      ? await prepare(argv, context, runId, invocation, inputRegistration)
+      ? await prepare(argv, context, runId, invocation, inputTable)
       : undefined;
     if (ready && !ready.ok) return ready;
     const execute = selected.execute;
@@ -313,7 +319,7 @@ export function contractFor<
               : context,
             runId,
             invocation,
-            inputRegistration,
+            inputTable,
           )
       ).finally(() => attached?.close());
       return accepted(outcome, identity, runId, invocation, parsed);
@@ -391,7 +397,7 @@ export function contractFor<
           } as const)
         : parsed;
     },
-    build<const S extends RegisteredStation<D>>(
+    build<const S extends ValidatedStation<D>>(
       selected: S,
       facts: RunFacts<NoInfer<S>, D>,
     ) {
@@ -408,7 +414,7 @@ export function contractFor<
           } as const);
     },
   };
-  registerRuntime(contract, {
+  recordRuntime(contract, {
     cli: spec.cli,
     commands,
     stations: stationMap,
@@ -424,11 +430,7 @@ export function contractFor<
       if (
         selected &&
         !(
-          await validateFutureInputs(
-            selected,
-            resolved.value.input,
-            inputRegistration,
-          )
+          await validateFutureInputs(selected, resolved.value.input, inputTable)
         ).ok
       )
         return {
@@ -521,13 +523,13 @@ export type {
   RetryDelayPolicy,
 } from "./stations.ts";
 
-// Supporting stamped-add-on authoring seam. Source admission permits references
-// only in the exact pinned state add-on; ordinary host composition passes its
+// State add-on factory seam. Source rules permit references only in the
+// exact pinned state add-on; ordinary host wiring passes its
 // opaque descriptor. This is not a same-process isolation guarantee.
 contractFor.stateAddon = createStateAddon;
 export type {
   StateAddonDescriptor,
-  StateRegistration,
+  StateFactoryResult,
   StateObservation,
   ExclusiveScope,
 } from "./state-seam.ts";
@@ -535,11 +537,11 @@ export type { ApprovalRequest, ApprovalRuntime } from "./capabilities.ts";
 
 export type {
   RunFacts,
-  RegisteredStation,
-  RegisteredCommands,
+  ValidatedStation,
+  ValidatedCommands,
   CommandIdentity,
   InspectIdentity,
-} from "./registration.ts";
+} from "./declaration-checks.ts";
 
 export { exits } from "./types.ts";
 export { versionReader } from "./validation/version.ts";
@@ -555,4 +557,4 @@ export type {
   AllowedCause,
   SelectedRow,
 } from "./command-result.ts";
-export type { InputRegistration } from "./future-input.ts";
+export type { InputTable } from "./future-input.ts";

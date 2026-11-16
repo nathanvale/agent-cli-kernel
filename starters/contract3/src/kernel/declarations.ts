@@ -1,9 +1,9 @@
-import type { InputRegistration } from "./future-input.ts";
+import type { InputTable } from "./future-input.ts";
 import { resultContext, checkedResult } from "./command-result.ts";
 import type { CommandResult, ResultContext } from "./command-result.ts";
 import { validateFutureInputs } from "./future-input.ts";
 import { stateContext } from "./validation/state.ts";
-import { knownRoute } from "./state-seam.ts";
+import { isIssuedIfNoResult } from "./state-seam.ts";
 import type { IfNoResult, StateCapability } from "./capabilities.ts";
 import type {
   ApprovalRequest,
@@ -12,7 +12,7 @@ import type {
 } from "./capabilities.ts";
 import type { InputSchema, ParsedInput } from "./input-types.ts";
 import { parseInput, acceptsRootInput } from "./input.ts";
-import { admitHostInput } from "./host-input.ts";
+import { validateHostInput } from "./host-input.ts";
 import { handlerContext, approvalContext } from "./validation/context.ts";
 import { record, text } from "./validation/primitives.ts";
 import { freeze } from "./stations.ts";
@@ -39,7 +39,7 @@ export type CommandDeclaration<Identity extends string = string> =
       context: unknown,
       runId: string,
       invocation?: object,
-      registration?: InputRegistration,
+      registration?: InputTable,
     ) => Promise<Validation<CommandResult<Identity>>>;
   };
 // One owner for the shape rules of each declaration kind (repair 1, S1):
@@ -92,7 +92,7 @@ export function admitChangingShape(declaration: {
   if (effects.length === 0 || new Set(effects).size !== effects.length)
     throw new Error("Invalid changing declaration.");
 }
-export function admitCommandIdentity(identity: string): void {
+export function validateCommandIdentity(identity: string): void {
   if (!text(identity) || new TextEncoder().encode(identity).byteLength > 128)
     throw new Error(
       "Command identity must be nonempty and at most 128 UTF-8 bytes.",
@@ -100,14 +100,14 @@ export function admitCommandIdentity(identity: string): void {
 }
 // CMD-9 steps 1 and 2: switches are removed before exact route matching, so an
 // empty or option-like token could never select its command (F04).
-export function admitRouteTokens(route: readonly string[]): void {
+export function validateRouteTokens(route: readonly string[]): void {
   for (const token of route)
     if (!text(token) || token.startsWith("-"))
       throw new Error(
         `Route token ${JSON.stringify(token)} is empty or option-like and can never be matched.`,
       );
 }
-export function admitRootOperation(
+export function validateRootOperation(
   route: readonly string[],
   input: InputSchema,
 ): void {
@@ -147,7 +147,7 @@ export type Prepare<Identity extends string = string> = (
   context: unknown,
   runId: string,
   invocation: object,
-  registration?: InputRegistration,
+  registration?: InputTable,
 ) => Promise<Validation<HandlerEntry<Identity>>>;
 const preparers = new WeakMap<object, Prepare>();
 // The two-phase entry of a constructed declaration; a raw declaration has
@@ -172,7 +172,7 @@ async function preflight<I extends InputSchema, C extends CapabilitySelection>(
   declaration: CommandDeclaration,
   argv: unknown,
   context: unknown,
-  registration: InputRegistration | undefined,
+  registration: InputTable | undefined,
   changing: boolean,
 ): Promise<
   Validation<{
@@ -221,7 +221,7 @@ function executeVia<Identity extends string>(prepare: Prepare<Identity>) {
     context: unknown,
     runId: string,
     invocation: object = Object.freeze({}),
-    registration?: InputRegistration,
+    registration?: InputTable,
   ): Promise<Validation<CommandResult<Identity>>> => {
     const entry = await prepare(argv, context, runId, invocation, registration);
     return entry.ok
@@ -259,10 +259,10 @@ export function command<
     : { readonly approval?: never }),
 ) {
   freeze(spec);
-  admitHostInput(spec.input);
-  admitCommandIdentity(spec.identity);
-  admitRootOperation(spec.route, spec.input);
-  admitRouteTokens(spec.route);
+  validateHostInput(spec.input);
+  validateCommandIdentity(spec.identity);
+  validateRootOperation(spec.route, spec.input);
+  validateRouteTokens(spec.route);
   admitInspectShape({
     summary: spec.summary,
     capabilities: spec.capabilities,
@@ -354,12 +354,12 @@ export function changing<
     : { readonly approval?: never }),
 ) {
   freeze(spec);
-  admitHostInput(spec.input);
-  admitCommandIdentity(spec.identity);
-  admitRootOperation(spec.route, spec.input);
-  admitRouteTokens(spec.route);
-  if (!knownRoute(spec.ifNoResult))
-    throw new Error("ifNoResult must come from the admitted state add-on.");
+  validateHostInput(spec.input);
+  validateCommandIdentity(spec.identity);
+  validateRootOperation(spec.route, spec.input);
+  validateRouteTokens(spec.route);
+  if (!isIssuedIfNoResult(spec.ifNoResult))
+    throw new Error("ifNoResult must come from the state add-on descriptor.");
   admitChangingShape(spec);
   const prepare: Prepare<Identity> = async (
     argv,

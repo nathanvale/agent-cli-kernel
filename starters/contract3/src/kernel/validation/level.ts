@@ -1,5 +1,5 @@
 // One nesting rule for both writer limits (LIFE-7 step 2 at 64, LIFE-9 step 3
-// at 8), as bound by Nathan on 16 November 2026 (B2): the root value is level
+// at 8), as decided by Nathan on 16 November 2026 (accepted decision B2): the root value is level
 // 0, every value inside a container is one level deeper, scalars count, and a
 // value above the limit is rejected.
 export const rootLevel = 0;

@@ -797,11 +797,11 @@ export function install(options: StateOptions, seams: Seams) {
       return { kind: "unavailable", reason: "approval-resource-undeclared" };
     const coordination = issuer.exclusiveScope(runId, resource, isActive);
     try {
-      const { admitted } = await runtime.revalidateAndConsume(
+      const { consumed } = await runtime.revalidateAndConsume(
         request,
         coordination,
       );
-      return admitted
+      return consumed
         ? { kind: "preview", reference: request.preview }
         : { kind: "denied" };
     } catch (error) {

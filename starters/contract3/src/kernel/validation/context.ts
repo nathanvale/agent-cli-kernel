@@ -3,7 +3,7 @@ import { record } from "./primitives.ts";
 // One owner for the capability add-on names and the methods each must expose:
 // the keys below are the only spelling, checked complete against
 // CapabilitySelection. A command declaring any other name is refused when the
-// front door is built. (The installation manifest's AddonName in
+// kernel process entry is built. (The add-on manifest's AddonName in
 // registration.ts also lists "state", which is not a capability.)
 export const capabilityMethods = {
   programs: ["inspect", "supplied", "domain"],

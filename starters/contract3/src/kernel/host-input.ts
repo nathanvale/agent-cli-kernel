@@ -3,7 +3,7 @@ import { inputSchema } from "./validation/input.ts";
 
 // Only host-owned declarations reach this admission path. External schema
 // patterns remain syntax-checked and matched in the terminable worker.
-export function admitHostInput(schema: InputSchema): void {
+export function validateHostInput(schema: InputSchema): void {
   if (!inputSchema(schema)) throw new Error("Invalid input declaration.");
   for (const slot of [...schema.arguments, ...schema.options]) {
     const value = slot.value;

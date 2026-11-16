@@ -308,12 +308,12 @@ async function apply(map: Fields): Promise<void> {
           current,
           held.forged,
         ])
-      ).get("admitted");
+      ).get("consumed");
       if (typeof admitted !== "boolean") throw new Error("Admission shape.");
       consumed = admitted;
     } else
       consumed = (await runtime.revalidateAndConsume(current, held.scope))
-        .admitted;
+        .consumed;
   } catch (error) {
     held.lock.release();
     return emit({ phase: "consume", ...failure(error) });

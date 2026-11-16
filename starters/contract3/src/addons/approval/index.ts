@@ -162,7 +162,7 @@ export function approval(options: {
           () => currentGrant(request),
           () => consumption("approval", options.runId, now()),
         );
-        return { admitted: consumed };
+        return { consumed };
       },
     });
   return Object.freeze({ runtime, capability: Object.freeze({ check }) });

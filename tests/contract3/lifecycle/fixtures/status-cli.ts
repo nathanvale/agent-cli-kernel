@@ -16,7 +16,7 @@ import { runProcessOn } from "../../../../starters/contract3/src/kernel/lifecycl
 import { processHost } from "../../../../starters/contract3/src/kernel/process-host.ts";
 import type { ProcessHost } from "../../../../starters/contract3/src/kernel/process-types.ts";
 import {
-  registerRuntime,
+  recordRuntime,
   runtimeOf,
 } from "../../../../starters/contract3/src/kernel/runtime.ts";
 import type { ContractRuntime } from "../../../../starters/contract3/src/kernel/runtime.ts";
@@ -276,7 +276,7 @@ const contract = contractFor({
 const runtime = runtimeOf(contract);
 if (!runtime) throw new Error("Fixture contract has no runtime.");
 const wrapped = {};
-registerRuntime(wrapped, observed(runtime));
+recordRuntime(wrapped, observed(runtime));
 ledger(`front-door-start ${Date.now()}`);
 await runProcessOn(
   wrapped,
