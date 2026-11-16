@@ -209,17 +209,17 @@ Conflict keys:
 
 The coordination lock is a non-blocking, exclusive, advisory lock owned by
 an open file description (the `flock` family), held for as long as the
-descriptor stays open. The kernel releases it when the last descriptor on
-that description closes, including on SIGKILL, so nothing is ever cleaned,
+descriptor stays open. The operating-system kernel releases it when the
+last descriptor on that description closes, including on SIGKILL, so nothing is ever cleaned,
 unlinked or renamed to recover it. It is advisory among cooperating add-on
 processes only; nothing protects against a process that ignores it. One
 route per platform, behind one interface (`coordination.ts`):
 
-| Platform      | Route                                                                                                                                                | Refusal                                   |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
-| Darwin        | the numeric flag `O_EXLOCK` (`0x20`) at open, with `O_RDWR`, `O_CREAT`, `O_NONBLOCK` and `O_NOFOLLOW` (unchanged)                                    | `EAGAIN` from `open`                      |
-| Linux (glibc) | `open` through `node:fs` with `O_RDWR`, `O_CREAT` and `O_NOFOLLOW` (Bun opens close-on-exec), then `flock(fd, LOCK_EX \| LOCK_NB)` through `bun:ffi` | `EWOULDBLOCK` (`EAGAIN`, 11) from `flock` |
-| any other     | none                                                                                                                                                 | every changing route refuses (below)      |
+| Platform      | Route                                                                                                                                                | Refusal                                              |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| Darwin        | the numeric flag `O_EXLOCK` (`0x20`) at open, with `O_RDWR`, `O_CREAT`, `O_NONBLOCK` and `O_NOFOLLOW` (unchanged)                                    | `EAGAIN` from `open`                                 |
+| Linux (glibc) | `open` through `node:fs` with `O_RDWR`, `O_CREAT` and `O_NOFOLLOW` (Bun opens close-on-exec), then `flock(fd, LOCK_EX \| LOCK_NB)` through `bun:ffi` | `EAGAIN` (11, also named `EWOULDBLOCK`) from `flock` |
+| any other     | none                                                                                                                                                 | every changing route refuses (below)                 |
 
 - Linux route decision: Nathan, 16 November 2026, 14:22 (route A). The
   POSIX record lock family (`fcntl` `F_SETLK`, `lockf`, and `bun:sqlite`,
@@ -235,15 +235,18 @@ route per platform, behind one interface (`coordination.ts`):
   can only become a refusal.
 - Start-up self-check (Linux): when the add-on is installed it loads the
   library, resolves both symbols and calls `flock(-1, LOCK_EX | LOCK_NB)`,
-  which must return -1 with `EBADF` (9). It touches no file. It proves the
-  binding and the error read, not the filesystem.
+  which must return -1 with `EBADF` (9); 0, any other code or an unreadable
+  code fails it (`checkedFlock`, decided from the return values alone). It
+  touches no file. It proves the binding and the error read, not the
+  filesystem.
 - Fail closed: when the platform has no route, or the self-check fails,
   coordination is unavailable. Every changing route, recovery included,
   refuses before any write (no state root, no coordination file, no
   intent) with reason `coordination-unqualified-platform` or
   `coordination-self-check-failed`. The refusal detail and
-  `capabilities()` carry the observed facts (platform, architecture, kernel
-  release, the failing step) and the qualified scope. A call that fails
+  `capabilities()` carry the observed facts (platform, architecture,
+  operating-system kernel release, the failing step) and what is qualified
+  ("qualified on"). A call that fails
   with any other error after admission began releases everything taken, in
   reverse, and refuses `coordination-failed` (section 7.1 step 3). There is
   no fallback: no lock file, no PID file, no lock age, no "proceed without
@@ -259,18 +262,27 @@ route per platform, behind one interface (`coordination.ts`):
     reports the route and the facts it observed. No gate on an exact
     kernel release for coordination alone.
   - N5: a program started through the programs add-on does not hold the
-    coordination lock (section 7.2; close-on-exec).
+    coordination lock (section 7.2; close-on-exec). Observed on Linux: even
+    with close-on-exec cleared on purpose, a child started by `Bun.spawn`
+    did not hold it, because `Bun.spawn` passes no descriptor beyond stdio.
+    So no single-guard fault for this property can be built through
+    `Bun.spawn`; case C01.e's detected twin hands the locked descriptor to
+    the child as its stdin.
 - Qualified where (observed, never implied beyond it):
   - Darwin: lock probe, 16 November 2026, macOS 26.6, APFS local volume,
     Bun 1.4.4.
+  - The lock probe (`tests/contract3/state/linux-coordination.probe.test.ts`)
+    is an observation instrument: its rows pass whatever the candidates do,
+    and prove nothing by themselves. Its printed `PROBE` lines are the
+    evidence a reviewer judges; the behaviour is proved by the case table.
   - Linux, observed 16 November 2026: one environment only, an offline
-    OrbStack container on a Mac mini: Ubuntu 24.04, arm64, kernel
-    `7.2.12-orbstack-00394-gbecdd6130068`, glibc 2.39, Bun 1.4.4
+    OrbStack container on a Mac mini: Ubuntu 24.04, arm64, operating-system
+    kernel release `7.2.12-orbstack-00394-gbecdd6130068`, glibc 2.39, Bun 1.4.4
     (`38afee6c8`), non-root (euid 1000); state roots on overlay (the
     container root and `/tmp`) and on a btrfs volume; the lock probe also on
     tmpfs (`/dev/shm`). The hosted `ubuntu-latest` runner (x86_64, its own
-    kernel and filesystems) is not yet observed and is owed before any claim
-    there. Nothing else is implied: other distributions, kernels,
+    operating-system kernel and filesystems) is not yet observed and is owed before any claim
+    there. Nothing else is implied: other distributions, kernel releases,
     architectures, musl, other filesystems, network or shared filesystems,
     root and namespaces stay unproved.
   - The qualification table (section 10) stays empty either way:
@@ -425,9 +437,13 @@ November 2026). The repository lint configuration bans every import of
 tests are exempt. It also bans the spellings that reach the same files
 another way: a non-literal `import()`, `require`, `createRequire` and
 `import.meta.require`, a doubled slash, a `.` or `..` segment inside a
-path, and `../state/` from another add-on folder (delta review F1); the
-kernel's internals get the same. A generated host's configuration needs the
-same bans. Reachability stays a lint guard against accident, not isolation:
+path, a leading `./` before `..`, and `../state/` from another add-on
+folder (delta review F1; Linux review F1); the Contract 3 kernel's internals
+get the same, and so does the diagnostics folder, which differs only in the
+logging packages it may import. Spellings are matched case-sensitively; a
+case variant on a case-insensitive volume is not caught. A generated host's
+configuration needs the same bans. Reachability stays a lint guard against
+accident, not isolation:
 the code-enforced half is that a fixture never reports `available` and
 every closure it enables is stamped `fixture:<label>`.
 
