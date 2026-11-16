@@ -159,9 +159,9 @@ function manifest(root: string): FaultRecord[] {
   ) as FaultRecord[];
 }
 
-// A repository whose fix commit added the NaN guard, with one fault recorded
-// by faults:add and one sibling record per title the case asks for.
-async function repositoryWithFault(titles: Readonly<{ [id: string]: string }>) {
+async function repositoryWithFault(
+  siblingTitlesById: Readonly<{ [id: string]: string }>,
+) {
   const root = join(folder("faults-repo-"), "repo");
   mkdirSync(root);
   git(root, "init", "--quiet", "--initial-branch=main");
@@ -195,7 +195,7 @@ async function repositoryWithFault(titles: Readonly<{ [id: string]: string }>) {
   );
   const [killed] = manifest(root);
   if (killed === undefined) throw new Error("faults:add wrote no record.");
-  const siblings = Object.entries(titles).map(([id, title]) => ({
+  const siblings = Object.entries(siblingTitlesById).map(([id, title]) => ({
     ...killed,
     id,
     title,

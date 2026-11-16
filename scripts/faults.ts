@@ -15,7 +15,6 @@ const root = join(import.meta.dir, "..");
 const manifestPath = "tests/faults/manifest.json";
 const patchFolder = "tests/faults/patches";
 
-// `source` names the fix commit or the review that taught the fault.
 type Fault = {
   id: string;
   patch: string;
@@ -29,8 +28,6 @@ type Verdict =
   | { kind: "STALE"; output: string }
   | { kind: "BROKEN"; output: string };
 
-// Ctrl-C sends SIGINT, a closing terminal SIGHUP, a CI cancel SIGINT then
-// SIGTERM.
 const signals = ["SIGHUP", "SIGINT", "SIGTERM"] as const;
 const active: { child?: Subprocess; stoppedBy?: (typeof signals)[number] } = {};
 const snapshotAuthor = {
@@ -114,9 +111,7 @@ function readManifest(): Fault[] {
   return faults;
 }
 
-// The working tree as one commit, built in a scratch index, so a replay sees
-// uncommitted edits without touching the caller's index, branch or stash.
-function snapshot(): string {
+function commitWorkingTreeInScratchIndex(): string {
   const folder = mkdtempSync(join(tmpdir(), "faults-index-"));
   try {
     const env = { ...process.env, GIT_INDEX_FILE: join(folder, "index") };
@@ -134,14 +129,7 @@ function snapshot(): string {
   }
 }
 
-// A stop signal ends a running Bun step at once; a git step runs to its end,
-// so the worktree it touches is never half made.
-async function step(
-  id: string,
-  cwd: string,
-  argv: readonly string[],
-  stoppable = false,
-) {
+async function step(id: string, cwd: string, argv: readonly string[]) {
   const child = Bun.spawn([...argv], {
     cwd,
     env: ownTools,
@@ -149,7 +137,7 @@ async function step(
     stderr: "pipe",
     detached: true,
   });
-  if (stoppable) active.child = child;
+  active.child = child;
   const [stdout, stderr, exitCode] = await Promise.all([
     new Response(child.stdout).text(),
     new Response(child.stderr).text(),
@@ -173,17 +161,18 @@ function failingTests(output: string): string[] {
   );
 }
 
-function testCommand(fault: Fault): string[] {
-  return [process.execPath, "test", `./${fault.testFile}`, "-t", fault.title];
+function testArgs(fault: Fault): string[] {
+  return ["test", `./${fault.testFile}`, "-t", fault.title];
 }
 
 async function replay(fault: Fault, commit: string): Promise<Verdict> {
   const patch = join(root, fault.patch);
   const folder = mkdtempSync(join(tmpdir(), "faults-"));
   const dir = join(folder, "tree");
-  const inTree = (argv: readonly string[]) => step(fault.id, dir, argv);
+  const gitInTree = (argv: readonly string[]) =>
+    step(fault.id, dir, ["git", ...argv]);
   const bunInTree = (argv: readonly string[]) =>
-    step(fault.id, dir, argv, true);
+    step(fault.id, dir, [process.execPath, ...argv]);
   try {
     const added = await step(fault.id, root, [
       "git",
@@ -195,22 +184,18 @@ async function replay(fault: Fault, commit: string): Promise<Verdict> {
       commit,
     ]);
     if (!added.passed) throw new Error(added.output.trim());
-    const applies = await inTree(["git", "apply", "--check", patch]);
+    const applies = await gitInTree(["apply", "--check", patch]);
     if (!applies.passed) return { kind: "STALE", output: applies.output };
-    const installed = await bunInTree([
-      process.execPath,
-      "install",
-      "--frozen-lockfile",
-    ]);
+    const installed = await bunInTree(["install", "--frozen-lockfile"]);
     if (!installed.passed)
       throw new Error(
         `bun install --frozen-lockfile failed while replaying ${fault.id}:\n${installed.output}`,
       );
-    const clean = await bunInTree(testCommand(fault));
+    const clean = await bunInTree(testArgs(fault));
     if (!clean.passed) return { kind: "BROKEN", output: clean.output };
-    const applied = await inTree(["git", "apply", patch]);
+    const applied = await gitInTree(["apply", patch]);
     if (!applied.passed) throw new Error(applied.output.trim());
-    const faulted = await bunInTree(testCommand(fault));
+    const faulted = await bunInTree(testArgs(fault));
     if (faulted.passed) return { kind: "SURVIVED" };
     return { kind: "KILLED", failing: failingTests(faulted.output) };
   } finally {
@@ -270,7 +255,7 @@ async function replayAll(ids: readonly string[]): Promise<number> {
     print(`No faults recorded in ${manifestPath}.`);
     return 0;
   }
-  const commit = snapshot();
+  const commit = commitWorkingTreeInScratchIndex();
   const started = performance.now();
   let killed = 0;
   for (const fault of chosen) {
@@ -333,8 +318,8 @@ for (const signal of signals)
     if (pid === undefined) return;
     try {
       process.kill(-pid, "SIGTERM");
-    } catch {
-      // The group already exited.
+    } catch (error) {
+      if (Reflect.get(Object(error), "code") !== "ESRCH") throw error;
     }
   });
 
