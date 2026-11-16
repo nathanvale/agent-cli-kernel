@@ -366,21 +366,60 @@ function rowProblems(repository: string): string[] {
   return problems;
 }
 
+type LintConfig = {
+  files?: unknown[];
+  ignores?: unknown[];
+  rules?: Record<string, unknown>;
+};
+
+function matchesAny(patterns: unknown[], path: string, other: boolean) {
+  return patterns.some((pattern) =>
+    typeof pattern === "string" ? new Bun.Glob(pattern).match(path) : other,
+  );
+}
+
 async function lintIds(repository: string): Promise<Set<string>> {
   const url = pathToFileURL(join(repository, "eslint.config.mjs")).href;
   const { default: configs } = (await import(url)) as {
-    default: { rules?: Record<string, unknown> }[];
+    default: LintConfig[];
   };
   const off = (setting: unknown) => {
     const severity: unknown = Array.isArray(setting) ? setting[0] : setting;
     return severity === 0 || severity === "off";
   };
+  const ignored = configs
+    .filter((config) =>
+      Object.keys(config).every((key) => key === "ignores" || key === "name"),
+    )
+    .flatMap(({ ignores = [] }) => ignores);
+  const paths = git(repository, [
+    "ls-files",
+    "--cached",
+    "--others",
+    "--exclude-standard",
+  ])
+    .split("\n")
+    .filter((path) => !matchesAny(ignored, path, false));
+  const reachesAFile = ({ files, ignores = [] }: LintConfig) =>
+    files === undefined ||
+    paths.some(
+      (path) =>
+        matchesAny(files, path, true) && !matchesAny(ignores, path, false),
+    );
   return new Set(
-    configs.flatMap((config) =>
+    configs.filter(reachesAFile).flatMap((config) =>
       Object.entries(config.rules ?? {})
         .filter(([, setting]) => !off(setting))
         .map(([id]) => id),
     ),
+  );
+}
+
+function runsOnPullRequest(on: unknown): boolean {
+  if (typeof on === "string") return on === "pull_request";
+  if (Array.isArray(on)) return on.includes("pull_request");
+  return (
+    typeof on === "object" && on !== null && Object.hasOwn(on, "pull_request")
   );
 }
 
@@ -390,8 +429,10 @@ async function jobIds(repository: string): Promise<Set<string>> {
     files.map(async (file) => {
       const document = Bun.YAML.parse(
         await Bun.file(join(repository, file)).text(),
-      ) as { jobs?: Record<string, unknown> } | null;
-      return Object.keys(document?.jobs ?? {});
+      ) as { on?: unknown; jobs?: Record<string, unknown> } | null;
+      return runsOnPullRequest(document?.on)
+        ? Object.keys(document?.jobs ?? {})
+        : [];
     }),
   );
   return new Set(jobs.flat());
@@ -408,11 +449,13 @@ async function gateProblems(repository: string): Promise<string[]> {
     },
     lint: {
       ids: await lintIds(repository),
-      owner: "no config in eslint.config.mjs turns on",
+      owner:
+        "no config in eslint.config.mjs turns on for a file in the repository",
     },
     job: {
       ids: await jobIds(repository),
-      owner: "no workflow in .github/workflows/ defines as a job",
+      owner:
+        "no workflow in .github/workflows/ that runs on pull_request defines as a job",
     },
   };
   return ruleTable(repository).rows.flatMap((row) =>
@@ -495,7 +538,7 @@ function fixture(
     "eslint.config.mjs":
       'export default [{ rules: { "repository/rule": "error" } }];\n',
     ".github/workflows/ci.yml":
-      "jobs:\n  faults:\n    runs-on: ubuntu-latest\n",
+      "on: pull_request\njobs:\n  faults:\n    runs-on: ubuntu-latest\n",
     "AGENTS.md": "# Fixture\n\n## Checks\n",
     [standards]: [
       "# Coding Standards",
@@ -593,11 +636,32 @@ test.each([
     "a row whose lint and job are gone",
     (files: Record<string, string>) => {
       files["eslint.config.mjs"] = "export default [{ rules: {} }];\n";
-      files[".github/workflows/ci.yml"] = "jobs:\n  other:\n    runs-on: x\n";
+      files[".github/workflows/ci.yml"] =
+        "on: pull_request\njobs:\n  other:\n    runs-on: x\n";
     },
     [
-      'CODING_STANDARDS.md: row "Gated rule" names lint `repository/rule`, which no config in eslint.config.mjs turns on. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
-      'CODING_STANDARDS.md: row "Gated rule" names job `faults`, which no workflow in .github/workflows/ defines as a job. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
+      'CODING_STANDARDS.md: row "Gated rule" names lint `repository/rule`, which no config in eslint.config.mjs turns on for a file in the repository. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
+      'CODING_STANDARDS.md: row "Gated rule" names job `faults`, which no workflow in .github/workflows/ that runs on pull_request defines as a job. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
+    ],
+  ],
+  [
+    "a row whose lint is on only for files that do not exist",
+    (files: Record<string, string>) => {
+      files["eslint.config.mjs"] =
+        'export default [{ files: ["nowhere/**/*.ts"], rules: { "repository/rule": "error" } }];\n';
+    },
+    [
+      'CODING_STANDARDS.md: row "Gated rule" names lint `repository/rule`, which no config in eslint.config.mjs turns on for a file in the repository. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
+    ],
+  ],
+  [
+    "a row whose job runs only outside pull requests",
+    (files: Record<string, string>) => {
+      files[".github/workflows/ci.yml"] =
+        "on:\n  workflow_dispatch:\n  push:\n    branches: [main]\njobs:\n  faults:\n    runs-on: x\n";
+    },
+    [
+      'CODING_STANDARDS.md: row "Gated rule" names job `faults`, which no workflow in .github/workflows/ that runs on pull_request defines as a job. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
     ],
   ],
   [
