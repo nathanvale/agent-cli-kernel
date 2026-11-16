@@ -110,7 +110,7 @@ export function resultContext<
         );
       if (baseOnlyCause(command, selected.causeCode))
         throw new Error(
-          "A handler never selects a result that belongs before handler entry.",
+          "A handler never selects a result only the kernel produces.",
         );
       const result: CommandResult<Identity> = Object.freeze({
         [resultIdentity]: true as const,

@@ -86,7 +86,7 @@ export function requireProgramStopStation(declaration: {
   const station = declaration.stations.find((item) => item.causeCode === cause);
   if (!station)
     throw new Error(
-      `${declaration.commandIdentity} runs programs and supports a deadline, so it declares its program-stop station (programStopCause).`,
+      `${declaration.commandIdentity} runs programs and supports a deadline, so it must declare its program-stop station (programStopCause).`,
     );
   if (
     station.row.outcome !== "failed" ||
@@ -94,7 +94,7 @@ export function requireProgramStopStation(declaration: {
     !station.guidance.handoff
   )
     throw new Error(
-      `${declaration.commandIdentity}'s program-stop station ${station.causeCode} is failed and unchanged, with a handoff.`,
+      `${declaration.commandIdentity}'s program-stop station ${station.causeCode} must be failed and unchanged, with a handoff.`,
     );
 }
 export function admitChangingShape(declaration: {

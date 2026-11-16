@@ -152,14 +152,23 @@ async function admission(variant: string) {
   return value;
 }
 describe("KF3.f program-stop-station-required", () => {
-  for (const variant of ["missing", "wrong-arm", "wrong-outcome"] as const)
+  // The words the coordinator put to Nathan with the repair round.
+  const missing =
+    "kf.watch runs programs and supports a deadline, so it must declare its program-stop station (programStopCause).";
+  const wrongShape = `kf.watch's program-stop station ${programStop} must be failed and unchanged, with a handoff.`;
+  const refused = [
+    ["missing", missing],
+    ["wrong-arm", wrongShape],
+    ["wrong-outcome", wrongShape],
+  ] as const;
+  for (const [variant, reason] of refused)
     test(
       `KF3.f ${variant}: refused at declaration with a named refusal`,
       async () => {
-        const result = await admission(variant);
-        expect(result).toMatchObject({ admission: "refused" });
-        expect(JSON.stringify(result)).toContain("kf.watch");
-        expect(JSON.stringify(result)).toContain("program-stop station");
+        expect(await admission(variant)).toEqual({
+          admission: "refused",
+          reason,
+        });
       },
       processWatchdog(1),
     );
