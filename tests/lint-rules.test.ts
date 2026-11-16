@@ -271,8 +271,9 @@ const refused = [
       'export const second = localeCompare.call("a", "b");',
       'export const third = Reflect.get(Intl, "Coll" + "ator");',
       "export const fourth = new Collator();",
+      'export const fifth = Reflect.get(Intl, ["Coll", "ator"].join(""));',
     ],
-    lines: [1, 2, 3, 5],
+    lines: [1, 2, 3, 5, 7],
   },
   {
     rule: "no-in-operator",

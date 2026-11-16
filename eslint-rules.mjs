@@ -184,6 +184,7 @@ export default {
           Literal: constant,
           TemplateLiteral: constant,
           "BinaryExpression[operator='+']": constant,
+          "CallExpression[callee.property.name='join']": constant,
         };
       },
     },
