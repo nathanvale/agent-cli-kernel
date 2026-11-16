@@ -3,7 +3,7 @@
 // c3-expect-t2t5, findings-round/expectations.md, S01 to S04. S01 is in
 // lifecycle.test.ts. S03 is open and not decided by the frozen text: the
 // post-handler settle is left as it is and only observed here.
-import { appendFile, mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -181,7 +181,6 @@ describe("S04 no owned resource after a stop: real host (finding 2)", () => {
       try {
         await launched.barrier("handler-ready");
         const sent = launched.signal("SIGTERM");
-        await appendFile(launched.ledgerPath, "stop-sent\n");
         const observed = await exitWithin(launched);
         receipt(entry, observed, {
           signalToExitMilliseconds: observed.exitedAt - sent,

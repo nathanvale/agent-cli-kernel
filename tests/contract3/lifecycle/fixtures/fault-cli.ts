@@ -525,7 +525,8 @@ const wait = command({
 });
 
 // S04 (findings round): an owned TERM-ignoring program holds the stop path
-// while the handler, after the test's "stop-sent" line, asks for one more.
+// while the handler, once that program received the stop path's SIGTERM,
+// asks for one more.
 const lateStart = command({
   identity: "fx.late-start",
   route: ["late-start"],
@@ -538,7 +539,10 @@ const lateStart = command({
       .catch(() => undefined);
     await ledgerHas("child-started", 5_000);
     ledger("handler-ready");
-    await ledgerHas("stop-sent", 5_000);
+    // The owned child ledgers SIGTERM only when the stop path settles it,
+    // which happens after the CLI aborted the run; a line the test writes
+    // after sending the signal can arrive before the CLI handled it.
+    await ledgerHas("child-term-received", 5_000);
     ledger("late-call");
     try {
       await context.programs.inspect(program(lateChild));
