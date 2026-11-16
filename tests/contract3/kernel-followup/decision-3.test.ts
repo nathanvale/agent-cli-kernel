@@ -64,7 +64,15 @@ const unconfirmed: Readonly<Record<string, unknown>> = {
     uncertain: [],
     inventoryComplete: false,
   },
-  none: { ...emptyComplete, inventoryComplete: false },
+  // N9 (17:06): no transaction started and every later one refused.
+  none: {
+    completed: [],
+    remaining: ["kf.e"],
+    uncertain: [],
+    inventoryComplete: false,
+  },
+  // A transaction started and issued no proof: nothing is known.
+  stalled: { ...emptyComplete, inventoryComplete: false },
 };
 // The twins: every program confirmed stopped.
 const confirmed: Readonly<Record<string, Readonly<Record<string, unknown>>>> = {
@@ -87,7 +95,13 @@ const confirmed: Readonly<Record<string, Readonly<Record<string, unknown>>>> = {
     transactionState: "unchanged",
     effects: { ...emptyComplete, remaining: ["kf.e"] },
   },
+  // N9 (17:06): DOMAIN_DEADLINE_UNCHANGED with the declared effects.
   none: {
+    causeCode: "DOMAIN_DEADLINE_UNCHANGED",
+    transactionState: "unchanged",
+    effects: { ...emptyComplete, remaining: ["kf.e"] },
+  },
+  stalled: {
     causeCode: "DOMAIN_DEADLINE_UNKNOWN",
     transactionState: "unknown",
     effects: { ...emptyComplete, inventoryComplete: false },
@@ -95,7 +109,13 @@ const confirmed: Readonly<Record<string, Readonly<Record<string, unknown>>>> = {
 };
 
 describe("KF3.a changing-deadline-unconfirmed", () => {
-  for (const proof of ["completed", "partial", "unchanged", "none"] as const)
+  for (const proof of [
+    "completed",
+    "partial",
+    "unchanged",
+    "none",
+    "stalled",
+  ] as const)
     test(
       `KF3.a ${proof}`,
       async () => {

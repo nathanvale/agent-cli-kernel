@@ -239,6 +239,22 @@ async function settleAll(run: Run, limit?: number) {
   return settled.every((item) => !item.owned || item.stopped);
 }
 
+// Accepted decision N9 (17:06): no transaction started before the deadline,
+// and the closed capability refuses every later one, so nothing changed and
+// every declared effect remains. The kernel's own observation, used on the
+// deadline path only; it does not widen the trusted summary elsewhere.
+function noneStarted(command: CommandDeclaration): StateObservation {
+  return {
+    transactionState: "unchanged",
+    effects: {
+      completed: [],
+      remaining: [...(command.effects ?? [])],
+      uncertain: [],
+      inventoryComplete: true,
+    },
+  };
+}
+
 // Accepted decisions (contract question 5 of 8; points N2 and N3, 16:25):
 // with an owned program not confirmed stopped the run claims no certainty.
 // The proof's completed and remaining effects are kept, nothing moves to
@@ -546,6 +562,7 @@ async function afterDeadline(
   execution: Promise<Execution>,
 ): Promise<Delivery> {
   run.controller.abort();
+  const started = run.runtime.closeStateAtDeadline(run.runId);
   const [, stopped] = await Promise.all([
     within(execution, cancellationMilliseconds, run.host.now),
     within(
@@ -556,7 +573,9 @@ async function afterDeadline(
   ]);
   // An owned program not confirmed stopped within the wait leaves the
   // effects unconfirmed: "Unconfirmed effects are unknown" (LIFE-11).
-  const issued = run.runtime.trustedSummary(run.runId);
+  const issued =
+    run.runtime.trustedSummary(run.runId) ??
+    (started === false ? noneStarted(command) : undefined);
   const summary = stopped === true ? issued : unconfirmedSummary(issued);
   const selected =
     command.effectClass === "inspect"

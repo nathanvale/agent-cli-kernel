@@ -617,7 +617,11 @@ function layered(): { state: StateAddonDescriptor; transact: Transact } {
 const waitMilliseconds = Number(env.KF_WAIT ?? "0");
 function programsApply(state: StateAddonDescriptor) {
   const effects =
-    variantEffects[proofVariant === "none" ? "completed" : proofVariant];
+    variantEffects[
+      proofVariant === "none" || proofVariant === "stalled"
+        ? "completed"
+        : proofVariant
+    ];
   if (!effects) throw new Error(`Unknown proof variant ${proofVariant}.`);
   return changing({
     identity: "kf.apply",
@@ -651,8 +655,15 @@ function programsApply(state: StateAddonDescriptor) {
     ],
     run: async (_input, context) => {
       note("handler-entered");
+      if (proofVariant === "stalled")
+        // A transaction that starts, runs the owned program and outlasts
+        // the deadline without issuing a proof.
+        await context.state.transaction(async () => {
+          await context.programs.inspect(program);
+          await sleep(waitMilliseconds);
+        });
       const proof =
-        proofVariant === "none"
+        proofVariant === "none" || proofVariant === "stalled"
           ? undefined
           : await context.state.transaction(variantWork);
       await context.programs.inspect(program);
@@ -908,8 +919,80 @@ const load = command({
   },
 });
 
+// KF9: the K2-spec-3 deadline window. KF_LATE: `transaction` waits
+// KF_LATE_MS from handler entry, then calls the transaction (KF9.a);
+// `early` runs the transaction at once, then waits (KF9.a twin); `effect`
+// records kf.e1, waits KF_LATE_MS inside the transaction, then records kf.e2
+// (KF9.b); `both` records both at once, then waits (KF9.b twin).
+const lateMode = env.KF_LATE ?? "transaction";
+const lateMilliseconds = Number(env.KF_LATE_MS ?? "0");
+function recordEffect(transaction: EffectTransaction<string>, effect: string) {
+  return transaction.record(
+    effect,
+    () => {
+      note(`effect-applied ${effect}`);
+      return Promise.resolve();
+    },
+    () => Promise.resolve(true),
+  );
+}
+function lateApply(state: StateAddonDescriptor) {
+  const effects: readonly [string, ...string[]] =
+    lateMode === "effect" || lateMode === "both" ? ["kf.e1", "kf.e2"] : ["kf.e"];
+  return changing({
+    identity: "kf.apply",
+    route: ["apply"],
+    summary: "Apply the kf effects late.",
+    input,
+    capabilities: {},
+    effectClass: "repository-local",
+    effects,
+    ifNoResult: state.ifNoResult,
+    heldLockCause: "KF_HELD",
+    unresolvedCaseCause: "KF_PRIOR",
+    stations: [...coordination("kf.apply"), completed("kf.apply")],
+    run: async (_input, context) => {
+      note("handler-entered");
+      const refused = (error: unknown) => {
+        note("transaction-refused");
+        throw error;
+      };
+      if (lateMode === "transaction") await sleep(lateMilliseconds);
+      const proof = await context.state
+        .transaction(async (transaction) => {
+          if (lateMode === "effect" || lateMode === "both")
+            await recordEffect(transaction, "kf.e1");
+          if (lateMode === "effect") await sleep(lateMilliseconds);
+          for (const effect of lateMode === "effect" || lateMode === "both"
+            ? ["kf.e2"]
+            : ["kf.e"])
+            await recordEffect(transaction, effect);
+        })
+        .catch(refused);
+      if (lateMode === "early" || lateMode === "both") await sleep(2_000);
+      return context.result(
+        { commandIdentity: "kf.apply", causeCode: "SUCCESS_COMPLETED" } as never,
+        { message: "Applied.", data: null, transaction: proof } as never,
+      );
+    },
+  });
+}
+
 const scenarios: Readonly<Record<string, (argv: string[]) => Promise<unknown>>> =
   {
+    // KF9.
+    late: (argv) => {
+      const state = seamState();
+      return runProcess(
+        contractFor({
+          cli: "kf",
+          commands: [lateApply(state), pending],
+          causes,
+          state,
+          installedAddons: ["state"],
+        } as never),
+      )(argv);
+    },
     // KF5.a, KF5.c.
     load: (argv) =>
       runProcess(contractFor({ cli: "kf", commands: [load], causes }))(argv),

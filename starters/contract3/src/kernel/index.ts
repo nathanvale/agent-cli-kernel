@@ -14,6 +14,7 @@ import {
   isStateDescriptor,
   createStateAddon,
   attachState,
+  closeAtDeadline,
   issuedProof,
   proofFreeResultAllowed,
 } from "./state-seam.ts";
@@ -468,6 +469,7 @@ export function contractFor<
     buildResult: (result) => contract.buildResult(result),
     validate,
     trustedSummary: (runId) => issuedProof(runId, spec.state),
+    closeStateAtDeadline: (runId) => closeAtDeadline(runId, spec.state),
   });
   return contract;
 }

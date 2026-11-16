@@ -75,6 +75,9 @@ export type ContractRuntime = {
   // The trusted summary: the proof the state seam issued for the run, if
   // any, whether or not the handler returned (contract question 4 of 8).
   readonly trustedSummary: (runId: string) => StateObservation | undefined;
+  // LIFE-6: closes the run's state capability at the deadline; true when a
+  // transaction had started, undefined when the run has no state.
+  readonly closeStateAtDeadline: (runId: string) => boolean | undefined;
 };
 
 const runtimes = new WeakMap<object, ContractRuntime>();
