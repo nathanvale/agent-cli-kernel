@@ -30,6 +30,51 @@ test("a probe that fails to parse leaves every other probe's type check intact",
   }
 });
 
+const leakProbe = probeBatch("contract3-probes-leaks-");
+const leaks = [
+  {
+    name: "declare global",
+    writers: [
+      "declare global { var leakedGlobal: string }\n",
+      "declare global { var leakedGlobal: number }\n",
+    ],
+    reader: "export const read = leakedGlobal;\n",
+    code: 2304,
+  },
+  {
+    name: "module augmentation",
+    writers: [
+      'declare module "bun" { interface Env { LEAKED_SETTING: string } }\n',
+    ],
+    reader: "export const setting: string = Bun.env.LEAKED_SETTING;\n",
+    code: 2322,
+  },
+  {
+    name: "reference directive",
+    writers: ['/// <reference lib="webworker" />\n'],
+    reader: "export type Scope = WorkerGlobalScope;\n",
+    code: 2304,
+  },
+].map((leak) => ({
+  ...leak,
+  writers: leak.writers.map((source) => leakProbe(source, ["native"])),
+  reader: leakProbe(leak.reader, ["native"]),
+}));
+
+for (const leak of leaks)
+  test(`a probe that writes the global scope by ${leak.name} reaches no other probe`, async () => {
+    for (const writer of leak.writers)
+      expect(await writer.compile("native")).toMatchObject({
+        exit: 0,
+        stdout: "",
+        stderr: "",
+      });
+    const read = await leak.reader.compile("native");
+    expect(read.diagnostics).toEqual([
+      { file: leak.reader.file, line: 1, code: leak.code },
+    ]);
+  });
+
 test("registering a probe after the first compile is refused", async () => {
   await clean.compile("native");
   expect(() => probe("export const late = 1;\n")).toThrow(

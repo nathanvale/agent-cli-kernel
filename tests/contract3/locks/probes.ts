@@ -10,6 +10,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
+import ts from "typescript";
 import { spawnBounded } from "../kernel-repair/swarm-process.ts";
 
 export type Compiler = "native" | "lint-view";
@@ -31,6 +32,7 @@ type Registered = {
   readonly file: string;
   readonly source: string;
   readonly compilers: readonly Compiler[];
+  readonly alone: boolean;
 };
 
 const root = resolve(import.meta.dir, "../../..");
@@ -131,6 +133,23 @@ export function readRun(
   );
 }
 
+// A probe that writes the global scope would leak into every probe that
+// shares its program, so it gets a program of its own.
+function changesGlobalScope(source: string): boolean {
+  const file = ts.createSourceFile("probe.ts", source, ts.ScriptTarget.Latest);
+  return (
+    file.referencedFiles.length > 0 ||
+    file.typeReferenceDirectives.length > 0 ||
+    file.libReferenceDirectives.length > 0 ||
+    file.statements.some(
+      (statement) =>
+        ts.isModuleDeclaration(statement) &&
+        (ts.isStringLiteral(statement.name) ||
+          (statement.flags & ts.NodeFlags.GlobalAugmentation) !== 0),
+    )
+  );
+}
+
 export function probeBatch(prefix: string) {
   const registered: Registered[] = [];
   let directory: string | undefined;
@@ -176,14 +195,24 @@ export function probeBatch(prefix: string) {
     ]);
   }
 
-  function compileWith(base: string, compiler: Compiler) {
-    return compileProgram(
-      base,
-      compiler,
-      registered
-        .filter((probe) => probe.compilers.includes(compiler))
-        .map((probe) => probe.file),
+  async function compileWith(base: string, compiler: Compiler) {
+    const mine = registered.filter((probe) =>
+      probe.compilers.includes(compiler),
     );
+    const programs = [
+      mine.filter((probe) => !probe.alone),
+      ...mine.filter((probe) => probe.alone).map((probe) => [probe]),
+    ].filter((program) => program.length > 0);
+    const results = await Promise.all(
+      programs.map((program) =>
+        compileProgram(
+          base,
+          compiler,
+          program.map((probe) => probe.file),
+        ),
+      ),
+    );
+    return new Map(results.flatMap((result) => [...result]));
   }
 
   async function compileAll() {
@@ -212,7 +241,12 @@ export function probeBatch(prefix: string) {
         "Register every probe at module load, before the first compile.",
       );
     const file = `locks/probe-${registered.length}.ts`;
-    registered.push({ file, source, compilers });
+    registered.push({
+      file,
+      source,
+      compilers,
+      alone: changesGlobalScope(source),
+    });
     return {
       file,
       async compile(compiler) {
