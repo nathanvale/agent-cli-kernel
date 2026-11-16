@@ -85,6 +85,24 @@ const cases = [
     line: 1,
     fix: "read cause data from the kernel public index (kernel/index.ts exports commonCauses)",
   },
+  {
+    rule: "require-to-throw-message",
+    witness: "185c90d",
+    filePath: "tests/contract3/stations.test.ts",
+    failing: [
+      'const list = { name: "list" };',
+      'expect(() => contractFor({ cli: "notes", commands: [list, list] })).toThrow();',
+    ],
+    passing: [
+      'const list = { name: "list" };',
+      'expect(() => contractFor({ cli: "notes", commands: [list, list] })).toThrow(',
+      '  "Duplicate command identity.",',
+      ");",
+      'expect(() => contractFor({ cli: "notes", commands: [list] })).not.toThrow();',
+    ],
+    line: 2,
+    fix: "Pass the message or the cause that the test's name gives",
+  },
 ];
 
 for (const item of cases)
@@ -105,4 +123,13 @@ test("cause-literal-owner admits the literal inside its owner module", async () 
       'export const code = "DOMAIN_DEADLINE_UNKNOWN";',
     ),
   ).toEqual([]);
+});
+
+test("require-to-throw-message refuses a bare rejects.toThrow()", async () => {
+  const found = await hits(
+    "require-to-throw-message",
+    "tests/contract3/state/component.test.ts",
+    'await expect(Promise.reject(new Error("limit"))).rejects.toThrow();',
+  );
+  expect(found.map(({ line }) => line)).toEqual([1]);
 });

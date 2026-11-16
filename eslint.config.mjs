@@ -51,5 +51,10 @@ export default tseslint.config(
     files: ["src/domains/**/*.ts"],
     rules: { "repository/no-domain-output": "error" },
   },
+  {
+    files: ["tests/**/*.{ts,mts,cts}"],
+    plugins: { repository: localRules },
+    rules: { "repository/require-to-throw-message": "error" },
+  },
   ...contract3,
 );

@@ -104,5 +104,45 @@
     "repository/no-in-operator": {
       "count": 10
     }
+  },
+  "tests/contract3/contract.test.ts": {
+    "repository/require-to-throw-message": {
+      "count": 2
+    }
+  },
+  "tests/contract3/input.test.ts": {
+    "repository/require-to-throw-message": {
+      "count": 3
+    }
+  },
+  "tests/contract3/kernel-repair/r18.test.ts": {
+    "repository/require-to-throw-message": {
+      "count": 1
+    }
+  },
+  "tests/contract3/kernel-repair/version.test.ts": {
+    "repository/require-to-throw-message": {
+      "count": 1
+    }
+  },
+  "tests/contract3/lifecycle/lifecycle.test.ts": {
+    "repository/require-to-throw-message": {
+      "count": 3
+    }
+  },
+  "tests/contract3/state/component.test.ts": {
+    "repository/require-to-throw-message": {
+      "count": 6
+    }
+  },
+  "tests/contract3/writer/writer.test.ts": {
+    "repository/require-to-throw-message": {
+      "count": 1
+    }
+  },
+  "tests/static-admission.test.ts": {
+    "repository/require-to-throw-message": {
+      "count": 1
+    }
   }
 }

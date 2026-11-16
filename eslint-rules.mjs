@@ -69,6 +69,28 @@ export default {
         };
       },
     },
+    "require-to-throw-message": {
+      meta: {
+        type: "problem",
+        schema: [],
+        messages: {
+          bare: 'Pass the message or the cause that the test\'s name gives, as in .toThrow("Duplicate command identity."). A bare {{name}}() stays green when another guard refuses.',
+        },
+      },
+      create(context) {
+        return {
+          "CallExpression[arguments.length=0] > MemberExpression.callee[property.name=/^toThrow(?:Error)?$/]:not([object.property.name='not'])"(
+            node,
+          ) {
+            context.report({
+              node: node.property,
+              messageId: "bare",
+              data: { name: node.property.name },
+            });
+          },
+        };
+      },
+    },
     "no-domain-output": {
       meta: {
         type: "problem",
