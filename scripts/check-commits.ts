@@ -25,7 +25,8 @@ type Checked = Commit & { result: Result };
 // Ctrl-C sends SIGINT, a closing terminal SIGHUP, a CI cancel SIGINT then
 // SIGTERM.
 const signals = ["SIGHUP", "SIGINT", "SIGTERM"] as const;
-const active: { child?: Subprocess; stoppedBy?: (typeof signals)[number] } = {};
+type StopSignal = (typeof signals)[number];
+const active: { child?: Subprocess; stoppedBy?: StopSignal } = {};
 // `bun run` prepends the caller's node_modules/.bin folders to PATH. Drop
 // them so a commit sees only what its own tree installs.
 const ownTools = {
@@ -40,12 +41,19 @@ const ownTools = {
     .join(delimiter),
 };
 
+function isStopSignal(signal: string | undefined): signal is StopSignal {
+  return signals.some((each) => each === signal);
+}
+
 function git(args: readonly string[]) {
   const result = Bun.spawnSync(["git", ...args], {
     cwd: root,
     stdout: "pipe",
     stderr: "pipe",
   });
+  // A signal to the whole process group kills git before this process's
+  // handler can run, so git's own death is the evidence of the stop.
+  if (isStopSignal(result.signalCode)) active.stoppedBy ??= result.signalCode;
   return {
     ok: result.exitCode === 0,
     stdout: result.stdout.toString(),
@@ -64,6 +72,13 @@ function print(line: string): void {
 function release(dir: string): void {
   git(["worktree", "remove", "--force", dir]);
   rmSync(dir, { recursive: true, force: true });
+}
+
+function haltIfStopped(commit: Commit): void {
+  if (active.stoppedBy !== undefined)
+    throw new Error(
+      `Stopped by ${active.stoppedBy} while checking ${commit.short}, so it has no verdict.`,
+    );
 }
 
 async function run(cwd: string, step: Step) {
@@ -94,13 +109,11 @@ async function check(commit: Commit): Promise<Checked> {
       dir,
       commit.sha,
     ]);
+    haltIfStopped(commit);
     if (!added.ok) throw new Error(added.stderr.trim());
     for (const step of steps) {
       const { exitCode, signalCode, output } = await run(dir, step);
-      if (active.stoppedBy !== undefined)
-        throw new Error(
-          `Stopped by ${active.stoppedBy} while checking ${commit.short}, so it has no verdict.`,
-        );
+      haltIfStopped(commit);
       if (signalCode !== null)
         throw new Error(
           `${shown(step)} was killed by ${signalCode} while checking ${commit.short}, so it has no verdict.`,

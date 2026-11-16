@@ -107,11 +107,17 @@ async function checkCommits(
   root: string,
   args: string[],
   env: Record<string, string> = {},
-  signalAt?: SignalAt,
+  {
+    signalAt,
+    ownGroup = false,
+  }: { signalAt?: SignalAt; ownGroup?: boolean } = {},
 ) {
   const temporary = folder("check-commits-tmp-");
+  const entry = [process.execPath, "run", "check:commits", ...args];
   const run = await spawnBounded(
-    [process.execPath, "run", "check:commits", ...args],
+    ownGroup
+      ? ["perl", "-e", "setpgrp(0, 0); exec @ARGV or die", ...entry]
+      : entry,
     {
       cwd: root,
       env: { ...process.env, ...gitEnv, TMPDIR: temporary, ...env },
@@ -139,6 +145,18 @@ function rerunOf(lines: readonly string[]): string {
   const line = lines.find((each) => each.startsWith("Rerun locally: "));
   if (line === undefined) throw new Error("No Rerun locally line.");
   return line.slice("Rerun locally: ".length);
+}
+
+function executable(path: string, script: string): string {
+  writeFileSync(path, `#!/bin/sh\n${script}\n`, { mode: 0o755 });
+  return path;
+}
+
+function signalOwnGroupAtCheckoutOf(root: string, signal: string): void {
+  executable(
+    join(root, ".git", "hooks", "post-checkout"),
+    `test ! -e block || kill -s ${signal.slice(3)} 0`,
+  );
 }
 
 async function paste(root: string, command: string) {
@@ -451,7 +469,40 @@ describe("check:commits", () => {
           root,
           [base.sha],
           { CHECK_COMMITS_SINCE: base.sha },
-          { ledger, line: "started", signal },
+          { signalAt: { ledger, line: "started", signal } },
+        );
+
+        expect(run.exit).toBe(exit);
+        expect(verdicts(run.lines)).toEqual([
+          `GREEN ${before.short} green before the stop`,
+        ]);
+        expect(run.stderr.split("\n")).toContain(
+          `Stopped by ${signal} while checking ${stopped.short}, so it has no verdict.`,
+        );
+        expect(worktrees(root)).toHaveLength(1);
+        expect(readdirSync(run.temporary)).toEqual([]);
+      },
+      processWatchdog(1),
+    );
+
+  for (const [signal, exit] of [
+    ["SIGHUP", 129],
+    ["SIGINT", 130],
+    ["SIGTERM", 143],
+  ] as const)
+    test(
+      `${signal} to the whole process group while git adds the worktree is the stop, not a git failure`,
+      async () => {
+        const { root, base, commit } = repositoryAt();
+        const before = commit("green before the stop", { "a.txt": "a" });
+        const stopped = commit("stop while checking out", { block: "" });
+        signalOwnGroupAtCheckoutOf(root, signal);
+
+        const run = await checkCommits(
+          root,
+          [base.sha],
+          { CHECK_COMMITS_SINCE: base.sha },
+          { ownGroup: true },
         );
 
         expect(run.exit).toBe(exit);
