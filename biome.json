@@ -9,6 +9,7 @@
       "!**/coverage",
       "!**/.fallow",
       "!**/bun.lock",
+      "!eslint-suppressions.json",
       "!!profiles",
       "!!examples",
       "!!proofs",

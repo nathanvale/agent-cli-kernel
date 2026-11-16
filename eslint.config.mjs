@@ -43,8 +43,12 @@ export default tseslint.config(
   },
 
   {
-    files: ["src/domains/**/*.ts"],
+    files: ["src/**/*.ts", "scripts/**/*.ts"],
     plugins: { repository: localRules },
+    rules: { "repository/no-locale-compare": "error" },
+  },
+  {
+    files: ["src/domains/**/*.ts"],
     rules: { "repository/no-domain-output": "error" },
   },
   ...contract3,
