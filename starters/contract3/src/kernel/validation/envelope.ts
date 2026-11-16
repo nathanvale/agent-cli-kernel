@@ -79,52 +79,64 @@ export async function validateEnvelope<C extends CauseTable>(
     path,
     reason,
   });
+  const read = readExternal(value);
+  if (!read.ok) return read;
+  // Everything below works on the kernel's private plain snapshot. A throw
+  // here is a fault in the CLI's own validation, never a property of the
+  // external value, so it propagates instead of being reported as one (K2-12).
+  const snapshot = read.value;
+  if (!declaredEnvelope(snapshot, causes))
+    return reject("$", "invalid envelope shape or correlation");
+  const command = commands.find(
+    (item) => item.commandIdentity === snapshot.result.commandIdentity,
+  );
+  const station = stations
+    .get(snapshot.result.commandIdentity)
+    ?.find((item) => item.causeCode === snapshot.result.causeCode);
+  if (
+    !command ||
+    !station ||
+    command.effectClass !== snapshot.result.effectClass
+  )
+    return reject("result", "undeclared command, station or effect class");
+  if (
+    snapshot.availablePaths.some(
+      (identity) => !commands.some((item) => item.commandIdentity === identity),
+    )
+  )
+    return reject("availablePaths", "undeclared identity");
+  if (
+    [
+      ...snapshot.result.effects.completed,
+      ...snapshot.result.effects.remaining,
+      ...snapshot.result.effects.uncertain,
+    ].some((effect) => !command.effects?.includes(effect))
+  )
+    return reject("effects", "undeclared effect");
+  if (!stationMatches(snapshot.result, station, commands))
+    return reject("result", "station guidance or delay mismatch");
+  if (!(await commandSteps(cli, snapshot.result, commands)))
+    return reject("result", "invalid command step");
+  return { ok: true, value: freeze(snapshot) };
+}
+// The only reads of the caller's value: version, the plain-JSON guard and a
+// private snapshot taken before the first await, so a caller cannot change
+// the checked value while steps are parsed (F15). A throw while reading an
+// external value is that value's fault and is refused as unreadable.
+function readExternal(value: unknown): Validation<unknown> {
   try {
     const descriptor = record(value)
       ? Object.getOwnPropertyDescriptor(value, "contractVersion")
       : undefined;
     const observed: unknown = descriptor?.value;
     const version = classifyVersion(observed);
-    if (version !== "accepted") return reject("contractVersion", version);
-    if (!json(value)) return reject("$", "not plain bounded JSON");
-    // Validate and return a private snapshot taken before the first await, so
-    // a caller cannot change the checked value while steps are parsed (F15).
+    if (version !== "accepted")
+      return { ok: false, path: "contractVersion", reason: version };
+    if (!json(value))
+      return { ok: false, path: "$", reason: "not plain bounded JSON" };
     const snapshot: unknown = structuredClone(value);
-    if (!declaredEnvelope(snapshot, causes))
-      return reject("$", "invalid envelope shape or correlation");
-    const command = commands.find(
-      (item) => item.commandIdentity === snapshot.result.commandIdentity,
-    );
-    const station = stations
-      .get(snapshot.result.commandIdentity)
-      ?.find((item) => item.causeCode === snapshot.result.causeCode);
-    if (
-      !command ||
-      !station ||
-      command.effectClass !== snapshot.result.effectClass
-    )
-      return reject("result", "undeclared command, station or effect class");
-    if (
-      snapshot.availablePaths.some(
-        (identity) =>
-          !commands.some((item) => item.commandIdentity === identity),
-      )
-    )
-      return reject("availablePaths", "undeclared identity");
-    if (
-      [
-        ...snapshot.result.effects.completed,
-        ...snapshot.result.effects.remaining,
-        ...snapshot.result.effects.uncertain,
-      ].some((effect) => !command.effects?.includes(effect))
-    )
-      return reject("effects", "undeclared effect");
-    if (!stationMatches(snapshot.result, station, commands))
-      return reject("result", "station guidance or delay mismatch");
-    if (!(await commandSteps(cli, snapshot.result, commands)))
-      return reject("result", "invalid command step");
-    return { ok: true, value: freeze(snapshot) };
+    return { ok: true, value: snapshot };
   } catch {
-    return reject("$", "unreadable external value");
+    return { ok: false, path: "$", reason: "unreadable external value" };
   }
 }
