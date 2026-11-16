@@ -104,10 +104,13 @@ caseTest("Q01.e-host-cannot-reach-seams-by-other-spellings", async () => {
     "../../addons/state/fixture.ts",
     "../state/fixture.ts",
   );
+  // The diagnostics builder's report (coordinator, 16 November 2026): the
+  // internal implementation by a sibling folder's relative path.
+  state.push(`import { install } from "../state/install.ts";\nvoid install;\n`);
   for (const [index, text] of state.entries())
     expect({
       index,
-      banned: await banned(text, "state", index === 6 ? programs : undefined),
+      banned: await banned(text, "state", index >= 6 ? programs : undefined),
     }).toEqual({ index, banned: true });
   const kernelTexts = [
     `const target = "../../kernel/state-seam.ts";\nexport const load = () => import(target);\n`,

@@ -1096,7 +1096,7 @@ export const stateCases: readonly StateCase[] = [
     ...anyPlatform,
     sources: "REC-7b; Q01; T3 delta review F1",
     observation:
-      "Host-like source fails lint for each of the six reviewed spellings that loaded the fixture (computed and template import(), createRequire, a doubled slash, a ./ segment, ../state/ from another add-on folder) and for import.meta.require, and the same holds for the kernel's internals; importing the public index still passes.",
+      "Host-like source fails lint for each of the six reviewed spellings that loaded the fixture (computed and template import(), createRequire, a doubled slash, a ./ segment, ../state/fixture.ts or ../state/install.ts from another add-on folder) and for import.meta.require, and the same holds for the kernel's internals; importing the public index still passes.",
     red: "Match only the canonical spelling of the banned path.",
   },
   {
