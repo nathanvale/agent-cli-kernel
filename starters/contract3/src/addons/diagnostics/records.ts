@@ -107,6 +107,19 @@ function boundedObject(
   return result;
 }
 
+function boundedScalar(
+  value: unknown,
+  secretForms: readonly string[],
+  cut: Cut,
+): unknown {
+  if (typeof value === "string") return boundedString(value, secretForms, cut);
+  if (typeof value === "number" && !Number.isFinite(value))
+    return lost(cut, markers.unserialisable);
+  if (value === null || typeof value === "boolean" || typeof value === "number")
+    return concealScalar(value, secretForms);
+  return lost(cut, markers.unserialisable);
+}
+
 // Plain JSON with every string concealed before it can be cut, a depth and
 // entry bound, and a visible marker for whatever was not kept.
 function bounded(
@@ -116,12 +129,8 @@ function bounded(
   cut: Cut,
   seen: Set<object> = new Set(),
 ): unknown {
-  if (typeof value === "number" && !Number.isFinite(value))
-    return lost(cut, markers.unserialisable);
-  if (value === null || typeof value === "boolean" || typeof value === "number")
-    return concealScalar(value, secretForms);
-  if (typeof value === "string") return boundedString(value, secretForms, cut);
-  if (typeof value !== "object") return lost(cut, markers.unserialisable);
+  if (typeof value !== "object" || value === null)
+    return boundedScalar(value, secretForms, cut);
   if (seen.has(value)) return lost(cut, markers.cycle);
   if (level >= limits.depth) return lost(cut, markers.depth);
   seen.add(value);
