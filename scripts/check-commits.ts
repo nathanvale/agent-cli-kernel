@@ -1,7 +1,8 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { constants, tmpdir } from "node:os";
-import { basename, delimiter, dirname, join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import type { Subprocess } from "bun";
+import { ownTools } from "./child-env.ts";
 import { doctor } from "./doctor.ts";
 
 // The head of codex/contract-3-foundation when this gate was written. A commit
@@ -27,19 +28,6 @@ type Checked = Commit & { result: Result };
 const signals = ["SIGHUP", "SIGINT", "SIGTERM"] as const;
 type StopSignal = (typeof signals)[number];
 const active: { child?: Subprocess; stoppedBy?: StopSignal } = {};
-// `bun run` prepends the caller's node_modules/.bin folders to PATH. Drop
-// them so a commit sees only what its own tree installs.
-const ownTools = {
-  ...process.env,
-  PATH: (process.env.PATH ?? "")
-    .split(delimiter)
-    .filter(
-      (entry) =>
-        basename(entry) !== ".bin" ||
-        basename(dirname(entry)) !== "node_modules",
-    )
-    .join(delimiter),
-};
 
 function isStopSignal(signal: string | undefined): signal is StopSignal {
   return signals.some((each) => each === signal);

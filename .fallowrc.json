@@ -29,6 +29,7 @@
     "src/static-admission.ts",
     "scripts/doctor.ts",
     "scripts/check-commits.ts",
+    "scripts/faults.ts",
     "scripts/test-area.ts",
     "starters/contract3/src/kernel/index.ts",
     "starters/contract3/src/kernel/pattern-worker.ts",

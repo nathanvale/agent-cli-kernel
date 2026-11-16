@@ -20,6 +20,7 @@ import { testFolder } from "./support/test-folder.ts";
 const repository = join(import.meta.dir, "..");
 const sources = [
   "scripts/check-commits.ts",
+  "scripts/child-env.ts",
   "scripts/doctor.ts",
   "src/toolchain-resolution.ts",
 ];

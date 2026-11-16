@@ -1,0 +1,447 @@
+import { afterAll, describe, expect, test } from "bun:test";
+import {
+  appendFileSync,
+  chmodSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { delimiter, dirname, join } from "node:path";
+import {
+  type SignalAt,
+  spawnBounded,
+} from "./contract3/kernel-repair/swarm-process.ts";
+import { testFolder } from "./support/test-folder.ts";
+
+const repository = join(import.meta.dir, "..");
+const folders: string[] = [];
+const gitEnv = {
+  GIT_CONFIG_GLOBAL: "/dev/null",
+  GIT_CONFIG_NOSYSTEM: "1",
+};
+const fixtureAuthor = {
+  GIT_AUTHOR_NAME: "Fixture",
+  GIT_AUTHOR_EMAIL: "fixture@example.invalid",
+  GIT_COMMITTER_NAME: "Fixture",
+  GIT_COMMITTER_EMAIL: "fixture@example.invalid",
+};
+const bound = 15_000;
+const timeout = 20_000;
+const { scripts: production } = (await Bun.file(
+  join(repository, "package.json"),
+).json()) as { scripts: Record<string, string> };
+
+const unguarded = `export function limit(value: number): number {
+  return value;
+}
+`;
+const guarded = `export function limit(value: number): number {
+  if (Number.isNaN(value)) throw new TypeError("limit must be a number");
+  return value;
+}
+`;
+const refusalTest = `expect(() => limit(Number.NaN)).toThrow("limit must be a number")`;
+const tests = (refusal: string) => `import { expect, test } from "bun:test";
+import { appendFileSync, writeFileSync } from "node:fs";
+import { limit } from "../src/limit.ts";
+
+test("L.refuses NaN", () => {
+  ${refusal};
+});
+test("L.weak keeps a number", () => {
+  expect(limit(1)).toBe(1);
+});
+test("L.red is red without the fault", () => {
+  expect(limit(1)).toBe(2);
+});
+test("L.blocks until stopped", async () => {
+  writeFileSync(process.env.FAULTS_PID ?? "", String(process.pid));
+  appendFileSync(process.env.FAULTS_LEDGER ?? "", "started\\n");
+  await new Promise(() => undefined);
+}, 60_000);
+`;
+
+afterAll(() => {
+  for (const folder of folders) rmSync(folder, { recursive: true });
+});
+
+function folder(prefix: string): string {
+  const path = testFolder(prefix);
+  folders.push(path);
+  return path;
+}
+
+function git(root: string, ...args: string[]): string {
+  const result = Bun.spawnSync(["git", ...args], {
+    cwd: root,
+    env: { ...process.env, ...gitEnv, ...fixtureAuthor },
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  if (result.exitCode !== 0)
+    throw new Error(`git ${args.join(" ")}: ${result.stderr.toString()}`);
+  return result.stdout.toString();
+}
+
+function write(root: string, path: string, content: string): void {
+  mkdirSync(dirname(join(root, path)), { recursive: true });
+  writeFileSync(join(root, path), content);
+}
+
+function commit(
+  root: string,
+  subject: string,
+  files: Record<string, string>,
+): string {
+  for (const [path, content] of Object.entries(files)) {
+    write(root, path, content);
+    git(root, "add", "--", path);
+  }
+  git(root, "commit", "--quiet", "-m", subject);
+  return git(root, "rev-parse", "--short", "HEAD").trim();
+}
+
+async function faults(
+  root: string,
+  args: readonly string[] = [],
+  {
+    signalAt,
+    env = {},
+    launcher = [],
+  }: {
+    signalAt?: SignalAt;
+    env?: Readonly<Record<string, string>>;
+    launcher?: readonly string[];
+  } = {},
+) {
+  const temporary = folder("faults-tmp-");
+  const run = await spawnBounded(
+    [...launcher, process.execPath, "run", "--silent", "faults", ...args],
+    {
+      cwd: root,
+      env: { ...process.env, ...gitEnv, TMPDIR: temporary, ...env },
+      boundMilliseconds: bound,
+      ...(signalAt === undefined ? {} : { signalAt }),
+    },
+  );
+  return { ...run, temporary, lines: run.stdout.split("\n") };
+}
+
+function addFault(root: string, fix: string, sourcePath: string) {
+  return spawnBounded(
+    [
+      process.execPath,
+      "run",
+      "--silent",
+      "faults:add",
+      fix,
+      sourcePath,
+      "tests/limit.test.ts",
+      "^L\\.refuses ",
+    ],
+    { cwd: root, env: { ...process.env, ...gitEnv }, boundMilliseconds: bound },
+  );
+}
+
+type FaultRecord = {
+  id: string;
+  patch: string;
+  testFile: string;
+  title: string;
+  source: string;
+};
+
+function manifest(root: string): FaultRecord[] {
+  return JSON.parse(
+    readFileSync(join(root, "tests/faults/manifest.json"), "utf8"),
+  ) as FaultRecord[];
+}
+
+// A repository whose fix commit added the NaN guard, with one fault recorded
+// by faults:add and one sibling record per title the case asks for.
+async function repositoryWithFault(titles: Readonly<{ [id: string]: string }>) {
+  const root = join(folder("faults-repo-"), "repo");
+  mkdirSync(root);
+  git(root, "init", "--quiet", "--initial-branch=main");
+  commit(root, "base", {
+    "package.json": JSON.stringify({
+      name: "fixture",
+      private: true,
+      scripts: {
+        faults: production.faults,
+        "faults:add": production["faults:add"],
+      },
+    }),
+    ".gitignore": "node_modules/\n",
+    "scripts/faults.ts": readFileSync(
+      join(repository, "scripts/faults.ts"),
+      "utf8",
+    ),
+    "scripts/child-env.ts": readFileSync(
+      join(repository, "scripts/child-env.ts"),
+      "utf8",
+    ),
+    "src/limit.ts": unguarded,
+  });
+  const fix = commit(root, "fix: refuse a NaN limit", {
+    "src/limit.ts": guarded,
+    "tests/limit.test.ts": tests(refusalTest),
+  });
+  const added = await addFault(root, fix, "src/limit.ts");
+  expect(added.stdout).toBe(
+    `Added ${fix}-limit. Replay it: bun run faults ${fix}-limit\n`,
+  );
+  const [killed] = manifest(root);
+  if (killed === undefined) throw new Error("faults:add wrote no record.");
+  const siblings = Object.entries(titles).map(([id, title]) => ({
+    ...killed,
+    id,
+    title,
+  }));
+  write(
+    root,
+    "tests/faults/manifest.json",
+    `${JSON.stringify([killed, ...siblings], null, 2)}\n`,
+  );
+  git(root, "add", "--", "tests/faults");
+  git(root, "commit", "--quiet", "-m", "record the faults");
+  return { root, fix, id: `${fix}-limit`, killed };
+}
+
+function verdicts(lines: readonly string[]): string[] {
+  return lines
+    .filter((line) => /^(KILLED|SURVIVED|STALE|BROKEN) /.test(line))
+    .map((line) => line.split(" ", 2).join(" "));
+}
+
+function lineOf(lines: readonly string[], start: string): string {
+  const line = lines.find((each) => each.startsWith(start));
+  if (line === undefined) throw new Error(`No line starts with ${start}.`);
+  return line;
+}
+
+function expectNoLeftovers(root: string, temporary: string): void {
+  expect(
+    git(root, "worktree", "list", "--porcelain")
+      .split("\n")
+      .filter((line) => line.startsWith("worktree ")),
+  ).toEqual([`worktree ${root}`]);
+  expect(readdirSync(temporary)).toEqual([]);
+}
+
+describe("bun run faults", () => {
+  test(
+    "FR.a faults:add stores the fix's reverse hunk, and the fault is KILLED with exit 0",
+    async () => {
+      const { root, fix, id, killed } = await repositoryWithFault({});
+      expect(killed).toEqual({
+        id,
+        patch: `tests/faults/patches/${id}.patch`,
+        testFile: "tests/limit.test.ts",
+        title: "^L\\.refuses ",
+        source: `${fix} fix: refuse a NaN limit`,
+      });
+      expect(readFileSync(join(root, killed.patch), "utf8")).toBe(
+        git(root, "diff", "HEAD~1", "HEAD~2", "--", "src/limit.ts"),
+      );
+      const run = await faults(root);
+      expect(verdicts(run.lines)).toEqual([`KILLED ${id}`]);
+      expect(lineOf(run.lines, "KILLED")).toMatch(
+        new RegExp(`^KILLED ${id} in [\\d.]+ s\\. Failed: L\\.refuses NaN$`),
+      );
+      expect(lineOf(run.lines, "1 of 1 faults KILLED in ")).toMatch(
+        /s per fault, with Bun /,
+      );
+      expect(run.exit).toBe(0);
+      expectNoLeftovers(root, run.temporary);
+    },
+    timeout,
+  );
+
+  test(
+    "FR.b a fault the named test misses is SURVIVED, named with its rerun, and exits 1",
+    async () => {
+      const { root, id } = await repositoryWithFault({
+        weak: "^L\\.weak ",
+      });
+      const run = await faults(root);
+      expect(verdicts(run.lines)).toEqual([`KILLED ${id}`, "SURVIVED weak"]);
+      expect(run.lines).toContain("Rerun: bun run faults weak");
+      expect(run.exit).toBe(1);
+      expectNoLeftovers(root, run.temporary);
+    },
+    timeout,
+  );
+
+  test(
+    "FR.c a patch that no longer applies is STALE by id, and exits 1",
+    async () => {
+      const { root, id } = await repositoryWithFault({});
+      commit(root, "reword the refusal", {
+        "src/limit.ts": guarded.replace("must be", "has to be"),
+        "tests/limit.test.ts": tests(
+          refusalTest.replace("must be", "has to be"),
+        ),
+      });
+      const run = await faults(root, [id]);
+      expect(verdicts(run.lines)).toEqual([`STALE ${id}`]);
+      expect(lineOf(run.lines, "STALE")).toMatch(
+        new RegExp(
+          `^STALE ${id} in [\\d.]+ s\\. tests/faults/patches/${id}\\.patch no longer applies at this head\\.$`,
+        ),
+      );
+      expect(run.lines).toContain(`Rerun: bun run faults ${id}`);
+      expect(run.exit).toBe(1);
+      expectNoLeftovers(root, run.temporary);
+    },
+    timeout,
+  );
+
+  test(
+    "FR.d a test that fails without the fault is BROKEN, not KILLED, and exits 1",
+    async () => {
+      const { root } = await repositoryWithFault({ red: "^L\\.red " });
+      const run = await faults(root, ["red"]);
+      expect(verdicts(run.lines)).toEqual(["BROKEN red"]);
+      expect(lineOf(run.lines, "BROKEN")).toMatch(
+        /^BROKEN red in [\d.]+ s\. bun test \.\/tests\/limit\.test\.ts -t '\^L\\\.red ' fails without the fault/,
+      );
+      expect(run.exit).toBe(1);
+      expectNoLeftovers(root, run.temporary);
+    },
+    timeout,
+  );
+
+  test(
+    "FR.e an id the manifest lacks is refused with exit 2 and runs nothing",
+    async () => {
+      const { root } = await repositoryWithFault({});
+      const run = await faults(root, ["missing"]);
+      expect(run.stderr).toBe(
+        "No fault missing in tests/faults/manifest.json.\n",
+      );
+      expect(verdicts(run.lines)).toEqual([]);
+      expect(run.exit).toBe(2);
+    },
+    timeout,
+  );
+
+  test(
+    "FR.f a replay leaves the caller's tree, index, branch and stash as they were, and sees its uncommitted edits",
+    async () => {
+      const { root, id } = await repositoryWithFault({});
+      write(root, "notes.txt", "staged\n");
+      git(root, "add", "--", "notes.txt");
+      write(root, "tests/limit.test.ts", tests("expect(true).toBe(true)"));
+      write(root, "untracked.txt", "untracked\n");
+      const state = () =>
+        [
+          git(root, "status", "--porcelain=v1", "--untracked-files=all"),
+          git(root, "diff"),
+          git(root, "diff", "--cached"),
+          git(root, "rev-parse", "HEAD"),
+          git(root, "symbolic-ref", "HEAD"),
+          git(root, "stash", "list"),
+        ].join("\n--\n");
+      const before = state();
+      const run = await faults(root);
+      expect(verdicts(run.lines)).toEqual([`SURVIVED ${id}`]);
+      expect(state()).toBe(before);
+      expectNoLeftovers(root, run.temporary);
+    },
+    timeout,
+  );
+
+  test(
+    "FR.i faults:add refuses a source path the fix does not change, and writes nothing",
+    async () => {
+      const { root, fix } = await repositoryWithFault({});
+      const before = readFileSync(
+        join(root, "tests/faults/manifest.json"),
+        "utf8",
+      );
+      const added = await addFault(root, fix, "package.json");
+      expect(added.stderr).toBe(`${fix} does not change package.json.\n`);
+      expect(added.exit).toBe(2);
+      expect(
+        readFileSync(join(root, "tests/faults/manifest.json"), "utf8"),
+      ).toBe(before);
+      expect(readdirSync(join(root, "tests/faults/patches"))).toEqual([
+        `${fix}-limit.patch`,
+      ]);
+    },
+    timeout,
+  );
+
+  for (const [signal, exit] of [
+    ["SIGHUP", 129],
+    ["SIGINT", 130],
+    ["SIGTERM", 143],
+  ] as const)
+    test(
+      `FR.g ${signal} stops the replay with exit ${exit}, no verdict, no worktree and no running test`,
+      async () => {
+        const { root } = await repositoryWithFault({
+          blocks: "^L\\.blocks ",
+        });
+        const signals = folder("faults-signal-");
+        const ledger = join(signals, "ledger");
+        const pidFile = join(signals, "pid");
+        appendFileSync(ledger, "");
+        const run = await faults(root, ["blocks"], {
+          signalAt: { ledger, line: "started", signal },
+          env: { FAULTS_LEDGER: ledger, FAULTS_PID: pidFile },
+        });
+        expect(run.stderr).toContain(
+          `Stopped by ${signal} while replaying blocks, so it has no verdict.\n`,
+        );
+        expect(verdicts(run.lines)).toEqual([]);
+        expect(run.exit).toBe(exit);
+        expect(() =>
+          process.kill(Number(readFileSync(pidFile, "utf8")), 0),
+        ).toThrow("kill() failed: ESRCH: No such process");
+        expectNoLeftovers(root, run.temporary);
+      },
+      timeout,
+    );
+
+  test(
+    "FR.h a terminal's group SIGINT while git removes the worktree still removes it, and exits 130",
+    async () => {
+      const { root } = await repositoryWithFault({});
+      const tools = folder("faults-group-");
+      const realGit = Bun.which("git");
+      if (realGit === null) throw new Error("git is not on PATH.");
+      write(
+        tools,
+        "bin/git",
+        `#!/bin/sh
+if [ "$1" = worktree ] && [ "$2" = remove ]; then
+  kill -INT -- -"$(ps -o pgid= -p "$PPID" | tr -d ' ')"
+fi
+exec '${realGit}' "$@"
+`,
+      );
+      chmodSync(join(tools, "bin/git"), 0o755);
+      write(
+        tools,
+        "own-group.ts",
+        `const child = Bun.spawn(process.argv.slice(2), {
+  detached: true,
+  stdio: ["inherit", "inherit", "inherit"],
+});
+process.exit(await child.exited);
+`,
+      );
+      const run = await faults(root, [], {
+        launcher: [process.execPath, join(tools, "own-group.ts")],
+        env: { PATH: `${join(tools, "bin")}${delimiter}${process.env.PATH}` },
+      });
+      expect(run.exit).toBe(130);
+      expectNoLeftovers(root, run.temporary);
+    },
+    timeout,
+  );
+});
