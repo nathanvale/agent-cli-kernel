@@ -571,29 +571,90 @@ async function dispatch(run: Run, value: Resolved): Promise<Delivery> {
     );
   if (run.stopped) return undefined;
   const context = capabilities(run, plan);
+  const deadlineAt =
+    deadline === undefined ? undefined : run.startedAt + deadline;
+  // CMD-9 steps 3 to 5, the check phase, before handler entry: it attaches
+  // no state and enters no handler. A deadline, stop request or refusal
+  // here is before handler entry (K3-spec-1, K3-spec-2).
+  const checked = await checkPhase(run, value, context, deadlineAt);
+  if (run.stopped) return undefined;
+  if (checked.kind === "deadline") {
+    run.controller.abort();
+    return await kernelResult(
+      run,
+      identity,
+      "DOMAIN_DEADLINE_BEFORE_START",
+      messages.DOMAIN_DEADLINE_BEFORE_START,
+    );
+  }
+  if (checked.kind === "refused") return checked.delivery;
+  // Handler entry (CMD-9 step 6): the phase records it immediately before.
   run.phase = "dispatched";
-  const execution: Promise<Execution> = run.runtime
-    .execute(identity, value.args, run.runId, context)
+  const execution: Promise<Execution> = checked.enter().then(
+    (outcome) => ({ kind: "returned", outcome }) as const,
+    () => ({ kind: "threw" }) as const,
+  );
+  const first =
+    deadlineAt === undefined
+      ? await execution
+      : await within(execution, deadlineAt - run.host.now(), run.host.now);
+  return first === undefined
+    ? afterDeadline(run, plan.command, execution)
+    : afterHandler(run, plan.command, first, deadlineAt);
+}
+
+type CheckPhase =
+  | { readonly kind: "deadline" }
+  | { readonly kind: "refused"; readonly delivery: Delivery }
+  | {
+      readonly kind: "entry";
+      readonly enter: () => Promise<Validation<CommandResult>>;
+    };
+// Runs the runtime's check phase raced against the deadline. Every refusal
+// here keeps the handler-entry fact false (`dispatched` unset), so it never
+// carries a status (Nathan, 16 November 2026, 14:19; DS05).
+async function checkPhase(
+  run: Run,
+  value: Resolved,
+  context: Record<string, unknown>,
+  deadlineAt: number | undefined,
+): Promise<CheckPhase> {
+  const identity = value.commandIdentity;
+  const prepared = run.runtime
+    .prepare(identity, value.args, run.runId, context)
     .then(
       (outcome) => ({ kind: "returned", outcome }) as const,
       () => ({ kind: "threw" }) as const,
     );
-  const first =
-    deadline === undefined
-      ? await execution
-      : await within(
-          execution,
-          run.startedAt + deadline - run.host.now(),
-          run.host.now,
-        );
-  return first === undefined
-    ? afterDeadline(run, plan.command, execution)
-    : afterHandler(
+  const settled =
+    deadlineAt === undefined
+      ? await prepared
+      : await within(prepared, deadlineAt - run.host.now(), run.host.now);
+  if (settled === undefined) return { kind: "deadline" };
+  // A thrown check or grant-store fault is a preparation fault (LIFE-9 step
+  // 1, before handler entry; X-S2b).
+  if (settled.kind === "threw")
+    return {
+      kind: "refused",
+      delivery: await kernelResult(
         run,
-        plan.command,
-        first,
-        deadline === undefined ? undefined : run.startedAt + deadline,
-      );
+        identity,
+        "INTERNAL_PREPARATION",
+        messages.INTERNAL_PREPARATION,
+      ),
+    };
+  const outcome = settled.outcome;
+  if (outcome.ok) return { kind: "entry", enter: outcome.value };
+  const causeCode =
+    outcome.path === "approval"
+      ? "DOMAIN_AUTHORITY_REQUIRED"
+      : outcome.path === "capabilities"
+        ? "INTERNAL_PREPARATION"
+        : "USAGE_INVALID_INVOCATION";
+  return {
+    kind: "refused",
+    delivery: await kernelResult(run, identity, causeCode, messages[causeCode]),
+  };
 }
 
 async function route(run: Run, resolution: Resolution): Promise<Delivery> {

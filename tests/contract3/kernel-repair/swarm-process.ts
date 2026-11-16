@@ -1,3 +1,4 @@
+import { existsSync, readFileSync } from "node:fs";
 import { exitBound } from "../lifecycle/harness.ts";
 
 // Runs one swarm-triage scenario as a real child process and returns what an
@@ -27,12 +28,19 @@ function resultOf(stdout: string): ScenarioRun["result"] {
 // after the lifecycle harness's R1 rule: a case that hangs leaves no fixture
 // process behind. The wait is bounded below the test timeout; on expiry the
 // child is killed and awaited, then the case fails naming the bound.
+// Sends `signal` once `ledger` holds the line `line` (a barrier).
+export type SignalAt = {
+  readonly ledger: string;
+  readonly line: string;
+  readonly signal: "SIGTERM" | "SIGINT";
+};
 export async function spawnBounded(
   argv: readonly string[],
   options: {
     readonly cwd?: string;
     readonly env?: Readonly<Record<string, string | undefined>>;
     readonly boundMilliseconds?: number;
+    readonly signalAt?: SignalAt;
   } = {},
 ): Promise<{ stdout: string; stderr: string; exit: number }> {
   const bound = options.boundMilliseconds ?? exitBound;
@@ -42,6 +50,17 @@ export async function spawnBounded(
     stdout: "pipe",
     stderr: "pipe",
   });
+  const barrier = options.signalAt;
+  const poll = barrier
+    ? setInterval(() => {
+        const lines = existsSync(barrier.ledger)
+          ? readFileSync(barrier.ledger, "utf8").split("\n")
+          : [];
+        if (!lines.includes(barrier.line)) return;
+        clearInterval(poll);
+        child.kill(barrier.signal);
+      }, 5)
+    : undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const expired = new Promise<undefined>((resolve) => {
     timer = setTimeout(() => resolve(undefined), bound);
@@ -55,6 +74,7 @@ export async function spawnBounded(
     expired,
   ]);
   clearTimeout(timer);
+  clearInterval(poll);
   if (!finished) {
     child.kill("SIGKILL");
     await child.exited;
@@ -76,9 +96,11 @@ export async function runScenario(
   argv: readonly string[],
   env: Readonly<Record<string, string>> = {},
   path = entry,
+  signalAt?: SignalAt,
 ): Promise<ScenarioRun> {
   const run = await spawnBounded([process.execPath, path, scenario, ...argv], {
     env: { ...process.env, ...env },
+    ...(signalAt ? { signalAt } : {}),
   });
   return { ...run, result: resultOf(run.stdout) };
 }

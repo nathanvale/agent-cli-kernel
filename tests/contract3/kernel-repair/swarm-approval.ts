@@ -15,14 +15,25 @@ export function approvalAddon(operation: string, note: (line: string) => void) {
             store: { grants: store, ledger: store },
           }).capability
         : {
-            check: () => {
+            // CHECK_DELAY delays the answer and ledgers `check-start` as a
+            // signal barrier; CHECK=throw is a grant-store fault (K3-spec-1,
+            // K3-spec-2).
+            check: async () => {
+              const delay = Number(process.env.CHECK_DELAY ?? "0");
+              if (delay > 0) {
+                note("check-start");
+                await Bun.sleep(delay);
+              }
+              if (process.env.CHECK === "throw")
+                throw new Error("Grant store unavailable.");
               note("check");
-              return Promise.resolve(process.env.CHECK === "true");
+              return process.env.CHECK === "true";
             },
           };
+      const settleDelay = Number(process.env.SETTLE_DELAY ?? "0");
       return {
         capability,
-        settle: () => Promise.resolve(true),
+        settle: () => Bun.sleep(settleDelay).then(() => true),
         killNow: () => undefined,
       };
     },

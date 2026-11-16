@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { materialise } from "./harness.ts";
 import { processWatchdog, runScenario } from "./swarm-process.ts";
+import type { SignalAt } from "./swarm-process.ts";
 
 // Swarm-triage expectations that need a state installation (X-K1-4,
 // X-K1-10, X-K2S1, X-K2S2, X-K2S3). The installation is a test-only fixture
@@ -23,12 +24,14 @@ function run(
   scenario: string,
   argv: readonly string[] = [],
   env: Readonly<Record<string, string>> = {},
+  signalAt?: SignalAt,
 ) {
   return runScenario(
     scenario,
     argv,
     env,
     join(root, "tests/contract3/kernel-repair/swarm-state-cli.ts"),
+    signalAt,
   );
 }
 async function printed(scenario: string, env = {}): Promise<unknown> {
@@ -343,4 +346,117 @@ test(
     });
   },
   processTimeout,
+);
+
+// K3-spec-1 and K3-spec-2: the approval check phase runs before handler
+// entry. Each run gets a fresh ledger, read 1 s after exit so a late handler
+// would have written to it.
+async function preflightRun(
+  name: string,
+  argv: readonly string[],
+  env: Record<string, string>,
+  signal?: "SIGTERM",
+) {
+  const ledger = join(root, `preflight-${name}.txt`);
+  const child = await run(
+    "approval-attach",
+    ["guarded", ...argv],
+    { ...env, LEDGER: ledger },
+    signal ? { ledger, line: "check-start", signal } : undefined,
+  );
+  await Bun.sleep(1000);
+  const lines = (await readFile(ledger, "utf8").catch(() => ""))
+    .split("\n")
+    .filter((line) => line !== "");
+  return { child, lines };
+}
+// The lifecycle row "Deadline before operation dispatch" (read: before
+// handler entry, Nathan 16 November 2026) and WIRE-15.
+const beforeStart = {
+  commandIdentity: "specimen.guarded",
+  outcome: "refused",
+  transactionState: "unchanged",
+  causeCode: "DOMAIN_DEADLINE_BEFORE_START",
+  exitCode: 3,
+  effects: {
+    completed: [],
+    remaining: [],
+    uncertain: [],
+    inventoryComplete: true,
+  },
+};
+
+test(
+  "X-S1a and X-S2a.deadline-during-check-phase: a deadline during the approval check refuses before handler entry",
+  async () => {
+    // LIFE-6: at the deadline the command stops starting work; CMD-9 step 6
+    // follows steps 4 and 5. Checks delayed 200 ms and 1,000 ms.
+    for (const delay of ["200", "1000"]) {
+      const observed = await preflightRun(
+        `deadline-${delay}`,
+        ["--deadline-ms", "50", "--json"],
+        { CHECK: "true", CHECK_DELAY: delay },
+      );
+      expect({
+        exit: observed.child.exit,
+        stderr: observed.child.stderr,
+      }).toEqual({
+        exit: 3,
+        stderr: "",
+      });
+      expect(observed.child.stdout.trim().split("\n")).toHaveLength(1);
+      expect(observed.child.result).toMatchObject(beforeStart);
+      expect(observed.lines).not.toContain("handler-entered");
+      expect(observed.lines).not.toContain("state-attached");
+    }
+  },
+  processWatchdog(2),
+);
+
+test(
+  "X-S1b.stop-during-check-phase: SIGTERM during the approval check exits 143 with no handler entry",
+  async () => {
+    // LIFE-3: stop new domain work at the first stop request; LIFE-4.
+    const observed = await preflightRun(
+      "sigterm",
+      ["--json"],
+      { CHECK: "true", CHECK_DELAY: "200", SETTLE_DELAY: "400" },
+      "SIGTERM",
+    );
+    expect({
+      exit: observed.child.exit,
+      stdout: observed.child.stdout,
+      stderr: observed.child.stderr,
+    }).toEqual({ exit: 143, stdout: "", stderr: "" });
+    expect(observed.lines).toEqual(["check-start", "check"]);
+  },
+  processWatchdog(1),
+);
+
+test(
+  "X-S2b.check-phase-store-fault: a fault in the approval check is a preparation refusal before handler entry",
+  async () => {
+    // LIFE-9 step 1 "Before dispatch" (before handler entry):
+    // INTERNAL_PREPARATION, refused and unchanged; WIRE-15.
+    const observed = await preflightRun("fault", ["--json"], {
+      CHECK: "throw",
+      CHECK_DELAY: "1",
+    });
+    expect({
+      exit: observed.child.exit,
+      stderr: observed.child.stderr,
+    }).toEqual({
+      exit: 1,
+      stderr: "",
+    });
+    expect(observed.child.stdout.trim().split("\n")).toHaveLength(1);
+    expect(observed.child.result).toMatchObject({
+      commandIdentity: "specimen.guarded",
+      outcome: "refused",
+      transactionState: "unchanged",
+      causeCode: "INTERNAL_PREPARATION",
+    });
+    expect(observed.lines).toEqual(["check-start"]);
+  },
+  processWatchdog(1),
 );

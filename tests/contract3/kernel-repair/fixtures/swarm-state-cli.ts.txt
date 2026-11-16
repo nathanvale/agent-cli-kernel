@@ -55,7 +55,7 @@ function guardedContract() {
     identity: "specimen.guarded",
     route: ["guarded"],
     summary: "Apply e behind approval.",
-    input,
+    input: { ...input, deadlineSupported: true },
     capabilities: { approval: true },
     approval: () => ({
       authority: authority("specimen.owner"),
