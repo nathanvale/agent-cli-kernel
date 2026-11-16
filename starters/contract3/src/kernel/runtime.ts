@@ -72,10 +72,9 @@ export type ContractRuntime = {
   ) => Promise<Validation<unknown>>;
   readonly buildResult: (result: CommandResult) => Promise<Validation<unknown>>;
   readonly validate: (value: unknown) => Promise<Validation<Envelope>>;
-  readonly trustedSummary: (
-    result: CommandResult,
-    runId: string,
-  ) => StateObservation | undefined;
+  // The trusted summary: the proof the state seam issued for the run, if
+  // any, whether or not the handler returned (contract question 4 of 8).
+  readonly trustedSummary: (runId: string) => StateObservation | undefined;
 };
 
 const runtimes = new WeakMap<object, ContractRuntime>();

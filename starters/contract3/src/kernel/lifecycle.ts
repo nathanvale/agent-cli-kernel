@@ -514,7 +514,7 @@ async function afterDeadline(
   execution: Promise<Execution>,
 ): Promise<Delivery> {
   run.controller.abort();
-  const [late] = await Promise.all([
+  await Promise.all([
     within(execution, cancellationMilliseconds, run.host.now),
     within(
       settleAll(run, settleLimitMilliseconds),
@@ -522,10 +522,7 @@ async function afterDeadline(
       run.host.now,
     ),
   ]);
-  const summary =
-    late?.kind === "returned" && late.outcome.ok
-      ? run.runtime.trustedSummary(late.outcome.value, run.runId)
-      : undefined;
+  const summary = run.runtime.trustedSummary(run.runId);
   const selected =
     command.effectClass === "inspect"
       ? { causeCode: deadlineCause.unchanged, effects: unchangedEffects }
@@ -556,21 +553,23 @@ async function afterHandler(
   const clean = await settleOwned(run, deadlineAt);
   if (clean === undefined)
     return afterDeadline(run, command, Promise.resolve(execution));
+  // After handler entry the trusted summary is the issued proof, whatever
+  // the handler then did (contract question 4 of 8, LIFE-9).
+  const trusted = trustedRun(
+    run,
+    identity,
+    true,
+    run.runtime.trustedSummary(run.runId),
+  );
   if (execution.kind === "threw")
     return {
       candidate: { ok: false, path: "handler", reason: "handler threw" },
-      trusted: trustedRun(run, identity, true),
+      trusted,
     };
   const outcome = execution.outcome;
   if (!outcome.ok && outcome.path !== "result")
     return refusal(run, identity, outcome.path);
-  if (!outcome.ok)
-    return {
-      candidate: outcome,
-      trusted: trustedRun(run, identity, true),
-    };
-  const summary = run.runtime.trustedSummary(outcome.value, run.runId);
-  const trusted = trustedRun(run, identity, true, summary);
+  if (!outcome.ok) return { candidate: outcome, trusted };
   if (!clean)
     return {
       candidate: {

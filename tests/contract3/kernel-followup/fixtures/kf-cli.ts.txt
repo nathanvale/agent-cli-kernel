@@ -26,6 +26,7 @@ import type {
 } from "__KERNEL__/index.ts";
 import { authority, path, resource } from "__KERNEL__/validation/brands.ts";
 import { approval } from "__ADDONS__/approval/index.ts";
+import { stateAddon } from "__ADDONS__/state/index.ts";
 
 const env = process.env;
 function note(line: string): void {
@@ -71,6 +72,15 @@ const refusal = {
 const causes = {
   KF_HELD: refusal,
   KF_PRIOR: refusal,
+  // A host station for a confirmed partial change (KF2.c twin).
+  KF_PARTIAL: {
+    outcome: "failed",
+    transactionState: "partially-completed",
+    failureClass: "domain",
+    exitCode: 3,
+    retryable: false,
+    guidance: "handoff",
+  },
 } as const;
 const table = { ...commonCauses, ...causes };
 const lockHandoff = {
@@ -442,8 +452,177 @@ function applyApproved(state: StateAddonDescriptor) {
   });
 }
 
+// Decision 2 (KF2). KF_PROOF picks the effects and what the transaction
+// observes: `completed` (kf.e confirmed), `partial` (kf.e1 confirmed, kf.e2
+// never recorded), `unchanged` (nothing recorded), `unknown` (kf.e read-back
+// throws), `wide40` and `wide25` (that many 480-character effects, all
+// confirmed). KF_AFTER picks what the handler does once the proof exists:
+// `throw`, `refusal` (KF_HELD without a proof), `invalid` (a success whose
+// data is NaN, without a proof), `result` (the station matching the proof),
+// or `before` (it throws before calling the transaction). KF_LAYER `seam`
+// uses the seam installation, `addon` the shipped state add-on over
+// KF_STATE_ROOT.
+const proofVariant = env.KF_PROOF ?? "completed";
+function wideEffects(count: number): readonly [string, ...string[]] {
+  const effects = Array.from(
+    { length: count },
+    (_, index) => `fx.wide.${String(index).padStart(2, "0")}.${"w".repeat(480)}`,
+  );
+  const [first, ...rest] = effects;
+  if (first === undefined) throw new Error("No wide effects.");
+  return [first, ...rest];
+}
+const variantEffects: Readonly<Record<string, readonly [string, ...string[]]>> = {
+  completed: ["kf.e"],
+  unchanged: ["kf.e"],
+  unknown: ["kf.e"],
+  partial: ["kf.e1", "kf.e2"],
+  wide40: wideEffects(40),
+  wide25: wideEffects(25),
+};
+async function variantWork(transaction: EffectTransaction<string>) {
+  const record = (effect: string, readBack: () => Promise<boolean>) =>
+    transaction.record(
+      effect,
+      () => {
+        note(`effect-applied ${effect}`);
+        return Promise.resolve();
+      },
+      readBack,
+    );
+  const confirmed = () => Promise.resolve(true);
+  switch (proofVariant) {
+    case "unchanged":
+      return;
+    case "unknown":
+      await record("kf.e", () => Promise.reject(new Error("Read-back fault.")));
+      return;
+    case "partial":
+      await record("kf.e1", confirmed);
+      return;
+    default:
+      for (const effect of variantEffects[proofVariant] ?? []) {
+        // A wide effect id is never written to the ledger in full.
+        await transaction.record(effect, () => Promise.resolve(), confirmed);
+        note(`effect-applied ${effect.slice(0, 10)}`);
+      }
+  }
+}
+type Transact = (
+  state: unknown,
+  work: (transaction: EffectTransaction<string>) => Promise<void>,
+) => Promise<unknown>;
+function proofApply(state: StateAddonDescriptor, transact: Transact) {
+  const effects = variantEffects[proofVariant];
+  if (!effects) throw new Error(`Unknown proof variant ${proofVariant}.`);
+  const after = env.KF_AFTER ?? "throw";
+  return changing({
+    identity: "kf.apply",
+    route: ["apply"],
+    summary: "Apply the kf effects.",
+    input,
+    capabilities: {},
+    effectClass: "repository-local",
+    effects,
+    ifNoResult: state.ifNoResult,
+    heldLockCause: "KF_HELD",
+    unresolvedCaseCause: "KF_PRIOR",
+    stations: [
+      ...coordination("kf.apply"),
+      completed("kf.apply"),
+      station(table, {
+        ...words,
+        commandIdentity: "kf.apply",
+        causeCode: "KF_PARTIAL",
+        trigger: "A known subset of the kf effects completed.",
+        repairAction: "Inspect the kf effects.",
+        guidance: {
+          handoff: {
+            owner: "operator",
+            reason: "Inspect the kf effects.",
+            inspect: [{ kind: "command", command: "kf.pending", args: [] }],
+          },
+        },
+        independentObservable: "kf.apply:partial",
+      }),
+    ],
+    run: async (_input, context) => {
+      note("handler-entered");
+      if (after === "before") throw new Error("Handler fault before work.");
+      const proof = (await transact(context.state, variantWork)) as never as {
+        readonly transactionState: string;
+      };
+      note(`proof ${proof.transactionState}`);
+      const facts = { message: "Done.", data: null } as const;
+      if (after === "throw") throw new Error("Handler fault after the proof.");
+      if (after === "refusal")
+        return context.result(
+          { commandIdentity: "kf.apply", causeCode: "KF_HELD" },
+          { ...facts, effects: empty },
+        );
+      if (after === "invalid")
+        return context.result(
+          { commandIdentity: "kf.apply", causeCode: "SUCCESS_COMPLETED" },
+          { ...facts, data: Number.NaN, effects: empty } as never,
+        );
+      const selected =
+        proof.transactionState === "completed"
+          ? "SUCCESS_COMPLETED"
+          : proof.transactionState === "partially-completed"
+            ? "KF_PARTIAL"
+            : "KF_HELD";
+      return context.result(
+        { commandIdentity: "kf.apply", causeCode: selected } as never,
+        { ...facts, transaction: proof, effects: empty } as never,
+      );
+    },
+  });
+}
+function layered(): { state: StateAddonDescriptor; transact: Transact } {
+  if (env.KF_LAYER !== "addon") {
+    const state = seamState();
+    return {
+      state,
+      transact: (capability, work) =>
+        (capability as { transaction: (w: typeof work) => Promise<unknown> })
+          .transaction(work),
+    };
+  }
+  const shipped = stateAddon({
+    root: env.KF_STATE_ROOT ?? "",
+    report: "kf.pending",
+  });
+  return {
+    state: shipped.descriptor,
+    transact: async (capability, work) =>
+      (
+        await shipped.transaction(
+          capability as never,
+          {
+            command: "kf.apply",
+            scope: { resources: [{ resource: "kf.item", key: "kf.item" }] },
+          },
+          work,
+        )
+      ).proof,
+  };
+}
+
 const scenarios: Readonly<Record<string, (argv: string[]) => Promise<unknown>>> =
   {
+    // KF2.
+    proof: (argv) => {
+      const { state, transact } = layered();
+      return runProcess(
+        contractFor({
+          cli: "kf",
+          commands: [proofApply(state, transact), pending],
+          causes,
+          state,
+          installedAddons: ["state"],
+        }),
+      )(argv);
+    },
     // KF1.a inspect, KF1.b, KF7.a inspect.
     read: (argv) =>
       runProcess(

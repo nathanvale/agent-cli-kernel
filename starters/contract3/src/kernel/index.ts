@@ -14,6 +14,7 @@ import {
   isStateDescriptor,
   createStateAddon,
   attachState,
+  issuedProof,
   proofFreeResultAllowed,
 } from "./state-seam.ts";
 import type { StateAddonDescriptor } from "./state-seam.ts";
@@ -466,12 +467,7 @@ export function contractFor<
     buildKernelStation,
     buildResult: (result) => contract.buildResult(result),
     validate,
-    trustedSummary(result, runId) {
-      const proof: unknown = acceptedResults.has(result)
-        ? resultPlan(result)?.facts.transaction
-        : undefined;
-      return proofValue(proof, runId, spec.state) ? proof : undefined;
-    },
+    trustedSummary: (runId) => issuedProof(runId, spec.state),
   });
   return contract;
 }

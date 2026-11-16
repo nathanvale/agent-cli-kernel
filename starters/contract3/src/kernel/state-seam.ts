@@ -70,7 +70,7 @@ const routes = new WeakSet<object>();
 // can therefore never stand in for a later transaction on the same attachment.
 type AttachedRun = {
   transactionStarted: boolean;
-  proofState: TransactionState | undefined;
+  proof: TransactionProof | undefined;
 };
 const attachedRuns = new WeakMap<object, AttachedRun>();
 type IssuedScope = {
@@ -115,7 +115,22 @@ export function proofFreeResultAllowed(
     ? registrations.get(descriptor)?.runs.get(runId)
     : undefined;
   const attached = run ? attachedRuns.get(run) : undefined;
-  return !attached?.transactionStarted || attached.proofState === "unchanged";
+  return (
+    !attached?.transactionStarted ||
+    attached.proof?.transactionState === "unchanged"
+  );
+}
+// Accepted decision (contract question 4 of 8): the trusted summary is any
+// proof this state add-on instance issued for the run's current attachment,
+// whether or not the handler returned.
+export function issuedProof(
+  runId: string,
+  descriptor: StateAddonDescriptor | undefined,
+): TransactionProof | undefined {
+  const run = descriptor
+    ? registrations.get(descriptor)?.runs.get(runId)
+    : undefined;
+  return run ? attachedRuns.get(run)?.proof : undefined;
 }
 // Runtime counterpart of the ExclusiveScope brand (K2): true only for the
 // kernel-issued object itself, issued by `descriptor`'s state add-on instance for the
@@ -200,7 +215,7 @@ function stateIssuer(
         throw new Error("Transaction proof requires the active attached run.");
       const run = execution.run;
       const attached = attachedRuns.get(run);
-      if (!attached || attached.proofState !== undefined)
+      if (!attached || attached.proof !== undefined)
         throw new Error("One transaction proof per attached run.");
       const proof: TransactionProof<Effect> = {
         ...snapshot,
@@ -213,7 +228,7 @@ function stateIssuer(
       Object.freeze(proof.effects);
       Object.freeze(proof);
       proofs.set(proof, { runId, stateInstance, run });
-      attached.proofState = proof.transactionState;
+      attached.proof = proof;
       return proof;
     },
     exclusiveScope(
@@ -321,7 +336,7 @@ export function attachState<Effect extends string>(
   const run = Object.freeze({});
   const status: AttachedRun = {
     transactionStarted: false,
-    proofState: undefined,
+    proof: undefined,
   };
   attachedRuns.set(run, status);
   state.runs.set(runId, run);
