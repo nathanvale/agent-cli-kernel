@@ -69,7 +69,7 @@ const ffiImport = {
 const literalMessage =
   "Host code imports the stamped kernel and the state add-on through their public index only, by a literal specifier: no computed or template import(), require, createRequire or import.meta.require.";
 const canonicalMessage =
-  "Host code imports the stamped kernel and the state add-on through their public index only, spelled canonically: no doubled slash and no . or .. segment inside a path.";
+  "Host code imports the stamped kernel and the state add-on through their public index only, spelled canonically: no doubled slash, no leading ./ before .., and no . or .. segment inside a path.";
 const reachability = [
   {
     selector: "ImportExpression:not([source.type='Literal'])",
@@ -81,7 +81,8 @@ const reachability = [
     message: literalMessage,
   },
   {
-    selector: "ImportExpression[source.value=/\\x2f\\x2f|\\x2f[.]\\x2f/]",
+    selector:
+      "ImportExpression[source.value=/\\x2f\\x2f|\\x2f[.]\\x2f|^[.]\\x2f[.][.]\\x2f/]",
     message: canonicalMessage,
   },
   {
@@ -179,7 +180,10 @@ function hostRules({ banFfi = true, logging = loggingImports } = {}) {
           logging,
           stateIndexOnly,
           {
-            regex: "//|/\\.(?:/|$)|(?:^|/)(?!\\.\\.?/)[^/]+/\\.\\.(?:/|$)",
+            // A doubled slash, a "." segment after a slash, a leading
+            // "./" before "..", or a named segment followed by "..".
+            regex:
+              "//|/\\.(?:/|$)|^\\./\\.\\.(?:/|$)|(?:^|/)(?!\\.\\.?/)[^/]+/\\.\\.(?:/|$)",
             message: canonicalMessage,
           },
           {

@@ -105,12 +105,26 @@ caseTest("Q01.e-host-cannot-reach-seams-by-other-spellings", async () => {
     "../state/fixture.ts",
   );
   // The diagnostics builder's report (coordinator, 16 November 2026): the
-  // internal implementation by a sibling folder's relative path.
-  state.push(`import { install } from "../state/install.ts";\nvoid install;\n`);
+  // internal implementation by a sibling folder's relative path; and the
+  // standards review's F1: the same with a leading "./".
+  state.push(
+    `import { install } from "../state/install.ts";\nvoid install;\n`,
+    `export { stateAddonWithTestSeams } from "./../state/fixture.ts";\n`,
+    `import { install } from "./../state/install.ts";\nvoid install;\n`,
+    `export const load = () => import("./../state/fixture.ts");\n`,
+  );
   for (const [index, text] of state.entries())
     expect({
       index,
       banned: await banned(text, "state", index >= 6 ? programs : undefined),
+    }).toEqual({ index, banned: true });
+  // The diagnostics folder has its own logging override (merge of 820c5a1);
+  // the sibling spellings stay banned there too.
+  const diagnostics = resolve(source, "addons/diagnostics/index.ts");
+  for (const [index, text] of state.slice(6).entries())
+    expect({
+      index,
+      banned: await banned(text, "state", diagnostics),
     }).toEqual({ index, banned: true });
   const kernelTexts = [
     `const target = "../../kernel/state-seam.ts";\nexport const load = () => import(target);\n`,
@@ -141,6 +155,7 @@ caseTest("Q01.f-foreign-call-confined-to-linux-route", async () => {
     resolve(source, "addons/state/coordination.ts"),
     resolve(source, "addons/state/install.ts"),
     resolve(source, "addons/programs/index.ts"),
+    resolve(source, "addons/diagnostics/index.ts"),
     resolve(source, "kernel/index.ts"),
   ];
   const statically = `import { dlopen } from "bun:ffi";\nvoid dlopen;\n`;
@@ -155,7 +170,33 @@ caseTest("Q01.f-foreign-call-confined-to-linux-route", async () => {
       banned: await banned(dynamically, "ffi", filePath),
     }).toEqual({ filePath, banned: true });
   }
+  // The carve-out stays narrow (standards review F3): the route file is
+  // linted (not ignored), only the bun:ffi ban lifts there, and every other
+  // host rule still applies to it.
+  expect(await eslint.isPathIgnored(route)).toBe(false);
   expect(await banned(statically, "ffi", route)).toBe(false);
+  expect(
+    (
+      await messages(
+        `import { spawn } from "node:child_process";\nvoid spawn;\n`,
+        route,
+      )
+    ).some((message) => message.ruleId === "no-restricted-imports"),
+  ).toBe(true);
+  expect(
+    await banned(
+      `export * from "../../kernel/state-seam.ts";\n`,
+      "kernel",
+      route,
+    ),
+  ).toBe(true);
+  expect(
+    await banned(
+      `export const load = () => import("./../state/fixture.ts");\n`,
+      "state",
+      route,
+    ),
+  ).toBe(true);
   const [committed] = await eslint.lintFiles([route]);
   expect(committed?.errorCount).toBe(0);
 });
