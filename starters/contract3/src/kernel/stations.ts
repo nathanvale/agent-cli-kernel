@@ -111,7 +111,7 @@ export function validateWords(
   )
     throw new Error("Invalid repair action.");
   const guidance = spec.guidance;
-  if (commandSteps(guidance).some((step) => carriesGlobalSwitch(step.args)))
+  if (declaredSteps(guidance).some((step) => carriesGlobalSwitch(step.args)))
     throw new Error("Command step args carry a global switch before --.");
   // DISC-8: guidance is strict `{ next }` or strict `{ handoff }` (K1-5).
   if (
@@ -129,8 +129,9 @@ export function validateWords(
   validateDelay(spec.retryDelayPolicy, row.retryable);
 }
 // The command steps a declared guidance arm names, read defensively because
-// a raw declaration reaches this check before its shape is proven.
-function commandSteps(
+// a raw declaration reaches this check before its shape is proven. Kept
+// apart from nextStep so the refusal names the switch rule (S8).
+function declaredSteps(
   guidance: DeclaredStation["guidance"],
 ): readonly { readonly args: readonly unknown[] }[] {
   const inspect: unknown = guidance.handoff?.inspect;

@@ -2,6 +2,7 @@ import type { CommandDeclaration, CommandSummary } from "./declarations.ts";
 import { emptyInput } from "./input.ts";
 import type { DeclaredStation } from "./stations.ts";
 import type { CauseTable, Handoff, NextStep } from "./types.ts";
+import { commonCauses } from "./causes.ts";
 import { exits } from "./types.ts";
 import {
   deadlineCause,
@@ -86,8 +87,12 @@ const deadlineWords = {
   repair: "Inspect the deadline and the input before deciding on a new run.",
   next: "Inspect the deadline and the input, then explicitly decide whether to start a new run.",
 } as const;
-const instructionWords: Readonly<
-  Record<string, { readonly repair: string; readonly next: string }>
+// Keyed by the common-cause codes, so a misspelt key does not compile (S11).
+const instructionWords: Partial<
+  Record<
+    keyof typeof commonCauses,
+    { readonly repair: string; readonly next: string }
+  >
 > = {
   USAGE_UNKNOWN_COMMAND: {
     repair: "Use a command identity this CLI declares.",
@@ -100,12 +105,17 @@ const instructionWords: Readonly<
   DOMAIN_DEADLINE_BEFORE_START: deadlineWords,
   [deadlineCause.unchanged]: deadlineWords,
 };
+function instructionFor(causeCode: string) {
+  return Object.entries(instructionWords).find(
+    ([code]) => code === causeCode,
+  )?.[1];
+}
 function kernelRepair(causeCode: string, success: boolean): string | null {
   if (success) return null;
   if (causeCode === "DOMAIN_AUTHORITY_REQUIRED")
     return "Obtain an exact-item grant from the command's authority owner, then decide on a new run.";
   return (
-    instructionWords[causeCode]?.repair ??
+    instructionFor(causeCode)?.repair ??
     "Inspect the command, its input and independently observable resource before a new run."
   );
 }
@@ -144,7 +154,7 @@ function kernelWords(
       },
     };
   if (causeCode === "SUCCESS_UNCHANGED") return { next: { kind: "done" } };
-  const instruction = instructionWords[causeCode];
+  const instruction = instructionFor(causeCode);
   if (instruction)
     return { next: { kind: "instruction", text: instruction.next } };
   return { next: { kind: "command", command: `${cli}.help`, args: [] } };
