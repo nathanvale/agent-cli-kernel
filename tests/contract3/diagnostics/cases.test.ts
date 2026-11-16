@@ -130,7 +130,7 @@ function repairCaseIds(round: 1 | 2 = 1): readonly string[] {
 
 test("T5 ledger: every repair control is bound to a test", () => {
   const ids = [...repairCaseIds(1), ...repairCaseIds(2)];
-  expect(ids).toHaveLength(15);
+  expect(ids).toHaveLength(16);
   const bound = cited(
     testSources() + readFileSync(join(here, "cases.test.ts"), "utf8"),
   );

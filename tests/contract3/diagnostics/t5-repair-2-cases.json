@@ -51,6 +51,12 @@
       "item": "2",
       "sources": ["DIAG-11", "DIAG-7"],
       "red": "a run that loses the race to create the directory tree discloses setup"
+    },
+    {
+      "id": "R2.allocation-lock-serialises",
+      "item": "2",
+      "sources": ["DIAG-11"],
+      "red": "the shared allocation lock removed: a second run allocates while the first holds it"
     }
   ]
 }

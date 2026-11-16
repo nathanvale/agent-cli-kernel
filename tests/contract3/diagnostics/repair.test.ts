@@ -362,7 +362,9 @@ describe("Repair round 2: non-string secrets, an observed late completion, a sym
       const launch = start({
         argv: read,
         tree: where,
-        fault: "write-delays:900",
+        // Only the first write is delayed: if the sink kept going after the
+        // late completion, the second record would land at once.
+        fault: "write-delays-first:900",
         script,
         holdStdoutUntil: gate,
       });
@@ -448,6 +450,37 @@ describe("Repair round 2: non-string secrets, an observed late completion, a sym
         ]).toEqual([null, "string"]);
       }
       expect(observe(where.dir).files).toHaveLength(10);
+    },
+    timeout,
+  );
+
+  test(
+    "R2.allocation-lock-serialises: while one run holds the shared allocation lock, another discloses capacity instead of allocating",
+    async () => {
+      const where = tree();
+      const ready = join(where.root, "holder-ready");
+      const go = join(where.root, "holder-go");
+      // The holder pauses inside allocation, lock held, just before open.
+      const holder = start({
+        argv: read,
+        tree: where,
+        fault: `open-barrier:${ready}:${go}`,
+        script: { records: 1 },
+      });
+      await waitForFile(ready);
+      const second = await run({
+        argv: read,
+        tree: where,
+        script: { records: 1 },
+      });
+      release(go);
+      expectSuccess(second);
+      expect(get(statusOf(second), "sinkFailure")).toBe("capacity");
+      expect(get(statusOf(second), "file")).toBeNull();
+      const first = await holder.finished;
+      expectSuccess(first);
+      expect(get(statusOf(first), "sinkFailure")).toBeNull();
+      expect(observe(where.dir).files).toHaveLength(1);
     },
     timeout,
   );
