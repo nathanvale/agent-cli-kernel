@@ -1,0 +1,50 @@
+---
+
+name: contract3-work
+description: Build, repair, or review Contract 3 code in `starters/contract3/` or `tests/contract3/`. Use when changing either folder or reviewing a diff that touches it.
+---
+
+# Contract 3 work
+
+Paths below are from the repository root. These owners hold the rules; follow
+each pointer rather than a copy:
+
+- [AGENTS.md authority](../../../AGENTS.md#authority): frozen Contract 3 text,
+  foundation spec, findings ledger, glossary.
+- [AGENTS.md checks](../../../AGENTS.md#checks): focused runs and where the
+  full suite runs.
+- [CODING_STANDARDS.md](../../../CODING_STANDARDS.md): the rule table, its
+  gates, and the review routine.
+- [docs/standards/](../../../docs/standards/): the judgement guide each rule
+  row links.
+
+Take **Build** when you write or repair code, **Review** when you judge a
+diff.
+
+## Build
+
+1. Run `bun run doctor` until it exits 0, applying each repair it prints.
+2. Prove each case you add or change with a focused run from
+   [AGENTS.md checks](../../../AGENTS.md#checks).
+3. For each new refusal or bound, apply the
+   [planted-fault guide](../../../docs/standards/test-proof.md#planted-faults).
+4. Send the full suite and timing-sensitive cases where
+   [AGENTS.md checks](../../../AGENTS.md#checks) sends them. This repository
+   does not record the Mac mini gate route: ask the coordinator for it.
+
+Done when each item holds at the pushed head:
+
+- `bun run doctor` exits 0.
+- Every added or changed case has a green focused run.
+- Every new refusal or bound meets the planted-fault guide.
+- Hosted CI is green, or each case it did not run is reported **unproved**.
+  An unproved case is never reported as a pass.
+
+## Review
+
+1. Read the diff and the commit bodies in its range; the planted-fault
+   evidence lives in commit bodies.
+2. Run the [review routine](../../../CODING_STANDARDS.md#review-routine) on
+   that diff. Its last step is your report.
+
+Done when every step of the review routine is complete for the diff.
