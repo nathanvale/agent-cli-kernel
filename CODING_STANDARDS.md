@@ -35,20 +35,20 @@ now enforces.
 
 ## Rule table
 
-| Rule                                          | Today       | Planned (parked)                                | Guide                                                               |
-| --------------------------------------------- | ----------- | ----------------------------------------------- | ------------------------------------------------------------------- |
-| Each test fails for the reason its name gives | Review only | Lint `require-to-throw-message`; typed rule ids | [Test proof](docs/standards/test-proof.md#refusals-and-bounds)      |
-| Each new refusal or bound has a planted fault | Review only | `bun run faults` replay                         | [Test proof](docs/standards/test-proof.md#planted-faults)           |
-| Process proofs use the production entry       | Review only | None                                            | [Test proof](docs/standards/test-proof.md#production-entry)         |
-| Test processes are bounded and released       | Review only | Lint `tests-use-bounded-runner`                 | [Test proof](docs/standards/test-proof.md#processes)                |
-| Tests wait on events, not wall time           | Review only | Lint `tests-no-sleep`                           | [Test proof](docs/standards/test-proof.md#time)                     |
-| One rule holds on every construction route    | Review only | `AdmittedCommand` brand                         | [One rule, one path](docs/standards/one-rule-one-path.md)           |
-| Every exit path emits exactly one envelope    | Partial     | None                                            | [Failure envelopes](docs/standards/failure-envelopes.md)            |
-| Untrusted values are read once, as own data   | Partial     | None                                            | [Untrusted values](docs/standards/untrusted-values.md#object-model) |
-| Delays, waits, and work have stated bounds    | Review only | `Milliseconds` and `Bound` brands               | [Untrusted values](docs/standards/untrusted-values.md#bounds)       |
-| Behaviour holds on Linux and macOS            | Partial     | Lint `no-host-path-literal`                     | [Platform parity](docs/standards/platform-parity.md)                |
-| Glossary terms only                           | Partial     | Lint `glossary-term`                            | [Glossary authority](AGENTS.md#authority)                           |
-| One owner per constant, fake, and helper      | Partial     | Shared `tests/support/` module                  | [One owner](docs/standards/one-owner.md)                            |
+| Rule                                          | Today       | Planned (parked)                  | Guide                                                               |
+| --------------------------------------------- | ----------- | --------------------------------- | ------------------------------------------------------------------- |
+| Each test fails for the reason its name gives | Partial     | Typed rule ids                    | [Test proof](docs/standards/test-proof.md#refusals-and-bounds)      |
+| Each new refusal or bound has a planted fault | Review only | `bun run faults` replay           | [Test proof](docs/standards/test-proof.md#planted-faults)           |
+| Process proofs use the production entry       | Review only | None                              | [Test proof](docs/standards/test-proof.md#production-entry)         |
+| Test processes are bounded and released       | Review only | Lint `tests-use-bounded-runner`   | [Test proof](docs/standards/test-proof.md#processes)                |
+| Tests wait on events, not wall time           | Partial     | None                              | [Test proof](docs/standards/test-proof.md#time)                     |
+| One rule holds on every construction route    | Review only | `AdmittedCommand` brand           | [One rule, one path](docs/standards/one-rule-one-path.md)           |
+| Every exit path emits exactly one envelope    | Partial     | None                              | [Failure envelopes](docs/standards/failure-envelopes.md)            |
+| Untrusted values are read once, as own data   | Partial     | None                              | [Untrusted values](docs/standards/untrusted-values.md#object-model) |
+| Delays, waits, and work have stated bounds    | Review only | `Milliseconds` and `Bound` brands | [Untrusted values](docs/standards/untrusted-values.md#bounds)       |
+| Behaviour holds on Linux and macOS            | Partial     | Lint `no-host-path-literal`       | [Platform parity](docs/standards/platform-parity.md)                |
+| Glossary terms only                           | Partial     | Lint `glossary-term`              | [Glossary authority](AGENTS.md#authority)                           |
+| One owner per constant, fake, and helper      | Partial     | None                              | [One owner](docs/standards/one-owner.md)                            |
 
 ## Gate notes
 
@@ -77,6 +77,25 @@ now enforces.
   config. `src/`, the other starters, and docs are review only.
 - Witnessed: [2784de0], [356cce9].
 
+### Test proof
+
+- Lint `repository/require-to-throw-message` refuses `toThrow()`,
+  `toThrowError()` and `rejects.toThrow()` with no argument in `tests/`.
+  `.not.toThrow()` passes.
+- A message that another guard also throws stays review. So do a refusal
+  asserted without `toThrow`, and input that more than one guard refuses.
+- Witnessed: [185c90d].
+
+### Time
+
+- Lint `repository/tests-no-sleep` refuses `Bun.sleep`, `Bun.sleepSync`,
+  the `node:timers/promises` `setTimeout`, and a `setTimeout` that only
+  resolves a promise, in `tests/`.
+- A `setTimeout` that rejects, aborts or resolves with a sentinel passes as
+  a bounded watchdog. A poll on `Date.now()` and a race control too narrow to
+  catch its fault stay review.
+- Witnessed: [d1436c0].
+
 ### Untrusted values
 
 - Lint `repository/no-locale-compare` refuses `localeCompare` and
@@ -100,7 +119,11 @@ now enforces.
   snake case.
 - A cause literal in a type position passes. Route tokens, built-in
   identities, shape helpers and test fakes stay review.
-- Witnessed: [e7c771c].
+- Lint `repository/tests-use-test-folder` refuses `tmpdir()`, `mkdtemp()`
+  and `mkdtempSync()` in `tests/`, outside `tests/support/test-folder.ts`.
+  That shared `tests/support/` module owns test folders through
+  `testFolder()`, which honours `STATE_TEST_DIR`.
+- Witnessed: [e7c771c], [c0b4bf5].
 
 ### Recorded hits
 
@@ -124,6 +147,9 @@ now enforces.
 [MAG-88]: https://linear.app/myagentdojo/issue/MAG-88/epic-reproducible-repository-foundations
 [MAG-78]: https://linear.app/myagentdojo/issue/MAG-78/name-and-create-the-deployment-repository
 [shared-standard]: https://github.com/nathanvale/dotfiles-private/blob/6bcadfd752107a980ce4f0a8982ff18399dc78f2/docs/standards/CODING_STANDARDS.md
+[185c90d]: https://github.com/nathanvale/bun-typescript-template/commit/185c90d11dd167ee4874e383ba26cd7d64a70964
+[d1436c0]: https://github.com/nathanvale/bun-typescript-template/commit/d1436c0c13b2906e5eee1c08dfcea41c611f0bef
+[c0b4bf5]: https://github.com/nathanvale/bun-typescript-template/commit/c0b4bf5e77558cc08922d5b303f5d9ba0af87066
 [b456208]: https://github.com/nathanvale/bun-typescript-template/commit/b456208a45baa1f912a27a60eb70353c1e64d251
 [5cbff3a]: https://github.com/nathanvale/bun-typescript-template/commit/5cbff3a87746defffd2672320038c48fbd1ddbc6
 [e7c771c]: https://github.com/nathanvale/bun-typescript-template/commit/e7c771c89f63ffeeb609b03e4f670e9d43ea53fb
