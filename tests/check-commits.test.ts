@@ -1,7 +1,6 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import {
   copyFileSync,
-  existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -145,12 +144,6 @@ function verdicts(lines: readonly string[]): string[] {
   return lines.filter((line) => /^(GREEN|RED) /.test(line));
 }
 
-function printed(lines: readonly string[], label: string): string {
-  const line = lines.find((each) => each.startsWith(`${label}: `));
-  if (line === undefined) throw new Error(`No ${label} line.`);
-  return line.slice(`${label}: `.length);
-}
-
 // tests/doctor.test.ts owns the repair wording; this file checks only that
 // the doctor refused the running Bun.
 function wrongBunRefusals(lines: readonly string[]): string[] {
@@ -162,7 +155,9 @@ function wrongBunRefusals(lines: readonly string[]): string[] {
 }
 
 function rerunOf(lines: readonly string[]): string {
-  return printed(lines, "Rerun locally");
+  const line = lines.find((each) => each.startsWith("Rerun locally: "));
+  if (line === undefined) throw new Error("No Rerun locally line.");
+  return line.slice("Rerun locally: ".length);
 }
 
 function linkedCheckout(root: string): string {
@@ -209,7 +204,7 @@ async function paste(root: string, command: string) {
 
 describe("check:commits", () => {
   test(
-    "a red commit is named with the command that failed, and its rerun replays every step up to it",
+    "a red commit is named with the command that failed, and its rerun fails at the same command",
     async () => {
       const { root, base, commit } = repositoryAt();
       const red = commit("add a lint error", { "lint-error": "" });
@@ -217,15 +212,16 @@ describe("check:commits", () => {
       const run = await checkCommits(root, [base.sha], {
         CHECK_COMMITS_SINCE: base.sha,
       });
+      const pasted = await paste(root, rerunOf(run.lines));
 
+      for (const lines of [run.lines, pasted.lines]) {
+        expect(lines).toContain(`RED ${red.short} add a lint error`);
+        expect(lines).toContain("Failed: bun run lint");
+      }
       expect(run.exit).toBe(1);
-      expect(run.lines).toContain(`RED ${red.short} add a lint error`);
-      expect(run.lines).toContain("Failed: bun run lint");
-      expect(rerunOf(run.lines)).toEndWith(
-        '&& cd "$folder" && bun install --frozen-lockfile && bun run typecheck && bun run lint)',
-      );
+      expect(pasted.exit).toBe(1);
     },
-    processWatchdog(1),
+    processWatchdog(2),
   );
 
   test(
@@ -278,12 +274,15 @@ describe("check:commits", () => {
       const run = await checkCommits(root, [base.sha], {
         CHECK_COMMITS_SINCE: base.sha,
       });
+      const pasted = await paste(root, rerunOf(run.lines));
 
-      const rerun = rerunOf(run.lines);
-      expect(rerun).toContain(` ${red.sha}`);
-      expect(rerun).not.toContain(fix.sha);
+      expect(run.lines).toContain(`GREEN ${fix.short} remove the type error`);
+      expect(pasted.exit).toBe(1);
+      expect(verdicts(pasted.lines)).toEqual([
+        `RED ${red.short} add a type error`,
+      ]);
     },
-    processWatchdog(1),
+    processWatchdog(2),
   );
 
   test(
@@ -395,8 +394,13 @@ describe("check:commits", () => {
       expect(run.lines).toContain(`GREEN ${left.short} add left`);
       expect(run.lines).toContain(`GREEN ${right.short} add right`);
       expect(run.lines).toContain(`RED ${merge} merge side`);
+
+      const pasted = await paste(root, rerunOf(run.lines));
+
+      expect(pasted.exit).toBe(1);
+      expect(verdicts(pasted.lines)).toEqual([`RED ${merge} merge side`]);
     },
-    processWatchdog(1),
+    processWatchdog(2),
   );
 
   test(
@@ -438,12 +442,22 @@ describe("check:commits", () => {
       expect(run.stdout).toContain(
         'error: script "typecheck" exited with code 127',
       );
+
+      const pasted = await paste(root, rerunOf(run.lines));
+
+      expect(pasted.exit).toBe(1);
+      expect(verdicts(pasted.lines)).toEqual([
+        `RED ${red.short} use a tool this commit does not install`,
+      ]);
+      expect(pasted.output).toContain(
+        'error: script "typecheck" exited with code 127',
+      );
     },
-    processWatchdog(1),
+    processWatchdog(2),
   );
 
   test(
-    "the printed rerun reproduces the failure when pasted twice from a linked checkout, under the main checkout's .worktrees, and its cleanup removes it",
+    "the printed rerun reproduces the failure when pasted twice from a linked checkout, and leaves no worktree",
     async () => {
       const { root, base, commit } = repositoryAt();
       const red = commit("add a lint error", { "lint-error": "" });
@@ -452,27 +466,24 @@ describe("check:commits", () => {
         CHECK_COMMITS_SINCE: base.sha,
       });
       const rerun = rerunOf(run.lines);
-      const leftover = `worktree ${realpathSync(root)}/.worktrees/red-${red.short}`;
 
       const first = await paste(caller, rerun);
       const second = await paste(caller, rerun);
 
       for (const pasted of [first, second]) {
         expect(pasted.exit).toBe(1);
+        expect(verdicts(pasted.lines)).toEqual([
+          `RED ${red.short} add a lint error`,
+        ]);
         expect(pasted.lines).toContain(
           'error: script "lint" exited with code 1',
         );
       }
-      expect(worktrees(root)).toContain(leftover);
-      expect(worktrees(root)).toHaveLength(3);
-
-      const cleaned = await paste(caller, printed(run.lines, "Clean up"));
-
-      expect(cleaned.exit).toBe(0);
-      expect(worktrees(root)).not.toContain(leftover);
-      expect(worktrees(root)).toHaveLength(2);
+      expect(worktrees(root).sort()).toEqual(
+        [root, caller].map((path) => `worktree ${realpathSync(path)}`).sort(),
+      );
     },
-    processWatchdog(4),
+    processWatchdog(3),
   );
 
   test(
@@ -487,12 +498,11 @@ describe("check:commits", () => {
 
       const pasted = await paste(root, rerunOf(run.lines));
 
+      expect(run.lines).toContain(`RED ${red.short} add a lint error`);
       expect(pasted.exit).toBe(1);
       expect(wrongBunRefusals(pasted.lines)).toHaveLength(1);
-      expect(existsSync(join(root, ".worktrees", `red-${red.short}`))).toBe(
-        false,
-      );
-      expect(existsSync(join(root, "..", `red-${red.short}`))).toBe(false);
+      expect(verdicts(pasted.lines)).toEqual([]);
+      expect(worktrees(root)).toHaveLength(1);
     },
     processWatchdog(2),
   );

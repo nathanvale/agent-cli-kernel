@@ -14,6 +14,7 @@ import { doctor } from "./doctor.ts";
 // cannot hold its own SHA, so this is the nearest fixed point; the older
 // commits, some of them red, never fail the gate.
 const since = "f20777f7e67d300ade253060fa2ba36f38c0ca43";
+const fixedPoint = process.env.CHECK_COMMITS_SINCE || since;
 const root = join(import.meta.dir, "..");
 const steps = [
   ["install", "--frozen-lockfile"],
@@ -171,23 +172,15 @@ function report({ sha, short, subject, result }: Checked): void {
     print(`GREEN ${short} ${subject}`);
     return;
   }
-  const failedAt = steps.indexOf(result.failed);
-  const rerun = steps
-    .slice(0, failedAt + 1)
-    .map(shown)
-    .join(" && ");
-  const folder = `"$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/.worktrees/red-${short}"`;
   print(`RED ${short} ${subject}`);
   print(`Failed: ${shown(result.failed)}`);
   print(
-    `Rerun locally: bun run doctor && (folder=${folder} && { test -d "$folder" || git worktree add --detach "$folder" ${sha}; } && cd "$folder" && ${rerun})`,
+    `Rerun locally: CHECK_COMMITS_SINCE='${fixedPoint}' bun run check:commits '${sha}^@' ${sha}`,
   );
-  print(`Clean up: git worktree remove ${folder}`);
   process.stdout.write(result.output.replace(/\n?$/, "\n"));
 }
 
 function commitsToCheck(base: string, head: string): Commit[] {
-  const fixedPoint = process.env.CHECK_COMMITS_SINCE || since;
   const present = git(["cat-file", "-e", `${fixedPoint}^{commit}`]).ok;
   if (!present)
     print(
@@ -198,8 +191,10 @@ function commitsToCheck(base: string, head: string): Commit[] {
     "--reverse",
     "--no-commit-header",
     "--format=%H %h %s",
-    `${base}..${head}`,
+    head,
     ...(present ? [`^${fixedPoint}`] : []),
+    "--not",
+    base,
   ]);
   if (!listed.ok) throw new Error(listed.stderr.trim());
   return listed.stdout
