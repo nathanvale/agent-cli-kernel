@@ -53,13 +53,16 @@ function typeErrors(filePath: string, code: string): string[] {
     .map((item) => ts.flattenDiagnosticMessageText(item.messageText, "\n"));
 }
 
-// The fix is read from the rule's own message, so the message and this
+// Each fix is read from the rule's own message, so the message and this
 // proof cannot drift apart.
-async function fixFor(rule: string, filePath: string, failing: string) {
-  const [found] = await hits(rule, filePath, failing);
-  const fix = found?.message.split(" Fix: ")[1];
-  if (fix === undefined) throw new Error(`No fix in ${found?.message}.`);
-  return { fix, message: found?.message ?? "" };
+async function fixesFor(rule: string, filePath: string, failing: string) {
+  const found = await hits(rule, filePath, failing);
+  if (found.length === 0) throw new Error(`No ${rule} hit in ${failing}.`);
+  return found.map(({ message }) => {
+    const fix = message.split(" Fix: ")[1];
+    if (fix === undefined) throw new Error(`No fix in ${message}.`);
+    return fix;
+  });
 }
 
 const fixes = [
@@ -68,7 +71,7 @@ const fixes = [
     filePath: "src/static-admission.ts",
     failing:
       "export const sorted = (names: string[]) => names.sort((a, b) => a.localeCompare(b));",
-    fixed: (fix: string) =>
+    fixed: ([fix]: string[]) =>
       `export const sorted = (names: string[]) => names.sort(${fix});`,
   },
   {
@@ -76,7 +79,7 @@ const fixes = [
     filePath: "starters/contract3/src/kernel/validation/json-equality.ts",
     failing:
       "export const sorted = (names: string[]) => names.sort((a, b) => a.localeCompare(b));",
-    fixed: (fix: string) =>
+    fixed: ([fix]: string[]) =>
       `export const sorted = (names: string[]) => names.sort(${fix});`,
   },
   {
@@ -84,22 +87,37 @@ const fixes = [
     filePath: "starters/contract3/src/kernel/validation/result.ts",
     failing:
       'export const next = (value: Record<string, unknown>) => ("next" in value ? value.next : undefined);',
-    fixed: (fix: string) =>
-      `export const next = (value: Record<string, unknown>): unknown => {\n  ${fix}\n  return ownValue;\n};`,
+    fixed: ([fix]: string[]) =>
+      `export const next = (value: Record<string, unknown>): unknown => ${fix};`,
+  },
+  {
+    rule: "no-in-operator",
+    filePath: "starters/contract3/src/kernel/validation/result.ts",
+    failing: [
+      "export const ends = (value: Record<string, unknown>): readonly unknown[] => [",
+      '  "next" in value ? value.next : undefined, "handoff" in value ? value.handoff : undefined,',
+      "];",
+    ].join("\n"),
+    fixed: ([next, handoff]: string[]) =>
+      `export const ends = (value: Record<string, unknown>): readonly unknown[] => [${next}, ${handoff}];`,
   },
   {
     rule: "no-in-operator",
     filePath: "starters/contract3/src/kernel/pattern-worker.ts",
     failing: [
-      "export const pattern = (value: unknown): unknown =>",
-      '  typeof value === "object" && value !== null && "pattern" in value ? value.pattern : undefined;',
+      "export const job = (value: unknown): readonly unknown[] =>",
+      '  typeof value === "object" && value !== null && "pattern" in value && "input" in value',
+      "    ? [value.pattern, value.input]",
+      "    : [];",
     ].join("\n"),
-    fixed: (fix: string) =>
+    fixed: ([pattern, input]: string[]) =>
       [
-        "export const pattern = (value: unknown): unknown => {",
-        '  if (typeof value !== "object" || value === null) return undefined;',
-        `  ${fix}`,
-        "  return ownValue;",
+        "export const job = (value: unknown): readonly unknown[] => {",
+        '  if (typeof value !== "object" || value === null) return [];',
+        `  const first: unknown = ${pattern};`,
+        `  const second: unknown = ${input};`,
+        `  const again: unknown = ${pattern};`,
+        "  return [first, second, again];",
         "};",
       ].join("\n"),
   },
@@ -108,8 +126,8 @@ const fixes = [
     filePath: "starters/contract3/src/addons/approval/read.ts",
     failing:
       'export const code = (error: Error): unknown => ("code" in error ? error.code : undefined);',
-    fixed: (fix: string) =>
-      `export const code = (error: Error): unknown => {\n  ${fix}\n  return ownValue;\n};`,
+    fixed: ([fix]: string[]) =>
+      `export const code = (error: Error): unknown => ${fix};`,
   },
   {
     rule: "no-in-operator",
@@ -121,7 +139,7 @@ const fixes = [
       "  return found;",
       "};",
     ].join("\n"),
-    fixed: (fix: string) =>
+    fixed: ([fix]: string[]) =>
       [
         "export const names = (value: object): string[] => {",
         "  const found: string[] = [];",
@@ -135,7 +153,7 @@ const fixes = [
     filePath: "starters/contract3/src/kernel/declaration-checks.ts",
     failing:
       'export const reserved = (causeCode: string) => causeCode === "INTERNAL_PREPARATION";',
-    fixed: (fix: string) =>
+    fixed: ([fix]: string[]) =>
       `${fix}\nexport const reserved = (causeCode: string) => causeCode === internalPreparation;`,
   },
   {
@@ -143,15 +161,15 @@ const fixes = [
     filePath: "starters/contract3/src/addons/state/scope.ts",
     failing:
       'export const needed = (codes: string[]) => codes.includes("DOMAIN_DEADLINE_UNKNOWN");',
-    fixed: (fix: string) =>
+    fixed: ([fix]: string[]) =>
       `${fix}\nexport const needed = (codes: string[]) => codes.includes(domainDeadlineUnknown);`,
   },
 ];
 
 for (const item of fixes)
   test(`${item.rule}: the fix its message names compiles and lints clean in ${item.filePath}`, async () => {
-    const { fix } = await fixFor(item.rule, item.filePath, item.failing);
-    const fixed = item.fixed(fix);
+    const found = await fixesFor(item.rule, item.filePath, item.failing);
+    const fixed = item.fixed(found);
     expect(typeErrors(item.filePath, fixed)).toEqual([]);
     expect(await messages(item.filePath, fixed)).toEqual([]);
   }, 60_000);

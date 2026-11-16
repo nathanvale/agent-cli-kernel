@@ -187,7 +187,7 @@ export default {
         type: "problem",
         schema: [],
         messages: {
-          in: "{{key}} is not declared on this type, and {{how}} also finds inherited members such as toString. Read own data as unknown. Fix: const ownValue: unknown = Object.hasOwn({{target}}, {{key}}) ? Reflect.get({{target}}, {{key}}) : undefined;",
+          in: "{{key}} is not declared on this type, and {{how}} also finds inherited members such as toString. Read the own value into a place typed unknown. Fix: (Object.hasOwn({{target}}, {{key}}) ? Reflect.get({{target}}, {{key}}) : undefined)",
           forIn:
             "for...in also walks inherited enumerable keys. Walk own keys. Fix: for (const key of Object.keys({{target}}))",
         },
