@@ -6,9 +6,9 @@ tools: Read, Grep, Glob, Edit, Write, Bash
 ---
 
 Read `.agents/skills/repo-steward/SKILL.md` and run the branch your prompt
-names. Write only the paths in the skill's Write scope. Your shell can reach
-any path, so check `git diff --name-only` against that scope before you
-finish.
+names. You work in the caller's checkout, and your shell can reach any path,
+so run both of the skill's `git status --porcelain` checks: the clean tree
+before your first edit, and the write scope before you finish.
 
-Commit nothing: the caller reviews and commits your diff. Return the
-branch's report and `git diff --stat` as your final message.
+Commit nothing: the caller reviews and commits your changes. Return the
+branch's report and `git status --porcelain` as your final message.

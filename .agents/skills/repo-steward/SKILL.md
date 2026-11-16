@@ -32,12 +32,18 @@ Change only `CODING_STANDARDS.md`, `docs/standards/`, `eslint-rules.mjs`,
 `tests/standards/`. Report a change the lesson needs anywhere else, with its
 path, for that path's owner.
 
+Start on a clean tree. When `git status --porcelain` prints anything, change
+nothing and report its output: the scope check below cannot tell your edits
+from edits already there.
+
 ## Witnesses
 
-A witness is the commit that fixed the mistake, or the review thread that
-caught it. Read a commit with `git show <sha>`. Cite it as `[<short sha>]`
-with a link definition at the end of the file, built from
-`git rev-parse <sha>`. Copy the form the file already uses.
+A witness is a commit or review thread that shows the mistake: the commit
+that fixed it, the review thread that caught it, or a commit that carries
+it, as the commits row cites commits that were red at their own head. Read a
+commit with `git show <sha>`. Cite it as `[<short sha>]` with a link
+definition at the end of the file, built from `git rev-parse <sha>`. Copy
+the form the file already uses.
 
 ## Correct
 
@@ -51,12 +57,14 @@ with a link definition at the end of the file, built from
    - Otherwise: add the witness to the guide bullet that teaches the lesson,
      or add a bullet under the row's guide heading.
 4. With no row, look for the lesson in single witness:
-   - Absent: add it there as one bullet with its witness, and stop.
+   - Absent: add it there as one bullet with its witness, in place of
+     `- None yet.` when that line is there. Add no row.
    - Present: this is the second witness. Add a row at the highest level
      that would stop the mistake, in the order architecture, types, lint,
      test, prose. Write it Review only, with a guide bullet that cites both
      witnesses, and name the gate in Planned (parked) unless the level is
-     prose. Delete the single witness bullet.
+     prose. Delete the single witness bullet, and restore `- None yet.` when
+     no bullet remains.
 5. Report the row, its gates, each edit, and the next step: Promote for a
    lint or test level, the code owner for architecture or types.
 
@@ -65,13 +73,17 @@ Done when each item holds:
 - The witness is cited once in its row's guide or gate note, or in single
   witness, or the report says it was already cited.
 - `bun run test:area standards` passes.
-- `git diff --name-only` lists only write-scope paths.
+- `bun run format:check` exits 0.
+- `git status --porcelain` lists only write-scope paths.
 
 ## Promote
 
-1. Read the row, its guide and its gate note. Choose the gate: a lint rule in
-   `eslint-rules.mjs` turned on in `eslint.config.mjs` or
-   `config/contract3-eslint.mjs`, or a fault record for an existing test.
+1. Read the row, its guide and its gate note. When its Planned (parked) gate
+   is a type or architecture change, such as a brand or typed ids, edit
+   nothing and go to step 6: that gate lives in source, outside the write
+   scope. Otherwise choose the gate: a lint rule in `eslint-rules.mjs` turned
+   on in `eslint.config.mjs` or `config/contract3-eslint.mjs`, or a fault
+   record for an existing test.
 2. Prove the gate goes **red** on a cited witness. For a lint, add a case to
    `tests/lint-rules.test.ts` with the witness's failing shape and a passing
    one. For a fault, follow the planted-fault guide until
@@ -80,16 +92,21 @@ Done when each item holds:
    `bunx eslint . --suppress-rule repository/<rule id>`.
 4. Move the row: name the gate in its Gates cell, as
    ``lint `repository/<rule id>` `` or ``fault `<record id>` ``, link its
-   gate note, mark it Partial, and drop the gate from Planned (parked). Write the gate note:
-   what the gate refuses and where, what stays review, and `Witnessed:`.
+   gate note, mark it Partial, and drop the gate from Planned (parked). Write
+   the gate note: what the gate refuses and where, what stays review, and
+   `Witnessed:`.
 5. Cut each guide bullet the gate now enforces in full, and narrow each one
    it enforces in part. Move a cut bullet's witnesses to the gate note.
+6. Report the row, its gate and the red proof, each edit, and any part left
+   for another owner. For a type or architecture gate, name the planned gate
+   and the source path for the code owner.
 
 Done when each item holds:
 
 - `bun run test:area template -t "<rule id>"` passes, or
-  `bun run faults <id>` prints `KILLED`.
-- `bun run lint` exits 0.
+  `bun run faults <id>` prints `KILLED`, or the report hands a type or
+  architecture gate to the code owner.
+- `bun run lint`, `bun run typecheck` and `bun run format:check` exit 0.
 - `bun run test:area standards` passes.
 - No guide bullet restates what the gate refuses.
-- `git diff --name-only` lists only write-scope paths.
+- `git status --porcelain` lists only write-scope paths.
