@@ -5,7 +5,7 @@ import {
   internalResultCause,
   unchangedEffects,
 } from "./state-causes.ts";
-import type { Effects } from "./types.ts";
+import type { Diagnostics, Effects } from "./types.ts";
 import {
   childLevel,
   fallbackLevelLimit,
@@ -31,6 +31,9 @@ export type TrustedRun = {
   readonly dispatched: boolean;
   // The state add-on's transaction proof for this run, when one exists.
   readonly summary?: StateObservation;
+  // The diagnostics status the writer froze and validated (LIFE-7 step 1),
+  // when one is due. LIFE-9 step 2 includes it in the fallback.
+  readonly diagnostics?: Diagnostics;
 };
 
 function select(
@@ -91,6 +94,7 @@ function construct(
       effects: selected.effects,
       ...station.guidance,
     },
+    ...(trusted.diagnostics ? { diagnostics: trusted.diagnostics } : {}),
   };
 }
 

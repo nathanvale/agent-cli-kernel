@@ -25,12 +25,20 @@ import { addonNames, capabilityMethods } from "./validation/context.ts";
 import type { CapabilityAddonName } from "./validation/context.ts";
 import { record } from "./validation/primitives.ts";
 import { createWriter } from "./writer.ts";
+import type { StatusReport } from "./writer.ts";
 
 // LIFE-3, LIFE-6 and LIFE-11 bounds. A first stop request exits within the
 // 500 ms bound: owned programs get SIGTERM, then SIGKILL by the settle limit.
 const settleLimitMilliseconds = 300;
 const stopBoundMilliseconds = 450;
 const cancellationMilliseconds = 500;
+// DIAG-14 step 2 and DIAG-9: the diagnostics flush takes at most 500 ms.
+const flushMilliseconds = 500;
+// Provisional reading (coordinator ruling, 16 November 2026, to be judged by
+// the T5 reviewer): a status is due only once the handler was reached, so a
+// routing, usage or approval refusal and a deadline before start carry no
+// `diagnostics` key. Set to true to give pre-handler refusals a status too.
+const statusOnPreHandlerRefusal = false;
 
 const messages = {
   USAGE_UNKNOWN_COMMAND: "No declared command matches this invocation.",
@@ -130,6 +138,10 @@ function plansFor(
     }
     if (addons.length !== Object.keys(command.capabilities).length)
       throw new Error(`${command.commandIdentity} declares an unknown add-on.`);
+    if (addons.filter((plan) => plan.addon.reportsStatus === true).length > 1)
+      throw new Error(
+        `${command.commandIdentity} has more than one status-reporting add-on.`,
+      );
     plans.set(command.commandIdentity, { command, addons });
   }
   return plans;
@@ -166,14 +178,21 @@ type Run = {
   readonly startedAt: number;
   readonly controller: AbortController;
   readonly attached: AttachedAddon<unknown>[];
+  // The one attached add-on offering the status seam, if any.
+  reporter: AttachedAddon<unknown> | undefined;
   phase: EmergencyFacts["phase"];
   commandIdentity: string | null;
   stopped: StopSignal | undefined;
   emergencyAttempted: boolean;
 };
 // What the writer receives, or undefined when a stop request owns the exit.
+// `statusDue` says whether the frozen result carries a diagnostics status.
 type Delivery =
-  | { readonly candidate: Validation<unknown>; readonly trusted: TrustedRun }
+  | {
+      readonly candidate: Validation<unknown>;
+      readonly trusted: TrustedRun;
+      readonly statusDue?: boolean;
+    }
   | undefined;
 type Resolved = Extract<Resolution, { readonly ok: true }>["value"];
 
@@ -186,11 +205,43 @@ function killAll(run: Run) {
     }
 }
 
-async function settleAll(run: Run, limit?: number) {
+async function settleAll(run: Run, limit?: number, ownedOnly = false) {
   const settled = await Promise.all(
-    run.attached.map((addon) => addon.settle(limit).catch(() => false)),
+    run.attached
+      .filter((addon) => !ownedOnly || addon !== run.reporter)
+      .map((addon) => addon.settle(limit).catch(() => false)),
   );
   return settled.every(Boolean);
+}
+
+const statusUnavailable = () => ({
+  status: "unavailable",
+  reason: "status-unavailable",
+  trusted: {},
+});
+
+// DIAG-14 step 2: the status-reporting add-on freezes its status within the
+// flush budget, under the kernel's own bounded wait. Expiry, a throw or a
+// missing `freeze` yield the unavailable variant; the writer validates the
+// value alone (LIFE-7 step 1).
+async function freezeStatus(
+  run: Run,
+  reporter: AttachedAddon<unknown>,
+): Promise<StatusReport> {
+  try {
+    const freeze = reporter.freeze;
+    if (!freeze) return { value: statusUnavailable() };
+    const frozen = await within(
+      Promise.resolve().then(() => freeze(flushMilliseconds)),
+      flushMilliseconds,
+      run.host.now,
+    );
+    return frozen === undefined
+      ? { value: statusUnavailable() }
+      : { value: frozen };
+  } catch {
+    return { value: statusUnavailable() };
+  }
 }
 
 // LIFE-3: hooks are installed before routing or dispatch.
@@ -328,16 +379,22 @@ function deferred(run: Run, command: CommandDeclaration, plan: Plan) {
   return Object.freeze(Object.fromEntries(methods));
 }
 
-// CMD-9 steps 5 and 6: only the approval add-on attaches before the handler,
-// because its check is the step 5 preflight. Every other declared capability
-// attaches when the handler first uses it.
+// CMD-9 steps 5 and 6: the approval add-on attaches before the handler,
+// because its check is the step 5 preflight, and so does a status-reporting
+// add-on, whose attach is effect-free, so its status exists even when the
+// handler never uses it. Every other declared capability attaches when the
+// handler first uses it.
 function capabilities(run: Run, plan: CommandPlan): Record<string, unknown> {
   const context: Record<string, unknown> = {};
-  for (const entry of plan.addons)
-    context[entry.name] =
-      entry.name === "approval"
-        ? attachNow(run, plan.command, entry.addon).capability
-        : deferred(run, plan.command, entry);
+  for (const entry of plan.addons) {
+    if (entry.name !== "approval" && entry.addon.reportsStatus !== true) {
+      context[entry.name] = deferred(run, plan.command, entry);
+      continue;
+    }
+    const instance = attachNow(run, plan.command, entry.addon);
+    if (entry.addon.reportsStatus === true) run.reporter = instance;
+    context[entry.name] = instance.capability;
+  }
   return context;
 }
 
@@ -370,13 +427,14 @@ async function afterDeadline(
             effects: summary.effects,
           }
         : { causeCode: deadlineCause.unknown, effects: incompleteEffects };
-  return kernelResult(
+  const delivery = await kernelResult(
     run,
     command.commandIdentity,
     selected.causeCode,
     messages.deadline,
     { dispatched: true, effects: selected.effects, summary },
   );
+  return delivery && { ...delivery, statusDue: true };
 }
 
 // LIFE-11 normal completion: owned programs are observed or stopped within
@@ -386,11 +444,14 @@ async function afterHandler(
   identity: string,
   execution: Execution,
 ): Promise<Delivery> {
-  const clean = await settleAll(run);
+  // The status-reporting add-on is not an owned program: `freeze` replaces
+  // its settle on this path, after the result is frozen.
+  const clean = await settleAll(run, undefined, true);
   if (execution.kind === "threw")
     return {
       candidate: { ok: false, path: "handler", reason: "handler threw" },
       trusted: trustedRun(run, identity, true),
+      statusDue: true,
     };
   const outcome = execution.outcome;
   if (!outcome.ok && outcome.path !== "result") {
@@ -400,10 +461,20 @@ async function afterHandler(
         : outcome.path === "capabilities"
           ? "INTERNAL_PREPARATION"
           : "USAGE_INVALID_INVOCATION";
-    return kernelResult(run, identity, causeCode, messages[causeCode]);
+    const refusal = await kernelResult(
+      run,
+      identity,
+      causeCode,
+      messages[causeCode],
+    );
+    return refusal && { ...refusal, statusDue: statusOnPreHandlerRefusal };
   }
   if (!outcome.ok)
-    return { candidate: outcome, trusted: trustedRun(run, identity, true) };
+    return {
+      candidate: outcome,
+      trusted: trustedRun(run, identity, true),
+      statusDue: true,
+    };
   const summary = run.runtime.trustedSummary(outcome.value, run.runId);
   const trusted = trustedRun(run, identity, true, summary);
   if (!clean)
@@ -414,8 +485,13 @@ async function afterHandler(
         reason: "owned program survived",
       },
       trusted,
+      statusDue: true,
     };
-  return { candidate: await run.runtime.buildResult(outcome.value), trusted };
+  return {
+    candidate: await run.runtime.buildResult(outcome.value),
+    trusted,
+    statusDue: true,
+  };
 }
 
 async function dispatch(run: Run, value: Resolved): Promise<Delivery> {
@@ -500,6 +576,7 @@ async function runInvocation(
     startedAt: host.now(),
     controller: new AbortController(),
     attached: [],
+    reporter: undefined,
     phase: "preparing",
     commandIdentity: null,
     stopped: undefined,
@@ -515,8 +592,14 @@ async function runInvocation(
   });
   const delivery = await route(run, resolution);
   if (!delivery) return 1;
+  // DIAG-14: the domain result and recovery are frozen in `delivery`; only
+  // now does the status-reporting add-on flush and freeze its status.
+  const report =
+    delivery.statusDue === true && run.reporter && !run.stopped
+      ? await freezeStatus(run, run.reporter)
+      : undefined;
   run.phase = "emitting";
-  const code = await writer.emit(delivery.candidate, delivery.trusted);
+  const code = await writer.emit(delivery.candidate, delivery.trusted, report);
   if (code === undefined || run.stopped) return code ?? 1;
   run.phase = "drained";
   host.exit(code);
