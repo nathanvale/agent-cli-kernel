@@ -33,6 +33,10 @@
     {
       "id": "DS11.reporter-attach-fault-never-crashes",
       "source": "seam review S2"
+    },
+    {
+      "id": "DS12.status-never-changes-fallback-result",
+      "source": "Part 4 repair 2 (DIAG-4)"
     }
   ]
 }

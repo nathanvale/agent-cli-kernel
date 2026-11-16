@@ -703,3 +703,60 @@ describe("K3K5 a rejected settle keeps the exit path", () => {
       timeout,
     );
 });
+
+// Part 4 repair 2 (DIAG-4): a twin set that differs only in the status. 25
+// wide effects fit the fallback alone (about 13,200 bytes); a 4,000-character
+// status pushes the envelope over, and a 16,000-character one is oversize by
+// itself. The cause, effects and exit equal the no-status twin's every time.
+test(
+  "DS12.status-never-changes-fallback-result",
+  async () => {
+    const fallbackOf = async (
+      command: string,
+      fileLength: number,
+    ): Promise<Record<string, unknown>> => {
+      const launched = await launch({
+        argv: [command, "--json"],
+        state: true,
+        scenario: "corrupt:generic",
+        env: {
+          FX_WIDE_COUNT: "25",
+          FX_STATUS_FILE_LENGTH: String(fileLength),
+        },
+      });
+      try {
+        const observed = await exitWithin(launched);
+        const { envelope, result } = parsed(observed);
+        expect(observed.code).toBe(Number(result.exitCode));
+        expect(observed.stdout.byteLength).toBeLessThanOrEqual(16_384);
+        return {
+          causeCode: result.causeCode,
+          effects: result.effects,
+          exitCode: result.exitCode,
+          diagnostics: envelope.diagnostics,
+        };
+      } finally {
+        await release(launched);
+      }
+    };
+    const none = await fallbackOf("wide", 0);
+    expect(none.causeCode).toBe("INTERNAL_RESULT_COMPLETED");
+    expect(Reflect.get(Object(none.effects), "inventoryComplete")).toBe(true);
+    expect(none.diagnostics).toBeUndefined();
+    const domain = (value: Record<string, unknown>) => ({
+      causeCode: value.causeCode,
+      effects: value.effects,
+      exitCode: value.exitCode,
+    });
+    for (const [length, status] of [
+      [0, ownAvailable],
+      [4_000, statusUnavailable],
+      [16_000, statusUnavailable],
+    ] as const) {
+      const twin = await fallbackOf("wide-status", length);
+      expect(domain(twin)).toEqual(domain(none));
+      expect(twin.diagnostics).toEqual(status);
+    }
+  },
+  timeout,
+);

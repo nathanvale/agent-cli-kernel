@@ -1152,6 +1152,8 @@ function makeChange(state: StateAddonDescriptor) {
   });
 }
 
+// Part 4 repair 2: how many wide effects a run records (default all 40).
+const wideCount = Number(process.env.FX_WIDE_COUNT ?? "40");
 const wideEffects = Array.from(
   { length: 40 },
   (_unused, index) =>
@@ -1166,7 +1168,7 @@ function makeWide(state: StateAddonDescriptor) {
     input: { ...none, options: [flag("--go")] },
     capabilities: {},
     effectClass: "repository-local",
-    effects: [wideEffects[0] ?? "fx.wide", ...wideEffects.slice(1)],
+    effects: [wideEffects[0] ?? "fx.wide", ...wideEffects.slice(1, wideCount)],
     ifNoResult: state.ifNoResult,
     heldLockCause: "DOMAIN_FX_LOCK_HELD",
     unresolvedCaseCause: "DOMAIN_FX_UNRESOLVED",
@@ -1174,7 +1176,7 @@ function makeWide(state: StateAddonDescriptor) {
     run: async (_input, context) => {
       intended = undefined;
       const proof = await context.state.transaction(async (transaction) => {
-        for (const effect of wideEffects)
+        for (const effect of wideEffects.slice(0, wideCount))
           await transaction.record(
             effect,
             () => Promise.resolve(undefined),
@@ -1295,7 +1297,10 @@ function makeWideStatus(state: StateAddonDescriptor) {
     input: { ...none, options: [flag("--go")] },
     capabilities: { diagnostics: true },
     effectClass: "repository-local",
-    effects: [wideEffects[0] ?? "fx.wide-status", ...wideEffects.slice(1)],
+    effects: [
+      wideEffects[0] ?? "fx.wide-status",
+      ...wideEffects.slice(1, wideCount),
+    ],
     ifNoResult: state.ifNoResult,
     heldLockCause: "DOMAIN_FX_LOCK_HELD",
     unresolvedCaseCause: "DOMAIN_FX_UNRESOLVED",
@@ -1303,7 +1308,7 @@ function makeWideStatus(state: StateAddonDescriptor) {
     run: async (_input, context) => {
       intended = undefined;
       const proof = await context.state.transaction(async (transaction) => {
-        for (const effect of wideEffects)
+        for (const effect of wideEffects.slice(0, wideCount))
           await transaction.record(
             effect,
             () => Promise.resolve(undefined),
@@ -1387,7 +1392,13 @@ const statusReporter: RunAddon<DiagnosticsCapability> = {
       killNow: () => undefined,
       freeze() {
         ledger("freeze-start");
-        return Promise.resolve(fixtureStatus);
+        // Part 4 repair 2: FX_STATUS_FILE_LENGTH sizes a still-valid status.
+        const length = Number(process.env.FX_STATUS_FILE_LENGTH ?? "0");
+        return Promise.resolve(
+          length > 1
+            ? { ...fixtureStatus, file: `/${"f".repeat(length - 1)}` }
+            : fixtureStatus,
+        );
       },
     };
   },
