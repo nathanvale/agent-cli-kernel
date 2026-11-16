@@ -10,9 +10,31 @@ export type CommandResult<Identity extends string = string> = {
   readonly commandIdentity: Identity;
   readonly [resultIdentity]: true;
 };
+// Accepted decision (contract question 7 of 8): the stations that mean
+// "refused before the handler started" belong to the base alone. Declaring
+// one for its words (DISC-11b) grants a handler no selection (provisional
+// reading N5 (a)).
+export type PreEntryCause =
+  | "USAGE_INVALID_INVOCATION"
+  | "DOMAIN_DEADLINE_BEFORE_START";
 export type AllowedCause<S extends readonly DeclaredStation[]> =
-  | S[number]["causeCode"]
+  | Exclude<S[number]["causeCode"], PreEntryCause>
   | (S[number] extends never ? "SUCCESS_UNCHANGED" : never);
+// The runtime counterpart. The approval check's denial is pre-entry too,
+// except on a command that declares approval, whose handler reports the
+// denial at revalidation under coordination (CMD-9 step 7; provisional
+// reading N6 (a)).
+function preEntryCause(
+  command: CommandDeclaration,
+  causeCode: string,
+): boolean {
+  return (
+    causeCode === "USAGE_INVALID_INVOCATION" ||
+    causeCode === "DOMAIN_DEADLINE_BEFORE_START" ||
+    (causeCode === "DOMAIN_AUTHORITY_REQUIRED" &&
+      command.capabilities.approval !== true)
+  );
+}
 export type SelectedRow<
   S extends readonly DeclaredStation[],
   K extends string,
@@ -58,7 +80,7 @@ export function resultContext<
         (station) => station.causeCode === selected.causeCode,
       );
       // DISC-11b: a handler may select a station the base adds, except the
-      // ones the fallback reserves (K1-6).
+      // ones the fallback reserves (K1-6) and the pre-entry ones.
       const baseAdded =
         !reservedFallbackCause(selected.causeCode) &&
         hostKernelCauses(command).includes(selected.causeCode);
@@ -68,6 +90,10 @@ export function resultContext<
       )
         throw new Error(
           "Result station belongs to another command or is undeclared.",
+        );
+      if (preEntryCause(command, selected.causeCode))
+        throw new Error(
+          "A handler never selects a result that belongs before handler entry.",
         );
       const result: CommandResult<Identity> = Object.freeze({
         [resultIdentity]: true as const,

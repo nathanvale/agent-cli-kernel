@@ -846,8 +846,73 @@ function stepCommands() {
   } as never);
 }
 
+// Decision 5 (KF5). kf.load's handler selects KF_SELECT (cast past the
+// static type) or, unset, its own success. KF_DECLARED lists the pre-entry
+// tuples kf.load declares its own words for (comma-separated).
+const declaredWords = (env.KF_DECLARED ?? "").split(",").filter((code) => code !== "");
+const loadWords = (causeCode: string) =>
+  causeCode === "DOMAIN_AUTHORITY_REQUIRED"
+    ? // As the T3 specimen declares it on a command without approval.
+      station(commonCauses, {
+        ...words,
+        reachability: "declared-unreachable",
+        unreachableRationale: "kf.load declares no approval.",
+        commandIdentity: "kf.load",
+        causeCode: "DOMAIN_AUTHORITY_REQUIRED",
+        trigger: "Declared words for DOMAIN_AUTHORITY_REQUIRED.",
+        guidance: {
+          handoff: {
+            owner: "human",
+            reason: "kf.load's own authority words.",
+            inspect: [{ kind: "instruction", text: "Inspect the kf grant." }],
+          },
+        },
+        repairAction: "Obtain a kf grant.",
+        independentObservable: "kf.load:DOMAIN_AUTHORITY_REQUIRED",
+      })
+    : station(commonCauses, {
+        ...words,
+        commandIdentity: "kf.load",
+        causeCode: causeCode as "USAGE_INVALID_INVOCATION",
+        trigger: `Declared words for ${causeCode}.`,
+        guidance: {
+          next: { kind: "instruction", text: `kf.load's own words for ${causeCode}.` },
+        },
+        repairAction: `Repair as kf.load says for ${causeCode}.`,
+        independentObservable: `kf.load:${causeCode}`,
+      });
+const load = command({
+  identity: "kf.load",
+  route: ["load"],
+  summary: "Load one kf item.",
+  input: {
+    ...input,
+    arguments: [
+      {
+        name: "item",
+        summary: "Fixture item.",
+        required: false,
+        value: { kind: "string", minLength: 1, maxLength: 40, choices: null, pattern: null },
+      },
+    ],
+  },
+  capabilities: {},
+  stations: [success("kf.load"), ...declaredWords.map(loadWords)],
+  run: (_input, context) => {
+    note("handler-entered");
+    const selected = env.KF_SELECT ?? "SUCCESS_UNCHANGED";
+    return context.result(
+      { commandIdentity: "kf.load", causeCode: selected } as never,
+      { message: "Loaded.", data: null, effects: empty } as never,
+    );
+  },
+});
+
 const scenarios: Readonly<Record<string, (argv: string[]) => Promise<unknown>>> =
   {
+    // KF5.a, KF5.c.
+    load: (argv) =>
+      runProcess(contractFor({ cli: "kf", commands: [load], causes }))(argv),
     // KF4: what contractFor did with the declared step.
     "step-admission": () => {
       try {
