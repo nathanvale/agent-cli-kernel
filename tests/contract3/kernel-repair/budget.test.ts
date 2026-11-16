@@ -58,10 +58,13 @@ runFamily(
     "R08.dag-64": () => bounded(64),
     "R08.tree-twin-and-guards": async () => {
       const contract = envelopeContract();
-      // envelope (1) > result (2) > data (3): 61 data levels put the deepest
-      // value at nesting level 64 even counting the envelope as level 1.
-      expect((await contract.validate(envelope(nest(61)))).ok).toBe(true);
-      expect((await contract.validate(envelope(nest(64)))).ok).toBe(false);
+      // B2 (Nathan, 16 November 2026): the envelope is level 0 and every
+      // value counts. envelope (0) > result (1) > data (2), so nest(n) puts
+      // its innermost value at level n + 2: 62 is the deepest admitted
+      // (level 64) and 63 the first refused (level 65). Pinning both sides
+      // of the boundary catches a limit of 63 or 65 and a strict comparison.
+      expect((await contract.validate(envelope(nest(62)))).ok).toBe(true);
+      expect((await contract.validate(envelope(nest(63)))).ok).toBe(false);
       const cycle: Record<string, unknown> = { a: null };
       cycle.a = { back: cycle };
       expect((await contract.validate(envelope(cycle))).ok).toBe(false);
