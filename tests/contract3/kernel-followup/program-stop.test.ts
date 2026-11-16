@@ -46,7 +46,7 @@ const ruledRepair =
   "Confirm that the program this command started has stopped before a new run.";
 const deadlineArgv = ["watch", "--deadline-ms", "300"];
 
-describe("KF3.b inspect-deadline-unconfirmed", () => {
+describe("KF3.b inspect-deadline-unconfirmed [proof gap: a host programs add-on's settle is the trigger; the shipped programs add-on is not exercised]", () => {
   for (const settle of ["false", "throw"] as const)
     test(
       `KF3.b settle-${settle}: the kernel selects the declared program-stop station`,

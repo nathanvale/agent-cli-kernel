@@ -462,7 +462,8 @@ function applyApproved(state: StateAddonDescriptor) {
 // confirmed). KF_AFTER picks what the handler does once the proof exists:
 // `throw`, `refusal` (KF_HELD without a proof), `invalid` (a success whose
 // data is NaN, without a proof), `result` (the station matching the proof),
-// or `before` (it throws before calling the transaction). KF_LAYER `seam`
+// `select` (KF_SELECT, cast past the static type, with the proof; KF5.a), or
+// `before` (it throws before calling the transaction). KF_LAYER `seam`
 // uses the seam's state add-on instance, `addon` the shipped state add-on over
 // KF_STATE_ROOT.
 const proofVariant = env.KF_PROOF ?? "completed";
@@ -567,6 +568,11 @@ function proofApply(state: StateAddonDescriptor, transact: Transact) {
         return context.result(
           { commandIdentity: "kf.apply", causeCode: "SUCCESS_COMPLETED" },
           { ...facts, data: Number.NaN, effects: empty } as never,
+        );
+      if (after === "select")
+        return context.result(
+          { commandIdentity: "kf.apply", causeCode: env.KF_SELECT } as never,
+          { ...facts, transaction: proof, effects: empty } as never,
         );
       const selected =
         proof.transactionState === "completed"
@@ -932,38 +938,38 @@ function stepCommands() {
 
 // Decision 5 (KF5). kf.load's handler selects KF_SELECT (cast past the
 // static type) or, unset, its own success. KF_DECLARED lists the pre-entry
-// tuples kf.load declares its own words for (comma-separated).
+// tuples kf.load (and kf.apply2) declare their own words for (comma-separated).
 const declaredWords = (env.KF_DECLARED ?? "").split(",").filter((code) => code !== "");
-const loadWords = (causeCode: string) =>
+const ownWords = (identity: "kf.load" | "kf.apply2") => (causeCode: string) =>
   causeCode === "DOMAIN_AUTHORITY_REQUIRED"
     ? // As the T3 specimen declares it on a command without approval.
       station(commonCauses, {
         ...words,
         reachability: "declared-unreachable",
-        unreachableRationale: "kf.load declares no approval.",
-        commandIdentity: "kf.load",
+        unreachableRationale: `${identity} declares no approval.`,
+        commandIdentity: identity,
         causeCode: "DOMAIN_AUTHORITY_REQUIRED",
         trigger: "Declared words for DOMAIN_AUTHORITY_REQUIRED.",
         guidance: {
           handoff: {
             owner: "human",
-            reason: "kf.load's own authority words.",
+            reason: `${identity}'s own authority words.`,
             inspect: [{ kind: "instruction", text: "Inspect the kf grant." }],
           },
         },
         repairAction: "Obtain a kf grant.",
-        independentObservable: "kf.load:DOMAIN_AUTHORITY_REQUIRED",
+        independentObservable: `${identity}:DOMAIN_AUTHORITY_REQUIRED`,
       })
     : station(commonCauses, {
         ...words,
-        commandIdentity: "kf.load",
+        commandIdentity: identity,
         causeCode: causeCode as "USAGE_INVALID_INVOCATION",
         trigger: `Declared words for ${causeCode}.`,
         guidance: {
-          next: { kind: "instruction", text: `kf.load's own words for ${causeCode}.` },
+          next: { kind: "instruction", text: `${identity}'s own words for ${causeCode}.` },
         },
-        repairAction: `Repair as kf.load says for ${causeCode}.`,
-        independentObservable: `kf.load:${causeCode}`,
+        repairAction: `Repair as ${identity} says for ${causeCode}.`,
+        independentObservable: `${identity}:${causeCode}`,
       });
 const load = command({
   identity: "kf.load",
@@ -981,7 +987,7 @@ const load = command({
     ],
   },
   capabilities: {},
-  stations: [success("kf.load"), ...declaredWords.map(loadWords)],
+  stations: [success("kf.load"), ...declaredWords.map(ownWords("kf.load"))],
   run: async (_input, context) => {
     note("handler-entered");
     if (waitMilliseconds > 0) await sleep(waitMilliseconds);
@@ -994,7 +1000,8 @@ const load = command({
 });
 
 // KF9: the K2-spec-3 deadline window. KF_LATE: `transaction` waits
-// KF_LATE_MS from handler entry, then calls the transaction (KF9.a);
+// KF_LATE_MS from handler entry, notes `late-call`, then calls the
+// transaction (KF9.a);
 // `early` runs the transaction at once, then waits (KF9.a twin); `effect`
 // records kf.e1, waits KF_LATE_MS inside the transaction, then records kf.e2
 // (KF9.b); `both` records both at once, then waits (KF9.b twin).
@@ -1031,7 +1038,10 @@ function lateApply(state: StateAddonDescriptor) {
         note("transaction-refused");
         throw error;
       };
-      if (lateMode === "transaction") await sleep(lateMilliseconds);
+      if (lateMode === "transaction") {
+        await sleep(lateMilliseconds);
+        note("late-call");
+      }
       const proof = await context.state
         .transaction(async (transaction) => {
           if (lateMode === "effect" || lateMode === "both")
@@ -1053,7 +1063,8 @@ function lateApply(state: StateAddonDescriptor) {
 }
 
 // KF5.a setup B: kf.apply2 (effects kf.e1, kf.e2, deadline support, no
-// approval) opens no transaction and selects KF_SELECT, or waits KF_WAIT ms.
+// approval, KF_DECLARED's words) opens no transaction and selects
+// KF_SELECT, or waits KF_WAIT ms.
 function apply2(state: StateAddonDescriptor) {
   return changing({
     identity: "kf.apply2",
@@ -1066,7 +1077,11 @@ function apply2(state: StateAddonDescriptor) {
     ifNoResult: state.ifNoResult,
     heldLockCause: "KF_HELD",
     unresolvedCaseCause: "KF_PRIOR",
-    stations: [...coordination("kf.apply2"), completed("kf.apply2")],
+    stations: [
+      ...coordination("kf.apply2"),
+      completed("kf.apply2"),
+      ...declaredWords.map(ownWords("kf.apply2")),
+    ],
     run: async (_input, context) => {
       note("handler-entered");
       if (waitMilliseconds > 0) await sleep(waitMilliseconds);

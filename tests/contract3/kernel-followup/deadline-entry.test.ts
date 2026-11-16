@@ -51,7 +51,7 @@ function expectBeforeStart(run: KfRun, identity: string) {
   );
 }
 
-describe("KF7.a check-settles-after-deadline", () => {
+describe("KF7.a check-settles-after-deadline [proof gap: a synchronous block opens the window; an I/O completion handled before the expired timer is not reproduced]", () => {
   for (const [variant, scenario, verb, identity, success] of [
     ["inspect", "read", "read", "kf.read", "SUCCESS_UNCHANGED"],
     ["changing", "apply-approved", "apply", "kf.apply", "SUCCESS_COMPLETED"],

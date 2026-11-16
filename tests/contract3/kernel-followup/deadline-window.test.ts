@@ -60,6 +60,7 @@ describe("KF9.a transaction-after-deadline-refused", () => {
           next: deadlineNext,
         });
         expect(run.result).not.toHaveProperty("handoff");
+        expect(run.ledger).toContain("late-call");
         expect(run.ledger).toContain("transaction-refused");
         expect(applied(run.ledger, "kf.e")).toBe(0);
       }
@@ -67,13 +68,12 @@ describe("KF9.a transaction-after-deadline-refused", () => {
     processWatchdog(3),
   );
   test(
-    "KF9.a D=520: a transaction called after the lifecycle stopped waiting never applies",
+    "KF9.a D=520: the process ends before a transaction called after the lifecycle stopped waiting",
     async () => {
-      // Observed: the kernel emits and exits about 800 ms after start, before
-      // the late call at about 820 ms, so these rounds prove only that no
-      // effect applies beside the envelope. The expectation's ledger line
-      // `transaction-refused` cannot appear here; a pending stdout reader
-      // cannot hold the process, because the envelope fits the pipe buffer.
+      // The kernel emits and exits about 800 ms after start (LIFE-6 bounds
+      // the run), before the late call at about 820 ms: no handler code runs
+      // then. A kernel that waited for the handler before exit lets the
+      // fixture note `late-call` (D=100 shows the line is reachable).
       for (let round = 0; round < 3; round++) {
         const run = await late("transaction", deadline + 520);
         expect({ round, exit: run.exit, one: oneEnvelope(run) }).toEqual({
@@ -85,6 +85,7 @@ describe("KF9.a transaction-after-deadline-refused", () => {
           causeCode: "DOMAIN_DEADLINE_UNCHANGED",
           effects: { ...emptyComplete, remaining: ["kf.e"] },
         });
+        expect(run.ledger).not.toContain("late-call");
         expect(applied(run.ledger, "kf.e")).toBe(0);
       }
     },

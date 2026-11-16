@@ -854,8 +854,13 @@ describe("KF1.d and KF8 no key at the check-phase sites", () => {
       },
       timeout,
     );
+  // A guard on the add-on order: approval attaches before the status
+  // reporter, so no status exists at an approval attach fault. It turns red
+  // only under the compound fault "reporter attached first and the attach
+  // fault marked after handler entry"; KF8.a and KF8.b carry the protection
+  // against marking a check-phase site after handler entry.
   test(
-    "KF8.c attach-fault-no-key",
+    "KF8.c attach-fault-no-key: guards the add-on order (approval attaches before the status reporter)",
     async () => {
       const fault = await guardedRun("available", "attach-throws");
       expect(fault.observed.code).toBe(1);
@@ -890,7 +895,7 @@ describe("KF6 the human Diagnostics line", () => {
   }
   const lastLine = (value: string) => value.split("\n").at(-2);
   const lineCount = (value: string) => value.split("\n").length - 1;
-  // KF6.e: the machine twin's exit and cause equal the human run's.
+  // The machine twin prints no Diagnostics line (KF6.a to KF6.c, KF6.e).
   async function machineTwin(
     argv: readonly string[],
     status: string,
@@ -922,7 +927,6 @@ describe("KF6 the human Diagnostics line", () => {
         const before = run.stdout.slice(0, -(expected.length + 1));
         expect(before).not.toBe("");
         expect(before).not.toContain("Diagnostics:");
-        expect((await machineTwin(["report"], status)).code).toBe(run.code);
       },
       timeout,
     );
@@ -977,14 +981,56 @@ describe("KF6 the human Diagnostics line", () => {
       async () => {
         const run = await human(argv, "available");
         const twin = await machineTwin(argv, "available");
-        expect(run.code).toBe(twin.code);
         expect(twin.envelope.diagnostics).toEqual(ownAvailable);
         expect(lineCount(run.stderr)).toBe(1);
-        expect(run.stderr).toContain(String(twin.result.causeCode));
         expect(run.stdout).toBe(`Diagnostics: ${ownAvailable.file}\n`);
       },
       timeout,
     );
+  // KF6.e (DIAG-4): the line never changes the result. Every KF6.a, KF6.b,
+  // KF6.c and KF6.f variant exits as its machine twin does, and a failure's
+  // human stderr line names the twin's cause. The st fixture writes no
+  // effect ledger, so the ledger half of KF6.e is not compared.
+  test(
+    "KF6.e line-never-changes-result: each human exit and cause equal the machine twin's",
+    async () => {
+      const variants: ReadonlyArray<readonly [readonly string[], string]> = [
+        ...[
+          "incomplete",
+          "no-file",
+          "available",
+          "invalid",
+          "throws",
+          "trusted-file",
+          "trusted-file-null",
+          "trusted-sink",
+          "no-file-no-failure",
+        ].map((status) => [["report"], status] as const),
+        [["report", "--throw"], "available"],
+        [["report", "--wait-ms", "2000", "--deadline-ms", "100"], "available"],
+        [["report", "--refuse"], "available"],
+      ];
+      const humanSide: unknown[] = [];
+      const machineSide: unknown[] = [];
+      for (const [argv, status] of variants) {
+        const run = await human(argv, status);
+        const twin = await machineTwin(argv, status);
+        const variant = `${argv.join(" ")} ${status}`;
+        humanSide.push({
+          variant,
+          code: run.code,
+          cause: /\[([A-Z0-9_]+)\]$/mu.exec(run.stderr)?.[1] ?? null,
+        });
+        machineSide.push({
+          variant,
+          code: twin.code,
+          cause: twin.code === 0 ? null : String(twin.result.causeCode),
+        });
+      }
+      expect(humanSide).toEqual(machineSide);
+    },
+    timeout,
+  );
   for (const [variant, argv, status, env] of [
     ["usage", ["report", "--bogus"], "available", {}],
     ["unknown", ["nope"], "available", {}],

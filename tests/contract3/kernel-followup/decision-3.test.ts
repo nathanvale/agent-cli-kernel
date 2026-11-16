@@ -108,7 +108,7 @@ const confirmed: Readonly<Record<string, Readonly<Record<string, unknown>>>> = {
   },
 };
 
-describe("KF3.a changing-deadline-unconfirmed", () => {
+describe("KF3.a changing-deadline-unconfirmed [proof gap: a host programs add-on's settle is the trigger; the shipped programs add-on is not exercised]", () => {
   for (const proof of [
     "completed",
     "partial",
@@ -146,7 +146,7 @@ describe("KF3.a changing-deadline-unconfirmed", () => {
     );
 });
 
-describe("KF3.c changing-normal-unconfirmed", () => {
+describe("KF3.c changing-normal-unconfirmed [proof gap: a host programs add-on's settle is the trigger; the shipped programs add-on is not exercised]", () => {
   test(
     "KF3.c a completed change whose owned program is not confirmed stopped is unknown with a handoff",
     async () => {
@@ -220,7 +220,7 @@ test(
   processWatchdog(2),
 );
 
-describe("KF3.d inspect-normal-unconfirmed", () => {
+describe("KF3.d inspect-normal-unconfirmed [proof gap: a host programs add-on's settle is the trigger; the shipped programs add-on is not exercised]", () => {
   test(
     "KF3.d an inspect command whose owned program is not confirmed stopped fails unchanged",
     async () => {

@@ -42,8 +42,13 @@ const preEntry = [
 ] as const;
 
 describe("KF5.a handler-selects-base-only-station", () => {
+  // Undeclared on a command without approval, DOMAIN_AUTHORITY_REQUIRED is
+  // refused by the earlier undeclared-station rule, so it is no control
+  // for the base-only rule; only its declared form is.
   for (const [variant, causeCode, argv] of preEntry)
-    for (const declared of [false, true])
+    for (const declared of variant === "authority-no-approval"
+      ? [true]
+      : [false, true])
       test(
         `KF5.a ${variant} ${declared ? "declared" : "undeclared"}: the selection never builds and the fallback prints`,
         async () => {
@@ -139,6 +144,39 @@ describe("KF5.a setup B: kf.apply2", () => {
       },
       processWatchdog(1),
     );
+  // N6 (a) on changing(): the declared, declared-unreachable authority
+  // station is refused at runtime on a command without approval. A
+  // refusal needs no proof, so the base-only rule is the guard here.
+  test(
+    "KF5.a apply2 authority-no-approval declared: never emitted",
+    async () => {
+      const run = await runKf(entry, "apply2", ["apply2", "--json"], {
+        KF_SELECT: "DOMAIN_AUTHORITY_REQUIRED",
+        KF_DECLARED: "DOMAIN_AUTHORITY_REQUIRED",
+      });
+      expect({ exit: run.exit, one: oneEnvelope(run) }).toEqual({
+        exit: 1,
+        one: true,
+      });
+      expect(run.result).toMatchObject({
+        commandIdentity: "kf.apply2",
+        causeCode: "INTERNAL_RESULT_UNKNOWN",
+        transactionState: "unknown",
+        effects: { ...emptyComplete, inventoryComplete: false },
+      });
+      // Twin: the same declaration still emits a host refusal it selects.
+      const twin = await runKf(entry, "apply2", ["apply2", "--json"], {
+        KF_SELECT: "KF_HELD",
+        KF_DECLARED: "DOMAIN_AUTHORITY_REQUIRED",
+      });
+      expect(twin.exit).toBe(3);
+      expect(twin.result).toMatchObject({
+        causeCode: "KF_HELD",
+        outcome: "refused",
+      });
+    },
+    processWatchdog(2),
+  );
   test(
     "KF5.a apply2 twin: the kernel still produces its own deadline result",
     async () => {
@@ -157,6 +195,72 @@ describe("KF5.a setup B: kf.apply2", () => {
     },
     processWatchdog(1),
   );
+});
+
+// N7 with an issued proof: the variants above without a proof are refused
+// by the trusted-summary rule first, so here the handler selects each
+// post-entry deadline station with the proof its transaction issued, and
+// only the base-only rule refuses it (LIFE-9: the fallback carries that
+// proof).
+describe("KF5.a setup B with an issued proof", () => {
+  const proofCases = [
+    [
+      "completed",
+      "DOMAIN_DEADLINE_COMPLETED",
+      "INTERNAL_RESULT_COMPLETED",
+      "completed",
+      { ...emptyComplete, completed: ["kf.e"] },
+      0,
+    ],
+    [
+      "partial",
+      "DOMAIN_DEADLINE_PARTIAL",
+      "INTERNAL_RESULT_PARTIAL",
+      "partially-completed",
+      { ...emptyComplete, completed: ["kf.e1"], remaining: ["kf.e2"] },
+      3,
+    ],
+    [
+      "unknown",
+      "DOMAIN_DEADLINE_UNKNOWN",
+      "INTERNAL_RESULT_UNKNOWN",
+      "unknown",
+      { ...emptyComplete, uncertain: ["kf.e"] },
+      undefined,
+    ],
+  ] as const;
+  for (const [proof, select, fallback, state, effects, twinExit] of proofCases)
+    test(
+      `KF5.a apply ${select} with an issued ${proof} proof: never emitted`,
+      async () => {
+        const run = await runKf(entry, "proof", ["apply", "--json"], {
+          KF_PROOF: proof,
+          KF_AFTER: "select",
+          KF_SELECT: select,
+        });
+        expect({ exit: run.exit, one: oneEnvelope(run) }).toEqual({
+          exit: 1,
+          one: true,
+        });
+        expect(run.result).toMatchObject({
+          commandIdentity: "kf.apply",
+          causeCode: fallback,
+          outcome: "failed",
+          transactionState: state,
+          failureClass: "internal",
+          effects,
+        });
+        expect(run.ledger).toContain(`proof ${state}`);
+        // Twin: the same proof admits the handler's own station.
+        if (twinExit === undefined) return;
+        const twin = await runKf(entry, "proof", ["apply", "--json"], {
+          KF_PROOF: proof,
+          KF_AFTER: "result",
+        });
+        expect(twin.exit).toBe(twinExit);
+      },
+      processWatchdog(2),
+    );
 });
 
 test(
