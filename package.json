@@ -30,5 +30,9 @@
   },
   "overrides": {
     "@typescript/old@npm:typescript@^6": "npm:typescript@6.0.2"
+  },
+  "dependencies": {
+    "@logtape/logtape": "2.4.2",
+    "@logtape/redaction": "2.4.2"
   }
 }
