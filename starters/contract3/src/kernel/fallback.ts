@@ -24,6 +24,14 @@ export const fallbackLimits = {
   level: fallbackLevelLimit,
 } as const;
 
+// The one owner of the diagnostics unavailable variant the kernel builds
+// (DIAG-3): no independently trusted field survives, so `trusted` is empty.
+export function unavailableStatus(
+  reason: "status-invalid" | "status-unavailable",
+): Diagnostics {
+  return { status: "unavailable", reason, trusted: {} };
+}
+
 export type TrustedRun = {
   readonly runId: string;
   readonly commandIdentity: string;
@@ -111,6 +119,16 @@ export async function fallbackText(
     if (!command) return undefined;
     const selected = select(command.effectClass, trusted);
     let text = encodeBounded(construct(runtime, trusted, selected));
+    // Seam review S1: a valid status too large for the bound is replaced by
+    // the unavailable variant, as effects that do not fit are, so the status
+    // never stops the one fallback envelope.
+    if (text === undefined && trusted.diagnostics) {
+      trusted = {
+        ...trusted,
+        diagnostics: unavailableStatus("status-unavailable"),
+      };
+      text = encodeBounded(construct(runtime, trusted, selected));
+    }
     // Trusted effect identities that do not fit are reported as unknown with
     // an incomplete inventory; nothing is fabricated.
     if (text === undefined && trusted.summary)
