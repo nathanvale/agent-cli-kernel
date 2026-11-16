@@ -36,9 +36,7 @@ const timeout = 20_000;
 const { scripts: production } = (await Bun.file(
   join(repository, "package.json"),
 ).json()) as { scripts: Record<string, string> };
-// A lockfile that still lists a dependency its manifest dropped. Only
-// `--frozen-lockfile` refuses it, and it needs no network.
-const staleLockfile = JSON.stringify({
+const lockfileListingADroppedDependency = JSON.stringify({
   lockfileVersion: 1,
   workspaces: { "": { dependencies: { dep: "file:./dep" } } },
   packages: { dep: ["dep@file:dep", {}] },
@@ -131,9 +129,7 @@ function worktrees(root: string): string[] {
     .filter((line) => line.startsWith("worktree "));
 }
 
-// The step writes `started` to the ledger, then waits. On a signal it exits 3,
-// a plain failure, so only the stop check keeps the commit from reading RED.
-function blockUntilSignalled(ledger: string): string {
+function blockThenFailPlainlyOnSignal(ledger: string): string {
   return `test ! -e block || { trap 'kill $!; exit 3' HUP INT TERM; echo started >> '${ledger}'; sleep 30 & wait; }`;
 }
 
@@ -241,7 +237,7 @@ describe("check:commits", () => {
     async () => {
       const { root, base, commit } = repositoryAt();
       const red = commit("keep a lockfile for a removed dependency", {
-        "bun.lock": staleLockfile,
+        "bun.lock": lockfileListingADroppedDependency,
       });
 
       const run = await checkCommits(root, [base.sha], {
@@ -446,7 +442,10 @@ describe("check:commits", () => {
       async () => {
         const ledger = join(folder("check-commits-ledger-"), "ledger");
         const { root, base, commit } = repositoryAt({
-          scripts: { ...markers, typecheck: blockUntilSignalled(ledger) },
+          scripts: {
+            ...markers,
+            typecheck: blockThenFailPlainlyOnSignal(ledger),
+          },
         });
         const before = commit("green before the stop", { "a.txt": "a" });
         const stopped = commit("block until stopped", { block: "" });

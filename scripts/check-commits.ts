@@ -22,12 +22,12 @@ type Result =
   | { status: "red"; failed: Step; output: string };
 type Checked = Commit & { result: Result };
 
-// A terminal sends SIGINT on Ctrl-C and SIGHUP when it closes. A CI runner
-// cancels with SIGINT, then SIGTERM. SIGKILL cannot be caught.
+// Ctrl-C sends SIGINT, a closing terminal SIGHUP, a CI cancel SIGINT then
+// SIGTERM.
 const signals = ["SIGHUP", "SIGINT", "SIGTERM"] as const;
 const active: { child?: Subprocess; stoppedBy?: (typeof signals)[number] } = {};
-// `bun run` puts the caller's node_modules/.bin folders on PATH. A commit is
-// judged only with what its own tree installs, so its steps never see them.
+// `bun run` prepends the caller's node_modules/.bin folders to PATH. Drop
+// them so a commit sees only what its own tree installs.
 const ownTools = {
   ...process.env,
   PATH: (process.env.PATH ?? "")
@@ -127,9 +127,6 @@ function report({ sha, short, subject, result }: Checked): void {
   const folder = `../red-${short}`;
   print(`RED ${short} ${subject}`);
   print(`Failed: ${shown(result.failed)}`);
-  // The doctor names a Bun other than the pin before install dies on the
-  // lockfile. The folder is reused and the shell stays put, so a second
-  // paste works.
   print(
     `Rerun locally: bun run doctor && { test -d ${folder} || git worktree add --detach ${folder} ${sha}; } && (cd ${folder} && ${rerun})`,
   );
