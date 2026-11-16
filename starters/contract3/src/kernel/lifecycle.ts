@@ -1,4 +1,5 @@
 import type { RunProcess } from "./capabilities.ts";
+import { unavailableStatus } from "./fallback.ts";
 import type { TrustedRun } from "./fallback.ts";
 import { processHost } from "./process-host.ts";
 import type {
@@ -25,12 +26,22 @@ import { addonNames, capabilityMethods } from "./validation/context.ts";
 import type { CapabilityAddonName } from "./validation/context.ts";
 import { record } from "./validation/primitives.ts";
 import { createWriter } from "./writer.ts";
+import type { StatusReport } from "./writer.ts";
 
 // LIFE-3, LIFE-6 and LIFE-11 bounds. A first stop request exits within the
 // 500 ms bound: owned programs get SIGTERM, then SIGKILL by the settle limit.
 const settleLimitMilliseconds = 300;
 const stopBoundMilliseconds = 450;
 const cancellationMilliseconds = 500;
+// DIAG-14 step 2 and DIAG-9: the diagnostics flush takes at most 500 ms.
+const flushMilliseconds = 500;
+// Provisional reading (coordinator ruling, 16 November 2026; DIAG-1's
+// "requested nor triggered" is with Nathan): a status is due only once the
+// run was dispatched, so a usage or approval refusal and a deadline before
+// start carry no `diagnostics` key. Set to true to give every refusal of a
+// command that declares a status-reporting add-on a status too (see
+// `reporterFor`).
+const statusOnPreHandlerRefusal = false;
 
 const messages = {
   USAGE_UNKNOWN_COMMAND: "No declared command matches this invocation.",
@@ -59,7 +70,8 @@ type Execution =
 // limit and re-measured on the front door's clock after each step, so it
 // fires neither early nor a step late. A wait within the limit arms once,
 // with its exact delay. The programs add-on keeps its own copy, because an
-// add-on imports only the fixed public index (CMD-5, CMD-17).
+// add-on imports only the kernel's public index (CMD-17), which does not offer
+// this helper. Both copies are held to one boundary table by the tests.
 const timerLimit = 2_147_483_647;
 function afterDelay(
   milliseconds: number,
@@ -130,6 +142,10 @@ function plansFor(
     }
     if (addons.length !== Object.keys(command.capabilities).length)
       throw new Error(`${command.commandIdentity} declares an unknown add-on.`);
+    if (addons.filter((plan) => plan.addon.reportsStatus === true).length > 1)
+      throw new Error(
+        `${command.commandIdentity} has more than one status-reporting add-on.`,
+      );
     plans.set(command.commandIdentity, { command, addons });
   }
   return plans;
@@ -166,6 +182,8 @@ type Run = {
   readonly startedAt: number;
   readonly controller: AbortController;
   readonly attached: AttachedAddon<unknown>[];
+  // The one attached add-on offering the status seam, if any.
+  reporter: AttachedAddon<unknown> | undefined;
   phase: EmergencyFacts["phase"];
   commandIdentity: string | null;
   stopped: StopSignal | undefined;
@@ -186,11 +204,67 @@ function killAll(run: Run) {
     }
 }
 
-async function settleAll(run: Run, limit?: number) {
+// X-K5 (swarm triage): a settle that throws, synchronously or not, is an
+// unconfirmed termination (LIFE-11), never a crash of the stop, deadline or
+// normal path.
+function settleOne(addon: AttachedAddon<unknown>, limit?: number) {
+  try {
+    return addon.settle(limit).catch(() => false);
+  } catch {
+    return Promise.resolve(false);
+  }
+}
+
+async function settleEach(
+  addons: readonly AttachedAddon<unknown>[],
+  limit?: number,
+) {
   const settled = await Promise.all(
-    run.attached.map((addon) => addon.settle(limit).catch(() => false)),
+    addons.map((addon) => settleOne(addon, limit)),
   );
   return settled.every(Boolean);
+}
+
+// Every attached add-on: the stop and deadline paths.
+function settleAll(run: Run, limit?: number) {
+  return settleEach(run.attached, limit);
+}
+
+// Normal completion (LIFE-11): the owned resources only; the status reporter
+// is not an owned program, and `freeze` replaces its settle after the result
+// is frozen. X-S3 (swarm triage): LIFE-6's deadline covers dispatch and work,
+// so a deadline also bounds this settlement; undefined means it expired.
+function settleOwned(run: Run, deadlineAt: number | undefined) {
+  const settling = settleEach(
+    run.attached.filter((addon) => addon !== run.reporter),
+  );
+  return deadlineAt === undefined
+    ? settling
+    : within(settling, deadlineAt - run.host.now(), run.host.now);
+}
+
+// DIAG-14 step 2: the status-reporting add-on freezes its status within the
+// flush budget, under the kernel's own bounded wait. Expiry, a throw or a
+// missing `freeze` yield the unavailable variant; the writer validates the
+// value alone (LIFE-7 step 1).
+async function freezeStatus(
+  run: Run,
+  reporter: AttachedAddon<unknown>,
+): Promise<StatusReport> {
+  try {
+    const freeze = reporter.freeze;
+    if (!freeze) return { value: unavailableStatus("status-unavailable") };
+    const frozen = await within(
+      Promise.resolve().then(() => freeze(flushMilliseconds)),
+      flushMilliseconds,
+      run.host.now,
+    );
+    return frozen === undefined
+      ? { value: unavailableStatus("status-unavailable") }
+      : { value: frozen };
+  } catch {
+    return { value: unavailableStatus("status-unavailable") };
+  }
 }
 
 // LIFE-3: hooks are installed before routing or dispatch.
@@ -271,6 +345,22 @@ async function kernelResult(
   };
 }
 
+// The one place that decides whether a status is due (standards F1): once
+// the run was dispatched, or for any refusal under the other reading, when
+// the command declares a status-reporting add-on.
+function reporterFor(run: Run, trusted: TrustedRun) {
+  if (trusted.dispatched) return run.reporter;
+  // Part 4 repair R1: under the shipped reading no refusal before the
+  // handler carries a status, even one raised after the reporter attached
+  // (an approval denial or a capabilities refusal inside `execute`).
+  if (!statusOnPreHandlerRefusal) return undefined;
+  const plan = run.plans.get(trusted.commandIdentity);
+  const entry = plan?.addons.find((item) => item.addon.reportsStatus === true);
+  if (plan && entry && !run.reporter)
+    run.reporter = attachReporter(run, plan.command, entry);
+  return run.reporter;
+}
+
 function builtin(run: Run, value: Resolved) {
   const { cli, navigation } = run.runtime;
   switch (value.commandIdentity) {
@@ -309,6 +399,28 @@ function attachNow(
   return instance;
 }
 
+// Seam review S2 (DIAG-12b): a status-reporting add-on whose attach throws
+// never takes the crash path. The handler gets an inert capability whose
+// calls do nothing, and the status is the unavailable variant (no freeze).
+function attachReporter(
+  run: Run,
+  command: CommandDeclaration,
+  plan: Plan,
+): AttachedAddon<unknown> {
+  try {
+    return attachNow(run, command, plan.addon);
+  } catch {
+    const inert = Object.fromEntries(
+      capabilityMethods[plan.name].map((method) => [method, () => undefined]),
+    );
+    return {
+      capability: Object.freeze(inert),
+      settle: () => Promise.resolve(true),
+      killNow: () => undefined,
+    };
+  }
+}
+
 // A capability whose add-on attaches on first use, so any attach-time effect
 // happens only inside the handler, after every non-consuming preflight.
 function deferred(run: Run, command: CommandDeclaration, plan: Plan) {
@@ -328,16 +440,25 @@ function deferred(run: Run, command: CommandDeclaration, plan: Plan) {
   return Object.freeze(Object.fromEntries(methods));
 }
 
-// CMD-9 steps 5 and 6: only the approval add-on attaches before the handler,
-// because its check is the step 5 preflight. Every other declared capability
-// attaches when the handler first uses it.
+// CMD-9 steps 5 and 6: the approval add-on attaches before the handler,
+// because its check is the step 5 preflight, and so does a status-reporting
+// add-on, whose attach is effect-free, so its status exists even when the
+// handler never uses it. Every other declared capability attaches when the
+// handler first uses it.
 function capabilities(run: Run, plan: CommandPlan): Record<string, unknown> {
   const context: Record<string, unknown> = {};
-  for (const entry of plan.addons)
-    context[entry.name] =
-      entry.name === "approval"
-        ? attachNow(run, plan.command, entry.addon).capability
-        : deferred(run, plan.command, entry);
+  for (const entry of plan.addons) {
+    if (entry.name !== "approval" && entry.addon.reportsStatus !== true) {
+      context[entry.name] = deferred(run, plan.command, entry);
+      continue;
+    }
+    const instance =
+      entry.addon.reportsStatus === true
+        ? attachReporter(run, plan.command, entry)
+        : attachNow(run, plan.command, entry.addon);
+    if (entry.addon.reportsStatus === true) run.reporter = instance;
+    context[entry.name] = instance.capability;
+  }
   return context;
 }
 
@@ -383,10 +504,14 @@ async function afterDeadline(
 // their declared budgets before the result is frozen.
 async function afterHandler(
   run: Run,
-  identity: string,
+  command: CommandDeclaration,
   execution: Execution,
+  deadlineAt: number | undefined,
 ): Promise<Delivery> {
-  const clean = await settleAll(run);
+  const identity = command.commandIdentity;
+  const clean = await settleOwned(run, deadlineAt);
+  if (clean === undefined)
+    return afterDeadline(run, command, Promise.resolve(execution));
   if (execution.kind === "threw")
     return {
       candidate: { ok: false, path: "handler", reason: "handler threw" },
@@ -400,10 +525,13 @@ async function afterHandler(
         : outcome.path === "capabilities"
           ? "INTERNAL_PREPARATION"
           : "USAGE_INVALID_INVOCATION";
-    return kernelResult(run, identity, causeCode, messages[causeCode]);
+    return await kernelResult(run, identity, causeCode, messages[causeCode]);
   }
   if (!outcome.ok)
-    return { candidate: outcome, trusted: trustedRun(run, identity, true) };
+    return {
+      candidate: outcome,
+      trusted: trustedRun(run, identity, true),
+    };
   const summary = run.runtime.trustedSummary(outcome.value, run.runId);
   const trusted = trustedRun(run, identity, true, summary);
   if (!clean)
@@ -415,7 +543,10 @@ async function afterHandler(
       },
       trusted,
     };
-  return { candidate: await run.runtime.buildResult(outcome.value), trusted };
+  return {
+    candidate: await run.runtime.buildResult(outcome.value),
+    trusted,
+  };
 }
 
 async function dispatch(run: Run, value: Resolved): Promise<Delivery> {
@@ -432,7 +563,7 @@ async function dispatch(run: Run, value: Resolved): Promise<Delivery> {
   const deadline = value.deadlineMilliseconds;
   // CMD-9 step 4.
   if (deadline !== undefined && run.host.now() - run.startedAt >= deadline)
-    return kernelResult(
+    return await kernelResult(
       run,
       identity,
       "DOMAIN_DEADLINE_BEFORE_START",
@@ -457,13 +588,18 @@ async function dispatch(run: Run, value: Resolved): Promise<Delivery> {
         );
   return first === undefined
     ? afterDeadline(run, plan.command, execution)
-    : afterHandler(run, identity, first);
+    : afterHandler(
+        run,
+        plan.command,
+        first,
+        deadline === undefined ? undefined : run.startedAt + deadline,
+      );
 }
 
 async function route(run: Run, resolution: Resolution): Promise<Delivery> {
   if (!resolution.ok) {
     run.commandIdentity = resolution.commandIdentity;
-    return kernelResult(
+    return await kernelResult(
       run,
       resolution.commandIdentity,
       resolution.causeCode,
@@ -500,6 +636,7 @@ async function runInvocation(
     startedAt: host.now(),
     controller: new AbortController(),
     attached: [],
+    reporter: undefined,
     phase: "preparing",
     commandIdentity: null,
     stopped: undefined,
@@ -515,8 +652,13 @@ async function runInvocation(
   });
   const delivery = await route(run, resolution);
   if (!delivery) return 1;
+  // DIAG-14: the domain result and recovery are frozen in `delivery`; only
+  // now does the status-reporting add-on flush and freeze its status.
+  const reporter = reporterFor(run, delivery.trusted);
+  const report =
+    reporter && !run.stopped ? await freezeStatus(run, reporter) : undefined;
   run.phase = "emitting";
-  const code = await writer.emit(delivery.candidate, delivery.trusted);
+  const code = await writer.emit(delivery.candidate, delivery.trusted, report);
   if (code === undefined || run.stopped) return code ?? 1;
   run.phase = "drained";
   host.exit(code);

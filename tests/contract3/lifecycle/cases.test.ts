@@ -69,3 +69,21 @@ test("every findings-round case identity is exercised in its home file", () => {
     expect(source.includes(`"${id}`) || source.includes(`\`${id}`)).toBe(true);
   }
 });
+
+// Part 3: each status-seam identity is exercised in its home file.
+test("every status-seam case identity is exercised in its home file", () => {
+  const listed: unknown = JSON.parse(
+    readFileSync(join(import.meta.dir, "status-cases.json"), "utf8"),
+  );
+  const home = record(listed) ? listed.home : undefined;
+  const cases =
+    record(listed) && Array.isArray(listed.cases) ? listed.cases : [];
+  if (typeof home !== "string") throw new Error("No status-seam home file.");
+  const source = readFileSync(join(import.meta.dir, "..", home), "utf8");
+  expect(cases.length).toBe(14);
+  for (const entry of cases) {
+    const id = record(entry) ? entry.id : undefined;
+    if (typeof id !== "string") throw new Error("Malformed status-seam case.");
+    expect(source.includes(`"${id}`) || source.includes(`\`${id}`)).toBe(true);
+  }
+});
