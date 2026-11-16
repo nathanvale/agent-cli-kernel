@@ -121,26 +121,34 @@ now enforces.
 ### Untrusted values
 
 - Lint `repository/no-locale-compare` refuses `localeCompare` and
-  `Intl.Collator` in `src/`, `scripts/` and `starters/contract3/src/`.
+  `Collator` in `src/`, `scripts/` and `starters/contract3/src/`: as a
+  property, a destructured name, or a constant string such as
+  `Reflect.get(Intl, "Collator")`.
 - Tests stay review. The R15 locale arm in
   `tests/contract3/kernel-repair/equality.test.ts` swaps the collation on
   purpose.
-- Lint `repository/no-in-operator` refuses the `in` operator in
-  `starters/contract3/src/`. A private `#name in value` check passes.
-- The `in` operator outside Contract 3 source stays review. So do a bracket
-  read of an inherited name, a second read of a value, and a spread that
-  drops properties.
+- Lint `repository/no-in-operator` refuses `key in value` and
+  `Reflect.has(value, key)` in `starters/contract3/src/` when the type of
+  `value` declares no member named `key`. That is a probe of an unknown
+  shape. Narrowing a union by a key one member declares passes, and so does
+  a private `#name in value` check. It also refuses every `for...in`.
+- Source outside Contract 3 stays review. So do a bracket read of an
+  inherited name, a second read of a value, and a spread that drops
+  properties.
 - Witnessed: [b456208], [5cbff3a].
 
 ### One owner
 
-- Lint `repository/cause-literal-owner` refuses a string literal shaped like
-  a cause code in `starters/contract3/src/`, outside `kernel/causes.ts`,
-  `kernel/state-causes.ts` and `kernel/stations.ts`. The shape is `SUCCESS_`,
-  `USAGE_`, `SCHEMA_`, `DOMAIN_`, `TRANSIENT_` or `INTERNAL_`, then upper
-  snake case.
-- A cause literal in a type position passes. Route tokens, built-in
-  identities, shape helpers and test fakes stay review.
+- Lint `repository/cause-literal-owner` refuses a common cause code in
+  `starters/contract3/src/` when the compiler does not check it against
+  `keyof typeof commonCauses`. It reads the codes from `kernel/causes.ts`.
+  It skips `kernel/causes.ts`, `kernel/state-causes.ts` and
+  `kernel/stations.ts`.
+- It sees a code spelt as a literal, or built from constants with `+`, a
+  template or `.join()`. It passes a code whose place, or whose comparison
+  partner, takes only listed string literals.
+- A code built from a runtime value, a host's own codes, route tokens,
+  built-in identities, shape helpers and test fakes stay review.
 - Lint `repository/tests-use-test-folder` refuses `tmpdir()`, `mkdtemp()`
   and `mkdtempSync()` in `tests/`, outside `tests/support/test-folder.ts`.
   That shared `tests/support/` module owns test folders through
@@ -159,6 +167,9 @@ now enforces.
 - `bun run lint` fails on a new hit. It also fails when a recorded hit is
   fixed and the file is not pruned. Run
   `bunx eslint . --prune-suppressions` after the fix.
+- `no-in-operator` and `cause-literal-owner` run only from
+  `eslint.config.mjs`, where that file applies. The Contract 3
+  configuration that lints a materialised test tree leaves them out.
 
 ## Review routine
 
