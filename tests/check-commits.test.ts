@@ -5,6 +5,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readdirSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -99,7 +100,10 @@ function repositoryAt({ pin = Bun.version, scripts = markers } = {}) {
       short: git(root, "rev-parse", "--short", "HEAD"),
     };
   };
-  const base = commit("base", { "package.json": manifest(pin, scripts) });
+  const base = commit("base", {
+    ".gitignore": "node_modules\n",
+    "package.json": manifest(pin, scripts),
+  });
   return { root, base, commit };
 }
 
@@ -141,10 +145,25 @@ function verdicts(lines: readonly string[]): string[] {
   return lines.filter((line) => /^(GREEN|RED) /.test(line));
 }
 
+function printed(lines: readonly string[], label: string): string {
+  const line = lines.find((each) => each.startsWith(`${label}: `));
+  if (line === undefined) throw new Error(`No ${label} line.`);
+  return line.slice(`${label}: `.length);
+}
+
 function rerunOf(lines: readonly string[]): string {
-  const line = lines.find((each) => each.startsWith("Rerun locally: "));
-  if (line === undefined) throw new Error("No Rerun locally line.");
-  return line.slice("Rerun locally: ".length);
+  return printed(lines, "Rerun locally");
+}
+
+function linkedCheckout(root: string): string {
+  const caller = join(dirname(root), "caller");
+  git(root, "worktree", "add", "--quiet", "--detach", caller);
+  for (const path of sources) {
+    mkdirSync(dirname(join(caller, path)), { recursive: true });
+    copyFileSync(join(root, path), join(caller, path));
+  }
+  symlinkSync(join(repository, "node_modules"), join(caller, "node_modules"));
+  return caller;
 }
 
 function executable(path: string, script: string): string {
@@ -193,7 +212,7 @@ describe("check:commits", () => {
       expect(run.lines).toContain(`RED ${red.short} add a lint error`);
       expect(run.lines).toContain("Failed: bun run lint");
       expect(rerunOf(run.lines)).toEndWith(
-        `&& (cd ../red-${red.short} && bun install --frozen-lockfile && bun run typecheck && bun run lint)`,
+        '&& cd "$folder" && bun install --frozen-lockfile && bun run typecheck && bun run lint)',
       );
     },
     processWatchdog(1),
@@ -414,17 +433,19 @@ describe("check:commits", () => {
   );
 
   test(
-    "the printed rerun reproduces the failure when pasted twice",
+    "the printed rerun reproduces the failure when pasted twice from a linked checkout, under the main checkout's .worktrees, and its cleanup removes it",
     async () => {
       const { root, base, commit } = repositoryAt();
-      commit("add a lint error", { "lint-error": "" });
+      const red = commit("add a lint error", { "lint-error": "" });
+      const caller = linkedCheckout(root);
       const run = await checkCommits(root, [base.sha], {
         CHECK_COMMITS_SINCE: base.sha,
       });
       const rerun = rerunOf(run.lines);
+      const leftover = `worktree ${realpathSync(root)}/.worktrees/red-${red.short}`;
 
-      const first = await paste(root, rerun);
-      const second = await paste(root, rerun);
+      const first = await paste(caller, rerun);
+      const second = await paste(caller, rerun);
 
       for (const pasted of [first, second]) {
         expect(pasted.exit).toBe(1);
@@ -432,8 +453,16 @@ describe("check:commits", () => {
           'error: script "lint" exited with code 1',
         );
       }
+      expect(worktrees(root)).toContain(leftover);
+      expect(worktrees(root)).toHaveLength(3);
+
+      const cleaned = await paste(caller, printed(run.lines, "Clean up"));
+
+      expect(cleaned.exit).toBe(0);
+      expect(worktrees(root)).not.toContain(leftover);
+      expect(worktrees(root)).toHaveLength(2);
     },
-    processWatchdog(3),
+    processWatchdog(4),
   );
 
   test(
@@ -451,6 +480,9 @@ describe("check:commits", () => {
       expect(pasted.exit).toBe(1);
       expect(pasted.lines).toContain(
         `FAIL bun: found Bun ${Bun.version}, pinned 0.0.1. Repair: install Bun 0.0.1 (mise install bun@0.0.1, or setup-bun in CI), then bun install --frozen-lockfile.`,
+      );
+      expect(existsSync(join(root, ".worktrees", `red-${red.short}`))).toBe(
+        false,
       );
       expect(existsSync(join(root, "..", `red-${red.short}`))).toBe(false);
     },

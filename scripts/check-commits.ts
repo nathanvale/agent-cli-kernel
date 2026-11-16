@@ -163,12 +163,13 @@ function report({ sha, short, subject, result }: Checked): void {
     .slice(0, failedAt + 1)
     .map(shown)
     .join(" && ");
-  const folder = `../red-${short}`;
+  const folder = `"$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/.worktrees/red-${short}"`;
   print(`RED ${short} ${subject}`);
   print(`Failed: ${shown(result.failed)}`);
   print(
-    `Rerun locally: bun run doctor && { test -d ${folder} || git worktree add --detach ${folder} ${sha}; } && (cd ${folder} && ${rerun})`,
+    `Rerun locally: bun run doctor && (folder=${folder} && { test -d "$folder" || git worktree add --detach "$folder" ${sha}; } && cd "$folder" && ${rerun})`,
   );
+  print(`Clean up: git worktree remove ${folder}`);
   process.stdout.write(result.output.replace(/\n?$/, "\n"));
 }
 
