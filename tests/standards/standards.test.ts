@@ -200,11 +200,21 @@ function commitLinkProblems(
 ): { defined: Set<string>; problems: string[] } {
   const problems: string[] = [];
   const defined = new Set<string>();
-  for (const match of text.matchAll(/^ {0,3}\[([^\]]+)\]:\s*(\S+)/gm)) {
+  const links = [
+    ...[...text.matchAll(/^ {0,3}\[([^\]]+)\]:\s*(\S+)/gm)].map((match) => ({
+      match,
+      definition: true,
+    })),
+    ...[...text.matchAll(/\[([^\]]+)\]\(([^()\s]+)\)/g)].map((match) => ({
+      match,
+      definition: false,
+    })),
+  ];
+  for (const { match, definition } of links) {
     const [, label = "", target = ""] = match;
     if (!shortSha.test(label) && !target.includes("/commit/")) continue;
     const where = `${file}:${lineOf(text, match.index)}: [${label}]`;
-    defined.add(label);
+    if (definition) defined.add(label);
     const sha = target.startsWith(commitPage)
       ? target.slice(commitPage.length)
       : "";
@@ -611,6 +621,17 @@ test.each([
     },
     [
       `docs/standards/guide.md:7: [0123456] cites ${absent}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA.`,
+    ],
+  ],
+  [
+    "an inline commit link outside HEAD's history or this repository",
+    (files: Record<string, string>) => {
+      files["docs/standards/guide.md"] =
+        `${files["docs/standards/guide.md"] ?? ""}\nSee [0123456](${commitPage}${absent}).\nSee [0123456](https://github.com/owner/other/commit/${absent}).\n`;
+    },
+    [
+      `docs/standards/guide.md:9: [0123456] cites ${absent}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA.`,
+      `docs/standards/guide.md:10: [0123456] links https://github.com/owner/other/commit/${absent}, which is not a commit page of this repository. Link ${commitPage}<full sha>.`,
     ],
   ],
   [
