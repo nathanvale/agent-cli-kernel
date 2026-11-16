@@ -123,7 +123,10 @@ async function holder(
 ): Promise<{ readonly worker: Worker; readonly report: Report }> {
   const worker = start(route, "hold", file, option);
   const report = await worker.report();
-  expect(report.result).toBe("acquired");
+  expect({ result: report.result, code: report.code }).toEqual({
+    result: "acquired",
+    code: "none",
+  });
   return { worker, report };
 }
 
@@ -168,9 +171,10 @@ async function otherDescriptorObservation(route: string): Promise<string> {
 // A contender attempts while the child still lives.
 async function childObservation(
   route: string,
+  option = "child",
 ): Promise<{ readonly result: string; readonly childAlive: boolean }> {
   const file = join(folder(), "f.lock");
-  const { worker, report } = await holder(route, file, "child");
+  const { worker, report } = await holder(route, file, option);
   const child = Number(report.child);
   expect(child).toBeGreaterThan(0);
   processes.push(child);
@@ -245,6 +249,13 @@ caseTest("C01.e-spawned-child-does-not-hold", async () => {
   const addon = await childObservation("addon");
   expect(addon.childAlive).toBe(true);
   expect(addon.result).toBe("acquired");
+  // A child the C library starts inherits every descriptor that is not
+  // close-on-exec. Without the route's own flag this was seen failing on
+  // Bun 1.4.0 and 1.4.2; the supported runtime is the pinned 1.4.4, which
+  // sets the flag too, so here it guards against a Bun that stops setting it.
+  const native = await childObservation("addon", "native-child");
+  expect(native.childAlive).toBe(true);
+  expect(native.result).toBe("acquired");
   // Wrong twin detected: a child sharing the open file description keeps
   // the coordination lock after its parent dies.
   const shared = await childObservation("shared-control");
