@@ -159,6 +159,16 @@ function signalOwnGroupAtCheckoutOf(root: string, signal: string): void {
   );
 }
 
+function signalOwnGroupAtRemovalOf(signal: string): Record<string, string> {
+  const bin = folder("check-commits-bin-");
+  executable(
+    join(bin, "git"),
+    `if [ "$1 $2" = "worktree remove" ] && [ -e "$4/block" ]; then kill -s ${signal.slice(3)} 0; fi
+exec '${Bun.which("git")}' "$@"`,
+  );
+  return { PATH: `${bin}:${process.env.PATH ?? ""}` };
+}
+
 async function paste(root: string, command: string) {
   const run = await spawnBounded(["sh", "-c", command], {
     cwd: root,
@@ -517,6 +527,36 @@ describe("check:commits", () => {
       },
       processWatchdog(1),
     );
+
+  test(
+    "SIGTERM to the whole process group while git removes the worktree leaves no registered worktree and no verdict",
+    async () => {
+      const { root, base, commit } = repositoryAt();
+      const before = commit("green before the stop", { "a.txt": "a" });
+      const stopped = commit("stop while removing", { block: "" });
+
+      const run = await checkCommits(
+        root,
+        [base.sha],
+        {
+          CHECK_COMMITS_SINCE: base.sha,
+          ...signalOwnGroupAtRemovalOf("SIGTERM"),
+        },
+        { ownGroup: true },
+      );
+
+      expect(run.exit).toBe(143);
+      expect(verdicts(run.lines)).toEqual([
+        `GREEN ${before.short} green before the stop`,
+      ]);
+      expect(run.stderr.split("\n")).toContain(
+        `Stopped by SIGTERM while checking ${stopped.short}, so it has no verdict.`,
+      );
+      expect(worktrees(root)).toHaveLength(1);
+      expect(readdirSync(run.temporary)).toEqual([]);
+    },
+    processWatchdog(1),
+  );
 
   test(
     "a step killed by a signal the run did not receive gives no verdict and exits 2",

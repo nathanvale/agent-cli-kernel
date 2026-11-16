@@ -1,6 +1,6 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { constants, tmpdir } from "node:os";
-import { basename, delimiter, dirname, join } from "node:path";
+import { basename, delimiter, dirname, join, resolve } from "node:path";
 import type { Subprocess } from "bun";
 import { doctor } from "./doctor.ts";
 
@@ -61,6 +61,15 @@ function git(args: readonly string[]) {
   };
 }
 
+const worktreesFolder = join(
+  git([
+    "rev-parse",
+    "--path-format=absolute",
+    "--git-common-dir",
+  ]).stdout.trim(),
+  "worktrees",
+);
+
 function shown(step: Step): string {
   return `bun ${step.join(" ")}`;
 }
@@ -69,9 +78,26 @@ function print(line: string): void {
   process.stdout.write(`${line}\n`);
 }
 
+function adminFolderOf(dir: string): string | undefined {
+  const link = join(dir, ".git");
+  if (!existsSync(link)) return undefined;
+  const admin = resolve(
+    dir,
+    readFileSync(link, "utf8")
+      .replace(/^gitdir: /, "")
+      .trim(),
+  );
+  return dirname(admin) === worktreesFolder ? admin : undefined;
+}
+
+// Deleting this one worktree's admin folder is what `git worktree prune`
+// does for it, without pruning anyone else's worktree.
 function release(dir: string): void {
-  git(["worktree", "remove", "--force", dir]);
+  const admin = adminFolderOf(dir);
+  const removed = git(["worktree", "remove", "--force", dir]).ok;
   rmSync(dir, { recursive: true, force: true });
+  if (!removed && admin !== undefined)
+    rmSync(admin, { recursive: true, force: true });
 }
 
 function haltIfStopped(commit: Commit): void {
@@ -192,6 +218,7 @@ async function main(argv: readonly string[]): Promise<number> {
   let red = 0;
   for (const commit of commits) {
     const checked = await check(commit);
+    haltIfStopped(commit);
     report(checked);
     if (checked.result.status === "red") red += 1;
   }
