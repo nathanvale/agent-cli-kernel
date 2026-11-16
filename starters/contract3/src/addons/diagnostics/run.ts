@@ -13,24 +13,9 @@ import type {
 import { allocate, confirmClosed, locate, prepare } from "./custody.ts";
 import type { Opened } from "./custody.ts";
 import type { DiagnosticsIo } from "./io.ts";
-import { lineMaker, markers, recordLimits } from "./records.ts";
+import { limits } from "./limits.ts";
+import { lineMaker, markers } from "./records.ts";
 import type { Line } from "./records.ts";
-
-// DIAG-9 buffer and per-run bounds, DIAG-14 flush bound. The buffer charge is
-// the serialised line plus a fixed per-record queue overhead.
-export const sinkLimits = {
-  bufferBytes: 1_000_000,
-  bufferRecords: 256,
-  recordOverheadBytes: 64,
-  runBytes: 1_000_000,
-  flushMilliseconds: 500,
-  // Finalisation resolves this much before the caller's limit, so the
-  // kernel's own race of the same limit never pre-empts a finished status.
-  flushMarginMilliseconds: 50,
-  metaReports: 8,
-  metaReportCharacters: 200,
-  secretFileBytes: 65_536,
-} as const;
 
 type Available = Extract<Diagnostics, { readonly status: "available" }>;
 type SinkFailure = NonNullable<Available["sinkFailure"]>;
@@ -82,34 +67,52 @@ function optionValues(
   return values;
 }
 
-function fileSecret(path: string): string[] {
+// The whole contents of a declared secret file, or undefined when it cannot
+// be read whole (missing, unreadable, not a regular file, above the bound,
+// or a short read). Nothing is ever logged for an unread secret.
+function fileSecret(path: string): string[] | undefined {
   let descriptor: number | undefined;
   try {
     descriptor = openSync(path, constants.O_RDONLY | constants.O_NONBLOCK);
     const info = fstatSync(descriptor);
-    if (!info.isFile() || info.size > sinkLimits.secretFileBytes) return [];
+    if (!info.isFile() || info.size > limits.secretFileBytes) return undefined;
     const buffer = new Uint8Array(info.size);
-    const read = readSync(descriptor, buffer, 0, info.size, 0);
-    const text = new TextDecoder().decode(buffer.subarray(0, read));
+    let filled = 0;
+    while (filled < info.size) {
+      const read = readSync(
+        descriptor,
+        buffer,
+        filled,
+        info.size - filled,
+        filled,
+      );
+      if (read <= 0) return undefined;
+      filled += read;
+    }
+    const text = new TextDecoder().decode(buffer);
     return [text, text.trim()];
   } catch {
-    return [];
+    return undefined;
   } finally {
     if (descriptor !== undefined)
       try {
         closeSync(descriptor);
       } catch {
-        // Reading a secret never fails the run.
+        // The read result above already decided.
       }
   }
 }
 
-function secretValues(options: DiagnosticsOptions): string[] {
+// Every declared secret value, or undefined when any declared source could
+// not be read whole: then the run's diagnostics stop (DIAG-12).
+function secretValues(options: DiagnosticsOptions): string[] | undefined {
   const argv = options.argv ?? [];
   const sources = options.secrets ?? {};
+  const files = optionValues(argv, sources.fileOptions ?? []).map(fileSecret);
+  if (files.some((contents) => contents === undefined)) return undefined;
   return [
     ...optionValues(argv, sources.options ?? []),
-    ...optionValues(argv, sources.fileOptions ?? []).flatMap(fileSecret),
+    ...files.flatMap((contents) => contents ?? []),
     ...(sources.environment ?? []).flatMap((name) => {
       const value = options.environment[name];
       return value === undefined ? [] : [value];
@@ -117,13 +120,14 @@ function secretValues(options: DiagnosticsOptions): string[] {
   ].filter((value) => value.length > 0);
 }
 
-function within(milliseconds: number): number {
+// The add-on's own finalisation budget inside a caller's limit.
+function budgetFor(milliseconds: number): number {
   return Number.isFinite(milliseconds)
     ? Math.min(
-        Math.max(0, milliseconds - sinkLimits.flushMarginMilliseconds),
-        sinkLimits.flushMilliseconds - sinkLimits.flushMarginMilliseconds,
+        Math.max(0, milliseconds - limits.flushMarginMilliseconds),
+        limits.flushMilliseconds - limits.flushMarginMilliseconds,
       )
-    : sinkLimits.flushMilliseconds - sinkLimits.flushMarginMilliseconds;
+    : limits.flushMilliseconds - limits.flushMarginMilliseconds;
 }
 
 async function race(work: Promise<void>, milliseconds: number) {
@@ -182,14 +186,14 @@ function session(
   }
 
   function admit(line: Line) {
-    const charge = line.bytes.length + sinkLimits.recordOverheadBytes;
+    const charge = line.bytes.length + limits.recordOverheadBytes;
     if (inputClosed || state === "failed" || full) dropped += 1;
     else if (
-      queue.length >= sinkLimits.bufferRecords ||
-      queuedBytes + charge > sinkLimits.bufferBytes
+      queue.length >= limits.bufferRecords ||
+      queuedBytes + charge > limits.bufferBytes
     )
       dropped += 1;
-    else if (reservedBytes + line.bytes.length > sinkLimits.runBytes) {
+    else if (reservedBytes + line.bytes.length > limits.runBytes) {
       full = true;
       fail("capacity");
       dropped += 1;
@@ -222,7 +226,7 @@ function session(
       for (let head = queue[0]; head && !frozen; head = queue[0]) {
         await writeHead(descriptor, head);
         queue.shift();
-        queuedBytes -= head.bytes.length + sinkLimits.recordOverheadBytes;
+        queuedBytes -= head.bytes.length + limits.recordOverheadBytes;
         written += 1;
       }
     } catch {
@@ -270,28 +274,25 @@ function session(
     throw new Error("Diagnostics are not configured.");
   };
 
-  function configure(): Logger | undefined {
+  function configure(secrets: readonly string[]): Logger | undefined {
     try {
-      make = lineMaker(secretValues(options));
+      make = lineMaker(secrets);
       configureSync({
         reset: true,
         sinks: {
           diagnostics: redactByField(sink, {
             fieldPatterns: DEFAULT_REDACT_FIELDS,
             action: () => markers.redacted,
-            maxDepth: recordLimits.depth + 1,
-            maxProperties: 1_000_000,
+            maxDepth: limits.redactionDepth,
+            maxProperties: limits.redactionEntries,
           }),
           // DIAG-12a: reporting about the logger itself stays bounded and
           // in memory; it is never written and never durable truth.
           meta: (record: LogRecord) => {
             metaCount += 1;
-            if (metaReports.length < sinkLimits.metaReports)
+            if (metaReports.length < limits.metaReports)
               metaReports.push(
-                String(record.rawMessage).slice(
-                  0,
-                  sinkLimits.metaReportCharacters,
-                ),
+                String(record.rawMessage).slice(0, limits.metaReportCharacters),
               );
           },
         },
@@ -323,7 +324,10 @@ function session(
   function begin() {
     if (state !== "idle") return;
     state = "pending";
-    logger = configure();
+    // A declared secret that cannot be read whole could not be redacted:
+    // diagnostics stop for this run and the loss is disclosed.
+    const secrets = secretValues(options);
+    logger = secrets === undefined ? undefined : configure(secrets);
     if (!logger) {
       fail("setup");
       state = "failed";
@@ -357,25 +361,30 @@ function session(
     }
   }
 
-  async function closeSink() {
-    if (!opened) return;
-    let size: number | undefined;
+  // Independent check of the accounting: the file must hold exactly the
+  // bytes confirmed written. Returns the size when it does.
+  function checkedSize(descriptor: number): number | undefined {
+    let size: number;
     try {
-      size = io.size(opened.descriptor);
+      size = io.size(descriptor);
     } catch {
       accounting = "unavailable";
+      return undefined;
     }
-    if (size !== undefined && size !== writtenBytes && accounting === "ok")
-      accounting = "invalid";
+    if (size !== writtenBytes && accounting === "ok") accounting = "invalid";
+    return accounting === "ok" ? size : undefined;
+  }
+
+  function closeSink() {
+    if (!opened) return;
+    const size = checkedSize(opened.descriptor);
     try {
       io.close(opened.descriptor);
       closed = true;
     } catch {
       fail("close");
     }
-    if (closed && accounting === "ok" && size !== undefined)
-      confirmClosed(opened, size);
-    await Promise.resolve();
+    if (closed && size !== undefined) confirmClosed(opened, size);
   }
 
   async function finishWork() {
@@ -384,13 +393,13 @@ function session(
       pump();
       await pumping;
     }
-    if (!frozen) await closeSink();
+    if (!frozen) closeSink();
   }
 
   function finish(limitMilliseconds: number) {
     inputClosed = true;
     finishing ??= finishWork();
-    return race(finishing, within(limitMilliseconds));
+    return race(finishing, budgetFor(limitMilliseconds));
   }
 
   function facts(complete: boolean): Available {
@@ -465,7 +474,7 @@ function session(
       return freezing;
     },
     async settle(limitMilliseconds) {
-      await finish(limitMilliseconds ?? sinkLimits.flushMilliseconds);
+      await finish(limitMilliseconds ?? limits.flushMilliseconds);
       return true;
     },
     killNow() {

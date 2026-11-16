@@ -1,21 +1,12 @@
-import type { LogRecord, TextFormatter } from "@logtape/logtape";
-import { redactByPattern } from "@logtape/redaction";
-import type { RedactionPattern } from "@logtape/redaction";
-
-// DIAG-9 record bound and DIAG-12 visible truncation. Each record is one JSON
-// line; the bound covers the line and its newline.
-export const recordLimits = {
-  recordBytes: 64_000,
-  depth: 16,
-  entries: 1_000,
-} as const;
+import type { LogRecord } from "@logtape/logtape";
+import { limits } from "./limits.ts";
 
 export const markers = {
   redacted: "[REDACTED]",
   depth: "[truncated: depth]",
   cycle: "[truncated: cycle]",
   unserialisable: "[unserialisable]",
-  record: `[truncated: record exceeded ${recordLimits.recordBytes} bytes]`,
+  record: `[truncated: record exceeded ${limits.recordBytes} bytes]`,
 } as const;
 
 const encoder = new TextEncoder();
@@ -36,10 +27,6 @@ function forms(secrets: readonly string[]): readonly string[] {
       all.add(JSON.stringify(secret).slice(1, -1));
     }
   return [...all].sort((a, b) => b.length - a.length);
-}
-
-function escaped(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function conceal(text: string, secretForms: readonly string[]): string {
@@ -65,8 +52,8 @@ function boundedString(
   cut: Cut,
 ): string {
   const text = conceal(value, secretForms);
-  if (text.length <= recordLimits.recordBytes) return text;
-  return `${text.slice(0, recordLimits.recordBytes)}${lost(cut, markers.record)}`;
+  if (text.length <= limits.recordBytes) return text;
+  return `${text.slice(0, limits.recordBytes)}${lost(cut, markers.record)}`;
 }
 
 function boundedObject(
@@ -78,21 +65,18 @@ function boundedObject(
 ): unknown {
   if (Array.isArray(value)) {
     const items: unknown[] = value
-      .slice(0, recordLimits.entries)
+      .slice(0, limits.entries)
       .map((item: unknown) => bounded(item, secretForms, level + 1, cut, seen));
-    if (value.length > recordLimits.entries)
+    if (value.length > limits.entries)
       items.push(
-        lost(
-          cut,
-          `[truncated: ${value.length - recordLimits.entries} more entries]`,
-        ),
+        lost(cut, `[truncated: ${value.length - limits.entries} more entries]`),
       );
     return items;
   }
   if (!plain(value)) return lost(cut, markers.unserialisable);
   const result: Record<string, unknown> = {};
   const keys = Object.keys(value);
-  for (const key of keys.slice(0, recordLimits.entries))
+  for (const key of keys.slice(0, limits.entries))
     result[conceal(key, secretForms)] = bounded(
       Reflect.get(value, key),
       secretForms,
@@ -100,10 +84,10 @@ function boundedObject(
       cut,
       seen,
     );
-  if (keys.length > recordLimits.entries)
+  if (keys.length > limits.entries)
     result["[truncated]"] = lost(
       cut,
-      `${keys.length - recordLimits.entries} more keys`,
+      `${keys.length - limits.entries} more keys`,
     );
   return result;
 }
@@ -123,7 +107,7 @@ function bounded(
   if (typeof value === "string") return boundedString(value, secretForms, cut);
   if (typeof value !== "object") return lost(cut, markers.unserialisable);
   if (seen.has(value)) return lost(cut, markers.cycle);
-  if (level >= recordLimits.depth) return lost(cut, markers.depth);
+  if (level >= limits.depth) return lost(cut, markers.depth);
   seen.add(value);
   try {
     return boundedObject(value, secretForms, level, cut, seen);
@@ -132,19 +116,18 @@ function bounded(
   }
 }
 
-function header(record: LogRecord, secretForms: readonly string[], cut: Cut) {
+// The header holds only values the add-on itself supplies (time, sequence,
+// the kernel's run and command identities, elapsed time, level), so it is
+// never concealed: a short secret can never rewrite a number or an identity
+// and break the line.
+function header(record: LogRecord, cut: Cut) {
   const properties = record.properties;
   return {
     time: new Date(record.timestamp).toISOString(),
-    seq: bounded(properties.seq, secretForms, 0, cut),
-    runId: bounded(properties.runId, secretForms, 0, cut),
-    command: bounded(properties.commandIdentity, secretForms, 0, cut),
-    elapsedMilliseconds: bounded(
-      properties.elapsedMilliseconds,
-      secretForms,
-      0,
-      cut,
-    ),
+    seq: bounded(properties.seq, [], 0, cut),
+    runId: bounded(properties.runId, [], 0, cut),
+    command: bounded(properties.commandIdentity, [], 0, cut),
+    elapsedMilliseconds: bounded(properties.elapsedMilliseconds, [], 0, cut),
     level: record.level,
   };
 }
@@ -154,50 +137,43 @@ function size(text: string): number {
 }
 
 // A record above the bound keeps a visible marker and as much of its
-// (already redacted) text as fits, still as one valid JSON line.
-function shortened(
-  text: string,
-  record: LogRecord,
-  secretForms: readonly string[],
-): string {
-  let keep = recordLimits.recordBytes - 2_048;
-  for (;;) {
+// (already redacted) text as fits, still as one valid JSON line. If even an
+// empty prefix does not fit, the marker-only line is returned.
+function shortened(text: string, record: LogRecord): string {
+  const cut: Cut = { truncated: true };
+  for (
+    let keep = limits.recordBytes - limits.shortenedReserveBytes;
+    keep > 0;
+    keep = Math.floor(keep * limits.shortenedKeepRatio)
+  ) {
     const candidate = JSON.stringify({
-      ...header(record, secretForms, { truncated: true }),
+      ...header(record, cut),
       truncated: markers.record,
-      retainedPrefix: text.slice(0, Math.max(0, keep)),
+      retainedPrefix: text.slice(0, keep),
     });
-    if (size(candidate) <= recordLimits.recordBytes) return candidate;
-    keep = Math.floor(keep * 0.8);
+    if (size(candidate) <= limits.recordBytes) return candidate;
   }
+  return JSON.stringify({ truncated: markers.record });
 }
 
-// One bounded, redacted line per record. Every string is concealed before any
-// cut; the pinned LogTape pattern redaction then runs over the finished line as
-// a second pass.
+// One bounded, redacted line per record. Every string and key of the event
+// and facts is concealed before any cut, so a cut can never expose part of a
+// declared secret, and the line stays valid JSON.
 export function lineMaker(
   secrets: readonly string[],
 ): (record: LogRecord) => Line {
   const secretForms = forms(secrets);
-  const patterns: RedactionPattern[] = secretForms.map((form) => ({
-    pattern: new RegExp(escaped(form), "g"),
-    replacement: markers.redacted,
-  }));
-  let cut: Cut = { truncated: false };
-  const line: TextFormatter = (record) =>
-    JSON.stringify({
-      ...header(record, secretForms, cut),
+  return (record) => {
+    const cut: Cut = { truncated: false };
+    const text = JSON.stringify({
+      ...header(record, cut),
       event: bounded(record.properties.event, secretForms, 0, cut),
       facts: bounded(record.properties.facts, secretForms, 0, cut),
     });
-  const redacted = patterns.length > 0 ? redactByPattern(line, patterns) : line;
-  return (record) => {
-    cut = { truncated: false };
-    const text = redacted(record);
-    if (size(text) <= recordLimits.recordBytes)
+    if (size(text) <= limits.recordBytes)
       return { bytes: encoder.encode(`${text}\n`), truncated: cut.truncated };
     return {
-      bytes: encoder.encode(`${shortened(text, record, secretForms)}\n`),
+      bytes: encoder.encode(`${shortened(text, record)}\n`),
       truncated: true,
     };
   };

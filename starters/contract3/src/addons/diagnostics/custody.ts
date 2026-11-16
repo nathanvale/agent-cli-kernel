@@ -18,19 +18,12 @@ import type { Stats } from "node:fs";
 import { hostname } from "node:os";
 import { dirname, isAbsolute, join, normalize } from "node:path";
 import { errorCode } from "./io.ts";
+import { limits } from "./limits.ts";
 import type { DiagnosticsIo } from "./io.ts";
 
 // DIAG-7 to DIAG-11. Location, private exclusive creation, the shared
 // allocation lock, pruning and closure confirmation. Everything here is
 // synchronous except the bounded wait for the allocation lock.
-export const custodyLimits = {
-  aggregateBytes: 10_000_000,
-  runBytes: 1_000_000,
-  files: 50,
-  pruneAgeMilliseconds: 7 * 24 * 60 * 60 * 1000,
-  lockWaitMilliseconds: 400,
-  lockRetryMilliseconds: 10,
-} as const;
 
 // A CLI name or run identity used as one path segment: never ".", ".." or a
 // separator.
@@ -204,27 +197,52 @@ function sweepResidue(directory: string): void {
 // path by one rename each. rename replaces only an empty directory, so a live
 // holder is never displaced. A stale lock is emptied only when its one owner
 // is proven dead on this host; rmdir then succeeds only while still empty.
+// The lock's one owner is proven gone: on this host its pid is not alive; on
+// another host (no liveness check is possible) the lock is older than any
+// live holder keeps it. An empty lock directory has no owner at all.
+function ownerProvenGone(lock: Stats, entries: readonly string[]): boolean {
+  if (entries.length === 0) return true;
+  const match =
+    entries.length === 1 ? ownerPattern.exec(entries[0] ?? "") : null;
+  if (!match) return false;
+  const pid = Number(match[1]);
+  if (match[2] !== host)
+    return Date.now() - lock.mtimeMs > limits.foreignLockStaleMilliseconds;
+  return pid !== process.pid && !alive(pid);
+}
+
+function unlinkIfPresent(path: string): boolean {
+  try {
+    unlinkSync(path);
+    return true;
+  } catch (error) {
+    return errorCode(error) === "ENOENT";
+  }
+}
+
+// rmdir succeeds only while the lock is still empty, so a fresh populated
+// lock moved onto the path meanwhile is never removed.
 function recoverStale(lock: string): boolean {
   const info = lookup(lock);
   if (!info) return true;
   if (!info.isDirectory() || info.uid !== uid) return false;
   const entries = readdirSync(lock);
-  const only = entries.length === 1 ? entries[0] : undefined;
-  if (only !== undefined) {
-    const match = ownerPattern.exec(only);
-    const pid = Number(match?.[1]);
-    if (match?.[2] !== host || pid === process.pid || alive(pid)) return false;
-    try {
-      unlinkSync(join(lock, only));
-    } catch (error) {
-      if (errorCode(error) !== "ENOENT") return false;
-    }
-  } else if (entries.length !== 0) return false;
+  if (!ownerProvenGone(info, entries)) return false;
+  if (entries.some((name) => !unlinkIfPresent(join(lock, name)))) return false;
   try {
     rmdirSync(lock);
     return true;
   } catch (error) {
     return errorCode(error) === "ENOENT";
+  }
+}
+
+function moveOnto(staging: string, lock: string): boolean {
+  try {
+    renameSync(staging, lock);
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -246,14 +264,9 @@ function tryLock(directory: string): (() => void) | undefined {
       0o600,
     ),
   );
-  try {
-    try {
-      renameSync(staging, lock);
-    } catch {
-      if (!recoverStale(lock)) throw new Error("held");
-      renameSync(staging, lock);
-    }
-  } catch {
+  const held =
+    moveOnto(staging, lock) || (recoverStale(lock) && moveOnto(staging, lock));
+  if (!held) {
     discard(staging);
     return undefined;
   }
@@ -268,15 +281,20 @@ function tryLock(directory: string): (() => void) | undefined {
   };
 }
 
-async function acquire(directory: string): Promise<(() => void) | undefined> {
+// Bounded wait for the lock. It stops as soon as the run is frozen, so no
+// lock I/O continues after the status freeze (DIAG-15).
+async function acquire(
+  directory: string,
+  abandoned: () => boolean,
+): Promise<(() => void) | undefined> {
   const attempts = Math.ceil(
-    custodyLimits.lockWaitMilliseconds / custodyLimits.lockRetryMilliseconds,
+    limits.lockWaitMilliseconds / limits.lockRetryMilliseconds,
   );
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
+  for (let attempt = 0; attempt < attempts && !abandoned(); attempt += 1) {
     const release = tryLock(directory);
     if (release) return release;
     await new Promise((resolve) =>
-      setTimeout(resolve, custodyLimits.lockRetryMilliseconds),
+      setTimeout(resolve, limits.lockRetryMilliseconds),
     );
   }
   return undefined;
@@ -307,7 +325,7 @@ function classify(directory: string, name: string): Entry | undefined {
     info,
     marker: confirmed ? markerFor(path, info) : undefined,
     // Anything not confirmed closed may still grow to a full run allowance.
-    charge: confirmed ? info.size : Math.max(info.size, custodyLimits.runBytes),
+    charge: confirmed ? info.size : Math.max(info.size, limits.runBytes),
   };
 }
 
@@ -337,13 +355,13 @@ function prune(directory: string, now: number): boolean {
   let bytes = entries.reduce((sum, entry) => sum + entry.charge, 0);
   let files = entries.length;
   const room = () =>
-    bytes + custodyLimits.runBytes <= custodyLimits.aggregateBytes &&
-    files + 1 <= custodyLimits.files;
+    bytes + limits.runBytes <= limits.aggregateBytes &&
+    files + 1 <= limits.files;
   const closed = entries
     .filter((entry) => entry.marker !== undefined)
     .sort((a, b) => a.info.mtimeMs - b.info.mtimeMs);
   for (const entry of closed) {
-    const old = now - entry.info.mtimeMs > custodyLimits.pruneAgeMilliseconds;
+    const old = now - entry.info.mtimeMs > limits.pruneAgeMilliseconds;
     if (!old && room()) continue;
     const current = lookup(entry.path);
     if (
@@ -370,6 +388,28 @@ const createFlags =
   constants.O_NONBLOCK |
   constants.O_APPEND;
 
+// What real open behaviour produced is the destination this unit supports: a
+// private regular file of this user, still named by the path, inside the very
+// directory that was checked (an ancestor swapped before open is refused).
+function custodyHolds(
+  held: Stats,
+  named: Stats | undefined,
+  directory: Stats | undefined,
+  place: Place,
+): boolean {
+  return (
+    held.isFile() &&
+    held.nlink === 1 &&
+    held.uid === uid &&
+    (held.mode & 0o7777) === 0o600 &&
+    named?.dev === held.dev &&
+    named.ino === held.ino &&
+    directory?.isDirectory() === true &&
+    directory.dev === place.dev &&
+    directory.ino === place.ino
+  );
+}
+
 // The descriptor is the custody: every later write goes to it, nothing is
 // reopened by path (DIAG-8).
 function open(
@@ -387,19 +427,7 @@ function open(
   try {
     fchmodSync(descriptor, 0o600);
     const held = fstatSync(descriptor);
-    const named = lookup(file);
-    const directory = lookup(place.directory);
-    if (
-      held.isFile() &&
-      held.nlink === 1 &&
-      held.uid === uid &&
-      (held.mode & 0o7777) === 0o600 &&
-      named?.dev === held.dev &&
-      named.ino === held.ino &&
-      directory?.isDirectory() === true &&
-      directory.dev === place.dev &&
-      directory.ino === place.ino
-    )
+    if (custodyHolds(held, lookup(file), lookup(place.directory), place))
       return { descriptor, file, dev: held.dev, ino: held.ino };
   } catch {
     // Fall through to refusal.
@@ -421,11 +449,11 @@ export async function allocate(
   if (!segment.test(runId)) return "setup";
   let release: (() => void) | undefined;
   try {
-    release = await acquire(place.directory);
+    release = await acquire(place.directory, abandoned);
   } catch {
     return "setup";
   }
-  if (!release) return "capacity";
+  if (!release) return abandoned() ? "abandoned" : "capacity";
   try {
     if (abandoned()) return "abandoned";
     if (!prune(place.directory, Date.now())) return "capacity";
