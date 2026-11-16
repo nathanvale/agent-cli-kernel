@@ -12,7 +12,6 @@ import {
   readdirSync,
   rmSync,
   statSync,
-  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { release } from "node:os";
@@ -26,7 +25,6 @@ import {
   str,
   testFolder,
 } from "./harness.ts";
-import { lockFree } from "./holder.ts";
 
 const worker = join(import.meta.dir, "fixtures", "coordination-worker.ts");
 const folders: string[] = [];
@@ -301,7 +299,7 @@ const apply = (name: string, ...extra: string[]) => [
 
 // Section 2 of the expectations, through the labelled fixture entry's seam
 // that makes the route's start-up self-check fail (a C library that cannot
-// be loaded), then a coordination call failing after admission began.
+// be loaded). Item 7 (a failure after admission began) is C01.j.
 caseTest("C01.h-no-fallback-when-route-unavailable", async () => {
   const world = makeWorld();
   try {
@@ -353,43 +351,7 @@ caseTest("C01.h-no-fallback-when-route-unavailable", async () => {
   } finally {
     world.dispose();
   }
-  await failureAfterAdmissionReleasesEverything();
 });
-
-// Expectations section 2 item 7: a coordination call failing after
-// admission began releases everything taken and refuses; nothing is
-// published. The last key coordination file becomes a symbolic link, which
-// the O_NOFOLLOW open refuses after earlier keys were taken.
-async function failureAfterAdmissionReleasesEverything(): Promise<void> {
-  const world = makeWorld();
-  try {
-    // Both notes exist first, so every run declares the same keys.
-    writeFileSync(world.note("p"), "old");
-    writeFileSync(world.note("q"), "old");
-    expectCompleted(await world.run(apply("p", "--also", "q")));
-    const coordination = join(world.root, "coordination");
-    const keys = readdirSync(coordination)
-      .filter((name) => name.startsWith("k-"))
-      .sort();
-    expect(keys.length).toBeGreaterThanOrEqual(2);
-    const last = join(coordination, keys.at(-1) ?? "");
-    rmSync(last);
-    const elsewhere = join(world.base, "elsewhere.lock");
-    writeFileSync(elsewhere, "");
-    symlinkSync(elsewhere, last);
-    const operations = world.operations().length;
-    const failed = await world.run(apply("p", "--also", "q"));
-    expectRefusedUnchanged(failed, "DOMAIN_SX_UNAVAILABLE");
-    expect(str(failed.envelope.message)).toContain("coordination-failed");
-    expect(world.operations().length).toBe(operations);
-    expect(world.noteLedger("p")).toBe(1);
-    expect(lockFree(join(coordination, "admission.lock"))).toBe(true);
-    for (const name of keys.slice(0, -1))
-      expect(lockFree(join(coordination, name))).toBe(true);
-  } finally {
-    world.dispose();
-  }
-}
 
 // C6: no route decides by coordination lock age, PID, host name or a
 // fallback lock file. The route modules never read them.

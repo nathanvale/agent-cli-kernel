@@ -1069,7 +1069,7 @@ export const stateCases: readonly StateCase[] = [
     sources:
       "REC-7; REC-8; CMD-12; T3 Exclusions; Linux expectations section 2",
     observation:
-      "With the fixture seam that makes the route's start-up self-check fail, a change and a recovery command each refuse with DOMAIN_SX_UNAVAILABLE, exit 3, not retryable, empty stderr and collections, a message naming coordination-self-check-failed with the platform, kernel release and qualified scope, never advising removal; the state root is never created and the ledger is empty. Capabilities report coordination unavailable with that reason; the read route stays read-only. A coordination call failing after admission began releases the admission and earlier key coordination locks and publishes nothing.",
+      "With the fixture seam that makes the route's start-up self-check fail, a change and a recovery command each refuse with DOMAIN_SX_UNAVAILABLE, exit 3, not retryable, empty stderr and collections, a message naming coordination-self-check-failed with the platform, kernel release and qualified scope, never advising removal; the state root is never created and the ledger is empty. Capabilities report coordination unavailable with that reason; the read route stays read-only.",
     red: "Fall back to a lock file, or continue without a coordination lock, when the route is unavailable.",
   },
   {
@@ -1079,6 +1079,15 @@ export const stateCases: readonly StateCase[] = [
     observation:
       "The coordination route modules read no time stamp, PID, process table or host name and open no create-exclusive lock file.",
     red: "Decide acquisition or ownership by lock age or PID absence.",
+  },
+  {
+    id: "C01.j-failure-after-admission-releases-everything",
+    ...transactionComponent,
+    sources:
+      "REC-8; CMD-12; DESIGN 7.1 step 3; Linux expectations section 2 item 7",
+    observation:
+      "In one live process, a key coordination call that fails after the admission and earlier key coordination locks were taken refuses coordination-failed, publishes nothing, and leaves the admission and every earlier key coordination lock free to a separate open in the same process.",
+    red: "Return the refusal without releasing what was taken (invisible to a process that exits).",
   },
   // Q01.e and Q01.f: the delta review follow-up F1 and the bun:ffi
   // confinement, both lint controls, added with the Linux route.

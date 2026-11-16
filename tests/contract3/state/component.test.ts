@@ -2,7 +2,7 @@
 // the internal framing and scope seams. Component evidence never satisfies a
 // process row; these bind what the process layer cannot reach directly.
 import { afterEach, expect, test } from "bun:test";
-import { rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   changing,
@@ -33,7 +33,7 @@ import {
   conflicts,
 } from "../../../starters/contract3/src/addons/state/scope.ts";
 import { caseTest, readFramed, readOperations, testFolder } from "./harness.ts";
-import { coordinationExpected } from "./holder.ts";
+import { coordinationExpected, lockFree } from "./holder.ts";
 
 const causes = {
   DOMAIN_CX_LOCK_HELD: {
@@ -141,12 +141,15 @@ async function inTransaction(
     readonly resource: (value: unknown) => ResourceId;
     readonly authority: (value: unknown) => AuthorityId;
   }) => Approval,
+  // An existing state root to reuse, and host conflict keys to declare.
+  options: { readonly root?: string; readonly keys?: readonly string[] } = {},
 ): Promise<{
   readonly root: string;
   readonly state: ReturnType<typeof stateAddon>;
   readonly outcome: Outcome | undefined;
 }> {
-  const root = join(temporaryRoot("c3-state-component-"), "state");
+  const root =
+    options.root ?? join(temporaryRoot("c3-state-component-"), "state");
   let outcome: Outcome | undefined;
   const composed: {
     boundary?: {
@@ -218,7 +221,11 @@ async function inTransaction(
         context.state,
         {
           command: "cx.change",
-          scope: { resources: [{ resource: "r", key: "component" }] },
+          scope: {
+            resources: options.keys
+              ? options.keys.map((key) => ({ resource: `r-${key}`, key }))
+              : [{ resource: "r", key: "component" }],
+          },
           ...(approval && boundary ? { approval: approval(boundary) } : {}),
         },
         async (transaction) => {
@@ -636,4 +643,40 @@ caseTest("B06.a-effect-recorded-once", async () => {
   expect(eventKinds(root).filter((kind) => kind === "effect-started")).toEqual([
     "effect-started",
   ]);
+});
+
+// Linux expectations section 2 item 7: a coordination call that fails after
+// admission began releases the admission and every key coordination lock
+// already taken, and refuses. Checked inside the live process, because a
+// process that exits releases everything anyway: the test's own open of
+// the same file is refused while this process still holds it.
+caseTest("C01.j-failure-after-admission-releases-everything", async () => {
+  const keys = ["k1", "k2", "k3"];
+  const first = await inTransaction(() => Promise.resolve(), undefined, {
+    keys,
+  });
+  expect(first.outcome?.kind).toBe("ran");
+  const coordination = join(first.root, "coordination");
+  const files = readdirSync(coordination)
+    .filter((name) => name.startsWith("k-"))
+    .sort();
+  expect(files.length).toBe(3);
+  // The last key coordination file in acquisition order becomes a symbolic
+  // link, which the O_NOFOLLOW open refuses after the first two were taken.
+  const last = join(coordination, files.at(-1) ?? "");
+  rmSync(last);
+  writeFileSync(join(first.root, "..", "elsewhere.lock"), "");
+  symlinkSync(join(first.root, "..", "elsewhere.lock"), last);
+  const second = await inTransaction(() => Promise.resolve(), undefined, {
+    keys,
+    root: first.root,
+  });
+  expect(second.outcome?.kind).toBe("unavailable");
+  expect(
+    second.outcome?.kind === "unavailable" ? second.outcome.reason : "",
+  ).toBe("coordination-failed");
+  expect(lockFree(join(coordination, "admission.lock"))).toBe(true);
+  for (const name of files.slice(0, -1))
+    expect(lockFree(join(coordination, name))).toBe(true);
+  expect(readOperations(first.root).length).toBe(1);
 });
