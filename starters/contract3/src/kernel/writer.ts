@@ -4,7 +4,8 @@ import {
   unavailableStatus,
 } from "./fallback.ts";
 import type { TrustedRun } from "./fallback.ts";
-import { oneLine, renderHuman } from "./human.ts";
+import { diagnosticsLine, oneLine, renderHuman } from "./human.ts";
+import type { HumanWrite } from "./human.ts";
 import type { ProcessHost } from "./process-types.ts";
 import type { ContractRuntime } from "./runtime.ts";
 import type { Diagnostics, Envelope, Validation } from "./types.ts";
@@ -78,14 +79,24 @@ export function createWriter(options: {
     return { text, envelope: checked.value };
   }
 
-  function output(text: string, envelope: Envelope) {
-    if (machine) return { stream: "stdout", text: `${text}\n` } as const;
+  function output(text: string, envelope: Envelope): readonly HumanWrite[] {
+    if (machine) return [{ stream: "stdout", text: `${text}\n` }];
     return renderHuman(runtime.cli, envelope);
   }
 
   async function write(stream: "stdout" | "stderr", text: string) {
     if (stopping()) return undefined;
     return host.write(stream, encoder.encode(text));
+  }
+
+  // Writes in order; undefined when a stop request forbids the next write,
+  // false after the first write that did not drain.
+  async function writeAll(writes: readonly HumanWrite[]) {
+    for (const item of writes) {
+      const drained = await write(item.stream, item.text).catch(() => false);
+      if (drained !== true) return drained;
+    }
+    return true;
   }
 
   // Pre-write validation never throws: any fault before a write is a writer failure,
@@ -111,12 +122,22 @@ export function createWriter(options: {
     try {
       const text = await fallbackText(runtime, trusted);
       if (text === undefined) return 1;
+      // Human mode: the one stderr line, and the Diagnostics line for the
+      // status the machine fallback carries (decision 6).
+      // Like every human failure line, it names its cause (LIFE-2).
+      const envelope: unknown = JSON.parse(text);
+      const carried = record(envelope) ? envelope.diagnostics : undefined;
+      const result = record(envelope) ? envelope.result : undefined;
+      const cause = record(result) ? result.causeCode : undefined;
       const drained = machine
         ? await write("stdout", `${text}\n`)
-        : await write(
-            "stderr",
-            `${oneLine(runtime.cli)}: ${fallbackMessage}\n`,
-          );
+        : await writeAll([
+            {
+              stream: "stderr",
+              text: `${oneLine(runtime.cli)}: ${fallbackMessage} [${String(cause)}]\n`,
+            },
+            ...diagnosticsLine(diagnostics(carried) ? carried : undefined),
+          ]);
       return drained === undefined ? undefined : 1;
     } catch {
       return 1;
@@ -134,9 +155,7 @@ export function createWriter(options: {
         run,
       );
       if (!ready) return fallback(run);
-      const drained = await write(ready.target.stream, ready.target.text).catch(
-        () => false,
-      );
+      const drained = await writeAll(ready.target);
       if (drained === undefined) return undefined;
       return drained ? ready.envelope.result.exitCode : 1;
     },

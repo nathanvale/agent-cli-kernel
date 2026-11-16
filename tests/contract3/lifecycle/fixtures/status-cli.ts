@@ -57,6 +57,31 @@ const statuses: Readonly<Record<string, unknown>> = {
     reason: "status-unavailable",
     trusted: { droppedRecords: 2, countsComplete: false },
   },
+  // KF6 (decision 6): each line of the human Diagnostics words.
+  incomplete: {
+    ...availableStatus,
+    file: "/private/run.log",
+    sinkFailure: "flush-timeout",
+    closed: false,
+  },
+  "no-file": { ...availableStatus, file: null, sinkFailure: "setup" },
+  "no-file-no-failure": { ...availableStatus, file: null, sinkFailure: null },
+  "trusted-file": {
+    status: "unavailable",
+    reason: "status-invalid",
+    trusted: { file: "/private/run.log" },
+  },
+  "trusted-file-null": {
+    status: "unavailable",
+    reason: "status-unavailable",
+    trusted: { file: null },
+  },
+  // DIAG-3: a reason never claims a sink failure, even with one in `trusted`.
+  "trusted-sink": {
+    status: "unavailable",
+    reason: "status-invalid",
+    trusted: { sinkFailure: "write" },
+  },
   // `file` must be absolute and the variant strict: two faults.
   invalid: {
     status: "available",
@@ -167,10 +192,18 @@ const input = {
   additionalOptions: false,
 } as const;
 
-const stCauses = {
-  ...commonCauses,
+const stOwnCauses = {
   DOMAIN_ST_DEADLINE_PROGRAM_STOP_UNCONFIRMED: programStopRow,
+  DOMAIN_ST_REPORT_REFUSED: {
+    outcome: "refused",
+    transactionState: "unchanged",
+    failureClass: "domain",
+    exitCode: 3,
+    retryable: false,
+    guidance: "next",
+  },
 } as const;
+const stCauses = { ...commonCauses, ...stOwnCauses } as const;
 const report = command({
   identity: "st.report",
   route: ["report"],
@@ -183,6 +216,7 @@ const report = command({
       flag("--bad"),
       flag("--throw"),
       flag("--program"),
+      flag("--refuse"),
     ],
   },
   capabilities: { diagnostics: true, programs: true },
@@ -204,6 +238,20 @@ const report = command({
       "st.report",
       "DOMAIN_ST_DEADLINE_PROGRAM_STOP_UNCONFIRMED",
     ),
+    // KF6.c: a host-owned refusal the handler selects.
+    station(stCauses, {
+      commandIdentity: "st.report",
+      causeCode: "DOMAIN_ST_REPORT_REFUSED",
+      trigger: "The fixture refused.",
+      guidance: {
+        next: { kind: "instruction", text: "Inspect the fixture input." },
+      },
+      repairAction: "Correct the fixture input.",
+      retryDelayPolicy: { kind: "none" },
+      reachability: "required",
+      unreachableRationale: null,
+      independentObservable: "st.report:refused",
+    }),
   ],
   programStopCause: "DOMAIN_ST_DEADLINE_PROGRAM_STOP_UNCONFIRMED",
   run: async (options, context) => {
@@ -221,6 +269,11 @@ const report = command({
     const wait = options["--wait-ms"];
     if (wait !== undefined) await sleep(wait);
     if (options["--throw"] === true) throw new Error("FX handler fault");
+    if (options["--refuse"] === true)
+      return context.result(
+        { commandIdentity: "st.report", causeCode: "DOMAIN_ST_REPORT_REFUSED" },
+        { message: "The fixture refused.", data: null, effects: empty },
+      );
     ledger("handler-done");
     return context.result(
       { commandIdentity: "st.report", causeCode: "SUCCESS_UNCHANGED" },
@@ -300,7 +353,7 @@ const approvalAddon: RunAddon<ApprovalCapability> = {
             return Promise.reject(new Error("Fixture check rejection."));
           return approvalMode === "delay"
             ? sleep(200).then(() => true)
-            : Promise.resolve(true);
+            : Promise.resolve(approvalMode !== "deny");
         },
       },
       settle: () => Promise.resolve(true),
@@ -366,7 +419,7 @@ const programs =
 const contract = contractFor({
   cli: "st",
   commands: [report, plain, guarded],
-  causes: { DOMAIN_ST_DEADLINE_PROGRAM_STOP_UNCONFIRMED: programStopRow },
+  causes: stOwnCauses,
   installedAddons: ["diagnostics", "programs", "approval"],
 });
 const runtime = runtimeOf(contract);

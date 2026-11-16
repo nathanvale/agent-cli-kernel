@@ -1,4 +1,4 @@
-import type { Envelope } from "./types.ts";
+import type { Diagnostics, Envelope } from "./types.ts";
 import { record } from "./validation/primitives.ts";
 
 // Human-mode rendering of an already validated envelope (LIFE-2). Help and
@@ -69,10 +69,54 @@ function commandDiscovery(data: unknown): string[] {
   ];
 }
 
+export type HumanWrite = {
+  readonly stream: "stdout" | "stderr";
+  readonly text: string;
+};
+
+// Accepted decision (contract question 8 of 8; N4b at 17:06, N4c at 17:24):
+// the exact words for each diagnostics status. Paths are printed in full;
+// no counter ever appears.
+function diagnosticsWords(status: Diagnostics): string {
+  if (status.status === "unavailable") {
+    const file = status.trusted.file;
+    return typeof file === "string"
+      ? `unavailable (${status.reason}); log file ${file}`
+      : `unavailable (${status.reason})`;
+  }
+  if (status.file === null)
+    return status.sinkFailure === null
+      ? "no log file"
+      : `no log file (${status.sinkFailure})`;
+  return status.sinkFailure === null
+    ? status.file
+    : `${status.file} (incomplete: ${status.sinkFailure})`;
+}
+
+// N4a (17:06): the line always goes to stdout, after the result text on
+// success and beside the one stderr line on a refusal or failure, so
+// LIFE-2's one stderr line stays literally true. No status, no line.
+export function diagnosticsLine(
+  status: Diagnostics | undefined,
+): readonly HumanWrite[] {
+  return status
+    ? [
+        {
+          stream: "stdout",
+          text: `Diagnostics: ${oneLine(diagnosticsWords(status))}\n`,
+        },
+      ]
+    : [];
+}
+
 export function renderHuman(
   cli: string,
   envelope: Envelope,
-): { readonly stream: "stdout" | "stderr"; readonly text: string } {
+): readonly HumanWrite[] {
+  return [resultText(cli, envelope), ...diagnosticsLine(envelope.diagnostics)];
+}
+
+function resultText(cli: string, envelope: Envelope): HumanWrite {
   const result = envelope.result;
   if (result.outcome !== "success")
     return {
