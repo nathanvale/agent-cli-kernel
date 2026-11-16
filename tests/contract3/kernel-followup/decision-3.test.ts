@@ -75,7 +75,7 @@ const unconfirmed: Readonly<Record<string, unknown>> = {
   stalled: { ...emptyComplete, inventoryComplete: false },
 };
 // The twins: every program confirmed stopped.
-const confirmed: Readonly<Record<string, Readonly<Record<string, unknown>>>> = {
+const confirmed = {
   completed: {
     causeCode: "DOMAIN_DEADLINE_COMPLETED",
     transactionState: "completed",
@@ -140,7 +140,7 @@ describe("KF3.a changing-deadline-unconfirmed [proof gap: a host programs add-on
         }
         const twin = await deadlineRun(proof, "true");
         expect(twin.exit).toBe(3);
-        expect(twin.result).toMatchObject(confirmed[proof] ?? {});
+        expect(twin.result).toMatchObject(confirmed[proof]);
       },
       processWatchdog(3),
     );

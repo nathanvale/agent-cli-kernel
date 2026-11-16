@@ -73,8 +73,11 @@ describe("KF4.a literal-step-reroutes-refused", () => {
       },
       processWatchdog(1),
     );
+  // KF4.b: the rule is where the vector routes, not token equality, so a
+  // literal equal to a route token (["list"], ["--", "all"]) is admitted
+  // when the vector still routes to its target.
   test(
-    "KF4.a twins: steps that route to their target are admitted",
+    "KF4.a and KF4.b twins: steps that route to their target are admitted",
     async () => {
       for (const [step, args] of [
         ["next", ["mine"]],
@@ -126,19 +129,3 @@ describe("KF4.a literal-step-reroutes-refused", () => {
     processWatchdog(6),
   );
 });
-
-// KF4.b: the rule is where the vector routes, not token equality. The
-// ["list"] and ["--", "all"] twins above pin it (a literal equal to a route
-// token is admitted when the vector still routes to its target).
-test(
-  "KF4.b rule-is-resolution-not-token-equality",
-  async () => {
-    expect(await admission("next", ["list"])).toEqual({
-      admission: "admitted",
-    });
-    expect(await admission("next", ["--", "all"])).toEqual({
-      admission: "admitted",
-    });
-  },
-  processWatchdog(2),
-);

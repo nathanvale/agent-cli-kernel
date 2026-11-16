@@ -27,7 +27,8 @@ function resultOf(stdout: string): ScenarioRun["result"] {
 // One bounded process runner for the kernel-repair tests (repair 1, S5),
 // after the lifecycle harness's R1 rule: a case that hangs leaves no fixture
 // process behind. The wait is bounded below the test timeout; on expiry the
-// child is killed and awaited, then the case fails naming the bound.
+// child is killed and awaited, then the case fails naming the bound. It
+// also records the wall-clock time of the first stdout byte (KF3, LIFE-6).
 // Sends `signal` once `ledger` holds the line `line` (a barrier).
 export type SignalAt = {
   readonly ledger: string;
@@ -42,7 +43,12 @@ export async function spawnBounded(
     readonly boundMilliseconds?: number;
     readonly signalAt?: SignalAt;
   } = {},
-): Promise<{ stdout: string; stderr: string; exit: number }> {
+): Promise<{
+  stdout: string;
+  stderr: string;
+  exit: number;
+  firstByteAt?: number | undefined;
+}> {
   const bound = options.boundMilliseconds ?? exitBound;
   const child = Bun.spawn([...argv], {
     ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
@@ -61,13 +67,22 @@ export async function spawnBounded(
         child.kill(barrier.signal);
       }, 5)
     : undefined;
+  let firstByteAt: number | undefined;
+  const readStdout = async () => {
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of child.stdout) {
+      firstByteAt ??= Date.now();
+      chunks.push(chunk);
+    }
+    return new TextDecoder().decode(Buffer.concat(chunks));
+  };
   let timer: ReturnType<typeof setTimeout> | undefined;
   const expired = new Promise<undefined>((resolve) => {
     timer = setTimeout(() => resolve(undefined), bound);
   });
   const finished = await Promise.race([
     Promise.all([
-      new Response(child.stdout).text(),
+      readStdout(),
       new Response(child.stderr).text(),
       child.exited,
     ]),
@@ -81,7 +96,7 @@ export async function spawnBounded(
     throw new Error(`${argv.join(" ")} did not exit within ${bound} ms.`);
   }
   const [stdout, stderr, exit] = finished;
-  return { stdout, stderr, exit };
+  return { stdout, stderr, exit, firstByteAt };
 }
 
 // Harness watchdog, not a contract number (S10): a test that runs `runs`

@@ -71,7 +71,8 @@ function expectFallback(
 }
 const applied = (run: KfRun, effect: string) =>
   run.ledger.filter((line) => line === `effect-applied ${effect}`).length;
-// LIFE-9 "When the trusted summary is missing": the twin with no proof.
+// LIFE-9 "When the trusted summary is missing": the twin with no proof,
+// run once per layer (KF2.a).
 async function expectNoProofTwin(layer: (typeof layers)[number]) {
   const twin = await proofRun(layer, "completed", "before");
   expectFallback(twin, "INTERNAL_RESULT_UNKNOWN", "unknown", {
@@ -159,9 +160,8 @@ describe("KF2 a handler fault after its transaction proof was issued", () => {
         });
         expect(applied(run, "kf.e")).toBe(0);
         expect(run.ledger).toContain("proof unchanged");
-        await expectNoProofTwin(layer);
       },
-      processWatchdog(2),
+      processWatchdog(1),
     );
     test(
       `KF2.e throw-after-unknown-proof ${layer}`,
@@ -171,9 +171,8 @@ describe("KF2 a handler fault after its transaction proof was issued", () => {
           ...emptyComplete,
           uncertain: ["kf.e"],
         });
-        await expectNoProofTwin(layer);
       },
-      processWatchdog(2),
+      processWatchdog(1),
     );
     test(
       `KF2.f throw-after-oversize-proof ${layer}`,
