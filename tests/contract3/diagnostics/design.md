@@ -121,3 +121,30 @@ Each needs `kernel/lifecycle.ts`, which this unit may not edit.
 - Platform: Darwin arm64 here; `ubuntu-latest` in hosted CI. A
   platform-bound case fails with an explicit `UNPROVED on this host` reason;
   none is skipped.
+
+## Corrections, 16 November 2026 (repair round 1)
+
+The sections above were frozen before code. Where the built add-on differs,
+this section is the record; the case identities do not change.
+
+- Closure is confirmed by a sibling `0700` marker directory named
+  `<log>.closed-<device>-<inode>-<size>`, created after a successful close
+  with the file's identity unchanged, not by a closure record line.
+- The coordination lock is a populated directory (`.allocation-lock` holding
+  one `owner-<pid>-<host hash>` file) moved onto the path by rename, not a
+  lock file. Its owner is proven gone when its pid is dead on this host, or,
+  for another host, when the lock is older than one minute. The lock wait is
+  at most 200 ms, inside the flush budget; a lock still held is disclosed as
+  `capacity`.
+- Secrets: exact values and their JSON-escaped forms are concealed in every
+  string and key of the event and facts before any cut. The header (time,
+  sequence, run and command identities, elapsed time, level) holds only
+  add-on values and is never concealed, so lines stay valid JSON. LogTape's
+  `redactByPattern` second pass over the finished line was removed: it
+  rewrote numbers and identities when a secret was short. A declared secret
+  file that cannot be read whole (missing, unreadable, not regular, above
+  64 KiB) stops diagnostics for the run with `sinkFailure: "setup"`.
+- Platform-bound cases: none is skipped. A case this host cannot exercise
+  runs as an explicit `UNPROVED` outcome that prints one line, and the case
+  ledger pins the list per platform (`platform.ts`).
+- Every number has one owner with its source: `addons/diagnostics/limits.ts`.

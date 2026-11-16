@@ -23,6 +23,7 @@ function never<T>(): Promise<T> {
 //   write-stalls        every write never settles
 //   write-stalls-after:N  writes after the first N records never settle
 //   write-lies          each write claims one byte more than it was given
+//   write-delays:MS     each write lands only after MS milliseconds
 //   close-throws        close throws
 //   size-throws         fstat at finalisation throws
 //   plant-file:BYTES    a regular file with BYTES already at the final name
@@ -76,6 +77,11 @@ export function faultIo(spec: string): DiagnosticsIo {
         (stallsAfter !== undefined && writes > stallsAfter)
       )
         return never();
+      const delay = after("write-delays");
+      if (delay !== undefined)
+        return new Promise<void>((resolve) => setTimeout(resolve, delay)).then(
+          () => nodeIo.write(descriptor, bytes),
+        );
       return nodeIo
         .write(descriptor, bytes)
         .then((count) => (has("write-lies") ? count + 1 : count));
