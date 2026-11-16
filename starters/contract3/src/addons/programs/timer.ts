@@ -1,4 +1,4 @@
-// Finding 1 (Nathan, 16 November 2026): every admitted program duration is
+// Finding 1 (Nathan, 16 November 2026): every accepted program duration is
 // honoured, with no cap. A runtime timer holds at most 2,147,483,647 ms and
 // fires a longer delay after 1 ms. A longer wait is armed in steps of at most
 // that limit and re-measured on the monotonic clock after each step, so it

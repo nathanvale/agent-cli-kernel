@@ -259,8 +259,9 @@ function attachPrograms(run: RunControl): AttachedAddon<ProgramsCapability> {
     },
     domain<Effect extends string>(effect: RecordedEffect<Effect>) {
       // The state add-on owns the effect lifetime. Its admitStart verifies the
-      // still-active recorded effect and coordinates closure with the start;
-      // this add-on rejects another run's capability before any process.
+      // still-active recorded effect and coordinates effect closure with the
+      // start (CMD-14); this add-on rejects another run's capability before
+      // any process.
       return Object.freeze({
         effect: effect.effect,
         start(request: ProgramRequest) {
