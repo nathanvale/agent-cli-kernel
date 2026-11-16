@@ -59,6 +59,6 @@ owner from this list.
   host your task brief names, not on a loaded laptop. `bun run doctor` warns
   when this host is too loaded.
 - Commits: run `bun run check:commits <base>` before you push.
-- Planted faults: run `bun run faults` when your diff touches a file that
-  `tests/faults/manifest.json` names.
+- Planted faults: run `bun run faults` before you push a change to source or
+  tests.
 - Review: apply `CODING_STANDARDS.md` to the diff; each row names its gate.
