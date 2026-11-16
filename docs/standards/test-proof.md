@@ -22,8 +22,9 @@ repository broke it.
 ## Production entry
 
 - Build a process proof's subject through `index.ts`, the production seam
-  the global test-execution rule asks for. A test entry such as `fixture.ts`
-  proves only the fixture. Witnessed: [e55f94a], [2b6ff5f].
+  the global test-execution rule asks for. A test entry such as `fixture.ts`,
+  or a fault-wrapped CLI, proves only the fixture. Witnessed: [e55f94a],
+  [7ea1ee3].
 
 ## Planted faults
 
@@ -60,7 +61,7 @@ repository broke it.
 [e07d962]: https://github.com/nathanvale/bun-typescript-template/commit/e07d962f016dc07ca442724621fd0406084521cc
 [8485278]: https://github.com/nathanvale/bun-typescript-template/commit/8485278bf38a457d7d1823ba98daa153a9bb35a8
 [e55f94a]: https://github.com/nathanvale/bun-typescript-template/commit/e55f94a5b7dcb78f9b25f5d0a723a2196bd8c452
-[2b6ff5f]: https://github.com/nathanvale/bun-typescript-template/commit/2b6ff5f68d91326f7f51f67710e0f81a1b8377f6
+[7ea1ee3]: https://github.com/nathanvale/bun-typescript-template/commit/7ea1ee3853cb6251fcf93c6a6ecf683e065fbfef
 [e990da6]: https://github.com/nathanvale/bun-typescript-template/commit/e990da67151a9c3b6a0e90c240f7e0860856c4d2
 [4a32366]: https://github.com/nathanvale/bun-typescript-template/commit/4a32366bf79ea95479bda515313b33b849031507
 [d592b6d]: https://github.com/nathanvale/bun-typescript-template/commit/d592b6d1eb13754bd46e041313511e7530e9804e

@@ -14,8 +14,10 @@ Each row names what enforces it today:
 - **Review only**: no gate; the reviewer applies the guide.
 - **Partial**: a gate covers the part its gate note names; the reviewer
   applies the guide to the rest.
-- **Planned (parked)**: agreed future work that does not exist yet. The
-  tracker is [MAG-98], the Contract 3 findings ledger.
+- **Planned (parked)**: agreed future work that does not exist yet. These
+  gates are plan units U4 to U6, parked until the Contract 3 coordinator gives
+  them a slot. [MAG-98] is the Contract 3 scope issue; it does not list them
+  yet.
 
 When a planned gate lands, move it to "Today" and cut the guide bullets it
 now enforces.
@@ -49,7 +51,8 @@ now enforces.
 
 - `.github/workflows/ci.yml` runs on every pull request.
 - `R1.platform-outcomes-pinned` pins unproved diagnostics rows only.
-- State `caseTest` titles show `UNPROVED`, but no test pins their count.
+- State `caseTest` titles can show `UNPROVED` off their platform, but no test
+  pins their count.
 - `tests/contract3/approval/component.test.ts` still reports unproved cases
   through `test.skip`.
 - `.github/workflows/macos-nightly.yml` runs on schedule once it reaches
