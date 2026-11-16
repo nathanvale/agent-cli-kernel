@@ -29,8 +29,6 @@
     "src/static-admission.ts",
     "scripts/doctor.ts",
     "scripts/test-area.ts",
-    "scripts/test.ts",
-    "starters/contract3/src/**/*.ts",
     "starters/contract3/src/kernel/index.ts",
     "starters/contract3/src/kernel/pattern-worker.ts",
     "starters/contract3/src/addons/programs/index.ts",
