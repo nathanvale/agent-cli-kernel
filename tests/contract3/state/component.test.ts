@@ -39,7 +39,8 @@ import {
   conflicts,
 } from "../../../starters/contract3/src/addons/state/scope.ts";
 import { checkedFlock } from "../../../starters/contract3/src/addons/state/linux-flock.ts";
-import { caseTest, readFramed, readOperations, testFolder } from "./harness.ts";
+import { testFolder } from "../../support/test-folder.ts";
+import { caseTest, readFramed, readOperations } from "./harness.ts";
 import { coordinationExpected, lockFree } from "./holder.ts";
 
 const causes = {
