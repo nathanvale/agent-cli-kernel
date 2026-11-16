@@ -1,5 +1,8 @@
-import { expect, test } from "bun:test";
-import { resolve } from "node:path";
+import { afterAll, expect, test } from "bun:test";
+import { mkdtempSync, realpathSync, writeFileSync } from "node:fs";
+import { rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { basename, join, resolve } from "node:path";
 import { probeBatch, readRun } from "./probes.ts";
 
 const root = resolve(import.meta.dir, "../../..");
@@ -75,6 +78,36 @@ for (const leak of leaks)
     ]);
   });
 
+const fixtureDirectory = mkdtempSync(
+  join(realpathSync(tmpdir()), "contract3-probes-fixture-"),
+);
+const fixture = join(fixtureDirectory, "shared-fixture.ts");
+writeFileSync(fixture, 'export const planted: number = "x";\n');
+afterAll(() => rm(fixtureDirectory, { recursive: true, force: true }));
+const importer = probeBatch("contract3-probes-importers-");
+const importers = [
+  importer(
+    `import { planted } from ${JSON.stringify(fixture)};\nexport const a = planted;\n`,
+  ),
+  importer(
+    `import { planted } from ${JSON.stringify(fixture)};\nexport const b = planted;\n`,
+  ),
+];
+
+test("an error in a file the probes import fails every probe that imports it", async () => {
+  for (const compiler of ["native", "lint-view"] as const)
+    for (const reader of importers) {
+      const read = await reader.compile(compiler);
+      expect(read.exit).not.toBe(0);
+      expect(
+        read.diagnostics.map((found) => ({
+          ...found,
+          file: basename(found.file),
+        })),
+      ).toEqual([{ file: "shared-fixture.ts", line: 1, code: 2322 }]);
+    }
+});
+
 test("registering a probe after the first compile is refused", async () => {
   await clean.compile("native");
   expect(() => probe("export const late = 1;\n")).toThrow(
@@ -85,7 +118,7 @@ test("registering a probe after the first compile is refused", async () => {
 test("compiling a probe with a compiler it was not registered for is refused", async () => {
   expect(await nativeOnly.compile("native")).toMatchObject({ exit: 0 });
   expect(await nativeOnly.compile("lint-view").catch(String)).toBe(
-    `Error: ${nativeOnly.file} was not registered for lint-view.`,
+    `Error: ${nativeOnly.file} (source starts "export const native = 1;") was not registered for lint-view. Add "lint-view" to the compilers passed when registering it.`,
   );
 });
 

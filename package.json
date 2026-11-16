@@ -12,7 +12,7 @@
     "doctor": "bun run scripts/doctor.ts",
     "check:commits": "bun run scripts/check-commits.ts",
     "pretest": "bun run doctor",
-    "test": "bun run scripts/test.ts",
+    "test": "bun test --parallel=2 --path-ignore-patterns 'starters/**'",
     "test:area": "bun run scripts/test-area.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "admit:static": "bun run src/static-admission.ts",
