@@ -333,6 +333,24 @@ const admitted = [
   },
   {
     rule: "no-in-operator",
+    reason:
+      "checks a key its type declares itself, though the default library declares it too",
+    filePath: "starters/contract3/src/kernel/validation/result.ts",
+    code: [
+      'export const shown = (value: { toString(): string } & object & Object) => "toString" in value;',
+    ],
+  },
+  {
+    rule: "no-in-operator",
+    reason: "checks a key a module-local interface named Function declares",
+    filePath: "starters/contract3/src/kernel/validation/result.ts",
+    code: [
+      "interface Function { readonly kind: string }",
+      'export const kinded = (value: Function) => "kind" in value;',
+    ],
+  },
+  {
+    rule: "no-in-operator",
     reason: "tells a data descriptor from an accessor",
     filePath: "starters/contract3/src/kernel/validation/primitives.ts",
     code: [
