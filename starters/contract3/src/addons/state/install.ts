@@ -96,7 +96,7 @@ export type Refusal =
       readonly detail?: string;
     };
 
-export type TransactionOutcome<Effect extends string> = {
+export type TransactionResult<Effect extends string> = {
   readonly proof: TransactionProof<Effect>;
 } & (
   | {
@@ -122,7 +122,7 @@ export type CloseRequest<Effect extends string> = {
   readonly attestation?: boolean;
 };
 
-export type CloseOutcome<Effect extends string> = {
+export type CloseResult<Effect extends string> = {
   readonly proof: TransactionProof<Effect>;
 } & (
   | {
@@ -219,9 +219,9 @@ type Slot =
   | {
       readonly kind: "close";
       readonly request: CloseRequest<string>;
-      outcome?: CloseResult;
+      outcome?: CloseResultBody;
     };
-type CloseResult =
+type CloseResultBody =
   | {
       readonly kind: "closed";
       readonly closure: Closure;
@@ -396,12 +396,12 @@ function closeRequestProblem(
     : undefined;
 }
 
-// A case already settled: the same closure again, a different settlement,
+// A settled case: the same closure again, a different closure,
 // damaged closure bytes, or its own run's final record.
 function settledCheck(
   operation: Operation,
   request: CloseRequest<string>,
-): CloseResult | undefined {
+): CloseResultBody | undefined {
   const closure = operation.closure;
   if (closure)
     return closure.closureId === request.closureId &&
@@ -1031,7 +1031,7 @@ export function install(options: StateOptions, seams: Seams) {
     target: Operation,
     request: CloseRequest<string>,
     runId: string,
-  ): Promise<CloseResult | Closure> {
+  ): Promise<CloseResultBody | Closure> {
     const qualification = seams.qualification;
     const reason = stoppedOwnerProblem(qualification, target);
     if (reason) return { kind: "unavailable", reason };
@@ -1067,7 +1067,7 @@ export function install(options: StateOptions, seams: Seams) {
     request: CloseRequest<string>,
     targetKeys: readonly string[] | undefined,
   ): Promise<
-    | { readonly ok: false; readonly stop: CloseResult }
+    | { readonly ok: false; readonly stop: CloseResultBody }
     | {
         readonly ok: true;
         readonly held: Acquired;
@@ -1097,7 +1097,7 @@ export function install(options: StateOptions, seams: Seams) {
     const target = admitted.operations.find(
       (operation) => operation.intent.operationId === id,
     );
-    const stop: CloseResult | undefined =
+    const stop: CloseResultBody | undefined =
       lease.kind === "busy"
         ? { kind: "owner-live" }
         : lease.kind === "failed"
@@ -1123,7 +1123,7 @@ export function install(options: StateOptions, seams: Seams) {
     slot: Extract<Slot, { kind: "close" }>,
   ): Promise<TransactionProof<Effect>> {
     const request = slot.request;
-    const stop = (outcome: CloseResult) => {
+    const stop = (outcome: CloseResultBody) => {
       slot.outcome = outcome;
       return issuer.transactionProof(runId, unchangedObservation<Effect>([]));
     };
@@ -1220,26 +1220,26 @@ export function install(options: StateOptions, seams: Seams) {
     capability: StateCapability<Effect>,
     declaration: Declaration,
     work: (transaction: EffectTransaction<Effect>) => Promise<void>,
-  ): Promise<TransactionOutcome<Effect>> {
+  ): Promise<TransactionResult<Effect>> {
     const marker = (inner: EffectTransaction<Effect>) => work(inner);
     const slot: Slot = { kind: "transaction", declaration };
     slots.set(marker, slot);
     const proof = await capability.transaction(marker);
     const outcome = slot.outcome;
-    if (!outcome) throw new Error("The transaction did not report an outcome.");
+    if (!outcome) throw new Error("The transaction did not report a result.");
     return { ...outcome, proof };
   }
 
   async function close<Effect extends string>(
     capability: StateCapability<Effect>,
     request: CloseRequest<Effect>,
-  ): Promise<CloseOutcome<Effect>> {
+  ): Promise<CloseResult<Effect>> {
     const marker = () => Promise.resolve();
     const slot: Slot = { kind: "close", request };
     slots.set(marker, slot);
     const proof = await capability.transaction(marker);
     const outcome = slot.outcome;
-    if (!outcome) throw new Error("The closure did not report an outcome.");
+    if (!outcome) throw new Error("The closure did not report a result.");
     return { ...outcome, proof };
   }
 
@@ -1360,7 +1360,7 @@ export function install(options: StateOptions, seams: Seams) {
           : []),
         ...(stopped === "unavailable"
           ? [
-              "No reviewed qualification row for the stopped-owner condition (REC-7b).",
+              "No reviewed capability qualification row for the stopped-owner condition (REC-7b).",
             ]
           : []),
         "Reclaim grants coordination only and has no separate step (REC-7).",
