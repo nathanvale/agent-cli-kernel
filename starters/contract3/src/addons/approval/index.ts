@@ -1,17 +1,25 @@
 // Approval add-on (CMD-15, REC-5, REC-7a). Imports only the kernel public
 // index (CMD-17). The host composition creates one instance per run and
 // command; the handler receives only `capability`, while the state add-on's
-// transaction receives `runtime` to revalidate and consume under exclusive
-// coordination before the approved effect (CMD-9 step 7).
+// transaction receives `runtime(state)` to revalidate and consume under
+// exclusive coordination before the approved effect (CMD-9 step 7).
+//
+// Consumption verifies at run time that the kernel issued the coordination
+// (K2). That needs the state installation's opaque descriptor, which this
+// add-on never imports from the state add-on: whoever holds it passes it in,
+// the host composition (the descriptor it gives contractFor) or the state
+// add-on (its own). Preflight needs no descriptor.
 import { access, lstat } from "node:fs/promises";
 import { constants } from "node:fs";
 import { dirname, isAbsolute, join, normalize, sep } from "node:path";
+import { issuedScope } from "../../kernel/index.ts";
 import type {
   ApprovalCapability,
   ApprovalRequest,
   ApprovalRuntime,
   ExclusiveScope,
   Handoff,
+  StateAddonDescriptor,
 } from "../../kernel/index.ts";
 import { consumeOnce, isConsumed, itemKey, markerPath } from "./ledger.ts";
 import { readUntrusted } from "./read.ts";
@@ -43,14 +51,19 @@ export function grantLocation(store: ApprovalStore, preview: string): string {
   return join(absolute(store.grants), `${itemKey(["approval", preview])}.json`);
 }
 
-// The kernel brand makes an ExclusiveScope unforgeable to type-checked code
-// only; nothing here proves at run time that the kernel issued it.
+// The kernel brand stops only type-checked code from forging a scope, so the
+// kernel's issuedScope is asked first: true only for the object the kernel
+// issued, for this run, from `state`'s installation, while that run's
+// attachment is current and active. A look-alike or another installation's
+// scope never passes (reviewer probe P2).
 function held(
   coordination: ExclusiveScope,
   runId: string,
   scope: string,
+  state: StateAddonDescriptor,
 ): boolean {
   return (
+    issuedScope(coordination, runId, state) &&
     coordination.isActive() === true &&
     coordination.runId === runId &&
     coordination.scope === scope
@@ -62,21 +75,17 @@ function held(
 // marker is durable, so a lost coordination is reported with whether the
 // item was consumed.
 async function consumeHeld(
-  coordination: ExclusiveScope,
-  runId: string,
-  scope: string,
+  stillHeld: () => boolean,
   current: () => Promise<string | undefined>,
   record: () => string,
 ): Promise<boolean> {
-  if (!held(coordination, runId, scope))
-    throw new ApprovalRejection("coordination-not-held");
+  if (!stillHeld()) throw new ApprovalRejection("coordination-not-held");
   // Fresh under-lock read; the preflight result is never reused.
   const marker = await current();
   if (marker === undefined) return false;
-  if (!held(coordination, runId, scope))
-    throw new ApprovalRejection("coordination-not-held");
+  if (!stillHeld()) throw new ApprovalRejection("coordination-not-held");
   const admitted = await consumeOnce(marker, record());
-  if (admitted && !held(coordination, runId, scope))
+  if (admitted && !stillHeld())
     throw new ApprovalRejection("coordination-lost");
   return admitted;
 }
@@ -99,12 +108,16 @@ function grantMatches(
 }
 
 // Interface:
-// - check(request): non-consuming preflight. true only for a valid,
-//   unconsumed grant that matches every binding. Never writes.
-// - revalidateAndConsume(request, coordination): under the caller's held
-//   ExclusiveScope (same runId, scope equal to request.resource), rereads,
-//   revalidates and consumes durably. { admitted: true } means the approved
-//   effect may start.
+// - capability.check(request): non-consuming preflight. true only for a
+//   valid, unconsumed grant that matches every binding. Never writes.
+// - runtime(state): the consuming runtime, bound to the state installation
+//   whose descriptor the host gave contractFor. Its check is the same
+//   preflight.
+// - runtime(state).revalidateAndConsume(request, coordination): under a
+//   held ExclusiveScope that `state`'s installation issued for this run's
+//   current attachment (same runId, scope equal to request.resource),
+//   rereads, revalidates and consumes durably. { admitted: true } means the
+//   approved effect may start.
 // - Every denial is the same false / { admitted: false }; no reason leaks.
 // - Rejections are ApprovalRejection, never a denial:
 //   coordination-not-held and store-unavailable leave the grant unconsumed;
@@ -117,7 +130,7 @@ export function approval(options: {
   readonly store: ApprovalStore;
   readonly now?: () => number;
 }): {
-  readonly runtime: ApprovalRuntime;
+  readonly runtime: (state: StateAddonDescriptor) => ApprovalRuntime;
   readonly capability: ApprovalCapability;
 } {
   const ledger = absolute(options.store.ledger);
@@ -133,29 +146,26 @@ export function approval(options: {
       ? markerPath(ledger, itemKey(["approval", request.preview]))
       : undefined;
   }
-  const runtime: ApprovalRuntime = Object.freeze({
-    async check(request: ApprovalRequest) {
-      const marker = await currentGrant(request);
-      return marker !== undefined && !(await isConsumed(marker));
-    },
-    async revalidateAndConsume(
-      request: ApprovalRequest,
-      coordination: ExclusiveScope,
-    ) {
-      const admitted = await consumeHeld(
-        coordination,
-        options.runId,
-        request.resource,
-        () => currentGrant(request),
-        () => consumption("approval", options.runId, now()),
-      );
-      return { admitted };
-    },
-  });
-  return Object.freeze({
-    runtime,
-    capability: Object.freeze({ check: runtime.check }),
-  });
+  async function check(request: ApprovalRequest) {
+    const marker = await currentGrant(request);
+    return marker !== undefined && !(await isConsumed(marker));
+  }
+  const runtime = (state: StateAddonDescriptor): ApprovalRuntime =>
+    Object.freeze({
+      check,
+      async revalidateAndConsume(
+        request: ApprovalRequest,
+        coordination: ExclusiveScope,
+      ) {
+        const admitted = await consumeHeld(
+          () => held(coordination, options.runId, request.resource, state),
+          () => currentGrant(request),
+          () => consumption("approval", options.runId, now()),
+        );
+        return { admitted };
+      },
+    });
+  return Object.freeze({ runtime, capability: Object.freeze({ check }) });
 }
 
 function consumption(kind: string, runId: string, at: number): string {
@@ -289,11 +299,15 @@ async function foreignRecord(
   }
 }
 
+// consume takes the descriptor of the state installation that issued the
+// coordination (the state add-on's own), as revalidateAndConsume's runtime
+// does; preflight needs none.
 export type AuthoritySlot<Item> = {
   readonly preflight: (item: Item) => Promise<AuthorityVerdict>;
   readonly consume: (
     item: Item,
     coordination: ExclusiveScope,
+    state: StateAddonDescriptor,
   ) => Promise<AuthorityVerdict>;
 };
 
@@ -337,12 +351,14 @@ function slot<Item extends { readonly scope: string }>(
       if (typeof marker !== "string") return marker;
       return (await isConsumed(marker)) ? refused : verified;
     },
-    async consume(item: Item, coordination: ExclusiveScope) {
+    async consume(
+      item: Item,
+      coordination: ExclusiveScope,
+      state: StateAddonDescriptor,
+    ) {
       let verdict: AuthorityVerdict = refused;
       const done = await consumeHeld(
-        coordination,
-        options.runId,
-        item.scope,
+        () => held(coordination, options.runId, item.scope, state),
         async () => {
           const marker = await current(item);
           if (typeof marker === "string") return marker;
