@@ -540,6 +540,40 @@ exec '${realGit}' "$@"
   );
 
   test(
+    "FR.n a SIGINT while git removes a record's worktree stops on that record, before the next one starts",
+    async () => {
+      const { root, id } = await repositoryWithFault({ next: "^L\\.refuses " });
+      const tools = folder("faults-remove-");
+      const once = join(tools, "signalled");
+      const realGit = Bun.which("git");
+      if (realGit === null) throw new Error("git is not on PATH.");
+      write(
+        tools,
+        "bin/git",
+        `#!/bin/sh
+if [ "$1" = worktree ] && [ "$2" = remove ] && [ ! -e '${once}' ]; then
+  : > '${once}'
+  kill -INT "$PPID"
+fi
+exec '${realGit}' "$@"
+`,
+      );
+      chmodSync(join(tools, "bin/git"), 0o755);
+      const run = await faults(root, [], {
+        env: { PATH: `${join(tools, "bin")}${delimiter}${process.env.PATH}` },
+      });
+      expect(run.stderr).toContain(
+        `Stopped by SIGINT while replaying ${id}, so it has no verdict.\n`,
+      );
+      expect(run.stderr).not.toContain("while replaying next");
+      expect(verdicts(run.lines)).toEqual([]);
+      expect(run.exit).toBe(130);
+      expectNoLeftovers(root, run.temporary);
+    },
+    processWatchdog(2),
+  );
+
+  test(
     "FR.h a terminal's group SIGINT while git removes the worktree still removes it, and exits 130",
     async () => {
       const { root } = await repositoryWithFault({});

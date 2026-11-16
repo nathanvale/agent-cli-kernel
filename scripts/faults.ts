@@ -148,6 +148,13 @@ function commitWorkingTreeInScratchIndex(): string {
   }
 }
 
+function haltIfStopped(id: string): void {
+  if (active.stoppedBy !== undefined)
+    throw new Error(
+      `Stopped by ${active.stoppedBy} while replaying ${id}, so it has no verdict.`,
+    );
+}
+
 async function step(id: string, cwd: string, argv: readonly string[]) {
   const child = Bun.spawn([...argv], {
     cwd,
@@ -163,10 +170,7 @@ async function step(id: string, cwd: string, argv: readonly string[]) {
     child.exited,
   ]);
   delete active.child;
-  if (active.stoppedBy !== undefined)
-    throw new Error(
-      `Stopped by ${active.stoppedBy} while replaying ${id}, so it has no verdict.`,
-    );
+  haltIfStopped(id);
   if (child.signalCode !== null)
     throw new Error(
       `${argv.join(" ")} was killed by ${child.signalCode} while replaying ${id}, so it has no verdict.`,
@@ -182,6 +186,18 @@ function failingTests(output: string): string[] {
 
 function testArgs(fault: Fault): string[] {
   return ["test", `./${fault.testFile}`, "-t", fault.title];
+}
+
+// Awaited rather than run synchronously, so a stop that arrives during the
+// removal reaches the handler before the next record starts. It is not the
+// active child, so the stop does not cut the removal short.
+async function removeWorktree(dir: string): Promise<void> {
+  await Bun.spawn(["git", "worktree", "remove", "--force", dir], {
+    cwd: root,
+    stdout: "ignore",
+    stderr: "ignore",
+    detached: true,
+  }).exited;
 }
 
 async function replay(fault: Fault, commit: string): Promise<Verdict> {
@@ -218,7 +234,7 @@ async function replay(fault: Fault, commit: string): Promise<Verdict> {
     if (faulted.passed) return { kind: "SURVIVED" };
     return { kind: "KILLED", failing: failingTests(faulted.output) };
   } finally {
-    git(["worktree", "remove", "--force", dir]);
+    await removeWorktree(dir);
     rmSync(folder, { recursive: true, force: true });
   }
 }
@@ -280,6 +296,7 @@ async function replayAll(ids: readonly string[]): Promise<number> {
   for (const fault of chosen) {
     const begun = performance.now();
     const verdict = await replay(fault, commit);
+    haltIfStopped(fault.id);
     report(fault, verdict, (performance.now() - begun) / 1000);
     if (verdict.kind === "KILLED") killed += 1;
   }
