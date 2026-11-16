@@ -23,6 +23,15 @@ import { coordinationExpected } from "./holder.ts";
 
 const specimen = join(import.meta.dir, "fixtures", "specimen.ts");
 
+// Where test state roots live: STATE_TEST_DIR when set (a run on a chosen
+// filesystem, such as the Linux volume run), else the system temporary
+// folder.
+export function testFolder(prefix: string): string {
+  return realpathSync.native(
+    mkdtempSync(join(process.env.STATE_TEST_DIR ?? tmpdir(), prefix)),
+  );
+}
+
 // ---- Case registration -----------------------------------------------------
 // A case bound to a qualified coordination route, on a platform without one
 // (the test holder's own judgement, never the add-on's), runs only its
@@ -338,7 +347,7 @@ export type World = ReturnType<typeof makeWorld>;
 export function makeWorld(
   options: { readonly qualification?: "fixture" } = {},
 ) {
-  const base = realpathSync.native(mkdtempSync(join(tmpdir(), "c3-state-")));
+  const base = testFolder("c3-state-");
   const root = join(base, "state");
   const world = join(base, "world");
   const bars = join(base, "barriers");

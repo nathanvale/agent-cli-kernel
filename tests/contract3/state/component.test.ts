@@ -2,8 +2,7 @@
 // the internal framing and scope seams. Component evidence never satisfies a
 // process row; these bind what the process layer cannot reach directly.
 import { afterEach, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   changing,
@@ -33,7 +32,7 @@ import {
   canonicalise,
   conflicts,
 } from "../../../starters/contract3/src/addons/state/scope.ts";
-import { caseTest, readFramed, readOperations } from "./harness.ts";
+import { caseTest, readFramed, readOperations, testFolder } from "./harness.ts";
 import { coordinationExpected } from "./holder.ts";
 
 const causes = {
@@ -124,7 +123,7 @@ afterEach(() => {
     rmSync(root, { recursive: true, force: true });
 });
 function temporaryRoot(prefix: string): string {
-  const root = mkdtempSync(join(tmpdir(), prefix));
+  const root = testFolder(prefix);
   temporaryRoots.push(root);
   return root;
 }

@@ -8,16 +8,14 @@ import { afterEach, expect } from "bun:test";
 import { createHash } from "node:crypto";
 import {
   existsSync,
-  mkdtempSync,
   readFileSync,
   readdirSync,
-  realpathSync,
   rmSync,
   statSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
-import { release, tmpdir } from "node:os";
+import { release } from "node:os";
 import { join } from "node:path";
 import {
   at,
@@ -26,6 +24,7 @@ import {
   expectRefusedUnchanged,
   makeWorld,
   str,
+  testFolder,
 } from "./harness.ts";
 import { lockFree } from "./holder.ts";
 
@@ -47,7 +46,7 @@ afterEach(() => {
 });
 
 function folder(): string {
-  const path = realpathSync.native(mkdtempSync(join(tmpdir(), "c3-route-")));
+  const path = testFolder("c3-route-");
   folders.push(path);
   return path;
 }
