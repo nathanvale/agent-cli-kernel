@@ -488,7 +488,8 @@ export async function exitWithin(
 // N2: a ledgered pid is killed only while it is still in the process group
 // its ledger says it belongs to, so a pid the OS reused for an unrelated
 // process is left alone. Program children and escaped writers lead their own
-// group (setsid); a grandchild stays in its parent's ledgered `child-pgid`.
+// group (setsid), and that whole group is killed, so their own children go
+// too; a grandchild stays in its parent's ledgered `child-pgid`.
 const ledgeredLeaders = ["child-started", "escaped", "late-child"];
 function ledgeredPid(ledger: readonly string[], prefix: string) {
   return ledger
@@ -509,9 +510,9 @@ function stillOwned(ledger: readonly string[]) {
 export async function release(launched: Launched): Promise<void> {
   if (launched.running()) launched.signal("SIGKILL");
   const observed = await launched.done;
-  for (const { pid } of stillOwned(readLedger(launched.ledgerPath)))
+  for (const { pid, group } of stillOwned(readLedger(launched.ledgerPath)))
     try {
-      process.kill(pid, "SIGKILL");
+      process.kill(pid === group ? -group : pid, "SIGKILL");
     } catch {
       // Already gone.
     }

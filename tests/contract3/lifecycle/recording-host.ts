@@ -120,10 +120,11 @@ export function markedPids(marker: string): readonly number[] {
     .map((line) => Number(line.trim().split(" ")[0]))
     .filter((pid) => Number.isSafeInteger(pid) && pid > 0);
 }
+// Program children lead their own process group: kill the whole group.
 export function killMarked(marker: string): void {
   for (const pid of markedPids(marker))
     try {
-      process.kill(pid, "SIGKILL");
+      process.kill(-pid, "SIGKILL");
     } catch {
       // Already gone.
     }

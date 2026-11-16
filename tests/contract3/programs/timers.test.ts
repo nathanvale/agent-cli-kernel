@@ -26,6 +26,8 @@ const timeout = 30_000;
 const timerLimit = 2_147_483_647;
 // The add-on polls a stopping group every 10 ms.
 const pollLatency = 10;
+// Under fake time a timer fires at exactly its due time; any rounding, extra
+// step or deferred arm moves it, so expiry is asserted exactly.
 
 afterEach(() => {
   jest.useRealTimers();
@@ -126,8 +128,7 @@ async function timeoutExpiry(value: number) {
     expect(detail.timedOut).toBe(true);
     const [first] = detail.attempts;
     expect(first?.signal).toBe("SIGTERM");
-    expect(first?.afterMilliseconds).toBeGreaterThanOrEqual(value);
-    expect(first?.afterMilliseconds).toBeLessThanOrEqual(value + pollLatency);
+    expect(first?.afterMilliseconds).toBe(value);
   } finally {
     await started.cleanup();
   }
@@ -158,6 +159,8 @@ async function drainExpiry(value: number) {
     await advance(value - 1);
     expect(started.outcome()).toBeUndefined();
     await advance(1);
+    // Abandoned at exactly the drain budget: no further fake time passes.
+    expect(await until(() => started.outcome() !== undefined)).toBe(true);
     const { result, detail } = await resultArrives(started);
     expect(result.outputTruncated).toBe(true);
     expect(detail.stdoutTruncated).toBe(true);
