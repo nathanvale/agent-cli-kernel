@@ -531,6 +531,20 @@ const bypasses = [
   ],
   ["require-to-throw-message", "expect(fn).toThrow(/limit/);", undefined],
   ["require-to-throw-message", "expect(fn).not.toThrow(undefined);", undefined],
+  ["require-to-throw-message", 'expect(fn)["toThrow"]();', "bare toThrow()"],
+  [
+    "require-to-throw-message",
+    'expect(fn)["toThrowError"]("");',
+    'toThrowError("") names no message',
+  ],
+  [
+    "require-to-throw-message",
+    'await expect(work)["rejects"]["toThrow"]();',
+    "bare toThrow()",
+  ],
+  ["require-to-throw-message", 'expect(fn)["not"].toThrow();', undefined],
+  ["require-to-throw-message", 'expect(fn)["not"]["toThrow"]();', undefined],
+  ["require-to-throw-message", 'expect(fn)["toThrow"]("limit");', undefined],
   [
     "tests-use-test-folder",
     'import { tmpdir as td2 } from "node:os";\ntd2();',

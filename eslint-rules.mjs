@@ -471,16 +471,21 @@ export default {
       },
       create(context) {
         return {
-          "CallExpression > MemberExpression.callee[property.name=/^toThrow(?:Error)?$/]:not([object.property.name='not'])"(
-            node,
-          ) {
+          "CallExpression > MemberExpression.callee"(node) {
+            const name = propertyName(node);
+            if (
+              !/^toThrow(?:Error)?$/.test(name) ||
+              (node.object.type === "MemberExpression" &&
+                propertyName(node.object) === "not")
+            )
+              return;
             const [argument] = node.parent.arguments;
             if (argument && !namesNothing(argument)) return;
             context.report({
               node: node.property,
               messageId: argument ? "empty" : "bare",
               data: {
-                name: node.property.name,
+                name,
                 argument: argument && context.sourceCode.getText(argument),
               },
             });
