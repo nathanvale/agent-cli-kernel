@@ -292,35 +292,28 @@ export function admittedState(descriptor: object): boolean {
   return registrations.has(descriptor);
 }
 
-// WIRE-7: a run identity is unique. A second attachment of one runId to an
-// installation is refused, and the earlier attachment is superseded, so no
-// proof or scope from either execution stands for that identity
-// (K2-spec-2). True, and recorded, when the run identity is fresh for this
-// installation; a used identity stays used, so every later reuse is refused
-// too (repair 1, B2).
-export function claimRun(
-  descriptor: StateAddonDescriptor,
-  runId: string,
-): boolean {
-  const state = registrations.get(descriptor);
-  if (!state) throw new Error("Unadmitted state descriptor.");
-  if (!state.used.has(runId)) {
-    state.used.add(runId);
-    return true;
-  }
-  state.runs.delete(runId);
-  return false;
-}
 export function attachState<Effect extends string>(
   descriptor: StateAddonDescriptor,
   runId: string,
   effects: readonly Effect[],
-): {
-  readonly capability: import("./capabilities.ts").StateCapability<Effect>;
-  readonly close: () => void;
-} {
+):
+  | {
+      readonly capability: import("./capabilities.ts").StateCapability<Effect>;
+      readonly close: () => void;
+    }
+  | undefined {
   const state = registrations.get(descriptor);
   if (!state) throw new Error("Unadmitted state descriptor.");
+  // WIRE-7: a run identity is unique. Claiming it and attaching happen here
+  // together, at handler entry (CMD-9 step 6; delta review F2). A used
+  // identity stays used: the reuse is refused (undefined) and the earlier
+  // attachment is superseded, so no proof or scope of that identity stands
+  // (K2-spec-2, repair 1 B2).
+  if (state.used.has(runId)) {
+    state.runs.delete(runId);
+    return undefined;
+  }
+  state.used.add(runId);
   let open = true;
   const run = Object.freeze({});
   const status: AttachedRun = {

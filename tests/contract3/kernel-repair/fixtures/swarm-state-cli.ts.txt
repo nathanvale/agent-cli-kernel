@@ -121,6 +121,20 @@ const scenarios: Readonly<Record<string, (argv: string[]) => Promise<unknown>>> 
       runProcess(guardedContract(), {
         addons: { approval: approvalAddon("specimen.guarded", note) },
       })(argv),
+    // F2: a denied check phase claims nothing, so the same run identity is
+    // then granted and entered.
+    "deny-then-grant": async () => {
+      const contract = guardedContract();
+      const attempt = async (granted: boolean) => {
+        const executed = await contract.execute("specimen.guarded", [], "R", {
+          approval: { check: () => Promise.resolve(granted) },
+        });
+        return executed.ok ? "entered" : executed.path;
+      };
+      process.stdout.write(
+        JSON.stringify({ denied: await attempt(false), granted: await attempt(true) }),
+      );
+    },
     "run-reuse": async () =>
       process.stdout.write(
         JSON.stringify(await runReuse(process.env.SECOND_RUN_ID ?? "")),

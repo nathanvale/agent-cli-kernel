@@ -5,10 +5,12 @@ import {
   contractFor,
   station,
 } from "../../../starters/contract3/src/kernel/index.ts";
+import { runtimeOf } from "../../../starters/contract3/src/kernel/runtime.ts";
 import { envelopeShape } from "../../../starters/contract3/src/kernel/validation/result.ts";
 import { envelope } from "./envelope-fixture.ts";
 import { neverRuns } from "./handlers.ts";
 import { contractUnchecked } from "./harness.ts";
+import { patternShow } from "./swarm-commands.ts";
 import { emptyInput, unchanged } from "./shapes.ts";
 
 // Swarm-triage kernel-internal findings (K2-6, K2-12). Their oracle is the
@@ -124,5 +126,21 @@ test("K2-12: a fault inside validation after the snapshot propagates instead of 
     ok: false,
     path: "$",
     reason: "not plain bounded JSON",
+  });
+});
+
+test("F2.one-shot-entry: the handler entry a check phase returns runs once", async () => {
+  // The entry is step 6 for one run; a second call would attach and enter
+  // again under the same run identity (delta review F2).
+  const contract = contractFor({ cli: "x", commands: [patternShow("a|b")] });
+  const runtime = runtimeOf(contract);
+  if (!runtime) throw new Error("No runtime.");
+  const prepared = await runtime.prepare("x.show", ["a"], "run-once", {});
+  if (!prepared.ok) throw new Error("Expected a handler entry.");
+  expect(await prepared.value()).toMatchObject({ ok: true });
+  expect(await prepared.value()).toEqual({
+    ok: false,
+    path: "entry",
+    reason: "handler entry already used",
   });
 });

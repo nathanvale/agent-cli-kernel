@@ -14,7 +14,6 @@ import {
   admittedState,
   createStateAddon,
   attachState,
-  claimRun,
   proofFreeResultAllowed,
 } from "./state-seam.ts";
 import type { StateAddonDescriptor } from "./state-seam.ts";
@@ -275,12 +274,6 @@ export function contractFor<
     );
     if (!future.ok) return future;
     const changingCommand = selected.effectClass !== "inspect";
-    if (changingCommand && spec.state && !claimRun(spec.state, runId))
-      return {
-        ok: false,
-        path: "runId",
-        reason: "run identity already attached",
-      };
     const invocation = Object.freeze({});
     const prepare = preparerOf(selected);
     const ready = prepare
@@ -288,11 +281,27 @@ export function contractFor<
       : undefined;
     if (ready && !ready.ok) return ready;
     const execute = selected.execute;
+    // One entry per run: a second call would attach and enter again under
+    // the same run identity (delta review F2).
+    let entered = false;
     const enter = async (): Promise<Validation<CommandResult>> => {
+      if (entered)
+        return {
+          ok: false,
+          path: "entry",
+          reason: "handler entry already used",
+        };
+      entered = true;
       const attached =
         changingCommand && spec.state
           ? attachState(spec.state, runId, selected.effects ?? [])
           : undefined;
+      if (changingCommand && spec.state && !attached)
+        return {
+          ok: false,
+          path: "runId",
+          reason: "run identity already attached",
+        };
       // WIRE-15: the capability closes when the handler returns, so no
       // transaction can start after the result exists (K2-spec-3).
       const outcome = await (ready

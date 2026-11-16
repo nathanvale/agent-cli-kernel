@@ -329,3 +329,17 @@ test(
   },
   processTimeout,
 );
+
+test(
+  "F2.check-phase-claims-nothing: a denied run leaves its run identity unclaimed",
+  async () => {
+    // CMD-9: steps 3 to 5 attach and claim nothing; the run identity is
+    // claimed with the state attachment at step 6 (delta review F2).
+    const ledger = join(root, "f2-ledger.txt");
+    expect(await printed("deny-then-grant", { LEDGER: ledger })).toEqual({
+      denied: "approval",
+      granted: "entered",
+    });
+  },
+  processTimeout,
+);
