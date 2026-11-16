@@ -5,34 +5,49 @@ import { freeze, reservedFallbackCause } from "./stations.ts";
 import type { Validation, EffectClass } from "./types.ts";
 import type { FactsForRow } from "./declaration-checks.ts";
 import { commonCauses } from "./causes.ts";
+import type { CapabilitySelection } from "./capabilities.ts";
+import { programStopOf } from "./program-stop.ts";
+import { deadlineCause } from "./state-causes.ts";
 const resultIdentity = Symbol("kernel.commandResult");
 export type CommandResult<Identity extends string = string> = {
   readonly commandIdentity: Identity;
   readonly [resultIdentity]: true;
 };
-// Accepted decision (contract question 7 of 8): the stations that mean
-// "refused before the handler started" belong to the base alone. Declaring
-// one for its words (DISC-11b) grants a handler no selection (provisional
-// reading N5 (a)).
-export type PreEntryCause =
+// Accepted decisions (contract question 7 of 8; N7 at 17:06; N7b at
+// 17:24): the stations the base alone produces, at the stage they describe.
+// Declaring one for its words (DISC-11b) grants a handler no selection
+// (reading N5 (a)). The approval denial is one too on a command without
+// approval (N6 (a)), and so is the command's own program-stop station.
+export type BaseOnlyCause =
   | "USAGE_INVALID_INVOCATION"
-  | "DOMAIN_DEADLINE_BEFORE_START";
-export type AllowedCause<S extends readonly DeclaredStation[]> =
-  | Exclude<S[number]["causeCode"], PreEntryCause>
+  | "DOMAIN_DEADLINE_BEFORE_START"
+  | (typeof deadlineCause)[keyof typeof deadlineCause];
+export type AllowedCause<
+  S extends readonly DeclaredStation[],
+  C extends CapabilitySelection = { readonly approval: true },
+  P extends string = never,
+> =
+  | Exclude<
+      S[number]["causeCode"],
+      | BaseOnlyCause
+      | P
+      | (C extends { readonly approval: true }
+          ? never
+          : "DOMAIN_AUTHORITY_REQUIRED")
+    >
   | (S[number] extends never ? "SUCCESS_UNCHANGED" : never);
-// The runtime counterpart. The approval check's denial is pre-entry too,
-// except on a command that declares approval, whose handler reports the
-// denial at revalidation under coordination (CMD-9 step 7; provisional
-// reading N6 (a)).
-function preEntryCause(
+// The runtime counterpart.
+function baseOnlyCause(
   command: CommandDeclaration,
   causeCode: string,
 ): boolean {
   return (
     causeCode === "USAGE_INVALID_INVOCATION" ||
     causeCode === "DOMAIN_DEADLINE_BEFORE_START" ||
+    Object.values(deadlineCause).some((cause) => cause === causeCode) ||
     (causeCode === "DOMAIN_AUTHORITY_REQUIRED" &&
-      command.capabilities.approval !== true)
+      command.capabilities.approval !== true) ||
+    causeCode === programStopOf(command)
   );
 }
 export type SelectedRow<
@@ -46,8 +61,10 @@ export type ResultContext<
   Identity extends string,
   S extends readonly DeclaredStation[],
   E extends EffectClass,
+  C extends CapabilitySelection = { readonly approval: true },
+  P extends string = never,
 > = {
-  readonly result: <const K extends AllowedCause<S>>(
+  readonly result: <const K extends AllowedCause<S, C, P>>(
     selected: { readonly commandIdentity: Identity; readonly causeCode: K },
     facts: Omit<FactsForRow<SelectedRow<S, K>, E>, "runId">,
   ) => CommandResult<Identity>;
@@ -91,7 +108,7 @@ export function resultContext<
         throw new Error(
           "Result station belongs to another command or is undeclared.",
         );
-      if (preEntryCause(command, selected.causeCode))
+      if (baseOnlyCause(command, selected.causeCode))
         throw new Error(
           "A handler never selects a result that belongs before handler entry.",
         );

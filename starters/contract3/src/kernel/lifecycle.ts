@@ -15,7 +15,7 @@ import { runtimeOf } from "./runtime.ts";
 import type { Attach, ContractRuntime, Enter, Resolution } from "./runtime.ts";
 import type { CommandResult } from "./command-result.ts";
 import type { CommandDeclaration } from "./declarations.ts";
-import { programStopOf } from "./declarations.ts";
+import { programStopOf } from "./program-stop.ts";
 import type { StateObservation } from "./state-seam.ts";
 import {
   deadlineCause,

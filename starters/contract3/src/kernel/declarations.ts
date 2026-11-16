@@ -1,3 +1,4 @@
+import { programStopOf, recordProgramStop } from "./program-stop.ts";
 import type { InputTable } from "./future-input.ts";
 import { resultContext, checkedResult } from "./command-result.ts";
 import type { CommandResult, ResultContext } from "./command-result.ts";
@@ -70,18 +71,6 @@ export function admitInspectShape(declaration: {
 // supports a deadline declares its program-stop station, a failed and
 // unchanged station with a handoff (WIRE-13, WIRE-14, WIRE-15). The kernel
 // does not enforce its name (N1e, 17:24).
-//
-// The station the kernel selects when the deadline passed and an owned
-// program was not confirmed stopped: command()'s `programStopCause`, kept
-// here rather than on CommandDeclaration, or a raw declaration's own
-// `programStopCause` string.
-const programStops = new WeakMap<object, string>();
-export function programStopOf(declaration: object): string | undefined {
-  const own: unknown = Reflect.get(declaration, "programStopCause");
-  return (
-    programStops.get(declaration) ?? (typeof own === "string" ? own : undefined)
-  );
-}
 export function admitProgramStop(declaration: {
   readonly commandIdentity: string;
   readonly input: { readonly deadlineSupported: boolean };
@@ -276,6 +265,7 @@ export function command<
   const I extends InputSchema,
   const C extends CapabilitySelection = Record<never, never>,
   const S extends readonly DeclaredStation[] = readonly [],
+  const P extends string = never,
 >(
   spec: {
     readonly identity: Identity;
@@ -288,10 +278,10 @@ export function command<
     readonly capabilities: C;
     readonly stations?: S;
     // Checked at declaration against the station table (admitProgramStop).
-    readonly programStopCause?: string;
+    readonly programStopCause?: P;
     readonly run: (
       input: ParsedInput<I>,
-      context: HandlerContext<C> & ResultContext<Identity, S, "inspect">,
+      context: HandlerContext<C> & ResultContext<Identity, S, "inspect", C, P>,
     ) => CommandResult<Identity> | Promise<CommandResult<Identity>>;
   } & (C extends { readonly approval: true }
     ? {
@@ -361,7 +351,7 @@ export function command<
     execute: executeVia(prepare),
   });
   if (spec.programStopCause !== undefined)
-    programStops.set(declaration, spec.programStopCause);
+    recordProgramStop(declaration, spec.programStopCause);
   admitProgramStop(declaration);
   return register(declaration, prepare);
 }
@@ -392,6 +382,9 @@ export function changing<
       input: ParsedInput<I>,
       context: HandlerContext<C> & {
         readonly state: StateCapability<Effect>;
+        // The authority exclusion without approval (N6 a) stays runtime-only
+        // here: the T3 specimen's typed handlers select from a union that
+        // includes its declared-unreachable DOMAIN_AUTHORITY_REQUIRED.
       } & ResultContext<Identity, S, "repository-local" | "external">,
     ) => Promise<CommandResult<Identity>>;
   } & (C extends { readonly approval: true }

@@ -705,7 +705,21 @@ const programStopRow = {
 } as const;
 const programStopName =
   watchVariant === "other-name" ? "DOMAIN_KF_PROGRAM_SURVIVOR" : programStop;
-const watchCauses = { ...causes, [programStopName]: programStopRow };
+const watchCauses = {
+  ...causes,
+  [programStopName]: programStopRow,
+  // A host-owned refusal kf.watch's handler may select (KF5.d twin).
+  DOMAIN_KF_WATCH_REFUSED: refusal,
+};
+const watchRefused = station({ ...commonCauses, ...watchCauses } as never, {
+  ...words,
+  commandIdentity: "kf.watch",
+  causeCode: "DOMAIN_KF_WATCH_REFUSED",
+  trigger: "kf.watch refused.",
+  guidance: lockHandoff,
+  repairAction: "Inspect the watch.",
+  independentObservable: "kf.watch:refused",
+} as never);
 const programStopStation = station({ ...commonCauses, ...watchCauses } as never, {
   ...words,
   commandIdentity: "kf.watch",
@@ -744,16 +758,20 @@ function watchCommand() {
   capabilities: watchVariant === "no-programs" ? {} : { programs: true },
   stations: [
     success("kf.watch"),
+    watchRefused,
     ...(watchDeclares ? [programStopStation] : []),
   ],
   ...(watchDeclares ? { programStopCause: programStopName } : {}),
   run: async (_input, context) => {
     note("handler-entered");
-    if (watchVariant !== "no-programs")
+    if (watchVariant !== "no-programs" && env.KF_SELECT === undefined)
       await (context as never as { programs: ProgramsCapability }).programs.inspect(program);
     if (waitMilliseconds > 0) await sleep(waitMilliseconds);
     return context.result(
-      { commandIdentity: "kf.watch", causeCode: "SUCCESS_UNCHANGED" },
+      {
+        commandIdentity: "kf.watch",
+        causeCode: env.KF_SELECT ?? "SUCCESS_UNCHANGED",
+      } as never,
       { message: "Watched.", data: null, effects: empty },
     );
   },
@@ -964,8 +982,9 @@ const load = command({
   },
   capabilities: {},
   stations: [success("kf.load"), ...declaredWords.map(loadWords)],
-  run: (_input, context) => {
+  run: async (_input, context) => {
     note("handler-entered");
+    if (waitMilliseconds > 0) await sleep(waitMilliseconds);
     const selected = env.KF_SELECT ?? "SUCCESS_UNCHANGED";
     return context.result(
       { commandIdentity: "kf.load", causeCode: selected } as never,
@@ -1033,8 +1052,50 @@ function lateApply(state: StateAddonDescriptor) {
   });
 }
 
+// KF5.a setup B: kf.apply2 (effects kf.e1, kf.e2, deadline support, no
+// approval) opens no transaction and selects KF_SELECT, or waits KF_WAIT ms.
+function apply2(state: StateAddonDescriptor) {
+  return changing({
+    identity: "kf.apply2",
+    route: ["apply2"],
+    summary: "Apply two kf effects.",
+    input,
+    capabilities: {},
+    effectClass: "repository-local",
+    effects: ["kf.e1", "kf.e2"],
+    ifNoResult: state.ifNoResult,
+    heldLockCause: "KF_HELD",
+    unresolvedCaseCause: "KF_PRIOR",
+    stations: [...coordination("kf.apply2"), completed("kf.apply2")],
+    run: async (_input, context) => {
+      note("handler-entered");
+      if (waitMilliseconds > 0) await sleep(waitMilliseconds);
+      return context.result(
+        {
+          commandIdentity: "kf.apply2",
+          causeCode: env.KF_SELECT ?? "KF_HELD",
+        } as never,
+        { message: "Selected.", data: null, effects: empty } as never,
+      );
+    },
+  });
+}
+
 const scenarios: Readonly<Record<string, (argv: string[]) => Promise<unknown>>> =
   {
+    // KF5.a setup B.
+    apply2: (argv) => {
+      const state = seamState();
+      return runProcess(
+        contractFor({
+          cli: "kf",
+          commands: [apply2(state), pending],
+          causes,
+          state,
+          installedAddons: ["state"],
+        } as never),
+      )(argv);
+    },
     // KF9.
     late: (argv) => {
       const state = seamState();
