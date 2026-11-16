@@ -10,8 +10,7 @@
 
 ## Authority
 
-The product contract this repository implements. Each source is public and
-pinned.
+These public sources define the product contract this repository implements.
 
 - Frozen Contract 3 text: `agent-engineering` repository, skill
   `agent-cli-design`, `references/contract-3/`. Cite it by that path. Read
@@ -22,29 +21,34 @@ pinned.
   `references/contract-3/redaction-2026-11-16.md` on that repository's
   `codex/contract-3-foundation` branch maps each frozen commit to its
   published one and lists the two files that differ.
-- Glossary terms: `tests/glossary/term-table.json` holds the terms this
-  repository checks and the glossary snapshot they follow;
-  `tests/glossary/` enforces them.
+- Accepted decisions: code and tests cite them as "Accepted decision" with a
+  contract question number or an ID such as `N4a`. Each one settles a point
+  the frozen text leaves open, so keep the behaviour at a cited decision.
+  Their record is the decision log under Coordination context.
+- Glossary terms: `tests/glossary/term-table.json` lists the terms this
+  repository checks and the glossary snapshot they follow. The glossary test
+  in `tests/glossary/` enforces them.
 
 ## Coordination context
 
-Private planning records. Your task brief supplies the parts your task may
-use. When your task needs one the brief does not supply, name it by the
-identity below as missing context in your report.
+These private planning records live outside this repository. Your task brief
+supplies the parts your task may use. If your task needs a record that the
+brief does not supply, report it as missing context with its identity and
+owner from this list.
 
 - Foundation specification and decision log:
   `projects/cli-design-skill/specs/contract-3-foundation.md` in the
-  `my-second-brain-playground` repository.
-- Scope, open findings and Nathan's rulings: Linear MAG-98 and its findings
-  ledger.
-- Shared vocabulary: Engineering's "Agent ecosystem glossary (living)" in
-  Linear.
+  `my-second-brain-playground` repository. Owner: Linear MAG-98.
+- Scope, open findings, and accepted decisions: Linear MAG-98 and its findings
+  ledger. Owner: Linear MAG-98.
+- Shared vocabulary: "Agent ecosystem glossary (living)" in Linear. Owner:
+  Engineering, through Linear MAG-64.
 
 ## Checks
 
 - Focused: `bun run test:area <area>`. Run it without an area to list the
   areas; extra arguments reach `bun test`, so `-t "<case id>"` works.
-- Full suite and timing-sensitive cases: hosted CI, or the gate your task
-  brief names; never a loaded laptop. `bun run doctor` warns when this host is
-  too loaded.
+- Full suite and timing-sensitive cases: run them on hosted CI or on the test
+  host your task brief names, not on a loaded laptop. `bun run doctor` warns when
+  this host is too loaded.
 - Review: apply `CODING_STANDARDS.md` to the diff; each row names its gate.

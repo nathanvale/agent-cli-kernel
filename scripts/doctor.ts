@@ -78,7 +78,7 @@ function hostLoad(): Finding {
     return {
       status: "WARN",
       check: "load",
-      detail: `${summary}. Run the full suite and timing-sensitive cases on hosted CI or the gate your task brief names.`,
+      detail: `${summary}. Run the full suite and timing-sensitive cases on hosted CI or the test host your task brief names.`,
     };
   return { status: "ok", check: "load", detail: `${summary}.` };
 }
