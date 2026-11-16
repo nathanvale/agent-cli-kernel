@@ -149,11 +149,11 @@ export function go(args: readonly string[]) {
   });
 }
 
-// X-K1-6: an inspect command with one required operand and no declared
-// stations whose handler selects the base-added SCHEMA_INVALID_INPUT for a
-// bad persisted-state shape. The static result type lists only declared
+// X-K1-6: an inspect command with one required operand whose handler
+// selects `causeCode` through the result builder, optionally beside its own
+// declared success station. The static result type lists only declared
 // stations, so the declaration is built and admitted unchecked.
-export function schemaLoad(): object {
+export function selectingLoad(causeCode: string, ownStation: boolean): object {
   const run = (_input: unknown, context: unknown) => {
     const result: unknown =
       typeof context === "object" && context !== null
@@ -161,7 +161,7 @@ export function schemaLoad(): object {
         : undefined;
     if (typeof result !== "function") throw new Error("No result builder.");
     const selected: unknown = Reflect.apply(result, context, [
-      { commandIdentity: "x.load", causeCode: "SCHEMA_INVALID_INPUT" },
+      { commandIdentity: "x.load", causeCode },
       {
         message: "The persisted record has a bad shape.",
         data: null,
@@ -170,6 +170,14 @@ export function schemaLoad(): object {
     ]);
     return selected;
   };
+  const loaded = station(commonCauses, {
+    commandIdentity: "x.load",
+    causeCode: "SUCCESS_UNCHANGED",
+    trigger: "Loaded.",
+    guidance: { next: { kind: "done" } },
+    repairAction: null,
+    ...words,
+  });
   const declaration: unknown = Reflect.apply(command, undefined, [
     {
       identity: "x.load",
@@ -187,6 +195,7 @@ export function schemaLoad(): object {
         ],
       },
       capabilities: {},
+      ...(ownStation ? { stations: [loaded] } : {}),
       run,
     },
   ]);
@@ -196,6 +205,9 @@ export function schemaLoad(): object {
   if (typeof contract !== "object" || contract === null)
     throw new Error("Expected a contract.");
   return contract;
+}
+function schemaLoad(): object {
+  return selectingLoad("SCHEMA_INVALID_INPUT", false);
 }
 
 // X-K1-8: one host command that declares deadline support.

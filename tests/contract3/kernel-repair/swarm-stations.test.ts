@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { schemaLoad } from "./swarm-commands.ts";
+import { selectingLoad } from "./swarm-commands.ts";
 import type { Observed } from "./swarm-process.ts";
 import { runScenario } from "./swarm-process.ts";
 
@@ -28,7 +28,9 @@ test(
     // DISC-11b: a handler may select a station the base adds, for example
     // SCHEMA_INVALID_INPUT for a bad persisted-state shape. DISC-12: every
     // required station is reached by a process test.
-    expect(stationsOf(schemaLoad(), "x.load")).toContainEqual(
+    expect(
+      stationsOf(selectingLoad("SCHEMA_INVALID_INPUT", false), "x.load"),
+    ).toContainEqual(
       expect.objectContaining({
         causeCode: "SCHEMA_INVALID_INPUT",
         reachability: "required",
@@ -200,3 +202,57 @@ test(
   },
   processTimeout,
 );
+
+// Runs x.load in process and reports what the handler's selection produced.
+async function selection(causeCode: string, ownStation: boolean) {
+  const contract = selectingLoad(causeCode, ownStation);
+  const execute: unknown = Reflect.get(contract, "execute");
+  const buildResult: unknown = Reflect.get(contract, "buildResult");
+  if (typeof execute !== "function" || typeof buildResult !== "function")
+    throw new Error("No execute.");
+  try {
+    const executed: unknown = await Reflect.apply(execute, contract, [
+      "x.load",
+      ["abc"],
+      `run-${causeCode}`,
+    ]);
+    const value: unknown =
+      typeof executed === "object" && executed !== null
+        ? Reflect.get(executed, "value")
+        : undefined;
+    const built: unknown = await Reflect.apply(buildResult, contract, [value]);
+    return built;
+  } catch (error) {
+    return { thrown: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+test("K1-6.declared-table-selects-base-added: a command with its own stations may select SCHEMA_INVALID_INPUT", async () => {
+  // DISC-11b: a handler may select a station the base adds; declaring a
+  // station table does not remove that (repair 1, K1-6 boundary a).
+  expect(await selection("SCHEMA_INVALID_INPUT", true)).toMatchObject({
+    ok: true,
+    value: {
+      result: {
+        commandIdentity: "x.load",
+        causeCode: "SCHEMA_INVALID_INPUT",
+        outcome: "refused",
+        exitCode: 4,
+      },
+    },
+  });
+});
+
+test("K1-6.reserved-stays-unselectable: a handler never selects a fallback-reserved station", async () => {
+  // DISC-11b: INTERNAL_PREPARATION and every INTERNAL_RESULT_* keep the
+  // base's fixed words and are the fallback's alone (repair 1, boundary b).
+  const refused = {
+    thrown: "Result station belongs to another command or is undeclared.",
+  };
+  for (const ownStation of [false, true])
+    for (const causeCode of [
+      "INTERNAL_PREPARATION",
+      "INTERNAL_RESULT_UNCHANGED",
+    ])
+      expect(await selection(causeCode, ownStation)).toEqual(refused);
+});
