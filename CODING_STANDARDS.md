@@ -14,7 +14,7 @@ Use the first copy of the shared standard you can reach:
 If you can reach neither, apply this file and its guides alone, and report the
 shared standard as missing context. No approved route delivers the shared
 standard to a fresh checkout yet. [MAG-65] owns preparing that route,
-[MAG-88] owns source admission, and [MAG-78] owns the deployment repository.
+[MAG-88] owns source adoption, and [MAG-78] owns the deployment repository.
 
 A row enters with at least two witnesses. Its guide cites them, or its gate
 note does when the guide lives outside `docs/standards/`. A guide bullet cites
@@ -27,7 +27,7 @@ Each row names what enforces it today:
 - **Partial**: a gate covers the part its gate note names; the reviewer
   applies the guide to the rest.
 - **Planned (parked)**: agreed future work that does not exist yet. These
-  gates are plan units U4 to U6, listed in the description of [#8]. None is
+  gates are plan units U4 to U6, named in the description of [#8]. None is
   scheduled yet. [MAG-98], the Contract 3 scope issue, does not list them.
 
 When a planned gate lands, move it to "Today" and cut the guide bullets it

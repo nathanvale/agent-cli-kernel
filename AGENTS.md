@@ -21,10 +21,11 @@ These public sources define the product contract this repository implements.
   `references/contract-3/redaction-2026-11-16.md` on that repository's
   `codex/contract-3-foundation` branch maps each frozen commit to its
   published one and lists the two files that differ.
-- Accepted decisions: code and tests cite them as "Accepted decision" with a
-  contract question number or an ID such as `N4a`. Each one settles a point
-  the frozen text leaves open, so keep the behaviour at a cited decision.
-  Their record is the decision log under Coordination context.
+- Accepted decisions: code and tests cite them in comments that say
+  "accepted decision", with a contract question number, an ID such as `N4a`,
+  or the ruling date. Each one settles a point the frozen text leaves open,
+  so keep the behaviour at a cited decision. Their record is the MAG-98
+  findings ledger under Coordination context.
 - Glossary terms: `tests/glossary/term-table.json` lists the terms this
   repository checks and the glossary snapshot they follow. The glossary test
   in `tests/glossary/` enforces them.
@@ -36,9 +37,11 @@ supplies the parts your task may use. If your task needs a record that the
 brief does not supply, report it as missing context with its identity and
 owner from this list.
 
-- Foundation specification and decision log:
-  `projects/cli-design-skill/specs/contract-3-foundation.md` in the
-  `my-second-brain-playground` repository. Owner: Linear MAG-98.
+- Foundation specification and Contract 3 decision record, in the
+  `my-second-brain-playground` repository:
+  `projects/cli-design-skill/specs/contract-3-foundation.md` and
+  `projects/cli-design-skill/contract-3-decision-log.md`. Owner: Linear
+  MAG-98.
 - Scope, open findings, and accepted decisions: Linear MAG-98 and its findings
   ledger. Owner: Linear MAG-98.
 - Shared vocabulary: "Agent ecosystem glossary (living)" in Linear. Owner:
@@ -49,6 +52,6 @@ owner from this list.
 - Focused: `bun run test:area <area>`. Run it without an area to list the
   areas; extra arguments reach `bun test`, so `-t "<case id>"` works.
 - Full suite and timing-sensitive cases: run them on hosted CI or on the test
-  host your task brief names, not on a loaded laptop. `bun run doctor` warns when
-  this host is too loaded.
+  host your task brief names, not on a loaded laptop. `bun run doctor` warns
+  when this host is too loaded.
 - Review: apply `CODING_STANDARDS.md` to the diff; each row names its gate.

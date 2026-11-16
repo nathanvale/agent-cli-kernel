@@ -9,8 +9,8 @@ description: Build, repair, or review Contract 3 code in `starters/contract3/` o
 Paths below are from the repository root. These owners hold the rules; follow
 each pointer rather than a copy:
 
-- [AGENTS.md authority](../../../AGENTS.md#authority): frozen Contract 3 text
-  and glossary terms.
+- [AGENTS.md authority](../../../AGENTS.md#authority): frozen Contract 3 text,
+  accepted decisions, and glossary terms.
 - [AGENTS.md coordination context](../../../AGENTS.md#coordination-context):
   private planning records your task brief supplies.
 - [AGENTS.md checks](../../../AGENTS.md#checks): focused runs and where the
