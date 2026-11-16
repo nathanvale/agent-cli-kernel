@@ -78,11 +78,36 @@ const authorityWords = {
     ],
   },
 } as const satisfies { readonly handoff: Handoff };
+// WIRE-18 guidance column for the base-added causes whose default is an
+// instruction (STEP-8: a choice among commands, or two steps in order). The
+// fallback copies INTERNAL_PREPARATION's words, so they stay fixed literals
+// with no token (DISC-11b; K1-8).
+const deadlineWords = {
+  repair: "Inspect the deadline and the input before deciding on a new run.",
+  next: "Inspect the deadline and the input, then explicitly decide whether to start a new run.",
+} as const;
+const instructionWords: Readonly<
+  Record<string, { readonly repair: string; readonly next: string }>
+> = {
+  USAGE_UNKNOWN_COMMAND: {
+    repair: "Use a command identity this CLI declares.",
+    next: "Select a command identity from availablePaths, then run that command's route.",
+  },
+  INTERNAL_PREPARATION: {
+    repair: "Repair the CLI or its runtime before another run.",
+    next: "Repair the CLI or its runtime, then decide whether to start another run.",
+  },
+  DOMAIN_DEADLINE_BEFORE_START: deadlineWords,
+  [deadlineCause.unchanged]: deadlineWords,
+};
 function kernelRepair(causeCode: string, success: boolean): string | null {
   if (success) return null;
-  return causeCode === "DOMAIN_AUTHORITY_REQUIRED"
-    ? "Obtain an exact-item grant from the command's authority owner, then decide on a new run."
-    : "Inspect the command, its input and independently observable resource before a new run.";
+  if (causeCode === "DOMAIN_AUTHORITY_REQUIRED")
+    return "Obtain an exact-item grant from the command's authority owner, then decide on a new run.";
+  return (
+    instructionWords[causeCode]?.repair ??
+    "Inspect the command, its input and independently observable resource before a new run."
+  );
 }
 function kernelWords(
   causeCode: string,
@@ -119,6 +144,9 @@ function kernelWords(
       },
     };
   if (causeCode === "SUCCESS_UNCHANGED") return { next: { kind: "done" } };
+  const instruction = instructionWords[causeCode];
+  if (instruction)
+    return { next: { kind: "instruction", text: instruction.next } };
   return { next: { kind: "command", command: `${cli}.help`, args: [] } };
 }
 // DISC-10 and DISC-11: the causes the base adds to a host command, in

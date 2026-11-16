@@ -194,6 +194,35 @@ export function schemaLoad(): object {
   return contract;
 }
 
+// X-K1-8: one host command that declares deadline support.
+function deadlineRead() {
+  return command({
+    identity: "x.read",
+    route: ["read"],
+    summary: "Read.",
+    input: {
+      ...emptyInput,
+      deadlineSupported: true,
+      options: [
+        {
+          name: "--all",
+          aliases: [],
+          summary: "All.",
+          required: false,
+          repeatable: false,
+          value: null,
+        },
+      ],
+    },
+    capabilities: {},
+    run: (_input, context) =>
+      context.result(
+        { commandIdentity: "x.read", causeCode: "SUCCESS_UNCHANGED" },
+        { message: "Read.", data: null, effects: unchanged },
+      ),
+  });
+}
+
 // Process scenarios run by swarm-cli.ts; each reads its variant from the
 // environment the parent test sets.
 export const scenarios: Readonly<Record<string, () => object>> = {
@@ -208,6 +237,7 @@ export const scenarios: Readonly<Record<string, () => object>> = {
       commands: [titledShow(), go(["--title", process.env.VALUE ?? ""])],
     }),
   "schema-station": schemaLoad,
+  "default-words": () => contractFor({ cli: "x", commands: [deadlineRead()] }),
   "json-after-delimiter": () =>
     contractFor({ cli: "x", commands: [filterShow(), go(["--", "--json"])] }),
 };
