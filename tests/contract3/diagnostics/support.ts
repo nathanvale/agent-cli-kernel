@@ -8,10 +8,9 @@ import type { Launch, Run } from "./harness.ts";
 
 export const machine = ["--json"] as const;
 
-// The pre-seam bridge status. Once the kernel seam lands this reads
-// `envelope.diagnostics` instead (one line).
+// The status the kernel wrote into the one envelope (LIFE-7 step 1).
 export function statusOf(result: Run): unknown {
-  return result.status;
+  return get(result.envelope, "diagnostics");
 }
 
 export function expectStatusShape(status: unknown): void {

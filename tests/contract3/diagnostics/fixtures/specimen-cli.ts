@@ -1,8 +1,7 @@
 // LABELLED TEST-ONLY SPECIMEN CLI "dxs" for the T5 diagnostics cases. It
 // composes the public kernel index with the diagnostics add-on exactly as a
 // host would. DXS_SCRIPT (JSON) drives what the handler records; DXS_FAULT
-// swaps in the labelled fault adapter; DXS_STATUS names a test-owned file for
-// the pre-seam status bridge below. Never registered, never ships.
+// swaps in the labelled fault adapter. Never registered, never ships.
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import {
   command,
@@ -28,6 +27,7 @@ type Script = {
   readonly limitForms?: boolean;
   readonly crash?: boolean;
   readonly pace?: boolean;
+  readonly throwAfter?: boolean;
   readonly hold?: {
     readonly after: number;
     readonly ready: string;
@@ -68,6 +68,7 @@ function script(): Script {
     limitForms: read("limitForms") === true,
     crash: read("crash") === true,
     pace: read("pace") === true,
+    throwAfter: read("throwAfter") === true,
     ...(typeof after === "number" &&
     typeof ready === "string" &&
     typeof go === "string"
@@ -167,6 +168,8 @@ async function perform(
   }
   await Promise.all(Array.from({ length: tasks }, (_, task) => worker(task)));
   if (plan.crash) process.abort();
+  if (plan.throwAfter)
+    throw new Error("specimen handler fault after recording");
   return records;
 }
 
@@ -240,25 +243,6 @@ const addon: StatusAddon =
     ? diagnosticsAddon(options)
     : createDiagnostics(options, faultIo(fault));
 
-// PRE-SEAM STATUS BRIDGE (test-only). Until the kernel calls `freeze` itself,
-// the current kernel's post-handler `settle` freezes the add-on and the frozen
-// status is written to the test-owned DXS_STATUS file.
-const statusFile = process.env.DXS_STATUS;
-const bridged: StatusAddon = {
-  reportsStatus: true,
-  attach(run) {
-    const attached = addon.attach(run);
-    return {
-      ...attached,
-      async settle() {
-        const status = await attached.freeze(500);
-        if (statusFile) writeFileSync(statusFile, JSON.stringify(status));
-        return true;
-      },
-    };
-  },
-};
-
 await runProcess(contract, {
-  addons: { diagnostics: bridged, programs: programsAddon() },
+  addons: { diagnostics: addon, programs: programsAddon() },
 })(argv);

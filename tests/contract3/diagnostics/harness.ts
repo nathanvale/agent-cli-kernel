@@ -84,7 +84,6 @@ export type Run = {
   readonly signal: string | null;
   readonly elapsedMilliseconds: number;
   readonly envelope: unknown;
-  readonly status: unknown;
 };
 
 export type Launch = {
@@ -97,16 +96,17 @@ export type Launch = {
   readonly fault?: string;
   readonly umask?: string;
   readonly env?: Readonly<Record<string, string>>;
+  // A bash command line; "$@" is the runtime and the specimen.
+  readonly shell?: string;
 };
 
-function environment(
-  launch: Launch,
-  statusFile: string,
-): Record<string, string> {
+function environment(launch: Launch): Record<string, string> {
   const env: Record<string, string> = {
     PATH: process.env.PATH ?? "/usr/bin:/bin",
     TMPDIR: launch.tree.root,
-    DXS_STATUS: statusFile,
+    // Bun's own transpiler cache would otherwise write under HOME, which
+    // would hide what the CLI itself creates there.
+    BUN_RUNTIME_TRANSPILER_CACHE_PATH: "0",
     DXS_SCRIPT: JSON.stringify(launch.script ?? {}),
     ...launch.env,
   };
@@ -117,26 +117,24 @@ function environment(
 }
 
 export function start(launch: Launch) {
-  const statusFile = join(
-    launch.tree.root,
-    `status-${crypto.randomUUID()}.json`,
-  );
   const file = launch.bare ? bareCli : specimenCli;
   const cmd =
-    launch.umask === undefined
-      ? [process.execPath, file, ...launch.argv]
-      : [
-          "/bin/sh",
-          "-c",
-          `umask ${launch.umask}; exec "$0" "$@"`,
-          process.execPath,
-          file,
-          ...launch.argv,
-        ];
+    launch.shell !== undefined
+      ? ["/bin/bash", "-c", launch.shell, "bash", process.execPath, file]
+      : launch.umask === undefined
+        ? [process.execPath, file, ...launch.argv]
+        : [
+            "/bin/sh",
+            "-c",
+            `umask ${launch.umask}; exec "$0" "$@"`,
+            process.execPath,
+            file,
+            ...launch.argv,
+          ];
   const began = performance.now();
   const child = Bun.spawn({
     cmd,
-    env: environment(launch, statusFile),
+    env: environment(launch),
     stdin: "ignore",
     stdout: "pipe",
     stderr: "pipe",
@@ -154,9 +152,6 @@ export function start(launch: Launch) {
     } catch {
       envelope = undefined;
     }
-    const status: unknown = existsSync(statusFile)
-      ? JSON.parse(readFileSync(statusFile, "utf8"))
-      : undefined;
     return {
       stdout,
       stderr,
@@ -164,7 +159,6 @@ export function start(launch: Launch) {
       signal: child.signalCode,
       elapsedMilliseconds,
       envelope,
-      status,
     };
   })();
   return { child, finished };

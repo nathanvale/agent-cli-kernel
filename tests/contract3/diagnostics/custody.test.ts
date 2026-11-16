@@ -103,9 +103,12 @@ describe("D02 private location and modes", () => {
     timeout,
   );
 
-  for (const umask of ["000", "077"])
+  for (const [id, umask] of [
+    ["D02.umask-000-modes", "000"],
+    ["D02.umask-077-modes", "077"],
+  ] as const)
     test(
-      `D02.umask-${umask}-modes: directory 0700 and file 0600 under umask ${umask}`,
+      `${id}: directory 0700 and file 0600 under umask ${umask}`,
       async () => {
         const where = tree();
         const result = await run({ argv: read, tree: where, umask });
