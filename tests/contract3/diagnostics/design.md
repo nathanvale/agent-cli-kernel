@@ -1,7 +1,7 @@
 # T5 diagnostics add-on: design note
 
-Frozen 16 November 2026 before production code, except the section "Seam
-decision", which is open with the foundation coordinator. Case identities are
+Frozen 16 November 2026 before production code; the section "Seam decision"
+was completed by the coordinator's ruling the same day. Case identities are
 in `t5-cases.json` beside this note and do not change after this commit.
 
 Authority: accepted contract manifest
@@ -75,9 +75,19 @@ folder index:
   bound. Not covered: other encodings (base64, URL, hex), fragments,
   free-text paraphrase, and values split across records.
 
-## Seam decision (open)
+## Seam decision
 
-The kernel at `d1db0d5` has no path from an attached add-on to the envelope:
+Ruled 16 November 2026 by the foundation coordinator: Option A. The kernel
+owner (`c3-t2-lifecycle`) adds a status seam in its own labelled commit; this
+unit never edits the kernel. The add-on side follows the interface note
+`seam-interface-needs.md` in the evidence owner: a status-reporting
+`RunAddon` (`reportsStatus: true`) is attached, effect-free, when its
+declaring command is dispatched, and its `AttachedAddon.freeze(limit)` is
+called once after the result is frozen; the kernel validates the value alone.
+Pre-dispatch results carry no key (provisional, judged by the T5 reviewer;
+the expected value is one line in the tests).
+
+The gap as found at `d1db0d5`, kept for the record:
 
 1. `writer.emit` receives a candidate built by `buildResult` or
    `buildKernelStation`, neither of which carries `diagnostics`; LIFE-7 step
@@ -92,8 +102,7 @@ The kernel at `d1db0d5` has no path from an attached add-on to the envelope:
    settling, before the result is frozen, which inverts DIAG-14 steps 1 and
    2.
 
-Each needs `kernel/lifecycle.ts`, which this unit may not edit. Production
-code waits for the coordinator's decision.
+Each needs `kernel/lifecycle.ts`, which this unit may not edit.
 
 ## Test design
 
