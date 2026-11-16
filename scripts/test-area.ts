@@ -37,6 +37,10 @@ function areas(root: string): Map<string, string[]> {
       "glossary",
       holdsTests(join(root, "tests/glossary")) ? ["./tests/glossary"] : [],
     ],
+    [
+      "standards",
+      holdsTests(join(root, "tests/standards")) ? ["./tests/standards"] : [],
+    ],
     ...entries(join(root, contract3))
       .filter(
         (entry) =>
