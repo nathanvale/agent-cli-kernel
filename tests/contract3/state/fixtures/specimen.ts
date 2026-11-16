@@ -803,6 +803,17 @@ const apply = changing({
           ),
         );
     await barrier("complete");
+    // V-23 supporting fault: a handler that refuses after a completed
+    // transaction. The kernel must never emit it as refused and unchanged.
+    if (fault === "refuse-after-complete" && plan.shape === "completed")
+      return context.result(
+        { commandIdentity: "sx.apply", causeCode: "DOMAIN_SX_UNAVAILABLE" },
+        {
+          message: "Refusing after the change completed.",
+          data: null,
+          effects: empty,
+        },
+      );
     switch (plan.shape) {
       case "close":
         throw new Error("Only the closure command selects closure stations.");

@@ -1,7 +1,7 @@
 // J and L families: journal truth and lost-response routes, through real
 // specimen processes. Expected values come from tests/contract3/state/cases.ts
 // and the frozen clauses, never from add-on output.
-import { expect } from "bun:test";
+import { expect, test } from "bun:test";
 import { readFileSync, writeFileSync, chmodSync } from "node:fs";
 import { join } from "node:path";
 import {
@@ -604,4 +604,25 @@ caseTest(
     expect(result.stdout).toBe("");
     await listedOnce(world);
   }),
+);
+
+// Supporting V-23 process control owed by T3 (kernel F-proof rule, T1 repair):
+// a handler that refuses after a completed transaction never yields a
+// refused, unchanged envelope. Not a frozen case; reported separately.
+test.if(process.platform === "darwin")(
+  "V-23 supporting: refusal after a completed transaction is never unchanged",
+  () =>
+    within({}, async (world) => {
+      const run = await world.run(apply("a"), {
+        SX_FAULT: "refuse-after-complete",
+      });
+      expect(run.result.outcome).not.toBe("refused");
+      expect(run.result.transactionState).not.toBe("unchanged");
+      expect(run.exit).not.toBe(3);
+      expect(run.exit).not.toBe(0);
+      expect(str(run.result.causeCode)).toMatch(/^INTERNAL_RESULT_/);
+      expect(world.noteLedger("a")).toBe(1);
+      expect(await world.pendingIds()).toEqual([]);
+    }),
+  90_000,
 );
