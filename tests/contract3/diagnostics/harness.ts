@@ -73,16 +73,18 @@ export function tree(): Tree {
 }
 
 const children: {
-  readonly kill: () => void;
+  readonly kill: (signal?: number | NodeJS.Signals) => void;
   readonly exitCode: number | null;
   readonly signalCode: string | null;
 }[] = [];
 
 // Teardown: kill every child this harness started that is still running,
-// then remove the trees. A failing held-run test leaves nothing behind.
+// then remove the trees. SIGKILL, because a CLI blocked in a synchronous
+// system call (a failing FIFO control) cannot run its SIGTERM handler.
 export function cleanTrees(): void {
   for (const child of children.splice(0))
-    if (child.exitCode === null && child.signalCode === null) child.kill();
+    if (child.exitCode === null && child.signalCode === null)
+      child.kill("SIGKILL");
   for (const root of roots.splice(0))
     rmSync(root, { recursive: true, force: true });
 }
