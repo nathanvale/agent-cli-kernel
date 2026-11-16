@@ -104,7 +104,9 @@ const refusals: readonly (readonly [
 describe("KF10.a no-argument-value-in-kernel-refusals", () => {
   for (const [argv, identity, causeCode, exit, env] of refusals)
     test(
-      `KF10.a ${argv.join(" ")}: ${causeCode} carries no argument value`,
+      argv.some((token) => token.includes(marker))
+        ? `KF10.a ${argv.join(" ")}: ${causeCode} carries no argument value`
+        : `KF10.a ${argv.join(" ")}: refused ${causeCode}, exit ${exit} (no marker in argv, so no echo to detect)`,
       async () => {
         expectRefusal(await bothModes(argv, env), identity, causeCode, exit);
       },
