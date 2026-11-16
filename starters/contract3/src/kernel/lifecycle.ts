@@ -509,8 +509,6 @@ async function afterHandler(
   deadlineAt: number | undefined,
 ): Promise<Delivery> {
   const identity = command.commandIdentity;
-  // The status-reporting add-on is not an owned program: `freeze` replaces
-  // its settle on this path, after the result is frozen.
   const clean = await settleOwned(run, deadlineAt);
   if (clean === undefined)
     return afterDeadline(run, command, Promise.resolve(execution));

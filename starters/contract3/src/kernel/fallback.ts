@@ -118,11 +118,13 @@ export async function fallbackText(
     );
     if (!command) return undefined;
     const selected = select(command.effectClass, trusted);
-    // In order, the first that fits the bound: as selected; trusted effect
-    // identities that do not fit reported as unknown with an incomplete
-    // inventory (nothing fabricated); then, only if the envelope still does
-    // not fit, the status replaced by the unavailable variant (seam review
-    // S1, Part 4 repair R2: a small valid status is kept).
+    // Rule (DIAG-4, Part 4 repair 2): the status is given up before any
+    // trusted effect identity, so a status's presence, absence or size never
+    // changes the cause, effects or exit this fallback would have without it.
+    // In order, the first that fits the bound: as selected; the status as
+    // unavailable (seam review S1); effects that do not fit reported as
+    // unknown with an incomplete inventory, keeping a small valid status
+    // (repair R2); both.
     const unknown = trusted.summary
       ? { causeCode: internalResultCause.unknown, effects: incompleteEffects }
       : undefined;
@@ -131,8 +133,8 @@ export async function fallbackText(
       : undefined;
     const attempts = [
       [trusted, selected],
-      [trusted, unknown],
       [degraded, selected],
+      [trusted, unknown],
       [degraded, unknown],
     ] as const;
     let text: string | undefined;
