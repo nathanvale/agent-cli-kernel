@@ -219,15 +219,15 @@ describe("check:commits", () => {
     async () => {
       const { root, base, commit } = repositoryAt();
       const red = commit("add a type error", { "type-error": "" });
-      commit("remove the type error", { "type-error": null });
+      const fix = commit("remove the type error", { "type-error": null });
 
       const run = await checkCommits(root, [base.sha], {
         CHECK_COMMITS_SINCE: base.sha,
       });
 
-      expect(rerunOf(run.lines)).toContain(
-        `git worktree add --detach ../red-${red.short} ${red.sha};`,
-      );
+      const rerun = rerunOf(run.lines);
+      expect(rerun).toContain(` ${red.sha}`);
+      expect(rerun).not.toContain(fix.sha);
     },
     timeout,
   );
