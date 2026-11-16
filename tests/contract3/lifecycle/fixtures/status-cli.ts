@@ -232,7 +232,7 @@ function observed(runtime: ContractRuntime): ContractRuntime {
   };
 }
 
-// P3-style clock jump for a deadline that passed before dispatch.
+// P3-style clock jump for a deadline that passed before handler entry.
 function host(real: ProcessHost): ProcessHost {
   let calls = 0;
   const jump = Number(process.env.FX_CLOCK_JUMP_MS ?? "0");

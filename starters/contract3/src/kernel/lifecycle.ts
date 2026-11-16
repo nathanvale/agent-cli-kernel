@@ -35,9 +35,9 @@ const stopBoundMilliseconds = 450;
 const cancellationMilliseconds = 500;
 // DIAG-14 step 2 and DIAG-9: the diagnostics flush takes at most 500 ms.
 const flushMilliseconds = 500;
-// Provisional reading (coordinator ruling, 16 November 2026; DIAG-1's
-// "requested nor triggered" is with Nathan): a status is due only once the
-// run was dispatched, so a usage or approval refusal and a deadline before
+// Accepted decision (Nathan, 16 November 2026, 14:19; DIAG-1): a status is
+// due only after handler entry, so a usage or approval refusal and a deadline
+// before
 // start carry no `diagnostics` key. Set to true to give every refusal of a
 // command that declares a status-reporting add-on a status too (see
 // `reporterFor`).
@@ -50,7 +50,7 @@ const messages = {
   INTERNAL_PREPARATION: "The CLI could not prepare this command.",
   DOMAIN_AUTHORITY_REQUIRED: "The required authority was not confirmed.",
   DOMAIN_DEADLINE_BEFORE_START:
-    "The deadline passed before the operation started. Nothing was dispatched.",
+    "The deadline passed before the operation started. Its handler never ran.",
   deadline: "The deadline passed after the operation started.",
   help: "Help for this CLI.",
   discovery: "Discovery data for this CLI.",
@@ -64,10 +64,10 @@ type Execution =
     }
   | { readonly kind: "threw" };
 
-// Finding 1 (Nathan, 16 November 2026): every admitted duration is honoured,
+// Finding 1 (Nathan, 16 November 2026): every accepted duration is honoured,
 // with no cap. A runtime timer holds at most 2,147,483,647 ms and fires a
 // longer delay after 1 ms. A longer wait is armed in steps of at most that
-// limit and re-measured on the front door's clock after each step, so it
+// limit and re-measured on the kernel process entry's clock after each step, so it
 // fires neither early nor a step late. A wait within the limit arms once,
 // with its exact delay. The programs add-on keeps its own copy, because an
 // add-on imports only the kernel's public index (CMD-17), which does not offer
@@ -123,7 +123,7 @@ type CommandPlan = {
 };
 
 // Fixed at construction: every declared capability resolves to its add-on,
-// or the front door refuses to build.
+// or runProcess refuses to build.
 function plansFor(
   runtime: ContractRuntime,
   setup: RunSetup,
@@ -151,8 +151,9 @@ function plansFor(
   return plans;
 }
 
-// The process front door (CMD-5, CMD-9). It installs the stream, signal and
-// crash hooks before dispatch, routes, refuses, dispatches, enforces the
+// The kernel process entry, runProcess (CMD-5, CMD-9). It installs the stream,
+// signal and crash hooks before routing, routes, refuses, enters the handler,
+// enforces the
 // deadline, settles owned programs and hands one result to the one writer.
 // It owns process termination through the real process adapter.
 export function runProcess(contract: object, setup: RunSetup = {}): RunProcess {
@@ -168,7 +169,7 @@ export function runProcessOn(
 ): RunProcess {
   const runtime = runtimeOf(contract);
   if (!runtime)
-    throw new Error("runProcess needs a contract composed by contractFor.");
+    throw new Error("runProcess needs a contract built by contractFor.");
   const plans = plansFor(runtime, setup);
   return (argv) => runInvocation(runtime, setup, plans, host(), argv);
 }
@@ -306,13 +307,13 @@ function installHooks(run: Run) {
 function trustedRun(
   run: Run,
   identity: string,
-  dispatched: boolean,
+  handlerEntered: boolean,
   summary?: StateObservation,
 ): TrustedRun {
   return {
     runId: run.runId,
     commandIdentity: identity,
-    dispatched,
+    handlerEntered,
     ...(summary ? { summary } : {}),
   };
 }
@@ -323,7 +324,7 @@ async function kernelResult(
   causeCode: string,
   message: string,
   options: {
-    readonly dispatched?: boolean;
+    readonly handlerEntered?: boolean;
     readonly effects?: Effects;
     readonly data?: JsonValue;
     readonly summary?: StateObservation | undefined;
@@ -339,17 +340,17 @@ async function kernelResult(
     trusted: trustedRun(
       run,
       identity,
-      options.dispatched ?? false,
+      options.handlerEntered ?? false,
       options.summary,
     ),
   };
 }
 
 // The one place that decides whether a status is due (standards F1): once
-// the run was dispatched, or for any refusal under the other reading, when
+// handler entry happened, or for any refusal under the other reading, when
 // the command declares a status-reporting add-on.
 function reporterFor(run: Run, trusted: TrustedRun) {
-  if (trusted.dispatched) return run.reporter;
+  if (trusted.handlerEntered) return run.reporter;
   // Part 4 repair R1: under the shipped reading no refusal before the
   // handler carries a status, even one raised after the reporter attached
   // (an approval denial or a capabilities refusal inside `execute`).
@@ -496,7 +497,7 @@ async function afterDeadline(
     command.commandIdentity,
     selected.causeCode,
     messages.deadline,
-    { dispatched: true, effects: selected.effects, summary },
+    { handlerEntered: true, effects: selected.effects, summary },
   );
 }
 
@@ -549,7 +550,7 @@ async function afterHandler(
   };
 }
 
-async function dispatch(run: Run, value: Resolved): Promise<Delivery> {
+async function enterHandler(run: Run, value: Resolved): Promise<Delivery> {
   const identity = value.commandIdentity;
   const plan = run.plans.get(identity);
   // Type-forced guard: routing resolves only declared commands.
@@ -589,7 +590,7 @@ async function dispatch(run: Run, value: Resolved): Promise<Delivery> {
   }
   if (checked.kind === "refused") return checked.delivery;
   // Handler entry (CMD-9 step 6): the phase records it immediately before.
-  run.phase = "dispatched";
+  run.phase = "handler-entered";
   const execution: Promise<Execution> = checked.enter().then(
     (outcome) => ({ kind: "returned", outcome }) as const,
     () => ({ kind: "threw" }) as const,
@@ -670,14 +671,14 @@ async function route(run: Run, resolution: Resolution): Promise<Delivery> {
   const value = resolution.value;
   run.commandIdentity = value.commandIdentity;
   const navigation = builtin(run, value);
-  if (!navigation) return dispatch(run, value);
-  run.phase = "dispatched";
+  if (!navigation) return enterHandler(run, value);
+  run.phase = "handler-entered";
   return kernelResult(
     run,
     value.commandIdentity,
     "SUCCESS_UNCHANGED",
     navigation.message,
-    { dispatched: true, data: navigation.data },
+    { handlerEntered: true, data: navigation.data },
   );
 }
 

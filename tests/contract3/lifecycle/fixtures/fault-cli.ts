@@ -1292,7 +1292,7 @@ function makeGuardedOwned(state: StateAddonDescriptor) {
 }
 
 // Part 4 repair (R1, R2): twins of fx.wide and fx.guarded-owned that also
-// declare diagnostics, so a status reporter attaches at dispatch.
+// declare diagnostics, so a status reporter attaches at handler entry.
 function makeWideStatus(state: StateAddonDescriptor) {
   return changing({
     identity: "fx.wide-status",
