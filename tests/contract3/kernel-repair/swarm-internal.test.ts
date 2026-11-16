@@ -109,7 +109,13 @@ test("K2-12: a fault inside validation after the snapshot propagates instead of 
     ok: true,
   });
   armed = true;
-  await expect(Reflect.apply(validate, contract, [value])).rejects.toBe(defect);
+  let rejection: unknown = "resolved";
+  try {
+    await Reflect.apply(validate, contract, [value]);
+  } catch (error) {
+    rejection = error;
+  }
+  expect(rejection).toBe(defect);
   // An unreadable external value is still refused as one.
   armed = false;
   const hostile = {
