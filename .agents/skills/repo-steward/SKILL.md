@@ -45,6 +45,10 @@ commit with `git show <sha>`. Cite it as `[<short sha>]` with a link
 definition at the end of the file, built from `git rev-parse <sha>`. Copy
 the form the file already uses.
 
+Two citations name the same witness when their links give the same full SHA
+or the same thread URL. A second witness is a different commit or thread;
+the same witness brought again stays one.
+
 ## Correct
 
 1. Name the witness and state its lesson as one imperative line.
@@ -59,12 +63,13 @@ the form the file already uses.
 4. With no row, look for the lesson in single witness:
    - Absent: add it there as one bullet with its witness, in place of
      `- None yet.` when that line is there. Add no row.
-   - Present: this is the second witness. Add a row at the highest level
-     that would stop the mistake, in the order architecture, types, lint,
-     test, prose. Write it Review only, with a guide bullet that cites both
-     witnesses, and name the gate in Planned (parked) unless the level is
-     prose. Delete the single witness bullet, and restore `- None yet.` when
-     no bullet remains.
+   - Present, citing this same witness: change nothing.
+   - Present, citing a different witness: this is the second witness. Add
+     a row at the highest level that would stop the mistake, in the order
+     architecture, types, lint, test, prose. Write it Review only, with a
+     guide bullet that cites both witnesses, and name the gate in Planned
+     (parked) unless the level is prose. Delete the single witness bullet,
+     and restore `- None yet.` when no bullet remains.
 5. Report the row, its gates, each edit, and the next step: Promote for a
    lint or test level, the code owner for architecture or types.
 

@@ -37,7 +37,8 @@ the Contract 3 scope issue, does not list them.
 
 When a planned gate lands, name it in the Gates cell, mark the row Partial,
 and cut the guide bullets it now enforces. `bun run test:area standards`
-checks that every cited commit, link and named gate exists.
+checks that every cited commit, link and named gate exists, and that each
+row's guide or gate note cites two distinct witnesses.
 
 ## Rule table
 

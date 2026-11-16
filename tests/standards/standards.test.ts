@@ -52,7 +52,9 @@ function lineOf(text: string, index: number): number {
   return text.slice(0, index).split("\n").length;
 }
 
-function headings(text: string): { level: number; slug: string }[] {
+function headings(
+  text: string,
+): { level: number; slug: string; index: number }[] {
   const seen = new Map<string, number>();
   return [...text.matchAll(/^(#{1,6})\s+(.+?)\s*#*$/gm)].map((match) => {
     const base = (match[2] ?? "")
@@ -64,6 +66,7 @@ function headings(text: string): { level: number; slug: string }[] {
     return {
       level: match[1]?.length ?? 0,
       slug: count === 0 ? base : `${base}-${count}`,
+      index: match.index,
     };
   });
 }
@@ -364,6 +367,50 @@ function levelProblem(row: Row): string | undefined {
   return gatesOf(row).length > 0 === level.gated ? undefined : level.fix;
 }
 
+const reviewThread =
+  /^https:\/\/github\.com\/nathanvale\/bun-typescript-template\/pull\/\d+#discussion_r\d+$/;
+
+function section(text: string, slug: string): string {
+  const all = headings(text);
+  const start = all.findIndex((heading) => heading.slug === slug);
+  const heading = all[start];
+  if (heading === undefined) return "";
+  const end = all
+    .slice(start + 1)
+    .find(({ level }) => level <= heading.level)?.index;
+  return text.slice(heading.index, end);
+}
+
+function witnessesIn(text: string, slug: string | undefined): string[] {
+  const targets = new Map(
+    [...text.matchAll(/^ {0,3}\[([^\]]+)\]:\s*(\S+)/gm)].map(
+      ([, label = "", target = ""]) => [label, target],
+    ),
+  );
+  const part = slug === undefined ? text : section(text, slug);
+  return [...part.matchAll(/\[([^\]]+)\](?![[(:])/g)]
+    .map(([, label = ""]) => targets.get(label) ?? "")
+    .filter(
+      (target) => target.startsWith(commitPage) || reviewThread.test(target),
+    );
+}
+
+function rowWitnesses(repository: string, row: Row, notes: string[]) {
+  const guides = [
+    ...row.guide.matchAll(/\]\(([^)#]*)(?:#([^)]+))?\)/g),
+  ].flatMap(([, path = "", anchor]) => {
+    const file = join(repository, path === "" ? standards : path);
+    return existsSync(file) && statSync(file).isFile()
+      ? witnessesIn(readWithCodeBlanked(file), anchor)
+      : [];
+  });
+  const text = readWithCodeBlanked(join(repository, standards));
+  return new Set([
+    ...guides,
+    ...notes.flatMap((anchor) => witnessesIn(text, anchor)),
+  ]);
+}
+
 function rowProblems(repository: string): string[] {
   const { rows, gateNotes, problems } = ruleTable(repository);
   for (const row of rows) {
@@ -375,6 +422,11 @@ function rowProblems(repository: string): string[] {
     if (!hasGuide && !notes.some((anchor) => gateNotes.includes(anchor)))
       problems.push(
         `${where} has no guide and no gate note. Link its guide in the Guide cell, or link a heading under ## Gate notes from its Gates cell.`,
+      );
+    const witnesses = rowWitnesses(repository, row, notes).size;
+    if (witnesses < 2)
+      problems.push(
+        `${where} needs two distinct witnesses in its guide or gate note, and has ${witnesses}. Cite a second commit or review thread, or move the lesson back to docs/standards/single-witness.md.`,
       );
     const level = levelProblem(row);
     if (level !== undefined) problems.push(`${where} ${level}`);
@@ -489,6 +541,8 @@ const fixtureGitEnv = {
   GIT_COMMITTER_EMAIL: "fixture@example.invalid",
 };
 const absent = "0123456789abcdef0123456789abcdef01234567";
+const thread =
+  "https://github.com/nathanvale/bun-typescript-template/pull/1#discussion_r1";
 const gateOn = '{ rules: { "repository/rule": "error" } }';
 
 function lintConfig(...entries: string[]): string {
@@ -553,12 +607,13 @@ function fixture(
       "",
       "### Gated",
       "",
-      `- Witnessed: [${short}].`,
+      `- Witnessed: [${short}], [r1].`,
       "",
       `[${short}]: ${commitPage}${sha}`,
+      `[r1]: ${thread}`,
       "",
     ].join("\n"),
-    "docs/standards/guide.md": `# Guide\n\n## Lesson\n\n- Witnessed: [${short}].\n\n[${short}]: ${commitPage}${sha}\n`,
+    "docs/standards/guide.md": `# Guide\n\n## Lesson\n\n- Witnessed: [${short}], [r1].\n\n[${short}]: ${commitPage}${sha}\n[r1]: ${thread}\n`,
     ".agents/skills/fixture/SKILL.md":
       "---\nname: fixture\n---\n\n[checks](../../../AGENTS.md#checks)\n",
     [manifest]: JSON.stringify([{ id: "fixture", source: `${short} base` }]),
@@ -610,8 +665,8 @@ test.each([
         `${files["docs/standards/guide.md"] ?? ""}\nSee [0123456](${commitPage}${absent}).\nSee [0123456](https://github.com/owner/other/commit/${absent}).\n`;
     },
     [
-      `docs/standards/guide.md:9: [0123456] cites ${absent}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA.`,
-      `docs/standards/guide.md:10: [0123456] links https://github.com/owner/other/commit/${absent}, which is not a commit page of this repository. Link ${commitPage}<full sha>.`,
+      `docs/standards/guide.md:10: [0123456] cites ${absent}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA.`,
+      `docs/standards/guide.md:11: [0123456] links https://github.com/owner/other/commit/${absent}, which is not a commit page of this repository. Link ${commitPage}<full sha>.`,
     ],
   ],
   [
@@ -641,6 +696,7 @@ test.each([
     },
     [
       'CODING_STANDARDS.md: row "Gated rule" has no guide and no gate note. Link its guide in the Guide cell, or link a heading under ## Gate notes from its Gates cell.',
+      'CODING_STANDARDS.md: row "Gated rule" needs two distinct witnesses in its guide or gate note, and has 0. Cite a second commit or review thread, or move the lesson back to docs/standards/single-witness.md.',
     ],
   ],
   [
@@ -750,6 +806,7 @@ test.each([
     },
     (sha: string) => [
       `docs/standards/guide.md:7: [${sha.slice(0, 7)}] links https://github.com/owner/other/commit/${sha}, which is not a commit page of this repository. Link ${commitPage}<full sha>.`,
+      `CODING_STANDARDS.md: row "Guided rule" needs two distinct witnesses in its guide or gate note, and has 1. Cite a second commit or review thread, or move the lesson back to docs/standards/single-witness.md.`,
     ],
   ],
   [
@@ -762,6 +819,23 @@ test.each([
     },
     (sha: string) => [
       `CODING_STANDARDS.md:16: [${sha.slice(0, 7)}] links https://gitlab.com/nathanvale/bun-typescript-template/-/commit/${sha}, which is not a commit page of this repository. Link ${commitPage}<full sha>.`,
+      `CODING_STANDARDS.md: row "Gated rule" needs two distinct witnesses in its guide or gate note, and has 1. Cite a second commit or review thread, or move the lesson back to docs/standards/single-witness.md.`,
+    ],
+  ],
+  [
+    "a guide that cites one witness under two labels",
+    (files: Record<string, string>, sha: string) => {
+      files["docs/standards/guide.md"] = (
+        files["docs/standards/guide.md"] ?? ""
+      )
+        .replace("[r1].", `[${sha.slice(0, 9)}].`)
+        .replace(
+          `[r1]: ${thread}`,
+          `[${sha.slice(0, 9)}]: ${commitPage}${sha}`,
+        );
+    },
+    () => [
+      'CODING_STANDARDS.md: row "Guided rule" needs two distinct witnesses in its guide or gate note, and has 1. Cite a second commit or review thread, or move the lesson back to docs/standards/single-witness.md.',
     ],
   ],
   [
@@ -773,8 +847,8 @@ test.each([
         `${files["docs/standards/guide.md"] ?? ""}\nSee ${absent}.\n`;
     },
     () => [
-      `CODING_STANDARDS.md:18: names commit ${absent.slice(0, 12)}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA.`,
-      `docs/standards/guide.md:9: names commit ${absent}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA.`,
+      `CODING_STANDARDS.md:19: names commit ${absent.slice(0, 12)}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA.`,
+      `docs/standards/guide.md:10: names commit ${absent}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA.`,
     ],
   ],
   [
