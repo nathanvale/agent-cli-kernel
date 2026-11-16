@@ -2,7 +2,13 @@
 // the internal framing and scope seams. Component evidence never satisfies a
 // process row; these bind what the process layer cannot reach directly.
 import { afterEach, expect, test } from "bun:test";
-import { readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  readdirSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import {
   changing,
@@ -743,4 +749,48 @@ caseTest("C01.k-self-check-decision", async () => {
     code: "an unreadable error code",
   });
   await Promise.resolve();
+});
+
+// NW: the wait-limit option is checked once, when the state add-on factory
+// is called, before any state root or coordination lock exists. NaN and
+// values that are not numbers are refused (a host reading an unset
+// environment variable with Number() passes NaN); absent and finite numbers
+// are accepted. NW.d and NW.e (the 1 to 10,000 ms clamp) and the bound
+// values of NW.c and NW.f are only visible by waiting on the wall clock
+// (O03.a through the specimen), so they are not asserted here.
+const waitMessage =
+  "The state add-on factory option admissionWaitMilliseconds must be a number of milliseconds, or left unset for the default of 2000.";
+function refusedAtConstruction(value: unknown): void {
+  const root = join(temporaryRoot("c3-state-wait-"), "state");
+  const options = { root, report: "cx.pending" };
+  // Set as an untyped host would; the type system refuses these values.
+  Reflect.set(options, "admissionWaitMilliseconds", value);
+  const build = () => stateAddon(options);
+  expect(build).toThrow(TypeError);
+  expect(build).toThrow(waitMessage);
+  expect(existsSync(root)).toBe(false);
+}
+
+test("NW.a a NaN wait limit is refused when the add-on is built", () => {
+  refusedAtConstruction(Number.NaN);
+  // What Number() gives for an unset environment variable.
+  refusedAtConstruction(Number(undefined));
+});
+
+test("NW.b a wait limit that is not a number is refused, not coerced", () => {
+  for (const value of ["5000", {}, null]) refusedAtConstruction(value);
+});
+
+test("NW.c an absent wait limit is accepted", () => {
+  const root = join(temporaryRoot("c3-state-wait-"), "state");
+  expect(() => stateAddon({ root, report: "cx.pending" })).not.toThrow();
+  expect(existsSync(root)).toBe(false);
+});
+
+test("NW.f a finite wait limit inside the range is accepted", () => {
+  const root = join(temporaryRoot("c3-state-wait-"), "state");
+  expect(() =>
+    stateAddon({ root, report: "cx.pending", admissionWaitMilliseconds: 250 }),
+  ).not.toThrow();
+  expect(existsSync(root)).toBe(false);
 });
