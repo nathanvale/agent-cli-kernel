@@ -183,7 +183,17 @@ caseTest(
     expectCompleted(await world.run(apply("a")));
     const [operation] = world.operations();
     if (!operation) throw new Error("No operation.");
-    flipLastPayloadByte(eventsPath(world, operation.id));
+    // Change one letter inside a JSON string of the final record: the JSON
+    // and length stay valid, so only the checksum can reject it.
+    const path = eventsPath(world, operation.id);
+    const text = readFileSync(path, "utf8");
+    const last = text.lastIndexOf('"note.write"');
+    expect(last).toBeGreaterThan(text.lastIndexOf("C3S1 completion"));
+    writeFileSync(
+      path,
+      `${text.slice(0, last)}"note.writf"${text.slice(last + 12)}`,
+    );
+    expect(world.operations()[0]?.events.torn).toBe(true);
     expect(await world.pendingIds()).toEqual([operation.id]);
   }),
 );
