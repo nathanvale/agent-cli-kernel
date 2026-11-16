@@ -81,32 +81,54 @@ for (const leak of leaks)
 const fixtureDirectory = mkdtempSync(
   join(realpathSync(tmpdir()), "contract3-probes-fixture-"),
 );
-const fixture = join(fixtureDirectory, "shared-fixture.ts");
-writeFileSync(fixture, 'export const planted: number = "x";\n');
 afterAll(() => rm(fixtureDirectory, { recursive: true, force: true }));
-const importer = probeBatch("contract3-probes-importers-");
-const importers = [
-  importer(
-    `import { planted } from ${JSON.stringify(fixture)};\nexport const a = planted;\n`,
-  ),
-  importer(
-    `import { planted } from ${JSON.stringify(fixture)};\nexport const b = planted;\n`,
-  ),
-];
-
-test("an error in a file the probes import fails every probe that imports it", async () => {
-  for (const compiler of ["native", "lint-view"] as const)
-    for (const reader of importers) {
-      const read = await reader.compile(compiler);
-      expect(read.exit).not.toBe(0);
-      expect(
-        read.diagnostics.map((found) => ({
-          ...found,
-          file: basename(found.file),
-        })),
-      ).toEqual([{ file: "shared-fixture.ts", line: 1, code: 2322 }]);
-    }
+const sharedFaults = [
+  {
+    name: "a type error",
+    source: 'export const planted: number = "x";\n',
+    code: 2322,
+  },
+  {
+    name: "a syntax error",
+    source: "export const planted: number = ;\n",
+    code: 1109,
+  },
+].map((fault, index) => {
+  const fixture = join(fixtureDirectory, `shared-fixture-${index}.ts`);
+  writeFileSync(fixture, fault.source);
+  const importer = probeBatch(`contract3-probes-importers-${index}-`);
+  return {
+    ...fault,
+    fixture: basename(fixture),
+    importers: ["a", "b"].map((name) =>
+      importer(
+        `import { planted } from ${JSON.stringify(fixture)};\nexport const ${name} = planted;\n`,
+      ),
+    ),
+    unrelated: importer("export const unrelated = 1;\n"),
+  };
 });
+
+for (const fault of sharedFaults)
+  test(`${fault.name} in a file the probes import fails only the probes that import it`, async () => {
+    for (const compiler of ["native", "lint-view"] as const) {
+      for (const reader of fault.importers) {
+        const read = await reader.compile(compiler);
+        expect(read.exit).not.toBe(0);
+        expect(
+          read.diagnostics.map((found) => ({
+            ...found,
+            file: basename(found.file),
+          })),
+        ).toEqual([{ file: fault.fixture, line: 1, code: fault.code }]);
+      }
+      expect(await fault.unrelated.compile(compiler)).toMatchObject({
+        exit: 0,
+        stdout: "",
+        stderr: "",
+      });
+    }
+  });
 
 test("registering a probe after the first compile is refused", async () => {
   await clean.compile("native");
@@ -132,8 +154,8 @@ test("a clean probe reads exit 0 only from a run that completed normally", () =>
     stderr: "",
     exit: 1,
   });
-  expect(read.get("locks/probe-0.ts")).toMatchObject({ exit: 1 });
-  expect(read.get("locks/probe-1.ts")).toEqual({
+  expect(read.settled.get("locks/probe-0.ts")).toMatchObject({ exit: 1 });
+  expect(read.settled.get("locks/probe-1.ts")).toEqual({
     stdout: "",
     stderr: "",
     exit: 0,

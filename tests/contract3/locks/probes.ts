@@ -45,6 +45,7 @@ const failedExit = {
   "lint-view": 2,
 } as const satisfies Record<Compiler, number>;
 const both: readonly Compiler[] = ["native", "lint-view"];
+const fallbackWidth = 4;
 const diagnostic = /^(.+)\((\d+),(\d+)\): error TS(\d+):/;
 
 // Both compilers skip type checking for the whole program when any file fails
@@ -84,15 +85,25 @@ function parse(directory: string, text: string): Parsed {
   };
 }
 
-// Reads one compiler run over `files` plus the sentinel. A run that type
-// checked settles every file; a run that did not settles only the files that
-// failed to parse, and the caller compiles the rest again.
+// What one compiler run settles, and how its unsettled files compile next:
+// `together` as one program, or `apart` as one program each.
+export type Reading = {
+  readonly settled: Map<string, Compilation>;
+  readonly together: readonly string[];
+  readonly apart: readonly string[];
+};
+
+// Reads one compiler run over `files` plus the sentinel. A diagnostic in a
+// file no probe owns, such as a fixture the probes import, belongs to every
+// probe that imports it; the run cannot say which, so each file compiles
+// again alone. A run that skipped type checking settles only the files that
+// failed to parse, and the rest compile again together.
 export function readRun(
   compiler: Compiler,
   directory: string,
   files: readonly string[],
   run: Pick<Compilation, "stdout" | "stderr" | "exit">,
-): Map<string, Compilation> {
+): Reading {
   if (run.stderr !== "" || run.exit !== failedExit[compiler])
     throw new Error(
       `${compiler} did not complete normally (exit ${run.exit}, stderr ${JSON.stringify(run.stderr)}), so no probe has a result.`,
@@ -110,27 +121,36 @@ export function readRun(
         parsed,
       );
   }
+  const alone = files.length === 1;
+  if (shared.length > 0 && !alone)
+    return { settled: new Map(), together: [], apart: files };
   const settled = checked
     ? files
-    : files.filter((file) => (owned.get(file) ?? []).length > 0);
+    : files.filter(
+        (file) => (owned.get(file) ?? []).length > 0 || shared.length > 0,
+      );
   if (settled.length === 0)
     throw new Error(
       `${compiler} skipped type checking but no probe failed to parse:\n${run.stdout}`,
     );
-  return new Map(
-    settled.map((file) => {
-      const seen = [...(owned.get(file) ?? []), ...shared];
-      const compilation: Compilation = {
-        stdout: seen.map(({ text }) => `${text}\n`).join(""),
-        stderr: "",
-        exit: seen.length === 0 ? 0 : run.exit,
-        diagnostics: seen.flatMap(({ diagnostic: found }) =>
-          found ? [found] : [],
-        ),
-      };
-      return [file, compilation];
-    }),
-  );
+  return {
+    settled: new Map(
+      settled.map((file) => {
+        const seen = [...(owned.get(file) ?? []), ...shared];
+        const compilation: Compilation = {
+          stdout: seen.map(({ text }) => `${text}\n`).join(""),
+          stderr: "",
+          exit: seen.length === 0 ? 0 : run.exit,
+          diagnostics: seen.flatMap(({ diagnostic: found }) =>
+            found ? [found] : [],
+          ),
+        };
+        return [file, compilation];
+      }),
+    ),
+    together: files.filter((file) => !settled.includes(file)),
+    apart: [],
+  };
 }
 
 // A probe that writes the global scope would leak into every probe that
@@ -186,13 +206,19 @@ export function probeBatch(prefix: string) {
       ],
       { cwd: root },
     );
-    const settled = readRun(compiler, base, files, run);
-    const rest = files.filter((file) => !settled.has(file));
-    if (rest.length === 0) return settled;
-    return new Map([
-      ...settled,
-      ...(await compileProgram(base, compiler, rest)),
-    ]);
+    const { settled, together, apart } = readRun(compiler, base, files, run);
+    const results = [settled];
+    if (together.length > 0)
+      results.push(await compileProgram(base, compiler, together));
+    for (let start = 0; start < apart.length; start += fallbackWidth)
+      results.push(
+        ...(await Promise.all(
+          apart
+            .slice(start, start + fallbackWidth)
+            .map((file) => compileProgram(base, compiler, [file])),
+        )),
+      );
+    return new Map(results.flatMap((result) => [...result]));
   }
 
   async function compileWith(base: string, compiler: Compiler) {
