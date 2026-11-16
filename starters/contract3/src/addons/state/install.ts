@@ -625,6 +625,13 @@ export type Seams = {
 };
 
 export function install(options: StateOptions, seams: Seams) {
+  // Checked before anything else: Math.max and Math.min pass NaN through,
+  // and a NaN bound never ends the wait for the admission lock.
+  const wait: unknown = options.admissionWaitMilliseconds;
+  if (wait !== undefined && (typeof wait !== "number" || Number.isNaN(wait)))
+    throw new TypeError(
+      "The state add-on factory option admissionWaitMilliseconds must be a number of milliseconds, or left unset for the default of 2000.",
+    );
   const route = seams.coordination;
   const paths: Locked = {
     ...layout(options.root),
