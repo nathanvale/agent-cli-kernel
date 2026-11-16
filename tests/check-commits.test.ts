@@ -4,6 +4,7 @@ import {
   existsSync,
   mkdirSync,
   readdirSync,
+  readFileSync,
   realpathSync,
   rmSync,
   symlinkSync,
@@ -32,6 +33,16 @@ const gitEnv = {
   GIT_COMMITTER_NAME: "Fixture",
   GIT_COMMITTER_EMAIL: "fixture@example.invalid",
 };
+// A git hook runs the suite with these set, and they would point the
+// fixture's git at the caller's repository.
+const gitLocation = new Set([
+  "GIT_DIR",
+  "GIT_WORK_TREE",
+  "GIT_INDEX_FILE",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  "GIT_COMMON_DIR",
+]);
 const { scripts: production } = (await Bun.file(
   join(repository, "package.json"),
 ).json()) as { scripts: Record<string, string> };
@@ -49,6 +60,12 @@ afterAll(() => {
   for (const folder of folders) rmSync(folder, { recursive: true });
 });
 
+function inherited(): Record<string, string | undefined> {
+  return Object.fromEntries(
+    Object.entries(process.env).filter(([name]) => !gitLocation.has(name)),
+  );
+}
+
 function folder(prefix: string): string {
   const path = testFolder(prefix);
   folders.push(path);
@@ -58,7 +75,7 @@ function folder(prefix: string): string {
 function git(root: string, ...args: string[]): string {
   const result = Bun.spawnSync(["git", ...args], {
     cwd: root,
-    env: { ...process.env, ...gitEnv },
+    env: { ...inherited(), ...gitEnv },
     stdout: "pipe",
     stderr: "pipe",
   });
@@ -123,7 +140,7 @@ async function checkCommits(
       : entry,
     {
       cwd: root,
-      env: { ...process.env, ...gitEnv, TMPDIR: temporary, ...env },
+      env: { ...inherited(), ...gitEnv, TMPDIR: temporary, ...env },
       ...(signalAt === undefined ? {} : { signalAt }),
     },
   );
@@ -140,14 +157,28 @@ function blockThenFailPlainlyOnSignal(ledger: string): string {
   return `test ! -e block || { trap 'kill $!; exit 3' HUP INT TERM; echo started >> '${ledger}'; sleep 30 & wait; }`;
 }
 
-function verdicts(lines: readonly string[]): string[] {
-  return lines.filter((line) => /^(GREEN|RED) /.test(line));
+function blockWithABackgroundSleep(
+  ledger: string,
+  pids: string,
+  ignoreTerm: boolean,
+): string {
+  return `test ! -e block || { ${ignoreTerm ? "trap '' TERM; " : ""}sleep 30 & echo $! > '${pids}'; echo started >> '${ledger}'; wait; }`;
 }
 
-function printed(lines: readonly string[], label: string): string {
-  const line = lines.find((each) => each.startsWith(`${label}: `));
-  if (line === undefined) throw new Error(`No ${label} line.`);
-  return line.slice(`${label}: `.length);
+async function survivingSleep(pids: string): Promise<number | undefined> {
+  if (!existsSync(pids)) return undefined;
+  const pid = readFileSync(pids, "utf8").trim();
+  const shown = await spawnBounded(["ps", "-o", "stat=,command=", "-p", pid]);
+  const [stat = "", ...command] = shown.stdout.trim().split(/\s+/);
+  return shown.exit === 0 &&
+    !stat.startsWith("Z") &&
+    command.join(" ") === "sleep 30"
+    ? Number(pid)
+    : undefined;
+}
+
+function verdicts(lines: readonly string[]): string[] {
+  return lines.filter((line) => /^(GREEN|RED) /.test(line));
 }
 
 // tests/doctor.test.ts owns the repair wording; this file checks only that
@@ -161,7 +192,9 @@ function wrongBunRefusals(lines: readonly string[]): string[] {
 }
 
 function rerunOf(lines: readonly string[]): string {
-  return printed(lines, "Rerun locally");
+  const line = lines.find((each) => each.startsWith("Rerun locally: "));
+  if (line === undefined) throw new Error("No Rerun locally line.");
+  return line.slice("Rerun locally: ".length);
 }
 
 function linkedCheckout(root: string): string {
@@ -200,7 +233,7 @@ exec '${Bun.which("git")}' "$@"`,
 async function paste(root: string, command: string) {
   const run = await spawnBounded(["sh", "-c", command], {
     cwd: root,
-    env: { ...process.env, ...gitEnv },
+    env: { ...inherited(), ...gitEnv },
   });
   const output = run.stdout + run.stderr;
   return { exit: run.exit, output, lines: output.split("\n") };
@@ -208,7 +241,7 @@ async function paste(root: string, command: string) {
 
 describe("check:commits", () => {
   test(
-    "a red commit is named with the command that failed, and its rerun replays every step up to it",
+    "a red commit is named with the command that failed, and its rerun fails at the same command",
     async () => {
       const { root, base, commit } = repositoryAt();
       const red = commit("add a lint error", { "lint-error": "" });
@@ -216,15 +249,16 @@ describe("check:commits", () => {
       const run = await checkCommits(root, [base.sha], {
         CHECK_COMMITS_SINCE: base.sha,
       });
+      const pasted = await paste(root, rerunOf(run.lines));
 
+      for (const lines of [run.lines, pasted.lines]) {
+        expect(lines).toContain(`RED ${red.short} add a lint error`);
+        expect(lines).toContain("Failed: bun run lint");
+      }
       expect(run.exit).toBe(1);
-      expect(run.lines).toContain(`RED ${red.short} add a lint error`);
-      expect(run.lines).toContain("Failed: bun run lint");
-      expect(rerunOf(run.lines)).toEndWith(
-        '&& cd "$folder" && bun install --frozen-lockfile && bun run typecheck && bun run lint)',
-      );
+      expect(pasted.exit).toBe(1);
     },
-    processWatchdog(1),
+    processWatchdog(2),
   );
 
   test(
@@ -277,12 +311,15 @@ describe("check:commits", () => {
       const run = await checkCommits(root, [base.sha], {
         CHECK_COMMITS_SINCE: base.sha,
       });
+      const pasted = await paste(root, rerunOf(run.lines));
 
-      const rerun = rerunOf(run.lines);
-      expect(rerun).toContain(` ${red.sha}`);
-      expect(rerun).not.toContain(fix.sha);
+      expect(run.lines).toContain(`GREEN ${fix.short} remove the type error`);
+      expect(pasted.exit).toBe(1);
+      expect(verdicts(pasted.lines)).toEqual([
+        `RED ${red.short} add a type error`,
+      ]);
     },
-    processWatchdog(1),
+    processWatchdog(2),
   );
 
   test(
@@ -394,8 +431,13 @@ describe("check:commits", () => {
       expect(run.lines).toContain(`GREEN ${left.short} add left`);
       expect(run.lines).toContain(`GREEN ${right.short} add right`);
       expect(run.lines).toContain(`RED ${merge} merge side`);
+
+      const pasted = await paste(root, rerunOf(run.lines));
+
+      expect(pasted.exit).toBe(1);
+      expect(verdicts(pasted.lines)).toEqual([`RED ${merge} merge side`]);
     },
-    processWatchdog(1),
+    processWatchdog(2),
   );
 
   test(
@@ -437,12 +479,22 @@ describe("check:commits", () => {
       expect(run.stdout).toContain(
         'error: script "typecheck" exited with code 127',
       );
+
+      const pasted = await paste(root, rerunOf(run.lines));
+
+      expect(pasted.exit).toBe(1);
+      expect(verdicts(pasted.lines)).toEqual([
+        `RED ${red.short} use a tool this commit does not install`,
+      ]);
+      expect(pasted.output).toContain(
+        'error: script "typecheck" exited with code 127',
+      );
     },
-    processWatchdog(1),
+    processWatchdog(2),
   );
 
   test(
-    "the printed rerun reproduces the failure when pasted twice from a linked checkout, under the main checkout's .worktrees, and its cleanup removes it",
+    "the printed rerun reproduces the failure when pasted twice from a linked checkout, and leaves no worktree",
     async () => {
       const { root, base, commit } = repositoryAt();
       const red = commit("add a lint error", { "lint-error": "" });
@@ -451,27 +503,24 @@ describe("check:commits", () => {
         CHECK_COMMITS_SINCE: base.sha,
       });
       const rerun = rerunOf(run.lines);
-      const leftover = `worktree ${realpathSync(root)}/.worktrees/red-${red.short}`;
 
       const first = await paste(caller, rerun);
       const second = await paste(caller, rerun);
 
       for (const pasted of [first, second]) {
         expect(pasted.exit).toBe(1);
+        expect(verdicts(pasted.lines)).toEqual([
+          `RED ${red.short} add a lint error`,
+        ]);
         expect(pasted.lines).toContain(
           'error: script "lint" exited with code 1',
         );
       }
-      expect(worktrees(root)).toContain(leftover);
-      expect(worktrees(root)).toHaveLength(3);
-
-      const cleaned = await paste(caller, printed(run.lines, "Clean up"));
-
-      expect(cleaned.exit).toBe(0);
-      expect(worktrees(root)).not.toContain(leftover);
-      expect(worktrees(root)).toHaveLength(2);
+      expect(worktrees(root).sort()).toEqual(
+        [root, caller].map((path) => `worktree ${realpathSync(path)}`).sort(),
+      );
     },
-    processWatchdog(4),
+    processWatchdog(3),
   );
 
   test(
@@ -486,12 +535,11 @@ describe("check:commits", () => {
 
       const pasted = await paste(root, rerunOf(run.lines));
 
+      expect(run.lines).toContain(`RED ${red.short} add a lint error`);
       expect(pasted.exit).toBe(1);
       expect(wrongBunRefusals(pasted.lines)).toHaveLength(1);
-      expect(existsSync(join(root, ".worktrees", `red-${red.short}`))).toBe(
-        false,
-      );
-      expect(existsSync(join(root, "..", `red-${red.short}`))).toBe(false);
+      expect(verdicts(pasted.lines)).toEqual([]);
+      expect(worktrees(root)).toHaveLength(1);
     },
     processWatchdog(2),
   );
@@ -532,6 +580,48 @@ describe("check:commits", () => {
         expect(readdirSync(run.temporary)).toEqual([]);
       },
       processWatchdog(1),
+    );
+
+  for (const [name, ignoreTerm] of [
+    ["a background grandchild", false],
+    ["a step that ignores SIGTERM", true],
+  ] as const)
+    test(
+      `SIGTERM stops ${name}, leaves no process and no worktree, and exits 143`,
+      async () => {
+        const scratch = folder("check-commits-ledger-");
+        const ledger = join(scratch, "ledger");
+        const pids = join(scratch, "pids");
+        try {
+          const { root, base, commit } = repositoryAt({
+            scripts: {
+              ...markers,
+              typecheck: blockWithABackgroundSleep(ledger, pids, ignoreTerm),
+            },
+          });
+          const stopped = commit("block until stopped", { block: "" });
+
+          const run = await checkCommits(
+            root,
+            [base.sha],
+            { CHECK_COMMITS_SINCE: base.sha },
+            { signalAt: { ledger, line: "started", signal: "SIGTERM" } },
+          );
+
+          expect(run.exit).toBe(143);
+          expect(verdicts(run.lines)).toEqual([]);
+          expect(run.stderr.split("\n")).toContain(
+            `Stopped by SIGTERM while checking ${stopped.short}, so it has no verdict.`,
+          );
+          expect(await survivingSleep(pids)).toBeUndefined();
+          expect(worktrees(root)).toHaveLength(1);
+          expect(readdirSync(run.temporary)).toEqual([]);
+        } finally {
+          const left = await survivingSleep(pids);
+          if (left !== undefined) process.kill(left, "SIGKILL");
+        }
+      },
+      processWatchdog(3),
     );
 
   for (const [signal, exit] of [
@@ -626,17 +716,18 @@ describe("check:commits", () => {
   );
 
   test(
-    "a failed removal never deletes the folder a rewritten .git file points to, and names the registration it leaves",
+    "a failed removal never deletes the sibling registration a rewritten .git file points to",
     async () => {
-      const decoy = folder("check-commits-decoy-");
-      writeFileSync(join(decoy, "keep"), "");
       const { root, base, commit } = repositoryAt({
         scripts: {
           ...markers,
-          typecheck: `test ! -e block || echo 'gitdir: ${decoy}' > .git`,
+          typecheck:
+            'test ! -e block || echo "gitdir: $(git rev-parse --path-format=absolute --git-common-dir)/worktrees/extra" > .git',
         },
       });
-      const blocked = commit("point .git outside the worktrees folder", {
+      const extra = join(dirname(root), "extra");
+      git(root, "worktree", "add", "--quiet", "--detach", extra);
+      const blocked = commit("point .git at a sibling registration", {
         block: "",
       });
 
@@ -647,9 +738,38 @@ describe("check:commits", () => {
 
       expect(run.exit).toBe(0);
       expect(verdicts(run.lines)).toEqual([
-        `GREEN ${blocked.short} point .git outside the worktrees folder`,
+        `GREEN ${blocked.short} point .git at a sibling registration`,
       ]);
-      expect(existsSync(join(decoy, "keep"))).toBe(true);
+      expect(worktrees(root).sort()).toEqual(
+        [root, extra].map((path) => `worktree ${realpathSync(path)}`).sort(),
+      );
+      expect(run.stderr).not.toContain("git worktree remove failed");
+      expect(readdirSync(run.temporary)).toEqual([]);
+    },
+    processWatchdog(1),
+  );
+
+  test(
+    "a failed removal keeps an admin folder that no longer names the worktree, and names the repair",
+    async () => {
+      const { root, base, commit } = repositoryAt({
+        scripts: {
+          ...markers,
+          typecheck:
+            'test ! -e block || echo /elsewhere/.git > "$(git rev-parse --git-dir)/gitdir"',
+        },
+      });
+      const blocked = commit("repoint the admin folder", { block: "" });
+
+      const run = await checkCommits(root, [base.sha], {
+        CHECK_COMMITS_SINCE: base.sha,
+        ...atRemovalOfABlock("exit 1"),
+      });
+
+      expect(run.exit).toBe(0);
+      expect(verdicts(run.lines)).toEqual([
+        `GREEN ${blocked.short} repoint the admin folder`,
+      ]);
       expect(
         run.stderr
           .split("\n")
@@ -657,7 +777,7 @@ describe("check:commits", () => {
             (line) =>
               line.startsWith("git worktree remove failed for ") &&
               line.endsWith(
-                "so its registration stays. Repair: git worktree prune",
+                "no longer names it, so that registration stays. Repair: git worktree prune",
               ),
           ),
       ).toHaveLength(1);
@@ -687,6 +807,53 @@ describe("check:commits", () => {
         `bun run typecheck was killed by SIGKILL while checking ${killed.short}, so it has no verdict.`,
       );
       expect(worktrees(root)).toHaveLength(1);
+    },
+    processWatchdog(1),
+  );
+
+  test("the CI commits job runs each commit's steps with no stored git token", async () => {
+    const workflow = Bun.YAML.parse(
+      await Bun.file(join(repository, ".github/workflows/ci.yml")).text(),
+    ) as {
+      jobs: {
+        commits: { steps: { uses?: string; with?: Record<string, unknown> }[] };
+      };
+    };
+    const checkout = workflow.jobs.commits.steps.find((step) =>
+      step.uses?.startsWith("actions/checkout@"),
+    );
+
+    expect(checkout?.with).toMatchObject({
+      "fetch-depth": 0,
+      "persist-credentials": false,
+    });
+  });
+
+  test(
+    "a caller's git location variables, as a git hook sets them, never reach the fixture",
+    async () => {
+      const planted = folder("check-commits-planted-");
+      const location = {
+        GIT_DIR: join(planted, "dir"),
+        GIT_INDEX_FILE: join(planted, "index"),
+      };
+      Object.assign(process.env, location);
+      try {
+        const { root, base, commit } = repositoryAt();
+        const green = commit("green under a hook", { "a.txt": "a" });
+
+        const run = await checkCommits(root, [base.sha], {
+          CHECK_COMMITS_SINCE: base.sha,
+        });
+
+        expect(run.exit).toBe(0);
+        expect(verdicts(run.lines)).toEqual([
+          `GREEN ${green.short} green under a hook`,
+        ]);
+        expect(readdirSync(planted)).toEqual([]);
+      } finally {
+        for (const name of Object.keys(location)) delete process.env[name];
+      }
     },
     processWatchdog(1),
   );
