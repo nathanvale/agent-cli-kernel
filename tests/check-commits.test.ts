@@ -1,6 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import {
   copyFileSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -112,9 +113,25 @@ async function checkCommits(
   return { ...run, temporary, lines: run.stdout.split("\n") };
 }
 
+function rerunOf(lines: readonly string[]): string {
+  const line = lines.find((each) => each.startsWith("Rerun locally: "));
+  if (line === undefined) throw new Error("No Rerun locally line.");
+  return line.slice("Rerun locally: ".length);
+}
+
+async function paste(root: string, command: string) {
+  const run = await spawnBounded(["sh", "-c", command], {
+    cwd: root,
+    env: { ...process.env, ...gitEnv },
+    boundMilliseconds: bound,
+  });
+  const output = run.stdout + run.stderr;
+  return { exit: run.exit, output, lines: output.split("\n") };
+}
+
 describe("check:commits", () => {
   test(
-    "a red commit is named with the command that failed, and the run exits 1",
+    "a red commit is named with the command that failed, and its rerun replays every step up to it",
     async () => {
       const { root, base, commit } = repositoryAt();
       const red = commit("add a lint error", { "lint-error": "" });
@@ -126,9 +143,9 @@ describe("check:commits", () => {
       expect(run.exit).toBe(1);
       expect(run.lines).toContain(`RED ${red.short} add a lint error`);
       expect(run.lines).toContain("Failed: bun run lint");
-      const rerun = run.lines.find((line) => line.startsWith("Rerun locally:"));
-      expect(rerun).toContain(red.sha);
-      expect(rerun).toEndWith("bun run lint");
+      expect(rerunOf(run.lines)).toEndWith(
+        `&& (cd ../red-${red.short} && bun install --frozen-lockfile && bun run typecheck && bun run lint)`,
+      );
     },
     timeout,
   );
@@ -282,6 +299,50 @@ describe("check:commits", () => {
       expect(run.stdout).toContain(
         'error: script "typecheck" exited with code 127',
       );
+    },
+    timeout,
+  );
+
+  test(
+    "the printed rerun reproduces the failure when pasted twice",
+    async () => {
+      const { root, base, commit } = repositoryAt();
+      commit("add a lint error", { "lint-error": "" });
+      const run = await checkCommits(root, [base.sha], {
+        CHECK_COMMITS_SINCE: base.sha,
+      });
+      const rerun = rerunOf(run.lines);
+
+      const first = await paste(root, rerun);
+      const second = await paste(root, rerun);
+
+      for (const pasted of [first, second]) {
+        expect(pasted.exit).toBe(1);
+        expect(pasted.lines).toContain(
+          'error: script "lint" exited with code 1',
+        );
+      }
+    },
+    timeout,
+  );
+
+  test(
+    "the printed rerun refuses a Bun other than the pin before it touches the red commit",
+    async () => {
+      const { root, base, commit } = repositoryAt();
+      const red = commit("add a lint error", { "lint-error": "" });
+      const run = await checkCommits(root, [base.sha], {
+        CHECK_COMMITS_SINCE: base.sha,
+      });
+      writeFileSync(join(root, "package.json"), manifest("0.0.1", markers));
+
+      const pasted = await paste(root, rerunOf(run.lines));
+
+      expect(pasted.exit).toBe(1);
+      expect(pasted.lines).toContain(
+        `FAIL bun: found Bun ${Bun.version}, pinned 0.0.1. Repair: install Bun 0.0.1 (mise install bun@0.0.1, or setup-bun in CI), then bun install --frozen-lockfile.`,
+      );
+      expect(existsSync(join(root, "..", `red-${red.short}`))).toBe(false);
     },
     timeout,
   );

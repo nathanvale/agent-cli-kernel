@@ -115,10 +115,14 @@ function report({ sha, short, subject, result }: Checked): void {
     .slice(0, failedAt + 1)
     .map(shown)
     .join(" && ");
+  const folder = `../red-${short}`;
   print(`RED ${short} ${subject}`);
   print(`Failed: ${shown(result.failed)}`);
+  // The doctor names a Bun other than the pin before install dies on the
+  // lockfile. The folder is reused and the shell stays put, so a second
+  // paste works.
   print(
-    `Rerun locally: git worktree add --detach ../red-${short} ${sha} && cd ../red-${short} && ${rerun}`,
+    `Rerun locally: bun run doctor && { test -d ${folder} || git worktree add --detach ${folder} ${sha}; } && (cd ${folder} && ${rerun})`,
   );
   process.stdout.write(result.output.replace(/\n?$/, "\n"));
 }
