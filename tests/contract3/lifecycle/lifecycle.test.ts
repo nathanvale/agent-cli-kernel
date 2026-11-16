@@ -1083,14 +1083,16 @@ test(
 );
 
 // Part 4 repair (contract reviewer): the handler returns about 300 ms into a
-// 500 ms deadline, so the post-handler settle has little left; a bound that
-// expired late would push emission past the 500 + 100 ms lag.
+// 500 ms deadline and its owned child exits about 400 ms after SIGTERM. With
+// the bound at the deadline the result is the deadline row; a bound that
+// expired late lets the settle finish first and reports success instead.
 test(
   "K3S3b.post-handler-bound-near-deadline",
   async () => {
     const entry = supporting("K3S3b.post-handler-bound-near-deadline", {
       argv: [
         "spawn-return",
+        "--slow-term",
         "--return-after-ms",
         "300",
         "--deadline-ms",

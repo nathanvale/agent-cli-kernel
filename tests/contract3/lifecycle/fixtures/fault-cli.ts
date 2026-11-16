@@ -561,12 +561,18 @@ const spawnReturn = command({
   input: {
     ...none,
     deadlineSupported: true,
-    options: [integer("--return-after-ms", 1, 60_000)],
+    options: [integer("--return-after-ms", 1, 60_000), flag("--slow-term")],
   },
   capabilities: { programs: true },
   run: async (input, context) => {
+    // `--slow-term`: the child exits about 400 ms after SIGTERM, so a
+    // post-handler bound that expired late would let the settle finish.
+    const child =
+      input["--slow-term"] === true
+        ? `trap 'echo child-term-received >> "$FX_LEDGER"; /bin/sleep 0.4; exit 0' TERM; echo "child-started $$" >> "$FX_LEDGER"; while :; do /bin/sleep 0.05; done`
+        : longChild(true);
     void context.programs
-      .inspect(program(longChild(true), { shutdownMilliseconds: 5_000 }))
+      .inspect(program(child, { shutdownMilliseconds: 5_000 }))
       .catch(() => undefined);
     await ledgerHas("child-started", 5_000);
     const after = input["--return-after-ms"];
