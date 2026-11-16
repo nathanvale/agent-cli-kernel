@@ -10,6 +10,7 @@ import {
 } from "node:fs";
 import { delimiter, dirname, join } from "node:path";
 import {
+  processWatchdog,
   type SignalAt,
   spawnBounded,
 } from "./contract3/kernel-repair/swarm-process.ts";
@@ -55,6 +56,12 @@ test("L.weak keeps a number", () => {
 });
 test("L.red is red without the fault", () => {
   expect(limit(1)).toBe(2);
+});
+test("L.tools sees only the tools its own tree installs", () => {
+  expect(Bun.which("faults-caller-tool")).toBeNull();
+});
+test("L.dies by a signal nobody sent the run", () => {
+  process.kill(process.pid, "SIGKILL");
 });
 test("L.blocks until stopped", async () => {
   writeFileSync(process.env.FAULTS_PID ?? "", String(process.pid));
@@ -373,6 +380,36 @@ describe("bun run faults", () => {
       ]);
     },
     timeout,
+  );
+
+  test(
+    "FR.j a replayed test sees only the tools its own tree installs, not the caller's node_modules/.bin",
+    async () => {
+      const { root } = await repositoryWithFault({
+        tools: "^L\\.(refuses|tools) ",
+      });
+      write(root, "node_modules/.bin/faults-caller-tool", "#!/bin/sh\n");
+      chmodSync(join(root, "node_modules/.bin/faults-caller-tool"), 0o755);
+      const run = await faults(root, ["tools"]);
+      expect(verdicts(run.lines)).toEqual(["KILLED tools"]);
+      expect(run.exit).toBe(0);
+    },
+    processWatchdog(2),
+  );
+
+  test(
+    "FR.k a test killed by a signal the run did not receive gives no verdict and exits 2",
+    async () => {
+      const { root } = await repositoryWithFault({ dies: "^L\\.dies " });
+      const run = await faults(root, ["dies"]);
+      expect(run.stderr).toContain(
+        " was killed by SIGKILL while replaying dies, so it has no verdict.\n",
+      );
+      expect(verdicts(run.lines)).toEqual([]);
+      expect(run.exit).toBe(2);
+      expectNoLeftovers(root, run.temporary);
+    },
+    processWatchdog(2),
   );
 
   for (const [signal, exit] of [
