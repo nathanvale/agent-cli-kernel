@@ -33,7 +33,7 @@ function resultOf(stdout: string): ScenarioRun["result"] {
 export type SignalAt = {
   readonly ledger: string;
   readonly line: string;
-  readonly signal: "SIGTERM" | "SIGINT";
+  readonly signal: "SIGTERM" | "SIGINT" | "SIGHUP";
 };
 export async function spawnBounded(
   argv: readonly string[],

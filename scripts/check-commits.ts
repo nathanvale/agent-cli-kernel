@@ -1,6 +1,6 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { constants, tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, delimiter, dirname, join, resolve } from "node:path";
 import type { Subprocess } from "bun";
 import { doctor } from "./doctor.ts";
 
@@ -22,7 +22,28 @@ type Result =
   | { status: "red"; failed: Step; output: string };
 type Checked = Commit & { result: Result };
 
-const active: { dir?: string; child?: Subprocess } = {};
+// Ctrl-C sends SIGINT, a closing terminal SIGHUP, a CI cancel SIGINT then
+// SIGTERM.
+const signals = ["SIGHUP", "SIGINT", "SIGTERM"] as const;
+type StopSignal = (typeof signals)[number];
+const active: { child?: Subprocess; stoppedBy?: StopSignal } = {};
+// `bun run` prepends the caller's node_modules/.bin folders to PATH. Drop
+// them so a commit sees only what its own tree installs.
+const ownTools = {
+  ...process.env,
+  PATH: (process.env.PATH ?? "")
+    .split(delimiter)
+    .filter(
+      (entry) =>
+        basename(entry) !== ".bin" ||
+        basename(dirname(entry)) !== "node_modules",
+    )
+    .join(delimiter),
+};
+
+function isStopSignal(signal: string | undefined): signal is StopSignal {
+  return signals.some((each) => each === signal);
+}
 
 function git(args: readonly string[]) {
   const result = Bun.spawnSync(["git", ...args], {
@@ -30,12 +51,24 @@ function git(args: readonly string[]) {
     stdout: "pipe",
     stderr: "pipe",
   });
+  // A signal to the whole process group kills git before this process's
+  // handler can run, so git's own death is the evidence of the stop.
+  if (isStopSignal(result.signalCode)) active.stoppedBy ??= result.signalCode;
   return {
     ok: result.exitCode === 0,
     stdout: result.stdout.toString(),
     stderr: result.stderr.toString(),
   };
 }
+
+const worktreesFolder = join(
+  git([
+    "rev-parse",
+    "--path-format=absolute",
+    "--git-common-dir",
+  ]).stdout.trim(),
+  "worktrees",
+);
 
 function shown(step: Step): string {
   return `bun ${step.join(" ")}`;
@@ -45,14 +78,39 @@ function print(line: string): void {
   process.stdout.write(`${line}\n`);
 }
 
+function adminFolderOf(dir: string): string | undefined {
+  const link = join(dir, ".git");
+  if (!existsSync(link)) return undefined;
+  const admin = resolve(
+    dir,
+    readFileSync(link, "utf8")
+      .replace(/^gitdir: /, "")
+      .trim(),
+  );
+  return dirname(admin) === worktreesFolder ? admin : undefined;
+}
+
+// Deleting this one worktree's admin folder is what `git worktree prune`
+// does for it, without pruning anyone else's worktree.
 function release(dir: string): void {
-  git(["worktree", "remove", "--force", dir]);
+  const admin = adminFolderOf(dir);
+  const removed = git(["worktree", "remove", "--force", dir]).ok;
   rmSync(dir, { recursive: true, force: true });
+  if (!removed && admin !== undefined)
+    rmSync(admin, { recursive: true, force: true });
+}
+
+function haltIfStopped(commit: Commit): void {
+  if (active.stoppedBy !== undefined)
+    throw new Error(
+      `Stopped by ${active.stoppedBy} while checking ${commit.short}, so it has no verdict.`,
+    );
 }
 
 async function run(cwd: string, step: Step) {
   const child = Bun.spawn([process.execPath, ...step], {
     cwd,
+    env: ownTools,
     stdout: "pipe",
     stderr: "pipe",
   });
@@ -63,12 +121,11 @@ async function run(cwd: string, step: Step) {
     child.exited,
   ]);
   delete active.child;
-  return { ok: exitCode === 0, output: stdout + stderr };
+  return { exitCode, signalCode: child.signalCode, output: stdout + stderr };
 }
 
 async function check(commit: Commit): Promise<Checked> {
   const dir = mkdtempSync(join(tmpdir(), "check-commits-"));
-  active.dir = dir;
   try {
     const added = git([
       "worktree",
@@ -78,16 +135,21 @@ async function check(commit: Commit): Promise<Checked> {
       dir,
       commit.sha,
     ]);
+    haltIfStopped(commit);
     if (!added.ok) throw new Error(added.stderr.trim());
     for (const step of steps) {
-      const { ok, output } = await run(dir, step);
-      if (!ok)
+      const { exitCode, signalCode, output } = await run(dir, step);
+      haltIfStopped(commit);
+      if (signalCode !== null)
+        throw new Error(
+          `${shown(step)} was killed by ${signalCode} while checking ${commit.short}, so it has no verdict.`,
+        );
+      if (exitCode !== 0)
         return { ...commit, result: { status: "red", failed: step, output } };
     }
     return { ...commit, result: { status: "green" } };
   } finally {
     release(dir);
-    delete active.dir;
   }
 }
 
@@ -101,11 +163,13 @@ function report({ sha, short, subject, result }: Checked): void {
     .slice(0, failedAt + 1)
     .map(shown)
     .join(" && ");
+  const folder = `"$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/.worktrees/red-${short}"`;
   print(`RED ${short} ${subject}`);
   print(`Failed: ${shown(result.failed)}`);
   print(
-    `Rerun locally: git worktree add --detach ../red-${short} ${sha} && cd ../red-${short} && ${rerun}`,
+    `Rerun locally: bun run doctor && (folder=${folder} && { test -d "$folder" || git worktree add --detach "$folder" ${sha}; } && cd "$folder" && ${rerun})`,
   );
+  print(`Clean up: git worktree remove ${folder}`);
   process.stdout.write(result.output.replace(/\n?$/, "\n"));
 }
 
@@ -134,14 +198,10 @@ function commitsToCheck(base: string, head: string): Commit[] {
     });
 }
 
-for (const signal of ["SIGINT", "SIGTERM"] as const)
+for (const signal of signals)
   process.on(signal, () => {
-    void (async () => {
-      active.child?.kill("SIGTERM");
-      await active.child?.exited;
-      if (active.dir !== undefined) release(active.dir);
-      process.exit(128 + constants.signals[signal]);
-    })();
+    active.stoppedBy ??= signal;
+    active.child?.kill("SIGTERM");
   });
 
 async function main(argv: readonly string[]): Promise<number> {
@@ -159,6 +219,7 @@ async function main(argv: readonly string[]): Promise<number> {
   let red = 0;
   for (const commit of commits) {
     const checked = await check(commit);
+    haltIfStopped(commit);
     report(checked);
     if (checked.result.status === "red") red += 1;
   }
@@ -183,3 +244,5 @@ try {
   );
   process.exitCode = 2;
 }
+if (active.stoppedBy !== undefined)
+  process.exitCode = 128 + constants.signals[active.stoppedBy];

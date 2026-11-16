@@ -1,19 +1,25 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import {
   copyFileSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { spawnBounded } from "./contract3/kernel-repair/swarm-process.ts";
+import {
+  processWatchdog,
+  type SignalAt,
+  spawnBounded,
+} from "./contract3/kernel-repair/swarm-process.ts";
 
 const repository = join(import.meta.dir, "..");
-const scripts = [
+const sources = [
   "scripts/check-commits.ts",
   "scripts/doctor.ts",
   "src/toolchain-resolution.ts",
@@ -27,8 +33,18 @@ const gitEnv = {
   GIT_COMMITTER_NAME: "Fixture",
   GIT_COMMITTER_EMAIL: "fixture@example.invalid",
 };
-const bound = 15_000;
-const timeout = 20_000;
+const { scripts: production } = (await Bun.file(
+  join(repository, "package.json"),
+).json()) as { scripts: Record<string, string> };
+const lockfileListingADroppedDependency = JSON.stringify({
+  lockfileVersion: 1,
+  workspaces: { "": { dependencies: { dep: "file:./dep" } } },
+  packages: { dep: ["dep@file:dep", {}] },
+});
+const markers = {
+  typecheck: "test ! -e type-error",
+  lint: "test ! -e lint-error",
+};
 
 afterAll(() => {
   for (const folder of folders) rmSync(folder, { recursive: true });
@@ -52,19 +68,20 @@ function git(root: string, ...args: string[]): string {
   return result.stdout.toString().trim();
 }
 
-function manifest(pin: string): string {
+function manifest(pin: string, scripts: Record<string, string>): string {
   return JSON.stringify({
     packageManager: `bun@${pin}`,
     scripts: {
-      typecheck: "test ! -e type-error",
-      lint: "test ! -e lint-error",
+      "check:commits": production["check:commits"],
+      doctor: production.doctor,
+      ...scripts,
     },
   });
 }
 
-function repositoryAt(pin = Bun.version) {
-  const root = folder("check-commits-repo-");
-  for (const path of scripts) {
+function repositoryAt({ pin = Bun.version, scripts = markers } = {}) {
+  const root = join(folder("check-commits-repo-"), "repo");
+  for (const path of sources) {
     mkdirSync(dirname(join(root, path)), { recursive: true });
     copyFileSync(join(repository, path), join(root, path));
   }
@@ -83,7 +100,10 @@ function repositoryAt(pin = Bun.version) {
       short: git(root, "rev-parse", "--short", "HEAD"),
     };
   };
-  const base = commit("base", { "package.json": manifest(pin) });
+  const base = commit("base", {
+    ".gitignore": "node_modules\n",
+    "package.json": manifest(pin, scripts),
+  });
   return { root, base, commit };
 }
 
@@ -91,22 +111,105 @@ async function checkCommits(
   root: string,
   args: string[],
   env: Record<string, string> = {},
+  {
+    signalAt,
+    ownGroup = false,
+  }: { signalAt?: SignalAt; ownGroup?: boolean } = {},
 ) {
   const temporary = folder("check-commits-tmp-");
+  const entry = [process.execPath, "run", "check:commits", ...args];
   const run = await spawnBounded(
-    [process.execPath, join(root, "scripts/check-commits.ts"), ...args],
+    ownGroup
+      ? ["perl", "-e", "setpgrp(0, 0); exec @ARGV or die", ...entry]
+      : entry,
     {
       cwd: root,
       env: { ...process.env, ...gitEnv, TMPDIR: temporary, ...env },
-      boundMilliseconds: bound,
+      ...(signalAt === undefined ? {} : { signalAt }),
     },
   );
   return { ...run, temporary, lines: run.stdout.split("\n") };
 }
 
+function worktrees(root: string): string[] {
+  return git(root, "worktree", "list", "--porcelain")
+    .split("\n")
+    .filter((line) => line.startsWith("worktree "));
+}
+
+function blockThenFailPlainlyOnSignal(ledger: string): string {
+  return `test ! -e block || { trap 'kill $!; exit 3' HUP INT TERM; echo started >> '${ledger}'; sleep 30 & wait; }`;
+}
+
+function verdicts(lines: readonly string[]): string[] {
+  return lines.filter((line) => /^(GREEN|RED) /.test(line));
+}
+
+function printed(lines: readonly string[], label: string): string {
+  const line = lines.find((each) => each.startsWith(`${label}: `));
+  if (line === undefined) throw new Error(`No ${label} line.`);
+  return line.slice(`${label}: `.length);
+}
+
+// tests/doctor.test.ts owns the repair wording; this file checks only that
+// the doctor refused the running Bun.
+function wrongBunRefusals(lines: readonly string[]): string[] {
+  return lines.filter((line) =>
+    line.startsWith(
+      `FAIL bun: found Bun ${Bun.version}, pinned 0.0.1. Repair: `,
+    ),
+  );
+}
+
+function rerunOf(lines: readonly string[]): string {
+  return printed(lines, "Rerun locally");
+}
+
+function linkedCheckout(root: string): string {
+  const caller = join(dirname(root), "caller");
+  git(root, "worktree", "add", "--quiet", "--detach", caller);
+  for (const path of sources) {
+    mkdirSync(dirname(join(caller, path)), { recursive: true });
+    copyFileSync(join(root, path), join(caller, path));
+  }
+  symlinkSync(join(repository, "node_modules"), join(caller, "node_modules"));
+  return caller;
+}
+
+function executable(path: string, script: string): string {
+  writeFileSync(path, `#!/bin/sh\n${script}\n`, { mode: 0o755 });
+  return path;
+}
+
+function signalOwnGroupAtCheckoutOf(root: string, signal: string): void {
+  executable(
+    join(root, ".git", "hooks", "post-checkout"),
+    `test ! -e block || kill -s ${signal.slice(3)} 0`,
+  );
+}
+
+function signalOwnGroupAtRemovalOf(signal: string): Record<string, string> {
+  const bin = folder("check-commits-bin-");
+  executable(
+    join(bin, "git"),
+    `if [ "$1 $2" = "worktree remove" ] && [ -e "$4/block" ]; then kill -s ${signal.slice(3)} 0; fi
+exec '${Bun.which("git")}' "$@"`,
+  );
+  return { PATH: `${bin}:${process.env.PATH ?? ""}` };
+}
+
+async function paste(root: string, command: string) {
+  const run = await spawnBounded(["sh", "-c", command], {
+    cwd: root,
+    env: { ...process.env, ...gitEnv },
+  });
+  const output = run.stdout + run.stderr;
+  return { exit: run.exit, output, lines: output.split("\n") };
+}
+
 describe("check:commits", () => {
   test(
-    "a red commit is named with the command that failed, and the run exits 1",
+    "a red commit is named with the command that failed, and its rerun replays every step up to it",
     async () => {
       const { root, base, commit } = repositoryAt();
       const red = commit("add a lint error", { "lint-error": "" });
@@ -118,15 +221,55 @@ describe("check:commits", () => {
       expect(run.exit).toBe(1);
       expect(run.lines).toContain(`RED ${red.short} add a lint error`);
       expect(run.lines).toContain("Failed: bun run lint");
-      const rerun = run.lines.find((line) => line.startsWith("Rerun locally:"));
-      expect(rerun).toContain(red.sha);
-      expect(rerun).toEndWith("bun run lint");
+      expect(rerunOf(run.lines)).toEndWith(
+        '&& cd "$folder" && bun install --frozen-lockfile && bun run typecheck && bun run lint)',
+      );
     },
-    timeout,
+    processWatchdog(1),
   );
 
   test(
-    "a later fix commit does not hide the earlier red commit",
+    "a commit that fails the real TypeScript compiler stays red after a later fix",
+    async () => {
+      const { root, base, commit } = repositoryAt({
+        scripts: {
+          ...markers,
+          typecheck: `"${join(repository, "node_modules/.bin/tsc")}" --noEmit typed.ts`,
+        },
+      });
+      const green = commit("type a number", {
+        "typed.ts": "export const count: number = 1;\n",
+      });
+      const red = commit("assign a string to the number", {
+        "typed.ts": 'export const count: number = "one";\n',
+      });
+      const fix = commit("assign a number again", {
+        "typed.ts": "export const count: number = 2;\n",
+      });
+
+      const run = await checkCommits(root, [base.sha], {
+        CHECK_COMMITS_SINCE: base.sha,
+      });
+
+      expect(run.exit).toBe(1);
+      expect(run.lines).toContain(`GREEN ${green.short} type a number`);
+      expect(run.lines).toContain(
+        `RED ${red.short} assign a string to the number`,
+      );
+      expect(run.lines).toContain("Failed: bun run typecheck");
+      expect(run.lines).toContain(
+        "typed.ts(1,14): error TS2322: Type 'string' is not assignable to type 'number'.",
+      );
+      expect(run.lines).toContain(`GREEN ${fix.short} assign a number again`);
+      expect(
+        run.lines.filter((line) => line.startsWith("1 of 3 commits are red")),
+      ).toHaveLength(1);
+    },
+    processWatchdog(1),
+  );
+
+  test(
+    "the rerun checks out the red commit, not the head that fixed it",
     async () => {
       const { root, base, commit } = repositoryAt();
       const red = commit("add a type error", { "type-error": "" });
@@ -136,19 +279,39 @@ describe("check:commits", () => {
         CHECK_COMMITS_SINCE: base.sha,
       });
 
-      expect(run.exit).toBe(1);
-      expect(run.lines).toContain(`RED ${red.short} add a type error`);
-      expect(run.lines).toContain("Failed: bun run typecheck");
-      expect(run.lines).toContain(`GREEN ${fix.short} remove the type error`);
-      expect(
-        run.lines.filter((line) => line.startsWith("1 of 2 commits are red")),
-      ).toHaveLength(1);
+      const rerun = rerunOf(run.lines);
+      expect(rerun).toContain(` ${red.sha}`);
+      expect(rerun).not.toContain(fix.sha);
     },
-    timeout,
+    processWatchdog(1),
   );
 
   test(
-    "a clean range exits 0 with a one-line summary",
+    "a commit whose lockfile does not match its manifest is red at bun install --frozen-lockfile",
+    async () => {
+      const { root, base, commit } = repositoryAt();
+      const red = commit("keep a lockfile for a removed dependency", {
+        "bun.lock": lockfileListingADroppedDependency,
+      });
+
+      const run = await checkCommits(root, [base.sha], {
+        CHECK_COMMITS_SINCE: base.sha,
+      });
+
+      expect(run.exit).toBe(1);
+      expect(run.lines).toContain(
+        `RED ${red.short} keep a lockfile for a removed dependency`,
+      );
+      expect(run.lines).toContain("Failed: bun install --frozen-lockfile");
+      expect(run.lines).toContain(
+        "error: lockfile had changes, but lockfile is frozen",
+      );
+    },
+    processWatchdog(1),
+  );
+
+  test(
+    "a clean range is reported oldest first and exits 0 with a one-line summary",
     async () => {
       const { root, base, commit } = repositoryAt();
       const first = commit("first green", { "a.txt": "a" });
@@ -159,16 +322,17 @@ describe("check:commits", () => {
       });
 
       expect(run.exit).toBe(0);
-      expect(run.lines).toContain(`GREEN ${first.short} first green`);
-      expect(run.lines).toContain(`GREEN ${second.short} second green`);
-      expect(run.lines.some((line) => line.startsWith("RED "))).toBe(false);
+      expect(verdicts(run.lines)).toEqual([
+        `GREEN ${first.short} first green`,
+        `GREEN ${second.short} second green`,
+      ]);
       expect(
         run.lines.filter((line) =>
           line.startsWith("Checked 2 commits: all green"),
         ),
       ).toHaveLength(1);
     },
-    timeout,
+    processWatchdog(1),
   );
 
   test(
@@ -186,7 +350,7 @@ describe("check:commits", () => {
       expect(run.lines).toContain(`GREEN ${after.short} fixed after since`);
       expect(run.stdout).not.toContain(red.short);
     },
-    timeout,
+    processWatchdog(1),
   );
 
   test(
@@ -207,17 +371,19 @@ describe("check:commits", () => {
         `RED ${red.short} red with no since in the clone`,
       );
     },
-    timeout,
+    processWatchdog(1),
   );
 
   test(
-    "a merge commit in the range is checked and named",
+    "a merge commit is checked at its own tree, not at a parent",
     async () => {
-      const { root, base, commit } = repositoryAt();
+      const { root, base, commit } = repositoryAt({
+        scripts: { ...markers, lint: "test ! -e left -o ! -e right" },
+      });
       git(root, "switch", "--quiet", "--create", "side");
-      commit("side green", { "side.txt": "side" });
+      const left = commit("add left", { left: "" });
       git(root, "switch", "--quiet", "main");
-      commit("main green", { "main.txt": "main" });
+      const right = commit("add right", { right: "" });
       git(root, "merge", "--quiet", "--no-ff", "-m", "merge side", "side");
       const merge = git(root, "rev-parse", "--short", "HEAD");
 
@@ -225,10 +391,12 @@ describe("check:commits", () => {
         CHECK_COMMITS_SINCE: base.sha,
       });
 
-      expect(run.exit).toBe(0);
-      expect(run.lines).toContain(`GREEN ${merge} merge side`);
+      expect(run.exit).toBe(1);
+      expect(run.lines).toContain(`GREEN ${left.short} add left`);
+      expect(run.lines).toContain(`GREEN ${right.short} add right`);
+      expect(run.lines).toContain(`RED ${merge} merge side`);
     },
-    timeout,
+    processWatchdog(1),
   );
 
   test(
@@ -242,20 +410,223 @@ describe("check:commits", () => {
       });
 
       expect(run.exit).toBe(1);
-      expect(
-        git(root, "worktree", "list", "--porcelain")
-          .split("\n")
-          .filter((line) => line.startsWith("worktree ")),
-      ).toHaveLength(1);
+      expect(worktrees(root)).toHaveLength(1);
       expect(readdirSync(run.temporary)).toEqual([]);
     },
-    timeout,
+    processWatchdog(1),
+  );
+
+  test(
+    "a commit is judged only with the tools its own tree installs",
+    async () => {
+      const { root, base, commit } = repositoryAt({
+        scripts: { ...markers, typecheck: "fallow --version" },
+      });
+      const red = commit("use a tool this commit does not install", {
+        "a.txt": "a",
+      });
+
+      const run = await checkCommits(root, [base.sha], {
+        CHECK_COMMITS_SINCE: base.sha,
+      });
+
+      expect(run.exit).toBe(1);
+      expect(run.lines).toContain(
+        `RED ${red.short} use a tool this commit does not install`,
+      );
+      expect(run.lines).toContain("Failed: bun run typecheck");
+      expect(run.stdout).toContain(
+        'error: script "typecheck" exited with code 127',
+      );
+    },
+    processWatchdog(1),
+  );
+
+  test(
+    "the printed rerun reproduces the failure when pasted twice from a linked checkout, under the main checkout's .worktrees, and its cleanup removes it",
+    async () => {
+      const { root, base, commit } = repositoryAt();
+      const red = commit("add a lint error", { "lint-error": "" });
+      const caller = linkedCheckout(root);
+      const run = await checkCommits(root, [base.sha], {
+        CHECK_COMMITS_SINCE: base.sha,
+      });
+      const rerun = rerunOf(run.lines);
+      const leftover = `worktree ${realpathSync(root)}/.worktrees/red-${red.short}`;
+
+      const first = await paste(caller, rerun);
+      const second = await paste(caller, rerun);
+
+      for (const pasted of [first, second]) {
+        expect(pasted.exit).toBe(1);
+        expect(pasted.lines).toContain(
+          'error: script "lint" exited with code 1',
+        );
+      }
+      expect(worktrees(root)).toContain(leftover);
+      expect(worktrees(root)).toHaveLength(3);
+
+      const cleaned = await paste(caller, printed(run.lines, "Clean up"));
+
+      expect(cleaned.exit).toBe(0);
+      expect(worktrees(root)).not.toContain(leftover);
+      expect(worktrees(root)).toHaveLength(2);
+    },
+    processWatchdog(4),
+  );
+
+  test(
+    "the printed rerun refuses a Bun other than the pin before it touches the red commit",
+    async () => {
+      const { root, base, commit } = repositoryAt();
+      const red = commit("add a lint error", { "lint-error": "" });
+      const run = await checkCommits(root, [base.sha], {
+        CHECK_COMMITS_SINCE: base.sha,
+      });
+      writeFileSync(join(root, "package.json"), manifest("0.0.1", markers));
+
+      const pasted = await paste(root, rerunOf(run.lines));
+
+      expect(pasted.exit).toBe(1);
+      expect(wrongBunRefusals(pasted.lines)).toHaveLength(1);
+      expect(existsSync(join(root, ".worktrees", `red-${red.short}`))).toBe(
+        false,
+      );
+      expect(existsSync(join(root, "..", `red-${red.short}`))).toBe(false);
+    },
+    processWatchdog(2),
+  );
+
+  for (const [signal, exit] of [
+    ["SIGHUP", 129],
+    ["SIGINT", 130],
+    ["SIGTERM", 143],
+  ] as const)
+    test(
+      `${signal} leaves no worktree and no verdict for the interrupted commit`,
+      async () => {
+        const ledger = join(folder("check-commits-ledger-"), "ledger");
+        const { root, base, commit } = repositoryAt({
+          scripts: {
+            ...markers,
+            typecheck: blockThenFailPlainlyOnSignal(ledger),
+          },
+        });
+        const before = commit("green before the stop", { "a.txt": "a" });
+        const stopped = commit("block until stopped", { block: "" });
+
+        const run = await checkCommits(
+          root,
+          [base.sha],
+          { CHECK_COMMITS_SINCE: base.sha },
+          { signalAt: { ledger, line: "started", signal } },
+        );
+
+        expect(run.exit).toBe(exit);
+        expect(verdicts(run.lines)).toEqual([
+          `GREEN ${before.short} green before the stop`,
+        ]);
+        expect(run.stderr.split("\n")).toContain(
+          `Stopped by ${signal} while checking ${stopped.short}, so it has no verdict.`,
+        );
+        expect(worktrees(root)).toHaveLength(1);
+        expect(readdirSync(run.temporary)).toEqual([]);
+      },
+      processWatchdog(1),
+    );
+
+  for (const [signal, exit] of [
+    ["SIGHUP", 129],
+    ["SIGINT", 130],
+    ["SIGTERM", 143],
+  ] as const)
+    test(
+      `${signal} to the whole process group while git adds the worktree is the stop, not a git failure`,
+      async () => {
+        const { root, base, commit } = repositoryAt();
+        const before = commit("green before the stop", { "a.txt": "a" });
+        const stopped = commit("stop while checking out", { block: "" });
+        signalOwnGroupAtCheckoutOf(root, signal);
+
+        const run = await checkCommits(
+          root,
+          [base.sha],
+          { CHECK_COMMITS_SINCE: base.sha },
+          { ownGroup: true },
+        );
+
+        expect(run.exit).toBe(exit);
+        expect(verdicts(run.lines)).toEqual([
+          `GREEN ${before.short} green before the stop`,
+        ]);
+        expect(run.stderr.split("\n")).toContain(
+          `Stopped by ${signal} while checking ${stopped.short}, so it has no verdict.`,
+        );
+        expect(worktrees(root)).toHaveLength(1);
+        expect(readdirSync(run.temporary)).toEqual([]);
+      },
+      processWatchdog(1),
+    );
+
+  test(
+    "SIGTERM to the whole process group while git removes the worktree leaves no registered worktree and no verdict",
+    async () => {
+      const { root, base, commit } = repositoryAt();
+      const before = commit("green before the stop", { "a.txt": "a" });
+      const stopped = commit("stop while removing", { block: "" });
+
+      const run = await checkCommits(
+        root,
+        [base.sha],
+        {
+          CHECK_COMMITS_SINCE: base.sha,
+          ...signalOwnGroupAtRemovalOf("SIGTERM"),
+        },
+        { ownGroup: true },
+      );
+
+      expect(run.exit).toBe(143);
+      expect(verdicts(run.lines)).toEqual([
+        `GREEN ${before.short} green before the stop`,
+      ]);
+      expect(run.stderr.split("\n")).toContain(
+        `Stopped by SIGTERM while checking ${stopped.short}, so it has no verdict.`,
+      );
+      expect(worktrees(root)).toHaveLength(1);
+      expect(readdirSync(run.temporary)).toEqual([]);
+    },
+    processWatchdog(1),
+  );
+
+  test(
+    "a step killed by a signal the run did not receive gives no verdict and exits 2",
+    async () => {
+      const { root, base, commit } = repositoryAt({
+        scripts: {
+          ...markers,
+          typecheck: "test ! -e kill || kill -KILL $PPID",
+        },
+      });
+      const killed = commit("kill the typecheck step", { kill: "" });
+
+      const run = await checkCommits(root, [base.sha], {
+        CHECK_COMMITS_SINCE: base.sha,
+      });
+
+      expect(run.exit).toBe(2);
+      expect(verdicts(run.lines)).toEqual([]);
+      expect(run.stderr.split("\n")).toContain(
+        `bun run typecheck was killed by SIGKILL while checking ${killed.short}, so it has no verdict.`,
+      );
+      expect(worktrees(root)).toHaveLength(1);
+    },
+    processWatchdog(1),
   );
 
   test(
     "a running Bun other than the pin refuses before checking any commit",
     async () => {
-      const { root, base, commit } = repositoryAt("0.0.1");
+      const { root, base, commit } = repositoryAt({ pin: "0.0.1" });
       commit("never checked", { "a.txt": "a" });
 
       const run = await checkCommits(root, [base.sha], {
@@ -263,11 +634,12 @@ describe("check:commits", () => {
       });
 
       expect(run.exit).toBe(1);
-      expect(run.stdout).toContain(
-        `FAIL bun: found Bun ${Bun.version}, pinned 0.0.1. Repair: `,
+      expect(wrongBunRefusals(run.lines)).toHaveLength(1);
+      expect(run.lines).toContain(
+        "Refused: repair the doctor's FAIL lines, then rerun.",
       );
-      expect(run.lines.some((line) => /^(GREEN|RED) /.test(line))).toBe(false);
+      expect(verdicts(run.lines)).toEqual([]);
     },
-    timeout,
+    processWatchdog(1),
   );
 });
