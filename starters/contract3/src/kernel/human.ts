@@ -3,7 +3,7 @@ import { record } from "./validation/primitives.ts";
 
 // Human-mode rendering of an already validated envelope (LIFE-2). Help and
 // discovery go to stdout; a refusal or failure is exactly one stderr line.
-export function oneLine(value: string): string {
+function oneLine(value: string): string {
   return value
     .replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]+/gu, " ")
     .trim()
@@ -96,7 +96,7 @@ function diagnosticsWords(status: Diagnostics): string {
 // N4a (17:06): the line always goes to stdout, after the result text on
 // success and beside the one stderr line on a refusal or failure, so
 // LIFE-2's one stderr line stays literally true. No status, no line.
-export function diagnosticsLine(
+function diagnosticsLine(
   status: Diagnostics | undefined,
 ): readonly HumanWrite[] {
   return status

@@ -1,10 +1,6 @@
-import {
-  fallbackMessage,
-  fallbackText,
-  unavailableStatus,
-} from "./fallback.ts";
+import { fallbackText, unavailableStatus } from "./fallback.ts";
 import type { TrustedRun } from "./fallback.ts";
-import { diagnosticsLine, oneLine, renderHuman } from "./human.ts";
+import { renderHuman } from "./human.ts";
 import type { HumanWrite } from "./human.ts";
 import type { ProcessHost } from "./process-types.ts";
 import type { ContractRuntime } from "./runtime.ts";
@@ -120,24 +116,9 @@ export function createWriter(options: {
   // construction, validation, encoding or write failure ends with exit 1.
   async function fallback(trusted: TrustedRun) {
     try {
-      const text = await fallbackText(runtime, trusted);
-      if (text === undefined) return 1;
-      // Human mode: the one stderr line, and the Diagnostics line for the
-      // status the machine fallback carries (decision 6).
-      // Like every human failure line, it names its cause (LIFE-2).
-      const envelope: unknown = JSON.parse(text);
-      const carried = record(envelope) ? envelope.diagnostics : undefined;
-      const result = record(envelope) ? envelope.result : undefined;
-      const cause = record(result) ? result.causeCode : undefined;
-      const drained = machine
-        ? await write("stdout", `${text}\n`)
-        : await writeAll([
-            {
-              stream: "stderr",
-              text: `${oneLine(runtime.cli)}: ${fallbackMessage} [${String(cause)}]\n`,
-            },
-            ...diagnosticsLine(diagnostics(carried) ? carried : undefined),
-          ]);
+      const ready = await fallbackText(runtime, trusted);
+      if (ready === undefined) return 1;
+      const drained = await writeAll(output(ready.text, ready.envelope));
       return drained === undefined ? undefined : 1;
     } catch {
       return 1;

@@ -18,10 +18,11 @@ export type CommandResult<Identity extends string = string> = {
 // Declaring one for its words (DISC-11b) grants a handler no selection
 // (reading N5 (a)). The approval denial is one too on a command without
 // approval (N6 (a)), and so is the command's own program-stop station.
-export type BaseOnlyCause =
-  | "USAGE_INVALID_INVOCATION"
-  | "DOMAIN_DEADLINE_BEFORE_START"
-  | (typeof deadlineCause)[keyof typeof deadlineCause];
+const baseOnlyCauses = [
+  "USAGE_INVALID_INVOCATION",
+  "DOMAIN_DEADLINE_BEFORE_START",
+  ...Object.values(deadlineCause),
+] as const;
 export type AllowedCause<
   S extends readonly DeclaredStation[],
   C extends CapabilitySelection = { readonly approval: true },
@@ -29,22 +30,20 @@ export type AllowedCause<
 > =
   | Exclude<
       S[number]["causeCode"],
-      | BaseOnlyCause
+      | (typeof baseOnlyCauses)[number]
       | P
       | (C extends { readonly approval: true }
           ? never
           : "DOMAIN_AUTHORITY_REQUIRED")
     >
   | (S[number] extends never ? "SUCCESS_UNCHANGED" : never);
-// The runtime counterpart.
+// The type above and this runtime check read the one list.
 function baseOnlyCause(
   command: CommandDeclaration,
   causeCode: string,
 ): boolean {
   return (
-    causeCode === "USAGE_INVALID_INVOCATION" ||
-    causeCode === "DOMAIN_DEADLINE_BEFORE_START" ||
-    Object.values(deadlineCause).some((cause) => cause === causeCode) ||
+    baseOnlyCauses.some((cause) => cause === causeCode) ||
     (causeCode === "DOMAIN_AUTHORITY_REQUIRED" &&
       command.capabilities.approval !== true) ||
     causeCode === programStopOf(command)

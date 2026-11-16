@@ -5,7 +5,7 @@ import {
   internalResultCause,
   unchangedEffects,
 } from "./state-causes.ts";
-import type { Diagnostics, Effects } from "./types.ts";
+import type { Diagnostics, Effects, Envelope } from "./types.ts";
 import {
   childLevel,
   fallbackLevelLimit,
@@ -15,7 +15,7 @@ import {
 import { record } from "./validation/primitives.ts";
 
 // LIFE-9 and LIFE-10: one bounded fallback, always contract 3.0.0.
-export const fallbackMessage =
+const fallbackMessage =
   "The result could not be delivered safely. Follow the guidance and inspect effects independently before any new run.";
 // The 16,384-byte bound includes the trailing newline. Depth counts nested
 // The level limit follows the one nesting rule in validation/level.ts.
@@ -111,7 +111,7 @@ function construct(
 export async function fallbackText(
   runtime: ContractRuntime,
   trusted: TrustedRun,
-): Promise<string | undefined> {
+): Promise<{ readonly text: string; readonly envelope: Envelope } | undefined> {
   try {
     const command = runtime.commands.find(
       (item) => item.commandIdentity === trusted.commandIdentity,
@@ -144,7 +144,7 @@ export async function fallbackText(
     }
     if (text === undefined) return undefined;
     const checked = await runtime.validate(JSON.parse(text));
-    return checked.ok ? text : undefined;
+    return checked.ok ? { text, envelope: checked.value } : undefined;
   } catch {
     return undefined;
   }
