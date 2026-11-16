@@ -36,23 +36,19 @@ function envelope(commandIdentity: string, data: unknown) {
 }
 
 // Help lists host commands, so its test declares one (K1-18).
-const helpCli = contractFor({
-  cli: "specimen",
-  commands: [
-    command({
-      identity: "specimen.read",
-      route: ["read"],
-      summary: "Read a note.",
-      input: emptyInput,
-      capabilities: {},
-      run: (_input, context) =>
-        context.result(
-          { commandIdentity: "specimen.read", causeCode: "SUCCESS_UNCHANGED" },
-          { message: "Read.", data: null, effects: unchanged },
-        ),
-    }),
-  ],
+const read = command({
+  identity: "specimen.read",
+  route: ["read"],
+  summary: "Read a note.",
+  input: emptyInput,
+  capabilities: {},
+  run: (_input, context) =>
+    context.result(
+      { commandIdentity: "specimen.read", causeCode: "SUCCESS_UNCHANGED" },
+      { message: "Read.", data: null, effects: unchanged },
+    ),
 });
+const helpCli = contractFor({ cli: "specimen", commands: [read] });
 
 test("help data is complete and agrees with executable declarations", async () => {
   const valid = helpCli.help();
