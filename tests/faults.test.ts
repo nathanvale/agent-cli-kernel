@@ -445,6 +445,48 @@ describe("bun run faults", () => {
     );
 
   test(
+    "FR.l a stop that finds the step's process group holding only zombies still exits 130 (macOS answers EPERM there)",
+    async () => {
+      const { root, id } = await repositoryWithFault({});
+      // The shim leaves a zombie in git's process group and holds git's
+      // output open from another group, so the script still tracks git
+      // when the stop arrives. The 2 s hold is the window for the stop
+      // handler to run before the step ends.
+      const tools = folder("faults-zombie-");
+      const realGit = Bun.which("git");
+      if (realGit === null) throw new Error("git is not on PATH.");
+      write(
+        tools,
+        "bin/git",
+        `#!/bin/sh
+if [ "$1" = worktree ] && [ "$2" = add ]; then
+  perl -e '
+    my ($faults, $shim) = @ARGV;
+    if (!fork) { exit 0 }
+    setpgrp(0, 0);
+    select(undef, undef, undef, 0.01) while getppid() == $shim;
+    kill "INT", $faults;
+    select(undef, undef, undef, 2);
+  ' "$PPID" "$$" &
+fi
+exec '${realGit}' "$@"
+`,
+      );
+      chmodSync(join(tools, "bin/git"), 0o755);
+      const run = await faults(root, [], {
+        env: { PATH: `${join(tools, "bin")}${delimiter}${process.env.PATH}` },
+      });
+      expect(run.stderr).toContain(
+        `Stopped by SIGINT while replaying ${id}, so it has no verdict.\n`,
+      );
+      expect(verdicts(run.lines)).toEqual([]);
+      expect(run.exit).toBe(130);
+      expectNoLeftovers(root, run.temporary);
+    },
+    processWatchdog(2),
+  );
+
+  test(
     "FR.h a terminal's group SIGINT while git removes the worktree still removes it, and exits 130",
     async () => {
       const { root } = await repositoryWithFault({});

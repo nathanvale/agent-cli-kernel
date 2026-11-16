@@ -29,6 +29,9 @@ type Verdict =
   | { kind: "BROKEN"; output: string };
 
 const signals = ["SIGHUP", "SIGINT", "SIGTERM"] as const;
+// The step's group has no live process to stop. ESRCH: every member is
+// reaped. EPERM: macOS answers it when every member left is a zombie.
+const groupGone = new Set<unknown>(["ESRCH", "EPERM"]);
 const active: { child?: Subprocess; stoppedBy?: (typeof signals)[number] } = {};
 const snapshotAuthor = {
   GIT_AUTHOR_NAME: "faults",
@@ -319,7 +322,7 @@ for (const signal of signals)
     try {
       process.kill(-pid, "SIGTERM");
     } catch (error) {
-      if (Reflect.get(Object(error), "code") !== "ESRCH") throw error;
+      if (!groupGone.has(Reflect.get(Object(error), "code"))) throw error;
     }
   });
 
