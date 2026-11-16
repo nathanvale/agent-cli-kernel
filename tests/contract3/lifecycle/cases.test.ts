@@ -80,7 +80,7 @@ test("every status-seam case identity is exercised in its home file", () => {
     record(listed) && Array.isArray(listed.cases) ? listed.cases : [];
   if (typeof home !== "string") throw new Error("No status-seam home file.");
   const source = readFileSync(join(import.meta.dir, "..", home), "utf8");
-  expect(cases.length).toBe(12);
+  expect(cases.length).toBe(13);
   for (const entry of cases) {
     const id = record(entry) ? entry.id : undefined;
     if (typeof id !== "string") throw new Error("Malformed status-seam case.");

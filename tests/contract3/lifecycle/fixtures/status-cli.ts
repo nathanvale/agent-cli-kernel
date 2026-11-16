@@ -31,18 +31,19 @@ function sleep(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
+const availableStatus = {
+  status: "available",
+  file: "/private/state/st/diagnostics/run.log",
+  sinkFailure: null,
+  droppedRecords: 0,
+  unflushedRecords: 0,
+  truncatedRecords: 0,
+  countsComplete: true,
+  closed: true,
+};
 // Valid statuses of both variants (DIAG-2, DIAG-3) and one invalid one.
 const statuses: Readonly<Record<string, unknown>> = {
-  available: {
-    status: "available",
-    file: "/private/state/st/diagnostics/run.log",
-    sinkFailure: null,
-    droppedRecords: 0,
-    unflushedRecords: 0,
-    truncatedRecords: 0,
-    countsComplete: true,
-    closed: true,
-  },
+  available: availableStatus,
   unavailable: {
     status: "unavailable",
     reason: "status-unavailable",
@@ -62,6 +63,24 @@ const statuses: Readonly<Record<string, unknown>> = {
   },
 };
 
+// Seam review hostile statuses. `oversize` is valid but too large for the
+// 16,384-byte fallback; `accessor` reads valid once and invalid after;
+// `nonjson` is not plain JSON but serialises to a valid status.
+function hostile(): unknown {
+  if (mode === "oversize")
+    return { ...availableStatus, file: `/${"a".repeat(16_000)}` };
+  if (mode === "accessor") {
+    let reads = 0;
+    const base = { ...availableStatus };
+    Object.defineProperty(base, "file", {
+      enumerable: true,
+      get: () => (reads++ === 0 ? "/private/run.log" : "relative/run.log"),
+    });
+    return base;
+  }
+  return { toJSON: () => availableStatus };
+}
+
 async function frozen(limit: number): Promise<unknown> {
   ledger(`freeze-start ${limit} ${Date.now()}`);
   switch (mode) {
@@ -69,6 +88,10 @@ async function frozen(limit: number): Promise<unknown> {
       throw new Error("FX-STATUS-PAYLOAD freeze failed");
     case "never":
       return new Promise(() => undefined);
+    case "oversize":
+    case "accessor":
+    case "nonjson":
+      return hostile();
     case "slow":
       // Within the 500 ms budget.
       await sleep(300);
@@ -84,6 +107,7 @@ const statusAddon: RunAddon<DiagnosticsCapability> = {
   reportsStatus: true,
   attach(run) {
     ledger(`status-attach ${run.commandIdentity}`);
+    if (mode === "attach-throws") throw new Error("Fixture attach fault.");
     return {
       capability: Object.freeze({
         record: (event: string) => ledger(`record ${event}`),

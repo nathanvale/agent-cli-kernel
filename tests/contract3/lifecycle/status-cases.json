@@ -29,6 +29,10 @@
       "variants": ["SIGTERM", "SIGINT"]
     },
     { "id": "DS09.one-reporter-per-command", "layer": "component" },
-    { "id": "DS10.slow-freeze-within-budget" }
+    { "id": "DS10.slow-freeze-within-budget" },
+    {
+      "id": "DS11.reporter-attach-fault-never-crashes",
+      "source": "seam review S2"
+    }
   ]
 }

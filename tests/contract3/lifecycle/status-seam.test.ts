@@ -491,3 +491,76 @@ describe("K3K5 a settle fault keeps the exit path", () => {
     timeout,
   );
 });
+
+// Seam review follow-ups (contract S1, S2 and the test gaps).
+describe("seam review: hostile statuses and a failing reporter attach", () => {
+  test(
+    "F02.diagnostics-in-fallback oversize status",
+    async () => {
+      const observed = await runStatus(
+        ["report", "--bad", "--json"],
+        "oversize",
+      );
+      const { envelope, result } = parsed(observed);
+      expect(result.causeCode).toBe("INTERNAL_RESULT_UNCHANGED");
+      expect(observed.code).toBe(1);
+      expect(observed.stdout.byteLength).toBeLessThanOrEqual(16_384);
+      expect(envelope.diagnostics).toEqual(statusUnavailable);
+    },
+    timeout,
+  );
+  test(
+    "F02.diagnostics-in-fallback owned program survived",
+    async () => {
+      const observed = await runStatus(
+        ["report", "--program", "--json"],
+        "available",
+        { FX_SETTLE_THROWS: "1" },
+      );
+      const { envelope, result } = parsed(observed);
+      expect(result.causeCode).toBe("INTERNAL_RESULT_UNCHANGED");
+      expect(envelope.diagnostics).toEqual(ownAvailable);
+    },
+    timeout,
+  );
+  for (const [mode, expected] of [
+    ["accessor", undefined],
+    ["nonjson", statusInvalid],
+  ] as const)
+    test(
+      `W06.diagnostics-fault-no-fallback ${mode}`,
+      async () => {
+        const twin = parsed(await runStatus(["report", "--json"], "available"));
+        const observed = await runStatus(["report", "--json"], mode);
+        const { envelope, result } = parsed(observed);
+        expect(result.causeCode).toBe("SUCCESS_UNCHANGED");
+        expect(observed.code).toBe(0);
+        expect(comparableEnvelope(envelope)).toBe(
+          comparableEnvelope(twin.envelope),
+        );
+        // The accessor may be copied valid or invalid; either way the copy,
+        // not a second read, is what the envelope carries.
+        if (expected) expect(envelope.diagnostics).toEqual(expected);
+        else
+          expect(["available", "unavailable"]).toContain(
+            String(Reflect.get(Object(envelope.diagnostics), "status")),
+          );
+      },
+      timeout,
+    );
+  test(
+    "DS11.reporter-attach-fault-never-crashes",
+    async () => {
+      const observed = await runStatus(
+        ["report", "--record", "--json"],
+        "attach-throws",
+      );
+      const { envelope, result } = parsed(observed);
+      expect(result.causeCode).toBe("SUCCESS_UNCHANGED");
+      expect(observed.code).toBe(0);
+      expect(observed.ledger).toContain("handler-done");
+      expect(envelope.diagnostics).toEqual(statusUnavailable);
+    },
+    timeout,
+  );
+});
