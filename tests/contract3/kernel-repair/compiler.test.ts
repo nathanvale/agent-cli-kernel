@@ -1,7 +1,6 @@
-import { afterAll, beforeAll, expect } from "bun:test";
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { expect } from "bun:test";
 import { join, resolve } from "node:path";
+import { probeBatch } from "../locks/probes.ts";
 import { runFamily } from "./harness.ts";
 
 // Compiler locks for R13 (F11) and R14 (F14), following the oracle lock
@@ -11,86 +10,59 @@ import { runFamily } from "./harness.ts";
 // Codes and lines are bound against the repaired fixture.
 const root = resolve(import.meta.dir, "../../..");
 const kernel = join(root, "starters/contract3/src/kernel/index.ts");
-let directory = "";
-beforeAll(async () => {
-  directory = await mkdtemp(join(tmpdir(), "contract3-repair-locks-"));
-  await mkdir(join(directory, "locks"));
-  await symlink(join(root, "node_modules"), join(directory, "node_modules"));
-  await writeFile(
-    join(directory, "tsconfig.json"),
-    JSON.stringify({
-      extends: join(root, "tsconfig.json"),
-      include: [],
-      files: ["locks/probe.ts"],
-    }),
-  );
-});
-afterAll(async () => {
-  await rm(directory, { recursive: true, force: true });
-});
+const probe = probeBatch("contract3-repair-locks-");
+const compilers = ["native", "lint-view"] as const;
+type Check = () => Promise<void>;
 
-async function compile(source: string, compiler: "native" | "lint-view") {
-  await writeFile(join(directory, "locks/probe.ts"), source);
-  const executable =
-    compiler === "native"
-      ? "node_modules/@typescript/native/bin/tsc"
-      : "node_modules/typescript/bin/tsc6";
-  const child = Bun.spawn(
-    [
-      process.execPath,
-      join(root, executable),
-      "--noEmit",
-      "--pretty",
-      "false",
-      "-p",
-      join(directory, "tsconfig.json"),
-    ],
-    { cwd: root, stdout: "pipe", stderr: "pipe" },
-  );
-  const [stdout, stderr, exit] = await Promise.all([
-    new Response(child.stdout).text(),
-    new Response(child.stderr).text(),
-    child.exited,
-  ]);
-  return {
-    stdout,
-    stderr,
-    exit,
-    diagnostics: [
-      ...stdout.matchAll(/^(.+)\((\d+),(\d+)\): error TS(\d+):/gm),
-    ].map((match) => ({ line: Number(match[2]), code: Number(match[4]) })),
-  };
-}
 const header = (setup: string) =>
   `import { contractFor, commonCauses } from ${JSON.stringify(kernel)};\nimport type { CauseTable, InputSchema, ParsedInput, ResultFor } from ${JSON.stringify(kernel)};\nvoid contractFor; void commonCauses;\n${setup}\n`;
-async function compiles(setup: string, statement: string) {
-  for (const compiler of ["native", "lint-view"] as const)
-    expect(
-      await compile(`${header(setup)}${statement}\n`, compiler),
-    ).toMatchObject({ exit: 0, stdout: "", stderr: "" });
+function compiles(setup: string, statement: string): Check {
+  const program = probe(`${header(setup)}${statement}\n`);
+  return async () => {
+    for (const compiler of compilers)
+      expect(await program.compile(compiler)).toMatchObject({
+        exit: 0,
+        stdout: "",
+        stderr: "",
+      });
+  };
 }
-async function lock(
+function lock(
   setup: string,
   invalid: string,
   valid: string,
   code: number,
-) {
+): Check {
   const prefix = header(setup);
   const line = prefix.split("\n").length + 1;
-  for (const compiler of ["native", "lint-view"] as const) {
-    const marked = await compile(
-      `${prefix}// @ts-expect-error -- repair lock\n${invalid}\n`,
-      compiler,
-    );
-    expect(marked).toMatchObject({ exit: 0, stdout: "", stderr: "" });
-    const rejected = await compile(
-      `${prefix}// removed marker\n${invalid}\n`,
-      compiler,
-    );
-    expect(rejected.stderr).toBe("");
-    expect(rejected.diagnostics).toEqual([{ line, code }]);
-  }
-  await compiles(setup, valid);
+  const marked = probe(
+    `${prefix}// @ts-expect-error -- repair lock\n${invalid}\n`,
+  );
+  const unmarked = probe(`${prefix}// removed marker\n${invalid}\n`);
+  const twin = compiles(setup, valid);
+  return async () => {
+    for (const compiler of compilers) {
+      expect(await marked.compile(compiler)).toMatchObject({
+        exit: 0,
+        stdout: "",
+        stderr: "",
+      });
+      const rejected = await unmarked.compile(compiler);
+      expect(rejected.stderr).toBe("");
+      expect(
+        rejected.diagnostics.map((found) => ({
+          line: found.line,
+          code: found.code,
+        })),
+      ).toEqual([{ line, code }]);
+    }
+    await twin();
+  };
+}
+function inOrder(checks: readonly Check[]): Check {
+  return async () => {
+    for (const check of checks) await check();
+  };
 }
 
 // R14: result types written from the WIRE-15 rows.
@@ -114,30 +86,32 @@ const invalid = {
   retryNoDelay: `const value: W = { ${transient}, data: null };`,
   delayNotRetryable: `const value: W = { ${success}, data: null, repairAction: null, effectClass: "inspect", retryDelayMilliseconds: 5 };`,
 };
-async function bothTables(invalidStatement: string, valid: string) {
-  for (const setup of Object.values(tables))
-    await lock(setup, invalidStatement, valid, 2322);
-}
+const bothTables = (invalidStatement: string, valid: string) =>
+  inOrder(
+    Object.values(tables).map((setup) =>
+      lock(setup, invalidStatement, valid, 2322),
+    ),
+  );
 
 runFamily(
   "R14",
   {
-    "R14.widened-valid-twins": async () => {
-      for (const twin of Object.values(twins))
-        await compiles(tables.widened, twin);
-    },
-    "R14.contract-valid-twins": async () => {
-      for (const twin of Object.values(twins))
-        await compiles(tables.contract, twin);
-    },
-    "R14.success-repair-lock": () =>
-      bothTables(invalid.successRepair, twins.object),
-    "R14.refused-data-lock": () =>
-      bothTables(invalid.refusedData, twins.transient),
-    "R14.retryable-no-delay-lock": () =>
-      bothTables(invalid.retryNoDelay, twins.transient),
-    "R14.non-retryable-delay-lock": () =>
-      bothTables(invalid.delayNotRetryable, twins.inspect),
+    "R14.widened-valid-twins": inOrder(
+      Object.values(twins).map((twin) => compiles(tables.widened, twin)),
+    ),
+    "R14.contract-valid-twins": inOrder(
+      Object.values(twins).map((twin) => compiles(tables.contract, twin)),
+    ),
+    "R14.success-repair-lock": bothTables(invalid.successRepair, twins.object),
+    "R14.refused-data-lock": bothTables(invalid.refusedData, twins.transient),
+    "R14.retryable-no-delay-lock": bothTables(
+      invalid.retryNoDelay,
+      twins.transient,
+    ),
+    "R14.non-retryable-delay-lock": bothTables(
+      invalid.delayNotRetryable,
+      twins.inspect,
+    ),
   },
   120000,
 );
@@ -155,24 +129,26 @@ const slots = {
 runFamily(
   "R13",
   {
-    "R13.widened-array-assigns": () =>
-      compiles(slots.widened, "const value: Tag = tags;"),
-    "R13.widened-scalar-assigns": () =>
-      compiles(slots.widened, 'const value: Tag = "a";'),
-    "R13.literal-true-scalar-lock": () =>
-      lock(
-        slots.literalTrue,
-        'const value: Tag = "a";',
-        "const value: Tag = tags;",
-        2322,
-      ),
-    "R13.literal-false-array-lock": () =>
-      lock(
-        slots.literalFalse,
-        "const value: Tag = tags;",
-        'const value: Tag = "a";',
-        2322,
-      ),
+    "R13.widened-array-assigns": compiles(
+      slots.widened,
+      "const value: Tag = tags;",
+    ),
+    "R13.widened-scalar-assigns": compiles(
+      slots.widened,
+      'const value: Tag = "a";',
+    ),
+    "R13.literal-true-scalar-lock": lock(
+      slots.literalTrue,
+      'const value: Tag = "a";',
+      "const value: Tag = tags;",
+      2322,
+    ),
+    "R13.literal-false-array-lock": lock(
+      slots.literalFalse,
+      "const value: Tag = tags;",
+      'const value: Tag = "a";',
+      2322,
+    ),
   },
   120000,
 );
