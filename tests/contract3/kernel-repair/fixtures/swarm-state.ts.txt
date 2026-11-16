@@ -332,7 +332,8 @@ export function lateTransactionContract(
 }
 
 // X-K2S2: run "R" completes "e" under a proof; a second run under
-// `secondRunId` returns the HELD refusal. Returns what each build reports.
+// `secondRunId` returns the HELD refusal; a third run reuses "R" again.
+// Returns what each execution and build reports.
 export async function runReuse(secondRunId: string) {
   let calls = 0;
   const state = installation(completedObservation);
@@ -378,7 +379,7 @@ export async function runReuse(secondRunId: string) {
   });
   const view = async (runId: string) => {
     const executed = await contract.execute("specimen.apply", [], runId);
-    if (!executed.ok) return { executed: false };
+    if (!executed.ok) return { executed: false, path: executed.path };
     const built = await contract.buildResult(executed.value);
     return built.ok
       ? {
@@ -390,7 +391,11 @@ export async function runReuse(secondRunId: string) {
         }
       : { executed: true, built: false };
   };
-  return { first: await view("R"), second: await view(secondRunId) };
+  return {
+    first: await view("R"),
+    second: await view(secondRunId),
+    third: await view("R"),
+  };
 }
 
 // X-S6: an installation whose attach reports each attachment.

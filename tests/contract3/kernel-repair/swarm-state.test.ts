@@ -132,9 +132,12 @@ test(
       transactionState: "completed",
       completed: ["e"],
     };
+    // The reuse is refused for its own reason (path runId), every time.
+    const reused = { executed: false, path: "runId" };
     expect(await printed("run-reuse", { SECOND_RUN_ID: "R" })).toEqual({
       first: completed,
-      second: { executed: false },
+      second: reused,
+      third: reused,
     });
     // Twin: a fresh run identity builds the HELD refusal normally.
     expect(await printed("run-reuse", { SECOND_RUN_ID: "R2" })).toEqual({
@@ -146,6 +149,7 @@ test(
         transactionState: "unchanged",
         completed: [],
       },
+      third: { executed: false, path: "runId" },
     });
   },
   processTimeout,

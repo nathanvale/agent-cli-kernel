@@ -253,6 +253,8 @@ const registrations = new WeakMap<
     readonly registration: StateRegistration;
     readonly installation: object;
     readonly runs: Map<string, object>;
+    // Every run identity this installation has claimed (WIRE-7).
+    readonly used: Set<string>;
     readonly active: AsyncLocalStorage<{
       readonly runId: string;
       readonly run: object;
@@ -277,7 +279,13 @@ export function createStateAddon(
     [stateAddonDescriptor]: true as const,
     ifNoResult: registration.ifNoResult,
   });
-  registrations.set(descriptor, { registration, installation, runs, active });
+  registrations.set(descriptor, {
+    registration,
+    installation,
+    runs,
+    active,
+    used: new Set(),
+  });
   return descriptor;
 }
 export function admittedState(descriptor: object): boolean {
@@ -287,14 +295,19 @@ export function admittedState(descriptor: object): boolean {
 // WIRE-7: a run identity is unique. A second attachment of one runId to an
 // installation is refused, and the earlier attachment is superseded, so no
 // proof or scope from either execution stands for that identity
-// (K2-spec-2). True when the run identity is fresh for this installation.
+// (K2-spec-2). True, and recorded, when the run identity is fresh for this
+// installation; a used identity stays used, so every later reuse is refused
+// too (repair 1, B2).
 export function claimRun(
   descriptor: StateAddonDescriptor,
   runId: string,
 ): boolean {
   const state = registrations.get(descriptor);
-  if (!state) return false;
-  if (!state.runs.has(runId)) return true;
+  if (!state) throw new Error("Unadmitted state descriptor.");
+  if (!state.used.has(runId)) {
+    state.used.add(runId);
+    return true;
+  }
   state.runs.delete(runId);
   return false;
 }
