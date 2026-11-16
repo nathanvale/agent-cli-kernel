@@ -419,7 +419,7 @@ describe("bun run faults", () => {
         "bin/git",
         `#!/bin/sh
 if [ "$1" = worktree ] && [ "$2" = remove ]; then
-  kill -INT -- -"$(ps -o pgid= -p "$PPID" | tr -d ' ')"
+  kill -INT -"$(ps -o pgid= -p "$PPID" | tr -d ' ')"
 fi
 exec '${realGit}' "$@"
 `,
