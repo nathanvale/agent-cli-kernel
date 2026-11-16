@@ -3,7 +3,7 @@
 // independent restatement of the frozen file layouts, and the child-process
 // driver. It materializes a copy of the stamped kernel and the approval
 // add-on under test beside the disposable coordination fixture, and reads
-// grant, ledger and effect state independently of the add-on.
+// grant, approval store and effect state independently of the add-on.
 import { expect } from "bun:test";
 import { createHash } from "node:crypto";
 import { appendFileSync, constants } from "node:fs";
@@ -34,7 +34,7 @@ const repository = new URL("../../../", import.meta.url).pathname;
 export type World = {
   readonly root: string;
   readonly grants: string;
-  readonly ledger: string;
+  readonly consumed: string;
   readonly effects: string;
   readonly revision: string;
   readonly clock: string;
@@ -121,7 +121,7 @@ export async function createWorld(): Promise<World> {
   const world = {
     root,
     grants: join(root, "grants"),
-    ledger: join(root, "ledger"),
+    consumed: join(root, "consumed"),
     effects: join(root, "effects.log"),
     revision: join(root, "revision"),
     clock: join(root, "clock"),
@@ -129,7 +129,7 @@ export async function createWorld(): Promise<World> {
     contacts: join(root, "contacts.log"),
     authority: join(root, "authority"),
   };
-  for (const directory of [world.grants, world.ledger, world.authority])
+  for (const directory of [world.grants, world.consumed, world.authority])
     await mkdir(directory);
   await writeFile(world.revision, "r0");
   await writeFile(world.clock, "1000");
@@ -240,7 +240,7 @@ export async function snapshot(world: World) {
     .split("\n")
     .filter((line) => line.length > 0);
   return {
-    markers: (await readdir(world.ledger)).sort(),
+    markers: (await readdir(world.consumed)).sort(),
     effects,
     authority: hash.digest("hex"),
   };

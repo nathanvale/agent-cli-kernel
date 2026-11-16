@@ -1097,7 +1097,7 @@ const audit = changing({
 // ---- Approved change (CMD-9 step 7) ----------------------------------------
 const approvalStore = {
   grants: join(world, "approval", "grants"),
-  ledger: join(world, "approval", "ledger"),
+  consumed: join(world, "approval", "consumed"),
 };
 let approvalRuntime: ApprovalRuntime | undefined;
 const approvalAddon: RunAddon<ApprovalCapability> = {

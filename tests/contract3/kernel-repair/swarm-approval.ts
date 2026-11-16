@@ -12,7 +12,7 @@ export function approvalAddon(operation: string, note: (line: string) => void) {
         ? approval({
             operation,
             runId: run.runId,
-            store: { grants: store, ledger: store },
+            store: { grants: store, consumed: store },
           }).capability
         : {
             // CHECK_DELAY delays the answer and ledgers `check-start` as a

@@ -7,7 +7,7 @@
 // Consumption verifies at run time that the kernel issued the coordination
 // (K2). That needs the state add-on instance's descriptor, which this
 // add-on never imports from the state add-on: whoever holds it passes it in,
-// the host composition (the descriptor it gives contractFor) or the state
+// the host's wiring (the descriptor it gives contractFor) or the state
 // add-on (its own). Preflight needs no descriptor.
 import { access, lstat } from "node:fs/promises";
 import { constants } from "node:fs";
@@ -37,7 +37,7 @@ export type ApprovalStore = {
   // Directory of grant records, one per preview, named by grantLocation.
   readonly grants: string;
   // Directory of consumption markers. Shared by every authority kind.
-  readonly ledger: string;
+  readonly consumed: string;
 };
 
 function absolute(directory: string): string {
@@ -133,7 +133,7 @@ export function approval(options: {
   readonly runtime: (state: StateAddonDescriptor) => ApprovalRuntime;
   readonly capability: ApprovalCapability;
 } {
-  const ledger = absolute(options.store.ledger);
+  const consumedDirectory = absolute(options.store.consumed);
   const now = options.now ?? Date.now;
   // Every denial reason collapses here into one indistinguishable value.
   async function currentGrant(request: ApprovalRequest) {
@@ -143,7 +143,7 @@ export function approval(options: {
     );
     const grant = opened && parseGrant(opened.value);
     return grant && grantMatches(grant, request, options.operation, now())
-      ? markerPath(ledger, itemKey(["approval", request.preview]))
+      ? markerPath(consumedDirectory, itemKey(["approval", request.preview]))
       : undefined;
   }
   async function check(request: ApprovalRequest) {
@@ -327,7 +327,7 @@ function recordPath(source: AuthoritySource, key: readonly string[]): string {
 function slot<Item extends { readonly scope: string }>(
   options: {
     readonly runId: string;
-    readonly ledger: string;
+    readonly consumed: string;
     readonly now: () => number;
     readonly source: AuthoritySource | undefined;
   },
@@ -342,7 +342,7 @@ function slot<Item extends { readonly scope: string }>(
     if (!opened) return refused;
     if (!(await source.separated(opened.facts))) return unavailable();
     return matches(opened.value, item, options.now())
-      ? markerPath(options.ledger, itemKey(key(item)))
+      ? markerPath(options.consumed, itemKey(key(item)))
       : refused;
   }
   return Object.freeze({
@@ -404,7 +404,7 @@ function stopMatches(record: unknown, item: StopItem, now: number): boolean {
 // consume() rejects with ApprovalRejection exactly as revalidateAndConsume.
 export function authorityVerifier(options: {
   readonly runId: string;
-  readonly ledger: string;
+  readonly consumed: string;
   readonly now?: () => number;
   readonly closure?: AuthoritySource;
   readonly stop?: AuthoritySource;
@@ -414,7 +414,7 @@ export function authorityVerifier(options: {
 } {
   const shared = {
     runId: options.runId,
-    ledger: absolute(options.ledger),
+    consumed: absolute(options.consumed),
     now: options.now ?? Date.now,
   };
   return Object.freeze({

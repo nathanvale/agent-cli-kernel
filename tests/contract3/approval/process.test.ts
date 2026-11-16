@@ -1,6 +1,6 @@
 // Real child-process T4 cases. Each driver is a separate Bun process using
 // the real approval add-on, a kernel-issued ExclusiveScope from the
-// disposable coordination fixture, and readiness barriers. Grant, ledger,
+// disposable coordination fixture, and readiness barriers. Grant, approval store,
 // lock and effect state are read independently after the named barrier or
 // after the process terminated.
 import {
@@ -155,7 +155,7 @@ function inspect() {
   const { capability } = approval({
     operation: grant.operation,
     runId: "inspection",
-    store: { grants: world.grants, ledger: world.ledger },
+    store: { grants: world.grants, consumed: world.consumed },
     now: () => 1000,
   });
   return capability.check({
@@ -242,7 +242,7 @@ test("A03.f-identical-kernel-refusal", async () => {
     "p-rev",
   );
   await writeGrant(world, { ...grant, preview: "p-used" }, "p-used");
-  await writeFile(join(world.ledger, markerName(["approval", "p-used"])), "");
+  await writeFile(join(world.consumed, markerName(["approval", "p-used"])), "");
   await writeGrant(
     world,
     { ...grant, preview: "p-op", operation: "x.y" },
@@ -281,13 +281,13 @@ test("A03.g-identical-consume-refusal", async () => {
   const mutations: readonly (() => Promise<void>)[] = [
     () => removeAll(join(world.grants)).then(() => mkdir(world.grants)),
     () => writeFile(world.clock, "9000"),
-    () => writeFile(join(world.ledger, approvalMarker), ""),
+    () => writeFile(join(world.consumed, approvalMarker), ""),
     () => writeGrant(world, { ...grant, operation: "fixture.other" }),
   ];
   const consumeEvents: string[] = [];
   for (const [index, mutate] of mutations.entries()) {
-    await removeAll(world.ledger);
-    await mkdir(world.ledger);
+    await removeAll(world.consumed);
+    await mkdir(world.consumed);
     await writeFile(world.clock, "1000");
     await writeGrant(world, grant);
     const driver = startApply(`run-${index}`, {
@@ -484,7 +484,7 @@ test("A09.a-phase-observations", async () => {
   expect(consumed.markers).toEqual([approvalMarker]);
   expect(consumed.effects).toEqual([]);
   expect(
-    JSON.parse(await readFile(join(world.ledger, approvalMarker), "utf8")),
+    JSON.parse(await readFile(join(world.consumed, approvalMarker), "utf8")),
   ).toEqual({ kind: "approval", runId: "ordered", consumedAt: 1000 });
   await driver.go();
   expect(await driver.next()).toEqual({ phase: "effect" });
@@ -613,15 +613,15 @@ test("A13.a-torn-marker", async () => {
     (path) => symlink(join(world.root, "missing"), path),
   ];
   for (const [index, make] of torn.entries()) {
-    await removeAll(world.ledger);
-    await mkdir(world.ledger);
+    await removeAll(world.consumed);
+    await mkdir(world.consumed);
     await writeGrant(world, grant);
     const driver = startApply(`torn-${index}`, {
       barriers: ["after-preflight"],
     });
     expect(await driver.next()).toEqual({ phase: "preflight", admitted: true });
     expect(await driver.next()).toEqual({ barrier: "after-preflight" });
-    await make(join(world.ledger, approvalMarker));
+    await make(join(world.consumed, approvalMarker));
     const before = await snapshot(world);
     expect(await inspect()).toBe(false);
     await driver.go();
@@ -862,7 +862,7 @@ test("T4S.r1-approval-coordination-lost: consumed, no effect, no refund", async 
   const before = await snapshot(world);
   const lost = await apply("lost", {
     coordination: "lost-after-consume",
-    lostMarker: join(world.ledger, approvalMarker),
+    lostMarker: join(world.consumed, approvalMarker),
   });
   expect(applyOutcome(lost.events)).toBe("coordination-lost");
   const after = await snapshot(world);
@@ -896,7 +896,7 @@ test("T4S.r1-stop-coordination-lost: attestation consumed, no refund", async () 
   const lost = await runClean(
     authorityConfig("stop", "lost", {
       coordination: "lost-after-consume",
-      lostMarker: join(world.ledger, marker),
+      lostMarker: join(world.consumed, marker),
     }),
   );
   expect(authorityOutcome(lost.events)).toBe("coordination-lost");
@@ -907,7 +907,7 @@ test("T4S.r1-stop-coordination-lost: attestation consumed, no refund", async () 
   ]);
 });
 
-// B3.04 (bindings B3; CMD-15, WIRE-9, WIRE-18): through the real front door,
+// B3.04 (accepted decision B3; CMD-15, WIRE-9, WIRE-18): through the real front door,
 // on a command that declares no DOMAIN_AUTHORITY_REQUIRED tuple, the
 // missing, stale (expired and revision), consumed and mismatched grant
 // variants give byte-identical public output once the run identity is
@@ -956,7 +956,7 @@ test("B3.04.identical-denials-carry-defaults", async () => {
     () => writeGrant(world, { ...grant, resourceRevision: "r9" }),
     async () => {
       await writeGrant(world, grant);
-      await writeFile(join(world.ledger, approvalMarker), "");
+      await writeFile(join(world.consumed, approvalMarker), "");
     },
     () => writeGrant(world, { ...grant, operation: "x.y" }),
   ];
@@ -964,7 +964,7 @@ test("B3.04.identical-denials-carry-defaults", async () => {
   const outputs: string[] = [];
   const runIds = new Set<string>();
   for (const prepare of variants) {
-    for (const directory of [world.grants, world.ledger]) {
+    for (const directory of [world.grants, world.consumed]) {
       await removeAll(directory);
       await mkdir(directory);
     }
@@ -1000,7 +1000,7 @@ test("B3.04.identical-denials-carry-defaults", async () => {
   expect(outputs).toHaveLength(variants.length);
   expect(new Set(outputs).size).toBe(1);
   // Valid twin: the same invocation with a valid grant reaches the handler.
-  for (const directory of [world.grants, world.ledger]) {
+  for (const directory of [world.grants, world.consumed]) {
     await removeAll(directory);
     await mkdir(directory);
   }
@@ -1101,17 +1101,17 @@ test("T4S.r5-fixture-lint: the materialized tree passes contract3 lint", async (
   ]);
 }, 120_000);
 
-// N5: the marker exists but its directory flush fails. The ledger allows
+// N5: the marker exists but its directory flush fails. The approval store allows
 // create and search (0o300) but not the read needed to open it for fsync.
 test("T4S.n5-durability-unconfirmed: a failed flush after creation reports consumption", async () => {
   await writeGrant(world, grant);
   const before = await snapshot(world);
-  await chmod(world.ledger, 0o300);
+  await chmod(world.consumed, 0o300);
   let unflushed;
   try {
     unflushed = await apply("unflushed");
   } finally {
-    await chmod(world.ledger, 0o700);
+    await chmod(world.consumed, 0o700);
   }
   expect(applyOutcome(unflushed.events)).toBe("durability-unconfirmed");
   const after = await snapshot(world);
@@ -1129,7 +1129,7 @@ test("T4S.l2-close-failure: a failed close after creation reports consumption", 
   await writeGrant(world, grant);
   const before = await snapshot(world);
   const failed = await apply("close-fails", {
-    failCloseAfter: join(world.ledger, approvalMarker),
+    failCloseAfter: join(world.consumed, approvalMarker),
   });
   expect(applyOutcome(failed.events)).toBe("durability-unconfirmed");
   const after = await snapshot(world);
