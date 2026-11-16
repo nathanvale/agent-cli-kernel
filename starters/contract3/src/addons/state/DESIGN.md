@@ -207,28 +207,75 @@ Conflict keys:
 
 ## 7. Coordination lock protocol
 
-Primitive: a non-blocking exclusive `flock`-style lock taken at open time
-with the Darwin numeric flag `O_EXLOCK` (`0x20`) together with `O_RDWR`,
-`O_CREAT`, `O_NONBLOCK` and `O_NOFOLLOW`, held for as long as the descriptor
-stays open. Refusal is `EAGAIN`. The kernel releases it when the descriptor
-closes, including on SIGKILL. It is advisory among cooperating writers.
+The coordination lock is a non-blocking, exclusive, advisory lock owned by
+an open file description (the `flock` family), held for as long as the
+descriptor stays open. The kernel releases it when the last descriptor on
+that description closes, including on SIGKILL, so nothing is ever cleaned,
+unlinked or renamed to recover it. It is advisory among cooperating add-on
+processes only; nothing protects against a process that ignores it. One
+route per platform, behind one interface (`coordination.ts`):
 
-- Darwin only. On every other platform the flag has no exclusion meaning,
-  so the coordination primitive is unavailable and every changing route
-  refuses before any write (fail closed). This is not a pass on that
-  platform.
-- Qualified at probe level only (lock probe, 16 November 2026, Darwin
-  macOS 26.6, APFS local volume, Bun 1.4.4). Network and shared filesystems
-  are unsupported and not detected.
+| Platform      | Route                                                                                                                                                 | Refusal                                   |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| Darwin        | the numeric flag `O_EXLOCK` (`0x20`) at open, with `O_RDWR`, `O_CREAT`, `O_NONBLOCK` and `O_NOFOLLOW` (unchanged)                                     | `EAGAIN` from `open`                      |
+| Linux (glibc) | `open` through `node:fs` with `O_RDWR`, `O_CREAT` and `O_NOFOLLOW` (Bun opens close-on-exec), then `flock(fd, LOCK_EX \| LOCK_NB)` through `bun:ffi` | `EWOULDBLOCK` (`EAGAIN`, 11) from `flock` |
+| any other     | none                                                                                                                                                  | every changing route refuses (below)      |
+
+- Linux route decision: Nathan, 16 November 2026, 14:22 (route A). The
+  POSIX record lock family (`fcntl` `F_SETLK`, `lockf`, and `bun:sqlite`,
+  which uses it) is not used: the process owns those locks, so closing any
+  other descriptor on the file drops them, and a second open in the same
+  process acquires again.
+- One module, `linux-flock.ts`, owns the foreign call: the library name
+  `libc.so.6`, the signature `flock(i32, i32) -> i32`, the constants
+  `LOCK_EX` (2) and `LOCK_NB` (4), and reading `errno` through
+  `__errno_location` straight after a failed call. Nothing else in the
+  add-on imports `bun:ffi`, and lint bans it everywhere else in contract
+  source. A lock is held only when `flock` returns 0, so a misread `errno`
+  can only become a refusal.
+- Start-up self-check (Linux): when the add-on is installed it loads the
+  library, resolves both symbols and calls `flock(-1, LOCK_EX | LOCK_NB)`,
+  which must return -1 with `EBADF` (9). It touches no file. It proves the
+  binding and the error read, not the filesystem.
+- Fail closed: when the platform has no route, or the self-check fails,
+  coordination is unavailable. Every changing route, recovery included,
+  refuses before any write (no state root, no coordination file, no
+  intent) with reason `coordination-unqualified-platform` or
+  `coordination-self-check-failed`. The refusal detail and
+  `capabilities()` carry the observed facts (platform, architecture, kernel
+  release, the failing step) and the qualified scope. A call that fails
+  with any other error after admission began releases everything taken, in
+  reverse, and refuses `coordination-failed` (section 7.1 step 3). There is
+  no fallback: no lock file, no PID file, no lock age, no "proceed without
+  a coordination lock". Read routes take no coordination lock and stay
+  available.
+- The order of acquisition is the same on both platforms (section 7.1).
+- Contract questions (coordinator's provisional readings, 16 November
+  2026; Nathan may overrule; listed in the pull request):
+  - N3: unsupported filesystems are not detected at run time on Linux, as
+    on Darwin. Network and shared filesystems are unsupported (on NFS,
+    Linux emulates `flock` with POSIX record locks).
+  - N4: any Linux whose self-check passes is accepted; `capabilities()`
+    reports the route and the facts it observed. No gate on an exact
+    kernel release for coordination alone.
+  - N5: a program started through the programs add-on does not hold the
+    coordination lock (section 7.2; close-on-exec).
+- Qualified where (observed, never implied beyond it):
+  - Darwin: lock probe, 16 November 2026, macOS 26.6, APFS local volume,
+    Bun 1.4.4.
+  - Linux: the environments named in the component handback only. The
+    qualification table (section 10) stays empty either way.
 
 ### 7.1 Admission ordering (one documented order)
 
 1. Validate input; declare and canonicalise scope (no coordination yet).
 2. Acquire `coordination/admission.lock`: bounded wait, 10 ms polling, at
-   most 2,000 ms by default; a host may set 1 to 10,000 ms. Admission holds
-   this lock only for a scan and one publication (milliseconds), so 2,000 ms
-   absorbs contention on a loaded host while staying well inside the
-   LIFE-6 stop bound for a person; 10 ms polling keeps the wait cheap.
+   most 2,000 ms by default; a host may set 1 to 10,000 ms. These are
+   engineering numbers with no contract source. Admission holds this lock
+   only for a scan and one publication (milliseconds), so 2,000 ms absorbs
+   contention on a loaded host; the 10,000 ms ceiling keeps a person's
+   command from appearing hung behind an admission it cannot see, and the
+   command's own deadline still applies. 10 ms polling keeps the wait cheap.
    Expiry refuses as a temporary confirmed-unchanged condition (`busy`),
    never as the held-lock station.
 3. Acquire every conflict-key coordination lock in ascending lock-file name
@@ -361,10 +408,18 @@ Module placement (repair round 1): `index.ts` is the only host entry and
 fixes the production seams (reviewed table, no observation hook);
 `install.ts` is internal; `fixture.ts` is the labelled test entry that can
 set a fixture qualification and the observation hook (`admission-wait`,
-`staged`, `closure-staged`). The repository lint configuration bans every
-import of `addons/state/` other than `index.ts` from source outside that
-folder; tests are exempt. A generated host's configuration needs the same
-ban.
+`staged`, `closure-staged`), and can name the C library for the Linux
+route's self-check (a missing library makes it fail; Linux route, 16
+November 2026). The repository lint configuration bans every import of
+`addons/state/` other than `index.ts` from source outside that folder;
+tests are exempt. It also bans the spellings that reach the same files
+another way: a non-literal `import()`, `require`, `createRequire` and
+`import.meta.require`, a doubled slash, a `.` or `..` segment inside a
+path, and `../state/` from another add-on folder (delta review F1); the
+kernel's internals get the same. A generated host's configuration needs the
+same bans. Reachability stays a lint guard against accident, not isolation:
+the code-enforced half is that a fixture never reports `available` and
+every closure it enables is stamped `fixture:<label>`.
 
 ## 11. Transition table and crash boundaries (REC-8)
 
@@ -422,4 +477,4 @@ second column leaves the durable state in the third.
   let a run confirm its own not-applied effect after an attempted operation.
   The kernel's `readBack` returns a boolean, so this design classifies such an
   effect uncertain.
-- Coordination on non-Darwin platforms has no qualified primitive.
+- Linux coordination: contract questions N3 to N5 in section 7.
