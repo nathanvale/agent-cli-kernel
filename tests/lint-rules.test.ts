@@ -216,6 +216,18 @@ const refused = [
     lines: [1, 4],
   },
   {
+    rule: "no-in-operator",
+    witness: "inherited keys",
+    filePath: "starters/contract3/src/kernel/validation/result.ts",
+    code: [
+      'export const built = (value: Record<string, unknown>) => "constructor" in value;',
+      'export const printed = (value: unknown) => typeof value === "object" && value !== null && "toString" in value;',
+      'export const owned = (value: Record<string, unknown>) => Reflect.has(value, "hasOwnProperty");',
+      'export const callable = (value: () => void) => "call" in value;',
+    ],
+    lines: [1, 2, 3, 4],
+  },
+  {
     rule: "cause-literal-owner",
     witness: "e7c771c",
     filePath: "starters/contract3/src/kernel/declaration-checks.ts",
@@ -254,6 +266,15 @@ const admitted = [
     code: [
       "type Attached = { readonly enter: number } | { readonly delivery: string };",
       'export const delivery = (attached: Attached) => ("delivery" in attached ? attached.delivery : undefined);',
+    ],
+  },
+  {
+    rule: "no-in-operator",
+    reason:
+      "checks a key its type declares itself, though Object.prototype has it too",
+    filePath: "starters/contract3/src/kernel/validation/result.ts",
+    code: [
+      'export const printable = (value: { toString(): string }) => "toString" in value;',
     ],
   },
   {

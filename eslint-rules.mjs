@@ -6,6 +6,12 @@ const contractRoot = /^(.*\/starters\/contract3\/src)\//;
 const comparisons = new Set(["===", "!==", "==", "!="]);
 const folding = new Set(["TemplateLiteral", "BinaryExpression"]);
 const comma = { type: "Literal", value: "," };
+const prototypeOwners = new Set([
+  "Object",
+  "Function",
+  "CallableFunction",
+  "NewableFunction",
+]);
 const ownerKeys = new WeakMap();
 
 // The string a source spells from constants only: literals, + and templates
@@ -189,8 +195,21 @@ export default {
       create(context) {
         const services = typeServices(context);
         if (!services) return {};
-        const checker = services.program.getTypeChecker();
+        const { program } = services;
+        const checker = program.getTypeChecker();
         const text = (node) => context.sourceCode.getText(node);
+        // Every object type resolves the Object.prototype members, and
+        // every function type the Function.prototype ones, so a key found
+        // only there is inherited, not declared.
+        const inherited = (declaration) =>
+          ts.isInterfaceDeclaration(declaration.parent) &&
+          prototypeOwners.has(declaration.parent.name.text) &&
+          program.isSourceFileDefaultLibrary(declaration.getSourceFile());
+        const own = (symbol) =>
+          symbol !== undefined &&
+          !(
+            symbol.declarations?.length && symbol.declarations.every(inherited)
+          );
         // A key every union member leaves undeclared is a probe of unknown
         // shape. Narrowing a union by a key one member declares is not.
         const declared = (keyNode, targetNode) => {
@@ -202,7 +221,7 @@ export default {
             (key) =>
               key.isStringLiteral() &&
               targets.some((type) =>
-                checker.getPropertyOfType(type, key.value),
+                own(checker.getPropertyOfType(type, key.value)),
               ),
           );
         };

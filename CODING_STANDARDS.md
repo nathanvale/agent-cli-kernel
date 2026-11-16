@@ -89,7 +89,9 @@ now enforces.
 - Lint `repository/no-in-operator` refuses `key in value` and
   `Reflect.has(value, key)` in `starters/contract3/src/` when the type of
   `value` declares no member named `key`. That is a probe of an unknown
-  shape. Narrowing a union by a key one member declares passes, and so does
+  shape. A member the type has only from `Object.prototype` or
+  `Function.prototype`, such as `constructor`, counts as undeclared.
+  Narrowing a union by a key one member declares passes, and so does
   a private `#name in value` check. It also refuses every `for...in`.
 - Source outside Contract 3 stays review. So do a bracket read of an
   inherited name, a second read of a value, and a spread that drops
