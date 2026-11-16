@@ -1,25 +1,31 @@
 // LABELLED PROBE (test-only): candidate coordination locks for the state
 // add-on on Linux and macOS. It changes no production code and asserts no
-// winner. It PRINTS one line per observation, prefixed `PROBE `, from real
-// separate processes (the worker in fixtures/), for each candidate, in the
-// directory named by PROBE_DIR or a fresh temporary one. It needs no
-// installed dependency: only bun:test, Bun built-ins and Node built-ins, so
-// `bun test <this file>` runs in a bare copy of the repository.
-// An observation it could not make prints `UNOBSERVED <reason>`. Tests fail
-// only when the probe harness itself breaks (a worker never reports).
+// winner. It PRINTS one line per observation in the grammar of
+// t3-linux/expectations.md section 3:
+//   PROBE <candidate> <property> <observation> [key=value ...]
+//   PROBE <candidate> <property> UNOBSERVED <reason>
+// from real separate processes (fixtures/linux-coordination-probe-worker.ts)
+// coordinated by barrier files. Folders: PROBE_DIR alone when set (the
+// coordinator's container runs: overlay root, then a volume); otherwise the
+// checkout workspace, os.tmpdir() and /dev/shm when present. It needs no
+// installed dependency (bun:test, Bun and Node built-ins only), so
+// `bun test <this file>` runs in a bare copy. Tests fail only when the probe
+// harness itself breaks.
 import { afterAll, expect, test } from "bun:test";
+import { createHash } from "node:crypto";
 import {
   existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
+  readlinkSync,
   realpathSync,
   rmSync,
-  statfsSync,
+  writeFileSync,
 } from "node:fs";
 import { release, tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 const worker = join(
   import.meta.dir,
@@ -27,59 +33,81 @@ const worker = join(
   "linux-coordination-probe-worker.ts",
 );
 const candidates = [
-  "flock",
-  "ofd",
-  "fcntl-posix",
+  "flock-ffi",
+  "ofd-ffi",
+  "posix-ffi",
   "sqlite",
   "o-exlock",
-  "mkdir",
 ] as const;
 type Candidate = (typeof candidates)[number];
+const holdMilliseconds = 2_000;
 const reacquireBoundMilliseconds = 5_000;
+const linux = process.platform === "linux";
 
 const processes = new Set<number>();
-const directories: string[] = [];
-afterAll(() => {
-  for (const pid of processes)
-    try {
-      process.kill(pid, "SIGKILL");
-    } catch {
-      // Already gone.
-    }
-  for (const directory of directories)
-    rmSync(directory, { recursive: true, force: true });
-});
+const folders: string[] = [];
+const errorCodes = new Map<string, Set<string>>();
 
 function line(text: string): void {
   process.stdout.write(`PROBE ${text}\n`);
 }
+function alive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+function kill(pid: number, signal: NodeJS.Signals = "SIGKILL"): void {
+  try {
+    process.kill(pid, signal);
+  } catch {
+    // Already gone.
+  }
+}
+
+afterAll(() => {
+  for (const pid of processes) {
+    kill(pid, "SIGCONT");
+    kill(pid);
+  }
+  const deadline = Date.now() + 2_000;
+  while ([...processes].some(alive) && Date.now() < deadline) Bun.sleepSync(10);
+  for (const folder of folders)
+    rmSync(folder, { recursive: true, force: true });
+  line(
+    `teardown processes=${[...processes].filter(alive).length} folders=${folders.filter((folder) => existsSync(folder)).length}`,
+  );
+});
 
 type Report = Readonly<Record<string, unknown>>;
 function field(report: Report | undefined, key: string): string {
   const value = report?.[key];
   return typeof value === "string" || typeof value === "number"
     ? String(value)
-    : "none";
+    : value === null
+      ? "null"
+      : "none";
 }
-
-async function waitReport(
+function readReport(path: string): Report | undefined {
+  if (!existsSync(path)) return undefined;
+  const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
+  if (typeof parsed !== "object" || parsed === null) return undefined;
+  const report: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(parsed)) report[key] = value;
+  return report;
+}
+// Waits on a barrier (report) file; bounded, never a timing assumption.
+async function waitFor(
   path: string,
-  child: { readonly exited: Promise<number> },
+  accept: (report: Report) => boolean = () => true,
+  boundMilliseconds = 15_000,
 ): Promise<Report | undefined> {
-  let exited = false;
-  void child.exited.then(() => {
-    exited = true;
-  });
-  const until = Date.now() + 15_000;
+  const until = Date.now() + boundMilliseconds;
   while (Date.now() < until) {
-    if (existsSync(path)) {
-      const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
-      if (typeof parsed !== "object" || parsed === null) return undefined;
-      const report: Record<string, unknown> = {};
-      for (const [key, value] of Object.entries(parsed)) report[key] = value;
-      return report;
-    }
-    if (exited && !existsSync(path)) return undefined;
+    const report = readReport(path);
+    if (report && accept(report)) return report;
     await Bun.sleep(5);
   }
   return undefined;
@@ -88,235 +116,475 @@ async function waitReport(
 let sequence = 0;
 function spawnWorker(
   candidate: Candidate,
+  reports: string,
   mode: string,
   lock: string,
   extra = "",
+  go = "",
 ) {
   sequence += 1;
-  const report = `${lock}.report-${sequence}`;
+  const report = join(reports, `report-${sequence}.json`);
   const child = Bun.spawn(
-    [process.execPath, worker, candidate, mode, lock, report, extra],
-    { stdin: "ignore", stdout: "ignore", stderr: "pipe" },
+    [process.execPath, worker, candidate, mode, lock, report, extra, go],
+    { stdin: "ignore", stdout: "ignore", stderr: "ignore" },
   );
   processes.add(child.pid);
   return {
     child,
-    report: waitReport(report, child),
+    report,
+    wait: (accept?: (report: Report) => boolean) => waitFor(report, accept),
   };
 }
-
-async function attempt(candidate: Candidate, lock: string) {
-  const { child, report } = spawnWorker(candidate, "try", lock);
-  const result = await report;
-  await child.exited;
-  return result;
+function note(candidate: Candidate, report: Report | undefined): void {
+  const code = field(report, "code");
+  if (code === "none" || code === "null") return;
+  const codes = errorCodes.get(candidate) ?? new Set<string>();
+  codes.add(code);
+  errorCodes.set(candidate, codes);
+}
+async function attempt(candidate: Candidate, reports: string, lock: string) {
+  const started = spawnWorker(candidate, reports, "try", lock);
+  const report = await started.wait();
+  await started.child.exited;
+  note(candidate, report);
+  return report;
 }
 
-function kill(pid: number): void {
-  try {
-    process.kill(pid, "SIGKILL");
-  } catch {
-    // Already gone.
-  }
+// Names, sizes and SHA-256 of every file in a coordination folder.
+function residue(folder: string): string {
+  return readdirSync(folder)
+    .sort()
+    .map((name) => {
+      const bytes = readFileSync(join(folder, name));
+      const digest = createHash("sha256")
+        .update(bytes)
+        .digest("hex")
+        .slice(0, 12);
+      return `${name}:${bytes.length}:${digest}`;
+    })
+    .join(",");
 }
 
-// Longest mount point containing `directory`, from /proc/mounts on Linux or
-// `mount` output on macOS, plus the statfs type number.
-function filesystem(directory: string): string {
-  const real = realpathSync.native(directory);
-  const type = (() => {
-    try {
-      return String(statfsSync(real).type);
-    } catch {
-      return "unknown";
-    }
-  })();
-  const mounts: { point: string; fs: string }[] = [];
-  if (process.platform === "linux" && existsSync("/proc/mounts"))
-    for (const entry of readFileSync("/proc/mounts", "utf8").split("\n")) {
-      const parts = entry.split(" ");
-      if (parts[1] && parts[2]) mounts.push({ point: parts[1], fs: parts[2] });
-    }
-  else {
-    const output = Bun.spawnSync(["/sbin/mount"]).stdout.toString();
-    for (const entry of output.split("\n")) {
-      const match = / on (\S+) \(([^,)]+)/.exec(entry);
-      if (match?.[1] && match[2])
-        mounts.push({ point: match[1], fs: match[2] });
-    }
+// ---- Environment -----------------------------------------------------------
+
+function osRelease(): string {
+  if (!existsSync("/etc/os-release")) return "UNOBSERVED no /etc/os-release";
+  const text = readFileSync("/etc/os-release", "utf8");
+  const value = (key: string) =>
+    new RegExp(`^${key}="?([^"\\n]*)"?$`, "m").exec(text)?.[1] ?? "unknown";
+  return `${value("ID")} ${value("VERSION_ID")}`;
+}
+function libc(): string {
+  if (!linux) return "darwin";
+  const result = Bun.spawnSync(["getconf", "GNU_LIBC_VERSION"]);
+  const text = result.stdout.toString().trim();
+  return result.exitCode === 0 && text
+    ? text
+    : "UNOBSERVED getconf GNU_LIBC_VERSION unavailable (musl or no getconf)";
+}
+function sqliteVersion(): string {
+  const result = Bun.spawnSync([
+    process.execPath,
+    "-e",
+    'const { Database } = require("bun:sqlite"); process.stdout.write(new Database(":memory:").query("select sqlite_version() as v").get().v)',
+  ]);
+  const text = result.stdout.toString().trim();
+  return result.exitCode === 0 && text
+    ? text
+    : "UNOBSERVED bun:sqlite did not load";
+}
+type Mount = { point: string; fs: string; options: string };
+function linuxMounts(): Mount[] {
+  const mounts: Mount[] = [];
+  for (const entry of readFileSync("/proc/self/mountinfo", "utf8").split(
+    "\n",
+  )) {
+    const [left, right] = entry.split(" - ");
+    const fields = left?.split(" ") ?? [];
+    const tail = right?.split(" ") ?? [];
+    if (fields[4] && tail[0])
+      mounts.push({
+        point: fields[4],
+        fs: tail[0],
+        options: `${fields[5] ?? ""};${tail[2] ?? ""}`,
+      });
   }
+  return mounts;
+}
+function darwinMounts(): Mount[] {
+  const mounts: Mount[] = [];
+  const output = Bun.spawnSync(["/sbin/mount"]).stdout.toString();
+  for (const entry of output.split("\n")) {
+    const match = / on (\S+) \(([^,)]+),?\s*([^)]*)\)/.exec(entry);
+    if (match?.[1] && match[2])
+      mounts.push({
+        point: match[1],
+        fs: match[2],
+        options: (match[3] ?? "").replaceAll(" ", ""),
+      });
+  }
+  return mounts;
+}
+// Filesystem of `folder`: longest mount-point prefix of its real path, from
+// /proc/self/mountinfo on Linux and `mount` on macOS.
+function filesystem(folder: string): string {
+  const real = realpathSync.native(folder);
+  const mounts =
+    linux && existsSync("/proc/self/mountinfo")
+      ? linuxMounts()
+      : darwinMounts();
+  // macOS firmlinks data paths into /System/Volumes/Data, so the mount point
+  // comes from df there; Linux uses the longest mount-point prefix.
+  const darwinPoint = linux
+    ? undefined
+    : Bun.spawnSync(["/bin/df", "-P", real])
+        .stdout.toString()
+        .trim()
+        .split("\n")
+        .at(-1)
+        ?.split(/\s+/)
+        .at(-1);
   const best = mounts
-    .filter(
-      (mount) =>
-        real === mount.point ||
-        real.startsWith(
-          mount.point.endsWith("/") ? mount.point : `${mount.point}/`,
-        ),
+    .filter((mount) =>
+      darwinPoint
+        ? mount.point === darwinPoint
+        : real === mount.point ||
+          real.startsWith(mount.point === "/" ? "/" : `${mount.point}/`),
     )
     .sort((a, b) => b.point.length - a.point.length)[0];
-  return `fs=${best?.fs ?? "unknown"} mount=${best?.point ?? "unknown"} statfsType=${type}`;
+  return best
+    ? `${best.fs} ${best.point} ${best.options || "none"}`
+    : "UNOBSERVED no mount entry contains the folder";
 }
 
-// The directory under test: PROBE_DIR when set (a fresh subdirectory is made
-// inside it, so an overlay root and a volume can each be probed), otherwise a
-// fresh temporary directory.
-function probeDirectories(): readonly { label: string; path: string }[] {
-  const base = process.env.PROBE_DIR;
-  if (base) {
+function probeFolders(): readonly { label: string; path: string }[] {
+  const make = (label: string, base: string) => {
     mkdirSync(base, { recursive: true });
     const path = mkdtempSync(join(base, "c3-lock-probe-"));
-    directories.push(path);
-    return [{ label: "PROBE_DIR", path }];
-  }
-  const path = mkdtempSync(join(tmpdir(), "c3-lock-probe-"));
-  directories.push(path);
-  return [{ label: "tmpdir", path }];
+    folders.push(path);
+    return { label, path };
+  };
+  const chosen = process.env.PROBE_DIR;
+  if (chosen) return [make("PROBE_DIR", chosen)];
+  const checkout = resolve(import.meta.dir, ".probe-tmp");
+  const list = [make("checkout", checkout), make("tmpdir", tmpdir())];
+  if (existsSync("/dev/shm")) list.push(make("dev-shm", "/dev/shm"));
+  folders.push(checkout);
+  return list;
 }
 
+const probeFolderList = probeFolders();
+
 test("PROBE environment", () => {
+  line(`env platform ${process.platform}`);
+  line(`env arch ${process.arch}`);
+  line(`env kernel ${release()}`);
+  line(`env os-release ${linux ? osRelease() : "UNOBSERVED not Linux"}`);
+  line(`env libc ${libc()}`);
   line(
-    `environment platform=${process.platform} arch=${process.arch} kernel=${release()} bun=${Bun.version} revision=${typeof Bun.revision === "string" ? Bun.revision.slice(0, 12) : "unknown"}`,
+    `env bun ${Bun.version} ${typeof Bun.revision === "string" ? Bun.revision : "unknown"}`,
   );
+  line(
+    `env euid ${typeof process.geteuid === "function" ? process.geteuid() : "unknown"}`,
+  );
+  line(`env sqlite ${sqliteVersion()}`);
+  for (const folder of probeFolderList)
+    line(`env fs ${folder.label} ${filesystem(folder.path)}`);
   expect(Bun.version.length).toBeGreaterThan(0);
 });
 
-const dirs = probeDirectories();
-for (const directory of dirs) {
-  test(`PROBE directory ${directory.label}`, () => {
-    line(
-      `directory ${directory.label} path=${directory.path} ${filesystem(directory.path)}`,
-    );
-    expect(existsSync(directory.path)).toBe(true);
-  });
+for (const folder of probeFolderList)
   for (const candidate of candidates)
     test(
-      `PROBE ${candidate} in ${directory.label}`,
-      () => observe(candidate, directory.label, directory.path),
-      90_000,
+      `PROBE ${candidate} in ${folder.label}`,
+      () => observe(candidate, folder.label, folder.path),
+      120_000,
     );
-}
+
+test("PROBE error codes", () => {
+  for (const candidate of candidates)
+    line(
+      `${candidate} error-codes ${[...(errorCodes.get(candidate) ?? [])].sort().join(",") || "none"}`,
+    );
+  expect(errorCodes.size).toBeGreaterThanOrEqual(0);
+});
+
+// ---- Properties ------------------------------------------------------------
+
+const properties = [
+  "exclusive",
+  "nonblocking",
+  "sigkill-release",
+  "residue",
+  "bytes",
+  "other-descriptor-close",
+  "child-inherit",
+  "same-process-second-open",
+  "stopped-holder",
+  "per-file",
+  "opposite-order",
+];
+
+type Context = {
+  readonly candidate: Candidate;
+  readonly reports: string;
+  readonly space: (name: string) => string;
+  readonly say: (property: string, observation: string) => void;
+};
 
 async function observe(
   candidate: Candidate,
   label: string,
   root: string,
 ): Promise<void> {
-  const tag = `${candidate} ${label}`;
-  const lock = (name: string) => join(root, `${candidate}-${name}.lock`);
-
-  // Baseline: one uncontended attempt.
-  const baseline = await attempt(candidate, lock("baseline"));
-  const supported = field(baseline, "result") === "acquired";
-  line(`${tag} uncontended result=${field(baseline, "result")}`);
-  if (!supported) {
-    for (const property of [
-      "exclusive",
-      "nonblocking",
-      "released-on-sigkill",
-      "survives-second-close",
-      "child-holds",
-      "same-process-second-open",
-    ])
-      line(
-        `${tag} ${property} UNOBSERVED uncontended attempt did not acquire: ${field(baseline, "result")}`,
-      );
+  const reports = join(root, `${candidate}-reports`);
+  mkdirSync(reports);
+  const context: Context = {
+    candidate,
+    reports,
+    space(name) {
+      const path = join(root, `${candidate}-${name}`);
+      mkdirSync(path);
+      return path;
+    },
+    say: (property, observation) =>
+      line(`${candidate} ${property} ${observation} folder=${label}`),
+  };
+  const baseline = await attempt(
+    candidate,
+    reports,
+    join(context.space("baseline"), "F"),
+  );
+  if (field(baseline, "result") !== "acquired") {
+    const reason = `uncontended attempt gave ${field(baseline, "result")} code=${field(baseline, "code")}`;
+    for (const property of properties)
+      context.say(property, `UNOBSERVED ${reason}`);
     expect(baseline).toBeDefined();
     return;
   }
+  await holderProperties(context);
+  await otherDescriptor(context);
+  await childInherit(context);
+  await sameProcess(context);
+  await stoppedHolder(context);
+  await pairs(context);
+}
 
-  // Exclusive between two processes, and whether the attempt blocks.
-  const holder = spawnWorker(candidate, "hold", lock("main"));
-  const held = await holder.report;
-  expect(held).toBeDefined();
-  line(`${tag} holder result=${field(held, "result")}`);
-  const contender = await attempt(candidate, lock("main"));
-  line(
-    `${tag} exclusive ${field(contender, "result") === "busy" ? "yes" : "no"} contender=${field(contender, "result")}`,
+// C1 exclusive, C2 non-blocking, C3 SIGKILL release and residue, C7/C8 bytes.
+async function holderProperties(context: Context): Promise<void> {
+  const { candidate, reports, say } = context;
+  const main = context.space("main");
+  const file = join(main, "F");
+  writeFileSync(file, "");
+  const before = residue(main);
+  const holder = spawnWorker(candidate, reports, "hold", file);
+  expect(await holder.wait()).toBeDefined();
+  const heldAt = performance.now();
+  const contender = await attempt(candidate, reports, file);
+  say(
+    "exclusive",
+    `${field(contender, "result")} code=${field(contender, "code")}`,
   );
-  line(
-    `${tag} nonblocking ${contender ? "yes" : "no"} contenderElapsedMs=${field(contender, "elapsedMs")}`,
+  // H keeps F for the stated hold time; the timed attempt then follows.
+  while (performance.now() - heldAt < holdMilliseconds) await Bun.sleep(20);
+  const late = await attempt(candidate, reports, file);
+  say(
+    "nonblocking",
+    `${field(late, "result")} elapsedMs=${field(late, "elapsedMs")} holdMs=${Math.round(performance.now() - heldAt)}`,
   );
-
-  // Released when the holder is SIGKILLed, and how soon.
   kill(holder.child.pid);
-  const signal = await holder.child.exited.then(() => holder.child.signalCode);
-  const killedAt = performance.now();
+  await holder.child.exited;
+  const exitedAt = performance.now();
+  let attempts = 0;
   let reacquired: Report | undefined;
-  let afterMs = -1;
-  while (performance.now() - killedAt < reacquireBoundMilliseconds) {
-    reacquired = await attempt(candidate, lock("main"));
-    if (field(reacquired, "result") === "acquired") {
-      afterMs = Math.round(performance.now() - killedAt);
-      break;
-    }
+  while (performance.now() - exitedAt < reacquireBoundMilliseconds) {
+    attempts += 1;
+    reacquired = await attempt(candidate, reports, file);
+    if (field(reacquired, "result") === "acquired") break;
     await Bun.sleep(10);
   }
-  line(
-    afterMs >= 0
-      ? `${tag} released-on-sigkill yes afterMs=${afterMs} holderSignal=${signal ?? "none"}`
-      : `${tag} released-on-sigkill no within=${reacquireBoundMilliseconds}ms last=${field(reacquired, "result")} holderSignal=${signal ?? "none"}`,
+  const acquired = field(reacquired, "result") === "acquired";
+  say(
+    "sigkill-release",
+    `${acquired ? "acquired" : "refused"} firstAttempt=${acquired && attempts === 1} msAfterExit=${Math.round(performance.now() - exitedAt)} attempts=${attempts} holderSignal=${holder.child.signalCode ?? "none"}`,
   );
-
-  // Anything the dead holder left behind next to its lock file.
-  const leftovers = readdirSync(root).filter(
-    (name) =>
-      name.startsWith(`${candidate}-main.lock`) &&
-      name !== `${candidate}-main.lock` &&
-      !name.includes(".report-"),
+  const after = residue(main);
+  say(
+    "residue",
+    `${after === before ? "same" : "changed"} before=${before} after=${after}`,
   );
-  line(
-    `${tag} leftover-after-sigkill ${leftovers.length === 0 ? "none" : leftovers.join(",")}`,
+  const fileEntry = (listing: string) =>
+    listing.split(",").find((entry) => entry.startsWith("F:"));
+  say(
+    "bytes",
+    `${fileEntry(after) === fileEntry(before) ? "same" : "changed"} extra-files=${readdirSync(
+      main,
+    )
+      .filter((name) => name !== "F")
+      .join(",")}`,
   );
+}
 
-  // Survives the holder closing a second descriptor on the same file.
-  const closer = spawnWorker(candidate, "hold", lock("second"), "close-second");
-  const closed = await closer.report;
-  if (field(closed, "result") !== "acquired")
-    line(
-      `${tag} survives-second-close UNOBSERVED holder=${field(closed, "result")}`,
+// C4a: the holder opens F again and closes that descriptor.
+async function otherDescriptor(context: Context): Promise<void> {
+  const { candidate, reports, say } = context;
+  const file = join(context.space("other"), "F");
+  const holder = spawnWorker(
+    candidate,
+    reports,
+    "hold",
+    file,
+    "other-descriptor",
+  );
+  const held = await holder.wait();
+  if (field(held, "result") === "acquired")
+    say(
+      "other-descriptor-close",
+      field(await attempt(candidate, reports, file), "result"),
     );
-  else {
-    const after = await attempt(candidate, lock("second"));
-    line(
-      `${tag} survives-second-close ${field(after, "result") === "busy" ? "yes" : "no"} contender=${field(after, "result")}`,
+  else
+    say(
+      "other-descriptor-close",
+      `UNOBSERVED holder gave ${field(held, "result")}`,
     );
-  }
-  kill(closer.child.pid);
-  await closer.child.exited;
+  kill(holder.child.pid);
+  await holder.child.exited;
+}
 
-  // Does a child spawned by the holder keep the lock after the holder dies?
-  const parent = spawnWorker(candidate, "hold", lock("child"), "child");
-  const parentReport = await parent.report;
-  const childPid = Number(field(parentReport, "child"));
-  if (!Number.isInteger(childPid) || childPid <= 0)
-    line(
-      `${tag} child-holds UNOBSERVED holder=${field(parentReport, "result")}`,
-    );
-  else {
-    processes.add(childPid);
-    const whileParentLives = await attempt(candidate, lock("child"));
+// C4b: a long-lived child of the holder, after the holder is SIGKILLed.
+async function childInherit(context: Context): Promise<void> {
+  const { candidate, reports, say } = context;
+  const file = join(context.space("child"), "F");
+  const parent = spawnWorker(candidate, reports, "hold", file, "child");
+  const report = await parent.wait();
+  const childPid = Number(field(report, "child"));
+  if (!Number.isInteger(childPid) || childPid <= 0) {
+    say("child-inherit", `UNOBSERVED holder gave ${field(report, "result")}`);
     kill(parent.child.pid);
     await parent.child.exited;
-    let childAlive = true;
-    try {
-      process.kill(childPid, 0);
-    } catch {
-      childAlive = false;
-    }
-    const afterParent = await attempt(candidate, lock("child"));
-    line(
-      `${tag} child-holds ${field(afterParent, "result") === "busy" ? "yes" : "no"} childAlive=${childAlive} whileParentLives=${field(whileParentLives, "result")} afterParentKilled=${field(afterParent, "result")}`,
-    );
-    kill(childPid);
+    return;
   }
+  processes.add(childPid);
+  const fd = field(report, "fd");
+  const cloexec =
+    linux && fd !== "null" ? fdinfoCloexec(parent.child.pid, fd) : "unknown";
   kill(parent.child.pid);
-
-  // Can a second open in the same process take it?
-  const same = spawnWorker(candidate, "same-process", lock("same"));
-  const sameReport = await same.report;
-  await same.child.exited;
-  line(
-    `${tag} same-process-second-open ${field(sameReport, "second") === "busy" ? "refused" : field(sameReport, "second") === "acquired" ? "acquired" : "other"} first=${field(sameReport, "first")} second=${field(sameReport, "second")}`,
+  await parent.child.exited;
+  const childHasFd = linux ? childHoldsFile(childPid, file) : "unknown";
+  const whileChild = await attempt(candidate, reports, file);
+  say(
+    "child-inherit",
+    `${field(whileChild, "result") === "acquired" ? "not-inherited" : "inherited"} childHasFd=${childHasFd} cloexec=${cloexec} childAlive=${alive(childPid)}`,
   );
-  expect(sameReport).toBeDefined();
+  kill(childPid);
+}
+
+// C4c: a second open in the same process.
+async function sameProcess(context: Context): Promise<void> {
+  const { candidate, reports, say } = context;
+  const started = spawnWorker(
+    candidate,
+    reports,
+    "same-process",
+    join(context.space("same"), "F"),
+  );
+  const report = await started.wait();
+  await started.child.exited;
+  note(candidate, report);
+  say(
+    "same-process-second-open",
+    `${field(report, "result")} first=${field(report, "first")} code=${field(report, "code")}`,
+  );
+}
+
+// C4d: a stopped holder.
+async function stoppedHolder(context: Context): Promise<void> {
+  const { candidate, reports, say } = context;
+  const file = join(context.space("stopped"), "F");
+  const holder = spawnWorker(candidate, reports, "hold", file);
+  await holder.wait();
+  kill(holder.child.pid, "SIGSTOP");
+  say(
+    "stopped-holder",
+    field(await attempt(candidate, reports, file), "result"),
+  );
+  kill(holder.child.pid, "SIGCONT");
+  kill(holder.child.pid);
+  await holder.child.exited;
+}
+
+// C5: per-file independence, and two contenders in opposite order.
+async function pairs(context: Context): Promise<void> {
+  const { candidate, reports, say } = context;
+  const pair = context.space("pair");
+  const fileF = join(pair, "F");
+  const fileG = join(pair, "G");
+  const solo = spawnWorker(candidate, reports, "hold", fileF);
+  await solo.wait();
+  say("per-file", field(await attempt(candidate, reports, fileG), "result"));
+  kill(solo.child.pid);
+  await solo.child.exited;
+  const go = join(pair, "go");
+  const first = spawnWorker(
+    candidate,
+    reports,
+    "hold-then-try",
+    fileF,
+    fileG,
+    go,
+  );
+  const second = spawnWorker(
+    candidate,
+    reports,
+    "hold-then-try",
+    fileG,
+    fileF,
+    go,
+  );
+  await Promise.all([first.wait(), second.wait()]);
+  writeFileSync(go, "go\n");
+  const attempted = (report: Report) => report.phase === "attempted";
+  const [outcomeA, outcomeB] = await Promise.all([
+    waitFor(first.report, attempted, 5_000),
+    waitFor(second.report, attempted, 5_000),
+  ]);
+  say(
+    "opposite-order",
+    `${field(outcomeA, "result")} ${field(outcomeB, "result")} deadlock=${outcomeA === undefined || outcomeB === undefined}`,
+  );
+  kill(first.child.pid);
+  kill(second.child.pid);
+  await Promise.all([first.child.exited, second.child.exited]);
+}
+
+// Linux: is the holder's descriptor close-on-exec (O_CLOEXEC, 02000000
+// octal, in the /proc/<pid>/fdinfo flags)?
+function fdinfoCloexec(pid: number, fd: string): string {
+  try {
+    const flags = /^flags:\s+([0-7]+)$/m.exec(
+      readFileSync(`/proc/${pid}/fdinfo/${fd}`, "utf8"),
+    )?.[1];
+    return flags === undefined
+      ? "unknown"
+      : String((Number.parseInt(flags, 8) & 0o2000000) !== 0);
+  } catch {
+    return "unknown";
+  }
+}
+// Linux: does the child hold any descriptor on `file`?
+function childHoldsFile(pid: number, file: string): string {
+  try {
+    const target = realpathSync.native(file);
+    return String(
+      readdirSync(`/proc/${pid}/fd`).some((fd) => {
+        try {
+          return readlinkSync(`/proc/${pid}/fd/${fd}`) === target;
+        } catch {
+          return false;
+        }
+      }),
+    );
+  } catch {
+    return "unknown";
+  }
 }
