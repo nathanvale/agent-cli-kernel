@@ -152,45 +152,57 @@ function git(
   return result.stdout.toString().trim();
 }
 
-async function citationProblems(repository: string): Promise<string[]> {
-  const history = git(repository, ["rev-list", "HEAD"]).split("\n");
+function fetchHint(repository: string, history: string[]): string {
   const graft = resolve(
     repository,
     git(repository, ["rev-parse", "--git-path", "shallow"]),
   );
   const cut = existsSync(graft) ? readFileSync(graft, "utf8").split("\n") : [];
-  const fetch = history.some((sha) => cut.includes(sha))
+  return history.some((sha) => cut.includes(sha))
     ? " HEAD's history is cut short in this shallow clone: run `git fetch --unshallow` and rerun."
     : "";
+}
+
+function citationsIn(
+  file: string,
+  text: string,
+  history: string[],
+  fetch: string,
+): string[] {
   const problems: string[] = [];
-  const files = await matching(repository, [standards, "docs/standards/*.md"]);
-  for (const file of files) {
-    const text = prose(join(repository, file));
-    const defined = new Set<string>();
-    for (const match of text.matchAll(
-      /^ {0,3}\[([^\]]+)\]:\s*\S*\/commit\/([0-9a-f]{7,40})\b/gm,
-    )) {
-      const [, label = "", sha = ""] = match;
-      const where = `${file}:${lineOf(text, match.index)}`;
-      defined.add(label);
-      if (/^[0-9a-f]{7,40}$/.test(label) && !sha.startsWith(label))
-        problems.push(
-          `${where}: [${label}] links commit ${sha}. Make the label the start of that SHA.`,
-        );
-      if (!history.some((each) => each.startsWith(sha)))
-        problems.push(
-          `${where}: [${label}] cites ${sha}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA.${fetch}`,
-        );
-    }
-    for (const match of text.matchAll(/\[([0-9a-f]{7,40})\](?![[(:])/g)) {
-      const [, label = ""] = match;
-      if (!defined.has(label))
-        problems.push(
-          `${file}:${lineOf(text, match.index)}: [${label}] has no commit link. Add [${label}]: https://github.com/<owner>/<repo>/commit/<full sha> at the end of the file.`,
-        );
-    }
+  const defined = new Set<string>();
+  for (const match of text.matchAll(
+    /^ {0,3}\[([^\]]+)\]:\s*\S*\/commit\/([0-9a-f]{7,40})\b/gm,
+  )) {
+    const [, label = "", sha = ""] = match;
+    const where = `${file}:${lineOf(text, match.index)}`;
+    defined.add(label);
+    if (/^[0-9a-f]{7,40}$/.test(label) && !sha.startsWith(label))
+      problems.push(
+        `${where}: [${label}] links commit ${sha}. Make the label the start of that SHA.`,
+      );
+    if (!history.some((each) => each.startsWith(sha)))
+      problems.push(
+        `${where}: [${label}] cites ${sha}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA.${fetch}`,
+      );
+  }
+  for (const match of text.matchAll(/\[([0-9a-f]{7,40})\](?![[(:])/g)) {
+    const [, label = ""] = match;
+    if (!defined.has(label))
+      problems.push(
+        `${file}:${lineOf(text, match.index)}: [${label}] has no commit link. Add [${label}]: https://github.com/<owner>/<repo>/commit/<full sha> at the end of the file.`,
+      );
   }
   return problems;
+}
+
+async function citationProblems(repository: string): Promise<string[]> {
+  const history = git(repository, ["rev-list", "HEAD"]).split("\n");
+  const fetch = fetchHint(repository, history);
+  const files = await matching(repository, [standards, "docs/standards/*.md"]);
+  return files.flatMap((file) =>
+    citationsIn(file, prose(join(repository, file)), history, fetch),
+  );
 }
 
 function ruleTable(repository: string): {
@@ -242,6 +254,30 @@ function gatesOf(row: Row): Gate[] {
   );
 }
 
+const levels = new Map([
+  [
+    "Partial",
+    {
+      gated: true,
+      fix: "is Partial but names no gate. Name each gate in the Gates cell as script, lint or job with its id, or mark the row Review only.",
+    },
+  ],
+  [
+    "Review only",
+    {
+      gated: false,
+      fix: "is Review only but names a gate. Mark it Partial, or set its Gates cell to None.",
+    },
+  ],
+]);
+
+function levelProblem(row: Row): string | undefined {
+  const level = levels.get(row.today);
+  if (level === undefined)
+    return `has Today "${row.today}". Use Review only or Partial.`;
+  return gatesOf(row).length > 0 === level.gated ? undefined : level.fix;
+}
+
 function rowProblems(repository: string): string[] {
   const { rows, gateNotes, problems } = ruleTable(repository);
   for (const row of rows) {
@@ -254,19 +290,8 @@ function rowProblems(repository: string): string[] {
       problems.push(
         `${where} has no guide and no gate note. Link its guide in the Guide cell, or link a heading under ## Gate notes from its Gates cell.`,
       );
-    const named = gatesOf(row).length > 0;
-    if (row.today === "Partial" && !named)
-      problems.push(
-        `${where} is Partial but names no gate. Name each gate in the Gates cell as script, lint or job with its id, or mark the row Review only.`,
-      );
-    else if (row.today === "Review only" && named)
-      problems.push(
-        `${where} is Review only but names a gate. Mark it Partial, or set its Gates cell to None.`,
-      );
-    else if (row.today !== "Partial" && row.today !== "Review only")
-      problems.push(
-        `${where} has Today "${row.today}". Use Review only or Partial.`,
-      );
+    const level = levelProblem(row);
+    if (level !== undefined) problems.push(`${where} ${level}`);
   }
   return problems;
 }
@@ -492,6 +517,53 @@ test.each([
     },
     [
       'CODING_STANDARDS.md: row "Gated rule" has no guide and no gate note. Link its guide in the Guide cell, or link a heading under ## Gate notes from its Gates cell.',
+    ],
+  ],
+  [
+    "a row whose lint and job are gone",
+    (files: Record<string, string>) => {
+      files["eslint.config.mjs"] = "export default [{ rules: {} }];\n";
+      files[".github/workflows/ci.yml"] = "jobs:\n  other:\n    runs-on: x\n";
+    },
+    [
+      'CODING_STANDARDS.md: row "Gated rule" names lint `repository/rule`, which no config in eslint.config.mjs turns on. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
+      'CODING_STANDARDS.md: row "Gated rule" names job `faults`, which no workflow in .github/workflows/ defines as a job. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
+    ],
+  ],
+  [
+    "a Partial row that names no gate",
+    (files: Record<string, string>) => {
+      files[standards] = (files[standards] ?? "").replace(
+        "[script `faults`, lint `repository/rule`, job `faults`](#gated)",
+        "[Gated](#gated)",
+      );
+    },
+    [
+      'CODING_STANDARDS.md: row "Gated rule" is Partial but names no gate. Name each gate in the Gates cell as script, lint or job with its id, or mark the row Review only.',
+    ],
+  ],
+  [
+    "a Review only row that names a gate",
+    (files: Record<string, string>) => {
+      files[standards] = (files[standards] ?? "").replace(
+        "| Guided rule | Review only | None |",
+        "| Guided rule | Review only | job `faults` |",
+      );
+    },
+    [
+      'CODING_STANDARDS.md: row "Guided rule" is Review only but names a gate. Mark it Partial, or set its Gates cell to None.',
+    ],
+  ],
+  [
+    "a row with a Today level the table does not define",
+    (files: Record<string, string>) => {
+      files[standards] = (files[standards] ?? "").replace(
+        "| Guided rule | Review only |",
+        "| Guided rule | Planned |",
+      );
+    },
+    [
+      'CODING_STANDARDS.md: row "Guided rule" has Today "Planned". Use Review only or Partial.',
     ],
   ],
 ])(
