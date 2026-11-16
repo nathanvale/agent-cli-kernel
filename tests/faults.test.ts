@@ -24,6 +24,15 @@ const gitEnv = {
   GIT_CONFIG_GLOBAL: "/dev/null",
   GIT_CONFIG_NOSYSTEM: "1",
 };
+// A caller such as a git hook can export these, and they override `cwd`.
+const repositoryLocation = new Set([
+  "GIT_DIR",
+  "GIT_WORK_TREE",
+  "GIT_INDEX_FILE",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  "GIT_COMMON_DIR",
+]);
 const fixtureAuthor = {
   GIT_AUTHOR_NAME: "Fixture",
   GIT_AUTHOR_EMAIL: "fixture@example.invalid",
@@ -97,7 +106,7 @@ function folder(prefix: string): string {
 function git(root: string, ...args: string[]): string {
   const result = Bun.spawnSync(["git", ...args], {
     cwd: root,
-    env: { ...process.env, ...gitEnv, ...fixtureAuthor },
+    env: { ...fixtureEnv(), ...fixtureAuthor },
     stdout: "pipe",
     stderr: "pipe",
   });
@@ -178,6 +187,17 @@ function releaseWorktrees(root: string): void {
     if (tree !== root) git(root, "worktree", "remove", "--force", tree);
 }
 
+function fixtureEnv(): Record<string, string | undefined> {
+  return {
+    ...Object.fromEntries(
+      Object.entries(process.env).filter(
+        ([name]) => !repositoryLocation.has(name),
+      ),
+    ),
+    ...gitEnv,
+  };
+}
+
 function write(root: string, path: string, content: string): void {
   mkdirSync(dirname(join(root, path)), { recursive: true });
   writeFileSync(join(root, path), content);
@@ -220,8 +240,7 @@ async function faults(
       {
         cwd: root,
         env: {
-          ...process.env,
-          ...gitEnv,
+          ...fixtureEnv(),
           TMPDIR: temporary,
           FAULTS_PIDS: pids,
           ...env,
@@ -257,7 +276,7 @@ function addFault(
       testFile,
       title,
     ],
-    { cwd: root, env: { ...process.env, ...gitEnv }, boundMilliseconds: bound },
+    { cwd: root, env: fixtureEnv(), boundMilliseconds: bound },
   );
 }
 
@@ -690,6 +709,38 @@ describe("bun run faults", () => {
       expect(worktrees(root)).toEqual([root]);
     },
     forcedBound + 15_000,
+  );
+
+  test(
+    "FR.s a caller's GIT_DIR does not redirect the fixture's git, faults:add or replay to another repository",
+    async () => {
+      const unrelated = join(folder("faults-caller-"), "repo");
+      mkdirSync(unrelated);
+      git(unrelated, "init", "--quiet", "--initial-branch=main");
+      commit(unrelated, "caller", { "caller.txt": "caller\n" });
+      const state = () =>
+        [
+          git(unrelated, "log", "--format=%H %s", "--all"),
+          git(unrelated, "worktree", "list", "--porcelain"),
+          git(unrelated, "status", "--porcelain=v1", "--untracked-files=all"),
+          git(unrelated, "config", "--local", "--list"),
+        ].join("\n--\n");
+      const before = state();
+      process.env.GIT_DIR = join(unrelated, ".git");
+      try {
+        const { root, id } = await repositoryWithFault({});
+        const run = await faults(root);
+        expect(verdicts(run.lines)).toEqual([`KILLED ${id}`]);
+        expect(run.exit).toBe(0);
+        expect(git(root, "log", "--format=%s")).toBe(
+          "record the faults\nfix: refuse a NaN limit\nbase\n",
+        );
+      } finally {
+        delete process.env.GIT_DIR;
+      }
+      expect(state()).toBe(before);
+    },
+    processWatchdog(3),
   );
 
   test(
