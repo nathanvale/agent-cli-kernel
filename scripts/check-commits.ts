@@ -33,7 +33,12 @@ type Checked = Commit & { result: Result };
 // SIGTERM.
 const signals = ["SIGHUP", "SIGINT", "SIGTERM"] as const;
 type StopSignal = (typeof signals)[number];
-const active: { child?: Subprocess; stoppedBy?: StopSignal } = {};
+const active: {
+  child?: Subprocess;
+  stoppedBy?: StopSignal;
+  escalation?: Timer;
+} = {};
+const graceMilliseconds = 2_000;
 // `bun run` prepends the caller's node_modules/.bin folders to PATH. Drop
 // them so a commit sees only what its own tree installs.
 const ownTools = {
@@ -119,10 +124,21 @@ function haltIfStopped(commit: Commit): void {
     );
 }
 
+// Each step leads its own process group, so a stop reaches every process the
+// step started, not only the direct child.
+function signalGroup(child: Subprocess, signal: NodeJS.Signals): void {
+  try {
+    process.kill(-child.pid, signal);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
+  }
+}
+
 async function run(cwd: string, step: Step) {
   const child = Bun.spawn([process.execPath, ...step], {
     cwd,
     env: ownTools,
+    detached: true,
     stdout: "pipe",
     stderr: "pipe",
   });
@@ -133,6 +149,9 @@ async function run(cwd: string, step: Step) {
     child.exited,
   ]);
   delete active.child;
+  clearTimeout(active.escalation);
+  // A descendant that closed its output would otherwise outlive the stop.
+  if (active.stoppedBy !== undefined) signalGroup(child, "SIGKILL");
   return { exitCode, signalCode: child.signalCode, output: stdout + stderr };
 }
 
@@ -209,7 +228,13 @@ function commitsToCheck(base: string, head: string): Commit[] {
 for (const signal of signals)
   process.on(signal, () => {
     active.stoppedBy ??= signal;
-    active.child?.kill("SIGTERM");
+    const { child } = active;
+    if (child === undefined) return;
+    signalGroup(child, "SIGTERM");
+    active.escalation ??= setTimeout(
+      () => signalGroup(child, "SIGKILL"),
+      graceMilliseconds,
+    );
   });
 
 async function main(argv: readonly string[]): Promise<number> {

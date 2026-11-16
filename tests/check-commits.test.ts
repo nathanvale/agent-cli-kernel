@@ -1,9 +1,11 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import {
   copyFileSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
+  readFileSync,
   realpathSync,
   rmSync,
   symlinkSync,
@@ -138,6 +140,26 @@ function worktrees(root: string): string[] {
 
 function blockThenFailPlainlyOnSignal(ledger: string): string {
   return `test ! -e block || { trap 'kill $!; exit 3' HUP INT TERM; echo started >> '${ledger}'; sleep 30 & wait; }`;
+}
+
+function blockWithABackgroundSleep(
+  ledger: string,
+  pids: string,
+  ignoreTerm: boolean,
+): string {
+  return `test ! -e block || { ${ignoreTerm ? "trap '' TERM; " : ""}sleep 30 & echo $! > '${pids}'; echo started >> '${ledger}'; wait; }`;
+}
+
+async function survivingSleep(pids: string): Promise<number | undefined> {
+  if (!existsSync(pids)) return undefined;
+  const pid = readFileSync(pids, "utf8").trim();
+  const shown = await spawnBounded(["ps", "-o", "stat=,command=", "-p", pid]);
+  const [stat = "", ...command] = shown.stdout.trim().split(/\s+/);
+  return shown.exit === 0 &&
+    !stat.startsWith("Z") &&
+    command.join(" ") === "sleep 30"
+    ? Number(pid)
+    : undefined;
 }
 
 function verdicts(lines: readonly string[]): string[] {
@@ -543,6 +565,48 @@ describe("check:commits", () => {
         expect(readdirSync(run.temporary)).toEqual([]);
       },
       processWatchdog(1),
+    );
+
+  for (const [name, ignoreTerm] of [
+    ["a background grandchild", false],
+    ["a step that ignores SIGTERM", true],
+  ] as const)
+    test(
+      `SIGTERM stops ${name}, leaves no process and no worktree, and exits 143`,
+      async () => {
+        const scratch = folder("check-commits-ledger-");
+        const ledger = join(scratch, "ledger");
+        const pids = join(scratch, "pids");
+        try {
+          const { root, base, commit } = repositoryAt({
+            scripts: {
+              ...markers,
+              typecheck: blockWithABackgroundSleep(ledger, pids, ignoreTerm),
+            },
+          });
+          const stopped = commit("block until stopped", { block: "" });
+
+          const run = await checkCommits(
+            root,
+            [base.sha],
+            { CHECK_COMMITS_SINCE: base.sha },
+            { signalAt: { ledger, line: "started", signal: "SIGTERM" } },
+          );
+
+          expect(run.exit).toBe(143);
+          expect(verdicts(run.lines)).toEqual([]);
+          expect(run.stderr.split("\n")).toContain(
+            `Stopped by SIGTERM while checking ${stopped.short}, so it has no verdict.`,
+          );
+          expect(await survivingSleep(pids)).toBeUndefined();
+          expect(worktrees(root)).toHaveLength(1);
+          expect(readdirSync(run.temporary)).toEqual([]);
+        } finally {
+          const left = await survivingSleep(pids);
+          if (left !== undefined) process.kill(left, "SIGKILL");
+        }
+      },
+      processWatchdog(3),
     );
 
   for (const [signal, exit] of [
