@@ -85,13 +85,50 @@ const doctor = "scripts/doctor.ts";
 const testArea = "scripts/test-area.ts";
 
 describe("doctor", () => {
-  test("a running Bun other than the pin fails, naming both versions and the repair", () => {
-    const result = run(project({ packageManager: "bun@0.0.1" }), doctor);
+  function bunRepair(pin: string) {
+    const result = run(project({ packageManager: `bun@${pin}` }), doctor);
+    const line = result.lines.find((entry) => entry.startsWith("FAIL bun: "));
+    return {
+      exitCode: result.exitCode,
+      line,
+      repair: line?.split("Repair: ")[1],
+    };
+  }
 
-    expect(result.exitCode).toBe(1);
-    expect(result.lines).toContain(
-      `FAIL bun: found Bun ${Bun.version}, pinned 0.0.1. Repair: install Bun 0.0.1 (mise install bun@0.0.1, or setup-bun in CI), then bun install --frozen-lockfile.`,
-    );
+  test.each([
+    ["older than", "99.0.0"],
+    ["newer than", "0.0.1"],
+  ])(
+    "a running Bun %s the pin fails, naming both versions and the repair",
+    (_order, pin) => {
+      const { exitCode, line } = bunRepair(pin);
+
+      expect(exitCode).toBe(1);
+      expect(line).toBe(
+        `FAIL bun: found Bun ${Bun.version}, pinned ${pin}. Repair: run each command as mise exec bun@${pin} -- <command>. If mise reports bun@${pin} missing, run mise install bun@${pin} first. In CI, set bun-version: ${pin} on setup-bun.`,
+      );
+    },
+  );
+
+  test.each([
+    [
+      "the pinned Bun is installed and another is first on PATH",
+      "run each command as mise exec bun@0.0.1 -- <command>.",
+    ],
+    [
+      "the pinned Bun is not installed",
+      "If mise reports bun@0.0.1 missing, run mise install bun@0.0.1 first.",
+    ],
+    ["the job runs in CI", "In CI, set bun-version: 0.0.1 on setup-bun."],
+  ])("the Bun repair covers the case where %s", (_case, route) => {
+    expect(bunRepair("0.0.1").repair).toContain(route);
+  });
+
+  test("every bun command in the Bun repair runs through the pinned Bun", () => {
+    const { repair } = bunRepair("0.0.1");
+
+    expect(repair).not.toContain("new shell");
+    expect(repair?.match(/(?<!-- )\bbun (install|run|test|x)\b/g)).toBeNull();
   });
 
   test("a corepack pin with a hash suffix compares only its version", () => {
@@ -175,6 +212,10 @@ describe("test:area", () => {
       'import { test } from "bun:test";\ntest("chosen case", () => {});\ntest("other case", () => {});\n',
     "tests/contract3/probe-seam.test.ts":
       'import { test } from "bun:test";\ntest("chosen seam case", () => {});\n',
+    "tests/first.test.ts":
+      'import { test } from "bun:test";\ntest("first root case", () => {});\n',
+    "tests/second.test.ts":
+      'import { test } from "bun:test";\ntest("second root case", () => {});\n',
   };
 
   test("an unknown area exits 2 listing the areas found on disk from any working directory", () => {
@@ -183,7 +224,7 @@ describe("test:area", () => {
 
     expect(result.exitCode).toBe(2);
     expect(result.stderr).toBe(
-      'Usage: bun run test:area <area> [bun test options]. Unknown area "nope". Valid areas: kernel, probe.\n',
+      'Usage: bun run test:area <area> [bun test options]. Unknown area "nope". Valid areas: kernel, probe, template.\n',
     );
   });
 
@@ -198,5 +239,13 @@ describe("test:area", () => {
     expect(result.stderr).toContain(" 1 pass\n");
     expect(result.stderr).toContain(" 1 filtered out\n");
     expect(result.stderr).toContain("Ran 1 test across 1 file.");
+  });
+
+  test("the template area runs only the test files directly under tests", () => {
+    const result = run(withToolchain("6.0.2", probe), testArea, ["template"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toContain(" 2 pass\n");
+    expect(result.stderr).toContain("Ran 2 tests across 2 files.");
   });
 });

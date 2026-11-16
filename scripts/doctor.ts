@@ -40,7 +40,7 @@ async function bunVersion(root: string): Promise<Finding> {
   return {
     status: "FAIL",
     check: "bun",
-    detail: `found Bun ${Bun.version}, pinned ${pinned}. Repair: install Bun ${pinned} (mise install bun@${pinned}, or setup-bun in CI), then ${install}.`,
+    detail: `found Bun ${Bun.version}, pinned ${pinned}. Repair: run each command as mise exec bun@${pinned} -- <command>. If mise reports bun@${pinned} missing, run mise install bun@${pinned} first. In CI, set bun-version: ${pinned} on setup-bun.`,
   };
 }
 
