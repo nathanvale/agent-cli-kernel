@@ -174,6 +174,55 @@ test(
   probe.timeout(),
 );
 
+// The lint-view parser overflows its stack on the deep nesting in this
+// imported file and exits at once, while the sibling still instantiates a
+// 999-element tuple chain. Declaring global gives the crasher its own program.
+const deep = join(fixtureDirectory, "deep.ts");
+writeFileSync(
+  deep,
+  `export const deep = ${"(".repeat(50_000)}1${")".repeat(50_000)};\n`,
+);
+const crasher = `import { deep } from ${JSON.stringify(deep)};\ndeclare global {}\nexport const read = deep;\n`;
+const slow =
+  'type Count<N extends number, A extends 0[] = []> = A["length"] extends N ? A : Count<N, [...A, 0]>;\nexport const slow: Count<999>["length"] = 999;\n';
+
+async function running(prefix: string): Promise<string[]> {
+  const ps = Bun.spawn(["ps", "-Aww", "-o", "args="], { stdout: "pipe" });
+  const listed = await new Response(ps.stdout).text();
+  await ps.exited;
+  return listed.split("\n").filter((line) => line.includes(prefix));
+}
+
+const drains = (
+  [
+    ["programs", "lint-view"],
+    ["compilers", "native"],
+  ] as const
+).map(([join, sibling]) => {
+  const prefix = `contract3-probes-drain-${join}-`;
+  const drained = probeBatch(prefix);
+  drained(slow, [sibling]);
+  return {
+    join,
+    prefix,
+    crasher: drained(crasher, ["lint-view"]),
+    timeout: drained.timeout(),
+  };
+});
+
+for (const drained of drains)
+  test(
+    `a failed compiler run reports only after its sibling ${drained.join} exit`,
+    async () => {
+      const failure = await drained.crasher
+        .compile("lint-view")
+        .catch((error: unknown) => error);
+      expect(await running(drained.prefix)).toEqual([]);
+      expect(String(failure)).toContain("lint-view did not complete normally");
+    },
+    drained.timeout,
+  );
+
 const files = ["locks/probe-0.ts", "locks/probe-1.ts"];
 const typeError = "locks/probe-0.ts(1,7): error TS2322: planted.\n";
 const sentinel = "locks/sentinel.ts(1,14): error TS2322: sentinel.\n";

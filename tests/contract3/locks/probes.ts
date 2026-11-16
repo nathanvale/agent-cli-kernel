@@ -156,6 +156,17 @@ export function readRun(
   };
 }
 
+// Waits for every run before reporting a failure, so no compiler still uses
+// the batch directory when teardown removes it.
+async function drain<T>(work: readonly Promise<T>[]): Promise<T[]> {
+  const values: T[] = [];
+  for (const outcome of await Promise.allSettled(work)) {
+    if (outcome.status === "rejected") throw outcome.reason;
+    values.push(outcome.value);
+  }
+  return values;
+}
+
 // A probe that writes the global scope would leak into every probe that
 // shares its program, so it gets a program of its own.
 function changesGlobalScope(source: string): boolean {
@@ -216,7 +227,7 @@ export function probeBatch(prefix: string) {
       results.push(await compileProgram(base, compiler, together));
     for (let start = 0; start < apart.length; start += fallbackWidth)
       results.push(
-        ...(await Promise.all(
+        ...(await drain(
           apart
             .slice(start, start + fallbackWidth)
             .map((file) => compileProgram(base, compiler, [file])),
@@ -233,7 +244,7 @@ export function probeBatch(prefix: string) {
       mine.filter((probe) => !probe.alone),
       ...mine.filter((probe) => probe.alone).map((probe) => [probe]),
     ].filter((program) => program.length > 0);
-    const results = await Promise.all(
+    const results = await drain(
       programs.map((program) =>
         compileProgram(
           base,
@@ -255,11 +266,10 @@ export function probeBatch(prefix: string) {
         writeFile(join(base, probe.file), probe.source),
       ),
     );
-    const [native, lintView] = await Promise.all([
-      compileWith(base, "native"),
-      compileWith(base, "lint-view"),
-    ]);
-    return { native, "lint-view": lintView };
+    const native = compileWith(base, "native");
+    const lintView = compileWith(base, "lint-view");
+    await drain([native, lintView]);
+    return { native: await native, "lint-view": await lintView };
   }
 
   // Each compiler's longest chain of bounded runs: the shared program, the
