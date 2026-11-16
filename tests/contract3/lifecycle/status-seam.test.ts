@@ -766,7 +766,7 @@ test(
 // before handler entry) at the check-phase sites, on `st.guarded`, which
 // declares diagnostics and approval. Each case has a flipped twin after
 // handler entry that does carry the key. Expected values are test-owned.
-describe("KF1.d no key at the check-phase sites", () => {
+describe("KF1.d and KF8 no key at the check-phase sites", () => {
   const preparation = {
     outcome: "refused",
     transactionState: "unchanged",
@@ -785,6 +785,14 @@ describe("KF1.d no key at the check-phase sites", () => {
     });
     return { observed, ...parsed(observed) };
   }
+  // The flipped twin: after handler entry the key carries the status.
+  async function expectTwinCarriesKey() {
+    const twin = await guardedRun("available", "grant");
+    expect(twin.observed.code).toBe(0);
+    expect(twin.result.causeCode).toBe("SUCCESS_UNCHANGED");
+    expect(twin.observed.ledger).toContain("handler-entered");
+    expect(twin.envelope.diagnostics).toEqual(ownAvailable);
+  }
   test(
     "KF1.d reporter-attach-fault-beside-approval-fault",
     async () => {
@@ -802,6 +810,53 @@ describe("KF1.d no key at the check-phase sites", () => {
       expect(twin.observed.code).toBe(0);
       expect(twin.result.causeCode).toBe("SUCCESS_UNCHANGED");
       expect(twin.envelope.diagnostics).toEqual(statusUnavailable);
+    },
+    timeout,
+  );
+  test(
+    "KF8.a check-phase-deadline-no-key",
+    async () => {
+      const late = await guardedRun("available", "delay", [
+        "--deadline-ms",
+        "50",
+      ]);
+      expect(late.observed.code).toBe(3);
+      expect(late.result).toMatchObject({
+        outcome: "refused",
+        causeCode: "DOMAIN_DEADLINE_BEFORE_START",
+      });
+      expect(late.envelope).not.toHaveProperty("diagnostics");
+      expect(late.observed.ledger).toContain("check-start");
+      expect(late.observed.ledger).not.toContain("handler-entered");
+      expect(line(late.observed, "freeze-start ")).toBeUndefined();
+      await expectTwinCarriesKey();
+    },
+    timeout,
+  );
+  for (const variant of ["reject", "sync-throw"] as const)
+    test(
+      `KF8.b thrown-check-no-key ${variant}`,
+      async () => {
+        const thrown = await guardedRun("available", variant);
+        expect(thrown.observed.code).toBe(1);
+        expect(thrown.result).toMatchObject(preparation);
+        expect(thrown.envelope).not.toHaveProperty("diagnostics");
+        expect(thrown.observed.ledger).toContain("check-start");
+        expect(thrown.observed.ledger).not.toContain("handler-entered");
+        await expectTwinCarriesKey();
+      },
+      timeout,
+    );
+  test(
+    "KF8.c attach-fault-no-key",
+    async () => {
+      const fault = await guardedRun("available", "attach-throws");
+      expect(fault.observed.code).toBe(1);
+      expect(fault.result).toMatchObject(preparation);
+      expect(fault.envelope).not.toHaveProperty("diagnostics");
+      expect(fault.observed.ledger).toContain("approval-attach");
+      expect(line(fault.observed, "freeze-start ")).toBeUndefined();
+      await expectTwinCarriesKey();
     },
     timeout,
   );
