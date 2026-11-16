@@ -179,7 +179,7 @@ describe("D01 absent when disabled", () => {
   );
 
   test(
-    "D01.pre-dispatch-refusal-no-key: a usage refusal of a declaring command follows the provisional reading",
+    "D01.pre-dispatch-refusal-no-key: a usage refusal of a declaring command carries no key (accepted decision, 14:19)",
     async () => {
       const where = tree();
       const result = await run({

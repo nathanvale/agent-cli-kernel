@@ -84,8 +84,8 @@ unit never edits the kernel. The add-on side follows the interface note
 `RunAddon` (`reportsStatus: true`) is attached, effect-free, when its
 declaring command is dispatched, and its `AttachedAddon.freeze(limit)` is
 called once after the result is frozen; the kernel validates the value alone.
-Pre-dispatch results carry no key (provisional, judged by the T5 reviewer;
-the expected value is one line in the tests).
+Pre-dispatch results carry no key: Nathan's accepted decision of 16 November
+2026, 14:19 (no `diagnostics` key on a result refused before handler entry).
 
 The gap as found at `d1db0d5`, kept for the record:
 
