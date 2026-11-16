@@ -21,7 +21,7 @@ test("the frozen T3 case table keeps its admitted identities and counts", () => 
   const ids = stateCases.map((row) => row.id);
   expect(new Set(ids).size).toBe(ids.length);
   for (const id of ids)
-    expect(id).toMatch(/^[JLKPOHTQSB]\d\d\.[a-z]-[a-z0-9-]+$/);
+    expect(id).toMatch(/^[JLKPOHTQSBC]\d\d\.[a-z]-[a-z0-9-]+$/);
   const families = new Set(ids.map((id) => id.slice(0, 3)));
   for (const family of briefFamilies) expect(families.has(family)).toBe(true);
   const supporting = [...families].filter(
@@ -34,15 +34,33 @@ test("the frozen T3 case table keeps its admitted identities and counts", () => 
     "B04",
     "B05",
     "B06",
+    "C01",
     "S01",
     "S02",
     "S03",
     "S04",
     "S05",
   ]);
-  expect(stateCases.length).toBe(112);
+  // 112 and 103 at the component head; the Linux route added C01.a to
+  // C01.i, Q01.e and Q01.f (11 rows, all executable).
+  expect(stateCases.length).toBe(123);
   const executable = stateCases.filter((row) => row.status === "executable");
-  expect(executable.length).toBe(103);
+  expect(executable.length).toBe(114);
+  // Linux expectations 4.1 and 4.3: no executable row is bound to Darwin
+  // alone, and exactly the three permission-denial rows need a non-root run.
+  for (const row of executable)
+    if (row.status === "executable")
+      expect(["coordination", "any"]).toContain(row.platform);
+  expect(
+    executable
+      .filter((row) => row.status === "executable" && row.nonRoot === true)
+      .map((row) => row.id)
+      .sort(),
+  ).toEqual([
+    "K06.h-unreadable-case-unavailable",
+    "L04.a-corrupt-journal-refuses",
+    "S03.a-store-failure-preserves-item",
+  ]);
   const pending = stateCases.filter((row) => row.status === "pending");
   expect(pending.map((row) => row.id).sort()).toEqual([
     "H01.a-attestation-satisfies-stop-only",
@@ -105,6 +123,7 @@ test("every executable case is registered once and no pending case is claimed", 
     "transient.test.ts",
     "component.test.ts",
     "seams.test.ts",
+    "route.test.ts",
   ];
   const sources = await Promise.all(
     files.map((name) => Bun.file(new URL(name, import.meta.url)).text()),

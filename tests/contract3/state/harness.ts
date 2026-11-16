@@ -19,13 +19,15 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { stateCases } from "./cases.ts";
+import { coordinationExpected } from "./holder.ts";
 
 const specimen = join(import.meta.dir, "fixtures", "specimen.ts");
-const darwin = process.platform === "darwin";
 
 // ---- Case registration -----------------------------------------------------
-// A darwin-bound case on another platform runs only its fail-closed control
-// and its title says UNPROVED: never a silent pass.
+// A case bound to a qualified coordination route, on a platform without one
+// (the test holder's own judgement, never the add-on's), runs only its
+// fail-closed control and its title says UNPROVED: never a silent pass. A
+// permission-denial case run as root says UNPROVED too (expectations 4.3).
 export function caseTest(
   id: string,
   body: () => Promise<void>,
@@ -34,12 +36,18 @@ export function caseTest(
   const row = stateCases.find((entry) => entry.id === id);
   if (!row || row.status !== "executable")
     throw new Error(`${id} is not an executable frozen case.`);
-  if (row.platform === "darwin" && !darwin) {
+  if (row.platform === "coordination" && !coordinationExpected) {
     test(
       `${id} UNPROVED on ${process.platform}: fail-closed control only`,
       failClosedControl,
       timeout,
     );
+    return;
+  }
+  if (row.nonRoot === true && process.geteuid?.() === 0) {
+    test(`${id} UNPROVED as euid 0: root is never denied permission`, () => {
+      expect(process.geteuid?.()).toBe(0);
+    });
     return;
   }
   test(id, body, timeout);
@@ -60,15 +68,15 @@ async function failClosedControl(): Promise<void> {
   }
 }
 
-// A supporting (non-frozen) control bound to the Darwin primitive follows the
-// same policy as caseTest: off Darwin it runs the fail-closed control under a
-// title ending UNPROVED, never a silent skip.
+// A supporting (non-frozen) control bound to a qualified coordination route
+// follows the same policy as caseTest: without one it runs the fail-closed
+// control under a title ending UNPROVED, never a silent skip.
 export function supportingTest(
   title: string,
   body: () => Promise<void>,
   timeout = 90_000,
 ): void {
-  if (!darwin) {
+  if (!coordinationExpected) {
     test(
       `${title} UNPROVED on ${process.platform}: fail-closed control only`,
       failClosedControl,

@@ -34,6 +34,7 @@ import {
   conflicts,
 } from "../../../starters/contract3/src/addons/state/scope.ts";
 import { caseTest, readFramed, readOperations } from "./harness.ts";
+import { coordinationExpected } from "./holder.ts";
 
 const causes = {
   DOMAIN_CX_LOCK_HELD: {
@@ -491,7 +492,7 @@ caseTest("Q01.b-fixture-never-enables", async () => {
     // A fixture-enabled proof is reported fixture-only, never available.
     expect(fixtureAddon.capabilities().qualification).toBe("fixture:q01b");
     expect(fixtureAddon.capabilities().stoppedOwnerProof).toBe(
-      process.platform === "darwin" ? "fixture-only" : "unavailable",
+      coordinationExpected ? "fixture-only" : "unavailable",
     );
     expect(production.capabilities().qualification).toBe("unqualified");
     expect(production.capabilities().stoppedOwnerProof).toBe("unavailable");

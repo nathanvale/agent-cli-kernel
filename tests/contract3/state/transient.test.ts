@@ -20,6 +20,7 @@ import {
   makeWorld,
 } from "./harness.ts";
 import type { Run, World } from "./harness.ts";
+import { coordinationExpected, holdLock } from "./holder.ts";
 
 const apply = (name: string, content = "v1") => [
   "apply",
@@ -75,16 +76,14 @@ caseTest(
   "T01.b-admission-busy-exit-75",
   plain(async (world) => {
     expectCompleted(await world.run(apply("seed")));
-    const { closeSync, constants, openSync } = await import("node:fs");
-    const descriptor = openSync(
+    const release = holdLock(
       join(world.root, "coordination", "admission.lock"),
-      constants.O_RDWR | constants.O_NONBLOCK | 0x20,
     );
     let refused: Run;
     try {
       refused = await world.run(apply("a"), { SX_ADMISSION_WAIT: "200" });
     } finally {
-      closeSync(descriptor);
+      release();
     }
     expectTransient(refused, "TRANSIENT_NOT_STARTED", "refused");
     expect(refused.result.causeCode).not.toBe("DOMAIN_SX_LOCK_HELD");
@@ -158,7 +157,7 @@ caseTest(
     const data = at(run.result.raw, "data");
     expect(at(data, "qualification")).toBe("unqualified");
     expect(at(data, "coordination")).toBe(
-      process.platform === "darwin" ? "available" : "unavailable",
+      coordinationExpected ? "available" : "unavailable",
     );
     expect(at(data, "stoppedOwnerProof")).toBe("unavailable");
     expect(at(data, "automaticReclaim")).toBe("unavailable");

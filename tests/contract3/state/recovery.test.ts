@@ -22,6 +22,7 @@ import {
   str,
 } from "./harness.ts";
 import type { World } from "./harness.ts";
+import { coordinationExpected } from "./holder.ts";
 
 const apply = (name: string, content = "v1") => [
   "apply",
@@ -576,7 +577,7 @@ caseTest(
       ),
     );
     expectRefusedUnchanged(refused, "DOMAIN_SX_UNAVAILABLE");
-    if (process.platform === "darwin")
+    if (coordinationExpected)
       expect(str(refused.envelope.message)).toContain(
         "human-assisted-takeover-unqualified",
       );
@@ -588,7 +589,7 @@ caseTest(
 caseTest(
   "H02.a-attestation-cannot-bypass-exclusivity",
   fixture(async (world) => {
-    if (process.platform !== "darwin") {
+    if (!coordinationExpected) {
       // On a platform without coordination the refusal is still unavailable.
       const refused = await world.run(
         closeArgs(
