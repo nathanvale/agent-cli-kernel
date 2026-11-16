@@ -4,8 +4,14 @@ Status: frozen design note for T3 (MAG-102, C3-FND-4), committed before any
 state add-on production code (CMD-11, REC-7, REC-8). A change to anything in
 this note is a new journal version with its own review; code follows this
 note, never the reverse. Clause tags refer to the frozen Contract 3 text
-(`skills/agent-cli-design/references/contract-3/`, 20 of 20 hashes verified
-on 16 November 2026).
+(`agent-engineering` repository, skill `agent-cli-design`,
+`references/contract-3/`, read at published commit
+`648f93275717d5b031dd4bb4fc67f80cd9940383`). The accepted identity is
+commit `5693651d19c6fba2430c904688e583266dbe58a0` with manifest
+`c162c9850ca506fd839ce36b2b1a8172f064516b0f229dd34a5678b366b02b9d`, 20 of
+20 hashes verified on 16 November 2026;
+`references/contract-3/redaction-2026-11-16.md` maps it to the published
+commit.
 
 This note claims design only. What is implemented, tested and qualified is
 reported in the state add-on's handback, never here.
