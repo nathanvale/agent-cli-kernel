@@ -382,7 +382,8 @@ const runPrograms = command({
   identity: "kf.run",
   route: ["run"],
   summary: "Run one owned program.",
-  input,
+  // No deadline support, so no program-stop station is needed (KF3.f).
+  input: { ...input, deadlineSupported: false },
   capabilities: { programs: true },
   stations: [success("kf.run")],
   run: async (_input, context) => {
@@ -687,23 +688,77 @@ function programsApply(state: StateAddonDescriptor) {
     },
   });
 }
-const watch = command({
+// The program-stop station (accepted decisions of 17:06 and 17:24, form H):
+// kf.watch declares it in its own station table, with the ruled words; the
+// kernel selects it. KF_WATCH_STATION varies the declaration for KF3.f:
+// `ruled` (default), `missing`, `wrong-arm`, `wrong-outcome`, `other-name`,
+// and the twins `no-deadline` and `no-programs`.
+const programStop = "DOMAIN_KF_DEADLINE_PROGRAM_STOP_UNCONFIRMED";
+const watchVariant = env.KF_WATCH_STATION ?? "ruled";
+const programStopRow = {
+  outcome: watchVariant === "wrong-outcome" ? "refused" : "failed",
+  transactionState: "unchanged",
+  failureClass: "domain",
+  exitCode: 3,
+  retryable: false,
+  guidance: watchVariant === "wrong-arm" ? "next" : "handoff",
+} as const;
+const programStopName =
+  watchVariant === "other-name" ? "DOMAIN_KF_PROGRAM_SURVIVOR" : programStop;
+const watchCauses = { ...causes, [programStopName]: programStopRow };
+const programStopStation = station({ ...commonCauses, ...watchCauses } as never, {
+  ...words,
+  commandIdentity: "kf.watch",
+  causeCode: programStopName,
+  trigger:
+    "The deadline passed and a program this command started was not confirmed stopped.",
+  guidance:
+    watchVariant === "wrong-arm"
+      ? { next: { kind: "instruction", text: "Look in the process table." } }
+      : {
+          handoff: {
+            owner: "operator",
+            reason: "A program this command started may still be running.",
+            inspect: [
+              {
+                kind: "instruction",
+                text: "Look in the process table for a program this command started that is still running.",
+              },
+            ],
+          },
+        },
+  repairAction:
+    "Confirm that the program this command started has stopped before a new run.",
+  independentObservable: "kf.watch:program-stop-unconfirmed",
+} as never);
+const watchDeclares =
+  watchVariant !== "missing" &&
+  watchVariant !== "no-deadline" &&
+  watchVariant !== "no-programs";
+function watchCommand() {
+  return command({
   identity: "kf.watch",
   route: ["watch"],
   summary: "Watch with one owned program.",
-  input,
-  capabilities: { programs: true },
-  stations: [success("kf.watch")],
+  input: { ...input, deadlineSupported: watchVariant !== "no-deadline" },
+  capabilities: watchVariant === "no-programs" ? {} : { programs: true },
+  stations: [
+    success("kf.watch"),
+    ...(watchDeclares ? [programStopStation] : []),
+  ],
+  ...(watchDeclares ? { programStopCause: programStopName } : {}),
   run: async (_input, context) => {
     note("handler-entered");
-    await context.programs.inspect(program);
+    if (watchVariant !== "no-programs")
+      await (context as never as { programs: ProgramsCapability }).programs.inspect(program);
     if (waitMilliseconds > 0) await sleep(waitMilliseconds);
     return context.result(
       { commandIdentity: "kf.watch", causeCode: "SUCCESS_UNCHANGED" },
       { message: "Watched.", data: null, effects: empty },
     );
   },
-});
+  });
+}
 
 // Decision 4 (KF4). KF_STEP picks the step under test on kf.go's success
 // station (`next`), on its KF_HELD handoff (`inspect-entry`), as kf.apply's
@@ -1027,17 +1082,37 @@ const scenarios: Readonly<Record<string, (argv: string[]) => Promise<unknown>>> 
         { addons: { programs: programsAddon() } },
       )(argv);
     },
-    // KF3.d (and KF3.b once its station is built).
+    // KF3.b, KF3.d.
     watch: (argv) =>
       runProcess(
         contractFor({
           cli: "kf",
-          commands: [watch],
-          causes,
+          commands: [watchCommand()],
+          causes: watchCauses,
           installedAddons: ["programs"],
-        }),
+        } as never),
         { addons: { programs: programsAddon() } },
       )(argv),
+    // KF3.f: what command() and contractFor did with kf.watch.
+    "watch-admission": () => {
+      try {
+        contractFor({
+          cli: "kf",
+          commands: [watchCommand()],
+          causes: watchCauses,
+          installedAddons: ["programs"],
+        } as never);
+        process.stdout.write(JSON.stringify({ admission: "admitted" }));
+      } catch (error) {
+        process.stdout.write(
+          JSON.stringify({
+            admission: "refused",
+            reason: error instanceof Error ? error.message : String(error),
+          }),
+        );
+      }
+      return Promise.resolve();
+    },
     // KF2.
     proof: (argv) => {
       const { state, transact } = layered();

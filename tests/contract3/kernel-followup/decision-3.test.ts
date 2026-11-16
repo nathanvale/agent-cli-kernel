@@ -185,6 +185,41 @@ describe("KF3.c changing-normal-unconfirmed", () => {
   );
 });
 
+test(
+  "KF3.c partial: a partial change whose owned program is not confirmed stopped is unknown with a handoff",
+  async () => {
+    const run = await runKf(entry, "programs-apply", ["apply", "--json"], {
+      KF_PROOF: "partial",
+      KF_SETTLE: "false",
+    });
+    expect({ exit: run.exit, one: oneEnvelope(run) }).toEqual({
+      exit: 1,
+      one: true,
+    });
+    expect(run.result).toMatchObject({
+      causeCode: "INTERNAL_RESULT_UNKNOWN",
+      outcome: "failed",
+      transactionState: "unknown",
+      failureClass: "internal",
+      retryable: false,
+      data: null,
+      effects: unconfirmed.partial,
+    });
+    expectHandoff(run);
+    // Twin: settle true gives the declared partial station, inventory complete.
+    const twin = await runKf(entry, "programs-apply", ["apply", "--json"], {
+      KF_PROOF: "partial",
+      KF_SETTLE: "true",
+    });
+    expect(twin.exit).toBe(3);
+    expect(twin.result).toMatchObject({
+      causeCode: "KF_PARTIAL",
+      effects: { ...emptyComplete, completed: ["kf.e1"], remaining: ["kf.e2"] },
+    });
+  },
+  processWatchdog(2),
+);
+
 describe("KF3.d inspect-normal-unconfirmed", () => {
   test(
     "KF3.d an inspect command whose owned program is not confirmed stopped fails unchanged",

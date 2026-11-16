@@ -9,6 +9,7 @@ import {
   admitChangingShape,
   validateCommandIdentity,
   admitInspectShape,
+  admitProgramStop,
   preparerOf,
   validateRootOperation,
   validateRouteTokens,
@@ -196,8 +197,10 @@ function admitCommand(
 ): void {
   // K1-5: a raw declaration meets the same shape rules as a constructed one.
   if (host)
-    if (command.effectClass === "inspect") admitInspectShape(command);
-    else admitChangingShape(command);
+    if (command.effectClass === "inspect") {
+      admitInspectShape(command);
+      admitProgramStop(command);
+    } else admitChangingShape(command);
   validateCommandIdentity(command.commandIdentity);
   validateHostInput(command.input);
   if (command.commandIdentity !== `${cli}.dispatch`)

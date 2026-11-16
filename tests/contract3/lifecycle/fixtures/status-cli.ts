@@ -28,6 +28,7 @@ import {
   path,
   resource,
 } from "../../../../starters/contract3/src/kernel/validation/brands.ts";
+import { programStopRow, programStopStation } from "../program-stop.ts";
 
 const ledgerPath = process.env.FX_LEDGER;
 const mode = process.env.FX_STATUS ?? "available";
@@ -166,6 +167,10 @@ const input = {
   additionalOptions: false,
 } as const;
 
+const stCauses = {
+  ...commonCauses,
+  DOMAIN_ST_DEADLINE_PROGRAM_STOP_UNCONFIRMED: programStopRow,
+} as const;
 const report = command({
   identity: "st.report",
   route: ["report"],
@@ -181,6 +186,26 @@ const report = command({
     ],
   },
   capabilities: { diagnostics: true, programs: true },
+  // N1b (17:06): st.report runs programs and supports a deadline.
+  stations: [
+    station(commonCauses, {
+      commandIdentity: "st.report",
+      causeCode: "SUCCESS_UNCHANGED",
+      trigger: "The fixture work finished.",
+      guidance: { next: { kind: "done" } },
+      repairAction: null,
+      retryDelayPolicy: { kind: "none" },
+      reachability: "required",
+      unreachableRationale: null,
+      independentObservable: "st.report:done",
+    }),
+    programStopStation(
+      stCauses,
+      "st.report",
+      "DOMAIN_ST_DEADLINE_PROGRAM_STOP_UNCONFIRMED",
+    ),
+  ],
+  programStopCause: "DOMAIN_ST_DEADLINE_PROGRAM_STOP_UNCONFIRMED",
   run: async (options, context) => {
     ledger("handler-entered");
     if (options["--record"] === true) context.diagnostics.record("work", null);
@@ -341,6 +366,7 @@ const programs =
 const contract = contractFor({
   cli: "st",
   commands: [report, plain, guarded],
+  causes: { DOMAIN_ST_DEADLINE_PROGRAM_STOP_UNCONFIRMED: programStopRow },
   installedAddons: ["diagnostics", "programs", "approval"],
 });
 const runtime = runtimeOf(contract);

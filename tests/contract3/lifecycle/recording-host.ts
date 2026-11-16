@@ -5,7 +5,9 @@ import { appendFileSync } from "node:fs";
 import { jest } from "bun:test";
 import {
   command,
+  commonCauses,
   contractFor,
+  station,
 } from "../../../starters/contract3/src/kernel/index.ts";
 import type {
   ProgramRequest,
@@ -17,6 +19,7 @@ import type {
 } from "../../../starters/contract3/src/kernel/process-types.ts";
 import { path } from "../../../starters/contract3/src/kernel/validation/brands.ts";
 import { timerLimit, unchangedEffects } from "./oracle.ts";
+import { programStopRow, programStopStation } from "./program-stop.ts";
 
 type Recorded = {
   readonly stream: "stdout" | "stderr";
@@ -146,6 +149,10 @@ export function shell(
 
 // One inspect command with deadline support and the programs capability.
 // `work` is the handler body; the test controls when it returns.
+const rcCauses = {
+  ...commonCauses,
+  DOMAIN_RC_DEADLINE_PROGRAM_STOP_UNCONFIRMED: programStopRow,
+} as const;
 export function holdContract(
   work: (programs: ProgramsCapability) => Promise<void>,
 ) {
@@ -162,6 +169,26 @@ export function holdContract(
       additionalOptions: false,
     },
     capabilities: { programs: true },
+    // N1b (17:06): rc.hold runs programs and supports a deadline.
+    stations: [
+      station(rcCauses, {
+        commandIdentity: "rc.hold",
+        causeCode: "SUCCESS_UNCHANGED",
+        trigger: "Released.",
+        guidance: { next: { kind: "done" } },
+        repairAction: null,
+        retryDelayPolicy: { kind: "none" },
+        reachability: "required",
+        unreachableRationale: null,
+        independentObservable: "rc.hold:released",
+      }),
+      programStopStation(
+        rcCauses,
+        "rc.hold",
+        "DOMAIN_RC_DEADLINE_PROGRAM_STOP_UNCONFIRMED",
+      ),
+    ],
+    programStopCause: "DOMAIN_RC_DEADLINE_PROGRAM_STOP_UNCONFIRMED",
     run: async (_input, context) => {
       await work(context.programs);
       return context.result(
@@ -173,6 +200,7 @@ export function holdContract(
   return contractFor({
     cli: "rc",
     commands: [hold],
+    causes: { DOMAIN_RC_DEADLINE_PROGRAM_STOP_UNCONFIRMED: programStopRow },
     installedAddons: ["programs"],
   });
 }

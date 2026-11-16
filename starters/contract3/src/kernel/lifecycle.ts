@@ -15,6 +15,7 @@ import { runtimeOf } from "./runtime.ts";
 import type { Attach, ContractRuntime, Enter, Resolution } from "./runtime.ts";
 import type { CommandResult } from "./command-result.ts";
 import type { CommandDeclaration } from "./declarations.ts";
+import { programStopOf } from "./declarations.ts";
 import type { StateObservation } from "./state-seam.ts";
 import {
   deadlineCause,
@@ -52,6 +53,9 @@ const messages = {
   DOMAIN_DEADLINE_BEFORE_START:
     "The deadline passed before the operation started. Its handler never ran.",
   deadline: "The deadline passed after the operation started.",
+  // N1f (open, small): the expectations author's recommended words.
+  programStop:
+    "The deadline passed. Nothing changed, but a program this command started was not confirmed stopped.",
   help: "Help for this CLI.",
   discovery: "Discovery data for this CLI.",
   commandDiscovery: "Discovery data for one command.",
@@ -577,9 +581,18 @@ async function afterDeadline(
     run.runtime.trustedSummary(run.runId) ??
     (started === false ? noneStarted(command) : undefined);
   const summary = stopped === true ? issued : unconfirmedSummary(issued);
+  // Accepted decisions (16:23, 17:06): an inspect command with an owned
+  // program not confirmed stopped gets its declared program-stop station.
+  const programStop =
+    command.effectClass === "inspect" && stopped !== true
+      ? programStopOf(command)
+      : undefined;
   const selected =
     command.effectClass === "inspect"
-      ? { causeCode: deadlineCause.unchanged, effects: unchangedEffects }
+      ? {
+          causeCode: programStop ?? deadlineCause.unchanged,
+          effects: unchangedEffects,
+        }
       : summary
         ? {
             causeCode: deadlineCause[summary.transactionState],
@@ -590,7 +603,7 @@ async function afterDeadline(
     run,
     command.commandIdentity,
     selected.causeCode,
-    messages.deadline,
+    programStop ? messages.programStop : messages.deadline,
     { handlerEntered: true, effects: selected.effects, summary },
   );
 }

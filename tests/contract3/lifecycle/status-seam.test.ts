@@ -484,7 +484,13 @@ describe("K3K5 a settle fault keeps the exit path", () => {
         settleThrows,
       );
       const { result } = parsed(observed);
-      expect(result.causeCode).toBe("DOMAIN_DEADLINE_UNCHANGED");
+      // Accepted decisions of 16:23 and 17:06 (KF3.b): a settle fault is an
+      // owned program not confirmed stopped, so the inspect command's
+      // declared program-stop station prints, with its handoff.
+      expect(result.causeCode).toBe(
+        "DOMAIN_ST_DEADLINE_PROGRAM_STOP_UNCONFIRMED",
+      );
+      expect(result).toHaveProperty("handoff");
       expect(observed.code).toBe(3);
       expect(observed.ledger).toContain("settle-throws");
     },
@@ -687,7 +693,8 @@ describe("K3K5 a rejected settle keeps the exit path", () => {
         "300",
         "--json",
       ],
-      "DOMAIN_DEADLINE_UNCHANGED",
+      // Accepted decisions of 16:23 and 17:06 (KF3.b).
+      "DOMAIN_ST_DEADLINE_PROGRAM_STOP_UNCONFIRMED",
       3,
     ],
   ] as const)

@@ -66,6 +66,48 @@ export function admitInspectShape(declaration: {
   if (declaration.ifNoResult !== undefined)
     throw new Error("An inspect command has no ifNoResult.");
 }
+// Accepted decision N1b (17:06): an inspect command that runs programs and
+// supports a deadline declares its program-stop station, a failed and
+// unchanged station with a handoff (WIRE-13, WIRE-14, WIRE-15). The kernel
+// does not enforce its name (N1e, 17:24).
+//
+// The station the kernel selects when the deadline passed and an owned
+// program was not confirmed stopped: command()'s `programStopCause`, kept
+// here rather than on CommandDeclaration, or a raw declaration's own
+// `programStopCause` string.
+const programStops = new WeakMap<object, string>();
+export function programStopOf(declaration: object): string | undefined {
+  const own: unknown = Reflect.get(declaration, "programStopCause");
+  return (
+    programStops.get(declaration) ?? (typeof own === "string" ? own : undefined)
+  );
+}
+export function admitProgramStop(declaration: {
+  readonly commandIdentity: string;
+  readonly input: { readonly deadlineSupported: boolean };
+  readonly capabilities: CapabilitySelection;
+  readonly stations: readonly DeclaredStation[];
+}): void {
+  if (
+    declaration.capabilities.programs !== true ||
+    !declaration.input.deadlineSupported
+  )
+    return;
+  const cause = programStopOf(declaration);
+  const station = declaration.stations.find((item) => item.causeCode === cause);
+  if (!station)
+    throw new Error(
+      `${declaration.commandIdentity} runs programs and supports a deadline, so it declares its program-stop station (programStopCause).`,
+    );
+  if (
+    station.row.outcome !== "failed" ||
+    station.row.transactionState !== "unchanged" ||
+    !station.guidance.handoff
+  )
+    throw new Error(
+      `${declaration.commandIdentity}'s program-stop station ${station.causeCode} is failed and unchanged, with a handoff.`,
+    );
+}
 export function admitChangingShape(declaration: {
   readonly effectClass: unknown;
   readonly effects?: readonly unknown[];
@@ -245,6 +287,8 @@ export function command<
     >;
     readonly capabilities: C;
     readonly stations?: S;
+    // Checked at declaration against the station table (admitProgramStop).
+    readonly programStopCause?: string;
     readonly run: (
       input: ParsedInput<I>,
       context: HandlerContext<C> & ResultContext<Identity, S, "inspect">,
@@ -316,6 +360,9 @@ export function command<
     capabilities: capabilities ?? {},
     execute: executeVia(prepare),
   });
+  if (spec.programStopCause !== undefined)
+    programStops.set(declaration, spec.programStopCause);
+  admitProgramStop(declaration);
   return register(declaration, prepare);
 }
 
