@@ -136,13 +136,7 @@ function ownerImport(context, file, root) {
   if (imported) return "";
   const owner = file.startsWith(`${root}/kernel/`) ? "causes.ts" : "index.ts";
   const from = posix.relative(posix.dirname(file), `${root}/kernel/${owner}`);
-  return `import type { commonCauses } from "${from.startsWith(".") ? from : `./${from}`}"; `;
-}
-
-function camelName(code) {
-  return code
-    .toLowerCase()
-    .replace(/_([a-z0-9])/g, (_, letter) => letter.toUpperCase());
+  return ` Import the owner once: import type { commonCauses } from "${from.startsWith(".") ? from : `./${from}`}";`;
 }
 
 const causeShape =
@@ -259,7 +253,7 @@ export default {
         type: "problem",
         schema: [],
         messages: {
-          free: 'Cause code "{{code}}" is a free string here, so a renamed or removed code still compiles. Type it with the owner\'s keys and use {{name}} in its place. Fix: {{imports}}const {{name}}: keyof typeof commonCauses = "{{code}}";',
+          free: 'Cause code "{{code}}" is a free string here, so a renamed or removed code still compiles. Check it against the owner\'s keys where it stands.{{imports}} Fix: ("{{code}}" satisfies keyof typeof commonCauses)',
         },
       },
       create(context) {
@@ -301,7 +295,7 @@ export default {
             context.report({
               node,
               messageId: "free",
-              data: { code, name: camelName(code), imports },
+              data: { code, imports },
             });
         };
         return {

@@ -65,6 +65,13 @@ async function fixesFor(rule: string, filePath: string, failing: string) {
   });
 }
 
+async function ownerImport(rule: string, filePath: string, failing: string) {
+  const [first] = await hits(rule, filePath, failing);
+  const line = / Import the owner once: (.*;) Fix: /.exec(first?.message ?? "");
+  if (line?.[1] === undefined) throw new Error(`No import in ${failing}.`);
+  return line[1];
+}
+
 const fixes = [
   {
     rule: "no-locale-compare",
@@ -153,23 +160,43 @@ const fixes = [
     filePath: "starters/contract3/src/kernel/declaration-checks.ts",
     failing:
       'export const reserved = (causeCode: string) => causeCode === "INTERNAL_PREPARATION";',
-    fixed: ([fix]: string[]) =>
-      `${fix}\nexport const reserved = (causeCode: string) => causeCode === internalPreparation;`,
+    fixed: ([fix]: string[], imported: string) =>
+      `${imported}\nexport const reserved = (causeCode: string) => causeCode === ${fix};`,
   },
   {
     rule: "cause-literal-owner",
     filePath: "starters/contract3/src/addons/state/scope.ts",
     failing:
       'export const needed = (codes: string[]) => codes.includes("DOMAIN_DEADLINE_UNKNOWN");',
-    fixed: ([fix]: string[]) =>
-      `${fix}\nexport const needed = (codes: string[]) => codes.includes(domainDeadlineUnknown);`,
+    fixed: ([fix]: string[], imported: string) =>
+      `${imported}\nexport const needed = (codes: string[]) => codes.includes(${fix});`,
+  },
+  {
+    rule: "cause-literal-owner",
+    filePath: "starters/contract3/src/kernel/declaration-checks.ts",
+    failing: [
+      "export const twice = (causeCode: string) =>",
+      '  causeCode === "INTERNAL_PREPARATION" || causeCode.endsWith("INTERNAL_PREPARATION");',
+    ].join("\n"),
+    fixed: ([first, second]: string[], imported: string) =>
+      [
+        imported,
+        "export const twice = (causeCode: string) => {",
+        `  if (causeCode === ${first}) return true;`,
+        `  return causeCode.endsWith(${second});`,
+        "};",
+      ].join("\n"),
   },
 ];
 
 for (const item of fixes)
   test(`${item.rule}: the fix its message names compiles and lints clean in ${item.filePath}`, async () => {
     const found = await fixesFor(item.rule, item.filePath, item.failing);
-    const fixed = item.fixed(found);
+    const imported =
+      item.rule === "cause-literal-owner"
+        ? await ownerImport(item.rule, item.filePath, item.failing)
+        : "";
+    const fixed = item.fixed(found, imported);
     expect(typeErrors(item.filePath, fixed)).toEqual([]);
     expect(await messages(item.filePath, fixed)).toEqual([]);
   }, 60_000);
