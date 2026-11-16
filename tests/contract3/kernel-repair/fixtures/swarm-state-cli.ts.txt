@@ -29,6 +29,7 @@ import {
   proofAccessorContract,
   recordingInstallation,
   runReuse,
+  spreadChangingContract,
 } from "../../../starters/contract3/src/addons/state/swarm-state.ts";
 
 function admission(compose: () => object): void {
@@ -104,6 +105,8 @@ const scenarios: Readonly<Record<string, (argv: string[]) => Promise<unknown>>> 
       Promise.resolve(
         admission(() => coordinationContract("unresolved-common")),
       ),
+    "spread-changing-admission": () =>
+      Promise.resolve(admission(() => spreadChangingContract())),
     "coordination-host": () =>
       Promise.resolve(admission(() => coordinationContract("host"))),
     "proof-accessor": (argv) => runProcess(proofAccessorContract(false))(argv),

@@ -9,6 +9,7 @@ import {
   admitChangingShape,
   admitCommandIdentity,
   admitInspectShape,
+  preparerOf,
   admitRootOperation,
   admitRouteTokens,
 } from "./declarations.ts";
@@ -186,6 +187,19 @@ function admitCommand(
   // Last, so a more specific refusal of the same declaration wins.
   if (host && typeof command.execute !== "function")
     throw new Error("Host command needs an executable handler.");
+  // CMD-9 steps 5 and 6: only command() and changing() register the
+  // two-phase entry that runs the approval guard before any attachment, so
+  // a declaration without it may neither declare approval nor change state
+  // (delta review F1). A raw read-only declaration stays admitted (K1-5).
+  if (
+    host &&
+    !preparerOf(command) &&
+    (command.capabilities.approval === true ||
+      command.effectClass !== "inspect")
+  )
+    throw new Error(
+      "A command that declares approval or changes state must be built with command() or changing().",
+    );
 }
 // F01 (option 2): refuse a step template no single-token value can satisfy.
 function admitStepVectors(

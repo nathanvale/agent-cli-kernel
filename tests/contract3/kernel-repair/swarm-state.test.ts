@@ -310,3 +310,22 @@ test(
   },
   processTimeout,
 );
+
+test(
+  "F1.unguarded-raw-changing-refused: a changing declaration without the two-phase entry is refused",
+  async () => {
+    // CMD-9: state attaches only at step 6, after the preflight; a spread
+    // changing declaration has no registered entry (delta review F1).
+    expect(await printed("spread-changing-admission")).toEqual({
+      admission: "refused",
+      reason:
+        "A command that declares approval or changes state must be built with command() or changing().",
+    });
+    // Twin: the same command, not spread, is admitted (X-K1-10's host twin
+    // composes it the same way).
+    expect(await printed("coordination-host")).toEqual({
+      admission: "admitted",
+    });
+  },
+  processTimeout,
+);

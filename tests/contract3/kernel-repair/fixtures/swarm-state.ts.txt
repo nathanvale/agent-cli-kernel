@@ -89,6 +89,7 @@ function applyContract(
   state: StateAddonDescriptor,
   handler: Handler,
   pending: ReturnType<typeof recovery> | ReturnType<typeof command> = recovery(),
+  spread = false,
 ) {
   const apply = changing({
     identity: "specimen.apply",
@@ -131,7 +132,7 @@ function applyContract(
   });
   return contractFor({
     cli: "specimen",
-    commands: [apply, pending],
+    commands: [spread ? { ...apply } : apply, pending],
     causes,
     state,
     installedAddons: ["state"],
@@ -404,4 +405,15 @@ export async function runReuse(secondRunId: string) {
 // X-S6: an installation whose attach reports each attachment.
 export function recordingInstallation(onAttach: () => void) {
   return installation(completedObservation, [], onAttach);
+}
+
+// Delta review F1: the changing command spread into a plain object, which
+// loses the two-phase entry its constructor registered.
+export function spreadChangingContract() {
+  return applyContract(
+    installation(completedObservation),
+    { kind: "throw" },
+    recovery(),
+    true,
+  );
 }

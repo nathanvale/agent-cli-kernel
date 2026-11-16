@@ -7,6 +7,7 @@ import {
 } from "../../../starters/contract3/src/kernel/index.ts";
 import { neverRuns } from "./handlers.ts";
 import { contractUnchecked } from "./harness.ts";
+import { approvedRead } from "./swarm-commands.ts";
 import { emptyInput, unchanged } from "./shapes.ts";
 
 // Swarm-triage expectations for declarations reaching contractFor. Expected
@@ -215,4 +216,28 @@ test("S2.raw-shape-refusals: each shape rule contractFor re-checks names its own
   expect(refusalOf(admit(rawChange))).toBe(
     "Changing commands require the state add-on.",
   );
+});
+
+test("F1.unguarded-raw-refused: a declaration without the two-phase entry may not declare approval", () => {
+  // CMD-9 steps 5 and 6: the approval guard precedes handler entry for every
+  // admitted declaration. Only command() and changing() register the
+  // two-phase entry, so a raw or spread declaration that declares approval
+  // (or changes state; see the state twin) is refused (delta review F1).
+  const refusal =
+    "A command that declares approval or changes state must be built with command() or changing().";
+  const guarded = approvedRead(() => undefined);
+  const admitGuarded = (declaration: object) => () =>
+    contractUnchecked(contractFor, {
+      cli: "x",
+      commands: [declaration],
+      installedAddons: ["approval"],
+    });
+  expect(refusalOf(admitGuarded({ ...guarded }))).toBe(refusal);
+  expect(refusalOf(admitGuarded({ ...guarded, execute: neverRuns }))).toBe(
+    refusal,
+  );
+  // Twins: the constructed declaration is admitted, and a raw declaration
+  // that declares no approval stays admitted (X-K1-5).
+  expect(refusalOf(admitGuarded(guarded))).toBe("admitted");
+  expect(refusalOf(admit({ ...base(), stations: [unmet] }))).toBe("admitted");
 });
