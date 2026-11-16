@@ -1,6 +1,12 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+} from "node:fs";
 import { constants, tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { runWithOwnTools } from "./child-env.ts";
 import { doctor } from "./doctor.ts";
 
@@ -8,6 +14,7 @@ import { doctor } from "./doctor.ts";
 // cannot hold its own SHA, so this is the nearest fixed point; the older
 // commits, some of them red, never fail the gate.
 const since = "f20777f7e67d300ade253060fa2ba36f38c0ca43";
+const fixedPoint = process.env.CHECK_COMMITS_SINCE || since;
 const root = join(import.meta.dir, "..");
 const steps = [
   ["install", "--frozen-lockfile"],
@@ -48,15 +55,6 @@ function git(args: readonly string[]) {
   };
 }
 
-const worktreesFolder = join(
-  git([
-    "rev-parse",
-    "--path-format=absolute",
-    "--git-common-dir",
-  ]).stdout.trim(),
-  "worktrees",
-);
-
 function shown(step: Step): string {
   return `bun ${step.join(" ")}`;
 }
@@ -65,32 +63,40 @@ function print(line: string): void {
   process.stdout.write(`${line}\n`);
 }
 
-function adminFolderOf(link: string): string | undefined {
-  const admin = resolve(
-    dirname(link),
-    readFileSync(link, "utf8")
-      .replace(/^gitdir: /, "")
-      .trim(),
+// Read before any checked step runs, because those steps can rewrite the
+// worktree's .git file to name another registration.
+function adminFolderOf(dir: string): string | undefined {
+  if (!existsSync(join(dir, ".git"))) return undefined;
+  const found = git([
+    "-C",
+    dir,
+    "rev-parse",
+    "--path-format=absolute",
+    "--git-dir",
+  ]);
+  return found.ok ? found.stdout.trim() : undefined;
+}
+
+function pointsBackTo(admin: string, dir: string): boolean {
+  const gitdir = join(admin, "gitdir");
+  return (
+    existsSync(gitdir) &&
+    resolve(readFileSync(gitdir, "utf8").trim()) === join(dir, ".git")
   );
-  return dirname(admin) === worktreesFolder ? admin : undefined;
 }
 
 // Deleting this one worktree's admin folder is what `git worktree prune`
-// does for it, without pruning anyone else's worktree. The checked commit's
-// own steps can rewrite its .git file, so only a folder under the common
-// worktrees folder is ever deleted.
-function release(dir: string): void {
-  const link = join(dir, ".git");
-  const registered = existsSync(link);
-  const admin = registered ? adminFolderOf(link) : undefined;
+// does for it, without pruning anyone else's worktree.
+function release(dir: string, admin: string | undefined): void {
+  const owned = admin !== undefined && pointsBackTo(admin, dir);
   const removed = git(["worktree", "remove", "--force", dir]).ok;
   rmSync(dir, { recursive: true, force: true });
-  if (removed || !registered) return;
-  if (admin === undefined)
+  if (removed || admin === undefined || !existsSync(admin)) return;
+  if (owned) rmSync(admin, { recursive: true, force: true });
+  else
     process.stderr.write(
-      `git worktree remove failed for ${dir}, and its .git file points outside ${worktreesFolder}, so its registration stays. Repair: git worktree prune\n`,
+      `git worktree remove failed for ${dir}, and ${admin} no longer names it, so that registration stays. Repair: git worktree prune\n`,
     );
-  else rmSync(admin, { recursive: true, force: true });
 }
 
 function haltIfStopped(commit: Commit): void {
@@ -101,7 +107,8 @@ function haltIfStopped(commit: Commit): void {
 }
 
 async function check(commit: Commit): Promise<Checked> {
-  const dir = mkdtempSync(join(tmpdir(), "check-commits-"));
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), "check-commits-")));
+  let admin: string | undefined;
   try {
     const added = git([
       "worktree",
@@ -111,6 +118,7 @@ async function check(commit: Commit): Promise<Checked> {
       dir,
       commit.sha,
     ]);
+    admin = adminFolderOf(dir);
     haltIfStopped(commit);
     if (!added.ok) throw new Error(added.stderr.trim());
     for (const step of steps) {
@@ -129,7 +137,7 @@ async function check(commit: Commit): Promise<Checked> {
     }
     return { ...commit, result: { status: "green" } };
   } finally {
-    release(dir);
+    release(dir, admin);
   }
 }
 
@@ -138,23 +146,15 @@ function report({ sha, short, subject, result }: Checked): void {
     print(`GREEN ${short} ${subject}`);
     return;
   }
-  const failedAt = steps.indexOf(result.failed);
-  const rerun = steps
-    .slice(0, failedAt + 1)
-    .map(shown)
-    .join(" && ");
-  const folder = `"$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/.worktrees/red-${short}"`;
   print(`RED ${short} ${subject}`);
   print(`Failed: ${shown(result.failed)}`);
   print(
-    `Rerun locally: bun run doctor && (folder=${folder} && { test -d "$folder" || git worktree add --detach "$folder" ${sha}; } && cd "$folder" && ${rerun})`,
+    `Rerun locally: CHECK_COMMITS_SINCE='${fixedPoint}' bun run check:commits '${sha}^@' ${sha}`,
   );
-  print(`Clean up: git worktree remove ${folder}`);
   process.stdout.write(result.output.replace(/\n?$/, "\n"));
 }
 
 function commitsToCheck(base: string, head: string): Commit[] {
-  const fixedPoint = process.env.CHECK_COMMITS_SINCE || since;
   const present = git(["cat-file", "-e", `${fixedPoint}^{commit}`]).ok;
   if (!present)
     print(
@@ -165,8 +165,10 @@ function commitsToCheck(base: string, head: string): Commit[] {
     "--reverse",
     "--no-commit-header",
     "--format=%H %h %s",
-    `${base}..${head}`,
+    head,
     ...(present ? [`^${fixedPoint}`] : []),
+    "--not",
+    base,
   ]);
   if (!listed.ok) throw new Error(listed.stderr.trim());
   return listed.stdout

@@ -3,7 +3,10 @@ import { appendFile, mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
 import ts from "typescript";
 import { testFolder } from "../../support/test-folder.ts";
-import { spawnBounded } from "../kernel-repair/swarm-process.ts";
+import {
+  processWatchdog,
+  spawnBounded,
+} from "../kernel-repair/swarm-process.ts";
 
 export type Compiler = "native" | "lint-view";
 export type Compilation = {
@@ -37,6 +40,7 @@ const failedExit = {
   "lint-view": 2,
 } as const satisfies Record<Compiler, number>;
 const both: readonly Compiler[] = ["native", "lint-view"];
+const fallbackWidth = 4;
 const diagnostic = /^(.+)\((\d+),(\d+)\): error TS(\d+):/;
 
 // Both compilers skip type checking for the whole program when any file fails
@@ -76,15 +80,25 @@ function parse(directory: string, text: string): Parsed {
   };
 }
 
-// Reads one compiler run over `files` plus the sentinel. A run that type
-// checked settles every file; a run that did not settles only the files that
-// failed to parse, and the caller compiles the rest again.
+// What one compiler run settles, and how its unsettled files compile next:
+// `together` as one program, or `apart` as one program each.
+export type Reading = {
+  readonly settled: Map<string, Compilation>;
+  readonly together: readonly string[];
+  readonly apart: readonly string[];
+};
+
+// Reads one compiler run over `files` plus the sentinel. A diagnostic in a
+// file no probe owns, such as a fixture the probes import, belongs to every
+// probe that imports it; the run cannot say which, so each file compiles
+// again alone. A run that skipped type checking settles only the files that
+// failed to parse, and the rest compile again together.
 export function readRun(
   compiler: Compiler,
   directory: string,
   files: readonly string[],
   run: Pick<Compilation, "stdout" | "stderr" | "exit">,
-): Map<string, Compilation> {
+): Reading {
   if (run.stderr !== "" || run.exit !== failedExit[compiler])
     throw new Error(
       `${compiler} did not complete normally (exit ${run.exit}, stderr ${JSON.stringify(run.stderr)}), so no probe has a result.`,
@@ -102,27 +116,47 @@ export function readRun(
         parsed,
       );
   }
+  const alone = files.length === 1;
+  if (shared.length > 0 && !alone)
+    return { settled: new Map(), together: [], apart: files };
   const settled = checked
     ? files
-    : files.filter((file) => (owned.get(file) ?? []).length > 0);
+    : files.filter(
+        (file) => (owned.get(file) ?? []).length > 0 || shared.length > 0,
+      );
   if (settled.length === 0)
     throw new Error(
       `${compiler} skipped type checking but no probe failed to parse:\n${run.stdout}`,
     );
-  return new Map(
-    settled.map((file) => {
-      const seen = [...(owned.get(file) ?? []), ...shared];
-      const compilation: Compilation = {
-        stdout: seen.map(({ text }) => `${text}\n`).join(""),
-        stderr: "",
-        exit: seen.length === 0 ? 0 : run.exit,
-        diagnostics: seen.flatMap(({ diagnostic: found }) =>
-          found ? [found] : [],
-        ),
-      };
-      return [file, compilation];
-    }),
-  );
+  return {
+    settled: new Map(
+      settled.map((file) => {
+        const seen = [...(owned.get(file) ?? []), ...shared];
+        const compilation: Compilation = {
+          stdout: seen.map(({ text }) => `${text}\n`).join(""),
+          stderr: "",
+          exit: seen.length === 0 ? 0 : run.exit,
+          diagnostics: seen.flatMap(({ diagnostic: found }) =>
+            found ? [found] : [],
+          ),
+        };
+        return [file, compilation];
+      }),
+    ),
+    together: files.filter((file) => !settled.includes(file)),
+    apart: [],
+  };
+}
+
+// Waits for every run before reporting a failure, so no compiler still uses
+// the batch directory when teardown removes it.
+async function drain<T>(work: readonly Promise<T>[]): Promise<T[]> {
+  const values: T[] = [];
+  for (const outcome of await Promise.allSettled(work)) {
+    if (outcome.status === "rejected") throw outcome.reason;
+    values.push(outcome.value);
+  }
+  return values;
 }
 
 // A probe that writes the global scope would leak into every probe that
@@ -146,6 +180,7 @@ export function probeBatch(prefix: string) {
   const registered: Registered[] = [];
   let directory: string | undefined;
   let runs = 0;
+  let sized = false;
   let batch: Promise<Record<Compiler, Map<string, Compilation>>> | undefined;
 
   afterAll(async () => {
@@ -178,13 +213,19 @@ export function probeBatch(prefix: string) {
       ],
       { cwd: root },
     );
-    const settled = readRun(compiler, base, files, run);
-    const rest = files.filter((file) => !settled.has(file));
-    if (rest.length === 0) return settled;
-    return new Map([
-      ...settled,
-      ...(await compileProgram(base, compiler, rest)),
-    ]);
+    const { settled, together, apart } = readRun(compiler, base, files, run);
+    const results = [settled];
+    if (together.length > 0)
+      results.push(await compileProgram(base, compiler, together));
+    for (let start = 0; start < apart.length; start += fallbackWidth)
+      results.push(
+        ...(await drain(
+          apart
+            .slice(start, start + fallbackWidth)
+            .map((file) => compileProgram(base, compiler, [file])),
+        )),
+      );
+    return new Map(results.flatMap((result) => [...result]));
   }
 
   async function compileWith(base: string, compiler: Compiler) {
@@ -195,7 +236,7 @@ export function probeBatch(prefix: string) {
       mine.filter((probe) => !probe.alone),
       ...mine.filter((probe) => probe.alone).map((probe) => [probe]),
     ].filter((program) => program.length > 0);
-    const results = await Promise.all(
+    const results = await drain(
       programs.map((program) =>
         compileProgram(
           base,
@@ -217,20 +258,28 @@ export function probeBatch(prefix: string) {
         writeFile(join(base, probe.file), probe.source),
       ),
     );
-    const [native, lintView] = await Promise.all([
-      compileWith(base, "native"),
-      compileWith(base, "lint-view"),
-    ]);
-    return { native, "lint-view": lintView };
+    const native = compileWith(base, "native");
+    const lintView = compileWith(base, "lint-view");
+    await drain([native, lintView]);
+    return { native: await native, "lint-view": await lintView };
   }
 
-  return function probe(
-    source: string,
-    compilers: readonly Compiler[] = both,
-  ): Probe {
+  // Each compiler's longest chain of bounded runs: the shared program, the
+  // rest after a parse failure, then the apart programs fallbackWidth at a
+  // time. The two compilers run side by side.
+  function timeout(): number {
+    sized = true;
+    return processWatchdog(2 + Math.ceil(registered.length / fallbackWidth));
+  }
+
+  function probe(source: string, compilers: readonly Compiler[] = both): Probe {
     if (batch)
       throw new Error(
         "Register every probe at module load, before the first compile.",
+      );
+    if (sized)
+      throw new Error(
+        "Register every probe before sizing a test timeout with timeout().",
       );
     const file = `locks/probe-${registered.length}.ts`;
     registered.push({
@@ -259,5 +308,8 @@ export function probeBatch(prefix: string) {
         return result;
       },
     };
-  };
+  }
+
+  probe.timeout = timeout;
+  return probe;
 }

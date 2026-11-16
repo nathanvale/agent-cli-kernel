@@ -182,7 +182,7 @@ async function step(
     argv,
     cwd,
     active,
-    { detached: true, limitMilliseconds },
+    { limitMilliseconds },
   );
   haltIfStopped(id);
   if (timedOut) throw new StepTimedOut(argv.join(" "));

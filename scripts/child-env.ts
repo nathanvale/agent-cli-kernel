@@ -15,36 +15,28 @@ const ownTools = {
 };
 
 // How long a stopped child gets to exit after SIGTERM before SIGKILL.
-const graceMilliseconds = 5_000;
-// A detached child's group has no live process to signal. ESRCH: every
-// member is reaped. EPERM: macOS answers it when every member left is a
-// zombie.
+const graceMilliseconds = 2_000;
+// The child's group has no live process to signal. ESRCH: every member is
+// reaped. EPERM: macOS answers it when every member left is a zombie.
 const groupGone = new Set<unknown>(["ESRCH", "EPERM"]);
 
 // Holds the running child's stop in `tracker`, so the caller's signal
-// handler can stop it. A detached child runs in its own process group, and
-// a stop signals the whole group.
+// handler can stop it. The child leads its own process group, so a stop
+// reaches every process it started, not only the child itself.
 export async function runWithOwnTools(
   argv: readonly string[],
   cwd: string,
   tracker: { stop?: () => void },
-  {
-    detached = false,
-    limitMilliseconds,
-  }: { readonly detached?: boolean; readonly limitMilliseconds?: number } = {},
+  { limitMilliseconds }: { readonly limitMilliseconds?: number } = {},
 ) {
   const child = Bun.spawn([...argv], {
     cwd,
     env: ownTools,
     stdout: "pipe",
     stderr: "pipe",
-    detached,
+    detached: true,
   });
   const send = (signal: "SIGTERM" | "SIGKILL") => {
-    if (!detached) {
-      child.kill(signal);
-      return;
-    }
     try {
       process.kill(-child.pid, signal);
     } catch (error) {
@@ -72,6 +64,8 @@ export async function runWithOwnTools(
       new Response(child.stderr).text(),
       child.exited,
     ]);
+    // A descendant that closed its output would otherwise outlive the stop.
+    if (escalation !== undefined) send("SIGKILL");
     return {
       exitCode,
       signalCode: child.signalCode,

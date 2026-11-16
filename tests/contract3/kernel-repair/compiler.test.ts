@@ -93,28 +93,24 @@ const bothTables = (invalidStatement: string, valid: string) =>
     ),
   );
 
-runFamily(
-  "R14",
-  {
-    "R14.widened-valid-twins": inOrder(
-      Object.values(twins).map((twin) => compiles(tables.widened, twin)),
-    ),
-    "R14.contract-valid-twins": inOrder(
-      Object.values(twins).map((twin) => compiles(tables.contract, twin)),
-    ),
-    "R14.success-repair-lock": bothTables(invalid.successRepair, twins.object),
-    "R14.refused-data-lock": bothTables(invalid.refusedData, twins.transient),
-    "R14.retryable-no-delay-lock": bothTables(
-      invalid.retryNoDelay,
-      twins.transient,
-    ),
-    "R14.non-retryable-delay-lock": bothTables(
-      invalid.delayNotRetryable,
-      twins.inspect,
-    ),
-  },
-  120000,
-);
+const r14 = {
+  "R14.widened-valid-twins": inOrder(
+    Object.values(twins).map((twin) => compiles(tables.widened, twin)),
+  ),
+  "R14.contract-valid-twins": inOrder(
+    Object.values(twins).map((twin) => compiles(tables.contract, twin)),
+  ),
+  "R14.success-repair-lock": bothTables(invalid.successRepair, twins.object),
+  "R14.refused-data-lock": bothTables(invalid.refusedData, twins.transient),
+  "R14.retryable-no-delay-lock": bothTables(
+    invalid.retryNoDelay,
+    twins.transient,
+  ),
+  "R14.non-retryable-delay-lock": bothTables(
+    invalid.delayNotRetryable,
+    twins.inspect,
+  ),
+};
 
 // R13: a repeatable string option, widened and as literal schemas.
 const option =
@@ -126,29 +122,29 @@ const slots = {
   literalTrue: `const s = ${schema("true")} as const satisfies InputSchema;\ntype Tag = ParsedInput<typeof s>["--tag"];\ndeclare const tags: readonly string[];`,
   literalFalse: `const s = ${schema("false")} as const satisfies InputSchema;\ntype Tag = ParsedInput<typeof s>["--tag"];\ndeclare const tags: readonly string[];`,
 };
-runFamily(
-  "R13",
-  {
-    "R13.widened-array-assigns": compiles(
-      slots.widened,
-      "const value: Tag = tags;",
-    ),
-    "R13.widened-scalar-assigns": compiles(
-      slots.widened,
-      'const value: Tag = "a";',
-    ),
-    "R13.literal-true-scalar-lock": lock(
-      slots.literalTrue,
-      'const value: Tag = "a";',
-      "const value: Tag = tags;",
-      2322,
-    ),
-    "R13.literal-false-array-lock": lock(
-      slots.literalFalse,
-      "const value: Tag = tags;",
-      'const value: Tag = "a";',
-      2322,
-    ),
-  },
-  120000,
-);
+const r13 = {
+  "R13.widened-array-assigns": compiles(
+    slots.widened,
+    "const value: Tag = tags;",
+  ),
+  "R13.widened-scalar-assigns": compiles(
+    slots.widened,
+    'const value: Tag = "a";',
+  ),
+  "R13.literal-true-scalar-lock": lock(
+    slots.literalTrue,
+    'const value: Tag = "a";',
+    "const value: Tag = tags;",
+    2322,
+  ),
+  "R13.literal-false-array-lock": lock(
+    slots.literalFalse,
+    "const value: Tag = tags;",
+    'const value: Tag = "a";',
+    2322,
+  ),
+};
+
+const timeout = probe.timeout();
+runFamily("R14", r14, timeout);
+runFamily("R13", r13, timeout);

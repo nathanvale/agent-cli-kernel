@@ -90,6 +90,17 @@ function members(type) {
   return type.isUnion() ? type.types : [type];
 }
 
+// An operand the fix may spell twice: reading it again yields the same value.
+function stable(node) {
+  if (node.type === "Identifier" || node.type === "Literal") return true;
+  if (node.type === "TemplateLiteral") return node.expressions.length === 0;
+  return (
+    node.type === "MemberExpression" &&
+    stable(node.object) &&
+    (!node.computed || stable(node.property))
+  );
+}
+
 function closedStrings(type) {
   const parts = members(type);
   const absent = ts.TypeFlags.Undefined | ts.TypeFlags.Null;
@@ -202,7 +213,8 @@ const definitionTracers = {
     const { id, init } = def.node;
     if (id === def.name) return next(init) ?? { name: node.name };
     const property = id.properties?.find(
-      ({ value }) => (value.left ?? value) === def.name,
+      ({ type, value }) =>
+        type === "Property" && (value.left ?? value) === def.name,
     );
     if (!property) return { name: node.name };
     const { key, computed } = property;
@@ -325,6 +337,7 @@ export default {
           Literal: constant,
           TemplateLiteral: constant,
           "BinaryExpression[operator='+']": constant,
+          "CallExpression[callee.property.name='join']": constant,
         };
       },
     },
@@ -334,6 +347,8 @@ export default {
         schema: [],
         messages: {
           in: "{{key}} is not declared on this type, and {{how}} also finds inherited members such as toString. Read the own value into a place typed unknown. Fix: (Object.hasOwn({{target}}, {{key}}) ? Reflect.get({{target}}, {{key}}) : undefined)",
+          inBound:
+            "{{key}} is not declared on this type, and {{how}} also finds inherited members such as toString. A second evaluation of {{target}} or {{key}} may yield another value, so bind both once, in the order {{how}} evaluates them, then read the own value into a place typed unknown. Fix: {{bindings}} const own: unknown = Object.hasOwn(target, key) ? Reflect.get(target, key) : undefined;",
           forIn:
             "for...in also walks inherited enumerable keys. Walk own keys. Fix: for (const key of Object.keys({{target}}))",
         },
@@ -356,6 +371,15 @@ export default {
           !(
             symbol.declarations?.length && symbol.declarations.every(inherited)
           );
+        const propertyOf = (type, key) => {
+          if (key.isStringLiteral() || key.isNumberLiteral())
+            return checker.getPropertyOfType(type, String(key.value));
+          if (key.flags & ts.TypeFlags.UniqueESSymbol)
+            return checker
+              .getPropertiesOfType(type)
+              .find((property) => property.escapedName === key.escapedName);
+          return undefined;
+        };
         // A key every union member leaves undeclared is a probe of unknown
         // shape. Narrowing a union by a key one member declares is not.
         const declared = (keyNode, targetNode) => {
@@ -363,21 +387,26 @@ export default {
           const targets = members(services.getTypeAtLocation(targetNode)).map(
             (type) => checker.getApparentType(type),
           );
-          return keys.every(
-            (key) =>
-              key.isStringLiteral() &&
-              targets.some((type) =>
-                own(checker.getPropertyOfType(type, key.value)),
-              ),
+          return keys.every((key) =>
+            targets.some((type) => own(propertyOf(type, key))),
           );
         };
         const check = (node, keyNode, targetNode, how) => {
-          if (!declared(keyNode, targetNode))
-            context.report({
-              node,
-              messageId: "in",
-              data: { key: text(keyNode), target: text(targetNode), how },
-            });
+          if (declared(keyNode, targetNode)) return;
+          const data = { key: text(keyNode), target: text(targetNode), how };
+          if (stable(keyNode) && stable(targetNode)) {
+            context.report({ node, messageId: "in", data });
+            return;
+          }
+          const key = `const key = ${data.key};`;
+          const target = `const target = ${data.target};`;
+          const bindings =
+            how === "Reflect.has" ? `${target} ${key}` : `${key} ${target}`;
+          context.report({
+            node,
+            messageId: "inBound",
+            data: { ...data, bindings },
+          });
         };
         return {
           "BinaryExpression[operator='in']:not([left.type='PrivateIdentifier'])"(
@@ -419,17 +448,27 @@ export default {
           checker,
           `${root}/kernel/causes.ts`,
         );
-        const closed = (node) =>
-          node !== undefined && closedStrings(services.getTypeAtLocation(node));
-        // The compiler already ties a literal whose place, or whose
-        // comparison partner, accepts only listed string literals.
-        const tied = (node) => {
-          const contextual = checker.getContextualType(
-            services.esTreeNodeToTSNodeMap.get(node),
+        // A closed literal union that holds every owner key is the owner's
+        // keyof or built from it, so renaming a key breaks the literal. A
+        // local union that copies some keys does not.
+        const ownerTyped = (type) =>
+          type !== undefined &&
+          closedStrings(type) &&
+          [...keys].every((key) =>
+            members(type).some(
+              (part) => part.isStringLiteral() && part.value === key,
+            ),
           );
+        const tied = (node) => {
+          const partner = partners[node.parent.type]?.(node.parent, node);
           return (
-            (contextual !== undefined && closedStrings(contextual)) ||
-            closed(partners[node.parent.type]?.(node.parent, node))
+            ownerTyped(
+              checker.getContextualType(
+                services.esTreeNodeToTSNodeMap.get(node),
+              ),
+            ) ||
+            (partner !== undefined &&
+              ownerTyped(services.getTypeAtLocation(partner)))
           );
         };
         const judged = (node) =>
@@ -470,16 +509,21 @@ export default {
       },
       create(context) {
         return {
-          "CallExpression > MemberExpression.callee[property.name=/^toThrow(?:Error)?$/]:not([object.property.name='not'])"(
-            node,
-          ) {
+          "CallExpression > MemberExpression.callee"(node) {
+            const name = propertyName(node);
+            if (
+              !/^toThrow(?:Error)?$/.test(name) ||
+              (node.object.type === "MemberExpression" &&
+                propertyName(node.object) === "not")
+            )
+              return;
             const [argument] = node.parent.arguments;
             if (argument && !namesNothing(argument)) return;
             context.report({
               node: node.property,
               messageId: argument ? "empty" : "bare",
               data: {
-                name: node.property.name,
+                name,
                 argument: argument && context.sourceCode.getText(argument),
               },
             });

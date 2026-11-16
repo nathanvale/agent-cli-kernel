@@ -1044,8 +1044,8 @@ export const stateCases: readonly StateCase[] = [
     ...coordinated,
     sources: "DESIGN 7.2; REC-7; Linux expectations C4b, 4.5",
     observation:
-      "The holder spawns a long-lived child and is killed with SIGKILL; a contender acquires while the child lives. The same body with a holder that hands its locked descriptor to the child observes the contender refused (control detected).",
-    red: "Open the coordination file without close-on-exec, so a child shares the open file description.",
+      "The holder spawns a long-lived child, through Bun.spawn and through the C library's system(), and is killed with SIGKILL; a contender acquires while the child lives. The same body with a holder that hands its locked descriptor to the child observes the contender refused (control detected).",
+    red: "Open the coordination file without close-on-exec, so a child shares the open file description (the system() child shows it only on a Bun that does not set close-on-exec itself: seen on 1.4.0 and 1.4.2, not on 1.4.4).",
   },
   {
     id: "C01.f-same-process-second-open-refused",

@@ -96,9 +96,18 @@ function field(report: Report | undefined, key: string): string {
       ? "null"
       : "none";
 }
+// One read, no existence check first: the worker renames each phase's report
+// over the last, and on some shared folders the path is briefly missing
+// between a check and a read.
 function readReport(path: string): Report | undefined {
-  if (!existsSync(path)) return undefined;
-  const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
+  let text: string;
+  try {
+    text = readFileSync(path, "utf8");
+  } catch (error) {
+    if (Reflect.get(Object(error), "code") === "ENOENT") return undefined;
+    throw error;
+  }
+  const parsed: unknown = JSON.parse(text);
   if (typeof parsed !== "object" || parsed === null) return undefined;
   const report: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(parsed)) report[key] = value;
