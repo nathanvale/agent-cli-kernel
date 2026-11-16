@@ -80,10 +80,13 @@ now enforces.
 ### Test proof
 
 - Lint `repository/require-to-throw-message` refuses `toThrow()`,
-  `toThrowError()` and `rejects.toThrow()` with no argument in `tests/`.
-  `.not.toThrow()` passes.
-- A message that another guard also throws stays review. So do a refusal
-  asserted without `toThrow`, and input that more than one guard refuses.
+  `toThrowError()` and `rejects.toThrow()` in `tests/` with no argument, or
+  with one that names no message: `undefined`, an empty string, or a regular
+  expression that matches a lone NUL character, as `/.*/`, `/.+/`, `/^/` and
+  `/(?:)/` do. `.not.toThrow()` passes.
+- A message that another guard also throws stays review. So do an error
+  class or `expect.anything()` as the argument, a refusal asserted without
+  `toThrow`, and input that more than one guard refuses.
 - Witnessed: [185c90d].
 
 ### Time

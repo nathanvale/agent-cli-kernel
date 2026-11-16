@@ -182,6 +182,63 @@ test("require-to-throw-message refuses a bare rejects.toThrow()", async () => {
   expect(found.map(({ line }) => line)).toEqual([1]);
 });
 
+const bypasses = [
+  [
+    "require-to-throw-message",
+    "expect(fn).toThrow(undefined);",
+    "toThrow(undefined) names no message",
+  ],
+  [
+    "require-to-throw-message",
+    'expect(fn).toThrow("");',
+    'toThrow("") names no message',
+  ],
+  [
+    "require-to-throw-message",
+    "expect(fn).toThrowError(``);",
+    "toThrowError(``) names no message",
+  ],
+  [
+    "require-to-throw-message",
+    "expect(fn).toThrow(/.*/);",
+    "toThrow(/.*/) names no message",
+  ],
+  [
+    "require-to-throw-message",
+    "expect(fn).toThrow(/.+/);",
+    "toThrow(/.+/) names no message",
+  ],
+  [
+    "require-to-throw-message",
+    "expect(fn).toThrow(/^/);",
+    "toThrow(/^/) names no message",
+  ],
+  [
+    "require-to-throw-message",
+    "expect(fn).toThrow(/(?:)/);",
+    "toThrow(/(?:)/) names no message",
+  ],
+  [
+    "require-to-throw-message",
+    "expect(fn).toThrow(/limit|/);",
+    "toThrow(/limit|/) names no message",
+  ],
+  ["require-to-throw-message", "expect(fn).toThrow(/limit/);", undefined],
+  ["require-to-throw-message", "expect(fn).not.toThrow(undefined);", undefined],
+] as const;
+
+for (const [rule, code, fix] of bypasses)
+  test(`${rule} ${fix ? "refuses" : "admits"} ${code} and names the fix`, async () => {
+    const found = await hits(
+      rule,
+      "tests/contract3/state/component.test.ts",
+      code,
+    );
+    expect(
+      found.map(({ message }) => fix !== undefined && message.includes(fix)),
+    ).toEqual(fix ? [true] : []);
+  });
+
 test("tests-use-test-folder admits the folder calls inside its owner module", async () => {
   expect(
     await hits(

@@ -14,6 +14,15 @@ const onlyCall = ({ body }) => {
       : body;
   return expression?.type === "CallExpression" ? expression : undefined;
 };
+// A pattern that matches a lone NUL character matches every message.
+const namesNothing = (node) =>
+  (node.type === "Identifier" && node.name === "undefined") ||
+  (node.type === "Literal" && node.value === "") ||
+  (node.type === "TemplateLiteral" &&
+    node.expressions.length === 0 &&
+    node.quasis[0].value.cooked === "") ||
+  (node.regex !== undefined &&
+    new RegExp(node.regex.pattern, node.regex.flags).test("\0"));
 
 export default {
   rules: {
@@ -88,17 +97,24 @@ export default {
         schema: [],
         messages: {
           bare: 'Pass the message or the cause that the test\'s name gives, as in .toThrow("Duplicate command identity."). A bare {{name}}() stays green when another guard refuses.',
+          empty:
+            'Pass the message or the cause that the test\'s name gives, as in .toThrow("Duplicate command identity."). {{name}}({{argument}}) names no message, so it stays green when another guard refuses.',
         },
       },
       create(context) {
         return {
-          "CallExpression[arguments.length=0] > MemberExpression.callee[property.name=/^toThrow(?:Error)?$/]:not([object.property.name='not'])"(
+          "CallExpression > MemberExpression.callee[property.name=/^toThrow(?:Error)?$/]:not([object.property.name='not'])"(
             node,
           ) {
+            const [argument] = node.parent.arguments;
+            if (argument && !namesNothing(argument)) return;
             context.report({
               node: node.property,
-              messageId: "bare",
-              data: { name: node.property.name },
+              messageId: argument ? "empty" : "bare",
+              data: {
+                name: node.property.name,
+                argument: argument && context.sourceCode.getText(argument),
+              },
             });
           },
         };
