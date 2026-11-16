@@ -36,6 +36,21 @@ function conceal(text: string, secretForms: readonly string[]): string {
   return result;
 }
 
+// A number, boolean or null whose JSON text holds a declared secret (the
+// secret "4" recorded as 4, or inside 1431; "true" recorded as true) is
+// replaced whole by the marker string, so the line stays valid JSON. As with
+// strings, any occurrence counts, so a short secret also hides unrelated
+// values that contain it.
+function concealScalar(
+  value: number | boolean | null,
+  secretForms: readonly string[],
+): number | boolean | null | string {
+  const text = JSON.stringify(value);
+  return secretForms.some((form) => text.includes(form))
+    ? markers.redacted
+    : value;
+}
+
 function plain(value: object): boolean {
   const prototype: unknown = Object.getPrototypeOf(value);
   return prototype === Object.prototype || prototype === null;
@@ -101,9 +116,10 @@ function bounded(
   cut: Cut,
   seen: Set<object> = new Set(),
 ): unknown {
-  if (value === null || typeof value === "boolean") return value;
-  if (typeof value === "number")
-    return Number.isFinite(value) ? value : lost(cut, markers.unserialisable);
+  if (typeof value === "number" && !Number.isFinite(value))
+    return lost(cut, markers.unserialisable);
+  if (value === null || typeof value === "boolean" || typeof value === "number")
+    return concealScalar(value, secretForms);
   if (typeof value === "string") return boundedString(value, secretForms, cut);
   if (typeof value !== "object") return lost(cut, markers.unserialisable);
   if (seen.has(value)) return lost(cut, markers.cycle);

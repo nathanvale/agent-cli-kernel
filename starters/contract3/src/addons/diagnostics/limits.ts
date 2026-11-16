@@ -37,14 +37,19 @@ export const limits = {
   flushMarginMilliseconds: 50,
   // DIAG-10: closed logs older than seven days prune first.
   pruneAgeMilliseconds: 7 * 24 * 60 * 60 * 1000,
-  // The coordination lock is held only for a prune and one exclusive
-  // create. Waiting at most 200 ms (in 10 ms retries) keeps allocation well
-  // inside the 450 ms flush budget, so a busy lock is disclosed as
-  // `capacity`, never mistaken for a flush timeout.
+  // The shared allocation lock (diagnostics only: it orders pruning and
+  // file creation, never domain work) is held only for a prune and one
+  // exclusive create. Waiting at most 200 ms (in 10 ms retries) keeps
+  // allocation well inside the 450 ms flush budget, so a busy lock is
+  // disclosed as `capacity`, never mistaken for a flush timeout.
   lockWaitMilliseconds: 200,
   lockRetryMilliseconds: 10,
-  // A lock owned by another host cannot be liveness-checked. A live holder
-  // keeps it for milliseconds, so one older than a minute is abandoned.
+  // A shared allocation lock owned by another host cannot be liveness
+  // checked. A live holder keeps it for milliseconds, so one older than a
+  // minute is abandoned. This age rule is for this diagnostics-only lock
+  // alone; it is never a REC-7 reclaim of a coordination lock. It compares
+  // this host's clock with an mtime stamped by the other host (or its file
+  // server), so it assumes the clocks agree within the minute.
   foreignLockStaleMilliseconds: 60_000,
   // DIAG-12a: logger self-reporting stays bounded and in memory.
   metaReports: 8,

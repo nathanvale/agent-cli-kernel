@@ -98,8 +98,17 @@ function ownPrivate(info: Stats | undefined): boolean {
   );
 }
 
+// Creates one private directory. Runs started together race to create the
+// same tree: a loser's EEXIST is not a failure, and the caller's lstat checks
+// then judge whatever is there (owner, kind and exact mode), as for any
+// existing directory.
 function createPrivate(path: string): void {
-  mkdirSync(path, { mode: 0o700 });
+  try {
+    mkdirSync(path, { mode: 0o700 });
+  } catch (error) {
+    if (errorCode(error) === "EEXIST") return;
+    throw error;
+  }
   chmodSync(path, 0o700);
 }
 
