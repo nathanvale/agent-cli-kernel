@@ -390,6 +390,25 @@ const admitted = [
   },
   {
     rule: "no-in-operator",
+    reason: "checks a numeric key its type declares",
+    filePath: "starters/contract3/src/kernel/validation/result.ts",
+    code: [
+      "export const first = (value: { 0: string }) => 0 in value;",
+      "export const reflected = (value: { 0: string }) => Reflect.has(value, 0);",
+    ],
+  },
+  {
+    rule: "no-in-operator",
+    reason: "checks a unique-symbol key its type declares",
+    filePath: "starters/contract3/src/kernel/validation/result.ts",
+    code: [
+      'const tag: unique symbol = Symbol("tag");',
+      "export const tagged = (value: { [tag]: string }) => tag in value;",
+      "export const reflected = (value: { [tag]: string }) => Reflect.has(value, tag);",
+    ],
+  },
+  {
+    rule: "no-in-operator",
     reason: "tells a data descriptor from an accessor",
     filePath: "starters/contract3/src/kernel/validation/primitives.ts",
     code: [

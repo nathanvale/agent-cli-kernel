@@ -218,6 +218,15 @@ export default {
           !(
             symbol.declarations?.length && symbol.declarations.every(inherited)
           );
+        const propertyOf = (type, key) => {
+          if (key.isStringLiteral() || key.isNumberLiteral())
+            return checker.getPropertyOfType(type, String(key.value));
+          if (key.flags & ts.TypeFlags.UniqueESSymbol)
+            return checker
+              .getPropertiesOfType(type)
+              .find((property) => property.escapedName === key.escapedName);
+          return undefined;
+        };
         // A key every union member leaves undeclared is a probe of unknown
         // shape. Narrowing a union by a key one member declares is not.
         const declared = (keyNode, targetNode) => {
@@ -225,12 +234,8 @@ export default {
           const targets = members(services.getTypeAtLocation(targetNode)).map(
             (type) => checker.getApparentType(type),
           );
-          return keys.every(
-            (key) =>
-              key.isStringLiteral() &&
-              targets.some((type) =>
-                own(checker.getPropertyOfType(type, key.value)),
-              ),
+          return keys.every((key) =>
+            targets.some((type) => own(propertyOf(type, key))),
           );
         };
         const check = (node, keyNode, targetNode, how) => {
