@@ -1,0 +1,38 @@
+name: macOS nightly
+
+# The suite on hosted macOS once a night, not on every push (accepted
+# decision, 16 November 2026): some behaviour exists only on macOS, and
+# ci.yml runs on Linux.
+on:
+  schedule:
+    # 15:07 UTC: 02:07 in Melbourne during daylight saving (AEDT, UTC+11,
+    # October to April) and 01:07 outside it (AEST, UTC+10). Off the hour,
+    # because GitHub delays or drops scheduled runs at the top of the hour.
+    - cron: "7 15 * * *"
+  workflow_dispatch:
+  # One trial run before this file reaches main; a schedule runs only from
+  # the default branch.
+  push:
+    branches: [codex/contract-3-macos-trial]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    # Apple silicon (arm64, three cores). ci.yml uses ubuntu-latest, so this
+    # follows it with the matching unpinned label.
+    runs-on: macos-latest
+    # The hosted Linux run takes about 10 minutes on four cores.
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile
+      # ci.yml's commands in ci.yml's order (lint, format check, typecheck,
+      # tests), then fallow against the default branch's merge-base.
+      - run: bun run check
