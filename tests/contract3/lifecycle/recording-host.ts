@@ -16,6 +16,7 @@ import type {
   StopSignal,
 } from "../../../starters/contract3/src/kernel/process-types.ts";
 import { path } from "../../../starters/contract3/src/kernel/validation/brands.ts";
+import { timerLimit } from "./oracle.ts";
 
 type Recorded = {
   readonly stream: "stdout" | "stderr";
@@ -96,7 +97,6 @@ export async function until(
 // after each, so a timer armed by async work after a callback is armed at the
 // fake time it would be armed in real life. A sentinel timer at the target
 // (never above the runtime limit) stops each step from overshooting.
-const timerLimit = 2_147_483_647;
 export async function advance(milliseconds: number): Promise<void> {
   const target = performance.now() + milliseconds;
   while (performance.now() < target) {

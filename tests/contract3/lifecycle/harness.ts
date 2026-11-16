@@ -491,11 +491,15 @@ export async function exitWithin(
 // group (setsid), and that whole group is killed, so their own children go
 // too; a grandchild stays in its parent's ledgered `child-pgid`.
 const ledgeredLeaders = ["child-started", "escaped", "late-child"];
+// The one parser for the fixture's `<prefix> <pid>` ledger lines.
 function ledgeredPid(ledger: readonly string[], prefix: string) {
   return ledger
     .filter((line) => line.startsWith(`${prefix} `))
     .map((line) => Number(line.split(" ")[1]))
     .filter((pid) => Number.isSafeInteger(pid) && pid > 0);
+}
+export function firstPid(ledger: readonly string[], prefix: string) {
+  return ledgeredPid(ledger, prefix)[0];
 }
 function stillOwned(ledger: readonly string[]) {
   const owned = ledgeredLeaders.flatMap((prefix) =>

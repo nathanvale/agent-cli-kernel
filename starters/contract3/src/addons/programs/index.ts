@@ -214,6 +214,8 @@ function attachPrograms(run: RunControl): AttachedAddon<ProgramsCapability> {
     let timedOut = false;
     const cancelTimeout = afterDelay(request.timeoutMilliseconds, () => {
       timedOut = true;
+      // Cannot reject: every kill is caught and the poll never rejects. The
+      // later `await group.stop()` sends each signal at most once more.
       void group.stop();
     });
     await child.exited;

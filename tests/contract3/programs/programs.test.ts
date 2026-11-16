@@ -25,6 +25,11 @@ import {
   text,
 } from "../lifecycle/harness.ts";
 import type { Case, Launched, Observed } from "../lifecycle/harness.ts";
+import {
+  supporting,
+  timerLimit,
+  unchangedEffects,
+} from "../lifecycle/oracle.ts";
 
 const timeout = 60_000;
 // Same calibrated observation tolerance as the lifecycle cases.
@@ -397,36 +402,21 @@ describe("caller-program disclosure guard (supporting C3, not a frozen case)", (
 // is honoured, no cap). LIMIT is the largest delay a runtime timer holds; a
 // raw timer armed above it fires after about 1 ms with a stderr warning.
 // Expectations: c3-expect-t2t5, findings-round/expectations.md.
-const timerLimit = 2_147_483_647;
 const overLimit = [
   timerLimit,
   timerLimit + 1,
   3_000_000_000,
   Number.MAX_SAFE_INTEGER,
 ] as const;
-const unchangedEffects = {
-  completed: [],
-  remaining: [],
-  uncertain: [],
-  inventoryComplete: true,
-};
 function programCase(id: string, argv: readonly string[]): Case {
-  return {
-    id,
-    family: id.split(".")[0] ?? id,
-    status: "supporting",
+  return supporting(id, {
     argv,
-    scenario: undefined,
-    state: false,
-    stdin: "closed",
     expect: {
       commandIdentity: "fx.program",
       causeCode: "SUCCESS_UNCHANGED",
       effects: unchangedEffects,
     },
-    supplier: undefined,
-    note: undefined,
-  };
+  });
 }
 async function programRun(entry: Case) {
   const launched = await launchCase(entry);

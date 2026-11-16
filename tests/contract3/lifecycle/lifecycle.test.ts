@@ -14,6 +14,7 @@ import {
   envelopeOf,
   exitBound,
   exitWithin,
+  firstPid,
   frontDoorStart,
   goneWithin,
   launch,
@@ -28,6 +29,12 @@ import {
   text,
 } from "./harness.ts";
 import type { Case, Launched, Observed, OperandFit } from "./harness.ts";
+import {
+  stopBound,
+  supporting,
+  timerLimit,
+  unchangedEffects,
+} from "./oracle.ts";
 
 const timeout = 30_000;
 // Harness observation tolerance added to every contract bound. Calibrated
@@ -43,12 +50,7 @@ function signalName(value: unknown): Signal {
   throw new Error("Expected a stop signal.");
 }
 function childPid(observed: { readonly ledger: readonly string[] }) {
-  return childPidOf(observed.ledger);
-}
-function childPidOf(ledger: readonly string[]) {
-  const line = ledger.find((entry) => entry.startsWith("child-started"));
-  const pid = line ? Number(line.split(" ")[1]) : Number.NaN;
-  return Number.isSafeInteger(pid) && pid > 0 ? pid : undefined;
+  return firstPid(observed.ledger, "child-started");
 }
 function deadlineOf(entry: Case) {
   const index = entry.argv.indexOf("--deadline-ms");
@@ -376,26 +378,6 @@ describe("T2 lifecycle process cases", () => {
       timeout,
     );
 });
-
-// Supporting cases with their own identities (not in the frozen case file).
-function supporting(
-  id: string,
-  fields: Partial<Omit<Case, "id" | "family" | "status">>,
-): Case {
-  return {
-    id,
-    family: id.split(".")[0] ?? id,
-    status: "supporting",
-    argv: [],
-    scenario: undefined,
-    state: false,
-    stdin: "closed",
-    expect: {},
-    supplier: undefined,
-    note: undefined,
-    ...fields,
-  };
-}
 
 describe("L06 excluded terminations without T3 (supporting C7)", () => {
   for (const [id, scenario] of [
@@ -757,13 +739,6 @@ describe("B3 declared denial tuple at runtime (Nathan, 16 November 2026)", () =>
 // is honoured, no cap). LIMIT is the largest delay a runtime timer holds; a
 // raw timer armed above it fires after about 1 ms with a stderr warning. The
 // expectations are c3-expect-t2t5's (findings-round/expectations.md).
-const timerLimit = 2_147_483_647;
-const unchangedEffects = {
-  completed: [],
-  remaining: [],
-  uncertain: [],
-  inventoryComplete: true,
-};
 const handlerLines = new Set(["handler-entered", "handler-done"]);
 
 describe("T01 a deadline above the timer limit lets the work finish (finding 1)", () => {
@@ -894,7 +869,10 @@ describe("S01 the stop path's bounds hold when the handler returns in the window
           const launched = await launchCase(entry);
           try {
             await launched.barrier(setup.barrier);
-            const owned = childPidOf(readLedger(launched.ledgerPath));
+            const owned = firstPid(
+              readLedger(launched.ledgerPath),
+              "child-started",
+            );
             const sent = launched.signal(signal);
             const died =
               owned === undefined
@@ -910,7 +888,7 @@ describe("S01 the stop path's bounds hold when the handler returns in the window
             expect(observed.code).toBe(code);
             assertNoOutput(observed);
             expect(observed.exitedAt - sent).toBeLessThanOrEqual(
-              500 + tolerance,
+              stopBound + tolerance,
             );
             expect(
               observed.ledger.some((line) => line.startsWith("late-start ")),
@@ -919,7 +897,7 @@ describe("S01 the stop path's bounds hold when the handler returns in the window
             // LIFE-11: the stop path's SIGKILL, not the 2,000 ms budget.
             if (died !== undefined)
               expect(died - sent).toBeLessThanOrEqual(
-                500 + killObservationTolerance,
+                stopBound + killObservationTolerance,
               );
           } finally {
             await release(launched);
@@ -955,6 +933,44 @@ test(
     } finally {
       outside.kill("SIGKILL");
       inside.kill("SIGKILL");
+    }
+  },
+  timeout,
+);
+
+// Contract review F2: the grandchild branch. A ledgered grandchild is killed
+// only while it is still in the ledgered `child-pgid`; a pid outside it is
+// spared.
+test(
+  "N2s.release-spares-a-grandchild-outside-the-ledgered-group",
+  async () => {
+    const outside = Bun.spawn(["/bin/sleep", "30"]);
+    const group = Bun.spawn(
+      ["/bin/sh", "-c", "/bin/sleep 30 >/dev/null & echo $!; wait"],
+      { detached: true, stdout: "pipe" },
+    );
+    // The shell prints its background member's pid, then waits on it.
+    const first = await group.stdout.getReader().read();
+    const member = Number(new TextDecoder().decode(first.value).trim());
+    const launched = await launch({ argv: ["read", "--json"] });
+    try {
+      expect(Number.isSafeInteger(member) && member > 0).toBe(true);
+      await launched.done;
+      await appendFile(
+        launched.ledgerPath,
+        `child-pgid ${group.pid}\ngrandchild ${member}\ngrandchild ${outside.pid}\n`,
+      );
+      await release(launched);
+      expect(await goneWithin(member, 2_000)).toBe(true);
+      expect(alive(outside.pid)).toBe(true);
+      expect(outside.exitCode).toBeNull();
+    } finally {
+      outside.kill("SIGKILL");
+      try {
+        process.kill(-group.pid, "SIGKILL");
+      } catch {
+        // Already gone.
+      }
     }
   },
   timeout,

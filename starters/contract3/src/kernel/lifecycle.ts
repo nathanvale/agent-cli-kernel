@@ -68,7 +68,8 @@ type Execution =
 // limit and re-measured on the front door's clock after each step, so it
 // fires neither early nor a step late. A wait within the limit arms once,
 // with its exact delay. The programs add-on keeps its own copy, because an
-// add-on imports only the fixed public index (CMD-5, CMD-17).
+// add-on imports only the kernel's public index (CMD-17), which does not offer
+// this helper. Both copies are held to one boundary table by the tests.
 const timerLimit = 2_147_483_647;
 function afterDelay(
   milliseconds: number,

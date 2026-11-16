@@ -24,6 +24,7 @@ import {
   text,
 } from "./harness.ts";
 import type { Observed } from "./harness.ts";
+import { flushBound, stopBound } from "./oracle.ts";
 import { recordingHost } from "./recording-host.ts";
 
 const timeout = 30_000;
@@ -180,8 +181,8 @@ describe("DS03 and DS10 the freeze is bounded at 500 ms", () => {
       const started = Number(line(observed, "freeze-start ")?.split(" ")[2]);
       expect(Number.isFinite(started)).toBe(true);
       const emitted = (observed.firstStdoutAt ?? 0) - started;
-      expect(emitted).toBeGreaterThanOrEqual(500);
-      expect(emitted).toBeLessThanOrEqual(500 + tolerance);
+      expect(emitted).toBeGreaterThanOrEqual(flushBound);
+      expect(emitted).toBeLessThanOrEqual(flushBound + tolerance);
       expect(parsed(observed).envelope.diagnostics).toEqual(statusUnavailable);
     },
     timeout,
@@ -334,7 +335,9 @@ describe("DS08 the stop path freezes no status", () => {
           expect(observed.code).toBe(code);
           expect(observed.stdout.byteLength).toBe(0);
           expect(observed.stderr.byteLength).toBe(0);
-          expect(observed.exitedAt - sent).toBeLessThanOrEqual(500 + tolerance);
+          expect(observed.exitedAt - sent).toBeLessThanOrEqual(
+            stopBound + tolerance,
+          );
           expect(line(observed, "freeze-start ")).toBeUndefined();
         } finally {
           await release(launched);

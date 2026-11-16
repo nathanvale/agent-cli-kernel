@@ -16,7 +16,7 @@ import type {
 import { runProcessOn } from "../../../starters/contract3/src/kernel/lifecycle.ts";
 import { receipt } from "./checks.ts";
 import { exitWithin, launch, readLedger, release } from "./harness.ts";
-import type { Case } from "./harness.ts";
+import { stopBound, supporting } from "./oracle.ts";
 import {
   deferred,
   holdContract,
@@ -34,21 +34,6 @@ const stops = [
   ["SIGTERM", 143],
   ["SIGINT", 130],
 ] as const;
-
-function supporting(id: string, argv: readonly string[]): Case {
-  return {
-    id,
-    family: id.split(".")[0] ?? id,
-    status: "supporting",
-    argv,
-    scenario: undefined,
-    state: false,
-    stdin: "closed",
-    expect: {},
-    supplier: undefined,
-    note: undefined,
-  };
-}
 
 // Waits for the front door's promise without letting a hang pass.
 async function settles(done: Promise<number>): Promise<boolean> {
@@ -189,10 +174,9 @@ describe("S04 no owned resource after a stop: real host (finding 2)", () => {
   test(
     "S04.no-owned-resource-after-stop process second inspect while the stop path settles",
     async () => {
-      const entry = supporting("S04.no-owned-resource-after-stop", [
-        "late-start",
-        "--json",
-      ]);
+      const entry = supporting("S04.no-owned-resource-after-stop", {
+        argv: ["late-start", "--json"],
+      });
       const before = markedPids("FX-LATE-MARKER").length;
       const launched = await launch({ argv: entry.argv });
       try {
@@ -207,7 +191,9 @@ describe("S04 no owned resource after a stop: real host (finding 2)", () => {
         expect(observed.code).toBe(143);
         expect(observed.stdout.byteLength).toBe(0);
         expect(observed.stderr.byteLength).toBe(0);
-        expect(observed.exitedAt - sent).toBeLessThanOrEqual(500 + tolerance);
+        expect(observed.exitedAt - sent).toBeLessThanOrEqual(
+          stopBound + tolerance,
+        );
         // The handler did ask after the stop, and was refused.
         expect(observed.ledger).toContain("late-call");
         expect(observed.ledger).toContain("late-refused");
