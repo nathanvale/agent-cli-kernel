@@ -1,6 +1,9 @@
 // The frozen T2 slice A case set is exercised exactly once, and every case
 // outside slice A names its supplier or its reviewed unreachable rationale.
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { expect, test } from "bun:test";
+import { record } from "../../../starters/contract3/src/kernel/validation/primitives.ts";
 import { familiesByFile, sliceCases } from "./coverage.ts";
 import { allCases } from "./harness.ts";
 
@@ -46,4 +49,41 @@ test("pending and unreachable cases keep their supplier or rationale", () => {
     "F04.fallback-encoding-fails",
   ]);
   for (const entry of unreachable) expect(entry.note?.trim()).toBeTruthy();
+});
+
+// Findings round: each supporting identity in findings-cases.json names its
+// home file, and that file carries the identity (S03 is an observation note).
+test("every findings-round case identity is exercised in its home file", () => {
+  const listed: unknown = JSON.parse(
+    readFileSync(join(import.meta.dir, "findings-cases.json"), "utf8"),
+  );
+  const cases =
+    record(listed) && Array.isArray(listed.cases) ? listed.cases : [];
+  expect(cases.length).toBe(11);
+  for (const entry of cases) {
+    const id = record(entry) ? entry.id : undefined;
+    const home = record(entry) ? entry.home : undefined;
+    if (typeof id !== "string" || typeof home !== "string")
+      throw new Error("Malformed findings-round case.");
+    const source = readFileSync(join(import.meta.dir, "..", home), "utf8");
+    expect(source.includes(`"${id}`) || source.includes(`\`${id}`)).toBe(true);
+  }
+});
+
+// Part 3: each status-seam identity is exercised in its home file.
+test("every status-seam case identity is exercised in its home file", () => {
+  const listed: unknown = JSON.parse(
+    readFileSync(join(import.meta.dir, "status-cases.json"), "utf8"),
+  );
+  const home = record(listed) ? listed.home : undefined;
+  const cases =
+    record(listed) && Array.isArray(listed.cases) ? listed.cases : [];
+  if (typeof home !== "string") throw new Error("No status-seam home file.");
+  const source = readFileSync(join(import.meta.dir, "..", home), "utf8");
+  expect(cases.length).toBe(12);
+  for (const entry of cases) {
+    const id = record(entry) ? entry.id : undefined;
+    if (typeof id !== "string") throw new Error("Malformed status-seam case.");
+    expect(source.includes(`"${id}`) || source.includes(`\`${id}`)).toBe(true);
+  }
 });

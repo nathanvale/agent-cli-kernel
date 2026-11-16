@@ -464,9 +464,18 @@ export function requireTools(): void {
 // is bounded below the test timeout; release kills the CLI if it is still
 // running, then every child its fixture ledgered, then removes the temporary
 // directory.
+export const exitBound = 20_000;
+// H2: a CLI that calls abort() is reported gone only after the host has dealt
+// with the aborted process. Hosted ubuntu runners took 23,798 ms (run
+// 43768259751) and 27,461 ms (run 43771790891) for L06s.abort, and more than
+// 20,000 ms in run 43780233662; Darwin takes milliseconds. Only the abort
+// scenario waits this long, about twice the slowest observation, and its own
+// test timeout (abortTimeout) stays above it so R1 still releases a real hang.
+export const abortExitBound = 60_000;
+export const abortTimeout = 75_000;
 export async function exitWithin(
   launched: Launched,
-  milliseconds = 20_000,
+  milliseconds = exitBound,
 ): Promise<Observed> {
   const observed = await Promise.race([
     launched.done,
@@ -476,35 +485,48 @@ export async function exitWithin(
     throw new Error(`The CLI did not exit within ${milliseconds} ms.`);
   return observed;
 }
-const ledgeredChildren = ["child-started", "grandchild", "escaped"];
+// N2: a ledgered pid is killed only while it is still in the process group
+// its ledger says it belongs to, so a pid the OS reused for an unrelated
+// process is left alone. Program children and escaped writers lead their own
+// group (setsid), and that whole group is killed, so their own children go
+// too; a grandchild stays in its parent's ledgered `child-pgid`.
+const ledgeredLeaders = ["child-started", "escaped", "late-child"];
+function ledgeredPid(ledger: readonly string[], prefix: string) {
+  return ledger
+    .filter((line) => line.startsWith(`${prefix} `))
+    .map((line) => Number(line.split(" ")[1]))
+    .filter((pid) => Number.isSafeInteger(pid) && pid > 0);
+}
+function stillOwned(ledger: readonly string[]) {
+  const owned = ledgeredLeaders.flatMap((prefix) =>
+    ledgeredPid(ledger, prefix).map((pid) => ({ pid, group: pid })),
+  );
+  const [group] = ledgeredPid(ledger, "child-pgid");
+  if (group !== undefined)
+    for (const pid of ledgeredPid(ledger, "grandchild"))
+      owned.push({ pid, group });
+  return owned.filter((entry) => processGroup(entry.pid) === entry.group);
+}
 export async function release(launched: Launched): Promise<void> {
   if (launched.running()) launched.signal("SIGKILL");
   const observed = await launched.done;
-  for (const line of readLedger(launched.ledgerPath)) {
-    const [prefix, value] = line.split(" ");
-    const pid = Number(value);
-    if (
-      prefix &&
-      ledgeredChildren.includes(prefix) &&
-      Number.isSafeInteger(pid) &&
-      pid > 0
-    )
-      try {
-        process.kill(pid, "SIGKILL");
-      } catch {
-        // Already gone.
-      }
-  }
+  for (const { pid, group } of stillOwned(readLedger(launched.ledgerPath)))
+    try {
+      process.kill(pid === group ? -group : pid, "SIGKILL");
+    } catch {
+      // Already gone.
+    }
   await cleanup(observed);
 }
 
 export async function run(
   entry: Case,
   extra: Partial<Parameters<typeof launch>[0]> = {},
+  bound = exitBound,
 ) {
   const launched = await launchCase(entry, extra);
   try {
-    return await exitWithin(launched);
+    return await exitWithin(launched, bound);
   } catch (error) {
     await release(launched);
     throw error;

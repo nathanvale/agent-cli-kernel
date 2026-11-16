@@ -35,6 +35,7 @@
     "tests/contract3/lifecycle/fixtures/fault-cli.ts",
     "tests/contract3/lifecycle/fixtures/canary-cli.ts",
     "tests/contract3/lifecycle/fixtures/declining-host.ts",
+    "tests/contract3/lifecycle/fixtures/status-cli.ts",
     "tests/contract3/locks/fixtures.ts"
   ]
 }
