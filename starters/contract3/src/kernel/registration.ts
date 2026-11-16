@@ -1,8 +1,14 @@
-import { reservedFallbackCause, validateWords } from "./stations.ts";
+import {
+  declaredStationKeys,
+  reservedFallbackCause,
+  validateWords,
+} from "./stations.ts";
 import { builtins } from "./navigation.ts";
 import type { CommandDeclaration } from "./declarations.ts";
 import {
+  admitChangingShape,
   admitCommandIdentity,
+  admitInspectShape,
   admitRootOperation,
   admitRouteTokens,
 } from "./declarations.ts";
@@ -30,20 +36,6 @@ export function admitCauses(causes: CauseTable): void {
       throw new Error("Common cause rows cannot be replaced.");
   }
 }
-// The exact key set of a declared station: station() builds exactly these,
-// so a raw declaration may carry no other (WIRE-1, DISC-8; K1-5).
-const stationKeys = [
-  "commandIdentity",
-  "causeCode",
-  "row",
-  "trigger",
-  "guidance",
-  "repairAction",
-  "retryDelayPolicy",
-  "reachability",
-  "unreachableRationale",
-  "independentObservable",
-];
 function admitStationSet(
   command: CommandDeclaration,
   causes: CauseTable,
@@ -52,7 +44,7 @@ function admitStationSet(
   for (const station of command.stations) {
     if (
       !record(station) ||
-      !keys(station, stationKeys) ||
+      !keys(station, declaredStationKeys) ||
       !causeRow(station.row)
     )
       throw new Error("Station is not a strict declared station.");
@@ -129,29 +121,6 @@ function admitRecovery(
       throw new Error("Coordination refusal requires an unchanged handoff.");
   }
 }
-// The rules command() and changing() apply, applied again here because a raw
-// CommandDeclaration reaches contractFor without a constructor (K1-5).
-function admitHostDeclaration(command: CommandDeclaration): void {
-  if (command.effectClass === "inspect") {
-    if (!text(command.summary)) throw new Error("Invalid command declaration.");
-    // DISC-13: for an inspect command ifNoResult is null.
-    if (command.ifNoResult !== undefined)
-      throw new Error("An inspect command has no ifNoResult.");
-    return;
-  }
-  if (
-    command.effectClass !== "repository-local" &&
-    command.effectClass !== "external"
-  )
-    throw new Error("Unknown effect class.");
-  const effects = command.effects ?? [];
-  if (
-    effects.length === 0 ||
-    new Set(effects).size !== effects.length ||
-    command.heldLockCause === command.unresolvedCaseCause
-  )
-    throw new Error("Invalid changing declaration.");
-}
 // Host route tokens are checked before collisions so a route that names a
 // built-in switch is refused with its own token (F04, CMD-1).
 function admitRoutes(
@@ -197,7 +166,10 @@ function admitCommand(
   installed: readonly AddonName[],
   { host }: { readonly host: boolean },
 ): void {
-  if (host) admitHostDeclaration(command);
+  // K1-5: a raw declaration meets the same shape rules as a constructed one.
+  if (host)
+    if (command.effectClass === "inspect") admitInspectShape(command);
+    else admitChangingShape(command);
   admitCommandIdentity(command.commandIdentity);
   admitHostInput(command.input);
   if (command.commandIdentity !== `${cli}.dispatch`)

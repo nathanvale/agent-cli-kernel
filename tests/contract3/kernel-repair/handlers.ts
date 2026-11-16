@@ -27,3 +27,13 @@ export function readsUnchanged<const Identity extends string>(
       { message: "Read.", data: null, effects: unchanged },
     );
 }
+
+// One owner for the handler a raw admission fixture carries (K1-5 requires
+// one); it never runs (repair 1, S3).
+export function neverRuns() {
+  return Promise.resolve({
+    ok: false,
+    path: "handler",
+    reason: "Raw admission fixture never runs.",
+  } as const);
+}

@@ -46,6 +46,20 @@ export function freeze<T>(value: T): T {
   }
   return value;
 }
+// The exact key set station() builds. A raw declaration's station may carry
+// no other (WIRE-1, DISC-8; K1-5), so admission checks against this list.
+export const declaredStationKeys: readonly (keyof DeclaredStation)[] = [
+  "commandIdentity",
+  "causeCode",
+  "row",
+  "trigger",
+  "guidance",
+  "repairAction",
+  "retryDelayPolicy",
+  "reachability",
+  "unreachableRationale",
+  "independentObservable",
+];
 export function station<C extends CauseTable, const S extends StationInput<C>>(
   causes: C,
   spec: S,

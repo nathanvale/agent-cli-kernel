@@ -5,6 +5,7 @@ import {
   contractFor,
   station,
 } from "../../../starters/contract3/src/kernel/index.ts";
+import { neverRuns } from "./handlers.ts";
 import { contractUnchecked } from "./harness.ts";
 import { emptyInput, unchanged } from "./shapes.ts";
 
@@ -130,4 +131,88 @@ test("X-K1-5.raw-declaration-admission: contractFor re-checks every constructor 
   );
   // Twin: the typed declaration, spread into a raw object, is admitted.
   expect(admit({ ...base(), stations: [unmet] })).not.toThrow();
+});
+
+// Host coordination refusals for a raw changing declaration.
+const hold = {
+  outcome: "refused",
+  transactionState: "unchanged",
+  failureClass: "domain",
+  exitCode: 3,
+  retryable: false,
+  guidance: "handoff",
+} as const;
+const coordinationCauses = { HELD: hold, PRIOR: hold } as const;
+function coordinationStation(causeCode: "HELD" | "PRIOR") {
+  return station(coordinationCauses, {
+    commandIdentity: "x.change",
+    causeCode,
+    trigger: "Coordination refusal.",
+    repairAction: "Inspect the lock.",
+    guidance: {
+      handoff: {
+        owner: "operator",
+        reason: "Inspect the lock owner.",
+        inspect: [{ kind: "instruction", text: "Inspect the lock." }],
+      },
+    },
+    retryDelayPolicy: { kind: "none" },
+    reachability: "required",
+    unreachableRationale: null,
+    independentObservable: "swarm-declarations",
+  });
+}
+const rawChange = {
+  commandIdentity: "x.change",
+  route: ["change"],
+  summary: "Change.",
+  effectClass: "repository-local",
+  effects: ["e"],
+  heldLockCause: "HELD",
+  unresolvedCaseCause: "PRIOR",
+  input: emptyInput,
+  stations: [coordinationStation("HELD"), coordinationStation("PRIOR")],
+  capabilities: {},
+  execute: neverRuns,
+};
+
+test("S2.raw-shape-refusals: each shape rule contractFor re-checks names its own refusal", () => {
+  // The changing() and station() rules, applied to raw declarations
+  // (WIRE-15, WIRE-1, DISC-8; repair 1, S1 and S2).
+  const variants: readonly (readonly [string, object, string])[] = [
+    [
+      "unknown effect class",
+      { ...rawChange, effectClass: "bogus" },
+      "Unknown effect class.",
+    ],
+    [
+      "no effects",
+      { ...rawChange, effects: [] },
+      "Invalid changing declaration.",
+    ],
+    [
+      "duplicate effects",
+      { ...rawChange, effects: ["e", "e"] },
+      "Invalid changing declaration.",
+    ],
+    [
+      "equal coordination causes",
+      { ...rawChange, unresolvedCaseCause: "HELD" },
+      "Changing commands need distinct coordination refusal stations.",
+    ],
+    [
+      "station row with an extra key",
+      { ...base(), stations: [{ ...unmet, row: { ...unmet.row, extra: 1 } }] },
+      "Station is not a strict declared station.",
+    ],
+  ];
+  expect(variants).toHaveLength(5);
+  expect(variants.map(([name, raw]) => [name, refusalOf(admit(raw))])).toEqual(
+    variants.map(([name, , refusal]) => [name, refusal]),
+  );
+  // Twin: the raw changing declaration passes every shape rule and is then
+  // refused for the next rule in order, the missing state add-on.
+  expect(refusalOf(admit(rawChange))).toBe(
+    "Changing commands require the state add-on.",
+  );
 });

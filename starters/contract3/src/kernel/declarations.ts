@@ -42,6 +42,45 @@ export type CommandDeclaration<Identity extends string = string> =
       registration?: InputRegistration,
     ) => Promise<Validation<CommandResult<Identity>>>;
   };
+// One owner for the shape rules of each declaration kind (repair 1, S1):
+// command() and changing() call them as they construct, and contractFor
+// calls them again for a raw CommandDeclaration (K1-5).
+export function admitInspectShape(declaration: {
+  readonly summary: unknown;
+  readonly ifNoResult?: unknown;
+}): void {
+  if (!text(declaration.summary))
+    throw new Error("Invalid command declaration.");
+  // DISC-13: for an inspect command ifNoResult is null.
+  if (declaration.ifNoResult !== undefined)
+    throw new Error("An inspect command has no ifNoResult.");
+}
+export function admitChangingShape(declaration: {
+  readonly effectClass: unknown;
+  readonly effects?: readonly unknown[];
+  readonly heldLockCause?: unknown;
+  readonly unresolvedCaseCause?: unknown;
+  readonly stations: readonly { readonly causeCode: string }[];
+}): void {
+  if (
+    declaration.effectClass !== "repository-local" &&
+    declaration.effectClass !== "external"
+  )
+    throw new Error("Unknown effect class.");
+  const declares = (cause: unknown) =>
+    declaration.stations.some((item) => item.causeCode === cause);
+  if (
+    declaration.heldLockCause === declaration.unresolvedCaseCause ||
+    !declares(declaration.heldLockCause) ||
+    !declares(declaration.unresolvedCaseCause)
+  )
+    throw new Error(
+      "Changing commands need distinct coordination refusal stations.",
+    );
+  const effects = declaration.effects ?? [];
+  if (effects.length === 0 || new Set(effects).size !== effects.length)
+    throw new Error("Invalid changing declaration.");
+}
 export function admitCommandIdentity(identity: string): void {
   if (!text(identity) || new TextEncoder().encode(identity).byteLength > 128)
     throw new Error(
@@ -212,7 +251,7 @@ export function command<
   admitCommandIdentity(spec.identity);
   admitRootOperation(spec.route, spec.input);
   admitRouteTokens(spec.route);
-  if (!text(spec.summary)) throw new Error("Invalid command declaration.");
+  admitInspectShape({ summary: spec.summary });
   if (
     spec.stations?.some((station) => station.commandIdentity !== spec.identity)
   )
@@ -305,19 +344,7 @@ export function changing<
   admitRouteTokens(spec.route);
   if (!knownRoute(spec.ifNoResult))
     throw new Error("ifNoResult must come from the admitted state add-on.");
-  if (
-    spec.heldLockCause === spec.unresolvedCaseCause ||
-    !spec.stations.some((item) => item.causeCode === spec.heldLockCause) ||
-    !spec.stations.some((item) => item.causeCode === spec.unresolvedCaseCause)
-  )
-    throw new Error(
-      "Changing commands need distinct coordination refusal stations.",
-    );
-  if (
-    spec.effects.length === 0 ||
-    new Set(spec.effects).size !== spec.effects.length
-  )
-    throw new Error("Invalid changing declaration.");
+  admitChangingShape(spec);
   const prepare: Prepare<Identity> = async (
     argv,
     context,
