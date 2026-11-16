@@ -16,13 +16,15 @@
 //          try             one attempt; report result, code, elapsed time.
 //          same-process    acquire, then a second open in this process
 //                          attempts; report the second result.
-import { closeSync, constants, openSync, renameSync, writeFileSync } from "node:fs";
-import { resolveCoordination } from "../../../../starters/contract3/src/addons/state/coordination.ts";
 import {
-  attemptLock,
-  attemptPosixLock,
-  clearCloseOnExec,
-} from "../holder.ts";
+  closeSync,
+  constants,
+  openSync,
+  renameSync,
+  writeFileSync,
+} from "node:fs";
+import { resolveCoordination } from "../../../../starters/contract3/src/addons/state/coordination.ts";
+import { attemptLock, attemptPosixLock, clearCloseOnExec } from "../holder.ts";
 import type { Attempt } from "../holder.ts";
 
 const [route = "", mode = "", file = "", report = "", option = ""] =
@@ -63,7 +65,10 @@ function fromTest(attempt: Attempt): { outcome: Outcome; keep: () => void } {
         outcome: { result: "acquired", code: "none", fd: attempt.held.fd },
         keep: () => attempt.held.release,
       }
-    : { outcome: { result: attempt.kind, code: attempt.code, fd: null }, keep: () => {} };
+    : {
+        outcome: { result: attempt.kind, code: attempt.code, fd: null },
+        keep: () => {},
+      };
 }
 
 function take(path: string): { outcome: Outcome; keep: () => void } {

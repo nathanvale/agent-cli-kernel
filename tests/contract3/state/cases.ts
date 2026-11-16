@@ -54,7 +54,10 @@ const component = {
 } as const;
 // A component case that needs a real admitted transaction, so a qualified
 // coordination route.
-const transactionComponent = { ...component, platform: "coordination" } as const;
+const transactionComponent = {
+  ...component,
+  platform: "coordination",
+} as const;
 const unqualified = {
   status: "pending",
   supplier: "qualification",
@@ -1063,7 +1066,8 @@ export const stateCases: readonly StateCase[] = [
   {
     id: "C01.h-no-fallback-when-route-unavailable",
     ...coordinated,
-    sources: "REC-7; REC-8; CMD-12; T3 Exclusions; Linux expectations section 2",
+    sources:
+      "REC-7; REC-8; CMD-12; T3 Exclusions; Linux expectations section 2",
     observation:
       "With the fixture seam that makes the route's start-up self-check fail, a change and a recovery command each refuse with DOMAIN_SX_UNAVAILABLE, exit 3, not retryable, empty stderr and collections, a message naming coordination-self-check-failed with the platform, kernel release and qualified scope, never advising removal; the state root is never created and the ledger is empty. Capabilities report coordination unavailable with that reason; the read route stays read-only. A coordination call failing after admission began releases the admission and earlier key coordination locks and publishes nothing.",
     red: "Fall back to a lock file, or continue without a coordination lock, when the route is unavailable.",
@@ -1089,7 +1093,8 @@ export const stateCases: readonly StateCase[] = [
   {
     id: "Q01.f-foreign-call-confined-to-linux-route",
     ...anyPlatform,
-    sources: "Linux route decision (Nathan, 16 November 2026, 14:22); CMD-16; CMD-17",
+    sources:
+      "Linux route decision (Nathan, 16 November 2026, 14:22); CMD-16; CMD-17",
     observation:
       "bun:ffi imported statically or dynamically from any contract source file other than the state add-on's linux-flock.ts fails lint; the same import in linux-flock.ts passes, and the committed linux-flock.ts lints clean.",
     red: "Allow bun:ffi everywhere, or ban it in the route module too.",

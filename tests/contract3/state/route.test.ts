@@ -69,12 +69,7 @@ type Worker = {
 };
 
 let sequence = 0;
-function start(
-  route: string,
-  mode: string,
-  file: string,
-  option = "",
-): Worker {
+function start(route: string, mode: string, file: string, option = ""): Worker {
   sequence += 1;
   const report = join(
     file.slice(0, file.lastIndexOf("/")),
@@ -266,14 +261,32 @@ caseTest("C01.f-same-process-second-open-refused", async () => {
   expect(posix.result).toBe("acquired");
 });
 
+// The process state letter: T when stopped (Linux /proc, Darwin ps).
+function state(pid: number): string {
+  if (process.platform === "linux") {
+    const stat = readFileSync(`/proc/${pid}/stat`, "utf8");
+    return stat.charAt(stat.lastIndexOf(")") + 2);
+  }
+  return Bun.spawnSync(["ps", "-o", "stat=", "-p", String(pid)])
+    .stdout.toString()
+    .trim()
+    .slice(0, 1);
+}
+
 caseTest("C01.g-stopped-holder-still-holds", async () => {
   const file = join(folder(), "f.lock");
   const { worker } = await holder("addon", file);
-  worker.kill("SIGSTOP");
+  // process.kill, not the subprocess handle: Bun 1.4.0's handle does not
+  // deliver SIGSTOP (observed on this Mac, 16 November 2026).
+  process.kill(worker.pid, "SIGSTOP");
   try {
+    const until = Date.now() + 5_000;
+    while (state(worker.pid) !== "T" && Date.now() < until) await Bun.sleep(5);
+    expect(state(worker.pid)).toBe("T");
     expect((await attempt("addon", file)).result).toBe("refused");
+    expect(state(worker.pid)).toBe("T");
   } finally {
-    worker.kill("SIGCONT");
+    process.kill(worker.pid, "SIGCONT");
     await killed(worker);
   }
 });

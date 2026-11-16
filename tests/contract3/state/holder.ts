@@ -30,44 +30,54 @@ type Calls = {
   readonly errno: () => number;
 };
 
+function errnoReader(location: () => unknown): () => number {
+  return () => {
+    const pointer = location();
+    return typeof pointer === "number" && pointer !== 0
+      ? read.i32(pointer, 0)
+      : -1;
+  };
+}
+
+function loadLinux(): Calls {
+  const { symbols } = dlopen(library, {
+    flock: { args: ["i32", "i32"], returns: "i32" },
+    lockf: { args: ["i32", "i32", "i64"], returns: "i32" },
+    // fcntl is variadic; a fixed three-integer signature is sound on Linux
+    // x86_64 and aarch64 only, never on Darwin arm64.
+    fcntl: { args: ["i32", "i32", "i32"], returns: "i32" },
+    __errno_location: { args: [], returns: "ptr" },
+  });
+  return {
+    flock: (fd, operation) => symbols.flock(fd, operation),
+    lockf: (fd, command, length) => symbols.lockf(fd, command, length),
+    clearCloseOnExec: (fd) => symbols.fcntl(fd, setDescriptorFlags, 0),
+    errno: errnoReader(() => symbols.__errno_location()),
+  };
+}
+
+function loadDarwin(): Calls {
+  const { symbols } = dlopen(library, {
+    flock: { args: ["i32", "i32"], returns: "i32" },
+    lockf: { args: ["i32", "i32", "i64"], returns: "i32" },
+    __error: { args: [], returns: "ptr" },
+  });
+  return {
+    flock: (fd, operation) => symbols.flock(fd, operation),
+    lockf: (fd, command, length) => symbols.lockf(fd, command, length),
+    clearCloseOnExec: undefined,
+    errno: errnoReader(() => symbols.__error()),
+  };
+}
+
 function load(): Calls | undefined {
-  if (!linux && !darwin) return undefined;
   try {
-    const { symbols } = dlopen(library, {
-      flock: { args: ["i32", "i32"], returns: "i32" },
-      lockf: { args: ["i32", "i32", "i64"], returns: "i32" },
-      ...(linux
-        ? {
-            // fcntl is variadic; a fixed three-integer signature is sound on
-            // Linux x86_64 and aarch64 only, never on Darwin arm64.
-            fcntl: { args: ["i32", "i32", "i32"], returns: "i32" },
-            __errno_location: { args: [], returns: "ptr" },
-          }
-        : { __error: { args: [], returns: "ptr" } }),
-    } as const);
-    const location = Reflect.get(
-      symbols,
-      linux ? "__errno_location" : "__error",
-    );
-    const fcntl: unknown = Reflect.get(symbols, "fcntl");
-    return {
-      flock: (fd, operation) => symbols.flock(fd, operation),
-      lockf: (fd, command, length) => symbols.lockf(fd, command, length),
-      clearCloseOnExec:
-        typeof fcntl === "function"
-          ? (fd) => Number(fcntl(fd, setDescriptorFlags, 0))
-          : undefined,
-      errno() {
-        const pointer: unknown =
-          typeof location === "function" ? location() : null;
-        return typeof pointer === "number" && pointer !== 0
-          ? read.i32(pointer, 0)
-          : -1;
-      },
-    };
+    if (linux) return loadLinux();
+    if (darwin) return loadDarwin();
   } catch {
-    return undefined;
+    // No C library this test can call: no test route.
   }
+  return undefined;
 }
 
 const calls = load();

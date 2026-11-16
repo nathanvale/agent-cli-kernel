@@ -4,7 +4,6 @@
 import { expect } from "bun:test";
 import {
   linkSync,
-  openSync,
   readdirSync,
   renameSync,
   symlinkSync,

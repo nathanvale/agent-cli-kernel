@@ -1,6 +1,7 @@
 // State add-on public entry (CMD-10a to CMD-13a, REC-1 to REC-10). The only
 // module of this add-on that host code imports. It fixes the production
-// seams: the reviewed qualification table (empty in the foundation) and no
+// seams: the reviewed qualification table (empty in the foundation), the
+// platform's coordination route after its start-up self-check, and no
 // observation hook. Test seams live only in the labelled fixture.ts.
 //
 // Interface for a host:
@@ -17,6 +18,7 @@
 //   - capabilities(): which gated capabilities are available, and why not.
 import { install } from "./install.ts";
 import type { StateOptions } from "./install.ts";
+import { resolveCoordination } from "./coordination.ts";
 import { resolveQualification } from "./qualification.ts";
 
 export type {
@@ -41,6 +43,7 @@ export type { CapabilityReport } from "./qualification.ts";
 export function stateAddon(options: StateOptions) {
   return install(options, {
     qualification: resolveQualification(),
+    coordination: resolveCoordination(),
     phase: () => Promise.resolve(),
   });
 }

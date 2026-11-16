@@ -215,11 +215,11 @@ unlinked or renamed to recover it. It is advisory among cooperating add-on
 processes only; nothing protects against a process that ignores it. One
 route per platform, behind one interface (`coordination.ts`):
 
-| Platform      | Route                                                                                                                                                 | Refusal                                   |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
-| Darwin        | the numeric flag `O_EXLOCK` (`0x20`) at open, with `O_RDWR`, `O_CREAT`, `O_NONBLOCK` and `O_NOFOLLOW` (unchanged)                                     | `EAGAIN` from `open`                      |
+| Platform      | Route                                                                                                                                                | Refusal                                   |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| Darwin        | the numeric flag `O_EXLOCK` (`0x20`) at open, with `O_RDWR`, `O_CREAT`, `O_NONBLOCK` and `O_NOFOLLOW` (unchanged)                                    | `EAGAIN` from `open`                      |
 | Linux (glibc) | `open` through `node:fs` with `O_RDWR`, `O_CREAT` and `O_NOFOLLOW` (Bun opens close-on-exec), then `flock(fd, LOCK_EX \| LOCK_NB)` through `bun:ffi` | `EWOULDBLOCK` (`EAGAIN`, 11) from `flock` |
-| any other     | none                                                                                                                                                  | every changing route refuses (below)      |
+| any other     | none                                                                                                                                                 | every changing route refuses (below)      |
 
 - Linux route decision: Nathan, 16 November 2026, 14:22 (route A). The
   POSIX record lock family (`fcntl` `F_SETLK`, `lockf`, and `bun:sqlite`,

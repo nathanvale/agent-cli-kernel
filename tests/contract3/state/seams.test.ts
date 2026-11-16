@@ -143,10 +143,14 @@ caseTest("Q01.f-foreign-call-confined-to-linux-route", async () => {
   const statically = `import { dlopen } from "bun:ffi";\nvoid dlopen;\n`;
   const dynamically = `export const load = () => import("bun:ffi");\n`;
   for (const filePath of elsewhere) {
-    expect({ filePath, banned: await banned(statically, "ffi", filePath) })
-      .toEqual({ filePath, banned: true });
-    expect({ filePath, banned: await banned(dynamically, "ffi", filePath) })
-      .toEqual({ filePath, banned: true });
+    expect({
+      filePath,
+      banned: await banned(statically, "ffi", filePath),
+    }).toEqual({ filePath, banned: true });
+    expect({
+      filePath,
+      banned: await banned(dynamically, "ffi", filePath),
+    }).toEqual({ filePath, banned: true });
   }
   expect(await banned(statically, "ffi", route)).toBe(false);
   const [committed] = await eslint.lintFiles([route]);
