@@ -577,6 +577,21 @@ const bypasses = [
     undefined,
   ],
   [
+    "tests-use-test-folder",
+    'import * as os from "node:os";\nconst { tmpdir: td, ...rest } = os;\ntd();\nrest.homedir();',
+    "not tmpdir()",
+  ],
+  ...[
+    "const { ...rest } = { value: 1 };\nexpect(rest.value).toBe(1);",
+    "const { ...copy } = service;\ncopy.run();",
+    "const { a: { b }, c = { d: 1 }, ...rest } = source;\nb.run();\nc.d.toString();\nrest.run();",
+    "const [, first, [second] = [], { third }, ...others] = list;\nfirst.run();\nsecond.run();\nthird.run();\nothers.at(0);",
+  ].flatMap((code) =>
+    (["tests-use-test-folder", "tests-no-sleep"] as const).map(
+      (rule) => [rule, code, undefined] as const,
+    ),
+  ),
+  [
     "tests-no-sleep",
     'import timers from "node:timers/promises";\nawait timers.setTimeout(5);',
     "The node:timers/promises module",

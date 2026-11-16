@@ -202,7 +202,8 @@ const definitionTracers = {
     const { id, init } = def.node;
     if (id === def.name) return next(init) ?? { name: node.name };
     const property = id.properties?.find(
-      ({ value }) => (value.left ?? value) === def.name,
+      ({ type, value }) =>
+        type === "Property" && (value.left ?? value) === def.name,
     );
     if (!property) return { name: node.name };
     const { key, computed } = property;
