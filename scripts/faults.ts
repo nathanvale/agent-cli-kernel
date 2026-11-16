@@ -78,7 +78,16 @@ function gitOrThrow(
   return result.stdout;
 }
 
-function parseFault(entry: unknown, index: number): Fault {
+const fixFor: { readonly [name in keyof Fault]: string } = {
+  id: "Name it <fix short sha>-<source file name>.",
+  patch: `Name the fault's patch under ${patchFolder}.`,
+  testFile: "Name a test file relative to the repository root.",
+  title:
+    "Name the bun test -t pattern that selects the test that kills the fault.",
+  source: "Name it <fix short sha> <fix subject>.",
+};
+
+function parseFault(entry: unknown, where: string): Fault {
   const own = new Map<string, unknown>(
     typeof entry === "object" && entry !== null ? Object.entries(entry) : [],
   );
@@ -86,17 +95,22 @@ function parseFault(entry: unknown, index: number): Fault {
     const value = own.get(name);
     if (typeof value !== "string" || value === "")
       throw new Error(
-        `${manifestPath} record ${index} needs a non-empty string ${name}.`,
+        `${where} needs a non-empty string ${name}. ${fixFor[name]}`,
       );
     return value;
   };
-  return {
+  const fault = {
     id: field("id"),
     patch: field("patch"),
     testFile: field("testFile"),
     title: field("title"),
     source: field("source"),
   };
+  if (!existsSync(join(root, fault.testFile)))
+    throw new Error(
+      `${where} names testFile ${fault.testFile}, which does not exist. ${fixFor.testFile}`,
+    );
+  return fault;
 }
 
 function readManifest(): Fault[] {
@@ -105,7 +119,9 @@ function readManifest(): Fault[] {
   const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
   if (!Array.isArray(parsed))
     throw new Error(`${manifestPath} must hold an array of fault records.`);
-  const faults = parsed.map(parseFault);
+  const faults = parsed.map((entry, index) =>
+    parseFault(entry, `${manifestPath} record ${index}`),
+  );
   const ids = new Set<string>();
   for (const { id } of faults) {
     if (ids.has(id)) throw new Error(`${manifestPath} lists ${id} twice.`);
@@ -296,15 +312,24 @@ function add(argv: readonly string[]): number {
     return 2;
   }
   const id = `${short}-${basename(sourcePath).replace(/\.[^.]+$/, "")}`;
+  const fault = parseFault(
+    {
+      id,
+      patch: `${patchFolder}/${id}.patch`,
+      testFile,
+      title,
+      source: `${short} ${subject}`,
+    },
+    "faults:add",
+  );
   const faults = readManifest();
-  if (faults.some((fault) => fault.id === id)) {
+  if (faults.some((each) => each.id === id)) {
     process.stderr.write(`${manifestPath} already lists ${id}.\n`);
     return 2;
   }
-  const patch = `${patchFolder}/${id}.patch`;
   mkdirSync(join(root, patchFolder), { recursive: true });
-  writeFileSync(join(root, patch), reverse);
-  faults.push({ id, patch, testFile, title, source: `${short} ${subject}` });
+  writeFileSync(join(root, fault.patch), reverse);
+  faults.push(fault);
   writeFileSync(
     join(root, manifestPath),
     `${JSON.stringify(faults, null, 2)}\n`,

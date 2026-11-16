@@ -136,7 +136,13 @@ async function faults(
   return { ...run, temporary, lines: run.stdout.split("\n") };
 }
 
-function addFault(root: string, fix: string, sourcePath: string) {
+function addFault(
+  root: string,
+  fix: string,
+  sourcePath: string,
+  testFile = "tests/limit.test.ts",
+  title = "^L\\.refuses ",
+) {
   return spawnBounded(
     [
       process.execPath,
@@ -145,8 +151,8 @@ function addFault(root: string, fix: string, sourcePath: string) {
       "faults:add",
       fix,
       sourcePath,
-      "tests/limit.test.ts",
-      "^L\\.refuses ",
+      testFile,
+      title,
     ],
     { cwd: root, env: { ...process.env, ...gitEnv }, boundMilliseconds: bound },
   );
@@ -381,6 +387,53 @@ describe("bun run faults", () => {
     },
     timeout,
   );
+
+  for (const [field, testFile, title, refusal] of [
+    [
+      "an empty title",
+      "tests/limit.test.ts",
+      "",
+      "faults:add needs a non-empty string title. Name the bun test -t pattern that selects the test that kills the fault.",
+    ],
+    [
+      "a missing test file",
+      "tests/missing.test.ts",
+      "^L\\.refuses ",
+      "faults:add names testFile tests/missing.test.ts, which does not exist. Name a test file relative to the repository root.",
+    ],
+  ] as const)
+    test(
+      `FR.m faults:add refuses ${field} by name with its fix, and writes nothing`,
+      async () => {
+        const { root, id } = await repositoryWithFault({});
+        const reworded = commit(root, "fix: reword the refusal", {
+          "src/limit.ts": guarded.replace("must be", "has to be"),
+          "tests/limit.test.ts": tests(
+            refusalTest.replace("must be", "has to be"),
+          ),
+        });
+        const before = readFileSync(
+          join(root, "tests/faults/manifest.json"),
+          "utf8",
+        );
+        const added = await addFault(
+          root,
+          reworded,
+          "src/limit.ts",
+          testFile,
+          title,
+        );
+        expect(added.stderr).toBe(`${refusal}\n`);
+        expect(added.exit).toBe(2);
+        expect(
+          readFileSync(join(root, "tests/faults/manifest.json"), "utf8"),
+        ).toBe(before);
+        expect(readdirSync(join(root, "tests/faults/patches"))).toEqual([
+          `${id}.patch`,
+        ]);
+      },
+      processWatchdog(2),
+    );
 
   test(
     "FR.j a replayed test sees only the tools its own tree installs, not the caller's node_modules/.bin",
