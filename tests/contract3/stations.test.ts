@@ -195,7 +195,7 @@ test("declared stations bind identity and words, with built-ins and fallback sta
       repairAction: "Repair preparation.",
       guidance: { next: { kind: "instruction", text: "Repair preparation." } },
     }),
-  ).toThrow();
+  ).toThrow("Fallback station words are reserved.");
 });
 
 test("navigation rejects colliding identities and route resolution never initialises a handler", async () => {
@@ -223,7 +223,11 @@ test("navigation rejects colliding identities and route resolution never initial
       );
     },
   });
-  expect(() => contractFor({ cli: "notes", commands: [list, list] })).toThrow();
+  // The duplicate-identity rule itself, not the duplicate-route rule that
+  // the same pair also breaks (K1-17).
+  expect(() => contractFor({ cli: "notes", commands: [list, list] })).toThrow(
+    "Duplicate command identity.",
+  );
   const contract = contractFor({ cli: "notes", commands: [list] });
   expect(contract.help().commands).toHaveLength(1);
   expect(await contract.resolve(["list", "--json"])).toMatchObject({

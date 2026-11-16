@@ -76,17 +76,25 @@ test("one executable declaration projects input and strictly parses literal case
     ok: true,
     value: { item: "alpha", "--count": -2, "--detail": true },
   });
-  for (const args of [
-    [],
-    ["alpha", "--count=2"],
-    ["alpha", "--count", "01"],
-    ["alpha", "--count", "6"],
-    ["alpha", "--detail", "true"],
-    ["alpha", "--detail", "--detail"],
-    ["alpha", "--unknown"],
-    ["-item"],
-  ])
-    expect((await contract.parse("items.show", args)).ok).toBe(false);
+  // Each vector and the INPUT-2/INPUT-3 rule that refuses it (K1-17): a
+  // refusal for another reason must not pass.
+  const refusals = [
+    [[], "input", "required slot or constraint"],
+    [["alpha", "--count=2"], "argv", "unknown option"],
+    [["alpha", "--count", "01"], "input", "integer syntax"],
+    [["alpha", "--count", "6"], "input", "integer bounds"],
+    [["alpha", "--detail", "true"], "argv", "additional argument"],
+    [["alpha", "--detail", "--detail"], "--detail", "repeated slot"],
+    [["alpha", "--unknown"], "argv", "unknown option"],
+    [["-item"], "argv", "unknown option"],
+  ] as const;
+  expect(refusals).toHaveLength(8);
+  for (const [args, path, reason] of refusals)
+    expect(await contract.parse("items.show", args)).toEqual({
+      ok: false,
+      path,
+      reason,
+    });
   expect(await contract.parse("items.show", ["--", "--json"])).toEqual({
     ok: true,
     value: { item: "--json" },
