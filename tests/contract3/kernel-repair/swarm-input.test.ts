@@ -1,5 +1,10 @@
 import { expect, test } from "bun:test";
-import { contractFor } from "../../../starters/contract3/src/kernel/index.ts";
+import {
+  command,
+  commonCauses,
+  contractFor,
+  station,
+} from "../../../starters/contract3/src/kernel/index.ts";
 import {
   filterShow,
   go,
@@ -8,6 +13,7 @@ import {
   titledShow,
 } from "./swarm-commands.ts";
 import { buildUnchecked, contractUnchecked } from "./harness.ts";
+import { emptyInput, unchanged } from "./shapes.ts";
 import { runScenario } from "./swarm-process.ts";
 
 // Swarm-triage expectations for input and command-step admission. Expected
@@ -146,7 +152,31 @@ test(
 test("X-K1-12.dispatch-step: `<cli>.dispatch` with no arguments is an admitted command step", async () => {
   // DISC-5: each built-in may appear as a `command` step; DISC-4's operand
   // rule binds a host root operation, not `<cli>.dispatch` (DISC-1).
-  const source = go([], "x.dispatch");
+  const went = station(commonCauses, {
+    commandIdentity: "x.go",
+    causeCode: "SUCCESS_UNCHANGED",
+    trigger: "Went.",
+    guidance: { next: { kind: "command", command: "x.dispatch", args: [] } },
+    repairAction: null,
+    retryDelayPolicy: { kind: "none" },
+    reachability: "required",
+    unreachableRationale: null,
+    independentObservable: "swarm-input",
+  });
+  const source = command({
+    identity: "x.go",
+    route: ["go"],
+    summary: "Go.",
+    input: emptyInput,
+    capabilities: {},
+    stations: [went],
+    run: (_input, context) =>
+      context.result(went, {
+        message: "Went.",
+        data: null,
+        effects: unchanged,
+      }),
+  });
   // The static step type omits dispatch, so admission is called unchecked.
   const contract = contractUnchecked(contractFor, {
     cli: "x",
@@ -154,16 +184,11 @@ test("X-K1-12.dispatch-step: `<cli>.dispatch` with no arguments is an admitted c
   });
   if (typeof contract !== "object" || contract === null)
     throw new Error("Expected an admitted contract.");
-  const built = await buildUnchecked(contract, goStation([], "x.dispatch"), {
+  const built = await buildUnchecked(contract, went, {
     runId: "run-dispatch-step",
     message: "Went.",
     data: null,
-    effects: {
-      completed: [],
-      remaining: [],
-      uncertain: [],
-      inventoryComplete: true,
-    },
+    effects: unchanged,
   });
   expect(built).toMatchObject({
     ok: true,
