@@ -115,7 +115,7 @@ test("a recorded unused term that ends in y fails once a tracked file uses its p
       [{ term: "Quiet gallery", reason: "Not built yet.", ticket: "MAG-1" }],
     ),
   ).toEqual([
-    `${recordedUnusedTermsFile} records "Quiet gallery", which a tracked file now uses. Remove the entry.`,
+    `${recordedUnusedTermsFile} records "Quiet gallery", which a tracked file now uses. Repair: remove the entry.`,
   ]);
 });
 
