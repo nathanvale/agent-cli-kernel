@@ -167,9 +167,11 @@ Remove what nothing uses any more.
    added. Read its witness with `git show <sha>`, or find the commit that
    added it with `git log -S'<its text>' -- <file>`. When the reason still
    applies, keep it. When you find no reason, keep it and report it.
-4. Remove each candidate that is left. Then test each link definition again,
-   and remove each one whose last citing text you removed. Commit nothing:
-   the caller approves a removal by committing it.
+4. Remove each candidate that is left. Move a guide bullet's witnesses to
+   the gate note that refuses what it taught before you remove the bullet.
+   Then test each link definition again, and remove each one whose last
+   citing text you removed. Commit nothing: the caller approves a removal by
+   committing it.
 5. Report each removal with why it was added and the command and output
    that show nothing uses it. Report what you kept and why.
 6. Report each row or guide bullet that names a path, a command or a rule id
