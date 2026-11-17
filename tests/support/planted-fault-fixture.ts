@@ -228,7 +228,8 @@ export function lineOf(lines: readonly string[], start: string): string {
 export function expectOneTestProcessGone(pids: string): void {
   const [only, ...more] = ledgered(pids);
   expect(more).toEqual([]);
-  expect(only !== undefined && running(only.pid)).toBe(false);
+  if (only === undefined) throw new Error("No test process was ledgered.");
+  expect(running(only.pid)).toBe(false);
 }
 
 export function expectNoLeftovers(root: string, temporary: string): void {
