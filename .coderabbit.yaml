@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+reviews:
+  profile: chill
+  in_progress_fortune: false
+  auto_review:
+    enabled: true
+    drafts: false
+    auto_incremental_review: true
+  path_filters:
+    - "!tests/planted-faults/patches/**"
+    - "!**/bun.lock"
+    - "!tools/oxlint/anti-slop/**"
+  tools:
+    biome:
+      enabled: false
+    eslint:
+      enabled: false
+    oxc:
+      enabled: false
+knowledge_base:
+  code_guidelines:
+    filePatterns:
+      - "CODING_STANDARDS.md"
+      - "GLOSSARY.md"
+      - files: "docs/standards/*.md"
+        applyTo: "**"
