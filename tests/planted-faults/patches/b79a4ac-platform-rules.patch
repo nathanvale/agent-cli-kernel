@@ -1,0 +1,11 @@
+diff --git a/config/platform-rules.mjs b/config/platform-rules.mjs
+index f3b05d1..60ceaaa 100644
+--- a/config/platform-rules.mjs
++++ b/config/platform-rules.mjs
+@@ -1,5 +1,5 @@
+ const hostRoots =
+-  /^\/(?:private|usr|var|tmp|etc|opt|Users|home|Library|System)(?:\/|$)/;
++  /^\/(?:usr|var|tmp|etc|opt|Users|home|Library|System)(?:\/|$)/;
+ 
+ export default {
+   rules: {

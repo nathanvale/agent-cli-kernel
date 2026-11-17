@@ -1,7 +1,12 @@
 import js from "@eslint/js";
 import kernel, { kernelPaths } from "./config/kernel-repository-lint.mjs";
-import localRules from "./config/template-rules.mjs";
+import platformRules from "./config/platform-rules.mjs";
+import templateRules from "./config/template-rules.mjs";
 import tseslint from "typescript-eslint";
+
+const localRules = {
+  rules: { ...templateRules.rules, ...platformRules.rules },
+};
 
 export default tseslint.config(
   {
@@ -42,7 +47,10 @@ export default tseslint.config(
     files: ["**/*.{ts,mts,cts,mjs}"],
     ignores: kernelPaths,
     plugins: { repository: localRules },
-    rules: { "repository/no-comments": "error" },
+    rules: {
+      "repository/no-comments": "error",
+      "repository/no-host-path-literal": "error",
+    },
   },
   {
     files: ["src/cli.ts"],

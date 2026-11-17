@@ -11,6 +11,11 @@ this file.
 - Build a test's environment without any variable the test then asserts on,
   so a value set in the parent process cannot change the result. Witnessed:
   [cd2498b] (an inherited `MARKER` changed the first output of `execute`).
+- Make a lint rule that reads a template literal fall back to its raw text,
+  so a head with an invalid escape is still checked. Witnessed: [fc4fa62]
+  (`String.raw` with `\u` left the cooked value undefined, and
+  `no-host-path-literal` checked an empty string).
 
 [ac11ed9]: https://github.com/nathanvale/bun-typescript-template/commit/ac11ed98b7d538e8a304cac053aaefcaaf6b2cb3
 [cd2498b]: https://github.com/nathanvale/bun-typescript-template/commit/cd2498b7189a2d45d1906b9c870e8d13da6cd2dd
+[fc4fa62]: https://github.com/nathanvale/bun-typescript-template/commit/fc4fa628535ecc6729048cb6fbb759f153edd040
