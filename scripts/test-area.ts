@@ -1,10 +1,7 @@
 import { type Dirent, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { doctor } from "./doctor.ts";
-
-// Platform: bun test reads a path without a ./ prefix as a substring filter, so
-// "tests/contract3/state" would also run state-seam.test.ts.
-const contract3 = "tests/contract3";
+import { readRepository, type TestArea } from "./repository.ts";
 
 function isTest(name: string): boolean {
   return name.endsWith(".test.ts");
@@ -23,34 +20,38 @@ function entries(directory: string): Dirent[] {
     : [];
 }
 
+// Platform: bun test reads a path without a ./ prefix as a substring filter, so
+// "tests/contract3/state" would also run state-seam.test.ts.
 function testFiles(root: string, directory: string): string[] {
   return entries(join(root, directory))
     .filter((entry) => entry.isFile() && isTest(entry.name))
     .map((entry) => `./${directory}/${entry.name}`);
 }
 
+function pathsOf(root: string, { holds, folder }: TestArea): string[] {
+  if (holds === "files") return testFiles(root, folder);
+  return holdsTests(join(root, folder)) ? [`./${folder}`] : [];
+}
+
+function subfolderAreas(
+  root: string,
+  { folder }: TestArea,
+): [string, string[]][] {
+  return entries(join(root, folder))
+    .filter(
+      (entry) =>
+        entry.isDirectory() && holdsTests(join(root, folder, entry.name)),
+    )
+    .map((entry) => [entry.name, [`./${folder}/${entry.name}`]]);
+}
+
 function areas(root: string): Map<string, string[]> {
-  const candidates: [string, string[]][] = [
-    ["template", testFiles(root, "tests")],
-    ["kernel", testFiles(root, contract3)],
-    [
-      "glossary",
-      holdsTests(join(root, "tests/glossary")) ? ["./tests/glossary"] : [],
+  const candidates = readRepository(root).testAreas.flatMap(
+    (area): [string, string[]][] => [
+      [area.name, pathsOf(root, area)],
+      ...(area.subfolders ? subfolderAreas(root, area) : []),
     ],
-    [
-      "standards",
-      holdsTests(join(root, "tests/standards")) ? ["./tests/standards"] : [],
-    ],
-    ...entries(join(root, contract3))
-      .filter(
-        (entry) =>
-          entry.isDirectory() && holdsTests(join(root, contract3, entry.name)),
-      )
-      .map((entry): [string, string[]] => [
-        entry.name,
-        [`./${contract3}/${entry.name}`],
-      ]),
-  ];
+  );
   return new Map(candidates.filter(([, paths]) => paths.length > 0));
 }
 

@@ -14,6 +14,7 @@ const repository = join(import.meta.dir, "..");
 const scripts = [
   "scripts/doctor.ts",
   "scripts/test-area.ts",
+  "scripts/repository.ts",
   "src/toolchain-resolution.ts",
 ];
 const projects: string[] = [];
@@ -207,7 +208,23 @@ describe("doctor", () => {
 });
 
 describe("test:area", () => {
+  const declared = [
+    { name: "template", folder: "tests", holds: "files" },
+    {
+      name: "kernel",
+      folder: "tests/contract3",
+      holds: "files",
+      subfolders: true,
+    },
+  ];
+  const description = (testAreas: object[]) =>
+    JSON.stringify({
+      web: "https://github.com/owner/fixture",
+      checkCommitsSince: "0123456789abcdef0123456789abcdef01234567",
+      testAreas,
+    });
   const probe = {
+    "repository.json": description(declared),
     "tests/contract3/probe/probe.test.ts":
       'import { test } from "bun:test";\ntest("chosen case", () => {});\ntest("other case", () => {});\n',
     "tests/contract3/probe-seam.test.ts":

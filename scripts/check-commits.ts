@@ -9,10 +9,11 @@ import { constants, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { runWithOwnTools } from "./child-env.ts";
 import { doctor } from "./doctor.ts";
+import { readRepository } from "./repository.ts";
 
-const since = "f20777f7e67d300ade253060fa2ba36f38c0ca43";
-const fixedPoint = process.env.CHECK_COMMITS_SINCE || since;
 const root = join(import.meta.dir, "..");
+const fixedPoint =
+  process.env.CHECK_COMMITS_SINCE || readRepository(root).checkCommitsSince;
 const steps = [
   ["install", "--frozen-lockfile"],
   ["run", "typecheck"],

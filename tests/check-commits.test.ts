@@ -23,7 +23,9 @@ const sources = [
   "scripts/check-commits.ts",
   "scripts/child-env.ts",
   "scripts/doctor.ts",
+  "scripts/repository.ts",
   "src/toolchain-resolution.ts",
+  "repository.json",
 ];
 const folders: string[] = [];
 const gitEnv = {
