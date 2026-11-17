@@ -326,12 +326,12 @@ function trustedRun(
   handlerEntered: boolean,
   summary?: StateObservation,
 ): TrustedRun {
-  return {
+  const trusted: TrustedRun = {
     runId: run.runId,
     commandIdentity: identity,
     handlerEntered,
-    ...(summary ? { summary } : {}),
   };
+  return summary ? { ...trusted, summary } : trusted;
 }
 
 async function kernelResult(

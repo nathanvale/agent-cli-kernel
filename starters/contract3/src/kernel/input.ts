@@ -171,11 +171,8 @@ export async function parseInput<I extends InputSchema>(
       reason: "command does not support deadlines",
     };
   const parsed = await parseDomainInput(schema, tokens);
-  return parsed.ok
-    ? {
-        ...parsed,
-        ...(deadlineMilliseconds === undefined ? {} : { deadlineMilliseconds }),
-      }
+  return parsed.ok && deadlineMilliseconds !== undefined
+    ? { ...parsed, deadlineMilliseconds }
     : parsed;
 }
 
