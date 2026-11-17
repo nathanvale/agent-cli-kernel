@@ -39,12 +39,10 @@ function typeErrors(filePath: string, code: string): string[] {
     name === target
       ? ts.createSourceFile(name, code, language)
       : read(name, language, ...rest);
-  const program = ts.createProgram({
-    rootNames: [target],
-    options: config.options,
-    host,
-    ...(previous ? { oldProgram: previous } : {}),
-  });
+  const fresh = { rootNames: [target], options: config.options, host };
+  const program = ts.createProgram(
+    previous ? { ...fresh, oldProgram: previous } : fresh,
+  );
   previous = program;
   return ts
     .getPreEmitDiagnostics(program, program.getSourceFile(target))

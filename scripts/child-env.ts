@@ -50,20 +50,23 @@ export function startChild(
     limitMilliseconds,
     graceMilliseconds = defaultGraceMilliseconds,
   }: {
-    readonly cwd?: string;
+    readonly cwd?: string | undefined;
     readonly env?: Readonly<Record<string, string | undefined>>;
     readonly ownGroup?: boolean;
-    readonly limitMilliseconds?: number;
+    readonly limitMilliseconds?: number | undefined;
     readonly graceMilliseconds?: number;
   } = {},
 ): Child {
-  const child = Bun.spawn([...argv], {
-    ...(cwd === undefined ? {} : { cwd }),
+  const streams = {
     env: { ...env },
     stdout: "pipe",
     stderr: "pipe",
     detached: ownGroup,
-  });
+  } as const;
+  const child = Bun.spawn(
+    [...argv],
+    cwd === undefined ? streams : { ...streams, cwd },
+  );
   const send = (signal: "SIGTERM" | "SIGKILL") => {
     if (!ownGroup) {
       child.kill(signal);
@@ -142,12 +145,11 @@ export async function runWithOwnTools(
   argv: readonly string[],
   cwd: string,
   tracker: { stop?: () => void },
-  { limitMilliseconds }: { readonly limitMilliseconds?: number } = {},
+  {
+    limitMilliseconds,
+  }: { readonly limitMilliseconds?: number | undefined } = {},
 ) {
-  const child = startChild(argv, {
-    cwd,
-    ...(limitMilliseconds === undefined ? {} : { limitMilliseconds }),
-  });
+  const child = startChild(argv, { cwd, limitMilliseconds });
   tracker.stop = child.stop;
   try {
     const { stdout, stderr, exitCode, signalCode, timedOut } =

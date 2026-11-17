@@ -25,7 +25,7 @@ export async function spawnBounded(
 ): Promise<{ stdout: string; stderr: string; exit: number }> {
   const bound = options.boundMilliseconds ?? exitBound;
   const child = startChild(argv, {
-    ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
+    cwd: options.cwd,
     env: options.env ?? process.env,
     ownGroup: options.processGroup === true,
     limitMilliseconds: bound,

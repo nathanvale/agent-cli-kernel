@@ -236,7 +236,7 @@ function selectProjectRecipe(
   const choice = selectRecipe({
     profile,
     monorepo: flags.monorepo,
-    ...(flags.starter === undefined ? {} : { starter: flags.starter }),
+    starter: flags.starter,
   });
   if (choice.status === "selected") {
     return choice.recipe;

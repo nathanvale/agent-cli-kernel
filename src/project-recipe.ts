@@ -95,7 +95,7 @@ export const STARTERS: readonly Starter[] = distinct(
 export interface Selection {
   readonly profile: Profile;
   readonly monorepo: boolean;
-  readonly starter?: Starter;
+  readonly starter?: Starter | undefined;
 }
 
 export type RecipeChoice =
