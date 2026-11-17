@@ -5,7 +5,7 @@ description: Review a diff that touches `kernel/` or `tests/kernel/` against thi
 tools: Read, Grep, Glob
 ---
 
-Read `.agents/skills/contract3-work/SKILL.md` and run its Review branch on
+Read `.agents/skills/kernel-work/SKILL.md` and run its Review branch on
 the commit log and diff in your prompt. Read any repository file the branch
 needs. You have no shell and no access to hosted runs, so the prompt is your
 only source for the diff and the hosted CI result.

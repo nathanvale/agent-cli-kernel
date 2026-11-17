@@ -1,10 +1,10 @@
 ---
 
-name: contract3-work
+name: kernel-work
 description: Build, repair, or review Contract 3 code in `kernel/` or `tests/kernel/`. Use when changing either folder or reviewing a diff that touches it.
 ---
 
-# Contract 3 work
+# Kernel work
 
 Paths below are from the repository root. These owners hold the rules; follow
 each pointer rather than a copy:
