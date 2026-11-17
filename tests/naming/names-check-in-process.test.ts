@@ -13,7 +13,7 @@ import {
   stagedNewPaths,
   stagedText,
 } from "../../scripts/glossary.ts";
-import { git, inherited } from "../support/git-fixture.ts";
+import { git, gitResult, inherited } from "../support/git-fixture.ts";
 import { testFolder } from "../support/test-folder.ts";
 
 const usage =
@@ -55,12 +55,23 @@ beforeAll(() => {
 
 afterAll(() => {
   for (const [name, value] of withheldFromGit) process.env[name] = value;
-  for (const folder of folders.splice(0)) rmSync(folder, { recursive: true });
+  for (const folder of folders.splice(0))
+    rmSync(folder, { recursive: true, force: true });
 });
 
 function folder(): string {
   const root = testFolder("names-in-process-");
   folders.push(root);
+  return root;
+}
+
+function outsideRepository(): string {
+  const root = folder();
+  const probe = gitResult(root, "rev-parse", "--show-toplevel");
+  if (probe.exitCode === 0)
+    throw new Error(
+      `${root} sits inside the repository at ${probe.stdout.toString().trim()}, so a case that needs no repository would find it. Repair: point STATE_TEST_DIR at a folder with no repository above it, or unset it. Done when git rev-parse --show-toplevel fails in ${root}.`,
+    );
   return root;
 }
 
@@ -352,8 +363,22 @@ test.each([["GLOSSARY.md"], [recordedHitsFile]])(
   },
 );
 
+test("in process: a folder meant to sit outside any repository is refused when STATE_TEST_DIR puts a repository above it", () => {
+  const above = namesRepository();
+  const chosen = process.env.STATE_TEST_DIR;
+  process.env.STATE_TEST_DIR = above;
+  try {
+    expect(thrownBy(outsideRepository)).toContain(
+      `sits inside the repository at ${above}, so a case that needs no repository would find it.`,
+    );
+  } finally {
+    if (chosen === undefined) delete process.env.STATE_TEST_DIR;
+    else process.env.STATE_TEST_DIR = chosen;
+  }
+});
+
 test("in process: --staged outside a git repository exits 2 with git's reason", async () => {
-  const outcome = await check(folder(), ["--staged"]);
+  const outcome = await check(outsideRepository(), ["--staged"]);
   expect(outcome.code).toBe(2);
   expect(outcome.stderr).toStartWith(
     "git diff --cached --name-only --diff-filter=ACR failed: ",
@@ -456,7 +481,7 @@ test("in process: --tool-call judges a file by the repository that owns it, not 
 });
 
 test("in process: --tool-call passes a file outside any repository, and in one with no names check", async () => {
-  const outside = folder();
+  const outside = outsideRepository();
   expect(
     await check(
       outside,
@@ -637,7 +662,7 @@ test("in process: stagedNewPaths lists staged additions and renames, and no modi
 });
 
 test("in process: stagedNewPaths outside a git repository names the command and git's reason", () => {
-  const message = thrownBy(() => stagedNewPaths(folder()));
+  const message = thrownBy(() => stagedNewPaths(outsideRepository()));
   expect(message).toStartWith(
     "git diff --cached --name-only --diff-filter=ACR failed: ",
   );

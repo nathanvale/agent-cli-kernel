@@ -27,13 +27,17 @@ export function inherited(): Record<string, string | undefined> {
   );
 }
 
-export function git(root: string, ...args: string[]): string {
-  const result = Bun.spawnSync(["git", ...args], {
+export function gitResult(root: string, ...args: string[]) {
+  return Bun.spawnSync(["git", ...args], {
     cwd: root,
     env: { ...inherited(), ...gitEnv },
     stdout: "pipe",
     stderr: "pipe",
   });
+}
+
+export function git(root: string, ...args: string[]): string {
+  const result = gitResult(root, ...args);
   if (result.exitCode !== 0)
     throw new Error(`git ${args.join(" ")}: ${result.stderr.toString()}`);
   return result.stdout.toString().trim();
