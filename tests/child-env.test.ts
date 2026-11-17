@@ -55,16 +55,20 @@ test(
   "CE.a a child that hangs past its limit is stopped with its whole group and reported timed out",
   async () => {
     const limitMilliseconds = 5_000;
+    const graceMilliseconds = 10_000;
+    const lateness = 4_000;
     const started = Date.now();
     await released(
       (root) =>
         startChild(
           ["sh", "-c", `sleep 300 & echo $! > '${join(root, "pids")}'; wait`],
-          { limitMilliseconds, graceMilliseconds: 2_000 },
+          { limitMilliseconds, graceMilliseconds },
         ),
       async (child, root) => {
         const run = await child.finished;
-        expect(Date.now() - started).toBeGreaterThanOrEqual(limitMilliseconds);
+        const took = Date.now() - started;
+        expect(took).toBeGreaterThanOrEqual(limitMilliseconds);
+        expect(took).toBeLessThan(limitMilliseconds + lateness);
         expect(run.timedOut).toBe(true);
         expect(run.signalCode).toBe("SIGTERM");
         const grandchild = Number(readFileSync(join(root, "pids"), "utf8"));
