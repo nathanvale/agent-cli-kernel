@@ -223,7 +223,7 @@ export function probeBatch(prefix: string) {
     );
     const programs = [
       mine.filter((probe) => !probe.alone),
-      ...mine.filter((probe) => probe.alone).map((probe) => [probe]),
+      ...mine.flatMap((probe) => (probe.alone ? [[probe]] : [])),
     ].filter((program) => program.length > 0);
     const results = await drain(
       programs.map((program) =>

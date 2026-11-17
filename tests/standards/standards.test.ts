@@ -388,11 +388,15 @@ function witnessesIn(text: string, slug: string | undefined): string[] {
     ),
   );
   const part = slug === undefined ? text : section(text, slug);
-  return [...part.matchAll(/\[([^\]]+)\](?![[(:])/g)]
-    .map(([, label = ""]) => targets.get(label) ?? "")
-    .filter(
-      (target) => target.startsWith(commitPage) || reviewThread.test(target),
-    );
+  return [...part.matchAll(/\[([^\]]+)\](?![[(:])/g)].flatMap(
+    ([, label = ""]) => {
+      const target = targets.get(label) ?? "";
+
+      return target.startsWith(commitPage) || reviewThread.test(target)
+        ? [target]
+        : [];
+    },
+  );
 }
 
 function rowWitnesses(repository: string, row: Row, notes: string[]) {
