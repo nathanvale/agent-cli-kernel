@@ -189,8 +189,9 @@ Done when each item holds:
 
 Keep file and folder names on the glossary's words.
 
-1. Run `bun run test:area naming`. Each problem line gives a path, the word
-   it uses, and the glossary entry that refuses the word.
+1. Run `bun run test:area naming` to judge every tracked name, or
+   `bun run check:names <path>` to judge one. Each problem line gives a
+   path, the word it uses, and the glossary entry that refuses the word.
 2. For a name the check refuses, take the first repair that fits:
    - Rename the path with the glossary's word, using `git mv`, and change
      each file that refers to it. Find them with a search for the old name.
