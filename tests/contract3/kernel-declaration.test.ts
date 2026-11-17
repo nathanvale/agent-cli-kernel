@@ -3,7 +3,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 
 const repository = join(import.meta.dir, "../..");
-const kernelSource = join(repository, "starters/contract3");
+const kernelSource = join(repository, "kernel");
 const lintFolder = join(kernelSource, "config/kernel");
 
 function json(path: string): unknown {
@@ -184,9 +184,12 @@ describe("kernel-declaration.json, the kernel's statement of its stamp roots and
   });
 
   test("no file in the stamped lint folder names the kernel's folder in this repository", () => {
-    const named = files(lintFolder).filter((file) =>
-      readFileSync(file, "utf8").includes(relative(repository, kernelSource)),
-    );
+    const folder = relative(repository, kernelSource);
+    const inside = readdirSync(kernelSource).map((name) => `${folder}/${name}`);
+    const named = files(lintFolder).filter((file) => {
+      const text = readFileSync(file, "utf8");
+      return inside.some((path) => text.includes(path));
+    });
     expect(named).toEqual([]);
   });
 });

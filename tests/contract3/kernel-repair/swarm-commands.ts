@@ -3,11 +3,11 @@ import {
   commonCauses,
   contractFor,
   station,
-} from "../../../starters/contract3/src/kernel/index.ts";
+} from "../../../kernel/src/kernel/index.ts";
 import {
   authority,
   resource,
-} from "../../../starters/contract3/src/kernel/validation/brands.ts";
+} from "../../../kernel/src/kernel/validation/brands.ts";
 import { readsUnchanged } from "./handlers.ts";
 import { emptyInput, unchanged } from "./shapes.ts";
 

@@ -4,8 +4,8 @@
 // clock reads, so a timer that arms at most the limit and re-reads the clock
 // can be driven past the limit here with no production seam.
 import { afterEach, describe, expect, jest, test } from "bun:test";
-import { programsAddon } from "../../../starters/contract3/src/addons/programs/index.ts";
-import { runProcessOn } from "../../../starters/contract3/src/kernel/lifecycle.ts";
+import { programsAddon } from "../../../kernel/src/addons/programs/index.ts";
+import { runProcessOn } from "../../../kernel/src/kernel/lifecycle.ts";
 import {
   advance,
   deferred,

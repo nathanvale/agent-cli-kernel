@@ -3,12 +3,12 @@ import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { programsAddon } from "../../../starters/contract3/src/addons/programs/index.ts";
+import { programsAddon } from "../../../kernel/src/addons/programs/index.ts";
 import type {
   ProgramsCapability,
   RunAddon,
-} from "../../../starters/contract3/src/kernel/index.ts";
-import { runProcessOn } from "../../../starters/contract3/src/kernel/lifecycle.ts";
+} from "../../../kernel/src/kernel/index.ts";
+import { runProcessOn } from "../../../kernel/src/kernel/lifecycle.ts";
 import { receipt } from "./checks.ts";
 import { exitWithin, launch, readLedger, release } from "./harness.ts";
 import { stopBound, supporting, tolerance } from "./oracle.ts";

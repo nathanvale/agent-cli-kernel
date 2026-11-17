@@ -6,8 +6,8 @@ import { afterEach, describe, expect, jest, test } from "bun:test";
 import {
   programDetails,
   programsAddon,
-} from "../../../starters/contract3/src/addons/programs/index.ts";
-import type { ProgramResult } from "../../../starters/contract3/src/kernel/index.ts";
+} from "../../../kernel/src/addons/programs/index.ts";
+import type { ProgramResult } from "../../../kernel/src/kernel/index.ts";
 import { alive, firstPid } from "../lifecycle/harness.ts";
 import { overLimitBoundary, timerLimit } from "../lifecycle/oracle.ts";
 import {

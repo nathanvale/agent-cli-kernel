@@ -1,7 +1,7 @@
 import { appendFileSync } from "node:fs";
 import { expect } from "bun:test";
-import type { JsonValue } from "../../../starters/contract3/src/kernel/types.ts";
-import { record } from "../../../starters/contract3/src/kernel/validation/primitives.ts";
+import type { JsonValue } from "../../../kernel/src/kernel/types.ts";
+import { record } from "../../../kernel/src/kernel/validation/primitives.ts";
 import {
   deepestLevel,
   envelopeOf,

@@ -8,12 +8,12 @@ import {
   commonCauses,
   contractFor,
   station,
-} from "../../../starters/contract3/src/kernel/index.ts";
+} from "../../../kernel/src/kernel/index.ts";
 import {
   authority,
   resource,
-} from "../../../starters/contract3/src/kernel/validation/brands.ts";
-import { record } from "../../../starters/contract3/src/kernel/validation/primitives.ts";
+} from "../../../kernel/src/kernel/validation/brands.ts";
+import { record } from "../../../kernel/src/kernel/validation/primitives.ts";
 import { authorityDefaults } from "../lifecycle/checks.ts";
 
 const none = {

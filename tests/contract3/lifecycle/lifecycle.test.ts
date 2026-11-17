@@ -1,6 +1,6 @@
 import { appendFile } from "node:fs/promises";
 import { describe, expect, test } from "bun:test";
-import { comparableEnvelope } from "../../../starters/contract3/src/kernel/comparison.ts";
+import { comparableEnvelope } from "../../../kernel/src/kernel/comparison.ts";
 import { assertEnvelope, authorityDefaults, receipt } from "./checks.ts";
 import type { Evidence } from "./checks.ts";
 import { sliceCases } from "./coverage.ts";

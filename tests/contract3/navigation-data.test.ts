@@ -1,8 +1,5 @@
 import { expect, test } from "bun:test";
-import {
-  command,
-  contractFor,
-} from "../../starters/contract3/src/kernel/index.ts";
+import { command, contractFor } from "../../kernel/src/kernel/index.ts";
 import { readsUnchanged } from "./kernel-repair/handlers.ts";
 import { emptyInput } from "./kernel-repair/shapes.ts";
 

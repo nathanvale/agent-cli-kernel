@@ -1,4 +1,4 @@
-import { approval } from "../../../starters/contract3/src/addons/approval/index.ts";
+import { approval } from "../../../kernel/src/addons/approval/index.ts";
 
 export function approvalAddon(operation: string, note: (line: string) => void) {
   const store = process.env.GRANTS;

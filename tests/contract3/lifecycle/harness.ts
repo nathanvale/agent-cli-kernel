@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { mkdtemp, mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { record } from "../../../starters/contract3/src/kernel/validation/primitives.ts";
+import { record } from "../../../kernel/src/kernel/validation/primitives.ts";
 import { signalGroupIfPresent, signalIfPresent } from "../../support/signal.ts";
 
 const here = import.meta.dir;
@@ -172,17 +172,14 @@ export function readLedger(path: string): readonly string[] {
 }
 
 async function materialiseStateEntry(dir: string): Promise<string> {
-  const target = join(dir, "starters/contract3/src/addons/state");
+  const target = join(dir, "kernel/src/addons/state");
   await mkdir(target, { recursive: true });
   const entry = join(target, "fx-state-entry.ts");
   const template = readFileSync(
     join(here, "fixtures/state-entry.ts.txt"),
     "utf8",
   )
-    .replace(
-      "__KERNEL_INDEX__",
-      join(repository, "starters/contract3/src/kernel/index.ts"),
-    )
+    .replace("__KERNEL_INDEX__", join(repository, "kernel/src/kernel/index.ts"))
     .replace("__FAULT_CLI__", faultCli);
   await writeFile(entry, template);
   return entry;

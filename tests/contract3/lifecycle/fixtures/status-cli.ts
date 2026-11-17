@@ -3,29 +3,29 @@ import {
   commonCauses,
   contractFor,
   station,
-} from "../../../../starters/contract3/src/kernel/index.ts";
+} from "../../../../kernel/src/kernel/index.ts";
 import type {
   ApprovalCapability,
   DiagnosticsCapability,
   RunAddon,
-} from "../../../../starters/contract3/src/kernel/index.ts";
-import { programsAddon } from "../../../../starters/contract3/src/addons/programs/index.ts";
-import { runProcessOn } from "../../../../starters/contract3/src/kernel/lifecycle.ts";
-import { processHost } from "../../../../starters/contract3/src/kernel/process-host.ts";
+} from "../../../../kernel/src/kernel/index.ts";
+import { programsAddon } from "../../../../kernel/src/addons/programs/index.ts";
+import { runProcessOn } from "../../../../kernel/src/kernel/lifecycle.ts";
+import { processHost } from "../../../../kernel/src/kernel/process-host.ts";
 import type {
   AttachedAddon,
   ProcessHost,
-} from "../../../../starters/contract3/src/kernel/process-types.ts";
+} from "../../../../kernel/src/kernel/process-types.ts";
 import {
   recordRuntime,
   runtimeOf,
-} from "../../../../starters/contract3/src/kernel/runtime.ts";
-import type { ContractRuntime } from "../../../../starters/contract3/src/kernel/runtime.ts";
+} from "../../../../kernel/src/kernel/runtime.ts";
+import type { ContractRuntime } from "../../../../kernel/src/kernel/runtime.ts";
 import {
   authority,
   path,
   resource,
-} from "../../../../starters/contract3/src/kernel/validation/brands.ts";
+} from "../../../../kernel/src/kernel/validation/brands.ts";
 import { ledger, sleep } from "../ledger.ts";
 import { programStopRow, programStopStation } from "../program-stop.ts";
 

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "bun:test";
-import { record } from "../../../starters/contract3/src/kernel/validation/primitives.ts";
+import { record } from "../../../kernel/src/kernel/validation/primitives.ts";
 import { familiesByFile, sliceCases } from "./coverage.ts";
 import { allCases } from "./harness.ts";
 

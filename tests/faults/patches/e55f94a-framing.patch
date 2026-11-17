@@ -1,7 +1,7 @@
-diff --git a/starters/contract3/src/addons/state/framing.ts b/starters/contract3/src/addons/state/framing.ts
+diff --git a/kernel/src/addons/state/framing.ts b/kernel/src/addons/state/framing.ts
 index 9c092a4..317049c 100644
---- a/starters/contract3/src/addons/state/framing.ts
-+++ b/starters/contract3/src/addons/state/framing.ts
+--- a/kernel/src/addons/state/framing.ts
++++ b/kernel/src/addons/state/framing.ts
 @@ -1,16 +1,7 @@
  import { createHash } from "node:crypto";
  

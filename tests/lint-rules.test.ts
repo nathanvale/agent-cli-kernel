@@ -24,7 +24,7 @@ const templateRules = Object.keys(
     )) as { default: { rules: object } }
   ).default.rules,
 );
-const kernelPath = /^(starters|tests)\/contract3\//;
+const kernelPath = /^(kernel|tests\/contract3)\//;
 const tracked = execFileSync(
   "git",
   ["ls-files", "--cached", "--others", "--exclude-standard"],

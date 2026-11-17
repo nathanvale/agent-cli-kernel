@@ -5,16 +5,16 @@ import {
   commonCauses,
   contractFor,
   station,
-} from "../../../starters/contract3/src/kernel/index.ts";
+} from "../../../kernel/src/kernel/index.ts";
 import type {
   ProgramRequest,
   ProgramsCapability,
-} from "../../../starters/contract3/src/kernel/index.ts";
+} from "../../../kernel/src/kernel/index.ts";
 import type {
   ProcessHost,
   StopSignal,
-} from "../../../starters/contract3/src/kernel/process-types.ts";
-import { path } from "../../../starters/contract3/src/kernel/validation/brands.ts";
+} from "../../../kernel/src/kernel/process-types.ts";
+import { path } from "../../../kernel/src/kernel/validation/brands.ts";
 import { timerLimit, unchangedEffects } from "./oracle.ts";
 import { programStopRow, programStopStation } from "./program-stop.ts";
 import { signalGroupIfPresent } from "../../support/signal.ts";

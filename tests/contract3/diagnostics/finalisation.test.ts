@@ -7,9 +7,9 @@ import {
   statSync,
 } from "node:fs";
 import { join } from "node:path";
-import { createDiagnostics } from "../../../starters/contract3/src/addons/diagnostics/run.ts";
-import { nodeIo } from "../../../starters/contract3/src/addons/diagnostics/io.ts";
-import type { DiagnosticsIo } from "../../../starters/contract3/src/addons/diagnostics/io.ts";
+import { createDiagnostics } from "../../../kernel/src/addons/diagnostics/run.ts";
+import { nodeIo } from "../../../kernel/src/addons/diagnostics/io.ts";
+import type { DiagnosticsIo } from "../../../kernel/src/addons/diagnostics/io.ts";
 import {
   cleanTrees,
   get,

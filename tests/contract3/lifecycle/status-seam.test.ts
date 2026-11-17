@@ -1,16 +1,13 @@
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { comparableEnvelope } from "../../../starters/contract3/src/kernel/comparison.ts";
-import { programsAddon } from "../../../starters/contract3/src/addons/programs/index.ts";
-import {
-  command,
-  contractFor,
-} from "../../../starters/contract3/src/kernel/index.ts";
+import { comparableEnvelope } from "../../../kernel/src/kernel/comparison.ts";
+import { programsAddon } from "../../../kernel/src/addons/programs/index.ts";
+import { command, contractFor } from "../../../kernel/src/kernel/index.ts";
 import type {
   DiagnosticsCapability,
   RunAddon,
-} from "../../../starters/contract3/src/kernel/index.ts";
-import { runProcessOn } from "../../../starters/contract3/src/kernel/lifecycle.ts";
+} from "../../../kernel/src/kernel/index.ts";
+import { runProcessOn } from "../../../kernel/src/kernel/lifecycle.ts";
 import {
   envelopeOf,
   exitWithin,

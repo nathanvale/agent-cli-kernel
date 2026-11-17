@@ -1,6 +1,6 @@
 import { dlopen } from "bun:ffi";
 import { closeSync, constants, openSync, readFileSync } from "node:fs";
-import { resolveCoordination } from "../../../../starters/contract3/src/addons/state/coordination.ts";
+import { resolveCoordination } from "../../../../kernel/src/addons/state/coordination.ts";
 import { attemptLock, attemptPosixLock, library } from "../holder.ts";
 import type { Attempt } from "../holder.ts";
 import { stayAlive, writeWorkerReport } from "./worker-report.ts";

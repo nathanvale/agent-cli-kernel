@@ -4,8 +4,8 @@ import {
   commonCauses,
   contractFor,
   station,
-} from "../../../starters/contract3/src/kernel/index.ts";
-import { runtimeOf } from "../../../starters/contract3/src/kernel/runtime.ts";
+} from "../../../kernel/src/kernel/index.ts";
+import { runtimeOf } from "../../../kernel/src/kernel/runtime.ts";
 import {
   filterShow,
   go,

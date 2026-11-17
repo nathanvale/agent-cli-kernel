@@ -1,4 +1,4 @@
-import { command } from "../../../../starters/contract3/src/kernel/index.ts";
+import { command } from "../../../../kernel/src/kernel/index.ts";
 
 const token = {
   name: "--token",

@@ -1,8 +1,5 @@
 import { expect } from "bun:test";
-import {
-  command,
-  contractFor,
-} from "../../../starters/contract3/src/kernel/index.ts";
+import { command, contractFor } from "../../../kernel/src/kernel/index.ts";
 import { runFamily } from "./harness.ts";
 
 const value = {

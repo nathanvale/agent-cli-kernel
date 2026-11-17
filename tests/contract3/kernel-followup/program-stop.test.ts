@@ -6,7 +6,7 @@ import {
   commonCauses,
   contractFor,
   station,
-} from "../../../starters/contract3/src/kernel/index.ts";
+} from "../../../kernel/src/kernel/index.ts";
 import { contractUnchecked } from "../kernel-repair/harness.ts";
 import { emptyInput, unchanged } from "../kernel-repair/shapes.ts";
 import { processWatchdog } from "../kernel-repair/swarm-process.ts";

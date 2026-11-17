@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { contractFor } from "../../../starters/contract3/src/kernel/index.ts";
-import { reservedFallbackCause } from "../../../starters/contract3/src/kernel/stations.ts";
+import { contractFor } from "../../../kernel/src/kernel/index.ts";
+import { reservedFallbackCause } from "../../../kernel/src/kernel/stations.ts";
 import { contractUnchecked } from "./harness.ts";
 import { emptyInput } from "./shapes.ts";
 import { neverRuns } from "./handlers.ts";

@@ -1,30 +1,30 @@
 {
-  "starters/contract3/src/addons/approval/read.ts": {
+  "kernel/src/addons/approval/read.ts": {
     "repository/no-in-operator": {
       "count": 1
     }
   },
-  "starters/contract3/src/addons/diagnostics/io.ts": {
+  "kernel/src/addons/diagnostics/io.ts": {
     "repository/no-in-operator": {
       "count": 1
     }
   },
-  "starters/contract3/src/addons/programs/index.ts": {
+  "kernel/src/addons/programs/index.ts": {
     "repository/no-in-operator": {
       "count": 1
     }
   },
-  "starters/contract3/src/kernel/command-result.ts": {
+  "kernel/src/kernel/command-result.ts": {
     "repository/cause-literal-owner": {
       "count": 3
     }
   },
-  "starters/contract3/src/kernel/fallback.ts": {
+  "kernel/src/kernel/fallback.ts": {
     "repository/cause-literal-owner": {
       "count": 1
     }
   },
-  "starters/contract3/src/kernel/index.ts": {
+  "kernel/src/kernel/index.ts": {
     "repository/cause-literal-owner": {
       "count": 1
     },
@@ -32,27 +32,27 @@
       "count": 1
     }
   },
-  "starters/contract3/src/kernel/lifecycle.ts": {
+  "kernel/src/kernel/lifecycle.ts": {
     "repository/cause-literal-owner": {
       "count": 7
     }
   },
-  "starters/contract3/src/kernel/navigation.ts": {
+  "kernel/src/kernel/navigation.ts": {
     "repository/cause-literal-owner": {
       "count": 15
     }
   },
-  "starters/contract3/src/kernel/pattern-worker.ts": {
+  "kernel/src/kernel/pattern-worker.ts": {
     "repository/no-in-operator": {
       "count": 2
     }
   },
-  "starters/contract3/src/kernel/routing.ts": {
+  "kernel/src/kernel/routing.ts": {
     "repository/cause-literal-owner": {
       "count": 9
     }
   },
-  "starters/contract3/src/kernel/validation/result.ts": {
+  "kernel/src/kernel/validation/result.ts": {
     "repository/no-in-operator": {
       "count": 10
     }

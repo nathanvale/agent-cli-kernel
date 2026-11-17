@@ -1,10 +1,7 @@
 import { expect } from "bun:test";
 import { resolve } from "node:path";
-import {
-  command,
-  contractFor,
-} from "../../../starters/contract3/src/kernel/index.ts";
-import { sameJson } from "../../../starters/contract3/src/kernel/validation/json-equality.ts";
+import { command, contractFor } from "../../../kernel/src/kernel/index.ts";
+import { sameJson } from "../../../kernel/src/kernel/validation/json-equality.ts";
 import { buildUnchecked, runFamily } from "./harness.ts";
 import { emptyInput, unchanged } from "./shapes.ts";
 
@@ -40,7 +37,7 @@ runFamily("R15", {
     // fails here instead of passing silently.
     const module = resolve(
       import.meta.dir,
-      "../../../starters/contract3/src/kernel/validation/json-equality.ts",
+      "../../../kernel/src/kernel/validation/json-equality.ts",
     );
     const source = `const { sameJson } = await import(${JSON.stringify(module)});
 const nfc = "\\u00e9", nfd = "e\\u0301";

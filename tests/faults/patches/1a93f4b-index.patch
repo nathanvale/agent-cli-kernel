@@ -1,7 +1,7 @@
-diff --git a/starters/contract3/src/kernel/index.ts b/starters/contract3/src/kernel/index.ts
+diff --git a/kernel/src/kernel/index.ts b/kernel/src/kernel/index.ts
 index c622cfd..38a9e53 100644
---- a/starters/contract3/src/kernel/index.ts
-+++ b/starters/contract3/src/kernel/index.ts
+--- a/kernel/src/kernel/index.ts
++++ b/kernel/src/kernel/index.ts
 @@ -288,17 +288,17 @@ export function contractFor<
            reason: "handler entry already used",
          };

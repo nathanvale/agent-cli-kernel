@@ -11,15 +11,15 @@ let kernelFiles: readonly string[] = [];
 beforeAll(async () => {
   root = await materialise();
   eslint = new ESLint({ cwd: root });
-  await mkdir(join(root, "starters/contract3/src/handlers"), {
+  await mkdir(join(root, "kernel/src/handlers"), {
     recursive: true,
   });
-  hostFile = join(root, "starters/contract3/src/handlers/control.ts");
+  hostFile = join(root, "kernel/src/handlers/control.ts");
   await writeFile(hostFile, "export {};\n");
   kernelFiles = [
-    "starters/contract3/src/kernel/types.ts",
-    "starters/contract3/src/kernel/index.ts",
-    "starters/contract3/src/kernel/validation/brands.ts",
+    "kernel/src/kernel/types.ts",
+    "kernel/src/kernel/index.ts",
+    "kernel/src/kernel/validation/brands.ts",
   ].map((file) => join(root, file));
 });
 afterAll(async () => {

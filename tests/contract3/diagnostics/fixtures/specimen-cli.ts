@@ -3,13 +3,13 @@ import {
   command,
   contractFor,
   runProcess,
-} from "../../../../starters/contract3/src/kernel/index.ts";
+} from "../../../../kernel/src/kernel/index.ts";
 import { empty, input, none, plain, readData } from "./declarations.ts";
-import type { JsonValue } from "../../../../starters/contract3/src/kernel/index.ts";
-import { diagnosticsAddon } from "../../../../starters/contract3/src/addons/diagnostics/index.ts";
-import type { StatusAddon } from "../../../../starters/contract3/src/addons/diagnostics/index.ts";
-import { programsAddon } from "../../../../starters/contract3/src/addons/programs/index.ts";
-import { createDiagnostics } from "../../../../starters/contract3/src/addons/diagnostics/run.ts";
+import type { JsonValue } from "../../../../kernel/src/kernel/index.ts";
+import { diagnosticsAddon } from "../../../../kernel/src/addons/diagnostics/index.ts";
+import type { StatusAddon } from "../../../../kernel/src/addons/diagnostics/index.ts";
+import { programsAddon } from "../../../../kernel/src/addons/programs/index.ts";
+import { createDiagnostics } from "../../../../kernel/src/addons/diagnostics/run.ts";
 import { faultIo } from "./fault-io.ts";
 
 type Script = {

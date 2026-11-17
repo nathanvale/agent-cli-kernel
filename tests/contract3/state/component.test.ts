@@ -13,29 +13,29 @@ import {
   commonCauses,
   contractFor,
   station,
-} from "../../../starters/contract3/src/kernel/index.ts";
+} from "../../../kernel/src/kernel/index.ts";
 import type {
   ApprovalRuntime,
   AuthorityId,
   CauseTable,
   RecordedEffect,
   ResourceId,
-} from "../../../starters/contract3/src/kernel/index.ts";
-import { stateAddon } from "../../../starters/contract3/src/addons/state/index.ts";
-import { stateAddonWithTestSeams } from "../../../starters/contract3/src/addons/state/fixture.ts";
+} from "../../../kernel/src/kernel/index.ts";
+import { stateAddon } from "../../../kernel/src/addons/state/index.ts";
+import { stateAddonWithTestSeams } from "../../../kernel/src/addons/state/fixture.ts";
 import {
   qualificationRows,
   resolveQualification,
-} from "../../../starters/contract3/src/addons/state/qualification.ts";
+} from "../../../kernel/src/addons/state/qualification.ts";
 import {
   encodeRecord,
   parseRecords,
-} from "../../../starters/contract3/src/addons/state/framing.ts";
+} from "../../../kernel/src/addons/state/framing.ts";
 import {
   canonicalise,
   conflicts,
-} from "../../../starters/contract3/src/addons/state/scope.ts";
-import { checkedFlock } from "../../../starters/contract3/src/addons/state/linux-flock.ts";
+} from "../../../kernel/src/addons/state/scope.ts";
+import { checkedFlock } from "../../../kernel/src/addons/state/linux-flock.ts";
 import { testFolder } from "../../support/test-folder.ts";
 import { caseTest, readFramed, readOperations } from "./harness.ts";
 import { coordinationExpected, lockFree } from "./holder.ts";

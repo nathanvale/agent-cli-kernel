@@ -2,11 +2,8 @@ import { cp, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "bun:test";
-import {
-  command,
-  contractFor,
-} from "../../starters/contract3/src/kernel/index.ts";
-import type { InputSchema } from "../../starters/contract3/src/kernel/index.ts";
+import { command, contractFor } from "../../kernel/src/kernel/index.ts";
+import type { InputSchema } from "../../kernel/src/kernel/index.ts";
 import {
   emptyInput as empty,
   unchanged as effects,
@@ -226,10 +223,10 @@ for (const prefix of ["a".repeat(110), "é".repeat(55)]) {
 test("changing declaration admission enforces the same identity and root input bounds", async () => {
   const directory = await mkdtemp(join(tmpdir(), "contract3-declaration-"));
   try {
-    const source = join(directory, "starters/contract3/src");
+    const source = join(directory, "kernel/src");
     await mkdir(join(source, "addons/state"), { recursive: true });
     await cp(
-      new URL("../../starters/contract3/src/kernel", import.meta.url),
+      new URL("../../kernel/src/kernel", import.meta.url),
       join(source, "kernel"),
       { recursive: true },
     );

@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { encodeBounded } from "../../../starters/contract3/src/kernel/fallback.ts";
+import { encodeBounded } from "../../../kernel/src/kernel/fallback.ts";
 import { assertEnvelope, assertHuman, receipt } from "../lifecycle/checks.ts";
 import { sliceCases } from "../lifecycle/coverage.ts";
-import { json } from "../../../starters/contract3/src/kernel/validation/primitives.ts";
+import { json } from "../../../kernel/src/kernel/validation/primitives.ts";
 import {
   caseById,
   cleanup,

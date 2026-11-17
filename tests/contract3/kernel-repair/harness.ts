@@ -47,9 +47,7 @@ const stateModules = [
   "swarm-state",
 ] as const;
 export const materialisedFixtures: readonly string[] = [
-  ...stateModules.map(
-    (name) => `starters/contract3/src/addons/state/${name}.ts`,
-  ),
+  ...stateModules.map((name) => `kernel/src/addons/state/${name}.ts`),
   "tests/contract3/kernel-repair/driver.ts",
   "tests/contract3/kernel-repair/swarm-state-cli.ts",
   "tests/contract3/kernel-repair/r18-spec.ts",
@@ -61,19 +59,15 @@ export async function materialise(): Promise<string> {
   const root = await mkdtemp(
     join(await realpath(tmpdir()), "contract3-repair-"),
   );
-  const source = join(root, "starters/contract3/src");
+  const source = join(root, "kernel/src");
   const tests = join(root, "tests/contract3/kernel-repair");
   await mkdir(join(source, "addons/state"), { recursive: true });
   await mkdir(tests, { recursive: true });
+  await cp(join(repository, "kernel/src/kernel"), join(source, "kernel"), {
+    recursive: true,
+  });
   await cp(
-    join(repository, "starters/contract3/src/kernel"),
-    join(source, "kernel"),
-    {
-      recursive: true,
-    },
-  );
-  await cp(
-    join(repository, "starters/contract3/src/addons/approval"),
+    join(repository, "kernel/src/addons/approval"),
     join(source, "addons/approval"),
     { recursive: true },
   );
@@ -89,10 +83,7 @@ export async function materialise(): Promise<string> {
     );
   for (const name of ["r18-spec.ts", "shapes.ts", "swarm-approval.ts"])
     await cp(new URL(name, import.meta.url), join(tests, name));
-  await writeToolchain(root, [
-    "starters/contract3/src/**/*.ts",
-    "tests/**/*.ts",
-  ]);
+  await writeToolchain(root, ["kernel/src/**/*.ts", "tests/**/*.ts"]);
   return root;
 }
 

@@ -77,7 +77,7 @@ row's guide or gate note cites two distinct witnesses.
 - `tests/glossary/glossary.test.ts`, with its shrinking `known-hits.json`,
   checks the `scope` listed in `tests/glossary/term-table.json`.
 - That scope is Contract 3 source, Contract 3 tests, and the Contract 3 lint
-  config. `src/`, the other starters, and docs are review only.
+  config. `src/`, the starters, and docs are review only.
 - Witnessed: [2784de0], [356cce9].
 
 ### Test proof
@@ -142,7 +142,7 @@ row's guide or gate note cites two distinct witnesses.
   `tests/contract3/kernel-repair/equality.test.ts` swaps the collation on
   purpose.
 - Other source stays review in this table. The kernel's own lint covers
-  `starters/contract3/src/`.
+  `kernel/src/`.
 - Witnessed: [b456208], [5cbff3a].
 
 ### One owner
@@ -174,7 +174,7 @@ row's guide or gate note cites two distinct witnesses.
   `eslint.config.mjs` lints outside the kernel: `src/`, `scripts/`, `tests/`
   outside `tests/contract3/`, `config/` and the root `.mjs` files.
   Consecutive line comments are one block. The kernel's copy of the rule
-  covers `starters/contract3/` and `tests/contract3/`.
+  covers `kernel/` and `tests/contract3/`.
 - A block stays only when it is one of these:
   - `Platform:` on its first line: behaviour of a runtime, operating system
     or tool this repository cannot change, such as an errno meaning or a Bun
@@ -216,7 +216,7 @@ row's guide or gate note cites two distinct witnesses.
 - The template's rules live in `config/template-rules.mjs`. Kernel rules and
   their recorded hits run from `config/kernel-repository-lint.mjs` and leave
   with the kernel.
-- `starters/contract3/config/kernel/` is stamped, so it holds only the rules
+- `kernel/config/kernel/` is stamped, so it holds only the rules
   `kernelLint` turns on. The kernel repository's own rules (`no-comments`
   and the three test rules) live in `config/kernel-repository-rules.mjs`.
 

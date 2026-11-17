@@ -1,12 +1,12 @@
 import contract3 from "./contract3-eslint.mjs";
 import repository from "../eslint-rules.mjs";
 
-export const kernelPaths = ["starters/contract3/**", "tests/contract3/**"];
+export const kernelPaths = ["kernel/**", "tests/contract3/**"];
 
 export default [
   {
     files: [
-      "starters/contract3/**/*.{ts,mts,cts,mjs}",
+      "kernel/**/*.{ts,mts,cts,mjs}",
       "tests/contract3/**/*.{ts,mts,cts,mjs}",
     ],
     plugins: { repository },
@@ -14,7 +14,7 @@ export default [
   },
   ...contract3,
   {
-    files: ["starters/contract3/src/**/*.{ts,mts,cts}"],
+    files: ["kernel/src/**/*.{ts,mts,cts}"],
     plugins: { repository },
     rules: {
       "repository/no-in-operator": "error",

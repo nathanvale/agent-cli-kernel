@@ -1,9 +1,6 @@
 import expected from "./common-causes.json";
 import { expect, test } from "bun:test";
-import {
-  contractFor,
-  versionReader,
-} from "../../starters/contract3/src/kernel/index.ts";
+import { contractFor, versionReader } from "../../kernel/src/kernel/index.ts";
 
 test("the contract preserves every independently specified common cause correlation", () => {
   const contract = contractFor({ cli: "specimen", commands: [] });

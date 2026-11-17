@@ -1,12 +1,12 @@
-diff --git a/starters/contract3/config/kernel/eslint-rules.mjs b/starters/contract3/config/kernel/eslint-rules.mjs
+diff --git a/kernel/config/kernel/eslint-rules.mjs b/kernel/config/kernel/eslint-rules.mjs
 index cbe4bcd..9daf983 100644
---- a/starters/contract3/config/kernel/eslint-rules.mjs
-+++ b/starters/contract3/config/kernel/eslint-rules.mjs
+--- a/kernel/config/kernel/eslint-rules.mjs
++++ b/kernel/config/kernel/eslint-rules.mjs
 @@ -2,6 +2,7 @@ import { posix } from "node:path";
  import ts from "typescript";
  
  const localeNames = new Set(["localeCompare", "Collator"]);
-+const contractRoot = /^(.*\/starters\/contract3\/src)\//;
++const contractRoot = /^(.*\/kernel\/src)\//;
  const comparisons = new Set(["===", "!==", "==", "!="]);
  const folding = new Set(["TemplateLiteral", "BinaryExpression"]);
  const comma = { type: "Literal", value: "," };

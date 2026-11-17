@@ -13,7 +13,7 @@ const repository = new URL("../../../", import.meta.url).pathname;
 
 export async function materialiseKf(): Promise<string> {
   const root = await mkdtemp(join(await realpath(tmpdir()), "contract3-kf-"));
-  const target = join(root, "starters/contract3/src/addons/state");
+  const target = join(root, "kernel/src/addons/state");
   await mkdir(target, { recursive: true });
   const source = await readFile(
     new URL("fixtures/kf-cli.ts.txt", import.meta.url),
@@ -23,14 +23,8 @@ export async function materialiseKf(): Promise<string> {
   await writeFile(
     entry,
     source
-      .replaceAll(
-        "__KERNEL__",
-        join(repository, "starters/contract3/src/kernel"),
-      )
-      .replaceAll(
-        "__ADDONS__",
-        join(repository, "starters/contract3/src/addons"),
-      ),
+      .replaceAll("__KERNEL__", join(repository, "kernel/src/kernel"))
+      .replaceAll("__ADDONS__", join(repository, "kernel/src/addons")),
   );
   return entry;
 }

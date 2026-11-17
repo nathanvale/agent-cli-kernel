@@ -1,10 +1,7 @@
 import { appendFileSync } from "node:fs";
-import {
-  command,
-  contractFor,
-} from "../../../../starters/contract3/src/kernel/index.ts";
-import { runProcessOn } from "../../../../starters/contract3/src/kernel/lifecycle.ts";
-import { processHost } from "../../../../starters/contract3/src/kernel/process-host.ts";
+import { command, contractFor } from "../../../../kernel/src/kernel/index.ts";
+import { runProcessOn } from "../../../../kernel/src/kernel/lifecycle.ts";
+import { processHost } from "../../../../kernel/src/kernel/process-host.ts";
 
 const ledgerPath = process.env.FX_LEDGER ?? "/dev/null";
 const ledger = (line: string) => appendFileSync(ledgerPath, `${line}\n`);

@@ -1,11 +1,11 @@
-import type { InputSchema } from "../../starters/contract3/src/kernel/index.ts";
+import type { InputSchema } from "../../kernel/src/kernel/index.ts";
 import { expect, test } from "bun:test";
 import {
   command,
   commonCauses,
   station,
   contractFor,
-} from "../../starters/contract3/src/kernel/index.ts";
+} from "../../kernel/src/kernel/index.ts";
 import { unchanged } from "./kernel-repair/shapes.ts";
 import { readsUnchanged } from "./kernel-repair/handlers.ts";
 

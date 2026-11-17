@@ -1,22 +1,19 @@
-import {
-  command,
-  station,
-} from "../../../starters/contract3/src/kernel/index.ts";
-import { commonCauses } from "../../../starters/contract3/src/kernel/index.ts";
+import { command, station } from "../../../kernel/src/kernel/index.ts";
+import { commonCauses } from "../../../kernel/src/kernel/index.ts";
 import type {
   ResultFor,
   CauseTable,
   Handoff,
-} from "../../../starters/contract3/src/kernel/index.ts";
+} from "../../../kernel/src/kernel/index.ts";
 export { commonCauses };
-export { exits } from "../../../starters/contract3/src/kernel/index.ts";
+export { exits } from "../../../kernel/src/kernel/index.ts";
 export {
   command,
   changing,
   station,
   contractFor,
-} from "../../../starters/contract3/src/kernel/index.ts";
-export type * from "../../../starters/contract3/src/kernel/index.ts";
+} from "../../../kernel/src/kernel/index.ts";
+export type * from "../../../kernel/src/kernel/index.ts";
 export type Result = ResultFor<typeof commonCauses>;
 export const handoff = {
   owner: "operator",

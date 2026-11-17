@@ -1,8 +1,5 @@
 import { appendFileSync } from "node:fs";
-import {
-  contractFor,
-  runProcess,
-} from "../../../starters/contract3/src/kernel/index.ts";
+import { contractFor, runProcess } from "../../../kernel/src/kernel/index.ts";
 import { approvalAddon } from "./swarm-approval.ts";
 import { approvedRead, scenarios } from "./swarm-commands.ts";
 

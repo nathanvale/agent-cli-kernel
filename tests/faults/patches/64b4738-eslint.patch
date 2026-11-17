@@ -1,7 +1,7 @@
-diff --git a/starters/contract3/config/kernel/eslint.mjs b/starters/contract3/config/kernel/eslint.mjs
+diff --git a/kernel/config/kernel/eslint.mjs b/kernel/config/kernel/eslint.mjs
 index f134aac..a40bd78 100644
---- a/starters/contract3/config/kernel/eslint.mjs
-+++ b/starters/contract3/config/kernel/eslint.mjs
+--- a/kernel/config/kernel/eslint.mjs
++++ b/kernel/config/kernel/eslint.mjs
 @@ -205,7 +205,7 @@ function settingsOf(options = {}) {
    const given = { rootDir, srcDir, testDirs, addons };
  

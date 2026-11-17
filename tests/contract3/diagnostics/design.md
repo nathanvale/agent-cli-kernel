@@ -37,7 +37,7 @@ add-on.
   `AsyncLocalStorage`) and field redaction; the add-on's own sink owns the
   descriptor. LogTape's path-opening file sink is not used (DIAG-8).
 
-## Module (`starters/contract3/src/addons/diagnostics/`)
+## Module (`kernel/src/addons/diagnostics/`)
 
 One deep module behind `diagnosticsAddon(options)`, returning the kernel's
 `RunAddon<DiagnosticsCapability>`. Internal pieces, none exported past the

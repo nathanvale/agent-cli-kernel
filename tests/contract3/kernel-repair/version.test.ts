@@ -1,6 +1,6 @@
 import { expect } from "bun:test";
-import { versionReader } from "../../../starters/contract3/src/kernel/index.ts";
-import type { MinorFields } from "../../../starters/contract3/src/kernel/index.ts";
+import { versionReader } from "../../../kernel/src/kernel/index.ts";
+import type { MinorFields } from "../../../kernel/src/kernel/index.ts";
 import { runFamily } from "./harness.ts";
 
 const causes = ["SUCCESS_UNCHANGED"];

@@ -4,9 +4,9 @@
     "src/**/*.ts",
     "scripts/**/*.ts",
     "tests/**/*.ts",
-    "starters/contract3/src/**/*.ts",
-    "starters/contract3/src/**/*.mts",
-    "starters/contract3/src/**/*.cts",
+    "kernel/src/**/*.ts",
+    "kernel/src/**/*.mts",
+    "kernel/src/**/*.cts",
     "tests/contract3/**/*.mts",
     "tests/contract3/**/*.cts"
   ]

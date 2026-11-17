@@ -69,7 +69,7 @@ async function ownerImport(rule: string, filePath: string, failing: string) {
 const fixes = [
   {
     rule: "no-locale-compare",
-    filePath: "starters/contract3/src/kernel/validation/json-equality.ts",
+    filePath: "kernel/src/kernel/validation/json-equality.ts",
     failing:
       "export const sorted = (names: string[]) => names.sort((a, b) => a.localeCompare(b));",
     fixed: ([fix]: string[]) =>
@@ -77,7 +77,7 @@ const fixes = [
   },
   {
     rule: "no-in-operator",
-    filePath: "starters/contract3/src/kernel/validation/result.ts",
+    filePath: "kernel/src/kernel/validation/result.ts",
     failing:
       'export const next = (value: Record<string, unknown>) => ("next" in value ? value.next : undefined);',
     fixed: ([fix]: string[]) =>
@@ -85,7 +85,7 @@ const fixes = [
   },
   {
     rule: "no-in-operator",
-    filePath: "starters/contract3/src/kernel/validation/result.ts",
+    filePath: "kernel/src/kernel/validation/result.ts",
     failing: [
       "export const ends = (value: Record<string, unknown>): readonly unknown[] => [",
       '  "next" in value ? value.next : undefined, "handoff" in value ? value.handoff : undefined,',
@@ -96,7 +96,7 @@ const fixes = [
   },
   {
     rule: "no-in-operator",
-    filePath: "starters/contract3/src/kernel/pattern-worker.ts",
+    filePath: "kernel/src/kernel/pattern-worker.ts",
     failing: [
       "export const job = (value: unknown): readonly unknown[] =>",
       '  typeof value === "object" && value !== null && "pattern" in value && "input" in value',
@@ -116,7 +116,7 @@ const fixes = [
   },
   {
     rule: "no-in-operator",
-    filePath: "starters/contract3/src/kernel/validation/result.ts",
+    filePath: "kernel/src/kernel/validation/result.ts",
     failing:
       'export const payload = (next: () => object) => ("payload" in next() ? 1 : 0);',
     fixed: ([fix]: string[]) =>
@@ -124,7 +124,7 @@ const fixes = [
   },
   {
     rule: "no-in-operator",
-    filePath: "starters/contract3/src/kernel/validation/result.ts",
+    filePath: "kernel/src/kernel/validation/result.ts",
     failing:
       'export const ahead = (read: () => object) => Reflect.has(read(), "next");',
     fixed: ([fix]: string[]) =>
@@ -132,7 +132,7 @@ const fixes = [
   },
   {
     rule: "no-in-operator",
-    filePath: "starters/contract3/src/addons/approval/read.ts",
+    filePath: "kernel/src/addons/approval/read.ts",
     failing:
       'export const code = (error: Error): unknown => ("code" in error ? error.code : undefined);',
     fixed: ([fix]: string[]) =>
@@ -140,7 +140,7 @@ const fixes = [
   },
   {
     rule: "no-in-operator",
-    filePath: "starters/contract3/src/kernel/validation/result.ts",
+    filePath: "kernel/src/kernel/validation/result.ts",
     failing: [
       "export const names = (value: object): string[] => {",
       "  const found: string[] = [];",
@@ -159,7 +159,7 @@ const fixes = [
   },
   {
     rule: "cause-literal-owner",
-    filePath: "starters/contract3/src/kernel/declaration-checks.ts",
+    filePath: "kernel/src/kernel/declaration-checks.ts",
     failing:
       'export const reserved = (causeCode: string) => causeCode === "INTERNAL_PREPARATION";',
     fixed: ([fix]: string[], imported: string) =>
@@ -167,7 +167,7 @@ const fixes = [
   },
   {
     rule: "cause-literal-owner",
-    filePath: "starters/contract3/src/addons/state/scope.ts",
+    filePath: "kernel/src/addons/state/scope.ts",
     failing:
       'export const needed = (codes: string[]) => codes.includes("DOMAIN_DEADLINE_UNKNOWN");',
     fixed: ([fix]: string[], imported: string) =>
@@ -175,7 +175,7 @@ const fixes = [
   },
   {
     rule: "cause-literal-owner",
-    filePath: "starters/contract3/src/kernel/declaration-checks.ts",
+    filePath: "kernel/src/kernel/declaration-checks.ts",
     failing: [
       "export const twice = (causeCode: string) =>",
       '  causeCode === "INTERNAL_PREPARATION" || causeCode.endsWith("INTERNAL_PREPARATION");',
@@ -204,7 +204,7 @@ for (const item of fixes)
   }, 60_000);
 
 test("no-in-operator: a fix for a call operand evaluates it once, in the checked order", async () => {
-  const filePath = "starters/contract3/src/kernel/validation/result.ts";
+  const filePath = "kernel/src/kernel/validation/result.ts";
   const [inOperator] = await fixesFor(
     "no-in-operator",
     filePath,
@@ -229,7 +229,7 @@ const refused = [
   {
     rule: "no-locale-compare",
     witness: "b456208",
-    filePath: "starters/contract3/src/kernel/validation/json-equality.ts",
+    filePath: "kernel/src/kernel/validation/json-equality.ts",
     code: [
       "export const keys = (value: Record<string, unknown>) =>",
       "  Object.entries(value).sort(([left], [right]) => left.localeCompare(right));",
@@ -239,7 +239,7 @@ const refused = [
   {
     rule: "no-in-operator",
     witness: "5cbff3a",
-    filePath: "starters/contract3/src/kernel/validation/version.ts",
+    filePath: "kernel/src/kernel/validation/version.ts",
     code: [
       "export const declared = (value: object, fields: object) =>",
       "  Object.keys(value).every((key) => key in fields);",
@@ -249,7 +249,7 @@ const refused = [
   {
     rule: "no-in-operator",
     witness: "Reflect.has and for...in",
-    filePath: "starters/contract3/src/kernel/validation/result.ts",
+    filePath: "kernel/src/kernel/validation/result.ts",
     code: [
       'export const has = (value: object) => Reflect.has(value, "next");',
       "export const names = (value: object): string[] => {",
@@ -263,7 +263,7 @@ const refused = [
   {
     rule: "no-in-operator",
     witness: "inherited keys",
-    filePath: "starters/contract3/src/kernel/validation/result.ts",
+    filePath: "kernel/src/kernel/validation/result.ts",
     code: [
       'export const built = (value: Record<string, unknown>) => "constructor" in value;',
       'export const printed = (value: unknown) => typeof value === "object" && value !== null && "toString" in value;',
@@ -275,7 +275,7 @@ const refused = [
   {
     rule: "cause-literal-owner",
     witness: "e7c771c",
-    filePath: "starters/contract3/src/kernel/declaration-checks.ts",
+    filePath: "kernel/src/kernel/declaration-checks.ts",
     code: [
       "export const reserved = (causeCode: string) =>",
       '  causeCode.startsWith("INTERNAL_RESULT_") ||',
@@ -286,7 +286,7 @@ const refused = [
   {
     rule: "cause-literal-owner",
     witness: "codes built from parts",
-    filePath: "starters/contract3/src/addons/state/scope.ts",
+    filePath: "kernel/src/addons/state/scope.ts",
     code: [
       'const family = "DOMAIN";',
       'export const joined = "DOMAIN_" + "DEADLINE_UNKNOWN";',
@@ -298,7 +298,7 @@ const refused = [
   {
     rule: "cause-literal-owner",
     witness: "local literal union",
-    filePath: "starters/contract3/src/kernel/routing.ts",
+    filePath: "kernel/src/kernel/routing.ts",
     code: [
       'type LocalCode = "INTERNAL_PREPARATION";',
       'export const code: LocalCode = "INTERNAL_PREPARATION";',
@@ -318,7 +318,7 @@ const admitted = [
   {
     rule: "no-in-operator",
     reason: "narrows a union by a key one member declares",
-    filePath: "starters/contract3/src/kernel/lifecycle.ts",
+    filePath: "kernel/src/kernel/lifecycle.ts",
     code: [
       "type Attached = { readonly enter: number } | { readonly delivery: string };",
       'export const delivery = (attached: Attached) => ("delivery" in attached ? attached.delivery : undefined);',
@@ -327,7 +327,7 @@ const admitted = [
   {
     rule: "no-in-operator",
     reason: "narrows a union by a declared key through Reflect.has",
-    filePath: "starters/contract3/src/kernel/lifecycle.ts",
+    filePath: "kernel/src/kernel/lifecycle.ts",
     code: [
       "type Attached = { readonly enter: number } | { readonly delivery: string };",
       'export const delivered = (attached: Attached) => Reflect.has(attached, "delivery");',
@@ -337,7 +337,7 @@ const admitted = [
     rule: "no-in-operator",
     reason:
       "checks a key its type declares itself, though Object.prototype has it too",
-    filePath: "starters/contract3/src/kernel/validation/result.ts",
+    filePath: "kernel/src/kernel/validation/result.ts",
     code: [
       'export const printable = (value: { toString(): string }) => "toString" in value;',
     ],
@@ -346,7 +346,7 @@ const admitted = [
     rule: "no-in-operator",
     reason:
       "checks a key its type declares itself, though the default library declares it too",
-    filePath: "starters/contract3/src/kernel/validation/result.ts",
+    filePath: "kernel/src/kernel/validation/result.ts",
     code: [
       'export const shown = (value: { toString(): string } & object & Object) => "toString" in value;',
     ],
@@ -354,7 +354,7 @@ const admitted = [
   {
     rule: "no-in-operator",
     reason: "checks a key a module-local interface named Function declares",
-    filePath: "starters/contract3/src/kernel/validation/result.ts",
+    filePath: "kernel/src/kernel/validation/result.ts",
     code: [
       "interface Function { readonly kind: string }",
       'export const kinded = (value: Function) => "kind" in value;',
@@ -363,7 +363,7 @@ const admitted = [
   {
     rule: "no-in-operator",
     reason: "checks a numeric key its type declares",
-    filePath: "starters/contract3/src/kernel/validation/result.ts",
+    filePath: "kernel/src/kernel/validation/result.ts",
     code: [
       "export const first = (value: { 0: string }) => 0 in value;",
       "export const reflected = (value: { 0: string }) => Reflect.has(value, 0);",
@@ -372,7 +372,7 @@ const admitted = [
   {
     rule: "no-in-operator",
     reason: "checks a unique-symbol key its type declares",
-    filePath: "starters/contract3/src/kernel/validation/result.ts",
+    filePath: "kernel/src/kernel/validation/result.ts",
     code: [
       'const tag: unique symbol = Symbol("tag");',
       "export const tagged = (value: { [tag]: string }) => tag in value;",
@@ -382,7 +382,7 @@ const admitted = [
   {
     rule: "no-in-operator",
     reason: "tells a data descriptor from an accessor",
-    filePath: "starters/contract3/src/kernel/validation/primitives.ts",
+    filePath: "kernel/src/kernel/validation/primitives.ts",
     code: [
       "export const data = (value: object, key: string) => {",
       "  const descriptor = Object.getOwnPropertyDescriptor(value, key);",
@@ -393,7 +393,7 @@ const admitted = [
   {
     rule: "cause-literal-owner",
     reason: "is checked by the compiler against the owner's keys",
-    filePath: "starters/contract3/src/kernel/routing.ts",
+    filePath: "kernel/src/kernel/routing.ts",
     code: [
       'import type { commonCauses } from "./causes.ts";',
       "const refuse = (code: keyof typeof commonCauses) => code;",
@@ -403,7 +403,7 @@ const admitted = [
   {
     rule: "cause-literal-owner",
     reason: "is compared with a value typed by the owner's keys",
-    filePath: "starters/contract3/src/kernel/routing.ts",
+    filePath: "kernel/src/kernel/routing.ts",
     code: [
       'import type { commonCauses } from "./causes.ts";',
       'export const unchanged = (code: keyof typeof commonCauses) => code === "SUCCESS_UNCHANGED";',
@@ -412,13 +412,13 @@ const admitted = [
   {
     rule: "cause-literal-owner",
     reason: "is a host's own code, not a kernel code",
-    filePath: "starters/contract3/src/addons/state/scope.ts",
+    filePath: "kernel/src/addons/state/scope.ts",
     code: ['export const cause = "DOMAIN_STATE_CONFLICT";'],
   },
   {
     rule: "cause-literal-owner",
     reason: "is inside its owner module",
-    filePath: "starters/contract3/src/kernel/causes.ts",
+    filePath: "kernel/src/kernel/causes.ts",
     code: ['export const code = "DOMAIN_DEADLINE_UNKNOWN";'],
   },
 ];
@@ -812,12 +812,12 @@ test("tests-no-sleep refuses a promise delay and admits a watchdog", async () =>
 
 const commentCases = [
   [
-    "starters/contract3/src/kernel/routing.ts",
+    "kernel/src/kernel/routing.ts",
     "// Loop over the names.\nexport const a = 1;",
     [1],
   ],
   [
-    "starters/contract3/src/kernel/routing.ts",
+    "kernel/src/kernel/routing.ts",
     "// A workaround until the parser is fixed:\n// it drops the last token.\nexport const a = 1;",
     [1],
   ],
@@ -827,67 +827,63 @@ const commentCases = [
     [1],
   ],
   [
-    "starters/contract3/src/kernel/routing.ts",
+    "kernel/src/kernel/routing.ts",
     "/** Adds one. */\nexport const add = (n: number) => n + 1;",
     [1],
   ],
   [
-    "starters/contract3/src/kernel/routing.ts",
+    "kernel/src/kernel/routing.ts",
     "// Note.\n// Platform: Bun drains spawn pipes.\nexport const a = 1;",
     [1],
   ],
   [
-    "starters/contract3/src/kernel/routing.ts",
+    "kernel/src/kernel/routing.ts",
     "export const a = 1; // trailing narration",
     [1],
   ],
   [
-    "starters/contract3/src/kernel/routing.ts",
+    "kernel/src/kernel/routing.ts",
     "// Note.\n// SAFETY: the parser checked the shape.\nconst x = y as Foo;",
     [1],
   ],
+  ["kernel/src/kernel/routing.ts", "// SAFETY:\nconst x = y as Foo;", [1]],
   [
-    "starters/contract3/src/kernel/routing.ts",
-    "// SAFETY:\nconst x = y as Foo;",
-    [1],
-  ],
-  [
-    "starters/contract3/src/kernel/routing.ts",
+    "kernel/src/kernel/routing.ts",
     "// SAFETY: nothing here is cast.\nconst x = y;",
     [1],
   ],
   [
-    "starters/contract3/src/kernel/routing.ts",
+    "kernel/src/kernel/routing.ts",
     "// SAFETY: a const assertion needs no proof.\nconst x = y as const;",
     [1],
   ],
   [
-    "starters/contract3/src/kernel/routing.ts",
+    "kernel/src/kernel/routing.ts",
     "// SAFETY: a blank line detaches this from the cast.\n\nconst x = y as Foo;",
     [1],
   ],
   [
-    "starters/contract3/src/kernel/routing.ts",
+    "kernel/src/kernel/routing.ts",
     "const a = 1; // SAFETY: trailing the previous line.\nconst x = y as Foo;",
     [1],
   ],
   [
-    "starters/contract3/src/kernel/routing.ts",
+    "kernel/src/kernel/routing.ts",
     "// SAFETY: the cast is two statements down.\nconst a = 1;\nconst x = y as Foo;",
     [1],
   ],
   [
-    "starters/contract3/src/kernel/routing.ts",
+    "kernel/src/kernel/routing.ts",
     "// platform: lower case is not the marker\nexport const a = 1;",
     [1],
   ],
   [
-    "starters/contract3/src/kernel/routing.ts",
+    "kernel/src/kernel/routing.ts",
     "// Platform: Bun drains spawn pipes.\nexport const a = 1;",
     [],
   ],
   [
-    "starters/contract3/src/kernel/routing.ts",
+    "kernel/src/kernel/routing.ts",
     "// Interface: a host passes the descriptor\n// to contractFor.\nexport const a = 1;",
     [],
   ],
@@ -897,37 +893,37 @@ const commentCases = [
     [],
   ],
   [
-    "starters/contract3/src/kernel/routing.ts",
+    "kernel/src/kernel/routing.ts",
     "// eslint-disable-next-line no-console\nconsole.log(1);",
     [],
   ],
   [
-    "starters/contract3/src/kernel/routing.ts",
+    "kernel/src/kernel/routing.ts",
     "// SAFETY: the parser checked the shape.\nconst x = y as Foo;",
     [],
   ],
   [
-    "starters/contract3/src/kernel/routing.ts",
+    "kernel/src/kernel/routing.ts",
     "export function f(y: unknown) {\n  // SAFETY: the caller passes a Foo.\n  return y as Foo;\n}",
     [],
   ],
   [
-    "starters/contract3/src/kernel/routing.ts",
+    "kernel/src/kernel/routing.ts",
     "// SAFETY: the parser checked the shape.\nexport const x = y as Foo;",
     [],
   ],
   [
-    "starters/contract3/src/kernel/routing.ts",
+    "kernel/src/kernel/routing.ts",
     "// SAFETY: the parser checked the shape,\n// so every key is present.\nconst x = y as Foo;",
     [],
   ],
   [
-    "starters/contract3/src/kernel/routing.ts",
+    "kernel/src/kernel/routing.ts",
     "// SAFETY: the cast sits in the second argument.\nconsole.log(1, y as Foo);",
     [],
   ],
   [
-    "starters/contract3/src/kernel/routing.ts",
+    "kernel/src/kernel/routing.ts",
     'export const text = "// not a comment";\nexport const tpl = `/* nor this */`;',
     [],
   ],

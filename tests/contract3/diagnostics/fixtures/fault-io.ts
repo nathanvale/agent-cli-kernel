@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, symlinkSync, writeFileSync } from "node:fs";
-import { nodeIo } from "../../../../starters/contract3/src/addons/diagnostics/io.ts";
-import type { DiagnosticsIo } from "../../../../starters/contract3/src/addons/diagnostics/io.ts";
+import { nodeIo } from "../../../../kernel/src/addons/diagnostics/io.ts";
+import type { DiagnosticsIo } from "../../../../kernel/src/addons/diagnostics/io.ts";
 
 function waitFor(path: string): void {
   const until = Date.now() + 30_000;

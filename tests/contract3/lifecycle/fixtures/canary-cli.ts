@@ -5,8 +5,8 @@ import {
   contractFor,
   runProcess,
   station,
-} from "../../../../starters/contract3/src/kernel/index.ts";
-import { programsAddon } from "../../../../starters/contract3/src/addons/programs/index.ts";
+} from "../../../../kernel/src/kernel/index.ts";
+import { programsAddon } from "../../../../kernel/src/addons/programs/index.ts";
 
 const none = {
   arguments: [],

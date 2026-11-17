@@ -1,4 +1,4 @@
-import kernel from "../starters/contract3/config/kernel/eslint-rules.mjs";
+import kernel from "../kernel/config/kernel/eslint-rules.mjs";
 
 const commentDirective =
   /^(?:eslint-|eslint |global |@ts-|biome-ignore|fallow-ignore)/;

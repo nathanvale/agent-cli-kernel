@@ -16,8 +16,8 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { join } from "node:path";
-import { approval } from "../../../starters/contract3/src/addons/approval/index.ts";
-import { contractFor } from "../../../starters/contract3/src/kernel/index.ts";
+import { approval } from "../../../kernel/src/addons/approval/index.ts";
+import { contractFor } from "../../../kernel/src/kernel/index.ts";
 import {
   Driver,
   applyConfig,
@@ -1063,10 +1063,7 @@ test("T4S.r5-fixture-lint: the materialized tree passes contract3 lint", async (
       )
     : [];
   expect(files).toContainEqual(["/tests/contract3/approval/driver.ts", 0]);
-  expect(files).toContainEqual([
-    "/starters/contract3/src/addons/state/coordination.ts",
-    0,
-  ]);
+  expect(files).toContainEqual(["/kernel/src/addons/state/coordination.ts", 0]);
 }, 120_000);
 
 // Platform: The approval store allows create and search (0o300) but not the read needed

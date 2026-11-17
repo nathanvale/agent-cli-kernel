@@ -6,10 +6,10 @@ import { join } from "node:path";
 test("the admitted state specimen validates 27 truth arms and six invalid effect inventories", async () => {
   const root = await mkdtemp(join(tmpdir(), "contract3-state-"));
   try {
-    const source = join(root, "starters/contract3/src");
+    const source = join(root, "kernel/src");
     await mkdir(join(source, "addons/state"), { recursive: true });
     await cp(
-      new URL("../../starters/contract3/src/kernel", import.meta.url),
+      new URL("../../kernel/src/kernel", import.meta.url),
       join(source, "kernel"),
       { recursive: true },
     );

@@ -15,14 +15,14 @@ import {
   authorityLocation,
   authorityVerifier,
   fileSeparation,
-} from "../../../starters/contract3/src/addons/approval/index.ts";
+} from "../../../kernel/src/addons/approval/index.ts";
 import type {
   AuthoritySource,
   ClosureItem,
   RecordFacts,
   StopItem,
-} from "../../../starters/contract3/src/addons/approval/index.ts";
-import { contractFor } from "../../../starters/contract3/src/kernel/index.ts";
+} from "../../../kernel/src/addons/approval/index.ts";
+import { contractFor } from "../../../kernel/src/kernel/index.ts";
 import {
   adversarialSource,
   authorityRecordPath,

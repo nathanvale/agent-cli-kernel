@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { callerProgramDisclosure } from "../../../starters/contract3/src/addons/programs/index.ts";
-import { record } from "../../../starters/contract3/src/kernel/validation/primitives.ts";
+import { callerProgramDisclosure } from "../../../kernel/src/addons/programs/index.ts";
+import { record } from "../../../kernel/src/kernel/validation/primitives.ts";
 import { assertEnvelope, receipt } from "../lifecycle/checks.ts";
 import { sliceCases } from "../lifecycle/coverage.ts";
 import {

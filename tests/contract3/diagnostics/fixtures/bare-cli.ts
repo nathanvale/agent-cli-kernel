@@ -2,7 +2,7 @@ import {
   command,
   contractFor,
   runProcess,
-} from "../../../../starters/contract3/src/kernel/index.ts";
+} from "../../../../kernel/src/kernel/index.ts";
 import { empty, input, none, plain, readData } from "./declarations.ts";
 
 function records(): number {

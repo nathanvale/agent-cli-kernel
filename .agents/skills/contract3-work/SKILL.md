@@ -1,7 +1,7 @@
 ---
 
 name: contract3-work
-description: Build, repair, or review Contract 3 code in `starters/contract3/` or `tests/contract3/`. Use when changing either folder or reviewing a diff that touches it.
+description: Build, repair, or review Contract 3 code in `kernel/` or `tests/contract3/`. Use when changing either folder or reviewing a diff that touches it.
 ---
 
 # Contract 3 work

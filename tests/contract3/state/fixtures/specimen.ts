@@ -14,7 +14,7 @@ import {
   contractFor,
   runProcess,
   station,
-} from "../../../../starters/contract3/src/kernel/index.ts";
+} from "../../../../kernel/src/kernel/index.ts";
 import type {
   EffectTransaction,
   ApprovalCapability,
@@ -25,11 +25,11 @@ import type {
   CauseTable,
   JsonValue,
   RunAddon,
-} from "../../../../starters/contract3/src/kernel/index.ts";
-import type { Observer } from "../../../../starters/contract3/src/addons/state/index.ts";
-import { stateAddonWithTestSeams } from "../../../../starters/contract3/src/addons/state/fixture.ts";
-import type { Phase } from "../../../../starters/contract3/src/addons/state/fixture.ts";
-import { approval } from "../../../../starters/contract3/src/addons/approval/index.ts";
+} from "../../../../kernel/src/kernel/index.ts";
+import type { Observer } from "../../../../kernel/src/addons/state/index.ts";
+import { stateAddonWithTestSeams } from "../../../../kernel/src/addons/state/fixture.ts";
+import type { Phase } from "../../../../kernel/src/addons/state/fixture.ts";
+import { approval } from "../../../../kernel/src/addons/approval/index.ts";
 
 const root = process.env.SX_ROOT ?? "";
 const world = process.env.SX_WORLD ?? "";

@@ -326,7 +326,7 @@ test(
 );
 
 const root = resolve(import.meta.dir, "../../..");
-const kernelDir = join(root, "starters/contract3/src/kernel");
+const kernelDir = join(root, "kernel/src/kernel");
 let probes = "";
 beforeAll(async () => {
   probes = await mkdtemp(join(tmpdir(), "contract3-kf5-"));

@@ -77,10 +77,7 @@ test("the frozen T3 case table keeps its admitted identities and counts", () => 
 
 caseTest("Q01.c-transitions-mapped", async () => {
   const design = await Bun.file(
-    new URL(
-      "../../../starters/contract3/src/addons/state/DESIGN.md",
-      import.meta.url,
-    ),
+    new URL("../../../kernel/src/addons/state/DESIGN.md", import.meta.url),
   ).text();
   const rows = design
     .split("\n")

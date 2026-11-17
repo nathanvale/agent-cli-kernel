@@ -9,7 +9,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
-import { grantLocation } from "../../../starters/contract3/src/addons/approval/index.ts";
+import { grantLocation } from "../../../kernel/src/addons/approval/index.ts";
 import {
   at,
   caseTest,

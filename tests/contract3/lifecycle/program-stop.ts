@@ -1,5 +1,5 @@
-import { station } from "../../../starters/contract3/src/kernel/index.ts";
-import type { CauseTable } from "../../../starters/contract3/src/kernel/index.ts";
+import { station } from "../../../kernel/src/kernel/index.ts";
+import type { CauseTable } from "../../../kernel/src/kernel/index.ts";
 
 // One owner for the lifecycle fixtures' program-stop station. Accepted
 // decisions of 17:06 (form H, the name, the declaration rule N1b) and 17:24

@@ -332,10 +332,7 @@ caseTest("C01.i-no-age-pid-or-fallback-path", async () => {
   const sources = await Promise.all(
     ["coordination.ts", "linux-flock.ts"].map((name) =>
       Bun.file(
-        new URL(
-          `../../../starters/contract3/src/addons/state/${name}`,
-          import.meta.url,
-        ),
+        new URL(`../../../kernel/src/addons/state/${name}`, import.meta.url),
       ).text(),
     ),
   );

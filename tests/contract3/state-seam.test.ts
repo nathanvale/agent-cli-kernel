@@ -1,9 +1,6 @@
-import type { CommandResult } from "../../starters/contract3/src/kernel/index.ts";
+import type { CommandResult } from "../../kernel/src/kernel/index.ts";
 import { expect, test } from "bun:test";
-import {
-  contractFor,
-  command,
-} from "../../starters/contract3/src/kernel/index.ts";
+import { contractFor, command } from "../../kernel/src/kernel/index.ts";
 import { emptyInput, unchanged } from "./kernel-repair/shapes.ts";
 
 test("a declared installed name or arbitrary host callback cannot acquire the state issuer", () => {

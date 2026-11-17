@@ -1,7 +1,7 @@
-diff --git a/starters/contract3/src/addons/state/install.ts b/starters/contract3/src/addons/state/install.ts
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
 index 3f02b14..ef43750 100644
---- a/starters/contract3/src/addons/state/install.ts
-+++ b/starters/contract3/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
 @@ -625,13 +625,6 @@ export type Seams = {
  };
  

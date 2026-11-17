@@ -3,18 +3,18 @@ import {
   changing,
   contractFor,
   runProcess,
-} from "../../../starters/contract3/src/kernel/index.ts";
+} from "../../../kernel/src/kernel/index.ts";
 import {
   authority,
   resource,
-} from "../../../starters/contract3/src/kernel/validation/brands.ts";
+} from "../../../kernel/src/kernel/validation/brands.ts";
 import {
   causes,
   coordination,
   empty,
   input,
   recovery,
-} from "../../../starters/contract3/src/addons/state/repair-shared.ts";
+} from "../../../kernel/src/addons/state/repair-shared.ts";
 import { approvalAddon } from "./swarm-approval.ts";
 import {
   coordinationContract,
@@ -25,7 +25,7 @@ import {
   recordingInstallation,
   runReuse,
   spreadChangingContract,
-} from "../../../starters/contract3/src/addons/state/swarm-state.ts";
+} from "../../../kernel/src/addons/state/swarm-state.ts";
 
 function admission(compose: () => object): void {
   try {

@@ -1,8 +1,8 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { lstatSync, statSync } from "node:fs";
-import { createDiagnostics } from "../../../starters/contract3/src/addons/diagnostics/run.ts";
-import { nodeIo } from "../../../starters/contract3/src/addons/diagnostics/io.ts";
-import type { DiagnosticsIo } from "../../../starters/contract3/src/addons/diagnostics/io.ts";
+import { createDiagnostics } from "../../../kernel/src/addons/diagnostics/run.ts";
+import { nodeIo } from "../../../kernel/src/addons/diagnostics/io.ts";
+import type { DiagnosticsIo } from "../../../kernel/src/addons/diagnostics/io.ts";
 import {
   cleanTrees,
   get,

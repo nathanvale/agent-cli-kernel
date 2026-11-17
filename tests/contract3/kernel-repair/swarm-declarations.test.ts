@@ -4,7 +4,7 @@ import {
   commonCauses,
   contractFor,
   station,
-} from "../../../starters/contract3/src/kernel/index.ts";
+} from "../../../kernel/src/kernel/index.ts";
 import { neverRuns, readsUnchanged } from "./handlers.ts";
 import { contractUnchecked } from "./harness.ts";
 import { approvedRead } from "./swarm-commands.ts";

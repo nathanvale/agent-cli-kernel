@@ -43,7 +43,7 @@ A lint rule's owner decides its three files:
   `config/contract3-eslint.mjs` passes this repository's folders to the
   kernel's stamped lint. Leave both unchanged.
 - Rules stamped into generated repositories live in
-  `starters/contract3/config/kernel/`, outside the write scope. Report a
+  `kernel/config/kernel/`, outside the write scope. Report a
   change there for the code owner.
 
 ## Write scope

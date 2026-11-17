@@ -4,7 +4,7 @@ import {
   commonCauses,
   contractFor,
   station,
-} from "../../../starters/contract3/src/kernel/index.ts";
+} from "../../../kernel/src/kernel/index.ts";
 import type {
   CauseTable,
   CommandDeclaration,
@@ -12,7 +12,7 @@ import type {
   Handoff,
   InputSchema,
   NextStep,
-} from "../../../starters/contract3/src/kernel/index.ts";
+} from "../../../kernel/src/kernel/index.ts";
 import { frozenInputs } from "./cases.ts";
 import { runFamily, stateFixture } from "./harness.ts";
 import { emptyInput as empty } from "./shapes.ts";

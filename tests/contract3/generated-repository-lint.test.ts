@@ -5,7 +5,7 @@ import { ESLint } from "eslint";
 import { testFolder } from "../support/test-folder.ts";
 
 const repository = join(import.meta.dir, "../..");
-const kernelSource = join(repository, "starters/contract3");
+const kernelSource = join(repository, "kernel");
 const lintBound = 120_000;
 const trees: string[] = [];
 

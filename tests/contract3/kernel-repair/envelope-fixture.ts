@@ -3,7 +3,7 @@ import {
   commonCauses,
   contractFor,
   station,
-} from "../../../starters/contract3/src/kernel/index.ts";
+} from "../../../kernel/src/kernel/index.ts";
 import { emptyInput as input, unchanged } from "./shapes.ts";
 
 const step = { kind: "command", command: "specimen.help", args: [] } as const;

@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
-import { contractFor } from "../../../starters/contract3/src/kernel/index.ts";
+import { contractFor } from "../../../kernel/src/kernel/index.ts";
 import { empty, plain } from "./fixtures/declarations.ts";
 import { cleanTrees, get, observe, run, tree } from "./harness.ts";
 import type { Run, Tree } from "./harness.ts";
@@ -357,7 +357,7 @@ describe("D19 no raw streams or destinations", () => {
 
 describe("D20 sole owner and pin", () => {
   test("D20.sole-logging-import: only the diagnostics add-on imports a logging library", () => {
-    const source = join(repository, "starters/contract3/src");
+    const source = join(repository, "kernel/src");
     const logging =
       /(?:from|import|require)\s*\(?\s*["'](@logtape\/[^"']+|pino[^"']*|winston[^"']*|bunyan|log4js|loglevel|consola|signale)["']/;
     const offenders = files(source)

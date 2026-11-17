@@ -4,8 +4,8 @@ import {
   commonCauses,
   contractFor,
   station,
-} from "../../../starters/contract3/src/kernel/index.ts";
-import { validateEnvelope } from "../../../starters/contract3/src/kernel/validation/envelope.ts";
+} from "../../../kernel/src/kernel/index.ts";
+import { validateEnvelope } from "../../../kernel/src/kernel/validation/envelope.ts";
 import { buildUnchecked, runFamily } from "./harness.ts";
 import { emptyInput as empty, unchanged } from "./shapes.ts";
 

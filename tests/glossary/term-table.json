@@ -3,8 +3,8 @@
   "glossary": "Linear 'Agent ecosystem glossary (living)', as of 16 November 2026 14:42 AEDT (19 code terms accepted; 'Possible results:' accepted; the diagnostics add-on's allocation lock is a third, qualified lock)",
   "owner": "Read by tests/glossary/glossary.test.ts. Wire names are never listed here; the check skips them by shape.",
   "scope": [
-    "starters/contract3/src/**/*.{ts,mts,cts,md}",
-    "starters/contract3/config/kernel/eslint.mjs",
+    "kernel/src/**/*.{ts,mts,cts,md}",
+    "kernel/config/kernel/eslint.mjs",
     "tests/contract3/**/*.{ts,mts,cts,md}",
     "tests/contract3/**/*.ts.txt"
   ],
@@ -152,7 +152,7 @@
         {
           "pattern": "(?<!foundation )\\bcoordinator\\b",
           "surfaces": ["comment", "visible-text"],
-          "pathsOnly": ["starters/contract3/src/**"],
+          "pathsOnly": ["kernel/src/**"],
           "message": "Stamped source cites a clause or decision id, not a session."
         }
       ]
@@ -164,7 +164,7 @@
         {
           "pattern": "(?<!CLI )(?<!host )\\bfront[- ]?door\\b",
           "surfaces": ["comment", "visible-text"],
-          "pathsOnly": ["starters/contract3/src/**"],
+          "pathsOnly": ["kernel/src/**"],
           "message": "The host owns the front door; runProcess is the kernel process entry."
         }
       ]
@@ -193,7 +193,7 @@
         {
           "pattern": "\\bcomposed by contractFor\\b|\\bhost composition\\b|\\bcomposed contract\\b",
           "surfaces": ["visible-text", "comment"],
-          "pathsOnly": ["starters/contract3/src/**"],
+          "pathsOnly": ["kernel/src/**"],
           "message": "Composition is the composer's repository change; runtime wiring is 'built by contractFor'."
         }
       ]
@@ -242,7 +242,7 @@
         {
           "pattern": "(?<!guidance )(?<!step )(?<!station )\\btemplate (token|values)\\b",
           "surfaces": ["visible-text"],
-          "pathsOnly": ["starters/contract3/src/**"],
+          "pathsOnly": ["kernel/src/**"],
           "message": "Qualify as a guidance template."
         }
       ]
@@ -289,7 +289,7 @@
             "public-identifier",
             "internal-identifier"
           ],
-          "pathsOnly": ["starters/contract3/src/addons/approval/**"],
+          "pathsOnly": ["kernel/src/addons/approval/**"],
           "message": "Say approval store, not ledger (accepted 16 November 2026)."
         }
       ]

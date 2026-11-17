@@ -11,12 +11,12 @@ let handlerProbes: string;
 const eslint = new ESLint({ cwd: root });
 beforeAll(async () => {
   await mkdir(probes, { recursive: true });
-  const handlerRoot = resolve(root, "starters/contract3/src/handlers");
+  const handlerRoot = resolve(root, "kernel/src/handlers");
   await mkdir(handlerRoot, { recursive: true });
   handlerProbes = await mkdtemp(`${handlerRoot}/lint-probes-`);
   for (const extension of ["ts", "mts", "cts"])
     await writeFile(`${handlerProbes}/control.${extension}`, "export {};\n");
-  const stateRoot = resolve(root, "starters/contract3/src/addons/state");
+  const stateRoot = resolve(root, "kernel/src/addons/state");
   await mkdir(stateRoot, { recursive: true });
   stateProbes = await mkdtemp(`${stateRoot}/lint-probes-`);
   await writeFile(`${stateProbes}/control.ts`, "export {};\n");
@@ -104,10 +104,7 @@ test("selected contract rules reject each bypass through the final config", asyn
 });
 
 test("rooted validation exception permits named brands but rejects whole-result casts", async () => {
-  const file = resolve(
-    root,
-    "starters/contract3/src/kernel/validation/brands.ts",
-  );
+  const file = resolve(root, "kernel/src/kernel/validation/brands.ts");
   expect(
     await findings(
       'import type { AuthorityId } from "../capabilities.ts"; export function brand(value: string) { return value as AuthorityId; }',
@@ -134,7 +131,7 @@ test("rooted validation exception permits named brands but rejects whole-result 
 });
 
 test("production files receive the same policy and source cannot import tests", async () => {
-  const file = resolve(root, "starters/contract3/src/kernel/types.ts");
+  const file = resolve(root, "kernel/src/kernel/types.ts");
   expect(
     (await findings('export const value = "x" as string;', file)).map(
       (m) => m.ruleId,
@@ -151,7 +148,7 @@ test("production files receive the same policy and source cannot import tests", 
   expect(
     (
       await findings(
-        'import "../../../../../tests/contract3/contract.test.ts";',
+        'import "../../../../tests/contract3/contract.test.ts";',
         file,
       )
     ).map((m) => m.ruleId),
@@ -159,10 +156,7 @@ test("production files receive the same policy and source cannot import tests", 
 });
 
 test("validation rejects angle-bracket whole-result assertions", async () => {
-  const file = resolve(
-    root,
-    "starters/contract3/src/kernel/validation/brands.ts",
-  );
+  const file = resolve(root, "kernel/src/kernel/validation/brands.ts");
   expect(
     (
       await findings(
@@ -179,7 +173,7 @@ test("effective config covers every rooted contract role and extension", async (
   for (const role of roles) {
     for (const extension of ["ts", "mts", "cts"]) {
       const config: unknown = await eslint.calculateConfigForFile(
-        `starters/contract3/src/${role}/coverage.${extension}`,
+        `kernel/src/${role}/coverage.${extension}`,
       );
       expect(config).toMatchObject({
         linterOptions: { noInlineConfig: true },
@@ -283,7 +277,7 @@ test("add-on source imports kernel only through the public index", async () => {
 });
 
 test("kernel index allows only the exact state add-on factory declaration", async () => {
-  const file = resolve(root, "starters/contract3/src/kernel/index.ts");
+  const file = resolve(root, "kernel/src/kernel/index.ts");
   const prefix =
     "declare function contractFor(): void; declare function createStateAddon(): void; ";
   expect(

@@ -19,7 +19,7 @@ import type {
   AuthoritySource,
   ClosureItem,
   StopItem,
-} from "../../../starters/contract3/src/addons/approval/index.ts";
+} from "../../../kernel/src/addons/approval/index.ts";
 import { writeToolchain } from "../../support/materialised-tree.ts";
 import { approvalCases } from "./cases.ts";
 
@@ -63,15 +63,13 @@ export async function materialize(): Promise<{
   const root = await mkdtemp(
     join(await realpath(tmpdir()), "contract3-approval-tree-"),
   );
-  const source = join(root, "starters/contract3/src");
+  const source = join(root, "kernel/src");
   await mkdir(join(source, "addons/state"), { recursive: true });
   await mkdir(join(root, tests), { recursive: true });
   for (const part of ["kernel", "addons/approval"])
-    await cp(
-      join(repository, "starters/contract3/src", part),
-      join(source, part),
-      { recursive: true },
-    );
+    await cp(join(repository, "kernel/src", part), join(source, part), {
+      recursive: true,
+    });
   const fixtures = new URL("fixtures/", import.meta.url);
   await writeFile(
     join(source, "addons/state/coordination.ts"),
@@ -87,7 +85,7 @@ export async function materialize(): Promise<{
   const driver = join(root, tests, "driver.ts");
   await writeFile(driver, await readFile(new URL("driver.ts.txt", fixtures)));
   await writeToolchain(root, [
-    "starters/contract3/src/**/*.ts",
+    "kernel/src/**/*.ts",
     `${tests}/**/*.ts`,
     "tests/support/**/*.ts",
   ]);

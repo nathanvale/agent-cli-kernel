@@ -16,22 +16,22 @@ import {
   contractFor,
   runProcess,
   station,
-} from "../../../starters/contract3/src/kernel/index.ts";
+} from "../../../kernel/src/kernel/index.ts";
 import {
   ApprovalRejection,
   approval,
   authorityVerifier,
-} from "../../../starters/contract3/src/addons/approval/index.ts";
+} from "../../../kernel/src/addons/approval/index.ts";
 import type {
   ClosureItem,
   StopItem,
-} from "../../../starters/contract3/src/addons/approval/index.ts";
-import type { ExclusiveScope } from "../../../starters/contract3/src/kernel/index.ts";
+} from "../../../kernel/src/addons/approval/index.ts";
+import type { ExclusiveScope } from "../../../kernel/src/kernel/index.ts";
 import {
   FixtureLock,
   exclusiveScope,
   state,
-} from "../../../starters/contract3/src/addons/state/coordination.ts";
+} from "../../../kernel/src/addons/state/coordination.ts";
 import { adversarialSource } from "./harness.ts";
 
 type Fields = ReadonlyMap<string, unknown>;

@@ -1,10 +1,10 @@
-import type * as Kernel from "../../../starters/contract3/src/kernel/index.ts";
+import type * as Kernel from "../../../kernel/src/kernel/index.ts";
 import type {
   CommandDeclaration,
   DeclaredStation,
   InputSchema,
-} from "../../../starters/contract3/src/kernel/index.ts";
-import { runtimeOf } from "../../../starters/contract3/src/kernel/runtime.ts";
+} from "../../../kernel/src/kernel/index.ts";
+import { runtimeOf } from "../../../kernel/src/kernel/runtime.ts";
 import { emptyInput } from "./shapes.ts";
 
 export type KernelValues = Pick<

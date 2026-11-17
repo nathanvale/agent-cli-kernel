@@ -6,7 +6,7 @@ import { ESLint } from "eslint";
 import { caseTest } from "./harness.ts";
 
 const root = resolve(import.meta.dir, "../../..");
-const source = resolve(root, "starters/contract3/src");
+const source = resolve(root, "kernel/src");
 const handlers = resolve(source, "handlers");
 const eslint = new ESLint({ cwd: root });
 let probes = "";
