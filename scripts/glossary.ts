@@ -124,11 +124,11 @@ function hitsIn(path: string, glossary: Glossary): NameHit[] {
   return [...avoided, ...unqualified];
 }
 
-export function nameProblems(
+function problemsByKind(
   paths: readonly string[],
   glossary: Glossary,
   recorded: readonly RecordedHit[],
-): string[] {
+): { fresh: string[]; stale: string[] } {
   const hits = paths.flatMap((path) => hitsIn(path, glossary));
   const same = (one: NameHit | RecordedHit, other: NameHit | RecordedHit) =>
     one.path === other.path && one.word === other.word;
@@ -144,6 +144,23 @@ export function nameProblems(
           `${recordedHitsFile} records "${entry.word}" in ${entry.path}, which no longer occurs. Remove the entry.`,
         ],
   );
+  return { fresh, stale };
+}
+
+export function newNameProblems(
+  paths: readonly string[],
+  glossary: Glossary,
+  recorded: readonly RecordedHit[],
+): string[] {
+  return problemsByKind(paths, glossary, recorded).fresh;
+}
+
+export function nameProblems(
+  paths: readonly string[],
+  glossary: Glossary,
+  recorded: readonly RecordedHit[],
+): string[] {
+  const { fresh, stale } = problemsByKind(paths, glossary, recorded);
   return [...fresh, ...stale];
 }
 
