@@ -228,7 +228,7 @@ test("KF3.f raw: a raw inspect declaration that runs programs and supports a dea
         { message: "Never runs.", data: null, effects: unchanged },
       ),
   });
-  const admission = (declaration: object) => {
+  const admission = (declaration: unknown) => {
     try {
       contractUnchecked(contractFor, {
         cli: "x",

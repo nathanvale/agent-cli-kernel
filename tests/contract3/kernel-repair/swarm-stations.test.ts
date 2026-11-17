@@ -8,8 +8,11 @@ import { processWatchdog, runScenario } from "./swarm-process.ts";
 
 const processTimeout = processWatchdog(3);
 
-function stationsOf(contract: object, identity: string): unknown[] {
-  const discover: unknown = Reflect.get(contract, "discoverCommand");
+function stationsOf(contract: unknown, identity: string): unknown[] {
+  const discover: unknown =
+    typeof contract === "object" && contract !== null
+      ? Reflect.get(contract, "discoverCommand")
+      : undefined;
   if (typeof discover !== "function") throw new Error("No discoverCommand.");
   const data: unknown = Reflect.apply(discover, contract, [identity]);
   const stations: unknown =
