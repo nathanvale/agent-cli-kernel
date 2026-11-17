@@ -1,0 +1,12 @@
+diff --git a/scripts/check-names.ts b/scripts/check-names.ts
+index 130fbfa..fae4942 100644
+--- a/scripts/check-names.ts
++++ b/scripts/check-names.ts
+@@ -37,7 +37,6 @@ function givenPath(arg: string): string {
+ 
+ function givenPaths(args: readonly string[]): string[] {
+   const option = args.find((arg) => arg.startsWith("--"));
+-  if (option !== undefined) throw new UsageError(`Unknown option "${option}".`);
+   return args.map(givenPath);
+ }
+ 

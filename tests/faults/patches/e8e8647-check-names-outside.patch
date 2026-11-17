@@ -1,0 +1,15 @@
+diff --git a/scripts/check-names.ts b/scripts/check-names.ts
+index 130fbfa..7c89faa 100644
+--- a/scripts/check-names.ts
++++ b/scripts/check-names.ts
+@@ -30,9 +30,7 @@ function pathWithin(tree: string, absolute: string): string | undefined {
+ 
+ function givenPath(arg: string): string {
+   const path = pathWithin(root, resolve(arg));
+-  if (path === undefined)
+-    throw new UsageError(`${arg} is outside this repository.`);
+-  return path;
++  return path ?? arg;
+ }
+ 
+ function givenPaths(args: readonly string[]): string[] {

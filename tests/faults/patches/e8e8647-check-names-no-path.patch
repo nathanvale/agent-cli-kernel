@@ -1,0 +1,13 @@
+diff --git a/scripts/check-names.ts b/scripts/check-names.ts
+index 130fbfa..1bf2426 100644
+--- a/scripts/check-names.ts
++++ b/scripts/check-names.ts
+@@ -120,8 +120,6 @@ const modes = new Map<string, () => Promise<string[]>>([
+ 
+ function problemsFor(args: readonly string[]): Promise<string[]> {
+   const [first, ...rest] = args;
+-  if (first === undefined)
+-    throw new UsageError("Give at least one path, --staged or --tool-call.");
+   const mode = modes.get(first);
+   if (mode === undefined)
+     return Promise.resolve(problemsIn(root, namesOnPaths(givenPaths(args))));

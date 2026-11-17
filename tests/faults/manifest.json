@@ -229,5 +229,131 @@
     "testFile": "tests/doctor.test.ts",
     "title": "naming both folders",
     "source": "569dd22 fix(test-area): refuse one area name given to more than one folder"
+  },
+  {
+    "id": "d2034aa-pre-commit",
+    "patch": "tests/faults/patches/d2034aa-pre-commit.patch",
+    "testFile": "tests/naming/pre-commit.test.ts",
+    "title": "^PC\\.a ",
+    "source": "d2034aa feat(hooks): refuse a commit that adds a badly named file"
+  },
+  {
+    "id": "61a758a-hooks",
+    "patch": "tests/faults/patches/61a758a-hooks.patch",
+    "testFile": "tests/naming/names-gate.test.ts",
+    "title": "^NG\\.live Codex ",
+    "source": "61a758a feat(naming): refuse a badly named new file before Codex applies its patch"
+  },
+  {
+    "id": "6a4c6e0-settings",
+    "patch": "tests/faults/patches/6a4c6e0-settings.patch",
+    "testFile": "tests/naming/names-gate.test.ts",
+    "title": "^NG\\.live Claude Code ",
+    "source": "6a4c6e0 feat(naming): refuse a badly named new file before Claude Code writes it"
+  },
+  {
+    "id": "c6ccbf5-check-names-refusal",
+    "patch": "tests/faults/patches/c6ccbf5-check-names-refusal.patch",
+    "testFile": "tests/naming/check-names.test.ts",
+    "title": "^CN\\.a ",
+    "source": "c6ccbf5 feat(naming): add check:names to judge the names it is given"
+  },
+  {
+    "id": "decbccb-check-names-folders",
+    "patch": "tests/faults/patches/decbccb-check-names-folders.patch",
+    "testFile": "tests/naming/check-names.test.ts",
+    "title": "^CN\\.b ",
+    "source": "decbccb feat(naming): judge each folder on a path given to check:names"
+  },
+  {
+    "id": "c0da0e7-glossary-staged",
+    "patch": "tests/faults/patches/c0da0e7-glossary-staged.patch",
+    "testFile": "tests/naming/check-names.test.ts",
+    "title": "^CN\\.c ",
+    "source": "c0da0e7 feat(naming): judge the names git has staged as new with --staged"
+  },
+  {
+    "id": "e8e8647-check-names-no-path",
+    "patch": "tests/faults/patches/e8e8647-check-names-no-path.patch",
+    "testFile": "tests/naming/check-names.test.ts",
+    "title": "^CN\\.d no path ",
+    "source": "e8e8647 feat(naming): exit 2 when check:names is misused or cannot run"
+  },
+  {
+    "id": "e8e8647-check-names-option",
+    "patch": "tests/faults/patches/e8e8647-check-names-option.patch",
+    "testFile": "tests/naming/check-names.test.ts",
+    "title": "^CN\\.d an option ",
+    "source": "e8e8647 feat(naming): exit 2 when check:names is misused or cannot run"
+  },
+  {
+    "id": "e8e8647-check-names-mode-path",
+    "patch": "tests/faults/patches/e8e8647-check-names-mode-path.patch",
+    "testFile": "tests/naming/check-names.test.ts",
+    "title": "^CN\\.d a path beside ",
+    "source": "e8e8647 feat(naming): exit 2 when check:names is misused or cannot run"
+  },
+  {
+    "id": "e8e8647-check-names-outside",
+    "patch": "tests/faults/patches/e8e8647-check-names-outside.patch",
+    "testFile": "tests/naming/check-names.test.ts",
+    "title": "^CN\\.d a path outside ",
+    "source": "e8e8647 feat(naming): exit 2 when check:names is misused or cannot run"
+  },
+  {
+    "id": "e8e8647-check-names-exit",
+    "patch": "tests/faults/patches/e8e8647-check-names-exit.patch",
+    "testFile": "tests/naming/check-names.test.ts",
+    "title": "^CN\\.e ",
+    "source": "e8e8647 feat(naming): exit 2 when check:names is misused or cannot run"
+  },
+  {
+    "id": "6a4c6e0-names-gate-exit",
+    "patch": "tests/faults/patches/6a4c6e0-names-gate-exit.patch",
+    "testFile": "tests/naming/names-gate.test.ts",
+    "title": "^NG\\.a ",
+    "source": "6a4c6e0 feat(naming): refuse a badly named new file before Claude Code writes it"
+  },
+  {
+    "id": "6a4c6e0-check-names-new-folder",
+    "patch": "tests/faults/patches/6a4c6e0-check-names-new-folder.patch",
+    "testFile": "tests/naming/names-gate.test.ts",
+    "title": "^NG\\.b ",
+    "source": "6a4c6e0 feat(naming): refuse a badly named new file before Claude Code writes it"
+  },
+  {
+    "id": "6a4c6e0-check-names-call",
+    "patch": "tests/faults/patches/6a4c6e0-check-names-call.patch",
+    "testFile": "tests/naming/names-gate.test.ts",
+    "title": "^NG\\.c ",
+    "source": "6a4c6e0 feat(naming): refuse a badly named new file before Claude Code writes it"
+  },
+  {
+    "id": "6a4c6e0-names-gate-notice",
+    "patch": "tests/faults/patches/6a4c6e0-names-gate-notice.patch",
+    "testFile": "tests/naming/names-gate.test.ts",
+    "title": "^NG\\.c ",
+    "source": "6a4c6e0 feat(naming): refuse a badly named new file before Claude Code writes it"
+  },
+  {
+    "id": "61a758a-names-gate-exit",
+    "patch": "tests/faults/patches/61a758a-names-gate-exit.patch",
+    "testFile": "tests/naming/names-gate.test.ts",
+    "title": "^NG\\.e ",
+    "source": "61a758a feat(naming): refuse a badly named new file before Codex applies its patch"
+  },
+  {
+    "id": "61a758a-check-names-add",
+    "patch": "tests/faults/patches/61a758a-check-names-add.patch",
+    "testFile": "tests/naming/names-gate.test.ts",
+    "title": "^NG\\.e ",
+    "source": "61a758a feat(naming): refuse a badly named new file before Codex applies its patch"
+  },
+  {
+    "id": "61a758a-check-names-move",
+    "patch": "tests/faults/patches/61a758a-check-names-move.patch",
+    "testFile": "tests/naming/names-gate.test.ts",
+    "title": "^NG\\.f ",
+    "source": "61a758a feat(naming): refuse a badly named new file before Codex applies its patch"
   }
 ]
