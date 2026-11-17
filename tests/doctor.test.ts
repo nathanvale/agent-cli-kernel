@@ -68,11 +68,13 @@ function withToolchain(
   files: Record<string, string> = {},
   fallow: string | null = fallowDoctor(ready),
 ) {
+  const installed = installedToolchain(lintVersion);
   const root = project(
     { packageManager: `bun@${Bun.version}` },
     {
-      ...installedToolchain(lintVersion),
-      ...(fallow === null ? {} : { "node_modules/.bin/fallow": fallow }),
+      ...(fallow === null
+        ? installed
+        : { ...installed, "node_modules/.bin/fallow": fallow }),
       ...files,
     },
   );

@@ -99,6 +99,15 @@ const observers: Readonly<Record<string, Observer>> = {
 };
 
 const waitBound = Number(process.env.SX_ADMISSION_WAIT ?? "2000");
+const phased = { phase: (name: Phase) => barrier(name) };
+const labelled =
+  process.env.SX_QUALIFICATION === "fixture"
+    ? { ...phased, fixtureLabel: "specimen" }
+    : phased;
+const library = process.env.SX_COORDINATION_LIBRARY;
+const seams = library
+  ? { ...labelled, coordinationLibrary: library }
+  : labelled;
 const state = stateAddonWithTestSeams(
   {
     root,
@@ -106,15 +115,7 @@ const state = stateAddonWithTestSeams(
     observers,
     admissionWaitMilliseconds: Number.isFinite(waitBound) ? waitBound : 2000,
   },
-  {
-    ...(process.env.SX_QUALIFICATION === "fixture"
-      ? { fixtureLabel: "specimen" }
-      : {}),
-    ...(process.env.SX_COORDINATION_LIBRARY
-      ? { coordinationLibrary: process.env.SX_COORDINATION_LIBRARY }
-      : {}),
-    phase: (name: Phase) => barrier(name),
-  },
+  seams,
 );
 
 const handoffRefusal = {
@@ -214,6 +215,14 @@ function coordinationStations<const Identity extends Changing>(
         reachability: "declared-unreachable",
         unreachableRationale: "This command declares no approval capability.",
       } as const);
+  const unresolvedWords = unresolvedReachable
+    ? words
+    : ({
+        ...words,
+        reachability: "declared-unreachable",
+        unreachableRationale:
+          "Closure is never blocked by another unresolved case (DESIGN.md 7.1 step 4).",
+      } as const);
   return [
     station(allCauses, {
       ...approvalWords,
@@ -286,14 +295,7 @@ function coordinationStations<const Identity extends Changing>(
       independentObservable: `${identity}:held-lock`,
     }),
     station(allCauses, {
-      ...words,
-      ...(unresolvedReachable
-        ? {}
-        : {
-            reachability: "declared-unreachable",
-            unreachableRationale:
-              "Closure is never blocked by another unresolved case (DESIGN.md 7.1 step 4).",
-          }),
+      ...unresolvedWords,
       commandIdentity: identity,
       causeCode: "DOMAIN_SX_UNRESOLVED",
       trigger: "An unfinished operation conflicts with this change.",
@@ -705,23 +707,19 @@ function noteDeclaration(command: string, input: NoteInput) {
     input["--id"] === undefined ? input.name : resolveId(input["--id"]);
   const path = input["--path"] ?? join(notes, name);
   const also = input["--also"];
+  const known = {
+    resources: [
+      { resource: `note:${name}`, path },
+      ...(also ? [{ resource: `note:${also}`, path: join(notes, also) }] : []),
+    ],
+  };
+  const invariant = input["--invariant"];
+  const scoped = invariant ? { ...known, invariants: [invariant] } : known;
   return {
     path,
     declaration: {
       command,
-      scope: input["--unknown-scope"]
-        ? ({ unknown: true } as const)
-        : {
-            resources: [
-              { resource: `note:${name}`, path },
-              ...(also
-                ? [{ resource: `note:${also}`, path: join(notes, also) }]
-                : []),
-            ],
-            ...(input["--invariant"]
-              ? { invariants: [input["--invariant"]] }
-              : {}),
-          },
+      scope: input["--unknown-scope"] ? ({ unknown: true } as const) : scoped,
       revisions: { [`note:${name}`]: "observed" },
       facts: { path, content: input["--content"] },
     },
@@ -1415,7 +1413,7 @@ const close = changing({
     ),
   ],
   run: async (input, context) => {
-    const outcome = await state.close(context.state, {
+    const closure = {
       command: "sx.close",
       effect: "state.closure",
       operationId: input.operationId,
@@ -1428,8 +1426,13 @@ const close = changing({
             : "outcome-unknown",
       revision: input["--revision"],
       reason: input["--reason"],
-      ...(input["--attestation"] === undefined ? {} : { attestation: true }),
-    });
+    } as const;
+    const outcome = await state.close(
+      context.state,
+      input["--attestation"] === undefined
+        ? closure
+        : { ...closure, attestation: true },
+    );
     if (outcome.kind === "already-closed")
       return context.result(
         { commandIdentity: "sx.close", causeCode: "SUCCESS_UNCHANGED" },

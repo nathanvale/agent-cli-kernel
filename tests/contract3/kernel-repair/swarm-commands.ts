@@ -166,26 +166,25 @@ export function selectingLoad(causeCode: string, ownStation: boolean): object {
     repairAction: null,
     ...words,
   });
-  const declaration: unknown = Reflect.apply(command, undefined, [
-    {
-      identity: "x.load",
-      route: ["load"],
-      summary: "Load a persisted record.",
-      input: {
-        ...emptyInput,
-        arguments: [
-          {
-            name: "id",
-            summary: "Record id.",
-            required: true,
-            value: text(20, null),
-          },
-        ],
-      },
-      capabilities: {},
-      ...(ownStation ? { stations: [loaded] } : {}),
-      run,
+  const spec = {
+    identity: "x.load",
+    route: ["load"],
+    summary: "Load a persisted record.",
+    input: {
+      ...emptyInput,
+      arguments: [
+        {
+          name: "id",
+          summary: "Record id.",
+          required: true,
+          value: text(20, null),
+        },
+      ],
     },
+    capabilities: {},
+  };
+  const declaration: unknown = Reflect.apply(command, undefined, [
+    ownStation ? { ...spec, stations: [loaded], run } : { ...spec, run },
   ]);
   const contract: unknown = Reflect.apply(contractFor, undefined, [
     { cli: "x", commands: [declaration] },

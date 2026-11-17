@@ -142,7 +142,7 @@ async function checkCommits(
     {
       cwd: root,
       env: { ...inherited(), ...gitEnv, TMPDIR: temporary, ...env },
-      ...(signalAt === undefined ? {} : { signalAt }),
+      signalAt,
     },
   );
   return { ...run, temporary, lines: run.stdout.split("\n") };
