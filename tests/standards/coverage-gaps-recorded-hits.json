@@ -6,10 +6,6 @@
       "reason": "The naming tests prove it by spawning bun run check:names."
     },
     {
-      "path": "scripts/test-area.ts",
-      "reason": "tests/doctor.test.ts proves it by spawning scripts/test-area.ts."
-    },
-    {
       "path": "src/static-admission.ts",
       "reason": "tests/static-admission.test.ts proves it by spawning src/static-admission.ts."
     },

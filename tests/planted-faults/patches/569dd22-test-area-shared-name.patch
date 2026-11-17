@@ -1,16 +1,17 @@
 diff --git a/scripts/test-area.ts b/scripts/test-area.ts
-index ecc0d66..0121422 100644
+index 9008806..07a540b 100644
 --- a/scripts/test-area.ts
 +++ b/scripts/test-area.ts
-@@ -100,11 +100,6 @@ if (empty.length > 0) {
-     `repository.json has test areas with no test file: ${empty.join(", ")}. Repair: restore their tests, or remove them from testAreas.\n`,
-   );
-   process.exitCode = 1;
--} else if (shared.length > 0) {
--  process.stderr.write(
--    `repository.json gives one test area name to several folders: ${shared.join("; ")}. Repair: rename an area in testAreas, or a subfolder.\n`,
--  );
--  process.exitCode = 1;
- } else if (paths === undefined) {
-   const valid = [...known.keys()].sort().join(", ");
-   process.stderr.write(
+@@ -104,12 +104,6 @@ export async function testArea(
+     );
+     return 1;
+   }
+-  if (shared.length > 0) {
+-    process.stderr.write(
+-      `repository.json gives one test area name to several folders: ${shared.join("; ")}. Repair: rename an area in testAreas, or a subfolder.\n`,
+-    );
+-    return 1;
+-  }
+   if (paths === undefined) {
+     const valid = [...known.keys()].sort().join(", ");
+     process.stderr.write(
