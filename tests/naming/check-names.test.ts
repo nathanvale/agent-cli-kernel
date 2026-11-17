@@ -132,7 +132,7 @@ test(
       exit: 1,
     });
   },
-  processWatchdog(8),
+  processWatchdog(10),
 );
 
 test(

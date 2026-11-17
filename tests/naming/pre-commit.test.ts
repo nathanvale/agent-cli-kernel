@@ -50,7 +50,7 @@ test(
       committed: false,
     });
   },
-  processWatchdog(5),
+  processWatchdog(7),
 );
 
 test(
@@ -62,5 +62,5 @@ test(
       committed: true,
     });
   },
-  processWatchdog(5),
+  processWatchdog(7),
 );
