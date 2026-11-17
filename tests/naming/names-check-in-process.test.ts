@@ -13,7 +13,7 @@ import {
   stagedNewPaths,
   stagedText,
 } from "../../scripts/glossary.ts";
-import { git, gitResult, inherited } from "../support/git-fixture.ts";
+import { git, gitEnv, gitResult, inherited } from "../support/git-fixture.ts";
 import { processWatchdog } from "../support/process.ts";
 import { testFolder } from "../support/test-folder.ts";
 
@@ -44,6 +44,7 @@ const hostHit: RecordedHit = {
 };
 const folders: string[] = [];
 const withheldFromGit = new Map<string, string>();
+const isolatedFromUser = new Map<string, string | undefined>();
 
 beforeAll(() => {
   const kept = inherited();
@@ -52,10 +53,17 @@ beforeAll(() => {
       withheldFromGit.set(name, value);
       delete process.env[name];
     }
+  for (const [name, value] of Object.entries(gitEnv)) {
+    isolatedFromUser.set(name, process.env[name]);
+    process.env[name] = value;
+  }
 });
 
 afterAll(() => {
   for (const [name, value] of withheldFromGit) process.env[name] = value;
+  for (const [name, value] of isolatedFromUser)
+    if (value === undefined) delete process.env[name];
+    else process.env[name] = value;
   for (const folder of folders.splice(0))
     rmSync(folder, { recursive: true, force: true });
 });
@@ -699,6 +707,22 @@ test("in process: stagedNewPaths lists staged additions and renames, and no modi
     "docs/renamed.md",
     "docs/with space.md",
   ]);
+});
+
+test("in process: stagedNewPaths lists names in git's own order, whatever the user's git configuration says", () => {
+  const root = emptyRepository();
+  const home = folder();
+  put(home, "order", "docs/z.md\n");
+  put(home, ".gitconfig", `[diff]\n\torderFile = ${join(home, "order")}\n`);
+  stage(root, { "docs/a.md": "a\n", "docs/z.md": "z\n" });
+  const chosen = process.env.HOME;
+  process.env.HOME = home;
+  try {
+    expect(stagedNewPaths(root)).toEqual(["docs/a.md", "docs/z.md"]);
+  } finally {
+    if (chosen === undefined) delete process.env.HOME;
+    else process.env.HOME = chosen;
+  }
 });
 
 test("in process: stagedNewPaths outside a git repository names the command and git's reason", () => {
