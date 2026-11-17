@@ -21,7 +21,10 @@ export default {
             if (typeof node.value === "string") report(node, node.value);
           },
           TemplateLiteral(node) {
-            report(node, node.quasis[0].value.cooked ?? "");
+            report(
+              node,
+              node.quasis[0].value.cooked ?? node.quasis[0].value.raw,
+            );
           },
         };
       },
