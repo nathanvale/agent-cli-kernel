@@ -6,10 +6,6 @@
       "reason": "The naming tests prove it by spawning bun run check:names."
     },
     {
-      "path": "scripts/test-area.ts",
-      "reason": "tests/doctor.test.ts proves it by spawning scripts/test-area.ts."
-    },
-    {
       "path": "scripts/glossary.ts",
       "export": "namesOnPaths",
       "reason": "Only scripts/check-names.ts calls it, and the naming tests spawn that script."
@@ -23,11 +19,6 @@
       "path": "scripts/glossary.ts",
       "export": "stagedText",
       "reason": "Only scripts/check-names.ts calls it, for --staged, and the naming tests spawn that script."
-    },
-    {
-      "path": "src/cli-inventory.ts",
-      "export": "inventoryApplicationClis",
-      "reason": "tests/bootstrap-cli.test.ts proves it by spawning src/cli-inventory.ts, and by running a transpiled copy in a child; tests/cli-inventory.test.ts imports only its helpers."
     }
   ]
 }
