@@ -1118,29 +1118,34 @@ describe("faultsTouchedSince", () => {
     return { ...fixture, base: headOf(fixture.root) };
   }
 
-  test("names only the faults whose patch touches a file changed since the base", () => {
+  test("names only the faults whose patch touches a file changed since the base", async () => {
     const { root, id, base } = twoFaults();
     commit(root, "reword the refusal", {
       "src/limit.ts": guarded.replace("must be", "has to be"),
     });
-    expect(faultsTouchedSince(root, base)).toEqual([id]);
+    const { result } = await isolated(() => faultsTouchedSince(root, base));
+    expect(result).toEqual([id]);
   });
 
-  test("names a fault whose own patch changed, though no patched file did", () => {
+  test("names a fault whose own patch changed, though no patched file did", async () => {
     const { root, base } = twoFaults();
     commit(root, "replant other", { [other.patch]: `${otherPatch}\n` });
-    expect(faultsTouchedSince(root, base)).toEqual([other.id]);
+    const { result } = await isolated(() => faultsTouchedSince(root, base));
+    expect(result).toEqual([other.id]);
   });
 
-  test("names no fault when the changed files are ones no patch touches", () => {
+  test("names no fault when the changed files are ones no patch touches", async () => {
     const { root, base } = twoFaults();
     commit(root, "notes", { "README.md": "notes\n" });
-    expect(faultsTouchedSince(root, base)).toEqual([]);
+    const { result } = await isolated(() => faultsTouchedSince(root, base));
+    expect(result).toEqual([]);
   });
 
-  test("refuses a base git cannot resolve, naming it", () => {
+  test("refuses a base git cannot resolve, naming it", async () => {
     const { root } = twoFaults();
-    expect(() => faultsTouchedSince(root, "no-such-base")).toThrow(
+    expect(
+      await rejection(isolated(() => faultsTouchedSince(root, "no-such-base"))),
+    ).toBe(
       "no-such-base is not a commit in this repository. Repair: pass a commit or branch, such as origin/main.",
     );
   });
