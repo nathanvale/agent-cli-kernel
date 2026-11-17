@@ -63,8 +63,9 @@ owner from this list.
   hosted checks run without spending a review.
 - Mark it ready once, when its hosted checks pass. That requests the Copilot
   and CodeRabbit reviews. Neither is required to merge.
-- Answer every review thread. Push the fixes as one batch, then ask Copilot
-  to review again.
+- Answer every review thread. Take each finding you fix to the
+  `repo-gardener` skill's Sow job. Push the fixes as one batch, then ask
+  Copilot to review again.
 - Stop after three review rounds. A later round mostly repeats earlier
   comments.
 - Merge with a merge commit, on the operator's word. `main` refuses a direct
