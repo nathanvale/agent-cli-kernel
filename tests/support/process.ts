@@ -19,7 +19,7 @@ export async function spawnBounded(
     readonly cwd?: string;
     readonly env?: Readonly<Record<string, string | undefined>>;
     readonly boundMilliseconds?: number;
-    readonly signalAt?: SignalAt;
+    readonly signalAt?: SignalAt | undefined;
     readonly processGroup?: boolean;
   } = {},
 ): Promise<{ stdout: string; stderr: string; exit: number }> {

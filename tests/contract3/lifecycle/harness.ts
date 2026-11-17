@@ -143,7 +143,7 @@ export type Observed = {
   readonly firstStdoutAt: number | undefined;
   readonly ledger: readonly string[];
   readonly dir: string;
-  readonly operand?: OperandFit;
+  readonly operand?: OperandFit | undefined;
 };
 export type OperandFit = {
   readonly frozenLength: number;
@@ -332,7 +332,7 @@ export async function launch(options: {
       firstStdoutAt,
       ledger: readLedger(ledgerPath),
       dir,
-      ...(fitted ? { operand: fitted.fit } : {}),
+      operand: fitted?.fit,
     };
   })();
   return {

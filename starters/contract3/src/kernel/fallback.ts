@@ -74,7 +74,7 @@ function construct(
     .get(trusted.commandIdentity)
     ?.find((item) => item.causeCode === selected.causeCode);
   if (!command || !station) return undefined;
-  return {
+  const envelope = {
     contractVersion: "3.0.0",
     message: fallbackMessage,
     availablePaths: [],
@@ -93,8 +93,10 @@ function construct(
       effects: selected.effects,
       ...station.guidance,
     },
-    ...(trusted.diagnostics ? { diagnostics: trusted.diagnostics } : {}),
   };
+  return trusted.diagnostics
+    ? { ...envelope, diagnostics: trusted.diagnostics }
+    : envelope;
 }
 
 export async function fallbackText(

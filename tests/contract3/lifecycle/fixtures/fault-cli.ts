@@ -654,8 +654,8 @@ const programCommand = command({
     const shutdownMs = input["--shutdown-ms"];
     const request: ProgramRequest = {
       ...chosen,
-      ...(timeoutMs === undefined ? {} : { timeoutMilliseconds: timeoutMs }),
-      ...(shutdownMs === undefined ? {} : { shutdownMilliseconds: shutdownMs }),
+      timeoutMilliseconds: timeoutMs ?? chosen.timeoutMilliseconds,
+      shutdownMilliseconds: shutdownMs ?? chosen.shutdownMilliseconds,
     };
     if (mode === "orphan") {
       void context.programs.inspect(request).catch(() => undefined);
@@ -1615,21 +1615,20 @@ export async function main(state?: StateAddonDescriptor): Promise<number> {
   if (!runtime) throw new Error("Fixture contract has no runtime.");
   const faulted = {};
   recordRuntime(faulted, faultRuntime(runtime));
-  const setup: RunSetup = {
+  const base: RunSetup = {
     addons: {
       programs: ledgered("programs", programsAddon()),
       approval: ledgered("approval", approvalAddon),
       diagnostics: statusReporter,
     },
-    ...(scenario.has("emergency-recorder")
-      ? {
-          emergencyRecord: (facts) =>
-            ledger(
-              `emergency ${facts.phase} ${facts.commandIdentity ?? "none"}`,
-            ),
-        }
-      : {}),
   };
+  const setup: RunSetup = scenario.has("emergency-recorder")
+    ? {
+        ...base,
+        emergencyRecord: (facts) =>
+          ledger(`emergency ${facts.phase} ${facts.commandIdentity ?? "none"}`),
+      }
+    : base;
   ledger(`front-door-start ${Date.now()}`);
   return runProcessOn(faulted, setup, () => faultHost(processHost()))(
     process.argv.slice(2),

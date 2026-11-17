@@ -293,16 +293,12 @@ function futureDeclarations(row: {
     stations: [issued],
     run: (parsed, context) => {
       handled.count++;
+      const facts = { message: "Read.", data: null, effects: unchanged };
       return context.result(
         { commandIdentity: "items.issue", causeCode: "SUCCESS_UNCHANGED" },
-        {
-          message: "Read.",
-          data: null,
-          ...(row.literalMaxLength === undefined
-            ? {}
-            : { bindings: { item: parsed.item } }),
-          effects: unchanged,
-        },
+        row.literalMaxLength === undefined
+          ? facts
+          : { ...facts, bindings: { item: parsed.item } },
       );
     },
   });
