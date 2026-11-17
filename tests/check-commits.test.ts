@@ -292,6 +292,9 @@ describe("check:commits", () => {
       );
       expect(run.lines).toContain("Failed: bun run typecheck");
       expect(run.lines).toContain(
+        `Repair: change ${red.short} itself so that bun run typecheck passes at that commit.`,
+      );
+      expect(run.lines).toContain(
         "typed.ts(1,14): error TS2322: Type 'string' is not assignable to type 'number'.",
       );
       expect(run.lines).toContain(`GREEN ${fix.short} assign a number again`);
@@ -383,7 +386,7 @@ describe("check:commits", () => {
 
       expect(run.exit).toBe(1);
       expect(run.lines).toContain(
-        `No commits in ${base.sha}..HEAD to check, so this gate checks nothing. Name a base that HEAD is ahead of.`,
+        `No commits in ${base.sha}..HEAD to check, so this gate checks nothing. Repair: name a base that HEAD is ahead of.`,
       );
     },
     processWatchdog(1),

@@ -141,6 +141,9 @@ function report({ sha, short, subject, result }: Checked): void {
   print(`RED ${short} ${subject}`);
   print(`Failed: ${shown(result.failed)}`);
   print(
+    `Repair: change ${short} itself so that ${shown(result.failed)} passes at that commit.`,
+  );
+  print(
     `Rerun locally: CHECK_COMMITS_SINCE='${fixedPoint}' bun run check:commits '${sha}^@' ${sha}`,
   );
   process.stdout.write(result.output.replace(/\n?$/, "\n"));
@@ -191,7 +194,7 @@ async function main(argv: readonly string[]): Promise<number> {
   const commits = commitsToCheck(base, head);
   if (commits.length === 0) {
     print(
-      `No commits in ${base}..${head} to check, so this gate checks nothing. Name a base that ${head} is ahead of.`,
+      `No commits in ${base}..${head} to check, so this gate checks nothing. Repair: name a base that ${head} is ahead of.`,
     );
     return 1;
   }

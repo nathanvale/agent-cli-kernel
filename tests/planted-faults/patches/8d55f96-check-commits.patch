@@ -1,21 +1,21 @@
 diff --git a/scripts/check-commits.ts b/scripts/check-commits.ts
-index 42fd0bc..72156ae 100644
+index 03b95e6..e9b9470 100644
 --- a/scripts/check-commits.ts
 +++ b/scripts/check-commits.ts
-@@ -189,12 +189,6 @@ async function main(argv: readonly string[]): Promise<number> {
+@@ -192,12 +192,6 @@ async function main(argv: readonly string[]): Promise<number> {
      return 1;
    }
    const commits = commitsToCheck(base, head);
 -  if (commits.length === 0) {
 -    print(
--      `No commits in ${base}..${head} to check, so this gate checks nothing. Name a base that ${head} is ahead of.`,
+-      `No commits in ${base}..${head} to check, so this gate checks nothing. Repair: name a base that ${head} is ahead of.`,
 -    );
 -    return 1;
 -  }
    const started = performance.now();
    let red = 0;
    for (const commit of commits) {
-@@ -204,7 +198,10 @@ async function main(argv: readonly string[]): Promise<number> {
+@@ -207,7 +201,10 @@ async function main(argv: readonly string[]): Promise<number> {
      if (checked.result.status === "red") red += 1;
    }
    const seconds = (performance.now() - started) / 1000;
