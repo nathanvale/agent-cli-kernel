@@ -80,20 +80,20 @@ test.each([
 
 const withNotes = readGlossary(`# Fixture glossary
 
-**Pin move**:
-Changing a pin to another commit.
-_Avoid_: split commit; bump, update (for a pin move), reader (unqualified; a note, with a comma), canary
+**Layout**:
+One package or many.
+_Avoid_: floor plan; shape, form (for a layout), reader (unqualified; a note, with a comma), variant
 `);
 
 test("a word that a note covers is left to the reviewer", () => {
   expect(
     nameProblems(
       [
-        "src/bump.ts",
-        "src/update-notes.ts",
+        "src/shape.ts",
+        "src/form-notes.ts",
         "src/reader.ts",
         "docs/with-a-comma.md",
-        "docs/for-a-pin-move.md",
+        "docs/for-a-layout.md",
       ],
       withNotes,
       [],
@@ -102,24 +102,26 @@ test("a word that a note covers is left to the reviewer", () => {
 });
 
 test.each([
-  ["before a semicolon", "src/split-commit.ts", "split commit"],
-  ["after the last note", "tests/canary.test.ts", "canary"],
+  ["before a semicolon", "src/floor-plan.ts", "floor plan"],
+  ["after the last note", "tests/variant.test.ts", "variant"],
 ])(
   "NM.d %s, an Avoid word with no note after it is a new hit",
   (_place, path, word) => {
     expect(nameProblems([path], withNotes, [])).toEqual([
-      `${path} uses "${word}", which GLOSSARY.md lists under Avoid for "Pin move". Rename it with the glossary word.`,
+      `${path} uses "${word}", which GLOSSARY.md lists under Avoid for "Layout". Rename it with the glossary word.`,
     ]);
   },
 );
 
 test.each([
-  ["that never closes", "lock (for a pin, bump"],
-  ["inside another", "lock (for a pin (the kernel pin)), bump"],
-  ["that never opened", "lock for a pin), bump"],
+  ["that never closes", "shape (for a layout, form"],
+  ["inside another", "shape (for a layout (of packages)), form"],
+  ["that never opened", "shape for a layout), form"],
 ])("NM.e an Avoid line with a parenthesis %s is refused", (_kind, list) => {
-  expect(() => readGlossary(`**Pin**:\nA record.\n_Avoid_: ${list}\n`)).toThrow(
-    'GLOSSARY.md: the Avoid line for "Pin" has a parenthesis with no partner, so the words its note covers cannot be told. Close each note, and put no note inside another.',
+  expect(() =>
+    readGlossary(`**Layout**:\nOne package or many.\n_Avoid_: ${list}\n`),
+  ).toThrow(
+    'GLOSSARY.md: the Avoid line for "Layout" has a parenthesis with no partner, so the words its note covers cannot be told. Close each note, and put no note inside another.',
   );
 });
 
