@@ -79,7 +79,8 @@ repository broke it.
 ## Processes
 
 - Bound every child below its test timeout, a fixture's git call and a
-  script's synchronous git read included. Witnessed: [e990da6], [4a32366],
+  script's synchronous git read included. Witnessed: [#85-probe], [e990da6],
+  [4a32366],
   [7623343], [c77aaa9] (the production `execute` spawned tsc and fallow with
   no time limit), [24cbab3] (a blocking fixture could prevent the test
   timeout and cleanup).
@@ -127,6 +128,7 @@ repository broke it.
 [8485278]: https://github.com/nathanvale/bun-typescript-template/commit/8485278bf38a457d7d1823ba98daa153a9bb35a8
 [e55f94a]: https://github.com/nathanvale/bun-typescript-template/commit/e55f94a5b7dcb78f9b25f5d0a723a2196bd8c452
 [7ea1ee3]: https://github.com/nathanvale/bun-typescript-template/commit/7ea1ee3853cb6251fcf93c6a6ecf683e065fbfef
+[#85-probe]: https://github.com/nathanvale/bun-typescript-template/pull/85#discussion_r4607322041
 [e990da6]: https://github.com/nathanvale/bun-typescript-template/commit/e990da67151a9c3b6a0e90c240f7e0860856c4d2
 [4a32366]: https://github.com/nathanvale/bun-typescript-template/commit/4a32366bf79ea95479bda515313b33b849031507
 [c77aaa9]: https://github.com/nathanvale/bun-typescript-template/commit/c77aaa9ec56157f4701db117f9aa04e736c6e5df
