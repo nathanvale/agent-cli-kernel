@@ -1,16 +1,13 @@
 diff --git a/scripts/glossary.ts b/scripts/glossary.ts
-index fa6c940..f7b986a 100644
+index b5e03f5..544e616 100644
 --- a/scripts/glossary.ts
 +++ b/scripts/glossary.ts
-@@ -63,10 +63,8 @@ export function readRecordedHits(text: string): RecordedHit[] {
-     if (
-       typeof path !== "string" ||
-       typeof word !== "string" ||
--      typeof reason !== "string" ||
-       path === "" ||
--      word === "" ||
--      reason === ""
-+      word === ""
-     )
-       throw new Error(
-         `${recordedHitsFile}: hits[${index}] needs a non-empty path, word and reason.`,
+@@ -107,7 +107,7 @@ function recordedFields(
+ }
+ 
+ export function readRecordedHits(text: string): RecordedHit[] {
+-  return recordedFields(recordedHitsFile, text, ["path", "word", "reason"]).map(
++  return recordedFields(recordedHitsFile, text, ["path", "word"]).map(
+     ([path = "", word = "", reason = ""]) => ({ path, word, reason }),
+   );
+ }

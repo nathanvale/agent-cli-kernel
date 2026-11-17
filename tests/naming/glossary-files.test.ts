@@ -4,8 +4,10 @@ import { join } from "node:path";
 import {
   mapProblems,
   readGlossary,
+  readRecordedUnusedTerms,
+  recordedUnusedTermsFile,
+  termUseProblems,
   trackedTexts,
-  unusedTerms,
 } from "../../scripts/glossary.ts";
 
 const root = join(import.meta.dir, "../..");
@@ -18,16 +20,21 @@ test("every path GLOSSARY-MAP.md points to exists", () => {
   expect(mapProblems(read("GLOSSARY-MAP.md"), root)).toEqual([]);
 });
 
-test("every GLOSSARY.md term is used in a tracked file outside the glossary files", () => {
+test("every GLOSSARY.md term is used in a tracked file outside the glossary files, apart from its recorded unused terms", () => {
   expect(
-    unusedTerms(readGlossary(read("GLOSSARY.md")), trackedTexts(root)),
+    termUseProblems(
+      readGlossary(read("GLOSSARY.md")),
+      trackedTexts(root),
+      readRecordedUnusedTerms(read(recordedUnusedTermsFile)),
+    ),
   ).toEqual([]);
 });
 
-test("the glossary files are not read as uses of their own terms", () => {
+test("the glossary files and the recorded unused terms are not read as uses of a term", () => {
   const texts = trackedTexts(root);
   expect(texts).not.toContain(read("GLOSSARY.md"));
   expect(texts).not.toContain(read("GLOSSARY-MAP.md"));
+  expect(texts).not.toContain(read(recordedUnusedTermsFile));
   expect(texts).toContain(read("AGENTS.md"));
 });
 
@@ -70,13 +77,66 @@ test.each([
   ["a camel-case name", "const testAreas = [cliStarter];"],
   ["a kebab-case name", "cli-starter.ts and test-area.ts"],
 ])("terms used in %s count as used", (_kind, text) => {
-  expect(unusedTerms(fixture, [text])).toEqual([]);
+  expect(termUseProblems(fixture, [text], [])).toEqual([]);
 });
 
+const noStarterYet = ["a test area", "a starter for the CLI"];
+const awaited = {
+  term: "CLI starter",
+  reason: "The ticket that builds it has not landed.",
+  ticket: "MAG-1",
+};
+
 test("GM.c a glossary term used nowhere fails", () => {
-  expect(
-    unusedTerms(fixture, ["a test area", "a starter for the CLI"]),
-  ).toEqual([
-    '"CLI starter" appears in no tracked file outside the glossary files. Use it, or remove it from GLOSSARY.md.',
+  expect(termUseProblems(fixture, noStarterYet, [])).toEqual([
+    `"CLI starter" appears in no tracked file outside the glossary files. Use it, remove it from GLOSSARY.md, or record it in ${recordedUnusedTermsFile} with the ticket that will use it.`,
   ]);
+});
+
+test("a recorded unused term passes while nothing uses it", () => {
+  expect(termUseProblems(fixture, noStarterYet, [awaited])).toEqual([]);
+});
+
+test("GM.d a recorded unused term that a tracked file now uses fails", () => {
+  expect(
+    termUseProblems(fixture, ["a test area", "a CLI starter"], [awaited]),
+  ).toEqual([
+    `${recordedUnusedTermsFile} records "CLI starter", which a tracked file now uses. Remove the entry.`,
+  ]);
+});
+
+test("GM.e a recorded unused term that GLOSSARY.md does not define fails", () => {
+  expect(
+    termUseProblems(
+      fixture,
+      ["a test area", "a CLI starter"],
+      [{ ...awaited, term: "Kernel trial" }],
+    ),
+  ).toEqual([
+    `${recordedUnusedTermsFile} records "Kernel trial", which GLOSSARY.md does not define. Remove the entry.`,
+  ]);
+});
+
+test("a recorded unused term is read with its reason and its ticket", () => {
+  expect(readRecordedUnusedTerms(JSON.stringify({ hits: [awaited] }))).toEqual([
+    awaited,
+  ]);
+});
+
+test.each([
+  ["a reason", { term: "CLI starter", ticket: "MAG-1" }],
+  ["a ticket", { term: "CLI starter", reason: "Not built yet." }],
+  ["a term", { reason: "Not built yet.", ticket: "MAG-1" }],
+])("GM.f a recorded unused term without %s is refused", (_field, hit) => {
+  expect(() =>
+    readRecordedUnusedTerms(JSON.stringify({ hits: [hit] })),
+  ).toThrow(
+    `${recordedUnusedTermsFile}: hits[0] needs a non-empty term, reason and ticket.`,
+  );
+});
+
+test("GM.g recorded unused terms with no hits list are refused", () => {
+  expect(() => readRecordedUnusedTerms("{}")).toThrow(
+    `${recordedUnusedTermsFile} needs a "hits" array.`,
+  );
 });

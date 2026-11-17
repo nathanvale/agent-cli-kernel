@@ -2,7 +2,13 @@ import { existsSync, lstatSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 export const recordedHitsFile = "tests/naming/recorded-hits.json";
-const glossaryFiles = new Set(["GLOSSARY.md", "GLOSSARY-MAP.md"]);
+export const recordedUnusedTermsFile =
+  "tests/naming/recorded-unused-terms.json";
+const notReadAsUse = new Set([
+  "GLOSSARY.md",
+  "GLOSSARY-MAP.md",
+  recordedUnusedTermsFile,
+]);
 const avoidLabel = "_Avoid_:";
 
 export type Glossary = {
@@ -17,6 +23,12 @@ export type RecordedHit = {
   readonly path: string;
   readonly word: string;
   readonly reason: string;
+};
+
+export type RecordedUnusedTerm = {
+  readonly term: string;
+  readonly reason: string;
+  readonly ticket: string;
 };
 
 type NameHit = {
@@ -67,34 +79,45 @@ export function readGlossary(text: string): Glossary {
   return { terms, qualify };
 }
 
-export function readRecordedHits(text: string): RecordedHit[] {
+function recordedFields(
+  file: string,
+  text: string,
+  keys: readonly string[],
+): string[][] {
   const parsed: unknown = JSON.parse(text);
   const hits: unknown =
     typeof parsed === "object" && parsed !== null
       ? new Map(Object.entries(parsed)).get("hits")
       : undefined;
-  if (!Array.isArray(hits))
-    throw new Error(`${recordedHitsFile} needs a "hits" array.`);
+  if (!Array.isArray(hits)) throw new Error(`${file} needs a "hits" array.`);
   return hits.map((hit: unknown, index) => {
     const own = new Map<string, unknown>(
       typeof hit === "object" && hit !== null ? Object.entries(hit) : [],
     );
-    const [path, word, reason] = ["path", "word", "reason"].map((key) =>
-      own.get(key),
-    );
-    if (
-      typeof path !== "string" ||
-      typeof word !== "string" ||
-      typeof reason !== "string" ||
-      path === "" ||
-      word === "" ||
-      reason === ""
-    )
+    const fields = keys.flatMap((key) => {
+      const value = own.get(key);
+      return typeof value === "string" && value !== "" ? [value] : [];
+    });
+    if (fields.length !== keys.length)
       throw new Error(
-        `${recordedHitsFile}: hits[${index}] needs a non-empty path, word and reason.`,
+        `${file}: hits[${index}] needs a non-empty ${keys.slice(0, -1).join(", ")} and ${keys.at(-1)}.`,
       );
-    return { path, word, reason };
+    return fields;
   });
+}
+
+export function readRecordedHits(text: string): RecordedHit[] {
+  return recordedFields(recordedHitsFile, text, ["path", "word", "reason"]).map(
+    ([path = "", word = "", reason = ""]) => ({ path, word, reason }),
+  );
+}
+
+export function readRecordedUnusedTerms(text: string): RecordedUnusedTerm[] {
+  return recordedFields(recordedUnusedTermsFile, text, [
+    "term",
+    "reason",
+    "ticket",
+  ]).map(([term = "", reason = "", ticket = ""]) => ({ term, reason, ticket }));
 }
 
 function wordsOf(text: string): string[] {
@@ -233,7 +256,7 @@ export function trackedNames(root: string): string[] {
 
 export function trackedTexts(root: string): string[] {
   return gitFiles(root).flatMap((path) =>
-    glossaryFiles.has(path) || !lstatSync(join(root, path)).isFile()
+    notReadAsUse.has(path) || !lstatSync(join(root, path)).isFile()
       ? []
       : [readFileSync(join(root, path), "utf8")],
   );
@@ -260,16 +283,35 @@ function usePattern(term: string): RegExp {
   return new RegExp(`\\b${wordsOf(term).join("[\\s_-]*")}(?:e?s)?\\b`, "i");
 }
 
-export function unusedTerms(
+function isUsed(term: string, texts: readonly string[]): boolean {
+  const use = usePattern(term);
+  return texts.some((text) => use.test(text));
+}
+
+export function termUseProblems(
   glossary: Glossary,
   texts: readonly string[],
+  recorded: readonly RecordedUnusedTerm[],
 ): string[] {
-  return glossary.terms.flatMap(({ name }) => {
-    const use = usePattern(name);
-    return texts.some((text) => use.test(text))
+  const defined = glossary.terms.map(({ name }) => name);
+  const awaited = new Set(recorded.map(({ term }) => term));
+  const unused = defined.flatMap((name) =>
+    awaited.has(name) || isUsed(name, texts)
       ? []
       : [
-          `"${name}" appears in no tracked file outside the glossary files. Use it, or remove it from GLOSSARY.md.`,
-        ];
+          `"${name}" appears in no tracked file outside the glossary files. Use it, remove it from GLOSSARY.md, or record it in ${recordedUnusedTermsFile} with the ticket that will use it.`,
+        ],
+  );
+  const stale = recorded.flatMap(({ term }) => {
+    if (!defined.includes(term))
+      return [
+        `${recordedUnusedTermsFile} records "${term}", which GLOSSARY.md does not define. Remove the entry.`,
+      ];
+    return isUsed(term, texts)
+      ? [
+          `${recordedUnusedTermsFile} records "${term}", which a tracked file now uses. Remove the entry.`,
+        ]
+      : [];
   });
+  return [...unused, ...stale];
 }
