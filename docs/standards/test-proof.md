@@ -61,6 +61,15 @@ repository broke it.
 - At teardown, send SIGKILL, and only to a pid still in its ledgered process
   group. Witnessed: [0ebe7cf], [1a29b19].
 
+## Fake tools
+
+- Fake a tool with a small stub script that holds its behaviour, not a
+  system binary linked under the tool's name. A linked `/bin/echo` named
+  `tsc` exited non-zero on GitHub's Linux runner, and a linked `/bin/sh`
+  named `fallow` leaned on a file named `list` to become the script.
+  Witnessed: [3729f36], [5f0c1d9] (Copilot review thread on the same pull
+  request).
+
 ## Time
 
 - Wait on an event the subject produces (a ready file, ledger line, or
@@ -100,3 +109,5 @@ repository broke it.
 [70c7280]: https://github.com/nathanvale/bun-typescript-template/commit/70c7280c8253b0badc173898fcb5ca44b8e2198b
 [07d2d72]: https://github.com/nathanvale/bun-typescript-template/commit/07d2d72ed7c68fda55cd6b065dbb5b4e5f407763
 [e50afb6]: https://github.com/nathanvale/bun-typescript-template/commit/e50afb6e27a9facc40ec0b932779ffa81a29784c
+[3729f36]: https://github.com/nathanvale/bun-typescript-template/commit/3729f3644cb30ea5decc9c085bc6b9c4304eaae4
+[5f0c1d9]: https://github.com/nathanvale/bun-typescript-template/commit/5f0c1d99741751de14f5cb92618eda3bd92e8887
