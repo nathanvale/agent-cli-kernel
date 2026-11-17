@@ -212,7 +212,7 @@ describe("project recipe", () => {
     expect(() =>
       selectRecipe({ profile: "scratch", monorepo: false }, withGap),
     ).toThrow(
-      "No recipe and no refusal matches profile scratch, monorepo false, starter none. Add a row to RECIPES or a rule to refusal().",
+      "No recipe and no refusal matches profile scratch, monorepo false, starter none. Repair: add a recipe to RECIPES or a case to refusal().",
     );
   });
 });
@@ -266,8 +266,8 @@ describe("Bootstrap carrying out a row", () => {
           status: "refused",
           error: {
             code: "profile_source_missing",
-            message: `profile source is missing: ${missing}`,
-            repair: "restore the selected profile in the template repository",
+            message: `recipe folder is missing: ${missing}`,
+            repair: `run git restore ${missing} in the template repository`,
             retrySafe: false,
           },
         },
