@@ -521,6 +521,11 @@ const bypasses = [
   ["no-host-path-literal", 'const scratch = "/tmp";', '"/tmp" names a folder'],
   [
     "no-host-path-literal",
+    "const raw = String.raw`/tmp/\\unicode`;",
+    '"/tmp/\\unicode" names a folder',
+  ],
+  [
+    "no-host-path-literal",
     "const nested = (root: string) => `${root}/tmp/x`;",
     undefined,
   ],
