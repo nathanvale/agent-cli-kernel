@@ -4,13 +4,13 @@ import { existsSync } from "node:fs";
 import {
   chmod,
   mkdir,
-  mkdtemp,
   readdir,
   readFile,
   rm,
   writeFile,
 } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { testFolder } from "./support/test-folder.ts";
 
 const ROOT = resolve(import.meta.dir, "..");
 const scratchRoots: string[] = [];
@@ -158,8 +158,8 @@ function invoke(...args: string[]): Invocation {
   };
 }
 
-async function temporaryRoot(): Promise<string> {
-  const root = await mkdtemp("/tmp/bun-typescript-template-test-");
+function temporaryRoot(): string {
+  const root = testFolder("bootstrap-cli-");
   scratchRoots.push(root);
   return root;
 }
@@ -269,7 +269,7 @@ describe("public bootstrap CLI", () => {
   });
 
   test("generates scratch without Fallow", async () => {
-    const root = await temporaryRoot();
+    const root = temporaryRoot();
     const destination = join(root, "scratch-example");
     const packet = "https://example.test/vault/projects/%7Escratch-example/";
     const result = invoke(
@@ -327,8 +327,8 @@ describe("public bootstrap CLI", () => {
     expect(await Bun.file(invocationMarker).exists()).toBe(false);
   });
 
-  test("rejects username-only source packets before writing or output", async () => {
-    const root = await temporaryRoot();
+  test("rejects username-only source packets before writing or output", () => {
+    const root = temporaryRoot();
     expectRejectedSourcePacket(
       root,
       "username",
@@ -337,8 +337,8 @@ describe("public bootstrap CLI", () => {
     );
   });
 
-  test("rejects password-only source packets before writing or output", async () => {
-    const root = await temporaryRoot();
+  test("rejects password-only source packets before writing or output", () => {
+    const root = temporaryRoot();
     expectRejectedSourcePacket(
       root,
       "password",
@@ -347,8 +347,8 @@ describe("public bootstrap CLI", () => {
     );
   });
 
-  test("rejects query source packets before writing or output", async () => {
-    const root = await temporaryRoot();
+  test("rejects query source packets before writing or output", () => {
+    const root = temporaryRoot();
     expectRejectedSourcePacket(
       root,
       "query",
@@ -358,7 +358,7 @@ describe("public bootstrap CLI", () => {
   });
 
   test("generates and checks durable single-package and optional monorepo variants", async () => {
-    const root = await temporaryRoot();
+    const root = temporaryRoot();
     for (const [name, extra, variant] of [
       ["durable-single", [], "single-package"],
       ["durable-monorepo", ["--monorepo"], "monorepo"],
@@ -451,7 +451,7 @@ describe("public bootstrap CLI", () => {
   }, 120_000);
 
   test("refuses a non-empty destination without changing its bytes", async () => {
-    const root = await temporaryRoot();
+    const root = temporaryRoot();
     const destination = join(root, "owned");
     const sentinel = join(destination, "keep.txt");
     await mkdir(destination);
@@ -482,8 +482,8 @@ describe("public bootstrap CLI", () => {
     expect(await listFiles(destination)).toEqual(["keep.txt"]);
   });
 
-  test("rejects the monorepo option for scratch", async () => {
-    const root = await temporaryRoot();
+  test("rejects the monorepo option for scratch", () => {
+    const root = temporaryRoot();
     const result = invoke(
       "--profile",
       "scratch",
@@ -504,7 +504,7 @@ describe("public bootstrap CLI", () => {
   });
 
   test("generates independently runnable simple and complex CLI starters", async () => {
-    const root = await temporaryRoot();
+    const root = temporaryRoot();
     for (const starter of ["simple", "complex"] as const) {
       const destination = join(root, `${starter}-cli`);
       const result = invoke(
@@ -612,8 +612,8 @@ describe("public bootstrap CLI", () => {
     }
   }, 120_000);
 
-  test("refuses incompatible starter profile combinations before writing", async () => {
-    const root = await temporaryRoot();
+  test("refuses incompatible starter profile combinations before writing", () => {
+    const root = temporaryRoot();
     for (const args of [
       ["--profile", "scratch", "--starter", "simple"],
       ["--profile", "durable", "--starter", "complex", "--monorepo"],
@@ -760,7 +760,7 @@ const inventoryRegressions = [
 
 for (const specimen of inventoryRegressions) {
   test(`one-CLI inventory regression: ${specimen.name}`, async () => {
-    const root = await temporaryRoot();
+    const root = temporaryRoot();
     await writeFile(
       join(root, "package.json"),
       JSON.stringify({ scripts: specimen.scripts }),
@@ -792,7 +792,7 @@ async function admitExtractedCli(root: string): Promise<Invocation> {
 }
 
 test("one-CLI inventory runs as an extracted module without host dependencies", async () => {
-  const root = await temporaryRoot();
+  const root = temporaryRoot();
   await mkdir(join(root, "src"));
   await writeFile(
     join(root, "src/cli.ts"),
@@ -810,8 +810,8 @@ test("one-CLI inventory runs as an extracted module without host dependencies", 
 
 for (const extracted of [false, true]) {
   test(`one-CLI inventory never executes macros: ${extracted ? "extracted" : "standalone"}`, async () => {
-    const root = await temporaryRoot();
-    const effectsRoot = await temporaryRoot();
+    const root = temporaryRoot();
+    const effectsRoot = temporaryRoot();
     const marker = join(effectsRoot, "executed.txt");
     const macro = join(effectsRoot, "effect.ts");
     await writeFile(
@@ -908,7 +908,7 @@ for (const [name, source, entries] of [
   ],
 ] as const) {
   test(`one-CLI inventory imported process: ${name}`, async () => {
-    const root = await temporaryRoot();
+    const root = temporaryRoot();
     await mkdir(join(root, "src"));
     await writeFile(
       join(root, "package.json"),
@@ -933,7 +933,7 @@ test("one-CLI admission covers scratch, durable and workspace entry points", asy
     ["durable", []],
     ["durable", ["--monorepo"]],
   ] as const) {
-    const root = await temporaryRoot();
+    const root = temporaryRoot();
     const destination = join(root, "repository");
     requireSuccess(
       invoke(
@@ -995,7 +995,7 @@ test("one-CLI admission covers scratch, durable and workspace entry points", asy
 });
 
 test("one-CLI admission finds a documented executable and workspace bin", async () => {
-  const root = await temporaryRoot();
+  const root = temporaryRoot();
   const destination = join(root, "workspace");
   requireSuccess(
     invoke(
@@ -1041,7 +1041,7 @@ test("one-CLI admission finds a documented executable and workspace bin", async 
 });
 
 test("domain loading failures preserve help, discovery and unrelated commands", async () => {
-  const root = await temporaryRoot();
+  const root = temporaryRoot();
   const destination = join(root, "domains");
   requireSuccess(
     invoke(
@@ -1089,7 +1089,7 @@ test("domain loading failures preserve help, discovery and unrelated commands", 
 });
 
 test("lint, local rules, formatting and native type errors fail independent read-only checks", async () => {
-  const root = await temporaryRoot();
+  const root = temporaryRoot();
   const destination = join(root, "gates");
   requireSuccess(
     invoke(

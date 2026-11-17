@@ -1,6 +1,6 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync, statSync } from "node:fs";
-import { cp, mkdir, readdir } from "node:fs/promises";
+import { cp, mkdir, readdir, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import {
   type ProjectRecipe,
@@ -217,11 +217,22 @@ describe("project recipe", () => {
   });
 });
 
+const carryOutFolders: string[] = [];
+
+afterEach(async () => {
+  await Promise.all(
+    carryOutFolders
+      .splice(0)
+      .map((folder) => rm(folder, { force: true, recursive: true })),
+  );
+});
+
 describe("Bootstrap carrying out a row", () => {
   test(
     "refuses a missing template source folder before any file is copied",
     async () => {
       const template = testFolder("recipe-template-");
+      carryOutFolders.push(template);
       await mkdir(join(template, "src"));
       for (const file of ["bootstrap.ts", "recipe.ts"]) {
         await cp(join(ROOT, "src", file), join(template, "src", file));
@@ -235,7 +246,9 @@ describe("Bootstrap carrying out a row", () => {
           recursive: true,
         });
       }
-      const parent = join(testFolder("recipe-out-"), "nested");
+      const output = testFolder("recipe-out-");
+      carryOutFolders.push(output);
+      const parent = join(output, "nested");
       const destination = join(parent, "demo-app");
 
       const child = await spawnBounded(
