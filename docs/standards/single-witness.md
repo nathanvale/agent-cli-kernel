@@ -19,8 +19,12 @@ this file.
   reference in the reported scope uses, so the repair compiles where it is
   pasted. Witnessed: [r4606943319] (`key in read()` beside a `key`
   parameter gave `const key = key;`).
+- Build a lint repair from the source it replaces, so the code it leaves
+  unchanged still finds every name it reads. Witnessed: [r4607149514] (the
+  `for...in` repair named `const key`, and the loop body read `field`).
 
 [ac11ed9]: https://github.com/nathanvale/bun-typescript-template/commit/ac11ed98b7d538e8a304cac053aaefcaaf6b2cb3
 [cd2498b]: https://github.com/nathanvale/bun-typescript-template/commit/cd2498b7189a2d45d1906b9c870e8d13da6cd2dd
 [fc4fa62]: https://github.com/nathanvale/bun-typescript-template/commit/fc4fa628535ecc6729048cb6fbb759f153edd040
 [r4606943319]: https://github.com/nathanvale/bun-typescript-template/pull/80#discussion_r4606943319
+[r4607149514]: https://github.com/nathanvale/bun-typescript-template/pull/80#discussion_r4607149514
