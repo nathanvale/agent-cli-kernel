@@ -364,7 +364,11 @@ function parseArgs(argv: string[]): BootstrapOptions | "help" {
 }
 
 function isMissingPathError(error: unknown): boolean {
-  return error instanceof Error && "code" in error && error.code === "ENOENT";
+  return (
+    error instanceof Error &&
+    Object.hasOwn(error, "code") &&
+    Reflect.get(error, "code") === "ENOENT"
+  );
 }
 
 async function lstatIfPresent(path: string) {

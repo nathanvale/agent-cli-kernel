@@ -9,9 +9,12 @@ function packageDocument(value: unknown): object {
 
 function version(value: unknown): string {
   const document = packageDocument(value);
-  if (!("version" in document) || typeof document.version !== "string")
+  const identity: unknown = Object.hasOwn(document, "version")
+    ? Reflect.get(document, "version")
+    : undefined;
+  if (typeof identity !== "string")
     throw new Error("The installed package has no version identity.");
-  return document.version;
+  return identity;
 }
 
 function acceptedBackends(
