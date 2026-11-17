@@ -1,8 +1,8 @@
-# Contract 3
+# CLI Kernel Authority
 
-These public sources define the product contract this repository implements.
+These sources define the command contract the CLI kernel implements.
 
-- Frozen Contract 3 text: `agent-engineering` repository, skill
+- Frozen Command Contract 3 text: `agent-engineering` repository, skill
   `agent-cli-design`, `references/contract-3/`. Cite it by that path. Read
   it at published commit `648f93275717d5b031dd4bb4fc67f80cd9940383`.
 - Accepted identity: commit `5693651d19c6fba2430c904688e583266dbe58a0`,
@@ -21,7 +21,7 @@ These public sources define the product contract this repository implements.
 These private planning records live outside this repository. Your task brief
 supplies the parts your task may use. If your task needs a record that the
 brief does not supply, report it as missing context with its identity and
-owner from this list.
+planning record owner from this list.
 
 - Foundation specification and Contract 3 decision record, in the
   `my-second-brain-playground` repository:

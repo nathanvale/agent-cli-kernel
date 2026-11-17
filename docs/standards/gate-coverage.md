@@ -68,7 +68,7 @@ gates and their witnesses.
 - Lint `repository/no-comments` refuses every comment block in a file
   `eslint.config.mjs` lints outside the kernel: `src/`, `scripts/`, `tests/`
   outside `tests/kernel/`, `config/` and the root `.mjs` files.
-  Consecutive line comments are one block. The kernel's copy of the rule
+  Consecutive line comments are one block. The kernel's lint rule
   covers `kernel/` and `tests/kernel/`.
 - A block stays only when it is one of these:
   - `Platform:` on its first line: behaviour of a runtime, operating system
@@ -78,7 +78,7 @@ gates and their witnesses.
     state.
   - An accepted decision citation. Say "accepted decision" and give a
     Contract 3 question number, an ID such as `N4a`, or the ruling date.
-    See the [decision authority](../agents/contract-3.md).
+    See the [CLI kernel authority](../agents/cli-kernel.md).
   - A lint or compiler directive, such as `eslint-disable-next-line` or
     `@ts-expect-error`. Other rules govern those.
   - `SAFETY:` and a justification on its first line, on its own lines
@@ -86,7 +86,7 @@ gates and their witnesses.
     `as const`), where `anti-slop/require-safety-comment-for-type-assertion`
     accepts it.
 - Everything else goes into code: a name, a type, a test title, or a lint
-  rule whose message explains the constraint. An empty `catch` says what
+  lint rule whose message explains the constraint. An empty `catch` says what
   happens next in code (`return`, `continue`, or a rethrow), not in prose.
 - Fault `5ac4285-template-rules` admits a marker on any line of a block; the
   lint test that refuses `Platform:` on a second line kills it. Fault

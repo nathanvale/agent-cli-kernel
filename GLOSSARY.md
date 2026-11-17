@@ -1,7 +1,7 @@
 # Bun TypeScript Template glossary
 
 This file is the source of truth for the words this repository owns: the
-recipe table that Bootstrap follows, the kernel split, and the checks that
+recipe table that Bootstrap follows, the kernel split, and the gates that
 keep its own code honest. No other glossary defines them. `GLOSSARY-MAP.md`
 names the glossaries that own every other word, Bootstrap among them.
 
@@ -9,8 +9,8 @@ names the glossaries that own every other word, Bootstrap among them.
 
 An `_Avoid_` line lists words not to use for its term. A note in parentheses
 says when: it covers the words before it, back to the previous note or
-semicolon. The writer and the reviewer hold those words, because a check
-cannot tell what a name means. The names check refuses a word with no note
+semicolon. The writer and the reviewer hold those words, because the names
+check cannot tell what a name means. The names check refuses a word with no note
 after it in every file and folder name. It refuses a word noted
 `(unqualified)` as a whole name only when
 [Words that need a qualifier](#words-that-need-a-qualifier) also lists it.
@@ -18,8 +18,8 @@ after it in every file and folder name. It refuses a word noted
 ### Creating a repository
 
 **Recipe**:
-One row of the recipe table. For one kind of repository a person can ask for,
-it says which folders Bootstrap copies, which CLI starter the new repository
+One row of the recipe table. For a repository shape, it says which folders
+Bootstrap copies, which CLI starter the generated repository
 gets, and which check command it runs.
 
 **Recipe table**:
@@ -198,7 +198,7 @@ and pushes.
 _Avoid_: CI (unqualified)
 
 **Gate**:
-A check that a change must pass before it lands in a repository. A gate that
+A required validation that can refuse a change before it lands in a repository. A gate that
 would check nothing must fail. The names of a repository's own gates belong to
 that repository's standards, not to this glossary. The repo gardener's Gate
 job gives a rule row its gate.
@@ -218,13 +218,13 @@ optional. It is meant for any child of a script or test that could hang,
 which it ends with a time limit or an explicit stop.
 
 **Negative control**:
-A break made on purpose to show that a check can fail. It can be made once by
+A break made on purpose to show that a test or gate can fail. It can be made once by
 hand, or kept.
 _Avoid_: mutation; canary (for a negative control)
 
 **Planted fault**:
-A negative control kept as a patch. The fault replay applies it on every run,
-so its named test must keep catching it.
+A negative control kept as a patch. Fault replay applies it when its fault
+record is selected, so its named test must keep catching it.
 _Avoid_: mutant, mutation; canary (for a planted fault)
 
 **Fault record**:
@@ -232,21 +232,22 @@ The entry that names a planted fault, the test that must catch it, and the
 commit it undoes.
 
 **Fault replay**:
-A run that applies each planted fault's patch to a temporary copy of the
-working tree, and confirms that its named test passes without the patch and
-fails with it.
+A run that applies each selected planted fault's patch in a temporary
+worktree. Its named test must pass without the patch and fail with it. The
+hosted check replays every fault record. Pre-push replays fault records
+affected by the push.
 
 **Recorded hit**:
-A violation that already existed when its rule landed, listed with its reason
-so the check passes until it is fixed. A new violation is fixed, never
-recorded, so a list only shrinks after its rule lands.
+A violation that already existed when its gate landed. The record gives
+its reason and lets the gate pass until a commit fixes it. Fix every new
+violation so the list only shrinks after its gate lands.
 _Avoid_: known hit, allowlist, baseline
 
 ### Tools and their messages
 
 **Refusal**:
-A tool declining to act, before it changes anything, with a message that says
-why and what to do next.
+A tool declining to act before it changes anything. Its message names the
+cause and the repair.
 _Avoid_: rejection (for a refusal)
 
 **Repair**:
@@ -261,11 +262,12 @@ each commit GREEN or RED.
 
 **Doctor**:
 The command that checks, before work starts, that this checkout can run the
-repository's checks: the pinned Bun, the installed toolchain, fallow's
-readiness and the machine's load. It names a repair for each check that fails.
+repository's check command and gates. It verifies the pinned Bun, the
+installed toolchain, fallow's readiness and the machine's load, and names
+a repair for each failure.
 
 **Toolchain**:
-The tools a repository's checks run on, at the versions the repository accepts:
+The tools a repository's check command and gates use, at the accepted versions:
 Bun, the linter, the compiler and the dead-code tool. The linter and the
 dead-code tool each load their own TypeScript package, and the compiler is
 TypeScript's native build.
@@ -276,8 +278,7 @@ lint rule can be the gate of a rule row.
 _Avoid_: rule (unqualified)
 
 **Names check**:
-The check that holds every tracked file and folder name to the glossary's
-words. It runs as a test, as a hook when a file is created, and at commit.
+Enforces the glossary's words in every tracked file and folder name. It runs as a test, as a hook when a file is created, and at commit.
 _Avoid_: names gate (for the names check)
 
 ### Keeping the rules
@@ -289,10 +290,10 @@ _Avoid_: steward, janitor
 
 **Sow**:
 Record the lesson of a correction or a review finding beside its witness. A
-lesson seen twice grows into a rule.
+lesson seen twice grows into a rule row.
 
 **Weed**:
-Remove a rule, guide bullet, link definition or pointer that nothing uses any
+Remove a rule row, guide bullet, link definition or reference that nothing uses any
 more, after finding out why it was added.
 _Avoid_: clean up, prune
 
@@ -301,8 +302,8 @@ Hold a file or folder name to the glossary's words: rename it, give its word
 an owner, or record the hit with its reason.
 
 **Rule row**:
-One row of the rule table in `CODING_STANDARDS.md`: a rule, what enforces it
-today, and the guide a reviewer applies. A row enters with at least two
+One row of the rule table in `CODING_STANDARDS.md`. It names a coding standard,
+what enforces it today, and the guide or gate note a reviewer applies. A row enters with at least two
 witnesses.
 
 **Witness**:

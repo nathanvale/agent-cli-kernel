@@ -2,9 +2,9 @@
 
 Read at review. This file holds only lessons this repository witnessed in
 review feedback or repair commits. It extends Engineering's shared coding
-standard. The guides call it the shared standard and cite its rules by title.
+standard. The guides call it the shared standard and cite it by title.
 
-Use the first copy of the shared standard you can reach:
+Read the shared standard from the first available source.
 
 1. The copy your task brief supplies.
 2. Its current source, `docs/standards/CODING_STANDARDS.md` in
@@ -16,13 +16,13 @@ shared standard as missing context. No approved route delivers the shared
 standard to a fresh checkout yet. [MAG-65] owns preparing that route,
 [MAG-88] owns source adoption, and [MAG-78] owns the deployment repository.
 
-A row enters with at least two witnesses. Its guide cites them, or its gate
+A rule row enters with at least two witnesses. Its guide cites them, or its gate
 note does when the row has no guide in `docs/standards/`. A guide bullet cites
-the witnesses that taught it, one or more. A bullet with no citation is the
-check that applies its row's lesson. A lesson with one witness waits in
+the witnesses that taught it, one or more. A guide bullet with no citation tells the
+reviewer how to apply the rule row. A lesson with one witness waits in
 [Single witness](docs/standards/single-witness.md) until a second arrives.
 
-Each row names what enforces it today:
+Each rule row names what enforces it today:
 
 - **Review only**: no gate; the reviewer applies the guide.
 - **Partial**: the gates in its Gates cell cover the part its gate note
@@ -101,11 +101,12 @@ row's guide or gate note cites two distinct witnesses.
   `fault-replay` job in `.github/workflows/ci.yml` runs it on every pull
   request.
 - Pre-push runs `bun run fault-replay --changed-since <base>` for faults
-  affected by the push. Hosted CI replays the full inventory.
-- It fails on a record whose named test passes with the fault applied, fails
-  without it, or whose patch no longer applies.
-- A new refusal or bound with no record stays review. So does a record whose
-  test title matches more tests than the fault reaches.
+  affected by the push. The hosted `fault-replay` check replays every fault record.
+- Fault replay fails on a fault record whose named test passes with the
+  planted fault applied or fails without it. A patch that no longer applies
+  also fails replay.
+- A new refusal or bound with no fault record stays review. So does a fault
+  record whose test title matches more tests than the planted fault reaches.
 - Witnessed: [d72cd9e], [640ba05].
 
 ### Time
@@ -158,28 +159,29 @@ row's guide or gate note cites two distinct witnesses.
 
 ### Recorded hits
 
-- `eslint-suppressions.json` records the hits each lint found when it
-  landed. They are existing violations, not reviewed exceptions.
+- `eslint-suppressions.json` holds the recorded hits each lint rule found
+  when it landed.
 - `bun run lint` fails on a new hit. It also fails when a recorded hit is
   fixed and the file is not pruned. Run
   `bunx eslint . --prune-suppressions` after the fix.
-- The template's rules live in `config/template-rules.mjs`. Kernel rules and
-  their recorded hits run from `config/kernel-repository-lint.mjs` and leave
+- The template's lint rules live in `config/template-rules.mjs`. Kernel lint
+  rules and their recorded hits run from `config/kernel-repository-lint.mjs` and leave
   with the kernel.
 - `kernel/config/kernel/` is stamped, so it holds only the rules
-  `kernelLint` turns on. The kernel repository's own rules (`no-comments`
-  and the three test rules) live in `config/kernel-repository-rules.mjs`.
+  `kernelLint` turns on. The kernel repository's own lint rules,
+  `no-comments` and the three test lint rules, live in
+  `config/kernel-repository-rules.mjs`.
 
 ## Review routine
 
-1. List the rows the diff touches.
-2. For each Partial row, find each of its gates in the hosted CI result for
-   this head that your caller passed in the prompt. Report a gate the result
+1. List the rule rows the diff touches.
+2. For each Partial rule row, find each gate in the hosted check result
+   for the head your caller passed in the prompt. Report a gate the result
    does not show green as **unproved**, never as a pass. For questions
    about coverage, follow its gate note and any linked detail.
-3. For each Review only or Partial row, open its guide, or its gate note when
+3. For each Review only or Partial rule row, open its guide, or its gate note when
    it has no guide, and apply every bullet to the diff.
-4. Report each finding with its row and the guide or gate-note bullet it breaks.
+4. Report each finding with its rule row and the guide or gate-note bullet it breaks.
 
 [MAG-98]: https://linear.app/myagentdojo/issue/MAG-98/command-contract-30-foundation-accepted-implementation-scope
 [#8]: https://github.com/nathanvale/bun-typescript-template/pull/8

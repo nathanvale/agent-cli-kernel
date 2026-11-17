@@ -8,9 +8,9 @@
   reviews are optional for GitHub's merge gate.
 - Answer every review thread. Commit each fix, then run the
   [repo-gardener](../../.agents/skills/repo-gardener/SKILL.md) Sow job on
-  a clean tree for each finding about code, tests, or checks. Commit what
-  Sow writes. Route instruction wording to its owner. Push the fixes
-  as one batch.
+  a clean tree for each finding about code, tests, check commands, or
+  gates. Commit what Sow writes. Route instruction wording to the
+  document's owner. Push the fixes as one batch.
 - Stop requesting reviews after the third round. Ask Copilot again only
   after the first and second batches. CodeRabbit is configured for
   incremental reviews on pushes. After round three, address comments
