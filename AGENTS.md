@@ -50,14 +50,10 @@ owner from this list.
 
 ## Checks
 
-- Git hooks run Biome, lint, typecheck and fallow on each commit, and fallow
-  on each push. When one refuses, fix the cause it names and commit again;
-  CI runs the same checks.
 - Full suite and timing-sensitive cases: run them on hosted CI or on the test
   host your task brief names. `bun run doctor` warns when this host is too
   loaded.
-- Before you push a change to source or tests, run `bun run faults`; CI's
-  `faults` job repeats it.
-- CI's `commits` job checks each commit at its own head. Run
-  `bun run check:commits <base>` only to reproduce a red `commits` job.
+- CI's `commits` job checks each commit at its own head, and its `faults` job
+  replays the planted faults. To reproduce a red one, run
+  `bun run check:commits <base>` or `bun run faults <id>`.
 - Review: apply `CODING_STANDARDS.md` to the diff; each row names its gate.
