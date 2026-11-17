@@ -15,7 +15,7 @@ import {
   processWatchdog,
   type SignalAt,
   spawnBounded,
-} from "./contract3/kernel-repair/swarm-process.ts";
+} from "./support/process.ts";
 import { testFolder } from "./support/test-folder.ts";
 
 const repository = join(import.meta.dir, "..");

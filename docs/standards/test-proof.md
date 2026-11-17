@@ -37,8 +37,11 @@ repository broke it.
 ## Processes
 
 - Bound every child below its test timeout. Witnessed: [e990da6], [4a32366].
-- Reuse `spawnBounded` (`tests/contract3/kernel-repair/swarm-process.ts`) or
-  `exitWithin` (`tests/contract3/lifecycle/harness.ts`) for that bound.
+- Template tests: reuse `spawnBounded` (`tests/support/process.ts`), which
+  runs the child through `startChild` (`scripts/child-env.ts`), for that
+  bound. Contract 3 tests: reuse `spawnBounded`
+  (`tests/contract3/kernel-repair/swarm-process.ts`) or `exitWithin`
+  (`tests/contract3/lifecycle/harness.ts`).
 - Release in `finally`: the CLI, then each ledgered child, then the temporary
   folder. Witnessed: [d592b6d].
 - At teardown, send SIGKILL, and only to a pid still in its ledgered process

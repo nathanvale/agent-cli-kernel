@@ -14,36 +14,82 @@ const ownTools = {
     .join(delimiter),
 };
 
-const graceMilliseconds = 2_000;
+const defaultGraceMilliseconds = 2_000;
 // Platform: The child's group has no live process to signal. ESRCH: every member is
 // reaped. EPERM: macOS answers it when every member left is a zombie.
 const groupGone = new Set<unknown>(["ESRCH", "EPERM"]);
 
-export async function runWithOwnTools(
+export type Finished = {
+  readonly stdout: string;
+  readonly stderr: string;
+  readonly exitCode: number;
+  readonly signalCode: string | null;
+  readonly timedOut: boolean;
+};
+
+export type Child = {
+  readonly pid: number;
+  readonly signal: (signal: "SIGTERM" | "SIGINT" | "SIGHUP") => void;
+  readonly stop: () => void;
+  readonly finished: Promise<Finished>;
+};
+
+// Interface: the template's one process runner, for its scripts and the tests
+// that judge them. It imports only Node, so a test can copy it byte for byte
+// into a fixture repository. `stop` sends SIGTERM, then SIGKILL once the grace
+// runs out; a grace of zero sends SIGKILL at once. With `ownGroup` (the
+// default) every signal from `stop` reaches every process the child started;
+// `signal` reaches the child alone. After a stop, `finished` waits for the
+// child, not its pipes, and holds the output that arrived before it died.
+export function startChild(
   argv: readonly string[],
-  cwd: string,
-  tracker: { stop?: () => void },
-  { limitMilliseconds }: { readonly limitMilliseconds?: number } = {},
-) {
-  const child = Bun.spawn([...argv], {
+  {
     cwd,
-    env: ownTools,
+    env = ownTools,
+    ownGroup = true,
+    limitMilliseconds,
+    graceMilliseconds = defaultGraceMilliseconds,
+  }: {
+    readonly cwd?: string;
+    readonly env?: Readonly<Record<string, string | undefined>>;
+    readonly ownGroup?: boolean;
+    readonly limitMilliseconds?: number;
+    readonly graceMilliseconds?: number;
+  } = {},
+): Child {
+  const child = Bun.spawn([...argv], {
+    ...(cwd === undefined ? {} : { cwd }),
+    env: { ...env },
     stdout: "pipe",
     stderr: "pipe",
-    detached: true,
+    detached: ownGroup,
   });
   const send = (signal: "SIGTERM" | "SIGKILL") => {
+    if (!ownGroup) {
+      child.kill(signal);
+      return;
+    }
     try {
       process.kill(-child.pid, signal);
     } catch (error) {
       if (!groupGone.has(Reflect.get(Object(error), "code"))) throw error;
     }
   };
+  let stopped = false;
+  let markStopped = () => {};
+  const stopRequested = new Promise<void>((resolve) => {
+    markStopped = resolve;
+  });
   let escalation: ReturnType<typeof setTimeout> | undefined;
   const stop = () => {
-    if (escalation !== undefined) return;
-    send("SIGTERM");
-    escalation = setTimeout(() => send("SIGKILL"), graceMilliseconds);
+    if (stopped) return;
+    stopped = true;
+    markStopped();
+    if (graceMilliseconds <= 0) send("SIGKILL");
+    else {
+      send("SIGTERM");
+      escalation = setTimeout(() => send("SIGKILL"), graceMilliseconds);
+    }
   };
   let timedOut = false;
   const limit =
@@ -53,23 +99,61 @@ export async function runWithOwnTools(
           timedOut = true;
           stop();
         }, limitMilliseconds);
-  tracker.stop = stop;
-  try {
-    const [stdout, stderr, exitCode] = await Promise.all([
-      new Response(child.stdout).text(),
-      new Response(child.stderr).text(),
-      child.exited,
-    ]);
-    if (escalation !== undefined) send("SIGKILL");
+  const collect = (stream: ReadableStream<Uint8Array>) => {
+    const chunks: Uint8Array[] = [];
+    const closed = (async () => {
+      for await (const chunk of stream) chunks.push(chunk);
+    })();
     return {
-      exitCode,
-      signalCode: child.signalCode,
-      timedOut,
-      output: stdout + stderr,
+      closed,
+      text: () => new TextDecoder().decode(Buffer.concat(chunks)),
     };
+  };
+  const out = collect(child.stdout);
+  const err = collect(child.stderr);
+  const finished = (async (): Promise<Finished> => {
+    try {
+      await Promise.race([
+        Promise.all([out.closed, err.closed, child.exited]),
+        stopRequested.then(() => child.exited),
+      ]);
+      if (stopped && ownGroup) send("SIGKILL");
+      return {
+        stdout: out.text(),
+        stderr: err.text(),
+        exitCode: await child.exited,
+        signalCode: child.signalCode,
+        timedOut,
+      };
+    } finally {
+      clearTimeout(limit);
+      clearTimeout(escalation);
+    }
+  })();
+  return {
+    pid: child.pid,
+    signal: (signal) => child.kill(signal),
+    stop,
+    finished,
+  };
+}
+
+export async function runWithOwnTools(
+  argv: readonly string[],
+  cwd: string,
+  tracker: { stop?: () => void },
+  { limitMilliseconds }: { readonly limitMilliseconds?: number } = {},
+) {
+  const child = startChild(argv, {
+    cwd,
+    ...(limitMilliseconds === undefined ? {} : { limitMilliseconds }),
+  });
+  tracker.stop = child.stop;
+  try {
+    const { stdout, stderr, exitCode, signalCode, timedOut } =
+      await child.finished;
+    return { exitCode, signalCode, timedOut, output: stdout + stderr };
   } finally {
-    clearTimeout(limit);
-    clearTimeout(escalation);
     delete tracker.stop;
   }
 }
