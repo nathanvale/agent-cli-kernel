@@ -54,6 +54,18 @@ A violation that existed when a check landed, listed so that the check passes
 until someone fixes it. The list only shrinks.
 _Avoid_: known hit, allowlist, baseline
 
+### Keeping the rules
+
+**Repo gardener**:
+The role that keeps the rule table true: it ties each rule to its witness,
+gives rules gates, and weeds what nothing uses.
+_Avoid_: steward, janitor
+
+**Weed**:
+Remove a rule, guide bullet, link definition or pointer that nothing uses any
+more, after finding out why it was added.
+_Avoid_: clean up, prune
+
 ## Words that need a qualifier
 
 Each of these words names different things in different projects. In the name
