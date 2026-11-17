@@ -31,7 +31,9 @@ const signals = ["SIGHUP", "SIGINT", "SIGTERM"] as const;
 type StopSignal = (typeof signals)[number];
 const active: { stop?: () => void; stoppedBy?: StopSignal } = {};
 
-function isStopSignal(signal: string | undefined): signal is StopSignal {
+function isStopSignal(
+  signal: NodeJS.Signals | number | undefined,
+): signal is StopSignal {
   return signals.some((each) => each === signal);
 }
 

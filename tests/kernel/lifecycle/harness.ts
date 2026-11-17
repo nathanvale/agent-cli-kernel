@@ -136,7 +136,7 @@ export type Observed = {
   readonly stdoutComplete: boolean;
   readonly stderrComplete: boolean;
   readonly code: number | null;
-  readonly signal: string | null;
+  readonly signal: NodeJS.Signals | number | null;
   readonly pid: number;
   readonly spawnedAt: number;
   readonly exitedAt: number;

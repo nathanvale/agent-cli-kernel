@@ -125,7 +125,7 @@ export function str(value: Json | undefined): string {
 
 export type Run = {
   readonly exit: number | null;
-  readonly signal: string | null;
+  readonly signal: NodeJS.Signals | number | null;
   readonly stdout: string;
   readonly stderr: string;
   readonly envelope: { readonly message: Json | undefined; readonly raw: Json };
@@ -141,7 +141,7 @@ export type Run = {
 
 function parseRun(
   exit: number | null,
-  signal: string | null,
+  signal: NodeJS.Signals | number | null,
   stdout: string,
   stderr: string,
 ): Run {

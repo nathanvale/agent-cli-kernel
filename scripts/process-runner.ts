@@ -23,7 +23,7 @@ export type Finished = {
   readonly stdout: string;
   readonly stderr: string;
   readonly exitCode: number;
-  readonly signalCode: string | null;
+  readonly signalCode: NodeJS.Signals | number | null;
   readonly timedOut: boolean;
 };
 
