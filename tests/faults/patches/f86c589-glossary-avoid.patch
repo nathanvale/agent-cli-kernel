@@ -1,0 +1,13 @@
+diff --git a/scripts/glossary.ts b/scripts/glossary.ts
+index fa6c940..ef2329b 100644
+--- a/scripts/glossary.ts
++++ b/scripts/glossary.ts
+@@ -99,7 +99,7 @@ function hitsIn(path: string, glossary: Glossary): NameHit[] {
+   const base = wordsOf(name.split(".")[0] ?? "");
+   const avoided = glossary.terms.flatMap((term) =>
+     term.avoid.flatMap((word) =>
+-      holdsPhrase(words, wordsOf(word))
++      holdsPhrase(words, wordsOf(word)) && false
+         ? [
+             {
+               path,
