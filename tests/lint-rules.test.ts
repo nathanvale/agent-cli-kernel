@@ -709,6 +709,14 @@ const ownData = [
     undefined,
   ],
   [
+    'export function has<T extends { a: number } | { b: string }>(value: T) {\n  return "a" in value;\n}',
+    undefined,
+  ],
+  [
+    'export function has<T extends { a: number } | { b: string }>(value: T) {\n  return "c" in value;\n}',
+    'Repair: (Object.hasOwn(value, "c")',
+  ],
+  [
     'export const has = (value: object) => Object.hasOwn(value, "payload");',
     undefined,
   ],

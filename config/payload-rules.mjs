@@ -96,9 +96,9 @@ export default {
         };
         const declared = (keyNode, targetNode) => {
           const keys = members(services.getTypeAtLocation(keyNode));
-          const targets = members(services.getTypeAtLocation(targetNode)).map(
-            (type) => checker.getApparentType(type),
-          );
+          const targets = members(
+            services.getTypeAtLocation(targetNode),
+          ).flatMap((type) => members(checker.getApparentType(type)));
           return keys.every((key) =>
             targets.some((type) => own(propertyOf(type, key))),
           );
