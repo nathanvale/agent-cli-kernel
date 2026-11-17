@@ -64,7 +64,7 @@ export default {
           inBound:
             "{{key}} is not declared on this type, and {{how}} also finds inherited members such as toString; a second evaluation of {{target}} or {{key}} may yield another value, so bind both once, in the order {{how}} evaluates them, then read the own value into a place typed unknown. Repair: {{bindings}} const {{ownName}}: unknown = Object.hasOwn({{targetName}}, {{keyName}}) ? Reflect.get({{targetName}}, {{keyName}}) : undefined;",
           forIn:
-            "for...in also walks inherited enumerable keys. Repair: for (const key of Object.keys({{target}}))",
+            "for...in also walks inherited enumerable keys. Repair: for ({{binding}} of Object.keys({{target}}))",
         },
       },
       create(context) {
@@ -140,7 +140,7 @@ export default {
             context.report({
               node,
               messageId: "forIn",
-              data: { target: text(node.right) },
+              data: { binding: text(node.left), target: text(node.right) },
             });
           },
         };

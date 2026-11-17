@@ -154,6 +154,22 @@ const fixes = [
     fixed: ([fix]: string[]) =>
       `export const payload = (host: { readonly value: object }): unknown => {\n  ${fix}\n  return own;\n};`,
   },
+  {
+    rule: "no-in-operator",
+    filePath: "src/static-admission.ts",
+    failing:
+      "export const consume = (value: object, use: (field: string) => void) => {\n  for (const field in value) use(field);\n};",
+    fixed: ([fix]: string[]) =>
+      `export const consume = (value: object, use: (field: string) => void) => {\n  ${fix} use(field);\n};`,
+  },
+  {
+    rule: "no-in-operator",
+    filePath: "src/static-admission.ts",
+    failing:
+      "export const consume = (value: object, use: (field: string) => void) => {\n  let field: string;\n  for (field in value) use(field);\n};",
+    fixed: ([fix]: string[]) =>
+      `export const consume = (value: object, use: (field: string) => void) => {\n  let field: string;\n  ${fix} use(field);\n};`,
+  },
 ];
 
 for (const item of fixes)
@@ -667,6 +683,10 @@ const ownData = [
   [
     "export const keys = (value: object) => {\n  for (const key in value) return key;\n};",
     "Repair: for (const key of Object.keys(value))",
+  ],
+  [
+    "export const keys = (value: object) => {\n  for (let field in value) return field;\n};",
+    "Repair: for (let field of Object.keys(value))",
   ],
   [
     'export const once = (read: () => object) => "payload" in read();',
