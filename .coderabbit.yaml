@@ -7,4 +7,4 @@ reviews:
   path_filters:
     - "!tests/planted-faults/patches/**"
     - "!**/bun.lock"
-    - "!tools/oxlint/anti-slop/vendor/**"
+    - "!tools/oxlint/anti-slop/**"
