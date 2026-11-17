@@ -207,8 +207,9 @@ _Avoid_: test seam (a Seam is where behaviour can vary; nothing varies at a test
 A named set of tests that runs on its own.
 
 **Process runner**:
-The template's one way for its scripts, and the tests that judge them, to
-start a child process.
+The module that starts a child process with a time limit, in its own process
+group, with only its own tree's tools on the path. Scripts and their tests use
+it for any child that could hang.
 
 **Negative control**:
 A break made on purpose to show that a check can fail. It can be made once by
