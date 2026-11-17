@@ -2,25 +2,16 @@ import { afterAll } from "bun:test";
 import { mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { git } from "../support/git-fixture.ts";
 import { testFolder } from "../support/test-folder.ts";
 import {
   citationProblems,
   faultRecordsFile,
-  git,
   linkProblems,
   standards,
 } from "./standards-documents.ts";
 import { gateProblems, rowProblems } from "./standards-rules.ts";
 
-const fixtureGitEnv = {
-  ...process.env,
-  GIT_CONFIG_GLOBAL: "/dev/null",
-  GIT_CONFIG_NOSYSTEM: "1",
-  GIT_AUTHOR_NAME: "Fixture",
-  GIT_AUTHOR_EMAIL: "fixture@example.invalid",
-  GIT_COMMITTER_NAME: "Fixture",
-  GIT_COMMITTER_EMAIL: "fixture@example.invalid",
-};
 export const absent = "0123456789abcdef0123456789abcdef01234567";
 export const fixtureWeb =
   "https://github.com/nathanvale/bun-typescript-template";
@@ -58,14 +49,10 @@ export function standardsFixture() {
   ): string {
     const origin = folder();
     const commit = (subject: string) =>
-      git(
-        origin,
-        ["commit", "--quiet", "--allow-empty", "-m", subject],
-        fixtureGitEnv,
-      );
-    git(origin, ["init", "--quiet", "--initial-branch=main"], fixtureGitEnv);
+      git(origin, "commit", "--quiet", "--allow-empty", "-m", subject);
+    git(origin, "init", "--quiet", "--initial-branch=main");
     commit("base");
-    const sha = git(origin, ["rev-parse", "HEAD"]);
+    const sha = git(origin, "rev-parse", "HEAD");
     const short = sha.slice(0, 7);
     let repository = origin;
     if (shallow) {
@@ -73,15 +60,12 @@ export function standardsFixture() {
       repository = join(folder(), "clone");
       git(
         origin,
-        [
-          "clone",
-          "--quiet",
-          "--depth",
-          "1",
-          pathToFileURL(origin).href,
-          repository,
-        ],
-        fixtureGitEnv,
+        "clone",
+        "--quiet",
+        "--depth",
+        "1",
+        pathToFileURL(origin).href,
+        repository,
       );
     }
     const files: Record<string, string> = {

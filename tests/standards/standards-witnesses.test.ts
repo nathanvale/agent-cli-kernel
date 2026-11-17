@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
 import { readFileSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
+import { git } from "../support/git-fixture.ts";
 import {
   citationProblems,
-  git,
   linkProblems,
   root,
   standards,
@@ -102,7 +102,7 @@ test.each([
   async (_fault, change, expected) => {
     const repository = fixture(change);
     expect(await allProblems(repository)).toEqual(
-      expected(git(repository, ["rev-parse", "HEAD"])),
+      expected(git(repository, "rev-parse", "HEAD")),
     );
   },
 );
@@ -132,7 +132,7 @@ test.each([
       });
     });
     expect(await allProblems(repository)).toEqual(
-      expected(git(repository, ["rev-parse", "HEAD"])),
+      expected(git(repository, "rev-parse", "HEAD")),
     );
   },
 );

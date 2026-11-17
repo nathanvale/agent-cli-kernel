@@ -14,6 +14,7 @@ import {
   lineOf,
   notAncestor,
 } from "../support/commit-links.ts";
+import { git } from "../support/git-fixture.ts";
 
 export const root = join(import.meta.dir, "../..");
 export const standards = "CODING_STANDARDS.md";
@@ -139,26 +140,10 @@ function skillLinkProblems(repository: string): string[] {
   });
 }
 
-export function git(
-  repository: string,
-  args: string[],
-  env: Record<string, string | undefined> = process.env,
-): string {
-  const result = Bun.spawnSync(["git", ...args], {
-    cwd: repository,
-    env,
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  if (result.exitCode !== 0)
-    throw new Error(`git ${args.join(" ")}: ${result.stderr.toString()}`);
-  return result.stdout.toString().trim();
-}
-
 function fetchHint(repository: string, history: string[]): string {
   const graft = resolve(
     repository,
-    git(repository, ["rev-parse", "--git-path", "shallow"]),
+    git(repository, "rev-parse", "--git-path", "shallow"),
   );
   const cut = existsSync(graft) ? readFileSync(graft, "utf8").split("\n") : [];
   return history.some((sha) => cut.includes(sha))
@@ -182,7 +167,7 @@ export function citableOf(repository: string): Citable {
 }
 
 function ancestry(repository: string): Ancestry {
-  const history = git(repository, ["rev-list", "HEAD"]).split("\n");
+  const history = git(repository, "rev-list", "HEAD").split("\n");
   return {
     ...citableOf(repository),
     isAncestor: (sha) => history.some((each) => each.startsWith(sha)),

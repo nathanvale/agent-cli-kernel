@@ -2,11 +2,11 @@ import { existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { ESLint } from "eslint";
 import type { Citable } from "../support/commit-links.ts";
+import { git } from "../support/git-fixture.ts";
 import {
   citableOf,
   faultRecords,
   faultRecordsFile,
-  git,
   headings,
   matching,
   readWithCodeBlanked,
@@ -174,12 +174,13 @@ export function rowProblems(repository: string): string[] {
 
 async function lintIds(repository: string): Promise<Set<string>> {
   const eslint = new ESLint({ cwd: repository });
-  const paths = git(repository, [
+  const paths = git(
+    repository,
     "ls-files",
     "--cached",
     "--others",
     "--exclude-standard",
-  ]).split("\n");
+  ).split("\n");
   const configs = (await Promise.all(
     paths.map((path) => eslint.calculateConfigForFile(path)),
   )) as ({ rules?: Record<string, unknown> } | undefined)[];
