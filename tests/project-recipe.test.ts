@@ -205,6 +205,7 @@ describe("project recipe", () => {
     const withGap = RECIPES.filter(
       ({ request }) => request.profile !== "scratch",
     );
+
     expect(() =>
       selectRecipe({ profile: "scratch", monorepo: false }, withGap),
     ).toThrow(
