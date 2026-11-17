@@ -412,10 +412,10 @@ function witnessesIn(
   return [...part.matchAll(/\[([^\]]+)\](?![[(:])/g)].flatMap(
     ([, label = ""]) => {
       const target = targets.get(label) ?? "";
+      const page = pages.find((each) => target.startsWith(each));
 
-      return pages.some((page) => target.startsWith(page)) || isThread(target)
-        ? [target]
-        : [];
+      if (page !== undefined) return [`commit ${target.slice(page.length)}`];
+      return isThread(target) ? [target] : [];
     },
   );
 }
@@ -944,6 +944,22 @@ test.each([
     );
   },
 );
+
+test("one commit linked through this repository and a citable origin is one witness", async () => {
+  const repository = fixture((files, sha) => {
+    files["repository.json"] = JSON.stringify({
+      ...description,
+      web: kernelWeb,
+      citableOrigins: [fixtureWeb],
+    });
+    files[standards] = (files[standards] ?? "")
+      .replace(`[r1].`, "[same].")
+      .replace(`[r1]: ${thread}`, `[same]: ${kernelWeb}/commit/${sha}`);
+  });
+  expect(await allProblems(repository)).toEqual([
+    'CODING_STANDARDS.md: row "Gated rule" needs two distinct witnesses in its guide or gate note, and has 1. Cite a second commit or review thread, or move the lesson back to docs/standards/single-witness.md.',
+  ]);
+});
 
 test("a citable origin's commit outside HEAD's history fails", async () => {
   const repository = fixture((files) => {
