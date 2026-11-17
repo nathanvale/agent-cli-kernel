@@ -2,7 +2,7 @@ import { expect } from "bun:test";
 import { envelope, envelopeContract } from "./envelope-fixture.ts";
 import { runFamily } from "./harness.ts";
 
-function hidden(target: object, key: string, value: unknown) {
+function hidden<Target>(target: Target, key: string, value: unknown) {
   Object.defineProperty(target, key, {
     value,
     enumerable: false,

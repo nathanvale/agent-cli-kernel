@@ -1,12 +1,18 @@
+import type { CommandDeclaration } from "./declarations.ts";
 // The station the kernel selects when the deadline passed and an owned
 // program was not confirmed stopped (accepted decisions N1b and N1e,
 // form H): command()'s `programStopCause`, kept here rather than on
 // CommandDeclaration. A raw declaration has none (contractFor refuses one
 // that would need it).
-const programStops = new WeakMap<object, string>();
-export function recordProgramStop(declaration: object, cause: string): void {
+const programStops = new WeakMap<CommandDeclaration, string>();
+export function recordProgramStop(
+  declaration: CommandDeclaration,
+  cause: string,
+): void {
   programStops.set(declaration, cause);
 }
-export function programStopOf(declaration: object): string | undefined {
+export function programStopOf(
+  declaration: CommandDeclaration,
+): string | undefined {
   return programStops.get(declaration);
 }
