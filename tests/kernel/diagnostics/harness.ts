@@ -66,7 +66,7 @@ export function tree(): Tree {
 const children: {
   readonly kill: (signal?: number | NodeJS.Signals) => void;
   readonly exitCode: number | null;
-  readonly signalCode: string | null;
+  readonly signalCode: NodeJS.Signals | number | null;
 }[] = [];
 
 // Platform: SIGKILL, because a CLI blocked in a synchronous system call (a failing FIFO
@@ -83,7 +83,7 @@ export type Run = {
   readonly stdout: string;
   readonly stderr: string;
   readonly exit: number | null;
-  readonly signal: string | null;
+  readonly signal: NodeJS.Signals | number | null;
   readonly elapsedMilliseconds: number;
   readonly envelope: unknown;
 };
