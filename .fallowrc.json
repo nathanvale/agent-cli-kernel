@@ -28,8 +28,8 @@
         "patterns": ["scripts/**"]
       },
       {
-        "name": "contract3-starter",
-        "patterns": ["starters/contract3/**"]
+        "name": "kernel",
+        "patterns": ["kernel/**"]
       },
       {
         "name": "tests",
@@ -50,16 +50,16 @@
         "allow": ["cli"]
       },
       {
-        "from": "contract3-starter",
+        "from": "kernel",
         "allow": []
       },
       {
         "from": "tests",
-        "allow": ["cli", "scripts", "contract3-starter", "lint-config"]
+        "allow": ["cli", "scripts", "kernel", "lint-config"]
       },
       {
         "from": "lint-config",
-        "allow": ["contract3-starter"]
+        "allow": ["kernel"]
       }
     ],
     "coverage": {
@@ -82,18 +82,18 @@
     "scripts/doctor.ts",
     "scripts/check-commits.ts",
     "scripts/check-names.ts",
-    "scripts/faults.ts",
+    "scripts/planted-faults.ts",
     "scripts/test-area.ts",
-    "starters/contract3/src/kernel/index.ts",
-    "starters/contract3/src/kernel/pattern-worker.ts",
-    "starters/contract3/src/addons/programs/index.ts",
-    "starters/contract3/src/addons/diagnostics/index.ts",
-    "tests/contract3/**/fixtures/*-cli.ts",
-    "tests/contract3/**/fixtures/*-worker.ts",
-    "tests/contract3/lifecycle/fixtures/declining-host.ts",
-    "tests/contract3/state/fixtures/specimen.ts",
-    "starters/contract3/src/addons/state/index.ts",
-    "tests/contract3/kernel-repair/swarm-cli.ts",
-    "tests/contract3/locks/fixtures.ts"
+    "kernel/src/kernel/index.ts",
+    "kernel/src/kernel/pattern-worker.ts",
+    "kernel/src/addons/programs/index.ts",
+    "kernel/src/addons/diagnostics/index.ts",
+    "tests/kernel/**/fixtures/*-cli.ts",
+    "tests/kernel/**/fixtures/*-worker.ts",
+    "tests/kernel/lifecycle/fixtures/declining-host.ts",
+    "tests/kernel/state/fixtures/specimen.ts",
+    "kernel/src/addons/state/index.ts",
+    "tests/kernel/kernel-repair/swarm-cli.ts",
+    "tests/kernel/locks/fixtures.ts"
   ]
 }

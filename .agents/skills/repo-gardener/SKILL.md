@@ -16,11 +16,11 @@ each pointer rather than a copy:
   seen once.
 - [tests/lint-rules.test.ts](../../../tests/lint-rules.test.ts) for template
   rules and
-  [tests/contract3/lint-rules.test.ts](../../../tests/contract3/lint-rules.test.ts)
+  [tests/kernel/lint-rules.test.ts](../../../tests/kernel/lint-rules.test.ts)
   for kernel rules: a failing and a passing snippet for each lint, each case
   naming its witness.
 - [Planted-fault guide](../../../docs/standards/test-proof.md#planted-faults):
-  how to record a fault in `tests/faults/manifest.json`.
+  how to record a fault in `tests/planted-faults/fault-records.json`.
 - [Recorded hits](../../../CODING_STANDARDS.md#recorded-hits): existing hits
   of a new lint.
 - [GLOSSARY-MAP.md](../../../GLOSSARY-MAP.md): the glossary that owns each
@@ -38,29 +38,28 @@ owner.
 
 A lint rule's owner decides its three files:
 
-| Owner    | Rule file                               | Turned on in                             | Cases                                |
-| -------- | --------------------------------------- | ---------------------------------------- | ------------------------------------ |
-| Template | `config/template-rules.mjs`             | `eslint.config.mjs`                      | `tests/lint-rules.test.ts`           |
-| Kernel   | `config/contract3-repository-rules.mjs` | `config/contract3-repository-eslint.mjs` | `tests/contract3/lint-rules.test.ts` |
+| Owner    | Rule file                            | Turned on in                        | Cases                             |
+| -------- | ------------------------------------ | ----------------------------------- | --------------------------------- |
+| Template | `config/template-rules.mjs`          | `eslint.config.mjs`                 | `tests/lint-rules.test.ts`        |
+| Kernel   | `config/kernel-repository-rules.mjs` | `config/kernel-repository-lint.mjs` | `tests/kernel/lint-rules.test.ts` |
 
 - A rule both owners need has one copy per owner. Change both rule files to
   the same text, with a case in each owner's cases file.
 - `eslint-rules.mjs` re-exports the kernel's rule file, and
-  `config/contract3-eslint.mjs` passes this repository's folders to the
-  kernel's stamped lint. Leave both unchanged.
-- Rules stamped into generated repositories live in
-  `starters/contract3/config/kernel/`, outside the write scope. Report a
-  change there for the code owner.
+  `config/kernel-lint.mjs` passes this repository's folders to the kernel's
+  stamped lint. Leave both unchanged.
+- Rules stamped into generated repositories live in `kernel/config/kernel/`,
+  outside the write scope. Report a change there for the code owner.
 
 ## Write scope
 
 Change only `CODING_STANDARDS.md`, `docs/standards/`, the six files in
-[Lint owners](#lint-owners), `eslint-suppressions.json`, `tests/faults/` and
-`tests/standards/`. Weed may also change `AGENTS.md` and `.agents/skills/`.
-Stake may also change `GLOSSARY.md`, `GLOSSARY-MAP.md` and `tests/naming/`,
-and may rename a path the names check refuses, with the files that refer to
-it. Report a change the lesson needs anywhere else, with its path, for that
-path's owner.
+[Lint owners](#lint-owners), `eslint-suppressions.json`,
+`tests/planted-faults/` and `tests/standards/`. Weed may also change
+`AGENTS.md` and `.agents/skills/`. Stake may also change `GLOSSARY.md`,
+`GLOSSARY-MAP.md` and `tests/naming/`, and may rename a path the names check
+refuses, with the files that refer to it. Report a change the lesson needs
+anywhere else, with its path, for that path's owner.
 
 Start on a clean tree. When `git status --porcelain` prints anything, change
 nothing and report its output: the scope check below cannot tell your edits
@@ -122,7 +121,7 @@ Done when each item holds:
 2. Prove the gate goes **red** on a cited witness. For a lint, add a case to
    its owner's cases file with the witness's failing shape and a passing
    one. For a fault, follow the planted-fault guide until
-   `bun run faults <id>` prints `KILLED`.
+   `bun run fault-replay <id>` prints `KILLED`.
 3. For a lint, record the existing hits as the recorded hits note says, with
    `bunx eslint . --suppress-rule repository/<rule id>`.
 4. Move the row: name the gate in its Gates cell, as
@@ -140,7 +139,7 @@ Done when each item holds:
 
 - `bun run test:area template -t "<rule id>"` passes for a template rule and
   `bun run test:area kernel -t "<rule id>"` for a kernel rule, or
-  `bun run faults <id>` prints `KILLED`, or the report hands a type or
+  `bun run fault-replay <id>` prints `KILLED`, or the report hands a type or
   architecture gate to the code owner.
 - `bun run lint`, `bun run typecheck` and `bun run format:check` exit 0.
 - `bun run test:area standards` passes.

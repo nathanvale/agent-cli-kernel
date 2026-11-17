@@ -30,10 +30,10 @@ Each row names what enforces it today:
 
 The Gates cell names each gate as `script`, `lint`, `job` or `fault` with its
 id, and links the gate note. A `fault` id is a record id in
-`tests/faults/manifest.json`. **Planned (parked)** names agreed gates that do not exist
-yet. Plan units U4 to U6 in the description of [#8] first named them. The
-lints and the fault replay have landed. The rest has no slot, and [MAG-98],
-the Contract 3 scope issue, does not list them.
+`tests/planted-faults/fault-records.json`. **Planned (parked)** names agreed
+gates that do not exist yet. Plan units U4 to U6 in the description of [#8]
+first named them. The lints and the fault replay have landed. The rest has no
+slot, and [MAG-98], the Contract 3 scope issue, does not list them.
 
 When a planned gate lands, name it in the Gates cell, mark the row Partial,
 and cut the guide bullets it now enforces. `bun run test:area standards`
@@ -45,7 +45,7 @@ row's guide or gate note cites two distinct witnesses.
 | Rule                                          | Today       | Gates                                                                                                      | Planned (parked)                  | Guide                                                               |
 | --------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------- | ------------------------------------------------------------------- |
 | Each test fails for the reason its name gives | Partial     | [lint `repository/require-to-throw-message`](#test-proof)                                                  | Typed rule ids                    | [Test proof](docs/standards/test-proof.md#refusals-and-bounds)      |
-| Each new refusal or bound has a planted fault | Partial     | [script `faults`, job `faults`](#planted-faults)                                                           | None                              | [Test proof](docs/standards/test-proof.md#planted-faults)           |
+| Each new refusal or bound has a planted fault | Partial     | [script `fault-replay`, job `fault-replay`](#planted-faults)                                               | None                              | [Test proof](docs/standards/test-proof.md#planted-faults)           |
 | Process proofs use the production entry       | Review only | None                                                                                                       | None                              | [Test proof](docs/standards/test-proof.md#production-entry)         |
 | Test processes are bounded and released       | Review only | None                                                                                                       | Lint `tests-use-bounded-runner`   | [Test proof](docs/standards/test-proof.md#processes)                |
 | Tests wait on events, not wall time           | Partial     | [lint `repository/tests-no-sleep`](#time)                                                                  | None                              | [Test proof](docs/standards/test-proof.md#time)                     |
@@ -67,7 +67,7 @@ row's guide or gate note cites two distinct witnesses.
 - `R1.platform-outcomes-pinned` pins unproved diagnostics rows only.
 - State `caseTest` titles can show `UNPROVED` off their platform, but no test
   pins their count.
-- `tests/contract3/approval/component.test.ts` still reports unproved cases
+- `tests/kernel/approval/component.test.ts` still reports unproved cases
   through `test.skip`.
 - `.github/workflows/macos-nightly.yml` runs on schedule once it reaches
   `main`.
@@ -76,8 +76,8 @@ row's guide or gate note cites two distinct witnesses.
 
 - `tests/glossary/glossary.test.ts`, with its shrinking `known-hits.json`,
   checks the `scope` listed in `tests/glossary/term-table.json`.
-- That scope is Contract 3 source, Contract 3 tests, and the Contract 3 lint
-  config. `src/`, the other starters, and docs are review only.
+- That scope is kernel source, kernel tests, and the kernel's lint config.
+  `src/`, the starters, and docs are review only.
 - Witnessed: [2784de0], [356cce9].
 
 ### Test proof
@@ -98,9 +98,10 @@ row's guide or gate note cites two distinct witnesses.
 
 ### Planted faults
 
-- `bun run faults` replays each record in `tests/faults/manifest.json` in a
-  temporary worktree. The `faults` job in `.github/workflows/ci.yml` runs it
-  on every pull request.
+- `bun run fault-replay` replays each record in
+  `tests/planted-faults/fault-records.json` in a temporary worktree. The
+  `fault-replay` job in `.github/workflows/ci.yml` runs it on every pull
+  request.
 - It fails on a record whose named test passes with the fault applied, fails
   without it, or whose patch no longer applies.
 - A new refusal or bound with no record stays review. So does a record whose
@@ -139,10 +140,10 @@ row's guide or gate note cites two distinct witnesses.
   property, a destructured name, or a constant string such as
   `Reflect.get(Intl, "Collator")`.
 - Tests stay review. The R15 locale arm in
-  `tests/contract3/kernel-repair/equality.test.ts` swaps the collation on
+  `tests/kernel/kernel-repair/equality.test.ts` swaps the collation on
   purpose.
 - Other source stays review in this table. The kernel's own lint covers
-  `starters/contract3/src/`.
+  `kernel/src/`.
 - Witnessed: [b456208], [5cbff3a].
 
 ### One owner
@@ -172,9 +173,9 @@ row's guide or gate note cites two distinct witnesses.
 
 - Lint `repository/no-comments` refuses every comment block in a file
   `eslint.config.mjs` lints outside the kernel: `src/`, `scripts/`, `tests/`
-  outside `tests/contract3/`, `config/` and the root `.mjs` files.
+  outside `tests/kernel/`, `config/` and the root `.mjs` files.
   Consecutive line comments are one block. The kernel's copy of the rule
-  covers `starters/contract3/` and `tests/contract3/`.
+  covers `kernel/` and `tests/kernel/`.
 - A block stays only when it is one of these:
   - `Platform:` on its first line: behaviour of a runtime, operating system
     or tool this repository cannot change, such as an errno meaning or a Bun
@@ -202,8 +203,8 @@ row's guide or gate note cites two distinct witnesses.
   whether it names something outside this repository. A marker is easy to
   add to any note.
 - Not covered: `starters/simple/`, `starters/complex/`, the bootstrap
-  profiles, the `.ts.txt` fixtures, the Contract 3 lint configuration that
-  lints a materialised tree, YAML and Markdown.
+  profiles, the `.ts.txt` fixtures, the kernel lint configuration that lints
+  a materialised tree, YAML and Markdown.
 - Witnessed: [08284b7], [887b514].
 
 ### Recorded hits
@@ -214,11 +215,11 @@ row's guide or gate note cites two distinct witnesses.
   fixed and the file is not pruned. Run
   `bunx eslint . --prune-suppressions` after the fix.
 - The template's rules live in `config/template-rules.mjs`. Kernel rules and
-  their recorded hits run from `config/contract3-repository-eslint.mjs` and
-  leave with the kernel.
-- `starters/contract3/config/kernel/` is stamped, so it holds only the rules
+  their recorded hits run from `config/kernel-repository-lint.mjs` and leave
+  with the kernel.
+- `kernel/config/kernel/` is stamped, so it holds only the rules
   `kernelLint` turns on. The kernel repository's own rules (`no-comments`
-  and the three test rules) live in `config/contract3-repository-rules.mjs`.
+  and the three test rules) live in `config/kernel-repository-rules.mjs`.
 
 ## Review routine
 

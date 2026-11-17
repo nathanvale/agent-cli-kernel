@@ -18,9 +18,9 @@ export async function writeToolchain(
   await writeFile(
     join(root, "eslint.config.mjs"),
     [
-      `import contract3 from ${JSON.stringify(join(repository, "config/contract3-eslint.mjs"))};`,
+      `import kernel from ${JSON.stringify(join(repository, "config/kernel-lint.mjs"))};`,
       "export default [",
-      "  ...contract3,",
+      "  ...kernel,",
       `  { ignores: ["tests/support/**"] },`,
       `  { files: ["**/*.ts"], languageOptions: { parserOptions: { projectService: true, tsconfigRootDir: ${JSON.stringify(root)} } } },`,
       "];",

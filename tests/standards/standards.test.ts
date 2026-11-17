@@ -277,10 +277,10 @@ function citationsIn(file: string, text: string, history: Ancestry): string[] {
   return problems;
 }
 
-const manifest = "tests/faults/manifest.json";
+const faultRecordsFile = "tests/planted-faults/fault-records.json";
 
 function faultRecords(repository: string): { id?: string; source?: string }[] {
-  const path = join(repository, manifest);
+  const path = join(repository, faultRecordsFile);
   return existsSync(path)
     ? (JSON.parse(readFileSync(path, "utf8")) as {
         id?: string;
@@ -292,10 +292,10 @@ function faultRecords(repository: string): { id?: string; source?: string }[] {
 function faultSourceProblems(repository: string, history: Ancestry): string[] {
   return faultRecords(repository).flatMap(({ id, source = "" }) => {
     const sha = /^[0-9a-f]{7,40}(?= )/.exec(source)?.[0];
-    const where = `${manifest}: record "${id}"`;
+    const where = `${faultRecordsFile}: record "${id}"`;
     if (sha === undefined)
       return [
-        `${where} has source "${source}", which does not start with its fix commit's SHA. Write "<short sha> <subject>", as bun run faults:add does.`,
+        `${where} has source "${source}", which does not start with its fix commit's SHA. Write "<short sha> <subject>", as bun run planted-fault:add does.`,
       ];
     return history.isAncestor(sha)
       ? []
@@ -534,7 +534,7 @@ async function gateProblems(repository: string): Promise<string[]> {
     },
     fault: {
       ids: new Set(faultRecords(repository).map(({ id }) => id)),
-      owner: `no record in ${manifest} has as its id`,
+      owner: `no record in ${faultRecordsFile} has as its id`,
     },
   };
   return ruleTable(repository).rows.flatMap((row) =>
@@ -628,11 +628,11 @@ function fixture(
     );
   }
   const files: Record<string, string> = {
-    "package.json": '{"scripts":{"faults":"true"}}',
+    "package.json": '{"scripts":{"fault-replay":"true"}}',
     "repository.json": JSON.stringify(description),
     "eslint.config.mjs": lintConfig(gateOn),
     ".github/workflows/ci.yml":
-      "on: pull_request\njobs:\n  faults:\n    runs-on: ubuntu-latest\n",
+      "on: pull_request\njobs:\n  fault-replay:\n    runs-on: ubuntu-latest\n",
     "AGENTS.md": "# Fixture\n\n## Checks\n",
     [standards]: [
       "# Coding Standards",
@@ -641,7 +641,7 @@ function fixture(
       "",
       "| Rule | Today | Gates | Guide |",
       "| --- | --- | --- | --- |",
-      "| Gated rule | Partial | [script `faults`, lint `repository/rule`, job `faults`, fault `fixture`](#gated) | None |",
+      "| Gated rule | Partial | [script `fault-replay`, lint `repository/rule`, job `fault-replay`, fault `fixture`](#gated) | None |",
       "| Guided rule | Review only | None | [Guide](docs/standards/guide.md#lesson) |",
       "",
       "## Gate notes",
@@ -657,7 +657,9 @@ function fixture(
     "docs/standards/guide.md": `# Guide\n\n## Lesson\n\n- Witnessed: [${short}], [r1].\n\n[${short}]: ${commitPage}${sha}\n[r1]: ${thread}\n`,
     ".agents/skills/fixture/SKILL.md":
       "---\nname: fixture\n---\n\n[checks](../../../AGENTS.md#checks)\n",
-    [manifest]: JSON.stringify([{ id: "fixture", source: `${short} base` }]),
+    [faultRecordsFile]: JSON.stringify([
+      { id: "fixture", source: `${short} base` },
+    ]),
   };
   change(files, sha);
   for (const [path, content] of Object.entries(files)) {
@@ -727,7 +729,7 @@ test.each([
       files["package.json"] = '{"scripts":{}}';
     },
     [
-      'CODING_STANDARDS.md: row "Gated rule" names script `faults`, which package.json does not define as a script. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
+      'CODING_STANDARDS.md: row "Gated rule" names script `fault-replay`, which package.json does not define as a script. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
     ],
   ],
   [
@@ -749,16 +751,16 @@ test.each([
     },
     [
       'CODING_STANDARDS.md: row "Gated rule" names lint `repository/rule`, which no config in eslint.config.mjs turns on for a file in the repository. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
-      'CODING_STANDARDS.md: row "Gated rule" names job `faults`, which no workflow in .github/workflows/ that runs on pull_request defines as a job. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
+      'CODING_STANDARDS.md: row "Gated rule" names job `fault-replay`, which no workflow in .github/workflows/ that runs on pull_request defines as a job. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
     ],
   ],
   [
     "a row whose fault record is gone",
     (files: Record<string, string>) => {
-      files[manifest] = "[]";
+      files[faultRecordsFile] = "[]";
     },
     [
-      'CODING_STANDARDS.md: row "Gated rule" names fault `fixture`, which no record in tests/faults/manifest.json has as its id. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
+      'CODING_STANDARDS.md: row "Gated rule" names fault `fixture`, which no record in tests/planted-faults/fault-records.json has as its id. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
     ],
   ],
   [
@@ -788,17 +790,17 @@ test.each([
     "a row whose job runs only outside pull requests",
     (files: Record<string, string>) => {
       files[".github/workflows/ci.yml"] =
-        "on:\n  workflow_dispatch:\n  push:\n    branches: [main]\njobs:\n  faults:\n    runs-on: x\n";
+        "on:\n  workflow_dispatch:\n  push:\n    branches: [main]\njobs:\n  fault-replay:\n    runs-on: x\n";
     },
     [
-      'CODING_STANDARDS.md: row "Gated rule" names job `faults`, which no workflow in .github/workflows/ that runs on pull_request defines as a job. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
+      'CODING_STANDARDS.md: row "Gated rule" names job `fault-replay`, which no workflow in .github/workflows/ that runs on pull_request defines as a job. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
     ],
   ],
   [
     "a Partial row that names no gate",
     (files: Record<string, string>) => {
       files[standards] = (files[standards] ?? "").replace(
-        "[script `faults`, lint `repository/rule`, job `faults`, fault `fixture`](#gated)",
+        "[script `fault-replay`, lint `repository/rule`, job `fault-replay`, fault `fixture`](#gated)",
         "[Gated](#gated)",
       );
     },
@@ -811,7 +813,7 @@ test.each([
     (files: Record<string, string>) => {
       files[standards] = (files[standards] ?? "").replace(
         "| Guided rule | Review only | None |",
-        "| Guided rule | Review only | job `faults` |",
+        "| Guided rule | Review only | job `fault-replay` |",
       );
     },
     [
@@ -895,15 +897,15 @@ test.each([
   [
     "a fault record whose source is not an ancestor or names no commit",
     (files: Record<string, string>, sha: string) => {
-      files["tests/faults/manifest.json"] = JSON.stringify([
+      files["tests/planted-faults/fault-records.json"] = JSON.stringify([
         { id: "fixture", source: `${sha.slice(0, 7)} fix: kept` },
         { id: "lost", source: `${absent.slice(0, 7)} fix: lost` },
         { id: "bare", source: "fix: no commit" },
       ]);
     },
     () => [
-      `tests/faults/manifest.json: record "lost" names source ${absent.slice(0, 7)}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA.`,
-      'tests/faults/manifest.json: record "bare" has source "fix: no commit", which does not start with its fix commit\'s SHA. Write "<short sha> <subject>", as bun run faults:add does.',
+      `tests/planted-faults/fault-records.json: record "lost" names source ${absent.slice(0, 7)}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA.`,
+      'tests/planted-faults/fault-records.json: record "bare" has source "fix: no commit", which does not start with its fix commit\'s SHA. Write "<short sha> <subject>", as bun run planted-fault:add does.',
     ],
   ],
 ])(
@@ -1002,6 +1004,6 @@ test("a shallow clone that cuts a cited commit fails and says to fetch the histo
   expect(await citationProblems(repository)).toEqual([
     `CODING_STANDARDS.md:16: [${sha?.slice(0, 7)}] cites ${sha}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA. ${fetch}`,
     `docs/standards/guide.md:7: [${sha?.slice(0, 7)}] cites ${sha}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA. ${fetch}`,
-    `tests/faults/manifest.json: record "fixture" names source ${sha?.slice(0, 7)}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA. ${fetch}`,
+    `tests/planted-faults/fault-records.json: record "fixture" names source ${sha?.slice(0, 7)}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA. ${fetch}`,
   ]);
 });

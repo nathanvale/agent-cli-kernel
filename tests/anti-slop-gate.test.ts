@@ -1,7 +1,7 @@
 import { afterAll, expect, test } from "bun:test";
 import { rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { spawnBounded } from "./contract3/kernel-repair/swarm-process.ts";
+import { spawnBounded } from "./kernel/kernel-repair/swarm-process.ts";
 import { testFolder } from "./support/test-folder.ts";
 
 const repository = join(import.meta.dir, "..");

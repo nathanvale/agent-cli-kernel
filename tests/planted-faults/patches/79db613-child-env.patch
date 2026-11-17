@@ -1,0 +1,13 @@
+diff --git a/scripts/process-runner.ts b/scripts/process-runner.ts
+index 010dd93..d2de456 100644
+--- a/scripts/process-runner.ts
++++ b/scripts/process-runner.ts
+@@ -88,7 +88,7 @@ export function startChild(
+     if (stopped) return;
+     stopped = true;
+     markStopped();
+-    if (graceMilliseconds <= 0) send("SIGKILL");
++    if (graceMilliseconds <= 0) send("SIGTERM");
+     else {
+       send("SIGTERM");
+       escalation = setTimeout(() => send("SIGKILL"), graceMilliseconds);
