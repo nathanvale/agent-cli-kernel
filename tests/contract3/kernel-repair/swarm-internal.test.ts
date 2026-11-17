@@ -86,23 +86,23 @@ test("K2-12: a fault inside validation after the snapshot propagates instead of 
     cli: "specimen",
     commands: [source, target],
   });
-  const validate: unknown =
+  const runtime =
     typeof contract === "object" && contract !== null
-      ? Reflect.get(contract, "validate")
+      ? runtimeOf(contract)
       : undefined;
-  if (typeof validate !== "function") throw new Error("No validate.");
+  if (!runtime) throw new Error("No validate.");
   const value = {
     ...envelope(null),
     availablePaths: ["specimen.read"],
     result: { ...envelope(null).result, next: step },
   };
-  expect(await Reflect.apply(validate, contract, [value])).toMatchObject({
+  expect(await runtime.validate(value)).toMatchObject({
     ok: true,
   });
   armed = true;
   let rejection: unknown = "resolved";
   try {
-    await Reflect.apply(validate, contract, [value]);
+    await runtime.validate(value);
   } catch (error) {
     rejection = error;
   }
@@ -114,7 +114,7 @@ test("K2-12: a fault inside validation after the snapshot propagates instead of 
       throw new Error("Hostile getter.");
     },
   };
-  expect(await Reflect.apply(validate, contract, [hostile])).toEqual({
+  expect(await runtime.validate(hostile)).toEqual({
     ok: false,
     path: "$",
     reason: "not plain bounded JSON",
