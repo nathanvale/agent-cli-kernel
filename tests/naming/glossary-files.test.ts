@@ -97,6 +97,28 @@ test("a recorded unused term passes while nothing uses it", () => {
   expect(termUseProblems(fixture, noStarterYet, [awaited])).toEqual([]);
 });
 
+const endsInY = readGlossary(`# Fixture glossary
+
+**Quiet gallery**:
+A room nobody visits.
+`);
+
+test("a term that ends in y counts as used in its plural", () => {
+  expect(termUseProblems(endsInY, ["two quiet galleries"], [])).toEqual([]);
+});
+
+test("a recorded unused term that ends in y fails once a tracked file uses its plural", () => {
+  expect(
+    termUseProblems(
+      endsInY,
+      ["two quiet galleries"],
+      [{ term: "Quiet gallery", reason: "Not built yet.", ticket: "MAG-1" }],
+    ),
+  ).toEqual([
+    `${recordedUnusedTermsFile} records "Quiet gallery", which a tracked file now uses. Remove the entry.`,
+  ]);
+});
+
 test("GM.d a recorded unused term that a tracked file now uses fails", () => {
   expect(
     termUseProblems(fixture, ["a test area", "a CLI starter"], [awaited]),

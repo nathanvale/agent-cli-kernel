@@ -296,8 +296,17 @@ export function mapProblems(map: string, root: string): string[] {
   );
 }
 
+function pluralOf(word: string): string {
+  return /[^aeiou]y$/.test(word)
+    ? `(?:${word}|${word.slice(0, -1)}ies)`
+    : `${word}(?:e?s)?`;
+}
+
 function usePattern(term: string): RegExp {
-  return new RegExp(`\\b${wordsOf(term).join("[\\s_-]*")}(?:e?s)?\\b`, "i");
+  const words = wordsOf(term);
+  const forms = [...words.slice(0, -1), pluralOf(words.at(-1) ?? "")];
+
+  return new RegExp(`\\b${forms.join("[\\s_-]*")}\\b`, "i");
 }
 
 function isUsed(term: string, texts: readonly string[]): boolean {
