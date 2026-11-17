@@ -192,7 +192,7 @@ type Ancestry = Citable & {
   fetch: string;
 };
 
-function citable(repository: string): Citable {
+function citableOf(repository: string): Citable {
   const { web, citableWebs: webs } = readRepository(repository);
   const threads = webs.map(
     (each) =>
@@ -208,7 +208,7 @@ function citable(repository: string): Citable {
 function ancestry(repository: string): Ancestry {
   const history = git(repository, ["rev-list", "HEAD"]).split("\n");
   return {
-    ...citable(repository),
+    ...citableOf(repository),
     isAncestor: (sha) => history.some((each) => each.startsWith(sha)),
     fetch: fetchHint(repository, history),
   };
@@ -424,26 +424,26 @@ function rowWitnesses(
   repository: string,
   row: Row,
   notes: string[],
-  pages: Citable,
+  citable: Citable,
 ) {
   const guides = [
     ...row.guide.matchAll(/\]\(([^)#]*)(?:#([^)]+))?\)/g),
   ].flatMap(([, path = "", anchor]) => {
     const file = join(repository, path === "" ? standards : path);
     return existsSync(file) && statSync(file).isFile()
-      ? witnessesIn(readWithCodeBlanked(file), anchor, pages)
+      ? witnessesIn(readWithCodeBlanked(file), anchor, citable)
       : [];
   });
   const text = readWithCodeBlanked(join(repository, standards));
   return new Set([
     ...guides,
-    ...notes.flatMap((anchor) => witnessesIn(text, anchor, pages)),
+    ...notes.flatMap((anchor) => witnessesIn(text, anchor, citable)),
   ]);
 }
 
 function rowProblems(repository: string): string[] {
   const { rows, gateNotes, problems } = ruleTable(repository);
-  const pages = citable(repository);
+  const citable = citableOf(repository);
   for (const row of rows) {
     const where = `${standards}: row "${row.rule}"`;
     const hasGuide = /\]\([^)]+\)/.test(row.guide);
@@ -454,7 +454,7 @@ function rowProblems(repository: string): string[] {
       problems.push(
         `${where} has no guide and no gate note. Link its guide in the Guide cell, or link a heading under ## Gate notes from its Gates cell.`,
       );
-    const witnesses = rowWitnesses(repository, row, notes, pages).size;
+    const witnesses = rowWitnesses(repository, row, notes, citable).size;
     if (witnesses < 2)
       problems.push(
         `${where} needs two distinct witnesses in its guide or gate note, and has ${witnesses}. Cite a second commit or review thread, or move the lesson back to docs/standards/single-witness.md.`,

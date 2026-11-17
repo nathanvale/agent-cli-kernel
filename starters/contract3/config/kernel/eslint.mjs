@@ -201,24 +201,27 @@ const settingRules = {
 };
 
 function settingsOf(options = {}) {
+  const { rootDir, srcDir, testDirs, addons, plugin } = options;
+  const given = { rootDir, srcDir, testDirs, addons };
+
   for (const [name, [holds, what]] of Object.entries(settingRules))
-    if (!holds(options[name]))
+    if (!holds(given[name]))
       throw new Error(`kernelLint needs ${name}: ${what}.`);
-  const addons = options.addons === "all" ? declaredAddons : options.addons;
-  const unknown = addons.find((name) => !declaredAddons.includes(name));
+  const selected = addons === "all" ? declaredAddons : addons;
+  const unknown = selected.find((name) => !declaredAddons.includes(name));
   if (unknown !== undefined)
     throw new Error(
       `kernelLint: add-on "${unknown}" is not declared in host.json. Declared: ${declaredAddons.join(", ")}.`,
     );
-  const plugin = options.plugin ?? kernelRules;
+  const repository = plugin ?? kernelRules;
   const replaced = Object.keys(kernelRules.rules).find(
-    (id) => plugin.rules?.[id] !== kernelRules.rules[id],
+    (id) => repository.rules?.[id] !== kernelRules.rules[id],
   );
   if (replaced !== undefined)
     throw new Error(
       `kernelLint: the plugin must hold the kernel's own ${replaced} rule. Spread the kernel's rules after your own.`,
     );
-  return { ...options, addons, repository: plugin };
+  return { ...given, addons: selected, repository };
 }
 
 export function kernelLint(options) {

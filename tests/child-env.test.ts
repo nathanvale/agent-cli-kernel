@@ -1,31 +1,30 @@
-import { afterAll, expect, test } from "bun:test";
-import { existsSync, readFileSync, rmSync } from "node:fs";
+import { expect, test } from "bun:test";
+import { readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { startChild } from "../scripts/child-env.ts";
+import { type Child, startChild } from "../scripts/child-env.ts";
+import { watchLedger } from "./support/process.ts";
 import { signalGroupIfPresent } from "./support/signal.ts";
 import { testFolder } from "./support/test-folder.ts";
 
 const testTimeout = 30_000;
 const reapBound = 10_000;
+const ledgerBound = 10_000;
 
-const folders: string[] = [];
-const groups: number[] = [];
-afterAll(() => {
-  for (const group of groups) signalGroupIfPresent(group, "SIGKILL");
-  for (const folder of folders)
-    rmSync(folder, { recursive: true, force: true });
-});
-
-function folder(): string {
-  const made = testFolder("child-env-");
-  folders.push(made);
-  return made;
-}
-
-function start(...args: Parameters<typeof startChild>) {
-  const child = startChild(...args);
-  groups.push(child.pid);
-  return child;
+async function released(
+  start: (root: string) => Child,
+  check: (child: Child, root: string) => Promise<void>,
+): Promise<void> {
+  const root = testFolder("child-env-");
+  try {
+    const child = start(root);
+    try {
+      await check(child, root);
+    } finally {
+      signalGroupIfPresent(child.pid, "SIGKILL");
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 }
 
 function running(pid: number): boolean {
@@ -52,33 +51,30 @@ function exited(pid: number): Promise<boolean> {
   });
 }
 
-function whenLedgerHas(ledger: string, line: string): Promise<void> {
-  return new Promise((resolve) => {
-    const poll = setInterval(() => {
-      if (!existsSync(ledger)) return;
-      if (!readFileSync(ledger, "utf8").split("\n").includes(line)) return;
-      clearInterval(poll);
-      resolve();
-    }, 5);
-  });
-}
-
 test(
   "CE.a a child that hangs past its limit is stopped with its whole group and reported timed out",
   async () => {
-    const pids = join(folder(), "pids");
     const limitMilliseconds = 5_000;
+    const graceMilliseconds = 10_000;
+    const lateness = 4_000;
     const started = Date.now();
-    const child = start(["sh", "-c", `sleep 300 & echo $! > '${pids}'; wait`], {
-      limitMilliseconds,
-      graceMilliseconds: 2_000,
-    });
-    const run = await child.finished;
-    expect(Date.now() - started).toBeGreaterThanOrEqual(limitMilliseconds);
-    expect(run.timedOut).toBe(true);
-    expect(run.signalCode).toBe("SIGTERM");
-    const grandchild = Number(readFileSync(pids, "utf8").trim());
-    expect(await exited(grandchild)).toBe(true);
+    await released(
+      (root) =>
+        startChild(
+          ["sh", "-c", `sleep 300 & echo $! > '${join(root, "pids")}'; wait`],
+          { limitMilliseconds, graceMilliseconds },
+        ),
+      async (child, root) => {
+        const run = await child.finished;
+        const took = Date.now() - started;
+        expect(took).toBeGreaterThanOrEqual(limitMilliseconds);
+        expect(took).toBeLessThan(limitMilliseconds + lateness);
+        expect(run.timedOut).toBe(true);
+        expect(run.signalCode).toBe("SIGTERM");
+        const grandchild = Number(readFileSync(join(root, "pids"), "utf8"));
+        expect(await exited(grandchild)).toBe(true);
+      },
+    );
   },
   testTimeout,
 );
@@ -86,24 +82,26 @@ test(
 test(
   "CE.b a stop that the child ignores escalates to SIGKILL for the whole group after the grace",
   async () => {
-    const root = folder();
-    const ledger = join(root, "ledger");
-    const pids = join(root, "pids");
-    const child = start(
-      [
-        "sh",
-        "-c",
-        `trap '' TERM; sleep 300 & echo $! > '${pids}'; echo started >> '${ledger}'; wait`,
-      ],
-      { graceMilliseconds: 1_000 },
+    await released(
+      (root) =>
+        startChild(
+          [
+            "sh",
+            "-c",
+            `trap '' TERM; sleep 300 & echo $! > '${join(root, "pids")}'; echo started >> '${join(root, "ledger")}'; wait`,
+          ],
+          { graceMilliseconds: 1_000 },
+        ),
+      async (child, root) => {
+        await watchLedger(join(root, "ledger"), "started", ledgerBound).reached;
+        child.stop();
+        const run = await child.finished;
+        expect(run.timedOut).toBe(false);
+        expect(run.signalCode).toBe("SIGKILL");
+        const grandchild = Number(readFileSync(join(root, "pids"), "utf8"));
+        expect(await exited(grandchild)).toBe(true);
+      },
     );
-    await whenLedgerHas(ledger, "started");
-    child.stop();
-    const run = await child.finished;
-    expect(run.timedOut).toBe(false);
-    expect(run.signalCode).toBe("SIGKILL");
-    const grandchild = Number(readFileSync(pids, "utf8").trim());
-    expect(await exited(grandchild)).toBe(true);
   },
   testTimeout,
 );
@@ -111,16 +109,48 @@ test(
 test(
   "CE.c a child that finishes inside its limit reports both streams and its exit code",
   async () => {
-    const run = await start(["sh", "-c", "echo out; echo err >&2; exit 3"], {
-      limitMilliseconds: 20_000,
-    }).finished;
-    expect(run).toEqual({
-      stdout: "out\n",
-      stderr: "err\n",
-      exitCode: 3,
-      signalCode: null,
-      timedOut: false,
-    });
+    await released(
+      () =>
+        startChild(["sh", "-c", "echo out; echo err >&2; exit 3"], {
+          limitMilliseconds: 20_000,
+        }),
+      async (child) => {
+        expect(await child.finished).toEqual({
+          stdout: "out\n",
+          stderr: "err\n",
+          exitCode: 3,
+          signalCode: null,
+          timedOut: false,
+        });
+      },
+    );
+  },
+  testTimeout,
+);
+
+test(
+  "CE.d a stop with a grace of zero sends SIGKILL to the whole group at once, so a child that ignores SIGTERM still dies",
+  async () => {
+    await released(
+      (root) =>
+        startChild(
+          [
+            "sh",
+            "-c",
+            `trap '' TERM; sleep 300 & echo $! > '${join(root, "pids")}'; echo started >> '${join(root, "ledger")}'; wait`,
+          ],
+          { graceMilliseconds: 0 },
+        ),
+      async (child, root) => {
+        await watchLedger(join(root, "ledger"), "started", ledgerBound).reached;
+        child.stop();
+        const grandchild = Number(readFileSync(join(root, "pids"), "utf8"));
+        expect(await exited(grandchild)).toBe(true);
+        const run = await child.finished;
+        expect(run.timedOut).toBe(false);
+        expect(run.signalCode).toBe("SIGKILL");
+      },
+    );
   },
   testTimeout,
 );

@@ -121,11 +121,16 @@ function refusal(selection: Selection): RecipeChoice {
       repair: "remove --starter or choose --profile durable",
     };
   }
-  return {
-    status: "refused",
-    message: "--starter and --monorepo cannot be combined",
-    repair: "choose one CLI starter or the explicit monorepo example",
-  };
+  if (selection.starter !== undefined && selection.monorepo) {
+    return {
+      status: "refused",
+      message: "--starter and --monorepo cannot be combined",
+      repair: "choose one CLI starter or the explicit monorepo example",
+    };
+  }
+  throw new Error(
+    `No recipe and no refusal matches profile ${selection.profile}, monorepo ${String(selection.monorepo)}, starter ${selection.starter ?? "none"}. Add a row to RECIPES or a rule to refusal().`,
+  );
 }
 
 export function selectRecipe(selection: Selection): RecipeChoice {

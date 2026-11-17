@@ -44,7 +44,7 @@ function fields(
   return entries;
 }
 
-function text(value: unknown, where: string, pattern?: RegExp): string {
+function requireText(value: unknown, where: string, pattern?: RegExp): string {
   if (typeof value !== "string" || value === "")
     fail(where, "must be a non-empty string.");
   if (pattern !== undefined && !pattern.test(value))
@@ -52,7 +52,7 @@ function text(value: unknown, where: string, pattern?: RegExp): string {
   return value;
 }
 
-function list(value: unknown, where: string): readonly unknown[] {
+function requireList(value: unknown, where: string): readonly unknown[] {
   if (!Array.isArray(value)) fail(where, "must be an array.");
   return value;
 }
@@ -71,8 +71,8 @@ function testArea(value: unknown, where: string): TestArea {
   if (typeof subfolders !== "boolean")
     fail(`${where}.subfolders`, "must be true or false.");
   return {
-    name: text(area.get("name"), `${where}.name`),
-    folder: text(area.get("folder"), `${where}.folder`),
+    name: requireText(area.get("name"), `${where}.name`),
+    folder: requireText(area.get("folder"), `${where}.folder`),
     holds,
     subfolders,
   };
@@ -81,8 +81,8 @@ function testArea(value: unknown, where: string): TestArea {
 function checkRecordedOrigin(value: unknown): void {
   if (value === undefined) return;
   const origin = fields(value, recordedOrigin, ["web", "commit"]);
-  text(origin.get("web"), `${recordedOrigin}.web`, webAddress);
-  text(origin.get("commit"), `${recordedOrigin}.commit`, fullSha);
+  requireText(origin.get("web"), `${recordedOrigin}.web`, webAddress);
+  requireText(origin.get("commit"), `${recordedOrigin}.commit`, fullSha);
 }
 
 export function readRepository(root: string): Repository {
@@ -98,22 +98,22 @@ export function readRepository(root: string): Repository {
     [citableOrigins, recordedOrigin],
   );
   checkRecordedOrigin(description.get(recordedOrigin));
-  const web = text(description.get("web"), "web", webAddress);
+  const web = requireText(description.get("web"), "web", webAddress);
   return {
     web,
-    checkCommitsSince: text(
+    checkCommitsSince: requireText(
       description.get("checkCommitsSince"),
       "checkCommitsSince",
       fullSha,
     ),
-    testAreas: list(description.get("testAreas"), "testAreas").map(
+    testAreas: requireList(description.get("testAreas"), "testAreas").map(
       (area, index) => testArea(area, `testAreas[${index}]`),
     ),
     citableWebs: [
       web,
-      ...list(description.get(citableOrigins) ?? [], citableOrigins).map(
+      ...requireList(description.get(citableOrigins) ?? [], citableOrigins).map(
         (origin, index) =>
-          text(origin, `${citableOrigins}[${index}]`, webAddress),
+          requireText(origin, `${citableOrigins}[${index}]`, webAddress),
       ),
     ],
   };

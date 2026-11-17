@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
-import { startChild } from "../../scripts/child-env.ts";
+import { type Child, startChild } from "../../scripts/child-env.ts";
 
 const exitBound = 20_000;
 
@@ -10,6 +10,56 @@ export type SignalAt = {
   readonly line: string;
   readonly signal: "SIGTERM" | "SIGINT" | "SIGHUP";
 };
+
+// Interface: `reached` resolves once the ledger holds the line, and rejects
+// naming both once the bound passes first. `stop` ends the wait unsettled.
+export type LedgerWatch = {
+  readonly reached: Promise<void>;
+  readonly stop: () => void;
+};
+
+function holdsLine(ledger: string, line: string): boolean {
+  return (
+    existsSync(ledger) &&
+    readFileSync(ledger, "utf8").split("\n").includes(line)
+  );
+}
+
+export function watchLedger(
+  ledger: string,
+  line: string,
+  boundMilliseconds: number,
+): LedgerWatch {
+  const started = Date.now();
+  let poll: ReturnType<typeof setInterval> | undefined;
+  const reached = new Promise<void>((resolve, reject) => {
+    poll = setInterval(() => {
+      if (holdsLine(ledger, line)) resolve();
+      else if (Date.now() - started >= boundMilliseconds)
+        reject(
+          new Error(
+            `${ledger} did not hold the line "${line}" within ${boundMilliseconds} ms.`,
+          ),
+        );
+      else return;
+      clearInterval(poll);
+    }, 5);
+  });
+  return { reached, stop: () => clearInterval(poll) };
+}
+
+function signalOnLine(
+  child: Child,
+  barrier: SignalAt,
+  boundMilliseconds: number,
+): LedgerWatch {
+  const watch = watchLedger(barrier.ledger, barrier.line, boundMilliseconds);
+  watch.reached.then(
+    () => child.signal(barrier.signal),
+    () => {},
+  );
+  return watch;
+}
 
 // Interface: a run that outlives its bound is killed at once with SIGKILL and
 // fails naming the bound, so a hung case leaves no fixture process behind.
@@ -31,24 +81,17 @@ export async function spawnBounded(
     limitMilliseconds: bound,
     graceMilliseconds: 0,
   });
-  const barrier = options.signalAt;
-  const poll = barrier
-    ? setInterval(() => {
-        const lines = existsSync(barrier.ledger)
-          ? readFileSync(barrier.ledger, "utf8").split("\n")
-          : [];
-        if (!lines.includes(barrier.line)) return;
-        clearInterval(poll);
-        child.signal(barrier.signal);
-      }, 5)
-    : undefined;
+  const watch =
+    options.signalAt === undefined
+      ? undefined
+      : signalOnLine(child, options.signalAt, bound);
   try {
     const run = await child.finished;
     if (run.timedOut)
       throw new Error(`${argv.join(" ")} did not exit within ${bound} ms.`);
     return { stdout: run.stdout, stderr: run.stderr, exit: run.exitCode };
   } finally {
-    clearInterval(poll);
+    watch?.stop();
   }
 }
 

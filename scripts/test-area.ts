@@ -45,20 +45,26 @@ function subfolderAreas(
     .map((entry) => [entry.name, [`./${folder}/${entry.name}`]]);
 }
 
+function runnable(root: string, area: TestArea): [string, string[]][] {
+  const own: [string, string[]] = [area.name, pathsOf(root, area)];
+  return [own, ...(area.subfolders ? subfolderAreas(root, area) : [])].filter(
+    ([, paths]) => paths.length > 0,
+  );
+}
+
 function areas(root: string): {
   known: Map<string, string[]>;
   empty: string[];
 } {
-  const declared = readRepository(root).testAreas;
-  const candidates = declared.flatMap((area): [string, string[]][] => [
-    [area.name, pathsOf(root, area)],
-    ...(area.subfolders ? subfolderAreas(root, area) : []),
-  ]);
+  const declared = readRepository(root).testAreas.map((area) => ({
+    area,
+    entries: runnable(root, area),
+  }));
   return {
-    known: new Map(candidates.filter(([, paths]) => paths.length > 0)),
+    known: new Map(declared.flatMap(({ entries }) => entries)),
     empty: declared
-      .filter((area) => pathsOf(root, area).length === 0)
-      .map(({ name, folder }) => `${name} (${folder})`),
+      .filter(({ entries }) => entries.length === 0)
+      .map(({ area }) => `${area.name} (${area.folder})`),
   };
 }
 

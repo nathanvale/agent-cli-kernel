@@ -393,6 +393,27 @@ describe("test:area", () => {
     );
   });
 
+  test("an area whose test files sit only in its subfolders is not empty, and each subfolder runs", () => {
+    const root = withToolchain("6.0.2", {
+      ...probe,
+      "repository.json": description([
+        ...declared,
+        {
+          name: "nested",
+          folder: "tests/nested",
+          holds: "files",
+          subfolders: true,
+        },
+      ]),
+      "tests/nested/deep/deep.test.ts":
+        'import { test } from "bun:test";\ntest("deep case", () => {});\n',
+    });
+    const result = run(root, testArea, ["deep"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toContain("Ran 1 test across 1 file.");
+  });
+
   test("the template area runs only the test files directly under tests", () => {
     const result = run(withToolchain("6.0.2", probe), testArea, ["template"]);
 
