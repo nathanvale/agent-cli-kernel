@@ -5,7 +5,7 @@
     { "name": "template", "folder": "tests", "holds": "files" },
     {
       "name": "kernel",
-      "folder": "tests/contract3",
+      "folder": "tests/kernel",
       "holds": "files",
       "subfolders": true
     },

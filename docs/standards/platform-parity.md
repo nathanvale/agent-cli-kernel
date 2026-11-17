@@ -5,11 +5,11 @@ route once it reaches `main`. A case that cannot run on a host is **unproved**
 there, and its title says so.
 
 - Register a platform-bound case through `caseTest` or `supportingTest` in
-  `tests/contract3/state/harness.ts`. Off its platform it runs the fail-closed
+  `tests/kernel/state/harness.ts`. Off its platform it runs the fail-closed
   control under a title containing `UNPROVED on <platform>`.
 - Pin unproved counts as the shared "Observed evidence crosses a real
   boundary" rule asks. `R1.platform-outcomes-pinned` in
-  `tests/contract3/diagnostics/cases.test.ts` is the local pattern.
+  `tests/kernel/diagnostics/cases.test.ts` is the local pattern.
 - Derive system paths from the host, with test-owned precondition reads.
   Literals such as `/private/tmp` or `/usr/share` fail on the other OS.
   Witnessed: [8e4ec47], [ff5fffe].

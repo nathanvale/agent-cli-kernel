@@ -4,10 +4,10 @@
     "src/**/*.ts",
     "scripts/**/*.ts",
     "tests/**/*.ts",
-    "starters/contract3/src/**/*.ts",
-    "starters/contract3/src/**/*.mts",
-    "starters/contract3/src/**/*.cts",
-    "tests/contract3/**/*.mts",
-    "tests/contract3/**/*.cts"
+    "kernel/src/**/*.ts",
+    "kernel/src/**/*.mts",
+    "kernel/src/**/*.cts",
+    "tests/kernel/**/*.mts",
+    "tests/kernel/**/*.cts"
   ]
 }

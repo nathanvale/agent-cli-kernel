@@ -1,30 +1,30 @@
 {
-  "starters/contract3/src/addons/approval/read.ts": {
+  "kernel/src/addons/approval/read.ts": {
     "repository/no-in-operator": {
       "count": 1
     }
   },
-  "starters/contract3/src/addons/diagnostics/io.ts": {
+  "kernel/src/addons/diagnostics/io.ts": {
     "repository/no-in-operator": {
       "count": 1
     }
   },
-  "starters/contract3/src/addons/programs/index.ts": {
+  "kernel/src/addons/programs/index.ts": {
     "repository/no-in-operator": {
       "count": 1
     }
   },
-  "starters/contract3/src/kernel/command-result.ts": {
+  "kernel/src/kernel/command-result.ts": {
     "repository/cause-literal-owner": {
       "count": 3
     }
   },
-  "starters/contract3/src/kernel/fallback.ts": {
+  "kernel/src/kernel/fallback.ts": {
     "repository/cause-literal-owner": {
       "count": 1
     }
   },
-  "starters/contract3/src/kernel/index.ts": {
+  "kernel/src/kernel/index.ts": {
     "repository/cause-literal-owner": {
       "count": 1
     },
@@ -32,27 +32,27 @@
       "count": 1
     }
   },
-  "starters/contract3/src/kernel/lifecycle.ts": {
+  "kernel/src/kernel/lifecycle.ts": {
     "repository/cause-literal-owner": {
       "count": 7
     }
   },
-  "starters/contract3/src/kernel/navigation.ts": {
+  "kernel/src/kernel/navigation.ts": {
     "repository/cause-literal-owner": {
       "count": 15
     }
   },
-  "starters/contract3/src/kernel/pattern-worker.ts": {
+  "kernel/src/kernel/pattern-worker.ts": {
     "repository/no-in-operator": {
       "count": 2
     }
   },
-  "starters/contract3/src/kernel/routing.ts": {
+  "kernel/src/kernel/routing.ts": {
     "repository/cause-literal-owner": {
       "count": 9
     }
   },
-  "starters/contract3/src/kernel/validation/result.ts": {
+  "kernel/src/kernel/validation/result.ts": {
     "repository/no-in-operator": {
       "count": 10
     }
@@ -62,47 +62,47 @@
       "count": 1
     }
   },
-  "tests/contract3/approval/cases.test.ts": {
+  "tests/kernel/approval/cases.test.ts": {
     "repository/tests-use-test-folder": {
       "count": 2
     }
   },
-  "tests/contract3/approval/harness.ts": {
+  "tests/kernel/approval/harness.ts": {
     "repository/tests-use-test-folder": {
       "count": 5
     }
   },
-  "tests/contract3/contract.test.ts": {
+  "tests/kernel/contract.test.ts": {
     "repository/require-to-throw-message": {
       "count": 2
     }
   },
-  "tests/contract3/correlations.test.ts": {
+  "tests/kernel/correlations.test.ts": {
     "repository/tests-use-test-folder": {
       "count": 2
     }
   },
-  "tests/contract3/declaration-admission.test.ts": {
+  "tests/kernel/declaration-admission.test.ts": {
     "repository/tests-use-test-folder": {
       "count": 2
     }
   },
-  "tests/contract3/diagnostics/cases.test.ts": {
+  "tests/kernel/diagnostics/cases.test.ts": {
     "repository/tests-use-test-folder": {
       "count": 2
     }
   },
-  "tests/contract3/diagnostics/fixtures/fault-io.ts": {
+  "tests/kernel/diagnostics/fixtures/fault-io.ts": {
     "repository/tests-no-sleep": {
       "count": 2
     }
   },
-  "tests/contract3/diagnostics/fixtures/specimen-cli.ts": {
+  "tests/kernel/diagnostics/fixtures/specimen-cli.ts": {
     "repository/tests-no-sleep": {
       "count": 2
     }
   },
-  "tests/contract3/diagnostics/harness.ts": {
+  "tests/kernel/diagnostics/harness.ts": {
     "repository/tests-no-sleep": {
       "count": 2
     },
@@ -110,32 +110,32 @@
       "count": 2
     }
   },
-  "tests/contract3/diagnostics/limits.test.ts": {
+  "tests/kernel/diagnostics/limits.test.ts": {
     "repository/tests-no-sleep": {
       "count": 2
     }
   },
-  "tests/contract3/diagnostics/repair.test.ts": {
+  "tests/kernel/diagnostics/repair.test.ts": {
     "repository/tests-no-sleep": {
       "count": 1
     }
   },
-  "tests/contract3/input.test.ts": {
+  "tests/kernel/input.test.ts": {
     "repository/require-to-throw-message": {
       "count": 3
     }
   },
-  "tests/contract3/kernel-followup/decision-2.test.ts": {
+  "tests/kernel/kernel-followup/decision-2.test.ts": {
     "repository/tests-use-test-folder": {
       "count": 1
     }
   },
-  "tests/contract3/kernel-followup/decision-5.test.ts": {
+  "tests/kernel/kernel-followup/decision-5.test.ts": {
     "repository/tests-use-test-folder": {
       "count": 2
     }
   },
-  "tests/contract3/kernel-followup/harness.ts": {
+  "tests/kernel/kernel-followup/harness.ts": {
     "repository/tests-no-sleep": {
       "count": 1
     },
@@ -143,27 +143,27 @@
       "count": 3
     }
   },
-  "tests/contract3/kernel-repair/harness.ts": {
+  "tests/kernel/kernel-repair/harness.ts": {
     "repository/tests-use-test-folder": {
       "count": 2
     }
   },
-  "tests/contract3/kernel-repair/r18.test.ts": {
+  "tests/kernel/kernel-repair/r18.test.ts": {
     "repository/require-to-throw-message": {
       "count": 1
     }
   },
-  "tests/contract3/kernel-repair/runner.test.ts": {
+  "tests/kernel/kernel-repair/runner.test.ts": {
     "repository/tests-use-test-folder": {
       "count": 2
     }
   },
-  "tests/contract3/kernel-repair/swarm-approval.ts": {
+  "tests/kernel/kernel-repair/swarm-approval.ts": {
     "repository/tests-no-sleep": {
       "count": 2
     }
   },
-  "tests/contract3/kernel-repair/swarm-state.test.ts": {
+  "tests/kernel/kernel-repair/swarm-state.test.ts": {
     "repository/tests-no-sleep": {
       "count": 1
     },
@@ -171,17 +171,17 @@
       "count": 4
     }
   },
-  "tests/contract3/kernel-repair/swarm-stations.test.ts": {
+  "tests/kernel/kernel-repair/swarm-stations.test.ts": {
     "repository/tests-use-test-folder": {
       "count": 2
     }
   },
-  "tests/contract3/kernel-repair/version.test.ts": {
+  "tests/kernel/kernel-repair/version.test.ts": {
     "repository/require-to-throw-message": {
       "count": 1
     }
   },
-  "tests/contract3/lifecycle/harness.ts": {
+  "tests/kernel/lifecycle/harness.ts": {
     "repository/tests-no-sleep": {
       "count": 5
     },
@@ -189,12 +189,12 @@
       "count": 2
     }
   },
-  "tests/contract3/lifecycle/ledger.ts": {
+  "tests/kernel/lifecycle/ledger.ts": {
     "repository/tests-no-sleep": {
       "count": 1
     }
   },
-  "tests/contract3/lifecycle/lifecycle.test.ts": {
+  "tests/kernel/lifecycle/lifecycle.test.ts": {
     "repository/require-to-throw-message": {
       "count": 3
     },
@@ -202,7 +202,7 @@
       "count": 3
     }
   },
-  "tests/contract3/lifecycle/stop-flow.test.ts": {
+  "tests/kernel/lifecycle/stop-flow.test.ts": {
     "repository/tests-no-sleep": {
       "count": 2
     },
@@ -210,32 +210,32 @@
       "count": 2
     }
   },
-  "tests/contract3/programs/programs.test.ts": {
+  "tests/kernel/programs/programs.test.ts": {
     "repository/tests-no-sleep": {
       "count": 3
     }
   },
-  "tests/contract3/programs/timers.test.ts": {
+  "tests/kernel/programs/timers.test.ts": {
     "repository/tests-use-test-folder": {
       "count": 2
     }
   },
-  "tests/contract3/state/component.test.ts": {
+  "tests/kernel/state/component.test.ts": {
     "repository/require-to-throw-message": {
       "count": 6
     }
   },
-  "tests/contract3/state/fixtures/specimen.ts": {
+  "tests/kernel/state/fixtures/specimen.ts": {
     "repository/tests-no-sleep": {
       "count": 1
     }
   },
-  "tests/contract3/state/harness.ts": {
+  "tests/kernel/state/harness.ts": {
     "repository/tests-no-sleep": {
       "count": 1
     }
   },
-  "tests/contract3/state/linux-coordination.probe.test.ts": {
+  "tests/kernel/state/linux-coordination.probe.test.ts": {
     "repository/tests-no-sleep": {
       "count": 4
     },
@@ -243,22 +243,22 @@
       "count": 2
     }
   },
-  "tests/contract3/state/route.test.ts": {
+  "tests/kernel/state/route.test.ts": {
     "repository/tests-no-sleep": {
       "count": 2
     }
   },
-  "tests/contract3/state/seams.test.ts": {
+  "tests/kernel/state/seams.test.ts": {
     "repository/tests-use-test-folder": {
       "count": 1
     }
   },
-  "tests/contract3/static-controls.test.ts": {
+  "tests/kernel/static-controls.test.ts": {
     "repository/tests-use-test-folder": {
       "count": 2
     }
   },
-  "tests/contract3/writer/writer.test.ts": {
+  "tests/kernel/writer/writer.test.ts": {
     "repository/require-to-throw-message": {
       "count": 1
     }

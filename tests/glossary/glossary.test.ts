@@ -557,37 +557,37 @@ describe("glossary check proof", () => {
   test.each([
     [
       "visible-text",
-      "starters/contract3/src/kernel/probe.ts",
+      "kernel/src/kernel/probe.ts",
       'throw new Error("Nothing was dispatched.");\n',
       "Handler entry / visible-text",
     ],
     [
       "comment",
-      "starters/contract3/src/kernel/probe.ts",
+      "kernel/src/kernel/probe.ts",
       "// see the Phase 2b handoff\nexport const a = 1;\n",
       "Handoff / comment",
     ],
     [
       "public-identifier",
-      "starters/contract3/src/addons/state/probe.ts",
+      "kernel/src/addons/state/probe.ts",
       "export type CloseOutcome = { readonly kind: string };\n",
       "Outcome / public-identifier",
     ],
     [
       "internal-identifier",
-      "starters/contract3/src/kernel/probe.ts",
+      "kernel/src/kernel/probe.ts",
       "const noResultRoute = Symbol();\nexport const b = noResultRoute;\n",
       "If no result / internal-identifier",
     ],
     [
       "test-title",
-      "tests/contract3/probe.test.ts",
+      "tests/kernel/probe.test.ts",
       'test("the step passed before dispatch", () => {});\n',
       "Handler entry / test-title",
     ],
     [
       "doc",
-      "starters/contract3/src/addons/state/DESIGN.md",
+      "kernel/src/addons/state/DESIGN.md",
       "## 12. Interface for other components\n",
       "Module (design words) / doc",
     ],
@@ -605,13 +605,13 @@ describe("glossary check proof", () => {
   test("quoted contract text does not fire", () => {
     expect(
       terms(
-        "starters/contract3/src/kernel/probe.ts",
+        "kernel/src/kernel/probe.ts",
         '// LIFE-3 says "hooks are installed before dispatch".\nexport const c = 1;\n',
       ),
     ).toEqual([]);
     expect(
       terms(
-        "starters/contract3/src/kernel/probe.ts",
+        "kernel/src/kernel/probe.ts",
         "// glossary-quote: LIFE-6\n// before dispatch the deadline is checked\nexport const d = 1;\n",
       ),
     ).toEqual([]);
@@ -626,14 +626,14 @@ describe("glossary check proof", () => {
       "// The `dispatched` literal and `--admission` are wire names.",
       "",
     ].join("\n");
-    expect(terms("starters/contract3/src/kernel/probe.ts", source)).toEqual([]);
+    expect(terms("kernel/src/kernel/probe.ts", source)).toEqual([]);
   });
 
   const count = (file: string, text: string, term: string) =>
     terms(file, text).filter((hit) => hit.startsWith(`${term} /`)).length;
 
   test("R1 F2: the accepted admission file sense is not flagged in identifiers", () => {
-    const file = "src/domains/contract3-check/probe.ts";
+    const file = "src/domains/kernel-check/probe.ts";
     expect(
       count(
         file,
@@ -647,7 +647,7 @@ describe("glossary check proof", () => {
   });
 
   test("R2 F3: a bare harness before the first test harness is reported, every one", () => {
-    const file = "tests/contract3/probe.test.ts";
+    const file = "tests/kernel/probe.test.ts";
     const bareFirst =
       "// the harness starts\n// the test harness owns it\n// the harness stops\nexport const a = 1;\n";
     expect(count(file, bareFirst, "Test harness")).toBe(2);
@@ -659,14 +659,14 @@ describe("glossary check proof", () => {
   test("R3 case: capitalised forms are flagged", () => {
     expect(
       count(
-        "starters/contract3/src/kernel/probe.ts",
+        "kernel/src/kernel/probe.ts",
         'throw new Error("Dispatched runs are refused.");\n',
         "Handler entry",
       ),
     ).toBe(1);
     expect(
       count(
-        "tests/contract3/probe.test.ts",
+        "tests/kernel/probe.test.ts",
         'test("Before dispatch the deadline holds", () => {});\n',
         "Handler entry",
       ),
@@ -676,21 +676,21 @@ describe("glossary check proof", () => {
   test("R4 forms: dispatched in documents, dispatching, and plural bindings", () => {
     expect(
       count(
-        "starters/contract3/src/addons/state/DESIGN.md",
+        "kernel/src/addons/state/DESIGN.md",
         "The run was dispatched.\n",
         "Handler entry",
       ),
     ).toBe(1);
     expect(
       count(
-        "starters/contract3/src/kernel/probe.ts",
+        "kernel/src/kernel/probe.ts",
         "// checked before dispatching\nexport const a = 1;\n",
         "Handler entry",
       ),
     ).toBe(1);
     expect(
       count(
-        "starters/contract3/src/kernel/probe.ts",
+        "kernel/src/kernel/probe.ts",
         'throw new Error("Some bindings are missing.");\n',
         "Run binding",
       ),
@@ -701,18 +701,10 @@ describe("glossary check proof", () => {
     const text = (id: string) =>
       `// glossary-quote: ${id}\n// before dispatch the deadline is checked\nexport const a = 1;\n`;
     expect(
-      count(
-        "starters/contract3/src/kernel/probe.ts",
-        text("LIFE-999"),
-        "Handler entry",
-      ),
+      count("kernel/src/kernel/probe.ts", text("LIFE-999"), "Handler entry"),
     ).toBe(1);
     expect(
-      count(
-        "starters/contract3/src/kernel/probe.ts",
-        text("LIFE-6"),
-        "Handler entry",
-      ),
+      count("kernel/src/kernel/probe.ts", text("LIFE-6"), "Handler entry"),
     ).toBe(0);
   });
 
@@ -738,7 +730,7 @@ describe("glossary check proof", () => {
   test("R7 quotes: a listed contract row title in double quotes is a quote", () => {
     expect(
       count(
-        "tests/contract3/probe.test.ts",
+        "tests/kernel/probe.test.ts",
         '// The lifecycle row "Deadline before operation dispatch" is read as before handler entry.\nexport const a = 1;\n',
         "Handler entry",
       ),
@@ -746,7 +738,7 @@ describe("glossary check proof", () => {
   });
 
   test("R8 descriptor and installation: the bare forms are flagged, the accepted forms are not", () => {
-    const file = "starters/contract3/src/addons/diagnostics/probe.ts";
+    const file = "kernel/src/addons/diagnostics/probe.ts";
     expect(
       count(
         file,
