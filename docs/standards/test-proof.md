@@ -59,7 +59,9 @@ repository broke it.
 
 ## Processes
 
-- Bound every child below its test timeout. Witnessed: [e990da6], [4a32366].
+- Bound every child below its test timeout, a fixture's git call and a
+  script's synchronous git read included. Witnessed: [e990da6], [4a32366],
+  [7623343].
 - Template tests: reuse `spawnBounded` (`tests/support/process.ts`), which
   runs the child through `startChild` (`scripts/process-runner.ts`), for that
   bound. Kernel tests: reuse `spawnBounded`
@@ -113,3 +115,4 @@ repository broke it.
 [244b63a]: https://github.com/nathanvale/bun-typescript-template/commit/244b63a814ddbb60b4831cabc0e2f8cd1b73bca4
 [c5a554e]: https://github.com/nathanvale/bun-typescript-template/commit/c5a554e0034342f6918775909fcd3b15e27facca
 [8946615]: https://github.com/nathanvale/bun-typescript-template/commit/894661580864b423b07cd4571bdd0c9da69c1911
+[7623343]: https://github.com/nathanvale/bun-typescript-template/commit/76233438395b1e967f461ded4a34f6c1d2c8a533
