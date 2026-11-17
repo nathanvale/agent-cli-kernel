@@ -199,10 +199,6 @@ that repository's standards, not to this glossary. The repo gardener's Gate
 job gives a rule row its gate.
 _Avoid_: proof, admission, guard (for a gate), check (unqualified)
 
-**Negative control**:
-A deliberate break that a test or gate must catch, to show that it can fail.
-_Avoid_: broken on purpose, deliberate break, mutation (for a negative control)
-
 **Test surface**:
 An Interface that tests drive the way a caller does.
 _Avoid_: test seam (a Seam is where behaviour can vary; nothing varies at a test surface)
@@ -214,9 +210,15 @@ A named set of tests that runs on its own.
 The template's one way for its scripts, and the tests that judge them, to
 start a child process.
 
+**Negative control**:
+A break made on purpose to show that a check can fail. It can be made once by
+hand, or kept.
+_Avoid_: mutation; canary (for a negative control)
+
 **Planted fault**:
-A deliberate break in a guard, kept as a patch, that a named test must catch.
-_Avoid_: mutant, mutation
+A negative control kept as a patch. The fault replay applies it on every run,
+so its named test must keep catching it.
+_Avoid_: mutant, mutation; canary (for a planted fault)
 
 **Fault record**:
 The entry that names a planted fault, the test that must catch it, and the
