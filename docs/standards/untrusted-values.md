@@ -13,7 +13,9 @@ boundary trusts the types.
   [5cbff3a].
 - Read each value once into the copy you validate, then check and use that
   same copy. A second read of an accessor, or a read after an `await`, can
-  differ. Witnessed: [75b4bc0], [r4580077763], [3088c03].
+  differ. Witnessed: [75b4bc0], [r4580077763], [3088c03], [r4606886521],
+  [r4606943307] (the `no-in-operator` repair read a member expression
+  twice).
 - Validate the same object you pass on. A spread drops non-enumerable
   properties, and a hidden `toJSON` rewrites serialised data. Witnessed:
   [r4580070938], [r4580077749].
@@ -46,6 +48,8 @@ boundary trusts the types.
 [r4580070890]: https://github.com/nathanvale/bun-typescript-template/pull/6#discussion_r4580070890
 [r4580077765]: https://github.com/nathanvale/bun-typescript-template/pull/6#discussion_r4580077765
 [r4580077771]: https://github.com/nathanvale/bun-typescript-template/pull/6#discussion_r4580077771
+[r4606886521]: https://github.com/nathanvale/bun-typescript-template/pull/80#discussion_r4606886521
+[r4606943307]: https://github.com/nathanvale/bun-typescript-template/pull/80#discussion_r4606943307
 [75b4bc0]: https://github.com/nathanvale/bun-typescript-template/commit/75b4bc045d038970858b95b136f9f176fd3fc4cc
 [57c8c8b]: https://github.com/nathanvale/bun-typescript-template/commit/57c8c8b881c66e967688d05a3a70e1ef487c5553
 [5cbff3a]: https://github.com/nathanvale/bun-typescript-template/commit/5cbff3a87746defffd2672320038c48fbd1ddbc6
