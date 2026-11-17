@@ -4,7 +4,7 @@
   "owner": "Read by tests/glossary/glossary.test.ts. Wire names are never listed here; the check skips them by shape.",
   "scope": [
     "starters/contract3/src/**/*.{ts,mts,cts,md}",
-    "config/contract3-eslint.mjs",
+    "starters/contract3/config/kernel/eslint.mjs",
     "tests/contract3/**/*.{ts,mts,cts,md}",
     "tests/contract3/**/*.ts.txt"
   ],
