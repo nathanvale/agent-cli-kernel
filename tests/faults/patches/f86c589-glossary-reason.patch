@@ -1,13 +1,19 @@
 diff --git a/scripts/glossary.ts b/scripts/glossary.ts
-index b5e03f5..544e616 100644
+index 28977a1..ade3ea7 100644
 --- a/scripts/glossary.ts
 +++ b/scripts/glossary.ts
-@@ -107,7 +107,7 @@ function recordedFields(
+@@ -109,11 +109,9 @@ function recordedFields(
  }
  
  export function readRecordedHits(text: string): RecordedHit[] {
--  return recordedFields(recordedHitsFile, text, ["path", "word", "reason"]).map(
-+  return recordedFields(recordedHitsFile, text, ["path", "word"]).map(
-     ([path = "", word = "", reason = ""]) => ({ path, word, reason }),
-   );
+-  return recordedFields(recordedHitsFile, text, "hits", [
+-    "path",
+-    "word",
+-    "reason",
+-  ]).map(([path = "", word = "", reason = ""]) => ({ path, word, reason }));
++  return recordedFields(recordedHitsFile, text, "hits", ["path", "word"]).map(
++    ([path = "", word = "", reason = ""]) => ({ path, word, reason }),
++  );
  }
+ 
+ export function readRecordedUnusedTerms(text: string): RecordedUnusedTerm[] {

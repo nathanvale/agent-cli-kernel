@@ -82,17 +82,19 @@ export function readGlossary(text: string): Glossary {
 function recordedFields(
   file: string,
   text: string,
+  list: string,
   keys: readonly string[],
 ): string[][] {
   const parsed: unknown = JSON.parse(text);
-  const hits: unknown =
+  const entries: unknown =
     typeof parsed === "object" && parsed !== null
-      ? new Map(Object.entries(parsed)).get("hits")
+      ? new Map(Object.entries(parsed)).get(list)
       : undefined;
-  if (!Array.isArray(hits)) throw new Error(`${file} needs a "hits" array.`);
-  return hits.map((hit: unknown, index) => {
+  if (!Array.isArray(entries))
+    throw new Error(`${file} needs a "${list}" array.`);
+  return entries.map((entry: unknown, index) => {
     const own = new Map<string, unknown>(
-      typeof hit === "object" && hit !== null ? Object.entries(hit) : [],
+      typeof entry === "object" && entry !== null ? Object.entries(entry) : [],
     );
     const fields = keys.flatMap((key) => {
       const value = own.get(key);
@@ -100,20 +102,22 @@ function recordedFields(
     });
     if (fields.length !== keys.length)
       throw new Error(
-        `${file}: hits[${index}] needs a non-empty ${keys.slice(0, -1).join(", ")} and ${keys.at(-1)}.`,
+        `${file}: ${list}[${index}] needs a non-empty ${keys.slice(0, -1).join(", ")} and ${keys.at(-1)}.`,
       );
     return fields;
   });
 }
 
 export function readRecordedHits(text: string): RecordedHit[] {
-  return recordedFields(recordedHitsFile, text, ["path", "word", "reason"]).map(
-    ([path = "", word = "", reason = ""]) => ({ path, word, reason }),
-  );
+  return recordedFields(recordedHitsFile, text, "hits", [
+    "path",
+    "word",
+    "reason",
+  ]).map(([path = "", word = "", reason = ""]) => ({ path, word, reason }));
 }
 
 export function readRecordedUnusedTerms(text: string): RecordedUnusedTerm[] {
-  return recordedFields(recordedUnusedTermsFile, text, [
+  return recordedFields(recordedUnusedTermsFile, text, "terms", [
     "term",
     "reason",
     "ticket",

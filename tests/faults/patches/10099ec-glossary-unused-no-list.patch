@@ -1,13 +1,14 @@
 diff --git a/scripts/glossary.ts b/scripts/glossary.ts
-index b5e03f5..b5dabf3 100644
+index 28977a1..2ac48dd 100644
 --- a/scripts/glossary.ts
 +++ b/scripts/glossary.ts
-@@ -89,7 +89,7 @@ function recordedFields(
+@@ -90,8 +90,7 @@ function recordedFields(
      typeof parsed === "object" && parsed !== null
-       ? new Map(Object.entries(parsed)).get("hits")
+       ? new Map(Object.entries(parsed)).get(list)
        : undefined;
--  if (!Array.isArray(hits)) throw new Error(`${file} needs a "hits" array.`);
-+  if (!Array.isArray(hits)) return [];
-   return hits.map((hit: unknown, index) => {
+-  if (!Array.isArray(entries))
+-    throw new Error(`${file} needs a "${list}" array.`);
++  if (!Array.isArray(entries)) return [];
+   return entries.map((entry: unknown, index) => {
      const own = new Map<string, unknown>(
-       typeof hit === "object" && hit !== null ? Object.entries(hit) : [],
+       typeof entry === "object" && entry !== null ? Object.entries(entry) : [],

@@ -118,25 +118,25 @@ test("GM.e a recorded unused term that GLOSSARY.md does not define fails", () =>
 });
 
 test("a recorded unused term is read with its reason and its ticket", () => {
-  expect(readRecordedUnusedTerms(JSON.stringify({ hits: [awaited] }))).toEqual([
-    awaited,
-  ]);
+  expect(readRecordedUnusedTerms(JSON.stringify({ terms: [awaited] }))).toEqual(
+    [awaited],
+  );
 });
 
 test.each([
   ["a reason", { term: "CLI starter", ticket: "MAG-1" }],
   ["a ticket", { term: "CLI starter", reason: "Not built yet." }],
   ["a term", { reason: "Not built yet.", ticket: "MAG-1" }],
-])("GM.f a recorded unused term without %s is refused", (_field, hit) => {
+])("GM.f a recorded unused term without %s is refused", (_field, entry) => {
   expect(() =>
-    readRecordedUnusedTerms(JSON.stringify({ hits: [hit] })),
+    readRecordedUnusedTerms(JSON.stringify({ terms: [entry] })),
   ).toThrow(
-    `${recordedUnusedTermsFile}: hits[0] needs a non-empty term, reason and ticket.`,
+    `${recordedUnusedTermsFile}: terms[0] needs a non-empty term, reason and ticket.`,
   );
 });
 
-test("GM.g recorded unused terms with no hits list are refused", () => {
+test("GM.g recorded unused terms with no terms list are refused", () => {
   expect(() => readRecordedUnusedTerms("{}")).toThrow(
-    `${recordedUnusedTermsFile} needs a "hits" array.`,
+    `${recordedUnusedTermsFile} needs a "terms" array.`,
   );
 });
