@@ -241,6 +241,42 @@ so the check passes until it is fixed. A new violation is fixed, never
 recorded, so a list only shrinks after its rule lands.
 _Avoid_: known hit, allowlist, baseline
 
+### Tools and their messages
+
+**Refusal**:
+A tool declining to act, before it changes anything, with a message that says
+why and what to do next.
+_Avoid_: rejection (for a refusal)
+
+**Repair**:
+The next step a failure message tells the reader to take. A message writes it
+after the word "Repair:".
+_Avoid_: fix (for the step; a fix is a commit)
+
+**Verdict**:
+The result of judging one thing once. A fault replay gives each planted fault
+one of KILLED, SURVIVED, STALE, BROKEN or TIMEOUT. The per-commit gate gives
+each commit GREEN or RED.
+
+**Doctor**:
+The command that checks, before work starts, that this checkout can run the
+repository's checks: the pinned Bun, the installed tools, and the machine's
+load. It names a repair for each check that fails.
+
+**Toolchain**:
+The tools a repository's checks run on, at the versions the repository accepts:
+Bun, the linter, the compiler and the dead-code tool.
+
+**Lint rule**:
+One rule the linter enforces on code, with a message that names its repair. A
+lint rule can be the gate of a rule row.
+_Avoid_: rule (unqualified)
+
+**Names check**:
+The check that holds every tracked file and folder name to the glossary's
+words. It runs as a test, as a hook when a file is created, and at commit.
+_Avoid_: names gate (for the names check)
+
 ### Keeping the rules
 
 **Repo gardener**:
