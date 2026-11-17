@@ -1,0 +1,50 @@
+{
+  "about": "Names that used an Avoid word or an unqualified word from GLOSSARY.md when the names check landed (17 November 2026). The check fails on any hit not listed here, and on any listed hit that no longer occurs: remove an entry in the change that renames its path.",
+  "hits": [
+    {
+      "path": "profiles",
+      "word": "profile",
+      "reason": "Holds the bootstrap profiles. Recipes, Bootstrap and the static admission check name this path; renaming it is its own change."
+    },
+    {
+      "path": "proofs",
+      "word": "proof",
+      "reason": "Holds the verification records written when each bootstrap profile was built. No tool reads them; renaming is its own change."
+    },
+    {
+      "path": "proofs/durable/PROOF.md",
+      "word": "proof",
+      "reason": "The durable profile's verification record. Renaming it is its own change."
+    },
+    {
+      "path": "starters",
+      "word": "starter",
+      "reason": "Holds two kinds of starter: the CLI starters and the Contract 3 kernel. Rename it once the kernel leaves and only CLI starters remain."
+    },
+    {
+      "path": "tests/faults/manifest.json",
+      "word": "manifest",
+      "reason": "Holds the fault records. The fault tools, the standards test and two skills name this path; renaming it is its own change."
+    },
+    {
+      "path": "starters/contract3/config/kernel/host.json",
+      "word": "host",
+      "reason": "Kernel file, named by the kernel's own words. Remove this entry when the kernel leaves."
+    },
+    {
+      "path": "tests/contract3/locks/probes.test.ts",
+      "word": "probe",
+      "reason": "Kernel file, named by the kernel's own words. Remove this entry when the kernel leaves."
+    },
+    {
+      "path": "tests/contract3/locks/probes.ts",
+      "word": "probe",
+      "reason": "Kernel file, named by the kernel's own words. Remove this entry when the kernel leaves."
+    },
+    {
+      "path": "tests/glossary/known-hits.json",
+      "word": "known hit",
+      "reason": "Kernel file: the kernel's word for a recorded hit. Remove this entry when the kernel leaves."
+    }
+  ]
+}
