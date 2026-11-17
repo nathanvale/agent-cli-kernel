@@ -28,6 +28,14 @@ repository broke it.
   or a fault-wrapped CLI, proves only the fixture. Witnessed: [e55f94a],
   [7ea1ee3].
 
+## In-process tests
+
+- Give each function a script or the CLI runs a test that imports and
+  calls it, beside the process proof that spawns the entry. A coverage
+  report and fallow's coverage estimate cannot see into a spawned process,
+  so a function proved only that way reads as untested and its mutants
+  never run. Witnessed: [9f3c666], [fa8b6f5].
+
 ## Planted faults
 
 - Apply the shared RED-then-GREEN rule to every new refusal or bound.
@@ -86,3 +94,5 @@ repository broke it.
 [9050fec]: https://github.com/nathanvale/bun-typescript-template/commit/9050fec545a21a1995b0014151b4d486c2188e06
 [b8664cf]: https://github.com/nathanvale/bun-typescript-template/commit/b8664cfdcb826e3870b52b0141c0f4f2efb2eba0
 [70c7280]: https://github.com/nathanvale/bun-typescript-template/commit/70c7280c8253b0badc173898fcb5ca44b8e2198b
+[9f3c666]: https://github.com/nathanvale/bun-typescript-template/commit/9f3c66623003b3ef1dd355b6b7ef93882cd937a2
+[fa8b6f5]: https://github.com/nathanvale/bun-typescript-template/commit/fa8b6f5ac1733b1eedc1e8d78d267414ebc5c4cb
