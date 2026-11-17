@@ -161,6 +161,55 @@
     "source": "abebe4e Gate tools read the repository from repository.json"
   },
   {
+    "id": "f86c589-glossary-avoid",
+    "patch": "tests/faults/patches/f86c589-glossary-avoid.patch",
+    "testFile": "tests/naming/names.test.ts",
+    "title": "^NM\\.a ",
+    "source": "f86c589 test(naming): check tracked names and the glossary files"
+  },
+  {
+    "id": "f86c589-glossary-qualify",
+    "patch": "tests/faults/patches/f86c589-glossary-qualify.patch",
+    "testFile": "tests/naming/names.test.ts",
+    "title": "^NM\\.b ",
+    "source": "f86c589 test(naming): check tracked names and the glossary files"
+  },
+  {
+    "id": "f86c589-glossary-stale",
+    "patch": "tests/faults/patches/f86c589-glossary-stale.patch",
+    "testFile": "tests/naming/names.test.ts",
+    "title": "^NM\\.c ",
+    "source": "f86c589 test(naming): check tracked names and the glossary files"
+  },
+  {
+    "id": "f86c589-glossary-reason",
+    "patch": "tests/faults/patches/f86c589-glossary-reason.patch",
+    "testFile": "tests/naming/names.test.ts",
+    "title": "^a recorded hit without a reason is refused$",
+    "source": "f86c589 test(naming): check tracked names and the glossary files"
+  },
+  {
+    "id": "f86c589-glossary-map-pointer",
+    "patch": "tests/faults/patches/f86c589-glossary-map-pointer.patch",
+    "testFile": "tests/naming/glossary-files.test.ts",
+    "title": "^GM\\.a ",
+    "source": "f86c589 test(naming): check tracked names and the glossary files"
+  },
+  {
+    "id": "f86c589-glossary-map-empty",
+    "patch": "tests/faults/patches/f86c589-glossary-map-empty.patch",
+    "testFile": "tests/naming/glossary-files.test.ts",
+    "title": "^GM\\.b ",
+    "source": "f86c589 test(naming): check tracked names and the glossary files"
+  },
+  {
+    "id": "f86c589-glossary-unused",
+    "patch": "tests/faults/patches/f86c589-glossary-unused.patch",
+    "testFile": "tests/naming/glossary-files.test.ts",
+    "title": "^GM\\.c ",
+    "source": "f86c589 test(naming): check tracked names and the glossary files"
+  },
+  {
     "id": "8048731-child-env-limit",
     "patch": "tests/faults/patches/8048731-child-env-limit.patch",
     "testFile": "tests/child-env.test.ts",

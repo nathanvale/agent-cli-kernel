@@ -1,0 +1,13 @@
+diff --git a/scripts/glossary.ts b/scripts/glossary.ts
+index fa6c940..2cf679f 100644
+--- a/scripts/glossary.ts
++++ b/scripts/glossary.ts
+@@ -138,7 +138,7 @@ export function nameProblems(
+       : [`${hit.path} uses "${hit.word}"${hit.problem}`],
+   );
+   const stale = recorded.flatMap((entry) =>
+-    hits.some((hit) => same(hit, entry))
++    hits.some((hit) => same(hit, entry)) || true
+       ? []
+       : [
+           `${recordedHitsFile} records "${entry.word}" in ${entry.path}, which no longer occurs. Remove the entry.`,

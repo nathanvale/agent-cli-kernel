@@ -10,6 +10,7 @@
       "subfolders": true
     },
     { "name": "glossary", "folder": "tests/glossary", "holds": "folder" },
-    { "name": "standards", "folder": "tests/standards", "holds": "folder" }
+    { "name": "standards", "folder": "tests/standards", "holds": "folder" },
+    { "name": "naming", "folder": "tests/naming", "holds": "folder" }
   ]
 }

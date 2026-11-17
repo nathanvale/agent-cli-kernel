@@ -1,0 +1,13 @@
+diff --git a/scripts/glossary.ts b/scripts/glossary.ts
+index fa6c940..2721413 100644
+--- a/scripts/glossary.ts
++++ b/scripts/glossary.ts
+@@ -111,7 +111,7 @@ function hitsIn(path: string, glossary: Glossary): NameHit[] {
+     ),
+   );
+   const unqualified = glossary.qualify.flatMap((word) =>
+-    base.length === 1 && sameWord(base[0] ?? "", word)
++    base.length === 0 && sameWord(base[0] ?? "", word)
+       ? [
+           {
+             path,
