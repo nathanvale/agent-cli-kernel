@@ -57,9 +57,9 @@
       "count": 10
     }
   },
-  "tests/bootstrap-cli.test.ts": {
+  "tests/doctor.test.ts": {
     "repository/tests-use-test-folder": {
-      "count": 1
+      "count": 2
     }
   },
   "tests/kernel/approval/cases.test.ts": {
@@ -261,11 +261,6 @@
   "tests/kernel/writer/writer.test.ts": {
     "repository/require-to-throw-message": {
       "count": 1
-    }
-  },
-  "tests/doctor.test.ts": {
-    "repository/tests-use-test-folder": {
-      "count": 2
     }
   },
   "tests/static-admission.test.ts": {
