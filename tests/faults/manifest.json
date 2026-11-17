@@ -82,5 +82,26 @@
     "testFile": "tests/contract3/host-lint.test.ts",
     "title": "kernelLint settings cause-literal-owner without settings\\.kernel\\.srcDir fails loudly$",
     "source": "64b4738 feat(lint): the kernel lint module takes its folders as settings (MAG-121)"
+  },
+  {
+    "id": "8d55f96-check-commits",
+    "patch": "tests/faults/patches/8d55f96-check-commits.patch",
+    "testFile": "tests/check-commits.test.ts",
+    "title": "an empty range checks nothing and fails",
+    "source": "8d55f96 Gates that would check nothing fail"
+  },
+  {
+    "id": "8d55f96-faults",
+    "patch": "tests/faults/patches/8d55f96-faults.patch",
+    "testFile": "tests/faults.test.ts",
+    "title": "FR\\.t an empty manifest",
+    "source": "8d55f96 Gates that would check nothing fail"
+  },
+  {
+    "id": "8d55f96-test-area",
+    "patch": "tests/faults/patches/8d55f96-test-area.patch",
+    "testFile": "tests/doctor.test.ts",
+    "title": "a declared area that holds no test file fails",
+    "source": "8d55f96 Gates that would check nothing fail"
   }
 ]
