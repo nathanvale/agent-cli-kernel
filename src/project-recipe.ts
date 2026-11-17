@@ -133,9 +133,12 @@ function refusal(selection: Selection): RecipeChoice {
   );
 }
 
-export function selectRecipe(selection: Selection): RecipeChoice {
+export function selectRecipe(
+  selection: Selection,
+  recipes: readonly ProjectRecipe[] = RECIPES,
+): RecipeChoice {
   const layout: Layout = selection.monorepo ? "monorepo" : "single-package";
-  const recipe = RECIPES.find(
+  const recipe = recipes.find(
     ({ request }) =>
       request.profile === selection.profile &&
       request.layout === layout &&

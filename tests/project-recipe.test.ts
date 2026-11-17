@@ -200,6 +200,17 @@ describe("project recipe", () => {
     );
     expect(provenance).toEqual(PROVENANCE);
   });
+
+  test("a selection that no row and no refusal matches throws, naming the selection", () => {
+    const withGap = RECIPES.filter(
+      ({ request }) => request.profile !== "scratch",
+    );
+    expect(() =>
+      selectRecipe({ profile: "scratch", monorepo: false }, withGap),
+    ).toThrow(
+      "No recipe and no refusal matches profile scratch, monorepo false, starter none. Add a row to RECIPES or a rule to refusal().",
+    );
+  });
 });
 
 describe("Bootstrap carrying out a row", () => {
