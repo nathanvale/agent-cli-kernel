@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { type Child, startChild } from "../scripts/child-env.ts";
+import { type Child, type Finished, startChild } from "../scripts/child-env.ts";
 import { watchLedger } from "./support/process.ts";
 import { signalGroupIfPresent } from "./support/signal.ts";
 import { testFolder } from "./support/test-folder.ts";
@@ -9,6 +9,28 @@ import { testFolder } from "./support/test-folder.ts";
 const testTimeout = 30_000;
 const reapBound = 10_000;
 const ledgerBound = 10_000;
+const finishBound = 10_000;
+
+async function finishedWithin(child: Child): Promise<Finished> {
+  let bound: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    return await Promise.race([
+      child.finished,
+      new Promise<never>((_, reject) => {
+        bound = setTimeout(
+          () =>
+            reject(
+              new Error(`The child did not finish within ${finishBound} ms.`),
+            ),
+          finishBound,
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(bound);
+  }
+}
 
 async function released(
   start: (root: string) => Child,
@@ -65,7 +87,7 @@ test(
           { limitMilliseconds, graceMilliseconds },
         ),
       async (child, root) => {
-        const run = await child.finished;
+        const run = await finishedWithin(child);
         const took = Date.now() - started;
         expect(took).toBeGreaterThanOrEqual(limitMilliseconds);
         expect(took).toBeLessThan(limitMilliseconds + lateness);
@@ -82,6 +104,11 @@ test(
 test(
   "CE.b a stop that the child ignores escalates to SIGKILL for the whole group after the grace",
   async () => {
+    const graceMilliseconds = 1_000;
+    // Platform: a timer counts from the event loop's cached clock, which can
+    // trail Date.now() by a few milliseconds, and Date.now() rounds to whole
+    // milliseconds. A SIGKILL sent at once ends the run in a few milliseconds.
+    const clockSlack = 100;
     await released(
       (root) =>
         startChild(
@@ -90,12 +117,16 @@ test(
             "-c",
             `trap '' TERM; sleep 300 & echo $! > '${join(root, "pids")}'; echo started >> '${join(root, "ledger")}'; wait`,
           ],
-          { graceMilliseconds: 1_000 },
+          { graceMilliseconds },
         ),
       async (child, root) => {
         await watchLedger(join(root, "ledger"), "started", ledgerBound).reached;
+        const stopped = Date.now();
         child.stop();
-        const run = await child.finished;
+        const run = await finishedWithin(child);
+        expect(Date.now() - stopped).toBeGreaterThanOrEqual(
+          graceMilliseconds - clockSlack,
+        );
         expect(run.timedOut).toBe(false);
         expect(run.signalCode).toBe("SIGKILL");
         const grandchild = Number(readFileSync(join(root, "pids"), "utf8"));
@@ -146,7 +177,7 @@ test(
         child.stop();
         const grandchild = Number(readFileSync(join(root, "pids"), "utf8"));
         expect(await exited(grandchild)).toBe(true);
-        const run = await child.finished;
+        const run = await finishedWithin(child);
         expect(run.timedOut).toBe(false);
         expect(run.signalCode).toBe("SIGKILL");
       },
