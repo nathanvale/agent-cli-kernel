@@ -127,3 +127,30 @@ test(
   },
   testTimeout,
 );
+
+test(
+  "CE.d a stop with a grace of zero sends SIGKILL to the whole group at once, so a child that ignores SIGTERM still dies",
+  async () => {
+    await released(
+      (root) =>
+        startChild(
+          [
+            "sh",
+            "-c",
+            `trap '' TERM; sleep 300 & echo $! > '${join(root, "pids")}'; echo started >> '${join(root, "ledger")}'; wait`,
+          ],
+          { graceMilliseconds: 0 },
+        ),
+      async (child, root) => {
+        await watchLedger(join(root, "ledger"), "started", ledgerBound).reached;
+        child.stop();
+        const grandchild = Number(readFileSync(join(root, "pids"), "utf8"));
+        expect(await exited(grandchild)).toBe(true);
+        const run = await child.finished;
+        expect(run.timedOut).toBe(false);
+        expect(run.signalCode).toBe("SIGKILL");
+      },
+    );
+  },
+  testTimeout,
+);
