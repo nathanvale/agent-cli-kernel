@@ -1,12 +1,9 @@
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
-import repository from "./eslint-rules.mjs";
+import { readFileSync } from "node:fs";
+import { isAbsolute } from "node:path";
+import kernelRules from "./eslint-rules.mjs";
 
-const scopes = [
-  "starters/contract3/src/**/*.{ts,mts,cts}",
-  "tests/contract3/**/*.{ts,mts,cts}",
-];
-const boundary = "starters/contract3/src/kernel/validation/**/*.{ts,mts,cts}";
 const stateFactoryProperty = {
   property: "stateAddon",
   message:
@@ -45,7 +42,6 @@ const kernelIndexOnly = {
   message:
     "Code outside the kernel imports the stamped kernel through its public index only.",
 };
-const ffiRoute = "starters/contract3/src/addons/state/linux-flock.ts";
 const ffiMessage =
   "bun:ffi belongs only to the state add-on's linux-flock.ts (the Linux coordination lock call).";
 const ffiPath = { name: "bun:ffi", message: ffiMessage };
@@ -178,152 +174,228 @@ function hostRules({ banFfi = true, logging = loggingImports } = {}) {
     ],
   };
 }
-export default tseslint.config(
-  {
-    files: scopes,
-    linterOptions: { noInlineConfig: true },
-    extends: [
-      js.configs.recommended,
-      ...tseslint.configs.recommendedTypeChecked,
-    ],
-    languageOptions: {
-      parserOptions: {
-        projectService: true,
-        tsconfigRootDir: new URL("../../../..", import.meta.url).pathname,
+const declaration = JSON.parse(
+  readFileSync(new URL("./host.json", import.meta.url), "utf8"),
+);
+const declaredAddons = Object.keys(declaration.addons);
+const ts = "**/*.{ts,mts,cts}";
+
+const text = (value) => typeof value === "string" && value !== "";
+const settingRules = {
+  rootDir: [
+    (value) => text(value) && isAbsolute(value),
+    "the absolute folder that holds tsconfig.json",
+  ],
+  srcDir: [
+    (value) => text(value) && !isAbsolute(value) && !value.endsWith("/"),
+    'the source folder relative to the folder ESLint runs in, such as "src"',
+  ],
+  testDirs: [
+    (value) => Array.isArray(value) && value.every(text),
+    "the test folders, or [] when there are none",
+  ],
+  addons: [
+    (value) => value === "all" || Array.isArray(value),
+    '"all" or the selected add-on names',
+  ],
+};
+
+function settingsOf(options = {}) {
+  for (const [name, [holds, what]] of Object.entries(settingRules))
+    if (!holds(options[name]))
+      throw new Error(`kernelLint needs ${name}: ${what}.`);
+  const addons = options.addons === "all" ? declaredAddons : options.addons;
+  const unknown = addons.find((name) => !declaredAddons.includes(name));
+  if (unknown !== undefined)
+    throw new Error(
+      `kernelLint: add-on "${unknown}" is not declared in host.json. Declared: ${declaredAddons.join(", ")}.`,
+    );
+  const plugin = options.plugin ?? kernelRules;
+  const replaced = Object.keys(kernelRules.rules).find(
+    (id) => plugin.rules?.[id] !== kernelRules.rules[id],
+  );
+  if (replaced !== undefined)
+    throw new Error(
+      `kernelLint: the plugin must hold the kernel's own ${replaced} rule. Spread the kernel's rules after your own.`,
+    );
+  return { ...options, addons, repository: plugin };
+}
+
+export function kernelLint(options) {
+  const { rootDir, srcDir, testDirs, addons, repository } = settingsOf(options);
+  const selected = (name) => addons.includes(name);
+  const source = `${srcDir}/${ts}`;
+  const boundary = `${srcDir}/kernel/validation/${ts}`;
+  const ffiRoute = `${srcDir}/addons/state/linux-flock.ts`;
+  const addon = (name) => `${srcDir}/addons/${name}/${ts}`;
+  const when = (name, block) => (selected(name) ? [block] : []);
+  return tseslint.config(
+    {
+      files: [source, ...testDirs.map((dir) => `${dir}/${ts}`)],
+      linterOptions: { noInlineConfig: true },
+      extends: [
+        js.configs.recommended,
+        ...tseslint.configs.recommendedTypeChecked,
+      ],
+      languageOptions: {
+        parserOptions: {
+          projectService: true,
+          tsconfigRootDir: rootDir,
+        },
+      },
+      settings: { kernel: { srcDir } },
+      rules,
+    },
+    {
+      files: [source],
+      plugins: { repository },
+      rules: {
+        "repository/no-domain-output": "error",
+        "repository/no-locale-compare": "error",
+        "no-restricted-syntax": [
+          ...rules["no-restricted-syntax"],
+          childProcessImport,
+          ffiImport,
+        ],
+        "no-restricted-imports": [
+          "error",
+          {
+            paths: [ffiPath],
+            patterns: [
+              { group: ["**/tests/**", "node:child_process", "child_process"] },
+              loggingImports,
+            ],
+          },
+        ],
+        "no-restricted-properties": [
+          "error",
+          ...programProperties,
+          stateFactoryProperty,
+        ],
       },
     },
-    rules,
-  },
-  {
-    files: ["starters/contract3/src/**/*.{ts,mts,cts}"],
-    plugins: { repository },
-    rules: {
-      "repository/no-domain-output": "error",
-      "repository/no-locale-compare": "error",
-      "no-restricted-syntax": [
-        ...rules["no-restricted-syntax"],
-        childProcessImport,
-        ffiImport,
+    {
+      files: [source],
+      ignores: [
+        `${srcDir}/kernel/**`,
+        ...(selected("state") ? [ffiRoute] : []),
       ],
-      "no-restricted-imports": [
-        "error",
-        {
-          paths: [ffiPath],
-          patterns: [
-            { group: ["**/tests/**", "node:child_process", "child_process"] },
-            loggingImports,
-          ],
-        },
-      ],
-      "no-restricted-properties": [
-        "error",
-        ...programProperties,
-        stateFactoryProperty,
-      ],
+      rules: hostRules(),
     },
-  },
-  {
-    files: ["starters/contract3/src/**/*.{ts,mts,cts}"],
-    ignores: ["starters/contract3/src/kernel/**", ffiRoute],
-    rules: hostRules(),
-  },
-  {
-    files: [ffiRoute],
-    rules: hostRules({ banFfi: false }),
-  },
-  {
-    files: ["starters/contract3/src/kernel/index.ts"],
-    rules: {
-      "no-restricted-properties": ["error", ...programProperties],
-      "no-restricted-syntax": [
-        ...rules["no-restricted-syntax"],
-        childProcessImport,
-        ffiImport,
-        {
-          selector:
-            ":matches(MemberExpression[property.name='stateAddon'], MemberExpression[computed=true][property.value='stateAddon']):not(AssignmentExpression[operator='='][left.object.name='contractFor'][left.property.name='stateAddon'][right.name='createStateAddon'] > MemberExpression.left)",
-          message:
-            "Only the state add-on factory declaration may name stateAddon here.",
-        },
-        {
-          selector:
-            "ObjectPattern > :matches(Property[key.name='stateAddon'], Property[key.value='stateAddon'])",
-          message:
-            "Only the stamped state add-on may extract the state add-on factory.",
-        },
-      ],
-    },
-  },
-  {
-    files: [boundary],
-    rules: {
-      "@typescript-eslint/consistent-type-assertions": "off",
-      "no-restricted-syntax": [
-        "error",
-        {
-          selector:
-            ":matches(TSAsExpression, TSTypeAssertion):not([typeAnnotation.type='TSTypeReference']):not([typeAnnotation.typeName.name='const'])",
-          message: "Only a named boundary brand assertion is allowed.",
-        },
-        {
-          selector:
-            ":matches(TSAsExpression, TSTypeAssertion)[typeAnnotation.type='TSTypeReference']:not([typeAnnotation.typeName.name=/^(AuthorityId|ResourceId|ParsedPath)$/]):not([typeAnnotation.typeName.name='const'])",
-          message: "Whole-result and arbitrary assertions are forbidden.",
-        },
-        {
-          selector:
-            "CallExpression[callee.object.name='Object']:matches([callee.property.name='assign'], [callee.computed=true][callee.property.value='assign'])",
-          message: "Object.assign is forbidden.",
-        },
-        childProcessImport,
-        ffiImport,
-      ],
-    },
-  },
-  {
-    files: ["tests/contract3/locks/**/*.{ts,mts,cts}"],
-    rules: {
-      "@typescript-eslint/ban-ts-comment": [
-        "error",
-        {
-          "ts-expect-error": "allow-with-description",
-          "ts-ignore": true,
-          "ts-nocheck": true,
-          "ts-check": false,
-        },
-      ],
-    },
-  },
-  {
-    files: ["starters/contract3/src/addons/diagnostics/**/*.{ts,mts,cts}"],
-    rules: hostRules({
-      logging: {
-        group: [
-          ...loggingImports.group.filter((name) => name !== "@logtape/*"),
-          "@logtape/*",
-          "!@logtape/logtape",
-          "!@logtape/redaction",
+    ...when("state", {
+      files: [ffiRoute],
+      rules: hostRules({ banFfi: false }),
+    }),
+    {
+      files: [`${srcDir}/kernel/index.ts`],
+      rules: {
+        "no-restricted-properties": ["error", ...programProperties],
+        "no-restricted-syntax": [
+          ...rules["no-restricted-syntax"],
+          childProcessImport,
+          ffiImport,
+          {
+            selector:
+              ":matches(MemberExpression[property.name='stateAddon'], MemberExpression[computed=true][property.value='stateAddon']):not(AssignmentExpression[operator='='][left.object.name='contractFor'][left.property.name='stateAddon'][right.name='createStateAddon'] > MemberExpression.left)",
+            message:
+              "Only the state add-on factory declaration may name stateAddon here.",
+          },
+          {
+            selector:
+              "ObjectPattern > :matches(Property[key.name='stateAddon'], Property[key.value='stateAddon'])",
+            message:
+              "Only the stamped state add-on may extract the state add-on factory.",
+          },
         ],
-        message: loggingImports.message,
+      },
+    },
+    {
+      files: [boundary],
+      rules: {
+        "@typescript-eslint/consistent-type-assertions": "off",
+        "no-restricted-syntax": [
+          "error",
+          {
+            selector:
+              ":matches(TSAsExpression, TSTypeAssertion):not([typeAnnotation.type='TSTypeReference']):not([typeAnnotation.typeName.name='const'])",
+            message: "Only a named boundary brand assertion is allowed.",
+          },
+          {
+            selector:
+              ":matches(TSAsExpression, TSTypeAssertion)[typeAnnotation.type='TSTypeReference']:not([typeAnnotation.typeName.name=/^(AuthorityId|ResourceId|ParsedPath)$/]):not([typeAnnotation.typeName.name='const'])",
+            message: "Whole-result and arbitrary assertions are forbidden.",
+          },
+          {
+            selector:
+              "CallExpression[callee.object.name='Object']:matches([callee.property.name='assign'], [callee.computed=true][callee.property.value='assign'])",
+            message: "Object.assign is forbidden.",
+          },
+          childProcessImport,
+          ffiImport,
+        ],
+      },
+    },
+    ...(testDirs.length === 0
+      ? []
+      : [
+          {
+            files: testDirs.map((dir) => `${dir}/locks/${ts}`),
+            rules: {
+              "@typescript-eslint/ban-ts-comment": [
+                "error",
+                {
+                  "ts-expect-error": "allow-with-description",
+                  "ts-ignore": true,
+                  "ts-nocheck": true,
+                  "ts-check": false,
+                },
+              ],
+            },
+          },
+        ]),
+    ...when("diagnostics", {
+      files: [addon("diagnostics")],
+      rules: hostRules({
+        logging: {
+          group: [
+            ...loggingImports.group.filter((name) => name !== "@logtape/*"),
+            "@logtape/*",
+            "!@logtape/logtape",
+            "!@logtape/redaction",
+          ],
+          message: loggingImports.message,
+        },
+      }),
+    }),
+    ...when("state", {
+      files: [addon("state")],
+      rules: { "no-restricted-properties": ["error", ...programProperties] },
+    }),
+    ...when("programs", {
+      files: [addon("programs")],
+      rules: {
+        "no-restricted-properties": [
+          "error",
+          ...programProperties.filter((entry) => entry.property !== "spawn"),
+          stateFactoryProperty,
+        ],
       },
     }),
-  },
-  {
-    files: ["starters/contract3/src/addons/state/**/*.{ts,mts,cts}"],
-    rules: { "no-restricted-properties": ["error", ...programProperties] },
-  },
-  {
-    files: ["starters/contract3/src/addons/programs/**/*.{ts,mts,cts}"],
-    rules: {
-      "no-restricted-properties": [
-        "error",
-        ...programProperties.filter((entry) => entry.property !== "spawn"),
-        stateFactoryProperty,
-      ],
+    {
+      files: [`${srcDir}/kernel/process-host.ts`],
+      rules: { "repository/no-domain-output": "off" },
     },
-  },
-  {
-    files: ["starters/contract3/src/kernel/process-host.ts"],
-    rules: { "repository/no-domain-output": "off" },
-  },
-);
+    {
+      files: [source],
+      ignores: [
+        `${srcDir}/kernel/**`,
+        ...addons.map((name) => `${srcDir}/addons/${name}/**`),
+      ],
+      plugins: { repository },
+      rules: {
+        "repository/no-in-operator": "error",
+        "repository/cause-literal-owner": "error",
+      },
+    },
+  );
+}

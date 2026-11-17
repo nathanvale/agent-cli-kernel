@@ -1,1 +1,1 @@
-export { default } from "./starters/contract3/config/kernel/eslint-rules.mjs";
+export { default } from "./config/contract3-repository-rules.mjs";

@@ -1,8 +1,8 @@
-diff --git a/starters/contract3/config/kernel/eslint-rules.mjs b/starters/contract3/config/kernel/eslint-rules.mjs
-index 9daf983..67fbb3c 100644
---- a/starters/contract3/config/kernel/eslint-rules.mjs
-+++ b/starters/contract3/config/kernel/eslint-rules.mjs
-@@ -20,13 +20,6 @@ const safetyMarker = "SAFETY";
+diff --git a/config/contract3-repository-rules.mjs b/config/contract3-repository-rules.mjs
+index 8f6c01e..48cd37e 100644
+--- a/config/contract3-repository-rules.mjs
++++ b/config/contract3-repository-rules.mjs
+@@ -7,13 +7,6 @@ const safetyMarker = "SAFETY";
  const commentMarker = new RegExp(`^(?:${plainMarkers.join("|")}):`);
  const safetyJustification = new RegExp(`^${safetyMarker}:\\s*\\S`);
  const acceptedDecision = /accepted decisions?\b/i;
@@ -13,10 +13,10 @@ index 9daf983..67fbb3c 100644
 -  "ThrowStatement",
 -  "VariableDeclaration",
 -]);
- 
- function constantText(context, node, depth = 0) {
-   if (!node || depth > 8) return undefined;
-@@ -325,54 +318,6 @@ function commentBlocks(source) {
+ const testFolderOwner = "/tests/support/test-folder.ts";
+ const folderCalls = new Set(["tmpdir", "mkdtemp", "mkdtempSync"]);
+ const timerPromises = new Set(["node:timers/promises", "timers/promises"]);
+@@ -177,54 +170,6 @@ function commentBlocks(source) {
    return blocks;
  }
  
@@ -71,7 +71,7 @@ index 9daf983..67fbb3c 100644
  export default {
    rules: {
      "no-comments": {
-@@ -381,23 +326,22 @@ export default {
+@@ -233,23 +178,22 @@ export default {
          schema: [],
          messages: {
            comment:
