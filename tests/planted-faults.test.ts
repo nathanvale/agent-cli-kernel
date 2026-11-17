@@ -682,7 +682,7 @@ describe("bun run fault-replay", () => {
         const run = await faultReplay(root, [id], {
           env: {
             FAULTS_LEDGER: hang.ledger,
-            FAULTS_STEP_SECONDS: String(stepSeconds),
+            FAULT_REPLAY_STEP_SECONDS: String(stepSeconds),
           },
           boundMilliseconds: hangBound,
         });
@@ -693,7 +693,7 @@ describe("bun run fault-replay", () => {
           ),
         );
         expect(run.lines).toContain(
-          `Repair: run that step by hand to see where it hangs, or raise FAULTS_STEP_SECONDS. Done when bun run fault-replay ${id} passes.`,
+          `Repair: run that step by hand to see where it hangs, or raise FAULT_REPLAY_STEP_SECONDS. Done when bun run fault-replay ${id} passes.`,
         );
         expect(run.exit).toBe(1);
         expect(hang.lines().filter((line) => line === "trapped")).toEqual([
@@ -790,10 +790,10 @@ describe("bun run fault-replay", () => {
     async () => {
       const { root } = await repositoryWithFault({});
       const run = await faultReplay(root, [], {
-        env: { FAULTS_STEP_SECONDS: "0" },
+        env: { FAULT_REPLAY_STEP_SECONDS: "0" },
       });
       expect(run.stderr).toBe(
-        "FAULTS_STEP_SECONDS is '0'. Repair: set it to a positive number of seconds, or unset it for 300 s.\n",
+        "FAULT_REPLAY_STEP_SECONDS is '0'. Repair: set it to a positive number of seconds, or unset it for 300 s.\n",
       );
       expect(verdicts(run.lines)).toEqual([]);
       expect(run.exit).toBe(2);

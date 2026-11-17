@@ -30,7 +30,7 @@ type Verdict =
 
 const signals = ["SIGHUP", "SIGINT", "SIGTERM"] as const;
 const active: { stop?: () => void; stoppedBy?: (typeof signals)[number] } = {};
-const stepLimitVariable = "FAULTS_STEP_SECONDS";
+const stepLimitVariable = "FAULT_REPLAY_STEP_SECONDS";
 const defaultStepLimitSeconds = 300;
 const snapshotAuthor = {
   GIT_AUTHOR_NAME: "fault-replay",
