@@ -40,5 +40,12 @@
     "testFile": "tests/doctor.test.ts",
     "title": "not ready fails on the failing check",
     "source": "c6d3f09 feat(doctor): check fallow's readiness with fallow doctor"
+  },
+  {
+    "id": "bbfce9a-eslint-rules",
+    "patch": "tests/faults/patches/bbfce9a-eslint-rules.patch",
+    "testFile": "tests/lint-rules.test.ts",
+    "title": "^no-comments refuses .*nothing here is cast",
+    "source": "bbfce9a fix(lint): admit a SAFETY: block only where anti-slop accepts the cast"
   }
 ]
