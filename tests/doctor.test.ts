@@ -145,7 +145,7 @@ describe("doctor", () => {
 
       expect(exitCode).toBe(1);
       expect(line).toBe(
-        `FAIL bun: found Bun ${Bun.version}, pinned ${pin}. Repair: run each command as mise exec bun@${pin} -- <command>. If mise reports bun@${pin} missing, run mise install bun@${pin} first. In CI, set bun-version: ${pin} on setup-bun.`,
+        `FAIL bun: found Bun ${Bun.version}, pinned ${pin}. Repair: run each command as mise exec bun@${pin} -- <command>. If mise reports bun@${pin} missing, run mise install bun@${pin} first. In a hosted check, set bun-version: ${pin} on setup-bun.`,
       );
     },
   );
@@ -159,7 +159,10 @@ describe("doctor", () => {
       "the pinned Bun is not installed",
       "If mise reports bun@0.0.1 missing, run mise install bun@0.0.1 first.",
     ],
-    ["the job runs in CI", "In CI, set bun-version: 0.0.1 on setup-bun."],
+    [
+      "the job runs in CI",
+      "In a hosted check, set bun-version: 0.0.1 on setup-bun.",
+    ],
   ])("the Bun repair covers the case where %s", (_case, route) => {
     expect(bunRepair("0.0.1").repair).toContain(route);
   });
@@ -178,7 +181,7 @@ describe("doctor", () => {
     );
 
     expect(result.lines).toContain(
-      `ok bun: Bun ${Bun.version} matches the packageManager pin.`,
+      `ok bun: Bun ${Bun.version} matches the toolchain pin.`,
     );
   });
 
@@ -190,7 +193,7 @@ describe("doctor", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.lines).toContain(
-      'FAIL bun: package.json has no packageManager pin of the form bun@<version>. Repair: add "packageManager": "bun@<version>" to package.json.',
+      'FAIL bun: package.json has no toolchain pin. Repair: add "packageManager": "bun@<version>" to package.json.',
     );
   });
 
@@ -216,7 +219,7 @@ describe("doctor", () => {
     );
 
     expect(result.exitCode).toBe(1);
-    expect(result.stdout.trimEnd().split("\n")).toHaveLength(3);
+    expect(result.stdout.trimEnd().split("\n")).toHaveLength(4);
     const toolchainLine = result.lines.find((line) =>
       line.startsWith("FAIL toolchain: "),
     );
@@ -238,14 +241,12 @@ describe("doctor", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.lines).toContain(
-      `ok bun: Bun ${Bun.version} matches the packageManager pin.`,
+      `ok bun: Bun ${Bun.version} matches the toolchain pin.`,
     );
     expect(result.lines).toContain(
       "ok toolchain: node_modules resolves the accepted lint, compiler and semantic backends.",
     );
-    expect(result.lines).toContain(
-      "ok fallow: fallow doctor reports the project ready to analyse.",
-    );
+    expect(result.lines).toContain("ok fallow: fallow doctor passes.");
   });
 
   test("a fallow doctor warning is reported with its repair and does not fail", () => {
@@ -314,6 +315,23 @@ describe("doctor", () => {
     expect(result.lines).toContain(
       "FAIL fallow: fallow doctor exited 2 without a readiness report. Repair: bun install --frozen-lockfile, then run node_modules/.bin/fallow doctor to read its error.",
     );
+  });
+
+  test("a run with a FAIL line ends on the line that says when the repair is done", () => {
+    const result = run(
+      project({ packageManager: `bun@${Bun.version}` }),
+      doctor,
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toEndWith("\nDone when bun run doctor passes.\n");
+  });
+
+  test("a run with no FAIL line does not say when a repair is done", () => {
+    const result = run(withToolchain("6.0.2"), doctor);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).not.toContain("Done when");
   });
 
   test("an installed toolchain without fallow fails with the install repair", () => {

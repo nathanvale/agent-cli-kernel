@@ -49,7 +49,7 @@ export function resolveToolchain(project: string) {
     compiler.exitCode !== 0 ||
     compiler.stdout.toString().trim() !== "Version 7.0.2"
   )
-    throw new Error("The project compiler is not native TypeScript 7.0.2.");
+    throw new Error("The compiler is not native TypeScript 7.0.2.");
   const receipt = {
     lint: version(lint),
     lintPackage: version(lintPackage),
