@@ -45,7 +45,6 @@ jobs:
       - name: Test
         run: bun run test --shard=${{ matrix.shard }}/3 --timings=tests/test-timings.json --update-timings
       - name: Upload shard timings
-        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: test-timings-${{ matrix.shard }}
