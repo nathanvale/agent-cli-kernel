@@ -149,9 +149,11 @@ function validateRoutes(
   for (const command of commands)
     if (!builtinIdentities.includes(command.commandIdentity))
       validateRouteTokens(command.route);
-  const hostRoutes = commands
-    .filter((item) => item.commandIdentity !== `${cli}.dispatch`)
-    .map((item) => JSON.stringify(item.route));
+  const hostRoutes = commands.flatMap((item) =>
+    item.commandIdentity === `${cli}.dispatch`
+      ? []
+      : [JSON.stringify(item.route)],
+  );
   if (new Set(hostRoutes).size !== hostRoutes.length)
     throw new Error("Duplicate command route.");
 }
