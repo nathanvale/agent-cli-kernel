@@ -10,10 +10,6 @@
       "reason": "The naming tests prove it by spawning bun run check:names."
     },
     {
-      "path": "scripts/planted-faults.ts",
-      "reason": "tests/planted-faults.test.ts proves it by spawning bun run fault-replay and bun run planted-fault:add."
-    },
-    {
       "path": "scripts/test-area.ts",
       "reason": "tests/doctor.test.ts proves it by spawning scripts/test-area.ts."
     },
@@ -40,11 +36,6 @@
       "path": "scripts/glossary.ts",
       "export": "stagedText",
       "reason": "Only scripts/check-names.ts calls it, for --staged, and the naming tests spawn that script."
-    },
-    {
-      "path": "scripts/process-runner.ts",
-      "export": "runWithOwnTools",
-      "reason": "Only scripts/check-commits.ts and scripts/planted-faults.ts call it, and their tests spawn those scripts."
     },
     {
       "path": "src/cli-inventory.ts",
