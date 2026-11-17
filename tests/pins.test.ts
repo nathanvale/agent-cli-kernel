@@ -1,7 +1,7 @@
 import { afterAll, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { testFolder } from "./support/test-folder.ts";
 
 const root = join(import.meta.dir, "..");
 const sources = [
@@ -96,7 +96,7 @@ async function pinProblems(repository: string): Promise<string[]> {
 }
 
 function repositoryWith(files: Record<string, string>): string {
-  const repository = mkdtempSync(join(tmpdir(), "pins-"));
+  const repository = testFolder("pins-");
   projects.push(repository);
   for (const [path, content] of Object.entries({
     "package.json": '{"packageManager":"bun@1.4.4"}',

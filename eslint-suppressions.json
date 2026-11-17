@@ -56,5 +56,234 @@
     "repository/no-in-operator": {
       "count": 10
     }
+  },
+  "tests/bootstrap-cli.test.ts": {
+    "repository/tests-use-test-folder": {
+      "count": 1
+    }
+  },
+  "tests/contract3/approval/cases.test.ts": {
+    "repository/tests-use-test-folder": {
+      "count": 2
+    }
+  },
+  "tests/contract3/approval/harness.ts": {
+    "repository/tests-use-test-folder": {
+      "count": 5
+    }
+  },
+  "tests/contract3/contract.test.ts": {
+    "repository/require-to-throw-message": {
+      "count": 2
+    }
+  },
+  "tests/contract3/correlations.test.ts": {
+    "repository/tests-use-test-folder": {
+      "count": 2
+    }
+  },
+  "tests/contract3/declaration-admission.test.ts": {
+    "repository/tests-use-test-folder": {
+      "count": 2
+    }
+  },
+  "tests/contract3/diagnostics/cases.test.ts": {
+    "repository/tests-use-test-folder": {
+      "count": 2
+    }
+  },
+  "tests/contract3/diagnostics/fixtures/fault-io.ts": {
+    "repository/tests-no-sleep": {
+      "count": 2
+    }
+  },
+  "tests/contract3/diagnostics/fixtures/specimen-cli.ts": {
+    "repository/tests-no-sleep": {
+      "count": 2
+    }
+  },
+  "tests/contract3/diagnostics/harness.ts": {
+    "repository/tests-no-sleep": {
+      "count": 2
+    },
+    "repository/tests-use-test-folder": {
+      "count": 2
+    }
+  },
+  "tests/contract3/diagnostics/limits.test.ts": {
+    "repository/tests-no-sleep": {
+      "count": 2
+    }
+  },
+  "tests/contract3/diagnostics/repair.test.ts": {
+    "repository/tests-no-sleep": {
+      "count": 1
+    }
+  },
+  "tests/contract3/input.test.ts": {
+    "repository/require-to-throw-message": {
+      "count": 3
+    }
+  },
+  "tests/contract3/kernel-followup/decision-2.test.ts": {
+    "repository/tests-use-test-folder": {
+      "count": 1
+    }
+  },
+  "tests/contract3/kernel-followup/decision-5.test.ts": {
+    "repository/tests-use-test-folder": {
+      "count": 2
+    }
+  },
+  "tests/contract3/kernel-followup/harness.ts": {
+    "repository/tests-no-sleep": {
+      "count": 1
+    },
+    "repository/tests-use-test-folder": {
+      "count": 3
+    }
+  },
+  "tests/contract3/kernel-repair/harness.ts": {
+    "repository/tests-use-test-folder": {
+      "count": 2
+    }
+  },
+  "tests/contract3/kernel-repair/r18.test.ts": {
+    "repository/require-to-throw-message": {
+      "count": 1
+    }
+  },
+  "tests/contract3/kernel-repair/runner.test.ts": {
+    "repository/tests-use-test-folder": {
+      "count": 2
+    }
+  },
+  "tests/contract3/kernel-repair/swarm-approval.ts": {
+    "repository/tests-no-sleep": {
+      "count": 2
+    }
+  },
+  "tests/contract3/kernel-repair/swarm-state.test.ts": {
+    "repository/tests-no-sleep": {
+      "count": 1
+    },
+    "repository/tests-use-test-folder": {
+      "count": 4
+    }
+  },
+  "tests/contract3/kernel-repair/swarm-stations.test.ts": {
+    "repository/tests-use-test-folder": {
+      "count": 2
+    }
+  },
+  "tests/contract3/kernel-repair/version.test.ts": {
+    "repository/require-to-throw-message": {
+      "count": 1
+    }
+  },
+  "tests/contract3/lifecycle/fixtures/fault-cli.ts": {
+    "repository/tests-no-sleep": {
+      "count": 1
+    }
+  },
+  "tests/contract3/lifecycle/fixtures/status-cli.ts": {
+    "repository/tests-no-sleep": {
+      "count": 1
+    }
+  },
+  "tests/contract3/lifecycle/harness.ts": {
+    "repository/tests-no-sleep": {
+      "count": 5
+    },
+    "repository/tests-use-test-folder": {
+      "count": 2
+    }
+  },
+  "tests/contract3/lifecycle/lifecycle.test.ts": {
+    "repository/require-to-throw-message": {
+      "count": 3
+    },
+    "repository/tests-no-sleep": {
+      "count": 3
+    }
+  },
+  "tests/contract3/lifecycle/stop-flow.test.ts": {
+    "repository/tests-no-sleep": {
+      "count": 2
+    },
+    "repository/tests-use-test-folder": {
+      "count": 2
+    }
+  },
+  "tests/contract3/programs/programs.test.ts": {
+    "repository/tests-no-sleep": {
+      "count": 3
+    }
+  },
+  "tests/contract3/programs/timers.test.ts": {
+    "repository/tests-use-test-folder": {
+      "count": 2
+    }
+  },
+  "tests/contract3/state/component.test.ts": {
+    "repository/require-to-throw-message": {
+      "count": 6
+    }
+  },
+  "tests/contract3/state/fixtures/specimen.ts": {
+    "repository/tests-no-sleep": {
+      "count": 1
+    }
+  },
+  "tests/contract3/state/harness.ts": {
+    "repository/tests-no-sleep": {
+      "count": 1
+    }
+  },
+  "tests/contract3/state/linux-coordination.probe.test.ts": {
+    "repository/tests-no-sleep": {
+      "count": 4
+    },
+    "repository/tests-use-test-folder": {
+      "count": 2
+    }
+  },
+  "tests/contract3/state/route.test.ts": {
+    "repository/tests-no-sleep": {
+      "count": 2
+    }
+  },
+  "tests/contract3/state/seams.test.ts": {
+    "repository/tests-use-test-folder": {
+      "count": 1
+    }
+  },
+  "tests/contract3/static-controls.test.ts": {
+    "repository/tests-use-test-folder": {
+      "count": 2
+    }
+  },
+  "tests/contract3/writer/writer.test.ts": {
+    "repository/require-to-throw-message": {
+      "count": 1
+    }
+  },
+  "tests/doctor.test.ts": {
+    "repository/tests-use-test-folder": {
+      "count": 2
+    }
+  },
+  "tests/static-admission.test.ts": {
+    "repository/require-to-throw-message": {
+      "count": 1
+    },
+    "repository/tests-use-test-folder": {
+      "count": 5
+    }
+  },
+  "tests/toolchain-resolution.test.ts": {
+    "repository/tests-use-test-folder": {
+      "count": 2
+    }
   }
 }

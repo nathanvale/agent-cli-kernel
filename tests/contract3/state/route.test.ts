@@ -16,6 +16,7 @@ import {
 } from "node:fs";
 import { release } from "node:os";
 import { join } from "node:path";
+import { testFolder } from "../../support/test-folder.ts";
 import {
   at,
   caseTest,
@@ -23,7 +24,6 @@ import {
   expectRefusedUnchanged,
   makeWorld,
   str,
-  testFolder,
 } from "./harness.ts";
 
 const worker = join(import.meta.dir, "fixtures", "coordination-worker.ts");

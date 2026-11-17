@@ -1,16 +1,8 @@
 import { afterAll } from "bun:test";
-import {
-  appendFile,
-  mkdir,
-  mkdtemp,
-  realpath,
-  rm,
-  symlink,
-  writeFile,
-} from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { appendFile, mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
 import ts from "typescript";
+import { testFolder } from "../../support/test-folder.ts";
 import {
   processWatchdog,
   spawnBounded,
@@ -257,7 +249,7 @@ export function probeBatch(prefix: string) {
   }
 
   async function compileAll() {
-    const base = await mkdtemp(join(await realpath(tmpdir()), prefix));
+    const base = testFolder(prefix);
     directory = base;
     await mkdir(join(base, "locks"));
     await symlink(join(root, "node_modules"), join(base, "node_modules"));

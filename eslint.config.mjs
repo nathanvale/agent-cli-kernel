@@ -51,6 +51,15 @@ export default tseslint.config(
     files: ["src/domains/**/*.ts"],
     rules: { "repository/no-domain-output": "error" },
   },
+  {
+    files: ["tests/**/*.{ts,mts,cts}"],
+    plugins: { repository: localRules },
+    rules: {
+      "repository/require-to-throw-message": "error",
+      "repository/tests-use-test-folder": "error",
+      "repository/tests-no-sleep": "error",
+    },
+  },
   ...contract3,
   // These rules have recorded hits, so they run only here, where
   // eslint-suppressions.json applies. A materialised Contract 3 tree lints

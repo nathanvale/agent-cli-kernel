@@ -8,7 +8,6 @@ import { createHash } from "node:crypto";
 import {
   existsSync,
   mkdirSync,
-  mkdtempSync,
   readFileSync,
   readdirSync,
   realpathSync,
@@ -16,21 +15,12 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { testFolder } from "../../support/test-folder.ts";
 import { stateCases } from "./cases.ts";
 import { coordinationExpected } from "./holder.ts";
 
 const specimen = join(import.meta.dir, "fixtures", "specimen.ts");
-
-// Where test state roots live: STATE_TEST_DIR when set (a run on a chosen
-// filesystem, such as the Linux volume run), else the system temporary
-// folder.
-export function testFolder(prefix: string): string {
-  return realpathSync.native(
-    mkdtempSync(join(process.env.STATE_TEST_DIR ?? tmpdir(), prefix)),
-  );
-}
 
 // ---- Case registration -----------------------------------------------------
 // A case bound to a qualified coordination route, on a platform without one

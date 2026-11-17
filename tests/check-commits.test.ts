@@ -3,7 +3,6 @@ import {
   copyFileSync,
   existsSync,
   mkdirSync,
-  mkdtempSync,
   readdirSync,
   readFileSync,
   realpathSync,
@@ -11,13 +10,13 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
   processWatchdog,
   type SignalAt,
   spawnBounded,
 } from "./contract3/kernel-repair/swarm-process.ts";
+import { testFolder } from "./support/test-folder.ts";
 
 const repository = join(import.meta.dir, "..");
 const sources = [
@@ -68,7 +67,7 @@ function inherited(): Record<string, string | undefined> {
 }
 
 function folder(prefix: string): string {
-  const path = mkdtempSync(join(tmpdir(), prefix));
+  const path = testFolder(prefix);
   folders.push(path);
   return path;
 }
