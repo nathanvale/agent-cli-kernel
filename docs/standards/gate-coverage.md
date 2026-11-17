@@ -50,10 +50,11 @@ gates and their witnesses.
   passes `resolve` with no value after the delay. It traces `setTimeout` to
   the global, `globalThis` or `node:timers`, under any import name, through
   aliases, `(0, setTimeout)` and type-only wrappers.
-- A `setTimeout` that rejects, aborts or resolves with a value passes as a
-  bounded watchdog, as in `spawnBounded`, which resolves `"expired"`.
-  `setTimeout(resolve, ms, "timeout")` resolves a value too. Clearing the
-  handle does not admit a delay: an awaited delay runs to its end first.
+- A `setTimeout` that rejects, aborts or resolves with a value passes the
+  lint rule. Review what it bounds. A watchdog such as `spawnBounded`
+  races a timeout against the child's exit. Awaiting a valued timer on
+  its own still waits on wall time. Clearing its handle after the wait
+  leaves that delay in place.
 - Review only: `setInterval`, `Atomics.wait`, a `Date.now()` poll, a race
   control too narrow to catch its fault, and `scheduler.wait` from a named
   `node:timers/promises` import.
