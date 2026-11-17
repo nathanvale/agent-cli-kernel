@@ -94,7 +94,7 @@
     "id": "8d55f96-faults",
     "patch": "tests/faults/patches/8d55f96-faults.patch",
     "testFile": "tests/faults.test.ts",
-    "title": "FR\\.t an empty manifest",
+    "title": "FR\\.t an empty list of fault records",
     "source": "8d55f96 Gates that would check nothing fail"
   },
   {

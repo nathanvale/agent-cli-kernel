@@ -20,7 +20,7 @@ each pointer rather than a copy:
   for kernel rules: a failing and a passing snippet for each lint, each case
   naming its witness.
 - [Planted-fault guide](../../../docs/standards/test-proof.md#planted-faults):
-  how to record a fault in `tests/faults/manifest.json`.
+  how to record a fault in `tests/faults/records.json`.
 - [Recorded hits](../../../CODING_STANDARDS.md#recorded-hits): existing hits
   of a new lint.
 

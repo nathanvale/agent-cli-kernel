@@ -30,7 +30,7 @@ Each row names what enforces it today:
 
 The Gates cell names each gate as `script`, `lint`, `job` or `fault` with its
 id, and links the gate note. A `fault` id is a record id in
-`tests/faults/manifest.json`. **Planned (parked)** names agreed gates that do not exist
+`tests/faults/records.json`. **Planned (parked)** names agreed gates that do not exist
 yet. Plan units U4 to U6 in the description of [#8] first named them. The
 lints and the fault replay have landed. The rest has no slot, and [MAG-98],
 the Contract 3 scope issue, does not list them.
@@ -98,7 +98,7 @@ row's guide or gate note cites two distinct witnesses.
 
 ### Planted faults
 
-- `bun run faults` replays each record in `tests/faults/manifest.json` in a
+- `bun run faults` replays each record in `tests/faults/records.json` in a
   temporary worktree. The `faults` job in `.github/workflows/ci.yml` runs it
   on every pull request.
 - It fails on a record whose named test passes with the fault applied, fails

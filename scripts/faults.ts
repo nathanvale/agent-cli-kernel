@@ -11,7 +11,7 @@ import { basename, join } from "node:path";
 import { runWithOwnTools } from "./process-runner.ts";
 
 const root = join(import.meta.dir, "..");
-const manifestPath = "tests/faults/manifest.json";
+const recordsPath = "tests/faults/records.json";
 const patchFolder = "tests/faults/patches";
 
 type Fault = {
@@ -110,18 +110,18 @@ function parseFault(entry: unknown, where: string): Fault {
   return fault;
 }
 
-function readManifest(): Fault[] {
-  const path = join(root, manifestPath);
+function readRecords(): Fault[] {
+  const path = join(root, recordsPath);
   if (!existsSync(path)) return [];
   const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
   if (!Array.isArray(parsed))
-    throw new Error(`${manifestPath} must hold an array of fault records.`);
+    throw new Error(`${recordsPath} must hold an array of fault records.`);
   const faults = parsed.map((entry, index) =>
-    parseFault(entry, `${manifestPath} record ${index}`),
+    parseFault(entry, `${recordsPath} record ${index}`),
   );
   const ids = new Set<string>();
   for (const { id } of faults) {
-    if (ids.has(id)) throw new Error(`${manifestPath} lists ${id} twice.`);
+    if (ids.has(id)) throw new Error(`${recordsPath} lists ${id} twice.`);
     ids.add(id);
   }
   return faults;
@@ -302,19 +302,17 @@ function report(
 }
 
 async function replayAll(ids: readonly string[]): Promise<number> {
-  const faults = readManifest();
+  const faults = readRecords();
   const unknown = ids.filter((id) => !faults.some((fault) => fault.id === id));
   if (unknown.length > 0) {
-    process.stderr.write(
-      `No fault ${unknown.join(", ")} in ${manifestPath}.\n`,
-    );
+    process.stderr.write(`No fault ${unknown.join(", ")} in ${recordsPath}.\n`);
     return 2;
   }
   const chosen =
     ids.length === 0 ? faults : faults.filter(({ id }) => ids.includes(id));
   if (chosen.length === 0) {
     print(
-      `No faults recorded in ${manifestPath}, so this gate checks nothing. Record one with bun run faults:add, or remove the faults gate.`,
+      `No faults recorded in ${recordsPath}, so this gate checks nothing. Record one with bun run faults:add, or remove the faults gate.`,
     );
     return 1;
   }
@@ -373,16 +371,16 @@ function add(argv: readonly string[]): number {
     },
     "faults:add",
   );
-  const faults = readManifest();
+  const faults = readRecords();
   if (faults.some((each) => each.id === id)) {
-    process.stderr.write(`${manifestPath} already lists ${id}.\n`);
+    process.stderr.write(`${recordsPath} already lists ${id}.\n`);
     return 2;
   }
   mkdirSync(join(root, patchFolder), { recursive: true });
   writeFileSync(join(root, fault.patch), reverse);
   faults.push(fault);
   writeFileSync(
-    join(root, manifestPath),
+    join(root, recordsPath),
     `${JSON.stringify(faults, null, 2)}\n`,
   );
   print(`Added ${id}. Replay it: bun run faults ${id}`);

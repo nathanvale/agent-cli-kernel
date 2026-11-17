@@ -277,10 +277,10 @@ function citationsIn(file: string, text: string, history: Ancestry): string[] {
   return problems;
 }
 
-const manifest = "tests/faults/manifest.json";
+const faultRecordsFile = "tests/faults/records.json";
 
 function faultRecords(repository: string): { id?: string; source?: string }[] {
-  const path = join(repository, manifest);
+  const path = join(repository, faultRecordsFile);
   return existsSync(path)
     ? (JSON.parse(readFileSync(path, "utf8")) as {
         id?: string;
@@ -292,7 +292,7 @@ function faultRecords(repository: string): { id?: string; source?: string }[] {
 function faultSourceProblems(repository: string, history: Ancestry): string[] {
   return faultRecords(repository).flatMap(({ id, source = "" }) => {
     const sha = /^[0-9a-f]{7,40}(?= )/.exec(source)?.[0];
-    const where = `${manifest}: record "${id}"`;
+    const where = `${faultRecordsFile}: record "${id}"`;
     if (sha === undefined)
       return [
         `${where} has source "${source}", which does not start with its fix commit's SHA. Write "<short sha> <subject>", as bun run faults:add does.`,
@@ -534,7 +534,7 @@ async function gateProblems(repository: string): Promise<string[]> {
     },
     fault: {
       ids: new Set(faultRecords(repository).map(({ id }) => id)),
-      owner: `no record in ${manifest} has as its id`,
+      owner: `no record in ${faultRecordsFile} has as its id`,
     },
   };
   return ruleTable(repository).rows.flatMap((row) =>
@@ -657,7 +657,9 @@ function fixture(
     "docs/standards/guide.md": `# Guide\n\n## Lesson\n\n- Witnessed: [${short}], [r1].\n\n[${short}]: ${commitPage}${sha}\n[r1]: ${thread}\n`,
     ".agents/skills/fixture/SKILL.md":
       "---\nname: fixture\n---\n\n[checks](../../../AGENTS.md#checks)\n",
-    [manifest]: JSON.stringify([{ id: "fixture", source: `${short} base` }]),
+    [faultRecordsFile]: JSON.stringify([
+      { id: "fixture", source: `${short} base` },
+    ]),
   };
   change(files, sha);
   for (const [path, content] of Object.entries(files)) {
@@ -755,10 +757,10 @@ test.each([
   [
     "a row whose fault record is gone",
     (files: Record<string, string>) => {
-      files[manifest] = "[]";
+      files[faultRecordsFile] = "[]";
     },
     [
-      'CODING_STANDARDS.md: row "Gated rule" names fault `fixture`, which no record in tests/faults/manifest.json has as its id. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
+      'CODING_STANDARDS.md: row "Gated rule" names fault `fixture`, which no record in tests/faults/records.json has as its id. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
     ],
   ],
   [
@@ -895,15 +897,15 @@ test.each([
   [
     "a fault record whose source is not an ancestor or names no commit",
     (files: Record<string, string>, sha: string) => {
-      files["tests/faults/manifest.json"] = JSON.stringify([
+      files["tests/faults/records.json"] = JSON.stringify([
         { id: "fixture", source: `${sha.slice(0, 7)} fix: kept` },
         { id: "lost", source: `${absent.slice(0, 7)} fix: lost` },
         { id: "bare", source: "fix: no commit" },
       ]);
     },
     () => [
-      `tests/faults/manifest.json: record "lost" names source ${absent.slice(0, 7)}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA.`,
-      'tests/faults/manifest.json: record "bare" has source "fix: no commit", which does not start with its fix commit\'s SHA. Write "<short sha> <subject>", as bun run faults:add does.',
+      `tests/faults/records.json: record "lost" names source ${absent.slice(0, 7)}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA.`,
+      'tests/faults/records.json: record "bare" has source "fix: no commit", which does not start with its fix commit\'s SHA. Write "<short sha> <subject>", as bun run faults:add does.',
     ],
   ],
 ])(
@@ -1002,6 +1004,6 @@ test("a shallow clone that cuts a cited commit fails and says to fetch the histo
   expect(await citationProblems(repository)).toEqual([
     `CODING_STANDARDS.md:16: [${sha?.slice(0, 7)}] cites ${sha}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA. ${fetch}`,
     `docs/standards/guide.md:7: [${sha?.slice(0, 7)}] cites ${sha}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA. ${fetch}`,
-    `tests/faults/manifest.json: record "fixture" names source ${sha?.slice(0, 7)}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA. ${fetch}`,
+    `tests/faults/records.json: record "fixture" names source ${sha?.slice(0, 7)}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA. ${fetch}`,
   ]);
 });

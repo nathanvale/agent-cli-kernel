@@ -31,7 +31,7 @@ repository broke it.
 ## Planted faults
 
 - Apply the shared RED-then-GREEN rule to every new refusal or bound.
-- Record each planted fault in `tests/faults/manifest.json`. After the fix
+- Record each planted fault in `tests/faults/records.json`. After the fix
   commit, run `bun run faults:add <fix sha> <source path> <test file>
   <title>`, then `bun run faults <id>` until it prints `KILLED`. Witnessed:
   [9050fec], [b8664cf] (each recorded faults for refusals that had landed

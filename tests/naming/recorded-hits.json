@@ -22,11 +22,6 @@
       "reason": "Holds the CLI starters. It keeps its name until the CLI starters are removed (decided 17 November 2026)."
     },
     {
-      "path": "tests/faults/manifest.json",
-      "word": "manifest",
-      "reason": "Holds the fault records. The fault tools, the standards test and two skills name this path; renaming it is its own change."
-    },
-    {
       "path": "tests/kernel/locks/probes.test.ts",
       "word": "probe",
       "reason": "Kernel file, named by the kernel's own words. Remove this entry when the kernel leaves."

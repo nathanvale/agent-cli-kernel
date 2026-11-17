@@ -7,10 +7,10 @@ index 06a4663..7ec454e 100644
      ids.length === 0 ? faults : faults.filter(({ id }) => ids.includes(id));
    if (chosen.length === 0) {
 -    print(
--      `No faults recorded in ${manifestPath}, so this gate checks nothing. Record one with bun run faults:add, or remove the faults gate.`,
+-      `No faults recorded in ${recordsPath}, so this gate checks nothing. Record one with bun run faults:add, or remove the faults gate.`,
 -    );
 -    return 1;
-+    print(`No faults recorded in ${manifestPath}.`);
++    print(`No faults recorded in ${recordsPath}.`);
 +    return 0;
    }
    const limitMilliseconds = stepLimitMilliseconds();

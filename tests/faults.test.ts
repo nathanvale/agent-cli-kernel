@@ -289,9 +289,9 @@ type FaultRecord = {
   source: string;
 };
 
-function manifest(root: string): FaultRecord[] {
+function records(root: string): FaultRecord[] {
   return JSON.parse(
-    readFileSync(join(root, "tests/faults/manifest.json"), "utf8"),
+    readFileSync(join(root, "tests/faults/records.json"), "utf8"),
   ) as FaultRecord[];
 }
 
@@ -329,7 +329,7 @@ async function repositoryWithFault(
   expect(added.stdout).toBe(
     `Added ${fix}-limit. Replay it: bun run faults ${fix}-limit\n`,
   );
-  const [killed] = manifest(root);
+  const [killed] = records(root);
   if (killed === undefined) throw new Error("faults:add wrote no record.");
   const siblings = Object.entries(siblingTitlesById).map(([id, title]) => ({
     ...killed,
@@ -338,7 +338,7 @@ async function repositoryWithFault(
   }));
   write(
     root,
-    "tests/faults/manifest.json",
+    "tests/faults/records.json",
     `${JSON.stringify([killed, ...siblings], null, 2)}\n`,
   );
   git(root, "add", "--", "tests/faults");
@@ -465,12 +465,12 @@ describe("bun run faults", () => {
   );
 
   test(
-    "FR.e an id the manifest lacks is refused with exit 2 and runs nothing",
+    "FR.e an id no fault record has is refused with exit 2 and runs nothing",
     async () => {
       const { root } = await repositoryWithFault({});
       const run = await faults(root, ["missing"]);
       expect(run.stderr).toBe(
-        "No fault missing in tests/faults/manifest.json.\n",
+        "No fault missing in tests/faults/records.json.\n",
       );
       expect(verdicts(run.lines)).toEqual([]);
       expect(run.exit).toBe(2);
@@ -479,13 +479,13 @@ describe("bun run faults", () => {
   );
 
   test(
-    "FR.t an empty manifest replays nothing and fails, saying the gate checks nothing",
+    "FR.t an empty list of fault records replays nothing and fails, saying the gate checks nothing",
     async () => {
       const { root } = await repositoryWithFault({});
-      write(root, "tests/faults/manifest.json", "[]\n");
+      write(root, "tests/faults/records.json", "[]\n");
       const run = await faults(root, []);
       expect(run.lines).toContain(
-        "No faults recorded in tests/faults/manifest.json, so this gate checks nothing. Record one with bun run faults:add, or remove the faults gate.",
+        "No faults recorded in tests/faults/records.json, so this gate checks nothing. Record one with bun run faults:add, or remove the faults gate.",
       );
       expect(verdicts(run.lines)).toEqual([]);
       expect(run.exit).toBe(1);
@@ -524,14 +524,14 @@ describe("bun run faults", () => {
     async () => {
       const { root, fix } = await repositoryWithFault({});
       const before = readFileSync(
-        join(root, "tests/faults/manifest.json"),
+        join(root, "tests/faults/records.json"),
         "utf8",
       );
       const added = await addFault(root, fix, "package.json");
       expect(added.stderr).toBe(`${fix} does not change package.json.\n`);
       expect(added.exit).toBe(2);
       expect(
-        readFileSync(join(root, "tests/faults/manifest.json"), "utf8"),
+        readFileSync(join(root, "tests/faults/records.json"), "utf8"),
       ).toBe(before);
       expect(readdirSync(join(root, "tests/faults/patches"))).toEqual([
         `${fix}-limit.patch`,
@@ -565,7 +565,7 @@ describe("bun run faults", () => {
           ),
         });
         const before = readFileSync(
-          join(root, "tests/faults/manifest.json"),
+          join(root, "tests/faults/records.json"),
           "utf8",
         );
         const added = await addFault(
@@ -578,7 +578,7 @@ describe("bun run faults", () => {
         expect(added.stderr).toBe(`${refusal}\n`);
         expect(added.exit).toBe(2);
         expect(
-          readFileSync(join(root, "tests/faults/manifest.json"), "utf8"),
+          readFileSync(join(root, "tests/faults/records.json"), "utf8"),
         ).toBe(before);
         expect(readdirSync(join(root, "tests/faults/patches"))).toEqual([
           `${id}.patch`,
