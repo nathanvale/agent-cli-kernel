@@ -186,19 +186,23 @@ Done when each item holds:
 
 ## Stake
 
-Keep file and folder names on the glossary's words.
+Keep file and folder names on the glossary's words. File names and folder
+structure are documentation: they are the first thing a reader of this
+repository meets.
 
 1. Run `bun run test:area naming` to judge every tracked name, or
    `bun run check:names <path>` to judge one. Each problem line gives a
    path, the word it uses, and the glossary entry that refuses the word.
 2. For a name the check refuses, take the first repair that fits:
    - Rename the path with the glossary's word, using `git mv`, and change
-     each file that refers to it. Find them with a search for the old name.
+     each file that refers to it. Find them with a search for the old path.
    - The name needs a word no glossary owns: add a word this repository owns
      to `GLOSSARY.md`, in the form its entries use. Report a word another
      glossary should own, for the owner `GLOSSARY-MAP.md` names.
-   - The rename belongs to a larger change: add a recorded hit with its
-     reason and the change that will remove it.
+   - The name is older than the glossary rule that refuses it, and its
+     rename belongs to a larger change: add a recorded hit with its reason
+     and the change that will remove it. A name newer than its rule takes
+     one of the two repairs above.
 3. For a recorded hit that no longer occurs, remove its entry.
 4. Commit nothing: the caller approves a rename by committing it.
 5. Report each name with its repair, and each word you added or reported.
@@ -206,8 +210,8 @@ Keep file and folder names on the glossary's words.
 Done when each item holds:
 
 - `bun run test:area naming` passes.
-- A search for each old name finds only history: commit subjects, witnesses
-  and fault `source` fields.
+- A search for each old path, as a whole path, finds only history: commit
+  subjects, witnesses and fault `source` fields.
 - `bun run typecheck`, `bun run lint` and `bun run format:check` exit 0.
 - `git status --porcelain` lists only write-scope paths, the renamed paths
   and the files that referred to them.
