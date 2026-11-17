@@ -236,8 +236,9 @@ working tree, and confirms that its named test passes without the patch and
 fails with it.
 
 **Recorded hit**:
-A violation that existed when a check landed, listed so that the check passes
-until someone fixes it. The list only shrinks.
+A violation that already existed when its rule landed, listed with its reason
+so the check passes until it is fixed. A new violation is fixed, never
+recorded, so a list only shrinks after its rule lands.
 _Avoid_: known hit, allowlist, baseline
 
 ### Keeping the rules
