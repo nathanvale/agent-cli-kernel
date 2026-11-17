@@ -17,13 +17,20 @@ async function messages(filePath: string, code: string) {
   }));
 }
 
-const templateRules = Object.keys(
-  (
-    (await import(
-      new URL("../config/template-rules.mjs", import.meta.url).href
-    )) as { default: { rules: object } }
-  ).default.rules,
-);
+const templateRules = (
+  await Promise.all(
+    ["../config/template-rules.mjs", "../config/platform-rules.mjs"].map(
+      async (file) =>
+        Object.keys(
+          (
+            (await import(new URL(file, import.meta.url).href)) as {
+              default: { rules: object };
+            }
+          ).default.rules,
+        ),
+    ),
+  )
+).flat();
 const kernelPath = /^(kernel|tests\/kernel)\//;
 const tracked = execFileSync(
   "git",
@@ -150,6 +157,17 @@ const refused = [
     ],
     lines: [1, 2, 3, 5, 7],
   },
+  {
+    rule: "no-host-path-literal",
+    witness: "8e4ec47",
+    filePath: "tests/doctor.test.ts",
+    code: [
+      "export const roots = (first: (root: string, depth: number) => string) => ({",
+      '  foreignFile: first("/usr/share", 2),',
+      "});",
+    ],
+    lines: [2],
+  },
 ];
 
 for (const item of refused)
@@ -224,6 +242,22 @@ const cases = [
     ],
     line: 4,
     fix: "Repair: wait on the event the test is about",
+  },
+  {
+    rule: "no-host-path-literal",
+    witness: "ff5fffe",
+    filePath: "tests/doctor.test.ts",
+    failing: [
+      "export const probe = (separation: (root: string) => boolean) =>",
+      '  separation("/private/tmp");',
+    ],
+    passing: [
+      'import { testFolder } from "./support/test-folder.ts";',
+      "export const probe = (separation: (root: string) => boolean) =>",
+      '  separation(testFolder("separation-"));',
+    ],
+    line: 2,
+    fix: "Repair: make a scratch folder with testFolder(prefix) from tests/support/test-folder.ts",
   },
 ];
 
@@ -474,6 +508,30 @@ const bypasses = [
     "expect(fn).toThrow(void 0);",
     "toThrow(void 0) names no message",
   ],
+  [
+    "no-host-path-literal",
+    "const folder = (name: string) => `/private/tmp/${name}`;",
+    '"/private/tmp/" names a folder on one host',
+  ],
+  [
+    "no-host-path-literal",
+    'const home = "/Users/someone/project";',
+    '"/Users/someone/project" names a folder on one host',
+  ],
+  ["no-host-path-literal", 'const scratch = "/tmp";', '"/tmp" names a folder'],
+  [
+    "no-host-path-literal",
+    "const nested = (root: string) => `${root}/tmp/x`;",
+    undefined,
+  ],
+  ["no-host-path-literal", 'const sink = "/dev/null";', undefined],
+  [
+    "no-host-path-literal",
+    'const shell = ["/bin/sh", "-c", "exit 0"];',
+    undefined,
+  ],
+  ["no-host-path-literal", 'const stub = "#!/bin/sh\\nexit 0\\n";', undefined],
+  ["no-host-path-literal", 'const page = "/homepage";', undefined],
 ] as const;
 
 for (const [rule, code, fix] of bypasses)
