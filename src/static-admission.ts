@@ -446,7 +446,7 @@ async function fallowPass(
     throw new Refusal(`${name}:native-error`);
   }
   requireValue(
-    report.kind === "dead-code" && report.version === "3.43.0",
+    report.kind === "dead-code" && report.version === "3.43.2",
     `${name}:identity`,
   );
   const semantic = semanticState(report, name);
