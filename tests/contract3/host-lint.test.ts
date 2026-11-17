@@ -226,6 +226,27 @@ describe("kernelLint settings", () => {
       lintBound,
     );
 
+  for (const [name, value, kind] of [
+    ["rootDir", '"."', "a relative rootDir"],
+    ["srcDir", '"src/"', "a srcDir that ends in a slash"],
+    ["testDirs", '["tests", ""]', "a testDirs entry that is empty"],
+    ["addons", '"state"', 'addons that is neither "all" nor a list'],
+  ] as const)
+    test(
+      `${kind} fails loudly`,
+      async () => {
+        const tree = await hostTree(["state"], ["state"]);
+        expect(
+          await refusal(
+            tree,
+            `refused-${name}`,
+            kernelLintConfig({ ...full, [name]: value }),
+          ),
+        ).toContain(`kernelLint needs ${name}: `);
+      },
+      lintBound,
+    );
+
   test(
     "an add-on the kernel does not declare fails loudly",
     async () => {
