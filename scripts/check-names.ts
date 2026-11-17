@@ -1,5 +1,5 @@
-import { readFileSync } from "node:fs";
-import { join, relative, resolve } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
 import {
   namesOnPaths,
   newNameProblems,
@@ -10,7 +10,8 @@ import {
 } from "./glossary.ts";
 
 const root = join(import.meta.dir, "..");
-const usage = "Usage: bun run check:names <path> [path ...] | --staged";
+const usage =
+  "Usage: bun run check:names <path> [path ...] | --staged | --tool-call";
 
 class UsageError extends Error {}
 
@@ -40,24 +41,78 @@ function givenPaths(args: readonly string[]): string[] {
   return args.map(givenPath);
 }
 
-function pathsToJudge(args: readonly string[]): string[] {
-  const [first, ...rest] = args;
-  if (first === undefined)
-    throw new UsageError("Give at least one path, or --staged.");
-  if (first !== "--staged") return givenPaths(args);
-  if (rest.length > 0) throw new UsageError("--staged takes no path.");
-  return stagedNewPaths(root);
+function owningTree(path: string): string | undefined {
+  const folder = dirname(path);
+  if (existsSync(join(folder, ".git"))) return folder;
+  return folder === path ? undefined : owningTree(folder);
 }
 
-function check(args: readonly string[]): number {
-  const problems = problemsIn(root, namesOnPaths(pathsToJudge(args)));
-  for (const problem of problems) process.stderr.write(`${problem}\n`);
-  return problems.length > 0 ? 1 : 0;
+function hasNamesCheck(tree: string): boolean {
+  return (
+    existsSync(join(tree, "GLOSSARY.md")) &&
+    existsSync(join(tree, recordedHitsFile))
+  );
+}
+
+function problemsCreating(file: string): string[] {
+  const tree = owningTree(file);
+  if (tree === undefined || !hasNamesCheck(tree)) return [];
+  return problemsIn(
+    tree,
+    namesOnPaths([relative(tree, file)]).filter(
+      (name) => !existsSync(join(tree, name)),
+    ),
+  );
+}
+
+function ownFields(value: unknown): Map<string, unknown> {
+  return new Map(
+    typeof value === "object" && value !== null ? Object.entries(value) : [],
+  );
+}
+
+function createdPaths(tool: unknown, input: Map<string, unknown>): string[] {
+  const filePath = input.get("file_path");
+  if (tool === "Write" && typeof filePath === "string") return [filePath];
+  throw new Error(
+    `--tool-call cannot read a ${String(tool)} call. It reads the file_path of a Write call. Wire the names gate to that tool only.`,
+  );
+}
+
+function toolCallProblems(hookInput: string): string[] {
+  const call = ownFields(JSON.parse(hookInput));
+  const cwd = call.get("cwd");
+  const from = typeof cwd === "string" ? cwd : process.cwd();
+  return createdPaths(
+    call.get("tool_name"),
+    ownFields(call.get("tool_input")),
+  ).flatMap((path) => problemsCreating(resolve(from, path)));
+}
+
+const modes = new Map<string, () => Promise<string[]>>([
+  [
+    "--staged",
+    () => Promise.resolve(problemsIn(root, namesOnPaths(stagedNewPaths(root)))),
+  ],
+  ["--tool-call", async () => toolCallProblems(await Bun.stdin.text())],
+]);
+
+function problemsFor(args: readonly string[]): Promise<string[]> {
+  const [first, ...rest] = args;
+  if (first === undefined)
+    throw new UsageError("Give at least one path, --staged or --tool-call.");
+  const mode = modes.get(first);
+  if (mode === undefined)
+    return Promise.resolve(problemsIn(root, namesOnPaths(givenPaths(args))));
+  if (rest.length > 0) throw new UsageError(`${first} takes no path.`);
+  return mode();
 }
 
 let code: number;
 try {
-  code = check(process.argv.slice(2));
+  const problems = new Set(await problemsFor(process.argv.slice(2)));
+  for (const problem of problems) process.stderr.write(`${problem}\n`);
+  code = problems.size > 0 ? 1 : 0;
 } catch (error) {
   const reason = error instanceof Error ? error.message : String(error);
   process.stderr.write(

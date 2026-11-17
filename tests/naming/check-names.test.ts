@@ -10,7 +10,8 @@ import {
   write,
 } from "./fixture-tree.ts";
 
-const usage = "Usage: bun run check:names <path> [path ...] | --staged";
+const usage =
+  "Usage: bun run check:names <path> [path ...] | --staged | --tool-call";
 
 afterAll(removeFixtureTrees);
 
@@ -149,7 +150,7 @@ test(
 );
 
 test.each([
-  ["no path", [], "Give at least one path, or --staged."],
+  ["no path", [], "Give at least one path, --staged or --tool-call."],
   ["an option it does not know", ["--stagd"], 'Unknown option "--stagd".'],
   [
     "a path beside --staged",

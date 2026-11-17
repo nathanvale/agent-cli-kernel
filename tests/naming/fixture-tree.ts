@@ -1,10 +1,18 @@
-import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  copyFileSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { delimiter, dirname, join } from "node:path";
 import { type RecordedHit, recordedHitsFile } from "../../scripts/glossary.ts";
 import { spawnBounded } from "../support/process.ts";
 import { testFolder } from "../support/test-folder.ts";
 
-const repository = join(import.meta.dir, "../..");
+export const repository = join(import.meta.dir, "../..");
 
 const glossary = `# Fixture glossary
 
@@ -18,7 +26,12 @@ _Avoid_: known hit, allowlist
 
 _Qualify_: host, proof
 `;
-const sources = ["scripts/check-names.ts", "scripts/glossary.ts"];
+const sources = [
+  "scripts/check-names.ts",
+  "scripts/glossary.ts",
+  ".claude/settings.json",
+  ".claude/hooks/names-gate.sh",
+];
 const folders: string[] = [];
 const gitEnv = {
   GIT_CONFIG_GLOBAL: "/dev/null",
@@ -49,13 +62,18 @@ export function write(root: string, path: string, content: string): void {
   writeFileSync(join(root, path), content);
 }
 
-export function fixtureTree(recorded: readonly RecordedHit[] = []): string {
+export function emptyFolder(): string {
   const folder = testFolder("names-tree-");
   folders.push(folder);
-  const root = join(folder, "tree");
+  return folder;
+}
+
+export function fixtureTree(recorded: readonly RecordedHit[] = []): string {
+  const root = join(emptyFolder(), "tree");
   for (const path of sources) {
     mkdirSync(dirname(join(root, path)), { recursive: true });
     copyFileSync(join(repository, path), join(root, path));
+    chmodSync(join(root, path), statSync(join(repository, path)).mode);
   }
   write(root, "GLOSSARY.md", glossary);
   write(root, recordedHitsFile, JSON.stringify({ hits: recorded }));
@@ -67,7 +85,11 @@ export function fixtureTree(recorded: readonly RecordedHit[] = []): string {
   return root;
 }
 
-function run(argv: readonly string[], cwd: string) {
+function run(
+  argv: readonly string[],
+  cwd: string,
+  env: Readonly<Record<string, string>> = {},
+) {
   return spawnBounded(argv, {
     cwd,
     env: {
@@ -78,6 +100,7 @@ function run(argv: readonly string[], cwd: string) {
       ),
       ...gitEnv,
       PATH: `${dirname(process.execPath)}${delimiter}${process.env.PATH ?? ""}`,
+      ...env,
     },
   });
 }
@@ -92,4 +115,35 @@ export function checkNames(root: string, args: readonly string[]) {
     [process.execPath, "run", "--silent", "check:names", ...args],
     root,
   );
+}
+
+type HookEntry = {
+  readonly matcher: string;
+  readonly hooks: readonly { readonly command: string }[];
+};
+
+export function hookCommands(
+  root: string,
+  settings: string,
+  matcher: string,
+): string[] {
+  const { hooks } = JSON.parse(readFileSync(join(root, settings), "utf8")) as {
+    hooks: { PreToolUse: readonly HookEntry[] };
+  };
+  return hooks.PreToolUse.filter((entry) => entry.matcher === matcher).flatMap(
+    (entry) => entry.hooks.map((hook) => hook.command),
+  );
+}
+
+export function runHook(
+  command: string,
+  call: unknown,
+  { cwd, projectFolder }: { cwd: string; projectFolder: string },
+) {
+  const input = join(emptyFolder(), "tool-call.json");
+  writeFileSync(input, JSON.stringify(call));
+  return run(["/bin/sh", "-c", `( ${command} ) < "$TOOL_CALL"`], cwd, {
+    TOOL_CALL: input,
+    CLAUDE_PROJECT_DIR: projectFolder,
+  });
 }
