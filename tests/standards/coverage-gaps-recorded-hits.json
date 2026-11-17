@@ -4,11 +4,6 @@
     {
       "path": "src/static-admission.ts",
       "reason": "tests/static-admission.test.ts proves it by spawning src/static-admission.ts."
-    },
-    {
-      "path": "src/cli-inventory.ts",
-      "export": "inventoryApplicationClis",
-      "reason": "tests/bootstrap-cli.test.ts proves it by spawning src/cli-inventory.ts, and by running a transpiled copy in a child; tests/cli-inventory.test.ts imports only its helpers."
     }
   ]
 }
