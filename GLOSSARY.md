@@ -1,32 +1,15 @@
 # Bun TypeScript Template glossary
 
-The words this repository owns: how it creates a new repository, and the
+The words this repository owns: the recipe that Bootstrap follows, and the
 checks that keep its own code honest. `GLOSSARY-MAP.md` names the glossaries
-that own every other word.
+that own every other word, Bootstrap among them.
 
 ## Language
 
 ### Creating a repository
 
-**Bootstrap**:
-The template's command that creates a new repository from one recipe.
-_Avoid_: scaffold, generator
-
 **Recipe**:
-One way to create a repository: a request, made of a bootstrap profile, a
-layout and at most one CLI starter, and the folders that answer it.
-
-**Bootstrap profile**:
-How much tooling a new repository gets: `scratch` for a contained experiment,
-or `durable` for maintained code.
-
-**Layout**:
-Whether a new repository is a single package or a monorepo.
-_Avoid_: variant
-
-**CLI starter**:
-A ready command-line program that a durable repository can start from:
-`simple` or `complex`.
+One row that says which folders Bootstrap copies for one request.
 
 ### Checks
 
@@ -70,6 +53,6 @@ _Avoid_: clean up, prune
 
 Each of these words names different things in different projects. In the name
 of a file, a folder, a test or a commit, pair it with a word that says which
-one you mean, as `project-recipe` does.
+one you mean, as `repository-profile` does.
 
 _Qualify_: host, project, starter, profile, proof, manifest, probe

@@ -4,12 +4,12 @@
     {
       "path": "profiles",
       "word": "profile",
-      "reason": "Holds the bootstrap profiles. Recipes, Bootstrap and the static admission check name this path; renaming it is its own change."
+      "reason": "Holds the repository profiles. Recipes, Bootstrap and the static admission check name this path; renaming it is its own change."
     },
     {
       "path": "proofs",
       "word": "proof",
-      "reason": "Holds the verification records written when each bootstrap profile was built. No tool reads them; renaming is its own change."
+      "reason": "Holds the verification records written when each repository profile was built. No tool reads them; renaming is its own change."
     },
     {
       "path": "proofs/durable/PROOF.md",
