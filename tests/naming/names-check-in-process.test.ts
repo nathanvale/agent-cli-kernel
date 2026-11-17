@@ -99,6 +99,14 @@ async function whileGitHangs<T>(run: () => T | Promise<T>): Promise<T> {
   }
 }
 
+async function timed<T>(
+  run: () => T | Promise<T>,
+): Promise<{ value: T; milliseconds: number }> {
+  const started = performance.now();
+  const value = await run();
+  return { value, milliseconds: performance.now() - started };
+}
+
 function put(root: string, path: string, content: string): void {
   mkdirSync(dirname(join(root, path)), { recursive: true });
   writeFileSync(join(root, path), content);
@@ -415,7 +423,12 @@ test(
   async () => {
     const root = namesRepository();
     const command = "git diff --cached --name-only --diff-filter=ACR -z";
-    expect(await whileGitHangs(() => check(root, ["--staged"]))).toEqual({
+    const { value, milliseconds } = await whileGitHangs(() =>
+      timed(() => check(root, ["--staged"])),
+    );
+    expect(milliseconds).toBeGreaterThanOrEqual(10_000 - 100);
+    expect(milliseconds).toBeLessThan(10_000 + 1_500);
+    expect(value).toEqual({
       stderr: `names check: ${command} did not exit within 10000 ms. Repair: find what holds git in ${root} (a stale index.lock, a hung hook or a stalled disk), then run the check again. Done when ${command} exits 0 there.\n`,
       code: 2,
     });
@@ -427,9 +440,12 @@ test(
   "in process: the fixture's git stops a call that never answers at its bound",
   async () => {
     const root = namesRepository();
-    expect(await whileGitHangs(() => thrownBy(() => git(root, "status")))).toBe(
-      "git status did not exit within 4000 ms.",
+    const { value, milliseconds } = await whileGitHangs(() =>
+      timed(() => thrownBy(() => git(root, "status"))),
     );
+    expect(milliseconds).toBeGreaterThanOrEqual(4_000 - 100);
+    expect(milliseconds).toBeLessThan(4_000 + 1_500);
+    expect(value).toBe("git status did not exit within 4000 ms.");
   },
   processWatchdog(1),
 );
