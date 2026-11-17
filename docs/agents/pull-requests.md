@@ -12,8 +12,8 @@
   gates. Commit what Sow writes. Route instruction wording to the
   document's owner. Push the fixes as one batch.
 - Stop requesting reviews after the third round. Ask Copilot again only
-  after the first and second batches. CodeRabbit is configured for
-  incremental reviews on pushes. After round three, address comments
-  that identify real faults.
+  after the first and second batches. CodeRabbit pauses after one
+  reviewed commit, so post `@coderabbitai review` with each later fix
+  batch. After round three, address comments that identify real faults.
 - Merge with a merge commit on the operator's word. GitHub protects
   `main` from direct pushes.
