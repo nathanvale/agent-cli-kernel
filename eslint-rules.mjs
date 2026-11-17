@@ -1,1 +1,1 @@
-export { default } from "./config/contract3-repository-rules.mjs";
+export { default } from "./config/kernel-repository-rules.mjs";

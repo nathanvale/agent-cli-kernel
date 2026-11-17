@@ -1,7 +1,7 @@
-diff --git a/config/contract3-repository-rules.mjs b/config/contract3-repository-rules.mjs
+diff --git a/config/kernel-repository-rules.mjs b/config/kernel-repository-rules.mjs
 index 8f6c01e..e0b976f 100644
---- a/config/contract3-repository-rules.mjs
-+++ b/config/contract3-repository-rules.mjs
+--- a/config/kernel-repository-rules.mjs
++++ b/config/kernel-repository-rules.mjs
 @@ -217,7 +217,7 @@ function isAdmitted(source, block, placed) {
    const { start } = block[0].loc;
    return (

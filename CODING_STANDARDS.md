@@ -218,7 +218,7 @@ row's guide or gate note cites two distinct witnesses.
   with the kernel.
 - `starters/contract3/config/kernel/` is stamped, so it holds only the rules
   `kernelLint` turns on. The kernel repository's own rules (`no-comments`
-  and the three test rules) live in `config/contract3-repository-rules.mjs`.
+  and the three test rules) live in `config/kernel-repository-rules.mjs`.
 
 ## Review routine
 

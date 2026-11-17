@@ -1,7 +1,7 @@
-diff --git a/config/contract3-repository-rules.mjs b/config/contract3-repository-rules.mjs
+diff --git a/config/kernel-repository-rules.mjs b/config/kernel-repository-rules.mjs
 index 8f6c01e..48cd37e 100644
---- a/config/contract3-repository-rules.mjs
-+++ b/config/contract3-repository-rules.mjs
+--- a/config/kernel-repository-rules.mjs
++++ b/config/kernel-repository-rules.mjs
 @@ -7,13 +7,6 @@ const safetyMarker = "SAFETY";
  const commentMarker = new RegExp(`^(?:${plainMarkers.join("|")}):`);
  const safetyJustification = new RegExp(`^${safetyMarker}:\\s*\\S`);
