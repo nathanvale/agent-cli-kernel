@@ -15,7 +15,8 @@
     "require": "best-effort"
   },
   "audit": {
-    "gate": "new-only"
+    "gate": "new-only",
+    "healthBaseline": "fallow-health-recorded-hits.json"
   },
   "boundaries": {
     "zones": [
@@ -65,14 +66,6 @@
     "coverage": {
       "requireAllFiles": true
     }
-  },
-  "health": {
-    "ignore": [
-      "kernel/**",
-      "tests/kernel/**",
-      "tests/glossary/**",
-      "config/kernel-repository-rules.mjs"
-    ]
   },
   "duplicates": {
     "ignoredClones": [
