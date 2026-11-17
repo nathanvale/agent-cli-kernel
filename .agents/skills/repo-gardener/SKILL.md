@@ -20,7 +20,7 @@ each pointer rather than a copy:
   for kernel rules: a failing and a passing snippet for each lint, each case
   naming its witness.
 - [Planted-fault guide](../../../docs/standards/test-proof.md#planted-faults):
-  how to record a fault in `tests/faults/records.json`.
+  how to record a fault in `tests/planted-faults/fault-records.json`.
 - [Recorded hits](../../../CODING_STANDARDS.md#recorded-hits): existing hits
   of a new lint.
 
@@ -48,10 +48,10 @@ A lint rule's owner decides its three files:
 ## Write scope
 
 Change only `CODING_STANDARDS.md`, `docs/standards/`, the six files in
-[Lint owners](#lint-owners), `eslint-suppressions.json`, `tests/faults/` and
-`tests/standards/`. Weed may also change `AGENTS.md` and `.agents/skills/`.
-Report a change the lesson needs anywhere else, with its path, for that
-path's owner.
+[Lint owners](#lint-owners), `eslint-suppressions.json`,
+`tests/planted-faults/` and `tests/standards/`. Weed may also change
+`AGENTS.md` and `.agents/skills/`. Report a change the lesson needs anywhere
+else, with its path, for that path's owner.
 
 Start on a clean tree. When `git status --porcelain` prints anything, change
 nothing and report its output: the scope check below cannot tell your edits

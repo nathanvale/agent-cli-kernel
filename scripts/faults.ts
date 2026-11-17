@@ -11,8 +11,8 @@ import { basename, join } from "node:path";
 import { runWithOwnTools } from "./process-runner.ts";
 
 const root = join(import.meta.dir, "..");
-const recordsPath = "tests/faults/records.json";
-const patchFolder = "tests/faults/patches";
+const recordsPath = "tests/planted-faults/fault-records.json";
+const patchFolder = "tests/planted-faults/patches";
 
 type Fault = {
   id: string;

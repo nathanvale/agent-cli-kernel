@@ -1,231 +1,231 @@
 [
   {
     "id": "6021454-install",
-    "patch": "tests/faults/patches/6021454-install.patch",
+    "patch": "tests/planted-faults/patches/6021454-install.patch",
     "testFile": "tests/kernel/state/component.test.ts",
     "title": "^NW\\.[ab] ",
     "source": "6021454 fix(state): refuse a wait limit that is not a number"
   },
   {
     "id": "b456208-json-equality",
-    "patch": "tests/faults/patches/b456208-json-equality.patch",
+    "patch": "tests/planted-faults/patches/b456208-json-equality.patch",
     "testFile": "tests/kernel/kernel-repair/equality.test.ts",
     "title": "^R15\\.",
     "source": "b456208 fix(contract3): JSON equality sorts keys by code unit, not locale (F16)"
   },
   {
     "id": "e55f94a-framing",
-    "patch": "tests/faults/patches/e55f94a-framing.patch",
+    "patch": "tests/planted-faults/patches/e55f94a-framing.patch",
     "testFile": "tests/kernel/state/journal.test.ts",
     "title": "^J04\\.g-",
     "source": "e55f94a fix(contract3-state): repair round 1, test seams off the host path and missing controls"
   },
   {
     "id": "1a93f4b-index",
-    "patch": "tests/faults/patches/1a93f4b-index.patch",
+    "patch": "tests/planted-faults/patches/1a93f4b-index.patch",
     "testFile": "tests/kernel/kernel-followup/decision-1.test.ts",
     "title": "^KF1\\.c ",
     "source": "1a93f4b feat(contract3): refuse an add-on attach fault before handler entry as a preparation fault (KF1)"
   },
   {
     "id": "5ac4285-eslint-rules",
-    "patch": "tests/faults/patches/5ac4285-eslint-rules.patch",
+    "patch": "tests/planted-faults/patches/5ac4285-eslint-rules.patch",
     "testFile": "tests/kernel/lint-rules.test.ts",
     "title": "^no-comments refuses .*Note\\.",
     "source": "5ac4285 feat(lint): refuse comments, except Platform:, Interface: and accepted decisions"
   },
   {
     "id": "5ac4285-template-rules",
-    "patch": "tests/faults/patches/5ac4285-template-rules.patch",
+    "patch": "tests/planted-faults/patches/5ac4285-template-rules.patch",
     "testFile": "tests/lint-rules.test.ts",
     "title": "^no-comments refuses .*Note\\.",
     "source": "5ac4285 feat(lint): refuse comments, except Platform:, Interface: and accepted decisions"
   },
   {
     "id": "c6d3f09-doctor",
-    "patch": "tests/faults/patches/c6d3f09-doctor.patch",
+    "patch": "tests/planted-faults/patches/c6d3f09-doctor.patch",
     "testFile": "tests/doctor.test.ts",
     "title": "not ready fails on the failing check",
     "source": "c6d3f09 feat(doctor): check fallow's readiness with fallow doctor"
   },
   {
     "id": "f0ad643-oxlintrc",
-    "patch": "tests/faults/patches/f0ad643-oxlintrc.patch",
+    "patch": "tests/planted-faults/patches/f0ad643-oxlintrc.patch",
     "testFile": "tests/anti-slop-gate.test.ts",
     "title": "^anti-slop/no-module-mocking refuses its violation$",
     "source": "f0ad643 feat(lint): gate six anti-slop rules in bun run lint"
   },
   {
     "id": "f0ad643-oxlintrc-spread",
-    "patch": "tests/faults/patches/f0ad643-oxlintrc-spread.patch",
+    "patch": "tests/planted-faults/patches/f0ad643-oxlintrc-spread.patch",
     "testFile": "tests/anti-slop-gate.test.ts",
     "title": "^oxc/no-accumulating-spread refuses its violation$",
     "source": "f0ad643 feat(lint): gate six anti-slop rules in bun run lint"
   },
   {
     "id": "bbfce9a-eslint-rules",
-    "patch": "tests/faults/patches/bbfce9a-eslint-rules.patch",
+    "patch": "tests/planted-faults/patches/bbfce9a-eslint-rules.patch",
     "testFile": "tests/kernel/lint-rules.test.ts",
     "title": "^no-comments refuses .*nothing here is cast",
     "source": "bbfce9a fix(lint): admit a SAFETY: block only where anti-slop accepts the cast"
   },
   {
     "id": "bbfce9a-template-rules",
-    "patch": "tests/faults/patches/bbfce9a-template-rules.patch",
+    "patch": "tests/planted-faults/patches/bbfce9a-template-rules.patch",
     "testFile": "tests/lint-rules.test.ts",
     "title": "^no-comments refuses .*nothing here is cast",
     "source": "bbfce9a fix(lint): admit a SAFETY: block only where anti-slop accepts the cast"
   },
   {
     "id": "64b4738-eslint-rules",
-    "patch": "tests/faults/patches/64b4738-eslint-rules.patch",
+    "patch": "tests/planted-faults/patches/64b4738-eslint-rules.patch",
     "testFile": "tests/kernel/generated-repository-lint.test.ts",
     "title": "kernelLint settings cause-literal-owner without settings\\.kernel\\.srcDir fails loudly$",
     "source": "64b4738 feat(lint): the kernel lint module takes its folders as settings (MAG-121)"
   },
   {
     "id": "8d55f96-check-commits",
-    "patch": "tests/faults/patches/8d55f96-check-commits.patch",
+    "patch": "tests/planted-faults/patches/8d55f96-check-commits.patch",
     "testFile": "tests/check-commits.test.ts",
     "title": "an empty range checks nothing and fails",
     "source": "8d55f96 Gates that would check nothing fail"
   },
   {
     "id": "8d55f96-faults",
-    "patch": "tests/faults/patches/8d55f96-faults.patch",
+    "patch": "tests/planted-faults/patches/8d55f96-faults.patch",
     "testFile": "tests/faults.test.ts",
     "title": "FR\\.t an empty list of fault records",
     "source": "8d55f96 Gates that would check nothing fail"
   },
   {
     "id": "8d55f96-test-area",
-    "patch": "tests/faults/patches/8d55f96-test-area.patch",
+    "patch": "tests/planted-faults/patches/8d55f96-test-area.patch",
     "testFile": "tests/doctor.test.ts",
     "title": "a declared area that holds no test file fails",
     "source": "8d55f96 Gates that would check nothing fail"
   },
   {
     "id": "79db613-child-env",
-    "patch": "tests/faults/patches/79db613-child-env.patch",
+    "patch": "tests/planted-faults/patches/79db613-child-env.patch",
     "testFile": "tests/process-runner.test.ts",
     "title": "CE\\.d ",
     "source": "79db613 refactor(scripts): give the template one process runner for its scripts and their tests"
   },
   {
     "id": "64b4738-eslint",
-    "patch": "tests/faults/patches/64b4738-eslint.patch",
+    "patch": "tests/planted-faults/patches/64b4738-eslint.patch",
     "testFile": "tests/kernel/generated-repository-lint.test.ts",
     "title": "kernelLint settings a missing srcDir fails loudly$",
     "source": "64b4738 feat(lint): the kernel lint module takes its folders as settings (MAG-121)"
   },
   {
     "id": "4afda36-project-recipe",
-    "patch": "tests/faults/patches/4afda36-project-recipe.patch",
+    "patch": "tests/planted-faults/patches/4afda36-project-recipe.patch",
     "testFile": "tests/recipe.test.ts",
     "title": "no row and no refusal matches throws",
     "source": "4afda36 fix(recipe): name the starter-with-monorepo refusal's condition, throw if none matches"
   },
   {
     "id": "abebe4e-repository-unknown-key",
-    "patch": "tests/faults/patches/abebe4e-repository-unknown-key.patch",
+    "patch": "tests/planted-faults/patches/abebe4e-repository-unknown-key.patch",
     "testFile": "tests/repository.test.ts",
     "title": "^an unknown key is refused",
     "source": "abebe4e Gate tools read the repository from repository.json"
   },
   {
     "id": "abebe4e-repository-missing-key",
-    "patch": "tests/faults/patches/abebe4e-repository-missing-key.patch",
+    "patch": "tests/planted-faults/patches/abebe4e-repository-missing-key.patch",
     "testFile": "tests/repository.test.ts",
     "title": "^a missing key is refused",
     "source": "abebe4e Gate tools read the repository from repository.json"
   },
   {
     "id": "abebe4e-repository-commit",
-    "patch": "tests/faults/patches/abebe4e-repository-commit.patch",
+    "patch": "tests/planted-faults/patches/abebe4e-repository-commit.patch",
     "testFile": "tests/repository.test.ts",
     "title": "^a commit that is not a full SHA is refused",
     "source": "abebe4e Gate tools read the repository from repository.json"
   },
   {
     "id": "abebe4e-repository-web",
-    "patch": "tests/faults/patches/abebe4e-repository-web.patch",
+    "patch": "tests/planted-faults/patches/abebe4e-repository-web.patch",
     "testFile": "tests/repository.test.ts",
     "title": "^a web address that is not a GitHub repository page is refused",
     "source": "abebe4e Gate tools read the repository from repository.json"
   },
   {
     "id": "abebe4e-repository-missing-file",
-    "patch": "tests/faults/patches/abebe4e-repository-missing-file.patch",
+    "patch": "tests/planted-faults/patches/abebe4e-repository-missing-file.patch",
     "testFile": "tests/repository.test.ts",
     "title": "^a missing file is refused",
     "source": "abebe4e Gate tools read the repository from repository.json"
   },
   {
     "id": "f86c589-glossary-avoid",
-    "patch": "tests/faults/patches/f86c589-glossary-avoid.patch",
+    "patch": "tests/planted-faults/patches/f86c589-glossary-avoid.patch",
     "testFile": "tests/naming/names.test.ts",
     "title": "^NM\\.a ",
     "source": "f86c589 test(naming): check tracked names and the glossary files"
   },
   {
     "id": "f86c589-glossary-qualify",
-    "patch": "tests/faults/patches/f86c589-glossary-qualify.patch",
+    "patch": "tests/planted-faults/patches/f86c589-glossary-qualify.patch",
     "testFile": "tests/naming/names.test.ts",
     "title": "^NM\\.b ",
     "source": "f86c589 test(naming): check tracked names and the glossary files"
   },
   {
     "id": "f86c589-glossary-stale",
-    "patch": "tests/faults/patches/f86c589-glossary-stale.patch",
+    "patch": "tests/planted-faults/patches/f86c589-glossary-stale.patch",
     "testFile": "tests/naming/names.test.ts",
     "title": "^NM\\.c ",
     "source": "f86c589 test(naming): check tracked names and the glossary files"
   },
   {
     "id": "f86c589-glossary-reason",
-    "patch": "tests/faults/patches/f86c589-glossary-reason.patch",
+    "patch": "tests/planted-faults/patches/f86c589-glossary-reason.patch",
     "testFile": "tests/naming/names.test.ts",
     "title": "^a recorded hit without a reason is refused$",
     "source": "f86c589 test(naming): check tracked names and the glossary files"
   },
   {
     "id": "f86c589-glossary-map-pointer",
-    "patch": "tests/faults/patches/f86c589-glossary-map-pointer.patch",
+    "patch": "tests/planted-faults/patches/f86c589-glossary-map-pointer.patch",
     "testFile": "tests/naming/glossary-files.test.ts",
     "title": "^GM\\.a ",
     "source": "f86c589 test(naming): check tracked names and the glossary files"
   },
   {
     "id": "f86c589-glossary-map-empty",
-    "patch": "tests/faults/patches/f86c589-glossary-map-empty.patch",
+    "patch": "tests/planted-faults/patches/f86c589-glossary-map-empty.patch",
     "testFile": "tests/naming/glossary-files.test.ts",
     "title": "^GM\\.b ",
     "source": "f86c589 test(naming): check tracked names and the glossary files"
   },
   {
     "id": "f86c589-glossary-unused",
-    "patch": "tests/faults/patches/f86c589-glossary-unused.patch",
+    "patch": "tests/planted-faults/patches/f86c589-glossary-unused.patch",
     "testFile": "tests/naming/glossary-files.test.ts",
     "title": "^GM\\.c ",
     "source": "f86c589 test(naming): check tracked names and the glossary files"
   },
   {
     "id": "8048731-child-env-limit",
-    "patch": "tests/faults/patches/8048731-child-env-limit.patch",
+    "patch": "tests/planted-faults/patches/8048731-child-env-limit.patch",
     "testFile": "tests/process-runner.test.ts",
     "title": "CE\\.a ",
     "source": "8048731 fix(faults): bound each replay step and escalate a stop to SIGKILL"
   },
   {
     "id": "8048731-child-env-escalation",
-    "patch": "tests/faults/patches/8048731-child-env-escalation.patch",
+    "patch": "tests/planted-faults/patches/8048731-child-env-escalation.patch",
     "testFile": "tests/process-runner.test.ts",
     "title": "CE\\.b ",
     "source": "8048731 fix(faults): bound each replay step and escalate a stop to SIGKILL"
   },
   {
     "id": "569dd22-test-area-shared-name",
-    "patch": "tests/faults/patches/569dd22-test-area-shared-name.patch",
+    "patch": "tests/planted-faults/patches/569dd22-test-area-shared-name.patch",
     "testFile": "tests/doctor.test.ts",
     "title": "naming both folders",
     "source": "569dd22 fix(test-area): refuse one area name given to more than one folder"

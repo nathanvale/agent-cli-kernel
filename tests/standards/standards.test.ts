@@ -277,7 +277,7 @@ function citationsIn(file: string, text: string, history: Ancestry): string[] {
   return problems;
 }
 
-const faultRecordsFile = "tests/faults/records.json";
+const faultRecordsFile = "tests/planted-faults/fault-records.json";
 
 function faultRecords(repository: string): { id?: string; source?: string }[] {
   const path = join(repository, faultRecordsFile);
@@ -760,7 +760,7 @@ test.each([
       files[faultRecordsFile] = "[]";
     },
     [
-      'CODING_STANDARDS.md: row "Gated rule" names fault `fixture`, which no record in tests/faults/records.json has as its id. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
+      'CODING_STANDARDS.md: row "Gated rule" names fault `fixture`, which no record in tests/planted-faults/fault-records.json has as its id. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
     ],
   ],
   [
@@ -897,15 +897,15 @@ test.each([
   [
     "a fault record whose source is not an ancestor or names no commit",
     (files: Record<string, string>, sha: string) => {
-      files["tests/faults/records.json"] = JSON.stringify([
+      files["tests/planted-faults/fault-records.json"] = JSON.stringify([
         { id: "fixture", source: `${sha.slice(0, 7)} fix: kept` },
         { id: "lost", source: `${absent.slice(0, 7)} fix: lost` },
         { id: "bare", source: "fix: no commit" },
       ]);
     },
     () => [
-      `tests/faults/records.json: record "lost" names source ${absent.slice(0, 7)}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA.`,
-      'tests/faults/records.json: record "bare" has source "fix: no commit", which does not start with its fix commit\'s SHA. Write "<short sha> <subject>", as bun run faults:add does.',
+      `tests/planted-faults/fault-records.json: record "lost" names source ${absent.slice(0, 7)}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA.`,
+      'tests/planted-faults/fault-records.json: record "bare" has source "fix: no commit", which does not start with its fix commit\'s SHA. Write "<short sha> <subject>", as bun run faults:add does.',
     ],
   ],
 ])(
@@ -1004,6 +1004,6 @@ test("a shallow clone that cuts a cited commit fails and says to fetch the histo
   expect(await citationProblems(repository)).toEqual([
     `CODING_STANDARDS.md:16: [${sha?.slice(0, 7)}] cites ${sha}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA. ${fetch}`,
     `docs/standards/guide.md:7: [${sha?.slice(0, 7)}] cites ${sha}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA. ${fetch}`,
-    `tests/faults/records.json: record "fixture" names source ${sha?.slice(0, 7)}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA. ${fetch}`,
+    `tests/planted-faults/fault-records.json: record "fixture" names source ${sha?.slice(0, 7)}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA. ${fetch}`,
   ]);
 });
