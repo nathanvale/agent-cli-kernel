@@ -1,8 +1,8 @@
 # Bun TypeScript Template glossary
 
 This file is the source of truth for the words this repository owns: the
-recipe that Bootstrap follows, the kernel split, and the checks that keep its
-own code honest. No other glossary defines them. `GLOSSARY-MAP.md` names the
+recipe table that Bootstrap follows, the kernel split, and the checks that
+keep its own code honest. No other glossary defines them. `GLOSSARY-MAP.md` names the
 glossaries that own every other word, Bootstrap among them.
 
 ## Language
@@ -18,8 +18,13 @@ after it in every file and folder name. It refuses a word noted
 ### Creating a repository
 
 **Recipe**:
-One row that says which folders Bootstrap copies for one request. The recipe
-table holds every row.
+One row of the recipe table. For one kind of repository a person can ask for,
+it says which folders Bootstrap copies, which CLI starter the new repository
+gets, and which check command it runs.
+
+**Recipe table**:
+The module that holds every recipe and picks the one that matches what was
+asked for.
 
 **Generated repository**:
 A repository created by Bootstrap.
