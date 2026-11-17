@@ -17,6 +17,7 @@ export default tseslint.config(
       "starters/complex/**",
       "starters/shared/**",
       "proofs/**",
+      "tools/oxlint/anti-slop/**",
     ],
   },
   {
