@@ -141,13 +141,13 @@ const EXPECTED_DEPENDENCY_PINS: Record<
     devDependencies: {
       "@biomejs/biome": "2.6.7",
       "@types/bun": "1.4.0",
-      fallow: "3.43.0",
+      fallow: "3.43.2",
       "@typescript/native": "npm:typescript@7.0.2",
       typescript: "npm:@typescript/typescript6@6.0.2",
       eslint: "10.15.0",
       "@eslint/js": "10.0.1",
       "typescript-eslint": "8.72.2",
-      "fallow-type-aware": "3.43.0",
+      "fallow-type-aware": "3.43.2",
     },
   },
   complex: {
@@ -159,13 +159,13 @@ const EXPECTED_DEPENDENCY_PINS: Record<
     devDependencies: {
       "@biomejs/biome": "2.6.7",
       "@types/bun": "1.4.0",
-      fallow: "3.43.0",
+      fallow: "3.43.2",
       "@typescript/native": "npm:typescript@7.0.2",
       typescript: "npm:@typescript/typescript6@6.0.2",
       eslint: "10.15.0",
       "@eslint/js": "10.0.1",
       "typescript-eslint": "8.72.2",
-      "fallow-type-aware": "3.43.0",
+      "fallow-type-aware": "3.43.2",
     },
   },
 };

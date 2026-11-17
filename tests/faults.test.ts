@@ -24,7 +24,7 @@ const gitEnv = {
   GIT_CONFIG_GLOBAL: "/dev/null",
   GIT_CONFIG_NOSYSTEM: "1",
 };
-// A caller such as a git hook can export these, and they override `cwd`.
+// Platform: A caller such as a git hook can export these, and they override `cwd`.
 const repositoryLocation = new Set([
   "GIT_DIR",
   "GIT_WORK_TREE",

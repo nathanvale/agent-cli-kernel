@@ -3,7 +3,7 @@ import { closeSync, constants, openSync } from "node:fs";
 import { glibc, loadLinuxFlock } from "./linux-flock.ts";
 import type { FlockResult } from "./linux-flock.ts";
 
-// <sys/fcntl.h>: O_EXLOCK 0x00000020. Only Darwin gives it lock meaning.
+// Platform: <sys/fcntl.h>: O_EXLOCK 0x00000020. Only Darwin gives it lock meaning.
 const darwinExclusiveLock = 0x20;
 // O_CLOEXEC, set by the route itself (accepted decision BN-03, 17 November
 // 2026). Bun's node:fs leaves it off on 1.4.0 and 1.4.2 (observed) and sets

@@ -172,7 +172,7 @@ test(
   probe.timeout(),
 );
 
-// The lint-view parser overflows its stack on the deep nesting in this
+// Platform: The lint-view parser overflows its stack on the deep nesting in this
 // imported file and exits at once, while the sibling still instantiates a
 // 999-element tuple chain. Declaring global gives the crasher its own program.
 const deep = join(fixtureDirectory, "deep.ts");

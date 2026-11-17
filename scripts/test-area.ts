@@ -2,7 +2,7 @@ import { type Dirent, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { doctor } from "./doctor.ts";
 
-// bun test reads a path without a ./ prefix as a substring filter, so
+// Platform: bun test reads a path without a ./ prefix as a substring filter, so
 // "tests/contract3/state" would also run state-seam.test.ts.
 const contract3 = "tests/contract3";
 

@@ -1,4 +1,4 @@
-// Interface for a host:
+// Interface: a host uses these.
 // - stateAddon(options) creates one state add-on instance and returns:
 //   - descriptor: give it to contractFor({ state }) and to approval runtime().
 //   - emergencyRecord: give it to runProcess(contract, { emergencyRecord }).

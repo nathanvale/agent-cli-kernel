@@ -159,7 +159,7 @@ export type RowGuidance<
           : CommandStep<Identity> | InstructionStep;
       readonly handoff?: never;
     };
-// RowResult distributes over its naked row parameter and then over the row's
+// Platform: RowResult distributes over its naked row parameter and then over the row's
 // transaction state, so a widened cause table (the CauseRow union, whose
 // success member allows two states) still yields one correlated result per
 // row and state (F14).

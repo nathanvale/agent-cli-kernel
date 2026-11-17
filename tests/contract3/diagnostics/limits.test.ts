@@ -53,7 +53,7 @@ function logs(dir: string) {
   return observe(dir).files.filter((entry) => entry.name.endsWith(".jsonl"));
 }
 
-// Which log a file is, told by what no other file can be given: its name (the
+// Platform: Which log a file is, told by what no other file can be given: its name (the
 // run identity) and its first record. An inode number is not such a mark:
 // ext4 hands a freed inode number to the next file created, so a pruned
 // log's number can come back on the new run's own log (the hosted Linux

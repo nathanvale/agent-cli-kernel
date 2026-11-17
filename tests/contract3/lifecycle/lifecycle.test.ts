@@ -499,7 +499,7 @@ describe("host argument limits (supporting H1)", () => {
   test(
     "H1s.long-operand-shortened-and-reported-under-a-small-budget",
     async () => {
-      // Nine 100 KB variables leave Darwin about 150 KB of its 1 MB total
+      // Platform: Nine 100 KB variables leave Darwin about 150 KB of its 1 MB total
       // and stay inside Linux's per-string and total limits, so the frozen
       // 200,000-byte operand is refused on both and the case is shortened.
       const entry = caseById("L12.long-operand");
@@ -531,7 +531,7 @@ describe("host argument limits (supporting H1)", () => {
   test(
     "H1s.spawnable-length-probe-finds-the-host-limit",
     () => {
-      // 4 MB exceeds Darwin's total ARG_MAX and Linux's 131,072-byte limit on
+      // Platform: 4 MB exceeds Darwin's total ARG_MAX and Linux's 131,072-byte limit on
       // one argument, so every supported host takes the shortening path.
       const env = { PATH: "/usr/bin:/bin" };
       const build = (length: number) => ["probe", "L".repeat(length)];

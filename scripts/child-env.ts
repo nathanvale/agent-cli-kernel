@@ -1,6 +1,6 @@
 import { basename, delimiter, dirname } from "node:path";
 
-// `bun run` prepends the caller's node_modules/.bin folders to PATH. Drop
+// Platform: `bun run` prepends the caller's node_modules/.bin folders to PATH. Drop
 // them so a child process sees only what its own tree installs.
 const ownTools = {
   ...process.env,
@@ -15,7 +15,7 @@ const ownTools = {
 };
 
 const graceMilliseconds = 2_000;
-// The child's group has no live process to signal. ESRCH: every member is
+// Platform: The child's group has no live process to signal. ESRCH: every member is
 // reaped. EPERM: macOS answers it when every member left is a zombie.
 const groupGone = new Set<unknown>(["ESRCH", "EPERM"]);
 

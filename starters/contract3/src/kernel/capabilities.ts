@@ -42,7 +42,7 @@ export type ProgramResult = {
   readonly stderr: string;
   readonly exitCode: number | null;
   readonly terminationConfirmed: boolean;
-  // True when either captured stream was cut at its declared bound or
+  // Interface: True when either captured stream was cut at its declared bound or
   // abandoned, so the handler knows stdout or stderr is incomplete.
   readonly outputTruncated: boolean;
 };
@@ -86,7 +86,7 @@ export type ApprovalRequest = {
   readonly resource: ResourceId;
   readonly resourceRevision: string;
   readonly effects: readonly string[];
-  // CMD-10b: the unconsumed preview this apply is bound to. An approval
+  // Interface: CMD-10b: the unconsumed preview this apply is bound to. An approval
   // add-on refuses a request without it.
   readonly preview?: string;
 };

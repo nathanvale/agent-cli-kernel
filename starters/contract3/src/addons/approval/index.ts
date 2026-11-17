@@ -149,7 +149,7 @@ function consumption(kind: string, runId: string, at: number): string {
 
 export type AuthoritySource = {
   readonly directory: string;
-  // Host-owned qualification (V-42). Called first without a record (could
+  // Interface: Host-owned qualification (V-42). Called first without a record (could
   // the caller create one here?), then with the opened record's descriptor
   // facts (could the caller have created or altered this one?). True only
   // when the calling process cannot, with its own credentials.
@@ -361,7 +361,7 @@ function stopMatches(record: unknown, item: StopItem, now: number): boolean {
   );
 }
 
-// consume() rejects with ApprovalRejection exactly as revalidateAndConsume.
+// Interface: consume() rejects with ApprovalRejection exactly as revalidateAndConsume.
 export function authorityVerifier(options: {
   readonly runId: string;
   readonly consumed: string;

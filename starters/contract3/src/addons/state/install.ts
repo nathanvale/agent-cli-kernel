@@ -41,7 +41,7 @@ import type {
 export type { ScopeDeclaration } from "./scope.ts";
 export type { Disposition } from "./store.ts";
 
-// Independent resource evidence for recovery (DESIGN.md section 8). A host
+// Interface: Independent resource evidence for recovery (DESIGN.md section 8). A host
 // observer is read-only. `excluded` means host evidence rules out that the
 // attempted effect ever happened; `absent` is current absence only.
 export type Observation = "present" | "excluded" | "absent" | "unobservable";
@@ -579,7 +579,7 @@ export type Seams = {
 };
 
 export function install(options: StateOptions, seams: Seams) {
-  // Checked before anything else: Math.max and Math.min pass NaN through,
+  // Platform: Checked before anything else: Math.max and Math.min pass NaN through,
   // and a NaN bound never ends the wait for the admission lock.
   const wait: unknown = options.admissionWaitMilliseconds;
   if (wait !== undefined && (typeof wait !== "number" || Number.isNaN(wait)))

@@ -217,7 +217,7 @@ function filesystem(folder: string): string {
     linux && existsSync("/proc/self/mountinfo")
       ? linuxMounts()
       : darwinMounts();
-  // macOS firmlinks data paths into /System/Volumes/Data, so the mount point
+  // Platform: macOS firmlinks data paths into /System/Volumes/Data, so the mount point
   // comes from df there; Linux uses the longest mount-point prefix.
   const darwinPoint = linux
     ? undefined
