@@ -35,6 +35,9 @@ repository broke it.
   spawns the entry. Coverage cannot see into a spawned process, so a
   function proved only that way reads as untested and its mutants never
   run.
+- Resolve each path from the environment a function is given, not from the
+  process's own folder, so an in-process call runs on what the test injects.
+  Witnessed: [244b63a].
 
 ## Planted faults
 
@@ -100,3 +103,4 @@ repository broke it.
 [70c7280]: https://github.com/nathanvale/bun-typescript-template/commit/70c7280c8253b0badc173898fcb5ca44b8e2198b
 [07d2d72]: https://github.com/nathanvale/bun-typescript-template/commit/07d2d72ed7c68fda55cd6b065dbb5b4e5f407763
 [e50afb6]: https://github.com/nathanvale/bun-typescript-template/commit/e50afb6e27a9facc40ec0b932779ffa81a29784c
+[244b63a]: https://github.com/nathanvale/bun-typescript-template/commit/244b63a814ddbb60b4831cabc0e2f8cd1b73bca4
