@@ -7,6 +7,7 @@ import {
   readRecordedHits,
   recordedHitsFile,
   stagedNewPaths,
+  stagedText,
 } from "./glossary.ts";
 
 const root = join(import.meta.dir, "..");
@@ -15,12 +16,23 @@ const usage =
 
 class UsageError extends Error {}
 
-function problemsIn(tree: string, names: readonly string[]): string[] {
+type TextOf = (path: string) => string;
+
+function problemsGiven(textOf: TextOf, names: readonly string[]): string[] {
   return newNameProblems(
     names,
-    readGlossary(readFileSync(join(tree, "GLOSSARY.md"), "utf8")),
-    readRecordedHits(readFileSync(join(tree, recordedHitsFile), "utf8")),
+    readGlossary(textOf("GLOSSARY.md")),
+    readRecordedHits(textOf(recordedHitsFile)),
   );
+}
+
+function problemsIn(tree: string, names: readonly string[]): string[] {
+  return problemsGiven((path) => readFileSync(join(tree, path), "utf8"), names);
+}
+
+function stagedProblems(): string[] {
+  const names = namesOnPaths(stagedNewPaths(root));
+  return problemsGiven((path) => stagedText(root, path), names);
 }
 
 function pathWithin(tree: string, absolute: string): string | undefined {
@@ -111,10 +123,7 @@ function toolCallProblems(hookInput: string): string[] {
 }
 
 const modes = new Map<string, () => Promise<string[]>>([
-  [
-    "--staged",
-    () => Promise.resolve(problemsIn(root, namesOnPaths(stagedNewPaths(root)))),
-  ],
+  ["--staged", () => Promise.resolve(stagedProblems())],
   ["--tool-call", async () => toolCallProblems(await Bun.stdin.text())],
 ]);
 

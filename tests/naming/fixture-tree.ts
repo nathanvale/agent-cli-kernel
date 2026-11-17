@@ -65,6 +65,13 @@ export function write(root: string, path: string, content: string): void {
   writeFileSync(join(root, path), content);
 }
 
+export function writeRecordedHits(
+  root: string,
+  recorded: readonly RecordedHit[],
+): void {
+  write(root, recordedHitsFile, JSON.stringify({ hits: recorded }));
+}
+
 export function emptyFolder(): string {
   const folder = testFolder("names-tree-");
   folders.push(folder);
@@ -79,7 +86,7 @@ export function fixtureTree(recorded: readonly RecordedHit[] = []): string {
     chmodSync(join(root, path), statSync(join(repository, path)).mode);
   }
   write(root, "GLOSSARY.md", glossary);
-  write(root, recordedHitsFile, JSON.stringify({ hits: recorded }));
+  writeRecordedHits(root, recorded);
   write(
     root,
     "package.json",

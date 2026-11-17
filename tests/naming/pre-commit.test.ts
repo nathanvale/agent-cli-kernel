@@ -9,6 +9,7 @@ import {
   removeFixtureTrees,
   repository,
   write,
+  writeRecordedHits,
 } from "./fixture-tree.ts";
 
 afterAll(removeFixtureTrees);
@@ -44,6 +45,26 @@ test(
       exit: 1,
       stderr: [
         'docs/mutation-notes.md uses "mutation", which GLOSSARY.md lists under Avoid for "Planted fault". Rename it with the glossary word.',
+        "pre-commit: the names check failed on the staged names (above). Rename each name it lists as its line says, stage the rename with git add, and commit again. Done when bun run check:names --staged passes.",
+        "",
+      ].join("\n"),
+      committed: false,
+    });
+  },
+  processWatchdog(7),
+);
+
+test(
+  "PC.b a staged new file whose recorded hit is only an unstaged edit stops the commit",
+  async () => {
+    const tree = await treeWithCommitHook();
+    writeRecordedHits(tree, [
+      { path: "docs/host.md", word: "host", reason: "fixture" },
+    ]);
+    expect(await commitNew(tree, "docs/host.md")).toEqual({
+      exit: 1,
+      stderr: [
+        'docs/host.md uses "host" with no qualifier. Add a word that says which host it is.',
         "pre-commit: the names check failed on the staged names (above). Rename each name it lists as its line says, stage the rename with git add, and commit again. Done when bun run check:names --staged passes.",
         "",
       ].join("\n"),

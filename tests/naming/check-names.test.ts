@@ -1,4 +1,5 @@
 import { afterAll, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { recordedHitsFile } from "../../scripts/glossary.ts";
 import { processWatchdog } from "../support/process.ts";
@@ -9,6 +10,7 @@ import {
   git,
   removeFixtureTrees,
   write,
+  writeRecordedHits,
 } from "./fixture-tree.ts";
 
 const usage =
@@ -133,6 +135,70 @@ test(
     });
   },
   processWatchdog(10),
+);
+
+const hostHit = { path: "docs/host.md", word: "host", reason: "fixture" };
+const hostRefusal =
+  'docs/host.md uses "host" with no qualifier. Add a word that says which host it is.\n';
+
+async function repositoryWithStagedHost(): Promise<string> {
+  const tree = await fixtureRepository();
+  write(tree, "docs/host.md", "notes\n");
+  await git(tree, "add", "--", "docs/host.md");
+  return tree;
+}
+
+test(
+  "CN.f --staged refuses a name whose recorded hit is only an unstaged edit",
+  async () => {
+    const tree = await repositoryWithStagedHost();
+    writeRecordedHits(tree, [hostHit]);
+    expect(await checkNames(tree, ["--staged"])).toEqual({
+      stdout: "",
+      stderr: hostRefusal,
+      exit: 1,
+    });
+  },
+  processWatchdog(5),
+);
+
+test(
+  "--staged passes a name whose recorded hit is staged, though the working tree has lost it",
+  async () => {
+    const tree = await repositoryWithStagedHost();
+    writeRecordedHits(tree, [hostHit]);
+    await git(tree, "add", "--", recordedHitsFile);
+    writeRecordedHits(tree, []);
+    expect(await checkNames(tree, ["--staged"])).toEqual({
+      stdout: "",
+      stderr: "",
+      exit: 0,
+    });
+  },
+  processWatchdog(6),
+);
+
+test(
+  "CN.g --staged refuses a name that uses an Avoid word the staged glossary adds, though the working tree's glossary lacks it",
+  async () => {
+    const tree = await fixtureRepository();
+    const glossary = readFileSync(join(tree, "GLOSSARY.md"), "utf8");
+    write(
+      tree,
+      "GLOSSARY.md",
+      glossary.replace("mutant, mutation", "mutant, mutation, canary"),
+    );
+    write(tree, "docs/canary-notes.md", "notes\n");
+    await git(tree, "add", "--", "GLOSSARY.md", "docs/canary-notes.md");
+    write(tree, "GLOSSARY.md", glossary);
+    expect(await checkNames(tree, ["--staged"])).toEqual({
+      stdout: "",
+      stderr:
+        'docs/canary-notes.md uses "canary", which GLOSSARY.md lists under Avoid for "Planted fault". Rename it with the glossary word.\n',
+      exit: 1,
+    });
+  },
+  processWatchdog(5),
 );
 
 test(

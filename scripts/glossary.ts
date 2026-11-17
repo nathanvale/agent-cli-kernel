@@ -213,12 +213,16 @@ export function nameProblems(
   return [...fresh, ...stale];
 }
 
-function gitPaths(root: string, command: readonly string[]): string[] {
-  const listed = Bun.spawnSync(["git", ...command, "-z"], {
+function git(root: string, command: readonly string[]) {
+  return Bun.spawnSync(["git", ...command], {
     cwd: root,
     stdout: "pipe",
     stderr: "pipe",
   });
+}
+
+function gitPaths(root: string, command: readonly string[]): string[] {
+  const listed = git(root, [...command, "-z"]);
   if (listed.exitCode !== 0)
     throw new Error(
       `git ${command.join(" ")} failed: ${listed.stderr.toString().trim()}`,
@@ -242,6 +246,15 @@ export function stagedNewPaths(root: string): string[] {
     "--name-only",
     "--diff-filter=ACR",
   ]);
+}
+
+export function stagedText(root: string, path: string): string {
+  const shown = git(root, ["show", `:${path}`]);
+  if (shown.exitCode !== 0)
+    throw new Error(
+      `git show :${path} failed: ${shown.stderr.toString().trim()}`,
+    );
+  return shown.stdout.toString();
 }
 
 export function namesOnPaths(paths: readonly string[]): string[] {
