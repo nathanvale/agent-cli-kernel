@@ -56,15 +56,28 @@ function installedToolchain(lintVersion: string): Record<string, string> {
   };
 }
 
+function fallowDoctor(report: object | string, exitCode = 0): string {
+  const body = typeof report === "string" ? report : JSON.stringify(report);
+  return `#!/bin/sh\ncat <<'REPORT'\n${body}\nREPORT\nexit ${exitCode}\n`;
+}
+
+const ready = { status: "pass", checks: [] };
+
 function withToolchain(
   lintVersion: string,
   files: Record<string, string> = {},
+  fallow: string | null = fallowDoctor(ready),
 ) {
   const root = project(
     { packageManager: `bun@${Bun.version}` },
-    { ...installedToolchain(lintVersion), ...files },
+    {
+      ...installedToolchain(lintVersion),
+      ...(fallow === null ? {} : { "node_modules/.bin/fallow": fallow }),
+      ...files,
+    },
   );
   chmodSync(join(root, "node_modules/.bin/tsc"), 0o755);
+  if (fallow !== null) chmodSync(join(root, "node_modules/.bin/fallow"), 0o755);
   return root;
 }
 
@@ -202,6 +215,86 @@ describe("doctor", () => {
     );
     expect(result.lines).toContain(
       "ok toolchain: node_modules resolves the accepted lint, compiler and semantic backends.",
+    );
+    expect(result.lines).toContain(
+      "ok fallow: fallow doctor reports the project ready to analyse.",
+    );
+  });
+
+  test("a fallow doctor warning is reported with its repair and does not fail", () => {
+    const report = {
+      status: "warn",
+      checks: [
+        {
+          id: "root",
+          status: "pass",
+          message: "Project root is an accessible directory.",
+        },
+        {
+          id: "cache",
+          status: "warn",
+          message:
+            "Extraction cache would not be reused: cache format version changed",
+          remediation: {
+            command: "fallow dead-code --quiet",
+            cwd: ".",
+            mutating: false,
+          },
+        },
+      ],
+    };
+    const result = run(
+      withToolchain("6.0.2", {}, fallowDoctor(report)),
+      doctor,
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.lines).toContain(
+      "WARN fallow: cache: Extraction cache would not be reused: cache format version changed. Repair: run fallow dead-code --quiet from the repository root.",
+    );
+  });
+
+  test("a project fallow doctor calls not ready fails on the failing check", () => {
+    const report = {
+      status: "fail",
+      checks: [
+        { id: "cache", status: "warn", message: "Cache is cold." },
+        {
+          id: "config",
+          status: "fail",
+          message: "The config file .fallowrc.json could not be parsed.",
+        },
+      ],
+    };
+    const result = run(
+      withToolchain("6.0.2", {}, fallowDoctor(report, 2)),
+      doctor,
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.lines).toContain(
+      "FAIL fallow: config: The config file .fallowrc.json could not be parsed. Repair: run node_modules/.bin/fallow doctor for the details.",
+    );
+  });
+
+  test("fallow doctor output that is not a readiness report fails", () => {
+    const result = run(
+      withToolchain("6.0.2", {}, fallowDoctor("error: unknown command", 2)),
+      doctor,
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.lines).toContain(
+      "FAIL fallow: fallow doctor exited 2 without a readiness report. Repair: bun install --frozen-lockfile, then run node_modules/.bin/fallow doctor to read its error.",
+    );
+  });
+
+  test("an installed toolchain without fallow fails with the install repair", () => {
+    const result = run(withToolchain("6.0.2", {}, null), doctor);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.lines).toContain(
+      "FAIL fallow: node_modules/.bin/fallow is missing. Repair: bun install --frozen-lockfile.",
     );
   });
 });
