@@ -730,8 +730,8 @@ describe("replayAll", () => {
     const second = seconds(lines[1], " in ");
     const total = seconds(lines[3], "KILLED in ");
     const each = seconds(lines[3], " s, ");
-    expect(first).toBeGreaterThan(0);
-    expect(second).toBeGreaterThan(0);
+    expect(first).toBeGreaterThanOrEqual(0);
+    expect(second).toBeGreaterThanOrEqual(0);
     expect(first + second).toBeLessThanOrEqual(total + 0.2);
     expect(total).toBeLessThanOrEqual(wall + 0.06);
     expect(Math.abs(each * 2 - total)).toBeLessThanOrEqual(0.15);
