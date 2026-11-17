@@ -1,10 +1,19 @@
 # Bun TypeScript Template glossary
 
-The words this repository owns: the recipe that Bootstrap follows, and the
-checks that keep its own code honest. `GLOSSARY-MAP.md` names the glossaries
-that own every other word, Bootstrap among them.
+This file is the source of truth for the words this repository owns: the
+recipe that Bootstrap follows, the kernel split, and the checks that keep its
+own code honest. No other glossary defines them. `GLOSSARY-MAP.md` names the
+glossaries that own every other word, Bootstrap among them.
 
 ## Language
+
+An `_Avoid_` line lists words not to use for its term. A note in parentheses
+says when: it covers the words before it, back to the previous note or
+semicolon. The writer and the reviewer hold those words, because a check
+cannot tell what a name means. The names check refuses a word with no note
+after it in every file and folder name. It refuses a word noted
+`(unqualified)` as a whole name only when
+[Words that need a qualifier](#words-that-need-a-qualifier) also lists it.
 
 ### Creating a repository
 
@@ -12,7 +21,185 @@ that own every other word, Bootstrap among them.
 One row that says which folders Bootstrap copies for one request. The recipe
 table holds every row.
 
+**Generated repository**:
+A repository created by Bootstrap.
+_Avoid_: project, host (unqualified), app (for a generated repository)
+
+**Repository shape**:
+One kind of repository that Bootstrap can make, set by its Repository profile
+and its package layout.
+_Avoid_: kind, variant, the full one (for a shape)
+
+**CLI starter**:
+One of the simple or complex Contract 2.0 command-line starters that Bootstrap
+can emit today.
+_Avoid_: CLI profile, policy packet, starter (unqualified)
+
+**Template version**:
+One released state of the template, named by a git tag.
+_Avoid_: version (unqualified); release, pin (for a template version)
+
+### The kernel split
+
+**Kernel split**:
+The whole change that moves the kernel and add-on source and their tests out
+of the template into the kernel repository, while the template still stamps
+them. It covers every step, from preparation to removing the old CLI starters.
+For the single step that moves the files, say carry-out.
+_Avoid_: extraction, migration (when the kernel split is meant)
+
+**Kernel repository**:
+The repository that is the canonical owner of the kernel and add-on source and
+of their tests.
+_Avoid_: core repository, kernel package
+
+**Sibling repository**:
+A repository checked out beside another on the same machine and reached by a
+local path.
+_Avoid_: submodule, dependency (unless one is meant)
+
+**Carry-out**:
+The one step of the kernel split that moves the kernel, the add-ons, their
+tests and the files they need, unedited, into the kernel repository. The
+**carry-out commit** is the commit in the kernel repository where they land.
+_Avoid_: the move (it collides with pin move), extraction, split commit
+
+**Prepared parent**:
+The template commit that holds the preparation for the kernel split. It is the
+carry-out commit's only parent in the kernel repository.
+_Avoid_: base commit, parent (unqualified)
+
+**Carry-out identity**:
+The full identity of the carry-out commit on the kernel repository's main
+branch. The pin records it, and no pin may name an earlier commit.
+_Avoid_: floor (unqualified), baseline
+
+**Kernel migration**:
+Moving a repository made with an old CLI starter onto the stamped kernel. It
+is neither a Template upgrade nor a Restamp.
+_Avoid_: upgrade, migration (unqualified)
+
+**Kernel repository alignment**:
+The kernel repository later adopting the template's tooling, as a repository
+with no CLI starter and no stamped kernel.
+_Avoid_: Restamp, Template upgrade (for alignment)
+
+### The pin
+
+**Pin**:
+The template's record of the kernel repository, one full commit in it, and the
+kernel branch that commit must stay reachable from. The pinned commit
+identifies the kernel; a pin has no version number.
+_Avoid_: version, release, dependency, package, pointer (say pin), pin record (say pin), lock (for a pin)
+
+**Pinned commit**:
+The one full commit that a pin names.
+_Avoid_: tag, branch, short hash (for a pinned commit)
+
+**Pin move**:
+Changing a pin to another commit. A pin move needs a passed kernel trial and a
+commit that is reachable from the pin's named branch.
+_Avoid_: bump, update, upgrade (for a pin move)
+
+**Pin move report**:
+The account a pin move produces of what changed in the kernel between the old
+and new pinned commits. It is what a reviewer of a pin move reads.
+_Avoid_: diff, changelog (for a pin move report)
+
+**Kernel trial**:
+Making one repository from a candidate kernel commit, with every add-on
+selected, and running that repository's check command. It must pass before a
+pin move. It may also run on any kernel change as advice only.
+_Avoid_: canary, dry run (for a kernel trial)
+
+### Stamping
+
+**Stamp**:
+Copying stamped source from one kernel commit into a repository, byte for
+byte. The commit is the pinned commit, or a candidate commit in a kernel
+trial.
+_Avoid_: install, vendor, generate, copy (unqualified); stamp as a noun for the code that stamps or for the stamped result (say stamped source)
+
+**Stamp root**:
+One folder that the kernel repository declares and that is stamped and checked
+as a unit.
+
+**Stamp record**:
+The record in a generated repository of what was stamped: the kernel commit,
+the add-on selection, the identity of every stamped file and of each stamp
+root, the requirements that were merged in, and the identity of the stamp
+checker.
+_Avoid_: lock file, manifest (unqualified)
+
+**Stamp check**:
+The offline check, in a generated repository, that its stamped source, its
+merged requirements and its stamp checker still equal its stamp record. Its
+verdict is intact, broken or unstamped. It guards against accidental edits,
+not deliberate ones.
+_Avoid_: drift check, integrity check (unqualified)
+
+**Stamp checker**:
+The file in a generated repository that runs the stamp check.
+_Avoid_: checker (unqualified; the checker is the Contract 3 checker in the Foundation)
+
+**Restamp**:
+Replacing a repository's stamped source and merged requirements with those of
+the current pin, after the stamp check finds the old ones intact. Nothing is
+merged.
+_Avoid_: sync, merge (for a restamp)
+
+**Add-on selection**:
+The add-ons that one repository is stamped with. The kernel is always stamped
+and is not part of the selection.
+_Avoid_: starter, profile, variant (for an add-on selection)
+
+**Add-on requirement**:
+What an add-on needs in the repository that receives it. There are two kinds:
+things merged into that repository (named packages and tool entries), and
+another add-on that must also be selected.
+_Avoid_: dependency (unqualified)
+
+**Kernel declaration**:
+The kernel repository's own statement, read at one commit, of its stamp roots
+and of each add-on requirement.
+_Avoid_: manifest (for a kernel declaration), hand-kept list
+
+**Kernel reader**:
+The Module that reads the kernel's files from git objects at one commit in a
+kernel repository, and never from a working tree.
+_Avoid_: reader (unqualified; Reader is the Contract 3 word for a program that parses an envelope)
+
+**Kernel seam**:
+The Seam at the kernel reader's Interface: a local path to a kernel repository
+and one full commit. Its Adapters are the git object stores it can read: the
+sibling repository, any local clone, and a test stand-in.
+
 ### Checks
+
+**Check command**:
+The one command a repository runs to show that it is sound. The template, the
+kernel repository and every generated repository each have their own.
+_Avoid_: check (unqualified)
+
+**Hosted check**:
+A repository's check command and gates as its forge runs them on pull requests
+and pushes.
+_Avoid_: CI (unqualified)
+
+**Gate**:
+A check that a change must pass before it lands in a repository. A gate that
+would check nothing must fail. The names of a repository's own gates belong to
+that repository's standards, not to this glossary. The repo gardener's Gate
+job gives a rule row its gate.
+_Avoid_: proof, admission, guard (for a gate), check (unqualified)
+
+**Negative control**:
+A deliberate break that a test or gate must catch, to show that it can fail.
+_Avoid_: broken on purpose, deliberate break, mutation (for a negative control)
+
+**Test surface**:
+An Interface that tests drive the way a caller does.
+_Avoid_: test seam (a Seam is where behaviour can vary; nothing varies at a test surface)
 
 **Test area**:
 A named set of tests that runs on its own.
@@ -58,10 +245,35 @@ _Avoid_: clean up, prune
 Hold a file or folder name to the glossary's words: rename it, give its word
 an owner, or record the hit with its reason.
 
+**Rule row**:
+One row of the rule table in `CODING_STANDARDS.md`: a rule, what enforces it
+today, and the guide a reviewer applies. A row enters with at least two
+witnesses.
+
+**Witness**:
+A commit or review thread that shows a mistake: the commit that fixed it, the
+review thread that caught it, or a commit that carries it.
+
+**Gate note**:
+The note in `CODING_STANDARDS.md` that says what a rule row's gates refuse and
+where, what stays with the reviewer, and which witnesses taught it.
+
+**Citable origins**:
+The repositories, other than a repository itself, whose commits and review
+threads a citation in that repository's standards may name.
+_Avoid_: recorded origin (that is one repository and one commit), allowed hosts
+
+### Plans
+
+**Claim tag**:
+The mark on a claim in a plan that says how sure it is: passed on Linux,
+passed on macOS only, designed and not run, decided by Nathan, or open.
+_Avoid_: confidence, status (for a claim tag), proven (for a prototype run)
+
 ## Words that need a qualifier
 
 Each of these words names different things in different projects. In the name
 of a file, a folder, a test or a commit, pair it with a word that says which
 one you mean, as `repository-profile` does.
 
-_Qualify_: host, project, starter, profile, proof, manifest, probe
+_Qualify_: host, project, starter, profile, proof, manifest, probe, copy, dependency, reader, checker, migration, parent, floor
