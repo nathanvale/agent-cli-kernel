@@ -73,7 +73,8 @@ repository broke it.
 
 - Bound every child below its test timeout, a fixture's git call and a
   script's synchronous git read included. Witnessed: [e990da6], [4a32366],
-  [7623343].
+  [7623343], [c77aaa9] (the production `execute` spawned tsc and fallow with
+  no time limit).
 - Template tests: reuse `spawnBounded` (`tests/support/process.ts`), which
   runs the child through `startChild` (`scripts/process-runner.ts`), for that
   bound. Kernel tests: reuse `spawnBounded`
@@ -84,6 +85,15 @@ repository broke it.
   failing case left its process group alive).
 - At teardown, send SIGKILL, and only to a pid still in its ledgered process
   group. Witnessed: [0ebe7cf], [1a29b19].
+
+## Fake tools
+
+- Fake a tool with a small stub script that holds its behaviour, not a
+  system binary linked under the tool's name. A linked `/bin/echo` named
+  `tsc` exited non-zero on GitHub's Linux runner, and a linked `/bin/sh`
+  named `fallow` leaned on a file named `list` to become the script.
+  Witnessed: [3729f36], [5f0c1d9] (Copilot review thread on the same pull
+  request).
 
 ## Time
 
@@ -111,6 +121,7 @@ repository broke it.
 [7ea1ee3]: https://github.com/nathanvale/bun-typescript-template/commit/7ea1ee3853cb6251fcf93c6a6ecf683e065fbfef
 [e990da6]: https://github.com/nathanvale/bun-typescript-template/commit/e990da67151a9c3b6a0e90c240f7e0860856c4d2
 [4a32366]: https://github.com/nathanvale/bun-typescript-template/commit/4a32366bf79ea95479bda515313b33b849031507
+[c77aaa9]: https://github.com/nathanvale/bun-typescript-template/commit/c77aaa9ec56157f4701db117f9aa04e736c6e5df
 [d592b6d]: https://github.com/nathanvale/bun-typescript-template/commit/d592b6d1eb13754bd46e041313511e7530e9804e
 [0ebe7cf]: https://github.com/nathanvale/bun-typescript-template/commit/0ebe7cf570b901653e090cb9062d0b438a5c25d1
 [1a29b19]: https://github.com/nathanvale/bun-typescript-template/commit/1a29b19ac6e32452d230dcbf46ccecc4f60223fc
@@ -132,3 +143,5 @@ repository broke it.
 [dbd196e]: https://github.com/nathanvale/bun-typescript-template/commit/dbd196e8dd2dc19163d201cfb4f089952f1c471f
 [9ad6bf2]: https://github.com/nathanvale/bun-typescript-template/commit/9ad6bf2528f0c65fc5106e8377c469b2e48b1743
 [97f9e9b]: https://github.com/nathanvale/bun-typescript-template/commit/97f9e9b82277a054b8b64ac03194a31be27e5ded
+[3729f36]: https://github.com/nathanvale/bun-typescript-template/commit/3729f3644cb30ea5decc9c085bc6b9c4304eaae4
+[5f0c1d9]: https://github.com/nathanvale/bun-typescript-template/commit/5f0c1d99741751de14f5cb92618eda3bd92e8887

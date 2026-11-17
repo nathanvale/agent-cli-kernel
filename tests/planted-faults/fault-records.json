@@ -467,5 +467,12 @@
     "testFile": "tests/naming/names-check-in-process.test.ts",
     "title": "^in process: --tool-call resolves a relative folder of the call",
     "source": "244b63a fix(check-names): resolve a tool call's relative folder from the injected folder"
+  },
+  {
+    "id": "c77aaa9-static-admission",
+    "patch": "tests/planted-faults/patches/c77aaa9-static-admission.patch",
+    "testFile": "tests/static-admission-in-process.test.ts",
+    "title": "^execute kills a command that outlives its time limit",
+    "source": "c77aaa9 fix(static-admission): bound every child command with a time limit"
   }
 ]
