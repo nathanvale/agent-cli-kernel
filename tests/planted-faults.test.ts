@@ -509,6 +509,51 @@ describe("bun run fault-replay", () => {
   );
 
   test(
+    "FR.u --changed-since replays only the faults whose patch touches a changed file, and passes when none does",
+    async () => {
+      const { root, id } = await repositoryWithFault({});
+      const base = git(root, "rev-parse", "HEAD").trim();
+      commit(root, "notes", { "README.md": "notes\n" });
+      const untouched = await faultReplay(root, ["--changed-since", base]);
+      expect(untouched.lines).toContain(
+        `No planted fault patches a file changed since ${base.slice(0, 7)}, so there is nothing to replay.`,
+      );
+      expect(verdicts(untouched.lines)).toEqual([]);
+      expect(untouched.exit).toBe(0);
+      commit(root, "reword the refusal", {
+        "src/limit.ts": guarded.replace("must be", "has to be"),
+        "tests/limit.test.ts": tests(
+          refusalTest.replace("must be", "has to be"),
+        ),
+      });
+      const touched = await faultReplay(root, ["--changed-since", base]);
+      expect(verdicts(touched.lines)).toEqual([`STALE ${id}`]);
+      expect(touched.exit).toBe(1);
+      expectNoLeftovers(root, touched.temporary);
+    },
+    timeout,
+  );
+
+  test(
+    "FR.v --changed-since with no base, or more than one, is a usage error with exit 2",
+    async () => {
+      const { root } = await repositoryWithFault({});
+      for (const args of [
+        ["--changed-since"],
+        ["--changed-since", "HEAD", "HEAD"],
+      ]) {
+        const run = await faultReplay(root, args);
+        expect(run.stderr).toBe(
+          "Usage: bun run fault-replay --changed-since <base>\n",
+        );
+        expect(verdicts(run.lines)).toEqual([]);
+        expect(run.exit).toBe(2);
+      }
+    },
+    timeout,
+  );
+
+  test(
     "FR.f a replay leaves the caller's tree, index, branch and stash as they were, and sees its uncommitted edits",
     async () => {
       const { root, id } = await repositoryWithFault({});

@@ -11,6 +11,7 @@ import { dirname, join } from "node:path";
 import {
   add,
   type Fault,
+  faultsTouchedSince,
   readRecords,
   replay,
   replayAll,
@@ -1088,5 +1089,59 @@ describe("add", () => {
       "fault-records.json",
       "patches",
     ]);
+  });
+});
+
+describe("faultsTouchedSince", () => {
+  const other: Fault = {
+    id: "def5678-other",
+    patch: "tests/planted-faults/patches/def5678-other.patch",
+    testFile: "tests/limit.test.ts",
+    title: "^L\\.weak ",
+    source: "def5678 fix: other",
+  };
+  const otherPatch = `diff --git a/src/other.ts b/src/other.ts
+--- a/src/other.ts
++++ b/src/other.ts
+@@ -1 +1 @@
+-export const other = 2;
++export const other = 1;
+`;
+
+  function twoFaults() {
+    const fixture = planted();
+    commit(fixture.root, "add other", {
+      "src/other.ts": "export const other = 2;\n",
+    });
+    write(fixture.root, other.patch, otherPatch);
+    recorded(fixture.root, [fixture.fault, other]);
+    return { ...fixture, base: headOf(fixture.root) };
+  }
+
+  test("names only the faults whose patch touches a file changed since the base", () => {
+    const { root, id, base } = twoFaults();
+    commit(root, "reword the refusal", {
+      "src/limit.ts": guarded.replace("must be", "has to be"),
+    });
+    expect(faultsTouchedSince(root, base)).toEqual([id]);
+  });
+
+  test("names a fault whose own patch changed, though no patched file did", () => {
+    const { root, base } = twoFaults();
+    commit(root, "replant other", { [other.patch]: `${otherPatch}\n` });
+    expect(faultsTouchedSince(root, base)).toEqual([other.id]);
+  });
+
+  test("names no fault when the changed files are ones no patch touches", () => {
+    const { root, base } = twoFaults();
+    commit(root, "notes", { "README.md": "notes\n" });
+    expect(faultsTouchedSince(root, base)).toEqual([]);
+  });
+
+  test("refuses a base git cannot resolve, naming it", () => {
+    const { root } = twoFaults();
+    expect(() => faultsTouchedSince(root, "no-such-base")).toThrow(
+      "no-such-base is not a commit in this repository. Repair: pass a commit or branch, such as origin/main.",
+    );
   });
 });
