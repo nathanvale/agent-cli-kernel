@@ -409,7 +409,7 @@ describe("bun run fault-replay", () => {
       expect(lineOf(run.lines, "KILLED")).toMatch(
         new RegExp(`^KILLED ${id} in [\\d.]+ s\\. Failed: L\\.refuses NaN$`),
       );
-      expect(lineOf(run.lines, "1 of 1 faults KILLED in ")).toMatch(
+      expect(lineOf(run.lines, "1 of 1 planted faults KILLED in ")).toMatch(
         /s per fault, with Bun /,
       );
       expect(run.exit).toBe(0);
@@ -426,7 +426,9 @@ describe("bun run fault-replay", () => {
       });
       const run = await faultReplay(root);
       expect(verdicts(run.lines)).toEqual([`KILLED ${id}`, "SURVIVED weak"]);
-      expect(run.lines).toContain("Rerun: bun run fault-replay weak");
+      expect(run.lines).toContain(
+        "Repair: change tests/limit.test.ts so that test fails with the patch applied. Done when bun run fault-replay weak passes.",
+      );
       expect(run.exit).toBe(1);
       expectNoLeftovers(root, run.temporary);
     },
@@ -450,7 +452,9 @@ describe("bun run fault-replay", () => {
           `^STALE ${id} in [\\d.]+ s\\. tests/planted-faults/patches/${id}\\.patch no longer applies at this head\\.$`,
         ),
       );
-      expect(run.lines).toContain(`Rerun: bun run fault-replay ${id}`);
+      expect(run.lines).toContain(
+        `Repair: plant the fault again by hand, run git diff > tests/planted-faults/patches/${id}.patch, then undo the planted edit. Done when bun run fault-replay ${id} passes.`,
+      );
       expect(run.exit).toBe(1);
       expectNoLeftovers(root, run.temporary);
     },
@@ -464,7 +468,10 @@ describe("bun run fault-replay", () => {
       const run = await faultReplay(root, ["red"]);
       expect(verdicts(run.lines)).toEqual(["BROKEN red"]);
       expect(lineOf(run.lines, "BROKEN")).toMatch(
-        /^BROKEN red in [\d.]+ s\. bun test \.\/tests\/limit\.test\.ts -t '\^L\\\.red ' fails without the fault/,
+        /^BROKEN red in [\d.]+ s\. bun test \.\/tests\/limit\.test\.ts -t '\^L\\\.red ' fails without the patch, so the planted fault shows nothing\.$/,
+      );
+      expect(run.lines).toContain(
+        "Repair: make that test pass without the patch. Done when bun run fault-replay red passes.",
       );
       expect(run.exit).toBe(1);
       expectNoLeftovers(root, run.temporary);
@@ -478,7 +485,7 @@ describe("bun run fault-replay", () => {
       const { root } = await repositoryWithFault({});
       const run = await faultReplay(root, ["missing"]);
       expect(run.stderr).toBe(
-        "No fault missing in tests/planted-faults/fault-records.json.\n",
+        "No fault record missing in tests/planted-faults/fault-records.json. Repair: pass an id that file lists.\n",
       );
       expect(verdicts(run.lines)).toEqual([]);
       expect(run.exit).toBe(2);
@@ -493,7 +500,7 @@ describe("bun run fault-replay", () => {
       write(root, "tests/planted-faults/fault-records.json", "[]\n");
       const run = await faultReplay(root, []);
       expect(run.lines).toContain(
-        "No faults recorded in tests/planted-faults/fault-records.json, so this gate checks nothing. Record one with bun run planted-fault:add, or remove the fault-replay gate.",
+        "tests/planted-faults/fault-records.json has no fault record, so this gate checks nothing. Repair: add one with bun run planted-fault:add, or remove the fault-replay gate.",
       );
       expect(verdicts(run.lines)).toEqual([]);
       expect(run.exit).toBe(1);
@@ -536,7 +543,9 @@ describe("bun run fault-replay", () => {
         "utf8",
       );
       const added = await addFault(root, fix, "package.json");
-      expect(added.stderr).toBe(`${fix} does not change package.json.\n`);
+      expect(added.stderr).toBe(
+        `${fix} does not change package.json. Repair: pass a path that git diff --name-only ${fix}^ ${fix} lists.\n`,
+      );
       expect(added.exit).toBe(2);
       expect(
         readFileSync(
@@ -556,13 +565,13 @@ describe("bun run fault-replay", () => {
       "an empty title",
       "tests/limit.test.ts",
       "",
-      "planted-fault:add needs a non-empty string title. Name the bun test -t pattern that selects the test that kills the fault.",
+      "planted-fault:add needs a non-empty string title. Repair: name the bun test -t pattern that selects the test that kills the planted fault.",
     ],
     [
       "a missing test file",
       "tests/missing.test.ts",
       "^L\\.refuses ",
-      "planted-fault:add names testFile tests/missing.test.ts, which does not exist. Name a test file relative to the repository root.",
+      "planted-fault:add names testFile tests/missing.test.ts, which does not exist. Repair: name a test file relative to the repository root.",
     ],
   ] as const)
     test(
@@ -673,17 +682,19 @@ describe("bun run fault-replay", () => {
         const run = await faultReplay(root, [id], {
           env: {
             FAULTS_LEDGER: hang.ledger,
-            FAULTS_STEP_SECONDS: String(stepSeconds),
+            FAULT_REPLAY_STEP_SECONDS: String(stepSeconds),
           },
           boundMilliseconds: hangBound,
         });
         expect(verdicts(run.lines)).toEqual([`TIMEOUT ${id}`]);
         expect(lineOf(run.lines, "TIMEOUT")).toMatch(
           new RegExp(
-            `^TIMEOUT ${id} in [\\d.]+ s\\. \\S+ test \\./tests/limit\\.test\\.ts -t \\^L\\\\\\.${id}  did not finish within ${stepSeconds} s, so the fault has no verdict\\. Find the hang, or raise FAULTS_STEP_SECONDS\\.$`,
+            `^TIMEOUT ${id} in [\\d.]+ s\\. \\S+ test \\./tests/limit\\.test\\.ts -t \\^L\\\\\\.${id}  did not finish within ${stepSeconds} s, so the planted fault has no verdict\\.$`,
           ),
         );
-        expect(run.lines).toContain(`Rerun: bun run fault-replay ${id}`);
+        expect(run.lines).toContain(
+          `Repair: run that step by hand to see where it hangs, or raise FAULT_REPLAY_STEP_SECONDS. Done when bun run fault-replay ${id} passes.`,
+        );
         expect(run.exit).toBe(1);
         expect(hang.lines().filter((line) => line === "trapped")).toEqual([
           ...trapped,
@@ -779,10 +790,10 @@ describe("bun run fault-replay", () => {
     async () => {
       const { root } = await repositoryWithFault({});
       const run = await faultReplay(root, [], {
-        env: { FAULTS_STEP_SECONDS: "0" },
+        env: { FAULT_REPLAY_STEP_SECONDS: "0" },
       });
       expect(run.stderr).toBe(
-        "FAULTS_STEP_SECONDS is '0'. Set it to a positive number of seconds, or unset it for 300 s.\n",
+        "FAULT_REPLAY_STEP_SECONDS is '0'. Repair: set it to a positive number of seconds, or unset it for 300 s.\n",
       );
       expect(verdicts(run.lines)).toEqual([]);
       expect(run.exit).toBe(2);

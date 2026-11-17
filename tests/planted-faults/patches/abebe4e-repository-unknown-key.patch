@@ -1,14 +1,14 @@
 diff --git a/scripts/repository.ts b/scripts/repository.ts
-index cbc4b7c..cd32c94 100644
+index 5a37cf8..bb898a7 100644
 --- a/scripts/repository.ts
 +++ b/scripts/repository.ts
-@@ -36,9 +36,6 @@ function fields(
-     fail(where, "must be an object.");
+@@ -39,9 +39,6 @@ function fields(
+     );
    const entries = new Map(Object.entries(value));
    const known = [...required, ...optional];
 -  for (const key of entries.keys())
 -    if (!known.includes(key))
--      fail(where, `has key "${key}". Use only: ${known.join(", ")}.`);
+-      fail(where, `has key "${key}". Repair: use only ${known.join(", ")}.`);
    for (const key of required)
-     if (!entries.has(key)) fail(where, `needs key "${key}".`);
-   return entries;
+     if (!entries.has(key))
+       fail(where, `needs key "${key}". Repair: add that key.`);

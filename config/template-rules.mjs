@@ -298,7 +298,7 @@ export default {
         schema: [],
         messages: {
           comment:
-            "Say this in code, then delete the comment: a clearer name, a type, a test title, or a lint rule whose message states the constraint. A comment reads as permission, and the next agent builds on it. Keep a comment only when its first word is Platform: (behaviour of a runtime, operating system or tool this repository cannot change) or Interface: (a public contract the types cannot state), or when it cites an accepted decision (AGENTS.md, Authority), or when it opens with SAFETY: and a justification, on its own lines directly above the statement that holds a type cast (as T, not as const). Fix: move the meaning into code and delete the comment.",
+            "A comment reads as permission, and the next agent builds on it. Keep a comment only when its first word is Platform: (behaviour of a runtime, operating system or tool this repository cannot change) or Interface: (a public contract the types cannot state), or when it cites an accepted decision (AGENTS.md, Authority), or when it opens with SAFETY: and a justification, on its own lines directly above the statement that holds a type cast (as T, not as const). Repair: say this in code (a clearer name, a type, a test title, or a lint rule whose message states the constraint), then delete the comment.",
         },
       },
       create(context) {
@@ -333,7 +333,7 @@ export default {
         schema: [],
         messages: {
           locale:
-            "localeCompare and Intl.Collator tie distinct keys and follow the runtime collation. Compare code units with < and >. Fix: (a, b) => (a < b ? -1 : a > b ? 1 : 0)",
+            "localeCompare and Intl.Collator tie distinct keys and follow the runtime collation. Repair: (a, b) => (a < b ? -1 : a > b ? 1 : 0)",
         },
       },
       create(context) {
@@ -364,9 +364,9 @@ export default {
         type: "problem",
         schema: [],
         messages: {
-          bare: 'Pass the message or the cause that the test\'s name gives, as in .toThrow("Duplicate command identity."). A bare {{name}}() stays green when another guard refuses.',
+          bare: 'A bare {{name}}() passes whatever is thrown. Repair: pass the message or the cause that the test\'s name gives, as in .toThrow("Duplicate command identity.").',
           empty:
-            'Pass the message or the cause that the test\'s name gives, as in .toThrow("Duplicate command identity."). {{name}}({{argument}}) names no message, so it stays green when another guard refuses.',
+            '{{name}}({{argument}}) names no message, so it passes whatever is thrown. Repair: pass the message or the cause that the test\'s name gives, as in .toThrow("Duplicate command identity.").',
         },
       },
       create(context) {
@@ -399,7 +399,7 @@ export default {
         schema: [],
         messages: {
           folder:
-            "Make a test folder with testFolder(prefix) from tests/support/test-folder.ts, not {{name}}(). It honours STATE_TEST_DIR, so a run on a chosen filesystem reaches every test folder.",
+            "{{name}}() ignores STATE_TEST_DIR, so a run on a chosen filesystem misses this folder. Repair: make the test folder with testFolder(prefix) from tests/support/test-folder.ts.",
         },
       },
       create(context) {
@@ -425,7 +425,7 @@ export default {
         schema: [],
         messages: {
           sleep:
-            "Wait on the event the test is about: a ready file, a ledger line, a barrier or the process exit, or drive the fake clock in tests/kernel/lifecycle/recording-host.ts. {{what}} waits on wall time, so the test passes on a fast host and fails on a loaded one. To bound a wait, race the event against a setTimeout that rejects or aborts.",
+            "{{what}} waits on wall time, so the test passes on a fast machine and fails on a loaded one. Repair: wait on the event the test is about (a ready file, a ledger line, a barrier or the process exit), or drive the fake clock in tests/kernel/lifecycle/recording-host.ts. To bound a wait, race the event against a setTimeout that rejects or aborts.",
         },
       },
       create(context) {

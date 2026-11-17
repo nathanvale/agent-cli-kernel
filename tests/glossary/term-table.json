@@ -312,7 +312,7 @@
         {
           "pattern": "\\bInterface for other components\\b|\\b(service|API) (module|seam)\\b",
           "surfaces": ["doc", "comment"],
-          "message": "Use the codebase-design word."
+          "message": "Write Module, Interface, Seam or Adapter."
         }
       ]
     },

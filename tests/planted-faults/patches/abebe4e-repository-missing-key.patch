@@ -1,13 +1,14 @@
 diff --git a/scripts/repository.ts b/scripts/repository.ts
-index cbc4b7c..59d76a7 100644
+index 5a37cf8..0793ff6 100644
 --- a/scripts/repository.ts
 +++ b/scripts/repository.ts
-@@ -39,8 +39,6 @@ function fields(
+@@ -42,9 +42,6 @@ function fields(
    for (const key of entries.keys())
      if (!known.includes(key))
-       fail(where, `has key "${key}". Use only: ${known.join(", ")}.`);
+       fail(where, `has key "${key}". Repair: use only ${known.join(", ")}.`);
 -  for (const key of required)
--    if (!entries.has(key)) fail(where, `needs key "${key}".`);
+-    if (!entries.has(key))
+-      fail(where, `needs key "${key}". Repair: add that key.`);
    return entries;
  }
  

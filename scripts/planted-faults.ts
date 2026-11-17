@@ -30,7 +30,7 @@ type Verdict =
 
 const signals = ["SIGHUP", "SIGINT", "SIGTERM"] as const;
 const active: { stop?: () => void; stoppedBy?: (typeof signals)[number] } = {};
-const stepLimitVariable = "FAULTS_STEP_SECONDS";
+const stepLimitVariable = "FAULT_REPLAY_STEP_SECONDS";
 const defaultStepLimitSeconds = 300;
 const snapshotAuthor = {
   GIT_AUTHOR_NAME: "fault-replay",
@@ -75,13 +75,13 @@ function gitOrThrow(
   return result.stdout;
 }
 
-const fixFor: { readonly [name in keyof Fault]: string } = {
-  id: "Name it <fix short sha>-<source file name>.",
-  patch: `Name the fault's patch under ${patchFolder}.`,
-  testFile: "Name a test file relative to the repository root.",
+const repairFor: { readonly [name in keyof Fault]: string } = {
+  id: "name it <fix short sha>-<source file name>.",
+  patch: `name the planted fault's patch under ${patchFolder}.`,
+  testFile: "name a test file relative to the repository root.",
   title:
-    "Name the bun test -t pattern that selects the test that kills the fault.",
-  source: "Name it <fix short sha> <fix subject>.",
+    "name the bun test -t pattern that selects the test that kills the planted fault.",
+  source: "name it <fix short sha> <fix subject>.",
 };
 
 function parseFault(entry: unknown, where: string): Fault {
@@ -92,7 +92,7 @@ function parseFault(entry: unknown, where: string): Fault {
     const value = own.get(name);
     if (typeof value !== "string" || value === "")
       throw new Error(
-        `${where} needs a non-empty string ${name}. ${fixFor[name]}`,
+        `${where} needs a non-empty string ${name}. Repair: ${repairFor[name]}`,
       );
     return value;
   };
@@ -105,7 +105,7 @@ function parseFault(entry: unknown, where: string): Fault {
   };
   if (!existsSync(join(root, fault.testFile)))
     throw new Error(
-      `${where} names testFile ${fault.testFile}, which does not exist. ${fixFor.testFile}`,
+      `${where} names testFile ${fault.testFile}, which does not exist. Repair: ${repairFor.testFile}`,
     );
   return fault;
 }
@@ -115,13 +115,18 @@ function readRecords(): Fault[] {
   if (!existsSync(path)) return [];
   const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
   if (!Array.isArray(parsed))
-    throw new Error(`${recordsPath} must hold an array of fault records.`);
+    throw new Error(
+      `${recordsPath} must hold an array of fault records. Repair: make its top level one JSON array.`,
+    );
   const faults = parsed.map((entry, index) =>
     parseFault(entry, `${recordsPath} record ${index}`),
   );
   const ids = new Set<string>();
   for (const { id } of faults) {
-    if (ids.has(id)) throw new Error(`${recordsPath} lists ${id} twice.`);
+    if (ids.has(id))
+      throw new Error(
+        `${recordsPath} lists ${id} twice. Repair: remove one record, or give it another id.`,
+      );
     ids.add(id);
   }
   return faults;
@@ -152,7 +157,7 @@ function stepLimitMilliseconds(): number {
   const seconds = Number(given);
   if (!Number.isFinite(seconds) || seconds <= 0)
     throw new Error(
-      `${stepLimitVariable} is ${quoted(given)}. Set it to a positive number of seconds, or unset it for ${defaultStepLimitSeconds} s.`,
+      `${stepLimitVariable} is ${quoted(given)}. Repair: set it to a positive number of seconds, or unset it for ${defaultStepLimitSeconds} s.`,
     );
   return seconds * 1000;
 }
@@ -262,7 +267,7 @@ function report(
 ): void {
   const took = `in ${seconds.toFixed(1)} s`;
   const shown = `bun test ./${fault.testFile} -t ${quoted(fault.title)}`;
-  const rerun = `Rerun: bun run fault-replay ${fault.id}`;
+  const done = `Done when bun run fault-replay ${fault.id} passes.`;
   switch (verdict.kind) {
     case "KILLED":
       print(
@@ -271,9 +276,11 @@ function report(
       return;
     case "SURVIVED":
       print(
-        `SURVIVED ${fault.id} ${took}. ${shown} passed with ${fault.patch} applied, so no test catches this fault.`,
+        `SURVIVED ${fault.id} ${took}. ${shown} passed with ${fault.patch} applied, so no test catches this planted fault.`,
       );
-      print(rerun);
+      print(
+        `Repair: change ${fault.testFile} so that test fails with the patch applied. ${done}`,
+      );
       return;
     case "STALE":
       print(
@@ -281,22 +288,23 @@ function report(
       );
       process.stdout.write(verdict.output.replace(/\n?$/, "\n"));
       print(
-        `Plant the fault again by hand, save it with: git diff > ${fault.patch}`,
+        `Repair: plant the fault again by hand, run git diff > ${fault.patch}, then undo the planted edit. ${done}`,
       );
-      print(rerun);
       return;
     case "BROKEN":
       print(
-        `BROKEN ${fault.id} ${took}. ${shown} fails without the fault, so the fault proves nothing.`,
+        `BROKEN ${fault.id} ${took}. ${shown} fails without the patch, so the planted fault shows nothing.`,
       );
       process.stdout.write(verdict.output.replace(/\n?$/, "\n"));
-      print(rerun);
+      print(`Repair: make that test pass without the patch. ${done}`);
       return;
     case "TIMEOUT":
       print(
-        `TIMEOUT ${fault.id} ${took}. ${verdict.step} did not finish within ${limitMilliseconds / 1000} s, so the fault has no verdict. Find the hang, or raise ${stepLimitVariable}.`,
+        `TIMEOUT ${fault.id} ${took}. ${verdict.step} did not finish within ${limitMilliseconds / 1000} s, so the planted fault has no verdict.`,
       );
-      print(rerun);
+      print(
+        `Repair: run that step by hand to see where it hangs, or raise ${stepLimitVariable}. ${done}`,
+      );
       return;
   }
 }
@@ -305,14 +313,16 @@ async function replayAll(ids: readonly string[]): Promise<number> {
   const faults = readRecords();
   const unknown = ids.filter((id) => !faults.some((fault) => fault.id === id));
   if (unknown.length > 0) {
-    process.stderr.write(`No fault ${unknown.join(", ")} in ${recordsPath}.\n`);
+    process.stderr.write(
+      `No fault record ${unknown.join(", ")} in ${recordsPath}. Repair: pass an id that file lists.\n`,
+    );
     return 2;
   }
   const chosen =
     ids.length === 0 ? faults : faults.filter(({ id }) => ids.includes(id));
   if (chosen.length === 0) {
     print(
-      `No faults recorded in ${recordsPath}, so this gate checks nothing. Record one with bun run planted-fault:add, or remove the fault-replay gate.`,
+      `${recordsPath} has no fault record, so this gate checks nothing. Repair: add one with bun run planted-fault:add, or remove the fault-replay gate.`,
     );
     return 1;
   }
@@ -334,7 +344,7 @@ async function replayAll(ids: readonly string[]): Promise<number> {
   }
   const seconds = (performance.now() - started) / 1000;
   print(
-    `${killed} of ${chosen.length} faults KILLED in ${seconds.toFixed(1)} s, ${(seconds / chosen.length).toFixed(1)} s per fault, with Bun ${Bun.version}.`,
+    `${killed} of ${chosen.length} planted faults KILLED in ${seconds.toFixed(1)} s, ${(seconds / chosen.length).toFixed(1)} s per fault, with Bun ${Bun.version}.`,
   );
   return killed === chosen.length ? 0 : 1;
 }
@@ -357,7 +367,9 @@ function add(argv: readonly string[]): number {
   const subject = gitOrThrow(["log", "-1", "--format=%s", full]).trim();
   const reverse = gitOrThrow(["diff", full, `${full}^`, "--", sourcePath]);
   if (reverse === "") {
-    process.stderr.write(`${short} does not change ${sourcePath}.\n`);
+    process.stderr.write(
+      `${short} does not change ${sourcePath}. Repair: pass a path that git diff --name-only ${short}^ ${short} lists.\n`,
+    );
     return 2;
   }
   const id = `${short}-${basename(sourcePath).replace(/\.[^.]+$/, "")}`;
@@ -373,7 +385,9 @@ function add(argv: readonly string[]): number {
   );
   const faults = readRecords();
   if (faults.some((each) => each.id === id)) {
-    process.stderr.write(`${recordsPath} already lists ${id}.\n`);
+    process.stderr.write(
+      `${recordsPath} already lists ${id}. Repair: plant it again by hand, run git diff > ${fault.patch}, then undo the planted edit; or add the new record by hand under another id.\n`,
+    );
     return 2;
   }
   mkdirSync(join(root, patchFolder), { recursive: true });

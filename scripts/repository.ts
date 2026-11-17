@@ -33,27 +33,35 @@ function fields(
   optional: readonly string[] = [],
 ): Map<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value))
-    fail(where, "must be an object.");
+    fail(
+      where,
+      `must be an object. Repair: write it as an object with the keys ${required.join(", ")}.`,
+    );
   const entries = new Map(Object.entries(value));
   const known = [...required, ...optional];
   for (const key of entries.keys())
     if (!known.includes(key))
-      fail(where, `has key "${key}". Use only: ${known.join(", ")}.`);
+      fail(where, `has key "${key}". Repair: use only ${known.join(", ")}.`);
   for (const key of required)
-    if (!entries.has(key)) fail(where, `needs key "${key}".`);
+    if (!entries.has(key))
+      fail(where, `needs key "${key}". Repair: add that key.`);
   return entries;
 }
 
 function requireText(value: unknown, where: string, pattern?: RegExp): string {
   if (typeof value !== "string" || value === "")
-    fail(where, "must be a non-empty string.");
+    fail(where, "must be a non-empty string. Repair: write it as one.");
   if (pattern !== undefined && !pattern.test(value))
-    fail(where, `is "${value}", which does not match ${pattern}.`);
+    fail(
+      where,
+      `is "${value}", which does not match ${pattern}. Repair: write a value that pattern matches.`,
+    );
   return value;
 }
 
 function requireList(value: unknown, where: string): readonly unknown[] {
-  if (!Array.isArray(value)) fail(where, "must be an array.");
+  if (!Array.isArray(value))
+    fail(where, "must be an array. Repair: write it as a JSON array.");
   return value;
 }
 
@@ -66,10 +74,16 @@ function testArea(value: unknown, where: string): TestArea {
   );
   const holds = area.get("holds");
   if (holds !== "files" && holds !== "folder")
-    fail(`${where}.holds`, 'must be "files" or "folder".');
+    fail(
+      `${where}.holds`,
+      'must be "files" or "folder". Repair: set it to one of the two.',
+    );
   const subfolders = area.get("subfolders") ?? false;
   if (typeof subfolders !== "boolean")
-    fail(`${where}.subfolders`, "must be true or false.");
+    fail(
+      `${where}.subfolders`,
+      "must be true or false. Repair: set it to one of the two.",
+    );
   return {
     name: requireText(area.get("name"), `${where}.name`),
     folder: requireText(area.get("folder"), `${where}.folder`),
@@ -89,7 +103,7 @@ export function readRepository(root: string): Repository {
   const path = join(root, file);
   if (!existsSync(path))
     throw new Error(
-      `${file} is missing at ${root}. Each repository that runs these gates describes itself there: copy the template's and set its web address and test areas.`,
+      `${file} is missing at ${root}. Each repository that runs these gates describes itself there. Repair: start from the template's ${file}, and set its web address and test areas.`,
     );
   const description = fields(
     JSON.parse(readFileSync(path, "utf8")),

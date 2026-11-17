@@ -1,5 +1,5 @@
 diff --git a/config/template-rules.mjs b/config/template-rules.mjs
-index 37c0e38..4134f82 100644
+index 4904ca1..5c25355 100644
 --- a/config/template-rules.mjs
 +++ b/config/template-rules.mjs
 @@ -8,13 +8,6 @@ const safetyMarker = "SAFETY";
@@ -75,8 +75,8 @@ index 37c0e38..4134f82 100644
          schema: [],
          messages: {
            comment:
--            "Say this in code, then delete the comment: a clearer name, a type, a test title, or a lint rule whose message states the constraint. A comment reads as permission, and the next agent builds on it. Keep a comment only when its first word is Platform: (behaviour of a runtime, operating system or tool this repository cannot change) or Interface: (a public contract the types cannot state), or when it cites an accepted decision (AGENTS.md, Authority), or when it opens with SAFETY: and a justification, on its own lines directly above the statement that holds a type cast (as T, not as const). Fix: move the meaning into code and delete the comment.",
-+            "Say this in code, then delete the comment: a clearer name, a type, a test title, or a lint rule whose message states the constraint. A comment reads as permission, and the next agent builds on it. Keep a comment only when its first word is Platform: (behaviour of a runtime, operating system or tool this repository cannot change) or Interface: (a public contract the types cannot state), or when it cites an accepted decision (AGENTS.md, Authority), or when it opens with SAFETY: and a justification for a type cast. Fix: move the meaning into code and delete the comment.",
+-            "A comment reads as permission, and the next agent builds on it. Keep a comment only when its first word is Platform: (behaviour of a runtime, operating system or tool this repository cannot change) or Interface: (a public contract the types cannot state), or when it cites an accepted decision (AGENTS.md, Authority), or when it opens with SAFETY: and a justification, on its own lines directly above the statement that holds a type cast (as T, not as const). Repair: say this in code (a clearer name, a type, a test title, or a lint rule whose message states the constraint), then delete the comment.",
++            "A comment reads as permission, and the next agent builds on it. Keep a comment only when its first word is Platform: (behaviour of a runtime, operating system or tool this repository cannot change) or Interface: (a public contract the types cannot state), or when it cites an accepted decision (AGENTS.md, Authority), or when it opens with SAFETY: and a justification for a type cast. Repair: say this in code (a clearer name, a type, a test title, or a lint rule whose message states the constraint), then delete the comment.",
          },
        },
        create(context) {

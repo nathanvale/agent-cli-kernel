@@ -97,12 +97,12 @@ const paths = area === undefined ? undefined : known.get(area);
 
 if (empty.length > 0) {
   process.stderr.write(
-    `repository.json declares test areas that hold no test file: ${empty.join(", ")}. Restore their tests, or remove them from testAreas.\n`,
+    `repository.json has test areas with no test file: ${empty.join(", ")}. Repair: restore their tests, or remove them from testAreas.\n`,
   );
   process.exitCode = 1;
 } else if (shared.length > 0) {
   process.stderr.write(
-    `repository.json gives one test area name to more than one folder: ${shared.join("; ")}. Rename an area in testAreas, or rename a subfolder.\n`,
+    `repository.json gives one test area name to several folders: ${shared.join("; ")}. Repair: rename an area in testAreas, or a subfolder.\n`,
   );
   process.exitCode = 1;
 } else if (paths === undefined) {

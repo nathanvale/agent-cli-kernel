@@ -21,14 +21,24 @@ interface Receipt {
   stderr: string;
 }
 
+const usage =
+  "Usage: bun run admit:static <repository> <simple|complex> <evidence folder>";
+
 class Refusal extends Error {
-  constructor(readonly causeCode: string) {
-    super(causeCode);
+  constructor(
+    readonly causeCode: string,
+    detail = causeCode,
+  ) {
+    super(detail);
   }
 }
 
-function requireValue(condition: unknown, cause: string): asserts condition {
-  if (!condition) throw new Refusal(cause);
+function requireValue(
+  condition: unknown,
+  cause: string,
+  detail?: string,
+): asserts condition {
+  if (!condition) throw new Refusal(cause, detail);
 }
 
 function document(value: unknown, cause: string): Document {
@@ -39,8 +49,12 @@ function document(value: unknown, cause: string): Document {
 
 function parseOptions(): Options {
   const [project, profile, evidence, ...extra] = process.argv.slice(2);
-  requireValue(project && evidence && extra.length === 0, "usage");
-  requireValue(profile === "simple" || profile === "complex", "usage:profile");
+  requireValue(project && evidence && extra.length === 0, "usage", usage);
+  requireValue(
+    profile === "simple" || profile === "complex",
+    "usage:profile",
+    usage,
+  );
   return { project: resolve(project), profile, evidence: resolve(evidence) };
 }
 

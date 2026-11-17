@@ -1,5 +1,5 @@
 diff --git a/src/recipe.ts b/src/recipe.ts
-index 6eacb3f..7ebbdf3 100644
+index 10c4853..7ebbdf3 100644
 --- a/src/recipe.ts
 +++ b/src/recipe.ts
 @@ -121,16 +121,11 @@ function refusal(selection: Selection): RecipeChoice {
@@ -14,7 +14,7 @@ index 6eacb3f..7ebbdf3 100644
 -    };
 -  }
 -  throw new Error(
--    `No recipe and no refusal matches profile ${selection.profile}, monorepo ${String(selection.monorepo)}, starter ${selection.starter ?? "none"}. Add a row to RECIPES or a rule to refusal().`,
+-    `No recipe and no refusal matches profile ${selection.profile}, monorepo ${String(selection.monorepo)}, starter ${selection.starter ?? "none"}. Repair: add a recipe to RECIPES or a case to refusal().`,
 -  );
 +  return {
 +    status: "refused",

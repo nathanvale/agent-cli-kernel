@@ -51,7 +51,7 @@ test("GM.a a map pointer to a missing path fails", () => {
       root,
     ),
   ).toEqual([
-    "GLOSSARY-MAP.md points to missing/GLOSSARY.md, which does not exist. Fix the link, or remove its row.",
+    "GLOSSARY-MAP.md points to missing/GLOSSARY.md, which does not exist. Repair: correct the link, or remove its row.",
   ]);
 });
 
@@ -59,7 +59,7 @@ test("GM.b a map that points to no file fails", () => {
   expect(
     mapProblems("Only [a web page](https://example.test/x).", root),
   ).toEqual([
-    "GLOSSARY-MAP.md points to no glossary file, so this check would check nothing. Link each glossary it names.",
+    "GLOSSARY-MAP.md points to no glossary file, so this check would check nothing. Repair: link each glossary it names.",
   ]);
 });
 
@@ -89,7 +89,7 @@ const awaited = {
 
 test("GM.c a glossary term used nowhere fails", () => {
   expect(termUseProblems(fixture, noStarterYet, [])).toEqual([
-    `"CLI starter" appears in no tracked file outside the glossary files. Use it, remove it from GLOSSARY.md, or record it in ${recordedUnusedTermsFile} with the ticket that will use it.`,
+    `"CLI starter" appears in no tracked file outside the glossary files. Repair: use it, remove it from GLOSSARY.md, or record it in ${recordedUnusedTermsFile} with the ticket that will use it.`,
   ]);
 });
 
@@ -115,7 +115,7 @@ test("a recorded unused term that ends in y fails once a tracked file uses its p
       [{ term: "Quiet gallery", reason: "Not built yet.", ticket: "MAG-1" }],
     ),
   ).toEqual([
-    `${recordedUnusedTermsFile} records "Quiet gallery", which a tracked file now uses. Remove the entry.`,
+    `${recordedUnusedTermsFile} records "Quiet gallery", which a tracked file now uses. Repair: remove the entry.`,
   ]);
 });
 
@@ -123,7 +123,7 @@ test("GM.d a recorded unused term that a tracked file now uses fails", () => {
   expect(
     termUseProblems(fixture, ["a test area", "a CLI starter"], [awaited]),
   ).toEqual([
-    `${recordedUnusedTermsFile} records "CLI starter", which a tracked file now uses. Remove the entry.`,
+    `${recordedUnusedTermsFile} records "CLI starter", which a tracked file now uses. Repair: remove the entry.`,
   ]);
 });
 
@@ -135,7 +135,7 @@ test("GM.e a recorded unused term that GLOSSARY.md does not define fails", () =>
       [{ ...awaited, term: "Layout" }],
     ),
   ).toEqual([
-    `${recordedUnusedTermsFile} records "Layout", which GLOSSARY.md does not define. Remove the entry.`,
+    `${recordedUnusedTermsFile} records "Layout", which GLOSSARY.md does not define. Repair: remove the entry.`,
   ]);
 });
 
@@ -153,12 +153,12 @@ test.each([
   expect(() =>
     readRecordedUnusedTerms(JSON.stringify({ terms: [entry] })),
   ).toThrow(
-    `${recordedUnusedTermsFile}: terms[0] needs a non-empty term, reason and ticket.`,
+    `${recordedUnusedTermsFile}: terms[0] needs a non-empty term, reason and ticket. Repair: write each one as a non-empty string.`,
   );
 });
 
 test("GM.g recorded unused terms with no terms list are refused", () => {
   expect(() => readRecordedUnusedTerms("{}")).toThrow(
-    `${recordedUnusedTermsFile} needs a "terms" array.`,
+    `${recordedUnusedTermsFile} has no "terms" array. Repair: add "terms": [] at its top level.`,
   );
 });

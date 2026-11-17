@@ -29,18 +29,18 @@ async function bunVersion(root: string): Promise<Finding> {
       status: "FAIL",
       check: "bun",
       detail:
-        'package.json has no packageManager pin of the form bun@<version>. Repair: add "packageManager": "bun@<version>" to package.json.',
+        'package.json has no toolchain pin. Repair: add "packageManager": "bun@<version>" to package.json.',
     };
   if (pinned === Bun.version)
     return {
       status: "ok",
       check: "bun",
-      detail: `Bun ${Bun.version} matches the packageManager pin.`,
+      detail: `Bun ${Bun.version} matches the toolchain pin.`,
     };
   return {
     status: "FAIL",
     check: "bun",
-    detail: `found Bun ${Bun.version}, pinned ${pinned}. Repair: run each command as mise exec bun@${pinned} -- <command>. If mise reports bun@${pinned} missing, run mise install bun@${pinned} first. In CI, set bun-version: ${pinned} on setup-bun.`,
+    detail: `found Bun ${Bun.version}, pinned ${pinned}. Repair: run each command as mise exec bun@${pinned} -- <command>. If mise reports bun@${pinned} missing, run mise install bun@${pinned} first. In a hosted check, set bun-version: ${pinned} on setup-bun.`,
   };
 }
 
@@ -137,7 +137,7 @@ function fallowReadiness(root: string): Finding {
     return {
       status: "ok",
       check: "fallow",
-      detail: "fallow doctor reports the project ready to analyse.",
+      detail: "fallow doctor passes.",
     };
   const flagged =
     report.checks.find((check) => check.status === "fail") ??
@@ -163,7 +163,7 @@ function hostLoad(): Finding {
     return {
       status: "WARN",
       check: "load",
-      detail: `${summary}. Run the full suite and timing-sensitive cases on hosted CI or the test host your task brief names.`,
+      detail: `${summary}. Repair: run the full suite and timing-sensitive cases where AGENTS.md (Checks) says.`,
     };
   return { status: "ok", check: "load", detail: `${summary}.` };
 }
@@ -178,7 +178,9 @@ export async function doctor(root: string): Promise<boolean> {
   ];
   for (const { status, check, detail } of findings)
     process.stdout.write(`${status} ${check}: ${detail}\n`);
-  return findings.every((finding) => finding.status !== "FAIL");
+  const passed = findings.every((finding) => finding.status !== "FAIL");
+  if (!passed) process.stdout.write("Done when bun run doctor passes.\n");
+  return passed;
 }
 
 if (import.meta.main)

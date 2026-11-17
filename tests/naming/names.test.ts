@@ -62,7 +62,7 @@ test.each([
   "NM.a %s named with an Avoid word is a new hit",
   (_kind, path, word, term) => {
     expect(nameProblems([path], fixture, [])).toEqual([
-      `${path} uses "${word}", which GLOSSARY.md lists under Avoid for "${term}". Rename it with the glossary word.`,
+      `${path} uses "${word}", which GLOSSARY.md lists under Avoid for "${term}". Repair: rename it with the glossary word.`,
     ]);
   },
 );
@@ -74,7 +74,7 @@ test.each([
 ])("NM.b %s that uses a qualify word alone is a new hit", (_kind, path) => {
   const word = path.toLowerCase().includes("host") ? "host" : "proof";
   expect(nameProblems([path], fixture, [])).toEqual([
-    `${path} uses "${word}" with no qualifier. Add a word that says which ${word} it is.`,
+    `${path} uses "${word}" with no qualifier. Repair: add a word that says which ${word} it is.`,
   ]);
 });
 
@@ -108,7 +108,7 @@ test.each([
   "NM.d %s, an Avoid word with no note after it is a new hit",
   (_place, path, word) => {
     expect(nameProblems([path], withNotes, [])).toEqual([
-      `${path} uses "${word}", which GLOSSARY.md lists under Avoid for "Layout". Rename it with the glossary word.`,
+      `${path} uses "${word}", which GLOSSARY.md lists under Avoid for "Layout". Repair: rename it with the glossary word.`,
     ]);
   },
 );
@@ -121,7 +121,7 @@ test.each([
   expect(() =>
     readGlossary(`**Layout**:\nOne package or many.\n_Avoid_: ${list}\n`),
   ).toThrow(
-    'GLOSSARY.md: the Avoid line for "Layout" has a parenthesis with no partner, so the words its note covers cannot be told. Close each note, and put no note inside another.',
+    'GLOSSARY.md: the Avoid line for "Layout" has a parenthesis with no partner, so the words its note covers cannot be told. Repair: close each note, and put no note inside another.',
   );
 });
 
@@ -129,7 +129,7 @@ test("a recorded hit admits its name and no other", () => {
   const recorded = [{ path: "hosts", word: "host", reason: "fixture" }];
   expect(nameProblems(["hosts"], fixture, recorded)).toEqual([]);
   expect(nameProblems(["hosts", "src/hosts"], fixture, recorded)).toEqual([
-    'src/hosts uses "host" with no qualifier. Add a word that says which host it is.',
+    'src/hosts uses "host" with no qualifier. Repair: add a word that says which host it is.',
   ]);
 });
 
@@ -141,7 +141,7 @@ test.each([
     { path: "src/test-hosts", word: "host", reason: "fixture" },
   ];
   expect(nameProblems(paths, fixture, recorded)).toEqual([
-    `${recordedHitsFile} records "host" in src/test-hosts, which no longer occurs. Remove the entry.`,
+    `${recordedHitsFile} records "host" in src/test-hosts, which no longer occurs. Repair: remove the recorded hit.`,
   ]);
 });
 
@@ -150,7 +150,7 @@ test("new name problems leave a stale recorded hit to the tracked names check", 
     { path: "src/test-hosts", word: "host", reason: "fixture" },
   ];
   expect(newNameProblems(["src", "hosts"], fixture, recorded)).toEqual([
-    'hosts uses "host" with no qualifier. Add a word that says which host it is.',
+    'hosts uses "host" with no qualifier. Repair: add a word that says which host it is.',
   ]);
 });
 
@@ -160,6 +160,6 @@ test("a recorded hit without a reason is refused", () => {
       JSON.stringify({ hits: [{ path: "hosts", word: "host" }] }),
     ),
   ).toThrow(
-    `${recordedHitsFile}: hits[0] needs a non-empty path, word and reason.`,
+    `${recordedHitsFile}: hits[0] needs a non-empty path, word and reason. Repair: write each one as a non-empty string.`,
   );
 });

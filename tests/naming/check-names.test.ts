@@ -22,12 +22,12 @@ test.each([
   [
     "an Avoid word",
     "docs/mutation-notes.md",
-    'docs/mutation-notes.md uses "mutation", which GLOSSARY.md lists under Avoid for "Planted fault". Rename it with the glossary word.',
+    'docs/mutation-notes.md uses "mutation", which GLOSSARY.md lists under Avoid for "Planted fault". Repair: rename it with the glossary word.',
   ],
   [
     "a qualify word alone",
     "src/host.ts",
-    'src/host.ts uses "host" with no qualifier. Add a word that says which host it is.',
+    'src/host.ts uses "host" with no qualifier. Repair: add a word that says which host it is.',
   ],
 ])(
   "CN.a a name that uses %s is refused with its word and its repair",
@@ -95,8 +95,8 @@ test(
     ).toEqual({
       stdout: "",
       stderr: [
-        'src/allowlist uses "allowlist", which GLOSSARY.md lists under Avoid for "Recorded hit". Rename it with the glossary word.',
-        'src/allowlist/proof uses "proof" with no qualifier. Add a word that says which proof it is.',
+        'src/allowlist uses "allowlist", which GLOSSARY.md lists under Avoid for "Recorded hit". Repair: rename it with the glossary word.',
+        'src/allowlist/proof uses "proof" with no qualifier. Repair: add a word that says which proof it is.',
         "",
       ].join("\n"),
       exit: 1,
@@ -127,8 +127,8 @@ test(
     expect(await checkNames(tree, ["--staged"])).toEqual({
       stdout: "",
       stderr: [
-        'docs/host.md uses "host" with no qualifier. Add a word that says which host it is.',
-        'src/allowlist.ts uses "allowlist", which GLOSSARY.md lists under Avoid for "Recorded hit". Rename it with the glossary word.',
+        'docs/host.md uses "host" with no qualifier. Repair: add a word that says which host it is.',
+        'src/allowlist.ts uses "allowlist", which GLOSSARY.md lists under Avoid for "Recorded hit". Repair: rename it with the glossary word.',
         "",
       ].join("\n"),
       exit: 1,
@@ -139,7 +139,7 @@ test(
 
 const hostHit = { path: "docs/host.md", word: "host", reason: "fixture" };
 const hostRefusal =
-  'docs/host.md uses "host" with no qualifier. Add a word that says which host it is.\n';
+  'docs/host.md uses "host" with no qualifier. Repair: add a word that says which host it is.\n';
 
 async function repositoryWithStagedHost(): Promise<string> {
   const tree = await fixtureRepository();
@@ -194,7 +194,7 @@ test(
     expect(await checkNames(tree, ["--staged"])).toEqual({
       stdout: "",
       stderr:
-        'docs/canary-notes.md uses "canary", which GLOSSARY.md lists under Avoid for "Planted fault". Rename it with the glossary word.\n',
+        'docs/canary-notes.md uses "canary", which GLOSSARY.md lists under Avoid for "Planted fault". Repair: rename it with the glossary word.\n',
       exit: 1,
     });
   },
@@ -208,7 +208,7 @@ test.each([["GLOSSARY.md"], [recordedHitsFile]])(
     await git(tree, "rm", "--cached", "--quiet", "--", path);
     expect(await checkNames(tree, ["--staged"])).toEqual({
       stdout: "",
-      stderr: `git has no staged ${path}, so the names check cannot judge a commit by the ${path} it will contain. Stage it with git add ${path}, then run the names check again.\n`,
+      stderr: `git has no staged ${path}, so the names check cannot judge a commit by the ${path} it will contain. Repair: stage it with git add ${path}, then run the names check again.\n`,
       exit: 2,
     });
   },
@@ -222,7 +222,7 @@ test(
     expect(await checkNames(tree, [join(tree, "src/host.ts")])).toEqual({
       stdout: "",
       stderr:
-        'src/host.ts uses "host" with no qualifier. Add a word that says which host it is.\n',
+        'src/host.ts uses "host" with no qualifier. Repair: add a word that says which host it is.\n',
       exit: 1,
     });
   },
@@ -261,7 +261,7 @@ test(
     write(tree, recordedHitsFile, "{}");
     expect(await checkNames(tree, ["src/host.ts"])).toEqual({
       stdout: "",
-      stderr: `${recordedHitsFile} needs a "hits" array.\n`,
+      stderr: `${recordedHitsFile} has no "hits" array. Repair: add "hits": [] at its top level.\n`,
       exit: 2,
     });
   },

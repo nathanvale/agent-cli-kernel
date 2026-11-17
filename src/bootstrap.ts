@@ -85,6 +85,9 @@ class CliError extends Error {
   }
 }
 
+const RUNTIME_FAILURE_REPAIR =
+  "correct what the message names, then rerun the same command";
+
 const HELP = `Create a Bun TypeScript repository from an explicit profile.
 
 Usage:
@@ -95,7 +98,7 @@ Usage:
 
 Profiles:
   scratch  Dump-and-run repository with only run, typecheck, and test essentials.
-  durable  Maintained repository with typed ESLint, Biome formatting, native Fallow and uniform checks.
+  durable  Maintained repository with typed ESLint, Biome formatting, native Fallow and one check command.
 
 CLI starters:
   simple   Read-only CLI with Contract Core 2.0 help and discovery.
@@ -125,7 +128,7 @@ function tokenAt(argv: string[], index: number): string {
     throw new CliError(
       "runtime_failure",
       "argument parser reached an invalid position",
-      "retry the same command after repairing the template checkout",
+      RUNTIME_FAILURE_REPAIR,
       1,
       false,
     );
@@ -310,7 +313,7 @@ function invalidSourcePacket(): CliError {
   return new CliError(
     "invalid_source_packet",
     "source packet must be an absolute path or HTTP(S) URL",
-    "pass a portable project-packet URL or an absolute local packet path",
+    "pass --source-packet an absolute path or an HTTP(S) URL",
     2,
     true,
   );
@@ -484,8 +487,8 @@ async function requireProfileSource(source: string): Promise<void> {
   }
   throw new CliError(
     "profile_source_missing",
-    `profile source is missing: ${relative(TEMPLATE_ROOT, source)}`,
-    "restore the selected profile in the template repository",
+    `recipe folder is missing: ${relative(TEMPLATE_ROOT, source)}`,
+    `run git restore ${relative(TEMPLATE_ROOT, source)} in the template repository`,
     1,
     false,
   );
@@ -536,8 +539,8 @@ function templateIdentity(args: string[]) {
   if (child.exitCode !== 0)
     throw new CliError(
       "template_revision_unavailable",
-      "Cannot inspect the source template identity",
-      "Restore the template Git checkout and retry",
+      "cannot read the template's commit with git",
+      "rerun from a git clone of the template",
       1,
       false,
     );
@@ -568,7 +571,7 @@ async function writeRepositoryContext(
   const check = options.recipe.checkCommand;
   await writeFile(
     join(staging, "AGENTS.md"),
-    `# Repository commands\n\nUse the existing repository CLI at src/cli.ts. Add commands through src/commands.ts.\nKeep domain implementation in separate files and preserve one public application CLI.\n\nRun checks: ${check}\nSmoke: bun run start --help\nSource packet: ${options.sourcePacket}\nTemplate source: ${metadata.templateRevision}\n`,
+    `# Repository commands\n\nUse the existing repository CLI at src/cli.ts. Add commands through src/commands.ts.\nKeep domain implementation in separate files and preserve one public application CLI.\n\nCheck command: ${check}\nSmoke: bun run start --help\nSource packet: ${options.sourcePacket}\nTemplate source: ${metadata.templateRevision}\n`,
   );
 }
 
@@ -609,7 +612,7 @@ function writeError(error: unknown, json: boolean): number {
       : new CliError(
           "runtime_failure",
           error instanceof Error ? error.message : "unexpected runtime failure",
-          "inspect the template checkout and retry with the same inputs after repair",
+          RUNTIME_FAILURE_REPAIR,
           1,
           false,
         );

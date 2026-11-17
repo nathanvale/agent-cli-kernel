@@ -156,7 +156,7 @@ export default {
         schema: [],
         messages: {
           locale:
-            "localeCompare and Intl.Collator tie distinct keys and follow the runtime collation. Compare code units with < and >. Fix: (a, b) => (a < b ? -1 : a > b ? 1 : 0)",
+            "localeCompare and Intl.Collator tie distinct keys and follow the runtime collation. Compare code units with < and >. Repair: (a, b) => (a < b ? -1 : a > b ? 1 : 0)",
         },
       },
       create(context) {
@@ -187,11 +187,11 @@ export default {
         type: "problem",
         schema: [],
         messages: {
-          in: "{{key}} is not declared on this type, and {{how}} also finds inherited members such as toString. Read the own value into a place typed unknown. Fix: (Object.hasOwn({{target}}, {{key}}) ? Reflect.get({{target}}, {{key}}) : undefined)",
+          in: "{{key}} is not declared on this type, and {{how}} also finds inherited members such as toString. Read the own value into a place typed unknown. Repair: (Object.hasOwn({{target}}, {{key}}) ? Reflect.get({{target}}, {{key}}) : undefined)",
           inBound:
-            "{{key}} is not declared on this type, and {{how}} also finds inherited members such as toString. A second evaluation of {{target}} or {{key}} may yield another value, so bind both once, in the order {{how}} evaluates them, then read the own value into a place typed unknown. Fix: {{bindings}} const own: unknown = Object.hasOwn(target, key) ? Reflect.get(target, key) : undefined;",
+            "{{key}} is not declared on this type, and {{how}} also finds inherited members such as toString. A second evaluation of {{target}} or {{key}} may yield another value, so bind both once, in the order {{how}} evaluates them, then read the own value into a place typed unknown. Repair: {{bindings}} const own: unknown = Object.hasOwn(target, key) ? Reflect.get(target, key) : undefined;",
           forIn:
-            "for...in also walks inherited enumerable keys. Walk own keys. Fix: for (const key of Object.keys({{target}}))",
+            "for...in also walks inherited enumerable keys. Walk own keys. Repair: for (const key of Object.keys({{target}}))",
         },
       },
       create(context) {
@@ -273,7 +273,7 @@ export default {
         type: "problem",
         schema: [],
         messages: {
-          free: 'Cause code "{{code}}" is a free string here, so a renamed or removed code still compiles. Check it against the owner\'s keys where it stands.{{imports}} Fix: ("{{code}}" satisfies keyof typeof commonCauses)',
+          free: 'Cause code "{{code}}" is a free string here, so a renamed or removed code still compiles. Check it against the owner\'s keys where it stands.{{imports}} Repair: ("{{code}}" satisfies keyof typeof commonCauses)',
         },
       },
       create(context) {

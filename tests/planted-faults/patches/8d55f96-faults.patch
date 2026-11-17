@@ -1,16 +1,16 @@
 diff --git a/scripts/planted-faults.ts b/scripts/planted-faults.ts
-index 06a4663..7ec454e 100644
+index 0add95c..ab36abe 100644
 --- a/scripts/planted-faults.ts
 +++ b/scripts/planted-faults.ts
-@@ -313,10 +313,8 @@ async function replayAll(ids: readonly string[]): Promise<number> {
+@@ -321,10 +321,8 @@ async function replayAll(ids: readonly string[]): Promise<number> {
    const chosen =
      ids.length === 0 ? faults : faults.filter(({ id }) => ids.includes(id));
    if (chosen.length === 0) {
 -    print(
--      `No faults recorded in ${recordsPath}, so this gate checks nothing. Record one with bun run planted-fault:add, or remove the fault-replay gate.`,
+-      `${recordsPath} has no fault record, so this gate checks nothing. Repair: add one with bun run planted-fault:add, or remove the fault-replay gate.`,
 -    );
 -    return 1;
-+    print(`No faults recorded in ${recordsPath}.`);
++    print(`${recordsPath} has no fault record.`);
 +    return 0;
    }
    const limitMilliseconds = stepLimitMilliseconds();

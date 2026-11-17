@@ -31,27 +31,27 @@ test.each([
   [
     "an unknown key",
     { ...valid, owner: "fixture" },
-    'Error: repository.json: the file has key "owner". Use only: web, checkCommitsSince, testAreas, citableOrigins, recordedOrigin.',
+    'Error: repository.json: the file has key "owner". Repair: use only web, checkCommitsSince, testAreas, citableOrigins, recordedOrigin.',
   ],
   [
     "a missing key",
     { web: valid.web, testAreas: valid.testAreas },
-    'Error: repository.json: the file needs key "checkCommitsSince".',
+    'Error: repository.json: the file needs key "checkCommitsSince". Repair: add that key.',
   ],
   [
     "a commit that is not a full SHA",
     { ...valid, checkCommitsSince: "0123456" },
-    'Error: repository.json: checkCommitsSince is "0123456", which does not match /^[0-9a-f]{40}$/.',
+    'Error: repository.json: checkCommitsSince is "0123456", which does not match /^[0-9a-f]{40}$/. Repair: write a value that pattern matches.',
   ],
   [
     "a web address that is not a GitHub repository page",
     { ...valid, web: "http://github.com/owner/fixture" },
-    'Error: repository.json: web is "http://github.com/owner/fixture", which does not match /^https:\\/\\/github\\.com\\/[\\w.-]+\\/[\\w.-]+$/.',
+    'Error: repository.json: web is "http://github.com/owner/fixture", which does not match /^https:\\/\\/github\\.com\\/[\\w.-]+\\/[\\w.-]+$/. Repair: write a value that pattern matches.',
   ],
   [
     "a missing file",
     undefined,
-    "Error: repository.json is missing at <root>. Each repository that runs these gates describes itself there: copy the template's and set its web address and test areas.",
+    "Error: repository.json is missing at <root>. Each repository that runs these gates describes itself there. Repair: start from the template's repository.json, and set its web address and test areas.",
   ],
 ])("%s is refused with its exact message", (_case, description, expected) => {
   expect(

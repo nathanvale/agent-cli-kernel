@@ -1283,6 +1283,37 @@ async function expectAdmissionRefusal(
   expect(observed.result.cause).toBe(cause);
 }
 
+test.each([
+  ["no argument", [], "usage"],
+  [
+    "a CLI starter other than simple or complex",
+    [".", "durable", "evidence"],
+    "usage:profile",
+  ],
+])(
+  "admission given %s refuses with the usage line as its detail",
+  (_given, args, cause) => {
+    const invocation = runNative(ROOT, process.execPath, [
+      "run",
+      "src/static-admission.ts",
+      ...args,
+    ]);
+
+    expect({
+      exitCode: invocation.exitCode,
+      result: JSON.parse(invocation.stdout) as unknown,
+    }).toEqual({
+      exitCode: 1,
+      result: {
+        status: "refused",
+        cause,
+        detail:
+          "Usage: bun run admit:static <repository> <simple|complex> <evidence folder>",
+      },
+    });
+  },
+);
+
 test("admits simple and threshold-met complex projects through native gates", async () => {
   for (const profile of ["simple", "complex"] as const) {
     const root = await createProject(profile);

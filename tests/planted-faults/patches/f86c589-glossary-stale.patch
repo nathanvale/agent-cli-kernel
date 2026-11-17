@@ -1,8 +1,8 @@
 diff --git a/scripts/glossary.ts b/scripts/glossary.ts
-index fa6c940..2cf679f 100644
+index df97e30..7b9711b 100644
 --- a/scripts/glossary.ts
 +++ b/scripts/glossary.ts
-@@ -138,7 +138,7 @@ export function nameProblems(
+@@ -189,7 +189,7 @@ function problemsByKind(
        : [`${hit.path} uses "${hit.word}"${hit.problem}`],
    );
    const stale = recorded.flatMap((entry) =>
@@ -10,4 +10,4 @@ index fa6c940..2cf679f 100644
 +    hits.some((hit) => same(hit, entry)) || true
        ? []
        : [
-           `${recordedHitsFile} records "${entry.word}" in ${entry.path}, which no longer occurs. Remove the entry.`,
+           `${recordedHitsFile} records "${entry.word}" in ${entry.path}, which no longer occurs. Repair: remove the recorded hit.`,

@@ -129,7 +129,7 @@ function refusal(selection: Selection): RecipeChoice {
     };
   }
   throw new Error(
-    `No recipe and no refusal matches profile ${selection.profile}, monorepo ${String(selection.monorepo)}, starter ${selection.starter ?? "none"}. Add a row to RECIPES or a rule to refusal().`,
+    `No recipe and no refusal matches profile ${selection.profile}, monorepo ${String(selection.monorepo)}, starter ${selection.starter ?? "none"}. Repair: add a recipe to RECIPES or a case to refusal().`,
   );
 }
 
