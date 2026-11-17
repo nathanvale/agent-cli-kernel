@@ -403,6 +403,7 @@ describe("test:area", () => {
       "tests/more/more.test.ts":
         'import { test } from "bun:test";\ntest("more case", () => {});\n',
     });
+
     const result = run(root, testArea, ["kernel"]);
 
     expect(result.exitCode).toBe(1);
@@ -417,6 +418,7 @@ describe("test:area", () => {
       "tests/contract3/template/template.test.ts":
         'import { test } from "bun:test";\ntest("subfolder case", () => {});\n',
     });
+
     const result = run(root, testArea, ["kernel"]);
 
     expect(result.exitCode).toBe(1);

@@ -74,6 +74,7 @@ function areas(root: string): {
   }));
   const candidates = declared.flatMap(({ entries }) => entries);
   const folders = Map.groupBy(candidates, (candidate) => candidate.name);
+
   return {
     known: new Map(
       candidates.map((candidate) => [candidate.name, candidate.paths]),
