@@ -52,6 +52,14 @@ user relies on. It then uses exactly four H2 sections in this order.
 
 - [Bootstrap](bootstrap.md) creates a generated repository from a profile and
   refuses unsafe or contradictory requests.
+- [Check command](check-command.md) is the generated repository's
+  `bun run check`, which refuses a lint, format, type, test or Fallow mistake.
+- [Doctor](doctor.md) says whether a template checkout can run its gates, and
+  names the repair when it cannot.
+- [Commit hook](commit-hook.md) refuses a template commit that adds a badly
+  named file, a comment, or an unused export.
+- [check:commits](check-commits.md) refuses a branch with any commit that is
+  red at its own head.
 
 ## Not mapped yet
 
