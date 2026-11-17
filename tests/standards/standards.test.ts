@@ -337,7 +337,7 @@ function ruleTable(repository: string): {
   );
   const problems = missing.map(
     (name) =>
-      `${standards}: the rule table has no ${name} column. Restore it, since the standards test and the repo-steward skill read it.`,
+      `${standards}: the rule table has no ${name} column. Restore it, since the standards test and the repo-gardener skill read it.`,
   );
   const rows = lines.slice(2).map((line) => {
     const row = cells(line);
