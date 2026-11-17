@@ -64,6 +64,27 @@ gates and their witnesses.
   body of more than one statement), and a timer reached through `window`,
   `Bun.setTimeout` or a computed key.
 
+## Untrusted-value lints
+
+- Lint `repository/no-locale-compare` refuses `localeCompare` and
+  `Collator` in `src/` and `scripts/`: as a
+  property, a destructured name, or a constant string such as
+  `Reflect.get(Intl, "Collator")`.
+- Lint `repository/no-in-operator`, in `config/payload-rules.mjs`, refuses
+  in `src/` and `scripts/` the `in` operator and `Reflect.has` on a key
+  that the target's type does not declare, and every `for...in`. A key
+  declared on the target's type, or on one member of its union, passes, so
+  `in` still narrows a union. A private name (`#id in value`) and
+  `Object.hasOwn` pass.
+- Tests stay review. The R15 locale arm in
+  `tests/kernel/kernel-repair/equality.test.ts` swaps the collation on
+  purpose. The `in` witnesses were source reading another program's
+  payload, and a test reads values it built.
+- Also review only: an index read such as `fields[key]` with a key from a
+  payload, and a key the type declares that a value only inherits.
+- Other source stays review in this table. The kernel's own lint covers
+  `kernel/src/`.
+
 ## Comments
 
 - Lint `repository/no-comments` refuses every comment block in a file
@@ -102,3 +123,22 @@ gates and their witnesses.
 - Not covered: `starters/simple/`, `starters/complex/`, the bootstrap
   profiles, the `.ts.txt` fixtures, the kernel lint configuration that lints
   a materialised tree, YAML and Markdown.
+
+## Recorded hits
+
+- `eslint-suppressions.json` holds the recorded hits each lint rule found
+  when it landed.
+- `bun run lint` fails on a new hit. It also fails when a recorded hit is
+  fixed and the file is not pruned. Run
+  `bunx eslint . --prune-suppressions` after the fix.
+- The template's lint rules live in `config/template-rules.mjs`,
+  `config/platform-rules.mjs` and `config/payload-rules.mjs`.
+  `platform-rules.mjs` owns `no-host-path-literal` and `payload-rules.mjs`
+  owns `no-in-operator`. `eslint.config.mjs` joins the three under the
+  `repository` plugin.
+- The kernel lint rules and their recorded hits run from
+  `config/kernel-repository-lint.mjs` and leave with the kernel.
+- `kernel/config/kernel/` is stamped, so it holds only the rules
+  `kernelLint` turns on. The kernel repository's own lint rules,
+  `no-comments` and the three test lint rules, live in
+  `config/kernel-repository-rules.mjs`.
