@@ -1,13 +1,13 @@
 diff --git a/scripts/glossary.ts b/scripts/glossary.ts
-index fa6c940..8a1e381 100644
+index df97e30..614d430 100644
 --- a/scripts/glossary.ts
 +++ b/scripts/glossary.ts
-@@ -188,7 +188,7 @@ export function mapProblems(map: string, root: string): string[] {
-       "GLOSSARY-MAP.md points to no glossary file, so this check would check nothing. Link each glossary it names.",
+@@ -290,7 +290,7 @@ export function mapProblems(map: string, root: string): string[] {
+       "GLOSSARY-MAP.md points to no glossary file, so this check would check nothing. Repair: link each glossary it names.",
      ];
    return paths.flatMap((path) =>
 -    existsSync(join(root, path))
 +    existsSync(join(root, path)) || path !== ""
        ? []
        : [
-           `GLOSSARY-MAP.md points to ${path}, which does not exist. Fix the link, or remove its row.`,
+           `GLOSSARY-MAP.md points to ${path}, which does not exist. Repair: correct the link, or remove its row.`,

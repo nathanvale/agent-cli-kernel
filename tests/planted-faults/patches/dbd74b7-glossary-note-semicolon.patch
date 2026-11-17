@@ -1,10 +1,10 @@
 diff --git a/scripts/glossary.ts b/scripts/glossary.ts
-index b5e03f5..5979f86 100644
+index df97e30..d0b9405 100644
 --- a/scripts/glossary.ts
 +++ b/scripts/glossary.ts
 @@ -59,11 +59,14 @@ function enforcedAvoidWords(line: string, term: string): string[] {
      throw new Error(
-       `GLOSSARY.md: the Avoid line for "${term}" has a parenthesis with no partner, so the words its note covers cannot be told. Close each note, and put no note inside another.`,
+       `GLOSSARY.md: the Avoid line for "${term}" has a parenthesis with no partner, so the words its note covers cannot be told. Repair: close each note, and put no note inside another.`,
      );
 -  return marked.split(";").flatMap((run) => {
 -    const words = run.split(",");

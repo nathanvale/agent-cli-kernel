@@ -1,8 +1,8 @@
 diff --git a/scripts/glossary.ts b/scripts/glossary.ts
-index b5e03f5..d5c4e5f 100644
+index df97e30..785b7ad 100644
 --- a/scripts/glossary.ts
 +++ b/scripts/glossary.ts
-@@ -296,7 +296,7 @@ export function termUseProblems(
+@@ -315,7 +315,7 @@ export function termUseProblems(
    const defined = glossary.terms.map(({ name }) => name);
    const awaited = new Set(recorded.map(({ term }) => term));
    const unused = defined.flatMap((name) =>
@@ -10,4 +10,4 @@ index b5e03f5..d5c4e5f 100644
 +    awaited.has(name) || isUsed(name, texts) || texts.length > 0
        ? []
        : [
-           `"${name}" appears in no tracked file outside the glossary files. Use it, remove it from GLOSSARY.md, or record it in ${recordedUnusedTermsFile} with the ticket that will use it.`,
+           `"${name}" appears in no tracked file outside the glossary files. Repair: use it, remove it from GLOSSARY.md, or record it in ${recordedUnusedTermsFile} with the ticket that will use it.`,

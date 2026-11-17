@@ -57,7 +57,7 @@ function enforcedAvoidWords(line: string, term: string): string[] {
   const marked = line.slice(avoidLabel.length).replace(note, noteMark);
   if (/[()]/.test(marked))
     throw new Error(
-      `GLOSSARY.md: the Avoid line for "${term}" has a parenthesis with no partner, so the words its note covers cannot be told. Close each note, and put no note inside another.`,
+      `GLOSSARY.md: the Avoid line for "${term}" has a parenthesis with no partner, so the words its note covers cannot be told. Repair: close each note, and put no note inside another.`,
     );
   return marked.split(";").flatMap((run) => {
     const words = run.split(",");
@@ -91,7 +91,9 @@ function recordedFields(
       ? new Map(Object.entries(parsed)).get(list)
       : undefined;
   if (!Array.isArray(entries))
-    throw new Error(`${file} needs a "${list}" array.`);
+    throw new Error(
+      `${file} has no "${list}" array. Repair: add "${list}": [] at its top level.`,
+    );
   return entries.map((entry: unknown, index) => {
     const own = new Map<string, unknown>(
       typeof entry === "object" && entry !== null ? Object.entries(entry) : [],
@@ -102,7 +104,7 @@ function recordedFields(
     });
     if (fields.length !== keys.length)
       throw new Error(
-        `${file}: ${list}[${index}] needs a non-empty ${keys.slice(0, -1).join(", ")} and ${keys.at(-1)}.`,
+        `${file}: ${list}[${index}] needs a non-empty ${keys.slice(0, -1).join(", ")} and ${keys.at(-1)}. Repair: write each one as a non-empty string.`,
       );
     return fields;
   });
@@ -153,7 +155,7 @@ function hitsIn(path: string, glossary: Glossary): NameHit[] {
             {
               path,
               word,
-              problem: `, which GLOSSARY.md lists under Avoid for "${term.name}". Rename it with the glossary word.`,
+              problem: `, which GLOSSARY.md lists under Avoid for "${term.name}". Repair: rename it with the glossary word.`,
             },
           ]
         : [],
@@ -165,7 +167,7 @@ function hitsIn(path: string, glossary: Glossary): NameHit[] {
           {
             path,
             word,
-            problem: ` with no qualifier. Add a word that says which ${word} it is.`,
+            problem: ` with no qualifier. Repair: add a word that says which ${word} it is.`,
           },
         ]
       : [],
@@ -190,7 +192,7 @@ function problemsByKind(
     hits.some((hit) => same(hit, entry))
       ? []
       : [
-          `${recordedHitsFile} records "${entry.word}" in ${entry.path}, which no longer occurs. Remove the entry.`,
+          `${recordedHitsFile} records "${entry.word}" in ${entry.path}, which no longer occurs. Repair: remove the recorded hit.`,
         ],
   );
   return { fresh, stale };
@@ -252,7 +254,7 @@ export function stagedText(root: string, path: string): string {
   const shown = git(root, ["show", `:${path}`]);
   if (shown.exitCode !== 0)
     throw new Error(
-      `git has no staged ${path}, so the names check cannot judge a commit by the ${path} it will contain. Stage it with git add ${path}, then run the names check again.`,
+      `git has no staged ${path}, so the names check cannot judge a commit by the ${path} it will contain. Repair: stage it with git add ${path}, then run the names check again.`,
     );
   return shown.stdout.toString();
 }
@@ -285,13 +287,13 @@ export function mapProblems(map: string, root: string): string[] {
   );
   if (paths.length === 0)
     return [
-      "GLOSSARY-MAP.md points to no glossary file, so this check would check nothing. Link each glossary it names.",
+      "GLOSSARY-MAP.md points to no glossary file, so this check would check nothing. Repair: link each glossary it names.",
     ];
   return paths.flatMap((path) =>
     existsSync(join(root, path))
       ? []
       : [
-          `GLOSSARY-MAP.md points to ${path}, which does not exist. Fix the link, or remove its row.`,
+          `GLOSSARY-MAP.md points to ${path}, which does not exist. Repair: correct the link, or remove its row.`,
         ],
   );
 }
@@ -316,17 +318,17 @@ export function termUseProblems(
     awaited.has(name) || isUsed(name, texts)
       ? []
       : [
-          `"${name}" appears in no tracked file outside the glossary files. Use it, remove it from GLOSSARY.md, or record it in ${recordedUnusedTermsFile} with the ticket that will use it.`,
+          `"${name}" appears in no tracked file outside the glossary files. Repair: use it, remove it from GLOSSARY.md, or record it in ${recordedUnusedTermsFile} with the ticket that will use it.`,
         ],
   );
   const stale = recorded.flatMap(({ term }) => {
     if (!defined.includes(term))
       return [
-        `${recordedUnusedTermsFile} records "${term}", which GLOSSARY.md does not define. Remove the entry.`,
+        `${recordedUnusedTermsFile} records "${term}", which GLOSSARY.md does not define. Repair: remove the entry.`,
       ];
     return isUsed(term, texts)
       ? [
-          `${recordedUnusedTermsFile} records "${term}", which a tracked file now uses. Remove the entry.`,
+          `${recordedUnusedTermsFile} records "${term}", which a tracked file now uses. Repair: remove the entry.`,
         ]
       : [];
   });

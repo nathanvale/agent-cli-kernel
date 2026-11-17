@@ -18,11 +18,11 @@ const codexSettings = ".codex/hooks.json";
 const silent = { stdout: "", stderr: "", exit: 0 };
 const fixtureGlossaryRefuses = {
   mutationNotes:
-    'docs/mutation-notes.md uses "mutation", which GLOSSARY.md lists under Avoid for "Planted fault". Rename it with the glossary word.',
+    'docs/mutation-notes.md uses "mutation", which GLOSSARY.md lists under Avoid for "Planted fault". Repair: rename it with the glossary word.',
   hostFile:
-    'src/host.ts uses "host" with no qualifier. Add a word that says which host it is.',
+    'src/host.ts uses "host" with no qualifier. Repair: add a word that says which host it is.',
   allowlistFolder:
-    'src/allowlist uses "allowlist", which GLOSSARY.md lists under Avoid for "Recorded hit". Rename it with the glossary word.',
+    'src/allowlist uses "allowlist", which GLOSSARY.md lists under Avoid for "Recorded hit". Repair: rename it with the glossary word.',
 };
 
 afterAll(removeFixtureTrees);
@@ -246,8 +246,8 @@ test(
     ).toEqual({
       stdout: "",
       stderr: [
-        "--tool-call cannot read a Bash call. It reads the file_path of a Write call and the command of an apply_patch call. Wire the names check to those tools only.",
-        "names check: check:names --tool-call exited 2, so the names this tool call creates went unchecked. Fix the cause above, or run bun run check:names <path> yourself.",
+        "--tool-call reads a Write call's file_path and an apply_patch call's command, not a Bash call. Repair: wire the names check hook to those two tools.",
+        "names check hook: check:names --tool-call exited 2 (cause above), so the names this tool call creates went unchecked. Repair: run bun run check:names <path> for each path it creates. Done when that command passes.",
         "",
       ].join("\n"),
       exit: 1,
@@ -289,7 +289,7 @@ test(
     ).toEqual({
       stdout: "",
       stderr:
-        'docs/specimen.md uses "specimen", which GLOSSARY.md lists under Avoid for "Fixture". Rename it with the glossary word.\n',
+        'docs/specimen.md uses "specimen", which GLOSSARY.md lists under Avoid for "Fixture". Repair: rename it with the glossary word.\n',
       exit: 2,
     });
     expect(
