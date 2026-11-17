@@ -29,7 +29,7 @@ if [ -n "$(staged '*.ts' '*.mts' '*.cts' '*.mjs' | tr -d '\0')" ]; then
     echo "pre-commit: type errors above. Fix each one in code, stage the change with git add, and commit again. Done when bun run typecheck passes." >&2
     exit 1
   }
-  "$bin/fallow" audit --staged --quiet --type-aware --type-aware-require best-effort || {
+  "$bin/fallow" audit --staged --quiet || {
     echo "pre-commit: fallow found new problems in the staged changes (listed above). Fix each one in code, stage the fix with git add, and commit again. Done when node_modules/.bin/fallow audit --staged passes." >&2
     exit 1
   }

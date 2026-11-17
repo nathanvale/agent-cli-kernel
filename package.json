@@ -8,7 +8,7 @@
     "bootstrap": "bun run src/bootstrap.ts",
     "check": "bun run lint && bun run format:check && bun run typecheck && bun run test && bun run --silent quality:fallow",
     "check:write": "bun run format",
-    "quality:fallow": "node_modules/.bin/fallow audit --format json --quiet --type-aware --type-aware-require best-effort",
+    "quality:fallow": "node_modules/.bin/fallow audit --format json --quiet",
     "doctor": "bun run scripts/doctor.ts",
     "check:commits": "bun run scripts/check-commits.ts",
     "faults": "bun run scripts/faults.ts replay",

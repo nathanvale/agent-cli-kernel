@@ -29,7 +29,7 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     echo "pre-push: fallow reads the working tree, which has uncommitted changes. Commit or stash them so the check sees exactly what you push, then push again." >&2
     exit 1
   fi
-  "$fallow" audit --base "$base" --quiet --type-aware --type-aware-require best-effort || {
+  "$fallow" audit --base "$base" --quiet || {
     echo "pre-push: fallow found new problems in $remote_ref since $(git rev-parse --short "$base") (listed above). Fix each one in code, commit, and push again. Done when bun run --silent quality:fallow --base $base passes." >&2
     exit 1
   }

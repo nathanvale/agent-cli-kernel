@@ -10,7 +10,7 @@
   "ignoreBinaries": ["getconf"],
   "typeAware": {
     "enabled": true,
-    "require": "complete"
+    "require": "best-effort"
   },
   "audit": {
     "gate": "new-only"
