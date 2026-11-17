@@ -679,13 +679,12 @@ test.each([
 );
 
 test("in process: --tool-call given input that is not JSON exits 2 with the parser's reason", async () => {
-  const outcome = await check(namesRepository(), ["--tool-call"], () =>
-    Promise.resolve("not json"),
-  );
-  expect(outcome.code).toBe(2);
-  expect(outcome.stderr).not.toStartWith(usage);
-  expect(outcome.stderr).toEndWith("\n");
-  expect(outcome.stderr.length).toBeGreaterThan(1);
+  const reason = thrownBy(() => JSON.parse("not json"));
+  expect(
+    await check(namesRepository(), ["--tool-call"], () =>
+      Promise.resolve("not json"),
+    ),
+  ).toEqual({ stderr: `${reason}\n`, code: 2 });
 });
 
 test("in process: namesOnPaths lists each path and each folder above it once, in first-seen order", () => {
