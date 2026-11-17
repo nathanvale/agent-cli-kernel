@@ -82,6 +82,11 @@ test(
 test(
   "CE.b a stop that the child ignores escalates to SIGKILL for the whole group after the grace",
   async () => {
+    const graceMilliseconds = 1_000;
+    // Platform: a timer counts from the event loop's cached clock, which can
+    // trail Date.now() by a few milliseconds, and Date.now() rounds to whole
+    // milliseconds. A SIGKILL sent at once ends the run in a few milliseconds.
+    const clockSlack = 100;
     await released(
       (root) =>
         startChild(
@@ -90,12 +95,16 @@ test(
             "-c",
             `trap '' TERM; sleep 300 & echo $! > '${join(root, "pids")}'; echo started >> '${join(root, "ledger")}'; wait`,
           ],
-          { graceMilliseconds: 1_000 },
+          { graceMilliseconds },
         ),
       async (child, root) => {
         await watchLedger(join(root, "ledger"), "started", ledgerBound).reached;
+        const stopped = Date.now();
         child.stop();
         const run = await child.finished;
+        expect(Date.now() - stopped).toBeGreaterThanOrEqual(
+          graceMilliseconds - clockSlack,
+        );
         expect(run.timedOut).toBe(false);
         expect(run.signalCode).toBe("SIGKILL");
         const grandchild = Number(readFileSync(join(root, "pids"), "utf8"));
