@@ -32,10 +32,10 @@ Take **Weed** when it asks you to clear out what nothing uses any more.
 
 A lint rule's owner decides its three files:
 
-| Owner    | Rule file                               | Turned on in                             | Cases                                |
-| -------- | --------------------------------------- | ---------------------------------------- | ------------------------------------ |
-| Template | `config/template-rules.mjs`             | `eslint.config.mjs`                      | `tests/lint-rules.test.ts`           |
-| Kernel   | `config/contract3-repository-rules.mjs` | `config/contract3-repository-eslint.mjs` | `tests/contract3/lint-rules.test.ts` |
+| Owner    | Rule file                               | Turned on in                        | Cases                                |
+| -------- | --------------------------------------- | ----------------------------------- | ------------------------------------ |
+| Template | `config/template-rules.mjs`             | `eslint.config.mjs`                 | `tests/lint-rules.test.ts`           |
+| Kernel   | `config/contract3-repository-rules.mjs` | `config/kernel-repository-lint.mjs` | `tests/contract3/lint-rules.test.ts` |
 
 - A rule both owners need has one copy per owner. Change both rule files to
   the same text, with a case in each owner's cases file.

@@ -214,8 +214,8 @@ row's guide or gate note cites two distinct witnesses.
   fixed and the file is not pruned. Run
   `bunx eslint . --prune-suppressions` after the fix.
 - The template's rules live in `config/template-rules.mjs`. Kernel rules and
-  their recorded hits run from `config/contract3-repository-eslint.mjs` and
-  leave with the kernel.
+  their recorded hits run from `config/kernel-repository-lint.mjs` and leave
+  with the kernel.
 - `starters/contract3/config/kernel/` is stamped, so it holds only the rules
   `kernelLint` turns on. The kernel repository's own rules (`no-comments`
   and the three test rules) live in `config/contract3-repository-rules.mjs`.
