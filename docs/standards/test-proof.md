@@ -20,6 +20,10 @@ repository broke it.
   first-signal kill at 550 ms passed a 500 ms bound plus its tolerance.
   Witnessed: [b8760b4], [8485278], [aa161e5] (a lower bound only, so a late
   kill still passed).
+- Prove that a fixture meant to lack something lacks it, and fail loudly
+  when its location supplies it. `STATE_TEST_DIR` can place a test folder
+  inside the checkout, where git finds the parent repository for a case that
+  expects none. Witnessed: [8946615].
 
 ## Production entry
 
@@ -108,3 +112,4 @@ repository broke it.
 [e50afb6]: https://github.com/nathanvale/bun-typescript-template/commit/e50afb6e27a9facc40ec0b932779ffa81a29784c
 [244b63a]: https://github.com/nathanvale/bun-typescript-template/commit/244b63a814ddbb60b4831cabc0e2f8cd1b73bca4
 [c5a554e]: https://github.com/nathanvale/bun-typescript-template/commit/c5a554e0034342f6918775909fcd3b15e27facca
+[8946615]: https://github.com/nathanvale/bun-typescript-template/commit/894661580864b423b07cd4571bdd0c9da69c1911
