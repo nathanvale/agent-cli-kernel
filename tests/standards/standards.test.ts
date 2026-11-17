@@ -295,7 +295,7 @@ function faultSourceProblems(repository: string, history: Ancestry): string[] {
     const where = `${faultRecordsFile}: record "${id}"`;
     if (sha === undefined)
       return [
-        `${where} has source "${source}", which does not start with its fix commit's SHA. Write "<short sha> <subject>", as bun run faults:add does.`,
+        `${where} has source "${source}", which does not start with its fix commit's SHA. Write "<short sha> <subject>", as bun run planted-fault:add does.`,
       ];
     return history.isAncestor(sha)
       ? []
@@ -628,11 +628,11 @@ function fixture(
     );
   }
   const files: Record<string, string> = {
-    "package.json": '{"scripts":{"faults":"true"}}',
+    "package.json": '{"scripts":{"fault-replay":"true"}}',
     "repository.json": JSON.stringify(description),
     "eslint.config.mjs": lintConfig(gateOn),
     ".github/workflows/ci.yml":
-      "on: pull_request\njobs:\n  faults:\n    runs-on: ubuntu-latest\n",
+      "on: pull_request\njobs:\n  fault-replay:\n    runs-on: ubuntu-latest\n",
     "AGENTS.md": "# Fixture\n\n## Checks\n",
     [standards]: [
       "# Coding Standards",
@@ -641,7 +641,7 @@ function fixture(
       "",
       "| Rule | Today | Gates | Guide |",
       "| --- | --- | --- | --- |",
-      "| Gated rule | Partial | [script `faults`, lint `repository/rule`, job `faults`, fault `fixture`](#gated) | None |",
+      "| Gated rule | Partial | [script `fault-replay`, lint `repository/rule`, job `fault-replay`, fault `fixture`](#gated) | None |",
       "| Guided rule | Review only | None | [Guide](docs/standards/guide.md#lesson) |",
       "",
       "## Gate notes",
@@ -729,7 +729,7 @@ test.each([
       files["package.json"] = '{"scripts":{}}';
     },
     [
-      'CODING_STANDARDS.md: row "Gated rule" names script `faults`, which package.json does not define as a script. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
+      'CODING_STANDARDS.md: row "Gated rule" names script `fault-replay`, which package.json does not define as a script. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
     ],
   ],
   [
@@ -751,7 +751,7 @@ test.each([
     },
     [
       'CODING_STANDARDS.md: row "Gated rule" names lint `repository/rule`, which no config in eslint.config.mjs turns on for a file in the repository. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
-      'CODING_STANDARDS.md: row "Gated rule" names job `faults`, which no workflow in .github/workflows/ that runs on pull_request defines as a job. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
+      'CODING_STANDARDS.md: row "Gated rule" names job `fault-replay`, which no workflow in .github/workflows/ that runs on pull_request defines as a job. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
     ],
   ],
   [
@@ -790,17 +790,17 @@ test.each([
     "a row whose job runs only outside pull requests",
     (files: Record<string, string>) => {
       files[".github/workflows/ci.yml"] =
-        "on:\n  workflow_dispatch:\n  push:\n    branches: [main]\njobs:\n  faults:\n    runs-on: x\n";
+        "on:\n  workflow_dispatch:\n  push:\n    branches: [main]\njobs:\n  fault-replay:\n    runs-on: x\n";
     },
     [
-      'CODING_STANDARDS.md: row "Gated rule" names job `faults`, which no workflow in .github/workflows/ that runs on pull_request defines as a job. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
+      'CODING_STANDARDS.md: row "Gated rule" names job `fault-replay`, which no workflow in .github/workflows/ that runs on pull_request defines as a job. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
     ],
   ],
   [
     "a Partial row that names no gate",
     (files: Record<string, string>) => {
       files[standards] = (files[standards] ?? "").replace(
-        "[script `faults`, lint `repository/rule`, job `faults`, fault `fixture`](#gated)",
+        "[script `fault-replay`, lint `repository/rule`, job `fault-replay`, fault `fixture`](#gated)",
         "[Gated](#gated)",
       );
     },
@@ -813,7 +813,7 @@ test.each([
     (files: Record<string, string>) => {
       files[standards] = (files[standards] ?? "").replace(
         "| Guided rule | Review only | None |",
-        "| Guided rule | Review only | job `faults` |",
+        "| Guided rule | Review only | job `fault-replay` |",
       );
     },
     [
@@ -905,7 +905,7 @@ test.each([
     },
     () => [
       `tests/planted-faults/fault-records.json: record "lost" names source ${absent.slice(0, 7)}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA.`,
-      'tests/planted-faults/fault-records.json: record "bare" has source "fix: no commit", which does not start with its fix commit\'s SHA. Write "<short sha> <subject>", as bun run faults:add does.',
+      'tests/planted-faults/fault-records.json: record "bare" has source "fix: no commit", which does not start with its fix commit\'s SHA. Write "<short sha> <subject>", as bun run planted-fault:add does.',
     ],
   ],
 ])(

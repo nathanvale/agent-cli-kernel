@@ -74,7 +74,7 @@ test("L.red is red without the fault", () => {
   expect(limit(1)).toBe(2);
 });
 test("L.tools sees only the tools its own tree installs", () => {
-  expect(Bun.which("faults-caller-tool")).toBeNull();
+  expect(Bun.which("fault-replay-caller-tool")).toBeNull();
 });
 test("L.dies by a signal nobody sent the run", () => {
   process.kill(process.pid, "SIGKILL");
@@ -116,7 +116,7 @@ function git(root: string, ...args: string[]): string {
 }
 
 function pidLedger(): string {
-  const path = join(folder("faults-pids-"), "pids");
+  const path = join(folder("fault-replay-pids-"), "pids");
   pidLedgers.push(path);
   return path;
 }
@@ -212,7 +212,7 @@ function commit(
   return git(root, "rev-parse", "--short", "HEAD").trim();
 }
 
-async function faults(
+async function faultReplay(
   root: string,
   args: readonly string[] = [],
   {
@@ -229,10 +229,17 @@ async function faults(
     pids?: string;
   } = {},
 ) {
-  const temporary = folder("faults-tmp-");
+  const temporary = folder("fault-replay-tmp-");
   try {
     const run = await spawnBounded(
-      [...launcher, process.execPath, "run", "--silent", "faults", ...args],
+      [
+        ...launcher,
+        process.execPath,
+        "run",
+        "--silent",
+        "fault-replay",
+        ...args,
+      ],
       {
         cwd: root,
         env: {
@@ -266,7 +273,7 @@ function addFault(
       process.execPath,
       "run",
       "--silent",
-      "faults:add",
+      "planted-fault:add",
       fix,
       sourcePath,
       testFile,
@@ -298,7 +305,7 @@ function records(root: string): FaultRecord[] {
 async function repositoryWithFault(
   siblingTitlesById: Readonly<{ [id: string]: string }>,
 ) {
-  const root = join(folder("faults-repo-"), "repo");
+  const root = join(folder("fault-replay-repo-"), "repo");
   mkdirSync(root);
   git(root, "init", "--quiet", "--initial-branch=main");
   commit(root, "base", {
@@ -306,13 +313,13 @@ async function repositoryWithFault(
       name: "fixture",
       private: true,
       scripts: {
-        faults: production.faults,
-        "faults:add": production["faults:add"],
+        "fault-replay": production["fault-replay"],
+        "planted-fault:add": production["planted-fault:add"],
       },
     }),
     ".gitignore": "node_modules/\n",
-    "scripts/faults.ts": readFileSync(
-      join(repository, "scripts/faults.ts"),
+    "scripts/planted-faults.ts": readFileSync(
+      join(repository, "scripts/planted-faults.ts"),
       "utf8",
     ),
     "scripts/process-runner.ts": readFileSync(
@@ -327,10 +334,11 @@ async function repositoryWithFault(
   });
   const added = await addFault(root, fix, "src/limit.ts");
   expect(added.stdout).toBe(
-    `Added ${fix}-limit. Replay it: bun run faults ${fix}-limit\n`,
+    `Added ${fix}-limit. Replay it: bun run fault-replay ${fix}-limit\n`,
   );
   const [killed] = records(root);
-  if (killed === undefined) throw new Error("faults:add wrote no record.");
+  if (killed === undefined)
+    throw new Error("planted-fault:add wrote no record.");
   const siblings = Object.entries(siblingTitlesById).map(([id, title]) => ({
     ...killed,
     id,
@@ -365,7 +373,7 @@ const hangBound = 30_000;
 const forcedBound = 10_000;
 
 function hangLedger() {
-  const ledger = join(folder("faults-hang-"), "ledger");
+  const ledger = join(folder("fault-replay-hang-"), "ledger");
   appendFileSync(ledger, "");
   return { ledger, lines: () => readFileSync(ledger, "utf8").split("\n") };
 }
@@ -381,9 +389,9 @@ function expectNoLeftovers(root: string, temporary: string): void {
   expect(readdirSync(temporary)).toEqual([]);
 }
 
-describe("bun run faults", () => {
+describe("bun run fault-replay", () => {
   test(
-    "FR.a faults:add stores the fix's reverse hunk, and the fault is KILLED with exit 0",
+    "FR.a planted-fault:add stores the fix's reverse hunk, and the fault is KILLED with exit 0",
     async () => {
       const { root, fix, id, killed } = await repositoryWithFault({});
       expect(killed).toEqual({
@@ -396,7 +404,7 @@ describe("bun run faults", () => {
       expect(readFileSync(join(root, killed.patch), "utf8")).toBe(
         git(root, "diff", "HEAD~1", "HEAD~2", "--", "src/limit.ts"),
       );
-      const run = await faults(root);
+      const run = await faultReplay(root);
       expect(verdicts(run.lines)).toEqual([`KILLED ${id}`]);
       expect(lineOf(run.lines, "KILLED")).toMatch(
         new RegExp(`^KILLED ${id} in [\\d.]+ s\\. Failed: L\\.refuses NaN$`),
@@ -416,9 +424,9 @@ describe("bun run faults", () => {
       const { root, id } = await repositoryWithFault({
         weak: "^L\\.weak ",
       });
-      const run = await faults(root);
+      const run = await faultReplay(root);
       expect(verdicts(run.lines)).toEqual([`KILLED ${id}`, "SURVIVED weak"]);
-      expect(run.lines).toContain("Rerun: bun run faults weak");
+      expect(run.lines).toContain("Rerun: bun run fault-replay weak");
       expect(run.exit).toBe(1);
       expectNoLeftovers(root, run.temporary);
     },
@@ -435,14 +443,14 @@ describe("bun run faults", () => {
           refusalTest.replace("must be", "has to be"),
         ),
       });
-      const run = await faults(root, [id]);
+      const run = await faultReplay(root, [id]);
       expect(verdicts(run.lines)).toEqual([`STALE ${id}`]);
       expect(lineOf(run.lines, "STALE")).toMatch(
         new RegExp(
           `^STALE ${id} in [\\d.]+ s\\. tests/planted-faults/patches/${id}\\.patch no longer applies at this head\\.$`,
         ),
       );
-      expect(run.lines).toContain(`Rerun: bun run faults ${id}`);
+      expect(run.lines).toContain(`Rerun: bun run fault-replay ${id}`);
       expect(run.exit).toBe(1);
       expectNoLeftovers(root, run.temporary);
     },
@@ -453,7 +461,7 @@ describe("bun run faults", () => {
     "FR.d a test that fails without the fault is BROKEN, not KILLED, and exits 1",
     async () => {
       const { root } = await repositoryWithFault({ red: "^L\\.red " });
-      const run = await faults(root, ["red"]);
+      const run = await faultReplay(root, ["red"]);
       expect(verdicts(run.lines)).toEqual(["BROKEN red"]);
       expect(lineOf(run.lines, "BROKEN")).toMatch(
         /^BROKEN red in [\d.]+ s\. bun test \.\/tests\/limit\.test\.ts -t '\^L\\\.red ' fails without the fault/,
@@ -468,7 +476,7 @@ describe("bun run faults", () => {
     "FR.e an id no fault record has is refused with exit 2 and runs nothing",
     async () => {
       const { root } = await repositoryWithFault({});
-      const run = await faults(root, ["missing"]);
+      const run = await faultReplay(root, ["missing"]);
       expect(run.stderr).toBe(
         "No fault missing in tests/planted-faults/fault-records.json.\n",
       );
@@ -483,9 +491,9 @@ describe("bun run faults", () => {
     async () => {
       const { root } = await repositoryWithFault({});
       write(root, "tests/planted-faults/fault-records.json", "[]\n");
-      const run = await faults(root, []);
+      const run = await faultReplay(root, []);
       expect(run.lines).toContain(
-        "No faults recorded in tests/planted-faults/fault-records.json, so this gate checks nothing. Record one with bun run faults:add, or remove the faults gate.",
+        "No faults recorded in tests/planted-faults/fault-records.json, so this gate checks nothing. Record one with bun run planted-fault:add, or remove the fault-replay gate.",
       );
       expect(verdicts(run.lines)).toEqual([]);
       expect(run.exit).toBe(1);
@@ -511,7 +519,7 @@ describe("bun run faults", () => {
           git(root, "stash", "list"),
         ].join("\n--\n");
       const before = state();
-      const run = await faults(root);
+      const run = await faultReplay(root);
       expect(verdicts(run.lines)).toEqual([`SURVIVED ${id}`]);
       expect(state()).toBe(before);
       expectNoLeftovers(root, run.temporary);
@@ -520,7 +528,7 @@ describe("bun run faults", () => {
   );
 
   test(
-    "FR.i faults:add refuses a source path the fix does not change, and writes nothing",
+    "FR.i planted-fault:add refuses a source path the fix does not change, and writes nothing",
     async () => {
       const { root, fix } = await repositoryWithFault({});
       const before = readFileSync(
@@ -548,17 +556,17 @@ describe("bun run faults", () => {
       "an empty title",
       "tests/limit.test.ts",
       "",
-      "faults:add needs a non-empty string title. Name the bun test -t pattern that selects the test that kills the fault.",
+      "planted-fault:add needs a non-empty string title. Name the bun test -t pattern that selects the test that kills the fault.",
     ],
     [
       "a missing test file",
       "tests/missing.test.ts",
       "^L\\.refuses ",
-      "faults:add names testFile tests/missing.test.ts, which does not exist. Name a test file relative to the repository root.",
+      "planted-fault:add names testFile tests/missing.test.ts, which does not exist. Name a test file relative to the repository root.",
     ],
   ] as const)
     test(
-      `FR.m faults:add refuses ${field} by name with its fix, and writes nothing`,
+      `FR.m planted-fault:add refuses ${field} by name with its fix, and writes nothing`,
       async () => {
         const { root, id } = await repositoryWithFault({});
         const reworded = commit(root, "fix: reword the refusal", {
@@ -599,9 +607,12 @@ describe("bun run faults", () => {
       const { root } = await repositoryWithFault({
         tools: "^L\\.(refuses|tools) ",
       });
-      write(root, "node_modules/.bin/faults-caller-tool", "#!/bin/sh\n");
-      chmodSync(join(root, "node_modules/.bin/faults-caller-tool"), 0o755);
-      const run = await faults(root, ["tools"]);
+      write(root, "node_modules/.bin/fault-replay-caller-tool", "#!/bin/sh\n");
+      chmodSync(
+        join(root, "node_modules/.bin/fault-replay-caller-tool"),
+        0o755,
+      );
+      const run = await faultReplay(root, ["tools"]);
       expect(verdicts(run.lines)).toEqual(["KILLED tools"]);
       expect(run.exit).toBe(0);
     },
@@ -612,7 +623,7 @@ describe("bun run faults", () => {
     "FR.k a test killed by a signal the run did not receive gives no verdict and exits 2",
     async () => {
       const { root } = await repositoryWithFault({ dies: "^L\\.dies " });
-      const run = await faults(root, ["dies"]);
+      const run = await faultReplay(root, ["dies"]);
       expect(run.stderr).toContain(
         " was killed by SIGKILL while replaying dies, so it has no verdict.\n",
       );
@@ -635,7 +646,7 @@ describe("bun run faults", () => {
           blocks: "^L\\.blocks ",
         });
         const hang = hangLedger();
-        const run = await faults(root, ["blocks"], {
+        const run = await faultReplay(root, ["blocks"], {
           signalAt: { ledger: hang.ledger, line: "started", signal },
           env: { FAULTS_LEDGER: hang.ledger },
         });
@@ -659,7 +670,7 @@ describe("bun run faults", () => {
       async () => {
         const { root } = await repositoryWithFault({ [id]: title });
         const hang = hangLedger();
-        const run = await faults(root, [id], {
+        const run = await faultReplay(root, [id], {
           env: {
             FAULTS_LEDGER: hang.ledger,
             FAULTS_STEP_SECONDS: String(stepSeconds),
@@ -672,7 +683,7 @@ describe("bun run faults", () => {
             `^TIMEOUT ${id} in [\\d.]+ s\\. \\S+ test \\./tests/limit\\.test\\.ts -t \\^L\\\\\\.${id}  did not finish within ${stepSeconds} s, so the fault has no verdict\\. Find the hang, or raise FAULTS_STEP_SECONDS\\.$`,
           ),
         );
-        expect(run.lines).toContain(`Rerun: bun run faults ${id}`);
+        expect(run.lines).toContain(`Rerun: bun run fault-replay ${id}`);
         expect(run.exit).toBe(1);
         expect(hang.lines().filter((line) => line === "trapped")).toEqual([
           ...trapped,
@@ -688,7 +699,7 @@ describe("bun run faults", () => {
     async () => {
       const { root } = await repositoryWithFault({ traps: "^L\\.traps " });
       const hang = hangLedger();
-      const run = await faults(root, ["traps"], {
+      const run = await faultReplay(root, ["traps"], {
         signalAt: { ledger: hang.ledger, line: "started", signal: "SIGINT" },
         env: { FAULTS_LEDGER: hang.ledger },
         boundMilliseconds: hangBound,
@@ -711,7 +722,7 @@ describe("bun run faults", () => {
       const { root } = await repositoryWithFault({ blocks: "^L\\.blocks " });
       const hang = hangLedger();
       const pids = pidLedger();
-      const outcome = await faults(root, ["blocks"], {
+      const outcome = await faultReplay(root, ["blocks"], {
         env: { FAULTS_LEDGER: hang.ledger },
         boundMilliseconds: forcedBound,
         pids,
@@ -732,9 +743,9 @@ describe("bun run faults", () => {
   );
 
   test(
-    "FR.s a caller's GIT_DIR does not redirect the fixture's git, faults:add or replay to another repository",
+    "FR.s a caller's GIT_DIR does not redirect the fixture's git, planted-fault:add or replay to another repository",
     async () => {
-      const unrelated = join(folder("faults-caller-"), "repo");
+      const unrelated = join(folder("fault-replay-caller-"), "repo");
       mkdirSync(unrelated);
       git(unrelated, "init", "--quiet", "--initial-branch=main");
       commit(unrelated, "caller", { "caller.txt": "caller\n" });
@@ -749,7 +760,7 @@ describe("bun run faults", () => {
       process.env.GIT_DIR = join(unrelated, ".git");
       try {
         const { root, id } = await repositoryWithFault({});
-        const run = await faults(root);
+        const run = await faultReplay(root);
         expect(verdicts(run.lines)).toEqual([`KILLED ${id}`]);
         expect(run.exit).toBe(0);
         expect(git(root, "log", "--format=%s")).toBe(
@@ -767,7 +778,7 @@ describe("bun run faults", () => {
     "FR.q a step limit that is not a positive number is refused with exit 2 and runs nothing",
     async () => {
       const { root } = await repositoryWithFault({});
-      const run = await faults(root, [], {
+      const run = await faultReplay(root, [], {
         env: { FAULTS_STEP_SECONDS: "0" },
       });
       expect(run.stderr).toBe(
@@ -784,7 +795,7 @@ describe("bun run faults", () => {
     "FR.l a stop that finds the step's process group holding only zombies still exits 130 (macOS answers EPERM there)",
     async () => {
       const { root, id } = await repositoryWithFault({});
-      const tools = folder("faults-zombie-");
+      const tools = folder("fault-replay-zombie-");
       const realGit = Bun.which("git");
       if (realGit === null) throw new Error("git is not on PATH.");
       write(
@@ -793,11 +804,11 @@ describe("bun run faults", () => {
         `#!/bin/sh
 if [ "$1" = worktree ] && [ "$2" = add ]; then
   perl -e '
-    my ($faults, $shim) = @ARGV;
+    my ($replay, $shim) = @ARGV;
     if (!fork) { exit 0 }
     setpgrp(0, 0);
     select(undef, undef, undef, 0.01) while getppid() == $shim;
-    kill "INT", $faults;
+    kill "INT", $replay;
     select(undef, undef, undef, 2);
   ' "$PPID" "$$" &
 fi
@@ -805,7 +816,7 @@ exec '${realGit}' "$@"
 `,
       );
       chmodSync(join(tools, "bin/git"), 0o755);
-      const run = await faults(root, [], {
+      const run = await faultReplay(root, [], {
         env: { PATH: `${join(tools, "bin")}${delimiter}${process.env.PATH}` },
       });
       expect(run.stderr).toContain(
@@ -822,7 +833,7 @@ exec '${realGit}' "$@"
     "FR.n a SIGINT while git removes a record's worktree stops on that record, before the next one starts",
     async () => {
       const { root, id } = await repositoryWithFault({ next: "^L\\.refuses " });
-      const tools = folder("faults-remove-");
+      const tools = folder("fault-replay-remove-");
       const once = join(tools, "signalled");
       const realGit = Bun.which("git");
       if (realGit === null) throw new Error("git is not on PATH.");
@@ -838,7 +849,7 @@ exec '${realGit}' "$@"
 `,
       );
       chmodSync(join(tools, "bin/git"), 0o755);
-      const run = await faults(root, [], {
+      const run = await faultReplay(root, [], {
         env: { PATH: `${join(tools, "bin")}${delimiter}${process.env.PATH}` },
       });
       expect(run.stderr).toContain(
@@ -856,7 +867,7 @@ exec '${realGit}' "$@"
     "FR.h a terminal's group SIGINT while git removes the worktree still removes it, and exits 130",
     async () => {
       const { root } = await repositoryWithFault({});
-      const tools = folder("faults-group-");
+      const tools = folder("fault-replay-group-");
       const realGit = Bun.which("git");
       if (realGit === null) throw new Error("git is not on PATH.");
       write(
@@ -880,7 +891,7 @@ exec '${realGit}' "$@"
 process.exit(await child.exited);
 `,
       );
-      const run = await faults(root, [], {
+      const run = await faultReplay(root, [], {
         launcher: [process.execPath, join(tools, "own-group.ts")],
         env: { PATH: `${join(tools, "bin")}${delimiter}${process.env.PATH}` },
       });

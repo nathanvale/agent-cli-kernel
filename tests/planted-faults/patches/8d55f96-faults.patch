@@ -1,13 +1,13 @@
-diff --git a/scripts/faults.ts b/scripts/faults.ts
+diff --git a/scripts/planted-faults.ts b/scripts/planted-faults.ts
 index 06a4663..7ec454e 100644
---- a/scripts/faults.ts
-+++ b/scripts/faults.ts
+--- a/scripts/planted-faults.ts
++++ b/scripts/planted-faults.ts
 @@ -313,10 +313,8 @@ async function replayAll(ids: readonly string[]): Promise<number> {
    const chosen =
      ids.length === 0 ? faults : faults.filter(({ id }) => ids.includes(id));
    if (chosen.length === 0) {
 -    print(
--      `No faults recorded in ${recordsPath}, so this gate checks nothing. Record one with bun run faults:add, or remove the faults gate.`,
+-      `No faults recorded in ${recordsPath}, so this gate checks nothing. Record one with bun run planted-fault:add, or remove the fault-replay gate.`,
 -    );
 -    return 1;
 +    print(`No faults recorded in ${recordsPath}.`);

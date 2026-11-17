@@ -33,10 +33,10 @@ const active: { stop?: () => void; stoppedBy?: (typeof signals)[number] } = {};
 const stepLimitVariable = "FAULTS_STEP_SECONDS";
 const defaultStepLimitSeconds = 300;
 const snapshotAuthor = {
-  GIT_AUTHOR_NAME: "faults",
-  GIT_AUTHOR_EMAIL: "faults@localhost",
-  GIT_COMMITTER_NAME: "faults",
-  GIT_COMMITTER_EMAIL: "faults@localhost",
+  GIT_AUTHOR_NAME: "fault-replay",
+  GIT_AUTHOR_EMAIL: "fault-replay@localhost",
+  GIT_COMMITTER_NAME: "fault-replay",
+  GIT_COMMITTER_EMAIL: "fault-replay@localhost",
 };
 
 function print(line: string): void {
@@ -128,7 +128,7 @@ function readRecords(): Fault[] {
 }
 
 function commitWorkingTreeInScratchIndex(): string {
-  const folder = mkdtempSync(join(tmpdir(), "faults-index-"));
+  const folder = mkdtempSync(join(tmpdir(), "fault-replay-index-"));
   try {
     const env = { ...process.env, GIT_INDEX_FILE: join(folder, "index") };
     gitOrThrow(["read-tree", "HEAD"], env);
@@ -137,7 +137,7 @@ function commitWorkingTreeInScratchIndex(): string {
     if (tree === gitOrThrow(["rev-parse", "HEAD^{tree}"]).trim())
       return gitOrThrow(["rev-parse", "HEAD"]).trim();
     return gitOrThrow(
-      ["commit-tree", tree, "-p", "HEAD", "-m", "faults: working tree"],
+      ["commit-tree", tree, "-p", "HEAD", "-m", "fault-replay: working tree"],
       { ...process.env, ...snapshotAuthor },
     ).trim();
   } finally {
@@ -216,7 +216,7 @@ async function replay(
   limitMilliseconds: number,
 ): Promise<Verdict> {
   const patch = join(root, fault.patch);
-  const folder = mkdtempSync(join(tmpdir(), "faults-"));
+  const folder = mkdtempSync(join(tmpdir(), "fault-replay-"));
   const dir = join(folder, "tree");
   const gitInTree = (argv: readonly string[]) =>
     step(fault.id, dir, ["git", ...argv], limitMilliseconds);
@@ -262,7 +262,7 @@ function report(
 ): void {
   const took = `in ${seconds.toFixed(1)} s`;
   const shown = `bun test ./${fault.testFile} -t ${quoted(fault.title)}`;
-  const rerun = `Rerun: bun run faults ${fault.id}`;
+  const rerun = `Rerun: bun run fault-replay ${fault.id}`;
   switch (verdict.kind) {
     case "KILLED":
       print(
@@ -312,7 +312,7 @@ async function replayAll(ids: readonly string[]): Promise<number> {
     ids.length === 0 ? faults : faults.filter(({ id }) => ids.includes(id));
   if (chosen.length === 0) {
     print(
-      `No faults recorded in ${recordsPath}, so this gate checks nothing. Record one with bun run faults:add, or remove the faults gate.`,
+      `No faults recorded in ${recordsPath}, so this gate checks nothing. Record one with bun run planted-fault:add, or remove the fault-replay gate.`,
     );
     return 1;
   }
@@ -348,7 +348,7 @@ function add(argv: readonly string[]): number {
     title === undefined
   ) {
     process.stderr.write(
-      "Usage: bun run faults:add <fix sha> <source path> <test file> <title>\n",
+      "Usage: bun run planted-fault:add <fix sha> <source path> <test file> <title>\n",
     );
     return 2;
   }
@@ -369,7 +369,7 @@ function add(argv: readonly string[]): number {
       title,
       source: `${short} ${subject}`,
     },
-    "faults:add",
+    "planted-fault:add",
   );
   const faults = readRecords();
   if (faults.some((each) => each.id === id)) {
@@ -383,7 +383,7 @@ function add(argv: readonly string[]): number {
     join(root, recordsPath),
     `${JSON.stringify(faults, null, 2)}\n`,
   );
-  print(`Added ${id}. Replay it: bun run faults ${id}`);
+  print(`Added ${id}. Replay it: bun run fault-replay ${id}`);
   return 0;
 }
 
@@ -398,7 +398,7 @@ async function main([command, ...rest]: readonly string[]): Promise<number> {
   if (command === "replay") return replayAll(rest);
   if (command === "add") return add(rest);
   process.stderr.write(
-    "Usage: bun run faults [id ...] | bun run faults:add <fix sha> <source path> <test file> <title>\n",
+    "Usage: bun run fault-replay [id ...] | bun run planted-fault:add <fix sha> <source path> <test file> <title>\n",
   );
   return 2;
 }

@@ -45,7 +45,7 @@ row's guide or gate note cites two distinct witnesses.
 | Rule                                          | Today       | Gates                                                                                                      | Planned (parked)                  | Guide                                                               |
 | --------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------- | ------------------------------------------------------------------- |
 | Each test fails for the reason its name gives | Partial     | [lint `repository/require-to-throw-message`](#test-proof)                                                  | Typed rule ids                    | [Test proof](docs/standards/test-proof.md#refusals-and-bounds)      |
-| Each new refusal or bound has a planted fault | Partial     | [script `faults`, job `faults`](#planted-faults)                                                           | None                              | [Test proof](docs/standards/test-proof.md#planted-faults)           |
+| Each new refusal or bound has a planted fault | Partial     | [script `fault-replay`, job `fault-replay`](#planted-faults)                                               | None                              | [Test proof](docs/standards/test-proof.md#planted-faults)           |
 | Process proofs use the production entry       | Review only | None                                                                                                       | None                              | [Test proof](docs/standards/test-proof.md#production-entry)         |
 | Test processes are bounded and released       | Review only | None                                                                                                       | Lint `tests-use-bounded-runner`   | [Test proof](docs/standards/test-proof.md#processes)                |
 | Tests wait on events, not wall time           | Partial     | [lint `repository/tests-no-sleep`](#time)                                                                  | None                              | [Test proof](docs/standards/test-proof.md#time)                     |
@@ -98,9 +98,10 @@ row's guide or gate note cites two distinct witnesses.
 
 ### Planted faults
 
-- `bun run faults` replays each record in
+- `bun run fault-replay` replays each record in
   `tests/planted-faults/fault-records.json` in a temporary worktree. The
-  `faults` job in `.github/workflows/ci.yml` runs it on every pull request.
+  `fault-replay` job in `.github/workflows/ci.yml` runs it on every pull
+  request.
 - It fails on a record whose named test passes with the fault applied, fails
   without it, or whose patch no longer applies.
 - A new refusal or bound with no record stays review. So does a record whose

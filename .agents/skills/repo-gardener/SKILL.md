@@ -113,7 +113,7 @@ Done when each item holds:
 2. Prove the gate goes **red** on a cited witness. For a lint, add a case to
    its owner's cases file with the witness's failing shape and a passing
    one. For a fault, follow the planted-fault guide until
-   `bun run faults <id>` prints `KILLED`.
+   `bun run fault-replay <id>` prints `KILLED`.
 3. For a lint, record the existing hits as the recorded hits note says, with
    `bunx eslint . --suppress-rule repository/<rule id>`.
 4. Move the row: name the gate in its Gates cell, as
@@ -131,7 +131,7 @@ Done when each item holds:
 
 - `bun run test:area template -t "<rule id>"` passes for a template rule and
   `bun run test:area kernel -t "<rule id>"` for a kernel rule, or
-  `bun run faults <id>` prints `KILLED`, or the report hands a type or
+  `bun run fault-replay <id>` prints `KILLED`, or the report hands a type or
   architecture gate to the code owner.
 - `bun run lint`, `bun run typecheck` and `bun run format:check` exit 0.
 - `bun run test:area standards` passes.
