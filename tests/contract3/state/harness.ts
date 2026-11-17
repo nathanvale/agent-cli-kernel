@@ -333,14 +333,16 @@ export function makeWorld(
     const out: Record<string, string> = {};
     for (const [key, value] of Object.entries(process.env))
       if (value !== undefined && !key.startsWith("SX_")) out[key] = value;
-    return {
+    const environment = {
       ...out,
       SX_ROOT: root,
       SX_WORLD: world,
       SX_BARRIER_DIR: bars,
+    };
+    return {
       ...(options.qualification
-        ? { SX_QUALIFICATION: options.qualification }
-        : {}),
+        ? { ...environment, SX_QUALIFICATION: options.qualification }
+        : environment),
       ...extra,
     };
   }

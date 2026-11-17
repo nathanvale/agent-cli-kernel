@@ -55,7 +55,7 @@ async function heldRun(
     argv: read,
     tree: where,
     script: { ...script, hold: { after: 1, ready, go } },
-    ...(fault === undefined ? {} : { fault }),
+    fault,
   });
   await waitForFile(ready);
   await waitForLog(where.dir);

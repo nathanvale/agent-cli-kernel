@@ -95,7 +95,7 @@ export type Launch = {
   readonly home?: boolean;
   readonly bare?: boolean;
   readonly script?: Readonly<Record<string, unknown>>;
-  readonly fault?: string;
+  readonly fault?: string | undefined;
   readonly umask?: string;
   readonly env?: Readonly<Record<string, string>>;
   readonly shell?: string;

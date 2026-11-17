@@ -77,24 +77,25 @@ async function resolveCommand(
       command.commandIdentity,
     );
   const parsed = await parseInput(command.input, args);
-  return parsed.ok && acceptsRootInput(command.route, parsed.value)
-    ? ({
-        ok: true,
-        value: {
-          commandIdentity: command.commandIdentity,
-          machine,
-          input: parsed.value,
-          ...(deadlineMilliseconds === undefined
-            ? {}
-            : { deadlineMilliseconds }),
-        },
-      } as const)
-    : refused(
-        cli,
-        "USAGE_INVALID_INVOCATION",
-        machine,
-        command.commandIdentity,
-      );
+  if (!parsed.ok || !acceptsRootInput(command.route, parsed.value))
+    return refused(
+      cli,
+      "USAGE_INVALID_INVOCATION",
+      machine,
+      command.commandIdentity,
+    );
+  const resolved = {
+    commandIdentity: command.commandIdentity,
+    machine,
+    input: parsed.value,
+  };
+  return {
+    ok: true,
+    value:
+      deadlineMilliseconds === undefined
+        ? resolved
+        : { ...resolved, deadlineMilliseconds },
+  } as const;
 }
 export function invocationTokens(argv: readonly string[]): readonly string[] {
   const { tokens } = globalSwitches(argv);

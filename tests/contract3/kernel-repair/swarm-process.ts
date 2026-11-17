@@ -33,7 +33,7 @@ export async function spawnBounded(
     readonly cwd?: string;
     readonly env?: Readonly<Record<string, string | undefined>>;
     readonly boundMilliseconds?: number;
-    readonly signalAt?: SignalAt;
+    readonly signalAt?: SignalAt | undefined;
     readonly processGroup?: boolean;
   } = {},
 ): Promise<{
@@ -43,13 +43,17 @@ export async function spawnBounded(
   firstByteAt?: number | undefined;
 }> {
   const bound = options.boundMilliseconds ?? exitBound;
-  const child = Bun.spawn([...argv], {
-    ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
-    ...(options.env === undefined ? {} : { env: { ...options.env } }),
+  const streams = {
     stdout: "pipe",
     stderr: "pipe",
     detached: options.processGroup === true,
-  });
+  } as const;
+  const placed =
+    options.cwd === undefined ? streams : { ...streams, cwd: options.cwd };
+  const child = Bun.spawn(
+    [...argv],
+    options.env === undefined ? placed : { ...placed, env: { ...options.env } },
+  );
   const barrier = options.signalAt;
   const poll = barrier
     ? setInterval(() => {
@@ -112,7 +116,7 @@ export async function runScenario(
 ): Promise<ScenarioRun> {
   const run = await spawnBounded([process.execPath, path, scenario, ...argv], {
     env: { ...process.env, ...env },
-    ...(signalAt ? { signalAt } : {}),
+    signalAt,
   });
   return { ...run, result: resultOf(run.stdout) };
 }

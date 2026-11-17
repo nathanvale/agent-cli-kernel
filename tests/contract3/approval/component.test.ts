@@ -366,12 +366,14 @@ test("A05 effect sets compare as sets, not sequences", async () => {
 function verifier(
   source: AuthoritySource | "none" = adversarialSource(world.authority),
 ) {
-  return authorityVerifier({
+  const options = {
     runId: "component",
     consumed: world.consumed,
     now: () => 1000,
-    ...(source === "none" ? {} : { closure: source, stop: source }),
-  });
+  };
+  return authorityVerifier(
+    source === "none" ? options : { ...options, closure: source, stop: source },
+  );
 }
 async function place(
   kind: "closure" | "stop",
