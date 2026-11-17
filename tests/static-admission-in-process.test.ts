@@ -84,7 +84,9 @@ function grow(root: string, tree: Tree): void {
 
 function environment(): Environment {
   return Object.fromEntries(
-    Object.entries(process.env).filter(([name]) => !name.startsWith("FALLOW_")),
+    Object.entries(process.env).filter(
+      ([name]) => !name.startsWith("FALLOW_") && name !== "MARKER",
+    ),
   );
 }
 
