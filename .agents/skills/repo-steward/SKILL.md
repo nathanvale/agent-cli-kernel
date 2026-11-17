@@ -14,8 +14,11 @@ each pointer rather than a copy:
 - [docs/standards/](../../../docs/standards/): the guide each row links.
   [Single witness](../../../docs/standards/single-witness.md) holds lessons
   seen once.
-- [tests/lint-rules.test.ts](../../../tests/lint-rules.test.ts): a failing
-  and a passing snippet for each lint, each case naming its witness.
+- [tests/lint-rules.test.ts](../../../tests/lint-rules.test.ts) for template
+  rules and
+  [tests/contract3/lint-rules.test.ts](../../../tests/contract3/lint-rules.test.ts)
+  for kernel rules: a failing and a passing snippet for each lint, each case
+  naming its witness.
 - [Planted-fault guide](../../../docs/standards/test-proof.md#planted-faults):
   how to record a fault in `tests/faults/manifest.json`.
 - [Recorded hits](../../../CODING_STANDARDS.md#recorded-hits): existing hits
@@ -24,11 +27,28 @@ each pointer rather than a copy:
 Take **Correct** when the prompt brings a correction or a review finding.
 Take **Promote** when it names a Review only or Partial row to gate.
 
+## Lint owners
+
+A lint rule's owner decides its three files:
+
+| Owner    | Rule file                               | Turned on in                             | Cases                                |
+| -------- | --------------------------------------- | ---------------------------------------- | ------------------------------------ |
+| Template | `config/template-rules.mjs`             | `eslint.config.mjs`                      | `tests/lint-rules.test.ts`           |
+| Kernel   | `config/contract3-repository-rules.mjs` | `config/contract3-repository-eslint.mjs` | `tests/contract3/lint-rules.test.ts` |
+
+- A rule both owners need has one copy per owner. Change both rule files to
+  the same text, with a case in each owner's cases file.
+- `eslint-rules.mjs` re-exports the kernel's rule file, and
+  `config/contract3-eslint.mjs` passes this repository's folders to the
+  kernel's stamped lint. Leave both unchanged.
+- Rules stamped into generated repositories live in
+  `starters/contract3/config/kernel/`, outside the write scope. Report a
+  change there for the code owner.
+
 ## Write scope
 
-Change only `CODING_STANDARDS.md`, `docs/standards/`, `eslint-rules.mjs`,
-`config/contract3-eslint.mjs`, `eslint.config.mjs`,
-`eslint-suppressions.json`, `tests/lint-rules.test.ts`, `tests/faults/` and
+Change only `CODING_STANDARDS.md`, `docs/standards/`, the six files in
+[Lint owners](#lint-owners), `eslint-suppressions.json`, `tests/faults/` and
 `tests/standards/`. Report a change the lesson needs anywhere else, with its
 path, for that path's owner.
 
@@ -86,11 +106,11 @@ Done when each item holds:
 1. Read the row, its guide and its gate note. When its Planned (parked) gate
    is a type or architecture change, such as a brand or typed ids, edit
    nothing and go to step 6: that gate lives in source, outside the write
-   scope. Otherwise choose the gate: a lint rule in `eslint-rules.mjs` turned
-   on in `eslint.config.mjs` or `config/contract3-eslint.mjs`, or a fault
-   record for an existing test.
+   scope. Otherwise choose the gate: a lint rule in its owner's rule file,
+   turned on in that owner's config (see [Lint owners](#lint-owners)), or a
+   fault record for an existing test.
 2. Prove the gate goes **red** on a cited witness. For a lint, add a case to
-   `tests/lint-rules.test.ts` with the witness's failing shape and a passing
+   its owner's cases file with the witness's failing shape and a passing
    one. For a fault, follow the planted-fault guide until
    `bun run faults <id>` prints `KILLED`.
 3. For a lint, record the existing hits as the recorded hits note says, with
@@ -108,7 +128,8 @@ Done when each item holds:
 
 Done when each item holds:
 
-- `bun run test:area template -t "<rule id>"` passes, or
+- `bun run test:area template -t "<rule id>"` passes for a template rule and
+  `bun run test:area kernel -t "<rule id>"` for a kernel rule, or
   `bun run faults <id>` prints `KILLED`, or the report hands a type or
   architecture gate to the code owner.
 - `bun run lint`, `bun run typecheck` and `bun run format:check` exit 0.
