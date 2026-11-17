@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-import { execFileSync } from "node:child_process";
 import { mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
@@ -7,6 +6,7 @@ import {
   importedSources,
   inventoryApplicationClis,
 } from "../src/cli-inventory.ts";
+import { processWatchdog, spawnBounded } from "./support/process.ts";
 import { testFolder } from "./support/test-folder.ts";
 
 type Tree = Record<string, string>;
@@ -753,13 +753,18 @@ test("a repository with two application CLIs lists both", async () => {
   );
 });
 
-test("an entry that is neither a file nor a folder is not inventoried", async () => {
-  const root = testFolder("cli-inventory-pipe-");
-  try {
-    grown(root, { "src/cli.ts": MAIN });
-    execFileSync("mkfifo", [join(root, "src/pipe.ts")]);
-    expect(await inventoryApplicationClis(root)).toEqual(["src/cli.ts"]);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
+test(
+  "an entry that is neither a file nor a folder is not inventoried",
+  async () => {
+    const root = testFolder("cli-inventory-pipe-");
+    try {
+      grown(root, { "src/cli.ts": MAIN });
+      const made = await spawnBounded(["mkfifo", join(root, "src/pipe.ts")]);
+      expect(made.exit).toBe(0);
+      expect(await inventoryApplicationClis(root)).toEqual(["src/cli.ts"]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  },
+  processWatchdog(1),
+);
