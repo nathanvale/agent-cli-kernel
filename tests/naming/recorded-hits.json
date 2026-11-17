@@ -19,7 +19,7 @@
     {
       "path": "starters",
       "word": "starter",
-      "reason": "Holds two kinds of starter: the CLI starters and the Contract 3 kernel. Rename it once the kernel leaves and only CLI starters remain."
+      "reason": "Holds the CLI starters and, until it leaves, the Contract 3 kernel. It keeps its name until the CLI starters are removed (decided 17 November 2026)."
     },
     {
       "path": "tests/faults/manifest.json",
