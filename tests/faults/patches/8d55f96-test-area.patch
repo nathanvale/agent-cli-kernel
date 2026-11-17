@@ -1,0 +1,13 @@
+diff --git a/scripts/test-area.ts b/scripts/test-area.ts
+index 4e9ee7f..96a63bd 100644
+--- a/scripts/test-area.ts
++++ b/scripts/test-area.ts
+@@ -80,7 +80,7 @@ function areas(root: string): {
+       candidates.map((candidate) => [candidate.name, candidate.paths]),
+     ),
+     empty: declared
+-      .filter(({ entries }) => entries.length === 0)
++      .filter(() => false)
+       .map(({ area }) => `${area.name} (${area.folder})`),
+     shared: [...folders].flatMap(([name, named]) =>
+       named.length > 1

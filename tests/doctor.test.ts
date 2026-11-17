@@ -14,6 +14,7 @@ const repository = join(import.meta.dir, "..");
 const scripts = [
   "scripts/doctor.ts",
   "scripts/test-area.ts",
+  "scripts/repository.ts",
   "src/toolchain-resolution.ts",
 ];
 const projects: string[] = [];
@@ -326,7 +327,23 @@ describe("doctor", () => {
 });
 
 describe("test:area", () => {
+  const declared = [
+    { name: "template", folder: "tests", holds: "files" },
+    {
+      name: "kernel",
+      folder: "tests/contract3",
+      holds: "files",
+      subfolders: true,
+    },
+  ];
+  const description = (testAreas: object[]) =>
+    JSON.stringify({
+      web: "https://github.com/owner/fixture",
+      checkCommitsSince: "0123456789abcdef0123456789abcdef01234567",
+      testAreas,
+    });
   const probe = {
+    "repository.json": description(declared),
     "tests/contract3/probe/probe.test.ts":
       'import { test } from "bun:test";\ntest("chosen case", () => {});\ntest("other case", () => {});\n',
     "tests/contract3/probe-seam.test.ts":
@@ -357,6 +374,77 @@ describe("test:area", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toContain(" 1 pass\n");
     expect(result.stderr).toContain(" 1 filtered out\n");
+    expect(result.stderr).toContain("Ran 1 test across 1 file.");
+  });
+
+  test("a declared area that holds no test file fails, naming it, and runs nothing", () => {
+    const root = withToolchain("6.0.2", {
+      ...probe,
+      "repository.json": description([
+        ...declared,
+        { name: "lost", folder: "tests/lost", holds: "folder" },
+      ]),
+    });
+    const result = run(root, testArea, ["template"]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toBe(
+      "repository.json declares test areas that hold no test file: lost (tests/lost). Restore their tests, or remove them from testAreas.\n",
+    );
+  });
+
+  test("two declared areas with one name fail, naming both folders, and run nothing", () => {
+    const root = withToolchain("6.0.2", {
+      ...probe,
+      "repository.json": description([
+        ...declared,
+        { name: "template", folder: "tests/more", holds: "folder" },
+      ]),
+      "tests/more/more.test.ts":
+        'import { test } from "bun:test";\ntest("more case", () => {});\n',
+    });
+
+    const result = run(root, testArea, ["kernel"]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toBe(
+      "repository.json gives one test area name to more than one folder: template (tests, tests/more). Rename an area in testAreas, or rename a subfolder.\n",
+    );
+  });
+
+  test("a subfolder named like a declared area fails, naming both folders, and runs nothing", () => {
+    const root = withToolchain("6.0.2", {
+      ...probe,
+      "tests/contract3/template/template.test.ts":
+        'import { test } from "bun:test";\ntest("subfolder case", () => {});\n',
+    });
+
+    const result = run(root, testArea, ["kernel"]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toBe(
+      "repository.json gives one test area name to more than one folder: template (tests, tests/contract3/template). Rename an area in testAreas, or rename a subfolder.\n",
+    );
+  });
+
+  test("an area whose test files sit only in its subfolders is not empty, and each subfolder runs", () => {
+    const root = withToolchain("6.0.2", {
+      ...probe,
+      "repository.json": description([
+        ...declared,
+        {
+          name: "nested",
+          folder: "tests/nested",
+          holds: "files",
+          subfolders: true,
+        },
+      ]),
+      "tests/nested/deep/deep.test.ts":
+        'import { test } from "bun:test";\ntest("deep case", () => {});\n',
+    });
+    const result = run(root, testArea, ["deep"]);
+
+    expect(result.exitCode).toBe(0);
     expect(result.stderr).toContain("Ran 1 test across 1 file.");
   });
 

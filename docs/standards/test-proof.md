@@ -8,7 +8,8 @@ repository broke it.
 
 - Assert the exact refusal the named guard produces. An assertion that only
   something threw stays green when another guard refuses. Witnessed:
-  [185c90d], [5990897].
+  [185c90d], [5990897], [fa359ec] (the repository description parser had
+  five refusals and no test).
 - Shape the input so only the named guard can refuse it. An earlier parse or
   build check, or a neighbouring cap at the same limit, keeps the test green
   with the named guard removed. Witnessed: [640ba05], [96ab832], [c193c51].
@@ -17,7 +18,8 @@ repository broke it.
   Witnessed: [e07d962], [d72cd9e].
 - Pin a bound with a tolerance tighter than the fault it must catch. A
   first-signal kill at 550 ms passed a 500 ms bound plus its tolerance.
-  Witnessed: [b8760b4], [8485278].
+  Witnessed: [b8760b4], [8485278], [aa161e5] (a lower bound only, so a late
+  kill still passed).
 
 ## Production entry
 
@@ -31,16 +33,22 @@ repository broke it.
 - Apply the shared RED-then-GREEN rule to every new refusal or bound.
 - Record each planted fault in `tests/faults/manifest.json`. After the fix
   commit, run `bun run faults:add <fix sha> <source path> <test file>
-  <title>`, then `bun run faults <id>` until it prints `KILLED`.
+  <title>`, then `bun run faults <id>` until it prints `KILLED`. Witnessed:
+  [9050fec], [b8664cf] (each recorded faults for refusals that had landed
+  with no record).
 - Treat a surviving fault as a missing test. Witnessed: [d72cd9e], [640ba05].
 
 ## Processes
 
 - Bound every child below its test timeout. Witnessed: [e990da6], [4a32366].
-- Reuse `spawnBounded` (`tests/contract3/kernel-repair/swarm-process.ts`) or
-  `exitWithin` (`tests/contract3/lifecycle/harness.ts`) for that bound.
+- Template tests: reuse `spawnBounded` (`tests/support/process.ts`), which
+  runs the child through `startChild` (`scripts/child-env.ts`), for that
+  bound. Contract 3 tests: reuse `spawnBounded`
+  (`tests/contract3/kernel-repair/swarm-process.ts`) or `exitWithin`
+  (`tests/contract3/lifecycle/harness.ts`).
 - Release in `finally`: the CLI, then each ledgered child, then the temporary
-  folder. Witnessed: [d592b6d].
+  folder. Witnessed: [d592b6d], [70c7280] (released in `afterAll`, so a
+  failing case left its process group alive).
 - At teardown, send SIGKILL, and only to a pid still in its ledgered process
   group. Witnessed: [0ebe7cf], [1a29b19].
 
@@ -72,3 +80,8 @@ repository broke it.
 [b077b0b]: https://github.com/nathanvale/bun-typescript-template/commit/b077b0bc152a2ea1f9d8b17b49ba0cf61435111a
 [4386b03]: https://github.com/nathanvale/bun-typescript-template/commit/4386b03503e12787b7d20062c9ae1b4f6942fbdf
 [2b2907a]: https://github.com/nathanvale/bun-typescript-template/commit/2b2907a6b15e23a3ca8b8111b251ca6c68f467c3
+[fa359ec]: https://github.com/nathanvale/bun-typescript-template/commit/fa359ece5ae03bc913393e4d80b78836c39b7ef9
+[aa161e5]: https://github.com/nathanvale/bun-typescript-template/commit/aa161e5b402b55037192f9ccbcd74896e9a62d11
+[9050fec]: https://github.com/nathanvale/bun-typescript-template/commit/9050fec545a21a1995b0014151b4d486c2188e06
+[b8664cf]: https://github.com/nathanvale/bun-typescript-template/commit/b8664cfdcb826e3870b52b0141c0f4f2efb2eba0
+[70c7280]: https://github.com/nathanvale/bun-typescript-template/commit/70c7280c8253b0badc173898fcb5ca44b8e2198b

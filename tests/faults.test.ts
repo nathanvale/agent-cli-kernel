@@ -14,7 +14,7 @@ import {
   processWatchdog,
   type SignalAt,
   spawnBounded,
-} from "./contract3/kernel-repair/swarm-process.ts";
+} from "./support/process.ts";
 import { testFolder } from "./support/test-folder.ts";
 
 const repository = join(import.meta.dir, "..");
@@ -272,7 +272,12 @@ function addFault(
       testFile,
       title,
     ],
-    { cwd: root, env: fixtureEnv(), boundMilliseconds: bound },
+    {
+      cwd: root,
+      env: fixtureEnv(),
+      boundMilliseconds: bound,
+      processGroup: true,
+    },
   );
 }
 
@@ -469,6 +474,21 @@ describe("bun run faults", () => {
       );
       expect(verdicts(run.lines)).toEqual([]);
       expect(run.exit).toBe(2);
+    },
+    timeout,
+  );
+
+  test(
+    "FR.t an empty manifest replays nothing and fails, saying the gate checks nothing",
+    async () => {
+      const { root } = await repositoryWithFault({});
+      write(root, "tests/faults/manifest.json", "[]\n");
+      const run = await faults(root, []);
+      expect(run.lines).toContain(
+        "No faults recorded in tests/faults/manifest.json, so this gate checks nothing. Record one with bun run faults:add, or remove the faults gate.",
+      );
+      expect(verdicts(run.lines)).toEqual([]);
+      expect(run.exit).toBe(1);
     },
     timeout,
   );

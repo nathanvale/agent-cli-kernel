@@ -313,8 +313,10 @@ async function replayAll(ids: readonly string[]): Promise<number> {
   const chosen =
     ids.length === 0 ? faults : faults.filter(({ id }) => ids.includes(id));
   if (chosen.length === 0) {
-    print(`No faults recorded in ${manifestPath}.`);
-    return 0;
+    print(
+      `No faults recorded in ${manifestPath}, so this gate checks nothing. Record one with bun run faults:add, or remove the faults gate.`,
+    );
+    return 1;
   }
   const limitMilliseconds = stepLimitMilliseconds();
   const commit = commitWorkingTreeInScratchIndex();

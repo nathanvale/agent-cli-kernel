@@ -1,0 +1,13 @@
+diff --git a/scripts/repository.ts b/scripts/repository.ts
+index cbc4b7c..6dae988 100644
+--- a/scripts/repository.ts
++++ b/scripts/repository.ts
+@@ -98,7 +98,7 @@ export function readRepository(root: string): Repository {
+     [citableOrigins, recordedOrigin],
+   );
+   checkRecordedOrigin(description.get(recordedOrigin));
+-  const web = requireText(description.get("web"), "web", webAddress);
++  const web = requireText(description.get("web"), "web");
+   return {
+     web,
+     checkCommitsSince: requireText(

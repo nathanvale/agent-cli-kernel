@@ -20,23 +20,28 @@ import {
   resolve,
 } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  type Layout,
+  PROFILES,
+  type Profile,
+  type ProjectRecipe,
+  STARTERS,
+  type Starter,
+  selectRecipe,
+  UNCOPIED_NAMES,
+} from "./project-recipe.ts";
 
 const SCHEMA_VERSION = 1;
 const TEMPLATE_ROOT = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const NAME_TOKEN = "__REPOSITORY_NAME__";
 const PACKET_TOKEN = "__SOURCE_PACKET__";
 
-type Profile = "scratch" | "durable";
-type Starter = "simple" | "complex";
-
 interface BootstrapOptions {
   destination: string;
   json: boolean;
-  monorepo: boolean;
   name: string;
-  profile: Profile;
+  recipe: ProjectRecipe;
   sourcePacket: string;
-  starter?: Starter;
 }
 
 interface ParsedFlags {
@@ -65,7 +70,7 @@ interface BootstrapResult {
   sourcePacket: string;
   starter?: Starter;
   status: "created";
-  variant: "single-package" | "monorepo";
+  variant: Layout;
 }
 
 class CliError extends Error {
@@ -128,27 +133,19 @@ function tokenAt(argv: string[], index: number): string {
   return token;
 }
 
-function parseProfile(value: string): Profile {
-  if (value === "scratch" || value === "durable") {
-    return value;
+function parseWord<T extends string>(
+  words: readonly T[],
+  flag: "profile" | "starter",
+  value: string,
+): T {
+  const word = words.find((candidate) => candidate === value);
+  if (word !== undefined) {
+    return word;
   }
   throw new CliError(
-    "invalid_profile",
-    `unsupported profile: ${value}`,
-    "choose --profile scratch or --profile durable",
-    2,
-    true,
-  );
-}
-
-function parseStarter(value: string): Starter {
-  if (value === "simple" || value === "complex") {
-    return value;
-  }
-  throw new CliError(
-    "invalid_starter",
-    `unsupported starter: ${value}`,
-    "choose --starter simple or --starter complex",
+    `invalid_${flag}`,
+    `unsupported ${flag}: ${value}`,
+    `choose ${words.map((candidate) => `--${flag} ${candidate}`).join(" or ")}`,
     2,
     true,
   );
@@ -168,11 +165,11 @@ function assignValueFlag(
   value: string,
 ): void {
   if (flag === "profile") {
-    flags.profile = parseProfile(value);
+    flags.profile = parseWord(PROFILES, "profile", value);
     return;
   }
   if (flag === "starter") {
-    flags.starter = parseStarter(value);
+    flags.starter = parseWord(STARTERS, "starter", value);
     return;
   }
   flags[flag] = value;
@@ -228,53 +225,29 @@ function requireFlag(value: string | undefined): string {
   return value;
 }
 
-function validateProfileOptions(
+function selectProjectRecipe(
   profile: Profile,
-  monorepo: boolean,
-  starter?: Starter,
-): void {
-  validateMonorepoProfile(profile, monorepo);
-  validateStarterProfile(profile, starter);
-  validateStarterVariant(monorepo, starter);
-}
-
-function validateMonorepoProfile(profile: Profile, monorepo: boolean): void {
-  if (monorepo && profile !== "durable") {
-    throw new CliError(
-      "profile_option_mismatch",
-      "--monorepo is available only with --profile durable",
-      "remove --monorepo or choose --profile durable",
-      2,
-      true,
-    );
+  flags: ParsedFlags,
+): ProjectRecipe {
+  const choice = selectRecipe({
+    profile,
+    monorepo: flags.monorepo,
+    starter: flags.starter,
+  });
+  if (choice.status === "selected") {
+    return choice.recipe;
   }
+  throw new CliError(
+    "profile_option_mismatch",
+    choice.message,
+    choice.repair,
+    2,
+    true,
+  );
 }
 
-function validateStarterProfile(profile: Profile, starter?: Starter): void {
-  if (starter !== undefined && profile !== "durable") {
-    throw new CliError(
-      "profile_option_mismatch",
-      "--starter is available only with --profile durable",
-      "remove --starter or choose --profile durable",
-      2,
-      true,
-    );
-  }
-}
-
-function validateStarterVariant(monorepo: boolean, starter?: Starter): void {
-  if (starter !== undefined && monorepo) {
-    throw new CliError(
-      "profile_option_mismatch",
-      "--starter and --monorepo cannot be combined",
-      "choose one CLI starter or the explicit monorepo example",
-      2,
-      true,
-    );
-  }
-}
-
-function starterOption(starter?: Starter): Pick<BootstrapOptions, "starter"> {
+function starterOption(recipe: ProjectRecipe): { starter?: Starter } {
+  const { starter } = recipe.request;
   return starter === undefined ? {} : { starter };
 }
 
@@ -372,20 +345,18 @@ function parseArgs(argv: string[]): BootstrapOptions | "help" {
   }
 
   const flags = parseFlags(argv);
-  const profile = parseProfile(requireFlag(flags.profile));
+  const profile = parseWord(PROFILES, "profile", requireFlag(flags.profile));
   const destination = requireFlag(flags.destination);
   const sourcePacket = requireFlag(flags.sourcePacket);
-  validateProfileOptions(profile, flags.monorepo, flags.starter);
+  const recipe = selectProjectRecipe(profile, flags);
   validateSourcePacket(sourcePacket);
 
   return {
     destination: resolve(destination),
     json: flags.json,
-    monorepo: flags.monorepo,
     name: resolveRepositoryName(destination, flags.name),
-    profile,
+    recipe,
     sourcePacket,
-    ...starterOption(flags.starter),
   };
 }
 
@@ -466,7 +437,7 @@ async function copyDirectoryContents(
   destination: string,
 ): Promise<void> {
   for (const entry of await readdir(source, { withFileTypes: true })) {
-    if (["TEMPLATE-SOURCE.md", "composition-tests"].includes(entry.name)) {
+    if (UNCOPIED_NAMES.includes(entry.name)) {
       continue;
     }
     await cp(join(source, entry.name), join(destination, entry.name), {
@@ -507,26 +478,6 @@ async function substituteTokens(
   return count;
 }
 
-function selectedProfileSource(options: BootstrapOptions): string {
-  if (options.profile === "scratch") {
-    return join(TEMPLATE_ROOT, "profiles", "scratch");
-  }
-  if (options.monorepo) {
-    return join(TEMPLATE_ROOT, "examples", "monorepo");
-  }
-  return join(TEMPLATE_ROOT, "profiles", "durable");
-}
-
-function selectedSources(options: BootstrapOptions): string[] {
-  if (options.starter === undefined) {
-    return [selectedProfileSource(options)];
-  }
-  return [
-    join(TEMPLATE_ROOT, "profiles", "static-admission", options.starter),
-    join(TEMPLATE_ROOT, "starters", options.starter),
-  ];
-}
-
 async function requireProfileSource(source: string): Promise<void> {
   if ((await lstatIfPresent(source)) !== undefined) {
     return;
@@ -540,13 +491,22 @@ async function requireProfileSource(source: string): Promise<void> {
   );
 }
 
-async function requireProfileSources(sources: string[]): Promise<void> {
-  await Promise.all(sources.map((source) => requireProfileSource(source)));
+async function requireProfileSources(recipe: ProjectRecipe): Promise<void> {
+  await Promise.all(
+    recipe.copies.map((copy) =>
+      requireProfileSource(join(TEMPLATE_ROOT, copy.from)),
+    ),
+  );
 }
 
-async function copySources(sources: string[], staging: string): Promise<void> {
-  for (const source of sources) {
-    await copyDirectoryContents(source, staging);
+async function copyRecipe(
+  recipe: ProjectRecipe,
+  staging: string,
+): Promise<void> {
+  for (const copy of recipe.copies) {
+    const into = join(staging, copy.into);
+    await mkdir(into, { recursive: true });
+    await copyDirectoryContents(join(TEMPLATE_ROOT, copy.from), into);
   }
 }
 
@@ -565,25 +525,6 @@ async function installStaging(
       await mkdir(destination);
     }
     throw error;
-  }
-}
-
-async function copyCliSources(
-  staging: string,
-  options: BootstrapOptions,
-): Promise<void> {
-  const roots =
-    options.starter === undefined ? ["shared", "simple"] : ["shared"];
-  for (const starter of roots) await copyCliFolders(staging, starter);
-}
-
-async function copyCliFolders(staging: string, starter: string): Promise<void> {
-  for (const folder of starter === "shared" ? ["src"] : ["src", "tests"]) {
-    await mkdir(join(staging, folder), { recursive: true });
-    await copyDirectoryContents(
-      join(TEMPLATE_ROOT, "starters", starter, folder),
-      join(staging, folder),
-    );
   }
 }
 
@@ -614,8 +555,8 @@ async function writeRepositoryContext(
     templateRevision: revision,
     templateDirty: dirty.length > 0,
     sourcePacket: options.sourcePacket,
-    starter: options.starter ?? "simple",
-    profile: options.profile,
+    starter: options.recipe.cli,
+    profile: options.recipe.request.profile,
     entryPoint: "src/cli.ts",
     commandOwner: "src/commands.ts",
     registrationVersion: 1,
@@ -624,10 +565,7 @@ async function writeRepositoryContext(
     join(staging, ".cli-design-template.json"),
     `${JSON.stringify(metadata, null, 2)}\n`,
   );
-  const check =
-    options.profile === "scratch"
-      ? "bun run typecheck && bun run test"
-      : "bun run check";
+  const check = options.recipe.checkCommand;
   await writeFile(
     join(staging, "AGENTS.md"),
     `# Repository commands\n\nUse the existing repository CLI at src/cli.ts. Add commands through src/commands.ts.\nKeep domain implementation in separate files and preserve one public application CLI.\n\nRun checks: ${check}\nSmoke: bun run start --help\nSource packet: ${options.sourcePacket}\nTemplate source: ${metadata.templateRevision}\n`,
@@ -636,30 +574,28 @@ async function writeRepositoryContext(
 
 async function bootstrap(options: BootstrapOptions): Promise<BootstrapResult> {
   const destinationState = await validateDestination(options.destination);
-  const variant = options.monorepo ? "monorepo" : "single-package";
-  const sources = selectedSources(options);
-  await requireProfileSources(sources);
+  const { recipe } = options;
+  await requireProfileSources(recipe);
 
   await mkdir(dirname(options.destination), { recursive: true });
   const staging = await mkdtemp(
     join(dirname(options.destination), ".repo-bootstrap-"),
   );
   try {
-    await copySources(sources, staging);
-    await copyCliSources(staging, options);
+    await copyRecipe(recipe, staging);
     await writeRepositoryContext(staging, options);
     const generatedFiles = await substituteTokens(staging, options);
     await installStaging(staging, options.destination, destinationState);
     return {
       destination: options.destination,
       generatedFiles,
-      profile: options.profile,
+      profile: recipe.request.profile,
       runId: randomUUID(),
       schemaVersion: SCHEMA_VERSION,
       sourcePacket: options.sourcePacket,
-      ...starterOption(options.starter),
+      ...starterOption(recipe),
       status: "created",
-      variant,
+      variant: recipe.request.layout,
     };
   } finally {
     await rm(staging, { force: true, recursive: true });
