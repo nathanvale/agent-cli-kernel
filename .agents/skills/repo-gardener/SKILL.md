@@ -82,7 +82,10 @@ the same witness brought again stays one.
 
 ## Sow
 
-1. Name the witness and state its lesson as one imperative line.
+1. Name the witness and state its lesson as one imperative line. A lesson
+   about the wording of an instruction file (`AGENTS.md`, a `SKILL.md`, or
+   a document either points to) has no row: name that file in the report,
+   for its owner, and change nothing.
 2. Find the row whose rule covers the lesson, and the guide bullet or gate
    note that teaches it.
 3. With a row:
@@ -107,7 +110,8 @@ the same witness brought again stays one.
 Done when each item holds:
 
 - The witness is cited once in its row's guide or gate note, or in single
-  witness, or the report says it was already cited.
+  witness, or the report says it was already cited, or the report names the
+  instruction file its lesson belongs to.
 - `bun run test:area standards` passes.
 - `bun run format:check` exits 0.
 - `git status --porcelain` lists only write-scope paths.
