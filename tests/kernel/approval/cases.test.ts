@@ -41,7 +41,7 @@ test("every executable case is exercised and no pending case is claimed", async 
 });
 
 test("every executable case reaches a passing expectCase comparison", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "contract3-oracle-"));
+  const directory = await mkdtemp(join(tmpdir(), "kernel-oracle-"));
   const log = join(directory, "oracle.log");
   try {
     await writeFile(log, "");

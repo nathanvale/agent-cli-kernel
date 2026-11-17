@@ -81,7 +81,7 @@ function settleRecorder(
 type LateShape = "first-attach" | "after-finished-program";
 
 async function lateRequest(shape: LateShape, signal: "SIGTERM" | "SIGINT") {
-  const dir = await mkdtemp(join(tmpdir(), "contract3-s04-"));
+  const dir = await mkdtemp(join(tmpdir(), "kernel-s04-"));
   const ledger = join(dir, "ledger");
   const marker = `FX-S04-MARKER-${crypto.randomUUID()}`;
   const entered = deferred();

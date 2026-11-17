@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { spawnBounded } from "./swarm-process.ts";
 
 test("F6.bounded-runner-releases-a-hang: a child past its bound is killed and the run fails naming the bound", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "contract3-runner-"));
+  const directory = await mkdtemp(join(tmpdir(), "kernel-runner-"));
   try {
     const pidFile = join(directory, "pid");
     const source = `require("node:fs").writeFileSync(${JSON.stringify(pidFile)}, String(process.pid)); setTimeout(() => process.exit(0), 8000);`;

@@ -218,7 +218,7 @@ export async function launch(options: {
   readonly fitOperand?: number;
 }): Promise<Launched> {
   requireTools();
-  const dir = await mkdtemp(join(tmpdir(), "contract3-t2-"));
+  const dir = await mkdtemp(join(tmpdir(), "kernel-t2-"));
   const ledgerPath = join(dir, "ledger");
   const work = join(dir, "work");
   const temp = join(dir, "tmp");

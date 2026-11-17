@@ -5,7 +5,7 @@ import { runFamily } from "./harness.ts";
 
 const root = resolve(import.meta.dir, "../../..");
 const kernel = join(root, "kernel/src/kernel/index.ts");
-const probe = probeBatch("contract3-repair-locks-");
+const probe = probeBatch("kernel-repair-locks-");
 const compilers = ["native", "lint-view"] as const;
 type Check = () => Promise<void>;
 

@@ -144,7 +144,7 @@ test(
 test(
   "X-K2S3.closed-after-result: no effect is applied after a refusal that said unchanged",
   async () => {
-    const ledgers = await mkdtemp(join(tmpdir(), "contract3-swarm-ledger-"));
+    const ledgers = await mkdtemp(join(tmpdir(), "kernel-swarm-ledger-"));
     try {
       const observed: {
         hops: number;
@@ -193,7 +193,7 @@ test(
 test(
   "X-S6.state-not-attached-on-denial: an approval denial attaches no state and enters no handler",
   async () => {
-    const ledgers = await mkdtemp(join(tmpdir(), "contract3-swarm-attach-"));
+    const ledgers = await mkdtemp(join(tmpdir(), "kernel-swarm-attach-"));
     try {
       const attempt = async (name: string, env: Record<string, string>) => {
         const ledger = join(ledgers, `${name}.txt`);

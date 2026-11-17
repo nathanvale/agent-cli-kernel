@@ -221,7 +221,7 @@ for (const prefix of ["a".repeat(110), "é".repeat(55)]) {
 }
 
 test("changing declaration admission enforces the same identity and root input bounds", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "contract3-declaration-"));
+  const directory = await mkdtemp(join(tmpdir(), "kernel-declaration-"));
   try {
     const source = join(directory, "kernel/src");
     await mkdir(join(source, "addons/state"), { recursive: true });

@@ -123,7 +123,7 @@ test(
 );
 
 async function approvalRun(env: Readonly<Record<string, string>>) {
-  const directory = await mkdtemp(join(tmpdir(), "contract3-swarm-approval-"));
+  const directory = await mkdtemp(join(tmpdir(), "kernel-swarm-approval-"));
   try {
     const ledger = join(directory, "ledger.txt");
     const store = join(directory, "store");

@@ -1031,7 +1031,7 @@ test("T4S.r7-no-preview-under-lock: revalidation without a preview denies and pr
   expect(applyOutcome((await apply("with-preview")).events)).toBe("admitted");
 });
 
-test("T4S.r5-fixture-lint: the materialized tree passes contract3 lint", async () => {
+test("T4S.r5-fixture-lint: the materialized tree passes kernel lint", async () => {
   const child = Bun.spawn(
     [
       join(tree.root, "node_modules/.bin/eslint"),

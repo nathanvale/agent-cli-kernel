@@ -6,7 +6,7 @@ import { testFolder } from "../../support/test-folder.ts";
 import { probeBatch, readRun } from "./probes.ts";
 
 const root = resolve(import.meta.dir, "../../..");
-const probe = probeBatch("contract3-probes-");
+const probe = probeBatch("kernel-probes-");
 
 const unparsable = probe("const broken = ;\n");
 const mistyped = probe('const planted: number = "x";\nexport {};\n');
@@ -37,7 +37,7 @@ test(
   probe.timeout(),
 );
 
-const leakProbe = probeBatch("contract3-probes-leaks-");
+const leakProbe = probeBatch("kernel-probes-leaks-");
 const leaks = [
   {
     name: "declare global",
@@ -86,7 +86,7 @@ for (const leak of leaks)
     leakProbe.timeout(),
   );
 
-const fixtureDirectory = testFolder("contract3-probes-fixture-");
+const fixtureDirectory = testFolder("kernel-probes-fixture-");
 afterAll(() => rm(fixtureDirectory, { recursive: true, force: true }));
 const sharedFaults = [
   {
@@ -102,7 +102,7 @@ const sharedFaults = [
 ].map((fault, index) => {
   const fixture = join(fixtureDirectory, `shared-fixture-${index}.ts`);
   writeFileSync(fixture, fault.source);
-  const importer = probeBatch(`contract3-probes-importers-${index}-`);
+  const importer = probeBatch(`kernel-probes-importers-${index}-`);
   return {
     ...fault,
     fixture: basename(fixture),
@@ -152,7 +152,7 @@ test(
   probe.timeout(),
 );
 
-const sizedProbe = probeBatch("contract3-probes-sized-");
+const sizedProbe = probeBatch("kernel-probes-sized-");
 sizedProbe("export const early = 1;\n");
 test("registering a probe after its batch sized a test timeout is refused", () => {
   sizedProbe.timeout();
@@ -197,7 +197,7 @@ const drains = (
     ["compilers", "native"],
   ] as const
 ).map(([join, sibling]) => {
-  const prefix = `contract3-probes-drain-${join}-`;
+  const prefix = `kernel-probes-drain-${join}-`;
   const drained = probeBatch(prefix);
   drained(slow, [sibling]);
   return {

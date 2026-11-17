@@ -7,7 +7,7 @@ import { probeBatch } from "./locks/probes.ts";
 import { reviewSpecimens } from "./locks/review-specimens.ts";
 
 const root = resolve(import.meta.dir, "../..");
-const probe = probeBatch("contract3-locks-");
+const probe = probeBatch("kernel-locks-");
 
 const lockProbes = [...locks, ...exhaustiveness, ...boundaries].map((lock) => {
   const prefix = `import * as F from ${JSON.stringify(join(root, "tests/kernel/locks/fixtures.ts"))};\n${lock.setup}\n`;

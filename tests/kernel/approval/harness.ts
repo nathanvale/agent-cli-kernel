@@ -61,7 +61,7 @@ export async function materialize(): Promise<{
   readonly driver: string;
 }> {
   const root = await mkdtemp(
-    join(await realpath(tmpdir()), "contract3-approval-tree-"),
+    join(await realpath(tmpdir()), "kernel-approval-tree-"),
   );
   const source = join(root, "kernel/src");
   await mkdir(join(source, "addons/state"), { recursive: true });
@@ -95,7 +95,7 @@ export async function materialize(): Promise<{
 export async function createWorld(): Promise<World> {
   // Platform: Resolved, so fileSeparation judges real directories, not /var's symlink.
   const root = await mkdtemp(
-    join(await realpath(tmpdir()), "contract3-approval-world-"),
+    join(await realpath(tmpdir()), "kernel-approval-world-"),
   );
   const world = {
     root,

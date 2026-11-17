@@ -47,7 +47,7 @@ async function startUnderFakeTime(
   script: (ledger: string) => string,
   durations: { timeoutMilliseconds: number; shutdownMilliseconds: number },
 ): Promise<Started> {
-  const dir = await mkdtemp(join(tmpdir(), "contract3-t05-"));
+  const dir = await mkdtemp(join(tmpdir(), "kernel-t05-"));
   const ledger = join(dir, "ledger");
   jest.useFakeTimers();
   const attached = programsAddon().attach(control());

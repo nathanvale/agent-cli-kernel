@@ -329,7 +329,7 @@ const root = resolve(import.meta.dir, "../../..");
 const kernelDir = join(root, "kernel/src/kernel");
 let probes = "";
 beforeAll(async () => {
-  probes = await mkdtemp(join(tmpdir(), "contract3-kf5-"));
+  probes = await mkdtemp(join(tmpdir(), "kernel-kf5-"));
   await mkdir(join(probes, "locks"));
   await symlink(join(root, "node_modules"), join(probes, "node_modules"));
   await writeFile(

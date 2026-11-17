@@ -633,7 +633,7 @@ describe("glossary check proof", () => {
     terms(file, text).filter((hit) => hit.startsWith(`${term} /`)).length;
 
   test("R1 F2: the accepted admission file sense is not flagged in identifiers", () => {
-    const file = "src/domains/contract3-check/probe.ts";
+    const file = "src/domains/kernel-check/probe.ts";
     expect(
       count(
         file,

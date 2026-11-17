@@ -56,9 +56,7 @@ export const materialisedFixtures: readonly string[] = [
 ];
 
 export async function materialise(): Promise<string> {
-  const root = await mkdtemp(
-    join(await realpath(tmpdir()), "contract3-repair-"),
-  );
+  const root = await mkdtemp(join(await realpath(tmpdir()), "kernel-repair-"));
   const source = join(root, "kernel/src");
   const tests = join(root, "tests/kernel/kernel-repair");
   await mkdir(join(source, "addons/state"), { recursive: true });

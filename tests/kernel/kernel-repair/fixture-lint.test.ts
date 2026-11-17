@@ -15,7 +15,7 @@ afterAll(async () => {
   await rm(root, { recursive: true, force: true });
 });
 
-test("materialised kernel-repair fixtures pass contract3 lint", async () => {
+test("materialised kernel-repair fixtures pass kernel lint", async () => {
   const linted = await lintTree(root);
   expect({ exit: linted.exit, stderr: linted.stderr }).toEqual({
     exit: 0,

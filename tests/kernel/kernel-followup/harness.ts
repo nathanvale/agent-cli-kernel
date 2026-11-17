@@ -12,7 +12,7 @@ import { spawnBounded } from "../kernel-repair/swarm-process.ts";
 const repository = new URL("../../../", import.meta.url).pathname;
 
 export async function materialiseKf(): Promise<string> {
-  const root = await mkdtemp(join(await realpath(tmpdir()), "contract3-kf-"));
+  const root = await mkdtemp(join(await realpath(tmpdir()), "kernel-kf-"));
   const target = join(root, "kernel/src/addons/state");
   await mkdir(target, { recursive: true });
   const source = await readFile(

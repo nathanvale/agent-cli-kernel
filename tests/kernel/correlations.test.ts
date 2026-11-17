@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 test("the admitted state specimen validates 27 truth arms and six invalid effect inventories", async () => {
-  const root = await mkdtemp(join(tmpdir(), "contract3-state-"));
+  const root = await mkdtemp(join(tmpdir(), "kernel-state-"));
   try {
     const source = join(root, "kernel/src");
     await mkdir(join(source, "addons/state"), { recursive: true });
