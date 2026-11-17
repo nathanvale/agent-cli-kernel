@@ -1,7 +1,7 @@
-diff --git a/.claude/hooks/names-gate.sh b/.claude/hooks/names-gate.sh
-index 2dff515..faff822 100755
---- a/.claude/hooks/names-gate.sh
-+++ b/.claude/hooks/names-gate.sh
+diff --git a/.claude/hooks/names-check.sh b/.claude/hooks/names-check.sh
+index 06fc9e9..c9faabb 100755
+--- a/.claude/hooks/names-check.sh
++++ b/.claude/hooks/names-check.sh
 @@ -7,7 +7,7 @@ status=0
  bun scripts/check-names.ts --tool-call || status=$?
  case "$status" in
@@ -9,5 +9,5 @@ index 2dff515..faff822 100755
 -  1) exit 2 ;;
 +  1) exit 0 ;;
  esac
- echo "names-gate: check:names --tool-call exited $status, so the names this tool call creates went unchecked. Fix the cause above, or run bun run check:names <path> yourself." >&2
+ echo "names check: check:names --tool-call exited $status, so the names this tool call creates went unchecked. Fix the cause above, or run bun run check:names <path> yourself." >&2
  exit 1

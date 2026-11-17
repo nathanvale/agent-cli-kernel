@@ -95,7 +95,7 @@ function createdPaths(tool: unknown, input: Map<string, unknown>): string[] {
   const value = reader === undefined ? undefined : input.get(reader.field);
   if (reader === undefined || typeof value !== "string")
     throw new Error(
-      `--tool-call cannot read a ${String(tool)} call. It reads the file_path of a Write call and the command of an apply_patch call. Wire the names gate to those tools only.`,
+      `--tool-call cannot read a ${String(tool)} call. It reads the file_path of a Write call and the command of an apply_patch call. Wire the names check to those tools only.`,
     );
   return reader.created(value);
 }

@@ -1,5 +1,5 @@
 diff --git a/scripts/check-names.ts b/scripts/check-names.ts
-index 130fbfa..89af58f 100644
+index 38ca0d9..89af58f 100644
 --- a/scripts/check-names.ts
 +++ b/scripts/check-names.ts
 @@ -94,9 +94,7 @@ function createdPaths(tool: unknown, input: Map<string, unknown>): string[] {
@@ -7,7 +7,7 @@ index 130fbfa..89af58f 100644
    const value = reader === undefined ? undefined : input.get(reader.field);
    if (reader === undefined || typeof value !== "string")
 -    throw new Error(
--      `--tool-call cannot read a ${String(tool)} call. It reads the file_path of a Write call and the command of an apply_patch call. Wire the names gate to those tools only.`,
+-      `--tool-call cannot read a ${String(tool)} call. It reads the file_path of a Write call and the command of an apply_patch call. Wire the names check to those tools only.`,
 -    );
 +    return [];
    return reader.created(value);

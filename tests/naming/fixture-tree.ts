@@ -30,9 +30,9 @@ const sources = [
   "scripts/check-names.ts",
   "scripts/glossary.ts",
   ".claude/settings.json",
-  ".claude/hooks/names-gate.sh",
+  ".claude/hooks/names-check.sh",
   ".codex/hooks.json",
-  ".codex/hooks/names-gate.sh",
+  ".codex/hooks/names-check.sh",
   ".githooks/pre-commit",
 ];
 const folders: string[] = [];
