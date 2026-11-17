@@ -22,7 +22,7 @@ fi
 
 if [ -n "$(staged '*.ts' '*.mts' '*.cts' '*.mjs' | tr -d '\0')" ]; then
   staged '*.ts' '*.mts' '*.cts' '*.mjs' | xargs -0 "$bin/eslint" --max-warnings 0 --no-warn-ignored -- || {
-    echo "pre-commit: lint errors above. Apply each message's Fix: in code, stage the change with git add, and commit again. Done when bun run lint passes." >&2
+    echo "pre-commit: lint errors above. Fix each one in code (a repository rule ends its message with Fix:), stage the change with git add, and commit again. Done when bun run lint passes." >&2
     exit 1
   }
   "$bin/tsc" --noEmit -p tsconfig.json || {
