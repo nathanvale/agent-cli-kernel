@@ -92,11 +92,6 @@
       "ticket": "MAG-125"
     },
     {
-      "term": "Kernel declaration",
-      "reason": "MAG-121 built it under the file name host.json. The rename of that file to kernel-declaration.json, on the branch kernel-split/renames, brings the word in.",
-      "ticket": "MAG-121"
-    },
-    {
       "term": "Kernel seam",
       "reason": "The seam is the kernel reader's interface. MAG-123 builds the kernel reader.",
       "ticket": "MAG-123"

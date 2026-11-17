@@ -1,5 +1,5 @@
 import js from "@eslint/js";
-import kernel, { kernelPaths } from "./config/contract3-repository-eslint.mjs";
+import kernel, { kernelPaths } from "./config/kernel-repository-lint.mjs";
 import localRules from "./config/template-rules.mjs";
 import tseslint from "typescript-eslint";
 

@@ -21,7 +21,7 @@ function entries(directory: string): Dirent[] {
 }
 
 // Platform: bun test reads a path without a ./ prefix as a substring filter, so
-// "tests/contract3/state" would also run state-seam.test.ts.
+// "tests/kernel/state" would also run state-seam.test.ts.
 function testFiles(root: string, directory: string): string[] {
   return entries(join(root, directory))
     .filter((entry) => entry.isFile() && isTest(entry.name))

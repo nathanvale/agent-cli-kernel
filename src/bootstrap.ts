@@ -29,7 +29,7 @@ import {
   type Starter,
   selectRecipe,
   UNCOPIED_NAMES,
-} from "./project-recipe.ts";
+} from "./recipe.ts";
 
 const SCHEMA_VERSION = 1;
 const TEMPLATE_ROOT = resolve(fileURLToPath(new URL("..", import.meta.url)));

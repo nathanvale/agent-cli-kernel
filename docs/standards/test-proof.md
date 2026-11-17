@@ -31,9 +31,10 @@ repository broke it.
 ## Planted faults
 
 - Apply the shared RED-then-GREEN rule to every new refusal or bound.
-- Record each planted fault in `tests/faults/manifest.json`. After the fix
-  commit, run `bun run faults:add <fix sha> <source path> <test file>
-  <title>`, then `bun run faults <id>` until it prints `KILLED`. Witnessed:
+- Record each planted fault in `tests/planted-faults/fault-records.json`.
+  After the fix commit, run
+  `bun run planted-fault:add <fix sha> <source path> <test file> <title>`,
+  then `bun run fault-replay <id>` until it prints `KILLED`. Witnessed:
   [9050fec], [b8664cf] (each recorded faults for refusals that had landed
   with no record).
 - Treat a surviving fault as a missing test. Witnessed: [d72cd9e], [640ba05].
@@ -42,10 +43,10 @@ repository broke it.
 
 - Bound every child below its test timeout. Witnessed: [e990da6], [4a32366].
 - Template tests: reuse `spawnBounded` (`tests/support/process.ts`), which
-  runs the child through `startChild` (`scripts/child-env.ts`), for that
-  bound. Contract 3 tests: reuse `spawnBounded`
-  (`tests/contract3/kernel-repair/swarm-process.ts`) or `exitWithin`
-  (`tests/contract3/lifecycle/harness.ts`).
+  runs the child through `startChild` (`scripts/process-runner.ts`), for that
+  bound. Kernel tests: reuse `spawnBounded`
+  (`tests/kernel/kernel-repair/swarm-process.ts`) or `exitWithin`
+  (`tests/kernel/lifecycle/harness.ts`).
 - Release in `finally`: the CLI, then each ledgered child, then the temporary
   folder. Witnessed: [d592b6d], [70c7280] (released in `afterAll`, so a
   failing case left its process group alive).
@@ -56,7 +57,7 @@ repository broke it.
 
 - Wait on an event the subject produces (a ready file, ledger line, or
   barrier), or drive the fake clock in
-  `tests/contract3/lifecycle/recording-host.ts`. Witnessed: [b077b0b],
+  `tests/kernel/lifecycle/recording-host.ts`. Witnessed: [b077b0b],
   [4386b03].
 - Widen a race control until it catches its fault on every run. Witnessed:
   [2b2907a] (caught in 48 of 50 runs before widening).

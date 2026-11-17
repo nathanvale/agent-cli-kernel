@@ -1,0 +1,12 @@
+diff --git a/scripts/process-runner.ts b/scripts/process-runner.ts
+index 010dd93..010b916 100644
+--- a/scripts/process-runner.ts
++++ b/scripts/process-runner.ts
+@@ -100,7 +100,6 @@ export function startChild(
+       ? undefined
+       : setTimeout(() => {
+           timedOut = true;
+-          stop();
+         }, limitMilliseconds);
+   const collect = (stream: ReadableStream<Uint8Array>) => {
+     const chunks: Uint8Array[] = [];

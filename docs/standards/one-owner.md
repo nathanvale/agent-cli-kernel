@@ -10,7 +10,7 @@ here.
   constructor's shape rule gave admission a different refusal text.
   Witnessed: [892a700], [f2270b3].
 - Import shared test fakes and fixtures from
-  `tests/contract3/kernel-repair/handlers.ts` and `shapes.ts`. Witnessed:
+  `tests/kernel/kernel-repair/handlers.ts` and `shapes.ts`. Witnessed:
   [810345d], [cf72627].
 
 [56aee86]: https://github.com/nathanvale/bun-typescript-template/commit/56aee86bf059fb2629819fa2b6a1664d776629d5

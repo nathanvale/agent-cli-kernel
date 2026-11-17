@@ -331,7 +331,7 @@ describe("test:area", () => {
     { name: "template", folder: "tests", holds: "files" },
     {
       name: "kernel",
-      folder: "tests/contract3",
+      folder: "tests/kernel",
       holds: "files",
       subfolders: true,
     },
@@ -344,9 +344,9 @@ describe("test:area", () => {
     });
   const probe = {
     "repository.json": description(declared),
-    "tests/contract3/probe/probe.test.ts":
+    "tests/kernel/probe/probe.test.ts":
       'import { test } from "bun:test";\ntest("chosen case", () => {});\ntest("other case", () => {});\n',
-    "tests/contract3/probe-seam.test.ts":
+    "tests/kernel/probe-seam.test.ts":
       'import { test } from "bun:test";\ntest("chosen seam case", () => {});\n',
     "tests/first.test.ts":
       'import { test } from "bun:test";\ntest("first root case", () => {});\n',
@@ -415,7 +415,7 @@ describe("test:area", () => {
   test("a subfolder named like a declared area fails, naming both folders, and runs nothing", () => {
     const root = withToolchain("6.0.2", {
       ...probe,
-      "tests/contract3/template/template.test.ts":
+      "tests/kernel/template/template.test.ts":
         'import { test } from "bun:test";\ntest("subfolder case", () => {});\n',
     });
 
@@ -423,7 +423,7 @@ describe("test:area", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toBe(
-      "repository.json gives one test area name to more than one folder: template (tests, tests/contract3/template). Rename an area in testAreas, or rename a subfolder.\n",
+      "repository.json gives one test area name to more than one folder: template (tests, tests/kernel/template). Rename an area in testAreas, or rename a subfolder.\n",
     );
   });
 
