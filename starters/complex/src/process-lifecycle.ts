@@ -100,10 +100,9 @@ function createProcessLifecycle(
       stopping = true;
       try {
         dependencies.attemptEmergencyDiagnostics();
-      } catch {
-        // Emergency diagnostics remain best-effort.
+      } finally {
+        exitOnce(1);
       }
-      exitOnce(1);
     },
     isStopping: () => stopping,
     outputError(error) {

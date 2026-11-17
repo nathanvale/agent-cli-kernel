@@ -318,7 +318,7 @@ export function openDiagnosticFile(
     try {
       allocated?.close();
     } catch {
-      // Preserve the allocation-lock release error when closing also fails.
+      throw error;
     }
     throw error;
   }

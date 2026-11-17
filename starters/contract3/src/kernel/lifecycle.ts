@@ -182,8 +182,22 @@ function killAll(run: Run) {
     try {
       addon.killNow();
     } catch {
-      // A failed kill request is still only an attempt.
+      continue;
     }
+}
+
+function attemptEmergencyRecord(run: Run): void {
+  if (run.emergencyAttempted) return;
+  run.emergencyAttempted = true;
+  try {
+    run.setup.emergencyRecord?.({
+      runId: run.runId,
+      commandIdentity: run.commandIdentity,
+      phase: run.phase,
+    });
+  } catch {
+    return;
+  }
 }
 
 function settleOne(addon: AttachedAddon<unknown>, limit?: number) {
@@ -301,18 +315,7 @@ function installHooks(run: Run) {
   });
   run.host.onCrash(() => {
     killAll(run);
-    if (!run.emergencyAttempted) {
-      run.emergencyAttempted = true;
-      try {
-        run.setup.emergencyRecord?.({
-          runId: run.runId,
-          commandIdentity: run.commandIdentity,
-          phase: run.phase,
-        });
-      } catch {
-        // LIFE-6a: one attempt only, no retry and no output.
-      }
-    }
+    attemptEmergencyRecord(run);
     run.host.exit(1);
   });
 }

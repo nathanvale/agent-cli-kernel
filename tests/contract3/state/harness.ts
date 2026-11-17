@@ -501,12 +501,7 @@ export function makeWorld(
     clearRelease,
     operations: () => readOperations(root),
     dispose() {
-      for (const child of children)
-        try {
-          child.kill("SIGKILL");
-        } catch {
-          // Already exited.
-        }
+      for (const child of children) child.kill("SIGKILL");
       rmSync(base, { recursive: true, force: true });
     },
   };

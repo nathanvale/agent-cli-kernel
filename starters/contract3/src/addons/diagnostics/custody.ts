@@ -278,8 +278,7 @@ function tryLock(directory: string): (() => void) | undefined {
       renameSync(lock, retiring);
       discard(retiring);
     } catch {
-      // A lock that cannot be retired stays visible; its owner is this
-      // process, so it becomes recoverable once this process ends.
+      return;
     }
   };
 }
@@ -338,7 +337,7 @@ function bookkeeping(directory: string, name: string): boolean {
     try {
       rmdirSync(join(directory, name));
     } catch {
-      // Left for a later prune.
+      return true;
     }
   return true;
 }
@@ -415,20 +414,35 @@ function open(
   } catch {
     return "setup";
   }
+  const held = heldInCustody(descriptor, file, place);
+  if (held) return held;
+  closeIfPossible(descriptor);
+  return "setup";
+}
+
+function heldInCustody(
+  descriptor: number,
+  file: string,
+  place: Place,
+): Opened | undefined {
   try {
     fchmodSync(descriptor, 0o600);
     const held = fstatSync(descriptor);
-    if (custodyHolds(held, lookup(file), lookup(place.directory), place))
-      return { descriptor, file, dev: held.dev, ino: held.ino };
+    return custodyHolds(held, lookup(file), lookup(place.directory), place)
+      ? { descriptor, file, dev: held.dev, ino: held.ino }
+      : undefined;
   } catch {
-    // Fall through to refusal.
+    return undefined;
   }
+}
+
+export function closeIfPossible(descriptor: number): boolean {
   try {
     closeSync(descriptor);
+    return true;
   } catch {
-    // The refusal stands either way.
+    return false;
   }
-  return "setup";
 }
 
 export async function allocate(
@@ -468,6 +482,6 @@ export function confirmClosed(opened: Opened, size: number): void {
     )
       createPrivate(markerFor(opened.file, current));
   } catch {
-    // Unconfirmed closure keeps the log out of the pruning set.
+    return;
   }
 }

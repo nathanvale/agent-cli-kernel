@@ -522,6 +522,7 @@ function describeSearch(search: FileSearch, roots: number): string {
     `unreadable ${r.unreadable}`,
   ].join(" ");
 }
+const candidateUnusable = new Set<unknown>(["ENOENT", "ENOTDIR", "EACCES"]);
 async function writableForeignRoot(): Promise<string | undefined> {
   const caller = process.getuid?.();
   for (const candidate of ["/tmp", tmpdir()]) {
@@ -535,8 +536,9 @@ async function writableForeignRoot(): Promise<string | undefined> {
         (await writable(path))
       )
         return path;
-    } catch {
-      // Candidate absent on this platform.
+    } catch (error) {
+      if (!candidateUnusable.has(Reflect.get(Object(error), "code")))
+        throw error;
     }
   }
   return undefined;
@@ -552,8 +554,9 @@ async function symlinkedForeignRoot() {
         if ((await foreignDirectory(child)) && (await foreignChain(child)))
           return { viaLink: join(link, name), resolved: child };
       }
-    } catch {
-      // Candidate absent on this platform.
+    } catch (error) {
+      if (!candidateUnusable.has(Reflect.get(Object(error), "code")))
+        throw error;
     }
   }
   return undefined;

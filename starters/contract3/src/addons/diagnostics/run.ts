@@ -1,4 +1,4 @@
-import { closeSync, constants, fstatSync, openSync, readSync } from "node:fs";
+import { constants, fstatSync, openSync, readSync } from "node:fs";
 import { configureSync, getLogger } from "@logtape/logtape";
 import type { LogRecord, Logger } from "@logtape/logtape";
 import { DEFAULT_REDACT_FIELDS, redactByField } from "@logtape/redaction";
@@ -10,7 +10,13 @@ import type {
   RunAddon,
   RunControl,
 } from "../../kernel/index.ts";
-import { allocate, confirmClosed, locate, prepare } from "./custody.ts";
+import {
+  allocate,
+  closeIfPossible,
+  confirmClosed,
+  locate,
+  prepare,
+} from "./custody.ts";
 import type { Opened } from "./custody.ts";
 import type { DiagnosticsIo } from "./io.ts";
 import { limits } from "./limits.ts";
@@ -89,12 +95,7 @@ function fileSecret(path: string): string[] | undefined {
   } catch {
     return undefined;
   } finally {
-    if (descriptor !== undefined)
-      try {
-        closeSync(descriptor);
-      } catch {
-        // The read result above already decided.
-      }
+    if (descriptor !== undefined) closeIfPossible(descriptor);
   }
 }
 
@@ -341,7 +342,7 @@ function session(
         elapsedMilliseconds: Math.round(performance.now() - started),
       });
     } catch {
-      // Counted below as handed but never arrived.
+      return;
     }
   }
 

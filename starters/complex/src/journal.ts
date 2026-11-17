@@ -110,7 +110,7 @@ export function acquireJournalLock(
         unlinkSync(path);
       }
     } catch {
-      // A missing, replaced, or unreadable lock is not ours to remove.
+      return;
     }
   };
   try {
