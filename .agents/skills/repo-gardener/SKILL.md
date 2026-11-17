@@ -84,8 +84,8 @@ the same witness brought again stays one.
 
 1. Name the witness and state its lesson as one imperative line. A lesson
    about the wording of an instruction file (`AGENTS.md`, a `SKILL.md`, or
-   a document either points to) has no row: name that file in the report,
-   for its owner, and change nothing.
+   a document one of them points to) has no row: skip steps 2 to 5, name
+   that file in the report for its owner, and change nothing.
 2. Find the row whose rule covers the lesson, and the guide bullet or gate
    note that teaches it.
 3. With a row:
