@@ -86,7 +86,7 @@ function outsideRepository(): string {
 
 async function whileGitHangs<T>(run: () => T | Promise<T>): Promise<T> {
   const bin = folder();
-  writeFileSync(join(bin, "git"), "#!/bin/sh\nexec sleep 60\n", {
+  writeFileSync(join(bin, "git"), "#!/bin/sh\nexec sleep 15\n", {
     mode: 0o755,
   });
   const chosen = process.env.PATH;
