@@ -56,3 +56,16 @@ owner from this list.
   `fault-replay` job replays the planted faults. To reproduce a red one, run
   `bun run check:commits <base>` or `bun run fault-replay <id>`.
 - Review: apply `CODING_STANDARDS.md` to the diff; each row names its gate.
+
+## Pull requests
+
+- Open a pull request as a draft. The review bots skip a draft, so its
+  hosted checks run without spending a review.
+- Mark it ready once, when its hosted checks pass. That requests the Copilot
+  and CodeRabbit reviews. Neither is required to merge.
+- Answer every review thread. Push the fixes as one batch, then ask Copilot
+  to review again.
+- Stop after three review rounds. A later round mostly repeats earlier
+  comments.
+- Merge with a merge commit, on the operator's word. `main` refuses a direct
+  push.
