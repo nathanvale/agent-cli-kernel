@@ -19,7 +19,9 @@ repository broke it.
 - Pin a bound with a tolerance tighter than the fault it must catch. A
   first-signal kill at 550 ms passed a 500 ms bound plus its tolerance.
   Witnessed: [b8760b4], [8485278], [aa161e5] (a lower bound only, so a late
-  kill still passed).
+  kill still passed), [dbd196e] (a timeout message that reads the same
+  constant stays green when the timer is changed, so measure the elapsed
+  time).
 - Prove that a fixture meant to lack something lacks it, and fail loudly
   when its location supplies it. `STATE_TEST_DIR` can place a test folder
   inside the checkout, where git finds the parent repository for a case that
@@ -121,3 +123,4 @@ repository broke it.
 [8946615]: https://github.com/nathanvale/bun-typescript-template/commit/894661580864b423b07cd4571bdd0c9da69c1911
 [7623343]: https://github.com/nathanvale/bun-typescript-template/commit/76233438395b1e967f461ded4a34f6c1d2c8a533
 [315de28]: https://github.com/nathanvale/bun-typescript-template/commit/315de28d3e1da69a4e8d65923654846405a3d1c8
+[dbd196e]: https://github.com/nathanvale/bun-typescript-template/commit/dbd196e8dd2dc19163d201cfb4f089952f1c471f
