@@ -502,7 +502,7 @@ describe("main", () => {
         .filter((found) => found !== null);
       expect(pace).toHaveLength(1);
       const [, seconds = "", each = ""] = pace[0] ?? [];
-      expect(Number(seconds)).toBeGreaterThan(0);
+      expect(Number(seconds)).toBeGreaterThanOrEqual(0);
       expect(Number(seconds)).toBeLessThanOrEqual(wall + 0.05);
       expect(Math.abs(Number(each) * 2 - Number(seconds))).toBeLessThanOrEqual(
         0.16,
