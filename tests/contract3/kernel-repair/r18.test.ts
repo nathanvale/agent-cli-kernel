@@ -1,5 +1,6 @@
 import { expect } from "bun:test";
 import * as kernel from "../../../starters/contract3/src/kernel/index.ts";
+import { runtimeOf } from "../../../starters/contract3/src/kernel/runtime.ts";
 import { frozenInputs } from "./cases.ts";
 import { contractUnchecked, runFamily, stateFixture } from "./harness.ts";
 import {
@@ -102,22 +103,13 @@ implementations["R18.u1.slot-preflight-unchanged"] = async () => {
     const row = rows[suffix];
     if (!row) throw new Error(`Missing row ${suffix}.`);
     const contract = admit(commandSource("next", row))();
-    const execute: unknown =
+    const runtime =
       typeof contract === "object" && contract !== null
-        ? Reflect.get(contract, "execute")
+        ? runtimeOf(contract)
         : undefined;
-    if (typeof execute !== "function") throw new Error("No execute.");
+    if (!runtime) throw new Error("No execute.");
     entries = 0;
-    const outcome: unknown = await Reflect.apply(execute, contract, [
-      source,
-      argv,
-      "run-1",
-      {},
-    ]);
-    const ok: unknown =
-      typeof outcome === "object" && outcome !== null
-        ? Reflect.get(outcome, "ok")
-        : undefined;
+    const { ok } = await runtime.execute(source, argv, "run-1", {});
     expect({ entries, ok }).toEqual({
       entries: entered,
       ok: entered === 1,
