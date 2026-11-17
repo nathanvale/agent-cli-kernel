@@ -33,6 +33,7 @@ const sources = [
   ".claude/hooks/names-gate.sh",
   ".codex/hooks.json",
   ".codex/hooks/names-gate.sh",
+  ".githooks/pre-commit",
 ];
 const folders: string[] = [];
 const gitEnv = {
@@ -107,8 +108,12 @@ function run(
   });
 }
 
+export function gitOutcome(root: string, ...args: string[]) {
+  return run(["git", ...args], root);
+}
+
 export async function git(root: string, ...args: string[]): Promise<void> {
-  const { exit, stderr } = await run(["git", ...args], root);
+  const { exit, stderr } = await gitOutcome(root, ...args);
   if (exit !== 0) throw new Error(`git ${args.join(" ")}: ${stderr}`);
 }
 
