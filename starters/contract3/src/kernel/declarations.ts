@@ -1,7 +1,11 @@
 import { programStopOf, recordProgramStop } from "./program-stop.ts";
 import type { InputTable } from "./future-input.ts";
 import { resultContext, checkedResult } from "./command-result.ts";
-import type { CommandResult, ResultContext } from "./command-result.ts";
+import type {
+  CommandResult,
+  Invocation,
+  ResultContext,
+} from "./command-result.ts";
 import { validateFutureInputs } from "./future-input.ts";
 import { stateContext } from "./validation/state.ts";
 import { isIssuedIfNoResult } from "./state-seam.ts";
@@ -39,7 +43,7 @@ export type CommandDeclaration<Identity extends string = string> =
       argv: unknown,
       context: unknown,
       runId: string,
-      invocation?: object,
+      invocation?: Invocation,
       registration?: InputTable,
     ) => Promise<Validation<CommandResult<Identity>>>;
   };
@@ -65,12 +69,7 @@ export function admitInspectShape(declaration: {
 // supports a deadline declares its program-stop station, a failed and
 // unchanged station with a handoff (WIRE-13, WIRE-14, WIRE-15). The kernel
 // does not enforce its name (N1e).
-function requireProgramStopStation(declaration: {
-  readonly commandIdentity: string;
-  readonly input: { readonly deadlineSupported: boolean };
-  readonly capabilities: CapabilitySelection;
-  readonly stations: readonly DeclaredStation[];
-}): void {
+function requireProgramStopStation(declaration: CommandDeclaration): void {
   if (
     declaration.capabilities.programs !== true ||
     !declaration.input.deadlineSupported
@@ -161,14 +160,16 @@ export type Prepare<Identity extends string = string> = (
   argv: unknown,
   context: unknown,
   runId: string,
-  invocation: object,
+  invocation: Invocation,
   registration?: InputTable,
 ) => Promise<Validation<HandlerEntry<Identity>>>;
-const preparers = new WeakMap<object, Prepare>();
-export function preparerOf(declaration: object): Prepare | undefined {
+const preparers = new WeakMap<CommandDeclaration, Prepare>();
+export function preparerOf(
+  declaration: CommandDeclaration,
+): Prepare | undefined {
   return preparers.get(declaration);
 }
-function register<D extends object, Identity extends string>(
+function register<D extends CommandDeclaration, Identity extends string>(
   declaration: D,
   prepare: Prepare<Identity>,
 ): D {
@@ -230,7 +231,7 @@ function executeVia<Identity extends string>(prepare: Prepare<Identity>) {
     argv: unknown,
     context: unknown,
     runId: string,
-    invocation: object = Object.freeze({}),
+    invocation: Invocation = Object.freeze({}),
     registration?: InputTable,
   ): Promise<Validation<CommandResult<Identity>>> => {
     const entry = await prepare(argv, context, runId, invocation, registration);

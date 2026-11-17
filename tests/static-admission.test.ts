@@ -2099,8 +2099,10 @@ test("Fallow remaining canary: stale-suppressions", async () => {
 
 afterAll(async () => {
   await Promise.all(
-    TEMPORARY_ROOTS.filter((root) => !RETAINED_ROOTS.has(root)).map((root) =>
-      rm(root, { force: true, recursive: true }),
+    TEMPORARY_ROOTS.flatMap((root) =>
+      RETAINED_ROOTS.has(root)
+        ? []
+        : [rm(root, { force: true, recursive: true })],
     ),
   );
 }, 120_000);

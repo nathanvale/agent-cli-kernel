@@ -27,7 +27,12 @@ function write(root: string, path: string, content: string): void {
   writeFileSync(join(root, path), content);
 }
 
-function project(manifest: object, files: Record<string, string> = {}) {
+type PackageManifest = { readonly packageManager?: string };
+
+function project(
+  manifest: PackageManifest,
+  files: Record<string, string> = {},
+) {
   const root = mkdtempSync(join(tmpdir(), "doctor-"));
   projects.push(root);
   for (const path of scripts) {
@@ -56,7 +61,26 @@ function installedToolchain(lintVersion: string): Record<string, string> {
   };
 }
 
-function fallowDoctor(report: object | string, exitCode = 0): string {
+type FallowCheck = {
+  readonly id: string;
+  readonly status: string;
+  readonly message: string;
+  readonly remediation?: {
+    readonly command: string;
+    readonly cwd: string;
+    readonly mutating: boolean;
+  };
+};
+
+type FallowDoctorReport = {
+  readonly status: string;
+  readonly checks: readonly FallowCheck[];
+};
+
+function fallowDoctor(
+  report: FallowDoctorReport | string,
+  exitCode = 0,
+): string {
   const body = typeof report === "string" ? report : JSON.stringify(report);
   return `#!/bin/sh\ncat <<'REPORT'\n${body}\nREPORT\nexit ${exitCode}\n`;
 }

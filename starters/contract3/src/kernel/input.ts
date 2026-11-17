@@ -218,7 +218,7 @@ function setValue(
 
 export function acceptsRootInput(
   route: readonly string[],
-  input: object,
+  input: ParsedInput<InputSchema>,
 ): boolean {
   return route.length > 0 || Object.keys(input).length > 0;
 }

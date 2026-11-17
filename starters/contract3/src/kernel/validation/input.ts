@@ -148,9 +148,9 @@ function schemaShape(value: unknown): value is InputSchema {
 }
 function constraintsPossible(schema: InputSchema, names: Set<string>): boolean {
   const required = new Set(
-    [...schema.arguments, ...schema.options]
-      .filter((slot) => slot.required)
-      .map((slot) => slot.name),
+    [...schema.arguments, ...schema.options].flatMap((slot) =>
+      slot.required ? [slot.name] : [],
+    ),
   );
   for (let pass = 0; pass <= names.size; pass++)
     for (const item of schema.constraints)

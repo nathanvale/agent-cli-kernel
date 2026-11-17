@@ -39,9 +39,11 @@ export function navigationData(
     return {
       usage: `${cli} <command> [options]`,
       summary: `Commands for ${cli}.`,
-      commands: commands
-        .filter((command) => !builtinIdentities.has(command.commandIdentity))
-        .map(summary),
+      commands: commands.flatMap((command) =>
+        builtinIdentities.has(command.commandIdentity)
+          ? []
+          : [summary(command)],
+      ),
       options: [
         ...(commands.some((command) => command.input.deadlineSupported)
           ? [deadlineOption]

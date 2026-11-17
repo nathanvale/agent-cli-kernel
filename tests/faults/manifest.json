@@ -40,5 +40,26 @@
     "testFile": "tests/doctor.test.ts",
     "title": "not ready fails on the failing check",
     "source": "c6d3f09 feat(doctor): check fallow's readiness with fallow doctor"
+  },
+  {
+    "id": "f0ad643-oxlintrc",
+    "patch": "tests/faults/patches/f0ad643-oxlintrc.patch",
+    "testFile": "tests/anti-slop-gate.test.ts",
+    "title": "^anti-slop/no-module-mocking refuses its violation$",
+    "source": "f0ad643 feat(lint): gate six anti-slop rules in bun run lint"
+  },
+  {
+    "id": "f0ad643-oxlintrc-spread",
+    "patch": "tests/faults/patches/f0ad643-oxlintrc-spread.patch",
+    "testFile": "tests/anti-slop-gate.test.ts",
+    "title": "^oxc/no-accumulating-spread refuses its violation$",
+    "source": "f0ad643 feat(lint): gate six anti-slop rules in bun run lint"
+  },
+  {
+    "id": "bbfce9a-eslint-rules",
+    "patch": "tests/faults/patches/bbfce9a-eslint-rules.patch",
+    "testFile": "tests/lint-rules.test.ts",
+    "title": "^no-comments refuses .*nothing here is cast",
+    "source": "bbfce9a fix(lint): admit a SAFETY: block only where anti-slop accepts the cast"
   }
 ]

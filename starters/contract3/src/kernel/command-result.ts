@@ -67,6 +67,7 @@ export type ResultContext<
     facts: Omit<FactsForRow<SelectedRow<S, K>, E>, "runId">,
   ) => CommandResult<Identity>;
 };
+export type Invocation = Readonly<Record<never, never>>;
 export type ResultPlan = {
   readonly selected: {
     readonly commandIdentity: string;
@@ -74,9 +75,9 @@ export type ResultPlan = {
   };
   readonly facts: Readonly<Record<string, unknown>>;
   readonly runId: string;
-  readonly invocation: object;
+  readonly invocation: Invocation;
 };
-const results = new WeakMap<object, ResultPlan>();
+const results = new WeakMap<CommandResult, ResultPlan>();
 export function resultContext<
   const Identity extends string,
   const S extends readonly DeclaredStation[],
@@ -87,7 +88,7 @@ export function resultContext<
     readonly effectClass: E;
   },
   runId: string,
-  invocation: object,
+  invocation: Invocation,
 ): ResultContext<Identity, S, E> {
   return {
     result(selected, facts) {
@@ -122,14 +123,14 @@ export function resultContext<
     },
   };
 }
-export function resultPlan(value: object): ResultPlan | undefined {
+export function resultPlan(value: CommandResult): ResultPlan | undefined {
   return results.get(value);
 }
 export function resultMatches(
-  value: object,
+  value: CommandResult,
   identity: string,
   runId: string,
-  invocation: object,
+  invocation: Invocation,
 ): boolean {
   const plan = results.get(value);
   return (
@@ -144,7 +145,7 @@ export function checkedResult<I extends string>(
   value: CommandResult<I>,
   identity: I,
   runId: string,
-  invocation: object,
+  invocation: Invocation,
 ): Validation<CommandResult<I>> {
   return resultMatches(value, identity, runId, invocation)
     ? { ok: true, value }

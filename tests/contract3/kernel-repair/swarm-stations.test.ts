@@ -2,16 +2,18 @@ import { expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { runtimeOf } from "../../../starters/contract3/src/kernel/runtime.ts";
+import type { ContractKey } from "../../../starters/contract3/src/kernel/runtime.ts";
 import { selectingLoad } from "./swarm-commands.ts";
 import type { ScenarioRun } from "./swarm-process.ts";
 import { processWatchdog, runScenario } from "./swarm-process.ts";
 
 const processTimeout = processWatchdog(3);
 
-function stationsOf(contract: object, identity: string): unknown[] {
-  const discover: unknown = Reflect.get(contract, "discoverCommand");
-  if (typeof discover !== "function") throw new Error("No discoverCommand.");
-  const data: unknown = Reflect.apply(discover, contract, [identity]);
+function stationsOf(contract: ContractKey, identity: string): unknown[] {
+  const runtime = runtimeOf(contract);
+  if (!runtime) throw new Error("No discoverCommand.");
+  const data: unknown = runtime.navigation.discoverCommand(identity);
   const stations: unknown =
     typeof data === "object" && data !== null
       ? Reflect.get(data, "stations")
@@ -187,20 +189,18 @@ test(
 
 async function selection(causeCode: string, ownStation: boolean) {
   const contract = selectingLoad(causeCode, ownStation);
-  const execute: unknown = Reflect.get(contract, "execute");
+  const runtime = runtimeOf(contract);
   const buildResult: unknown = Reflect.get(contract, "buildResult");
-  if (typeof execute !== "function" || typeof buildResult !== "function")
+  if (!runtime || typeof buildResult !== "function")
     throw new Error("No execute.");
   try {
-    const executed: unknown = await Reflect.apply(execute, contract, [
+    const executed = await runtime.execute(
       "x.load",
       ["abc"],
       `run-${causeCode}`,
-    ]);
-    const value: unknown =
-      typeof executed === "object" && executed !== null
-        ? Reflect.get(executed, "value")
-        : undefined;
+      {},
+    );
+    const value: unknown = executed.ok ? executed.value : undefined;
     const built: unknown = await Reflect.apply(buildResult, contract, [value]);
     return built;
   } catch (error) {

@@ -43,7 +43,7 @@ function refusalOf(run: () => unknown): string {
     return error instanceof Error ? error.message : String(error);
   }
 }
-function admit(raw: object) {
+function admit(raw: unknown) {
   return () => contractUnchecked(contractFor, { cli: "x", commands: [raw] });
 }
 
@@ -209,7 +209,7 @@ test("F1.unguarded-raw-refused: a declaration without the two-phase entry may no
   const refusal =
     "A command that declares approval or changes state must be built with command() or changing().";
   const guarded = approvedRead(() => undefined);
-  const admitGuarded = (declaration: object) => () =>
+  const admitGuarded = (declaration: unknown) => () =>
     contractUnchecked(contractFor, {
       cli: "x",
       commands: [declaration],
