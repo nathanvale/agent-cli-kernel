@@ -6,8 +6,8 @@ import {
   rmSync,
 } from "node:fs";
 import { constants, tmpdir } from "node:os";
-import { basename, delimiter, dirname, join, resolve } from "node:path";
-import type { Subprocess } from "bun";
+import { join, resolve } from "node:path";
+import { runWithOwnTools } from "./child-env.ts";
 import { doctor } from "./doctor.ts";
 
 // The head of codex/contract-3-foundation when this gate was written. A commit
@@ -33,25 +33,7 @@ type Checked = Commit & { result: Result };
 // SIGTERM.
 const signals = ["SIGHUP", "SIGINT", "SIGTERM"] as const;
 type StopSignal = (typeof signals)[number];
-const active: {
-  child?: Subprocess;
-  stoppedBy?: StopSignal;
-  escalation?: Timer;
-} = {};
-const graceMilliseconds = 2_000;
-// `bun run` prepends the caller's node_modules/.bin folders to PATH. Drop
-// them so a commit sees only what its own tree installs.
-const ownTools = {
-  ...process.env,
-  PATH: (process.env.PATH ?? "")
-    .split(delimiter)
-    .filter(
-      (entry) =>
-        basename(entry) !== ".bin" ||
-        basename(dirname(entry)) !== "node_modules",
-    )
-    .join(delimiter),
-};
+const active: { stop?: () => void; stoppedBy?: StopSignal } = {};
 
 function isStopSignal(signal: string | undefined): signal is StopSignal {
   return signals.some((each) => each === signal);
@@ -124,37 +106,6 @@ function haltIfStopped(commit: Commit): void {
     );
 }
 
-// Each step leads its own process group, so a stop reaches every process the
-// step started, not only the direct child.
-function signalGroup(child: Subprocess, signal: NodeJS.Signals): void {
-  try {
-    process.kill(-child.pid, signal);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
-  }
-}
-
-async function run(cwd: string, step: Step) {
-  const child = Bun.spawn([process.execPath, ...step], {
-    cwd,
-    env: ownTools,
-    detached: true,
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  active.child = child;
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(child.stdout).text(),
-    new Response(child.stderr).text(),
-    child.exited,
-  ]);
-  delete active.child;
-  clearTimeout(active.escalation);
-  // A descendant that closed its output would otherwise outlive the stop.
-  if (active.stoppedBy !== undefined) signalGroup(child, "SIGKILL");
-  return { exitCode, signalCode: child.signalCode, output: stdout + stderr };
-}
-
 async function check(commit: Commit): Promise<Checked> {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), "check-commits-")));
   let admin: string | undefined;
@@ -171,7 +122,11 @@ async function check(commit: Commit): Promise<Checked> {
     haltIfStopped(commit);
     if (!added.ok) throw new Error(added.stderr.trim());
     for (const step of steps) {
-      const { exitCode, signalCode, output } = await run(dir, step);
+      const { exitCode, signalCode, output } = await runWithOwnTools(
+        [process.execPath, ...step],
+        dir,
+        active,
+      );
       haltIfStopped(commit);
       if (signalCode !== null)
         throw new Error(
@@ -228,13 +183,7 @@ function commitsToCheck(base: string, head: string): Commit[] {
 for (const signal of signals)
   process.on(signal, () => {
     active.stoppedBy ??= signal;
-    const { child } = active;
-    if (child === undefined) return;
-    signalGroup(child, "SIGTERM");
-    active.escalation ??= setTimeout(
-      () => signalGroup(child, "SIGKILL"),
-      graceMilliseconds,
-    );
+    active.stop?.();
   });
 
 async function main(argv: readonly string[]): Promise<number> {
