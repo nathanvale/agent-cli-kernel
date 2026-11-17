@@ -404,5 +404,33 @@
     "testFile": "tests/naming/glossary-files.test.ts",
     "title": "^GM\\.g ",
     "source": "10099ec feat(naming): record a glossary term that no tracked file uses yet"
+  },
+  {
+    "id": "b28ce51-check-names",
+    "patch": "tests/planted-faults/patches/b28ce51-check-names.patch",
+    "testFile": "tests/naming/pre-commit.test.ts",
+    "title": "^PC\\.b ",
+    "source": "b28ce51 fix(naming): judge --staged names by the glossary and recorded hits git has staged"
+  },
+  {
+    "id": "b28ce51-check-names-staged-hits",
+    "patch": "tests/planted-faults/patches/b28ce51-check-names-staged-hits.patch",
+    "testFile": "tests/naming/check-names.test.ts",
+    "title": "^CN\\.f ",
+    "source": "b28ce51 fix(naming): judge --staged names by the glossary and recorded hits git has staged"
+  },
+  {
+    "id": "b28ce51-check-names-staged-glossary",
+    "patch": "tests/planted-faults/patches/b28ce51-check-names-staged-glossary.patch",
+    "testFile": "tests/naming/check-names.test.ts",
+    "title": "^CN\\.g ",
+    "source": "b28ce51 fix(naming): judge --staged names by the glossary and recorded hits git has staged"
+  },
+  {
+    "id": "70a3dc5-glossary-staged-absent",
+    "patch": "tests/planted-faults/patches/70a3dc5-glossary-staged-absent.patch",
+    "testFile": "tests/naming/check-names.test.ts",
+    "title": "^CN\\.h ",
+    "source": "70a3dc5 fix(naming): name the repair when git has no staged glossary or recorded hits"
   }
 ]
