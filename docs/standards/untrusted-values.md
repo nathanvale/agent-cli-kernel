@@ -11,7 +11,7 @@ boundary trusts the types.
   [r4580070979], [r4580077776].
 - Read each value once into the copy you validate, then check and use that
   same copy. A second read of an accessor, or a read after an `await`, can
-  differ. Witnessed: [75b4bc0], [r4580077763].
+  differ. Witnessed: [75b4bc0], [r4580077763], [3088c03].
 - Validate the same object you pass on. A spread drops non-enumerable
   properties, and a hidden `toJSON` rewrites serialised data. Witnessed:
   [r4580070938], [r4580077749].
@@ -29,7 +29,7 @@ boundary trusts the types.
 - Arm a delay above 2,147,483,647 ms in steps. A runtime timer fires a longer
   delay after 1 ms. Witnessed: [f00dc2a].
 - Bound every wait, including the settle after a handler returns. Witnessed:
-  [b54d325], [1d03d99].
+  [b54d325], [1d03d99], [8de7e09] (a test's ledger poll had no bound).
 - State a complexity bound for each traversal and append. Witnessed:
   [r4580077771] (a shared subgraph cost about 2^35 visits), [d972ded]
   (quadratic append).
@@ -51,3 +51,5 @@ boundary trusts the types.
 [b54d325]: https://github.com/nathanvale/bun-typescript-template/commit/b54d3256aa2b5302eeea41f33649093a82c5410d
 [1d03d99]: https://github.com/nathanvale/bun-typescript-template/commit/1d03d99aee3455127c218056db2added1410912e
 [d972ded]: https://github.com/nathanvale/bun-typescript-template/commit/d972ded023d0558d9cf47e4e7e2ee5eb5f37b029
+[3088c03]: https://github.com/nathanvale/bun-typescript-template/commit/3088c032c90df81d9d0e5f93700c0769daac5cff
+[8de7e09]: https://github.com/nathanvale/bun-typescript-template/commit/8de7e09c322e1b40304bad9f9332cb976048102e
