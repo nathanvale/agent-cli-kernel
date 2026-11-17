@@ -1,0 +1,13 @@
+diff --git a/scripts/doctor.ts b/scripts/doctor.ts
+index 73d8fc4..65ccb3e 100644
+--- a/scripts/doctor.ts
++++ b/scripts/doctor.ts
+@@ -149,7 +149,7 @@ function fallowReadiness(root: string): Finding {
+     ? ` Repair: run ${flagged.repair} from the repository root.`
+     : " Repair: run node_modules/.bin/fallow doctor for the details.";
+   return {
+-    status: report.status === "fail" ? "FAIL" : "WARN",
++    status: "WARN",
+     check: "fallow",
+     detail: `${message}${repair}`,
+   };

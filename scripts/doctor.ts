@@ -70,6 +70,91 @@ function toolchain(root: string): Finding {
   }
 }
 
+type FallowCheck = {
+  id: string;
+  status: string;
+  message: string;
+  repair: string | undefined;
+};
+
+type FallowReport = { status: string; checks: FallowCheck[] };
+
+function text(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+function fallowCheck(value: unknown): FallowCheck | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const id = text(Reflect.get(value, "id"));
+  const status = text(Reflect.get(value, "status"));
+  const message = text(Reflect.get(value, "message"));
+  if (id === undefined || status === undefined || message === undefined)
+    return undefined;
+  const remediation: unknown = Reflect.get(value, "remediation");
+  const repair =
+    typeof remediation === "object" && remediation !== null
+      ? text(Reflect.get(remediation, "command"))
+      : undefined;
+  return { id, status, message, repair };
+}
+
+function fallowReport(output: string): FallowReport | undefined {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(output);
+  } catch {
+    return undefined;
+  }
+  if (typeof parsed !== "object" || parsed === null) return undefined;
+  const status = text(Reflect.get(parsed, "status"));
+  const listed: unknown = Reflect.get(parsed, "checks");
+  if (status === undefined || !Array.isArray(listed)) return undefined;
+  const checks = listed.map(fallowCheck);
+  if (checks.some((check) => check === undefined)) return undefined;
+  return { status, checks: checks.filter((check) => check !== undefined) };
+}
+
+function fallowReadiness(root: string): Finding {
+  const fallow = join(root, "node_modules/.bin/fallow");
+  if (!existsSync(fallow))
+    return {
+      status: "FAIL",
+      check: "fallow",
+      detail: `node_modules/.bin/fallow is missing. Repair: ${install}.`,
+    };
+  const result = Bun.spawnSync(
+    [fallow, "doctor", "--format", "json", "--quiet"],
+    { cwd: root, stdout: "pipe", stderr: "pipe" },
+  );
+  const report = fallowReport(result.stdout.toString());
+  if (report === undefined)
+    return {
+      status: "FAIL",
+      check: "fallow",
+      detail: `fallow doctor exited ${result.exitCode} without a readiness report. Repair: ${install}, then run node_modules/.bin/fallow doctor to read its error.`,
+    };
+  if (report.status === "pass")
+    return {
+      status: "ok",
+      check: "fallow",
+      detail: "fallow doctor reports the project ready to analyse.",
+    };
+  const flagged =
+    report.checks.find((check) => check.status === "fail") ??
+    report.checks.find((check) => check.status === "warn");
+  const message = flagged
+    ? `${flagged.id}: ${flagged.message.replace(/\.?$/, ".")}`
+    : `fallow doctor reported ${report.status}.`;
+  const repair = flagged?.repair
+    ? ` Repair: run ${flagged.repair} from the repository root.`
+    : " Repair: run node_modules/.bin/fallow doctor for the details.";
+  return {
+    status: report.status === "fail" ? "FAIL" : "WARN",
+    check: "fallow",
+    detail: `${message}${repair}`,
+  };
+}
+
 function hostLoad(): Finding {
   const load = loadavg()[0] ?? 0;
   const cores = availableParallelism();
@@ -84,7 +169,13 @@ function hostLoad(): Finding {
 }
 
 export async function doctor(root: string): Promise<boolean> {
-  const findings = [await bunVersion(root), toolchain(root), hostLoad()];
+  const installed = toolchain(root);
+  const findings = [
+    await bunVersion(root),
+    installed,
+    ...(installed.status === "ok" ? [fallowReadiness(root)] : []),
+    hostLoad(),
+  ];
   for (const { status, check, detail } of findings)
     process.stdout.write(`${status} ${check}: ${detail}\n`);
   return findings.every((finding) => finding.status !== "FAIL");

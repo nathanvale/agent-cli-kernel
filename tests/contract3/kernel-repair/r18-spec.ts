@@ -4,6 +4,7 @@ import type {
   DeclaredStation,
   InputSchema,
 } from "../../../starters/contract3/src/kernel/index.ts";
+import { runtimeOf } from "../../../starters/contract3/src/kernel/runtime.ts";
 import { emptyInput } from "./shapes.ts";
 
 export type KernelValues = Pick<
@@ -233,13 +234,9 @@ export function observe(
 ): Observation {
   try {
     const contract = admit();
-    const discover: unknown =
-      typeof contract === "object" && contract !== null
-        ? Reflect.get(contract, "discoverCommand")
-        : undefined;
     const view: unknown =
-      typeof discover === "function"
-        ? Reflect.apply(discover, contract, [source])
+      typeof contract === "object" && contract !== null
+        ? runtimeOf(contract)?.navigation.discoverCommand(source)
         : undefined;
     const shown = JSON.stringify(view).includes(
       JSON.stringify({
