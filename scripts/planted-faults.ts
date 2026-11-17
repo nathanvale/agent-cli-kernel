@@ -288,7 +288,7 @@ function report(
       );
       process.stdout.write(verdict.output.replace(/\n?$/, "\n"));
       print(
-        `Repair: plant the fault again by hand, then run git diff > ${fault.patch}. ${done}`,
+        `Repair: plant the fault again by hand, run git diff > ${fault.patch}, then undo the planted edit. ${done}`,
       );
       return;
     case "BROKEN":
@@ -386,7 +386,7 @@ function add(argv: readonly string[]): number {
   const faults = readRecords();
   if (faults.some((each) => each.id === id)) {
     process.stderr.write(
-      `${recordsPath} already lists ${id}. Repair: plant it again by hand and run git diff > ${fault.patch}, or add the new record by hand under another id.\n`,
+      `${recordsPath} already lists ${id}. Repair: plant it again by hand, run git diff > ${fault.patch}, then undo the planted edit; or add the new record by hand under another id.\n`,
     );
     return 2;
   }

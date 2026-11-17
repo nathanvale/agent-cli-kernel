@@ -45,7 +45,7 @@ test(
       exit: 1,
       stderr: [
         'docs/mutation-notes.md uses "mutation", which GLOSSARY.md lists under Avoid for "Planted fault". Repair: rename it with the glossary word.',
-        "pre-commit: the names check failed on the staged names (above). Repair: rename each name it lists as its line says, stage the rename with git add, and commit again. Done when bun run check:names --staged passes.",
+        "pre-commit: the names check failed on the staged names (above). Repair: rename each name it lists as its line says, using git mv so the old name leaves the commit too, and commit again. Done when bun run check:names --staged passes.",
         "",
       ].join("\n"),
       committed: false,
@@ -65,7 +65,7 @@ test(
       exit: 1,
       stderr: [
         'docs/host.md uses "host" with no qualifier. Repair: add a word that says which host it is.',
-        "pre-commit: the names check failed on the staged names (above). Repair: rename each name it lists as its line says, stage the rename with git add, and commit again. Done when bun run check:names --staged passes.",
+        "pre-commit: the names check failed on the staged names (above). Repair: rename each name it lists as its line says, using git mv so the old name leaves the commit too, and commit again. Done when bun run check:names --staged passes.",
         "",
       ].join("\n"),
       committed: false,
