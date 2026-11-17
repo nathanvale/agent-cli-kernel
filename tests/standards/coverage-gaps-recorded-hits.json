@@ -1,0 +1,37 @@
+{
+  "about": "Runtime files and exports outside the kernel that no test imported when the coverage gaps test landed (18 November 2026), so only a test that spawns them proves them. The test fails on any gap fallow reports that is not listed here, and on any listed gap that fallow no longer reports: remove an entry in the change that adds a test importing it. Kernel paths (kernel/, tests/kernel/, tests/glossary/ and config/kernel-repository-rules.mjs) are left out, since they leave with the kernel.",
+  "hits": [
+    {
+      "path": "scripts/check-names.ts",
+      "reason": "The naming tests prove it by spawning bun run check:names."
+    },
+    {
+      "path": "scripts/test-area.ts",
+      "reason": "tests/doctor.test.ts proves it by spawning scripts/test-area.ts."
+    },
+    {
+      "path": "src/static-admission.ts",
+      "reason": "tests/static-admission.test.ts proves it by spawning src/static-admission.ts."
+    },
+    {
+      "path": "scripts/glossary.ts",
+      "export": "namesOnPaths",
+      "reason": "Only scripts/check-names.ts calls it, and the naming tests spawn that script."
+    },
+    {
+      "path": "scripts/glossary.ts",
+      "export": "stagedNewPaths",
+      "reason": "Only scripts/check-names.ts calls it, for --staged, and the naming tests spawn that script."
+    },
+    {
+      "path": "scripts/glossary.ts",
+      "export": "stagedText",
+      "reason": "Only scripts/check-names.ts calls it, for --staged, and the naming tests spawn that script."
+    },
+    {
+      "path": "src/cli-inventory.ts",
+      "export": "inventoryApplicationClis",
+      "reason": "tests/bootstrap-cli.test.ts proves it by spawning src/cli-inventory.ts, and by running a transpiled copy in a child; tests/cli-inventory.test.ts imports only its helpers."
+    }
+  ]
+}

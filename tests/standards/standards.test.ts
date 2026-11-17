@@ -14,6 +14,13 @@ import { dirname, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { ESLint } from "eslint";
 import { readRepository } from "../../scripts/repository.ts";
+import {
+  type Ancestry,
+  type Citable,
+  commitLinkProblems,
+  lineOf,
+  notAncestor,
+} from "../support/commit-links.ts";
 import { testFolder } from "../support/test-folder.ts";
 
 const root = join(import.meta.dir, "../..");
@@ -47,10 +54,6 @@ function readWithCodeBlanked(path: string): string {
       return fence || fenced ? "" : line;
     })
     .join("\n");
-}
-
-function lineOf(text: string, index: number): number {
-  return text.slice(0, index).split("\n").length;
 }
 
 function headings(
@@ -179,18 +182,7 @@ function fetchHint(repository: string, history: string[]): string {
     : "";
 }
 
-const shortSha = /^[0-9a-f]{7,40}$/;
 const bareSha = /\b(?=[0-9a-f]*\d)(?=[0-9a-f]*[a-f])[0-9a-f]{7,40}\b/g;
-
-type Citable = {
-  page: string;
-  pages: string[];
-  isThread: (target: string) => boolean;
-};
-type Ancestry = Citable & {
-  isAncestor: (sha: string) => boolean;
-  fetch: string;
-};
 
 function citableOf(repository: string): Citable {
   const { web, citableWebs: webs } = readRepository(repository);
@@ -212,48 +204,6 @@ function ancestry(repository: string): Ancestry {
     isAncestor: (sha) => history.some((each) => each.startsWith(sha)),
     fetch: fetchHint(repository, history),
   };
-}
-
-function notAncestor(sha: string, { fetch }: Ancestry): string {
-  return `${sha}, which is not an ancestor of HEAD. Repair: cite a commit in this branch's history, or correct the SHA.${fetch}`;
-}
-
-function commitLinkProblems(
-  file: string,
-  text: string,
-  history: Ancestry,
-): { defined: Set<string>; problems: string[] } {
-  const problems: string[] = [];
-  const defined = new Set<string>();
-  const links = [
-    ...[...text.matchAll(/^ {0,3}\[([^\]]+)\]:\s*(\S+)/gm)].map((match) => ({
-      match,
-      definition: true,
-    })),
-    ...[...text.matchAll(/\[([^\]]+)\]\(([^()\s]+)\)/g)].map((match) => ({
-      match,
-      definition: false,
-    })),
-  ];
-  for (const { match, definition } of links) {
-    const [, label = "", target = ""] = match;
-    if (!shortSha.test(label) && !target.includes("/commit/")) continue;
-    const where = `${file}:${lineOf(text, match.index)}: [${label}]`;
-    if (definition) defined.add(label);
-    const page = history.pages.find((each) => target.startsWith(each));
-    const sha = page === undefined ? "" : target.slice(page.length);
-    if (!/^[0-9a-f]{40}$/.test(sha))
-      problems.push(
-        `${where} links ${target}, which is not a commit page of this repository. Repair: link ${history.page}<full sha>.`,
-      );
-    else if (shortSha.test(label) && !sha.startsWith(label))
-      problems.push(
-        `${where} links commit ${sha}. Repair: make the label the start of that SHA.`,
-      );
-    else if (!history.isAncestor(sha))
-      problems.push(`${where} cites ${notAncestor(sha, history)}`);
-  }
-  return { defined, problems };
 }
 
 function citationsIn(file: string, text: string, history: Ancestry): string[] {

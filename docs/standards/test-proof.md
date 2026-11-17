@@ -28,6 +28,14 @@ repository broke it.
   or a fault-wrapped CLI, proves only the fixture. Witnessed: [e55f94a],
   [7ea1ee3].
 
+## In-process tests
+
+- Call and assert each function a script or the CLI runs, unexported ones
+  too, from the test that imports its file, beside the process proof that
+  spawns the entry. Coverage cannot see into a spawned process, so a
+  function proved only that way reads as untested and its mutants never
+  run.
+
 ## Planted faults
 
 - Apply the shared RED-then-GREEN rule to every new refusal or bound.

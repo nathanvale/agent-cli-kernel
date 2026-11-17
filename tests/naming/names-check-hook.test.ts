@@ -257,6 +257,27 @@ test(
 );
 
 test(
+  "NG.g a Write call with no file_path goes ahead with exit 1, naming the missing field",
+  async () => {
+    const tree = await gitTree();
+    const [command = ""] = hookCommands(tree, claudeSettings, "Write");
+    const call = { tool_name: "Write", tool_input: {} };
+    expect(
+      await runHook(command, call, { cwd: tree, projectFolder: tree }),
+    ).toEqual({
+      stdout: "",
+      stderr: [
+        "--tool-call got a Write call whose tool_input has no string file_path, so it cannot tell which names the call creates. Repair: pass the tool call as the hook receives it.",
+        "names check hook: check:names --tool-call exited 2 (cause above), so the names this tool call creates went unchecked. Repair: run bun run check:names <path> for each path it creates. Done when that command passes.",
+        "",
+      ].join("\n"),
+      exit: 1,
+    });
+  },
+  processWatchdog(2),
+);
+
+test(
   "NG.d from a nested folder of a git worktree, a new file is judged by the glossary of the tree that owns it",
   async () => {
     const main = await gitTree();

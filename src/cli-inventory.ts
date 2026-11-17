@@ -108,7 +108,7 @@ function documentationOwner(
   return owner;
 }
 
-async function documentationEntries(
+export async function documentationEntries(
   root: string,
   path: string,
   files: Set<string>,
@@ -193,7 +193,7 @@ function sourceTranspiler(options: Bun.TranspilerOptions): Bun.Transpiler {
   return new Bun.Transpiler({ ...options, ...macroControl });
 }
 
-async function importedSources(paths: string[]): Promise<Set<string>> {
+export async function importedSources(paths: string[]): Promise<Set<string>> {
   const files = new Set(paths);
   const imported = new Set<string>();
   for (const path of paths) {

@@ -47,14 +47,15 @@ row's guide or gate note cites two distinct witnesses.
 | Each test fails for the reason its name gives | Partial     | [lint `repository/require-to-throw-message`](#test-proof)                                                  | Typed rule ids                    | [Test proof](docs/standards/test-proof.md#refusals-and-bounds)      |
 | Each new refusal or bound has a planted fault | Partial     | [script `fault-replay`, job `fault-replay`](#planted-faults)                                               | None                              | [Test proof](docs/standards/test-proof.md#planted-faults)           |
 | Process proofs use the production entry       | Review only | None                                                                                                       | None                              | [Test proof](docs/standards/test-proof.md#production-entry)         |
+| Script functions are tested in-process        | Partial     | [job `test`, fault `aaedd58-doctor`](#in-process-tests)                                                    | None                              | [Test proof](docs/standards/test-proof.md#in-process-tests)         |
 | Test processes are bounded and released       | Review only | None                                                                                                       | Lint `tests-use-bounded-runner`   | [Test proof](docs/standards/test-proof.md#processes)                |
 | Tests wait on events, not wall time           | Partial     | [lint `repository/tests-no-sleep`](#time)                                                                  | None                              | [Test proof](docs/standards/test-proof.md#time)                     |
 | One rule holds on every construction route    | Review only | None                                                                                                       | `AdmittedCommand` brand           | [One rule, one path](docs/standards/one-rule-one-path.md)           |
 | Every exit path emits exactly one envelope    | Review only | None                                                                                                       | None                              | [Failure envelopes](docs/standards/failure-envelopes.md)            |
 | Untrusted values are read once, as own data   | Partial     | [lint `repository/no-locale-compare`](#untrusted-values)                                                   | None                              | [Untrusted values](docs/standards/untrusted-values.md#object-model) |
 | Delays, waits, and work have stated bounds    | Review only | None                                                                                                       | `Milliseconds` and `Bound` brands | [Untrusted values](docs/standards/untrusted-values.md#bounds)       |
-| Behaviour holds on Linux and macOS            | Partial     | [job `check`](#linux-and-macos)                                                                            | Lint `no-host-path-literal`       | [Platform parity](docs/standards/platform-parity.md)                |
-| Glossary terms only                           | Partial     | [job `check`](#glossary)                                                                                   | Lint `glossary-term`              | [Glossary authority](AGENTS.md#authority)                           |
+| Behaviour holds on Linux and macOS            | Partial     | [job `test`](#linux-and-macos)                                                                             | Lint `no-host-path-literal`       | [Platform parity](docs/standards/platform-parity.md)                |
+| Glossary terms only                           | Partial     | [job `test`](#glossary)                                                                                    | Lint `glossary-term`              | [Glossary authority](AGENTS.md#authority)                           |
 | One owner per constant, fake, and helper      | Partial     | [lint `repository/tests-use-test-folder`](#one-owner)                                                      | None                              | [One owner](docs/standards/one-owner.md)                            |
 | Each commit is green at its own head          | Partial     | [script `check:commits`, job `commits`](#commits)                                                          | None                              | None                                                                |
 | Say it in code, not in a comment              | Partial     | [lint `repository/no-comments`, fault `5ac4285-template-rules`, fault `bbfce9a-template-rules`](#comments) | None                              | None                                                                |
@@ -95,6 +96,26 @@ row's guide or gate note cites two distinct witnesses.
   `String()`, a template with an expression such as `${""}`, and
   `expect.stringContaining("")`.
 - Witnessed: [185c90d].
+
+### In-process tests
+
+- `tests/standards/coverage-gaps.test.ts` runs
+  `fallow health --coverage-gaps` and refuses each runtime file, and each
+  export of one, that no test reaches by import, unless
+  `tests/standards/coverage-gaps-recorded-hits.json` records it. It also
+  refuses a recorded hit that fallow no longer reports, so the list only
+  shrinks. The `test` job runs it through `bun run test`, in three shards.
+- It leaves out the kernel's paths: `kernel/`, `tests/kernel/`,
+  `tests/glossary/` and `config/kernel-repository-rules.mjs`.
+- Fault `aaedd58-doctor` adds to `scripts/doctor.ts` an exported `doneLine`
+  that only the spawned doctor calls; the test refuses it.
+- Review only: a test that imports a function but never calls it, or calls
+  it without asserting what it does; a function the file does not export,
+  which counts as reached once a test imports its file; a gap hidden by a
+  `fallow-ignore` comment, which the comments lint admits as a directive;
+  and a file fallow does not count as runtime, because no entry point
+  reaches it or `.fallowrc.json` ignores it.
+- Witnessed: [9f3c666], [fa8b6f5].
 
 ### Planted faults
 
@@ -256,3 +277,5 @@ row's guide or gate note cites two distinct witnesses.
 [e07d962]: https://github.com/nathanvale/bun-typescript-template/commit/e07d962f016dc07ca442724621fd0406084521cc
 [08284b7]: https://github.com/nathanvale/bun-typescript-template/commit/08284b762cf58a08777c846637a427e84caf0fe9
 [887b514]: https://github.com/nathanvale/bun-typescript-template/commit/887b5140efe57411a674f872c1269d40b7bf019b
+[9f3c666]: https://github.com/nathanvale/bun-typescript-template/commit/9f3c66623003b3ef1dd355b6b7ef93882cd937a2
+[fa8b6f5]: https://github.com/nathanvale/bun-typescript-template/commit/fa8b6f5ac1733b1eedc1e8d78d267414ebc5c4cb
