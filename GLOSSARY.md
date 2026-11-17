@@ -2,8 +2,8 @@
 
 This file is the source of truth for the words this repository owns: the
 recipe table that Bootstrap follows, the kernel split, and the checks that
-keep its own code honest. No other glossary defines them. `GLOSSARY-MAP.md` names the
-glossaries that own every other word, Bootstrap among them.
+keep its own code honest. No other glossary defines them. `GLOSSARY-MAP.md`
+names the glossaries that own every other word, Bootstrap among them.
 
 ## Language
 
