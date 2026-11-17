@@ -314,6 +314,58 @@ export function report(
   }
 }
 
+const recordFields = ["id", "patch", "testFile", "title", "source"] as const;
+
+function recordKey(entry: unknown): string {
+  const own = new Map<string, unknown>(
+    typeof entry === "object" && entry !== null ? Object.entries(entry) : [],
+  );
+  return JSON.stringify(recordFields.map((name) => own.get(name)));
+}
+
+export function faultsTouchedSince(root: string, base: string): string[] {
+  if (!git(root, ["rev-parse", "--verify", "--quiet", `${base}^{commit}`]).ok)
+    throw new Error(
+      `${base} is not a commit in this repository. Repair: pass a commit or branch, such as origin/main.`,
+    );
+  const changed = new Set(
+    gitOrThrow(root, [
+      "diff",
+      "--name-only",
+      "--no-renames",
+      "-z",
+      base,
+      "HEAD",
+    ])
+      .split("\0")
+      .filter((path) => path !== ""),
+  );
+  const recordsChanged = changed.has(recordsPath);
+  const before = recordsChanged
+    ? git(root, ["show", `${base}:${recordsPath}`])
+    : undefined;
+  const earlier: unknown = before?.ok ? JSON.parse(before.stdout) : [];
+  const recordedBefore = new Set(
+    (Array.isArray(earlier) ? earlier : []).map(recordKey),
+  );
+  const recordChanged = (fault: Fault): boolean =>
+    recordsChanged && !recordedBefore.has(recordKey(fault));
+  const patched = (fault: Fault): string[] =>
+    gitOrThrow(root, ["apply", "--numstat", "-z", fault.patch])
+      .split("\0")
+      .filter((field) => field !== "")
+      .map((field) => field.split("\t").at(-1) ?? "");
+  return readRecords(root)
+    .filter(
+      (fault) =>
+        recordChanged(fault) ||
+        changed.has(fault.patch) ||
+        changed.has(fault.testFile) ||
+        patched(fault).some((path) => changed.has(path)),
+    )
+    .map(({ id }) => id);
+}
+
 export async function replayAll(
   root: string,
   ids: readonly string[],
@@ -421,14 +473,36 @@ export function add(root: string, argv: readonly string[]): number {
   return 0;
 }
 
+function replayChangedSince(
+  root: string,
+  [, base, ...extra]: readonly string[],
+): Promise<number> | number {
+  if (base === undefined || extra.length > 0) {
+    process.stderr.write(
+      "Usage: bun run fault-replay --changed-since <base>\n",
+    );
+    return 2;
+  }
+  if (readRecords(root).length === 0) return replayAll(root, [], process.env);
+  const ids = faultsTouchedSince(root, base);
+  if (ids.length > 0) return replayAll(root, ids, process.env);
+  const short = gitOrThrow(root, ["rev-parse", "--short", base]).trim();
+  print(
+    `No planted fault patches a file changed since ${short}, so there is nothing to replay.`,
+  );
+  return 0;
+}
+
 async function main(
   root: string,
   [command, ...rest]: readonly string[],
 ): Promise<number> {
+  if (command === "replay" && rest[0] === "--changed-since")
+    return replayChangedSince(root, rest);
   if (command === "replay") return replayAll(root, rest, process.env);
   if (command === "add") return add(root, rest);
   process.stderr.write(
-    "Usage: bun run fault-replay [id ...] | bun run planted-fault:add <fix sha> <source path> <test file> <title>\n",
+    "Usage: bun run fault-replay [id ...] | bun run fault-replay --changed-since <base> | bun run planted-fault:add <fix sha> <source path> <test file> <title>\n",
   );
   return 2;
 }

@@ -474,5 +474,54 @@
     "testFile": "tests/static-admission-in-process.test.ts",
     "title": "^execute kills a command that outlives its time limit",
     "source": "c77aaa9 fix(static-admission): bound every child command with a time limit"
+  },
+  {
+    "id": "837cf32-planted-faults-usage",
+    "patch": "tests/planted-faults/patches/837cf32-planted-faults-usage.patch",
+    "testFile": "tests/planted-faults.test.ts",
+    "title": "FR\\.v --changed-since with no base",
+    "source": "837cf32 feat(faults): replay only the faults a change touches"
+  },
+  {
+    "id": "837cf32-planted-faults-base",
+    "patch": "tests/planted-faults/patches/837cf32-planted-faults-base.patch",
+    "testFile": "tests/planted-faults-in-process.test.ts",
+    "title": "faultsTouchedSince refuses a base git cannot resolve",
+    "source": "837cf32 feat(faults): replay only the faults a change touches"
+  },
+  {
+    "id": "837cf32-planted-faults-touched",
+    "patch": "tests/planted-faults/patches/837cf32-planted-faults-touched.patch",
+    "testFile": "tests/planted-faults-in-process.test.ts",
+    "title": "faultsTouchedSince names only the faults whose patch touches",
+    "source": "837cf32 feat(faults): replay only the faults a change touches"
+  },
+  {
+    "id": "98374b7-planted-faults-test-file",
+    "patch": "tests/planted-faults/patches/98374b7-planted-faults-test-file.patch",
+    "testFile": "tests/planted-faults-in-process.test.ts",
+    "title": "faultsTouchedSince names a fault whose test file changed",
+    "source": "98374b7 fix(faults): count a fault's test file and a rename's old path as touched"
+  },
+  {
+    "id": "98374b7-planted-faults-renames",
+    "patch": "tests/planted-faults/patches/98374b7-planted-faults-renames.patch",
+    "testFile": "tests/planted-faults-in-process.test.ts",
+    "title": "faultsTouchedSince names a fault whose patched file was renamed away",
+    "source": "98374b7 fix(faults): count a fault's test file and a rename's old path as touched"
+  },
+  {
+    "id": "80e16f3-planted-faults-record",
+    "patch": "tests/planted-faults/patches/80e16f3-planted-faults-record.patch",
+    "testFile": "tests/planted-faults-in-process.test.ts",
+    "title": "faultsTouchedSince names a fault whose record changed",
+    "source": "80e16f3 fix(faults): replay a fault whose record changed, and refuse an empty list"
+  },
+  {
+    "id": "80e16f3-planted-faults-empty",
+    "patch": "tests/planted-faults/patches/80e16f3-planted-faults-empty.patch",
+    "testFile": "tests/planted-faults.test.ts",
+    "title": "FR\\.w --changed-since with an empty list",
+    "source": "80e16f3 fix(faults): replay a fault whose record changed, and refuse an empty list"
   }
 ]
