@@ -259,6 +259,13 @@ async function replay(
   }
 }
 
+function patchedPaths(fault: Fault): string {
+  const patch = readFileSync(join(root, fault.patch), "utf8");
+  return [...patch.matchAll(/^diff --git a\/(\S+) /gm)]
+    .map(([, path = ""]) => path)
+    .join(" ");
+}
+
 function report(
   fault: Fault,
   verdict: Verdict,
@@ -288,7 +295,7 @@ function report(
       );
       process.stdout.write(verdict.output.replace(/\n?$/, "\n"));
       print(
-        `Repair: plant the fault again by hand, run git diff > ${fault.patch}, then undo the planted edit. ${done}`,
+        `Repair: plant the fault again by hand, run git diff -- ${patchedPaths(fault)} > ${fault.patch}, then undo the planted edit. ${done}`,
       );
       return;
     case "BROKEN":
@@ -386,7 +393,7 @@ function add(argv: readonly string[]): number {
   const faults = readRecords();
   if (faults.some((each) => each.id === id)) {
     process.stderr.write(
-      `${recordsPath} already lists ${id}. Repair: plant it again by hand, run git diff > ${fault.patch}, then undo the planted edit; or add the new record by hand under another id.\n`,
+      `${recordsPath} already lists ${id}. Repair: plant it again by hand, run git diff -- ${sourcePath} > ${fault.patch}, then undo the planted edit; or add the new record by hand under another id.\n`,
     );
     return 2;
   }
