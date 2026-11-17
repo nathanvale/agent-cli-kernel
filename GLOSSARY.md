@@ -9,7 +9,8 @@ that own every other word, Bootstrap among them.
 ### Creating a repository
 
 **Recipe**:
-One row that says which folders Bootstrap copies for one request.
+One row that says which folders Bootstrap copies for one request. The recipe
+table holds every row.
 
 ### Checks
 
