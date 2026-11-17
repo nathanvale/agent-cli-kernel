@@ -1,0 +1,14 @@
+diff --git a/scripts/check-names.ts b/scripts/check-names.ts
+index a941376..c909f49 100644
+--- a/scripts/check-names.ts
++++ b/scripts/check-names.ts
+@@ -133,8 +133,7 @@ function createdPaths(tool: unknown, input: Map<string, unknown>): string[] {
+ function toolCallProblems(hookInput: string, fallbackCwd: string): string[] {
+   const call = ownFields(JSON.parse(hookInput));
+   const cwd = call.get("cwd");
+-  const from =
+-    typeof cwd === "string" ? resolve(fallbackCwd, cwd) : fallbackCwd;
++  const from = typeof cwd === "string" ? cwd : fallbackCwd;
+   return createdPaths(
+     call.get("tool_name"),
+     ownFields(call.get("tool_input")),
