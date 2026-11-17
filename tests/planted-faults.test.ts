@@ -535,6 +535,23 @@ describe("bun run fault-replay", () => {
   );
 
   test(
+    "FR.w --changed-since with an empty list of fault records fails, saying the gate checks nothing",
+    async () => {
+      const { root } = await repositoryWithFault({});
+      const base = git(root, "rev-parse", "HEAD").trim();
+      commit(root, "drop the records", {
+        "tests/planted-faults/fault-records.json": "[]\n",
+      });
+      const run = await faultReplay(root, ["--changed-since", base]);
+      expect(run.lines).toContain(
+        "tests/planted-faults/fault-records.json has no fault record, so this gate checks nothing. Repair: add one with bun run planted-fault:add, or remove the fault-replay gate.",
+      );
+      expect(run.exit).toBe(1);
+    },
+    timeout,
+  );
+
+  test(
     "FR.v --changed-since with no base, or more than one, is a usage error with exit 2",
     async () => {
       const { root } = await repositoryWithFault({});

@@ -314,6 +314,15 @@ export function report(
   }
 }
 
+const recordFields = ["id", "patch", "testFile", "title", "source"] as const;
+
+function recordKey(entry: unknown): string {
+  const own = new Map<string, unknown>(
+    typeof entry === "object" && entry !== null ? Object.entries(entry) : [],
+  );
+  return JSON.stringify(recordFields.map((name) => own.get(name)));
+}
+
 export function faultsTouchedSince(root: string, base: string): string[] {
   if (!git(root, ["rev-parse", "--verify", "--quiet", `${base}^{commit}`]).ok)
     throw new Error(
@@ -331,6 +340,16 @@ export function faultsTouchedSince(root: string, base: string): string[] {
       .split("\0")
       .filter((path) => path !== ""),
   );
+  const recordsChanged = changed.has(recordsPath);
+  const before = recordsChanged
+    ? git(root, ["show", `${base}:${recordsPath}`])
+    : undefined;
+  const earlier: unknown = before?.ok ? JSON.parse(before.stdout) : [];
+  const recordedBefore = new Set(
+    (Array.isArray(earlier) ? earlier : []).map(recordKey),
+  );
+  const recordChanged = (fault: Fault): boolean =>
+    recordsChanged && !recordedBefore.has(recordKey(fault));
   const patched = (fault: Fault): string[] =>
     gitOrThrow(root, ["apply", "--numstat", "-z", fault.patch])
       .split("\0")
@@ -339,6 +358,7 @@ export function faultsTouchedSince(root: string, base: string): string[] {
   return readRecords(root)
     .filter(
       (fault) =>
+        recordChanged(fault) ||
         changed.has(fault.patch) ||
         changed.has(fault.testFile) ||
         patched(fault).some((path) => changed.has(path)),
@@ -463,6 +483,7 @@ function replayChangedSince(
     );
     return 2;
   }
+  if (readRecords(root).length === 0) return replayAll(root, [], process.env);
   const ids = faultsTouchedSince(root, base);
   if (ids.length > 0) return replayAll(root, ids, process.env);
   const short = gitOrThrow(root, ["rev-parse", "--short", base]).trim();

@@ -1161,6 +1161,13 @@ describe("faultsTouchedSince", () => {
     expect(result).toEqual([id]);
   });
 
+  test("names a fault whose record changed, though no file it names did", async () => {
+    const { root, id, fault, base } = twoFaults();
+    recorded(root, [{ ...fault, title: "^L\\.weak " }, other]);
+    const { result } = await isolated(() => faultsTouchedSince(root, base));
+    expect(result).toEqual([id]);
+  });
+
   test("refuses a base git cannot resolve, naming it", async () => {
     const { root } = twoFaults();
     expect(
