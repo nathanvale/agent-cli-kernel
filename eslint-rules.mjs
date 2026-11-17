@@ -15,7 +15,10 @@ const prototypeOwners = new Set([
 const ownerKeys = new WeakMap();
 const commentDirective =
   /^(?:eslint-|eslint |global |@ts-|biome-ignore|fallow-ignore)/;
-const commentMarker = /^(?:Platform|Interface):/;
+const plainMarkers = ["Platform", "Interface"];
+const safetyMarker = "SAFETY";
+const commentMarker = new RegExp(`^(?:${plainMarkers.join("|")}):`);
+const safetyJustification = new RegExp(`^${safetyMarker}:\\s*\\S`);
 const acceptedDecision = /accepted decisions?\b/i;
 
 function constantText(context, node, depth = 0) {
@@ -323,7 +326,7 @@ export default {
         schema: [],
         messages: {
           comment:
-            "Say this in code, then delete the comment: a clearer name, a type, a test title, or a lint rule whose message states the constraint. A comment reads as permission, and the next agent builds on it. Keep a comment only when its first word is Platform: (behaviour of a runtime, operating system or tool this repository cannot change) or Interface: (a public contract the types cannot state), or when it cites an accepted decision (AGENTS.md, Authority). Fix: move the meaning into code and delete the comment.",
+            "Say this in code, then delete the comment: a clearer name, a type, a test title, or a lint rule whose message states the constraint. A comment reads as permission, and the next agent builds on it. Keep a comment only when its first word is Platform: (behaviour of a runtime, operating system or tool this repository cannot change) or Interface: (a public contract the types cannot state), or when it cites an accepted decision (AGENTS.md, Authority), or when it opens with SAFETY: and a justification for a type cast. Fix: move the meaning into code and delete the comment.",
         },
       },
       create(context) {
@@ -335,6 +338,7 @@ export default {
               if (
                 commentDirective.test(first) ||
                 commentMarker.test(first) ||
+                safetyJustification.test(first) ||
                 acceptedDecision.test(lines.join(" "))
               )
                 continue;
