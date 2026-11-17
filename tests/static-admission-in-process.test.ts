@@ -125,13 +125,6 @@ function editJson(root: string, file: string, change: (doc: Fields) => void) {
   writeFileSync(join(root, file), JSON.stringify(doc));
 }
 
-function fakeTool(project: string, name: string, executable: string): void {
-  const path = join(project, "node_modules/.bin", name);
-  mkdirSync(dirname(path), { recursive: true });
-  rmSync(path, { force: true });
-  symlinkSync(executable, path);
-}
-
 function stubTool(project: string, name: string, body: string): void {
   const path = join(project, "node_modules/.bin", name);
   mkdirSync(dirname(path), { recursive: true });
@@ -745,8 +738,7 @@ test("discoveryScope refuses a project whose lint rules file is no entry", async
 
 function listingProject(script: string): string {
   const project = toolProject();
-  fakeTool(project, "fallow", "/bin/sh");
-  grow(project, { list: script });
+  stubTool(project, "fallow", script);
   return project;
 }
 
