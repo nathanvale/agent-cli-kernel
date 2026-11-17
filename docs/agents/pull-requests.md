@@ -13,7 +13,7 @@
   document's owner. Push the fixes as one batch.
 - Stop requesting reviews after the third round. Ask Copilot again only
   after the first and second batches. CodeRabbit pauses after one
-  reviewed commit, so post `@coderabbitai review` with each later fix
-  batch. After round three, address comments that identify real faults.
+  reviewed commit, so post `@coderabbitai review` with those same two
+  batches. After round three, address comments that identify real faults.
 - Merge with a merge commit on the operator's word. GitHub protects
   `main` from direct pushes.
