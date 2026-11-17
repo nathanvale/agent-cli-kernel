@@ -432,5 +432,12 @@
     "testFile": "tests/naming/check-names.test.ts",
     "title": "^CN\\.h ",
     "source": "70a3dc5 fix(naming): name the repair when git has no staged glossary or recorded hits"
+  },
+  {
+    "id": "d5737c7-check-names",
+    "patch": "tests/planted-faults/patches/d5737c7-check-names.patch",
+    "testFile": "tests/naming/names-check-hook.test.ts",
+    "title": "^NG\\.g ",
+    "source": "d5737c7 fix(names): name the missing field of a recognised tool call (GREEN)"
   }
 ]
