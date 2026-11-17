@@ -27,6 +27,9 @@ repository broke it.
   the shared test-execution rule asks for. A test entry such as `fixture.ts`,
   or a fault-wrapped CLI, proves only the fixture. Witnessed: [e55f94a],
   [7ea1ee3].
+- Start the entry from the folder a caller starts it in. `bun run <script>`
+  moves the child to the package root, so a proof through a package script
+  never exercises the entry's own process folder. Witnessed: [c5a554e].
 
 ## In-process tests
 
@@ -104,3 +107,4 @@ repository broke it.
 [07d2d72]: https://github.com/nathanvale/bun-typescript-template/commit/07d2d72ed7c68fda55cd6b065dbb5b4e5f407763
 [e50afb6]: https://github.com/nathanvale/bun-typescript-template/commit/e50afb6e27a9facc40ec0b932779ffa81a29784c
 [244b63a]: https://github.com/nathanvale/bun-typescript-template/commit/244b63a814ddbb60b4831cabc0e2f8cd1b73bca4
+[c5a554e]: https://github.com/nathanvale/bun-typescript-template/commit/c5a554e0034342f6918775909fcd3b15e27facca
