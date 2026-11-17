@@ -24,6 +24,10 @@ repository broke it.
   when its location supplies it. `STATE_TEST_DIR` can place a test folder
   inside the checkout, where git finds the parent repository for a case that
   expects none. Witnessed: [8946615].
+- Show that a planted input changes the result when nothing blocks it, with
+  a control, before asserting the subject ignores it. A `HOME` change under
+  `GIT_CONFIG_GLOBAL=/dev/null` hides the planted `.gitconfig` whether or not
+  the isolation works. Witnessed: [315de28].
 
 ## Production entry
 
@@ -116,3 +120,4 @@ repository broke it.
 [c5a554e]: https://github.com/nathanvale/bun-typescript-template/commit/c5a554e0034342f6918775909fcd3b15e27facca
 [8946615]: https://github.com/nathanvale/bun-typescript-template/commit/894661580864b423b07cd4571bdd0c9da69c1911
 [7623343]: https://github.com/nathanvale/bun-typescript-template/commit/76233438395b1e967f461ded4a34f6c1d2c8a533
+[315de28]: https://github.com/nathanvale/bun-typescript-template/commit/315de28d3e1da69a4e8d65923654846405a3d1c8
