@@ -53,7 +53,7 @@ async function fixesFor(rule: string, filePath: string, failing: string) {
   const found = await hits(rule, filePath, failing);
   if (found.length === 0) throw new Error(`No ${rule} hit in ${failing}.`);
   return found.map(({ message }) => {
-    const fix = message.split(" Fix: ")[1];
+    const fix = message.split(" Repair: ")[1];
     if (fix === undefined) throw new Error(`No fix in ${message}.`);
     return fix;
   });
@@ -61,7 +61,9 @@ async function fixesFor(rule: string, filePath: string, failing: string) {
 
 async function ownerImport(rule: string, filePath: string, failing: string) {
   const [first] = await hits(rule, filePath, failing);
-  const line = / Import the owner once: (.*;) Fix: /.exec(first?.message ?? "");
+  const line = / Import the owner once: (.*;) Repair: /.exec(
+    first?.message ?? "",
+  );
   if (line?.[1] === undefined) throw new Error(`No import in ${failing}.`);
   return line[1];
 }
@@ -935,6 +937,6 @@ for (const [filePath, code, lines] of commentCases)
     expect(found.map(({ line }) => line)).toEqual([...lines]);
     for (const { message } of found)
       expect(message).toContain(
-        "Fix: move the meaning into code and delete the comment.",
+        "Repair: say this in code (a clearer name, a type, a test title, or a lint rule whose message states the constraint), then delete the comment.",
       );
   });
