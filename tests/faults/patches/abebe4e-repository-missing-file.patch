@@ -1,0 +1,15 @@
+diff --git a/scripts/repository.ts b/scripts/repository.ts
+index cbc4b7c..b02ff0a 100644
+--- a/scripts/repository.ts
++++ b/scripts/repository.ts
+@@ -87,10 +87,6 @@ function checkRecordedOrigin(value: unknown): void {
+ 
+ export function readRepository(root: string): Repository {
+   const path = join(root, file);
+-  if (!existsSync(path))
+-    throw new Error(
+-      `${file} is missing at ${root}. Each repository that runs these gates describes itself there: copy the template's and set its web address and test areas.`,
+-    );
+   const description = fields(
+     JSON.parse(readFileSync(path, "utf8")),
+     "the file",

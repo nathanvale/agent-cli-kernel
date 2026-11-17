@@ -1,10 +1,10 @@
 ---
 
-name: repo-steward
-description: Keep the rule table in `CODING_STANDARDS.md` in step with its witnesses and gates. Use after an operator correction or a review finding, or to give a Review only or Partial row a gate.
+name: repo-gardener
+description: Keep the rule table in `CODING_STANDARDS.md` in step with its witnesses and gates. Use after an operator correction or a review finding, to give a Review only or Partial row a gate, or to weed what nothing uses any more.
 ---
 
-# Repo steward
+# Repo gardener
 
 Paths below are from the repository root. These owners hold the rules; follow
 each pointer rather than a copy:
@@ -26,6 +26,7 @@ each pointer rather than a copy:
 
 Take **Correct** when the prompt brings a correction or a review finding.
 Take **Promote** when it names a Review only or Partial row to gate.
+Take **Weed** when it asks you to clear out what nothing uses any more.
 
 ## Lint owners
 
@@ -49,8 +50,9 @@ A lint rule's owner decides its three files:
 
 Change only `CODING_STANDARDS.md`, `docs/standards/`, the six files in
 [Lint owners](#lint-owners), `eslint-suppressions.json`, `tests/faults/` and
-`tests/standards/`. Report a change the lesson needs anywhere else, with its
-path, for that path's owner.
+`tests/standards/`. Weed may also change `AGENTS.md` and `.agents/skills/`.
+Report a change the lesson needs anywhere else, with its path, for that
+path's owner.
 
 Start on a clean tree. When `git status --porcelain` prints anything, change
 nothing and report its output: the scope check below cannot tell your edits
@@ -135,4 +137,36 @@ Done when each item holds:
 - `bun run lint`, `bun run typecheck` and `bun run format:check` exit 0.
 - `bun run test:area standards` passes.
 - No guide bullet restates what the gate refuses.
+- `git status --porcelain` lists only write-scope paths.
+
+## Weed
+
+Remove what nothing uses any more.
+
+1. List the candidates: each row of the rule table, each bullet in a guide
+   under `docs/standards/`, each link definition at the end of
+   `CODING_STANDARDS.md` or a guide, and each path that `AGENTS.md` or a
+   `SKILL.md` points to.
+2. Decide which candidates are in use:
+   - A row is in use when its guide or gate note cites a witness, or its
+     Gates cell names a gate.
+   - A guide bullet is in use unless a gate note says a gate refuses, in
+     full, what the bullet teaches.
+   - A link definition is in use when text in the same file cites its label.
+   - A pointer is in use when its path exists in this repository. Keep a
+     pointer into another repository, and report it for its owner.
+3. Before you remove a candidate that is not in use, find out why it was
+   added. Read its witness with `git show <sha>`, or find the commit that
+   added it with `git log -S'<its text>' -- <file>`. When the reason still
+   applies, keep it. When you find no reason, keep it and report it.
+4. Remove each candidate that is left. Commit nothing: the caller approves a
+   removal by committing it.
+5. Report each removal with why it was added and the command and output
+   that show nothing uses it. Report what you kept and why.
+
+Done when each item holds:
+
+- Each removal is reported with its reason and its proof.
+- `bun run test:area standards` passes.
+- `bun run format:check` exits 0.
 - `git status --porcelain` lists only write-scope paths.

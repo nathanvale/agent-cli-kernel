@@ -119,6 +119,48 @@
     "source": "64b4738 feat(lint): the kernel lint module takes its folders as settings (MAG-121)"
   },
   {
+    "id": "4afda36-project-recipe",
+    "patch": "tests/faults/patches/4afda36-project-recipe.patch",
+    "testFile": "tests/project-recipe.test.ts",
+    "title": "no row and no refusal matches throws",
+    "source": "4afda36 fix(recipe): name the starter-with-monorepo refusal's condition, throw if none matches"
+  },
+  {
+    "id": "abebe4e-repository-unknown-key",
+    "patch": "tests/faults/patches/abebe4e-repository-unknown-key.patch",
+    "testFile": "tests/repository.test.ts",
+    "title": "^an unknown key is refused",
+    "source": "abebe4e Gate tools read the repository from repository.json"
+  },
+  {
+    "id": "abebe4e-repository-missing-key",
+    "patch": "tests/faults/patches/abebe4e-repository-missing-key.patch",
+    "testFile": "tests/repository.test.ts",
+    "title": "^a missing key is refused",
+    "source": "abebe4e Gate tools read the repository from repository.json"
+  },
+  {
+    "id": "abebe4e-repository-commit",
+    "patch": "tests/faults/patches/abebe4e-repository-commit.patch",
+    "testFile": "tests/repository.test.ts",
+    "title": "^a commit that is not a full SHA is refused",
+    "source": "abebe4e Gate tools read the repository from repository.json"
+  },
+  {
+    "id": "abebe4e-repository-web",
+    "patch": "tests/faults/patches/abebe4e-repository-web.patch",
+    "testFile": "tests/repository.test.ts",
+    "title": "^a web address that is not a GitHub repository page is refused",
+    "source": "abebe4e Gate tools read the repository from repository.json"
+  },
+  {
+    "id": "abebe4e-repository-missing-file",
+    "patch": "tests/faults/patches/abebe4e-repository-missing-file.patch",
+    "testFile": "tests/repository.test.ts",
+    "title": "^a missing file is refused",
+    "source": "abebe4e Gate tools read the repository from repository.json"
+  },
+  {
     "id": "f86c589-glossary-avoid",
     "patch": "tests/faults/patches/f86c589-glossary-avoid.patch",
     "testFile": "tests/naming/names.test.ts",
