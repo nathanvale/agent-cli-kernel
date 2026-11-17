@@ -27,12 +27,12 @@
       "reason": "Holds the fault records. The fault tools, the standards test and two skills name this path; renaming it is its own change."
     },
     {
-      "path": "tests/contract3/locks/probes.test.ts",
+      "path": "tests/kernel/locks/probes.test.ts",
       "word": "probe",
       "reason": "Kernel file, named by the kernel's own words. Remove this entry when the kernel leaves."
     },
     {
-      "path": "tests/contract3/locks/probes.ts",
+      "path": "tests/kernel/locks/probes.ts",
       "word": "probe",
       "reason": "Kernel file, named by the kernel's own words. Remove this entry when the kernel leaves."
     },

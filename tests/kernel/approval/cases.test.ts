@@ -49,8 +49,8 @@ test("every executable case reaches a passing expectCase comparison", async () =
       [
         process.execPath,
         "test",
-        "tests/contract3/approval/component.test.ts",
-        "tests/contract3/approval/process.test.ts",
+        "tests/kernel/approval/component.test.ts",
+        "tests/kernel/approval/process.test.ts",
       ],
       {
         cwd: new URL("../../../", import.meta.url).pathname,

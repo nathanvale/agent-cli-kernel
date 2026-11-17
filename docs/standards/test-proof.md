@@ -44,8 +44,8 @@ repository broke it.
 - Template tests: reuse `spawnBounded` (`tests/support/process.ts`), which
   runs the child through `startChild` (`scripts/process-runner.ts`), for that
   bound. Contract 3 tests: reuse `spawnBounded`
-  (`tests/contract3/kernel-repair/swarm-process.ts`) or `exitWithin`
-  (`tests/contract3/lifecycle/harness.ts`).
+  (`tests/kernel/kernel-repair/swarm-process.ts`) or `exitWithin`
+  (`tests/kernel/lifecycle/harness.ts`).
 - Release in `finally`: the CLI, then each ledgered child, then the temporary
   folder. Witnessed: [d592b6d], [70c7280] (released in `afterAll`, so a
   failing case left its process group alive).
@@ -56,7 +56,7 @@ repository broke it.
 
 - Wait on an event the subject produces (a ready file, ledger line, or
   barrier), or drive the fake clock in
-  `tests/contract3/lifecycle/recording-host.ts`. Witnessed: [b077b0b],
+  `tests/kernel/lifecycle/recording-host.ts`. Witnessed: [b077b0b],
   [4386b03].
 - Widen a race control until it catches its fault on every run. Witnessed:
   [2b2907a] (caught in 48 of 50 runs before widening).

@@ -54,7 +54,7 @@ function recordName(parts: readonly string[]): string {
   return `${digest(parts)}.json`;
 }
 
-const tests = "tests/contract3/approval";
+const tests = "tests/kernel/approval";
 
 export async function materialize(): Promise<{
   readonly root: string;

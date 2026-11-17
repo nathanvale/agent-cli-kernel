@@ -5,15 +5,15 @@
   "scope": [
     "kernel/src/**/*.{ts,mts,cts,md}",
     "kernel/config/kernel/eslint.mjs",
-    "tests/contract3/**/*.{ts,mts,cts,md}",
-    "tests/contract3/**/*.ts.txt"
+    "tests/kernel/**/*.{ts,mts,cts,md}",
+    "tests/kernel/**/*.ts.txt"
   ],
   "exempt": [
-    "tests/contract3/state/cases.ts",
-    "tests/contract3/approval/cases.ts",
-    "tests/contract3/locks/cases.ts",
-    "tests/contract3/kernel-repair/cases.ts",
-    "tests/contract3/lifecycle/oracle.ts"
+    "tests/kernel/state/cases.ts",
+    "tests/kernel/approval/cases.ts",
+    "tests/kernel/locks/cases.ts",
+    "tests/kernel/kernel-repair/cases.ts",
+    "tests/kernel/lifecycle/oracle.ts"
   ],
   "terms": [
     {

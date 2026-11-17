@@ -1062,7 +1062,7 @@ test("T4S.r5-fixture-lint: the materialized tree passes contract3 lint", async (
           : [],
       )
     : [];
-  expect(files).toContainEqual(["/tests/contract3/approval/driver.ts", 0]);
+  expect(files).toContainEqual(["/tests/kernel/approval/driver.ts", 0]);
   expect(files).toContainEqual(["/kernel/src/addons/state/coordination.ts", 0]);
 }, 120_000);
 

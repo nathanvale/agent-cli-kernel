@@ -16,7 +16,7 @@ each pointer rather than a copy:
   seen once.
 - [tests/lint-rules.test.ts](../../../tests/lint-rules.test.ts) for template
   rules and
-  [tests/contract3/lint-rules.test.ts](../../../tests/contract3/lint-rules.test.ts)
+  [tests/kernel/lint-rules.test.ts](../../../tests/kernel/lint-rules.test.ts)
   for kernel rules: a failing and a passing snippet for each lint, each case
   naming its witness.
 - [Planted-fault guide](../../../docs/standards/test-proof.md#planted-faults):
@@ -32,10 +32,10 @@ Take **Weed** when it asks you to clear out what nothing uses any more.
 
 A lint rule's owner decides its three files:
 
-| Owner    | Rule file                            | Turned on in                        | Cases                                |
-| -------- | ------------------------------------ | ----------------------------------- | ------------------------------------ |
-| Template | `config/template-rules.mjs`          | `eslint.config.mjs`                 | `tests/lint-rules.test.ts`           |
-| Kernel   | `config/kernel-repository-rules.mjs` | `config/kernel-repository-lint.mjs` | `tests/contract3/lint-rules.test.ts` |
+| Owner    | Rule file                            | Turned on in                        | Cases                             |
+| -------- | ------------------------------------ | ----------------------------------- | --------------------------------- |
+| Template | `config/template-rules.mjs`          | `eslint.config.mjs`                 | `tests/lint-rules.test.ts`        |
+| Kernel   | `config/kernel-repository-rules.mjs` | `config/kernel-repository-lint.mjs` | `tests/kernel/lint-rules.test.ts` |
 
 - A rule both owners need has one copy per owner. Change both rule files to
   the same text, with a case in each owner's cases file.

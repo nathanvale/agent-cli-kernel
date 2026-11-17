@@ -434,7 +434,7 @@ const cases = [
   {
     rule: "require-to-throw-message",
     witness: "185c90d",
-    filePath: "tests/contract3/stations.test.ts",
+    filePath: "tests/kernel/stations.test.ts",
     failing: [
       'const list = { name: "list" };',
       'expect(() => contractFor({ cli: "notes", commands: [list, list] })).toThrow();',
@@ -452,7 +452,7 @@ const cases = [
   {
     rule: "tests-use-test-folder",
     witness: "c0b4bf5",
-    filePath: "tests/contract3/state/route.test.ts",
+    filePath: "tests/kernel/state/route.test.ts",
     failing: [
       'import { mkdtempSync, realpathSync } from "node:fs";',
       'import { tmpdir } from "node:os";',
@@ -470,7 +470,7 @@ const cases = [
   {
     rule: "tests-no-sleep",
     witness: "d1436c0",
-    filePath: "tests/contract3/lifecycle/harness.ts",
+    filePath: "tests/kernel/lifecycle/harness.ts",
     failing: [
       "export async function exitWithin(done: Promise<number>, ms: number) {",
       "  const observed = await Promise.race([",
@@ -512,7 +512,7 @@ for (const item of cases)
 test("require-to-throw-message refuses a bare rejects.toThrow()", async () => {
   const found = await hits(
     "require-to-throw-message",
-    "tests/contract3/state/component.test.ts",
+    "tests/kernel/state/component.test.ts",
     'await expect(Promise.reject(new Error("limit"))).rejects.toThrow();',
   );
   expect(found.map(({ line }) => line)).toEqual([1]);
@@ -752,7 +752,7 @@ for (const [rule, code, fix] of bypasses)
   test(`${rule} ${fix ? "refuses" : "admits"} ${code} and names the fix`, async () => {
     const found = await hits(
       rule,
-      "tests/contract3/state/component.test.ts",
+      "tests/kernel/state/component.test.ts",
       code,
     );
     expect(
@@ -774,7 +774,7 @@ test("tests-no-sleep admits the spawnBounded watchdog, which resolves a named va
   expect(
     await hits(
       "tests-no-sleep",
-      "tests/contract3/kernel-repair/swarm-process.ts",
+      "tests/kernel/kernel-repair/swarm-process.ts",
       await Bun.file(
         resolve(import.meta.dir, "kernel-repair/swarm-process.ts"),
       ).text(),
@@ -802,7 +802,7 @@ const sleeps = [
 test("tests-no-sleep refuses a promise delay and admits a watchdog", async () => {
   const found = await hits(
     "tests-no-sleep",
-    "tests/contract3/lifecycle/stop-flow.test.ts",
+    "tests/kernel/lifecycle/stop-flow.test.ts",
     sleeps.map(([line]) => line).join("\n"),
   );
   expect(found.map(({ line }) => line)).toEqual(
@@ -822,7 +822,7 @@ const commentCases = [
     [1],
   ],
   [
-    "tests/contract3/state/component.test.ts",
+    "tests/kernel/state/component.test.ts",
     "/* Narration */ export const a = 1;",
     [1],
   ],
@@ -888,7 +888,7 @@ const commentCases = [
     [],
   ],
   [
-    "tests/contract3/state/component.test.ts",
+    "tests/kernel/state/component.test.ts",
     "// The accepted\n// decision N4a keeps the line on stdout.\nexport const a = 1;",
     [],
   ],

@@ -581,7 +581,7 @@ describe("glossary check proof", () => {
     ],
     [
       "test-title",
-      "tests/contract3/probe.test.ts",
+      "tests/kernel/probe.test.ts",
       'test("the step passed before dispatch", () => {});\n',
       "Handler entry / test-title",
     ],
@@ -647,7 +647,7 @@ describe("glossary check proof", () => {
   });
 
   test("R2 F3: a bare harness before the first test harness is reported, every one", () => {
-    const file = "tests/contract3/probe.test.ts";
+    const file = "tests/kernel/probe.test.ts";
     const bareFirst =
       "// the harness starts\n// the test harness owns it\n// the harness stops\nexport const a = 1;\n";
     expect(count(file, bareFirst, "Test harness")).toBe(2);
@@ -666,7 +666,7 @@ describe("glossary check proof", () => {
     ).toBe(1);
     expect(
       count(
-        "tests/contract3/probe.test.ts",
+        "tests/kernel/probe.test.ts",
         'test("Before dispatch the deadline holds", () => {});\n',
         "Handler entry",
       ),
@@ -730,7 +730,7 @@ describe("glossary check proof", () => {
   test("R7 quotes: a listed contract row title in double quotes is a quote", () => {
     expect(
       count(
-        "tests/contract3/probe.test.ts",
+        "tests/kernel/probe.test.ts",
         '// The lifecycle row "Deadline before operation dispatch" is read as before handler entry.\nexport const a = 1;\n',
         "Handler entry",
       ),

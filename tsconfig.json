@@ -7,7 +7,7 @@
     "kernel/src/**/*.ts",
     "kernel/src/**/*.mts",
     "kernel/src/**/*.cts",
-    "tests/contract3/**/*.mts",
-    "tests/contract3/**/*.cts"
+    "tests/kernel/**/*.mts",
+    "tests/kernel/**/*.cts"
   ]
 }

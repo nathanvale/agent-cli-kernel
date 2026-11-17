@@ -282,7 +282,7 @@ route per platform, behind one interface (`coordination.ts`):
 - Qualified where (observed, never implied beyond it):
   - Darwin: lock probe, 16 November 2026, macOS 26.6, APFS local volume,
     Bun 1.4.4.
-  - The lock probe (`tests/contract3/state/linux-coordination.probe.test.ts`)
+  - The lock probe (`tests/kernel/state/linux-coordination.probe.test.ts`)
     is an observation instrument: its rows pass whatever the candidates do,
     and prove nothing by themselves. Its printed `PROBE` lines are the
     evidence a reviewer judges; the behaviour is proved by the case table.
@@ -461,7 +461,7 @@ every closure it enables is stamped `fixture:<label>`.
 ## 11. Transition table and crash boundaries (REC-8)
 
 Every transition maps to at least one frozen case identity in
-`tests/contract3/state/cases.ts`. A crash at the boundary named in the
+`tests/kernel/state/cases.ts`. A crash at the boundary named in the
 second column leaves the durable state in the third.
 
 | Id  | Transition                                    | Crash at boundary leaves                                  | Cases               |

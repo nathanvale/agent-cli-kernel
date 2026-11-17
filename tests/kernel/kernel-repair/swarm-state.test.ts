@@ -24,7 +24,7 @@ function run(
     scenario,
     argv,
     env,
-    join(root, "tests/contract3/kernel-repair/swarm-state-cli.ts"),
+    join(root, "tests/kernel/kernel-repair/swarm-state-cli.ts"),
     signalAt,
   );
 }

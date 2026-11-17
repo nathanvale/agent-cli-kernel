@@ -328,7 +328,7 @@ export default {
         schema: [],
         messages: {
           sleep:
-            "Wait on the event the test is about: a ready file, a ledger line, a barrier or the process exit, or drive the fake clock in tests/contract3/lifecycle/recording-host.ts. {{what}} waits on wall time, so the test passes on a fast host and fails on a loaded one. To bound a wait, race the event against a setTimeout that rejects or aborts.",
+            "Wait on the event the test is about: a ready file, a ledger line, a barrier or the process exit, or drive the fake clock in tests/kernel/lifecycle/recording-host.ts. {{what}} waits on wall time, so the test passes on a fast host and fails on a loaded one. To bound a wait, race the event against a setTimeout that rejects or aborts.",
         },
       },
       create(context) {

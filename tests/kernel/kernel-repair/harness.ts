@@ -48,11 +48,11 @@ const stateModules = [
 ] as const;
 export const materialisedFixtures: readonly string[] = [
   ...stateModules.map((name) => `kernel/src/addons/state/${name}.ts`),
-  "tests/contract3/kernel-repair/driver.ts",
-  "tests/contract3/kernel-repair/swarm-state-cli.ts",
-  "tests/contract3/kernel-repair/r18-spec.ts",
-  "tests/contract3/kernel-repair/shapes.ts",
-  "tests/contract3/kernel-repair/swarm-approval.ts",
+  "tests/kernel/kernel-repair/driver.ts",
+  "tests/kernel/kernel-repair/swarm-state-cli.ts",
+  "tests/kernel/kernel-repair/r18-spec.ts",
+  "tests/kernel/kernel-repair/shapes.ts",
+  "tests/kernel/kernel-repair/swarm-approval.ts",
 ];
 
 export async function materialise(): Promise<string> {
@@ -60,7 +60,7 @@ export async function materialise(): Promise<string> {
     join(await realpath(tmpdir()), "contract3-repair-"),
   );
   const source = join(root, "kernel/src");
-  const tests = join(root, "tests/contract3/kernel-repair");
+  const tests = join(root, "tests/kernel/kernel-repair");
   await mkdir(join(source, "addons/state"), { recursive: true });
   await mkdir(tests, { recursive: true });
   await cp(join(repository, "kernel/src/kernel"), join(source, "kernel"), {
@@ -96,7 +96,7 @@ export async function stateFixture(name: string): Promise<unknown> {
   const root = await materialise();
   try {
     const run = await spawnBounded(
-      [process.execPath, "tests/contract3/kernel-repair/driver.ts", name],
+      [process.execPath, "tests/kernel/kernel-repair/driver.ts", name],
       { cwd: root },
     );
     expect({ exit: run.exit, stderr: run.stderr }).toEqual({

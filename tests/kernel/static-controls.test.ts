@@ -5,7 +5,7 @@ import { ESLint } from "eslint";
 import { reviewSpecimens } from "./locks/review-specimens.ts";
 
 const root = resolve(import.meta.dir, "../..");
-const probes = resolve(root, "tests/contract3/lint-probes");
+const probes = resolve(root, "tests/kernel/lint-probes");
 let stateProbes: string;
 let handlerProbes: string;
 const eslint = new ESLint({ cwd: root });
@@ -148,7 +148,7 @@ test("production files receive the same policy and source cannot import tests", 
   expect(
     (
       await findings(
-        'import "../../../../tests/contract3/contract.test.ts";',
+        'import "../../../../tests/kernel/contract.test.ts";',
         file,
       )
     ).map((m) => m.ruleId),
@@ -201,7 +201,7 @@ test("effective config covers every rooted contract role and extension", async (
     }
   }
   const lockConfig: unknown = await eslint.calculateConfigForFile(
-    "tests/contract3/locks/control.ts",
+    "tests/kernel/locks/control.ts",
   );
   expect(lockConfig).toMatchObject({
     rules: {

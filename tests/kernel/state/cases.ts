@@ -291,7 +291,7 @@ export const stateCases: readonly StateCase[] = [
     ...anyPlatform,
     sources: "DISC-13; CMD-10; V-19; GATE-7 K2 K5 K6",
     observation:
-      "Discovery shows every changing specimen command, including the recovery command, naming the declared inspect report as ifNoResult; compiler locks K2, K5 and K6 stay in tests/contract3/locks.",
+      "Discovery shows every changing specimen command, including the recovery command, naming the declared inspect report as ifNoResult; compiler locks K2, K5 and K6 stay in tests/kernel/locks.",
     red: "Remove the state-owned value requirement.",
   },
   {

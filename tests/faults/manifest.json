@@ -2,35 +2,35 @@
   {
     "id": "6021454-install",
     "patch": "tests/faults/patches/6021454-install.patch",
-    "testFile": "tests/contract3/state/component.test.ts",
+    "testFile": "tests/kernel/state/component.test.ts",
     "title": "^NW\\.[ab] ",
     "source": "6021454 fix(state): refuse a wait limit that is not a number"
   },
   {
     "id": "b456208-json-equality",
     "patch": "tests/faults/patches/b456208-json-equality.patch",
-    "testFile": "tests/contract3/kernel-repair/equality.test.ts",
+    "testFile": "tests/kernel/kernel-repair/equality.test.ts",
     "title": "^R15\\.",
     "source": "b456208 fix(contract3): JSON equality sorts keys by code unit, not locale (F16)"
   },
   {
     "id": "e55f94a-framing",
     "patch": "tests/faults/patches/e55f94a-framing.patch",
-    "testFile": "tests/contract3/state/journal.test.ts",
+    "testFile": "tests/kernel/state/journal.test.ts",
     "title": "^J04\\.g-",
     "source": "e55f94a fix(contract3-state): repair round 1, test seams off the host path and missing controls"
   },
   {
     "id": "1a93f4b-index",
     "patch": "tests/faults/patches/1a93f4b-index.patch",
-    "testFile": "tests/contract3/kernel-followup/decision-1.test.ts",
+    "testFile": "tests/kernel/kernel-followup/decision-1.test.ts",
     "title": "^KF1\\.c ",
     "source": "1a93f4b feat(contract3): refuse an add-on attach fault before handler entry as a preparation fault (KF1)"
   },
   {
     "id": "5ac4285-eslint-rules",
     "patch": "tests/faults/patches/5ac4285-eslint-rules.patch",
-    "testFile": "tests/contract3/lint-rules.test.ts",
+    "testFile": "tests/kernel/lint-rules.test.ts",
     "title": "^no-comments refuses .*Note\\.",
     "source": "5ac4285 feat(lint): refuse comments, except Platform:, Interface: and accepted decisions"
   },
@@ -65,7 +65,7 @@
   {
     "id": "bbfce9a-eslint-rules",
     "patch": "tests/faults/patches/bbfce9a-eslint-rules.patch",
-    "testFile": "tests/contract3/lint-rules.test.ts",
+    "testFile": "tests/kernel/lint-rules.test.ts",
     "title": "^no-comments refuses .*nothing here is cast",
     "source": "bbfce9a fix(lint): admit a SAFETY: block only where anti-slop accepts the cast"
   },
@@ -79,7 +79,7 @@
   {
     "id": "64b4738-eslint-rules",
     "patch": "tests/faults/patches/64b4738-eslint-rules.patch",
-    "testFile": "tests/contract3/generated-repository-lint.test.ts",
+    "testFile": "tests/kernel/generated-repository-lint.test.ts",
     "title": "kernelLint settings cause-literal-owner without settings\\.kernel\\.srcDir fails loudly$",
     "source": "64b4738 feat(lint): the kernel lint module takes its folders as settings (MAG-121)"
   },
@@ -114,7 +114,7 @@
   {
     "id": "64b4738-eslint",
     "patch": "tests/faults/patches/64b4738-eslint.patch",
-    "testFile": "tests/contract3/generated-repository-lint.test.ts",
+    "testFile": "tests/kernel/generated-repository-lint.test.ts",
     "title": "kernelLint settings a missing srcDir fails loudly$",
     "source": "64b4738 feat(lint): the kernel lint module takes its folders as settings (MAG-121)"
   },

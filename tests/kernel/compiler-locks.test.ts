@@ -10,7 +10,7 @@ const root = resolve(import.meta.dir, "../..");
 const probe = probeBatch("contract3-locks-");
 
 const lockProbes = [...locks, ...exhaustiveness, ...boundaries].map((lock) => {
-  const prefix = `import * as F from ${JSON.stringify(join(root, "tests/contract3/locks/fixtures.ts"))};\n${lock.setup}\n`;
+  const prefix = `import * as F from ${JSON.stringify(join(root, "tests/kernel/locks/fixtures.ts"))};\n${lock.setup}\n`;
   const guarded = `${prefix}// @ts-expect-error -- ${lock.id}: accepted invalid lock\n${lock.invalid}\n`;
   const marked = probe(guarded, ["native"]);
   const invalid = probe(

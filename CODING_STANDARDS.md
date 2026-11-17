@@ -67,7 +67,7 @@ row's guide or gate note cites two distinct witnesses.
 - `R1.platform-outcomes-pinned` pins unproved diagnostics rows only.
 - State `caseTest` titles can show `UNPROVED` off their platform, but no test
   pins their count.
-- `tests/contract3/approval/component.test.ts` still reports unproved cases
+- `tests/kernel/approval/component.test.ts` still reports unproved cases
   through `test.skip`.
 - `.github/workflows/macos-nightly.yml` runs on schedule once it reaches
   `main`.
@@ -139,7 +139,7 @@ row's guide or gate note cites two distinct witnesses.
   property, a destructured name, or a constant string such as
   `Reflect.get(Intl, "Collator")`.
 - Tests stay review. The R15 locale arm in
-  `tests/contract3/kernel-repair/equality.test.ts` swaps the collation on
+  `tests/kernel/kernel-repair/equality.test.ts` swaps the collation on
   purpose.
 - Other source stays review in this table. The kernel's own lint covers
   `kernel/src/`.
@@ -172,9 +172,9 @@ row's guide or gate note cites two distinct witnesses.
 
 - Lint `repository/no-comments` refuses every comment block in a file
   `eslint.config.mjs` lints outside the kernel: `src/`, `scripts/`, `tests/`
-  outside `tests/contract3/`, `config/` and the root `.mjs` files.
+  outside `tests/kernel/`, `config/` and the root `.mjs` files.
   Consecutive line comments are one block. The kernel's copy of the rule
-  covers `kernel/` and `tests/contract3/`.
+  covers `kernel/` and `tests/kernel/`.
 - A block stays only when it is one of these:
   - `Platform:` on its first line: behaviour of a runtime, operating system
     or tool this repository cannot change, such as an errno meaning or a Bun
