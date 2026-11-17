@@ -35,7 +35,6 @@ export type DeclaredStation = StationWords & {
     | { readonly next: import("./types.ts").NextStep; readonly handoff?: never }
     | { readonly handoff: import("./types.ts").Handoff; readonly next?: never };
 };
-// DISC-11b: the stations the fallback can select keep the base's fixed words.
 export function reservedFallbackCause(causeCode: string): boolean {
   return internalResultCode(causeCode) || causeCode === "INTERNAL_PREPARATION";
 }
@@ -46,8 +45,6 @@ export function freeze<T>(value: T): T {
   }
   return value;
 }
-// The exact key set station() builds. A raw declaration's station may carry
-// no other (WIRE-1, DISC-8; K1-5), so admission checks against this list.
 export const declaredStationKeys: readonly (keyof DeclaredStation)[] = [
   "commandIdentity",
   "causeCode",
@@ -113,7 +110,6 @@ export function validateWords(
   const guidance = spec.guidance;
   if (declaredSteps(guidance).some((step) => carriesGlobalSwitch(step.args)))
     throw new Error("Command step args carry a global switch before --.");
-  // DISC-8: guidance is strict `{ next }` or strict `{ handoff }` (K1-5).
   if (
     !record(guidance) ||
     !keys(guidance, [row.guidance]) ||
@@ -128,9 +124,6 @@ export function validateWords(
     throw new Error("Retry correlation.");
   validateDelay(spec.retryDelayPolicy, row.retryable);
 }
-// The command steps a declared guidance arm names, read defensively because
-// a raw declaration reaches this check before its shape is proven. Kept
-// apart from nextStep so the refusal names the switch rule (S8).
 function declaredSteps(
   guidance: DeclaredStation["guidance"],
 ): readonly { readonly args: readonly unknown[] }[] {
@@ -146,7 +139,6 @@ function declaredSteps(
       : [],
   );
 }
-// DISC-8: the policy is strict; an extra key is never published (K1-5).
 function validateDelay(policy: RetryDelayPolicy, retryable: boolean): void {
   if (!record(policy)) throw new Error("Invalid retry bounds.");
   if (!retryable) {

@@ -20,7 +20,7 @@ test("the catalogue declares the exact routed tuple vocabulary", () => {
     "example.set|success|SUCCESS_UNCHANGED",
     "example.status|failed|INTERNAL_RESULT_UNCHANGED",
     "example.status|success|SUCCESS_UNCHANGED",
-  ]; // Independent literal oracle for the sealed routed tuple vocabulary.
+  ];
 
   expect(identities.sort()).toEqual(expectedIdentities);
   expect(new Set(identities).size).toBe(allStations.length);
@@ -49,7 +49,7 @@ test("status declares its successful unchanged inspection station", () => {
     transactionState: "unchanged",
     trigger: "The current state is inspected.",
     unreachableRationale: null,
-  }); // Independent literal oracle for the status station contract.
+  });
 });
 
 test("status declares invalid persisted state as failed and unchanged", () => {
@@ -80,7 +80,7 @@ test("status declares invalid persisted state as failed and unchanged", () => {
     transactionState: "unchanged",
     trigger: "The persisted state does not match its schema.",
     unreachableRationale: null,
-  }); // Independent literal oracle for the invalid-state station contract.
+  });
 });
 
 test("set declares completed effects and unchanged preflight refusals", () => {

@@ -29,12 +29,9 @@ import { record } from "./validation/primitives.ts";
 import { createWriter } from "./writer.ts";
 import type { StatusReport } from "./writer.ts";
 
-// LIFE-3, LIFE-6 and LIFE-11 bounds. A first stop request exits within the
-// 500 ms bound: owned programs get SIGTERM, then SIGKILL by the settle limit.
 const settleLimitMilliseconds = 300;
 const stopBoundMilliseconds = 450;
 const cancellationMilliseconds = 500;
-// DIAG-14 step 2 and DIAG-9: the diagnostics flush takes at most 500 ms.
 const flushMilliseconds = 500;
 // Accepted decision (Nathan, 16 November 2026, 14:19; DIAG-1): a status is
 // due only after handler entry, so a usage or approval refusal and a deadline
@@ -53,7 +50,6 @@ const messages = {
   DOMAIN_DEADLINE_BEFORE_START:
     "The deadline passed before the operation started. Its handler never ran.",
   deadline: "The deadline passed after the operation started.",
-  // The run message with the program-stop station (N1f).
   programStop:
     "The deadline passed. Nothing changed, but a program this command started was not confirmed stopped.",
   help: "Help for this CLI.",
@@ -68,14 +64,8 @@ type Execution =
     }
   | { readonly kind: "threw" };
 
-// Finding 1 (Nathan, 16 November 2026): every accepted duration is honoured,
-// with no cap. A runtime timer holds at most 2,147,483,647 ms and fires a
-// longer delay after 1 ms. A longer wait is armed in steps of at most that
-// limit and re-measured on the kernel process entry's clock after each step, so it
-// fires neither early nor a step late. A wait within the limit arms once,
-// with its exact delay. The programs add-on keeps its own copy, because an
-// add-on imports only the kernel's public index (CMD-17), which does not offer
-// this helper. Both copies are held to one boundary table by the tests.
+// A runtime timer holds at most 2,147,483,647 ms and fires a longer delay
+// after 1 ms.
 const timerLimit = 2_147_483_647;
 function afterDelay(
   milliseconds: number,
@@ -99,8 +89,6 @@ function afterDelay(
   return () => clearTimeout(timer);
 }
 
-// Races a promise against a timer and always clears the timer, so a host that
-// declines to exit is never held open by a stale deadline or stop bound.
 async function within<T>(
   promise: Promise<T>,
   milliseconds: number,
@@ -126,8 +114,6 @@ type CommandPlan = {
   readonly addons: readonly Plan[];
 };
 
-// Fixed at construction: every declared capability resolves to its add-on,
-// or runProcess refuses to build.
 function plansFor(
   runtime: ContractRuntime,
   setup: RunSetup,
@@ -155,17 +141,10 @@ function plansFor(
   return plans;
 }
 
-// The kernel process entry, runProcess (CMD-5, CMD-9). It installs the stream,
-// signal and crash hooks before routing, routes, refuses, enters the handler,
-// enforces the
-// deadline, settles owned programs and hands one result to the one writer.
-// It owns process termination through the real process adapter.
 export function runProcess(contract: object, setup: RunSetup = {}): RunProcess {
   return runProcessOn(contract, setup, processHost);
 }
 
-// Kernel-internal entry used by runProcess and by the labelled test-only
-// fault fixture, which wraps the process adapter. Not on the public index.
 export function runProcessOn(
   contract: object,
   setup: RunSetup,
@@ -187,14 +166,12 @@ type Run = {
   readonly startedAt: number;
   readonly controller: AbortController;
   readonly attached: AttachedAddon<unknown>[];
-  // The one attached add-on offering the status seam, if any.
   reporter: AttachedAddon<unknown> | undefined;
   phase: EmergencyFacts["phase"];
   commandIdentity: string | null;
   stopped: StopSignal | undefined;
   emergencyAttempted: boolean;
 };
-// What the writer receives, or undefined when a stop request owns the exit.
 type Delivery =
   | { readonly candidate: Validation<unknown>; readonly trusted: TrustedRun }
   | undefined;
@@ -209,9 +186,6 @@ function killAll(run: Run) {
     }
 }
 
-// X-K5 (swarm triage): a settle that throws, synchronously or not, is an
-// unconfirmed termination (LIFE-11), never a crash of the stop, deadline or
-// normal path.
 function settleOne(addon: AttachedAddon<unknown>, limit?: number) {
   try {
     return addon.settle(limit).catch(() => false);
@@ -230,9 +204,6 @@ async function settleEach(
   return settled.every(Boolean);
 }
 
-// Every attached add-on: the stop and deadline paths. True only when every
-// owned resource was confirmed stopped; the status reporter is settled too,
-// but it is not an owned program, so it never decides confirmation.
 async function settleAll(run: Run, limit?: number) {
   const settled = await Promise.all(
     run.attached.map(async (addon) => ({
@@ -283,10 +254,6 @@ function unconfirmedSummary(
   };
 }
 
-// Normal completion (LIFE-11): the owned resources only; the status reporter
-// is not an owned program, and `freeze` replaces its settle after the result
-// is frozen. X-S3 (swarm triage): LIFE-6's deadline covers dispatch and work,
-// so a deadline also bounds this settlement; undefined means it expired.
 function settleOwned(run: Run, deadlineAt: number | undefined) {
   const settling = settleEach(
     run.attached.filter((addon) => addon !== run.reporter),
@@ -296,10 +263,6 @@ function settleOwned(run: Run, deadlineAt: number | undefined) {
     : within(settling, deadlineAt - run.host.now(), run.host.now);
 }
 
-// DIAG-14 step 2: the status-reporting add-on freezes its status within the
-// flush budget, under the kernel's own bounded wait. Expiry, a throw or a
-// missing `freeze` yield the unavailable variant; the writer validates the
-// value alone (LIFE-7 step 1).
 async function freezeStatus(
   run: Run,
   reporter: AttachedAddon<unknown>,
@@ -320,12 +283,10 @@ async function freezeStatus(
   }
 }
 
-// LIFE-3: hooks are installed before routing or dispatch.
 function installHooks(run: Run) {
   run.host.onSignal((signal) => {
     const code = signal === "SIGINT" ? 130 : 143;
     if (run.stopped || run.phase === "drained") {
-      // A repeated signal: forced kill attempt, then immediate exit.
       killAll(run);
       run.host.exit(code);
       return;
@@ -398,14 +359,8 @@ async function kernelResult(
   };
 }
 
-// The one place that decides whether a status is due (standards F1): once
-// handler entry happened, or for any refusal under the other reading, when
-// the command declares a status-reporting add-on.
 async function reporterFor(run: Run, trusted: TrustedRun) {
   if (trusted.handlerEntered) return run.reporter;
-  // Part 4 repair R1: under the shipped reading no refusal before the
-  // handler carries a status, even one raised after the reporter attached
-  // (an approval denial or a capabilities refusal in the check phase).
   if (!statusOnPreHandlerRefusal) return undefined;
   const plan = run.plans.get(trusted.commandIdentity);
   const entry = plan?.addons.find((item) => item.addon.reportsStatus === true);
@@ -442,9 +397,6 @@ function control(run: Run, command: CommandDeclaration): RunControl {
   };
 }
 
-// Attaches one add-on. A host add-on may break its synchronous type and
-// return a promise; its resolved instance is attached, and its rejection
-// reaches the caller instead of the crash hook.
 function attachNow(
   run: Run,
   command: CommandDeclaration,
@@ -459,8 +411,6 @@ function attachNow(
   return value instanceof Promise ? value.then(keep) : keep(value);
 }
 
-// An add-on the kernel attaches before handler entry. A synchronous throw
-// and a rejection both reject here.
 function attachEarly(
   run: Run,
   command: CommandDeclaration,
@@ -469,9 +419,6 @@ function attachEarly(
   return Promise.resolve().then(() => attachNow(run, command, addon));
 }
 
-// Seam review S2 (DIAG-12b): a status-reporting add-on whose attach throws
-// never takes the crash path. The handler gets an inert capability whose
-// calls do nothing, and the status is the unavailable variant (no freeze).
 async function attachReporter(
   run: Run,
   command: CommandDeclaration,
@@ -505,9 +452,6 @@ function invoke(
   return result;
 }
 
-// A capability whose add-on attaches on first use, so any attach-time effect
-// happens only inside the handler, after every non-consuming preflight. An
-// attach fault there is a handler fault (LIFE-9 step 1, after handler entry).
 function deferred(run: Run, command: CommandDeclaration, plan: Plan) {
   let instance:
     | AttachedAddon<unknown>
@@ -558,8 +502,6 @@ async function capabilities(
   return context;
 }
 
-// LIFE-6: stop starting work, then wait at most 500 ms for cancellation and
-// observation. Unconfirmed effects are unknown.
 async function afterDeadline(
   run: Run,
   command: CommandDeclaration,
@@ -575,8 +517,6 @@ async function afterDeadline(
       run.host.now,
     ),
   ]);
-  // An owned program not confirmed stopped within the wait leaves the
-  // effects unconfirmed: "Unconfirmed effects are unknown" (LIFE-11).
   const issued =
     run.runtime.trustedSummary(run.runId) ??
     (started === false ? noneStarted(command) : undefined);
@@ -609,8 +549,6 @@ async function afterDeadline(
   );
 }
 
-// LIFE-11 normal completion: owned programs are observed or stopped within
-// their declared budgets before the result is frozen.
 async function afterHandler(
   run: Run,
   command: CommandDeclaration,
@@ -621,8 +559,6 @@ async function afterHandler(
   const clean = await settleOwned(run, deadlineAt);
   if (clean === undefined)
     return afterDeadline(run, command, Promise.resolve(execution));
-  // After handler entry the trusted summary is the issued proof, whatever
-  // the handler then did (contract question 4 of 8, LIFE-9).
   const issued = run.runtime.trustedSummary(run.runId);
   const trusted = trustedRun(
     run,
@@ -660,10 +596,8 @@ async function runDeclaredCommand(
 ): Promise<Delivery> {
   const identity = value.commandIdentity;
   const plan = run.plans.get(identity);
-  // Type-forced guard: routing resolves only declared commands.
   if (!plan) return preparationFault(run, identity);
   const deadline = value.deadlineMilliseconds;
-  // CMD-9 step 4.
   if (deadline !== undefined && run.host.now() - run.startedAt >= deadline)
     return await kernelResult(
       run,
@@ -676,9 +610,6 @@ async function runDeclaredCommand(
   if (!context) return preparationFault(run, identity);
   const deadlineAt =
     deadline === undefined ? undefined : run.startedAt + deadline;
-  // CMD-9 steps 3 to 5, the check phase, before handler entry: it attaches
-  // no state and enters no handler. A deadline, stop request or refusal
-  // here is before handler entry (K3-spec-1, K3-spec-2).
   const checked = await checkPhase(run, value, context, deadlineAt);
   if (run.stopped) return undefined;
   if (checked.kind === "deadline" || expired(run, deadlineAt))
@@ -686,12 +617,8 @@ async function runDeclaredCommand(
   if (checked.kind === "refused") return checked.delivery;
   const attached = await attachState(run, identity, checked.attach);
   if ("delivery" in attached) return attached.delivery;
-  // A check or an attach that finished after the deadline, before the
-  // deadline timer ran, still never enters the handler (LIFE-6: at the
-  // deadline the command stops starting work; K3-spec-1).
   if (run.stopped) return undefined;
   if (expired(run, deadlineAt)) return beforeStart(run, identity);
-  // Handler entry (CMD-9 step 6): the phase records it immediately before.
   run.phase = "handler-entered";
   const execution: Promise<Execution> = attached.enter().then(
     (outcome) => ({ kind: "returned", outcome }) as const,
@@ -731,8 +658,6 @@ async function checkPhase(
       ? await prepared
       : await within(prepared, deadlineAt - run.host.now(), run.host.now);
   if (settled === undefined) return { kind: "deadline" };
-  // A thrown check or grant-store fault is a preparation fault (LIFE-9 step
-  // 1, before handler entry; X-S2b).
   if (settled.kind === "threw")
     return { kind: "refused", delivery: await preparationFault(run, identity) };
   const outcome = settled.outcome;
@@ -747,7 +672,6 @@ function expired(run: Run, deadlineAt: number | undefined): boolean {
   return deadlineAt !== undefined && run.host.now() >= deadlineAt;
 }
 
-// The deadline passed before handler entry: stop the run and refuse.
 function beforeStart(run: Run, identity: string): Promise<Delivery> {
   run.controller.abort();
   return kernelResult(
@@ -758,7 +682,6 @@ function beforeStart(run: Run, identity: string): Promise<Delivery> {
   );
 }
 
-// The one mapping from a refusal before handler entry to its cause.
 function refusal(run: Run, identity: string, path: string): Promise<Delivery> {
   const causeCode =
     path === "approval"
@@ -778,8 +701,6 @@ function preparationFault(run: Run, identity: string): Promise<Delivery> {
   );
 }
 
-// CMD-9 step 6 before handler entry: claims the run identity and attaches
-// state. A throw is a preparation fault (K3-spec-5).
 async function attachState(
   run: Run,
   identity: string,
@@ -852,8 +773,6 @@ async function runInvocation(
   });
   const delivery = await route(run, resolution);
   if (!delivery) return 1;
-  // DIAG-14: the domain result and recovery are frozen in `delivery`; only
-  // now does the status-reporting add-on flush and freeze its status.
   const reporter = await reporterFor(run, delivery.trusted);
   const report =
     reporter && !run.stopped ? await freezeStatus(run, reporter) : undefined;

@@ -53,9 +53,6 @@ function stationOf(data: unknown, causeCode: string): Record<string, unknown> {
   return found;
 }
 
-// DISC-10: a command that declares approval declares its station table and
-// its approval request (X-K1-3 case B); the denial tuple stays undeclared,
-// so its words are the base's defaults.
 const granted = station(commonCauses, {
   commandIdentity: "grants.read",
   causeCode: "SUCCESS_UNCHANGED",
@@ -115,7 +112,6 @@ const owned = command({
     }),
 });
 
-// Admitted without declaring the tuple: no requirement to declare it.
 const contract = contractFor({
   cli: "grants",
   commands: [defaults, owned],

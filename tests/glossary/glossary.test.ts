@@ -1,18 +1,3 @@
-// Glossary check. It reads term-table.json (beside this file) and fails when a
-// word the living glossary says to avoid appears on a surface where the table
-// bans it. The canonical meanings live in the Linear "Agent ecosystem glossary
-// (living)"; term-table.json records which glossary date it follows.
-//
-// known-hits.json is a shrinking list: the hits that existed when the check
-// was introduced. The check fails on any hit not in that list, and on any
-// listed hit that no longer exists, so a fix must remove its entry in the same
-// commit. When the list is empty, delete it and the check is absolute.
-//
-// Wire names, contract quotes and exempt paths never fire: string literals
-// without spaces are not prose, backtick spans and cause-code or identity
-// tokens are removed before matching, a double-quoted span on a line that
-// cites a contract clause is a quote, and a line marked
-// `glossary-quote: <clause-or-decision-id>` is skipped.
 import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -47,11 +32,8 @@ type Term = {
 type Table = {
   readonly scope: readonly string[];
   readonly exempt: readonly string[];
-  // Real clause and decision ids a glossary-quote marker may name.
   readonly quoteIds: readonly string[];
-  // Contract phrases (row titles) that count as quotes when double-quoted.
   readonly quotes: readonly string[];
-  // The frozen contract folder, when this repository holds it.
   readonly contractFolder: string | undefined;
   readonly terms: readonly Term[];
 };
@@ -68,8 +50,6 @@ type Hit = {
   readonly text: string;
   readonly message: string;
 };
-
-// ---- reading the table without trusting its shape -------------------------
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -114,7 +94,6 @@ function parseTable(raw: unknown): Table {
           if (!surfaces.every(isSurface))
             throw new Error(`${where}.surfaces names an unknown surface.`);
           return {
-            // Case-insensitive unless the table marks the pattern case-bound.
             pattern: new RegExp(
               item.pattern,
               item.caseSensitive === true ? "u" : "iu",
@@ -133,8 +112,6 @@ function parseTable(raw: unknown): Table {
     }),
   };
 }
-
-// ---- extracting text by surface --------------------------------------------
 
 const TITLE_CALLS = new Set(["test", "it", "describe"]);
 const ERROR_OR_TEXT_PROPERTY =
@@ -272,22 +249,17 @@ function scanSource(file: string, text: string): TextRecord[] {
   return records;
 }
 
-// ---- matching --------------------------------------------------------------
-
 const CLAUSE =
   /\b(?:LIFE|CMD|DISC|WIRE|STEP|REC|INPUT|VER|DIAG|GATE|ROLL|V)-\d+[a-z]?\b/u;
 const MARKER =
   /glossary-quote: ((?:LIFE|CMD|DISC|WIRE|STEP|REC|INPUT|VER|DIAG|GATE|ROLL|V)-\d+[a-z]?|[BF]\d+)\b/u;
 
-// Wire names and code inside prose: backtick spans, UPPER_SNAKE cause codes,
-// and dotted identities such as <cli>.dispatch are removed before matching.
 function withoutWire(text: string): string {
   return text
     .replace(/`[^`]*`/gu, " ")
     .replace(/\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b/gu, " ")
     .replace(/[\w<>${}-]+(?:\.[\w<>${}-]+)+/gu, " ");
 }
-// Identifiers are also matched as words: admitCommands reads "admit Commands".
 function words(identifier: string): string {
   return identifier
     .replace(/([a-z0-9])([A-Z])/gu, "$1 $2")
@@ -304,7 +276,6 @@ function inScope(file: string, patterns: readonly string[]): boolean {
   return patterns.some((pattern) => new Bun.Glob(pattern).match(file));
 }
 
-// Removes every allowed form, ignoring case, keeping offsets.
 function stripAllowed(text: string, allowed: readonly string[]): string {
   let out = text;
   for (const form of allowed) {
@@ -314,8 +285,6 @@ function stripAllowed(text: string, allowed: readonly string[]): string {
   return out;
 }
 
-// A glossary-quote marker excuses a line only when its id is a real clause
-// or decision id listed in the table (quoteIds).
 function marked(table: Table, text: string): boolean {
   const id = MARKER.exec(text)?.[1];
   return id !== undefined && table.quoteIds.includes(id);
@@ -388,8 +357,6 @@ function hitsIn(
           message: avoid.message,
         });
       }
-      // firstUsePerFile: the first use in the file must be qualified; when it
-      // is not, every bare use in the file is reported.
       if (!avoid.firstUsePerFile || firstIsQualified !== true)
         hits.push(...found);
     }
@@ -418,8 +385,6 @@ function treeHits(table: Table): Hit[] {
     return hitsIn(table, file, scanSource(file, text), text.split("\n"));
   });
 }
-
-// ---- the shrinking list ----------------------------------------------------
 
 type Known = {
   readonly file: string;
@@ -504,8 +469,6 @@ describe("glossary check", () => {
   });
 });
 
-// ---- proof that the check fires, and where it must not ---------------------
-
 describe("glossary check proof", () => {
   const table = loadTable();
   const terms = (file: string, text: string) =>
@@ -588,7 +551,6 @@ describe("glossary check proof", () => {
     expect(terms("starters/contract3/src/kernel/probe.ts", source)).toEqual([]);
   });
 
-  // Repair round 1 (check-review.md). Each test was red before its fix.
   const count = (file: string, text: string, term: string) =>
     terms(file, text).filter((hit) => hit.startsWith(`${term} /`)).length;
 
@@ -737,9 +699,6 @@ describe("glossary check proof", () => {
     ).toBe(0);
   });
 
-  // Registered only where the term table names the frozen contract folder
-  // (the engineering repository). The template has no contract, so the
-  // quote-id lookup is a stated limit there and no test is registered.
   const contractFolder = table.contractFolder;
   if (contractFolder !== undefined)
     test("R5b every quote id is a clause in the frozen contract or a decision id", () => {

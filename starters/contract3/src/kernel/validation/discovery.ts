@@ -13,7 +13,6 @@ import type { WireResult } from "../types.ts";
 import { record } from "./primitives.ts";
 import { sameJson } from "./json-equality.ts";
 
-// Catalogue order is not a contract constraint. Argument and route order is.
 const unordered = new Set([
   "commands",
   "options",
@@ -62,8 +61,6 @@ export function navigationData(
       ],
     };
   }
-  // Each view is a fresh frozen copy: no caller can rewrite the process-wide
-  // exit and signal tables or a station's words through it (F02, F03).
   function discover() {
     return freeze({
       contractVersion: "3.0.0",

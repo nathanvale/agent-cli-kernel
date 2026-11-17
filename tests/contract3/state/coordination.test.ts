@@ -1,6 +1,3 @@
-// P family and O01 to O03: scope, admission and coordination, through real
-// concurrent specimen processes. The test holds coordination locks itself
-// through the test-owned holder (holder.ts), independent of the add-on.
 import { expect } from "bun:test";
 import {
   linkSync,
@@ -109,8 +106,6 @@ caseTest(
 caseTest(
   "P01.e-renamed-resource",
   plain(async (world) => {
-    // The resource exists before the interrupted operation's intent, so its
-    // identity is journaled; the rename keeps it (REC-9 row 10).
     expectCompleted(await world.run(apply("a")));
     await world.killAt(apply("a", "v2"), "effect");
     const id = world
@@ -254,7 +249,6 @@ caseTest(
       contenders.map((child) => child.reached("pre-admission")),
     );
     for (const child of contenders) child.release("pre-admission");
-    // Exactly one is admitted and pauses at its intent; the other ends.
     const settled = await Promise.race(
       contenders.map((child, index) => child.done.then(() => index)),
     );
@@ -293,8 +287,6 @@ caseTest("P06.b-contender-versus-closure", async () => {
       { SX_BARRIER: "closure-staged" },
     );
     await closer.reached("closure-staged");
-    // While the closure holds the case's coordination, the contender sees a
-    // live owner, never a stale "no unresolved case" snapshot.
     const during = await world.run(apply("a", "v2"));
     expectRefusedUnchanged(during, "DOMAIN_SX_LOCK_HELD");
     closer.release("closure-staged");
@@ -435,15 +427,11 @@ caseTest(
   }),
 );
 
-// ---- Repair round 1 controls -----------------------------------------------
-
 caseTest(
   "P03.c-incomplete-scope-conflicts",
   plain(async (world) => {
     await world.killAt(apply("c"), "intent");
     const id = only(world);
-    // One of two declared resources cannot be resolved (relative path), so
-    // the scope is unknown and conflicts with the case on another resource.
     expectUnresolvedBy(
       await world.run(apply("x", "v1", "--path", "relative/x", "--also", "b")),
       id,
@@ -455,9 +443,6 @@ caseTest(
 caseTest(
   "P06.c-admission-held-until-intent-published",
   plain(async (world) => {
-    // An unknown-scope writer holds no key coordination lock; only the
-    // admission lock, held until its intent is published, keeps an
-    // overlapping contender out.
     const writer = world.start(apply("w", "v1", "--unknown-scope"), {
       SX_BARRIER: "staged",
     });
@@ -489,8 +474,6 @@ caseTest(
       });
       await contender.reached("admission-wait");
       contender.release("admission-wait");
-      // While the contender waits, an unresolved case on the same resource
-      // appears. The scan must happen under the admission lock, after it.
       const synthetic = writeSyntheticOperation(world.root, world.note("a"));
       release();
       released = true;

@@ -1,7 +1,3 @@
-// LABELLED TEST-ONLY FIXTURE CLI "st" for the kernel side of the diagnostics
-// status seam (Part 3). Its status-reporting add-on is a throwaway stand-in,
-// not the T5 diagnostics add-on: FX_STATUS selects what `freeze` does. Never
-// registered as a production command; never ships.
 import { appendFileSync } from "node:fs";
 import {
   command,
@@ -49,7 +45,6 @@ const availableStatus = {
   countsComplete: true,
   closed: true,
 };
-// Valid statuses of both variants (DIAG-2, DIAG-3) and one invalid one.
 const statuses: Readonly<Record<string, unknown>> = {
   available: availableStatus,
   unavailable: {
@@ -57,7 +52,6 @@ const statuses: Readonly<Record<string, unknown>> = {
     reason: "status-unavailable",
     trusted: { droppedRecords: 2, countsComplete: false },
   },
-  // KF6 (decision 6): each line of the human Diagnostics words.
   incomplete: {
     ...availableStatus,
     file: "/private/run.log",
@@ -76,13 +70,11 @@ const statuses: Readonly<Record<string, unknown>> = {
     reason: "status-unavailable",
     trusted: { file: null },
   },
-  // DIAG-3: a reason never claims a sink failure, even with one in `trusted`.
   "trusted-sink": {
     status: "unavailable",
     reason: "status-invalid",
     trusted: { sinkFailure: "write" },
   },
-  // `file` must be absolute and the variant strict: two faults.
   invalid: {
     status: "available",
     file: "relative/run.log",
@@ -96,9 +88,6 @@ const statuses: Readonly<Record<string, unknown>> = {
   },
 };
 
-// Seam review hostile statuses. `oversize` is valid but too large for the
-// 16,384-byte fallback; `accessor` reads valid once and invalid after;
-// `nonjson` is not plain JSON but serialises to a valid status.
 function hostile(): unknown {
   if (mode === "oversize")
     return { ...availableStatus, file: `/${"a".repeat(16_000)}` };
@@ -126,17 +115,13 @@ async function frozen(limit: number): Promise<unknown> {
     case "nonjson":
       return hostile();
     case "slow":
-      // Within the 500 ms budget.
       await sleep(300);
       return statuses.available;
     default:
-      // Modes that only change attach report the ordinary available status.
       return statuses[mode] ?? availableStatus;
   }
 }
 
-// The throwaway status-reporting add-on. Its attach is effect-free apart
-// from the test ledger.
 const statusAddon: RunAddon<DiagnosticsCapability> = {
   reportsStatus: true,
   attach(run) {
@@ -145,8 +130,6 @@ const statusAddon: RunAddon<DiagnosticsCapability> = {
     const capability = {
       record: (event: string) => ledger(`record ${event}`),
     };
-    // `bad-capability` offers no `record`, so the kernel refuses the
-    // context before the handler (INTERNAL_PREPARATION).
     if (mode === "bad-capability") Reflect.deleteProperty(capability, "record");
     return {
       capability: Object.freeze(capability),
@@ -220,7 +203,6 @@ const report = command({
     ],
   },
   capabilities: { diagnostics: true, programs: true },
-  // N1b (17:06): st.report runs programs and supports a deadline.
   stations: [
     station(commonCauses, {
       commandIdentity: "st.report",
@@ -238,7 +220,6 @@ const report = command({
       "st.report",
       "DOMAIN_ST_DEADLINE_PROGRAM_STOP_UNCONFIRMED",
     ),
-    // KF6.c: a host-owned refusal the handler selects.
     station(stCauses, {
       commandIdentity: "st.report",
       causeCode: "DOMAIN_ST_REPORT_REFUSED",
@@ -299,10 +280,6 @@ const plain = command({
     ),
 });
 
-// st.guarded declares diagnostics and approval (KF1.d, KF8). FX_APPROVAL
-// selects the approval add-on: `grant` (default) grants at once; `delay`
-// grants after 200 ms; `reject` rejects; `sync-throw` throws synchronously;
-// `attach-throws` throws while the kernel attaches it.
 const guarded = command({
   identity: "st.guarded",
   route: ["guarded"],
@@ -362,8 +339,6 @@ const approvalAddon: RunAddon<ApprovalCapability> = {
   },
 };
 
-// Ledgers when the kernel has built (frozen) a result, so the order of
-// "result-built" and "freeze-start" is observable (DIAG-14).
 function observed(runtime: ContractRuntime): ContractRuntime {
   return {
     ...runtime,
@@ -380,7 +355,6 @@ function observed(runtime: ContractRuntime): ContractRuntime {
   };
 }
 
-// P3-style clock jump for a deadline that passed before handler entry.
 function host(real: ProcessHost): ProcessHost {
   let calls = 0;
   const jump = Number(process.env.FX_CLOCK_JUMP_MS ?? "0");
@@ -393,8 +367,6 @@ function host(real: ProcessHost): ProcessHost {
   };
 }
 
-// X-K5 (swarm triage): a non-conforming add-on whose settle throws
-// synchronously instead of resolving.
 function throwingSettle<C>(addon: RunAddon<C>): RunAddon<C> {
   return {
     attach(run) {

@@ -1,5 +1,3 @@
-// Independent review specimens for GATE-4/GATE-11 and documented GATE-14 limits.
-// Compiler/lint acceptance below exposes their limits. It never proves these forms legal.
 export const reviewSpecimens = [
   {
     id: "conversion-overload",

@@ -46,7 +46,6 @@ function specimen(deadlineSupported = true) {
 
 test("supported deadlines retain metadata apart from domain input in parsing and routing", async () => {
   const { contract } = specimen();
-  // Independent LIFE-5 / INPUT-2 integer-grammar cases.
   const valid = [
     { token: "1", value: 1 },
     { token: "10", value: 10 },

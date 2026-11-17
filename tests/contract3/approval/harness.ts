@@ -1,9 +1,3 @@
-// Test-owned harness for T4 approval cases. It owns the test identities
-// (grant, human-authority records and items, the adversarial source), the
-// independent restatement of the frozen file layouts, and the child-process
-// driver. It materializes a copy of the stamped kernel and the approval
-// add-on under test beside the disposable coordination fixture, and reads
-// grant, approval store and effect state independently of the add-on.
 import { expect } from "bun:test";
 import { createHash } from "node:crypto";
 import { appendFileSync, constants } from "node:fs";
@@ -50,8 +44,6 @@ export type Observation = {
   readonly grantUnchanged: boolean;
 };
 
-// Independent restatement of the published layouts: one record or marker
-// per item, named by sha256 of the JSON item parts.
 function digest(parts: readonly string[]): string {
   return createHash("sha256").update(JSON.stringify(parts)).digest("hex");
 }
@@ -85,7 +77,6 @@ export async function materialize(): Promise<{
     join(source, "addons/state/coordination.ts"),
     await readFile(new URL("coordination.ts.txt", fixtures)),
   );
-  // The driver imports the harness for the one adversarial source owner.
   for (const name of ["harness.ts", "cases.ts"])
     await cp(join(repository, tests, name), join(root, tests, name));
   const driver = join(root, tests, "driver.ts");
@@ -98,7 +89,6 @@ export async function materialize(): Promise<{
       include: ["starters/contract3/src/**/*.ts", `${tests}/**/*.ts`],
     }),
   );
-  // The contract3 lint configuration, rooted at this tree's tsconfig.
   await writeFile(
     join(root, "eslint.config.mjs"),
     [
@@ -142,7 +132,6 @@ export async function removeAll(...paths: readonly string[]): Promise<void> {
   for (const path of paths) await rm(path, { recursive: true, force: true });
 }
 
-// Test-owned grant identities. G binds P="p-1", R0="r0", E={note.write}.
 export const grant = {
   format: "contract3.approval-grant",
   version: 1,
@@ -155,12 +144,10 @@ export const grant = {
   expiresAt: 5000,
 } as const;
 
-// Independent restatement of the published grant layout.
 export function grantPath(world: World, preview: string): string {
   return join(world.grants, recordName(["approval", preview]));
 }
 
-// Human-authority identities, the single owner for every approval test.
 export const closureRecord = {
   format: "contract3.closure-authority",
   version: 1,
@@ -192,19 +179,15 @@ export const stopItem: StopItem = {
   scope: "resource-1",
   liveConflict: false,
 };
-// Named variant: the writer set binds as a set, not a sequence.
 export const unorderedStopItem: StopItem = {
   ...stopItem,
   writers: ["w-2", "w-1"],
 };
 
-// Adversarial test authority: claims separation so verifier logic can be
-// exercised. It never qualifies production authority (REC-5, C03.c).
 export function adversarialSource(directory: string): AuthoritySource {
   return { directory, separated: () => Promise.resolve(true) };
 }
 
-// Independent restatement of the published authority record layout.
 export function authorityRecordPath(
   world: World,
   kind: "closure" | "stop",
@@ -285,7 +268,6 @@ export function applyConfig(
 const boundMilliseconds = 15_000;
 const live = new Set<Driver>();
 
-// Kills any driver a failed assertion left at a barrier.
 export async function stopLiveDrivers(): Promise<void> {
   for (const driver of [...live]) {
     driver.kill();
@@ -310,7 +292,6 @@ export class Driver {
     live.add(this);
   }
 
-  // Next stdout event, bounded. Failure to reach a phase is unproved.
   async next(): Promise<unknown> {
     const deadline = Date.now() + boundMilliseconds;
     for (;;) {
@@ -344,7 +325,6 @@ export class Driver {
     this.#child.kill("SIGKILL");
   }
 
-  // Drains remaining events and returns the real exit or signal.
   async finish() {
     for (;;) if ((await this.next()) === undefined) break;
     await this.#child.stdin.end();
@@ -364,7 +344,6 @@ export async function run(path: string, config: DriverConfig) {
   return { ...finished, events: driver.events };
 }
 
-// Oracle lookup: the frozen case table, never implementation output.
 function expectedFor(id: string): Observation {
   const found = approvalCases.find((item) => item.id === id);
   if (found?.status !== "executable")
@@ -372,19 +351,12 @@ function expectedFor(id: string): Observation {
   return found.expected;
 }
 
-// Compares one observation with its frozen expectation. When the coverage
-// meta-test sets T4_ORACLE_LOG, records the ID only after the comparison
-// passed, so the meta-test proves each executable case reached it.
 export function expectCase(id: string, observed: Observation): void {
   expect(observed).toEqual(expectedFor(id));
   const log = process.env.T4_ORACLE_LOG;
   if (log) appendFileSync(log, `${id}\n`);
 }
 
-// Platform-derived foreign paths for the fileSeparation supporting checks.
-// Each is found from what exists on this host and checked against the
-// precondition its test relies on, using only test-owned reads. A missing
-// one is reported as UNPROVED by name, never passed silently.
 async function foreignDirectory(path: string): Promise<boolean> {
   const caller = process.getuid?.();
   try {
@@ -408,7 +380,6 @@ async function writable(path: string): Promise<boolean> {
     return false;
   }
 }
-// Every component from "/" is a real, foreign, non-writable directory.
 async function foreignChain(directory: string): Promise<boolean> {
   const parts = directory.split(sep).filter((part) => part.length > 0);
   for (const [index] of [undefined, ...parts].entries()) {
@@ -417,10 +388,6 @@ async function foreignChain(directory: string): Promise<boolean> {
   }
   return true;
 }
-// Bounded, self-diagnosing search for a foreign regular file. Each
-// candidate is judged by the first precondition it fails, so an unproved
-// skip can report counts (never paths) for one hosted run to explain.
-// Link count is not a precondition: fileSeparation never judges it.
 const fileRoots = ["/usr/share", "/usr/lib", "/etc", "/usr/include"];
 const searchDepth = 3;
 const searchBound = 4000;
@@ -438,7 +405,6 @@ type FileSearch = {
   };
 };
 type Rejection = keyof FileSearch["rejected"];
-// The first file precondition the entry fails, or undefined when it holds.
 async function fileRejection(path: string): Promise<Rejection | undefined> {
   let facts;
   try {
@@ -482,8 +448,6 @@ async function isDirectoryEntry(path: string): Promise<boolean> {
     return false;
   }
 }
-// Judges one entry: a foreign directory is queued, anything else is
-// judged as a candidate file.
 async function searchEntry(
   path: string,
   directory: string,
@@ -493,7 +457,6 @@ async function searchEntry(
 ): Promise<void> {
   search.examined++;
   if (await isDirectoryEntry(path)) {
-    // Only foreign directories can lead to a foreign chain.
     if (await foreignDirectory(path)) subdirectories.push(path);
   } else if (await judgeFile(path, directory, search, chains))
     search.found = path;
@@ -578,9 +541,6 @@ async function writableForeignRoot(): Promise<string | undefined> {
   }
   return undefined;
 }
-// A root-owned symlink near "/" (macOS /etc, merged-usr Linux /lib) whose
-// resolved child directory is fully foreign: judged through the link, the
-// child must refuse; judged by its resolved path, it must separate.
 async function symlinkedForeignRoot() {
   for (const link of ["/etc", "/var", "/lib", "/bin", "/sbin", "/lib64"]) {
     try {
@@ -601,14 +561,12 @@ async function symlinkedForeignRoot() {
 
 export type PlatformPaths = {
   readonly foreignFile: string | undefined;
-  // Why no foreign file qualified, as counts only; empty when one did.
   readonly foreignFileMissing: string;
   readonly writableRoot: string | undefined;
   readonly symlinked:
     | { readonly viaLink: string; readonly resolved: string }
     | undefined;
 };
-// The foreign file and, when none qualifies, the count-only reason.
 export async function foreignFile(
   roots: readonly string[] = fileRoots,
 ): Promise<{ readonly found: string | undefined; readonly missing: string }> {

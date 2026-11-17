@@ -5,7 +5,6 @@ import {
 } from "../../../starters/contract3/src/kernel/index.ts";
 import { runFamily } from "./harness.ts";
 
-// R17 (R1): repeatable values accumulate in order, per parse.
 const value = {
   kind: "string",
   minLength: 1,

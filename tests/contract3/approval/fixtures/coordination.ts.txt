@@ -1,10 +1,3 @@
-// Disposable test-owned coordination fixture, materialized into a temporary
-// stamped layout at addons/state/coordination.ts and linted there with the
-// contract3 configuration. It is NOT the T3 lock
-// protocol: mkdir is used only because it is atomic across local processes.
-// It obtains a real kernel-issued ExclusiveScope through the state seam. The
-// kernel issues one only for a run it has attached (CMD-9 step 7), so callers
-// issue scopes from inside an attached run (driver.ts whileAttached).
 import { mkdirSync, rmdirSync, statSync } from "node:fs";
 import { contractFor } from "../../kernel/index.ts";
 import type { ExclusiveScope, StateIssuer } from "../../kernel/index.ts";

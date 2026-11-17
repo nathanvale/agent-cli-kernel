@@ -5,16 +5,6 @@ import { dirname, join } from "node:path";
 import { errorCode } from "./read.ts";
 import { ApprovalRejection } from "./rejection.ts";
 
-// Atomic consumption primitive: exclusive creation (O_CREAT|O_EXCL) of one
-// marker per authority item, then fsync of the marker and its directory
-// before consumption returns. Exclusive creation is atomic across processes
-// on a local POSIX filesystem, so two contenders can never both create the
-// marker even if coordination were wrong. Any directory entry at the marker
-// path, including an empty, torn, directory or symlink entry, means
-// consumed: ambiguity never becomes reusable authority. The fsyncs are
-// source-reviewed, not test-proved: process-crash evidence cannot observe a
-// missing flush, and nothing here claims power-loss durability (CMD-11).
-
 export function itemKey(parts: readonly string[]): string {
   return createHash("sha256").update(JSON.stringify(parts)).digest("hex");
 }
@@ -23,7 +13,6 @@ export function markerPath(directory: string, key: string): string {
   return join(directory, `${key}.consumed`);
 }
 
-// Non-consuming inspection for preflight.
 export async function isConsumed(path: string): Promise<boolean> {
   try {
     await lstat(path);
@@ -34,9 +23,6 @@ export async function isConsumed(path: string): Promise<boolean> {
   }
 }
 
-// Returns false when another contender (or an earlier run) consumed first.
-// Rejects as store-unavailable when nothing was created, and as
-// durability-unconfirmed (consumed) once the marker exists.
 export async function consumeOnce(
   path: string,
   record: string,
@@ -55,8 +41,6 @@ export async function consumeOnce(
     if (errorCode(error) === "EEXIST") return false;
     throw new ApprovalRejection("store-unavailable", error);
   }
-  // The marker exists from here on: every later failure, including a failing
-  // close, is reported as consumed.
   let failure: { readonly error: unknown } | undefined;
   try {
     await handle.writeFile(record);

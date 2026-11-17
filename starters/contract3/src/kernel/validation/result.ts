@@ -328,7 +328,6 @@ export function envelopeShape(value: unknown): value is Envelope {
     text(value.message) &&
     sortedStrings(value.availablePaths) &&
     wireResult(value.result) &&
-    // The predicate claims Envelope, so it owns the diagnostics check (K2-6).
     (value.diagnostics === undefined || diagnostics(value.diagnostics))
   );
 }

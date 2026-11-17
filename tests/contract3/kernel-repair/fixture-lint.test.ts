@@ -7,9 +7,6 @@ import {
   typecheckTree,
 } from "./harness.ts";
 
-// N3 / SF-1: the state fixtures run from a materialised tree, so they are
-// linted and type-checked there with the contract3 configuration, as the
-// approval suite does. Not a frozen case identity: a standards control.
 let root = "";
 beforeAll(async () => {
   root = await materialise();

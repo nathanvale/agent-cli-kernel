@@ -1,5 +1,3 @@
-// D01, D18, D19, D20: absent when disabled, effect exclusions and inspect
-// stance, no raw streams or destinations, sole ownership and the pin.
 import { afterAll, describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
@@ -34,8 +32,6 @@ function hasKey(result: Run): boolean {
   );
 }
 
-// Every regular file the run could have created, outside the home directory
-// itself and the test harness's own files.
 function created(where: Tree): string[] {
   const found: string[] = [];
   const walk = (directory: string) => {
@@ -375,7 +371,6 @@ describe("D20 sole owner and pin", () => {
       logging.test(readFileSync(path, "utf8")),
     );
     expect(owners.length).toBeGreaterThan(0);
-    // The kernel never names or imports the add-on (CMD-17).
     for (const path of files(join(source, "kernel")))
       expect(readFileSync(path, "utf8")).not.toMatch(
         /addons\/diagnostics|diagnosticsAddon/,

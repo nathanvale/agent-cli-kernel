@@ -29,8 +29,6 @@ const carriers = (...runs: readonly KfRun[]) =>
   runs
     .flatMap((run) => [run.stdout, run.stderr])
     .filter((text) => text.includes(marker));
-// Each run in machine mode (--json first, so it never fills an option's
-// value) and in human mode; the identity, cause and exit must agree.
 async function bothModes(
   argv: readonly string[],
   env: Readonly<Record<string, string>> = {},
@@ -61,7 +59,6 @@ function expectRefusal(
   expect(carriers(machine, human)).toEqual([]);
 }
 
-// The probe's refusal sites (expectations.md, KF10 table), on kf.
 const usage = "USAGE_INVALID_INVOCATION";
 const refusals: readonly (readonly [
   readonly string[],
@@ -91,7 +88,6 @@ const refusals: readonly (readonly [
     2,
   ],
   [["--help", "--discover-command", marker], "kf.dispatch", usage, 2],
-  // The check blocks past the deadline, so the base refuses before start.
   [
     ["show", "--title", marker, "--deadline-ms", "50"],
     "kf.show",

@@ -1,7 +1,5 @@
 import { allCases } from "./harness.ts";
 
-// Which test file exercises each frozen slice A family. The coverage test
-// proves every slice A case ID is exercised exactly once.
 export const familiesByFile = {
   writer: [
     "W01",

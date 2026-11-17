@@ -26,10 +26,6 @@ function globalSwitches(argv: readonly unknown[]) {
   );
   return { tokens, machine, navigation };
 }
-// INPUT-3 and STEP-6: true when the tokens carry a switch the front door
-// handles before command parsing: `--json` or a navigation switch before
-// `--`. A command step carrying one would not run as written (K1-2), while
-// the same token after `--` is an operand (K1-13).
 export function carriesGlobalSwitch(argv: readonly unknown[]): boolean {
   const { machine, navigation } = globalSwitches(argv);
   return machine || navigation.length > 0;
@@ -100,16 +96,11 @@ async function resolveCommand(
         command.commandIdentity,
       );
 }
-// The command tokens resolveInvocation routed on: global switches and a
-// declared deadline removed. The kernel process entry passes the tail after the
-// route to the command's own executable parser.
 export function invocationTokens(argv: readonly string[]): readonly string[] {
   const { tokens } = globalSwitches(argv);
   const split = splitDeadline(tokens);
   return split.ok ? split.value.tokens : tokens;
 }
-// CMD-9 step 2: the host command whose route is the longest exact prefix of
-// the command tokens.
 function selectCommand(
   cli: string,
   commands: readonly CommandDeclaration[],
@@ -131,8 +122,6 @@ export function routedIdentity(
   commands: readonly CommandDeclaration[],
   vector: readonly string[],
 ): string | undefined {
-  // The deadline value may be a binding element, so only its position is
-  // read here; the step-vector rule judges the value itself.
   const { tokens, navigation } = globalSwitches(vector);
   const deadline = splitDeadlineTokens(tokens);
   if (!deadline.ok || navigation.length > 0) return undefined;

@@ -1,7 +1,3 @@
-// D10 to D12: sink faults and the stuck flush, variant validation, and
-// accounting semantics. Faults come from the labelled fault adapter; the
-// domain result is judged against the diagnostics-disabled twin and the
-// status shape by the kernel's own validator.
 import { afterAll, describe, expect, test } from "bun:test";
 import { lstatSync, statSync } from "node:fs";
 import { createDiagnostics } from "../../../starters/contract3/src/addons/diagnostics/run.ts";
@@ -95,8 +91,6 @@ describe("D10 sink faults and the stuck flush", () => {
       expectSuccess(intact);
       const { result, status: value } = await faulted("write-stalls", script);
       const extra = result.elapsedMilliseconds - intact.elapsedMilliseconds;
-      // The flush bound is 500 ms; 150 ms of tolerance for process noise on a
-      // loaded host. The lower bound shows the bounded wait actually ran.
       expect(extra).toBeLessThanOrEqual(500 + 150);
       expect(extra).toBeGreaterThanOrEqual(300);
       expect(get(value, "sinkFailure")).toBe("flush-timeout");
@@ -109,8 +103,6 @@ describe("D10 sink faults and the stuck flush", () => {
   test(
     "D10.late-completion-ignored (component layer; the process row is R2.late-completion-observed): a write that completes after the freeze changes nothing and writes nothing",
     async () => {
-      // Component support: a real process exits right after its envelope, so
-      // the late completion is driven in process with a held write.
       const where = tree();
       const pending: ((count: number) => void)[] = [];
       let writes = 0;
@@ -162,8 +154,6 @@ describe("D10 sink faults and the stuck flush", () => {
   test(
     "D10.first-fault-in-time: the first fault is reported and later loss still counted",
     async () => {
-      // The first write fails; records paced after it are later loss; the
-      // close fault comes last.
       const { status: value } = await faulted("write-throws,close-throws", {
         records: 20,
         pace: true,
@@ -214,7 +204,6 @@ describe("D11 variant validation", () => {
       const trusted = get(value, "trusted");
       if (typeof trusted !== "object" || trusted === null)
         throw new Error("no trusted");
-      // How many admitted records reached the file is unknown here.
       expect(Object.keys(trusted).sort()).toEqual([
         "closed",
         "countsComplete",

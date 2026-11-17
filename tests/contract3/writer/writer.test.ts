@@ -1,5 +1,3 @@
-// T2 writer, fallback and exit-agreement process cases (W01 to W05, F01 to
-// F04, X01). Each test runs the labelled fault-fixture CLI as a real process.
 import { describe, expect, test } from "bun:test";
 import { encodeBounded } from "../../../starters/contract3/src/kernel/fallback.ts";
 import { assertEnvelope, assertHuman, receipt } from "../lifecycle/checks.ts";
@@ -123,7 +121,6 @@ describe("fallback encoder bound (component support for F04 encoding)", () => {
     expect(encodeBounded("x".repeat(16_381))).toBe(`"${"x".repeat(16_381)}"`);
     expect(encodeBounded("x".repeat(16_382))).toBeUndefined();
     expect(encodeBounded([[[[[[[[]]]]]]]])).toBe("[[[[[[[[]]]]]]]]");
-    // B2 (Nathan, 16 November 2026): root level 0, every value counts.
     expect(encodeBounded([[[[[[[[[]]]]]]]]])).toBe("[[[[[[[[[]]]]]]]]]");
     expect(encodeBounded([[[[[[[[[[]]]]]]]]]])).toBeUndefined();
     expect(encodeBounded([[[[[[[[1]]]]]]]])).toBe("[[[[[[[[1]]]]]]]]");
@@ -134,9 +131,6 @@ describe("fallback encoder bound (component support for F04 encoding)", () => {
   });
 });
 
-// B2 (Nathan, 16 November 2026): one depth rule for both limits. The root is
-// level 0, every value inside a container is one level deeper, scalars count,
-// and a value above the limit is rejected.
 function arrays(count: number, scalar?: number | string): unknown {
   let value: unknown = scalar === undefined ? [] : [scalar];
   for (let level = 1; level < count; level++) value = [value];
@@ -162,7 +156,6 @@ describe("one depth rule for the 64 and 8 limits (supporting B2)", () => {
       availablePaths: [],
       result: { data },
     });
-    // Result guard at 64, measured from the envelope (data sits at level 2).
     for (const [data, admitted] of [
       [arrays(63), true],
       [arrays(64), false],
@@ -173,7 +166,6 @@ describe("one depth rule for the 64 and 8 limits (supporting B2)", () => {
       expect(deepestLevel(whole) <= 64).toBe(admitted);
       expect(json(whole)).toBe(admitted);
     }
-    // Fallback encoder at 8, measured from its root.
     for (const input of [
       arrays(8),
       arrays(9),

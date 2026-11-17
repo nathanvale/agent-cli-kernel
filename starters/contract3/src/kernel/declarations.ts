@@ -43,9 +43,6 @@ export type CommandDeclaration<Identity extends string = string> =
       registration?: InputTable,
     ) => Promise<Validation<CommandResult<Identity>>>;
   };
-// One owner for the shape rules of each declaration kind (repair 1, S1):
-// command() and changing() call them as they construct, and contractFor
-// calls them again for a raw CommandDeclaration (K1-5).
 export function admitInspectShape(declaration: {
   readonly summary: unknown;
   readonly ifNoResult?: unknown;
@@ -54,8 +51,6 @@ export function admitInspectShape(declaration: {
 }): void {
   if (!text(declaration.summary))
     throw new Error("Invalid command declaration.");
-  // DISC-10: only an inspect command that declares no approval may omit
-  // its station table (X-K1-3 case B).
   if (
     declaration.capabilities.approval === true &&
     declaration.stations.length === 0
@@ -63,7 +58,6 @@ export function admitInspectShape(declaration: {
     throw new Error(
       "An inspect command that declares approval declares its station table.",
     );
-  // DISC-13: for an inspect command ifNoResult is null.
   if (declaration.ifNoResult !== undefined)
     throw new Error("An inspect command has no ifNoResult.");
 }
@@ -129,8 +123,6 @@ export function validateCommandIdentity(identity: string): void {
       "Command identity must be nonempty and at most 128 UTF-8 bytes.",
     );
 }
-// CMD-9 steps 1 and 2: switches are removed before exact route matching, so an
-// empty or option-like token could never select its command (F04).
 export function validateRouteTokens(route: readonly string[]): void {
   for (const token of route)
     if (!text(token) || token.startsWith("-"))
@@ -149,9 +141,6 @@ export function validateRootOperation(
   )
     throw new Error("Root operation requires a declared option or operand.");
 }
-// Reads each own context property once into a plain object. The handler then
-// receives exactly the values that were validated; a hidden or accessor
-// property is refused instead of being read twice or dropped by a spread (F10).
 function contextSnapshot(value: unknown): Record<string, unknown> | undefined {
   if (!record(value)) return undefined;
   const snapshot: Record<string, unknown> = {};
@@ -165,11 +154,6 @@ function contextSnapshot(value: unknown): Record<string, unknown> | undefined {
   }
   return snapshot;
 }
-// CMD-9 steps 3 to 5 for one declaration: strict input, caller-supplied
-// future bindings, the handler context and the non-consuming approval guard,
-// for inspect and changing commands alike (CMD-4, CMD-15). Nothing attaches
-// here; the returned entry is step 6 and receives the state capability, if
-// any, only then (K1-3, K3-spec-6, K3-spec-7).
 export type HandlerEntry<Identity extends string = string> = (
   state?: unknown,
 ) => Promise<Validation<CommandResult<Identity>>>;
@@ -181,8 +165,6 @@ export type Prepare<Identity extends string = string> = (
   registration?: InputTable,
 ) => Promise<Validation<HandlerEntry<Identity>>>;
 const preparers = new WeakMap<object, Prepare>();
-// The two-phase entry of a constructed declaration; a raw declaration has
-// none and runs through its own execute.
 export function preparerOf(declaration: object): Prepare | undefined {
   return preparers.get(declaration);
 }
@@ -234,7 +216,6 @@ async function preflight<I extends InputSchema, C extends CapabilitySelection>(
         ? "state unavailable"
         : "undeclared or unavailable capability",
     };
-  // CMD-15: with no request mapper the guard cannot grant, so it denies.
   if (
     spec.capabilities.approval &&
     (!spec.approval ||
@@ -244,8 +225,6 @@ async function preflight<I extends InputSchema, C extends CapabilitySelection>(
     return { ok: false, path: "approval", reason: "approval required" };
   return { ok: true, value: { input: parsed.value, context: checked } };
 }
-// The single-call entry kept for direct callers: prepare, then enter with
-// the state capability the caller's context carries.
 function executeVia<Identity extends string>(prepare: Prepare<Identity>) {
   return async (
     argv: unknown,
@@ -277,7 +256,6 @@ export function command<
     >;
     readonly capabilities: C;
     readonly stations?: S;
-    // Checked at declaration against the station table (requireProgramStopStation).
     readonly programStopCause?: P;
     readonly run: (
       input: ParsedInput<I>,
@@ -285,9 +263,6 @@ export function command<
     ) => CommandResult<Identity> | Promise<CommandResult<Identity>>;
   } & (C extends { readonly approval: true }
     ? {
-        // CMD-4: an inspect command's approval request. A raw declaration
-        // cannot reach the guard without one (F1); the guard still denies
-        // if it is missing.
         readonly approval: (input: ParsedInput<I>) => ApprovalRequest;
       }
     : { readonly approval?: never }),
@@ -382,9 +357,6 @@ export function changing<
       input: ParsedInput<I>,
       context: HandlerContext<C> & {
         readonly state: StateCapability<Effect>;
-        // The authority exclusion without approval (N6 a) stays runtime-only
-        // here: the T3 specimen's typed handlers select from a union that
-        // includes its declared-unreachable DOMAIN_AUTHORITY_REQUIRED.
       } & ResultContext<Identity, S, "repository-local" | "external">,
     ) => Promise<CommandResult<Identity>>;
   } & (C extends { readonly approval: true }

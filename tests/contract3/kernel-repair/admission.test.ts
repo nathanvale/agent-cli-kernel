@@ -71,8 +71,6 @@ function refusal(action: () => unknown): string | undefined {
   }
 }
 const table: CauseTable = commonCauses;
-// Host stations whose handoffs name no command, so a widened declaration list
-// still satisfies the registered-guidance type of contractFor.
 type HostStation = Omit<DeclaredStation, "guidance"> & {
   readonly guidance:
     | { readonly next: NextStep; readonly handoff?: never }
@@ -196,9 +194,6 @@ runFamily("R03", {
       ).toMatch(/reserved/i);
   },
   "R03.base-words-retained": () => {
-    // A command that declares host words for an admissible cause keeps the
-    // base's words on every reserved station, identical to a twin with no
-    // host station; the literal reserved variant itself is refused.
     const hostSchema = station(commonCauses, {
       commandIdentity: "specimen.read",
       causeCode: "SCHEMA_INVALID_INPUT",
@@ -216,8 +211,6 @@ runFamily("R03", {
         (item) =>
           frozenInputs.reservedCauses.some((cause) => cause === item.causeCode),
       );
-    // LIFE-9: an inspect command's fallback selects INTERNAL_PREPARATION
-    // before dispatch and INTERNAL_RESULT_UNCHANGED after it.
     expect(
       reservedIn(twin)
         .map((item) => item.causeCode)

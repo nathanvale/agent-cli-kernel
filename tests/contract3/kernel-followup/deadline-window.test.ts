@@ -22,8 +22,6 @@ afterAll(async () => {
 });
 
 const deadline = 300;
-// Independent oracle: WIRE-18's N words for DOMAIN_DEADLINE_UNCHANGED, as
-// the base supplies them (accepted wording).
 const deadlineNext = {
   kind: "instruction",
   text: "Inspect the deadline and the input, then explicitly decide whether to start a new run.",
@@ -70,10 +68,6 @@ describe("KF9.a transaction-after-deadline-refused", () => {
   test(
     "KF9.a D=520: the process ends before a transaction called after the lifecycle stopped waiting",
     async () => {
-      // The kernel emits and exits about 800 ms after start (LIFE-6 bounds
-      // the run), before the late call at about 820 ms: no handler code runs
-      // then. A kernel that waited for the handler before exit lets the
-      // fixture note `late-call` (D=100 shows the line is reachable).
       for (let round = 0; round < 3; round++) {
         const run = await late("transaction", deadline + 520);
         expect({ round, exit: run.exit, one: oneEnvelope(run) }).toEqual({
@@ -123,7 +117,6 @@ describe("KF9.b effect-after-deadline-refused", () => {
       expect(run.ledger).toContain("transaction-refused");
       const effects = run.result?.effects;
       expect(JSON.stringify(effects)).not.toContain("kf.e2");
-      // Twin: both effects recorded before the deadline.
       const twin = await late("both", 0);
       expect(twin.exit).toBe(3);
       expect(twin.result).toMatchObject({

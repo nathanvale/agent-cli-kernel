@@ -14,8 +14,6 @@ import { join } from "node:path";
 import { familyCases } from "./cases.ts";
 import { spawnBounded } from "./swarm-process.ts";
 
-// Registers one test per frozen case after asserting that the file implements
-// exactly the family's active identities: no missing, extra or renamed case.
 export function runFamily(
   family: string,
   implementations: Readonly<Record<string, () => unknown>>,
@@ -59,9 +57,6 @@ export const materialisedFixtures: readonly string[] = [
   "tests/contract3/kernel-repair/swarm-approval.ts",
 ];
 
-// State fixtures must live in the canonical state add-on folder. Each tree is
-// a disposable copy of the kernel with the fixture modules, a tests-scope
-// driver, and the contract3 lint configuration rooted at the tree.
 export async function materialise(): Promise<string> {
   const root = await mkdtemp(
     join(await realpath(tmpdir()), "contract3-repair-"),
@@ -77,7 +72,6 @@ export async function materialise(): Promise<string> {
       recursive: true,
     },
   );
-  // The shipped approval add-on, for the swarm state cases (X-S6).
   await cp(
     join(repository, "starters/contract3/src/addons/approval"),
     join(source, "addons/approval"),
@@ -117,20 +111,14 @@ export async function materialise(): Promise<string> {
   return root;
 }
 
-// Lint and type-check (not driver runs) are the slowest children; their
-// bound stays below fixture-lint's 120,000 ms test timeout so a hang is
-// still released (S5, S10).
 const treeBound = 110_000;
 function spawnText(argv: readonly string[], cwd: string) {
   return spawnBounded(argv, { cwd, boundMilliseconds: treeBound });
 }
 
-// Runs one fixture through the driver and returns its observations.
 export async function stateFixture(name: string): Promise<unknown> {
   const root = await materialise();
   try {
-    // A driver run is bounded by exitBound (20,000 ms), below runFamily's
-    // 30,000 ms test timeout, so a hung driver is released (delta F5).
     const run = await spawnBounded(
       [process.execPath, "tests/contract3/kernel-repair/driver.ts", name],
       { cwd: root },
@@ -146,8 +134,6 @@ export async function stateFixture(name: string): Promise<unknown> {
   }
 }
 
-// Lints a materialised tree with the contract3 configuration and returns each
-// linted file (relative to the tree) with its message count.
 export async function lintTree(root: string) {
   const run = await spawnText(
     [
@@ -191,7 +177,6 @@ export async function lintTree(root: string) {
   return { exit: run.exit, stderr: run.stderr, files };
 }
 
-// Type-checks a materialised tree with the native compiler.
 export function typecheckTree(root: string) {
   return spawnText(
     [
@@ -207,8 +192,6 @@ export function typecheckTree(root: string) {
   );
 }
 
-// Calls contract.build with values the static types forbid, so runtime
-// admission is what the case observes.
 export async function buildUnchecked(
   contract: object,
   selected: unknown,
@@ -223,7 +206,6 @@ export async function buildUnchecked(
   return result;
 }
 
-// Calls contractFor with declarations the static types forbid.
 export function contractUnchecked(contractFor: unknown, spec: object): unknown {
   if (typeof contractFor !== "function") throw new Error("No contractFor.");
   const contract: unknown = Reflect.apply(contractFor, undefined, [spec]);

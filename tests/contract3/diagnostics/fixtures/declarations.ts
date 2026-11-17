@@ -1,6 +1,3 @@
-// LABELLED TEST-ONLY declarations shared by the two "dxs" specimens, so the
-// diagnostics-enabled and diagnostics-disabled CLIs present the same inputs,
-// routes, messages and data. Imports the kernel public index only.
 import { command } from "../../../../starters/contract3/src/kernel/index.ts";
 
 const token = {
@@ -55,8 +52,6 @@ export const plain = command({
     ),
 });
 
-// The read command's data, the same in both specimens. `dataBytes` pads it
-// past the 64 KiB pipe buffer, so a test can hold the CLI in stdout drain.
 export function readData(records: number): {
   records: number;
   padding?: string;

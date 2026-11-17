@@ -49,7 +49,6 @@ const BUFFER_BYTES = 1_000_000;
 const RUN_BYTES = 1_000_000;
 const RECORDS = 256;
 const FLUSH_MS = 500;
-// Includes retained byte buffers, per-entry bookkeeping and a reserved serialization workspace.
 const SERIALIZATION_BYTES = RECORD_BYTES * 8;
 const ENTRY_BYTES = 256;
 const formatter = getJsonLinesFormatter({ properties: "flatten" });
@@ -85,7 +84,6 @@ function projectObject(
   const entries: Record<string, unknown> = {};
   let truncated = false;
   let count = 0;
-  // No getters/toJSON: diagnostics neither execute caller code nor retain caller-owned objects.
   for (const key in value) {
     if (!Object.hasOwn(value, key)) continue;
     if (++count > 128 || budget.nodes <= 0) {
@@ -123,7 +121,6 @@ function serialize(record: LogRecord): { bytes: Buffer; truncated: boolean } {
   const truncated =
     bytes.length > RECORD_BYTES || record.properties.truncated === true;
   if (bytes.length > RECORD_BYTES) {
-    // Remove the entire payload; slicing serialized JSON can expose a prefix or make invalid JSON.
     bytes = Buffer.from(
       formatter({
         ...record,
@@ -320,8 +317,6 @@ class BoundedQueue {
       countsComplete: true,
       closed: this.closed,
     });
-    // A timed-out drain may still settle before exit: close then so the file earns its closure proof and stops
-    // reserving a full run allowance. The frozen status above already reported the timeout and stays unchanged.
     if (!complete)
       void this.flush().then(
         () => this.close(),
@@ -354,12 +349,9 @@ async function finishLogTape(milliseconds: number): Promise<void> {
 }
 
 let active: RunDiagnostics | null = null;
-// Main's signal handler uses the same idempotent, bounded finalization as normal exit.
 export async function finishActiveDiagnostics(): Promise<void> {
   await active?.dispose();
 }
-// Crash handling gets one synchronous, bounded write to the already owned descriptor. It never opens a path,
-// waits for disposal, changes domain truth or promises that the operating system persisted the bytes.
 export function attemptEmergencyDiagnostic(): void {
   active?.emergency("process.crash");
 }
@@ -440,7 +432,6 @@ async function openRunDiagnostics(options: {
             closed: null,
           }
         : await queue.finish();
-    // LogTape has no external file/disposal resource: the owned queue alone owns descriptor finalization.
     if (configured)
       await finishLogTape(Math.max(0, deadline - performance.now()));
     if (active === opened) active = null;
@@ -451,7 +442,6 @@ async function openRunDiagnostics(options: {
   }
   try {
     queue = new BoundedQueue(openDiagnosticFile(env, runIdentity), fault);
-    // Publish the idempotent finalizer before asynchronous LogTape setup so a signal cannot strand the descriptor.
     active = opened;
     const owned = queue;
     const meta: Sink = (record) => {

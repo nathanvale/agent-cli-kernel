@@ -1,7 +1,3 @@
-// One owner for the inspect-only declarations of the swarm-triage cases
-// (X-K1-*). The in-process admission tests and the process CLI
-// (swarm-cli.ts) both import them, so the declaration a test admits is the
-// declaration the child process runs. Expected values live in the tests.
 import {
   command,
   commonCauses,
@@ -31,7 +27,6 @@ function text(maxLength: number, pattern: string | null) {
   } as const;
 }
 
-// X-K1-1: one inspect command whose required operand declares `pattern`.
 export function patternShow(pattern: string) {
   return command({
     identity: "x.show",
@@ -57,7 +52,6 @@ export function patternShow(pattern: string) {
   });
 }
 
-// X-K1-2: x.show with one required value-taking option `--title`.
 export function titledShow() {
   return command({
     identity: "x.show",
@@ -89,7 +83,6 @@ export function titledShow() {
   });
 }
 
-// X-K1-13: x.show with one optional operand.
 export function filterShow() {
   return command({
     identity: "x.show",
@@ -119,7 +112,6 @@ export function filterShow() {
   });
 }
 
-// The success station of x.go: its next step is `x.show ARGS`.
 export function goStation(args: readonly string[]) {
   return station(commonCauses, {
     commandIdentity: "x.go",
@@ -131,7 +123,6 @@ export function goStation(args: readonly string[]) {
   });
 }
 
-// x.go: one inspect command whose only success names `x.show ARGS`.
 export function go(args: readonly string[]) {
   const went = goStation(args);
   return command({
@@ -150,10 +141,6 @@ export function go(args: readonly string[]) {
   });
 }
 
-// X-K1-6: an inspect command with one required operand whose handler
-// selects `causeCode` through the result builder, optionally beside its own
-// declared success station. The static result type lists only declared
-// stations, so the declaration is built and admitted unchecked.
 export function selectingLoad(causeCode: string, ownStation: boolean): object {
   const run = (_input: unknown, context: unknown) => {
     const result: unknown =
@@ -211,7 +198,6 @@ function schemaLoad(): object {
   return selectingLoad("SCHEMA_INVALID_INPUT", false);
 }
 
-// X-K1-8: one host command that declares deadline support.
 function deadlineRead() {
   return command({
     identity: "x.read",
@@ -236,8 +222,6 @@ function deadlineRead() {
   });
 }
 
-// X-K1-3 and X-S7: an inspect command that declares approval and its own
-// success station; `entered` records handler entry.
 export function approvedRead(entered: () => void) {
   const read = station(commonCauses, {
     commandIdentity: "x.read",
@@ -272,8 +256,6 @@ export function approvedRead(entered: () => void) {
   });
 }
 
-// Process scenarios run by swarm-cli.ts; each reads its variant from the
-// environment the parent test sets.
 export const scenarios: Readonly<Record<string, () => object>> = {
   pattern: () =>
     contractFor({

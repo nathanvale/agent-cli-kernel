@@ -6,8 +6,6 @@ import {
 } from "../../../starters/contract3/src/kernel/index.ts";
 import { emptyInput as input, unchanged } from "./shapes.ts";
 
-// One inspect command whose success station names a command step, so
-// validation takes its asynchronous step-parsing path (R06, R07, R08).
 const step = { kind: "command", command: "specimen.help", args: [] } as const;
 export const readStation = station(commonCauses, {
   commandIdentity: "specimen.read",
@@ -34,7 +32,6 @@ export function envelopeContract() {
   });
   return contractFor({ cli: "specimen", commands: [read] });
 }
-// A plain mutable envelope written from the WIRE-15 success row.
 export function envelope(data: unknown) {
   return {
     contractVersion: "3.0.0",

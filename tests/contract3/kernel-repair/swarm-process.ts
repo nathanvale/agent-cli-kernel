@@ -1,8 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { exitBound } from "../lifecycle/harness.ts";
 
-// Runs one swarm-triage scenario as a real child process and returns what an
-// agent observes: exit code, both streams and the parsed machine envelope.
 const entry = new URL("swarm-cli.ts", import.meta.url).pathname;
 
 export type ScenarioRun = {
@@ -24,14 +22,6 @@ function resultOf(stdout: string): ScenarioRun["result"] {
     : undefined;
 }
 
-// One bounded process runner for the kernel-repair tests (repair 1, S5),
-// after the lifecycle harness's R1 rule: a case that hangs leaves no fixture
-// process behind. The wait is bounded below the test timeout; on expiry the
-// child is killed and awaited, then the case fails naming the bound. It
-// also records the wall-clock time of the first stdout byte (KF3, LIFE-6).
-// Sends `signal` once `ledger` holds the line `line` (a barrier). With
-// `processGroup`, the child leads its own process group and expiry kills
-// the whole group, so a wrapper's own children go with it.
 export type SignalAt = {
   readonly ledger: string;
   readonly line: string;
@@ -109,9 +99,6 @@ export async function spawnBounded(
   return { stdout, stderr, exit, firstByteAt };
 }
 
-// Harness watchdog, not a contract number (S10): a test that runs `runs`
-// child processes waits at most `runs` exitBounds, plus a margin for
-// materialising a fixture tree, so spawnBounded releases a hang first.
 export function processWatchdog(runs: number): number {
   return runs * exitBound + 10_000;
 }

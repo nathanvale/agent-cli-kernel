@@ -1,9 +1,3 @@
-// State add-on implementation (CMD-10a to CMD-13a, REC-1 to REC-10).
-// INTERNAL MODULE: host code imports only `./index.ts` (production seams) and
-// tests may import `./fixture.ts` (labelled test seams). Imports only the
-// kernel public index (CMD-17). The frozen storage and coordination design
-// is DESIGN.md (journal version 1); this module implements it and nothing
-// beyond it. See index.ts for the host Interface.
 import { randomUUID } from "node:crypto";
 import { lstatSync } from "node:fs";
 import { join } from "node:path";
@@ -58,10 +52,6 @@ export type Observer = (input: {
   readonly revisions: Readonly<Record<string, string>>;
 }) => Promise<Observation>;
 
-// Observation points at frozen add-on-internal transitions: X02
-// (`admission-wait`: before the admission coordination lock wait), X06
-// (`staged`: intent staged, not yet published) and X19 (`closure-staged`:
-// closure staged, not yet linked). Only the labelled test entry sets them.
 export type Phase = "admission-wait" | "staged" | "closure-staged";
 
 export type StateOptions = {
@@ -92,7 +82,6 @@ export type Refusal =
   | {
       readonly kind: "unavailable";
       readonly reason: string;
-      // Observed facts a person can act on (coordination refusals).
       readonly detail?: string;
     };
 
@@ -102,14 +91,12 @@ export type TransactionResult<Effect extends string> = {
   | {
       readonly kind: "ran";
       readonly operationId: string;
-      // The host's work threw; the proof still reports every recorded fact.
       readonly workFailed: boolean;
     }
   | Refusal
 );
 
 export type CloseRequest<Effect extends string> = {
-  // The host's recovery command identity, recorded in its own intent (REC-1).
   readonly command: string;
   readonly effect: Effect;
   readonly operationId: string;
@@ -117,8 +104,6 @@ export type CloseRequest<Effect extends string> = {
   readonly disposition: Disposition;
   readonly revision: string;
   readonly reason: string;
-  // Presence of a human stop attestation (REC-7a). It is never read here:
-  // human-assisted takeover is unavailable without a qualified row.
   readonly attestation?: boolean;
 };
 
@@ -265,7 +250,6 @@ function unchangedObservation<Effect extends string>(
   };
 }
 
-// Own-run proof from this run's records (DESIGN.md section 8 table).
 function observationOf<Effect extends string>(
   declared: readonly Effect[],
   confirmed: readonly Effect[],
@@ -315,8 +299,6 @@ function hex32(): string {
   return randomUUID().replaceAll("-", "");
 }
 
-// Recovery classification (DESIGN.md section 8): never from the journal
-// alone, and absence never proves non-application.
 async function observe(
   effect: string,
   operation: Operation,
@@ -375,9 +357,6 @@ type Acquired = Extract<
   { readonly ok: true }
 >;
 
-// A closure request that can never proceed: malformed, or asking for
-// human-assisted takeover, which is never attempted without a reviewed row
-// (REC-7a). The attestation is not read, so it is preserved.
 function closeRequestProblem(
   request: CloseRequest<string>,
   effect: string | undefined,
@@ -396,8 +375,6 @@ function closeRequestProblem(
     : undefined;
 }
 
-// A settled case: the same closure again, a different closure,
-// damaged closure bytes, or its own run's final record.
 function settledCheck(
   operation: Operation,
   request: CloseRequest<string>,
@@ -415,8 +392,6 @@ function settledCheck(
     : { kind: "not-unresolved" };
 }
 
-// Section 7.2: the candidate runtime proof needs a reviewed (or labelled
-// fixture) row, no admitted delegate and no torn journal tail.
 function stoppedOwnerProblem(
   qualification: Qualification,
   target: Operation,
@@ -441,9 +416,6 @@ function closureMatches(
   );
 }
 
-// The add-on observes its own recovery effect: the closed case's closure
-// record. Link publication never replaces a closure, so a closure written by
-// another recovery run excludes this one's publication.
 function closureObservation(paths: Layout, operation: Operation): Observation {
   const target = operation.intent.closes;
   if (target === null) return "unobservable";
@@ -457,16 +429,10 @@ function closureObservation(paths: Layout, operation: Operation): Observation {
 
 type Held = { readonly release: () => void };
 
-// The store layout plus this state add-on instance's coordination route
-// (DESIGN.md section 7). Without a route an attempt throws: run() refuses
-// before any attempt, so nothing is ever acquired.
 type Locked = Layout & {
   readonly tryLock: (path: string, create?: boolean) => LockAttempt;
 };
 
-// Admission ordering (DESIGN.md section 7.1 steps 2 and 3): the admission
-// coordination lock first (bounded wait), then key coordination locks in
-// ascending lock-file name order, non-blocking.
 async function acquire(
   paths: Locked,
   keys: readonly string[],
@@ -511,9 +477,6 @@ async function acquire(
       continue;
     }
     releaseKeys();
-    // Still under the admission lock: the holder of a key coordination lock
-    // has published its intent, so the live owner can be named. If it has
-    // already gone, the condition was temporary.
     const owner = attempt.kind === "busy" ? liveHolder(paths, keys) : undefined;
     admission.release();
     return {
@@ -538,7 +501,6 @@ async function acquire(
   };
 }
 
-// The live operation whose scope conflicts with `keys`, whatever its status.
 function liveHolder(
   paths: Locked,
   keys: readonly string[],
@@ -554,8 +516,6 @@ function liveHolder(
   return undefined;
 }
 
-// A live closure holds its target's lease, so a held target lease names the
-// closing recovery run's operation, not the target's (stopped) owner.
 function liveClosers(
   paths: Locked,
   operations: readonly Operation[],
@@ -573,7 +533,6 @@ function liveClosers(
   return closers;
 }
 
-// Live-owner probe of one case's lease (section 7.2). "live" when held.
 function probeLease(paths: Locked, id: string): "live" | "free" {
   const attempt = paths.tryLock(
     join(paths.operation(id), "owner.lease"),
@@ -586,7 +545,6 @@ function probeLease(paths: Locked, id: string): "live" | "free" {
   return attempt.kind === "busy" ? "live" : "free";
 }
 
-// Under coordination: the first conflicting case, live owners first.
 function blocking(
   paths: Locked,
   operations: readonly Operation[],
@@ -614,13 +572,9 @@ function rejectionConsumed(error: unknown): boolean | undefined {
   return typeof consumed === "boolean" ? consumed : undefined;
 }
 
-// Seams the production entry fixes and only the labelled test entry varies:
-// the qualification that gates the stopped-owner condition, and observation
-// of add-on-internal transitions.
 export type Seams = {
   readonly qualification: Qualification;
   readonly phase: (name: Phase) => Promise<void>;
-  // The coordination route, resolved once with its start-up self-check.
   readonly coordination: CoordinationRoute;
 };
 
@@ -635,8 +589,6 @@ export function install(options: StateOptions, seams: Seams) {
   const route = seams.coordination;
   const paths: Locked = {
     ...layout(options.root),
-    // run() refuses first when the route is unavailable (the one owner of
-    // fail closed); reaching this stand-in would be a bypass, so it is loud.
     tryLock: route.available
       ? route.tryLock
       : () => {
@@ -686,7 +638,6 @@ export function install(options: StateOptions, seams: Seams) {
       slot.outcome = refusal;
       return issuer.transactionProof(runId, unchangedObservation<Effect>([]));
     };
-    // Fail closed before any write (DESIGN.md section 7).
     if (!route.available)
       return refuse({
         kind: "unavailable",
@@ -700,7 +651,6 @@ export function install(options: StateOptions, seams: Seams) {
       : closeCase(issuer, runId, declared, slot);
   }
 
-  // Publishes this run's intent and returns its live operation handle.
   async function begin(
     runId: string,
     intent: Omit<Intent, "operationId" | "runId" | "owner">,
@@ -739,8 +689,6 @@ export function install(options: StateOptions, seams: Seams) {
     };
   }
 
-  // Section 7.1 steps 2 to 4: coordination, then the unresolved-case and
-  // live-owner check under it. `release` frees both coordination layers.
   async function coordinate(
     keys: readonly string[] | undefined,
     lockKeys: readonly string[],
@@ -785,8 +733,6 @@ export function install(options: StateOptions, seams: Seams) {
     };
   }
 
-  // CMD-9 step 7: revalidate and consume under the issued exclusive scope,
-  // before the intent. Denial, consumed-then-lost and store failure differ.
   async function consumeApproval(
     issuer: StateIssuer,
     runId: string,
@@ -818,7 +764,6 @@ export function install(options: StateOptions, seams: Seams) {
     }
   }
 
-  // Publishes the intent, then releases the admission coordination lock.
   async function open(
     runId: string,
     intent: Omit<Intent, "operationId" | "runId" | "owner">,
@@ -834,8 +779,6 @@ export function install(options: StateOptions, seams: Seams) {
     return opened;
   }
 
-  // Runs the host's work against this run's own records and ends the run's
-  // own listing with its final event (section 8 table).
   async function runRecorded<Effect extends string>(
     issuer: StateIssuer,
     runId: string,
@@ -868,7 +811,6 @@ export function install(options: StateOptions, seams: Seams) {
     const declaration = slot.declaration;
     if (declared.length === 0 || declaration.command.length === 0)
       return refuse({ kind: "unavailable", reason: "declaration" });
-    // Scope from validated input, before any coordination (REC-2).
     const scope: CanonicalScope = canonicalise(declaration.scope);
     const keys = scope.unknown ? undefined : scope.keys;
     const admitted = await coordinate(keys, keys ?? [], { liveOnly: false });
@@ -941,7 +883,6 @@ export function install(options: StateOptions, seams: Seams) {
     }
   }
 
-  // EffectTransaction for one admitted operation (DESIGN.md section 8).
   function recorder<Effect extends string>(
     issuer: StateIssuer,
     runId: string,
@@ -1032,8 +973,6 @@ export function install(options: StateOptions, seams: Seams) {
     };
   }
 
-  // The stopped-owner condition and the requested disposition's evidence,
-  // evaluated under coordination (REC-3, REC-4, REC-7, sections 7.2 and 8).
   async function closureDecision(
     target: Operation,
     request: CloseRequest<string>,
@@ -1069,7 +1008,6 @@ export function install(options: StateOptions, seams: Seams) {
     };
   }
 
-  // Coordination over the case: its keys, its case key and its owner lease.
   async function admitClosure(
     request: CloseRequest<string>,
     targetKeys: readonly string[] | undefined,
@@ -1206,8 +1144,6 @@ export function install(options: StateOptions, seams: Seams) {
     return issuer.transactionProof(runId, observation);
   }
 
-  // A missing case directory is not-found; any other failure to read it is
-  // unreadable, never folded into not-found (SF-2).
   function readTarget(
     id: string,
   ): Operation | "not-found" | "corrupt" | "unreadable" {
@@ -1250,7 +1186,6 @@ export function install(options: StateOptions, seams: Seams) {
     return { ...outcome, proof };
   }
 
-  // DISC-14: read-only; reads files only, takes no coordination lock.
   function report(): ReportResult {
     const store = readStore(paths);
     if (!store.ok) return store;
@@ -1267,7 +1202,6 @@ export function install(options: StateOptions, seams: Seams) {
     };
   }
 
-  // REC-6: read-only case history. Observers are read-only host reads.
   async function history(operationId: string): Promise<HistoryResult> {
     if (!operationPattern.test(operationId))
       return { ok: false, reason: "not-found" };
@@ -1322,7 +1256,6 @@ export function install(options: StateOptions, seams: Seams) {
     };
   }
 
-  // LIFE-6a: one bounded synchronous attempt; never throws.
   function emergencyRecord(facts: EmergencyFacts): void {
     const run = active.get(facts.runId);
     if (!run || run.emergencyWritten) return;
@@ -1337,8 +1270,6 @@ export function install(options: StateOptions, seams: Seams) {
   function capabilities(): CapabilityReport {
     const qualification = seams.qualification;
     const coordination = route.available ? "available" : "unavailable";
-    // A fixture-enabled proof is never reported as available (Q01): only a
-    // reviewed production row could make it available.
     const stopped =
       coordination === "unavailable" ||
       qualification.stoppedOwner === "unavailable"

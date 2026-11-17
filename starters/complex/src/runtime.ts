@@ -72,7 +72,6 @@ export async function setState(
       if (observation.state !== "completed") {
         return { effectId: pending.effectId, status: "blocked" };
       }
-      // Reconcile only under the writer lock, without repeating the old effect.
       await appendJournal(path, { ...pending, phase: "completed" });
       if (pending.expectedValueHash === valueHash(value)) {
         return { effectId: pending.effectId, status: "unchanged" };

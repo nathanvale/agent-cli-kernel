@@ -1,8 +1,3 @@
-// Swarm-triage state fixtures (X-K1-4, X-K1-10, X-K2S1, X-K2S2, X-K2S3).
-// Materialised at starters/contract3/src/addons/state/swarm-state.ts in a
-// disposable tree beside a copy of the kernel, and linted there. A test-only
-// installation through the stamped seam, not the T3 state add-on. Callers
-// pass plain callbacks; expected values live in the parent tests.
 import {
   changing,
   command,
@@ -21,7 +16,6 @@ type Observe = <Effect extends string>(
   effects: readonly Effect[],
 ) => StateObservation<Effect>;
 
-// The observation every transaction reports: each declared effect completed.
 const completedObservation: Observe = <Effect extends string>(
   effects: readonly Effect[],
 ) => {
@@ -74,7 +68,6 @@ function installation(
 const held = { commandIdentity: "specimen.apply", causeCode: "HELD" } as const;
 const heldFacts = { message: "Held.", data: null, effects: empty } as const;
 
-// What the `specimen.apply` handler does after entry.
 type Handler =
   | { readonly kind: "throw" }
   | { readonly kind: "transaction-then-held" }
@@ -84,7 +77,6 @@ type Handler =
       readonly record: (line: string) => void;
     };
 
-// One changing command `specimen.apply` (effect "e") under `state`.
 function applyContract(
   state: StateAddonDescriptor,
   handler: Handler,
@@ -139,8 +131,6 @@ function applyContract(
   });
 }
 
-// X-K1-4: `specimen.pending` with one required operand (or none) while the
-// installation's ifNoResult names it with no arguments; the handler throws.
 export function ifNoResultContract(requiredOperand: boolean) {
   const pending = command({
     identity: "specimen.pending",
@@ -191,8 +181,6 @@ export function ifNoResultContract(requiredOperand: boolean) {
   );
 }
 
-// B1 (repair round 1): `specimen.pending` takes a required `--title`; the
-// installation's ifNoResult names it with `--title VALUE`; the handler throws.
 export function ifNoResultTitleContract(value: string) {
   const title = {
     name: "--title",
@@ -239,7 +227,6 @@ export function ifNoResultTitleContract(value: string) {
   );
 }
 
-// X-K1-10: a coordination refusal cause that is a common cause.
 export function coordinationContract(
   variant: "lock-common" | "unresolved-common" | "host",
 ) {
@@ -295,9 +282,6 @@ export function coordinationContract(
   });
 }
 
-// X-K2S1: the observation's transactionState reads `completed` once and
-// `unchanged` after (an accessor), with effect "e" completed. With `steady`
-// the twin reports a plain unchanged observation.
 export function proofAccessorContract(steady: boolean) {
   const accessor: Observe = <Effect extends string>(
     effects: readonly Effect[],
@@ -322,8 +306,6 @@ export function proofAccessorContract(steady: boolean) {
   });
 }
 
-// X-K2S3: the handler queues a transaction behind `hops` microtask hops and
-// returns the HELD refusal at once; `record` receives the ledger lines.
 export function lateTransactionContract(
   hops: number,
   record: (line: string) => void,
@@ -335,9 +317,6 @@ export function lateTransactionContract(
   });
 }
 
-// X-K2S2: run "R" completes "e" under a proof; a second run under
-// `secondRunId` returns the HELD refusal; a third run reuses "R" again.
-// Returns what each execution and build reports.
 export async function runReuse(secondRunId: string) {
   let calls = 0;
   const state = installation(completedObservation);
@@ -402,13 +381,10 @@ export async function runReuse(secondRunId: string) {
   };
 }
 
-// X-S6: an installation whose attach reports each attachment.
 export function recordingInstallation(onAttach: () => void) {
   return installation(completedObservation, [], onAttach);
 }
 
-// Delta review F1: the changing command spread into a plain object, which
-// loses the two-phase entry its constructor registered.
 export function spreadChangingContract() {
   return applyContract(
     installation(completedObservation),

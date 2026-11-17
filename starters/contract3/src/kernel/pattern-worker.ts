@@ -1,4 +1,3 @@
-// Terminable, dependency-free pattern execution. Never runs on the lifecycle thread.
 self.onmessage = (event: MessageEvent<unknown>) => {
   const value = event.data;
   if (

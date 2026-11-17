@@ -1,8 +1,3 @@
-// Test-owned process entry for the swarm-triage state cases, materialised at
-// tests/contract3/kernel-repair/swarm-state-cli.ts in a disposable tree beside
-// a copy of the kernel and the state fixtures, and linted there. argv is
-// <scenario> then the CLI argv. Admission scenarios print what contractFor
-// did; process scenarios run through the real process front door.
 import { appendFileSync } from "node:fs";
 import {
   changing,
@@ -47,8 +42,6 @@ function admission(compose: () => object): void {
 }
 const ledger = process.env.LEDGER ?? "";
 const note = (line: string) => appendFileSync(ledger, `${line}\n`);
-// X-S6: a changing command behind approval whose state installation and
-// handler both report to the ledger.
 function guardedContract() {
   const state = recordingInstallation(() => note("state-attached"));
   const guarded = changing({
@@ -121,8 +114,6 @@ const scenarios: Readonly<Record<string, (argv: string[]) => Promise<unknown>>> 
       runProcess(guardedContract(), {
         addons: { approval: approvalAddon("specimen.guarded", note) },
       })(argv),
-    // F2: a denied check phase claims nothing, so the same run identity is
-    // then granted and entered.
     "deny-then-grant": async () => {
       const contract = guardedContract();
       const attempt = async (granted: boolean) => {

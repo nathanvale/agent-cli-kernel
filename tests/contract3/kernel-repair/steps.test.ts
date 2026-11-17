@@ -9,10 +9,6 @@ import { validateEnvelope } from "../../../starters/contract3/src/kernel/validat
 import { buildUnchecked, runFamily } from "./harness.ts";
 import { emptyInput as empty, unchanged } from "./shapes.ts";
 
-// R05 (F05). After the F01 admission check, a declaration carrying the
-// empty-args root step is refused before any envelope exists. Each case
-// records which layer refused, and the envelope validator is also exercised
-// directly on the declared stations so the F05 rule keeps its own proof.
 const withFlag = {
   ...empty,
   options: [
@@ -94,7 +90,6 @@ function fixture(args: readonly string[]) {
     causes: { HOLD: hold },
   });
 }
-// Records which layer refused: admission (after F01) or the built contract.
 function attempt(args: readonly string[]) {
   try {
     return { contract: fixture(args), refusal: "" };
@@ -109,8 +104,6 @@ function admissionNamesRootStep(refusal: string) {
   expect(refusal).toContain("specimen.root");
   expect(refusal).toContain("root operation");
 }
-// The F05 rule itself, independent of admission: the envelope validator over
-// the declared stations, without contractFor.
 function validatedDirectly(arm: "next" | "handoff", args: readonly string[]) {
   const { root, read } = declarations(args);
   return validateEnvelope(
@@ -121,7 +114,6 @@ function validatedDirectly(arm: "next" | "handoff", args: readonly string[]) {
     new Map([["specimen.read", read.stations]]),
   );
 }
-// Envelope fields written from the WIRE-15 rows, not from kernel output.
 function envelope(arm: "next" | "handoff", args: readonly string[]) {
   const step = { kind: "command", command: "specimen.root", args };
   const base = {

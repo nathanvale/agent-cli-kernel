@@ -1,5 +1,3 @@
-// D02, D03, D04, D09: private location and modes, hostile final components,
-// handle custody by inode, and setup faults, through real processes.
 import { afterAll, describe, expect, test } from "bun:test";
 import {
   chmodSync,
@@ -36,9 +34,6 @@ import {
 afterAll(cleanTrees);
 const read = ["read", ...machine] as const;
 const timeout = 60_000;
-// Paced records: the first triggers the sink's setup (and its fault), the
-// rest are recorded after that fault is established, so a fault that reached
-// the handler would change the result (SF1, repair round 1).
 const afterFault = { records: 3, pace: true } as const;
 
 function onlyLog(dir: string) {
@@ -121,7 +116,6 @@ describe("D02 private location and modes", () => {
         const view = observe(where.dir);
         expect(view.mode).toBe(0o700);
         expect(onlyLog(where.dir).mode).toBe(0o600);
-        // Every ancestor the add-on created is private too.
         expect(observe(join(where.state, "dxs")).mode).toBe(0o700);
         expect(observe(where.state).mode).toBe(0o700);
       },
@@ -134,7 +128,6 @@ describe("D02 private location and modes", () => {
       const where = tree();
       const ready = join(where.root, "ready");
       const go = join(where.root, "go");
-      // The first write never settles, so the file stays empty at the barrier.
       const launched = start({
         argv: read,
         tree: where,
@@ -511,7 +504,6 @@ describe("D09 setup faults", () => {
             join(state, "dxs", "diagnostics"),
           ])
             chmodSync(path, 0o700);
-          // Fill the volume so no record byte fits.
           const filler = join(mount, "filler");
           Bun.spawnSync(["/bin/dd", "if=/dev/zero", `of=${filler}`, "bs=64k"]);
           const result = await run({

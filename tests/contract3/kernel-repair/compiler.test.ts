@@ -3,11 +3,6 @@ import { join, resolve } from "node:path";
 import { probeBatch } from "../locks/probes.ts";
 import { runFamily } from "./harness.ts";
 
-// Compiler locks for R13 (F11) and R14 (F14), following the oracle lock
-// protocol: the marked invalid program compiles, the unmarked one fails with
-// exactly one diagnostic of the pinned code on the pinned line, and the valid
-// twin compiles, under native TypeScript 7 and the TypeScript 6 lint view.
-// Codes and lines are bound against the repaired fixture.
 const root = resolve(import.meta.dir, "../../..");
 const kernel = join(root, "starters/contract3/src/kernel/index.ts");
 const probe = probeBatch("contract3-repair-locks-");
@@ -65,7 +60,6 @@ function inOrder(checks: readonly Check[]): Check {
   };
 }
 
-// R14: result types written from the WIRE-15 rows.
 const tables = {
   widened: "type W = ResultFor<CauseTable>;",
   contract:
@@ -112,7 +106,6 @@ const r14 = {
   ),
 };
 
-// R13: a repeatable string option, widened and as literal schemas.
 const option =
   '{ name: "--tag", aliases: [], summary: "Tag.", required: false, value: { kind: "string", minLength: 1, maxLength: 8, choices: null, pattern: null }';
 const schema = (repeatable: string) =>

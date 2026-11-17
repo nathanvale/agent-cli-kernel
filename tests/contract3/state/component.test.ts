@@ -1,6 +1,3 @@
-// Component cases (O01.b, T03.b, Q01.b, B01 to B05) and supporting checks of
-// the internal framing and scope seams. Component evidence never satisfies a
-// process row; these bind what the process layer cannot reach directly.
 import { afterEach, expect, test } from "bun:test";
 import {
   existsSync,
@@ -122,9 +119,6 @@ type Scenario = (
   },
 ) => Promise<void>;
 
-// One in-process host with one changing command whose handler runs a
-// scenario inside a real admitted transaction.
-// Every temporary root is removed after its test, pass or fail (N5).
 const temporaryRoots: string[] = [];
 afterEach(() => {
   for (const root of temporaryRoots.splice(0))
@@ -149,7 +143,6 @@ async function inTransaction(
     readonly resource: (value: unknown) => ResourceId;
     readonly authority: (value: unknown) => AuthorityId;
   }) => Approval,
-  // An existing state root to reuse, and host conflict keys to declare.
   options: { readonly root?: string; readonly keys?: readonly string[] } = {},
 ): Promise<{
   readonly root: string;
@@ -289,7 +282,6 @@ caseTest("B01.a-admit-start-active-effect", async () => {
   const { root } = await inTransaction(async (record, host) => {
     await record(async (recorded) => {
       await recorded.admitStart(recorded.runId, recorded.effect, () => {
-        // Independent reader: the durable delegate record precedes start.
         const [operation] = readOperations(host.root);
         recordedBeforeStart =
           operation?.events.records.at(-1)?.kind === "delegate-admitted";
@@ -405,9 +397,6 @@ caseTest("B05.a-closing-waits-for-admitted-start", async () => {
         return 0;
       });
       order.push("operation-returned");
-      // Release the in-flight start on the next event-loop turn, after the
-      // record has marked the effect closing (event-loop order, not a timed
-      // delay): closing must still wait for the start to settle.
       setImmediate(() => finish?.());
       return Promise.resolve();
     });
@@ -503,7 +492,6 @@ caseTest("Q01.b-fixture-never-enables", async () => {
       root: join(root, "b"),
       report: "cx.pending",
     });
-    // A fixture-enabled proof is reported fixture-only, never available.
     expect(fixtureAddon.capabilities().qualification).toBe("fixture:q01b");
     expect(fixtureAddon.capabilities().stoppedOwnerProof).toBe(
       coordinationExpected ? "fixture-only" : "unavailable",
@@ -524,8 +512,6 @@ caseTest("Q01.b-fixture-never-enables", async () => {
       source: "production",
       stoppedOwner: "unavailable",
     });
-    // The production entry ignores a smuggled qualification or hook: it has
-    // no such option, whatever an untyped caller passes.
     const smuggled = {
       root: join(root, "c"),
       report: "cx.pending",
@@ -544,8 +530,6 @@ caseTest("Q01.b-fixture-never-enables", async () => {
   }
   await Promise.resolve();
 });
-
-// ---- Supporting seam checks (not frozen cases) -----------------------------
 
 test("framing: the add-on encoder and the test-owned reader agree", () => {
   const bytes = encodeRecord("intent", { operationId: "op-x", n: 1 });
@@ -594,11 +578,6 @@ test("scope: aliases share keys; distinct names and unknown scope behave", () =>
   rmSync(directory, { recursive: true, force: true });
 });
 
-// ---- Repair round 1 controls -----------------------------------------------
-
-// A rejection shaped as the approval add-on reports it; `consumed` decides
-// whether the item was consumed (CMD-15). The state add-on reads it
-// structurally and never imports the approval add-on.
 class RejectionDouble extends Error {
   readonly consumed: boolean;
   constructor(consumed: boolean) {
@@ -628,7 +607,6 @@ caseTest("S05.a-approval-lost-versus-unavailable", async () => {
       }),
     );
     kinds.push(outcome?.kind ?? "none");
-    // Neither outcome publishes an intent or starts an effect.
     expect(readOperations(root)).toEqual([]);
   }
   expect(kinds).toEqual(["approval-lost", "approval-unavailable"]);
@@ -653,11 +631,6 @@ caseTest("B06.a-effect-recorded-once", async () => {
   ]);
 });
 
-// Linux expectations section 2 item 7: a coordination call that fails after
-// admission began releases the admission and every key coordination lock
-// already taken, and refuses. Checked inside the live process, because a
-// process that exits releases everything anyway: the test's own open of
-// the same file is refused while this process still holds it.
 caseTest("C01.j-failure-after-admission-releases-everything", async () => {
   const keys = ["k1", "k2", "k3"];
   const first = await inTransaction(() => Promise.resolve(), undefined, {
@@ -669,8 +642,6 @@ caseTest("C01.j-failure-after-admission-releases-everything", async () => {
     .filter((name) => name.startsWith("k-"))
     .sort();
   expect(files.length).toBe(3);
-  // The last key coordination file in acquisition order becomes a symbolic
-  // link, which the O_NOFOLLOW open refuses after the first two were taken.
   const last = join(coordination, files.at(-1) ?? "");
   rmSync(last);
   writeFileSync(join(first.root, "..", "elsewhere.lock"), "");
@@ -689,12 +660,6 @@ caseTest("C01.j-failure-after-admission-releases-everything", async () => {
   expect(readOperations(first.root).length).toBe(1);
 });
 
-// Review follow-up (contract F1): the Linux route's start-up self-check
-// decides from the calls' return values alone. Expected values are the
-// expectations' rule, restated: accept flock(-1) returning -1 with EBADF
-// (9); refuse 0, -1 with any other code, and an unreadable code. Then the
-// accepted route maps 0 to held, EAGAIN (11) to busy, anything else to
-// failed.
 caseTest("C01.k-self-check-decision", async () => {
   const verdict = (returned: number, errno: number | undefined) => {
     const calls: { fd: number; operation: number }[] = [];
@@ -705,7 +670,6 @@ caseTest("C01.k-self-check-decision", async () => {
       },
       errno: () => errno,
     });
-    // The probe is flock(-1, LOCK_EX | LOCK_NB): 2 | 4.
     expect(calls).toEqual([{ fd: -1, operation: 6 }]);
     return route.ok ? "accepted" : route.step;
   };
@@ -752,19 +716,11 @@ caseTest("C01.k-self-check-decision", async () => {
   await Promise.resolve();
 });
 
-// NW: the wait-limit option is checked once, when the state add-on factory
-// is called, before any state root or coordination lock exists. NaN and
-// values that are not numbers are refused (a host reading an unset
-// environment variable with Number() passes NaN); absent and finite numbers
-// are accepted. NW.d and NW.e (the 1 to 10,000 ms clamp) and the bound
-// values of NW.c and NW.f are only visible by waiting on the wall clock
-// (O03.a through the specimen), so they are not asserted here.
 const waitMessage =
   "The state add-on factory option admissionWaitMilliseconds must be a number of milliseconds, or left unset for the default of 2000.";
 function refusedAtConstruction(value: unknown): void {
   const root = join(temporaryRoot("c3-state-wait-"), "state");
   const options = { root, report: "cx.pending" };
-  // Set as an untyped host would; the type system refuses these values.
   Reflect.set(options, "admissionWaitMilliseconds", value);
   const build = () => stateAddon(options);
   expect(build).toThrow(TypeError);
@@ -774,7 +730,6 @@ function refusedAtConstruction(value: unknown): void {
 
 test("NW.a a NaN wait limit is refused when the add-on is built", () => {
   refusedAtConstruction(Number.NaN);
-  // What Number() gives for an unset environment variable.
   refusedAtConstruction(Number(undefined));
 });
 

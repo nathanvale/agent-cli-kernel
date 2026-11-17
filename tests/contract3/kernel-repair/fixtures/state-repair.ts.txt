@@ -1,7 +1,3 @@
-// R01 (F13) and R02 (K2) observations. Materialised at
-// starters/contract3/src/addons/state/state-repair.ts, linted there, and run by
-// the tests-scope driver. It returns observations keyed by frozen case
-// identity; the parent test owns every expected value.
 import {
   changing,
   commonCauses,
@@ -37,8 +33,6 @@ type Mode =
   | "completed";
 type ScopeMode = "active" | "inactive" | "throw";
 
-// Independent effect ledger: written by the fixture state add-on only when an
-// effect's operation ran, before read-back is judged.
 type World = {
   readonly ledger: { readonly runId: string; readonly effect: string }[];
   readonly scopes: Map<string, ExclusiveScope>;
@@ -279,8 +273,6 @@ async function run(contract: Fixture["contract"], mode: Mode, runId: string) {
   };
 }
 
-// Foreign proofs: a real proof is reachable only inside a handler, so capture
-// one and present it for another run and to another installation's contract.
 async function foreignProofs(other: Fixture["contract"]) {
   let held: unknown;
   const state = installation("C");
@@ -335,8 +327,6 @@ async function foreignProofs(other: Fixture["contract"]) {
   };
 }
 
-// R02: a T4-style approval runtime that asks the kernel about issuance and
-// then repeats the brand-level checks T4 makes.
 function approvalRuntime(runId: string, descriptor: StateAddonDescriptor) {
   const consumed: string[] = [];
   return {
@@ -415,12 +405,8 @@ export async function observeStateRepair(): Promise<Record<string, unknown>> {
   } catch (error) {
     cloneError = error instanceof Error ? error.name : "unknown";
   }
-  // S2: the kernel check alone, without the runtime's own isActive and runId
-  // checks.
   const direct = (scope: unknown, runId = "r1") =>
     issuedScope(scope, runId, a.state);
-  // S4: issuance itself refuses a run this installation never attached, so no
-  // scope exists to present.
   const issuerA = world.issuers.get("A");
   if (!issuerA) throw new Error("Issuer A was not captured.");
   let unattachedIssue: { issued: boolean; namesAttachment: boolean };
@@ -452,7 +438,6 @@ export async function observeStateRepair(): Promise<Record<string, unknown>> {
   };
   out["R02.other-run-refused"] = {
     ...attempt("r2", s1),
-    // S5: the kernel's own run check, without the runtime's runId comparison.
     directOtherRun: direct(s1, "r2"),
     unattachedIssue,
   };

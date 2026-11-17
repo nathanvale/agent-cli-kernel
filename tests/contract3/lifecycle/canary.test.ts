@@ -1,6 +1,3 @@
-// S7: the production default composition, run as a process with no fault
-// wrappers: runProcess(contractFor(...)) with the default process adapter.
-// Expectations come from the frozen oracle rows.
 import { tolerance } from "./oracle.ts";
 import { describe, expect, test } from "bun:test";
 import {

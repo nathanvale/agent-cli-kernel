@@ -103,7 +103,6 @@ export const retry = {
   effects: unchanged,
   next: { kind: "retry" },
 } as const satisfies Result;
-// Test-owned exemplar causes. These are not new common causes or T8 integration proof.
 export const exemplarCauses = {
   JOURNAL_LIMIT: {
     outcome: "refused",

@@ -7,16 +7,6 @@ import type {
   ValueSchema,
 } from "./input-types.ts";
 
-// F01, decided option 2: a command-step template is refused at admission when
-// no single-token value for its templated elements can make the vector parse
-// (STEP-6 applied at declaration). Each substitution fills one whole element,
-// never empty and never starting with "-" (STEP-9a, STEP-10), so the element
-// count, option tokens and slot occurrence are fixed by the template. Values
-// of templated elements stay value-dependent and are checked at emission, as
-// are literal values aimed at a pattern slot (pattern matching is
-// asynchronous and admission is not). A templated element whose literal text
-// begins with "-" is refused for its own reason: a run value would select an
-// option the author did not write (STEP-9a, STEP-10; ruled acceptable).
 const templated = (element: string) => /\{[^{}]*\}/.test(element);
 
 function literalValue(token: string, schema: ValueSchema): boolean {
@@ -112,8 +102,6 @@ function presenceProblem(
     ? "a root operation needs an option or operand"
     : undefined;
 }
-// `rootRule` is false only for `<cli>.dispatch`: DISC-4's operand rule binds
-// a host root operation, and DISC-5 admits dispatch as a step (K1-12).
 export function stepVectorProblem(
   target: CommandDeclaration,
   args: readonly string[],

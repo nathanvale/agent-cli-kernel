@@ -1,17 +1,3 @@
-// LABELLED TEST-ONLY SYNTHETIC HOST SPECIMEN "sx". A real CLI composed with
-// contractFor and runProcess from the stamped kernel, the T3 state add-on
-// and the T4 approval add-on. It lives under tests/, is never registered as
-// a production command and never ships. Its world (notes, provider log,
-// outbox, effect ledger) is synthetic. The effect ledger is appended only by
-// the effects themselves; tests read it independently.
-//
-// Environment (test harness only):
-//   SX_ROOT        state root            SX_WORLD     synthetic world
-//   SX_BARRIER_DIR barrier files         SX_BARRIER   phases to hold at
-//   SX_FAULT       one named fault       SX_QUALIFICATION=fixture
-//   SX_ADMISSION_WAIT  admission wait bound in milliseconds
-//   SX_COORDINATION_LIBRARY  C library for the coordination route's
-//                  self-check (test seam; a missing one fails it)
 import {
   appendFileSync,
   existsSync,
@@ -41,9 +27,6 @@ import type {
   RunAddon,
 } from "../../../../starters/contract3/src/kernel/index.ts";
 import type { Observer } from "../../../../starters/contract3/src/addons/state/index.ts";
-// Labelled test entry: barrier observation points, and the fixture
-// qualification in `fixture` worlds. Production worlds use the production
-// qualification through the same entry.
 import { stateAddonWithTestSeams } from "../../../../starters/contract3/src/addons/state/fixture.ts";
 import type { Phase } from "../../../../starters/contract3/src/addons/state/fixture.ts";
 import { approval } from "../../../../starters/contract3/src/addons/approval/index.ts";
@@ -56,9 +39,6 @@ const barriers = new Set(
 );
 const fault = process.env.SX_FAULT ?? "";
 
-// ---- Barriers --------------------------------------------------------------
-// A held phase writes <phase>.reached (with this pid) and waits for
-// <phase>.release. Ordering evidence is the files, never elapsed time.
 async function barrier(name: string): Promise<void> {
   if (!barriers.has(name) || barrierDirectory === "") return;
   writeFileSync(join(barrierDirectory, `${name}.reached`), `${process.pid}\n`);
@@ -71,7 +51,6 @@ async function barrier(name: string): Promise<void> {
   }
 }
 
-// ---- Synthetic world -------------------------------------------------------
 const notes = join(world, "notes");
 const ledgerFile = join(world, "ledger.log");
 const providerLog = join(world, "provider.log");
@@ -93,7 +72,6 @@ function factText(facts: unknown, key: string): string {
   return typeof value === "string" ? value : "";
 }
 
-// Independent read-only observers for recovery (host-owned, REC-8).
 const observers: Readonly<Record<string, Observer>> = {
   "note.write": ({ facts }) => {
     const path = factText(facts, "path");
@@ -108,8 +86,6 @@ const observers: Readonly<Record<string, Observer>> = {
     const path = `${factText(facts, "path")}.stamp`;
     return Promise.resolve(existsSync(path) ? "present" : "absent");
   },
-  // The provider log is the provider's own append-only record: no entry
-  // excludes the send; an entry with a deleted outbox copy is only absence.
   "message.send": ({ facts }) => {
     const id = factText(facts, "message");
     if (existsSync(join(outbox, id))) return Promise.resolve("present");
@@ -141,7 +117,6 @@ const state = stateAddonWithTestSeams(
   },
 );
 
-// ---- Causes and station words ----------------------------------------------
 const handoffRefusal = {
   outcome: "refused",
   transactionState: "unchanged",
@@ -411,7 +386,6 @@ function changeStations<const Identity extends Changing>(identity: Identity) {
   ] as const;
 }
 
-// ---- Effects ---------------------------------------------------------------
 function writeNote(path: string, content: string, runTag: string): string {
   if (fault === "write-fails") throw new Error("Synthetic write failure.");
   if (fault === "silent") return path;
@@ -430,8 +404,6 @@ function delayFor(): number {
   return fault === "delay-low" ? 10 : fault === "delay-high" ? 5_000 : 100;
 }
 
-// ---- Outcome to station plans ----------------------------------------------
-// One plan shape per kernel row shape, so each reply narrows to one row.
 type Proof = Awaited<ReturnType<typeof state.transaction>>["proof"];
 type Message = { readonly message: string };
 type BoundCause = "DOMAIN_SX_LOCK_HELD" | "DOMAIN_SX_UNRESOLVED";
@@ -642,7 +614,6 @@ function changePlan(
   }
 }
 
-// ---- Inputs ----------------------------------------------------------------
 const nameArgument = {
   name: "name",
   summary: "Note name.",
@@ -707,7 +678,6 @@ const messageInput = {
   additionalOptions: false,
 } as const;
 
-// ---- Note changes ----------------------------------------------------------
 type NoteInput = {
   readonly name: string;
   readonly "--content": string;
@@ -718,7 +688,6 @@ type NoteInput = {
   readonly "--unknown-scope"?: boolean;
 };
 
-// Host-owned resolution of an opaque identifier to its note (REC-8).
 function resolveId(id: string): string {
   const table: unknown = JSON.parse(
     readFileSync(join(world, "ids.json"), "utf8"),
@@ -730,7 +699,6 @@ function resolveId(id: string): string {
   return typeof mapped === "string" ? mapped : id;
 }
 
-// Scope is declared from validated input before any coordination (REC-2).
 function noteDeclaration(command: string, input: NoteInput) {
   mkdirSync(notes, { recursive: true });
   const name =
@@ -767,7 +735,6 @@ function noteWork(path: string, content: string) {
     await transaction.record(
       "note.write",
       async (recorded) => {
-        // A delegated start admitted through the recorded effect (CMD-14).
         if (fault === "admit-delegate")
           await recorded.admitStart(recorded.runId, recorded.effect, () =>
             Promise.resolve(0),
@@ -811,8 +778,6 @@ const apply = changing({
           ),
         );
     await barrier("complete");
-    // V-23 supporting fault: a handler that refuses after a completed
-    // transaction. The kernel must never emit it as refused and unchanged.
     if (fault === "refuse-after-complete" && plan.shape === "completed")
       return context.result(
         { commandIdentity: "sx.apply", causeCode: "DOMAIN_SX_UNAVAILABLE" },
@@ -1094,7 +1059,6 @@ const audit = changing({
   },
 });
 
-// ---- Approved change (CMD-9 step 7) ----------------------------------------
 const approvalStore = {
   grants: join(world, "approval", "grants"),
   consumed: join(world, "approval", "consumed"),
@@ -1206,7 +1170,6 @@ const approved = changing({
     }
   },
 });
-// ---- Recovery: closure (REC-3, REC-4) --------------------------------------
 const pattern = <const Name extends string>(
   name: Name,
   summary: string,
@@ -1365,7 +1328,6 @@ function closePlan(
   }
 }
 
-// Plain data copy for the envelope (validated again by the kernel writer).
 function toJson(value: unknown): JsonValue {
   if (value === null || typeof value === "string" || typeof value === "boolean")
     return value;
@@ -1453,7 +1415,6 @@ const close = changing({
     ),
   ],
   run: async (input, context) => {
-    // A caller flag or grant file is never authority (REC-5); neither is read.
     const outcome = await state.close(context.state, {
       command: "sx.close",
       effect: "state.closure",
@@ -1522,7 +1483,6 @@ const close = changing({
   },
 });
 
-// ---- Read-only routes (DISC-14, REC-6) -------------------------------------
 const unreadable = <const Identity extends "sx.pending" | "sx.history">(
   identity: Identity,
 ) =>
@@ -1715,7 +1675,6 @@ const capabilitiesCommand = command({
     ),
 });
 
-// ---- Composition -----------------------------------------------------------
 function compose() {
   return contractFor({
     cli: "sx",

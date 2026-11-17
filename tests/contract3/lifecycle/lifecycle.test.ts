@@ -1,4 +1,3 @@
-// T2 lifecycle process cases (L01 to L05, L07 to L12, R02).
 import { appendFile } from "node:fs/promises";
 import { describe, expect, test } from "bun:test";
 import { comparableEnvelope } from "../../../starters/contract3/src/kernel/comparison.ts";
@@ -69,8 +68,6 @@ function assertNoOutput(observed: Observed) {
   expect(observed.stderr.byteLength).toBe(0);
 }
 
-// LIFE-6: emission starts at most 500 ms after the deadline, measured from
-// the fixture's ledgered front-door start (the deadline's own origin).
 function assertDeadlineLag(entry: Case, observed: Observed) {
   const deadlineAt = frontDoorStart(observed) + deadlineOf(entry);
   const emitted = observed.firstStdoutAt;
@@ -90,10 +87,6 @@ function longestArgument(argv: readonly string[]): number {
   );
 }
 
-// H1: a frozen operand longer than the host can spawn is reported, never
-// silently shortened: the lengths go to stderr in the test log and to the
-// receipt. The case still asserts its frozen observation at the exercised
-// length, which must stay above the 64 KiB input bound to mean "very long".
 const veryLongFloor = 65_537;
 function reportOperandFit(entry: Case, fit: OperandFit) {
   if (fit.refusedLength === null) return;
@@ -106,10 +99,6 @@ function reportOperandFit(entry: Case, fit: OperandFit) {
     );
 }
 
-// B1 (Nathan, 16 November 2026): a command without deadline support refuses
-// `--deadline-ms` under its own identity; a malformed value is refused by
-// `<cli>.dispatch`. Test-owned binding table keyed by the frozen L07 IDs,
-// which carry `identityPending` (t2-cases.json is not edited).
 const l07Binding: Readonly<Record<string, string>> = {
   "L07.usage-unsupported-command": "fx.read",
   "L07.usage-zero": "fx.dispatch",
@@ -117,7 +106,6 @@ const l07Binding: Readonly<Record<string, string>> = {
   "L07.usage-non-integer": "fx.dispatch",
 };
 
-// K3-1 (swarm triage): the R02 mutations each frozen case must detect.
 const r02Mutations: Readonly<Record<string, readonly string[]>> = {
   "R02.domain-difference-detected": [
     "data",
@@ -158,7 +146,6 @@ const checks: Record<string, (entry: Case) => Promise<void>> = {
       await launched.partialRead;
       const sent = launched.signal(signalName(entry.expect.signal));
       const observed = await finish(entry, launched);
-      // LIFE-3: the same 500 ms grace as a first signal before emission.
       expect(observed.exitedAt - sent).toBeLessThanOrEqual(500 + tolerance);
       expect(observed.signal).toBeNull();
       expect(observed.code).toBe(n(entry.expect.exit));
@@ -227,7 +214,6 @@ const checks: Record<string, (entry: Case) => Promise<void>> = {
     receipt(entry, observed);
     try {
       const { result } = assertEnvelope(entry, observed);
-      // B1: identities the frozen cases left pending are now asserted.
       if (entry.expect.identityPending === true) {
         const bound = l07Binding[entry.id];
         if (!bound) throw new Error(`${entry.id} has no B1 binding.`);
@@ -287,7 +273,6 @@ const checks: Record<string, (entry: Case) => Promise<void>> = {
     }
   },
   async L11(entry) {
-    // No hard drain bound exists (LIFE-6): only the test timeout limits it.
     const { observed, reads } = await slowSmallChunkRun(entry);
     receipt(entry, observed, { reads });
     try {
@@ -343,13 +328,10 @@ const checks: Record<string, (entry: Case) => Promise<void>> = {
       expect(resultOf(a).runId).not.toBe(resultOf(b).runId);
       expect(comparableEnvelope(a)).toBeString();
       expect(comparableEnvelope(a)).toBe(comparableEnvelope(b));
-      // Independent normalisation: only the run identity differs.
       expect({ ...a, result: { ...resultOf(a), runId: "" } }).toEqual({
         ...b,
         result: { ...resultOf(b), runId: "" },
       });
-      // K3-1: the mutation list is a test-owned literal per frozen case, so
-      // a missing or emptied frozen list fails instead of passing vacuously.
       const mutations = r02Mutations[entry.id] ?? [];
       expect(entry.expect.mutations ?? []).toEqual(mutations);
       for (const mutation of mutations) {
@@ -402,8 +384,6 @@ describe("L06 excluded terminations without T3 (supporting C7)", () => {
           {},
           scenario === "abort" ? abortExitBound : exitBound,
         );
-        // Host or runtime dependent exit: recorded, not asserted (lifecycle
-        // table row 8). The required observation is the missing envelope.
         receipt(entry, observed);
         try {
           expect(observed.stdout.byteLength).toBe(0);
@@ -576,7 +556,6 @@ describe("front-door timers and listeners in one process (supporting F6)", () =>
     "F6s.declining-host-runs-twice-without-stale-timers-or-listeners",
     async () => {
       const launched = await launch({ argv: [], script: decliningHost });
-      // The deadline is 60 s; a timer left armed would hold the process open.
       const finished = await Promise.race([
         launched.done,
         Bun.sleep(10_000).then(() => undefined),
@@ -613,7 +592,6 @@ describe("B1 deadline refusal identity (Nathan, 16 November 2026)", () => {
       },
     });
   const cases = [
-    // B1.01: the command without deadline support refuses under its identity.
     usage(
       "B1.01.option-after-route",
       ["read", "--deadline-ms", "100", "--json"],
@@ -624,7 +602,6 @@ describe("B1 deadline refusal identity (Nathan, 16 November 2026)", () => {
       ["--deadline-ms", "100", "read", "--json"],
       "fx.read",
     ),
-    // B1.02: a malformed value is refused by dispatch, before command support.
     usage(
       "B1.02.zero",
       ["slow", "--deadline-ms", "0", "--json"],
@@ -725,7 +702,6 @@ describe("B3 declared denial tuple at runtime (Nathan, 16 November 2026)", () =>
       receipt(entry, observed);
       try {
         const { result } = assertEnvelope(entry, observed);
-        // Test-owned literals: the fixture command's declared words.
         expect(result.handoff).toEqual({
           owner: "operator",
           reason: "The fixture desk must approve this item.",
@@ -744,10 +720,6 @@ describe("B3 declared denial tuple at runtime (Nathan, 16 November 2026)", () =>
   );
 });
 
-// Findings round, finding 1 (Nathan, 16 November 2026: every accepted value
-// is honoured, no cap). LIMIT is the largest delay a runtime timer holds; a
-// raw timer armed above it fires after about 1 ms with a stderr warning. The
-// expectations are c3-expect-t2t5's (findings-round/expectations.md).
 const handlerLines = new Set(["handler-entered", "handler-done"]);
 
 describe("T01 a deadline above the timer limit lets the work finish (finding 1)", () => {
@@ -779,7 +751,6 @@ describe("T01 a deadline above the timer limit lets the work finish (finding 1)"
         const observed = await run(entry);
         receipt(entry, observed, { deadline });
         try {
-          // One envelope at the handler's own station, exit 0, zero stderr.
           assertEnvelope(entry, observed);
           expect(observed.code).toBe(0);
           expect(
@@ -823,7 +794,6 @@ describe("T02(a) a deadline above the timer limit that passed before handler ent
             },
           },
         );
-        // P3: the fault host's clock jumps past the deadline before handler entry.
         const observed = await run(entry, {
           env: { FX_CLOCK_JUMP_MS: String(deadline + 1) },
         });
@@ -840,7 +810,6 @@ describe("T02(a) a deadline above the timer limit that passed before handler ent
     );
 });
 
-// Finding 2. First time the process table no longer shows `pid`.
 async function deathAfter(pid: number, from: number, limit: number) {
   while (Date.now() - from < limit) {
     if (!alive(pid)) return Date.now();
@@ -849,14 +818,11 @@ async function deathAfter(pid: number, from: number, limit: number) {
   return Number.POSITIVE_INFINITY;
 }
 const stopShapes = {
-  // (a) the handler awaits a TERM-cooperative program.
   a: { argv: ["slow", "--json"], barrier: "child-started" },
-  // (b) the handler returns by its own timer about 100 ms after the signal.
   b: {
     argv: ["wait", "--wait-ms", "100", "--json"],
     barrier: "handler-entered",
   },
-  // (c) a TERM-ignoring program whose declared shutdown budget is 2,000 ms.
   c: { argv: ["slow", "--ignore-term", "--json"], barrier: "child-started" },
 } as const;
 
@@ -901,7 +867,6 @@ describe("S01 the stop path's bounds hold when the handler returns in the window
               observed.ledger.some((line) => line.startsWith("late-start ")),
             ).toBe(false);
             if (shape !== "b") expect(owned).toBeNumber();
-            // LIFE-11: the stop path's SIGKILL, not the 2,000 ms budget.
             if (died !== undefined)
               expect(died - sent).toBeLessThanOrEqual(
                 stopBound + killObservationTolerance,
@@ -914,9 +879,6 @@ describe("S01 the stop path's bounds hold when the handler returns in the window
       );
 });
 
-// N2 (round 3 confirmation): release() kills a ledgered pid only while it is
-// still in the process group its ledger names. A pid the OS reused for an
-// unrelated process (here, one in the test runner's own group) is spared.
 test(
   "N2s.release-kills-only-pids-still-in-their-ledgered-group",
   async () => {
@@ -945,9 +907,6 @@ test(
   timeout,
 );
 
-// Contract review F2: the grandchild branch. A ledgered grandchild is killed
-// only while it is still in the ledgered `child-pgid`; a pid outside it is
-// spared.
 test(
   "N2s.release-spares-a-grandchild-outside-the-ledgered-group",
   async () => {
@@ -956,7 +915,6 @@ test(
       ["/bin/sh", "-c", "/bin/sleep 30 >/dev/null & echo $!; wait"],
       { detached: true, stdout: "pipe" },
     );
-    // The shell prints its background member's pid, then waits on it.
     const first = await group.stdout.getReader().read();
     const member = Number(new TextDecoder().decode(first.value).trim());
     const launched = await launch({ argv: ["read", "--json"] });
@@ -983,9 +941,6 @@ test(
   timeout,
 );
 
-// Swarm triage, test honesty. K3-12: a CLI that exits while a descendant
-// still holds its stdout gives an incomplete observation, and reading it
-// fails as unproved instead of looking like empty output.
 describe("test harness honesty (swarm triage K3-3, K3-12)", () => {
   const lateWriter =
     '/usr/bin/perl -e \'open(my $f, ">>", $ENV{FX_LEDGER}); print $f "late-writer $$\\n"; close $f; close STDERR; select(undef, undef, undef, 2.5); print "late-written\\n"\' &';
@@ -1020,7 +975,6 @@ describe("test harness honesty (swarm triage K3-3, K3-12)", () => {
       timeout,
     );
 
-  // K3-3: a CLI that never exits is released by the bounded wait itself.
   test(
     "K3-3.hang-releases-fixture",
     async () => {
@@ -1042,8 +996,6 @@ describe("test harness honesty (swarm triage K3-3, K3-12)", () => {
   );
 });
 
-// X-S3 (swarm triage): the deadline covers dispatch and work (LIFE-6), so it
-// also bounds the settlement of owned programs after the handler returns.
 test(
   "K3S3.deadline-bounds-post-handler-settle",
   async () => {
@@ -1066,7 +1018,6 @@ test(
       receipt(entry, observed, { childDiedAt: died });
       assertEnvelope(entry, observed);
       assertDeadlineLag(entry, observed);
-      // LIFE-11 deadline row: SIGTERM, then SIGKILL, before emission.
       const order = observed.ledger.filter(
         (line) =>
           line === "child-term-received" || line.startsWith("stdout-write"),
@@ -1082,10 +1033,6 @@ test(
   timeout,
 );
 
-// Part 4 repair (contract reviewer): the handler returns about 300 ms into a
-// 500 ms deadline and its owned child exits about 400 ms after SIGTERM. With
-// the bound at the deadline the result is the deadline row; a bound that
-// expired late lets the settle finish first and reports success instead.
 test(
   "K3S3b.post-handler-bound-near-deadline",
   async () => {
@@ -1109,7 +1056,6 @@ test(
     const observed = await run(entry);
     receipt(entry, observed);
     try {
-      // The handler returned before the deadline: this is the post-handler path.
       expect(observed.ledger).toContain("handler-returned");
       assertEnvelope(entry, observed);
       assertDeadlineLag(entry, observed);

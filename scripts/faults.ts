@@ -47,8 +47,6 @@ function quoted(value: string): string {
   return `'${value.replaceAll("'", `'\\''`)}'`;
 }
 
-// Every child gets its own process group, so a terminal's group signal
-// reaches only this script, which stops the child and then cleans up.
 function git(
   args: readonly string[],
   env: Record<string, string | undefined> = process.env,
@@ -203,9 +201,6 @@ function testArgs(fault: Fault): string[] {
   return ["test", `./${fault.testFile}`, "-t", fault.title];
 }
 
-// Awaited rather than run synchronously, so a stop that arrives during the
-// removal reaches the handler before the next record starts. It is not the
-// active child, so the stop does not cut the removal short.
 async function removeWorktree(dir: string): Promise<void> {
   await Bun.spawn(["git", "worktree", "remove", "--force", dir], {
     cwd: root,

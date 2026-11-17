@@ -27,8 +27,6 @@ afterAll(async () => {
   });
 });
 
-// Independent oracle: the base's fixed INTERNAL_PREPARATION words (WIRE-18
-// "N: repair the CLI or runtime before another run"; accepted wording).
 const preparationNext = {
   kind: "instruction",
   text: "Repair the CLI or its runtime, then decide whether to start another run.",
@@ -173,9 +171,7 @@ test(
       KF_STATE_ATTACH: "throw",
     });
     expectPreparation(run, "kf.apply");
-    // The ledger is wired: the attach itself was attempted.
     expect(run.ledger).toEqual(["attach state"]);
-    // Twin: the attach succeeds and the handler completes kf.e under a proof.
     const twin = await runKf(entry, "apply", ["apply", "--json"]);
     expect({ exit: twin.exit, one: oneEnvelope(twin) }).toEqual({
       exit: 0,
@@ -197,8 +193,6 @@ test(
 test(
   "KF1.e deferred-attach-after-entry: a first-use attach that rejects inside the handler is a handler fault",
   async () => {
-    // LIFE-9 step 1, after handler entry: an inspect command keeps its
-    // inspect and unchanged stance.
     const run = await runKf(entry, "run", ["run", "--json"], {
       KF_PROGRAMS_ATTACH: "reject",
     });
@@ -218,7 +212,6 @@ test(
     expect(run.result).toHaveProperty("handoff");
     expect(run.result).not.toHaveProperty("next");
     expect(run.ledger).toEqual(["handler-entered"]);
-    // Twin (before entry): KF1.b sync-throw gives INTERNAL_PREPARATION.
     const twin = await runKf(entry, "read", ["read", "--json"], {
       KF_APPROVAL: "sync-throw",
     });

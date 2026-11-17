@@ -1,6 +1,3 @@
-// In-process T4 approval component cases: non-consuming preflight, the
-// hardened read, exact-item binding and the human-authority verifier.
-// Consumption under coordination is proved in process.test.ts.
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import {
   chmod,
@@ -104,7 +101,6 @@ async function observed(
   setup: () => Promise<void>,
   act: () => Promise<string>,
 ) {
-  // Setup is the fixture before state; the denial must not rewrite it.
   await setup();
   const before = await snapshot(world);
   const outcome = await act();
@@ -117,7 +113,6 @@ test("A01.a-preflight-non-consuming", async () => {
     "A01.a-preflight-non-consuming",
     await observed(async () => {}, preflight),
   );
-  // Inspection is repeatable because nothing was consumed.
   expect(await preflight()).toBe("admitted");
 });
 
@@ -156,7 +151,6 @@ for (const [id, setup] of denials)
     ];
     expect(results).toEqual([false, false]);
     expectCase(id, observation("denied", before, await snapshot(world)));
-    // Existing invalid state is preserved, not rewritten to look unused.
     expect(await snapshot(world)).toEqual(before);
   });
 
@@ -255,7 +249,6 @@ test("A04.h-invalid-utf8", async () => {
 });
 
 test("A04.l-traversal-preview", async () => {
-  // Names are digests, so a traversal identity addresses nothing else.
   await writeFile(
     join(world.root, "evil.json"),
     JSON.stringify({ ...grant, preview: "../evil" }),
@@ -359,7 +352,6 @@ for (const [id, setup, act] of bindings)
   test(id, async () => {
     await writeGrant(world, grant);
     expectCase(id, await observed(setup, act));
-    // Identical twin with every binding equal passes preflight.
     await writeGrant(world, grant);
     expect(await preflight()).toBe("admitted");
   });
@@ -381,7 +373,6 @@ function verifier(
     ...(source === "none" ? {} : { closure: source, stop: source }),
   });
 }
-// Writes a record at the independently restated location for these parts.
 async function place(
   kind: "closure" | "stop",
   parts: readonly string[],
@@ -483,7 +474,6 @@ test("C03.a-same-user-file", async () => {
 test("C03.b-caller-created-record", async () => {
   const source = fileSource(world.authority);
   const before = await snapshot(world);
-  // Caller creates the record, then drops its own write permissions.
   await place("closure", ["op-1"], closureRecord);
   await chmod(authorityRecordPath(world, "closure", ["op-1"]), 0o444);
   await chmod(world.authority, 0o555);
@@ -496,9 +486,6 @@ test("C03.b-caller-created-record", async () => {
   );
 });
 
-// R4 supporting checks. The true positive path for a qualified source still
-// needs a second account and stays pending with T8 (C03.c). Foreign paths
-// are derived per platform (F1); a missing one is an explicit UNPROVED skip.
 const paths = await platformPaths();
 function testWhen(
   found: unknown,
@@ -513,7 +500,6 @@ async function factsOf(path: string, override: Partial<RecordFacts> = {}) {
   const { uid, gid, mode, dev, ino } = await lstat(path);
   return { path, uid, gid, mode, dev, ino, ...override };
 }
-// Count-only reason from the bounded search, for a hosted run to explain.
 const noForeignFile = paths.foreignFileMissing;
 
 testWhen(
@@ -521,13 +507,11 @@ testWhen(
   "T4S.r4-probe-positive-control: a foreign read-only path separates",
   noForeignFile,
   async () => {
-    // Host-derived supporting control, not authority qualification.
     const file = paths.foreignFile ?? "";
     const root = dirname(file);
     const probe = fileSeparation(root);
     expect(await probe()).toBe(true);
     expect(await probe(await factsOf(file))).toBe(true);
-    // End to end, the probe passes and an absent record is an ordinary refusal.
     expect(
       (await verifier(fileSource(root)).closure.preflight(closureItem)).status,
     ).toBe("refused");
@@ -557,9 +541,7 @@ testWhen(
     const caller = process.getuid?.() ?? -1;
     expect(await probe(await factsOf(file, { uid: caller }))).toBe(false);
     expect(await probe(await factsOf(file, { mode: 0o100666 }))).toBe(false);
-    // The descriptor must still be the entry at its path.
     expect(await probe(await factsOf(file, { ino: 1 }))).toBe(false);
-    // The record must sit directly in the judged root.
     expect(
       await probe(await factsOf(file, { path: join(sep, basename(file)) })),
     ).toBe(false);
@@ -571,9 +553,6 @@ testWhen(
   "T4S.r4-symlink-swap: a swapped symlinked source cannot verify a self-issued record",
   noForeignFile,
   async () => {
-    // Reviewer probe P5: the source path is a caller-owned symlink pointing
-    // at a foreign directory during the check, swapped to a caller directory
-    // before the read.
     const mine = join(world.root, "mine");
     await mkdir(mine);
     await writeFile(
@@ -599,8 +578,6 @@ testWhen(
 );
 
 test("T4S.l1-search-diagnostics: an unproved file search reports counts, not paths", async () => {
-  // Every candidate here is caller-owned, so nothing may qualify and the
-  // reason must count that rejection without naming any path.
   await mkdir(join(world.root, "nested"));
   await writeFile(join(world.root, "nested", "mine.json"), "{}");
   const result = await foreignFile([world.root]);
@@ -611,11 +588,7 @@ test("T4S.l1-search-diagnostics: an unproved file search reports counts, not pat
   expect(result.missing).not.toContain("/");
 });
 
-// F2 isolating controls: each fileSeparation guard has its own failing test.
 test("T4S.f2-descriptor-wiring: the verifier judges the opened record even when the path check passes", async () => {
-  // Reviewer probe P5c: a source whose path check reports separated while
-  // the record check delegates to the real probe. Only the verifier's
-  // separated(facts) call stands between it and a caller-owned record.
   await place("closure", ["op-1"], closureRecord);
   const realProbe = fileSeparation(world.authority);
   const source: AuthoritySource = {
@@ -633,8 +606,6 @@ testWhen(
   "T4S.f2-caller-ancestor-link: a caller symlink above an otherwise foreign directory never separates",
   noForeignFile,
   async () => {
-    // Reviewer probe P5b: only the walk from "/" sees the caller-owned link
-    // and the caller-owned directories above the judged root.
     const target = dirname(paths.foreignFile ?? "");
     const linked = join(world.root, "ancestor-link");
     await symlink(dirname(target), linked);
@@ -652,9 +623,7 @@ testWhen(
       viaLink: "",
       resolved: "",
     };
-    // Twin: the same directory by its resolved path does separate.
     expect(await fileSeparation(resolved)()).toBe(true);
-    // Through the symlinked ancestor it must refuse.
     expect(await fileSeparation(viaLink)()).toBe(false);
   },
 );
@@ -662,7 +631,6 @@ testWhen(
 test("C04.a-no-source", async () => {
   await place("closure", ["op-1"], closureRecord);
   await place("stop", ["op-1", "owner-1"], stopRecord);
-  // A fixture verifier passing first is not an enablement signal.
   expect((await verifier().closure.preflight(closureItem)).status).toBe(
     "verified",
   );

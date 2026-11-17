@@ -38,8 +38,6 @@ async function proofRun(
   });
 }
 
-// The fallback's fixed shape (LIFE-9, LIFE-10, DISC-11b): failed, internal,
-// H naming the ifNoResult command, at most 16,384 bytes.
 const pendingStep = { kind: "command", command: "kf.pending", args: [] };
 function expectFallback(
   run: KfRun,
@@ -71,8 +69,6 @@ function expectFallback(
 }
 const applied = (run: KfRun, effect: string) =>
   run.ledger.filter((line) => line === `effect-applied ${effect}`).length;
-// LIFE-9 "When the trusted summary is missing": the twin with no proof,
-// run once per layer (KF2.a).
 async function expectNoProofTwin(layer: (typeof layers)[number]) {
   const twin = await proofRun(layer, "completed", "before");
   expectFallback(twin, "INTERNAL_RESULT_UNKNOWN", "unknown", {
@@ -107,7 +103,6 @@ describe("KF2 a handler fault after its transaction proof was issued", () => {
             completed: ["kf.e"],
           });
           expect(applied(run, "kf.e")).toBe(1);
-          // Twin: an unchanged proof admits the KF_HELD refusal.
           const twin = await proofRun(layer, "unchanged", "refusal");
           expect({ exit: twin.exit, one: oneEnvelope(twin) }).toEqual({
             exit: 3,
@@ -137,7 +132,6 @@ describe("KF2 a handler fault after its transaction proof was issued", () => {
           "partially-completed",
           partial,
         );
-        // Twin: the handler returns its own partial station with the proof.
         const twin = await proofRun(layer, "partial", "result");
         expect({ exit: twin.exit, one: oneEnvelope(twin) }).toEqual({
           exit: 3,
@@ -183,7 +177,6 @@ describe("KF2 a handler fault after its transaction proof was issued", () => {
           inventoryComplete: false,
         });
         expect(run.ledger).toContain("proof completed");
-        // Twin: 25 wide effects fit (as DS12 measured).
         const twin = await proofRun(layer, "wide25", "throw");
         expectFallback(twin, "INTERNAL_RESULT_COMPLETED", "completed", {
           ...emptyComplete,

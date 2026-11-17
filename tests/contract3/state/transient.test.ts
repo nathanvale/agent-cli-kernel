@@ -1,5 +1,3 @@
-// T and Q families and the supporting S cases (approval consumption inside
-// the state transaction), through real specimen processes.
 import { expect } from "bun:test";
 import {
   chmodSync,
@@ -168,7 +166,6 @@ caseTest(
   }),
 );
 
-// ---- S: approval consumption inside the transaction ------------------------
 const store = (world: World) => ({
   grants: join(world.world, "approval", "grants"),
   consumed: join(world.world, "approval", "consumed"),
@@ -230,7 +227,6 @@ caseTest(
     expect(JSON.stringify(operation?.intent)).not.toContain("expiresAt");
     expect(JSON.stringify(operation?.intent)).not.toContain(bytes);
     expect(world.noteLedger("a")).toBe(1);
-    // Consumed: the same grant never admits a second effect.
     const again = await world.run(approvedArgs("p1"));
     expect(again.result.causeCode).toBe("DOMAIN_AUTHORITY_REQUIRED");
     expect(world.noteLedger("a")).toBe(1);
@@ -245,7 +241,6 @@ caseTest(
       SX_BARRIER: "pre-admission",
     });
     await child.reached("pre-admission");
-    // Valid at the step 5 preflight, invalid when revalidated under lock.
     writeGrant(world, "p2", { resourceRevision: "changed" });
     child.release("pre-admission");
     const run = await child.done;

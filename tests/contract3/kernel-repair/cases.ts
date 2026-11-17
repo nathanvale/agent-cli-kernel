@@ -1,10 +1,3 @@
-// Frozen case identities for the T1 kernel repair round (MAG-100, C3-FND-2).
-// Source of every expected observation: the independent expectations
-// `t1-repair/expectations.md` (sha256 7a6e3287...) and
-// `t1-repair/expectations-f01.md` (sha256 6cdc603e...), the frozen contract and
-// the oracle. Never regenerate an expected value from kernel output.
-// A pending case names the layer or ticket that supplies its proof.
-
 export type Layer = "runtime" | "process" | "compiler" | "lint";
 export type RepairCase = {
   readonly id: string;
@@ -483,7 +476,6 @@ const pendingCases: readonly RepairCase[] = [
   ),
 ];
 
-// R18: each base row runs once per arm and once per construction path.
 const r18Arms = ["next", "handoff"] as const;
 const r18Paths = ["command", "changing", "raw"] as const;
 const r18Rejected: readonly (readonly [string, string])[] = [
@@ -505,7 +497,6 @@ const r18Rejected: readonly (readonly [string, string])[] = [
   ["r13.deadline-unsupported", "Tnodl ['--deadline-ms', '{binding.d}']"],
   ["r14.deadline-literal-invalid", "Tdl ['--deadline-ms', 'abc']"],
   ["r15.separator-shift", "T2op ['--', '--x', '{runId}', 'z']"],
-  // Added by expectations-f01-ruling.md (sha256 30fb2435...), under R18's rule.
   [
     "r16.repeated-deadline",
     "Tdl ['--deadline-ms', '10', '--deadline-ms', '20']",
@@ -555,15 +546,12 @@ const r18Guards = active("R18", ["F01"], "runtime", [
     "u3.existing-admission-unchanged",
     "An undeclared target, or a handoff inspection naming a changing command, is still refused.",
   ],
-  // Added by expectations-f01-ruling.md: the broader-than-R18 refusal keeps
-  // its own reason and one rejected case.
   [
     "u4.templated-option-token",
     "Topt ['--target', 'main', '--x{runId}']: contractFor refuses because a run value would select an option, with that reason rather than an unknown-option reason.",
   ],
 ]);
 
-// Test-owned inputs named by the expectations (R03 causes, R04 tokens, R18 rows).
 export const frozenInputs = Object.freeze({
   reservedCauses: reserved,
   optionLikeTokens: optionLike,
