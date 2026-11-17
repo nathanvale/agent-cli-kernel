@@ -8,7 +8,7 @@ import {
   type Selection,
   selectRecipe,
   UNCOPIED_NAMES,
-} from "../src/project-recipe.ts";
+} from "../src/recipe.ts";
 import { spawnBounded } from "./support/process.ts";
 import { testFolder } from "./support/test-folder.ts";
 
@@ -221,9 +221,9 @@ describe("Bootstrap carrying out a row", () => {
   test(
     "refuses a missing template source folder before any file is copied",
     async () => {
-      const template = testFolder("project-recipe-template-");
+      const template = testFolder("recipe-template-");
       await mkdir(join(template, "src"));
-      for (const file of ["bootstrap.ts", "project-recipe.ts"]) {
+      for (const file of ["bootstrap.ts", "recipe.ts"]) {
         await cp(join(ROOT, "src", file), join(template, "src", file));
       }
       const durable = selectRecipe({ profile: "durable", monorepo: false });
@@ -235,7 +235,7 @@ describe("Bootstrap carrying out a row", () => {
           recursive: true,
         });
       }
-      const parent = join(testFolder("project-recipe-out-"), "nested");
+      const parent = join(testFolder("recipe-out-"), "nested");
       const destination = join(parent, "demo-app");
 
       const child = await spawnBounded(

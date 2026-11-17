@@ -121,7 +121,7 @@
   {
     "id": "4afda36-project-recipe",
     "patch": "tests/faults/patches/4afda36-project-recipe.patch",
-    "testFile": "tests/project-recipe.test.ts",
+    "testFile": "tests/recipe.test.ts",
     "title": "no row and no refusal matches throws",
     "source": "4afda36 fix(recipe): name the starter-with-monorepo refusal's condition, throw if none matches"
   },

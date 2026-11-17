@@ -1,7 +1,7 @@
-diff --git a/src/project-recipe.ts b/src/project-recipe.ts
+diff --git a/src/recipe.ts b/src/recipe.ts
 index 6eacb3f..7ebbdf3 100644
---- a/src/project-recipe.ts
-+++ b/src/project-recipe.ts
+--- a/src/recipe.ts
++++ b/src/recipe.ts
 @@ -121,16 +121,11 @@ function refusal(selection: Selection): RecipeChoice {
        repair: "remove --starter or choose --profile durable",
      };
