@@ -20,6 +20,22 @@ _Qualify_: host, proof
 `;
 const sources = ["scripts/check-names.ts", "scripts/glossary.ts"];
 const folders: string[] = [];
+const gitEnv = {
+  GIT_CONFIG_GLOBAL: "/dev/null",
+  GIT_CONFIG_NOSYSTEM: "1",
+  GIT_AUTHOR_NAME: "Fixture",
+  GIT_AUTHOR_EMAIL: "fixture@example.invalid",
+  GIT_COMMITTER_NAME: "Fixture",
+  GIT_COMMITTER_EMAIL: "fixture@example.invalid",
+};
+const callersRepositoryLocation = new Set([
+  "GIT_DIR",
+  "GIT_WORK_TREE",
+  "GIT_INDEX_FILE",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  "GIT_COMMON_DIR",
+]);
 const { scripts: production } = (await Bun.file(
   join(repository, "package.json"),
 ).json()) as { scripts: Record<string, string> };
@@ -28,7 +44,7 @@ export function removeFixtureTrees(): void {
   for (const folder of folders.splice(0)) rmSync(folder, { recursive: true });
 }
 
-function write(root: string, path: string, content: string): void {
+export function write(root: string, path: string, content: string): void {
   mkdirSync(dirname(join(root, path)), { recursive: true });
   writeFileSync(join(root, path), content);
 }
@@ -55,10 +71,20 @@ function run(argv: readonly string[], cwd: string) {
   return spawnBounded(argv, {
     cwd,
     env: {
-      ...process.env,
+      ...Object.fromEntries(
+        Object.entries(process.env).filter(
+          ([name]) => !callersRepositoryLocation.has(name),
+        ),
+      ),
+      ...gitEnv,
       PATH: `${dirname(process.execPath)}${delimiter}${process.env.PATH ?? ""}`,
     },
   });
+}
+
+export async function git(root: string, ...args: string[]): Promise<void> {
+  const { exit, stderr } = await run(["git", ...args], root);
+  if (exit !== 0) throw new Error(`git ${args.join(" ")}: ${stderr}`);
 }
 
 export function checkNames(root: string, args: readonly string[]) {

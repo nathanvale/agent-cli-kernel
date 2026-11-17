@@ -1,6 +1,12 @@
 import { afterAll, expect, test } from "bun:test";
 import { processWatchdog } from "../support/process.ts";
-import { checkNames, fixtureTree, removeFixtureTrees } from "./fixture-tree.ts";
+import {
+  checkNames,
+  fixtureTree,
+  git,
+  removeFixtureTrees,
+  write,
+} from "./fixture-tree.ts";
 
 afterAll(removeFixtureTrees);
 
@@ -89,4 +95,37 @@ test(
     });
   },
   processWatchdog(1),
+);
+
+test(
+  "CN.c --staged judges an added and a renamed name, and ignores a modified one",
+  async () => {
+    const tree = fixtureTree();
+    const body = "A file long enough for git to see its move as a rename.\n";
+    await git(tree, "init", "--quiet", "--initial-branch=main");
+    write(tree, "docs/mutation-notes.md", "before\n");
+    write(tree, "docs/planted-fault-notes.md", body);
+    await git(tree, "add", "--", "docs");
+    await git(tree, "commit", "--quiet", "-m", "base");
+    write(tree, "docs/mutation-notes.md", "after\n");
+    await git(tree, "add", "--", "docs");
+    expect(await checkNames(tree, ["--staged"])).toEqual({
+      stdout: "",
+      stderr: "",
+      exit: 0,
+    });
+    await git(tree, "mv", "docs/planted-fault-notes.md", "docs/host.md");
+    write(tree, "src/allowlist.ts", "");
+    await git(tree, "add", "--", "src");
+    expect(await checkNames(tree, ["--staged"])).toEqual({
+      stdout: "",
+      stderr: [
+        'docs/host.md uses "host" with no qualifier. Add a word that says which host it is.',
+        'src/allowlist.ts uses "allowlist", which GLOSSARY.md lists under Avoid for "Recorded hit". Rename it with the glossary word.',
+        "",
+      ].join("\n"),
+      exit: 1,
+    });
+  },
+  processWatchdog(8),
 );

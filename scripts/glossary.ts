@@ -164,18 +164,35 @@ export function nameProblems(
   return [...fresh, ...stale];
 }
 
-function gitFiles(root: string): string[] {
-  const listed = Bun.spawnSync(["git", "ls-files", "-z"], {
+function gitPaths(root: string, command: readonly string[]): string[] {
+  const listed = Bun.spawnSync(["git", ...command, "-z"], {
     cwd: root,
     stdout: "pipe",
     stderr: "pipe",
   });
   if (listed.exitCode !== 0)
-    throw new Error(`git ls-files failed: ${listed.stderr.toString().trim()}`);
+    throw new Error(
+      `git ${command.join(" ")} failed: ${listed.stderr.toString().trim()}`,
+    );
   return listed.stdout
     .toString()
     .split("\0")
-    .filter((path) => path !== "" && existsSync(join(root, path)));
+    .filter((path) => path !== "");
+}
+
+function gitFiles(root: string): string[] {
+  return gitPaths(root, ["ls-files"]).filter((path) =>
+    existsSync(join(root, path)),
+  );
+}
+
+export function stagedNewPaths(root: string): string[] {
+  return gitPaths(root, [
+    "diff",
+    "--cached",
+    "--name-only",
+    "--diff-filter=ACR",
+  ]);
 }
 
 export function namesOnPaths(paths: readonly string[]): string[] {

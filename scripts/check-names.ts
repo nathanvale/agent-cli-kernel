@@ -6,6 +6,7 @@ import {
   readGlossary,
   readRecordedHits,
   recordedHitsFile,
+  stagedNewPaths,
 } from "./glossary.ts";
 
 const root = join(import.meta.dir, "..");
@@ -18,6 +19,13 @@ function problemsIn(tree: string, names: readonly string[]): string[] {
   );
 }
 
-const problems = problemsIn(root, namesOnPaths(process.argv.slice(2)));
+function pathsToJudge(args: readonly string[]): string[] {
+  return args[0] === "--staged" ? stagedNewPaths(root) : [...args];
+}
+
+const problems = problemsIn(
+  root,
+  namesOnPaths(pathsToJudge(process.argv.slice(2))),
+);
 for (const problem of problems) process.stderr.write(`${problem}\n`);
 process.exitCode = problems.length > 0 ? 1 : 0;
