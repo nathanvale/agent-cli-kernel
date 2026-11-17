@@ -2,7 +2,6 @@ import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import repository from "../eslint-rules.mjs";
 
-// Explicit rooted contract scopes. T7 owns rendering these for generated hosts.
 const scopes = [
   "starters/contract3/src/**/*.{ts,mts,cts}",
   "tests/contract3/**/*.{ts,mts,cts}",
@@ -21,8 +20,6 @@ const childProcessImport = {
   message:
     "Contract 3 source starts programs only through the programs add-on.",
 };
-// DIAG-17, CMD-16: only the diagnostics add-on folder imports a logging
-// library, and only the pinned LogTape packages.
 const loggingImports = {
   group: [
     "@logtape/*",
@@ -38,9 +35,6 @@ const loggingImports = {
   ],
   message: "Only the diagnostics add-on imports a logging library.",
 };
-// REC-7b, Q01: the state add-on's test seams (fixture.ts) and its internal
-// implementation (install.ts and the rest) are never host-reachable; only its
-// public index is.
 const stateIndexOnly = {
   regex: "(?:^|/)addons/state/(?!index\\.(?:ts|mts|cts)$)",
   message:
@@ -51,9 +45,6 @@ const kernelIndexOnly = {
   message:
     "Code outside the kernel imports the stamped kernel through its public index only.",
 };
-// Linux route decision (16 November 2026): bun:ffi only in the state
-// add-on's linux-flock.ts, the one module that owns the coordination lock's
-// foreign call.
 const ffiRoute = "starters/contract3/src/addons/state/linux-flock.ts";
 const ffiMessage =
   "bun:ffi belongs only to the state add-on's linux-flock.ts (the Linux coordination lock call).";
@@ -63,9 +54,6 @@ const ffiImport = {
     "ImportExpression:matches([source.value='bun:ffi'], [source.quasis.0.value.cooked='bun:ffi'])",
   message: ffiMessage,
 };
-// T3 delta review F1: the spellings that reach the kernel's or the state
-// add-on's internals without matching the canonical path. Lint is a guard
-// against accident, not isolation.
 const literalMessage =
   "Code outside the kernel and the state add-on imports them through their public index only, by a literal specifier: no computed or template-literal import(), require, createRequire or import.meta.require.";
 const canonicalMessage =
@@ -134,10 +122,6 @@ const rules = {
   ],
   "no-console": "error",
 };
-// Source outside the kernel: the public-index bans, the logging ban, the F1
-// spellings and, except in the Linux route module, the bun:ffi ban. The
-// diagnostics folder passes its own logging group (the pinned LogTape
-// packages allowed) and keeps every other rule.
 function hostRules({ banFfi = true, logging = loggingImports } = {}) {
   return {
     "no-restricted-syntax": [
@@ -180,8 +164,6 @@ function hostRules({ banFfi = true, logging = loggingImports } = {}) {
           logging,
           stateIndexOnly,
           {
-            // A doubled slash, a "." segment after a slash, a leading
-            // "./" before "..", or a named segment followed by "..".
             regex:
               "//|/\\.(?:/|$)|^\\./\\.\\.(?:/|$)|(?:^|/)(?!\\.\\.?/)[^/]+/\\.\\.(?:/|$)",
             message: canonicalMessage,
@@ -246,7 +228,6 @@ export default tseslint.config(
     rules: hostRules(),
   },
   {
-    // The one module that may import bun:ffi; every other host rule holds.
     files: [ffiRoute],
     rules: hostRules({ banFfi: false }),
   },
@@ -314,8 +295,6 @@ export default tseslint.config(
     },
   },
   {
-    // DIAG-17: the one folder that may import the pinned logging packages.
-    // Every other host rule (public indexes, F1 spellings, bun:ffi) holds.
     files: ["starters/contract3/src/addons/diagnostics/**/*.{ts,mts,cts}"],
     rules: hostRules({
       logging: {
@@ -334,8 +313,6 @@ export default tseslint.config(
     rules: { "no-restricted-properties": ["error", ...programProperties] },
   },
   {
-    // CMD-14: only the programs add-on folder may start programs, and only
-    // through the asynchronous Bun.spawn.
     files: ["starters/contract3/src/addons/programs/**/*.{ts,mts,cts}"],
     rules: {
       "no-restricted-properties": [
@@ -346,7 +323,6 @@ export default tseslint.config(
     },
   },
   {
-    // GATE-12: the kernel writer's process adapter is the one output owner.
     files: ["starters/contract3/src/kernel/process-host.ts"],
     rules: { "repository/no-domain-output": "off" },
   },

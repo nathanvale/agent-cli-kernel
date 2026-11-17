@@ -1,18 +1,13 @@
-// Shared assertions for the T5 process cases. Domain truth comes from the
-// diagnostics-disabled twin. The status is judged here, from DIAG-2 and
-// DIAG-3 as written, never by the kernel's validator or the add-on.
 import { expect } from "bun:test";
 import { canon, get, run, tree } from "./harness.ts";
 import type { Launch, Run } from "./harness.ts";
 
 export const machine = ["--json"] as const;
 
-// The status the kernel wrote into the one envelope (LIFE-7 step 1).
 export function statusOf(result: Run): unknown {
   return get(result.envelope, "diagnostics");
 }
 
-// DIAG-2's fields and what each may hold.
 const factNames = [
   "closed",
   "countsComplete",
@@ -54,7 +49,6 @@ function factsHold(value: unknown, names: readonly string[]): void {
     expect([name, factHolds(name, get(value, name))]).toEqual([name, true]);
 }
 
-// The add-on's available status: exactly DIAG-2's keys, each well formed.
 export function expectAvailable(status: unknown): void {
   expect(get(status, "status")).toBe("available");
   expect(Object.keys(status ?? {}).sort()).toEqual(
@@ -67,9 +61,6 @@ export function expectAvailable(status: unknown): void {
   ).toBe(false);
 }
 
-// The add-on's own unavailable status: DIAG-3's keys, and a non-empty trusted
-// subset (the add-on always knows its file, closure and completeness), so it
-// is never the kernel's `trusted: {}` replacement.
 export function expectUnavailable(
   status: unknown,
   reason: "status-invalid" | "status-unavailable",
@@ -100,7 +91,6 @@ export function expectSuccess(result: Run, commandIdentity = "dxs.read"): void {
   expect(get(result.envelope, "result", "causeCode")).toBe("SUCCESS_UNCHANGED");
 }
 
-// The same argv and script on the diagnostics-disabled CLI in a fresh tree.
 async function disabledTwin(
   launch: Pick<Launch, "argv" | "script" | "env">,
 ): Promise<Run> {

@@ -15,9 +15,6 @@ import type { Row } from "./r18-spec.ts";
 import { unchanged } from "./shapes.ts";
 import { neverRuns } from "./handlers.ts";
 
-// R18 (F01, option 2): contractFor refuses a command-step template whose
-// vector no single-token value can make parse; value-dependent steps stay
-// admitted. Every row runs per arm and per construction path.
 const source = "specimen.source";
 const rejected = new Set(frozenInputs.r18Rejected.map(([suffix]) => suffix));
 let entries = 0;

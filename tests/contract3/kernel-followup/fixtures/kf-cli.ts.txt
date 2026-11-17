@@ -1,10 +1,3 @@
-// Test-owned process entry `kf` for the kernel follow-up cases (KF family).
-// Materialised at starters/contract3/src/addons/state/kf-cli.ts in a
-// disposable tree, because only the state add-on folder may name the state
-// add-on factory; __KERNEL__ and __ADDONS__ are replaced with the absolute
-// paths of the checkout's kernel and add-on folders, so a fault placed in the
-// kernel reaches this process. KF_SCENARIO selects the CLI; argv is the CLI
-// argv. Every observable step is appended to the independent ledger KF_LEDGER.
 import { appendFileSync } from "node:fs";
 import {
   changing,
@@ -32,15 +25,12 @@ const env = process.env;
 function note(line: string): void {
   if (env.KF_LEDGER) appendFileSync(env.KF_LEDGER, `${line}\n`);
 }
-// The process start on the wall clock, for the parent's first-byte bound.
 note(`start ${Date.now()}`);
 const sleep = (milliseconds: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
-// A synchronous block: no timer or I/O callback runs while it lasts.
 function block(milliseconds: number): void {
   const until = performance.now() + milliseconds;
   while (performance.now() < until) {
-    // Busy wait on purpose.
   }
 }
 
@@ -74,7 +64,6 @@ const refusal = {
 const causes = {
   KF_HELD: refusal,
   KF_PRIOR: refusal,
-  // A host station for a confirmed partial change (KF2.c twin).
   KF_PARTIAL: {
     outcome: "failed",
     transactionState: "partially-completed",
@@ -128,7 +117,6 @@ function completed<const Identity extends string>(identity: Identity) {
   });
 }
 
-// kf.pending: the ifNoResult command (inspect, no required slot).
 const pending = command({
   identity: "kf.pending",
   route: ["pending"],
@@ -155,9 +143,6 @@ const pending = command({
     ),
 });
 
-// The seam layer: a state add-on instance through the kernel's state seam.
-// Each recorded effect whose read-back says true is completed, false or a
-// throw is uncertain; a declared effect never recorded is remaining.
 function seamState(): StateAddonDescriptor {
   return contractFor.stateAddon((issuer) => ({
     ifNoResult: issuer.ifNoResult({
@@ -253,10 +238,6 @@ function observe<Effect extends string>(
       };
 }
 
-// Approval add-ons. KF_APPROVAL: `shipped` is the shipped approval add-on
-// over the directory KF_GRANTS (relative or absolute); `sync-throw` and
-// `reject` are host add-ons whose attach throws or returns a rejected
-// promise; `grant` answers true. Each check ledgers `check-start`.
 const approvalRequest = () => ({
   authority: authority("kf.owner"),
   resource: resource("kf.item"),
@@ -309,9 +290,6 @@ function approvalAddon(operation: string): RunAddon<ApprovalCapability> {
   };
 }
 
-// A host programs add-on. KF_PROGRAMS_ATTACH=reject: its first-use attach
-// returns a rejected promise. KF_SETTLE: `false` resolves unconfirmed,
-// `throw` throws, anything else resolves confirmed.
 function programsAddon(): RunAddon<ProgramsCapability> {
   if (env.KF_PROGRAMS_ATTACH === "reject")
     return {
@@ -359,7 +337,6 @@ const program = {
   shutdownMilliseconds: 500,
 };
 
-// kf.read: an inspect command that declares approval and its station table.
 const read = command({
   identity: "kf.read",
   route: ["read"],
@@ -377,12 +354,10 @@ const read = command({
   },
 });
 
-// kf.run: an inspect command whose programs add-on attaches on first use.
 const runPrograms = command({
   identity: "kf.run",
   route: ["run"],
   summary: "Run one owned program.",
-  // No deadline support, so no program-stop station is needed (KF3.f).
   input: { ...input, deadlineSupported: false },
   capabilities: { programs: true },
   stations: [success("kf.run")],
@@ -396,7 +371,6 @@ const runPrograms = command({
   },
 });
 
-// kf.apply: a changing command with effect kf.e that completes it.
 function applyEffect(transaction: EffectTransaction<"kf.e">) {
   return transaction.record(
     "kf.e",
@@ -455,17 +429,6 @@ function applyApproved(state: StateAddonDescriptor) {
   });
 }
 
-// Decision 2 (KF2). KF_PROOF picks the effects and what the transaction
-// observes: `completed` (kf.e confirmed), `partial` (kf.e1 confirmed, kf.e2
-// never recorded), `unchanged` (nothing recorded), `unknown` (kf.e read-back
-// throws), `wide40` and `wide25` (that many 480-character effects, all
-// confirmed). KF_AFTER picks what the handler does once the proof exists:
-// `throw`, `refusal` (KF_HELD without a proof), `invalid` (a success whose
-// data is NaN, without a proof), `result` (the station matching the proof),
-// `select` (KF_SELECT, cast past the static type, with the proof; KF5.a), or
-// `before` (it throws before calling the transaction). KF_LAYER `seam`
-// uses the seam's state add-on instance, `addon` the shipped state add-on over
-// KF_STATE_ROOT.
 const proofVariant = env.KF_PROOF ?? "completed";
 function wideEffects(count: number): readonly [string, ...string[]] {
   const effects = Array.from(
@@ -506,7 +469,6 @@ async function variantWork(transaction: EffectTransaction<string>) {
       return;
     default:
       for (const effect of variantEffects[proofVariant] ?? []) {
-        // A wide effect id is never written to the ledger in full.
         await transaction.record(effect, () => Promise.resolve(), confirmed);
         note(`effect-applied ${effect.slice(0, 10)}`);
       }
@@ -617,10 +579,6 @@ function layered(): { state: StateAddonDescriptor; transact: Transact } {
   };
 }
 
-// Decision 3 (KF3). kf.apply and kf.watch start one owned program through
-// the host programs add-on (KF_SETTLE decides its settle), then wait KF_WAIT
-// ms ignoring cancellation (0: return at once). kf.apply first runs the
-// KF_PROOF transaction (`none`: no transaction).
 const waitMilliseconds = Number(env.KF_WAIT ?? "0");
 function programsApply(state: StateAddonDescriptor) {
   const effects =
@@ -663,8 +621,6 @@ function programsApply(state: StateAddonDescriptor) {
     run: async (_input, context) => {
       note("handler-entered");
       if (proofVariant === "stalled")
-        // A transaction that starts, runs the owned program and outlasts
-        // the deadline without issuing a proof.
         await context.state.transaction(async () => {
           await context.programs.inspect(program);
           await sleep(waitMilliseconds);
@@ -714,7 +670,6 @@ const programStopName =
 const watchCauses = {
   ...causes,
   [programStopName]: programStopRow,
-  // A host-owned refusal kf.watch's handler may select (KF5.d twin).
   DOMAIN_KF_WATCH_REFUSED: refusal,
 };
 const watchRefused = station({ ...commonCauses, ...watchCauses } as never, {
@@ -784,10 +739,6 @@ function watchCommand() {
   });
 }
 
-// Decision 4 (KF4). KF_STEP picks the step under test on kf.go's success
-// station (`next`), on its KF_HELD handoff (`inspect-entry`), as kf.apply's
-// ifNoResult (`if-no-result`), or to the root operation (`root`) or a deep
-// route (`deep`). KF_ARGS is the step's JSON argument list.
 const stepArgs: readonly string[] = JSON.parse(env.KF_ARGS ?? "[]") as string[];
 const operand = (name: string) => ({
   name,
@@ -936,13 +887,10 @@ function stepCommands() {
   } as never);
 }
 
-// Decision 5 (KF5). kf.load's handler selects KF_SELECT (cast past the
-// static type) or, unset, its own success. KF_DECLARED lists the pre-entry
-// tuples kf.load (and kf.apply2) declare their own words for (comma-separated).
 const declaredWords = (env.KF_DECLARED ?? "").split(",").filter((code) => code !== "");
 const ownWords = (identity: "kf.load" | "kf.apply2") => (causeCode: string) =>
   causeCode === "DOMAIN_AUTHORITY_REQUIRED"
-    ? // As the T3 specimen declares it on a command without approval.
+    ?
       station(commonCauses, {
         ...words,
         reachability: "declared-unreachable",
@@ -999,12 +947,6 @@ const load = command({
   },
 });
 
-// KF9: the K2-spec-3 deadline window. KF_LATE: `transaction` waits
-// KF_LATE_MS from handler entry, notes `late-call`, then calls the
-// transaction (KF9.a);
-// `early` runs the transaction at once, then waits (KF9.a twin); `effect`
-// records kf.e1, waits KF_LATE_MS inside the transaction, then records kf.e2
-// (KF9.b); `both` records both at once, then waits (KF9.b twin).
 const lateMode = env.KF_LATE ?? "transaction";
 const lateMilliseconds = Number(env.KF_LATE_MS ?? "0");
 function recordEffect(transaction: EffectTransaction<string>, effect: string) {
@@ -1062,9 +1004,6 @@ function lateApply(state: StateAddonDescriptor) {
   });
 }
 
-// KF5.a setup B: kf.apply2 (effects kf.e1, kf.e2, deadline support, no
-// approval, KF_DECLARED's words) opens no transaction and selects
-// KF_SELECT, or waits KF_WAIT ms.
 function apply2(state: StateAddonDescriptor) {
   return changing({
     identity: "kf.apply2",
@@ -1096,10 +1035,6 @@ function apply2(state: StateAddonDescriptor) {
   });
 }
 
-// KF10: kf.show carries the probe's input (an operand with a pattern,
-// --title, --mode, --count, --flag, deadline support) behind approval, and
-// its handler copies --title into its own message (the host-prose twin).
-// kf.change reads --title and throws before any transaction (the fallback).
 const titleOption = {
   name: "--title",
   aliases: [],
@@ -1168,7 +1103,6 @@ function change(state: StateAddonDescriptor) {
 
 const scenarios: Readonly<Record<string, (argv: string[]) => Promise<unknown>>> =
   {
-    // KF5.a setup B.
     apply2: (argv) => {
       const state = seamState();
       return runProcess(
@@ -1181,7 +1115,6 @@ const scenarios: Readonly<Record<string, (argv: string[]) => Promise<unknown>>> 
         } as never),
       )(argv);
     },
-    // KF9.
     late: (argv) => {
       const state = seamState();
       return runProcess(
@@ -1194,10 +1127,8 @@ const scenarios: Readonly<Record<string, (argv: string[]) => Promise<unknown>>> 
         } as never),
       )(argv);
     },
-    // KF5.a, KF5.c.
     load: (argv) =>
       runProcess(contractFor({ cli: "kf", commands: [load], causes }))(argv),
-    // KF4: what contractFor did with the declared step.
     "step-admission": () => {
       try {
         stepCommands();
@@ -1212,9 +1143,7 @@ const scenarios: Readonly<Record<string, (argv: string[]) => Promise<unknown>>> 
       }
       return Promise.resolve();
     },
-    // KF4 twins as processes.
     steps: (argv) => runProcess(stepCommands() as never)(argv),
-    // KF3.a, KF3.c.
     "programs-apply": (argv) => {
       const state = seamState();
       return runProcess(
@@ -1228,7 +1157,6 @@ const scenarios: Readonly<Record<string, (argv: string[]) => Promise<unknown>>> 
         { addons: { programs: programsAddon() } },
       )(argv);
     },
-    // KF3.b, KF3.d.
     watch: (argv) =>
       runProcess(
         contractFor({
@@ -1239,7 +1167,6 @@ const scenarios: Readonly<Record<string, (argv: string[]) => Promise<unknown>>> 
         } as never),
         { addons: { programs: programsAddon() } },
       )(argv),
-    // KF3.f: what command() and contractFor did with kf.watch.
     "watch-admission": () => {
       try {
         contractFor({
@@ -1259,7 +1186,6 @@ const scenarios: Readonly<Record<string, (argv: string[]) => Promise<unknown>>> 
       }
       return Promise.resolve();
     },
-    // KF2.
     proof: (argv) => {
       const { state, transact } = layered();
       return runProcess(
@@ -1272,7 +1198,6 @@ const scenarios: Readonly<Record<string, (argv: string[]) => Promise<unknown>>> 
         }),
       )(argv);
     },
-    // KF1.a inspect, KF1.b, KF7.a inspect.
     read: (argv) =>
       runProcess(
         contractFor({
@@ -1283,7 +1208,6 @@ const scenarios: Readonly<Record<string, (argv: string[]) => Promise<unknown>>> 
         }),
         { addons: { approval: approvalAddon("kf.read") } },
       )(argv),
-    // KF1.a changing, KF7.a changing.
     "apply-approved": (argv) => {
       const state = seamState();
       return runProcess(
@@ -1297,7 +1221,6 @@ const scenarios: Readonly<Record<string, (argv: string[]) => Promise<unknown>>> 
         { addons: { approval: approvalAddon("kf.apply") } },
       )(argv);
     },
-    // KF1.c, KF7.b.
     apply: (argv) => {
       const state = seamState();
       return runProcess(
@@ -1310,7 +1233,6 @@ const scenarios: Readonly<Record<string, (argv: string[]) => Promise<unknown>>> 
         }),
       )(argv);
     },
-    // KF10.
     show: (argv) => {
       const state = seamState();
       return runProcess(
@@ -1324,7 +1246,6 @@ const scenarios: Readonly<Record<string, (argv: string[]) => Promise<unknown>>> 
         { addons: { approval: approvalAddon("kf.show") } },
       )(argv);
     },
-    // KF1.e.
     run: (argv) =>
       runProcess(
         contractFor({

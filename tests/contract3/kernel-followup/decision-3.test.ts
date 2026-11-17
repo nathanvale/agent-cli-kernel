@@ -26,8 +26,6 @@ afterAll(async () => {
 });
 
 const pendingStep = { kind: "command", command: "kf.pending", args: [] };
-// LIFE-6: the first stdout byte within the deadline plus the 500 ms wait,
-// plus the test harness tolerance (lifecycle oracle).
 const deadlineBound = 300 + 500 + tolerance;
 
 function deadlineRun(proof: string, settle: string) {
@@ -43,8 +41,6 @@ function expectHandoff(run: KfRun) {
   expect(run.result?.handoff).toMatchObject({ inspect: [pendingStep] });
 }
 
-// N3 option A: the proof's completed and remaining lists are kept, nothing
-// moves to uncertain, and the inventory is incomplete.
 const unconfirmed: Readonly<Record<string, unknown>> = {
   completed: {
     completed: ["kf.e"],
@@ -64,17 +60,14 @@ const unconfirmed: Readonly<Record<string, unknown>> = {
     uncertain: [],
     inventoryComplete: false,
   },
-  // N9 (17:06): no transaction started and every later one refused.
   none: {
     completed: [],
     remaining: ["kf.e"],
     uncertain: [],
     inventoryComplete: false,
   },
-  // A transaction started and issued no proof: nothing is known.
   stalled: { ...emptyComplete, inventoryComplete: false },
 };
-// The twins: every program confirmed stopped.
 const confirmed = {
   completed: {
     causeCode: "DOMAIN_DEADLINE_COMPLETED",
@@ -95,7 +88,6 @@ const confirmed = {
     transactionState: "unchanged",
     effects: { ...emptyComplete, remaining: ["kf.e"] },
   },
-  // N9 (17:06): DOMAIN_DEADLINE_UNCHANGED with the declared effects.
   none: {
     causeCode: "DOMAIN_DEADLINE_UNCHANGED",
     transactionState: "unchanged",
@@ -159,7 +151,6 @@ describe("KF3.c changing-normal-unconfirmed [proof gap: a host programs add-on's
           exit: 1,
           one: true,
         });
-        // N2 option A: INTERNAL_RESULT_UNKNOWN, transaction state unknown.
         expect(run.result).toMatchObject({
           commandIdentity: "kf.apply",
           causeCode: "INTERNAL_RESULT_UNKNOWN",
@@ -206,7 +197,6 @@ test(
       effects: unconfirmed.partial,
     });
     expectHandoff(run);
-    // Twin: settle true gives the declared partial station, inventory complete.
     const twin = await runKf(entry, "programs-apply", ["apply", "--json"], {
       KF_PROOF: "partial",
       KF_SETTLE: "true",

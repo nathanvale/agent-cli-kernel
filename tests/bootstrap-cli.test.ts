@@ -93,7 +93,6 @@ const STARTER_FILES = {
   ],
 } as const;
 
-// Independent oracle: these are the public CLI wording expectations.
 const SOURCE_PACKET_DATA_MESSAGE =
   "HTTP(S) source packet URLs must not contain username, password, or query data";
 const SOURCE_PACKET_DATA_REPAIR =

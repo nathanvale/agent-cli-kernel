@@ -1,8 +1,6 @@
 import { expect } from "bun:test";
 import { runFamily, stateFixture } from "./harness.ts";
 
-// One child process observes every R01 and R02 case; expected values below
-// come from expectations.md R01 and R02, never from fixture output.
 let observations: Promise<unknown> | undefined;
 async function observed(id: string): Promise<unknown> {
   observations ??= stateFixture("state-repair");

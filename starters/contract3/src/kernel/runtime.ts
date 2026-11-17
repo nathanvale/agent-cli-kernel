@@ -4,8 +4,6 @@ import type { DeclaredStation } from "./stations.ts";
 import type { StateObservation } from "./state-seam.ts";
 import type { Effects, Envelope, JsonValue, Validation } from "./types.ts";
 
-// The kernel's private view of one built contract. The kernel process entry
-// reads it; host code only ever holds the opaque contract object.
 export type Resolution =
   | {
       readonly ok: false;
@@ -24,7 +22,6 @@ export type Resolution =
       };
     };
 
-// Handler entry: runs the handler once and validates what it returned.
 export type Enter = () => Promise<Validation<CommandResult>>;
 // CMD-9 step 6 before handler entry. Called at most once; a throw is a
 // preparation fault (accepted decision, contract question 3 of 8).
@@ -52,19 +49,12 @@ export type ContractRuntime = {
     runId: string,
     context: unknown,
   ) => Promise<Validation<CommandResult>>;
-  // The same execution in its CMD-9 phases: steps 3 to 5 (input, future
-  // bindings, approval guard) attach nothing; the returned attach claims the
-  // run identity and attaches state (step 6, before handler entry; it may
-  // throw); its entry runs the handler. execute is prepare, attach, entry.
   readonly prepare: (
     identity: string,
     argv: readonly string[],
     runId: string,
     context: unknown,
   ) => Promise<Validation<Attach>>;
-  // Builds a kernel-selected station with effects from the kernel's own
-  // observation. Handler results never reach it: they go through buildResult
-  // and the state-issued proof rule.
   readonly buildKernelStation: (
     selected: { readonly commandIdentity: string; readonly causeCode: string },
     facts: KernelFacts,
@@ -72,11 +62,7 @@ export type ContractRuntime = {
   ) => Promise<Validation<unknown>>;
   readonly buildResult: (result: CommandResult) => Promise<Validation<unknown>>;
   readonly validate: (value: unknown) => Promise<Validation<Envelope>>;
-  // The trusted summary: the proof the state seam issued for the run, if
-  // any, whether or not the handler returned (contract question 4 of 8).
   readonly trustedSummary: (runId: string) => StateObservation | undefined;
-  // LIFE-6: closes the run's state capability at the deadline; true when a
-  // transaction had started, undefined when the run has no state.
   readonly closeStateAtDeadline: (runId: string) => boolean | undefined;
 };
 

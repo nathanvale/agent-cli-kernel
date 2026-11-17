@@ -1,17 +1,3 @@
-// LABELLED PROBE WORKER (test-only). Spawned by
-// tests/contract3/state/linux-coordination.probe.test.ts as a real separate
-// process. It tries one candidate coordination lock and writes what happened
-// to a report file (a barrier file). It decides nothing; not production code.
-//
-// argv: <candidate> <mode> <lockFile> <reportFile> [extra] [goFile]
-//   hold          acquire, report, stay alive until killed. extra:
-//                 "other-descriptor": open the file again and close that
-//                 descriptor before reporting; "child": spawn a long-lived
-//                 child and report its pid.
-//   try           one non-blocking attempt; report result, code, elapsed.
-//   same-process  acquire, then a second open in this process attempts.
-//   hold-then-try acquire lockFile, report, wait for goFile, then attempt
-//                 `extra` (a second file) and report again.
 import { dlopen, ptr, read } from "bun:ffi";
 import { Database } from "bun:sqlite";
 import {
@@ -84,7 +70,7 @@ function flockHandle(path: string): Handle {
   const fd = openSync(path, openFlags, 0o600);
   return {
     fd: () => fd,
-    tryLock: () => fromCall(locks.symbols.flock(fd, 2 | 4)), // LOCK_EX | LOCK_NB
+    tryLock: () => fromCall(locks.symbols.flock(fd, 2 | 4)),
     close: () => closeSync(fd),
   };
 }
@@ -103,7 +89,7 @@ function fcntlHandle(path: string, command: number, name: string): Handle {
     };
   const fd = openSync(path, openFlags, 0o600);
   const lock = new Uint8Array(32);
-  new DataView(lock.buffer).setInt16(0, 1, true); // F_WRLCK, SEEK_SET = 0
+  new DataView(lock.buffer).setInt16(0, 1, true);
   return {
     fd: () => fd,
     tryLock: () => fromCall(locks.symbols.fcntl(fd, command, ptr(lock))),
@@ -179,8 +165,6 @@ function writeReport(value: Readonly<Record<string, unknown>>): void {
   renameSync(staged, report);
 }
 
-// Handles stay referenced for the life of the process: a collected
-// connection or descriptor could release its lock and fake a result.
 const retained: Handle[] = [];
 function stayAlive(): void {
   setInterval(() => {}, 1_000_000);

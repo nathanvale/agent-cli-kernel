@@ -3,11 +3,7 @@ import type { CapabilityAddonName } from "./validation/context.ts";
 
 export type StopSignal = "SIGINT" | "SIGTERM";
 
-// The process streams, exit, signals, crash hooks and clock, owned by the one
-// writer and the lifecycle. Kernel-internal: the public RunSetup cannot
-// replace it. The real adapter is processHost().
 export type ProcessHost = {
-  // Resolves true after the bytes drained to the stream, false on any error.
   readonly write: (
     stream: "stdout" | "stderr",
     bytes: Uint8Array,
@@ -15,7 +11,6 @@ export type ProcessHost = {
   readonly exit: (code: number) => void;
   readonly onSignal: (listener: (signal: StopSignal) => void) => void;
   readonly onCrash: (listener: () => void) => void;
-  // Monotonic milliseconds.
   readonly now: () => number;
 };
 
@@ -59,7 +54,6 @@ export type EmergencyFacts = {
   readonly phase: "preparing" | "handler-entered" | "emitting" | "drained";
 };
 
-// One add-on per declared capability name (validation/context.ts owns them).
 export type CapabilityFor = HandlerContext<Required<CapabilitySelection>>;
 export type RunSetup = {
   readonly addons?: {

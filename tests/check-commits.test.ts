@@ -182,8 +182,6 @@ function verdicts(lines: readonly string[]): string[] {
   return lines.filter((line) => /^(GREEN|RED) /.test(line));
 }
 
-// tests/doctor.test.ts owns the repair wording; this file checks only that
-// the doctor refused the running Bun.
 function wrongBunRefusals(lines: readonly string[]): string[] {
   return lines.filter((line) =>
     line.startsWith(

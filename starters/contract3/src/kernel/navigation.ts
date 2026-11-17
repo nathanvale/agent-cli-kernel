@@ -79,15 +79,10 @@ const authorityWords = {
     ],
   },
 } as const satisfies { readonly handoff: Handoff };
-// WIRE-18 guidance column for the base-added causes whose default is an
-// instruction (STEP-8: a choice among commands, or two steps in order). The
-// fallback copies INTERNAL_PREPARATION's words, so they stay fixed literals
-// with no token (DISC-11b; K1-8).
 const deadlineWords = {
   repair: "Inspect the deadline and the input before deciding on a new run.",
   next: "Inspect the deadline and the input, then explicitly decide whether to start a new run.",
 } as const;
-// Keyed by the common-cause codes, so a misspelt key does not compile (S11).
 const instructionWords: Partial<
   Record<
     keyof typeof commonCauses,
@@ -126,9 +121,6 @@ function kernelWords(
 ):
   | { readonly next: NextStep; readonly handoff?: never }
   | { readonly handoff: Handoff; readonly next?: never } {
-  // CMD-15 and WIRE-18: every approval denial is one handoff naming the
-  // authority owner. The base names that owner's role; a command that needs a
-  // specific owner declares this tuple with its own words (DISC-11b).
   if (causeCode === "DOMAIN_AUTHORITY_REQUIRED") return authorityWords;
   if (
     internalResultCode(causeCode) ||
@@ -159,9 +151,6 @@ function kernelWords(
     return { next: { kind: "instruction", text: instruction.next } };
   return { next: { kind: "command", command: `${cli}.help`, args: [] } };
 }
-// DISC-10 and DISC-11: the causes the base adds to a host command, in
-// publication order. A handler may select any of them that the fallback does
-// not reserve (DISC-11b, K1-6).
 export function hostKernelCauses(command: CommandDeclaration): string[] {
   const needed = [
     ...(command.stations.length === 0 ? ["SUCCESS_UNCHANGED"] : []),

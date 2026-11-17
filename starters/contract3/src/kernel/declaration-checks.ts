@@ -49,7 +49,6 @@ function validateStationSet(
       !causeRow(station.row)
     )
       throw new Error("Station is not a strict declared station.");
-    // DISC-11b: the fallback's stations keep the base's fixed words (F12).
     if (reservedFallbackCause(station.causeCode))
       throw new Error("Fallback station words are reserved.");
     const row = causes[station.causeCode];
@@ -110,11 +109,6 @@ function validateIfNoResult(
   );
   if (!route || !target || target.effectClass !== "inspect")
     throw new Error("ifNoResult must name a declared inspect command.");
-  // DISC-13 and DISC-14(1): the step is a command step (STEP-6) checked when
-  // the command is declared, because the base copies it into the fallback;
-  // a step its target cannot parse would leave the fallback unproducible.
-  // The same global-switch rule as every station step (INPUT-3, STEP-6):
-  // a switch value would route the copied step to navigation (B1).
   if (carriesGlobalSwitch(route.args))
     throw new Error(
       `ifNoResult step ${target.commandIdentity} ${JSON.stringify(route.args)} carries a global switch before --.`,
@@ -135,8 +129,6 @@ function validateIfNoResult(
   if (!success || success.guidance.next?.kind === "done")
     throw new Error("ifNoResult needs explicit further inspection guidance.");
   for (const cause of [command.heldLockCause, command.unresolvedCaseCause]) {
-    // CMD-10 and CMD-12: each coordination refusal has a cause owned by this
-    // CLI; the state add-on adds no common cause (WIRE-19; K1-10).
     if (cause === undefined || Object.hasOwn(commonCauses, cause))
       throw new Error("Coordination refusal causes are host-owned.");
     const station = command.stations.find((item) => item.causeCode === cause);
@@ -149,8 +141,6 @@ function validateIfNoResult(
       throw new Error("Coordination refusal requires an unchanged handoff.");
   }
 }
-// Host route tokens are checked before collisions so a route that names a
-// built-in switch is refused with its own token (F04, CMD-1).
 function validateRoutes(
   cli: string,
   commands: readonly CommandDeclaration[],
@@ -185,7 +175,6 @@ export function validateCommands(
       host: !builtinIdentities.includes(command.commandIdentity),
     });
 }
-// Every admission rule for one declaration, in refusal-priority order.
 function admitCommand(
   cli: string,
   command: CommandDeclaration,
@@ -194,7 +183,6 @@ function admitCommand(
   installed: readonly AddonName[],
   { host }: { readonly host: boolean },
 ): void {
-  // K1-5: a raw declaration meets the same shape rules as a constructed one.
   if (host)
     if (command.effectClass === "inspect") admitInspectShape(command);
     else admitChangingShape(command);
@@ -211,17 +199,10 @@ function admitCommand(
   validateIfNoResult(cli, command, commands);
   validateGuidance(command, commands);
   validateStepVectors(cli, command, commands);
-  // Last, so a more specific refusal of the same declaration wins.
   if (host && typeof command.execute !== "function")
     throw new Error("Host command needs an executable handler.");
   if (host && !preparerOf(command)) refuseRawWhereConstructorNeeded(command);
 }
-// CMD-9 steps 5 and 6: only command() and changing() register the
-// two-phase entry that runs the approval guard before any attachment, so a
-// raw declaration may neither declare approval nor change state. Only
-// command() records the program-stop station (N1b), so a raw one may not
-// both run programs and support a deadline. Any other raw read-only
-// declaration stays admitted (K1-5).
 function refuseRawWhereConstructorNeeded(command: CommandDeclaration): void {
   if (
     command.capabilities.approval === true ||
@@ -235,7 +216,6 @@ function refuseRawWhereConstructorNeeded(command: CommandDeclaration): void {
       "A command that runs programs and supports a deadline must be built with command().",
     );
 }
-// F01 (option 2): refuse a step template no single-token value can satisfy.
 function validateStepVectors(
   cli: string,
   command: CommandDeclaration,

@@ -14,8 +14,6 @@ const prototypeOwners = new Set([
 ]);
 const ownerKeys = new WeakMap();
 
-// The string a source spells from constants only: literals, + and templates
-// over them, [...].join(separator), and const bindings to any of these.
 function constantText(context, node, depth = 0) {
   if (!node || depth > 8) return undefined;
   return folders[node.type]?.(context, node, depth + 1);
@@ -72,8 +70,6 @@ const folders = {
   },
 };
 
-// Only the outermost constant expression is judged, so a code built from
-// parts is reported once.
 function outermost(context, node) {
   return (
     !folding.has(node.parent?.type) ||
@@ -90,7 +86,6 @@ function members(type) {
   return type.isUnion() ? type.types : [type];
 }
 
-// An operand the fix may spell twice: reading it again yields the same value.
 function stable(node) {
   if (node.type === "Identifier" || node.type === "Literal") return true;
   if (node.type === "TemplateLiteral") return node.expressions.length === 0;
@@ -234,9 +229,6 @@ const traceIdentifier = (node, next, context) => {
         : { module: "global", name: node.name };
   return definitionTracers[def.type]?.(def, node, next) ?? { name: node.name };
 };
-// What an expression names: the module it came from ("global" for a
-// global) and the export, or only a name when the origin is not traced. A
-// result with no name is the module object itself.
 const tracers = {
   Identifier: traceIdentifier,
   MemberExpression: (node, next) => {
@@ -286,14 +278,10 @@ const resolves = ([wrapped, , ...values], resolve) => {
   const call = isFunction(callback) ? onlyCall(callback) : undefined;
   return call?.callee.name === resolve && noValue(call.arguments);
 };
-// A delay resolves with no value: it passes the executor's resolve with no
-// extra argument, or calls resolve() or resolve(undefined). A watchdog
-// rejects, aborts or resolves with a value.
 const delays = (context, node) => {
   const resolve = executorResolve(context, node);
   return resolve !== undefined && resolves(node.arguments, resolve);
 };
-// A pattern that matches a lone NUL character matches every message.
 const namesNothing = (wrapped) => {
   const node = bare(wrapped);
   return (
@@ -380,8 +368,6 @@ export default {
               .find((property) => property.escapedName === key.escapedName);
           return undefined;
         };
-        // A key every union member leaves undeclared is a probe of unknown
-        // shape. Narrowing a union by a key one member declares is not.
         const declared = (keyNode, targetNode) => {
           const keys = members(services.getTypeAtLocation(keyNode));
           const targets = members(services.getTypeAtLocation(targetNode)).map(
@@ -448,9 +434,6 @@ export default {
           checker,
           `${root}/kernel/causes.ts`,
         );
-        // A closed literal union that holds every owner key is the owner's
-        // keyof or built from it, so renaming a key breaks the literal. A
-        // local union that copies some keys does not.
         const ownerTyped = (type) =>
           type !== undefined &&
           closedStrings(type) &&

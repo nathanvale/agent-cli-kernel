@@ -4,10 +4,6 @@ import { join } from "node:path";
 import { ESLint } from "eslint";
 import { materialise, runFamily } from "./harness.ts";
 
-// R11 (F09): the generated lint configuration bans starting programs outside
-// the programs add-on (CMD-14), including through a dynamic import. The probes
-// live in a disposable materialised tree linted with the contract3
-// configuration, never in the repository's source tree (N-5).
 let root = "";
 let eslint: ESLint | undefined;
 let hostFile = "";

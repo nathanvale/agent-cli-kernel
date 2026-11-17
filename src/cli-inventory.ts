@@ -50,7 +50,6 @@ async function filesIn(root: string, directory = root): Promise<string[]> {
 }
 
 function scriptTarget(value: string): string | undefined {
-  // Shell assignment words may contain quoted spaces; they precede the runtime.
   const command = value.replace(
     /^(?:[A-Za-z_][A-Za-z0-9_]*=(?:[^\s"'\\]|\\.|"(?:[^"\\]|\\.)*"|'[^']*')*\s+)*/,
     "",
@@ -230,7 +229,6 @@ interface ProcessBinding {
   bound?: string;
 }
 
-// An argv read becomes a define key; any other named import stays bound.
 function namedProcessBinding(specifier: string): ProcessBinding {
   const [imported = "", local = imported] = specifier.trim().split(/\s+as\s+/u);
   if (imported === "default") return { reference: `${local}.argv` };
@@ -273,11 +271,9 @@ function processBindingReferences(
     (statement: string, clause: string, offset: number) => {
       const without =
         original.slice(0, offset) + original.slice(offset + statement.length);
-      // A matching line inside template text is not an import: ask the parser.
       if (processImportCount(without, scanner) === imports) return statement;
       const { references, bound } = processImportBindings(clause);
       for (const reference of references) define.set(reference, marker);
-      // A renamed non-argv import such as `env as process` must stay bound.
       return bound.length === 0 ? "" : `let ${bound.join(", ")};`;
     },
   );
@@ -306,7 +302,6 @@ function executableSource(
     ...options,
     define: { ...references.define, "import.meta.main": main },
   }).transformSync(references.source);
-  // Bun substitutes syntax references, never comments, regexes or literal text.
   return (
     transformed.includes(main) || (!imported && transformed.includes(argv))
   );

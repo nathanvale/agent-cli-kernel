@@ -6,10 +6,6 @@ import { selectingLoad } from "./swarm-commands.ts";
 import type { ScenarioRun } from "./swarm-process.ts";
 import { processWatchdog, runScenario } from "./swarm-process.ts";
 
-// Swarm-triage expectations for kernel-supplied stations (X-K1-6, X-K1-8).
-// Expected values come from the triage file's expectations, written from the
-// frozen contract, never from kernel output.
-// Each test here runs at most three child processes.
 const processTimeout = processWatchdog(3);
 
 function stationsOf(contract: object, identity: string): unknown[] {
@@ -26,9 +22,6 @@ function stationsOf(contract: object, identity: string): unknown[] {
 test(
   "X-K1-6.schema-station-reachable: a base-added required SCHEMA_INVALID_INPUT is produced by a process invocation",
   async () => {
-    // DISC-11b: a handler may select a station the base adds, for example
-    // SCHEMA_INVALID_INPUT for a bad persisted-state shape. DISC-12: every
-    // required station is reached by a process test.
     expect(
       stationsOf(selectingLoad("SCHEMA_INVALID_INPUT", false), "x.load"),
     ).toContainEqual(
@@ -58,7 +51,6 @@ test(
   processTimeout,
 );
 
-// A PublicStation carries its step under `guidance` (DISC-8).
 function nextKind(station: unknown): unknown {
   const guidance: unknown =
     typeof station === "object" && station !== null
@@ -91,8 +83,6 @@ function discovered(observed: ScenarioRun, causeCode: string): unknown {
 test(
   "X-K1-8.default-words: base default words follow the WIRE-18 guidance column",
   async () => {
-    // STEP-8 "A choice among commands": an instruction, candidates in
-    // availablePaths (WIRE-18: select an identity from availablePaths).
     const unknown = await runScenario("default-words", ["nosuch", "--json"]);
     expect(unknown.exit).toBe(2);
     expect(unknown.result).toMatchObject({
@@ -100,9 +90,6 @@ test(
       causeCode: "USAGE_UNKNOWN_COMMAND",
       next: { kind: "instruction" },
     });
-    // WIRE-18: INTERNAL_PREPARATION repairs the CLI or runtime; help neither
-    // performs nor checks that repair. Deadline rows are two steps in order
-    // (STEP-8): inspect the deadline and input, then decide a new run.
     const read = await runScenario("default-words", [
       "--discover-command",
       "x.read",
@@ -126,8 +113,6 @@ test(
       "instruction",
       "instruction",
     ]);
-    // Twin: WIRE-18 USAGE_INVALID_INVOCATION ("inspect help and correct the
-    // invocation") keeps its command step to help.
     expect(discovered(read, "USAGE_INVALID_INVOCATION")).toMatchObject({
       guidance: { next: { kind: "command", command: "x.help", args: [] } },
     });
@@ -135,13 +120,10 @@ test(
   processTimeout,
 );
 
-// Runs the inspect-approval scenario with a fresh ledger and returns what an
-// agent sees plus the independent ledger lines.
 async function approvalRun(env: Readonly<Record<string, string>>) {
   const directory = await mkdtemp(join(tmpdir(), "contract3-swarm-approval-"));
   try {
     const ledger = join(directory, "ledger.txt");
-    // An empty grant store is an existing, empty directory (delta F7).
     const store = join(directory, "store");
     await mkdir(store);
     const observed = await runScenario("inspect-approval", ["read", "--json"], {
@@ -169,13 +151,10 @@ const denied = {
 test(
   "X-K1-3.inspect-approval-guard: an inspect command that declares approval is guarded before its handler",
   async () => {
-    // CMD-3, CMD-4, CMD-15: the approval guard runs on an inspect command
-    // too, after input validation and before the handler (CMD-9 step 5).
     const refused = await approvalRun({ CHECK: "false" });
     expect(refused.observed.exit).toBe(3);
     expect(refused.observed.result).toMatchObject(denied);
     expect(refused.lines).toEqual(["check"]);
-    // Twin: an accepting check enters the handler once.
     const admitted = await approvalRun({ CHECK: "true" });
     expect(admitted.observed.exit).toBe(0);
     expect(admitted.observed.result).toMatchObject({
@@ -190,8 +169,6 @@ test(
 test(
   "X-S7.inspect-approval-guard: the shipped approval add-on with no grant denies an inspect command",
   async () => {
-    // CMD-15 first bullet; CMD-4; DISC-12 for the required station; B3:
-    // the base's default words name the owner role `human`.
     const shipped = await approvalRun({ GRANTS: "" });
     expect({
       exit: shipped.observed.exit,
@@ -207,7 +184,6 @@ test(
   processTimeout,
 );
 
-// Runs x.load in process and reports what the handler's selection produced.
 async function selection(causeCode: string, ownStation: boolean) {
   const contract = selectingLoad(causeCode, ownStation);
   const execute: unknown = Reflect.get(contract, "execute");
@@ -232,8 +208,6 @@ async function selection(causeCode: string, ownStation: boolean) {
 }
 
 test("K1-6.declared-table-selects-base-added: a command with its own stations may select SCHEMA_INVALID_INPUT", async () => {
-  // DISC-11b: a handler may select a station the base adds; declaring a
-  // station table does not remove that (repair 1, K1-6 boundary a).
   expect(await selection("SCHEMA_INVALID_INPUT", true)).toMatchObject({
     ok: true,
     value: {
@@ -248,8 +222,6 @@ test("K1-6.declared-table-selects-base-added: a command with its own stations ma
 });
 
 test("K1-6.reserved-stays-unselectable: a handler never selects a fallback-reserved station", async () => {
-  // DISC-11b: INTERNAL_PREPARATION and every INTERNAL_RESULT_* keep the
-  // base's fixed words and are the fallback's alone (repair 1, boundary b).
   const refused = {
     thrown: "Result station belongs to another command or is undeclared.",
   };

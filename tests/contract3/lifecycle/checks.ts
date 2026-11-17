@@ -11,7 +11,6 @@ import {
 } from "./harness.ts";
 import type { Case, Observed } from "./harness.ts";
 
-// 3.0.0 key sets and step kinds, authored from wire.md and next-steps.md.
 const envelopeKeys = [
   "contractVersion",
   "message",
@@ -43,9 +42,6 @@ const effectKeys = ["completed", "remaining", "uncertain", "inventoryComplete"];
 const handoffKeys = ["owner", "reason", "inspect", "resource"];
 const stepKinds = ["command", "instruction", "retry", "done"];
 const marker = "FX-REJECTED-PAYLOAD";
-// Independent oracle: the fallback's fixed bounded message, restated here from
-// the frozen T2 binding (component-handoff-a). A changed literal must fail
-// this test rather than move the expectation with it.
 const independentFallbackMessage =
   "The result could not be delivered safely. Follow the guidance and inspect effects independently before any new run.";
 
@@ -68,7 +64,6 @@ export const authorityDefaults = {
     "Obtain an exact-item grant from the command's authority owner, then decide on a new run.",
 } as const;
 
-// Raw receipts go to the evidence owner when T2_EVIDENCE names a file.
 export function receipt(entry: Case, observed: Observed, extra: object = {}) {
   const path = process.env.T2_EVIDENCE;
   if (!path) return;
@@ -120,7 +115,6 @@ function assertFallback(
   expect(result.retryable).toBe(false);
   expect(raw.includes(marker)).toBe(false);
   expect(observed.stdout.byteLength).toBeLessThanOrEqual(16_384);
-  // B2.05: deepest value level, envelope at level 0, at most 8 (LIFE-9).
   expect(deepestLevel(envelope)).toBeLessThanOrEqual(8);
   keysWithin(envelope, envelopeKeys);
   keysWithin(result, resultKeys);
@@ -139,7 +133,6 @@ function assertFallback(
     });
 }
 
-// The guidance arm a printed result carries: N, N:retry, H or invalid.
 function armOf(result: Record<string, unknown>): string {
   const hasNext = result.next !== undefined;
   const hasHandoff = result.handoff !== undefined;
@@ -184,7 +177,6 @@ function assertExit(
     expect(observed.code).toBe(n(result.exitCode));
 }
 
-// One validated envelope at the independently expected station.
 export function assertEnvelope(entry: Case, observed: Observed) {
   const expected = entry.expect;
   const causeCode = expected.causeCode;
@@ -207,8 +199,6 @@ export function assertEnvelope(entry: Case, observed: Observed) {
   return { envelope, result };
 }
 
-// N14: what each human navigation page must show, authored from DISC-1,
-// DISC-3, DISC-5 and DISC-6 and the fixture's declared routes.
 const humanContent: Readonly<Record<string, readonly string[]>> = {
   "W02.help-stdout": [
     "Usage:",

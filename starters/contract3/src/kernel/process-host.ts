@@ -1,8 +1,5 @@
 import type { ProcessHost, StopSignal } from "./process-types.ts";
 
-// One set of process listeners for the whole process. Each run replaces the
-// current listener instead of adding another, so repeated runs never
-// accumulate handlers.
 const current: {
   signal?: (signal: StopSignal) => void;
   crash?: () => void;
@@ -24,9 +21,6 @@ function install() {
   process.on("unhandledRejection", () => current.crash?.());
 }
 
-// The output owner's process adapter (GATE-12). It is the only kernel file
-// that touches the process streams. Errors surface through the write result,
-// never as an uncaught exception or a stderr dump.
 export function processHost(): ProcessHost {
   return {
     write(stream, bytes) {

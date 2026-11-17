@@ -1,5 +1,3 @@
-// D13 result noninterference and D17 finalisation freeze, through real
-// processes and the kernel status seam.
 import { afterAll, describe, expect, test } from "bun:test";
 import {
   appendFileSync,
@@ -67,7 +65,6 @@ async function heldRun(
 }
 
 describe("D13 result noninterference", () => {
-  // Paced: records keep arriving after each fault is established.
   const script = { records: 4, pace: true };
 
   test(
@@ -98,8 +95,6 @@ describe("D13 result noninterference", () => {
       expectUnavailable(status, "status-invalid");
       expect(get(status, "status")).toBe("unavailable");
       expect(get(status, "reason")).toBe("status-invalid");
-      // A log someone else wrote into is ambiguous (DIAG-10): no closure was
-      // confirmed for it, so nothing but the log itself is in the directory.
       expect(observe(where.dir).entries.map((entry) => entry.kind)).toEqual([
         "file",
       ]);
@@ -139,8 +134,6 @@ describe("D17 finalisation freeze", () => {
   test(
     "D17.no-change-after-freeze (component layer; the process row is UNPROVED): after the freeze no record is admitted and the log never changes",
     async () => {
-      // Component support: the process exits at drain, so post-freeze activity
-      // is driven in process against the real filesystem.
       const where = tree();
       let writes = 0;
       const io: DiagnosticsIo = {
@@ -191,8 +184,6 @@ describe("D17 finalisation freeze", () => {
       const go = join(where.root, "go");
       const exitFile = join(where.root, "exit");
       const closed = join(where.root, "closed");
-      // The reader closes its end of the pipe, then signals; only then is the
-      // handler released, so the envelope write hits EPIPE.
       const launched = start({
         argv: [],
         tree: where,
@@ -247,8 +238,6 @@ describe("D17 finalisation freeze", () => {
       const took = performance.now() - sent;
       expect(result.exit).toBe(130);
       expect(result.stdout).toBe("");
-      // DIAG-14 and the LIFE-3 first-signal row: at most 500 ms, plus 100 ms of
-      // process noise.
       expect(took).toBeLessThanOrEqual(600);
     },
     timeout,

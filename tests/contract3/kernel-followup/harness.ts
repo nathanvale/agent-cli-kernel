@@ -9,11 +9,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnBounded } from "../kernel-repair/swarm-process.ts";
 
-// The test harness for the KF cases: it materialises the `kf` entry inside
-// a disposable state add-on folder (only that folder may name the state add-on
-// factory), runs it as a real child process with stdin closed, and reads the
-// independent ledger 1 s after exit, so a late handler would have written to
-// it (expectations, Conventions).
 const repository = new URL("../../../", import.meta.url).pathname;
 
 export async function materialiseKf(): Promise<string> {
@@ -47,8 +42,6 @@ export type KfRun = {
   readonly envelope: Readonly<Record<string, unknown>> | undefined;
   readonly result: Readonly<Record<string, unknown>> | undefined;
   readonly ledger: readonly string[];
-  // Milliseconds from the CLI's own `start` ledger line (wall clock) to the
-  // parent's receipt of the first stdout byte; undefined without either.
   readonly firstByte: number | undefined;
 };
 
@@ -99,8 +92,6 @@ export async function runKf(
   };
 }
 
-// The KF Conventions: one envelope is exactly one JSON object and one "\n";
-// stderr is 0 bytes (LIFE-1).
 export function oneEnvelope(run: KfRun): boolean {
   return (
     run.stderr === "" &&
@@ -109,7 +100,6 @@ export function oneEnvelope(run: KfRun): boolean {
     run.envelope !== undefined
   );
 }
-// Human one line: stdout 0 bytes; stderr exactly one "\n"-terminated line.
 export function humanOneLine(run: KfRun): boolean {
   return (
     run.stdout === "" &&
@@ -118,7 +108,6 @@ export function humanOneLine(run: KfRun): boolean {
   );
 }
 
-// Independent oracle: the empty complete effects of the KF Conventions.
 export const emptyComplete = {
   completed: [],
   remaining: [],

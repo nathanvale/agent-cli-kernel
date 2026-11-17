@@ -8,8 +8,6 @@ import { sameJson } from "../../../starters/contract3/src/kernel/validation/json
 import { buildUnchecked, runFamily } from "./harness.ts";
 import { emptyInput, unchanged } from "./shapes.ts";
 
-// R15 (F16). NFC and NFD spellings of e-acute are distinct keys that a
-// locale collation ranks equal (WIRE-1: member order carries no meaning).
 const composed = "é";
 const decomposed = "é";
 const pairs = () => ({

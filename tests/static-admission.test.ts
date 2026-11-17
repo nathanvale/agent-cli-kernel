@@ -1315,7 +1315,6 @@ interface PolicyMutation {
 }
 
 function compilerMutations(): PolicyMutation[] {
-  // Independent Spec-owned option names, never read from the packet under test.
   return Object.keys(EXPECTED_COMPILER_OPTIONS).map((option) => ({
     file: "tsconfig.base.json",
     path: ["compilerOptions", option],

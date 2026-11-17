@@ -1,10 +1,3 @@
-// LABELLED TEST-ONLY FAULT FIXTURE CLI "fx". It is composed from the same
-// stamped kernel and programs add-on sources, lives under tests/, is never
-// registered as a production command and never ships. Faults are injected only
-// by wrapping the kernel's internal contract runtime record or the process
-// host port from this file. Its synthetic state installer is not the T3 state
-// add-on: it exists only so the writer, fallback and deadline paths can see a
-// state-issued transaction proof.
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import {
   changing,
@@ -125,8 +118,6 @@ const causes = {
 } as const satisfies CauseTable;
 const allCauses = { ...commonCauses, ...causes };
 
-// N1b (17:06): fx.slow and fx.spawn-return run programs and support a
-// deadline, so each declares its success and program-stop stations.
 function programStopDeclaration<const Identity extends string>(
   identity: Identity,
 ) {
@@ -440,7 +431,6 @@ const badVariants = [
 class FixtureThing {
   readonly field = marker;
 }
-// A(n): n nested arrays with an empty innermost; A(n, s) holds one scalar.
 function nested(levels: number, scalar?: string): JsonValue {
   let value: JsonValue = scalar === undefined ? [] : [scalar];
   for (let level = 1; level < levels; level++) value = [value];
@@ -530,8 +520,6 @@ const slow = command({
   },
 });
 
-// P1 (findings round): a program-free inspect handler with deadline support
-// that works for a fixed time by its own timer (T01, S01 b).
 const wait = command({
   identity: "fx.wait",
   route: ["wait"],
@@ -553,9 +541,6 @@ const wait = command({
   },
 });
 
-// S04 (findings round): an owned TERM-ignoring program holds the stop path
-// while the handler, once that program received the stop path's SIGTERM,
-// asks for one more.
 const lateStart = command({
   identity: "fx.late-start",
   route: ["late-start"],
@@ -568,9 +553,6 @@ const lateStart = command({
       .catch(() => undefined);
     await ledgerHas("child-started", 5_000);
     ledger("handler-ready");
-    // The owned child ledgers SIGTERM only when the stop path settles it,
-    // which happens after the CLI aborted the run; a line the test writes
-    // after sending the signal can arrive before the CLI handled it.
     await ledgerHas("child-term-received", 5_000);
     ledger("late-call");
     try {
@@ -585,8 +567,6 @@ const lateStart = command({
     );
   },
 });
-// X-S3 (swarm triage): the handler starts one TERM-ignoring program with a
-// 5,000 ms shutdown budget, does not await it, and returns at once.
 const spawnReturn = command({
   identity: "fx.spawn-return",
   route: ["spawn-return"],
@@ -599,8 +579,6 @@ const spawnReturn = command({
   capabilities: { programs: true },
   ...programStopDeclaration("fx.spawn-return"),
   run: async (input, context) => {
-    // `--slow-term`: the child exits about 400 ms after SIGTERM, so a
-    // post-handler bound that expired late would let the settle finish.
     const child =
       input["--slow-term"] === true
         ? `trap 'echo child-term-received >> "$FX_LEDGER"; /bin/sleep 0.4; exit 0' TERM; echo "child-started $$" >> "$FX_LEDGER"; while :; do /bin/sleep 0.05; done`
@@ -619,13 +597,9 @@ const spawnReturn = command({
   },
 });
 
-// The marker makes a late child visible in the process table.
 const lateChild =
   ': FX-LATE-MARKER; echo "late-child $$" >> "$FX_LEDGER"; /bin/sleep 30';
 
-// T04: a writer in its own session keeps the inherited stdout pipe and writes
-// ten 200-byte lines over about one second, after the direct child exited.
-// The pipe handshake makes the parent exit only after setsid().
 const escapedWriter = `/usr/bin/perl -e 'use POSIX qw(setsid); pipe(my $r, my $w); my $p = fork(); if ($p == 0) { close $r; setsid(); open(my $f, ">>", $ENV{FX_LEDGER}); print $f "escaped $$\\n"; close $f; close $w; close STDERR; $| = 1; for my $i (0 .. 9) { print sprintf("FX-DRAIN-%02d-", $i) . ("d" x 187) . "\\n"; select(undef, undef, undef, 0.1); } exit 0 } close $w; my $b; sysread($r, $b, 1); exit 0'`;
 
 const programModes = {
@@ -763,7 +737,6 @@ const supplied = command({
   },
 });
 
-// C2: caller-supplied future bindings are input (CMD-9 step 3).
 const itemArgument = (choices: readonly string[] | null) =>
   ({
     name: "item",
@@ -826,7 +799,6 @@ const source = command({
   },
 });
 
-// C3: a command that calls supplied() without the disclosure in its summary.
 const undisclosed = command({
   identity: "fx.undisclosed",
   route: ["undisclosed"],
@@ -905,7 +877,6 @@ const pending = command({
     ),
 });
 
-// Synthetic state: intent for the next transaction is set by the handler.
 let intended: readonly string[] | undefined;
 
 function observe<Effect extends string>(
@@ -1186,7 +1157,6 @@ function makeChange(state: StateAddonDescriptor) {
   });
 }
 
-// Part 4 repair 2: how many wide effects a run records (default all 40).
 const wideCount = Number(process.env.FX_WIDE_COUNT ?? "40");
 const wideEffects = Array.from(
   { length: 40 },
@@ -1229,8 +1199,6 @@ function makeWide(state: StateAddonDescriptor) {
   });
 }
 
-// C2: a changing command behind approval. Only approval attaches before the
-// handler; programs attach on first use.
 function makeGuarded(state: StateAddonDescriptor) {
   return changing({
     identity: "fx.guarded",
@@ -1276,8 +1244,6 @@ function makeGuarded(state: StateAddonDescriptor) {
   });
 }
 
-// B3.03: a second approval command that declares its own denial tuple with a
-// specific owner (DISC-11b). Only its denial path is exercised.
 function makeGuardedOwned(state: StateAddonDescriptor) {
   return changing({
     identity: "fx.guarded-owned",
@@ -1321,8 +1287,6 @@ function makeGuardedOwned(state: StateAddonDescriptor) {
   });
 }
 
-// Part 4 repair (R1, R2): twins of fx.wide and fx.guarded-owned that also
-// declare diagnostics, so a status reporter attaches at handler entry.
 function makeWideStatus(state: StateAddonDescriptor) {
   return changing({
     identity: "fx.wide-status",
@@ -1404,8 +1368,6 @@ function makeGuardedStatus(state: StateAddonDescriptor) {
   });
 }
 
-// Part 4 repair: a stand-in status reporter for the twins above. Not the T5
-// add-on; it reports one fixed, valid, small status.
 const fixtureStatus = {
   status: "available",
   file: "/private/state/st/diagnostics/run.log",
@@ -1426,7 +1388,6 @@ const statusReporter: RunAddon<DiagnosticsCapability> = {
       killNow: () => undefined,
       freeze() {
         ledger("freeze-start");
-        // Part 4 repair 2: FX_STATUS_FILE_LENGTH sizes a still-valid status.
         const length = Number(process.env.FX_STATUS_FILE_LENGTH ?? "0");
         return Promise.resolve(
           length > 1
@@ -1520,11 +1481,6 @@ function faultRuntime(runtime: ContractRuntime): ContractRuntime {
   };
 }
 
-// Classifies a stdout write by the contract, not by production constants: a
-// complete envelope whose cause is one the fallback may select
-// (INTERNAL_PREPARATION or INTERNAL_RESULT_*, DISC-11b). The front door also
-// builds INTERNAL_PREPARATION for its own preparation refusals, which would be
-// counted here too; no current case produces one outside a fallback.
 function fallbackCause(bytes: Uint8Array): boolean {
   try {
     const parsed: unknown = JSON.parse(new TextDecoder().decode(bytes));
@@ -1539,7 +1495,6 @@ function fallbackCause(bytes: Uint8Array): boolean {
   }
 }
 
-// P3: the clock-jump magnitude; T02(a) needs more than its deadline.
 const clockJump = Number(process.env.FX_CLOCK_JUMP_MS ?? "1000000000");
 
 function faultHost(host: ProcessHost): ProcessHost {
@@ -1596,7 +1551,6 @@ function faultHost(host: ProcessHost): ProcessHost {
   };
 }
 
-// Test-owned add-ons that ledger when they attach (C2 ordering evidence).
 function ledgered<C>(name: string, addon: RunAddon<C>): RunAddon<C> {
   return {
     attach(run) {
@@ -1676,7 +1630,6 @@ export async function main(state?: StateAddonDescriptor): Promise<number> {
         }
       : {}),
   };
-  // Wall-clock front-door start, for deadline timing measured by the harness.
   ledger(`front-door-start ${Date.now()}`);
   return runProcessOn(faulted, setup, () => faultHost(processHost()))(
     process.argv.slice(2),

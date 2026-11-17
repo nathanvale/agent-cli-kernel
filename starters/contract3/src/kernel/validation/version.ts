@@ -21,8 +21,6 @@ export type MinorFields = {
   >;
   readonly commonCauses: readonly string[];
 };
-// Field names are own keys only: an inherited name such as toString is never a
-// declared field, in a table or in a payload from another CLI (F07, F08).
 export function versionReader(tables: readonly MinorFields[]) {
   if (
     tables.length === 0 ||

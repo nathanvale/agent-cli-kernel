@@ -7,7 +7,6 @@ import {
 
 test("the contract preserves every independently specified common cause correlation", () => {
   const contract = contractFor({ cli: "specimen", commands: [] });
-  // Independent oracle: WIRE-18, admitted T0 expectation table, not a production projection.
   expect(Object.keys(contract.causes)).toHaveLength(20);
   expect(contract.causes.SUCCESS_UNCHANGED).toEqual({
     outcome: "success",

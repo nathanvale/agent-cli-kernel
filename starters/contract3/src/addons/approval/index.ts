@@ -1,14 +1,3 @@
-// Approval add-on (CMD-15, REC-5, REC-7a). Imports only the kernel public
-// index (CMD-17). The host's wiring creates one approval add-on object per run
-// and command; the handler receives only `capability`, while the state add-on's
-// transaction receives `runtime(state)` to revalidate and consume under
-// exclusive coordination before the approved effect (CMD-9 step 7).
-//
-// Consumption verifies at run time that the kernel issued the coordination
-// (K2). That needs the state add-on instance's descriptor, which this
-// add-on never imports from the state add-on: whoever holds it passes it in,
-// the host's wiring (the descriptor it gives contractFor) or the state
-// add-on (its own). Preflight needs no descriptor.
 import { access, lstat } from "node:fs/promises";
 import { constants } from "node:fs";
 import { dirname, isAbsolute, join, normalize, sep } from "node:path";
@@ -34,9 +23,7 @@ export { ApprovalRejection } from "./rejection.ts";
 export type { RejectionReason } from "./rejection.ts";
 
 export type ApprovalStore = {
-  // Directory of grant records, one per preview, named by grantLocation.
   readonly grants: string;
-  // Directory of consumption markers. Shared by every authority kind.
   readonly consumed: string;
 };
 
@@ -46,16 +33,10 @@ function absolute(directory: string): string {
   return directory;
 }
 
-// Where an authority owner writes the grant for one preview.
 export function grantLocation(store: ApprovalStore, preview: string): string {
   return join(absolute(store.grants), `${itemKey(["approval", preview])}.json`);
 }
 
-// The kernel brand stops only type-checked code from forging a scope, so the
-// kernel's issuedScope is asked first: true only for the object the kernel
-// issued, for this run, from `state`'s add-on instance, while that run's
-// attachment is current and active. A look-alike or another add-on instance's
-// scope never passes (reviewer probe P2).
 function held(
   coordination: ExclusiveScope,
   runId: string,
@@ -70,17 +51,12 @@ function held(
   );
 }
 
-// Consumes one marker under coordination. Coordination is checked before
-// the fresh read, again before exclusive creation, and once more after the
-// marker is durable, so a lost coordination is reported with whether the
-// item was consumed.
 async function consumeHeld(
   stillHeld: () => boolean,
   current: () => Promise<string | undefined>,
   record: () => string,
 ): Promise<boolean> {
   if (!stillHeld()) throw new ApprovalRejection("coordination-not-held");
-  // Fresh under-lock read; the preflight result is never reused.
   const marker = await current();
   if (marker === undefined) return false;
   if (!stillHeld()) throw new ApprovalRejection("coordination-not-held");
@@ -135,7 +111,6 @@ export function approval(options: {
 } {
   const consumedDirectory = absolute(options.store.consumed);
   const now = options.now ?? Date.now;
-  // Every denial reason collapses here into one indistinguishable value.
   async function currentGrant(request: ApprovalRequest) {
     if (typeof request.preview !== "string") return undefined;
     const opened = await readUntrusted(
@@ -169,14 +144,9 @@ export function approval(options: {
 }
 
 function consumption(kind: string, runId: string, at: number): string {
-  // Never a credential or approval secret (REC-1).
   return `${JSON.stringify({ kind, runId, consumedAt: at })}\n`;
 }
 
-// Human authority for outcome-unknown closure (REC-5) and stop
-// confirmation (REC-7a). The two are separate sources, record formats and
-// consumption namespaces; neither can stand in for the other or for a
-// domain approval.
 export type AuthoritySource = {
   readonly directory: string;
   // Host-owned qualification (V-42). Called first without a record (could
@@ -203,19 +173,12 @@ const handoff: Handoff = {
     },
   ],
 };
-// A fresh copy per verdict, so no caller can alter another's handoff.
 function unavailable(): AuthorityVerdict {
   return { status: "unavailable", handoff: structuredClone(handoff) };
 }
 const refused: AuthorityVerdict = Object.freeze({ status: "refused" });
 const verified: AuthorityVerdict = Object.freeze({ status: "verified" });
 
-// The add-on's own caller-credential probe for a file-backed source.
-// Separation requires a normalized path whose every component from "/" to
-// the source directory is a real directory (no symlink) that the caller
-// neither owns nor can write, so the caller cannot swap any part of the
-// path after the check. A record is judged on its opened descriptor and
-// must still be the entry at its path. Root callers never qualify.
 export function fileSeparation(
   directory: string,
 ): (record?: RecordFacts) => Promise<boolean> {
@@ -299,9 +262,6 @@ async function foreignRecord(
   }
 }
 
-// consume takes the descriptor of the state add-on instance that issued the
-// coordination (the state add-on's own), as revalidateAndConsume's runtime
-// does; preflight needs none.
 export type AuthoritySlot<Item> = {
   readonly preflight: (item: Item) => Promise<AuthorityVerdict>;
   readonly consume: (
@@ -433,7 +393,6 @@ export function authorityVerifier(options: {
   });
 }
 
-// Where a qualified authority integration writes the record for one item.
 export function authorityLocation(
   source: AuthoritySource,
   kind: "closure",

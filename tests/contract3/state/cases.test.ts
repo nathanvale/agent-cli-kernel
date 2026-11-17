@@ -13,9 +13,6 @@ const briefFamilies = [
   "Q01",
 ];
 
-// Independent oracle: identities and counts frozen with the expanded brief,
-// before any state add-on source existed. Moving a row between executable
-// and pending is a reviewable edit of these numbers, never a silent one.
 test("the frozen T3 case table keeps its admitted identities and counts", () => {
   expect(briefFamilies.length).toBe(46);
   const ids = stateCases.map((row) => row.id);
@@ -41,13 +38,9 @@ test("the frozen T3 case table keeps its admitted identities and counts", () => 
     "S04",
     "S05",
   ]);
-  // 112 and 103 at the component head; the Linux route added C01.a to
-  // C01.k, Q01.e and Q01.f (13 rows, all executable).
   expect(stateCases.length).toBe(125);
   const executable = stateCases.filter((row) => row.status === "executable");
   expect(executable.length).toBe(116);
-  // Linux expectations 4.1 and 4.3: no executable row is bound to Darwin
-  // alone, and exactly the three permission-denial rows need a non-root run.
   for (const row of executable)
     if (row.status === "executable")
       expect(["coordination", "any"]).toContain(row.platform);
@@ -82,8 +75,6 @@ test("the frozen T3 case table keeps its admitted identities and counts", () => 
   }
 });
 
-// Q01.c (REC-8): every frozen transition maps to at least one case identity,
-// and every identity the design names exists in this table.
 caseTest("Q01.c-transitions-mapped", async () => {
   const design = await Bun.file(
     new URL(
@@ -112,8 +103,6 @@ caseTest("Q01.c-transitions-mapped", async () => {
   );
 });
 
-// Every executable case is registered exactly once through caseTest, and no
-// pending case is claimed. Bun reports each registered case by its identity.
 test("every executable case is registered once and no pending case is claimed", async () => {
   const files = [
     "cases.test.ts",

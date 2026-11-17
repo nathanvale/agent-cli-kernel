@@ -1,9 +1,3 @@
-// State add-on public entry (CMD-10a to CMD-13a, REC-1 to REC-10). The only
-// module of this add-on that host code imports. It fixes the production
-// seams: the reviewed capability qualification table (empty in the foundation), the
-// platform's coordination route after its start-up self-check, and no
-// observation hook. Test seams live only in the labelled fixture.ts.
-//
 // Interface for a host:
 // - stateAddon(options) creates one state add-on instance and returns:
 //   - descriptor: give it to contractFor({ state }) and to approval runtime().

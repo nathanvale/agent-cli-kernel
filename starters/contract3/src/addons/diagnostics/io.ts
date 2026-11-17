@@ -1,11 +1,7 @@
 import { closeSync, fstatSync, openSync, write } from "node:fs";
 
-// The descriptor operations the sink performs after custody is settled. One
-// production adapter (node:fs); the labelled test-only fault fixture supplies
-// a second one to reach faults the real filesystem cannot reach on demand.
 export type DiagnosticsIo = {
   readonly open: (path: string, flags: number, mode: number) => number;
-  // Resolves the number of bytes the descriptor accepted.
   readonly write: (descriptor: number, bytes: Uint8Array) => Promise<number>;
   readonly size: (descriptor: number) => number;
   readonly close: (descriptor: number) => void;

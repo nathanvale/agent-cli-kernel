@@ -1,6 +1,3 @@
-// Component helpers for the findings round (S02, S04, T02 b, T05, T06). The
-// recording host is kernel-internal test wiring: it records every write and
-// exit request, declines to exit, and lets the test deliver a stop signal.
 import { appendFileSync } from "node:fs";
 import { jest } from "bun:test";
 import {
@@ -24,7 +21,6 @@ import { programStopRow, programStopStation } from "./program-stop.ts";
 type Recorded = {
   readonly stream: "stdout" | "stderr";
   readonly text: string;
-  // performance.now() at the write: the fake clock when timers are faked.
   readonly at: number;
 };
 
@@ -83,7 +79,6 @@ export function realPause(seconds: number): void {
   Bun.spawnSync(["/bin/sleep", String(seconds)]);
 }
 
-// Polls a real condition for about `seconds`, letting the loop turn.
 export async function until(
   condition: () => boolean,
   seconds = 5,
@@ -96,10 +91,6 @@ export async function until(
   return condition();
 }
 
-// Moves the fake clock forward one due timer at a time and lets the loop turn
-// after each, so a timer armed by async work after a callback is armed at the
-// fake time it would be armed in real life. A sentinel timer at the target
-// (never above the runtime limit) stops each step from overshooting.
 export async function advance(milliseconds: number): Promise<void> {
   const target = performance.now() + milliseconds;
   while (performance.now() < target) {
@@ -113,7 +104,6 @@ export async function advance(milliseconds: number): Promise<void> {
   }
 }
 
-// Processes whose argv carries `marker`, from the OS process table.
 export function markedPids(marker: string): readonly number[] {
   const listed = Bun.spawnSync(["/bin/ps", "-A", "-o", "pid=,args="]);
   return listed.stdout
@@ -123,7 +113,6 @@ export function markedPids(marker: string): readonly number[] {
     .map((line) => Number(line.trim().split(" ")[0]))
     .filter((pid) => Number.isSafeInteger(pid) && pid > 0);
 }
-// Program children lead their own process group: kill the whole group.
 export function killMarked(marker: string): void {
   for (const pid of markedPids(marker))
     try {
@@ -147,8 +136,6 @@ export function shell(
   };
 }
 
-// One inspect command with deadline support and the programs capability.
-// `work` is the handler body; the test controls when it returns.
 const rcCauses = {
   ...commonCauses,
   DOMAIN_RC_DEADLINE_PROGRAM_STOP_UNCONFIRMED: programStopRow,
@@ -169,7 +156,6 @@ export function holdContract(
       additionalOptions: false,
     },
     capabilities: { programs: true },
-    // N1b (17:06): rc.hold runs programs and supports a deadline.
     stations: [
       station(rcCauses, {
         commandIdentity: "rc.hold",
@@ -205,7 +191,6 @@ export function holdContract(
   });
 }
 
-// Optional receipt line for observations that are recorded, not asserted.
 export function note(entry: Record<string, unknown>): void {
   const target = process.env.T2_EVIDENCE;
   if (target) appendFileSync(target, `${JSON.stringify(entry)}\n`);

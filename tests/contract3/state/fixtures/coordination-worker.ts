@@ -1,22 +1,3 @@
-// LABELLED TEST WORKER. Spawned by tests/contract3/state/route.test.ts as a
-// real separate process. It takes one coordination lock through a named
-// route and writes what happened to a report file (the barrier). It decides
-// nothing.
-//
-// argv: <route> <mode> <lockFile> <reportFile> [option]
-//   route  addon           the add-on's own coordination module
-//          posix-control   lockf(F_TLOCK): process-owned (negative control)
-//          shared-control  test holder; the child gets the locked descriptor
-//                          as its stdin (negative control for C4b)
-//   mode   hold            acquire, report, stay alive until killed. option
-//                          "other-descriptor": open the file again and close
-//                          that descriptor first; "child": spawn a
-//                          long-lived child and report its pid;
-//                          "native-child": the same, started by the C
-//                          library's system(), outside Bun.spawn.
-//          try             one attempt; report result, code, elapsed time.
-//          same-process    acquire, then a second open in this process
-//                          attempts; report the second result.
 import { dlopen } from "bun:ffi";
 import {
   closeSync,
@@ -93,8 +74,6 @@ function writeReport(value: Readonly<Record<string, unknown>>): void {
   renameSync(staged, report);
 }
 
-// Everything taken stays referenced for the life of the process, so a
-// collected handle can never release a coordination lock and fake a result.
 const retained: unknown[] = [];
 function stayAlive(): void {
   setInterval(() => {}, 1_000_000);
@@ -116,12 +95,9 @@ function spawnChild(fd: number | null): number {
 
 // system() starts the shell with every descriptor that is not close-on-exec,
 // so this child holds the lock unless the route set the flag itself
-// (accepted decision BN-03, 17 November 2026). The child lives at most
-// 60 s, under the case's 90 s timeout.
+// (accepted decision BN-03, 17 November 2026).
 function spawnNativeChild(): number {
   const pidFile = `${report}.child`;
-  // Single-quoted for the shell; an apostrophe in the test root is closed,
-  // escaped and reopened.
   const quoted = `'${pidFile.replaceAll("'", "'\\''")}'`;
   const { symbols } = dlopen(library, {
     system: { args: ["cstring"], returns: "i32" },

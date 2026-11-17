@@ -16,11 +16,6 @@ import {
 import { hostname } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 
-// Each active file reserves its full run allowance. Empty marker directories are bookkeeping, not log files.
-// A closed marker binds the descriptor's dev/inode/size/mtime, so age or an absent lease never proves closure.
-// A held allocation lock is always a populated directory placed on, and later moved off, the shared path by one atomic
-// rename. Only an empty directory or a single owner marker whose process is verified dead on this host is recoverable;
-// anything else fails fast.
 const RUN_BYTES = 1_000_000;
 const TOTAL_BYTES = 10_000_000;
 const FILES = 50;
@@ -80,7 +75,6 @@ function stateDirectory(env: Record<string, string | undefined>): string {
         ? join(home, ".local", "state")
         : null;
   if (base === null) throw new Error("private state unavailable");
-  // Resolve lexical dot segments only; never follow symlinks in the supplied ancestry.
   return join(resolve(base), "example", "diagnostics");
 }
 
@@ -152,7 +146,6 @@ function prune(directory: string): void {
       count < FILES
     )
       continue;
-    // The allocation mutex protects cooperating writers; verify identity again before removal.
     if (closedMarker(item.file, lstatSync(item.file)) !== item.closed)
       throw new Error("changed diagnostics entry");
     unlinkSync(item.file);
@@ -189,7 +182,6 @@ function allocate(directory: string, runIdentity: string): DiagnosticFile {
       const final = fstatSync(fd);
       closeSync(fd);
       closed = true;
-      // Mark only our original file, after the descriptor is closed. Replacement remains ambiguous forever.
       const current = lstatSync(file);
       if (current.dev !== final.dev || current.ino !== final.ino)
         throw new Error("replaced diagnostics file");
@@ -217,8 +209,6 @@ function discard(entry: string): void {
   rmdirSync(entry);
 }
 
-// Private staging and retiring entries never hold the shared path. Only a same-host entry whose process is locally
-// proven dead is litter; a foreign host's liveness cannot be judged here, so its residue is left alone.
 function sweepResidue(directory: string): void {
   for (const name of readdirSync(directory)) {
     const match = RESIDUE.exec(name);
@@ -229,10 +219,8 @@ function sweepResidue(directory: string): void {
   }
 }
 
-// Stage a fully initialized lock privately so the lock path never shows an ownerless directory.
 function stageAllocationLock(staging: string): string {
   const marker = `owner-${process.pid}-${HOST}`;
-  // A leftover entry under our own unique name can only belong to a dead earlier process that reused this pid.
   if (existing(staging) !== null) discard(staging);
   mkdirSync(staging, { mode: 0o700 });
   closeSync(
@@ -248,7 +236,6 @@ function stageAllocationLock(staging: string): string {
   return marker;
 }
 
-// Remove the lock only when it is empty or names one verified dead owner on this host; never touch anything else.
 function recoverStaleLock(lock: string): void {
   const info = lstatSync(lock);
   if (!info.isDirectory() || info.uid !== process.getuid?.())
@@ -269,7 +256,6 @@ function recoverStaleLock(lock: string): void {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
   } else if (entries.length !== 0) throw new Error("capacity");
-  // rmdir succeeds only while the directory is still empty, so a fresh populated lock is never removed.
   rmdirSync(lock);
 }
 
@@ -294,8 +280,6 @@ function acquireAllocationLock(directory: string): () => void {
     throw new Error("capacity");
   }
   return () => {
-    // One rename moves the still-populated lock off the shared path, so the path is never left empty for a
-    // successor to replace mid-release; the marker and directory are then dismantled under our private name.
     renameSync(lock, retiring);
     unlinkSync(join(retiring, marker));
     rmdirSync(retiring);
@@ -331,7 +315,6 @@ export function openDiagnosticFile(
   try {
     release();
   } catch (error) {
-    // A release error must not strand the successfully allocated run file without closure proof.
     try {
       allocated?.close();
     } catch {

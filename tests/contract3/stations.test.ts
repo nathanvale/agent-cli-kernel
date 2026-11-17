@@ -192,8 +192,6 @@ test("navigation rejects colliding identities and route resolution never initial
       );
     },
   });
-  // The duplicate-identity rule itself, not the duplicate-route rule that
-  // the same pair also breaks (K1-17).
   expect(() => contractFor({ cli: "notes", commands: [list, list] })).toThrow(
     "Duplicate command identity.",
   );

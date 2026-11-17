@@ -1,13 +1,10 @@
 diff --git a/starters/contract3/src/addons/state/framing.ts b/starters/contract3/src/addons/state/framing.ts
-index f19f7d3..a9a288d 100644
+index 9c092a4..317049c 100644
 --- a/starters/contract3/src/addons/state/framing.ts
 +++ b/starters/contract3/src/addons/state/framing.ts
-@@ -4,19 +4,8 @@
- // payload that fails its kind's validation, is a corrupt file.
+@@ -1,16 +1,7 @@
  import { createHash } from "node:crypto";
  
--// One owner for every framing width (SF-3): the encoder, the header pattern
--// and the record-start probe are all built from these.
  const magic = "C3S1";
 -const kindPattern = "[a-z-]{1,24}";
 -const kindMaxLength = 24;
@@ -23,7 +20,7 @@ index f19f7d3..a9a288d 100644
  export const maxPayloadBytes = 65_536;
  const encoder = new TextEncoder();
  const decoder = new TextDecoder("utf-8", { fatal: true });
-@@ -29,11 +18,11 @@ export function encodeRecord(
+@@ -23,11 +14,11 @@ export function encodeRecord(
    kind: string,
    payload: Readonly<Record<string, unknown>>,
  ): Uint8Array {
@@ -37,7 +34,7 @@ index f19f7d3..a9a288d 100644
    const out = new Uint8Array(header.length + body.byteLength + 1);
    out.set(encoder.encode(header), 0);
    out.set(body, header.length);
-@@ -76,7 +65,7 @@ function readOne(
+@@ -68,7 +59,7 @@ function readOne(
    } catch {
      return { kind: "invalid" };
    }
@@ -46,19 +43,7 @@ index f19f7d3..a9a288d 100644
    if (!match?.[1] || !match[2] || !match[3]) return { kind: "invalid" };
    const kind = match[1];
    const length = Number(match[2]);
-@@ -100,9 +89,8 @@ function readOne(
- }
- 
- // Parses every record. Damage is a torn tail only when nothing valid could
--// follow it: a short or invalid final record with no later record start
--// (DESIGN.md section 4). A length that runs past the end of the file while a
--// later record start exists is mid-file damage: corrupt, never torn.
-+// follow it: a short final record, or an invalid final record with no later
-+// bytes that form a valid record.
- export function parseRecords(bytes: Uint8Array): ParsedFile {
-   const records: ParsedRecord[] = [];
-   let offset = 0;
-@@ -113,6 +101,8 @@ export function parseRecords(bytes: Uint8Array): ParsedFile {
+@@ -101,6 +92,8 @@ export function parseRecords(bytes: Uint8Array): ParsedFile {
        offset = next.end;
        continue;
      }
@@ -67,7 +52,7 @@ index f19f7d3..a9a288d 100644
      const newline = bytes.indexOf(10, offset);
      const afterHeader = newline === -1 ? bytes.byteLength : newline + 1;
      const rest = bytes.subarray(afterHeader);
-@@ -124,7 +114,8 @@ export function parseRecords(bytes: Uint8Array): ParsedFile {
+@@ -112,7 +105,8 @@ export function parseRecords(bytes: Uint8Array): ParsedFile {
  }
  
  function containsRecordStart(bytes: Uint8Array): boolean {

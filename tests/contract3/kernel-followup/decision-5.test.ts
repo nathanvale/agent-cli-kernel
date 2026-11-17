@@ -31,9 +31,7 @@ const preEntry = [
     "DOMAIN_DEADLINE_BEFORE_START",
     ["load", "--deadline-ms", "60000", "--json"],
   ],
-  // N6 (a): kf.load declares no approval.
   ["authority-no-approval", "DOMAIN_AUTHORITY_REQUIRED", ["load", "--json"]],
-  // N7 (17:06): the deadline cause an inspect command can reach.
   [
     "deadline-unchanged",
     "DOMAIN_DEADLINE_UNCHANGED",
@@ -42,9 +40,6 @@ const preEntry = [
 ] as const;
 
 describe("KF5.a handler-selects-base-only-station", () => {
-  // Undeclared on a command without approval, DOMAIN_AUTHORITY_REQUIRED is
-  // refused by the earlier undeclared-station rule, so it is no control
-  // for the base-only rule; only its declared form is.
   for (const [variant, causeCode, argv] of preEntry)
     for (const declared of variant === "authority-no-approval"
       ? [true]
@@ -94,20 +89,11 @@ describe("KF5.a handler-selects-base-only-station", () => {
       });
       expect(usage.result?.causeCode).toBe("USAGE_INVALID_INVOCATION");
       expect(usage.ledger).not.toContain("handler-entered");
-      // The base twin for DOMAIN_DEADLINE_BEFORE_START (a deadline already
-      // passed at CMD-9 step 4, no handler entry) is the existing process
-      // control DS05.pre-dispatch-results-carry-no-key deadline-before-start.
-      // The N6 (a) twin on a command that declares approval (a revalidation
-      // denial the handler selects prints) is the frozen T3 case
-      // S02.a-denial-under-coordination.
     },
     processWatchdog(2),
   );
 });
 
-// N7 (17:06), setup B: a changing command whose handler selects a
-// base-only station without any proof gets the fallback with the trusted
-// summary missing (LIFE-9).
 describe("KF5.a setup B: kf.apply2", () => {
   for (const causeCode of [
     "DOMAIN_DEADLINE_UNCHANGED",
@@ -144,9 +130,6 @@ describe("KF5.a setup B: kf.apply2", () => {
       },
       processWatchdog(1),
     );
-  // N6 (a) on changing(): the declared, declared-unreachable authority
-  // station is refused at runtime on a command without approval. A
-  // refusal needs no proof, so the base-only rule is the guard here.
   test(
     "KF5.a apply2 authority-no-approval declared: never emitted",
     async () => {
@@ -164,7 +147,6 @@ describe("KF5.a setup B: kf.apply2", () => {
         transactionState: "unknown",
         effects: { ...emptyComplete, inventoryComplete: false },
       });
-      // Twin: the same declaration still emits a host refusal it selects.
       const twin = await runKf(entry, "apply2", ["apply2", "--json"], {
         KF_SELECT: "KF_HELD",
         KF_DECLARED: "DOMAIN_AUTHORITY_REQUIRED",
@@ -187,7 +169,6 @@ describe("KF5.a setup B: kf.apply2", () => {
         { KF_WAIT: "2000" },
       );
       expect(run.exit).toBe(3);
-      // N9: no transaction started before the deadline.
       expect(run.result).toMatchObject({
         causeCode: "DOMAIN_DEADLINE_UNCHANGED",
         effects: { ...emptyComplete, remaining: ["kf.e1", "kf.e2"] },
@@ -197,11 +178,6 @@ describe("KF5.a setup B: kf.apply2", () => {
   );
 });
 
-// N7 with an issued proof: the variants above without a proof are refused
-// by the trusted-summary rule first, so here the handler selects each
-// post-entry deadline station with the proof its transaction issued, and
-// only the base-only rule refuses it (LIFE-9: the fallback carries that
-// proof).
 describe("KF5.a setup B with an issued proof", () => {
   const proofCases = [
     [
@@ -251,7 +227,6 @@ describe("KF5.a setup B with an issued proof", () => {
           effects,
         });
         expect(run.ledger).toContain(`proof ${state}`);
-        // Twin: the same proof admits the handler's own station.
         if (twinExit === undefined) return;
         const twin = await runKf(entry, "proof", ["apply", "--json"], {
           KF_PROOF: proof,
@@ -288,7 +263,6 @@ test(
   processWatchdog(1),
 );
 
-// N7b (17:24): the program-stop station is the kernel's alone.
 test(
   "KF5.d handler-selects-program-stop-station",
   async () => {
@@ -313,7 +287,6 @@ test(
     });
     expect(run.result).toHaveProperty("handoff");
     expect(run.ledger).toEqual(["handler-entered"]);
-    // Twin: a host-owned refusal stays selectable.
     const twin = await runKf(
       entry,
       "watch",
@@ -352,12 +325,6 @@ test(
   processWatchdog(1),
 );
 
-// KF5.b (CMD-8): the handler context is typed from the declaration, so a
-// typed handler cannot select a base-only station even when the command
-// declares its words (N5 a), nor DOMAIN_AUTHORITY_REQUIRED without approval
-// (N6 a), nor its program-stop station (N7b). SCHEMA_INVALID_INPUT, a
-// host-owned cause and DOMAIN_AUTHORITY_REQUIRED with approval still
-// type-check. Native TypeScript 7, as the kernel-repair compiler locks run it.
 const root = resolve(import.meta.dir, "../../..");
 const kernelDir = join(root, "starters/contract3/src/kernel");
 let probes = "";
@@ -377,8 +344,6 @@ beforeAll(async () => {
 afterAll(async () => {
   await rm(probes, { recursive: true, force: true });
 });
-// One typed inspect command `kf.load` that declares its own words for every
-// tuple in `declared`; its handler selects `select`.
 type Probe = {
   readonly select: string;
   readonly declared: readonly string[];
@@ -456,7 +421,6 @@ async function diagnostics(spec: Probe): Promise<string> {
   ]);
   return stdout + stderr;
 }
-// The probe fails to compile with a diagnostic on its selection line.
 async function expectRejected(spec: Probe) {
   const output = await diagnostics(spec);
   const line =
@@ -488,7 +452,6 @@ const programStopProbe = {
   ],
 } as const;
 test("KF5.b handler-type-excludes-base-only-station", async () => {
-  // Twins first: each probe compiles with a selectable cause.
   for (const twin of [
     {
       select: "SCHEMA_INVALID_INPUT",

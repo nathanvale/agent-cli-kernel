@@ -4,9 +4,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnBounded } from "./swarm-process.ts";
 
-// Delta F6: the bounded runner's release path, shown on a child that never
-// exits within its bound. A 100 ms bound keeps the case cheap; the child's own
-// 8 s exit only guarantees no leftover process if the kill were removed.
 test("F6.bounded-runner-releases-a-hang: a child past its bound is killed and the run fails naming the bound", async () => {
   const directory = await mkdtemp(join(tmpdir(), "contract3-runner-"));
   try {
@@ -23,7 +20,6 @@ test("F6.bounded-runner-releases-a-hang: a child past its bound is killed and th
     expect(failure).toEndWith("did not exit within 100 ms.");
     const pid = Number(await readFile(pidFile, "utf8"));
     expect(Number.isSafeInteger(pid) && pid > 0).toBe(true);
-    // The child is gone: signal 0 to a dead pid throws ESRCH.
     let alive = true;
     try {
       process.kill(pid, 0);

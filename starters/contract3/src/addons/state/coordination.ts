@@ -1,11 +1,3 @@
-// Coordination locks (DESIGN.md section 7). One lock family on every
-// supported platform: non-blocking, exclusive, owned by the open file
-// description and released by the operating-system kernel when the
-// descriptor closes (including SIGKILL). Darwin takes it at open time with numeric O_EXLOCK;
-// Linux takes it with flock(LOCK_EX | LOCK_NB) after open (linux-flock.ts).
-// Lock files are permanent: never truncated, unlinked or renamed, so every
-// contender locks the same inode. No route ever falls back to a lock file,
-// a lock age or an owner identity: an unavailable route refuses.
 import { arch, release } from "node:os";
 import { closeSync, constants, openSync } from "node:fs";
 import { glibc, loadLinuxFlock } from "./linux-flock.ts";
@@ -21,8 +13,6 @@ const darwinExclusiveLock = 0x20;
 const darwinCloseOnExec = 0x01000000;
 const linuxCloseOnExec = 0o2000000;
 
-// One description per route; the "qualified on" text is derived from them,
-// so it cannot drift from the route actually used.
 const routes = {
   darwin: "darwin O_EXLOCK at open",
   linux: (library: string) => `linux flock(LOCK_EX|LOCK_NB) through ${library}`,
@@ -37,11 +27,7 @@ export type LockAttempt =
 export type CoordinationRoute =
   | {
       readonly available: true;
-      // The route and the facts it was accepted on (N4: what was actually
-      // observed, reported by capabilities()).
       readonly basis: string;
-      // One non-blocking attempt. `create` false refuses a missing file
-      // instead of creating it (used for an existing owner lease).
       readonly tryLock: (path: string, create?: boolean) => LockAttempt;
     }
   | {
@@ -49,7 +35,6 @@ export type CoordinationRoute =
       readonly reason:
         | "coordination-unqualified-platform"
         | "coordination-self-check-failed";
-      // Observed facts and what is qualified, for a person to act on.
       readonly detail: string;
     };
 
@@ -116,8 +101,6 @@ function flockTryLock(lock: (fd: number) => FlockResult) {
     try {
       result = lock(descriptor);
     } catch {
-      // A throw after the call (reading errno) must never keep a descriptor
-      // that holds no coordination lock.
       result = { kind: "failed", code: "flock-call-threw" };
     }
     if (result.kind === "held") return opened(descriptor);
@@ -126,10 +109,6 @@ function flockTryLock(lock: (fd: number) => FlockResult) {
   };
 }
 
-// Production: the route for this platform, after its start-up self-check.
-// `library` is set only by the labelled test entry (fixture.ts), to make the
-// Linux self-check fail on purpose; it selects the Linux route on any
-// platform.
 export function resolveCoordination(library?: string): CoordinationRoute {
   if (library === undefined && process.platform === "darwin")
     return {
@@ -157,8 +136,6 @@ export function resolveCoordination(library?: string): CoordinationRoute {
   };
 }
 
-// Bounded wait: polls every `interval` ms until acquired, failed or the
-// bound passes. Never waits on an unbounded condition (CMD-12).
 export async function waitLock(
   tryLock: (path: string) => LockAttempt,
   path: string,

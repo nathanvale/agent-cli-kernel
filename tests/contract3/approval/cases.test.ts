@@ -5,8 +5,6 @@ import { join } from "node:path";
 import { approvalCases } from "./cases.ts";
 import type { ApprovalCase } from "./cases.ts";
 
-// Independent oracle: counts frozen with the expanded brief, not derived
-// from implementation. Downgrading a row to pending is a reviewable edit.
 test("the frozen T4 case table keeps its admitted identities and counts", () => {
   const rows: readonly ApprovalCase[] = approvalCases;
   const families = new Set(rows.map((row) => row.id.slice(0, 3)));
@@ -19,8 +17,6 @@ test("the frozen T4 case table keeps its admitted identities and counts", () => 
   for (const row of pending) expect(row.reason.length).toBeGreaterThan(0);
 });
 
-// Every executable row is named in a test file; a pending row is never
-// named as executed. The stronger runtime check follows.
 test("every executable case is exercised and no pending case is claimed", async () => {
   const sources = await Promise.all(
     ["component.test.ts", "process.test.ts"].map((name) =>
@@ -44,9 +40,6 @@ test("every executable case is exercised and no pending case is claimed", async 
   for (const source of sources) expect(source).toContain("expectCase(");
 });
 
-// N-6: run both case files in a child bun test with an oracle log. The
-// harness logs an ID only after its expectCase comparison passed, so each
-// executable case must actually reach a passing frozen-oracle comparison.
 test("every executable case reaches a passing expectCase comparison", async () => {
   const directory = await mkdtemp(join(tmpdir(), "contract3-oracle-"));
   const log = join(directory, "oracle.log");

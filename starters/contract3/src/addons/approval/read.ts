@@ -3,13 +3,6 @@ import { open } from "node:fs/promises";
 import type { FileHandle } from "node:fs/promises";
 import { ApprovalRejection } from "./rejection.ts";
 
-// Hardened read of one untrusted authority record (CMD-9a, CMD-15).
-// `undefined` (absent or invalid) becomes an ordinary denial. Any other I/O
-// failure rejects as store-unavailable with its cause; it is never folded
-// into a denial or a consumption (CMD-15).
-
-// Facts about the opened descriptor, taken with fstat on the same handle
-// that is read, so a path swapped after a check cannot substitute content.
 export type RecordFacts = {
   readonly path: string;
   readonly uid: number;

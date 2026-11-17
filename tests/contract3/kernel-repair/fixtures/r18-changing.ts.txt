@@ -1,7 +1,3 @@
-// R18 (F01) changing() construction path and the changing-target guard.
-// Materialised at starters/contract3/src/addons/state/r18-changing.ts and
-// linted there. The test-owned rows arrive as a parameter from the driver,
-// because source code never imports tests.
 import * as kernel from "../../kernel/index.ts";
 import type {
   CauseRow,

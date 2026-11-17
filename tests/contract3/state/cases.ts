@@ -1,14 +1,3 @@
-// Frozen T3 case table. Independent oracle: expanded from the prepared T3
-// test-design brief (46 families J, L, K, P, O, H, T, Q in foundation-packet
-// t3-expectations) and the frozen contract clauses, before any state add-on
-// source existed. Never regenerate these rows from implementation output.
-// A pending row is not a pass; its supplier must make it executable.
-//
-// Supporting rows (families S and B) are not brief families. They bind the
-// assignment's outcomes 6 and 7 (approval consumption inside the
-// transaction; admitStart and the emergency record) and are reported
-// separately from the 46 brief families.
-
 export type Supplier =
   | "T3-after-R8"
   | "T2-slice-B"
@@ -27,14 +16,7 @@ export type StateCase = {
   | {
       readonly status: "executable";
       readonly layer: "process" | "component";
-      // coordination: needs a qualified coordination route (Darwin, or a
-      // Linux whose route self-check passes; Linux expectations 4.1). On
-      // any other platform the case runs only its fail-closed control and
-      // is reported UNPROVED for that platform. Never "any", which would
-      // claim success where no route is qualified.
       readonly platform: "coordination" | "any";
-      // The fault is a permission denial, which root never sees (Linux
-      // expectations 4.3): reported UNPROVED when euid is 0.
       readonly nonRoot?: true;
     }
   | {
@@ -52,8 +34,6 @@ const component = {
   layer: "component",
   platform: "any",
 } as const;
-// A component case that needs a real admitted transaction, so a qualified
-// coordination route.
 const transactionComponent = {
   ...component,
   platform: "coordination",
@@ -72,7 +52,6 @@ const sliceB = {
 } as const;
 
 export const stateCases: readonly StateCase[] = [
-  // J: journal and effect truth (V-23, CMD-11, REC-1)
   {
     id: "J01.a-intent-durable-before-effect",
     ...coordinated,
@@ -205,7 +184,6 @@ export const stateCases: readonly StateCase[] = [
     red: "Derive any admission, scope or recovery fact from diagnostics.",
   },
 
-  // L: lost response, pending and history routes (V-19, DISC-13 to 15, REC-6)
   {
     id: "L01.a-kill-at-intent-listed",
     ...coordinated,
@@ -325,7 +303,6 @@ export const stateCases: readonly StateCase[] = [
     red: "Treat a missing result as unchanged.",
   },
 
-  // K: recovery and monotonic closure (V-42, REC-3, REC-4)
   {
     id: "K01.a-recovery-is-changing",
     ...coordinated,
@@ -377,9 +354,6 @@ export const stateCases: readonly StateCase[] = [
       "With a valid fixture grant, outcome-unknown ends the case; original facts byte-identical; no replay.",
     red: "Rewrite original effect facts into the closure.",
   },
-  // K05.a passes today because outcome-unknown closure is disabled outright,
-  // not because a forged authority was examined: no authority input exists
-  // yet, so its named defect cannot be detected until K04.b's path is built.
   {
     id: "K05.a-forged-closure-authority",
     ...coordinated,
@@ -480,7 +454,6 @@ export const stateCases: readonly StateCase[] = [
     red: "Reconcile an earlier operation inside a later operation.",
   },
 
-  // P: scope, admission and independence (REC-2)
   {
     id: "P01.a-symlink-alias",
     ...coordinated,
@@ -593,7 +566,6 @@ export const stateCases: readonly StateCase[] = [
     red: "Check then act without coordination.",
   },
 
-  // O: coordination, ownership and reclaim (V-22, CMD-12, REC-7, REC-7b)
   {
     id: "O01.a-held-lock-refusal",
     ...coordinated,
@@ -723,7 +695,6 @@ export const stateCases: readonly StateCase[] = [
     red: "Accept an attestation without a qualified row.",
   },
 
-  // H: human stop confirmation, state side (V-49, REC-7a, REC-10)
   {
     id: "H01.a-attestation-satisfies-stop-only",
     ...unqualified,
@@ -749,7 +720,6 @@ export const stateCases: readonly StateCase[] = [
     red: "Infer replacement from consumption.",
   },
 
-  // T: temporary confirmed-unchanged station and exit 75 (V-27)
   {
     id: "T01.a-host-transient-exit-75",
     ...coordinated,
@@ -806,7 +776,6 @@ export const stateCases: readonly StateCase[] = [
     red: "Make held-lock transient.",
   },
 
-  // Q: qualification gate (REC-7b, REC-8)
   {
     id: "Q01.a-production-defaults-unavailable",
     ...anyPlatform,
@@ -832,7 +801,6 @@ export const stateCases: readonly StateCase[] = [
     red: "Add an unmapped transition.",
   },
 
-  // Repair round 1 controls (new identities; frozen rows above unchanged)
   {
     id: "Q01.d-host-cannot-import-test-seams",
     ...component,
@@ -924,7 +892,6 @@ export const stateCases: readonly StateCase[] = [
     red: "Allow an effect to be recorded twice.",
   },
 
-  // S: supporting, approval consumption inside the transaction (outcome 6)
   {
     id: "S01.a-consumed-under-coordination-before-intent",
     ...coordinated,
@@ -959,7 +926,6 @@ export const stateCases: readonly StateCase[] = [
     red: "Consume before coordination.",
   },
 
-  // B: supporting, start admission and emergency record (outcome 7)
   {
     id: "B01.a-admit-start-active-effect",
     ...transactionComponent,
@@ -1000,13 +966,6 @@ export const stateCases: readonly StateCase[] = [
       "An admitted start in flight delays the effect's read-back until it settles; a start requested after closing began is rejected.",
     red: "Close without waiting for admitted starts.",
   },
-  // C01: the coordination route itself (Linux coordination expectations,
-  // 16 November 2026, sections 1, 2 and 4.4; properties C1 to C6). Added
-  // with the Linux route; no frozen identity reused. The expectations'
-  // placeholder family letter X is C here, because X01 to X22 already name
-  // DESIGN.md transitions. Their X01.i (filesystem outside the qualified
-  // scope) has no row: N3 reads "not detected at run time" (contract
-  // question, coordinator's provisional reading).
   {
     id: "C01.a-coordination-exclusive-across-processes",
     ...coordinated,
@@ -1098,8 +1057,6 @@ export const stateCases: readonly StateCase[] = [
       "The start-up self-check calls flock(-1, LOCK_EX | LOCK_NB) once and accepts only -1 with EBADF; 0, -1 with any other code and an unreadable code each refuse with a step naming what was returned. An accepted route maps 0 to held, EAGAIN to busy and anything else, including an unreadable code, to failed.",
     red: "Accept the binding whatever flock(-1) returns.",
   },
-  // Q01.e and Q01.f: the delta review follow-up F1 and the bun:ffi
-  // confinement, both lint controls, added with the Linux route.
   {
     id: "Q01.e-host-cannot-reach-seams-by-other-spellings",
     ...anyPlatform,

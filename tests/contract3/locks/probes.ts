@@ -80,19 +80,12 @@ function parse(directory: string, text: string): Parsed {
   };
 }
 
-// What one compiler run settles, and how its unsettled files compile next:
-// `together` as one program, or `apart` as one program each.
 export type Reading = {
   readonly settled: Map<string, Compilation>;
   readonly together: readonly string[];
   readonly apart: readonly string[];
 };
 
-// Reads one compiler run over `files` plus the sentinel. A diagnostic in a
-// file no probe owns, such as a fixture the probes import, belongs to every
-// probe that imports it; the run cannot say which, so each file compiles
-// again alone. A run that skipped type checking settles only the files that
-// failed to parse, and the rest compile again together.
 export function readRun(
   compiler: Compiler,
   directory: string,
@@ -148,8 +141,6 @@ export function readRun(
   };
 }
 
-// Waits for every run before reporting a failure, so no compiler still uses
-// the batch directory when teardown removes it.
 async function drain<T>(work: readonly Promise<T>[]): Promise<T[]> {
   const values: T[] = [];
   for (const outcome of await Promise.allSettled(work)) {
@@ -159,8 +150,6 @@ async function drain<T>(work: readonly Promise<T>[]): Promise<T[]> {
   return values;
 }
 
-// A probe that writes the global scope would leak into every probe that
-// shares its program, so it gets a program of its own.
 function changesGlobalScope(source: string): boolean {
   const file = ts.createSourceFile("probe.ts", source, ts.ScriptTarget.Latest);
   return (
@@ -264,9 +253,6 @@ export function probeBatch(prefix: string) {
     return { native: await native, "lint-view": await lintView };
   }
 
-  // Each compiler's longest chain of bounded runs: the shared program, the
-  // rest after a parse failure, then the apart programs fallbackWidth at a
-  // time. The two compilers run side by side.
   function timeout(): number {
     sized = true;
     return processWatchdog(2 + Math.ceil(registered.length / fallbackWidth));

@@ -15,14 +15,12 @@ function canonical(
   if (record(value))
     return `object:${JSON.stringify(
       Object.entries(value)
-        // Code-unit order: total, locale-free, and never ties distinct keys (F16).
         .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
         .map(([name, entry]) => [name, canonical(entry, unordered, name)]),
     )}`;
   return `scalar:${JSON.stringify(value) ?? ""}`;
 }
 
-// Undefined represents an absent optional field, not a JSON wire value.
 export function sameJson(
   actual: unknown,
   expected: unknown,

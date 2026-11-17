@@ -1,5 +1,3 @@
-// T2 programs add-on process cases (P05 to P10). Starts, stdin reads and
-// survivors come from the fixture ledger and the OS process table.
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { callerProgramDisclosure } from "../../../starters/contract3/src/addons/programs/index.ts";
@@ -35,7 +33,6 @@ import {
 } from "../lifecycle/oracle.ts";
 
 const timeout = 60_000;
-// The one owned stream probe, also used by the fixture's isolation mode.
 const streamProbe = join(import.meta.dir, "fixtures/stream-probe.sh");
 
 function requirePid(ledger: readonly string[], prefix: string): number {
@@ -68,7 +65,6 @@ async function isolation(entry: Case) {
   }
 }
 
-// P08 by case shape: a signal path, an envelope path and the crash path.
 async function signalSent(entry: Case, launched: Launched): Promise<number> {
   await launched.barrier("child-started");
   const first = launched.signal("SIGTERM");
@@ -99,7 +95,6 @@ function assertDeadlineLag(entry: Case, observed: Observed) {
   );
 }
 
-// First time the process table no longer shows `pid`, polled every 2 ms.
 async function deathAfter(pid: number, from: number, limit: number) {
   while (Date.now() - from < limit) {
     if (!alive(pid)) return Date.now();
@@ -108,8 +103,6 @@ async function deathAfter(pid: number, from: number, limit: number) {
   return Number.POSITIVE_INFINITY;
 }
 
-// D3: every P08 shape records what it launched, so the wrapper's cleanup
-// runs even when an assertion fails inside the shape.
 type Tracker = { launched?: Launched; observed?: Observed };
 async function begin(entry: Case, tracker: Tracker) {
   tracker.launched = await launchCase(entry);
@@ -139,8 +132,6 @@ const p08: Record<string, (entry: Case, tracker: Tracker) => Promise<void>> = {
     expect(observed.exitedAt - sent).toBeLessThanOrEqual(
       signalBound(entry) + tolerance,
     );
-    // LIFE-11: SIGKILL reaches the TERM-ignoring child before the 500 ms
-    // bound expires, observed independently in the process table.
     expect(died - sent).toBeLessThanOrEqual(
       signalBound(entry) + killObservationTolerance,
     );
@@ -197,7 +188,6 @@ const checks: Record<string, (entry: Case) => Promise<void>> = {
       const observed = await exitWithin(launched);
       await sampling;
       receipt(entry, observed, { peakRssKilobytes: peak, samples });
-      // A host whose ps cannot sample the CLI leaves memory unproved.
       expect(samples).toBeGreaterThan(0);
       const { result } = assertEnvelope(entry, observed);
       const captured = data(result);
@@ -253,14 +243,11 @@ const checks: Record<string, (entry: Case) => Promise<void>> = {
       const observed = tracker.observed;
       if (!observed) throw new Error("The P08 shape observed no process.");
       const child = requirePid(observed.ledger, "child-started");
-      // The owned TERM-ignoring child is gone: a forced kill was attempted.
       expect(await goneWithin(child, 300)).toBe(true);
     } finally {
       await release(tracker);
     }
   },
-  // LIFE-11 excludes a cleanup guarantee here; it does not require
-  // survivors. Survival is recorded as an observation, never asserted.
   async P09(entry) {
     const launched = await launchCase(entry);
     try {
@@ -280,10 +267,8 @@ const checks: Record<string, (entry: Case) => Promise<void>> = {
       const observed = await exitWithin(launched);
       const escaped = requirePid(readLedger(launched.ledgerPath), "escaped");
       receipt(entry, observed, { escapedAlive: alive(escaped) });
-      // No result claims cleanup or undone effects: an inspect envelope.
       assertEnvelope(entry, observed);
     } finally {
-      // Survivors were recorded above; the harness now removes them.
       await releaseLaunched(launched);
     }
   },
@@ -358,9 +343,6 @@ describe("caller-program disclosure guard (supporting C3, not a frozen case)", (
         await launch({ argv: ["undisclosed", streamProbe, "--json"] }),
       );
       try {
-        // D2: the undisclosed command routed and its handler failed on the
-        // refused start, taking the fallback; no child started (the probe
-        // ledgers its stdin read when it runs).
         assertEnvelope(
           {
             id: "P10s.undisclosed-command-starts-no-program",
@@ -392,10 +374,6 @@ describe("caller-program disclosure guard (supporting C3, not a frozen case)", (
   );
 });
 
-// Findings round, finding 1 (Nathan, 16 November 2026: every accepted value
-// is honoured, no cap). LIMIT is the largest delay a runtime timer holds; a
-// raw timer armed above it fires after about 1 ms with a stderr warning.
-// Expectations: c3-expect-t2t5, findings-round/expectations.md.
 const overLimit = [
   timerLimit,
   timerLimit + 1,
@@ -417,7 +395,6 @@ async function programRun(entry: Case) {
   try {
     const observed = await exitWithin(launched);
     receipt(entry, observed);
-    // One envelope, the command's own success station, zero CLI stderr.
     const { result } = assertEnvelope(entry, observed);
     return { fields: data(result), ledger: observed.ledger };
   } finally {
@@ -452,7 +429,6 @@ describe("T03 a program timeout above the timer limit (finding 1)", () => {
     );
 });
 
-// Test-owned: ten 200-byte lines, as the fixture's escaped writer prints them.
 const drainPattern = Array.from(
   { length: 10 },
   (_, index) =>

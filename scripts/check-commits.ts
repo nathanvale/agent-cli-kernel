@@ -10,9 +10,6 @@ import { join, resolve } from "node:path";
 import { runWithOwnTools } from "./child-env.ts";
 import { doctor } from "./doctor.ts";
 
-// The head of codex/contract-3-foundation when this gate was written. A commit
-// cannot hold its own SHA, so this is the nearest fixed point; the older
-// commits, some of them red, never fail the gate.
 const since = "f20777f7e67d300ade253060fa2ba36f38c0ca43";
 const fixedPoint = process.env.CHECK_COMMITS_SINCE || since;
 const root = join(import.meta.dir, "..");
@@ -29,8 +26,6 @@ type Result =
   | { status: "red"; failed: Step; output: string };
 type Checked = Commit & { result: Result };
 
-// Ctrl-C sends SIGINT, a closing terminal SIGHUP, a CI cancel SIGINT then
-// SIGTERM.
 const signals = ["SIGHUP", "SIGINT", "SIGTERM"] as const;
 type StopSignal = (typeof signals)[number];
 const active: { stop?: () => void; stoppedBy?: StopSignal } = {};
@@ -45,8 +40,6 @@ function git(args: readonly string[]) {
     stdout: "pipe",
     stderr: "pipe",
   });
-  // A signal to the whole process group kills git before this process's
-  // handler can run, so git's own death is the evidence of the stop.
   if (isStopSignal(result.signalCode)) active.stoppedBy ??= result.signalCode;
   return {
     ok: result.exitCode === 0,
@@ -63,8 +56,6 @@ function print(line: string): void {
   process.stdout.write(`${line}\n`);
 }
 
-// Read before any checked step runs, because those steps can rewrite the
-// worktree's .git file to name another registration.
 function adminFolderOf(dir: string): string | undefined {
   if (!existsSync(join(dir, ".git"))) return undefined;
   const found = git([

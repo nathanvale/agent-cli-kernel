@@ -3,8 +3,6 @@ import { resolve } from "node:path";
 import { envelope, envelopeContract } from "./envelope-fixture.ts";
 import { runFamily } from "./harness.ts";
 
-// Harness watchdog, not a contract number: a validation that has not answered
-// twice within it counts as unbounded work (R08).
 const watchdogMilliseconds = 10000;
 const fixture = resolve(import.meta.dir, "envelope-fixture.ts");
 
@@ -58,11 +56,6 @@ runFamily(
     "R08.dag-64": () => bounded(64),
     "R08.tree-twin-and-guards": async () => {
       const contract = envelopeContract();
-      // B2 (Nathan, 16 November 2026): the envelope is level 0 and every
-      // value counts. envelope (0) > result (1) > data (2), so nest(n) puts
-      // its innermost value at level n + 2: 62 is the deepest admitted
-      // (level 64) and 63 the first refused (level 65). Pinning both sides
-      // of the boundary catches a limit of 63 or 65 and a strict comparison.
       expect((await contract.validate(envelope(nest(62)))).ok).toBe(true);
       expect((await contract.validate(envelope(nest(63)))).ok).toBe(false);
       const cycle: Record<string, unknown> = { a: null };

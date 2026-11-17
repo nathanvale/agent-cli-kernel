@@ -1,6 +1,3 @@
-// D05 to D08: record and buffer bounds, per-run and aggregate allocation,
-// pruning eligibility and concurrent pruners, through real processes. Limits
-// come from t5-cases.json (DIAG-9); disk truth from the test harness's own reader.
 import { afterAll, describe, expect, test } from "bun:test";
 import {
   chmodSync,
@@ -60,8 +57,7 @@ function logs(dir: string) {
 // run identity) and its first record. An inode number is not such a mark:
 // ext4 hands a freed inode number to the next file created, so a pruned
 // log's number can come back on the new run's own log (the hosted Linux
-// failure of D06.file-count-near-cap). The inode is still compared where it
-// proves the same file is still there, never alone.
+// failure of D06.file-count-near-cap).
 type Identity = { name: string; ino: number; first: string };
 
 function identify(entry: Observed): Identity {
@@ -81,16 +77,8 @@ function expectKept(dir: string, kept: Identity | undefined) {
   expect(logs(dir).map(identify)).toContainEqual(kept);
 }
 
-// About 975,000 bytes of records: just under the per-run cap.
 const fullRun = { records: 64, size: 15_000, pace: true } as const;
 
-// Closed logs from earlier real runs, oldest first.
-// Closed logs from earlier real runs, oldest first. Runs launched together
-// contend for the shared allocation lock; under host load one may wait past
-// the lock bound and disclose `capacity` with no log (the cause of the
-// D06.file-count-near-cap flake: 48 of 50). The fixture checks every run's
-// status, accepts only that disclosure, and launches again until `count`
-// closed logs exist. Retries are counted for the receipt.
 const fixture = { capacityRetries: 0 };
 async function closedLogs(
   where: Tree,
@@ -168,11 +156,6 @@ describe("D05 record and buffer limits", () => {
   test(
     "D05.buffer-1000000-bytes: buffered bytes stay within 1,000,000 including overhead",
     async () => {
-      // Measure one line with the harness's own reader, then size records
-      // so 250 of them fit in 1,000,000 bytes of payload but not once the
-      // per-record queue overhead is counted. Only the buffer's byte bound
-      // can then stop admission: the record bound (256) and the per-run
-      // bound (payload bytes only) would both admit all 250.
       const probe = tree();
       expectSuccess(
         await run({
@@ -194,8 +177,6 @@ describe("D05 record and buffer limits", () => {
       });
       expectSuccess(result);
       const counts = status(result);
-      // Each line is at most target + 8 bytes (wider counters), so all 250
-      // fit by payload alone.
       expect(records * (target + 8)).toBeLessThanOrEqual(limits.bufferBytes);
       expect(counts.sinkFailure).toBe("flush-timeout");
       expect(counts.unflushed).toBeLessThan(records);
@@ -277,7 +258,6 @@ describe("D06 per-run and aggregate allocation", () => {
       const after = observe(where.dir);
       expect(after.fileBytes).toBeLessThanOrEqual(limits.aggregateBytes);
       expect(after.files.length).toBeLessThanOrEqual(limits.files);
-      // Room was made from the oldest confirmed-closed log, and this run wrote.
       expectRemoved(where.dir, before[0]);
       expect(status(result).sinkFailure).toBeNull();
     },
@@ -312,8 +292,6 @@ describe("D06 per-run and aggregate allocation", () => {
       mkdirSync(where.dir, { recursive: true, mode: 0o700 });
       for (const path of [where.state, join(where.state, "dxs"), where.dir])
         chmodSync(path, 0o700);
-      // Ten files that are not confirmed closed: each may grow to a full run
-      // allowance, so together they hold the whole aggregate.
       for (let index = 0; index < 10; index += 1)
         writeFileSync(join(where.dir, `ambiguous-${index}.jsonl`), "x", {
           mode: 0o600,
@@ -384,8 +362,6 @@ describe("D07 pruning eligibility", () => {
       }
       age(active.path, 30);
       expectSuccess(await run({ argv: read, tree: where, script: fullRun }));
-      // Still growing, so no first record to compare: the same name on the
-      // same inode is the same file.
       expect(
         logs(where.dir).map((entry) => ({ name: entry.name, ino: entry.ino })),
       ).toContainEqual({ name: active.name, ino: active.ino });
@@ -442,8 +418,6 @@ describe("D07 pruning eligibility", () => {
   );
 });
 
-// D08: runs released together at the allocation barrier against a near-full
-// directory; the harness samples the directory throughout.
 type Concurrent = {
   readonly results: readonly Run[];
   readonly samples: readonly { files: number; bytes: number }[];

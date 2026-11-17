@@ -1,8 +1,5 @@
 import { unchanged } from "./shapes.ts";
 
-// One owner for the inspect handler fake that succeeds unchanged with no
-// data (K1-3 standards). Generic over the result builder, so it fits any
-// command() whose derived or declared stations include SUCCESS_UNCHANGED.
 export function readsUnchanged<const Identity extends string>(
   identity: Identity,
 ) {
@@ -28,8 +25,6 @@ export function readsUnchanged<const Identity extends string>(
     );
 }
 
-// One owner for the handler a raw admission fixture carries (K1-5 requires
-// one); it never runs (repair 1, S3).
 export function neverRuns() {
   return Promise.resolve({
     ok: false,

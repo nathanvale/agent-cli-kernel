@@ -1,5 +1,3 @@
-// Independent oracle: frozen GATE-6/7 identities and programs, not source-derived expectations.
-// Codes are fixture-specific bindings; line 4 is the single guarded statement.
 export const locks = [
   {
     id: "N1",
@@ -303,7 +301,6 @@ export const exhaustiveness = [
   },
 ] as const;
 
-// Supplementary boundaries retain the narrower global membership controls.
 export const boundaries = [
   {
     id: "global-undeclared-cause",

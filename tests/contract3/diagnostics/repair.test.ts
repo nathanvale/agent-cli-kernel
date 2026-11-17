@@ -1,6 +1,3 @@
-// Repair round 1 controls (t5-repair-1-cases.json): a declared secret that
-// cannot be read whole, record lines with a short secret, a stale coordination
-// lock from another host, and a late write at the process layer.
 import { afterAll, describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import {
@@ -65,7 +62,6 @@ describe("SF4 a declared secret that cannot be read whole stops diagnostics", ()
       script: { records: 3, secretFacts: true, pace: true },
     };
     const result = await run({ ...launch, tree: where });
-    // Positive outcome first.
     expectSuccess(result);
     await expectTwinEqual(result, launch);
     const status = statusOf(result);
@@ -80,7 +76,6 @@ describe("SF4 a declared secret that cannot be read whole stops diagnostics", ()
       countsComplete: true,
       closed: false,
     });
-    // Then: nothing was logged, and the secret is nowhere but its own file.
     expect(observe(where.dir).exists).toBe(false);
     expect(result.stdout).not.toContain(secret);
     expect(result.stderr).not.toContain(secret);
@@ -214,9 +209,6 @@ describe("SF3 a stale allocation lock from another host", () => {
       expect(get(status, "sinkFailure")).toBe("capacity");
       expect(get(status, "file")).toBeNull();
       expect(readdirSync(lock)).toEqual([`owner-99999-${foreignHost}`]);
-      // DIAG-14's 500 ms flush bound plus the 100 ms process-noise allowance
-      // the lifecycle suites use. The decisive check is `capacity` above: a
-      // lock wait past the add-on's 450 ms budget would read flush-timeout.
       expect(
         result.elapsedMilliseconds - intact.elapsedMilliseconds,
       ).toBeLessThanOrEqual(500 + 100);
@@ -224,8 +216,6 @@ describe("SF3 a stale allocation lock from another host", () => {
     timeout,
   );
 
-  // Twins either side of the 60 s rule. A malformed lock is never recovered,
-  // so the recovered twin also shows the planted owner reads as foreign.
   test(
     "R2.foreign-lock-boundary-held: a foreign-host lock 59 s old is still treated as held",
     async () => {
@@ -285,7 +275,6 @@ describe("SF5 a late write at the process layer", () => {
       expect(get(status, "sinkFailure")).toBe("flush-timeout");
       expect(get(status, "unflushedRecords")).toBe(2);
       expect(get(status, "closed")).toBe(false);
-      // The process ended before the delayed write could land.
       const [log] = observe(where.dir).files;
       expect(log?.size).toBe(0);
     },
@@ -354,16 +343,12 @@ describe("Repair round 2: non-string secrets, an observed late completion, a sym
   test(
     "R2.late-completion-observed: a write that completes after the freeze lands alone, and changes neither the frozen status nor the output",
     async () => {
-      // The result exceeds the pipe buffer and stdout is held, so the CLI
-      // waits in drain while the delayed write completes after the freeze.
       const where = tree();
       const script = { records: 2, dataBytes: 300_000 };
       const gate = join(where.root, "release-stdout");
       const launch = start({
         argv: read,
         tree: where,
-        // Only the first write is delayed: if the sink kept going after the
-        // late completion, the second record would land at once.
         fault: "write-delays-first:900",
         script,
         holdStdoutUntil: gate,
@@ -388,7 +373,6 @@ describe("Repair round 2: non-string secrets, an observed late completion, a sym
       expect(get(status, "sinkFailure")).toBe("flush-timeout");
       expect(get(status, "unflushedRecords")).toBe(2);
       expect(get(status, "closed")).toBe(false);
-      // The in-flight record landed late; the second never started.
       const [log] = observe(where.dir).files;
       expect(lines(log?.path ?? "")).toHaveLength(1);
     },
@@ -422,8 +406,6 @@ describe("Repair round 2: non-string secrets, an observed late completion, a sym
   test(
     "R2.concurrent-first-runs-all-log: runs released together onto an empty state root all create their logs",
     async () => {
-      // The D06 flake: the first batch of fixture runs raced to create the
-      // directory tree, and a loser's EEXIST was disclosed as setup.
       const where = tree();
       const go = join(where.root, "go");
       const runs = Array.from({ length: 10 }, (_, index) => {
@@ -460,7 +442,6 @@ describe("Repair round 2: non-string secrets, an observed late completion, a sym
       const where = tree();
       const ready = join(where.root, "holder-ready");
       const go = join(where.root, "holder-go");
-      // The holder pauses inside allocation, lock held, just before open.
       const holder = start({
         argv: read,
         tree: where,

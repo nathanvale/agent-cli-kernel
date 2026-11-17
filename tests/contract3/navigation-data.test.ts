@@ -36,7 +36,6 @@ function envelope(commandIdentity: string, data: unknown) {
   };
 }
 
-// Help lists host commands, so its test declares one (K1-18).
 const read = command({
   identity: "specimen.read",
   route: ["read"],
@@ -49,14 +48,12 @@ const helpCli = contractFor({ cli: "specimen", commands: [read] });
 
 test("help data is complete and agrees with executable declarations", async () => {
   const valid = helpCli.help();
-  // Independent DISC-3/5 expectations, not generated from the implementation.
   expect(Object.keys(valid).sort()).toEqual([
     "commands",
     "options",
     "summary",
     "usage",
   ]);
-  // DISC-3: every host command, by its declared summary; no built-in.
   expect(valid.commands).toEqual([
     {
       commandIdentity: "specimen.read",

@@ -1,11 +1,5 @@
-// Journal version 1 record framing (DESIGN.md section 4):
-//   "C3S1" SP kind SP length(10 digits) SP sha256(kind LF payload) LF payload LF
-// A torn tail is never parsed as state; damage followed by more bytes, or a
-// payload that fails its kind's validation, is a corrupt file.
 import { createHash } from "node:crypto";
 
-// One owner for every framing width (SF-3): the encoder, the header pattern
-// and the record-start probe are all built from these.
 const magic = "C3S1";
 const kindPattern = "[a-z-]{1,24}";
 const kindMaxLength = 24;
@@ -53,8 +47,6 @@ export type ParsedFile =
     }
   | { readonly ok: false };
 
-// One record at `offset`, or why not. "short" means the bytes end before a
-// complete record could be read; "invalid" means complete but wrong.
 function readOne(
   bytes: Uint8Array,
   offset: number,
@@ -99,10 +91,6 @@ function readOne(
   return { kind: "record", record: { kind, payload: object }, end: end + 1 };
 }
 
-// Parses every record. Damage is a torn tail only when nothing valid could
-// follow it: a short or invalid final record with no later record start
-// (DESIGN.md section 4). A length that runs past the end of the file while a
-// later record start exists is mid-file damage: corrupt, never torn.
 export function parseRecords(bytes: Uint8Array): ParsedFile {
   const records: ParsedRecord[] = [];
   let offset = 0;

@@ -1,8 +1,3 @@
-// Real child-process T4 cases. Each driver is a separate Bun process using
-// the real approval add-on, a kernel-issued ExclusiveScope from the
-// disposable coordination fixture, and readiness barriers. Grant, approval store,
-// lock and effect state are read independently after the named barrier or
-// after the process terminated.
 import {
   afterAll,
   afterEach,
@@ -68,10 +63,7 @@ const clean = { exit: 0, signal: null, stderr: "" };
 function phases(events: readonly unknown[]): string[] {
   return events.map((event) => JSON.stringify(event));
 }
-// Positive classification: each outcome needs the exact phase and result
-// the child reported. Anything else, including a crash, is "unexpected".
 type Rules = readonly (readonly [string, readonly (readonly object[])[]])[];
-// Ordered rules: the first outcome with one fully reported alternative wins.
 function classify(events: readonly unknown[], rules: Rules): string {
   const seen = phases(events);
   for (const [outcome, alternatives] of rules)
@@ -127,7 +119,6 @@ function applyOutcome(events: readonly unknown[]): string {
 function authorityOutcome(events: readonly unknown[]): string {
   return classify(events, authorityRules);
 }
-// Every complete child run must exit cleanly with empty stderr.
 async function runClean(config: DriverConfig) {
   const result = await run(tree.driver, config);
   expect(result).toMatchObject(clean);
@@ -198,7 +189,6 @@ test("A01.b-apply-consumes-once", async () => {
   );
 });
 
-// Valid twin is the last invocation of each A02 run: it reaches the handler.
 const inputCases: readonly (readonly [string, readonly string[]])[] = [
   ["A02.a-malformed-syntax", ["--bogus", "p-1"]],
   ["A02.b-invalid-decoded-input", [""]],
@@ -222,7 +212,6 @@ for (const [id, argv] of inputCases)
     expect(refusal).not.toMatchObject({ result: { path: "approval" } });
     expect(twin).toEqual({ phase: "kernel", index: 1, result: { ok: true } });
     expect(phases(result.events)).toContain('{"phase":"handler"}');
-    // Externally observable authority contact: only the valid twin.
     expect(await readFile(world.contacts, "utf8")).toBe("kernel-1\n");
     const outcome = JSON.stringify(refusal).includes('"path":"approval"')
       ? "denied"
@@ -337,7 +326,6 @@ for (const [id, change] of waits)
     expect(await driver.next()).toEqual({ phase: "preflight", admitted: true });
     expect(await driver.next()).toEqual({ barrier: "after-preflight" });
     await driver.go();
-    // The driver cannot acquire while the holder owns the scope.
     await change();
     const before = await snapshot(world);
     await held.go();
@@ -406,13 +394,6 @@ test("A08.a-locked-contenders", async () => {
   expectCase("A08.a-locked-contenders", observation("admitted", before, after));
 }, 120_000);
 
-// Widened race (R3): several barrier-released rounds of several contenders,
-// with an explicit timeout because 128 child processes can outlast Bun's
-// 5 s default on a slower CI runner.
-// each holding only a private fixture scope, so exclusive creation alone
-// must decide. Every round needs exactly one admission and one marker.
-// Measured against a real check-then-write (repair-1 receipts): 5 rounds of
-// 6 missed 2 of 50 runs; this size is the reliability margin.
 const atomicRounds = 16;
 const atomicContenders = 8;
 test("A08.b-consumption-atomic-without-lock", async () => {
@@ -539,8 +520,6 @@ async function killAt(barrier: string, runId = "victim") {
   return driver.finish();
 }
 async function qualifiedFixtureRelease(): Promise<void> {
-  // Test-owned recovery: the sole owner's SIGKILL was observed directly.
-  // This is not T3 reclaim and never assumes stale-lock deletion is safe.
   if (await lockHeld()) await rmdir(world.lock);
 }
 
@@ -801,7 +780,6 @@ test("S03.a-inactive-coordination", async () => {
       await snapshot(world),
     ),
   );
-  // The still-valid attestation remains usable under real coordination.
   const later = await runClean(authorityConfig("stop", "later"));
   expect(authorityOutcome(later.events)).toBe("verified");
 });
@@ -828,7 +806,6 @@ test("S05.a-kill-after-attestation-consume", async () => {
     "S05.a-kill-after-attestation-consume",
     observation("killed", before, after),
   );
-  // No refund; closure and domain approval stay unconsumed.
   await qualifiedFixtureRelease();
   const repeat = await runClean(authorityConfig("stop", "repeat"));
   expect(phases(repeat.events)).toEqual([
@@ -856,7 +833,6 @@ test("S06.c-approval-separate", async () => {
   );
 });
 
-// R1 supporting cases: coordination lost after the marker is durable.
 test("T4S.r1-approval-coordination-lost: consumed, no effect, no refund", async () => {
   await writeGrant(world, grant);
   const before = await snapshot(world);
@@ -870,7 +846,6 @@ test("T4S.r1-approval-coordination-lost: consumed, no effect, no refund", async 
   expect(after.effects).toEqual([]);
   expect(await lockHeld()).toBe(false);
   expect(before.authority).toBe(after.authority);
-  // The consumed grant is not refunded.
   expect(applyOutcome((await apply("repeat")).events)).toBe("denied");
   expect((await snapshot(world)).effects).toEqual([]);
 });
@@ -911,8 +886,7 @@ test("T4S.r1-stop-coordination-lost: attestation consumed, no refund", async () 
 // on a command that declares no DOMAIN_AUTHORITY_REQUIRED tuple, the
 // missing, stale (expired and revision), consumed and mismatched grant
 // variants give byte-identical public output once the run identity is
-// removed, each carrying the kernel's default authority words. The words are
-// a test-owned literal copy, never imported from the kernel.
+// removed, each carrying the kernel's default authority words.
 const defaultAuthorityWords = {
   handoff: {
     owner: "human",
@@ -999,7 +973,6 @@ test("B3.04.identical-denials-carry-defaults", async () => {
   expect(runIds.size).toBe(variants.length);
   expect(outputs).toHaveLength(variants.length);
   expect(new Set(outputs).size).toBe(1);
-  // Valid twin: the same invocation with a valid grant reaches the handler.
   for (const directory of [world.grants, world.consumed]) {
     await removeAll(directory);
     await mkdir(directory);
@@ -1010,9 +983,6 @@ test("B3.04.identical-denials-carry-defaults", async () => {
   expect(twin.stdout).not.toContain("DOMAIN_AUTHORITY_REQUIRED");
 }, 60_000);
 
-// S1, reviewer probe P2: a plain look-alike scope (right run, right
-// resource, active, real fixture lock held) is not kernel-issued, so it is
-// refused before anything is consumed and the authority stays usable.
 const notHeld = JSON.stringify({
   phase: "consume",
   error: "coordination-not-held",
@@ -1061,7 +1031,6 @@ test("T4S.r7-no-preview-under-lock: revalidation without a preview denies and pr
   expect(applyOutcome((await apply("with-preview")).events)).toBe("admitted");
 });
 
-// R5: the materialized fixtures are linted with the contract3 configuration.
 test("T4S.r5-fixture-lint: the materialized tree passes contract3 lint", async () => {
   const child = Bun.spawn(
     [
@@ -1093,7 +1062,6 @@ test("T4S.r5-fixture-lint: the materialized tree passes contract3 lint", async (
           : [],
       )
     : [];
-  // The fixtures were linted, not silently skipped, and have no findings.
   expect(files).toContainEqual(["/tests/contract3/approval/driver.ts", 0]);
   expect(files).toContainEqual([
     "/starters/contract3/src/addons/state/coordination.ts",
@@ -1101,8 +1069,8 @@ test("T4S.r5-fixture-lint: the materialized tree passes contract3 lint", async (
   ]);
 }, 120_000);
 
-// N5: the marker exists but its directory flush fails. The approval store allows
-// create and search (0o300) but not the read needed to open it for fsync.
+// The approval store allows create and search (0o300) but not the read needed
+// to open it for fsync.
 test("T4S.n5-durability-unconfirmed: a failed flush after creation reports consumption", async () => {
   await writeGrant(world, grant);
   const before = await snapshot(world);
@@ -1118,13 +1086,10 @@ test("T4S.n5-durability-unconfirmed: a failed flush after creation reports consu
   expect(after.markers).toEqual([approvalMarker]);
   expect(after.effects).toEqual([]);
   expect(before.authority).toBe(after.authority);
-  // No refund: the ambiguous consumption stays consumed.
   expect(applyOutcome((await apply("repeat")).events)).toBe("denied");
   expect((await snapshot(world)).effects).toEqual([]);
 });
 
-// L2: a failing close after the marker exists (reviewer probe, test-side
-// FileHandle prototype patch in the driver) reports consumption.
 test("T4S.l2-close-failure: a failed close after creation reports consumption", async () => {
   await writeGrant(world, grant);
   const before = await snapshot(world);
@@ -1136,7 +1101,6 @@ test("T4S.l2-close-failure: a failed close after creation reports consumption", 
   expect(after.markers).toEqual([approvalMarker]);
   expect(after.effects).toEqual([]);
   expect(before.authority).toBe(after.authority);
-  // No refund: the ambiguous consumption stays consumed.
   expect(applyOutcome((await apply("repeat")).events)).toBe("denied");
   expect((await snapshot(world)).effects).toEqual([]);
 });

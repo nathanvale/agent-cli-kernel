@@ -1,7 +1,3 @@
-// Part 3: the kernel side of the diagnostics status seam (LIFE-7 step 1,
-// LIFE-9 step 2, DIAG-1 to DIAG-5, DIAG-14). Real CLI processes through the
-// labelled fixture `st` and its throwaway status-reporting add-on; expected
-// values are test-owned literals from the frozen contract text.
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { comparableEnvelope } from "../../../starters/contract3/src/kernel/comparison.ts";
@@ -36,8 +32,6 @@ const timeout = 30_000;
 const statusCli = join(import.meta.dir, "fixtures/status-cli.ts");
 const payloadMarker = "FX-STATUS-PAYLOAD";
 
-// DIAG-2 and DIAG-3, test-owned. `ownAvailable` and `ownUnavailable` are what
-// the fixture add-on reports; a valid status reaches the envelope unchanged.
 const ownAvailable = {
   status: "available",
   file: "/private/state/st/diagnostics/run.log",
@@ -53,7 +47,6 @@ const ownUnavailable = {
   reason: "status-unavailable",
   trusted: { droppedRecords: 2, countsComplete: false },
 };
-// The kernel's replacements: an invalid value, and a status it could not get.
 const statusInvalid = {
   status: "unavailable",
   reason: "status-invalid",
@@ -65,10 +58,6 @@ const statusUnavailable = {
   trusted: {},
 };
 
-// Provisional reading (coordinator ruling, to be judged by the T5 reviewer):
-// a usage refusal and a deadline before start of a declaring command carry
-// no key. If the reading is overturned, change this one line to
-// `ownAvailable` (and the kernel's `statusOnPreHandlerRefusal` to true).
 const preDispatchStatus: unknown = undefined;
 
 async function runStatus(
@@ -121,8 +110,6 @@ describe("DS01 and DS02 a valid status reaches the envelope unchanged", () => {
   );
 });
 
-// W06, DIAG-4, DIAG-5: a diagnostics fault alone changes nothing but the
-// status. The available run is the valid twin.
 describe("W06 a diagnostics fault never takes the fallback", () => {
   for (const [mode, replaced] of [
     ["invalid", statusInvalid],
@@ -139,7 +126,6 @@ describe("W06 a diagnostics fault never takes the fallback", () => {
         expect(envelope.diagnostics).toEqual(replaced);
         expect(result.causeCode).toBe("SUCCESS_UNCHANGED");
         expect(observed.code).toBe(0);
-        // Message, data, effects, exit and recovery as in the twin.
         expect(comparableEnvelope(envelope)).toBe(
           comparableEnvelope(twin.envelope),
         );
@@ -149,7 +135,6 @@ describe("W06 a diagnostics fault never takes the fallback", () => {
     );
 });
 
-// LIFE-9 step 2: the fallback carries the frozen, validated status.
 describe("F02 the fallback includes the frozen diagnostics", () => {
   for (const [variant, argv, mode, expected] of [
     ["available", ["report", "--bad", "--json"], "available", ownAvailable],
@@ -202,7 +187,6 @@ describe("DS03 and DS10 the freeze is bounded at 500 ms", () => {
   );
 });
 
-// DIAG-1: absent only when neither requested nor triggered.
 describe("DS04 and DS05 when the key is absent", () => {
   test(
     "DS04.key-absent-without-reporter",
@@ -212,7 +196,6 @@ describe("DS04 and DS05 when the key is absent", () => {
       expect(plain.ledger.some((entry) => entry.startsWith("status-"))).toBe(
         false,
       );
-      // A declaring command whose handler never records still reports.
       const silent = await runStatus(["report", "--json"], "available");
       expect(silent.ledger.some((entry) => entry.startsWith("record "))).toBe(
         false,
@@ -221,7 +204,6 @@ describe("DS04 and DS05 when the key is absent", () => {
     },
     timeout,
   );
-  // An unknown command declares nothing: no key under either reading.
   test(
     "DS05.pre-dispatch-results-carry-no-key routing",
     async () => {
@@ -252,7 +234,6 @@ describe("DS04 and DS05 when the key is absent", () => {
         expect("diagnostics" in envelope).toBe(preDispatchStatus !== undefined);
         expect(envelope.diagnostics).toEqual(preDispatchStatus);
         expect(observed.ledger).not.toContain("handler-entered");
-        // A status is frozen exactly when the reading gives one.
         expect(line(observed, "freeze-start ") !== undefined).toBe(
           preDispatchStatus !== undefined,
         );
@@ -280,8 +261,6 @@ describe("DS06 and DS07 the order of freezing (DIAG-14)", () => {
             "status-settle",
           ].includes(entry),
         );
-      // Owned programs settled and the result built before the flush; on
-      // normal completion `freeze` replaces the add-on's settle.
       expect(order).toEqual([
         "program-done",
         "handler-done",
@@ -319,7 +298,6 @@ describe("DS06 and DS07 the order of freezing (DIAG-14)", () => {
   );
 });
 
-// DIAG-15: a forced termination promises no status.
 describe("DS08 the stop path freezes no status", () => {
   for (const [signal, code] of [
     ["SIGTERM", 143],
@@ -421,8 +399,6 @@ describe("DS09 one status-reporting add-on per command", () => {
   });
 });
 
-// X-K5 (swarm triage): a settle that throws is an unconfirmed termination,
-// never a crash. Fixture: the programs add-on's settle throws synchronously.
 describe("K3K5 a settle fault keeps the exit path", () => {
   const settleThrows = { FX_SETTLE_THROWS: "1" };
   test(
@@ -459,7 +435,6 @@ describe("K3K5 a settle fault keeps the exit path", () => {
         settleThrows,
       );
       const { result } = parsed(observed);
-      // LIFE-11 normal row: termination not confirmed, so a handoff.
       expect(result.causeCode).toBe("INTERNAL_RESULT_UNCHANGED");
       expect(result).toHaveProperty("handoff");
       expect(observed.code).toBe(1);
@@ -498,7 +473,6 @@ describe("K3K5 a settle fault keeps the exit path", () => {
   );
 });
 
-// Seam review follow-ups (contract S1, S2 and the test gaps).
 describe("seam review: hostile statuses and a failing reporter attach", () => {
   test(
     "F02.diagnostics-in-fallback oversize status",
@@ -544,8 +518,6 @@ describe("seam review: hostile statuses and a failing reporter attach", () => {
         expect(comparableEnvelope(envelope)).toBe(
           comparableEnvelope(twin.envelope),
         );
-        // The accessor may be copied valid or invalid; either way the copy,
-        // not a second read, is what the envelope carries.
         if (expected) expect(envelope.diagnostics).toEqual(expected);
         else
           expect(["available", "unavailable"]).toContain(
@@ -566,7 +538,6 @@ describe("seam review: hostile statuses and a failing reporter attach", () => {
       expect(observed.code).toBe(0);
       expect(observed.ledger).toContain("handler-done");
       expect(envelope.diagnostics).toEqual(statusUnavailable);
-      // DIAG-4: the domain result equals an intact twin's.
       const twin = parsed(
         await runStatus(["report", "--record", "--json"], "available"),
       );
@@ -578,8 +549,6 @@ describe("seam review: hostile statuses and a failing reporter attach", () => {
   );
 });
 
-// Part 4 repair R1: refusals raised after the reporter attached (inside
-// `execute`) follow the same one-line provisional reading as DS05.
 describe("DS05 refusals after the reporter attached (Part 4 repair R1)", () => {
   test(
     "DS05.pre-dispatch-results-carry-no-key capabilities refusal",
@@ -622,8 +591,6 @@ describe("DS05 refusals after the reporter attached (Part 4 repair R1)", () => {
   );
 });
 
-// Part 4 repair R2: effects are degraded before the status, so a small valid
-// status survives a fallback that was too large because of its effects.
 test(
   "F02.diagnostics-in-fallback wide effects small status",
   async () => {
@@ -651,7 +618,6 @@ test(
   timeout,
 );
 
-// Part 4 repair (contract reviewer): an asynchronous rejection twin of K3K5.
 describe("K3K5 a rejected settle keeps the exit path", () => {
   const settleRejects = { FX_SETTLE_THROWS: "async" };
   test(
@@ -711,10 +677,6 @@ describe("K3K5 a rejected settle keeps the exit path", () => {
     );
 });
 
-// Part 4 repair 2 (DIAG-4): a twin set that differs only in the status. 25
-// wide effects fit the fallback alone (about 13,200 bytes); a 4,000-character
-// status pushes the envelope over, and a 16,000-character one is oversize by
-// itself. The cause, effects and exit equal the no-status twin's every time.
 test(
   "DS12.status-never-changes-fallback-result",
   async () => {
@@ -792,7 +754,6 @@ describe("KF1.d and KF8 no key at the check-phase sites", () => {
     });
     return { observed, ...parsed(observed) };
   }
-  // The flipped twin: after handler entry the key carries the status.
   async function expectTwinCarriesKey() {
     const twin = await guardedRun("available", "grant");
     expect(twin.observed.code).toBe(0);
@@ -812,7 +773,6 @@ describe("KF1.d and KF8 no key at the check-phase sites", () => {
       expect(both.envelope).not.toHaveProperty("diagnostics");
       expect(both.observed.ledger).toContain("approval-attach");
       expect(both.observed.ledger).not.toContain("handler-entered");
-      // Twin: only the reporter attach throws: DS11's result.
       const twin = await guardedRun("attach-throws", "grant");
       expect(twin.observed.code).toBe(0);
       expect(twin.result.causeCode).toBe("SUCCESS_UNCHANGED");
@@ -854,11 +814,6 @@ describe("KF1.d and KF8 no key at the check-phase sites", () => {
       },
       timeout,
     );
-  // A guard on the add-on order: approval attaches before the status
-  // reporter, so no status exists at an approval attach fault. It turns red
-  // only under the compound fault "reporter attached first and the attach
-  // fault marked after handler entry"; KF8.a and KF8.b carry the protection
-  // against marking a check-phase site after handler entry.
   test(
     "KF8.c attach-fault-no-key: guards the add-on order (approval attaches before the status reporter)",
     async () => {
@@ -895,7 +850,6 @@ describe("KF6 the human Diagnostics line", () => {
   }
   const lastLine = (value: string) => value.split("\n").at(-2);
   const lineCount = (value: string) => value.split("\n").length - 1;
-  // The machine twin prints no Diagnostics line (KF6.a to KF6.c, KF6.e).
   async function machineTwin(
     argv: readonly string[],
     status: string,
@@ -987,10 +941,6 @@ describe("KF6 the human Diagnostics line", () => {
       },
       timeout,
     );
-  // KF6.e (DIAG-4): the line never changes the result. Every KF6.a, KF6.b,
-  // KF6.c and KF6.f variant exits as its machine twin does, and a failure's
-  // human stderr line names the twin's cause. The st fixture writes no
-  // effect ledger, so the ledger half of KF6.e is not compared.
   test(
     "KF6.e line-never-changes-result: each human exit and cause equal the machine twin's",
     async () => {

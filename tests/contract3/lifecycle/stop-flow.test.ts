@@ -1,8 +1,3 @@
-// Finding 2: the CLI front door's flow after the first stop request
-// (LIFE-3, the lifecycle table, LIFE-11, CMD-14). Expectations:
-// c3-expect-t2t5, findings-round/expectations.md, S01 to S04. S01 is in
-// lifecycle.test.ts. S03 is open and not decided by the frozen text: the
-// post-handler settle is left as it is and only observed here.
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -34,7 +29,6 @@ const stops = [
   ["SIGINT", 130],
 ] as const;
 
-// Waits for the front door's promise without letting a hang pass.
 async function settles(done: Promise<number>): Promise<boolean> {
   return Promise.race([
     done.then(() => true),
@@ -58,17 +52,14 @@ describe("S02 the main flow requests no exit after a stop (finding 2)", () => {
       )(["hold", "--json"]);
       await entered.promise;
       recorder.signal(signal);
-      // The handler returns after the stop request, with its own result.
       returned.resolve();
       expect(await settles(done)).toBe(true);
       await turns();
-      // Exactly one exit request, by the stop path, never the handler's 0.
       expect(recorder.exits).toEqual([code]);
       expect(recorder.writes).toEqual([]);
     });
 });
 
-// A test-owned wrapper that records each settle request and its limit.
 function settleRecorder(
   calls: (number | null)[],
 ): RunAddon<ProgramsCapability> {
@@ -89,8 +80,6 @@ function settleRecorder(
 
 type LateShape = "first-attach" | "after-finished-program";
 
-// The handler asks for a program only after the stop request. The program
-// would ledger and carry a unique marker into the process table.
 async function lateRequest(shape: LateShape, signal: "SIGTERM" | "SIGINT") {
   const dir = await mkdtemp(join(tmpdir(), "contract3-s04-"));
   const ledger = join(dir, "ledger");
@@ -124,7 +113,6 @@ async function lateRequest(shape: LateShape, signal: "SIGTERM" | "SIGINT") {
     returned.resolve();
     const settled = await settles(done);
     await turns();
-    // Give a child that did start time to ledger and show in the table.
     await Bun.sleep(200);
     return {
       settled,
@@ -150,8 +138,6 @@ describe("S04 no owned resource after a stop: component (finding 2)", () => {
         `S04.no-owned-resource-after-stop component ${shape} ${signal}`,
         async () => {
           const seen = await lateRequest(shape, signal);
-          // S03 (open, not asserted): which settle requests reached the
-          // programs add-on, and with which limit (null = no limit).
           note({
             id: "S03.post-handler-settle-after-stop",
             shape,
@@ -192,7 +178,6 @@ describe("S04 no owned resource after a stop: real host (finding 2)", () => {
         expect(observed.exitedAt - sent).toBeLessThanOrEqual(
           stopBound + tolerance,
         );
-        // The handler did ask after the stop, and was refused.
         expect(observed.ledger).toContain("late-call");
         expect(observed.ledger).toContain("late-refused");
         expect(

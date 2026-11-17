@@ -1,8 +1,3 @@
-// LABELLED TEST-ONLY SCRIPT (F6). Runs the front door twice in one process
-// through the kernel-internal runProcessOn with a host that declines to exit.
-// A timer the front door failed to clear keeps this process alive (S1); a
-// listener installed per run shows up in the listener counts (N7). Never
-// registered as a production command; never ships.
 import { appendFileSync } from "node:fs";
 import {
   command,

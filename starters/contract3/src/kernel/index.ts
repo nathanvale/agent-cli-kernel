@@ -106,7 +106,6 @@ export function contractFor<
   const stationMap = new Map(
     commands.map((item) => [
       item.commandIdentity,
-      // Generated kernel stations are frozen like declared ones (F02).
       freeze(stationsFor(item, spec.cli, causes)),
     ]),
   );
@@ -142,8 +141,6 @@ export function contractFor<
     return command && station ? { command, station } : undefined;
   }
 
-  // Assembles and validates one envelope from a declared station and the
-  // run facts already validated by the caller.
   async function assemble(
     command: CommandDeclaration,
     station: DeclaredStation,
@@ -236,9 +233,6 @@ export function contractFor<
     return assemble(command, station, runFacts, facts.message);
   }
 
-  // Kernel-selected stations only (usage, deadline and navigation results).
-  // The kernel supplies effects from its own observation; this builder is
-  // reachable only through the private runtime record, never from `build`.
   async function buildKernelStation(
     selected: { readonly commandIdentity: string; readonly causeCode: string },
     facts: KernelFacts,
@@ -254,11 +248,6 @@ export function contractFor<
     );
   }
 
-  // CMD-9 steps 3 to 5, then step 6. `prepare` refuses invocation, input
-  // and approval before anything attaches; its attach claims the run
-  // identity and attaches state, before handler entry, and returns the entry
-  // that runs the handler (K3-spec-6, K3-spec-5). A raw declaration without
-  // a two-phase entry runs through its own execute at entry.
   async function prepareCommand(
     identity: string,
     argv: unknown,
@@ -290,8 +279,6 @@ export function contractFor<
       : undefined;
     if (ready && !ready.ok) return ready;
     const execute = selected.execute;
-    // One attach per run: a second call would attach and enter again under
-    // the same run identity (delta review F2).
     let used = false;
     const attach: Attach = () => {
       if (used)
@@ -312,8 +299,6 @@ export function contractFor<
           reason: "run identity already attached",
         };
       const enter: Enter = async () => {
-        // WIRE-15: the capability closes when the handler returns, so no
-        // transaction can start after the result exists (K2-spec-3).
         const outcome = await (ready
           ? ready.value(attached?.capability)
           : execute(
@@ -433,8 +418,6 @@ export function contractFor<
       const selected = commands.find(
         (item) => item.commandIdentity === resolved.value.commandIdentity,
       );
-      // CMD-9 step 3: caller-supplied future bindings are input too, so they
-      // are refused before the deadline check (step 4) and any preflight.
       if (
         selected &&
         !(

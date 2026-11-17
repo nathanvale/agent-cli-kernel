@@ -3,7 +3,6 @@ import { versionReader } from "../../../starters/contract3/src/kernel/index.ts";
 import type { MinorFields } from "../../../starters/contract3/src/kernel/index.ts";
 import { runFamily } from "./harness.ts";
 
-// Test-owned minor tables (R10); nothing here comes from the kernel's tables.
 const causes = ["SUCCESS_UNCHANGED"];
 const t0: MinorFields = {
   minor: 0,

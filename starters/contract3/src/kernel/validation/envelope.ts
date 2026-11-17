@@ -35,9 +35,6 @@ async function commandSteps(
       (result.handoff !== undefined && command.effectClass !== "inspect")
     )
       return false;
-    // The same input rule as parse, resolve and execute: a host root
-    // operation needs an option or operand (DISC-4, STEP-6; F05). DISC-5
-    // admits `<cli>.dispatch` itself as a step (K1-12).
     const parsed = await parseInput(command.input, step.args);
     if (
       !parsed.ok ||
@@ -81,9 +78,6 @@ export async function validateEnvelope<C extends CauseTable>(
   });
   const read = readExternal(value);
   if (!read.ok) return read;
-  // Everything below works on the kernel's private plain snapshot. A throw
-  // here is a fault in the CLI's own validation, never a property of the
-  // external value, so it propagates instead of being reported as one (K2-12).
   const snapshot = read.value;
   if (!declaredEnvelope(snapshot, causes))
     return reject("$", "invalid envelope shape or correlation");
@@ -119,10 +113,6 @@ export async function validateEnvelope<C extends CauseTable>(
     return reject("result", "invalid command step");
   return { ok: true, value: freeze(snapshot) };
 }
-// The only reads of the caller's value: version, the plain-JSON guard and a
-// private snapshot taken before the first await, so a caller cannot change
-// the checked value while steps are parsed (F15). A throw while reading an
-// external value is that value's fault and is refused as unreadable.
 function readExternal(value: unknown): Validation<unknown> {
   try {
     const descriptor = record(value)

@@ -315,7 +315,6 @@ test.each(["enabled", "next"])(
     );
     roots.push(root);
     const state = join(root, "state.json");
-    // Independent fixture: the resource write completed, but its receipt did not.
     await writeFile(
       journalPath(state),
       `${JSON.stringify({

@@ -1,7 +1,3 @@
-// LABELLED TEST-ONLY SPECIMEN CLI "dxs" WITHOUT the diagnostics add-on. It
-// mirrors specimen-cli.ts (same routes, inputs, messages and data) with no
-// diagnostics capability, no add-on import and no logging import, so its
-// envelopes are the "diagnostics disabled" twin. Never registered, never ships.
 import {
   command,
   contractFor,

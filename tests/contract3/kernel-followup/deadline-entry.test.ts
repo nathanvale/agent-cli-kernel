@@ -5,13 +5,6 @@ import { processWatchdog } from "../kernel-repair/swarm-process.ts";
 import { emptyComplete, materialiseKf, oneEnvelope, runKf } from "./harness.ts";
 import type { KfRun } from "./harness.ts";
 
-// The deadline is re-checked at handler entry (K3-spec-1). LIFE-6:
-// "At the deadline the command stops starting work". The lifecycle row
-// "Deadline before operation dispatch" is read as before handler entry.
-// WIRE-15, CMD-9 steps 4 to 6. The window is opened by
-// a synchronous block (a stated proof gap: an I/O completion handled before
-// the expired timer opens the same window and is not reproduced). Expected
-// values come from expectations.md (KF7).
 let entry = "";
 beforeAll(async () => {
   entry = await materialiseKf();
@@ -23,8 +16,6 @@ afterAll(async () => {
   });
 });
 
-// Independent oracle: the base's fixed DOMAIN_DEADLINE_BEFORE_START words
-// (WIRE-18 N; accepted wording).
 const beforeStartNext = {
   kind: "instruction",
   text: "Inspect the deadline and the input, then explicitly decide whether to start a new run.",
@@ -66,10 +57,8 @@ describe("KF7.a check-settles-after-deadline [proof gap: a synchronous block ope
           { KF_APPROVAL: "grant", KF_CHECK_BLOCK: "200" },
         );
         expectBeforeStart(run, identity);
-        // The ledger is wired: the check ran; nothing attached after it.
         expect(run.ledger).toContain("check-start");
         expect(run.ledger).not.toContain("attach state");
-        // Twin: a short block well inside a longer deadline enters once.
         const twin = await runKf(
           entry,
           scenario,
@@ -98,7 +87,6 @@ test(
       },
     );
     expectBeforeStart(run, "kf.apply");
-    // The attach itself is the trigger, so its line is present.
     expect(run.ledger).toEqual(["attach state"]);
     const twin = await runKf(
       entry,

@@ -8,14 +8,9 @@ import type { Diagnostics, Envelope, Validation } from "./types.ts";
 import { diagnostics } from "./validation/diagnostics.ts";
 import { json, record } from "./validation/primitives.ts";
 
-// A status report from the status seam: present only when a status is due.
-// `value` is untrusted.
 export type StatusReport = { readonly value: unknown };
 
 export type Writer = {
-  // Serialises one result for this run (LIFE-7). Resolves the process exit
-  // that agrees with what was emitted, or undefined when a stop request
-  // forbids starting any envelope; the stop path then owns termination.
   readonly emit: (
     candidate: Validation<unknown>,
     trusted: TrustedRun,
@@ -23,9 +18,6 @@ export type Writer = {
   ) => Promise<number | undefined>;
 };
 
-// LIFE-7 step 1 and DIAG-4: the diagnostics object is validated on its own,
-// on a plain-JSON copy, after the domain result is frozen. An invalid one
-// becomes the unavailable variant; this step never takes the fallback.
 function frozenDiagnostics(report: StatusReport): Diagnostics {
   try {
     const copy: unknown = json(report.value)
@@ -38,7 +30,6 @@ function frozenDiagnostics(report: StatusReport): Diagnostics {
   return unavailableStatus("status-invalid");
 }
 
-// The frozen status joins the frozen candidate as the top-level key.
 function withStatus(
   candidate: Validation<unknown>,
   status: Diagnostics | undefined,
@@ -49,8 +40,6 @@ function withStatus(
 
 const encoder = new TextEncoder();
 
-// One writer per run. It never throws, never writes a second envelope and
-// never writes to stderr in machine mode.
 export function createWriter(options: {
   readonly host: ProcessHost;
   readonly runtime: ContractRuntime;
@@ -60,8 +49,6 @@ export function createWriter(options: {
   const { host, runtime, machine, stopping } = options;
   let used = false;
 
-  // Steps 2 and 3: the plain-JSON guard before any serialisation, then strict
-  // validation of exactly the bytes that will be written.
   async function validateForWrite(value: unknown, trusted: TrustedRun) {
     if (!json(value)) return undefined;
     const text = JSON.stringify(value);
@@ -85,8 +72,6 @@ export function createWriter(options: {
     return host.write(stream, encoder.encode(text));
   }
 
-  // Writes in order; undefined when a stop request forbids the next write,
-  // false after the first write that did not drain.
   async function writeAll(writes: readonly HumanWrite[]) {
     for (const item of writes) {
       const drained = await write(item.stream, item.text).catch(() => false);
@@ -95,8 +80,6 @@ export function createWriter(options: {
     return true;
   }
 
-  // Pre-write validation never throws: any fault before a write is a writer failure,
-  // which takes LIFE-9's single fallback attempt.
   async function validateCandidateForWrite(
     candidate: Validation<unknown>,
     trusted: TrustedRun,
@@ -112,8 +95,6 @@ export function createWriter(options: {
     }
   }
 
-  // LIFE-9: exactly one fallback attempt, only before any stdout write. Any
-  // construction, validation, encoding or write failure ends with exit 1.
   async function fallback(trusted: TrustedRun) {
     try {
       const ready = await fallbackText(runtime, trusted);
