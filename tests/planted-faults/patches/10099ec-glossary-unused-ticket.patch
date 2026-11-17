@@ -1,0 +1,12 @@
+diff --git a/scripts/glossary.ts b/scripts/glossary.ts
+index 28977a1..96fddaa 100644
+--- a/scripts/glossary.ts
++++ b/scripts/glossary.ts
+@@ -120,7 +120,6 @@ export function readRecordedUnusedTerms(text: string): RecordedUnusedTerm[] {
+   return recordedFields(recordedUnusedTermsFile, text, "terms", [
+     "term",
+     "reason",
+-    "ticket",
+   ]).map(([term = "", reason = "", ticket = ""]) => ({ term, reason, ticket }));
+ }
+ 

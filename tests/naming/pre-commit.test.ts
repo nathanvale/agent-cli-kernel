@@ -3,33 +3,37 @@ import { symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { processWatchdog } from "../support/process.ts";
 import {
-  fixtureTree,
+  fixtureRepository,
   git,
   gitOutcome,
   removeFixtureTrees,
   repository,
   write,
+  writeRecordedHits,
 } from "./fixture-tree.ts";
 
 afterAll(removeFixtureTrees);
 
 async function treeWithCommitHook(): Promise<string> {
-  const tree = fixtureTree();
+  const tree = await fixtureRepository();
   symlinkSync(join(repository, "node_modules"), join(tree, "node_modules"));
-  await git(tree, "init", "--quiet", "--initial-branch=main");
   await git(tree, "config", "core.hooksPath", ".githooks");
   return tree;
+}
+
+async function commitCount(tree: string): Promise<string> {
+  const { stdout } = await gitOutcome(tree, "rev-list", "--count", "HEAD");
+  return stdout.trim();
 }
 
 async function commitNew(tree: string, path: string) {
   write(tree, path, "notes\n");
   await git(tree, "add", "--", path);
   const commit = await gitOutcome(tree, "commit", "--quiet", "-m", "notes");
-  const head = await gitOutcome(tree, "rev-parse", "--verify", "HEAD");
   return {
     exit: commit.exit,
     stderr: commit.stderr,
-    committed: head.exit === 0,
+    committed: (await commitCount(tree)) === "2",
   };
 }
 
@@ -47,7 +51,27 @@ test(
       committed: false,
     });
   },
-  processWatchdog(5),
+  processWatchdog(7),
+);
+
+test(
+  "PC.b a staged new file whose recorded hit is only an unstaged edit stops the commit",
+  async () => {
+    const tree = await treeWithCommitHook();
+    writeRecordedHits(tree, [
+      { path: "docs/host.md", word: "host", reason: "fixture" },
+    ]);
+    expect(await commitNew(tree, "docs/host.md")).toEqual({
+      exit: 1,
+      stderr: [
+        'docs/host.md uses "host" with no qualifier. Add a word that says which host it is.',
+        "pre-commit: the names check failed on the staged names (above). Rename each name it lists as its line says, stage the rename with git add, and commit again. Done when bun run check:names --staged passes.",
+        "",
+      ].join("\n"),
+      committed: false,
+    });
+  },
+  processWatchdog(7),
 );
 
 test(
@@ -59,5 +83,5 @@ test(
       committed: true,
     });
   },
-  processWatchdog(5),
+  processWatchdog(7),
 );

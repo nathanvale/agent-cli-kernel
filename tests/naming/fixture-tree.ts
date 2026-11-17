@@ -30,9 +30,9 @@ const sources = [
   "scripts/check-names.ts",
   "scripts/glossary.ts",
   ".claude/settings.json",
-  ".claude/hooks/names-gate.sh",
+  ".claude/hooks/names-check.sh",
   ".codex/hooks.json",
-  ".codex/hooks/names-gate.sh",
+  ".codex/hooks/names-check.sh",
   ".githooks/pre-commit",
 ];
 const folders: string[] = [];
@@ -65,6 +65,13 @@ export function write(root: string, path: string, content: string): void {
   writeFileSync(join(root, path), content);
 }
 
+export function writeRecordedHits(
+  root: string,
+  recorded: readonly RecordedHit[],
+): void {
+  write(root, recordedHitsFile, JSON.stringify({ hits: recorded }));
+}
+
 export function emptyFolder(): string {
   const folder = testFolder("names-tree-");
   folders.push(folder);
@@ -79,7 +86,7 @@ export function fixtureTree(recorded: readonly RecordedHit[] = []): string {
     chmodSync(join(root, path), statSync(join(repository, path)).mode);
   }
   write(root, "GLOSSARY.md", glossary);
-  write(root, recordedHitsFile, JSON.stringify({ hits: recorded }));
+  writeRecordedHits(root, recorded);
   write(
     root,
     "package.json",
@@ -115,6 +122,16 @@ export function gitOutcome(root: string, ...args: string[]) {
 export async function git(root: string, ...args: string[]): Promise<void> {
   const { exit, stderr } = await gitOutcome(root, ...args);
   if (exit !== 0) throw new Error(`git ${args.join(" ")}: ${stderr}`);
+}
+
+export async function fixtureRepository(
+  recorded: readonly RecordedHit[] = [],
+): Promise<string> {
+  const root = fixtureTree(recorded);
+  await git(root, "init", "--quiet", "--initial-branch=main");
+  await git(root, "add", "--", "GLOSSARY.md", recordedHitsFile);
+  await git(root, "commit", "--quiet", "-m", "rules");
+  return root;
 }
 
 export function checkNames(root: string, args: readonly string[]) {

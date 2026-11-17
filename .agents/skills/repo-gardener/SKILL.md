@@ -25,8 +25,10 @@ each pointer rather than a copy:
   of a new lint.
 - [GLOSSARY-MAP.md](../../../GLOSSARY-MAP.md): the glossary that owns each
   word. [GLOSSARY.md](../../../GLOSSARY.md) holds this repository's words,
-  its Avoid words and the words that need a qualifier.
-  `tests/naming/recorded-hits.json` holds the names check's recorded hits.
+  their Avoid words, how a note on an Avoid line is read, and the words
+  that need a qualifier. `tests/naming/recorded-hits.json` holds the names
+  check's recorded hits, and `tests/naming/recorded-unused-terms.json` the
+  glossary words that no tracked file uses yet.
 
 Take **Sow** when the prompt brings a correction or a review finding.
 Take **Gate** when it names a Review only or Partial row to gate.
@@ -194,24 +196,30 @@ repository meets.
    `bun run check:names <path>` to judge one. Each problem line gives a
    path, the word it uses, and the glossary entry that refuses the word.
 2. For a name the check refuses, take the first repair that fits:
-   - Rename the path with the glossary's word, using `git mv`, and change
-     each file that refers to it. Find them with a search for the old path.
-   - The name needs a word no glossary owns: add a word this repository owns
-     to `GLOSSARY.md`, in the form its entries use. Report a word another
-     glossary should own, for the owner `GLOSSARY-MAP.md` names.
+   - Rename the path with the glossary's word: `git mv` for a tracked path,
+     `mv` for an untracked one. Then change each file that refers to it.
+     Search for the old path and for its file name, and judge each match.
+   - No glossary word fits what the path holds: add the word, then rename
+     the path with it. A word this repository owns goes in `GLOSSARY.md`, in
+     the form its entries use. When no tracked file uses it yet, list it in
+     `tests/naming/recorded-unused-terms.json` with its reason and its
+     ticket. Report a word another glossary should own, for the owner
+     `GLOSSARY-MAP.md` names.
    - The name is older than the glossary rule that refuses it, and its
      rename belongs to a larger change: add a recorded hit with its reason
      and the change that will remove it. A name newer than its rule takes
      one of the two repairs above.
-3. For a recorded hit that no longer occurs, remove its entry.
+3. Remove the entry of a recorded hit that no longer occurs, and of a
+   recorded unused term that a tracked file now uses.
 4. Commit nothing: the caller approves a rename by committing it.
 5. Report each name with its repair, and each word you added or reported.
 
 Done when each item holds:
 
 - `bun run test:area naming` passes.
-- A search for each old path, as a whole path, finds only history: commit
-  subjects, witnesses and fault `source` fields.
+- No tracked file refers to an old path, by its whole path or by a relative
+  one. History stays as it is: commit subjects, witnesses and fault `source`
+  fields.
 - `bun run typecheck`, `bun run lint` and `bun run format:check` exit 0.
 - `git status --porcelain` lists only write-scope paths, the renamed paths
   and the files that referred to them.

@@ -75,21 +75,23 @@ function beforePatch(tree: string, hunks: readonly string[], cwd = tree) {
   return runHook(command, patchCall(patch, cwd), { cwd, projectFolder: tree });
 }
 
-test("NG.live Codex runs an executable names gate before each apply_patch", () => {
+test("NG.live Codex runs an executable names check hook before each apply_patch", () => {
   const [command = ""] = hookCommands(
     repository,
     codexSettings,
     "^apply_patch$",
   );
   const script = /\.codex\/hooks\/[\w-]+\.sh/.exec(command)?.[0] ?? "";
-  expect(script).toBe(".codex/hooks/names-gate.sh");
+  expect(script).toBe(".codex/hooks/names-check.sh");
   expect(statSync(join(repository, script)).mode & 0o111).not.toBe(0);
 });
 
-test("the Codex names gate is the Claude Code one, byte for byte", () => {
+test("the Codex names check hook is the Claude Code one, byte for byte", () => {
   expect(
-    readFileSync(join(repository, ".codex/hooks/names-gate.sh"), "utf8"),
-  ).toBe(readFileSync(join(repository, ".claude/hooks/names-gate.sh"), "utf8"));
+    readFileSync(join(repository, ".codex/hooks/names-check.sh"), "utf8"),
+  ).toBe(
+    readFileSync(join(repository, ".claude/hooks/names-check.sh"), "utf8"),
+  );
 });
 
 test(
@@ -156,10 +158,10 @@ test(
   processWatchdog(2),
 );
 
-test("NG.live Claude Code runs an executable names gate before each Write", () => {
+test("NG.live Claude Code runs an executable names check hook before each Write", () => {
   const [command = ""] = hookCommands(repository, claudeSettings, "Write");
   const script = /\.claude\/hooks\/[\w-]+\.sh/.exec(command)?.[0] ?? "";
-  expect(script).toBe(".claude/hooks/names-gate.sh");
+  expect(script).toBe(".claude/hooks/names-check.sh");
   expect(statSync(join(repository, script)).mode & 0o111).not.toBe(0);
 });
 
@@ -244,8 +246,8 @@ test(
     ).toEqual({
       stdout: "",
       stderr: [
-        "--tool-call cannot read a Bash call. It reads the file_path of a Write call and the command of an apply_patch call. Wire the names gate to those tools only.",
-        "names-gate: check:names --tool-call exited 2, so the names this tool call creates went unchecked. Fix the cause above, or run bun run check:names <path> yourself.",
+        "--tool-call cannot read a Bash call. It reads the file_path of a Write call and the command of an apply_patch call. Wire the names check to those tools only.",
+        "names check: check:names --tool-call exited 2, so the names this tool call creates went unchecked. Fix the cause above, or run bun run check:names <path> yourself.",
         "",
       ].join("\n"),
       exit: 1,

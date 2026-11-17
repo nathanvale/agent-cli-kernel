@@ -1,13 +1,16 @@
 import { afterAll, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { recordedHitsFile } from "../../scripts/glossary.ts";
 import { processWatchdog } from "../support/process.ts";
 import {
   checkNames,
+  fixtureRepository,
   fixtureTree,
   git,
   removeFixtureTrees,
   write,
+  writeRecordedHits,
 } from "./fixture-tree.ts";
 
 const usage =
@@ -105,9 +108,8 @@ test(
 test(
   "CN.c --staged judges an added and a renamed name, and ignores a modified one",
   async () => {
-    const tree = fixtureTree();
+    const tree = await fixtureRepository();
     const body = "A file long enough for git to see its move as a rename.\n";
-    await git(tree, "init", "--quiet", "--initial-branch=main");
     write(tree, "docs/mutation-notes.md", "before\n");
     write(tree, "docs/planted-fault-notes.md", body);
     await git(tree, "add", "--", "docs");
@@ -132,7 +134,85 @@ test(
       exit: 1,
     });
   },
-  processWatchdog(8),
+  processWatchdog(10),
+);
+
+const hostHit = { path: "docs/host.md", word: "host", reason: "fixture" };
+const hostRefusal =
+  'docs/host.md uses "host" with no qualifier. Add a word that says which host it is.\n';
+
+async function repositoryWithStagedHost(): Promise<string> {
+  const tree = await fixtureRepository();
+  write(tree, "docs/host.md", "notes\n");
+  await git(tree, "add", "--", "docs/host.md");
+  return tree;
+}
+
+test(
+  "CN.f --staged refuses a name whose recorded hit is only an unstaged edit",
+  async () => {
+    const tree = await repositoryWithStagedHost();
+    writeRecordedHits(tree, [hostHit]);
+    expect(await checkNames(tree, ["--staged"])).toEqual({
+      stdout: "",
+      stderr: hostRefusal,
+      exit: 1,
+    });
+  },
+  processWatchdog(5),
+);
+
+test(
+  "--staged passes a name whose recorded hit is staged, though the working tree has lost it",
+  async () => {
+    const tree = await repositoryWithStagedHost();
+    writeRecordedHits(tree, [hostHit]);
+    await git(tree, "add", "--", recordedHitsFile);
+    writeRecordedHits(tree, []);
+    expect(await checkNames(tree, ["--staged"])).toEqual({
+      stdout: "",
+      stderr: "",
+      exit: 0,
+    });
+  },
+  processWatchdog(6),
+);
+
+test(
+  "CN.g --staged refuses a name that uses an Avoid word the staged glossary adds, though the working tree's glossary lacks it",
+  async () => {
+    const tree = await fixtureRepository();
+    const glossary = readFileSync(join(tree, "GLOSSARY.md"), "utf8");
+    write(
+      tree,
+      "GLOSSARY.md",
+      glossary.replace("mutant, mutation", "mutant, mutation, canary"),
+    );
+    write(tree, "docs/canary-notes.md", "notes\n");
+    await git(tree, "add", "--", "GLOSSARY.md", "docs/canary-notes.md");
+    write(tree, "GLOSSARY.md", glossary);
+    expect(await checkNames(tree, ["--staged"])).toEqual({
+      stdout: "",
+      stderr:
+        'docs/canary-notes.md uses "canary", which GLOSSARY.md lists under Avoid for "Planted fault". Rename it with the glossary word.\n',
+      exit: 1,
+    });
+  },
+  processWatchdog(5),
+);
+
+test.each([["GLOSSARY.md"], [recordedHitsFile]])(
+  "CN.h --staged with no staged %s cannot run, and names the file and the repair",
+  async (path) => {
+    const tree = await fixtureRepository();
+    await git(tree, "rm", "--cached", "--quiet", "--", path);
+    expect(await checkNames(tree, ["--staged"])).toEqual({
+      stdout: "",
+      stderr: `git has no staged ${path}, so the names check cannot judge a commit by the ${path} it will contain. Stage it with git add ${path}, then run the names check again.\n`,
+      exit: 2,
+    });
+  },
+  processWatchdog(5),
 );
 
 test(

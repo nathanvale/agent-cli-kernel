@@ -1,0 +1,120 @@
+{
+  "about": "Terms that GLOSSARY.md defines and no tracked file uses yet, each with the reason and the ticket that will bring it into use. The glossary files test fails on an unused term not listed here, on a listed term that a tracked file now uses, and on a listed term that GLOSSARY.md no longer defines: remove an entry in the change that first uses its term.",
+  "terms": [
+    {
+      "term": "Repository shape",
+      "reason": "A word for the plan: the recipe table holds the shapes without naming them. MAG-129 removes all but one shape, and the word can go with them.",
+      "ticket": "MAG-129"
+    },
+    {
+      "term": "Template version",
+      "reason": "MAG-108 owns the design of template versions and builds the first one.",
+      "ticket": "MAG-108"
+    },
+    {
+      "term": "Kernel split",
+      "reason": "Names the whole change. No ticket is known to bring it into a tracked file here; MAG-114 is the kernel split spec, which uses the word.",
+      "ticket": "MAG-114"
+    },
+    {
+      "term": "Sibling repository",
+      "reason": "The kernel reader reads the kernel repository as a sibling repository. MAG-123 builds the kernel reader.",
+      "ticket": "MAG-123"
+    },
+    {
+      "term": "Carry-out",
+      "reason": "MAG-122 performs the carry-out in the kernel repository. MAG-124 brings the word here with the pin, which records the carry-out identity.",
+      "ticket": "MAG-124"
+    },
+    {
+      "term": "Prepared parent",
+      "reason": "MAG-122 makes the carry-out commit on top of it, in the kernel repository. No ticket is known to name it in a tracked file here.",
+      "ticket": "MAG-122"
+    },
+    {
+      "term": "Carry-out identity",
+      "reason": "The pin records it. MAG-124 adds the pin.",
+      "ticket": "MAG-124"
+    },
+    {
+      "term": "Kernel migration",
+      "reason": "Not designed. No ticket is known to bring it into a tracked file here; MAG-114 is the kernel split spec, which uses the word.",
+      "ticket": "MAG-114"
+    },
+    {
+      "term": "Kernel repository alignment",
+      "reason": "Not decided. No ticket is known to bring it into a tracked file here; MAG-114 is the kernel split spec, which uses the word.",
+      "ticket": "MAG-114"
+    },
+    {
+      "term": "Pinned commit",
+      "reason": "The pin names it. MAG-124 adds the pin.",
+      "ticket": "MAG-124"
+    },
+    {
+      "term": "Pin move",
+      "reason": "MAG-126 builds the pin move.",
+      "ticket": "MAG-126"
+    },
+    {
+      "term": "Pin move report",
+      "reason": "A pin move produces it. MAG-126 builds the pin move.",
+      "ticket": "MAG-126"
+    },
+    {
+      "term": "Kernel trial",
+      "reason": "MAG-126 builds the kernel trial.",
+      "ticket": "MAG-126"
+    },
+    {
+      "term": "Stamp record",
+      "reason": "The stamp check compares a folder with its stamp record. MAG-123 builds the stamp check.",
+      "ticket": "MAG-123"
+    },
+    {
+      "term": "Stamp check",
+      "reason": "MAG-123 builds the stamp check.",
+      "ticket": "MAG-123"
+    },
+    {
+      "term": "Stamp checker",
+      "reason": "MAG-123 builds the stamp checker that a generated repository carries.",
+      "ticket": "MAG-123"
+    },
+    {
+      "term": "Restamp",
+      "reason": "MAG-128 builds Restamp.",
+      "ticket": "MAG-128"
+    },
+    {
+      "term": "Add-on selection",
+      "reason": "MAG-125 makes Bootstrap stamp an add-on selection.",
+      "ticket": "MAG-125"
+    },
+    {
+      "term": "Kernel seam",
+      "reason": "The seam is the kernel reader's interface. MAG-123 builds the kernel reader.",
+      "ticket": "MAG-123"
+    },
+    {
+      "term": "Hosted check",
+      "reason": "MAG-127 adds the remaining hosted checks.",
+      "ticket": "MAG-127"
+    },
+    {
+      "term": "Negative control",
+      "reason": "The standards guides say RED-then-GREEN for it today. No ticket is known to bring it into a tracked file here; MAG-114 is the kernel split spec, which uses the word.",
+      "ticket": "MAG-114"
+    },
+    {
+      "term": "Test surface",
+      "reason": "A word for the plan. No ticket is known to bring it into a tracked file here; MAG-114 is the kernel split spec, which uses the word.",
+      "ticket": "MAG-114"
+    },
+    {
+      "term": "Claim tag",
+      "reason": "A word for the plan. No ticket is known to bring it into a tracked file here; MAG-114 is the kernel split spec, which uses the word.",
+      "ticket": "MAG-114"
+    }
+  ]
+}

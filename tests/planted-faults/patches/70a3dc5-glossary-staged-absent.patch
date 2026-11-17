@@ -1,0 +1,16 @@
+diff --git a/scripts/glossary.ts b/scripts/glossary.ts
+index 92b4597..5f74619 100644
+--- a/scripts/glossary.ts
++++ b/scripts/glossary.ts
+@@ -250,10 +250,7 @@ export function stagedNewPaths(root: string): string[] {
+ 
+ export function stagedText(root: string, path: string): string {
+   const shown = git(root, ["show", `:${path}`]);
+-  if (shown.exitCode !== 0)
+-    throw new Error(
+-      `git has no staged ${path}, so the names check cannot judge a commit by the ${path} it will contain. Stage it with git add ${path}, then run the names check again.`,
+-    );
++  if (shown.exitCode !== 0) return readFileSync(join(root, path), "utf8");
+   return shown.stdout.toString();
+ }
+ 

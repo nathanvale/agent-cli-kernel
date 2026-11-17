@@ -1,0 +1,13 @@
+diff --git a/scripts/check-names.ts b/scripts/check-names.ts
+index eee1999..d6a240f 100644
+--- a/scripts/check-names.ts
++++ b/scripts/check-names.ts
+@@ -22,7 +22,7 @@ function problemsGiven(textOf: TextOf, names: readonly string[]): string[] {
+   return newNameProblems(
+     names,
+     readGlossary(textOf("GLOSSARY.md")),
+-    readRecordedHits(textOf(recordedHitsFile)),
++    readRecordedHits(readFileSync(join(root, recordedHitsFile), "utf8")),
+   );
+ }
+ 

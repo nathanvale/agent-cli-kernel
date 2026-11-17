@@ -15,8 +15,8 @@ list. The lessons recur across pull requests #4, #5, and #6.
 - Let a handoff replace the default next action, so one envelope carries one
   guidance path. Witnessed: [#5 r4575427505].
 - Name the exact restriction that refused the input in the repair message.
-  Witnessed: [#4 r4024233462], [4afda36] (the recipe's last refusal was
-  reached by elimination, not by a check of its own condition).
+  Witnessed: [#4 r4024233462], [4afda36] (the recipe table's last refusal
+  was reached by elimination, not by a check of its own condition).
 
 [#4 r4023874167]: https://github.com/nathanvale/bun-typescript-template/pull/4#discussion_r4023874167
 [#4 r4024233462]: https://github.com/nathanvale/bun-typescript-template/pull/4#discussion_r4024233462

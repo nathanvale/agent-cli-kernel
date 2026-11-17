@@ -112,7 +112,7 @@ function workflow(setupBun: string): string {
   return `jobs:\n  build:\n    steps:\n      - name: Set up Bun\n${setupBun}`;
 }
 
-test("every setup-bun step in a workflow or composite action sets bun-version to the packageManager pin", async () => {
+test("every setup-bun step in a workflow or composite action sets bun-version to the toolchain pin", async () => {
   expect(await pinProblems(root)).toEqual([]);
 });
 
