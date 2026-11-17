@@ -69,10 +69,10 @@ repository broke it.
   [4386b03].
 - Widen a race control until it catches its fault on every run. Witnessed:
   [2b2907a] (caught in 48 of 50 runs before widening).
-- Bound a duration a test reads back from output by zero below and by the
-  wall time it measured above. A rounded duration can read 0.0 on a fast
-  host, so an assertion above zero fails there. Witnessed: [07d2d72],
-  [e50afb6].
+- Bound a duration a test reads back from output by zero below and, above,
+  by the wall time it measured plus half the printed precision (0.05 s for
+  one decimal). A rounded duration can read 0.0 on a fast host, so an
+  assertion above zero fails there. Witnessed: [07d2d72], [e50afb6].
 
 [185c90d]: https://github.com/nathanvale/bun-typescript-template/commit/185c90d11dd167ee4874e383ba26cd7d64a70964
 [640ba05]: https://github.com/nathanvale/bun-typescript-template/commit/640ba05881da2694fbdfad9b1d124bd85d36c0e4
