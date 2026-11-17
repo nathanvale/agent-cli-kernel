@@ -108,16 +108,16 @@ function linkProblem(
       : resolve(dirname(join(repository, view)), decodeURI(path));
   const shown = relative(repository, resolved);
   if (shown.startsWith(".."))
-    return `link ${target} leaves the repository. Link a file inside it.`;
+    return `link ${target} leaves the repository. Repair: link a file inside it.`;
   if (!existsSync(resolved))
-    return `link ${target} resolves to ${shown}, which does not exist. Fix the path relative to ${dirname(view)}/.`;
+    return `link ${target} resolves to ${shown}, which does not exist. Repair: write the path relative to ${dirname(view)}/.`;
   if (anchor === undefined) return undefined;
   if (!statSync(resolved).isFile())
-    return `link ${target} puts an anchor on folder ${shown}. Link a Markdown file.`;
+    return `link ${target} puts an anchor on folder ${shown}. Repair: link a Markdown file.`;
   const slugs = headings(readWithCodeBlanked(resolved)).map(({ slug }) => slug);
   return slugs.includes(anchor)
     ? undefined
-    : `link ${target} names #${anchor}, which no heading in ${shown} gives. Use one of: ${slugs.map((slug) => `#${slug}`).join(", ")}.`;
+    : `link ${target} names #${anchor}, which no heading in ${shown} gives. Repair: use one of: ${slugs.map((slug) => `#${slug}`).join(", ")}.`;
 }
 
 async function linkProblems(repository: string): Promise<string[]> {
@@ -141,13 +141,13 @@ function skillLinkProblems(repository: string): string[] {
     const relink = `ln -s ../../.agents/skills/${skill} .claude/skills/${skill}`;
     if (!existsSync(join(link, "SKILL.md")))
       return [
-        `.agents/skills/${skill} has no Claude Code link. Run: ${relink}`,
+        `.agents/skills/${skill} has no Claude Code link. Repair: ${relink}`,
       ];
     const target = realpathSync(link);
     return target === realpathSync(join(skills, skill))
       ? []
       : [
-          `.claude/skills/${skill} resolves to ${relative(realpathSync(repository), target)}, not .agents/skills/${skill}. Run: rm .claude/skills/${skill} && ${relink}`,
+          `.claude/skills/${skill} resolves to ${relative(realpathSync(repository), target)}, not .agents/skills/${skill}. Repair: rm .claude/skills/${skill} && ${relink}`,
         ];
   });
 }
@@ -215,7 +215,7 @@ function ancestry(repository: string): Ancestry {
 }
 
 function notAncestor(sha: string, { fetch }: Ancestry): string {
-  return `${sha}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA.${fetch}`;
+  return `${sha}, which is not an ancestor of HEAD. Repair: cite a commit in this branch's history, or correct the SHA.${fetch}`;
 }
 
 function commitLinkProblems(
@@ -244,11 +244,11 @@ function commitLinkProblems(
     const sha = page === undefined ? "" : target.slice(page.length);
     if (!/^[0-9a-f]{40}$/.test(sha))
       problems.push(
-        `${where} links ${target}, which is not a commit page of this repository. Link ${history.page}<full sha>.`,
+        `${where} links ${target}, which is not a commit page of this repository. Repair: link ${history.page}<full sha>.`,
       );
     else if (shortSha.test(label) && !sha.startsWith(label))
       problems.push(
-        `${where} links commit ${sha}. Make the label the start of that SHA.`,
+        `${where} links commit ${sha}. Repair: make the label the start of that SHA.`,
       );
     else if (!history.isAncestor(sha))
       problems.push(`${where} cites ${notAncestor(sha, history)}`);
@@ -262,7 +262,7 @@ function citationsIn(file: string, text: string, history: Ancestry): string[] {
     const [, label = ""] = match;
     if (!defined.has(label))
       problems.push(
-        `${file}:${lineOf(text, match.index)}: [${label}] has no commit link. Add [${label}]: ${history.page}<full sha> at the end of the file.`,
+        `${file}:${lineOf(text, match.index)}: [${label}] has no commit link. Repair: add [${label}]: ${history.page}<full sha> at the end of the file.`,
       );
   }
   const prose = text
@@ -295,7 +295,7 @@ function faultSourceProblems(repository: string, history: Ancestry): string[] {
     const where = `${faultRecordsFile}: record "${id}"`;
     if (sha === undefined)
       return [
-        `${where} has source "${source}", which does not start with its fix commit's SHA. Write "<short sha> <subject>", as bun run planted-fault:add does.`,
+        `${where} has source "${source}", which does not start with its fix commit's SHA. Repair: write "<short sha> <subject>", as bun run planted-fault:add does.`,
       ];
     return history.isAncestor(sha)
       ? []
@@ -337,7 +337,7 @@ function ruleTable(repository: string): {
   );
   const problems = missing.map(
     (name) =>
-      `${standards}: the rule table has no ${name} column. Restore it, since the standards test and the repo-gardener skill read it.`,
+      `${standards}: the rule table has no ${name} column. Repair: restore it, since the standards test and the repo-gardener skill read it.`,
   );
   const rows = lines.slice(2).map((line) => {
     const row = cells(line);
@@ -353,7 +353,9 @@ function ruleTable(repository: string): {
     .filter(({ level }) => level === 3)
     .map(({ slug }) => slug);
   if (rows.length === 0)
-    problems.push(`${standards}: the rule table has no rows.`);
+    problems.push(
+      `${standards}: the rule table has no rows. Repair: restore its rows under the ## Rule table heading.`,
+    );
   return { rows, gateNotes, problems };
 }
 
@@ -368,14 +370,16 @@ const levels = new Map([
     "Partial",
     {
       gated: true,
-      fix: "is Partial but names no gate. Name each gate in the Gates cell as script, lint, job or fault with its id, or mark the row Review only.",
+      repair:
+        "is Partial but names no gate. Repair: name each gate in the Gates cell as script, lint, job or fault with its id, or mark the row Review only.",
     },
   ],
   [
     "Review only",
     {
       gated: false,
-      fix: "is Review only but names a gate. Mark it Partial, or set its Gates cell to None.",
+      repair:
+        "is Review only but names a gate. Repair: mark it Partial, or set its Gates cell to None.",
     },
   ],
 ]);
@@ -383,8 +387,8 @@ const levels = new Map([
 function levelProblem(row: Row): string | undefined {
   const level = levels.get(row.today);
   if (level === undefined)
-    return `has Today "${row.today}". Use Review only or Partial.`;
-  return gatesOf(row).length > 0 === level.gated ? undefined : level.fix;
+    return `has Today "${row.today}". Repair: use Review only or Partial.`;
+  return gatesOf(row).length > 0 === level.gated ? undefined : level.repair;
 }
 
 function section(text: string, slug: string): string {
@@ -453,12 +457,12 @@ function rowProblems(repository: string): string[] {
     );
     if (!hasGuide && !notes.some((anchor) => gateNotes.includes(anchor)))
       problems.push(
-        `${where} has no guide and no gate note. Link its guide in the Guide cell, or link a heading under ## Gate notes from its Gates cell.`,
+        `${where} has no guide and no gate note. Repair: link its guide in the Guide cell, or link a heading under ## Gate notes from its Gates cell.`,
       );
     const witnesses = rowWitnesses(repository, row, notes, citable).size;
     if (witnesses < 2)
       problems.push(
-        `${where} needs two distinct witnesses in its guide or gate note, and has ${witnesses}. Cite a second commit or review thread, or move the lesson back to docs/standards/single-witness.md.`,
+        `${where} needs two distinct witnesses in its guide or gate note, and has ${witnesses}. Repair: cite a second commit or review thread, or move the lesson back to docs/standards/single-witness.md.`,
       );
     const level = levelProblem(row);
     if (level !== undefined) problems.push(`${where} ${level}`);
@@ -542,7 +546,7 @@ async function gateProblems(repository: string): Promise<string[]> {
       .filter(({ kind, id }) => !known[kind].ids.has(id))
       .map(
         ({ kind, id }) =>
-          `${standards}: row "${row.rule}" names ${kind} \`${id}\`, which ${known[kind].owner}. Restore the gate, or fix the row's Gates cell and mark it Review only if no gate remains.`,
+          `${standards}: row "${row.rule}" names ${kind} \`${id}\`, which ${known[kind].owner}. Repair: restore the gate, or correct the row's Gates cell and mark it Review only if no gate remains.`,
       ),
   );
 }
@@ -698,7 +702,7 @@ test.each([
         .replaceAll(sha.slice(0, 7), absent.slice(0, 7));
     },
     [
-      `docs/standards/guide.md:7: [0123456] cites ${absent}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA.`,
+      `docs/standards/guide.md:7: [0123456] cites ${absent}, which is not an ancestor of HEAD. Repair: cite a commit in this branch's history, or correct the SHA.`,
     ],
   ],
   [
@@ -708,8 +712,8 @@ test.each([
         `${files["docs/standards/guide.md"] ?? ""}\nSee [0123456](${commitPage}${absent}).\nSee [0123456](https://github.com/owner/other/commit/${absent}).\n`;
     },
     [
-      `docs/standards/guide.md:10: [0123456] cites ${absent}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA.`,
-      `docs/standards/guide.md:11: [0123456] links https://github.com/owner/other/commit/${absent}, which is not a commit page of this repository. Link ${commitPage}<full sha>.`,
+      `docs/standards/guide.md:10: [0123456] cites ${absent}, which is not an ancestor of HEAD. Repair: cite a commit in this branch's history, or correct the SHA.`,
+      `docs/standards/guide.md:11: [0123456] links https://github.com/owner/other/commit/${absent}, which is not a commit page of this repository. Repair: link ${commitPage}<full sha>.`,
     ],
   ],
   [
@@ -719,8 +723,8 @@ test.each([
         "---\nname: fixture\n---\n\n[checks](../../../AGENTS.md#check)\n";
     },
     [
-      ".agents/skills/fixture/SKILL.md:5: link ../../../AGENTS.md#check names #check, which no heading in AGENTS.md gives. Use one of: #fixture, #checks.",
-      ".claude/skills/fixture/SKILL.md:5: link ../../../AGENTS.md#check names #check, which no heading in AGENTS.md gives. Use one of: #fixture, #checks.",
+      ".agents/skills/fixture/SKILL.md:5: link ../../../AGENTS.md#check names #check, which no heading in AGENTS.md gives. Repair: use one of: #fixture, #checks.",
+      ".claude/skills/fixture/SKILL.md:5: link ../../../AGENTS.md#check names #check, which no heading in AGENTS.md gives. Repair: use one of: #fixture, #checks.",
     ],
   ],
   [
@@ -729,7 +733,7 @@ test.each([
       files["package.json"] = '{"scripts":{}}';
     },
     [
-      'CODING_STANDARDS.md: row "Gated rule" names script `fault-replay`, which package.json does not define as a script. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
+      'CODING_STANDARDS.md: row "Gated rule" names script `fault-replay`, which package.json does not define as a script. Repair: restore the gate, or correct the row\'s Gates cell and mark it Review only if no gate remains.',
     ],
   ],
   [
@@ -738,8 +742,8 @@ test.each([
       files[standards] = (files[standards] ?? "").replace("](#gated)", "]");
     },
     [
-      'CODING_STANDARDS.md: row "Gated rule" has no guide and no gate note. Link its guide in the Guide cell, or link a heading under ## Gate notes from its Gates cell.',
-      'CODING_STANDARDS.md: row "Gated rule" needs two distinct witnesses in its guide or gate note, and has 0. Cite a second commit or review thread, or move the lesson back to docs/standards/single-witness.md.',
+      'CODING_STANDARDS.md: row "Gated rule" has no guide and no gate note. Repair: link its guide in the Guide cell, or link a heading under ## Gate notes from its Gates cell.',
+      'CODING_STANDARDS.md: row "Gated rule" needs two distinct witnesses in its guide or gate note, and has 0. Repair: cite a second commit or review thread, or move the lesson back to docs/standards/single-witness.md.',
     ],
   ],
   [
@@ -750,8 +754,8 @@ test.each([
         "on: pull_request\njobs:\n  other:\n    runs-on: x\n";
     },
     [
-      'CODING_STANDARDS.md: row "Gated rule" names lint `repository/rule`, which no config in eslint.config.mjs turns on for a file in the repository. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
-      'CODING_STANDARDS.md: row "Gated rule" names job `fault-replay`, which no workflow in .github/workflows/ that runs on pull_request defines as a job. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
+      'CODING_STANDARDS.md: row "Gated rule" names lint `repository/rule`, which no config in eslint.config.mjs turns on for a file in the repository. Repair: restore the gate, or correct the row\'s Gates cell and mark it Review only if no gate remains.',
+      'CODING_STANDARDS.md: row "Gated rule" names job `fault-replay`, which no workflow in .github/workflows/ that runs on pull_request defines as a job. Repair: restore the gate, or correct the row\'s Gates cell and mark it Review only if no gate remains.',
     ],
   ],
   [
@@ -760,7 +764,7 @@ test.each([
       files[faultRecordsFile] = "[]";
     },
     [
-      'CODING_STANDARDS.md: row "Gated rule" names fault `fixture`, which no record in tests/planted-faults/fault-records.json has as its id. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
+      'CODING_STANDARDS.md: row "Gated rule" names fault `fixture`, which no record in tests/planted-faults/fault-records.json has as its id. Repair: restore the gate, or correct the row\'s Gates cell and mark it Review only if no gate remains.',
     ],
   ],
   [
@@ -771,7 +775,7 @@ test.each([
       );
     },
     [
-      'CODING_STANDARDS.md: row "Gated rule" names lint `repository/rule`, which no config in eslint.config.mjs turns on for a file in the repository. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
+      'CODING_STANDARDS.md: row "Gated rule" names lint `repository/rule`, which no config in eslint.config.mjs turns on for a file in the repository. Repair: restore the gate, or correct the row\'s Gates cell and mark it Review only if no gate remains.',
     ],
   ],
   [
@@ -783,7 +787,7 @@ test.each([
       );
     },
     [
-      'CODING_STANDARDS.md: row "Gated rule" names lint `repository/rule`, which no config in eslint.config.mjs turns on for a file in the repository. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
+      'CODING_STANDARDS.md: row "Gated rule" names lint `repository/rule`, which no config in eslint.config.mjs turns on for a file in the repository. Repair: restore the gate, or correct the row\'s Gates cell and mark it Review only if no gate remains.',
     ],
   ],
   [
@@ -793,7 +797,7 @@ test.each([
         "on:\n  workflow_dispatch:\n  push:\n    branches: [main]\njobs:\n  fault-replay:\n    runs-on: x\n";
     },
     [
-      'CODING_STANDARDS.md: row "Gated rule" names job `fault-replay`, which no workflow in .github/workflows/ that runs on pull_request defines as a job. Restore the gate, or fix the row\'s Gates cell and mark it Review only if no gate remains.',
+      'CODING_STANDARDS.md: row "Gated rule" names job `fault-replay`, which no workflow in .github/workflows/ that runs on pull_request defines as a job. Repair: restore the gate, or correct the row\'s Gates cell and mark it Review only if no gate remains.',
     ],
   ],
   [
@@ -805,7 +809,7 @@ test.each([
       );
     },
     [
-      'CODING_STANDARDS.md: row "Gated rule" is Partial but names no gate. Name each gate in the Gates cell as script, lint, job or fault with its id, or mark the row Review only.',
+      'CODING_STANDARDS.md: row "Gated rule" is Partial but names no gate. Repair: name each gate in the Gates cell as script, lint, job or fault with its id, or mark the row Review only.',
     ],
   ],
   [
@@ -817,7 +821,7 @@ test.each([
       );
     },
     [
-      'CODING_STANDARDS.md: row "Guided rule" is Review only but names a gate. Mark it Partial, or set its Gates cell to None.',
+      'CODING_STANDARDS.md: row "Guided rule" is Review only but names a gate. Repair: mark it Partial, or set its Gates cell to None.',
     ],
   ],
   [
@@ -829,11 +833,11 @@ test.each([
       );
     },
     [
-      'CODING_STANDARDS.md: row "Guided rule" has Today "Planned". Use Review only or Partial.',
+      'CODING_STANDARDS.md: row "Guided rule" has Today "Planned". Repair: use Review only or Partial.',
     ],
   ],
 ])(
-  "%s fails, naming the file and the fix",
+  "%s fails, naming the file and the repair",
   async (_fault, change, expected) => {
     expect(await allProblems(fixture(change))).toEqual(expected);
   },
@@ -848,8 +852,8 @@ test.each([
       ).replace(commitPage, "https://github.com/owner/other/commit/");
     },
     (sha: string) => [
-      `docs/standards/guide.md:7: [${sha.slice(0, 7)}] links https://github.com/owner/other/commit/${sha}, which is not a commit page of this repository. Link ${commitPage}<full sha>.`,
-      `CODING_STANDARDS.md: row "Guided rule" needs two distinct witnesses in its guide or gate note, and has 1. Cite a second commit or review thread, or move the lesson back to docs/standards/single-witness.md.`,
+      `docs/standards/guide.md:7: [${sha.slice(0, 7)}] links https://github.com/owner/other/commit/${sha}, which is not a commit page of this repository. Repair: link ${commitPage}<full sha>.`,
+      `CODING_STANDARDS.md: row "Guided rule" needs two distinct witnesses in its guide or gate note, and has 1. Repair: cite a second commit or review thread, or move the lesson back to docs/standards/single-witness.md.`,
     ],
   ],
   [
@@ -861,8 +865,8 @@ test.each([
       );
     },
     (sha: string) => [
-      `CODING_STANDARDS.md:16: [${sha.slice(0, 7)}] links https://gitlab.com/nathanvale/bun-typescript-template/-/commit/${sha}, which is not a commit page of this repository. Link ${commitPage}<full sha>.`,
-      `CODING_STANDARDS.md: row "Gated rule" needs two distinct witnesses in its guide or gate note, and has 1. Cite a second commit or review thread, or move the lesson back to docs/standards/single-witness.md.`,
+      `CODING_STANDARDS.md:16: [${sha.slice(0, 7)}] links https://gitlab.com/nathanvale/bun-typescript-template/-/commit/${sha}, which is not a commit page of this repository. Repair: link ${commitPage}<full sha>.`,
+      `CODING_STANDARDS.md: row "Gated rule" needs two distinct witnesses in its guide or gate note, and has 1. Repair: cite a second commit or review thread, or move the lesson back to docs/standards/single-witness.md.`,
     ],
   ],
   [
@@ -878,7 +882,7 @@ test.each([
         );
     },
     () => [
-      'CODING_STANDARDS.md: row "Guided rule" needs two distinct witnesses in its guide or gate note, and has 1. Cite a second commit or review thread, or move the lesson back to docs/standards/single-witness.md.',
+      'CODING_STANDARDS.md: row "Guided rule" needs two distinct witnesses in its guide or gate note, and has 1. Repair: cite a second commit or review thread, or move the lesson back to docs/standards/single-witness.md.',
     ],
   ],
   [
@@ -890,8 +894,8 @@ test.each([
         `${files["docs/standards/guide.md"] ?? ""}\nSee ${absent}.\n`;
     },
     () => [
-      `CODING_STANDARDS.md:19: names commit ${absent.slice(0, 12)}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA.`,
-      `docs/standards/guide.md:10: names commit ${absent}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA.`,
+      `CODING_STANDARDS.md:19: names commit ${absent.slice(0, 12)}, which is not an ancestor of HEAD. Repair: cite a commit in this branch's history, or correct the SHA.`,
+      `docs/standards/guide.md:10: names commit ${absent}, which is not an ancestor of HEAD. Repair: cite a commit in this branch's history, or correct the SHA.`,
     ],
   ],
   [
@@ -904,12 +908,12 @@ test.each([
       ]);
     },
     () => [
-      `tests/planted-faults/fault-records.json: record "lost" names source ${absent.slice(0, 7)}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA.`,
-      'tests/planted-faults/fault-records.json: record "bare" has source "fix: no commit", which does not start with its fix commit\'s SHA. Write "<short sha> <subject>", as bun run planted-fault:add does.',
+      `tests/planted-faults/fault-records.json: record "lost" names source ${absent.slice(0, 7)}, which is not an ancestor of HEAD. Repair: cite a commit in this branch's history, or correct the SHA.`,
+      'tests/planted-faults/fault-records.json: record "bare" has source "fix: no commit", which does not start with its fix commit\'s SHA. Repair: write "<short sha> <subject>", as bun run planted-fault:add does.',
     ],
   ],
 ])(
-  "%s fails, naming the commit and the fix",
+  "%s fails, naming the commit and the repair",
   async (_fault, change, expected) => {
     const repository = fixture(change);
     expect(await allProblems(repository)).toEqual(
@@ -926,10 +930,10 @@ test.each([
     "not a citable origin",
     [],
     (sha: string) => [
-      `CODING_STANDARDS.md:16: [${sha.slice(0, 7)}] links ${commitPage}${sha}, which is not a commit page of this repository. Link ${kernelWeb}/commit/<full sha>.`,
-      `docs/standards/guide.md:7: [${sha.slice(0, 7)}] links ${commitPage}${sha}, which is not a commit page of this repository. Link ${kernelWeb}/commit/<full sha>.`,
-      'CODING_STANDARDS.md: row "Gated rule" needs two distinct witnesses in its guide or gate note, and has 0. Cite a second commit or review thread, or move the lesson back to docs/standards/single-witness.md.',
-      'CODING_STANDARDS.md: row "Guided rule" needs two distinct witnesses in its guide or gate note, and has 0. Cite a second commit or review thread, or move the lesson back to docs/standards/single-witness.md.',
+      `CODING_STANDARDS.md:16: [${sha.slice(0, 7)}] links ${commitPage}${sha}, which is not a commit page of this repository. Repair: link ${kernelWeb}/commit/<full sha>.`,
+      `docs/standards/guide.md:7: [${sha.slice(0, 7)}] links ${commitPage}${sha}, which is not a commit page of this repository. Repair: link ${kernelWeb}/commit/<full sha>.`,
+      'CODING_STANDARDS.md: row "Gated rule" needs two distinct witnesses in its guide or gate note, and has 0. Repair: cite a second commit or review thread, or move the lesson back to docs/standards/single-witness.md.',
+      'CODING_STANDARDS.md: row "Guided rule" needs two distinct witnesses in its guide or gate note, and has 0. Repair: cite a second commit or review thread, or move the lesson back to docs/standards/single-witness.md.',
     ],
   ],
 ])(
@@ -961,7 +965,7 @@ test("one commit linked through this repository and a citable origin is one witn
   });
 
   expect(await allProblems(repository)).toEqual([
-    'CODING_STANDARDS.md: row "Gated rule" needs two distinct witnesses in its guide or gate note, and has 1. Cite a second commit or review thread, or move the lesson back to docs/standards/single-witness.md.',
+    'CODING_STANDARDS.md: row "Gated rule" needs two distinct witnesses in its guide or gate note, and has 1. Repair: cite a second commit or review thread, or move the lesson back to docs/standards/single-witness.md.',
   ]);
 });
 
@@ -976,7 +980,7 @@ test("a citable origin's commit outside HEAD's history fails", async () => {
       `${files["docs/standards/guide.md"] ?? ""}\nSee [0123456](${commitPage}${absent}).\n`;
   });
   expect(await citationProblems(repository)).toEqual([
-    `docs/standards/guide.md:10: [0123456] cites ${absent}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA.`,
+    `docs/standards/guide.md:10: [0123456] cites ${absent}, which is not an ancestor of HEAD. Repair: cite a commit in this branch's history, or correct the SHA.`,
   ]);
 });
 
@@ -990,7 +994,7 @@ test("a .claude/skills link to another skill fails and says how to relink it", a
     join(repository, ".claude/skills/other"),
   );
   expect(await allProblems(repository)).toEqual([
-    ".claude/skills/other resolves to .agents/skills/fixture, not .agents/skills/other. Run: rm .claude/skills/other && ln -s ../../.agents/skills/other .claude/skills/other",
+    ".claude/skills/other resolves to .agents/skills/fixture, not .agents/skills/other. Repair: rm .claude/skills/other && ln -s ../../.agents/skills/other .claude/skills/other",
   ]);
 });
 
@@ -1002,8 +1006,8 @@ test("a shallow clone that cuts a cited commit fails and says to fetch the histo
   const fetch =
     "HEAD's history is cut short in this shallow clone: run `git fetch --unshallow` and rerun.";
   expect(await citationProblems(repository)).toEqual([
-    `CODING_STANDARDS.md:16: [${sha?.slice(0, 7)}] cites ${sha}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA. ${fetch}`,
-    `docs/standards/guide.md:7: [${sha?.slice(0, 7)}] cites ${sha}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA. ${fetch}`,
-    `tests/planted-faults/fault-records.json: record "fixture" names source ${sha?.slice(0, 7)}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA. ${fetch}`,
+    `CODING_STANDARDS.md:16: [${sha?.slice(0, 7)}] cites ${sha}, which is not an ancestor of HEAD. Repair: cite a commit in this branch's history, or correct the SHA. ${fetch}`,
+    `docs/standards/guide.md:7: [${sha?.slice(0, 7)}] cites ${sha}, which is not an ancestor of HEAD. Repair: cite a commit in this branch's history, or correct the SHA. ${fetch}`,
+    `tests/planted-faults/fault-records.json: record "fixture" names source ${sha?.slice(0, 7)}, which is not an ancestor of HEAD. Repair: cite a commit in this branch's history, or correct the SHA. ${fetch}`,
   ]);
 });

@@ -73,13 +73,13 @@ async function setupBunSteps(repository: string): Promise<SetupBun[]> {
 function problem(step: SetupBun, pin: string): string | undefined {
   const where = `${step.file} job ${step.job} step ${step.step}`;
   if (step.versionFile)
-    return `${where} uses bun-version-file; set bun-version: ${pin}`;
+    return `${where} uses bun-version-file. Repair: set bun-version: ${pin} on that step.`;
   if (step.version === undefined)
-    return `${where} has no bun-version; set bun-version: ${pin}`;
+    return `${where} has no bun-version. Repair: set bun-version: ${pin} on that step.`;
   if (step.version.includes("${{"))
-    return `${where} sets bun-version from ${step.version}, which fails closed (a matrix value is not checked); set bun-version: ${pin}`;
+    return `${where} sets bun-version from ${step.version}, which fails closed (a matrix value is not checked). Repair: set bun-version: ${pin} on that step.`;
   if (step.version !== pin)
-    return `${where} sets bun-version ${step.version}, package.json pins ${pin}`;
+    return `${where} sets bun-version ${step.version}, and package.json pins ${pin}. Repair: set bun-version: ${pin} on that step.`;
   return undefined;
 }
 
@@ -89,9 +89,14 @@ async function pinProblems(repository: string): Promise<string[]> {
   ).json()) as { packageManager?: unknown };
   const pin = /^bun@([^+]+)/.exec(String(packageManager))?.[1];
   if (pin === undefined)
-    return ["package.json has no packageManager pin of the form bun@<version>"];
+    return [
+      'package.json has no toolchain pin. Repair: add "packageManager": "bun@<version>" to package.json.',
+    ];
   const steps = await setupBunSteps(repository);
-  if (steps.length === 0) return ["no oven-sh/setup-bun step found"];
+  if (steps.length === 0)
+    return [
+      `no oven-sh/setup-bun step found under .github/. Repair: add one that sets bun-version: ${pin} to a workflow.`,
+    ];
   return steps.flatMap((step) => problem(step, pin) ?? []);
 }
 
@@ -124,7 +129,7 @@ test.each([
         "        uses: oven-sh/setup-bun@v2\n",
       ),
     },
-    ".github/workflows/ci.yml job build step Set up Bun has no bun-version; set bun-version: 1.4.4",
+    ".github/workflows/ci.yml job build step Set up Bun has no bun-version. Repair: set bun-version: 1.4.4 on that step.",
   ],
   [
     "a composite action with another version",
@@ -132,7 +137,7 @@ test.each([
       ".github/actions/setup/action.yml":
         "runs:\n  using: composite\n  steps:\n      - uses: oven-sh/setup-bun@v2\n        with:\n          bun-version: 1.4.3\n",
     },
-    ".github/actions/setup/action.yml job composite action step #1 sets bun-version 1.4.3, package.json pins 1.4.4",
+    ".github/actions/setup/action.yml job composite action step #1 sets bun-version 1.4.3, and package.json pins 1.4.4. Repair: set bun-version: 1.4.4 on that step.",
   ],
   [
     "a bun-version-file",
@@ -141,7 +146,7 @@ test.each([
         "        uses: oven-sh/setup-bun@v2\n        with:\n          bun-version-file: .bun-version\n",
       ),
     },
-    ".github/workflows/ci.yml job build step Set up Bun uses bun-version-file; set bun-version: 1.4.4",
+    ".github/workflows/ci.yml job build step Set up Bun uses bun-version-file. Repair: set bun-version: 1.4.4 on that step.",
   ],
   [
     "a matrix value",
@@ -150,9 +155,13 @@ test.each([
         "        uses: oven-sh/setup-bun@v2\n        with:\n          bun-version: ${{ matrix.bun }}\n",
       ),
     },
-    ".github/workflows/ci.yml job build step Set up Bun sets bun-version from ${{ matrix.bun }}, which fails closed (a matrix value is not checked); set bun-version: 1.4.4",
+    ".github/workflows/ci.yml job build step Set up Bun sets bun-version from ${{ matrix.bun }}, which fails closed (a matrix value is not checked). Repair: set bun-version: 1.4.4 on that step.",
   ],
-  ["no setup-bun step at all", {}, "no oven-sh/setup-bun step found"],
+  [
+    "no setup-bun step at all",
+    {},
+    "no oven-sh/setup-bun step found under .github/. Repair: add one that sets bun-version: 1.4.4 to a workflow.",
+  ],
 ])(
   "%s fails, naming the file, job and step",
   async (_fault, files, message) => {
