@@ -33,5 +33,12 @@
     "testFile": "tests/lint-rules.test.ts",
     "title": "^no-comments refuses .*Note\\.",
     "source": "5ac4285 feat(lint): refuse comments, except Platform:, Interface: and accepted decisions"
+  },
+  {
+    "id": "c6d3f09-doctor",
+    "patch": "tests/faults/patches/c6d3f09-doctor.patch",
+    "testFile": "tests/doctor.test.ts",
+    "title": "not ready fails on the failing check",
+    "source": "c6d3f09 feat(doctor): check fallow's readiness with fallow doctor"
   }
 ]
