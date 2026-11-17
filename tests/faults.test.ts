@@ -243,7 +243,7 @@ async function faults(
         },
         boundMilliseconds,
         processGroup: true,
-        ...(signalAt === undefined ? {} : { signalAt }),
+        signalAt,
       },
     );
     return { ...run, temporary, pids, lines: run.stdout.split("\n") };

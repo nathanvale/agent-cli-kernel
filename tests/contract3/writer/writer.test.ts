@@ -194,12 +194,10 @@ describe("one depth rule for the 64 and 8 limits (supporting B2)", () => {
             String(depth),
             "--json",
           ],
-          expect: {
-            commandIdentity: "fx.bad",
-            causeCode,
-            exit,
-            ...(exit === 1 ? { fallback: true } : {}),
-          },
+          expect:
+            exit === 1
+              ? { commandIdentity: "fx.bad", causeCode, exit, fallback: true }
+              : { commandIdentity: "fx.bad", causeCode, exit },
         };
         const observed = await run(entry);
         try {

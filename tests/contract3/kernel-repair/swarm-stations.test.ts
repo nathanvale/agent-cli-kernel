@@ -128,11 +128,12 @@ async function approvalRun(env: Readonly<Record<string, string>>) {
     const ledger = join(directory, "ledger.txt");
     const store = join(directory, "store");
     await mkdir(store);
-    const observed = await runScenario("inspect-approval", ["read", "--json"], {
-      ...env,
-      LEDGER: ledger,
-      ...(env.GRANTS === "" ? { GRANTS: store } : {}),
-    });
+    const scenarioEnv = { ...env, LEDGER: ledger };
+    const observed = await runScenario(
+      "inspect-approval",
+      ["read", "--json"],
+      env.GRANTS === "" ? { ...scenarioEnv, GRANTS: store } : scenarioEnv,
+    );
     const lines = (await readFile(ledger, "utf8").catch(() => ""))
       .split("\n")
       .filter((line) => line !== "");

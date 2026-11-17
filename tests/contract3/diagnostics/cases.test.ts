@@ -14,8 +14,8 @@ const here = import.meta.dir;
 type Frozen = {
   readonly id: string;
   readonly status: string;
-  readonly supplier?: string;
-  readonly note?: string;
+  readonly supplier?: string | undefined;
+  readonly note?: string | undefined;
 };
 
 function frozenCases(): readonly Frozen[] {
@@ -41,8 +41,8 @@ function frozenCases(): readonly Frozen[] {
     return {
       id,
       status,
-      ...(typeof supplier === "string" ? { supplier } : {}),
-      ...(typeof note === "string" ? { note } : {}),
+      supplier: typeof supplier === "string" ? supplier : undefined,
+      note: typeof note === "string" ? note : undefined,
     };
   });
 }

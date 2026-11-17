@@ -53,7 +53,7 @@ function script(): Script {
   const after = field("after");
   const ready = field("ready");
   const go = field("go");
-  return {
+  const base = {
     records: number("records"),
     size: number("size"),
     depth: number("depth"),
@@ -65,12 +65,12 @@ function script(): Script {
     crash: read("crash") === true,
     pace: read("pace") === true,
     throwAfter: read("throwAfter") === true,
-    ...(typeof after === "number" &&
+  };
+  return typeof after === "number" &&
     typeof ready === "string" &&
     typeof go === "string"
-      ? { hold: { after, ready, go } }
-      : {}),
-  };
+    ? { ...base, hold: { after, ready, go } }
+    : base;
 }
 
 function nested(depth: number): JsonValue {
@@ -162,15 +162,12 @@ async function perform(
         writeFileSync(plan.hold.ready, "ready");
         await held(plan.hold.go);
       }
-      const facts: JsonValue = {
-        index,
-        task,
-        pad,
-        ...(plan.depth === undefined ? {} : { deep: nested(plan.depth) }),
-        ...(plan.keys === undefined ? {} : { wide: wide(plan.keys) }),
-        ...secrets,
-        ...limitForms,
-      };
+      const lead = { index, task, pad };
+      const deep =
+        plan.depth === undefined ? lead : { ...lead, deep: nested(plan.depth) };
+      const wideToo =
+        plan.keys === undefined ? deep : { ...deep, wide: wide(plan.keys) };
+      const facts: JsonValue = { ...wideToo, ...secrets, ...limitForms };
       diagnostics.record("step", plan.hostile ? hostile(facts) : facts);
       if (plan.pace) await new Promise((resolve) => setTimeout(resolve, 0));
       else if (tasks > 1) await Promise.resolve();

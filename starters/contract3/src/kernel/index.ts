@@ -333,12 +333,9 @@ export function contractFor<
         reason: "result belongs to another invocation",
       } as const;
     acceptedResults.add(outcome.value);
-    return {
-      ...outcome,
-      ...(parsed.deadlineMilliseconds === undefined
-        ? {}
-        : { deadlineMilliseconds: parsed.deadlineMilliseconds }),
-    };
+    return parsed.deadlineMilliseconds === undefined
+      ? outcome
+      : { ...outcome, deadlineMilliseconds: parsed.deadlineMilliseconds };
   }
 
   async function executeCommand(
