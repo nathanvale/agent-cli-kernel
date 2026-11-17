@@ -42,7 +42,7 @@ repository broke it.
 
 - Bound every child below its test timeout. Witnessed: [e990da6], [4a32366].
 - Template tests: reuse `spawnBounded` (`tests/support/process.ts`), which
-  runs the child through `startChild` (`scripts/child-env.ts`), for that
+  runs the child through `startChild` (`scripts/process-runner.ts`), for that
   bound. Contract 3 tests: reuse `spawnBounded`
   (`tests/contract3/kernel-repair/swarm-process.ts`) or `exitWithin`
   (`tests/contract3/lifecycle/harness.ts`).

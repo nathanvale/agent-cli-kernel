@@ -107,7 +107,7 @@
   {
     "id": "79db613-child-env",
     "patch": "tests/faults/patches/79db613-child-env.patch",
-    "testFile": "tests/child-env.test.ts",
+    "testFile": "tests/process-runner.test.ts",
     "title": "CE\\.d ",
     "source": "79db613 refactor(scripts): give the template one process runner for its scripts and their tests"
   },
@@ -212,14 +212,14 @@
   {
     "id": "8048731-child-env-limit",
     "patch": "tests/faults/patches/8048731-child-env-limit.patch",
-    "testFile": "tests/child-env.test.ts",
+    "testFile": "tests/process-runner.test.ts",
     "title": "CE\\.a ",
     "source": "8048731 fix(faults): bound each replay step and escalate a stop to SIGKILL"
   },
   {
     "id": "8048731-child-env-escalation",
     "patch": "tests/faults/patches/8048731-child-env-escalation.patch",
-    "testFile": "tests/child-env.test.ts",
+    "testFile": "tests/process-runner.test.ts",
     "title": "CE\\.b ",
     "source": "8048731 fix(faults): bound each replay step and escalate a stop to SIGKILL"
   },

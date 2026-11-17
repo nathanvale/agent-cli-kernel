@@ -1,7 +1,7 @@
-diff --git a/scripts/child-env.ts b/scripts/child-env.ts
+diff --git a/scripts/process-runner.ts b/scripts/process-runner.ts
 index 010dd93..d2de456 100644
---- a/scripts/child-env.ts
-+++ b/scripts/child-env.ts
+--- a/scripts/process-runner.ts
++++ b/scripts/process-runner.ts
 @@ -88,7 +88,7 @@ export function startChild(
      if (stopped) return;
      stopped = true;

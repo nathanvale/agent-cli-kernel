@@ -315,8 +315,8 @@ async function repositoryWithFault(
       join(repository, "scripts/faults.ts"),
       "utf8",
     ),
-    "scripts/child-env.ts": readFileSync(
-      join(repository, "scripts/child-env.ts"),
+    "scripts/process-runner.ts": readFileSync(
+      join(repository, "scripts/process-runner.ts"),
       "utf8",
     ),
     "src/limit.ts": unguarded,

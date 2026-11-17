@@ -1,7 +1,11 @@
 import { expect, test } from "bun:test";
 import { readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { type Child, type Finished, startChild } from "../scripts/child-env.ts";
+import {
+  type Child,
+  type Finished,
+  startChild,
+} from "../scripts/process-runner.ts";
 import { watchLedger } from "./support/process.ts";
 import { signalGroupIfPresent } from "./support/signal.ts";
 import { testFolder } from "./support/test-folder.ts";
@@ -36,7 +40,7 @@ async function released(
   start: (root: string) => Child,
   check: (child: Child, root: string) => Promise<void>,
 ): Promise<void> {
-  const root = testFolder("child-env-");
+  const root = testFolder("process-runner-");
   try {
     const child = start(root);
     try {

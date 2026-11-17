@@ -7,7 +7,7 @@ import {
 } from "node:fs";
 import { constants, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { runWithOwnTools } from "./child-env.ts";
+import { runWithOwnTools } from "./process-runner.ts";
 import { doctor } from "./doctor.ts";
 import { readRepository } from "./repository.ts";
 

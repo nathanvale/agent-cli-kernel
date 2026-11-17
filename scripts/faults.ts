@@ -8,7 +8,7 @@ import {
 } from "node:fs";
 import { constants, tmpdir } from "node:os";
 import { basename, join } from "node:path";
-import { runWithOwnTools } from "./child-env.ts";
+import { runWithOwnTools } from "./process-runner.ts";
 
 const root = join(import.meta.dir, "..");
 const manifestPath = "tests/faults/manifest.json";

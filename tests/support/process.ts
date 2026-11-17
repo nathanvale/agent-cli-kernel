@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
-import { type Child, startChild } from "../../scripts/child-env.ts";
+import { type Child, startChild } from "../../scripts/process-runner.ts";
 
 const exitBound = 20_000;
 
