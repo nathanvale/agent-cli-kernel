@@ -59,7 +59,7 @@
       },
       {
         "from": "lint-config",
-        "allow": []
+        "allow": ["contract3-starter"]
       }
     ],
     "coverage": {
