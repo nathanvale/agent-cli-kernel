@@ -30,7 +30,7 @@ type Trusted = Extract<
   { readonly status: "unavailable" }
 >["trusted"];
 
-// Which invocation inputs are secret (DIAG-12). Option names take the next
+// Interface: Which invocation inputs are secret (DIAG-12). Option names take the next
 // token or `--name=value`; file options name a file whose contents are
 // secret; environment names are variables whose values are secret.
 export type SecretSources = {
@@ -46,7 +46,7 @@ export type DiagnosticsOptions = {
 };
 
 export type StatusAttached = AttachedAddon<DiagnosticsCapability> & {
-  // Once, after the result is frozen: stop input, flush and close within the
+  // Interface: Once, after the result is frozen: stop input, flush and close within the
   // limit, then resolve the frozen status. It never rejects.
   readonly freeze: (limitMilliseconds: number) => Promise<Diagnostics>;
 };

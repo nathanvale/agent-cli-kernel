@@ -76,7 +76,7 @@ function pointsBackTo(admin: string, dir: string): boolean {
   );
 }
 
-// Deleting this one worktree's admin folder is what `git worktree prune`
+// Platform: Deleting this one worktree's admin folder is what `git worktree prune`
 // does for it, without pruning anyone else's worktree.
 function release(dir: string, admin: string | undefined): void {
   const owned = admin !== undefined && pointsBackTo(admin, dir);

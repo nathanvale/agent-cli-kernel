@@ -68,13 +68,13 @@ export function deferred() {
   return { promise, resolve };
 }
 
-// Event-loop turns. setImmediate is not faked by Bun's fake timers.
+// Platform: Event-loop turns. setImmediate is not faked by Bun's fake timers.
 export async function turns(count = 20): Promise<void> {
   for (let index = 0; index < count; index++)
     await new Promise((done) => setImmediate(done));
 }
 
-// A real pause that fake timers cannot shorten: Bun fakes setTimeout,
+// Platform: A real pause that fake timers cannot shorten: Bun fakes setTimeout,
 // Bun.sleep, Date.now, performance.now and Bun.nanoseconds.
 export function realPause(seconds: number): void {
   Bun.spawnSync(["/bin/sleep", String(seconds)]);

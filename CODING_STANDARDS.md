@@ -57,6 +57,7 @@ row's guide or gate note cites two distinct witnesses.
 | Glossary terms only                           | Partial     | [job `check`](#glossary)                                                                     | Lint `glossary-term`              | [Glossary authority](AGENTS.md#authority)                           |
 | One owner per constant, fake, and helper      | Partial     | [lint `repository/cause-literal-owner`, lint `repository/tests-use-test-folder`](#one-owner) | None                              | [One owner](docs/standards/one-owner.md)                            |
 | Each commit is green at its own head          | Partial     | [script `check:commits`, job `commits`](#commits)                                            | None                              | None                                                                |
+| Say it in code, not in a comment              | Partial     | [lint `repository/no-comments`, fault `5ac4285-eslint-rules`](#comments)                     | None                              | None                                                                |
 
 ## Gate notes
 
@@ -191,6 +192,35 @@ row's guide or gate note cites two distinct witnesses.
 - Witnessed: [2d0c390], [258365e], [59d45c1], [de45f44], [d3df03e],
   [4737c48], [e07d962].
 
+### Comments
+
+- Lint `repository/no-comments` refuses every comment block in a file
+  `eslint.config.mjs` lints: `src/`, `scripts/`, `tests/`, `config/`,
+  `starters/contract3/src/` and the root `.mjs` files. Consecutive line
+  comments are one block.
+- A block stays only when it is one of these:
+  - `Platform:` on its first line: behaviour of a runtime, operating system
+    or tool this repository cannot change, such as an errno meaning or a Bun
+    limit.
+  - `Interface:` on its first line: a public contract the types cannot
+    state.
+  - A citation of an accepted decision, as [Authority](AGENTS.md#authority)
+    describes.
+  - A lint or compiler directive, such as `eslint-disable-next-line` or
+    `@ts-expect-error`. Other rules govern those.
+- Everything else goes into code: a name, a type, a test title, or a lint
+  rule whose message explains the constraint. An empty `catch` says what
+  happens next in code (`return`, `continue`, or a rethrow), not in prose.
+- Fault `5ac4285-eslint-rules` admits a marker on any line of a block; the
+  lint test that refuses `Platform:` on a second line kills it.
+- Review only: whether a `Platform:` or `Interface:` comment is true, and
+  whether it names something outside this repository. A marker is easy to
+  add to any note.
+- Not covered: `starters/simple/`, `starters/complex/`, the bootstrap
+  profiles, the `.ts.txt` fixtures, the Contract 3 lint configuration that
+  lints a materialised tree, YAML and Markdown.
+- Witnessed: [08284b7], [887b514].
+
 ### Recorded hits
 
 - `eslint-suppressions.json` records the hits each lint found when it
@@ -235,3 +265,5 @@ row's guide or gate note cites two distinct witnesses.
 [d3df03e]: https://github.com/nathanvale/bun-typescript-template/commit/d3df03eccd47e3054de9e442971f778d1f13e803
 [4737c48]: https://github.com/nathanvale/bun-typescript-template/commit/4737c4869802bb53893387df9919171855e83b11
 [e07d962]: https://github.com/nathanvale/bun-typescript-template/commit/e07d962f016dc07ca442724621fd0406084521cc
+[08284b7]: https://github.com/nathanvale/bun-typescript-template/commit/08284b762cf58a08777c846637a427e84caf0fe9
+[887b514]: https://github.com/nathanvale/bun-typescript-template/commit/887b5140efe57411a674f872c1269d40b7bf019b

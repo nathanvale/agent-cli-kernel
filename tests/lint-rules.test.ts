@@ -844,3 +844,68 @@ test("tests-no-sleep refuses a promise delay and admits a watchdog", async () =>
     sleeps.flatMap(([, refused], index) => (refused ? [index + 1] : [])),
   );
 });
+
+const commentCases = [
+  [
+    "src/static-admission.ts",
+    "// Loop over the names.\nexport const a = 1;",
+    [1],
+  ],
+  [
+    "starters/contract3/src/kernel/routing.ts",
+    "// A workaround until the parser is fixed:\n// it drops the last token.\nexport const a = 1;",
+    [1],
+  ],
+  ["tests/doctor.test.ts", "/* Narration */ export const a = 1;", [1]],
+  [
+    "src/static-admission.ts",
+    "/** Adds one. */\nexport const add = (n: number) => n + 1;",
+    [1],
+  ],
+  [
+    "src/static-admission.ts",
+    "// Note.\n// Platform: Bun drains spawn pipes.\nexport const a = 1;",
+    [1],
+  ],
+  ["src/static-admission.ts", "export const a = 1; // trailing narration", [1]],
+  [
+    "src/static-admission.ts",
+    "// platform: lower case is not the marker\nexport const a = 1;",
+    [1],
+  ],
+  [
+    "src/static-admission.ts",
+    "// Platform: Bun drains spawn pipes.\nexport const a = 1;",
+    [],
+  ],
+  [
+    "starters/contract3/src/kernel/routing.ts",
+    "// Interface: a host passes the descriptor\n// to contractFor.\nexport const a = 1;",
+    [],
+  ],
+  [
+    "tests/doctor.test.ts",
+    "// The accepted\n// decision N4a keeps the line on stdout.\nexport const a = 1;",
+    [],
+  ],
+  [
+    "src/static-admission.ts",
+    "// eslint-disable-next-line no-console\nconsole.log(1);",
+    [],
+  ],
+  [
+    "src/static-admission.ts",
+    'export const text = "// not a comment";\nexport const tpl = `/* nor this */`;',
+    [],
+  ],
+] as const;
+
+for (const [filePath, code, lines] of commentCases)
+  test(`no-comments ${lines.length > 0 ? "refuses" : "admits"} ${JSON.stringify(code)} in ${filePath}`, async () => {
+    const found = await hits("no-comments", filePath, code);
+    expect(found.map(({ line }) => line)).toEqual([...lines]);
+    for (const { message } of found)
+      expect(message).toContain(
+        "Fix: move the meaning into code and delete the comment.",
+      );
+  });

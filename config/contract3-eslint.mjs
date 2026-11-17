@@ -12,7 +12,7 @@ const stateFactoryProperty = {
   message:
     "Only the stamped state add-on folder may author the state add-on factory.",
 };
-// CMD-14: no-restricted-imports sees static imports only, so the dynamic
+// Platform: CMD-14: no-restricted-imports sees static imports only, so the dynamic
 // import of the process module is banned by syntax in every source scope (F09).
 const childProcessImport = {
   selector:

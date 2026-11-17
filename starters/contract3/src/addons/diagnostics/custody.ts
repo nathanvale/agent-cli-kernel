@@ -155,7 +155,7 @@ function alive(pid: number): boolean {
     process.kill(pid, 0);
     return true;
   } catch (error) {
-    // EPERM is another user's live process; only ESRCH proves it is gone.
+    // Platform: EPERM is another user's live process; only ESRCH proves it is gone.
     return errorCode(error) !== "ESRCH";
   }
 }
@@ -235,7 +235,7 @@ function removeStaleLock(lock: string): boolean {
   }
 }
 
-// rename replaces only an empty directory, so a live holder is never
+// Platform: rename replaces only an empty directory, so a live holder is never
 // displaced.
 function moveOnto(staging: string, lock: string): boolean {
   try {

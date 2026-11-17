@@ -1,11 +1,11 @@
 import { dlopen, read } from "bun:ffi";
 
 export const glibc = "libc.so.6";
-// <sys/file.h>
+// Platform: <sys/file.h>
 const lockExclusive = 2; // LOCK_EX
 const lockNonBlocking = 4; // LOCK_NB
 const flockOperation = lockExclusive | lockNonBlocking;
-// <errno.h>, Linux. 11 is both EAGAIN and EWOULDBLOCK.
+// Platform: <errno.h>, Linux. 11 is both EAGAIN and EWOULDBLOCK.
 const errnoNames: Readonly<Record<number, string>> = {
   9: "EBADF",
   11: "EAGAIN",

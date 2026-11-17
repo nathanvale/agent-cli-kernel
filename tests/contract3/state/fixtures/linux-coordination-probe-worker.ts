@@ -28,7 +28,7 @@ const locks = dlopen(libraryPath, {
   flock: { args: ["i32", "i32"], returns: "i32" },
   fcntl: { args: ["i32", "i32", "ptr"], returns: "i32" },
 });
-// errno is read right after a failed call; both libraries are loaded before
+// Platform: errno is read right after a failed call; both libraries are loaded before
 // any lock call so nothing in between can overwrite it.
 const errnoLocation: () => unknown = linux
   ? dlopen(libraryPath, { __errno_location: { args: [], returns: "ptr" } })
@@ -75,7 +75,7 @@ function flockHandle(path: string): Handle {
   };
 }
 
-// struct flock on Linux x86_64 and aarch64: short l_type, short l_whence,
+// Platform: struct flock on Linux x86_64 and aarch64: short l_type, short l_whence,
 // (pad), off_t l_start, off_t l_len, pid_t l_pid: 32 bytes, zero = whole file.
 function fcntlHandle(path: string, command: number, name: string): Handle {
   if (!linux)

@@ -1,4 +1,4 @@
-// A runtime timer holds at most 2,147,483,647 ms and fires a longer delay
+// Platform: A runtime timer holds at most 2,147,483,647 ms and fires a longer delay
 // after 1 ms.
 const timerLimit = 2_147_483_647;
 

@@ -34,7 +34,7 @@ const gitEnv = {
   GIT_COMMITTER_NAME: "Fixture",
   GIT_COMMITTER_EMAIL: "fixture@example.invalid",
 };
-// A git hook runs the suite with these set, and they would point the
+// Platform: A git hook runs the suite with these set, and they would point the
 // fixture's git at the caller's repository.
 const gitLocation = new Set([
   "GIT_DIR",
