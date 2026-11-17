@@ -9,9 +9,12 @@ import {
   selectRecipe,
   UNCOPIED_NAMES,
 } from "../src/project-recipe.ts";
+import { spawnBounded } from "./support/process.ts";
 import { testFolder } from "./support/test-folder.ts";
 
 const ROOT = resolve(import.meta.dir, "..");
+const bootstrapBound = 20_000;
+const bootstrapTestTimeout = 30_000;
 
 const MONOREPO_NEEDS_DURABLE = {
   status: "refused",
@@ -215,58 +218,62 @@ describe("project recipe", () => {
 });
 
 describe("Bootstrap carrying out a row", () => {
-  test("refuses a missing template source folder before any file is copied", async () => {
-    const template = testFolder("project-recipe-template-");
-    await mkdir(join(template, "src"));
-    for (const file of ["bootstrap.ts", "project-recipe.ts"]) {
-      await cp(join(ROOT, "src", file), join(template, "src", file));
-    }
-    const durable = selectRecipe({ profile: "durable", monorepo: false });
-    if (durable.status !== "selected") throw new Error(durable.message);
-    const missing = "starters/shared/src";
-    for (const copy of durable.recipe.copies) {
-      if (copy.from === missing) continue;
-      await cp(join(ROOT, copy.from), join(template, copy.from), {
-        recursive: true,
-      });
-    }
-    const parent = join(testFolder("project-recipe-out-"), "nested");
-    const destination = join(parent, "demo-app");
+  test(
+    "refuses a missing template source folder before any file is copied",
+    async () => {
+      const template = testFolder("project-recipe-template-");
+      await mkdir(join(template, "src"));
+      for (const file of ["bootstrap.ts", "project-recipe.ts"]) {
+        await cp(join(ROOT, "src", file), join(template, "src", file));
+      }
+      const durable = selectRecipe({ profile: "durable", monorepo: false });
+      if (durable.status !== "selected") throw new Error(durable.message);
+      const missing = "starters/shared/src";
+      for (const copy of durable.recipe.copies) {
+        if (copy.from === missing) continue;
+        await cp(join(ROOT, copy.from), join(template, copy.from), {
+          recursive: true,
+        });
+      }
+      const parent = join(testFolder("project-recipe-out-"), "nested");
+      const destination = join(parent, "demo-app");
 
-    const child = Bun.spawnSync(
-      [
-        process.execPath,
-        "run",
-        join(template, "src/bootstrap.ts"),
-        "--profile",
-        "durable",
-        "--destination",
-        destination,
-        "--source-packet",
-        "/abs/packets/demo",
-        "--json",
-      ],
-      { stderr: "pipe", stdout: "pipe" },
-    );
+      const child = await spawnBounded(
+        [
+          process.execPath,
+          "run",
+          join(template, "src/bootstrap.ts"),
+          "--profile",
+          "durable",
+          "--destination",
+          destination,
+          "--source-packet",
+          "/abs/packets/demo",
+          "--json",
+        ],
+        { boundMilliseconds: bootstrapBound, processGroup: true },
+      );
 
-    expect({
-      exitCode: child.exitCode,
-      stdout: child.stdout.toString(),
-      stderr: JSON.parse(child.stderr.toString()) as unknown,
-    }).toEqual({
-      exitCode: 1,
-      stdout: "",
-      stderr: {
-        schemaVersion: 1,
-        status: "refused",
-        error: {
-          code: "profile_source_missing",
-          message: `profile source is missing: ${missing}`,
-          repair: "restore the selected profile in the template repository",
-          retrySafe: false,
+      expect({
+        exitCode: child.exit,
+        stdout: child.stdout,
+        stderr: JSON.parse(child.stderr) as unknown,
+      }).toEqual({
+        exitCode: 1,
+        stdout: "",
+        stderr: {
+          schemaVersion: 1,
+          status: "refused",
+          error: {
+            code: "profile_source_missing",
+            message: `profile source is missing: ${missing}`,
+            repair: "restore the selected profile in the template repository",
+            retrySafe: false,
+          },
         },
-      },
-    });
-    expect(existsSync(parent)).toBe(false);
-  });
+      });
+      expect(existsSync(parent)).toBe(false);
+    },
+    bootstrapTestTimeout,
+  );
 });
