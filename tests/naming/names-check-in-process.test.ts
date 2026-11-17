@@ -745,20 +745,25 @@ function withProcessEnv(changes: Record<string, string>, run: () => void) {
   }
 }
 
+test("in process: the planted git configuration reverses git's order when it is reachable", () => {
+  const root = emptyRepository();
+  const { home } = reversedOrderConfig();
+  stage(root, { "docs/a.md": "a\n", "docs/z.md": "z\n" });
+  expect(
+    stagedOrderUnder(root, {
+      GIT_CONFIG_GLOBAL: join(home, ".gitconfig"),
+      GIT_CONFIG_NOSYSTEM: "1",
+    }),
+  ).toEqual(["docs/z.md", "docs/a.md"]);
+});
+
 test("in process: stagedNewPaths lists names in git's own order, whatever the user's git configuration says", () => {
   const root = emptyRepository();
-  const home = folder();
-  put(home, "order", "docs/z.md\n");
-  put(home, ".gitconfig", `[diff]\n\torderFile = ${join(home, "order")}\n`);
+  const { home } = reversedOrderConfig();
   stage(root, { "docs/a.md": "a\n", "docs/z.md": "z\n" });
-  const chosen = process.env.HOME;
-  process.env.HOME = home;
-  try {
+  withProcessEnv({ HOME: home }, () => {
     expect(stagedNewPaths(root)).toEqual(["docs/a.md", "docs/z.md"]);
-  } finally {
-    if (chosen === undefined) delete process.env.HOME;
-    else process.env.HOME = chosen;
-  }
+  });
 });
 
 test("in process: the isolation also drops configuration injected through the environment", () => {
