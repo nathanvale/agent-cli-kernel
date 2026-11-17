@@ -56,7 +56,8 @@ owner from this list.
 - Full suite and timing-sensitive cases: run them on hosted CI or on the test
   host your task brief names. `bun run doctor` warns when this host is too
   loaded.
-- Before you push a change to source or tests, run
-  `bun run check:commits <base>` and `bun run faults`; CI's `commits` and
-  `faults` jobs repeat them.
+- Before you push a change to source or tests, run `bun run faults`; CI's
+  `faults` job repeats it.
+- CI's `commits` job checks each commit at its own head. Run
+  `bun run check:commits <base>` only to reproduce a red `commits` job.
 - Review: apply `CODING_STANDARDS.md` to the diff; each row names its gate.
