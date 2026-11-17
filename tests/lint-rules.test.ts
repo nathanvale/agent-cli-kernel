@@ -14,15 +14,18 @@ import {
 
 const templateRules = (
   await Promise.all(
-    ["../config/template-rules.mjs", "../config/platform-rules.mjs"].map(
-      async (file) =>
-        Object.keys(
-          (
-            (await import(new URL(file, import.meta.url).href)) as {
-              default: { rules: object };
-            }
-          ).default.rules,
-        ),
+    [
+      "../config/template-rules.mjs",
+      "../config/platform-rules.mjs",
+      "../config/payload-rules.mjs",
+    ].map(async (file) =>
+      Object.keys(
+        (
+          (await import(new URL(file, import.meta.url).href)) as {
+            default: { rules: object };
+          }
+        ).default.rules,
+      ),
     ),
   )
 ).flat();
@@ -86,6 +89,62 @@ const fixes = [
     fixed: ([fix]: string[]) =>
       `export const sorted = (names: string[]) => names.sort(${fix});`,
   },
+  {
+    rule: "no-in-operator",
+    filePath: "src/bootstrap.ts",
+    failing:
+      'export const code = (error: Error): unknown => ("code" in error ? error.code : undefined);',
+    fixed: ([fix]: string[]) =>
+      `export const code = (error: Error): unknown => ${fix};`,
+  },
+  {
+    rule: "no-in-operator",
+    filePath: "src/static-admission.ts",
+    failing:
+      'export const payload = (next: () => object) => ("payload" in next() ? 1 : 0);',
+    fixed: ([fix]: string[]) =>
+      `export const payload = (next: () => object): unknown => {\n  ${fix}\n  return own;\n};`,
+  },
+  {
+    rule: "no-in-operator",
+    filePath: "src/static-admission.ts",
+    failing:
+      "export const payload = (key: string, read: () => object) => (key in read() ? 1 : 0);",
+    fixed: ([fix]: string[]) =>
+      `export const payload = (key: string, read: () => object): unknown => {\n  ${fix}\n  return own;\n};`,
+  },
+  {
+    rule: "no-in-operator",
+    filePath: "src/static-admission.ts",
+    failing:
+      "export const payload = (key: string, read: () => object) => {\n  {\n    return key in read();\n  }\n};",
+    fixed: ([fix]: string[]) =>
+      `export const payload = (key: string, read: () => object): unknown => {\n  {\n    ${fix}\n    return own;\n  }\n};`,
+  },
+  {
+    rule: "no-in-operator",
+    filePath: "src/static-admission.ts",
+    failing:
+      'export const payload = (host: { readonly value: object }) => ("payload" in host.value ? 1 : 0);',
+    fixed: ([fix]: string[]) =>
+      `export const payload = (host: { readonly value: object }): unknown => {\n  ${fix}\n  return own;\n};`,
+  },
+  {
+    rule: "no-in-operator",
+    filePath: "src/static-admission.ts",
+    failing:
+      "export const consume = (value: object, use: (field: string) => void) => {\n  for (const field in value) use(field);\n};",
+    fixed: ([fix]: string[]) =>
+      `export const consume = (value: object, use: (field: string) => void) => {\n  ${fix} use(field);\n};`,
+  },
+  {
+    rule: "no-in-operator",
+    filePath: "src/static-admission.ts",
+    failing:
+      "export const consume = (value: object, use: (field: string) => void) => {\n  let field: string;\n  for (field in value) use(field);\n};",
+    fixed: ([fix]: string[]) =>
+      `export const consume = (value: object, use: (field: string) => void) => {\n  let field: string;\n  ${fix} use(field);\n};`,
+  },
 ];
 
 for (const item of fixes)
@@ -142,6 +201,27 @@ const refused = [
       "});",
     ],
     lines: [2],
+  },
+  {
+    rule: "no-in-operator",
+    witness: "r4580070968",
+    filePath: "src/static-admission.ts",
+    code: [
+      "type Fields = Readonly<Record<string, { readonly required: boolean }>>;",
+      "export const fields = (table: Fields, value: Readonly<Record<string, unknown>>) =>",
+      "  Object.keys(value).every((key) => key in table) &&",
+      "  Object.entries(table).every(([key, field]) => !field.required || key in value);",
+    ],
+    lines: [3, 4],
+  },
+  {
+    rule: "no-in-operator",
+    witness: "r4606943328",
+    filePath: "src/static-admission.ts",
+    code: [
+      'export const has = (value: object) => Reflect["has"](value, "toString");',
+    ],
+    lines: [1],
   },
 ];
 
@@ -233,6 +313,42 @@ const cases = [
     ],
     line: 2,
     fix: "Repair: make a scratch folder with testFolder(prefix) from tests/support/test-folder.ts",
+  },
+  {
+    rule: "no-in-operator",
+    witness: "r4580070979",
+    filePath: "src/static-admission.ts",
+    failing: [
+      "type Fields = Readonly<Record<string, { readonly required: boolean }>>;",
+      "export const compatible = (older: Fields, newer: Fields) => {",
+      "  for (const [key, field] of Object.entries(newer))",
+      '    if (!(key in older) && field.required) throw new Error("A new field must be optional.");',
+      "};",
+    ],
+    passing: [
+      "type Fields = Readonly<Record<string, { readonly required: boolean }>>;",
+      "export const compatible = (older: Fields, newer: Fields) => {",
+      "  for (const [key, field] of Object.entries(newer))",
+      '    if (!Object.hasOwn(older, key) && field.required) throw new Error("A new field must be optional.");',
+      "};",
+    ],
+    line: 4,
+    fix: "Repair: (Object.hasOwn(older, key) ? Reflect.get(older, key) : undefined)",
+  },
+  {
+    rule: "no-in-operator",
+    witness: "r4580077776",
+    filePath: "scripts/doctor.ts",
+    failing: [
+      "export const declared = (fields: Readonly<Record<string, unknown>>, value: object) =>",
+      "  Object.keys(value).every((key) => key in fields);",
+    ],
+    passing: [
+      "export const declared = (fields: Readonly<Record<string, unknown>>, value: object) =>",
+      "  Object.keys(value).every((key) => Object.hasOwn(fields, key));",
+    ],
+    line: 2,
+    fix: "Repair: (Object.hasOwn(fields, key) ? Reflect.get(fields, key) : undefined)",
   },
 ];
 

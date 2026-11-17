@@ -1,0 +1,17 @@
+diff --git a/config/payload-rules.mjs b/config/payload-rules.mjs
+index e259105..9c57ae7 100644
+--- a/config/payload-rules.mjs
++++ b/config/payload-rules.mjs
+@@ -100,7 +100,11 @@ export default {
+             services.getTypeAtLocation(targetNode),
+           ).flatMap((type) => members(checker.getApparentType(type)));
+           return keys.every((key) =>
+-            targets.some((type) => own(propertyOf(type, key))),
++            targets.some(
++              (type) =>
++                own(propertyOf(type, key)) ||
++                checker.getIndexInfosOfType(type).length > 0,
++            ),
+           );
+         };
+         const check = (node, keyNode, targetNode, how) => {

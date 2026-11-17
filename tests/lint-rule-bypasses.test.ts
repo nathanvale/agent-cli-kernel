@@ -278,6 +278,77 @@ for (const [rule, code, fix] of bypasses)
     ).toEqual(fix ? [true] : []);
   });
 
+const ownData = [
+  [
+    'export const has = (value: object) => "toString" in value;',
+    "the in operator also finds inherited members such as toString",
+  ],
+  [
+    'export const has = (value: object) => Reflect.has(value, "payload");',
+    'Repair: (Object.hasOwn(value, "payload")',
+  ],
+  [
+    'export const has = (value: object) => Reflect[`has`](value, "toString");',
+    'Repair: (Object.hasOwn(value, "toString")',
+  ],
+  [
+    'type Shape = { kind: "a"; a: number } | { kind: "b"; b: string };\nexport const has = (shape: Shape) => Reflect["has"](shape, "a");',
+    undefined,
+  ],
+  [
+    "export const keys = (value: object) => {\n  for (const key in value) return key;\n};",
+    "Repair: for (const key of Object.keys(value))",
+  ],
+  [
+    "export const keys = (value: object) => {\n  for (let field in value) return field;\n};",
+    "Repair: for (let field of Object.keys(value))",
+  ],
+  [
+    'export const once = (read: () => object) => "payload" in read();',
+    'Repair: const key = "payload"; const target = read(); const own: unknown',
+  ],
+  [
+    'export const once = (host: { readonly value: object }) => "payload" in host.value;',
+    'Repair: const key = "payload"; const target = host.value; const own: unknown',
+  ],
+  [
+    "export const once = (source: object, keys: { readonly key: string }) => keys.key in source;",
+    "Repair: const key = keys.key; const target = source; const own: unknown",
+  ],
+  [
+    "export const once = (target: () => object, own: string) => own in target();",
+    "Repair: const key = own; const target2 = target(); const own2: unknown = Object.hasOwn(target2, key) ? Reflect.get(target2, key) : undefined;",
+  ],
+  [
+    'type Shape = { kind: "a"; a: number } | { kind: "b"; b: string };\nexport const read = (shape: Shape) => ("a" in shape ? shape.a : shape.b);',
+    undefined,
+  ],
+  [
+    'export function has<T extends { a: number } | { b: string }>(value: T) {\n  return "a" in value;\n}',
+    undefined,
+  ],
+  [
+    'export function has<T extends { a: number } | { b: string }>(value: T) {\n  return "c" in value;\n}',
+    'Repair: (Object.hasOwn(value, "c")',
+  ],
+  [
+    'export const has = (value: object) => Object.hasOwn(value, "payload");',
+    undefined,
+  ],
+  [
+    "export class Box {\n  #id = 1;\n  static has(value: object) {\n    return #id in value;\n  }\n}",
+    undefined,
+  ],
+] as const;
+
+for (const [code, fix] of ownData)
+  test(`no-in-operator ${fix ? "refuses" : "admits"} ${JSON.stringify(code)} in src/static-admission.ts`, async () => {
+    const found = await hits("no-in-operator", "src/static-admission.ts", code);
+    expect(
+      found.map(({ message }) => fix !== undefined && message.includes(fix)),
+    ).toEqual(fix ? [true] : []);
+  });
+
 test("tests-use-test-folder admits the folder calls inside its owner module", async () => {
   expect(
     await hits(

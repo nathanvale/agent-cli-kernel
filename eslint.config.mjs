@@ -1,11 +1,16 @@
 import js from "@eslint/js";
 import kernel, { kernelPaths } from "./config/kernel-repository-lint.mjs";
+import payloadRules from "./config/payload-rules.mjs";
 import platformRules from "./config/platform-rules.mjs";
 import templateRules from "./config/template-rules.mjs";
 import tseslint from "typescript-eslint";
 
 const localRules = {
-  rules: { ...templateRules.rules, ...platformRules.rules },
+  rules: {
+    ...templateRules.rules,
+    ...platformRules.rules,
+    ...payloadRules.rules,
+  },
 };
 
 export default tseslint.config(
@@ -60,7 +65,10 @@ export default tseslint.config(
   {
     files: ["src/**/*.ts", "scripts/**/*.ts"],
     plugins: { repository: localRules },
-    rules: { "repository/no-locale-compare": "error" },
+    rules: {
+      "repository/no-locale-compare": "error",
+      "repository/no-in-operator": "error",
+    },
   },
   {
     files: ["tests/**/*.{ts,mts,cts}"],

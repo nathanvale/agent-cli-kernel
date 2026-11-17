@@ -15,7 +15,21 @@ this file.
   so a head with an invalid escape is still checked. Witnessed: [fc4fa62]
   (`String.raw` with `\u` left the cooked value undefined, and
   `no-host-path-literal` checked an empty string).
+- Give each binding a lint repair introduces a name that no binding or
+  reference in the reported scope uses, so the repair compiles where it is
+  pasted. Witnessed: [r4606943319] (`key in read()` beside a `key`
+  parameter gave `const key = key;`).
+- Build a lint repair from the source it replaces, so the code it leaves
+  unchanged still finds every name it reads. Witnessed: [r4607149514] (the
+  `for...in` repair named `const key`, and the loop body read `field`).
+- Split the union that a type parameter's constraint resolves to, so a lint
+  judges a generic target as it judges the plain union. Witnessed:
+  [r4607149524] (`"a" in value` with `T extends { a: number } | { b: string }`
+  was refused, and the same check on the union passed).
 
 [ac11ed9]: https://github.com/nathanvale/bun-typescript-template/commit/ac11ed98b7d538e8a304cac053aaefcaaf6b2cb3
 [cd2498b]: https://github.com/nathanvale/bun-typescript-template/commit/cd2498b7189a2d45d1906b9c870e8d13da6cd2dd
 [fc4fa62]: https://github.com/nathanvale/bun-typescript-template/commit/fc4fa628535ecc6729048cb6fbb759f153edd040
+[r4606943319]: https://github.com/nathanvale/bun-typescript-template/pull/80#discussion_r4606943319
+[r4607149514]: https://github.com/nathanvale/bun-typescript-template/pull/80#discussion_r4607149514
+[r4607149524]: https://github.com/nathanvale/bun-typescript-template/pull/80#discussion_r4607149524
