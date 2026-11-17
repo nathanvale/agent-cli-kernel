@@ -175,7 +175,7 @@ function hostRules({ banFfi = true, logging = loggingImports } = {}) {
   };
 }
 const declaration = JSON.parse(
-  readFileSync(new URL("./host.json", import.meta.url), "utf8"),
+  readFileSync(new URL("./kernel-declaration.json", import.meta.url), "utf8"),
 );
 const declaredAddons = Object.keys(declaration.addons);
 const ts = "**/*.{ts,mts,cts}";
@@ -211,7 +211,7 @@ function settingsOf(options = {}) {
   const unknown = selected.find((name) => !declaredAddons.includes(name));
   if (unknown !== undefined)
     throw new Error(
-      `kernelLint: add-on "${unknown}" is not declared in host.json. Declared: ${declaredAddons.join(", ")}.`,
+      `kernelLint: add-on "${unknown}" is not declared in kernel-declaration.json. Declared: ${declaredAddons.join(", ")}.`,
     );
   const repository = plugin ?? kernelRules;
   const replaced = Object.keys(kernelRules.rules).find(

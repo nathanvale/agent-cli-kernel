@@ -50,7 +50,7 @@ type Owner = {
 };
 
 function readDeclaration(): Owner[] {
-  const declaration = json(join(lintFolder, "host.json"));
+  const declaration = json(join(lintFolder, "kernel-declaration.json"));
   expect(field(declaration, "schemaVersion")).toBe(2);
   const base = field(declaration, "base");
   return [
