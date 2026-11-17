@@ -1,12 +1,14 @@
 import { afterAll, expect, test } from "bun:test";
-import { existsSync, readFileSync, rmSync } from "node:fs";
+import { readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { startChild } from "../scripts/child-env.ts";
+import { watchLedger } from "./support/process.ts";
 import { signalGroupIfPresent } from "./support/signal.ts";
 import { testFolder } from "./support/test-folder.ts";
 
 const testTimeout = 30_000;
 const reapBound = 10_000;
+const ledgerBound = 10_000;
 
 const folders: string[] = [];
 const groups: number[] = [];
@@ -52,17 +54,6 @@ function exited(pid: number): Promise<boolean> {
   });
 }
 
-function whenLedgerHas(ledger: string, line: string): Promise<void> {
-  return new Promise((resolve) => {
-    const poll = setInterval(() => {
-      if (!existsSync(ledger)) return;
-      if (!readFileSync(ledger, "utf8").split("\n").includes(line)) return;
-      clearInterval(poll);
-      resolve();
-    }, 5);
-  });
-}
-
 test(
   "CE.a a child that hangs past its limit is stopped with its whole group and reported timed out",
   async () => {
@@ -97,7 +88,7 @@ test(
       ],
       { graceMilliseconds: 1_000 },
     );
-    await whenLedgerHas(ledger, "started");
+    await watchLedger(ledger, "started", ledgerBound).reached;
     child.stop();
     const run = await child.finished;
     expect(run.timedOut).toBe(false);
