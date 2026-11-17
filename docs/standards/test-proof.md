@@ -9,7 +9,9 @@ repository broke it.
 - Assert the exact refusal the named guard produces. An assertion that only
   something threw stays green when another guard refuses. Witnessed:
   [185c90d], [5990897], [fa359ec] (the repository description parser had
-  five refusals and no test).
+  five refusals and no test), [97f9e9b] (a length check accepted any reason
+  for a parse failure; take the reason from an independent call of the
+  parser).
 - Shape the input so only the named guard can refuse it. An earlier parse or
   build check, or a neighbouring cap at the same limit, keeps the test green
   with the named guard removed. Witnessed: [640ba05], [96ab832], [c193c51].
@@ -19,7 +21,21 @@ repository broke it.
 - Pin a bound with a tolerance tighter than the fault it must catch. A
   first-signal kill at 550 ms passed a 500 ms bound plus its tolerance.
   Witnessed: [b8760b4], [8485278], [aa161e5] (a lower bound only, so a late
-  kill still passed).
+  kill still passed), [dbd196e] (a timeout message that reads the same
+  constant stays green when the timer is changed, so measure the elapsed
+  time).
+- Prove a resolution by a refusal only the right folder can give. A recorded
+  hit or an empty result passes for a skipped check too, and a process
+  folder with the same tail as the injected one passes for the wrong
+  folder. Witnessed: [9ad6bf2].
+- Prove that a fixture meant to lack something lacks it, and fail loudly
+  when its location supplies it. `STATE_TEST_DIR` can place a test folder
+  inside the checkout, where git finds the parent repository for a case that
+  expects none. Witnessed: [8946615].
+- Show that a planted input changes the result when nothing blocks it, with
+  a control, before asserting the subject ignores it. A `HOME` change under
+  `GIT_CONFIG_GLOBAL=/dev/null` hides the planted `.gitconfig` whether or not
+  the isolation works. Witnessed: [315de28].
 
 ## Production entry
 
@@ -27,6 +43,9 @@ repository broke it.
   the shared test-execution rule asks for. A test entry such as `fixture.ts`,
   or a fault-wrapped CLI, proves only the fixture. Witnessed: [e55f94a],
   [7ea1ee3].
+- Start the entry from the folder a caller starts it in. `bun run <script>`
+  moves the child to the package root, so a proof through a package script
+  never exercises the entry's own process folder. Witnessed: [c5a554e].
 
 ## In-process tests
 
@@ -35,6 +54,9 @@ repository broke it.
   spawns the entry. Coverage cannot see into a spawned process, so a
   function proved only that way reads as untested and its mutants never
   run.
+- Resolve each path from the environment a function is given, not from the
+  process's own folder, so an in-process call runs on what the test injects.
+  Witnessed: [244b63a].
 
 ## Planted faults
 
@@ -49,8 +71,10 @@ repository broke it.
 
 ## Processes
 
-- Bound every child below its test timeout. Witnessed: [e990da6], [4a32366], [c77aaa9] (the production
-  `execute` spawned tsc and fallow with no time limit).
+- Bound every child below its test timeout, a fixture's git call and a
+  script's synchronous git read included. Witnessed: [e990da6], [4a32366],
+  [7623343], [c77aaa9] (the production `execute` spawned tsc and fallow with
+  no time limit).
 - Template tests: reuse `spawnBounded` (`tests/support/process.ts`), which
   runs the child through `startChild` (`scripts/process-runner.ts`), for that
   bound. Kernel tests: reuse `spawnBounded`
@@ -111,5 +135,13 @@ repository broke it.
 [70c7280]: https://github.com/nathanvale/bun-typescript-template/commit/70c7280c8253b0badc173898fcb5ca44b8e2198b
 [07d2d72]: https://github.com/nathanvale/bun-typescript-template/commit/07d2d72ed7c68fda55cd6b065dbb5b4e5f407763
 [e50afb6]: https://github.com/nathanvale/bun-typescript-template/commit/e50afb6e27a9facc40ec0b932779ffa81a29784c
+[244b63a]: https://github.com/nathanvale/bun-typescript-template/commit/244b63a814ddbb60b4831cabc0e2f8cd1b73bca4
+[c5a554e]: https://github.com/nathanvale/bun-typescript-template/commit/c5a554e0034342f6918775909fcd3b15e27facca
+[8946615]: https://github.com/nathanvale/bun-typescript-template/commit/894661580864b423b07cd4571bdd0c9da69c1911
+[7623343]: https://github.com/nathanvale/bun-typescript-template/commit/76233438395b1e967f461ded4a34f6c1d2c8a533
+[315de28]: https://github.com/nathanvale/bun-typescript-template/commit/315de28d3e1da69a4e8d65923654846405a3d1c8
+[dbd196e]: https://github.com/nathanvale/bun-typescript-template/commit/dbd196e8dd2dc19163d201cfb4f089952f1c471f
+[9ad6bf2]: https://github.com/nathanvale/bun-typescript-template/commit/9ad6bf2528f0c65fc5106e8377c469b2e48b1743
+[97f9e9b]: https://github.com/nathanvale/bun-typescript-template/commit/97f9e9b82277a054b8b64ac03194a31be27e5ded
 [3729f36]: https://github.com/nathanvale/bun-typescript-template/commit/3729f3644cb30ea5decc9c085bc6b9c4304eaae4
 [5f0c1d9]: https://github.com/nathanvale/bun-typescript-template/commit/5f0c1d99741751de14f5cb92618eda3bd92e8887

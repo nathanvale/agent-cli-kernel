@@ -141,6 +141,17 @@ export function checkNames(root: string, args: readonly string[]) {
   );
 }
 
+export function checkNamesFrom(
+  root: string,
+  folder: string,
+  args: readonly string[],
+) {
+  return run(
+    [process.execPath, join(root, "scripts/check-names.ts"), ...args],
+    folder,
+  );
+}
+
 type HookEntry = {
   readonly matcher: string;
   readonly hooks: readonly { readonly command: string }[];

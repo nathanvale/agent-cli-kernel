@@ -1,9 +1,13 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 
+const gitMilliseconds = 4_000;
+
 export const gitEnv = {
   GIT_CONFIG_GLOBAL: "/dev/null",
   GIT_CONFIG_NOSYSTEM: "1",
+  GIT_CONFIG_COUNT: "0",
+  GIT_CONFIG_PARAMETERS: "",
   GIT_AUTHOR_NAME: "Fixture",
   GIT_AUTHOR_EMAIL: "fixture@example.invalid",
   GIT_COMMITTER_NAME: "Fixture",
@@ -27,13 +31,24 @@ export function inherited(): Record<string, string | undefined> {
   );
 }
 
-export function git(root: string, ...args: string[]): string {
+export function gitResult(root: string, ...args: string[]) {
   const result = Bun.spawnSync(["git", ...args], {
     cwd: root,
     env: { ...inherited(), ...gitEnv },
     stdout: "pipe",
     stderr: "pipe",
+    timeout: gitMilliseconds,
+    killSignal: "SIGKILL",
   });
+  if (result.exitedDueToTimeout)
+    throw new Error(
+      `git ${args.join(" ")} did not exit within ${gitMilliseconds} ms.`,
+    );
+  return result;
+}
+
+export function git(root: string, ...args: string[]): string {
+  const result = gitResult(root, ...args);
   if (result.exitCode !== 0)
     throw new Error(`git ${args.join(" ")}: ${result.stderr.toString()}`);
   return result.stdout.toString().trim();

@@ -215,12 +215,24 @@ export function nameProblems(
   return [...fresh, ...stale];
 }
 
+const gitMilliseconds = 10_000;
+
+// Platform: Bun starts a child with the environment the process started with
+// unless `env` is given, so a change to process.env reaches git only through it.
 function git(root: string, command: readonly string[]) {
-  return Bun.spawnSync(["git", ...command], {
+  const result = Bun.spawnSync(["git", ...command], {
     cwd: root,
+    env: process.env,
     stdout: "pipe",
     stderr: "pipe",
+    timeout: gitMilliseconds,
+    killSignal: "SIGKILL",
   });
+  if (result.exitedDueToTimeout)
+    throw new Error(
+      `names check: git ${command.join(" ")} did not exit within ${gitMilliseconds} ms. Repair: find what holds git in ${root} (a stale index.lock, a hung hook or a stalled disk), then run the check again. Done when git ${command.join(" ")} exits 0 there.`,
+    );
+  return result;
 }
 
 function gitPaths(root: string, command: readonly string[]): string[] {

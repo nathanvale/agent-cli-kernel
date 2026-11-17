@@ -1,13 +1,13 @@
 diff --git a/scripts/check-names.ts b/scripts/check-names.ts
-index 130fbfa..5a63e83 100644
+index c909f49..3bf2623 100644
 --- a/scripts/check-names.ts
 +++ b/scripts/check-names.ts
-@@ -124,7 +124,7 @@ function problemsFor(args: readonly string[]): Promise<string[]> {
-     throw new UsageError("Give at least one path, --staged or --tool-call.");
-   const mode = modes.get(first);
-   if (mode === undefined)
--    return Promise.resolve(problemsIn(root, namesOnPaths(givenPaths(args))));
-+    return Promise.resolve(problemsIn(root, givenPaths(args)));
+@@ -162,7 +162,7 @@ function problemsFor(
+     return Promise.resolve(
+       problemsIn(
+         environment.root,
+-        namesOnPaths(givenPaths(environment.root, environment.cwd, args)),
++        givenPaths(environment.root, environment.cwd, args),
+       ),
+     );
    if (rest.length > 0) throw new UsageError(`${first} takes no path.`);
-   return mode();
- }

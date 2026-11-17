@@ -10,11 +10,21 @@ import {
   stagedText,
 } from "./glossary.ts";
 
-const root = join(import.meta.dir, "..");
 const usage =
   "Usage: bun run check:names <path> [path ...] | --staged | --tool-call";
 
 class UsageError extends Error {}
+
+export type Environment = {
+  readonly root: string;
+  readonly cwd: string;
+  readonly stdin: () => Promise<string>;
+};
+
+export type Outcome = {
+  readonly stderr: string;
+  readonly code: number;
+};
 
 type TextOf = (path: string) => string;
 
@@ -30,7 +40,7 @@ function problemsIn(tree: string, names: readonly string[]): string[] {
   return problemsGiven((path) => readFileSync(join(tree, path), "utf8"), names);
 }
 
-function stagedProblems(): string[] {
+function stagedProblems(root: string): string[] {
   const names = namesOnPaths(stagedNewPaths(root));
   return problemsGiven((path) => stagedText(root, path), names);
 }
@@ -40,17 +50,21 @@ function pathWithin(tree: string, absolute: string): string | undefined {
   return /^(?:\.\.(?:\/|$)|\/|$)/.test(path) ? undefined : path;
 }
 
-function givenPath(arg: string): string {
-  const path = pathWithin(root, resolve(arg));
+function givenPath(root: string, cwd: string, arg: string): string {
+  const path = pathWithin(root, resolve(cwd, arg));
   if (path === undefined)
     throw new UsageError(`${arg} is outside this repository.`);
   return path;
 }
 
-function givenPaths(args: readonly string[]): string[] {
+function givenPaths(
+  root: string,
+  cwd: string,
+  args: readonly string[],
+): string[] {
   const option = args.find((arg) => arg.startsWith("--"));
   if (option !== undefined) throw new UsageError(`Unknown option "${option}".`);
-  return args.map(givenPath);
+  return args.map((arg) => givenPath(root, cwd, arg));
 }
 
 function owningTree(path: string): string | undefined {
@@ -116,42 +130,71 @@ function createdPaths(tool: unknown, input: Map<string, unknown>): string[] {
   return reader.created(value);
 }
 
-function toolCallProblems(hookInput: string): string[] {
+function toolCallProblems(hookInput: string, fallbackCwd: string): string[] {
   const call = ownFields(JSON.parse(hookInput));
   const cwd = call.get("cwd");
-  const from = typeof cwd === "string" ? cwd : process.cwd();
+  const from =
+    typeof cwd === "string" ? resolve(fallbackCwd, cwd) : fallbackCwd;
   return createdPaths(
     call.get("tool_name"),
     ownFields(call.get("tool_input")),
   ).flatMap((path) => problemsCreating(resolve(from, path)));
 }
 
-const modes = new Map<string, () => Promise<string[]>>([
-  ["--staged", () => Promise.resolve(stagedProblems())],
-  ["--tool-call", async () => toolCallProblems(await Bun.stdin.text())],
+type Mode = (environment: Environment) => Promise<string[]>;
+
+const modes = new Map<string, Mode>([
+  ["--staged", ({ root }) => Promise.resolve(stagedProblems(root))],
+  [
+    "--tool-call",
+    async ({ cwd, stdin }) => toolCallProblems(await stdin(), cwd),
+  ],
 ]);
 
-function problemsFor(args: readonly string[]): Promise<string[]> {
+function problemsFor(
+  args: readonly string[],
+  environment: Environment,
+): Promise<string[]> {
   const [first, ...rest] = args;
   if (first === undefined)
     throw new UsageError("Give at least one path, --staged or --tool-call.");
   const mode = modes.get(first);
   if (mode === undefined)
-    return Promise.resolve(problemsIn(root, namesOnPaths(givenPaths(args))));
+    return Promise.resolve(
+      problemsIn(
+        environment.root,
+        namesOnPaths(givenPaths(environment.root, environment.cwd, args)),
+      ),
+    );
   if (rest.length > 0) throw new UsageError(`${first} takes no path.`);
-  return mode();
+  return mode(environment);
 }
 
-let code: number;
-try {
-  const problems = new Set(await problemsFor(process.argv.slice(2)));
-  for (const problem of problems) process.stderr.write(`${problem}\n`);
-  code = problems.size > 0 ? 1 : 0;
-} catch (error) {
-  const reason = error instanceof Error ? error.message : String(error);
-  process.stderr.write(
-    `${error instanceof UsageError ? `${usage}. ` : ""}${reason}\n`,
-  );
-  code = 2;
+export async function runNamesCheck(
+  args: readonly string[],
+  environment: Environment,
+): Promise<Outcome> {
+  try {
+    const problems = new Set(await problemsFor(args, environment));
+    return {
+      stderr: [...problems].map((problem) => `${problem}\n`).join(""),
+      code: problems.size > 0 ? 1 : 0,
+    };
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    return {
+      stderr: `${error instanceof UsageError ? `${usage}. ` : ""}${reason}\n`,
+      code: 2,
+    };
+  }
 }
-process.exitCode = code;
+
+if (import.meta.main) {
+  const { stderr, code } = await runNamesCheck(process.argv.slice(2), {
+    root: join(import.meta.dir, ".."),
+    cwd: process.cwd(),
+    stdin: () => Bun.stdin.text(),
+  });
+  process.stderr.write(stderr);
+  process.exitCode = code;
+}

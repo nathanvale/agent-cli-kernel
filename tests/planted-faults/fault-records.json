@@ -448,6 +448,27 @@
     "source": "aaedd58 test(standards): refuse a runtime file or export that no test imports"
   },
   {
+    "id": "7623343-glossary",
+    "patch": "tests/planted-faults/patches/7623343-glossary.patch",
+    "testFile": "tests/naming/names-check-in-process.test.ts",
+    "title": "^in process: --staged with a git that never answers",
+    "source": "7623343 fix(glossary): bound the staged git readers and the fixture's git calls"
+  },
+  {
+    "id": "7623343-git-fixture",
+    "patch": "tests/planted-faults/patches/7623343-git-fixture.patch",
+    "testFile": "tests/naming/names-check-in-process.test.ts",
+    "title": "^in process: the fixture's git stops",
+    "source": "7623343 fix(glossary): bound the staged git readers and the fixture's git calls"
+  },
+  {
+    "id": "244b63a-check-names",
+    "patch": "tests/planted-faults/patches/244b63a-check-names.patch",
+    "testFile": "tests/naming/names-check-in-process.test.ts",
+    "title": "^in process: --tool-call resolves a relative folder of the call",
+    "source": "244b63a fix(check-names): resolve a tool call's relative folder from the injected folder"
+  },
+  {
     "id": "c77aaa9-static-admission",
     "patch": "tests/planted-faults/patches/c77aaa9-static-admission.patch",
     "testFile": "tests/static-admission-in-process.test.ts",
