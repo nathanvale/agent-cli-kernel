@@ -110,10 +110,10 @@ test("GM.e a recorded unused term that GLOSSARY.md does not define fails", () =>
     termUseProblems(
       fixture,
       ["a test area", "a CLI starter"],
-      [{ ...awaited, term: "Kernel trial" }],
+      [{ ...awaited, term: "Layout" }],
     ),
   ).toEqual([
-    `${recordedUnusedTermsFile} records "Kernel trial", which GLOSSARY.md does not define. Remove the entry.`,
+    `${recordedUnusedTermsFile} records "Layout", which GLOSSARY.md does not define. Remove the entry.`,
   ]);
 });
 
