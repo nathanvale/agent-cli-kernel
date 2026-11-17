@@ -78,6 +78,51 @@ test.each([
   ]);
 });
 
+const withNotes = readGlossary(`# Fixture glossary
+
+**Pin move**:
+Changing a pin to another commit.
+_Avoid_: split commit; bump, update (for a pin move), reader (unqualified; a note, with a comma), canary
+`);
+
+test("a word that a note covers is left to the reviewer", () => {
+  expect(
+    nameProblems(
+      [
+        "src/bump.ts",
+        "src/update-notes.ts",
+        "src/reader.ts",
+        "docs/with-a-comma.md",
+        "docs/for-a-pin-move.md",
+      ],
+      withNotes,
+      [],
+    ),
+  ).toEqual([]);
+});
+
+test.each([
+  ["before a semicolon", "src/split-commit.ts", "split commit"],
+  ["after the last note", "tests/canary.test.ts", "canary"],
+])(
+  "NM.d %s, an Avoid word with no note after it is a new hit",
+  (_place, path, word) => {
+    expect(nameProblems([path], withNotes, [])).toEqual([
+      `${path} uses "${word}", which GLOSSARY.md lists under Avoid for "Pin move". Rename it with the glossary word.`,
+    ]);
+  },
+);
+
+test.each([
+  ["that never closes", "lock (for a pin, bump"],
+  ["inside another", "lock (for a pin (the kernel pin)), bump"],
+  ["that never opened", "lock for a pin), bump"],
+])("NM.e an Avoid line with a parenthesis %s is refused", (_kind, list) => {
+  expect(() => readGlossary(`**Pin**:\nA record.\n_Avoid_: ${list}\n`)).toThrow(
+    'GLOSSARY.md: the Avoid line for "Pin" has a parenthesis with no partner, so the words its note covers cannot be told. Close each note, and put no note inside another.',
+  );
+});
+
 test("a recorded hit admits its name and no other", () => {
   const recorded = [{ path: "hosts", word: "host", reason: "fixture" }];
   expect(nameProblems(["hosts"], fixture, recorded)).toEqual([]);

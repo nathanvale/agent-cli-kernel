@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 export const recordedHitsFile = "tests/naming/recorded-hits.json";
 const glossaryFiles = new Set(["GLOSSARY.md", "GLOSSARY-MAP.md"]);
+const avoidLabel = "_Avoid_:";
 
 export type Glossary = {
   readonly terms: readonly {
@@ -24,13 +25,33 @@ type NameHit = {
   readonly problem: string;
 };
 
-function listAfter(label: string, line: string): string[] | undefined {
-  if (!line.startsWith(label)) return undefined;
-  return line
-    .slice(label.length)
+function wordsIn(list: string): string[] {
+  return list
     .split(",")
     .map((word) => word.trim())
     .filter((word) => word !== "");
+}
+
+function listAfter(label: string, line: string): string[] | undefined {
+  if (!line.startsWith(label)) return undefined;
+  return wordsIn(line.slice(label.length));
+}
+
+const note = /\([^()]*\)/g;
+const noteMark = "\0";
+
+function enforcedAvoidWords(line: string, term: string): string[] {
+  if (!line.startsWith(avoidLabel)) return [];
+  const marked = line.slice(avoidLabel.length).replace(note, noteMark);
+  if (/[()]/.test(marked))
+    throw new Error(
+      `GLOSSARY.md: the Avoid line for "${term}" has a parenthesis with no partner, so the words its note covers cannot be told. Close each note, and put no note inside another.`,
+    );
+  return marked.split(";").flatMap((run) => {
+    const words = run.split(",");
+    const lastNoted = words.findLastIndex((word) => word.includes(noteMark));
+    return wordsIn(words.slice(lastNoted + 1).join(","));
+  });
 }
 
 export function readGlossary(text: string): Glossary {
@@ -39,7 +60,8 @@ export function readGlossary(text: string): Glossary {
   for (const line of text.split("\n")) {
     const heading = /^\*\*(.+)\*\*:$/.exec(line)?.[1];
     if (heading !== undefined) terms.push({ name: heading, avoid: [] });
-    terms.at(-1)?.avoid.push(...(listAfter("_Avoid_:", line) ?? []));
+    const term = terms.at(-1);
+    term?.avoid.push(...enforcedAvoidWords(line, term.name));
     qualify.push(...(listAfter("_Qualify_:", line) ?? []));
   }
   return { terms, qualify };
