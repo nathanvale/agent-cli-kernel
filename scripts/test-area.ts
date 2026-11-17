@@ -90,33 +90,43 @@ function areas(root: string): {
   };
 }
 
-const root = join(import.meta.dir, "..");
-const { known, empty, shared } = areas(root);
-const [area, ...options] = process.argv.slice(2);
-const paths = area === undefined ? undefined : known.get(area);
+export async function testArea(
+  root: string,
+  args: readonly string[],
+): Promise<number> {
+  const { known, empty, shared } = areas(root);
+  const [area, ...options] = args;
+  const paths = area === undefined ? undefined : known.get(area);
 
-if (empty.length > 0) {
-  process.stderr.write(
-    `repository.json has test areas with no test file: ${empty.join(", ")}. Repair: restore their tests, or remove them from testAreas.\n`,
-  );
-  process.exitCode = 1;
-} else if (shared.length > 0) {
-  process.stderr.write(
-    `repository.json gives one test area name to several folders: ${shared.join("; ")}. Repair: rename an area in testAreas, or a subfolder.\n`,
-  );
-  process.exitCode = 1;
-} else if (paths === undefined) {
-  const valid = [...known.keys()].sort().join(", ");
-  process.stderr.write(
-    `Usage: bun run test:area <area> [bun test options]. ${area === undefined ? "No area given" : `Unknown area "${area}"`}. Valid areas: ${valid}.\n`,
-  );
-  process.exitCode = 2;
-} else if (!(await doctor(root))) {
-  process.exitCode = 1;
-} else {
+  if (empty.length > 0) {
+    process.stderr.write(
+      `repository.json has test areas with no test file: ${empty.join(", ")}. Repair: restore their tests, or remove them from testAreas.\n`,
+    );
+    return 1;
+  }
+  if (shared.length > 0) {
+    process.stderr.write(
+      `repository.json gives one test area name to several folders: ${shared.join("; ")}. Repair: rename an area in testAreas, or a subfolder.\n`,
+    );
+    return 1;
+  }
+  if (paths === undefined) {
+    const valid = [...known.keys()].sort().join(", ");
+    process.stderr.write(
+      `Usage: bun run test:area <area> [bun test options]. ${area === undefined ? "No area given" : `Unknown area "${area}"`}. Valid areas: ${valid}.\n`,
+    );
+    return 2;
+  }
+  if (!(await doctor(root))) return 1;
   const run = Bun.spawn([process.execPath, "test", ...paths, ...options], {
     cwd: root,
     stdio: ["inherit", "inherit", "inherit"],
   });
-  process.exitCode = await run.exited;
+  return await run.exited;
 }
+
+if (import.meta.main)
+  process.exitCode = await testArea(
+    join(import.meta.dir, ".."),
+    process.argv.slice(2),
+  );
