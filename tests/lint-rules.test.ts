@@ -19,15 +19,18 @@ async function messages(filePath: string, code: string) {
 
 const templateRules = (
   await Promise.all(
-    ["../config/template-rules.mjs", "../config/platform-rules.mjs"].map(
-      async (file) =>
-        Object.keys(
-          (
-            (await import(new URL(file, import.meta.url).href)) as {
-              default: { rules: object };
-            }
-          ).default.rules,
-        ),
+    [
+      "../config/template-rules.mjs",
+      "../config/platform-rules.mjs",
+      "../config/payload-rules.mjs",
+    ].map(async (file) =>
+      Object.keys(
+        (
+          (await import(new URL(file, import.meta.url).href)) as {
+            default: { rules: object };
+          }
+        ).default.rules,
+      ),
     ),
   )
 ).flat();
@@ -111,6 +114,62 @@ const fixes = [
     fixed: ([fix]: string[]) =>
       `export const sorted = (names: string[]) => names.sort(${fix});`,
   },
+  {
+    rule: "no-in-operator",
+    filePath: "src/bootstrap.ts",
+    failing:
+      'export const code = (error: Error): unknown => ("code" in error ? error.code : undefined);',
+    fixed: ([fix]: string[]) =>
+      `export const code = (error: Error): unknown => ${fix};`,
+  },
+  {
+    rule: "no-in-operator",
+    filePath: "src/static-admission.ts",
+    failing:
+      'export const payload = (next: () => object) => ("payload" in next() ? 1 : 0);',
+    fixed: ([fix]: string[]) =>
+      `export const payload = (next: () => object): unknown => {\n  ${fix}\n  return own;\n};`,
+  },
+  {
+    rule: "no-in-operator",
+    filePath: "src/static-admission.ts",
+    failing:
+      "export const payload = (key: string, read: () => object) => (key in read() ? 1 : 0);",
+    fixed: ([fix]: string[]) =>
+      `export const payload = (key: string, read: () => object): unknown => {\n  ${fix}\n  return own;\n};`,
+  },
+  {
+    rule: "no-in-operator",
+    filePath: "src/static-admission.ts",
+    failing:
+      "export const payload = (key: string, read: () => object) => {\n  {\n    return key in read();\n  }\n};",
+    fixed: ([fix]: string[]) =>
+      `export const payload = (key: string, read: () => object): unknown => {\n  {\n    ${fix}\n    return own;\n  }\n};`,
+  },
+  {
+    rule: "no-in-operator",
+    filePath: "src/static-admission.ts",
+    failing:
+      'export const payload = (host: { readonly value: object }) => ("payload" in host.value ? 1 : 0);',
+    fixed: ([fix]: string[]) =>
+      `export const payload = (host: { readonly value: object }): unknown => {\n  ${fix}\n  return own;\n};`,
+  },
+  {
+    rule: "no-in-operator",
+    filePath: "src/static-admission.ts",
+    failing:
+      "export const consume = (value: object, use: (field: string) => void) => {\n  for (const field in value) use(field);\n};",
+    fixed: ([fix]: string[]) =>
+      `export const consume = (value: object, use: (field: string) => void) => {\n  ${fix} use(field);\n};`,
+  },
+  {
+    rule: "no-in-operator",
+    filePath: "src/static-admission.ts",
+    failing:
+      "export const consume = (value: object, use: (field: string) => void) => {\n  let field: string;\n  for (field in value) use(field);\n};",
+    fixed: ([fix]: string[]) =>
+      `export const consume = (value: object, use: (field: string) => void) => {\n  let field: string;\n  ${fix} use(field);\n};`,
+  },
 ];
 
 for (const item of fixes)
@@ -167,6 +226,27 @@ const refused = [
       "});",
     ],
     lines: [2],
+  },
+  {
+    rule: "no-in-operator",
+    witness: "r4580070968",
+    filePath: "src/static-admission.ts",
+    code: [
+      "type Fields = Readonly<Record<string, { readonly required: boolean }>>;",
+      "export const fields = (table: Fields, value: Readonly<Record<string, unknown>>) =>",
+      "  Object.keys(value).every((key) => key in table) &&",
+      "  Object.entries(table).every(([key, field]) => !field.required || key in value);",
+    ],
+    lines: [3, 4],
+  },
+  {
+    rule: "no-in-operator",
+    witness: "r4606943328",
+    filePath: "src/static-admission.ts",
+    code: [
+      'export const has = (value: object) => Reflect["has"](value, "toString");',
+    ],
+    lines: [1],
   },
 ];
 
@@ -258,6 +338,42 @@ const cases = [
     ],
     line: 2,
     fix: "Repair: make a scratch folder with testFolder(prefix) from tests/support/test-folder.ts",
+  },
+  {
+    rule: "no-in-operator",
+    witness: "r4580070979",
+    filePath: "src/static-admission.ts",
+    failing: [
+      "type Fields = Readonly<Record<string, { readonly required: boolean }>>;",
+      "export const compatible = (older: Fields, newer: Fields) => {",
+      "  for (const [key, field] of Object.entries(newer))",
+      '    if (!(key in older) && field.required) throw new Error("A new field must be optional.");',
+      "};",
+    ],
+    passing: [
+      "type Fields = Readonly<Record<string, { readonly required: boolean }>>;",
+      "export const compatible = (older: Fields, newer: Fields) => {",
+      "  for (const [key, field] of Object.entries(newer))",
+      '    if (!Object.hasOwn(older, key) && field.required) throw new Error("A new field must be optional.");',
+      "};",
+    ],
+    line: 4,
+    fix: "Repair: (Object.hasOwn(older, key) ? Reflect.get(older, key) : undefined)",
+  },
+  {
+    rule: "no-in-operator",
+    witness: "r4580077776",
+    filePath: "scripts/doctor.ts",
+    failing: [
+      "export const declared = (fields: Readonly<Record<string, unknown>>, value: object) =>",
+      "  Object.keys(value).every((key) => key in fields);",
+    ],
+    passing: [
+      "export const declared = (fields: Readonly<Record<string, unknown>>, value: object) =>",
+      "  Object.keys(value).every((key) => Object.hasOwn(fields, key));",
+    ],
+    line: 2,
+    fix: "Repair: (Object.hasOwn(fields, key) ? Reflect.get(fields, key) : undefined)",
   },
 ];
 
@@ -542,6 +658,77 @@ const bypasses = [
 for (const [rule, code, fix] of bypasses)
   test(`${rule} ${fix ? "refuses" : "admits"} ${code} and names the fix`, async () => {
     const found = await hits(rule, "tests/doctor.test.ts", code);
+    expect(
+      found.map(({ message }) => fix !== undefined && message.includes(fix)),
+    ).toEqual(fix ? [true] : []);
+  });
+
+const ownData = [
+  [
+    'export const has = (value: object) => "toString" in value;',
+    "the in operator also finds inherited members such as toString",
+  ],
+  [
+    'export const has = (value: object) => Reflect.has(value, "payload");',
+    'Repair: (Object.hasOwn(value, "payload")',
+  ],
+  [
+    'export const has = (value: object) => Reflect[`has`](value, "toString");',
+    'Repair: (Object.hasOwn(value, "toString")',
+  ],
+  [
+    'type Shape = { kind: "a"; a: number } | { kind: "b"; b: string };\nexport const has = (shape: Shape) => Reflect["has"](shape, "a");',
+    undefined,
+  ],
+  [
+    "export const keys = (value: object) => {\n  for (const key in value) return key;\n};",
+    "Repair: for (const key of Object.keys(value))",
+  ],
+  [
+    "export const keys = (value: object) => {\n  for (let field in value) return field;\n};",
+    "Repair: for (let field of Object.keys(value))",
+  ],
+  [
+    'export const once = (read: () => object) => "payload" in read();',
+    'Repair: const key = "payload"; const target = read(); const own: unknown',
+  ],
+  [
+    'export const once = (host: { readonly value: object }) => "payload" in host.value;',
+    'Repair: const key = "payload"; const target = host.value; const own: unknown',
+  ],
+  [
+    "export const once = (source: object, keys: { readonly key: string }) => keys.key in source;",
+    "Repair: const key = keys.key; const target = source; const own: unknown",
+  ],
+  [
+    "export const once = (target: () => object, own: string) => own in target();",
+    "Repair: const key = own; const target2 = target(); const own2: unknown = Object.hasOwn(target2, key) ? Reflect.get(target2, key) : undefined;",
+  ],
+  [
+    'type Shape = { kind: "a"; a: number } | { kind: "b"; b: string };\nexport const read = (shape: Shape) => ("a" in shape ? shape.a : shape.b);',
+    undefined,
+  ],
+  [
+    'export function has<T extends { a: number } | { b: string }>(value: T) {\n  return "a" in value;\n}',
+    undefined,
+  ],
+  [
+    'export function has<T extends { a: number } | { b: string }>(value: T) {\n  return "c" in value;\n}',
+    'Repair: (Object.hasOwn(value, "c")',
+  ],
+  [
+    'export const has = (value: object) => Object.hasOwn(value, "payload");',
+    undefined,
+  ],
+  [
+    "export class Box {\n  #id = 1;\n  static has(value: object) {\n    return #id in value;\n  }\n}",
+    undefined,
+  ],
+] as const;
+
+for (const [code, fix] of ownData)
+  test(`no-in-operator ${fix ? "refuses" : "admits"} ${JSON.stringify(code)} in src/static-admission.ts`, async () => {
+    const found = await hits("no-in-operator", "src/static-admission.ts", code);
     expect(
       found.map(({ message }) => fix !== undefined && message.includes(fix)),
     ).toEqual(fix ? [true] : []);

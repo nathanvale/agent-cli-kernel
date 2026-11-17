@@ -85,8 +85,7 @@ export async function jsonFile(path: string): Promise<Document> {
 
 function throwFileReadError(error: unknown, path: string): never {
   if (!(error instanceof Error)) throw error;
-  if (!("code" in error)) throw error;
-  if (error.code === "ENOENT") {
+  if (Object.hasOwn(error, "code") && Reflect.get(error, "code") === "ENOENT") {
     throw new Refusal(`file:missing:${basename(path)}`);
   }
   throw error;

@@ -57,6 +57,17 @@ test("toolchain admission accepts the exact API and wrapper with the native comp
   });
 });
 
+test("toolchain admission rejects a version the module only inherits", async () => {
+  const project = await installedProject("6.0.2");
+  await writeFile(
+    join(project, "node_modules/typescript/index.cjs"),
+    'module.exports = Object.create({ version: "6.0.2" });',
+  );
+  expect(() => resolveToolchain(project)).toThrow(
+    "The installed package has no version identity.",
+  );
+});
+
 test("toolchain admission still rejects a wrong wrapper even with the accepted API", async () => {
   const project = await installedProject("6.0.2", "6.0.3");
   expect(() => resolveToolchain(project)).toThrow("accepted toolchain");

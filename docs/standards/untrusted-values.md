@@ -6,12 +6,16 @@ boundary trusts the types.
 
 ## Object model
 
-- Check own data with `Object.hasOwn`. The `in` operator also finds
-  `Object.prototype` members such as `toString`. Witnessed: [r4580070968],
-  [r4580070979], [r4580077776].
+- Check own data with `Object.hasOwn` where the lint does not reach: an
+  index read such as `fields[key]` with a key from a payload, and a key
+  check in a test. Both also find `Object.prototype` members such as
+  `toString`. Witnessed: [r4580070968], [r4580070979], [r4580077776],
+  [5cbff3a].
 - Read each value once into the copy you validate, then check and use that
   same copy. A second read of an accessor, or a read after an `await`, can
-  differ. Witnessed: [75b4bc0], [r4580077763], [3088c03].
+  differ. Witnessed: [75b4bc0], [r4580077763], [3088c03], [r4606886521],
+  [r4606943307] (the `no-in-operator` repair read a member expression
+  twice).
 - Validate the same object you pass on. A spread drops non-enumerable
   properties, and a hidden `toJSON` rewrites serialised data. Witnessed:
   [r4580070938], [r4580077749].
@@ -44,8 +48,11 @@ boundary trusts the types.
 [r4580070890]: https://github.com/nathanvale/bun-typescript-template/pull/6#discussion_r4580070890
 [r4580077765]: https://github.com/nathanvale/bun-typescript-template/pull/6#discussion_r4580077765
 [r4580077771]: https://github.com/nathanvale/bun-typescript-template/pull/6#discussion_r4580077771
+[r4606886521]: https://github.com/nathanvale/bun-typescript-template/pull/80#discussion_r4606886521
+[r4606943307]: https://github.com/nathanvale/bun-typescript-template/pull/80#discussion_r4606943307
 [75b4bc0]: https://github.com/nathanvale/bun-typescript-template/commit/75b4bc045d038970858b95b136f9f176fd3fc4cc
 [57c8c8b]: https://github.com/nathanvale/bun-typescript-template/commit/57c8c8b881c66e967688d05a3a70e1ef487c5553
+[5cbff3a]: https://github.com/nathanvale/bun-typescript-template/commit/5cbff3a87746defffd2672320038c48fbd1ddbc6
 [6021454]: https://github.com/nathanvale/bun-typescript-template/commit/6021454e9d4a5426724b08a17fabec084eca3eac
 [f00dc2a]: https://github.com/nathanvale/bun-typescript-template/commit/f00dc2af3e7ea13f694b4adcfe0404ad6e4d8e9b
 [b54d325]: https://github.com/nathanvale/bun-typescript-template/commit/b54d3256aa2b5302eeea41f33649093a82c5410d
