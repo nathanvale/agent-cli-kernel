@@ -10,10 +10,6 @@
       "reason": "tests/doctor.test.ts proves it by spawning scripts/test-area.ts."
     },
     {
-      "path": "src/static-admission.ts",
-      "reason": "tests/static-admission.test.ts proves it by spawning src/static-admission.ts."
-    },
-    {
       "path": "scripts/glossary.ts",
       "export": "namesOnPaths",
       "reason": "Only scripts/check-names.ts calls it, and the naming tests spawn that script."

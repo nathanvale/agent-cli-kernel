@@ -5,14 +5,16 @@ import type { Dirent } from "node:fs";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { basename, join, relative, resolve } from "node:path";
 
-type Document = Record<string, unknown>;
-type Profile = "simple" | "complex";
-interface Options {
+export type Document = Record<string, unknown>;
+export type Profile = "simple" | "complex";
+export type Environment = Record<string, string | undefined>;
+export interface Options {
   project: string;
   profile: Profile;
   evidence: string;
+  env: Environment;
 }
-interface Receipt {
+export interface Receipt {
   name: string;
   argv: string[];
   cwd: string;
@@ -47,22 +49,27 @@ function document(value: unknown, cause: string): Document {
   return value as Document;
 }
 
-function parseOptions(): Options {
-  const [project, profile, evidence, ...extra] = process.argv.slice(2);
+export function parseOptions(argv: string[], env: Environment): Options {
+  const [project, profile, evidence, ...extra] = argv;
   requireValue(project && evidence && extra.length === 0, "usage", usage);
   requireValue(
     profile === "simple" || profile === "complex",
     "usage:profile",
     usage,
   );
-  return { project: resolve(project), profile, evidence: resolve(evidence) };
+  return {
+    project: resolve(project),
+    profile,
+    evidence: resolve(evidence),
+    env,
+  };
 }
 
 function digest(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
-async function jsonFile(path: string): Promise<Document> {
+export async function jsonFile(path: string): Promise<Document> {
   let text: string;
   try {
     text = await readFile(path, "utf8");
@@ -81,7 +88,11 @@ function throwFileReadError(error: unknown, path: string): never {
   throw error;
 }
 
-function compare(actual: unknown, expected: unknown, path: string): void {
+export function compare(
+  actual: unknown,
+  expected: unknown,
+  path: string,
+): void {
   if (Array.isArray(expected)) {
     requireValue(JSON.stringify(actual) === JSON.stringify(expected), path);
     return;
@@ -128,7 +139,7 @@ async function inventoryEntry(
     files[relative(root, path)] = digest(await readFile(path));
 }
 
-async function inventory(root: string): Promise<Record<string, string>> {
+export async function inventory(root: string): Promise<Record<string, string>> {
   const files: Record<string, string> = {};
   await visitDirectory(root, root, files);
   return Object.fromEntries(
@@ -136,7 +147,7 @@ async function inventory(root: string): Promise<Record<string, string>> {
   );
 }
 
-async function checkPolicy(options: Options): Promise<Document> {
+export async function checkPolicy(options: Options): Promise<Document> {
   const packet = resolve(
     import.meta.dir,
     "../profiles/static-admission",
@@ -183,7 +194,10 @@ async function checkPolicy(options: Options): Promise<Document> {
   return actual;
 }
 
-async function checkLock(root: string, expected: Document): Promise<void> {
+export async function checkLock(
+  root: string,
+  expected: Document,
+): Promise<void> {
   const lock = await jsonFile(join(root, "bun.lock"));
   requireValue(lock.lockfileVersion === 3, "policy:bun.lock.lockfileVersion");
   const workspace = document(
@@ -241,7 +255,7 @@ function checkLockedResolutions(packages: Document, pins: Document): void {
   }
 }
 
-function nativeEnvironment(): Record<string, string | undefined> {
+export function nativeEnvironment(env: Environment): Environment {
   const forbidden = [
     "FALLOW_PRODUCTION",
     "FALLOW_PRODUCTION_DEAD_CODE",
@@ -251,19 +265,18 @@ function nativeEnvironment(): Record<string, string | undefined> {
     "FALLOW_EXTRA_ARGS",
     "FALLOW_MAX_FILE_SIZE",
   ];
-  for (const name of forbidden)
-    requireValue(!process.env[name], `environment:${name}`);
-  return { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1" };
+  for (const name of forbidden) requireValue(!env[name], `environment:${name}`);
+  return { ...env, FORCE_COLOR: "0", NO_COLOR: "1" };
 }
 
-async function execute(
+export async function execute(
   options: Options,
   name: string,
   argv: string[],
 ): Promise<Receipt> {
   const result = Bun.spawnSync(argv, {
     cwd: options.project,
-    env: nativeEnvironment(),
+    env: nativeEnvironment(options.env),
     stdin: "ignore",
     stdout: "pipe",
     stderr: "pipe",
@@ -283,7 +296,7 @@ async function execute(
   return receipt;
 }
 
-function parseReceipt(receipt: Receipt): Document {
+export function parseReceipt(receipt: Receipt): Document {
   let value: unknown;
   try {
     value = JSON.parse(receipt.stdout);
@@ -293,7 +306,7 @@ function parseReceipt(receipt: Receipt): Document {
   return document(value, `${receipt.name}:non-object`);
 }
 
-async function successful(
+export async function successful(
   options: Options,
   name: string,
   argv: string[],
@@ -303,7 +316,7 @@ async function successful(
   return receipt;
 }
 
-function sourcePaths(files: Record<string, string>): string[] {
+export function sourcePaths(files: Record<string, string>): string[] {
   const paths = Object.keys(files).filter((path) => path.endsWith(".ts"));
   requireValue(paths.length > 0, "scope:empty");
   for (const path of paths)
@@ -314,7 +327,7 @@ function sourcePaths(files: Record<string, string>): string[] {
   return paths.sort();
 }
 
-function normalizedPaths(root: string, value: unknown): string[] {
+export function normalizedPaths(root: string, value: unknown): string[] {
   requireValue(Array.isArray(value), "scope:path-list-missing");
   return value
     .map((item: unknown) => {
@@ -324,7 +337,10 @@ function normalizedPaths(root: string, value: unknown): string[] {
     .sort();
 }
 
-async function compilerScope(options: Options, paths: string[]): Promise<void> {
+export async function compilerScope(
+  options: Options,
+  paths: string[],
+): Promise<void> {
   const receipt = await successful(options, "compiler-config", [
     "node_modules/.bin/tsc",
     "--showConfig",
@@ -339,7 +355,7 @@ async function compilerScope(options: Options, paths: string[]): Promise<void> {
   );
 }
 
-async function discoveryScope(
+export async function discoveryScope(
   options: Options,
   paths: string[],
 ): Promise<string[]> {
@@ -378,7 +394,10 @@ async function discoveryScope(
   return [...required, "eslint-rules.mjs"];
 }
 
-function wholeReportScope(whole: Document, requiredEntries: string[]): void {
+export function wholeReportScope(
+  whole: Document,
+  requiredEntries: string[],
+): void {
   const report = document(whole.report, "scope:whole-report");
   const entries = document(report.entry_points, "scope:whole-entries");
   const sources = document(entries.sources, "scope:whole-entry-sources");
@@ -389,7 +408,7 @@ function wholeReportScope(whole: Document, requiredEntries: string[]): void {
   compare(report.workspace_diagnostics ?? [], [], "scope:whole-diagnostics");
 }
 
-function semanticState(report: Document, pass: string): string {
+export function semanticState(report: Document, pass: string): string {
   const meta = document(report._meta, `${pass}:semantic-missing`);
   const semantic = document(meta.type_aware, `${pass}:semantic-missing`);
   const identity = document(
@@ -447,7 +466,7 @@ function executedEvidence(semantic: Document, pass: string): void {
     );
 }
 
-async function fallowPass(
+export async function fallowPass(
   options: Options,
   name: string,
   command: unknown,
@@ -531,15 +550,27 @@ async function admission(options: Options): Promise<Document> {
   };
 }
 
-try {
-  const options = parseOptions();
-  const result = await admission(options);
-  process.stdout.write(JSON.stringify(result) + "\n");
-} catch (error) {
-  const cause = error instanceof Refusal ? error.causeCode : "admission:error";
-  const detail = error instanceof Error ? error.message : String(error);
-  process.stdout.write(
-    JSON.stringify({ status: "refused", cause, detail }) + "\n",
-  );
-  process.exitCode = 1;
+export async function run(
+  argv: string[],
+  env: Environment,
+): Promise<{ output: string; exitCode: number }> {
+  try {
+    const options = parseOptions(argv, env);
+    const result = await admission(options);
+    return { output: JSON.stringify(result) + "\n", exitCode: 0 };
+  } catch (error) {
+    const cause =
+      error instanceof Refusal ? error.causeCode : "admission:error";
+    const detail = error instanceof Error ? error.message : String(error);
+    return {
+      output: JSON.stringify({ status: "refused", cause, detail }) + "\n",
+      exitCode: 1,
+    };
+  }
+}
+
+if (import.meta.main) {
+  const { output, exitCode } = await run(process.argv.slice(2), process.env);
+  process.stdout.write(output);
+  process.exitCode = exitCode;
 }
