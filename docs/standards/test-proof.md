@@ -22,6 +22,10 @@ repository broke it.
   kill still passed), [dbd196e] (a timeout message that reads the same
   constant stays green when the timer is changed, so measure the elapsed
   time).
+- Prove a resolution by a refusal only the right folder can give. A recorded
+  hit or an empty result passes for a skipped check too, and a process
+  folder with the same tail as the injected one passes for the wrong
+  folder. Witnessed: [9ad6bf2].
 - Prove that a fixture meant to lack something lacks it, and fail loudly
   when its location supplies it. `STATE_TEST_DIR` can place a test folder
   inside the checkout, where git finds the parent repository for a case that
@@ -124,3 +128,4 @@ repository broke it.
 [7623343]: https://github.com/nathanvale/bun-typescript-template/commit/76233438395b1e967f461ded4a34f6c1d2c8a533
 [315de28]: https://github.com/nathanvale/bun-typescript-template/commit/315de28d3e1da69a4e8d65923654846405a3d1c8
 [dbd196e]: https://github.com/nathanvale/bun-typescript-template/commit/dbd196e8dd2dc19163d201cfb4f089952f1c471f
+[9ad6bf2]: https://github.com/nathanvale/bun-typescript-template/commit/9ad6bf2528f0c65fc5106e8377c469b2e48b1743
