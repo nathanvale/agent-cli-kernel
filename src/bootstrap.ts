@@ -151,10 +151,6 @@ function parseWord<T extends string>(
   );
 }
 
-function parseProfile(value: string): Profile {
-  return parseWord(PROFILES, "profile", value);
-}
-
 const VALUE_FLAGS: Record<string, ValueFlag> = {
   "--destination": "destination",
   "--name": "name",
@@ -169,7 +165,7 @@ function assignValueFlag(
   value: string,
 ): void {
   if (flag === "profile") {
-    flags.profile = parseProfile(value);
+    flags.profile = parseWord(PROFILES, "profile", value);
     return;
   }
   if (flag === "starter") {
@@ -349,7 +345,7 @@ function parseArgs(argv: string[]): BootstrapOptions | "help" {
   }
 
   const flags = parseFlags(argv);
-  const profile = parseProfile(requireFlag(flags.profile));
+  const profile = parseWord(PROFILES, "profile", requireFlag(flags.profile));
   const destination = requireFlag(flags.destination);
   const sourcePacket = requireFlag(flags.sourcePacket);
   const recipe = selectProjectRecipe(profile, flags);
