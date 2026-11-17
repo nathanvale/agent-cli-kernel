@@ -448,6 +448,13 @@
     "source": "aaedd58 test(standards): refuse a runtime file or export that no test imports"
   },
   {
+    "id": "c77aaa9-static-admission",
+    "patch": "tests/planted-faults/patches/c77aaa9-static-admission.patch",
+    "testFile": "tests/static-admission-in-process.test.ts",
+    "title": "^execute kills a command that outlives its time limit",
+    "source": "c77aaa9 fix(static-admission): bound every child command with a time limit"
+  },
+  {
     "id": "837cf32-planted-faults-usage",
     "patch": "tests/planted-faults/patches/837cf32-planted-faults-usage.patch",
     "testFile": "tests/planted-faults.test.ts",
