@@ -407,7 +407,7 @@ describe("test:area", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toBe(
-      "repository.json declares test areas that hold no test file: lost (tests/lost). Restore their tests, or remove them from testAreas.\n",
+      "repository.json has test areas with no test file: lost (tests/lost). Repair: restore their tests, or remove them from testAreas.\n",
     );
   });
 
@@ -426,7 +426,7 @@ describe("test:area", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toBe(
-      "repository.json gives one test area name to more than one folder: template (tests, tests/more). Rename an area in testAreas, or rename a subfolder.\n",
+      "repository.json gives one test area name to several folders: template (tests, tests/more). Repair: rename an area in testAreas, or a subfolder.\n",
     );
   });
 
@@ -441,7 +441,7 @@ describe("test:area", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toBe(
-      "repository.json gives one test area name to more than one folder: template (tests, tests/kernel/template). Rename an area in testAreas, or rename a subfolder.\n",
+      "repository.json gives one test area name to several folders: template (tests, tests/kernel/template). Repair: rename an area in testAreas, or a subfolder.\n",
     );
   });
 
