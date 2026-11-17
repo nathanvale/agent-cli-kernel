@@ -2,7 +2,7 @@
 set -eu
 
 bin=node_modules/.bin
-for tool in biome eslint tsc; do
+for tool in biome eslint tsc fallow; do
   if [ ! -x "$bin/$tool" ]; then
     echo "pre-commit: install dependencies, then commit again: bun install --frozen-lockfile" >&2
     exit 1
@@ -27,6 +27,10 @@ if [ -n "$(staged '*.ts' '*.mts' '*.cts' '*.mjs' | tr -d '\0')" ]; then
   }
   "$bin/tsc" --noEmit -p tsconfig.json || {
     echo "pre-commit: type errors above. Fix each one in code, stage the change with git add, and commit again. Done when bun run typecheck passes." >&2
+    exit 1
+  }
+  "$bin/fallow" audit --staged --quiet || {
+    echo "pre-commit: fallow found new problems in the staged changes (listed above). Fix each one in code, stage the fix with git add, and commit again. Done when node_modules/.bin/fallow audit --staged passes." >&2
     exit 1
   }
 fi

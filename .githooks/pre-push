@@ -1,0 +1,36 @@
+#!/bin/sh
+set -eu
+
+fallow=node_modules/.bin/fallow
+if [ ! -x "$fallow" ]; then
+  echo "pre-push: install dependencies, then push again: bun install --frozen-lockfile" >&2
+  exit 1
+fi
+
+zero=0000000000000000000000000000000000000000
+head=$(git rev-parse HEAD)
+default_base=$(git rev-parse --verify --quiet "${FALLOW_AUDIT_BASE:-origin/HEAD}" || git rev-parse --verify --quiet origin/main || true)
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "$zero" ] && continue
+  if [ "$local_sha" != "$head" ]; then
+    echo "pre-push: fallow checks the checked-out commit, and $local_ref is not checked out. Check out $local_ref and push it from there." >&2
+    exit 1
+  fi
+  if [ "$remote_sha" != "$zero" ] && git cat-file -e "$remote_sha^{commit}" 2>/dev/null; then
+    base=$remote_sha
+  elif [ -n "$default_base" ]; then
+    base=$(git merge-base "$default_base" "$local_sha")
+  else
+    echo "pre-push: no base to compare with. Run git fetch origin, then push again." >&2
+    exit 1
+  fi
+  if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+    echo "pre-push: fallow reads the working tree, which has uncommitted changes. Commit or stash them so the check sees exactly what you push, then push again." >&2
+    exit 1
+  fi
+  "$fallow" audit --base "$base" --quiet || {
+    echo "pre-push: fallow found new problems in $remote_ref since $(git rev-parse --short "$base") (listed above). Fix each one in code, commit, and push again. Done when bun run --silent quality:fallow --base $base passes." >&2
+    exit 1
+  }
+done
