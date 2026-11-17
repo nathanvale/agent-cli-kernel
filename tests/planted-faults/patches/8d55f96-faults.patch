@@ -1,8 +1,8 @@
 diff --git a/scripts/planted-faults.ts b/scripts/planted-faults.ts
-index 0add95c..ab36abe 100644
+index 304c695..84a62d7 100644
 --- a/scripts/planted-faults.ts
 +++ b/scripts/planted-faults.ts
-@@ -321,10 +321,8 @@ async function replayAll(ids: readonly string[]): Promise<number> {
+@@ -330,10 +330,8 @@ export async function replayAll(
    const chosen =
      ids.length === 0 ? faults : faults.filter(({ id }) => ids.includes(id));
    if (chosen.length === 0) {
@@ -13,5 +13,5 @@ index 0add95c..ab36abe 100644
 +    print(`${recordsPath} has no fault record.`);
 +    return 0;
    }
-   const limitMilliseconds = stepLimitMilliseconds();
-   const commit = commitWorkingTreeInScratchIndex();
+   const limitMilliseconds = stepLimitMilliseconds(env);
+   const commit = commitWorkingTreeInScratchIndex(root);

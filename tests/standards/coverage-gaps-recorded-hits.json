@@ -6,10 +6,6 @@
       "reason": "The naming tests prove it by spawning bun run check:names."
     },
     {
-      "path": "scripts/planted-faults.ts",
-      "reason": "tests/planted-faults.test.ts proves it by spawning bun run fault-replay and bun run planted-fault:add."
-    },
-    {
       "path": "scripts/test-area.ts",
       "reason": "tests/doctor.test.ts proves it by spawning scripts/test-area.ts."
     },

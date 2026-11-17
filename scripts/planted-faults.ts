@@ -10,18 +10,17 @@ import { constants, tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { runWithOwnTools } from "./process-runner.ts";
 
-const root = join(import.meta.dir, "..");
 const recordsPath = "tests/planted-faults/fault-records.json";
 const patchFolder = "tests/planted-faults/patches";
 
-type Fault = {
+export type Fault = {
   id: string;
   patch: string;
   testFile: string;
   title: string;
   source: string;
 };
-type Verdict =
+export type Verdict =
   | { kind: "KILLED"; failing: readonly string[] }
   | { kind: "SURVIVED" }
   | { kind: "STALE"; output: string }
@@ -48,6 +47,7 @@ function quoted(value: string): string {
 }
 
 function git(
+  root: string,
   args: readonly string[],
   env: Record<string, string | undefined> = process.env,
 ) {
@@ -66,10 +66,11 @@ function git(
 }
 
 function gitOrThrow(
+  root: string,
   args: readonly string[],
   env?: Record<string, string | undefined>,
 ): string {
-  const result = git(args, env);
+  const result = git(root, args, env);
   if (!result.ok)
     throw new Error(`git ${args.join(" ")}: ${result.stderr.trim()}`);
   return result.stdout;
@@ -84,7 +85,7 @@ const repairFor: { readonly [name in keyof Fault]: string } = {
   source: "name it <fix short sha> <fix subject>.",
 };
 
-function parseFault(entry: unknown, where: string): Fault {
+function parseFault(entry: unknown, where: string, root: string): Fault {
   const own = new Map<string, unknown>(
     typeof entry === "object" && entry !== null ? Object.entries(entry) : [],
   );
@@ -110,7 +111,7 @@ function parseFault(entry: unknown, where: string): Fault {
   return fault;
 }
 
-function readRecords(): Fault[] {
+export function readRecords(root: string): Fault[] {
   const path = join(root, recordsPath);
   if (!existsSync(path)) return [];
   const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
@@ -119,7 +120,7 @@ function readRecords(): Fault[] {
       `${recordsPath} must hold an array of fault records. Repair: make its top level one JSON array.`,
     );
   const faults = parsed.map((entry, index) =>
-    parseFault(entry, `${recordsPath} record ${index}`),
+    parseFault(entry, `${recordsPath} record ${index}`, root),
   );
   const ids = new Set<string>();
   for (const { id } of faults) {
@@ -132,16 +133,17 @@ function readRecords(): Fault[] {
   return faults;
 }
 
-function commitWorkingTreeInScratchIndex(): string {
+function commitWorkingTreeInScratchIndex(root: string): string {
   const folder = mkdtempSync(join(tmpdir(), "fault-replay-index-"));
   try {
     const env = { ...process.env, GIT_INDEX_FILE: join(folder, "index") };
-    gitOrThrow(["read-tree", "HEAD"], env);
-    gitOrThrow(["add", "--all"], env);
-    const tree = gitOrThrow(["write-tree"], env).trim();
-    if (tree === gitOrThrow(["rev-parse", "HEAD^{tree}"]).trim())
-      return gitOrThrow(["rev-parse", "HEAD"]).trim();
+    gitOrThrow(root, ["read-tree", "HEAD"], env);
+    gitOrThrow(root, ["add", "--all"], env);
+    const tree = gitOrThrow(root, ["write-tree"], env).trim();
+    if (tree === gitOrThrow(root, ["rev-parse", "HEAD^{tree}"]).trim())
+      return gitOrThrow(root, ["rev-parse", "HEAD"]).trim();
     return gitOrThrow(
+      root,
       ["commit-tree", tree, "-p", "HEAD", "-m", "fault-replay: working tree"],
       { ...process.env, ...snapshotAuthor },
     ).trim();
@@ -150,8 +152,10 @@ function commitWorkingTreeInScratchIndex(): string {
   }
 }
 
-function stepLimitMilliseconds(): number {
-  const given = process.env[stepLimitVariable];
+export function stepLimitMilliseconds(
+  env: Readonly<Record<string, string | undefined>>,
+): number {
+  const given = env[stepLimitVariable];
   if (given === undefined || given === "")
     return defaultStepLimitSeconds * 1000;
   const seconds = Number(given);
@@ -206,7 +210,7 @@ function testArgs(fault: Fault): string[] {
   return ["test", `./${fault.testFile}`, "-t", fault.title];
 }
 
-async function removeWorktree(dir: string): Promise<void> {
+async function removeWorktree(root: string, dir: string): Promise<void> {
   await Bun.spawn(["git", "worktree", "remove", "--force", dir], {
     cwd: root,
     stdout: "ignore",
@@ -215,7 +219,8 @@ async function removeWorktree(dir: string): Promise<void> {
   }).exited;
 }
 
-async function replay(
+export async function replay(
+  root: string,
   fault: Fault,
   commit: string,
   limitMilliseconds: number,
@@ -254,12 +259,12 @@ async function replay(
       return { kind: "TIMEOUT", step: error.step };
     throw error;
   } finally {
-    await removeWorktree(dir);
+    await removeWorktree(root, dir);
     rmSync(folder, { recursive: true, force: true });
   }
 }
 
-function report(
+export function report(
   fault: Fault,
   verdict: Verdict,
   seconds: number,
@@ -309,8 +314,12 @@ function report(
   }
 }
 
-async function replayAll(ids: readonly string[]): Promise<number> {
-  const faults = readRecords();
+export async function replayAll(
+  root: string,
+  ids: readonly string[],
+  env: Readonly<Record<string, string | undefined>>,
+): Promise<number> {
+  const faults = readRecords(root);
   const unknown = ids.filter((id) => !faults.some((fault) => fault.id === id));
   if (unknown.length > 0) {
     process.stderr.write(
@@ -326,13 +335,13 @@ async function replayAll(ids: readonly string[]): Promise<number> {
     );
     return 1;
   }
-  const limitMilliseconds = stepLimitMilliseconds();
-  const commit = commitWorkingTreeInScratchIndex();
+  const limitMilliseconds = stepLimitMilliseconds(env);
+  const commit = commitWorkingTreeInScratchIndex(root);
   const started = performance.now();
   let killed = 0;
   for (const fault of chosen) {
     const begun = performance.now();
-    const verdict = await replay(fault, commit, limitMilliseconds);
+    const verdict = await replay(root, fault, commit, limitMilliseconds);
     haltIfStopped(fault.id);
     report(
       fault,
@@ -349,7 +358,7 @@ async function replayAll(ids: readonly string[]): Promise<number> {
   return killed === chosen.length ? 0 : 1;
 }
 
-function add(argv: readonly string[]): number {
+export function add(root: string, argv: readonly string[]): number {
   const [sha, sourcePath, testFile, title] = argv;
   if (
     sha === undefined ||
@@ -362,10 +371,20 @@ function add(argv: readonly string[]): number {
     );
     return 2;
   }
-  const full = gitOrThrow(["rev-parse", "--verify", `${sha}^{commit}`]).trim();
-  const short = gitOrThrow(["rev-parse", "--short", full]).trim();
-  const subject = gitOrThrow(["log", "-1", "--format=%s", full]).trim();
-  const reverse = gitOrThrow(["diff", full, `${full}^`, "--", sourcePath]);
+  const full = gitOrThrow(root, [
+    "rev-parse",
+    "--verify",
+    `${sha}^{commit}`,
+  ]).trim();
+  const short = gitOrThrow(root, ["rev-parse", "--short", full]).trim();
+  const subject = gitOrThrow(root, ["log", "-1", "--format=%s", full]).trim();
+  const reverse = gitOrThrow(root, [
+    "diff",
+    full,
+    `${full}^`,
+    "--",
+    sourcePath,
+  ]);
   if (reverse === "") {
     process.stderr.write(
       `${short} does not change ${sourcePath}. Repair: pass a path that git diff --name-only ${short}^ ${short} lists.\n`,
@@ -382,8 +401,9 @@ function add(argv: readonly string[]): number {
       source: `${short} ${subject}`,
     },
     "planted-fault:add",
+    root,
   );
-  const faults = readRecords();
+  const faults = readRecords(root);
   if (faults.some((each) => each.id === id)) {
     process.stderr.write(
       `${recordsPath} already lists ${id}. Repair: plant it again by hand, run git diff -- ${quoted(sourcePath)} > ${quoted(fault.patch)}, then undo the planted edit; or add the new record by hand under another id.\n`,
@@ -401,32 +421,37 @@ function add(argv: readonly string[]): number {
   return 0;
 }
 
-for (const signal of signals)
-  process.on(signal, () => {
-    active.stoppedBy ??= signal;
-    process.exitCode = 128 + constants.signals[active.stoppedBy];
-    active.stop?.();
-  });
-
-async function main([command, ...rest]: readonly string[]): Promise<number> {
-  if (command === "replay") return replayAll(rest);
-  if (command === "add") return add(rest);
+async function main(
+  root: string,
+  [command, ...rest]: readonly string[],
+): Promise<number> {
+  if (command === "replay") return replayAll(root, rest, process.env);
+  if (command === "add") return add(root, rest);
   process.stderr.write(
     "Usage: bun run fault-replay [id ...] | bun run planted-fault:add <fix sha> <source path> <test file> <title>\n",
   );
   return 2;
 }
 
-let code: number;
-try {
-  code = await main(process.argv.slice(2));
-} catch (error) {
-  process.stderr.write(
-    `${error instanceof Error ? error.message : String(error)}\n`,
-  );
-  code = 2;
+if (import.meta.main) {
+  for (const signal of signals)
+    process.on(signal, () => {
+      active.stoppedBy ??= signal;
+      process.exitCode = 128 + constants.signals[active.stoppedBy];
+      active.stop?.();
+    });
+
+  let code: number;
+  try {
+    code = await main(join(import.meta.dir, ".."), process.argv.slice(2));
+  } catch (error) {
+    process.stderr.write(
+      `${error instanceof Error ? error.message : String(error)}\n`,
+    );
+    code = 2;
+  }
+  process.exitCode =
+    active.stoppedBy === undefined
+      ? code
+      : 128 + constants.signals[active.stoppedBy];
 }
-process.exitCode =
-  active.stoppedBy === undefined
-    ? code
-    : 128 + constants.signals[active.stoppedBy];
