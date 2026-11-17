@@ -132,6 +132,13 @@ function fakeTool(project: string, name: string, executable: string): void {
   symlinkSync(executable, path);
 }
 
+function stubTool(project: string, name: string, body: string): void {
+  const path = join(project, "node_modules/.bin", name);
+  mkdirSync(dirname(path), { recursive: true });
+  rmSync(path, { force: true });
+  writeFileSync(path, `#!/bin/sh\n${body}\n`, { mode: 0o755 });
+}
+
 function linkTool(project: string, name: string): void {
   const path = join(project, "node_modules/.bin", name);
   mkdirSync(dirname(path), { recursive: true });
@@ -640,7 +647,7 @@ test("compilerScope refuses a failing compiler and an output that is not a docum
     await causeOf(() => compilerScope(evidenceOptions(broken), ["src/cli.ts"])),
   ).toBe("compiler-config:exit");
   const echoing = toolProject();
-  fakeTool(echoing, "tsc", "/bin/echo");
+  stubTool(echoing, "tsc", "printf 'not a document'");
   expect(
     await causeOf(() =>
       compilerScope(evidenceOptions(echoing), ["src/cli.ts"]),
