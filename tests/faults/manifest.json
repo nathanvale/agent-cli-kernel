@@ -173,5 +173,12 @@
     "testFile": "tests/child-env.test.ts",
     "title": "CE\\.b ",
     "source": "8048731 fix(faults): bound each replay step and escalate a stop to SIGKILL"
+  },
+  {
+    "id": "569dd22-test-area-shared-name",
+    "patch": "tests/faults/patches/569dd22-test-area-shared-name.patch",
+    "testFile": "tests/doctor.test.ts",
+    "title": "naming both folders",
+    "source": "569dd22 fix(test-area): refuse one area name given to more than one folder"
   }
 ]
