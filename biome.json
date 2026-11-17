@@ -13,7 +13,8 @@
       "!!profiles",
       "!!examples",
       "!!proofs",
-      "!!.worktrees"
+      "!!.worktrees",
+      "!!tools/oxlint/anti-slop"
     ]
   },
   "formatter": {

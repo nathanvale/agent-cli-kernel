@@ -5,9 +5,11 @@
     "examples/**",
     "starters/simple/**",
     "starters/complex/**",
-    "starters/shared/**"
+    "starters/shared/**",
+    "tools/oxlint/anti-slop/**"
   ],
   "ignoreBinaries": ["getconf"],
+  "ignoreDependencies": ["@oxlint/plugins"],
   "typeAware": {
     "enabled": true,
     "require": "complete"

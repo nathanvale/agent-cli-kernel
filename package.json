@@ -19,6 +19,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "admit:static": "bun run src/static-admission.ts",
     "lint": "eslint . --max-warnings 0",
+    "lint:anti-slop": "oxlint",
     "format:check": "biome format .",
     "format": "biome format --write .",
     "admit:cli": "bun run src/cli-inventory.ts"
@@ -32,7 +33,9 @@
     "eslint": "10.15.0",
     "@eslint/js": "10.0.1",
     "typescript-eslint": "8.72.2",
-    "fallow-type-aware": "3.43.0"
+    "fallow-type-aware": "3.43.0",
+    "oxlint": "1.93.0",
+    "@oxlint/plugins": "1.93.0"
   },
   "overrides": {
     "@typescript/old@npm:typescript@^6": "npm:typescript@6.0.2"
