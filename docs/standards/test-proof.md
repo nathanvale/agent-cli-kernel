@@ -34,6 +34,8 @@ repository broke it.
   when its location supplies it. `STATE_TEST_DIR` can place a test folder
   inside the checkout, where git finds the parent repository for a case that
   expects none. Witnessed: [8946615].
+- Require one recorded process before checking that it exited. A missing
+  process ledger lets an empty-result check pass. Witnessed: [#84-ledger].
 - Show that a planted input changes the result when nothing blocks it, with
   a control, before asserting the subject ignores it. A `HOME` change under
   `GIT_CONFIG_GLOBAL=/dev/null` hides the planted `.gitconfig` whether or not
@@ -81,16 +83,17 @@ repository broke it.
 - Bound every child below its test timeout, a fixture's git call and a
   script's synchronous git read included. Witnessed: [e990da6], [4a32366],
   [7623343], [c77aaa9] (the production `execute` spawned tsc and fallow with
-  no time limit), [24cbab3] (a blocking fixture could prevent the test
-  timeout and cleanup).
+  no time limit), [24cbab3], [#84-probe] (blocking fixture commands could
+  prevent the test timeout and cleanup).
 - Template tests: reuse `spawnBounded` (`tests/support/process.ts`), which
   runs the child through `startChild` (`scripts/process-runner.ts`), for that
   bound. Kernel tests: reuse `spawnBounded`
   (`tests/kernel/kernel-repair/swarm-process.ts`) or `exitWithin`
   (`tests/kernel/lifecycle/harness.ts`).
-- Release in `finally`: the CLI, then each ledgered child, then the temporary
-  folder. Witnessed: [d592b6d], [70c7280] (released in `afterAll`, so a
-  failing case left its process group alive).
+- Release in `finally` or a per-case teardown hook. Release the CLI, then
+  each ledgered child, then the temporary folder. Witnessed: [d592b6d],
+  [70c7280], [#84-cleanup] (suite teardown left resources alive between
+  cases after an assertion failed).
 - At teardown, send SIGKILL, and only to a pid still in its ledgered process
   group. Witnessed: [0ebe7cf], [1a29b19].
 
@@ -158,3 +161,6 @@ repository broke it.
 [#54-stale]: https://github.com/nathanvale/bun-typescript-template/pull/54#discussion_r4603739936
 [#77-test]: https://github.com/nathanvale/bun-typescript-template/pull/77#discussion_r4606037347
 [24cbab3]: https://github.com/nathanvale/bun-typescript-template/commit/24cbab36274dd093e76f248e7d36f86a2ef12cee
+[#84-ledger]: https://github.com/nathanvale/bun-typescript-template/pull/84#discussion_r4607244520
+[#84-probe]: https://github.com/nathanvale/bun-typescript-template/pull/84#discussion_r4607244511
+[#84-cleanup]: https://github.com/nathanvale/bun-typescript-template/pull/84#discussion_r4607244525
