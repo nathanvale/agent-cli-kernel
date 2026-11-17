@@ -55,7 +55,7 @@ row's guide or gate note cites two distinct witnesses.
 | Every exit path emits exactly one envelope    | Review only | None                                                                                                       | None                              | [Failure envelopes](docs/standards/failure-envelopes.md)            |
 | Untrusted values are read once, as own data   | Partial     | [lint `repository/no-locale-compare`](#untrusted-values)                                                   | None                              | [Untrusted values](docs/standards/untrusted-values.md#object-model) |
 | Delays, waits, and work have stated bounds    | Review only | None                                                                                                       | `Milliseconds` and `Bound` brands | [Untrusted values](docs/standards/untrusted-values.md#bounds)       |
-| Behaviour holds on Linux and macOS            | Partial     | [job `test`](#linux-and-macos)                                                                             | Lint `no-host-path-literal`       | [Platform parity](docs/standards/platform-parity.md)                |
+| Behaviour holds on Linux and macOS            | Partial     | [job `test`, lint `repository/no-host-path-literal`, fault `b79a4ac-platform-rules`](#linux-and-macos)     | None                              | [Platform parity](docs/standards/platform-parity.md)                |
 | Glossary terms only                           | Partial     | [job `test`](#glossary)                                                                                    | Lint `glossary-term`              | [Glossary authority](AGENTS.md#authority)                           |
 | One owner per constant, fake, and helper      | Partial     | [lint `repository/tests-use-test-folder`](#one-owner)                                                      | None                              | [One owner](docs/standards/one-owner.md)                            |
 | Each commit is green at its own head          | Partial     | [script `check:commits`, job `commits`](#commits)                                                          | None                              | None                                                                |
@@ -73,6 +73,18 @@ row's guide or gate note cites two distinct witnesses.
   through `test.skip`.
 - `.github/workflows/macos-nightly.yml` runs on schedule once it reaches
   `main`.
+- Lint `repository/no-host-path-literal` refuses a string, or the head of a
+  template literal, that starts at `/private`, `/usr`, `/var`, `/tmp`,
+  `/etc`, `/opt`, `/Users`, `/home`, `/Library` or `/System`, in every file
+  `eslint.config.mjs` lints outside the kernel. `/dev/null`, `/bin/sh` and a
+  shebang pass: both hosts have them.
+- Fault `b79a4ac-platform-rules` drops `/private` from that list; the lint
+  case for the [ff5fffe] shape kills it.
+- Review only: a path built at run time, such as `"/" + "tmp"` or
+  `join("/", "usr")`; a host path after a template expression; other roots,
+  such as `/proc` or `/run`; `kernel/` and `tests/kernel/`, which leave with
+  the kernel; and `starters/`, which ESLint skips.
+- Witnessed: [8e4ec47], [ff5fffe].
 
 ### Glossary
 
@@ -236,9 +248,11 @@ row's guide or gate note cites two distinct witnesses.
 - `bun run lint` fails on a new hit. It also fails when a recorded hit is
   fixed and the file is not pruned. Run
   `bunx eslint . --prune-suppressions` after the fix.
-- The template's rules live in `config/template-rules.mjs`. Kernel rules and
-  their recorded hits run from `config/kernel-repository-lint.mjs` and leave
-  with the kernel.
+- The template's rules live in `config/template-rules.mjs`, except
+  `no-host-path-literal` in `config/platform-rules.mjs`; `eslint.config.mjs`
+  joins both under the `repository` plugin. Kernel rules and their recorded
+  hits run from `config/kernel-repository-lint.mjs` and leave with the
+  kernel.
 - `kernel/config/kernel/` is stamped, so it holds only the rules
   `kernelLint` turns on. The kernel repository's own rules (`no-comments`
   and the three test rules) live in `config/kernel-repository-rules.mjs`.
@@ -280,3 +294,5 @@ row's guide or gate note cites two distinct witnesses.
 [887b514]: https://github.com/nathanvale/bun-typescript-template/commit/887b5140efe57411a674f872c1269d40b7bf019b
 [9f3c666]: https://github.com/nathanvale/bun-typescript-template/commit/9f3c66623003b3ef1dd355b6b7ef93882cd937a2
 [fa8b6f5]: https://github.com/nathanvale/bun-typescript-template/commit/fa8b6f5ac1733b1eedc1e8d78d267414ebc5c4cb
+[8e4ec47]: https://github.com/nathanvale/bun-typescript-template/commit/8e4ec47c9603f50548edb7d71087bd7f8d840819
+[ff5fffe]: https://github.com/nathanvale/bun-typescript-template/commit/ff5fffe0718d64921d899aba35fca14b58d6f69a

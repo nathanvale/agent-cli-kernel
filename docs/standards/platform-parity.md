@@ -10,9 +10,8 @@ there, and its title says so.
 - Pin unproved counts as the shared "Observed evidence crosses a real
   boundary" rule asks. `R1.platform-outcomes-pinned` in
   `tests/kernel/diagnostics/cases.test.ts` is the local pattern.
-- Derive system paths from the host, with test-owned precondition reads.
-  Literals such as `/private/tmp` or `/usr/share` fail on the other OS.
-  Witnessed: [8e4ec47], [ff5fffe].
+- Derive a system path from the host, and check each precondition the test
+  relies on with a test-owned read. Witnessed: [8e4ec47], [ff5fffe].
 - Pass bulk data by file or stdin. Linux limits one argument to 131,072
   bytes. Witnessed: [2c70f30].
 - Size a process exit bound for hosted Linux. It reported an aborted CLI gone
