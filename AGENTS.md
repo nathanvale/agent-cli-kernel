@@ -2,9 +2,8 @@
 
 ## Before work
 
-- Run `bun run doctor`. It checks the Bun pin, the installed toolchain and
-  host load, and prints the repair when a check fails. `bun run test` runs it
-  first.
+- Run `bun run doctor`. It names the repair for each failed check, and
+  `bun run test` runs it first.
 - Contract 3 work (`starters/contract3/`, `tests/contract3/`): use the
   `contract3-work` skill.
 - After an operator correction or a review finding, or to gate a rule row:
@@ -51,12 +50,10 @@ owner from this list.
 
 ## Checks
 
-- Focused: `bun run test:area <area>`. Run it without an area to list the
-  areas; extra arguments reach `bun test`, so `-t "<case id>"` works.
 - Full suite and timing-sensitive cases: run them on hosted CI or on the test
-  host your task brief names, not on a loaded laptop. `bun run doctor` warns
-  when this host is too loaded.
-- Commits: run `bun run check:commits <base>` before you push.
-- Planted faults: run `bun run faults` before you push a change to source or
-  tests.
+  host your task brief names. `bun run doctor` warns when this host is too
+  loaded.
+- CI's `commits` job checks each commit at its own head, and its `faults` job
+  replays the planted faults. To reproduce a red one, run
+  `bun run check:commits <base>` or `bun run faults <id>`.
 - Review: apply `CODING_STANDARDS.md` to the diff; each row names its gate.
