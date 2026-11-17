@@ -3,7 +3,7 @@ import { symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { processWatchdog } from "../support/process.ts";
 import {
-  fixtureTree,
+  fixtureRepository,
   git,
   gitOutcome,
   removeFixtureTrees,
@@ -14,22 +14,25 @@ import {
 afterAll(removeFixtureTrees);
 
 async function treeWithCommitHook(): Promise<string> {
-  const tree = fixtureTree();
+  const tree = await fixtureRepository();
   symlinkSync(join(repository, "node_modules"), join(tree, "node_modules"));
-  await git(tree, "init", "--quiet", "--initial-branch=main");
   await git(tree, "config", "core.hooksPath", ".githooks");
   return tree;
+}
+
+async function commitCount(tree: string): Promise<string> {
+  const { stdout } = await gitOutcome(tree, "rev-list", "--count", "HEAD");
+  return stdout.trim();
 }
 
 async function commitNew(tree: string, path: string) {
   write(tree, path, "notes\n");
   await git(tree, "add", "--", path);
   const commit = await gitOutcome(tree, "commit", "--quiet", "-m", "notes");
-  const head = await gitOutcome(tree, "rev-parse", "--verify", "HEAD");
   return {
     exit: commit.exit,
     stderr: commit.stderr,
-    committed: head.exit === 0,
+    committed: (await commitCount(tree)) === "2",
   };
 }
 

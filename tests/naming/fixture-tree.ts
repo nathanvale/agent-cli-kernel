@@ -117,6 +117,16 @@ export async function git(root: string, ...args: string[]): Promise<void> {
   if (exit !== 0) throw new Error(`git ${args.join(" ")}: ${stderr}`);
 }
 
+export async function fixtureRepository(
+  recorded: readonly RecordedHit[] = [],
+): Promise<string> {
+  const root = fixtureTree(recorded);
+  await git(root, "init", "--quiet", "--initial-branch=main");
+  await git(root, "add", "--", "GLOSSARY.md", recordedHitsFile);
+  await git(root, "commit", "--quiet", "-m", "rules");
+  return root;
+}
+
 export function checkNames(root: string, args: readonly string[]) {
   return run(
     [process.execPath, "run", "--silent", "check:names", ...args],

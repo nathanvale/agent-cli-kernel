@@ -4,6 +4,7 @@ import { recordedHitsFile } from "../../scripts/glossary.ts";
 import { processWatchdog } from "../support/process.ts";
 import {
   checkNames,
+  fixtureRepository,
   fixtureTree,
   git,
   removeFixtureTrees,
@@ -105,9 +106,8 @@ test(
 test(
   "CN.c --staged judges an added and a renamed name, and ignores a modified one",
   async () => {
-    const tree = fixtureTree();
+    const tree = await fixtureRepository();
     const body = "A file long enough for git to see its move as a rename.\n";
-    await git(tree, "init", "--quiet", "--initial-branch=main");
     write(tree, "docs/mutation-notes.md", "before\n");
     write(tree, "docs/planted-fault-notes.md", body);
     await git(tree, "add", "--", "docs");
