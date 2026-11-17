@@ -252,7 +252,7 @@ export function stagedText(root: string, path: string): string {
   const shown = git(root, ["show", `:${path}`]);
   if (shown.exitCode !== 0)
     throw new Error(
-      `git show :${path} failed: ${shown.stderr.toString().trim()}`,
+      `git has no staged ${path}, so the names check cannot judge a commit by the ${path} it will contain. Stage it with git add ${path}, then run the names check again.`,
     );
   return shown.stdout.toString();
 }

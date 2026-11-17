@@ -201,6 +201,20 @@ test(
   processWatchdog(5),
 );
 
+test.each([["GLOSSARY.md"], [recordedHitsFile]])(
+  "CN.h --staged with no staged %s cannot run, and names the file and the repair",
+  async (path) => {
+    const tree = await fixtureRepository();
+    await git(tree, "rm", "--cached", "--quiet", "--", path);
+    expect(await checkNames(tree, ["--staged"])).toEqual({
+      stdout: "",
+      stderr: `git has no staged ${path}, so the names check cannot judge a commit by the ${path} it will contain. Stage it with git add ${path}, then run the names check again.\n`,
+      exit: 2,
+    });
+  },
+  processWatchdog(5),
+);
+
 test(
   "an absolute path inside the repository is judged by its path from the root",
   async () => {
