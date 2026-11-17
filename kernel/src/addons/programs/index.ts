@@ -25,7 +25,7 @@ export type ShutdownAttempt = {
 export type ProgramDetails = {
   readonly pid: number;
   readonly timedOut: boolean;
-  readonly signal: string | null;
+  readonly signal: NodeJS.Signals | number | null;
   readonly stdoutTruncated: boolean;
   readonly stderrTruncated: boolean;
   readonly attempts: readonly ShutdownAttempt[];
