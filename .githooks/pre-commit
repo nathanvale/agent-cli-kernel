@@ -1,0 +1,32 @@
+#!/bin/sh
+set -eu
+
+bin=node_modules/.bin
+for tool in biome eslint tsc; do
+  if [ ! -x "$bin/$tool" ]; then
+    echo "pre-commit: install dependencies, then commit again: bun install --frozen-lockfile" >&2
+    exit 1
+  fi
+done
+
+staged() {
+  git diff --cached --name-only --diff-filter=ACMR -z -- "$@"
+}
+
+if [ -n "$(staged | tr -d '\0')" ]; then
+  staged | xargs -0 "$bin/biome" format --no-errors-on-unmatched --files-ignore-unknown=true || {
+    echo "pre-commit: Biome formatting differs in the files above. Run bun run format, stage the rewritten files with git add, and commit again. Done when bun run format:check passes." >&2
+    exit 1
+  }
+fi
+
+if [ -n "$(staged '*.ts' '*.mts' '*.cts' '*.mjs' | tr -d '\0')" ]; then
+  staged '*.ts' '*.mts' '*.cts' '*.mjs' | xargs -0 "$bin/eslint" --max-warnings 0 --no-warn-ignored -- || {
+    echo "pre-commit: lint errors above. Fix each one in code (a repository rule ends its message with Fix:), stage the change with git add, and commit again. Done when bun run lint passes." >&2
+    exit 1
+  }
+  "$bin/tsc" --noEmit -p tsconfig.json || {
+    echo "pre-commit: type errors above. Fix each one in code, stage the change with git add, and commit again. Done when bun run typecheck passes." >&2
+    exit 1
+  }
+fi

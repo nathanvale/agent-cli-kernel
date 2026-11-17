@@ -19,6 +19,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "admit:static": "bun run src/static-admission.ts",
     "lint": "eslint . --max-warnings 0",
+    "prepare": "git config core.hooksPath .githooks || true",
     "format:check": "biome format .",
     "format": "biome format --write .",
     "admit:cli": "bun run src/cli-inventory.ts"
