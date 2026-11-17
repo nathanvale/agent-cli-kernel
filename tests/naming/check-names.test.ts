@@ -1,4 +1,6 @@
 import { afterAll, expect, test } from "bun:test";
+import { join } from "node:path";
+import { recordedHitsFile } from "../../scripts/glossary.ts";
 import { processWatchdog } from "../support/process.ts";
 import {
   checkNames,
@@ -7,6 +9,8 @@ import {
   removeFixtureTrees,
   write,
 } from "./fixture-tree.ts";
+
+const usage = "Usage: bun run check:names <path> [path ...] | --staged";
 
 afterAll(removeFixtureTrees);
 
@@ -128,4 +132,57 @@ test(
     });
   },
   processWatchdog(8),
+);
+
+test(
+  "an absolute path inside the repository is judged by its path from the root",
+  async () => {
+    const tree = fixtureTree();
+    expect(await checkNames(tree, [join(tree, "src/host.ts")])).toEqual({
+      stdout: "",
+      stderr:
+        'src/host.ts uses "host" with no qualifier. Add a word that says which host it is.\n',
+      exit: 1,
+    });
+  },
+  processWatchdog(1),
+);
+
+test.each([
+  ["no path", [], "Give at least one path, or --staged."],
+  ["an option it does not know", ["--stagd"], 'Unknown option "--stagd".'],
+  [
+    "a path beside --staged",
+    ["--staged", "src/host.ts"],
+    "--staged takes no path.",
+  ],
+  [
+    "a path outside the repository",
+    ["../elsewhere/host.ts"],
+    "../elsewhere/host.ts is outside this repository.",
+  ],
+])(
+  "CN.d %s is a usage error",
+  async (_kind, args, reason) => {
+    expect(await checkNames(fixtureTree(), args)).toEqual({
+      stdout: "",
+      stderr: `${usage}. ${reason}\n`,
+      exit: 2,
+    });
+  },
+  processWatchdog(1),
+);
+
+test(
+  "CN.e a check that cannot run exits 2, so it is not read as a refused name",
+  async () => {
+    const tree = fixtureTree();
+    write(tree, recordedHitsFile, "{}");
+    expect(await checkNames(tree, ["src/host.ts"])).toEqual({
+      stdout: "",
+      stderr: `${recordedHitsFile} needs a "hits" array.\n`,
+      exit: 2,
+    });
+  },
+  processWatchdog(1),
 );
