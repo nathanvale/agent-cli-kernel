@@ -1,0 +1,13 @@
+diff --git a/scripts/planted-faults.ts b/scripts/planted-faults.ts
+index 2647caa..254e473 100644
+--- a/scripts/planted-faults.ts
++++ b/scripts/planted-faults.ts
+@@ -332,7 +332,7 @@ export function faultsTouchedSince(root: string, base: string): string[] {
+   return readRecords(root)
+     .filter(
+       (fault) =>
+-        changed.has(fault.patch) ||
++        true ||
+         patched(fault).some((path) => changed.has(path)),
+     )
+     .map(({ id }) => id);
