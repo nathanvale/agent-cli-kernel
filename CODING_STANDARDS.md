@@ -42,22 +42,22 @@ row's guide or gate note cites two distinct witnesses.
 
 ## Rule table
 
-| Rule                                          | Today       | Gates                                                                                        | Planned (parked)                  | Guide                                                               |
-| --------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------- | --------------------------------- | ------------------------------------------------------------------- |
-| Each test fails for the reason its name gives | Partial     | [lint `repository/require-to-throw-message`](#test-proof)                                    | Typed rule ids                    | [Test proof](docs/standards/test-proof.md#refusals-and-bounds)      |
-| Each new refusal or bound has a planted fault | Partial     | [script `faults`, job `faults`](#planted-faults)                                             | None                              | [Test proof](docs/standards/test-proof.md#planted-faults)           |
-| Process proofs use the production entry       | Review only | None                                                                                         | None                              | [Test proof](docs/standards/test-proof.md#production-entry)         |
-| Test processes are bounded and released       | Review only | None                                                                                         | Lint `tests-use-bounded-runner`   | [Test proof](docs/standards/test-proof.md#processes)                |
-| Tests wait on events, not wall time           | Partial     | [lint `repository/tests-no-sleep`](#time)                                                    | None                              | [Test proof](docs/standards/test-proof.md#time)                     |
-| One rule holds on every construction route    | Review only | None                                                                                         | `AdmittedCommand` brand           | [One rule, one path](docs/standards/one-rule-one-path.md)           |
-| Every exit path emits exactly one envelope    | Partial     | [lint `repository/no-domain-output`](#envelopes)                                             | None                              | [Failure envelopes](docs/standards/failure-envelopes.md)            |
-| Untrusted values are read once, as own data   | Partial     | [lint `repository/no-locale-compare`, lint `repository/no-in-operator`](#untrusted-values)   | None                              | [Untrusted values](docs/standards/untrusted-values.md#object-model) |
-| Delays, waits, and work have stated bounds    | Review only | None                                                                                         | `Milliseconds` and `Bound` brands | [Untrusted values](docs/standards/untrusted-values.md#bounds)       |
-| Behaviour holds on Linux and macOS            | Partial     | [job `check`](#linux-and-macos)                                                              | Lint `no-host-path-literal`       | [Platform parity](docs/standards/platform-parity.md)                |
-| Glossary terms only                           | Partial     | [job `check`](#glossary)                                                                     | Lint `glossary-term`              | [Glossary authority](AGENTS.md#authority)                           |
-| One owner per constant, fake, and helper      | Partial     | [lint `repository/cause-literal-owner`, lint `repository/tests-use-test-folder`](#one-owner) | None                              | [One owner](docs/standards/one-owner.md)                            |
-| Each commit is green at its own head          | Partial     | [script `check:commits`, job `commits`](#commits)                                            | None                              | None                                                                |
-| Say it in code, not in a comment              | Partial     | [lint `repository/no-comments`, fault `5ac4285-eslint-rules`](#comments)                     | None                              | None                                                                |
+| Rule                                          | Today       | Gates                                                                                                  | Planned (parked)                  | Guide                                                               |
+| --------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------ | --------------------------------- | ------------------------------------------------------------------- |
+| Each test fails for the reason its name gives | Partial     | [lint `repository/require-to-throw-message`](#test-proof)                                              | Typed rule ids                    | [Test proof](docs/standards/test-proof.md#refusals-and-bounds)      |
+| Each new refusal or bound has a planted fault | Partial     | [script `faults`, job `faults`](#planted-faults)                                                       | None                              | [Test proof](docs/standards/test-proof.md#planted-faults)           |
+| Process proofs use the production entry       | Review only | None                                                                                                   | None                              | [Test proof](docs/standards/test-proof.md#production-entry)         |
+| Test processes are bounded and released       | Review only | None                                                                                                   | Lint `tests-use-bounded-runner`   | [Test proof](docs/standards/test-proof.md#processes)                |
+| Tests wait on events, not wall time           | Partial     | [lint `repository/tests-no-sleep`](#time)                                                              | None                              | [Test proof](docs/standards/test-proof.md#time)                     |
+| One rule holds on every construction route    | Review only | None                                                                                                   | `AdmittedCommand` brand           | [One rule, one path](docs/standards/one-rule-one-path.md)           |
+| Every exit path emits exactly one envelope    | Partial     | [lint `repository/no-domain-output`](#envelopes)                                                       | None                              | [Failure envelopes](docs/standards/failure-envelopes.md)            |
+| Untrusted values are read once, as own data   | Partial     | [lint `repository/no-locale-compare`, lint `repository/no-in-operator`](#untrusted-values)             | None                              | [Untrusted values](docs/standards/untrusted-values.md#object-model) |
+| Delays, waits, and work have stated bounds    | Review only | None                                                                                                   | `Milliseconds` and `Bound` brands | [Untrusted values](docs/standards/untrusted-values.md#bounds)       |
+| Behaviour holds on Linux and macOS            | Partial     | [job `check`](#linux-and-macos)                                                                        | Lint `no-host-path-literal`       | [Platform parity](docs/standards/platform-parity.md)                |
+| Glossary terms only                           | Partial     | [job `check`](#glossary)                                                                               | Lint `glossary-term`              | [Glossary authority](AGENTS.md#authority)                           |
+| One owner per constant, fake, and helper      | Partial     | [lint `repository/cause-literal-owner`, lint `repository/tests-use-test-folder`](#one-owner)           | None                              | [One owner](docs/standards/one-owner.md)                            |
+| Each commit is green at its own head          | Partial     | [script `check:commits`, job `commits`](#commits)                                                      | None                              | None                                                                |
+| Say it in code, not in a comment              | Partial     | [lint `repository/no-comments`, fault `5ac4285-eslint-rules`, fault `bbfce9a-eslint-rules`](#comments) | None                              | None                                                                |
 
 ## Gate notes
 
@@ -208,11 +208,17 @@ row's guide or gate note cites two distinct witnesses.
     describes.
   - A lint or compiler directive, such as `eslint-disable-next-line` or
     `@ts-expect-error`. Other rules govern those.
+  - `SAFETY:` and a justification on its first line, on its own lines
+    directly above the statement that holds a type cast (`as T`, not
+    `as const`), where `anti-slop/require-safety-comment-for-type-assertion`
+    accepts it.
 - Everything else goes into code: a name, a type, a test title, or a lint
   rule whose message explains the constraint. An empty `catch` says what
   happens next in code (`return`, `continue`, or a rethrow), not in prose.
 - Fault `5ac4285-eslint-rules` admits a marker on any line of a block; the
   lint test that refuses `Platform:` on a second line kills it.
+- Fault `bbfce9a-eslint-rules` admits a `SAFETY:` block anywhere; the lint
+  test that refuses one above a statement with no cast kills it.
 - Review only: whether a `Platform:` or `Interface:` comment is true, and
   whether it names something outside this repository. A marker is easy to
   add to any note.
