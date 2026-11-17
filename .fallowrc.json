@@ -66,6 +66,25 @@
       "requireAllFiles": true
     }
   },
+  "health": {
+    "ignore": [
+      "kernel/**",
+      "tests/kernel/**",
+      "tests/glossary/**",
+      "config/kernel-repository-rules.mjs"
+    ]
+  },
+  "duplicates": {
+    "ignoredClones": [
+      "dup:9d3337d0:2",
+      "dup:1ee378cf:2",
+      "dup:16ad2cee:2",
+      "dup:a7b229c2:2",
+      "dup:6d052765:2",
+      "dup:cd842ae0:2",
+      "dup:6cb4227b:2"
+    ]
+  },
   "rules": {
     "dev-dependencies-in-production": "error",
     "private-type-leaks": "error",
