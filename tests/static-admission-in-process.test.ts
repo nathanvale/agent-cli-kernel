@@ -36,6 +36,7 @@ import {
   successful,
   wholeReportScope,
 } from "../src/static-admission.ts";
+import { processWatchdog } from "./support/process.ts";
 import { testFolder } from "./support/test-folder.ts";
 
 type Tree = Record<string, string>;
@@ -97,10 +98,20 @@ function optionsFor(project: string, profile: Profile = "simple"): Options {
   );
 }
 
-function evidenceOptions(project: string): Options {
-  const options = optionsFor(project);
+const stubChildMilliseconds = 2_000;
+const realChildMilliseconds = processWatchdog(1) / 2;
+
+function evidenceOptions(
+  project: string,
+  childMilliseconds = stubChildMilliseconds,
+): Options {
+  const options = { ...optionsFor(project), childMilliseconds };
   mkdirSync(options.evidence, { recursive: true });
   return options;
+}
+
+function realToolOptions(project: string): Options {
+  return evidenceOptions(project, realChildMilliseconds);
 }
 
 async function causeOf(work: () => unknown): Promise<unknown> {
@@ -244,6 +255,7 @@ test("parseOptions resolves the three paths and keeps the environment it was giv
     profile: "complex",
     evidence: resolve("out/evidence"),
     env,
+    childMilliseconds: 120_000,
   });
   expect(options.env).toBe(env);
   expect(parseOptions(["repo", "simple", "e"], env).profile).toBe("simple");
@@ -489,6 +501,20 @@ test("execute runs in the project folder with plain colour settings and the give
   expect(second.stdout).toBe("m");
 });
 
+test("execute kills a command that outlives its time limit and refuses with the timeout cause", async () => {
+  const project = folder();
+  const options = evidenceOptions(project, 300);
+  stubTool(project, "stall", "sleep 30");
+  const started = Date.now();
+  expect(
+    await causeOf(() =>
+      execute(options, "stall", [join(project, "node_modules/.bin/stall")]),
+    ),
+  ).toBe("stall:timeout");
+  expect(Date.now() - started).toBeLessThan(stubChildMilliseconds);
+  expect(existsSync(join(options.evidence, "stall.json"))).toBe(true);
+});
+
 test("execute gives the command no standard input", async () => {
   const project = folder();
   const options = evidenceOptions(project);
@@ -606,137 +632,179 @@ test("normalizedPaths refuses a missing list and a non-text entry", async () => 
     );
 });
 
-test("compilerScope accepts the files the real compiler lists", async () => {
-  const project = toolProject();
-  const options = evidenceOptions(project);
-  await compilerScope(options, ["src/cli.ts", "tests/cli.test.ts"]);
-  expect(
-    fields(
-      JSON.parse(
-        readFileSync(join(options.evidence, "compiler-config.json"), "utf8"),
+test(
+  "compilerScope accepts the files the real compiler lists",
+  async () => {
+    const project = toolProject();
+    const options = realToolOptions(project);
+    await compilerScope(options, ["src/cli.ts", "tests/cli.test.ts"]);
+    expect(
+      fields(
+        JSON.parse(
+          readFileSync(join(options.evidence, "compiler-config.json"), "utf8"),
+        ),
       ),
-    ),
-  ).toMatchObject({
-    argv: ["node_modules/.bin/tsc", "--showConfig", "-p", "tsconfig.json"],
-    exitCode: 0,
-  });
-});
+    ).toMatchObject({
+      argv: ["node_modules/.bin/tsc", "--showConfig", "-p", "tsconfig.json"],
+      exitCode: 0,
+    });
+  },
+  processWatchdog(1),
+);
 
-test("compilerScope refuses a file list that differs from the compiler's", async () => {
-  const project = toolProject();
-  const options = evidenceOptions(project);
-  expect(await causeOf(() => compilerScope(options, ["src/cli.ts"]))).toBe(
-    "scope:compiler-files",
-  );
-  expect(
-    await causeOf(() =>
-      compilerScope(options, ["src/cli.ts", "tests/cli.test.ts", "src/x.ts"]),
-    ),
-  ).toBe("scope:compiler-files");
-});
-
-test("compilerScope refuses a failing compiler and an output that is not a document", async () => {
-  const broken = toolProject();
-  rmSync(join(broken, "tsconfig.json"));
-  expect(
-    await causeOf(() => compilerScope(evidenceOptions(broken), ["src/cli.ts"])),
-  ).toBe("compiler-config:exit");
-  const echoing = toolProject();
-  stubTool(echoing, "tsc", "printf 'not a document'");
-  expect(
-    await causeOf(() =>
-      compilerScope(evidenceOptions(echoing), ["src/cli.ts"]),
-    ),
-  ).toBe("compiler-config:non-json");
-});
-
-test("discoveryScope returns the front door, the tests and the lint rules entry", async () => {
-  const project = toolProject();
-  const options = evidenceOptions(project);
-  expect(
-    await discoveryScope(options, ["src/cli.ts", "tests/cli.test.ts"]),
-  ).toEqual(["src/cli.ts", "tests/cli.test.ts", "eslint-rules.mjs"]);
-  expect(
-    fields(
-      JSON.parse(
-        readFileSync(join(options.evidence, "whole-discovery.json"), "utf8"),
+test(
+  "compilerScope refuses a file list that differs from the compiler's",
+  async () => {
+    const project = toolProject();
+    const options = realToolOptions(project);
+    expect(await causeOf(() => compilerScope(options, ["src/cli.ts"]))).toBe(
+      "scope:compiler-files",
+    );
+    expect(
+      await causeOf(() =>
+        compilerScope(options, ["src/cli.ts", "tests/cli.test.ts", "src/x.ts"]),
       ),
-    ),
-  ).toMatchObject({
-    argv: [
-      "node_modules/.bin/fallow",
-      "list",
-      "--files",
-      "--entry-points",
-      "--format",
-      "json",
-      "--quiet",
-    ],
-    exitCode: 0,
-  });
-});
+    ).toBe("scope:compiler-files");
+  },
+  processWatchdog(1),
+);
 
-test("discoveryScope leaves a source file that no entry needs out of the entries it requires", async () => {
-  const project = toolProject({
-    "src/cli.ts":
-      'import { helper } from "./helper.ts";\nexport const answer = helper;\n',
-    "src/helper.ts": "export const helper = 1;\n",
-  });
-  const options = evidenceOptions(project);
-  expect(
-    await discoveryScope(options, [
-      "src/cli.ts",
-      "src/helper.ts",
-      "tests/cli.test.ts",
-    ]),
-  ).toEqual(["src/cli.ts", "tests/cli.test.ts", "eslint-rules.mjs"]);
-});
+test(
+  "compilerScope refuses a failing compiler and an output that is not a document",
+  async () => {
+    const broken = toolProject();
+    rmSync(join(broken, "tsconfig.json"));
+    expect(
+      await causeOf(() =>
+        compilerScope(realToolOptions(broken), ["src/cli.ts"]),
+      ),
+    ).toBe("compiler-config:exit");
+    const echoing = toolProject();
+    stubTool(echoing, "tsc", "printf 'not a document'");
+    expect(
+      await causeOf(() =>
+        compilerScope(realToolOptions(echoing), ["src/cli.ts"]),
+      ),
+    ).toBe("compiler-config:non-json");
+  },
+  processWatchdog(1),
+);
 
-test("discoveryScope refuses a file list that differs from fallow's", async () => {
-  const options = evidenceOptions(toolProject());
-  expect(await causeOf(() => discoveryScope(options, ["src/cli.ts"]))).toBe(
-    "scope:fallow-files",
-  );
-  expect(
-    await causeOf(() =>
-      discoveryScope(options, ["src/cli.ts", "tests/cli.test.ts", "src/x.ts"]),
-    ),
-  ).toBe("scope:fallow-files");
-});
+test(
+  "discoveryScope returns the front door, the tests and the lint rules entry",
+  async () => {
+    const project = toolProject();
+    const options = realToolOptions(project);
+    expect(
+      await discoveryScope(options, ["src/cli.ts", "tests/cli.test.ts"]),
+    ).toEqual(["src/cli.ts", "tests/cli.test.ts", "eslint-rules.mjs"]);
+    expect(
+      fields(
+        JSON.parse(
+          readFileSync(join(options.evidence, "whole-discovery.json"), "utf8"),
+        ),
+      ),
+    ).toMatchObject({
+      argv: [
+        "node_modules/.bin/fallow",
+        "list",
+        "--files",
+        "--entry-points",
+        "--format",
+        "json",
+        "--quiet",
+      ],
+      exitCode: 0,
+    });
+  },
+  processWatchdog(1),
+);
 
-test("discoveryScope refuses a project without a front door", async () => {
-  const project = toolProject({ "src/cli.ts": "" });
-  rmSync(join(project, "src/cli.ts"));
-  grow(project, { "src/main.ts": "export const a = 1;\n" });
-  const options = evidenceOptions(project);
-  expect(
-    await causeOf(() =>
-      discoveryScope(options, ["src/main.ts", "tests/cli.test.ts"]),
-    ),
-  ).toBe("scope:front-door-missing");
-});
+test(
+  "discoveryScope leaves a source file that no entry needs out of the entries it requires",
+  async () => {
+    const project = toolProject({
+      "src/cli.ts":
+        'import { helper } from "./helper.ts";\nexport const answer = helper;\n',
+      "src/helper.ts": "export const helper = 1;\n",
+    });
+    const options = realToolOptions(project);
+    expect(
+      await discoveryScope(options, [
+        "src/cli.ts",
+        "src/helper.ts",
+        "tests/cli.test.ts",
+      ]),
+    ).toEqual(["src/cli.ts", "tests/cli.test.ts", "eslint-rules.mjs"]);
+  },
+  processWatchdog(1),
+);
 
-test("discoveryScope refuses a project without a test file", async () => {
-  const project = toolProject();
-  rmSync(join(project, "tests"), { recursive: true });
-  const options = evidenceOptions(project);
-  expect(await causeOf(() => discoveryScope(options, ["src/cli.ts"]))).toBe(
-    "scope:tests-missing",
-  );
-});
+test(
+  "discoveryScope refuses a file list that differs from fallow's",
+  async () => {
+    const options = realToolOptions(toolProject());
+    expect(await causeOf(() => discoveryScope(options, ["src/cli.ts"]))).toBe(
+      "scope:fallow-files",
+    );
+    expect(
+      await causeOf(() =>
+        discoveryScope(options, [
+          "src/cli.ts",
+          "tests/cli.test.ts",
+          "src/x.ts",
+        ]),
+      ),
+    ).toBe("scope:fallow-files");
+  },
+  processWatchdog(1),
+);
 
-test("discoveryScope refuses a project whose lint rules file is no entry", async () => {
-  const project = toolProject();
-  editJson(project, ".fallowrc.json", (doc) => {
-    doc.entry = ["tests/cli.test.ts"];
-  });
-  const options = evidenceOptions(project);
-  expect(
-    await causeOf(() =>
-      discoveryScope(options, ["src/cli.ts", "tests/cli.test.ts"]),
-    ),
-  ).toBe("scope:eslint-rule-entry-missing");
-});
+test(
+  "discoveryScope refuses a project without a front door",
+  async () => {
+    const project = toolProject({ "src/cli.ts": "" });
+    rmSync(join(project, "src/cli.ts"));
+    grow(project, { "src/main.ts": "export const a = 1;\n" });
+    const options = realToolOptions(project);
+    expect(
+      await causeOf(() =>
+        discoveryScope(options, ["src/main.ts", "tests/cli.test.ts"]),
+      ),
+    ).toBe("scope:front-door-missing");
+  },
+  processWatchdog(1),
+);
+
+test(
+  "discoveryScope refuses a project without a test file",
+  async () => {
+    const project = toolProject();
+    rmSync(join(project, "tests"), { recursive: true });
+    const options = realToolOptions(project);
+    expect(await causeOf(() => discoveryScope(options, ["src/cli.ts"]))).toBe(
+      "scope:tests-missing",
+    );
+  },
+  processWatchdog(1),
+);
+
+test(
+  "discoveryScope refuses a project whose lint rules file is no entry",
+  async () => {
+    const project = toolProject();
+    editJson(project, ".fallowrc.json", (doc) => {
+      doc.entry = ["tests/cli.test.ts"];
+    });
+    const options = realToolOptions(project);
+    expect(
+      await causeOf(() =>
+        discoveryScope(options, ["src/cli.ts", "tests/cli.test.ts"]),
+      ),
+    ).toBe("scope:eslint-rule-entry-missing");
+  },
+  processWatchdog(1),
+);
 
 function listingProject(script: string): string {
   const project = toolProject();

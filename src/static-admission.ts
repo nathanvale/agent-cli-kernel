@@ -13,6 +13,7 @@ export interface Options {
   profile: Profile;
   evidence: string;
   env: Environment;
+  childMilliseconds: number;
 }
 export interface Receipt {
   name: string;
@@ -22,6 +23,8 @@ export interface Receipt {
   stdout: string;
   stderr: string;
 }
+
+const defaultChildMilliseconds = 120_000;
 
 const usage =
   "Usage: bun run admit:static <repository> <simple|complex> <evidence folder>";
@@ -62,6 +65,7 @@ export function parseOptions(argv: string[], env: Environment): Options {
     profile,
     evidence: resolve(evidence),
     env,
+    childMilliseconds: defaultChildMilliseconds,
   };
 }
 
@@ -280,6 +284,8 @@ export async function execute(
     stdin: "ignore",
     stdout: "pipe",
     stderr: "pipe",
+    timeout: options.childMilliseconds,
+    killSignal: "SIGKILL",
   });
   const receipt: Receipt = {
     name,
@@ -293,6 +299,7 @@ export async function execute(
     join(options.evidence, `${name}.json`),
     JSON.stringify(receipt, null, 2) + "\n",
   );
+  requireValue(!result.exitedDueToTimeout, `${name}:timeout`);
   return receipt;
 }
 
