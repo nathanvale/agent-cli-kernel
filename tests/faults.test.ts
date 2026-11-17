@@ -272,7 +272,12 @@ function addFault(
       testFile,
       title,
     ],
-    { cwd: root, env: fixtureEnv(), boundMilliseconds: bound },
+    {
+      cwd: root,
+      env: fixtureEnv(),
+      boundMilliseconds: bound,
+      processGroup: true,
+    },
   );
 }
 
