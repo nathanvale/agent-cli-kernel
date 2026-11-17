@@ -18,12 +18,7 @@ function members(type) {
 
 function stable(node) {
   if (node.type === "Identifier" || node.type === "Literal") return true;
-  if (node.type === "TemplateLiteral") return node.expressions.length === 0;
-  return (
-    node.type === "MemberExpression" &&
-    stable(node.object) &&
-    (!node.computed || stable(node.property))
-  );
+  return node.type === "TemplateLiteral" && node.expressions.length === 0;
 }
 
 export default {

@@ -130,6 +130,14 @@ const fixes = [
     fixed: ([fix]: string[]) =>
       `export const payload = (next: () => object): unknown => {\n  ${fix}\n  return own;\n};`,
   },
+  {
+    rule: "no-in-operator",
+    filePath: "src/static-admission.ts",
+    failing:
+      'export const payload = (host: { readonly value: object }) => ("payload" in host.value ? 1 : 0);',
+    fixed: ([fix]: string[]) =>
+      `export const payload = (host: { readonly value: object }): unknown => {\n  ${fix}\n  return own;\n};`,
+  },
 ];
 
 for (const item of fixes)
@@ -630,6 +638,14 @@ const ownData = [
   [
     'export const once = (read: () => object) => "payload" in read();',
     'Repair: const key = "payload"; const target = read(); const own: unknown',
+  ],
+  [
+    'export const once = (host: { readonly value: object }) => "payload" in host.value;',
+    'Repair: const key = "payload"; const target = host.value; const own: unknown',
+  ],
+  [
+    "export const once = (source: object, keys: { readonly key: string }) => keys.key in source;",
+    "Repair: const key = keys.key; const target = source; const own: unknown",
   ],
   [
     'type Shape = { kind: "a"; a: number } | { kind: "b"; b: string };\nexport const read = (shape: Shape) => ("a" in shape ? shape.a : shape.b);',
