@@ -23,11 +23,13 @@ repository broke it.
   Witnessed: [b8760b4], [8485278], [aa161e5] (a lower bound only, so a late
   kill still passed), [dbd196e] (a timeout message that reads the same
   constant stays green when the timer is changed, so measure the elapsed
-  time).
+  time), [#73-deadline] (a 2 s assertion accepted a missed 300 ms
+  deadline).
 - Prove a resolution by a refusal only the right folder can give. A recorded
   hit or an empty result passes for a skipped check too, and a process
   folder with the same tail as the injected one passes for the wrong
-  folder. Witnessed: [9ad6bf2].
+  folder. Give the test distinct fallback and destination folders, and
+  assert the destination in the refusal. Witnessed: [9ad6bf2], [#72-cwd].
 - Prove that a fixture meant to lack something lacks it, and fail loudly
   when its location supplies it. `STATE_TEST_DIR` can place a test folder
   inside the checkout, where git finds the parent repository for a case that
@@ -67,6 +69,10 @@ repository broke it.
   then `bun run fault-replay <id>` until it prints `KILLED`. Witnessed:
   [9050fec], [b8664cf] (each recorded faults for refusals that had landed
   with no record).
+- When a change moves a test or alters the source the patch targets, update
+  the affected patch or test selector in the same commit. Replay the affected
+  records and require `KILLED`. A split guard left a patch stale, and a test-only
+  edit could escape the changed-file replay. Witnessed: [#54-stale], [#77-test].
 - Treat a surviving fault as a missing test. Witnessed: [d72cd9e], [640ba05].
 
 ## Processes
@@ -74,7 +80,8 @@ repository broke it.
 - Bound every child below its test timeout, a fixture's git call and a
   script's synchronous git read included. Witnessed: [e990da6], [4a32366],
   [7623343], [c77aaa9] (the production `execute` spawned tsc and fallow with
-  no time limit).
+  no time limit), [24cbab3] (a blocking fixture could prevent the test
+  timeout and cleanup).
 - Template tests: reuse `spawnBounded` (`tests/support/process.ts`), which
   runs the child through `startChild` (`scripts/process-runner.ts`), for that
   bound. Kernel tests: reuse `spawnBounded`
@@ -145,3 +152,8 @@ repository broke it.
 [97f9e9b]: https://github.com/nathanvale/bun-typescript-template/commit/97f9e9b82277a054b8b64ac03194a31be27e5ded
 [3729f36]: https://github.com/nathanvale/bun-typescript-template/commit/3729f3644cb30ea5decc9c085bc6b9c4304eaae4
 [5f0c1d9]: https://github.com/nathanvale/bun-typescript-template/commit/5f0c1d99741751de14f5cb92618eda3bd92e8887
+[#72-cwd]: https://github.com/nathanvale/bun-typescript-template/pull/72#discussion_r4606134426
+[#73-deadline]: https://github.com/nathanvale/bun-typescript-template/pull/73#discussion_r4606053862
+[#54-stale]: https://github.com/nathanvale/bun-typescript-template/pull/54#discussion_r4603739936
+[#77-test]: https://github.com/nathanvale/bun-typescript-template/pull/77#discussion_r4606037347
+[24cbab3]: https://github.com/nathanvale/bun-typescript-template/commit/24cbab36274dd093e76f248e7d36f86a2ef12cee
