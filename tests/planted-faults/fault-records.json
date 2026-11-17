@@ -488,5 +488,19 @@
     "testFile": "tests/planted-faults-in-process.test.ts",
     "title": "faultsTouchedSince names a fault whose patched file was renamed away",
     "source": "98374b7 fix(faults): count a fault's test file and a rename's old path as touched"
+  },
+  {
+    "id": "80e16f3-planted-faults-record",
+    "patch": "tests/planted-faults/patches/80e16f3-planted-faults-record.patch",
+    "testFile": "tests/planted-faults-in-process.test.ts",
+    "title": "faultsTouchedSince names a fault whose record changed",
+    "source": "80e16f3 fix(faults): replay a fault whose record changed, and refuse an empty list"
+  },
+  {
+    "id": "80e16f3-planted-faults-empty",
+    "patch": "tests/planted-faults/patches/80e16f3-planted-faults-empty.patch",
+    "testFile": "tests/planted-faults.test.ts",
+    "title": "FR\\.w --changed-since with an empty list",
+    "source": "80e16f3 fix(faults): replay a fault whose record changed, and refuse an empty list"
   }
 ]
