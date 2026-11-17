@@ -214,8 +214,8 @@ A named set of tests that runs on its own.
 **Process runner**:
 The module that starts a child process. By default the child runs in its own
 process group with only its own tree's tools on the path; a time limit is
-optional. Scripts and their tests use it for any child that could hang, and
-end that child with a time limit or an explicit stop.
+optional. It is meant for any child of a script or test that could hang,
+which it ends with a time limit or an explicit stop.
 
 **Negative control**:
 A break made on purpose to show that a check can fail. It can be made once by
