@@ -33,49 +33,75 @@ function pathsOf(root: string, { holds, folder }: TestArea): string[] {
   return holdsTests(join(root, folder)) ? [`./${folder}`] : [];
 }
 
-function subfolderAreas(
-  root: string,
-  { folder }: TestArea,
-): [string, string[]][] {
+type Candidate = {
+  readonly name: string;
+  readonly folder: string;
+  readonly paths: string[];
+};
+
+function subfolderAreas(root: string, { folder }: TestArea): Candidate[] {
   return entries(join(root, folder))
     .filter(
       (entry) =>
         entry.isDirectory() && holdsTests(join(root, folder, entry.name)),
     )
-    .map((entry) => [entry.name, [`./${folder}/${entry.name}`]]);
+    .map((entry) => {
+      const subfolder = `${folder}/${entry.name}`;
+
+      return { name: entry.name, folder: subfolder, paths: [`./${subfolder}`] };
+    });
 }
 
-function runnable(root: string, area: TestArea): [string, string[]][] {
-  const own: [string, string[]] = [area.name, pathsOf(root, area)];
+function runnable(root: string, area: TestArea): Candidate[] {
+  const own = {
+    name: area.name,
+    folder: area.folder,
+    paths: pathsOf(root, area),
+  };
   return [own, ...(area.subfolders ? subfolderAreas(root, area) : [])].filter(
-    ([, paths]) => paths.length > 0,
+    (candidate) => candidate.paths.length > 0,
   );
 }
 
 function areas(root: string): {
   known: Map<string, string[]>;
   empty: string[];
+  shared: string[];
 } {
   const declared = readRepository(root).testAreas.map((area) => ({
     area,
     entries: runnable(root, area),
   }));
+  const candidates = declared.flatMap(({ entries }) => entries);
+  const folders = Map.groupBy(candidates, (candidate) => candidate.name);
   return {
-    known: new Map(declared.flatMap(({ entries }) => entries)),
+    known: new Map(
+      candidates.map((candidate) => [candidate.name, candidate.paths]),
+    ),
     empty: declared
       .filter(({ entries }) => entries.length === 0)
       .map(({ area }) => `${area.name} (${area.folder})`),
+    shared: [...folders].flatMap(([name, named]) =>
+      named.length > 1
+        ? [`${name} (${named.map((candidate) => candidate.folder).join(", ")})`]
+        : [],
+    ),
   };
 }
 
 const root = join(import.meta.dir, "..");
-const { known, empty } = areas(root);
+const { known, empty, shared } = areas(root);
 const [area, ...options] = process.argv.slice(2);
 const paths = area === undefined ? undefined : known.get(area);
 
 if (empty.length > 0) {
   process.stderr.write(
     `repository.json declares test areas that hold no test file: ${empty.join(", ")}. Restore their tests, or remove them from testAreas.\n`,
+  );
+  process.exitCode = 1;
+} else if (shared.length > 0) {
+  process.stderr.write(
+    `repository.json gives one test area name to more than one folder: ${shared.join("; ")}. Rename an area in testAreas, or rename a subfolder.\n`,
   );
   process.exitCode = 1;
 } else if (paths === undefined) {

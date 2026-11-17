@@ -393,6 +393,38 @@ describe("test:area", () => {
     );
   });
 
+  test("two declared areas with one name fail, naming both folders, and run nothing", () => {
+    const root = withToolchain("6.0.2", {
+      ...probe,
+      "repository.json": description([
+        ...declared,
+        { name: "template", folder: "tests/more", holds: "folder" },
+      ]),
+      "tests/more/more.test.ts":
+        'import { test } from "bun:test";\ntest("more case", () => {});\n',
+    });
+    const result = run(root, testArea, ["kernel"]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toBe(
+      "repository.json gives one test area name to more than one folder: template (tests, tests/more). Rename an area in testAreas, or rename a subfolder.\n",
+    );
+  });
+
+  test("a subfolder named like a declared area fails, naming both folders, and runs nothing", () => {
+    const root = withToolchain("6.0.2", {
+      ...probe,
+      "tests/contract3/template/template.test.ts":
+        'import { test } from "bun:test";\ntest("subfolder case", () => {});\n',
+    });
+    const result = run(root, testArea, ["kernel"]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toBe(
+      "repository.json gives one test area name to more than one folder: template (tests, tests/contract3/template). Rename an area in testAreas, or rename a subfolder.\n",
+    );
+  });
+
   test("an area whose test files sit only in its subfolders is not empty, and each subfolder runs", () => {
     const root = withToolchain("6.0.2", {
       ...probe,
