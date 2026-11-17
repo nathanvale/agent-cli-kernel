@@ -1,0 +1,13 @@
+diff --git a/scripts/glossary.ts b/scripts/glossary.ts
+index b5e03f5..b5dabf3 100644
+--- a/scripts/glossary.ts
++++ b/scripts/glossary.ts
+@@ -89,7 +89,7 @@ function recordedFields(
+     typeof parsed === "object" && parsed !== null
+       ? new Map(Object.entries(parsed)).get("hits")
+       : undefined;
+-  if (!Array.isArray(hits)) throw new Error(`${file} needs a "hits" array.`);
++  if (!Array.isArray(hits)) return [];
+   return hits.map((hit: unknown, index) => {
+     const own = new Map<string, unknown>(
+       typeof hit === "object" && hit !== null ? Object.entries(hit) : [],

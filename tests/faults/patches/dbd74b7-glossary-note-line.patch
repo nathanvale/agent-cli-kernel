@@ -1,0 +1,13 @@
+diff --git a/scripts/glossary.ts b/scripts/glossary.ts
+index b5e03f5..371155a 100644
+--- a/scripts/glossary.ts
++++ b/scripts/glossary.ts
+@@ -62,7 +62,7 @@ function enforcedAvoidWords(line: string, term: string): string[] {
+   return marked.split(";").flatMap((run) => {
+     const words = run.split(",");
+     const lastNoted = words.findLastIndex((word) => word.includes(noteMark));
+-    return wordsIn(words.slice(lastNoted + 1).join(","));
++    return wordsIn((lastNoted < 0 ? words : []).join(","));
+   });
+ }
+ 

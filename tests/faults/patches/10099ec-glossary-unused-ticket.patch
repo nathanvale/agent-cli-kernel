@@ -1,0 +1,19 @@
+diff --git a/scripts/glossary.ts b/scripts/glossary.ts
+index b5e03f5..f193d47 100644
+--- a/scripts/glossary.ts
++++ b/scripts/glossary.ts
+@@ -113,11 +113,9 @@ export function readRecordedHits(text: string): RecordedHit[] {
+ }
+ 
+ export function readRecordedUnusedTerms(text: string): RecordedUnusedTerm[] {
+-  return recordedFields(recordedUnusedTermsFile, text, [
+-    "term",
+-    "reason",
+-    "ticket",
+-  ]).map(([term = "", reason = "", ticket = ""]) => ({ term, reason, ticket }));
++  return recordedFields(recordedUnusedTermsFile, text, ["term", "reason"]).map(
++    ([term = "", reason = "", ticket = ""]) => ({ term, reason, ticket }),
++  );
+ }
+ 
+ function wordsOf(text: string): string[] {
