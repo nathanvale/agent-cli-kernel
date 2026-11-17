@@ -1,5 +1,5 @@
 diff --git a/.githooks/pre-commit b/.githooks/pre-commit
-index b3b87e4..0771caa 100755
+index 78d016f..dfe1fed 100755
 --- a/.githooks/pre-commit
 +++ b/.githooks/pre-commit
 @@ -13,11 +13,6 @@ staged() {
@@ -7,10 +7,10 @@ index b3b87e4..0771caa 100755
  }
  
 -bun scripts/check-names.ts --staged || {
--  echo "pre-commit: the names check failed on the staged names (above). Rename each name it lists as its line says, stage the rename with git add, and commit again. Done when bun run check:names --staged passes." >&2
+-  echo "pre-commit: the names check failed on the staged names (above). Repair: rename each name it lists as its line says, stage the rename with git add, and commit again. Done when bun run check:names --staged passes." >&2
 -  exit 1
 -}
 -
  if [ -n "$(staged | tr -d '\0')" ]; then
    staged | xargs -0 "$bin/biome" format --no-errors-on-unmatched --files-ignore-unknown=true || {
-     echo "pre-commit: Biome formatting differs in the files above. Run bun run format, stage the rewritten files with git add, and commit again. Done when bun run format:check passes." >&2
+     echo "pre-commit: Biome formatting differs in the files above. Repair: run bun run format, stage the rewritten files with git add, and commit again. Done when bun run format:check passes." >&2

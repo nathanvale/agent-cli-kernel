@@ -4,7 +4,7 @@ set -eu
 bin=node_modules/.bin
 for tool in biome eslint oxlint tsc fallow; do
   if [ ! -x "$bin/$tool" ]; then
-    echo "pre-commit: install dependencies, then commit again: bun install --frozen-lockfile" >&2
+    echo "pre-commit: node_modules/.bin/$tool is missing. Repair: run bun install --frozen-lockfile, then commit again." >&2
     exit 1
   fi
 done
@@ -14,32 +14,32 @@ staged() {
 }
 
 bun scripts/check-names.ts --staged || {
-  echo "pre-commit: the names check failed on the staged names (above). Rename each name it lists as its line says, stage the rename with git add, and commit again. Done when bun run check:names --staged passes." >&2
+  echo "pre-commit: the names check failed on the staged names (above). Repair: rename each name it lists as its line says, stage the rename with git add, and commit again. Done when bun run check:names --staged passes." >&2
   exit 1
 }
 
 if [ -n "$(staged | tr -d '\0')" ]; then
   staged | xargs -0 "$bin/biome" format --no-errors-on-unmatched --files-ignore-unknown=true || {
-    echo "pre-commit: Biome formatting differs in the files above. Run bun run format, stage the rewritten files with git add, and commit again. Done when bun run format:check passes." >&2
+    echo "pre-commit: Biome formatting differs in the files above. Repair: run bun run format, stage the rewritten files with git add, and commit again. Done when bun run format:check passes." >&2
     exit 1
   }
 fi
 
 if [ -n "$(staged '*.ts' '*.mts' '*.cts' '*.mjs' | tr -d '\0')" ]; then
   staged '*.ts' '*.mts' '*.cts' '*.mjs' | xargs -0 "$bin/eslint" --max-warnings 0 --no-warn-ignored -- || {
-    echo "pre-commit: lint errors above. Fix each one in code (a repository rule ends its message with Fix:), stage the change with git add, and commit again. Done when bun run lint passes." >&2
+    echo "pre-commit: lint errors above. Repair: correct each one in code, stage the change, and commit again. Done when bun run lint passes." >&2
     exit 1
   }
   staged '*.ts' '*.mts' '*.cts' '*.mjs' | xargs -0 "$bin/oxlint" --no-error-on-unmatched-pattern -- || {
-    echo "pre-commit: anti-slop lint errors above. Fix each one in code (the message names the rule and the repair), stage the change with git add, and commit again. Done when bun run lint passes." >&2
+    echo "pre-commit: anti-slop lint errors above. Repair: correct each one in code, stage the change, and commit again. Done when bun run lint passes." >&2
     exit 1
   }
   "$bin/tsc" --noEmit -p tsconfig.json || {
-    echo "pre-commit: type errors above. Fix each one in code, stage the change with git add, and commit again. Done when bun run typecheck passes." >&2
+    echo "pre-commit: type errors above. Repair: correct each one in code, stage the change, and commit again. Done when bun run typecheck passes." >&2
     exit 1
   }
   "$bin/fallow" audit --staged --quiet || {
-    echo "pre-commit: fallow found new problems in the staged changes (listed above). Fix each one in code, stage the fix with git add, and commit again. Done when node_modules/.bin/fallow audit --staged passes." >&2
+    echo "pre-commit: fallow found new problems in the staged changes (above). Repair: correct each one in code, stage the change, and commit again. Done when node_modules/.bin/fallow audit --staged passes." >&2
     exit 1
   }
 fi
