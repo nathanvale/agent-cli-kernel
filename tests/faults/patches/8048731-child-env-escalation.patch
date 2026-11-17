@@ -1,0 +1,12 @@
+diff --git a/scripts/child-env.ts b/scripts/child-env.ts
+index 010dd93..51afaf7 100644
+--- a/scripts/child-env.ts
++++ b/scripts/child-env.ts
+@@ -91,7 +91,6 @@ export function startChild(
+     if (graceMilliseconds <= 0) send("SIGKILL");
+     else {
+       send("SIGTERM");
+-      escalation = setTimeout(() => send("SIGKILL"), graceMilliseconds);
+     }
+   };
+   let timedOut = false;
