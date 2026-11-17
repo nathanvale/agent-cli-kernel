@@ -21,12 +21,6 @@ import { errorCode } from "./io.ts";
 import { limits } from "./limits.ts";
 import type { DiagnosticsIo } from "./io.ts";
 
-// DIAG-7 to DIAG-11. Location, private exclusive creation, the shared
-// allocation lock, pruning and closure confirmation. Everything here is
-// synchronous except the bounded wait for the allocation lock.
-
-// A CLI name or run identity used as one path segment: never ".", ".." or a
-// separator.
 const segment = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const lockName = ".allocation-lock";
 const host = createHash("sha256").update(hostname()).digest("hex").slice(0, 16);
@@ -49,8 +43,6 @@ export type Opened = {
 };
 export type Allocation = Opened | "setup" | "capacity" | "abandoned";
 
-// $XDG_STATE_HOME/<cli>/diagnostics when XDG_STATE_HOME is absolute, else
-// $HOME/.local/state/<cli>/diagnostics. Nothing else moves it (DIAG-7).
 export function locate(
   environment: Readonly<Record<string, string | undefined>>,
   cli: string,
@@ -78,8 +70,6 @@ function lookup(path: string): Stats | undefined {
   }
 }
 
-// Owned by this user or root, and writable by no one else unless it is a
-// root-owned sticky directory such as /tmp.
 function trustedAncestor(info: Stats): boolean {
   return (
     info.isDirectory() &&
@@ -98,10 +88,6 @@ function ownPrivate(info: Stats | undefined): boolean {
   );
 }
 
-// Creates one private directory. Runs started together race to create the
-// same tree: a loser's EEXIST is not a failure, and the caller's lstat checks
-// then judge whatever is there (owner, kind and exact mode), as for any
-// existing directory.
 function createPrivate(path: string): void {
   try {
     mkdirSync(path, { mode: 0o700 });
@@ -123,9 +109,6 @@ function trustedChain(real: string): boolean {
   }
 }
 
-// The state root may be reached through the user's own symlinks; it is
-// resolved and every real ancestor must be trusted. Below it, `<cli>` and
-// `diagnostics` are never followed through a symlink.
 function prepareBase(base: string): string | undefined {
   const missing: string[] = [];
   let existing = base;
@@ -146,8 +129,6 @@ function prepareBase(base: string): string | undefined {
   return real;
 }
 
-// DIAG-7, DIAG-8: a private 0700 directory owned by this user. A wider
-// existing directory is refused, never written into.
 export function prepare(directory: string): Place | undefined {
   try {
     const cliDirectory = dirname(directory);
@@ -179,8 +160,6 @@ function alive(pid: number): boolean {
   }
 }
 
-// Entries listed here may vanish under a concurrent run (another sweeper, or
-// a holder releasing): "already gone" is success, never a setup failure.
 function entriesOf(directory: string): string[] | undefined {
   try {
     return readdirSync(directory);
@@ -210,8 +189,6 @@ function discard(entry: string): void {
   removeIfPresent(() => rmdirSync(entry));
 }
 
-// Staging and retiring names never hold the shared lock path. Only a
-// same-host entry whose process is proven dead is litter.
 function sweepResidue(directory: string): void {
   for (const name of readdirSync(directory)) {
     const match = residuePattern.exec(name);
@@ -222,13 +199,6 @@ function sweepResidue(directory: string): void {
   }
 }
 
-// The lock is a populated directory moved onto, and later off, the shared
-// path by one rename each. rename replaces only an empty directory, so a live
-// holder is never displaced. A stale lock is emptied only when its one owner
-// is proven dead on this host; rmdir then succeeds only while still empty.
-// The lock's one owner is proven gone: on this host its pid is not alive; on
-// another host (no liveness check is possible) the lock is older than any
-// live holder keeps it. An empty lock directory has no owner at all.
 function ownerProvenGone(lock: Stats, entries: readonly string[]): boolean {
   if (entries.length === 0) return true;
   const match =
@@ -249,13 +219,10 @@ function unlinkIfPresent(path: string): boolean {
   }
 }
 
-// rmdir succeeds only while the lock is still empty, so a fresh populated
-// lock moved onto the path meanwhile is never removed.
 function removeStaleLock(lock: string): boolean {
   const info = lookup(lock);
   if (!info) return true;
   if (!info.isDirectory() || info.uid !== uid) return false;
-  // The holder may release between the failed move and this read.
   const entries = entriesOf(lock);
   if (entries === undefined) return true;
   if (!ownerProvenGone(info, entries)) return false;
@@ -268,6 +235,8 @@ function removeStaleLock(lock: string): boolean {
   }
 }
 
+// rename replaces only an empty directory, so a live holder is never
+// displaced.
 function moveOnto(staging: string, lock: string): boolean {
   try {
     renameSync(staging, lock);
@@ -295,8 +264,6 @@ function tryLock(directory: string): (() => void) | undefined {
       0o600,
     ),
   );
-  // The staging directory is removed on every path that does not hold the
-  // lock, even when stale-lock removal throws, so no run leaves residue behind.
   let held = false;
   try {
     held =
@@ -311,14 +278,11 @@ function tryLock(directory: string): (() => void) | undefined {
       renameSync(lock, retiring);
       discard(retiring);
     } catch {
-      // A lock that cannot be retired stays visible; its owner is this
-      // process, so it becomes recoverable once this process ends.
+      return;
     }
   };
 }
 
-// Bounded wait for the lock. It stops as soon as the run is frozen, so no
-// lock I/O continues after the status freeze (DIAG-15).
 async function acquire(
   directory: string,
   abandoned: () => boolean,
@@ -360,7 +324,6 @@ function classify(directory: string, name: string): Entry | undefined {
     path,
     info,
     marker: confirmed ? markerFor(path, info) : undefined,
-    // Anything not confirmed closed may still grow to a full run allowance.
     charge: confirmed ? info.size : Math.max(info.size, limits.runBytes),
   };
 }
@@ -370,19 +333,15 @@ function bookkeeping(directory: string, name: string): boolean {
   const marker = markerPattern.exec(name);
   if (!marker) return false;
   if (!ownPrivate(lookup(join(directory, name)))) return false;
-  // An orphaned closure marker is removed; rmdir refuses a populated one.
   if (marker[1] !== undefined && !lookup(join(directory, marker[1])))
     try {
       rmdirSync(join(directory, name));
     } catch {
-      // Left for a later prune.
+      return true;
     }
   return true;
 }
 
-// DIAG-10: confirmed-closed logs older than seven days go first, then the
-// oldest confirmed-closed logs while room is needed. Active, timed-out and
-// ambiguous entries are never candidates, whatever their age.
 function prune(directory: string, now: number): boolean {
   const entries = readdirSync(directory)
     .filter((name) => !bookkeeping(directory, name))
@@ -424,9 +383,6 @@ const createFlags =
   constants.O_NONBLOCK |
   constants.O_APPEND;
 
-// What real open behaviour produced is the destination this unit supports: a
-// private regular file of this user, still named by the path, inside the very
-// directory that was checked (an ancestor swapped before open is refused).
 function custodyHolds(
   held: Stats,
   named: Stats | undefined,
@@ -446,8 +402,6 @@ function custodyHolds(
   );
 }
 
-// The descriptor is the custody: every later write goes to it, nothing is
-// reopened by path (DIAG-8).
 function open(
   place: Place,
   runId: string,
@@ -460,20 +414,35 @@ function open(
   } catch {
     return "setup";
   }
+  const held = heldInCustody(descriptor, file, place);
+  if (held) return held;
+  closeIfPossible(descriptor);
+  return "setup";
+}
+
+function heldInCustody(
+  descriptor: number,
+  file: string,
+  place: Place,
+): Opened | undefined {
   try {
     fchmodSync(descriptor, 0o600);
     const held = fstatSync(descriptor);
-    if (custodyHolds(held, lookup(file), lookup(place.directory), place))
-      return { descriptor, file, dev: held.dev, ino: held.ino };
+    return custodyHolds(held, lookup(file), lookup(place.directory), place)
+      ? { descriptor, file, dev: held.dev, ino: held.ino }
+      : undefined;
   } catch {
-    // Fall through to refusal.
+    return undefined;
   }
+}
+
+export function closeIfPossible(descriptor: number): boolean {
   try {
     closeSync(descriptor);
+    return true;
   } catch {
-    // The refusal stands either way.
+    return false;
   }
-  return "setup";
 }
 
 export async function allocate(
@@ -502,8 +471,6 @@ export async function allocate(
   }
 }
 
-// Confirms closure for later pruning: a marker binding the closed file's
-// device, inode and size. A replaced or grown file never matches it.
 export function confirmClosed(opened: Opened, size: number): void {
   try {
     const current = lookup(opened.file);
@@ -515,6 +482,6 @@ export function confirmClosed(opened: Opened, size: number): void {
     )
       createPrivate(markerFor(opened.file, current));
   } catch {
-    // Unconfirmed closure keeps the log out of the pruning set.
+    return;
   }
 }

@@ -17,8 +17,6 @@ export type Line = {
 };
 type Cut = { truncated: boolean };
 
-// Exact secret values and their JSON-escaped forms, longest first so a secret
-// that contains another is replaced whole.
 function forms(secrets: readonly string[]): readonly string[] {
   const all = new Set<string>();
   for (const secret of secrets)
@@ -36,11 +34,6 @@ function conceal(text: string, secretForms: readonly string[]): string {
   return result;
 }
 
-// A number, boolean or null whose JSON text holds a declared secret (the
-// secret "4" recorded as 4, or inside 1431; "true" recorded as true) is
-// replaced whole by the marker string, so the line stays valid JSON. As with
-// strings, any occurrence counts, so a short secret also hides unrelated
-// values that contain it.
 function concealScalar(
   value: number | boolean | null,
   secretForms: readonly string[],
@@ -120,8 +113,6 @@ function boundedScalar(
   return lost(cut, markers.unserialisable);
 }
 
-// Plain JSON with every string concealed before it can be cut, a depth and
-// entry bound, and a visible marker for whatever was not kept.
 function bounded(
   value: unknown,
   secretForms: readonly string[],
@@ -141,10 +132,6 @@ function bounded(
   }
 }
 
-// The header holds only values the add-on itself supplies (time, sequence,
-// the kernel's run and command identities, elapsed time, level), so it is
-// never concealed: a short secret can never rewrite a number or an identity
-// and break the line.
 function header(record: LogRecord, cut: Cut) {
   const properties = record.properties;
   return {
@@ -161,9 +148,6 @@ function size(text: string): number {
   return encoder.encode(text).length + 1;
 }
 
-// A record above the bound keeps a visible marker and as much of its
-// (already redacted) text as fits, still as one valid JSON line. If even an
-// empty prefix does not fit, the marker-only line is returned.
 function shortened(text: string, record: LogRecord): string {
   const cut: Cut = { truncated: true };
   for (
@@ -181,9 +165,6 @@ function shortened(text: string, record: LogRecord): string {
   return JSON.stringify({ truncated: markers.record });
 }
 
-// One bounded, redacted line per record. Every string and key of the event
-// and facts is concealed before any cut, so a cut can never expose part of a
-// declared secret, and the line stays valid JSON.
 export function lineMaker(
   secrets: readonly string[],
 ): (record: LogRecord) => Line {

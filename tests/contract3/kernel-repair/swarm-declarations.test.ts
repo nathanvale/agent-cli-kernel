@@ -10,11 +10,6 @@ import { contractUnchecked } from "./harness.ts";
 import { approvedRead } from "./swarm-commands.ts";
 import { emptyInput, unchanged } from "./shapes.ts";
 
-// Swarm-triage expectations for declarations reaching contractFor. Expected
-// values come from the triage file's X-K1-* expectations (frozen contract),
-// never from kernel output.
-
-// A typed, admitted base that each raw variant departs from in one way.
 function base() {
   return command({
     identity: "x.raw",
@@ -53,8 +48,6 @@ function admit(raw: object) {
 }
 
 test("X-K1-5.raw-declaration-admission: contractFor re-checks every constructor rule on a raw declaration", () => {
-  // Each variant and the refusal that names its broken rule (WIRE-15
-  // preparation, DISC-8 station shape, WIRE-1 strict objects, DISC-13).
   const variants: readonly (readonly [string, object, string])[] = [
     [
       "no execute",
@@ -130,11 +123,9 @@ test("X-K1-5.raw-declaration-admission: contractFor re-checks every constructor 
   expect(variants.map(([name, raw]) => [name, refusalOf(admit(raw))])).toEqual(
     variants.map(([name, , refusal]) => [name, refusal]),
   );
-  // Twin: the typed declaration, spread into a raw object, is admitted.
   expect(admit({ ...base(), stations: [unmet] })).not.toThrow();
 });
 
-// Host coordination refusals for a raw changing declaration.
 const hold = {
   outcome: "refused",
   transactionState: "unchanged",
@@ -178,8 +169,6 @@ const rawChange = {
 };
 
 test("S2.raw-shape-refusals: each shape rule contractFor re-checks names its own refusal", () => {
-  // The changing() and station() rules, applied to raw declarations
-  // (WIRE-15, WIRE-1, DISC-8; repair 1, S1 and S2).
   const variants: readonly (readonly [string, object, string])[] = [
     [
       "unknown effect class",
@@ -211,18 +200,12 @@ test("S2.raw-shape-refusals: each shape rule contractFor re-checks names its own
   expect(variants.map(([name, raw]) => [name, refusalOf(admit(raw))])).toEqual(
     variants.map(([name, , refusal]) => [name, refusal]),
   );
-  // Twin: the raw changing declaration passes every shape rule and is then
-  // refused for the next rule in order, the missing state add-on.
   expect(refusalOf(admit(rawChange))).toBe(
     "Changing commands require the state add-on.",
   );
 });
 
 test("F1.unguarded-raw-refused: a declaration without the two-phase entry may not declare approval", () => {
-  // CMD-9 steps 5 and 6: the approval guard precedes handler entry for every
-  // admitted declaration. Only command() and changing() register the
-  // two-phase entry, so a raw or spread declaration that declares approval
-  // (or changes state; see the state twin) is refused (delta review F1).
   const refusal =
     "A command that declares approval or changes state must be built with command() or changing().";
   const guarded = approvedRead(() => undefined);
@@ -236,15 +219,11 @@ test("F1.unguarded-raw-refused: a declaration without the two-phase entry may no
   expect(refusalOf(admitGuarded({ ...guarded, execute: neverRuns }))).toBe(
     refusal,
   );
-  // Twins: the constructed declaration is admitted, and a raw declaration
-  // that declares no approval stays admitted (X-K1-5).
   expect(refusalOf(admitGuarded(guarded))).toBe("admitted");
   expect(refusalOf(admit({ ...base(), stations: [unmet] }))).toBe("admitted");
 });
 
 test("X-K1-3.case-b-station-table: an inspect command that declares approval declares its station table", () => {
-  // DISC-10: only an inspect command that declares no approval and no cause
-  // of its own may omit a station table.
   const refusal =
     "An inspect command that declares approval declares its station table.";
   const tableless = () =>
@@ -260,7 +239,6 @@ test("X-K1-3.case-b-station-table: an inspect command that declares approval dec
       run: readsUnchanged("x.read"),
     });
   expect(refusalOf(tableless)).toBe(refusal);
-  // The raw form of the same declaration is refused by contractFor too.
   const { stations: _stations, ...withoutTable } = approvedRead(
     () => undefined,
   );
@@ -274,7 +252,6 @@ test("X-K1-3.case-b-station-table: an inspect command that declares approval dec
       }),
     ),
   ).toBe(refusal);
-  // Twin: with its own station table the command is admitted.
   expect(
     refusalOf(() =>
       contractFor({

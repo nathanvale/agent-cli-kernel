@@ -1,7 +1,3 @@
-// Strict parsers for untrusted authority records. Shape validation is not
-// authorisation: every parsed record is still matched against the exact
-// current item, its expiry and its consumption state.
-
 export type Grant = {
   readonly operation: string;
   readonly preview: string;
@@ -22,7 +18,6 @@ export type StopItem = {
   readonly owner: string;
   readonly writers: readonly string[];
   readonly scope: string;
-  // A live writer observed under coordination always refuses (REC-7a).
   readonly liveConflict: boolean;
 };
 
@@ -164,7 +159,6 @@ export function parseStop(
     : undefined;
 }
 
-// Compares a caller-supplied list against a parsed, sorted, unique set.
 export function sameSet(bound: readonly string[], current: unknown): boolean {
   const checked = identitySet(current);
   return (

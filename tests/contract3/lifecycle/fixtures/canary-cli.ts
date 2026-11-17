@@ -1,7 +1,3 @@
-// LABELLED TEST-ONLY PUBLIC-SEAM CANARY CLI "canary". It composes exactly what
-// a generated CLI composes, through the public kernel index and the programs
-// add-on, with the default process adapter and no fault wrappers. Never
-// registered as a production command; never ships.
 import { appendFileSync } from "node:fs";
 import {
   command,

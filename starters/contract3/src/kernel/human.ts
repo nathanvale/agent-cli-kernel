@@ -1,8 +1,6 @@
 import type { Diagnostics, Envelope } from "./types.ts";
 import { record } from "./validation/primitives.ts";
 
-// Human-mode rendering of an already validated envelope (LIFE-2). Help and
-// discovery go to stdout; a refusal or failure is exactly one stderr line.
 function oneLine(value: string): string {
   return value
     .replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]+/gu, " ")

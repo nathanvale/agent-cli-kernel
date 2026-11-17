@@ -1,6 +1,3 @@
-// The T5 case ledger. Every frozen identity in t5-cases.json is either bound
-// to a test in this folder or carries its frozen pending or unproved status
-// with a supplier or reason; no test cites an identity that is not frozen.
 import { expect, test } from "bun:test";
 import {
   mkdtempSync,
@@ -57,7 +54,6 @@ function testSources(): string {
     .join("\n");
 }
 
-// Identities cited in test titles and the id table of the umask cases.
 function cited(source: string): Set<string> {
   const found = new Set<string>();
   for (const match of source.matchAll(
@@ -137,15 +133,10 @@ test("T5 ledger: every repair control is bound to a test", () => {
   expect(ids.filter((id) => !bound.has(id))).toEqual([]);
 });
 
-// Rows the ticket wants as process rows but observed only in process-free
-// component tests, and the half of D15 nothing in this unit can prove.
 const processRowUnproved = {
   "D17.no-change-after-freeze":
     "the process exits at drain, so post-freeze activity cannot be observed there; component evidence only",
 } as const;
-// Verified not applicable to this component, with the accepted decision as
-// the reason: the host owns redaction of public output (Nathan, 16 November
-// 2026, 14:37, contract question 2 of 8); this add-on proves its sink point.
 const notApplicableHere = {
   "D15 public-output redaction point":
     "the host owns public-output redaction (accepted decision, contract question 2 of 8); proved at T8, not by this add-on",
@@ -183,10 +174,6 @@ test("R1.platform-outcomes-pinned: nothing is skipped, and every platform-bound 
   );
 });
 
-// The ledger's authority is execution, not citation: the other T5 files run
-// in a child `bun test` whose JUnit report lists what actually ran. A row
-// skipped by any spelling (`it.skip`, `test.todo`, ...) is reported skipped;
-// a row never registered (a conditional `test` with no `else`) is absent.
 type Executed = { readonly name: string; readonly skipped: boolean };
 
 function executedTests(): {
@@ -247,7 +234,6 @@ test("R2.ledger-binds-executed: every planned row and repair control ran and pas
   expect(
     tests.filter((entry) => entry.skipped).map((entry) => entry.name),
   ).toEqual([]);
-  // A platform-bound outcome is titled "<id>: UNPROVED on <platform>".
   const platformBound = (entry: Executed) => / UNPROVED on /.test(entry.name);
   const proved = new Set(
     tests

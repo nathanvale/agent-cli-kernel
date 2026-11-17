@@ -14,18 +14,13 @@ import {
 } from "./validation/level.ts";
 import { record } from "./validation/primitives.ts";
 
-// LIFE-9 and LIFE-10: one bounded fallback, always contract 3.0.0.
 const fallbackMessage =
   "The result could not be delivered safely. Follow the guidance and inspect effects independently before any new run.";
-// The 16,384-byte bound includes the trailing newline. Depth counts nested
-// The level limit follows the one nesting rule in validation/level.ts.
 export const fallbackLimits = {
   bytes: 16_384,
   level: fallbackLevelLimit,
 } as const;
 
-// The one owner of the diagnostics unavailable variant the kernel builds
-// (DIAG-3): no independently trusted field survives, so `trusted` is empty.
 export function unavailableStatus(
   reason: "status-invalid" | "status-unavailable",
 ): Diagnostics {
@@ -35,12 +30,8 @@ export function unavailableStatus(
 export type TrustedRun = {
   readonly runId: string;
   readonly commandIdentity: string;
-  // True once handler entry happened.
   readonly handlerEntered: boolean;
-  // The state add-on's transaction proof for this run, when one exists.
   readonly summary?: StateObservation;
-  // The diagnostics status the writer froze and validated (LIFE-7 step 1),
-  // when one is due. LIFE-9 step 2 includes it in the fallback.
   readonly diagnostics?: Diagnostics;
 };
 
@@ -106,8 +97,6 @@ function construct(
   };
 }
 
-// Builds, encodes and validates the one fallback envelope. Returns undefined on
-// any construction, encoding or validation failure: the caller terminates.
 export async function fallbackText(
   runtime: ContractRuntime,
   trusted: TrustedRun,
@@ -118,13 +107,6 @@ export async function fallbackText(
     );
     if (!command) return undefined;
     const selected = select(command.effectClass, trusted);
-    // Rule (DIAG-4, Part 4 repair 2): the status is given up before any
-    // trusted effect identity, so a status's presence, absence or size never
-    // changes the cause, effects or exit this fallback would have without it.
-    // In order, the first that fits the bound: as selected; the status as
-    // unavailable (seam review S1); effects that do not fit reported as
-    // unknown with an incomplete inventory, keeping a small valid status
-    // (repair R2); both.
     const unknown = trusted.summary
       ? { causeCode: internalResultCause.unknown, effects: incompleteEffects }
       : undefined;
@@ -180,7 +162,6 @@ function frame(value: unknown, level: number): Frame | undefined {
   return undefined;
 }
 
-// Bounded output: every write is counted, including the final newline.
 class Output {
   private readonly encoder = new TextEncoder();
   private readonly parts: string[] = [];
@@ -199,8 +180,6 @@ class Output {
   }
 }
 
-// Writes one value at `level`: a scalar, or the opening of a container frame.
-// Every value, scalar or container, must sit within the level limit.
 function open(
   value: unknown,
   level: number,
@@ -217,10 +196,6 @@ function open(
   return output.push(next.close === "]" ? "[" : "{");
 }
 
-// The guarded nonrecursive encoder used only by the fallback. It accepts plain
-// JSON values with every value at most `fallbackLimits.level` levels below the
-// root (level 0) and at most `fallbackLimits.bytes` UTF-8 bytes including the
-// trailing newline.
 export function encodeBounded(
   value: unknown,
   limits: Limits = fallbackLimits,

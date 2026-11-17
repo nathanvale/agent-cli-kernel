@@ -23,7 +23,6 @@ test("KF6.a human-line-available file: the line names the run's private log", as
   expect(file.startsWith(`${where.dir}/`)).toBe(true);
   expect(statSync(file).mode & 0o777).toBe(0o600);
   expect(lines.slice(0, -2).join("\n")).not.toContain("Diagnostics:");
-  // Twin: machine mode prints one envelope and no Diagnostics text.
   const twin = await run({ argv: ["read", ...machine], tree: tree() });
   expect(twin.exit).toBe(0);
   expect(twin.stdout).not.toContain("Diagnostics:");

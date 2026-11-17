@@ -56,9 +56,6 @@ export type StateIssuer = {
     runId: string,
     observation: StateObservation<Effect>,
   ) => TransactionProof<Effect>;
-  // Issues a scope only for a run this state add-on instance has attached; it throws
-  // otherwise. A production scope is always acquired for an attached run before
-  // the approved effect (CMD-9 step 7), so an unattached run fails early.
   readonly exclusiveScope: (
     runId: string,
     scope: string,
@@ -66,22 +63,15 @@ export type StateIssuer = {
   ) => ExclusiveScope;
 };
 const routes = new WeakSet<object>();
-// One attachment allows one transaction and one proof (F13). An earlier proof
-// can therefore never stand in for a later transaction on the same attachment.
 type AttachedRun = {
   transactionStarted: boolean;
   proof: TransactionProof | undefined;
-  // Why the capability refuses new work: the handler returned, or the
-  // deadline passed (LIFE-6; K2-spec-3).
   closed: "returned" | "deadline" | undefined;
 };
 const closedReason = {
   returned: "The state capability closed when the handler returned.",
   deadline: "The state capability closed at the deadline.",
 } as const;
-// LIFE-6: at the deadline the run starts no transaction and records no
-// effect. Returns whether a transaction had started on the run's current
-// attachment, or undefined when the run has none.
 export function closeAtDeadline(
   runId: string,
   descriptor: StateAddonDescriptor | undefined,
@@ -127,8 +117,6 @@ export function knownProof(
     registration.runs.get(runId) === proof.run
   );
 }
-// A changing result without a proof (a refusal) may follow no transaction, or
-// only one whose proof reports `unchanged`; anything else would hide effects.
 export function proofFreeResultAllowed(
   runId: string,
   descriptor: StateAddonDescriptor | undefined,
@@ -208,9 +196,6 @@ function stateIssuer(
       effect: Effect,
       admitStart: RecordedEffect<Effect>["admitStart"],
     ): RecordedEffect<Effect> {
-      // Each effect is refused before its operation once the run's
-      // capability has closed (LIFE-6; K2-spec-3): an installer issues
-      // the recorded effect before it runs the operation.
       const run = runs.get(runId);
       const closed = run ? attachedRuns.get(run)?.closed : undefined;
       if (closed) throw new Error(closedReason[closed]);
@@ -225,9 +210,6 @@ function stateIssuer(
       runId: string,
       observation: StateObservation<Effect>,
     ): TransactionProof<Effect> {
-      // Read the installer's observation exactly once; the proof is built
-      // from the same plain copy that was validated, so an accessor cannot
-      // report one state to the check and another to the proof (K2-spec-1).
       const snapshot = structuredClone(observation);
       if (
         !validEffects(snapshot.effects) ||
@@ -296,7 +278,6 @@ const registrations = new WeakMap<
     readonly registration: StateFactoryResult;
     readonly stateInstance: object;
     readonly runs: Map<string, object>;
-    // Every run identity this state add-on instance has claimed (WIRE-7).
     readonly used: Set<string>;
     readonly active: AsyncLocalStorage<{
       readonly runId: string;
@@ -350,11 +331,6 @@ export function attachState<Effect extends string>(
     throw new Error(
       "State descriptor was not created by contractFor.stateAddon.",
     );
-  // WIRE-7: a run identity is unique. Claiming it and attaching happen here
-  // together, at handler entry (CMD-9 step 6; delta review F2). A used
-  // identity stays used: the reuse is refused (undefined) and the earlier
-  // attachment is superseded, so no proof or scope of that identity stands
-  // (K2-spec-2, repair 1 B2).
   if (state.used.has(runId)) {
     state.runs.delete(runId);
     return undefined;
@@ -372,13 +348,8 @@ export function attachState<Effect extends string>(
   const capability: import("./capabilities.ts").StateCapability<Effect> =
     Object.freeze({
       transaction(work) {
-        // Refused once the handler has returned (its result already exists,
-        // and a refusal must precede any attempted change, WIRE-15) or the
-        // deadline has passed (LIFE-6).
         if (status.closed)
           return Promise.reject(new Error(closedReason[status.closed]));
-        // Refused before the work starts, so overlapping and later calls
-        // cannot complete an effect the first proof does not report.
         if (status.transactionStarted)
           return Promise.reject(new Error("One transaction per attached run."));
         status.transactionStarted = true;

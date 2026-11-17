@@ -1,6 +1,3 @@
-// Durable store (DESIGN.md sections 3 to 5). Durable means written, the
-// file flushed, and any new or renamed directory entry's directory flushed.
-// Claims cover process crash and file flush only (CMD-11).
 import {
   closeSync,
   constants,
@@ -80,8 +77,6 @@ function privateDirectory(path: string): boolean {
   );
 }
 
-// Creates the store on first change. A changing route may create it; a read
-// route never does (DISC-14 item 5: a missing store is not an empty one).
 export function ensureStore(paths: Layout): boolean {
   if (!isAbsolute(paths.root)) return false;
   try {
@@ -127,8 +122,6 @@ function formatValid(paths: Layout): boolean {
   );
 }
 
-// ---- Records ---------------------------------------------------------------
-
 export type Intent = {
   readonly operationId: string;
   readonly commandIdentity: string;
@@ -150,7 +143,6 @@ export type Intent = {
   readonly coordination: readonly string[];
 };
 
-// One owner per journal vocabulary (SF-3): each type derives from its array.
 export const recordKinds = { intent: "intent", closure: "closure" } as const;
 const eventKinds = [
   "effect-started",
@@ -163,7 +155,6 @@ const eventKinds = [
   "emergency",
 ] as const;
 export type EventKind = (typeof eventKinds)[number];
-// Events that name one of the intent's declared effects.
 const effectEvents: readonly EventKind[] = [
   "effect-started",
   "delegate-admitted",
@@ -368,8 +359,6 @@ function parseClosure(record: ParsedRecord, id: string): Closure | undefined {
   };
 }
 
-// ---- Reading ---------------------------------------------------------------
-
 export type Operation = {
   readonly intent: Intent;
   readonly intentBytes: Uint8Array;
@@ -478,8 +467,6 @@ export function readOperation(
   };
 }
 
-// Reads every published operation, refusing the whole read on any
-// unreadable or corrupt entry (DISC-14 item 5).
 export function readStore(paths: Layout): ReadResult {
   try {
     lstatSync(paths.root);
@@ -502,10 +489,6 @@ export function readStore(paths: Layout): ReadResult {
   }
 }
 
-// ---- Writing ---------------------------------------------------------------
-
-// Publishes one operation directory atomically: staging holds the locked
-// lease, the flushed intent and an empty events file; one rename publishes.
 export async function publishOperation(
   paths: Layout,
   intent: Intent,
@@ -544,8 +527,6 @@ export async function publishOperation(
   };
 }
 
-// Appends one framed event and flushes it. Synchronous so the emergency
-// record can reuse it within one bounded attempt (LIFE-6a).
 export function appendEvent(
   eventsPath: string,
   kind: EventKind,
@@ -566,8 +547,6 @@ export function appendEvent(
   }
 }
 
-// Writes the closure in staging, then links it into the case with no
-// replacement. EEXIST means a closure already exists: never overwritten.
 export function publishClosure(
   paths: Layout,
   closure: Closure,

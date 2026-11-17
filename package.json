@@ -8,7 +8,7 @@
     "bootstrap": "bun run src/bootstrap.ts",
     "check": "bun run lint && bun run format:check && bun run typecheck && bun run test && bun run --silent quality:fallow",
     "check:write": "bun run format",
-    "quality:fallow": "node_modules/.bin/fallow audit --format json --quiet --type-aware --type-aware-require best-effort",
+    "quality:fallow": "node_modules/.bin/fallow audit --format json --quiet",
     "doctor": "bun run scripts/doctor.ts",
     "check:commits": "bun run scripts/check-commits.ts",
     "faults": "bun run scripts/faults.ts replay",
@@ -20,6 +20,7 @@
     "admit:static": "bun run src/static-admission.ts",
     "lint": "eslint . --max-warnings 0",
     "lint:anti-slop": "oxlint",
+    "prepare": "git config core.hooksPath .githooks || true",
     "format:check": "biome format .",
     "format": "biome format --write .",
     "admit:cli": "bun run src/cli-inventory.ts"

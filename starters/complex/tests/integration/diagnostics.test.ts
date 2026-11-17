@@ -82,7 +82,6 @@ async function invoke(
 }
 
 function domain(document: Observed) {
-  // Only the run identity and declared diagnostics may differ between identical operations.
   const facts = { ...object(document.result) };
   delete facts.runId;
   const envelope: Observed = { ...document, result: facts };

@@ -1,6 +1,3 @@
-// K family plus the recovery-side O and H cases, through real specimen
-// processes. Closure under `fixture` worlds is qualification evidence for a
-// labelled test fixture only; production worlds never close a crashed case.
 import { expect } from "bun:test";
 import { createHash } from "node:crypto";
 import {
@@ -117,8 +114,6 @@ caseTest(
     expect(at(closed.result.raw, "effects", "completed")).toEqual([
       "state.closure",
     ]);
-    // The recovery's own operation is journaled as the host command, and
-    // the original operation's facts are untouched.
     const recovery = only(world, "sx.close");
     const recorded = world.operations().find((entry) => entry.id === recovery);
     expect(recorded?.intent.closes).toBe(id);
@@ -311,7 +306,6 @@ caseTest(
     expect(at(payload, "evidence")).toEqual([
       { effect: "note.write", observation: "present" },
     ]);
-    // The closed revision is the test's own hash of the exact bytes.
     const directory = join(world.root, "operations", id);
     const expected = `r-${createHash("sha256")
       .update(readFileSync(join(directory, "intent")))
@@ -337,8 +331,6 @@ caseTest(
     expectCompleted(
       await world.run(closeArgs(id, revision, "completed", "c2")),
     );
-    // The crashed recovery's own publication is now excluded by the
-    // no-replace closure written by another run, so it closes not-applied.
     const history = await world.history(deadRecovery);
     expect(at(history.result.raw, "data", "observed")).toEqual({
       "state.closure": "remaining",
@@ -463,8 +455,6 @@ caseTest(
   plain(async (world) => {
     await world.killAt(apply("a"), "effect");
     const id = only(world);
-    // Re-frame the intent with this live test process's PID as its owner:
-    // a valid record naming a live unrelated process.
     const path = join(world.root, "operations", id, "intent");
     const original = readFileSync(path, "utf8");
     const body = original.slice(original.indexOf("\n") + 1, -1);
@@ -577,8 +567,6 @@ caseTest(
       ),
     );
     expectRefusedUnchanged(refused, "DOMAIN_SX_UNAVAILABLE");
-    // O10.b runs on every platform: with a route it reaches the takeover
-    // gate; without one it refuses earlier, for that reason.
     expect(str(refused.envelope.message)).toContain(
       coordinationExpected
         ? "human-assisted-takeover-unqualified"
@@ -595,7 +583,6 @@ caseTest(
   "H02.a-attestation-cannot-bypass-exclusivity",
   fixture(async (world) => {
     if (!coordinationExpected) {
-      // On a platform without coordination the refusal is still unavailable.
       const refused = await world.run(
         closeArgs(
           `op-${"1".repeat(32)}`,
@@ -638,8 +625,6 @@ caseTest(
   }),
 );
 
-// ---- Repair round 1 controls -----------------------------------------------
-
 caseTest(
   "K06.f-same-identity-different-content",
   fixture(async (world) => {
@@ -648,12 +633,10 @@ caseTest(
     const revision = await world.revision(id);
     expectCompleted(await world.run(closeArgs(id, revision)));
     const bytes = readFileSync(closurePath(world, id));
-    // Same closure identity, different disposition: conflicting content.
     expectRefusedUnchanged(
       await world.run(closeArgs(id, revision, "not-applied", "c1")),
       "DOMAIN_SX_CLOSE_CONFLICT",
     );
-    // Same closure identity and disposition, different reason.
     const otherReason = closeArgs(id, revision).map((token) =>
       token === "independent evidence reviewed" ? "another reason" : token,
     );

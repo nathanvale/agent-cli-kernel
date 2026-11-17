@@ -1,10 +1,3 @@
-// Q01.d to Q01.f: lint controls on what host source can reach. A host-like
-// probe under starters/contract3/src/handlers, and existing add-on and kernel
-// files given probe text, are linted with the repository configuration.
-// - Q01.d: importing fixture.ts or install.ts (statically or dynamically) is
-//   an error; importing index.ts is not.
-// - Q01.e: the other spellings that loaded the fixture (delta review F1).
-// - Q01.f: bun:ffi only in the state add-on's linux-flock.ts.
 import { afterAll, beforeAll, expect } from "bun:test";
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, rm, rmdir, writeFile } from "node:fs/promises";
@@ -17,7 +10,6 @@ const source = resolve(root, "starters/contract3/src");
 const handlers = resolve(source, "handlers");
 const eslint = new ESLint({ cwd: root });
 let probes = "";
-// F3: remove the handlers folder too when this file created it.
 let createdHandlers = false;
 beforeAll(async () => {
   createdHandlers = !existsSync(handlers);
@@ -45,7 +37,6 @@ async function messages(
   return result?.messages ?? [];
 }
 
-// True when lint reports the named ban for this text at this path.
 async function banned(
   text: string,
   rule: Rule = "state",
@@ -86,9 +77,6 @@ caseTest("Q01.d-host-cannot-import-test-seams", async () => {
   ).toBe(false);
 });
 
-// The six spellings of the delta review (F1), each of which loaded the
-// fixture at run time, plus Bun's import.meta.require; the same for the
-// kernel's internals.
 caseTest("Q01.e-host-cannot-reach-seams-by-other-spellings", async () => {
   const spellings = (target: string, sibling: string): string[] => [
     `const target = "${target}";\nexport const load = () => import(target);\n`,
@@ -104,9 +92,6 @@ caseTest("Q01.e-host-cannot-reach-seams-by-other-spellings", async () => {
     "../../addons/state/fixture.ts",
     "../state/fixture.ts",
   );
-  // The diagnostics builder's report (coordinator, 16 November 2026): the
-  // internal implementation by a sibling folder's relative path; and the
-  // standards review's F1: the same with a leading "./".
   state.push(
     `import { install } from "../state/install.ts";\nvoid install;\n`,
     `export { stateAddonWithTestSeams } from "./../state/fixture.ts";\n`,
@@ -118,8 +103,6 @@ caseTest("Q01.e-host-cannot-reach-seams-by-other-spellings", async () => {
       index,
       banned: await banned(text, "state", index >= 6 ? programs : undefined),
     }).toEqual({ index, banned: true });
-  // The diagnostics folder has its own logging override (merge of 820c5a1);
-  // the sibling spellings stay banned there too.
   const diagnostics = resolve(source, "addons/diagnostics/index.ts");
   for (const [index, text] of state.slice(6).entries())
     expect({
@@ -145,9 +128,6 @@ caseTest("Q01.e-host-cannot-reach-seams-by-other-spellings", async () => {
   ).toBe(false);
 });
 
-// The Linux coordination route's foreign call (Nathan, 16 November 2026,
-// 14:22): bun:ffi is allowed in linux-flock.ts and banned everywhere else
-// in contract source, statically and dynamically.
 caseTest("Q01.f-foreign-call-confined-to-linux-route", async () => {
   const route = resolve(source, "addons/state/linux-flock.ts");
   const elsewhere = [
@@ -170,9 +150,6 @@ caseTest("Q01.f-foreign-call-confined-to-linux-route", async () => {
       banned: await banned(dynamically, "ffi", filePath),
     }).toEqual({ filePath, banned: true });
   }
-  // The carve-out stays narrow (standards review F3): the route file is
-  // linted (not ignored), only the bun:ffi ban lifts there, and every other
-  // host rule still applies to it.
   expect(await eslint.isPathIgnored(route)).toBe(false);
   expect(await banned(statically, "ffi", route)).toBe(false);
   expect(

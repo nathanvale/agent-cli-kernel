@@ -1,7 +1,3 @@
-// LABELLED TEST-ONLY ENTRY, materialised by the T2 lifecycle harness under a
-// temporary addons/state path. It authors the fixture's synthetic state
-// installer so the fault-fixture CLI can compose changing commands. It is not
-// the T3 state add-on and proves nothing about durable state.
 import { contractFor } from "__KERNEL_INDEX__";
 import { main, syntheticState } from "__FAULT_CLI__";
 

@@ -1,8 +1,3 @@
-// Finding 1, programs add-on side: the program timeout and the output-drain
-// timer honour every accepted value (Nathan, 16 November 2026: no cap).
-// Expectations: c3-expect-t2t5, findings-round/expectations.md, T05 and T06.
-// Time control (P4, proposed for review) as in lifecycle/timers.test.ts: Bun's
-// fake timers move performance.now(); the children are real processes.
 import { mkdtemp, rm } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -22,12 +17,10 @@ import {
   turns,
   until,
 } from "../lifecycle/recording-host.ts";
+import { signalIfPresent } from "../../support/signal.ts";
 
 const timeout = 30_000;
-// The add-on polls a stopping group every 10 ms.
 const pollLatency = 10;
-// Under fake time a timer fires at exactly its due time; any rounding, extra
-// step or deferred arm moves it, so expiry is asserted exactly.
 
 afterEach(() => {
   jest.useRealTimers();
@@ -50,7 +43,6 @@ type Started = {
   readonly cleanup: () => Promise<void>;
 };
 
-// Starts one program under fake timers and records its result when it comes.
 async function startUnderFakeTime(
   script: (ledger: string) => string,
   durations: { timeoutMilliseconds: number; shutdownMilliseconds: number },
@@ -87,19 +79,13 @@ async function startUnderFakeTime(
       jest.useRealTimers();
       for (const prefix of ["child-started", "escaped"]) {
         const owned = pid(prefix);
-        if (owned !== undefined)
-          try {
-            process.kill(owned, "SIGKILL");
-          } catch {
-            // Already gone.
-          }
+        if (owned !== undefined) signalIfPresent(owned, "SIGKILL");
       }
       await rm(dir, { recursive: true, force: true });
     },
   };
 }
 
-// Lets the add-on's 10 ms stop polling run until the result arrives.
 async function resultArrives(started: Started) {
   const arrived = await until(() => {
     jest.advanceTimersByTime(pollLatency);
@@ -124,7 +110,6 @@ async function timeoutExpiry(value: number) {
     if (!(await until(() => started.pid("child-started") !== undefined)))
       throw new Error("UNPROVED: the child never started.");
     await advance(value - 1);
-    // One millisecond before the timeout: no SIGTERM was sent.
     realPause(0.2);
     expect(started.lines()).not.toContain("term-received");
     expect(started.outcome()).toBeUndefined();
@@ -140,8 +125,6 @@ async function timeoutExpiry(value: number) {
   }
 }
 
-// The direct child exits at once; a writer in its own session keeps the
-// stdout pipe, prints one line and holds it open for 60 s.
 const heldPipe = (ledger: string) =>
   `echo "direct $$" >> ${ledger}; /usr/bin/perl -e 'use POSIX qw(setsid); pipe(my $r, my $w); my $p = fork(); if ($p == 0) { close $r; setsid(); open(my $f, ">>", "${ledger}"); print $f "escaped $$\\n"; close $f; close $w; close STDERR; $| = 1; print "FX-HELD-LINE\\n"; sleep 60; exit 0 } close $w; my $b; sysread($r, $b, 1); exit 0'`;
 
@@ -159,13 +142,11 @@ async function drainExpiry(value: number) {
     });
     if (!direct) throw new Error("UNPROVED: the direct child never exited.");
     await turns(50);
-    // The group was observed empty; only the drain timer is pending now.
     if (jest.getTimerCount() !== 1)
       throw new Error("UNPROVED: the drain timer was not the one timer.");
     await advance(value - 1);
     expect(started.outcome()).toBeUndefined();
     await advance(1);
-    // Abandoned at exactly the drain budget: no further fake time passes.
     expect(await until(() => started.outcome() !== undefined)).toBe(true);
     const { result, detail } = await resultArrives(started);
     expect(result.outputTruncated).toBe(true);

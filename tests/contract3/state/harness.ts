@@ -1,8 +1,3 @@
-// T3 process harness. Runs the labelled specimen CLI as real child processes
-// and observes raw stdout/stderr, the real exit status or signal, barrier
-// files, an independent effect ledger and the durable state, read by a
-// test-owned reader written from DESIGN.md section 4. It never imports the
-// state add-on's parser or store.
 import { expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import {
@@ -22,11 +17,6 @@ import { coordinationExpected } from "./holder.ts";
 
 const specimen = join(import.meta.dir, "fixtures", "specimen.ts");
 
-// ---- Case registration -----------------------------------------------------
-// A case bound to a qualified coordination route, on a platform without one
-// (the test holder's own judgement, never the add-on's), runs only its
-// fail-closed control and its title says UNPROVED: never a silent pass. A
-// permission-denial case run as root says UNPROVED too (expectations 4.3).
 export function caseTest(
   id: string,
   body: () => Promise<void>,
@@ -58,24 +48,18 @@ async function failClosedControl(): Promise<void> {
     const run = await world.run(["apply", "a", "--content", "x", "--json"]);
     expect(run.exit).toBe(3);
     expect(run.result.causeCode).toBe("DOMAIN_SX_UNAVAILABLE");
-    // The reason the add-on gives without a qualified route: Linux has a
-    // route whose self-check failed; any other platform has none.
     expect(run.envelope.message).toContain(
       process.platform === "linux"
         ? "coordination-self-check-failed"
         : "coordination-unqualified-platform",
     );
     expect(world.ledger()).toEqual([]);
-    // Fail closed before any write: the state root was never created.
     expect(existsSync(world.root)).toBe(false);
   } finally {
     world.dispose();
   }
 }
 
-// A supporting (non-frozen) control bound to a qualified coordination route
-// follows the same policy as caseTest: without one it runs the fail-closed
-// control under a title ending UNPROVED, never a silent skip.
 export function supportingTest(
   title: string,
   body: () => Promise<void>,
@@ -92,7 +76,6 @@ export function supportingTest(
   test(title, body, timeout);
 }
 
-// ---- Envelope access without assertions ------------------------------------
 export type Json =
   | null
   | boolean
@@ -186,7 +169,6 @@ function parseRun(
   };
 }
 
-// ---- Independent durable-state reader (DESIGN.md section 4) ----------------
 export type Record_ = {
   readonly kind: string;
   readonly payload: { [key: string]: Json };
@@ -201,7 +183,6 @@ const recordStart = /(^|\n)C3S1 [a-z-]{1,24} \d{10} [0-9a-f]{64}\n/;
 const headerLine = /^C3S1 ([a-z-]{1,24}) (\d{10}) ([0-9a-f]{64})$/;
 const decoder = new TextDecoder();
 
-// One record at `offset`, or undefined when the bytes there are damaged.
 function readRecordAt(
   bytes: Uint8Array,
   offset: number,
@@ -240,8 +221,6 @@ function parsePayload(body: Uint8Array): { [key: string]: Json } | undefined {
   }
 }
 
-// DESIGN.md section 4, written independently of the add-on: damage is torn
-// only when no later record start follows it; otherwise the file is corrupt.
 export function readFramed(bytes: Uint8Array): FileRead {
   const records: Record_[] = [];
   let offset = 0;
@@ -259,9 +238,6 @@ export function readFramed(bytes: Uint8Array): FileRead {
   return { records, torn: false, corrupt: false };
 }
 
-// Test-owned writer for a synthetic unresolved operation (S1 control): an
-// intent naming `path`, an empty events file and a free owner lease. It uses
-// this file's own framing, never the add-on's encoder.
 export function writeSyntheticOperation(root: string, path: string): string {
   const id = `op-${createHash("sha256").update(path).digest("hex").slice(0, 32)}`;
   const directory = join(root, "operations", id);
@@ -329,7 +305,6 @@ export function readOperations(root: string): readonly Observed[] {
     });
 }
 
-// ---- Worlds and processes --------------------------------------------------
 export type Started = {
   readonly pid: number;
   readonly reached: (phase: string) => Promise<void>;
@@ -434,7 +409,6 @@ export function makeWorld(
     return start(argv, extra).done;
   }
 
-  // Lines the effects appended to the independent ledger.
   function ledger(): readonly string[] {
     const file = join(world, "ledger.log");
     return existsSync(file)
@@ -455,8 +429,6 @@ export function makeWorld(
       .length;
   }
 
-  // Byte snapshot of every file under the state root and world, for
-  // read-only checks. Lock files are included: their bytes never change.
   function snapshot(): string {
     const entries: string[] = [];
     const walk = (directory: string, prefix: string) => {
@@ -495,7 +467,6 @@ export function makeWorld(
     );
   }
 
-  // Kill a process at a barrier and wait for its real signal.
   async function killAt(
     argv: readonly string[],
     phase: string,
@@ -530,18 +501,12 @@ export function makeWorld(
     clearRelease,
     operations: () => readOperations(root),
     dispose() {
-      for (const child of children)
-        try {
-          child.kill("SIGKILL");
-        } catch {
-          // Already exited.
-        }
+      for (const child of children) child.kill("SIGKILL");
       rmSync(base, { recursive: true, force: true });
     },
   };
 }
 
-// Common envelope checks from WIRE-15 and the T0 oracle rows.
 export function expectRefusedUnchanged(
   run: Run,
   cause: string,

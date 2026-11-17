@@ -1,5 +1,3 @@
-// R12 (F10) changing-command arms. Materialised at
-// starters/contract3/src/addons/state/context-changing.ts and linted there.
 import {
   changing,
   commonCauses,

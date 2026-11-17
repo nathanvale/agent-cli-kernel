@@ -115,7 +115,6 @@ function git(root: string, ...args: string[]): string {
   return result.stdout.toString();
 }
 
-// Each replayed test process appends "<pid> <replay script pid>" here.
 function pidLedger(): string {
   const path = join(folder("faults-pids-"), "pids");
   pidLedgers.push(path);
@@ -145,7 +144,6 @@ function running(pid: number): boolean {
   }
 }
 
-// An orphan is reaped by init, not by this process, so wait for it to go.
 function exited(pid: number, boundMilliseconds = 5_000): Promise<boolean> {
   return new Promise((resolve) => {
     const started = Date.now();
@@ -158,8 +156,6 @@ function exited(pid: number, boundMilliseconds = 5_000): Promise<boolean> {
   });
 }
 
-// The replay gives each test process its own process group, so a test
-// process is killed only while it still leads that group.
 async function release(ledger: string): Promise<void> {
   for (const { pid } of ledgered(ledger)) {
     const group = Bun.spawnSync(["ps", "-o", "pgid=", "-p", String(pid)])
@@ -357,12 +353,8 @@ function lineOf(lines: readonly string[], start: string): string {
   return line;
 }
 
-// A step limit long enough for worktree add and install on a loaded host,
-// and a run bound that covers it plus the SIGKILL grace.
 const stepSeconds = 3;
 const hangBound = 30_000;
-// Long enough for the blocking test to start on a loaded host, so the
-// forced expiry finds it running.
 const forcedBound = 10_000;
 
 function hangLedger() {
@@ -764,10 +756,6 @@ describe("bun run faults", () => {
     "FR.l a stop that finds the step's process group holding only zombies still exits 130 (macOS answers EPERM there)",
     async () => {
       const { root, id } = await repositoryWithFault({});
-      // The shim leaves a zombie in git's process group and holds git's
-      // output open from another group, so the script still tracks git
-      // when the stop arrives. The 2 s hold is the window for the stop
-      // handler to run before the step ends.
       const tools = folder("faults-zombie-");
       const realGit = Bun.which("git");
       if (realGit === null) throw new Error("git is not on PATH.");

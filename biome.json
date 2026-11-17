@@ -14,6 +14,10 @@
       "!!examples",
       "!!proofs",
       "!!.worktrees",
+      "!!.agents/skills/fallow",
+      "!!.agents/skills/fallow-setup",
+      "!!.claude/skills/fallow",
+      "!!.claude/skills/fallow-setup",
       "!!tools/oxlint/anti-slop"
     ]
   },

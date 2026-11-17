@@ -1,6 +1,3 @@
-// D15 secrecy after a proven positive outcome, and D16 record context.
-// Secrecy is checked only after the intended exit, the validated envelope and
-// the twin-equal result are proven; a crash or empty output cannot pass.
 import { afterAll, describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -34,8 +31,6 @@ function everyFile(root: string): string[] {
   return found;
 }
 
-// E3: first the positive outcome, then marker absence. The supplied input
-// file is the only place the marker may legitimately remain.
 async function secretAbsentAfterPositive(
   result: Run,
   where: Tree,
@@ -58,14 +53,12 @@ async function secretAbsentAfterPositive(
   const [log] = observe(where.dir).files;
   if (!log) throw new Error("no log to inspect");
   expect(lines(log.path)).toHaveLength(Number(launch.script.records));
-  // Only now: the marker is absent everywhere the run wrote.
   expect(result.stdout).not.toContain(secret);
   expect(result.stderr).not.toContain(secret);
   for (const path of everyFile(where.root).filter(
     (path) => !allowed.includes(path),
   ))
     expect(readFileSync(path, "utf8")).not.toContain(secret);
-  // The log kept the records, with the secret visibly replaced.
   expect(readFileSync(log.path, "utf8")).toContain("[REDACTED]");
   return log;
 }
@@ -87,7 +80,6 @@ describe("D15 secret redaction after a positive outcome", () => {
         secret,
         launch,
       );
-      // Free text that contains the exact value is covered too.
       expect(readFileSync(log.path, "utf8")).toContain(
         "the value [REDACTED] appears in prose",
       );
@@ -164,9 +156,7 @@ describe("D15 secret redaction after a positive outcome", () => {
       expectSuccess(result);
       if (!log) throw new Error("no log");
       const text = readFileSync(log.path, "utf8");
-      // Covered: the exact value, wherever it appears.
       expect(text).not.toContain(secret);
-      // Not covered, and reported as limits: an encoding and a split value.
       expect(text).toContain(Buffer.from(secret).toString("base64"));
       expect(text).toContain(secret.slice(6));
     },

@@ -1,5 +1,3 @@
-// Test-owned process entry for the swarm-triage cases: argv is <scenario>
-// then the CLI argv. It runs one scenario through the real process front door.
 import { appendFileSync } from "node:fs";
 import {
   contractFor,

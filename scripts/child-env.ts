@@ -14,15 +14,11 @@ const ownTools = {
     .join(delimiter),
 };
 
-// How long a stopped child gets to exit after SIGTERM before SIGKILL.
 const graceMilliseconds = 2_000;
 // The child's group has no live process to signal. ESRCH: every member is
 // reaped. EPERM: macOS answers it when every member left is a zombie.
 const groupGone = new Set<unknown>(["ESRCH", "EPERM"]);
 
-// Holds the running child's stop in `tracker`, so the caller's signal
-// handler can stop it. The child leads its own process group, so a stop
-// reaches every process it started, not only the child itself.
 export async function runWithOwnTools(
   argv: readonly string[],
   cwd: string,
@@ -64,7 +60,6 @@ export async function runWithOwnTools(
       new Response(child.stderr).text(),
       child.exited,
     ]);
-    // A descendant that closed its output would otherwise outlive the stop.
     if (escalation !== undefined) send("SIGKILL");
     return {
       exitCode,

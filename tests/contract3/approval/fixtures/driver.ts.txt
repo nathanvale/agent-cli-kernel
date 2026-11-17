@@ -1,9 +1,3 @@
-// Test-owned child driver, materialized at tests/contract3/approval/driver.ts
-// in a temporary tree beside a copy of the stamped kernel and the approval
-// add-on under test, and linted there with the contract3 configuration. It
-// composes the real add-on with the disposable coordination fixture and stops
-// at named readiness barriers: it prints {"barrier": name} and waits for one
-// stdin line before continuing, so the parent orders phases without sleeps.
 import {
   appendFileSync,
   closeSync,
@@ -40,8 +34,6 @@ import {
 } from "../../../starters/contract3/src/addons/state/coordination.ts";
 import { adversarialSource } from "./harness.ts";
 
-// Narrow runtime parse of the parent's argv and item files. Any mismatch
-// throws, so a malformed config fails the child run instead of guessing.
 type Fields = ReadonlyMap<string, unknown>;
 function fields(value: unknown): Fields {
   if (typeof value !== "object" || value === null || Array.isArray(value))
@@ -105,7 +97,6 @@ type Common = {
     | "foreign-run"
     | "lost-after-consume"
     | "forged";
-  // Marker whose appearance triggers lost-after-consume.
   readonly lostMarker: string;
   readonly barriers: readonly Barrier[];
 };
@@ -176,9 +167,6 @@ function revision(place: World): string {
   return readFileSync(place.revision, "utf8");
 }
 
-// Reviewer probe P2: what untyped code could pass instead of a kernel-issued
-// scope, a plain look-alike for the right run and resource that stays active
-// while the real fixture lock is held.
 type Forged = {
   readonly runId: string;
   readonly scope: string;
@@ -203,7 +191,6 @@ async function acquire(
       : lock.tryAcquire();
   if (!acquired) return undefined;
   const active = () => {
-    // Lose the real fixture lock once the consumption marker is durable.
     if (
       settings.coordination === "lost-after-consume" &&
       existsSync(settings.lostMarker)
@@ -229,8 +216,6 @@ async function acquire(
 
 const boundary = contractFor({ cli: "boundary", commands: [] }).boundary;
 
-// Hands a forged look-alike to a consume method the way untyped code could,
-// through Reflect.apply, so the driver needs no type assertion.
 async function untyped(
   method: (...args: never[]) => unknown,
   owner: object,
@@ -240,9 +225,6 @@ async function untyped(
   return fields(result);
 }
 
-// L2 test-side injection, no production seam: once the consumption marker
-// exists, the next FileHandle close (the marker's own) closes for real and
-// then fails once, as a failing close(2) after write would.
 async function failCloseAfter(marker: string): Promise<void> {
   const sample = await open(marker.concat(".probe"), "w");
   const prototype: unknown = Object.getPrototypeOf(sample);
@@ -360,8 +342,6 @@ async function authority(map: Fields): Promise<void> {
   const place = settings.world;
   const kind = oneOf(map, "kind", ["closure", "stop"]);
   const itemPath = text(map, "item");
-  // Adversarial test authority from the harness owner: it proves verifier
-  // behaviour only and never qualifies production authority.
   const source = adversarialSource(text(map, "source"));
   const verifier = authorityVerifier({
     runId: settings.runId,
@@ -370,7 +350,6 @@ async function authority(map: Fields): Promise<void> {
     ...(kind === "closure" ? { closure: source } : { stop: source }),
   });
   type Scope = Parameters<typeof verifier.closure.consume>[1];
-  // Rereads the current item from its file at every step.
   const step = (scope?: Scope) => {
     const fresh = readItem(itemPath);
     if (kind === "closure") {
@@ -637,9 +616,6 @@ async function kernel(map: Fields): Promise<void> {
   }
 }
 
-// B3.04: one invocation through the real front door with the approval
-// add-on attached per run. The kernel's writer owns stdout and the exit
-// code, so this mode emits nothing itself.
 async function frontDoor(map: Fields): Promise<void> {
   const place = world(map);
   await runProcess(kernelContract(place), {
@@ -660,11 +636,6 @@ async function frontDoor(map: Fields): Promise<void> {
   })(texts(map, "argv"));
 }
 
-// S3: the kernel issues a scope only for a run it has attached (CMD-9 step
-// 7). Each apply or authority flow therefore runs inside the handler of a
-// changing fixture command executed through the real kernel, which attaches
-// the run through the state add-on before the handler starts, so the
-// attachment is current while the scope is issued and used.
 async function whileAttached(
   runId: string,
   work: () => Promise<void>,
@@ -711,7 +682,6 @@ async function whileAttached(
   if (failure) throw failure.error;
   if (!executed.ok) throw new Error("Fixture run was not attached.");
 }
-// A09.c foreign-run: the scope belongs to another run that is also attached.
 function attached(settings: Common, work: () => Promise<void>) {
   const flow = () => whileAttached(settings.runId, work);
   return settings.coordination === "foreign-run"

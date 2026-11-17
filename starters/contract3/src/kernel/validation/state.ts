@@ -2,7 +2,6 @@ import { knownProof, knownCapability } from "../state-seam.ts";
 import type { TransactionProof, StateAddonDescriptor } from "../state-seam.ts";
 import { effects } from "./result.ts";
 import { record, text } from "./primitives.ts";
-// This validates structure only. The issuer's private WeakSet proves identity.
 export function proofValue(
   value: unknown,
   runId: string,

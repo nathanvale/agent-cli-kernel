@@ -1,8 +1,8 @@
 diff --git a/starters/contract3/src/kernel/index.ts b/starters/contract3/src/kernel/index.ts
-index 2de9550..69a9022 100644
+index c622cfd..38a9e53 100644
 --- a/starters/contract3/src/kernel/index.ts
 +++ b/starters/contract3/src/kernel/index.ts
-@@ -301,17 +301,17 @@ export function contractFor<
+@@ -288,17 +288,17 @@ export function contractFor<
            reason: "handler entry already used",
          };
        used = true;
@@ -27,6 +27,6 @@ index 2de9550..69a9022 100644
 +            path: "runId",
 +            reason: "run identity already attached",
 +          };
-         // WIRE-15: the capability closes when the handler returns, so no
-         // transaction can start after the result exists (K2-spec-3).
          const outcome = await (ready
+           ? ready.value(attached?.capability)
+           : execute(

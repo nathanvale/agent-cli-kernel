@@ -30,8 +30,6 @@ const config = ts.parseJsonConfigFileContent(
 );
 let previous: ts.Program | undefined;
 
-// Compiles the snippet in place of the file at filePath, with the
-// repository's compiler options and the rest of the tree as it is.
 function typeErrors(filePath: string, code: string): string[] {
   const target = resolve(root, filePath);
   const host = ts.createCompilerHost(config.options);
@@ -53,8 +51,6 @@ function typeErrors(filePath: string, code: string): string[] {
     .map((item) => ts.flattenDiagnosticMessageText(item.messageText, "\n"));
 }
 
-// Each fix is read from the rule's own message, so the message and this
-// proof cannot drift apart.
 async function fixesFor(rule: string, filePath: string, failing: string) {
   const found = await hits(rule, filePath, failing);
   if (found.length === 0) throw new Error(`No ${rule} hit in ${failing}.`);

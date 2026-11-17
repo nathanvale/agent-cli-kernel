@@ -1,22 +1,3 @@
-// OBSERVATION INSTRUMENT, NOT A TEST OF BEHAVIOUR. A passing row here
-// proves nothing by itself: the rows pass whatever the candidates do, and
-// fail only when the instrument itself breaks. Its value is the PROBE lines
-// it prints, which a reviewer judges against t3-linux/expectations.md (the
-// hosted Linux qualification keeps them). The state add-on's behaviour is
-// proved by the case table (C01 and the rebound cases), not here.
-//
-// Candidate coordination locks for the state add-on on Linux and macOS. It
-// changes no production code and asserts no winner. It PRINTS one line per observation in the grammar of
-// t3-linux/expectations.md section 3:
-//   PROBE <candidate> <property> <observation> [key=value ...]
-//   PROBE <candidate> <property> UNOBSERVED <reason>
-// from real separate processes (fixtures/linux-coordination-probe-worker.ts)
-// coordinated by barrier files. Folders: PROBE_DIR alone when set (the
-// coordinator's container runs: overlay root, then a volume); otherwise the
-// checkout workspace, os.tmpdir() and /dev/shm when present. It needs no
-// installed dependency (bun:test, Bun and Node built-ins only), so
-// `bun test <this file>` runs in a bare copy. Tests fail only when the probe
-// harness itself breaks.
 import { afterAll, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import {
@@ -32,6 +13,7 @@ import {
 } from "node:fs";
 import { release, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { signalIfPresent } from "../../support/signal.ts";
 
 const worker = join(
   import.meta.dir,
@@ -66,11 +48,7 @@ function alive(pid: number): boolean {
   }
 }
 function kill(pid: number, signal: NodeJS.Signals = "SIGKILL"): void {
-  try {
-    process.kill(pid, signal);
-  } catch {
-    // Already gone.
-  }
+  signalIfPresent(pid, signal);
 }
 
 afterAll(() => {
@@ -96,9 +74,6 @@ function field(report: Report | undefined, key: string): string {
       ? "null"
       : "none";
 }
-// One read, no existence check first: the worker renames each phase's report
-// over the last, and on some shared folders the path is briefly missing
-// between a check and a read.
 function readReport(path: string): Report | undefined {
   let text: string;
   try {
@@ -113,7 +88,6 @@ function readReport(path: string): Report | undefined {
   for (const [key, value] of Object.entries(parsed)) report[key] = value;
   return report;
 }
-// Waits on a barrier (report) file; bounded, never a timing assumption.
 async function waitFor(
   path: string,
   accept: (report: Report) => boolean = () => true,
@@ -165,7 +139,6 @@ async function attempt(candidate: Candidate, reports: string, lock: string) {
   return report;
 }
 
-// Names, sizes and SHA-256 of every file in a coordination folder.
 function residue(folder: string): string {
   return readdirSync(folder)
     .sort()
@@ -179,8 +152,6 @@ function residue(folder: string): string {
     })
     .join(",");
 }
-
-// ---- Environment -----------------------------------------------------------
 
 function osRelease(): string {
   if (!existsSync("/etc/os-release")) return "UNOBSERVED no /etc/os-release";
@@ -240,8 +211,6 @@ function darwinMounts(): Mount[] {
   }
   return mounts;
 }
-// Filesystem of `folder`: longest mount-point prefix of its real path, from
-// /proc/self/mountinfo on Linux and `mount` on macOS.
 function filesystem(folder: string): string {
   const real = realpathSync.native(folder);
   const mounts =
@@ -325,8 +294,6 @@ test(`${label} PROBE error codes`, () => {
     );
 });
 
-// ---- Properties ------------------------------------------------------------
-
 const properties = [
   "exclusive",
   "nonblocking",
@@ -386,7 +353,6 @@ async function observe(
   await pairs(context);
 }
 
-// C1 exclusive, C2 non-blocking, C3 SIGKILL release and residue, C7/C8 bytes.
 async function holderProperties(context: Context): Promise<void> {
   const { candidate, reports, say } = context;
   const main = context.space("main");
@@ -401,7 +367,6 @@ async function holderProperties(context: Context): Promise<void> {
     "exclusive",
     `${field(contender, "result")} code=${field(contender, "code")}`,
   );
-  // H keeps F for the stated hold time; the timed attempt then follows.
   while (performance.now() - heldAt < holdMilliseconds) await Bun.sleep(20);
   const late = await attempt(candidate, reports, file);
   say(
@@ -441,7 +406,6 @@ async function holderProperties(context: Context): Promise<void> {
   );
 }
 
-// C4a: the holder opens F again and closes that descriptor.
 async function otherDescriptor(context: Context): Promise<void> {
   const { candidate, reports, say } = context;
   const file = join(context.space("other"), "F");
@@ -467,7 +431,6 @@ async function otherDescriptor(context: Context): Promise<void> {
   await holder.child.exited;
 }
 
-// C4b: a long-lived child of the holder, after the holder is SIGKILLed.
 async function childInherit(context: Context): Promise<void> {
   const { candidate, reports, say } = context;
   const file = join(context.space("child"), "F");
@@ -495,7 +458,6 @@ async function childInherit(context: Context): Promise<void> {
   kill(childPid);
 }
 
-// C4c: a second open in the same process.
 async function sameProcess(context: Context): Promise<void> {
   const { candidate, reports, say } = context;
   const started = spawnWorker(
@@ -513,7 +475,6 @@ async function sameProcess(context: Context): Promise<void> {
   );
 }
 
-// C4d: a stopped holder.
 async function stoppedHolder(context: Context): Promise<void> {
   const { candidate, reports, say } = context;
   const file = join(context.space("stopped"), "F");
@@ -529,7 +490,6 @@ async function stoppedHolder(context: Context): Promise<void> {
   await holder.child.exited;
 }
 
-// C5: per-file independence, and two contenders in opposite order.
 async function pairs(context: Context): Promise<void> {
   const { candidate, reports, say } = context;
   const pair = context.space("pair");
@@ -573,8 +533,6 @@ async function pairs(context: Context): Promise<void> {
   await Promise.all([first.child.exited, second.child.exited]);
 }
 
-// Linux: is the holder's descriptor close-on-exec (O_CLOEXEC, 02000000
-// octal, in the /proc/<pid>/fdinfo flags)?
 function fdinfoCloexec(pid: number, fd: string): string {
   try {
     const flags = /^flags:\s+([0-7]+)$/m.exec(
@@ -587,7 +545,6 @@ function fdinfoCloexec(pid: number, fd: string): string {
     return "unknown";
   }
 }
-// Linux: does the child hold any descriptor on `file`?
 function childHoldsFile(pid: number, file: string): string {
   try {
     const target = realpathSync.native(file);

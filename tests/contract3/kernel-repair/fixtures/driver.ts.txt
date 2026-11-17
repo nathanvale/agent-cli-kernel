@@ -1,7 +1,3 @@
-// Test-owned child driver, materialised at
-// tests/contract3/kernel-repair/driver.ts in a disposable tree beside a copy of
-// the kernel and the state fixtures, and linted there. Source code may not
-// write to process streams, so the tests-scope driver prints the observations.
 import { observeAdmissionChanging } from "../../../starters/contract3/src/addons/state/admission-changing.ts";
 import { observeContextChanging } from "../../../starters/contract3/src/addons/state/context-changing.ts";
 import { observeR18Changing } from "../../../starters/contract3/src/addons/state/r18-changing.ts";

@@ -1,4 +1,4 @@
-import { closeSync, constants, fstatSync, openSync, readSync } from "node:fs";
+import { constants, fstatSync, openSync, readSync } from "node:fs";
 import { configureSync, getLogger } from "@logtape/logtape";
 import type { LogRecord, Logger } from "@logtape/logtape";
 import { DEFAULT_REDACT_FIELDS, redactByField } from "@logtape/redaction";
@@ -10,7 +10,13 @@ import type {
   RunAddon,
   RunControl,
 } from "../../kernel/index.ts";
-import { allocate, confirmClosed, locate, prepare } from "./custody.ts";
+import {
+  allocate,
+  closeIfPossible,
+  confirmClosed,
+  locate,
+  prepare,
+} from "./custody.ts";
 import type { Opened } from "./custody.ts";
 import type { DiagnosticsIo } from "./io.ts";
 import { limits } from "./limits.ts";
@@ -44,8 +50,6 @@ export type StatusAttached = AttachedAddon<DiagnosticsCapability> & {
   // limit, then resolve the frozen status. It never rejects.
   readonly freeze: (limitMilliseconds: number) => Promise<Diagnostics>;
 };
-// Assignable to the kernel's RunAddon<DiagnosticsCapability>; the extra
-// members are the status seam (seam-interface-needs.md).
 export type StatusAddon = {
   readonly reportsStatus: true;
   readonly attach: (run: RunControl) => StatusAttached;
@@ -67,9 +71,6 @@ function optionValues(
   return values;
 }
 
-// The whole contents of a declared secret file, or undefined when it cannot
-// be read whole (missing, unreadable, not a regular file, above the bound,
-// or a short read). Nothing is ever logged for an unread secret.
 function fileSecret(path: string): string[] | undefined {
   let descriptor: number | undefined;
   try {
@@ -94,17 +95,10 @@ function fileSecret(path: string): string[] | undefined {
   } catch {
     return undefined;
   } finally {
-    if (descriptor !== undefined)
-      try {
-        closeSync(descriptor);
-      } catch {
-        // The read result above already decided.
-      }
+    if (descriptor !== undefined) closeIfPossible(descriptor);
   }
 }
 
-// Every declared secret value, or undefined when any declared source could
-// not be read whole: then the run's diagnostics stop (DIAG-12).
 function secretValues(options: DiagnosticsOptions): string[] | undefined {
   const argv = options.argv ?? [];
   const sources = options.secrets ?? {};
@@ -120,7 +114,6 @@ function secretValues(options: DiagnosticsOptions): string[] | undefined {
   ].filter((value) => value.length > 0);
 }
 
-// The add-on's own finalisation budget inside a caller's limit.
 function budgetFor(milliseconds: number): number {
   return Number.isFinite(milliseconds)
     ? Math.min(
@@ -146,8 +139,6 @@ function counter(value: number): boolean {
   return Number.isSafeInteger(value) && value >= 0;
 }
 
-// One run's sink. Attach is effect-free; the file is created on the first
-// record. Counters count records, never bytes (DIAG-2).
 function session(
   options: DiagnosticsOptions,
   io: DiagnosticsIo,
@@ -214,7 +205,6 @@ function session(
       const accepted = await io.write(descriptor, line.bytes.subarray(offset));
       if (!Number.isSafeInteger(accepted) || accepted <= 0)
         throw new Error("The file descriptor accepted no bytes.");
-      // A sink that claims more than it was given breaks the accounting.
       if (accepted > remaining) accounting = "invalid";
       writtenBytes += accepted;
       offset += accepted;
@@ -286,8 +276,6 @@ function session(
             maxDepth: limits.redactionDepth,
             maxProperties: limits.redactionEntries,
           }),
-          // DIAG-12a: reporting about the logger itself stays bounded and
-          // in memory; it is never written and never durable truth.
           meta: (record: LogRecord) => {
             metaCount += 1;
             if (metaReports.length < limits.metaReports)
@@ -311,7 +299,6 @@ function session(
           },
         ],
       });
-      // Explicit context: every record carries this run and command.
       return getLogger([options.cli, "diagnostics"]).with({
         runId: run.runId,
         commandIdentity: run.commandIdentity,
@@ -324,8 +311,6 @@ function session(
   function begin() {
     if (state !== "idle") return;
     state = "pending";
-    // A declared secret that cannot be read whole could not be redacted:
-    // diagnostics stop for this run and the loss is disclosed.
     const secrets = secretValues(options);
     logger = secrets === undefined ? undefined : configure(secrets);
     if (!logger) {
@@ -357,12 +342,10 @@ function session(
         elapsedMilliseconds: Math.round(performance.now() - started),
       });
     } catch {
-      // Counted below as handed but never arrived.
+      return;
     }
   }
 
-  // Independent check of the accounting: the file must hold exactly the
-  // bytes confirmed written. Returns the size when it does.
   function checkedSize(descriptor: number): number | undefined {
     let size: number;
     try {
@@ -415,8 +398,6 @@ function session(
     };
   }
 
-  // DIAG-2, DIAG-3: exact counters only with complete accounting; otherwise
-  // the unavailable variant keeps every still-trusted fact and omits the rest.
   function build(): Diagnostics {
     const available = facts(metaCount === 0);
     const consistent =
@@ -431,9 +412,6 @@ function session(
       truncated <= admitted &&
       arrived <= handed;
     if (accounting === "ok" && consistent) return available;
-    // The file's content no longer matches what was confirmed written, so how
-    // many admitted records reached it is unknown: unflushedRecords is
-    // omitted. Records rejected or truncated here stay known lower bounds.
     const trusted: Trusted = {
       file: available.file,
       sinkFailure: failure,
@@ -492,7 +470,6 @@ export function createDiagnostics(
     reportsStatus: true,
     attach: (run) => session(options, io, run),
   };
-  // Compile-time proof that the add-on fits the kernel's add-on seam.
   const seam: RunAddon<DiagnosticsCapability> = addon;
   void seam;
   return addon;

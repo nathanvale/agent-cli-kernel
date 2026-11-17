@@ -1,6 +1,3 @@
-// J and L families: journal truth and lost-response routes, through real
-// specimen processes. Expected values come from tests/contract3/state/cases.ts
-// and the frozen clauses, never from add-on output.
 import { expect } from "bun:test";
 import { readFileSync, writeFileSync, chmodSync } from "node:fs";
 import { join } from "node:path";
@@ -184,8 +181,6 @@ caseTest(
     expectCompleted(await world.run(apply("a")));
     const [operation] = world.operations();
     if (!operation) throw new Error("No operation.");
-    // Change one letter inside a JSON string of the final record: the JSON
-    // and length stay valid, so only the checksum can reject it.
     const path = eventsPath(world, operation.id);
     const text = readFileSync(path, "utf8");
     const last = text.lastIndexOf('"note.write"');
@@ -343,8 +338,6 @@ caseTest(
     });
   }),
 );
-
-// ---- L ---------------------------------------------------------------------
 
 async function listedOnce(world: World): Promise<void> {
   const [operation] = world.operations();
@@ -607,9 +600,6 @@ caseTest(
   }),
 );
 
-// Supporting V-23 process control owed by T3 (kernel F-proof rule, T1 repair):
-// a handler that refuses after a completed transaction never yields a
-// refused, unchanged envelope. Not a frozen case; reported separately.
 // Accepted decision "Contract question 4 of 8": the issued proof is the
 // trusted summary, so the fallback reports the completed change it proved.
 supportingTest(
@@ -645,8 +635,6 @@ caseTest(
     if (!operation) throw new Error("No operation.");
     const path = eventsPath(world, operation.id);
     const text = readFileSync(path, "utf8");
-    // Inflate the first record's length so it runs past the end of the
-    // file while valid records follow: mid-file damage, never a torn tail.
     const damaged = text.replace(
       /^(C3S1 [a-z-]+ )\d{10}/,
       (_match, head: string) => `${head}0000009999`,

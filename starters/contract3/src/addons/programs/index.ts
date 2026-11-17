@@ -68,8 +68,6 @@ function requestProblem(request: ProgramRequest): string | undefined {
   return undefined;
 }
 
-// Ownership is the process group created for the child (CMD-14). Signals go
-// only to that group, and never after the group was observed empty.
 class OwnedGroup {
   readonly attempts: ShutdownAttempt[] = [];
   readonly pid: number;
@@ -94,7 +92,6 @@ class OwnedGroup {
     }
   }
 
-  // Each signal is attempted at most once per group; KILL cannot be ignored.
   send(signal: "SIGTERM" | "SIGKILL"): void {
     if (
       this.gone() ||
@@ -108,7 +105,7 @@ class OwnedGroup {
     try {
       process.kill(-this.pid, signal);
     } catch {
-      // The attempt is recorded; observation decides the outcome.
+      return;
     }
   }
 
@@ -121,9 +118,6 @@ class OwnedGroup {
     return true;
   }
 
-  // SIGTERM, then SIGKILL once the declared budget (capped by `limit`) has
-  // passed since the first SIGTERM. Resolves true only when the group was
-  // observed empty.
   async stop(limit?: number): Promise<boolean> {
     if (this.gone()) return true;
     this.send("SIGTERM");
@@ -148,8 +142,8 @@ async function capture(
   let size = 0;
   let truncated = false;
   let abandoned = false;
-  // One cancellation on abandon. Racing every read against a long-lived
-  // promise would retain each chunk and grow memory with the child's output.
+  // Racing every read against a long-lived promise would retain each chunk
+  // and grow memory with the child's output.
   void abandon.then(() => {
     abandoned = true;
     return reader.cancel().catch(() => undefined);
@@ -186,8 +180,6 @@ function attachPrograms(run: RunControl): AttachedAddon<ProgramsCapability> {
     if (run.signal.aborted)
       throw new Error("The run is stopping; no new program starts.");
     const started = performance.now();
-    // Own process group and session, closed stdin, piped output: the child
-    // never inherits the CLI's standard streams.
     const child = Bun.spawn([request.executable, ...request.args], {
       detached: true,
       stdin: "ignore",
@@ -214,13 +206,10 @@ function attachPrograms(run: RunControl): AttachedAddon<ProgramsCapability> {
     let timedOut = false;
     const cancelTimeout = afterDelay(request.timeoutMilliseconds, () => {
       timedOut = true;
-      // Cannot reject: every kill is caught and the poll never rejects. The
-      // later `await group.stop()` sends each signal at most once more.
       void group.stop();
     });
     await child.exited;
     cancelTimeout();
-    // Remaining group members are owned too: stop them within the budget.
     const groupEmpty = await group.stop();
     const cancelDrain = afterDelay(request.shutdownMilliseconds, release);
     const [stdout, stderr] = await output;
@@ -258,10 +247,6 @@ function attachPrograms(run: RunControl): AttachedAddon<ProgramsCapability> {
           );
     },
     domain<Effect extends string>(effect: RecordedEffect<Effect>) {
-      // The state add-on owns the effect lifetime. Its admitStart verifies the
-      // still-active recorded effect and coordinates effect closure with the
-      // start (CMD-14); this add-on rejects another run's capability before
-      // any process.
       return Object.freeze({
         effect: effect.effect,
         start(request: ProgramRequest) {

@@ -6,7 +6,6 @@ import {
 import { buildUnchecked, runFamily } from "./harness.ts";
 import { emptyInput as input, unchanged } from "./shapes.ts";
 
-// WIRE-14 exit owner and LIFE-4 signal exits, written from the contract.
 const exitOwner = {
   "0": "success",
   "1": "internal",
@@ -50,8 +49,8 @@ function attempt(target: unknown, key: string | number, value: unknown) {
   try {
     if (typeof target === "object" && target !== null)
       Reflect.set(target, key, value);
-  } catch {
-    // A thrown TypeError on a frozen value is an acceptable outcome.
+  } catch (error) {
+    if (!(error instanceof TypeError)) throw error;
   }
 }
 function stationOf(contract: Contract, identity: string, causeCode: string) {
@@ -59,7 +58,6 @@ function stationOf(contract: Contract, identity: string, causeCode: string) {
     .discoverCommand(identity)
     ?.stations.find((item) => item.causeCode === causeCode);
 }
-// Every mutation the expectation names, through the public discovery views.
 function mutateAll(contract: Contract) {
   const discovered = contract.discover();
   attempt(discovered.exitMeanings, "0", "other");

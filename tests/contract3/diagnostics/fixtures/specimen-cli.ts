@@ -1,7 +1,3 @@
-// LABELLED TEST-ONLY SPECIMEN CLI "dxs" for the T5 diagnostics cases. It
-// wires the public kernel index with the diagnostics add-on exactly as a
-// host would. DXS_SCRIPT (JSON) drives what the handler records; DXS_FAULT
-// swaps in the labelled fault adapter. Never registered, never ships.
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import {
   command,
@@ -90,8 +86,6 @@ function wide(keys: number): JsonValue {
   return result;
 }
 
-// Facts whose traversal throws inside the logging pipeline (a getter that
-// throws), typed as JSON for the capability as a hostile handler would pass.
 function hostile(facts: JsonValue): JsonValue {
   const value: Record<string, JsonValue> = {};
   Object.defineProperty(value, "boom", {
@@ -104,18 +98,14 @@ function hostile(facts: JsonValue): JsonValue {
   return value;
 }
 
-// A barrier with a deadline: a test that fails before opening it can never
-// leave this process polling for ever.
 async function held(path: string) {
   const until = Date.now() + 60_000;
   while (!existsSync(path)) {
-    // 70 is sysexits' EX_SOFTWARE: a fixture fault, never a contract exit.
     if (Date.now() > until) process.exit(70);
     await new Promise((resolve) => setTimeout(resolve, 2));
   }
 }
 
-// A host may record a secret as the number or boolean it reads as.
 function typedForm(token: string | undefined): JsonValue {
   if (token === "true" || token === "false") return token === "true";
   const number = Number(token);
@@ -126,8 +116,6 @@ function typedForm(token: string | undefined): JsonValue {
     : null;
 }
 
-// The handler reads a declared secret file as a host would, and treats an
-// unreadable one as absent, so the domain result never depends on it.
 function contentsOf(path: string | undefined): string | null {
   if (path === undefined) return null;
   try {
@@ -153,12 +141,10 @@ async function perform(
         contents: contentsOf(parsed["--token-file"]),
         environment: process.env.DXS_TOKEN ?? null,
         sentence: `the value ${parsed["--token"] ?? ""} appears in prose`,
-        // The same secret as a JSON number or boolean when it reads as one.
         typed: typedForm(parsed["--token"]),
         nested: { inner: [typedForm(parsed["--token"])] },
       }
     : {};
-  // Forms outside the named redaction coverage, recorded to report limits.
   const marker = parsed["--token"] ?? "";
   const limitForms: Record<string, JsonValue> = plan.limitForms
     ? {
@@ -186,7 +172,6 @@ async function perform(
         ...limitForms,
       };
       diagnostics.record("step", plan.hostile ? hostile(facts) : facts);
-      // `pace` lets queued writes drain between records.
       if (plan.pace) await new Promise((resolve) => setTimeout(resolve, 0));
       else if (tasks > 1) await Promise.resolve();
     }
@@ -221,8 +206,6 @@ const read = command({
   },
 });
 
-// A child program writes a marker to its stdout; the handler records only the
-// exit code. Program streams are never retained durably (D19).
 const spawn = command({
   identity: "dxs.spawn",
   route: ["spawn"],

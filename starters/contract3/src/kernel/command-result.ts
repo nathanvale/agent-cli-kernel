@@ -37,7 +37,6 @@ export type AllowedCause<
           : "DOMAIN_AUTHORITY_REQUIRED")
     >
   | (S[number] extends never ? "SUCCESS_UNCHANGED" : never);
-// The type above and this runtime check read the one list.
 function baseOnlyCause(
   command: CommandDeclaration,
   causeCode: string,
@@ -95,8 +94,6 @@ export function resultContext<
       const declared = command.stations.some(
         (station) => station.causeCode === selected.causeCode,
       );
-      // DISC-11b: a handler may select a station the base adds, except the
-      // ones the fallback reserves (K1-6) and the pre-entry ones.
       const baseAdded =
         !reservedFallbackCause(selected.causeCode) &&
         hostKernelCauses(command).includes(selected.causeCode);

@@ -43,7 +43,6 @@ afterAll(async () => {
 });
 
 const programStop = "DOMAIN_KF_DEADLINE_PROGRAM_STOP_UNCONFIRMED";
-// Independent oracle: the station words Nathan accepted at 17:24 (N1d).
 const ruledHandoff = {
   owner: "operator",
   reason: "A program this command started may still be running.",
@@ -115,8 +114,6 @@ describe("KF3.b inspect-deadline-unconfirmed [proof gap: a host programs add-on'
         "--json",
       ]);
       expect(discovered.exit).toBe(0);
-      // The published station for the program-stop cause, found by walking
-      // the discovery data.
       const station = findStation(discovered.result?.data);
       expect(station).toMatchObject({
         causeCode: programStop,
@@ -164,7 +161,6 @@ async function admission(variant: string) {
   return value;
 }
 describe("KF3.f program-stop-station-required", () => {
-  // The words the coordinator put to Nathan with the repair round.
   const missing =
     "kf.watch runs programs and supports a deadline, so it must declare its program-stop station (programStopCause).";
   const wrongShape = `kf.watch's program-stop station ${programStop} must be failed and unchanged, with a handoff.`;
@@ -197,17 +193,11 @@ describe("KF3.f program-stop-station-required", () => {
           variant,
           result: { admission: "admitted" },
         });
-      // A changing command with programs and deadline support needs no such
-      // station: KF3.a's kf.apply runs (DOMAIN_DEADLINE_UNKNOWN).
     },
     processWatchdog(4),
   );
 });
 
-// A raw declaration has no program-stop station the kernel can read
-// (programStopCause lives on command() only), so contractFor refuses a raw
-// inspect declaration that runs programs and supports a deadline, as it
-// refuses a raw one that declares approval or changes state.
 test("KF3.f raw: a raw inspect declaration that runs programs and supports a deadline is refused", () => {
   const cause = "DOMAIN_X_DEADLINE_PROGRAM_STOP_UNCONFIRMED";
   const causes = { ...commonCauses, [cause]: programStopRow };

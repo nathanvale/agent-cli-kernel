@@ -1,9 +1,3 @@
-// Frozen T4 approval case table. Independent oracle: expanded from the
-// prepared test-design brief (25 families, foundation-packet t4-expectations)
-// and contract clauses CMD-9/9a/10b/11/12/15, REC-1 to REC-10, V-20/V-47
-// before any approval add-on source existed. Never regenerate these rows
-// from implementation output. A pending row is not a pass.
-
 export type ApprovalCase = {
   readonly id: string;
   readonly sources: string;
@@ -13,7 +7,6 @@ export type ApprovalCase = {
       readonly status: "executable";
       readonly layer: "component" | "child-process";
       readonly expected: {
-        // Public add-on outcome observed by the test.
         readonly outcome:
           | "admitted"
           | "denied"
@@ -25,10 +18,8 @@ export type ApprovalCase = {
           | "refused"
           | "operational-failure"
           | "coordination-error";
-        // Independently read transitions relative to the fixture before state.
         readonly consumeDelta: 0 | 1;
         readonly effectDelta: 0 | 1;
-        // Grant or authority bytes are byte-identical before and after.
         readonly grantUnchanged: boolean;
       };
       readonly red: string;
@@ -57,7 +48,6 @@ const applied = {
 const preflightOnly = { ...deny, outcome: "admitted" } as const;
 
 export const approvalCases: readonly ApprovalCase[] = [
-  // A01 preview and apply
   {
     id: "A01.a-preflight-non-consuming",
     sources: "CMD-9 step 5, CMD-15",
@@ -105,7 +95,6 @@ export const approvalCases: readonly ApprovalCase[] = [
     owner: "T2",
     reason: "Front door, writer and process exits belong to T2.",
   },
-  // A02 input before authority
   {
     id: "A02.a-malformed-syntax",
     sources: "CMD-9 step 3 before 5, V-20",
@@ -145,7 +134,6 @@ export const approvalCases: readonly ApprovalCase[] = [
     owner: "T2",
     reason: "Public input refusal envelope and exit belong to T2.",
   },
-  // A03 identical denials
   {
     id: "A03.a-missing",
     sources: "CMD-15, V-47",
@@ -221,7 +209,6 @@ export const approvalCases: readonly ApprovalCase[] = [
     owner: "T6",
     reason: "Public envelope comparison needs the T2 writer and T6 checker.",
   },
-  // A04 hardened untrusted read
   ...[
     ["a-malformed-json", "Grant bytes are not JSON."],
     ["b-truncated", "Grant JSON is truncated."],
@@ -256,7 +243,6 @@ export const approvalCases: readonly ApprovalCase[] = [
     expected: { ...deny, outcome: "operational-failure" },
     red: "Read failure folded into admission or silent success.",
   },
-  // A05 exact item binding
   ...[
     ["a-preview", "preview identity"],
     ["b-revision", "resource revision"],
@@ -277,7 +263,6 @@ export const approvalCases: readonly ApprovalCase[] = [
       red: `Remove the ${binding} binding check.`,
     }),
   ),
-  // A06 revalidate after wait
   ...[
     ["a-expire", "The grant expires"],
     ["b-revision", "The current resource revision changes"],
@@ -295,7 +280,6 @@ export const approvalCases: readonly ApprovalCase[] = [
       red: "Revalidation reuses the preflight snapshot.",
     }),
   ),
-  // A07 lock refusal
   {
     id: "A07.a-refusal-preserves",
     sources: "CMD-12, CMD-15, V-20",
@@ -325,7 +309,6 @@ export const approvalCases: readonly ApprovalCase[] = [
     owner: "T2",
     reason: "Public held-lock station emission needs the T2 front door.",
   },
-  // A08 atomic contenders
   {
     id: "A08.a-locked-contenders",
     sources: "CMD-15, V-20",
@@ -346,7 +329,6 @@ export const approvalCases: readonly ApprovalCase[] = [
     expected: applied,
     red: "Replace exclusive-create consumption with overwrite.",
   },
-  // A09 ordering
   {
     id: "A09.a-phase-observations",
     sources: "CMD-9, CMD-15, V-20",
@@ -386,7 +368,6 @@ export const approvalCases: readonly ApprovalCase[] = [
     owner: "T3",
     reason: "Intent and transaction ordering belong to the state add-on.",
   },
-  // A10 to A13 crashes
   {
     id: "A10.a-kill-after-preflight",
     sources: "CMD-15, V-20, REC-7",
@@ -471,7 +452,6 @@ export const approvalCases: readonly ApprovalCase[] = [
     reason:
       "No production pause point exists inside the primitive; crash-transition injection belongs to T3's frozen storage table.",
   },
-  // A14 consumed preview
   {
     id: "A14.a-reuse-denied",
     sources: "CMD-10b, CMD-15, V-47",
@@ -492,7 +472,6 @@ export const approvalCases: readonly ApprovalCase[] = [
     expected: { ...deny, grantUnchanged: false },
     red: "Consumption keyed by grant bytes instead of preview.",
   },
-  // A15 read-only inspection
   {
     id: "A15.a-inspection-under-held-lock",
     sources: "CMD-15",
@@ -503,7 +482,6 @@ export const approvalCases: readonly ApprovalCase[] = [
     expected: preflightOnly,
     red: "Route inspection through consuming admission.",
   },
-  // Human closure
   {
     id: "C01.a-exact-closure",
     sources: "REC-3, REC-5",
@@ -587,7 +565,6 @@ export const approvalCases: readonly ApprovalCase[] = [
     expected: { ...deny, outcome: "unavailable" },
     red: "Enable capability after a fixture verifier passes.",
   },
-  // Stop attestation
   {
     id: "S01.a-exact-attestation",
     sources: "REC-7a, REC-10",

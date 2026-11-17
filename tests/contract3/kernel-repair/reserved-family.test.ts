@@ -5,9 +5,6 @@ import { contractUnchecked } from "./harness.ts";
 import { emptyInput } from "./shapes.ts";
 import { neverRuns } from "./handlers.ts";
 
-// F-1: DISC-11b reserves every INTERNAL_RESULT_* cause, not only the four the
-// base selects. Not a frozen case identity: a control beside R03, which lists
-// only the named causes.
 const row = {
   outcome: "failed",
   transactionState: "unchanged",
@@ -63,8 +60,6 @@ function admission(causeCode: string): string {
 test("an unnamed INTERNAL_RESULT_* host station is refused as reserved", () => {
   expect(reservedFallbackCause("INTERNAL_RESULT_CUSTOM")).toBe(true);
   expect(admission("INTERNAL_RESULT_CUSTOM")).toMatch(/reserved/i);
-  // Twin: the same row under a host cause name is admitted, so the refusal is
-  // the reserved-family rule and nothing else.
   expect(reservedFallbackCause("HOST_INTERNAL_RESULT")).toBe(false);
   expect(admission("HOST_INTERNAL_RESULT")).toBe("admitted");
 });

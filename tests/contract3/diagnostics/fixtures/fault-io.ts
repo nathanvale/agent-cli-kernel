@@ -1,6 +1,3 @@
-// LABELLED TEST-ONLY FAULT ADAPTER for the diagnostics specimen. It wraps the
-// production descriptor adapter to reach sink faults the real filesystem
-// cannot produce on demand. Selected by DXS_FAULT; never ships.
 import { existsSync, mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { nodeIo } from "../../../../starters/contract3/src/addons/diagnostics/io.ts";
 import type { DiagnosticsIo } from "../../../../starters/contract3/src/addons/diagnostics/io.ts";
@@ -17,20 +14,6 @@ function never<T>(): Promise<T> {
   return new Promise<T>(() => undefined);
 }
 
-// Faults, comma separated:
-//   write-throws        every write rejects (EIO)
-//   write-throws-after:N  writes after the first N records reject
-//   write-stalls        every write never settles
-//   write-stalls-after:N  writes after the first N records never settle
-//   write-lies          each write claims one byte more than it was given
-//   write-delays:MS     each write lands only after MS milliseconds
-//   write-delays-first:MS  only the first write is delayed
-//   close-throws        close throws
-//   size-throws         fstat at finalisation throws
-//   plant-file:BYTES    a regular file with BYTES already at the final name
-//   plant-symlink:PATH  a symlink to PATH already at the final name
-//   plant-fifo          a FIFO already at the final name
-//   open-barrier:READY:GO  before open, create READY and wait for GO
 export function faultIo(spec: string): DiagnosticsIo {
   const faults = spec.split(",").filter((entry) => entry.length > 0);
   const has = (name: string) => faults.includes(name);

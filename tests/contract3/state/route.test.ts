@@ -1,9 +1,3 @@
-// C01: the coordination route itself (Linux expectations 1 and 4.4, C1 to
-// C6), observed with real separate processes through the add-on's own
-// coordination module. Each hazard case also runs a wrong twin, a negative
-// control that must be detected in the same body (expectations 4.5):
-// lockf(F_TLOCK) for C4a and C4c, and a holder that shares its locked
-// descriptor with a child for C4b. Barriers are report files, not sleeps.
 import { afterEach, expect } from "bun:test";
 import { createHash } from "node:crypto";
 import {
@@ -25,6 +19,7 @@ import {
   makeWorld,
   str,
 } from "./harness.ts";
+import { signalIfPresent } from "../../support/signal.ts";
 
 const worker = join(import.meta.dir, "fixtures", "coordination-worker.ts");
 const folders: string[] = [];
@@ -32,12 +27,7 @@ const processes: number[] = [];
 
 afterEach(() => {
   for (const pid of processes.splice(0)) {
-    try {
-      process.kill(pid, "SIGCONT");
-      process.kill(pid, "SIGKILL");
-    } catch {
-      // Already gone.
-    }
+    if (signalIfPresent(pid, "SIGCONT")) signalIfPresent(pid, "SIGKILL");
   }
   for (const folder of folders.splice(0))
     rmSync(folder, { recursive: true, force: true });
@@ -86,8 +76,6 @@ function start(route: string, mode: string, file: string, option = ""): Worker {
     exited: child.exited,
     kill: (signal) => child.kill(signal),
     async report() {
-      // A worker reports within milliseconds; 30 s stays under the case's
-      // 90 s timeout (caseTest), so a hang fails here with a reason.
       const until = Date.now() + 30_000;
       while (!existsSync(report)) {
         if (exited) {
@@ -145,7 +133,6 @@ async function killed(worker: Worker): Promise<void> {
   expect(alive(worker.pid)).toBe(false);
 }
 
-// Names, sizes and SHA-256 of every file in a folder, report files aside.
 function listing(path: string): string {
   return readdirSync(path)
     .filter((name) => !name.startsWith("report-"))
@@ -157,8 +144,6 @@ function listing(path: string): string {
     .join(" ");
 }
 
-// The C4a body: the holder closes another descriptor on the file it holds;
-// a separate contender must still be refused.
 async function otherDescriptorObservation(route: string): Promise<string> {
   const file = join(folder(), "f.lock");
   const { worker } = await holder(route, file, "other-descriptor");
@@ -167,8 +152,6 @@ async function otherDescriptorObservation(route: string): Promise<string> {
   return contender.result;
 }
 
-// The C4b body: the holder spawns a long-lived child, then dies by SIGKILL.
-// A contender attempts while the child still lives.
 async function childObservation(
   route: string,
   option = "child",
@@ -185,7 +168,6 @@ async function childObservation(
   return { result: contender.result, childAlive };
 }
 
-// The C4c body: a second, independent open in the holding process attempts.
 async function sameProcessObservation(route: string): Promise<Report> {
   const file = join(folder(), "f.lock");
   const worker = start(route, "same-process", file);
@@ -202,9 +184,7 @@ caseTest("C01.a-coordination-exclusive-across-processes", async () => {
   const contender = await attempt("addon", file);
   expect(contender.result).toBe("refused");
   expect(contender.code).toBe("busy");
-  // Per-file independence (C5): holding F never blocks G.
   expect((await attempt("addon", other)).result).toBe("acquired");
-  // The two never both hold: a second holder after the first still sees it.
   expect((await attempt("addon", file)).result).toBe("refused");
   await killed(worker);
   expect((await attempt("addon", file)).result).toBe("acquired");
@@ -217,12 +197,8 @@ caseTest("C01.b-coordination-nonblocking", async () => {
   const contender = await attempt("addon", file);
   const waited = performance.now() - heldSince;
   expect(contender.result).toBe("refused");
-  // Linux expectations section 3.3, C2: a refusal in under 100 ms.
   expect(Number(contender.elapsedMs)).toBeLessThan(100);
-  // It returned while the holder still held (the holder never released).
   expect(alive(worker.pid)).toBe(true);
-  // Bounded well below a blocking wait: a blocking contender returns only
-  // when the holder (killed below, never released) goes away.
   expect(waited).toBeLessThan(2_000);
   await killed(worker);
 });
@@ -241,7 +217,6 @@ caseTest("C01.c-sigkill-release-first-attempt-no-residue", async () => {
 
 caseTest("C01.d-other-descriptor-close-keeps-hold", async () => {
   expect(await otherDescriptorObservation("addon")).toBe("refused");
-  // Wrong twin detected: a process-owned POSIX lock is dropped.
   expect(await otherDescriptorObservation("posix-control")).toBe("acquired");
 });
 
@@ -249,15 +224,9 @@ caseTest("C01.e-spawned-child-does-not-hold", async () => {
   const addon = await childObservation("addon");
   expect(addon.childAlive).toBe(true);
   expect(addon.result).toBe("acquired");
-  // A child the C library starts inherits every descriptor that is not
-  // close-on-exec. Without the route's own flag this was seen failing on
-  // Bun 1.4.0 and 1.4.2; the supported runtime is the pinned 1.4.4, which
-  // sets the flag too, so here it guards against a Bun that stops setting it.
   const native = await childObservation("addon", "native-child");
   expect(native.childAlive).toBe(true);
   expect(native.result).toBe("acquired");
-  // Wrong twin detected: a child sharing the open file description keeps
-  // the coordination lock after its parent dies.
   const shared = await childObservation("shared-control");
   expect(shared.childAlive).toBe(true);
   expect(shared.result).toBe("refused");
@@ -267,14 +236,11 @@ caseTest("C01.f-same-process-second-open-refused", async () => {
   const addon = await sameProcessObservation("addon");
   expect(addon.first).toBe("acquired");
   expect(addon.result).toBe("refused");
-  // Wrong twin detected: a process-owned POSIX lock lets the same process
-  // "acquire" again.
   const posix = await sameProcessObservation("posix-control");
   expect(posix.first).toBe("acquired");
   expect(posix.result).toBe("acquired");
 });
 
-// The process state letter: T when stopped (Linux /proc, Darwin ps).
 function state(pid: number): string {
   if (process.platform === "linux") {
     const stat = readFileSync(`/proc/${pid}/stat`, "utf8");
@@ -289,12 +255,8 @@ function state(pid: number): string {
 caseTest("C01.g-stopped-holder-still-holds", async () => {
   const file = join(folder(), "f.lock");
   const { worker } = await holder("addon", file);
-  // process.kill, not the subprocess handle: Bun 1.4.0's handle does not
-  // deliver SIGSTOP (observed on this Mac, 16 November 2026).
   process.kill(worker.pid, "SIGSTOP");
   try {
-    // SIGSTOP takes effect within milliseconds; 5 s is a generous bound
-    // that still fails well inside the case timeout.
     const until = Date.now() + 5_000;
     while (state(worker.pid) !== "T" && Date.now() < until) await Bun.sleep(5);
     expect(state(worker.pid)).toBe("T");
@@ -315,9 +277,6 @@ const apply = (name: string, ...extra: string[]) => [
   "--json",
 ];
 
-// Section 2 of the expectations, through the labelled fixture entry's seam
-// that makes the route's start-up self-check fail (a C library that cannot
-// be loaded). Item 7 (a failure after admission began) is C01.j.
 caseTest("C01.h-no-fallback-when-route-unavailable", async () => {
   const world = makeWorld();
   try {
@@ -349,7 +308,6 @@ caseTest("C01.h-no-fallback-when-route-unavailable", async () => {
       expect(message).toContain(release());
       expect(message).toContain("qualified on:");
       expect(message).not.toMatch(/unlink|delete|remove/i);
-      // Before any write: no state root, no effect.
       expect(existsSync(world.root)).toBe(false);
       expect(world.ledger()).toEqual([]);
     }
@@ -361,7 +319,6 @@ caseTest("C01.h-no-fallback-when-route-unavailable", async () => {
     expect(JSON.stringify(at(data, "reasons"))).toContain(
       "coordination-self-check-failed",
     );
-    // Read routes stay read-only and take no coordination lock.
     expectCompleted(await world.run(apply("seed")));
     const before = world.snapshot();
     expect((await world.run(["pending", "--json"], broken)).exit).toBe(0);
@@ -371,8 +328,6 @@ caseTest("C01.h-no-fallback-when-route-unavailable", async () => {
   }
 });
 
-// C6: no route decides by coordination lock age, PID, host name or a
-// fallback lock file. The route modules never read them.
 caseTest("C01.i-no-age-pid-or-fallback-path", async () => {
   const sources = await Promise.all(
     ["coordination.ts", "linux-flock.ts"].map((name) =>

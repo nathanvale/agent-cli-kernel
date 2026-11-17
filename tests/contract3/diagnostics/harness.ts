@@ -1,9 +1,3 @@
-// Process test harness for the T5 diagnostics cases. It runs the labelled
-// specimen CLIs as real child processes against a test-owned HOME and
-// XDG_STATE_HOME tree and observes raw stdout/stderr bytes, the real exit and
-// the diagnostics directory through its own reader (lstat, modes, inodes,
-// bytes). It never imports the diagnostics add-on: expected values come from
-// t5-cases.json, the contract and the diagnostics-intact twin.
 import {
   existsSync,
   lstatSync,
@@ -37,7 +31,6 @@ function numberField(value: unknown, key: string): number {
     throw new Error(`Frozen limit ${key} missing.`);
   return found;
 }
-// DIAG-9 limits as frozen in t5-cases.json (copied from the oracle).
 const frozenLimits = field(frozen, "limits");
 export const limits = {
   aggregateBytes: numberField(frozenLimits, "aggregateBytes"),
@@ -58,11 +51,9 @@ export type Tree = {
   readonly root: string;
   readonly home: string;
   readonly state: string;
-  // The diagnostics directory under XDG_STATE_HOME.
   readonly dir: string;
 };
 
-// A fresh test-owned tree. Real path, so reported paths compare as strings.
 export function tree(): Tree {
   const root = mkdtempSync(join(realpathSync(tmpdir()), "t5-diag-"));
   roots.push(root);
@@ -78,9 +69,8 @@ const children: {
   readonly signalCode: string | null;
 }[] = [];
 
-// Teardown: kill every child this harness started that is still running,
-// then remove the trees. SIGKILL, because a CLI blocked in a synchronous
-// system call (a failing FIFO control) cannot run its SIGTERM handler.
+// SIGKILL, because a CLI blocked in a synchronous system call (a failing FIFO
+// control) cannot run its SIGTERM handler.
 export function cleanTrees(): void {
   for (const child of children.splice(0))
     if (child.exitCode === null && child.signalCode === null)
@@ -108,11 +98,10 @@ export type Launch = {
   readonly fault?: string;
   readonly umask?: string;
   readonly env?: Readonly<Record<string, string>>;
-  // A bash command line; "$@" is the runtime and the specimen.
   readonly shell?: string;
-  // Hold the CLI's stdout in an unread OS pipe until this file exists. Bun's
-  // own spawn pipe is drained eagerly, so only a relay that does not read
-  // gives the CLI real backpressure (it waits in drain past the pipe buffer).
+  // Bun's own spawn pipe is drained eagerly, so only a relay that does not
+  // read gives the CLI real backpressure (it waits in drain past the pipe
+  // buffer).
   readonly holdStdoutUntil?: string;
 };
 
@@ -132,9 +121,6 @@ function environment(launch: Launch): Record<string, string> {
   return env;
 }
 
-// Runs ARGV[1..] with stdout on a fresh OS pipe that is not read until the
-// file ARGV[0] exists (60 s deadline), then relays it and exits with the
-// child's code.
 const stdoutRelay = [
   "my $release = shift @ARGV;",
   "pipe(my $r, my $w) or die 'pipe';",
@@ -205,8 +191,6 @@ export function run(launch: Launch): Promise<Run> {
   return start(launch).finished;
 }
 
-// Canon (DIAG-16): only diagnostics, run identity and genuine time are
-// normalised. message, data, effects, cause, exit and guidance never are.
 export function canon(envelope: unknown): string {
   if (typeof envelope !== "object" || envelope === null)
     return JSON.stringify(envelope);
@@ -247,7 +231,6 @@ function kindOf(info: import("node:fs").Stats): Observed["kind"] {
   return "other";
 }
 
-// The independent reader: what is actually on disk, by lstat.
 export function observe(dir: string): DirectoryView {
   if (!existsSync(dir) && !isLink(dir))
     return { exists: false, entries: [], files: [], fileBytes: 0 };
@@ -262,8 +245,6 @@ export function observe(dir: string): DirectoryView {
       files: [],
       fileBytes: 0,
     };
-  // An entry removed between listing and lstat (a concurrent prune) is
-  // simply no longer there.
   const entries = readdirSync(dir).flatMap((name): Observed[] => {
     const path = join(dir, name);
     try {
@@ -318,7 +299,6 @@ export async function waitForFile(path: string, timeoutMilliseconds = 30_000) {
   }
 }
 
-// Barrier on an observable condition: the run's log exists in `dir`.
 export async function waitForLog(dir: string, timeoutMilliseconds = 30_000) {
   const until = performance.now() + timeoutMilliseconds;
   while (!observe(dir).files.some((entry) => entry.name.endsWith(".jsonl"))) {

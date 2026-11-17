@@ -33,8 +33,6 @@ async function admission(step: string, args: readonly string[]) {
 }
 
 describe("KF4.a literal-step-reroutes-refused", () => {
-  // Each refused variant: the named refusal names the step's target, its
-  // args and where they route instead.
   const refused = [
     [
       "next",
@@ -73,9 +71,6 @@ describe("KF4.a literal-step-reroutes-refused", () => {
       },
       processWatchdog(1),
     );
-  // KF4.b: the rule is where the vector routes, not token equality, so a
-  // literal equal to a route token (["list"], ["--", "all"]) is admitted
-  // when the vector still routes to its target.
   test(
     "KF4.a and KF4.b twins: steps that route to their target are admitted",
     async () => {
@@ -108,7 +103,6 @@ describe("KF4.a literal-step-reroutes-refused", () => {
         expect(go.exit).toBe(0);
         const next = go.result?.next;
         expect(next).toEqual({ kind: "command", command: "kf.list", args });
-        // The step's final vector with --json placed before any `--`.
         const followed = await runKf(
           entry,
           "steps",

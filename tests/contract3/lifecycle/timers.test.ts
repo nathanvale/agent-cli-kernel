@@ -1,7 +1,3 @@
-// Finding 1, kernel side: the deadline timer honours every accepted value
-// (Nathan, 16 November 2026: no cap). Expectations: c3-expect-t2t5,
-// findings-round/expectations.md, T02(b) and T06.
-//
 // Time control (P4, proposed for review): Bun 1.4.4's fake timers clamp a raw
 // delay above 2,147,483,647 ms to 1 ms exactly like real timers, so they cannot
 // hold such a delay. They do advance performance.now(), which the kernel's
@@ -19,14 +15,12 @@ import {
 } from "./recording-host.ts";
 import { overLimitBoundary, timerLimit } from "./oracle.ts";
 
-// LIFE-6: at the deadline, wait at most 500 ms for cancellation.
 const cancellationWait = 500;
 
 afterEach(() => {
   jest.useRealTimers();
 });
 
-// A handler that never finishes by itself, under fake timers.
 async function heldUntilDeadline(deadline: number) {
   jest.useFakeTimers();
   const entered = deferred();
@@ -70,7 +64,6 @@ describe("T02(b) expiry after handler entry for a deadline above the timer limit
       const run = await heldUntilDeadline(deadline);
       try {
         await advance(deadline - 1);
-        // One millisecond before the deadline: no deadline result yet.
         expect(run.recorder.writes).toEqual([]);
         expect(run.recorder.exits).toEqual([]);
         await advance(1 + cancellationWait);
@@ -80,7 +73,6 @@ describe("T02(b) expiry after handler entry for a deadline above the timer limit
         expect(causeOf(write?.text ?? "null")).toBe(
           "DOMAIN_DEADLINE_UNCHANGED",
         );
-        // Under fake time the result is written at exactly D + 500 ms.
         expect((write?.at ?? 0) - run.startedAt).toBe(
           deadline + cancellationWait,
         );
@@ -96,8 +88,6 @@ describe("T06 small and boundary deadlines keep their exact timing (finding 1)",
     test(`T06.small-values-unchanged deadline D=${deadline}`, async () => {
       const run = await heldUntilDeadline(deadline);
       try {
-        // The deadline result is written exactly when the 500 ms wait ends:
-        // nothing rounds the deadline up, adds a chunk or defers the arm.
         await advance(deadline + cancellationWait - 1);
         expect(run.recorder.writes).toEqual([]);
         await advance(1);
@@ -111,9 +101,6 @@ describe("T06 small and boundary deadlines keep their exact timing (finding 1)",
     });
 });
 
-// Contract review F3: P4 rests on two facts about Bun 1.4.4's fake timers. If
-// a Bun upgrade changes either, this fails by name before any T02(b), T05 or
-// T06 result is trusted.
 test("P4.canary fake timers advance the clock and fire a raw over-limit delay early", () => {
   jest.useFakeTimers();
   const before = performance.now();

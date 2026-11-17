@@ -6,10 +6,6 @@ import type {
 } from "../../../starters/contract3/src/kernel/index.ts";
 import { emptyInput } from "./shapes.ts";
 
-// R18 (F01) test-owned targets and step rows, written from
-// expectations-f01.md (sha256 6cdc603e...). The same module drives the
-// in-process command() and raw paths and the changing() state fixture, which
-// passes its own kernel copy, so nothing here imports kernel values.
 export type KernelValues = Pick<
   typeof Kernel,
   "command" | "station" | "commonCauses"
@@ -172,7 +168,6 @@ export const rows: Readonly<Record<string, Row>> = {
   "a8.separator-literal": { target: "T2op", args: ["--", "--x", "{runId}"] },
 };
 
-// Source input: one string option per caller-owned binding source.
 export const sourceInput = {
   ...base,
   options: [flag("--item", false, text), flag("--count", false, text)],
@@ -231,7 +226,6 @@ export type Observation = {
   readonly namesStep: boolean;
   readonly templateShown: boolean;
 };
-// Admits the source with all targets and reports what admission did.
 export function observe(
   admit: () => unknown,
   source: string,

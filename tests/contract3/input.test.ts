@@ -65,8 +65,6 @@ test("one executable declaration projects input and strictly parses literal case
     ok: true,
     value: { item: "alpha", "--count": -2, "--detail": true },
   });
-  // Each vector and the INPUT-2/INPUT-3 rule that refuses it (K1-17): a
-  // refusal for another reason must not pass.
   const refusals = [
     [[], "input", "required slot or constraint"],
     [["alpha", "--count=2"], "argv", "unknown option"],
@@ -136,9 +134,6 @@ test("untrusted patterns terminate within the reader budget and invalid declarat
   expect(performance.now() - start).toBeLessThan(2000);
 });
 
-// Rows ruled by t1-repair/expectations-f01-ruling.md (F01 option 2): steps no
-// single-token value can make parse are refused at contractFor; admitted rows
-// keep the guarantee that invalid target values are refused before the handler.
 const admittedFutureRows = [
   {
     name: "noninteger dynamic deadline",

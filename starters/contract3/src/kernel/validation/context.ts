@@ -1,10 +1,5 @@
 import type { CapabilitySelection, HandlerContext } from "../capabilities.ts";
 import { record } from "./primitives.ts";
-// One owner for the capability add-on names and the methods each must expose:
-// the keys below are the only spelling, checked complete against
-// CapabilitySelection. A command declaring any other name is refused when the
-// kernel process entry is built. (The add-on manifest's AddonName in
-// registration.ts also lists "state", which is not a capability.)
 export const capabilityMethods = {
   programs: ["inspect", "supplied", "domain"],
   approval: ["check"],

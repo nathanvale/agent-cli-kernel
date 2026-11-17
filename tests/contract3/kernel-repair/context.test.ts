@@ -6,8 +6,6 @@ import {
 import { runFamily, stateFixture } from "./harness.ts";
 import { emptyInput, unchanged } from "./shapes.ts";
 
-// R12 (F10): never enter a handler with a declared capability absent or
-// different from the one that passed validation.
 const received: unknown[] = [];
 function fixture() {
   const read = command({
@@ -31,7 +29,6 @@ function fixture() {
   });
 }
 const diagnostics = () => ({ record() {} });
-// Either refused before the handler, or entered with the validated object.
 async function inspectObserved(context: object, validated: () => unknown) {
   received.length = 0;
   const executed = await fixture().execute(

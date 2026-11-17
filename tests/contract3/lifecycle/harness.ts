@@ -1,12 +1,9 @@
-// Process harness for the T2 slice A cases. It runs the labelled fault-fixture
-// CLI as a real child process and observes raw stdout/stderr bytes, the real
-// exit or signal, a fixture ledger written by child programs, the OS process
-// table and the harness clock. Expected values come only from t2-cases.json.
 import { existsSync, readFileSync } from "node:fs";
 import { mkdtemp, mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { record } from "../../../starters/contract3/src/kernel/validation/primitives.ts";
+import { signalGroupIfPresent, signalIfPresent } from "../../support/signal.ts";
 
 const here = import.meta.dir;
 const repository = resolve(here, "../../..");
@@ -86,7 +83,6 @@ export const allCases: readonly Case[] = (() => {
   });
 })();
 
-// A frozen numeric expectation; a missing one fails the case.
 export function n(value: unknown): number {
   if (typeof value !== "number") throw new Error("Expected a frozen number.");
   return value;
@@ -135,8 +131,6 @@ export type Reader =
   | "close-after-envelope";
 
 export type Observed = {
-  // K3-12: reading a stream that was still open `streamWait` ms after the
-  // CLI exited throws "UNPROVED", so no assertion passes on a cut stream.
   readonly stdout: Uint8Array;
   readonly stderr: Uint8Array;
   readonly stdoutComplete: boolean;
@@ -149,16 +143,11 @@ export type Observed = {
   readonly firstStdoutAt: number | undefined;
   readonly ledger: readonly string[];
   readonly dir: string;
-  // Set when the harness fitted one operand to the host's argument limits.
   readonly operand?: OperandFit;
 };
-// H1: the frozen operand length, the length the host refused (if any) and
-// the length actually exercised.
 export type OperandFit = {
   readonly frozenLength: number;
-  // The frozen length when the host refused it, otherwise null.
   readonly refusedLength: number | null;
-  // The shortest length the host refused, when it refused any.
   readonly shortestRefusedLength: number | null;
   readonly exercisedLength: number;
 };
@@ -211,8 +200,6 @@ function concat(parts: readonly Uint8Array[]): Uint8Array {
   return out;
 }
 
-// K3-12: how long the harness keeps reading after the CLI exited. A stream
-// still open then is reported incomplete, never as complete output.
 const streamWait = 2_000;
 function incomplete(stream: string): Error {
   return new Error(
@@ -231,7 +218,6 @@ export async function launch(options: {
   readonly env?: Readonly<Record<string, string>>;
   readonly rawArgvShell?: string;
   readonly script?: string;
-  // Index of one argv operand to shorten to the longest the host can spawn.
   readonly fitOperand?: number;
 }): Promise<Launched> {
   requireTools();
@@ -398,8 +384,6 @@ function spawns(
   }
 }
 
-// The longest prefix of `wanted` characters (ASCII) for which `build` still
-// spawns: the result fits and one more character does not.
 export function spawnableLength(
   build: (length: number) => readonly string[],
   env: Readonly<Record<string, string>>,
@@ -442,8 +426,6 @@ function fitOperand(
   };
 }
 
-// Launches one frozen case: every case field reaches the process; overrides
-// only add what the case leaves to the harness.
 export async function launchCase(
   entry: Case,
   overrides: Partial<Parameters<typeof launch>[0]> = {},
@@ -457,7 +439,6 @@ export async function launchCase(
   });
 }
 
-// The fixture's wall-clock front-door start, ledgered before runProcess.
 export function frontDoorStart(observed: Observed): number {
   const line = observed.ledger.find((entry) =>
     entry.startsWith("front-door-start "),
@@ -468,8 +449,6 @@ export function frontDoorStart(observed: Observed): number {
   return value;
 }
 
-// C8: tools the fixture programs and probes rely on. A missing tool makes the
-// case fail as unproved; it is never skipped or passed.
 const requiredTools = [
   "/bin/sh",
   "/bin/cat",
@@ -487,10 +466,6 @@ export function requireTools(): void {
     throw new Error(`UNPROVED on this host: missing ${missing.join(", ")}.`);
 }
 
-// R1: a case that fails or hangs leaves no fixture process behind. The wait
-// is bounded below the test timeout; release kills the CLI if it is still
-// running, then every child its fixture ledgered, then removes the temporary
-// directory.
 export const exitBound = 20_000;
 // H2: a CLI that calls abort() is reported gone only after the host has dealt
 // with the aborted process. Hosted ubuntu runners took 23,798 ms (run
@@ -509,20 +484,12 @@ export async function exitWithin(
     Bun.sleep(milliseconds).then(() => undefined),
   ]);
   if (!observed) {
-    // K3-3 (swarm triage): every caller is covered, so a hang leaves no
-    // fixture process or temporary directory behind.
     await release(launched);
     throw new Error(`The CLI did not exit within ${milliseconds} ms.`);
   }
   return observed;
 }
-// N2: a ledgered pid is killed only while it is still in the process group
-// its ledger says it belongs to, so a pid the OS reused for an unrelated
-// process is left alone. Program children and escaped writers lead their own
-// group (setsid), and that whole group is killed, so their own children go
-// too; a grandchild stays in its parent's ledgered `child-pgid`.
 const ledgeredLeaders = ["child-started", "escaped", "late-child"];
-// The one parser for the fixture's `<prefix> <pid>` ledger lines.
 function ledgeredPid(ledger: readonly string[], prefix: string) {
   return ledger
     .filter((line) => line.startsWith(`${prefix} `))
@@ -546,11 +513,8 @@ export async function release(launched: Launched): Promise<void> {
   if (launched.running()) launched.signal("SIGKILL");
   const observed = await launched.done;
   for (const { pid, group } of stillOwned(readLedger(launched.ledgerPath)))
-    try {
-      process.kill(pid === group ? -group : pid, "SIGKILL");
-    } catch {
-      // Already gone.
-    }
+    if (pid === group) signalGroupIfPresent(group, "SIGKILL");
+    else signalIfPresent(pid, "SIGKILL");
   await cleanup(observed);
 }
 
@@ -562,7 +526,6 @@ export async function run(
   return exitWithin(await launchCase(entry, extra), bound);
 }
 
-// Independent process-table probe.
 export function alive(pid: number): boolean {
   try {
     process.kill(pid, 0);
@@ -579,7 +542,6 @@ export async function goneWithin(pid: number, milliseconds: number) {
   }
   return true;
 }
-// POSIX ps(1) fields; procps on Linux and BSD ps on Darwin both print them.
 function psField(field: "pgid" | "rss", pid: number): number | undefined {
   const result = Bun.spawnSync([
     "/bin/ps",
@@ -637,7 +599,6 @@ export function text(bytes: Uint8Array): string {
   return decoder.decode(bytes);
 }
 
-// Strict parse: exactly one JSON object followed by exactly one newline.
 export function envelopeOf(bytes: Uint8Array): Record<string, unknown> {
   const raw = text(bytes);
   if (!raw.endsWith("\n") || raw.indexOf("\n") !== raw.length - 1)
@@ -653,9 +614,6 @@ export function resultOf(envelope: Record<string, unknown>) {
   return result;
 }
 
-// B2 (Nathan, 16 November 2026): the level of the deepest value. The root is
-// level 0, each value inside a container is one level deeper, and scalars
-// count. Test-owned; never imported from the kernel.
 export function deepestLevel(value: unknown): number {
   let deepest = 0;
   const stack: { readonly value: unknown; readonly level: number }[] = [

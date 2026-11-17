@@ -1,7 +1,3 @@
-// changing() construction paths for R03 (F12) and R04 (F04). Materialised at
-// starters/contract3/src/addons/state/admission-changing.ts and linted there.
-// Literal reserved stations are deliberately outside the declared types, so
-// they reach changing() and contractFor through an unchecked call.
 import { changing, commonCauses, contractFor } from "../../kernel/index.ts";
 import {
   admissionInstallation,

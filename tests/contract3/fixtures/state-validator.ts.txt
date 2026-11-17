@@ -1,13 +1,11 @@
 import { expect } from "bun:test";
 const checks: (() => Promise<void>)[] = [];
-// Counted as each control actually runs, never printed as constants (K1-4s).
 const tally = { checks: 0, truthRows: 0, effectControls: 0, custodyControls: 0, approvalControls: 0 };
 function test(_name: string, check: () => Promise<void>) { checks.push(async () => { await check(); tally.checks++; }); }
 import { changing, command, commonCauses, contractFor, station } from "../../kernel/index.ts";
 import type { CauseRow, Effects, WireResult } from "../../kernel/index.ts";
 const input = { arguments: [], options: [], constraints: [], deadlineSupported: false, additionalArguments: false, additionalOptions: false } as const;
 const empty = { completed: [], remaining: [], uncertain: [], inventoryComplete: true } as const;
-// Independent oracle: WIRE-15 rows, with each N/H choice separately exercised.
 const rows = [
   {"outcome": "success", "transactionState": "unchanged", "failureClass": null, "exitCode": 0, "retryable": false, "guidance": "next"},
   {"outcome": "success", "transactionState": "completed", "failureClass": null, "exitCode": 0, "retryable": false, "guidance": "next"},
@@ -43,7 +41,6 @@ const stations = cases.map(({code, row}) => ({ row, commandIdentity: "specimen.c
 const recovery = command({ identity: "specimen.pending", route: ["pending"], summary: "Inspect pending.", input, capabilities: {}, stations: [station(commonCauses, { commandIdentity: "specimen.pending", causeCode: "SUCCESS_UNCHANGED", trigger: "Read pending.", guidance: { next: {kind: "instruction", text: "Inspect pending state."}}, repairAction: null, retryDelayPolicy: {kind: "none"}, reachability: "required", unreachableRationale: null, independentObservable: "pending-read" })], run: (_input, context) => context.result({commandIdentity: "specimen.pending", causeCode: "SUCCESS_UNCHANGED"}, {message: "Read pending.", data: null, effects: empty}) });
 function fixture() {
   const state = contractFor.stateAddon((issuer) => ({ ifNoResult: issuer.ifNoResult({kind: "command", command: "specimen.pending", args: []}), attach() { throw new Error("No state execution in validator fixture."); } }));
-  // Built with changing(): a changing declaration needs the constructor's two-phase entry (delta review F1). Its handler never runs here.
   const change = changing({ identity: "specimen.change", route: ["change"], summary: "Change.", input, capabilities: {}, effectClass: "repository-local", effects: ["a", "b"], ifNoResult: state.ifNoResult, heldLockCause: "ROW_3", unresolvedCaseCause: "ROW_5", stations, run: () => Promise.reject(new Error("Validator fixture never runs.")) });
   return contractFor({ cli: "specimen", commands: [change, recovery], causes, state, installedAddons: ["state"] });
 }
