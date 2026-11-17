@@ -1,13 +1,13 @@
 diff --git a/scripts/check-names.ts b/scripts/check-names.ts
-index 130fbfa..0f4d5b3 100644
+index c909f49..9a1419f 100644
 --- a/scripts/check-names.ts
 +++ b/scripts/check-names.ts
-@@ -133,7 +133,7 @@ let code: number;
- try {
-   const problems = new Set(await problemsFor(process.argv.slice(2)));
-   for (const problem of problems) process.stderr.write(`${problem}\n`);
--  code = problems.size > 0 ? 1 : 0;
-+  code = 0;
- } catch (error) {
-   const reason = error instanceof Error ? error.message : String(error);
-   process.stderr.write(
+@@ -177,7 +177,7 @@ export async function runNamesCheck(
+     const problems = new Set(await problemsFor(args, environment));
+     return {
+       stderr: [...problems].map((problem) => `${problem}\n`).join(""),
+-      code: problems.size > 0 ? 1 : 0,
++      code: 0,
+     };
+   } catch (error) {
+     const reason = error instanceof Error ? error.message : String(error);
