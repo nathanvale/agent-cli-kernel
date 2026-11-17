@@ -1,15 +1,16 @@
 diff --git a/scripts/check-names.ts b/scripts/check-names.ts
-index f16f767..0459e5c 100644
+index 67bfa9e..7724624 100644
 --- a/scripts/check-names.ts
 +++ b/scripts/check-names.ts
-@@ -106,9 +106,7 @@ function createdPaths(tool: unknown, input: Map<string, unknown>): string[] {
+@@ -104,10 +104,7 @@ const callReaders = new Map<unknown, CallReader>([
+ 
+ function createdPaths(tool: unknown, input: Map<string, unknown>): string[] {
    const reader = callReaders.get(tool);
-   const value = reader === undefined ? undefined : input.get(reader.field);
-   if (reader === undefined || typeof value !== "string")
+-  if (reader === undefined)
 -    throw new Error(
 -      `--tool-call reads a Write call's file_path and an apply_patch call's command, not a ${String(tool)} call. Repair: wire the names check hook to those two tools.`,
 -    );
-+    return [];
-   return reader.created(value);
- }
- 
++  if (reader === undefined) return [];
+   const value = input.get(reader.field);
+   if (typeof value !== "string")
+     throw new Error(
