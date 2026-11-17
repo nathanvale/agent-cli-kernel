@@ -1,4 +1,4 @@
-import contract3 from "./contract3-eslint.mjs";
+import kernel from "./kernel-lint.mjs";
 import repository from "../eslint-rules.mjs";
 
 export const kernelPaths = ["kernel/**", "tests/kernel/**"];
@@ -12,7 +12,7 @@ export default [
     plugins: { repository },
     rules: { "repository/no-comments": "error" },
   },
-  ...contract3,
+  ...kernel,
   {
     files: ["kernel/src/**/*.{ts,mts,cts}"],
     plugins: { repository },
