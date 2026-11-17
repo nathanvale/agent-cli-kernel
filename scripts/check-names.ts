@@ -104,10 +104,14 @@ const callReaders = new Map<unknown, CallReader>([
 
 function createdPaths(tool: unknown, input: Map<string, unknown>): string[] {
   const reader = callReaders.get(tool);
-  const value = reader === undefined ? undefined : input.get(reader.field);
-  if (reader === undefined || typeof value !== "string")
+  if (reader === undefined)
     throw new Error(
       `--tool-call reads a Write call's file_path and an apply_patch call's command, not a ${String(tool)} call. Repair: wire the names check hook to those two tools.`,
+    );
+  const value = input.get(reader.field);
+  if (typeof value !== "string")
+    throw new Error(
+      `--tool-call got a ${String(tool)} call whose tool_input has no string ${reader.field}, so it cannot tell which names the call creates. Repair: pass the tool call as the hook receives it.`,
     );
   return reader.created(value);
 }
