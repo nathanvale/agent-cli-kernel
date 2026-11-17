@@ -69,6 +69,10 @@ repository broke it.
   [4386b03].
 - Widen a race control until it catches its fault on every run. Witnessed:
   [2b2907a] (caught in 48 of 50 runs before widening).
+- Bound a duration a test reads back from output by zero below and, above,
+  by the wall time it measured plus half the printed precision (0.05 s for
+  one decimal). A rounded duration can read 0.0 on a fast host, so an
+  assertion above zero fails there. Witnessed: [07d2d72], [e50afb6].
 
 [185c90d]: https://github.com/nathanvale/bun-typescript-template/commit/185c90d11dd167ee4874e383ba26cd7d64a70964
 [640ba05]: https://github.com/nathanvale/bun-typescript-template/commit/640ba05881da2694fbdfad9b1d124bd85d36c0e4
@@ -94,3 +98,5 @@ repository broke it.
 [9050fec]: https://github.com/nathanvale/bun-typescript-template/commit/9050fec545a21a1995b0014151b4d486c2188e06
 [b8664cf]: https://github.com/nathanvale/bun-typescript-template/commit/b8664cfdcb826e3870b52b0141c0f4f2efb2eba0
 [70c7280]: https://github.com/nathanvale/bun-typescript-template/commit/70c7280c8253b0badc173898fcb5ca44b8e2198b
+[07d2d72]: https://github.com/nathanvale/bun-typescript-template/commit/07d2d72ed7c68fda55cd6b065dbb5b4e5f407763
+[e50afb6]: https://github.com/nathanvale/bun-typescript-template/commit/e50afb6e27a9facc40ec0b932779ffa81a29784c
