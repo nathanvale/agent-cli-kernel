@@ -45,22 +45,34 @@ function subfolderAreas(
     .map((entry) => [entry.name, [`./${folder}/${entry.name}`]]);
 }
 
-function areas(root: string): Map<string, string[]> {
-  const candidates = readRepository(root).testAreas.flatMap(
-    (area): [string, string[]][] => [
-      [area.name, pathsOf(root, area)],
-      ...(area.subfolders ? subfolderAreas(root, area) : []),
-    ],
-  );
-  return new Map(candidates.filter(([, paths]) => paths.length > 0));
+function areas(root: string): {
+  known: Map<string, string[]>;
+  empty: string[];
+} {
+  const declared = readRepository(root).testAreas;
+  const candidates = declared.flatMap((area): [string, string[]][] => [
+    [area.name, pathsOf(root, area)],
+    ...(area.subfolders ? subfolderAreas(root, area) : []),
+  ]);
+  return {
+    known: new Map(candidates.filter(([, paths]) => paths.length > 0)),
+    empty: declared
+      .filter((area) => pathsOf(root, area).length === 0)
+      .map(({ name, folder }) => `${name} (${folder})`),
+  };
 }
 
 const root = join(import.meta.dir, "..");
-const known = areas(root);
+const { known, empty } = areas(root);
 const [area, ...options] = process.argv.slice(2);
 const paths = area === undefined ? undefined : known.get(area);
 
-if (paths === undefined) {
+if (empty.length > 0) {
+  process.stderr.write(
+    `repository.json declares test areas that hold no test file: ${empty.join(", ")}. Restore their tests, or remove them from testAreas.\n`,
+  );
+  process.exitCode = 1;
+} else if (paths === undefined) {
   const valid = [...known.keys()].sort().join(", ");
   process.stderr.write(
     `Usage: bun run test:area <area> [bun test options]. ${area === undefined ? "No area given" : `Unknown area "${area}"`}. Valid areas: ${valid}.\n`,

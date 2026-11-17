@@ -472,6 +472,21 @@ describe("bun run faults", () => {
   );
 
   test(
+    "FR.t an empty manifest replays nothing and fails, saying the gate checks nothing",
+    async () => {
+      const { root } = await repositoryWithFault({});
+      write(root, "tests/faults/manifest.json", "[]\n");
+      const run = await faults(root, []);
+      expect(run.lines).toContain(
+        "No faults recorded in tests/faults/manifest.json, so this gate checks nothing. Record one with bun run faults:add, or remove the faults gate.",
+      );
+      expect(verdicts(run.lines)).toEqual([]);
+      expect(run.exit).toBe(1);
+    },
+    timeout,
+  );
+
+  test(
     "FR.f a replay leaves the caller's tree, index, branch and stash as they were, and sees its uncommitted edits",
     async () => {
       const { root, id } = await repositoryWithFault({});

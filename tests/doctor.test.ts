@@ -258,6 +258,22 @@ describe("test:area", () => {
     expect(result.stderr).toContain("Ran 1 test across 1 file.");
   });
 
+  test("a declared area that holds no test file fails, naming it, and runs nothing", () => {
+    const root = withToolchain("6.0.2", {
+      ...probe,
+      "repository.json": description([
+        ...declared,
+        { name: "lost", folder: "tests/lost", holds: "folder" },
+      ]),
+    });
+    const result = run(root, testArea, ["template"]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toBe(
+      "repository.json declares test areas that hold no test file: lost (tests/lost). Restore their tests, or remove them from testAreas.\n",
+    );
+  });
+
   test("the template area runs only the test files directly under tests", () => {
     const result = run(withToolchain("6.0.2", probe), testArea, ["template"]);
 

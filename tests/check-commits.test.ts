@@ -373,6 +373,23 @@ describe("check:commits", () => {
   );
 
   test(
+    "an empty range checks nothing and fails, naming the range",
+    async () => {
+      const { root, base } = repositoryAt();
+
+      const run = await checkCommits(root, [base.sha], {
+        CHECK_COMMITS_SINCE: base.sha,
+      });
+
+      expect(run.exit).toBe(1);
+      expect(run.lines).toContain(
+        `No commits in ${base.sha}..HEAD to check, so this gate checks nothing. Name a base that HEAD is ahead of.`,
+      );
+    },
+    processWatchdog(1),
+  );
+
+  test(
     "a commit that is an ancestor of since is skipped",
     async () => {
       const { root, base, commit } = repositoryAt();
