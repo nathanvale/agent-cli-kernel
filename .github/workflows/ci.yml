@@ -16,8 +16,42 @@ jobs:
         with:
           bun-version: 1.4.4
       - run: bun install --frozen-lockfile
-      - run: bun run lint && bun run biome:check && bun run typecheck && bun run test
+      - name: Lint
+        run: bun run lint
+      - name: Format
+        if: ${{ !cancelled() }}
+        run: bun run format:check
+      - name: Typecheck
+        if: ${{ !cancelled() }}
+        run: bun run typecheck
+      - name: Test
+        if: ${{ !cancelled() }}
+        run: bun run test
       - if: github.event_name == 'pull_request'
         run: bun run --silent quality:fallow --base "origin/${{ github.base_ref }}"
       - if: github.event_name == 'push'
         run: bun run --silent quality:fallow --base "${{ github.event.before }}"
+  commits:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile
+      - run: bun run check:commits "origin/${{ github.base_ref }}"
+  faults:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - run: bun run faults

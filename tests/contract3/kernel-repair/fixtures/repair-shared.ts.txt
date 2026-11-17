@@ -1,0 +1,121 @@
+// Shared declarations for the kernel-repair state fixtures (SF-3: one owner).
+// Materialised at starters/contract3/src/addons/state/repair-shared.ts in a
+// disposable tree beside a copy of the kernel, and linted there.
+import {
+  command,
+  commonCauses,
+  contractFor,
+  station,
+} from "../../kernel/index.ts";
+import type { StateAddonDescriptor } from "../../kernel/index.ts";
+
+export const input = {
+  arguments: [],
+  options: [],
+  constraints: [],
+  deadlineSupported: false,
+  additionalArguments: false,
+  additionalOptions: false,
+} as const;
+export const empty = {
+  completed: [],
+  remaining: [],
+  uncertain: [],
+  inventoryComplete: true,
+} as const;
+const refusal = {
+  outcome: "refused",
+  transactionState: "unchanged",
+  failureClass: "domain",
+  exitCode: 3,
+  retryable: false,
+  guidance: "handoff",
+} as const;
+// Host-owned coordination refusals every changing fixture command declares.
+export const causes = { HELD: refusal, PRIOR: refusal } as const;
+export const words = {
+  retryDelayPolicy: { kind: "none" },
+  reachability: "required",
+  unreachableRationale: null,
+  independentObservable: "repair-fixture",
+} as const;
+
+export function recovery() {
+  return command({
+    identity: "specimen.pending",
+    route: ["pending"],
+    summary: "Inspect pending.",
+    input,
+    capabilities: {},
+    stations: [
+      station(commonCauses, {
+        commandIdentity: "specimen.pending",
+        causeCode: "SUCCESS_UNCHANGED",
+        trigger: "Read pending.",
+        guidance: {
+          next: { kind: "instruction", text: "Inspect pending state." },
+        },
+        repairAction: null,
+        ...words,
+      }),
+    ],
+    run: (_input, context) =>
+      context.result(
+        { commandIdentity: "specimen.pending", causeCode: "SUCCESS_UNCHANGED" },
+        { message: "Read pending.", data: null, effects: empty },
+      ),
+  });
+}
+
+const lockHandoff = {
+  handoff: {
+    owner: "operator",
+    reason: "Inspect the lock owner.",
+    inspect: [{ kind: "instruction", text: "Inspect the lock." }],
+  },
+} as const;
+// The held-lock and unresolved-case refusals, one typed station each.
+export function coordination<const Identity extends string>(identity: Identity) {
+  const refusal = { trigger: "Coordination refusal.", repairAction: "Inspect the lock.", guidance: lockHandoff, ...words } as const;
+  return [
+    station(causes, { ...refusal, commandIdentity: identity, causeCode: "HELD" }),
+    station(causes, { ...refusal, commandIdentity: identity, causeCode: "PRIOR" }),
+  ] as const;
+}
+
+// An installation for admission-only fixtures: it never runs a transaction.
+export function admissionInstallation(): StateAddonDescriptor {
+  return contractFor.stateAddon((issuer) => ({
+    ifNoResult: issuer.ifNoResult({
+      kind: "command",
+      command: "specimen.pending",
+      args: [],
+    }),
+    attach() {
+      throw new Error("No state execution in an admission fixture.");
+    },
+  }));
+}
+
+// Narrows an unknown value to an object for reflective reads.
+export function field(value: unknown, key: string): unknown {
+  return typeof value === "object" && value !== null
+    ? Reflect.get(value, key)
+    : undefined;
+}
+
+// Calls contract.build with values the static types forbid, so the case
+// observes runtime refusal.
+export async function buildUnchecked(
+  contract: object,
+  selected: unknown,
+  facts: unknown,
+): Promise<unknown> {
+  const build: unknown = Reflect.get(contract, "build");
+  if (typeof build !== "function") throw new Error("Contract has no build.");
+  const result: unknown = await Reflect.apply(build, contract, [
+    selected,
+    facts,
+  ]);
+  return result;
+}

@@ -1,0 +1,32 @@
+diff --git a/starters/contract3/src/kernel/index.ts b/starters/contract3/src/kernel/index.ts
+index 2de9550..69a9022 100644
+--- a/starters/contract3/src/kernel/index.ts
++++ b/starters/contract3/src/kernel/index.ts
+@@ -301,17 +301,17 @@ export function contractFor<
+           reason: "handler entry already used",
+         };
+       used = true;
+-      const attached =
+-        changingCommand && spec.state
+-          ? attachState(spec.state, runId, selected.effects ?? [])
+-          : undefined;
+-      if (changingCommand && spec.state && !attached)
+-        return {
+-          ok: false,
+-          path: "runId",
+-          reason: "run identity already attached",
+-        };
+       const enter: Enter = async () => {
++        const attached =
++          changingCommand && spec.state
++            ? attachState(spec.state, runId, selected.effects ?? [])
++            : undefined;
++        if (changingCommand && spec.state && !attached)
++          return {
++            ok: false,
++            path: "runId",
++            reason: "run identity already attached",
++          };
+         // WIRE-15: the capability closes when the handler returns, so no
+         // transaction can start after the result exists (K2-spec-3).
+         const outcome = await (ready

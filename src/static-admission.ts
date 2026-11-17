@@ -118,7 +118,7 @@ async function inventory(root: string): Promise<Record<string, string>> {
   const files: Record<string, string> = {};
   await visitDirectory(root, root, files);
   return Object.fromEntries(
-    Object.entries(files).sort(([a], [b]) => a.localeCompare(b)),
+    Object.entries(files).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
   );
 }
 
@@ -137,6 +137,7 @@ async function checkPolicy(options: Options): Promise<Document> {
     "scripts",
     "dependencies",
     "devDependencies",
+    "overrides",
   ]) {
     compare(actual[key], expected[key], `policy:package.json.${key}`);
   }
@@ -170,12 +171,13 @@ async function checkPolicy(options: Options): Promise<Document> {
 
 async function checkLock(root: string, expected: Document): Promise<void> {
   const lock = await jsonFile(join(root, "bun.lock"));
-  requireValue(lock.lockfileVersion === 2, "policy:bun.lock.lockfileVersion");
+  requireValue(lock.lockfileVersion === 3, "policy:bun.lock.lockfileVersion");
   const workspace = document(
     document(lock.workspaces, "policy:bun.lock.workspaces")[""],
     "policy:bun.lock.workspaces.root",
   );
   const packages = document(lock.packages, "policy:bun.lock.packages");
+  checkLockedOverrides(lock.overrides, packages, expected.overrides);
   for (const group of ["dependencies", "devDependencies"]) {
     const pins = document(
       expected[group] ?? {},
@@ -188,6 +190,27 @@ async function checkLock(root: string, expected: Document): Promise<void> {
     );
     checkLockedResolutions(packages, pins);
   }
+}
+
+function checkLockedOverrides(
+  actual: unknown,
+  packages: Document,
+  expected: unknown,
+): void {
+  const overrides = document(expected, "policy:package.json.overrides");
+  const locked: Document = {};
+  const pins: Document = {};
+  for (const [selector, pin] of Object.entries(overrides)) {
+    const [name] = selector.split("@npm:");
+    requireValue(
+      name && typeof pin === "string",
+      "policy:package.json.overrides",
+    );
+    locked[selector] = { ".": pin };
+    pins[name] = pin;
+  }
+  compare(actual, locked, "policy:bun.lock.overrides");
+  checkLockedResolutions(packages, pins);
 }
 
 function checkLockedResolutions(packages: Document, pins: Document): void {

@@ -9,7 +9,13 @@
     "check": "bun run lint && bun run format:check && bun run typecheck && bun run test && bun run --silent quality:fallow",
     "check:write": "bun run format",
     "quality:fallow": "node_modules/.bin/fallow audit --format json --quiet --type-aware --type-aware-require best-effort",
-    "test": "bun test --path-ignore-patterns 'starters/**'",
+    "doctor": "bun run scripts/doctor.ts",
+    "check:commits": "bun run scripts/check-commits.ts",
+    "faults": "bun run scripts/faults.ts replay",
+    "faults:add": "bun run scripts/faults.ts add",
+    "pretest": "bun run doctor",
+    "test": "bun test --parallel=2 --path-ignore-patterns 'starters/**'",
+    "test:area": "bun run scripts/test-area.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "admit:static": "bun run src/static-admission.ts",
     "lint": "eslint . --max-warnings 0",
@@ -27,5 +33,12 @@
     "@eslint/js": "10.0.1",
     "typescript-eslint": "8.72.2",
     "fallow-type-aware": "3.43.0"
+  },
+  "overrides": {
+    "@typescript/old@npm:typescript@^6": "npm:typescript@6.0.2"
+  },
+  "dependencies": {
+    "@logtape/logtape": "2.4.2",
+    "@logtape/redaction": "2.4.2"
   }
 }

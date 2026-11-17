@@ -1,6 +1,13 @@
 {
   "$schema": "./node_modules/fallow/schema.json",
-  "ignorePatterns": ["profiles/**", "examples/**", "starters/**"],
+  "ignorePatterns": [
+    "profiles/**",
+    "examples/**",
+    "starters/simple/**",
+    "starters/complex/**",
+    "starters/shared/**"
+  ],
+  "ignoreBinaries": ["getconf"],
   "typeAware": {
     "enabled": true,
     "require": "complete"
@@ -18,5 +25,22 @@
     "unused-dev-dependencies": "error",
     "unused-optional-dependencies": "error"
   },
-  "entry": ["src/static-admission.ts"]
+  "entry": [
+    "src/static-admission.ts",
+    "scripts/doctor.ts",
+    "scripts/check-commits.ts",
+    "scripts/faults.ts",
+    "scripts/test-area.ts",
+    "starters/contract3/src/kernel/index.ts",
+    "starters/contract3/src/kernel/pattern-worker.ts",
+    "starters/contract3/src/addons/programs/index.ts",
+    "starters/contract3/src/addons/diagnostics/index.ts",
+    "tests/contract3/**/fixtures/*-cli.ts",
+    "tests/contract3/**/fixtures/*-worker.ts",
+    "tests/contract3/lifecycle/fixtures/declining-host.ts",
+    "tests/contract3/state/fixtures/specimen.ts",
+    "starters/contract3/src/addons/state/index.ts",
+    "tests/contract3/kernel-repair/swarm-cli.ts",
+    "tests/contract3/locks/fixtures.ts"
+  ]
 }

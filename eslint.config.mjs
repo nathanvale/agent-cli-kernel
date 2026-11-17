@@ -1,3 +1,4 @@
+import contract3 from "./config/contract3-eslint.mjs";
 import js from "@eslint/js";
 import localRules from "./eslint-rules.mjs";
 import tseslint from "typescript-eslint";
@@ -12,7 +13,9 @@ export default tseslint.config(
       ".worktrees/**",
       "profiles/**",
       "examples/**",
-      "starters/**",
+      "starters/simple/**",
+      "starters/complex/**",
+      "starters/shared/**",
       "proofs/**",
     ],
   },
@@ -40,8 +43,33 @@ export default tseslint.config(
   },
 
   {
-    files: ["src/domains/**/*.ts"],
+    files: ["src/**/*.ts", "scripts/**/*.ts"],
     plugins: { repository: localRules },
+    rules: { "repository/no-locale-compare": "error" },
+  },
+  {
+    files: ["src/domains/**/*.ts"],
     rules: { "repository/no-domain-output": "error" },
+  },
+  {
+    files: ["tests/**/*.{ts,mts,cts}"],
+    plugins: { repository: localRules },
+    rules: {
+      "repository/require-to-throw-message": "error",
+      "repository/tests-use-test-folder": "error",
+      "repository/tests-no-sleep": "error",
+    },
+  },
+  ...contract3,
+  // These rules have recorded hits, so they run only here, where
+  // eslint-suppressions.json applies. A materialised Contract 3 tree lints
+  // with the Contract 3 configuration alone, and the copy has no record.
+  {
+    files: ["starters/contract3/src/**/*.{ts,mts,cts}"],
+    plugins: { repository: localRules },
+    rules: {
+      "repository/no-in-operator": "error",
+      "repository/cause-literal-owner": "error",
+    },
   },
 );

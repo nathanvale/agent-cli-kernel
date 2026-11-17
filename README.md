@@ -65,6 +65,11 @@ native Fallow plus its semantic companion at 3.43.0. Generated
 scratch repositories intentionally omit Biome, Fallow, CI, hooks, release
 tooling, and monorepo structure.
 
+The TypeScript 6 compatibility wrapper has its own version and delegates to
+`@typescript/old`. The alias-specific override pins that underlying API to
+6.0.2 as well. Keep the override and Bun-generated version 3 lockfiles together;
+static admission checks the loaded API, wrapper and native compiler separately.
+
 Every generated repository has one application CLI. Its commands live in
 separate internal files. A workspace exposes the root CLI and keeps member
 packages as libraries. `bun run admit:cli -- <repository-root>` checks its
