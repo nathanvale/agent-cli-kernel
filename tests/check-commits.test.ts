@@ -23,7 +23,9 @@ const sources = [
   "scripts/check-commits.ts",
   "scripts/child-env.ts",
   "scripts/doctor.ts",
+  "scripts/repository.ts",
   "src/toolchain-resolution.ts",
+  "repository.json",
 ];
 const folders: string[] = [];
 const gitEnv = {
@@ -366,6 +368,23 @@ describe("check:commits", () => {
           line.startsWith("Checked 2 commits: all green"),
         ),
       ).toHaveLength(1);
+    },
+    processWatchdog(1),
+  );
+
+  test(
+    "an empty range checks nothing and fails, naming the range",
+    async () => {
+      const { root, base } = repositoryAt();
+
+      const run = await checkCommits(root, [base.sha], {
+        CHECK_COMMITS_SINCE: base.sha,
+      });
+
+      expect(run.exit).toBe(1);
+      expect(run.lines).toContain(
+        `No commits in ${base.sha}..HEAD to check, so this gate checks nothing. Name a base that HEAD is ahead of.`,
+      );
     },
     processWatchdog(1),
   );

@@ -1,0 +1,15 @@
+{
+  "web": "https://github.com/nathanvale/bun-typescript-template",
+  "checkCommitsSince": "f20777f7e67d300ade253060fa2ba36f38c0ca43",
+  "testAreas": [
+    { "name": "template", "folder": "tests", "holds": "files" },
+    {
+      "name": "kernel",
+      "folder": "tests/contract3",
+      "holds": "files",
+      "subfolders": true
+    },
+    { "name": "glossary", "folder": "tests/glossary", "holds": "folder" },
+    { "name": "standards", "folder": "tests/standards", "holds": "folder" }
+  ]
+}

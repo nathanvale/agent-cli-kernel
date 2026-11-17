@@ -13,6 +13,7 @@ import {
 import { dirname, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { ESLint } from "eslint";
+import { readRepository } from "../../scripts/repository.ts";
 import { testFolder } from "../support/test-folder.ts";
 
 const root = join(import.meta.dir, "../..");
@@ -178,16 +179,36 @@ function fetchHint(repository: string, history: string[]): string {
     : "";
 }
 
-const commitPage =
-  "https://github.com/nathanvale/bun-typescript-template/commit/";
 const shortSha = /^[0-9a-f]{7,40}$/;
 const bareSha = /\b(?=[0-9a-f]*\d)(?=[0-9a-f]*[a-f])[0-9a-f]{7,40}\b/g;
 
-type Ancestry = { isAncestor: (sha: string) => boolean; fetch: string };
+type Citable = {
+  page: string;
+  pages: string[];
+  isThread: (target: string) => boolean;
+};
+type Ancestry = Citable & {
+  isAncestor: (sha: string) => boolean;
+  fetch: string;
+};
+
+function citable(repository: string): Citable {
+  const { web, citableWebs: webs } = readRepository(repository);
+  const threads = webs.map(
+    (each) =>
+      new RegExp(`^${each.replaceAll(".", "\\.")}/pull/\\d+#discussion_r\\d+$`),
+  );
+  return {
+    page: `${web}/commit/`,
+    pages: webs.map((each) => `${each}/commit/`),
+    isThread: (target) => threads.some((thread) => thread.test(target)),
+  };
+}
 
 function ancestry(repository: string): Ancestry {
   const history = git(repository, ["rev-list", "HEAD"]).split("\n");
   return {
+    ...citable(repository),
     isAncestor: (sha) => history.some((each) => each.startsWith(sha)),
     fetch: fetchHint(repository, history),
   };
@@ -219,12 +240,11 @@ function commitLinkProblems(
     if (!shortSha.test(label) && !target.includes("/commit/")) continue;
     const where = `${file}:${lineOf(text, match.index)}: [${label}]`;
     if (definition) defined.add(label);
-    const sha = target.startsWith(commitPage)
-      ? target.slice(commitPage.length)
-      : "";
+    const page = history.pages.find((each) => target.startsWith(each));
+    const sha = page === undefined ? "" : target.slice(page.length);
     if (!/^[0-9a-f]{40}$/.test(sha))
       problems.push(
-        `${where} links ${target}, which is not a commit page of this repository. Link ${commitPage}<full sha>.`,
+        `${where} links ${target}, which is not a commit page of this repository. Link ${history.page}<full sha>.`,
       );
     else if (shortSha.test(label) && !sha.startsWith(label))
       problems.push(
@@ -242,7 +262,7 @@ function citationsIn(file: string, text: string, history: Ancestry): string[] {
     const [, label = ""] = match;
     if (!defined.has(label))
       problems.push(
-        `${file}:${lineOf(text, match.index)}: [${label}] has no commit link. Add [${label}]: ${commitPage}<full sha> at the end of the file.`,
+        `${file}:${lineOf(text, match.index)}: [${label}] has no commit link. Add [${label}]: ${history.page}<full sha> at the end of the file.`,
       );
   }
   const prose = text
@@ -367,9 +387,6 @@ function levelProblem(row: Row): string | undefined {
   return gatesOf(row).length > 0 === level.gated ? undefined : level.fix;
 }
 
-const reviewThread =
-  /^https:\/\/github\.com\/nathanvale\/bun-typescript-template\/pull\/\d+#discussion_r\d+$/;
-
 function section(text: string, slug: string): string {
   const all = headings(text);
   const start = all.findIndex((heading) => heading.slug === slug);
@@ -381,7 +398,11 @@ function section(text: string, slug: string): string {
   return text.slice(heading.index, end);
 }
 
-function witnessesIn(text: string, slug: string | undefined): string[] {
+function witnessesIn(
+  text: string,
+  slug: string | undefined,
+  { pages, isThread }: Citable,
+): string[] {
   const targets = new Map(
     [...text.matchAll(/^ {0,3}\[([^\]]+)\]:\s*(\S+)/gm)].map(
       ([, label = "", target = ""]) => [label, target],
@@ -391,28 +412,35 @@ function witnessesIn(text: string, slug: string | undefined): string[] {
   return [...part.matchAll(/\[([^\]]+)\](?![[(:])/g)]
     .map(([, label = ""]) => targets.get(label) ?? "")
     .filter(
-      (target) => target.startsWith(commitPage) || reviewThread.test(target),
+      (target) =>
+        pages.some((page) => target.startsWith(page)) || isThread(target),
     );
 }
 
-function rowWitnesses(repository: string, row: Row, notes: string[]) {
+function rowWitnesses(
+  repository: string,
+  row: Row,
+  notes: string[],
+  pages: Citable,
+) {
   const guides = [
     ...row.guide.matchAll(/\]\(([^)#]*)(?:#([^)]+))?\)/g),
   ].flatMap(([, path = "", anchor]) => {
     const file = join(repository, path === "" ? standards : path);
     return existsSync(file) && statSync(file).isFile()
-      ? witnessesIn(readWithCodeBlanked(file), anchor)
+      ? witnessesIn(readWithCodeBlanked(file), anchor, pages)
       : [];
   });
   const text = readWithCodeBlanked(join(repository, standards));
   return new Set([
     ...guides,
-    ...notes.flatMap((anchor) => witnessesIn(text, anchor)),
+    ...notes.flatMap((anchor) => witnessesIn(text, anchor, pages)),
   ]);
 }
 
 function rowProblems(repository: string): string[] {
   const { rows, gateNotes, problems } = ruleTable(repository);
+  const pages = citable(repository);
   for (const row of rows) {
     const where = `${standards}: row "${row.rule}"`;
     const hasGuide = /\]\([^)]+\)/.test(row.guide);
@@ -423,7 +451,7 @@ function rowProblems(repository: string): string[] {
       problems.push(
         `${where} has no guide and no gate note. Link its guide in the Guide cell, or link a heading under ## Gate notes from its Gates cell.`,
       );
-    const witnesses = rowWitnesses(repository, row, notes).size;
+    const witnesses = rowWitnesses(repository, row, notes, pages).size;
     if (witnesses < 2)
       problems.push(
         `${where} needs two distinct witnesses in its guide or gate note, and has ${witnesses}. Cite a second commit or review thread, or move the lesson back to docs/standards/single-witness.md.`,
@@ -541,8 +569,16 @@ const fixtureGitEnv = {
   GIT_COMMITTER_EMAIL: "fixture@example.invalid",
 };
 const absent = "0123456789abcdef0123456789abcdef01234567";
-const thread =
-  "https://github.com/nathanvale/bun-typescript-template/pull/1#discussion_r1";
+const fixtureWeb = "https://github.com/nathanvale/bun-typescript-template";
+const commitPage = `${fixtureWeb}/commit/`;
+const thread = `${fixtureWeb}/pull/1#discussion_r1`;
+const description = {
+  web: fixtureWeb,
+  checkCommitsSince: absent,
+  testAreas: [
+    { name: "standards", folder: "tests/standards", holds: "folder" },
+  ],
+};
 const gateOn = '{ rules: { "repository/rule": "error" } }';
 
 function lintConfig(...entries: string[]): string {
@@ -589,6 +625,7 @@ function fixture(
   }
   const files: Record<string, string> = {
     "package.json": '{"scripts":{"faults":"true"}}',
+    "repository.json": JSON.stringify(description),
     "eslint.config.mjs": lintConfig(gateOn),
     ".github/workflows/ci.yml":
       "on: pull_request\njobs:\n  faults:\n    runs-on: ubuntu-latest\n",
@@ -874,6 +911,51 @@ test.each([
     );
   },
 );
+
+const kernelWeb = "https://github.com/owner/kernel";
+
+test.each([
+  ["a citable origin", [fixtureWeb], () => []],
+  [
+    "not a citable origin",
+    [],
+    (sha: string) => [
+      `CODING_STANDARDS.md:16: [${sha.slice(0, 7)}] links ${commitPage}${sha}, which is not a commit page of this repository. Link ${kernelWeb}/commit/<full sha>.`,
+      `docs/standards/guide.md:7: [${sha.slice(0, 7)}] links ${commitPage}${sha}, which is not a commit page of this repository. Link ${kernelWeb}/commit/<full sha>.`,
+      'CODING_STANDARDS.md: row "Gated rule" needs two distinct witnesses in its guide or gate note, and has 0. Cite a second commit or review thread, or move the lesson back to docs/standards/single-witness.md.',
+      'CODING_STANDARDS.md: row "Guided rule" needs two distinct witnesses in its guide or gate note, and has 0. Cite a second commit or review thread, or move the lesson back to docs/standards/single-witness.md.',
+    ],
+  ],
+])(
+  "a repository citing another's commits and review threads in its own history, where that one is %s",
+  async (_case, citableOrigins, expected) => {
+    const repository = fixture((files) => {
+      files["repository.json"] = JSON.stringify({
+        ...description,
+        web: kernelWeb,
+        citableOrigins,
+      });
+    });
+    expect(await allProblems(repository)).toEqual(
+      expected(git(repository, ["rev-parse", "HEAD"])),
+    );
+  },
+);
+
+test("a citable origin's commit outside HEAD's history fails", async () => {
+  const repository = fixture((files) => {
+    files["repository.json"] = JSON.stringify({
+      ...description,
+      web: kernelWeb,
+      citableOrigins: [fixtureWeb],
+    });
+    files["docs/standards/guide.md"] =
+      `${files["docs/standards/guide.md"] ?? ""}\nSee [0123456](${commitPage}${absent}).\n`;
+  });
+  expect(await citationProblems(repository)).toEqual([
+    `docs/standards/guide.md:10: [0123456] cites ${absent}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA.`,
+  ]);
+});
 
 test("a .claude/skills link to another skill fails and says how to relink it", async () => {
   const repository = fixture((files) => {

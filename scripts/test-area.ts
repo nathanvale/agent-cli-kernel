@@ -1,10 +1,7 @@
 import { type Dirent, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { doctor } from "./doctor.ts";
-
-// Platform: bun test reads a path without a ./ prefix as a substring filter, so
-// "tests/contract3/state" would also run state-seam.test.ts.
-const contract3 = "tests/contract3";
+import { readRepository, type TestArea } from "./repository.ts";
 
 function isTest(name: string): boolean {
   return name.endsWith(".test.ts");
@@ -23,43 +20,59 @@ function entries(directory: string): Dirent[] {
     : [];
 }
 
+// Platform: bun test reads a path without a ./ prefix as a substring filter, so
+// "tests/contract3/state" would also run state-seam.test.ts.
 function testFiles(root: string, directory: string): string[] {
   return entries(join(root, directory))
     .filter((entry) => entry.isFile() && isTest(entry.name))
     .map((entry) => `./${directory}/${entry.name}`);
 }
 
-function areas(root: string): Map<string, string[]> {
-  const candidates: [string, string[]][] = [
-    ["template", testFiles(root, "tests")],
-    ["kernel", testFiles(root, contract3)],
-    [
-      "glossary",
-      holdsTests(join(root, "tests/glossary")) ? ["./tests/glossary"] : [],
-    ],
-    [
-      "standards",
-      holdsTests(join(root, "tests/standards")) ? ["./tests/standards"] : [],
-    ],
-    ...entries(join(root, contract3))
-      .filter(
-        (entry) =>
-          entry.isDirectory() && holdsTests(join(root, contract3, entry.name)),
-      )
-      .map((entry): [string, string[]] => [
-        entry.name,
-        [`./${contract3}/${entry.name}`],
-      ]),
-  ];
-  return new Map(candidates.filter(([, paths]) => paths.length > 0));
+function pathsOf(root: string, { holds, folder }: TestArea): string[] {
+  if (holds === "files") return testFiles(root, folder);
+  return holdsTests(join(root, folder)) ? [`./${folder}`] : [];
+}
+
+function subfolderAreas(
+  root: string,
+  { folder }: TestArea,
+): [string, string[]][] {
+  return entries(join(root, folder))
+    .filter(
+      (entry) =>
+        entry.isDirectory() && holdsTests(join(root, folder, entry.name)),
+    )
+    .map((entry) => [entry.name, [`./${folder}/${entry.name}`]]);
+}
+
+function areas(root: string): {
+  known: Map<string, string[]>;
+  empty: string[];
+} {
+  const declared = readRepository(root).testAreas;
+  const candidates = declared.flatMap((area): [string, string[]][] => [
+    [area.name, pathsOf(root, area)],
+    ...(area.subfolders ? subfolderAreas(root, area) : []),
+  ]);
+  return {
+    known: new Map(candidates.filter(([, paths]) => paths.length > 0)),
+    empty: declared
+      .filter((area) => pathsOf(root, area).length === 0)
+      .map(({ name, folder }) => `${name} (${folder})`),
+  };
 }
 
 const root = join(import.meta.dir, "..");
-const known = areas(root);
+const { known, empty } = areas(root);
 const [area, ...options] = process.argv.slice(2);
 const paths = area === undefined ? undefined : known.get(area);
 
-if (paths === undefined) {
+if (empty.length > 0) {
+  process.stderr.write(
+    `repository.json declares test areas that hold no test file: ${empty.join(", ")}. Restore their tests, or remove them from testAreas.\n`,
+  );
+  process.exitCode = 1;
+} else if (paths === undefined) {
   const valid = [...known.keys()].sort().join(", ");
   process.stderr.write(
     `Usage: bun run test:area <area> [bun test options]. ${area === undefined ? "No area given" : `Unknown area "${area}"`}. Valid areas: ${valid}.\n`,

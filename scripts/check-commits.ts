@@ -9,10 +9,11 @@ import { constants, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { runWithOwnTools } from "./child-env.ts";
 import { doctor } from "./doctor.ts";
+import { readRepository } from "./repository.ts";
 
-const since = "f20777f7e67d300ade253060fa2ba36f38c0ca43";
-const fixedPoint = process.env.CHECK_COMMITS_SINCE || since;
 const root = join(import.meta.dir, "..");
+const fixedPoint =
+  process.env.CHECK_COMMITS_SINCE || readRepository(root).checkCommitsSince;
 const steps = [
   ["install", "--frozen-lockfile"],
   ["run", "typecheck"],
@@ -188,6 +189,12 @@ async function main(argv: readonly string[]): Promise<number> {
     return 1;
   }
   const commits = commitsToCheck(base, head);
+  if (commits.length === 0) {
+    print(
+      `No commits in ${base}..${head} to check, so this gate checks nothing. Name a base that ${head} is ahead of.`,
+    );
+    return 1;
+  }
   const started = performance.now();
   let red = 0;
   for (const commit of commits) {
@@ -197,10 +204,7 @@ async function main(argv: readonly string[]): Promise<number> {
     if (checked.result.status === "red") red += 1;
   }
   const seconds = (performance.now() - started) / 1000;
-  const pace =
-    commits.length === 0
-      ? ""
-      : ` in ${seconds.toFixed(1)} s, ${(seconds / commits.length).toFixed(1)} s per commit`;
+  const pace = ` in ${seconds.toFixed(1)} s, ${(seconds / commits.length).toFixed(1)} s per commit`;
   if (red > 0) {
     print(`${red} of ${commits.length} commits are red${pace}.`);
     return 1;

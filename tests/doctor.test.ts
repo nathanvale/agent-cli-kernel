@@ -14,6 +14,7 @@ const repository = join(import.meta.dir, "..");
 const scripts = [
   "scripts/doctor.ts",
   "scripts/test-area.ts",
+  "scripts/repository.ts",
   "src/toolchain-resolution.ts",
 ];
 const projects: string[] = [];
@@ -207,7 +208,23 @@ describe("doctor", () => {
 });
 
 describe("test:area", () => {
+  const declared = [
+    { name: "template", folder: "tests", holds: "files" },
+    {
+      name: "kernel",
+      folder: "tests/contract3",
+      holds: "files",
+      subfolders: true,
+    },
+  ];
+  const description = (testAreas: object[]) =>
+    JSON.stringify({
+      web: "https://github.com/owner/fixture",
+      checkCommitsSince: "0123456789abcdef0123456789abcdef01234567",
+      testAreas,
+    });
   const probe = {
+    "repository.json": description(declared),
     "tests/contract3/probe/probe.test.ts":
       'import { test } from "bun:test";\ntest("chosen case", () => {});\ntest("other case", () => {});\n',
     "tests/contract3/probe-seam.test.ts":
@@ -239,6 +256,22 @@ describe("test:area", () => {
     expect(result.stderr).toContain(" 1 pass\n");
     expect(result.stderr).toContain(" 1 filtered out\n");
     expect(result.stderr).toContain("Ran 1 test across 1 file.");
+  });
+
+  test("a declared area that holds no test file fails, naming it, and runs nothing", () => {
+    const root = withToolchain("6.0.2", {
+      ...probe,
+      "repository.json": description([
+        ...declared,
+        { name: "lost", folder: "tests/lost", holds: "folder" },
+      ]),
+    });
+    const result = run(root, testArea, ["template"]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toBe(
+      "repository.json declares test areas that hold no test file: lost (tests/lost). Restore their tests, or remove them from testAreas.\n",
+    );
   });
 
   test("the template area runs only the test files directly under tests", () => {
