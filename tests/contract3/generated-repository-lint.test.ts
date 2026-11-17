@@ -53,7 +53,7 @@ async function hostTree(
   addons: readonly string[],
   folders: readonly string[],
 ): Promise<string> {
-  const tree = testFolder("kernel-host-lint-");
+  const tree = testFolder("kernel-generated-repository-lint-");
   trees.push(tree);
   await cp(join(kernelSource, "src/kernel"), join(tree, "src/kernel"), {
     recursive: true,
