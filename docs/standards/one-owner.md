@@ -12,6 +12,10 @@ here.
 - Import shared test fakes and fixtures from
   `tests/kernel/kernel-repair/handlers.ts` and `shapes.ts`. Witnessed:
   [810345d], [cf72627].
+- Isolate a test's git from the caller's configuration with `gitEnv` from
+  `tests/support/git-fixture.ts`, and set it on `process.env` around an
+  in-process subject that runs git. A user's `diff.orderFile` changed what
+  the staged readers listed. Witnessed: [f929eb7].
 
 [56aee86]: https://github.com/nathanvale/bun-typescript-template/commit/56aee86bf059fb2629819fa2b6a1664d776629d5
 [e7c771c]: https://github.com/nathanvale/bun-typescript-template/commit/e7c771c89f63ffeeb609b03e4f670e9d43ea53fb
@@ -19,3 +23,4 @@ here.
 [f2270b3]: https://github.com/nathanvale/bun-typescript-template/commit/f2270b3916114f0d693544fb1dfb3ed190c92288
 [810345d]: https://github.com/nathanvale/bun-typescript-template/commit/810345d01ab28f5b3108ea4b5420fb05743ec6b4
 [cf72627]: https://github.com/nathanvale/bun-typescript-template/commit/cf726279ccbe1fa540745be879343c379390fdd1
+[f929eb7]: https://github.com/nathanvale/bun-typescript-template/commit/f929eb7fe9fbba24f5990269c27cddf302deb9de
