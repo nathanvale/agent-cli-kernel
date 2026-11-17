@@ -76,9 +76,8 @@ gates and their witnesses.
     limit.
   - `Interface:` on its first line: a public contract the types cannot
     state.
-  - An accepted decision citation. Say "accepted decision" and give a
-    Contract 3 question number, an ID such as `N4a`, or the ruling date.
-    See the [CLI kernel authority](../agents/cli-kernel.md).
+  - The phrase "accepted decision" or "accepted decisions" anywhere in
+    the block.
   - A lint or compiler directive, such as `eslint-disable-next-line` or
     `@ts-expect-error`. Other rules govern those.
   - `SAFETY:` and a justification on its first line, on its own lines
@@ -86,7 +85,7 @@ gates and their witnesses.
     `as const`), where `anti-slop/require-safety-comment-for-type-assertion`
     accepts it.
 - Everything else goes into code: a name, a type, a test title, or a lint
-  lint rule whose message explains the constraint. An empty `catch` says what
+  rule whose message explains the constraint. An empty `catch` says what
   happens next in code (`return`, `continue`, or a rethrow), not in prose.
 - Fault `5ac4285-template-rules` admits a marker on any line of a block; the
   lint test that refuses `Platform:` on a second line kills it. Fault
@@ -94,9 +93,11 @@ gates and their witnesses.
 - Fault `bbfce9a-template-rules` admits a `SAFETY:` block anywhere; the lint
   test that refuses one above a statement with no cast kills it. Fault
   `bbfce9a-eslint-rules` plants the same fault in the kernel's copy.
-- Review only: whether a `Platform:` or `Interface:` comment is true, and
-  whether it names something outside this repository. A marker is easy to
-  add to any note.
+- In review, verify what a `Platform:` or `Interface:` comment claims and
+  whether it names something outside this repository.
+- In review, verify each accepted decision citation. Require a Command
+  Contract 3 question number, an ID such as `N4a`, or the ruling date.
+  Consult the [CLI kernel authority](../agents/cli-kernel.md).
 - Not covered: `starters/simple/`, `starters/complex/`, the bootstrap
   profiles, the `.ts.txt` fixtures, the kernel lint configuration that lints
   a materialised tree, YAML and Markdown.
