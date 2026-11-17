@@ -12,13 +12,15 @@ function canonical(value: unknown): unknown {
 
 export function comparableEnvelope(envelope: unknown): string | undefined {
   if (!record(envelope) || !record(envelope.result)) return undefined;
+  const comparable = {
+    ...envelope,
+    result: { ...envelope.result, runId: "<run>" },
+  };
   return JSON.stringify(
-    canonical({
-      ...envelope,
-      result: { ...envelope.result, runId: "<run>" },
-      ...(envelope.diagnostics === undefined
-        ? {}
-        : { diagnostics: "<diagnostics>" }),
-    }),
+    canonical(
+      envelope.diagnostics === undefined
+        ? comparable
+        : { ...comparable, diagnostics: "<diagnostics>" },
+    ),
   );
 }

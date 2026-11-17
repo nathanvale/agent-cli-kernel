@@ -54,7 +54,7 @@ function rawSource(arm: "next" | "handoff", row: Row) {
     execute: neverRuns,
   };
 }
-const admit = (declaration: object) => () =>
+const admit = (declaration: unknown) => () =>
   contractUnchecked(kernel.contractFor, {
     cli: "specimen",
     commands: [declaration, ...targets(kernel)],

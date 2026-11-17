@@ -130,19 +130,20 @@ function renderHandoff(handoff: Handoff, result: WireResult): Handoff {
       ? { ...entry, args: entry.args.map((arg) => substitute(arg, result)) }
       : { ...entry, text: substitute(entry.text, result) };
   const [first, ...rest] = handoff.inspect;
-  return {
+  const rendered: Handoff = {
     ...handoff,
     reason: substitute(handoff.reason, result),
     inspect: [renderInspection(first), ...rest.map(renderInspection)],
-    ...(handoff.resource
-      ? {
-          resource: {
-            kind: substitute(handoff.resource.kind, result),
-            id: substitute(handoff.resource.id, result),
-          },
-        }
-      : {}),
   };
+  return handoff.resource
+    ? {
+        ...rendered,
+        resource: {
+          kind: substitute(handoff.resource.kind, result),
+          id: substitute(handoff.resource.id, result),
+        },
+      }
+    : rendered;
 }
 export function renderGuidance(station: DeclaredStation, result: WireResult) {
   return {

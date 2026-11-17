@@ -44,11 +44,6 @@ function concealScalar(
     : value;
 }
 
-function plain(value: object): boolean {
-  const prototype: unknown = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
-}
-
 function lost(cut: Cut, marker: string): string {
   cut.truncated = true;
   return marker;
@@ -65,7 +60,7 @@ function boundedString(
 }
 
 function boundedObject(
-  value: object,
+  value: unknown,
   secretForms: readonly string[],
   level: number,
   cut: Cut,
@@ -81,7 +76,11 @@ function boundedObject(
       );
     return items;
   }
-  if (!plain(value)) return lost(cut, markers.unserialisable);
+  if (typeof value !== "object" || value === null)
+    return lost(cut, markers.unserialisable);
+  const prototype: unknown = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null)
+    return lost(cut, markers.unserialisable);
   const result: Record<string, unknown> = {};
   const keys = Object.keys(value);
   for (const key of keys.slice(0, limits.entries))

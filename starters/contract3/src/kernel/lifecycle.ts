@@ -12,6 +12,7 @@ import type {
   StopSignal,
 } from "./process-types.ts";
 import { runtimeOf } from "./runtime.ts";
+import type { ContractKey } from "./runtime.ts";
 import type { Attach, ContractRuntime, Enter, Resolution } from "./runtime.ts";
 import type { CommandResult } from "./command-result.ts";
 import type { CommandDeclaration } from "./declarations.ts";
@@ -141,12 +142,15 @@ function plansFor(
   return plans;
 }
 
-export function runProcess(contract: object, setup: RunSetup = {}): RunProcess {
+export function runProcess(
+  contract: ContractKey,
+  setup: RunSetup = {},
+): RunProcess {
   return runProcessOn(contract, setup, processHost);
 }
 
 export function runProcessOn(
-  contract: object,
+  contract: ContractKey,
   setup: RunSetup,
   host: () => ProcessHost,
 ): RunProcess {
@@ -326,12 +330,12 @@ function trustedRun(
   handlerEntered: boolean,
   summary?: StateObservation,
 ): TrustedRun {
-  return {
+  const trusted: TrustedRun = {
     runId: run.runId,
     commandIdentity: identity,
     handlerEntered,
-    ...(summary ? { summary } : {}),
   };
+  return summary ? { ...trusted, summary } : trusted;
 }
 
 async function kernelResult(

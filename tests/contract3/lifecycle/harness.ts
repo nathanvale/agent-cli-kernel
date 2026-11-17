@@ -143,7 +143,7 @@ export type Observed = {
   readonly firstStdoutAt: number | undefined;
   readonly ledger: readonly string[];
   readonly dir: string;
-  readonly operand?: OperandFit;
+  readonly operand?: OperandFit | undefined;
 };
 export type OperandFit = {
   readonly frozenLength: number;
@@ -332,7 +332,7 @@ export async function launch(options: {
       firstStdoutAt,
       ledger: readLedger(ledgerPath),
       dir,
-      ...(fitted ? { operand: fitted.fit } : {}),
+      operand: fitted?.fit,
     };
   })();
   return {
@@ -491,10 +491,13 @@ export async function exitWithin(
 }
 const ledgeredLeaders = ["child-started", "escaped", "late-child"];
 function ledgeredPid(ledger: readonly string[], prefix: string) {
-  return ledger
-    .filter((line) => line.startsWith(`${prefix} `))
-    .map((line) => Number(line.split(" ")[1]))
-    .filter((pid) => Number.isSafeInteger(pid) && pid > 0);
+  return ledger.flatMap((line) => {
+    if (!line.startsWith(`${prefix} `)) return [];
+
+    const pid = Number(line.split(" ")[1]);
+
+    return Number.isSafeInteger(pid) && pid > 0 ? [pid] : [];
+  });
 }
 export function firstPid(ledger: readonly string[], prefix: string) {
   return ledgeredPid(ledger, prefix)[0];

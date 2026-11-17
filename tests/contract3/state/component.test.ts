@@ -218,17 +218,19 @@ async function inTransaction(
     stations: [heldStation, unresolvedStation],
     run: async (_input, context) => {
       const boundary = composed.boundary;
+      const declaration = {
+        command: "cx.change",
+        scope: {
+          resources: options.keys
+            ? options.keys.map((key) => ({ resource: `r-${key}`, key }))
+            : [{ resource: "r", key: "component" }],
+        },
+      };
       outcome = await state.transaction(
         context.state,
-        {
-          command: "cx.change",
-          scope: {
-            resources: options.keys
-              ? options.keys.map((key) => ({ resource: `r-${key}`, key }))
-              : [{ resource: "r", key: "component" }],
-          },
-          ...(approval && boundary ? { approval: approval(boundary) } : {}),
-        },
+        approval && boundary
+          ? { ...declaration, approval: approval(boundary) }
+          : declaration,
         async (transaction) => {
           await scenario(
             (operation) =>

@@ -13,7 +13,10 @@ import type {
 import { programsAddon } from "../../../../starters/contract3/src/addons/programs/index.ts";
 import { runProcessOn } from "../../../../starters/contract3/src/kernel/lifecycle.ts";
 import { processHost } from "../../../../starters/contract3/src/kernel/process-host.ts";
-import type { ProcessHost } from "../../../../starters/contract3/src/kernel/process-types.ts";
+import type {
+  AttachedAddon,
+  ProcessHost,
+} from "../../../../starters/contract3/src/kernel/process-types.ts";
 import {
   recordRuntime,
   runtimeOf,
@@ -131,15 +134,15 @@ const statusAddon: RunAddon<DiagnosticsCapability> = {
       record: (event: string) => ledger(`record ${event}`),
     };
     if (mode === "bad-capability") Reflect.deleteProperty(capability, "record");
-    return {
+    const attached: AttachedAddon<DiagnosticsCapability> = {
       capability: Object.freeze(capability),
       settle(limit) {
         ledger(`status-settle ${limit ?? "none"}`);
         return Promise.resolve(true);
       },
       killNow: () => ledger("status-kill"),
-      ...(mode === "no-freeze" ? {} : { freeze: frozen }),
     };
+    return mode === "no-freeze" ? attached : { ...attached, freeze: frozen };
   },
 };
 

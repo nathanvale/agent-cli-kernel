@@ -412,18 +412,19 @@ function session(
       truncated <= admitted &&
       arrived <= handed;
     if (accounting === "ok" && consistent) return available;
-    const trusted: Trusted = {
+    const base: Trusted = {
       file: available.file,
       sinkFailure: failure,
       closed,
       countsComplete: false,
-      ...(consistent
-        ? {
-            droppedRecords: available.droppedRecords,
-            truncatedRecords: available.truncatedRecords,
-          }
-        : {}),
     };
+    const trusted: Trusted = consistent
+      ? {
+          ...base,
+          droppedRecords: available.droppedRecords,
+          truncatedRecords: available.truncatedRecords,
+        }
+      : base;
     return {
       status: "unavailable",
       reason:

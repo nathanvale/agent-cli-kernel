@@ -38,7 +38,8 @@ function arrayIndex(key: string, length: number): boolean {
     index < length
   );
 }
-function exactArray(value: object): boolean {
+type JsonContainer = readonly unknown[] | Record<string, unknown>;
+function exactArray(value: JsonContainer): boolean {
   if (!Array.isArray(value)) return true;
   const keys = Reflect.ownKeys(value);
   return (
@@ -51,7 +52,7 @@ function exactArray(value: object): boolean {
     )
   );
 }
-function ownJsonValues(value: object): unknown[] | undefined {
+function ownJsonValues(value: JsonContainer): unknown[] | undefined {
   if (!exactArray(value)) return undefined;
   const values: unknown[] = [];
   for (const key of Reflect.ownKeys(value)) {

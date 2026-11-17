@@ -243,7 +243,7 @@ async function faults(
         },
         boundMilliseconds,
         processGroup: true,
-        ...(signalAt === undefined ? {} : { signalAt }),
+        signalAt,
       },
     );
     return { ...run, temporary, pids, lines: run.stdout.split("\n") };
@@ -342,9 +342,11 @@ async function repositoryWithFault(
 }
 
 function verdicts(lines: readonly string[]): string[] {
-  return lines
-    .filter((line) => /^(KILLED|SURVIVED|STALE|BROKEN|TIMEOUT) /.test(line))
-    .map((line) => line.split(" ", 2).join(" "));
+  return lines.flatMap((line) =>
+    /^(KILLED|SURVIVED|STALE|BROKEN|TIMEOUT) /.test(line)
+      ? [line.split(" ", 2).join(" ")]
+      : [],
+  );
 }
 
 function lineOf(lines: readonly string[], start: string): string {

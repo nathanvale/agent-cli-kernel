@@ -409,12 +409,15 @@ function witnessesIn(
     ),
   );
   const part = slug === undefined ? text : section(text, slug);
-  return [...part.matchAll(/\[([^\]]+)\](?![[(:])/g)]
-    .map(([, label = ""]) => targets.get(label) ?? "")
-    .filter(
-      (target) =>
-        pages.some((page) => target.startsWith(page)) || isThread(target),
-    );
+  return [...part.matchAll(/\[([^\]]+)\](?![[(:])/g)].flatMap(
+    ([, label = ""]) => {
+      const target = targets.get(label) ?? "";
+
+      return pages.some((page) => target.startsWith(page)) || isThread(target)
+        ? [target]
+        : [];
+    },
+  );
 }
 
 function rowWitnesses(

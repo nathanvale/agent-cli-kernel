@@ -1,5 +1,6 @@
 import { appendFileSync } from "node:fs";
 import { expect } from "bun:test";
+import type { JsonValue } from "../../../starters/contract3/src/kernel/types.ts";
 import { record } from "../../../starters/contract3/src/kernel/validation/primitives.ts";
 import {
   deepestLevel,
@@ -64,7 +65,9 @@ export const authorityDefaults = {
     "Obtain an exact-item grant from the command's authority owner, then decide on a new run.",
 } as const;
 
-export function receipt(entry: Case, observed: Observed, extra: object = {}) {
+export type Evidence = Readonly<Record<string, JsonValue | undefined>>;
+
+export function receipt(entry: Case, observed: Observed, extra: Evidence = {}) {
   const path = process.env.T2_EVIDENCE;
   if (!path) return;
   appendFileSync(

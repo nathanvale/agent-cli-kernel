@@ -171,11 +171,8 @@ export async function parseInput<I extends InputSchema>(
       reason: "command does not support deadlines",
     };
   const parsed = await parseDomainInput(schema, tokens);
-  return parsed.ok
-    ? {
-        ...parsed,
-        ...(deadlineMilliseconds === undefined ? {} : { deadlineMilliseconds }),
-      }
+  return parsed.ok && deadlineMilliseconds !== undefined
+    ? { ...parsed, deadlineMilliseconds }
     : parsed;
 }
 
@@ -221,7 +218,7 @@ function setValue(
 
 export function acceptsRootInput(
   route: readonly string[],
-  input: object,
+  input: ParsedInput<InputSchema>,
 ): boolean {
   return route.length > 0 || Object.keys(input).length > 0;
 }

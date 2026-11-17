@@ -60,9 +60,6 @@ export function splitDeadlineTokens(argv: readonly unknown[]): Validation<{
   }
   return {
     ok: true,
-    value: {
-      tokens,
-      ...(deadlineValue === undefined ? {} : { deadlineValue }),
-    },
+    value: deadlineValue === undefined ? { tokens } : { tokens, deadlineValue },
   };
 }

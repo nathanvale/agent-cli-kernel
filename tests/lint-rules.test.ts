@@ -70,12 +70,7 @@ function typeErrors(filePath: string, code: string): string[] {
     name === target
       ? ts.createSourceFile(name, code, language)
       : read(name, language, ...rest);
-  const program = ts.createProgram({
-    rootNames: [target],
-    options: config.options,
-    host,
-    ...(previous ? { oldProgram: previous } : {}),
-  });
+  const program = ts.createProgram([target], config.options, host, previous);
   previous = program;
   return ts
     .getPreEmitDiagnostics(program, program.getSourceFile(target))

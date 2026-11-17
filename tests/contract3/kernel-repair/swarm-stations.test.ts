@@ -3,13 +3,14 @@ import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runtimeOf } from "../../../starters/contract3/src/kernel/runtime.ts";
+import type { ContractKey } from "../../../starters/contract3/src/kernel/runtime.ts";
 import { selectingLoad } from "./swarm-commands.ts";
 import type { ScenarioRun } from "./swarm-process.ts";
 import { processWatchdog, runScenario } from "./swarm-process.ts";
 
 const processTimeout = processWatchdog(3);
 
-function stationsOf(contract: object, identity: string): unknown[] {
+function stationsOf(contract: ContractKey, identity: string): unknown[] {
   const runtime = runtimeOf(contract);
   if (!runtime) throw new Error("No discoverCommand.");
   const data: unknown = runtime.navigation.discoverCommand(identity);
@@ -127,11 +128,12 @@ async function approvalRun(env: Readonly<Record<string, string>>) {
     const ledger = join(directory, "ledger.txt");
     const store = join(directory, "store");
     await mkdir(store);
-    const observed = await runScenario("inspect-approval", ["read", "--json"], {
-      ...env,
-      LEDGER: ledger,
-      ...(env.GRANTS === "" ? { GRANTS: store } : {}),
-    });
+    const scenarioEnv = { ...env, LEDGER: ledger };
+    const observed = await runScenario(
+      "inspect-approval",
+      ["read", "--json"],
+      env.GRANTS === "" ? { ...scenarioEnv, GRANTS: store } : scenarioEnv,
+    );
     const lines = (await readFile(ledger, "utf8").catch(() => ""))
       .split("\n")
       .filter((line) => line !== "");

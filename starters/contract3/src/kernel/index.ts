@@ -1,6 +1,6 @@
 import { navigationData } from "./validation/discovery.ts";
 import { resultPlan, resultMatches } from "./command-result.ts";
-import type { CommandResult } from "./command-result.ts";
+import type { CommandResult, Invocation } from "./command-result.ts";
 import { withState } from "./validation/context.ts";
 import { buildInputTable, validateFutureInputs } from "./future-input.ts";
 import { validateCauses, validateCommands } from "./declaration-checks.ts";
@@ -322,7 +322,7 @@ export function contractFor<
     outcome: Validation<CommandResult>,
     identity: string,
     runId: string,
-    invocation: object,
+    invocation: Invocation,
     parsed: { readonly deadlineMilliseconds?: number },
   ) {
     if (!outcome.ok) return outcome;
@@ -333,12 +333,9 @@ export function contractFor<
         reason: "result belongs to another invocation",
       } as const;
     acceptedResults.add(outcome.value);
-    return {
-      ...outcome,
-      ...(parsed.deadlineMilliseconds === undefined
-        ? {}
-        : { deadlineMilliseconds: parsed.deadlineMilliseconds }),
-    };
+    return parsed.deadlineMilliseconds === undefined
+      ? outcome
+      : { ...outcome, deadlineMilliseconds: parsed.deadlineMilliseconds };
   }
 
   async function executeCommand(
