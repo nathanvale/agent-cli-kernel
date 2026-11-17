@@ -72,6 +72,7 @@ check's exit code:
 - The check stops at the first failing step, so plant one mistake per run. A
   second mistake hides behind the first.
 - Bootstrap copies the starter's tests, so `bun test` runs 31 tests, not one.
+- Fallow needs a real Node.js on `PATH`; see [Bootstrap](bootstrap.md#gotchas).
 - The scratch profile's check is `bun run typecheck && bun run test` only; a
   lint, format or Fallow mistake passes it by design.
 - No fault record patches `profiles/`. `tests/bootstrap-cli.test.ts` runs

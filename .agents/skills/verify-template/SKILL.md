@@ -94,16 +94,35 @@ after every failed iteration too.
 
 ## Linux
 
-Run the same session inside `oven/bun:1.4.4` as a non-root user. The image
-lacks git and procps, and some template tests fail as root. On the Mac mini
-the run looks like this (send a git bundle, since launch clones a commit):
+Run the same session inside `oven/bun:1.4.4` as a non-root user. On the Mac
+mini, OrbStack runs it. Launch clones a commit, so send a git bundle of the
+branch, a driver script holding your helper calls, and this setup script,
+`inner.sh`, which prints the kept evidence as a tar on stdout:
 
 ```sh
-git bundle create - HEAD | ssh -o BatchMode=yes mac-mini "zsh -lc 'docker run -i --rm oven/bun:1.4.4 bash -c \"
-  apt-get update -qq && apt-get install -y -qq git procps >/dev/null &&
-  useradd -m verify && cat > /home/verify/head.bundle && chown verify /home/verify/head.bundle &&
-  su verify -c \\\"cd && git clone -q head.bundle template && cd template && <helper calls>\\\"\"'"
+set -eu
+apt-get update -qq >&2
+apt-get install -y -qq git procps nodejs >/dev/null 2>&1
+useradd -m verify
+cp /in/head.bundle /in/driver.sh /home/verify/
+chown verify /home/verify/head.bundle /home/verify/driver.sh
+su verify -c 'cd && git clone -q -b <branch> head.bundle template && cd template && sh ../driver.sh' >&2
+tar -C "$(ls -d /tmp/verify-template/* | head -n 1)" -cf - evidence run.env
 ```
+
+```sh
+git bundle create "$out/in/head.bundle" <branch>
+tar -C "$out/in" -cf - head.bundle driver.sh inner.sh |
+  ssh -o BatchMode=yes mac-mini "zsh -lc 'docker run -i --rm oven/bun:1.4.4 bash -c \"mkdir /in && tar -x -C /in -f - && bash /in/inner.sh\"'" 2>"$out/linux.log" |
+  tar -x -C "$out"
+```
+
+- The image lacks git and procps, and some template tests fail as root.
+- The image has no Node.js, only Bun's `node` fallback, and a durable check
+  then fails at Fallow (see [Bootstrap](features/bootstrap.md#gotchas)).
+  `nodejs` stands in for the Node a hosted runner or a developer machine has.
+- The container is the stand-in for a Linux host. Its package installs and
+  user are setup steps a real Linux host must supply itself.
 
 ## Features
 
