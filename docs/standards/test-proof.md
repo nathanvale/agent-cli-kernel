@@ -69,10 +69,11 @@ repository broke it.
   then `bun run fault-replay <id>` until it prints `KILLED`. Witnessed:
   [9050fec], [b8664cf] (each recorded faults for refusals that had landed
   with no record).
-- When a change moves a test or alters the source the patch targets, update
-  the affected patch or test selector in the same commit. Replay the affected
-  records and require `KILLED`. A split guard left a patch stale, and a test-only
-  edit could escape the changed-file replay. Witnessed: [#54-stale], [#77-test].
+- Replay affected fault records when you edit or move a test that catches
+  a planted fault, or change the source its patch targets. Keep the patch
+  and test selector current in the same commit and require `KILLED`.
+  A split guard left a patch stale, and the original changed-file selector
+  missed test-only edits. Witnessed: [#54-stale], [#77-test].
 - Treat a surviving fault as a missing test. Witnessed: [d72cd9e], [640ba05].
 
 ## Processes
