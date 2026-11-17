@@ -449,7 +449,7 @@ const cases = [
       'expect(() => contractFor({ cli: "notes", commands: [list] })).not.toThrow();',
     ],
     line: 2,
-    fix: "Pass the message or the cause that the test's name gives",
+    fix: "Repair: pass the message or the cause that the test's name gives",
   },
   {
     rule: "tests-use-test-folder",
@@ -497,7 +497,7 @@ const cases = [
       "}",
     ],
     line: 4,
-    fix: "Wait on the event the test is about",
+    fix: "Repair: wait on the event the test is about",
   },
 ];
 
@@ -580,42 +580,42 @@ const bypasses = [
   [
     "tests-use-test-folder",
     'import { tmpdir as td2 } from "node:os";\ntd2();',
-    "not tmpdir()",
+    "tmpdir() ignores STATE_TEST_DIR",
   ],
   [
     "tests-use-test-folder",
     'import * as os from "node:os";\nconst { tmpdir: td } = os;\ntd();',
-    "not tmpdir()",
+    "tmpdir() ignores STATE_TEST_DIR",
   ],
   [
     "tests-use-test-folder",
     'import os from "os";\nos["tmpdir"]();',
-    "not tmpdir()",
+    "tmpdir() ignores STATE_TEST_DIR",
   ],
   [
     "tests-use-test-folder",
     'import * as os from "node:os";\nconst td = os.tmpdir;\ntd();',
-    "not tmpdir()",
+    "tmpdir() ignores STATE_TEST_DIR",
   ],
   [
     "tests-use-test-folder",
     'import { mkdtempSync as make } from "fs";\nmake("x");',
-    "not mkdtempSync()",
+    "mkdtempSync() ignores STATE_TEST_DIR",
   ],
   [
     "tests-use-test-folder",
     'import fsp from "node:fs/promises";\nawait fsp["mkdtemp"]("x");',
-    "not mkdtemp()",
+    "mkdtemp() ignores STATE_TEST_DIR",
   ],
   [
     "tests-use-test-folder",
     'const { mkdtemp: make } = await import("fs/promises");\nawait make("x");',
-    "not mkdtemp()",
+    "mkdtemp() ignores STATE_TEST_DIR",
   ],
   [
     "tests-use-test-folder",
     'const { tmpdir: td } = require("node:os");\ntd();',
-    "not tmpdir()",
+    "tmpdir() ignores STATE_TEST_DIR",
   ],
   [
     "tests-use-test-folder",
@@ -625,7 +625,7 @@ const bypasses = [
   [
     "tests-use-test-folder",
     'import * as os from "node:os";\nconst { tmpdir: td, ...rest } = os;\ntd();\nrest.homedir();',
-    "not tmpdir()",
+    "tmpdir() ignores STATE_TEST_DIR",
   ],
   ...[
     "const { ...rest } = { value: 1 };\nexpect(rest.value).toBe(1);",
