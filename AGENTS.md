@@ -63,9 +63,9 @@ owner from this list.
   draft, so its hosted checks run without spending a review.
 - Mark it ready once, when its hosted checks pass. That requests the Copilot
   and CodeRabbit reviews. Neither is required to merge.
-- Answer every review thread. Commit each fix, then take its finding to the
-  `repo-gardener` skill's Sow job and commit what Sow writes. Push the fixes
-  as one batch.
+- Answer every review thread. Commit each fix, then take each finding about
+  code, tests or checks to the `repo-gardener` skill's Sow job and commit
+  what Sow writes. Push the fixes as one batch.
 - Review stops after three rounds, because a later round mostly repeats
   earlier comments. Ask Copilot to review again after the first and second
   batches only. CodeRabbit reviews every push; after the third round, act

@@ -1,0 +1,13 @@
+diff --git a/scripts/planted-faults.ts b/scripts/planted-faults.ts
+index 2647caa..c81b8df 100644
+--- a/scripts/planted-faults.ts
++++ b/scripts/planted-faults.ts
+@@ -449,7 +449,7 @@ function replayChangedSince(
+   root: string,
+   [, base, ...extra]: readonly string[],
+ ): Promise<number> | number {
+-  if (base === undefined || extra.length > 0) {
++  if (base === undefined) {
+     process.stderr.write(
+       "Usage: bun run fault-replay --changed-since <base>\n",
+     );

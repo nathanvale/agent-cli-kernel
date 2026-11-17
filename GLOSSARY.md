@@ -212,9 +212,10 @@ _Avoid_: test seam (a Seam is where behaviour can vary; nothing varies at a test
 A named set of tests that runs on its own.
 
 **Process runner**:
-The module that starts a child process with a time limit, in its own process
-group, with only its own tree's tools on the path. Scripts and their tests use
-it for any child that could hang.
+The module that starts a child process. By default the child runs in its own
+process group with only its own tree's tools on the path; a time limit is
+optional. It is meant for any child of a script or test that could hang,
+which it ends with a time limit or an explicit stop.
 
 **Negative control**:
 A break made on purpose to show that a check can fail. It can be made once by
@@ -260,12 +261,14 @@ each commit GREEN or RED.
 
 **Doctor**:
 The command that checks, before work starts, that this checkout can run the
-repository's checks: the pinned Bun, the installed tools, and the machine's
-load. It names a repair for each check that fails.
+repository's checks: the pinned Bun, the installed toolchain, fallow's
+readiness and the machine's load. It names a repair for each check that fails.
 
 **Toolchain**:
 The tools a repository's checks run on, at the versions the repository accepts:
-Bun, the linter, the compiler and the dead-code tool.
+Bun, the linter, the compiler and the dead-code tool. The linter and the
+dead-code tool each load their own TypeScript package, and the compiler is
+TypeScript's native build.
 
 **Lint rule**:
 One rule the linter enforces on code, with a message that names its repair. A
