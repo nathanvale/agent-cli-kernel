@@ -92,7 +92,7 @@ function files(folder: string): string[] {
 const sorted = (values: readonly string[]) =>
   [...values].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 
-describe("host.json, the kernel's statement of its stamp roots and add-on requirements", () => {
+describe("kernel-declaration.json, the kernel's statement of its stamp roots and add-on requirements", () => {
   const owners = readDeclaration();
   const addons = owners.filter(({ name }) => name !== "base");
 
@@ -163,7 +163,7 @@ describe("host.json, the kernel's statement of its stamp roots and add-on requir
     }
   });
 
-  test("no add-on source imports another add-on's folder, so a requirement can come only from host.json", () => {
+  test("no add-on source imports another add-on's folder, so a requirement can come only from kernel-declaration.json", () => {
     const crossings: string[] = [];
     for (const { name, roots } of addons)
       for (const file of files(join(kernelSource, roots[0] ?? "")))
