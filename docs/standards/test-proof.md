@@ -9,7 +9,9 @@ repository broke it.
 - Assert the exact refusal the named guard produces. An assertion that only
   something threw stays green when another guard refuses. Witnessed:
   [185c90d], [5990897], [fa359ec] (the repository description parser had
-  five refusals and no test).
+  five refusals and no test), [97f9e9b] (a length check accepted any reason
+  for a parse failure; take the reason from an independent call of the
+  parser).
 - Shape the input so only the named guard can refuse it. An earlier parse or
   build check, or a neighbouring cap at the same limit, keeps the test green
   with the named guard removed. Witnessed: [640ba05], [96ab832], [c193c51].
@@ -129,3 +131,4 @@ repository broke it.
 [315de28]: https://github.com/nathanvale/bun-typescript-template/commit/315de28d3e1da69a4e8d65923654846405a3d1c8
 [dbd196e]: https://github.com/nathanvale/bun-typescript-template/commit/dbd196e8dd2dc19163d201cfb4f089952f1c471f
 [9ad6bf2]: https://github.com/nathanvale/bun-typescript-template/commit/9ad6bf2528f0c65fc5106e8377c469b2e48b1743
+[97f9e9b]: https://github.com/nathanvale/bun-typescript-template/commit/97f9e9b82277a054b8b64ac03194a31be27e5ded
