@@ -281,6 +281,6 @@ _Avoid_: confidence, status (for a claim tag), proven (for a prototype run)
 
 Each of these words names different things in different projects. In the name
 of a file, a folder, a test or a commit, pair it with a word that says which
-one you mean, as `repository-profile` does.
+one you mean, as `test-proof` does.
 
-_Qualify_: host, project, starter, profile, proof, manifest, probe, copy, dependency, reader, checker, migration, parent, floor
+_Qualify_: host, project, starter, profile, proof, manifest, probe, copy, dependency, reader, checker, migration, parent, floor, owner, guard, layout
