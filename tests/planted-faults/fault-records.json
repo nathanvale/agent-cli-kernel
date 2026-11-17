@@ -474,5 +474,19 @@
     "testFile": "tests/planted-faults-in-process.test.ts",
     "title": "faultsTouchedSince names only the faults whose patch touches",
     "source": "837cf32 feat(faults): replay only the faults a change touches"
+  },
+  {
+    "id": "98374b7-planted-faults-test-file",
+    "patch": "tests/planted-faults/patches/98374b7-planted-faults-test-file.patch",
+    "testFile": "tests/planted-faults-in-process.test.ts",
+    "title": "faultsTouchedSince names a fault whose test file changed",
+    "source": "98374b7 fix(faults): count a fault's test file and a rename's old path as touched"
+  },
+  {
+    "id": "98374b7-planted-faults-renames",
+    "patch": "tests/planted-faults/patches/98374b7-planted-faults-renames.patch",
+    "testFile": "tests/planted-faults-in-process.test.ts",
+    "title": "faultsTouchedSince names a fault whose patched file was renamed away",
+    "source": "98374b7 fix(faults): count a fault's test file and a rename's old path as touched"
   }
 ]
