@@ -18,7 +18,7 @@ generation time.
 - ESLint `10.15.0` with typescript-eslint `8.72.2` and its recommended typed preset
 - `@types/bun` `1.4.0` (exact devDependency)
 - Biome `2.6.7` for formatting only
-- Fallow and its semantic companion `3.43.0` (exact)
+- Fallow and its semantic companion `3.43.2` (exact)
 
 ## Checks this profile includes
 

@@ -391,7 +391,7 @@ describe("public bootstrap CLI", () => {
       expect(packageJson.name).toBe(name);
       expect(packageJson.packageManager).toBe("bun@1.4.4");
       expect(packageJson.devDependencies["@biomejs/biome"]).toBe("2.6.7");
-      expect(packageJson.devDependencies.fallow).toBe("3.43.0");
+      expect(packageJson.devDependencies.fallow).toBe("3.43.2");
       if (variant === "monorepo") {
         expect(packageJson.catalog.typescript).toBe("npm:typescript@7.0.2");
         expect(packageJson.catalog["@types/bun"]).toBe("1.4.0");
