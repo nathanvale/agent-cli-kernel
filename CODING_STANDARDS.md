@@ -2,9 +2,9 @@
 
 Read at review. This file holds only lessons this repository witnessed in
 review feedback or repair commits. It extends Engineering's shared coding
-standard. The guides call it the shared standard and cite its rules by title.
+standard. The guides call it the shared standard and cite it by title.
 
-Use the first copy of the shared standard you can reach:
+Read the shared standard from the first available source.
 
 1. The copy your task brief supplies.
 2. Its current source, `docs/standards/CODING_STANDARDS.md` in
@@ -16,13 +16,13 @@ shared standard as missing context. No approved route delivers the shared
 standard to a fresh checkout yet. [MAG-65] owns preparing that route,
 [MAG-88] owns source adoption, and [MAG-78] owns the deployment repository.
 
-A row enters with at least two witnesses. Its guide cites them, or its gate
+A rule row enters with at least two witnesses. Its guide cites them, or its gate
 note does when the row has no guide in `docs/standards/`. A guide bullet cites
-the witnesses that taught it, one or more. A bullet with no citation is the
-check that applies its row's lesson. A lesson with one witness waits in
+the witnesses that taught it, one or more. A guide bullet with no citation tells the
+reviewer how to apply the rule row. A lesson with one witness waits in
 [Single witness](docs/standards/single-witness.md) until a second arrives.
 
-Each row names what enforces it today:
+Each rule row names what enforces it today:
 
 - **Review only**: no gate; the reviewer applies the guide.
 - **Partial**: the gates in its Gates cell cover the part its gate note
@@ -56,7 +56,7 @@ row's guide or gate note cites two distinct witnesses.
 | Untrusted values are read once, as own data   | Partial     | [lint `repository/no-locale-compare`](#untrusted-values)                                                   | None                              | [Untrusted values](docs/standards/untrusted-values.md#object-model) |
 | Delays, waits, and work have stated bounds    | Review only | None                                                                                                       | `Milliseconds` and `Bound` brands | [Untrusted values](docs/standards/untrusted-values.md#bounds)       |
 | Behaviour holds on Linux and macOS            | Partial     | [job `test`, lint `repository/no-host-path-literal`, fault `b79a4ac-platform-rules`](#linux-and-macos)     | None                              | [Platform parity](docs/standards/platform-parity.md)                |
-| Glossary terms only                           | Partial     | [job `test`](#glossary)                                                                                    | Lint `glossary-term`              | [Glossary authority](AGENTS.md#authority)                           |
+| Glossary terms only                           | Partial     | [job `test`](#glossary)                                                                                    | Lint `glossary-term`              | [Glossary map](GLOSSARY-MAP.md)                                     |
 | One owner per constant, fake, and helper      | Partial     | [lint `repository/tests-use-test-folder`](#one-owner)                                                      | None                              | [One owner](docs/standards/one-owner.md)                            |
 | Each commit is green at its own head          | Partial     | [script `check:commits`, job `commits`](#commits)                                                          | None                              | None                                                                |
 | Say it in code, not in a comment              | Partial     | [lint `repository/no-comments`, fault `5ac4285-template-rules`, fault `bbfce9a-template-rules`](#comments) | None                              | None                                                                |
@@ -96,38 +96,14 @@ row's guide or gate note cites two distinct witnesses.
 
 ### Test proof
 
-- Lint `repository/require-to-throw-message` refuses `toThrow()`,
-  `toThrowError()` and `rejects.toThrow()` in `tests/` with no argument, or
-  with one that names no message: `undefined` or `void 0`, an empty string,
-  or a regular expression that matches a lone NUL character, as `/.*/`,
-  `/.+/`, `/^/` and `/(?:)/` do. It reads through a type-only wrapper such
-  as `undefined as never`. `.not.toThrow()` passes.
-- A message that another guard also throws stays review. So do an error
-  class or `expect.anything()` as the argument, a refusal asserted without
-  `toThrow`, and input that more than one guard refuses.
-- Review only, because the argument is built at run time: `new RegExp("")`,
-  `String()`, a template with an expression such as `${""}`, and
-  `expect.stringContaining("")`.
+- The lint checks for a message argument. Review which guard
+  refused the input. See [the gate's coverage](docs/standards/gate-coverage.md#refusal-lint).
 - Witnessed: [185c90d].
 
 ### In-process tests
 
-- `tests/standards/coverage-gaps.test.ts` runs
-  `fallow health --coverage-gaps` and refuses each runtime file, and each
-  export of one, that no test reaches by import, unless
-  `tests/standards/coverage-gaps-recorded-hits.json` records it. It also
-  refuses a recorded hit that fallow no longer reports, so the list only
-  shrinks. The `test` job runs it through `bun run test`, in three shards.
-- It leaves out the kernel's paths: `kernel/`, `tests/kernel/`,
-  `tests/glossary/` and `config/kernel-repository-rules.mjs`.
-- Fault `aaedd58-doctor` adds to `scripts/doctor.ts` an exported `doneLine`
-  that only the spawned doctor calls; the test refuses it.
-- Review only: a test that imports a function but never calls it, or calls
-  it without asserting what it does; a function the file does not export,
-  which counts as reached once a test imports its file; a gap hidden by a
-  `fallow-ignore` comment, which the comments lint admits as a directive;
-  and a file fallow does not count as runtime, because no entry point
-  reaches it or `.fallowrc.json` ignores it.
+- The coverage-gaps test checks which runtime files and exports
+  tests reach by import. Review what the tests assert. See [the gate's coverage](docs/standards/gate-coverage.md#import-coverage).
 - Witnessed: [9f3c666], [fa8b6f5].
 
 ### Planted faults
@@ -136,35 +112,19 @@ row's guide or gate note cites two distinct witnesses.
   `tests/planted-faults/fault-records.json` in a temporary worktree. The
   `fault-replay` job in `.github/workflows/ci.yml` runs it on every pull
   request.
-- It fails on a record whose named test passes with the fault applied, fails
-  without it, or whose patch no longer applies.
-- A new refusal or bound with no record stays review. So does a record whose
-  test title matches more tests than the fault reaches.
+- Pre-push runs `bun run fault-replay --changed-since <base>` for faults
+  affected by the push. The hosted `fault-replay` check replays every fault record.
+- Fault replay fails on a fault record whose named test passes with the
+  planted fault applied or fails without it. A patch that no longer applies
+  also fails replay.
+- A new refusal or bound with no fault record stays review. So does a fault
+  record whose test title matches more tests than the planted fault reaches.
 - Witnessed: [d72cd9e], [640ba05].
 
 ### Time
 
-- Lint `repository/tests-no-sleep` refuses, in `tests/`: `Bun.sleep` and
-  `Bun.sleepSync`, also as `Bun["sleep"]` or destructured from `Bun`; the `node:timers/promises` `setTimeout` import; a
-  default, namespace, `import()` or `require()` of that module.
-- It also refuses a `setTimeout` inside a `new Promise` executor whose
-  callback is the executor's `resolve`, or a function whose only statement
-  calls `resolve()`, `resolve(undefined)` or `resolve(void 0)`, or that
-  passes `resolve` with no value after the delay. It traces `setTimeout` to
-  the global, `globalThis` or `node:timers`, under any import name, through
-  aliases, `(0, setTimeout)` and type-only wrappers.
-- A `setTimeout` that rejects, aborts or resolves with a value passes as a
-  bounded watchdog, as in `spawnBounded`, which resolves `"expired"`.
-  `setTimeout(resolve, ms, "timeout")` resolves a value too. Clearing the
-  handle does not admit a delay: an awaited delay runs to its end first.
-- Review only: `setInterval`, `Atomics.wait`, a `Date.now()` poll, a race
-  control too narrow to catch its fault, and `scheduler.wait` from a named
-  `node:timers/promises` import.
-- Also review only: a resolver from `Promise.withResolvers`, a resolver
-  pulled out of its promise or aliased inside the executor, a callback that
-  resolves another way (`r.bind(null)`, `() => void r()`, `(r(), 0)`, a
-  body of more than one statement), and a timer reached through `window`,
-  `Bun.setTimeout` or a computed key.
+- The lint catches delay-only waits. Review the timing controls
+  outside its matcher. See [the gate's coverage](docs/standards/gate-coverage.md#timer-lint).
 - Witnessed: [d1436c0].
 
 ### Untrusted values
@@ -205,67 +165,37 @@ row's guide or gate note cites two distinct witnesses.
 
 ### Comments
 
-- Lint `repository/no-comments` refuses every comment block in a file
-  `eslint.config.mjs` lints outside the kernel: `src/`, `scripts/`, `tests/`
-  outside `tests/kernel/`, `config/` and the root `.mjs` files.
-  Consecutive line comments are one block. The kernel's copy of the rule
-  covers `kernel/` and `tests/kernel/`.
-- A block stays only when it is one of these:
-  - `Platform:` on its first line: behaviour of a runtime, operating system
-    or tool this repository cannot change, such as an errno meaning or a Bun
-    limit.
-  - `Interface:` on its first line: a public contract the types cannot
-    state.
-  - A citation of an accepted decision, as [Authority](AGENTS.md#authority)
-    describes.
-  - A lint or compiler directive, such as `eslint-disable-next-line` or
-    `@ts-expect-error`. Other rules govern those.
-  - `SAFETY:` and a justification on its first line, on its own lines
-    directly above the statement that holds a type cast (`as T`, not
-    `as const`), where `anti-slop/require-safety-comment-for-type-assertion`
-    accepts it.
-- Everything else goes into code: a name, a type, a test title, or a lint
-  rule whose message explains the constraint. An empty `catch` says what
-  happens next in code (`return`, `continue`, or a rethrow), not in prose.
-- Fault `5ac4285-template-rules` admits a marker on any line of a block; the
-  lint test that refuses `Platform:` on a second line kills it. Fault
-  `5ac4285-eslint-rules` plants the same fault in the kernel's copy.
-- Fault `bbfce9a-template-rules` admits a `SAFETY:` block anywhere; the lint
-  test that refuses one above a statement with no cast kills it. Fault
-  `bbfce9a-eslint-rules` plants the same fault in the kernel's copy.
-- Review only: whether a `Platform:` or `Interface:` comment is true, and
-  whether it names something outside this repository. A marker is easy to
-  add to any note.
-- Not covered: `starters/simple/`, `starters/complex/`, the bootstrap
-  profiles, the `.ts.txt` fixtures, the kernel lint configuration that lints
-  a materialised tree, YAML and Markdown.
+- The lint checks comment markers, directives and cast placement.
+  Review the truth of `Platform:` and `Interface:` claims. See [the gate's coverage](docs/standards/gate-coverage.md#comments).
 - Witnessed: [08284b7], [887b514].
 
 ### Recorded hits
 
-- `eslint-suppressions.json` records the hits each lint found when it
-  landed. They are existing violations, not reviewed exceptions.
+- `eslint-suppressions.json` holds the recorded hits each lint rule found
+  when it landed.
 - `bun run lint` fails on a new hit. It also fails when a recorded hit is
   fixed and the file is not pruned. Run
   `bunx eslint . --prune-suppressions` after the fix.
-- The template's rules live in `config/template-rules.mjs`, except
-  `no-host-path-literal` in `config/platform-rules.mjs`; `eslint.config.mjs`
-  joins both under the `repository` plugin. Kernel rules and their recorded
-  hits run from `config/kernel-repository-lint.mjs` and leave with the
-  kernel.
+- The template's lint rules live in `config/template-rules.mjs` and
+  `config/platform-rules.mjs`. The latter owns `no-host-path-literal`.
+  `eslint.config.mjs` joins both under the `repository` plugin.
+- The kernel lint rules and their recorded hits run from
+  `config/kernel-repository-lint.mjs` and leave with the kernel.
 - `kernel/config/kernel/` is stamped, so it holds only the rules
-  `kernelLint` turns on. The kernel repository's own rules (`no-comments`
-  and the three test rules) live in `config/kernel-repository-rules.mjs`.
+  `kernelLint` turns on. The kernel repository's own lint rules,
+  `no-comments` and the three test lint rules, live in
+  `config/kernel-repository-rules.mjs`.
 
 ## Review routine
 
-1. List the rows the diff touches.
-2. For each Partial row, find each of its gates in the hosted CI result for
-   this head that your caller passed in the prompt. Report a gate the result
-   does not show green as **unproved**, never as a pass.
-3. For each Review only or Partial row, open its guide, or its gate note when
+1. List the rule rows the diff touches.
+2. For each Partial rule row, find each gate in the hosted check result
+   for the head your caller passed in the prompt. Report a gate the result
+   does not show green as **unproved**, never as a pass. For questions
+   about coverage, follow its gate note and any linked detail.
+3. For each Review only or Partial rule row, open its guide, or its gate note when
    it has no guide, and apply every bullet to the diff.
-4. Report each finding with its row and the guide bullet it breaks.
+4. Report each finding with its rule row and the guide or gate-note bullet it breaks.
 
 [MAG-98]: https://linear.app/myagentdojo/issue/MAG-98/command-contract-30-foundation-accepted-implementation-scope
 [#8]: https://github.com/nathanvale/bun-typescript-template/pull/8
