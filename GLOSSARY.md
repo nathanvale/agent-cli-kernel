@@ -40,14 +40,22 @@ _Avoid_: known hit, allowlist, baseline
 ### Keeping the rules
 
 **Repo gardener**:
-The role that keeps the rule table true: it ties each rule to its witness,
-gives rules gates, and weeds what nothing uses.
+The role that keeps the rule table and the names true. Its four jobs are Sow,
+Gate, Weed and Stake.
 _Avoid_: steward, janitor
+
+**Sow**:
+Record the lesson of a correction or a review finding beside its witness. A
+lesson seen twice grows into a rule.
 
 **Weed**:
 Remove a rule, guide bullet, link definition or pointer that nothing uses any
 more, after finding out why it was added.
 _Avoid_: clean up, prune
+
+**Stake**:
+Hold a file or folder name to the glossary's words: rename it, give its word
+an owner, or record the hit with its reason.
 
 ## Words that need a qualifier
 
