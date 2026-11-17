@@ -193,11 +193,14 @@ export function typecheckTree(root: string) {
 }
 
 export async function buildUnchecked(
-  contract: object,
+  contract: unknown,
   selected: unknown,
   facts: unknown,
 ): Promise<unknown> {
-  const build: unknown = Reflect.get(contract, "build");
+  const build: unknown =
+    typeof contract === "object" && contract !== null
+      ? Reflect.get(contract, "build")
+      : undefined;
   if (typeof build !== "function") throw new Error("Contract has no build.");
   const result: unknown = await Reflect.apply(build, contract, [
     selected,
@@ -206,7 +209,10 @@ export async function buildUnchecked(
   return result;
 }
 
-export function contractUnchecked(contractFor: unknown, spec: object): unknown {
+export function contractUnchecked(
+  contractFor: unknown,
+  spec: unknown,
+): unknown {
   if (typeof contractFor !== "function") throw new Error("No contractFor.");
   const contract: unknown = Reflect.apply(contractFor, undefined, [spec]);
   return contract;

@@ -85,9 +85,10 @@ export function closeAtDeadline(
   return status.transactionStarted;
 }
 const attachedRuns = new WeakMap<object, AttachedRun>();
+type StateInstance = Readonly<Record<never, never>>;
 type IssuedScope = {
   readonly runId: string;
-  readonly stateInstance: object;
+  readonly stateInstance: StateInstance;
   readonly run: object;
   readonly isActive: () => boolean;
 };
@@ -96,7 +97,7 @@ const proofs = new WeakMap<
   object,
   {
     readonly runId: string;
-    readonly stateInstance: object;
+    readonly stateInstance: StateInstance;
     readonly run: object;
   }
 >();
@@ -104,11 +105,12 @@ export function isIssuedIfNoResult(value: IfNoResult): boolean {
   return routes.has(value);
 }
 export function knownProof(
-  value: object,
+  value: unknown,
   runId: string,
   descriptor: StateAddonDescriptor | undefined,
 ): boolean {
-  const proof = proofs.get(value);
+  const proof =
+    typeof value === "object" && value !== null ? proofs.get(value) : undefined;
   const registration = descriptor ? registrations.get(descriptor) : undefined;
   return (
     proof !== undefined &&
@@ -170,7 +172,7 @@ export function issuedScope(
   }
 }
 function stateIssuer(
-  stateInstance: object,
+  stateInstance: StateInstance,
   active: AsyncLocalStorage<{ readonly runId: string; readonly run: object }>,
   runs: ReadonlyMap<string, object>,
 ): StateIssuer {
@@ -273,10 +275,10 @@ export type StateAddonDescriptor = {
   readonly ifNoResult: IfNoResult;
 };
 const registrations = new WeakMap<
-  object,
+  StateAddonDescriptor,
   {
     readonly registration: StateFactoryResult;
-    readonly stateInstance: object;
+    readonly stateInstance: StateInstance;
     readonly runs: Map<string, object>;
     readonly used: Set<string>;
     readonly active: AsyncLocalStorage<{
@@ -312,7 +314,7 @@ export function createStateAddon(
   });
   return descriptor;
 }
-export function isStateDescriptor(descriptor: object): boolean {
+export function isStateDescriptor(descriptor: StateAddonDescriptor): boolean {
   return registrations.has(descriptor);
 }
 
@@ -369,10 +371,13 @@ export function attachState<Effect extends string>(
 
 const capabilities = new WeakMap<object, readonly string[]>();
 export function knownCapability(
-  value: object,
+  value: unknown,
   effects: readonly string[],
 ): boolean {
-  const registered = capabilities.get(value);
+  const registered =
+    typeof value === "object" && value !== null
+      ? capabilities.get(value)
+      : undefined;
   return (
     registered !== undefined &&
     registered.length === effects.length &&

@@ -66,12 +66,14 @@ export type ContractRuntime = {
   readonly closeStateAtDeadline: (runId: string) => boolean | undefined;
 };
 
-const runtimes = new WeakMap<object, ContractRuntime>();
+export type ContractKey = { readonly cli?: string };
 
-export function recordRuntime(contract: object, runtime: ContractRuntime) {
+const runtimes = new WeakMap<ContractKey, ContractRuntime>();
+
+export function recordRuntime(contract: ContractKey, runtime: ContractRuntime) {
   runtimes.set(contract, runtime);
 }
 
-export function runtimeOf(contract: object): ContractRuntime | undefined {
+export function runtimeOf(contract: ContractKey): ContractRuntime | undefined {
   return runtimes.get(contract);
 }

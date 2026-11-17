@@ -29,7 +29,7 @@ function fixture() {
   });
 }
 const diagnostics = () => ({ record() {} });
-async function inspectObserved(context: object, validated: () => unknown) {
+async function inspectObserved(context: unknown, validated: () => unknown) {
   received.length = 0;
   const executed = await fixture().execute(
     "specimen.read",
