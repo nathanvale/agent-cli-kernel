@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { delimiter, dirname, join } from "node:path";
 import {
   type Environment,
   type Outcome,
@@ -14,6 +14,7 @@ import {
   stagedText,
 } from "../../scripts/glossary.ts";
 import { git, gitResult, inherited } from "../support/git-fixture.ts";
+import { processWatchdog } from "../support/process.ts";
 import { testFolder } from "../support/test-folder.ts";
 
 const usage =
@@ -73,6 +74,21 @@ function outsideRepository(): string {
       `${root} sits inside the repository at ${probe.stdout.toString().trim()}, so a case that needs no repository would find it. Repair: point STATE_TEST_DIR at a folder with no repository above it, or unset it. Done when git rev-parse --show-toplevel fails in ${root}.`,
     );
   return root;
+}
+
+async function whileGitHangs<T>(run: () => T | Promise<T>): Promise<T> {
+  const bin = folder();
+  writeFileSync(join(bin, "git"), "#!/bin/sh\nexec sleep 60\n", {
+    mode: 0o755,
+  });
+  const chosen = process.env.PATH;
+  process.env.PATH = `${bin}${delimiter}${chosen ?? ""}`;
+  try {
+    return await run();
+  } finally {
+    if (chosen === undefined) delete process.env.PATH;
+    else process.env.PATH = chosen;
+  }
 }
 
 function put(root: string, path: string, content: string): void {
@@ -385,6 +401,30 @@ test("in process: --staged outside a git repository exits 2 with git's reason", 
   );
   expect(outcome.stderr).toEndWith("\n");
 });
+
+test(
+  "in process: --staged with a git that never answers exits 2 at its bound, naming the command and the repair",
+  async () => {
+    const root = namesRepository();
+    const command = "git diff --cached --name-only --diff-filter=ACR -z";
+    expect(await whileGitHangs(() => check(root, ["--staged"]))).toEqual({
+      stderr: `names check: ${command} did not exit within 10000 ms. Repair: find what holds git in ${root} (a stale index.lock, a hung hook or a stalled disk), then run the check again. Done when ${command} exits 0 there.\n`,
+      code: 2,
+    });
+  },
+  processWatchdog(1),
+);
+
+test(
+  "in process: the fixture's git stops a call that never answers at its bound",
+  async () => {
+    const root = namesRepository();
+    expect(await whileGitHangs(() => thrownBy(() => git(root, "status")))).toBe(
+      "git status did not exit within 4000 ms.",
+    );
+  },
+  processWatchdog(1),
+);
 
 test("in process: --tool-call refuses a Write that creates a badly named file", async () => {
   const root = namesRepository();
