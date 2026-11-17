@@ -879,7 +879,7 @@ export function install(options: StateOptions, seams: Seams) {
           uncertain: [...effects.uncertain],
         });
     } catch {
-      // Without a durable final record the case stays listed: honest.
+      return;
     }
   }
 
@@ -1263,7 +1263,7 @@ export function install(options: StateOptions, seams: Seams) {
     try {
       appendEvent(run.events, "emergency", { phase: facts.phase });
     } catch {
-      // One attempt only.
+      return;
     }
   }
 

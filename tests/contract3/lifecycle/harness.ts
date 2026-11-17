@@ -3,6 +3,7 @@ import { mkdtemp, mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { record } from "../../../starters/contract3/src/kernel/validation/primitives.ts";
+import { signalGroupIfPresent, signalIfPresent } from "../../support/signal.ts";
 
 const here = import.meta.dir;
 const repository = resolve(here, "../../..");
@@ -512,11 +513,8 @@ export async function release(launched: Launched): Promise<void> {
   if (launched.running()) launched.signal("SIGKILL");
   const observed = await launched.done;
   for (const { pid, group } of stillOwned(readLedger(launched.ledgerPath)))
-    try {
-      process.kill(pid === group ? -group : pid, "SIGKILL");
-    } catch {
-      // Already gone.
-    }
+    if (pid === group) signalGroupIfPresent(group, "SIGKILL");
+    else signalIfPresent(pid, "SIGKILL");
   await cleanup(observed);
 }
 

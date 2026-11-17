@@ -37,6 +37,7 @@ import {
   tolerance,
   unchangedEffects,
 } from "./oracle.ts";
+import { signalGroupIfPresent, signalIfPresent } from "../../support/signal.ts";
 
 const timeout = 30_000;
 
@@ -931,11 +932,7 @@ test(
       expect(outside.exitCode).toBeNull();
     } finally {
       outside.kill("SIGKILL");
-      try {
-        process.kill(-group.pid, "SIGKILL");
-      } catch {
-        // Already gone.
-      }
+      signalGroupIfPresent(group.pid, "SIGKILL");
     }
   },
   timeout,
@@ -963,12 +960,7 @@ describe("test harness honesty (swarm triage K3-3, K3-12)", () => {
             readLedger(launched.ledgerPath),
             "late-writer",
           );
-          if (writer !== undefined)
-            try {
-              process.kill(writer, "SIGKILL");
-            } catch {
-              // Already gone.
-            }
+          if (writer !== undefined) signalIfPresent(writer, "SIGKILL");
           await release(launched);
         }
       },

@@ -17,6 +17,7 @@ import type {
 import { path } from "../../../starters/contract3/src/kernel/validation/brands.ts";
 import { timerLimit, unchangedEffects } from "./oracle.ts";
 import { programStopRow, programStopStation } from "./program-stop.ts";
+import { signalGroupIfPresent } from "../../support/signal.ts";
 
 type Recorded = {
   readonly stream: "stdout" | "stderr";
@@ -114,12 +115,7 @@ export function markedPids(marker: string): readonly number[] {
     .filter((pid) => Number.isSafeInteger(pid) && pid > 0);
 }
 export function killMarked(marker: string): void {
-  for (const pid of markedPids(marker))
-    try {
-      process.kill(-pid, "SIGKILL");
-    } catch {
-      // Already gone.
-    }
+  for (const pid of markedPids(marker)) signalGroupIfPresent(pid, "SIGKILL");
 }
 
 export function shell(

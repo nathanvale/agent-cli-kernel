@@ -60,7 +60,7 @@ function opened(descriptor: number): LockAttempt {
       try {
         closeSync(descriptor);
       } catch {
-        // The operating system still releases it when the process ends.
+        return;
       }
     },
   };

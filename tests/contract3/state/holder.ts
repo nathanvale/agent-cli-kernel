@@ -54,8 +54,8 @@ function load(): Calls | undefined {
   try {
     if (linux) return loadLinux();
     if (darwin) return loadDarwin();
-  } catch {
-    // No C library this test can call: no test route.
+  } catch (error) {
+    if (Reflect.get(Object(error), "code") !== "ERR_DLOPEN_FAILED") throw error;
   }
   return undefined;
 }

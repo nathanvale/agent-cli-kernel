@@ -19,6 +19,7 @@ import {
   makeWorld,
   str,
 } from "./harness.ts";
+import { signalIfPresent } from "../../support/signal.ts";
 
 const worker = join(import.meta.dir, "fixtures", "coordination-worker.ts");
 const folders: string[] = [];
@@ -26,12 +27,7 @@ const processes: number[] = [];
 
 afterEach(() => {
   for (const pid of processes.splice(0)) {
-    try {
-      process.kill(pid, "SIGCONT");
-      process.kill(pid, "SIGKILL");
-    } catch {
-      // Already gone.
-    }
+    if (signalIfPresent(pid, "SIGCONT")) signalIfPresent(pid, "SIGKILL");
   }
   for (const folder of folders.splice(0))
     rmSync(folder, { recursive: true, force: true });

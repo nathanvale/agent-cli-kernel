@@ -19,15 +19,16 @@ export type Writer = {
 };
 
 function frozenDiagnostics(report: StatusReport): Diagnostics {
+  const copy = jsonCopy(report.value);
+  return diagnostics(copy) ? copy : unavailableStatus("status-invalid");
+}
+
+function jsonCopy(value: unknown): unknown {
   try {
-    const copy: unknown = json(report.value)
-      ? JSON.parse(JSON.stringify(report.value))
-      : undefined;
-    if (diagnostics(copy)) return copy;
+    return json(value) ? JSON.parse(JSON.stringify(value)) : undefined;
   } catch {
-    // An unreadable status is an invalid one.
+    return undefined;
   }
-  return unavailableStatus("status-invalid");
 }
 
 function withStatus(

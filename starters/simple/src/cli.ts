@@ -306,7 +306,7 @@ function reportInternalFailure(
     try {
       render(failure, true, failure.message);
     } catch {
-      // Once machine result delivery fails, preserve silent transport failure.
+      return 1;
     }
   } else {
     reportInternalFailureToStderr(failure);

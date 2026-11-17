@@ -49,8 +49,8 @@ function attempt(target: unknown, key: string | number, value: unknown) {
   try {
     if (typeof target === "object" && target !== null)
       Reflect.set(target, key, value);
-  } catch {
-    // A thrown TypeError on a frozen value is an acceptable outcome.
+  } catch (error) {
+    if (!(error instanceof TypeError)) throw error;
   }
 }
 function stationOf(contract: Contract, identity: string, causeCode: string) {

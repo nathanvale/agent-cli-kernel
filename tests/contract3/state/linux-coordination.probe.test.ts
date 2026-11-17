@@ -13,6 +13,7 @@ import {
 } from "node:fs";
 import { release, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { signalIfPresent } from "../../support/signal.ts";
 
 const worker = join(
   import.meta.dir,
@@ -47,11 +48,7 @@ function alive(pid: number): boolean {
   }
 }
 function kill(pid: number, signal: NodeJS.Signals = "SIGKILL"): void {
-  try {
-    process.kill(pid, signal);
-  } catch {
-    // Already gone.
-  }
+  signalIfPresent(pid, signal);
 }
 
 afterAll(() => {

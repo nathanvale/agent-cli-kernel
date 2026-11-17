@@ -17,6 +17,7 @@ import {
   turns,
   until,
 } from "../lifecycle/recording-host.ts";
+import { signalIfPresent } from "../../support/signal.ts";
 
 const timeout = 30_000;
 const pollLatency = 10;
@@ -78,12 +79,7 @@ async function startUnderFakeTime(
       jest.useRealTimers();
       for (const prefix of ["child-started", "escaped"]) {
         const owned = pid(prefix);
-        if (owned !== undefined)
-          try {
-            process.kill(owned, "SIGKILL");
-          } catch {
-            // Already gone.
-          }
+        if (owned !== undefined) signalIfPresent(owned, "SIGKILL");
       }
       await rm(dir, { recursive: true, force: true });
     },

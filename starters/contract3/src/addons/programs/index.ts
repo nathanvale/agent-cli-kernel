@@ -105,7 +105,7 @@ class OwnedGroup {
     try {
       process.kill(-this.pid, signal);
     } catch {
-      // The attempt is recorded; observation decides the outcome.
+      return;
     }
   }
 
