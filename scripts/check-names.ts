@@ -133,7 +133,8 @@ function createdPaths(tool: unknown, input: Map<string, unknown>): string[] {
 function toolCallProblems(hookInput: string, fallbackCwd: string): string[] {
   const call = ownFields(JSON.parse(hookInput));
   const cwd = call.get("cwd");
-  const from = typeof cwd === "string" ? cwd : fallbackCwd;
+  const from =
+    typeof cwd === "string" ? resolve(fallbackCwd, cwd) : fallbackCwd;
   return createdPaths(
     call.get("tool_name"),
     ownFields(call.get("tool_input")),

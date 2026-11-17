@@ -405,6 +405,19 @@ test("in process: --tool-call resolves a relative path from the call's folder", 
   ).toEqual({ stderr: hostRefusal, code: 1 });
 });
 
+test("in process: --tool-call resolves a relative folder of the call from the injected folder, not the process's own", async () => {
+  const root = namesRepository([hostHit]);
+  mkdirSync(join(root, "docs"));
+  expect(
+    await check(
+      root,
+      ["--tool-call"],
+      hook(writeCall("host.md", "docs")),
+      root,
+    ),
+  ).toEqual({ stderr: "", code: 0 });
+});
+
 test("in process: --tool-call resolves a relative path from the process folder when the call names none", async () => {
   const root = namesRepository();
   const docs = join(root, "docs");
