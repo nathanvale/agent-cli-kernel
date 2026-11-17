@@ -1,6 +1,6 @@
-import contract3 from "./config/contract3-eslint.mjs";
 import js from "@eslint/js";
-import localRules from "./eslint-rules.mjs";
+import kernel, { kernelPaths } from "./config/contract3-repository-eslint.mjs";
+import localRules from "./config/template-rules.mjs";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
@@ -40,6 +40,7 @@ export default tseslint.config(
   },
   {
     files: ["**/*.{ts,mts,cts,mjs}"],
+    ignores: kernelPaths,
     plugins: { repository: localRules },
     rules: { "repository/no-comments": "error" },
   },
@@ -54,11 +55,8 @@ export default tseslint.config(
     rules: { "repository/no-locale-compare": "error" },
   },
   {
-    files: ["src/domains/**/*.ts"],
-    rules: { "repository/no-domain-output": "error" },
-  },
-  {
     files: ["tests/**/*.{ts,mts,cts}"],
+    ignores: kernelPaths,
     plugins: { repository: localRules },
     rules: {
       "repository/require-to-throw-message": "error",
@@ -66,13 +64,5 @@ export default tseslint.config(
       "repository/tests-no-sleep": "error",
     },
   },
-  ...contract3,
-  {
-    files: ["starters/contract3/src/**/*.{ts,mts,cts}"],
-    plugins: { repository: localRules },
-    rules: {
-      "repository/no-in-operator": "error",
-      "repository/cause-literal-owner": "error",
-    },
-  },
+  ...kernel,
 );
