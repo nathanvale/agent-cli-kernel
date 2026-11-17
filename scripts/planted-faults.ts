@@ -320,7 +320,14 @@ export function faultsTouchedSince(root: string, base: string): string[] {
       `${base} is not a commit in this repository. Repair: pass a commit or branch, such as origin/main.`,
     );
   const changed = new Set(
-    gitOrThrow(root, ["diff", "--name-only", "-z", base, "HEAD"])
+    gitOrThrow(root, [
+      "diff",
+      "--name-only",
+      "--no-renames",
+      "-z",
+      base,
+      "HEAD",
+    ])
       .split("\0")
       .filter((path) => path !== ""),
   );
@@ -333,6 +340,7 @@ export function faultsTouchedSince(root: string, base: string): string[] {
     .filter(
       (fault) =>
         changed.has(fault.patch) ||
+        changed.has(fault.testFile) ||
         patched(fault).some((path) => changed.has(path)),
     )
     .map(({ id }) => id);

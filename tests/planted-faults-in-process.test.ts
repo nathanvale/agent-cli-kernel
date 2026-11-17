@@ -1141,6 +1141,26 @@ describe("faultsTouchedSince", () => {
     expect(result).toEqual([]);
   });
 
+  test("names a fault whose test file changed, though its patched file did not", async () => {
+    const { root, id, base } = twoFaults();
+    commit(root, "weaken the refusal test", {
+      "tests/limit.test.ts": limitTests.replace(
+        "L.refuses NaN twice",
+        "L.refuses NaN again",
+      ),
+    });
+    const { result } = await isolated(() => faultsTouchedSince(root, base));
+    expect(result).toEqual([id, other.id]);
+  });
+
+  test("names a fault whose patched file was renamed away", async () => {
+    const { root, id, base } = twoFaults();
+    git(root, "mv", "src/limit.ts", "src/bound.ts");
+    git(root, "commit", "--quiet", "-m", "rename limit");
+    const { result } = await isolated(() => faultsTouchedSince(root, base));
+    expect(result).toEqual([id]);
+  });
+
   test("refuses a base git cannot resolve, naming it", async () => {
     const { root } = twoFaults();
     expect(
