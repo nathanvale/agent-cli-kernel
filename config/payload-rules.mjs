@@ -21,6 +21,27 @@ function stable(node) {
   return node.type === "TemplateLiteral" && node.expressions.length === 0;
 }
 
+function taken(scope) {
+  const names = new Set();
+  const below = (inner) => {
+    for (const variable of inner.variables) names.add(variable.name);
+    for (const reference of inner.references)
+      names.add(reference.identifier.name);
+    inner.childScopes.forEach(below);
+  };
+  below(scope);
+  for (let upper = scope.upper; upper; upper = upper.upper)
+    for (const variable of upper.variables) names.add(variable.name);
+  return names;
+}
+
+function fresh(names, base) {
+  let name = base;
+  for (let count = 2; names.has(name); count += 1) name = `${base}${count}`;
+  names.add(name);
+  return name;
+}
+
 export default {
   rules: {
     "no-in-operator": {
@@ -30,7 +51,7 @@ export default {
         messages: {
           in: "{{key}} is not declared on this type, and {{how}} also finds inherited members such as toString, so a payload passes a check for a key it never had; check own data and read it into a place typed unknown. Repair: (Object.hasOwn({{target}}, {{key}}) ? Reflect.get({{target}}, {{key}}) : undefined)",
           inBound:
-            "{{key}} is not declared on this type, and {{how}} also finds inherited members such as toString; a second evaluation of {{target}} or {{key}} may yield another value, so bind both once, in the order {{how}} evaluates them, then read the own value into a place typed unknown. Repair: {{bindings}} const own: unknown = Object.hasOwn(target, key) ? Reflect.get(target, key) : undefined;",
+            "{{key}} is not declared on this type, and {{how}} also finds inherited members such as toString; a second evaluation of {{target}} or {{key}} may yield another value, so bind both once, in the order {{how}} evaluates them, then read the own value into a place typed unknown. Repair: {{bindings}} const {{ownName}}: unknown = Object.hasOwn({{targetName}}, {{keyName}}) ? Reflect.get({{targetName}}, {{keyName}}) : undefined;",
           forIn:
             "for...in also walks inherited enumerable keys. Repair: for (const key of Object.keys({{target}}))",
         },
@@ -78,14 +99,18 @@ export default {
             context.report({ node, messageId: "in", data });
             return;
           }
-          const key = `const key = ${data.key};`;
-          const target = `const target = ${data.target};`;
+          const names = taken(context.sourceCode.getScope(node));
+          const keyName = fresh(names, "key");
+          const targetName = fresh(names, "target");
+          const ownName = fresh(names, "own");
+          const key = `const ${keyName} = ${data.key};`;
+          const target = `const ${targetName} = ${data.target};`;
           const bindings =
             how === "Reflect.has" ? `${target} ${key}` : `${key} ${target}`;
           context.report({
             node,
             messageId: "inBound",
-            data: { ...data, bindings },
+            data: { ...data, bindings, keyName, targetName, ownName },
           });
         };
         return {

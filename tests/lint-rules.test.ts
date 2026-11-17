@@ -134,6 +134,22 @@ const fixes = [
     rule: "no-in-operator",
     filePath: "src/static-admission.ts",
     failing:
+      "export const payload = (key: string, read: () => object) => (key in read() ? 1 : 0);",
+    fixed: ([fix]: string[]) =>
+      `export const payload = (key: string, read: () => object): unknown => {\n  ${fix}\n  return own;\n};`,
+  },
+  {
+    rule: "no-in-operator",
+    filePath: "src/static-admission.ts",
+    failing:
+      "export const payload = (key: string, read: () => object) => {\n  {\n    return key in read();\n  }\n};",
+    fixed: ([fix]: string[]) =>
+      `export const payload = (key: string, read: () => object): unknown => {\n  {\n    ${fix}\n    return own;\n  }\n};`,
+  },
+  {
+    rule: "no-in-operator",
+    filePath: "src/static-admission.ts",
+    failing:
       'export const payload = (host: { readonly value: object }) => ("payload" in host.value ? 1 : 0);',
     fixed: ([fix]: string[]) =>
       `export const payload = (host: { readonly value: object }): unknown => {\n  ${fix}\n  return own;\n};`,
@@ -646,6 +662,10 @@ const ownData = [
   [
     "export const once = (source: object, keys: { readonly key: string }) => keys.key in source;",
     "Repair: const key = keys.key; const target = source; const own: unknown",
+  ],
+  [
+    "export const once = (target: () => object, own: string) => own in target();",
+    "Repair: const key = own; const target2 = target(); const own2: unknown = Object.hasOwn(target2, key) ? Reflect.get(target2, key) : undefined;",
   ],
   [
     'type Shape = { kind: "a"; a: number } | { kind: "b"; b: string };\nexport const read = (shape: Shape) => ("a" in shape ? shape.a : shape.b);',
