@@ -453,7 +453,7 @@ describe("bun run fault-replay", () => {
         ),
       );
       expect(run.lines).toContain(
-        `Repair: plant the fault again by hand, run git diff -- src/limit.ts > tests/planted-faults/patches/${id}.patch, then undo the planted edit. Done when bun run fault-replay ${id} passes.`,
+        `Repair: plant the fault again by hand, run git diff -- <each file you edited> > 'tests/planted-faults/patches/${id}.patch', then undo the planted edit. Done when bun run fault-replay ${id} passes.`,
       );
       expect(run.exit).toBe(1);
       expectNoLeftovers(root, run.temporary);
