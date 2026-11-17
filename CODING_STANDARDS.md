@@ -17,38 +17,46 @@ standard to a fresh checkout yet. [MAG-65] owns preparing that route,
 [MAG-88] owns source adoption, and [MAG-78] owns the deployment repository.
 
 A row enters with at least two witnesses. Its guide cites them, or its gate
-note does when the guide lives outside `docs/standards/`. A guide bullet cites
+note does when the row has no guide in `docs/standards/`. A guide bullet cites
 the witnesses that taught it, one or more. A bullet with no citation is the
-check that applies its row's lesson.
+check that applies its row's lesson. A lesson with one witness waits in
+[Single witness](docs/standards/single-witness.md) until a second arrives.
 
 Each row names what enforces it today:
 
 - **Review only**: no gate; the reviewer applies the guide.
-- **Partial**: a gate covers the part its gate note names; the reviewer
-  applies the guide to the rest.
-- **Planned (parked)**: agreed future work that does not exist yet. These
-  gates are plan units U4 to U6, named in the description of [#8]. None is
-  scheduled yet. [MAG-98], the Contract 3 scope issue, does not list them.
+- **Partial**: the gates in its Gates cell cover the part its gate note
+  names; the reviewer applies the guide to the rest.
 
-When a planned gate lands, move it to "Today" and cut the guide bullets it
-now enforces.
+The Gates cell names each gate as `script`, `lint`, `job` or `fault` with its
+id, and links the gate note. A `fault` id is a record id in
+`tests/faults/manifest.json`. **Planned (parked)** names agreed gates that do not exist
+yet. Plan units U4 to U6 in the description of [#8] first named them. The
+lints and the fault replay have landed. The rest has no slot, and [MAG-98],
+the Contract 3 scope issue, does not list them.
+
+When a planned gate lands, name it in the Gates cell, mark the row Partial,
+and cut the guide bullets it now enforces. `bun run test:area standards`
+checks that every cited commit, link and named gate exists, and that each
+row's guide or gate note cites two distinct witnesses.
 
 ## Rule table
 
-| Rule                                          | Today       | Planned (parked)                  | Guide                                                               |
-| --------------------------------------------- | ----------- | --------------------------------- | ------------------------------------------------------------------- |
-| Each test fails for the reason its name gives | Partial     | Typed rule ids                    | [Test proof](docs/standards/test-proof.md#refusals-and-bounds)      |
-| Each new refusal or bound has a planted fault | Partial     | None                              | [Test proof](docs/standards/test-proof.md#planted-faults)           |
-| Process proofs use the production entry       | Review only | None                              | [Test proof](docs/standards/test-proof.md#production-entry)         |
-| Test processes are bounded and released       | Review only | Lint `tests-use-bounded-runner`   | [Test proof](docs/standards/test-proof.md#processes)                |
-| Tests wait on events, not wall time           | Partial     | None                              | [Test proof](docs/standards/test-proof.md#time)                     |
-| One rule holds on every construction route    | Review only | `AdmittedCommand` brand           | [One rule, one path](docs/standards/one-rule-one-path.md)           |
-| Every exit path emits exactly one envelope    | Partial     | None                              | [Failure envelopes](docs/standards/failure-envelopes.md)            |
-| Untrusted values are read once, as own data   | Partial     | None                              | [Untrusted values](docs/standards/untrusted-values.md#object-model) |
-| Delays, waits, and work have stated bounds    | Review only | `Milliseconds` and `Bound` brands | [Untrusted values](docs/standards/untrusted-values.md#bounds)       |
-| Behaviour holds on Linux and macOS            | Partial     | Lint `no-host-path-literal`       | [Platform parity](docs/standards/platform-parity.md)                |
-| Glossary terms only                           | Partial     | Lint `glossary-term`              | [Glossary authority](AGENTS.md#authority)                           |
-| One owner per constant, fake, and helper      | Partial     | None                              | [One owner](docs/standards/one-owner.md)                            |
+| Rule                                          | Today       | Gates                                                                                        | Planned (parked)                  | Guide                                                               |
+| --------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------- | --------------------------------- | ------------------------------------------------------------------- |
+| Each test fails for the reason its name gives | Partial     | [lint `repository/require-to-throw-message`](#test-proof)                                    | Typed rule ids                    | [Test proof](docs/standards/test-proof.md#refusals-and-bounds)      |
+| Each new refusal or bound has a planted fault | Partial     | [script `faults`, job `faults`](#planted-faults)                                             | None                              | [Test proof](docs/standards/test-proof.md#planted-faults)           |
+| Process proofs use the production entry       | Review only | None                                                                                         | None                              | [Test proof](docs/standards/test-proof.md#production-entry)         |
+| Test processes are bounded and released       | Review only | None                                                                                         | Lint `tests-use-bounded-runner`   | [Test proof](docs/standards/test-proof.md#processes)                |
+| Tests wait on events, not wall time           | Partial     | [lint `repository/tests-no-sleep`](#time)                                                    | None                              | [Test proof](docs/standards/test-proof.md#time)                     |
+| One rule holds on every construction route    | Review only | None                                                                                         | `AdmittedCommand` brand           | [One rule, one path](docs/standards/one-rule-one-path.md)           |
+| Every exit path emits exactly one envelope    | Partial     | [lint `repository/no-domain-output`](#envelopes)                                             | None                              | [Failure envelopes](docs/standards/failure-envelopes.md)            |
+| Untrusted values are read once, as own data   | Partial     | [lint `repository/no-locale-compare`, lint `repository/no-in-operator`](#untrusted-values)   | None                              | [Untrusted values](docs/standards/untrusted-values.md#object-model) |
+| Delays, waits, and work have stated bounds    | Review only | None                                                                                         | `Milliseconds` and `Bound` brands | [Untrusted values](docs/standards/untrusted-values.md#bounds)       |
+| Behaviour holds on Linux and macOS            | Partial     | [job `check`](#linux-and-macos)                                                              | Lint `no-host-path-literal`       | [Platform parity](docs/standards/platform-parity.md)                |
+| Glossary terms only                           | Partial     | [job `check`](#glossary)                                                                     | Lint `glossary-term`              | [Glossary authority](AGENTS.md#authority)                           |
+| One owner per constant, fake, and helper      | Partial     | [lint `repository/cause-literal-owner`, lint `repository/tests-use-test-folder`](#one-owner) | None                              | [One owner](docs/standards/one-owner.md)                            |
+| Each commit is green at its own head          | Partial     | [script `check:commits`, job `commits`](#commits)                                            | None                              | None                                                                |
 
 ## Gate notes
 
@@ -173,6 +181,16 @@ now enforces.
   re-exports one under another name stay review.
 - Witnessed: [e7c771c], [c0b4bf5].
 
+### Commits
+
+- `bun run check:commits <base>` installs, type-checks and lints each commit
+  in `<base>..HEAD` at its own head, in a temporary worktree. The `commits`
+  job in `.github/workflows/ci.yml` runs it against the pull request base.
+- It never checks `f20777f` or an older commit. Some of those are red.
+- Format and tests at each commit stay review.
+- Witnessed: [2d0c390], [258365e], [59d45c1], [de45f44], [d3df03e],
+  [4737c48], [e07d962].
+
 ### Recorded hits
 
 - `eslint-suppressions.json` records the hits each lint found when it
@@ -187,9 +205,11 @@ now enforces.
 ## Review routine
 
 1. List the rows the diff touches.
-2. For each Partial row, confirm its gate ran green on hosted CI at this head.
-3. For each Review only or Partial row, open its guide and apply every bullet
-   to the diff.
+2. For each Partial row, find each of its gates in the hosted CI result for
+   this head that your caller passed in the prompt. Report a gate the result
+   does not show green as **unproved**, never as a pass.
+3. For each Review only or Partial row, open its guide, or its gate note when
+   it has no guide, and apply every bullet to the diff.
 4. Report each finding with its row and the guide bullet it breaks.
 
 [MAG-98]: https://linear.app/myagentdojo/issue/MAG-98/command-contract-30-foundation-accepted-implementation-scope
@@ -208,3 +228,10 @@ now enforces.
 [e7c771c]: https://github.com/nathanvale/bun-typescript-template/commit/e7c771c89f63ffeeb609b03e4f670e9d43ea53fb
 [2784de0]: https://github.com/nathanvale/bun-typescript-template/commit/2784de083f90d5f72f1b10037bfc64a8eeccff3f
 [356cce9]: https://github.com/nathanvale/bun-typescript-template/commit/356cce90dd2c4a75c7462f5d8f789b52bdaefaed
+[2d0c390]: https://github.com/nathanvale/bun-typescript-template/commit/2d0c3902e6ca538b1e9dfd64c97458bd4b4f88ae
+[258365e]: https://github.com/nathanvale/bun-typescript-template/commit/258365ed51313b4b190361d79609bc93bfc13d6a
+[59d45c1]: https://github.com/nathanvale/bun-typescript-template/commit/59d45c1b84d347e3a8b2d617ac73e36096790dc9
+[de45f44]: https://github.com/nathanvale/bun-typescript-template/commit/de45f443c1c71221a29ae03c203bd00ef1a4bffb
+[d3df03e]: https://github.com/nathanvale/bun-typescript-template/commit/d3df03eccd47e3054de9e442971f778d1f13e803
+[4737c48]: https://github.com/nathanvale/bun-typescript-template/commit/4737c4869802bb53893387df9919171855e83b11
+[e07d962]: https://github.com/nathanvale/bun-typescript-template/commit/e07d962f016dc07ca442724621fd0406084521cc
