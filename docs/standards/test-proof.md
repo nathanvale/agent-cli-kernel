@@ -44,7 +44,7 @@ repository broke it.
 - Bound every child below its test timeout. Witnessed: [e990da6], [4a32366].
 - Template tests: reuse `spawnBounded` (`tests/support/process.ts`), which
   runs the child through `startChild` (`scripts/process-runner.ts`), for that
-  bound. Contract 3 tests: reuse `spawnBounded`
+  bound. Kernel tests: reuse `spawnBounded`
   (`tests/kernel/kernel-repair/swarm-process.ts`) or `exitWithin`
   (`tests/kernel/lifecycle/harness.ts`).
 - Release in `finally`: the CLI, then each ledgered child, then the temporary

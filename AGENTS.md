@@ -4,7 +4,7 @@
 
 - Run `bun run doctor`. It names the repair for each failed check, and
   `bun run test` runs it first.
-- Contract 3 work (`kernel/`, `tests/kernel/`): use the `kernel-work` skill.
+- Kernel work (`kernel/`, `tests/kernel/`): use the `kernel-work` skill.
 - After an operator correction or a review finding, to gate a rule row, or
   to weed the rule table: use the `repo-gardener` skill.
 

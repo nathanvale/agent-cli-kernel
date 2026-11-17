@@ -1,7 +1,7 @@
 ---
 
 name: kernel-work
-description: Build, repair, or review Contract 3 code in `kernel/` or `tests/kernel/`. Use when changing either folder or reviewing a diff that touches it.
+description: Build, repair, or review kernel code in `kernel/` or `tests/kernel/`. Use when changing either folder or reviewing a diff that touches it.
 ---
 
 # Kernel work

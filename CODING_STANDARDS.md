@@ -76,8 +76,8 @@ row's guide or gate note cites two distinct witnesses.
 
 - `tests/glossary/glossary.test.ts`, with its shrinking `known-hits.json`,
   checks the `scope` listed in `tests/glossary/term-table.json`.
-- That scope is Contract 3 source, Contract 3 tests, and the Contract 3 lint
-  config. `src/`, the starters, and docs are review only.
+- That scope is kernel source, kernel tests, and the kernel's lint config.
+  `src/`, the starters, and docs are review only.
 - Witnessed: [2784de0], [356cce9].
 
 ### Test proof
@@ -203,8 +203,8 @@ row's guide or gate note cites two distinct witnesses.
   whether it names something outside this repository. A marker is easy to
   add to any note.
 - Not covered: `starters/simple/`, `starters/complex/`, the bootstrap
-  profiles, the `.ts.txt` fixtures, the Contract 3 lint configuration that
-  lints a materialised tree, YAML and Markdown.
+  profiles, the `.ts.txt` fixtures, the kernel lint configuration that lints
+  a materialised tree, YAML and Markdown.
 - Witnessed: [08284b7], [887b514].
 
 ### Recorded hits
