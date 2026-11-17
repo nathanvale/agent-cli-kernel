@@ -323,7 +323,7 @@ export default {
         schema: [],
         messages: {
           comment:
-            "Comments are refused: the next agent reads one as permission and builds on it. Say it in code: a name, a type, a test title, or a lint rule whose message explains the constraint. A comment stays only when it starts with Platform: (behaviour of a runtime, operating system or tool this repository cannot change), Interface: (a public contract the types cannot state), or cites an accepted decision (AGENTS.md, Authority). Fix: delete the comment, or move what it says into code.",
+            "Say this in code, then delete the comment: a clearer name, a type, a test title, or a lint rule whose message states the constraint. A comment reads as permission, and the next agent builds on it. Keep a comment only when its first word is Platform: (behaviour of a runtime, operating system or tool this repository cannot change) or Interface: (a public contract the types cannot state), or when it cites an accepted decision (AGENTS.md, Authority). Fix: move the meaning into code and delete the comment.",
         },
       },
       create(context) {

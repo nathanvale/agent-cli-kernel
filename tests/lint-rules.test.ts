@@ -906,6 +906,6 @@ for (const [filePath, code, lines] of commentCases)
     expect(found.map(({ line }) => line)).toEqual([...lines]);
     for (const { message } of found)
       expect(message).toContain(
-        "Fix: delete the comment, or move what it says into code.",
+        "Fix: move the meaning into code and delete the comment.",
       );
   });
