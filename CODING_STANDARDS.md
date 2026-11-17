@@ -150,7 +150,7 @@ row's guide or gate note cites two distinct witnesses.
 - Other source stays review in this table. The kernel's own lint covers
   `kernel/src/`.
 - Witnessed: [b456208], [5cbff3a], [r4580070968], [r4580070979],
-  [r4580077776].
+  [r4580077776], [r4606943328].
 
 ### One owner
 
@@ -243,3 +243,4 @@ row's guide or gate note cites two distinct witnesses.
 [r4580070968]: https://github.com/nathanvale/bun-typescript-template/pull/6#discussion_r4580070968
 [r4580070979]: https://github.com/nathanvale/bun-typescript-template/pull/6#discussion_r4580070979
 [r4580077776]: https://github.com/nathanvale/bun-typescript-template/pull/6#discussion_r4580077776
+[r4606943328]: https://github.com/nathanvale/bun-typescript-template/pull/80#discussion_r4606943328
