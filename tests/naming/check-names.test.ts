@@ -1,10 +1,11 @@
 import { afterAll, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { recordedHitsFile } from "../../scripts/glossary.ts";
 import { processWatchdog } from "../support/process.ts";
 import {
   checkNames,
+  checkNamesFrom,
   fixtureRepository,
   fixtureTree,
   git,
@@ -227,6 +228,28 @@ test(
     });
   },
   processWatchdog(1),
+);
+
+test(
+  "CN.i a relative path is resolved from the folder the entry runs in, and judged by its path from the root",
+  async () => {
+    const tree = fixtureTree();
+    const docs = join(tree, "docs");
+    mkdirSync(docs);
+    expect(await checkNamesFrom(tree, docs, ["host.md"])).toEqual({
+      stdout: "",
+      stderr:
+        'docs/host.md uses "host" with no qualifier. Repair: add a word that says which host it is.\n',
+      exit: 1,
+    });
+    expect(await checkNamesFrom(tree, docs, ["../src/host.ts"])).toEqual({
+      stdout: "",
+      stderr:
+        'src/host.ts uses "host" with no qualifier. Repair: add a word that says which host it is.\n',
+      exit: 1,
+    });
+  },
+  processWatchdog(2),
 );
 
 test.each([
