@@ -1,0 +1,13 @@
+diff --git a/config/template-rules.mjs b/config/template-rules.mjs
+index 4005488..4df80a5 100644
+--- a/config/template-rules.mjs
++++ b/config/template-rules.mjs
+@@ -251,7 +251,7 @@ export default {
+               const [first = ""] = lines;
+               if (
+                 commentDirective.test(first) ||
+-                commentMarker.test(first) ||
++                lines.some((line) => commentMarker.test(line)) ||
+                 acceptedDecision.test(lines.join(" "))
+               )
+                 continue;

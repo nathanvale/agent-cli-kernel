@@ -30,6 +30,13 @@
   {
     "id": "5ac4285-eslint-rules",
     "patch": "tests/faults/patches/5ac4285-eslint-rules.patch",
+    "testFile": "tests/contract3/lint-rules.test.ts",
+    "title": "^no-comments refuses .*Note\\.",
+    "source": "5ac4285 feat(lint): refuse comments, except Platform:, Interface: and accepted decisions"
+  },
+  {
+    "id": "5ac4285-template-rules",
+    "patch": "tests/faults/patches/5ac4285-template-rules.patch",
     "testFile": "tests/lint-rules.test.ts",
     "title": "^no-comments refuses .*Note\\.",
     "source": "5ac4285 feat(lint): refuse comments, except Platform:, Interface: and accepted decisions"

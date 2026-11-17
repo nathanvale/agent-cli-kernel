@@ -1,4 +1,6 @@
 import { expect, test } from "bun:test";
+import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { ESLint } from "eslint";
 import ts from "typescript";
@@ -15,7 +17,36 @@ async function messages(filePath: string, code: string) {
   }));
 }
 
+const templateRules = Object.keys(
+  (
+    (await import(
+      new URL("../config/template-rules.mjs", import.meta.url).href
+    )) as { default: { rules: object } }
+  ).default.rules,
+);
+const kernelPath = /^(starters|tests)\/contract3\//;
+const tracked = execFileSync(
+  "git",
+  ["ls-files", "--cached", "--others", "--exclude-standard"],
+  { cwd: root, encoding: "utf8" },
+)
+  .split("\n")
+  .filter((path) => path !== "" && existsSync(resolve(root, path)));
+
+async function ruleOn(rule: string, filePath: string): Promise<boolean> {
+  const config = (await eslint.calculateConfigForFile(filePath)) as
+    | { rules?: Record<string, unknown> }
+    | undefined;
+  const setting = config?.rules?.[rule];
+  const severity: unknown = Array.isArray(setting) ? setting[0] : setting;
+  return severity !== undefined && severity !== 0 && severity !== "off";
+}
+
 async function hits(rule: string, filePath: string, code: string) {
+  if (kernelPath.test(filePath) || !existsSync(resolve(root, filePath)))
+    throw new Error(`${filePath} is not a template file.`);
+  if (!(await ruleOn(`repository/${rule}`, filePath)))
+    throw new Error(`repository/${rule} is off for ${filePath}.`);
   return (await messages(filePath, code))
     .filter((message) => message.ruleId === `repository/${rule}`)
     .map(({ line, message }) => ({ line, message }));
@@ -61,13 +92,6 @@ async function fixesFor(rule: string, filePath: string, failing: string) {
   });
 }
 
-async function ownerImport(rule: string, filePath: string, failing: string) {
-  const [first] = await hits(rule, filePath, failing);
-  const line = / Import the owner once: (.*;) Fix: /.exec(first?.message ?? "");
-  if (line?.[1] === undefined) throw new Error(`No import in ${failing}.`);
-  return line[1];
-}
-
 const fixes = [
   {
     rule: "no-locale-compare",
@@ -79,167 +103,27 @@ const fixes = [
   },
   {
     rule: "no-locale-compare",
-    filePath: "starters/contract3/src/kernel/validation/json-equality.ts",
+    filePath: "scripts/doctor.ts",
     failing:
       "export const sorted = (names: string[]) => names.sort((a, b) => a.localeCompare(b));",
     fixed: ([fix]: string[]) =>
       `export const sorted = (names: string[]) => names.sort(${fix});`,
-  },
-  {
-    rule: "no-in-operator",
-    filePath: "starters/contract3/src/kernel/validation/result.ts",
-    failing:
-      'export const next = (value: Record<string, unknown>) => ("next" in value ? value.next : undefined);',
-    fixed: ([fix]: string[]) =>
-      `export const next = (value: Record<string, unknown>): unknown => ${fix};`,
-  },
-  {
-    rule: "no-in-operator",
-    filePath: "starters/contract3/src/kernel/validation/result.ts",
-    failing: [
-      "export const ends = (value: Record<string, unknown>): readonly unknown[] => [",
-      '  "next" in value ? value.next : undefined, "handoff" in value ? value.handoff : undefined,',
-      "];",
-    ].join("\n"),
-    fixed: ([next, handoff]: string[]) =>
-      `export const ends = (value: Record<string, unknown>): readonly unknown[] => [${next}, ${handoff}];`,
-  },
-  {
-    rule: "no-in-operator",
-    filePath: "starters/contract3/src/kernel/pattern-worker.ts",
-    failing: [
-      "export const job = (value: unknown): readonly unknown[] =>",
-      '  typeof value === "object" && value !== null && "pattern" in value && "input" in value',
-      "    ? [value.pattern, value.input]",
-      "    : [];",
-    ].join("\n"),
-    fixed: ([pattern, input]: string[]) =>
-      [
-        "export const job = (value: unknown): readonly unknown[] => {",
-        '  if (typeof value !== "object" || value === null) return [];',
-        `  const first: unknown = ${pattern};`,
-        `  const second: unknown = ${input};`,
-        `  const again: unknown = ${pattern};`,
-        "  return [first, second, again];",
-        "};",
-      ].join("\n"),
-  },
-  {
-    rule: "no-in-operator",
-    filePath: "starters/contract3/src/kernel/validation/result.ts",
-    failing:
-      'export const payload = (next: () => object) => ("payload" in next() ? 1 : 0);',
-    fixed: ([fix]: string[]) =>
-      `export const payload = (next: () => object): unknown => {\n  ${fix}\n  return own;\n};`,
-  },
-  {
-    rule: "no-in-operator",
-    filePath: "starters/contract3/src/kernel/validation/result.ts",
-    failing:
-      'export const ahead = (read: () => object) => Reflect.has(read(), "next");',
-    fixed: ([fix]: string[]) =>
-      `export const ahead = (read: () => object): unknown => {\n  ${fix}\n  return own;\n};`,
-  },
-  {
-    rule: "no-in-operator",
-    filePath: "starters/contract3/src/addons/approval/read.ts",
-    failing:
-      'export const code = (error: Error): unknown => ("code" in error ? error.code : undefined);',
-    fixed: ([fix]: string[]) =>
-      `export const code = (error: Error): unknown => ${fix};`,
-  },
-  {
-    rule: "no-in-operator",
-    filePath: "starters/contract3/src/kernel/validation/result.ts",
-    failing: [
-      "export const names = (value: object): string[] => {",
-      "  const found: string[] = [];",
-      "  for (const key in value) found.push(key);",
-      "  return found;",
-      "};",
-    ].join("\n"),
-    fixed: ([fix]: string[]) =>
-      [
-        "export const names = (value: object): string[] => {",
-        "  const found: string[] = [];",
-        `  ${fix} found.push(key);`,
-        "  return found;",
-        "};",
-      ].join("\n"),
-  },
-  {
-    rule: "cause-literal-owner",
-    filePath: "starters/contract3/src/kernel/declaration-checks.ts",
-    failing:
-      'export const reserved = (causeCode: string) => causeCode === "INTERNAL_PREPARATION";',
-    fixed: ([fix]: string[], imported: string) =>
-      `${imported}\nexport const reserved = (causeCode: string) => causeCode === ${fix};`,
-  },
-  {
-    rule: "cause-literal-owner",
-    filePath: "starters/contract3/src/addons/state/scope.ts",
-    failing:
-      'export const needed = (codes: string[]) => codes.includes("DOMAIN_DEADLINE_UNKNOWN");',
-    fixed: ([fix]: string[], imported: string) =>
-      `${imported}\nexport const needed = (codes: string[]) => codes.includes(${fix});`,
-  },
-  {
-    rule: "cause-literal-owner",
-    filePath: "starters/contract3/src/kernel/declaration-checks.ts",
-    failing: [
-      "export const twice = (causeCode: string) =>",
-      '  causeCode === "INTERNAL_PREPARATION" || causeCode.endsWith("INTERNAL_PREPARATION");',
-    ].join("\n"),
-    fixed: ([first, second]: string[], imported: string) =>
-      [
-        imported,
-        "export const twice = (causeCode: string) => {",
-        `  if (causeCode === ${first}) return true;`,
-        `  return causeCode.endsWith(${second});`,
-        "};",
-      ].join("\n"),
   },
 ];
 
 for (const item of fixes)
   test(`${item.rule}: the fix its message names compiles and lints clean in ${item.filePath}`, async () => {
     const found = await fixesFor(item.rule, item.filePath, item.failing);
-    const imported =
-      item.rule === "cause-literal-owner"
-        ? await ownerImport(item.rule, item.filePath, item.failing)
-        : "";
-    const fixed = item.fixed(found, imported);
+    const fixed = item.fixed(found);
     expect(typeErrors(item.filePath, fixed)).toEqual([]);
     expect(await messages(item.filePath, fixed)).toEqual([]);
   }, 60_000);
-
-test("no-in-operator: a fix for a call operand evaluates it once, in the checked order", async () => {
-  const filePath = "starters/contract3/src/kernel/validation/result.ts";
-  const [inOperator] = await fixesFor(
-    "no-in-operator",
-    filePath,
-    "export const a = (next: () => string, value: object) => next() in value;",
-  );
-  const [reflected] = await fixesFor(
-    "no-in-operator",
-    filePath,
-    'export const b = (read: () => object) => Reflect.has(read(), "next");',
-  );
-  expect(inOperator?.split("next()")).toHaveLength(2);
-  expect(inOperator?.indexOf("const key")).toBeLessThan(
-    inOperator?.indexOf("const target") ?? -1,
-  );
-  expect(reflected?.split("read()")).toHaveLength(2);
-  expect(reflected?.indexOf("const target")).toBeLessThan(
-    reflected?.indexOf("const key") ?? -1,
-  );
-});
 
 const refused = [
   {
     rule: "no-locale-compare",
     witness: "b456208",
-    filePath: "starters/contract3/src/kernel/validation/json-equality.ts",
+    filePath: "scripts/doctor.ts",
     code: [
       "export const keys = (value: Record<string, unknown>) =>",
       "  Object.entries(value).sort(([left], [right]) => left.localeCompare(right));",
@@ -271,76 +155,6 @@ const refused = [
     ],
     lines: [1, 2, 3, 5, 7],
   },
-  {
-    rule: "no-in-operator",
-    witness: "5cbff3a",
-    filePath: "starters/contract3/src/kernel/validation/version.ts",
-    code: [
-      "export const declared = (value: object, fields: object) =>",
-      "  Object.keys(value).every((key) => key in fields);",
-    ],
-    lines: [2],
-  },
-  {
-    rule: "no-in-operator",
-    witness: "Reflect.has and for...in",
-    filePath: "starters/contract3/src/kernel/validation/result.ts",
-    code: [
-      'export const has = (value: object) => Reflect.has(value, "next");',
-      "export const names = (value: object): string[] => {",
-      "  const found: string[] = [];",
-      "  for (const key in value) found.push(key);",
-      "  return found;",
-      "};",
-    ],
-    lines: [1, 4],
-  },
-  {
-    rule: "no-in-operator",
-    witness: "inherited keys",
-    filePath: "starters/contract3/src/kernel/validation/result.ts",
-    code: [
-      'export const built = (value: Record<string, unknown>) => "constructor" in value;',
-      'export const printed = (value: unknown) => typeof value === "object" && value !== null && "toString" in value;',
-      'export const owned = (value: Record<string, unknown>) => Reflect.has(value, "hasOwnProperty");',
-      'export const callable = (value: () => void) => "call" in value;',
-    ],
-    lines: [1, 2, 3, 4],
-  },
-  {
-    rule: "cause-literal-owner",
-    witness: "e7c771c",
-    filePath: "starters/contract3/src/kernel/declaration-checks.ts",
-    code: [
-      "export const reserved = (causeCode: string) =>",
-      '  causeCode.startsWith("INTERNAL_RESULT_") ||',
-      '  causeCode === "INTERNAL_PREPARATION";',
-    ],
-    lines: [3],
-  },
-  {
-    rule: "cause-literal-owner",
-    witness: "codes built from parts",
-    filePath: "starters/contract3/src/addons/state/scope.ts",
-    code: [
-      'const family = "DOMAIN";',
-      'export const joined = "DOMAIN_" + "DEADLINE_UNKNOWN";',
-      "export const template = `${family}_DEADLINE_UNKNOWN`;",
-      'export const parts = [family, "DEADLINE", "UNKNOWN"].join("_");',
-    ],
-    lines: [2, 3, 4],
-  },
-  {
-    rule: "cause-literal-owner",
-    witness: "local literal union",
-    filePath: "starters/contract3/src/kernel/routing.ts",
-    code: [
-      'type LocalCode = "INTERNAL_PREPARATION";',
-      'export const code: LocalCode = "INTERNAL_PREPARATION";',
-      'export const same = (local: LocalCode) => local === "INTERNAL_PREPARATION";',
-    ],
-    lines: [2, 3],
-  },
 ];
 
 for (const item of refused)
@@ -349,127 +163,11 @@ for (const item of refused)
     expect(found.map(({ line }) => line)).toEqual(item.lines);
   });
 
-const admitted = [
-  {
-    rule: "no-in-operator",
-    reason: "narrows a union by a key one member declares",
-    filePath: "starters/contract3/src/kernel/lifecycle.ts",
-    code: [
-      "type Attached = { readonly enter: number } | { readonly delivery: string };",
-      'export const delivery = (attached: Attached) => ("delivery" in attached ? attached.delivery : undefined);',
-    ],
-  },
-  {
-    rule: "no-in-operator",
-    reason: "narrows a union by a declared key through Reflect.has",
-    filePath: "starters/contract3/src/kernel/lifecycle.ts",
-    code: [
-      "type Attached = { readonly enter: number } | { readonly delivery: string };",
-      'export const delivered = (attached: Attached) => Reflect.has(attached, "delivery");',
-    ],
-  },
-  {
-    rule: "no-in-operator",
-    reason:
-      "checks a key its type declares itself, though Object.prototype has it too",
-    filePath: "starters/contract3/src/kernel/validation/result.ts",
-    code: [
-      'export const printable = (value: { toString(): string }) => "toString" in value;',
-    ],
-  },
-  {
-    rule: "no-in-operator",
-    reason:
-      "checks a key its type declares itself, though the default library declares it too",
-    filePath: "starters/contract3/src/kernel/validation/result.ts",
-    code: [
-      'export const shown = (value: { toString(): string } & object & Object) => "toString" in value;',
-    ],
-  },
-  {
-    rule: "no-in-operator",
-    reason: "checks a key a module-local interface named Function declares",
-    filePath: "starters/contract3/src/kernel/validation/result.ts",
-    code: [
-      "interface Function { readonly kind: string }",
-      'export const kinded = (value: Function) => "kind" in value;',
-    ],
-  },
-  {
-    rule: "no-in-operator",
-    reason: "checks a numeric key its type declares",
-    filePath: "starters/contract3/src/kernel/validation/result.ts",
-    code: [
-      "export const first = (value: { 0: string }) => 0 in value;",
-      "export const reflected = (value: { 0: string }) => Reflect.has(value, 0);",
-    ],
-  },
-  {
-    rule: "no-in-operator",
-    reason: "checks a unique-symbol key its type declares",
-    filePath: "starters/contract3/src/kernel/validation/result.ts",
-    code: [
-      'const tag: unique symbol = Symbol("tag");',
-      "export const tagged = (value: { [tag]: string }) => tag in value;",
-      "export const reflected = (value: { [tag]: string }) => Reflect.has(value, tag);",
-    ],
-  },
-  {
-    rule: "no-in-operator",
-    reason: "tells a data descriptor from an accessor",
-    filePath: "starters/contract3/src/kernel/validation/primitives.ts",
-    code: [
-      "export const data = (value: object, key: string) => {",
-      "  const descriptor = Object.getOwnPropertyDescriptor(value, key);",
-      '  return descriptor !== undefined && "value" in descriptor;',
-      "};",
-    ],
-  },
-  {
-    rule: "cause-literal-owner",
-    reason: "is checked by the compiler against the owner's keys",
-    filePath: "starters/contract3/src/kernel/routing.ts",
-    code: [
-      'import type { commonCauses } from "./causes.ts";',
-      "const refuse = (code: keyof typeof commonCauses) => code;",
-      'export const refused = refuse("USAGE_INVALID_INVOCATION");',
-    ],
-  },
-  {
-    rule: "cause-literal-owner",
-    reason: "is compared with a value typed by the owner's keys",
-    filePath: "starters/contract3/src/kernel/routing.ts",
-    code: [
-      'import type { commonCauses } from "./causes.ts";',
-      'export const unchanged = (code: keyof typeof commonCauses) => code === "SUCCESS_UNCHANGED";',
-    ],
-  },
-  {
-    rule: "cause-literal-owner",
-    reason: "is a host's own code, not a kernel code",
-    filePath: "starters/contract3/src/addons/state/scope.ts",
-    code: ['export const cause = "DOMAIN_STATE_CONFLICT";'],
-  },
-  {
-    rule: "cause-literal-owner",
-    reason: "is inside its owner module",
-    filePath: "starters/contract3/src/kernel/causes.ts",
-    code: ['export const code = "DOMAIN_DEADLINE_UNKNOWN";'],
-  },
-];
-
-for (const item of admitted)
-  test(`${item.rule} admits a value that ${item.reason}`, async () => {
-    expect(await hits(item.rule, item.filePath, item.code.join("\n"))).toEqual(
-      [],
-    );
-  });
-
 const cases = [
   {
     rule: "require-to-throw-message",
     witness: "185c90d",
-    filePath: "tests/contract3/stations.test.ts",
+    filePath: "tests/doctor.test.ts",
     failing: [
       'const list = { name: "list" };',
       'expect(() => contractFor({ cli: "notes", commands: [list, list] })).toThrow();',
@@ -487,7 +185,7 @@ const cases = [
   {
     rule: "tests-use-test-folder",
     witness: "c0b4bf5",
-    filePath: "tests/contract3/state/route.test.ts",
+    filePath: "tests/doctor.test.ts",
     failing: [
       'import { mkdtempSync, realpathSync } from "node:fs";',
       'import { tmpdir } from "node:os";',
@@ -496,7 +194,7 @@ const cases = [
       '  realpathSync.native(mkdtempSync(join(tmpdir(), "c3-route-")));',
     ],
     passing: [
-      'import { testFolder } from "../../support/test-folder.ts";',
+      'import { testFolder } from "./support/test-folder.ts";',
       'export const folder = () => testFolder("c3-route-");',
     ],
     line: 5,
@@ -505,7 +203,7 @@ const cases = [
   {
     rule: "tests-no-sleep",
     witness: "d1436c0",
-    filePath: "tests/contract3/lifecycle/harness.ts",
+    filePath: "tests/doctor.test.ts",
     failing: [
       "export async function exitWithin(done: Promise<number>, ms: number) {",
       "  const observed = await Promise.race([",
@@ -547,7 +245,7 @@ for (const item of cases)
 test("require-to-throw-message refuses a bare rejects.toThrow()", async () => {
   const found = await hits(
     "require-to-throw-message",
-    "tests/contract3/state/component.test.ts",
+    "tests/doctor.test.ts",
     'await expect(Promise.reject(new Error("limit"))).rejects.toThrow();',
   );
   expect(found.map(({ line }) => line)).toEqual([1]);
@@ -785,11 +483,7 @@ const bypasses = [
 
 for (const [rule, code, fix] of bypasses)
   test(`${rule} ${fix ? "refuses" : "admits"} ${code} and names the fix`, async () => {
-    const found = await hits(
-      rule,
-      "tests/contract3/state/component.test.ts",
-      code,
-    );
+    const found = await hits(rule, "tests/doctor.test.ts", code);
     expect(
       found.map(({ message }) => fix !== undefined && message.includes(fix)),
     ).toEqual(fix ? [true] : []);
@@ -801,18 +495,6 @@ test("tests-use-test-folder admits the folder calls inside its owner module", as
       "tests-use-test-folder",
       "tests/support/test-folder.ts",
       await Bun.file(resolve(import.meta.dir, "support/test-folder.ts")).text(),
-    ),
-  ).toEqual([]);
-});
-
-test("tests-no-sleep admits the spawnBounded watchdog, which resolves a named value", async () => {
-  expect(
-    await hits(
-      "tests-no-sleep",
-      "tests/contract3/kernel-repair/swarm-process.ts",
-      await Bun.file(
-        resolve(import.meta.dir, "contract3/kernel-repair/swarm-process.ts"),
-      ).text(),
     ),
   ).toEqual([]);
 });
@@ -837,7 +519,7 @@ const sleeps = [
 test("tests-no-sleep refuses a promise delay and admits a watchdog", async () => {
   const found = await hits(
     "tests-no-sleep",
-    "tests/contract3/lifecycle/stop-flow.test.ts",
+    "tests/doctor.test.ts",
     sleeps.map(([line]) => line).join("\n"),
   );
   expect(found.map(({ line }) => line)).toEqual(
@@ -852,7 +534,7 @@ const commentCases = [
     [1],
   ],
   [
-    "starters/contract3/src/kernel/routing.ts",
+    "src/static-admission.ts",
     "// A workaround until the parser is fixed:\n// it drops the last token.\nexport const a = 1;",
     [1],
   ],
@@ -879,7 +561,7 @@ const commentCases = [
     [],
   ],
   [
-    "starters/contract3/src/kernel/routing.ts",
+    "src/static-admission.ts",
     "// Interface: a host passes the descriptor\n// to contractFor.\nexport const a = 1;",
     [],
   ],
@@ -909,3 +591,45 @@ for (const [filePath, code, lines] of commentCases)
         "Fix: move the meaning into code and delete the comment.",
       );
   });
+
+test("every template rule refuses a case on a template file", async () => {
+  const proved = new Set<string>();
+  for (const { rule, filePath, failing } of fixes)
+    if ((await hits(rule, filePath, failing)).length > 0) proved.add(rule);
+  for (const { rule, filePath, code } of refused)
+    if ((await hits(rule, filePath, code.join("\n"))).length > 0)
+      proved.add(rule);
+  for (const { rule, filePath, failing } of cases)
+    if ((await hits(rule, filePath, failing.join("\n"))).length > 0)
+      proved.add(rule);
+  for (const [filePath, code] of commentCases)
+    if ((await hits("no-comments", filePath, code)).length > 0)
+      proved.add("no-comments");
+  expect([...proved].sort()).toEqual(templateRules.sort());
+});
+
+test("every template rule is on for a tracked template file", async () => {
+  const off: string[] = [];
+  for (const rule of templateRules) {
+    let on = false;
+    for (const path of tracked.filter((path) => !kernelPath.test(path)))
+      if (await ruleOn(`repository/${rule}`, path)) {
+        on = true;
+        break;
+      }
+    if (!on) off.push(rule);
+  }
+  expect(off).toEqual([]);
+});
+
+test("every recorded hit names a tracked file with that rule on", async () => {
+  const recorded = (await Bun.file(
+    resolve(root, "eslint-suppressions.json"),
+  ).json()) as Record<string, Record<string, unknown>>;
+  const dead: string[] = [];
+  for (const [path, rules] of Object.entries(recorded))
+    for (const rule of Object.keys(rules))
+      if (!tracked.includes(path) || !(await ruleOn(rule, path)))
+        dead.push(`${path} ${rule}`);
+  expect(dead).toEqual([]);
+});
