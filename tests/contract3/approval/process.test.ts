@@ -1069,7 +1069,7 @@ test("T4S.r5-fixture-lint: the materialized tree passes contract3 lint", async (
   ]);
 }, 120_000);
 
-// The approval store allows create and search (0o300) but not the read needed
+// Platform: The approval store allows create and search (0o300) but not the read needed
 // to open it for fsync.
 test("T4S.n5-durability-unconfirmed: a failed flush after creation reports consumption", async () => {
   await writeGrant(world, grant);

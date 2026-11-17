@@ -142,7 +142,7 @@ export function issuedProof(
     : undefined;
   return run ? attachedRuns.get(run)?.proof : undefined;
 }
-// Runtime counterpart of the ExclusiveScope brand (K2): true only for the
+// Interface: Runtime counterpart of the ExclusiveScope brand (K2): true only for the
 // kernel-issued object itself, issued by `descriptor`'s state add-on instance for the
 // run's current attachment, while isActive() returns true (a throw is false).
 // The descriptor is required so a scope from another state add-on instance for the

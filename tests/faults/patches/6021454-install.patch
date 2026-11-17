@@ -6,7 +6,7 @@ index 3f02b14..ef43750 100644
  };
  
  export function install(options: StateOptions, seams: Seams) {
--  // Checked before anything else: Math.max and Math.min pass NaN through,
+-  // Platform: Checked before anything else: Math.max and Math.min pass NaN through,
 -  // and a NaN bound never ends the wait for the admission lock.
 -  const wait: unknown = options.admissionWaitMilliseconds;
 -  if (wait !== undefined && (typeof wait !== "number" || Number.isNaN(wait)))

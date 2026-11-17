@@ -36,7 +36,7 @@ export async function readUntrusted(
     );
   } catch (error) {
     const code = errorCode(error);
-    // Absent, or a symlink at the record location (caller substitution).
+    // Platform: Absent, or a symlink at the record location (caller substitution).
     if (code === "ENOENT" || code === "ELOOP" || code === "EMLINK")
       return undefined;
     throw new ApprovalRejection("store-unavailable", error);

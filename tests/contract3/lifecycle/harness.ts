@@ -364,7 +364,7 @@ export async function cleanup(observed: { readonly dir: string }) {
   await rm(observed.dir, { recursive: true, force: true });
 }
 
-// H1: whether the host will start a process with this exact argv and
+// Platform: H1: whether the host will start a process with this exact argv and
 // environment. Linux refuses any single argument of 131,072 bytes or more
 // (MAX_ARG_STRLEN, terminator included); Darwin limits only the total
 // (ARG_MAX). The probe runs /bin/sh with the same arguments and environment
@@ -467,7 +467,7 @@ export function requireTools(): void {
 }
 
 export const exitBound = 20_000;
-// H2: a CLI that calls abort() is reported gone only after the host has dealt
+// Platform: H2: a CLI that calls abort() is reported gone only after the host has dealt
 // with the aborted process. Hosted ubuntu runners took 23,798 ms (run
 // 43768259751) and 27,461 ms (run 43771790891) for L06s.abort, and more than
 // 20,000 ms in run 43780233662; Darwin takes milliseconds. Only the abort
@@ -566,7 +566,7 @@ export async function listing(dir: string): Promise<readonly string[]> {
   return existsSync(dir) ? (await readdir(dir)).sort() : [];
 }
 
-// C5: a consumer that takes 4 KiB per read with a real pause between reads.
+// Platform: C5: a consumer that takes 4 KiB per read with a real pause between reads.
 // The CLI's stdout feeds a Perl relay (sysread of 4,096 bytes, then 2 ms);
 // the CLI's own exit status and the relay's read count go to the ledger.
 // Bun's subprocess streams offer no BYOB reader, and node:child_process in

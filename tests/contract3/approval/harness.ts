@@ -104,7 +104,7 @@ export async function materialize(): Promise<{
 }
 
 export async function createWorld(): Promise<World> {
-  // Resolved, so fileSeparation judges real directories, not /var's symlink.
+  // Platform: Resolved, so fileSeparation judges real directories, not /var's symlink.
   const root = await mkdtemp(
     join(await realpath(tmpdir()), "contract3-approval-world-"),
   );

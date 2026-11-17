@@ -399,7 +399,7 @@ describe("D04 handle custody", () => {
       const result = await launched.finished;
       expectSuccess(result);
       expectSetupRefusal(statusOf(result));
-      // Real open behaviour may create the file through the swapped ancestor;
+      // Platform: Real open behaviour may create the file through the swapped ancestor;
       // the sink refuses it and writes nothing there.
       for (const entry of observe(elsewhere).files) expect(entry.size).toBe(0);
       expect(observe(`${where.dir}.orig`).files).toHaveLength(0);

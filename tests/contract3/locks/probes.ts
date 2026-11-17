@@ -43,7 +43,7 @@ const both: readonly Compiler[] = ["native", "lint-view"];
 const fallbackWidth = 4;
 const diagnostic = /^(.+)\((\d+),(\d+)\): error TS(\d+):/;
 
-// Both compilers skip type checking for the whole program when any file fails
+// Platform: Both compilers skip type checking for the whole program when any file fails
 // to parse. The sentinel's type error is printed only when checking ran.
 const sentinel = {
   file: "locks/sentinel.ts",
@@ -51,7 +51,7 @@ const sentinel = {
   code: 2322,
 };
 
-// tsc --pretty false indents a diagnostic's elaboration lines under it.
+// Platform: tsc --pretty false indents a diagnostic's elaboration lines under it.
 function records(stdout: string): string[] {
   const result: string[] = [];
   for (const line of stdout.split("\n").filter((text) => text !== "")) {

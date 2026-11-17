@@ -13,6 +13,10 @@ const prototypeOwners = new Set([
   "NewableFunction",
 ]);
 const ownerKeys = new WeakMap();
+const commentDirective =
+  /^(?:eslint-|eslint |global |@ts-|biome-ignore|fallow-ignore)/;
+const commentMarker = /^(?:Platform|Interface):/;
+const acceptedDecision = /accepted decisions?\b/i;
 
 function constantText(context, node, depth = 0) {
   if (!node || depth > 8) return undefined;
@@ -295,8 +299,57 @@ const namesNothing = (wrapped) => {
   );
 };
 
+function commentBlocks(source) {
+  const blocks = [];
+  for (const comment of source.getAllComments()) {
+    const block = blocks[blocks.length - 1];
+    const last = block?.[block.length - 1];
+    if (
+      last?.type === "Line" &&
+      comment.type === "Line" &&
+      comment.loc.start.line === last.loc.end.line + 1
+    )
+      block.push(comment);
+    else blocks.push([comment]);
+  }
+  return blocks;
+}
+
 export default {
   rules: {
+    "no-comments": {
+      meta: {
+        type: "problem",
+        schema: [],
+        messages: {
+          comment:
+            "Comments are refused: the next agent reads one as permission and builds on it. Say it in code: a name, a type, a test title, or a lint rule whose message explains the constraint. A comment stays only when it starts with Platform: (behaviour of a runtime, operating system or tool this repository cannot change), Interface: (a public contract the types cannot state), or cites an accepted decision (AGENTS.md, Authority). Fix: delete the comment, or move what it says into code.",
+        },
+      },
+      create(context) {
+        return {
+          Program() {
+            for (const block of commentBlocks(context.sourceCode)) {
+              const lines = block.map((comment) => comment.value.trim());
+              const [first = ""] = lines;
+              if (
+                commentDirective.test(first) ||
+                commentMarker.test(first) ||
+                acceptedDecision.test(lines.join(" "))
+              )
+                continue;
+              context.report({
+                loc: {
+                  start: block[0].loc.start,
+                  end: block[block.length - 1].loc.end,
+                },
+                messageId: "comment",
+              });
+            }
+          },
+        };
+      },
+    },
     "no-locale-compare": {
       meta: {
         type: "problem",
@@ -347,7 +400,7 @@ export default {
         const { program } = services;
         const checker = program.getTypeChecker();
         const text = (node) => context.sourceCode.getText(node);
-        // Every object type resolves the Object.prototype members, and
+        // Platform: Every object type resolves the Object.prototype members, and
         // every function type the Function.prototype ones, so a key found
         // only there is inherited, not declared.
         const inherited = (declaration) =>

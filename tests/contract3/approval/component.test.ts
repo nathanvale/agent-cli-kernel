@@ -236,7 +236,7 @@ for (const [id, setup] of hostile)
   });
 
 test("A04.h-invalid-utf8", async () => {
-  // The request names U+FFFD, so lossy decoding of the 0xff byte would
+  // Platform: The request names U+FFFD, so lossy decoding of the 0xff byte would
   // otherwise turn the invalid bytes into a matching authority.
   const text = JSON.stringify({ ...grant, authority: "owner-?" });
   const bytes = Buffer.from(text, "utf8");

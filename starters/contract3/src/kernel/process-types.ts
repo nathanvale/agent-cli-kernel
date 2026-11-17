@@ -14,7 +14,7 @@ export type ProcessHost = {
   readonly now: () => number;
 };
 
-// What an add-on learns about the run it serves. `signal` aborts at the first
+// Interface: What an add-on learns about the run it serves. `signal` aborts at the first
 // stop request or at the deadline: no new work may start after that.
 export type RunControl = {
   readonly runId: string;
@@ -25,13 +25,13 @@ export type RunControl = {
 
 export type AttachedAddon<Capability> = {
   readonly capability: Capability;
-  // Bounded shutdown of owned resources. `limitMilliseconds` caps every
+  // Interface: Bounded shutdown of owned resources. `limitMilliseconds` caps every
   // declared budget. Resolves true only when every owned resource was observed
   // stopped; an attempt is never reported as termination.
   readonly settle: (limitMilliseconds?: number) => Promise<boolean>;
-  // Synchronous forced termination attempt with no waiting.
+  // Interface: Synchronous forced termination attempt with no waiting.
   readonly killNow: () => void;
-  // Status seam (LIFE-7 step 1, DIAG-14). Offered only by an add-on whose
+  // Interface: Status seam (LIFE-7 step 1, DIAG-14). Offered only by an add-on whose
   // RunAddon sets `reportsStatus`. Called at most once, after the domain
   // result and recovery are frozen, with the flush budget (500 ms). Resolves
   // the raw diagnostics status; the kernel treats it as untrusted, bounds the
@@ -42,7 +42,7 @@ export type AttachedAddon<Capability> = {
 
 export type RunAddon<Capability> = {
   readonly attach: (run: RunControl) => AttachedAddon<Capability>;
-  // A status-reporting add-on attaches when its declaring command reaches
+  // Interface: A status-reporting add-on attaches when its declaring command reaches
   // handler entry, before the handler runs, so a status exists even when the handler
   // never uses it. Its attach must be effect-free. At most one per command.
   readonly reportsStatus?: true;
@@ -59,7 +59,7 @@ export type RunSetup = {
   readonly addons?: {
     readonly [K in CapabilityAddonName]?: RunAddon<CapabilityFor[K]>;
   };
-  // At most one bounded synchronous recording attempt on a catchable crash
+  // Interface: At most one bounded synchronous recording attempt on a catchable crash
   // (LIFE-6a). The state add-on supplies it; without one nothing is written.
   readonly emergencyRecord?: (facts: EmergencyFacts) => void;
 };

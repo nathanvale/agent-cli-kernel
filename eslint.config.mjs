@@ -38,6 +38,11 @@ export default tseslint.config(
     },
   },
   {
+    files: ["**/*.{ts,mts,cts,mjs}"],
+    plugins: { repository: localRules },
+    rules: { "repository/no-comments": "error" },
+  },
+  {
     files: ["src/cli.ts"],
     rules: { "no-console": ["error", { allow: ["log"] }] },
   },

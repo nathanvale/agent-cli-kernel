@@ -187,7 +187,7 @@ function emittedSourceCandidates(path: string): string[] {
 }
 
 function sourceTranspiler(options: Bun.TranspilerOptions): Bun.Transpiler {
-  // Bun 1.4.4 supports macro:false; bun-types 1.4.0 omits the boolean overload.
+  // Platform: Bun 1.4.4 supports macro:false; bun-types 1.4.0 omits the boolean overload.
   // src/runtime/api/JSTranspiler.rs sets no_macros from this runtime option.
   const macroControl: Record<string, boolean> = { macro: false };
   return new Bun.Transpiler({ ...options, ...macroControl });
@@ -259,13 +259,13 @@ function processBindingReferences(
   scanner: Bun.Transpiler,
   marker: string,
 ) {
-  // A Map keeps names such as __proto__ as data, not inherited setters.
+  // Platform: A Map keeps names such as __proto__ as data, not inherited setters.
   const define = new Map([
     ["Bun.argv", marker],
     ["process.argv", marker],
   ]);
   const imports = processImportCount(original, scanner);
-  // Bun prints process imports in this form, named lists possibly multiline.
+  // Platform: Bun prints process imports in this form, named lists possibly multiline.
   const source = original.replace(
     /^import ([^;"'`]+?) from "(?:node:)?process";$/gmu,
     (statement: string, clause: string, offset: number) => {
@@ -277,7 +277,7 @@ function processBindingReferences(
       return bound.length === 0 ? "" : `let ${bound.join(", ")};`;
     },
   );
-  // Object.fromEntries and spread both create own data properties.
+  // Platform: Object.fromEntries and spread both create own data properties.
   return { source, define: Object.fromEntries(define) };
 }
 
@@ -293,7 +293,7 @@ function executableSource(
   };
   const scanner = sourceTranspiler(options);
   const original = scanner.transformSync(source);
-  // Avoid collisions even when the parser normalizes escaped literal text.
+  // Platform: Avoid collisions even when the parser normalizes escaped literal text.
   const occupied = source + original;
   const main = referenceMarker(occupied, "__cliInventoryMain");
   const argv = referenceMarker(occupied, "__cliInventoryArgv");

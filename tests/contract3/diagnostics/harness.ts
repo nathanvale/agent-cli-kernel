@@ -69,7 +69,7 @@ const children: {
   readonly signalCode: string | null;
 }[] = [];
 
-// SIGKILL, because a CLI blocked in a synchronous system call (a failing FIFO
+// Platform: SIGKILL, because a CLI blocked in a synchronous system call (a failing FIFO
 // control) cannot run its SIGTERM handler.
 export function cleanTrees(): void {
   for (const child of children.splice(0))
@@ -99,7 +99,7 @@ export type Launch = {
   readonly umask?: string;
   readonly env?: Readonly<Record<string, string>>;
   readonly shell?: string;
-  // Bun's own spawn pipe is drained eagerly, so only a relay that does not
+  // Platform: Bun's own spawn pipe is drained eagerly, so only a relay that does not
   // read gives the CLI real backpressure (it waits in drain past the pipe
   // buffer).
   readonly holdStdoutUntil?: string;
@@ -109,7 +109,7 @@ function environment(launch: Launch): Record<string, string> {
   const env: Record<string, string> = {
     PATH: process.env.PATH ?? "/usr/bin:/bin",
     TMPDIR: launch.tree.root,
-    // Bun's own transpiler cache would otherwise write under HOME, which
+    // Platform: Bun's own transpiler cache would otherwise write under HOME, which
     // would hide what the CLI itself creates there.
     BUN_RUNTIME_TRANSPILER_CACHE_PATH: "0",
     DXS_SCRIPT: JSON.stringify(launch.script ?? {}),

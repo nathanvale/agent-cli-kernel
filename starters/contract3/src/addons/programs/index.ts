@@ -9,7 +9,7 @@ import type {
 } from "../../kernel/index.ts";
 import { afterDelay } from "./timer.ts";
 
-// CMD-14: a command that runs a caller-supplied program says so in its
+// Interface: CMD-14: a command that runs a caller-supplied program says so in its
 // summary. `supplied` refuses to start a program for a command whose summary
 // omits these words.
 export const callerProgramDisclosure = "Runs a program supplied by the caller.";
@@ -19,7 +19,7 @@ export type ShutdownAttempt = {
   readonly afterMilliseconds: number;
 };
 
-// Evidence the kernel's ProgramResult cannot carry. Attempts are requests,
+// Interface: Evidence the kernel's ProgramResult cannot carry. Attempts are requests,
 // never proof of termination. `groupEmpty` is the observed state of the owned
 // process group only: a descendant that left the group is not observed.
 export type ProgramDetails = {
@@ -142,7 +142,7 @@ async function capture(
   let size = 0;
   let truncated = false;
   let abandoned = false;
-  // Racing every read against a long-lived promise would retain each chunk
+  // Platform: Racing every read against a long-lived promise would retain each chunk
   // and grow memory with the child's output.
   void abandon.then(() => {
     abandoned = true;
