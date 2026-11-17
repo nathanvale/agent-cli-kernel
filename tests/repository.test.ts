@@ -10,11 +10,10 @@ const valid = {
   testAreas: [{ name: "template", folder: "tests", holds: "files" }],
 };
 
-function refusalFor(description: object | undefined): string {
+function refusalFor(file: string | undefined): string {
   const root = testFolder("repository-");
   try {
-    if (description !== undefined)
-      writeFileSync(join(root, "repository.json"), JSON.stringify(description));
+    if (file !== undefined) writeFileSync(join(root, "repository.json"), file);
     readRepository(root);
     return "no refusal";
   } catch (error) {
@@ -25,7 +24,7 @@ function refusalFor(description: object | undefined): string {
 }
 
 test("a valid description is read without a refusal", () => {
-  expect(refusalFor(valid)).toBe("no refusal");
+  expect(refusalFor(JSON.stringify(valid))).toBe("no refusal");
 });
 
 test.each([
@@ -55,5 +54,9 @@ test.each([
     "Error: repository.json is missing at <root>. Each repository that runs these gates describes itself there: copy the template's and set its web address and test areas.",
   ],
 ])("%s is refused with its exact message", (_case, description, expected) => {
-  expect(refusalFor(description)).toBe(expected);
+  expect(
+    refusalFor(
+      description === undefined ? undefined : JSON.stringify(description),
+    ),
+  ).toBe(expected);
 });
