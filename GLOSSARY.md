@@ -84,13 +84,19 @@ The kernel repository later adopting the template's tooling, as a repository
 with no CLI starter and no stamped kernel.
 _Avoid_: Restamp, Template upgrade (for alignment)
 
-### The pin
+### Pins
 
 **Pin**:
 The template's record of the kernel repository, one full commit in it, and the
 kernel branch that commit must stay reachable from. The pinned commit
-identifies the kernel; a pin has no version number.
-_Avoid_: version, release, dependency, package, pointer (say pin), pin record (say pin), lock (for a pin)
+identifies the kernel; a pin has no version number. Say kernel pin wherever a
+toolchain pin could be meant.
+_Avoid_: version, release, dependency, package (for a kernel pin), pointer (say pin), pin record (say pin), lock (for a pin)
+
+**Toolchain pin**:
+The one Bun version this repository runs on, recorded as `packageManager` in
+`package.json`. `bun run doctor` fails when the running Bun is another
+version.
 
 **Pinned commit**:
 The one full commit that a pin names.
