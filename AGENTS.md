@@ -6,8 +6,8 @@
   `bun run test` runs it first.
 - Contract 3 work (`starters/contract3/`, `tests/contract3/`): use the
   `contract3-work` skill.
-- After an operator correction or a review finding, or to gate a rule row:
-  use the `repo-steward` skill.
+- After an operator correction or a review finding, to gate a rule row, or
+  to weed the rule table: use the `repo-gardener` skill.
 
 ## Authority
 
