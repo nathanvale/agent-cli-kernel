@@ -16,6 +16,7 @@ import {
   type SignalAt,
   spawnBounded,
 } from "./support/process.ts";
+import { commitIn, gitEnv, git, inherited } from "./support/git-fixture.ts";
 import { testFolder } from "./support/test-folder.ts";
 
 const repository = join(import.meta.dir, "..");
@@ -28,24 +29,6 @@ const sources = [
   "repository.json",
 ];
 const folders: string[] = [];
-const gitEnv = {
-  GIT_CONFIG_GLOBAL: "/dev/null",
-  GIT_CONFIG_NOSYSTEM: "1",
-  GIT_AUTHOR_NAME: "Fixture",
-  GIT_AUTHOR_EMAIL: "fixture@example.invalid",
-  GIT_COMMITTER_NAME: "Fixture",
-  GIT_COMMITTER_EMAIL: "fixture@example.invalid",
-};
-// Platform: A git hook runs the suite with these set, and they would point the
-// fixture's git at the caller's repository.
-const gitLocation = new Set([
-  "GIT_DIR",
-  "GIT_WORK_TREE",
-  "GIT_INDEX_FILE",
-  "GIT_OBJECT_DIRECTORY",
-  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
-  "GIT_COMMON_DIR",
-]);
 const { scripts: production } = (await Bun.file(
   join(repository, "package.json"),
 ).json()) as { scripts: Record<string, string> };
@@ -63,28 +46,10 @@ afterAll(() => {
   for (const folder of folders) rmSync(folder, { recursive: true });
 });
 
-function inherited(): Record<string, string | undefined> {
-  return Object.fromEntries(
-    Object.entries(process.env).filter(([name]) => !gitLocation.has(name)),
-  );
-}
-
 function folder(prefix: string): string {
   const path = testFolder(prefix);
   folders.push(path);
   return path;
-}
-
-function git(root: string, ...args: string[]): string {
-  const result = Bun.spawnSync(["git", ...args], {
-    cwd: root,
-    env: { ...inherited(), ...gitEnv },
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  if (result.exitCode !== 0)
-    throw new Error(`git ${args.join(" ")}: ${result.stderr.toString()}`);
-  return result.stdout.toString().trim();
 }
 
 function manifest(pin: string, scripts: Record<string, string>): string {
@@ -106,19 +71,8 @@ function repositoryAt({ pin = Bun.version, scripts = markers } = {}) {
   }
   symlinkSync(join(repository, "node_modules"), join(root, "node_modules"));
   git(root, "init", "--quiet", "--initial-branch=main");
-  const commit = (subject: string, changes: Record<string, string | null>) => {
-    for (const [path, content] of Object.entries(changes))
-      if (content === null) git(root, "rm", "--quiet", "--", path);
-      else {
-        writeFileSync(join(root, path), content);
-        git(root, "add", "--", path);
-      }
-    git(root, "commit", "--quiet", "--allow-empty", "-m", subject);
-    return {
-      sha: git(root, "rev-parse", "HEAD"),
-      short: git(root, "rev-parse", "--short", "HEAD"),
-    };
-  };
+  const commit = (subject: string, changes: Record<string, string | null>) =>
+    commitIn(root, subject, changes);
   const base = commit("base", {
     ".gitignore": "node_modules\n",
     "package.json": manifest(pin, scripts),
