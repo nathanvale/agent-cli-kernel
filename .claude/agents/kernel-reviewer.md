@@ -1,6 +1,6 @@
 ---
 
-name: contract3-reviewer
+name: kernel-reviewer
 description: Review a diff that touches `kernel/` or `tests/kernel/` against this repository's coding standards and return findings. Pass the output of `git log -p <base>..<head>` and the hosted CI result for `<head>` in the prompt.
 tools: Read, Grep, Glob
 ---
