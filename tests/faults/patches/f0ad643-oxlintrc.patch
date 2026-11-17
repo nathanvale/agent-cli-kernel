@@ -1,0 +1,13 @@
+diff --git a/.oxlintrc.json b/.oxlintrc.json
+index e8158b6..9de9094 100644
+--- a/.oxlintrc.json
++++ b/.oxlintrc.json
+@@ -39,7 +39,7 @@
+     "anti-slop/no-chained-type-assertions": "error",
+     "anti-slop/no-widen-then-assert": "error",
+     "anti-slop/no-unknown-type-aliases": "error",
+-    "anti-slop/no-module-mocking": "error",
++    "anti-slop/no-module-mocking": "off",
+     "anti-slop/no-reduce-accumulator-copy": "error"
+   }
+ }

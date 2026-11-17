@@ -17,10 +17,15 @@ Installed paths:
 
 Configuration:
 
-- `.oxlintrc.json` registers the generic plugin, enables every generic rule
-  and `oxc/no-accumulating-spread` at `error`, and turns the default Oxlint
-  `correctness` category off so ESLint stays the owner of general lint.
-- `bun run lint:anti-slop` runs it. `bun run check` does not run it yet.
+- `.oxlintrc.json` is the gate config. It registers the generic plugin, turns
+  the default Oxlint `correctness` category off so ESLint stays the owner of
+  general lint, and sets six rules at `error`: `no-chained-type-assertions`,
+  `no-widen-then-assert`, `no-unknown-type-aliases`, `no-module-mocking`,
+  `no-reduce-accumulator-copy` and `oxc/no-accumulating-spread`.
+- `.oxlintrc.report.json` extends the gate config and adds the other generic
+  rules at `error`.
+- `bun run lint` runs the gate after ESLint, and the pre-commit hook runs it on
+  staged files. `bun run lint:anti-slop` runs the report, which is not a gate.
 - `oxlint` and `@oxlint/plugins` are pinned to the same exact version.
 
 Local deviations: none in the vendored files.
