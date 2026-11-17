@@ -28,9 +28,8 @@ These public sources define the product contract this repository implements.
   or the ruling date. Each one settles a point the frozen text leaves open,
   so keep the behaviour at a cited decision. Their record is the MAG-98
   findings ledger under Coordination context.
-- Glossary terms: `tests/glossary/term-table.json` lists the terms this
-  repository checks and the glossary snapshot they follow. The glossary test
-  in `tests/glossary/` enforces them.
+- Glossary: before you name a file, a folder, a test or a commit, open
+  `GLOSSARY-MAP.md`. It points to the glossary that owns each word.
 
 ## Coordination context
 
