@@ -28,7 +28,7 @@
         "patterns": ["scripts/**"]
       },
       {
-        "name": "contract3-starter",
+        "name": "kernel",
         "patterns": ["kernel/**"]
       },
       {
@@ -50,16 +50,16 @@
         "allow": ["cli"]
       },
       {
-        "from": "contract3-starter",
+        "from": "kernel",
         "allow": []
       },
       {
         "from": "tests",
-        "allow": ["cli", "scripts", "contract3-starter", "lint-config"]
+        "allow": ["cli", "scripts", "kernel", "lint-config"]
       },
       {
         "from": "lint-config",
-        "allow": ["contract3-starter"]
+        "allow": ["kernel"]
       }
     ],
     "coverage": {
