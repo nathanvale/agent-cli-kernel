@@ -1,13 +1,13 @@
 diff --git a/starters/contract3/config/kernel/eslint-rules.mjs b/starters/contract3/config/kernel/eslint-rules.mjs
-index 349c3c3..6715e1c 100644
+index 9daf983..9f2387d 100644
 --- a/starters/contract3/config/kernel/eslint-rules.mjs
 +++ b/starters/contract3/config/kernel/eslint-rules.mjs
-@@ -334,7 +334,7 @@ export default {
-               const [first = ""] = lines;
-               if (
-                 commentDirective.test(first) ||
--                commentMarker.test(first) ||
-+                lines.some((line) => commentMarker.test(line)) ||
-                 acceptedDecision.test(lines.join(" "))
-               )
-                 continue;
+@@ -365,7 +365,7 @@ function isAdmitted(source, block, placed) {
+   const { start } = block[0].loc;
+   return (
+     commentDirective.test(first) ||
+-    commentMarker.test(first) ||
++    lines.some((line) => commentMarker.test(line)) ||
+     acceptedDecision.test(lines.join(" ")) ||
+     (safetyJustification.test(first) &&
+       source.lines[start.line - 1].slice(0, start.column).trim() === "" &&

@@ -61,5 +61,19 @@
     "testFile": "tests/anti-slop-gate.test.ts",
     "title": "^oxc/no-accumulating-spread refuses its violation$",
     "source": "f0ad643 feat(lint): gate six anti-slop rules in bun run lint"
+  },
+  {
+    "id": "bbfce9a-eslint-rules",
+    "patch": "tests/faults/patches/bbfce9a-eslint-rules.patch",
+    "testFile": "tests/contract3/lint-rules.test.ts",
+    "title": "^no-comments refuses .*nothing here is cast",
+    "source": "bbfce9a fix(lint): admit a SAFETY: block only where anti-slop accepts the cast"
+  },
+  {
+    "id": "bbfce9a-template-rules",
+    "patch": "tests/faults/patches/bbfce9a-template-rules.patch",
+    "testFile": "tests/lint-rules.test.ts",
+    "title": "^no-comments refuses .*nothing here is cast",
+    "source": "bbfce9a fix(lint): admit a SAFETY: block only where anti-slop accepts the cast"
   }
 ]

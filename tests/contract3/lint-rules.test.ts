@@ -845,6 +845,41 @@ const commentCases = [
   ],
   [
     "starters/contract3/src/kernel/routing.ts",
+    "// Note.\n// SAFETY: the parser checked the shape.\nconst x = y as Foo;",
+    [1],
+  ],
+  [
+    "starters/contract3/src/kernel/routing.ts",
+    "// SAFETY:\nconst x = y as Foo;",
+    [1],
+  ],
+  [
+    "starters/contract3/src/kernel/routing.ts",
+    "// SAFETY: nothing here is cast.\nconst x = y;",
+    [1],
+  ],
+  [
+    "starters/contract3/src/kernel/routing.ts",
+    "// SAFETY: a const assertion needs no proof.\nconst x = y as const;",
+    [1],
+  ],
+  [
+    "starters/contract3/src/kernel/routing.ts",
+    "// SAFETY: a blank line detaches this from the cast.\n\nconst x = y as Foo;",
+    [1],
+  ],
+  [
+    "starters/contract3/src/kernel/routing.ts",
+    "const a = 1; // SAFETY: trailing the previous line.\nconst x = y as Foo;",
+    [1],
+  ],
+  [
+    "starters/contract3/src/kernel/routing.ts",
+    "// SAFETY: the cast is two statements down.\nconst a = 1;\nconst x = y as Foo;",
+    [1],
+  ],
+  [
+    "starters/contract3/src/kernel/routing.ts",
     "// platform: lower case is not the marker\nexport const a = 1;",
     [1],
   ],
@@ -866,6 +901,31 @@ const commentCases = [
   [
     "starters/contract3/src/kernel/routing.ts",
     "// eslint-disable-next-line no-console\nconsole.log(1);",
+    [],
+  ],
+  [
+    "starters/contract3/src/kernel/routing.ts",
+    "// SAFETY: the parser checked the shape.\nconst x = y as Foo;",
+    [],
+  ],
+  [
+    "starters/contract3/src/kernel/routing.ts",
+    "export function f(y: unknown) {\n  // SAFETY: the caller passes a Foo.\n  return y as Foo;\n}",
+    [],
+  ],
+  [
+    "starters/contract3/src/kernel/routing.ts",
+    "// SAFETY: the parser checked the shape.\nexport const x = y as Foo;",
+    [],
+  ],
+  [
+    "starters/contract3/src/kernel/routing.ts",
+    "// SAFETY: the parser checked the shape,\n// so every key is present.\nconst x = y as Foo;",
+    [],
+  ],
+  [
+    "starters/contract3/src/kernel/routing.ts",
+    "// SAFETY: the cast sits in the second argument.\nconsole.log(1, y as Foo);",
     [],
   ],
   [
