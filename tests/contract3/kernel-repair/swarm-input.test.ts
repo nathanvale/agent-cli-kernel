@@ -5,6 +5,7 @@ import {
   contractFor,
   station,
 } from "../../../starters/contract3/src/kernel/index.ts";
+import { runtimeOf } from "../../../starters/contract3/src/kernel/runtime.ts";
 import {
   filterShow,
   go,
@@ -178,8 +179,8 @@ test("X-K1-12.dispatch-step: `<cli>.dispatch` with no arguments is an admitted c
       result: { next: { kind: "command", command: "x.dispatch", args: [] } },
     },
   });
-  const resolve: unknown = Reflect.get(contract, "resolve");
-  if (typeof resolve !== "function") throw new Error("No resolve.");
-  const resolved: unknown = await Reflect.apply(resolve, contract, [[]]);
+  const runtime = runtimeOf(contract);
+  if (!runtime) throw new Error("No resolve.");
+  const resolved: unknown = await runtime.resolve([]);
   expect(resolved).toMatchObject({ commandIdentity: "x.dispatch" });
 });

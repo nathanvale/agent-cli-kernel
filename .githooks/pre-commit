@@ -2,7 +2,7 @@
 set -eu
 
 bin=node_modules/.bin
-for tool in biome eslint tsc fallow; do
+for tool in biome eslint oxlint tsc fallow; do
   if [ ! -x "$bin/$tool" ]; then
     echo "pre-commit: install dependencies, then commit again: bun install --frozen-lockfile" >&2
     exit 1
@@ -23,6 +23,10 @@ fi
 if [ -n "$(staged '*.ts' '*.mts' '*.cts' '*.mjs' | tr -d '\0')" ]; then
   staged '*.ts' '*.mts' '*.cts' '*.mjs' | xargs -0 "$bin/eslint" --max-warnings 0 --no-warn-ignored -- || {
     echo "pre-commit: lint errors above. Fix each one in code (a repository rule ends its message with Fix:), stage the change with git add, and commit again. Done when bun run lint passes." >&2
+    exit 1
+  }
+  staged '*.ts' '*.mts' '*.cts' '*.mjs' | xargs -0 "$bin/oxlint" --no-error-on-unmatched-pattern -- || {
+    echo "pre-commit: anti-slop lint errors above. Fix each one in code (the message names the rule and the repair), stage the change with git add, and commit again. Done when bun run lint passes." >&2
     exit 1
   }
   "$bin/tsc" --noEmit -p tsconfig.json || {
