@@ -33,4 +33,8 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     echo "pre-push: fallow found new problems in $remote_ref since $(git rev-parse --short "$base") (above). Repair: correct each one in code, commit, and push again. Done when bun run --silent quality:fallow --base $base passes." >&2
     exit 1
   }
+  bun scripts/planted-faults.ts replay --changed-since "$base" || {
+    echo "pre-push: a planted fault that this push could break is not caught (above). Repair: follow its Repair line, commit, and push again. Done when bun run fault-replay --changed-since $base passes." >&2
+    exit 1
+  }
 done

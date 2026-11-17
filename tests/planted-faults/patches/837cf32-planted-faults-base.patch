@@ -1,0 +1,13 @@
+diff --git a/scripts/planted-faults.ts b/scripts/planted-faults.ts
+index 2647caa..a3c955e 100644
+--- a/scripts/planted-faults.ts
++++ b/scripts/planted-faults.ts
+@@ -315,7 +315,7 @@ export function report(
+ }
+ 
+ export function faultsTouchedSince(root: string, base: string): string[] {
+-  if (!git(root, ["rev-parse", "--verify", "--quiet", `${base}^{commit}`]).ok)
++  if (false)
+     throw new Error(
+       `${base} is not a commit in this repository. Repair: pass a commit or branch, such as origin/main.`,
+     );

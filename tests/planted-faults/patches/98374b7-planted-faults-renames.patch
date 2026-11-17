@@ -1,0 +1,12 @@
+diff --git a/scripts/planted-faults.ts b/scripts/planted-faults.ts
+index 25082a1..51b1d77 100644
+--- a/scripts/planted-faults.ts
++++ b/scripts/planted-faults.ts
+@@ -323,7 +323,6 @@ export function faultsTouchedSince(root: string, base: string): string[] {
+     gitOrThrow(root, [
+       "diff",
+       "--name-only",
+-      "--no-renames",
+       "-z",
+       base,
+       "HEAD",
