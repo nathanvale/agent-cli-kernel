@@ -6,6 +6,11 @@
 - Mark the pull request ready once its hosted checks pass. Check the
   timeline to see which Copilot and CodeRabbit reviews arrived for that head. Both
   reviews are optional for GitHub's merge gate.
+- After each review request, push nothing until both reviews for that head
+  have arrived, or CodeRabbit's check reads "Review rate limited". A push
+  during a review cancels it or leaves it reviewing an old commit.
+- Only the pull request's author pushes to its branch. Leave the review
+  bots' fix buttons, such as CodeRabbit's "Fix comments", unticked.
 - Answer every review thread. Commit each fix, then run the
   [repo-gardener](../../.agents/skills/repo-gardener/SKILL.md) Sow job on
   a clean tree for each finding about code, tests, check commands, or
