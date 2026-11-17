@@ -219,12 +219,13 @@ A deliberate break in a guard, kept as a patch, that a named test must catch.
 _Avoid_: mutant, mutation
 
 **Fault record**:
-The entry that names a planted fault, the test that must catch it, and the fix
-it undoes.
+The entry that names a planted fault, the test that must catch it, and the
+commit it undoes.
 
 **Fault replay**:
-A run that applies each planted fault to a clean copy of the repository and
-confirms that its named test fails.
+A run that applies each planted fault's patch to a temporary copy of the
+working tree, and confirms that its named test passes without the patch and
+fails with it.
 
 **Recorded hit**:
 A violation that existed when a check landed, listed so that the check passes
