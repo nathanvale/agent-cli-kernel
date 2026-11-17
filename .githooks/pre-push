@@ -9,7 +9,7 @@ fi
 
 zero=0000000000000000000000000000000000000000
 head=$(git rev-parse HEAD)
-default_base=$(git rev-parse --verify --quiet origin/HEAD || git rev-parse --verify --quiet origin/main || true)
+default_base=$(git rev-parse --verify --quiet "${FALLOW_AUDIT_BASE:-origin/HEAD}" || git rev-parse --verify --quiet origin/main || true)
 
 while read -r local_ref local_sha remote_ref remote_sha; do
   [ "$local_sha" = "$zero" ] && continue
