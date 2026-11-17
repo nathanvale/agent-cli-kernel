@@ -193,8 +193,7 @@ type Ancestry = Citable & {
 };
 
 function citable(repository: string): Citable {
-  const { web } = readRepository(repository);
-  const webs = [web];
+  const { web, citableWebs: webs } = readRepository(repository);
   const threads = webs.map(
     (each) =>
       new RegExp(`^${each.replaceAll(".", "\\.")}/pull/\\d+#discussion_r\\d+$`),
@@ -912,6 +911,51 @@ test.each([
     );
   },
 );
+
+const kernelWeb = "https://github.com/owner/kernel";
+
+test.each([
+  ["a citable origin", [fixtureWeb], () => []],
+  [
+    "not a citable origin",
+    [],
+    (sha: string) => [
+      `CODING_STANDARDS.md:16: [${sha.slice(0, 7)}] links ${commitPage}${sha}, which is not a commit page of this repository. Link ${kernelWeb}/commit/<full sha>.`,
+      `docs/standards/guide.md:7: [${sha.slice(0, 7)}] links ${commitPage}${sha}, which is not a commit page of this repository. Link ${kernelWeb}/commit/<full sha>.`,
+      'CODING_STANDARDS.md: row "Gated rule" needs two distinct witnesses in its guide or gate note, and has 0. Cite a second commit or review thread, or move the lesson back to docs/standards/single-witness.md.',
+      'CODING_STANDARDS.md: row "Guided rule" needs two distinct witnesses in its guide or gate note, and has 0. Cite a second commit or review thread, or move the lesson back to docs/standards/single-witness.md.',
+    ],
+  ],
+])(
+  "a repository citing another's commits and review threads in its own history, where that one is %s",
+  async (_case, citableOrigins, expected) => {
+    const repository = fixture((files) => {
+      files["repository.json"] = JSON.stringify({
+        ...description,
+        web: kernelWeb,
+        citableOrigins,
+      });
+    });
+    expect(await allProblems(repository)).toEqual(
+      expected(git(repository, ["rev-parse", "HEAD"])),
+    );
+  },
+);
+
+test("a citable origin's commit outside HEAD's history fails", async () => {
+  const repository = fixture((files) => {
+    files["repository.json"] = JSON.stringify({
+      ...description,
+      web: kernelWeb,
+      citableOrigins: [fixtureWeb],
+    });
+    files["docs/standards/guide.md"] =
+      `${files["docs/standards/guide.md"] ?? ""}\nSee [0123456](${commitPage}${absent}).\n`;
+  });
+  expect(await citationProblems(repository)).toEqual([
+    `docs/standards/guide.md:10: [0123456] cites ${absent}, which is not an ancestor of HEAD. Cite a commit in this branch's history, or fix the SHA.`,
+  ]);
+});
 
 test("a .claude/skills link to another skill fails and says how to relink it", async () => {
   const repository = fixture((files) => {

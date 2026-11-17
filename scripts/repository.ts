@@ -16,7 +16,11 @@ export type Repository = {
   readonly web: string;
   readonly checkCommitsSince: string;
   readonly testAreas: readonly TestArea[];
+  readonly citableWebs: readonly string[];
 };
+
+const citableOrigins = "citableOrigins";
+const recordedOrigin = "recordedOrigin";
 
 function fail(where: string, problem: string): never {
   throw new Error(`${file}: ${where} ${problem}`);
@@ -74,6 +78,13 @@ function testArea(value: unknown, where: string): TestArea {
   };
 }
 
+function checkRecordedOrigin(value: unknown): void {
+  if (value === undefined) return;
+  const origin = fields(value, recordedOrigin, ["web", "commit"]);
+  text(origin.get("web"), `${recordedOrigin}.web`, webAddress);
+  text(origin.get("commit"), `${recordedOrigin}.commit`, fullSha);
+}
+
 export function readRepository(root: string): Repository {
   const path = join(root, file);
   if (!existsSync(path))
@@ -84,9 +95,12 @@ export function readRepository(root: string): Repository {
     JSON.parse(readFileSync(path, "utf8")),
     "the file",
     ["web", "checkCommitsSince", "testAreas"],
+    [citableOrigins, recordedOrigin],
   );
+  checkRecordedOrigin(description.get(recordedOrigin));
+  const web = text(description.get("web"), "web", webAddress);
   return {
-    web: text(description.get("web"), "web", webAddress),
+    web,
     checkCommitsSince: text(
       description.get("checkCommitsSince"),
       "checkCommitsSince",
@@ -95,5 +109,12 @@ export function readRepository(root: string): Repository {
     testAreas: list(description.get("testAreas"), "testAreas").map(
       (area, index) => testArea(area, `testAreas[${index}]`),
     ),
+    citableWebs: [
+      web,
+      ...list(description.get(citableOrigins) ?? [], citableOrigins).map(
+        (origin, index) =>
+          text(origin, `${citableOrigins}[${index}]`, webAddress),
+      ),
+    ],
   };
 }
