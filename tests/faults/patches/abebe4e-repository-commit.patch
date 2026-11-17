@@ -1,0 +1,12 @@
+diff --git a/scripts/repository.ts b/scripts/repository.ts
+index cbc4b7c..37a8939 100644
+--- a/scripts/repository.ts
++++ b/scripts/repository.ts
+@@ -104,7 +104,6 @@ export function readRepository(root: string): Repository {
+     checkCommitsSince: requireText(
+       description.get("checkCommitsSince"),
+       "checkCommitsSince",
+-      fullSha,
+     ),
+     testAreas: requireList(description.get("testAreas"), "testAreas").map(
+       (area, index) => testArea(area, `testAreas[${index}]`),
