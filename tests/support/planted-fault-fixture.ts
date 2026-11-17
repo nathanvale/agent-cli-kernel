@@ -1,4 +1,4 @@
-import { afterAll, expect } from "bun:test";
+import { afterAll, afterEach, expect } from "bun:test";
 import {
   appendFileSync,
   existsSync,
@@ -241,10 +241,16 @@ export function createPlantedFaultFixture() {
   const folders: string[] = [];
   const pidLedgers: string[] = [];
 
-  afterAll(async () => {
+  async function dispose(): Promise<void> {
     for (const ledger of pidLedgers) await release(ledger);
-    for (const folder of folders) rmSync(folder, { recursive: true });
-  });
+    pidLedgers.length = 0;
+    for (const folder of folders)
+      rmSync(folder, { recursive: true, force: true });
+    folders.length = 0;
+  }
+
+  afterEach(dispose);
+  afterAll(dispose);
 
   function folder(prefix: string): string {
     const path = testFolder(prefix);
