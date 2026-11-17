@@ -1,0 +1,28 @@
+#!/bin/sh
+set -eu
+
+bin=node_modules/.bin
+for tool in biome eslint tsc; do
+  if [ ! -x "$bin/$tool" ]; then
+    echo "pre-commit: $tool is not installed. Repair: bun install --frozen-lockfile" >&2
+    exit 1
+  fi
+done
+
+refuse() {
+  echo "pre-commit: $1 refused this commit (output above). Fix it, stage the fix, and commit again. Run it yourself: $2" >&2
+  exit 1
+}
+
+staged() {
+  git diff --cached --name-only --diff-filter=ACMR -z -- "$@"
+}
+
+if [ -n "$(staged | tr -d '\0')" ]; then
+  staged | xargs -0 "$bin/biome" format --no-errors-on-unmatched --files-ignore-unknown=true || refuse "Biome formatting" "bun run format"
+fi
+
+if [ -n "$(staged '*.ts' '*.mts' '*.cts' '*.mjs' | tr -d '\0')" ]; then
+  staged '*.ts' '*.mts' '*.cts' '*.mjs' | xargs -0 "$bin/eslint" --max-warnings 0 --no-warn-ignored -- || refuse "Lint" "bun run lint"
+  "$bin/tsc" --noEmit -p tsconfig.json || refuse "Typecheck" "bun run typecheck"
+fi
