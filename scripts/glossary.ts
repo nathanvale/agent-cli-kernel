@@ -178,14 +178,18 @@ function gitFiles(root: string): string[] {
     .filter((path) => path !== "" && existsSync(join(root, path)));
 }
 
-export function trackedNames(root: string): string[] {
+export function namesOnPaths(paths: readonly string[]): string[] {
   const names = new Set<string>();
-  for (const path of gitFiles(root)) {
+  for (const path of paths) {
     const parts = path.split("/");
     for (let end = 1; end <= parts.length; end += 1)
       names.add(parts.slice(0, end).join("/"));
   }
-  return [...names].sort();
+  return [...names];
+}
+
+export function trackedNames(root: string): string[] {
+  return namesOnPaths(gitFiles(root)).sort();
 }
 
 export function trackedTexts(root: string): string[] {

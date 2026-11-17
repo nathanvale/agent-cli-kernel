@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  namesOnPaths,
   newNameProblems,
   readGlossary,
   readRecordedHits,
@@ -17,6 +18,6 @@ function problemsIn(tree: string, names: readonly string[]): string[] {
   );
 }
 
-const problems = problemsIn(root, process.argv.slice(2));
+const problems = problemsIn(root, namesOnPaths(process.argv.slice(2)));
 for (const problem of problems) process.stderr.write(`${problem}\n`);
 process.exitCode = problems.length > 0 ? 1 : 0;

@@ -69,3 +69,24 @@ test(
   },
   processWatchdog(1),
 );
+
+test(
+  "CN.b every folder on a given path is judged once, by its own name",
+  async () => {
+    expect(
+      await checkNames(fixtureTree(), [
+        "src/allowlist/proof/index.ts",
+        "src/allowlist/other.ts",
+      ]),
+    ).toEqual({
+      stdout: "",
+      stderr: [
+        'src/allowlist uses "allowlist", which GLOSSARY.md lists under Avoid for "Recorded hit". Rename it with the glossary word.',
+        'src/allowlist/proof uses "proof" with no qualifier. Add a word that says which proof it is.',
+        "",
+      ].join("\n"),
+      exit: 1,
+    });
+  },
+  processWatchdog(1),
+);
