@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { isAbsolute, join, relative, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 import {
   namesOnPaths,
   newNameProblems,
@@ -24,12 +24,7 @@ function problemsIn(tree: string, names: readonly string[]): string[] {
 
 function pathWithin(tree: string, absolute: string): string | undefined {
   const path = relative(tree, absolute);
-  return path === "" ||
-    path === ".." ||
-    path.startsWith("../") ||
-    isAbsolute(path)
-    ? undefined
-    : path;
+  return /^(?:\.\.(?:\/|$)|\/|$)/.test(path) ? undefined : path;
 }
 
 function givenPath(arg: string): string {
@@ -39,17 +34,19 @@ function givenPath(arg: string): string {
   return path;
 }
 
+function givenPaths(args: readonly string[]): string[] {
+  const option = args.find((arg) => arg.startsWith("--"));
+  if (option !== undefined) throw new UsageError(`Unknown option "${option}".`);
+  return args.map(givenPath);
+}
+
 function pathsToJudge(args: readonly string[]): string[] {
   const [first, ...rest] = args;
   if (first === undefined)
     throw new UsageError("Give at least one path, or --staged.");
-  if (first === "--staged") {
-    if (rest.length > 0) throw new UsageError("--staged takes no path.");
-    return stagedNewPaths(root);
-  }
-  const option = args.find((arg) => arg.startsWith("--"));
-  if (option !== undefined) throw new UsageError(`Unknown option "${option}".`);
-  return args.map(givenPath);
+  if (first !== "--staged") return givenPaths(args);
+  if (rest.length > 0) throw new UsageError("--staged takes no path.");
+  return stagedNewPaths(root);
 }
 
 function check(args: readonly string[]): number {
