@@ -75,5 +75,12 @@
     "testFile": "tests/lint-rules.test.ts",
     "title": "^no-comments refuses .*nothing here is cast",
     "source": "bbfce9a fix(lint): admit a SAFETY: block only where anti-slop accepts the cast"
+  },
+  {
+    "id": "64b4738-eslint-rules",
+    "patch": "tests/faults/patches/64b4738-eslint-rules.patch",
+    "testFile": "tests/contract3/host-lint.test.ts",
+    "title": "kernelLint settings cause-literal-owner without settings\\.kernel\\.srcDir fails loudly$",
+    "source": "64b4738 feat(lint): the kernel lint module takes its folders as settings (MAG-121)"
   }
 ]
