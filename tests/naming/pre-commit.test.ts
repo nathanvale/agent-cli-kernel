@@ -1,0 +1,63 @@
+import { afterAll, expect, test } from "bun:test";
+import { symlinkSync } from "node:fs";
+import { join } from "node:path";
+import { processWatchdog } from "../support/process.ts";
+import {
+  fixtureTree,
+  git,
+  gitOutcome,
+  removeFixtureTrees,
+  repository,
+  write,
+} from "./fixture-tree.ts";
+
+afterAll(removeFixtureTrees);
+
+async function treeWithCommitHook(): Promise<string> {
+  const tree = fixtureTree();
+  symlinkSync(join(repository, "node_modules"), join(tree, "node_modules"));
+  await git(tree, "init", "--quiet", "--initial-branch=main");
+  await git(tree, "config", "core.hooksPath", ".githooks");
+  return tree;
+}
+
+async function commitNew(tree: string, path: string) {
+  write(tree, path, "notes\n");
+  await git(tree, "add", "--", path);
+  const commit = await gitOutcome(tree, "commit", "--quiet", "-m", "notes");
+  const head = await gitOutcome(tree, "rev-parse", "--verify", "HEAD");
+  return {
+    exit: commit.exit,
+    stderr: commit.stderr,
+    committed: head.exit === 0,
+  };
+}
+
+test(
+  "PC.a a staged new file whose name is refused stops the commit, naming the cause and the repair",
+  async () => {
+    const tree = await treeWithCommitHook();
+    expect(await commitNew(tree, "docs/mutation-notes.md")).toEqual({
+      exit: 1,
+      stderr: [
+        'docs/mutation-notes.md uses "mutation", which GLOSSARY.md lists under Avoid for "Planted fault". Rename it with the glossary word.',
+        "pre-commit: the names check failed on the staged names (above). Rename each name it lists as its line says, stage the rename with git add, and commit again. Done when bun run check:names --staged passes.",
+        "",
+      ].join("\n"),
+      committed: false,
+    });
+  },
+  processWatchdog(5),
+);
+
+test(
+  "a staged new file with a clean name is committed",
+  async () => {
+    const tree = await treeWithCommitHook();
+    expect(await commitNew(tree, "docs/planted-fault-notes.md")).toMatchObject({
+      exit: 0,
+      committed: true,
+    });
+  },
+  processWatchdog(5),
+);

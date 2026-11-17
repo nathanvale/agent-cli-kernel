@@ -1,0 +1,13 @@
+diff --git a/scripts/check-names.ts b/scripts/check-names.ts
+index 130fbfa..2e36047 100644
+--- a/scripts/check-names.ts
++++ b/scripts/check-names.ts
+@@ -59,7 +59,7 @@ function problemsCreating(file: string): string[] {
+   if (tree === undefined || !hasNamesCheck(tree)) return [];
+   return problemsIn(
+     tree,
+-    namesOnPaths([relative(tree, file)]).filter(
++    [relative(tree, file)].filter(
+       (name) => !existsSync(join(tree, name)),
+     ),
+   );

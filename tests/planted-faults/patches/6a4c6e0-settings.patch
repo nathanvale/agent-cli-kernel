@@ -1,0 +1,20 @@
+diff --git a/.claude/settings.json b/.claude/settings.json
+index 10d6562..fb0068a 100644
+--- a/.claude/settings.json
++++ b/.claude/settings.json
+@@ -10,15 +10,6 @@
+             "command": "d=\"$(pwd)\"; until [ -f \"$d/.claude/hooks/fallow-gate.sh\" ] || [ -e \"$d/.git\" ] || [ \"$d\" = / ]; do d=\"$(dirname \"$d\")\"; done; if [ -f \"$d/.claude/hooks/fallow-gate.sh\" ]; then cd \"$d\" && exec ./.claude/hooks/fallow-gate.sh; fi; exec \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/fallow-gate.sh"
+           }
+         ]
+-      },
+-      {
+-        "matcher": "Write",
+-        "hooks": [
+-          {
+-            "type": "command",
+-            "command": "d=\"$(pwd)\"; until [ -f \"$d/.claude/hooks/names-gate.sh\" ] || [ -e \"$d/.git\" ] || [ \"$d\" = / ]; do d=\"$(dirname \"$d\")\"; done; if [ -f \"$d/.claude/hooks/names-gate.sh\" ]; then cd \"$d\" && exec ./.claude/hooks/names-gate.sh; fi; exec \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/names-gate.sh"
+-          }
+-        ]
+       }
+     ]
+   }

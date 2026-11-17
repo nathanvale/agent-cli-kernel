@@ -1,7 +1,7 @@
 ---
 
 name: repo-gardener
-description: Keep the rule table in `CODING_STANDARDS.md` in step with its witnesses and gates. Use after an operator correction or a review finding, to give a Review only or Partial row a gate, or to weed what nothing uses any more.
+description: Keep the rule table in `CODING_STANDARDS.md` in step with its witnesses and gates, and file and folder names on the glossary's words. Use after an operator correction or a review finding, to give a Review only or Partial row a gate, to weed what nothing uses any more, or to fix a name the names check refuses.
 ---
 
 # Repo gardener
@@ -23,10 +23,16 @@ each pointer rather than a copy:
   how to record a fault in `tests/planted-faults/fault-records.json`.
 - [Recorded hits](../../../CODING_STANDARDS.md#recorded-hits): existing hits
   of a new lint.
+- [GLOSSARY-MAP.md](../../../GLOSSARY-MAP.md): the glossary that owns each
+  word. [GLOSSARY.md](../../../GLOSSARY.md) holds this repository's words,
+  its Avoid words and the words that need a qualifier.
+  `tests/naming/recorded-hits.json` holds the names check's recorded hits.
 
-Take **Correct** when the prompt brings a correction or a review finding.
-Take **Promote** when it names a Review only or Partial row to gate.
+Take **Sow** when the prompt brings a correction or a review finding.
+Take **Gate** when it names a Review only or Partial row to gate.
 Take **Weed** when it asks you to clear out what nothing uses any more.
+Take **Stake** when a name fails the names check, or a new word needs an
+owner.
 
 ## Lint owners
 
@@ -50,8 +56,10 @@ A lint rule's owner decides its three files:
 Change only `CODING_STANDARDS.md`, `docs/standards/`, the six files in
 [Lint owners](#lint-owners), `eslint-suppressions.json`,
 `tests/planted-faults/` and `tests/standards/`. Weed may also change
-`AGENTS.md` and `.agents/skills/`. Report a change the lesson needs anywhere
-else, with its path, for that path's owner.
+`AGENTS.md` and `.agents/skills/`. Stake may also change `GLOSSARY.md`,
+`GLOSSARY-MAP.md` and `tests/naming/`, and may rename a path the names check
+refuses, with the files that refer to it. Report a change the lesson needs
+anywhere else, with its path, for that path's owner.
 
 Start on a clean tree. When `git status --porcelain` prints anything, change
 nothing and report its output: the scope check below cannot tell your edits
@@ -70,7 +78,7 @@ Two citations name the same witness when their links give the same full SHA
 or the same thread URL. A second witness is a different commit or thread;
 the same witness brought again stays one.
 
-## Correct
+## Sow
 
 1. Name the witness and state its lesson as one imperative line.
 2. Find the row whose rule covers the lesson, and the guide bullet or gate
@@ -91,7 +99,7 @@ the same witness brought again stays one.
      guide bullet that cites both witnesses, and name the gate in Planned
      (parked) unless the level is prose. Delete the single witness bullet,
      and restore `- None yet.` when no bullet remains.
-5. Report the row, its gates, each edit, and the next step: Promote for a
+5. Report the row, its gates, each edit, and the next step: Gate for a
    lint or test level, the code owner for architecture or types.
 
 Done when each item holds:
@@ -102,7 +110,7 @@ Done when each item holds:
 - `bun run format:check` exits 0.
 - `git status --porcelain` lists only write-scope paths.
 
-## Promote
+## Gate
 
 1. Read the row, its guide and its gate note. When its Planned (parked) gate
    is a type or architecture change, such as a brand or typed ids, edit
@@ -175,3 +183,35 @@ Done when each item holds:
 - `bun run test:area standards` passes.
 - `bun run format:check` exits 0.
 - `git status --porcelain` lists only write-scope paths.
+
+## Stake
+
+Keep file and folder names on the glossary's words. File names and folder
+structure are documentation: they are the first thing a reader of this
+repository meets.
+
+1. Run `bun run test:area naming` to judge every tracked name, or
+   `bun run check:names <path>` to judge one. Each problem line gives a
+   path, the word it uses, and the glossary entry that refuses the word.
+2. For a name the check refuses, take the first repair that fits:
+   - Rename the path with the glossary's word, using `git mv`, and change
+     each file that refers to it. Find them with a search for the old path.
+   - The name needs a word no glossary owns: add a word this repository owns
+     to `GLOSSARY.md`, in the form its entries use. Report a word another
+     glossary should own, for the owner `GLOSSARY-MAP.md` names.
+   - The name is older than the glossary rule that refuses it, and its
+     rename belongs to a larger change: add a recorded hit with its reason
+     and the change that will remove it. A name newer than its rule takes
+     one of the two repairs above.
+3. For a recorded hit that no longer occurs, remove its entry.
+4. Commit nothing: the caller approves a rename by committing it.
+5. Report each name with its repair, and each word you added or reported.
+
+Done when each item holds:
+
+- `bun run test:area naming` passes.
+- A search for each old path, as a whole path, finds only history: commit
+  subjects, witnesses and fault `source` fields.
+- `bun run typecheck`, `bun run lint` and `bun run format:check` exit 0.
+- `git status --porcelain` lists only write-scope paths, the renamed paths
+  and the files that referred to them.

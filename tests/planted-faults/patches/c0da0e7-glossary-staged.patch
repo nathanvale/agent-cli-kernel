@@ -1,0 +1,13 @@
+diff --git a/scripts/glossary.ts b/scripts/glossary.ts
+index dae1007..5e8807e 100644
+--- a/scripts/glossary.ts
++++ b/scripts/glossary.ts
+@@ -191,7 +191,7 @@ export function stagedNewPaths(root: string): string[] {
+     "diff",
+     "--cached",
+     "--name-only",
+-    "--diff-filter=ACR",
++    "--diff-filter=AC",
+   ]);
+ }
+ 

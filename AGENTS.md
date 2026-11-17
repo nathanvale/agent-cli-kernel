@@ -5,8 +5,9 @@
 - Run `bun run doctor`. It names the repair for each failed check, and
   `bun run test` runs it first.
 - Kernel work (`kernel/`, `tests/kernel/`): use the `kernel-work` skill.
-- After an operator correction or a review finding, to gate a rule row, or
-  to weed the rule table: use the `repo-gardener` skill.
+- After an operator correction or a review finding, to gate a rule row, to
+  weed the rule table, or to fix a name the names check refuses: use the
+  `repo-gardener` skill.
 
 ## Authority
 

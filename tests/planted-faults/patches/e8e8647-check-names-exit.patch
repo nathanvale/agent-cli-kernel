@@ -1,0 +1,12 @@
+diff --git a/scripts/check-names.ts b/scripts/check-names.ts
+index 130fbfa..3c02a23 100644
+--- a/scripts/check-names.ts
++++ b/scripts/check-names.ts
+@@ -139,6 +139,6 @@ try {
+   process.stderr.write(
+     `${error instanceof UsageError ? `${usage}. ` : ""}${reason}\n`,
+   );
+-  code = 2;
++  code = 1;
+ }
+ process.exitCode = code;

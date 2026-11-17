@@ -1,0 +1,12 @@
+diff --git a/scripts/check-names.ts b/scripts/check-names.ts
+index 130fbfa..81ed64f 100644
+--- a/scripts/check-names.ts
++++ b/scripts/check-names.ts
+@@ -125,7 +125,6 @@ function problemsFor(args: readonly string[]): Promise<string[]> {
+   const mode = modes.get(first);
+   if (mode === undefined)
+     return Promise.resolve(problemsIn(root, namesOnPaths(givenPaths(args))));
+-  if (rest.length > 0) throw new UsageError(`${first} takes no path.`);
+   return mode();
+ }
+ 

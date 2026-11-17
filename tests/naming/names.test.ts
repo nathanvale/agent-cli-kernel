@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   nameProblems,
+  newNameProblems,
   readGlossary,
   readRecordedHits,
   recordedHitsFile,
@@ -94,6 +95,15 @@ test.each([
   ];
   expect(nameProblems(paths, fixture, recorded)).toEqual([
     `${recordedHitsFile} records "host" in src/test-hosts, which no longer occurs. Remove the entry.`,
+  ]);
+});
+
+test("new name problems leave a stale recorded hit to the tracked names check", () => {
+  const recorded = [
+    { path: "src/test-hosts", word: "host", reason: "fixture" },
+  ];
+  expect(newNameProblems(["src", "hosts"], fixture, recorded)).toEqual([
+    'hosts uses "host" with no qualifier. Add a word that says which host it is.',
   ]);
 });
 

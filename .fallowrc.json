@@ -81,6 +81,7 @@
     "src/static-admission.ts",
     "scripts/doctor.ts",
     "scripts/check-commits.ts",
+    "scripts/check-names.ts",
     "scripts/planted-faults.ts",
     "scripts/test-area.ts",
     "kernel/src/kernel/index.ts",

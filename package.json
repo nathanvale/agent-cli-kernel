@@ -11,6 +11,7 @@
     "quality:fallow": "node_modules/.bin/fallow audit --format json --quiet",
     "doctor": "bun run scripts/doctor.ts",
     "check:commits": "bun run scripts/check-commits.ts",
+    "check:names": "bun run scripts/check-names.ts",
     "fault-replay": "bun run scripts/planted-faults.ts replay",
     "planted-fault:add": "bun run scripts/planted-faults.ts add",
     "pretest": "bun run doctor",

@@ -1,0 +1,13 @@
+diff --git a/scripts/check-names.ts b/scripts/check-names.ts
+index 130fbfa..3308df2 100644
+--- a/scripts/check-names.ts
++++ b/scripts/check-names.ts
+@@ -83,7 +83,7 @@ const callReaders = new Map<unknown, CallReader>([
+     {
+       field: "command",
+       created: (patch) =>
+-        [...patch.matchAll(/^\*\*\* (?:Add File|Move to): (.+?)\s*$/gm)].map(
++        [...patch.matchAll(/^\*\*\* (?:Move to): (.+?)\s*$/gm)].map(
+           ([, path = ""]) => path,
+         ),
+     },

@@ -124,11 +124,11 @@ function hitsIn(path: string, glossary: Glossary): NameHit[] {
   return [...avoided, ...unqualified];
 }
 
-export function nameProblems(
+function problemsByKind(
   paths: readonly string[],
   glossary: Glossary,
   recorded: readonly RecordedHit[],
-): string[] {
+): { fresh: string[]; stale: string[] } {
   const hits = paths.flatMap((path) => hitsIn(path, glossary));
   const same = (one: NameHit | RecordedHit, other: NameHit | RecordedHit) =>
     one.path === other.path && one.word === other.word;
@@ -144,31 +144,69 @@ export function nameProblems(
           `${recordedHitsFile} records "${entry.word}" in ${entry.path}, which no longer occurs. Remove the entry.`,
         ],
   );
+  return { fresh, stale };
+}
+
+export function newNameProblems(
+  paths: readonly string[],
+  glossary: Glossary,
+  recorded: readonly RecordedHit[],
+): string[] {
+  return problemsByKind(paths, glossary, recorded).fresh;
+}
+
+export function nameProblems(
+  paths: readonly string[],
+  glossary: Glossary,
+  recorded: readonly RecordedHit[],
+): string[] {
+  const { fresh, stale } = problemsByKind(paths, glossary, recorded);
   return [...fresh, ...stale];
 }
 
-function gitFiles(root: string): string[] {
-  const listed = Bun.spawnSync(["git", "ls-files", "-z"], {
+function gitPaths(root: string, command: readonly string[]): string[] {
+  const listed = Bun.spawnSync(["git", ...command, "-z"], {
     cwd: root,
     stdout: "pipe",
     stderr: "pipe",
   });
   if (listed.exitCode !== 0)
-    throw new Error(`git ls-files failed: ${listed.stderr.toString().trim()}`);
+    throw new Error(
+      `git ${command.join(" ")} failed: ${listed.stderr.toString().trim()}`,
+    );
   return listed.stdout
     .toString()
     .split("\0")
-    .filter((path) => path !== "" && existsSync(join(root, path)));
+    .filter((path) => path !== "");
 }
 
-export function trackedNames(root: string): string[] {
+function gitFiles(root: string): string[] {
+  return gitPaths(root, ["ls-files"]).filter((path) =>
+    existsSync(join(root, path)),
+  );
+}
+
+export function stagedNewPaths(root: string): string[] {
+  return gitPaths(root, [
+    "diff",
+    "--cached",
+    "--name-only",
+    "--diff-filter=ACR",
+  ]);
+}
+
+export function namesOnPaths(paths: readonly string[]): string[] {
   const names = new Set<string>();
-  for (const path of gitFiles(root)) {
+  for (const path of paths) {
     const parts = path.split("/");
     for (let end = 1; end <= parts.length; end += 1)
       names.add(parts.slice(0, end).join("/"));
   }
-  return [...names].sort();
+  return [...names];
+}
+
+export function trackedNames(root: string): string[] {
+  return namesOnPaths(gitFiles(root)).sort();
 }
 
 export function trackedTexts(root: string): string[] {
