@@ -9,30 +9,13 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
+import { gitEnv, gitResult, inherited } from "./git-fixture.ts";
 import { type SignalAt, spawnBounded } from "./process.ts";
 import { testFolder } from "./test-folder.ts";
 
 const repository = join(import.meta.dir, "../..");
-const gitEnv = {
-  GIT_CONFIG_GLOBAL: "/dev/null",
-  GIT_CONFIG_NOSYSTEM: "1",
-};
-// Platform: A caller such as a git hook can export these, and they override `cwd`.
-const repositoryLocation = new Set([
-  "GIT_DIR",
-  "GIT_WORK_TREE",
-  "GIT_INDEX_FILE",
-  "GIT_OBJECT_DIRECTORY",
-  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
-  "GIT_COMMON_DIR",
-]);
-const fixtureAuthor = {
-  GIT_AUTHOR_NAME: "Fixture",
-  GIT_AUTHOR_EMAIL: "fixture@example.invalid",
-  GIT_COMMITTER_NAME: "Fixture",
-  GIT_COMMITTER_EMAIL: "fixture@example.invalid",
-};
 const bound = 15_000;
+const processGroupProbeBound = 4_000;
 export const timeout = 20_000;
 const { scripts: production } = (await Bun.file(
   join(repository, "package.json"),
@@ -88,12 +71,7 @@ test("L.traps SIGTERM and blocks", async () => {
 `;
 
 export function git(root: string, ...args: string[]): string {
-  const result = Bun.spawnSync(["git", ...args], {
-    cwd: root,
-    env: { ...fixtureEnv(), ...fixtureAuthor },
-    stdout: "pipe",
-    stderr: "pipe",
-  });
+  const result = gitResult(root, ...args);
   if (result.exitCode !== 0)
     throw new Error(`git ${args.join(" ")}: ${result.stderr.toString()}`);
   return result.stdout.toString();
@@ -139,9 +117,15 @@ export function exited(
 
 async function release(ledger: string): Promise<void> {
   for (const { pid } of ledgered(ledger)) {
-    const group = Bun.spawnSync(["ps", "-o", "pgid=", "-p", String(pid)])
-      .stdout.toString()
-      .trim();
+    const probe = Bun.spawnSync(["ps", "-o", "pgid=", "-p", String(pid)], {
+      timeout: processGroupProbeBound,
+      killSignal: "SIGKILL",
+    });
+    if (probe.exitedDueToTimeout)
+      throw new Error(
+        `ps did not find the process group for ${pid} within ${processGroupProbeBound} ms.`,
+      );
+    const group = probe.stdout.toString().trim();
     if (group !== String(pid)) continue;
     try {
       process.kill(-pid, "SIGKILL");
@@ -165,14 +149,7 @@ function releaseWorktrees(root: string): void {
 }
 
 function fixtureEnv(): Record<string, string | undefined> {
-  return {
-    ...Object.fromEntries(
-      Object.entries(process.env).filter(
-        ([name]) => !repositoryLocation.has(name),
-      ),
-    ),
-    ...gitEnv,
-  };
+  return { ...inherited(), ...gitEnv };
 }
 
 export function write(root: string, path: string, content: string): void {
