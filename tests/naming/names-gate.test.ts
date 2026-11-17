@@ -1,5 +1,5 @@
 import { afterAll, expect, test } from "bun:test";
-import { mkdirSync, statSync } from "node:fs";
+import { mkdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { processWatchdog } from "../support/process.ts";
 import {
@@ -14,10 +14,13 @@ import {
 } from "./fixture-tree.ts";
 
 const claudeSettings = ".claude/settings.json";
+const codexSettings = ".codex/hooks.json";
 const silent = { stdout: "", stderr: "", exit: 0 };
 const fixtureGlossaryRefuses = {
   mutationNotes:
     'docs/mutation-notes.md uses "mutation", which GLOSSARY.md lists under Avoid for "Planted fault". Rename it with the glossary word.',
+  hostFile:
+    'src/host.ts uses "host" with no qualifier. Add a word that says which host it is.',
   allowlistFolder:
     'src/allowlist uses "allowlist", which GLOSSARY.md lists under Avoid for "Recorded hit". Rename it with the glossary word.',
 };
@@ -50,6 +53,108 @@ function beforeWrite(tree: string, filePath: string, cwd = tree) {
     projectFolder: tree,
   });
 }
+
+function patchCall(patch: string, cwd: string) {
+  return {
+    session_id: "fixture",
+    transcript_path: join(cwd, "transcript.jsonl"),
+    cwd,
+    hook_event_name: "PreToolUse",
+    model: "fixture",
+    turn_id: "turn_fixture",
+    permission_mode: "default",
+    tool_name: "apply_patch",
+    tool_input: { command: patch },
+    tool_use_id: "call_fixture",
+  };
+}
+
+function beforePatch(tree: string, hunks: readonly string[], cwd = tree) {
+  const [command = ""] = hookCommands(tree, codexSettings, "^apply_patch$");
+  const patch = ["*** Begin Patch", ...hunks, "*** End Patch"].join("\n");
+  return runHook(command, patchCall(patch, cwd), { cwd, projectFolder: tree });
+}
+
+test("NG.live Codex runs an executable names gate before each apply_patch", () => {
+  const [command = ""] = hookCommands(
+    repository,
+    codexSettings,
+    "^apply_patch$",
+  );
+  const script = /\.codex\/hooks\/[\w-]+\.sh/.exec(command)?.[0] ?? "";
+  expect(script).toBe(".codex/hooks/names-gate.sh");
+  expect(statSync(join(repository, script)).mode & 0o111).not.toBe(0);
+});
+
+test("the Codex names gate is the Claude Code one, byte for byte", () => {
+  expect(
+    readFileSync(join(repository, ".codex/hooks/names-gate.sh"), "utf8"),
+  ).toBe(readFileSync(join(repository, ".claude/hooks/names-gate.sh"), "utf8"));
+});
+
+test(
+  "NG.e a patch that adds a file with a refused name stops apply_patch with exit 2, judged from the session's folder",
+  async () => {
+    const tree = await gitTree();
+    mkdirSync(join(tree, "docs"));
+    expect(
+      await beforePatch(
+        tree,
+        ["*** Add File: mutation-notes.md", "+notes"],
+        join(tree, "docs"),
+      ),
+    ).toEqual({
+      stdout: "",
+      stderr: `${fixtureGlossaryRefuses.mutationNotes}\n`,
+      exit: 2,
+    });
+  },
+  processWatchdog(2),
+);
+
+test(
+  "NG.f a patch that moves a file to a refused name stops apply_patch with exit 2",
+  async () => {
+    const tree = await gitTree();
+    write(tree, "src/test-host.ts", "export {};\n");
+    expect(
+      await beforePatch(tree, [
+        "*** Update File: src/test-host.ts",
+        `*** Move to: ${join(tree, "src/host.ts")}`,
+        "@@",
+        "-export {};",
+        "+export const moved = true;",
+      ]),
+    ).toEqual({
+      stdout: "",
+      stderr: `${fixtureGlossaryRefuses.hostFile}\n`,
+      exit: 2,
+    });
+  },
+  processWatchdog(2),
+);
+
+test(
+  "a patch that updates, deletes and cleanly adds files passes in silence",
+  async () => {
+    const tree = await gitTree();
+    write(tree, "docs/mutation-notes.md", "notes\n");
+    write(tree, "src/host.ts", "export {};\n");
+    expect(
+      await beforePatch(tree, [
+        "*** Add File: docs/planted-fault-notes.md",
+        "+*** Add File: docs/allowlist.md",
+        "*** Delete File: src/host.ts",
+        "*** Update File: docs/mutation-notes.md",
+        "@@",
+        " *** Move to: docs/allowlist.md",
+        "-notes",
+        "+note",
+      ]),
+    ).toEqual(silent);
+  },
+  processWatchdog(2),
+);
 
 test("NG.live Claude Code runs an executable names gate before each Write", () => {
   const [command = ""] = hookCommands(repository, claudeSettings, "Write");
@@ -139,7 +244,7 @@ test(
     ).toEqual({
       stdout: "",
       stderr: [
-        "--tool-call cannot read a Bash call. It reads the file_path of a Write call. Wire the names gate to that tool only.",
+        "--tool-call cannot read a Bash call. It reads the file_path of a Write call and the command of an apply_patch call. Wire the names gate to those tools only.",
         "names-gate: check:names --tool-call exited 2, so the names this tool call creates went unchecked. Fix the cause above, or run bun run check:names <path> yourself.",
         "",
       ].join("\n"),

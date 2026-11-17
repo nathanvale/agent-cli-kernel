@@ -31,6 +31,8 @@ const sources = [
   "scripts/glossary.ts",
   ".claude/settings.json",
   ".claude/hooks/names-gate.sh",
+  ".codex/hooks.json",
+  ".codex/hooks/names-gate.sh",
 ];
 const folders: string[] = [];
 const gitEnv = {
