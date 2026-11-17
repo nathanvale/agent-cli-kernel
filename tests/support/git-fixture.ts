@@ -6,6 +6,8 @@ const gitMilliseconds = 4_000;
 export const gitEnv = {
   GIT_CONFIG_GLOBAL: "/dev/null",
   GIT_CONFIG_NOSYSTEM: "1",
+  GIT_CONFIG_COUNT: "0",
+  GIT_CONFIG_PARAMETERS: "",
   GIT_AUTHOR_NAME: "Fixture",
   GIT_AUTHOR_EMAIL: "fixture@example.invalid",
   GIT_COMMITTER_NAME: "Fixture",

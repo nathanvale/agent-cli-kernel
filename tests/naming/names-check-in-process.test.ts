@@ -709,6 +709,42 @@ test("in process: stagedNewPaths lists staged additions and renames, and no modi
   ]);
 });
 
+function reversedOrderConfig(): { home: string; order: string } {
+  const home = folder();
+  const order = join(home, "order");
+  put(home, "order", "docs/z.md\n");
+  put(home, ".gitconfig", `[diff]\n\torderFile = ${order}\n`);
+  return { home, order };
+}
+
+function stagedOrderUnder(root: string, env: Record<string, string>): string[] {
+  const result = Bun.spawnSync(
+    ["git", "diff", "--cached", "--name-only", "--diff-filter=ACR"],
+    {
+      cwd: root,
+      env: { ...inherited(), ...env },
+      stdout: "pipe",
+      stderr: "pipe",
+      timeout: 4_000,
+      killSignal: "SIGKILL",
+    },
+  );
+  expect(result.exitCode).toBe(0);
+  return result.stdout.toString().trim().split("\n");
+}
+
+function withProcessEnv(changes: Record<string, string>, run: () => void) {
+  const before = new Map(Object.keys(changes).map((n) => [n, process.env[n]]));
+  Object.assign(process.env, changes);
+  try {
+    run();
+  } finally {
+    for (const [name, value] of before)
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+  }
+}
+
 test("in process: stagedNewPaths lists names in git's own order, whatever the user's git configuration says", () => {
   const root = emptyRepository();
   const home = folder();
@@ -723,6 +759,26 @@ test("in process: stagedNewPaths lists names in git's own order, whatever the us
     if (chosen === undefined) delete process.env.HOME;
     else process.env.HOME = chosen;
   }
+});
+
+test("in process: the isolation also drops configuration injected through the environment", () => {
+  const root = emptyRepository();
+  const { order } = reversedOrderConfig();
+  stage(root, { "docs/a.md": "a\n", "docs/z.md": "z\n" });
+  const injected = {
+    GIT_CONFIG_COUNT: "1",
+    GIT_CONFIG_KEY_0: "diff.orderFile",
+    GIT_CONFIG_VALUE_0: order,
+  };
+  expect(stagedOrderUnder(root, injected)).toEqual(["docs/z.md", "docs/a.md"]);
+  expect(stagedOrderUnder(root, { ...injected, ...gitEnv })).toEqual([
+    "docs/a.md",
+    "docs/z.md",
+  ]);
+  withProcessEnv(injected, () => {
+    Object.assign(process.env, gitEnv);
+    expect(stagedNewPaths(root)).toEqual(["docs/a.md", "docs/z.md"]);
+  });
 });
 
 test("in process: stagedNewPaths outside a git repository names the command and git's reason", () => {
