@@ -223,6 +223,15 @@ const refused = [
     ],
     lines: [3, 4],
   },
+  {
+    rule: "no-in-operator",
+    witness: "r4606943328",
+    filePath: "src/static-admission.ts",
+    code: [
+      'export const has = (value: object) => Reflect["has"](value, "toString");',
+    ],
+    lines: [1],
+  },
 ];
 
 for (const item of refused)
@@ -646,6 +655,14 @@ const ownData = [
   [
     'export const has = (value: object) => Reflect.has(value, "payload");',
     'Repair: (Object.hasOwn(value, "payload")',
+  ],
+  [
+    'export const has = (value: object) => Reflect[`has`](value, "toString");',
+    'Repair: (Object.hasOwn(value, "toString")',
+  ],
+  [
+    'type Shape = { kind: "a"; a: number } | { kind: "b"; b: string };\nexport const has = (shape: Shape) => Reflect["has"](shape, "a");',
+    undefined,
   ],
   [
     "export const keys = (value: object) => {\n  for (const key in value) return key;\n};",

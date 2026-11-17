@@ -21,6 +21,17 @@ function stable(node) {
   return node.type === "TemplateLiteral" && node.expressions.length === 0;
 }
 
+function named(member, name) {
+  const { property } = member;
+  if (!member.computed)
+    return property.type === "Identifier" && property.name === name;
+  if (property.type === "Literal") return property.value === name;
+  if (property.type !== "TemplateLiteral" || property.expressions.length > 0)
+    return false;
+  const [{ value }] = property.quasis;
+  return (value.cooked ?? value.raw) === name;
+}
+
 function taken(scope) {
   const names = new Set();
   const below = (inner) => {
@@ -119,10 +130,11 @@ export default {
           ) {
             check(node, node.left, node.right, "the in operator");
           },
-          "CallExpression[callee.object.name='Reflect'][callee.property.name='has'][arguments.length=2]"(
+          "CallExpression[callee.type='MemberExpression'][callee.object.name='Reflect'][arguments.length=2]"(
             node,
           ) {
-            check(node, node.arguments[1], node.arguments[0], "Reflect.has");
+            if (named(node.callee, "has"))
+              check(node, node.arguments[1], node.arguments[0], "Reflect.has");
           },
           ForInStatement(node) {
             context.report({
