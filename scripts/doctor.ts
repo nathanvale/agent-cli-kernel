@@ -3,7 +3,7 @@ import { availableParallelism, loadavg } from "node:os";
 import { join } from "node:path";
 import { resolveToolchain } from "../src/toolchain-resolution.ts";
 
-type Finding = {
+export type Finding = {
   status: "ok" | "FAIL" | "WARN";
   check: string;
   detail: string;
@@ -70,20 +70,20 @@ function toolchain(root: string): Finding {
   }
 }
 
-type FallowCheck = {
+export type FallowCheck = {
   id: string;
   status: string;
   message: string;
   repair: string | undefined;
 };
 
-type FallowReport = { status: string; checks: FallowCheck[] };
+export type FallowReport = { status: string; checks: FallowCheck[] };
 
 function text(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
-function fallowCheck(value: unknown): FallowCheck | undefined {
+export function fallowCheck(value: unknown): FallowCheck | undefined {
   if (typeof value !== "object" || value === null) return undefined;
   const id = text(Reflect.get(value, "id"));
   const status = text(Reflect.get(value, "status"));
@@ -98,7 +98,7 @@ function fallowCheck(value: unknown): FallowCheck | undefined {
   return { id, status, message, repair };
 }
 
-function fallowReport(output: string): FallowReport | undefined {
+export function fallowReport(output: string): FallowReport | undefined {
   let parsed: unknown;
   try {
     parsed = JSON.parse(output);
@@ -114,7 +114,7 @@ function fallowReport(output: string): FallowReport | undefined {
   return { status, checks: checks.filter((check) => check !== undefined) };
 }
 
-function fallowReadiness(root: string): Finding {
+export function fallowReadiness(root: string): Finding {
   const fallow = join(root, "node_modules/.bin/fallow");
   if (!existsSync(fallow))
     return {
