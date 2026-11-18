@@ -1,10 +1,9 @@
-import { afterAll, spyOn } from "bun:test";
-import { existsSync, readdirSync, rmSync } from "node:fs";
+import { spyOn } from "bun:test";
+import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import type { Fault } from "../../scripts/planted-faults.ts";
-import { write } from "./fixture-files.ts";
+import { ownedFolders, write } from "./fixture-files.ts";
 import { commit, gitEnv, gitOutput, initRepository } from "./git-fixture.ts";
-import { testFolder } from "./test-folder.ts";
 
 const repositoryLocation = [
   "GIT_DIR",
@@ -107,17 +106,7 @@ export const sample: Fault = {
 };
 
 export function createPlantedFaultFixture() {
-  const folders: string[] = [];
-
-  afterAll(() => {
-    for (const folder of folders) rmSync(folder, { recursive: true });
-  });
-
-  function folder(prefix: string): string {
-    const path = testFolder(prefix);
-    folders.push(path);
-    return path;
-  }
+  const folder = ownedFolders();
 
   function repository(prefix: string): string {
     const root = join(folder(prefix), "repo");

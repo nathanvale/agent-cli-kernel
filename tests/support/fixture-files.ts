@@ -1,7 +1,21 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { afterAll } from "bun:test";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { testFolder } from "./test-folder.ts";
 
 export function write(root: string, path: string, content: string): void {
   mkdirSync(dirname(join(root, path)), { recursive: true });
   writeFileSync(join(root, path), content);
+}
+
+export function ownedFolders(): (prefix: string) => string {
+  const folders: string[] = [];
+  afterAll(() => {
+    for (const folder of folders) rmSync(folder, { recursive: true });
+  });
+  return (prefix) => {
+    const path = testFolder(prefix);
+    folders.push(path);
+    return path;
+  };
 }

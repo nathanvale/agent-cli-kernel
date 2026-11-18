@@ -1,6 +1,6 @@
-import { afterAll } from "bun:test";
-import { copyFileSync, mkdirSync, rmSync, symlinkSync } from "node:fs";
+import { copyFileSync, mkdirSync, symlinkSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { ownedFolders } from "./fixture-files.ts";
 import {
   commitIn,
   git,
@@ -9,7 +9,6 @@ import {
   initRepository,
 } from "./git-fixture.ts";
 import { type SignalAt, spawnBounded } from "./process.ts";
-import { testFolder } from "./test-folder.ts";
 
 export const repository = join(import.meta.dir, "../..");
 const sources = [
@@ -55,17 +54,7 @@ export function verdicts(lines: readonly string[]): string[] {
 }
 
 export function checkCommitsFixture() {
-  const folders: string[] = [];
-
-  afterAll(() => {
-    for (const folder of folders) rmSync(folder, { recursive: true });
-  });
-
-  function folder(prefix: string): string {
-    const path = testFolder(prefix);
-    folders.push(path);
-    return path;
-  }
+  const folder = ownedFolders();
 
   function repositoryAt({ pin = Bun.version, scripts = markers } = {}) {
     const root = join(folder("check-commits-repo-"), "repo");

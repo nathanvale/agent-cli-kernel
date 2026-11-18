@@ -1,15 +1,9 @@
-import { afterAll, spyOn } from "bun:test";
-import {
-  existsSync,
-  readFileSync,
-  realpathSync,
-  rmSync,
-  symlinkSync,
-} from "node:fs";
+import { spyOn } from "bun:test";
+import { existsSync, readFileSync, realpathSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import type { Active, Run } from "../../scripts/check-commits.ts";
+import { ownedFolders } from "./fixture-files.ts";
 import { commitIn, git, initRepository } from "./git-fixture.ts";
-import { testFolder } from "./test-folder.ts";
 
 const repository = join(import.meta.dir, "../..");
 
@@ -66,17 +60,7 @@ export function ledgered(ledger: string): string[] {
 }
 
 export function createCommitCheckFixture() {
-  const folders: string[] = [];
-
-  afterAll(() => {
-    for (const folder of folders) rmSync(folder, { recursive: true });
-  });
-
-  function folder(prefix: string): string {
-    const path = testFolder(prefix);
-    folders.push(path);
-    return path;
-  }
+  const folder = ownedFolders();
 
   function repositoryAt({
     pin = Bun.version,
