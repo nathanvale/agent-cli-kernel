@@ -544,5 +544,12 @@
     "testFile": "tests/template/process-runner/spawn-bounded.test.ts",
     "title": "^spawnBounded freezes a child that is still running when its bound passes, and names it",
     "source": "b878c65 test(support): name the processes left when spawnBounded passes its bound"
+  },
+  {
+    "id": "6bea874-check-names",
+    "patch": "tests/planted-faults/patches/6bea874-check-names.patch",
+    "testFile": "tests/template/naming/names-check-test-placement.test.ts",
+    "title": "^in process: a test file at tests/loose.test.ts, outside every family folder",
+    "source": "6bea874 feat(names): refuse a test file outside every family folder"
   }
 ]
