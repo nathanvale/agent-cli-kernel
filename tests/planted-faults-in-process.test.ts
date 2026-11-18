@@ -613,9 +613,16 @@ test("L.refuses dies", () => {
     );
 
     expect(run.result.kind).toBe("TIMEOUT");
-    expect(String(Reflect.get(run.result, "step"))).toMatch(
-      /^(git worktree add --detach --quiet |git apply |\S+ install --frozen-lockfile$|\S+ test \.\/tests\/)/,
-    );
+    const step = String(Reflect.get(run.result, "step"));
+    const bun = process.execPath;
+    expect(
+      [
+        "git worktree add --detach --quiet ",
+        "git apply ",
+        `${bun} install --frozen-lockfile`,
+        `${bun} test ./tests/`,
+      ].some((start) => step.startsWith(start)),
+    ).toBe(true);
     expect(run.leftovers).toEqual([]);
   }, 60_000);
 
