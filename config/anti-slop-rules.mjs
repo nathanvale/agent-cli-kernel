@@ -986,12 +986,13 @@ function nearestFunction(node) {
 
 function enclosingReduceCall(callback) {
   for (
-    let current = callback.parent;
+    let child = callback, current = callback.parent;
     current && !functionTypes.has(current.type);
-    current = current.parent
+    child = current, current = current.parent
   ) {
     const member = reduceMember(current);
-    if (member !== null) return { call: current, member };
+    if (member !== null)
+      return current.arguments[0] === child ? { call: current, member } : null;
   }
   return null;
 }
