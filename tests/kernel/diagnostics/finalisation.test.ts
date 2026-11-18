@@ -12,11 +12,13 @@ import { nodeIo } from "../../../kernel/src/addons/diagnostics/io.ts";
 import type { DiagnosticsIo } from "../../../kernel/src/addons/diagnostics/io.ts";
 import {
   cleanTrees,
+  crashTimeout,
   get,
   lines,
   observe,
   open,
   run,
+  runCrash,
   start,
   tree,
   waitForFile,
@@ -207,7 +209,7 @@ describe("D17 finalisation freeze", () => {
   test(
     "D17.crash-no-status: a crash emits no envelope and promises no status",
     async () => {
-      const result = await run({
+      const result = await runCrash({
         argv: read,
         tree: tree(),
         script: { records: 2, crash: true },
@@ -216,7 +218,7 @@ describe("D17 finalisation freeze", () => {
       expect(result.signal ?? String(result.exit)).not.toBe("0");
       expect(result.envelope).toBeUndefined();
     },
-    timeout,
+    crashTimeout,
   );
 
   test(

@@ -191,6 +191,35 @@ export function run(launch: Launch): Promise<Run> {
   return start(launch).finished;
 }
 
+// Platform: a CLI that calls abort() exits only after the host has dealt with
+// the aborted process. Hosted ubuntu runners took 17,769 ms to 27,337 ms for
+// D15.crash-cannot-pass and D17.crash-no-status alone (runs 44220059795,
+// 44228141798, 44231023432), and 57,917 ms, 59,780 ms and more than
+// 60,000 ms when R2's child aborted at the same time (runs 44231300109 and
+// 44231023432); Darwin and Linux containers take milliseconds. The bound is
+// twice the 60,000 ms limit those overlapping aborts reached, and the crash
+// test's own timeout stays above it so the bound, not the runner, names a
+// real hang.
+const crashExitBound = 120_000;
+export const crashTimeout = 135_000;
+export async function runCrash(launch: Launch): Promise<Run> {
+  const { child, finished } = start(launch);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const bound = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      reject(
+        new Error(`The crashing CLI did not exit within ${crashExitBound} ms.`),
+      );
+    }, crashExitBound);
+  });
+  try {
+    return await Promise.race([finished, bound]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export function canon(envelope: unknown): string {
   if (typeof envelope !== "object" || envelope === null)
     return JSON.stringify(envelope);
