@@ -593,5 +593,12 @@
     "testFile": "tests/template/naming/pre-commit.test.ts",
     "title": "^PC[.][de] ",
     "source": "beed83c fix(hooks): check staged compiler config and deletions"
+  },
+  {
+    "id": "def3ec4-process-runner",
+    "patch": "tests/planted-faults/patches/def3ec4-process-runner.patch",
+    "testFile": "tests/template/process-runner/process-runner.test.ts",
+    "title": "^CE[.]e ",
+    "source": "def3ec4 fix(process-runner): keep a hook's git location out of every child (GREEN)"
   }
 ]
