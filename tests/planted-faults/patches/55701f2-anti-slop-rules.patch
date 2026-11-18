@@ -1,0 +1,13 @@
+diff --git a/config/anti-slop-rules.mjs b/config/anti-slop-rules.mjs
+index d8fb73a..9ce772e 100644
+--- a/config/anti-slop-rules.mjs
++++ b/config/anti-slop-rules.mjs
+@@ -973,7 +973,7 @@ function nearestFunction(node) {
+ function enclosingReduceCall(callback) {
+   for (
+     let child = callback, current = callback.parent;
+-    current && !functionTypes.has(current.type);
++    current;
+     child = current, current = current.parent
+   ) {
+     const member = reduceMember(current);
