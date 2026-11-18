@@ -424,7 +424,9 @@ function sourceAt(root: string, base: string): Source {
       const found = git(root, ["grep", "-l", "-z", "-F", "-e", line, base]);
       if (found.exitCode === 1) return [];
       if (!found.ok)
-        throw new Error(`git grep ${base}: ${found.stderr.trim()}`);
+        throw new Error(
+          `git grep -l -F -e ${quoted(line)} ${base} failed: ${found.stderr.trim()}. Repair: run it by hand in ${root} to see why, then run this command again.`,
+        );
       return found.stdout
         .split("\0")
         .filter((path) => path !== "")
