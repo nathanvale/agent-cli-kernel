@@ -526,7 +526,7 @@ export async function release(launched: Launched): Promise<void> {
   await cleanup(observed);
 }
 
-export async function run(
+export async function runCase(
   entry: Case,
   extra: Partial<Parameters<typeof launch>[0]> = {},
   bound = exitBound,

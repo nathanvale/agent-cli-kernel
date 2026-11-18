@@ -19,7 +19,7 @@ import {
   tree,
   waitForFile,
 } from "./harness.ts";
-import type { Observed, Run, Tree } from "./harness.ts";
+import type { DirectoryEntry, Run, Tree } from "./harness.ts";
 import {
   expectAvailable,
   expectUnavailable,
@@ -60,7 +60,7 @@ function logs(dir: string) {
 // failure of D06.file-count-near-cap).
 type Identity = { name: string; ino: number; first: string };
 
-function identify(entry: Observed): Identity {
+function identify(entry: DirectoryEntry): Identity {
   const [first = ""] = readFileSync(entry.path, "utf8").split("\n");
   return { name: entry.name, ino: entry.ino, first };
 }

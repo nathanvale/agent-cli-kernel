@@ -237,7 +237,7 @@ export function canon(envelope: unknown): string {
   return JSON.stringify(copy);
 }
 
-export type Observed = {
+export type DirectoryEntry = {
   readonly name: string;
   readonly path: string;
   readonly kind: "file" | "directory" | "symlink" | "fifo" | "other";
@@ -248,17 +248,17 @@ export type Observed = {
 };
 export type DirectoryView = {
   readonly exists: boolean;
-  readonly kind?: Observed["kind"];
+  readonly kind?: DirectoryEntry["kind"];
   readonly mode?: number;
-  readonly entries: readonly Observed[];
-  readonly files: readonly Observed[];
+  readonly entries: readonly DirectoryEntry[];
+  readonly files: readonly DirectoryEntry[];
   readonly fileBytes: number;
 };
 
-function kind(path: string): Observed["kind"] {
+function kind(path: string): DirectoryEntry["kind"] {
   return kindOf(lstatSync(path));
 }
-function kindOf(info: import("node:fs").Stats): Observed["kind"] {
+function kindOf(info: import("node:fs").Stats): DirectoryEntry["kind"] {
   if (info.isSymbolicLink()) return "symlink";
   if (info.isFile()) return "file";
   if (info.isDirectory()) return "directory";
@@ -280,7 +280,7 @@ export function observe(dir: string): DirectoryView {
       files: [],
       fileBytes: 0,
     };
-  const entries = readdirSync(dir).flatMap((name): Observed[] => {
+  const entries = readdirSync(dir).flatMap((name): DirectoryEntry[] => {
     const path = join(dir, name);
     try {
       const stat = lstatSync(path);
