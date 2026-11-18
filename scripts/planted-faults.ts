@@ -9,7 +9,11 @@ import {
 } from "node:fs";
 import { constants, tmpdir } from "node:os";
 import { basename, join } from "node:path";
-import { runWithOwnTools, startChild } from "./process-runner.ts";
+import {
+  runWithOwnTools,
+  startChild,
+  withoutRepositoryLocation,
+} from "./process-runner.ts";
 
 const recordsPath = "tests/planted-faults/fault-records.json";
 const patchFolder = "tests/planted-faults/patches";
@@ -51,11 +55,11 @@ function quoted(value: string): string {
 function git(
   root: string,
   args: readonly string[],
-  env: Record<string, string | undefined> = process.env,
+  extra: Readonly<Record<string, string>> = {},
 ) {
   const result = Bun.spawnSync(["git", ...args], {
     cwd: root,
-    env,
+    env: { ...withoutRepositoryLocation(process.env), ...extra },
     stdout: "pipe",
     stderr: "pipe",
     detached: true,
@@ -77,9 +81,9 @@ function git(
 function gitOrThrow(
   root: string,
   args: readonly string[],
-  env?: Record<string, string | undefined>,
+  extra?: Readonly<Record<string, string>>,
 ): string {
-  const result = git(root, args, env);
+  const result = git(root, args, extra);
   if (!result.ok)
     throw new Error(`git ${args.join(" ")}: ${result.stderr.trim()}`);
   return result.stdout;
@@ -145,7 +149,7 @@ export function readRecords(root: string): Fault[] {
 function commitWorkingTreeInScratchIndex(root: string): string {
   const folder = mkdtempSync(join(tmpdir(), "fault-replay-index-"));
   try {
-    const env = { ...process.env, GIT_INDEX_FILE: join(folder, "index") };
+    const env = { GIT_INDEX_FILE: join(folder, "index") };
     gitOrThrow(root, ["read-tree", "HEAD"], env);
     gitOrThrow(root, ["add", "--all"], env);
     const tree = gitOrThrow(root, ["write-tree"], env).trim();
@@ -154,7 +158,7 @@ function commitWorkingTreeInScratchIndex(root: string): string {
     return gitOrThrow(
       root,
       ["commit-tree", tree, "-p", "HEAD", "-m", "fault-replay: working tree"],
-      { ...process.env, ...snapshotAuthor },
+      snapshotAuthor,
     ).trim();
   } finally {
     rmSync(folder, { recursive: true, force: true });
