@@ -9,6 +9,7 @@ import {
   expectNoLeftovers,
   expectOneTestProcessGone,
   git,
+  guarded,
   ledgered,
   lineOf,
   tests,
@@ -297,6 +298,46 @@ exec '${realGit}' "$@"
       expectNoLeftovers(root, run.temporary);
     },
     processWatchdog(2),
+  );
+
+  test(
+    "FR.y a worktree removal that hangs is stopped at the step limit, and the verdict stands",
+    async () => {
+      const { root, id } = await repositoryWithFault({});
+      commit(root, "reword the refusal", {
+        "src/limit.ts": guarded.replace("must be", "has to be"),
+      });
+      const tools = folder("fault-replay-hung-remove-");
+      const realGit = Bun.which("git");
+      if (realGit === null) throw new Error("git is not on PATH.");
+      write(
+        tools,
+        "bin/git",
+        `#!/bin/sh
+if [ "$1" = worktree ] && [ "$2" = remove ]; then
+  exec sleep 60
+fi
+exec '${realGit}' "$@"
+`,
+      );
+      chmodSync(join(tools, "bin/git"), 0o755);
+      const began = performance.now();
+
+      const run = await faultReplay(root, [], {
+        env: {
+          PATH: `${join(tools, "bin")}${delimiter}${process.env.PATH}`,
+          FAULT_REPLAY_STEP_SECONDS: String(stepSeconds),
+        },
+        boundMilliseconds: forcedBound,
+      });
+
+      expect(verdicts(run.lines)).toEqual([`STALE ${id}`]);
+      expect(run.exit).toBe(1);
+      expect(performance.now() - began).toBeLessThan(
+        stepSeconds * 1000 + 4_000,
+      );
+    },
+    timeout,
   );
 
   test(
