@@ -178,7 +178,7 @@ test(
     const shown = [...Object.keys(hook), "CE_CALLER"];
     const report = `process.stdout.write(JSON.stringify(Object.fromEntries(Object.entries(process.env).filter(([name]) => ${JSON.stringify(shown)}.includes(name)))))`;
     const caller = `import { startChild } from ${JSON.stringify(runner)};
-const child = await startChild([process.execPath, "-e", ${JSON.stringify(report)}]).finished;
+const child = await startChild([process.execPath, "-e", ${JSON.stringify(report)}], { limitMilliseconds: ${finishBound} }).finished;
 process.stdout.write(child.stdout + child.stderr);`;
 
     const run = await spawnBounded([process.execPath, "-e", caller], {
