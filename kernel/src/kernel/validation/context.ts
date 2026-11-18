@@ -20,7 +20,10 @@ export function handlerContext<C extends CapabilitySelection>(
   if (
     !record(value) ||
     Object.keys(value).some(
-      (key) => !(changing && key === "state") && !Object.hasOwn(selection, key),
+      (key) =>
+        !(changing && key === "state") &&
+        !(key === "signal" && value.signal instanceof AbortSignal) &&
+        !Object.hasOwn(selection, key),
     )
   )
     return false;

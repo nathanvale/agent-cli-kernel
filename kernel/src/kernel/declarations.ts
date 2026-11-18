@@ -14,6 +14,7 @@ import type {
   ApprovalRequest,
   CapabilitySelection,
   HandlerContext,
+  StopContext,
 } from "./capabilities.ts";
 import type { InputSchema, ParsedInput } from "./input-types.ts";
 import { parseInput, acceptsRootInput } from "./input.ts";
@@ -170,6 +171,14 @@ function contextSnapshot(value: unknown): Record<string, unknown> | undefined {
   }
   return snapshot;
 }
+function stopContext(checked: Record<string, unknown>): StopContext {
+  return {
+    signal:
+      checked.signal instanceof AbortSignal
+        ? checked.signal
+        : new AbortController().signal,
+  };
+}
 export type HandlerEntry<Identity extends string = string> = (
   state?: unknown,
 ) => Promise<Validation<CommandResult<Identity>>>;
@@ -277,7 +286,9 @@ export function command<
     readonly programStopCause?: P;
     readonly run: (
       input: ParsedInput<I>,
-      context: HandlerContext<C> & ResultContext<Identity, S, "inspect", C, P>,
+      context: HandlerContext<C> &
+        StopContext &
+        ResultContext<Identity, S, "inspect", C, P>,
     ) => CommandResult<Identity> | Promise<CommandResult<Identity>>;
   } & ApprovalFor<C, I>,
 ) {
@@ -317,6 +328,7 @@ export function command<
           await spec.run(parsed, {
             ...checked,
             ...resultContext(declaration, runId, invocation),
+            ...stopContext(checked),
           }),
           spec.identity,
           runId,
@@ -365,9 +377,10 @@ export function changing<
     readonly stations: S;
     readonly run: (
       input: ParsedInput<I>,
-      context: HandlerContext<C> & {
-        readonly state: StateCapability<Effect>;
-      } & ResultContext<Identity, S, "repository-local" | "external">,
+      context: HandlerContext<C> &
+        StopContext & {
+          readonly state: StateCapability<Effect>;
+        } & ResultContext<Identity, S, "repository-local" | "external">,
     ) => Promise<CommandResult<Identity>>;
   } & ApprovalFor<C, I>,
 ) {
@@ -406,6 +419,7 @@ export function changing<
           await spec.run(parsed, {
             ...entered,
             ...resultContext(declaration, runId, invocation),
+            ...stopContext(checked),
           }),
           spec.identity,
           runId,
