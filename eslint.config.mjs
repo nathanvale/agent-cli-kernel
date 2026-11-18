@@ -1,4 +1,5 @@
 import js from "@eslint/js";
+import { defineConfig } from "eslint/config";
 import antiSlop, { chainedTypeAssertions } from "./config/anti-slop-rules.mjs";
 import kernel, { kernelPaths } from "./config/kernel-repository-lint.mjs";
 import payloadRules from "./config/payload-rules.mjs";
@@ -14,7 +15,7 @@ const localRules = {
   },
 };
 
-export default tseslint.config(
+export default defineConfig(
   {
     ignores: [
       "node_modules/**",
