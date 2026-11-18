@@ -58,10 +58,12 @@ bun install --frozen-lockfile
 bun run check
 ```
 
-This repository follows the durable toolchain proven in the dotfiles workspace:
-Bun 1.4.4, TypeScript 7.0.2 for compilation, TypeScript 6.0.2 for ESLint
-10.15.0 with typescript-eslint 8.72.2, Biome 2.6.7 for formatting only, and
-native Fallow plus its semantic companion at 3.43.2. Generated
+This repository uses Bun 1.4.4, TypeScript 7.1.0-beta for compilation,
+TypeScript 6.0.2 for ESLint 10.15.0 with typescript-eslint 8.73.0, Biome 2.6.7
+for formatting only, and native Fallow plus its semantic companion at 3.43.2.
+The companion keeps its own TypeScript 7.0.2. Generated repositories stay on
+the durable toolchain proven in the dotfiles workspace, with TypeScript 7.0.2
+for compilation. Generated
 scratch repositories intentionally omit Biome, Fallow, CI, hooks, release
 tooling, and monorepo structure.
 

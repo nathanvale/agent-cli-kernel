@@ -229,9 +229,9 @@ test("a clean probe reads exit 0 only from a run that completed normally", () =>
   const read = readRun("native", root, files, {
     stdout: `${typeError}${sentinel}`,
     stderr: "",
-    exit: 1,
+    exit: 2,
   });
-  expect(read.settled.get("locks/probe-0.ts")).toMatchObject({ exit: 1 });
+  expect(read.settled.get("locks/probe-0.ts")).toMatchObject({ exit: 2 });
   expect(read.settled.get("locks/probe-1.ts")).toEqual({
     stdout: "",
     stderr: "",
@@ -245,7 +245,7 @@ for (const [name, run] of [
     "killed after writing another probe's diagnostic",
     { exit: 137, stderr: "" },
   ],
-  ["crashed with a stack trace", { exit: 1, stderr: "RangeError: stack\n" }],
+  ["crashed with a stack trace", { exit: 2, stderr: "RangeError: stack\n" }],
   ["exited 0 despite the sentinel's error", { exit: 0, stderr: "" }],
 ] as const)
   test(`a run that ${name} fails every probe`, () => {
