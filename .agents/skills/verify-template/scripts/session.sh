@@ -135,12 +135,17 @@ cleanup() {
   template="$root/work/template"
   if [ -d "$template/.git" ]; then
     work=$(cd "$root/work" && pwd -P)
-    git -C "$template" worktree list --porcelain | sed -n 's/^worktree //p' | while read -r tree; do
-      [ "$tree" = "$(cd "$template" && pwd -P)" ] || [ "$tree" = "$template" ] && continue
+    own=$(cd "$template" && pwd -P)
+    outside=$(git -C "$template" worktree list --porcelain | sed -n 's/^worktree //p' | while read -r tree; do
       case "$tree" in
-        "$work"/* | "$root/work"/*) git -C "$template" worktree remove --force "$tree" || true ;;
-        *) printf 'session: left worktree %s in place; it is outside %s/work.\n' "$tree" "$root" >&2 ;;
+        ("$own" | "$template" | "$work"/* | "$root/work"/*) ;;
+        (*) printf '%s ' "$tree" ;;
       esac
+    done)
+    [ -z "$outside" ] || fail "session: worktrees outside $root/work use the clone's git folder, so cleanup kept everything: $outside. Repair: keep what you need from each, run git -C $template worktree remove <path> for each, then run cleanup $root again."
+    git -C "$template" worktree list --porcelain | sed -n 's/^worktree //p' | while read -r tree; do
+      [ "$tree" = "$own" ] || [ "$tree" = "$template" ] && continue
+      git -C "$template" worktree remove --force "$tree" || true
     done
   fi
   rm -rf "$root/work"

@@ -87,10 +87,11 @@ the transcript.
 ### Cleanup
 
 `"$skill/scripts/session.sh" cleanup "$run"` removes worktrees registered to
-the clone (fault replay and check:commits make them), deletes `$run/work`, and
-keeps `$run/evidence` and `$run/run.env`. It prints the kept file count. It
-refuses a folder without `run.env`, so it removes only what launch made. Run it
-after every failed iteration too.
+the clone (fault replay and check:commits make them under `$run/work/tmp`),
+deletes `$run/work`, and keeps `$run/evidence` and `$run/run.env`. It prints
+the kept file count. It refuses a folder without `run.env`, and it refuses,
+keeping everything, while a worktree outside `$run/work` still uses the clone.
+Run it after every failed iteration too.
 
 ## Linux
 
