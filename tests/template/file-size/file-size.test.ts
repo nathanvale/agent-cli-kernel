@@ -2,6 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { renameSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { runFileSizeCheck } from "../../../scripts/check-file-size.ts";
+import { gitEnv, inherited } from "../../support/git-fixture.ts";
 import { processWatchdog } from "../../support/process.ts";
 import {
   fixtureRepository,
@@ -32,6 +33,16 @@ function checkFileSize(tree: string, ...args: string[]) {
     [process.execPath, "run", "--silent", "check:file-size", ...args],
     tree,
   );
+}
+
+function checkInProcess(tree: string, args: readonly string[] = []) {
+  const previous = process.env;
+  process.env = { ...inherited(), ...gitEnv };
+  try {
+    return runFileSizeCheck(args, tree);
+  } finally {
+    process.env = previous;
+  }
 }
 
 async function seed(tree: string, files: Readonly<Record<string, string>>) {
@@ -171,7 +182,7 @@ test(
     unlinkSync(linked);
     symlinkSync("fault-records.json", linked);
 
-    const result = runFileSizeCheck([], tree);
+    const result = checkInProcess(tree);
     expect(result).toMatchObject({
       code: 1,
       stderr:
@@ -200,7 +211,7 @@ test(
     write(tree, integration, overLimit);
     await seed(tree, { [glossary]: atLimit });
 
-    expect(runFileSizeCheck([], tree)).toMatchObject({
+    expect(checkInProcess(tree)).toMatchObject({
       code: 1,
       stderr: [
         `check:file-size: "${glossary}": stale temporary recorded hit (5000 tokens, limit 5000). Repair: remove its entry from scripts/check-file-size.ts.`,
@@ -210,7 +221,7 @@ test(
     });
 
     write(tree, glossary, "\0");
-    const nonText = runFileSizeCheck([], tree);
+    const nonText = checkInProcess(tree);
     expect(nonText.code).toBe(1);
     expect(nonText.stderr).toContain(
       `"${glossary}": stale temporary recorded hit (no tracked UTF-8 text, limit 5000).`,
@@ -225,7 +236,7 @@ test(
     const tree = await fixtureRepository();
     await seed(tree, { [glossary]: overLimit, [integration]: overLimit });
     await git(tree, "commit", "--quiet", "-m", "seed");
-    const untouched = runFileSizeCheck(["--staged"], tree);
+    const untouched = checkInProcess(tree, ["--staged"]);
     expect(untouched).toEqual({
       code: 0,
       stdout:
@@ -237,7 +248,7 @@ test(
     write(tree, renamed, "");
     renameSync(join(tree, glossary), join(tree, renamed));
     await git(tree, "add", "--", glossary, renamed);
-    const result = runFileSizeCheck(["--staged"], tree);
+    const result = checkInProcess(tree, ["--staged"]);
     expect(result.code).toBe(1);
     expect(result.stderr.trim().split("\n").sort()).toEqual([
       `check:file-size: "${renamed}": 5001 tokens exceeds the 5000-token limit. Repair: shorten or split the file.`,
@@ -259,7 +270,7 @@ test(
     symlinkSync("file-size.txt", join(tree, link));
     await git(tree, "add", "--", link);
 
-    expect(runFileSizeCheck(["--staged"], tree)).toEqual({
+    expect(checkInProcess(tree, ["--staged"])).toEqual({
       code: 0,
       stdout:
         "check:file-size: scanned 0 staged UTF-8 text files (limit 5000 tokens).\n",
@@ -281,7 +292,7 @@ test(
       "tests/template/naming/recorded-hits.json",
     );
 
-    const result = runFileSizeCheck([], tree);
+    const result = checkInProcess(tree);
     expect(result).toMatchObject({
       code: 1,
       stdout:
