@@ -1,0 +1,16 @@
+diff --git a/scripts/planted-faults.ts b/scripts/planted-faults.ts
+index 6d3415c..c232841 100644
+--- a/scripts/planted-faults.ts
++++ b/scripts/planted-faults.ts
+@@ -376,11 +376,6 @@ function anchorRefusal(hunk: Hunk, spots: readonly Spot[]): string {
+ }
+ 
+ function place(patchPath: string, patch: string, source: Source): Placement {
+-  if (/^(?:---|\+\+\+) \/dev\/null$/m.test(patch))
+-    return {
+-      kind: "refused",
+-      cause: `${patchPath} creates or deletes a whole file, which replay does not place. It plants a fault only inside a file that exists before and after the patch.`,
+-    };
+   const hunks = hunksOf(patch);
+   if (hunks.length === 0)
+     return { kind: "refused", cause: `${patchPath} holds no hunk to apply.` };

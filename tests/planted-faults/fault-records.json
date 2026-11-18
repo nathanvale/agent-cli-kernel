@@ -663,5 +663,12 @@
     "testFile": "tests/template/fault-replay/planted-faults-in-process.test.ts",
     "title": "KILLED when only the context between a hunk's two changed regions was edited",
     "source": "f82ed2f fix(faults): anchor each changed region of a hunk on its own removed text (GREEN)"
+  },
+  {
+    "id": "b9b2905-planted-faults",
+    "patch": "tests/planted-faults/patches/b9b2905-planted-faults.patch",
+    "testFile": "tests/template/fault-replay/planted-faults-in-process.test.ts",
+    "title": "STALE when the patch (creates|deletes) a whole file",
+    "source": "b9b2905 fix(faults): refuse a patch that creates or deletes a whole file (GREEN)"
   }
 ]
