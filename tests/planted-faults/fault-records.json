@@ -600,5 +600,12 @@
     "testFile": "tests/template/process-runner/process-runner.test.ts",
     "title": "^CE[.]e ",
     "source": "def3ec4 fix(process-runner): keep a hook's git location out of every child (GREEN)"
+  },
+  {
+    "id": "24f4eab-planted-faults",
+    "patch": "tests/planted-faults/patches/24f4eab-planted-faults.patch",
+    "testFile": "tests/template/fault-replay/planted-fault-records-in-process.test.ts",
+    "title": "faultsTouchedSince refuses a fault whose patch file is missing",
+    "source": "24f4eab fix(faults): refuse a missing patch file by name (GREEN)"
   }
 ]
