@@ -508,13 +508,14 @@ function aliasSubstitutions(alias, reference, base, expansion) {
     const explicitArgument = typeArguments[index];
     const argument = explicitArgument ?? parameter.default;
     if (argument === null || argument === undefined) return null;
-    const fromReference = explicitArgument !== undefined;
+    const [substitutions, resolvingAliases] =
+      explicitArgument === undefined
+        ? [next, expansion.innerAliases]
+        : [base, expansion.resolvingAliases];
     next.set(parameter.name.name, {
       type: argument,
-      substitutions: new Map(fromReference ? base : next),
-      resolvingAliases: fromReference
-        ? expansion.resolvingAliases
-        : expansion.innerAliases,
+      substitutions: new Map(substitutions),
+      resolvingAliases,
     });
   }
   return next;
@@ -912,6 +913,7 @@ const loopKeywordLengths = {
   DoWhileStatement: 2,
 };
 const spreadKinds = { ArrayExpression: "Array", ObjectExpression: "Object" };
+const reducerArities = new Set([2, 3, 4]);
 
 function innerExpression(node) {
   let current = node;
@@ -1001,8 +1003,7 @@ function reduceSpread(definition, spread) {
   const parameters = ownParameters(callback);
   if (bindingIdentifier(parameters[0]) !== definition.name) return null;
   if (
-    parameters.length < 2 ||
-    parameters.length > 4 ||
+    !reducerArities.has(parameters.length) ||
     nearestFunction(spread) !== callback
   )
     return null;
