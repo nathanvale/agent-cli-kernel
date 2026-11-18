@@ -677,5 +677,26 @@
     "testFile": "tests/template/file-size/file-size.test.ts",
     "title": "^a working tree with no tracked texts cannot pass the scan$",
     "source": "a11290a feat(gates): enforce the template file-size limit"
+  },
+  {
+    "id": "61661fd-check-file-size",
+    "patch": "tests/planted-faults/patches/61661fd-check-file-size.patch",
+    "testFile": "tests/template/file-size/file-size.test.ts",
+    "title": "^the hook uses the staged record when a temporary recorded hit is removed$",
+    "source": "61661fd fix(gates): read recorded hits from the staged tree"
+  },
+  {
+    "id": "bd4486c-check-file-size-missing-blob",
+    "patch": "tests/planted-faults/patches/bd4486c-check-file-size-missing-blob.patch",
+    "testFile": "tests/template/file-size/file-size.test.ts",
+    "title": "^the staged scan refuses a missing eligible blob and skips a missing vendor blob$",
+    "source": "bd4486c fix(gates): check staged blobs in one Git batch"
+  },
+  {
+    "id": "a11290a-check-file-size-git-deadline",
+    "patch": "tests/planted-faults/patches/a11290a-check-file-size-git-deadline.patch",
+    "testFile": "tests/template/file-size/file-size.test.ts",
+    "title": "^the file-size command stops a Git read at its deadline$",
+    "source": "a11290a feat(gates): enforce the template file-size limit"
   }
 ]

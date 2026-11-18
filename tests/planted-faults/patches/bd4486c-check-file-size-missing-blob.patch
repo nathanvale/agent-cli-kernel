@@ -1,0 +1,12 @@
+diff --git a/scripts/check-file-size.ts b/scripts/check-file-size.ts
+--- a/scripts/check-file-size.ts
++++ b/scripts/check-file-size.ts
+@@ -136,8 +136,6 @@
+ }
+
+ function batchBlobSize(header: string, object: string): number {
+-  if (header === `${object} missing`)
+-    throw new Error(`git cat-file could not read staged blob ${object}.`);
+   const match = /^([0-9a-f]+) blob (0|[1-9][0-9]*)$/.exec(header);
+   const size = Number(match?.[2]);
+   if (match?.[1] !== object || !Number.isSafeInteger(size))

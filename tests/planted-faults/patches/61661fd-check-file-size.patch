@@ -1,0 +1,15 @@
+diff --git a/scripts/check-file-size.ts b/scripts/check-file-size.ts
+--- a/scripts/check-file-size.ts
++++ b/scripts/check-file-size.ts
+@@ -199,7 +199,10 @@
+       object === undefined ? undefined : () => blobs.get(object),
+     ]),
+   );
+-  return { files, recordedHits: readRecordedHits(blobs.get(policy)) };
++  return {
++    files,
++    recordedHits: readRecordedHits(readFileSync(join(root, recordedHitsFile))),
++  };
+ }
+
+ function workingScanInputs(root: string) {
