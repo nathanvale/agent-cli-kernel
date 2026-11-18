@@ -376,7 +376,7 @@ const antiSlopCases = [
   },
   {
     rule: "no-restricted-syntax",
-    witness: "kernel brand chain",
+    witness: "751520c",
     message: "This assertion chain discards type evidence.",
     filePath: "kernel/src/kernel/validation/brands.ts",
     failing: [
