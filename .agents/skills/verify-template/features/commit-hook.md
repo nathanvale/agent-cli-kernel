@@ -85,9 +85,9 @@ Preconditions:
 - **Green.** Record `hook-green`:
   `printf "# Verify note\n\nA note the verification run commits.\n" > docs/verify-note.md && git add -- docs/verify-note.md && git commit -q -m "docs: add a verification note" && git log --oneline -1`.
   Exit 0; stdout names the new commit.
-- **Planted fault.** Record `hook-fault`:
-  `bun run --silent fault-replay d2034aa-pre-commit c6ccbf5-check-names-refusal`.
-  Exit 0; both `KILLED`.
+- **Planted faults.** Record `hook-fault`:
+  `bun run --silent fault-replay d2034aa-pre-commit c6ccbf5-check-names-refusal ea215c9-pre-commit`.
+  Exit 0; all three `KILLED`.
 - **After.** Record `hook-after`: `git status --porcelain`. Empty after each
   red, so a refusal left nothing staged.
 
