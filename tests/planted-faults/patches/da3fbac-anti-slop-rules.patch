@@ -1,0 +1,17 @@
+diff --git a/config/anti-slop-rules.mjs b/config/anti-slop-rules.mjs
+index 5f1b6db..41cc74e 100644
+--- a/config/anti-slop-rules.mjs
++++ b/config/anti-slop-rules.mjs
+@@ -1073,11 +1073,7 @@ const noAccumulatingSpread = {
+     const { sourceCode } = context;
+     return {
+       SpreadElement(spread) {
+-        if (
+-          spread.argument.type !== "Identifier" ||
+-          !Object.hasOwn(spreadKinds, spread.parent.type)
+-        )
+-          return;
++        if (spread.argument.type !== "Identifier") return;
+         const variable = referencedVariable(sourceCode, spread.argument);
+         const [definition] = variable?.defs ?? [];
+         if (definition === undefined) return;

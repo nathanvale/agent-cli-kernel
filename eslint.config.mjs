@@ -1,4 +1,6 @@
 import js from "@eslint/js";
+import { defineConfig } from "eslint/config";
+import antiSlop, { chainedTypeAssertions } from "./config/anti-slop-rules.mjs";
 import kernel, { kernelPaths } from "./config/kernel-repository-lint.mjs";
 import payloadRules from "./config/payload-rules.mjs";
 import platformRules from "./config/platform-rules.mjs";
@@ -13,7 +15,19 @@ const localRules = {
   },
 };
 
-export default tseslint.config(
+function withChainedTypeAssertions(config) {
+  const restricted = config.rules?.["no-restricted-syntax"];
+  if (!Array.isArray(restricted)) return config;
+  return {
+    ...config,
+    rules: {
+      ...config.rules,
+      "no-restricted-syntax": [...restricted, ...chainedTypeAssertions],
+    },
+  };
+}
+
+export default defineConfig(
   {
     ignores: [
       "node_modules/**",
@@ -28,7 +42,6 @@ export default tseslint.config(
       "starters/complex/**",
       "starters/shared/**",
       "proofs/**",
-      "tools/oxlint/anti-slop/**",
     ],
   },
   {
@@ -81,5 +94,34 @@ export default tseslint.config(
       "repository/tests-no-sleep": "error",
     },
   },
-  ...kernel,
+  {
+    files: ["**/*.{mts,cts,tsx,jsx}"],
+    languageOptions: { parser: tseslint.parser },
+  },
+  {
+    files: ["**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx}"],
+    ignores: [
+      ".agent/**",
+      ".agents/**",
+      ".claude/**",
+      ".codex/**",
+      ".continue/**",
+      ".cursor/**",
+      ".gemini/**",
+      ".opencode/**",
+      ".pi/**",
+      ".roo/**",
+      ".windsurf/**",
+    ],
+    plugins: { "anti-slop": antiSlop },
+    rules: {
+      "no-restricted-syntax": ["error", ...chainedTypeAssertions],
+      "anti-slop/no-accumulating-spread": "error",
+      "anti-slop/no-widen-then-assert": "error",
+      "anti-slop/no-unknown-type-aliases": "error",
+      "anti-slop/no-module-mocking": "error",
+      "anti-slop/no-reduce-accumulator-copy": "error",
+    },
+  },
+  ...kernel.map(withChainedTypeAssertions),
 );

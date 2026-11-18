@@ -1,0 +1,23 @@
+diff --git a/config/anti-slop-rules.mjs b/config/anti-slop-rules.mjs
+index d8fb73a..5c43ed6 100644
+--- a/config/anti-slop-rules.mjs
++++ b/config/anti-slop-rules.mjs
+@@ -165,8 +165,16 @@ function resolveArrayBinding(sourceCode, node) {
+ function arrayMethodTarget(node) {
+   const member = unwrapArrayExpression(node);
+   if (member.type !== "MemberExpression") return null;
+-  const name = staticPropertyName(member);
+-  return name === null ? null : { name, object: member.object };
++  const { property } = member;
++  if (!member.computed && property.type === "Identifier")
++    return { name: property.name, object: member.object };
++  if (
++    member.computed &&
++    property.type === "Literal" &&
++    typeof property.value === "string"
++  )
++    return { name: property.value, object: member.object };
++  return null;
+ }
+ 
+ function isArrayAnnotation(type) {
