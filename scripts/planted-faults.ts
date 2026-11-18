@@ -240,7 +240,7 @@ type Source = {
 
 type Placement =
   | { kind: "placed"; files: ReadonlyMap<string, string> }
-  | { kind: "refused"; cause: string };
+  | { kind: "refused"; cause: string; candidates: readonly string[] };
 
 type Spot = { path: string; line: number };
 
@@ -391,10 +391,15 @@ function place(patchPath: string, patch: string, source: Source): Placement {
     return {
       kind: "refused",
       cause: `${patchPath} creates or deletes a whole file, which replay does not place. It plants a fault only inside a file that exists before and after the patch.`,
+      candidates: [],
     };
   const hunks = hunksOf(patch);
   if (hunks.length === 0)
-    return { kind: "refused", cause: `${patchPath} holds no hunk to apply.` };
+    return {
+      kind: "refused",
+      cause: `${patchPath} holds no hunk to apply.`,
+      candidates: [],
+    };
   const files = new Map<string, string>();
   const textOf = (path: string) => files.get(path) ?? source.read(path);
   const linesOf = (path: string) => linesIn(textOf(path) ?? "");
@@ -414,7 +419,11 @@ function place(patchPath: string, patch: string, source: Source): Placement {
     }
     const spot = chosen(spots, hunk, linesOf);
     if (spot === undefined)
-      return { kind: "refused", cause: anchorRefusal(hunk, spots) };
+      return {
+        kind: "refused",
+        cause: anchorRefusal(hunk, spots),
+        candidates: [...files.keys(), ...spots.map(({ path }) => path)],
+      };
     files.set(spot.path, replaced(textOf(spot.path) ?? "", spot, hunk));
   }
   return { kind: "placed", files };
@@ -625,7 +634,9 @@ export function faultsTouchedSince(root: string, base: string): string[] {
     const placement = place(fault.patch, text, atBase);
     return [
       ...hunksOf(text).map(({ path }) => path),
-      ...(placement.kind === "placed" ? placement.files.keys() : []),
+      ...(placement.kind === "placed"
+        ? placement.files.keys()
+        : placement.candidates),
     ];
   };
   return readRecords(root)
