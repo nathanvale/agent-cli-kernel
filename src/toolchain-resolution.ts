@@ -19,7 +19,7 @@ function version(value: unknown): string {
 
 const accepted = {
   lint: "6.0.2",
-  compiler: "7.0.2",
+  compiler: "7.1.0-beta",
   semantic: "7.0.2",
 } as const;
 
