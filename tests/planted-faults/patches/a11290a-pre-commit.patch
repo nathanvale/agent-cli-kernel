@@ -1,0 +1,10 @@
+diff --git a/.githooks/pre-commit b/.githooks/pre-commit
+--- a/.githooks/pre-commit
++++ b/.githooks/pre-commit
+@@ -46,6 +45,0 @@
+-if [ ! -f node_modules/tiktoken/package.json ]; then
+-  echo "pre-commit: tiktoken is missing. Repair: run bun install --frozen-lockfile, then commit again." >&2
+-  exit 1
+-fi
+-bun --no-install scripts/check-file-size.ts --staged
+-

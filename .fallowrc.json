@@ -88,6 +88,7 @@
     "boundary-violation": "error",
     "require-suppression-reason": "error"
   },
+  "supportEntry": ["scripts/check-file-size.ts"],
   "entry": [
     "src/static-admission.ts",
     "scripts/doctor.ts",

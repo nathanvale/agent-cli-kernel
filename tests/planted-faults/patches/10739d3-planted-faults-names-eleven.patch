@@ -1,7 +1,6 @@
-diff --git a/scripts/planted-faults.ts b/scripts/planted-faults.ts
-index b9e519c..a31ed11 100644
---- a/scripts/planted-faults.ts
-+++ b/scripts/planted-faults.ts
+diff --git a/scripts/planted-fault-patch.ts b/scripts/planted-fault-patch.ts
+--- a/scripts/planted-fault-patch.ts
++++ b/scripts/planted-fault-patch.ts
 @@ -244,7 +244,7 @@ type Placement =
  type Spot = { path: string; line: number };
  

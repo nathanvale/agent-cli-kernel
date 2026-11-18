@@ -1,7 +1,6 @@
-diff --git a/scripts/planted-faults.ts b/scripts/planted-faults.ts
-index f51ba9d..7c8dab4 100644
---- a/scripts/planted-faults.ts
-+++ b/scripts/planted-faults.ts
+diff --git a/scripts/planted-fault-patch.ts b/scripts/planted-fault-patch.ts
+--- a/scripts/planted-fault-patch.ts
++++ b/scripts/planted-fault-patch.ts
 @@ -387,12 +387,6 @@ function anchorRefusal(hunk: Hunk, spots: readonly Spot[]): string {
  }
  

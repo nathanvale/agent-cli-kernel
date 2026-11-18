@@ -1,7 +1,6 @@
-diff --git a/scripts/planted-faults.ts b/scripts/planted-faults.ts
-index 7709959..148af35 100644
---- a/scripts/planted-faults.ts
-+++ b/scripts/planted-faults.ts
+diff --git a/scripts/planted-fault-patch.ts b/scripts/planted-fault-patch.ts
+--- a/scripts/planted-fault-patch.ts
++++ b/scripts/planted-fault-patch.ts
 @@ -240,7 +240,7 @@ type Source = {
  
  type Placement =
@@ -41,6 +40,9 @@ index 7709959..148af35 100644
      files.set(spot.path, replaced(textOf(spot.path) ?? "", spot, hunk));
    }
    return { kind: "placed", files };
+diff --git a/scripts/planted-faults.ts b/scripts/planted-faults.ts
+--- a/scripts/planted-faults.ts
++++ b/scripts/planted-faults.ts
 @@ -634,9 +625,7 @@ export function faultsTouchedSince(root: string, base: string): string[] {
      const placement = place(fault.patch, text, atBase);
      return [

@@ -1,7 +1,6 @@
-diff --git a/scripts/planted-faults.ts b/scripts/planted-faults.ts
-index f51ba9d..cb3e5bd 100644
---- a/scripts/planted-faults.ts
-+++ b/scripts/planted-faults.ts
+diff --git a/scripts/planted-fault-patch.ts b/scripts/planted-fault-patch.ts
+--- a/scripts/planted-fault-patch.ts
++++ b/scripts/planted-fault-patch.ts
 @@ -417,6 +417,7 @@ function place(patchPath: string, patch: string, source: Source): Placement {
          return text === undefined ? [] : spotsIn(path, text, hunk.anchor);
        });

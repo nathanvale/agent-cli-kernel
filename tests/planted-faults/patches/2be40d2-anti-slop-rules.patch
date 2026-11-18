@@ -1,7 +1,6 @@
-diff --git a/config/anti-slop-rules.mjs b/config/anti-slop-rules.mjs
-index 88e9b1e..05732a6 100644
---- a/config/anti-slop-rules.mjs
-+++ b/config/anti-slop-rules.mjs
+diff --git a/config/anti-slop-type-rules.mjs b/config/anti-slop-type-rules.mjs
+--- a/config/anti-slop-type-rules.mjs
++++ b/config/anti-slop-type-rules.mjs
 @@ -503,7 +503,7 @@ function visibleTypeAlias(name, use, environment) {
  function aliasSubstitutions(alias, reference, base, expansion) {
    const parameters = alias.typeParameters?.params ?? [];

@@ -54,6 +54,9 @@ this file.
   [r4609956051] (a hunk with two changed regions was anchored on the
   unchanged lines between them, so editing those lines made its fault
   STALE).
+- Read staged Git blobs in one batch by object ID. Witnessed:
+  [r4609890969] (the file-size gate started a Git process for each staged
+  file).
 
 [ac11ed9]: https://github.com/nathanvale/bun-typescript-template/commit/ac11ed98b7d538e8a304cac053aaefcaaf6b2cb3
 [cd2498b]: https://github.com/nathanvale/bun-typescript-template/commit/cd2498b7189a2d45d1906b9c870e8d13da6cd2dd
@@ -68,3 +71,4 @@ this file.
 [r4608935157]: https://github.com/nathanvale/bun-typescript-template/pull/101#discussion_r4608935157
 [r4609956011]: https://github.com/nathanvale/bun-typescript-template/pull/109#discussion_r4609956011
 [r4609956051]: https://github.com/nathanvale/bun-typescript-template/pull/109#discussion_r4609956051
+[r4609890969]: https://github.com/nathanvale/bun-typescript-template/pull/108#discussion_r4609890969

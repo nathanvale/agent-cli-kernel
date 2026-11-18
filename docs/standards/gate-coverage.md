@@ -4,6 +4,28 @@ Use this reference when reviewing what a gate covers or reproducing a
 refusal. The [rule table](../../CODING_STANDARDS.md#rule-table) names the
 gates and their witnesses.
 
+## File size
+
+- `bun run check:file-size` counts tokens with the pinned `tiktoken`
+  `o200k_base` encoding. A tracked regular UTF-8 text file can have up to
+  5,000 tokens. The template's `bun run check` and the hosted `check` job
+  scan the working tree. Pre-commit checks the changed files in the active
+  Git index using their staged bytes.
+- Declare this template-only gate in Fallow's `supportEntry`. This is the
+  local exception to the shared `entry` rule for the file-size gate. The
+  normal Fallow audit includes the gate, and the tokenizer stays in
+  `devDependencies`. See [Fallow entry settings](https://fallow.tools/docs/configuration/overview/#supportentry).
+- The scan excludes `kernel/`, `tests/kernel/`, files under `vendor/`
+  directories, every `bun.lock`, and the generated `fallow-gate.sh` at exactly
+  `.claude/hooks/` and `.codex/hooks/`.
+- [The gate's recorded hits](../../scripts/file-size-recorded-hits.json) name each
+  exception, its reason, and its lifetime. The standing fault-replay record
+  reports its token count whenever scanned. Remove a temporary record in the
+  change that brings the file within the limit or takes it out of the scan.
+  The working tree scan checks every temporary record. Pre-commit checks
+  temporary records for changed paths, including removals and renames. It
+  reads the recorded hits from the active Git index.
+
 ## Refusal lint
 
 - Lint `repository/require-to-throw-message` refuses `toThrow()`,

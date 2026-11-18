@@ -1,0 +1,14 @@
+diff --git a/scripts/check-file-size.ts b/scripts/check-file-size.ts
+--- a/scripts/check-file-size.ts
++++ b/scripts/check-file-size.ts
+@@ -37,9 +37,7 @@
+       typeof reason !== "string" ||
+       reason.trim() === ""
+     )
+-      throw new Error(
+-        `${recordedHitsFile}: ${JSON.stringify(path)} needs a standing or temporary lifetime and a reason.`,
+-      );
++      continue;
+     hits.set(path, { lifetime, reason });
+   }
+   return hits;
