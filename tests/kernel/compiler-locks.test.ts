@@ -131,7 +131,7 @@ test("static verdict and lint-view processes use the accepted toolchain", async 
   expect(Bun.version).toBe("1.4.4");
   expect(ts.version).toBe("6.0.2");
   for (const [executable, expected] of [
-    ["node_modules/@typescript/native/bin/tsc", "Version 7.0.2\n"],
+    ["node_modules/@typescript/native/bin/tsc", "Version 7.1.0-beta\n"],
     ["node_modules/typescript/bin/tsc6", "Version 6.0.2\n"],
   ] as const) {
     const child = Bun.spawn(
