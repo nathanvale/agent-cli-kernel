@@ -56,10 +56,11 @@ record() {
   out="$root/evidence/$name.txt"
   stdout=$(mktemp)
   stderr=$(mktemp)
+  mkdir -p "$root/work/tmp"
   set +e
   (
     cd "$folder" &&
-      run="$root" GIT_AUTHOR_NAME=verify-template GIT_AUTHOR_EMAIL=verify-template@example.invalid \
+      run="$root" TMPDIR="$root/work/tmp" GIT_AUTHOR_NAME=verify-template GIT_AUTHOR_EMAIL=verify-template@example.invalid \
         GIT_COMMITTER_NAME=verify-template GIT_COMMITTER_EMAIL=verify-template@example.invalid \
         sh -c "$command"
   ) >"$stdout" 2>"$stderr" </dev/null
