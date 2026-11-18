@@ -338,6 +338,12 @@ The repositories, other than a repository itself, whose commits and review
 threads a citation in that repository's standards may name.
 _Avoid_: recorded origin (that is one repository and one commit), allowed hosts
 
+**Recorded origin**:
+The template repository and the template commit that the kernel was carried
+from. It is a label for people: the kernel repository's description holds it,
+and no gate decides anything from it.
+_Avoid_: citable origins, cited-commit list (for a recorded origin)
+
 ### Plans
 
 **Claim tag**:
