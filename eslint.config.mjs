@@ -15,6 +15,18 @@ const localRules = {
   },
 };
 
+function withChainedTypeAssertions(config) {
+  const restricted = config.rules?.["no-restricted-syntax"];
+  if (!Array.isArray(restricted)) return config;
+  return {
+    ...config,
+    rules: {
+      ...config.rules,
+      "no-restricted-syntax": [...restricted, ...chainedTypeAssertions],
+    },
+  };
+}
+
 export default defineConfig(
   {
     ignores: [
@@ -111,5 +123,5 @@ export default defineConfig(
       "anti-slop/no-reduce-accumulator-copy": "error",
     },
   },
-  ...kernel,
+  ...kernel.map(withChainedTypeAssertions),
 );
