@@ -318,8 +318,18 @@ function holds(
   );
 }
 
+function linesIn(text: string): string[] {
+  return text === "" ? [] : text.replace(/\n$/, "").split("\n");
+}
+
+function replaced(text: string, spot: Spot, hunk: Hunk): string {
+  const lines = linesIn(text);
+  lines.splice(spot.line, hunk.anchor.length, ...hunk.replacement);
+  return `${lines.join("\n")}${text.endsWith("\n") ? "\n" : ""}`;
+}
+
 function spotsIn(path: string, text: string, anchor: readonly string[]) {
-  const lines = text.split("\n");
+  const lines = linesIn(text);
   const spots: Spot[] = [];
   if (anchor.length === 0) return spots;
   for (let line = 0; line + anchor.length <= lines.length; line += 1)
@@ -387,7 +397,7 @@ function place(patchPath: string, patch: string, source: Source): Placement {
     return { kind: "refused", cause: `${patchPath} holds no hunk to apply.` };
   const files = new Map<string, string>();
   const textOf = (path: string) => files.get(path) ?? source.read(path);
-  const linesOf = (path: string) => (textOf(path) ?? "").split("\n");
+  const linesOf = (path: string) => linesIn(textOf(path) ?? "");
   for (const hunk of hunks) {
     const recorded = textOf(hunk.path);
     let spots =
@@ -405,9 +415,7 @@ function place(patchPath: string, patch: string, source: Source): Placement {
     const spot = chosen(spots, hunk, linesOf);
     if (spot === undefined)
       return { kind: "refused", cause: anchorRefusal(hunk, spots) };
-    const lines = linesOf(spot.path);
-    lines.splice(spot.line, hunk.anchor.length, ...hunk.replacement);
-    files.set(spot.path, lines.join("\n"));
+    files.set(spot.path, replaced(textOf(spot.path) ?? "", spot, hunk));
   }
   return { kind: "placed", files };
 }
