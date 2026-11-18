@@ -1,6 +1,6 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { repositoryLocation } from "../../scripts/process-runner.ts";
+import { withoutRepositoryLocation } from "../../scripts/process-runner.ts";
 
 const gitMilliseconds = 4_000;
 
@@ -16,11 +16,7 @@ export const gitEnv = {
 };
 
 export function inherited(): Record<string, string | undefined> {
-  return Object.fromEntries(
-    Object.entries(process.env).filter(
-      ([name]) => !repositoryLocation.includes(name),
-    ),
-  );
+  return withoutRepositoryLocation(process.env);
 }
 
 export function gitResult(root: string, ...args: string[]) {

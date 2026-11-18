@@ -9,16 +9,20 @@ export const repositoryLocation: readonly string[] = [
   "GIT_COMMON_DIR",
 ];
 
+export function withoutRepositoryLocation(
+  env: Readonly<Record<string, string | undefined>>,
+): Record<string, string | undefined> {
+  return Object.fromEntries(
+    Object.entries(env).filter(([name]) => !repositoryLocation.includes(name)),
+  );
+}
+
 // Platform: `bun run` prepends the caller's node_modules/.bin folders to PATH,
 // and a git hook exports the caller's repository location. Drop both so a
 // child process sees only what its own tree installs, and finds its
 // repository from its own folder.
 const ownTools = {
-  ...Object.fromEntries(
-    Object.entries(process.env).filter(
-      ([name]) => !repositoryLocation.includes(name),
-    ),
-  ),
+  ...withoutRepositoryLocation(process.env),
   PATH: (process.env.PATH ?? "")
     .split(delimiter)
     .filter(

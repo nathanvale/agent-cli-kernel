@@ -1,16 +1,12 @@
 diff --git a/scripts/process-runner.ts b/scripts/process-runner.ts
-index d448971..6d88008 100644
+index 39780e3..218ae37 100644
 --- a/scripts/process-runner.ts
 +++ b/scripts/process-runner.ts
-@@ -14,11 +14,7 @@ export const repositoryLocation: readonly string[] = [
+@@ -22,7 +22,7 @@ export function withoutRepositoryLocation(
  // child process sees only what its own tree installs, and finds its
  // repository from its own folder.
  const ownTools = {
--  ...Object.fromEntries(
--    Object.entries(process.env).filter(
--      ([name]) => !repositoryLocation.includes(name),
--    ),
--  ),
+-  ...withoutRepositoryLocation(process.env),
 +  ...process.env,
    PATH: (process.env.PATH ?? "")
      .split(delimiter)
