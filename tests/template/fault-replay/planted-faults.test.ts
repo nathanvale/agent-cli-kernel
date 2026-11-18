@@ -5,7 +5,6 @@ import { processWatchdog } from "../../support/process.ts";
 import {
   createPlantedFaultFixture,
   addFault,
-  commit,
   expectNoLeftovers,
   guarded,
   lineOf,
@@ -15,7 +14,7 @@ import {
   verdicts,
 } from "../../support/planted-fault-fixture.ts";
 import { write } from "../../support/fixture-files.ts";
-import { gitOutput } from "../../support/git-fixture.ts";
+import { gitOutput, commit } from "../../support/git-fixture.ts";
 
 const { faultReplay, repositoryWithFault } = createPlantedFaultFixture();
 

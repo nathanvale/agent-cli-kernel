@@ -16,9 +16,8 @@ import {
   ledgered,
   ledgerScript,
   refusal,
-  registered,
 } from "../../support/check-commits-in-process-fixture.ts";
-import { git } from "../../support/git-fixture.ts";
+import { git, worktreeLines } from "../../support/git-fixture.ts";
 import { processWatchdog } from "../../support/process.ts";
 
 const { folder, repositoryAt, inTemporaryFolder, worktreeAt } =
@@ -39,7 +38,7 @@ describe("release", () => {
 
     expect(existsSync(dir)).toBe(false);
     expect(existsSync(admin)).toBe(false);
-    expect(registered(root)).toEqual([`worktree ${realpathSync(root)}`]);
+    expect(worktreeLines(root)).toEqual([`worktree ${realpathSync(root)}`]);
   });
 
   test("a worktree git refuses to remove loses the administrative folder that still names it", async () => {
@@ -51,7 +50,7 @@ describe("release", () => {
 
     expect(existsSync(dir)).toBe(false);
     expect(existsSync(admin)).toBe(false);
-    expect(registered(root)).toEqual([`worktree ${realpathSync(root)}`]);
+    expect(worktreeLines(root)).toEqual([`worktree ${realpathSync(root)}`]);
     expect(shown.stderr).toBe("");
   });
 
@@ -93,7 +92,7 @@ describe("release", () => {
 
     expect(existsSync(dir)).toBe(false);
     expect(shown.stderr).toBe("");
-    expect(registered(root)).toHaveLength(1);
+    expect(worktreeLines(root)).toHaveLength(1);
   });
 
   test("a folder git does not know is deleted quietly when its administrative folder is already gone", async () => {
@@ -157,7 +156,7 @@ describe("check", () => {
       expect(dirname(first)).toBe(realpathSync(temporary));
       expect(basename(first).startsWith("check-commits-")).toBe(true);
       expect(second).toBe(first);
-      expect(registered(root)).toHaveLength(1);
+      expect(worktreeLines(root)).toHaveLength(1);
     },
     processWatchdog(1),
   );
@@ -185,7 +184,7 @@ describe("check", () => {
         expect.stringContaining('error: script "typecheck" exited with code 1'),
       );
       expect(ledgered(ledger)).toEqual(["typecheck"]);
-      expect(registered(root)).toHaveLength(1);
+      expect(worktreeLines(root)).toHaveLength(1);
     },
     processWatchdog(1),
   );
@@ -263,7 +262,7 @@ describe("check", () => {
         expect(readdirSync(temporary)).toEqual([]);
       });
 
-      expect(registered(root)).toHaveLength(1);
+      expect(worktreeLines(root)).toHaveLength(1);
     },
     processWatchdog(1),
   );
@@ -283,7 +282,7 @@ describe("check", () => {
         expect(readdirSync(temporary)).toEqual([]);
       });
 
-      expect(registered(root)).toHaveLength(1);
+      expect(worktreeLines(root)).toHaveLength(1);
     },
     processWatchdog(1),
   );
@@ -307,7 +306,7 @@ describe("check", () => {
 
       expect(shown.value).toEqual({ ...locked, result: { status: "green" } });
       expect(shown.stderr).toBe("");
-      expect(registered(root)).toEqual([`worktree ${realpathSync(root)}`]);
+      expect(worktreeLines(root)).toEqual([`worktree ${realpathSync(root)}`]);
       expect(readdirSync(join(root, ".git", "worktrees"))).toEqual([]);
     },
     processWatchdog(1),

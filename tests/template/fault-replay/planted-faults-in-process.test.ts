@@ -8,7 +8,6 @@ import {
   type Verdict,
 } from "../../../scripts/planted-faults.ts";
 import {
-  commit,
   createPlantedFaultFixture,
   guarded,
   headOf,
@@ -20,10 +19,9 @@ import {
   sample,
   stepVariable,
   unguarded,
-  worktrees,
 } from "../../support/planted-fault-in-process-fixture.ts";
 import { write } from "../../support/fixture-files.ts";
-import { gitOutput } from "../../support/git-fixture.ts";
+import { gitOutput, commit, worktrees } from "../../support/git-fixture.ts";
 
 const { isolated, planted, repository } = createPlantedFaultFixture();
 

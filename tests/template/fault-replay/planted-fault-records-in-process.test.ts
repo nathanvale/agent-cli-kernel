@@ -8,7 +8,6 @@ import {
   readRecords,
 } from "../../../scripts/planted-faults.ts";
 import {
-  commit,
   createPlantedFaultFixture,
   guarded,
   headOf,
@@ -20,7 +19,7 @@ import {
   unguarded,
 } from "../../support/planted-fault-in-process-fixture.ts";
 import { write } from "../../support/fixture-files.ts";
-import { gitOutput } from "../../support/git-fixture.ts";
+import { gitOutput, commit } from "../../support/git-fixture.ts";
 
 const { folder, isolated, planted, repository } = createPlantedFaultFixture();
 

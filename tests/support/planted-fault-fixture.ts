@@ -2,14 +2,20 @@ import { afterAll, afterEach, expect } from "bun:test";
 import {
   appendFileSync,
   existsSync,
-  mkdirSync,
   readdirSync,
   readFileSync,
   rmSync,
 } from "node:fs";
 import { join } from "node:path";
 import { write } from "./fixture-files.ts";
-import { gitEnv, gitOutput, inherited } from "./git-fixture.ts";
+import {
+  commit,
+  gitEnv,
+  gitOutput,
+  inherited,
+  initRepository,
+  worktrees,
+} from "./git-fixture.ts";
 import { type SignalAt, spawnBounded } from "./process.ts";
 import { testFolder } from "./test-folder.ts";
 
@@ -129,13 +135,6 @@ async function release(ledger: string): Promise<void> {
   }
 }
 
-export function worktrees(root: string): string[] {
-  return gitOutput(root, "worktree", "list", "--porcelain")
-    .split("\n")
-    .filter((line) => line.startsWith("worktree "))
-    .map((line) => line.slice("worktree ".length));
-}
-
 function releaseWorktrees(root: string): void {
   for (const tree of worktrees(root))
     if (tree !== root) gitOutput(root, "worktree", "remove", "--force", tree);
@@ -143,19 +142,6 @@ function releaseWorktrees(root: string): void {
 
 function fixtureEnv(): Record<string, string | undefined> {
   return { ...inherited(), ...gitEnv };
-}
-
-export function commit(
-  root: string,
-  subject: string,
-  files: Record<string, string>,
-): string {
-  for (const [path, content] of Object.entries(files)) {
-    write(root, path, content);
-    gitOutput(root, "add", "--", path);
-  }
-  gitOutput(root, "commit", "--quiet", "-m", subject);
-  return gitOutput(root, "rev-parse", "--short", "HEAD").trim();
 }
 
 export function addFault(
@@ -305,8 +291,7 @@ export function createPlantedFaultFixture() {
     siblingTitlesById: Readonly<{ [id: string]: string }>,
   ) {
     const root = join(folder("fault-replay-repo-"), "repo");
-    mkdirSync(root);
-    gitOutput(root, "init", "--quiet", "--initial-branch=main");
+    initRepository(root);
     commit(root, "base", {
       "package.json": JSON.stringify({
         name: "fixture",

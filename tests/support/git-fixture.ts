@@ -1,5 +1,5 @@
-import { writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync } from "node:fs";
+import { write } from "./fixture-files.ts";
 
 const gitMilliseconds = 4_000;
 
@@ -58,6 +58,11 @@ export function git(root: string, ...args: string[]): string {
   return gitOutput(root, ...args).trim();
 }
 
+export function initRepository(root: string): void {
+  mkdirSync(root, { recursive: true });
+  git(root, "init", "--quiet", "--initial-branch=main");
+}
+
 export function commitIn(
   root: string,
   subject: string,
@@ -66,7 +71,7 @@ export function commitIn(
   for (const [path, content] of Object.entries(changes))
     if (content === null) git(root, "rm", "--quiet", "--", path);
     else {
-      writeFileSync(join(root, path), content);
+      write(root, path, content);
       git(root, "add", "--", path);
     }
   git(root, "commit", "--quiet", "--allow-empty", "-m", subject);
@@ -74,4 +79,22 @@ export function commitIn(
     sha: git(root, "rev-parse", "HEAD"),
     short: git(root, "rev-parse", "--short", "HEAD"),
   };
+}
+
+export function commit(
+  root: string,
+  subject: string,
+  changes: Record<string, string | null>,
+): string {
+  return commitIn(root, subject, changes).short;
+}
+
+export function worktreeLines(root: string): string[] {
+  return git(root, "worktree", "list", "--porcelain")
+    .split("\n")
+    .filter((line) => line.startsWith("worktree "));
+}
+
+export function worktrees(root: string): string[] {
+  return worktreeLines(root).map((line) => line.slice("worktree ".length));
 }

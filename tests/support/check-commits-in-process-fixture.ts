@@ -1,7 +1,6 @@
 import { afterAll, spyOn } from "bun:test";
 import {
   existsSync,
-  mkdirSync,
   readFileSync,
   realpathSync,
   rmSync,
@@ -9,7 +8,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import type { Active, Run } from "../../scripts/check-commits.ts";
-import { commitIn, git } from "./git-fixture.ts";
+import { commitIn, git, initRepository } from "./git-fixture.ts";
 import { testFolder } from "./test-folder.ts";
 
 const repository = join(import.meta.dir, "../..");
@@ -52,12 +51,6 @@ export async function refusal(
   return undefined;
 }
 
-export function registered(root: string): string[] {
-  return git(root, "worktree", "list", "--porcelain")
-    .split("\n")
-    .filter((line) => line.startsWith("worktree "));
-}
-
 export function ledgerScript(
   ledger: string,
   step: string,
@@ -93,9 +86,8 @@ export function createCommitCheckFixture() {
     scripts?: Record<string, string>;
   } = {}) {
     const root = join(folder("check-commits-process-repo-"), "repo");
-    mkdirSync(root);
+    initRepository(root);
     symlinkSync(join(repository, "node_modules"), join(root, "node_modules"));
-    git(root, "init", "--quiet", "--initial-branch=main");
     const commit = (
       subject: string,
       changes: Record<string, string | null>,

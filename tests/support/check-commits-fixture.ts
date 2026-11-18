@@ -1,7 +1,13 @@
 import { afterAll } from "bun:test";
 import { copyFileSync, mkdirSync, rmSync, symlinkSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { commitIn, gitEnv, git, inherited } from "./git-fixture.ts";
+import {
+  commitIn,
+  git,
+  gitEnv,
+  inherited,
+  initRepository,
+} from "./git-fixture.ts";
 import { type SignalAt, spawnBounded } from "./process.ts";
 import { testFolder } from "./test-folder.ts";
 
@@ -48,12 +54,6 @@ export function verdicts(lines: readonly string[]): string[] {
   return lines.filter((line) => /^(GREEN|RED) /.test(line));
 }
 
-export function worktrees(root: string): string[] {
-  return git(root, "worktree", "list", "--porcelain")
-    .split("\n")
-    .filter((line) => line.startsWith("worktree "));
-}
-
 export function checkCommitsFixture() {
   const folders: string[] = [];
 
@@ -74,7 +74,7 @@ export function checkCommitsFixture() {
       copyFileSync(join(repository, path), join(root, path));
     }
     symlinkSync(join(repository, "node_modules"), join(root, "node_modules"));
-    git(root, "init", "--quiet", "--initial-branch=main");
+    initRepository(root);
     const commit = (subject: string, changes: Record<string, string | null>) =>
       commitIn(root, subject, changes);
     const base = commit("base", {

@@ -4,7 +4,6 @@ import { delimiter, join } from "node:path";
 import { processWatchdog } from "../../support/process.ts";
 import {
   createPlantedFaultFixture,
-  commit,
   exited,
   expectNoLeftovers,
   expectOneTestProcessGone,
@@ -13,10 +12,9 @@ import {
   tests,
   timeout,
   verdicts,
-  worktrees,
 } from "../../support/planted-fault-fixture.ts";
 import { write } from "../../support/fixture-files.ts";
-import { gitOutput } from "../../support/git-fixture.ts";
+import { gitOutput, commit, worktrees } from "../../support/git-fixture.ts";
 
 const { faultReplay, folder, hangLedger, pidLedger, repositoryWithFault } =
   createPlantedFaultFixture();

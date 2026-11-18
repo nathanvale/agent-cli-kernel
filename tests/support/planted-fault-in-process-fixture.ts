@@ -1,9 +1,9 @@
 import { afterAll, spyOn } from "bun:test";
-import { existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import type { Fault } from "../../scripts/planted-faults.ts";
 import { write } from "./fixture-files.ts";
-import { gitEnv, gitOutput } from "./git-fixture.ts";
+import { commit, gitEnv, gitOutput, initRepository } from "./git-fixture.ts";
 import { testFolder } from "./test-folder.ts";
 
 const repositoryLocation = [
@@ -43,26 +43,6 @@ test("L.weak keeps a number", () => {
   expect(limit(1)).toBe(1);
 });
 `;
-
-export function commit(
-  root: string,
-  subject: string,
-  files: Record<string, string>,
-): string {
-  for (const [path, content] of Object.entries(files)) {
-    write(root, path, content);
-    gitOutput(root, "add", "--", path);
-  }
-  gitOutput(root, "commit", "--quiet", "-m", subject);
-  return gitOutput(root, "rev-parse", "--short", "HEAD").trim();
-}
-
-export function worktrees(root: string): string[] {
-  return gitOutput(root, "worktree", "list", "--porcelain")
-    .split("\n")
-    .filter((line) => line.startsWith("worktree "))
-    .map((line) => line.slice("worktree ".length));
-}
 
 export type Planted = {
   root: string;
@@ -141,8 +121,7 @@ export function createPlantedFaultFixture() {
 
   function repository(prefix: string): string {
     const root = join(folder(prefix), "repo");
-    mkdirSync(root);
-    gitOutput(root, "init", "--quiet", "--initial-branch=main");
+    initRepository(root);
     return root;
   }
 
