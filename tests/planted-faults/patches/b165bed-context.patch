@@ -1,0 +1,13 @@
+diff --git a/kernel/src/kernel/validation/context.ts b/kernel/src/kernel/validation/context.ts
+index 56439e7..e11374a 100644
+--- a/kernel/src/kernel/validation/context.ts
++++ b/kernel/src/kernel/validation/context.ts
+@@ -22,7 +22,7 @@ export function handlerContext<C extends CapabilitySelection>(
+     Object.keys(value).some(
+       (key) =>
+         !(changing && key === "state") &&
+-        !(key === "signal" && value.signal instanceof AbortSignal) &&
++        key !== "signal" &&
+         !Object.hasOwn(selection, key),
+     )
+   )

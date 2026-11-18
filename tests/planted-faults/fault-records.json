@@ -866,5 +866,12 @@
     "testFile": "tests/template/file-size/file-size.test.ts",
     "title": "^the file-size command refuses malformed and excluded recorded hits$",
     "source": "b021da0 fix(gates): refuse excluded recorded hits"
+  },
+  {
+    "id": "b165bed-context",
+    "patch": "tests/planted-faults/patches/b165bed-context.patch",
+    "testFile": "tests/kernel/stop-signal.test.ts",
+    "title": "a context signal that is not a stop signal is refused before the handler$",
+    "source": "b165bed feat(kernel): give every handler its run's stop signal"
   }
 ]
