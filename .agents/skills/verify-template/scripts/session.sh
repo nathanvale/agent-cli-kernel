@@ -43,11 +43,11 @@ folder_in() {
 }
 
 record() {
-  root=$1
+  require_run "$1"
+  root=$(cd "$1" && pwd -P)
   name=$2
   folder=$(folder_in "$root" "$3")
   command=$4
-  require_run "$root"
   require_launch_bun "$root"
   [ -d "$folder" ] || fail "session: $folder is not a folder. Repair: launch first, or pass a folder under $root/work."
   case "$name" in
