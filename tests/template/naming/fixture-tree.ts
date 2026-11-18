@@ -32,6 +32,7 @@ _Qualify_: host, proof
 `;
 const sources = [
   "scripts/check-names.ts",
+  "scripts/check-file-size.ts",
   "scripts/glossary.ts",
   "scripts/repository.ts",
   ".claude/settings.json",
@@ -79,12 +80,17 @@ export function fixtureTree(recorded: readonly RecordedHit[] = []): string {
   write(
     root,
     "package.json",
-    JSON.stringify({ scripts: { "check:names": production["check:names"] } }),
+    JSON.stringify({
+      scripts: {
+        "check:names": production["check:names"],
+        "check:file-size": production["check:file-size"],
+      },
+    }),
   );
   return root;
 }
 
-function run(
+export function runInFixture(
   argv: readonly string[],
   cwd: string,
   env: Readonly<Record<string, string>> = {},
@@ -101,7 +107,7 @@ function run(
 }
 
 export function gitOutcome(root: string, ...args: string[]) {
-  return run(["git", ...args], root);
+  return runInFixture(["git", ...args], root);
 }
 
 export async function git(root: string, ...args: string[]): Promise<void> {
@@ -120,7 +126,7 @@ export async function fixtureRepository(
 }
 
 export function checkNames(root: string, args: readonly string[]) {
-  return run(
+  return runInFixture(
     [process.execPath, "run", "--silent", "check:names", ...args],
     root,
   );
@@ -131,7 +137,7 @@ export function checkNamesFrom(
   folder: string,
   args: readonly string[],
 ) {
-  return run(
+  return runInFixture(
     [process.execPath, join(root, "scripts/check-names.ts"), ...args],
     folder,
   );
@@ -162,7 +168,7 @@ export function runHook(
 ) {
   const input = join(emptyFolder(), "tool-call.json");
   writeFileSync(input, JSON.stringify(call));
-  return run(["/bin/sh", "-c", `( ${command} ) < "$TOOL_CALL"`], cwd, {
+  return runInFixture(["/bin/sh", "-c", `( ${command} ) < "$TOOL_CALL"`], cwd, {
     TOOL_CALL: input,
     CLAUDE_PROJECT_DIR: projectFolder,
   });

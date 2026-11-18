@@ -16,6 +16,8 @@ jobs:
         with:
           bun-version: 1.4.4
       - run: bun install --frozen-lockfile
+      - name: File size
+        run: bun run check:file-size
       - name: Lint
         run: bun run lint
       - name: Format

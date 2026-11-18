@@ -6,11 +6,12 @@
   "scripts": {
     "biome:check": "bun run format:check",
     "bootstrap": "bun run src/bootstrap.ts",
-    "check": "bun run lint && bun run format:check && bun run typecheck && bun run test && bun run --silent quality:fallow",
+    "check": "bun run check:file-size && bun run lint && bun run format:check && bun run typecheck && bun run test && bun run --silent quality:fallow",
     "check:write": "bun run format",
     "quality:fallow": "node_modules/.bin/fallow audit --baseline-mode identity --format json --quiet",
     "doctor": "bun run scripts/doctor.ts",
     "check:commits": "bun run scripts/check-commits.ts",
+    "check:file-size": "bun --no-install scripts/check-file-size.ts",
     "check:names": "bun run scripts/check-names.ts",
     "fault-replay": "bun run scripts/planted-faults.ts replay",
     "planted-fault:add": "bun run scripts/planted-faults.ts add",
@@ -29,6 +30,7 @@
   "devDependencies": {
     "@biomejs/biome": "2.6.7",
     "@types/bun": "1.4.4",
+    "tiktoken": "1.0.22",
     "fallow": "3.43.2",
     "typescript": "npm:@typescript/typescript6@6.0.2",
     "@typescript/native": "npm:typescript@7.1.0-beta",
