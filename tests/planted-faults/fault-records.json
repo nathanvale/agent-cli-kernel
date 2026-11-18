@@ -59,7 +59,7 @@
     "id": "f0ad643-oxlintrc-spread",
     "patch": "tests/planted-faults/patches/f0ad643-oxlintrc-spread.patch",
     "testFile": "tests/template/lint/anti-slop-gate.test.ts",
-    "title": "^oxc/no-accumulating-spread refuses its violation$",
+    "title": "^anti-slop/no-accumulating-spread refuses its violation$",
     "source": "f0ad643 feat(lint): gate six anti-slop rules in bun run lint"
   },
   {

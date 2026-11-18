@@ -5,7 +5,6 @@ const filePath = "scripts/doctor.ts";
 
 const gate = [
   {
-    name: "anti-slop/no-chained-type-assertions",
     ruleId: "no-restricted-syntax",
     refused: `export const value = Number("1") as unknown as string;
 `,
@@ -13,7 +12,6 @@ const gate = [
 `,
   },
   {
-    name: "anti-slop/no-widen-then-assert",
     ruleId: "anti-slop/no-widen-then-assert",
     refused: `type Shape = { readonly name: string };
 const known: Shape = { name: "a" };
@@ -26,7 +24,6 @@ export const same = known;
 `,
   },
   {
-    name: "anti-slop/no-unknown-type-aliases",
     ruleId: "anti-slop/no-unknown-type-aliases",
     refused: `export type Opaque = unknown;
 `,
@@ -34,7 +31,6 @@ export const same = known;
 `,
   },
   {
-    name: "anti-slop/no-module-mocking",
     ruleId: "anti-slop/no-module-mocking",
     refused: `import { vi } from "vitest";
 
@@ -46,7 +42,6 @@ export const spy = vi.fn();
 `,
   },
   {
-    name: "anti-slop/no-reduce-accumulator-copy",
     ruleId: "anti-slop/no-reduce-accumulator-copy",
     refused: `export const copied = [1, 2].reduce((all, each) => all.concat([each]), []);
 `,
@@ -54,7 +49,6 @@ export const spy = vi.fn();
 `,
   },
   {
-    name: "oxc/no-accumulating-spread",
     ruleId: "anti-slop/no-accumulating-spread",
     refused: `export const spread = [1, 2].reduce((all, each) => [...all, each], []);
 `,
@@ -75,18 +69,18 @@ async function gateHits(code: string) {
 }
 
 const verdicts = new Map<string, { refused: unknown[]; admitted: unknown[] }>();
-for (const { name, refused, admitted } of gate)
-  verdicts.set(name, {
+for (const { ruleId, refused, admitted } of gate)
+  verdicts.set(ruleId, {
     refused: await gateHits(refused),
     admitted: await gateHits(admitted),
   });
 
-for (const { name, ruleId } of gate) {
-  test(`${name} refuses its violation`, () => {
-    expect(verdicts.get(name)?.refused).toEqual([ruleId]);
+for (const { ruleId } of gate) {
+  test(`${ruleId} refuses its violation`, () => {
+    expect(verdicts.get(ruleId)?.refused).toEqual([ruleId]);
   });
 
-  test(`${name} admits its clean form`, () => {
-    expect(verdicts.get(name)?.admitted).toEqual([]);
+  test(`${ruleId} admits its clean form`, () => {
+    expect(verdicts.get(ruleId)?.admitted).toEqual([]);
   });
 }
