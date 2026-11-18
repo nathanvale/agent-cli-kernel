@@ -1,0 +1,12 @@
+diff --git a/config/anti-slop-rules.mjs b/config/anti-slop-rules.mjs
+index d8fb73a..2192d7f 100644
+--- a/config/anti-slop-rules.mjs
++++ b/config/anti-slop-rules.mjs
+@@ -988,6 +988,7 @@ function reduceSpread(definition, spread) {
+   const callback = definition.node;
+   if (
+     bindingIdentifier(ownParameters(callback)[0]) !== definition.name ||
++    [3, 4].includes(ownParameters(callback).length) ||
+     nearestFunction(spread) !== callback
+   )
+     return null;
