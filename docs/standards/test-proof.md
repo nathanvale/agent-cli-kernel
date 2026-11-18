@@ -143,15 +143,20 @@ repository broke it.
 ## Lint rules
 
 - Prove a lint rule on each shape its matcher can meet, not only on the
-  cases of the rule it ports: a callback with more parameters, a function
-  nested inside the one it judges, a binding written more than once, and a
-  type argument that repeats its alias. A port inherits its source's gaps;
-  each witnessed shape passed Oxlint's own rule too. Witnessed: [#102-parameters]
-  (a reducer that also takes the index passed `no-accumulating-spread`),
-  [#102-alias] (`Identity<Identity<unknown>>` passed
-  `no-unknown-type-aliases`), [#102-nested] (a spread in a `map` callback
-  inside a reducer was reported against the reduce), [#102-reset] (a plain
-  reset before a loop hid the loop's spread).
+  cases of the rule it ports: a callback with more or fewer parameters, a
+  function nested inside the one it judges, a binding written more than
+  once, a type argument that repeats its alias, an alias whose parameter
+  shares a name with an outer one, and a spread into call arguments. A port
+  inherits its source's gaps; Oxlint's own rule shares each witnessed one.
+  Witnessed: [#102-parameters] (a reducer that also takes the index passed
+  `no-accumulating-spread`), [#102-alias] (`Identity<Identity<unknown>>`
+  passed `no-unknown-type-aliases`), [#102-nested] (a spread in a `map`
+  callback inside a reducer was reported against the reduce), [#102-reset]
+  (a plain reset before a loop hid the loop's spread), [#102-outer]
+  (`Wrap<T = unknown> = Fixed` lent its `T` to `Fixed`, so `Safe = Wrap` was
+  reported), [#102-arity] (a one-parameter reducer passed
+  `no-accumulating-spread`), [#102-arguments] (`consume(item, ...args)` was
+  reported as an accumulator copy).
 
 [#91-count]: https://github.com/nathanvale/bun-typescript-template/pull/91#discussion_r4607744321
 [185c90d]: https://github.com/nathanvale/bun-typescript-template/commit/185c90d11dd167ee4874e383ba26cd7d64a70964
@@ -214,3 +219,6 @@ repository broke it.
 [#102-alias]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609019138
 [#102-nested]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609019144
 [#102-reset]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609019149
+[#102-outer]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609659195
+[#102-arity]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609659202
+[#102-arguments]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609659207
