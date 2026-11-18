@@ -40,6 +40,12 @@ export function programDetails(
   return details.get(result);
 }
 
+// Interface: The most input a command may supply to one program. An engineering
+// number with no contract source: room for a secret, a configuration document
+// or a prompt, and small enough to copy once when the program starts.
+const inputLimitBytes = 1_048_576;
+const inputProblem = `A program's input is a Uint8Array of at most ${String(inputLimitBytes)} bytes.`;
+
 const killObservationMilliseconds = 200;
 const pollMilliseconds = 10;
 
@@ -66,6 +72,16 @@ function requestProblem(request: ProgramRequest): string | undefined {
   )
     return "A program needs a positive timeout, output limit and shutdown budget.";
   return undefined;
+}
+
+// Platform: Bun.spawn copies a typed array given as stdin when it starts the
+// program, so a later change to the caller's bytes never reaches the program.
+function ownInput(request: ProgramRequest): Uint8Array | "ignore" | undefined {
+  const input: unknown = request.input;
+  if (input === undefined) return "ignore";
+  return input instanceof Uint8Array && input.byteLength <= inputLimitBytes
+    ? input
+    : undefined;
 }
 
 class OwnedGroup {
@@ -177,12 +193,14 @@ function attachPrograms(run: RunControl): AttachedAddon<ProgramsCapability> {
   async function start(request: ProgramRequest): Promise<ProgramResult> {
     const problem = requestProblem(request);
     if (problem) throw new Error(problem);
+    const stdin = ownInput(request);
+    if (stdin === undefined) throw new Error(inputProblem);
     if (run.signal.aborted)
       throw new Error("The run is stopping; no new program starts.");
     const started = performance.now();
     const child = Bun.spawn([request.executable, ...request.args], {
       detached: true,
-      stdin: "ignore",
+      stdin,
       stdout: "pipe",
       stderr: "pipe",
     });
