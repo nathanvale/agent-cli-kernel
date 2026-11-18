@@ -60,3 +60,13 @@ test.each([
     ),
   ).toBe(expected);
 });
+
+test.each(["./tests", "tests/", "tests/../src", "/tests"])(
+  'a test area folder written as "%s" is refused, so the area runner and the names check read one spelling',
+  (folder) => {
+    const area = { name: "template", folder, holds: "files" };
+    expect(refusalFor(JSON.stringify({ ...valid, testAreas: [area] }))).toBe(
+      `Error: repository.json: testAreas[0].folder is "${folder}", which is not a plain path from the repository root. Repair: write it with no ./ prefix, no trailing slash, and no . or .. part, such as "tests/template".`,
+    );
+  },
+);
