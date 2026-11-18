@@ -11,7 +11,10 @@ repository broke it.
   [185c90d], [5990897], [fa359ec] (the repository description parser had
   five refusals and no test), [97f9e9b] (a length check accepted any reason
   for a parse failure; take the reason from an independent call of the
-  parser).
+  parser), [#90-inventory] (exit 1 also covered unrelated inventory errors).
+- Assert the route's response when a test says a command remains available.
+  Exit zero with empty output can pass without a response. Witnessed:
+  [#90-routes].
 - Shape the input so only the named guard can refuse it. An earlier parse or
   build check, or a neighbouring cap at the same limit, keeps the test green
   with the named guard removed. Witnessed: [640ba05], [96ab832], [c193c51].
@@ -81,10 +84,12 @@ repository broke it.
 ## Processes
 
 - Bound every child below its test timeout, a fixture's git call and a
-  script's synchronous git read included. Witnessed: [e990da6], [4a32366],
+  script's synchronous git read included. Witnessed: [#85-probe], [e990da6],
+  [4a32366],
   [7623343], [c77aaa9] (the production `execute` spawned tsc and fallow with
   no time limit), [24cbab3], [#84-probe] (blocking fixture commands could
-  prevent the test timeout and cleanup).
+  prevent the test timeout and cleanup), [#90-process] (bootstrap helpers
+  could wait indefinitely for a generated repository command).
 - Template tests: reuse `spawnBounded` (`tests/support/process.ts`), which
   runs the child through `startChild` (`scripts/process-runner.ts`), for that
   bound. Kernel tests: reuse `spawnBounded`
@@ -130,6 +135,7 @@ repository broke it.
 [8485278]: https://github.com/nathanvale/bun-typescript-template/commit/8485278bf38a457d7d1823ba98daa153a9bb35a8
 [e55f94a]: https://github.com/nathanvale/bun-typescript-template/commit/e55f94a5b7dcb78f9b25f5d0a723a2196bd8c452
 [7ea1ee3]: https://github.com/nathanvale/bun-typescript-template/commit/7ea1ee3853cb6251fcf93c6a6ecf683e065fbfef
+[#85-probe]: https://github.com/nathanvale/bun-typescript-template/pull/85#discussion_r4607322041
 [e990da6]: https://github.com/nathanvale/bun-typescript-template/commit/e990da67151a9c3b6a0e90c240f7e0860856c4d2
 [4a32366]: https://github.com/nathanvale/bun-typescript-template/commit/4a32366bf79ea95479bda515313b33b849031507
 [c77aaa9]: https://github.com/nathanvale/bun-typescript-template/commit/c77aaa9ec56157f4701db117f9aa04e736c6e5df
@@ -164,3 +170,6 @@ repository broke it.
 [#84-ledger]: https://github.com/nathanvale/bun-typescript-template/pull/84#discussion_r4607244520
 [#84-probe]: https://github.com/nathanvale/bun-typescript-template/pull/84#discussion_r4607244511
 [#84-cleanup]: https://github.com/nathanvale/bun-typescript-template/pull/84#discussion_r4607244525
+[#90-inventory]: https://github.com/nathanvale/bun-typescript-template/pull/90#discussion_r4607634930
+[#90-routes]: https://github.com/nathanvale/bun-typescript-template/pull/90#pullrequestreview-5948919460
+[#90-process]: https://github.com/nathanvale/bun-typescript-template/pull/90#discussion_r4607634935
