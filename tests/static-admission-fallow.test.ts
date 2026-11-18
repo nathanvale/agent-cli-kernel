@@ -31,16 +31,15 @@ async function assertFallowRefusal(
   expectedRules: Record<string, number | FallowRuleExpectation>,
   pass: FallowPass = "whole-project",
 ): Promise<void> {
-  git(
+  const files = await git(
     root,
-    "add",
-    "--",
-    ...git(root, "ls-files", "--others", "--modified", "--exclude-standard")
-      .trim()
-      .split("\n")
-      .filter(Boolean),
+    "ls-files",
+    "--others",
+    "--modified",
+    "--exclude-standard",
   );
-  git(
+  await git(root, "add", "--", ...files.trim().split("\n").filter(Boolean));
+  await git(
     root,
     "-c",
     "user.name=CDS-TS-2 fixture",
@@ -59,7 +58,7 @@ async function assertFallowRefusal(
   );
   let invocation: Invocation | null = null;
   try {
-    invocation = runNative(root, "node_modules/.bin/fallow", args);
+    invocation = await runNative(root, "node_modules/.bin/fallow", args);
     await finishFallowCapture(capture, invocation);
     const document = parseFallowDocument(invocation);
     if (invocation.exitCode === 0) {
@@ -88,7 +87,7 @@ test("Fallow remaining canary: oracle rejects an unrelated finding for a zero ru
   };
   expect(() =>
     assertExpectedFallowRuleCounts(unrelatedFinding, { unused_exports: 0 }),
-  ).toThrow();
+  ).toThrow("Expected a positive native count for unused_exports");
 });
 
 test("native Fallow accepts a matching suppression with exact reason suffix", async () => {

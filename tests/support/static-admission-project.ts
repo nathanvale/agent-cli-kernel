@@ -1,4 +1,4 @@
-import { afterAll } from "bun:test";
+import { afterEach } from "bun:test";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import {
@@ -13,12 +13,17 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
+import { gitEnv, inherited } from "./git-fixture.ts";
+import { spawnBounded } from "./process.ts";
 
 export const ROOT = resolve(import.meta.dir, "../..");
 
 const TOOL_WORKTREE = resolve(ROOT, "../bun-typescript-template-integration");
 
 const STATIC_PACKET = resolve(ROOT, "profiles/static-admission");
+
+const nativeCommandMilliseconds = 60_000;
+const gitMilliseconds = 4_000;
 
 export type Profile = "simple" | "complex";
 
@@ -30,46 +35,46 @@ export interface Invocation {
 
 export function nativeEnvironment(): Record<string, string | undefined> {
   return {
-    ...process.env,
+    ...inherited(),
+    ...gitEnv,
     FORCE_COLOR: "0",
     NO_COLOR: "1",
   };
 }
 
-export function runNative(
+export async function runNative(
   cwd: string,
   command: string,
   args: string[],
   environment: Record<string, string> = {},
-): Invocation {
-  const result = Bun.spawnSync([command, ...args], {
+): Promise<Invocation> {
+  const { exit, stdout, stderr } = await spawnBounded([command, ...args], {
     cwd,
     env: { ...nativeEnvironment(), ...environment },
-    stderr: "pipe",
-    stdin: "ignore",
-    stdout: "pipe",
+    boundMilliseconds: nativeCommandMilliseconds,
+    processGroup: true,
   });
-  return {
-    exitCode: result.exitCode,
-    stderr: result.stderr.toString(),
-    stdout: result.stdout.toString(),
-  };
+  return { exitCode: exit, stderr, stdout };
 }
 
-export function git(cwd: string, ...args: string[]): string {
-  const result = Bun.spawnSync(["git", ...args], {
+export async function git(cwd: string, ...args: string[]): Promise<string> {
+  const { exit, stdout, stderr } = await spawnBounded(["git", ...args], {
     cwd,
-    env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
-    stderr: "pipe",
-    stdin: "ignore",
-    stdout: "pipe",
+    env: {
+      ...nativeEnvironment(),
+      GIT_TERMINAL_PROMPT: "0",
+      GIT_AUTHOR_NAME: undefined,
+      GIT_AUTHOR_EMAIL: undefined,
+      GIT_COMMITTER_NAME: undefined,
+      GIT_COMMITTER_EMAIL: undefined,
+    },
+    boundMilliseconds: gitMilliseconds,
+    processGroup: true,
   });
-  if (result.exitCode !== 0) {
-    throw new Error(
-      "git " + args.join(" ") + " failed:\n" + result.stderr.toString(),
-    );
+  if (exit !== 0) {
+    throw new Error("git " + args.join(" ") + " failed:\n" + stderr);
   }
-  return result.stdout.toString();
+  return stdout;
 }
 
 export function toolPath(name: string): string {
@@ -118,9 +123,9 @@ async function linkPackage(
   await symlink(source, destination);
 }
 
-function installRuntimeDependencies(root: string): void {
+async function installRuntimeDependencies(root: string): Promise<void> {
   const args = ["install", "--production", "--frozen-lockfile"];
-  const invocation = runNative(root, process.execPath, args);
+  const invocation = await runNative(root, process.execPath, args);
   if (invocation.exitCode === 0) return;
   throw new Error(
     "bun " +
@@ -146,7 +151,7 @@ async function linkDependencies(root: string, profile: Profile): Promise<void> {
   const nodeModules = join(root, "node_modules");
   await mkdir(nodeModules, { recursive: true });
 
-  if (profile === "complex") installRuntimeDependencies(root);
+  if (profile === "complex") await installRuntimeDependencies(root);
 
   for (const entry of await readdir(source, { withFileTypes: true })) {
     if (entry.name === ".bin") continue;
@@ -328,17 +333,16 @@ async function createProject(
     await writeFile(path, contents);
   }
   await linkDependencies(root, profile);
-  git(root, "init", "-q", "-b", "main");
-  git(
+  await git(root, "init", "-q", "-b", "main");
+  const files = await git(
     root,
-    "add",
-    "--",
-    ...git(root, "ls-files", "--others", "--modified", "--exclude-standard")
-      .trim()
-      .split("\n")
-      .filter(Boolean),
+    "ls-files",
+    "--others",
+    "--modified",
+    "--exclude-standard",
   );
-  git(
+  await git(root, "add", "--", ...files.trim().split("\n").filter(Boolean));
+  await git(
     root,
     "-c",
     "user.name=CDS-TS-2 fixture",
@@ -355,13 +359,15 @@ export function createProjectFixture(
   retainedRoots: ReadonlySet<string> = new Set<string>(),
 ): (profile: Profile) => Promise<string> {
   const temporaryRoots: string[] = [];
-  afterAll(async () => {
+  afterEach(async () => {
     await Promise.all(
-      temporaryRoots.flatMap((root) =>
-        retainedRoots.has(root)
-          ? []
-          : [rm(root, { force: true, recursive: true })],
-      ),
+      temporaryRoots
+        .splice(0)
+        .flatMap((root) =>
+          retainedRoots.has(root)
+            ? []
+            : [rm(root, { force: true, recursive: true })],
+        ),
     );
   }, 120_000);
   return (profile) => createProject(profile, temporaryRoots);
@@ -409,7 +415,7 @@ export async function runAdmission(
     join(tmpdir(), "cds-ts2-admission-evidence");
   await mkdir(captureRoot, { recursive: true });
   const evidence = await mkdtemp(join(captureRoot, "admission-"));
-  const invocation = runNative(
+  const invocation = await runNative(
     ROOT,
     process.execPath,
     ["run", "src/static-admission.ts", root, profile, evidence],

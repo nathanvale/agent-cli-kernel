@@ -133,7 +133,8 @@ function assertExecutedSemanticEvidence(
   typeAware: Record<string, unknown>,
 ): void {
   expect(typeAware.executed).toBe(true);
-  expect(typeAware.selected_tsconfigs).not.toEqual([]);
+  const projects = typeAware.selected_tsconfigs;
+  expect(Array.isArray(projects) && projects.length > 0).toBe(true);
   const queries = typeAware.queries as
     | Array<Record<string, unknown>>
     | undefined;
@@ -185,8 +186,8 @@ export async function prepareFallowCapture(
       fileHashes,
       configHashes,
       nodeModules: await describeNodeModules(root),
-      gitHead: git(root, "rev-parse", "HEAD").trim(),
-      gitStatus: git(root, "status", "--porcelain=v1").trim(),
+      gitHead: (await git(root, "rev-parse", "HEAD")).trim(),
+      gitStatus: (await git(root, "status", "--porcelain=v1")).trim(),
     },
     expectedRuleCounts: Object.fromEntries(
       Object.entries(expectedRules).map(([rule, expectation]) => [

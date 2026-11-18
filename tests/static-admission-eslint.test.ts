@@ -19,7 +19,7 @@ const ESLINT = toolPath("eslint");
 async function runLint(root: string): Promise<Invocation> {
   const args = [".", "--max-warnings", "0"];
   const fileHashes = await hashProjectFiles(root);
-  const invocation = runNative(root, ESLINT, args);
+  const invocation = await runNative(root, ESLINT, args);
   const captureDirectory = process.env.STATIC_ADMISSION_CAPTURE_DIR;
   if (captureDirectory) {
     await mkdir(captureDirectory, { recursive: true });

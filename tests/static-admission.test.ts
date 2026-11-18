@@ -24,8 +24,8 @@ test.each([
   ],
 ])(
   "admission given %s refuses with the usage line as its detail",
-  (_given, args, cause) => {
-    const invocation = runNative(ROOT, process.execPath, [
+  async (_given, args, cause) => {
+    const invocation = await runNative(ROOT, process.execPath, [
       "run",
       "src/static-admission.ts",
       ...args,
@@ -44,6 +44,7 @@ test.each([
       },
     });
   },
+  120_000,
 );
 
 test("admits simple and threshold-met complex projects through native gates", async () => {
