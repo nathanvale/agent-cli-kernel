@@ -677,5 +677,12 @@
     "testFile": "tests/template/lint/lint-rules.test.ts",
     "title": "^anti-slop/no-accumulating-spread refuses the r4609019144 shape",
     "source": "55701f2 fix(lint): match a spread only to the reduce that owns its callback"
+  },
+  {
+    "id": "71df3eb-swarm-process",
+    "patch": "tests/planted-faults/patches/71df3eb-swarm-process.patch",
+    "testFile": "tests/kernel/diagnostics/cases.test.ts",
+    "title": "T5 test harness: a run past its bound fails with the output it wrote while",
+    "source": "71df3eb test(kernel): pin the wait after a held-output run's SIGKILL to 3,000 ms"
   }
 ]
