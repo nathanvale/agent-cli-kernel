@@ -1,0 +1,32 @@
+diff --git a/scripts/planted-faults.ts b/scripts/planted-faults.ts
+index 7dfd55e..b9e519c 100644
+--- a/scripts/planted-faults.ts
++++ b/scripts/planted-faults.ts
+@@ -435,15 +435,9 @@ function sourceAt(root: string, base: string): Source {
+   };
+ }
+ 
+-async function removeWorktree(
+-  root: string,
+-  dir: string,
+-  limitMilliseconds: number,
+-): Promise<void> {
+-  await startChild(["git", "worktree", "remove", "--force", dir], {
+-    cwd: root,
+-    limitMilliseconds,
+-  }).finished;
++async function removeWorktree(root: string, dir: string): Promise<void> {
++  await startChild(["git", "worktree", "remove", "--force", dir], { cwd: root })
++    .finished;
+ }
+ 
+ export async function replay(
+@@ -490,7 +484,7 @@ export async function replay(
+       return { kind: "TIMEOUT", step: error.step };
+     throw error;
+   } finally {
+-    await removeWorktree(root, dir, limitMilliseconds);
++    await removeWorktree(root, dir);
+     rmSync(folder, { recursive: true, force: true });
+   }
+ }

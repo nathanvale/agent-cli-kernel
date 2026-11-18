@@ -642,5 +642,12 @@
     "testFile": "tests/template/fault-replay/planted-faults-in-process.test.ts",
     "title": "places names at most ten",
     "source": "10739d3 fix(faults): place each hunk of a planted fault by its exact anchor (GREEN)"
+  },
+  {
+    "id": "64b57bc-planted-faults",
+    "patch": "tests/planted-faults/patches/64b57bc-planted-faults.patch",
+    "testFile": "tests/template/fault-replay/planted-fault-process.test.ts",
+    "title": "FR\\.y ",
+    "source": "64b57bc fix(faults): stop a worktree removal at the step limit (GREEN)"
   }
 ]
