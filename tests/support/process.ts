@@ -69,36 +69,41 @@ type ProcessRow = {
   readonly text: string;
 };
 
-function processRows(): ProcessRow[] | undefined {
-  const listed = Bun.spawnSync(
-    [
-      "ps",
-      "-A",
-      "-o",
-      "pid=",
-      "-o",
-      "ppid=",
-      "-o",
-      "pgid=",
-      "-o",
-      "stat=",
-      "-o",
-      "etime=",
-      "-o",
-      "args=",
-    ],
-    { timeout: psMilliseconds, killSignal: "SIGKILL" },
-  );
-  if (listed.exitCode !== 0) return undefined;
-  return listed.stdout
-    .toString()
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line !== "")
-    .map((text) => {
-      const [pid, parent, group] = text.split(/\s+/).map(Number);
-      return { pid: pid ?? 0, parent: parent ?? 0, group: group ?? 0, text };
-    });
+const psColumns = ["pid=", "ppid=", "pgid=", "stat=", "etime=", "args="];
+
+async function processRows(): Promise<ProcessRow[] | undefined> {
+  try {
+    const ps = Bun.spawn(
+      ["ps", "-A", ...psColumns.flatMap((column) => ["-o", column])],
+      {
+        env: process.env,
+        stdout: "pipe",
+        stderr: "ignore",
+        timeout: psMilliseconds,
+        killSignal: "SIGKILL",
+      },
+    );
+    const [text, code] = await Promise.all([
+      new Response(ps.stdout).text(),
+      ps.exited,
+    ]);
+    if (code !== 0) return undefined;
+    return text
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line !== "")
+      .map((line) => {
+        const [pid, parent, group] = line.split(/\s+/).map(Number);
+        return {
+          pid: pid ?? 0,
+          parent: parent ?? 0,
+          group: group ?? 0,
+          text: line,
+        };
+      });
+  } catch {
+    return undefined;
+  }
 }
 
 function familyOf(rows: readonly ProcessRow[], root: number): Set<number> {
@@ -160,11 +165,11 @@ function pipeHolders(rows: readonly ProcessRow[]): string[] {
 // that names the bound: one `ps` row (pid, parent, group, state, elapsed,
 // command) for the child and each process it started, or a line saying the
 // child had exited, then on Linux each process holding a pipe this test reads.
-// When ps does not answer, it says so rather than naming no one.
-function stuckProcesses(pid: number): string {
-  const rows = processRows();
+// When ps cannot start or does not answer, it says so rather than naming no one.
+async function stuckProcesses(pid: number): Promise<string> {
+  const rows = await processRows();
   if (rows === undefined)
-    return `Processes left when the bound passed: unknown, because ps did not answer within ${psMilliseconds} ms.`;
+    return `Processes left when the bound passed: unknown, because ps could not start or did not answer within ${psMilliseconds} ms.`;
   const family = familyOf(rows, pid);
   const left = rows.filter((row) => family.has(row.pid));
   const child = left.some((row) => row.pid === pid)
@@ -178,9 +183,21 @@ function stuckProcesses(pid: number): string {
   ].join("\n");
 }
 
-// Interface: a run that outlives its bound is killed at once with SIGKILL and
-// fails naming the bound and the processes left then, so a hung case leaves no
-// fixture process behind and says what it was waiting on.
+function freeze(pid: number, group: boolean): void {
+  try {
+    process.kill(group ? -pid : pid, "SIGSTOP");
+  } catch (error) {
+    if (
+      !["ESRCH", "EPERM"].includes(String(Reflect.get(Object(error), "code")))
+    )
+      throw error;
+  }
+}
+
+// Interface: a run that outlives its bound is frozen at once with SIGSTOP (its
+// whole group with `processGroup`), listed, then killed with SIGKILL, and
+// fails naming the bound and the processes left, so a hung case does no more
+// work, leaves no fixture process behind and says what it was waiting on.
 export async function spawnBounded(
   argv: readonly string[],
   options: {
@@ -204,8 +221,18 @@ export async function spawnBounded(
       : signalOnLine(child, options.signalAt, bound);
   let left: string | undefined;
   const limit = setTimeout(() => {
-    left = stuckProcesses(child.pid);
-    child.stop();
+    left = "Processes left when the bound passed: unknown.";
+    try {
+      freeze(child.pid, options.processGroup === true);
+    } catch {
+      child.stop();
+      return;
+    }
+    void stuckProcesses(child.pid)
+      .then((found) => {
+        left = found;
+      })
+      .finally(() => child.stop());
   }, bound);
   try {
     const run = await child.finished;
