@@ -1,5 +1,5 @@
 import { expect } from "bun:test";
-import { readFileSync, writeFileSync, chmodSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
 import { join } from "node:path";
 import {
   at,
@@ -636,6 +636,8 @@ supportingTest(
       expect(rest).toEqual([]);
       if (!operation) throw new Error("No operation.");
       expect(world.count("message.send")).toBe(0);
+      expect(existsSync(join(world.world, "outbox", "m1"))).toBe(false);
+      expect(existsSync(join(world.world, "provider.log"))).toBe(false);
       expect(world.labels()).toEqual([`${operation.id} m1`]);
     }),
 );
