@@ -97,18 +97,24 @@ function isTestFrameworkImport(definition) {
   );
 }
 
+function staticPropertyName(member) {
+  const { property } = member;
+  if (!member.computed)
+    return property.type === "Identifier" ? property.name : null;
+  if (property.type === "Literal" && typeof property.value === "string")
+    return property.value;
+  return property.type === "TemplateLiteral" &&
+    property.expressions.length === 0
+    ? property.quasis[0].value.cooked
+    : null;
+}
+
 function moduleMockCall(sourceCode, callee) {
-  if (callee.type !== "MemberExpression") return false;
-  if (!isTestFrameworkObject(sourceCode, callee.object)) return false;
-  const { property } = callee;
-  const method = callee.computed
-    ? property.type === "Literal" && moduleMockMethods.has(property.value)
-      ? property.value
-      : null
-    : property.type === "Identifier"
-      ? property.name
-      : null;
-  return method !== null && moduleMockMethods.has(method);
+  return (
+    callee.type === "MemberExpression" &&
+    isTestFrameworkObject(sourceCode, callee.object) &&
+    moduleMockMethods.has(staticPropertyName(callee))
+  );
 }
 
 const noModuleMocking = {
@@ -922,18 +928,6 @@ function innerExpression(node) {
 
 const contains = (outer, inner) =>
   outer.range[0] <= inner.range[0] && inner.range[1] <= outer.range[1];
-
-function staticPropertyName(member) {
-  const { property } = member;
-  if (!member.computed)
-    return property.type === "Identifier" ? property.name : null;
-  if (property.type === "Literal" && typeof property.value === "string")
-    return property.value;
-  return property.type === "TemplateLiteral" &&
-    property.expressions.length === 0
-    ? property.quasis[0].value.cooked
-    : null;
-}
 
 function reduceMember(node) {
   if (
