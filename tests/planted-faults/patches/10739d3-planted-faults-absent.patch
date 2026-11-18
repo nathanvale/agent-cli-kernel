@@ -1,0 +1,12 @@
+diff --git a/scripts/planted-faults.ts b/scripts/planted-faults.ts
+index bec38ab..56c4ce6 100644
+--- a/scripts/planted-faults.ts
++++ b/scripts/planted-faults.ts
+@@ -366,6 +366,7 @@ function place(patchPath: string, patch: string, source: Source): Placement {
+         return text === undefined ? [] : spotsIn(path, text, hunk.anchor);
+       });
+     }
++    if (spots.length === 0) continue;
+     const spot = chosen(spots, hunk, linesOf);
+     if (spot === undefined)
+       return { kind: "refused", cause: anchorRefusal(index + 1, hunk, spots) };

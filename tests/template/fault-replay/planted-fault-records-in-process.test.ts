@@ -467,7 +467,7 @@ describe("faultsTouchedSince", () => {
   test("refuses a git read that outlasts its bound, naming the read", async () => {
     const { root, base } = twoFaults();
     const tools = folder("planted-faults-slow-git-");
-    writeFileSync(join(tools, "git"), "#!/bin/sh\nexec sleep 30\n", {
+    writeFileSync(join(tools, "git"), "#!/bin/sh\nexec sleep 10\n", {
       mode: 0o755,
     });
     const path = process.env.PATH;

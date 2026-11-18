@@ -1,0 +1,13 @@
+diff --git a/scripts/planted-faults.ts b/scripts/planted-faults.ts
+index bec38ab..5f51955 100644
+--- a/scripts/planted-faults.ts
++++ b/scripts/planted-faults.ts
+@@ -316,7 +316,7 @@ function chosen(
+     )
+       before += 1;
+     else if (after < hunk.after.length) after += 1;
+-    else return undefined;
++    else return left[0];
+     const wanted = [
+       ...hunk.before.slice(hunk.before.length - before),
+       ...hunk.anchor,
