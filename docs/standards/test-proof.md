@@ -140,6 +140,19 @@ repository broke it.
   `tests/check-commits.test.ts` key, and every moved template suite ran on
   shard 3).
 
+## Lint rules
+
+- Prove a lint rule on each shape its matcher can meet, not only on the
+  cases of the rule it ports: a callback with more parameters, a function
+  nested inside the one it judges, a binding written more than once, and a
+  type argument that repeats its alias. A port inherits its source's gaps;
+  each witnessed shape passed Oxlint's own rule too. Witnessed: [#102-parameters]
+  (a reducer that also takes the index passed `no-accumulating-spread`),
+  [#102-alias] (`Identity<Identity<unknown>>` passed
+  `no-unknown-type-aliases`), [#102-nested] (a spread in a `map` callback
+  inside a reducer was reported against the reduce), [#102-reset] (a plain
+  reset before a loop hid the loop's spread).
+
 [#91-count]: https://github.com/nathanvale/bun-typescript-template/pull/91#discussion_r4607744321
 [185c90d]: https://github.com/nathanvale/bun-typescript-template/commit/185c90d11dd167ee4874e383ba26cd7d64a70964
 [640ba05]: https://github.com/nathanvale/bun-typescript-template/commit/640ba05881da2694fbdfad9b1d124bd85d36c0e4
@@ -197,3 +210,7 @@ repository broke it.
 [#91-timings]: https://github.com/nathanvale/bun-typescript-template/pull/91#discussion_r4607696012
 [#99-timings]: https://github.com/nathanvale/bun-typescript-template/pull/99#discussion_r4608746456
 [#99-shards]: https://github.com/nathanvale/bun-typescript-template/pull/99#discussion_r4608771631
+[#102-parameters]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4608976426
+[#102-alias]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609019138
+[#102-nested]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609019144
+[#102-reset]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609019149
