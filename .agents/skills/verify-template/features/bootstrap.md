@@ -111,8 +111,9 @@ Preconditions:
   type-aware step runs `node`. With only Bun's `node` fallback (the
   `oven/bun` image), `quality:fallow` prints
   `fallow-type-aware: Cannot find package 'typescript' imported from .../node_modules/fallow-type-aware/src/backend.mjs`
-  and the check exits 2 after the tests pass. The durable README's pinned
-  toolchain does not name Node.
+  and the check exits 2 after the tests pass. Follow the
+  [durable README's Node.js setup](../../../../profiles/durable/README.md#bootstrap)
+  before running the check.
 - The generated CLI calls itself `example` in its usage line, whatever
   `--name` or destination was given.
 - The durable `package.json` pins `@types/bun` 1.4.0 while the template pins
