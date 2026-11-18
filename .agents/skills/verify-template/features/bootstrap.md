@@ -34,8 +34,10 @@ Preconditions:
 
 - A launched run; `doctor` passes.
 - `$run/work/generated/` holds no folder named in these recipes.
-- Before running the durable and monorepo checks, follow the
-  [durable README's Node.js setup](../../../../profiles/durable/README.md#bootstrap).
+- Before running the checks for either durable layout, follow its Node.js
+  setup instructions in the
+  [single-package README](../../../../profiles/durable/README.md#bootstrap) or
+  [monorepo README](../../../../examples/monorepo/README.md#bootstrap).
 
 - **Help.** Record `bootstrap-help` in `template`:
   `bun run bootstrap --help`. Exit 0; stdout starts
