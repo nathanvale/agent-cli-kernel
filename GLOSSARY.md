@@ -140,7 +140,7 @@ trial.
 _Avoid_: install, vendor, generate, copy (unqualified); stamp as a noun for the code that stamps or for the stamped result (say stamped source)
 
 **Stamped source**:
-Source owned by the kernel repository, copied byte for byte from the pinned
+Source owned by the kernel repository, copied byte for byte from one kernel
 commit. Copies have one canonical source owner; they are not independently
 editable contract owners.
 
