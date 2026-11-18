@@ -453,6 +453,21 @@ const antiSlopCases = [
   },
   {
     rule: "anti-slop/no-unknown-type-aliases",
+    witness: "r4609019138",
+    message: "hides `unknown`.",
+    filePath: "scripts/doctor.ts",
+    failing: [
+      "type Identity<T> = T;",
+      "export type Payload = Identity<Identity<unknown>>;",
+    ],
+    passing: [
+      "type Identity<T> = T;",
+      "export type Payload = Identity<Identity<string>>;",
+    ],
+    lines: [2],
+  },
+  {
+    rule: "anti-slop/no-unknown-type-aliases",
     witness: "anti-slop 13909c9",
     message: "hides `unknown`.",
     filePath: "scripts/doctor.ts",

@@ -500,7 +500,7 @@ function visibleTypeAlias(name, use, environment) {
   return bindings.length === 1 ? (bindings[0].alias ?? null) : null;
 }
 
-function aliasSubstitutions(alias, reference, base) {
+function aliasSubstitutions(alias, reference, base, expansion) {
   const parameters = alias.typeParameters?.params ?? [];
   const typeArguments = reference.typeArguments?.params ?? [];
   const next = new Map(base);
@@ -508,10 +508,13 @@ function aliasSubstitutions(alias, reference, base) {
     const explicitArgument = typeArguments[index];
     const argument = explicitArgument ?? parameter.default;
     if (argument === null || argument === undefined) return null;
-    const argumentSubstitutions = explicitArgument === undefined ? next : base;
+    const fromReference = explicitArgument !== undefined;
     next.set(parameter.name.name, {
       type: argument,
-      substitutions: new Map(argumentSubstitutions),
+      substitutions: new Map(fromReference ? base : next),
+      resolvingAliases: fromReference
+        ? expansion.resolvingAliases
+        : expansion.innerAliases,
     });
   }
   return next;
@@ -530,19 +533,19 @@ function resolvedTypeMatches(type, environment, matcher) {
         return evaluate(
           substitution.type,
           substitution.substitutions,
-          resolvingAliases,
+          substitution.resolvingAliases,
         );
       const alias = visibleTypeAlias(name, current, environment);
+      const innerAliases = new Set([...resolvingAliases, alias]);
       const nextSubstitutions =
         alias !== null && !resolvingAliases.has(alias)
-          ? aliasSubstitutions(alias, current, substitutions)
+          ? aliasSubstitutions(alias, current, substitutions, {
+              resolvingAliases,
+              innerAliases,
+            })
           : null;
       if (nextSubstitutions !== null)
-        return evaluate(
-          alias.typeAnnotation,
-          nextSubstitutions,
-          new Set([...resolvingAliases, alias]),
-        );
+        return evaluate(alias.typeAnnotation, nextSubstitutions, innerAliases);
     }
     return matcher(current, (child) =>
       evaluate(child, substitutions, resolvingAliases),
