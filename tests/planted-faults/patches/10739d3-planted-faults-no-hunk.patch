@@ -1,0 +1,13 @@
+diff --git a/scripts/planted-faults.ts b/scripts/planted-faults.ts
+index b9e519c..837a8c1 100644
+--- a/scripts/planted-faults.ts
++++ b/scripts/planted-faults.ts
+@@ -351,8 +351,6 @@ function anchorRefusal(
+ 
+ function place(patchPath: string, patch: string, source: Source): Placement {
+   const hunks = hunksOf(patch);
+-  if (hunks.length === 0)
+-    return { kind: "refused", cause: `${patchPath} holds no hunk to apply.` };
+   const files = new Map<string, string>();
+   const textOf = (path: string) => files.get(path) ?? source.read(path);
+   const linesOf = (path: string) => (textOf(path) ?? "").split("\n");
