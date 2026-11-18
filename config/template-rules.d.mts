@@ -1,7 +1,7 @@
 import type { Rule } from "eslint";
 
-declare const payloadRules: {
+declare const templateRules: {
   readonly rules: Readonly<Record<string, Rule.RuleModule>>;
 };
 
-export default payloadRules;
+export default templateRules;
