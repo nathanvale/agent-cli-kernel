@@ -26,10 +26,6 @@ this file.
   judges a generic target as it judges the plain union. Witnessed:
   [r4607149524] (`"a" in value` with `T extends { a: number } | { b: string }`
   was refused, and the same check on the union passed).
-- Refresh the split suites' entries in `tests/test-timings.json` from hosted
-  timing artifacts when a slow suite moves. Witnessed: [r4607696012]
-  (the original estimate stayed on the smallest suite, and all five moved
-  suites ran on one shard).
 - Assert any step a near-zero limit can catch, not the first one, since which
   step loses that race depends on the host. Witnessed: [27c2676] (a 1 ms
   replay limit named `git apply` instead of `git worktree add` on a hosted
@@ -41,6 +37,11 @@ this file.
 - Build an expected command from the path the code runs, not a no-space
   pattern. Witnessed: [bfc3a67] (`\S+` would have refused a Bun installed
   under a path with a space).
+- Refuse every spelling of a path but the plain one where it is read, so
+  each consumer of the value matches the same files. Witnessed:
+  [r4608771621] (a test area folder written as `./tests`, `tests/` or with
+  `..` ran in the area runner, and the test placement check matched no file
+  under it).
 
 [ac11ed9]: https://github.com/nathanvale/bun-typescript-template/commit/ac11ed98b7d538e8a304cac053aaefcaaf6b2cb3
 [cd2498b]: https://github.com/nathanvale/bun-typescript-template/commit/cd2498b7189a2d45d1906b9c870e8d13da6cd2dd
@@ -48,7 +49,7 @@ this file.
 [r4606943319]: https://github.com/nathanvale/bun-typescript-template/pull/80#discussion_r4606943319
 [r4607149514]: https://github.com/nathanvale/bun-typescript-template/pull/80#discussion_r4607149514
 [r4607149524]: https://github.com/nathanvale/bun-typescript-template/pull/80#discussion_r4607149524
-[r4607696012]: https://github.com/nathanvale/bun-typescript-template/pull/91#discussion_r4607696012
 [27c2676]: https://github.com/nathanvale/bun-typescript-template/commit/27c26764ecac5849752fb39df5384539e60e1456
 [3f6443b]: https://github.com/nathanvale/bun-typescript-template/commit/3f6443be7abaf2e0881d48a03e0d3b4072b6247f
 [bfc3a67]: https://github.com/nathanvale/bun-typescript-template/commit/bfc3a67b8aea06d0c630c2b9ef1ecd9f32a3266b
+[r4608771621]: https://github.com/nathanvale/bun-typescript-template/pull/99#discussion_r4608771621

@@ -558,5 +558,12 @@
     "testFile": "tests/template/lint/lint-rules.test.ts",
     "title": "^no-restricted-syntax refuses the kernel brand chain shape",
     "source": "751520c fix(lint): refuse assertion chains where the kernel sets no-restricted-syntax"
+  },
+  {
+    "id": "dc6396a-repository",
+    "patch": "tests/planted-faults/patches/dc6396a-repository.patch",
+    "testFile": "tests/template/repository/repository.test.ts",
+    "title": "^a test area folder written as \"tests/\" is refused",
+    "source": "dc6396a fix(repository): refuse a test area folder that is not a plain path"
   }
 ]

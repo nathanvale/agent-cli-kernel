@@ -65,6 +65,16 @@ function requireList(value: unknown, where: string): readonly unknown[] {
   return value;
 }
 
+function plainFolder(folder: string, where: string): string {
+  const parts = folder.split("/");
+  if (parts.some((part) => part === "" || part === "." || part === ".."))
+    fail(
+      where,
+      `is "${folder}", which is not a plain path from the repository root. Repair: write it with no ./ prefix, no trailing slash, and no . or .. part, such as "tests/template".`,
+    );
+  return folder;
+}
+
 function testArea(value: unknown, where: string): TestArea {
   const area = fields(
     value,
@@ -86,7 +96,10 @@ function testArea(value: unknown, where: string): TestArea {
     );
   return {
     name: requireText(area.get("name"), `${where}.name`),
-    folder: requireText(area.get("folder"), `${where}.folder`),
+    folder: plainFolder(
+      requireText(area.get("folder"), `${where}.folder`),
+      `${where}.folder`,
+    ),
     holds,
     subfolders,
   };
