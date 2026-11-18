@@ -1073,7 +1073,11 @@ const noAccumulatingSpread = {
     const { sourceCode } = context;
     return {
       SpreadElement(spread) {
-        if (spread.argument.type !== "Identifier") return;
+        if (
+          spread.argument.type !== "Identifier" ||
+          !Object.hasOwn(spreadKinds, spread.parent.type)
+        )
+          return;
         const variable = referencedVariable(sourceCode, spread.argument);
         const [definition] = variable?.defs ?? [];
         if (definition === undefined) return;
