@@ -75,8 +75,7 @@ before claiming them verified.
 - The pre-push hook.
 - `bun run admit:cli` and `bun run admit:static`.
 - `bun run test:area` and the template's own `bun run check`, `lint`,
-  `lint:anti-slop`, `format`, `format:check`, `typecheck` and
-  `quality:fallow`.
+  `format`, `format:check`, `typecheck` and `quality:fallow`.
 - The generated repository's own CLI beyond `bun run start --help`.
 - `bootstrap --starter simple` and `--starter complex`, left out while
   `starters/` is set to be removed ([MAG-129]).

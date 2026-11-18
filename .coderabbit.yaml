@@ -10,7 +10,6 @@ reviews:
   path_filters:
     - "!tests/planted-faults/patches/**"
     - "!**/bun.lock"
-    - "!tools/oxlint/anti-slop/**"
   tools:
     biome:
       enabled: false
