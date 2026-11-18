@@ -1,6 +1,22 @@
 {
   "kind": "health",
   "finding_counts": {
+    "config/anti-slop-rules.mjs": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "config/anti-slop-type-rules.mjs": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 3
+      }
+    },
     "config/kernel-repository-rules.mjs": {
       "crap_high": {
         "count": 3
@@ -116,11 +132,6 @@
         "count": 1
       }
     },
-    "tests/template/glossary/glossary.test.ts": {
-      "crap_moderate": {
-        "count": 2
-      }
-    },
     "tests/kernel/approval/harness.ts": {
       "crap_moderate": {
         "count": 1
@@ -199,6 +210,41 @@
     }
   },
   "identity_finding_counts": {
+    "config/anti-slop-rules.mjs\u0000copiesAccumulator": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "config/anti-slop-rules.mjs\u0000isKnownArrayExpression": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "config/anti-slop-rules.mjs\u0000reducerOf": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "config/anti-slop-type-rules.mjs\u0000aliasSubstitutions": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "config/anti-slop-type-rules.mjs\u0000isBroadRecordType": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "config/anti-slop-type-rules.mjs\u0000lexicalTypeParameterNames": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "config/anti-slop-type-rules.mjs\u0000widenedBinding": {
+      "crap_high": {
+        "count": 1
+      }
+    },
     "config/kernel-repository-rules.mjs\u0000CallExpression > MemberExpression.callee": {
       "crap_high": {
         "count": 1
@@ -404,16 +450,6 @@
         "count": 1
       }
     },
-    "tests/template/glossary/glossary.test.ts\u0000declaredName": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
-    "tests/template/glossary/glossary.test.ts\u0000test(\"no avoid-word appears outside the shrink...\")": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
     "tests/kernel/approval/harness.ts\u0000symlinkedForeignRoot": {
       "crap_moderate": {
         "count": 1
@@ -605,16 +641,21 @@
   "target_keys": [
     "kernel/src/kernel/validation/result.ts:high impact",
     "kernel/src/kernel/input.ts:high impact",
+    "tests/support/template-lint.ts:high impact",
     "kernel/src/kernel/validation/primitives.ts:high impact",
+    "config/kernel-repository-rules.mjs:untested risk",
     "kernel/src/kernel/validation/input.ts:untested risk",
     "kernel/src/kernel/stations.ts:high impact",
     "kernel/src/kernel/guidance.ts:high impact",
-    "config/kernel-repository-rules.mjs:untested risk",
     "kernel/src/kernel/process-host.ts:high impact",
     "kernel/src/addons/diagnostics/io.ts:high impact",
     "kernel/src/kernel/validation/json-equality.ts:high impact",
     "kernel/src/kernel/validation/context.ts:high impact",
     "tests/kernel/diagnostics/fixtures/fault-io.ts:untested risk",
-    "kernel/src/addons/state/scope.ts:high impact"
+    "config/anti-slop-rules.mjs:untested risk",
+    "kernel/src/addons/state/scope.ts:high impact",
+    "tests/template/fault-replay/planted-fault-records-in-process.test.ts:hidden coupling",
+    "config/anti-slop-type-rules.mjs:untested risk",
+    "tests/template/fault-replay/planted-faults-in-process.test.ts:hidden coupling"
   ]
 }

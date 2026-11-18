@@ -5,7 +5,6 @@
   "packageManager": "bun@1.4.4",
   "scripts": {
     "biome:check": "bun run format:check",
-    "bootstrap": "bun run src/bootstrap.ts",
     "check": "bun run check:file-size && bun run lint && bun run format:check && bun run typecheck && bun run test && bun run --silent quality:fallow",
     "check:write": "bun run format",
     "quality:fallow": "node_modules/.bin/fallow audit --baseline-mode identity --format json --quiet",
@@ -16,15 +15,13 @@
     "fault-replay": "bun run scripts/planted-faults.ts replay",
     "planted-fault:add": "bun run scripts/planted-faults.ts add",
     "pretest": "bun run doctor",
-    "test": "bun test --parallel=2 --path-ignore-patterns 'starters/**' --path-ignore-patterns 'kernel/**'",
+    "test": "bun test --parallel=2 --path-ignore-patterns 'kernel/**'",
     "test:area": "bun run scripts/test-area.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "admit:static": "bun run src/static-admission.ts",
     "lint": "eslint . --max-warnings 0",
     "prepare": "git config core.hooksPath .githooks || true",
     "format:check": "biome format .",
-    "format": "biome format --write .",
-    "admit:cli": "bun run src/cli-inventory.ts"
+    "format": "biome format --write ."
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.7",

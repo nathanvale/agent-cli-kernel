@@ -8,12 +8,12 @@ gates and their witnesses.
 
 - `bun run check:file-size` counts tokens with the pinned `tiktoken`
   `o200k_base` encoding. A tracked regular UTF-8 text file can have up to
-  5,000 tokens. The template's `bun run check` and the hosted `check` job
-  scan the working tree. Pre-commit checks the changed files in the active
-  Git index using their staged bytes.
-- Declare this template-only gate in Fallow's `supportEntry`. This is the
-  local exception to the shared `entry` rule for the file-size gate. The
-  normal Fallow audit includes the gate, and the tokenizer stays in
+  5,000 tokens. `bun run check` and the hosted `check` job scan the working
+  tree. Pre-commit checks the changed files in the active Git index using
+  their staged bytes.
+- Declare this gate in Fallow's `supportEntry`. This is the local exception
+  to the shared `entry` rule for the file-size gate. The normal Fallow audit
+  includes the gate, and the tokenizer stays in
   `devDependencies`. See [Fallow entry settings](https://fallow.tools/docs/configuration/overview/#supportentry).
 - The scan excludes `kernel/`, `tests/kernel/`, files under `vendor/`
   directories, every `bun.lock`, and the generated `fallow-gate.sh` at exactly
@@ -143,9 +143,8 @@ file extensions in those directories.
 - In review, verify each accepted decision citation. Require a Command
   Contract 3 question number, an ID such as `N4a`, or the ruling date.
   Consult the [CLI kernel authority](../agents/cli-kernel.md).
-- Not covered: `starters/simple/`, `starters/complex/`, the bootstrap
-  profiles, the `.ts.txt` fixtures, the kernel lint configuration that lints
-  a materialised tree, YAML and Markdown.
+- Not covered: the `.ts.txt` fixtures, the kernel lint configuration that
+  lints a materialised tree, YAML and Markdown.
 
 ## Recorded hits
 
@@ -156,13 +155,14 @@ file extensions in those directories.
   Run `bunx eslint . --prune-suppressions` after fixing a recorded hit.
 - Review replacements within a file. Replacing one violation with another
   for the same lint rule can keep the count and pass lint.
-- The template's lint rules live in `config/template-rules.mjs`,
-  `config/platform-rules.mjs` and `config/payload-rules.mjs`.
+- The lint rules for files outside the kernel live in
+  `config/template-rules.mjs`, `config/platform-rules.mjs` and
+  `config/payload-rules.mjs`.
   `platform-rules.mjs` owns `no-host-path-literal` and `payload-rules.mjs`
   owns `no-in-operator`. `eslint.config.mjs` joins the three under the
   `repository` plugin.
 - The kernel lint rules and their recorded hits run from
-  `config/kernel-repository-lint.mjs` and leave with the kernel.
+  `config/kernel-repository-lint.mjs`.
 - `kernel/config/kernel/` is stamped, so it holds only the rules
   `kernelLint` turns on. The kernel repository's own lint rules,
   `no-comments` and the three test lint rules, live in

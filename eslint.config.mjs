@@ -35,13 +35,7 @@ export default defineConfig(
       "coverage/**",
       ".fallow/**",
       ".worktrees/**",
-      "profiles/**",
       "config/*.d.mts",
-      "examples/**",
-      "starters/simple/**",
-      "starters/complex/**",
-      "starters/shared/**",
-      "proofs/**",
     ],
   },
   {
@@ -71,11 +65,6 @@ export default defineConfig(
       "repository/no-host-path-literal": "error",
     },
   },
-  {
-    files: ["src/cli.ts"],
-    rules: { "no-console": ["error", { allow: ["log"] }] },
-  },
-
   {
     files: ["src/**/*.ts", "scripts/**/*.ts"],
     plugins: { repository: localRules },

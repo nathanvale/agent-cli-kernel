@@ -5,10 +5,6 @@
   },
   "tests/template/glossary/glossary.test.ts": {
     "lifetime": "temporary",
-    "reason": "Remove when the glossary suite moves to the kernel repository (MAG-124)."
-  },
-  "starters/complex/tests/integration/integration.test.ts": {
-    "lifetime": "temporary",
-    "reason": "Remove with the old CLI starter in MAG-129."
+    "reason": "Over the limit when it arrived from the template (MAG-122). Remove when the glossary suite is split."
   }
 }

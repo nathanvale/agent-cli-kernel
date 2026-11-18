@@ -1,12 +1,5 @@
 {
   "$schema": "./node_modules/fallow/schema.json",
-  "ignorePatterns": [
-    "profiles/**",
-    "examples/**",
-    "starters/simple/**",
-    "starters/complex/**",
-    "starters/shared/**"
-  ],
   "ignoreBinaries": ["getconf"],
   "typeAware": {
     "enabled": true,
@@ -90,7 +83,6 @@
   },
   "supportEntry": ["scripts/check-file-size.ts"],
   "entry": [
-    "src/static-admission.ts",
     "scripts/doctor.ts",
     "scripts/check-commits.ts",
     "scripts/check-names.ts",

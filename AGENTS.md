@@ -1,4 +1,4 @@
-# Bun TypeScript Template
+# Agent CLI kernel
 
 ## Before work
 

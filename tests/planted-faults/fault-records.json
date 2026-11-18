@@ -119,13 +119,6 @@
     "source": "64b4738 feat(lint): the kernel lint module takes its folders as settings (MAG-121)"
   },
   {
-    "id": "4afda36-project-recipe",
-    "patch": "tests/planted-faults/patches/4afda36-project-recipe.patch",
-    "testFile": "tests/template/bootstrap/recipe.test.ts",
-    "title": "no row and no refusal matches throws",
-    "source": "4afda36 fix(recipe): name the starter-with-monorepo refusal's condition, throw if none matches"
-  },
-  {
     "id": "abebe4e-repository-unknown-key",
     "patch": "tests/planted-faults/patches/abebe4e-repository-unknown-key.patch",
     "testFile": "tests/template/repository/repository.test.ts",
@@ -467,13 +460,6 @@
     "testFile": "tests/template/naming/names-check-paths.test.ts",
     "title": "^in process: --tool-call resolves a relative folder of the call",
     "source": "244b63a fix(check-names): resolve a tool call's relative folder from the injected folder"
-  },
-  {
-    "id": "c77aaa9-static-admission",
-    "patch": "tests/planted-faults/patches/c77aaa9-static-admission.patch",
-    "testFile": "tests/template/static-admission/static-admission-execution-in-process.test.ts",
-    "title": "^execute kills a command that outlives its time limit",
-    "source": "c77aaa9 fix(static-admission): bound every child command with a time limit"
   },
   {
     "id": "837cf32-planted-faults-usage",
