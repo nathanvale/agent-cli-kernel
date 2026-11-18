@@ -53,8 +53,8 @@ off. A `WARN load` line is not a failure: timing-sensitive tests may flake.
 ### Drive
 
 `"$skill/scripts/session.sh" record "$run" <name> <folder> '<command>'` runs
-the command with `sh -c` in the folder, as git identity `verify-template`, and
-writes `evidence/<name>.txt` plus a row in `evidence/index.tsv` (name, exit
+the command with `sh -c` in the folder, as git identity `verify-template`, with
+`$run` set to the run root, and writes `evidence/<name>.txt` plus a row in `evidence/index.tsv` (name, exit
 code, path). It exits 0 even when the command fails. Read the exit code from
 the transcript.
 

@@ -21,7 +21,9 @@ as the recipe.
   through `"$skill/scripts/session.sh" record "$run" <name> <folder> '<command>'`.
 - Start each recipe from the state its preconditions name. Recipes that change
   the clone restore it before they end.
-- `$packet` is any absolute path or HTTP(S) URL without user data, such as
+- Inside a recorded command, `$run` is the run root: the helper sets it. Set
+  `$packet` with `export packet=<value>` before recording; it is any absolute
+  path or HTTP(S) URL without user data, such as
   `https://example.test/vault/projects/verify/`.
 - Commands are literal. Keep quoted names and flags unchanged.
 

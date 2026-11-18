@@ -47,9 +47,11 @@ check's exit code:
   stderr ends `error: script "lint" exited with code 1`.
 - **Red, format.** Record `check-red-format`. Plant: replace `src/index.ts`
   with the one line ``export function greet(name:string):string{return `Hello, ${name}!`}``.
+  Its command hashes the file around the check:
+  `<plant>; before=$(shasum src/index.ts); bun run check; status=$?; [ "$(shasum src/index.ts)" = "$before" ] && echo "check left src/index.ts unchanged"; git checkout -- src/index.ts; exit $status`.
   Exit 1; stderr holds `Formatter would have printed the following content:`
-  and `error: script "format:check" exited with code 1`. `git diff` before the
-  restore shows the file unchanged by the check.
+  and `error: script "format:check" exited with code 1`; stdout holds
+  `check left src/index.ts unchanged`.
 - **Red, type.** Record `check-red-type`. Plant: in `src/index.ts` replace the
   returned template string with `name.length`. Exit 1; stdout holds
   `src/index.ts(2,3): error TS2322: Type 'number' is not assignable to type 'string'.`

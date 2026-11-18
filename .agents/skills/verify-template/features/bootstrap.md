@@ -61,7 +61,9 @@ Preconditions:
   `bun run start --help`. Each exits 0; the check transcript shows `0 fail`
   and Fallow's `"verdict":"pass"`; the smoke prints `Usage: example COMMAND [--json]`.
   Repeat for `generated/scratch` and `generated/monorepo` with the check
-  command each generated `AGENTS.md` names.
+  command each generated `AGENTS.md` names, adding `-scratch` or `-monorepo`
+  to each name, such as `bootstrap-check-scratch`, so no transcript is
+  overwritten.
 - **Red, destination.** Record `bootstrap-refuse-not-empty`: rerun the durable
   command unchanged. Exit 3; stderr holds
   `{"schemaVersion":1,"status":"refused","error":{"code":"destination_not_empty","message":"destination already contains files","repair":"choose a new or empty directory; existing bytes were preserved","retrySafe":true}}`.
