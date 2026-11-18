@@ -1,13 +1,8 @@
 import { afterAll, spyOn } from "bun:test";
-import {
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
+import { join } from "node:path";
 import type { Fault } from "../../scripts/planted-faults.ts";
+import { write } from "./fixture-files.ts";
 import { gitEnv, gitResult } from "./git-fixture.ts";
 import { testFolder } from "./test-folder.ts";
 
@@ -54,11 +49,6 @@ export function git(root: string, ...args: string[]): string {
   if (result.exitCode !== 0)
     throw new Error(`git ${args.join(" ")}: ${result.stderr.toString()}`);
   return result.stdout.toString();
-}
-
-export function write(root: string, path: string, content: string): void {
-  mkdirSync(dirname(join(root, path)), { recursive: true });
-  writeFileSync(join(root, path), content);
 }
 
 export function commit(

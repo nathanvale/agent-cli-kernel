@@ -6,9 +6,9 @@ import {
   readdirSync,
   readFileSync,
   rmSync,
-  writeFileSync,
 } from "node:fs";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
+import { write } from "./fixture-files.ts";
 import { gitEnv, gitResult, inherited } from "./git-fixture.ts";
 import { type SignalAt, spawnBounded } from "./process.ts";
 import { testFolder } from "./test-folder.ts";
@@ -150,11 +150,6 @@ function releaseWorktrees(root: string): void {
 
 function fixtureEnv(): Record<string, string | undefined> {
   return { ...inherited(), ...gitEnv };
-}
-
-export function write(root: string, path: string, content: string): void {
-  mkdirSync(dirname(join(root, path)), { recursive: true });
-  writeFileSync(join(root, path), content);
 }
 
 export function commit(

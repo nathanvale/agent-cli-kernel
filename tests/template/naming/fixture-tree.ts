@@ -12,6 +12,7 @@ import {
   type RecordedHit,
   recordedHitsFile,
 } from "../../../scripts/glossary.ts";
+import { write } from "../../support/fixture-files.ts";
 import { spawnBounded } from "../../support/process.ts";
 import { testFolder } from "../../support/test-folder.ts";
 
@@ -62,11 +63,6 @@ const { scripts: production } = (await Bun.file(
 
 export function removeFixtureTrees(): void {
   for (const folder of folders.splice(0)) rmSync(folder, { recursive: true });
-}
-
-export function write(root: string, path: string, content: string): void {
-  mkdirSync(dirname(join(root, path)), { recursive: true });
-  writeFileSync(join(root, path), content);
 }
 
 export function writeRecordedHits(

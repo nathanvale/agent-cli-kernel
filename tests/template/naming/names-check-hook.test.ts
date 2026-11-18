@@ -10,8 +10,8 @@ import {
   removeFixtureTrees,
   repository,
   runHook,
-  write,
 } from "./fixture-tree.ts";
+import { write } from "../../support/fixture-files.ts";
 
 const claudeSettings = ".claude/settings.json";
 const codexSettings = ".codex/hooks.json";

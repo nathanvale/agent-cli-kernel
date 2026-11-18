@@ -19,8 +19,8 @@ import {
   rejection,
   sample,
   unguarded,
-  write,
 } from "../../support/planted-fault-in-process-fixture.ts";
+import { write } from "../../support/fixture-files.ts";
 
 const { folder, isolated, planted, repository } = createPlantedFaultFixture();
 

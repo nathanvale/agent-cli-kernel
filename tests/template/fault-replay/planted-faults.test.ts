@@ -14,8 +14,8 @@ import {
   tests,
   timeout,
   verdicts,
-  write,
 } from "../../support/planted-fault-fixture.ts";
+import { write } from "../../support/fixture-files.ts";
 
 const { faultReplay, repositoryWithFault } = createPlantedFaultFixture();
 

@@ -15,8 +15,8 @@ import {
   timeout,
   verdicts,
   worktrees,
-  write,
 } from "../../support/planted-fault-fixture.ts";
+import { write } from "../../support/fixture-files.ts";
 
 const { faultReplay, folder, hangLedger, pidLedger, repositoryWithFault } =
   createPlantedFaultFixture();

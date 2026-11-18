@@ -10,9 +10,9 @@ import {
   fixtureTree,
   git,
   removeFixtureTrees,
-  write,
   writeRecordedHits,
 } from "./fixture-tree.ts";
+import { write } from "../../support/fixture-files.ts";
 
 const usage =
   "Usage: bun run check:names <path> [path ...] | --staged | --tool-call";

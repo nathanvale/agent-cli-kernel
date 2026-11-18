@@ -8,9 +8,9 @@ import {
   gitOutcome,
   removeFixtureTrees,
   repository,
-  write,
   writeRecordedHits,
 } from "./fixture-tree.ts";
+import { write } from "../../support/fixture-files.ts";
 
 afterAll(removeFixtureTrees);
 
