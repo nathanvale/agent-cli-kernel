@@ -22,6 +22,18 @@ function resultOf(stdout: string): ScenarioRun["result"] {
     : undefined;
 }
 
+// Interface: thrown when a run passes its bound, with the output it wrote
+// before it was killed.
+export class BoundPassed extends Error {
+  readonly stdout: string;
+  readonly stderr: string;
+  constructor(message: string, stdout: string, stderr: string) {
+    super(message);
+    this.stdout = stdout;
+    this.stderr = stderr;
+  }
+}
+
 export type SignalAt = {
   readonly ledger: string;
   readonly line: string;
@@ -67,24 +79,27 @@ export async function spawnBounded(
       }, 5)
     : undefined;
   let firstByteAt: number | undefined;
-  const readStdout = async () => {
-    const chunks: Uint8Array[] = [];
-    for await (const chunk of child.stdout) {
-      firstByteAt ??= Date.now();
-      chunks.push(chunk);
-    }
-    return new TextDecoder().decode(Buffer.concat(chunks));
-  };
+  const stdoutChunks: Uint8Array[] = [];
+  const stderrChunks: Uint8Array[] = [];
+  const drained = Promise.all([
+    (async () => {
+      for await (const chunk of child.stdout) {
+        firstByteAt ??= Date.now();
+        stdoutChunks.push(chunk);
+      }
+    })(),
+    (async () => {
+      for await (const chunk of child.stderr) stderrChunks.push(chunk);
+    })(),
+  ]);
+  const text = (chunks: Uint8Array[]) =>
+    new TextDecoder().decode(Buffer.concat(chunks));
   let timer: ReturnType<typeof setTimeout> | undefined;
   const expired = new Promise<"expired">((resolve) => {
     timer = setTimeout(() => resolve("expired"), bound);
   });
   const finished = await Promise.race([
-    Promise.all([
-      readStdout(),
-      new Response(child.stderr).text(),
-      child.exited,
-    ]),
+    Promise.all([child.exited, drained]),
     expired,
   ]);
   clearTimeout(timer);
@@ -97,10 +112,16 @@ export async function spawnBounded(
       } catch (error) {
         if (Reflect.get(Object(error), "code") !== "ESRCH") throw error;
       }
-    await child.exited;
-    throw new Error(`${argv.join(" ")} did not exit within ${bound} ms.`);
+    await Promise.all([child.exited, drained]);
+    throw new BoundPassed(
+      `${argv.join(" ")} did not exit within ${bound} ms.`,
+      text(stdoutChunks),
+      text(stderrChunks),
+    );
   }
-  const [stdout, stderr, exit] = finished;
+  const [exit] = finished;
+  const stdout = text(stdoutChunks);
+  const stderr = text(stderrChunks);
   const signal = child.signalCode;
   return {
     stdout,

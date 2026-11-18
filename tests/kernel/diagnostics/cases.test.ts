@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { signalIfPresent } from "../../support/signal.ts";
 import { testFolder } from "../../support/test-folder.ts";
-import { spawnBounded } from "../kernel-repair/swarm-process.ts";
+import { BoundPassed, spawnBounded } from "../kernel-repair/swarm-process.ts";
 import { goneWithin, processGroup } from "../lifecycle/harness.ts";
 import {
   cleanTrees,
@@ -209,6 +209,10 @@ const childBound =
   hostedLedgerRunWithoutOverlap + crashCasesInChild * crashExitBound;
 const ledgerTimeout = childBound + teardownMargin;
 
+function outputTail(output: string): string[] {
+  return output.split("\n").slice(-40);
+}
+
 function ledgerFiles(): string[] {
   return readdirSync(here)
     .filter((name) => name.endsWith(".test.ts") && name !== "cases.test.ts")
@@ -237,7 +241,16 @@ async function executedTests(
         ...files,
       ],
       { cwd: join(here, "../../.."), boundMilliseconds, processGroup: true },
-    );
+    ).catch((error: unknown) => {
+      if (!(error instanceof BoundPassed)) throw error;
+      throw new Error(
+        [
+          error.message,
+          "The last 40 lines of its output:",
+          ...outputTail(`${error.stdout}${error.stderr}`),
+        ].join("\n"),
+      );
+    });
     const output = `${child.stdout}${child.stderr}`;
     const xml = existsSync(report) ? readFileSync(report, "utf8") : "";
     const tests = [
@@ -281,8 +294,7 @@ test(
     const failed = tests.flatMap((entry) =>
       entry.failure === undefined ? [] : [entry.failure],
     );
-    const unnamed =
-      exit !== 0 && failed.length === 0 ? output.split("\n").slice(-40) : [];
+    const unnamed = exit !== 0 && failed.length === 0 ? outputTail(output) : [];
     expect({ exit, failed, unnamed }).toEqual({
       exit: 0,
       failed: [],
