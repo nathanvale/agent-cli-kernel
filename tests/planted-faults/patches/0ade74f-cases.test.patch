@@ -1,13 +1,13 @@
 diff --git a/tests/kernel/diagnostics/cases.test.ts b/tests/kernel/diagnostics/cases.test.ts
-index 9482e4a..391d37d 100644
+index 7feb082..ac9c62b 100644
 --- a/tests/kernel/diagnostics/cases.test.ts
 +++ b/tests/kernel/diagnostics/cases.test.ts
-@@ -236,7 +236,7 @@ async function executedTests(
+@@ -240,7 +240,7 @@ async function executedTests(
          `--reporter-outfile=${report}`,
          ...files,
        ],
 -      { cwd: join(here, "../../.."), boundMilliseconds, processGroup: true },
 +      { cwd: join(here, "../../.."), boundMilliseconds },
-     );
-     const output = `${child.stdout}${child.stderr}`;
-     const xml = existsSync(report) ? readFileSync(report, "utf8") : "";
+     ).catch((error: unknown) => {
+       if (!(error instanceof BoundPassed)) throw error;
+       throw new Error(
