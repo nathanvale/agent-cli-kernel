@@ -12,6 +12,7 @@ import {
   type RecordedHit,
   recordedHitsFile,
 } from "../../../scripts/glossary.ts";
+import { gitEnv, inherited } from "../../support/git-fixture.ts";
 import { spawnBounded } from "../../support/process.ts";
 import { testFolder } from "../../support/test-folder.ts";
 
@@ -40,22 +41,6 @@ const sources = [
   ".githooks/pre-commit",
 ];
 const folders: string[] = [];
-const gitEnv = {
-  GIT_CONFIG_GLOBAL: "/dev/null",
-  GIT_CONFIG_NOSYSTEM: "1",
-  GIT_AUTHOR_NAME: "Fixture",
-  GIT_AUTHOR_EMAIL: "fixture@example.invalid",
-  GIT_COMMITTER_NAME: "Fixture",
-  GIT_COMMITTER_EMAIL: "fixture@example.invalid",
-};
-const callersRepositoryLocation = new Set([
-  "GIT_DIR",
-  "GIT_WORK_TREE",
-  "GIT_INDEX_FILE",
-  "GIT_OBJECT_DIRECTORY",
-  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
-  "GIT_COMMON_DIR",
-]);
 const { scripts: production } = (await Bun.file(
   join(repository, "package.json"),
 ).json()) as { scripts: Record<string, string> };
@@ -107,11 +92,7 @@ function run(
   return spawnBounded(argv, {
     cwd,
     env: {
-      ...Object.fromEntries(
-        Object.entries(process.env).filter(
-          ([name]) => !callersRepositoryLocation.has(name),
-        ),
-      ),
+      ...inherited(),
       ...gitEnv,
       PATH: `${dirname(process.execPath)}${delimiter}${process.env.PATH ?? ""}`,
       ...env,
