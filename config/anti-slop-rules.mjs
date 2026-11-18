@@ -503,7 +503,7 @@ function visibleTypeAlias(name, use, environment) {
 function aliasSubstitutions(alias, reference, base, expansion) {
   const parameters = alias.typeParameters?.params ?? [];
   const typeArguments = reference.typeArguments?.params ?? [];
-  const next = new Map(base);
+  const next = new Map();
   for (const [index, parameter] of parameters.entries()) {
     const explicitArgument = typeArguments[index];
     const argument = explicitArgument ?? parameter.default;
