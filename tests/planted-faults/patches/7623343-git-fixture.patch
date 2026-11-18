@@ -1,17 +1,17 @@
 diff --git a/tests/support/git-fixture.ts b/tests/support/git-fixture.ts
-index 02da7f2..24330ff 100644
+index dbf77af..b659204 100644
 --- a/tests/support/git-fixture.ts
 +++ b/tests/support/git-fixture.ts
 @@ -1,8 +1,6 @@
- import { writeFileSync } from "node:fs";
- import { join } from "node:path";
+ import { mkdirSync } from "node:fs";
+ import { write } from "./fixture-files.ts";
  
 -const gitMilliseconds = 4_000;
 -
  export const gitEnv = {
    GIT_CONFIG_GLOBAL: "/dev/null",
    GIT_CONFIG_NOSYSTEM: "1",
-@@ -30,19 +28,12 @@ export function inherited(): Record<string, string | undefined> {
+@@ -32,19 +30,12 @@ export function inherited(): Record<string, string | undefined> {
  }
  
  export function gitResult(root: string, ...args: string[]) {
@@ -31,4 +31,4 @@ index 02da7f2..24330ff 100644
 -  return result;
  }
  
- export function git(root: string, ...args: string[]): string {
+ export function gitOutput(root: string, ...args: string[]): string {
