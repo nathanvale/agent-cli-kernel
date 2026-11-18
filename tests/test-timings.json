@@ -103,7 +103,11 @@
     "tests/standards/commit-links.test.ts": 4,
     "tests/standards/coverage-gaps.test.ts": 407,
     "tests/standards/standards.test.ts": 1623,
-    "tests/static-admission.test.ts": 79454,
+    "tests/static-admission-eslint.test.ts": 37506,
+    "tests/static-admission-fallow.test.ts": 6597,
+    "tests/static-admission-policy.test.ts": 18324,
+    "tests/static-admission-semantic.test.ts": 20407,
+    "tests/static-admission.test.ts": 5661,
     "tests/toolchain-resolution.test.ts": 262,
     "tests/watch-ledger.test.ts": 64
   }
