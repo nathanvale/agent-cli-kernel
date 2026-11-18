@@ -9,6 +9,31 @@ for tool in biome eslint oxlint tsc fallow; do
   fi
 done
 
+check_staged_types() (
+  snapshot=
+  trap '[ -z "$snapshot" ] || rm -rf -- "$snapshot"' 0
+  trap 'exit 1' HUP INT TERM
+
+  if ! {
+    tree=$(git write-tree) &&
+      temp_root=$(CDPATH= cd "${TMPDIR:-/tmp}" && pwd -P) &&
+      snapshot=$(mktemp -d "$temp_root/template-typecheck.XXXXXX") &&
+      mkdir "$snapshot/project" &&
+      GIT_INDEX_FILE="$snapshot/index" git read-tree "$tree" &&
+      GIT_INDEX_FILE="$snapshot/index" git --work-tree="$snapshot/project" checkout-index --all &&
+      ln -s "$PWD/node_modules" "$snapshot/project/node_modules"
+  }; then
+    echo "pre-commit: could not prepare the staged tree (above). Repair: resolve the Git or filesystem error and retry. Done when git commit reaches the staged type check." >&2
+    exit 1
+  fi
+
+  cd "$snapshot/project"
+  "$bin/tsc" --noEmit -p tsconfig.json || {
+    echo "pre-commit: TypeScript rejected the staged tree (above). Repair: fix the type errors and stage the repaired files. Done when git commit passes the staged type check." >&2
+    exit 1
+  }
+)
+
 staged() {
   git diff --cached --name-only --diff-filter=ACMR -z -- "$@"
 }
@@ -25,7 +50,8 @@ if [ -n "$(staged | tr -d '\0')" ]; then
   }
 fi
 
-if [ -n "$(staged '*.ts' '*.mts' '*.cts' '*.mjs' | tr -d '\0')" ]; then
+source_edits=$(staged '*.ts' '*.mts' '*.cts' '*.mjs' | tr -d '\0')
+if [ -n "$source_edits" ]; then
   staged '*.ts' '*.mts' '*.cts' '*.mjs' | xargs -0 "$bin/eslint" --max-warnings 0 --no-warn-ignored -- || {
     echo "pre-commit: lint errors above. Repair: correct each one in code, stage the change, and commit again. Done when bun run lint passes." >&2
     exit 1
@@ -34,10 +60,14 @@ if [ -n "$(staged '*.ts' '*.mts' '*.cts' '*.mjs' | tr -d '\0')" ]; then
     echo "pre-commit: anti-slop lint errors above. Repair: correct each one in code, stage the change, and commit again. Done when bun run lint passes." >&2
     exit 1
   }
-  "$bin/tsc" --noEmit -p tsconfig.json || {
-    echo "pre-commit: type errors above. Repair: correct each one in code, stage the change, and commit again. Done when bun run typecheck passes." >&2
-    exit 1
-  }
+fi
+
+if ! git diff --cached --no-renames --quiet -- \
+  '*.ts' '*.mts' '*.cts' '*.mjs' ':(glob)**/tsconfig*.json'; then
+  check_staged_types
+fi
+
+if [ -n "$source_edits" ]; then
   "$bin/fallow" audit --staged --quiet || {
     echo "pre-commit: fallow found new problems in the staged changes (above). Repair: correct each one in code, stage the change, and commit again. Done when node_modules/.bin/fallow audit --staged passes." >&2
     exit 1

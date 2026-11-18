@@ -1,0 +1,9 @@
+diff --git a/.githooks/pre-commit b/.githooks/pre-commit
+index b49abe7..b9f7f8a 100755
+--- a/.githooks/pre-commit
++++ b/.githooks/pre-commit
+@@ -66,3 +66,3 @@ if ! git diff --cached --no-renames --quiet -- \
+   '*.ts' '*.mts' '*.cts' '*.mjs' ':(glob)**/tsconfig*.json'; then
+-  check_staged_types
++  "$bin/tsc" --noEmit -p tsconfig.json
+ fi
