@@ -913,7 +913,6 @@ const loopKeywordLengths = {
   DoWhileStatement: 2,
 };
 const spreadKinds = { ArrayExpression: "Array", ObjectExpression: "Object" };
-const reducerArities = new Set([2, 3, 4]);
 
 function innerExpression(node) {
   let current = node;
@@ -1000,10 +999,8 @@ function enclosingReduceCall(callback) {
 function reduceSpread(definition, spread) {
   if (definition.type !== "Parameter") return null;
   const callback = definition.node;
-  const parameters = ownParameters(callback);
-  if (bindingIdentifier(parameters[0]) !== definition.name) return null;
   if (
-    !reducerArities.has(parameters.length) ||
+    bindingIdentifier(ownParameters(callback)[0]) !== definition.name ||
     nearestFunction(spread) !== callback
   )
     return null;
