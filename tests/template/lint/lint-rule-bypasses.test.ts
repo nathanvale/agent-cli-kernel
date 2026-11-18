@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { resolve } from "node:path";
-import { hits } from "../../support/template-lint.ts";
+import { hits, templateSourceFile } from "../../support/template-lint.ts";
 
 test("require-to-throw-message refuses a bare rejects.toThrow()", async () => {
   const found = await hits(
@@ -346,8 +346,8 @@ const ownData = [
 ] as const;
 
 for (const [code, fix] of ownData)
-  test(`no-in-operator ${fix ? "refuses" : "admits"} ${JSON.stringify(code)} in src/static-admission.ts`, async () => {
-    const found = await hits("no-in-operator", "src/static-admission.ts", code);
+  test(`no-in-operator ${fix ? "refuses" : "admits"} ${JSON.stringify(code)} in ${templateSourceFile}`, async () => {
+    const found = await hits("no-in-operator", templateSourceFile, code);
     expect(
       found.map(({ message }) => fix !== undefined && message.includes(fix)),
     ).toEqual(fix ? [true] : []);

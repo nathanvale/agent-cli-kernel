@@ -12,6 +12,8 @@ import { write } from "../../support/fixture-files.ts";
 import { gitEnv, inherited } from "../../support/git-fixture.ts";
 import { processWatchdog } from "../../support/process.ts";
 import {
+  fileSizeHits,
+  fileSizeRecordedHitsPath as recordedHits,
   fixtureRepository,
   runFixtureGit,
   gitOutcome,
@@ -23,11 +25,8 @@ import {
 const oneTokenOfText = " x";
 const atLimit = oneTokenOfText.repeat(5_000);
 const overLimit = oneTokenOfText.repeat(5_001);
-const glossary = "tests/template/glossary/glossary.test.ts";
-const integration = "starters/complex/tests/integration/integration.test.ts";
-const standing = "tests/planted-faults/fault-records.json";
+const { glossary, integration, standing } = fileSizeHits;
 const note = "docs/file-size.txt";
-const recordedHits = "scripts/file-size-recorded-hits.json";
 const noteRefusal =
   'check:file-size: "docs/file-size.txt": 5001 tokens exceeds the 5000-token limit. Repair: shorten or split the file.\n';
 

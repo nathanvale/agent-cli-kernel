@@ -31,10 +31,29 @@ _Avoid_: known hit, allowlist
 
 _Qualify_: host, proof
 `;
+export const fileSizeRecordedHitsPath = "scripts/file-size-recorded-hits.json";
+export const fileSizeHits = {
+  standing: "tests/planted-faults/fault-records.json",
+  glossary: "tests/template/glossary/glossary.test.ts",
+  integration: "starters/complex/tests/integration/integration.test.ts",
+} as const;
+const fileSizeRecordedHits = JSON.stringify({
+  [fileSizeHits.standing]: {
+    lifetime: "standing",
+    reason: "Fixture: a standing recorded hit.",
+  },
+  [fileSizeHits.glossary]: {
+    lifetime: "temporary",
+    reason: "Fixture: a temporary recorded hit.",
+  },
+  [fileSizeHits.integration]: {
+    lifetime: "temporary",
+    reason: "Fixture: a second temporary recorded hit.",
+  },
+});
 const sources = [
   "scripts/check-names.ts",
   "scripts/check-file-size.ts",
-  "scripts/file-size-recorded-hits.json",
   "scripts/glossary.ts",
   "scripts/repository.ts",
   ".claude/settings.json",
@@ -73,6 +92,7 @@ export function fixtureTree(recorded: readonly RecordedHit[] = []): string {
     chmodSync(join(root, path), statSync(join(repository, path)).mode);
   }
   write(root, "GLOSSARY.md", glossary);
+  write(root, fileSizeRecordedHitsPath, fileSizeRecordedHits);
   writeRecordedHits(root, recorded);
   write(
     root,
@@ -126,7 +146,7 @@ export async function fixtureRepository(
     "--",
     "GLOSSARY.md",
     recordedHitsFile,
-    "scripts/file-size-recorded-hits.json",
+    fileSizeRecordedHitsPath,
   );
   await runFixtureGit(root, "commit", "--quiet", "-m", "rules");
   return root;
