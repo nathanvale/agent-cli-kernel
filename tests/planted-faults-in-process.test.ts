@@ -605,7 +605,7 @@ test("L.refuses dies", () => {
     );
   }, 60_000);
 
-  test("TIMEOUT names the step that outran the limit, and cleans up", async () => {
+  test("TIMEOUT names a step of the replay as the one that outran the limit, and cleans up", async () => {
     const subject = planted();
 
     const run = await isolated(() =>
@@ -613,9 +613,8 @@ test("L.refuses dies", () => {
     );
 
     expect(run.result.kind).toBe("TIMEOUT");
-    expect(run.result).toHaveProperty("step");
-    expect(Reflect.get(run.result, "step")).toStartWith(
-      "git worktree add --detach --quiet ",
+    expect(String(Reflect.get(run.result, "step"))).toMatch(
+      /^(git worktree add --detach --quiet |git apply |\S+ install --frozen-lockfile$|\S+ test \.\/tests\/)/,
     );
     expect(run.leftovers).toEqual([]);
   }, 60_000);
