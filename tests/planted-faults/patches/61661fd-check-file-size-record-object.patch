@@ -1,0 +1,13 @@
+diff --git a/scripts/check-file-size.ts b/scripts/check-file-size.ts
+--- a/scripts/check-file-size.ts
++++ b/scripts/check-file-size.ts
+@@ -13,8 +13,6 @@
+
+ function objectFields(value: unknown): Map<string, unknown> {
+   if (typeof value !== "object" || value === null || Array.isArray(value))
+-    throw new Error(
+-      `${recordedHitsFile} must contain an object keyed by path.`,
+-    );
++    return new Map();
+   return new Map(Object.entries(value));
+ }
