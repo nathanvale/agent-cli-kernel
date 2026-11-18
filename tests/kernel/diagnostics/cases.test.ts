@@ -1,13 +1,26 @@
 import { expect, test } from "bun:test";
 import {
+  existsSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
   realpathSync,
   rmSync,
+  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { signalIfPresent } from "../../support/signal.ts";
+import { testFolder } from "../../support/test-folder.ts";
+import { BoundPassed, spawnBounded } from "../kernel-repair/swarm-process.ts";
+import { goneWithin, processGroup } from "../lifecycle/harness.ts";
+import {
+  cleanTrees,
+  crashExitBound,
+  runCrash,
+  teardownMargin,
+  tree,
+} from "./harness.ts";
 import { reportUnproved, unprovedHere, unprovedOn } from "./platform.ts";
 
 const here = import.meta.dir;
@@ -174,20 +187,56 @@ test("R1.platform-outcomes-pinned: nothing is skipped, and every platform-bound 
   );
 });
 
-type Executed = { readonly name: string; readonly skipped: boolean };
+type Executed = {
+  readonly name: string;
+  readonly skipped: boolean;
+  readonly failure: string | undefined;
+};
 
-function executedTests(): {
-  readonly exit: number | null;
+function decodeXmlEntities(text: string): string {
+  return text
+    .replaceAll("&quot;", '"')
+    .replaceAll("&apos;", "'")
+    .replaceAll("&#10;", "\n")
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&amp;", "&");
+}
+
+const hostedLedgerRunWithoutOverlap = 63_603;
+const crashCasesInChild = 2;
+const childBound =
+  hostedLedgerRunWithoutOverlap + crashCasesInChild * crashExitBound;
+const ledgerTimeout = childBound + teardownMargin;
+
+function outputTails(stdout: string, stderr: string): string[] {
+  return [
+    "The last 40 lines of its stdout:",
+    ...stdout.split("\n").slice(-40),
+    "The last 40 lines of its stderr:",
+    ...stderr.split("\n").slice(-40),
+  ];
+}
+
+function ledgerFiles(): string[] {
+  return readdirSync(here)
+    .filter((name) => name.endsWith(".test.ts") && name !== "cases.test.ts")
+    .map((name) => join(here, name));
+}
+
+async function executedTests(
+  files = ledgerFiles(),
+  boundMilliseconds = childBound,
+): Promise<{
+  readonly exit: number;
   readonly tests: readonly Executed[];
-} {
+  readonly tails: readonly string[];
+}> {
   const scratch = mkdtempSync(join(realpathSync(tmpdir()), "t5-ledger-"));
   try {
     const report = join(scratch, "junit.xml");
-    const files = readdirSync(here)
-      .filter((name) => name.endsWith(".test.ts") && name !== "cases.test.ts")
-      .map((name) => join(here, name));
-    const child = Bun.spawnSync({
-      cmd: [
+    const child = await spawnBounded(
+      [
         process.execPath,
         "test",
         "--timeout",
@@ -196,26 +245,41 @@ function executedTests(): {
         `--reporter-outfile=${report}`,
         ...files,
       ],
-      cwd: join(here, "../../.."),
-      stdout: "ignore",
-      stderr: "ignore",
+      { cwd: join(here, "../../.."), boundMilliseconds, processGroup: true },
+    ).catch((error: unknown) => {
+      if (!(error instanceof BoundPassed)) throw error;
+      throw new Error(
+        [error.message, ...outputTails(error.stdout, error.stderr)].join("\n"),
+      );
     });
-    const xml = readFileSync(report, "utf8");
+    const xml = existsSync(report) ? readFileSync(report, "utf8") : "";
     const tests = [
       ...xml.matchAll(
-        /<testcase name="([^"]*)"[^>]*?(\/>|>([\s\S]*?)<\/testcase>)/g,
+        /<testcase name="([^"]*)"([^>]*?)(\/>|>([\s\S]*?)<\/testcase>)/g,
       ),
-    ].map(
-      (match): Executed => ({
-        name: (match[1] ?? "")
-          .replaceAll("&quot;", '"')
-          .replaceAll("&amp;", "&")
-          .replaceAll("&lt;", "<")
-          .replaceAll("&gt;", ">"),
-        skipped: (match[3] ?? "").includes("<skipped"),
-      }),
-    );
-    return { exit: child.exitCode, tests };
+    ].map((match): Executed => {
+      const name = decodeXmlEntities(match[1] ?? "");
+      const attribute = (key: string) =>
+        decodeXmlEntities(
+          new RegExp(` ${key}="([^"]*)"`).exec(match[2] ?? "")?.[1] ?? "",
+        );
+      const body = match[4] ?? "";
+      const message = /<failure[^>]*? message="([^"]*)"/.exec(body)?.[1] ?? "";
+      const [reason] = decodeXmlEntities(message).split("\n");
+      const casePath = [attribute("file"), attribute("classname"), name];
+      return {
+        name,
+        skipped: body.includes("<skipped"),
+        failure: body.includes("<failure")
+          ? `${casePath.filter(Boolean).join(" > ")}: ${reason}`
+          : undefined,
+      };
+    });
+    return {
+      exit: child.exit,
+      tests,
+      tails: outputTails(child.stdout, child.stderr),
+    };
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }
@@ -227,33 +291,169 @@ function idsIn(name: string): readonly string[] {
   );
 }
 
-test("R2.ledger-binds-executed: every planned row and repair control ran and passed on this host; nothing was skipped", () => {
-  const { exit, tests } = executedTests();
-  expect(exit).toBe(0);
-  expect(tests.length).toBeGreaterThan(0);
-  expect(
-    tests.filter((entry) => entry.skipped).map((entry) => entry.name),
-  ).toEqual([]);
-  const platformBound = (entry: Executed) => / UNPROVED on /.test(entry.name);
-  const proved = new Set(
-    tests
-      .filter((entry) => !platformBound(entry))
-      .flatMap((entry) => idsIn(entry.name)),
-  );
-  const unproved = new Set(
-    tests.filter(platformBound).flatMap((entry) => idsIn(entry.name)),
-  );
-  const unprovedHereIds = unprovedOn(process.platform);
-  const planned = frozenCases()
-    .filter((entry) => entry.status === "planned")
-    .map((entry) => entry.id);
-  expect(
-    planned.filter((id) => !unprovedHereIds.includes(id) && !proved.has(id)),
-  ).toEqual([]);
-  expect(unprovedHereIds.filter((id) => !unproved.has(id))).toEqual([]);
-  const ledgerOwn = ["R1.platform-outcomes-pinned", "R2.ledger-binds-executed"];
-  const repairs = [...repairCaseIds(1), ...repairCaseIds(2)].filter(
-    (id) => !ledgerOwn.includes(id),
-  );
-  expect(repairs.filter((id) => !proved.has(id))).toEqual([]);
-}, 600_000);
+test(
+  "R2.ledger-binds-executed: every planned row and repair control ran and passed on this host; nothing was skipped",
+  async () => {
+    const { exit, tests, tails } = await executedTests();
+    const failed = tests.flatMap((entry) =>
+      entry.failure === undefined ? [] : [entry.failure],
+    );
+    const unnamed = exit !== 0 && failed.length === 0 ? tails : [];
+    expect({ exit, failed, unnamed }).toEqual({
+      exit: 0,
+      failed: [],
+      unnamed: [],
+    });
+    expect(tests.length).toBeGreaterThan(0);
+    expect(
+      tests.filter((entry) => entry.skipped).map((entry) => entry.name),
+    ).toEqual([]);
+    const platformBound = (entry: Executed) => / UNPROVED on /.test(entry.name);
+    const proved = new Set(
+      tests
+        .filter((entry) => !platformBound(entry))
+        .flatMap((entry) => idsIn(entry.name)),
+    );
+    const unproved = new Set(
+      tests.filter(platformBound).flatMap((entry) => idsIn(entry.name)),
+    );
+    const unprovedHereIds = unprovedOn(process.platform);
+    const planned = frozenCases()
+      .filter((entry) => entry.status === "planned")
+      .map((entry) => entry.id);
+    expect(
+      planned.filter((id) => !unprovedHereIds.includes(id) && !proved.has(id)),
+    ).toEqual([]);
+    expect(unprovedHereIds.filter((id) => !unproved.has(id))).toEqual([]);
+    const ledgerOwn = [
+      "R1.platform-outcomes-pinned",
+      "R2.ledger-binds-executed",
+    ];
+    const repairs = [...repairCaseIds(1), ...repairCaseIds(2)].filter(
+      (id) => !ledgerOwn.includes(id),
+    );
+    expect(repairs.filter((id) => !proved.has(id))).toEqual([]);
+  },
+  ledgerTimeout,
+);
+
+const hungBound = 3_000;
+const heldBound = 500;
+const waitAfterKill = 3_000;
+const waitTolerance = 750;
+const recordGrandchild =
+  '/bin/sleep 300 </dev/null >/dev/null 2>&1 & echo "$! $(/bin/ps -o pgid= -p $!)" > "$GRANDCHILD_RECORD"';
+
+async function grandchildAfter(
+  hang: (scratch: string, recorded: string) => Promise<unknown>,
+): Promise<{ readonly failure: string; readonly gone: boolean }> {
+  const scratch = testFolder("t5-hang-");
+  const recorded = join(scratch, "grandchild");
+  let ledgered: { readonly pid: number; readonly group: number } | undefined;
+  try {
+    const failure = await hang(scratch, recorded).then(
+      () => "exited",
+      (error: unknown) => (error instanceof Error ? error.message : "thrown"),
+    );
+    const [pid, group] = readFileSync(recorded, "utf8")
+      .trim()
+      .split(/\s+/)
+      .map(Number);
+    if (!Number.isSafeInteger(pid) || !Number.isSafeInteger(group))
+      throw new Error(`${recorded} holds no grandchild pid and group.`);
+    ledgered = { pid: Number(pid), group: Number(group) };
+    return { failure, gone: await goneWithin(ledgered.pid, 2_000) };
+  } finally {
+    try {
+      if (ledgered && processGroup(ledgered.pid) === ledgered.group)
+        signalIfPresent(ledgered.pid, "SIGKILL");
+    } finally {
+      cleanTrees();
+      rmSync(scratch, { recursive: true, force: true });
+    }
+  }
+}
+
+test(
+  "T5 test harness: a crash run past its bound is killed with every process it started",
+  async () => {
+    const observed = await grandchildAfter((_scratch, recorded) =>
+      runCrash(
+        {
+          argv: [],
+          tree: tree(),
+          shell: `${recordGrandchild}; wait`,
+          env: { GRANDCHILD_RECORD: recorded },
+        },
+        hungBound,
+      ),
+    );
+    expect(observed.gone).toBe(true);
+    expect(observed.failure).toEndWith(`did not exit within ${hungBound} ms.`);
+  },
+  hungBound + teardownMargin,
+);
+
+test(
+  "T5 ledger: a ledger child past its bound is killed with every process it started, and its failure shows the child's output",
+  async () => {
+    const hangLine = "hung.test.ts waits on a promise that never settles";
+    const lastStdoutLine = "hung.test.ts last wrote this line to stdout";
+    const observed = await grandchildAfter((scratch, recorded) => {
+      const hung = join(scratch, "hung.test.ts");
+      writeFileSync(
+        hung,
+        [
+          'import { test } from "bun:test";',
+          `test("hangs after starting a grandchild", async () => {`,
+          `  Bun.spawnSync(["/bin/sh", "-c", ${JSON.stringify(recordGrandchild)}], { env: { ...process.env, GRANDCHILD_RECORD: ${JSON.stringify(recorded)} } });`,
+          `  for (let line = 0; line < 45; line++) console.error("stderr filler", line);`,
+          `  console.error(${JSON.stringify(hangLine)});`,
+          `  console.log(${JSON.stringify(lastStdoutLine)});`,
+          "  await new Promise(() => {});",
+          "});",
+          "",
+        ].join("\n"),
+      );
+      return executedTests([hung], hungBound);
+    });
+    expect(observed.gone).toBe(true);
+    expect(observed.failure).toContain(`did not exit within ${hungBound} ms.`);
+    expect(observed.failure).toContain(hangLine);
+    expect(observed.failure).toContain(lastStdoutLine);
+  },
+  hungBound + teardownMargin,
+);
+
+test(
+  "T5 test harness: a run past its bound fails with the output it wrote while its grandchild still holds that output open",
+  async () => {
+    let returnedAfterBound = Number.NaN;
+    const observed = await grandchildAfter((_scratch, recorded) => {
+      const began = performance.now();
+      return spawnBounded(
+        [
+          "/bin/sh",
+          "-c",
+          '/bin/sleep 8 </dev/null 2>/dev/null & echo "$! $(/bin/ps -o pgid= -p $!)" > "$GRANDCHILD_RECORD"; echo started; wait',
+        ],
+        {
+          env: { ...process.env, GRANDCHILD_RECORD: recorded },
+          boundMilliseconds: heldBound,
+        },
+      ).catch((error: unknown) => {
+        returnedAfterBound = performance.now() - began - heldBound;
+        throw error instanceof BoundPassed
+          ? new Error(`${error.message} stdout: ${error.stdout}`)
+          : error;
+      });
+    });
+    expect(observed.failure).toEndWith(
+      `did not exit within ${heldBound} ms. stdout: started\n`,
+    );
+    expect(returnedAfterBound).toBeGreaterThanOrEqual(waitAfterKill - 50);
+    expect(returnedAfterBound).toBeLessThan(waitAfterKill + waitTolerance);
+    expect(observed.gone).toBe(false);
+  },
+  heldBound + teardownMargin,
+);
