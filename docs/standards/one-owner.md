@@ -12,6 +12,8 @@ here.
 - Import shared test fakes and fixtures from
   `tests/kernel/kernel-repair/handlers.ts` and `shapes.ts`. Witnessed:
   [810345d], [cf72627].
+- Give admission commands that launch Git the same isolated environment as
+  direct fixture calls. Witnessed: [#91-git].
 - Isolate a test's git from the caller's configuration with `gitEnv` from
   `tests/support/git-fixture.ts`, and set it on `process.env` around an
   in-process subject that runs git. The standards fixture used to inherit
@@ -22,6 +24,7 @@ here.
   [#84-git] (a local copy left runtime configuration in the replay fixture),
   [#90-git] (the bootstrap fixture inherited a signing requirement).
 
+[#91-git]: https://github.com/nathanvale/bun-typescript-template/pull/91#discussion_r4607744335
 [56aee86]: https://github.com/nathanvale/bun-typescript-template/commit/56aee86bf059fb2629819fa2b6a1664d776629d5
 [e7c771c]: https://github.com/nathanvale/bun-typescript-template/commit/e7c771c89f63ffeeb609b03e4f670e9d43ea53fb
 [892a700]: https://github.com/nathanvale/bun-typescript-template/commit/892a7005ab00d6ffb24b8d760e9d4a2dc9e0b081

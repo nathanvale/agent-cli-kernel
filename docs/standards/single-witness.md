@@ -26,6 +26,10 @@ this file.
   judges a generic target as it judges the plain union. Witnessed:
   [r4607149524] (`"a" in value` with `T extends { a: number } | { b: string }`
   was refused, and the same check on the union passed).
+- Refresh the split suites' entries in `tests/test-timings.json` from hosted
+  timing artifacts when a slow suite moves. Witnessed: [r4607696012]
+  (the original estimate stayed on the smallest suite, and all five moved
+  suites ran on one shard).
 
 [ac11ed9]: https://github.com/nathanvale/bun-typescript-template/commit/ac11ed98b7d538e8a304cac053aaefcaaf6b2cb3
 [cd2498b]: https://github.com/nathanvale/bun-typescript-template/commit/cd2498b7189a2d45d1906b9c870e8d13da6cd2dd
@@ -33,3 +37,4 @@ this file.
 [r4606943319]: https://github.com/nathanvale/bun-typescript-template/pull/80#discussion_r4606943319
 [r4607149514]: https://github.com/nathanvale/bun-typescript-template/pull/80#discussion_r4607149514
 [r4607149524]: https://github.com/nathanvale/bun-typescript-template/pull/80#discussion_r4607149524
+[r4607696012]: https://github.com/nathanvale/bun-typescript-template/pull/91#discussion_r4607696012
