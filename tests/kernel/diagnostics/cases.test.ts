@@ -209,8 +209,13 @@ const childBound =
   hostedLedgerRunWithoutOverlap + crashCasesInChild * crashExitBound;
 const ledgerTimeout = childBound + teardownMargin;
 
-function outputTail(output: string): string[] {
-  return output.split("\n").slice(-40);
+function outputTails(stdout: string, stderr: string): string[] {
+  return [
+    "The last 40 lines of its stdout:",
+    ...stdout.split("\n").slice(-40),
+    "The last 40 lines of its stderr:",
+    ...stderr.split("\n").slice(-40),
+  ];
 }
 
 function ledgerFiles(): string[] {
@@ -225,7 +230,7 @@ async function executedTests(
 ): Promise<{
   readonly exit: number;
   readonly tests: readonly Executed[];
-  readonly output: string;
+  readonly tails: readonly string[];
 }> {
   const scratch = mkdtempSync(join(realpathSync(tmpdir()), "t5-ledger-"));
   try {
@@ -244,14 +249,9 @@ async function executedTests(
     ).catch((error: unknown) => {
       if (!(error instanceof BoundPassed)) throw error;
       throw new Error(
-        [
-          error.message,
-          "The last 40 lines of its output:",
-          ...outputTail(`${error.stdout}${error.stderr}`),
-        ].join("\n"),
+        [error.message, ...outputTails(error.stdout, error.stderr)].join("\n"),
       );
     });
-    const output = `${child.stdout}${child.stderr}`;
     const xml = existsSync(report) ? readFileSync(report, "utf8") : "";
     const tests = [
       ...xml.matchAll(
@@ -275,7 +275,11 @@ async function executedTests(
           : undefined,
       };
     });
-    return { exit: child.exit, tests, output };
+    return {
+      exit: child.exit,
+      tests,
+      tails: outputTails(child.stdout, child.stderr),
+    };
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }
@@ -290,11 +294,11 @@ function idsIn(name: string): readonly string[] {
 test(
   "R2.ledger-binds-executed: every planned row and repair control ran and passed on this host; nothing was skipped",
   async () => {
-    const { exit, tests, output } = await executedTests();
+    const { exit, tests, tails } = await executedTests();
     const failed = tests.flatMap((entry) =>
       entry.failure === undefined ? [] : [entry.failure],
     );
-    const unnamed = exit !== 0 && failed.length === 0 ? outputTail(output) : [];
+    const unnamed = exit !== 0 && failed.length === 0 ? tails : [];
     expect({ exit, failed, unnamed }).toEqual({
       exit: 0,
       failed: [],
@@ -392,6 +396,7 @@ test(
   "T5 ledger: a ledger child past its bound is killed with every process it started, and its failure shows the child's output",
   async () => {
     const hangLine = "hung.test.ts waits on a promise that never settles";
+    const lastStdoutLine = "hung.test.ts last wrote this line to stdout";
     const observed = await grandchildAfter((scratch, recorded) => {
       const hung = join(scratch, "hung.test.ts");
       writeFileSync(
@@ -400,7 +405,9 @@ test(
           'import { test } from "bun:test";',
           `test("hangs after starting a grandchild", async () => {`,
           `  Bun.spawnSync(["/bin/sh", "-c", ${JSON.stringify(recordGrandchild)}], { env: { ...process.env, GRANDCHILD_RECORD: ${JSON.stringify(recorded)} } });`,
+          `  for (let line = 0; line < 45; line++) console.error("stderr filler", line);`,
           `  console.error(${JSON.stringify(hangLine)});`,
+          `  console.log(${JSON.stringify(lastStdoutLine)});`,
           "  await new Promise(() => {});",
           "});",
           "",
@@ -411,6 +418,7 @@ test(
     expect(observed.gone).toBe(true);
     expect(observed.failure).toContain(`did not exit within ${hungBound} ms.`);
     expect(observed.failure).toContain(hangLine);
+    expect(observed.failure).toContain(lastStdoutLine);
   },
   hungBound + teardownMargin,
 );
