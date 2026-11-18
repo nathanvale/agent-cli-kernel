@@ -98,7 +98,7 @@ Preconditions:
 
   ```sh
   set -eu
-  path=docs/verify-file-size.md
+  path=docs/verify-file-size.txt
   bun -e 'process.stdout.write(" x".repeat(5000))' > "$path"
   git add -- "$path"
   bun run check:file-size
@@ -108,17 +108,17 @@ Preconditions:
 - **Red, file size.** Record `file-size-red` after that green.
 
   ```sh
-  bun -e 'process.stdout.write(" x".repeat(5001))' > docs/verify-file-size.md
+  bun -e 'process.stdout.write(" x".repeat(5001))' > docs/verify-file-size.txt
   bun run check:file-size
   ```
 
-  Exit 1. The refusal names `docs/verify-file-size.md`, 5,001 tokens, and the
+  Exit 1. The refusal names `docs/verify-file-size.txt`, 5,001 tokens, and the
   5,000-token limit.
 - **Red, staged file size.** Record `hook-red-file-size` after that red.
 
   ```sh
   set -eu
-  path=docs/verify-file-size.md
+  path=docs/verify-file-size.txt
   git add -- "$path"
   staged=$(git rev-parse ":$path")
   bun -e 'process.stdout.write(" x".repeat(5000))' > "$path"
@@ -135,7 +135,7 @@ Preconditions:
 
   ```sh
   set -eu
-  path=docs/verify-file-size.md
+  path=docs/verify-file-size.txt
   git add -- "$path"
   staged=$(git rev-parse ":$path")
   bun -e 'process.stdout.write(" x".repeat(5001))' > "$path"
