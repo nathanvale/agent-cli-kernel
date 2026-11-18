@@ -263,12 +263,19 @@
       "count": 1
     }
   },
-  "tests/static-admission.test.ts": {
+  "tests/static-admission-fallow.test.ts": {
     "repository/require-to-throw-message": {
       "count": 1
-    },
+    }
+  },
+  "tests/support/static-admission-fallow.ts": {
     "repository/tests-use-test-folder": {
-      "count": 5
+      "count": 1
+    }
+  },
+  "tests/support/static-admission-project.ts": {
+    "repository/tests-use-test-folder": {
+      "count": 4
     }
   },
   "tests/toolchain-resolution.test.ts": {
