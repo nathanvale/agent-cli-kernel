@@ -9,7 +9,7 @@ import {
 } from "node:fs";
 import { constants, tmpdir } from "node:os";
 import { basename, join } from "node:path";
-import { runWithOwnTools } from "./process-runner.ts";
+import { runWithOwnTools, startChild } from "./process-runner.ts";
 
 const recordsPath = "tests/planted-faults/fault-records.json";
 const patchFolder = "tests/planted-faults/patches";
@@ -422,12 +422,8 @@ function sourceAt(root: string, base: string): Source {
 }
 
 async function removeWorktree(root: string, dir: string): Promise<void> {
-  await Bun.spawn(["git", "worktree", "remove", "--force", dir], {
-    cwd: root,
-    stdout: "ignore",
-    stderr: "ignore",
-    detached: true,
-  }).exited;
+  await startChild(["git", "worktree", "remove", "--force", dir], { cwd: root })
+    .finished;
 }
 
 export async function replay(
