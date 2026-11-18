@@ -305,32 +305,41 @@ function spotsIn(path: string, text: string, anchor: readonly string[]) {
   return spots;
 }
 
+function matched(
+  lines: readonly string[],
+  start: number,
+  wanted: readonly string[],
+  step: 1 | -1,
+): number {
+  let count = 0;
+  while (count < wanted.length && lines[start + count * step] === wanted[count])
+    count += 1;
+  return count;
+}
+
 function chosen(
   spots: readonly Spot[],
   hunk: Hunk,
   linesOf: (path: string) => readonly string[],
 ): Spot | undefined {
-  let left = spots;
-  let before = 0;
-  let after = 0;
-  while (left.length > 1) {
-    if (
-      before < hunk.before.length &&
-      (before <= after || after >= hunk.after.length)
-    )
-      before += 1;
-    else if (after < hunk.after.length) after += 1;
-    else return undefined;
-    const wanted = [
-      ...hunk.before.slice(hunk.before.length - before),
-      ...hunk.anchor,
-      ...hunk.after.slice(0, after),
-    ];
-    left = left.filter(({ path, line }) =>
-      holds(linesOf(path), line - before, wanted),
-    );
-  }
-  return left[0];
+  const nearestFirst = hunk.before.toReversed();
+  const reach = spots.map((spot) => {
+    const lines = linesOf(spot.path);
+    return {
+      spot,
+      before: matched(lines, spot.line - 1, nearestFirst, -1),
+      after: matched(lines, spot.line + hunk.anchor.length, hunk.after, 1),
+    };
+  });
+  return reach.find((each) =>
+    reach.every(
+      (other) =>
+        other === each ||
+        (each.before >= other.before &&
+          each.after >= other.after &&
+          (each.before > other.before || each.after > other.after)),
+    ),
+  )?.spot;
 }
 
 function anchorRefusal(
