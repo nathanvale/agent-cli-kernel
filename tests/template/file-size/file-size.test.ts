@@ -166,6 +166,41 @@ test(
 );
 
 test(
+  "the file-size command refuses malformed and excluded recorded hits",
+  async () => {
+    const tree = await fixtureRepository();
+    const objectRefusal = `${recordedHits} must contain an object keyed by path.`;
+    const fieldsRefusal = `${recordedHits}: "${note}" needs a standing or temporary lifetime and a reason.`;
+    const excluded = "docs/vendor/notes.txt";
+    const cases = [
+      { input: [], refusal: objectRefusal },
+      { input: { [note]: null }, refusal: objectRefusal },
+      {
+        input: { [note]: { lifetime: "forever", reason: "Fixtures." } },
+        refusal: fieldsRefusal,
+      },
+      {
+        input: { [note]: { lifetime: "temporary", reason: " " } },
+        refusal: fieldsRefusal,
+      },
+      {
+        input: { [excluded]: { lifetime: "temporary", reason: "Fixtures." } },
+        refusal: `${recordedHits} names excluded path "${excluded}". Remove its entry.`,
+      },
+    ];
+    for (const { input, refusal } of cases) {
+      write(tree, recordedHits, JSON.stringify(input));
+      expect(checkInProcess(tree)).toEqual({
+        code: 2,
+        stdout: "",
+        stderr: `check:file-size: ${refusal} Repair: resolve the Git or filesystem error and run the gate again.\n`,
+      });
+    }
+  },
+  processWatchdog(5),
+);
+
+test(
   "the hook uses the staged record when a temporary recorded hit is removed",
   async () => {
     const tree = await treeWithHook({ [glossary]: overLimit });

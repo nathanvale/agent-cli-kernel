@@ -25,6 +25,10 @@ function readRecordedHits(bytes: Uint8Array | undefined): RecordedHits {
   const records: unknown = JSON.parse(decoder.decode(bytes));
   const hits = new Map<string, RecordedHit>();
   for (const [path, record] of objectFields(records)) {
+    if (excluded(path))
+      throw new Error(
+        `${recordedHitsFile} names excluded path ${JSON.stringify(path)}. Remove its entry.`,
+      );
     const fields = objectFields(record);
     const lifetime = fields.get("lifetime");
     const reason = fields.get("reason");
