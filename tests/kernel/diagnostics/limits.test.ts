@@ -84,21 +84,15 @@ async function closedLogs(
   where: Tree,
   count: number,
   script: Record<string, unknown>,
-  parallel = 1,
 ) {
   for (let attempts = 0; logs(where.dir).length < count; attempts += 1) {
     if (attempts > count * 3)
       throw new Error("Closed-log fixture never filled.");
-    const missing = count - logs(where.dir).length;
-    const batch = Array.from({ length: Math.min(parallel, missing) }, () =>
-      run({ argv: read, tree: where, script }),
-    );
-    for (const result of await Promise.all(batch)) {
-      expectSuccess(result);
-      const failure = get(statusOf(result), "sinkFailure");
-      if (failure === "capacity") fixture.capacityRetries += 1;
-      else expect(failure).toBeNull();
-    }
+    const result = await run({ argv: read, tree: where, script });
+    expectSuccess(result);
+    const failure = get(statusOf(result), "sinkFailure");
+    if (failure === "capacity") fixture.capacityRetries += 1;
+    else expect(failure).toBeNull();
   }
   return logs(where.dir).sort((a, b) => a.mtimeMs - b.mtimeMs);
 }
@@ -269,7 +263,7 @@ describe("D06 per-run and aggregate allocation", () => {
     async () => {
       const where = tree();
       const before = (
-        await closedLogs(where, limits.files, { records: 1 }, 10)
+        await closedLogs(where, limits.files, { records: 1 })
       ).map(identify);
       expect(before).toHaveLength(limits.files);
       const result = await run({ argv: read, tree: where });
