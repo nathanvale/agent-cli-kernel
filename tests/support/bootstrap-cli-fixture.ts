@@ -1,6 +1,8 @@
 import { afterEach } from "bun:test";
 import { readdir, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { gitEnv, inherited } from "./git-fixture.ts";
+import { spawnBounded } from "./process.ts";
 import { testFolder } from "./test-folder.ts";
 
 export const ROOT = resolve(import.meta.dir, "../..");
@@ -26,43 +28,44 @@ export function runIn(
   cwd: string,
   args: string[],
   env: Record<string, string>,
-): Invocation {
-  return runCommand(cwd, [process.execPath, ...args], env);
+): Promise<Invocation> {
+  return runCommand(cwd, [process.execPath, ...args], {
+    ...process.env,
+    ...env,
+  });
 }
 
-export function runCommand(
+export async function runCommand(
   cwd: string,
   command: string[],
-  env: Record<string, string> = {},
-): Invocation {
-  const result = Bun.spawnSync(command, {
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): Promise<Invocation> {
+  const { exit, stdout, stderr } = await spawnBounded(command, {
     cwd,
-    env: { ...process.env, ...env, NO_COLOR: "1" },
-    stderr: "pipe",
-    stdout: "pipe",
+    env: { ...env, NO_COLOR: "1" },
+    processGroup: true,
   });
-  return {
-    exitCode: result.exitCode,
-    stderr: result.stderr.toString(),
-    stdout: result.stdout.toString(),
-  };
+  return { exitCode: exit, stderr, stdout };
 }
 
-export function invoke(...args: string[]): Invocation {
-  const result = Bun.spawnSync(
-    [process.execPath, "run", "src/bootstrap.ts", ...args],
-    {
-      cwd: ROOT,
-      env: { ...process.env, NO_COLOR: "1" },
-      stderr: "pipe",
-      stdout: "pipe",
-    },
-  );
-  return {
-    exitCode: result.exitCode,
-    stderr: result.stderr.toString(),
-    stdout: result.stdout.toString(),
-  };
+export function invoke(...args: string[]): Promise<Invocation> {
+  return runCommand(ROOT, [
+    process.execPath,
+    "run",
+    "src/bootstrap.ts",
+    ...args,
+  ]);
+}
+
+export function runGit(cwd: string, args: string[]): Promise<Invocation> {
+  return runCommand(cwd, ["git", ...args], {
+    ...inherited(),
+    ...gitEnv,
+    GIT_AUTHOR_NAME: undefined,
+    GIT_AUTHOR_EMAIL: undefined,
+    GIT_COMMITTER_NAME: undefined,
+    GIT_COMMITTER_EMAIL: undefined,
+  });
 }
 
 export async function listFiles(root: string, prefix = ""): Promise<string[]> {
@@ -88,21 +91,17 @@ export function requireSuccess(result: Invocation, operation: string): void {
   }
 }
 
-export function commitGeneratedFiles(
+export async function commitGeneratedFiles(
   destination: string,
   files: readonly string[],
-): void {
+): Promise<void> {
+  requireSuccess(await runGit(destination, ["init", "--quiet"]), "git init");
   requireSuccess(
-    runCommand(destination, ["git", "init", "--quiet"]),
-    "git init",
-  );
-  requireSuccess(
-    runCommand(destination, ["git", "add", "--", ...files]),
+    await runGit(destination, ["add", "--", ...files]),
     "git add generated files",
   );
   requireSuccess(
-    runCommand(destination, [
-      "git",
+    await runGit(destination, [
       "-c",
       "user.name=CLI template qualification",
       "-c",

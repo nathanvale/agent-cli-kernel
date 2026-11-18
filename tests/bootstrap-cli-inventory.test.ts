@@ -11,10 +11,11 @@ import {
   requireSuccess,
   runCommand,
 } from "./support/bootstrap-cli-fixture.ts";
+import { processWatchdog } from "./support/process.ts";
 
 const temporaryRoot = bootstrapCliFixture();
 
-function admitCli(root: string): Invocation {
+function admitCli(root: string): Promise<Invocation> {
   return runCommand(ROOT, [
     process.execPath,
     "run",
@@ -136,25 +137,29 @@ const inventoryRegressions = [
 ];
 
 for (const specimen of inventoryRegressions) {
-  test(`one-CLI inventory regression: ${specimen.name}`, async () => {
-    const root = temporaryRoot();
-    await writeFile(
-      join(root, "package.json"),
-      JSON.stringify({ scripts: specimen.scripts }),
-    );
-    for (const [name, source] of Object.entries(specimen.files)) {
-      const path = join(root, name);
-      await mkdir(resolve(path, ".."), { recursive: true });
-      await writeFile(path, source);
-    }
-    const observed = admitCli(root);
-    expect(observed.stderr).toBe("");
-    expect(JSON.parse(observed.stdout)).toEqual({
-      entries: specimen.entries,
-      status: specimen.entries.length === 1 ? "admitted" : "refused",
-    });
-    expect(observed.exitCode).toBe(specimen.entries.length === 1 ? 0 : 1);
-  });
+  test(
+    `one-CLI inventory regression: ${specimen.name}`,
+    async () => {
+      const root = temporaryRoot();
+      await writeFile(
+        join(root, "package.json"),
+        JSON.stringify({ scripts: specimen.scripts }),
+      );
+      for (const [name, source] of Object.entries(specimen.files)) {
+        const path = join(root, name);
+        await mkdir(resolve(path, ".."), { recursive: true });
+        await writeFile(path, source);
+      }
+      const observed = await admitCli(root);
+      expect(observed.stderr).toBe("");
+      expect(JSON.parse(observed.stdout)).toEqual({
+        entries: specimen.entries,
+        status: specimen.entries.length === 1 ? "admitted" : "refused",
+      });
+      expect(observed.exitCode).toBe(specimen.entries.length === 1 ? 0 : 1);
+    },
+    processWatchdog(1),
+  );
 }
 
 async function admitExtractedCli(root: string): Promise<Invocation> {
@@ -168,52 +173,62 @@ async function admitExtractedCli(root: string): Promise<Invocation> {
   return runCommand(root, [process.execPath, "--eval", script]);
 }
 
-test("one-CLI inventory runs as an extracted module without host dependencies", async () => {
-  const root = temporaryRoot();
-  await mkdir(join(root, "src"));
-  await writeFile(
-    join(root, "src/cli.ts"),
-    "if (import.meta.main) void process.argv;\n",
-  );
-  await writeFile(
-    join(root, "src/domain.ts"),
-    'export const note = "import.meta.main";\n',
-  );
-  const observed = await admitExtractedCli(root);
-  expect(observed.stderr).toBe("");
-  expect(observed.exitCode).toBe(0);
-  expect(JSON.parse(observed.stdout)).toEqual(["src/cli.ts"]);
-});
-
-for (const extracted of [false, true]) {
-  test(`one-CLI inventory never executes macros: ${extracted ? "extracted" : "standalone"}`, async () => {
+test(
+  "one-CLI inventory runs as an extracted module without host dependencies",
+  async () => {
     const root = temporaryRoot();
-    const effectsRoot = temporaryRoot();
-    const marker = join(effectsRoot, "executed.txt");
-    const macro = join(effectsRoot, "effect.ts");
-    await writeFile(
-      macro,
-      `import { appendFileSync } from "node:fs"; export function effect() { appendFileSync(${JSON.stringify(marker)}, "executed\\n"); return 1; }`,
-    );
     await mkdir(join(root, "src"));
     await writeFile(
-      join(root, "package.json"),
-      JSON.stringify({ scripts: { start: "bun src/cli.ts" } }),
+      join(root, "src/cli.ts"),
+      "if (import.meta.main) void process.argv;\n",
     );
     await writeFile(
-      join(root, "src/cli.ts"),
-      `import { effect } from ${JSON.stringify(macro)} with { type: "macro" }; export const value = effect();`,
+      join(root, "src/domain.ts"),
+      'export const note = "import.meta.main";\n',
     );
-    const observed = extracted ? await admitExtractedCli(root) : admitCli(root);
-    expect(existsSync(marker)).toBe(false);
-    expect(observed.exitCode).toBe(1);
-    if (extracted) expect(observed.stderr).toContain("Macros are disabled");
-    else
-      expect(JSON.parse(observed.stdout)).toMatchObject({
-        status: "refused",
-        reason: "Macros are disabled",
-      });
-  });
+    const observed = await admitExtractedCli(root);
+    expect(observed.stderr).toBe("");
+    expect(observed.exitCode).toBe(0);
+    expect(JSON.parse(observed.stdout)).toEqual(["src/cli.ts"]);
+  },
+  processWatchdog(1),
+);
+
+for (const extracted of [false, true]) {
+  test(
+    `one-CLI inventory never executes macros: ${extracted ? "extracted" : "standalone"}`,
+    async () => {
+      const root = temporaryRoot();
+      const effectsRoot = temporaryRoot();
+      const marker = join(effectsRoot, "executed.txt");
+      const macro = join(effectsRoot, "effect.ts");
+      await writeFile(
+        macro,
+        `import { appendFileSync } from "node:fs"; export function effect() { appendFileSync(${JSON.stringify(marker)}, "executed\\n"); return 1; }`,
+      );
+      await mkdir(join(root, "src"));
+      await writeFile(
+        join(root, "package.json"),
+        JSON.stringify({ scripts: { start: "bun src/cli.ts" } }),
+      );
+      await writeFile(
+        join(root, "src/cli.ts"),
+        `import { effect } from ${JSON.stringify(macro)} with { type: "macro" }; export const value = effect();`,
+      );
+      const observed = extracted
+        ? await admitExtractedCli(root)
+        : await admitCli(root);
+      expect(existsSync(marker)).toBe(false);
+      expect(observed.exitCode).toBe(1);
+      if (extracted) expect(observed.stderr).toContain("Macros are disabled");
+      else
+        expect(JSON.parse(observed.stdout)).toMatchObject({
+          status: "refused",
+          reason: "Macros are disabled",
+        });
+    },
+    processWatchdog(1),
+  );
 }
 
 for (const [name, source, entries] of [
@@ -284,135 +299,153 @@ for (const [name, source, entries] of [
     ["src/cli.ts"],
   ],
 ] as const) {
-  test(`one-CLI inventory imported process: ${name}`, async () => {
-    const root = temporaryRoot();
-    await mkdir(join(root, "src"));
-    await writeFile(
-      join(root, "package.json"),
-      JSON.stringify({ scripts: { start: "bun src/cli.ts" } }),
-    );
-    await writeFile(join(root, "src/cli.ts"), "export const main = true;");
-    await writeFile(join(root, "src/second.ts"), source);
-    const observed = admitCli(root);
-    expect(observed.stderr).toBe("");
-    expect(JSON.parse(observed.stdout)).toMatchObject({ entries });
-    expect(observed.exitCode).toBe(entries.length === 1 ? 0 : 1);
-    const extracted = await admitExtractedCli(root);
-    expect(extracted.stderr).toBe("");
-    expect(extracted.exitCode).toBe(0);
-    expect(JSON.parse(extracted.stdout)).toEqual(entries);
-  });
+  test(
+    `one-CLI inventory imported process: ${name}`,
+    async () => {
+      const root = temporaryRoot();
+      await mkdir(join(root, "src"));
+      await writeFile(
+        join(root, "package.json"),
+        JSON.stringify({ scripts: { start: "bun src/cli.ts" } }),
+      );
+      await writeFile(join(root, "src/cli.ts"), "export const main = true;");
+      await writeFile(join(root, "src/second.ts"), source);
+      const observed = await admitCli(root);
+      expect(observed.stderr).toBe("");
+      expect(JSON.parse(observed.stdout)).toMatchObject({ entries });
+      expect(observed.exitCode).toBe(entries.length === 1 ? 0 : 1);
+      const extracted = await admitExtractedCli(root);
+      expect(extracted.stderr).toBe("");
+      expect(extracted.exitCode).toBe(0);
+      expect(JSON.parse(extracted.stdout)).toEqual(entries);
+    },
+    processWatchdog(2),
+  );
 }
 
-test("one-CLI admission covers scratch, durable and workspace entry points", async () => {
-  for (const [profile, extra] of [
-    ["scratch", []],
-    ["durable", []],
-    ["durable", ["--monorepo"]],
-  ] as const) {
+test(
+  "one-CLI admission covers scratch, durable and workspace entry points",
+  async () => {
+    for (const [profile, extra] of [
+      ["scratch", []],
+      ["durable", []],
+      ["durable", ["--monorepo"]],
+    ] as const) {
+      const root = temporaryRoot();
+      const destination = join(root, "repository");
+      requireSuccess(
+        await invoke(
+          "--profile",
+          profile,
+          "--destination",
+          destination,
+          "--source-packet",
+          "https://example.test/spec",
+          ...extra,
+          "--json",
+        ),
+        "generate repository",
+      );
+      await writeFile(
+        join(destination, "src/args.ts"),
+        "export function cliArgs() { return process.argv.slice(2); }\n",
+      );
+      const entryPath = join(destination, "src/cli.ts");
+      await writeFile(
+        entryPath,
+        'import { cliArgs } from "./args.ts";\nvoid cliArgs;\n' +
+          (await readFile(entryPath, "utf8")),
+      );
+      const initial = await admitCli(destination);
+      expect(initial.exitCode).toBe(0);
+      expect(JSON.parse(initial.stdout)).toMatchObject({
+        entries: ["src/cli.ts"],
+        status: "admitted",
+      });
+      const manifestPath = join(destination, "package.json");
+      const manifest = parsePackage(await readFile(manifestPath, "utf8"));
+      manifest.scripts["cli-alias"] = "bun run ./src/cli.ts --help";
+      manifest.scripts["build:sample"] =
+        "bun build src/cli.ts --outfile dist/cli.js";
+      manifest.scripts["build:custom"] = "bun run scripts/build.ts";
+      await mkdir(join(destination, "scripts"));
+      await writeFile(
+        join(destination, "scripts/build.ts"),
+        'const minify = process.argv.includes("--minify");\nvoid Bun.build({entrypoints: ["src/cli.ts"], outdir: "dist", minify});\n',
+      );
+      await writeFile(
+        join(destination, "BUILD.md"),
+        "Build with `bun run scripts/build.ts --minify`.\n",
+      );
+      await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
+      expect((await admitCli(destination)).exitCode).toBe(0);
+      await writeFile(
+        join(destination, "src/second.ts"),
+        'if (import.meta.main) process.stdout.write("second CLI\\n");\n',
+      );
+      const refused = await admitCli(destination);
+      expect(refused.exitCode).toBe(1);
+      expect(JSON.parse(refused.stdout)).toMatchObject({
+        entries: ["src/cli.ts", "src/second.ts"],
+        status: "refused",
+      });
+    }
+  },
+  processWatchdog(12),
+);
+
+test(
+  "one-CLI admission finds a documented executable and workspace bin",
+  async () => {
     const root = temporaryRoot();
-    const destination = join(root, "repository");
+    const destination = join(root, "workspace");
     requireSuccess(
-      invoke(
+      await invoke(
         "--profile",
-        profile,
+        "durable",
+        "--monorepo",
         "--destination",
         destination,
         "--source-packet",
         "https://example.test/spec",
-        ...extra,
         "--json",
       ),
-      "generate repository",
+      "generate workspace",
     );
     await writeFile(
-      join(destination, "src/args.ts"),
-      "export function cliArgs() { return process.argv.slice(2); }\n",
+      join(destination, "src/documented.ts"),
+      'process.stdout.write("documented CLI\\n");\n',
     );
-    const entryPath = join(destination, "src/cli.ts");
+    const readme = join(destination, "README.md");
     await writeFile(
-      entryPath,
-      'import { cliArgs } from "./args.ts";\nvoid cliArgs;\n' +
-        (await readFile(entryPath, "utf8")),
+      readme,
+      (await readFile(readme, "utf8")) +
+        "\nAdditional application: `bun run src/documented.ts`.\n",
     );
-    const initial = admitCli(destination);
-    expect(initial.exitCode).toBe(0);
-    expect(JSON.parse(initial.stdout)).toMatchObject({
-      entries: ["src/cli.ts"],
-      status: "admitted",
-    });
-    const manifestPath = join(destination, "package.json");
-    const manifest = parsePackage(await readFile(manifestPath, "utf8"));
-    manifest.scripts["cli-alias"] = "bun run ./src/cli.ts --help";
-    manifest.scripts["build:sample"] =
-      "bun build src/cli.ts --outfile dist/cli.js";
-    manifest.scripts["build:custom"] = "bun run scripts/build.ts";
-    await mkdir(join(destination, "scripts"));
-    await writeFile(
-      join(destination, "scripts/build.ts"),
-      'const minify = process.argv.includes("--minify");\nvoid Bun.build({entrypoints: ["src/cli.ts"], outdir: "dist", minify});\n',
-    );
-    await writeFile(
-      join(destination, "BUILD.md"),
-      "Build with `bun run scripts/build.ts --minify`.\n",
-    );
-    await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
-    expect(admitCli(destination).exitCode).toBe(0);
-    await writeFile(
-      join(destination, "src/second.ts"),
-      'if (import.meta.main) process.stdout.write("second CLI\\n");\n',
-    );
-    const refused = admitCli(destination);
-    expect(refused.exitCode).toBe(1);
-    expect(JSON.parse(refused.stdout)).toMatchObject({
-      entries: ["src/cli.ts", "src/second.ts"],
+    const documentedRefusal = await admitCli(destination);
+    expect(documentedRefusal.exitCode).toBe(1);
+    expect(documentedRefusal.stderr).toBe("");
+    expect(JSON.parse(documentedRefusal.stdout)).toMatchObject({
+      entries: ["src/cli.ts", "src/documented.ts"],
       status: "refused",
     });
-  }
-});
-
-test("one-CLI admission finds a documented executable and workspace bin", async () => {
-  const root = temporaryRoot();
-  const destination = join(root, "workspace");
-  requireSuccess(
-    invoke(
-      "--profile",
-      "durable",
-      "--monorepo",
-      "--destination",
-      destination,
-      "--source-packet",
-      "https://example.test/spec",
-      "--json",
-    ),
-    "generate workspace",
-  );
-  await writeFile(
-    join(destination, "src/documented.ts"),
-    'process.stdout.write("documented CLI\\n");\n',
-  );
-  const readme = join(destination, "README.md");
-  await writeFile(
-    readme,
-    (await readFile(readme, "utf8")) +
-      "\nAdditional application: `bun run src/documented.ts`.\n",
-  );
-  expect(admitCli(destination).exitCode).toBe(1);
-  await writeFile(
-    join(destination, "src/documented.ts"),
-    "export const libraryValue = 1;\n",
-  );
-  await writeFile(readme, "# Workspace\nRun: `bun run src/cli.ts`.\n");
-  const memberPath = join(destination, "packages/example-lib/package.json");
-  const member = JSON.parse(await readFile(memberPath, "utf8")) as Record<
-    string,
-    unknown
-  >;
-  member.bin = { extra: "src/index.ts" };
-  await writeFile(memberPath, JSON.stringify(member, null, 2) + "\n");
-  const refused = admitCli(destination);
-  expect(refused.exitCode).toBe(1);
-  expect(JSON.parse(refused.stdout)).toMatchObject({
-    entries: ["packages/example-lib/src/index.ts", "src/cli.ts"],
-  });
-});
+    await writeFile(
+      join(destination, "src/documented.ts"),
+      "export const libraryValue = 1;\n",
+    );
+    await writeFile(readme, "# Workspace\nRun: `bun run src/cli.ts`.\n");
+    const memberPath = join(destination, "packages/example-lib/package.json");
+    const member = JSON.parse(await readFile(memberPath, "utf8")) as Record<
+      string,
+      unknown
+    >;
+    member.bin = { extra: "src/index.ts" };
+    await writeFile(memberPath, JSON.stringify(member, null, 2) + "\n");
+    const refused = await admitCli(destination);
+    expect(refused.exitCode).toBe(1);
+    expect(JSON.parse(refused.stdout)).toMatchObject({
+      entries: ["packages/example-lib/src/index.ts", "src/cli.ts"],
+    });
+  },
+  processWatchdog(3),
+);
