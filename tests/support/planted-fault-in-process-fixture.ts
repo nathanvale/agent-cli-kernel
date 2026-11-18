@@ -8,6 +8,7 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import type { Fault } from "../../scripts/planted-faults.ts";
+import { gitEnv, gitResult } from "./git-fixture.ts";
 import { testFolder } from "./test-folder.ts";
 
 const repositoryLocation = [
@@ -18,13 +19,6 @@ const repositoryLocation = [
   "GIT_ALTERNATE_OBJECT_DIRECTORIES",
   "GIT_COMMON_DIR",
 ];
-
-const fixtureAuthor = {
-  GIT_AUTHOR_NAME: "Fixture",
-  GIT_AUTHOR_EMAIL: "fixture@example.invalid",
-  GIT_COMMITTER_NAME: "Fixture",
-  GIT_COMMITTER_EMAIL: "fixture@example.invalid",
-};
 
 export const recordsPath = "tests/planted-faults/fault-records.json";
 
@@ -56,21 +50,7 @@ test("L.weak keeps a number", () => {
 `;
 
 export function git(root: string, ...args: string[]): string {
-  const result = Bun.spawnSync(["git", ...args], {
-    cwd: root,
-    env: {
-      ...Object.fromEntries(
-        Object.entries(process.env).filter(
-          ([name]) => !repositoryLocation.includes(name),
-        ),
-      ),
-      GIT_CONFIG_GLOBAL: "/dev/null",
-      GIT_CONFIG_NOSYSTEM: "1",
-      ...fixtureAuthor,
-    },
-    stdout: "pipe",
-    stderr: "pipe",
-  });
+  const result = gitResult(root, ...args);
   if (result.exitCode !== 0)
     throw new Error(`git ${args.join(" ")}: ${result.stderr.toString()}`);
   return result.stdout.toString();
@@ -222,8 +202,7 @@ export function createPlantedFaultFixture() {
     const scratch = folder("planted-faults-scratch-");
     const changes: Record<string, string | undefined> = {
       TMPDIR: scratch,
-      GIT_CONFIG_GLOBAL: "/dev/null",
-      GIT_CONFIG_NOSYSTEM: "1",
+      ...gitEnv,
       ...Object.fromEntries(
         repositoryLocation.map((name) => [name, undefined]),
       ),
