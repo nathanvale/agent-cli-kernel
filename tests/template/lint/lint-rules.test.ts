@@ -531,6 +531,23 @@ const antiSlopCases = [
     lines: [2, 3],
   },
   {
+    rule: "anti-slop/no-module-mocking",
+    witness: "r4609902952",
+    message: "Replace module mocking with dependency injection",
+    filePath: "tests/template/doctor/doctor.test.ts",
+    failing: [
+      'import { vi } from "vitest";',
+      'vi.mock("./user-store.ts");',
+      'vi[`mock`]("./user-store.ts");',
+    ],
+    passing: [
+      'import { vi } from "vitest";',
+      "export const store = { save() {} };",
+      'vi[`spyOn`](store, "save");',
+    ],
+    lines: [2, 3],
+  },
+  {
     rule: "anti-slop/no-reduce-accumulator-copy",
     witness: "anti-slop 13909c9",
     message: "Do not copy the reducer accumulator on every iteration;",
