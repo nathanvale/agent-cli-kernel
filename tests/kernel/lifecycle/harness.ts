@@ -361,6 +361,8 @@ export async function cleanup(observed: { readonly dir: string }) {
   await rm(observed.dir, { recursive: true, force: true });
 }
 
+const toolBound = 5_000;
+
 // Platform: H1: whether the host will start a process with this exact argv and
 // environment. Linux refuses any single argument of 131,072 bytes or more
 // (MAX_ARG_STRLEN, terminator included); Darwin limits only the total
@@ -370,15 +372,21 @@ function spawns(
   argv: readonly string[],
   env: Readonly<Record<string, string>>,
 ): boolean {
+  let probe: ReturnType<typeof Bun.spawnSync>;
   try {
-    return Bun.spawnSync(["/bin/sh", "-c", ":", ...argv], {
+    probe = Bun.spawnSync(["/bin/sh", "-c", ":", ...argv], {
       env,
       stdout: "ignore",
       stderr: "ignore",
-    }).success;
+      timeout: toolBound,
+      killSignal: "SIGKILL",
+    });
   } catch {
     return false;
   }
+  if (probe.exitedDueToTimeout === true)
+    throw new Error(`/bin/sh -c : did not finish within ${toolBound} ms.`);
+  return probe.success;
 }
 
 export function spawnableLength(
@@ -543,13 +551,14 @@ export async function goneWithin(pid: number, milliseconds: number) {
   return true;
 }
 function psField(field: "pgid" | "rss", pid: number): number | undefined {
-  const result = Bun.spawnSync([
-    "/bin/ps",
-    "-o",
-    `${field}=`,
-    "-p",
-    String(pid),
-  ]);
+  const result = Bun.spawnSync(
+    ["/bin/ps", "-o", `${field}=`, "-p", String(pid)],
+    { timeout: toolBound, killSignal: "SIGKILL" },
+  );
+  if (result.exitedDueToTimeout === true)
+    throw new Error(
+      `/bin/ps did not answer within ${toolBound} ms for pid ${pid}.`,
+    );
   const value = Number(result.stdout.toString().trim());
   return result.exitCode === 0 && Number.isFinite(value) && value > 0
     ? value

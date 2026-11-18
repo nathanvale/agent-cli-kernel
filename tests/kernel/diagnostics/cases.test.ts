@@ -358,10 +358,13 @@ async function grandchildAfter(
     ledgered = { pid: Number(pid), group: Number(group) };
     return { failure, gone: await goneWithin(ledgered.pid, 2_000) };
   } finally {
-    if (ledgered && processGroup(ledgered.pid) === ledgered.group)
-      signalIfPresent(ledgered.pid, "SIGKILL");
-    cleanTrees();
-    rmSync(scratch, { recursive: true, force: true });
+    try {
+      if (ledgered && processGroup(ledgered.pid) === ledgered.group)
+        signalIfPresent(ledgered.pid, "SIGKILL");
+    } finally {
+      cleanTrees();
+      rmSync(scratch, { recursive: true, force: true });
+    }
   }
 }
 
