@@ -301,7 +301,7 @@ exec '${realGit}' "$@"
   );
 
   test(
-    "FR.y a worktree removal that hangs is stopped at the step limit, and the verdict stands",
+    "FR.y a worktree removal that hangs is stopped at the step limit, leaves no worktree entry, and the verdict stands",
     async () => {
       const { root, id } = await repositoryWithFault({});
       commit(root, "reword the refusal", {
@@ -336,6 +336,7 @@ exec '${realGit}' "$@"
       expect(performance.now() - began).toBeLessThan(
         stepSeconds * 1000 + 4_000,
       );
+      expectNoLeftovers(root, run.temporary);
     },
     timeout,
   );
