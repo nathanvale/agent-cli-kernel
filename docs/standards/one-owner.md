@@ -22,7 +22,8 @@ here.
   `VALUE_n` pairs, and `GIT_CONFIG_PARAMETERS`). A user's `diff.orderFile`
   changed what the staged readers listed. Witnessed: [f929eb7], [7a62deb],
   [#84-git] (a local copy left runtime configuration in the replay fixture),
-  [#90-git] (the bootstrap fixture inherited a signing requirement).
+  [#90-git] (the bootstrap fixture inherited a signing requirement),
+  [#101-git] (the naming fixture inherited a setting that disabled its hook).
 
 [#91-git]: https://github.com/nathanvale/bun-typescript-template/pull/91#discussion_r4607744335
 [56aee86]: https://github.com/nathanvale/bun-typescript-template/commit/56aee86bf059fb2629819fa2b6a1664d776629d5
@@ -37,3 +38,4 @@ here.
 [7a62deb]: https://github.com/nathanvale/bun-typescript-template/commit/7a62deb4233ecad8b18fb1206b03f70e0d1262f3
 [#84-git]: https://github.com/nathanvale/bun-typescript-template/pull/84#discussion_r4607244506
 [#90-git]: https://github.com/nathanvale/bun-typescript-template/pull/90#discussion_r4607634940
+[#101-git]: https://github.com/nathanvale/bun-typescript-template/pull/101#discussion_r4609075462
