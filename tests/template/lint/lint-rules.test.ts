@@ -9,8 +9,17 @@ import {
   kernelPath,
   messages,
   root,
+  ruleHits,
   ruleOn,
 } from "../../support/template-lint.ts";
+
+const antiSlop = (
+  (await import(
+    new URL("../../../config/anti-slop-rules.mjs", import.meta.url).href
+  )) as {
+    default: { rules: object };
+  }
+).default;
 
 const templateRules = (
   await Promise.all(
@@ -361,6 +370,147 @@ for (const item of cases)
       await hits(item.rule, item.filePath, item.passing.join("\n")),
     ).toEqual([]);
   });
+
+const antiSlopCases = [
+  {
+    rule: "no-restricted-syntax",
+    witness: "anti-slop 13909c9",
+    message: "This assertion chain discards type evidence.",
+    filePath: "scripts/doctor.ts",
+    failing: [
+      "declare const input: string;",
+      "export const parenthesized = (input as unknown) as number;",
+      "export const angled = <number>(<unknown>input);",
+      "export const constThenType = ({ id: 1 } as const) as { id: number };",
+    ],
+    passing: [
+      "declare const input: unknown;",
+      "export const single = input as number;",
+      'export const constant = ["a"] as const;',
+    ],
+    lines: [2, 3, 4],
+  },
+  {
+    rule: "anti-slop/no-widen-then-assert",
+    witness: "anti-slop 13909c9",
+    message: "discards type evidence and later recreates it with an assertion.",
+    filePath: "scripts/doctor.ts",
+    failing: [
+      'const source = { id: "second" };',
+      "const widened: unknown = source;",
+      "export const parsed = widened as { readonly id: string };",
+    ],
+    passing: [
+      "declare const input: unknown;",
+      "export const parsed = input as { readonly id: string };",
+    ],
+    lines: [3],
+  },
+  {
+    rule: "anti-slop/no-unknown-type-aliases",
+    witness: "anti-slop 13909c9",
+    message: "hides `unknown`.",
+    filePath: "scripts/doctor.ts",
+    failing: [
+      "type Identity<T> = T;",
+      "export type Payload = Identity<unknown>;",
+      "export type Loose = string | unknown;",
+    ],
+    passing: [
+      "type Box<T> = { readonly value: T };",
+      "export type Payload = Box<unknown>;",
+    ],
+    lines: [2, 3],
+  },
+  {
+    rule: "anti-slop/no-module-mocking",
+    witness: "anti-slop 13909c9",
+    message: "Replace module mocking with dependency injection",
+    filePath: "tests/template/doctor/doctor.test.ts",
+    failing: [
+      'import { vi as testApi } from "vitest";',
+      'testApi.mock("./user-store.ts");',
+      'jest.unstable_mockModule("./user-store.ts");',
+    ],
+    passing: [
+      'import { vi as localVi } from "./helpers.ts";',
+      'localVi.mock("./user-store.ts");',
+      "export const store = { save() {} };",
+      'vi.spyOn(store, "save");',
+    ],
+    lines: [2, 3],
+  },
+  {
+    rule: "anti-slop/no-reduce-accumulator-copy",
+    witness: "anti-slop 13909c9",
+    message: "Do not copy the reducer accumulator on every iteration;",
+    filePath: "scripts/doctor.ts",
+    failing: [
+      "export const byId = (items: { id: string }[]) =>",
+      "  items.reduce((all, item) => Object.assign({}, all, { [item.id]: item }), {});",
+      "export const sorted = (items: number[]) =>",
+      "  items.reduce<number[]>((all) => all.toSorted(), []);",
+    ],
+    passing: [
+      "export const byId = (items: { id: string }[]) =>",
+      "  items.reduce<Record<string, { id: string }>>((all, item) => {",
+      "    all[item.id] = item;",
+      "    return all;",
+      "  }, {});",
+    ],
+    lines: [2, 4],
+  },
+  {
+    rule: "anti-slop/no-accumulating-spread",
+    witness: "oxc 1.93.0",
+    message:
+      "Using spreads within accumulators leads to `O(n^2)` time complexity.",
+    filePath: "scripts/doctor.ts",
+    failing: [
+      "export const keyed = (names: string[]) =>",
+      "  names.reduce((all, name) => ({ ...all, [name]: name }), {});",
+      "export function counted() {",
+      "  let seen: number[] = [];",
+      "  for (let index = 0; index < 3; index++) seen = [...seen, index];",
+      "  return seen;",
+      "}",
+    ],
+    passing: [
+      "export function counted() {",
+      "  const seen: number[] = [];",
+      "  for (let index = 0; index < 3; index++) seen.push(index);",
+      "  return seen;",
+      "}",
+      "export const both = (left: number[], right: number[]) => [...left, ...right];",
+    ],
+    lines: [2, 5],
+  },
+];
+
+for (const item of antiSlopCases)
+  test(`${item.rule} refuses the ${item.witness} shape in ${item.filePath} and admits its clean form`, async () => {
+    const found = await ruleHits(
+      item.rule,
+      item.filePath,
+      item.failing.join("\n"),
+    );
+    expect(found.map(({ line }) => line)).toEqual(item.lines);
+    expect(
+      found.filter(({ message }) => !message.includes(item.message)),
+    ).toEqual([]);
+    expect(
+      await ruleHits(item.rule, item.filePath, item.passing.join("\n")),
+    ).toEqual([]);
+  });
+
+test("every anti-slop rule has a case", () => {
+  expect([...new Set(antiSlopCases.map(({ rule }) => rule))].sort()).toEqual(
+    [
+      "no-restricted-syntax",
+      ...Object.keys(antiSlop.rules).map((rule) => `anti-slop/${rule}`),
+    ].sort(),
+  );
+});
 
 test("every template rule refuses a case on a template file", async () => {
   const proved = new Set<string>();
