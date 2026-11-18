@@ -563,7 +563,7 @@
     "id": "0ade74f-harness",
     "patch": "tests/planted-faults/patches/0ade74f-harness.patch",
     "testFile": "tests/kernel/diagnostics/cases.test.ts",
-    "title": "T5 harness: a crash run past its bound",
+    "title": "T5 test harness: a crash run past its bound",
     "source": "0ade74f test(kernel): kill a hung crash run's and R2 child's whole process group (GREEN)"
   },
   {

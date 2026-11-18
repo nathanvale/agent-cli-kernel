@@ -353,7 +353,7 @@ async function grandchildAfter(
 }
 
 test(
-  "T5 harness: a crash run past its bound is killed with every process it started",
+  "T5 test harness: a crash run past its bound is killed with every process it started",
   async () => {
     const observed = await grandchildAfter((_scratch, recorded) =>
       runCrash(
