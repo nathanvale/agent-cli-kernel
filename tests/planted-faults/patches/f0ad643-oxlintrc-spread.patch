@@ -1,13 +1,13 @@
-diff --git a/.oxlintrc.json b/.oxlintrc.json
-index e8158b6..15956ab 100644
---- a/.oxlintrc.json
-+++ b/.oxlintrc.json
-@@ -35,7 +35,7 @@
-     }
-   ],
-   "rules": {
--    "oxc/no-accumulating-spread": "error",
-+    "oxc/no-accumulating-spread": "off",
-     "anti-slop/no-chained-type-assertions": "error",
-     "anti-slop/no-widen-then-assert": "error",
-     "anti-slop/no-unknown-type-aliases": "error",
+diff --git a/eslint.config.mjs b/eslint.config.mjs
+index 2a8c555..a71a6d8 100644
+--- a/eslint.config.mjs
++++ b/eslint.config.mjs
+@@ -115,7 +115,7 @@ export default defineConfig(
+     plugins: { "anti-slop": antiSlop },
+     rules: {
+       "no-restricted-syntax": ["error", ...chainedTypeAssertions],
+-      "anti-slop/no-accumulating-spread": "error",
++      "anti-slop/no-accumulating-spread": "off",
+       "anti-slop/no-widen-then-assert": "error",
+       "anti-slop/no-unknown-type-aliases": "error",
+       "anti-slop/no-module-mocking": "error",

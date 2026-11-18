@@ -1,0 +1,13 @@
+diff --git a/config/anti-slop-rules.mjs b/config/anti-slop-rules.mjs
+index d8fb73a..499e9ca 100644
+--- a/config/anti-slop-rules.mjs
++++ b/config/anti-slop-rules.mjs
+@@ -509,7 +509,7 @@ function aliasSubstitutions(alias, reference, base, expansion) {
+     const [substitutions, resolvingAliases] =
+       explicitArgument === undefined
+         ? [next, expansion.innerAliases]
+-        : [base, expansion.resolvingAliases];
++        : [base, expansion.innerAliases];
+     next.set(parameter.name.name, {
+       type: argument,
+       substitutions: new Map(substitutions),
