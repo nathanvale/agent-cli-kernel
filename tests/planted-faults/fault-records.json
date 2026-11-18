@@ -779,7 +779,7 @@
   {
     "id": "1fd64d7-planted-faults",
     "patch": "tests/planted-faults/patches/1fd64d7-planted-faults.patch",
-    "testFile": "tests/template/fault-replay/planted-fault-records-in-process.test.ts",
+    "testFile": "tests/template/fault-replay/planted-fault-changes-in-process.test.ts",
     "title": "names a fault whose patch deletes a whole file when only that file changed",
     "source": "1fd64d7 fix(faults): take a deleted file's hunk path from the side it is removed from (GREEN)"
   },
@@ -793,7 +793,7 @@
   {
     "id": "e82b9ff-planted-faults",
     "patch": "tests/planted-faults/patches/e82b9ff-planted-faults.patch",
-    "testFile": "tests/template/fault-replay/planted-fault-records-in-process.test.ts",
+    "testFile": "tests/template/fault-replay/planted-fault-changes-in-process.test.ts",
     "title": "names a fault whose moved anchor is ambiguous at the base",
     "source": "e82b9ff fix(faults): select a refused fault by the places its anchor was found (GREEN)"
   },

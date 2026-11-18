@@ -1,17 +1,10 @@
 diff --git a/.githooks/pre-commit b/.githooks/pre-commit
-index 21720ec..b49abe7 100755
 --- a/.githooks/pre-commit
 +++ b/.githooks/pre-commit
-@@ -43,12 +43,6 @@ bun scripts/check-names.ts --staged || {
-   exit 1
- }
-
+@@ -46,6 +45,0 @@
 -if [ ! -f node_modules/tiktoken/package.json ]; then
 -  echo "pre-commit: tiktoken is missing. Repair: run bun install --frozen-lockfile, then commit again." >&2
 -  exit 1
 -fi
 -bun --no-install scripts/check-file-size.ts --staged
 -
- if [ -n "$(staged | tr -d '\0')" ]; then
-   staged | xargs -0 "$bin/biome" format --no-errors-on-unmatched --files-ignore-unknown=true || {
-     echo "pre-commit: Biome formatting differs in the files above. Repair: run bun run format, stage the rewritten files with git add, and commit again. Done when bun run format:check passes." >&2
