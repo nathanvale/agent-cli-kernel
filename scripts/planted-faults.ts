@@ -225,6 +225,7 @@ function testArgs(fault: Fault): string[] {
 
 type Hunk = {
   path: string;
+  number: number;
   before: readonly string[];
   anchor: readonly string[];
   replacement: readonly string[];
@@ -246,31 +247,51 @@ type Spot = { path: string; line: number };
 const hunkLine = /^[ +\\-]/;
 const placesNamed = 10;
 
-function shaped(path: string, body: readonly string[]): Hunk {
-  const insertion = !body.some((line) => line.startsWith("-"));
-  const changed = body.flatMap((line, index) =>
-    line.startsWith(" ") ? [] : [index],
-  );
-  const first = insertion ? 0 : (changed[0] ?? 0);
-  const last = insertion ? body.length - 1 : (changed.at(-1) ?? 0);
-  const text = (lines: readonly string[]) => lines.map((line) => line.slice(1));
-  const span = body.slice(first, last + 1);
-  return {
-    path,
-    before: text(body.slice(0, first)),
-    anchor: text(span.filter((line) => !line.startsWith("+"))),
-    replacement: text(span.filter((line) => !line.startsWith("-"))),
-    after: text(body.slice(last + 1)),
-    insertion,
-  };
+function kept(lines: readonly string[], dropped: "+" | "-"): string[] {
+  return lines
+    .filter((line) => !line.startsWith(dropped))
+    .map((line) => line.slice(1));
+}
+
+function shaped(path: string, number: number, body: readonly string[]) {
+  const regions: { first: number; last: number }[] = [];
+  for (const [index, line] of body.entries()) {
+    if (line.startsWith(" ")) continue;
+    const open = regions.at(-1);
+    if (open?.last === index - 1) open.last = index;
+    else regions.push({ first: index, last: index });
+  }
+  return regions.map(({ first, last }, index): Hunk => {
+    const insertion = !body
+      .slice(first, last + 1)
+      .some((line) => line.startsWith("-"));
+    const from = insertion ? (regions[index - 1]?.last ?? -1) + 1 : first;
+    const to = insertion
+      ? (regions[index + 1]?.first ?? body.length)
+      : last + 1;
+    const span = body.slice(from, to);
+    return {
+      path,
+      number,
+      before: kept(body.slice(0, from), "-"),
+      anchor: kept(span, "+"),
+      replacement: kept(span, "-"),
+      after: kept(body.slice(to), "+"),
+      insertion,
+    };
+  });
 }
 
 function hunksOf(patch: string): Hunk[] {
   const hunks: Hunk[] = [];
   let path = "";
   let body: string[] | undefined;
+  let number = 0;
   const close = () => {
-    if (body !== undefined && body.length > 0) hunks.push(shaped(path, body));
+    if (body !== undefined && body.length > 0) {
+      number += 1;
+      hunks.push(...shaped(path, number, body));
+    }
     body = undefined;
   };
   for (const line of patch.split("\n")) {
@@ -342,12 +363,8 @@ function chosen(
   )?.spot;
 }
 
-function anchorRefusal(
-  number: number,
-  hunk: Hunk,
-  spots: readonly Spot[],
-): string {
-  const what = `${hunk.insertion ? "the context" : "the removed text"} of hunk ${number}, starting "${(hunk.anchor[0] ?? "").trim()}"`;
+function anchorRefusal(hunk: Hunk, spots: readonly Spot[]): string {
+  const what = `${hunk.insertion ? "the context" : "the removed text"} of hunk ${hunk.number}, starting "${(hunk.anchor[0] ?? "").trim()}"`;
   if (spots.length === 0)
     return `anchor absent: ${what}, is not in ${hunk.path}${hunk.insertion ? "" : " or any other tracked file"}.`;
   const named = spots
@@ -365,7 +382,7 @@ function place(patchPath: string, patch: string, source: Source): Placement {
   const files = new Map<string, string>();
   const textOf = (path: string) => files.get(path) ?? source.read(path);
   const linesOf = (path: string) => (textOf(path) ?? "").split("\n");
-  for (const [index, hunk] of hunks.entries()) {
+  for (const hunk of hunks) {
     const recorded = textOf(hunk.path);
     let spots =
       recorded === undefined ? [] : spotsIn(hunk.path, recorded, hunk.anchor);
@@ -381,7 +398,7 @@ function place(patchPath: string, patch: string, source: Source): Placement {
     }
     const spot = chosen(spots, hunk, linesOf);
     if (spot === undefined)
-      return { kind: "refused", cause: anchorRefusal(index + 1, hunk, spots) };
+      return { kind: "refused", cause: anchorRefusal(hunk, spots) };
     const lines = linesOf(spot.path);
     lines.splice(spot.line, hunk.anchor.length, ...hunk.replacement);
     files.set(spot.path, lines.join("\n"));
