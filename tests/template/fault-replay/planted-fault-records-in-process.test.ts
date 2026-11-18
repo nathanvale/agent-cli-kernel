@@ -509,6 +509,38 @@ describe("faultsTouchedSince", () => {
     );
   });
 
+  test("refuses a failed search for a moved anchor, naming git's words and the repair", async () => {
+    const { root } = twoFaults();
+    git(root, "mv", "src/limit.ts", "src/bound.ts");
+    git(root, "commit", "--quiet", "-m", "rename limit");
+    const base = headOf(root);
+    const real = Bun.which("git");
+    if (real === null) throw new Error("No git on PATH.");
+    const tools = folder("planted-faults-failing-grep-");
+    writeFileSync(
+      join(tools, "git"),
+      `#!/bin/sh\nif [ "$1" = grep ]; then echo "fatal: planted grep failure" >&2; exit 128; fi\nexec '${real}' "$@"\n`,
+      { mode: 0o755 },
+    );
+    const path = process.env.PATH;
+
+    const message = await rejection(
+      isolated(() => {
+        process.env.PATH = `${tools}:${path}`;
+        try {
+          return faultsTouchedSince(root, base);
+        } finally {
+          process.env.PATH = path;
+        }
+      }),
+    );
+
+    const anchor = guarded.split("\n")[1] ?? "";
+    expect(message).toBe(
+      `git grep -l -F -e '${anchor}' ${base} failed: fatal: planted grep failure. Repair: run it by hand in ${root} to see why, then run this command again.`,
+    );
+  });
+
   test("refuses a base git cannot resolve, naming it", async () => {
     const { root } = twoFaults();
     expect(
