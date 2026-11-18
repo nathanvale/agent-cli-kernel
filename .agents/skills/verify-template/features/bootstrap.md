@@ -34,6 +34,8 @@ Preconditions:
 
 - A launched run; `doctor` passes.
 - `$run/work/generated/` holds no folder named in these recipes.
+- Before running the durable and monorepo checks, follow the
+  [durable README's Node.js setup](../../../../profiles/durable/README.md#bootstrap).
 
 - **Help.** Record `bootstrap-help` in `template`:
   `bun run bootstrap --help`. Exit 0; stdout starts
@@ -107,13 +109,10 @@ Preconditions:
   `git archive` copy is refused. Always launch from a clone.
 - A generated repository needs a first commit before `bun run check`: Fallow's
   audit compares against it. Its README gives the commands.
-- The durable and monorepo checks need a real Node.js on `PATH`: Fallow's
-  type-aware step runs `node`. With only Bun's `node` fallback (the
-  `oven/bun` image), `quality:fallow` prints
+- When `node` resolves to Bun's fallback (as in the `oven/bun` image),
+  `quality:fallow` prints
   `fallow-type-aware: Cannot find package 'typescript' imported from .../node_modules/fallow-type-aware/src/backend.mjs`
-  and the check exits 2 after the tests pass. Follow the
-  [durable README's Node.js setup](../../../../profiles/durable/README.md#bootstrap)
-  before running the check.
+  and the check exits 2 after the tests pass.
 - The generated CLI calls itself `example` in its usage line, whatever
   `--name` or destination was given.
 - The durable `package.json` pins `@types/bun` 1.4.0 while the template pins
