@@ -339,6 +339,8 @@ test(
 
 const hungBound = 3_000;
 const heldBound = 500;
+const waitAfterKill = 3_000;
+const waitTolerance = 750;
 const recordGrandchild =
   '/bin/sleep 300 </dev/null >/dev/null 2>&1 & echo "$! $(/bin/ps -o pgid= -p $!)" > "$GRANDCHILD_RECORD"';
 
@@ -426,8 +428,10 @@ test(
 test(
   "T5 test harness: a run past its bound fails with the output it wrote while its grandchild still holds that output open",
   async () => {
-    const observed = await grandchildAfter((_scratch, recorded) =>
-      spawnBounded(
+    let returnedAfterBound = Number.NaN;
+    const observed = await grandchildAfter((_scratch, recorded) => {
+      const began = performance.now();
+      return spawnBounded(
         [
           "/bin/sh",
           "-c",
@@ -438,14 +442,17 @@ test(
           boundMilliseconds: heldBound,
         },
       ).catch((error: unknown) => {
+        returnedAfterBound = performance.now() - began - heldBound;
         throw error instanceof BoundPassed
           ? new Error(`${error.message} stdout: ${error.stdout}`)
           : error;
-      }),
-    );
+      });
+    });
     expect(observed.failure).toEndWith(
       `did not exit within ${heldBound} ms. stdout: started\n`,
     );
+    expect(returnedAfterBound).toBeGreaterThanOrEqual(waitAfterKill - 50);
+    expect(returnedAfterBound).toBeLessThan(waitAfterKill + waitTolerance);
     expect(observed.gone).toBe(false);
   },
   heldBound + teardownMargin,
