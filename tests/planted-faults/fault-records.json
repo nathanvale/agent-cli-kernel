@@ -471,7 +471,7 @@
   {
     "id": "c77aaa9-static-admission",
     "patch": "tests/planted-faults/patches/c77aaa9-static-admission.patch",
-    "testFile": "tests/static-admission-in-process.test.ts",
+    "testFile": "tests/static-admission-execution-in-process.test.ts",
     "title": "^execute kills a command that outlives its time limit",
     "source": "c77aaa9 fix(static-admission): bound every child command with a time limit"
   },
