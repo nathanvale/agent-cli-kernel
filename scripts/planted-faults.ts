@@ -486,13 +486,16 @@ function sourceAt(root: string, base: string): Source {
 
 async function removeWorktree(
   root: string,
+  folder: string,
   dir: string,
   limitMilliseconds: number,
 ): Promise<void> {
-  await startChild(["git", "worktree", "remove", "--force", dir], {
-    cwd: root,
-    limitMilliseconds,
-  }).finished;
+  const worktree = (argv: readonly string[]) =>
+    startChild(["git", "worktree", ...argv], { cwd: root, limitMilliseconds })
+      .finished;
+  const removed = await worktree(["remove", "--force", dir]);
+  rmSync(folder, { recursive: true, force: true });
+  if (removed.timedOut || removed.exitCode !== 0) await worktree(["prune"]);
 }
 
 export async function replay(
@@ -539,8 +542,7 @@ export async function replay(
       return { kind: "TIMEOUT", step: error.step };
     throw error;
   } finally {
-    await removeWorktree(root, dir, limitMilliseconds);
-    rmSync(folder, { recursive: true, force: true });
+    await removeWorktree(root, folder, dir, limitMilliseconds);
   }
 }
 
