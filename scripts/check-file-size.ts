@@ -47,10 +47,15 @@ function excluded(path: string): boolean {
   );
 }
 
-function git(root: string, ...args: string[]): Uint8Array {
+function git(
+  root: string,
+  args: readonly string[],
+  stdin?: Uint8Array,
+): Uint8Array {
   const result = Bun.spawnSync(["git", ...args], {
     cwd: root,
     env: { ...process.env, GIT_OPTIONAL_LOCKS: "0", GIT_NO_LAZY_FETCH: "1" },
+    stdin: stdin ?? "ignore",
     stdout: "pipe",
     stderr: "pipe",
     timeout: gitTimeout,
@@ -66,7 +71,7 @@ function git(root: string, ...args: string[]): Uint8Array {
 }
 
 function gitFields(root: string, ...args: string[]): string[] {
-  const fields = decoder.decode(git(root, ...args)).split("\0");
+  const fields = decoder.decode(git(root, args)).split("\0");
   fields.pop();
   return fields;
 }
@@ -93,7 +98,7 @@ function workingFiles(root: string): Files {
   );
 }
 
-function stagedFiles(root: string): Files {
+function stagedEntries(root: string): Map<string, string | undefined> {
   const fields = gitFields(
     root,
     "diff",
@@ -108,19 +113,79 @@ function stagedFiles(root: string): Files {
     "-z",
     "--",
   );
-  const files: Files = new Map();
+  const entries = new Map<string, string | undefined>();
   for (let index = 0; index < fields.length; index += 2) {
     const [, mode, , object] = fields[index]?.split(" ") ?? [];
     const path = fields[index + 1];
     if (path === undefined || object === undefined)
       throw new Error("git diff returned an incomplete staged file record.");
+    if (excluded(path)) continue;
     const regular = mode === "100644" || mode === "100755";
-    files.set(
-      path,
-      regular ? () => git(root, "cat-file", "blob", object) : undefined,
-    );
+    entries.set(path, regular ? object : undefined);
   }
-  return files;
+  return entries;
+}
+
+function batchBlobSize(header: string, object: string): number {
+  if (header === `${object} missing`)
+    throw new Error(`git cat-file could not read staged blob ${object}.`);
+  const match = /^([0-9a-f]+) blob (0|[1-9][0-9]*)$/.exec(header);
+  const size = Number(match?.[2]);
+  if (match?.[1] !== object || !Number.isSafeInteger(size))
+    throw new Error(`git cat-file returned an invalid header for ${object}.`);
+  return size;
+}
+
+function stagedBlobs(root: string, objects: readonly string[]) {
+  const blobs = new Map<string, Uint8Array>();
+  if (objects.length === 0) return blobs;
+  if (objects.some((object) => !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(object)))
+    throw new Error("git diff returned an invalid staged blob ID.");
+  const input = new TextEncoder().encode(`${objects.join("\n")}\n`);
+  const output = git(
+    root,
+    ["--no-replace-objects", "cat-file", "--batch"],
+    input,
+  );
+  const lineFeed = 10;
+  let offset = 0;
+  for (const object of objects) {
+    const headerEnd = output.indexOf(lineFeed, offset);
+    if (headerEnd < 0)
+      throw new Error(
+        `git cat-file returned an incomplete header for ${object}.`,
+      );
+    const size = batchBlobSize(
+      decoder.decode(output.subarray(offset, headerEnd)),
+      object,
+    );
+    // Platform: Git puts a line feed after exactly the advertised number of blob bytes.
+    const start = headerEnd + 1;
+    const end = start + size;
+    if (output[end] !== lineFeed)
+      throw new Error(
+        `git cat-file returned an incomplete payload for ${object}.`,
+      );
+    blobs.set(object, output.subarray(start, end));
+    offset = end + 1;
+  }
+  if (offset !== output.length)
+    throw new Error("git cat-file returned extra staged blob data.");
+  return blobs;
+}
+
+function stagedFiles(root: string): Files {
+  const entries = stagedEntries(root);
+  const objects = new Set(
+    [...entries.values()].filter((object) => object !== undefined),
+  );
+  const blobs = stagedBlobs(root, [...objects]);
+  return new Map(
+    [...entries].map(([path, object]) => [
+      path,
+      object === undefined ? undefined : () => blobs.get(object),
+    ]),
+  );
 }
 
 function textOf(bytes: Uint8Array | undefined): string | undefined {

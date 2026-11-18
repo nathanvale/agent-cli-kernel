@@ -28,10 +28,15 @@ const hookRefusal = `check:file-size: scanned 1 staged UTF-8 text files (limit 5
 
 afterEach(removeFixtureTrees);
 
-function checkFileSize(tree: string, ...args: string[]) {
+function checkFileSize(
+  tree: string,
+  args: readonly string[] = [],
+  env?: Readonly<Record<string, string>>,
+) {
   return runInFixture(
     [process.execPath, "run", "--silent", "check:file-size", ...args],
     tree,
+    env,
   );
 }
 
@@ -151,6 +156,81 @@ test(
     });
   },
   processWatchdog(13),
+);
+
+test(
+  "the staged scan reads Git blobs in one batch across binary frames",
+  async () => {
+    const tree = await fixtureRepository();
+    linkToolchain(tree);
+    const binary = "docs/binary.txt";
+    const malformed = "docs/not-utf8.txt";
+    const duplicate = "docs/second-file-size.txt";
+    await seed(tree, {
+      "docs/a-empty.txt": "",
+      [binary]: `\0\n${"1".repeat(40)} blob 4\ntext\n`,
+      [note]: overLimit,
+      [duplicate]: overLimit,
+      "docs/small.txt": "no trailing newline",
+    });
+    writeFileSync(join(tree, malformed), Buffer.from([255, 10, 255]));
+    await git(tree, "add", "--", malformed);
+    write(tree, binary, overLimit);
+    write(tree, note, atLimit);
+
+    const trace = join(tree, "git-trace.log");
+    expect(
+      await checkFileSize(tree, ["--staged"], { GIT_TRACE: trace }),
+    ).toEqual({
+      exit: 1,
+      stdout:
+        "check:file-size: scanned 4 staged UTF-8 text files (limit 5000 tokens).\n",
+      stderr: `${noteRefusal}check:file-size: "${duplicate}": 5001 tokens exceeds the 5000-token limit. Repair: shorten or split the file.\n`,
+    });
+    const blobReads = (await Bun.file(trace).text())
+      .split("\n")
+      .filter((line) => line.includes("built-in: git cat-file "))
+      .map((line) => line.slice(line.indexOf("built-in: git cat-file ")));
+    expect(blobReads).toEqual(["built-in: git cat-file --batch"]);
+  },
+  processWatchdog(7),
+);
+
+test(
+  "the staged scan refuses a missing eligible blob and skips a missing vendor blob",
+  async () => {
+    const tree = await fixtureRepository();
+    linkToolchain(tree);
+    const excluded = "docs/vendor/absent.txt";
+    write(tree, note, "an object never written to this repository");
+    const hashed = await gitOutcome(tree, "hash-object", "--", note);
+    expect(hashed).toMatchObject({ exit: 0, stderr: "" });
+    const object = hashed.stdout.trim();
+    const stageMissing = (path: string) =>
+      git(
+        tree,
+        "update-index",
+        "--add",
+        "--cacheinfo",
+        `100644,${object},${path}`,
+      );
+    await stageMissing(excluded);
+
+    expect(await checkFileSize(tree, ["--staged"])).toEqual({
+      exit: 0,
+      stdout:
+        "check:file-size: scanned 0 staged UTF-8 text files (limit 5000 tokens).\n",
+      stderr: "",
+    });
+
+    await stageMissing(note);
+    expect(await checkFileSize(tree, ["--staged"])).toEqual({
+      exit: 2,
+      stdout: "",
+      stderr: `check:file-size: git cat-file could not read staged blob ${object}. Repair: resolve the Git or filesystem error and run the gate again.\n`,
+    });
+  },
+  processWatchdog(8),
 );
 
 test(
