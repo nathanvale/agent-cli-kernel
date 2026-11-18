@@ -47,8 +47,8 @@ const insertion = `diff --git a/src/limit.ts b/src/limit.ts
    return value;
 `;
 
-function ambiguous(places: string): string {
-  return `anchor ambiguous: the removed text of hunk 1, starting "${guardLine}", is at 2 places: ${places}. Its context lines do not choose one, and a planted fault in the wrong place still fails its test, so it was not applied.`;
+function ambiguous(places: string, count = 2): string {
+  return `anchor ambiguous: the removed text of hunk 1, starting "${guardLine}", is at ${count} places: ${places}. Its context lines do not choose one, and a planted fault in the wrong place still fails its test, so it was not applied.`;
 }
 
 function renamed(root: string, extra: Record<string, string> = {}): void {
@@ -156,6 +156,35 @@ describe("replay", () => {
     expect(worktrees(subject.root)).toEqual([subject.root]);
     expect(run.leftovers).toEqual([]);
   }, 60_000);
+
+  test.each([
+    [10, ""],
+    [11, ", and 1 more"],
+  ])(
+    "STALE anchor ambiguous at %i places names at most ten of them",
+    async (count, more) => {
+      const subject = planted();
+      const copies = Array.from(
+        { length: count - 1 },
+        (_, index) => `\nexport const shown${index} = \`\n${guarded}\`;\n`,
+      );
+      const text = [guarded, ...copies].join("");
+      commit(subject.root, "show the source", { "src/limit.ts": text });
+      const lines = text.split("\n");
+      const places = lines.flatMap((line, index) =>
+        line === `  ${guardLine}` ? [`src/limit.ts:${index + 1}`] : [],
+      );
+
+      const run = await replayed(subject);
+
+      expect(places).toHaveLength(count);
+      expect(run.result).toEqual({
+        kind: "STALE",
+        output: ambiguous(`${places.slice(0, 10).join(", ")}${more}`, count),
+      });
+    },
+    60_000,
+  );
 
   test("KILLED where its context lines choose one of two places holding its guarded text", async () => {
     const subject = planted();

@@ -1,0 +1,13 @@
+diff --git a/scripts/planted-faults.ts b/scripts/planted-faults.ts
+index b9e519c..c7b0919 100644
+--- a/scripts/planted-faults.ts
++++ b/scripts/planted-faults.ts
+@@ -244,7 +244,7 @@ type Placement =
+ type Spot = { path: string; line: number };
+ 
+ const hunkLine = /^[ +\\-]/;
+-const placesNamed = 10;
++const placesNamed = 9;
+ 
+ function shaped(path: string, body: readonly string[]): Hunk {
+   const insertion = !body.some((line) => line.startsWith("-"));
