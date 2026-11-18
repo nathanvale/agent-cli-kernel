@@ -23,6 +23,11 @@ generation time.
 
 ## Bootstrap
 
+Install Node.js and put it on `PATH` before running the checks. Node.js 24 is
+a supported choice. Fallow runs `node` for its type-aware TypeScript analysis.
+Run `node -p 'process.versions.bun ? "Bun" : process.version'` to check which
+runtime your shell finds. Expect a Node.js version such as `v24.20.0`.
+
 Bootstrap does not initialize Git. Fallow's audit needs a Git comparison base even when all findings are gated. Establish an empty local baseline before the first check so
 the generated scaffold remains visible as new work:
 
