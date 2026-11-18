@@ -130,6 +130,16 @@ repository broke it.
   one decimal). A rounded duration can read 0.0 on a fast host, so an
   assertion above zero fails there. Witnessed: [07d2d72], [e50afb6].
 
+## Timings
+
+- Refresh the moved suites' entries in `tests/test-timings.json` from the
+  hosted timing artifacts when a slow suite moves, and drop the keys of the
+  paths it left. Witnessed: [#91-timings] (the original estimate stayed on
+  the smallest suite, and all five moved suites ran on one shard),
+  [#99-timings], [#99-shards] (the timings kept the old
+  `tests/check-commits.test.ts` key, and every moved template suite ran on
+  shard 3).
+
 [#91-count]: https://github.com/nathanvale/bun-typescript-template/pull/91#discussion_r4607744321
 [185c90d]: https://github.com/nathanvale/bun-typescript-template/commit/185c90d11dd167ee4874e383ba26cd7d64a70964
 [640ba05]: https://github.com/nathanvale/bun-typescript-template/commit/640ba05881da2694fbdfad9b1d124bd85d36c0e4
@@ -184,3 +194,6 @@ repository broke it.
 [#90-inventory]: https://github.com/nathanvale/bun-typescript-template/pull/90#discussion_r4607634930
 [#90-routes]: https://github.com/nathanvale/bun-typescript-template/pull/90#pullrequestreview-5948919460
 [#90-process]: https://github.com/nathanvale/bun-typescript-template/pull/90#discussion_r4607634935
+[#91-timings]: https://github.com/nathanvale/bun-typescript-template/pull/91#discussion_r4607696012
+[#99-timings]: https://github.com/nathanvale/bun-typescript-template/pull/99#discussion_r4608746456
+[#99-shards]: https://github.com/nathanvale/bun-typescript-template/pull/99#discussion_r4608771631
