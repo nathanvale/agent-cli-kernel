@@ -14,7 +14,7 @@ import {
 import {
   COMPLEX_SOURCE,
   createProjectFixture,
-  git,
+  gitAsync,
   type Invocation,
   makeTypeOnlyDependency,
   readJson,
@@ -31,15 +31,20 @@ async function assertFallowRefusal(
   expectedRules: Record<string, number | FallowRuleExpectation>,
   pass: FallowPass = "whole-project",
 ): Promise<void> {
-  const files = await git(
+  const files = await gitAsync(
     root,
     "ls-files",
     "--others",
     "--modified",
     "--exclude-standard",
   );
-  await git(root, "add", "--", ...files.trim().split("\n").filter(Boolean));
-  await git(
+  await gitAsync(
+    root,
+    "add",
+    "--",
+    ...files.trim().split("\n").filter(Boolean),
+  );
+  await gitAsync(
     root,
     "-c",
     "user.name=CDS-TS-2 fixture",
