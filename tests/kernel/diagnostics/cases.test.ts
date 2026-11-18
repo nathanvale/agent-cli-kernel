@@ -9,6 +9,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { crashExitBound, teardownMargin } from "./harness.ts";
 import { reportUnproved, unprovedHere, unprovedOn } from "./platform.ts";
 
 const here = import.meta.dir;
@@ -191,7 +192,11 @@ function decodeXmlEntities(text: string): string {
     .replaceAll("&amp;", "&");
 }
 
-const childBound = 540_000;
+const hostedLedgerRunWithoutOverlap = 63_603;
+const crashCasesInChild = 2;
+const childBound =
+  hostedLedgerRunWithoutOverlap + crashCasesInChild * crashExitBound;
+const ledgerTimeout = childBound + teardownMargin;
 
 function executedTests(): {
   readonly exit: number | null;
@@ -256,42 +261,49 @@ function idsIn(name: string): readonly string[] {
   );
 }
 
-test("R2.ledger-binds-executed: every planned row and repair control ran and passed on this host; nothing was skipped", () => {
-  const { exit, tests, output } = executedTests();
-  const failed = tests.flatMap((entry) =>
-    entry.failure === undefined ? [] : [entry.failure],
-  );
-  const unnamed =
-    exit !== 0 && failed.length === 0 ? output.split("\n").slice(-40) : [];
-  expect({ exit, failed, unnamed }).toEqual({
-    exit: 0,
-    failed: [],
-    unnamed: [],
-  });
-  expect(tests.length).toBeGreaterThan(0);
-  expect(
-    tests.filter((entry) => entry.skipped).map((entry) => entry.name),
-  ).toEqual([]);
-  const platformBound = (entry: Executed) => / UNPROVED on /.test(entry.name);
-  const proved = new Set(
-    tests
-      .filter((entry) => !platformBound(entry))
-      .flatMap((entry) => idsIn(entry.name)),
-  );
-  const unproved = new Set(
-    tests.filter(platformBound).flatMap((entry) => idsIn(entry.name)),
-  );
-  const unprovedHereIds = unprovedOn(process.platform);
-  const planned = frozenCases()
-    .filter((entry) => entry.status === "planned")
-    .map((entry) => entry.id);
-  expect(
-    planned.filter((id) => !unprovedHereIds.includes(id) && !proved.has(id)),
-  ).toEqual([]);
-  expect(unprovedHereIds.filter((id) => !unproved.has(id))).toEqual([]);
-  const ledgerOwn = ["R1.platform-outcomes-pinned", "R2.ledger-binds-executed"];
-  const repairs = [...repairCaseIds(1), ...repairCaseIds(2)].filter(
-    (id) => !ledgerOwn.includes(id),
-  );
-  expect(repairs.filter((id) => !proved.has(id))).toEqual([]);
-}, 600_000);
+test(
+  "R2.ledger-binds-executed: every planned row and repair control ran and passed on this host; nothing was skipped",
+  () => {
+    const { exit, tests, output } = executedTests();
+    const failed = tests.flatMap((entry) =>
+      entry.failure === undefined ? [] : [entry.failure],
+    );
+    const unnamed =
+      exit !== 0 && failed.length === 0 ? output.split("\n").slice(-40) : [];
+    expect({ exit, failed, unnamed }).toEqual({
+      exit: 0,
+      failed: [],
+      unnamed: [],
+    });
+    expect(tests.length).toBeGreaterThan(0);
+    expect(
+      tests.filter((entry) => entry.skipped).map((entry) => entry.name),
+    ).toEqual([]);
+    const platformBound = (entry: Executed) => / UNPROVED on /.test(entry.name);
+    const proved = new Set(
+      tests
+        .filter((entry) => !platformBound(entry))
+        .flatMap((entry) => idsIn(entry.name)),
+    );
+    const unproved = new Set(
+      tests.filter(platformBound).flatMap((entry) => idsIn(entry.name)),
+    );
+    const unprovedHereIds = unprovedOn(process.platform);
+    const planned = frozenCases()
+      .filter((entry) => entry.status === "planned")
+      .map((entry) => entry.id);
+    expect(
+      planned.filter((id) => !unprovedHereIds.includes(id) && !proved.has(id)),
+    ).toEqual([]);
+    expect(unprovedHereIds.filter((id) => !unproved.has(id))).toEqual([]);
+    const ledgerOwn = [
+      "R1.platform-outcomes-pinned",
+      "R2.ledger-binds-executed",
+    ];
+    const repairs = [...repairCaseIds(1), ...repairCaseIds(2)].filter(
+      (id) => !ledgerOwn.includes(id),
+    );
+    expect(repairs.filter((id) => !proved.has(id))).toEqual([]);
+  },
+  ledgerTimeout,
+);
