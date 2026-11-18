@@ -11,6 +11,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { spawnBounded } from "../kernel-repair/swarm-process.ts";
 
 const here = import.meta.dir;
 const specimenCli = join(here, "fixtures/specimen-cli.ts");
@@ -134,7 +135,7 @@ const stdoutRelay = [
   "waitpid($pid, 0); exit($? >> 8);",
 ].join("\n");
 
-export function start(launch: Launch) {
+function command(launch: Launch): string[] {
   const file = launch.bare ? bareCli : specimenCli;
   const direct =
     launch.shell !== undefined
@@ -149,13 +150,23 @@ export function start(launch: Launch) {
             file,
             ...launch.argv,
           ];
-  const cmd =
-    launch.holdStdoutUntil === undefined
-      ? direct
-      : ["/usr/bin/perl", "-e", stdoutRelay, launch.holdStdoutUntil, ...direct];
+  return launch.holdStdoutUntil === undefined
+    ? direct
+    : ["/usr/bin/perl", "-e", stdoutRelay, launch.holdStdoutUntil, ...direct];
+}
+
+function envelopeOf(stdout: string): unknown {
+  try {
+    return JSON.parse(stdout);
+  } catch {
+    return undefined;
+  }
+}
+
+export function start(launch: Launch) {
   const began = performance.now();
   const child = Bun.spawn({
-    cmd,
+    cmd: command(launch),
     env: environment(launch),
     stdin: "ignore",
     stdout: "pipe",
@@ -168,20 +179,13 @@ export function start(launch: Launch) {
       new Response(child.stderr).text(),
     ]);
     const exit = await child.exited;
-    const elapsedMilliseconds = performance.now() - began;
-    let envelope: unknown;
-    try {
-      envelope = JSON.parse(stdout);
-    } catch {
-      envelope = undefined;
-    }
     return {
       stdout,
       stderr,
       exit,
       signal: child.signalCode,
-      elapsedMilliseconds,
-      envelope,
+      elapsedMilliseconds: performance.now() - began,
+      envelope: envelopeOf(stdout),
     };
   })();
   return { child, finished };
@@ -202,22 +206,23 @@ const overlappingAbortMilliseconds = 60_000;
 export const crashExitBound = 2 * overlappingAbortMilliseconds;
 export const teardownMargin = 15_000;
 export const crashTimeout = crashExitBound + teardownMargin;
-export async function runCrash(launch: Launch): Promise<Run> {
-  const { child, finished } = start(launch);
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const bound = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => {
-      child.kill("SIGKILL");
-      reject(
-        new Error(`The crashing CLI did not exit within ${crashExitBound} ms.`),
-      );
-    }, crashExitBound);
+export async function runCrash(
+  launch: Launch,
+  boundMilliseconds = crashExitBound,
+): Promise<Run> {
+  const began = performance.now();
+  const { stdout, stderr, exit, signal } = await spawnBounded(command(launch), {
+    env: environment(launch),
+    boundMilliseconds,
   });
-  try {
-    return await Promise.race([finished, bound]);
-  } finally {
-    clearTimeout(timer);
-  }
+  return {
+    stdout,
+    stderr,
+    exit,
+    signal: signal ?? null,
+    elapsedMilliseconds: performance.now() - began,
+    envelope: envelopeOf(stdout),
+  };
 }
 
 export function canon(envelope: unknown): string {

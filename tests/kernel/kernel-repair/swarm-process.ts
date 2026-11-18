@@ -40,6 +40,7 @@ export async function spawnBounded(
   stdout: string;
   stderr: string;
   exit: number;
+  signal?: NodeJS.Signals | number;
   firstByteAt?: number | undefined;
 }> {
   const bound = options.boundMilliseconds ?? exitBound;
@@ -100,7 +101,14 @@ export async function spawnBounded(
     throw new Error(`${argv.join(" ")} did not exit within ${bound} ms.`);
   }
   const [stdout, stderr, exit] = finished;
-  return { stdout, stderr, exit, firstByteAt };
+  const signal = child.signalCode;
+  return {
+    stdout,
+    stderr,
+    exit,
+    ...(signal === null ? {} : { signal }),
+    firstByteAt,
+  };
 }
 
 export function processWatchdog(runs: number): number {
