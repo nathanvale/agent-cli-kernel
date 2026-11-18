@@ -53,12 +53,12 @@ function installedToolchain(lintVersion: string): Record<string, string> {
     "node_modules/typescript-eslint/index.js": "module.exports = {};",
     "node_modules/typescript/package.json": `{"name":"typescript","version":"${lintVersion}","main":"index.js"}`,
     "node_modules/typescript/index.js": `module.exports = { version: "${lintVersion}" };`,
-    "node_modules/@typescript/native/package.json": '{"version":"7.0.2"}',
+    "node_modules/@typescript/native/package.json": '{"version":"7.1.0-beta"}',
     "node_modules/fallow-type-aware/package.json":
       '{"name":"fallow-type-aware","version":"3.43.2"}',
     "node_modules/fallow-type-aware/node_modules/typescript/package.json":
       '{"version":"7.0.2"}',
-    "node_modules/.bin/tsc": "#!/bin/sh\necho 'Version 7.0.2'\n",
+    "node_modules/.bin/tsc": "#!/bin/sh\necho 'Version 7.1.0-beta'\n",
   };
 }
 

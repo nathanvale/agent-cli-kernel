@@ -23,7 +23,7 @@ async function installedProject(apiVersion: string, packageVersion = "6.0.2") {
       main: "index.cjs",
     }),
     "node_modules/typescript/index.cjs": `module.exports = ${JSON.stringify({ version: apiVersion })};`,
-    "node_modules/@typescript/native/package.json": '{"version":"7.0.2"}',
+    "node_modules/@typescript/native/package.json": '{"version":"7.1.0-beta"}',
     "node_modules/fallow-type-aware/package.json":
       '{"name":"fallow-type-aware"}',
     "node_modules/fallow-type-aware/node_modules/typescript/package.json":
@@ -51,9 +51,9 @@ test("toolchain admission accepts the exact API and wrapper with the native comp
   const project = await installedProject("6.0.2");
   expect(resolveToolchain(project)).toMatchObject({
     lint: "6.0.2",
-    compiler: "7.0.2",
+    compiler: "7.1.0-beta",
     semantic: "7.0.2",
-    compilerExecutable: "Version 7.0.2",
+    compilerExecutable: "Version 7.1.0-beta",
   });
 });
 
@@ -77,8 +77,8 @@ test("the installed template resolves the accepted API and native compiler", () 
   expect(resolveToolchain(repository)).toEqual({
     lint: "6.0.2",
     lintPackage: "6.0.2",
-    compiler: "7.0.2",
+    compiler: "7.1.0-beta",
     semantic: "7.0.2",
-    compilerExecutable: "Version 7.0.2",
+    compilerExecutable: "Version 7.1.0-beta",
   });
 });

@@ -36,7 +36,7 @@ const executables = {
   "lint-view": "node_modules/typescript/bin/tsc6",
 } as const satisfies Record<Compiler, string>;
 const failedExit = {
-  native: 1,
+  native: 2,
   "lint-view": 2,
 } as const satisfies Record<Compiler, number>;
 const both: readonly Compiler[] = ["native", "lint-view"];

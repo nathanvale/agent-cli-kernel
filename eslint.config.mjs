@@ -22,6 +22,7 @@ export default tseslint.config(
       ".fallow/**",
       ".worktrees/**",
       "profiles/**",
+      "config/*.d.mts",
       "examples/**",
       "starters/simple/**",
       "starters/complex/**",
