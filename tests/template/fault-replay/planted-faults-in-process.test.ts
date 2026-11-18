@@ -47,6 +47,17 @@ const insertion = `diff --git a/src/limit.ts b/src/limit.ts
    return value;
 `;
 
+const twoRegions = `diff --git a/src/limit.ts b/src/limit.ts
+--- a/src/limit.ts
++++ b/src/limit.ts
+@@ -1,4 +1,3 @@
+ export function limit(value: number): number {
+-  ${guardLine}
+   return value;
+-}
++};
+`;
+
 function ambiguous(places: string, count = 2): string {
   return `anchor ambiguous: the removed text of hunk 1, starting "${guardLine}", is at ${count} places: ${places}. Its context lines do not choose one, and a planted fault in the wrong place still fails its test, so it was not applied.`;
 }
@@ -275,6 +286,18 @@ describe("replay", () => {
   test("KILLED when a patch only inserts lines and its context is in place", async () => {
     const subject = planted();
     write(subject.root, subject.fault.patch, insertion);
+
+    const run = await replayed(subject);
+
+    expect(run.result).toEqual({ kind: "KILLED", failing: killedBy });
+  }, 60_000);
+
+  test("KILLED when only the context between a hunk's two changed regions was edited", async () => {
+    const subject = planted();
+    write(subject.root, subject.fault.patch, twoRegions);
+    commit(subject.root, "return the number", {
+      "src/limit.ts": guarded.replace("return value;", "return Number(value);"),
+    });
 
     const run = await replayed(subject);
 
