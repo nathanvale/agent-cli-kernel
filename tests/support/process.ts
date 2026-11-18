@@ -1,7 +1,8 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, readlinkSync } from "node:fs";
 import { type Child, startChild } from "../../scripts/process-runner.ts";
 
 const exitBound = 20_000;
+const psMilliseconds = 10_000;
 
 // Interface: once `ledger` holds the line `line`, `signal` goes to the child
 // alone, as a terminal or CI runner would send it.
@@ -61,8 +62,125 @@ function signalOnLine(
   return watch;
 }
 
+type ProcessRow = {
+  readonly pid: number;
+  readonly parent: number;
+  readonly group: number;
+  readonly text: string;
+};
+
+function processRows(): ProcessRow[] | undefined {
+  const listed = Bun.spawnSync(
+    [
+      "ps",
+      "-A",
+      "-o",
+      "pid=",
+      "-o",
+      "ppid=",
+      "-o",
+      "pgid=",
+      "-o",
+      "stat=",
+      "-o",
+      "etime=",
+      "-o",
+      "args=",
+    ],
+    { timeout: psMilliseconds, killSignal: "SIGKILL" },
+  );
+  if (listed.exitCode !== 0) return undefined;
+  return listed.stdout
+    .toString()
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line !== "")
+    .map((text) => {
+      const [pid, parent, group] = text.split(/\s+/).map(Number);
+      return { pid: pid ?? 0, parent: parent ?? 0, group: group ?? 0, text };
+    });
+}
+
+function familyOf(rows: readonly ProcessRow[], root: number): Set<number> {
+  const family = new Set([root]);
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const row of rows)
+      if (
+        !family.has(row.pid) &&
+        (family.has(row.parent) || row.group === root)
+      ) {
+        family.add(row.pid);
+        grew = true;
+      }
+  }
+  return family;
+}
+
+function pipesOf(pid: number): string[] {
+  const folder = `/proc/${pid}/fd`;
+  try {
+    return readdirSync(folder).flatMap((name) => {
+      try {
+        const target = readlinkSync(`${folder}/${name}`);
+        return target.startsWith("pipe:") ? [target] : [];
+      } catch {
+        return [];
+      }
+    });
+  } catch {
+    return [];
+  }
+}
+
+// Platform: Linux lists each process's open files under /proc, so a process that
+// still holds the write end of a pipe this test reads can be named. macOS has
+// no such listing; there the family rows alone show who is left.
+function pipeHolders(rows: readonly ProcessRow[]): string[] {
+  if (process.platform !== "linux") return [];
+  const ancestors = new Set<number>();
+  for (
+    let pid = process.pid;
+    pid > 1 && !ancestors.has(pid);
+    pid = rows.find((row) => row.pid === pid)?.parent ?? 1
+  )
+    ancestors.add(pid);
+  const read = new Set(pipesOf(process.pid));
+  return rows
+    .filter((row) => !ancestors.has(row.pid))
+    .flatMap((row) => {
+      const held = [...new Set(pipesOf(row.pid))].filter((pipe) =>
+        read.has(pipe),
+      );
+      return held.length === 0 ? [] : [`${held.join(" ")} held by ${row.text}`];
+    });
+}
+
+// Interface: what was left of a child when its bound passed, for the failure
+// that names the bound: one `ps` row (pid, parent, group, state, elapsed,
+// command) for the child and each process it started, or a line saying the
+// child had exited, then on Linux each process holding a pipe this test reads.
+// When ps does not answer, it says so rather than naming no one.
+function stuckProcesses(pid: number): string {
+  const rows = processRows();
+  if (rows === undefined)
+    return `Processes left when the bound passed: unknown, because ps did not answer within ${psMilliseconds} ms.`;
+  const family = familyOf(rows, pid);
+  const left = rows.filter((row) => family.has(row.pid));
+  const child = left.some((row) => row.pid === pid)
+    ? []
+    : [`${pid} had exited`];
+  return [
+    "Processes left when the bound passed:",
+    ...child,
+    ...left.map((row) => row.text),
+    ...pipeHolders(rows),
+  ].join("\n");
+}
+
 // Interface: a run that outlives its bound is killed at once with SIGKILL and
-// fails naming the bound, so a hung case leaves no fixture process behind.
+// fails naming the bound and the processes left then, so a hung case leaves no
+// fixture process behind and says what it was waiting on.
 export async function spawnBounded(
   argv: readonly string[],
   options: {
@@ -78,19 +196,26 @@ export async function spawnBounded(
     cwd: options.cwd,
     env: options.env ?? process.env,
     ownGroup: options.processGroup === true,
-    limitMilliseconds: bound,
     graceMilliseconds: 0,
   });
   const watch =
     options.signalAt === undefined
       ? undefined
       : signalOnLine(child, options.signalAt, bound);
+  let left: string | undefined;
+  const limit = setTimeout(() => {
+    left = stuckProcesses(child.pid);
+    child.stop();
+  }, bound);
   try {
     const run = await child.finished;
-    if (run.timedOut)
-      throw new Error(`${argv.join(" ")} did not exit within ${bound} ms.`);
+    if (left !== undefined)
+      throw new Error(
+        `${argv.join(" ")} did not exit within ${bound} ms.\n${left}`,
+      );
     return { stdout: run.stdout, stderr: run.stderr, exit: run.exitCode };
   } finally {
+    clearTimeout(limit);
     watch?.stop();
   }
 }
