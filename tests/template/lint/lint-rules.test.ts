@@ -3,6 +3,9 @@ import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import ts from "typescript";
+import payloadRuleSet from "../../../config/payload-rules.mjs";
+import platformRuleSet from "../../../config/platform-rules.mjs";
+import templateRuleSet from "../../../config/template-rules.mjs";
 import { commentCases } from "../../support/lint-comment-cases.ts";
 import {
   hits,
@@ -12,23 +15,11 @@ import {
   ruleOn,
 } from "../../support/template-lint.ts";
 
-const templateRules = (
-  await Promise.all(
-    [
-      "../../../config/template-rules.mjs",
-      "../../../config/platform-rules.mjs",
-      "../../../config/payload-rules.mjs",
-    ].map(async (file) =>
-      Object.keys(
-        (
-          (await import(new URL(file, import.meta.url).href)) as {
-            default: { rules: object };
-          }
-        ).default.rules,
-      ),
-    ),
-  )
-).flat();
+const templateRules = [
+  templateRuleSet,
+  platformRuleSet,
+  payloadRuleSet,
+].flatMap((module) => Object.keys(module.rules));
 const tracked = execFileSync(
   "git",
   ["ls-files", "--cached", "--others", "--exclude-standard"],

@@ -17,6 +17,12 @@ function version(value: unknown): string {
   return identity;
 }
 
+const accepted = {
+  lint: "6.0.2",
+  compiler: "7.1.0-beta",
+  semantic: "7.0.2",
+} as const;
+
 function acceptedBackends(
   lint: string,
   lintPackage: string,
@@ -24,10 +30,10 @@ function acceptedBackends(
   semantic: string,
 ): void {
   if (
-    lint !== "6.0.2" ||
-    lintPackage !== "6.0.2" ||
-    compiler !== "7.0.2" ||
-    semantic !== "7.0.2"
+    lint !== accepted.lint ||
+    lintPackage !== accepted.lint ||
+    compiler !== accepted.compiler ||
+    semantic !== accepted.semantic
   )
     throw new Error(
       "The installed lint, compiler and semantic backends do not match the accepted toolchain.",
@@ -50,9 +56,11 @@ export function resolveToolchain(project: string) {
   );
   if (
     compiler.exitCode !== 0 ||
-    compiler.stdout.toString().trim() !== "Version 7.0.2"
+    compiler.stdout.toString().trim() !== `Version ${accepted.compiler}`
   )
-    throw new Error("The compiler is not native TypeScript 7.0.2.");
+    throw new Error(
+      `The compiler is not native TypeScript ${accepted.compiler}.`,
+    );
   const receipt = {
     lint: version(lint),
     lintPackage: version(lintPackage),

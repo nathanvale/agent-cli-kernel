@@ -137,23 +137,26 @@ function exportedStatement(node: ts.Node): boolean {
       true && ts.isSourceFile(holder.parent)
   );
 }
+const NAMED_KINDS = new Set<ts.SyntaxKind>([
+  ts.SyntaxKind.FunctionDeclaration,
+  ts.SyntaxKind.ClassDeclaration,
+  ts.SyntaxKind.InterfaceDeclaration,
+  ts.SyntaxKind.TypeAliasDeclaration,
+  ts.SyntaxKind.EnumDeclaration,
+  ts.SyntaxKind.VariableDeclaration,
+  ts.SyntaxKind.MethodDeclaration,
+  ts.SyntaxKind.PropertySignature,
+  ts.SyntaxKind.PropertyDeclaration,
+  ts.SyntaxKind.Parameter,
+]);
+function isNamedDeclaration(node: ts.Node): node is ts.NamedDeclaration {
+  return NAMED_KINDS.has(node.kind);
+}
 function declaredName(node: ts.Node): string | undefined {
-  if (
-    ts.isFunctionDeclaration(node) ||
-    ts.isClassDeclaration(node) ||
-    ts.isInterfaceDeclaration(node) ||
-    ts.isTypeAliasDeclaration(node) ||
-    ts.isEnumDeclaration(node) ||
-    ts.isVariableDeclaration(node) ||
-    ts.isMethodDeclaration(node) ||
-    ts.isPropertySignature(node) ||
-    ts.isPropertyDeclaration(node) ||
-    ts.isParameter(node)
-  )
-    return node.name !== undefined && ts.isIdentifier(node.name)
-      ? node.name.text
-      : undefined;
-  return undefined;
+  if (!isNamedDeclaration(node)) return undefined;
+  return node.name !== undefined && ts.isIdentifier(node.name)
+    ? node.name.text
+    : undefined;
 }
 
 type TextNode =
@@ -506,6 +509,41 @@ function loadKnown(): Known[] {
   });
 }
 
+type Counted = { readonly hit: Hit; count: number };
+
+function tally(hits: readonly Hit[]): Map<string, Counted> {
+  const counts = new Map<string, Counted>();
+  for (const hit of hits) {
+    const entry = counts.get(keyOf(hit)) ?? { hit, count: 0 };
+    entry.count += 1;
+    counts.set(keyOf(hit), entry);
+  }
+  return counts;
+}
+function unexpectedHits(
+  counts: ReadonlyMap<string, Counted>,
+  known: ReadonlyMap<string, Known>,
+): string[] {
+  return [...counts]
+    .filter(([key, { count }]) => count > (known.get(key)?.count ?? 0))
+    .map(
+      ([, { hit }]) =>
+        `${hit.file}:${hit.line} [${hit.term} / ${hit.surface}] ${hit.message} Text: ${hit.text}`,
+    );
+}
+function fixedHits(
+  counts: ReadonlyMap<string, Counted>,
+  known: ReadonlyMap<string, Known>,
+): string[] {
+  return [...known]
+    .map(([key, item]) => ({ item, now: counts.get(key)?.count ?? 0 }))
+    .filter(({ item, now }) => now < item.count)
+    .map(
+      ({ item, now }) =>
+        `${item.file} [${item.term} / ${item.surface}] is fixed (${now} of ${item.count} left): remove or lower it in known-hits.json. Text: ${item.text}`,
+    );
+}
+
 describe("glossary check", () => {
   const table = loadTable();
 
@@ -519,31 +557,10 @@ describe("glossary check", () => {
   });
 
   test("no avoid-word appears outside the shrinking known-hits list", () => {
-    const counts = new Map<string, { hit: Hit; count: number }>();
-    for (const hit of treeHits(table)) {
-      const entry = counts.get(keyOf(hit));
-      if (entry) entry.count += 1;
-      else counts.set(keyOf(hit), { hit, count: 1 });
-    }
+    const counts = tally(treeHits(table));
     const known = new Map(loadKnown().map((item) => [keyOf(item), item]));
-    const unexpected: string[] = [];
-    for (const [key, { hit, count }] of counts) {
-      const listed = known.get(key)?.count ?? 0;
-      if (count > listed)
-        unexpected.push(
-          `${hit.file}:${hit.line} [${hit.term} / ${hit.surface}] ${hit.message} Text: ${hit.text}`,
-        );
-    }
-    const fixed: string[] = [];
-    for (const [key, item] of known) {
-      const now = counts.get(key)?.count ?? 0;
-      if (now < item.count)
-        fixed.push(
-          `${item.file} [${item.term} / ${item.surface}] is fixed (${now} of ${item.count} left): remove or lower it in known-hits.json. Text: ${item.text}`,
-        );
-    }
-    expect(unexpected).toEqual([]);
-    expect(fixed).toEqual([]);
+    expect(unexpectedHits(counts, known)).toEqual([]);
+    expect(fixedHits(counts, known)).toEqual([]);
   });
 });
 
