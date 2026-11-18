@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  existsSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
@@ -174,11 +175,28 @@ test("R1.platform-outcomes-pinned: nothing is skipped, and every platform-bound 
   );
 });
 
-type Executed = { readonly name: string; readonly skipped: boolean };
+type Executed = {
+  readonly name: string;
+  readonly skipped: boolean;
+  readonly failure: string | undefined;
+};
+
+function unescaped(text: string): string {
+  return text
+    .replaceAll("&quot;", '"')
+    .replaceAll("&apos;", "'")
+    .replaceAll("&#10;", "\n")
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&amp;", "&");
+}
+
+const childBound = 540_000;
 
 function executedTests(): {
   readonly exit: number | null;
   readonly tests: readonly Executed[];
+  readonly output: string;
 } {
   const scratch = mkdtempSync(join(realpathSync(tmpdir()), "t5-ledger-"));
   try {
@@ -197,25 +215,36 @@ function executedTests(): {
         ...files,
       ],
       cwd: join(here, "../../.."),
-      stdout: "ignore",
-      stderr: "ignore",
+      stdout: "pipe",
+      stderr: "pipe",
+      timeout: childBound,
+      killSignal: "SIGKILL",
     });
-    const xml = readFileSync(report, "utf8");
+    const output = `${child.stdout.toString()}${child.stderr.toString()}`;
+    const xml = existsSync(report) ? readFileSync(report, "utf8") : "";
     const tests = [
       ...xml.matchAll(
-        /<testcase name="([^"]*)"[^>]*?(\/>|>([\s\S]*?)<\/testcase>)/g,
+        /<testcase name="([^"]*)"([^>]*?)(\/>|>([\s\S]*?)<\/testcase>)/g,
       ),
-    ].map(
-      (match): Executed => ({
-        name: (match[1] ?? "")
-          .replaceAll("&quot;", '"')
-          .replaceAll("&amp;", "&")
-          .replaceAll("&lt;", "<")
-          .replaceAll("&gt;", ">"),
-        skipped: (match[3] ?? "").includes("<skipped"),
-      }),
-    );
-    return { exit: child.exitCode, tests };
+    ].map((match): Executed => {
+      const name = unescaped(match[1] ?? "");
+      const attribute = (key: string) =>
+        unescaped(
+          new RegExp(` ${key}="([^"]*)"`).exec(match[2] ?? "")?.[1] ?? "",
+        );
+      const body = match[4] ?? "";
+      const message = /<failure[^>]*? message="([^"]*)"/.exec(body)?.[1] ?? "";
+      const [reason] = unescaped(message).split("\n");
+      const where = [attribute("file"), attribute("classname"), name];
+      return {
+        name,
+        skipped: body.includes("<skipped"),
+        failure: body.includes("<failure")
+          ? `${where.filter(Boolean).join(" > ")}: ${reason}`
+          : undefined,
+      };
+    });
+    return { exit: child.exitCode, tests, output };
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }
@@ -228,8 +257,17 @@ function idsIn(name: string): readonly string[] {
 }
 
 test("R2.ledger-binds-executed: every planned row and repair control ran and passed on this host; nothing was skipped", () => {
-  const { exit, tests } = executedTests();
-  expect(exit).toBe(0);
+  const { exit, tests, output } = executedTests();
+  const failed = tests.flatMap((entry) =>
+    entry.failure === undefined ? [] : [entry.failure],
+  );
+  const unnamed =
+    exit !== 0 && failed.length === 0 ? output.split("\n").slice(-40) : [];
+  expect({ exit, failed, unnamed }).toEqual({
+    exit: 0,
+    failed: [],
+    unnamed: [],
+  });
   expect(tests.length).toBeGreaterThan(0);
   expect(
     tests.filter((entry) => entry.skipped).map((entry) => entry.name),
