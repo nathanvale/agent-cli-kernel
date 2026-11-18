@@ -464,7 +464,7 @@
   {
     "id": "244b63a-check-names",
     "patch": "tests/planted-faults/patches/244b63a-check-names.patch",
-    "testFile": "tests/naming/names-check-in-process.test.ts",
+    "testFile": "tests/naming/names-check-paths.test.ts",
     "title": "^in process: --tool-call resolves a relative folder of the call",
     "source": "244b63a fix(check-names): resolve a tool call's relative folder from the injected folder"
   },
