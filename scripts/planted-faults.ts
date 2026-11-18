@@ -376,9 +376,17 @@ function place(patchPath: string, patch: string, source: Source): Placement {
   return { kind: "placed", files };
 }
 
-function patchText(root: string, patch: string): string {
-  const path = join(root, patch);
-  return existsSync(path) ? readFileSync(path, "utf8") : "";
+function replantRepair(fault: Fault): string {
+  return `Repair: plant the fault again by hand, run git diff -- <each file you edited> > ${quoted(fault.patch)}, then undo the planted edit. Done when bun run fault-replay ${fault.id} passes.`;
+}
+
+function patchText(root: string, fault: Fault): string {
+  const path = join(root, fault.patch);
+  if (!existsSync(path))
+    throw new Error(
+      `${fault.patch} does not exist, so ${fault.id} has no planted fault to apply. ${replantRepair(fault)}`,
+    );
+  return readFileSync(path, "utf8");
 }
 
 function sourceIn(dir: string, tracked: ReadonlySet<string>): Source {
@@ -432,6 +440,7 @@ export async function replay(
   commit: string,
   limitMilliseconds: number,
 ): Promise<Verdict> {
+  const patch = patchText(root, fault);
   const folder = mkdtempSync(join(tmpdir(), "fault-replay-"));
   const dir = join(folder, "tree");
   const gitInTree = (argv: readonly string[]) =>
@@ -449,11 +458,7 @@ export async function replay(
     const listed = await gitInTree(["ls-files", "-z"]);
     if (!listed.passed) throw new Error(listed.output.trim());
     const tracked = new Set(listed.output.split("\0").filter((p) => p !== ""));
-    const placement = place(
-      fault.patch,
-      patchText(root, fault.patch),
-      sourceIn(dir, tracked),
-    );
+    const placement = place(fault.patch, patch, sourceIn(dir, tracked));
     if (placement.kind === "refused")
       return { kind: "STALE", output: placement.cause };
     const installed = await bunInTree(["install", "--frozen-lockfile"]);
@@ -506,9 +511,7 @@ export function report(
         `STALE ${fault.id} ${took}. ${fault.patch} no longer applies at this head.`,
       );
       process.stdout.write(verdict.output.replace(/\n?$/, "\n"));
-      print(
-        `Repair: plant the fault again by hand, run git diff -- <each file you edited> > ${quoted(fault.patch)}, then undo the planted edit. ${done}`,
-      );
+      print(replantRepair(fault));
       return;
     case "BROKEN":
       print(
@@ -566,7 +569,7 @@ export function faultsTouchedSince(root: string, base: string): string[] {
     recordsChanged && !recordedBefore.has(recordKey(fault));
   const atBase = sourceAt(root, base);
   const patched = (fault: Fault): string[] => {
-    const text = patchText(root, fault.patch);
+    const text = patchText(root, fault);
     const placement = place(fault.patch, text, atBase);
     return [
       ...hunksOf(text).map(({ path }) => path),
