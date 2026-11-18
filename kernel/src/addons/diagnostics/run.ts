@@ -6,6 +6,7 @@ import type {
   AttachedAddon,
   Diagnostics,
   DiagnosticsCapability,
+  DiagnosticsLevel,
   JsonValue,
   RunAddon,
   RunControl,
@@ -54,6 +55,16 @@ export type StatusAddon = {
   readonly reportsStatus: true;
   readonly attach: (run: RunControl) => StatusAttached;
 };
+
+type Write = (logger: Logger, properties: Record<string, unknown>) => void;
+const writeAt: ReadonlyMap<DiagnosticsLevel, Write> = new Map([
+  ["trace", (logger, properties) => logger.trace("{event}", properties)],
+  ["debug", (logger, properties) => logger.debug("{event}", properties)],
+  ["info", (logger, properties) => logger.info("{event}", properties)],
+  ["warning", (logger, properties) => logger.warning("{event}", properties)],
+  ["error", (logger, properties) => logger.error("{event}", properties)],
+  ["fatal", (logger, properties) => logger.fatal("{event}", properties)],
+]);
 
 function optionValues(
   argv: readonly string[],
@@ -288,7 +299,7 @@ function session(
           {
             category: [options.cli, "diagnostics"],
             sinks: ["diagnostics"],
-            lowestLevel: "debug",
+            lowestLevel: "trace",
             parentSinks: "override",
           },
           {
@@ -321,10 +332,15 @@ function session(
     setup = prepareSink();
   }
 
-  function record(event: string, facts: JsonValue) {
+  function record(
+    event: string,
+    facts: JsonValue,
+    level: DiagnosticsLevel = "info",
+  ) {
     if (frozen) return;
     sequence += 1;
-    if (inputClosed || run.signal.aborted) {
+    const write = writeAt.get(level);
+    if (inputClosed || run.signal.aborted || !write) {
       dropped += 1;
       return;
     }
@@ -335,7 +351,7 @@ function session(
     }
     handed += 1;
     try {
-      logger.info("{event}", {
+      write(logger, {
         event,
         facts,
         seq: sequence,
