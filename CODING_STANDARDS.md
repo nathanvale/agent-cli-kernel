@@ -84,8 +84,8 @@ row's guide or gate note cites two distinct witnesses.
   case for the [ff5fffe] shape kills it.
 - Review only: a path built at run time, such as `"/" + "tmp"` or
   `join("/", "usr")`; a host path after a template expression; other roots,
-  such as `/proc` or `/run`; `kernel/` and `tests/kernel/`, which leave with
-  the kernel; and `starters/`, which ESLint skips.
+  such as `/proc` or `/run`; and `kernel/` and `tests/kernel/`, which this
+  lint skips.
 - Witnessed: [8e4ec47], [ff5fffe].
 
 ### Glossary
@@ -93,7 +93,7 @@ row's guide or gate note cites two distinct witnesses.
 - `tests/template/glossary/glossary.test.ts`, with its shrinking `known-hits.json`,
   checks the `scope` listed in `tests/template/glossary/term-table.json`.
 - That scope is kernel source, kernel tests, and the kernel's lint config.
-  `src/`, the starters, and docs are review only.
+  `src/` and docs are review only.
 - Witnessed: [2784de0], [356cce9].
 
 ### Test proof

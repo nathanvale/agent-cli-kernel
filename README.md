@@ -1,57 +1,23 @@
-# Bun TypeScript repository bootstrap
+# Agent CLI kernel
 
-Create a repository from one explicit profile. The bootstrap copies portable
-source only; it does not install dependencies, initialize Git, create a remote,
-or modify agent/plugin configuration.
+The kernel repository: the canonical owner of the CLI kernel, its four
+add-ons (approval, diagnostics, programs and state) and their tests.
 
-## Choose a profile
+It was carried from
+[bun-typescript-template](https://github.com/nathanvale/bun-typescript-template)
+with that repository's full history. `repository.json` records the template
+commit it was carried from.
 
-| Profile   | Use it for                                           | Included checks                                                |
-| --------- | ---------------------------------------------------- | -------------------------------------------------------------- |
-| `scratch` | A contained, dump-and-run experiment                 | TypeScript and focused tests only                              |
-| `durable` | Maintained code, reusable tools, or shared libraries | Typed ESLint, TypeScript, tests, formatting, and native Fallow |
+## Layout
 
-The monorepo layout is an optional durable example. It is never part of the
-scratch profile.
+| Path              | Holds                                                         |
+| ----------------- | ------------------------------------------------------------- |
+| `kernel/`         | The kernel, the add-ons, their lint files and the declaration |
+| `tests/kernel/`   | The kernel's tests                                            |
+| `scripts/`        | The gate tools                                                |
+| `tests/template/` | The gate tools' tests                                         |
 
-The durable profile also supplies two CLI starters. `simple` is read-only.
-`complex` demonstrates a local configuration change, typed contracts and
-Branch Station discovery. Each generated CLI is a standalone project with its
-own dependencies, lockfile, checks and CI.
-
-## Bootstrap
-
-From this template checkout:
-
-```sh
-bun run bootstrap --profile scratch \
-  --destination "$HOME/code/scratch/example" \
-  --source-packet "https://example.test/vault/projects/example/"
-
-bun run bootstrap --profile durable \
-  --destination "$HOME/code/example" \
-  --source-packet "https://example.test/vault/projects/example/"
-
-bun run bootstrap --profile durable --starter simple \
-  --destination "$HOME/code/example-cli" \
-  --source-packet "https://example.test/vault/projects/example-cli/"
-
-bun run bootstrap --profile durable --starter complex \
-  --destination "$HOME/code/example-control-cli" \
-  --source-packet "https://example.test/vault/projects/example-control-cli/"
-
-bun run bootstrap --profile durable \
-  --destination "$HOME/code/example-monorepo" \
-  --source-packet "https://example.test/vault/projects/example-monorepo/" \
-  --monorepo
-```
-
-Use `--json` for a stable machine-readable result. The bootstrap refuses an
-existing non-empty destination and preserves its files.
-
-Each generated README owns its repository-root install, run, and check commands.
-
-## Template checks
+## Checks
 
 ```sh
 bun install --frozen-lockfile
@@ -61,26 +27,6 @@ bun run check
 This repository uses Bun 1.4.4, TypeScript 7.1.0-beta for compilation,
 TypeScript 6.0.2 for ESLint 10.15.0 with typescript-eslint 8.73.0, Biome 2.6.7
 for formatting only, and native Fallow plus its semantic companion at 3.43.2.
-The companion keeps its own TypeScript 7.0.2. Generated repositories stay on
-the durable toolchain proven in the dotfiles workspace, with TypeScript 7.0.2
-for compilation. Generated
-scratch repositories intentionally omit Biome, Fallow, CI, hooks, release
-tooling, and monorepo structure.
+Formatting checks never rewrite files.
 
-The TypeScript 6 compatibility wrapper has its own version and delegates to
-`@typescript/old`. The alias-specific override pins that underlying API to
-6.0.2 as well. Keep the override and Bun-generated version 3 lockfiles together;
-static admission checks the loaded API, wrapper and native compiler separately.
-
-Every generated repository has one application CLI. Its commands live in
-separate internal files. A workspace exposes the root CLI and keeps member
-packages as libraries. `bun run admit:cli -- <repository-root>` checks its
-entry points across source, manifests, scripts and documented invocations.
-
-Generated `AGENTS.md` gives the exact install, check and smoke commands.
-`.cli-design-template.json` records source-packet and template provenance,
-including whether the source checkout had uncommitted changes.
-
-`eslint-rules.mjs` demonstrates one local custom rule. Its ownership rule
-prevents domain modules from writing to stdout or stderr; it does not add a
-project-specific catalogue of rules. Formatting checks never rewrite files.
+Agents start at [AGENTS.md](AGENTS.md).

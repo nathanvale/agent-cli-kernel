@@ -1,5 +1,5 @@
 {
-  "web": "https://github.com/nathanvale/bun-typescript-template",
+  "web": "https://github.com/nathanvale/agent-cli-kernel",
   "checkCommitsSince": "f20777f7e67d300ade253060fa2ba36f38c0ca43",
   "testAreas": [
     {
@@ -14,5 +14,10 @@
       "holds": "files",
       "subfolders": true
     }
-  ]
+  ],
+  "citableOrigins": ["https://github.com/nathanvale/bun-typescript-template"],
+  "recordedOrigin": {
+    "web": "https://github.com/nathanvale/bun-typescript-template",
+    "commit": "72c792063b2da84b6f7423bf4916f5ce5f88086c"
+  }
 }
