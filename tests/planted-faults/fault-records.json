@@ -59,7 +59,7 @@
     "id": "f0ad643-oxlintrc-spread",
     "patch": "tests/planted-faults/patches/f0ad643-oxlintrc-spread.patch",
     "testFile": "tests/template/lint/anti-slop-gate.test.ts",
-    "title": "^oxc/no-accumulating-spread refuses its violation$",
+    "title": "^anti-slop/no-accumulating-spread refuses its violation$",
     "source": "f0ad643 feat(lint): gate six anti-slop rules in bun run lint"
   },
   {
@@ -553,6 +553,13 @@
     "source": "6bea874 feat(names): refuse a test file outside every family folder"
   },
   {
+    "id": "751520c-eslint.config",
+    "patch": "tests/planted-faults/patches/751520c-eslint.config.patch",
+    "testFile": "tests/template/lint/anti-slop-rules.test.ts",
+    "title": "^no-restricted-syntax refuses the 751520c shape",
+    "source": "751520c fix(lint): refuse assertion chains where the kernel sets no-restricted-syntax"
+  },
+  {
     "id": "dc6396a-repository",
     "patch": "tests/planted-faults/patches/dc6396a-repository.patch",
     "testFile": "tests/template/repository/repository.test.ts",
@@ -572,6 +579,76 @@
     "testFile": "tests/template/naming/pre-commit.test.ts",
     "title": "^PC[.][de] ",
     "source": "beed83c fix(hooks): check staged compiler config and deletions"
+  },
+  {
+    "id": "246ba4a-anti-slop-rules",
+    "patch": "tests/planted-faults/patches/246ba4a-anti-slop-rules.patch",
+    "testFile": "tests/template/lint/anti-slop-rules.test.ts",
+    "title": "^anti-slop/no-accumulating-spread refuses the r4608976426 shape",
+    "source": "246ba4a fix(lint): refuse accumulating spreads in reducers with an index or array"
+  },
+  {
+    "id": "83577c3-anti-slop-rules",
+    "patch": "tests/planted-faults/patches/83577c3-anti-slop-rules.patch",
+    "testFile": "tests/template/lint/anti-slop-rules.test.ts",
+    "title": "^anti-slop/no-unknown-type-aliases refuses the r4609019138 shape",
+    "source": "83577c3 fix(lint): expand a nested alias argument in its own context"
+  },
+  {
+    "id": "8779659-anti-slop-rules",
+    "patch": "tests/planted-faults/patches/8779659-anti-slop-rules.patch",
+    "testFile": "tests/template/lint/anti-slop-rules.test.ts",
+    "title": "^anti-slop/no-accumulating-spread refuses the r4609019149 shape",
+    "source": "8779659 fix(lint): check the loop write that holds the spread"
+  },
+  {
+    "id": "2be40d2-anti-slop-rules",
+    "patch": "tests/planted-faults/patches/2be40d2-anti-slop-rules.patch",
+    "testFile": "tests/template/lint/anti-slop-rules.test.ts",
+    "title": "^anti-slop/no-unknown-type-aliases refuses the r4609659195 shape",
+    "source": "2be40d2 fix(lint): give each alias expansion its own parameter map"
+  },
+  {
+    "id": "016161d-anti-slop-rules",
+    "patch": "tests/planted-faults/patches/016161d-anti-slop-rules.patch",
+    "testFile": "tests/template/lint/anti-slop-rules.test.ts",
+    "title": "^anti-slop/no-accumulating-spread refuses the r4609659202 shape",
+    "source": "016161d fix(lint): refuse an accumulating spread at any reducer arity"
+  },
+  {
+    "id": "0969084-anti-slop-rules",
+    "patch": "tests/planted-faults/patches/0969084-anti-slop-rules.patch",
+    "testFile": "tests/template/lint/anti-slop-rules.test.ts",
+    "title": "^anti-slop/no-accumulating-spread refuses the r4609659202 initial value shape",
+    "source": "0969084 fix(lint): charge a spread only to the reduce its callback enters first"
+  },
+  {
+    "id": "da3fbac-anti-slop-rules",
+    "patch": "tests/planted-faults/patches/da3fbac-anti-slop-rules.patch",
+    "testFile": "tests/template/lint/anti-slop-rules.test.ts",
+    "title": "^anti-slop/no-accumulating-spread refuses the r4609659207 shape",
+    "source": "da3fbac fix(lint): judge only spreads that build an array or object"
+  },
+  {
+    "id": "ea5d241-anti-slop-rules",
+    "patch": "tests/planted-faults/patches/ea5d241-anti-slop-rules.patch",
+    "testFile": "tests/template/lint/anti-slop-rules.test.ts",
+    "title": "^anti-slop/no-module-mocking refuses the r4609902952 shape",
+    "source": "ea5d241 fix(lint): read a template key as a module mock method"
+  },
+  {
+    "id": "dd0f4da-anti-slop-rules",
+    "patch": "tests/planted-faults/patches/dd0f4da-anti-slop-rules.patch",
+    "testFile": "tests/template/lint/anti-slop-rules.test.ts",
+    "title": "^anti-slop/no-reduce-accumulator-copy refuses the r4609902960 shape",
+    "source": "dd0f4da fix(lint): read template keys on reducer copy calls"
+  },
+  {
+    "id": "55701f2-anti-slop-rules",
+    "patch": "tests/planted-faults/patches/55701f2-anti-slop-rules.patch",
+    "testFile": "tests/template/lint/anti-slop-rules.test.ts",
+    "title": "^anti-slop/no-accumulating-spread refuses the r4609019144 shape",
+    "source": "55701f2 fix(lint): match a spread only to the reduce that owns its callback"
   },
   {
     "id": "a11290a-check-file-size",

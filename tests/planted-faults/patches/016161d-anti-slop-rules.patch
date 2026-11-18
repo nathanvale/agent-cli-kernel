@@ -1,0 +1,24 @@
+diff --git a/config/anti-slop-rules.mjs b/config/anti-slop-rules.mjs
+index 2db508a..88e9b1e 100644
+--- a/config/anti-slop-rules.mjs
++++ b/config/anti-slop-rules.mjs
+@@ -913,6 +913,7 @@ const loopKeywordLengths = {
+   DoWhileStatement: 2,
+ };
+ const spreadKinds = { ArrayExpression: "Array", ObjectExpression: "Object" };
++const reducerArities = new Set([2, 3, 4]);
+ 
+ function innerExpression(node) {
+   let current = node;
+@@ -999,8 +1000,10 @@ function enclosingReduceCall(callback) {
+ function reduceSpread(definition, spread) {
+   if (definition.type !== "Parameter") return null;
+   const callback = definition.node;
++  const parameters = ownParameters(callback);
++  if (bindingIdentifier(parameters[0]) !== definition.name) return null;
+   if (
+-    bindingIdentifier(ownParameters(callback)[0]) !== definition.name ||
++    !reducerArities.has(parameters.length) ||
+     nearestFunction(spread) !== callback
+   )
+     return null;

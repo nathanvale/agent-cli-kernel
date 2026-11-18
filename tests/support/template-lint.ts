@@ -25,12 +25,18 @@ export async function ruleOn(rule: string, filePath: string): Promise<boolean> {
   return severity !== undefined && severity !== 0 && severity !== "off";
 }
 
+export async function ruleHits(ruleId: string, filePath: string, code: string) {
+  if (!existsSync(resolve(root, filePath)))
+    throw new Error(`${filePath} is not a tracked file.`);
+  if (!(await ruleOn(ruleId, filePath)))
+    throw new Error(`${ruleId} is off for ${filePath}.`);
+  return (await messages(filePath, code))
+    .filter((message) => message.ruleId === ruleId)
+    .map(({ line, message }) => ({ line, message }));
+}
+
 export async function hits(rule: string, filePath: string, code: string) {
   if (kernelPath.test(filePath) || !existsSync(resolve(root, filePath)))
     throw new Error(`${filePath} is not a template file.`);
-  if (!(await ruleOn(`repository/${rule}`, filePath)))
-    throw new Error(`repository/${rule} is off for ${filePath}.`);
-  return (await messages(filePath, code))
-    .filter((message) => message.ruleId === `repository/${rule}`)
-    .map(({ line, message }) => ({ line, message }));
+  return ruleHits(`repository/${rule}`, filePath, code);
 }

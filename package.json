@@ -20,8 +20,7 @@
     "test:area": "bun run scripts/test-area.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "admit:static": "bun run src/static-admission.ts",
-    "lint": "eslint . --max-warnings 0 && oxlint",
-    "lint:anti-slop": "oxlint -c .oxlintrc.report.json",
+    "lint": "eslint . --max-warnings 0",
     "prepare": "git config core.hooksPath .githooks || true",
     "format:check": "biome format .",
     "format": "biome format --write .",
@@ -37,9 +36,7 @@
     "eslint": "10.15.0",
     "@eslint/js": "10.0.1",
     "typescript-eslint": "8.73.0",
-    "fallow-type-aware": "3.43.2",
-    "oxlint": "1.93.0",
-    "@oxlint/plugins": "1.93.0"
+    "fallow-type-aware": "3.43.2"
   },
   "overrides": {
     "@typescript/old@npm:typescript@^6": "npm:typescript@6.0.2"

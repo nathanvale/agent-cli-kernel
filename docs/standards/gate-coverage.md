@@ -127,8 +127,7 @@ file extensions in those directories.
     `@ts-expect-error`. Other rules govern those.
   - `SAFETY:` and a justification on its first line, on its own lines
     directly above the statement that holds a type cast (`as T`, not
-    `as const`), where `anti-slop/require-safety-comment-for-type-assertion`
-    accepts it.
+    `as const`).
 - Everything else goes into code: a name, a type, a test title, or a lint
   rule whose message explains the constraint. An empty `catch` says what
   happens next in code (`return`, `continue`, or a rethrow), not in prose.
