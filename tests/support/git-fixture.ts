@@ -47,11 +47,15 @@ export function gitResult(root: string, ...args: string[]) {
   return result;
 }
 
-export function git(root: string, ...args: string[]): string {
+export function gitOutput(root: string, ...args: string[]): string {
   const result = gitResult(root, ...args);
   if (result.exitCode !== 0)
     throw new Error(`git ${args.join(" ")}: ${result.stderr.toString()}`);
-  return result.stdout.toString().trim();
+  return result.stdout.toString();
+}
+
+export function git(root: string, ...args: string[]): string {
+  return gitOutput(root, ...args).trim();
 }
 
 export function commitIn(

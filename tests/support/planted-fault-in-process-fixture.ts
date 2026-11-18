@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import type { Fault } from "../../scripts/planted-faults.ts";
 import { write } from "./fixture-files.ts";
-import { gitEnv, gitResult } from "./git-fixture.ts";
+import { gitEnv, gitOutput } from "./git-fixture.ts";
 import { testFolder } from "./test-folder.ts";
 
 const repositoryLocation = [
@@ -44,13 +44,6 @@ test("L.weak keeps a number", () => {
 });
 `;
 
-export function git(root: string, ...args: string[]): string {
-  const result = gitResult(root, ...args);
-  if (result.exitCode !== 0)
-    throw new Error(`git ${args.join(" ")}: ${result.stderr.toString()}`);
-  return result.stdout.toString();
-}
-
 export function commit(
   root: string,
   subject: string,
@@ -58,14 +51,14 @@ export function commit(
 ): string {
   for (const [path, content] of Object.entries(files)) {
     write(root, path, content);
-    git(root, "add", "--", path);
+    gitOutput(root, "add", "--", path);
   }
-  git(root, "commit", "--quiet", "-m", subject);
-  return git(root, "rev-parse", "--short", "HEAD").trim();
+  gitOutput(root, "commit", "--quiet", "-m", subject);
+  return gitOutput(root, "rev-parse", "--short", "HEAD").trim();
 }
 
 export function worktrees(root: string): string[] {
-  return git(root, "worktree", "list", "--porcelain")
+  return gitOutput(root, "worktree", "list", "--porcelain")
     .split("\n")
     .filter((line) => line.startsWith("worktree "))
     .map((line) => line.slice("worktree ".length));
@@ -80,7 +73,7 @@ export type Planted = {
 };
 
 export function headOf(root: string): string {
-  return git(root, "rev-parse", "HEAD").trim();
+  return gitOutput(root, "rev-parse", "HEAD").trim();
 }
 
 export function recorded(root: string, faults: readonly Fault[]): void {
@@ -88,8 +81,8 @@ export function recorded(root: string, faults: readonly Fault[]): void {
     if (!existsSync(join(root, fault.patch)))
       write(root, fault.patch, "unused\n");
   write(root, recordsPath, `${JSON.stringify(faults, null, 2)}\n`);
-  git(root, "add", "--", "tests/planted-faults");
-  git(root, "commit", "--quiet", "-m", "record the faults");
+  gitOutput(root, "add", "--", "tests/planted-faults");
+  gitOutput(root, "commit", "--quiet", "-m", "record the faults");
 }
 
 export async function captured<T>(run: () => Promise<T> | T) {
@@ -149,7 +142,7 @@ export function createPlantedFaultFixture() {
   function repository(prefix: string): string {
     const root = join(folder(prefix), "repo");
     mkdirSync(root);
-    git(root, "init", "--quiet", "--initial-branch=main");
+    gitOutput(root, "init", "--quiet", "--initial-branch=main");
     return root;
   }
 
@@ -176,7 +169,14 @@ export function createPlantedFaultFixture() {
         : { "tests/elsewhere.test.ts": options.elsewhere }),
     });
     const id = `${fix}-limit`;
-    const patch = git(root, "diff", "HEAD", "HEAD~1", "--", "src/limit.ts");
+    const patch = gitOutput(
+      root,
+      "diff",
+      "HEAD",
+      "HEAD~1",
+      "--",
+      "src/limit.ts",
+    );
     const fault: Fault = {
       id,
       patch: `tests/planted-faults/patches/${id}.patch`,

@@ -8,7 +8,6 @@ import {
   exited,
   expectNoLeftovers,
   expectOneTestProcessGone,
-  git,
   ledgered,
   lineOf,
   tests,
@@ -17,6 +16,7 @@ import {
   worktrees,
 } from "../../support/planted-fault-fixture.ts";
 import { write } from "../../support/fixture-files.ts";
+import { gitOutput } from "../../support/git-fixture.ts";
 
 const { faultReplay, folder, hangLedger, pidLedger, repositoryWithFault } =
   createPlantedFaultFixture();
@@ -31,17 +31,17 @@ describe("bun run fault-replay", () => {
     async () => {
       const { root, id } = await repositoryWithFault({});
       write(root, "notes.txt", "staged\n");
-      git(root, "add", "--", "notes.txt");
+      gitOutput(root, "add", "--", "notes.txt");
       write(root, "tests/limit.test.ts", tests("expect(true).toBe(true)"));
       write(root, "untracked.txt", "untracked\n");
       const state = () =>
         [
-          git(root, "status", "--porcelain=v1", "--untracked-files=all"),
-          git(root, "diff"),
-          git(root, "diff", "--cached"),
-          git(root, "rev-parse", "HEAD"),
-          git(root, "symbolic-ref", "HEAD"),
-          git(root, "stash", "list"),
+          gitOutput(root, "status", "--porcelain=v1", "--untracked-files=all"),
+          gitOutput(root, "diff"),
+          gitOutput(root, "diff", "--cached"),
+          gitOutput(root, "rev-parse", "HEAD"),
+          gitOutput(root, "symbolic-ref", "HEAD"),
+          gitOutput(root, "stash", "list"),
         ].join("\n--\n");
       const before = state();
       const run = await faultReplay(root);
@@ -200,14 +200,19 @@ describe("bun run fault-replay", () => {
     async () => {
       const unrelated = join(folder("fault-replay-caller-"), "repo");
       mkdirSync(unrelated);
-      git(unrelated, "init", "--quiet", "--initial-branch=main");
+      gitOutput(unrelated, "init", "--quiet", "--initial-branch=main");
       commit(unrelated, "caller", { "caller.txt": "caller\n" });
       const state = () =>
         [
-          git(unrelated, "log", "--format=%H %s", "--all"),
-          git(unrelated, "worktree", "list", "--porcelain"),
-          git(unrelated, "status", "--porcelain=v1", "--untracked-files=all"),
-          git(unrelated, "config", "--local", "--list"),
+          gitOutput(unrelated, "log", "--format=%H %s", "--all"),
+          gitOutput(unrelated, "worktree", "list", "--porcelain"),
+          gitOutput(
+            unrelated,
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+          ),
+          gitOutput(unrelated, "config", "--local", "--list"),
         ].join("\n--\n");
       const before = state();
       process.env.GIT_DIR = join(unrelated, ".git");
@@ -216,7 +221,7 @@ describe("bun run fault-replay", () => {
         const run = await faultReplay(root);
         expect(verdicts(run.lines)).toEqual([`KILLED ${id}`]);
         expect(run.exit).toBe(0);
-        expect(git(root, "log", "--format=%s")).toBe(
+        expect(gitOutput(root, "log", "--format=%s")).toBe(
           "record the faults\nfix: refuse a NaN limit\nbase\n",
         );
       } finally {

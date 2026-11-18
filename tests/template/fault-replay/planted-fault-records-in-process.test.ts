@@ -10,7 +10,6 @@ import {
 import {
   commit,
   createPlantedFaultFixture,
-  git,
   guarded,
   headOf,
   limitTests,
@@ -21,6 +20,7 @@ import {
   unguarded,
 } from "../../support/planted-fault-in-process-fixture.ts";
 import { write } from "../../support/fixture-files.ts";
+import { gitOutput } from "../../support/git-fixture.ts";
 
 const { folder, isolated, planted, repository } = createPlantedFaultFixture();
 
@@ -159,7 +159,7 @@ describe("add", () => {
       "src/other.ts": "b\n",
       "tests/limit.test.ts": limitTests,
     });
-    const full = git(root, "rev-parse", "HEAD").trim();
+    const full = gitOutput(root, "rev-parse", "HEAD").trim();
     return { root, fix, full };
   }
 
@@ -203,7 +203,7 @@ describe("add", () => {
         join(root, `tests/planted-faults/patches/${id}.patch`),
         "utf8",
       ),
-    ).toBe(git(root, "diff", full, `${full}^`, "--", "src/limit.ts"));
+    ).toBe(gitOutput(root, "diff", full, `${full}^`, "--", "src/limit.ts"));
     expect(readFileSync(join(root, recordsPath), "utf8")).toEndWith("}\n]\n");
     expect(run.leftovers).toEqual([]);
   });
@@ -212,7 +212,7 @@ describe("add", () => {
     const { root, fix } = fixed();
     await added(root, args(fix));
 
-    git(
+    gitOutput(
       root,
       "apply",
       join(root, `tests/planted-faults/patches/${fix}-limit.patch`),
@@ -257,7 +257,7 @@ describe("add", () => {
     commit(root, "base", { Makefile: "a\n", "src/x.tar.gz": "a\n" });
     commit(root, "fix: both", { Makefile: "b\n", "src/x.tar.gz": "b\n" });
     write(root, "t.test.ts", "");
-    const short = git(root, "rev-parse", "--short", "HEAD").trim();
+    const short = gitOutput(root, "rev-parse", "--short", "HEAD").trim();
 
     const plain = await added(root, [short, "Makefile", "t.test.ts", "t"]);
     const dotted = await added(root, [short, "src/x.tar.gz", "t.test.ts", "t"]);
@@ -439,8 +439,8 @@ describe("faultsTouchedSince", () => {
 
   test("names a fault whose patched file was renamed away", async () => {
     const { root, id, base } = twoFaults();
-    git(root, "mv", "src/limit.ts", "src/bound.ts");
-    git(root, "commit", "--quiet", "-m", "rename limit");
+    gitOutput(root, "mv", "src/limit.ts", "src/bound.ts");
+    gitOutput(root, "commit", "--quiet", "-m", "rename limit");
     const { result } = await isolated(() => faultsTouchedSince(root, base));
     expect(result).toEqual([id]);
   });
