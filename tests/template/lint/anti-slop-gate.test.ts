@@ -1,23 +1,18 @@
-import { afterAll, expect, test } from "bun:test";
-import { rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { spawnBounded } from "../../support/process.ts";
-import { testFolder } from "../../support/test-folder.ts";
+import { expect, test } from "bun:test";
+import { messages } from "../../support/template-lint.ts";
 
-const repository = join(import.meta.dir, "../../..");
-const bound = 30_000;
-const timeout = 40_000;
+const filePath = "scripts/doctor.ts";
 
 const gate = [
   {
-    rule: "anti-slop/no-chained-type-assertions",
+    ruleId: "no-restricted-syntax",
     refused: `export const value = Number("1") as unknown as string;
 `,
     admitted: `export const value = ["a"] as const;
 `,
   },
   {
-    rule: "anti-slop/no-widen-then-assert",
+    ruleId: "anti-slop/no-widen-then-assert",
     refused: `type Shape = { readonly name: string };
 const known: Shape = { name: "a" };
 const widened: unknown = known;
@@ -29,14 +24,14 @@ export const same = known;
 `,
   },
   {
-    rule: "anti-slop/no-unknown-type-aliases",
+    ruleId: "anti-slop/no-unknown-type-aliases",
     refused: `export type Opaque = unknown;
 `,
     admitted: `export type Name = string;
 `,
   },
   {
-    rule: "anti-slop/no-module-mocking",
+    ruleId: "anti-slop/no-module-mocking",
     refused: `import { vi } from "vitest";
 
 vi.mock("./dependency.ts");
@@ -47,14 +42,14 @@ export const spy = vi.fn();
 `,
   },
   {
-    rule: "anti-slop/no-reduce-accumulator-copy",
+    ruleId: "anti-slop/no-reduce-accumulator-copy",
     refused: `export const copied = [1, 2].reduce((all, each) => all.concat([each]), []);
 `,
     admitted: `export const total = [1, 2].reduce((sum, each) => sum + each, 0);
 `,
   },
   {
-    rule: "oxc/no-accumulating-spread",
+    ruleId: "anti-slop/no-accumulating-spread",
     refused: `export const spread = [1, 2].reduce((all, each) => [...all, each], []);
 `,
     admitted: `export const merged = [...[1, 2], 3];
@@ -62,62 +57,30 @@ export const spy = vi.fn();
   },
 ] as const;
 
-function fileFor(rule: string, verdict: "refused" | "admitted"): string {
-  return `${rule.replace("/", "-")}.${verdict}.ts`;
+const gateRules = new Set<string | null>([
+  null,
+  ...gate.map(({ ruleId }) => ruleId),
+]);
+
+async function gateHits(code: string) {
+  return (await messages(filePath, code))
+    .filter(({ ruleId }) => gateRules.has(ruleId))
+    .map(({ ruleId }) => ruleId);
 }
 
-function codeFor(rule: string): string {
-  return rule.replace("/", "(").concat(")");
-}
+const verdicts = new Map<string, { refused: unknown[]; admitted: unknown[] }>();
+for (const { ruleId, refused, admitted } of gate)
+  verdicts.set(ruleId, {
+    refused: await gateHits(refused),
+    admitted: await gateHits(admitted),
+  });
 
-const folder = testFolder("anti-slop-gate-");
-for (const { rule, refused, admitted } of gate) {
-  writeFileSync(join(folder, fileFor(rule, "refused")), refused);
-  writeFileSync(join(folder, fileFor(rule, "admitted")), admitted);
-}
+for (const { ruleId } of gate) {
+  test(`${ruleId} refuses its violation`, () => {
+    expect(verdicts.get(ruleId)?.refused).toEqual([ruleId]);
+  });
 
-const run = await spawnBounded(
-  [
-    join(repository, "node_modules/.bin/oxlint"),
-    "-c",
-    join(repository, ".oxlintrc.json"),
-    "--format",
-    "json",
-    ".",
-  ],
-  { cwd: folder, boundMilliseconds: bound },
-);
-
-afterAll(() => {
-  rmSync(folder, { recursive: true, force: true });
-});
-
-const report: unknown = JSON.parse(run.stdout);
-const listed: unknown = Reflect.get(Object(report), "diagnostics");
-const diagnostics: readonly unknown[] = Array.isArray(listed) ? listed : [];
-
-function codesIn(file: string): string[] {
-  return diagnostics
-    .filter(
-      (diagnostic) => Reflect.get(Object(diagnostic), "filename") === file,
-    )
-    .map((diagnostic) => String(Reflect.get(Object(diagnostic), "code")));
-}
-
-for (const { rule } of gate) {
-  test(
-    `${rule} refuses its violation`,
-    () => {
-      expect(codesIn(fileFor(rule, "refused"))).toEqual([codeFor(rule)]);
-    },
-    timeout,
-  );
-
-  test(
-    `${rule} admits its clean form`,
-    () => {
-      expect(codesIn(fileFor(rule, "admitted"))).toEqual([]);
-    },
-    timeout,
-  );
+  test(`${ruleId} admits its clean form`, () => {
+    expect(verdicts.get(ruleId)?.admitted).toEqual([]);
+  });
 }

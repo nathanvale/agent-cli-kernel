@@ -1,0 +1,11 @@
+diff --git a/scripts/planted-fault-patch.ts b/scripts/planted-fault-patch.ts
+--- a/scripts/planted-fault-patch.ts
++++ b/scripts/planted-fault-patch.ts
+@@ -417,6 +417,7 @@ function place(patchPath: string, patch: string, source: Source): Placement {
+         return text === undefined ? [] : spotsIn(path, text, hunk.anchor);
+       });
+     }
++    if (spots.length === 0) continue;
+     const spot = chosen(spots, hunk, linesOf);
+     if (spot === undefined)
+       return {

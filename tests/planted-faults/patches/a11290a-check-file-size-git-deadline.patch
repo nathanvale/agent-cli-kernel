@@ -1,0 +1,12 @@
+diff --git a/scripts/check-file-size.ts b/scripts/check-file-size.ts
+--- a/scripts/check-file-size.ts
++++ b/scripts/check-file-size.ts
+@@ -67,7 +67,7 @@
+     stdin: stdin ?? "ignore",
+     stdout: "pipe",
+     stderr: "pipe",
+-    timeout: gitTimeout,
++    timeout: gitTimeout + 6_000,
+     killSignal: "SIGKILL",
+   });
+   if (result.exitedDueToTimeout)

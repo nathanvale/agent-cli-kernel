@@ -94,7 +94,9 @@ repository broke it.
   case), [c77aaa9] (the production `execute` spawned tsc and fallow with
   no time limit), [24cbab3], [#84-probe] (blocking fixture commands could
   prevent the test timeout and cleanup), [#90-process] (bootstrap helpers
-  could wait indefinitely for a generated repository command).
+  could wait indefinitely for a generated repository command),
+  [#109-bound] (a process-runner case started a nested child with no time
+  limit).
 - Template tests: reuse `spawnBounded` (`tests/support/process.ts`), which
   runs the child through `startChild` (`scripts/process-runner.ts`), for that
   bound. Kernel tests: reuse `spawnBounded`
@@ -139,6 +141,29 @@ repository broke it.
   [#99-timings], [#99-shards] (the timings kept the old
   `tests/check-commits.test.ts` key, and every moved template suite ran on
   shard 3).
+
+## Lint rules
+
+- Prove a lint rule on each shape its matcher can meet, not only on the
+  cases of the rule it ports: a callback with more or fewer parameters, a
+  function nested inside the one it judges, a binding written more than
+  once, a type argument that repeats its alias, an alias whose parameter
+  shares a name with an outer one, a spread into call arguments, and a
+  member key written as a template literal. A port inherits its source's
+  gaps; the rule each port copies (oxc's `no_accumulating_spread` at
+  `oxlint_v1.93.0`, or the anti-slop source that
+  `config/anti-slop-rules.mjs` pins) shares each witnessed one.
+  Witnessed: [#102-parameters] (a reducer that also takes the index passed
+  `no-accumulating-spread`), [#102-alias] (`Identity<Identity<unknown>>`
+  passed `no-unknown-type-aliases`), [#102-nested] (a spread in a `map`
+  callback inside a reducer was reported against the reduce), [#102-reset]
+  (a plain reset before a loop hid the loop's spread), [#102-outer]
+  (`Wrap<T = unknown> = Fixed` lent its `T` to `Fixed`, so `Safe = Wrap` was
+  reported), [#102-arity] (a one-parameter reducer passed
+  `no-accumulating-spread`), [#102-arguments] (`consume(item, ...args)` was
+  reported as an accumulator copy), [#102-mock-key] (``vi[`mock`]`` passed
+  `no-module-mocking`), [#102-copy-key] (``all[`concat`]`` passed
+  `no-reduce-accumulator-copy`).
 
 [#91-count]: https://github.com/nathanvale/bun-typescript-template/pull/91#discussion_r4607744321
 [185c90d]: https://github.com/nathanvale/bun-typescript-template/commit/185c90d11dd167ee4874e383ba26cd7d64a70964
@@ -197,3 +222,13 @@ repository broke it.
 [#91-timings]: https://github.com/nathanvale/bun-typescript-template/pull/91#discussion_r4607696012
 [#99-timings]: https://github.com/nathanvale/bun-typescript-template/pull/99#discussion_r4608746456
 [#99-shards]: https://github.com/nathanvale/bun-typescript-template/pull/99#discussion_r4608771631
+[#109-bound]: https://github.com/nathanvale/bun-typescript-template/pull/109#discussion_r4610027050
+[#102-parameters]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4608976426
+[#102-alias]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609019138
+[#102-nested]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609019144
+[#102-reset]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609019149
+[#102-outer]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609659195
+[#102-arity]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609659202
+[#102-arguments]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609659207
+[#102-mock-key]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609902952
+[#102-copy-key]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609902960

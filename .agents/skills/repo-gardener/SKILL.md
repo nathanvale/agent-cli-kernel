@@ -14,8 +14,9 @@ each pointer rather than a copy:
 - [docs/standards/](../../../docs/standards/): the guide each row links.
   [Single witness](../../../docs/standards/single-witness.md) holds lessons
   seen once.
-- [tests/template/lint/lint-rules.test.ts](../../../tests/template/lint/lint-rules.test.ts) for template
-  rules and
+- [tests/template/lint/lint-rules.test.ts](../../../tests/template/lint/lint-rules.test.ts) and
+  [tests/template/lint/anti-slop-rules.test.ts](../../../tests/template/lint/anti-slop-rules.test.ts)
+  for template rules, and
   [tests/kernel/lint-rules.test.ts](../../../tests/kernel/lint-rules.test.ts)
   for kernel rules: a failing and a passing snippet for each lint, each case
   naming its witness.
@@ -40,10 +41,11 @@ owner.
 
 A lint rule's owner determines where to define, enable, and test it.
 
-| Owner    | Rule files                                                                           | Turned on in                        | Cases                                    |
-| -------- | ------------------------------------------------------------------------------------ | ----------------------------------- | ---------------------------------------- |
-| Template | `config/template-rules.mjs`, `config/platform-rules.mjs`, `config/payload-rules.mjs` | `eslint.config.mjs`                 | `tests/template/lint/lint-rules.test.ts` |
-| Kernel   | `config/kernel-repository-rules.mjs`                                                 | `config/kernel-repository-lint.mjs` | `tests/kernel/lint-rules.test.ts`        |
+| Owner              | Rule files                                                                           | Turned on in                        | Cases                                         |
+| ------------------ | ------------------------------------------------------------------------------------ | ----------------------------------- | --------------------------------------------- |
+| Template           | `config/template-rules.mjs`, `config/platform-rules.mjs`, `config/payload-rules.mjs` | `eslint.config.mjs`                 | `tests/template/lint/lint-rules.test.ts`      |
+| Template anti-slop | `config/anti-slop-rules.mjs`, `config/anti-slop-type-rules.mjs`                      | `eslint.config.mjs`                 | `tests/template/lint/anti-slop-rules.test.ts` |
+| Kernel             | `config/kernel-repository-rules.mjs`                                                 | `config/kernel-repository-lint.mjs` | `tests/kernel/lint-rules.test.ts`             |
 
 - A rule both owners need has one copy per owner. Change both copies to
   the same text, with a case in each owner's cases file.

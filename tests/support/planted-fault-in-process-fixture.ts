@@ -2,17 +2,9 @@ import { spyOn } from "bun:test";
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import type { Fault } from "../../scripts/planted-faults.ts";
+import { repositoryLocation } from "../../scripts/process-runner.ts";
 import { ownedFolders, write } from "./fixture-files.ts";
 import { commit, gitEnv, gitOutput, initRepository } from "./git-fixture.ts";
-
-const repositoryLocation = [
-  "GIT_DIR",
-  "GIT_WORK_TREE",
-  "GIT_INDEX_FILE",
-  "GIT_OBJECT_DIRECTORY",
-  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
-  "GIT_COMMON_DIR",
-];
 
 export const recordsPath = "tests/planted-faults/fault-records.json";
 

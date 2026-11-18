@@ -1,0 +1,8 @@
+diff --git a/scripts/check-file-size.ts b/scripts/check-file-size.ts
+--- a/scripts/check-file-size.ts
++++ b/scripts/check-file-size.ts
+@@ -16,3 +16 @@
+-    throw new Error(
+-      `${recordedHitsFile} must contain an object keyed by path.`,
+-    );
++    return new Map();

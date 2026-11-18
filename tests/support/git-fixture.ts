@@ -1,4 +1,5 @@
 import { mkdirSync } from "node:fs";
+import { withoutRepositoryLocation } from "../../scripts/process-runner.ts";
 import { write } from "./fixture-files.ts";
 
 const gitMilliseconds = 4_000;
@@ -14,21 +15,8 @@ export const gitEnv = {
   GIT_COMMITTER_EMAIL: "fixture@example.invalid",
 };
 
-// Platform: A git hook runs the suite with these set, and they would point the
-// fixture's git at the caller's repository.
-const gitLocation = new Set([
-  "GIT_DIR",
-  "GIT_WORK_TREE",
-  "GIT_INDEX_FILE",
-  "GIT_OBJECT_DIRECTORY",
-  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
-  "GIT_COMMON_DIR",
-]);
-
 export function inherited(): Record<string, string | undefined> {
-  return Object.fromEntries(
-    Object.entries(process.env).filter(([name]) => !gitLocation.has(name)),
-  );
+  return withoutRepositoryLocation(process.env);
 }
 
 export function gitResult(root: string, ...args: string[]) {

@@ -1,0 +1,12 @@
+diff --git a/scripts/check-file-size.ts b/scripts/check-file-size.ts
+--- a/scripts/check-file-size.ts
++++ b/scripts/check-file-size.ts
+@@ -183,8 +183,4 @@
+     encoding.free();
+   }
+-  if (examined === 0 && !staged)
+-    notices.problem.push(
+-      "no tracked UTF-8 text files to scan. Repair: run the gate in a populated template checkout.",
+-    );
+   return {
+     stdout: [

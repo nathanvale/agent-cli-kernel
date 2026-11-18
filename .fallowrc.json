@@ -5,11 +5,9 @@
     "examples/**",
     "starters/simple/**",
     "starters/complex/**",
-    "starters/shared/**",
-    "tools/oxlint/anti-slop/**"
+    "starters/shared/**"
   ],
   "ignoreBinaries": ["getconf"],
-  "ignoreDependencies": ["@oxlint/plugins"],
   "typeAware": {
     "enabled": true,
     "require": "best-effort"
@@ -90,6 +88,7 @@
     "boundary-violation": "error",
     "require-suppression-reason": "error"
   },
+  "supportEntry": ["scripts/check-file-size.ts"],
   "entry": [
     "src/static-admission.ts",
     "scripts/doctor.ts",

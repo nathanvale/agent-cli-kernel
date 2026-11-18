@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync, readdirSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { processWatchdog } from "../../support/process.ts";
 import {
@@ -16,7 +16,8 @@ import {
 import { write } from "../../support/fixture-files.ts";
 import { gitOutput, commit } from "../../support/git-fixture.ts";
 
-const { faultReplay, repositoryWithFault } = createPlantedFaultFixture();
+const { faultReplay, folder, repositoryWithFault } =
+  createPlantedFaultFixture();
 
 describe("bun run fault-replay", () => {
   test(
@@ -176,6 +177,44 @@ describe("bun run fault-replay", () => {
         "tests/planted-faults/fault-records.json has no fault record, so this gate checks nothing. Repair: add one with bun run planted-fault:add, or remove the fault-replay gate.",
       );
       expect(run.exit).toBe(1);
+    },
+    timeout,
+  );
+
+  test(
+    "FR.x --changed-since run from a hook that exports another repository's git location reads its own repository",
+    async () => {
+      const { root, id } = await repositoryWithFault({});
+      const base = gitOutput(root, "rev-parse", "HEAD").trim();
+      commit(root, "reword the refusal", {
+        "src/limit.ts": guarded.replace("must be", "has to be"),
+        "tests/limit.test.ts": tests(
+          refusalTest.replace("must be", "has to be"),
+        ),
+      });
+      const caller = join(folder("fault-replay-caller-"), "repo");
+      mkdirSync(caller);
+      gitOutput(caller, "init", "--quiet", "--initial-branch=main");
+      commit(caller, "caller", { "caller.txt": "caller\n" });
+      const callerHead = gitOutput(caller, "rev-parse", "HEAD").trim();
+      const hook = {
+        GIT_DIR: join(caller, ".git"),
+        GIT_WORK_TREE: caller,
+        GIT_INDEX_FILE: join(caller, ".git", "index"),
+        GIT_OBJECT_DIRECTORY: join(caller, ".git", "objects"),
+        GIT_COMMON_DIR: join(caller, ".git"),
+      };
+
+      const run = await faultReplay(root, ["--changed-since", base], {
+        env: hook,
+      });
+
+      expect(run.stderr).toBe("");
+      expect(verdicts(run.lines)).toEqual([`STALE ${id}`]);
+      expect(run.exit).toBe(1);
+      expect(gitOutput(caller, "rev-parse", "HEAD").trim()).toBe(callerHead);
+      expect(gitOutput(caller, "status", "--porcelain")).toBe("");
+      expectNoLeftovers(root, run.temporary);
     },
     timeout,
   );

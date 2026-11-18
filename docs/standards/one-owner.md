@@ -24,6 +24,12 @@ here.
   [#84-git] (a local copy left runtime configuration in the replay fixture),
   [#90-git] (the bootstrap fixture inherited a signing requirement),
   [#101-git] (the naming fixture inherited a setting that disabled its hook).
+- Start every child and git call a hook can reach from
+  `withoutRepositoryLocation` in `scripts/process-runner.ts`, so none reads
+  the hook's repository through `GIT_DIR` or the variables beside it.
+  Witnessed: [def3ec4] (the runner, and a bare `Bun.spawn` beside it, handed
+  a hook's `GIT_DIR` to each child), [#109-git] (the fault tool's
+  synchronous git reads kept it too).
 
 [#91-git]: https://github.com/nathanvale/bun-typescript-template/pull/91#discussion_r4607744335
 [56aee86]: https://github.com/nathanvale/bun-typescript-template/commit/56aee86bf059fb2629819fa2b6a1664d776629d5
@@ -39,3 +45,5 @@ here.
 [#84-git]: https://github.com/nathanvale/bun-typescript-template/pull/84#discussion_r4607244506
 [#90-git]: https://github.com/nathanvale/bun-typescript-template/pull/90#discussion_r4607634940
 [#101-git]: https://github.com/nathanvale/bun-typescript-template/pull/101#discussion_r4609075462
+[def3ec4]: https://github.com/nathanvale/bun-typescript-template/commit/def3ec4a0b0bbe9047f9296dc0bbf6424c44a807
+[#109-git]: https://github.com/nathanvale/bun-typescript-template/pull/109#discussion_r4609955976

@@ -1,0 +1,13 @@
+diff --git a/scripts/check-file-size.ts b/scripts/check-file-size.ts
+--- a/scripts/check-file-size.ts
++++ b/scripts/check-file-size.ts
+@@ -157,9 +157,4 @@
+       message: `${label}: ${count} tokens (limit ${limit}), ${hit.lifetime} recorded hit. ${hit.reason}`,
+     };
+-  if (oversized)
+-    return {
+-      kind: "problem",
+-      message: `${label}: ${count} tokens exceeds the ${limit}-token limit. Repair: shorten or split the file.`,
+-    };
+   return undefined;
+ }

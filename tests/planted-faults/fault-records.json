@@ -59,7 +59,7 @@
     "id": "f0ad643-oxlintrc-spread",
     "patch": "tests/planted-faults/patches/f0ad643-oxlintrc-spread.patch",
     "testFile": "tests/template/lint/anti-slop-gate.test.ts",
-    "title": "^oxc/no-accumulating-spread refuses its violation$",
+    "title": "^anti-slop/no-accumulating-spread refuses its violation$",
     "source": "f0ad643 feat(lint): gate six anti-slop rules in bun run lint"
   },
   {
@@ -485,35 +485,35 @@
   {
     "id": "837cf32-planted-faults-base",
     "patch": "tests/planted-faults/patches/837cf32-planted-faults-base.patch",
-    "testFile": "tests/template/fault-replay/planted-fault-records-in-process.test.ts",
+    "testFile": "tests/template/fault-replay/planted-fault-changes-in-process.test.ts",
     "title": "faultsTouchedSince refuses a base git cannot resolve",
     "source": "837cf32 feat(faults): replay only the faults a change touches"
   },
   {
     "id": "837cf32-planted-faults-touched",
     "patch": "tests/planted-faults/patches/837cf32-planted-faults-touched.patch",
-    "testFile": "tests/template/fault-replay/planted-fault-records-in-process.test.ts",
+    "testFile": "tests/template/fault-replay/planted-fault-changes-in-process.test.ts",
     "title": "faultsTouchedSince names only the faults whose patch touches",
     "source": "837cf32 feat(faults): replay only the faults a change touches"
   },
   {
     "id": "98374b7-planted-faults-test-file",
     "patch": "tests/planted-faults/patches/98374b7-planted-faults-test-file.patch",
-    "testFile": "tests/template/fault-replay/planted-fault-records-in-process.test.ts",
+    "testFile": "tests/template/fault-replay/planted-fault-changes-in-process.test.ts",
     "title": "faultsTouchedSince names a fault whose test file changed",
     "source": "98374b7 fix(faults): count a fault's test file and a rename's old path as touched"
   },
   {
     "id": "98374b7-planted-faults-renames",
     "patch": "tests/planted-faults/patches/98374b7-planted-faults-renames.patch",
-    "testFile": "tests/template/fault-replay/planted-fault-records-in-process.test.ts",
+    "testFile": "tests/template/fault-replay/planted-fault-changes-in-process.test.ts",
     "title": "faultsTouchedSince names a fault whose patched file was renamed away",
     "source": "98374b7 fix(faults): count a fault's test file and a rename's old path as touched"
   },
   {
     "id": "80e16f3-planted-faults-record",
     "patch": "tests/planted-faults/patches/80e16f3-planted-faults-record.patch",
-    "testFile": "tests/template/fault-replay/planted-fault-records-in-process.test.ts",
+    "testFile": "tests/template/fault-replay/planted-fault-changes-in-process.test.ts",
     "title": "faultsTouchedSince names a fault whose record changed",
     "source": "80e16f3 fix(faults): replay a fault whose record changed, and refuse an empty list"
   },
@@ -553,11 +553,53 @@
     "source": "6bea874 feat(names): refuse a test file outside every family folder"
   },
   {
+    "id": "751520c-eslint.config",
+    "patch": "tests/planted-faults/patches/751520c-eslint.config.patch",
+    "testFile": "tests/template/lint/anti-slop-rules.test.ts",
+    "title": "^no-restricted-syntax refuses the 751520c shape",
+    "source": "751520c fix(lint): refuse assertion chains where the kernel sets no-restricted-syntax"
+  },
+  {
     "id": "dc6396a-repository",
     "patch": "tests/planted-faults/patches/dc6396a-repository.patch",
     "testFile": "tests/template/repository/repository.test.ts",
     "title": "^a test area folder written as \"tests/\" is refused",
     "source": "dc6396a fix(repository): refuse a test area folder that is not a plain path"
+  },
+  {
+    "id": "10739d3-planted-faults-ambiguous",
+    "patch": "tests/planted-faults/patches/10739d3-planted-faults-ambiguous.patch",
+    "testFile": "tests/template/fault-replay/planted-faults-in-process.test.ts",
+    "title": "STALE anchor ambiguous",
+    "source": "10739d3 fix(faults): place each hunk of a planted fault by its exact anchor (GREEN)"
+  },
+  {
+    "id": "10739d3-planted-faults-absent",
+    "patch": "tests/planted-faults/patches/10739d3-planted-faults-absent.patch",
+    "testFile": "tests/template/fault-replay/planted-faults-in-process.test.ts",
+    "title": "STALE anchor absent",
+    "source": "10739d3 fix(faults): place each hunk of a planted fault by its exact anchor (GREEN)"
+  },
+  {
+    "id": "ddd9e83-planted-faults",
+    "patch": "tests/planted-faults/patches/ddd9e83-planted-faults.patch",
+    "testFile": "tests/template/fault-replay/planted-fault-changes-in-process.test.ts",
+    "title": "faultsTouchedSince refuses a git read that outlasts its bound",
+    "source": "ddd9e83 fix(faults): end each synchronous git read of the fault tool at 4 s (GREEN)"
+  },
+  {
+    "id": "0ade74f-harness",
+    "patch": "tests/planted-faults/patches/0ade74f-harness.patch",
+    "testFile": "tests/kernel/diagnostics/cases.test.ts",
+    "title": "T5 test harness: a crash run past its bound",
+    "source": "0ade74f test(kernel): kill a hung crash run's and R2 child's whole process group (GREEN)"
+  },
+  {
+    "id": "0ade74f-cases.test",
+    "patch": "tests/planted-faults/patches/0ade74f-cases.test.patch",
+    "testFile": "tests/kernel/diagnostics/cases.test.ts",
+    "title": "T5 ledger: a ledger child past its bound",
+    "source": "0ade74f test(kernel): kill a hung crash run's and R2 child's whole process group (GREEN)"
   },
   {
     "id": "ea215c9-pre-commit",
@@ -572,5 +614,271 @@
     "testFile": "tests/template/naming/pre-commit.test.ts",
     "title": "^PC[.][de] ",
     "source": "beed83c fix(hooks): check staged compiler config and deletions"
+  },
+  {
+    "id": "def3ec4-process-runner",
+    "patch": "tests/planted-faults/patches/def3ec4-process-runner.patch",
+    "testFile": "tests/template/process-runner/process-runner.test.ts",
+    "title": "^CE[.]e ",
+    "source": "def3ec4 fix(process-runner): keep a hook's git location out of every child (GREEN)"
+  },
+  {
+    "id": "24f4eab-planted-faults",
+    "patch": "tests/planted-faults/patches/24f4eab-planted-faults.patch",
+    "testFile": "tests/template/fault-replay/planted-fault-changes-in-process.test.ts",
+    "title": "faultsTouchedSince refuses a fault whose patch file is missing",
+    "source": "24f4eab fix(faults): refuse a missing patch file by name (GREEN)"
+  },
+  {
+    "id": "7891c7e-planted-faults",
+    "patch": "tests/planted-faults/patches/7891c7e-planted-faults.patch",
+    "testFile": "tests/template/fault-replay/planted-faults.test.ts",
+    "title": "FR\\.x ",
+    "source": "7891c7e fix(faults): keep a hook's git location out of the fault tool's git reads (GREEN)"
+  },
+  {
+    "id": "1c831ad-planted-faults",
+    "patch": "tests/planted-faults/patches/1c831ad-planted-faults.patch",
+    "testFile": "tests/template/fault-replay/planted-fault-changes-in-process.test.ts",
+    "title": "faultsTouchedSince refuses a failed search for a moved anchor",
+    "source": "1c831ad fix(faults): name the failed anchor search and its repair (GREEN)"
+  },
+  {
+    "id": "10739d3-planted-faults-no-hunk",
+    "patch": "tests/planted-faults/patches/10739d3-planted-faults-no-hunk.patch",
+    "testFile": "tests/template/fault-replay/planted-faults-in-process.test.ts",
+    "title": "STALE when the patch holds no hunk",
+    "source": "10739d3 fix(faults): place each hunk of a planted fault by its exact anchor (GREEN)"
+  },
+  {
+    "id": "10739d3-planted-faults-names-nine",
+    "patch": "tests/planted-faults/patches/10739d3-planted-faults-names-nine.patch",
+    "testFile": "tests/template/fault-replay/planted-faults-in-process.test.ts",
+    "title": "places names at most ten",
+    "source": "10739d3 fix(faults): place each hunk of a planted fault by its exact anchor (GREEN)"
+  },
+  {
+    "id": "10739d3-planted-faults-names-eleven",
+    "patch": "tests/planted-faults/patches/10739d3-planted-faults-names-eleven.patch",
+    "testFile": "tests/template/fault-replay/planted-faults-in-process.test.ts",
+    "title": "places names at most ten",
+    "source": "10739d3 fix(faults): place each hunk of a planted fault by its exact anchor (GREEN)"
+  },
+  {
+    "id": "64b57bc-planted-faults",
+    "patch": "tests/planted-faults/patches/64b57bc-planted-faults.patch",
+    "testFile": "tests/template/fault-replay/planted-fault-process.test.ts",
+    "title": "FR\\.y ",
+    "source": "64b57bc fix(faults): stop a worktree removal at the step limit (GREEN)"
+  },
+  {
+    "id": "9609e5c-planted-faults",
+    "patch": "tests/planted-faults/patches/9609e5c-planted-faults.patch",
+    "testFile": "tests/template/fault-replay/planted-faults-in-process.test.ts",
+    "title": "STALE anchor ambiguous when each side prefers a different place",
+    "source": "9609e5c fix(faults): choose a place by context on either side, and never on a tie (GREEN)"
+  },
+  {
+    "id": "f82ed2f-planted-faults",
+    "patch": "tests/planted-faults/patches/f82ed2f-planted-faults.patch",
+    "testFile": "tests/template/fault-replay/planted-faults-in-process.test.ts",
+    "title": "KILLED when only the context between a hunk's two changed regions was edited",
+    "source": "f82ed2f fix(faults): anchor each changed region of a hunk on its own removed text (GREEN)"
+  },
+  {
+    "id": "b9b2905-planted-faults",
+    "patch": "tests/planted-faults/patches/b9b2905-planted-faults.patch",
+    "testFile": "tests/template/fault-replay/planted-faults-in-process.test.ts",
+    "title": "STALE when the patch (creates|deletes) a whole file",
+    "source": "b9b2905 fix(faults): refuse a patch that creates or deletes a whole file (GREEN)"
+  },
+  {
+    "id": "442de9a-swarm-process",
+    "patch": "tests/planted-faults/patches/442de9a-swarm-process.patch",
+    "testFile": "tests/kernel/diagnostics/cases.test.ts",
+    "title": "T5 test harness: a run past its bound fails with the output it wrote while",
+    "source": "442de9a test(kernel): bound the wait after a bound run's SIGKILL (GREEN)"
+  },
+  {
+    "id": "f91b625-swarm-process",
+    "patch": "tests/planted-faults/patches/f91b625-swarm-process.patch",
+    "testFile": "tests/kernel/diagnostics/cases.test.ts",
+    "title": "T5 ledger: a ledger child past its bound",
+    "source": "f91b625 test(kernel): show a hung R2 child's output in its failure (GREEN)"
+  },
+  {
+    "id": "246ba4a-anti-slop-rules",
+    "patch": "tests/planted-faults/patches/246ba4a-anti-slop-rules.patch",
+    "testFile": "tests/template/lint/anti-slop-rules.test.ts",
+    "title": "^anti-slop/no-accumulating-spread refuses the r4608976426 shape",
+    "source": "246ba4a fix(lint): refuse accumulating spreads in reducers with an index or array"
+  },
+  {
+    "id": "83577c3-anti-slop-rules",
+    "patch": "tests/planted-faults/patches/83577c3-anti-slop-rules.patch",
+    "testFile": "tests/template/lint/anti-slop-rules.test.ts",
+    "title": "^anti-slop/no-unknown-type-aliases refuses the r4609019138 shape",
+    "source": "83577c3 fix(lint): expand a nested alias argument in its own context"
+  },
+  {
+    "id": "8779659-anti-slop-rules",
+    "patch": "tests/planted-faults/patches/8779659-anti-slop-rules.patch",
+    "testFile": "tests/template/lint/anti-slop-rules.test.ts",
+    "title": "^anti-slop/no-accumulating-spread refuses the r4609019149 shape",
+    "source": "8779659 fix(lint): check the loop write that holds the spread"
+  },
+  {
+    "id": "2be40d2-anti-slop-rules",
+    "patch": "tests/planted-faults/patches/2be40d2-anti-slop-rules.patch",
+    "testFile": "tests/template/lint/anti-slop-rules.test.ts",
+    "title": "^anti-slop/no-unknown-type-aliases refuses the r4609659195 shape",
+    "source": "2be40d2 fix(lint): give each alias expansion its own parameter map"
+  },
+  {
+    "id": "016161d-anti-slop-rules",
+    "patch": "tests/planted-faults/patches/016161d-anti-slop-rules.patch",
+    "testFile": "tests/template/lint/anti-slop-rules.test.ts",
+    "title": "^anti-slop/no-accumulating-spread refuses the r4609659202 shape",
+    "source": "016161d fix(lint): refuse an accumulating spread at any reducer arity"
+  },
+  {
+    "id": "0969084-anti-slop-rules",
+    "patch": "tests/planted-faults/patches/0969084-anti-slop-rules.patch",
+    "testFile": "tests/template/lint/anti-slop-rules.test.ts",
+    "title": "^anti-slop/no-accumulating-spread refuses the r4609659202 initial value shape",
+    "source": "0969084 fix(lint): charge a spread only to the reduce its callback enters first"
+  },
+  {
+    "id": "da3fbac-anti-slop-rules",
+    "patch": "tests/planted-faults/patches/da3fbac-anti-slop-rules.patch",
+    "testFile": "tests/template/lint/anti-slop-rules.test.ts",
+    "title": "^anti-slop/no-accumulating-spread refuses the r4609659207 shape",
+    "source": "da3fbac fix(lint): judge only spreads that build an array or object"
+  },
+  {
+    "id": "ea5d241-anti-slop-rules",
+    "patch": "tests/planted-faults/patches/ea5d241-anti-slop-rules.patch",
+    "testFile": "tests/template/lint/anti-slop-rules.test.ts",
+    "title": "^anti-slop/no-module-mocking refuses the r4609902952 shape",
+    "source": "ea5d241 fix(lint): read a template key as a module mock method"
+  },
+  {
+    "id": "dd0f4da-anti-slop-rules",
+    "patch": "tests/planted-faults/patches/dd0f4da-anti-slop-rules.patch",
+    "testFile": "tests/template/lint/anti-slop-rules.test.ts",
+    "title": "^anti-slop/no-reduce-accumulator-copy refuses the r4609902960 shape",
+    "source": "dd0f4da fix(lint): read template keys on reducer copy calls"
+  },
+  {
+    "id": "55701f2-anti-slop-rules",
+    "patch": "tests/planted-faults/patches/55701f2-anti-slop-rules.patch",
+    "testFile": "tests/template/lint/anti-slop-rules.test.ts",
+    "title": "^anti-slop/no-accumulating-spread refuses the r4609019144 shape",
+    "source": "55701f2 fix(lint): match a spread only to the reduce that owns its callback"
+  },
+  {
+    "id": "1fd64d7-planted-faults",
+    "patch": "tests/planted-faults/patches/1fd64d7-planted-faults.patch",
+    "testFile": "tests/template/fault-replay/planted-fault-changes-in-process.test.ts",
+    "title": "names a fault whose patch deletes a whole file when only that file changed",
+    "source": "1fd64d7 fix(faults): take a deleted file's hunk path from the side it is removed from (GREEN)"
+  },
+  {
+    "id": "7a1cc6d-planted-faults",
+    "patch": "tests/planted-faults/patches/7a1cc6d-planted-faults.patch",
+    "testFile": "tests/template/fault-replay/planted-faults-in-process.test.ts",
+    "title": "STALE anchor ambiguous at only the real blank lines",
+    "source": "7a1cc6d fix(faults): read a file's lines without the end-of-file separator, keeping its real blank lines (GREEN)"
+  },
+  {
+    "id": "e82b9ff-planted-faults",
+    "patch": "tests/planted-faults/patches/e82b9ff-planted-faults.patch",
+    "testFile": "tests/template/fault-replay/planted-fault-changes-in-process.test.ts",
+    "title": "names a fault whose moved anchor is ambiguous at the base",
+    "source": "e82b9ff fix(faults): select a refused fault by the places its anchor was found (GREEN)"
+  },
+  {
+    "id": "3887c4b-planted-faults",
+    "patch": "tests/planted-faults/patches/3887c4b-planted-faults.patch",
+    "testFile": "tests/template/fault-replay/planted-fault-process.test.ts",
+    "title": "FR\\.y ",
+    "source": "3887c4b fix(faults): prune the worktree entry a stopped removal leaves behind (GREEN)"
+  },
+  {
+    "id": "71df3eb-swarm-process",
+    "patch": "tests/planted-faults/patches/71df3eb-swarm-process.patch",
+    "testFile": "tests/kernel/diagnostics/cases.test.ts",
+    "title": "T5 test harness: a run past its bound fails with the output it wrote while",
+    "source": "71df3eb test(kernel): pin the wait after a held-output run's SIGKILL to 3,000 ms"
+  },
+  {
+    "id": "a11290a-check-file-size",
+    "patch": "tests/planted-faults/patches/a11290a-check-file-size.patch",
+    "testFile": "tests/template/file-size/file-size.test.ts",
+    "title": "^the package command passes 5000 tokens and refuses 5001$",
+    "source": "a11290a feat(gates): enforce the template file-size limit"
+  },
+  {
+    "id": "a11290a-pre-commit",
+    "patch": "tests/planted-faults/patches/a11290a-pre-commit.patch",
+    "testFile": "tests/template/file-size/file-size.test.ts",
+    "title": "^pre-commit counts staged bytes in a partially staged file$",
+    "source": "a11290a feat(gates): enforce the template file-size limit"
+  },
+  {
+    "id": "a11290a-check-file-size-stale",
+    "patch": "tests/planted-faults/patches/a11290a-check-file-size-stale.patch",
+    "testFile": "tests/template/file-size/file-size.test.ts",
+    "title": "^a temporary recorded hit must leave when its tracked text shrinks or disappears$",
+    "source": "a11290a feat(gates): enforce the template file-size limit"
+  },
+  {
+    "id": "a11290a-check-file-size-empty",
+    "patch": "tests/planted-faults/patches/a11290a-check-file-size-empty.patch",
+    "testFile": "tests/template/file-size/file-size.test.ts",
+    "title": "^a working tree with no tracked texts cannot pass the scan$",
+    "source": "a11290a feat(gates): enforce the template file-size limit"
+  },
+  {
+    "id": "61661fd-check-file-size",
+    "patch": "tests/planted-faults/patches/61661fd-check-file-size.patch",
+    "testFile": "tests/template/file-size/file-size.test.ts",
+    "title": "^the hook uses the staged record when a temporary recorded hit is removed$",
+    "source": "61661fd fix(gates): read recorded hits from the staged tree"
+  },
+  {
+    "id": "bd4486c-check-file-size-missing-blob",
+    "patch": "tests/planted-faults/patches/bd4486c-check-file-size-missing-blob.patch",
+    "testFile": "tests/template/file-size/file-size.test.ts",
+    "title": "^the staged scan refuses a missing eligible blob and skips a missing vendor blob$",
+    "source": "bd4486c fix(gates): check staged blobs in one Git batch"
+  },
+  {
+    "id": "a11290a-check-file-size-git-deadline",
+    "patch": "tests/planted-faults/patches/a11290a-check-file-size-git-deadline.patch",
+    "testFile": "tests/template/file-size/file-size.test.ts",
+    "title": "^the file-size command stops a Git read at its deadline$",
+    "source": "a11290a feat(gates): enforce the template file-size limit"
+  },
+  {
+    "id": "61661fd-check-file-size-record-object",
+    "patch": "tests/planted-faults/patches/61661fd-check-file-size-record-object.patch",
+    "testFile": "tests/template/file-size/file-size.test.ts",
+    "title": "^the file-size command refuses malformed and excluded recorded hits$",
+    "source": "61661fd fix(gates): read recorded hits from the staged tree"
+  },
+  {
+    "id": "61661fd-check-file-size-record-fields",
+    "patch": "tests/planted-faults/patches/61661fd-check-file-size-record-fields.patch",
+    "testFile": "tests/template/file-size/file-size.test.ts",
+    "title": "^the file-size command refuses malformed and excluded recorded hits$",
+    "source": "61661fd fix(gates): read recorded hits from the staged tree"
+  },
+  {
+    "id": "b021da0-check-file-size",
+    "patch": "tests/planted-faults/patches/b021da0-check-file-size.patch",
+    "testFile": "tests/template/file-size/file-size.test.ts",
+    "title": "^the file-size command refuses malformed and excluded recorded hits$",
+    "source": "b021da0 fix(gates): refuse excluded recorded hits"
   }
 ]

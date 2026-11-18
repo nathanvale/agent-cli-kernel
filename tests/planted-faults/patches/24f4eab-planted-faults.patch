@@ -1,0 +1,13 @@
+diff --git a/scripts/planted-fault-patch.ts b/scripts/planted-fault-patch.ts
+--- a/scripts/planted-fault-patch.ts
++++ b/scripts/planted-fault-patch.ts
+@@ -224,8 +224,5 @@
+ export function patchText(root: string, fault: FaultPatch): string {
+   const path = join(root, fault.patch);
+-  if (!existsSync(path))
+-    throw new Error(
+-      `${fault.patch} does not exist, so ${fault.id} has no planted fault to apply. ${replantRepair(fault)}`,
+-    );
++  if (!existsSync(path)) return "";
+   return readFileSync(path, "utf8");
+ }

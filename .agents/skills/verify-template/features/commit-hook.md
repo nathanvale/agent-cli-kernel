@@ -2,7 +2,8 @@
 
 The template's pre-commit hook refuses a commit whose staged files break a
 gate: a name the names check refuses, a Biome format difference, a lint error
-such as a comment, a type error in the staged tree, or a new Fallow problem.
+such as a comment, a type error in the staged tree, a file over the token
+limit, or a new Fallow problem.
 Each refusal ends with its repair and how to know it is done. `bun install`
 turns the hook on through the `prepare` script.
 
@@ -16,11 +17,13 @@ turns the hook on through the `prepare` script.
 - `hook-staged-type` checks the staged tree for commits that stage changes to
   `.ts`, `.mts`, `.cts` or `.mjs` paths or to files matching `tsconfig*.json`
   at any depth, including removals. The staged-type recipes use partial staging.
+- `hook-file-size` checks staged changes against the file-size limit.
 
 ## How to get to it (user POV)
 
 - Run `git commit` in a template clone after `bun install --frozen-lockfile`.
 - Run `bun run check:names --staged` to judge the staged names alone.
+- Run `bun run check:file-size --staged` to judge the staged file sizes alone.
 
 ## Driving it with session.sh
 
@@ -91,6 +94,74 @@ Preconditions:
 
   Exit 0; the commit contains the staged string and the working tree still
   holds the unstaged type error until the recipe restores it.
+- **Green, file size.** Record `file-size-green` in `template`.
+
+  ```sh
+  set -eu
+  path=docs/verify-file-size.txt
+  bun -e 'process.stdout.write(" x".repeat(5000))' > "$path"
+  git add -- "$path"
+  bun run check:file-size
+  ```
+
+  Exit 0 at 5,000 tokens.
+- **Red, file size.** Record `file-size-red` after that green.
+
+  ```sh
+  bun -e 'process.stdout.write(" x".repeat(5001))' > docs/verify-file-size.txt
+  bun run check:file-size
+  ```
+
+  Exit 1. The refusal names `docs/verify-file-size.txt`, 5,001 tokens, and the
+  5,000-token limit.
+- **Red, staged file size.** Record `hook-red-file-size` after that red.
+
+  ```sh
+  set -eu
+  path=docs/verify-file-size.txt
+  git add -- "$path"
+  staged_tree=$(git write-tree)
+  bun -e 'process.stdout.write(" x".repeat(5000))' > "$path"
+  before=$(git rev-parse HEAD)
+  status=0
+  git commit -q -m "test(docs): try to commit an oversized file" || status=$?
+  if [ "$status" -ne 1 ]; then
+    printf 'Expected the hook to refuse with exit 1, got %s.\n' "$status" >&2
+    exit 2
+  fi
+  if [ "$(git rev-parse HEAD)" != "$before" ]; then
+    printf 'The refused commit changed HEAD.\n' >&2
+    exit 2
+  fi
+  if [ "$(git write-tree)" != "$staged_tree" ]; then
+    printf 'The refused commit changed the staged tree.\n' >&2
+    exit 2
+  fi
+  exit 1
+  ```
+
+  Exit 1. The hook names the same refusal and preserves HEAD and the whole staged tree.
+  Exit 2 means the proof failed. After exit 1, the index still holds 5,001
+  tokens and the working copy holds 5,000.
+- **Green, staged file size.** Record `hook-green-file-size` after that red.
+  The first `git add` replaces the oversized staged blob with the working copy.
+
+  ```sh
+  set -eu
+  path=docs/verify-file-size.txt
+  git add -- "$path"
+  staged=$(git rev-parse ":$path")
+  bun -e 'process.stdout.write(" x".repeat(5001))' > "$path"
+  unstaged=$(git hash-object "$path")
+  git commit -q -m "test(docs): commit a file at the token limit"
+  test "$(git rev-parse "HEAD:$path")" = "$staged"
+  test "$(git hash-object "$path")" = "$unstaged"
+  git restore --worktree -- "$path"
+  git status --porcelain
+  ```
+
+  Exit 0. The commit contains the 5,000-token file. The larger working copy
+  remains until the recipe restores it.
 - **Red, Fallow.** Record `hook-red-fallow`:
   `printf '\nexport const unused = 1;\n' >> src/recipe.ts && git add -- src/recipe.ts && git commit -q -m "test(recipe): add an unused export"; status=$?; git restore --staged --worktree -- src/recipe.ts; exit $status`.
   Exit 1; stderr lists `unused` under `Unused exports (1)` and prints
@@ -101,16 +172,18 @@ Preconditions:
 - **Planted faults.** Record `hook-fault`:
   `bun run --silent fault-replay d2034aa-pre-commit c6ccbf5-check-names-refusal ea215c9-pre-commit beed83c-pre-commit`.
   Exit 0; all four `KILLED`.
-- **After.** Record `hook-after`: `git status --porcelain`. Empty after each
-  red, so a refusal left nothing staged.
+- **After.** Record `hook-after` with `git status --porcelain` after a recipe
+  that restores its changes or after the file-size green. Expect empty output.
+  The staged file-size red leaves `AM docs/verify-file-size.txt` until the
+  file-size green replaces the staged blob and commits.
 
 ## Gotchas
 
 - The staged type check uses a temporary checkout of the commit's tree and
   reuses the installed `node_modules`.
-- ESLint, oxlint and Fallow run only when a staged path ends in `.ts`, `.mts`,
-  `.cts` or `.mjs`. A Markdown-only commit runs the names check and Biome
-  alone.
+- ESLint and Fallow run only when a staged path ends in `.ts`, `.mts`,
+  `.cts` or `.mjs`. A Markdown-only commit runs the names check, file-size
+  gate, and Biome.
 - The names check reads the glossary and recorded hits git has staged, not the
   working tree copies.
 - Bypassing the hook proves nothing. Every red here goes through `git commit`
