@@ -565,5 +565,19 @@
     "testFile": "tests/template/repository/repository.test.ts",
     "title": "^a test area folder written as \"tests/\" is refused",
     "source": "dc6396a fix(repository): refuse a test area folder that is not a plain path"
+  },
+  {
+    "id": "ea215c9-pre-commit",
+    "patch": "tests/planted-faults/patches/ea215c9-pre-commit.patch",
+    "testFile": "tests/template/naming/pre-commit.test.ts",
+    "title": "^PC[.]c the pre-commit type check uses the staged contents of a partially staged file$",
+    "source": "ea215c9 fix(hooks): type-check the staged tree"
+  },
+  {
+    "id": "beed83c-pre-commit",
+    "patch": "tests/planted-faults/patches/beed83c-pre-commit.patch",
+    "testFile": "tests/template/naming/pre-commit.test.ts",
+    "title": "^PC[.][de] ",
+    "source": "beed83c fix(hooks): check staged compiler config and deletions"
   }
 ]
