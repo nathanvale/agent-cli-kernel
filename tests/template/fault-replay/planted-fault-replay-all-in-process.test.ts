@@ -3,9 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { type Fault, replayAll } from "../../../scripts/planted-faults.ts";
 import {
-  commit,
   createPlantedFaultFixture,
-  git,
   guarded,
   headOf,
   limitTests,
@@ -16,9 +14,9 @@ import {
   sample,
   stepVariable,
   unguarded,
-  worktrees,
-  write,
 } from "../../support/planted-fault-in-process-fixture.ts";
+import { write } from "../../support/fixture-files.ts";
+import { commit, gitOutput, worktrees } from "../../support/git-fixture.ts";
 
 const { isolated, planted, repository } = createPlantedFaultFixture();
 
@@ -198,18 +196,22 @@ describe("replayAll", () => {
       patch: "tests/planted-faults/patches/dirty-limit.patch",
     };
     write(root, "src/limit.ts", guarded);
-    write(root, fault.patch, git(root, "diff", "-R", "--", "src/limit.ts"));
+    write(
+      root,
+      fault.patch,
+      gitOutput(root, "diff", "-R", "--", "src/limit.ts"),
+    );
     write(root, "tests/limit.test.ts", limitTests);
     write(root, recordsPath, `${JSON.stringify([fault], null, 2)}\n`);
     const head = headOf(root);
-    const status = git(root, "status", "--porcelain");
+    const status = gitOutput(root, "status", "--porcelain");
 
     const run = await replayedAll(root);
 
     expect(run.result).toBe(0);
     expect(run.stdout).toContain(`KILLED ${fault.id} in `);
     expect(headOf(root)).toBe(head);
-    expect(git(root, "status", "--porcelain")).toBe(status);
+    expect(gitOutput(root, "status", "--porcelain")).toBe(status);
     expect(readFileSync(join(root, "src/limit.ts"), "utf8")).toBe(guarded);
     expect(run.leftovers).toEqual([]);
   }, 60_000);
@@ -218,13 +220,13 @@ describe("replayAll", () => {
     const subject = planted();
     recorded(subject.root, [subject.fault]);
     const head = headOf(subject.root);
-    const objects = git(subject.root, "count-objects");
+    const objects = gitOutput(subject.root, "count-objects");
 
     const run = await replayedAll(subject.root);
 
     expect(run.result).toBe(0);
     expect(headOf(subject.root)).toBe(head);
-    expect(git(subject.root, "status", "--porcelain")).toBe("");
-    expect(git(subject.root, "count-objects")).toBe(objects);
+    expect(gitOutput(subject.root, "status", "--porcelain")).toBe("");
+    expect(gitOutput(subject.root, "count-objects")).toBe(objects);
   }, 60_000);
 });

@@ -7,17 +7,16 @@ import {
   readRecords,
 } from "../../../scripts/planted-faults.ts";
 import {
-  commit,
   createPlantedFaultFixture,
-  git,
   guarded,
   limitTests,
   recordsPath,
   rejection,
   sample,
   unguarded,
-  write,
 } from "../../support/planted-fault-in-process-fixture.ts";
+import { write } from "../../support/fixture-files.ts";
+import { gitOutput, commit } from "../../support/git-fixture.ts";
 
 const { folder, isolated, repository } = createPlantedFaultFixture();
 
@@ -156,7 +155,7 @@ describe("add", () => {
       "src/other.ts": "b\n",
       "tests/limit.test.ts": limitTests,
     });
-    const full = git(root, "rev-parse", "HEAD").trim();
+    const full = gitOutput(root, "rev-parse", "HEAD").trim();
     return { root, fix, full };
   }
 
@@ -200,7 +199,7 @@ describe("add", () => {
         join(root, `tests/planted-faults/patches/${id}.patch`),
         "utf8",
       ),
-    ).toBe(git(root, "diff", full, `${full}^`, "--", "src/limit.ts"));
+    ).toBe(gitOutput(root, "diff", full, `${full}^`, "--", "src/limit.ts"));
     expect(readFileSync(join(root, recordsPath), "utf8")).toEndWith("}\n]\n");
     expect(run.leftovers).toEqual([]);
   });
@@ -209,7 +208,7 @@ describe("add", () => {
     const { root, fix } = fixed();
     await added(root, args(fix));
 
-    git(
+    gitOutput(
       root,
       "apply",
       join(root, `tests/planted-faults/patches/${fix}-limit.patch`),
@@ -254,7 +253,7 @@ describe("add", () => {
     commit(root, "base", { Makefile: "a\n", "src/x.tar.gz": "a\n" });
     commit(root, "fix: both", { Makefile: "b\n", "src/x.tar.gz": "b\n" });
     write(root, "t.test.ts", "");
-    const short = git(root, "rev-parse", "--short", "HEAD").trim();
+    const short = gitOutput(root, "rev-parse", "--short", "HEAD").trim();
 
     const plain = await added(root, [short, "Makefile", "t.test.ts", "t"]);
     const dotted = await added(root, [short, "src/x.tar.gz", "t.test.ts", "t"]);

@@ -12,6 +12,7 @@ import {
   type RecordedHit,
   recordedHitsFile,
 } from "../../../scripts/glossary.ts";
+import { write } from "../../support/fixture-files.ts";
 import { gitEnv, inherited } from "../../support/git-fixture.ts";
 import { spawnBounded } from "../../support/process.ts";
 import { testFolder } from "../../support/test-folder.ts";
@@ -49,11 +50,6 @@ const { scripts: production } = (await Bun.file(
 
 export function removeFixtureTrees(): void {
   for (const folder of folders.splice(0)) rmSync(folder, { recursive: true });
-}
-
-export function write(root: string, path: string, content: string): void {
-  mkdirSync(dirname(join(root, path)), { recursive: true });
-  writeFileSync(join(root, path), content);
 }
 
 export function writeRecordedHits(
@@ -111,7 +107,10 @@ export function gitOutcome(root: string, ...args: string[]) {
   return runInFixture(["git", ...args], root);
 }
 
-export async function git(root: string, ...args: string[]): Promise<void> {
+export async function runFixtureGit(
+  root: string,
+  ...args: string[]
+): Promise<void> {
   const { exit, stderr } = await gitOutcome(root, ...args);
   if (exit !== 0) throw new Error(`git ${args.join(" ")}: ${stderr}`);
 }
@@ -120,8 +119,8 @@ export async function fixtureRepository(
   recorded: readonly RecordedHit[] = [],
 ): Promise<string> {
   const root = fixtureTree(recorded);
-  await git(root, "init", "--quiet", "--initial-branch=main");
-  await git(
+  await runFixtureGit(root, "init", "--quiet", "--initial-branch=main");
+  await runFixtureGit(
     root,
     "add",
     "--",
@@ -129,7 +128,7 @@ export async function fixtureRepository(
     recordedHitsFile,
     "scripts/file-size-recorded-hits.json",
   );
-  await git(root, "commit", "--quiet", "-m", "rules");
+  await runFixtureGit(root, "commit", "--quiet", "-m", "rules");
   return root;
 }
 

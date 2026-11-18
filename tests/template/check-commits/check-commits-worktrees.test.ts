@@ -12,9 +12,8 @@ import {
   linkedCheckout,
   markers,
   verdicts,
-  worktrees,
 } from "../../support/check-commits-fixture.ts";
-import { git } from "../../support/git-fixture.ts";
+import { git, worktreeLines } from "../../support/git-fixture.ts";
 import { processWatchdog, spawnBounded } from "../../support/process.ts";
 
 const { folder, repositoryAt, checkCommits } = checkCommitsFixture();
@@ -77,7 +76,7 @@ describe("check:commits", () => {
       });
 
       expect(run.exit).toBe(1);
-      expect(worktrees(root)).toHaveLength(1);
+      expect(worktreeLines(root)).toHaveLength(1);
       expect(readdirSync(run.temporary)).toEqual([]);
     },
     processWatchdog(1),
@@ -115,7 +114,7 @@ describe("check:commits", () => {
         expect(run.stderr.split("\n")).toContain(
           `Stopped by ${signal} while checking ${stopped.short}, so it has no verdict.`,
         );
-        expect(worktrees(root)).toHaveLength(1);
+        expect(worktreeLines(root)).toHaveLength(1);
         expect(readdirSync(run.temporary)).toEqual([]);
       },
       processWatchdog(1),
@@ -153,7 +152,7 @@ describe("check:commits", () => {
             `Stopped by SIGTERM while checking ${stopped.short}, so it has no verdict.`,
           );
           expect(await survivingSleep(pids)).toBeUndefined();
-          expect(worktrees(root)).toHaveLength(1);
+          expect(worktreeLines(root)).toHaveLength(1);
           expect(readdirSync(run.temporary)).toEqual([]);
         } finally {
           const left = await survivingSleep(pids);
@@ -190,7 +189,7 @@ describe("check:commits", () => {
         expect(run.stderr.split("\n")).toContain(
           `Stopped by ${signal} while checking ${stopped.short}, so it has no verdict.`,
         );
-        expect(worktrees(root)).toHaveLength(1);
+        expect(worktreeLines(root)).toHaveLength(1);
         expect(readdirSync(run.temporary)).toEqual([]);
       },
       processWatchdog(1),
@@ -220,7 +219,7 @@ describe("check:commits", () => {
       expect(run.stderr.split("\n")).toContain(
         `Stopped by SIGTERM while checking ${stopped.short}, so it has no verdict.`,
       );
-      expect(worktrees(root)).toHaveLength(1);
+      expect(worktreeLines(root)).toHaveLength(1);
       expect(readdirSync(run.temporary)).toEqual([]);
     },
     processWatchdog(1),
@@ -244,7 +243,7 @@ describe("check:commits", () => {
       expect(verdicts(run.lines)).toEqual([
         `GREEN ${blocked.short} fail the removal`,
       ]);
-      expect(worktrees(root).sort()).toEqual(
+      expect(worktreeLines(root).sort()).toEqual(
         [root, caller, extra]
           .map((path) => `worktree ${realpathSync(path)}`)
           .sort(),
@@ -279,7 +278,7 @@ describe("check:commits", () => {
       expect(verdicts(run.lines)).toEqual([
         `GREEN ${blocked.short} point .git at a sibling registration`,
       ]);
-      expect(worktrees(root).sort()).toEqual(
+      expect(worktreeLines(root).sort()).toEqual(
         [root, extra].map((path) => `worktree ${realpathSync(path)}`).sort(),
       );
       expect(run.stderr).not.toContain("git worktree remove failed");
@@ -345,7 +344,7 @@ describe("check:commits", () => {
       expect(run.stderr.split("\n")).toContain(
         `bun run typecheck was killed by SIGKILL while checking ${killed.short}, so it has no verdict.`,
       );
-      expect(worktrees(root)).toHaveLength(1);
+      expect(worktreeLines(root)).toHaveLength(1);
     },
     processWatchdog(1),
   );

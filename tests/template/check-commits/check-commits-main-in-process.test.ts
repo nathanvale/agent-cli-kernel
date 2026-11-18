@@ -9,9 +9,9 @@ import {
   ledgered,
   ledgerScript,
   refusal,
-  registered,
 } from "../../support/check-commits-in-process-fixture.ts";
 import { processWatchdog, watchLedger } from "../../support/process.ts";
+import { worktreeLines } from "../../support/git-fixture.ts";
 
 const { folder, repositoryAt, inTemporaryFolder } = createCommitCheckFixture();
 
@@ -113,7 +113,7 @@ describe("main", () => {
           ),
         ),
       ).toHaveLength(1);
-      expect(registered(root)).toHaveLength(1);
+      expect(worktreeLines(root)).toHaveLength(1);
     },
     processWatchdog(2),
   );
@@ -151,7 +151,7 @@ describe("main", () => {
           ),
         ),
       ).toHaveLength(1);
-      expect(registered(root)).toHaveLength(1);
+      expect(worktreeLines(root)).toHaveLength(1);
     },
     processWatchdog(3),
   );
@@ -227,7 +227,7 @@ describe("after a stop signal", () => {
         expect(readdirSync(temporary)).toEqual([]);
       });
 
-      expect(registered(root)).toHaveLength(1);
+      expect(worktreeLines(root)).toHaveLength(1);
     },
     processWatchdog(1),
   );
@@ -264,7 +264,7 @@ describe("after a stop signal", () => {
       }
 
       expect(ledgered(ledger)).toEqual(["typecheck"]);
-      expect(registered(root)).toHaveLength(1);
+      expect(worktreeLines(root)).toHaveLength(1);
     },
     processWatchdog(1),
   );

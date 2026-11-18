@@ -57,7 +57,10 @@ export async function runNative(
   return { exitCode: exit, stderr, stdout };
 }
 
-export async function git(cwd: string, ...args: string[]): Promise<string> {
+export async function gitAsync(
+  cwd: string,
+  ...args: string[]
+): Promise<string> {
   const { exit, stdout, stderr } = await spawnBounded(["git", ...args], {
     cwd,
     env: {
@@ -333,16 +336,21 @@ async function createProject(
     await writeFile(path, contents);
   }
   await linkDependencies(root, profile);
-  await git(root, "init", "-q", "-b", "main");
-  const files = await git(
+  await gitAsync(root, "init", "-q", "-b", "main");
+  const files = await gitAsync(
     root,
     "ls-files",
     "--others",
     "--modified",
     "--exclude-standard",
   );
-  await git(root, "add", "--", ...files.trim().split("\n").filter(Boolean));
-  await git(
+  await gitAsync(
+    root,
+    "add",
+    "--",
+    ...files.trim().split("\n").filter(Boolean),
+  );
+  await gitAsync(
     root,
     "-c",
     "user.name=CDS-TS-2 fixture",

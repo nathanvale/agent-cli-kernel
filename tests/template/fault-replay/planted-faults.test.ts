@@ -5,17 +5,16 @@ import { processWatchdog } from "../../support/process.ts";
 import {
   createPlantedFaultFixture,
   addFault,
-  commit,
   expectNoLeftovers,
-  git,
   guarded,
   lineOf,
   refusalTest,
   tests,
   timeout,
   verdicts,
-  write,
 } from "../../support/planted-fault-fixture.ts";
+import { write } from "../../support/fixture-files.ts";
+import { gitOutput, commit } from "../../support/git-fixture.ts";
 
 const { faultReplay, folder, repositoryWithFault } =
   createPlantedFaultFixture();
@@ -33,7 +32,7 @@ describe("bun run fault-replay", () => {
         source: `${fix} fix: refuse a NaN limit`,
       });
       expect(readFileSync(join(root, killed.patch), "utf8")).toBe(
-        git(root, "diff", "HEAD~1", "HEAD~2", "--", "src/limit.ts"),
+        gitOutput(root, "diff", "HEAD~1", "HEAD~2", "--", "src/limit.ts"),
       );
       const run = await faultReplay(root);
       expect(verdicts(run.lines)).toEqual([`KILLED ${id}`]);
@@ -143,7 +142,7 @@ describe("bun run fault-replay", () => {
     "FR.u --changed-since replays only the faults whose patch touches a changed file, and passes when none does",
     async () => {
       const { root, id } = await repositoryWithFault({});
-      const base = git(root, "rev-parse", "HEAD").trim();
+      const base = gitOutput(root, "rev-parse", "HEAD").trim();
       commit(root, "notes", { "README.md": "notes\n" });
       const untouched = await faultReplay(root, ["--changed-since", base]);
       expect(untouched.lines).toContain(
@@ -169,7 +168,7 @@ describe("bun run fault-replay", () => {
     "FR.w --changed-since with an empty list of fault records fails, saying the gate checks nothing",
     async () => {
       const { root } = await repositoryWithFault({});
-      const base = git(root, "rev-parse", "HEAD").trim();
+      const base = gitOutput(root, "rev-parse", "HEAD").trim();
       commit(root, "drop the records", {
         "tests/planted-faults/fault-records.json": "[]\n",
       });
@@ -186,7 +185,7 @@ describe("bun run fault-replay", () => {
     "FR.x --changed-since run from a hook that exports another repository's git location reads its own repository",
     async () => {
       const { root, id } = await repositoryWithFault({});
-      const base = git(root, "rev-parse", "HEAD").trim();
+      const base = gitOutput(root, "rev-parse", "HEAD").trim();
       commit(root, "reword the refusal", {
         "src/limit.ts": guarded.replace("must be", "has to be"),
         "tests/limit.test.ts": tests(
@@ -195,9 +194,9 @@ describe("bun run fault-replay", () => {
       });
       const caller = join(folder("fault-replay-caller-"), "repo");
       mkdirSync(caller);
-      git(caller, "init", "--quiet", "--initial-branch=main");
+      gitOutput(caller, "init", "--quiet", "--initial-branch=main");
       commit(caller, "caller", { "caller.txt": "caller\n" });
-      const callerHead = git(caller, "rev-parse", "HEAD").trim();
+      const callerHead = gitOutput(caller, "rev-parse", "HEAD").trim();
       const hook = {
         GIT_DIR: join(caller, ".git"),
         GIT_WORK_TREE: caller,
@@ -213,8 +212,8 @@ describe("bun run fault-replay", () => {
       expect(run.stderr).toBe("");
       expect(verdicts(run.lines)).toEqual([`STALE ${id}`]);
       expect(run.exit).toBe(1);
-      expect(git(caller, "rev-parse", "HEAD").trim()).toBe(callerHead);
-      expect(git(caller, "status", "--porcelain")).toBe("");
+      expect(gitOutput(caller, "rev-parse", "HEAD").trim()).toBe(callerHead);
+      expect(gitOutput(caller, "status", "--porcelain")).toBe("");
       expectNoLeftovers(root, run.temporary);
     },
     timeout,

@@ -102,11 +102,9 @@ repository broke it.
   bound. Kernel tests: reuse `spawnBounded`
   (`tests/kernel/kernel-repair/swarm-process.ts`) or `exitWithin`
   (`tests/kernel/lifecycle/harness.ts`).
-- Release in `finally` or a per-case teardown hook. Release the CLI, then
-  each ledgered child, then the temporary folder. Witnessed: [d592b6d],
-  [70c7280], [#84-cleanup] (suite teardown left resources alive between
-  cases after an assertion failed), [#91-cleanup] (the native admission suite
-  kept completed project trees until its final case).
+- In `finally` or per-case teardown, release the CLI, its ledgered children,
+  then its temporary folders. Witnessed: [d592b6d], [70c7280], [#84-cleanup],
+  [#91-cleanup], [5533cd6].
 - At teardown, send SIGKILL, and only to a pid still in its ledgered process
   group. Witnessed: [0ebe7cf], [1a29b19].
 
@@ -183,6 +181,7 @@ repository broke it.
 [4a32366]: https://github.com/nathanvale/bun-typescript-template/commit/4a32366bf79ea95479bda515313b33b849031507
 [c77aaa9]: https://github.com/nathanvale/bun-typescript-template/commit/c77aaa9ec56157f4701db117f9aa04e736c6e5df
 [#91-cleanup]: https://github.com/nathanvale/bun-typescript-template/pull/91#discussion_r4607744353
+[5533cd6]: https://github.com/nathanvale/bun-typescript-template/commit/5533cd63b22f8e5119969968e109af6788289e86
 [d592b6d]: https://github.com/nathanvale/bun-typescript-template/commit/d592b6d1eb13754bd46e041313511e7530e9804e
 [0ebe7cf]: https://github.com/nathanvale/bun-typescript-template/commit/0ebe7cf570b901653e090cb9062d0b438a5c25d1
 [1a29b19]: https://github.com/nathanvale/bun-typescript-template/commit/1a29b19ac6e32452d230dcbf46ccecc4f60223fc

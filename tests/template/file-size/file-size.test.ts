@@ -8,16 +8,16 @@ import {
 } from "node:fs";
 import { delimiter, join } from "node:path";
 import { runFileSizeCheck } from "../../../scripts/check-file-size.ts";
+import { write } from "../../support/fixture-files.ts";
 import { gitEnv, inherited } from "../../support/git-fixture.ts";
 import { processWatchdog } from "../../support/process.ts";
 import {
   fixtureRepository,
-  git,
+  runFixtureGit,
   gitOutcome,
   removeFixtureTrees,
   repository,
   runInFixture,
-  write,
 } from "../naming/fixture-tree.ts";
 
 const oneTokenOfText = " x";
@@ -60,7 +60,7 @@ function checkInProcess(tree: string, args: readonly string[] = []) {
 async function seed(tree: string, files: Readonly<Record<string, string>>) {
   for (const [path, content] of Object.entries(files))
     write(tree, path, content);
-  await git(tree, "add", "--", ...Object.keys(files));
+  await runFixtureGit(tree, "add", "--", ...Object.keys(files));
 }
 
 function linkToolchain(tree: string) {
@@ -70,9 +70,9 @@ function linkToolchain(tree: string) {
 async function treeWithHook(files: Readonly<Record<string, string>> = {}) {
   const tree = await fixtureRepository();
   await seed(tree, { [note]: "original", ...files });
-  await git(tree, "commit", "--quiet", "-m", "seed");
+  await runFixtureGit(tree, "commit", "--quiet", "-m", "seed");
   linkToolchain(tree);
-  await git(tree, "config", "core.hooksPath", ".githooks");
+  await runFixtureGit(tree, "config", "core.hooksPath", ".githooks");
   return tree;
 }
 
@@ -127,9 +127,9 @@ test(
       stdout: "original",
     });
 
-    await git(tree, "add", "--", note);
+    await runFixtureGit(tree, "add", "--", note);
     write(tree, note, overLimit);
-    await git(tree, "commit", "--quiet", "-m", "within limit");
+    await runFixtureGit(tree, "commit", "--quiet", "-m", "within limit");
     expect(await gitOutcome(tree, "show", `HEAD:${note}`)).toMatchObject({
       exit: 0,
       stdout: atLimit,
@@ -210,7 +210,7 @@ test(
     const updated = Object.fromEntries(
       Object.entries(hits).filter(([path]) => path !== glossary),
     );
-    await git(tree, "rm", "--quiet", "--", glossary);
+    await runFixtureGit(tree, "rm", "--quiet", "--", glossary);
     write(tree, recordedHits, JSON.stringify(updated));
 
     const before = await gitOutcome(tree, "write-tree");
@@ -227,7 +227,7 @@ test(
     );
     expect(await gitOutcome(tree, "write-tree")).toEqual(before);
 
-    await git(tree, "add", "--", recordedHits);
+    await runFixtureGit(tree, "add", "--", recordedHits);
     write(tree, recordedHits, original);
     expect(checkInProcess(tree, ["--staged"])).toEqual({
       code: 0,
@@ -255,7 +255,7 @@ test(
       "docs/small.txt": "no trailing newline",
     });
     writeFileSync(join(tree, malformed), Buffer.from([255, 10, 255]));
-    await git(tree, "add", "--", malformed);
+    await runFixtureGit(tree, "add", "--", malformed);
     write(tree, binary, overLimit);
     write(tree, note, atLimit);
 
@@ -316,7 +316,7 @@ test(
     expect(hashed).toMatchObject({ exit: 0, stderr: "" });
     const object = hashed.stdout.trim();
     const stageMissing = (path: string) =>
-      git(
+      runFixtureGit(
         tree,
         "update-index",
         "--add",
@@ -424,7 +424,7 @@ test(
   async () => {
     const tree = await fixtureRepository();
     await seed(tree, { [glossary]: overLimit, [integration]: overLimit });
-    await git(tree, "commit", "--quiet", "-m", "seed");
+    await runFixtureGit(tree, "commit", "--quiet", "-m", "seed");
     const untouched = checkInProcess(tree, ["--staged"]);
     expect(untouched).toEqual({
       code: 0,
@@ -436,7 +436,7 @@ test(
     const renamed = "docs/glossary-test.txt";
     write(tree, renamed, "");
     renameSync(join(tree, glossary), join(tree, renamed));
-    await git(tree, "add", "--", glossary, renamed);
+    await runFixtureGit(tree, "add", "--", glossary, renamed);
     const result = checkInProcess(tree, ["--staged"]);
     expect(result.code).toBe(1);
     expect(result.stderr.trim().split("\n").sort()).toEqual([
@@ -452,12 +452,12 @@ test(
   async () => {
     const tree = await fixtureRepository();
     await seed(tree, { [note]: overLimit });
-    await git(tree, "commit", "--quiet", "-m", "seed");
-    await git(tree, "rm", "--quiet", "--", note);
+    await runFixtureGit(tree, "commit", "--quiet", "-m", "seed");
+    await runFixtureGit(tree, "rm", "--quiet", "--", note);
     write(tree, note, overLimit);
     const link = "docs/link.txt";
     symlinkSync("file-size.txt", join(tree, link));
-    await git(tree, "add", "--", link);
+    await runFixtureGit(tree, "add", "--", link);
 
     expect(checkInProcess(tree, ["--staged"])).toEqual({
       code: 0,
@@ -473,8 +473,8 @@ test(
   "a working tree with no tracked texts cannot pass the scan",
   async () => {
     const tree = await fixtureRepository();
-    await git(tree, "rm", "--cached", "--quiet", "--", recordedHits);
-    await git(
+    await runFixtureGit(tree, "rm", "--cached", "--quiet", "--", recordedHits);
+    await runFixtureGit(
       tree,
       "rm",
       "--quiet",

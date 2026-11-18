@@ -1,16 +1,9 @@
-import { afterAll, spyOn } from "bun:test";
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  realpathSync,
-  rmSync,
-  symlinkSync,
-} from "node:fs";
+import { spyOn } from "bun:test";
+import { existsSync, readFileSync, realpathSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import type { Active, Run } from "../../scripts/check-commits.ts";
-import { commitIn, git } from "./git-fixture.ts";
-import { testFolder } from "./test-folder.ts";
+import { ownedFolders } from "./fixture-files.ts";
+import { commitIn, git, initRepository } from "./git-fixture.ts";
 
 const repository = join(import.meta.dir, "../..");
 
@@ -52,12 +45,6 @@ export async function refusal(
   return undefined;
 }
 
-export function registered(root: string): string[] {
-  return git(root, "worktree", "list", "--porcelain")
-    .split("\n")
-    .filter((line) => line.startsWith("worktree "));
-}
-
 export function ledgerScript(
   ledger: string,
   step: string,
@@ -73,17 +60,7 @@ export function ledgered(ledger: string): string[] {
 }
 
 export function createCommitCheckFixture() {
-  const folders: string[] = [];
-
-  afterAll(() => {
-    for (const folder of folders) rmSync(folder, { recursive: true });
-  });
-
-  function folder(prefix: string): string {
-    const path = testFolder(prefix);
-    folders.push(path);
-    return path;
-  }
+  const folder = ownedFolders();
 
   function repositoryAt({
     pin = Bun.version,
@@ -93,9 +70,8 @@ export function createCommitCheckFixture() {
     scripts?: Record<string, string>;
   } = {}) {
     const root = join(folder("check-commits-process-repo-"), "repo");
-    mkdirSync(root);
+    initRepository(root);
     symlinkSync(join(repository, "node_modules"), join(root, "node_modules"));
-    git(root, "init", "--quiet", "--initial-branch=main");
     const commit = (
       subject: string,
       changes: Record<string, string | null>,

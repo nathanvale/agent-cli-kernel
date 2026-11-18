@@ -8,11 +8,11 @@ import {
   checkNamesFrom,
   fixtureRepository,
   fixtureTree,
-  git,
+  runFixtureGit,
   removeFixtureTrees,
-  write,
   writeRecordedHits,
 } from "./fixture-tree.ts";
+import { write } from "../../support/fixture-files.ts";
 
 const usage =
   "Usage: bun run check:names <path> [path ...] | --staged | --tool-call";
@@ -113,18 +113,23 @@ test(
     const body = "A file long enough for git to see its move as a rename.\n";
     write(tree, "docs/mutation-notes.md", "before\n");
     write(tree, "docs/planted-fault-notes.md", body);
-    await git(tree, "add", "--", "docs");
-    await git(tree, "commit", "--quiet", "-m", "base");
+    await runFixtureGit(tree, "add", "--", "docs");
+    await runFixtureGit(tree, "commit", "--quiet", "-m", "base");
     write(tree, "docs/mutation-notes.md", "after\n");
-    await git(tree, "add", "--", "docs");
+    await runFixtureGit(tree, "add", "--", "docs");
     expect(await checkNames(tree, ["--staged"])).toEqual({
       stdout: "",
       stderr: "",
       exit: 0,
     });
-    await git(tree, "mv", "docs/planted-fault-notes.md", "docs/host.md");
+    await runFixtureGit(
+      tree,
+      "mv",
+      "docs/planted-fault-notes.md",
+      "docs/host.md",
+    );
     write(tree, "src/allowlist.ts", "");
-    await git(tree, "add", "--", "src");
+    await runFixtureGit(tree, "add", "--", "src");
     expect(await checkNames(tree, ["--staged"])).toEqual({
       stdout: "",
       stderr: [
@@ -145,7 +150,7 @@ const hostRefusal =
 async function repositoryWithStagedHost(): Promise<string> {
   const tree = await fixtureRepository();
   write(tree, "docs/host.md", "notes\n");
-  await git(tree, "add", "--", "docs/host.md");
+  await runFixtureGit(tree, "add", "--", "docs/host.md");
   return tree;
 }
 
@@ -168,7 +173,7 @@ test(
   async () => {
     const tree = await repositoryWithStagedHost();
     writeRecordedHits(tree, [hostHit]);
-    await git(tree, "add", "--", recordedHitsFile);
+    await runFixtureGit(tree, "add", "--", recordedHitsFile);
     writeRecordedHits(tree, []);
     expect(await checkNames(tree, ["--staged"])).toEqual({
       stdout: "",
@@ -190,7 +195,13 @@ test(
       glossary.replace("mutant, mutation", "mutant, mutation, canary"),
     );
     write(tree, "docs/canary-notes.md", "notes\n");
-    await git(tree, "add", "--", "GLOSSARY.md", "docs/canary-notes.md");
+    await runFixtureGit(
+      tree,
+      "add",
+      "--",
+      "GLOSSARY.md",
+      "docs/canary-notes.md",
+    );
     write(tree, "GLOSSARY.md", glossary);
     expect(await checkNames(tree, ["--staged"])).toEqual({
       stdout: "",
@@ -206,7 +217,7 @@ test.each([["GLOSSARY.md"], [recordedHitsFile]])(
   "CN.h --staged with no staged %s cannot run, and names the file and the repair",
   async (path) => {
     const tree = await fixtureRepository();
-    await git(tree, "rm", "--cached", "--quiet", "--", path);
+    await runFixtureGit(tree, "rm", "--cached", "--quiet", "--", path);
     expect(await checkNames(tree, ["--staged"])).toEqual({
       stdout: "",
       stderr: `git has no staged ${path}, so the names check cannot judge a commit by the ${path} it will contain. Repair: stage it with git add ${path}, then run the names check again.\n`,

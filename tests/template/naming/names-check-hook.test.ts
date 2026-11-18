@@ -5,13 +5,13 @@ import { processWatchdog } from "../../support/process.ts";
 import {
   emptyFolder,
   fixtureTree,
-  git,
+  runFixtureGit,
   hookCommands,
   removeFixtureTrees,
   repository,
   runHook,
-  write,
 } from "./fixture-tree.ts";
+import { write } from "../../support/fixture-files.ts";
 
 const claudeSettings = ".claude/settings.json";
 const codexSettings = ".codex/hooks.json";
@@ -29,7 +29,7 @@ afterAll(removeFixtureTrees);
 
 async function gitTree(): Promise<string> {
   const tree = fixtureTree();
-  await git(tree, "init", "--quiet", "--initial-branch=main");
+  await runFixtureGit(tree, "init", "--quiet", "--initial-branch=main");
   return tree;
 }
 
@@ -208,7 +208,7 @@ test(
   async () => {
     const tree = await gitTree();
     const elsewhere = emptyFolder();
-    await git(elsewhere, "init", "--quiet", "--initial-branch=main");
+    await runFixtureGit(elsewhere, "init", "--quiet", "--initial-branch=main");
     expect(
       await beforeWrite(tree, join(elsewhere, "docs/mutation-notes.md")),
     ).toEqual(silent);
@@ -281,9 +281,9 @@ test(
   "NG.d from a nested folder of a git worktree, a new file is judged by the glossary of the tree that owns it",
   async () => {
     const main = await gitTree();
-    await git(main, "add", "--", ".");
-    await git(main, "commit", "--quiet", "-m", "base");
-    await git(main, "worktree", "add", "--quiet", ".worktrees/other");
+    await runFixtureGit(main, "add", "--", ".");
+    await runFixtureGit(main, "commit", "--quiet", "-m", "base");
+    await runFixtureGit(main, "worktree", "add", "--quiet", ".worktrees/other");
     const other = join(main, ".worktrees/other");
     write(
       other,

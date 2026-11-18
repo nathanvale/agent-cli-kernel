@@ -4,7 +4,7 @@ import { mkdir, readdir, realpath, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import {
-  git,
+  gitAsync,
   hashProjectFiles,
   type Invocation,
   nativeEnvironment,
@@ -186,8 +186,8 @@ export async function prepareFallowCapture(
       fileHashes,
       configHashes,
       nodeModules: await describeNodeModules(root),
-      gitHead: (await git(root, "rev-parse", "HEAD")).trim(),
-      gitStatus: (await git(root, "status", "--porcelain=v1")).trim(),
+      gitHead: (await gitAsync(root, "rev-parse", "HEAD")).trim(),
+      gitStatus: (await gitAsync(root, "status", "--porcelain=v1")).trim(),
     },
     expectedRuleCounts: Object.fromEntries(
       Object.entries(expectedRules).map(([rule, expectation]) => [

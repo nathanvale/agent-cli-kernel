@@ -6,16 +6,15 @@ import {
   faultsTouchedSince,
 } from "../../../scripts/planted-faults.ts";
 import {
-  commit,
   createPlantedFaultFixture,
-  git,
   guarded,
   headOf,
   limitTests,
   recorded,
   rejection,
-  write,
 } from "../../support/planted-fault-in-process-fixture.ts";
+import { write } from "../../support/fixture-files.ts";
+import { commit, gitOutput } from "../../support/git-fixture.ts";
 
 const { folder, isolated, planted } = createPlantedFaultFixture();
 
@@ -82,16 +81,16 @@ describe("faultsTouchedSince", () => {
 
   test("names a fault whose patched file was renamed away", async () => {
     const { root, id, base } = twoFaults();
-    git(root, "mv", "src/limit.ts", "src/bound.ts");
-    git(root, "commit", "--quiet", "-m", "rename limit");
+    gitOutput(root, "mv", "src/limit.ts", "src/bound.ts");
+    gitOutput(root, "commit", "--quiet", "-m", "rename limit");
     const { result } = await isolated(() => faultsTouchedSince(root, base));
     expect(result).toEqual([id]);
   });
 
   test("names a fault whose patched file moved before the base, when the moved file changes", async () => {
     const { root, id } = twoFaults();
-    git(root, "mv", "src/limit.ts", "src/bound.ts");
-    git(root, "commit", "--quiet", "-m", "rename limit");
+    gitOutput(root, "mv", "src/limit.ts", "src/bound.ts");
+    gitOutput(root, "commit", "--quiet", "-m", "rename limit");
     const base = headOf(root);
     commit(root, "reword the refusal", {
       "src/bound.ts": guarded.replace("must be", "has to be"),
@@ -102,7 +101,7 @@ describe("faultsTouchedSince", () => {
 
   test("names a fault whose moved anchor is ambiguous at the base when one of its places changes", async () => {
     const { root, id } = twoFaults();
-    git(root, "mv", "src/limit.ts", "src/bound.ts");
+    gitOutput(root, "mv", "src/limit.ts", "src/bound.ts");
     commit(root, "rename limit and copy it", { "src/copy.ts": guarded });
     const base = headOf(root);
     commit(root, "export a bound", {
@@ -179,8 +178,8 @@ deleted file mode 100644
 
   test("refuses a failed search for a moved anchor, naming git's words and the repair", async () => {
     const { root } = twoFaults();
-    git(root, "mv", "src/limit.ts", "src/bound.ts");
-    git(root, "commit", "--quiet", "-m", "rename limit");
+    gitOutput(root, "mv", "src/limit.ts", "src/bound.ts");
+    gitOutput(root, "commit", "--quiet", "-m", "rename limit");
     const base = headOf(root);
     const real = Bun.which("git");
     if (real === null) throw new Error("No git on PATH.");

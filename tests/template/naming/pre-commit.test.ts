@@ -5,19 +5,19 @@ import { stripVTControlCharacters } from "node:util";
 import { processWatchdog } from "../../support/process.ts";
 import {
   fixtureRepository,
-  git,
+  runFixtureGit,
   gitOutcome,
   removeFixtureTrees,
   repository,
-  write,
   writeRecordedHits,
 } from "./fixture-tree.ts";
+import { write } from "../../support/fixture-files.ts";
 
 afterAll(removeFixtureTrees);
 
 async function installCommitHook(tree: string): Promise<string> {
   symlinkSync(join(repository, "node_modules"), join(tree, "node_modules"));
-  await git(tree, "config", "core.hooksPath", ".githooks");
+  await runFixtureGit(tree, "config", "core.hooksPath", ".githooks");
   return tree;
 }
 
@@ -32,7 +32,7 @@ async function commitCount(tree: string): Promise<string> {
 
 async function commitNew(tree: string, path: string) {
   write(tree, path, "notes\n");
-  await git(tree, "add", "--", path);
+  await runFixtureGit(tree, "add", "--", path);
   const commit = await gitOutcome(tree, "commit", "--quiet", "-m", "notes");
   return {
     exit: commit.exit,
@@ -109,7 +109,7 @@ async function treeWithStagedTypeCheck(): Promise<string> {
   );
   write(tree, configPath, initialConfig);
   write(tree, sourcePath, initialSource);
-  await git(
+  await runFixtureGit(
     tree,
     "add",
     "--",
@@ -118,7 +118,7 @@ async function treeWithStagedTypeCheck(): Promise<string> {
     configPath,
     sourcePath,
   );
-  await git(tree, "commit", "--quiet", "-m", "types");
+  await runFixtureGit(tree, "commit", "--quiet", "-m", "types");
   return installCommitHook(tree);
 }
 
@@ -139,7 +139,7 @@ test(
     const valid = "export const value: number = 2;\n";
     const invalid = 'export const value: number = "one";\n';
     write(tree, sourcePath, invalid);
-    await git(tree, "add", "--", sourcePath);
+    await runFixtureGit(tree, "add", "--", sourcePath);
     write(tree, sourcePath, valid);
 
     await expectTypeRefusal(
@@ -151,9 +151,9 @@ test(
       stdout: invalid,
     });
 
-    await git(tree, "add", "--", sourcePath);
+    await runFixtureGit(tree, "add", "--", sourcePath);
     write(tree, sourcePath, invalid);
-    await git(tree, "commit", "--quiet", "-m", "value");
+    await runFixtureGit(tree, "commit", "--quiet", "-m", "value");
     expect(await gitOutcome(tree, "show", `HEAD:${sourcePath}`)).toMatchObject({
       exit: 0,
       stdout: valid,
@@ -170,7 +170,7 @@ test(
     const invalid =
       '{\n\t"compilerOptions": { "types": ["staged-config-probe"] }\n}\n';
     write(tree, configPath, invalid);
-    await git(tree, "add", "--", configPath);
+    await runFixtureGit(tree, "add", "--", configPath);
     write(tree, configPath, initialConfig);
 
     await expectTypeRefusal(
@@ -189,7 +189,7 @@ test(
   "PC.e a staged source removal triggers the staged type check",
   async () => {
     const tree = await treeWithStagedTypeCheck();
-    await git(tree, "rm", "--", sourcePath);
+    await runFixtureGit(tree, "rm", "--", sourcePath);
     write(tree, sourcePath, initialSource);
 
     await expectTypeRefusal(

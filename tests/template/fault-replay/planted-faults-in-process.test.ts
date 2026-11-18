@@ -7,18 +7,16 @@ import {
   type Verdict,
 } from "../../../scripts/planted-faults.ts";
 import {
-  commit,
   createPlantedFaultFixture,
-  git,
   guarded,
   headOf,
   limitTests,
   type Planted,
   rejection,
   unguarded,
-  worktrees,
-  write,
 } from "../../support/planted-fault-in-process-fixture.ts";
+import { write } from "../../support/fixture-files.ts";
+import { gitOutput, commit, worktrees } from "../../support/git-fixture.ts";
 
 const { isolated, planted } = createPlantedFaultFixture();
 
@@ -58,7 +56,7 @@ function ambiguous(places: string, count = 2): string {
 }
 
 function renamed(root: string, extra: Record<string, string> = {}): void {
-  git(root, "mv", "src/limit.ts", "src/bound.ts");
+  gitOutput(root, "mv", "src/limit.ts", "src/bound.ts");
   commit(root, "rename limit to bound", {
     "tests/limit.test.ts": limitTests.replace(
       "../src/limit.ts",
@@ -134,7 +132,7 @@ describe("replay", () => {
   test("STALE anchor ambiguous, naming each place, when its moved guarded text is in two tracked files", async () => {
     const subject = planted();
     renamed(subject.root, { "src/copy.ts": guarded });
-    const status = git(subject.root, "status", "--porcelain");
+    const status = gitOutput(subject.root, "status", "--porcelain");
 
     const run = await replayed(subject);
 
@@ -142,7 +140,7 @@ describe("replay", () => {
       kind: "STALE",
       output: ambiguous("src/bound.ts:2, src/copy.ts:2"),
     });
-    expect(git(subject.root, "status", "--porcelain")).toBe(status);
+    expect(gitOutput(subject.root, "status", "--porcelain")).toBe(status);
     expect(worktrees(subject.root)).toEqual([subject.root]);
     expect(run.leftovers).toEqual([]);
   }, 60_000);

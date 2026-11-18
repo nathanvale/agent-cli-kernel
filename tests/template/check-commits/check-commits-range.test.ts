@@ -8,9 +8,13 @@ import {
   markers,
   repository,
   verdicts,
-  worktrees,
 } from "../../support/check-commits-fixture.ts";
-import { gitEnv, git, inherited } from "../../support/git-fixture.ts";
+import {
+  gitEnv,
+  git,
+  inherited,
+  worktreeLines,
+} from "../../support/git-fixture.ts";
 import { processWatchdog, spawnBounded } from "../../support/process.ts";
 
 const { folder, repositoryAt, checkCommits } = checkCommitsFixture();
@@ -323,7 +327,7 @@ describe("check:commits", () => {
           'error: script "lint" exited with code 1',
         );
       }
-      expect(worktrees(root).sort()).toEqual(
+      expect(worktreeLines(root).sort()).toEqual(
         [root, caller].map((path) => `worktree ${realpathSync(path)}`).sort(),
       );
     },
@@ -346,7 +350,7 @@ describe("check:commits", () => {
       expect(pasted.exit).toBe(1);
       expect(wrongBunRefusals(pasted.lines)).toHaveLength(1);
       expect(verdicts(pasted.lines)).toEqual([]);
-      expect(worktrees(root)).toHaveLength(1);
+      expect(worktreeLines(root)).toHaveLength(1);
     },
     processWatchdog(2),
   );
