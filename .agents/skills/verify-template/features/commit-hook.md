@@ -125,13 +125,26 @@ Preconditions:
   before=$(git rev-parse HEAD)
   status=0
   git commit -q -m "test(docs): try to commit an oversized file" || status=$?
-  test "$(git rev-parse HEAD)" = "$before"
-  test "$(git rev-parse ":$path")" = "$staged"
-  exit "$status"
+  if [ "$status" -ne 1 ]; then
+    printf 'Expected the hook to refuse with exit 1, got %s.\n' "$status" >&2
+    exit 2
+  fi
+  if [ "$(git rev-parse HEAD)" != "$before" ]; then
+    printf 'The refused commit changed HEAD.\n' >&2
+    exit 2
+  fi
+  if [ "$(git rev-parse ":$path")" != "$staged" ]; then
+    printf 'The refused commit changed the staged file %s.\n' "$path" >&2
+    exit 2
+  fi
+  exit 1
   ```
 
   Exit 1. The hook names the same refusal and preserves HEAD and the index.
+  Exit 2 means the proof failed. After exit 1, the index still holds 5,001
+  tokens and the working copy holds 5,000.
 - **Green, staged file size.** Record `hook-green-file-size` after that red.
+  The first `git add` replaces the oversized staged blob with the working copy.
 
   ```sh
   set -eu
@@ -159,8 +172,10 @@ Preconditions:
 - **Planted faults.** Record `hook-fault`:
   `bun run --silent fault-replay d2034aa-pre-commit c6ccbf5-check-names-refusal ea215c9-pre-commit beed83c-pre-commit`.
   Exit 0; all four `KILLED`.
-- **After.** Record `hook-after`: `git status --porcelain`. Empty after each
-  red, so a refusal left nothing staged.
+- **After.** Record `hook-after` with `git status --porcelain` after a recipe
+  that restores its changes or after the file-size green. Expect empty output.
+  The staged file-size red leaves `AM docs/verify-file-size.txt` until the
+  file-size green replaces the staged blob and commits.
 
 ## Gotchas
 
