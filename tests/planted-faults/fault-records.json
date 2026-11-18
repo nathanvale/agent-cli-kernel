@@ -656,5 +656,12 @@
     "testFile": "tests/template/fault-replay/planted-faults-in-process.test.ts",
     "title": "STALE anchor ambiguous when each side prefers a different place",
     "source": "9609e5c fix(faults): choose a place by context on either side, and never on a tie (GREEN)"
+  },
+  {
+    "id": "f82ed2f-planted-faults",
+    "patch": "tests/planted-faults/patches/f82ed2f-planted-faults.patch",
+    "testFile": "tests/template/fault-replay/planted-faults-in-process.test.ts",
+    "title": "KILLED when only the context between a hunk's two changed regions was edited",
+    "source": "f82ed2f fix(faults): anchor each changed region of a hunk on its own removed text (GREEN)"
   }
 ]
