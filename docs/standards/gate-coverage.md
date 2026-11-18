@@ -66,13 +66,15 @@ gates and their witnesses.
 
 ## Untrusted-value lints
 
+Both rules run on `.ts` files under `src/` and `scripts/`. Review other
+file extensions in those directories.
+
 - Lint `repository/no-locale-compare` refuses `localeCompare` and
-  `Collator` in `src/` and `scripts/`: as a
-  property, a destructured name, or a constant string such as
+  `Collator` as a property, a destructured name, or a constant string such as
   `Reflect.get(Intl, "Collator")`.
-- Lint `repository/no-in-operator`, in `config/payload-rules.mjs`, refuses
-  in `src/` and `scripts/` the `in` operator and `Reflect.has` on a key
-  that the target's type does not declare, and every `for...in`. A key
+- Lint `repository/no-in-operator` in `config/payload-rules.mjs` refuses
+  the `in` operator and `Reflect.has` on a key the target's type does not
+  declare, and every `for...in`. A key
   declared on the target's type, or on one member of its union, passes, so
   `in` still narrows a union. A private name (`#id in value`) and
   `Object.hasOwn` pass.
@@ -128,9 +130,11 @@ gates and their witnesses.
 
 - `eslint-suppressions.json` holds the recorded hits each lint rule found
   when it landed.
-- `bun run lint` fails on a new hit. It also fails when a recorded hit is
-  fixed and the file is not pruned. Run
-  `bunx eslint . --prune-suppressions` after the fix.
+- ESLint records a count per lint rule and file. `bun run lint` fails when
+  the count grows or when the count falls and leaves an unused suppression.
+  Run `bunx eslint . --prune-suppressions` after fixing a recorded hit.
+- Review replacements within a file. Replacing one violation with another
+  for the same lint rule can keep the count and pass lint.
 - The template's lint rules live in `config/template-rules.mjs`,
   `config/platform-rules.mjs` and `config/payload-rules.mjs`.
   `platform-rules.mjs` owns `no-host-path-literal` and `payload-rules.mjs`
