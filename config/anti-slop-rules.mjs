@@ -993,7 +993,11 @@ function reduceSpread(definition, spread) {
   const callback = definition.node;
   const parameters = ownParameters(callback);
   if (bindingIdentifier(parameters[0]) !== definition.name) return null;
-  if (parameters.length !== 2 || nearestFunction(spread) !== callback)
+  if (
+    parameters.length < 2 ||
+    parameters.length > 4 ||
+    nearestFunction(spread) !== callback
+  )
     return null;
   const reduce = enclosingReduceCall(callback);
   if (reduce === null) return null;

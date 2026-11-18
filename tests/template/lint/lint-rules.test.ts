@@ -530,6 +530,27 @@ const antiSlopCases = [
     ],
     lines: [2, 5],
   },
+  {
+    rule: "anti-slop/no-accumulating-spread",
+    witness: "r4608976426",
+    message:
+      "Using spreads within accumulators leads to `O(n^2)` time complexity.",
+    filePath: "scripts/doctor.ts",
+    failing: [
+      "export const listed = (names: string[]) =>",
+      "  names.reduce<string[]>((all, name, index) => [...all, `${index}:${name}`], []);",
+      "export const counted = (names: string[]) =>",
+      "  names.reduce((all, name, index, every) => ({ ...all, [name]: every.length - index }), {});",
+    ],
+    passing: [
+      "export const listed = (names: string[]) =>",
+      "  names.reduce<string[]>((all, name, index) => {",
+      "    all.push(`${index}:${name}`);",
+      "    return all;",
+      "  }, []);",
+    ],
+    lines: [2, 4],
+  },
 ];
 
 for (const item of antiSlopCases)
