@@ -7,7 +7,7 @@ repository broke it.
 ## Refusals and bounds
 
 - Assert the exact refusal the named guard produces. An assertion that only
-  something threw stays green when another guard refuses. Witnessed:
+  something threw stays green when another guard refuses. Witnessed: [#91-count],
   [185c90d], [5990897], [fa359ec] (the repository description parser had
   five refusals and no test), [97f9e9b] (a length check accepted any reason
   for a parse failure; take the reason from an independent call of the
@@ -25,6 +25,9 @@ repository broke it.
   constant stays green when the timer is changed, so measure the elapsed
   time), [#73-deadline] (a 2 s assertion accepted a missed 300 ms
   deadline).
+- Require a project's evidence list to exist and contain at least one entry.
+  A check against an empty array can accept a missing field. Witnessed:
+  [#91-projects].
 - Prove a resolution by a refusal only the right folder can give. A recorded
   hit or an empty result passes for a skipped check too, and a process
   folder with the same tail as the injected one passes for the wrong
@@ -83,7 +86,8 @@ repository broke it.
 - Bound every child below its test timeout, a fixture's git call and a
   script's synchronous git read included. Witnessed: [#85-probe], [e990da6],
   [4a32366],
-  [7623343], [c77aaa9] (the production `execute` spawned tsc and fallow with
+  [7623343], [#91-bound] (the native admission fixture could outlive its
+  case), [c77aaa9] (the production `execute` spawned tsc and fallow with
   no time limit), [24cbab3], [#84-probe] (blocking fixture commands could
   prevent the test timeout and cleanup).
 - Template tests: reuse `spawnBounded` (`tests/support/process.ts`), which
@@ -94,7 +98,8 @@ repository broke it.
 - Release in `finally` or a per-case teardown hook. Release the CLI, then
   each ledgered child, then the temporary folder. Witnessed: [d592b6d],
   [70c7280], [#84-cleanup] (suite teardown left resources alive between
-  cases after an assertion failed).
+  cases after an assertion failed), [#91-cleanup] (the native admission suite
+  kept completed project trees until its final case).
 - At teardown, send SIGKILL, and only to a pid still in its ledgered process
   group. Witnessed: [0ebe7cf], [1a29b19].
 
@@ -120,6 +125,7 @@ repository broke it.
   one decimal). A rounded duration can read 0.0 on a fast host, so an
   assertion above zero fails there. Witnessed: [07d2d72], [e50afb6].
 
+[#91-count]: https://github.com/nathanvale/bun-typescript-template/pull/91#discussion_r4607744321
 [185c90d]: https://github.com/nathanvale/bun-typescript-template/commit/185c90d11dd167ee4874e383ba26cd7d64a70964
 [640ba05]: https://github.com/nathanvale/bun-typescript-template/commit/640ba05881da2694fbdfad9b1d124bd85d36c0e4
 [96ab832]: https://github.com/nathanvale/bun-typescript-template/commit/96ab832e7e7aa6fb992a0762fba6f833c172f800
@@ -135,6 +141,7 @@ repository broke it.
 [e990da6]: https://github.com/nathanvale/bun-typescript-template/commit/e990da67151a9c3b6a0e90c240f7e0860856c4d2
 [4a32366]: https://github.com/nathanvale/bun-typescript-template/commit/4a32366bf79ea95479bda515313b33b849031507
 [c77aaa9]: https://github.com/nathanvale/bun-typescript-template/commit/c77aaa9ec56157f4701db117f9aa04e736c6e5df
+[#91-cleanup]: https://github.com/nathanvale/bun-typescript-template/pull/91#discussion_r4607744353
 [d592b6d]: https://github.com/nathanvale/bun-typescript-template/commit/d592b6d1eb13754bd46e041313511e7530e9804e
 [0ebe7cf]: https://github.com/nathanvale/bun-typescript-template/commit/0ebe7cf570b901653e090cb9062d0b438a5c25d1
 [1a29b19]: https://github.com/nathanvale/bun-typescript-template/commit/1a29b19ac6e32452d230dcbf46ccecc4f60223fc
@@ -151,9 +158,11 @@ repository broke it.
 [244b63a]: https://github.com/nathanvale/bun-typescript-template/commit/244b63a814ddbb60b4831cabc0e2f8cd1b73bca4
 [c5a554e]: https://github.com/nathanvale/bun-typescript-template/commit/c5a554e0034342f6918775909fcd3b15e27facca
 [8946615]: https://github.com/nathanvale/bun-typescript-template/commit/894661580864b423b07cd4571bdd0c9da69c1911
+[#91-bound]: https://github.com/nathanvale/bun-typescript-template/pull/91#discussion_r4607744346
 [7623343]: https://github.com/nathanvale/bun-typescript-template/commit/76233438395b1e967f461ded4a34f6c1d2c8a533
 [315de28]: https://github.com/nathanvale/bun-typescript-template/commit/315de28d3e1da69a4e8d65923654846405a3d1c8
 [dbd196e]: https://github.com/nathanvale/bun-typescript-template/commit/dbd196e8dd2dc19163d201cfb4f089952f1c471f
+[#91-projects]: https://github.com/nathanvale/bun-typescript-template/pull/91#discussion_r4607744327
 [9ad6bf2]: https://github.com/nathanvale/bun-typescript-template/commit/9ad6bf2528f0c65fc5106e8377c469b2e48b1743
 [97f9e9b]: https://github.com/nathanvale/bun-typescript-template/commit/97f9e9b82277a054b8b64ac03194a31be27e5ded
 [3729f36]: https://github.com/nathanvale/bun-typescript-template/commit/3729f3644cb30ea5decc9c085bc6b9c4304eaae4
