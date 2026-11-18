@@ -551,5 +551,12 @@
     "testFile": "tests/template/naming/names-check-test-placement.test.ts",
     "title": "^in process: a test file at tests/loose.test.ts, outside every test area folder",
     "source": "6bea874 feat(names): refuse a test file outside every family folder"
+  },
+  {
+    "id": "dc6396a-repository",
+    "patch": "tests/planted-faults/patches/dc6396a-repository.patch",
+    "testFile": "tests/template/repository/repository.test.ts",
+    "title": "^a test area folder written as \"tests/\" is refused",
+    "source": "dc6396a fix(repository): refuse a test area folder that is not a plain path"
   }
 ]
