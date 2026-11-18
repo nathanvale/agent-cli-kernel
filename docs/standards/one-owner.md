@@ -19,7 +19,8 @@ here.
   disables the global and system files and clears runtime configuration (`GIT_CONFIG_COUNT`, its `KEY_n` and
   `VALUE_n` pairs, and `GIT_CONFIG_PARAMETERS`). A user's `diff.orderFile`
   changed what the staged readers listed. Witnessed: [f929eb7], [7a62deb],
-  [#84-git] (a local copy left runtime configuration in the replay fixture).
+  [#84-git] (a local copy left runtime configuration in the replay fixture),
+  [#90-git] (the bootstrap fixture inherited a signing requirement).
 
 [56aee86]: https://github.com/nathanvale/bun-typescript-template/commit/56aee86bf059fb2629819fa2b6a1664d776629d5
 [e7c771c]: https://github.com/nathanvale/bun-typescript-template/commit/e7c771c89f63ffeeb609b03e4f670e9d43ea53fb
@@ -31,3 +32,4 @@ here.
 [f929eb7]: https://github.com/nathanvale/bun-typescript-template/commit/f929eb7fe9fbba24f5990269c27cddf302deb9de
 [7a62deb]: https://github.com/nathanvale/bun-typescript-template/commit/7a62deb4233ecad8b18fb1206b03f70e0d1262f3
 [#84-git]: https://github.com/nathanvale/bun-typescript-template/pull/84#discussion_r4607244506
+[#90-git]: https://github.com/nathanvale/bun-typescript-template/pull/90#discussion_r4607634940
