@@ -413,14 +413,14 @@ test(
 );
 
 test(
-  "T5 test harness: a run past its bound whose grandchild holds its output open still fails, with the output it wrote",
+  "T5 test harness: a run past its bound fails with the output it wrote while its grandchild still holds that output open",
   async () => {
     const observed = await grandchildAfter((_scratch, recorded) =>
       spawnBounded(
         [
           "/bin/sh",
           "-c",
-          '/bin/sleep 20 </dev/null 2>/dev/null & echo "$! $(/bin/ps -o pgid= -p $!)" > "$GRANDCHILD_RECORD"; echo started; wait',
+          '/bin/sleep 8 </dev/null 2>/dev/null & echo "$! $(/bin/ps -o pgid= -p $!)" > "$GRANDCHILD_RECORD"; echo started; wait',
         ],
         {
           env: { ...process.env, GRANDCHILD_RECORD: recorded },
@@ -435,6 +435,7 @@ test(
     expect(observed.failure).toEndWith(
       `did not exit within ${heldBound} ms. stdout: started\n`,
     );
+    expect(observed.gone).toBe(false);
   },
   heldBound + teardownMargin,
 );
