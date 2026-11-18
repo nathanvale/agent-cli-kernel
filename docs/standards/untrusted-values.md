@@ -4,9 +4,6 @@ Declarations, argv, environment, files, and host-supplied objects are
 untrusted until the boundary parser returns a frozen copy. Code past the
 boundary trusts the types.
 
-The optional recorded origin in `repository.json` is checked for a GitHub
-repository address and a full 40-character commit SHA.
-
 ## Object model
 
 - Check own data with `Object.hasOwn` where the lint does not reach: an
