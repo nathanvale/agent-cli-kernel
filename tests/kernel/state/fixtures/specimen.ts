@@ -55,6 +55,7 @@ const notes = join(world, "notes");
 const ledgerFile = join(world, "ledger.log");
 const providerLog = join(world, "provider.log");
 const outbox = join(world, "outbox");
+const labels = join(world, "labels.log");
 
 function ledger(line: string): void {
   appendFileSync(ledgerFile, `${line}\n`);
@@ -924,10 +925,11 @@ const send = changing({
         },
         facts: { message: id },
       },
-      async (transaction) => {
+      async (transaction, operation) => {
         await transaction.record(
           "message.send",
           async () => {
+            appendFileSync(labels, `${operation.operationId} ${id}\n`);
             await barrier("intent");
             appendFileSync(providerLog, `sent ${id} send\n`);
             writeFileSync(join(outbox, id), "message");

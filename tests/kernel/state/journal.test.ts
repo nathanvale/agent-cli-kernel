@@ -627,6 +627,21 @@ supportingTest(
     }),
 );
 
+supportingTest(
+  "REC-2 supporting: the handler holds the published operation identity before its effect runs",
+  () =>
+    within({}, async (world) => {
+      await world.killAt(["send", "m1", "--json"], "intent");
+      const [operation, ...rest] = world.operations();
+      expect(rest).toEqual([]);
+      if (!operation) throw new Error("No operation.");
+      expect(world.count("message.send")).toBe(0);
+      expect(readFileSync(join(world.world, "labels.log"), "utf8")).toBe(
+        `${operation.id} m1\n`,
+      );
+    }),
+);
+
 caseTest(
   "J04.g-mid-file-length-damage-refuses",
   plain(async (world) => {
