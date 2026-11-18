@@ -11,6 +11,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { spawnBounded } from "../kernel-repair/swarm-process.ts";
 
 const here = import.meta.dir;
 const specimenCli = join(here, "fixtures/specimen-cli.ts");
@@ -134,7 +135,7 @@ const stdoutRelay = [
   "waitpid($pid, 0); exit($? >> 8);",
 ].join("\n");
 
-export function start(launch: Launch) {
+function command(launch: Launch): string[] {
   const file = launch.bare ? bareCli : specimenCli;
   const direct =
     launch.shell !== undefined
@@ -149,13 +150,23 @@ export function start(launch: Launch) {
             file,
             ...launch.argv,
           ];
-  const cmd =
-    launch.holdStdoutUntil === undefined
-      ? direct
-      : ["/usr/bin/perl", "-e", stdoutRelay, launch.holdStdoutUntil, ...direct];
+  return launch.holdStdoutUntil === undefined
+    ? direct
+    : ["/usr/bin/perl", "-e", stdoutRelay, launch.holdStdoutUntil, ...direct];
+}
+
+function envelopeOf(stdout: string): unknown {
+  try {
+    return JSON.parse(stdout);
+  } catch {
+    return undefined;
+  }
+}
+
+export function start(launch: Launch) {
   const began = performance.now();
   const child = Bun.spawn({
-    cmd,
+    cmd: command(launch),
     env: environment(launch),
     stdin: "ignore",
     stdout: "pipe",
@@ -168,20 +179,13 @@ export function start(launch: Launch) {
       new Response(child.stderr).text(),
     ]);
     const exit = await child.exited;
-    const elapsedMilliseconds = performance.now() - began;
-    let envelope: unknown;
-    try {
-      envelope = JSON.parse(stdout);
-    } catch {
-      envelope = undefined;
-    }
     return {
       stdout,
       stderr,
       exit,
       signal: child.signalCode,
-      elapsedMilliseconds,
-      envelope,
+      elapsedMilliseconds: performance.now() - began,
+      envelope: envelopeOf(stdout),
     };
   })();
   return { child, finished };
@@ -189,6 +193,37 @@ export function start(launch: Launch) {
 
 export function run(launch: Launch): Promise<Run> {
   return start(launch).finished;
+}
+
+// Platform: a CLI that calls abort() exits only after the host has dealt with
+// the aborted process. Hosted ubuntu runners took 17,769 ms to 27,337 ms for
+// D15.crash-cannot-pass and D17.crash-no-status alone (runs 44220059795,
+// 44228141798, 44231023432), and 57,917 ms, 59,780 ms and more than
+// 60,000 ms when R2's child aborted at the same time (run 44231300109
+// attempt 1, run 44231023432 attempts 2 and 1); Darwin and Linux containers
+// take milliseconds.
+const overlappingAbortMilliseconds = 60_000;
+export const crashExitBound = 2 * overlappingAbortMilliseconds;
+export const teardownMargin = 15_000;
+export const crashTimeout = crashExitBound + teardownMargin;
+export async function runCrash(
+  launch: Launch,
+  boundMilliseconds = crashExitBound,
+): Promise<Run> {
+  const began = performance.now();
+  const { stdout, stderr, exit, signal } = await spawnBounded(command(launch), {
+    env: environment(launch),
+    boundMilliseconds,
+    processGroup: true,
+  });
+  return {
+    stdout,
+    stderr,
+    exit,
+    signal: signal ?? null,
+    elapsedMilliseconds: performance.now() - began,
+    envelope: envelopeOf(stdout),
+  };
 }
 
 export function canon(envelope: unknown): string {
@@ -202,7 +237,7 @@ export function canon(envelope: unknown): string {
   return JSON.stringify(copy);
 }
 
-export type Observed = {
+export type DirectoryEntry = {
   readonly name: string;
   readonly path: string;
   readonly kind: "file" | "directory" | "symlink" | "fifo" | "other";
@@ -213,17 +248,17 @@ export type Observed = {
 };
 export type DirectoryView = {
   readonly exists: boolean;
-  readonly kind?: Observed["kind"];
+  readonly kind?: DirectoryEntry["kind"];
   readonly mode?: number;
-  readonly entries: readonly Observed[];
-  readonly files: readonly Observed[];
+  readonly entries: readonly DirectoryEntry[];
+  readonly files: readonly DirectoryEntry[];
   readonly fileBytes: number;
 };
 
-function kind(path: string): Observed["kind"] {
+function kind(path: string): DirectoryEntry["kind"] {
   return kindOf(lstatSync(path));
 }
-function kindOf(info: import("node:fs").Stats): Observed["kind"] {
+function kindOf(info: import("node:fs").Stats): DirectoryEntry["kind"] {
   if (info.isSymbolicLink()) return "symlink";
   if (info.isFile()) return "file";
   if (info.isDirectory()) return "directory";
@@ -245,7 +280,7 @@ export function observe(dir: string): DirectoryView {
       files: [],
       fileBytes: 0,
     };
-  const entries = readdirSync(dir).flatMap((name): Observed[] => {
+  const entries = readdirSync(dir).flatMap((name): DirectoryEntry[] => {
     const path = join(dir, name);
     try {
       const stat = lstatSync(path);

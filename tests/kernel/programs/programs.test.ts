@@ -20,7 +20,7 @@ import {
   release as releaseLaunched,
   requireTools,
   residentKilobytes,
-  run,
+  runCase,
   text,
 } from "../lifecycle/harness.ts";
 import type { Case, Launched, Observed } from "../lifecycle/harness.ts";
@@ -53,7 +53,7 @@ function withProbe(entry: Case): readonly string[] {
 async function isolation(entry: Case) {
   const marker = entry.expect.markerAbsent;
   if (typeof marker !== "string") throw new Error("P05 needs its marker.");
-  const observed = await run(entry, { argv: withProbe(entry) });
+  const observed = await runCase(entry, { argv: withProbe(entry) });
   receipt(entry, observed);
   try {
     const { result } = assertEnvelope(entry, observed);

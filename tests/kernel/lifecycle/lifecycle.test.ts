@@ -24,7 +24,7 @@ import {
   readLedger,
   release,
   resultOf,
-  run,
+  runCase,
   slowSmallChunkRun,
   spawnableLength,
   text,
@@ -212,7 +212,7 @@ const checks: Record<string, (entry: Case) => Promise<void>> = {
     }
   },
   async L07(entry) {
-    const observed = await run(entry);
+    const observed = await runCase(entry);
     receipt(entry, observed);
     try {
       const { result } = assertEnvelope(entry, observed);
@@ -319,8 +319,8 @@ const checks: Record<string, (entry: Case) => Promise<void>> = {
     }
   },
   async R02(entry) {
-    const first = await run(entry);
-    const second = await run(entry);
+    const first = await runCase(entry);
+    const second = await runCase(entry);
     receipt(entry, first);
     try {
       assertEnvelope(entry, first);
@@ -381,7 +381,7 @@ describe("L06 excluded terminations without T3 (supporting C7)", () => {
       id,
       async () => {
         const entry = supporting(id, { argv: ["read", "--json"], scenario });
-        const observed = await run(
+        const observed = await runCase(
           entry,
           {},
           scenario === "abort" ? abortExitBound : exitBound,
@@ -412,7 +412,7 @@ describe("CMD-9 steps 3 to 6 order (supporting C2)", () => {
           scenario: "clock-jump",
           expect: { commandIdentity: "fx.source", causeCode },
         });
-        const observed = await run(entry);
+        const observed = await runCase(entry);
         receipt(entry, observed);
         try {
           assertEnvelope(entry, observed);
@@ -436,7 +436,7 @@ describe("CMD-9 steps 3 to 6 order (supporting C2)", () => {
           causeCode: "DOMAIN_AUTHORITY_REQUIRED",
         },
       });
-      const observed = await run(entry, { env: { FX_APPROVAL: "deny" } });
+      const observed = await runCase(entry, { env: { FX_APPROVAL: "deny" } });
       receipt(entry, observed);
       try {
         const { result } = assertEnvelope(entry, observed);
@@ -478,7 +478,7 @@ describe("CMD-9 steps 3 to 6 order (supporting C2)", () => {
           causeCode: "SUCCESS_COMPLETED",
         },
       });
-      const observed = await run(entry, { env: { FX_APPROVAL: "grant" } });
+      const observed = await runCase(entry, { env: { FX_APPROVAL: "grant" } });
       receipt(entry, observed);
       try {
         assertEnvelope(entry, observed);
@@ -653,7 +653,7 @@ describe("B1 deadline refusal identity (Nathan, 16 November 2026)", () => {
     test(
       entry.id,
       async () => {
-        const observed = await run(entry);
+        const observed = await runCase(entry);
         receipt(entry, observed);
         try {
           assertEnvelope(entry, observed);
@@ -700,7 +700,7 @@ describe("B3 declared denial tuple at runtime (Nathan, 16 November 2026)", () =>
           causeCode: "DOMAIN_AUTHORITY_REQUIRED",
         },
       });
-      const observed = await run(entry, { env: { FX_APPROVAL: "deny" } });
+      const observed = await runCase(entry, { env: { FX_APPROVAL: "deny" } });
       receipt(entry, observed);
       try {
         const { result } = assertEnvelope(entry, observed);
@@ -750,7 +750,7 @@ describe("T01 a deadline above the timer limit lets the work finish (finding 1)"
             effects: unchangedEffects,
           },
         });
-        const observed = await run(entry);
+        const observed = await runCase(entry);
         receipt(entry, observed, { deadline });
         try {
           assertEnvelope(entry, observed);
@@ -796,7 +796,7 @@ describe("T02(a) a deadline above the timer limit that passed before handler ent
             },
           },
         );
-        const observed = await run(entry, {
+        const observed = await runCase(entry, {
           env: { FX_CLOCK_JUMP_MS: String(deadline + 1) },
         });
         receipt(entry, observed, { deadline });
@@ -1046,7 +1046,7 @@ test(
         withinMillisecondsAfterDeadline: 500,
       },
     });
-    const observed = await run(entry);
+    const observed = await runCase(entry);
     receipt(entry, observed);
     try {
       expect(observed.ledger).toContain("handler-returned");

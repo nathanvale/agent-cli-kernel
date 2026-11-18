@@ -22,6 +22,47 @@ function resultOf(stdout: string): ScenarioRun["result"] {
     : undefined;
 }
 
+// Interface: thrown when a run passes its bound, with the output it wrote
+// before it was killed.
+export class BoundPassed extends Error {
+  readonly stdout: string;
+  readonly stderr: string;
+  constructor(message: string, stdout: string, stderr: string) {
+    super(message);
+    this.stdout = stdout;
+    this.stderr = stderr;
+  }
+}
+
+const killedExitBound = 3_000;
+
+async function settledWithin<T>(
+  work: Promise<T>,
+  milliseconds: number,
+): Promise<T | "expired"> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expired = new Promise<"expired">((resolve) => {
+    timer = setTimeout(() => resolve("expired"), milliseconds);
+  });
+  try {
+    return await Promise.race([work, expired]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function killRun(
+  child: { readonly pid: number; readonly kill: (signal: "SIGKILL") => void },
+  group: boolean,
+): void {
+  if (!group) return child.kill("SIGKILL");
+  try {
+    process.kill(-child.pid, "SIGKILL");
+  } catch (error) {
+    if (Reflect.get(Object(error), "code") !== "ESRCH") throw error;
+  }
+}
+
 export type SignalAt = {
   readonly ledger: string;
   readonly line: string;
@@ -40,6 +81,7 @@ export async function spawnBounded(
   stdout: string;
   stderr: string;
   exit: number;
+  signal?: NodeJS.Signals | number;
   firstByteAt?: number | undefined;
 }> {
   const bound = options.boundMilliseconds ?? exitBound;
@@ -66,41 +108,50 @@ export async function spawnBounded(
       }, 5)
     : undefined;
   let firstByteAt: number | undefined;
-  const readStdout = async () => {
-    const chunks: Uint8Array[] = [];
-    for await (const chunk of child.stdout) {
-      firstByteAt ??= Date.now();
-      chunks.push(chunk);
-    }
-    return new TextDecoder().decode(Buffer.concat(chunks));
-  };
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const expired = new Promise<"expired">((resolve) => {
-    timer = setTimeout(() => resolve("expired"), bound);
-  });
-  const finished = await Promise.race([
-    Promise.all([
-      readStdout(),
-      new Response(child.stderr).text(),
-      child.exited,
-    ]),
-    expired,
+  const stdoutChunks: Uint8Array[] = [];
+  const stderrChunks: Uint8Array[] = [];
+  const drained = Promise.all([
+    (async () => {
+      for await (const chunk of child.stdout) {
+        firstByteAt ??= Date.now();
+        stdoutChunks.push(chunk);
+      }
+    })(),
+    (async () => {
+      for await (const chunk of child.stderr) stderrChunks.push(chunk);
+    })(),
   ]);
-  clearTimeout(timer);
+  const text = (chunks: Uint8Array[]) =>
+    new TextDecoder().decode(Buffer.concat(chunks));
+  const finished = await settledWithin(
+    Promise.all([child.exited, drained]),
+    bound,
+  );
   clearInterval(poll);
   if (finished === "expired") {
-    if (options.processGroup !== true) child.kill("SIGKILL");
-    else
-      try {
-        process.kill(-child.pid, "SIGKILL");
-      } catch (error) {
-        if (Reflect.get(Object(error), "code") !== "ESRCH") throw error;
-      }
-    await child.exited;
-    throw new Error(`${argv.join(" ")} did not exit within ${bound} ms.`);
+    killRun(child, options.processGroup === true);
+    await settledWithin(Promise.all([child.exited, drained]), killedExitBound);
+    if (child.exitCode === null && child.signalCode === null)
+      throw new Error(
+        `${argv.join(" ")} did not exit within ${killedExitBound} ms of SIGKILL, sent when its ${bound} ms bound passed.`,
+      );
+    throw new BoundPassed(
+      `${argv.join(" ")} did not exit within ${bound} ms.`,
+      text(stdoutChunks),
+      text(stderrChunks),
+    );
   }
-  const [stdout, stderr, exit] = finished;
-  return { stdout, stderr, exit, firstByteAt };
+  const [exit] = finished;
+  const stdout = text(stdoutChunks);
+  const stderr = text(stderrChunks);
+  const signal = child.signalCode;
+  return {
+    stdout,
+    stderr,
+    exit,
+    ...(signal === null ? {} : { signal }),
+    firstByteAt,
+  };
 }
 
 export function processWatchdog(runs: number): number {

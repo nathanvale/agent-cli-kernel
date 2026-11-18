@@ -1,7 +1,16 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { cleanTrees, get, lines, observe, run, tree } from "./harness.ts";
+import {
+  cleanTrees,
+  crashTimeout,
+  get,
+  lines,
+  observe,
+  run,
+  runCrash,
+  tree,
+} from "./harness.ts";
 import type { Run, Tree } from "./harness.ts";
 import {
   expectAvailable,
@@ -129,7 +138,7 @@ describe("D15 secret redaction after a positive outcome", () => {
         argv: ["read", "--token", secret, ...machine],
         script: { records: 2, secretFacts: true, crash: true },
       };
-      const result = await run({ ...launch, tree: where });
+      const result = await runCrash({ ...launch, tree: where });
       expect(result.stdout).toBe("");
       let passed = true;
       try {
@@ -139,7 +148,7 @@ describe("D15 secret redaction after a positive outcome", () => {
       }
       expect(passed).toBe(false);
     },
-    timeout,
+    crashTimeout,
   );
 
   test(

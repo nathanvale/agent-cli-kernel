@@ -588,6 +588,20 @@
     "source": "ddd9e83 fix(faults): end each synchronous git read of the fault tool at 4 s (GREEN)"
   },
   {
+    "id": "0ade74f-harness",
+    "patch": "tests/planted-faults/patches/0ade74f-harness.patch",
+    "testFile": "tests/kernel/diagnostics/cases.test.ts",
+    "title": "T5 test harness: a crash run past its bound",
+    "source": "0ade74f test(kernel): kill a hung crash run's and R2 child's whole process group (GREEN)"
+  },
+  {
+    "id": "0ade74f-cases.test",
+    "patch": "tests/planted-faults/patches/0ade74f-cases.test.patch",
+    "testFile": "tests/kernel/diagnostics/cases.test.ts",
+    "title": "T5 ledger: a ledger child past its bound",
+    "source": "0ade74f test(kernel): kill a hung crash run's and R2 child's whole process group (GREEN)"
+  },
+  {
     "id": "ea215c9-pre-commit",
     "patch": "tests/planted-faults/patches/ea215c9-pre-commit.patch",
     "testFile": "tests/template/naming/pre-commit.test.ts",
@@ -677,6 +691,20 @@
     "testFile": "tests/template/fault-replay/planted-faults-in-process.test.ts",
     "title": "STALE when the patch (creates|deletes) a whole file",
     "source": "b9b2905 fix(faults): refuse a patch that creates or deletes a whole file (GREEN)"
+  },
+  {
+    "id": "442de9a-swarm-process",
+    "patch": "tests/planted-faults/patches/442de9a-swarm-process.patch",
+    "testFile": "tests/kernel/diagnostics/cases.test.ts",
+    "title": "T5 test harness: a run past its bound fails with the output it wrote while",
+    "source": "442de9a test(kernel): bound the wait after a bound run's SIGKILL (GREEN)"
+  },
+  {
+    "id": "f91b625-swarm-process",
+    "patch": "tests/planted-faults/patches/f91b625-swarm-process.patch",
+    "testFile": "tests/kernel/diagnostics/cases.test.ts",
+    "title": "T5 ledger: a ledger child past its bound",
+    "source": "f91b625 test(kernel): show a hung R2 child's output in its failure (GREEN)"
   },
   {
     "id": "246ba4a-anti-slop-rules",
@@ -775,5 +803,12 @@
     "testFile": "tests/template/fault-replay/planted-fault-process.test.ts",
     "title": "FR\\.y ",
     "source": "3887c4b fix(faults): prune the worktree entry a stopped removal leaves behind (GREEN)"
+  },
+  {
+    "id": "71df3eb-swarm-process",
+    "patch": "tests/planted-faults/patches/71df3eb-swarm-process.patch",
+    "testFile": "tests/kernel/diagnostics/cases.test.ts",
+    "title": "T5 test harness: a run past its bound fails with the output it wrote while",
+    "source": "71df3eb test(kernel): pin the wait after a held-output run's SIGKILL to 3,000 ms"
   }
 ]
