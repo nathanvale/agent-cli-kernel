@@ -641,6 +641,38 @@ const antiSlopCases = [
   },
   {
     rule: "anti-slop/no-accumulating-spread",
+    witness: "r4609659207",
+    message:
+      "Using spreads within accumulators leads to `O(n^2)` time complexity.",
+    filePath: "scripts/doctor.ts",
+    failing: [
+      "export const fed = (items: string[]) =>",
+      '  items.reduce((args, item) => [...args, item], ["fixed"]);',
+      "export function looped(items: string[]) {",
+      '  let args = ["fixed"];',
+      "  for (const item of items) args = [...args, item];",
+      "  return args;",
+      "}",
+    ],
+    passing: [
+      "declare function consume(...values: string[]): string;",
+      "export const fed = (items: string[]) =>",
+      "  items.reduce((args, item) => {",
+      "    consume(item, ...args);",
+      "    return args;",
+      '  }, ["fixed"]);',
+      "export const built = (items: string[]) =>",
+      '  items.reduce((args, item) => [consume(item, ...args), String(new Set(...args))], ["fixed"]);',
+      "export function looped(items: string[]) {",
+      '  let args = ["fixed"];',
+      "  for (const item of items) args = [consume(item, ...args)];",
+      "  return args;",
+      "}",
+    ],
+    lines: [2, 5],
+  },
+  {
+    rule: "anti-slop/no-accumulating-spread",
     witness: "r4609019144",
     message:
       "Using spreads within accumulators leads to `O(n^2)` time complexity.",
