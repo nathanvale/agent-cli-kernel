@@ -13,8 +13,9 @@ turns the hook on through the `prepare` script.
 - `hook-name` refuses a staged new file whose name uses an Avoid word.
 - `hook-lint` refuses a staged comment that the comment rule forbids.
 - `hook-fallow` refuses a staged change that leaves an export unused.
-- `hook-staged-type` checks the staged tree when the staged and unstaged
-  versions of a TypeScript file differ.
+- `hook-staged-type` checks the staged tree for commits that stage changes to
+  `.ts`, `.mts`, `.cts` or `.mjs` paths or to files matching `tsconfig*.json`
+  at any depth, including removals. The staged-type recipes use partial staging.
 
 ## How to get to it (user POV)
 
@@ -45,8 +46,12 @@ Preconditions:
   ```sh
   set -eu
   path=src/recipe.ts
-  sed 's/checkCommand: "bun run check",/checkCommand: 1,/' "$path" > "$run/work/recipe-with-type-error"
-  cp "$run/work/recipe-with-type-error" "$path"
+  candidate="$run/work/recipe-with-type-error"
+  sed 's/checkCommand: "bun run check[^"]*",/checkCommand: 1,/' "$path" > "$candidate"
+  cmp_status=0
+  cmp -s "$path" "$candidate" || cmp_status=$?
+  test "$cmp_status" -eq 1 || exit 2
+  cp "$candidate" "$path"
   git add -- "$path"
   git restore --worktree --source=HEAD -- "$path"
   before=$(git rev-parse HEAD)
@@ -66,12 +71,20 @@ Preconditions:
   ```sh
   set -eu
   path=src/recipe.ts
-  sed 's/checkCommand: "bun run check",/checkCommand: "bun run check --help",/' "$path" > "$run/work/recipe-with-valid-type"
-  cp "$run/work/recipe-with-valid-type" "$path"
+  candidate="$run/work/recipe-with-valid-type"
+  flag=--help
+  if grep -qF 'checkCommand: "bun run check --help",' "$path"; then
+    flag=--version
+  fi
+  sed "s/checkCommand: \"bun run check[^\"]*\",/checkCommand: \"bun run check $flag\",/" "$path" > "$candidate"
+  cmp_status=0
+  cmp -s "$path" "$candidate" || cmp_status=$?
+  test "$cmp_status" -eq 1 || exit 2
+  cp "$candidate" "$path"
   git add -- "$path"
   cp "$run/work/recipe-with-type-error" "$path"
   git commit -q -m "test(recipe): commit the staged check command"
-  git show "HEAD:$path" | grep -F 'checkCommand: "bun run check --help",'
+  git show "HEAD:$path" | grep -F "checkCommand: \"bun run check $flag\","
   cmp "$run/work/recipe-with-type-error" "$path"
   git restore --worktree -- "$path"
   ```

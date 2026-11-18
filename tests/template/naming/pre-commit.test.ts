@@ -15,11 +15,14 @@ import {
 
 afterAll(removeFixtureTrees);
 
-async function treeWithCommitHook(): Promise<string> {
-  const tree = await fixtureRepository();
+async function installCommitHook(tree: string): Promise<string> {
   symlinkSync(join(repository, "node_modules"), join(tree, "node_modules"));
   await git(tree, "config", "core.hooksPath", ".githooks");
   return tree;
+}
+
+async function treeWithCommitHook(): Promise<string> {
+  return installCommitHook(await fixtureRepository());
 }
 
 async function commitCount(tree: string): Promise<string> {
@@ -87,49 +90,118 @@ test(
   processWatchdog(7),
 );
 
+const sourcePath = "src/index.ts";
+const initialSource = "export const value: number = 1;\n";
+const configPath = "tsconfig.base.json";
+const initialConfig = '{\n\t"compilerOptions": { "types": [] }\n}\n';
+
+async function treeWithStagedTypeCheck(): Promise<string> {
+  const tree = await fixtureRepository();
+  write(
+    tree,
+    "eslint.config.mjs",
+    'import { parser } from "typescript-eslint";\n\nexport default [{ files: ["**/*.ts"], languageOptions: { parser } }];\n',
+  );
+  write(
+    tree,
+    "tsconfig.json",
+    '{\n\t"extends": "./tsconfig.base.json",\n\t"files": ["src/index.ts"]\n}\n',
+  );
+  write(tree, configPath, initialConfig);
+  write(tree, sourcePath, initialSource);
+  await git(
+    tree,
+    "add",
+    "--",
+    "eslint.config.mjs",
+    "tsconfig.json",
+    configPath,
+    sourcePath,
+  );
+  await git(tree, "commit", "--quiet", "-m", "types");
+  return installCommitHook(tree);
+}
+
+async function expectTypeRefusal(tree: string, diagnostic: string | RegExp) {
+  const refused = await gitOutcome(tree, "commit", "--quiet", "-m", "value");
+  expect(refused.exit).toBe(1);
+  expect(refused.stderr).toContain(
+    "pre-commit: TypeScript rejected the staged tree (above). Repair: fix the type errors and stage the repaired files. Done when git commit passes the staged type check.",
+  );
+  expect(stripVTControlCharacters(refused.stderr)).toMatch(diagnostic);
+  expect(await commitCount(tree)).toBe("2");
+}
+
 test(
   "PC.c the pre-commit type check uses the staged contents of a partially staged file",
   async () => {
-    const tree = await treeWithCommitHook();
-    const path = "src/index.ts";
-    const valid = "export const value: number = 1;\n";
+    const tree = await treeWithStagedTypeCheck();
+    const valid = "export const value: number = 2;\n";
     const invalid = 'export const value: number = "one";\n';
-    write(
-      tree,
-      "eslint.config.mjs",
-      'import { parser } from "typescript-eslint";\n\nexport default [{ files: ["**/*.ts"], languageOptions: { parser } }];\n',
-    );
-    write(
-      tree,
-      "tsconfig.json",
-      '{\n\t"compilerOptions": { "types": [] },\n\t"files": ["src/index.ts"]\n}\n',
-    );
-    write(tree, path, invalid);
-    await git(tree, "add", "--", "eslint.config.mjs", "tsconfig.json", path);
-    write(tree, path, valid);
+    write(tree, sourcePath, invalid);
+    await git(tree, "add", "--", sourcePath);
+    write(tree, sourcePath, valid);
 
-    const refused = await gitOutcome(tree, "commit", "--quiet", "-m", "value");
-    expect(refused.exit).toBe(1);
-    expect(refused.stderr).toContain(
-      "pre-commit: TypeScript rejected the staged tree (above). Repair: fix the type errors and stage the repaired files. Done when git commit passes the staged type check.",
-    );
-    expect(stripVTControlCharacters(refused.stderr)).toContain(
+    await expectTypeRefusal(
+      tree,
       "error TS2322: Type 'string' is not assignable to type 'number'.",
     );
-    expect(await commitCount(tree)).toBe("1");
-    expect(await gitOutcome(tree, "show", `:${path}`)).toMatchObject({
+    expect(await gitOutcome(tree, "show", `:${sourcePath}`)).toMatchObject({
       exit: 0,
       stdout: invalid,
     });
 
-    await git(tree, "add", "--", path);
-    write(tree, path, invalid);
+    await git(tree, "add", "--", sourcePath);
+    write(tree, sourcePath, invalid);
     await git(tree, "commit", "--quiet", "-m", "value");
-    expect(await gitOutcome(tree, "show", `HEAD:${path}`)).toMatchObject({
+    expect(await gitOutcome(tree, "show", `HEAD:${sourcePath}`)).toMatchObject({
       exit: 0,
       stdout: valid,
     });
-    expect(await Bun.file(join(tree, path)).text()).toBe(invalid);
+    expect(await Bun.file(join(tree, sourcePath)).text()).toBe(invalid);
   },
-  processWatchdog(11),
+  processWatchdog(13),
+);
+
+test(
+  "PC.d a staged compiler config change triggers the staged type check",
+  async () => {
+    const tree = await treeWithStagedTypeCheck();
+    const invalid =
+      '{\n\t"compilerOptions": { "types": ["staged-config-probe"] }\n}\n';
+    write(tree, configPath, invalid);
+    await git(tree, "add", "--", configPath);
+    write(tree, configPath, initialConfig);
+
+    await expectTypeRefusal(
+      tree,
+      "error TS2688: Cannot find type definition file for 'staged-config-probe'.",
+    );
+    expect(await gitOutcome(tree, "show", `:${configPath}`)).toMatchObject({
+      exit: 0,
+      stdout: invalid,
+    });
+  },
+  processWatchdog(10),
+);
+
+test(
+  "PC.e a staged source removal triggers the staged type check",
+  async () => {
+    const tree = await treeWithStagedTypeCheck();
+    await git(tree, "rm", "--", sourcePath);
+    write(tree, sourcePath, initialSource);
+
+    await expectTypeRefusal(
+      tree,
+      /error TS6053: File '.*\/src\/index\.ts' not found\./,
+    );
+    expect(
+      await gitOutcome(tree, "diff", "--cached", "--name-status"),
+    ).toMatchObject({
+      exit: 0,
+      stdout: `D\t${sourcePath}\n`,
+    });
+  },
+  processWatchdog(10),
 );

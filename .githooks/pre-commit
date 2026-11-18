@@ -50,7 +50,8 @@ if [ -n "$(staged | tr -d '\0')" ]; then
   }
 fi
 
-if [ -n "$(staged '*.ts' '*.mts' '*.cts' '*.mjs' | tr -d '\0')" ]; then
+source_edits=$(staged '*.ts' '*.mts' '*.cts' '*.mjs' | tr -d '\0')
+if [ -n "$source_edits" ]; then
   staged '*.ts' '*.mts' '*.cts' '*.mjs' | xargs -0 "$bin/eslint" --max-warnings 0 --no-warn-ignored -- || {
     echo "pre-commit: lint errors above. Repair: correct each one in code, stage the change, and commit again. Done when bun run lint passes." >&2
     exit 1
@@ -59,7 +60,14 @@ if [ -n "$(staged '*.ts' '*.mts' '*.cts' '*.mjs' | tr -d '\0')" ]; then
     echo "pre-commit: anti-slop lint errors above. Repair: correct each one in code, stage the change, and commit again. Done when bun run lint passes." >&2
     exit 1
   }
+fi
+
+if ! git diff --cached --no-renames --quiet -- \
+  '*.ts' '*.mts' '*.cts' '*.mjs' ':(glob)**/tsconfig*.json'; then
   check_staged_types
+fi
+
+if [ -n "$source_edits" ]; then
   "$bin/fallow" audit --staged --quiet || {
     echo "pre-commit: fallow found new problems in the staged changes (above). Repair: correct each one in code, stage the change, and commit again. Done when node_modules/.bin/fallow audit --staged passes." >&2
     exit 1
