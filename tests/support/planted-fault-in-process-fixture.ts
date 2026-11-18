@@ -8,17 +8,9 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import type { Fault } from "../../scripts/planted-faults.ts";
+import { repositoryLocation } from "../../scripts/process-runner.ts";
 import { gitEnv, gitResult } from "./git-fixture.ts";
 import { testFolder } from "./test-folder.ts";
-
-const repositoryLocation = [
-  "GIT_DIR",
-  "GIT_WORK_TREE",
-  "GIT_INDEX_FILE",
-  "GIT_OBJECT_DIRECTORY",
-  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
-  "GIT_COMMON_DIR",
-];
 
 export const recordsPath = "tests/planted-faults/fault-records.json";
 

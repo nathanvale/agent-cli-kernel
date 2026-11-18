@@ -1,6 +1,6 @@
 import { basename, delimiter, dirname } from "node:path";
 
-const repositoryLocation: readonly string[] = [
+export const repositoryLocation: readonly string[] = [
   "GIT_DIR",
   "GIT_WORK_TREE",
   "GIT_INDEX_FILE",
