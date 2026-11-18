@@ -11,9 +11,9 @@ gates and their witnesses.
   5,000 tokens. The template's `bun run check` and the hosted `check` job
   scan the working tree. Pre-commit checks the changed files in the active
   Git index using their staged bytes.
-- The scan excludes `kernel/`, `tests/kernel/`, the
-  `tools/oxlint/anti-slop/vendor/` tree, every `bun.lock`, and the generated
-  `fallow-gate.sh` at exactly `.claude/hooks/` and `.codex/hooks/`.
+- The scan excludes `kernel/`, `tests/kernel/`, files under `vendor/`
+  directories, every `bun.lock`, and the generated `fallow-gate.sh` at exactly
+  `.claude/hooks/` and `.codex/hooks/`.
 - [The gate's recorded hits](../../scripts/check-file-size.ts) name each
   exception, its reason, and its lifetime. The standing fault-replay record
   reports its token count whenever scanned. Remove a temporary record in the
