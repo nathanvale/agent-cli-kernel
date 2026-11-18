@@ -1,6 +1,11 @@
 #!/bin/sh
 set -eu
 
+# A caller's repository-location variables would point every git call here,
+# including recorded commands and cleanup, at the caller's checkout.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
+  GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_COMMON_DIR
+
 usage="Usage: session.sh launch <run root> [checkout] | doctor <run root> | record <run root> <name> <folder> <command> | cleanup <run root>"
 
 fail() {
@@ -23,6 +28,13 @@ require_run() {
   [ -f "$1/run.env" ] || fail "session: $1 has no run.env, so this helper did not launch it. Repair: pass the run root that launch printed."
 }
 
+require_launch_bun() {
+  launched=$(sed -n 's/^bun=//p' "$1/run.env")
+  found=$(bun --version 2>/dev/null || printf 'none')
+  [ "$found" = "$launched" ] && return 0
+  fail "session: found Bun $found, launch ran with $launched. Repair: run this helper as mise exec bun@$launched -- $0 ..., or from a login shell whose PATH puts Bun $launched first. Done when bun --version prints $launched."
+}
+
 folder_in() {
   case "$2" in
     /*) printf '%s' "$2" ;;
@@ -36,6 +48,7 @@ record() {
   folder=$(folder_in "$root" "$3")
   command=$4
   require_run "$root"
+  require_launch_bun "$root"
   [ -d "$folder" ] || fail "session: $folder is not a folder. Repair: launch first, or pass a folder under $root/work."
   case "$name" in
     */* | .* | "") fail "session: record name \"$name\" must be one plain file name. Repair: pass a name such as bootstrap-durable." 2 ;;
@@ -46,7 +59,7 @@ record() {
   set +e
   (
     cd "$folder" &&
-      GIT_AUTHOR_NAME=verify-template GIT_AUTHOR_EMAIL=verify-template@example.invalid \
+      run="$root" GIT_AUTHOR_NAME=verify-template GIT_AUTHOR_EMAIL=verify-template@example.invalid \
         GIT_COMMITTER_NAME=verify-template GIT_COMMITTER_EMAIL=verify-template@example.invalid \
         sh -c "$command"
   ) >"$stdout" 2>"$stderr" </dev/null
@@ -120,8 +133,13 @@ cleanup() {
   require_run "$root"
   template="$root/work/template"
   if [ -d "$template/.git" ]; then
+    work=$(cd "$root/work" && pwd -P)
     git -C "$template" worktree list --porcelain | sed -n 's/^worktree //p' | while read -r tree; do
-      [ "$tree" = "$(cd "$template" && pwd -P)" ] || [ "$tree" = "$template" ] || git -C "$template" worktree remove --force "$tree" || true
+      [ "$tree" = "$(cd "$template" && pwd -P)" ] || [ "$tree" = "$template" ] && continue
+      case "$tree" in
+        "$work"/* | "$root/work"/*) git -C "$template" worktree remove --force "$tree" || true ;;
+        *) printf 'session: left worktree %s in place; it is outside %s/work.\n' "$tree" "$root" >&2 ;;
+      esac
     done
   fi
   rm -rf "$root/work"
