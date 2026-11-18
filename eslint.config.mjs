@@ -41,7 +41,6 @@ export default defineConfig(
       "starters/complex/**",
       "starters/shared/**",
       "proofs/**",
-      "tools/oxlint/anti-slop/**",
     ],
   },
   {

@@ -1,5 +1,5 @@
 diff --git a/eslint.config.mjs b/eslint.config.mjs
-index 4094b2f..ff2ab72 100644
+index 2a8c555..c484fae 100644
 --- a/eslint.config.mjs
 +++ b/eslint.config.mjs
 @@ -15,18 +15,6 @@ const localRules = {
@@ -21,7 +21,7 @@ index 4094b2f..ff2ab72 100644
  export default defineConfig(
    {
      ignores: [
-@@ -123,5 +111,5 @@ export default defineConfig(
+@@ -122,5 +110,5 @@ export default defineConfig(
        "anti-slop/no-reduce-accumulator-copy": "error",
      },
    },

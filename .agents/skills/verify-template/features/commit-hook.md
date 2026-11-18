@@ -63,7 +63,7 @@ Preconditions:
   broken file and then fixing it unstaged commits the broken version; see
   [check:commits](check-commits.md) for the recipe and the gate that refuses
   it.
-- ESLint, oxlint and Fallow run only when a staged path ends in `.ts`, `.mts`,
+- ESLint and Fallow run only when a staged path ends in `.ts`, `.mts`,
   `.cts` or `.mjs`. A Markdown-only commit runs the names check and Biome
   alone.
 - The names check reads the glossary and recorded hits git has staged, not the
