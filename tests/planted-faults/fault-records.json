@@ -572,5 +572,33 @@
     "testFile": "tests/template/naming/pre-commit.test.ts",
     "title": "^PC[.][de] ",
     "source": "beed83c fix(hooks): check staged compiler config and deletions"
+  },
+  {
+    "id": "a11290a-check-file-size",
+    "patch": "tests/planted-faults/patches/a11290a-check-file-size.patch",
+    "testFile": "tests/template/file-size/file-size.test.ts",
+    "title": "^the package command passes 5000 tokens and refuses 5001$",
+    "source": "a11290a feat(gates): enforce the template file-size limit"
+  },
+  {
+    "id": "a11290a-pre-commit",
+    "patch": "tests/planted-faults/patches/a11290a-pre-commit.patch",
+    "testFile": "tests/template/file-size/file-size.test.ts",
+    "title": "^pre-commit counts staged bytes in a partially staged file$",
+    "source": "a11290a feat(gates): enforce the template file-size limit"
+  },
+  {
+    "id": "a11290a-check-file-size-stale",
+    "patch": "tests/planted-faults/patches/a11290a-check-file-size-stale.patch",
+    "testFile": "tests/template/file-size/file-size.test.ts",
+    "title": "^a temporary recorded hit must leave when its tracked text shrinks or disappears$",
+    "source": "a11290a feat(gates): enforce the template file-size limit"
+  },
+  {
+    "id": "a11290a-check-file-size-empty",
+    "patch": "tests/planted-faults/patches/a11290a-check-file-size-empty.patch",
+    "testFile": "tests/template/file-size/file-size.test.ts",
+    "title": "^a working tree with no tracked texts cannot pass the scan$",
+    "source": "a11290a feat(gates): enforce the template file-size limit"
   }
 ]

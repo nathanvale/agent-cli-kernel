@@ -1,0 +1,13 @@
+diff --git a/scripts/check-file-size.ts b/scripts/check-file-size.ts
+--- a/scripts/check-file-size.ts
++++ b/scripts/check-file-size.ts
+@@ -146,9 +146,4 @@
+   const hit = recordedHits.get(path);
+   const oversized = count !== undefined && count > limit;
+-  if (hit?.lifetime === "temporary" && !oversized)
+-    return {
+-      kind: "problem",
+-      message: `${label}: stale temporary recorded hit (${count === undefined ? "no tracked UTF-8 text" : `${count} tokens`}, limit ${limit}). Repair: remove its entry from scripts/check-file-size.ts.`,
+-    };
+   if (count === undefined) return undefined;
+   if (hit !== undefined)
