@@ -1,5 +1,5 @@
 diff --git a/scripts/check-names.ts b/scripts/check-names.ts
-index c909f49..95f22db 100644
+index 5da6043..202e89c 100644
 --- a/scripts/check-names.ts
 +++ b/scripts/check-names.ts
 @@ -7,7 +7,6 @@ import {
@@ -8,14 +8,14 @@ index c909f49..95f22db 100644
    stagedNewPaths,
 -  stagedText,
  } from "./glossary.ts";
+ import { holdsTestFile, readRepository, testFilePlaces } from "./repository.ts";
  
- const usage =
-@@ -42,7 +41,7 @@ function problemsIn(tree: string, names: readonly string[]): string[] {
- 
+@@ -64,7 +63,7 @@ function problemsIn(tree: string, names: readonly string[]): string[] {
  function stagedProblems(root: string): string[] {
    const names = namesOnPaths(stagedNewPaths(root));
--  return problemsGiven((path) => stagedText(root, path), names);
-+  return problemsGiven((path) => readFileSync(join(root, path), "utf8"), names);
+   return [
+-    ...problemsGiven((path) => stagedText(root, path), names),
++    ...problemsGiven((path) => readFileSync(join(root, path), "utf8"), names),
+     ...placementProblems(root, names),
+   ];
  }
- 
- function pathWithin(tree: string, absolute: string): string | undefined {

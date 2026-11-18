@@ -38,14 +38,14 @@ owner.
 
 ## Lint owners
 
-A lint rule's owner decides its three files:
+A lint rule's owner determines where to define, enable, and test it.
 
-| Owner    | Rule file                            | Turned on in                        | Cases                                    |
-| -------- | ------------------------------------ | ----------------------------------- | ---------------------------------------- |
-| Template | `config/template-rules.mjs`          | `eslint.config.mjs`                 | `tests/template/lint/lint-rules.test.ts` |
-| Kernel   | `config/kernel-repository-rules.mjs` | `config/kernel-repository-lint.mjs` | `tests/kernel/lint-rules.test.ts`        |
+| Owner    | Rule files                                                                           | Turned on in                        | Cases                                    |
+| -------- | ------------------------------------------------------------------------------------ | ----------------------------------- | ---------------------------------------- |
+| Template | `config/template-rules.mjs`, `config/platform-rules.mjs`, `config/payload-rules.mjs` | `eslint.config.mjs`                 | `tests/template/lint/lint-rules.test.ts` |
+| Kernel   | `config/kernel-repository-rules.mjs`                                                 | `config/kernel-repository-lint.mjs` | `tests/kernel/lint-rules.test.ts`        |
 
-- A rule both owners need has one copy per owner. Change both rule files to
+- A rule both owners need has one copy per owner. Change both copies to
   the same text, with a case in each owner's cases file.
 - `eslint-rules.mjs` re-exports the kernel's rule file, and
   `config/kernel-lint.mjs` passes this repository's folders to the kernel's
@@ -55,7 +55,7 @@ A lint rule's owner decides its three files:
 
 ## Write scope
 
-Change only `CODING_STANDARDS.md`, `docs/standards/`, the six files in
+Change only `CODING_STANDARDS.md`, `docs/standards/`, the files in
 [Lint owners](#lint-owners), `eslint-suppressions.json`,
 `tests/planted-faults/` and `tests/template/standards/`. Weed may also change
 `AGENTS.md` and `.agents/skills/`. Stake may also change `GLOSSARY.md`,
