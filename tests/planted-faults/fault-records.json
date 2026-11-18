@@ -607,5 +607,12 @@
     "testFile": "tests/template/fault-replay/planted-fault-records-in-process.test.ts",
     "title": "faultsTouchedSince refuses a fault whose patch file is missing",
     "source": "24f4eab fix(faults): refuse a missing patch file by name (GREEN)"
+  },
+  {
+    "id": "7891c7e-planted-faults",
+    "patch": "tests/planted-faults/patches/7891c7e-planted-faults.patch",
+    "testFile": "tests/template/fault-replay/planted-faults.test.ts",
+    "title": "FR\\.x ",
+    "source": "7891c7e fix(faults): keep a hook's git location out of the fault tool's git reads (GREEN)"
   }
 ]
