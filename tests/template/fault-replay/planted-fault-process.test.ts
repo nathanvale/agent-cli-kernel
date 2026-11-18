@@ -315,7 +315,7 @@ exec '${realGit}' "$@"
         "bin/git",
         `#!/bin/sh
 if [ "$1" = worktree ] && [ "$2" = remove ]; then
-  exec sleep 60
+  exec sleep 20
 fi
 exec '${realGit}' "$@"
 `,
