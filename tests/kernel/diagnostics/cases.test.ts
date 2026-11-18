@@ -334,6 +334,7 @@ test(
 );
 
 const hungBound = 3_000;
+const heldBound = 500;
 const recordGrandchild =
   '/bin/sleep 300 </dev/null >/dev/null 2>&1 & echo "$! $(/bin/ps -o pgid= -p $!)" > "$GRANDCHILD_RECORD"';
 
@@ -414,7 +415,6 @@ test(
 test(
   "T5 test harness: a run past its bound whose grandchild holds its output open still fails, with the output it wrote",
   async () => {
-    const heldBound = 500;
     const observed = await grandchildAfter((_scratch, recorded) =>
       spawnBounded(
         [
@@ -436,5 +436,5 @@ test(
       `did not exit within ${heldBound} ms. stdout: started\n`,
     );
   },
-  teardownMargin,
+  heldBound + teardownMargin,
 );

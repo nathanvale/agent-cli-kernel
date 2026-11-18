@@ -34,6 +34,35 @@ export class BoundPassed extends Error {
   }
 }
 
+const killedExitBound = 3_000;
+
+async function settledWithin<T>(
+  work: Promise<T>,
+  milliseconds: number,
+): Promise<T | "expired"> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expired = new Promise<"expired">((resolve) => {
+    timer = setTimeout(() => resolve("expired"), milliseconds);
+  });
+  try {
+    return await Promise.race([work, expired]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function killRun(
+  child: { readonly pid: number; readonly kill: (signal: "SIGKILL") => void },
+  group: boolean,
+): void {
+  if (!group) return child.kill("SIGKILL");
+  try {
+    process.kill(-child.pid, "SIGKILL");
+  } catch (error) {
+    if (Reflect.get(Object(error), "code") !== "ESRCH") throw error;
+  }
+}
+
 export type SignalAt = {
   readonly ledger: string;
   readonly line: string;
@@ -94,25 +123,18 @@ export async function spawnBounded(
   ]);
   const text = (chunks: Uint8Array[]) =>
     new TextDecoder().decode(Buffer.concat(chunks));
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const expired = new Promise<"expired">((resolve) => {
-    timer = setTimeout(() => resolve("expired"), bound);
-  });
-  const finished = await Promise.race([
+  const finished = await settledWithin(
     Promise.all([child.exited, drained]),
-    expired,
-  ]);
-  clearTimeout(timer);
+    bound,
+  );
   clearInterval(poll);
   if (finished === "expired") {
-    if (options.processGroup !== true) child.kill("SIGKILL");
-    else
-      try {
-        process.kill(-child.pid, "SIGKILL");
-      } catch (error) {
-        if (Reflect.get(Object(error), "code") !== "ESRCH") throw error;
-      }
-    await Promise.all([child.exited, drained]);
+    killRun(child, options.processGroup === true);
+    await settledWithin(Promise.all([child.exited, drained]), killedExitBound);
+    if (child.exitCode === null && child.signalCode === null)
+      throw new Error(
+        `${argv.join(" ")} did not exit within ${killedExitBound} ms of SIGKILL, sent when its ${bound} ms bound passed.`,
+      );
     throw new BoundPassed(
       `${argv.join(" ")} did not exit within ${bound} ms.`,
       text(stdoutChunks),
