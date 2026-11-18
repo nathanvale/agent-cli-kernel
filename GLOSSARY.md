@@ -340,8 +340,9 @@ _Avoid_: recorded origin (that is one repository and one commit), allowed hosts
 
 **Recorded origin**:
 The template repository and the template commit that the kernel was carried
-from. It is a label for people: the kernel repository's description holds it,
-and no gate decides anything from it.
+from. It is a label for people. The kernel repository's description holds it.
+The gate tools refuse one that is not a repository's web address and a full
+commit, and decide nothing else from it.
 _Avoid_: citable origins, cited-commit list (for a recorded origin)
 
 ### Plans
