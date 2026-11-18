@@ -318,6 +318,47 @@ describe("replay", () => {
     });
   }, 60_000);
 
+  test.each([
+    [
+      "creates",
+      `diff --git a/src/extra.ts b/src/extra.ts
+new file mode 100644
+--- /dev/null
++++ b/src/extra.ts
+@@ -0,0 +1 @@
++export const extra = 1;
+`,
+    ],
+    [
+      "deletes",
+      `diff --git a/src/limit.ts b/src/limit.ts
+deleted file mode 100644
+--- a/src/limit.ts
++++ /dev/null
+@@ -1,4 +0,0 @@
+${guarded
+  .trimEnd()
+  .split("\n")
+  .map((line) => `-${line}`)
+  .join("\n")}
+`,
+    ],
+  ])(
+    "STALE when the patch %s a whole file",
+    async (_verb, patch) => {
+      const subject = planted();
+      write(subject.root, subject.fault.patch, patch);
+
+      const run = await replayed(subject);
+
+      expect(run.result).toEqual({
+        kind: "STALE",
+        output: `${subject.fault.patch} creates or deletes a whole file, which replay does not place. It plants a fault only inside a file that exists before and after the patch.`,
+      });
+    },
+    60_000,
+  );
+
   test("STALE when the patch holds no hunk", async () => {
     const subject = planted();
     write(subject.root, subject.fault.patch, "");
