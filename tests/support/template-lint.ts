@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { ESLint } from "eslint";
 
 export const root = resolve(import.meta.dir, "../..");
+export const templateSourceFile = "src/toolchain-resolution.ts";
 const eslint = new ESLint({ cwd: root });
 
 export async function messages(filePath: string, code: string) {

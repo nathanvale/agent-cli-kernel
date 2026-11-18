@@ -13,6 +13,7 @@ import {
   messages,
   root,
   ruleOn,
+  templateSourceFile,
 } from "../../support/template-lint.ts";
 
 const templateRules = [
@@ -66,7 +67,7 @@ async function fixesFor(rule: string, filePath: string, failing: string) {
 const fixes = [
   {
     rule: "no-locale-compare",
-    filePath: "src/static-admission.ts",
+    filePath: templateSourceFile,
     failing:
       "export const sorted = (names: string[]) => names.sort((a, b) => a.localeCompare(b));",
     fixed: ([fix]: string[]) =>
@@ -82,7 +83,7 @@ const fixes = [
   },
   {
     rule: "no-in-operator",
-    filePath: "src/bootstrap.ts",
+    filePath: "scripts/doctor.ts",
     failing:
       'export const code = (error: Error): unknown => ("code" in error ? error.code : undefined);',
     fixed: ([fix]: string[]) =>
@@ -90,7 +91,7 @@ const fixes = [
   },
   {
     rule: "no-in-operator",
-    filePath: "src/static-admission.ts",
+    filePath: templateSourceFile,
     failing:
       'export const payload = (next: () => object) => ("payload" in next() ? 1 : 0);',
     fixed: ([fix]: string[]) =>
@@ -98,7 +99,7 @@ const fixes = [
   },
   {
     rule: "no-in-operator",
-    filePath: "src/static-admission.ts",
+    filePath: templateSourceFile,
     failing:
       "export const payload = (key: string, read: () => object) => (key in read() ? 1 : 0);",
     fixed: ([fix]: string[]) =>
@@ -106,7 +107,7 @@ const fixes = [
   },
   {
     rule: "no-in-operator",
-    filePath: "src/static-admission.ts",
+    filePath: templateSourceFile,
     failing:
       "export const payload = (key: string, read: () => object) => {\n  {\n    return key in read();\n  }\n};",
     fixed: ([fix]: string[]) =>
@@ -114,7 +115,7 @@ const fixes = [
   },
   {
     rule: "no-in-operator",
-    filePath: "src/static-admission.ts",
+    filePath: templateSourceFile,
     failing:
       'export const payload = (host: { readonly value: object }) => ("payload" in host.value ? 1 : 0);',
     fixed: ([fix]: string[]) =>
@@ -122,7 +123,7 @@ const fixes = [
   },
   {
     rule: "no-in-operator",
-    filePath: "src/static-admission.ts",
+    filePath: templateSourceFile,
     failing:
       "export const consume = (value: object, use: (field: string) => void) => {\n  for (const field in value) use(field);\n};",
     fixed: ([fix]: string[]) =>
@@ -130,7 +131,7 @@ const fixes = [
   },
   {
     rule: "no-in-operator",
-    filePath: "src/static-admission.ts",
+    filePath: templateSourceFile,
     failing:
       "export const consume = (value: object, use: (field: string) => void) => {\n  let field: string;\n  for (field in value) use(field);\n};",
     fixed: ([fix]: string[]) =>
@@ -160,7 +161,7 @@ const refused = [
   {
     rule: "no-locale-compare",
     witness: "57c8c8b",
-    filePath: "src/static-admission.ts",
+    filePath: templateSourceFile,
     code: [
       'const collator = new Intl.Collator("sv");',
       'export const names = ["a", "b"].sort(collator.compare);',
@@ -170,7 +171,7 @@ const refused = [
   {
     rule: "no-locale-compare",
     witness: "aliased bindings",
-    filePath: "src/static-admission.ts",
+    filePath: templateSourceFile,
     code: [
       "const { Collator } = Intl;",
       'export const first = new globalThis.Intl.Collator("sv");',
@@ -196,7 +197,7 @@ const refused = [
   {
     rule: "no-in-operator",
     witness: "r4580070968",
-    filePath: "src/static-admission.ts",
+    filePath: templateSourceFile,
     code: [
       "type Fields = Readonly<Record<string, { readonly required: boolean }>>;",
       "export const fields = (table: Fields, value: Readonly<Record<string, unknown>>) =>",
@@ -208,7 +209,7 @@ const refused = [
   {
     rule: "no-in-operator",
     witness: "r4606943328",
-    filePath: "src/static-admission.ts",
+    filePath: templateSourceFile,
     code: [
       'export const has = (value: object) => Reflect["has"](value, "toString");',
     ],
@@ -308,7 +309,7 @@ const cases = [
   {
     rule: "no-in-operator",
     witness: "r4580070979",
-    filePath: "src/static-admission.ts",
+    filePath: templateSourceFile,
     failing: [
       "type Fields = Readonly<Record<string, { readonly required: boolean }>>;",
       "export const compatible = (older: Fields, newer: Fields) => {",
