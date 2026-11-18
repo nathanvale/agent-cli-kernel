@@ -423,6 +423,35 @@ const antiSlopCases = [
     lines: [3],
   },
   {
+    rule: "anti-slop/no-widen-then-assert",
+    witness: "r4608976401",
+    message: "discards type evidence and later recreates it with an assertion.",
+    filePath: "scripts/doctor.ts",
+    failing: [
+      'const source = { id: "second" };',
+      "const widened: unknown = source;",
+      "export const parsed = (widened) as { readonly id: string };",
+      "export const angled = <{ readonly id: string }>(widened);",
+    ],
+    passing: [
+      "declare const input: unknown;",
+      "export const parsed = (input) as { readonly id: string };",
+    ],
+    lines: [3, 4],
+  },
+  {
+    rule: "anti-slop/no-unknown-type-aliases",
+    witness: "r4608976364",
+    message: "hides `unknown`.",
+    filePath: "scripts/doctor.ts",
+    failing: [
+      "export type Payload = (unknown);",
+      "export type Loose = (string | (unknown));",
+    ],
+    passing: ["export type Payload = (string);"],
+    lines: [1, 2],
+  },
+  {
     rule: "anti-slop/no-unknown-type-aliases",
     witness: "anti-slop 13909c9",
     message: "hides `unknown`.",
