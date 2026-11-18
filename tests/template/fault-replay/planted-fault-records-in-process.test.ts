@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import {
   add,
@@ -489,6 +495,19 @@ describe("faultsTouchedSince", () => {
     );
     expect(performance.now() - began).toBeLessThan(6_000);
   }, 15_000);
+
+  test("refuses a fault whose patch file is missing, naming the file", async () => {
+    const { root, base } = twoFaults();
+    rmSync(join(root, other.patch));
+
+    const message = await rejection(
+      isolated(() => faultsTouchedSince(root, base)),
+    );
+
+    expect(message).toBe(
+      `${other.patch} does not exist, so ${other.id} has no planted fault to apply. Repair: plant the fault again by hand, run git diff -- <each file you edited> > '${other.patch}', then undo the planted edit. Done when bun run fault-replay ${other.id} passes.`,
+    );
+  });
 
   test("refuses a base git cannot resolve, naming it", async () => {
     const { root } = twoFaults();

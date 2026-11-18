@@ -221,6 +221,25 @@ describe("replay", () => {
     });
   }, 60_000);
 
+  test("refuses a fault whose patch file is missing, naming the file, before it adds a worktree", async () => {
+    const subject = planted();
+    const patch = "tests/planted-faults/patches/gone.patch";
+
+    const run = isolated(() =>
+      replay(
+        subject.root,
+        { ...subject.fault, patch },
+        headOf(subject.root),
+        limit,
+      ),
+    );
+
+    expect(await rejection(run)).toBe(
+      `${patch} does not exist, so ${subject.id} has no planted fault to apply. Repair: plant the fault again by hand, run git diff -- <each file you edited> > '${patch}', then undo the planted edit. Done when bun run fault-replay ${subject.id} passes.`,
+    );
+    expect(worktrees(subject.root)).toEqual([subject.root]);
+  }, 60_000);
+
   test("BROKEN when the named test already fails without the fault", async () => {
     const subject = planted({
       tests: `${limitTests}${redTest}`,
