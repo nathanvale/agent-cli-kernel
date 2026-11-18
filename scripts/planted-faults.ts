@@ -4,6 +4,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { constants, tmpdir } from "node:os";
@@ -60,6 +61,7 @@ function git(
   });
   return {
     ok: result.exitCode === 0,
+    exitCode: result.exitCode,
     stdout: result.stdout.toString(),
     stderr: result.stderr.toString(),
   };
@@ -210,6 +212,208 @@ function testArgs(fault: Fault): string[] {
   return ["test", `./${fault.testFile}`, "-t", fault.title];
 }
 
+type Hunk = {
+  path: string;
+  before: readonly string[];
+  anchor: readonly string[];
+  replacement: readonly string[];
+  after: readonly string[];
+  insertion: boolean;
+};
+
+type Source = {
+  read(path: string): string | undefined;
+  holding(line: string): readonly string[];
+};
+
+type Placement =
+  | { kind: "placed"; files: ReadonlyMap<string, string> }
+  | { kind: "refused"; cause: string };
+
+type Spot = { path: string; line: number };
+
+const hunkLine = /^[ +\\-]/;
+const placesNamed = 10;
+
+function shaped(path: string, body: readonly string[]): Hunk {
+  const insertion = !body.some((line) => line.startsWith("-"));
+  const changed = body.flatMap((line, index) =>
+    line.startsWith(" ") ? [] : [index],
+  );
+  const first = insertion ? 0 : (changed[0] ?? 0);
+  const last = insertion ? body.length - 1 : (changed.at(-1) ?? 0);
+  const text = (lines: readonly string[]) => lines.map((line) => line.slice(1));
+  const span = body.slice(first, last + 1);
+  return {
+    path,
+    before: text(body.slice(0, first)),
+    anchor: text(span.filter((line) => !line.startsWith("+"))),
+    replacement: text(span.filter((line) => !line.startsWith("-"))),
+    after: text(body.slice(last + 1)),
+    insertion,
+  };
+}
+
+function hunksOf(patch: string): Hunk[] {
+  const hunks: Hunk[] = [];
+  let path = "";
+  let body: string[] | undefined;
+  const close = () => {
+    if (body !== undefined && body.length > 0) hunks.push(shaped(path, body));
+    body = undefined;
+  };
+  for (const line of patch.split("\n")) {
+    if (body !== undefined && hunkLine.test(line)) {
+      if (!line.startsWith("\\")) body.push(line);
+      continue;
+    }
+    close();
+    if (line.startsWith("+++ ")) path = line.slice(4).replace(/^b\//, "");
+    if (line.startsWith("@@ ")) body = [];
+  }
+  close();
+  return hunks;
+}
+
+function holds(
+  lines: readonly string[],
+  start: number,
+  wanted: readonly string[],
+): boolean {
+  return (
+    start >= 0 && wanted.every((line, offset) => lines[start + offset] === line)
+  );
+}
+
+function spotsIn(path: string, text: string, anchor: readonly string[]) {
+  const lines = text.split("\n");
+  const spots: Spot[] = [];
+  if (anchor.length === 0) return spots;
+  for (let line = 0; line + anchor.length <= lines.length; line += 1)
+    if (holds(lines, line, anchor)) spots.push({ path, line });
+  return spots;
+}
+
+function chosen(
+  spots: readonly Spot[],
+  hunk: Hunk,
+  linesOf: (path: string) => readonly string[],
+): Spot | undefined {
+  let left = spots;
+  let before = 0;
+  let after = 0;
+  while (left.length > 1) {
+    if (
+      before < hunk.before.length &&
+      (before <= after || after >= hunk.after.length)
+    )
+      before += 1;
+    else if (after < hunk.after.length) after += 1;
+    else return undefined;
+    const wanted = [
+      ...hunk.before.slice(hunk.before.length - before),
+      ...hunk.anchor,
+      ...hunk.after.slice(0, after),
+    ];
+    left = left.filter(({ path, line }) =>
+      holds(linesOf(path), line - before, wanted),
+    );
+  }
+  return left[0];
+}
+
+function anchorRefusal(
+  number: number,
+  hunk: Hunk,
+  spots: readonly Spot[],
+): string {
+  const what = `${hunk.insertion ? "the context" : "the removed text"} of hunk ${number}, starting "${(hunk.anchor[0] ?? "").trim()}"`;
+  if (spots.length === 0)
+    return `anchor absent: ${what}, is not in ${hunk.path}${hunk.insertion ? "" : " or any other tracked file"}.`;
+  const named = spots
+    .slice(0, placesNamed)
+    .map(({ path, line }) => `${path}:${line + 1}`);
+  if (spots.length > placesNamed)
+    named.push(`and ${spots.length - placesNamed} more`);
+  return `anchor ambiguous: ${what}, is at ${spots.length} places: ${named.join(", ")}. Its context lines do not choose one, and a planted fault in the wrong place still fails its test, so it was not applied.`;
+}
+
+function place(patchPath: string, patch: string, source: Source): Placement {
+  const hunks = hunksOf(patch);
+  if (hunks.length === 0)
+    return { kind: "refused", cause: `${patchPath} holds no hunk to apply.` };
+  const files = new Map<string, string>();
+  const textOf = (path: string) => files.get(path) ?? source.read(path);
+  const linesOf = (path: string) => (textOf(path) ?? "").split("\n");
+  for (const [index, hunk] of hunks.entries()) {
+    const recorded = textOf(hunk.path);
+    let spots =
+      recorded === undefined ? [] : spotsIn(hunk.path, recorded, hunk.anchor);
+    if (spots.length === 0 && !hunk.insertion) {
+      const longest = hunk.anchor.reduce(
+        (kept, line) => (line.length > kept.length ? line : kept),
+        "",
+      );
+      spots = source.holding(longest).flatMap((path) => {
+        const text = textOf(path);
+        return text === undefined ? [] : spotsIn(path, text, hunk.anchor);
+      });
+    }
+    const spot = chosen(spots, hunk, linesOf);
+    if (spot === undefined)
+      return { kind: "refused", cause: anchorRefusal(index + 1, hunk, spots) };
+    const lines = linesOf(spot.path);
+    lines.splice(spot.line, hunk.anchor.length, ...hunk.replacement);
+    files.set(spot.path, lines.join("\n"));
+  }
+  return { kind: "placed", files };
+}
+
+function patchText(root: string, patch: string): string {
+  const path = join(root, patch);
+  return existsSync(path) ? readFileSync(path, "utf8") : "";
+}
+
+function sourceIn(dir: string, tracked: ReadonlySet<string>): Source {
+  const texts = new Map<string, string | undefined>();
+  const read = (path: string) => {
+    if (!texts.has(path)) {
+      const full = join(dir, path);
+      texts.set(
+        path,
+        tracked.has(path) && statSync(full, { throwIfNoEntry: false })?.isFile()
+          ? readFileSync(full, "utf8")
+          : undefined,
+      );
+    }
+    return texts.get(path);
+  };
+  return {
+    read,
+    holding: (line) =>
+      [...tracked].filter((path) => read(path)?.includes(line) === true),
+  };
+}
+
+function sourceAt(root: string, base: string): Source {
+  return {
+    read: (path) => {
+      const shown = git(root, ["cat-file", "blob", `${base}:${path}`]);
+      return shown.ok ? shown.stdout : undefined;
+    },
+    holding: (line) => {
+      const found = git(root, ["grep", "-l", "-z", "-F", "-e", line, base]);
+      if (found.exitCode === 1) return [];
+      if (!found.ok)
+        throw new Error(`git grep ${base}: ${found.stderr.trim()}`);
+      return found.stdout
+        .split("\0")
+        .filter((path) => path !== "")
+        .map((path) => path.slice(base.length + 1));
+    },
+  };
+}
+
 async function removeWorktree(root: string, dir: string): Promise<void> {
   await Bun.spawn(["git", "worktree", "remove", "--force", dir], {
     cwd: root,
@@ -225,7 +429,6 @@ export async function replay(
   commit: string,
   limitMilliseconds: number,
 ): Promise<Verdict> {
-  const patch = join(root, fault.patch);
   const folder = mkdtempSync(join(tmpdir(), "fault-replay-"));
   const dir = join(folder, "tree");
   const gitInTree = (argv: readonly string[]) =>
@@ -240,8 +443,16 @@ export async function replay(
       limitMilliseconds,
     );
     if (!added.passed) throw new Error(added.output.trim());
-    const applies = await gitInTree(["apply", "--check", patch]);
-    if (!applies.passed) return { kind: "STALE", output: applies.output };
+    const listed = await gitInTree(["ls-files", "-z"]);
+    if (!listed.passed) throw new Error(listed.output.trim());
+    const tracked = new Set(listed.output.split("\0").filter((p) => p !== ""));
+    const placement = place(
+      fault.patch,
+      patchText(root, fault.patch),
+      sourceIn(dir, tracked),
+    );
+    if (placement.kind === "refused")
+      return { kind: "STALE", output: placement.cause };
     const installed = await bunInTree(["install", "--frozen-lockfile"]);
     if (!installed.passed)
       throw new Error(
@@ -249,8 +460,8 @@ export async function replay(
       );
     const clean = await bunInTree(testArgs(fault));
     if (!clean.passed) return { kind: "BROKEN", output: clean.output };
-    const applied = await gitInTree(["apply", patch]);
-    if (!applied.passed) throw new Error(applied.output.trim());
+    for (const [path, text] of placement.files)
+      writeFileSync(join(dir, path), text);
     const faulted = await bunInTree(testArgs(fault));
     if (faulted.passed) return { kind: "SURVIVED" };
     return { kind: "KILLED", failing: failingTests(faulted.output) };
@@ -350,11 +561,15 @@ export function faultsTouchedSince(root: string, base: string): string[] {
   );
   const recordChanged = (fault: Fault): boolean =>
     recordsChanged && !recordedBefore.has(recordKey(fault));
-  const patched = (fault: Fault): string[] =>
-    gitOrThrow(root, ["apply", "--numstat", "-z", fault.patch])
-      .split("\0")
-      .filter((field) => field !== "")
-      .map((field) => field.split("\t").at(-1) ?? "");
+  const atBase = sourceAt(root, base);
+  const patched = (fault: Fault): string[] => {
+    const text = patchText(root, fault.patch);
+    const placement = place(fault.patch, text, atBase);
+    return [
+      ...hunksOf(text).map(({ path }) => path),
+      ...(placement.kind === "placed" ? placement.files.keys() : []),
+    ];
+  };
   return readRecords(root)
     .filter(
       (fault) =>
