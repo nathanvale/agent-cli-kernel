@@ -558,5 +558,19 @@
     "testFile": "tests/template/repository/repository.test.ts",
     "title": "^a test area folder written as \"tests/\" is refused",
     "source": "dc6396a fix(repository): refuse a test area folder that is not a plain path"
+  },
+  {
+    "id": "0ade74f-harness",
+    "patch": "tests/planted-faults/patches/0ade74f-harness.patch",
+    "testFile": "tests/kernel/diagnostics/cases.test.ts",
+    "title": "T5 harness: a crash run past its bound",
+    "source": "0ade74f test(kernel): kill a hung crash run's and R2 child's whole process group (GREEN)"
+  },
+  {
+    "id": "0ade74f-cases.test",
+    "patch": "tests/planted-faults/patches/0ade74f-cases.test.patch",
+    "testFile": "tests/kernel/diagnostics/cases.test.ts",
+    "title": "T5 ledger: a ledger child past its bound",
+    "source": "0ade74f test(kernel): kill a hung crash run's and R2 child's whole process group (GREEN)"
   }
 ]
