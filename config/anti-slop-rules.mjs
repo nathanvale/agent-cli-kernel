@@ -983,8 +983,12 @@ function nearestFunction(node) {
   return null;
 }
 
-function enclosingReduceCall(node) {
-  for (let current = node.parent; current; current = current.parent) {
+function enclosingReduceCall(callback) {
+  for (
+    let current = callback.parent;
+    current && !functionTypes.has(current.type);
+    current = current.parent
+  ) {
     const member = reduceMember(current);
     if (member !== null) return { call: current, member };
   }
