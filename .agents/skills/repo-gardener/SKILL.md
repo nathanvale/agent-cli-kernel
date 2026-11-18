@@ -198,8 +198,14 @@ repository meets.
 
 1. Run `bun run test:area naming` to judge every tracked name, or
    `bun run check:names <path>` to judge one. Each problem line gives a
-   path, the word it uses, and the glossary entry that refuses the word.
-2. For a name the check refuses, take the first repair that fits:
+   path, the word it uses, and the glossary entry that refuses the word, or
+   names a test file outside the folders `repository.json` gives test files.
+2. For a test file outside those folders, `git mv` it into the test area
+   folder of the command, script or gate it tests, such as
+   `tests/template/doctor/`. When none fits, make a new folder beside them:
+   it becomes its own test area. Then fix the paths that depend on its
+   location.
+3. For a name the check refuses, take the first repair that fits:
    - Rename the path with the glossary's word: `git mv` for a tracked path,
      `mv` for an untracked one. Then change each file that refers to it.
      Search for the old path and for its file name, and judge each match.
@@ -213,10 +219,10 @@ repository meets.
      rename belongs to a larger change: add a recorded hit with its reason
      and the change that will remove it. A name newer than its rule takes
      one of the two repairs above.
-3. Remove the entry of a recorded hit that no longer occurs, and of a
+4. Remove the entry of a recorded hit that no longer occurs, and of a
    recorded unused term that a tracked file now uses.
-4. Commit nothing: the caller approves a rename by committing it.
-5. Report each name with its repair, and each word you added or reported.
+5. Commit nothing: the caller approves a rename by committing it.
+6. Report each name with its repair, and each word you added or reported.
 
 Done when each item holds:
 
