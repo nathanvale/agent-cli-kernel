@@ -1,8 +1,8 @@
 # Bun TypeScript Template glossary
 
 This file is the source of truth for the words this repository owns: the
-recipe table that Bootstrap follows, the kernel split, and the gates that
-keep its own code honest. No other glossary defines them. `GLOSSARY-MAP.md`
+template and the recipe table that Bootstrap follows, the kernel split, and
+the gates that keep its own code honest. No other glossary defines them. `GLOSSARY-MAP.md`
 names the glossaries that own every other word, Bootstrap among them.
 
 ## Language
@@ -16,6 +16,14 @@ after it in every file and folder name. It refuses a word noted
 [Words that need a qualifier](#words-that-need-a-qualifier) also lists it.
 
 ### Creating a repository
+
+**Template**:
+The canonical owner of portable template source and of the pin. It stamps the
+kernel and add-ons and does not own their source.
+
+**Foundation**:
+The template, kernel repository, composer, checker, exemplar and
+agent-cli-design skill together. It is broader than the kernel.
 
 **Recipe**:
 One row of the recipe table. For a repository shape, it says which folders
@@ -131,6 +139,11 @@ byte. The commit is the pinned commit, or a candidate commit in a kernel
 trial.
 _Avoid_: install, vendor, generate, copy (unqualified); stamp as a noun for the code that stamps or for the stamped result (say stamped source)
 
+**Stamped source**:
+Source owned by the kernel repository, copied byte for byte from one kernel
+commit. Copies have one canonical source owner; they are not independently
+editable contract owners.
+
 **Stamp root**:
 One folder that the kernel repository declares and that is stamped and checked
 as a unit.
@@ -158,6 +171,12 @@ Replacing a repository's stamped source and merged requirements with those of
 the current pin, after the stamp check finds the old ones intact. Nothing is
 merged.
 _Avoid_: sync, merge (for a restamp)
+
+**Add-on**:
+An optional capability using the kernel's public interface without importing
+or patching another add-on. The four accepted capabilities are state,
+programs, approval and diagnostics. An add-on may require another add-on to be
+selected.
 
 **Add-on selection**:
 The add-ons that one repository is stamped with. The kernel is always stamped
@@ -318,6 +337,12 @@ where, what stays with the reviewer, and which witnesses taught it.
 The repositories, other than a repository itself, whose commits and review
 threads a citation in that repository's standards may name.
 _Avoid_: recorded origin (that is one repository and one commit), allowed hosts
+
+**Recorded origin**:
+The template repository and the template commit the kernel was carried from.
+A label for people. Tools check its shape, a GitHub repository address and a
+full commit, and no gate decides anything else from it.
+_Avoid_: citable origins, cited-commit list (for a recorded origin)
 
 ### Plans
 
