@@ -32,6 +32,7 @@ const signals = ["SIGHUP", "SIGINT", "SIGTERM"] as const;
 const active: { stop?: () => void; stoppedBy?: (typeof signals)[number] } = {};
 const stepLimitVariable = "FAULT_REPLAY_STEP_SECONDS";
 const defaultStepLimitSeconds = 300;
+const gitMilliseconds = 4_000;
 const snapshotAuthor = {
   GIT_AUTHOR_NAME: "fault-replay",
   GIT_AUTHOR_EMAIL: "fault-replay@localhost",
@@ -58,7 +59,13 @@ function git(
     stdout: "pipe",
     stderr: "pipe",
     detached: true,
+    timeout: gitMilliseconds,
+    killSignal: "SIGKILL",
   });
+  if (result.exitedDueToTimeout)
+    throw new Error(
+      `git ${args.join(" ")} did not finish within ${gitMilliseconds / 1000} s. Repair: run it by hand in ${root} to see where it waits, then run this command again.`,
+    );
   return {
     ok: result.exitCode === 0,
     exitCode: result.exitCode,
