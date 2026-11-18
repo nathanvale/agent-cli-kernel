@@ -183,7 +183,7 @@ describe("bun run fault-replay", () => {
         () => "exited",
         (error: unknown) => String(error),
       );
-      expect(outcome).toEndWith(`did not exit within ${forcedBound} ms.`);
+      expect(outcome).toContain(`did not exit within ${forcedBound} ms.\n`);
       expect(hang.lines()).toContain("started");
       const [test, ...more] = ledgered(pids);
       expect(more).toEqual([]);
