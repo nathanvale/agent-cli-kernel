@@ -44,10 +44,10 @@ Preconditions:
   Exit 0; stdout is one JSON line with `"status":"created"`,
   `"profile":"durable"`, `"variant":"single-package"` and a `generatedFiles`
   count.
-- **Green, scratch and monorepo.** Record `bootstrap-scratch` with
-  `--profile scratch --destination $run/work/generated/scratch` and
-  `bootstrap-monorepo` with
-  `--profile durable --monorepo --destination $run/work/generated/monorepo`.
+- **Green, scratch and monorepo.** Record `bootstrap-scratch` in `template`:
+  `bun run bootstrap --profile scratch --destination $run/work/generated/scratch --source-packet $packet`,
+  and `bootstrap-monorepo` in `template`:
+  `bun run bootstrap --profile durable --monorepo --destination $run/work/generated/monorepo --source-packet $packet`.
   Exit 0; stdout reads `Created scratch single-package repository at <path>`
   and `Created durable monorepo repository at <path>`.
 - **Provenance.** Record `bootstrap-provenance` in `generated/durable`:
