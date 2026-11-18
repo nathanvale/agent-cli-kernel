@@ -1017,21 +1017,24 @@ function reduceSpread(definition, spread) {
   };
 }
 
-function firstAssignment(variable) {
-  const write = variable.references.find(
-    (reference) => reference.isWrite() && !reference.init,
-  );
-  const parent = write?.identifier.parent;
-  return parent?.type === "AssignmentExpression" &&
-    parent.left === write.identifier
-    ? parent
-    : null;
+function assignmentHolding(variable, spread) {
+  for (const reference of variable.references) {
+    const parent = reference.identifier.parent;
+    if (
+      reference.isWrite() &&
+      parent.type === "AssignmentExpression" &&
+      parent.left === reference.identifier &&
+      contains(parent.right, spread)
+    )
+      return parent;
+  }
+  return null;
 }
 
 function loopSpread(definition, variable, spread) {
   if (definition.type !== "Variable" || definition.parent.kind !== "let")
     return null;
-  const assignment = firstAssignment(variable);
+  const assignment = assignmentHolding(variable, spread);
   if (assignment === null) return null;
   const right = innerExpression(assignment.right);
   const kind = contains(right, spread) ? spreadKinds[right.type] : undefined;

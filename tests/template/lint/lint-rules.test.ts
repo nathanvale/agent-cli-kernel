@@ -586,6 +586,36 @@ const antiSlopCases = [
     ],
     lines: [2],
   },
+  {
+    rule: "anti-slop/no-accumulating-spread",
+    witness: "r4609019149",
+    message:
+      "Using spreads within accumulators leads to `O(n^2)` time complexity.",
+    filePath: "scripts/doctor.ts",
+    failing: [
+      "export function counted() {",
+      "  let seen: number[] = [];",
+      "  seen = [];",
+      "  for (let index = 0; index < 3; index++) seen = [...seen, index];",
+      "  return seen;",
+      "}",
+      "export function primed() {",
+      "  let seen: number[] = [];",
+      "  seen = [...seen, 0];",
+      "  for (let index = 0; index < 3; index++) seen = [...seen, index];",
+      "  return seen;",
+      "}",
+    ],
+    passing: [
+      "export function primed() {",
+      "  let seen: number[] = [];",
+      "  seen = [...seen, 0];",
+      "  for (let index = 0; index < 3; index++) seen.push(index);",
+      "  return seen;",
+      "}",
+    ],
+    lines: [4, 10],
+  },
 ];
 
 for (const item of antiSlopCases)
