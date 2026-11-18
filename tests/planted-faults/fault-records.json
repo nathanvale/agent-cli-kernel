@@ -586,5 +586,19 @@
     "testFile": "tests/template/naming/pre-commit.test.ts",
     "title": "^PC[.][de] ",
     "source": "beed83c fix(hooks): check staged compiler config and deletions"
+  },
+  {
+    "id": "442de9a-swarm-process",
+    "patch": "tests/planted-faults/patches/442de9a-swarm-process.patch",
+    "testFile": "tests/kernel/diagnostics/cases.test.ts",
+    "title": "T5 test harness: a run past its bound fails with the output it wrote while",
+    "source": "442de9a test(kernel): bound the wait after a bound run's SIGKILL (GREEN)"
+  },
+  {
+    "id": "f91b625-swarm-process",
+    "patch": "tests/planted-faults/patches/f91b625-swarm-process.patch",
+    "testFile": "tests/kernel/diagnostics/cases.test.ts",
+    "title": "T5 ledger: a ledger child past its bound",
+    "source": "f91b625 test(kernel): show a hung R2 child's output in its failure (GREEN)"
   }
 ]
