@@ -256,6 +256,14 @@ worktree. Its named test must pass without the patch and fail with it. The
 hosted check replays every fault record. Pre-push replays fault records
 affected by the push.
 
+**Anchor**:
+The text one changed region of a planted fault's patch is placed by. A hunk
+can hold several changed regions, runs of lines it removes or adds, with
+unchanged lines between them. A region's anchor is the lines it removes, or,
+when it only adds lines, the unchanged lines next to it. Fault replay applies
+each region where its anchor occurs exactly once, and uses the hunk's other
+lines only to choose between several places.
+
 **Recorded hit**:
 A violation that already existed when its gate landed. The record gives
 its reason and lets the gate pass until a commit fixes it. Fix every new

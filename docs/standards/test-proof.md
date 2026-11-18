@@ -94,7 +94,9 @@ repository broke it.
   case), [c77aaa9] (the production `execute` spawned tsc and fallow with
   no time limit), [24cbab3], [#84-probe] (blocking fixture commands could
   prevent the test timeout and cleanup), [#90-process] (bootstrap helpers
-  could wait indefinitely for a generated repository command).
+  could wait indefinitely for a generated repository command),
+  [#109-bound] (a process-runner case started a nested child with no time
+  limit).
 - Template tests: reuse `spawnBounded` (`tests/support/process.ts`), which
   runs the child through `startChild` (`scripts/process-runner.ts`), for that
   bound. Kernel tests: reuse `spawnBounded`
@@ -220,6 +222,7 @@ repository broke it.
 [#91-timings]: https://github.com/nathanvale/bun-typescript-template/pull/91#discussion_r4607696012
 [#99-timings]: https://github.com/nathanvale/bun-typescript-template/pull/99#discussion_r4608746456
 [#99-shards]: https://github.com/nathanvale/bun-typescript-template/pull/99#discussion_r4608771631
+[#109-bound]: https://github.com/nathanvale/bun-typescript-template/pull/109#discussion_r4610027050
 [#102-parameters]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4608976426
 [#102-alias]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609019138
 [#102-nested]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609019144

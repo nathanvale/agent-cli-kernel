@@ -4,11 +4,16 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { constants, tmpdir } from "node:os";
 import { basename, join } from "node:path";
-import { runWithOwnTools } from "./process-runner.ts";
+import {
+  runWithOwnTools,
+  startChild,
+  withoutRepositoryLocation,
+} from "./process-runner.ts";
 
 const recordsPath = "tests/planted-faults/fault-records.json";
 const patchFolder = "tests/planted-faults/patches";
@@ -31,6 +36,7 @@ const signals = ["SIGHUP", "SIGINT", "SIGTERM"] as const;
 const active: { stop?: () => void; stoppedBy?: (typeof signals)[number] } = {};
 const stepLimitVariable = "FAULT_REPLAY_STEP_SECONDS";
 const defaultStepLimitSeconds = 300;
+const gitMilliseconds = 4_000;
 const snapshotAuthor = {
   GIT_AUTHOR_NAME: "fault-replay",
   GIT_AUTHOR_EMAIL: "fault-replay@localhost",
@@ -49,17 +55,24 @@ function quoted(value: string): string {
 function git(
   root: string,
   args: readonly string[],
-  env: Record<string, string | undefined> = process.env,
+  extra: Readonly<Record<string, string>> = {},
 ) {
   const result = Bun.spawnSync(["git", ...args], {
     cwd: root,
-    env,
+    env: { ...withoutRepositoryLocation(process.env), ...extra },
     stdout: "pipe",
     stderr: "pipe",
     detached: true,
+    timeout: gitMilliseconds,
+    killSignal: "SIGKILL",
   });
+  if (result.exitedDueToTimeout)
+    throw new Error(
+      `git ${args.join(" ")} did not finish within ${gitMilliseconds / 1000} s. Repair: run it by hand in ${root} to see where it waits, then run this command again.`,
+    );
   return {
     ok: result.exitCode === 0,
+    exitCode: result.exitCode,
     stdout: result.stdout.toString(),
     stderr: result.stderr.toString(),
   };
@@ -68,9 +81,9 @@ function git(
 function gitOrThrow(
   root: string,
   args: readonly string[],
-  env?: Record<string, string | undefined>,
+  extra?: Readonly<Record<string, string>>,
 ): string {
-  const result = git(root, args, env);
+  const result = git(root, args, extra);
   if (!result.ok)
     throw new Error(`git ${args.join(" ")}: ${result.stderr.trim()}`);
   return result.stdout;
@@ -136,7 +149,7 @@ export function readRecords(root: string): Fault[] {
 function commitWorkingTreeInScratchIndex(root: string): string {
   const folder = mkdtempSync(join(tmpdir(), "fault-replay-index-"));
   try {
-    const env = { ...process.env, GIT_INDEX_FILE: join(folder, "index") };
+    const env = { GIT_INDEX_FILE: join(folder, "index") };
     gitOrThrow(root, ["read-tree", "HEAD"], env);
     gitOrThrow(root, ["add", "--all"], env);
     const tree = gitOrThrow(root, ["write-tree"], env).trim();
@@ -145,7 +158,7 @@ function commitWorkingTreeInScratchIndex(root: string): string {
     return gitOrThrow(
       root,
       ["commit-tree", tree, "-p", "HEAD", "-m", "fault-replay: working tree"],
-      { ...process.env, ...snapshotAuthor },
+      snapshotAuthor,
     ).trim();
   } finally {
     rmSync(folder, { recursive: true, force: true });
@@ -210,13 +223,279 @@ function testArgs(fault: Fault): string[] {
   return ["test", `./${fault.testFile}`, "-t", fault.title];
 }
 
-async function removeWorktree(root: string, dir: string): Promise<void> {
-  await Bun.spawn(["git", "worktree", "remove", "--force", dir], {
-    cwd: root,
-    stdout: "ignore",
-    stderr: "ignore",
-    detached: true,
-  }).exited;
+type Hunk = {
+  path: string;
+  number: number;
+  before: readonly string[];
+  anchor: readonly string[];
+  replacement: readonly string[];
+  after: readonly string[];
+  insertion: boolean;
+};
+
+type Source = {
+  read(path: string): string | undefined;
+  holding(line: string): readonly string[];
+};
+
+type Placement =
+  | { kind: "placed"; files: ReadonlyMap<string, string> }
+  | { kind: "refused"; cause: string; candidates: readonly string[] };
+
+type Spot = { path: string; line: number };
+
+const hunkLine = /^[ +\\-]/;
+const fileHeader = /^(?:---|\+\+\+) (?!\/dev\/null$)/;
+const placesNamed = 10;
+
+function kept(lines: readonly string[], dropped: "+" | "-"): string[] {
+  return lines
+    .filter((line) => !line.startsWith(dropped))
+    .map((line) => line.slice(1));
+}
+
+function shaped(path: string, number: number, body: readonly string[]) {
+  const regions: { first: number; last: number }[] = [];
+  for (const [index, line] of body.entries()) {
+    if (line.startsWith(" ")) continue;
+    const open = regions.at(-1);
+    if (open?.last === index - 1) open.last = index;
+    else regions.push({ first: index, last: index });
+  }
+  return regions.map(({ first, last }, index): Hunk => {
+    const insertion = !body
+      .slice(first, last + 1)
+      .some((line) => line.startsWith("-"));
+    const from = insertion ? (regions[index - 1]?.last ?? -1) + 1 : first;
+    const to = insertion
+      ? (regions[index + 1]?.first ?? body.length)
+      : last + 1;
+    const span = body.slice(from, to);
+    return {
+      path,
+      number,
+      before: kept(body.slice(0, from), "-"),
+      anchor: kept(span, "+"),
+      replacement: kept(span, "-"),
+      after: kept(body.slice(to), "+"),
+      insertion,
+    };
+  });
+}
+
+function hunksOf(patch: string): Hunk[] {
+  const hunks: Hunk[] = [];
+  let path = "";
+  let body: string[] | undefined;
+  let number = 0;
+  const close = () => {
+    if (body !== undefined && body.length > 0) {
+      number += 1;
+      hunks.push(...shaped(path, number, body));
+    }
+    body = undefined;
+  };
+  for (const line of patch.split("\n")) {
+    if (body !== undefined && hunkLine.test(line)) {
+      if (!line.startsWith("\\")) body.push(line);
+      continue;
+    }
+    close();
+    if (fileHeader.test(line)) path = line.slice(4).replace(/^[ab]\//, "");
+    if (line.startsWith("@@ ")) body = [];
+  }
+  close();
+  return hunks;
+}
+
+function holds(
+  lines: readonly string[],
+  start: number,
+  wanted: readonly string[],
+): boolean {
+  return (
+    start >= 0 && wanted.every((line, offset) => lines[start + offset] === line)
+  );
+}
+
+function linesIn(text: string): string[] {
+  return text === "" ? [] : text.replace(/\n$/, "").split("\n");
+}
+
+function replaced(text: string, spot: Spot, hunk: Hunk): string {
+  const lines = linesIn(text);
+  lines.splice(spot.line, hunk.anchor.length, ...hunk.replacement);
+  return `${lines.join("\n")}${text.endsWith("\n") ? "\n" : ""}`;
+}
+
+function spotsIn(path: string, text: string, anchor: readonly string[]) {
+  const lines = linesIn(text);
+  const spots: Spot[] = [];
+  if (anchor.length === 0) return spots;
+  for (let line = 0; line + anchor.length <= lines.length; line += 1)
+    if (holds(lines, line, anchor)) spots.push({ path, line });
+  return spots;
+}
+
+function matched(
+  lines: readonly string[],
+  start: number,
+  wanted: readonly string[],
+  step: 1 | -1,
+): number {
+  let count = 0;
+  while (count < wanted.length && lines[start + count * step] === wanted[count])
+    count += 1;
+  return count;
+}
+
+function chosen(
+  spots: readonly Spot[],
+  hunk: Hunk,
+  linesOf: (path: string) => readonly string[],
+): Spot | undefined {
+  const nearestFirst = hunk.before.toReversed();
+  const reach = spots.map((spot) => {
+    const lines = linesOf(spot.path);
+    return {
+      spot,
+      before: matched(lines, spot.line - 1, nearestFirst, -1),
+      after: matched(lines, spot.line + hunk.anchor.length, hunk.after, 1),
+    };
+  });
+  return reach.find((each) =>
+    reach.every(
+      (other) =>
+        other === each ||
+        (each.before >= other.before &&
+          each.after >= other.after &&
+          (each.before > other.before || each.after > other.after)),
+    ),
+  )?.spot;
+}
+
+function anchorRefusal(hunk: Hunk, spots: readonly Spot[]): string {
+  const what = `${hunk.insertion ? "the context" : "the removed text"} of hunk ${hunk.number}, starting "${(hunk.anchor[0] ?? "").trim()}"`;
+  if (spots.length === 0)
+    return `anchor absent: ${what}, is not in ${hunk.path}${hunk.insertion ? "" : " or any other tracked file"}.`;
+  const named = spots
+    .slice(0, placesNamed)
+    .map(({ path, line }) => `${path}:${line + 1}`);
+  if (spots.length > placesNamed)
+    named.push(`and ${spots.length - placesNamed} more`);
+  return `anchor ambiguous: ${what}, is at ${spots.length} places: ${named.join(", ")}. Its context lines do not choose one, and a planted fault in the wrong place still fails its test, so it was not applied.`;
+}
+
+function place(patchPath: string, patch: string, source: Source): Placement {
+  if (/^(?:---|\+\+\+) \/dev\/null$/m.test(patch))
+    return {
+      kind: "refused",
+      cause: `${patchPath} creates or deletes a whole file, which replay does not place. It plants a fault only inside a file that exists before and after the patch.`,
+      candidates: [],
+    };
+  const hunks = hunksOf(patch);
+  if (hunks.length === 0)
+    return {
+      kind: "refused",
+      cause: `${patchPath} holds no hunk to apply.`,
+      candidates: [],
+    };
+  const files = new Map<string, string>();
+  const textOf = (path: string) => files.get(path) ?? source.read(path);
+  const linesOf = (path: string) => linesIn(textOf(path) ?? "");
+  for (const hunk of hunks) {
+    const recorded = textOf(hunk.path);
+    let spots =
+      recorded === undefined ? [] : spotsIn(hunk.path, recorded, hunk.anchor);
+    if (spots.length === 0 && !hunk.insertion) {
+      const longest = hunk.anchor.reduce(
+        (kept, line) => (line.length > kept.length ? line : kept),
+        "",
+      );
+      spots = source.holding(longest).flatMap((path) => {
+        const text = textOf(path);
+        return text === undefined ? [] : spotsIn(path, text, hunk.anchor);
+      });
+    }
+    const spot = chosen(spots, hunk, linesOf);
+    if (spot === undefined)
+      return {
+        kind: "refused",
+        cause: anchorRefusal(hunk, spots),
+        candidates: [...files.keys(), ...spots.map(({ path }) => path)],
+      };
+    files.set(spot.path, replaced(textOf(spot.path) ?? "", spot, hunk));
+  }
+  return { kind: "placed", files };
+}
+
+function replantRepair(fault: Fault): string {
+  return `Repair: plant the fault again by hand, run git diff -- <each file you edited> > ${quoted(fault.patch)}, then undo the planted edit. Done when bun run fault-replay ${fault.id} passes.`;
+}
+
+function patchText(root: string, fault: Fault): string {
+  const path = join(root, fault.patch);
+  if (!existsSync(path))
+    throw new Error(
+      `${fault.patch} does not exist, so ${fault.id} has no planted fault to apply. ${replantRepair(fault)}`,
+    );
+  return readFileSync(path, "utf8");
+}
+
+function sourceIn(dir: string, tracked: ReadonlySet<string>): Source {
+  const texts = new Map<string, string | undefined>();
+  const read = (path: string) => {
+    if (!texts.has(path)) {
+      const full = join(dir, path);
+      texts.set(
+        path,
+        tracked.has(path) && statSync(full, { throwIfNoEntry: false })?.isFile()
+          ? readFileSync(full, "utf8")
+          : undefined,
+      );
+    }
+    return texts.get(path);
+  };
+  return {
+    read,
+    holding: (line) =>
+      [...tracked].filter((path) => read(path)?.includes(line) === true),
+  };
+}
+
+function sourceAt(root: string, base: string): Source {
+  return {
+    read: (path) => {
+      const shown = git(root, ["cat-file", "blob", `${base}:${path}`]);
+      return shown.ok ? shown.stdout : undefined;
+    },
+    holding: (line) => {
+      const found = git(root, ["grep", "-l", "-z", "-F", "-e", line, base]);
+      if (found.exitCode === 1) return [];
+      if (!found.ok)
+        throw new Error(
+          `git grep -l -F -e ${quoted(line)} ${base} failed: ${found.stderr.trim()}. Repair: run it by hand in ${root} to see why, then run this command again.`,
+        );
+      return found.stdout
+        .split("\0")
+        .filter((path) => path !== "")
+        .map((path) => path.slice(base.length + 1));
+    },
+  };
+}
+
+async function removeWorktree(
+  root: string,
+  folder: string,
+  dir: string,
+  limitMilliseconds: number,
+): Promise<void> {
+  const worktree = (argv: readonly string[]) =>
+    startChild(["git", "worktree", ...argv], { cwd: root, limitMilliseconds })
+      .finished;
+  const removed = await worktree(["remove", "--force", dir]);
+  rmSync(folder, { recursive: true, force: true });
+  if (removed.timedOut || removed.exitCode !== 0) await worktree(["prune"]);
 }
 
 export async function replay(
@@ -225,7 +504,7 @@ export async function replay(
   commit: string,
   limitMilliseconds: number,
 ): Promise<Verdict> {
-  const patch = join(root, fault.patch);
+  const patch = patchText(root, fault);
   const folder = mkdtempSync(join(tmpdir(), "fault-replay-"));
   const dir = join(folder, "tree");
   const gitInTree = (argv: readonly string[]) =>
@@ -240,8 +519,12 @@ export async function replay(
       limitMilliseconds,
     );
     if (!added.passed) throw new Error(added.output.trim());
-    const applies = await gitInTree(["apply", "--check", patch]);
-    if (!applies.passed) return { kind: "STALE", output: applies.output };
+    const listed = await gitInTree(["ls-files", "-z"]);
+    if (!listed.passed) throw new Error(listed.output.trim());
+    const tracked = new Set(listed.output.split("\0").filter((p) => p !== ""));
+    const placement = place(fault.patch, patch, sourceIn(dir, tracked));
+    if (placement.kind === "refused")
+      return { kind: "STALE", output: placement.cause };
     const installed = await bunInTree(["install", "--frozen-lockfile"]);
     if (!installed.passed)
       throw new Error(
@@ -249,8 +532,8 @@ export async function replay(
       );
     const clean = await bunInTree(testArgs(fault));
     if (!clean.passed) return { kind: "BROKEN", output: clean.output };
-    const applied = await gitInTree(["apply", patch]);
-    if (!applied.passed) throw new Error(applied.output.trim());
+    for (const [path, text] of placement.files)
+      writeFileSync(join(dir, path), text);
     const faulted = await bunInTree(testArgs(fault));
     if (faulted.passed) return { kind: "SURVIVED" };
     return { kind: "KILLED", failing: failingTests(faulted.output) };
@@ -259,8 +542,7 @@ export async function replay(
       return { kind: "TIMEOUT", step: error.step };
     throw error;
   } finally {
-    await removeWorktree(root, dir);
-    rmSync(folder, { recursive: true, force: true });
+    await removeWorktree(root, folder, dir, limitMilliseconds);
   }
 }
 
@@ -292,9 +574,7 @@ export function report(
         `STALE ${fault.id} ${took}. ${fault.patch} no longer applies at this head.`,
       );
       process.stdout.write(verdict.output.replace(/\n?$/, "\n"));
-      print(
-        `Repair: plant the fault again by hand, run git diff -- <each file you edited> > ${quoted(fault.patch)}, then undo the planted edit. ${done}`,
-      );
+      print(replantRepair(fault));
       return;
     case "BROKEN":
       print(
@@ -350,11 +630,17 @@ export function faultsTouchedSince(root: string, base: string): string[] {
   );
   const recordChanged = (fault: Fault): boolean =>
     recordsChanged && !recordedBefore.has(recordKey(fault));
-  const patched = (fault: Fault): string[] =>
-    gitOrThrow(root, ["apply", "--numstat", "-z", fault.patch])
-      .split("\0")
-      .filter((field) => field !== "")
-      .map((field) => field.split("\t").at(-1) ?? "");
+  const atBase = sourceAt(root, base);
+  const patched = (fault: Fault): string[] => {
+    const text = patchText(root, fault);
+    const placement = place(fault.patch, text, atBase);
+    return [
+      ...hunksOf(text).map(({ path }) => path),
+      ...(placement.kind === "placed"
+        ? placement.files.keys()
+        : placement.candidates),
+    ];
+  };
   return readRecords(root)
     .filter(
       (fault) =>

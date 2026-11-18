@@ -1,0 +1,61 @@
+diff --git a/scripts/planted-faults.ts b/scripts/planted-faults.ts
+index 47398e6..b9caee2 100644
+--- a/scripts/planted-faults.ts
++++ b/scripts/planted-faults.ts
+@@ -9,11 +9,7 @@ import {
+ } from "node:fs";
+ import { constants, tmpdir } from "node:os";
+ import { basename, join } from "node:path";
+-import {
+-  runWithOwnTools,
+-  startChild,
+-  withoutRepositoryLocation,
+-} from "./process-runner.ts";
++import { runWithOwnTools, startChild } from "./process-runner.ts";
+ 
+ const recordsPath = "tests/planted-faults/fault-records.json";
+ const patchFolder = "tests/planted-faults/patches";
+@@ -55,11 +51,11 @@ function quoted(value: string): string {
+ function git(
+   root: string,
+   args: readonly string[],
+-  extra: Readonly<Record<string, string>> = {},
++  env: Record<string, string | undefined> = process.env,
+ ) {
+   const result = Bun.spawnSync(["git", ...args], {
+     cwd: root,
+-    env: { ...withoutRepositoryLocation(process.env), ...extra },
++    env,
+     stdout: "pipe",
+     stderr: "pipe",
+     detached: true,
+@@ -81,9 +77,9 @@ function git(
+ function gitOrThrow(
+   root: string,
+   args: readonly string[],
+-  extra?: Readonly<Record<string, string>>,
++  env?: Record<string, string | undefined>,
+ ): string {
+-  const result = git(root, args, extra);
++  const result = git(root, args, env);
+   if (!result.ok)
+     throw new Error(`git ${args.join(" ")}: ${result.stderr.trim()}`);
+   return result.stdout;
+@@ -149,7 +145,7 @@ export function readRecords(root: string): Fault[] {
+ function commitWorkingTreeInScratchIndex(root: string): string {
+   const folder = mkdtempSync(join(tmpdir(), "fault-replay-index-"));
+   try {
+-    const env = { GIT_INDEX_FILE: join(folder, "index") };
++    const env = { ...process.env, GIT_INDEX_FILE: join(folder, "index") };
+     gitOrThrow(root, ["read-tree", "HEAD"], env);
+     gitOrThrow(root, ["add", "--all"], env);
+     const tree = gitOrThrow(root, ["write-tree"], env).trim();
+@@ -158,7 +154,7 @@ function commitWorkingTreeInScratchIndex(root: string): string {
+     return gitOrThrow(
+       root,
+       ["commit-tree", tree, "-p", "HEAD", "-m", "fault-replay: working tree"],
+-      snapshotAuthor,
++      { ...process.env, ...snapshotAuthor },
+     ).trim();
+   } finally {
+     rmSync(folder, { recursive: true, force: true });

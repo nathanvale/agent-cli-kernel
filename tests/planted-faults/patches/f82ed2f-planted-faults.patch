@@ -1,0 +1,13 @@
+diff --git a/scripts/planted-faults.ts b/scripts/planted-faults.ts
+index f51ba9d..cc37021 100644
+--- a/scripts/planted-faults.ts
++++ b/scripts/planted-faults.ts
+@@ -259,7 +259,7 @@ function shaped(path: string, number: number, body: readonly string[]) {
+   for (const [index, line] of body.entries()) {
+     if (line.startsWith(" ")) continue;
+     const open = regions.at(-1);
+-    if (open?.last === index - 1) open.last = index;
++    if (open !== undefined) open.last = index;
+     else regions.push({ first: index, last: index });
+   }
+   return regions.map(({ first, last }, index): Hunk => {

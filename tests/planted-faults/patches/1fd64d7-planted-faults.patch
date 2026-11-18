@@ -1,0 +1,21 @@
+diff --git a/scripts/planted-faults.ts b/scripts/planted-faults.ts
+index 9b19fb0..6d3415c 100644
+--- a/scripts/planted-faults.ts
++++ b/scripts/planted-faults.ts
+@@ -245,7 +245,6 @@ type Placement =
+ type Spot = { path: string; line: number };
+ 
+ const hunkLine = /^[ +\\-]/;
+-const fileHeader = /^(?:---|\+\+\+) (?!\/dev\/null$)/;
+ const placesNamed = 10;
+ 
+ function kept(lines: readonly string[], dropped: "+" | "-"): string[] {
+@@ -301,7 +300,7 @@ function hunksOf(patch: string): Hunk[] {
+       continue;
+     }
+     close();
+-    if (fileHeader.test(line)) path = line.slice(4).replace(/^[ab]\//, "");
++    if (line.startsWith("+++ ")) path = line.slice(4).replace(/^b\//, "");
+     if (line.startsWith("@@ ")) body = [];
+   }
+   close();
