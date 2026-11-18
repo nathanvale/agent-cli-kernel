@@ -7,30 +7,39 @@ const check = "check:file-size";
 const gitTimeout = 4_000;
 const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 
-const recordedHits = new Map([
-  [
-    "tests/planted-faults/fault-records.json",
-    {
-      lifetime: "standing",
-      reason: "Fault replay keeps its records in one file.",
-    },
-  ],
-  [
-    "tests/template/glossary/glossary.test.ts",
-    {
-      lifetime: "temporary",
-      reason:
-        "Remove when the glossary suite moves to the kernel repository (MAG-124).",
-    },
-  ],
-  [
-    "starters/complex/tests/integration/integration.test.ts",
-    {
-      lifetime: "temporary",
-      reason: "Remove with the old CLI starter in MAG-129.",
-    },
-  ],
-]);
+const recordedHitsFile = "scripts/file-size-recorded-hits.json";
+type RecordedHit = { lifetime: "standing" | "temporary"; reason: string };
+type RecordedHits = ReadonlyMap<string, RecordedHit>;
+
+function objectFields(value: unknown): Map<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    throw new Error(
+      `${recordedHitsFile} must contain an object keyed by path.`,
+    );
+  return new Map(Object.entries(value));
+}
+
+function readRecordedHits(bytes: Uint8Array | undefined): RecordedHits {
+  if (bytes === undefined)
+    throw new Error(`${recordedHitsFile} is missing from the staged files.`);
+  const records: unknown = JSON.parse(decoder.decode(bytes));
+  const hits = new Map<string, RecordedHit>();
+  for (const [path, record] of objectFields(records)) {
+    const fields = objectFields(record);
+    const lifetime = fields.get("lifetime");
+    const reason = fields.get("reason");
+    if (
+      (lifetime !== "standing" && lifetime !== "temporary") ||
+      typeof reason !== "string" ||
+      reason.trim() === ""
+    )
+      throw new Error(
+        `${recordedHitsFile}: ${JSON.stringify(path)} needs a standing or temporary lifetime and a reason.`,
+      );
+    hits.set(path, { lifetime, reason });
+  }
+  return hits;
+}
 
 const excludedFolders = ["kernel/", "tests/kernel/"];
 const generatedHooks = new Set([
@@ -174,18 +183,30 @@ function stagedBlobs(root: string, objects: readonly string[]) {
   return blobs;
 }
 
-function stagedFiles(root: string): Files {
+function stagedScanInputs(root: string) {
   const entries = stagedEntries(root);
+  const policy = decoder
+    .decode(git(root, ["rev-parse", "--verify", `:${recordedHitsFile}`]))
+    .trim();
   const objects = new Set(
     [...entries.values()].filter((object) => object !== undefined),
   );
+  objects.add(policy);
   const blobs = stagedBlobs(root, [...objects]);
-  return new Map(
+  const files: Files = new Map(
     [...entries].map(([path, object]) => [
       path,
       object === undefined ? undefined : () => blobs.get(object),
     ]),
   );
+  return { files, recordedHits: readRecordedHits(blobs.get(policy)) };
+}
+
+function workingScanInputs(root: string) {
+  return {
+    files: workingFiles(root),
+    recordedHits: readRecordedHits(readFileSync(join(root, recordedHitsFile))),
+  };
 }
 
 function textOf(bytes: Uint8Array | undefined): string | undefined {
@@ -207,14 +228,17 @@ function tokenCount(
 
 type Verdict = { kind: "record" | "problem"; message: string };
 
-function verdict(path: string, count: number | undefined): Verdict | undefined {
+function verdict(
+  path: string,
+  count: number | undefined,
+  hit: RecordedHit | undefined,
+): Verdict | undefined {
   const label = JSON.stringify(path);
-  const hit = recordedHits.get(path);
   const oversized = count !== undefined && count > limit;
   if (hit?.lifetime === "temporary" && !oversized)
     return {
       kind: "problem",
-      message: `${label}: stale temporary recorded hit (${count === undefined ? "no tracked UTF-8 text" : `${count} tokens`}, limit ${limit}). Repair: remove its entry from scripts/check-file-size.ts.`,
+      message: `${label}: stale temporary recorded hit (${count === undefined ? "no tracked UTF-8 text" : `${count} tokens`}, limit ${limit}). Repair: remove its entry from ${recordedHitsFile}.`,
     };
   if (count === undefined) return undefined;
   if (hit !== undefined)
@@ -230,7 +254,7 @@ function verdict(path: string, count: number | undefined): Verdict | undefined {
   return undefined;
 }
 
-function scan(files: Files, staged: boolean) {
+function scan(files: Files, recordedHits: RecordedHits, staged: boolean) {
   const notices: Record<Verdict["kind"], string[]> = {
     record: [],
     problem: [],
@@ -242,7 +266,7 @@ function scan(files: Files, staged: boolean) {
       if (excluded(path)) continue;
       const count = tokenCount(read, encoding);
       if (count !== undefined) examined += 1;
-      const notice = verdict(path, count);
+      const notice = verdict(path, count, recordedHits.get(path));
       if (notice !== undefined) notices[notice.kind].push(notice.message);
     }
   } finally {
@@ -275,13 +299,15 @@ export function runFileSizeCheck(args: readonly string[], root: string) {
 
   try {
     const tree = realpathSync(root);
-    const files = staged ? stagedFiles(tree) : workingFiles(tree);
+    const { files, recordedHits } = staged
+      ? stagedScanInputs(tree)
+      : workingScanInputs(tree);
     if (!staged) {
       for (const [path, hit] of recordedHits)
         if (hit.lifetime === "temporary" && !files.has(path))
           files.set(path, undefined);
     }
-    return scan(files, staged);
+    return scan(files, recordedHits, staged);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     return {

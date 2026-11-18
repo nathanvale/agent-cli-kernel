@@ -33,6 +33,7 @@ _Qualify_: host, proof
 const sources = [
   "scripts/check-names.ts",
   "scripts/check-file-size.ts",
+  "scripts/file-size-recorded-hits.json",
   "scripts/glossary.ts",
   "scripts/repository.ts",
   ".claude/settings.json",
@@ -120,7 +121,14 @@ export async function fixtureRepository(
 ): Promise<string> {
   const root = fixtureTree(recorded);
   await git(root, "init", "--quiet", "--initial-branch=main");
-  await git(root, "add", "--", "GLOSSARY.md", recordedHitsFile);
+  await git(
+    root,
+    "add",
+    "--",
+    "GLOSSARY.md",
+    recordedHitsFile,
+    "scripts/file-size-recorded-hits.json",
+  );
   await git(root, "commit", "--quiet", "-m", "rules");
   return root;
 }

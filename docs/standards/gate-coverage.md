@@ -18,12 +18,13 @@ gates and their witnesses.
 - The scan excludes `kernel/`, `tests/kernel/`, files under `vendor/`
   directories, every `bun.lock`, and the generated `fallow-gate.sh` at exactly
   `.claude/hooks/` and `.codex/hooks/`.
-- [The gate's recorded hits](../../scripts/check-file-size.ts) name each
+- [The gate's recorded hits](../../scripts/file-size-recorded-hits.json) name each
   exception, its reason, and its lifetime. The standing fault-replay record
   reports its token count whenever scanned. Remove a temporary record in the
   change that brings the file within the limit or takes it out of the scan.
   The working tree scan checks every temporary record. Pre-commit checks
-  temporary records for changed paths, including removals and renames.
+  temporary records for changed paths, including removals and renames. It
+  reads the recorded hits from the active Git index.
 
 ## Refusal lint
 

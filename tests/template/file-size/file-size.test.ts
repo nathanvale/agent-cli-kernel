@@ -1,6 +1,12 @@
 import { afterEach, expect, test } from "bun:test";
-import { renameSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import {
+  chmodSync,
+  renameSync,
+  symlinkSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { delimiter, join } from "node:path";
 import { runFileSizeCheck } from "../../../scripts/check-file-size.ts";
 import { gitEnv, inherited } from "../../support/git-fixture.ts";
 import { processWatchdog } from "../../support/process.ts";
@@ -21,6 +27,7 @@ const glossary = "tests/template/glossary/glossary.test.ts";
 const integration = "starters/complex/tests/integration/integration.test.ts";
 const standing = "tests/planted-faults/fault-records.json";
 const note = "docs/file-size.txt";
+const recordedHits = "scripts/file-size-recorded-hits.json";
 const noteRefusal =
   'check:file-size: "docs/file-size.txt": 5001 tokens exceeds the 5000-token limit. Repair: shorten or split the file.\n';
 
@@ -60,9 +67,9 @@ function linkToolchain(tree: string) {
   symlinkSync(join(repository, "node_modules"), join(tree, "node_modules"));
 }
 
-async function treeWithHook() {
+async function treeWithHook(files: Readonly<Record<string, string>> = {}) {
   const tree = await fixtureRepository();
-  await seed(tree, { [note]: "original" });
+  await seed(tree, { [note]: "original", ...files });
   await git(tree, "commit", "--quiet", "-m", "seed");
   linkToolchain(tree);
   await git(tree, "config", "core.hooksPath", ".githooks");
@@ -84,7 +91,7 @@ test(
     const admitted = await checkFileSize(tree);
     expect(admitted).toMatchObject({ exit: 0, stderr: "" });
     expect(admitted.stdout).toContain(
-      "check:file-size: scanned 5 tracked UTF-8 text files (limit 5000 tokens).\n",
+      "check:file-size: scanned 6 tracked UTF-8 text files (limit 5000 tokens).\n",
     );
 
     write(tree, note, overLimit);
@@ -159,6 +166,45 @@ test(
 );
 
 test(
+  "the hook uses the staged record when a temporary recorded hit is removed",
+  async () => {
+    const tree = await treeWithHook({ [glossary]: overLimit });
+    const original = await Bun.file(join(tree, recordedHits)).text();
+    const hits = JSON.parse(original) as Record<string, unknown>;
+    expect(Object.keys(hits)).toContain(glossary);
+    const updated = Object.fromEntries(
+      Object.entries(hits).filter(([path]) => path !== glossary),
+    );
+    await git(tree, "rm", "--quiet", "--", glossary);
+    write(tree, recordedHits, JSON.stringify(updated));
+
+    const before = await gitOutcome(tree, "write-tree");
+    const refused = await gitOutcome(
+      tree,
+      "commit",
+      "--quiet",
+      "-m",
+      "retire hit",
+    );
+    expect(refused.exit).toBe(1);
+    expect(refused.stderr).toContain(
+      `"${glossary}": stale temporary recorded hit (no tracked UTF-8 text, limit 5000). Repair: remove its entry from ${recordedHits}.`,
+    );
+    expect(await gitOutcome(tree, "write-tree")).toEqual(before);
+
+    await git(tree, "add", "--", recordedHits);
+    write(tree, recordedHits, original);
+    expect(checkInProcess(tree, ["--staged"])).toEqual({
+      code: 0,
+      stderr: "",
+      stdout:
+        "check:file-size: scanned 1 staged UTF-8 text files (limit 5000 tokens).\n",
+    });
+  },
+  processWatchdog(10),
+);
+
+test(
   "the staged scan reads Git blobs in one batch across binary frames",
   async () => {
     const tree = await fixtureRepository();
@@ -194,6 +240,34 @@ test(
     expect(blobReads).toEqual(["built-in: git cat-file --batch"]);
   },
   processWatchdog(7),
+);
+
+test(
+  "the file-size command stops a Git read at its deadline",
+  async () => {
+    const tree = await fixtureRepository();
+    linkToolchain(tree);
+    const barrier = join(tree, "git-read");
+    expect(await runInFixture(["mkfifo", barrier], tree)).toMatchObject({
+      exit: 0,
+    });
+    write(tree, "bin/git", '#!/bin/sh\nread -r line < "$GIT_READ_BARRIER"\n');
+    chmodSync(join(tree, "bin/git"), 0o755);
+
+    const started = performance.now();
+    const result = await checkFileSize(tree, [], {
+      GIT_READ_BARRIER: barrier,
+      PATH: `${join(tree, "bin")}${delimiter}${process.env.PATH ?? ""}`,
+    });
+    expect(performance.now() - started).toBeLessThan(8_000);
+    expect(result).toEqual({
+      exit: 2,
+      stdout: "",
+      stderr:
+        "check:file-size: git ls-files --cached --deduplicate -z timed out after 4000 ms. Repair: resolve the Git or filesystem error and run the gate again.\n",
+    });
+  },
+  processWatchdog(14),
 );
 
 test(
@@ -269,7 +343,7 @@ test(
         'check:file-size: "docs/fault-records.json": 5001 tokens exceeds the 5000-token limit. Repair: shorten or split the file.\n',
     });
     expect(result.stdout).toContain(
-      "check:file-size: scanned 6 tracked UTF-8 text files (limit 5000 tokens).\n",
+      "check:file-size: scanned 7 tracked UTF-8 text files (limit 5000 tokens).\n",
     );
     expect(result.stdout).toContain(
       `"${glossary}": 5001 tokens (limit 5000), temporary recorded hit.`,
@@ -294,8 +368,8 @@ test(
     expect(checkInProcess(tree)).toMatchObject({
       code: 1,
       stderr: [
-        `check:file-size: "${glossary}": stale temporary recorded hit (5000 tokens, limit 5000). Repair: remove its entry from scripts/check-file-size.ts.`,
-        `check:file-size: "${integration}": stale temporary recorded hit (no tracked UTF-8 text, limit 5000). Repair: remove its entry from scripts/check-file-size.ts.`,
+        `check:file-size: "${glossary}": stale temporary recorded hit (5000 tokens, limit 5000). Repair: remove its entry from ${recordedHits}.`,
+        `check:file-size: "${integration}": stale temporary recorded hit (no tracked UTF-8 text, limit 5000). Repair: remove its entry from ${recordedHits}.`,
         "",
       ].join("\n"),
     });
@@ -332,7 +406,7 @@ test(
     expect(result.code).toBe(1);
     expect(result.stderr.trim().split("\n").sort()).toEqual([
       `check:file-size: "${renamed}": 5001 tokens exceeds the 5000-token limit. Repair: shorten or split the file.`,
-      `check:file-size: "${glossary}": stale temporary recorded hit (no tracked UTF-8 text, limit 5000). Repair: remove its entry from scripts/check-file-size.ts.`,
+      `check:file-size: "${glossary}": stale temporary recorded hit (no tracked UTF-8 text, limit 5000). Repair: remove its entry from ${recordedHits}.`,
     ]);
   },
   processWatchdog(8),
@@ -364,6 +438,7 @@ test(
   "a working tree with no tracked texts cannot pass the scan",
   async () => {
     const tree = await fixtureRepository();
+    await git(tree, "rm", "--cached", "--quiet", "--", recordedHits);
     await git(
       tree,
       "rm",
