@@ -649,5 +649,12 @@
     "testFile": "tests/template/fault-replay/planted-fault-process.test.ts",
     "title": "FR\\.y ",
     "source": "64b57bc fix(faults): stop a worktree removal at the step limit (GREEN)"
+  },
+  {
+    "id": "9609e5c-planted-faults",
+    "patch": "tests/planted-faults/patches/9609e5c-planted-faults.patch",
+    "testFile": "tests/template/fault-replay/planted-faults-in-process.test.ts",
+    "title": "STALE anchor ambiguous when each side prefers a different place",
+    "source": "9609e5c fix(faults): choose a place by context on either side, and never on a tie (GREEN)"
   }
 ]

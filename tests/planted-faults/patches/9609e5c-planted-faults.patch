@@ -1,0 +1,12 @@
+diff --git a/scripts/planted-faults.ts b/scripts/planted-faults.ts
+index 05f6eaf..7e7d376 100644
+--- a/scripts/planted-faults.ts
++++ b/scripts/planted-faults.ts
+@@ -336,7 +336,6 @@ function chosen(
+       (other) =>
+         other === each ||
+         (each.before >= other.before &&
+-          each.after >= other.after &&
+           (each.before > other.before || each.after > other.after)),
+     ),
+   )?.spot;
