@@ -181,7 +181,7 @@ type Executed = {
   readonly failure: string | undefined;
 };
 
-function unescaped(text: string): string {
+function decodeXmlEntities(text: string): string {
   return text
     .replaceAll("&quot;", '"')
     .replaceAll("&apos;", "'")
@@ -227,20 +227,20 @@ function executedTests(): {
         /<testcase name="([^"]*)"([^>]*?)(\/>|>([\s\S]*?)<\/testcase>)/g,
       ),
     ].map((match): Executed => {
-      const name = unescaped(match[1] ?? "");
+      const name = decodeXmlEntities(match[1] ?? "");
       const attribute = (key: string) =>
-        unescaped(
+        decodeXmlEntities(
           new RegExp(` ${key}="([^"]*)"`).exec(match[2] ?? "")?.[1] ?? "",
         );
       const body = match[4] ?? "";
       const message = /<failure[^>]*? message="([^"]*)"/.exec(body)?.[1] ?? "";
-      const [reason] = unescaped(message).split("\n");
-      const where = [attribute("file"), attribute("classname"), name];
+      const [reason] = decodeXmlEntities(message).split("\n");
+      const casePath = [attribute("file"), attribute("classname"), name];
       return {
         name,
         skipped: body.includes("<skipped"),
         failure: body.includes("<failure")
-          ? `${where.filter(Boolean).join(" > ")}: ${reason}`
+          ? `${casePath.filter(Boolean).join(" > ")}: ${reason}`
           : undefined,
       };
     });

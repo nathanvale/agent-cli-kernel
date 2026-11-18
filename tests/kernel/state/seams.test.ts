@@ -7,16 +7,16 @@ import { caseTest } from "./harness.ts";
 const root = resolve(import.meta.dir, "../../..");
 const source = resolve(root, "kernel/src");
 const eslint = new ESLint({ cwd: root });
-let owned = "";
+let probeRoot = "";
 let probes = "";
 beforeAll(async () => {
-  owned = await mkdtemp(`${source}/state-seam-probes-`);
-  probes = resolve(owned, "handlers");
+  probeRoot = await mkdtemp(`${source}/state-seam-probes-`);
+  probes = resolve(probeRoot, "handlers");
   await mkdir(probes);
   await writeFile(`${probes}/host.ts`, "export {};\n");
 });
 afterAll(async () => {
-  await rm(owned, { recursive: true, force: true });
+  await rm(probeRoot, { recursive: true, force: true });
 });
 
 type Rule = "state" | "kernel" | "ffi";
