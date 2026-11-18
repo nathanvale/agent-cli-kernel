@@ -146,8 +146,9 @@ repository broke it.
   cases of the rule it ports: a callback with more or fewer parameters, a
   function nested inside the one it judges, a binding written more than
   once, a type argument that repeats its alias, an alias whose parameter
-  shares a name with an outer one, and a spread into call arguments. A port
-  inherits its source's gaps; Oxlint's own rule shares each witnessed one.
+  shares a name with an outer one, a spread into call arguments, and a
+  member key written as a template literal. A port inherits its source's
+  gaps; Oxlint's own rule shares each witnessed one.
   Witnessed: [#102-parameters] (a reducer that also takes the index passed
   `no-accumulating-spread`), [#102-alias] (`Identity<Identity<unknown>>`
   passed `no-unknown-type-aliases`), [#102-nested] (a spread in a `map`
@@ -156,7 +157,9 @@ repository broke it.
   (`Wrap<T = unknown> = Fixed` lent its `T` to `Fixed`, so `Safe = Wrap` was
   reported), [#102-arity] (a one-parameter reducer passed
   `no-accumulating-spread`), [#102-arguments] (`consume(item, ...args)` was
-  reported as an accumulator copy).
+  reported as an accumulator copy), [#102-mock-key] (``vi[`mock`]`` passed
+  `no-module-mocking`), [#102-copy-key] (``all[`concat`]`` passed
+  `no-reduce-accumulator-copy`).
 
 [#91-count]: https://github.com/nathanvale/bun-typescript-template/pull/91#discussion_r4607744321
 [185c90d]: https://github.com/nathanvale/bun-typescript-template/commit/185c90d11dd167ee4874e383ba26cd7d64a70964
@@ -222,3 +225,5 @@ repository broke it.
 [#102-outer]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609659195
 [#102-arity]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609659202
 [#102-arguments]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609659207
+[#102-mock-key]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609902952
+[#102-copy-key]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609902960
