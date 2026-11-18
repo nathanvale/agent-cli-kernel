@@ -445,6 +445,18 @@ describe("faultsTouchedSince", () => {
     expect(result).toEqual([id]);
   });
 
+  test("names a fault whose patched file moved before the base, when the moved file changes", async () => {
+    const { root, id } = twoFaults();
+    git(root, "mv", "src/limit.ts", "src/bound.ts");
+    git(root, "commit", "--quiet", "-m", "rename limit");
+    const base = headOf(root);
+    commit(root, "reword the refusal", {
+      "src/bound.ts": guarded.replace("must be", "has to be"),
+    });
+    const { result } = await isolated(() => faultsTouchedSince(root, base));
+    expect(result).toEqual([id]);
+  });
+
   test("names a fault whose record changed, though no file it names did", async () => {
     const { root, id, fault, base } = twoFaults();
     recorded(root, [{ ...fault, title: "^L\\.weak " }, other]);

@@ -34,6 +34,34 @@ const redTest = `test("L.red is red without the fault", () => {
 });
 `;
 
+const guardLine =
+  'if (Number.isNaN(value)) throw new TypeError("limit must be a number");';
+
+const insertion = `diff --git a/src/limit.ts b/src/limit.ts
+--- a/src/limit.ts
++++ b/src/limit.ts
+@@ -1,3 +1,4 @@
+ export function limit(value: number): number {
++  if (Number.isNaN(value)) return value;
+   ${guardLine}
+   return value;
+`;
+
+function ambiguous(places: string): string {
+  return `anchor ambiguous: the removed text of hunk 1, starting "${guardLine}", is at 2 places: ${places}. Its context lines do not choose one, and a planted fault in the wrong place still fails its test, so it was not applied.`;
+}
+
+function renamed(root: string, extra: Record<string, string> = {}): void {
+  git(root, "mv", "src/limit.ts", "src/bound.ts");
+  commit(root, "rename limit to bound", {
+    "tests/limit.test.ts": limitTests.replace(
+      "../src/limit.ts",
+      "../src/bound.ts",
+    ),
+    ...extra,
+  });
+}
+
 function outputOf(verdict: Verdict): string {
   if (verdict.kind === "STALE" || verdict.kind === "BROKEN")
     return verdict.output;
@@ -75,20 +103,122 @@ describe("replay", () => {
     expect(run.leftovers).toEqual([]);
   }, 60_000);
 
-  test("STALE when the patch no longer applies, with git's own words", async () => {
+  test("KILLED when the guarded line's neighbours changed after the patch was made", async () => {
     const subject = planted();
-    write(
-      subject.root,
-      subject.fault.patch,
-      subject.patch.replace("return value;", "return other;"),
-    );
+    commit(subject.root, "return the number", {
+      "src/limit.ts": guarded.replace("return value;", "return Number(value);"),
+    });
 
     const run = await replayed(subject);
 
-    expect(run.result.kind).toBe("STALE");
-    expect(outputOf(run.result)).toContain("patch does not apply");
+    expect(run.result).toEqual({ kind: "KILLED", failing: killedBy });
+  }, 60_000);
+
+  test("KILLED in the tracked file its guarded text moved to", async () => {
+    const subject = planted();
+    renamed(subject.root);
+
+    const run = await replayed(subject);
+
+    expect(run.result).toEqual({ kind: "KILLED", failing: killedBy });
     expect(worktrees(subject.root)).toEqual([subject.root]);
     expect(run.leftovers).toEqual([]);
+  }, 60_000);
+
+  test("STALE anchor ambiguous, naming each place, when its moved guarded text is in two tracked files", async () => {
+    const subject = planted();
+    renamed(subject.root, { "src/copy.ts": guarded });
+    const status = git(subject.root, "status", "--porcelain");
+
+    const run = await replayed(subject);
+
+    expect(run.result).toEqual({
+      kind: "STALE",
+      output: ambiguous("src/bound.ts:2, src/copy.ts:2"),
+    });
+    expect(git(subject.root, "status", "--porcelain")).toBe(status);
+    expect(worktrees(subject.root)).toEqual([subject.root]);
+    expect(run.leftovers).toEqual([]);
+  }, 60_000);
+
+  test("STALE anchor ambiguous when its guarded text and context occur twice in its file", async () => {
+    const subject = planted();
+    commit(subject.root, "show the source", {
+      "src/limit.ts": `${guarded}\nexport const shown = \`\n${guarded}\`;\n`,
+    });
+
+    const run = await replayed(subject);
+
+    expect(run.result).toEqual({
+      kind: "STALE",
+      output: ambiguous("src/limit.ts:2, src/limit.ts:8"),
+    });
+    expect(worktrees(subject.root)).toEqual([subject.root]);
+    expect(run.leftovers).toEqual([]);
+  }, 60_000);
+
+  test("KILLED where its context lines choose one of two places holding its guarded text", async () => {
+    const subject = planted();
+    const copy = guarded.replace("function limit", "function shown");
+    commit(subject.root, "show the source", {
+      "src/limit.ts": `${guarded}\nexport const shown = \`\n${copy}\`;\n`,
+    });
+
+    const run = await replayed(subject);
+
+    expect(run.result).toEqual({ kind: "KILLED", failing: killedBy });
+  }, 60_000);
+
+  test("STALE anchor absent when the guarded line itself was edited", async () => {
+    const subject = planted();
+    commit(subject.root, "reword the refusal", {
+      "src/limit.ts": guarded.replace("must be", "has to be"),
+      "tests/limit.test.ts": limitTests.replaceAll("must be", "has to be"),
+    });
+
+    const run = await replayed(subject);
+
+    expect(run.result).toEqual({
+      kind: "STALE",
+      output: `anchor absent: the removed text of hunk 1, starting "${guardLine}", is not in src/limit.ts or any other tracked file.`,
+    });
+    expect(worktrees(subject.root)).toEqual([subject.root]);
+    expect(run.leftovers).toEqual([]);
+  }, 60_000);
+
+  test("KILLED when a patch only inserts lines and its context is in place", async () => {
+    const subject = planted();
+    write(subject.root, subject.fault.patch, insertion);
+
+    const run = await replayed(subject);
+
+    expect(run.result).toEqual({ kind: "KILLED", failing: killedBy });
+  }, 60_000);
+
+  test("STALE anchor absent when a patch only inserts lines and its file moved", async () => {
+    const subject = planted();
+    write(subject.root, subject.fault.patch, insertion);
+    renamed(subject.root);
+
+    const run = await replayed(subject);
+
+    expect(run.result).toEqual({
+      kind: "STALE",
+      output:
+        'anchor absent: the context of hunk 1, starting "export function limit(value: number): number {", is not in src/limit.ts.',
+    });
+  }, 60_000);
+
+  test("STALE when the patch holds no hunk", async () => {
+    const subject = planted();
+    write(subject.root, subject.fault.patch, "");
+
+    const run = await replayed(subject);
+
+    expect(run.result).toEqual({
+      kind: "STALE",
+      output: `${subject.fault.patch} holds no hunk to apply.`,
+    });
   }, 60_000);
 
   test("BROKEN when the named test already fails without the fault", async () => {
@@ -161,7 +291,7 @@ test("L.refuses dies", () => {
     expect(
       [
         "git worktree add --detach --quiet ",
-        "git apply ",
+        "git ls-files ",
         `${bun} install --frozen-lockfile`,
         `${bun} test ./tests/`,
       ].some((start) => step.startsWith(start)),
