@@ -26,17 +26,6 @@ this file.
   judges a generic target as it judges the plain union. Witnessed:
   [r4607149524] (`"a" in value` with `T extends { a: number } | { b: string }`
   was refused, and the same check on the union passed).
-- Assert any step a near-zero limit can catch, not the first one, since which
-  step loses that race depends on the host. Witnessed: [27c2676] (a 1 ms
-  replay limit named `git apply` instead of `git worktree add` on a hosted
-  runner).
-- Freeze a child that outran its bound before inspecting it, and stop it
-  whatever the inspection does. Witnessed: [3f6443b] (a synchronous `ps` let a
-  hung child run 10 s past its bound, and a `ps` that could not start skipped
-  the kill).
-- Build an expected command from the path the code runs, not a no-space
-  pattern. Witnessed: [bfc3a67] (`\S+` would have refused a Bun installed
-  under a path with a space).
 
 [ac11ed9]: https://github.com/nathanvale/bun-typescript-template/commit/ac11ed98b7d538e8a304cac053aaefcaaf6b2cb3
 [cd2498b]: https://github.com/nathanvale/bun-typescript-template/commit/cd2498b7189a2d45d1906b9c870e8d13da6cd2dd
@@ -44,6 +33,3 @@ this file.
 [r4606943319]: https://github.com/nathanvale/bun-typescript-template/pull/80#discussion_r4606943319
 [r4607149514]: https://github.com/nathanvale/bun-typescript-template/pull/80#discussion_r4607149514
 [r4607149524]: https://github.com/nathanvale/bun-typescript-template/pull/80#discussion_r4607149524
-[27c2676]: https://github.com/nathanvale/bun-typescript-template/commit/27c26764ecac5849752fb39df5384539e60e1456
-[3f6443b]: https://github.com/nathanvale/bun-typescript-template/commit/3f6443be7abaf2e0881d48a03e0d3b4072b6247f
-[bfc3a67]: https://github.com/nathanvale/bun-typescript-template/commit/bfc3a67b8aea06d0c630c2b9ef1ecd9f32a3266b
