@@ -866,5 +866,19 @@
     "testFile": "tests/template/file-size/file-size.test.ts",
     "title": "^the file-size command refuses malformed and excluded recorded hits$",
     "source": "b021da0 fix(gates): refuse excluded recorded hits"
+  },
+  {
+    "id": "61c6f37-index",
+    "patch": "tests/planted-faults/patches/61c6f37-index.patch",
+    "testFile": "tests/kernel/programs/input.test.ts",
+    "title": "an input one byte over the limit is refused and starts no program$",
+    "source": "61c6f37 feat(programs): let a command supply a bounded input to a program"
+  },
+  {
+    "id": "61c6f37-index-view",
+    "patch": "tests/planted-faults/patches/61c6f37-index-view.patch",
+    "testFile": "tests/kernel/programs/input.test.ts",
+    "title": "an input that is a typed array of another width is refused and starts no program$",
+    "source": "61c6f37 feat(programs): let a command supply a bounded input to a program"
   }
 ]

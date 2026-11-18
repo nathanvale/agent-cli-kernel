@@ -1,0 +1,15 @@
+diff --git a/kernel/src/addons/programs/index.ts b/kernel/src/addons/programs/index.ts
+index 734f09d..f7804c6 100644
+--- a/kernel/src/addons/programs/index.ts
++++ b/kernel/src/addons/programs/index.ts
+@@ -79,8 +79,8 @@ function requestProblem(request: ProgramRequest): string | undefined {
+ function ownInput(request: ProgramRequest): Uint8Array | "ignore" | undefined {
+   const input: unknown = request.input;
+   if (input === undefined) return "ignore";
+-  return input instanceof Uint8Array && input.byteLength <= inputLimitBytes
+-    ? input
++  return ArrayBuffer.isView(input) && input.byteLength <= inputLimitBytes
++    ? new Uint8Array(input.buffer, input.byteOffset, input.byteLength)
+     : undefined;
+ }
+ 
