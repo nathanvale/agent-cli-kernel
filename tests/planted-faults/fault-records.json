@@ -747,5 +747,33 @@
     "testFile": "tests/template/lint/lint-rules.test.ts",
     "title": "^anti-slop/no-accumulating-spread refuses the r4609019144 shape",
     "source": "55701f2 fix(lint): match a spread only to the reduce that owns its callback"
+  },
+  {
+    "id": "1fd64d7-planted-faults",
+    "patch": "tests/planted-faults/patches/1fd64d7-planted-faults.patch",
+    "testFile": "tests/template/fault-replay/planted-fault-records-in-process.test.ts",
+    "title": "names a fault whose patch deletes a whole file when only that file changed",
+    "source": "1fd64d7 fix(faults): take a deleted file's hunk path from the side it is removed from (GREEN)"
+  },
+  {
+    "id": "7a1cc6d-planted-faults",
+    "patch": "tests/planted-faults/patches/7a1cc6d-planted-faults.patch",
+    "testFile": "tests/template/fault-replay/planted-faults-in-process.test.ts",
+    "title": "STALE anchor ambiguous at only the real blank lines",
+    "source": "7a1cc6d fix(faults): read a file's lines without the end-of-file separator, keeping its real blank lines (GREEN)"
+  },
+  {
+    "id": "e82b9ff-planted-faults",
+    "patch": "tests/planted-faults/patches/e82b9ff-planted-faults.patch",
+    "testFile": "tests/template/fault-replay/planted-fault-records-in-process.test.ts",
+    "title": "names a fault whose moved anchor is ambiguous at the base",
+    "source": "e82b9ff fix(faults): select a refused fault by the places its anchor was found (GREEN)"
+  },
+  {
+    "id": "3887c4b-planted-faults",
+    "patch": "tests/planted-faults/patches/3887c4b-planted-faults.patch",
+    "testFile": "tests/template/fault-replay/planted-fault-process.test.ts",
+    "title": "FR\\.y ",
+    "source": "3887c4b fix(faults): prune the worktree entry a stopped removal leaves behind (GREEN)"
   }
 ]
