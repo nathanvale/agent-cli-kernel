@@ -1,4 +1,4 @@
-import { afterAll } from "bun:test";
+import { afterEach } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { testFolder } from "./test-folder.ts";
@@ -10,8 +10,8 @@ export function write(root: string, path: string, content: string): void {
 
 export function ownedFolders(): (prefix: string) => string {
   const folders: string[] = [];
-  afterAll(() => {
-    for (const folder of folders) rmSync(folder, { recursive: true });
+  afterEach(() => {
+    for (const folder of folders.splice(0)) rmSync(folder, { recursive: true });
   });
   return (prefix) => {
     const path = testFolder(prefix);
