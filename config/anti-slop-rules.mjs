@@ -165,16 +165,8 @@ function resolveArrayBinding(sourceCode, node) {
 function arrayMethodTarget(node) {
   const member = unwrapArrayExpression(node);
   if (member.type !== "MemberExpression") return null;
-  const { property } = member;
-  if (!member.computed && property.type === "Identifier")
-    return { name: property.name, object: member.object };
-  if (
-    member.computed &&
-    property.type === "Literal" &&
-    typeof property.value === "string"
-  )
-    return { name: property.value, object: member.object };
-  return null;
+  const name = staticPropertyName(member);
+  return name === null ? null : { name, object: member.object };
 }
 
 function isArrayAnnotation(type) {
