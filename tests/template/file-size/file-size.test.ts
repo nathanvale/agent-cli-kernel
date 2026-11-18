@@ -14,9 +14,9 @@ import {
   write,
 } from "../naming/fixture-tree.ts";
 
-// Interface: independent boundary oracle. Each repetition is one o200k_base token.
-const atLimit = " x".repeat(5_000);
-const overLimit = " x".repeat(5_001);
+const oneTokenOfText = " x";
+const atLimit = oneTokenOfText.repeat(5_000);
+const overLimit = oneTokenOfText.repeat(5_001);
 const glossary = "tests/template/glossary/glossary.test.ts";
 const integration = "starters/complex/tests/integration/integration.test.ts";
 const standing = "tests/planted-faults/fault-records.json";

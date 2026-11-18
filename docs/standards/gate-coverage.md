@@ -11,6 +11,10 @@ gates and their witnesses.
   5,000 tokens. The template's `bun run check` and the hosted `check` job
   scan the working tree. Pre-commit checks the changed files in the active
   Git index using their staged bytes.
+- Declare this template-only gate in Fallow's `supportEntry`. This is the
+  local exception to the shared `entry` rule for the file-size gate. The
+  normal Fallow audit includes the gate, and the tokenizer stays in
+  `devDependencies`. See [Fallow entry settings](https://fallow.tools/docs/configuration/overview/#supportentry).
 - The scan excludes `kernel/`, `tests/kernel/`, files under `vendor/`
   directories, every `bun.lock`, and the generated `fallow-gate.sh` at exactly
   `.claude/hooks/` and `.codex/hooks/`.
