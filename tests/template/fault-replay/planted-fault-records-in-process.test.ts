@@ -463,6 +463,18 @@ describe("faultsTouchedSince", () => {
     expect(result).toEqual([id]);
   });
 
+  test("names a fault whose moved anchor is ambiguous at the base when one of its places changes", async () => {
+    const { root, id } = twoFaults();
+    git(root, "mv", "src/limit.ts", "src/bound.ts");
+    commit(root, "rename limit and copy it", { "src/copy.ts": guarded });
+    const base = headOf(root);
+    commit(root, "export a bound", {
+      "src/bound.ts": `${guarded}export const bound = 1;\n`,
+    });
+    const { result } = await isolated(() => faultsTouchedSince(root, base));
+    expect(result).toEqual([id]);
+  });
+
   test("names a fault whose patch deletes a whole file when only that file changed", async () => {
     const { root } = twoFaults();
     commit(root, "delete other", {
