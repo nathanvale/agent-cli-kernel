@@ -4,7 +4,6 @@ import { join } from "node:path";
 import {
   add,
   type Fault,
-  faultsTouchedSince,
   readRecords,
 } from "../../../scripts/planted-faults.ts";
 import {
@@ -12,9 +11,7 @@ import {
   createPlantedFaultFixture,
   git,
   guarded,
-  headOf,
   limitTests,
-  recorded,
   recordsPath,
   rejection,
   sample,
@@ -22,7 +19,7 @@ import {
   write,
 } from "../../support/planted-fault-in-process-fixture.ts";
 
-const { folder, isolated, planted, repository } = createPlantedFaultFixture();
+const { folder, isolated, repository } = createPlantedFaultFixture();
 
 describe("readRecords", () => {
   function recordsIn(content: string | null, files: string[] = []): string {
@@ -373,91 +370,5 @@ describe("add", () => {
       "fault-records.json",
       "patches",
     ]);
-  });
-});
-
-describe("faultsTouchedSince", () => {
-  const other: Fault = {
-    id: "def5678-other",
-    patch: "tests/planted-faults/patches/def5678-other.patch",
-    testFile: "tests/limit.test.ts",
-    title: "^L\\.weak ",
-    source: "def5678 fix: other",
-  };
-  const otherPatch = `diff --git a/src/other.ts b/src/other.ts
---- a/src/other.ts
-+++ b/src/other.ts
-@@ -1 +1 @@
--export const other = 2;
-+export const other = 1;
-`;
-
-  function twoFaults() {
-    const fixture = planted();
-    commit(fixture.root, "add other", {
-      "src/other.ts": "export const other = 2;\n",
-    });
-    write(fixture.root, other.patch, otherPatch);
-    recorded(fixture.root, [fixture.fault, other]);
-    return { ...fixture, base: headOf(fixture.root) };
-  }
-
-  test("names only the faults whose patch touches a file changed since the base", async () => {
-    const { root, id, base } = twoFaults();
-    commit(root, "reword the refusal", {
-      "src/limit.ts": guarded.replace("must be", "has to be"),
-    });
-    const { result } = await isolated(() => faultsTouchedSince(root, base));
-    expect(result).toEqual([id]);
-  });
-
-  test("names a fault whose own patch changed, though no patched file did", async () => {
-    const { root, base } = twoFaults();
-    commit(root, "replant other", { [other.patch]: `${otherPatch}\n` });
-    const { result } = await isolated(() => faultsTouchedSince(root, base));
-    expect(result).toEqual([other.id]);
-  });
-
-  test("names no fault when the changed files are ones no patch touches", async () => {
-    const { root, base } = twoFaults();
-    commit(root, "notes", { "README.md": "notes\n" });
-    const { result } = await isolated(() => faultsTouchedSince(root, base));
-    expect(result).toEqual([]);
-  });
-
-  test("names a fault whose test file changed, though its patched file did not", async () => {
-    const { root, id, base } = twoFaults();
-    commit(root, "weaken the refusal test", {
-      "tests/limit.test.ts": limitTests.replace(
-        "L.refuses NaN twice",
-        "L.refuses NaN again",
-      ),
-    });
-    const { result } = await isolated(() => faultsTouchedSince(root, base));
-    expect(result).toEqual([id, other.id]);
-  });
-
-  test("names a fault whose patched file was renamed away", async () => {
-    const { root, id, base } = twoFaults();
-    git(root, "mv", "src/limit.ts", "src/bound.ts");
-    git(root, "commit", "--quiet", "-m", "rename limit");
-    const { result } = await isolated(() => faultsTouchedSince(root, base));
-    expect(result).toEqual([id]);
-  });
-
-  test("names a fault whose record changed, though no file it names did", async () => {
-    const { root, id, fault, base } = twoFaults();
-    recorded(root, [{ ...fault, title: "^L\\.weak " }, other]);
-    const { result } = await isolated(() => faultsTouchedSince(root, base));
-    expect(result).toEqual([id]);
-  });
-
-  test("refuses a base git cannot resolve, naming it", async () => {
-    const { root } = twoFaults();
-    expect(
-      await rejection(isolated(() => faultsTouchedSince(root, "no-such-base"))),
-    ).toBe(
-      "no-such-base is not a commit in this repository. Repair: pass a commit or branch, such as origin/main.",
-    );
   });
 });

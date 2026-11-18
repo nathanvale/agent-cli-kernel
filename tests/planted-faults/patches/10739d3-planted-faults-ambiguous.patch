@@ -1,0 +1,13 @@
+diff --git a/scripts/planted-fault-patch.ts b/scripts/planted-fault-patch.ts
+--- a/scripts/planted-fault-patch.ts
++++ b/scripts/planted-fault-patch.ts
+@@ -336,8 +336,7 @@ function chosen(
+       (other) =>
+         other === each ||
+         (each.before >= other.before &&
+-          each.after >= other.after &&
+-          (each.before > other.before || each.after > other.after)),
++          each.after >= other.after),
+     ),
+   )?.spot;
+ }

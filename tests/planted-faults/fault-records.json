@@ -485,35 +485,35 @@
   {
     "id": "837cf32-planted-faults-base",
     "patch": "tests/planted-faults/patches/837cf32-planted-faults-base.patch",
-    "testFile": "tests/template/fault-replay/planted-fault-records-in-process.test.ts",
+    "testFile": "tests/template/fault-replay/planted-fault-changes-in-process.test.ts",
     "title": "faultsTouchedSince refuses a base git cannot resolve",
     "source": "837cf32 feat(faults): replay only the faults a change touches"
   },
   {
     "id": "837cf32-planted-faults-touched",
     "patch": "tests/planted-faults/patches/837cf32-planted-faults-touched.patch",
-    "testFile": "tests/template/fault-replay/planted-fault-records-in-process.test.ts",
+    "testFile": "tests/template/fault-replay/planted-fault-changes-in-process.test.ts",
     "title": "faultsTouchedSince names only the faults whose patch touches",
     "source": "837cf32 feat(faults): replay only the faults a change touches"
   },
   {
     "id": "98374b7-planted-faults-test-file",
     "patch": "tests/planted-faults/patches/98374b7-planted-faults-test-file.patch",
-    "testFile": "tests/template/fault-replay/planted-fault-records-in-process.test.ts",
+    "testFile": "tests/template/fault-replay/planted-fault-changes-in-process.test.ts",
     "title": "faultsTouchedSince names a fault whose test file changed",
     "source": "98374b7 fix(faults): count a fault's test file and a rename's old path as touched"
   },
   {
     "id": "98374b7-planted-faults-renames",
     "patch": "tests/planted-faults/patches/98374b7-planted-faults-renames.patch",
-    "testFile": "tests/template/fault-replay/planted-fault-records-in-process.test.ts",
+    "testFile": "tests/template/fault-replay/planted-fault-changes-in-process.test.ts",
     "title": "faultsTouchedSince names a fault whose patched file was renamed away",
     "source": "98374b7 fix(faults): count a fault's test file and a rename's old path as touched"
   },
   {
     "id": "80e16f3-planted-faults-record",
     "patch": "tests/planted-faults/patches/80e16f3-planted-faults-record.patch",
-    "testFile": "tests/template/fault-replay/planted-fault-records-in-process.test.ts",
+    "testFile": "tests/template/fault-replay/planted-fault-changes-in-process.test.ts",
     "title": "faultsTouchedSince names a fault whose record changed",
     "source": "80e16f3 fix(faults): replay a fault whose record changed, and refuse an empty list"
   },
@@ -567,6 +567,27 @@
     "source": "dc6396a fix(repository): refuse a test area folder that is not a plain path"
   },
   {
+    "id": "10739d3-planted-faults-ambiguous",
+    "patch": "tests/planted-faults/patches/10739d3-planted-faults-ambiguous.patch",
+    "testFile": "tests/template/fault-replay/planted-faults-in-process.test.ts",
+    "title": "STALE anchor ambiguous",
+    "source": "10739d3 fix(faults): place each hunk of a planted fault by its exact anchor (GREEN)"
+  },
+  {
+    "id": "10739d3-planted-faults-absent",
+    "patch": "tests/planted-faults/patches/10739d3-planted-faults-absent.patch",
+    "testFile": "tests/template/fault-replay/planted-faults-in-process.test.ts",
+    "title": "STALE anchor absent",
+    "source": "10739d3 fix(faults): place each hunk of a planted fault by its exact anchor (GREEN)"
+  },
+  {
+    "id": "ddd9e83-planted-faults",
+    "patch": "tests/planted-faults/patches/ddd9e83-planted-faults.patch",
+    "testFile": "tests/template/fault-replay/planted-fault-changes-in-process.test.ts",
+    "title": "faultsTouchedSince refuses a git read that outlasts its bound",
+    "source": "ddd9e83 fix(faults): end each synchronous git read of the fault tool at 4 s (GREEN)"
+  },
+  {
     "id": "0ade74f-harness",
     "patch": "tests/planted-faults/patches/0ade74f-harness.patch",
     "testFile": "tests/kernel/diagnostics/cases.test.ts",
@@ -593,6 +614,83 @@
     "testFile": "tests/template/naming/pre-commit.test.ts",
     "title": "^PC[.][de] ",
     "source": "beed83c fix(hooks): check staged compiler config and deletions"
+  },
+  {
+    "id": "def3ec4-process-runner",
+    "patch": "tests/planted-faults/patches/def3ec4-process-runner.patch",
+    "testFile": "tests/template/process-runner/process-runner.test.ts",
+    "title": "^CE[.]e ",
+    "source": "def3ec4 fix(process-runner): keep a hook's git location out of every child (GREEN)"
+  },
+  {
+    "id": "24f4eab-planted-faults",
+    "patch": "tests/planted-faults/patches/24f4eab-planted-faults.patch",
+    "testFile": "tests/template/fault-replay/planted-fault-changes-in-process.test.ts",
+    "title": "faultsTouchedSince refuses a fault whose patch file is missing",
+    "source": "24f4eab fix(faults): refuse a missing patch file by name (GREEN)"
+  },
+  {
+    "id": "7891c7e-planted-faults",
+    "patch": "tests/planted-faults/patches/7891c7e-planted-faults.patch",
+    "testFile": "tests/template/fault-replay/planted-faults.test.ts",
+    "title": "FR\\.x ",
+    "source": "7891c7e fix(faults): keep a hook's git location out of the fault tool's git reads (GREEN)"
+  },
+  {
+    "id": "1c831ad-planted-faults",
+    "patch": "tests/planted-faults/patches/1c831ad-planted-faults.patch",
+    "testFile": "tests/template/fault-replay/planted-fault-changes-in-process.test.ts",
+    "title": "faultsTouchedSince refuses a failed search for a moved anchor",
+    "source": "1c831ad fix(faults): name the failed anchor search and its repair (GREEN)"
+  },
+  {
+    "id": "10739d3-planted-faults-no-hunk",
+    "patch": "tests/planted-faults/patches/10739d3-planted-faults-no-hunk.patch",
+    "testFile": "tests/template/fault-replay/planted-faults-in-process.test.ts",
+    "title": "STALE when the patch holds no hunk",
+    "source": "10739d3 fix(faults): place each hunk of a planted fault by its exact anchor (GREEN)"
+  },
+  {
+    "id": "10739d3-planted-faults-names-nine",
+    "patch": "tests/planted-faults/patches/10739d3-planted-faults-names-nine.patch",
+    "testFile": "tests/template/fault-replay/planted-faults-in-process.test.ts",
+    "title": "places names at most ten",
+    "source": "10739d3 fix(faults): place each hunk of a planted fault by its exact anchor (GREEN)"
+  },
+  {
+    "id": "10739d3-planted-faults-names-eleven",
+    "patch": "tests/planted-faults/patches/10739d3-planted-faults-names-eleven.patch",
+    "testFile": "tests/template/fault-replay/planted-faults-in-process.test.ts",
+    "title": "places names at most ten",
+    "source": "10739d3 fix(faults): place each hunk of a planted fault by its exact anchor (GREEN)"
+  },
+  {
+    "id": "64b57bc-planted-faults",
+    "patch": "tests/planted-faults/patches/64b57bc-planted-faults.patch",
+    "testFile": "tests/template/fault-replay/planted-fault-process.test.ts",
+    "title": "FR\\.y ",
+    "source": "64b57bc fix(faults): stop a worktree removal at the step limit (GREEN)"
+  },
+  {
+    "id": "9609e5c-planted-faults",
+    "patch": "tests/planted-faults/patches/9609e5c-planted-faults.patch",
+    "testFile": "tests/template/fault-replay/planted-faults-in-process.test.ts",
+    "title": "STALE anchor ambiguous when each side prefers a different place",
+    "source": "9609e5c fix(faults): choose a place by context on either side, and never on a tie (GREEN)"
+  },
+  {
+    "id": "f82ed2f-planted-faults",
+    "patch": "tests/planted-faults/patches/f82ed2f-planted-faults.patch",
+    "testFile": "tests/template/fault-replay/planted-faults-in-process.test.ts",
+    "title": "KILLED when only the context between a hunk's two changed regions was edited",
+    "source": "f82ed2f fix(faults): anchor each changed region of a hunk on its own removed text (GREEN)"
+  },
+  {
+    "id": "b9b2905-planted-faults",
+    "patch": "tests/planted-faults/patches/b9b2905-planted-faults.patch",
+    "testFile": "tests/template/fault-replay/planted-faults-in-process.test.ts",
+    "title": "STALE when the patch (creates|deletes) a whole file",
+    "source": "b9b2905 fix(faults): refuse a patch that creates or deletes a whole file (GREEN)"
   },
   {
     "id": "442de9a-swarm-process",
@@ -677,6 +775,34 @@
     "testFile": "tests/template/lint/anti-slop-rules.test.ts",
     "title": "^anti-slop/no-accumulating-spread refuses the r4609019144 shape",
     "source": "55701f2 fix(lint): match a spread only to the reduce that owns its callback"
+  },
+  {
+    "id": "1fd64d7-planted-faults",
+    "patch": "tests/planted-faults/patches/1fd64d7-planted-faults.patch",
+    "testFile": "tests/template/fault-replay/planted-fault-records-in-process.test.ts",
+    "title": "names a fault whose patch deletes a whole file when only that file changed",
+    "source": "1fd64d7 fix(faults): take a deleted file's hunk path from the side it is removed from (GREEN)"
+  },
+  {
+    "id": "7a1cc6d-planted-faults",
+    "patch": "tests/planted-faults/patches/7a1cc6d-planted-faults.patch",
+    "testFile": "tests/template/fault-replay/planted-faults-in-process.test.ts",
+    "title": "STALE anchor ambiguous at only the real blank lines",
+    "source": "7a1cc6d fix(faults): read a file's lines without the end-of-file separator, keeping its real blank lines (GREEN)"
+  },
+  {
+    "id": "e82b9ff-planted-faults",
+    "patch": "tests/planted-faults/patches/e82b9ff-planted-faults.patch",
+    "testFile": "tests/template/fault-replay/planted-fault-records-in-process.test.ts",
+    "title": "names a fault whose moved anchor is ambiguous at the base",
+    "source": "e82b9ff fix(faults): select a refused fault by the places its anchor was found (GREEN)"
+  },
+  {
+    "id": "3887c4b-planted-faults",
+    "patch": "tests/planted-faults/patches/3887c4b-planted-faults.patch",
+    "testFile": "tests/template/fault-replay/planted-fault-process.test.ts",
+    "title": "FR\\.y ",
+    "source": "3887c4b fix(faults): prune the worktree entry a stopped removal leaves behind (GREEN)"
   },
   {
     "id": "71df3eb-swarm-process",

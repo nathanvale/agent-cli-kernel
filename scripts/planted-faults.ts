@@ -8,7 +8,20 @@ import {
 } from "node:fs";
 import { constants, tmpdir } from "node:os";
 import { basename, join } from "node:path";
-import { runWithOwnTools } from "./process-runner.ts";
+import {
+  hunksOf,
+  patchText,
+  place,
+  quoted,
+  replantRepair,
+  type Source,
+  sourceIn,
+} from "./planted-fault-patch.ts";
+import {
+  runWithOwnTools,
+  startChild,
+  withoutRepositoryLocation,
+} from "./process-runner.ts";
 
 const recordsPath = "tests/planted-faults/fault-records.json";
 const patchFolder = "tests/planted-faults/patches";
@@ -31,6 +44,7 @@ const signals = ["SIGHUP", "SIGINT", "SIGTERM"] as const;
 const active: { stop?: () => void; stoppedBy?: (typeof signals)[number] } = {};
 const stepLimitVariable = "FAULT_REPLAY_STEP_SECONDS";
 const defaultStepLimitSeconds = 300;
+const gitMilliseconds = 4_000;
 const snapshotAuthor = {
   GIT_AUTHOR_NAME: "fault-replay",
   GIT_AUTHOR_EMAIL: "fault-replay@localhost",
@@ -42,24 +56,27 @@ function print(line: string): void {
   process.stdout.write(`${line}\n`);
 }
 
-function quoted(value: string): string {
-  return `'${value.replaceAll("'", `'\\''`)}'`;
-}
-
 function git(
   root: string,
   args: readonly string[],
-  env: Record<string, string | undefined> = process.env,
+  extra: Readonly<Record<string, string>> = {},
 ) {
   const result = Bun.spawnSync(["git", ...args], {
     cwd: root,
-    env,
+    env: { ...withoutRepositoryLocation(process.env), ...extra },
     stdout: "pipe",
     stderr: "pipe",
     detached: true,
+    timeout: gitMilliseconds,
+    killSignal: "SIGKILL",
   });
+  if (result.exitedDueToTimeout)
+    throw new Error(
+      `git ${args.join(" ")} did not finish within ${gitMilliseconds / 1000} s. Repair: run it by hand in ${root} to see where it waits, then run this command again.`,
+    );
   return {
     ok: result.exitCode === 0,
+    exitCode: result.exitCode,
     stdout: result.stdout.toString(),
     stderr: result.stderr.toString(),
   };
@@ -68,9 +85,9 @@ function git(
 function gitOrThrow(
   root: string,
   args: readonly string[],
-  env?: Record<string, string | undefined>,
+  extra?: Readonly<Record<string, string>>,
 ): string {
-  const result = git(root, args, env);
+  const result = git(root, args, extra);
   if (!result.ok)
     throw new Error(`git ${args.join(" ")}: ${result.stderr.trim()}`);
   return result.stdout;
@@ -136,7 +153,7 @@ export function readRecords(root: string): Fault[] {
 function commitWorkingTreeInScratchIndex(root: string): string {
   const folder = mkdtempSync(join(tmpdir(), "fault-replay-index-"));
   try {
-    const env = { ...process.env, GIT_INDEX_FILE: join(folder, "index") };
+    const env = { GIT_INDEX_FILE: join(folder, "index") };
     gitOrThrow(root, ["read-tree", "HEAD"], env);
     gitOrThrow(root, ["add", "--all"], env);
     const tree = gitOrThrow(root, ["write-tree"], env).trim();
@@ -145,7 +162,7 @@ function commitWorkingTreeInScratchIndex(root: string): string {
     return gitOrThrow(
       root,
       ["commit-tree", tree, "-p", "HEAD", "-m", "fault-replay: working tree"],
-      { ...process.env, ...snapshotAuthor },
+      snapshotAuthor,
     ).trim();
   } finally {
     rmSync(folder, { recursive: true, force: true });
@@ -210,13 +227,39 @@ function testArgs(fault: Fault): string[] {
   return ["test", `./${fault.testFile}`, "-t", fault.title];
 }
 
-async function removeWorktree(root: string, dir: string): Promise<void> {
-  await Bun.spawn(["git", "worktree", "remove", "--force", dir], {
-    cwd: root,
-    stdout: "ignore",
-    stderr: "ignore",
-    detached: true,
-  }).exited;
+function sourceAt(root: string, base: string): Source {
+  return {
+    read: (path) => {
+      const shown = git(root, ["cat-file", "blob", `${base}:${path}`]);
+      return shown.ok ? shown.stdout : undefined;
+    },
+    holding: (line) => {
+      const found = git(root, ["grep", "-l", "-z", "-F", "-e", line, base]);
+      if (found.exitCode === 1) return [];
+      if (!found.ok)
+        throw new Error(
+          `git grep -l -F -e ${quoted(line)} ${base} failed: ${found.stderr.trim()}. Repair: run it by hand in ${root} to see why, then run this command again.`,
+        );
+      return found.stdout
+        .split("\0")
+        .filter((path) => path !== "")
+        .map((path) => path.slice(base.length + 1));
+    },
+  };
+}
+
+async function removeWorktree(
+  root: string,
+  folder: string,
+  dir: string,
+  limitMilliseconds: number,
+): Promise<void> {
+  const worktree = (argv: readonly string[]) =>
+    startChild(["git", "worktree", ...argv], { cwd: root, limitMilliseconds })
+      .finished;
+  const removed = await worktree(["remove", "--force", dir]);
+  rmSync(folder, { recursive: true, force: true });
+  if (removed.timedOut || removed.exitCode !== 0) await worktree(["prune"]);
 }
 
 export async function replay(
@@ -225,7 +268,7 @@ export async function replay(
   commit: string,
   limitMilliseconds: number,
 ): Promise<Verdict> {
-  const patch = join(root, fault.patch);
+  const patch = patchText(root, fault);
   const folder = mkdtempSync(join(tmpdir(), "fault-replay-"));
   const dir = join(folder, "tree");
   const gitInTree = (argv: readonly string[]) =>
@@ -240,8 +283,12 @@ export async function replay(
       limitMilliseconds,
     );
     if (!added.passed) throw new Error(added.output.trim());
-    const applies = await gitInTree(["apply", "--check", patch]);
-    if (!applies.passed) return { kind: "STALE", output: applies.output };
+    const listed = await gitInTree(["ls-files", "-z"]);
+    if (!listed.passed) throw new Error(listed.output.trim());
+    const tracked = new Set(listed.output.split("\0").filter((p) => p !== ""));
+    const placement = place(fault.patch, patch, sourceIn(dir, tracked));
+    if (placement.kind === "refused")
+      return { kind: "STALE", output: placement.cause };
     const installed = await bunInTree(["install", "--frozen-lockfile"]);
     if (!installed.passed)
       throw new Error(
@@ -249,8 +296,8 @@ export async function replay(
       );
     const clean = await bunInTree(testArgs(fault));
     if (!clean.passed) return { kind: "BROKEN", output: clean.output };
-    const applied = await gitInTree(["apply", patch]);
-    if (!applied.passed) throw new Error(applied.output.trim());
+    for (const [path, text] of placement.files)
+      writeFileSync(join(dir, path), text);
     const faulted = await bunInTree(testArgs(fault));
     if (faulted.passed) return { kind: "SURVIVED" };
     return { kind: "KILLED", failing: failingTests(faulted.output) };
@@ -259,8 +306,7 @@ export async function replay(
       return { kind: "TIMEOUT", step: error.step };
     throw error;
   } finally {
-    await removeWorktree(root, dir);
-    rmSync(folder, { recursive: true, force: true });
+    await removeWorktree(root, folder, dir, limitMilliseconds);
   }
 }
 
@@ -292,9 +338,7 @@ export function report(
         `STALE ${fault.id} ${took}. ${fault.patch} no longer applies at this head.`,
       );
       process.stdout.write(verdict.output.replace(/\n?$/, "\n"));
-      print(
-        `Repair: plant the fault again by hand, run git diff -- <each file you edited> > ${quoted(fault.patch)}, then undo the planted edit. ${done}`,
-      );
+      print(replantRepair(fault));
       return;
     case "BROKEN":
       print(
@@ -350,11 +394,17 @@ export function faultsTouchedSince(root: string, base: string): string[] {
   );
   const recordChanged = (fault: Fault): boolean =>
     recordsChanged && !recordedBefore.has(recordKey(fault));
-  const patched = (fault: Fault): string[] =>
-    gitOrThrow(root, ["apply", "--numstat", "-z", fault.patch])
-      .split("\0")
-      .filter((field) => field !== "")
-      .map((field) => field.split("\t").at(-1) ?? "");
+  const atBase = sourceAt(root, base);
+  const patched = (fault: Fault): string[] => {
+    const text = patchText(root, fault);
+    const placement = place(fault.patch, text, atBase);
+    return [
+      ...hunksOf(text).map(({ path }) => path),
+      ...(placement.kind === "placed"
+        ? placement.files.keys()
+        : placement.candidates),
+    ];
+  };
   return readRecords(root)
     .filter(
       (fault) =>

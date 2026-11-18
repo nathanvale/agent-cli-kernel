@@ -6,7 +6,7 @@ import {
   type Finished,
   startChild,
 } from "../../../scripts/process-runner.ts";
-import { watchLedger } from "../../support/process.ts";
+import { spawnBounded, watchLedger } from "../../support/process.ts";
 import { signalGroupIfPresent } from "../../support/signal.ts";
 import { testFolder } from "../../support/test-folder.ts";
 
@@ -159,6 +159,37 @@ test(
         });
       },
     );
+  },
+  testTimeout,
+);
+
+test(
+  "CE.e a child started with the default environment finds its repository from its own folder, not from the git location a hook exports",
+  async () => {
+    const runner = join(import.meta.dir, "../../../scripts/process-runner.ts");
+    const hook = {
+      GIT_DIR: "caller/.git",
+      GIT_WORK_TREE: "caller",
+      GIT_INDEX_FILE: "caller/.git/index",
+      GIT_OBJECT_DIRECTORY: "caller/.git/objects",
+      GIT_ALTERNATE_OBJECT_DIRECTORIES: "caller/.git/alternates",
+      GIT_COMMON_DIR: "caller/.git",
+    };
+    const shown = [...Object.keys(hook), "CE_CALLER"];
+    const report = `process.stdout.write(JSON.stringify(Object.fromEntries(Object.entries(process.env).filter(([name]) => ${JSON.stringify(shown)}.includes(name)))))`;
+    const caller = `import { startChild } from ${JSON.stringify(runner)};
+const child = await startChild([process.execPath, "-e", ${JSON.stringify(report)}], { limitMilliseconds: ${finishBound} }).finished;
+process.stdout.write(child.stdout + child.stderr);`;
+
+    const run = await spawnBounded([process.execPath, "-e", caller], {
+      env: { ...process.env, ...hook, CE_CALLER: "kept" },
+    });
+
+    expect(run).toEqual({
+      stdout: JSON.stringify({ CE_CALLER: "kept" }),
+      stderr: "",
+      exit: 0,
+    });
   },
   testTimeout,
 );

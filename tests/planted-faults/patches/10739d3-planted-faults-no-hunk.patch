@@ -1,0 +1,16 @@
+diff --git a/scripts/planted-fault-patch.ts b/scripts/planted-fault-patch.ts
+--- a/scripts/planted-fault-patch.ts
++++ b/scripts/planted-fault-patch.ts
+@@ -394,12 +394,6 @@ function place(patchPath: string, patch: string, source: Source): Placement {
+       candidates: [],
+     };
+   const hunks = hunksOf(patch);
+-  if (hunks.length === 0)
+-    return {
+-      kind: "refused",
+-      cause: `${patchPath} holds no hunk to apply.`,
+-      candidates: [],
+-    };
+   const files = new Map<string, string>();
+   const textOf = (path: string) => files.get(path) ?? source.read(path);
+   const linesOf = (path: string) => linesIn(textOf(path) ?? "");

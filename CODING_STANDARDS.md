@@ -117,8 +117,20 @@ row's guide or gate note cites two distinct witnesses.
 - Pre-push runs `bun run fault-replay --changed-since <base>` for faults
   affected by the push. The hosted `fault-replay` check replays every fault record.
 - Fault replay fails on a fault record whose named test passes with the
-  planted fault applied or fails without it. A patch that no longer applies
-  also fails replay.
+  planted fault applied or fails without it, or whose patch file is
+  missing. A patch also fails replay when it creates or deletes a whole
+  file, or when a changed region's anchor is in no file replay searches, or
+  is at more than one place and its context lines do not choose one.
+- Replay places each changed region of a hunk by its anchor: the lines it
+  removes, or, for a region that only inserts, the context lines next to
+  it. A region lands wherever its anchor occurs once, even if its other
+  context moved. Only a region that removes lines is searched for in
+  other tracked files when its recorded file lacks the anchor; a region
+  that only inserts stays in its recorded file. Context chooses between
+  places only when one matches at least as far as every other on both
+  sides, and further on one.
+- Whether the chosen place is the one the fault meant stays review: a
+  fault in the wrong place still fails its test.
 - A new refusal or bound with no fault record stays review. So does a fault
   record whose test title matches more tests than the planted fault reaches.
 - Witnessed: [d72cd9e], [640ba05].
