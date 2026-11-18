@@ -1,0 +1,30 @@
+diff --git a/eslint.config.mjs b/eslint.config.mjs
+index 4094b2f..ff2ab72 100644
+--- a/eslint.config.mjs
++++ b/eslint.config.mjs
+@@ -15,18 +15,6 @@ const localRules = {
+   },
+ };
+ 
+-function withChainedTypeAssertions(config) {
+-  const restricted = config.rules?.["no-restricted-syntax"];
+-  if (!Array.isArray(restricted)) return config;
+-  return {
+-    ...config,
+-    rules: {
+-      ...config.rules,
+-      "no-restricted-syntax": [...restricted, ...chainedTypeAssertions],
+-    },
+-  };
+-}
+-
+ export default defineConfig(
+   {
+     ignores: [
+@@ -123,5 +111,5 @@ export default defineConfig(
+       "anti-slop/no-reduce-accumulator-copy": "error",
+     },
+   },
+-  ...kernel.map(withChainedTypeAssertions),
++  ...kernel,
+ );

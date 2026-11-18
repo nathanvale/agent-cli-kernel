@@ -551,5 +551,12 @@
     "testFile": "tests/template/naming/names-check-test-placement.test.ts",
     "title": "^in process: a test file at tests/loose.test.ts, outside every test area folder",
     "source": "6bea874 feat(names): refuse a test file outside every family folder"
+  },
+  {
+    "id": "751520c-eslint.config",
+    "patch": "tests/planted-faults/patches/751520c-eslint.config.patch",
+    "testFile": "tests/template/lint/lint-rules.test.ts",
+    "title": "^no-restricted-syntax refuses the kernel brand chain shape",
+    "source": "751520c fix(lint): refuse assertion chains where the kernel sets no-restricted-syntax"
   }
 ]
