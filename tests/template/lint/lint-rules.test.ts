@@ -523,7 +523,9 @@ const antiSlopCases = [
       'jest.unstable_mockModule("./user-store.ts");',
     ],
     passing: [
+      'import { mock } from "bun:test";',
       'import { vi as localVi } from "./helpers.ts";',
+      'mock.module("./user-store.ts", () => ({}));',
       'localVi.mock("./user-store.ts");',
       "export const store = { save() {} };",
       'vi.spyOn(store, "save");',
