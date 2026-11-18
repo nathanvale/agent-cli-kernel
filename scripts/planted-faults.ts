@@ -245,6 +245,7 @@ type Placement =
 type Spot = { path: string; line: number };
 
 const hunkLine = /^[ +\\-]/;
+const fileHeader = /^(?:---|\+\+\+) (?!\/dev\/null$)/;
 const placesNamed = 10;
 
 function kept(lines: readonly string[], dropped: "+" | "-"): string[] {
@@ -300,7 +301,7 @@ function hunksOf(patch: string): Hunk[] {
       continue;
     }
     close();
-    if (line.startsWith("+++ ")) path = line.slice(4).replace(/^b\//, "");
+    if (fileHeader.test(line)) path = line.slice(4).replace(/^[ab]\//, "");
     if (line.startsWith("@@ ")) body = [];
   }
   close();
