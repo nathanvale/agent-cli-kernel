@@ -373,8 +373,9 @@ test(
 );
 
 test(
-  "T5 ledger: a ledger child past its bound is killed with every process it started",
+  "T5 ledger: a ledger child past its bound is killed with every process it started, and its failure shows the child's output",
   async () => {
+    const hangLine = "hung.test.ts waits on a promise that never settles";
     const observed = await grandchildAfter((scratch, recorded) => {
       const hung = join(scratch, "hung.test.ts");
       writeFileSync(
@@ -383,6 +384,7 @@ test(
           'import { test } from "bun:test";',
           `test("hangs after starting a grandchild", async () => {`,
           `  Bun.spawnSync(["/bin/sh", "-c", ${JSON.stringify(recordGrandchild)}], { env: { ...process.env, GRANDCHILD_RECORD: ${JSON.stringify(recorded)} } });`,
+          `  console.error(${JSON.stringify(hangLine)});`,
           "  await new Promise(() => {});",
           "});",
           "",
@@ -391,7 +393,8 @@ test(
       return executedTests([hung], hungBound);
     });
     expect(observed.gone).toBe(true);
-    expect(observed.failure).toEndWith(`did not exit within ${hungBound} ms.`);
+    expect(observed.failure).toContain(`did not exit within ${hungBound} ms.`);
+    expect(observed.failure).toContain(hangLine);
   },
   hungBound + teardownMargin,
 );
