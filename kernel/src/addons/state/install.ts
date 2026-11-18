@@ -198,7 +198,7 @@ type Slot =
   | {
       readonly kind: "transaction";
       readonly declaration: Declaration;
-      readonly published: (operationId: string) => void;
+      operationId?: string;
       outcome?:
         | Refusal
         | {
@@ -850,7 +850,7 @@ export function install(options: StateOptions, seams: Seams) {
       admitted.release();
       return refuse({ kind: "unavailable", reason: "store-publication" });
     }
-    slot.published(opened.operationId);
+    slot.operationId = opened.operationId;
     const { observation, workFailed } = await runRecorded(
       issuer,
       runId,
@@ -1171,19 +1171,21 @@ export function install(options: StateOptions, seams: Seams) {
     declaration: Declaration,
     work: (
       transaction: EffectTransaction<Effect>,
-      operation: PublishedOperation,
+      published: PublishedOperation,
     ) => Promise<void>,
   ): Promise<TransactionResult<Effect>> {
-    let operationId = "";
-    const marker = (inner: EffectTransaction<Effect>) =>
-      work(inner, Object.freeze({ operationId }));
-    const slot: Slot = {
+    const slot: Extract<Slot, { kind: "transaction" }> = {
       kind: "transaction",
       declaration,
-      published: (identity) => {
-        operationId = identity;
-      },
     };
+    const marker = (inner: EffectTransaction<Effect>) =>
+      slot.operationId === undefined
+        ? Promise.reject(
+            new Error(
+              "Work runs only after the state add-on publishes its operation.",
+            ),
+          )
+        : work(inner, Object.freeze({ operationId: slot.operationId }));
     slots.set(marker, slot);
     const proof = await capability.transaction(marker);
     const outcome = slot.outcome;

@@ -925,11 +925,11 @@ const send = changing({
         },
         facts: { message: id },
       },
-      async (transaction, operation) => {
+      async (transaction, published) => {
         await transaction.record(
           "message.send",
           async () => {
-            appendFileSync(labels, `${operation.operationId} ${id}\n`);
+            appendFileSync(labels, `${published.operationId} ${id}\n`);
             await barrier("intent");
             appendFileSync(providerLog, `sent ${id} send\n`);
             writeFileSync(join(outbox, id), "message");

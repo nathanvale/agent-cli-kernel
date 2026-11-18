@@ -628,7 +628,7 @@ supportingTest(
 );
 
 supportingTest(
-  "REC-2 supporting: the handler holds the published operation identity before its effect runs",
+  "CMD-11 supporting: a run killed before its outside write leaves a label carrying the published operation identity",
   () =>
     within({}, async (world) => {
       await world.killAt(["send", "m1", "--json"], "intent");
@@ -636,9 +636,7 @@ supportingTest(
       expect(rest).toEqual([]);
       if (!operation) throw new Error("No operation.");
       expect(world.count("message.send")).toBe(0);
-      expect(readFileSync(join(world.world, "labels.log"), "utf8")).toBe(
-        `${operation.id} m1\n`,
-      );
+      expect(world.labels()).toEqual([`${operation.id} m1`]);
     }),
 );
 

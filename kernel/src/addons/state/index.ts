@@ -18,7 +18,6 @@ import { resolveCoordination } from "./coordination.ts";
 import { resolveQualification } from "./qualification.ts";
 
 export type {
-  PublishedOperation,
   CloseResult,
   CloseRequest,
   Declaration,
@@ -27,6 +26,7 @@ export type {
   HistoryResult,
   Observation,
   Observer,
+  PublishedOperation,
   RecoveryClass,
   Refusal,
   ReportResult,
