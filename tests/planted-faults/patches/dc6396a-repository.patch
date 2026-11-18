@@ -1,0 +1,33 @@
+diff --git a/scripts/repository.ts b/scripts/repository.ts
+index 927200e..49e47e0 100644
+--- a/scripts/repository.ts
++++ b/scripts/repository.ts
+@@ -65,16 +65,6 @@ function requireList(value: unknown, where: string): readonly unknown[] {
+   return value;
+ }
+ 
+-function plainFolder(folder: string, where: string): string {
+-  const parts = folder.split("/");
+-  if (parts.some((part) => part === "" || part === "." || part === ".."))
+-    fail(
+-      where,
+-      `is "${folder}", which is not a plain path from the repository root. Repair: write it with no ./ prefix, no trailing slash, and no . or .. part, such as "tests/template".`,
+-    );
+-  return folder;
+-}
+-
+ function testArea(value: unknown, where: string): TestArea {
+   const area = fields(
+     value,
+@@ -96,10 +86,7 @@ function testArea(value: unknown, where: string): TestArea {
+     );
+   return {
+     name: requireText(area.get("name"), `${where}.name`),
+-    folder: plainFolder(
+-      requireText(area.get("folder"), `${where}.folder`),
+-      `${where}.folder`,
+-    ),
++    folder: requireText(area.get("folder"), `${where}.folder`),
+     holds,
+     subfolders,
+   };

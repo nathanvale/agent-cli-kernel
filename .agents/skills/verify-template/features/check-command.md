@@ -77,7 +77,7 @@ check's exit code:
 - Fallow needs a real Node.js on `PATH`; see [Bootstrap](bootstrap.md#gotchas).
 - The scratch profile's check is `bun run typecheck && bun run test` only; a
   lint, format or Fallow mistake passes it by design.
-- No fault record patches `profiles/`. `tests/bootstrap-cli.test.ts` runs
+- No fault record patches `profiles/`. `tests/template/bootstrap/bootstrap-cli.test.ts` runs
   lint, format and type reds against a generated repository, but fault replay
   never proves those tests catch a step dropped from the profile's `check`
   script. Run this recipe's reds after changing a profile.

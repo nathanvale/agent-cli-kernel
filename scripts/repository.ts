@@ -65,6 +65,16 @@ function requireList(value: unknown, where: string): readonly unknown[] {
   return value;
 }
 
+function plainFolder(folder: string, where: string): string {
+  const parts = folder.split("/");
+  if (parts.some((part) => part === "" || part === "." || part === ".."))
+    fail(
+      where,
+      `is "${folder}", which is not a plain path from the repository root. Repair: write it with no ./ prefix, no trailing slash, and no . or .. part, such as "tests/template".`,
+    );
+  return folder;
+}
+
 function testArea(value: unknown, where: string): TestArea {
   const area = fields(
     value,
@@ -86,7 +96,10 @@ function testArea(value: unknown, where: string): TestArea {
     );
   return {
     name: requireText(area.get("name"), `${where}.name`),
-    folder: requireText(area.get("folder"), `${where}.folder`),
+    folder: plainFolder(
+      requireText(area.get("folder"), `${where}.folder`),
+      `${where}.folder`,
+    ),
     holds,
     subfolders,
   };
@@ -97,6 +110,24 @@ function checkRecordedOrigin(value: unknown): void {
   const origin = fields(value, recordedOrigin, ["web", "commit"]);
   requireText(origin.get("web"), `${recordedOrigin}.web`, webAddress);
   requireText(origin.get("commit"), `${recordedOrigin}.commit`, fullSha);
+}
+
+export function holdsTestFile(
+  { folder, holds, subfolders }: TestArea,
+  path: string,
+): boolean {
+  if (!path.startsWith(`${folder}/`)) return false;
+  const direct = !path.slice(folder.length + 1).includes("/");
+  return direct
+    ? holds === "files" || !subfolders
+    : holds === "folder" || subfolders;
+}
+
+export function testFilePlaces(areas: readonly TestArea[]): string[] {
+  return areas.flatMap(({ folder, holds, subfolders }) => [
+    ...(holds === "files" || !subfolders ? [`${folder}/`] : []),
+    ...(subfolders ? [`${folder}/<area>/`] : []),
+  ]);
 }
 
 export function readRepository(root: string): Repository {

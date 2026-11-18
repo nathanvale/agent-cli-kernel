@@ -37,28 +37,28 @@
   {
     "id": "5ac4285-template-rules",
     "patch": "tests/planted-faults/patches/5ac4285-template-rules.patch",
-    "testFile": "tests/lint-comments.test.ts",
+    "testFile": "tests/template/lint/lint-comments.test.ts",
     "title": "^no-comments refuses .*Note\\.",
     "source": "5ac4285 feat(lint): refuse comments, except Platform:, Interface: and accepted decisions"
   },
   {
     "id": "c6d3f09-doctor",
     "patch": "tests/planted-faults/patches/c6d3f09-doctor.patch",
-    "testFile": "tests/doctor.test.ts",
+    "testFile": "tests/template/doctor/doctor.test.ts",
     "title": "not ready fails on the failing check",
     "source": "c6d3f09 feat(doctor): check fallow's readiness with fallow doctor"
   },
   {
     "id": "f0ad643-oxlintrc",
     "patch": "tests/planted-faults/patches/f0ad643-oxlintrc.patch",
-    "testFile": "tests/anti-slop-gate.test.ts",
+    "testFile": "tests/template/lint/anti-slop-gate.test.ts",
     "title": "^anti-slop/no-module-mocking refuses its violation$",
     "source": "f0ad643 feat(lint): gate six anti-slop rules in bun run lint"
   },
   {
     "id": "f0ad643-oxlintrc-spread",
     "patch": "tests/planted-faults/patches/f0ad643-oxlintrc-spread.patch",
-    "testFile": "tests/anti-slop-gate.test.ts",
+    "testFile": "tests/template/lint/anti-slop-gate.test.ts",
     "title": "^oxc/no-accumulating-spread refuses its violation$",
     "source": "f0ad643 feat(lint): gate six anti-slop rules in bun run lint"
   },
@@ -72,7 +72,7 @@
   {
     "id": "bbfce9a-template-rules",
     "patch": "tests/planted-faults/patches/bbfce9a-template-rules.patch",
-    "testFile": "tests/lint-comments.test.ts",
+    "testFile": "tests/template/lint/lint-comments.test.ts",
     "title": "^no-comments refuses .*nothing here is cast",
     "source": "bbfce9a fix(lint): admit a SAFETY: block only where anti-slop accepts the cast"
   },
@@ -86,28 +86,28 @@
   {
     "id": "8d55f96-check-commits",
     "patch": "tests/planted-faults/patches/8d55f96-check-commits.patch",
-    "testFile": "tests/check-commits-range.test.ts",
+    "testFile": "tests/template/check-commits/check-commits-range.test.ts",
     "title": "an empty range checks nothing and fails",
     "source": "8d55f96 Gates that would check nothing fail"
   },
   {
     "id": "8d55f96-faults",
     "patch": "tests/planted-faults/patches/8d55f96-faults.patch",
-    "testFile": "tests/planted-faults.test.ts",
+    "testFile": "tests/template/fault-replay/planted-faults.test.ts",
     "title": "FR\\.t an empty list of fault records",
     "source": "8d55f96 Gates that would check nothing fail"
   },
   {
     "id": "8d55f96-test-area",
     "patch": "tests/planted-faults/patches/8d55f96-test-area.patch",
-    "testFile": "tests/doctor.test.ts",
+    "testFile": "tests/template/doctor/doctor.test.ts",
     "title": "a declared area that holds no test file fails",
     "source": "8d55f96 Gates that would check nothing fail"
   },
   {
     "id": "79db613-child-env",
     "patch": "tests/planted-faults/patches/79db613-child-env.patch",
-    "testFile": "tests/process-runner.test.ts",
+    "testFile": "tests/template/process-runner/process-runner.test.ts",
     "title": "CE\\.d ",
     "source": "79db613 refactor(scripts): give the template one process runner for its scripts and their tests"
   },
@@ -121,428 +121,442 @@
   {
     "id": "4afda36-project-recipe",
     "patch": "tests/planted-faults/patches/4afda36-project-recipe.patch",
-    "testFile": "tests/recipe.test.ts",
+    "testFile": "tests/template/bootstrap/recipe.test.ts",
     "title": "no row and no refusal matches throws",
     "source": "4afda36 fix(recipe): name the starter-with-monorepo refusal's condition, throw if none matches"
   },
   {
     "id": "abebe4e-repository-unknown-key",
     "patch": "tests/planted-faults/patches/abebe4e-repository-unknown-key.patch",
-    "testFile": "tests/repository.test.ts",
+    "testFile": "tests/template/repository/repository.test.ts",
     "title": "^an unknown key is refused",
     "source": "abebe4e Gate tools read the repository from repository.json"
   },
   {
     "id": "abebe4e-repository-missing-key",
     "patch": "tests/planted-faults/patches/abebe4e-repository-missing-key.patch",
-    "testFile": "tests/repository.test.ts",
+    "testFile": "tests/template/repository/repository.test.ts",
     "title": "^a missing key is refused",
     "source": "abebe4e Gate tools read the repository from repository.json"
   },
   {
     "id": "abebe4e-repository-commit",
     "patch": "tests/planted-faults/patches/abebe4e-repository-commit.patch",
-    "testFile": "tests/repository.test.ts",
+    "testFile": "tests/template/repository/repository.test.ts",
     "title": "^a commit that is not a full SHA is refused",
     "source": "abebe4e Gate tools read the repository from repository.json"
   },
   {
     "id": "abebe4e-repository-web",
     "patch": "tests/planted-faults/patches/abebe4e-repository-web.patch",
-    "testFile": "tests/repository.test.ts",
+    "testFile": "tests/template/repository/repository.test.ts",
     "title": "^a web address that is not a GitHub repository page is refused",
     "source": "abebe4e Gate tools read the repository from repository.json"
   },
   {
     "id": "abebe4e-repository-missing-file",
     "patch": "tests/planted-faults/patches/abebe4e-repository-missing-file.patch",
-    "testFile": "tests/repository.test.ts",
+    "testFile": "tests/template/repository/repository.test.ts",
     "title": "^a missing file is refused",
     "source": "abebe4e Gate tools read the repository from repository.json"
   },
   {
     "id": "f86c589-glossary-avoid",
     "patch": "tests/planted-faults/patches/f86c589-glossary-avoid.patch",
-    "testFile": "tests/naming/names.test.ts",
+    "testFile": "tests/template/naming/names.test.ts",
     "title": "^NM\\.a ",
     "source": "f86c589 test(naming): check tracked names and the glossary files"
   },
   {
     "id": "f86c589-glossary-qualify",
     "patch": "tests/planted-faults/patches/f86c589-glossary-qualify.patch",
-    "testFile": "tests/naming/names.test.ts",
+    "testFile": "tests/template/naming/names.test.ts",
     "title": "^NM\\.b ",
     "source": "f86c589 test(naming): check tracked names and the glossary files"
   },
   {
     "id": "f86c589-glossary-stale",
     "patch": "tests/planted-faults/patches/f86c589-glossary-stale.patch",
-    "testFile": "tests/naming/names.test.ts",
+    "testFile": "tests/template/naming/names.test.ts",
     "title": "^NM\\.c ",
     "source": "f86c589 test(naming): check tracked names and the glossary files"
   },
   {
     "id": "f86c589-glossary-reason",
     "patch": "tests/planted-faults/patches/f86c589-glossary-reason.patch",
-    "testFile": "tests/naming/names.test.ts",
+    "testFile": "tests/template/naming/names.test.ts",
     "title": "^a recorded hit without a reason is refused$",
     "source": "f86c589 test(naming): check tracked names and the glossary files"
   },
   {
     "id": "f86c589-glossary-map-pointer",
     "patch": "tests/planted-faults/patches/f86c589-glossary-map-pointer.patch",
-    "testFile": "tests/naming/glossary-files.test.ts",
+    "testFile": "tests/template/naming/glossary-files.test.ts",
     "title": "^GM\\.a ",
     "source": "f86c589 test(naming): check tracked names and the glossary files"
   },
   {
     "id": "f86c589-glossary-map-empty",
     "patch": "tests/planted-faults/patches/f86c589-glossary-map-empty.patch",
-    "testFile": "tests/naming/glossary-files.test.ts",
+    "testFile": "tests/template/naming/glossary-files.test.ts",
     "title": "^GM\\.b ",
     "source": "f86c589 test(naming): check tracked names and the glossary files"
   },
   {
     "id": "f86c589-glossary-unused",
     "patch": "tests/planted-faults/patches/f86c589-glossary-unused.patch",
-    "testFile": "tests/naming/glossary-files.test.ts",
+    "testFile": "tests/template/naming/glossary-files.test.ts",
     "title": "^GM\\.c ",
     "source": "f86c589 test(naming): check tracked names and the glossary files"
   },
   {
     "id": "8048731-child-env-limit",
     "patch": "tests/planted-faults/patches/8048731-child-env-limit.patch",
-    "testFile": "tests/process-runner.test.ts",
+    "testFile": "tests/template/process-runner/process-runner.test.ts",
     "title": "CE\\.a ",
     "source": "8048731 fix(faults): bound each replay step and escalate a stop to SIGKILL"
   },
   {
     "id": "8048731-child-env-escalation",
     "patch": "tests/planted-faults/patches/8048731-child-env-escalation.patch",
-    "testFile": "tests/process-runner.test.ts",
+    "testFile": "tests/template/process-runner/process-runner.test.ts",
     "title": "CE\\.b ",
     "source": "8048731 fix(faults): bound each replay step and escalate a stop to SIGKILL"
   },
   {
     "id": "569dd22-test-area-shared-name",
     "patch": "tests/planted-faults/patches/569dd22-test-area-shared-name.patch",
-    "testFile": "tests/doctor.test.ts",
+    "testFile": "tests/template/doctor/doctor.test.ts",
     "title": "naming both folders",
     "source": "569dd22 fix(test-area): refuse one area name given to more than one folder"
   },
   {
     "id": "d2034aa-pre-commit",
     "patch": "tests/planted-faults/patches/d2034aa-pre-commit.patch",
-    "testFile": "tests/naming/pre-commit.test.ts",
+    "testFile": "tests/template/naming/pre-commit.test.ts",
     "title": "^PC\\.a ",
     "source": "d2034aa feat(hooks): refuse a commit that adds a badly named file"
   },
   {
     "id": "61a758a-hooks",
     "patch": "tests/planted-faults/patches/61a758a-hooks.patch",
-    "testFile": "tests/naming/names-check-hook.test.ts",
+    "testFile": "tests/template/naming/names-check-hook.test.ts",
     "title": "^NG\\.live Codex ",
     "source": "61a758a feat(naming): refuse a badly named new file before Codex applies its patch"
   },
   {
     "id": "6a4c6e0-settings",
     "patch": "tests/planted-faults/patches/6a4c6e0-settings.patch",
-    "testFile": "tests/naming/names-check-hook.test.ts",
+    "testFile": "tests/template/naming/names-check-hook.test.ts",
     "title": "^NG\\.live Claude Code ",
     "source": "6a4c6e0 feat(naming): refuse a badly named new file before Claude Code writes it"
   },
   {
     "id": "c6ccbf5-check-names-refusal",
     "patch": "tests/planted-faults/patches/c6ccbf5-check-names-refusal.patch",
-    "testFile": "tests/naming/check-names.test.ts",
+    "testFile": "tests/template/naming/check-names.test.ts",
     "title": "^CN\\.a ",
     "source": "c6ccbf5 feat(naming): add check:names to judge the names it is given"
   },
   {
     "id": "decbccb-check-names-folders",
     "patch": "tests/planted-faults/patches/decbccb-check-names-folders.patch",
-    "testFile": "tests/naming/check-names.test.ts",
+    "testFile": "tests/template/naming/check-names.test.ts",
     "title": "^CN\\.b ",
     "source": "decbccb feat(naming): judge each folder on a path given to check:names"
   },
   {
     "id": "c0da0e7-glossary-staged",
     "patch": "tests/planted-faults/patches/c0da0e7-glossary-staged.patch",
-    "testFile": "tests/naming/check-names.test.ts",
+    "testFile": "tests/template/naming/check-names.test.ts",
     "title": "^CN\\.c ",
     "source": "c0da0e7 feat(naming): judge the names git has staged as new with --staged"
   },
   {
     "id": "e8e8647-check-names-no-path",
     "patch": "tests/planted-faults/patches/e8e8647-check-names-no-path.patch",
-    "testFile": "tests/naming/check-names.test.ts",
+    "testFile": "tests/template/naming/check-names.test.ts",
     "title": "^CN\\.d no path ",
     "source": "e8e8647 feat(naming): exit 2 when check:names is misused or cannot run"
   },
   {
     "id": "e8e8647-check-names-option",
     "patch": "tests/planted-faults/patches/e8e8647-check-names-option.patch",
-    "testFile": "tests/naming/check-names.test.ts",
+    "testFile": "tests/template/naming/check-names.test.ts",
     "title": "^CN\\.d an option ",
     "source": "e8e8647 feat(naming): exit 2 when check:names is misused or cannot run"
   },
   {
     "id": "e8e8647-check-names-mode-path",
     "patch": "tests/planted-faults/patches/e8e8647-check-names-mode-path.patch",
-    "testFile": "tests/naming/check-names.test.ts",
+    "testFile": "tests/template/naming/check-names.test.ts",
     "title": "^CN\\.d a path beside ",
     "source": "e8e8647 feat(naming): exit 2 when check:names is misused or cannot run"
   },
   {
     "id": "e8e8647-check-names-outside",
     "patch": "tests/planted-faults/patches/e8e8647-check-names-outside.patch",
-    "testFile": "tests/naming/check-names.test.ts",
+    "testFile": "tests/template/naming/check-names.test.ts",
     "title": "^CN\\.d a path outside ",
     "source": "e8e8647 feat(naming): exit 2 when check:names is misused or cannot run"
   },
   {
     "id": "e8e8647-check-names-exit",
     "patch": "tests/planted-faults/patches/e8e8647-check-names-exit.patch",
-    "testFile": "tests/naming/check-names.test.ts",
+    "testFile": "tests/template/naming/check-names.test.ts",
     "title": "^CN\\.e ",
     "source": "e8e8647 feat(naming): exit 2 when check:names is misused or cannot run"
   },
   {
     "id": "6a4c6e0-names-gate-exit",
     "patch": "tests/planted-faults/patches/6a4c6e0-names-gate-exit.patch",
-    "testFile": "tests/naming/names-check-hook.test.ts",
+    "testFile": "tests/template/naming/names-check-hook.test.ts",
     "title": "^NG\\.a ",
     "source": "6a4c6e0 feat(naming): refuse a badly named new file before Claude Code writes it"
   },
   {
     "id": "6a4c6e0-check-names-new-folder",
     "patch": "tests/planted-faults/patches/6a4c6e0-check-names-new-folder.patch",
-    "testFile": "tests/naming/names-check-hook.test.ts",
+    "testFile": "tests/template/naming/names-check-hook.test.ts",
     "title": "^NG\\.b ",
     "source": "6a4c6e0 feat(naming): refuse a badly named new file before Claude Code writes it"
   },
   {
     "id": "6a4c6e0-check-names-call",
     "patch": "tests/planted-faults/patches/6a4c6e0-check-names-call.patch",
-    "testFile": "tests/naming/names-check-hook.test.ts",
+    "testFile": "tests/template/naming/names-check-hook.test.ts",
     "title": "^NG\\.c ",
     "source": "6a4c6e0 feat(naming): refuse a badly named new file before Claude Code writes it"
   },
   {
     "id": "6a4c6e0-names-gate-notice",
     "patch": "tests/planted-faults/patches/6a4c6e0-names-gate-notice.patch",
-    "testFile": "tests/naming/names-check-hook.test.ts",
+    "testFile": "tests/template/naming/names-check-hook.test.ts",
     "title": "^NG\\.c ",
     "source": "6a4c6e0 feat(naming): refuse a badly named new file before Claude Code writes it"
   },
   {
     "id": "61a758a-names-gate-exit",
     "patch": "tests/planted-faults/patches/61a758a-names-gate-exit.patch",
-    "testFile": "tests/naming/names-check-hook.test.ts",
+    "testFile": "tests/template/naming/names-check-hook.test.ts",
     "title": "^NG\\.e ",
     "source": "61a758a feat(naming): refuse a badly named new file before Codex applies its patch"
   },
   {
     "id": "61a758a-check-names-add",
     "patch": "tests/planted-faults/patches/61a758a-check-names-add.patch",
-    "testFile": "tests/naming/names-check-hook.test.ts",
+    "testFile": "tests/template/naming/names-check-hook.test.ts",
     "title": "^NG\\.e ",
     "source": "61a758a feat(naming): refuse a badly named new file before Codex applies its patch"
   },
   {
     "id": "61a758a-check-names-move",
     "patch": "tests/planted-faults/patches/61a758a-check-names-move.patch",
-    "testFile": "tests/naming/names-check-hook.test.ts",
+    "testFile": "tests/template/naming/names-check-hook.test.ts",
     "title": "^NG\\.f ",
     "source": "61a758a feat(naming): refuse a badly named new file before Codex applies its patch"
   },
   {
     "id": "dbd74b7-glossary-note-line",
     "patch": "tests/planted-faults/patches/dbd74b7-glossary-note-line.patch",
-    "testFile": "tests/naming/names.test.ts",
+    "testFile": "tests/template/naming/names.test.ts",
     "title": "^NM\\.d after the last note",
     "source": "dbd74b7 feat(naming): leave an Avoid word that a note covers to the reviewer"
   },
   {
     "id": "dbd74b7-glossary-note-semicolon",
     "patch": "tests/planted-faults/patches/dbd74b7-glossary-note-semicolon.patch",
-    "testFile": "tests/naming/names.test.ts",
+    "testFile": "tests/template/naming/names.test.ts",
     "title": "^NM\\.d before a semicolon",
     "source": "dbd74b7 feat(naming): leave an Avoid word that a note covers to the reviewer"
   },
   {
     "id": "dbd74b7-glossary-note-parenthesis",
     "patch": "tests/planted-faults/patches/dbd74b7-glossary-note-parenthesis.patch",
-    "testFile": "tests/naming/names.test.ts",
+    "testFile": "tests/template/naming/names.test.ts",
     "title": "^NM\\.e ",
     "source": "dbd74b7 feat(naming): leave an Avoid word that a note covers to the reviewer"
   },
   {
     "id": "10099ec-glossary-unused-now-used",
     "patch": "tests/planted-faults/patches/10099ec-glossary-unused-now-used.patch",
-    "testFile": "tests/naming/glossary-files.test.ts",
+    "testFile": "tests/template/naming/glossary-files.test.ts",
     "title": "^GM\\.d ",
     "source": "10099ec feat(naming): record a glossary term that no tracked file uses yet"
   },
   {
     "id": "10099ec-glossary-unused-undefined",
     "patch": "tests/planted-faults/patches/10099ec-glossary-unused-undefined.patch",
-    "testFile": "tests/naming/glossary-files.test.ts",
+    "testFile": "tests/template/naming/glossary-files.test.ts",
     "title": "^GM\\.e ",
     "source": "10099ec feat(naming): record a glossary term that no tracked file uses yet"
   },
   {
     "id": "10099ec-glossary-unused-ticket",
     "patch": "tests/planted-faults/patches/10099ec-glossary-unused-ticket.patch",
-    "testFile": "tests/naming/glossary-files.test.ts",
+    "testFile": "tests/template/naming/glossary-files.test.ts",
     "title": "^GM\\.f a recorded unused term without a ticket",
     "source": "10099ec feat(naming): record a glossary term that no tracked file uses yet"
   },
   {
     "id": "10099ec-glossary-unused-no-list",
     "patch": "tests/planted-faults/patches/10099ec-glossary-unused-no-list.patch",
-    "testFile": "tests/naming/glossary-files.test.ts",
+    "testFile": "tests/template/naming/glossary-files.test.ts",
     "title": "^GM\\.g ",
     "source": "10099ec feat(naming): record a glossary term that no tracked file uses yet"
   },
   {
     "id": "b28ce51-check-names",
     "patch": "tests/planted-faults/patches/b28ce51-check-names.patch",
-    "testFile": "tests/naming/pre-commit.test.ts",
+    "testFile": "tests/template/naming/pre-commit.test.ts",
     "title": "^PC\\.b ",
     "source": "b28ce51 fix(naming): judge --staged names by the glossary and recorded hits git has staged"
   },
   {
     "id": "b28ce51-check-names-staged-hits",
     "patch": "tests/planted-faults/patches/b28ce51-check-names-staged-hits.patch",
-    "testFile": "tests/naming/check-names.test.ts",
+    "testFile": "tests/template/naming/check-names.test.ts",
     "title": "^CN\\.f ",
     "source": "b28ce51 fix(naming): judge --staged names by the glossary and recorded hits git has staged"
   },
   {
     "id": "b28ce51-check-names-staged-glossary",
     "patch": "tests/planted-faults/patches/b28ce51-check-names-staged-glossary.patch",
-    "testFile": "tests/naming/check-names.test.ts",
+    "testFile": "tests/template/naming/check-names.test.ts",
     "title": "^CN\\.g ",
     "source": "b28ce51 fix(naming): judge --staged names by the glossary and recorded hits git has staged"
   },
   {
     "id": "70a3dc5-glossary-staged-absent",
     "patch": "tests/planted-faults/patches/70a3dc5-glossary-staged-absent.patch",
-    "testFile": "tests/naming/check-names.test.ts",
+    "testFile": "tests/template/naming/check-names.test.ts",
     "title": "^CN\\.h ",
     "source": "70a3dc5 fix(naming): name the repair when git has no staged glossary or recorded hits"
   },
   {
     "id": "d5737c7-check-names",
     "patch": "tests/planted-faults/patches/d5737c7-check-names.patch",
-    "testFile": "tests/naming/names-check-hook.test.ts",
+    "testFile": "tests/template/naming/names-check-hook.test.ts",
     "title": "^NG\\.g ",
     "source": "d5737c7 fix(names): name the missing field of a recognised tool call (GREEN)"
   },
   {
     "id": "aaedd58-doctor",
     "patch": "tests/planted-faults/patches/aaedd58-doctor.patch",
-    "testFile": "tests/standards/coverage-gaps.test.ts",
+    "testFile": "tests/template/standards/coverage-gaps.test.ts",
     "title": "^every runtime file and export outside the kernel is imported by a test",
     "source": "aaedd58 test(standards): refuse a runtime file or export that no test imports"
   },
   {
     "id": "7623343-glossary",
     "patch": "tests/planted-faults/patches/7623343-glossary.patch",
-    "testFile": "tests/naming/names-check-in-process.test.ts",
+    "testFile": "tests/template/naming/names-check-in-process.test.ts",
     "title": "^in process: --staged with a git that never answers",
     "source": "7623343 fix(glossary): bound the staged git readers and the fixture's git calls"
   },
   {
     "id": "7623343-git-fixture",
     "patch": "tests/planted-faults/patches/7623343-git-fixture.patch",
-    "testFile": "tests/naming/names-check-in-process.test.ts",
+    "testFile": "tests/template/naming/names-check-in-process.test.ts",
     "title": "^in process: the fixture's git stops",
     "source": "7623343 fix(glossary): bound the staged git readers and the fixture's git calls"
   },
   {
     "id": "244b63a-check-names",
     "patch": "tests/planted-faults/patches/244b63a-check-names.patch",
-    "testFile": "tests/naming/names-check-paths.test.ts",
+    "testFile": "tests/template/naming/names-check-paths.test.ts",
     "title": "^in process: --tool-call resolves a relative folder of the call",
     "source": "244b63a fix(check-names): resolve a tool call's relative folder from the injected folder"
   },
   {
     "id": "c77aaa9-static-admission",
     "patch": "tests/planted-faults/patches/c77aaa9-static-admission.patch",
-    "testFile": "tests/static-admission-execution-in-process.test.ts",
+    "testFile": "tests/template/static-admission/static-admission-execution-in-process.test.ts",
     "title": "^execute kills a command that outlives its time limit",
     "source": "c77aaa9 fix(static-admission): bound every child command with a time limit"
   },
   {
     "id": "837cf32-planted-faults-usage",
     "patch": "tests/planted-faults/patches/837cf32-planted-faults-usage.patch",
-    "testFile": "tests/planted-faults.test.ts",
+    "testFile": "tests/template/fault-replay/planted-faults.test.ts",
     "title": "FR\\.v --changed-since with no base",
     "source": "837cf32 feat(faults): replay only the faults a change touches"
   },
   {
     "id": "837cf32-planted-faults-base",
     "patch": "tests/planted-faults/patches/837cf32-planted-faults-base.patch",
-    "testFile": "tests/planted-fault-records-in-process.test.ts",
+    "testFile": "tests/template/fault-replay/planted-fault-records-in-process.test.ts",
     "title": "faultsTouchedSince refuses a base git cannot resolve",
     "source": "837cf32 feat(faults): replay only the faults a change touches"
   },
   {
     "id": "837cf32-planted-faults-touched",
     "patch": "tests/planted-faults/patches/837cf32-planted-faults-touched.patch",
-    "testFile": "tests/planted-fault-records-in-process.test.ts",
+    "testFile": "tests/template/fault-replay/planted-fault-records-in-process.test.ts",
     "title": "faultsTouchedSince names only the faults whose patch touches",
     "source": "837cf32 feat(faults): replay only the faults a change touches"
   },
   {
     "id": "98374b7-planted-faults-test-file",
     "patch": "tests/planted-faults/patches/98374b7-planted-faults-test-file.patch",
-    "testFile": "tests/planted-fault-records-in-process.test.ts",
+    "testFile": "tests/template/fault-replay/planted-fault-records-in-process.test.ts",
     "title": "faultsTouchedSince names a fault whose test file changed",
     "source": "98374b7 fix(faults): count a fault's test file and a rename's old path as touched"
   },
   {
     "id": "98374b7-planted-faults-renames",
     "patch": "tests/planted-faults/patches/98374b7-planted-faults-renames.patch",
-    "testFile": "tests/planted-fault-records-in-process.test.ts",
+    "testFile": "tests/template/fault-replay/planted-fault-records-in-process.test.ts",
     "title": "faultsTouchedSince names a fault whose patched file was renamed away",
     "source": "98374b7 fix(faults): count a fault's test file and a rename's old path as touched"
   },
   {
     "id": "80e16f3-planted-faults-record",
     "patch": "tests/planted-faults/patches/80e16f3-planted-faults-record.patch",
-    "testFile": "tests/planted-fault-records-in-process.test.ts",
+    "testFile": "tests/template/fault-replay/planted-fault-records-in-process.test.ts",
     "title": "faultsTouchedSince names a fault whose record changed",
     "source": "80e16f3 fix(faults): replay a fault whose record changed, and refuse an empty list"
   },
   {
     "id": "80e16f3-planted-faults-empty",
     "patch": "tests/planted-faults/patches/80e16f3-planted-faults-empty.patch",
-    "testFile": "tests/planted-faults.test.ts",
+    "testFile": "tests/template/fault-replay/planted-faults.test.ts",
     "title": "FR\\.w --changed-since with an empty list",
     "source": "80e16f3 fix(faults): replay a fault whose record changed, and refuse an empty list"
   },
   {
     "id": "b79a4ac-platform-rules",
     "patch": "tests/planted-faults/patches/b79a4ac-platform-rules.patch",
-    "testFile": "tests/lint-rules.test.ts",
+    "testFile": "tests/template/lint/lint-rules.test.ts",
     "title": "^no-host-path-literal refuses the ff5fffe shape",
     "source": "b79a4ac feat(lint): refuse a host path literal such as /private/tmp outside the kernel"
   },
   {
     "id": "b9e392f-payload-rules",
     "patch": "tests/planted-faults/patches/b9e392f-payload-rules.patch",
-    "testFile": "tests/lint-rules.test.ts",
+    "testFile": "tests/template/lint/lint-rules.test.ts",
     "title": "^no-in-operator refuses the r4580070979 shape",
     "source": "b9e392f feat(lint): refuse the in operator on an undeclared key in template src and scripts"
   },
   {
     "id": "b878c65-process",
     "patch": "tests/planted-faults/patches/b878c65-process.patch",
-    "testFile": "tests/spawn-bounded.test.ts",
+    "testFile": "tests/template/process-runner/spawn-bounded.test.ts",
     "title": "^spawnBounded freezes a child that is still running when its bound passes, and names it",
     "source": "b878c65 test(support): name the processes left when spawnBounded passes its bound"
+  },
+  {
+    "id": "6bea874-check-names",
+    "patch": "tests/planted-faults/patches/6bea874-check-names.patch",
+    "testFile": "tests/template/naming/names-check-test-placement.test.ts",
+    "title": "^in process: a test file at tests/loose.test.ts, outside every test area folder",
+    "source": "6bea874 feat(names): refuse a test file outside every family folder"
+  },
+  {
+    "id": "dc6396a-repository",
+    "patch": "tests/planted-faults/patches/dc6396a-repository.patch",
+    "testFile": "tests/template/repository/repository.test.ts",
+    "title": "^a test area folder written as \"tests/\" is refused",
+    "source": "dc6396a fix(repository): refuse a test area folder that is not a plain path"
   }
 ]

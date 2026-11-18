@@ -1,9 +1,9 @@
 import { existsSync, lstatSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-export const recordedHitsFile = "tests/naming/recorded-hits.json";
+export const recordedHitsFile = "tests/template/naming/recorded-hits.json";
 export const recordedUnusedTermsFile =
-  "tests/naming/recorded-unused-terms.json";
+  "tests/template/naming/recorded-unused-terms.json";
 const notReadAsUse = new Set([
   "GLOSSARY.md",
   "GLOSSARY-MAP.md",

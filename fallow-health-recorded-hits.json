@@ -116,7 +116,7 @@
         "count": 1
       }
     },
-    "tests/glossary/glossary.test.ts": {
+    "tests/template/glossary/glossary.test.ts": {
       "crap_moderate": {
         "count": 2
       }
@@ -404,12 +404,12 @@
         "count": 1
       }
     },
-    "tests/glossary/glossary.test.ts\u0000declaredName": {
+    "tests/template/glossary/glossary.test.ts\u0000declaredName": {
       "crap_moderate": {
         "count": 1
       }
     },
-    "tests/glossary/glossary.test.ts\u0000test(\"no avoid-word appears outside the shrink...\")": {
+    "tests/template/glossary/glossary.test.ts\u0000test(\"no avoid-word appears outside the shrink...\")": {
       "crap_moderate": {
         "count": 1
       }

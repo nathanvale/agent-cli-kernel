@@ -57,7 +57,7 @@
       "count": 10
     }
   },
-  "tests/doctor.test.ts": {
+  "tests/template/doctor/doctor.test.ts": {
     "repository/tests-use-test-folder": {
       "count": 2
     }
@@ -273,7 +273,7 @@
       "count": 4
     }
   },
-  "tests/toolchain-resolution.test.ts": {
+  "tests/template/toolchain/toolchain-resolution.test.ts": {
     "repository/tests-use-test-folder": {
       "count": 2
     }
