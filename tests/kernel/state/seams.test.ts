@@ -1,25 +1,22 @@
 import { afterAll, beforeAll, expect } from "bun:test";
-import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, rm, rmdir, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { ESLint } from "eslint";
 import { caseTest } from "./harness.ts";
 
 const root = resolve(import.meta.dir, "../../..");
 const source = resolve(root, "kernel/src");
-const handlers = resolve(source, "handlers");
 const eslint = new ESLint({ cwd: root });
+let probeRoot = "";
 let probes = "";
-let createdHandlers = false;
 beforeAll(async () => {
-  createdHandlers = !existsSync(handlers);
-  await mkdir(handlers, { recursive: true });
-  probes = await mkdtemp(`${handlers}/state-seam-probes-`);
+  probeRoot = await mkdtemp(`${source}/state-seam-probes-`);
+  probes = resolve(probeRoot, "handlers");
+  await mkdir(probes);
   await writeFile(`${probes}/host.ts`, "export {};\n");
 });
 afterAll(async () => {
-  await rm(probes, { recursive: true, force: true });
-  if (createdHandlers) await rmdir(handlers);
+  await rm(probeRoot, { recursive: true, force: true });
 });
 
 type Rule = "state" | "kernel" | "ffi";

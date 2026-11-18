@@ -10,7 +10,7 @@ import {
   envelopeOf,
   n,
   resultOf,
-  run,
+  runCase,
   text,
 } from "../lifecycle/harness.ts";
 import type { Case, Observed } from "../lifecycle/harness.ts";
@@ -22,7 +22,7 @@ function count(observed: Observed, line: string) {
 }
 
 async function check(entry: Case) {
-  const observed = await run(entry);
+  const observed = await runCase(entry);
   try {
     receipt(entry, observed);
     switch (entry.family) {
@@ -33,7 +33,7 @@ async function check(entry: Case) {
         const twinId = entry.expect.twinOf;
         if (typeof twinId !== "string") throw new Error("W03 needs a twin.");
         const twin = caseById(twinId);
-        const closed = await run(twin);
+        const closed = await runCase(twin);
         try {
           if (twin.family === "W02") {
             assertHuman(twin, observed);
@@ -89,7 +89,7 @@ describe("writer guard after kernel build (supporting W04, not a frozen case)", 
   test(
     "a non-JSON value injected after build never reaches stdout coerced",
     async () => {
-      const observed = await run({
+      const observed = await runCase({
         ...caseById("W04.nan"),
         argv: ["read", "--json"],
         scenario: "corrupt:nan-data",
@@ -199,7 +199,7 @@ describe("one depth rule for the 64 and 8 limits (supporting B2)", () => {
               ? { commandIdentity: "fx.bad", causeCode, exit, fallback: true }
               : { commandIdentity: "fx.bad", causeCode, exit },
         };
-        const observed = await run(entry);
+        const observed = await runCase(entry);
         try {
           assertEnvelope(entry, observed);
         } finally {
