@@ -198,6 +198,63 @@ describe("replay", () => {
     expect(run.result).toEqual({ kind: "KILLED", failing: killedBy });
   }, 60_000);
 
+  function twoPlaces(
+    first: { head: string; tail: string },
+    second: { head: string; tail: string },
+  ): string {
+    const place = (name: string, { head, tail }: typeof first) =>
+      guarded
+        .replace("function limit", `function ${name}`)
+        .replace("number {", head)
+        .replace("return value;", tail);
+    return `${place("limit", first)}\n${place("shown", second)}`;
+  }
+
+  const drifted = "number | string {";
+
+  test("KILLED where only the line after its guarded text chooses one of two places, though the line before drifted at both", async () => {
+    const subject = planted();
+    commit(subject.root, "widen and show", {
+      "src/limit.ts": twoPlaces(
+        { head: drifted, tail: "return value;" },
+        { head: drifted, tail: "return Number(value);" },
+      ),
+    });
+
+    const run = await replayed(subject);
+
+    expect(run.result).toEqual({ kind: "KILLED", failing: killedBy });
+  }, 60_000);
+
+  test.each([
+    [
+      "no side separates them",
+      { head: drifted, tail: "return value;" },
+      { head: drifted, tail: "return value;" },
+    ],
+    [
+      "each side prefers a different place",
+      { head: "number {", tail: "return Number(value);" },
+      { head: drifted, tail: "return value;" },
+    ],
+  ])(
+    "STALE anchor ambiguous when %s",
+    async (_name, first, second) => {
+      const subject = planted();
+      commit(subject.root, "show the source", {
+        "src/limit.ts": twoPlaces(first, second),
+      });
+
+      const run = await replayed(subject);
+
+      expect(run.result).toEqual({
+        kind: "STALE",
+        output: ambiguous("src/limit.ts:2, src/limit.ts:7"),
+      });
+    },
+    60_000,
+  );
+
   test("STALE anchor absent when the guarded line itself was edited", async () => {
     const subject = planted();
     commit(subject.root, "reword the refusal", {
