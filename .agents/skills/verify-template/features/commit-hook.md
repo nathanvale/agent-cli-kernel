@@ -120,7 +120,7 @@ Preconditions:
   set -eu
   path=docs/verify-file-size.txt
   git add -- "$path"
-  staged=$(git rev-parse ":$path")
+  staged_tree=$(git write-tree)
   bun -e 'process.stdout.write(" x".repeat(5000))' > "$path"
   before=$(git rev-parse HEAD)
   status=0
@@ -133,14 +133,14 @@ Preconditions:
     printf 'The refused commit changed HEAD.\n' >&2
     exit 2
   fi
-  if [ "$(git rev-parse ":$path")" != "$staged" ]; then
-    printf 'The refused commit changed the staged file %s.\n' "$path" >&2
+  if [ "$(git write-tree)" != "$staged_tree" ]; then
+    printf 'The refused commit changed the staged tree.\n' >&2
     exit 2
   fi
   exit 1
   ```
 
-  Exit 1. The hook names the same refusal and preserves HEAD and the index.
+  Exit 1. The hook names the same refusal and preserves HEAD and the whole staged tree.
   Exit 2 means the proof failed. After exit 1, the index still holds 5,001
   tokens and the working copy holds 5,000.
 - **Green, staged file size.** Record `hook-green-file-size` after that red.
