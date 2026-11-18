@@ -99,6 +99,24 @@ function checkRecordedOrigin(value: unknown): void {
   requireText(origin.get("commit"), `${recordedOrigin}.commit`, fullSha);
 }
 
+export function holdsTestFile(
+  { folder, holds, subfolders }: TestArea,
+  path: string,
+): boolean {
+  if (!path.startsWith(`${folder}/`)) return false;
+  const direct = !path.slice(folder.length + 1).includes("/");
+  return direct
+    ? holds === "files" || !subfolders
+    : holds === "folder" || subfolders;
+}
+
+export function testFilePlaces(areas: readonly TestArea[]): string[] {
+  return areas.flatMap(({ folder, holds, subfolders }) => [
+    ...(holds === "files" || !subfolders ? [`${folder}/`] : []),
+    ...(subfolders ? [`${folder}/<family>/`] : []),
+  ]);
+}
+
 export function readRepository(root: string): Repository {
   const path = join(root, file);
   if (!existsSync(path))

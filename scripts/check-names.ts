@@ -9,6 +9,7 @@ import {
   stagedNewPaths,
   stagedText,
 } from "./glossary.ts";
+import { holdsTestFile, readRepository, testFilePlaces } from "./repository.ts";
 
 const usage =
   "Usage: bun run check:names <path> [path ...] | --staged | --tool-call";
@@ -36,13 +37,36 @@ function problemsGiven(textOf: TextOf, names: readonly string[]): string[] {
   );
 }
 
+function placementProblems(tree: string, names: readonly string[]): string[] {
+  if (!existsSync(join(tree, "repository.json"))) return [];
+  const { testAreas } = readRepository(tree);
+  const places = testFilePlaces(testAreas).join(", ");
+  return names
+    .filter(
+      (name) =>
+        name.startsWith("tests/") &&
+        name.endsWith(".test.ts") &&
+        !testAreas.some((area) => holdsTestFile(area, name)),
+    )
+    .map(
+      (name) =>
+        `${name} is a test file outside the folders repository.json gives test files. Repair: move it into one of ${places}, or add its folder to testAreas. Done when bun run check:names ${name} passes.`,
+    );
+}
+
 function problemsIn(tree: string, names: readonly string[]): string[] {
-  return problemsGiven((path) => readFileSync(join(tree, path), "utf8"), names);
+  return [
+    ...problemsGiven((path) => readFileSync(join(tree, path), "utf8"), names),
+    ...placementProblems(tree, names),
+  ];
 }
 
 function stagedProblems(root: string): string[] {
   const names = namesOnPaths(stagedNewPaths(root));
-  return problemsGiven((path) => stagedText(root, path), names);
+  return [
+    ...problemsGiven((path) => stagedText(root, path), names),
+    ...placementProblems(root, names),
+  ];
 }
 
 function pathWithin(tree: string, absolute: string): string | undefined {
