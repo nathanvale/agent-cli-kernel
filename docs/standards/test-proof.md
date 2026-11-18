@@ -148,7 +148,9 @@ repository broke it.
   once, a type argument that repeats its alias, an alias whose parameter
   shares a name with an outer one, a spread into call arguments, and a
   member key written as a template literal. A port inherits its source's
-  gaps; Oxlint's own rule shares each witnessed one.
+  gaps; the rule each port copies (oxc's `no_accumulating_spread` at
+  `oxlint_v1.93.0`, or the anti-slop source that
+  `config/anti-slop-rules.mjs` pins) shares each witnessed one.
   Witnessed: [#102-parameters] (a reducer that also takes the index passed
   `no-accumulating-spread`), [#102-alias] (`Identity<Identity<unknown>>`
   passed `no-unknown-type-aliases`), [#102-nested] (a spread in a `map`
