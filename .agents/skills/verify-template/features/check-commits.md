@@ -33,16 +33,31 @@ Preconditions:
   record `commits-green` in `template`: `bun run --silent check:commits HEAD~1`.
   Exit 0; stdout ends `GREEN <sha> <subject>` and
   `Checked 1 commits: all green in <s> s, <s> s per commit.`
-- **Red.** Record `commits-partial` in `template`, which commits a type error
-  through the hook by fixing it only in the working tree:
-  `cp src/recipe.ts ../recipe.keep && sed -i.bak "54s/checkCommand: \"bun run check\",/checkCommand: 1,/" src/recipe.ts && rm src/recipe.ts.bak && git add -- src/recipe.ts && cp ../recipe.keep src/recipe.ts && rm ../recipe.keep && git commit -q -m "refactor(recipe): stage a broken line" && git add -- src/recipe.ts && git commit -q -m "fix(recipe): restore the check command"`.
-  Exit 0: the hook let both commits land. Then record `commits-red`:
-  `bun run --silent check:commits HEAD~2`. Exit 1; stdout holds
+- **Red.** Record `commits-history` in `template`. Build two commit objects
+  to represent imported history with a type error in the first commit.
+
+  ```sh
+  set -eu
+  path=src/recipe.ts
+  sed 's/checkCommand: "bun run check[^"]*",/checkCommand: 1,/' "$path" > "$run/work/recipe-with-type-error"
+  cp "$run/work/recipe-with-type-error" "$path"
+  git add -- "$path"
+  broken_tree=$(git write-tree)
+  git restore --source=HEAD --staged --worktree -- "$path"
+  clean_tree=$(git rev-parse 'HEAD^{tree}')
+  test "$broken_tree" != "$clean_tree"
+  broken=$(git commit-tree "$broken_tree" -p HEAD -m "refactor(recipe): stage a broken line")
+  git commit-tree "$clean_tree" -p "$broken" -m "fix(recipe): restore the check command" > "$run/work/check-commits-tip"
+  ```
+
+  Exit 0. Then record `commits-red`:
+  `bun run --silent check:commits HEAD "$(cat "$run/work/check-commits-tip")"`.
+  Exit 1; stdout holds
   `RED <sha> refactor(recipe): stage a broken line`,
   `Failed: bun run typecheck`,
   `Repair: change <sha> itself so that bun run typecheck passes at that commit.`,
   `Rerun locally: CHECK_COMMITS_SINCE='<fixed point>' bun run check:commits '<sha>^@' <sha>`,
-  `src/recipe.ts(54,5): error TS2322: Type 'number' is not assignable to type 'string'.`,
+  `error TS2322: Type 'number' is not assignable to type 'string'.` for `src/recipe.ts`,
   `GREEN <sha> fix(recipe): restore the check command` and
   `1 of 2 commits are red in <s> s, <s> s per commit.`
 - **Red, empty.** Record `commits-red-empty`:
@@ -60,9 +75,6 @@ Preconditions:
 
 - Each commit costs a full install, typecheck and lint: about 10 s on a Mac.
   Keep the range to the commits the recipe made.
-- Line 54 of `src/recipe.ts` holds the first `checkCommand` today. When the
-  red's `sed` changes nothing, the commit is empty and fails; pick the line
-  `grep -n checkCommand src/recipe.ts` shows.
 - `--help` is read as the base and fails inside `git rev-list`, which prints
   git's own usage and exits 2.
 - Commits at or before `checkCommitsSince` in `repository.json` are never

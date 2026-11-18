@@ -2,7 +2,7 @@
 
 The template's pre-commit hook refuses a commit whose staged files break a
 gate: a name the names check refuses, a Biome format difference, a lint error
-such as a comment, a type error in the working tree, or a new Fallow problem.
+such as a comment, a type error in the staged tree, or a new Fallow problem.
 Each refusal ends with its repair and how to know it is done. `bun install`
 turns the hook on through the `prepare` script.
 
@@ -13,9 +13,9 @@ turns the hook on through the `prepare` script.
 - `hook-name` refuses a staged new file whose name uses an Avoid word.
 - `hook-lint` refuses a staged comment that the comment rule forbids.
 - `hook-fallow` refuses a staged change that leaves an export unused.
-- `hook-partial` lets a commit land whose staged file has a type error that
-  the working tree has already fixed (a known gap that
-  [check:commits](check-commits.md) catches).
+- `hook-staged-type` checks the staged tree for commits that stage changes to
+  `.ts`, `.mts`, `.cts` or `.mjs` paths or to files matching `tsconfig*.json`
+  at any depth, including removals. The staged-type recipes use partial staging.
 
 ## How to get to it (user POV)
 
@@ -41,28 +41,73 @@ Preconditions:
   `printf "// Note: explain the recipe\n" >> src/recipe.ts && git add -- src/recipe.ts && git commit -q -m "refactor(recipe): explain"; status=$?; git restore --staged -- src/recipe.ts; git checkout -- src/recipe.ts; exit $status`.
   Exit 1; stderr holds `error  A comment reads as permission, and the next agent builds on it.`
   and `pre-commit: lint errors above. Repair: correct each one in code, stage the change, and commit again. Done when bun run lint passes.`
-- **Red, Fallow.** Record `hook-red-fallow`: rename `UNCOPIED_NAMES` to
-  `SKIPPED_NAMES` with `sed` in `src/recipe.ts`, `src/bootstrap.ts` and
-  `tests/template/bootstrap/recipe.test.ts`, stage only `src/recipe.ts`, and commit. Exit 1;
-  stderr lists `Unused exports (1)` with `:34 SKIPPED_NAMES` and
+- **Red, staged type.** Record `hook-red-staged-type` in `template`.
+
+  ```sh
+  set -eu
+  path=src/recipe.ts
+  candidate="$run/work/recipe-with-type-error"
+  sed 's/checkCommand: "bun run check[^"]*",/checkCommand: 1,/' "$path" > "$candidate"
+  cmp_status=0
+  cmp -s "$path" "$candidate" || cmp_status=$?
+  test "$cmp_status" -eq 1 || exit 2
+  cp "$candidate" "$path"
+  git add -- "$path"
+  git restore --worktree --source=HEAD -- "$path"
+  before=$(git rev-parse HEAD)
+  status=0
+  git commit -q -m "test(recipe): try to commit a type error" || status=$?
+  test "$(git rev-parse HEAD)" = "$before"
+  git show ":$path" | grep -F 'checkCommand: 1,'
+  git restore --staged -- "$path"
+  exit "$status"
+  ```
+
+  Exit 1; TypeScript prints `TS2322` and the hook prints
+  `pre-commit: TypeScript rejected the staged tree (above). Repair: fix the type errors and stage the repaired files. Done when git commit passes the staged type check.`
+  HEAD still names the original commit.
+- **Green, staged type.** Record `hook-green-staged-type` after the red.
+
+  ```sh
+  set -eu
+  path=src/recipe.ts
+  candidate="$run/work/recipe-with-valid-type"
+  flag=--help
+  if grep -qF 'checkCommand: "bun run check --help",' "$path"; then
+    flag=--version
+  fi
+  sed "s/checkCommand: \"bun run check[^\"]*\",/checkCommand: \"bun run check $flag\",/" "$path" > "$candidate"
+  cmp_status=0
+  cmp -s "$path" "$candidate" || cmp_status=$?
+  test "$cmp_status" -eq 1 || exit 2
+  cp "$candidate" "$path"
+  git add -- "$path"
+  cp "$run/work/recipe-with-type-error" "$path"
+  git commit -q -m "test(recipe): commit the staged check command"
+  git show "HEAD:$path" | grep -F "checkCommand: \"bun run check $flag\","
+  cmp "$run/work/recipe-with-type-error" "$path"
+  git restore --worktree -- "$path"
+  ```
+
+  Exit 0; the commit contains the staged string and the working tree still
+  holds the unstaged type error until the recipe restores it.
+- **Red, Fallow.** Record `hook-red-fallow`:
+  `printf '\nexport const unused = 1;\n' >> src/recipe.ts && git add -- src/recipe.ts && git commit -q -m "test(recipe): add an unused export"; status=$?; git restore --staged --worktree -- src/recipe.ts; exit $status`.
+  Exit 1; stderr lists `unused` under `Unused exports (1)` and prints
   `pre-commit: fallow found new problems in the staged changes (above).`
-  Restore with `git restore --staged -- src/recipe.ts` and
-  `git checkout -- src/recipe.ts src/bootstrap.ts tests/template/bootstrap/recipe.test.ts`.
 - **Green.** Record `hook-green`:
   `printf "# Verify note\n\nA note the verification run commits.\n" > docs/verify-note.md && git add -- docs/verify-note.md && git commit -q -m "docs: add a verification note" && git log --oneline -1`.
   Exit 0; stdout names the new commit.
-- **Planted fault.** Record `hook-fault`:
-  `bun run --silent fault-replay d2034aa-pre-commit c6ccbf5-check-names-refusal`.
-  Exit 0; both `KILLED`.
+- **Planted faults.** Record `hook-fault`:
+  `bun run --silent fault-replay d2034aa-pre-commit c6ccbf5-check-names-refusal ea215c9-pre-commit beed83c-pre-commit`.
+  Exit 0; all four `KILLED`.
 - **After.** Record `hook-after`: `git status --porcelain`. Empty after each
   red, so a refusal left nothing staged.
 
 ## Gotchas
 
-- The hook runs `tsc` on the working tree, not on what is staged. Staging a
-  broken file and then fixing it unstaged commits the broken version; see
-  [check:commits](check-commits.md) for the recipe and the gate that refuses
-  it.
+- The staged type check uses a temporary checkout of the commit's tree and
+  reuses the installed `node_modules`.
 - ESLint, oxlint and Fallow run only when a staged path ends in `.ts`, `.mts`,
   `.cts` or `.mjs`. A Markdown-only commit runs the names check and Biome
   alone.
