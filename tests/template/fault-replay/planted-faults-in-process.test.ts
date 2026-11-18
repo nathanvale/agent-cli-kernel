@@ -152,6 +152,31 @@ describe("replay", () => {
     expect(run.leftovers).toEqual([]);
   }, 60_000);
 
+  test("STALE anchor ambiguous at only the real blank lines when its moved removed text is one blank line", async () => {
+    const subject = planted();
+    write(
+      subject.root,
+      subject.fault.patch,
+      `diff --git a/src/limit.ts b/src/limit.ts
+--- a/src/limit.ts
++++ b/src/limit.ts
+@@ -2,3 +2,2 @@
+   ${guardLine}
+-
+   return value;
+`,
+    );
+    const spaced = guarded.replace("  return value;", "\n  return value;");
+    renamed(subject.root, { "src/bound.ts": spaced, "src/copy.ts": spaced });
+
+    const run = await replayed(subject);
+
+    expect(run.result).toEqual({
+      kind: "STALE",
+      output: `anchor ambiguous: the removed text of hunk 1, starting "", is at 3 places: src/bound.ts:3, src/copy.ts:3, tests/limit.test.ts:3. Its context lines do not choose one, and a planted fault in the wrong place still fails its test, so it was not applied.`,
+    });
+  }, 60_000);
+
   test("STALE anchor ambiguous when its guarded text and context occur twice in its file", async () => {
     const subject = planted();
     commit(subject.root, "show the source", {
