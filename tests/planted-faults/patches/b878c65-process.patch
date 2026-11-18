@@ -1,0 +1,12 @@
+diff --git a/tests/support/process.ts b/tests/support/process.ts
+index c4a1869..fcf4921 100644
+--- a/tests/support/process.ts
++++ b/tests/support/process.ts
+@@ -173,7 +173,6 @@ function stuckProcesses(pid: number): string {
+   return [
+     "Processes left when the bound passed:",
+     ...child,
+-    ...left.map((row) => row.text),
+     ...pipeHolders(rows),
+   ].join("\n");
+ }
