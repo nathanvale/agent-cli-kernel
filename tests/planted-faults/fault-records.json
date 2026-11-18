@@ -549,7 +549,7 @@
     "id": "6bea874-check-names",
     "patch": "tests/planted-faults/patches/6bea874-check-names.patch",
     "testFile": "tests/template/naming/names-check-test-placement.test.ts",
-    "title": "^in process: a test file at tests/loose.test.ts, outside every family folder",
+    "title": "^in process: a test file at tests/loose.test.ts, outside every test area folder",
     "source": "6bea874 feat(names): refuse a test file outside every family folder"
   }
 ]

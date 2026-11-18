@@ -32,11 +32,11 @@ function describedRepository(): string {
 }
 
 function outsideRefusal(path: string): string {
-  return `${path} is a test file outside the folders repository.json gives test files. Repair: move it into one of tests/template/<family>/, tests/kernel/, tests/kernel/<family>/, or add its folder to testAreas. Done when bun run check:names ${path} passes.\n`;
+  return `${path} is a test file outside the folders repository.json gives test files. Repair: move it into one of tests/template/<area>/, tests/kernel/, tests/kernel/<area>/, or add its folder to testAreas. Done when bun run check:names ${path} passes.\n`;
 }
 
 test.each(["tests/loose.test.ts", "tests/template/loose.test.ts"])(
-  "in process: a test file at %s, outside every family folder, is refused with the folders it may go in",
+  "in process: a test file at %s, outside every test area folder, is refused with the folders it may go in",
   async (path) => {
     expect(await check(describedRepository(), [path])).toEqual({
       stderr: outsideRefusal(path),
@@ -45,7 +45,7 @@ test.each(["tests/loose.test.ts", "tests/template/loose.test.ts"])(
   },
 );
 
-test("in process: a test file in a family folder, or straight in a files area, passes", async () => {
+test("in process: a test file in a test area folder, or straight in an area that holds files, passes", async () => {
   expect(
     await check(describedRepository(), [
       "tests/template/doctor/doctor.test.ts",
@@ -57,7 +57,7 @@ test("in process: a test file in a family folder, or straight in a files area, p
   ).toEqual({ stderr: "", code: 0 });
 });
 
-test("in process: --tool-call refuses a Write that creates a test file outside every family folder", async () => {
+test("in process: --tool-call refuses a Write that creates a test file outside every test area folder", async () => {
   const root = describedRepository();
   const call = {
     tool_name: "Write",
@@ -70,7 +70,7 @@ test("in process: --tool-call refuses a Write that creates a test file outside e
   ).toEqual({ stderr: outsideRefusal("tests/loose.test.ts"), code: 1 });
 });
 
-test("in process: --staged refuses an added test file outside every family folder", async () => {
+test("in process: --staged refuses an added test file outside every test area folder", async () => {
   const root = describedRepository();
   put(root, "tests/template/loose.test.ts", "");
   git(root, "add", "--", "tests/template/loose.test.ts");

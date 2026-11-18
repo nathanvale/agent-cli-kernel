@@ -113,7 +113,7 @@ export function holdsTestFile(
 export function testFilePlaces(areas: readonly TestArea[]): string[] {
   return areas.flatMap(({ folder, holds, subfolders }) => [
     ...(holds === "files" || !subfolders ? [`${folder}/`] : []),
-    ...(subfolders ? [`${folder}/<family>/`] : []),
+    ...(subfolders ? [`${folder}/<area>/`] : []),
   ]);
 }
 
