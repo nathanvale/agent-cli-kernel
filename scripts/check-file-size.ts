@@ -17,7 +17,11 @@ const recordedHits = new Map([
   ],
   [
     "tests/template/glossary/glossary.test.ts",
-    { lifetime: "temporary", reason: "Remove at kernel carry-out." },
+    {
+      lifetime: "temporary",
+      reason:
+        "Remove when the glossary suite moves to the kernel repository (MAG-124).",
+    },
   ],
   [
     "starters/complex/tests/integration/integration.test.ts",
