@@ -32,6 +32,7 @@ _Qualify_: host, proof
 const sources = [
   "scripts/check-names.ts",
   "scripts/glossary.ts",
+  "scripts/repository.ts",
   ".claude/settings.json",
   ".claude/hooks/names-check.sh",
   ".codex/hooks.json",
