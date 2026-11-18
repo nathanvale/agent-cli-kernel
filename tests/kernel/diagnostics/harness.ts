@@ -214,6 +214,7 @@ export async function runCrash(
   const { stdout, stderr, exit, signal } = await spawnBounded(command(launch), {
     env: environment(launch),
     boundMilliseconds,
+    processGroup: true,
   });
   return {
     stdout,

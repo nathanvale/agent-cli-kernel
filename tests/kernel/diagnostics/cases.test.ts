@@ -236,7 +236,7 @@ async function executedTests(
         `--reporter-outfile=${report}`,
         ...files,
       ],
-      { cwd: join(here, "../../.."), boundMilliseconds },
+      { cwd: join(here, "../../.."), boundMilliseconds, processGroup: true },
     );
     const output = `${child.stdout}${child.stderr}`;
     const xml = existsSync(report) ? readFileSync(report, "utf8") : "";
