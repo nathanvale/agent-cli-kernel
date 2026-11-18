@@ -464,6 +464,32 @@ describe("faultsTouchedSince", () => {
     expect(result).toEqual([id]);
   });
 
+  test("refuses a git read that outlasts its bound, naming the read", async () => {
+    const { root, base } = twoFaults();
+    const tools = folder("planted-faults-slow-git-");
+    writeFileSync(join(tools, "git"), "#!/bin/sh\nexec sleep 30\n", {
+      mode: 0o755,
+    });
+    const path = process.env.PATH;
+    const began = performance.now();
+
+    const message = await rejection(
+      isolated(() => {
+        process.env.PATH = `${tools}:${path}`;
+        try {
+          return faultsTouchedSince(root, base);
+        } finally {
+          process.env.PATH = path;
+        }
+      }),
+    );
+
+    expect(message).toBe(
+      `git rev-parse --verify --quiet ${base}^{commit} did not finish within 4 s. Repair: run it by hand in ${root} to see where it waits, then run this command again.`,
+    );
+    expect(performance.now() - began).toBeLessThan(6_000);
+  }, 15_000);
+
   test("refuses a base git cannot resolve, naming it", async () => {
     const { root } = twoFaults();
     expect(
