@@ -88,8 +88,8 @@ row's guide or gate note cites two distinct witnesses.
 
 ### Glossary
 
-- `tests/glossary/glossary.test.ts`, with its shrinking `known-hits.json`,
-  checks the `scope` listed in `tests/glossary/term-table.json`.
+- `tests/template/glossary/glossary.test.ts`, with its shrinking `known-hits.json`,
+  checks the `scope` listed in `tests/template/glossary/term-table.json`.
 - That scope is kernel source, kernel tests, and the kernel's lint config.
   `src/`, the starters, and docs are review only.
 - Witnessed: [2784de0], [356cce9].

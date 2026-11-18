@@ -14,7 +14,7 @@ each pointer rather than a copy:
 - [docs/standards/](../../../docs/standards/): the guide each row links.
   [Single witness](../../../docs/standards/single-witness.md) holds lessons
   seen once.
-- [tests/lint-rules.test.ts](../../../tests/lint-rules.test.ts) for template
+- [tests/template/lint/lint-rules.test.ts](../../../tests/template/lint/lint-rules.test.ts) for template
   rules and
   [tests/kernel/lint-rules.test.ts](../../../tests/kernel/lint-rules.test.ts)
   for kernel rules: a failing and a passing snippet for each lint, each case
@@ -26,8 +26,8 @@ each pointer rather than a copy:
 - [GLOSSARY-MAP.md](../../../GLOSSARY-MAP.md): the glossary that owns each
   word. [GLOSSARY.md](../../../GLOSSARY.md) holds this repository's words,
   their Avoid words, how a note on an Avoid line is read, and the words
-  that need a qualifier. `tests/naming/recorded-hits.json` holds the names
-  check's recorded hits, and `tests/naming/recorded-unused-terms.json` the
+  that need a qualifier. `tests/template/naming/recorded-hits.json` holds the names
+  check's recorded hits, and `tests/template/naming/recorded-unused-terms.json` the
   glossary words that no tracked file uses yet.
 
 Take **Sow** when the prompt brings a correction or a review finding.
@@ -40,10 +40,10 @@ owner.
 
 A lint rule's owner decides its three files:
 
-| Owner    | Rule file                            | Turned on in                        | Cases                             |
-| -------- | ------------------------------------ | ----------------------------------- | --------------------------------- |
-| Template | `config/template-rules.mjs`          | `eslint.config.mjs`                 | `tests/lint-rules.test.ts`        |
-| Kernel   | `config/kernel-repository-rules.mjs` | `config/kernel-repository-lint.mjs` | `tests/kernel/lint-rules.test.ts` |
+| Owner    | Rule file                            | Turned on in                        | Cases                                    |
+| -------- | ------------------------------------ | ----------------------------------- | ---------------------------------------- |
+| Template | `config/template-rules.mjs`          | `eslint.config.mjs`                 | `tests/template/lint/lint-rules.test.ts` |
+| Kernel   | `config/kernel-repository-rules.mjs` | `config/kernel-repository-lint.mjs` | `tests/kernel/lint-rules.test.ts`        |
 
 - A rule both owners need has one copy per owner. Change both rule files to
   the same text, with a case in each owner's cases file.
@@ -57,9 +57,9 @@ A lint rule's owner decides its three files:
 
 Change only `CODING_STANDARDS.md`, `docs/standards/`, the six files in
 [Lint owners](#lint-owners), `eslint-suppressions.json`,
-`tests/planted-faults/` and `tests/standards/`. Weed may also change
+`tests/planted-faults/` and `tests/template/standards/`. Weed may also change
 `AGENTS.md` and `.agents/skills/`. Stake may also change `GLOSSARY.md`,
-`GLOSSARY-MAP.md` and `tests/naming/`, and may rename a path the names check
+`GLOSSARY-MAP.md` and `tests/template/naming/`, and may rename a path the names check
 refuses, with the files that refer to it. Report a change the lesson needs
 anywhere else, with its path, for that path's owner.
 
@@ -206,7 +206,7 @@ repository meets.
    - No glossary word fits what the path holds: add the word, then rename
      the path with it. A word this repository owns goes in `GLOSSARY.md`, in
      the form its entries use. When no tracked file uses it yet, list it in
-     `tests/naming/recorded-unused-terms.json` with its reason and its
+     `tests/template/naming/recorded-unused-terms.json` with its reason and its
      ticket. Report a word another glossary should own, for the owner
      `GLOSSARY-MAP.md` names.
    - The name is older than the glossary rule that refuses it, and its

@@ -21,14 +21,14 @@ gates and their witnesses.
 
 ## Import coverage
 
-- `tests/standards/coverage-gaps.test.ts` runs
+- `tests/template/standards/coverage-gaps.test.ts` runs
   `fallow health --coverage-gaps` and refuses each runtime file, and each
   export of one, that no test reaches by import, unless
-  `tests/standards/coverage-gaps-recorded-hits.json` records it. It also
+  `tests/template/standards/coverage-gaps-recorded-hits.json` records it. It also
   refuses a recorded hit that fallow no longer reports, so the list only
   shrinks. The `test` job runs it through `bun run test`, in three shards.
 - It leaves out the kernel's paths: `kernel/`, `tests/kernel/`,
-  `tests/glossary/` and `config/kernel-repository-rules.mjs`.
+  `tests/template/glossary/` and `config/kernel-repository-rules.mjs`.
 - Fault `aaedd58-doctor` adds to `scripts/doctor.ts` an exported `doneLine`
   that only the spawned doctor calls; the test refuses it.
 - Review only: a test that imports a function but never calls it, or calls

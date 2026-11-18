@@ -9,7 +9,11 @@ export const commentCases = [
     "// A workaround until the parser is fixed:\n// it drops the last token.\nexport const a = 1;",
     [1],
   ],
-  ["tests/doctor.test.ts", "/* Narration */ export const a = 1;", [1]],
+  [
+    "tests/template/doctor/doctor.test.ts",
+    "/* Narration */ export const a = 1;",
+    [1],
+  ],
   [
     "src/static-admission.ts",
     "/** Adds one. */\nexport const add = (n: number) => n + 1;",
@@ -68,7 +72,7 @@ export const commentCases = [
     [],
   ],
   [
-    "tests/doctor.test.ts",
+    "tests/template/doctor/doctor.test.ts",
     "// The accepted\n// decision N4a keeps the line on stdout.\nexport const a = 1;",
     [],
   ],
