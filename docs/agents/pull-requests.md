@@ -8,7 +8,7 @@
   reviews are optional for GitHub's merge gate.
 - After each review request, push nothing until every requested review for
   that head has arrived. A CodeRabbit check that reads "Review rate limited"
-  counts as its review; a Copilot review must arrive. A push during a review
+  counts as CodeRabbit's review. A push during a review
   cancels it or leaves it reviewing an old commit. If a requested review has
   not arrived after 30 minutes, request it once more, then ask the operator.
 - Only the pull request's author pushes to its branch. Leave the review
