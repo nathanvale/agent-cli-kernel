@@ -1,6 +1,7 @@
 import { afterAll, expect, test } from "bun:test";
 import { symlinkSync } from "node:fs";
 import { join } from "node:path";
+import { stripVTControlCharacters } from "node:util";
 import { processWatchdog } from "../../support/process.ts";
 import {
   fixtureRepository,
@@ -84,4 +85,51 @@ test(
     });
   },
   processWatchdog(7),
+);
+
+test(
+  "PC.c the pre-commit type check uses the staged contents of a partially staged file",
+  async () => {
+    const tree = await treeWithCommitHook();
+    const path = "src/index.ts";
+    const valid = "export const value: number = 1;\n";
+    const invalid = 'export const value: number = "one";\n';
+    write(
+      tree,
+      "eslint.config.mjs",
+      'import { parser } from "typescript-eslint";\n\nexport default [{ files: ["**/*.ts"], languageOptions: { parser } }];\n',
+    );
+    write(
+      tree,
+      "tsconfig.json",
+      '{\n\t"compilerOptions": { "types": [] },\n\t"files": ["src/index.ts"]\n}\n',
+    );
+    write(tree, path, invalid);
+    await git(tree, "add", "--", "eslint.config.mjs", "tsconfig.json", path);
+    write(tree, path, valid);
+
+    const refused = await gitOutcome(tree, "commit", "--quiet", "-m", "value");
+    expect(refused.exit).toBe(1);
+    expect(refused.stderr).toContain(
+      "pre-commit: TypeScript rejected the staged tree (above). Repair: fix the type errors and stage the repaired files. Done when git commit passes the staged type check.",
+    );
+    expect(stripVTControlCharacters(refused.stderr)).toContain(
+      "error TS2322: Type 'string' is not assignable to type 'number'.",
+    );
+    expect(await commitCount(tree)).toBe("1");
+    expect(await gitOutcome(tree, "show", `:${path}`)).toMatchObject({
+      exit: 0,
+      stdout: invalid,
+    });
+
+    await git(tree, "add", "--", path);
+    write(tree, path, invalid);
+    await git(tree, "commit", "--quiet", "-m", "value");
+    expect(await gitOutcome(tree, "show", `HEAD:${path}`)).toMatchObject({
+      exit: 0,
+      stdout: valid,
+    });
+    expect(await Bun.file(join(tree, path)).text()).toBe(invalid);
+  },
+  processWatchdog(11),
 );
