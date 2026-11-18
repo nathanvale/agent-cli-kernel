@@ -463,6 +463,25 @@ describe("faultsTouchedSince", () => {
     expect(result).toEqual([id]);
   });
 
+  test("names a fault whose patch deletes a whole file when only that file changed", async () => {
+    const { root } = twoFaults();
+    commit(root, "delete other", {
+      [other.patch]: `diff --git a/src/other.ts b/src/other.ts
+deleted file mode 100644
+--- a/src/other.ts
++++ /dev/null
+@@ -1 +0,0 @@
+-export const other = 2;
+`,
+    });
+    const deleting = headOf(root);
+    commit(root, "change other", {
+      "src/other.ts": "export const other = 3;\n",
+    });
+    const { result } = await isolated(() => faultsTouchedSince(root, deleting));
+    expect(result).toEqual([other.id]);
+  });
+
   test("names a fault whose record changed, though no file it names did", async () => {
     const { root, id, fault, base } = twoFaults();
     recorded(root, [{ ...fault, title: "^L\\.weak " }, other]);
