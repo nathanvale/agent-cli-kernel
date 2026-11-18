@@ -43,11 +43,11 @@ Preconditions:
   and `pre-commit: lint errors above. Repair: correct each one in code, stage the change, and commit again. Done when bun run lint passes.`
 - **Red, Fallow.** Record `hook-red-fallow`: rename `UNCOPIED_NAMES` to
   `SKIPPED_NAMES` with `sed` in `src/recipe.ts`, `src/bootstrap.ts` and
-  `tests/recipe.test.ts`, stage only `src/recipe.ts`, and commit. Exit 1;
+  `tests/template/bootstrap/recipe.test.ts`, stage only `src/recipe.ts`, and commit. Exit 1;
   stderr lists `Unused exports (1)` with `:34 SKIPPED_NAMES` and
   `pre-commit: fallow found new problems in the staged changes (above).`
   Restore with `git restore --staged -- src/recipe.ts` and
-  `git checkout -- src/recipe.ts src/bootstrap.ts tests/recipe.test.ts`.
+  `git checkout -- src/recipe.ts src/bootstrap.ts tests/template/bootstrap/recipe.test.ts`.
 - **Green.** Record `hook-green`:
   `printf "# Verify note\n\nA note the verification run commits.\n" > docs/verify-note.md && git add -- docs/verify-note.md && git commit -q -m "docs: add a verification note" && git log --oneline -1`.
   Exit 0; stdout names the new commit.
