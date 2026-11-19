@@ -71,8 +71,9 @@ row's guide or gate note cites two distinct witnesses.
 
 - `.github/workflows/ci.yml` runs on every pull request.
 - `R1.platform-outcomes-pinned` pins unproved diagnostics rows only.
-- State `caseTest` titles can show `UNPROVED` off their platform; only the
-  in-process state cases are pinned (fault `a0d17cc-in-process-control`).
+- State `caseTest` and `supportingTest` cases can go unproved off their
+  platform; only the in-process ones are pinned, as Platform Parity says
+  (fault `a0d17cc-in-process-control`).
 - `tests/kernel/approval/component.test.ts` still reports unproved cases
   through `test.skip`.
 - `.github/workflows/macos-nightly.yml` runs on schedule once it reaches
