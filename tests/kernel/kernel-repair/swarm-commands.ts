@@ -83,6 +83,76 @@ export function titledShow() {
   });
 }
 
+const optional = { aliases: [], required: false, repeatable: false } as const;
+
+export function slotShow() {
+  return command({
+    identity: "x.show",
+    route: ["show"],
+    summary: "Show a title.",
+    input: {
+      ...emptyInput,
+      arguments: [
+        {
+          name: "item",
+          summary: "Probe item.",
+          required: false,
+          value: text(12, "[a-z]+"),
+        },
+      ],
+      options: [
+        {
+          ...optional,
+          name: "--title",
+          aliases: ["-t"],
+          summary: "Title.",
+          required: true,
+          value: text(20, null),
+        },
+        {
+          ...optional,
+          name: "--tag",
+          summary: "Tag.",
+          repeatable: true,
+          value: text(20, null),
+        },
+        {
+          ...optional,
+          name: "--mode",
+          summary: "Probe mode.",
+          value: {
+            kind: "string",
+            minLength: 1,
+            maxLength: 1,
+            choices: ["a", "b"],
+            pattern: null,
+          },
+        },
+        {
+          ...optional,
+          name: "--count",
+          summary: "Probe count.",
+          value: { kind: "integer", minimum: 1, maximum: 9 },
+        },
+        { ...optional, name: "--flag", summary: "Probe flag.", value: null },
+      ],
+    },
+    capabilities: {},
+    run: readsUnchanged("x.show"),
+  });
+}
+
+export function bareList() {
+  return command({
+    identity: "x.list",
+    route: ["list"],
+    summary: "List titles.",
+    input: emptyInput,
+    capabilities: {},
+    run: readsUnchanged("x.list"),
+  });
+}
+
 export function filterShow() {
   return command({
     identity: "x.show",
@@ -268,6 +338,7 @@ export const scenarios: Readonly<Record<string, () => object>> = {
     }),
   "schema-station": schemaLoad,
   "default-words": () => contractFor({ cli: "x", commands: [deadlineRead()] }),
+  slots: () => contractFor({ cli: "x", commands: [slotShow(), bareList()] }),
   "json-after-delimiter": () =>
     contractFor({ cli: "x", commands: [filterShow(), go(["--", "--json"])] }),
 };
