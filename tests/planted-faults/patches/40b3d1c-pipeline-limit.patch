@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/diagnostics/pipeline.ts b/kernel/src/addons/diagnostics/pipeline.ts
+index 92bb858..f73d634 100644
+--- a/kernel/src/addons/diagnostics/pipeline.ts
++++ b/kernel/src/addons/diagnostics/pipeline.ts
+@@ -18,7 +18,7 @@ const unmapped = Object.freeze({});
+ // when, and only when, a limit was exceeded, so the run reads that replacement
+ // as its own report.
+ function exceededRedactionLimit(record: LogRecord): boolean {
+-  return record.message[3] !== unmapped;
++  return record.message[3] === undefined;
+ }
+ 
+ // Interface: One run's own chain: a LogTape record, LogTape field redaction,
