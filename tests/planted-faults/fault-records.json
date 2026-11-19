@@ -1125,5 +1125,12 @@
     "testFile": "tests/kernel/lifecycle/in-process.test.ts",
     "title": "IP08\\.attached-never-entered",
     "source": "7fb5649 fix(kernel): keep a forgotten run's capability closed"
+  },
+  {
+    "id": "d62870c-in-process-rejected",
+    "patch": "tests/planted-faults/patches/d62870c-lifecycle-rejected.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP08\\.rejected-run-forgets",
+    "source": "d62870c feat(kernel): forget an in-process run identity when its run finishes"
   }
 ]
