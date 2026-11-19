@@ -511,14 +511,13 @@ const unreadable: readonly (readonly [string, string, string])[] = [
             {
               id: indexOnly.id,
               result: "not-runnable",
-              detail: "runs only through index.ts",
             },
           ],
         },
         run("index.ts"),
       ],
     }),
-    "runs[0].cases[0] has fields [detail, id, result], not [id, reason, result]",
+    "runs[0].cases[0] has fields [id, result], not [id, reason, result]",
   ],
   [
     "a not-runnable case that also carries a detail",
@@ -562,7 +561,7 @@ for (const [shape, text, why] of unreadable)
     ]);
   });
 
-test("Q03.a requires K11.f in the first run of a record made while the case table holds it", () => {
+test("Q03.a requires K11.f in both runs once the case table holds it", () => {
   const k11f = {
     ...both,
     id: "K11.f-record-hidden-in-torn-tail-refuses",

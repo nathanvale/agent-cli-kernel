@@ -632,7 +632,7 @@ test(
 );
 
 test(
-  "an index.ts capability qualification run appends to the record its fixture.ts run wrote",
+  "an index.ts capability qualification run appends to the record its fixture.ts run wrote, and Q03.a accepts the pair",
   async () => {
     const world = checkout();
     expect(await world.run()).toBe(0);
