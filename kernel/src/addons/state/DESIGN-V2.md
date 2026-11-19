@@ -166,8 +166,9 @@ own publication (step 6) and before it releases the admission lock (step 7).
 A refused admission never reaches that point, so a refusal moves nothing.
 
 The mover examines at most 64 settled cases per hold of the admission lock,
-in the order step 4 read them, whether or not each one moves. A case moves
-only when all hold:
+moved or not. It starts at a random place in the list step 4 read and wraps
+round, so a case that stays ineligible cannot hold every later case back
+for good. A case moves only when all hold:
 
 1. Its status is `completed`, `not-applied` or `closed`, with no damaged
    closure.
@@ -187,13 +188,17 @@ the admission lock, so nothing comes between the check and the rename.
 
 - At most 64 moves per hold of the admission lock, as the default (decided
   by Nathan, 19 November 2026). The extra work under the lock is then at
-  most 64 eligibility checks (two non-blocking opens each), 64 renames and
-  two directory flushes. Step 4's read of `operations/` is version 1's
-  existing cost; with version 2 it covers unresolved cases and settled cases
-  not yet moved. Version 1 sizes the 2,000 ms wait for a hold of
-  milliseconds. Whether this stays inside it is not measured yet: the code
-  review measures one admission against 64 moved and 64 refused candidates
-  before the number is relied on.
+  most 64 eligibility checks (two non-blocking opens and one existence check
+  each), 64 renames and two directory flushes. Step 4's read of
+  `operations/` is version 1's existing cost and stays unbounded; with
+  version 2 it covers unresolved cases and settled cases not yet moved, so
+  it shrinks as a backlog drains. Version 1 sizes the 2,000 ms wait for a
+  hold of milliseconds. Whether this stays inside it is not measured yet:
+  the code review times one admission, step 4's read included, against a
+  just-upgraded backlog of settled cases and against 64 moved and 64
+  ineligible candidates, before the number is relied on.
+- A move across a bind mount of the same filesystem fails with `EXDEV`
+  although the device matches; it is a failed move like any other.
 - A move that fails (a rename or a directory flush error) does not change
   the admission's outcome. Publication is already done, so the transaction
   goes on and its result reports what happened to its own effects. The
@@ -319,5 +324,5 @@ Each is one decision with one recommendation.
   drops requests from an owner that has gone), or the host's observer must
   answer `unobservable` for that operation while such work may still be
   pending. Otherwise a free lease and a matching row could close a case
-  whose work is still running. Case K11.g proves the obligation with a
-  test host.
+  whose work is still running. The kernel has nothing to check here: each
+  host proves this obligation, both of its branches, in its own tests.
