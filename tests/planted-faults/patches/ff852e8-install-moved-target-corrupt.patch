@@ -1,8 +1,8 @@
 diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
-index b73928f..ef6edea 100644
+index 30bb3d7..3222e07 100644
 --- a/kernel/src/addons/state/install.ts
 +++ b/kernel/src/addons/state/install.ts
-@@ -1198,7 +1198,7 @@ export function install(options: StateOptions, seams: Seams) {
+@@ -1208,7 +1208,7 @@ export function install(options: StateOptions, seams: Seams) {
          ok: false,
          stop:
            typeof moved === "string"

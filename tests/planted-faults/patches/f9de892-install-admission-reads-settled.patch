@@ -1,5 +1,5 @@
 diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
-index b73928f..6a6e464 100644
+index 30bb3d7..b7f5312 100644
 --- a/kernel/src/addons/state/install.ts
 +++ b/kernel/src/addons/state/install.ts
 @@ -1,4 +1,5 @@
@@ -8,11 +8,11 @@ index b73928f..6a6e464 100644
  import { join } from "node:path";
  import { contractFor } from "../../kernel/index.ts";
  import type {
-@@ -774,6 +775,7 @@ export function install(options: StateOptions, seams: Seams) {
-     } catch {
-       upgraded = false;
-     }
+@@ -771,6 +772,7 @@ export function install(options: StateOptions, seams: Seams) {
+       held.admission.release();
+     };
+     const upgradeProblem = await upgradeStore(paths, phase);
 +    readdirSync(paths.settled);
      const store = readStore(paths);
-     const refusal: Refusal | undefined = !upgraded
-       ? { kind: "unavailable", reason: "store-upgrade" }
+     const refusal: Refusal | undefined = upgradeProblem
+       ? { kind: "unavailable", reason: upgradeProblem }

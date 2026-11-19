@@ -1,8 +1,8 @@
 diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
-index b73928f..923a9a7 100644
+index 30bb3d7..88eb26b 100644
 --- a/kernel/src/addons/state/install.ts
 +++ b/kernel/src/addons/state/install.ts
-@@ -1191,7 +1191,7 @@ export function install(options: StateOptions, seams: Seams) {
+@@ -1201,7 +1201,7 @@ export function install(options: StateOptions, seams: Seams) {
      const target = admitted.operations.find(
        (operation) => operation.intent.operationId === id,
      );
