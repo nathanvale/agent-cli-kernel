@@ -329,57 +329,6 @@ export function closeArgs(
   ];
 }
 
-const versionOneCommit = "8b4ed49ed7beea9c2db182ea81ac22f3c207e458";
-
-const versionOneReader = `import { ensureStore, layout, readStore } from "./store.ts";
-const paths = layout(process.argv[2] ?? "");
-const read = readStore(paths);
-console.log(JSON.stringify({
-  read: read.ok
-    ? read.operations.map((operation) => operation.status).sort()
-    : read.reason,
-  changing: ensureStore(paths),
-}));
-`;
-
-export function versionOneProgram(root: string): Json {
-  const folder = testFolder("c3-state-v1-");
-  try {
-    for (const file of ["store.ts", "framing.ts"]) {
-      const shown = Bun.spawnSync(
-        ["git", "show", `${versionOneCommit}:kernel/src/addons/state/${file}`],
-        {
-          cwd: import.meta.dir,
-          stdin: "ignore",
-          stdout: "pipe",
-          stderr: "pipe",
-          timeout: 4_000,
-        },
-      );
-      if (shown.exitCode !== 0)
-        throw new Error(
-          `git show ${versionOneCommit} ${file} failed: ${shown.stderr.toString()}`,
-        );
-      writeFileSync(join(folder, file), shown.stdout);
-    }
-    writeFileSync(join(folder, "reader.ts"), versionOneReader);
-    const ran = Bun.spawnSync(
-      [process.execPath, join(folder, "reader.ts"), root],
-      {
-        stdin: "ignore",
-        stdout: "pipe",
-        stderr: "pipe",
-        timeout: 30_000,
-      },
-    );
-    if (ran.exitCode !== 0)
-      throw new Error(`The version 1 reader failed: ${ran.stderr.toString()}`);
-    return json(JSON.parse(ran.stdout.toString()));
-  } finally {
-    rmSync(folder, { recursive: true, force: true });
-  }
-}
-
 export type Observed = {
   readonly id: string;
   readonly intent: { [key: string]: Json };
@@ -410,6 +359,38 @@ export function readOperations(
           : undefined,
       };
     });
+}
+
+export function versionOneReader(root: string): Json {
+  const format = readFramed(readFileSync(join(root, "format")));
+  const [record, ...rest] = format.records;
+  const accepted =
+    !format.torn &&
+    !format.corrupt &&
+    rest.length === 0 &&
+    record?.kind === "format" &&
+    record.payload.journal === journals.one;
+  if (!accepted) return "corrupt";
+  const operations = readOperations(root);
+  if (operations.some((operation) => operation.events.corrupt))
+    return "corrupt";
+  return operations.map(versionOneStatus).sort();
+}
+
+function versionOneStatus(operation: Observed): string {
+  const closure = operation.closure;
+  if (
+    closure &&
+    !closure.torn &&
+    !closure.corrupt &&
+    closure.records.length === 1 &&
+    closure.records[0]?.kind === "closure"
+  )
+    return "closed";
+  const own = operation.events.records.find(
+    (record) => record.kind === "completion" || record.kind === "not-applied",
+  );
+  return own?.kind === "completion" ? "completed" : (own?.kind ?? "unresolved");
 }
 
 export type Started = {
