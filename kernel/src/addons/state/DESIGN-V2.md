@@ -1,11 +1,12 @@
 # State add-on: journal version 2 design, part 1 of 3 (version, layout, moving settled cases, decisions and open points)
 
-Status: proposed, not reviewed. This note proposes journal version 2 of the
-state add-on. Version 1 is [DESIGN.md](DESIGN.md); it stays frozen and
-unchanged, and wherever this note is silent, version 1 holds. Code follows
-this note after its review, never the reverse. Nathan decided several of its
-points on 19 November 2026 at 12:08; section 8 lists them apart from the
-points still open.
+Status: accepted (Nathan, 19 November 2026, 13:21 AEDT). This note
+specifies journal version 2 of the state add-on. Version 1 is
+[DESIGN.md](DESIGN.md); it stays frozen and unchanged, and wherever this
+note is silent, version 1 holds. Code follows this note, never the reverse.
+The points in section 8.3 are still open: each keeps its recommendation
+until Nathan decides it, and code that depends on one waits for that
+decision.
 
 In this note a host is the tool built on the kernel. The machine or virtual
 machine a container runs on is the container machine.
@@ -243,7 +244,7 @@ Points this note found that the later version must answer:
 
 ## 8. Decisions and open points
 
-### 8.1 Decided by Nathan, 19 November 2026, 12:08
+### 8.1 Decided by Nathan, 19 November 2026, 12:08 and 12:15
 
 - 0: One note covers both items.
 - A, D and H: Only the move into `settled/` ships in version 2. Deleting
@@ -264,6 +265,8 @@ Points this note found that the later version must answer:
   Nathan countersigns it; the row names both and the date.
 - V: Sharing one state root between containers is dropped. One state root
   belongs to one machine.
+- Wording (12:15): a case that needs no more recovery is a settled case, in
+  the folder `settled/`.
 
 ### 8.2 Withdrawn by this note
 
@@ -295,8 +298,12 @@ Each is one decision with one recommendation.
   release recorded on the row.
 - L: Recommend a free lease is enough after a torn tail, once the
   transaction waits for its started effects (part 2 section 4).
-- M: Recommend the run record lives at
-  `tests/kernel/state/qualification/<row id>.json`.
+- M: The names of the qualification command, its run record and the
+  record's folder. This note calls them `qualify:state`, a run record and
+  `tests/kernel/state/qualification/<row id>.json`, but "qualification" is
+  only a proposed word in the Agent ecosystem glossary, and file and folder
+  names must use glossary words. Recommend Nathan accepts names for the
+  command, the record and its folder before the slice that adds them.
 - P: The boot identity names no machine (REC-7 asks identity to distinguish
   "host/boot identity"). Recommend listing a state root moved between
   machines as unsupported in each row's `failureCases`, not recording a

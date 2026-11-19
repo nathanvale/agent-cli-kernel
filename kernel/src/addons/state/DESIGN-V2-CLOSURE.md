@@ -1,6 +1,7 @@
 # State add-on: journal version 2 design, part 2 of 3 (closing a crashed case in production)
 
-Status: proposed, not reviewed. Read [DESIGN-V2.md](DESIGN-V2.md) first: it
+Status: accepted (Nathan, 19 November 2026, 13:21 AEDT). Read
+[DESIGN-V2.md](DESIGN-V2.md) first: it
 holds the status, the source of the clause quotes, the section map and the
 store format. This part changes version 1 sections 7.2 and 10 of
 [DESIGN.md](DESIGN.md), and adds to sections 4.3 and 8. That note stays
@@ -117,7 +118,8 @@ Row fields:
 | `failureCases`       | what the row does not cover                                                                            | no                  |
 | `evidence`           | `{ record, review }`: the record's path; the reviewing session, Nathan's countersignature and the date | checked by a test   |
 
-One repeatable command (proposed name `bun run qualify:state`) runs the
+One repeatable command (working name `bun run qualify:state`; open point M)
+runs the
 stopped-owner cases on the platform and writes the record, in two runs:
 
 - First run: it supplies the candidate row through the labelled test entry,
@@ -137,7 +139,7 @@ stopped-owner cases on the platform and writes the record, in two runs:
   overridden release, filesystem or boot identity proves nothing about the
   platform.
 - It writes the record to a temporary name and renames it, so a killed run
-  leaves no record. Proposed place:
+  leaves no record. Working place (open point M):
   `tests/kernel/state/qualification/<row id>.json`.
 
 Record fields:
