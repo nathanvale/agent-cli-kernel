@@ -141,8 +141,26 @@ describe("IP01 the in-process entry returns each run's result", () => {
   test(
     "IP01.no-exit-after-run two runs in sequence each return their own envelope",
     async () => {
+      const recorder = recordingHost();
+      const controls: RunControl[] = [];
+      const subject = holding(recorder, { controls });
+      const first = await subject.run(["hold", "--json"]);
+      const second = await subject.run(["hold"]);
       await turns();
-      expect(recordingHost().exits).toEqual([]);
+      expect(recorder.exits).toEqual([]);
+      expect(recorder.writes).toEqual([]);
+      for (const value of [first, second]) {
+        if (value.kind !== "envelope")
+          throw new Error(`Expected an envelope, got ${value.kind}.`);
+        expect(value.exitCode).toBe(0);
+        expect(value.envelope.result.causeCode).toBe("SUCCESS_UNCHANGED");
+        expect(value.envelope.result.runId).toBe(value.runId);
+      }
+      expect(first.runId).not.toBe(second.runId);
+      expect(controls.map((control) => control.runId)).toEqual([
+        first.runId,
+        second.runId,
+      ]);
     },
     timeout,
   );
