@@ -1,0 +1,19 @@
+diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
+index 696430c..0d3d6da 100644
+--- a/kernel/src/kernel/lifecycle.ts
++++ b/kernel/src/kernel/lifecycle.ts
+@@ -636,11 +636,12 @@ async function runDeclaredCommand(
+   if (run.stopped) return undefined;
+   if (expired(run, deadlineAt)) return beforeStart(run, identity);
+   run.phase = "handler-entered";
+-  const execution: Promise<Execution> = attached.enter().then(
++  const entered = attached.enter();
++  const execution: Promise<Execution> = entered.then(
+     (outcome) => ({ kind: "returned", outcome }) as const,
+     () => ({ kind: "threw" }) as const,
+   );
+-  run.execution = execution;
++  run.execution = entered.then(() => execution);
+   const first =
+     deadlineAt === undefined
+       ? await execution

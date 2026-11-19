@@ -19,7 +19,12 @@ import {
   shell,
   turns,
 } from "./recording-host.ts";
-import { overLimitBoundary, timerLimit } from "./oracle.ts";
+import {
+  exactStopBound,
+  overLimitBoundary,
+  stopSettleLimit,
+  timerLimit,
+} from "./oracle.ts";
 
 const cancellationWait = 500;
 
@@ -166,8 +171,6 @@ describe("the handler's abort signal at a deadline", () => {
     });
 });
 
-const stopBoundMilliseconds = 450;
-const addonSettleLimit = 300;
 const stops = [
   ["SIGTERM", 143],
   ["SIGINT", 130],
@@ -241,7 +244,7 @@ async function heldUntilStop(
     },
     async finish() {
       released.resolve();
-      await advance(stopBoundMilliseconds);
+      await advance(exactStopBound);
       jest.useRealTimers();
       await done;
     },
@@ -250,7 +253,7 @@ async function heldUntilStop(
 
 describe("a stop request waits for the handler inside the stop bound", () => {
   for (const [signal, code] of stops)
-    for (const cleanUp of [0, 200, stopBoundMilliseconds - 1])
+    for (const cleanUp of [0, 200, exactStopBound - 1])
       test(`a stop request on ${signal} waits through a ${String(cleanUp)} ms handler clean-up, then exits ${String(code)} with nothing written`, async () => {
         const seen: string[] = [];
         const run = await heldUntilStop(async (abortSignal, released) => {
@@ -298,25 +301,25 @@ describe("a stop request waits for the handler inside the stop bound", () => {
     });
 
   for (const [signal, code] of stops)
-    test(`a handler that never ends is cut off at the ${String(stopBoundMilliseconds)} ms stop bound on ${signal}, exiting ${String(code)}`, async () => {
+    test(`a handler that never ends is cut off at the ${String(exactStopBound)} ms stop bound on ${signal}, exiting ${String(code)}`, async () => {
       const run = await heldUntilStop((_signal, released) => released);
       try {
         const sentAt = run.stop(signal);
-        await run.expectExitAt(sentAt, stopBoundMilliseconds, code);
+        await run.expectExitAt(sentAt, exactStopBound, code);
       } finally {
         await run.finish();
       }
     });
 
   for (const [signal, code] of stops)
-    test(`a handler that never ends beside an add-on that settles at its ${String(addonSettleLimit)} ms limit exits ${String(code)} at the ${String(stopBoundMilliseconds)} ms stop bound on ${signal}`, async () => {
+    test(`a handler that never ends beside an add-on that settles at its ${String(stopSettleLimit)} ms limit exits ${String(code)} at the ${String(exactStopBound)} ms stop bound on ${signal}`, async () => {
       const run = await heldUntilStop(async (_signal, released, programs) => {
         await programs.inspect(shell("exit 0")).catch(() => undefined);
         await released;
       }, slowSettlingPrograms());
       try {
         const sentAt = run.stop(signal);
-        await run.expectExitAt(sentAt, stopBoundMilliseconds, code);
+        await run.expectExitAt(sentAt, exactStopBound, code);
       } finally {
         await run.finish();
       }

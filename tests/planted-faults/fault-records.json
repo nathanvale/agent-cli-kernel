@@ -964,5 +964,12 @@
     "testFile": "tests/kernel/lifecycle/timers.test.ts",
     "title": "a second stop request \\(SIG[A-Z]+ after SIG[A-Z]+\\) while the handler is awaited exits",
     "source": "82f5feb fix(kernel): wait for the handler after the first stop request"
+  },
+  {
+    "id": "82f5feb-lifecycle-raw",
+    "patch": "tests/planted-faults/patches/82f5feb-lifecycle-raw.patch",
+    "testFile": "tests/kernel/lifecycle/timers.test.ts",
+    "title": "a handler that throws in its clean-up at 200 ms",
+    "source": "82f5feb fix(kernel): wait for the handler after the first stop request"
   }
 ]

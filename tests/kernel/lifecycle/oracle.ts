@@ -14,6 +14,8 @@ export const tolerance = 100;
 export const killObservationTolerance = 30;
 
 export const stopBound = 500;
+export const exactStopBound = 450;
+export const stopSettleLimit = 300;
 export const flushBound = 500;
 
 export const unchangedEffects = {
