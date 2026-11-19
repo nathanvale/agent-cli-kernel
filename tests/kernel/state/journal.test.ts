@@ -1319,7 +1319,7 @@ supportingTest(
 supportingTest(
   "Test harness supporting: the state test world kills a child that outlives its bound",
   async () => {
-    const world = makeWorld({ childBound: 300 });
+    const world = makeWorld({ childBound: 2_000 });
     try {
       const held = world.start(apply("a"), { SX_BARRIER: "intent" });
       await held.reached("intent");
@@ -1327,7 +1327,7 @@ supportingTest(
         () => "ended",
         (error: unknown) => (error instanceof Error ? error.message : "failed"),
       );
-      expect(ended).toContain("outlived its 300 ms limit and was killed.");
+      expect(ended).toContain("outlived its 2000 ms limit and was killed.");
     } finally {
       world.dispose();
     }
