@@ -1,0 +1,12 @@
+diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
+index 00f55b6..dee7952 100644
+--- a/kernel/src/kernel/lifecycle.ts
++++ b/kernel/src/kernel/lifecycle.ts
+@@ -986,7 +986,6 @@ async function runAndReturn(
+   listener: OnCrash | undefined,
+ ): Promise<InProcessResult> {
+   const inFlight = inFlightOn(run.host);
+-  if (inFlight.crash !== "none") return untilExit;
+   if (listener) inFlight.listeners.add(listener);
+   run.stopped = inFlight.stopped;
+   inFlight.runs.add(run);

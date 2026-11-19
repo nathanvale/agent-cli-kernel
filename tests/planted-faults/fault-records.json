@@ -1209,5 +1209,47 @@
     "testFile": "tests/kernel/state/in-process.test.ts",
     "title": "IP06\\.on-crash-hears-error",
     "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "68a85f3-in-process-crash-print",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-print.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.listener-after-records",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "20e8187-in-process-crash-abort",
+    "patch": "tests/planted-faults/patches/20e8187-lifecycle-abort.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.listener-after-records",
+    "source": "20e8187 fix(kernel): let a crash decide the exit and abort runs during its wait"
+  },
+  {
+    "id": "20e8187-in-process-crash-signal",
+    "patch": "tests/planted-faults/patches/20e8187-lifecycle-signal.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.signal-during-wait",
+    "source": "20e8187 fix(kernel): let a crash decide the exit and abort runs during its wait"
+  },
+  {
+    "id": "20e8187-in-process-crash-stop-exit",
+    "patch": "tests/planted-faults/patches/20e8187-lifecycle-stop-exit.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.crash-during-stop",
+    "source": "20e8187 fix(kernel): let a crash decide the exit and abort runs during its wait"
+  },
+  {
+    "id": "20e8187-in-process-crash-pending",
+    "patch": "tests/planted-faults/patches/20e8187-lifecycle-pending.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.call-during-wait",
+    "source": "20e8187 fix(kernel): let a crash decide the exit and abort runs during its wait"
+  },
+  {
+    "id": "20e8187-in-process-crash-reason",
+    "patch": "tests/planted-faults/patches/20e8187-process-host-reason.patch",
+    "testFile": "tests/kernel/state/in-process.test.ts",
+    "title": "IP06\\.on-crash-hears-rejection",
+    "source": "20e8187 fix(kernel): let a crash decide the exit and abort runs during its wait"
   }
 ]
