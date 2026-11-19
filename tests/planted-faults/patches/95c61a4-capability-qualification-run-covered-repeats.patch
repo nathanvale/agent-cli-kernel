@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index 45909ab..d2cd53d 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -262,7 +262,7 @@ export function reportedTwice(
+   for (const [name] of reportedList(junit)) {
+     const id = name.split(" ")[0] ?? name;
+     const reads = name === id || name.startsWith(`${id} UNPROVED`);
+-    if (!covered.has(id) || !reads) continue;
++    if (!reads) continue;
+     if (seen.has(id)) twice.add(id);
+     seen.add(id);
+   }

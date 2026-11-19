@@ -2168,5 +2168,82 @@
     "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
     "title": "^Q03.a refuses a record with a list for the record",
     "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "95c61a4-capability-qualification-run-env-file",
+    "patch": "tests/planted-faults/patches/95c61a4-capability-qualification-run-env-file.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run.s own case runner loads only the files",
+    "source": "95c61a4 fix(state): settle the kernel-reviewer pass on the Sol fixes"
+  },
+  {
+    "id": "95c61a4-capability-qualification-run-covered-repeats",
+    "patch": "tests/planted-faults/patches/95c61a4-capability-qualification-run-covered-repeats.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^a capability qualification run ignores a repeated test name that is not a covered case",
+    "source": "95c61a4 fix(state): settle the kernel-reviewer pass on the Sol fixes"
+  },
+  {
+    "id": "95c61a4-capability-qualification-run-sha1-only",
+    "patch": "tests/planted-faults/patches/95c61a4-capability-qualification-run-sha1-only.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run refuses a repository that is not sha1",
+    "source": "95c61a4 fix(state): settle the kernel-reviewer pass on the Sol fixes"
+  },
+  {
+    "id": "95c61a4-capability-qualification-run-link-bytes",
+    "patch": "tests/planted-faults/patches/95c61a4-capability-qualification-run-link-bytes.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^a fixture.ts capability qualification run writes the record the design names",
+    "source": "95c61a4 fix(state): settle the kernel-reviewer pass on the Sol fixes"
+  },
+  {
+    "id": "95c61a4-capability-qualification-run-missing-file",
+    "patch": "tests/planted-faults/patches/95c61a4-capability-qualification-run-missing-file.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run refuses a deleted tracked file",
+    "source": "95c61a4 fix(state): settle the kernel-reviewer pass on the Sol fixes"
+  },
+  {
+    "id": "95c61a4-capability-qualification-run-not-a-link",
+    "patch": "tests/planted-faults/patches/95c61a4-capability-qualification-run-not-a-link.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run refuses a tracked link replaced by a folder",
+    "source": "95c61a4 fix(state): settle the kernel-reviewer pass on the Sol fixes"
+  },
+  {
+    "id": "95c61a4-capability-qualification-run-not-a-file",
+    "patch": "tests/planted-faults/patches/95c61a4-capability-qualification-run-not-a-file.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run refuses a tracked file replaced by a folder",
+    "source": "95c61a4 fix(state): settle the kernel-reviewer pass on the Sol fixes"
+  },
+  {
+    "id": "95c61a4-capability-qualification-run-distribution-cap",
+    "patch": "tests/planted-faults/patches/95c61a4-capability-qualification-run-distribution-cap.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^a capability qualification record names the distribution",
+    "source": "95c61a4 fix(state): settle the kernel-reviewer pass on the Sol fixes"
+  },
+  {
+    "id": "95c61a4-capability-qualification-run-exit-code-reported",
+    "patch": "tests/planted-faults/patches/95c61a4-capability-qualification-run-exit-code-reported.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run.s own case runner loads only the files",
+    "source": "95c61a4 fix(state): settle the kernel-reviewer pass on the Sol fixes"
+  },
+  {
+    "id": "95c61a4-capability-qualification-run-git-bound-size",
+    "patch": "tests/planted-faults/patches/95c61a4-capability-qualification-run-git-bound-size.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run bounds each git read",
+    "source": "95c61a4 fix(state): settle the kernel-reviewer pass on the Sol fixes"
+  },
+  {
+    "id": "95c61a4-capability-qualification-record-one-of",
+    "patch": "tests/planted-faults/patches/95c61a4-capability-qualification-record-one-of.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a record with an unknown",
+    "source": "95c61a4 fix(state): settle the kernel-reviewer pass on the Sol fixes"
   }
 ]

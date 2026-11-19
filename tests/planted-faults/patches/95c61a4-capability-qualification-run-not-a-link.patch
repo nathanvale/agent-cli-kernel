@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index 45909ab..b3bb24b 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -507,7 +507,7 @@ function workingBytes(path: string, mode: string): Buffer | string {
+   if (mode === "120000")
+     return stats.isSymbolicLink()
+       ? Buffer.from(readlinkSync(path))
+-      : "not a link";
++      : readFileSync(path);
+   if (mode === "100644" || mode === "100755")
+     return stats.isFile() ? readFileSync(path) : "not a file";
+   return `mode ${mode} is not checked`;

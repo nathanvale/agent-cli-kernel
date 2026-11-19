@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index 45909ab..9f4cf2c 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -502,7 +502,7 @@ function workingBytes(path: string, mode: string): Buffer | string {
+   try {
+     stats = lstatSync(path);
+   } catch {
+-    return "missing";
++    return Buffer.from("");
+   }
+   if (mode === "120000")
+     return stats.isSymbolicLink()
