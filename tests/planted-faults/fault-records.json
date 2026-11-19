@@ -1384,5 +1384,19 @@
     "testFile": "tests/kernel/state/in-process.test.ts",
     "title": "IP06\\.on-crash-hears-rejection",
     "source": "20e8187 fix(kernel): let a crash decide the exit and abort runs during its wait"
+  },
+  {
+    "id": "a4c193c-in-process-crash-due",
+    "patch": "tests/planted-faults/patches/a4c193c-lifecycle-due.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.bound-from-call",
+    "source": "a4c193c fix(kernel): start the crash wait before calling onCrash"
+  },
+  {
+    "id": "68a85f3-in-process-crash-last",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-last.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.each-entry-listener .* when the first settles last",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
   }
 ]
