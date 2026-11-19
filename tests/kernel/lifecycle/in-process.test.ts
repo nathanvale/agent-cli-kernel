@@ -12,6 +12,10 @@ import {
   runProcessOn,
 } from "../../../kernel/src/kernel/lifecycle.ts";
 import type { ProcessHost } from "../../../kernel/src/kernel/process-types.ts";
+import {
+  recordRuntime,
+  runtimeOf,
+} from "../../../kernel/src/kernel/runtime.ts";
 import { stopBound } from "./oracle.ts";
 import {
   advance,
@@ -135,6 +139,48 @@ describe("IP01 the in-process entry returns each run's result", () => {
       await subject.run(["hold", "--json"]);
       await subject.run(["hold", "--json"]);
       expect(recorder.installs).toEqual({ signal: 1, crash: 1 });
+    },
+    timeout,
+  );
+
+  test(
+    "IP01.no-envelope a run whose result and fallback both fail validation returns no envelope",
+    async () => {
+      const recorder = recordingHost();
+      const contract = holdContract(() => Promise.resolve());
+      const runtime = runtimeOf(contract);
+      if (!runtime) throw new Error("holdContract built no runtime.");
+      const refusing = { cli: "rc" };
+      recordRuntime(refusing, {
+        ...runtime,
+        validate: () =>
+          Promise.resolve({
+            ok: false,
+            path: "$",
+            reason: "The test validator refuses every envelope.",
+          } as const),
+      });
+      const setup = { addons: { programs: programsAddon() } };
+      const control = await runInProcessOn(
+        contract,
+        setup,
+        () => recorder.host,
+      )(["hold", "--json"]);
+      expect(control.kind).toBe("envelope");
+      const value = await runInProcessOn(
+        refusing,
+        setup,
+        () => recorder.host,
+      )(["hold", "--json"]);
+      expect(value.kind).toBe("no-envelope");
+      if (value.kind !== "no-envelope") return;
+      expect(value.exitCode).toBe(1);
+      expect(value.runId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+      );
+      expect(value.runId).not.toBe(control.runId);
+      expect(recorder.writes).toEqual([]);
+      expect(recorder.exits).toEqual([]);
     },
     timeout,
   );
