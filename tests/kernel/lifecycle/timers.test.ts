@@ -371,6 +371,23 @@ describe("a stop request waits for the handler inside the stop bound", () => {
         await run.finish();
       }
     });
+
+  for (const [signal, code] of stops)
+    test(`a handler that ends at 100 ms beside an add-on that settles at its ${String(stopSettleLimit)} ms limit exits ${String(code)} when the add-on settles, at ${String(stopSettleLimit)} ms, on ${signal}`, async () => {
+      const run = await heldUntilStop(async (_signal, released, programs) => {
+        await programs.inspect(shell("exit 0")).catch(() => undefined);
+        await released;
+      }, slowSettlingPrograms());
+      try {
+        const sentAt = run.stop(signal);
+        await advance(100);
+        await run.release();
+        expect(run.recorder.exits).toEqual([]);
+        await run.expectExitAt(sentAt, stopSettleLimit, code);
+      } finally {
+        await run.finish();
+      }
+    });
 });
 
 test("P4.canary fake timers advance the clock and fire a raw over-limit delay early", () => {
