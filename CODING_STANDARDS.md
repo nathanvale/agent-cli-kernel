@@ -114,11 +114,12 @@ row's guide or gate note cites two distinct witnesses.
 ### Planted faults
 
 - `bun run fault-replay` replays each record in
-  `tests/planted-faults/fault-records.json` in a temporary worktree. The
-  `fault-replay` job in `.github/workflows/ci.yml` runs it on every pull
-  request.
-- Pre-push runs `bun run fault-replay --changed-since <base>` for faults
-  affected by the push. The hosted `fault-replay` check replays every fault record.
+  `tests/planted-faults/fault-records.json` in a temporary worktree.
+- A pull request's `fault-replay-shard` jobs replay each record whose test
+  is outside `tests/template/`, and each other record its change touches;
+  `fault-replay` passes when all of them do. The Linux nightly
+  replays every record. Pre-push replays those its push
+  touches (`--changed-since <base>`).
 - Fault replay fails on a fault record whose named test passes with the
   planted fault applied or fails without it, or whose patch file is
   missing. A patch also fails replay when it creates or deletes a whole
