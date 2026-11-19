@@ -647,15 +647,16 @@ async function runDeclaredCommand(
 }
 
 function enterHandler(run: Run, enter: Enter): Promise<Execution> {
-  let handOver: (execution: Promise<Execution>) => void = () => undefined;
+  let resolveExecution: (execution: Promise<Execution>) => void = () =>
+    undefined;
   run.execution = new Promise<Execution>((resolve) => {
-    handOver = resolve;
+    resolveExecution = resolve;
   });
   const execution: Promise<Execution> = enter().then(
     (outcome) => ({ kind: "returned", outcome }) as const,
     () => ({ kind: "threw" }) as const,
   );
-  handOver(execution);
+  resolveExecution(execution);
   return execution;
 }
 

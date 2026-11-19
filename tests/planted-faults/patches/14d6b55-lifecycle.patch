@@ -1,37 +1,22 @@
 diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
-index 7df390b..696430c 100644
+index ef1a1fa..3927366 100644
 --- a/kernel/src/kernel/lifecycle.ts
 +++ b/kernel/src/kernel/lifecycle.ts
-@@ -636,7 +636,11 @@ async function runDeclaredCommand(
-   if (run.stopped) return undefined;
-   if (expired(run, deadlineAt)) return beforeStart(run, identity);
-   run.phase = "handler-entered";
--  const execution = enterHandler(run, attached.enter);
-+  const execution: Promise<Execution> = attached.enter().then(
-+    (outcome) => ({ kind: "returned", outcome }) as const,
-+    () => ({ kind: "threw" }) as const,
-+  );
-+  run.execution = execution;
-   const first =
-     deadlineAt === undefined
-       ? await execution
-@@ -646,19 +650,6 @@ async function runDeclaredCommand(
-     : afterHandler(run, plan.command, first, deadlineAt);
+@@ -647,16 +647,11 @@ async function runDeclaredCommand(
  }
  
--function enterHandler(run: Run, enter: Enter): Promise<Execution> {
--  let handOver: (execution: Promise<Execution>) => void = () => undefined;
+ function enterHandler(run: Run, enter: Enter): Promise<Execution> {
+-  let resolveExecution: (execution: Promise<Execution>) => void = () =>
+-    undefined;
 -  run.execution = new Promise<Execution>((resolve) => {
--    handOver = resolve;
+-    resolveExecution = resolve;
 -  });
--  const execution: Promise<Execution> = enter().then(
--    (outcome) => ({ kind: "returned", outcome }) as const,
--    () => ({ kind: "threw" }) as const,
--  );
--  handOver(execution);
--  return execution;
--}
--
- type CheckPhase =
-   | { readonly kind: "deadline" }
-   | { readonly kind: "refused"; readonly delivery: Delivery }
+   const execution: Promise<Execution> = enter().then(
+     (outcome) => ({ kind: "returned", outcome }) as const,
+     () => ({ kind: "threw" }) as const,
+   );
+-  resolveExecution(execution);
++  run.execution = execution;
+   return execution;
+ }
+ 

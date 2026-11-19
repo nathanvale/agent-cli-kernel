@@ -206,6 +206,7 @@ async function heldUntilStop(
     signal: AbortSignal,
     released: Promise<void>,
     programs: ProgramsCapability,
+    stop: (signal: StopSignal) => number,
   ) => Promise<void>,
   programs: RunAddon<ProgramsCapability> = programsAddon(),
 ) {
@@ -213,10 +214,15 @@ async function heldUntilStop(
   const entered = deferred();
   const released = deferred();
   const recorder = recordingHost();
+  const stop = (signal: StopSignal): number => {
+    const sentAt = performance.now();
+    recorder.signal(signal);
+    return sentAt;
+  };
   const done = runProcessOn(
     holdContract(async (capability, signal) => {
       entered.resolve();
-      await work(signal, released.promise, capability);
+      await work(signal, released.promise, capability, stop);
     }),
     { addons: { programs } },
     () => recorder.host,
@@ -229,11 +235,7 @@ async function heldUntilStop(
       released.resolve();
       await turns();
     },
-    stop(signal: StopSignal): number {
-      const sentAt = performance.now();
-      recorder.signal(signal);
-      return sentAt;
-    },
+    stop,
     async expectExitAt(sentAt: number, after: number, code: number) {
       await advance(sentAt + after - 1 - performance.now());
       expect(recorder.exits).toEqual([]);
@@ -346,38 +348,27 @@ describe("a stop request waits for the handler inside the stop bound", () => {
 
   for (const [signal, code] of stops)
     test(`a stop request on ${signal} delivered during handler entry, before the handler's first await, waits through its 200 ms clean-up, then exits ${String(code)}`, async () => {
-      jest.useFakeTimers();
-      const recorder = recordingHost();
-      const released = deferred();
       const seen: string[] = [];
       let sentAt = Number.NaN;
-      const done = runProcessOn(
-        holdContract(async (_programs, abortSignal) => {
-          sentAt = performance.now();
-          recorder.signal(signal);
+      const run = await heldUntilStop(
+        async (abortSignal, released, _programs, stop) => {
+          sentAt = stop(signal);
           seen.push(`aborted=${String(abortSignal.aborted)}`);
-          await released.promise;
+          await released;
           seen.push("cleaned");
-        }),
-        { addons: { programs: programsAddon() } },
-        () => recorder.host,
-      )(["hold", "--json"]);
+        },
+      );
       try {
-        await turns();
         await advance(200);
         expect(seen).toEqual(["aborted=true"]);
-        expect(recorder.exits).toEqual([]);
-        released.resolve();
-        await turns();
+        expect(run.recorder.exits).toEqual([]);
+        await run.release();
         expect(seen).toEqual(["aborted=true", "cleaned"]);
-        expect(recorder.exits).toEqual([code]);
-        expect(recorder.exitedAt.map((at) => at - sentAt)).toEqual([200]);
-        expect(recorder.writes).toEqual([]);
+        expect(run.recorder.exits).toEqual([code]);
+        expect(run.recorder.exitedAt.map((at) => at - sentAt)).toEqual([200]);
+        expect(run.recorder.writes).toEqual([]);
       } finally {
-        released.resolve();
-        await advance(exactStopBound);
-        jest.useRealTimers();
-        await done;
+        await run.finish();
       }
     });
 });
