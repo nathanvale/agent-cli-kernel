@@ -1,6 +1,7 @@
 import { install } from "./install.ts";
 import type { Phase, StateOptions } from "./install.ts";
 import { resolveCoordination } from "./coordination.ts";
+import type { CoordinationRoute } from "./coordination.ts";
 import { resolveQualification } from "./qualification.ts";
 
 export type { Phase } from "./install.ts";
@@ -11,6 +12,7 @@ export function stateAddonWithTestSeams(
     readonly fixtureLabel?: string;
     readonly phase?: (name: Phase) => Promise<void>;
     readonly coordinationLibrary?: string;
+    readonly coordination?: CoordinationRoute;
   },
 ) {
   return install(options, {
@@ -23,6 +25,7 @@ export function stateAddonWithTestSeams(
             stoppedOwner: "lease-and-no-delegate",
           },
     phase: seams.phase ?? (() => Promise.resolve()),
-    coordination: resolveCoordination(seams.coordinationLibrary),
+    coordination:
+      seams.coordination ?? resolveCoordination(seams.coordinationLibrary),
   });
 }

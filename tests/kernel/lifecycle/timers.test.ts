@@ -5,15 +5,28 @@
 // can be driven past the limit here with no production seam.
 import { afterEach, describe, expect, jest, test } from "bun:test";
 import { programsAddon } from "../../../kernel/src/addons/programs/index.ts";
+import type {
+  ProgramsCapability,
+  RunAddon,
+} from "../../../kernel/src/kernel/index.ts";
 import { runProcessOn } from "../../../kernel/src/kernel/lifecycle.ts";
+import type { StopSignal } from "../../../kernel/src/kernel/process-types.ts";
 import {
   advance,
   deferred,
   holdContract,
   recordingHost,
+  shell,
   turns,
 } from "./recording-host.ts";
-import { cancellationWait, overLimitBoundary, timerLimit } from "./oracle.ts";
+import {
+  cancellationWait,
+  exactStopBound,
+  overLimitBoundary,
+  stopSettleLimit,
+  stops,
+  timerLimit,
+} from "./oracle.ts";
 
 afterEach(() => {
   jest.useRealTimers();
@@ -153,6 +166,224 @@ describe("the handler's abort signal at a deadline", () => {
       } finally {
         cleaned.resolve();
         await advance(cancellationWait);
+        await run.finish();
+      }
+    });
+});
+
+function slowSettlingPrograms(): RunAddon<ProgramsCapability> {
+  const inner = programsAddon();
+  return {
+    attach(run) {
+      const attached = inner.attach(run);
+      return {
+        ...attached,
+        capability: {
+          ...attached.capability,
+          inspect: () =>
+            Promise.reject(new Error("The test add-on starts no program.")),
+        },
+        settle: (limit) =>
+          limit === undefined
+            ? Promise.resolve(false)
+            : new Promise<boolean>((resolve) => {
+                setTimeout(() => {
+                  resolve(false);
+                }, limit);
+              }),
+      };
+    },
+  };
+}
+
+function attachOnFirstUse(programs: ProgramsCapability): Promise<unknown> {
+  return programs.inspect(shell("exit 0")).catch(() => undefined);
+}
+
+async function heldUntilStop(
+  work: (
+    signal: AbortSignal,
+    released: Promise<void>,
+    programs: ProgramsCapability,
+    stop: (signal: StopSignal) => number,
+  ) => Promise<void>,
+  programs: RunAddon<ProgramsCapability> = programsAddon(),
+) {
+  jest.useFakeTimers();
+  const entered = deferred();
+  const released = deferred();
+  const recorder = recordingHost();
+  const stop = (signal: StopSignal): number => {
+    const sentAt = performance.now();
+    recorder.signal(signal);
+    return sentAt;
+  };
+  const done = runProcessOn(
+    holdContract(async (capability, signal) => {
+      entered.resolve();
+      await work(signal, released.promise, capability, stop);
+    }),
+    { addons: { programs } },
+    () => recorder.host,
+  )(["hold", "--json"]);
+  await entered.promise;
+  await turns();
+  return {
+    recorder,
+    async release() {
+      released.resolve();
+      await turns();
+    },
+    stop,
+    async expectExitAt(sentAt: number, after: number, code: number) {
+      await advance(sentAt + after - 1 - performance.now());
+      expect(recorder.exits).toEqual([]);
+      await advance(1);
+      expect(recorder.exits).toEqual([code]);
+      expect(recorder.exitedAt.map((at) => at - sentAt)).toEqual([after]);
+      expect(recorder.writes).toEqual([]);
+    },
+    async finish() {
+      released.resolve();
+      await advance(exactStopBound);
+      jest.useRealTimers();
+      await done;
+    },
+  };
+}
+
+describe("a stop request waits for the handler inside the stop bound", () => {
+  for (const [signal, code] of stops)
+    for (const cleanUp of [0, 200, exactStopBound - 1])
+      test(`a stop request on ${signal} waits through a ${String(cleanUp)} ms handler clean-up, then exits ${String(code)} with nothing written`, async () => {
+        const seen: string[] = [];
+        const run = await heldUntilStop(async (abortSignal, released) => {
+          await aborted(abortSignal);
+          seen.push("aborted");
+          await released;
+          seen.push("cleaned");
+        });
+        try {
+          const sentAt = run.stop(signal);
+          await turns();
+          if (cleanUp > 0) await advance(cleanUp);
+          expect(seen).toEqual(["aborted"]);
+          expect(run.recorder.exits).toEqual([]);
+          await run.release();
+          expect(seen).toEqual(["aborted", "cleaned"]);
+          expect(run.recorder.exits).toEqual([code]);
+          expect(run.recorder.exitedAt.map((at) => at - sentAt)).toEqual([
+            cleanUp,
+          ]);
+          expect(run.recorder.writes).toEqual([]);
+        } finally {
+          await run.finish();
+        }
+      });
+
+  for (const [signal, code] of stops)
+    test(`a handler that throws in its clean-up at 200 ms on ${signal} exits ${String(code)} at 200 ms with nothing written`, async () => {
+      const run = await heldUntilStop(async (abortSignal, released) => {
+        await aborted(abortSignal);
+        await released;
+        throw new Error("The handler's clean-up failed.");
+      });
+      try {
+        const sentAt = run.stop(signal);
+        await advance(200);
+        expect(run.recorder.exits).toEqual([]);
+        await run.release();
+        expect(run.recorder.exits).toEqual([code]);
+        expect(run.recorder.exitedAt.map((at) => at - sentAt)).toEqual([200]);
+        expect(run.recorder.writes).toEqual([]);
+      } finally {
+        await run.finish();
+      }
+    });
+
+  for (const [signal, code] of stops)
+    test(`a handler that never ends is cut off at the ${String(exactStopBound)} ms stop bound on ${signal}, exiting ${String(code)}`, async () => {
+      const run = await heldUntilStop((_signal, released) => released);
+      try {
+        const sentAt = run.stop(signal);
+        await run.expectExitAt(sentAt, exactStopBound, code);
+      } finally {
+        await run.finish();
+      }
+    });
+
+  for (const [signal, code] of stops)
+    test(`a handler that never ends beside an add-on that settles at its ${String(stopSettleLimit)} ms limit exits ${String(code)} at the ${String(exactStopBound)} ms stop bound on ${signal}`, async () => {
+      const run = await heldUntilStop(async (_signal, released, programs) => {
+        await attachOnFirstUse(programs);
+        await released;
+      }, slowSettlingPrograms());
+      try {
+        const sentAt = run.stop(signal);
+        await run.expectExitAt(sentAt, exactStopBound, code);
+      } finally {
+        await run.finish();
+      }
+    });
+
+  for (const [first, second, code] of [
+    ["SIGTERM", "SIGINT", 130],
+    ["SIGINT", "SIGTERM", 143],
+  ] as const)
+    test(`a second stop request (${second} after ${first}) while the handler is awaited exits ${String(code)} at once`, async () => {
+      const run = await heldUntilStop((_signal, released) => released);
+      try {
+        run.stop(first);
+        await advance(200);
+        expect(run.recorder.exits).toEqual([]);
+        const againAt = run.stop(second);
+        expect(run.recorder.exits).toEqual([code]);
+        expect(run.recorder.exitedAt).toEqual([againAt]);
+        expect(run.recorder.writes).toEqual([]);
+      } finally {
+        await run.finish();
+      }
+    });
+
+  for (const [signal, code] of stops)
+    test(`a stop request on ${signal} delivered during handler entry, before the handler's first await, waits through its 200 ms clean-up, then exits ${String(code)}`, async () => {
+      const seen: string[] = [];
+      let sentAt = Number.NaN;
+      const run = await heldUntilStop(
+        async (abortSignal, released, _programs, stop) => {
+          sentAt = stop(signal);
+          seen.push(`aborted=${String(abortSignal.aborted)}`);
+          await released;
+          seen.push("cleaned");
+        },
+      );
+      try {
+        await advance(200);
+        expect(seen).toEqual(["aborted=true"]);
+        expect(run.recorder.exits).toEqual([]);
+        await run.release();
+        expect(seen).toEqual(["aborted=true", "cleaned"]);
+        expect(run.recorder.exits).toEqual([code]);
+        expect(run.recorder.exitedAt.map((at) => at - sentAt)).toEqual([200]);
+        expect(run.recorder.writes).toEqual([]);
+      } finally {
+        await run.finish();
+      }
+    });
+
+  for (const [signal, code] of stops)
+    test(`a handler that ends at 100 ms beside an add-on that settles at its ${String(stopSettleLimit)} ms limit exits ${String(code)} when the add-on settles, at ${String(stopSettleLimit)} ms, on ${signal}`, async () => {
+      const run = await heldUntilStop(async (_signal, released, programs) => {
+        await attachOnFirstUse(programs);
+        await released;
+      }, slowSettlingPrograms());
+      try {
+        const sentAt = run.stop(signal);
+        await advance(100);
+        await run.release();
+        expect(run.recorder.exits).toEqual([]);
+        await run.expectExitAt(sentAt, stopSettleLimit, code);
+      } finally {
         await run.finish();
       }
     });

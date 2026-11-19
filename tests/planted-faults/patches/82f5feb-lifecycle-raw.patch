@@ -1,0 +1,19 @@
+diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
+index ef1a1fa..839440b 100644
+--- a/kernel/src/kernel/lifecycle.ts
++++ b/kernel/src/kernel/lifecycle.ts
+@@ -652,11 +652,12 @@ function enterHandler(run: Run, enter: Enter): Promise<Execution> {
+   run.execution = new Promise<Execution>((resolve) => {
+     resolveExecution = resolve;
+   });
+-  const execution: Promise<Execution> = enter().then(
++  const entered = enter();
++  const execution: Promise<Execution> = entered.then(
+     (outcome) => ({ kind: "returned", outcome }) as const,
+     () => ({ kind: "threw" }) as const,
+   );
+-  resolveExecution(execution);
++  resolveExecution(entered.then(() => execution));
+   return execution;
+ }
+ 
