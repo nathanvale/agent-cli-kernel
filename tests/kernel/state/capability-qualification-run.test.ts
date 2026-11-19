@@ -712,7 +712,11 @@ test(
   async () => {
     const world = checkout();
     expect(
-      await world.run([world.rowFile, world.parent, "--entry", "index.ts"]),
+      await world.run(
+        [world.rowFile, world.parent, "--entry", "index.ts"],
+        undefined,
+        { table: [] },
+      ),
     ).toBe(1);
     refusedWithoutRecord(
       world,
@@ -1095,6 +1099,7 @@ supportingTest(
       );
       expect(message).toContain("differs in");
       expect(message).toContain("major release");
+      expect(message).toContain("; qualified: candidate (os linux, major 0, ");
     } finally {
       control.dispose();
       run.dispose();
