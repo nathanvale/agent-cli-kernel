@@ -87,7 +87,7 @@ this file.
 - Prove a compatibility claim with code committed in the tree, never with
   git history, which a shallow checkout or another folder lacks. Witnessed:
   [ff852e8], [e45050c] (J08.a and J08.c read version 1's store with
-  `git show` at a pinned commit, and hosted fault replay, [run 44456881408],
+  `git show` at a fixed commit, and hosted fault replay, [run 44456881408],
   could not resolve the path; the fix adds a committed version 1 reader to
   `tests/kernel/state/harness.ts`).
 
