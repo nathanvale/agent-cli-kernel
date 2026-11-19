@@ -1491,6 +1491,90 @@
     "source": "93dd83e fix(state): keep a failed upgrade, report or closure read from spreading"
   },
   {
+    "id": "1e39e16-qualification-release",
+    "patch": "tests/planted-faults/patches/1e39e16-qualification-release.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^Q02.a-release-major-edges",
+    "source": "1e39e16 feat(state): match a capability qualification row at closure time"
+  },
+  {
+    "id": "1e39e16-qualification-filesystem",
+    "patch": "tests/planted-faults/patches/1e39e16-qualification-filesystem.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^Q02.b-filesystem-mismatch-refused",
+    "source": "1e39e16 feat(state): match a capability qualification row at closure time"
+  },
+  {
+    "id": "1e39e16-qualification-route",
+    "patch": "tests/planted-faults/patches/1e39e16-qualification-route.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^Q02.c-route-mismatch-refused",
+    "source": "1e39e16 feat(state): match a capability qualification row at closure time"
+  },
+  {
+    "id": "1e39e16-qualification-unreadable-filesystem",
+    "patch": "tests/planted-faults/patches/1e39e16-qualification-unreadable-filesystem.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^Q02.d-unreadable-fact-refuses",
+    "source": "1e39e16 feat(state): match a capability qualification row at closure time"
+  },
+  {
+    "id": "1e39e16-qualification-unreadable-boot",
+    "patch": "tests/planted-faults/patches/1e39e16-qualification-unreadable-boot.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^Q02.d-unreadable-fact-refuses",
+    "source": "1e39e16 feat(state): match a capability qualification row at closure time"
+  },
+  {
+    "id": "1e39e16-qualification-nested-mount",
+    "patch": "tests/planted-faults/patches/1e39e16-qualification-nested-mount.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^Q02.f-nested-mount-refused",
+    "source": "1e39e16 feat(state): match a capability qualification row at closure time"
+  },
+  {
+    "id": "01a8093-qualification-os",
+    "patch": "tests/planted-faults/patches/01a8093-qualification-os.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^X27 supporting: a row for another operating system",
+    "source": "01a8093 fix(state): settle the two-axis review of capability qualification matching"
+  },
+  {
+    "id": "01a8093-qualification-boot-source",
+    "patch": "tests/planted-faults/patches/01a8093-qualification-boot-source.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^X27 supporting: a row for another operating system",
+    "source": "01a8093 fix(state): settle the two-axis review of capability qualification matching"
+  },
+  {
+    "id": "01a8093-qualification-unreadable-device",
+    "patch": "tests/planted-faults/patches/01a8093-qualification-unreadable-device.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^Q02.d-unreadable-fact-refuses",
+    "source": "01a8093 fix(state): settle the two-axis review of capability qualification matching"
+  },
+  {
+    "id": "01a8093-qualification-any-release",
+    "patch": "tests/planted-faults/patches/01a8093-qualification-any-release.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^Q02.a-release-major-edges",
+    "source": "01a8093 fix(state): settle the two-axis review of capability qualification matching"
+  },
+  {
+    "id": "01a8093-qualification-empty-boot",
+    "patch": "tests/planted-faults/patches/01a8093-qualification-empty-boot.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^Q02.d-unreadable-fact-refuses",
+    "source": "01a8093 fix(state): settle the two-axis review of capability qualification matching"
+  },
+  {
+    "id": "01a8093-qualification-unreadable-root-device",
+    "patch": "tests/planted-faults/patches/01a8093-qualification-unreadable-root-device.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^Q02.d-unreadable-fact-refuses",
+    "source": "01a8093 fix(state): settle the two-axis review of capability qualification matching"
+  },
+  {
     "id": "d62870c-in-process-forget",
     "patch": "tests/planted-faults/patches/d62870c-lifecycle-forget.patch",
     "testFile": "tests/kernel/lifecycle/in-process.test.ts",
@@ -1522,7 +1606,7 @@
     "id": "7fb5649-state-seam-closed",
     "patch": "tests/planted-faults/patches/7fb5649-state-seam-closed.patch",
     "testFile": "tests/kernel/state-seam.test.ts",
-    "title": "a transaction still open after its run is forgotten and its identity reused cannot record an effect",
+    "title": "a late callback in a forgotten run's context cannot record under the run that reused its identity",
     "source": "7fb5649 fix(kernel): keep a forgotten run's capability closed"
   },
   {
@@ -1580,6 +1664,20 @@
     "testFile": "tests/kernel/state-seam.test.ts",
     "title": "a refused reuse keeps the live run's proof as its trusted summary",
     "source": "ff48724 fix(kernel): keep a live run attached when its identity is reused"
+  },
+  {
+    "id": "2d158f0-state-seam-open",
+    "patch": "tests/planted-faults/patches/2d158f0-state-seam-open.patch",
+    "testFile": "tests/kernel/state-seam.test.ts",
+    "title": "a run whose transaction is still running stays live",
+    "source": "2d158f0 fix(kernel): keep a run live until its open transaction ends"
+  },
+  {
+    "id": "2d158f0-state-seam-later",
+    "patch": "tests/planted-faults/patches/2d158f0-state-seam-later.patch",
+    "testFile": "tests/kernel/state-seam.test.ts",
+    "title": "a run whose transaction is still running stays live",
+    "source": "2d158f0 fix(kernel): keep a run live until its open transaction ends"
   },
   {
     "id": "68a85f3-in-process-crash-order",

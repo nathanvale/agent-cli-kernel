@@ -1,0 +1,13 @@
+diff --git a/kernel/src/kernel/state-seam.ts b/kernel/src/kernel/state-seam.ts
+index 8418f46..3d8f9b1 100644
+--- a/kernel/src/kernel/state-seam.ts
++++ b/kernel/src/kernel/state-seam.ts
+@@ -342,7 +342,7 @@ export function forgetRun(
+   const run = state?.runs.get(runId);
+   const open = run ? attachedRuns.get(run)?.openTransaction : undefined;
+   if (open) {
+-    void open.then(() => state?.runs.delete(runId));
++    void open.then(() => undefined);
+     return;
+   }
+   state?.runs.delete(runId);

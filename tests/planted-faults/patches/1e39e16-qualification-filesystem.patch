@@ -1,0 +1,14 @@
+diff --git a/kernel/src/addons/state/qualification.ts b/kernel/src/addons/state/qualification.ts
+index 89feb3a..e6ae77c 100644
+--- a/kernel/src/addons/state/qualification.ts
++++ b/kernel/src/addons/state/qualification.ts
+@@ -139,7 +139,8 @@ const rowChecks: readonly (readonly [
+ ])[] = [
+   ["os", (row, facts) => row.os === facts.os],
+   ["major release", (row, facts) => row.majorRelease === facts.majorRelease],
+-  ["filesystem", (row, facts) => equals(facts.filesystem, row.filesystem.type)],
++  ["filesystem", (row, facts) =>
++      row.filesystem.name !== "" || equals(facts.filesystem, row.filesystem.type)],
+   [
+     "coordination route",
+     (row, facts) => equals(facts.primitive, row.primitive),

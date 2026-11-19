@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/state/qualification.ts b/kernel/src/addons/state/qualification.ts
+index 89feb3a..a090554 100644
+--- a/kernel/src/addons/state/qualification.ts
++++ b/kernel/src/addons/state/qualification.ts
+@@ -112,7 +112,7 @@ function readFacts(
+       primitive === undefined
+         ? { read: false, why: "no coordination route" }
+         : { read: true, value: primitive },
+-    bootIdentity: nonEmpty(
++    bootIdentity: (
+       overridden(overrides.bootIdentity, () =>
+         attempt(() => readFileSync(bootIdentitySource, "utf8").trim()),
+       ),

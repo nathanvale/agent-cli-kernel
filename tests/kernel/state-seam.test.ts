@@ -4,12 +4,13 @@ import { contractFor, command } from "../../kernel/src/kernel/index.ts";
 import type { EffectTransaction } from "../../kernel/src/kernel/index.ts";
 import {
   attachState,
+  attachedRunCount,
   createStateAddon,
   forgetRun,
   issuedProof,
   knownProof,
 } from "../../kernel/src/kernel/state-seam.ts";
-import { deferred } from "./lifecycle/recording-host.ts";
+import { deferred, until } from "./lifecycle/recording-host.ts";
 import { emptyInput, unchanged } from "./kernel-repair/shapes.ts";
 
 test("a declared installed name or arbitrary host callback cannot acquire the state issuer", () => {
@@ -121,7 +122,7 @@ function messageOf(settled: Promise<unknown>): Promise<string> {
 const note = () => Promise.resolve("noted");
 const confirmed = () => Promise.resolve(true);
 
-test("a transaction still open after its run is forgotten and its identity reused cannot record an effect", async () => {
+test("a transaction still open after its handler returns cannot record an effect", async () => {
   const { descriptor, attached } = recordingState();
   const open = deferred();
   const recorded = attached.capability.transaction(async (transaction) => {
@@ -130,7 +131,6 @@ test("a transaction still open after its run is forgotten and its identity reuse
   });
   attached.close();
   forgetRun("run-1", descriptor);
-  expect(attachState(descriptor, "run-1", ["specimen.note"])).toBeDefined();
   open.resolve();
   expect(await messageOf(recorded)).toBe(
     "The state capability closed when the handler returned.",
@@ -224,4 +224,50 @@ test("a refused reuse keeps the live run's proof as its trusted summary but refu
   expect(attachState(descriptor, "run-1", ["specimen.note"])).toBeUndefined();
   expect(issuedProof("run-1", descriptor)).toBe(proof);
   expect(knownProof(proof, "run-1", descriptor)).toBe(false);
+});
+
+test("a run whose transaction is still running stays live after its handler returns, so no other run can take its identity", async () => {
+  const { descriptor, attached } = recordingState();
+  const open = deferred();
+  const running = attached.capability.transaction(async () => {
+    await open.promise;
+  });
+  attached.close();
+  forgetRun("run-1", descriptor);
+  expect(attachedRunCount(descriptor)).toBe(1);
+  expect(attachState(descriptor, "run-1", ["specimen.note"])).toBeUndefined();
+  open.resolve();
+  expect(await messageOf(running)).toBe("The test transaction proves nothing.");
+  expect(await until(() => attachedRunCount(descriptor) === 0)).toBe(true);
+  expect(attachState(descriptor, "run-1", ["specimen.note"])).toBeDefined();
+});
+
+test("a late callback in a forgotten run's context cannot record under the run that reused its identity", async () => {
+  const { descriptor, attached } = recordingState();
+  const later = deferred();
+  const late: Promise<string>[] = [];
+  expect(
+    await messageOf(
+      attached.capability.transaction((transaction) => {
+        late.push(
+          messageOf(
+            later.promise.then(() =>
+              transaction.record("specimen.note", note, confirmed),
+            ),
+          ),
+        );
+        return Promise.resolve();
+      }),
+    ),
+  ).toBe("The test transaction proves nothing.");
+  attached.close();
+  forgetRun("run-1", descriptor);
+  expect(await until(() => attachedRunCount(descriptor) === 0)).toBe(true);
+  expect(attachState(descriptor, "run-1", ["specimen.note"])).toBeDefined();
+  later.resolve();
+  const [callback] = late;
+  if (!callback) throw new Error("The transaction scheduled no callback.");
+  expect(await callback).toBe(
+    "The state capability closed when the handler returned.",
+  );
 });
