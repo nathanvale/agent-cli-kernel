@@ -19,10 +19,8 @@ import {
 import type { Opened } from "./custody.ts";
 import type { DiagnosticsIo } from "./io.ts";
 import { limits } from "./limits.ts";
-import { runPipeline } from "./pipeline.ts";
-import type { RunPipeline, SelfReport } from "./pipeline.ts";
-import { lineMaker } from "./records.ts";
-import type { Line } from "./records.ts";
+import { lineMaker, pipelineFor } from "./records.ts";
+import type { Line, RunPipeline } from "./records.ts";
 
 type Available = Extract<Diagnostics, { readonly status: "available" }>;
 type SinkFailure = NonNullable<Available["sinkFailure"]>;
@@ -179,8 +177,7 @@ function session(
   let freezing: Promise<Diagnostics> | undefined;
   const queue: Line[] = [];
   let queuedBytes = 0;
-  let selfReportCount = 0;
-  const selfReports: SelfReport[] = [];
+  let selfReports = 0;
 
   function fail(kind: SinkFailure) {
     failure ??= kind;
@@ -262,11 +259,6 @@ function session(
     pump();
   }
 
-  function selfReport(cause: SelfReport) {
-    selfReportCount += 1;
-    if (selfReports.length < limits.selfReports) selfReports.push(cause);
-  }
-
   function assemble(secrets: readonly string[]): RunPipeline | undefined {
     try {
       const make = lineMaker(secrets);
@@ -278,7 +270,9 @@ function session(
           dropped += 1;
         }
       };
-      return runPipeline([options.cli, "diagnostics"], sink, selfReport);
+      return pipelineFor([options.cli, "diagnostics"], sink, () => {
+        selfReports += 1;
+      });
     } catch {
       return undefined;
     }
@@ -381,7 +375,7 @@ function session(
   }
 
   function build(): Diagnostics {
-    const available = facts(selfReportCount === 0);
+    const available = facts(selfReports === 0);
     const consistent =
       [
         available.droppedRecords,

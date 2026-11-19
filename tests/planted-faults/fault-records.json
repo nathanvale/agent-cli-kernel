@@ -938,24 +938,31 @@
     "source": "4d42f8c fix(state): refuse work when no operation was published for it"
   },
   {
-    "id": "40b3d1c-pipeline-global",
-    "patch": "tests/planted-faults/patches/40b3d1c-pipeline-global.patch",
+    "id": "40b3d1c-records-global",
+    "patch": "tests/planted-faults/patches/40b3d1c-records-global.patch",
     "testFile": "tests/kernel/diagnostics/in-process-runs.test.ts",
     "title": "a run (leaves the tool's own LogTape configuration|in a process with no LogTape configuration)",
     "source": "40b3d1c fix(diagnostics): give each run its own pipeline, not LogTape's global one"
   },
   {
-    "id": "40b3d1c-pipeline-shared",
-    "patch": "tests/planted-faults/patches/40b3d1c-pipeline-shared.patch",
+    "id": "40b3d1c-records-shared",
+    "patch": "tests/planted-faults/patches/40b3d1c-records-shared.patch",
     "testFile": "tests/kernel/diagnostics/in-process-runs.test.ts",
     "title": "two overlapping in-process runs each write only their own log lines$",
     "source": "40b3d1c fix(diagnostics): give each run its own pipeline, not LogTape's global one"
   },
   {
-    "id": "40b3d1c-pipeline-limit",
-    "patch": "tests/planted-faults/patches/40b3d1c-pipeline-limit.patch",
+    "id": "40b3d1c-records-limit",
+    "patch": "tests/planted-faults/patches/40b3d1c-records-limit.patch",
     "testFile": "tests/kernel/diagnostics/in-process-runs.test.ts",
     "title": "a record past LogTape's redaction depth",
+    "source": "40b3d1c fix(diagnostics): give each run its own pipeline, not LogTape's global one"
+  },
+  {
+    "id": "40b3d1c-records-redaction",
+    "patch": "tests/planted-faults/patches/40b3d1c-records-redaction.patch",
+    "testFile": "tests/kernel/diagnostics/in-process-runs.test.ts",
+    "title": "a record whose facts throw while redacted",
     "source": "40b3d1c fix(diagnostics): give each run its own pipeline, not LogTape's global one"
   }
 ]

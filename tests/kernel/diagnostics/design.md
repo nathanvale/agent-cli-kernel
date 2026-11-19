@@ -159,14 +159,22 @@ this section is the record; the case identities do not change.
 ## Corrections, 19 November 2026 (in-process runs)
 
 Nathan's decision of 19 November 2026, 13:22 AEDT: the add-on stops changing
-LogTape's process-wide configuration and gives each run its own chain.
+LogTape's process-wide configuration and gives each run its own pipeline.
 
 - The add-on no longer calls `configureSync` or `getLogger`. Each run builds
   its own LogTape record and passes it through `redactByField` to that run's
-  sink (`pipeline.ts`). Overlapping in-process runs keep their log lines
-  apart, and a tool's own LogTape configuration is left as it was found.
+  sink (`pipelineFor` in `records.ts`). Overlapping in-process runs keep their
+  log lines apart, and a tool's own LogTape configuration is left as it was
+  found.
 - LogTape reports its own trouble only to the process-wide meta logger. The
   run now counts its own self reports instead: a redaction that throws (the
   record is dropped) and a redaction limit, read from LogTape's replacement
   of an unmapped message placeholder. Either still makes `countsComplete`
   false. A tool's own LogTape warnings no longer count against a run.
+- LogTape's redaction still sends its limit warning to the process-wide meta
+  logger, so a tool that routes `["logtape", "meta"]` to its own sink sees
+  that warning. It carries the limit's name and size, never record values.
+- A `configureSync` refusal (for example, a tool's LogTape configuration
+  with async disposables still active) can no longer stop a run's
+  diagnostics with `sinkFailure: "setup"`, because the add-on never calls it.
+  Setup failure still comes from secret collection and the sink's custody.

@@ -49,6 +49,17 @@ function writtenBy(where: Tree, runId: string) {
   }));
 }
 
+function throwing(): JsonValue {
+  const facts: Record<string, JsonValue> = {};
+  Object.defineProperty(facts, "boom", {
+    enumerable: true,
+    get() {
+      throw new Error("A getter that throws while it is redacted.");
+    },
+  });
+  return facts;
+}
+
 function nested(depth: number): JsonValue {
   let value: JsonValue = "leaf";
   for (let level = 0; level < depth; level += 1) value = { next: value };
@@ -112,7 +123,6 @@ describe("in-process runs of the diagnostics add-on", () => {
       attached.capability.record("step", { index: 1 });
       await attached.freeze(500);
       toolLogger.info("after the run");
-      expect(getConfig()).toBe(toolConfiguration);
       expect(
         reached.map((record) => ({
           category: record.category,
@@ -122,6 +132,7 @@ describe("in-process runs of the diagnostics add-on", () => {
         { category: ["tool"], message: "before the run" },
         { category: ["tool"], message: "after the run" },
       ]);
+      expect(getConfig()).toBe(toolConfiguration);
       expect(writtenBy(where, runId)).toEqual([{ runId, event: "step" }]);
     },
     timeout,
@@ -158,6 +169,30 @@ describe("in-process runs of the diagnostics add-on", () => {
         truncated: get(deepStatus, "truncatedRecords"),
       }).toEqual({ complete: false, truncated: 1 });
       expect(get(plainStatus, "countsComplete")).toBe(true);
+    },
+    timeout,
+  );
+
+  test(
+    "a record whose facts throw while redacted is dropped and marks only its own run's counts incomplete",
+    async () => {
+      const where = tree();
+      const failing = attachedIn(where);
+      const plain = attachedIn(where);
+      failing.attached.capability.record("throwing", throwing());
+      plain.attached.capability.record("plain", { index: 1 });
+      const [failingStatus, plainStatus] = await Promise.all([
+        failing.attached.freeze(500),
+        plain.attached.freeze(500),
+      ]);
+      expect({
+        complete: get(failingStatus, "countsComplete"),
+        dropped: get(failingStatus, "droppedRecords"),
+      }).toEqual({ complete: false, dropped: 1 });
+      expect({
+        complete: get(plainStatus, "countsComplete"),
+        dropped: get(plainStatus, "droppedRecords"),
+      }).toEqual({ complete: true, dropped: 0 });
     },
     timeout,
   );
