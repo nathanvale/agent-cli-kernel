@@ -868,6 +868,27 @@
     "source": "b021da0 fix(gates): refuse excluded recorded hits"
   },
   {
+    "id": "1cc1070-run",
+    "patch": "tests/planted-faults/patches/1cc1070-run.patch",
+    "testFile": "tests/kernel/diagnostics/log-lines.test.ts",
+    "title": "a level outside the six",
+    "source": "1cc1070 feat(diagnostics): let a record carry its level"
+  },
+  {
+    "id": "1cc1070-run-floor",
+    "patch": "tests/planted-faults/patches/1cc1070-run-floor.patch",
+    "testFile": "tests/kernel/diagnostics/log-lines.test.ts",
+    "title": "a log line lands in the run's file under the level it was sent with$",
+    "source": "1cc1070 feat(diagnostics): let a record carry its level"
+  },
+  {
+    "id": "b6906dc-run",
+    "patch": "tests/planted-faults/patches/b6906dc-run.patch",
+    "testFile": "tests/kernel/diagnostics/log-lines.test.ts",
+    "title": "a run whose only record has a level outside the six opens no file$",
+    "source": "b6906dc fix(diagnostics): prove the level refusal alone and under the caps"
+  },
+  {
     "id": "b165bed-context",
     "patch": "tests/planted-faults/patches/b165bed-context.patch",
     "testFile": "tests/kernel/abort-signal.test.ts",

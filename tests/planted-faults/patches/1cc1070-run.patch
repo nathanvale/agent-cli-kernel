@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/diagnostics/run.ts b/kernel/src/addons/diagnostics/run.ts
+index dace8dd..539313c 100644
+--- a/kernel/src/addons/diagnostics/run.ts
++++ b/kernel/src/addons/diagnostics/run.ts
+@@ -341,7 +341,7 @@ function session(
+     if (
+       inputClosed ||
+       run.signal.aborted ||
+-      !Object.hasOwn(listedLevels, level)
++      false
+     ) {
+       dropped += 1;
+       return;

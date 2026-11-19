@@ -95,6 +95,7 @@ export type Launch = {
   readonly xdg?: boolean;
   readonly home?: boolean;
   readonly bare?: boolean;
+  readonly entry?: string;
   readonly script?: Readonly<Record<string, unknown>>;
   readonly fault?: string | undefined;
   readonly umask?: string;
@@ -136,7 +137,7 @@ const stdoutRelay = [
 ].join("\n");
 
 function command(launch: Launch): string[] {
-  const file = launch.bare ? bareCli : specimenCli;
+  const file = launch.entry ?? (launch.bare ? bareCli : specimenCli);
   const direct =
     launch.shell !== undefined
       ? ["/bin/bash", "-c", launch.shell, "bash", process.execPath, file]
