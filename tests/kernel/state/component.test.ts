@@ -669,7 +669,9 @@ caseTest("Q01.b-fixture-never-enables", async () => {
       expect(report.humanAssistedTakeover).toBe("unavailable");
       expect(report.humanOutcomeUnknownClosure).toBe("unavailable");
     }
-    expect(capabilityQualificationTable).toEqual([]);
+    expect(capabilityQualificationTable.map((row) => row.id)).toEqual([
+      "linux-7-btrfs",
+    ]);
     expect(Object.isFrozen(capabilityQualificationTable)).toBe(true);
     const qualification = resolveQualification();
     expect(qualification.source).toBe("production");
@@ -680,7 +682,8 @@ caseTest("Q01.b-fixture-never-enables", async () => {
     expect(unmatched.matched).toBe(false);
     const detail = unmatched.matched ? "" : unmatched.detail;
     expect(detail).not.toContain("state root's device");
-    expect(detail).toEndWith("; qualified: no capability qualification row");
+    expect(detail).toContain("; qualified: linux-7-btrfs (os linux, major 7, ");
+    expect(detail).toMatch(/\): differs in [a-z ,]*coordination route/);
     const smuggled = {
       root: join(root, "c"),
       report: "cx.pending",

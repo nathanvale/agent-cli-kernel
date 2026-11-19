@@ -1088,7 +1088,7 @@ supportingTest(
 );
 
 supportingTest(
-  "X27 supporting: through index.ts the empty capability qualification table refuses closure with the observed facts",
+  "X27 supporting: through index.ts, where no capability qualification row matches, closure refuses with the observed facts",
   plain(async (world) => {
     const production = { SX_ENTRY: "production" };
     await world.killAt(apply("a"), "effect", production);
@@ -1103,14 +1103,17 @@ supportingTest(
     expect(message).toStartWith(
       "State unavailable: stopped-owner-proof-unqualified (observed os ",
     );
-    expect(message).toEndWith("; qualified: no capability qualification row).");
+    expect(message).toContain(
+      "; qualified: linux-7-btrfs (os linux, major 7, ",
+    );
+    expect(message).toMatch(/\): differs in [a-z ,]+\)\.$/);
     expect(outsideCoordination(world, "state/")).toBe(before);
     expect(existsSync(closurePath(world, id))).toBe(false);
     const report = await capabilitiesUnder(world, production);
     expect(at(report, "qualification")).toBe("unqualified");
     expect(at(report, "stoppedOwnerProof")).toBe("unavailable");
     expect(JSON.stringify(at(report, "reasons"))).toContain(
-      "; qualified: no capability qualification row.",
+      "; qualified: linux-7-btrfs (os linux, major 7, ",
     );
     expect(
       world.ledger().filter((line) => line === "entry production"),

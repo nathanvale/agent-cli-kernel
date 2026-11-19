@@ -712,7 +712,11 @@ test(
   async () => {
     const world = checkout();
     expect(
-      await world.run([world.rowFile, world.parent, "--entry", "index.ts"]),
+      await world.run(
+        [world.rowFile, world.parent, "--entry", "index.ts"],
+        undefined,
+        { table: [] },
+      ),
     ).toBe(1);
     refusedWithoutRecord(
       world,
