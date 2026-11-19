@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index 3810854..f3e87ed 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -251,7 +251,7 @@ export function caseResults(
+         detail: `pending: ${row.reason}`,
+       };
+     const only = row.onlyThrough;
+-    if (only !== undefined && only.entry !== entry)
++    if (only !== undefined && only.entry === "none")
+       return {
+         id: row.id,
+         result: "not-runnable",

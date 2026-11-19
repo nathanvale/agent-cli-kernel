@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-record.ts b/tests/kernel/state/capability-qualification-record.ts
+index d94da1b..7ccdf66 100644
+--- a/tests/kernel/state/capability-qualification-record.ts
++++ b/tests/kernel/state/capability-qualification-record.ts
+@@ -355,7 +355,7 @@ function caseProblems(
+         ];
+   if (found === undefined)
+     return [`the ${run.entry} run has no result for ${row.id}`];
+-  if (found.result === "not-runnable")
++  if (found.result === "never")
+     return [
+       `${row.id} is marked not-runnable in the ${run.entry} run, but the case table runs it there`,
+     ];

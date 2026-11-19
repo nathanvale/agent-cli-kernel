@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/harness.ts b/tests/kernel/state/harness.ts
+index 0ded4ae..5838ea5 100644
+--- a/tests/kernel/state/harness.ts
++++ b/tests/kernel/state/harness.ts
+@@ -41,7 +41,7 @@ export function caseTest(
+   }
+   const only = row.onlyThrough;
+   const entry = runOf(process.env[runVariable])?.entry ?? "fixture.ts";
+-  if (only !== undefined && only.entry !== entry) {
++  if (only !== undefined && only.entry === "none") {
+     test(`${id} UNPROVED outside ${only.entry}: ${only.reason}`, () => {
+       expect(entry).not.toBe(only.entry);
+     });

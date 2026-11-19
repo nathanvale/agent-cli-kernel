@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index 3810854..f65cc87 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -627,7 +627,7 @@ export async function runCasesWithBun(
+       [
+         process.execPath,
+         "test",
+-        ...files.map((path) => `./${path}`),
++        `./${stateTests}`,
+         "--test-name-pattern",
+         testNamePattern(runnable),
+         "--reporter=junit",
