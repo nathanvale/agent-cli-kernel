@@ -22,7 +22,7 @@ import {
 } from "../lifecycle/recording-host.ts";
 
 const timeout = 30_000;
-const inputCli = join(import.meta.dir, "fixtures/input-cli.ts");
+const programInputCli = join(import.meta.dir, "fixtures/program-input-cli.ts");
 const limitOracle = 1_048_576;
 const notBytesOracle = "A program's input must be a Uint8Array.";
 const overLimitOracle = `A program's input is at most ${String(limitOracle)} bytes.`;
@@ -342,7 +342,7 @@ describe("a started program's input through the production entry", () => {
         const observed = await exitWithin(
           await launch({
             argv: [route, "--json"],
-            script: inputCli,
+            script: programInputCli,
             stdin: "held-open",
           }),
         );
