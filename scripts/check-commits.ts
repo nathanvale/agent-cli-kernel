@@ -259,7 +259,7 @@ export async function main(argv: readonly string[], run: Run): Promise<number> {
     print(`${red} of ${commits.length} commits are red${pace}.`);
     return 1;
   }
-  print(`Checked ${commits.length} commits: all green${pace}.`);
+  print(`Checked ${commits.length} commits: all GREEN${pace}.`);
   return 0;
 }
 
