@@ -435,12 +435,7 @@ function readProblem(
     : { kind: "unavailable", reason: `store-${read}` };
 }
 
-function stoppedOwnerProblem(
-  qualification: Qualification,
-  target: Operation,
-): string | undefined {
-  if (qualification.stoppedOwner === "unavailable")
-    return "stopped-owner-proof-unqualified";
+function stoppedOwnerProblem(target: Operation): string | undefined {
   if (target.events.some((event) => event.kind === "delegate-admitted"))
     return "delegate-recorded";
   return target.tornTail ? "journal-torn" : undefined;
@@ -651,6 +646,11 @@ export function install(options: StateOptions, seams: Seams) {
         },
   };
   const observers = options.observers ?? {};
+  const qualified = () =>
+    seams.qualification.match(
+      paths.root,
+      route.available ? route.route : undefined,
+    );
   const phase = seams.phase;
   const bound = Math.min(
     Math.max(options.admissionWaitMilliseconds ?? 2_000, 1),
@@ -1130,8 +1130,14 @@ export function install(options: StateOptions, seams: Seams) {
     request: CloseRequest<string>,
     runId: string,
   ): Promise<CloseResultBody | Closure> {
-    const qualification = seams.qualification;
-    const reason = stoppedOwnerProblem(qualification, target);
+    const match = qualified();
+    if (!match.matched)
+      return {
+        kind: "unavailable",
+        reason: "stopped-owner-proof-unqualified",
+        detail: match.detail,
+      };
+    const reason = stoppedOwnerProblem(target);
     if (reason) return { kind: "unavailable", reason };
     if (target.revision !== request.revision) return { kind: "stale-revision" };
     if (request.disposition === "outcome-unknown")
@@ -1155,7 +1161,7 @@ export function install(options: StateOptions, seams: Seams) {
       })),
       authority: null,
       journalRevision: target.revision,
-      qualification: qualification.label,
+      qualification: match.label,
       recoveryRunId: runId,
     };
   }
@@ -1432,17 +1438,16 @@ export function install(options: StateOptions, seams: Seams) {
   }
 
   function capabilities(): CapabilityReport {
-    const qualification = seams.qualification;
+    const match = qualified();
     const coordination = route.available ? "available" : "unavailable";
     const stopped =
-      coordination === "unavailable" ||
-      qualification.stoppedOwner === "unavailable"
+      coordination === "unavailable" || !match.matched
         ? "unavailable"
-        : qualification.source === "fixture"
+        : seams.qualification.source === "fixture"
           ? "fixture-only"
           : "available";
     return {
-      qualification: qualification.label,
+      qualification: match.matched ? match.label : "unqualified",
       coordination,
       coordinationRoute: route.available
         ? route.basis
@@ -1463,6 +1468,7 @@ export function install(options: StateOptions, seams: Seams) {
         ...(stopped === "unavailable"
           ? [
               "No reviewed capability qualification row for the stopped-owner condition (REC-7b).",
+              ...(match.matched ? [] : [`${match.detail}.`]),
             ]
           : []),
         "Reclaim grants coordination only and has no separate step (REC-7).",

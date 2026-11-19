@@ -2,14 +2,48 @@ import { install } from "./install.ts";
 import type { Phase, StateOptions } from "./install.ts";
 import { resolveCoordination } from "./coordination.ts";
 import type { CoordinationRoute } from "./coordination.ts";
-import { resolveQualification } from "./qualification.ts";
+import type { CapabilityQualificationRow } from "./capability-qualification-table.ts";
+import {
+  candidateQualification,
+  resolveQualification,
+} from "./qualification.ts";
+import type { FactOverrides, Match, Qualification } from "./qualification.ts";
 
 export type { Phase } from "./install.ts";
+export type { CapabilityQualificationRow } from "./capability-qualification-table.ts";
+export type { FactOverrides } from "./qualification.ts";
+
+// Interface: a candidate row needs a fixture label, so every closure it
+// enables is stamped `fixture:<label>`; fact overrides need a candidate row.
+// Neither touches the production capability qualification table.
+export type QualificationSeams =
+  | {
+      readonly fixtureLabel?: string;
+      readonly candidateRow?: undefined;
+      readonly factOverrides?: undefined;
+    }
+  | {
+      readonly fixtureLabel: string;
+      readonly candidateRow: CapabilityQualificationRow;
+      readonly factOverrides?: FactOverrides;
+    };
+
+function fixtureQualification(seams: QualificationSeams): Qualification {
+  const label = seams.fixtureLabel;
+  if (label === undefined) return resolveQualification();
+  if (seams.candidateRow !== undefined)
+    return candidateQualification(
+      label,
+      seams.candidateRow,
+      seams.factOverrides ?? {},
+    );
+  const matched: Match = { matched: true, label: `fixture:${label}` };
+  return Object.freeze({ source: "fixture", match: () => matched });
+}
 
 export function stateAddonWithTestSeams(
   options: StateOptions,
-  seams: {
-    readonly fixtureLabel?: string;
+  seams: QualificationSeams & {
     readonly phase?: (name: Phase) => Promise<void>;
     readonly coordinationLibrary?: string;
     readonly coordination?: CoordinationRoute;
@@ -23,14 +57,7 @@ export function stateAddonWithTestSeams(
     ...(seams.moverReport === undefined
       ? {}
       : { moverReport: seams.moverReport }),
-    qualification:
-      seams.fixtureLabel === undefined
-        ? resolveQualification()
-        : {
-            label: `fixture:${seams.fixtureLabel}`,
-            source: "fixture",
-            stoppedOwner: "lease-and-no-delegate",
-          },
+    qualification: fixtureQualification(seams),
     phase: seams.phase ?? (() => Promise.resolve()),
     coordination:
       seams.coordination ?? resolveCoordination(seams.coordinationLibrary),

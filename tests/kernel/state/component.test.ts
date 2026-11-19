@@ -41,10 +41,8 @@ import {
   errorCode,
   resolveCoordination,
 } from "../../../kernel/src/addons/state/coordination.ts";
-import {
-  qualificationRows,
-  resolveQualification,
-} from "../../../kernel/src/addons/state/qualification.ts";
+import { capabilityQualificationTable } from "../../../kernel/src/addons/state/capability-qualification-table.ts";
+import { resolveQualification } from "../../../kernel/src/addons/state/qualification.ts";
 import {
   encodeRecord,
   parseRecords,
@@ -646,19 +644,19 @@ caseTest("Q01.b-fixture-never-enables", async () => {
       expect(report.humanAssistedTakeover).toBe("unavailable");
       expect(report.humanOutcomeUnknownClosure).toBe("unavailable");
     }
-    expect(qualificationRows).toEqual([]);
-    expect(resolveQualification()).toEqual({
-      label: "unqualified",
-      source: "production",
-      stoppedOwner: "unavailable",
+    expect(capabilityQualificationTable).toEqual([]);
+    expect(Object.isFrozen(capabilityQualificationTable)).toBe(true);
+    const qualification = resolveQualification();
+    expect(qualification.source).toBe("production");
+    expect(qualification.match(join(root, "b"), "any route")).toMatchObject({
+      matched: false,
     });
     const smuggled = {
       root: join(root, "c"),
       report: "cx.pending",
       qualification: {
-        label: "forged",
         source: "production",
-        stoppedOwner: "lease-and-no-delegate",
+        match: () => ({ matched: true, label: "forged" }),
       },
       phase: () => Promise.reject(new Error("never called")),
     };
