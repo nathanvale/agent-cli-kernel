@@ -14,6 +14,7 @@ import { join } from "node:path";
 import { testFolder } from "../../support/test-folder.ts";
 import {
   refuseRunOverrides,
+  runOf,
   runVariable,
   worldEnvironment,
 } from "./capability-qualification-run.ts";
@@ -38,6 +39,14 @@ export function caseTest(
     );
     return;
   }
+  const only = row.onlyThrough;
+  const entry = runOf(process.env[runVariable])?.entry ?? "fixture.ts";
+  if (only !== undefined && only.entry !== entry) {
+    test(`${id} UNPROVED outside ${only.entry}: ${only.reason}`, () => {
+      expect(entry).not.toBe(only.entry);
+    });
+    return;
+  }
   if (row.nonRoot === true && process.geteuid?.() === 0) {
     test(`${id} UNPROVED as euid 0: root is never denied permission`, () => {
       expect(process.geteuid?.()).toBe(0);
@@ -45,6 +54,11 @@ export function caseTest(
     return;
   }
   test(id, body, timeout);
+}
+
+export function closureLabel(): string {
+  const run = runOf(process.env[runVariable]);
+  return run?.entry === "index.ts" ? run.candidate.id : "fixture:specimen";
 }
 
 async function failClosedControl(): Promise<void> {

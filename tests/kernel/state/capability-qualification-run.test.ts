@@ -7,7 +7,7 @@ import {
   statfsSync,
   writeFileSync,
 } from "node:fs";
-import { homedir, hostname, release, userInfo } from "node:os";
+import { homedir, hostname, release } from "node:os";
 import { join } from "node:path";
 import { movedStateRoot } from "../../../kernel/src/addons/state/capability-qualification-table.ts";
 import { resolveCoordination } from "../../../kernel/src/addons/state/coordination.ts";
@@ -18,7 +18,7 @@ import {
   inherited,
   initRepository,
 } from "../../support/git-fixture.ts";
-import { testFolder } from "../../support/test-folder.ts";
+import { ownedFolders } from "../../support/fixture-files.ts";
 import { spawnBounded } from "../kernel-repair/swarm-process.ts";
 import {
   capabilityQualificationCases,
@@ -29,17 +29,20 @@ import {
   recordSchema,
   requiredCaseIds,
   rowProblems,
+  runEntries,
   sourceHash,
 } from "./capability-qualification-record.ts";
 import type {
   CapabilityQualificationRecord,
   CaseResult,
+  RunEntry,
 } from "./capability-qualification-record.ts";
 import {
   capabilityQualificationRun,
   caseFiles,
   caseResults,
   runCasesWithBun,
+  runOf,
   runVariable,
   runVariableValue,
   secondRunProblem,
@@ -54,8 +57,10 @@ import type {
 } from "./capability-qualification-run.ts";
 import type { StateCase } from "./cases.ts";
 import {
+  at,
   caseTest,
   closeArgs,
+  closureLabel,
   expectCompleted,
   expectRefusedUnchanged,
   makeWorld,
@@ -63,7 +68,10 @@ import {
   supportingTest,
 } from "./harness.ts";
 
+const folder = ownedFolders();
 const inProcess = 30_000;
+const caseRunBound = 60_000;
+const caseRunTimeout = 120_000;
 
 const candidate: CandidateRow = {
   id: "linux-7-btrfs",
@@ -108,7 +116,7 @@ function callerEnvironment(): Record<string, string | undefined> {
 }
 
 function checkout() {
-  const base = testFolder("c3-run-");
+  const base = folder("c3-run-");
   const root = join(base, "repository");
   initRepository(root);
   commitIn(root, "qualified source", {
@@ -330,19 +338,38 @@ test(
 
 function expectedResults(
   selection: readonly StateCase[],
+  entry: RunEntry,
   failed: readonly string[] = [],
 ): readonly CaseResult[] {
-  return selection.map((row) =>
-    row.status === "pending"
-      ? { id: row.id, result: "unproved", detail: `pending: ${row.reason}` }
-      : failed.includes(row.id)
-        ? {
-            id: row.id,
-            result: "fail",
-            detail: "failed; the run's output shows why",
-          }
-        : { id: row.id, result: "pass", detail: "passed" },
-  );
+  return selection.map((row): CaseResult => {
+    if (row.status === "pending")
+      return {
+        id: row.id,
+        result: "unproved",
+        detail: `pending: ${row.reason}`,
+      };
+    const only = row.onlyThrough;
+    if (only !== undefined && only.entry !== entry)
+      return {
+        id: row.id,
+        result: "not-runnable",
+        detail: `runs only through ${only.entry}`,
+        reason: only.reason,
+      };
+    return failed.includes(row.id)
+      ? {
+          id: row.id,
+          result: "fail",
+          detail: "failed; the run's output shows why",
+        }
+      : { id: row.id, result: "pass", detail: "passed" };
+  });
+}
+
+function summary(results: readonly CaseResult[]): string {
+  const count = (result: CaseResult["result"]) =>
+    String(results.filter((entry) => entry.result === result).length);
+  return `${count("pass")} pass, ${count("fail")} fail, ${count("unproved")} unproved, ${count("not-runnable")} not-runnable.`;
 }
 
 test(
@@ -399,41 +426,28 @@ test(
     expect(Date.parse(run?.started ?? "")).toBeLessThanOrEqual(
       Date.parse(run?.ended ?? ""),
     );
-    expect(run?.cases).toEqual(expectedResults(selection));
+    const expected = expectedResults(selection, "fixture.ts");
+    expect(run?.cases).toEqual(expected);
+    expect(
+      expected.filter((entry) => entry.result === "not-runnable").length,
+    ).toBeGreaterThan(0);
     expect(world.lines).toEqual([
-      `Wrote ${recordPath(candidate.id)}: ${String(requiredCaseIds().length)} pass, 0 fail, ${String(selection.length - requiredCaseIds().length)} unproved.`,
+      `Wrote ${recordPath(candidate.id)}: ${summary(expected)}`,
     ]);
     expectNoIdentity(world, text);
   },
   inProcess,
 );
 
-function accountNames(): readonly string[] {
-  const uid = process.getuid?.();
-  const passwd =
-    uid === undefined || !existsSync("/etc/passwd")
-      ? []
-      : readFileSync("/etc/passwd", "utf8")
-          .split("\n")
-          .map((line) => line.split(":"))
-          .filter((fields) => fields[2] === String(uid))
-          .map((fields) => fields[0] ?? "");
-  return [
-    ...passwd,
-    process.env.USER ?? "",
-    process.env.LOGNAME ?? "",
-    userInfo().username,
-    hostname(),
-  ].filter((name) => name !== "");
-}
-
-function ownStrings(value: unknown, key = ""): readonly string[] {
-  if (key === "cases") return [];
-  if (typeof value === "string") return [value];
-  if (typeof value !== "object" || value === null) return [];
-  return Object.entries(value).flatMap(([name, entry]) =>
-    ownStrings(entry, name),
-  );
+function accountName(): string | undefined {
+  const result = Bun.spawnSync(["id", "-un"], {
+    stdout: "pipe",
+    stderr: "pipe",
+    timeout: 4_000,
+    killSignal: "SIGKILL",
+  });
+  const name = result.stdout.toString().trim();
+  return result.exitCode === 0 && name !== "" ? name : undefined;
 }
 
 function expectNoIdentity(world: Checkout, text: string): void {
@@ -445,19 +459,45 @@ function expectNoIdentity(world: Checkout, text: string): void {
     expect(text).not.toContain(
       readFileSync(candidate.bootIdentitySource, "utf8").trim(),
     );
-  const fields = ownStrings(JSON.parse(text));
-  expect(fields.length).toBeGreaterThan(10);
-  for (const name of accountNames())
-    expect(fields.filter((field) => field.includes(name))).toEqual([]);
+  const { platform } = parseRecord(text);
+  const hostRead = [platform.release, platform.distribution, platform.cLibrary];
+  for (const value of hostRead) expect(value.length).toBeGreaterThan(0);
+  const words = hostRead.flatMap((value) => value.split(/[^A-Za-z0-9_.-]+/));
+  for (const name of [accountName(), hostname()])
+    if (name !== undefined) expect(words).not.toContain(name);
 }
 
 test(
   "a capability qualification record names no path, account or machine when USER and LOGNAME are unset",
   async () => {
     const world = checkout();
-    expect(
-      await world.run(undefined, { USER: undefined, LOGNAME: undefined }),
-    ).toBe(0);
+    const saved = { USER: process.env.USER, LOGNAME: process.env.LOGNAME };
+    delete process.env.USER;
+    delete process.env.LOGNAME;
+    const seen: (string | undefined)[] = [];
+    try {
+      const code = await world.run(
+        undefined,
+        { USER: undefined, LOGNAME: undefined },
+        {
+          runCases: (request) => {
+            seen.push(
+              process.env.USER,
+              process.env.LOGNAME,
+              request.environment.USER,
+              request.environment.LOGNAME,
+            );
+            return Promise.resolve(junit(request.selection));
+          },
+        },
+      );
+      expect(code).toBe(0);
+    } finally {
+      for (const [name, value] of Object.entries(saved))
+        if (value === undefined) delete process.env[name];
+        else process.env[name] = value;
+    }
+    expect(seen).toEqual([undefined, undefined, undefined, undefined]);
     expectNoIdentity(world, readFileSync(world.recordFile, "utf8"));
   },
   inProcess,
@@ -467,7 +507,7 @@ test(
   "a capability qualification run with a failed required case writes its record and does not qualify the row",
   async () => {
     const world = checkout();
-    const [first] = requiredCaseIds();
+    const [first] = requiredCaseIds("fixture.ts");
     if (first === undefined) throw new Error("No required case.");
     const code = await world.run(undefined, undefined, {
       runCases: (request) => Promise.resolve(junit(request.selection, [first])),
@@ -478,7 +518,9 @@ test(
     );
     expect(
       parseRecord(readFileSync(world.recordFile, "utf8")).runs[0]?.cases,
-    ).toEqual(expectedResults(capabilityQualificationCases(), [first]));
+    ).toEqual(
+      expectedResults(capabilityQualificationCases(), "fixture.ts", [first]),
+    );
   },
   inProcess,
 );
@@ -711,6 +753,16 @@ const synthetic: readonly StateCase[] = [
       }) as const,
   ),
   {
+    id: "K02.g-synthetic",
+    status: "executable",
+    layer: "process",
+    platform: "coordination",
+    onlyThrough: { entry: "index.ts", reason: "Needs the row in the table." },
+    sources: "test",
+    observation: "test",
+    red: "test",
+  },
+  {
     id: "K08.e-synthetic-pending",
     status: "pending",
     supplier: "T2-slice-B",
@@ -721,6 +773,13 @@ const synthetic: readonly StateCase[] = [
   },
 ];
 
+const syntheticNotRunnable = {
+  id: "K02.g-synthetic",
+  result: "not-runnable",
+  detail: "runs only through index.ts",
+  reason: "Needs the row in the table.",
+} as const;
+
 test("each case result comes from its own test in the run's report", () => {
   const report = [
     "<testsuites><testsuite>",
@@ -729,9 +788,10 @@ test("each case result comes from its own test in the run's report", () => {
     '<testcase name="K02.c-synthetic UNPROVED on darwin: fail-closed control only" time="1" />',
     '<testcase name="K02.f-synthetic" time="0"><skipped /></testcase>',
     '<testcase name="K02.a-synthetic-other" time="1"><failure /></testcase>',
+    '<testcase name="K02.g-synthetic" time="1"><failure /></testcase>',
     "</testsuite></testsuites>",
   ].join("\n");
-  expect(caseResults(report, synthetic)).toEqual([
+  expect(caseResults(report, synthetic, "fixture.ts")).toEqual([
     { id: "K02.a-synthetic", result: "pass", detail: "passed" },
     {
       id: "K02.b-synthetic",
@@ -749,6 +809,7 @@ test("each case result comes from its own test in the run's report", () => {
       detail: "no test ran for this case",
     },
     { id: "K02.f-synthetic", result: "fail", detail: "skipped" },
+    syntheticNotRunnable,
     {
       id: "K08.e-synthetic-pending",
       result: "unproved",
@@ -792,6 +853,32 @@ test("a capability qualification run tells each world its entry and candidate ro
   expect(() => worldEnvironment("{", "fixture")).toThrow(
     `${runVariable} is not a capability qualification run`,
   );
+  expect(runOf(undefined)).toBe(undefined);
+  expect(runOf(second)).toEqual({ entry: "index.ts", candidate });
+});
+
+test("a closure in an index.ts capability qualification run is stamped with the row id, and otherwise with the fixture label", () => {
+  const saved = process.env[runVariable];
+  const labels: string[] = [];
+  try {
+    for (const value of [
+      undefined,
+      runVariableValue("fixture.ts", candidate),
+      runVariableValue("index.ts", candidate),
+    ]) {
+      if (value === undefined) delete process.env[runVariable];
+      else process.env[runVariable] = value;
+      labels.push(closureLabel());
+    }
+  } finally {
+    if (saved === undefined) delete process.env[runVariable];
+    else process.env[runVariable] = saved;
+  }
+  expect(labels).toEqual([
+    "fixture:specimen",
+    "fixture:specimen",
+    candidate.id,
+  ]);
 });
 
 function worldUnder(value: string | undefined) {
@@ -893,22 +980,64 @@ function caseFile(lines: readonly string[]): string {
   ].join("\n");
 }
 
+function runnerWorld() {
+  const base = folder("c3-runner-");
+  const parent = join(base, "parent");
+  const outside = join(base, "outside");
+  const cases = join(base, "tests", "kernel", "state");
+  for (const path of [cases, parent, outside])
+    mkdirSync(path, { recursive: true });
+  const request = (
+    selection: readonly StateCase[],
+    root = base,
+    output: (text: string) => void = () => undefined,
+  ): CaseRequest => ({
+    root,
+    parent,
+    entry: "fixture.ts",
+    candidate,
+    selection,
+    environment: { ...callerEnvironment(), TMPDIR: outside },
+    output,
+  });
+  return { base, parent, outside, cases, request };
+}
+
+async function withOwnTemporaryFolders<T>(
+  folder: string,
+  body: () => Promise<T>,
+): Promise<T> {
+  const saved = {
+    STATE_TEST_DIR: process.env.STATE_TEST_DIR,
+    TMPDIR: process.env.TMPDIR,
+  };
+  process.env.STATE_TEST_DIR = folder;
+  process.env.TMPDIR = folder;
+  try {
+    return await body();
+  } finally {
+    for (const [name, value] of Object.entries(saved))
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+  }
+}
+
+function loadedFiles(report: string): readonly string[] {
+  return [...report.matchAll(/<testsuite\b[^>]*\bfile="([^"]*)"/g)]
+    .map((match) => (match[1] ?? "").replace(/^\.\//, ""))
+    .sort();
+}
+
 test(
   "the capability qualification run's own case runner loads only the files that hold covered cases and reads each case from Bun's report",
   async () => {
-    const base = testFolder("c3-runner-");
-    const parent = join(base, "parent");
-    const scratch = join(base, "scratch");
-    const marker = join(base, "loaded");
-    const folder = join(base, "tests", "kernel", "state");
-    for (const path of [folder, parent, scratch])
-      mkdirSync(path, { recursive: true });
+    const world = runnerWorld();
     writeFileSync(
-      join(folder, "synthetic.test.ts"),
+      join(world.cases, "synthetic.test.ts"),
       caseFile([
         registered(
           "K02.a-synthetic",
-          `expect(process.env.STATE_TEST_DIR).toBe(${JSON.stringify(parent)}); expect(JSON.parse(process.env.${runVariable} ?? "{}").entry).toBe("fixture.ts");`,
+          `expect(process.env.STATE_TEST_DIR).toBe(${JSON.stringify(world.parent)}); expect(JSON.parse(process.env.${runVariable} ?? "{}").entry).toBe("fixture.ts"); expect(require("node:fs").readdirSync(process.env.STATE_TEST_DIR).filter((name: string) => name.startsWith(".capability-qualification-run-")).length).toBe(1);`,
         ),
         registered("K02.b-synthetic", "expect(1).toBe(2);"),
         registered(
@@ -917,38 +1046,37 @@ test(
           "K02.c-synthetic UNPROVED on darwin: fail-closed control only",
         ),
         registered("K02.f-synthetic", 'throw new Error("not in the pattern");'),
+        registered("K02.g-synthetic", 'throw new Error("index.ts only");'),
       ]),
     );
     writeFileSync(
-      join(folder, "noise.test.ts"),
+      join(world.cases, "noise.test.ts"),
       caseFile([
         'import { writeFileSync } from "node:fs";',
-        `writeFileSync(${JSON.stringify(marker)}, "loaded\\n");`,
-        registered("Z99.a-not-covered", ""),
+        'import { tmpdir } from "node:os";',
+        'import { join } from "node:path";',
+        'writeFileSync(join(tmpdir(), "loaded"), "loaded\\n");',
+        registered("K02.e-synthetic", ""),
       ]),
     );
     const selection = synthetic.filter((row) => row.id !== "K02.f-synthetic");
-    expect(caseFiles(base, selection)).toEqual([
+    expect(caseFiles(world.base, selection)).toEqual([
       "tests/kernel/state/synthetic.test.ts",
     ]);
     const output: string[] = [];
-    const report = await runCasesWithBun(
-      {
-        root: base,
-        parent,
-        entry: "fixture.ts",
-        candidate,
-        selection,
-        environment: { ...callerEnvironment(), TMPDIR: scratch },
-        output: (text) => output.push(text),
-      },
-      20_000,
+    const report = await withOwnTemporaryFolders(world.outside, () =>
+      runCasesWithBun(
+        world.request(selection, world.base, (text) => output.push(text)),
+        caseRunBound,
+      ),
     );
     expect(output.join("")).toContain("K02.b-synthetic");
-    expect(existsSync(marker)).toBe(false);
-    expect(readdirSync(parent)).toEqual([]);
-    expect(readdirSync(scratch)).toEqual([]);
-    expect(caseResults(report, synthetic)).toEqual([
+    expect(loadedFiles(report)).toEqual([
+      "tests/kernel/state/synthetic.test.ts",
+    ]);
+    expect(readdirSync(world.parent)).toEqual([]);
+    expect(readdirSync(world.outside)).toEqual([]);
+    expect(caseResults(report, synthetic, "fixture.ts")).toEqual([
       { id: "K02.a-synthetic", result: "pass", detail: "passed" },
       {
         id: "K02.b-synthetic",
@@ -966,40 +1094,59 @@ test(
         detail: "no test ran for this case",
       },
       { id: "K02.f-synthetic", result: "fail", detail: "skipped" },
+      syntheticNotRunnable,
       {
         id: "K08.e-synthetic-pending",
         result: "unproved",
         detail: "pending: Needs a delegated program.",
       },
     ]);
+    const control = synthetic
+      .filter((row) => row.id === "K02.a-synthetic")
+      .map((row) => ({ ...row, id: "K02.e-synthetic" }));
+    await withOwnTemporaryFolders(world.outside, () =>
+      runCasesWithBun(world.request(control), caseRunBound),
+    );
+    expect(readdirSync(world.outside)).toEqual(["loaded"]);
   },
-  inProcess,
+  caseRunTimeout,
 );
 
 test(
   "the capability qualification run's own case runner refuses a selection no file holds",
   async () => {
-    const base = testFolder("c3-runner-");
-    const parent = join(base, "parent");
-    mkdirSync(join(base, "tests", "kernel", "state"), { recursive: true });
-    mkdirSync(parent);
+    const world = runnerWorld();
     const refused = await runCasesWithBun(
-      {
-        root: base,
-        parent,
-        entry: "fixture.ts",
-        candidate,
-        selection: synthetic,
-        environment: callerEnvironment(),
-        output: () => undefined,
-      },
-      20_000,
+      world.request(synthetic),
+      caseRunBound,
     ).then(
       () => "ran",
       (error: unknown) => (error instanceof Error ? error.message : "thrown"),
     );
-    expect(refused).toBe("no file in tests/kernel/state holds a covered case");
-    expect(readdirSync(parent)).toEqual([]);
+    expect(refused).toBe(
+      "no file in tests/kernel/state registers a covered case",
+    );
+    expect(readdirSync(world.parent)).toEqual([]);
+  },
+  inProcess,
+);
+
+test(
+  "a capability qualification run names the repair when no file registers a covered case",
+  async () => {
+    const world = checkout();
+    mkdirSync(join(world.base, "tests", "kernel", "state"), {
+      recursive: true,
+    });
+    const code = await world.run(undefined, undefined, {
+      runCases: (request) =>
+        runCasesWithBun({ ...request, root: world.base }, caseRunBound),
+    });
+    expect(code).toBe(1);
+    expect(world.lines).toEqual([
+      "Refused: the case run ended without results (no file in tests/kernel/state registers a covered case); no capability qualification record is written. Repair: register each covered case with caseTest in tests/kernel/state, then rerun.",
+    ]);
+    expect(existsSync(world.folder)).toBe(false);
   },
   inProcess,
 );
@@ -1007,48 +1154,83 @@ test(
 const repository = join(import.meta.dir, "..", "..", "..");
 
 test("the run loads the files that register the covered cases, and not the coordination probe", () => {
-  const files = caseFiles(repository, capabilityQualificationCases());
-  expect(files).toContain("tests/kernel/state/recovery.test.ts");
-  expect(files).toContain("tests/kernel/state/component.test.ts");
-  expect(files).not.toContain(
-    "tests/kernel/state/linux-coordination.probe.test.ts",
-  );
-  const sources = files.map((path) =>
-    readFileSync(join(repository, path), "utf8"),
-  );
-  for (const id of requiredCaseIds())
-    expect(sources.some((source) => source.includes(`"${id}"`))).toBe(true);
+  for (const entry of runEntries) {
+    const runnable = capabilityQualificationCases().filter(
+      (row) =>
+        row.status === "executable" &&
+        (row.onlyThrough === undefined || row.onlyThrough.entry === entry),
+    );
+    const files = caseFiles(repository, runnable);
+    expect(files).not.toContain(
+      "tests/kernel/state/linux-coordination.probe.test.ts",
+    );
+    const sources = files.map((path) =>
+      readFileSync(join(repository, path), "utf8"),
+    );
+    for (const id of requiredCaseIds(entry))
+      expect(sources.some((source) => source.includes(`"${id}"`))).toBe(true);
+  }
 });
 
-test("a case run over the repository's covered files leaves nothing outside its state root parent", async () => {
-  const base = testFolder("c3-runner-");
-  const parent = join(base, "parent");
-  const scratch = join(base, "scratch");
-  for (const path of [parent, scratch]) mkdirSync(path);
-  const selection = capabilityQualificationCases().filter((row) =>
-    ["K02.a", "K11.e"].includes(row.id.slice(0, 5)),
-  );
-  expect(caseFiles(repository, selection)).toEqual([
-    "tests/kernel/state/component.test.ts",
-    "tests/kernel/state/recovery.test.ts",
-  ]);
-  const report = await runCasesWithBun(
-    {
-      root: repository,
-      parent,
-      entry: "fixture.ts",
-      candidate,
-      selection,
-      environment: { ...callerEnvironment(), TMPDIR: scratch },
-      output: () => undefined,
-    },
-    40_000,
-  );
-  expect(
-    caseResults(report, selection).filter(
-      (entry) => entry.detail === "no test ran for this case",
-    ),
-  ).toEqual([]);
-  expect(readdirSync(parent)).toEqual([]);
-  expect(readdirSync(scratch)).toEqual([]);
-}, 90_000);
+test(
+  "a fixture.ts case run over the repository's covered files loads only them and leaves nothing outside its state root parent",
+  async () => {
+    const world = runnerWorld();
+    const selection = capabilityQualificationCases();
+    const runnable = selection.filter(
+      (row) =>
+        row.status === "executable" &&
+        (row.onlyThrough === undefined ||
+          row.onlyThrough.entry === "fixture.ts"),
+    );
+    const report = await withOwnTemporaryFolders(world.outside, () =>
+      runCasesWithBun(world.request(selection, repository), caseRunBound),
+    );
+    expect(loadedFiles(report)).toEqual(caseFiles(repository, runnable));
+    expect(
+      caseResults(report, selection, "fixture.ts").filter(
+        (entry) => entry.detail === "no test ran for this case",
+      ),
+    ).toEqual([]);
+    expect(readdirSync(world.parent)).toEqual([]);
+    expect(readdirSync(world.outside)).toEqual([]);
+  },
+  caseRunTimeout,
+);
+
+caseTest("Q02.e-production-row-closes", async () => {
+  const label = closureLabel();
+  expect(label).not.toStartWith("fixture:");
+  const world = makeWorld({ qualification: "fixture" });
+  try {
+    await world.killAt(apply, "effect");
+    await world.killAt(["send", "m2", "--json"], "intent");
+    const operation = (command: string) => {
+      const found = world
+        .operations()
+        .filter((entry) => entry.intent.commandIdentity === command);
+      const [first, ...rest] = found;
+      if (!first || rest.length > 0)
+        throw new Error(`Expected one ${command} operation.`);
+      return first.id;
+    };
+    const closures = [
+      [operation("sx.apply"), "completed", "c1"],
+      [operation("sx.send"), "not-applied", "c2"],
+    ] as const;
+    for (const [id, disposition, closureId] of closures)
+      expectCompleted(
+        await world.run(
+          closeArgs(id, await world.revision(id), disposition, closureId),
+        ),
+      );
+    for (const [id, disposition] of closures) {
+      const closure = world.cases().find((entry) => entry.id === id)?.closure;
+      const payload = closure?.records[0]?.payload;
+      expect(at(payload, "disposition")).toBe(disposition);
+      expect(at(payload, "qualification")).toBe(label);
+    }
+  } finally {
+    world.dispose();
+  }
+});

@@ -17,6 +17,7 @@ import {
   at,
   caseTest,
   closeArgs,
+  closureLabel,
   expectCompleted,
   expectRefusedUnchanged,
   makeWorld,
@@ -289,7 +290,7 @@ caseTest(
     expect(at(payload, "disposition")).toBe("completed");
     expect(at(payload, "reason")).toBe("independent evidence reviewed");
     expect(at(payload, "journalRevision")).toBe(revision);
-    expect(at(payload, "qualification")).toBe("fixture:specimen");
+    expect(at(payload, "qualification")).toBe(closureLabel());
     expect(at(payload, "evidence")).toEqual([
       { effect: "note.write", observation: "present" },
     ]);

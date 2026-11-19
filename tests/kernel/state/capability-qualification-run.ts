@@ -22,6 +22,7 @@ import {
   startChild,
   withoutRepositoryLocation,
 } from "../../../scripts/process-runner.ts";
+import { testFolder } from "../../support/test-folder.ts";
 import {
   capabilityQualificationCases,
   messageOf,
@@ -32,8 +33,10 @@ import {
   recordFolder,
   recordPath,
   recordSchema,
+  registeredCases,
   requiredCaseIds,
   runEntries,
+  runsThrough,
   sourceHash,
 } from "./capability-qualification-record.ts";
 import type {
@@ -133,26 +136,31 @@ export function runVariableValue(
   return JSON.stringify({ entry, candidate });
 }
 
-export function worldEnvironment(
+export function runOf(
   value: string | undefined,
-  qualification: "fixture" | undefined,
-): Readonly<Record<string, string>> | undefined {
+): { readonly entry: RunEntry; readonly candidate: CandidateRow } | undefined {
   if (value === undefined) return undefined;
-  let entry: RunEntry;
-  let candidate: CandidateRow;
   try {
     const parsed: unknown = JSON.parse(value);
     const named = own(parsed, "entry");
-    const found = runEntries.find((each) => each === named);
-    if (found === undefined) throw new Error("its entry is not known");
-    entry = found;
-    candidate = candidateRow(own(parsed, "candidate"));
+    const entry = runEntries.find((each) => each === named);
+    if (entry === undefined) throw new Error("its entry is not known");
+    return { entry, candidate: candidateRow(own(parsed, "candidate")) };
   } catch (error) {
     throw new Error(
       `${runVariable} is not a capability qualification run: ${messageOf(error)}`,
       { cause: error },
     );
   }
+}
+
+export function worldEnvironment(
+  value: string | undefined,
+  qualification: "fixture" | undefined,
+): Readonly<Record<string, string>> | undefined {
+  const run = runOf(value);
+  if (run === undefined) return undefined;
+  const { entry, candidate } = run;
   if (entry === "index.ts") return { SX_ENTRY: "production" };
   if (qualification !== "fixture") return {};
   return {
@@ -232,6 +240,7 @@ function reportedTests(junit: string): ReadonlyMap<string, Reported> {
 export function caseResults(
   junit: string,
   selection: readonly StateCase[],
+  entry: RunEntry,
 ): readonly CaseResult[] {
   const tests = reportedTests(junit);
   return selection.map((row): CaseResult => {
@@ -240,6 +249,14 @@ export function caseResults(
         id: row.id,
         result: "unproved",
         detail: `pending: ${row.reason}`,
+      };
+    const only = row.onlyThrough;
+    if (only !== undefined && only.entry !== entry)
+      return {
+        id: row.id,
+        result: "not-runnable",
+        detail: `runs only through ${only.entry}`,
+        reason: only.reason,
       };
     const exact = tests.get(row.id);
     if (exact === "passed")
@@ -356,9 +373,9 @@ function cLibrary(): string {
     if (readdirSync("/lib").some((name) => name.startsWith("ld-musl-")))
       return "musl";
   } catch {
-    return "not found";
+    return "unknown";
   }
-  return "not found";
+  return "unknown";
 }
 
 function observedPlatform(): PlatformFacts {
@@ -563,6 +580,15 @@ function writeRecord(
 }
 
 const caseRun: { stop?: () => void } = {};
+
+class CaseRunFailure extends Error {
+  constructor(
+    message: string,
+    readonly repair = "read the run's output above, then rerun",
+  ) {
+    super(message);
+  }
+}
 const stateTests = "tests/kernel/state";
 
 export function caseFiles(
@@ -575,11 +601,9 @@ export function caseFiles(
     .sort()
     .map((name) => `${stateTests}/${name}`)
     .filter((path) =>
-      [
-        ...readFileSync(join(root, path), "utf8").matchAll(
-          /caseTest\(\s*"([^"]+)"/g,
-        ),
-      ].some((match) => covered.includes(match[1] ?? "")),
+      registeredCases(readFileSync(join(root, path), "utf8")).some((id) =>
+        covered.includes(id),
+      ),
     );
 }
 
@@ -587,14 +611,16 @@ export async function runCasesWithBun(
   request: CaseRequest,
   limitMilliseconds = caseRunMilliseconds,
 ): Promise<string> {
-  const files = caseFiles(request.root, request.selection);
-  if (files.length === 0)
-    throw new Error(`no file in ${stateTests} holds a covered case`);
-  const folder = join(
-    request.parent,
-    `.capability-qualification-run-${String(process.pid)}`,
+  const runnable = request.selection.filter((row) =>
+    runsThrough(row, request.entry),
   );
-  mkdirSync(folder);
+  const files = caseFiles(request.root, runnable);
+  if (files.length === 0)
+    throw new CaseRunFailure(
+      `no file in ${stateTests} registers a covered case`,
+      `register each covered case with caseTest in ${stateTests}, then rerun`,
+    );
+  const folder = testFolder(".capability-qualification-run-", request.parent);
   try {
     const report = join(folder, "report.xml");
     const child = startChild(
@@ -603,7 +629,7 @@ export async function runCasesWithBun(
         "test",
         ...files.map((path) => `./${path}`),
         "--test-name-pattern",
-        testNamePattern(request.selection),
+        testNamePattern(runnable),
         "--reporter=junit",
         `--reporter-outfile=${report}`,
       ],
@@ -622,10 +648,11 @@ export async function runCasesWithBun(
     delete caseRun.stop;
     request.output(finished.stdout + finished.stderr);
     if (finished.timedOut)
-      throw new Error(
+      throw new CaseRunFailure(
         `the case run outlived its ${String(limitMilliseconds)} ms limit`,
       );
-    if (!existsSync(report)) throw new Error("the case run wrote no report");
+    if (!existsSync(report))
+      throw new CaseRunFailure("the case run wrote no report");
     return readFileSync(report, "utf8");
   } finally {
     rmSync(folder, { recursive: true, force: true });
@@ -663,7 +690,7 @@ export async function capabilityQualificationRun(
     });
   } catch (error) {
     context.print(
-      `Refused: the case run ended without results (${messageOf(error)}); no capability qualification record is written. Repair: read the run's output above, then rerun.`,
+      `Refused: the case run ended without results (${messageOf(error)}); no capability qualification record is written. Repair: ${error instanceof CaseRunFailure ? error.repair : "read the run's output above, then rerun"}.`,
     );
     return 1;
   }
@@ -673,7 +700,7 @@ export async function capabilityQualificationRun(
     );
     return 1;
   }
-  const cases = caseResults(report, selection);
+  const cases = caseResults(report, selection, entry);
   const run: CapabilityQualificationRun = {
     entry,
     commit,
@@ -696,9 +723,9 @@ export async function capabilityQualificationRun(
   const count = (result: CaseResult["result"]) =>
     String(cases.filter((entry) => entry.result === result).length);
   context.print(
-    `Wrote ${recordPath(candidate.id)}: ${count("pass")} pass, ${count("fail")} fail, ${count("unproved")} unproved.`,
+    `Wrote ${recordPath(candidate.id)}: ${count("pass")} pass, ${count("fail")} fail, ${count("unproved")} unproved, ${count("not-runnable")} not-runnable.`,
   );
-  const required = requiredCaseIds(selection);
+  const required = requiredCaseIds(entry, selection);
   const notPassed = cases.filter(
     (entry) => required.includes(entry.id) && entry.result !== "pass",
   );

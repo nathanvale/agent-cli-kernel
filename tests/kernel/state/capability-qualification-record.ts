@@ -14,13 +14,20 @@ export function recordPath(rowId: string): string {
 
 export const runEntries = ["fixture.ts", "index.ts"] as const;
 export type RunEntry = (typeof runEntries)[number];
-const caseResultValues = ["pass", "fail", "unproved"] as const;
+const caseResultValues = ["pass", "fail", "unproved", "not-runnable"] as const;
 
-export type CaseResult = {
-  readonly id: string;
-  readonly result: (typeof caseResultValues)[number];
-  readonly detail: string;
-};
+export type CaseResult =
+  | {
+      readonly id: string;
+      readonly result: "pass" | "fail" | "unproved";
+      readonly detail: string;
+    }
+  | {
+      readonly id: string;
+      readonly result: "not-runnable";
+      readonly detail: string;
+      readonly reason: string;
+    };
 
 export type CapabilityQualificationRun = {
   readonly entry: RunEntry;
@@ -60,7 +67,7 @@ const coveredFamilies = [
   ...["K02", "K03", "K06", "K07", "K08"],
   ...["O04", "O05", "O07", "O09"],
 ];
-const coveredCases = ["K11.a", "K11.c", "K11.d", "K11.e"];
+const coveredCases = ["K11.a", "K11.c", "K11.d", "K11.e", "Q02.e"];
 
 export function capabilityQualificationCases(
   cases: readonly StateCase[] = stateCases,
@@ -72,11 +79,25 @@ export function capabilityQualificationCases(
   );
 }
 
+export function registeredCases(source: string): readonly string[] {
+  return [...source.matchAll(/caseTest\(\s*"([^"]+)"/g)].map(
+    (match) => match[1] ?? "",
+  );
+}
+
+export function runsThrough(row: StateCase, entry: RunEntry): boolean {
+  return (
+    row.status === "executable" &&
+    (row.onlyThrough === undefined || row.onlyThrough.entry === entry)
+  );
+}
+
 export function requiredCaseIds(
+  entry: RunEntry,
   cases: readonly StateCase[] = stateCases,
 ): readonly string[] {
   return capabilityQualificationCases(cases)
-    .filter((row) => row.status === "executable")
+    .filter((row) => runsThrough(row, entry))
     .map((row) => row.id);
 }
 
@@ -190,12 +211,25 @@ function shaped(value: string, pattern: RegExp, where: string): string {
 }
 
 function parseCase(source: unknown, where: string): CaseResult {
+  const named = own(source, "result");
+  if (named === "not-runnable") {
+    const entry = fields(source, ["id", "result", "detail", "reason"], where);
+    return {
+      id: entry.text("id"),
+      result: named,
+      detail: entry.text("detail"),
+      reason: entry.text("reason"),
+    };
+  }
   const entry = fields(source, ["id", "result", "detail"], where);
-  return {
-    id: entry.text("id"),
-    result: oneOf(entry.text("result"), caseResultValues, `${where}.result`),
-    detail: entry.text("detail"),
-  };
+  const result = oneOf(
+    entry.text("result"),
+    caseResultValues,
+    `${where}.result`,
+  );
+  if (result === "not-runnable")
+    throw new Error(`${where} is not-runnable with no reason`);
+  return { id: entry.text("id"), result, detail: entry.text("detail") };
 }
 
 function parseRun(source: unknown, where: string): CapabilityQualificationRun {
@@ -306,10 +340,34 @@ function matchProblems(
     );
 }
 
+function caseProblems(
+  run: CapabilityQualificationRun,
+  row: StateCase,
+): readonly string[] {
+  if (row.status !== "executable") return [];
+  const found = run.cases.find((entry) => entry.id === row.id);
+  const only = row.onlyThrough;
+  if (only !== undefined && only.entry !== run.entry)
+    return found?.result === "not-runnable" && found.reason.trim() !== ""
+      ? []
+      : [
+          `${row.id} runs only through ${only.entry}, so the ${run.entry} run must mark it not-runnable with a reason`,
+        ];
+  if (found === undefined)
+    return [`the ${run.entry} run has no result for ${row.id}`];
+  if (found.result === "not-runnable")
+    return [
+      `${row.id} is marked not-runnable in the ${run.entry} run, but the case table runs it there`,
+    ];
+  return found.result === "pass"
+    ? []
+    : [`${row.id} is ${found.result} in the ${run.entry} run`];
+}
+
 function runProblems(
   record: CapabilityQualificationRecord,
   currentHash: string,
-  required: readonly string[],
+  cases: readonly StateCase[],
 ): readonly string[] {
   const entries = record.runs.map((run) => run.entry);
   const shape =
@@ -318,6 +376,7 @@ function runProblems(
       : [
           `the record holds runs [${entries.join(", ")}]; a row needs fixture.ts, then index.ts`,
         ];
+  const covered = capabilityQualificationCases(cases);
   return [
     ...shape,
     ...record.runs.flatMap((run) => [
@@ -326,14 +385,7 @@ function runProblems(
         : [
             `the ${run.entry} run's sourceHash ${run.sourceHash} is not the qualified source's ${currentHash}`,
           ]),
-      ...required.flatMap((id) => {
-        const found = run.cases.find((entry) => entry.id === id);
-        if (found === undefined)
-          return [`the ${run.entry} run has no result for ${id}`];
-        return found.result === "pass"
-          ? []
-          : [`${id} is ${found.result} in the ${run.entry} run`];
-      }),
+      ...covered.flatMap((row) => caseProblems(run, row)),
     ]),
   ];
 }
@@ -355,7 +407,7 @@ export function rowProblems(
   row: CapabilityQualificationRow,
   root: string,
   currentHash: string,
-  required: readonly string[] = requiredCaseIds(),
+  cases: readonly StateCase[] = stateCases,
 ): readonly string[] {
   const expected = recordPath(row.id);
   if (row.evidence.record !== expected)
@@ -384,7 +436,7 @@ export function rowProblems(
       : [
           "the boot identity was unreadable in the capability qualification run",
         ]),
-    ...runProblems(record, currentHash, required),
+    ...runProblems(record, currentHash, cases),
     ...reviewProblems(row),
   ];
   return problems.map((problem) => `${row.id}: ${problem}`);

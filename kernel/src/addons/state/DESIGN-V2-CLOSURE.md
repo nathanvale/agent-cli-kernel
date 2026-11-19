@@ -134,7 +134,19 @@ itself to the row's capability qualification record. A row has two:
   merges, the same command runs on the pilot through `index.ts`, with the row
   in the production capability qualification table (case Q02.e). It adds
   itself to the same capability qualification record. Q03.a requires both,
-  with the same `sourceHash` and every required case `pass`.
+  with the same `sourceHash` and each run's required cases `pass`.
+- Each run has its own required cases (decided by Nathan, 19 November 2026,
+  17:45 AEDT). No pause point is added to the production entry. The case
+  table records, once for each case, the entry a case can run through when
+  it is only one (`onlyThrough`, with a reason); the command and Q03.a both
+  read it there. The first run must pass every covered case it can run.
+  The second must pass every covered case that can run through `index.ts`,
+  Q02.e among them: a crashed case closes as completed and as not-applied,
+  stamped with the row's `id`. A covered case a run cannot do is written
+  into that run's `cases` as `not-runnable`, with the case table's reason,
+  never left out. Today K06.e and O07.a wait for a pause point only the test
+  entry has, O05.a and O09.a expect no matching row, and Q02.e needs the row
+  in the production table.
 - It refuses a dirty tree, and it refuses to run when any environment fact is
   overridden (case Q03.b; part 3 section 4): a capability qualification record
   made with an overridden release, filesystem or boot identity proves nothing
@@ -155,32 +167,36 @@ Capability qualification record fields:
 | `filesystem`               | the state root's observed filesystem facts only; no path, user name or machine name                                                                                                                                                                                                                                         |
 | `primitive`                | the active coordination route                                                                                                                                                                                                                                                                                               |
 | `bootIdentitySource`       | the source, and whether it was readable; never the value                                                                                                                                                                                                                                                                    |
-| `cases` (in each run)      | `[{ id, result, detail }]`, result `pass`, `fail` or `unproved`                                                                                                                                                                                                                                                             |
+| `cases` (in each run)      | `[{ id, result, detail }]`, result `pass`, `fail` or `unproved`; or `{ id, result: "not-runnable", detail, reason }` for a covered case the case table runs only through the other entry, with its reason (decided by Nathan, 19 November 2026, 17:45 AEDT)                                                                 |
 | `factSource`               | `observed`: every fact above was read from the machine, with no override. The command writes no other value                                                                                                                                                                                                                 |
 
 A capability qualification run covers the cases that run on observed facts:
 the executable closure and stopped-owner cases (families K02, K03, K06, K07,
-K08, O04, O05, O07 and O09) and proposed K11.a, K11.c, K11.d and K11.e.
-K11.a's half with no `boot` uses a prepared version 1 style journal, not a
-fact override. A case still pending in the case table is recorded `unproved`
-and is not required. A row needs every required case `pass`.
+K08, O04, O05, O07 and O09), proposed K11.a, K11.c, K11.d and K11.e, and
+Q02.e, which only the second run can do. K11.a's half with no `boot` uses a
+prepared version 1 style journal, not a fact override. A case still pending
+in the case table is recorded `unproved` and is not required. A run's
+required cases are the covered cases the case table runs through its entry,
+and a row needs every one of them `pass` in each run.
 
 Left out of a capability qualification run:
 
 - Q02.a, Q02.b, Q02.d, Q02.f and K11.b need a fact override, and Q02.c a
   candidate row for another route. They prove the matching logic, which is
   the same on every platform, so the test suite owns them.
-- Q02.e needs the row in the production table: it is the second capability
-  qualification run on the pilot, above. Q03.a checks committed records, so
-  the test suite owns it.
+- Q03.a checks committed records, so the test suite owns it. Q02.e is no
+  longer left out: it is a covered case of the second run only.
 
 Q03.a refuses a production row unless its capability qualification record
 exists, carries `factSource: "observed"`, matches the row's `os`,
 `majorRelease`, `filesystem`, `primitive` and `bootIdentitySource`, has the
-row's `observedRelease` as its `platform.release`, has every required case
-`pass`, has, in both capability qualification runs, a `sourceHash` equal to
-the hash of the qualified source files now, holds both
-capability qualification runs, and the row names its reviewing session,
+row's `observedRelease` as its `platform.release`, has, in each run, every
+covered case the case table runs through that run's entry `pass` (Q02.e's
+closures in the second run) and every other covered case marked
+`not-runnable` with a reason, never a case the case table runs there, has,
+in both capability qualification runs, a `sourceHash` equal to the hash of
+the qualified source files now, holds both capability qualification runs,
+and the row names its reviewing session,
 Nathan's countersignature and the date. So a change to that source invalidates
 the row until a new capability qualification run. Version 2 moves the
 capability qualification table out of `qualification.ts` into

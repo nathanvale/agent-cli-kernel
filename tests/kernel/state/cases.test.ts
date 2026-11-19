@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { stateCases } from "./cases.ts";
+import { registeredCases } from "./capability-qualification-record.ts";
 import { caseTest } from "./harness.ts";
 
 const briefFamilies = [
@@ -43,9 +44,9 @@ test("the frozen T3 case table keeps its admitted identities and counts", () => 
     "S04",
     "S05",
   ]);
-  expect(stateCases.length).toBe(145);
+  expect(stateCases.length).toBe(146);
   const executable = stateCases.filter((row) => row.status === "executable");
-  expect(executable.length).toBe(136);
+  expect(executable.length).toBe(137);
   for (const row of executable)
     if (row.status === "executable")
       expect(["coordination", "any"]).toContain(row.platform);
@@ -86,7 +87,6 @@ const transitionDesigns = ["DESIGN.md", "DESIGN-V2-TRANSITIONS.md"];
 const casesAwaitingLaterSlices: Readonly<Record<string, readonly string[]>> = {
   X28: ["K11.a"],
   X29: ["K11.c", "K11.d"],
-  X30: ["Q02.e"],
 };
 
 async function transitionRows(name: string): Promise<string[][]> {
@@ -141,11 +141,7 @@ test("every executable case is registered once and no pending case is claimed", 
   const sources = await Promise.all(
     files.map((name) => Bun.file(new URL(name, import.meta.url)).text()),
   );
-  const registered = sources.flatMap((source) =>
-    [...source.matchAll(/caseTest\(\s*"([^"]+)"/g)].map(
-      (match) => match[1] ?? "",
-    ),
-  );
+  const registered = sources.flatMap(registeredCases);
   const executable = stateCases
     .filter((row) => row.status === "executable")
     .map((row) => row.id)
