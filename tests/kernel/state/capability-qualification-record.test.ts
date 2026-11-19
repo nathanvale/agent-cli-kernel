@@ -8,6 +8,7 @@ import {
 } from "../../../kernel/src/addons/state/capability-qualification-table.ts";
 import type { CapabilityQualificationRow } from "../../../kernel/src/addons/state/capability-qualification-table.ts";
 import { ownedFolders } from "../../support/fixture-files.ts";
+import { commitIn, initRepository } from "../../support/git-fixture.ts";
 import {
   capabilityQualificationCases,
   qualifiedSourceFiles,
@@ -34,7 +35,6 @@ const repository = join(import.meta.dir, "..", "..", "..");
 caseTest("Q03.a-row-cites-capability-qualification-record", () => {
   const current = sourceHash(qualifiedSourceFiles(repository));
   expect(current).toMatch(/^[0-9a-f]{64}$/);
-  expect(capabilityQualificationTable.map((row) => row.id)).toEqual([]);
   for (const row of capabilityQualificationTable)
     expect({
       row: row.id,
@@ -280,18 +280,27 @@ function record(
   };
 }
 
+function committedRoot(text: string | undefined): string {
+  const root = folder("c3-record-");
+  initRepository(root);
+  commitIn(
+    root,
+    "the record under test",
+    text === undefined ? {} : { [recordPath(rowId)]: text },
+  );
+  return root;
+}
+
 function problemsFor(
   cited: CapabilityQualificationRow,
   committed: CapabilityQualificationRecord | undefined,
   cases: readonly StateCase[] = table,
 ): readonly string[] {
-  const root = folder("c3-record-");
-  if (committed !== undefined) {
-    const path = join(root, recordPath(rowId));
-    mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, `${JSON.stringify(committed, null, 2)}\n`);
-  }
-  return rowProblems(cited, root, current, cases);
+  const text =
+    committed === undefined
+      ? undefined
+      : `${JSON.stringify(committed, null, 2)}\n`;
+  return rowProblems(cited, committedRoot(text), current, cases);
 }
 
 test("Q03.a accepts a row whose record holds both runs, every required case passed, on the current source", () => {
@@ -300,7 +309,39 @@ test("Q03.a accepts a row whose record holds both runs, every required case pass
 
 test("Q03.a refuses a row with no capability qualification record", () => {
   expect(problemsFor(row(), undefined)).toEqual([
-    `${rowId}: no capability qualification record at ${recordPath(rowId)}`,
+    `${rowId}: no committed capability qualification record at ${recordPath(rowId)}`,
+  ]);
+});
+
+test("Q03.a refuses a record that is only in the working tree, and accepts it once committed", () => {
+  const root = committedRoot(undefined);
+  const text = `${JSON.stringify(record(), null, 2)}\n`;
+  const path = join(root, recordPath(rowId));
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, text);
+  expect(rowProblems(row(), root, current, table)).toEqual([
+    `${rowId}: no committed capability qualification record at ${recordPath(rowId)}`,
+  ]);
+  commitIn(root, "commit the record", { [recordPath(rowId)]: text });
+  expect(rowProblems(row(), root, current, table)).toEqual([]);
+});
+
+test("Q03.a reads the committed record, not a changed working copy", () => {
+  const root = committedRoot(`${JSON.stringify(record(), null, 2)}\n`);
+  writeFileSync(
+    join(root, recordPath(rowId)),
+    JSON.stringify(record({ factSource: "overridden" })),
+  );
+  expect(rowProblems(row(), root, current, table)).toEqual([]);
+  const failing = committedRoot(
+    `${JSON.stringify(record({ factSource: "overridden" }), null, 2)}\n`,
+  );
+  writeFileSync(
+    join(failing, recordPath(rowId)),
+    `${JSON.stringify(record(), null, 2)}\n`,
+  );
+  expect(rowProblems(row(), failing, current, table)).toEqual([
+    `${rowId}: factSource is overridden, not observed`,
   ]);
 });
 
@@ -563,10 +604,7 @@ const unreadable: readonly (readonly [string, string, string])[] = [
 
 for (const [shape, text, why] of unreadable)
   test(`Q03.a refuses a record with ${shape}`, () => {
-    const root = folder("c3-record-");
-    const path = join(root, recordPath(rowId));
-    mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, text);
+    const root = committedRoot(text);
     expect(rowProblems(row(), root, current, table)).toEqual([
       `${rowId}: ${recordPath(rowId)} is not a capability qualification record: ${why}`,
     ]);
@@ -624,7 +662,56 @@ const reviewGaps: readonly (readonly [
     "no countersignature",
   ],
   ["date", { ...review, date: "soon" }, "no review date (YYYY-MM-DD)"],
+  [
+    "real date",
+    { ...review, date: "2026-02-30" },
+    "no review date (YYYY-MM-DD)",
+  ],
+  [
+    "real month",
+    { ...review, date: "2026-13-01" },
+    "no review date (YYYY-MM-DD)",
+  ],
 ];
+
+test("Q03.a accepts a review on a leap day", () => {
+  const cited = row({
+    evidence: { ...row().evidence, review: { ...review, date: "2028-02-29" } },
+  });
+  expect(problemsFor(cited, record())).toEqual([]);
+});
+
+const pendingResults: readonly (readonly [
+  string,
+  CaseResult | undefined,
+  string,
+])[] = [
+  [
+    "passed",
+    { id: pendingRow.id, result: "pass", detail: "passed" },
+    `${pendingRow.id} is pending in the case table, so the fixture.ts run must record it unproved`,
+  ],
+  [
+    "left out",
+    undefined,
+    `the fixture.ts run has no result for ${pendingRow.id}`,
+  ],
+  [
+    "failed",
+    { id: pendingRow.id, result: "fail", detail: "failed" },
+    `${pendingRow.id} is pending in the case table, so the fixture.ts run must record it unproved`,
+  ],
+];
+
+for (const [how, result, problem] of pendingResults)
+  test(`Q03.a refuses a pending covered case ${how} rather than recorded unproved`, () => {
+    expect(
+      problemsWithRun(
+        "fixture.ts",
+        changed("fixture.ts", pendingRow.id, result),
+      ),
+    ).toEqual([`${rowId}: ${problem}`]);
+  });
 
 for (const [name, gap, problem] of reviewGaps)
   test(`Q03.a refuses a row that names no ${name}`, () => {
@@ -774,10 +861,7 @@ const shapes: readonly (readonly [string, unknown, string])[] = [
 
 for (const [shape, committed, why] of shapes)
   test(`Q03.a refuses a record with ${shape}`, () => {
-    const root = folder("c3-record-");
-    const path = join(root, recordPath(rowId));
-    mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, JSON.stringify(committed));
+    const root = committedRoot(JSON.stringify(committed));
     expect(rowProblems(row(), root, current, table)).toEqual([
       `${rowId}: ${recordPath(rowId)} is not a capability qualification record: ${why}`,
     ]);

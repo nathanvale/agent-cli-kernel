@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import type { CapabilityQualificationRow } from "../../../kernel/src/addons/state/capability-qualification-table.ts";
+import { withoutRepositoryLocation } from "../../../scripts/process-runner.ts";
 import { stateCases } from "./cases.ts";
 import type { StateCase } from "./cases.ts";
 
@@ -346,8 +347,16 @@ function caseProblems(
   run: CapabilityQualificationRun,
   row: StateCase,
 ): readonly string[] {
-  if (row.status !== "executable") return [];
   const found = run.cases.filter((entry) => entry.id === row.id);
+  if (row.status !== "executable") {
+    if (found.length === 0)
+      return [`the ${run.entry} run has no result for ${row.id}`];
+    return found.every((entry) => entry.result === "unproved")
+      ? []
+      : [
+          `${row.id} is pending in the case table, so the ${run.entry} run must record it unproved`,
+        ];
+  }
   const only = otherEntryOnly(row, run.entry);
   if (only !== undefined)
     return found.length > 0 &&
@@ -409,6 +418,14 @@ function runProblems(
   ];
 }
 
+function calendarDate(date: string): boolean {
+  const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  if (parts === null) return false;
+  const [year, month, day] = parts.slice(1).map(Number);
+  const read = new Date(Date.UTC(year ?? 0, (month ?? 0) - 1, day ?? 0));
+  return read.toISOString().slice(0, 10) === date;
+}
+
 function reviewProblems(row: CapabilityQualificationRow): readonly string[] {
   const { session, countersignature, date } = row.evidence.review;
   return [
@@ -416,10 +433,30 @@ function reviewProblems(row: CapabilityQualificationRow): readonly string[] {
     ...(countersignature.trim() === ""
       ? ["the row names no countersignature"]
       : []),
-    ...(/^\d{4}-\d{2}-\d{2}$/.test(date)
+    ...(calendarDate(date)
       ? []
       : ["the row names no review date (YYYY-MM-DD)"]),
   ];
+}
+
+const gitMilliseconds = 10_000;
+
+function committedText(root: string, path: string): string | undefined {
+  const result = Bun.spawnSync(
+    ["git", "-C", root, "cat-file", "blob", `HEAD:${path}`],
+    {
+      env: withoutRepositoryLocation(process.env),
+      stdout: "pipe",
+      stderr: "pipe",
+      timeout: gitMilliseconds,
+      killSignal: "SIGKILL",
+    },
+  );
+  if (result.exitedDueToTimeout)
+    throw new Error(
+      `git cat-file did not finish within ${String(gitMilliseconds)} ms`,
+    );
+  return result.exitCode === 0 ? result.stdout.toString("utf8") : undefined;
 }
 
 export function rowProblems(
@@ -433,12 +470,14 @@ export function rowProblems(
     return [
       `${row.id} cites ${row.evidence.record}; a row cites its committed capability qualification record ${expected}`,
     ];
-  const path = join(root, expected);
-  if (!existsSync(path))
-    return [`${row.id}: no capability qualification record at ${expected}`];
+  const committed = committedText(root, expected);
+  if (committed === undefined)
+    return [
+      `${row.id}: no committed capability qualification record at ${expected}`,
+    ];
   let record: CapabilityQualificationRecord;
   try {
-    record = parseRecord(readFileSync(path, "utf8"));
+    record = parseRecord(committed);
   } catch (error) {
     return [
       `${row.id}: ${expected} is not a capability qualification record: ${messageOf(error)}`,
