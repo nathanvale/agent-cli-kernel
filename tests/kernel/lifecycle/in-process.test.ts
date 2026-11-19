@@ -11,18 +11,23 @@ import {
   runInProcessOn,
   runProcessOn,
 } from "../../../kernel/src/kernel/lifecycle.ts";
-import type { ProcessHost } from "../../../kernel/src/kernel/process-types.ts";
+import type {
+  ProcessHost,
+  StopSignal,
+} from "../../../kernel/src/kernel/process-types.ts";
 import {
   recordRuntime,
   runtimeOf,
 } from "../../../kernel/src/kernel/runtime.ts";
 import {
+  exactStopBound,
   cancellationWait,
   stopBound,
   stopSettleLimit,
   stops,
 } from "./oracle.ts";
 import {
+  aborted,
   advance,
   deferred,
   holdContract,
@@ -458,6 +463,122 @@ describe("IP07 the in-process entry checks its contract and bounds", () => {
       );
       expect(facts).toHaveLength(1);
       expect(recorder.exits).toEqual([]);
+    },
+    timeout,
+  );
+});
+
+function waitingForStop(recorder: ReturnType<typeof recordingHost>) {
+  const queue: ReturnType<typeof held>[] = [];
+  const entry = runInProcessOn(
+    holdContract(async (_programs, signal) => {
+      const gate = queue.shift();
+      if (!gate) return;
+      gate.entered.resolve();
+      await aborted(signal);
+      await gate.returned.promise;
+    }),
+    { addons: { programs: programsAddon() } },
+    () => recorder.host,
+  );
+  return {
+    async start() {
+      const gate = held();
+      queue.push(gate);
+      const done = entry(["hold", "--json"]);
+      await gate.entered.promise;
+      return { gate, done };
+    },
+  };
+}
+
+function stopAt(
+  recorder: ReturnType<typeof recordingHost>,
+  signal: StopSignal,
+): number {
+  const sentAt = performance.now();
+  recorder.signal(signal);
+  return sentAt;
+}
+
+describe("IP10 a stop request waits for every run's handler inside the stop bound", () => {
+  for (const [signal, code] of stops)
+    for (const cleanUp of [0, 200, exactStopBound - 1])
+      test(
+        `IP10.waits-for-handler a stop request on ${signal} waits through a ${String(cleanUp)} ms handler clean-up, then exits ${String(code)} with nothing written`,
+        async () => {
+          jest.useFakeTimers();
+          const recorder = recordingHost();
+          const one = await waitingForStop(recorder).start();
+          try {
+            const sentAt = stopAt(recorder, signal);
+            await turns();
+            if (cleanUp > 0) await advance(cleanUp);
+            expect(recorder.exits).toEqual([]);
+            one.gate.returned.resolve();
+            await turns();
+            expect(recorder.exits).toEqual([code]);
+            expect(recorder.exitedAt.map((at) => at - sentAt)).toEqual([
+              cleanUp,
+            ]);
+            expect(recorder.writes).toEqual([]);
+            expect((await one.done).kind).toBe("stopped");
+          } finally {
+            jest.useRealTimers();
+            one.gate.returned.resolve();
+          }
+        },
+        timeout,
+      );
+
+  test(
+    "IP10.waits-for-every-run a stop request waits until the last run's handler returns",
+    async () => {
+      jest.useFakeTimers();
+      const recorder = recordingHost();
+      const subject = waitingForStop(recorder);
+      const one = await subject.start();
+      const two = await subject.start();
+      try {
+        const sentAt = stopAt(recorder, "SIGTERM");
+        await advance(100);
+        one.gate.returned.resolve();
+        await turns();
+        expect(recorder.exits).toEqual([]);
+        await advance(200);
+        two.gate.returned.resolve();
+        await turns();
+        expect(recorder.exits).toEqual([143]);
+        expect(recorder.exitedAt.map((at) => at - sentAt)).toEqual([300]);
+      } finally {
+        jest.useRealTimers();
+        one.gate.returned.resolve();
+        two.gate.returned.resolve();
+      }
+    },
+    timeout,
+  );
+
+  test(
+    "IP10.handler-never-ends a handler that never returns is cut off at the stop bound",
+    async () => {
+      jest.useFakeTimers();
+      const recorder = recordingHost();
+      const one = await waitingForStop(recorder).start();
+      try {
+        const sentAt = stopAt(recorder, "SIGINT");
+        await advance(exactStopBound - 1);
+        expect(recorder.exits).toEqual([]);
+        await advance(1);
+        expect(recorder.exits).toEqual([130]);
+        expect(recorder.exitedAt.map((at) => at - sentAt)).toEqual([
+          exactStopBound,
+        ]);
+        expect(recorder.writes).toEqual([]);
+      } finally {
+        jest.useRealTimers();
+        one.gate.returned.resolve();
+      }
     },
     timeout,
   );

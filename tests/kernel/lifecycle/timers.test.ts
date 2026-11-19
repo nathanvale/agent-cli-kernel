@@ -12,6 +12,7 @@ import type {
 import { runProcessOn } from "../../../kernel/src/kernel/lifecycle.ts";
 import type { StopSignal } from "../../../kernel/src/kernel/process-types.ts";
 import {
+  aborted,
   advance,
   deferred,
   holdContract,
@@ -114,18 +115,6 @@ describe("T06 small and boundary deadlines keep their exact timing (finding 1)",
       }
     });
 });
-
-function aborted(signal: AbortSignal): Promise<void> {
-  return new Promise((resolve) => {
-    signal.addEventListener(
-      "abort",
-      () => {
-        resolve();
-      },
-      { once: true },
-    );
-  });
-}
 
 describe("the handler's abort signal at a deadline", () => {
   for (const cleanUp of [0, 200])

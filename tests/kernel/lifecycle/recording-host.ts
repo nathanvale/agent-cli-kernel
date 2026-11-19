@@ -75,6 +75,18 @@ export function recordingHost() {
   };
 }
 
+export function aborted(signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    signal.addEventListener(
+      "abort",
+      () => {
+        resolve();
+      },
+      { once: true },
+    );
+  });
+}
+
 export function deferred() {
   let resolve: () => void = () => undefined;
   const promise = new Promise<void>((done) => {
