@@ -17,7 +17,13 @@ const report = join(process.env.SX_WORLD ?? "", "in-process.jsonl");
 const listened = mode.startsWith("on-crash");
 const entry = runInProcess(contract, {
   addons: { approval: approvalAddon },
-  emergencyRecord: state.emergencyRecord,
+  emergencyRecord:
+    mode === "on-crash-reentry"
+      ? (facts) => {
+          state.emergencyRecord(facts);
+          throw new Error("Planted emergency record failure.");
+        }
+      : state.emergencyRecord,
   ...(listened && {
     onCrash: (error: unknown) => {
       note("listener", error instanceof Error ? error.message : null);
@@ -115,6 +121,7 @@ const modes: Readonly<Record<string, () => Promise<void>>> = {
   "crash-both": crashBoth,
   "on-crash": crash,
   "on-crash-rejection": rejectionHeard,
+  "on-crash-reentry": crash,
 };
 if (!Object.hasOwn(modes, mode)) throw new Error(`Unknown mode ${mode}.`);
 const selected = modes[mode];

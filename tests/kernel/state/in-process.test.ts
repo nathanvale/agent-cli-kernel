@@ -223,6 +223,39 @@ for (const [cause, mode, message] of heard)
     },
   );
 
+inProcessCase(
+  "IP06.on-crash-reentry an abort observer and an emergency record that both throw still let onCrash hear the crash, exit 1, and print nothing",
+  async () => {
+    const world = makeWorld({ entry });
+    try {
+      const done = await inProcess(world, "on-crash-reentry", {
+        SX_BARRIER: "intent",
+        SX_FAULT: "abort-observer-throws",
+      });
+      expect(done.stderr).toBe("");
+      expect(done.stdout).toBe("");
+      expect(done.exit).toBe(1);
+      expect(lines(world).map((line) => line.label)).toEqual([
+        "first",
+        "held",
+        "listener",
+      ]);
+      expect(labelled(world, "listener")).toBe(
+        "Planted crash while the second run is in flight.",
+      );
+      const finishedRun = str(at(labelled(world, "first"), "runId"));
+      const finished = operationOf(world, finishedRun);
+      const inFlight = world
+        .operations()
+        .filter((operation) => operation.id !== finished.id);
+      expect(emergencies(finished)).toBe(0);
+      expect(inFlight.map(emergencies)).toEqual([1]);
+    } finally {
+      world.dispose();
+    }
+  },
+);
+
 test("in-process state cases ran their real bodies on macOS and Linux, and nowhere else claim to", () => {
   const cases = [
     "IP04.sequence-own-operation-and-proof",
@@ -231,6 +264,7 @@ test("in-process state cases ran their real bodies on macOS and Linux, and nowhe
     "IP06.crash-records-every-run-in-flight",
     "IP06.on-crash-hears-error",
     "IP06.on-crash-hears-rejection",
+    "IP06.on-crash-reentry",
   ];
   expect(registered).toEqual(cases);
   const proved = ["darwin", "linux"].includes(process.platform);
