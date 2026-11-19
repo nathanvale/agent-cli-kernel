@@ -165,10 +165,12 @@ An admission moves settled cases it read at step 4. It does so after its
 own publication (step 6) and before it releases the admission lock (step 7).
 A refused admission never reaches that point, so a refusal moves nothing.
 
-The mover examines at most 64 settled cases per hold of the admission lock,
-moved or not. It starts at a random place in the list step 4 read and wraps
-round, so a case that stays ineligible cannot hold every later case back
-for good. A case moves only when all hold:
+The mover examines at most 128 settled cases per hold of the admission lock,
+moved or not, and moves at most 64 of them. It starts at a random place in
+the list step 4 read and wraps round, so a case that stays ineligible cannot
+hold every later case back for good. The two caps differ so each is
+observable on its own, as the test proof guide asks of neighbouring
+bounds. A case moves only when all hold:
 
 1. Its status is `completed`, `not-applied` or `closed`, with no damaged
    closure.
@@ -188,14 +190,14 @@ the admission lock, so nothing comes between the check and the rename.
 
 - At most 64 moves per hold of the admission lock, as the default (decided
   by Nathan, 19 November 2026). The extra work under the lock is then at
-  most 64 eligibility checks (two non-blocking opens and one existence check
+  most 128 eligibility checks (two non-blocking opens and one existence check
   each), 64 renames and two directory flushes. Step 4's read of
   `operations/` is version 1's existing cost and stays unbounded; with
   version 2 it covers unresolved cases and settled cases not yet moved, so
   it shrinks as a backlog drains. Version 1 sizes the 2,000 ms wait for a
   hold of milliseconds. Whether this stays inside it is not measured yet:
   the code review times one admission, step 4's read included, against a
-  just-upgraded backlog of settled cases and against 64 moved and 64
+  just-upgraded backlog of settled cases and against 64 moved and 128
   ineligible candidates, before the number is relied on.
 - A move across a bind mount of the same filesystem fails with `EXDEV`
   although the device matches; it is a failed move like any other.

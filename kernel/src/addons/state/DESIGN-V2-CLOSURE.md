@@ -118,20 +118,20 @@ Row fields:
 | `evidence`           | `{ record, review }`: the record's path; the reviewing session, Nathan's countersignature and the date | checked by a test   |
 
 One repeatable command (proposed name `bun run qualify:state`) runs the
-stopped-owner cases on the platform and writes the record. It supplies the
-candidate row through the labelled test entry, a seam that entry gains
-(part 3 section 4), so its closures are stamped `fixture:<label>` and it
-never touches the production capability qualification table.
+stopped-owner cases on the platform and writes the record, in two runs:
 
-- The test proof guide says a proof through a test entry "proves only the
-  fixture". That holds for the entry: the run proves the platform's
-  mechanisms (the coordination route, the lease, the filesystem, crash
-  recovery) under the candidate row. Then, on the row's own branch before it
-  merges, the same command runs again on the pilot through `index.ts`, with
-  the row in the production capability qualification table (case Q02.e). It
-  adds its results to the same record file as a second run, marked by the
-  entry it used; Q03.a requires both runs, with the same `sourceHash` and
-  every case `pass`.
+- First run: it supplies the candidate row through the labelled test entry,
+  a seam that entry gains (part 3 section 4), so its closures are stamped
+  `fixture:<label>`. It never touches the production
+  capability qualification table. The test proof guide says a proof
+  through a test entry "proves only the fixture". That holds for the entry:
+  this run proves the platform's mechanisms (the coordination route, the
+  lease, the filesystem, crash recovery) under the candidate row.
+- Second run: on the row's own branch before it merges, the same command
+  runs on the pilot through `index.ts`, with the row in the production
+  capability qualification table (case Q02.e). It adds its run to the same
+  record file. Q03.a requires both runs, with the same `sourceHash` and
+  every required case `pass`.
 - It refuses a dirty tree, and it refuses to run when any environment fact
   is overridden (case Q03.b; part 3 section 4): a record made with an
   overridden release, filesystem or boot identity proves nothing about the
@@ -142,19 +142,18 @@ never touches the production capability qualification table.
 
 Record fields:
 
-| Field                | Content                                                                                                                                                                                                                                                                                                                                                   |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `schema`             | `state-qualification-run/1`                                                                                                                                                                                                                                                                                                                               |
-| `row`                | the candidate row id                                                                                                                                                                                                                                                                                                                                      |
-| `commit`             | the full commit the run used                                                                                                                                                                                                                                                                                                                              |
-| `sourceHash`         | SHA-256 over each qualified file in sorted path order, each entered as its path, a newline, its byte length, a newline and its bytes as committed. The files: `kernel/src/addons/state/*.ts` except the file that holds the capability qualification table, which a new row changes; `kernel/src/addons/programs/*.ts`; `kernel/src/kernel/state-seam.ts` |
-| `started`, `ended`   | wall clock times                                                                                                                                                                                                                                                                                                                                          |
-| `platform`           | `os`, exact `release`, `majorRelease`, architecture, runtime version, distribution, C library, and whether it ran in a container                                                                                                                                                                                                                          |
-| `filesystem`         | the state root's observed filesystem facts only; no path, user name or machine name                                                                                                                                                                                                                                                                       |
-| `primitive`          | the active coordination route                                                                                                                                                                                                                                                                                                                             |
-| `bootIdentitySource` | the source, and whether it was readable; never the value                                                                                                                                                                                                                                                                                                  |
-| `cases`              | `[{ id, result, detail }]`, result `pass`, `fail` or `unproved`; one list for each run, marked by the entry it used (the test entry, then `index.ts`)                                                                                                                                                                                                     |
-| `factSource`         | `observed`: every fact above was read from the machine, with no override. The command writes no other value                                                                                                                                                                                                                                               |
+| Field                 | Content                                                                                                                                                                                                                                                                                                       |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schema`              | `state-qualification-run/1`                                                                                                                                                                                                                                                                                   |
+| `row`                 | the candidate row id                                                                                                                                                                                                                                                                                          |
+| `runs`                | one entry for each run, in order: `{ entry, commit, started, ended, cases }`. `entry` is the test entry or `index.ts`; `commit` is the full commit that run used (the second is the row's commit); `started` and `ended` are wall clock times                                                                 |
+| `sourceHash`          | SHA-256 over each qualified file in sorted path order, each entered as its path, a newline, its byte length, a newline and its bytes as committed. The files: `kernel/src/addons/state/*.ts` except `capability-qualification-table.ts`; `kernel/src/addons/programs/*.ts`; `kernel/src/kernel/state-seam.ts` |
+| `platform`            | `os`, exact `release`, `majorRelease`, architecture, runtime version, distribution, C library, and whether it ran in a container                                                                                                                                                                              |
+| `filesystem`          | the state root's observed filesystem facts only; no path, user name or machine name                                                                                                                                                                                                                           |
+| `primitive`           | the active coordination route                                                                                                                                                                                                                                                                                 |
+| `bootIdentitySource`  | the source, and whether it was readable; never the value                                                                                                                                                                                                                                                      |
+| `cases` (in each run) | `[{ id, result, detail }]`, result `pass`, `fail` or `unproved`                                                                                                                                                                                                                                               |
+| `factSource`          | `observed`: every fact above was read from the machine, with no override. The command writes no other value                                                                                                                                                                                                   |
 
 The run covers the cases that run on observed facts: the executable closure
 and stopped-owner cases (families K02, K03, K06, K07, K08, O04, O05, O07 and
@@ -176,13 +175,14 @@ Q03.a refuses a production row unless its record exists, carries `factSource:
 "observed"`, matches the row's `os`, `majorRelease`, `filesystem`, `primitive`
 and `bootIdentitySource`, has the row's `observedRelease` as its
 `platform.release`, has every required case `pass`, has a `sourceHash` equal
-to the hash of the qualified source files now, has both runs, and
-the row names its reviewing session, Nathan's countersignature and the date.
-So a change to that source invalidates the row until a new run. Version 2
-moves the capability qualification table out of `qualification.ts` into a file
-of its own, so the matching logic stays inside the hash and only the table is
-left out. The hash needs no history lookup, which suits a shallow checkout.
-REC-7b asks that review to pass V-22 and V-42 for each row.
+to the hash of the qualified source files now, has both runs, and the row
+names its reviewing session, Nathan's countersignature and the date. So a
+change to that source invalidates the row until a new run. Version 2 moves the
+capability qualification table out of `qualification.ts` into
+`capability-qualification-table.ts`, so the matching logic stays inside the
+hash and only the table is left out. The hash needs no history lookup, which
+suits a shallow checkout. REC-7b asks that review to pass V-22 and V-42 for
+each row.
 
 ## 4. Closing after a torn tail (proposed: open points L and X)
 
