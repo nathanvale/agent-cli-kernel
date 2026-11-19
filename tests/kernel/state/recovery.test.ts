@@ -17,6 +17,7 @@ import {
   expectRefusedUnchanged,
   makeWorld,
   str,
+  supportingTest,
 } from "./harness.ts";
 import type { World } from "./harness.ts";
 import { coordinationExpected } from "./holder.ts";
@@ -389,6 +390,30 @@ caseTest(
       "state.closure": "completed",
     });
     expect(world.noteLedger("a")).toBe(1);
+  }),
+);
+
+supportingTest(
+  "X26 supporting: a closer whose target settles and moves while it waits finds it in settled/",
+  fixture(async (world) => {
+    const live = world.start(apply("a"), { SX_BARRIER: "intent" });
+    await live.reached("intent");
+    const id = only(world);
+    const closer = world.start(closeArgs(id, await world.revision(id)), {
+      SX_BARRIER: "admission-wait",
+    });
+    await closer.reached("admission-wait");
+    live.release("intent");
+    expectCompleted(await live.done);
+    expectCompleted(await world.run(apply("b")));
+    expect(world.settled().map((entry) => entry.id)).toEqual([id]);
+    closer.release("admission-wait");
+    expectRefusedUnchanged(await closer.done, "DOMAIN_SX_CLOSE_CONFLICT");
+    expect(existsSync(join(world.root, "settled", id, "closure"))).toBe(false);
+    expect(world.cases().map((entry) => entry.intent.commandIdentity)).toEqual([
+      "sx.apply",
+      "sx.apply",
+    ]);
   }),
 );
 
