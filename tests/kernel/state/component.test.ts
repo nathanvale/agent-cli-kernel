@@ -819,24 +819,23 @@ const endedTurnLimit = 100;
 async function untilEnded(
   transaction: EffectTransaction<"e.one" | "e.two">,
   startedEffect: "e.one" | "e.two",
-): Promise<void> {
+): Promise<string> {
   const probeOperation = () =>
     Promise.reject(new Error("A probe record ran its operation."));
+  let refusal = "not probed";
   for (let turn = 0; turn < endedTurnLimit; turn++) {
-    const refusal = await refusalOf(
+    refusal = await refusalOf(
       transaction.record(startedEffect, probeOperation, readBackTrue),
     );
-    if (refusal === expectedEndedRefusal.record) return;
-    expect(refusal).toBe("Undeclared or already recorded effect.");
+    if (refusal === expectedEndedRefusal.record) break;
     await turns(1);
   }
-  throw new Error(
-    `The transaction did not refuse a record within ${endedTurnLimit} event-loop turns of its work returning.`,
-  );
+  return refusal;
 }
 
 async function pendingRecordSettlesBeforeTheFinalEvent(): Promise<void> {
   const workReturned = Promise.withResolvers<void>();
+  let ended = "not waited";
   let whileOperationRan: ReturnType<typeof coordinationNow> | undefined;
   let whileReadBackRan: ReturnType<typeof coordinationNow> | undefined;
   const { root, outcome } = await inTransaction((_record, host) => {
@@ -844,7 +843,7 @@ async function pendingRecordSettlesBeforeTheFinalEvent(): Promise<void> {
       "e.one",
       async () => {
         await workReturned.promise;
-        await untilEnded(host.transaction, "e.one");
+        ended = await untilEnded(host.transaction, "e.one");
         whileOperationRan = coordinationNow(host.root);
       },
       () => {
@@ -860,6 +859,7 @@ async function pendingRecordSettlesBeforeTheFinalEvent(): Promise<void> {
     leaseHeld: true,
     keyLocksHeld: [true],
   };
+  expect(ended).toBe(expectedEndedRefusal.record);
   expect(whileOperationRan).toEqual(stillOwned);
   expect(whileReadBackRan).toEqual(stillOwned);
   expect(coordinationNow(root)).toEqual({
@@ -879,6 +879,7 @@ async function pendingRecordSettlesBeforeTheFinalEvent(): Promise<void> {
 
 async function recordStillRunningWhenWorkThrowsSettlesFirst(): Promise<void> {
   const workThrew = Promise.withResolvers<void>();
+  let ended = "not waited";
   let whileSurvivorRan: ReturnType<typeof coordinationNow> | undefined;
   const { root, outcome } = await inTransaction(async (_record, host) => {
     try {
@@ -892,7 +893,7 @@ async function recordStillRunningWhenWorkThrowsSettlesFirst(): Promise<void> {
           "e.two",
           async () => {
             await workThrew.promise;
-            await untilEnded(host.transaction, "e.two");
+            ended = await untilEnded(host.transaction, "e.two");
             whileSurvivorRan = coordinationNow(host.root);
           },
           readBackTrue,
@@ -907,6 +908,7 @@ async function recordStillRunningWhenWorkThrowsSettlesFirst(): Promise<void> {
     "effect-started e.two",
     "effect-unconfirmed e.one",
   ];
+  expect(ended).toBe(expectedEndedRefusal.record);
   expect(whileSurvivorRan).toEqual({
     journal: beforeTheSurvivorSettled,
     leaseHeld: true,
@@ -934,6 +936,7 @@ async function callsAfterWorkReturnedAreRefused(): Promise<void> {
     lateCalls += 1;
     return Promise.resolve();
   };
+  let ended = "not waited";
   const whileWaiting = { record: "not called", admitStart: "not called" };
   let retained: EffectTransaction<"e.one" | "e.two"> | undefined;
   const { root } = await inTransaction((_record, host) => {
@@ -942,7 +945,7 @@ async function callsAfterWorkReturnedAreRefused(): Promise<void> {
       "e.one",
       async (recorded) => {
         await workReturned.promise;
-        await untilEnded(host.transaction, "e.one");
+        ended = await untilEnded(host.transaction, "e.one");
         whileWaiting.record = await refusalOf(
           host.transaction.record("e.two", late, readBackTrue),
         );
@@ -955,6 +958,7 @@ async function callsAfterWorkReturnedAreRefused(): Promise<void> {
     workReturned.resolve();
     return Promise.resolve();
   });
+  expect(ended).toBe(expectedEndedRefusal.record);
   expect(whileWaiting).toEqual(expectedEndedRefusal);
   if (!retained) throw new Error("No transaction.");
   expect(await refusalOf(retained.record("e.two", late, readBackTrue))).toBe(
