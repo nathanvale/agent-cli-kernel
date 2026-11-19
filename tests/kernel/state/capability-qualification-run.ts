@@ -676,6 +676,24 @@ function dotenvProblem(root: string): string | undefined {
     : `Refused: dotenv files sit where the run's processes start (${found.join("; ")}); Bun would load them into any child started without --no-env-file. Repair: move them out of the checkout, then rerun.`;
 }
 
+function linkedFolders(place: GitPlace, commit: string): readonly string[] {
+  const realRoot = realpathSync(place.root);
+  const inLoadFolder = (path: string) =>
+    loadFolders.some(
+      (folder) => path === folder || path.startsWith(`${folder}/`),
+    );
+  return nulSeparated(place, ["ls-tree", "-r", "-z", commit]).flatMap(
+    (line) => {
+      if (!line.startsWith("120000 ")) return [];
+      const full = join(place.root, line.slice(line.indexOf("\t") + 1));
+      const real = realpathSync(full);
+      if (!statSync(real).isDirectory()) return [];
+      const inside = relative(realRoot, real).split(sep).join("/");
+      return inLoadFolder(inside) ? [] : [`:(literal)${inside}`];
+    },
+  );
+}
+
 function cleanProblem(place: GitPlace, commit: string): string | undefined {
   const fromGit = hiddenProblem(place) ?? committedProblem(place, commit);
   if (fromGit !== undefined) return fromGit;
@@ -691,6 +709,7 @@ function cleanProblem(place: GitPlace, commit: string): string | undefined {
     "--untracked-files=all",
     "--",
     ...loadFolders,
+    ...linkedFolders(place, commit),
   ]);
   if (ignored.length > 0)
     return `Refused: git ignores files where the run loads code (${ignored.join("; ")}); a capability qualification run loads committed files only. Repair: remove those files, then rerun.`;

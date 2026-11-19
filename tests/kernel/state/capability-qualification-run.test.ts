@@ -1899,6 +1899,51 @@ for (const folder of ["scripts", "src"])
     inProcess,
   );
 
+function linkedSharedFolder(): Checkout {
+  const world = checkout();
+  commitIn(world.root, "a shared folder outside the load folders", {
+    ".gitignore": "*.local.ts\n",
+    "docs/shared/keep.ts": "kept\n",
+  });
+  symlinkSync("../../docs/shared", join(world.root, "kernel/src/shared"));
+  git(world.root, "add", "--", "kernel/src/shared");
+  git(world.root, "commit", "--quiet", "-m", "link the shared folder");
+  return world;
+}
+
+test(
+  "the capability qualification run accepts a tracked link to a tracked folder outside the load folders that holds no ignored file",
+  async () => {
+    const world = linkedSharedFolder();
+    const code = await world.run();
+    expect(world.lines.at(0)).toStartWith("Wrote ");
+    expect(code).toBe(0);
+    expect(existsSync(world.recordFile)).toBe(true);
+  },
+  inProcess,
+);
+
+test(
+  "the capability qualification run refuses an ignored file reached through a tracked link to a tracked folder outside the load folders",
+  async () => {
+    const world = linkedSharedFolder();
+    writeFileSync(join(world.root, "docs/shared/probe.local.ts"), "local\n");
+    expect(
+      readFileSync(
+        join(world.root, "kernel/src/shared/probe.local.ts"),
+        "utf8",
+      ),
+    ).toBe("local\n");
+    expect(git(world.root, "status", "--porcelain")).toBe("");
+    expect(await world.run()).toBe(1);
+    refusedWithoutRecord(
+      world,
+      "Refused: git ignores files where the run loads code (!! docs/shared/probe.local.ts); a capability qualification run loads committed files only. Repair: remove those files, then rerun.",
+    );
+  },
+  inProcess,
+);
+
 test(
   "the capability qualification run refuses a tracked link that leaves the checkout",
   async () => {
