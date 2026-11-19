@@ -241,23 +241,34 @@ function filesystem(folder: string): string {
     : "UNOBSERVED no mount entry contains the folder";
 }
 
-function probeFolders(): readonly { label: string; path: string }[] {
-  const make = (label: string, base: string) => {
-    mkdirSync(base, { recursive: true });
-    const path = mkdtempSync(join(base, "c3-lock-probe-"));
-    folders.push(path);
-    return { label, path };
-  };
+type Place = { readonly label: string; readonly base: string };
+
+const checkout: Place = {
+  label: "checkout",
+  base: resolve(import.meta.dir, ".probe-tmp"),
+};
+
+function probePlaces(): readonly Place[] {
   const chosen = process.env.PROBE_DIR;
-  if (chosen) return [make("PROBE_DIR", chosen)];
-  const checkout = resolve(import.meta.dir, ".probe-tmp");
-  const list = [make("checkout", checkout), make("tmpdir", tmpdir())];
-  if (existsSync("/dev/shm")) list.push(make("dev-shm", "/dev/shm"));
-  folders.push(checkout);
+  if (chosen) return [{ label: "PROBE_DIR", base: chosen }];
+  const list: Place[] = [checkout, { label: "tmpdir", base: tmpdir() }];
+  if (existsSync("/dev/shm")) list.push({ label: "dev-shm", base: "/dev/shm" });
   return list;
 }
 
-const probeFolderList = probeFolders();
+const places = probePlaces();
+const probeFolders = new Map<Place, string>();
+
+function probeFolder(place: Place): string {
+  const made = probeFolders.get(place);
+  if (made !== undefined) return made;
+  mkdirSync(place.base, { recursive: true });
+  const path = mkdtempSync(join(place.base, "c3-lock-probe-"));
+  folders.push(path);
+  if (place === checkout) folders.push(checkout.base);
+  probeFolders.set(place, path);
+  return path;
+}
 
 const label = "OBSERVATION ONLY, proves nothing by itself:";
 
@@ -274,16 +285,16 @@ test(`${label} PROBE environment`, () => {
     `env euid ${typeof process.geteuid === "function" ? process.geteuid() : "unknown"}`,
   );
   line(`env sqlite ${sqliteVersion()}`);
-  for (const folder of probeFolderList)
-    line(`env fs ${folder.label} ${filesystem(folder.path)}`);
+  for (const place of places)
+    line(`env fs ${place.label} ${filesystem(probeFolder(place))}`);
   expect(Bun.version.length).toBeGreaterThan(0);
 });
 
-for (const folder of probeFolderList)
+for (const place of places)
   for (const candidate of candidates)
     test(
-      `${label} PROBE ${candidate} in ${folder.label}`,
-      () => observe(candidate, folder.label, folder.path),
+      `${label} PROBE ${candidate} in ${place.label}`,
+      () => observe(candidate, place.label, probeFolder(place)),
       120_000,
     );
 
