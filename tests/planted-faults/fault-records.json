@@ -2077,5 +2077,19 @@
     "testFile": "tests/kernel/state/in-process.test.ts",
     "title": "IP06\\.on-crash-reentry-rejection",
     "source": "9dcecee fix(kernel): stop a program started between the crash kill and the abort"
+  },
+  {
+    "id": "03cba6c-input-distance",
+    "patch": "tests/planted-faults/patches/03cba6c-input-distance.patch",
+    "testFile": "tests/kernel/usage.test.ts",
+    "title": "the absolute limit refuses distance 3 from --reviewer-name",
+    "source": "03cba6c feat(kernel): suggest the closest declared option for a misspelt one"
+  },
+  {
+    "id": "03cba6c-input-half",
+    "patch": "tests/planted-faults/patches/03cba6c-input-half.patch",
+    "testFile": "tests/kernel/usage.test.ts",
+    "title": "the half-length limit refuses distance 2 from --left",
+    "source": "03cba6c feat(kernel): suggest the closest declared option for a misspelt one"
   }
 ]
