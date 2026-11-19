@@ -1,0 +1,30 @@
+name: Linux nightly
+
+# Every fault record on hosted Linux once a night. A pull request replays
+# only the tooling faults it touches, so this run catches a tooling fault
+# that a change elsewhere let survive.
+on:
+  schedule:
+    # 15:37 UTC: 02:37 in Melbourne during daylight saving (AEDT, UTC+11,
+    # October to April) and 01:37 outside it (AEST, UTC+10). Off the hour,
+    # because GitHub delays or drops scheduled runs at the top of the hour.
+    - cron: "37 15 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fault-replay-shard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - run: bun run fault-replay --shard ${{ matrix.shard }}/4

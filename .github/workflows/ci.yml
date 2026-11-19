@@ -71,7 +71,11 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.4
-      - run: bun run fault-replay
+      - env:
+          BASE: origin/${{ github.base_ref }}
+        run: bun run fault-replay --shard 1/1 --tooling-changed-since "$BASE"
