@@ -21,7 +21,7 @@ export type ValueCheck =
   | { readonly rule: "pattern invalid" }
   | { readonly rule: "pattern budget" };
 export type InputFault =
-  | { readonly kind: "unknown-option" }
+  | { readonly kind: "unknown-option"; readonly closest: Slot | null }
   | { readonly kind: "extra-argument" }
   | { readonly kind: "missing-value"; readonly slot: Slot }
   | { readonly kind: "repeated"; readonly slot: Slot }
@@ -89,8 +89,10 @@ const words: {
   "root-input": () => "This command needs at least one option or argument.",
   "later-step": () =>
     "A value in this invocation cannot be passed on to this command's next step.",
-  "unknown-option": () =>
-    "The invocation uses an option this command does not declare.",
+  "unknown-option": (fault) =>
+    fault.closest === null
+      ? "The invocation uses an option this command does not declare."
+      : `The invocation uses an option this command does not declare. Did you mean ${fault.closest.name}?`,
   "extra-argument": () =>
     "The invocation has more arguments than this command accepts.",
   missing: (fault) => `The required ${label(fault.slot)} is missing.`,

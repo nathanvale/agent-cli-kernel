@@ -130,6 +130,20 @@ describe("KF10.a no-argument-value-in-kernel-refusals", () => {
     },
     processWatchdog(2),
   );
+  test(
+    `KF10.a pair a --${marker}: one edit from the declared alias --KF10MAR, the suggestion names --left and carries no argument value`,
+    async () => {
+      const runs = await bothModes(["pair", "a", `--${marker}`]);
+      const message =
+        "The invocation uses an option this command does not declare. Did you mean --left?";
+      expect({
+        machine: runs.machine.envelope?.message,
+        human: runs.human.stderr,
+      }).toEqual({ machine: message, human: `kf: ${message} [${usage}]\n` });
+      expectRefusal(runs, "kf.pair", usage, 2);
+    },
+    processWatchdog(2),
+  );
 });
 
 describe("KF10.b remaining-kernel-refusals-carry-no-argument", () => {

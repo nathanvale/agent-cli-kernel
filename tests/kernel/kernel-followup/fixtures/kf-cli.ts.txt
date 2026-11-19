@@ -1096,7 +1096,7 @@ const pair = command({
       },
     ],
     options: [
-      { ...titleOption, name: "--left", summary: "Left side.", value: null },
+      { ...titleOption, name: "--left", aliases: ["--KF10MAR"], summary: "Left side.", value: null },
       { ...titleOption, name: "--right", summary: "Right side.", value: null },
       { ...titleOption, name: "--both", summary: "Both sides.", value: null },
     ],

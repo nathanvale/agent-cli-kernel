@@ -162,6 +162,13 @@ export function pairShow() {
         { ...optional, name: "--right", summary: "Right.", value: null },
         { ...optional, name: "--up", summary: "Up.", value: null },
         { ...optional, name: "--both", summary: "Both.", value: null },
+        {
+          ...optional,
+          name: "--reviewer-name",
+          aliases: ["--reviewer"],
+          summary: "Reviewer name.",
+          value: text(20, null),
+        },
       ],
       constraints: [
         { kind: "requires", ifPresent: "--both", thenPresent: "--left" },

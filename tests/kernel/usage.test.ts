@@ -214,7 +214,7 @@ const rows: readonly (readonly [string, readonly string[], Expected])[] = [
   ],
   [
     "an option the command does not declare",
-    ["show", "--title", "a", "--titel"],
+    ["show", "--title", "a", "--nope"],
     refusal(
       "x.show",
       "The invocation uses an option this command does not declare.",
@@ -515,6 +515,116 @@ describe("a usage refusal says what was wrong", () => {
       reason: "pattern mismatch",
     });
   });
+});
+
+const suggestions: readonly (readonly [string, readonly string[], Expected])[] =
+  [
+    [
+      "--titel suggests --title",
+      ["show", "--title", "a", "--titel"],
+      refusal(
+        "x.show",
+        "The invocation uses an option this command does not declare. Did you mean --title?",
+        showNext,
+      ),
+    ],
+    [
+      "a swap of two adjacent letters is one edit, so --lfet suggests --left",
+      ["pair", "a", "--lfet"],
+      refusal(
+        "x.pair",
+        "The invocation uses an option this command does not declare. Did you mean --left?",
+        pairNext,
+      ),
+    ],
+    [
+      "a one-letter typo of a longer name, --cont, suggests --count",
+      ["show", "--title", "a", "--cont"],
+      refusal(
+        "x.show",
+        "The invocation uses an option this command does not declare. Did you mean --count?",
+        showNext,
+      ),
+    ],
+    [
+      "a typo of the alias --reviewer suggests the canonical --reviewer-name",
+      ["pair", "a", "--reviewr"],
+      refusal(
+        "x.pair",
+        "The invocation uses an option this command does not declare. Did you mean --reviewer-name?",
+        pairNext,
+      ),
+    ],
+    [
+      "the absolute limit admits distance 2 from --reviewer-name",
+      ["pair", "a", "--reviewer-nazz"],
+      refusal(
+        "x.pair",
+        "The invocation uses an option this command does not declare. Did you mean --reviewer-name?",
+        pairNext,
+      ),
+    ],
+    [
+      "the absolute limit refuses distance 3 from --reviewer-name",
+      ["pair", "a", "--reviewer-nzzz"],
+      refusal(
+        "x.pair",
+        "The invocation uses an option this command does not declare.",
+        pairNext,
+      ),
+    ],
+    [
+      "the half-length limit admits distance 1 from --left",
+      ["pair", "a", "--lefx"],
+      refusal(
+        "x.pair",
+        "The invocation uses an option this command does not declare. Did you mean --left?",
+        pairNext,
+      ),
+    ],
+    [
+      "the half-length limit refuses distance 2 from --left",
+      ["pair", "a", "--lexx"],
+      refusal(
+        "x.pair",
+        "The invocation uses an option this command does not declare.",
+        pairNext,
+      ),
+    ],
+    [
+      "a tie between --tag and --flag suggests --tag, the first declared",
+      ["show", "--title", "a", "--tlag"],
+      refusal(
+        "x.show",
+        "The invocation uses an option this command does not declare. Did you mean --tag?",
+        showNext,
+      ),
+    ],
+    [
+      "a 5,000-character option suggests nothing, since a declared name whose length differs from it by more than 2 is skipped unmeasured",
+      ["show", "--title", "a", `--${"a".repeat(4998)}`],
+      refusal(
+        "x.show",
+        "The invocation uses an option this command does not declare.",
+        showNext,
+      ),
+    ],
+  ];
+
+describe("an undeclared option suggests the closest declared option", () => {
+  for (const [name, argv, expected] of suggestions)
+    test(name, async () => {
+      await expectInProcess(argv, expected);
+    });
+
+  test(
+    "the production entry prints each suggestion on stderr and in the JSON envelope",
+    async () => {
+      for (const [, argv, expected] of suggestions)
+        await expectProcess("usage", argv, expected);
+    },
+    processWatchdog(2 * suggestions.length),
+  );
 });
 
 const stepRoutes: Readonly<Record<string, readonly string[]>> = {

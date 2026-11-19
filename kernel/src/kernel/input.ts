@@ -156,6 +156,44 @@ type ParseState = {
   literal: boolean;
   values: Record<string, unknown>;
 };
+const nearest = 2;
+const bare = (name: string) => name.replace(/^-+/, "");
+function swapped(a: string, b: string, i: number, j: number): boolean {
+  return i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1];
+}
+function distance(a: string, b: string): number {
+  const width = b.length + 1;
+  const grid: number[] = [];
+  const at = (i: number, j: number) => grid[i * width + j] ?? 0;
+  for (let i = 0; i <= a.length; i++)
+    for (let j = 0; j <= b.length; j++)
+      grid.push(
+        i === 0 || j === 0
+          ? i + j
+          : Math.min(
+              at(i - 1, j) + 1,
+              at(i, j - 1) + 1,
+              at(i - 1, j - 1) + (a[i - 1] === b[j - 1] ? 0 : 1),
+              swapped(a, b, i, j) ? at(i - 2, j - 2) + 1 : Infinity,
+            ),
+      );
+  return at(a.length, b.length);
+}
+function closestOption(schema: InputSchema, token: string): Slot | null {
+  const typed = bare(token);
+  let closest: Slot | null = null;
+  let best = nearest + 1;
+  for (const option of schema.options)
+    for (const name of [option.name, ...option.aliases].map(bare)) {
+      if (Math.abs(name.length - typed.length) > nearest) continue;
+      const found = distance(typed, name);
+      if (found < best && found * 2 < name.length) {
+        closest = { kind: "option", name: option.name };
+        best = found;
+      }
+    }
+  return closest;
+}
 function selectSlot(
   schema: InputSchema,
   state: ParseState,
@@ -168,7 +206,10 @@ function selectSlot(
         )
       : undefined;
   if (!state.literal && token.startsWith("-") && !option)
-    return { ok: false, fault: { kind: "unknown-option" } };
+    return {
+      ok: false,
+      fault: { kind: "unknown-option", closest: closestOption(schema, token) },
+    };
   const slot = option ?? schema.arguments[state.operand++];
   if (!slot) return { ok: false, fault: { kind: "extra-argument" } };
   if (
