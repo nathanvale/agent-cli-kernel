@@ -6,7 +6,8 @@ A command needs two kinds of test. The code is from the
 ## In process
 
 `runInProcess(contract)` returns a function that runs one invocation inside
-the test and returns its result. Nothing is spawned and nothing is printed.
+the test and returns its result. Nothing is printed. A command that uses the
+programs add-on still starts the programs it declares.
 
 ```ts
 const run = runInProcess(contract);
