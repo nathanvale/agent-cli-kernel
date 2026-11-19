@@ -901,5 +901,33 @@
     "testFile": "tests/kernel/lifecycle/in-process.test.ts",
     "title": "IP03\\.crash-records-run-in-flight",
     "source": "f548a02 feat(kernel): run many commands in one process through runInProcess"
+  },
+  {
+    "id": "f548a02-in-process-repeat",
+    "patch": "tests/planted-faults/patches/f548a02-lifecycle-repeat.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP02\\.repeated-stop-exits-at-once",
+    "source": "f548a02 feat(kernel): run many commands in one process through runInProcess"
+  },
+  {
+    "id": "aa61e37-in-process-stop-bound",
+    "patch": "tests/planted-faults/patches/aa61e37-lifecycle-bound.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP07\\.stop-bound",
+    "source": "aa61e37 fix(kernel): settle the in-process entry's review findings"
+  },
+  {
+    "id": "aa61e37-in-process-rejected",
+    "patch": "tests/planted-faults/patches/aa61e37-lifecycle-rejected.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP07\\.rejected-run-records-itself",
+    "source": "aa61e37 fix(kernel): settle the in-process entry's review findings"
+  },
+  {
+    "id": "aa61e37-in-process-contract",
+    "patch": "tests/planted-faults/patches/aa61e37-lifecycle-contract.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP07\\.contract-refused",
+    "source": "aa61e37 fix(kernel): settle the in-process entry's review findings"
   }
 ]

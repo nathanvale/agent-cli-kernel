@@ -1,0 +1,12 @@
+diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
+index d5cf605..3c7e3b7 100644
+--- a/kernel/src/kernel/lifecycle.ts
++++ b/kernel/src/kernel/lifecycle.ts
+@@ -925,7 +925,6 @@ async function runAndReturn(run: Run, argv: unknown): Promise<InProcessResult> {
+     if (signal) return { kind: "stopped", runId: run.runId, signal };
+     return await returnedResult(run, code ?? 1, chunks);
+   } catch (error) {
+-    crashRun(run);
+     throw error;
+   } finally {
+     inFlight.runs.delete(run);

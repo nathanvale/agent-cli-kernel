@@ -1,0 +1,12 @@
+diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
+index d5cf605..715edc5 100644
+--- a/kernel/src/kernel/lifecycle.ts
++++ b/kernel/src/kernel/lifecycle.ts
+@@ -857,7 +857,6 @@ function stopEvery(inFlight: InFlight, host: ProcessHost, signal: StopSignal) {
+   const runs = [...inFlight.runs];
+   if (inFlight.stopped) {
+     for (const run of runs) killAll(run);
+-    host.exit(code);
+     return;
+   }
+   inFlight.stopped = signal;
