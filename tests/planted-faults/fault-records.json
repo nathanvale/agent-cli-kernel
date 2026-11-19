@@ -3071,5 +3071,19 @@
     "testFile": "tests/kernel/state/in-process.test.ts",
     "title": "^in-process state cases ran",
     "source": "34dd93a test(state): fail the in-process pin when its child run fails"
+  },
+  {
+    "id": "2541839-ci-minting",
+    "patch": "tests/planted-faults/patches/2541839-ci-minting.patch",
+    "testFile": "tests/template/check-commits/carried-verdict-workflow.test.ts",
+    "title": "only commits-token can mint an OIDC token",
+    "source": "2541839 ci: carry the commits check's verdict forward on a GitHub-signed token (GREEN)"
+  },
+  {
+    "id": "2541839-ci-token-after-failure",
+    "patch": "tests/planted-faults/patches/2541839-ci-token-after-failure.patch",
+    "testFile": "tests/template/check-commits/carried-verdict-workflow.test.ts",
+    "title": "commits-token runs only after commits passed",
+    "source": "2541839 ci: carry the commits check's verdict forward on a GitHub-signed token (GREEN)"
   }
 ]
