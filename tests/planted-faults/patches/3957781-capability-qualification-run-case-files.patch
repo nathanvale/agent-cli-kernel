@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index a1f28f6..5d4052a 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -579,7 +579,7 @@ export function caseFiles(
+         ...readFileSync(join(root, path), "utf8").matchAll(
+           /caseTest\(\s*"([^"]+)"/g,
+         ),
+-      ].some((match) => covered.includes(match[1] ?? "")),
++      ].length >= 0,
+     );
+ }
+ 

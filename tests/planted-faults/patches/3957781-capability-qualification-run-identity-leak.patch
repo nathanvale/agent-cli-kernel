@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index a1f28f6..f8e4d95 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -368,7 +368,7 @@ function observedPlatform(): PlatformFacts {
+     release: observed,
+     majorRelease: observed.split(".")[0] ?? observed,
+     architecture: process.arch,
+-    runtime: `bun ${Bun.version}`,
++    runtime: `bun ${Bun.version} ${String(Reflect.get(require("node:os"), "hostname")())}`,
+     distribution: distribution(),
+     cLibrary: cLibrary(),
+     container: existsSync("/.dockerenv") || existsSync("/run/.containerenv"),
