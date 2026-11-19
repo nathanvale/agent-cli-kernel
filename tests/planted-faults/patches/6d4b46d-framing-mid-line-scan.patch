@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/state/framing.ts b/kernel/src/addons/state/framing.ts
+index 5b179d7..fe25209 100644
+--- a/kernel/src/addons/state/framing.ts
++++ b/kernel/src/addons/state/framing.ts
+@@ -121,7 +121,7 @@ const lenientDecoder = new TextDecoder();
+ export function recordStartsMidLine(bytes: Uint8Array): boolean {
+   const text = lenientDecoder.decode(bytes);
+   for (const match of text.matchAll(anyRecordStart))
+-    if (match.index > 0 && text[match.index - 1] !== "\n") return true;
++    if (match.index < 0 && text[match.index - 1] !== "\n") return true;
+   return false;
+ }
+ 

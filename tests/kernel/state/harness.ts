@@ -24,37 +24,55 @@ import { coordinationExpected } from "./holder.ts";
 
 const specimen = join(import.meta.dir, "fixtures", "specimen.ts");
 
+export const registeredCases: {
+  readonly id: string;
+  readonly title: string;
+}[] = [];
+
+function casePlan(
+  id: string,
+  body: () => Promise<void>,
+): { readonly title: string; readonly run: () => Promise<void> | void } {
+  const row = stateCases.find((entry) => entry.id === id);
+  if (!row || row.status !== "executable")
+    throw new Error(`${id} is not an executable frozen case.`);
+  if (row.platform === "coordination" && !coordinationExpected)
+    return {
+      title: `${id} UNPROVED on ${process.platform}: fail-closed control only`,
+      run: failClosedControl,
+    };
+  const entry = runOf(process.env[runVariable])?.entry ?? "fixture.ts";
+  const only = otherEntryOnly(row, entry);
+  if (only !== undefined)
+    return {
+      title: `${id} UNPROVED outside ${only.entry}: ${only.reason}`,
+      run: () => {
+        expect(entry).not.toBe(only.entry);
+      },
+    };
+  if (row.nonRoot === true && process.geteuid?.() === 0)
+    return {
+      title: `${id} UNPROVED as euid 0: root is never denied permission`,
+      run: () => {
+        expect(process.geteuid?.()).toBe(0);
+      },
+    };
+  if (row.bootIdentity === true && machineBootIdentityRead() === undefined)
+    return {
+      title: `${id} UNPROVED on ${process.platform}: no boot identity to observe at ${bootIdentityFile}; its refusals run as a fail-closed control, and its fact-override supporting test runs the rest`,
+      run: body,
+    };
+  return { title: id, run: body };
+}
+
 export function caseTest(
   id: string,
   body: () => Promise<void>,
   timeout = 90_000,
 ): void {
-  const row = stateCases.find((entry) => entry.id === id);
-  if (!row || row.status !== "executable")
-    throw new Error(`${id} is not an executable frozen case.`);
-  if (row.platform === "coordination" && !coordinationExpected) {
-    test(
-      `${id} UNPROVED on ${process.platform}: fail-closed control only`,
-      failClosedControl,
-      timeout,
-    );
-    return;
-  }
-  const entry = runOf(process.env[runVariable])?.entry ?? "fixture.ts";
-  const only = otherEntryOnly(row, entry);
-  if (only !== undefined) {
-    test(`${id} UNPROVED outside ${only.entry}: ${only.reason}`, () => {
-      expect(entry).not.toBe(only.entry);
-    });
-    return;
-  }
-  if (row.nonRoot === true && process.geteuid?.() === 0) {
-    test(`${id} UNPROVED as euid 0: root is never denied permission`, () => {
-      expect(process.geteuid?.()).toBe(0);
-    });
-    return;
-  }
-  test(id, body, timeout);
+  const plan = casePlan(id, body);
+  registeredCases.push({ id, title: plan.title });
+  test(plan.title, plan.run, timeout);
 }
 
 export function only(world: World, command = "sx.apply"): string {
@@ -342,6 +360,27 @@ export function writeSyntheticOperation(
   return id;
 }
 
+export const bootIdentityFile = "/proc/sys/kernel/random/boot_id";
+
+export function machineBootIdentityRead(): string | undefined {
+  try {
+    const read = readFileSync(bootIdentityFile, "utf8").trim();
+    return read === "" ? undefined : read;
+  } catch {
+    return undefined;
+  }
+}
+
+export function flipLastPayloadByte(path: string): void {
+  const bytes = readFileSync(path);
+  const index = bytes.length - 3;
+  bytes[index] = (bytes[index] ?? 0) ^ 1;
+  writeFileSync(path, bytes);
+}
+
+export const noAppendAfterDamage =
+  "The events file does not end on a whole record, so nothing more is appended to this case.";
+
 export function closeArgs(
   id: string,
   revision: string,
@@ -438,6 +477,10 @@ export type Started = {
 };
 
 export type World = ReturnType<typeof makeWorld>;
+
+export function eventsPath(world: World, id: string): string {
+  return join(world.root, "operations", id, "events");
+}
 
 const defaultChildBound = 60_000;
 

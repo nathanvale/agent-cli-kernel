@@ -40,7 +40,7 @@ import {
   recordFolder,
   recordPath,
   recordSchema,
-  registeredCases,
+  caseRegistrations,
   otherEntryOnly,
   requiredCaseIds,
   runEntries,
@@ -820,7 +820,7 @@ export function caseFiles(
     )
     .sort()
     .filter((path) =>
-      registeredCases(readFileSync(join(root, path), "utf8")).some((id) =>
+      caseRegistrations(readFileSync(join(root, path), "utf8")).some((id) =>
         covered.includes(id),
       ),
     );

@@ -51,12 +51,20 @@ type EnvironmentFacts = {
 };
 
 export type Match =
-  | { readonly matched: true; readonly label: string }
+  | {
+      readonly matched: true;
+      readonly label: string;
+      readonly bootIdentity: string | undefined;
+    }
   | { readonly matched: false; readonly detail: string };
 
+// Interface: `bootIdentity` reads the boot identity now, with a test entry's
+// override, and is undefined when it cannot be read or is empty. A matched
+// Match carries the boot identity that same match read.
 export type Qualification = {
   readonly source: "production" | "fixture";
   readonly match: (root: string, primitive: string | undefined) => Match;
+  readonly bootIdentity: () => string | undefined;
 };
 
 function attempt<T>(read: () => T): Fact<T> {
@@ -79,6 +87,23 @@ function overridden<T>(
 
 function nonEmpty(fact: Fact<string>): Fact<string> {
   return fact.read && fact.value === "" ? { read: false, why: "empty" } : fact;
+}
+
+function readBootIdentity(overrides: FactOverrides): Fact<string> {
+  return nonEmpty(
+    overridden(overrides.bootIdentity, () =>
+      attempt(() => readFileSync(bootIdentitySource, "utf8").trim()),
+    ),
+  );
+}
+
+function bootIdentityOf(overrides: FactOverrides): string | undefined {
+  const fact = readBootIdentity(overrides);
+  return fact.read ? fact.value : undefined;
+}
+
+export function machineBootIdentity(): string | undefined {
+  return bootIdentityOf({});
 }
 
 function readDevices(
@@ -121,11 +146,7 @@ function readFacts(
       primitive === undefined
         ? { read: false, why: "no coordination route" }
         : { read: true, value: primitive },
-    bootIdentity: nonEmpty(
-      overridden(overrides.bootIdentity, () =>
-        attempt(() => readFileSync(bootIdentitySource, "utf8").trim()),
-      ),
-    ),
+    bootIdentity: readBootIdentity(overrides),
     devices: readDevices(root, overrides),
   };
 }
@@ -212,7 +233,14 @@ function matchFacts(
     devices === undefined
       ? rows.find((entry) => differences(entry, facts).length === 0)
       : undefined;
-  if (row) return { matched: true, label: label(row) };
+  if (row)
+    return {
+      matched: true,
+      label: label(row),
+      bootIdentity: facts.bootIdentity.read
+        ? facts.bootIdentity.value
+        : undefined,
+    };
   const rowsText =
     rows.length === 0
       ? "no capability qualification row"
@@ -233,6 +261,7 @@ function qualificationOver(
     source,
     match: (root: string, primitive: string | undefined) =>
       matchFacts(rows, readFacts(root, primitive, overrides), label),
+    bootIdentity: () => bootIdentityOf(overrides),
   });
 }
 

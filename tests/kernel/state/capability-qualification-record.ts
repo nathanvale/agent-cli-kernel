@@ -82,7 +82,7 @@ export function capabilityQualificationCases(
   });
 }
 
-export function registeredCases(source: string): readonly string[] {
+export function caseRegistrations(source: string): readonly string[] {
   return [...source.matchAll(/caseTest\(\s*"([^"]+)"/g)].map(
     (match) => match[1] ?? "",
   );

@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { stateCases } from "./cases.ts";
-import { registeredCases } from "./capability-qualification-record.ts";
-import { caseTest } from "./harness.ts";
+import { caseRegistrations } from "./capability-qualification-record.ts";
+import { caseTest, machineBootIdentityRead } from "./harness.ts";
 
 const briefFamilies = [
   ...["J01", "J02", "J03", "J04", "J05", "J06", "J07"],
@@ -44,9 +44,9 @@ test("the frozen T3 case table keeps its admitted identities and counts", () => 
     "S04",
     "S05",
   ]);
-  expect(stateCases.length).toBe(146);
+  expect(stateCases.length).toBe(152);
   const executable = stateCases.filter((row) => row.status === "executable");
-  expect(executable.length).toBe(137);
+  expect(executable.length).toBe(145);
   for (const row of executable)
     if (row.status === "executable")
       expect(["coordination", "any"]).toContain(row.platform);
@@ -62,6 +62,11 @@ test("the frozen T3 case table keeps its admitted identities and counts", () => 
     "L07.g-failed-move-keeps-outcome",
     "S03.a-store-failure-preserves-item",
   ]);
+  expect(
+    executable
+      .filter((row) => row.status === "executable" && row.bootIdentity === true)
+      .map((row) => row.id),
+  ).toEqual(["K11.a-delegate-same-boot-refused"]);
   const pending = stateCases.filter((row) => row.status === "pending");
   expect(pending.map((row) => row.id).sort()).toEqual([
     "H01.a-attestation-satisfies-stop-only",
@@ -69,8 +74,6 @@ test("the frozen T3 case table keeps its admitted identities and counts", () => 
     "J07.a-diagnostics-removed",
     "K04.b-unknown-closure-with-fixture-authority",
     "K05.b-actual-credential-nonforgeability",
-    "K08.c-surviving-delegate-process",
-    "O06.a-delegated-writer",
     "O07.b-reclaim-race",
     "O08.a-takeover-crash-points",
   ]);
@@ -83,11 +86,19 @@ test("the frozen T3 case table keeps its admitted identities and counts", () => 
   }
 });
 
+test("a case that needs a boot identity runs its body on Linux and is unproved on macOS", () => {
+  const needing = stateCases
+    .filter((row) => row.status === "executable" && row.bootIdentity === true)
+    .map((row) => row.id);
+  const unproved = machineBootIdentityRead() === undefined ? needing : [];
+  expect(unproved).toEqual(
+    process.platform === "linux" ? [] : ["K11.a-delegate-same-boot-refused"],
+  );
+});
+
 const transitionDesigns = ["DESIGN.md", "DESIGN-V2-TRANSITIONS.md"];
-const casesAwaitingLaterSlices: Readonly<Record<string, readonly string[]>> = {
-  X28: ["K11.a"],
-  X29: ["K11.c", "K11.d"],
-};
+const casesAwaitingLaterSlices: Readonly<Record<string, readonly string[]>> =
+  {};
 
 async function transitionRows(name: string): Promise<string[][]> {
   const design = await Bun.file(
@@ -141,7 +152,7 @@ test("every executable case is registered once and no pending case is claimed", 
   const sources = await Promise.all(
     files.map((name) => Bun.file(new URL(name, import.meta.url)).text()),
   );
-  const registered = sources.flatMap(registeredCases);
+  const registered = sources.flatMap(caseRegistrations);
   const executable = stateCases
     .filter((row) => row.status === "executable")
     .map((row) => row.id)

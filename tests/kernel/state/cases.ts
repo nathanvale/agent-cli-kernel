@@ -22,6 +22,7 @@ export type StateCase = {
         readonly entry: "fixture.ts" | "index.ts";
         readonly reason: string;
       };
+      readonly bootIdentity?: true;
     }
   | {
       readonly status: "pending";
@@ -60,12 +61,6 @@ const unqualified = {
   supplier: "qualification",
   reason:
     "Needs a reviewed qualification row (REC-7b). The foundation table is empty, so the expected foundation outcome is O10 and Q01.",
-} as const;
-const sliceB = {
-  status: "pending",
-  supplier: "T2-slice-B",
-  reason:
-    "Needs a real delegated program started through the programs add-on bound to the recorded effect after slice B.",
 } as const;
 
 export const stateCases: readonly StateCase[] = [
@@ -553,8 +548,9 @@ export const stateCases: readonly StateCase[] = [
   },
   {
     id: "K08.c-surviving-delegate-process",
-    ...sliceB,
-    sources: "REC-9 row 13; V-22",
+    ...coordinated,
+    sources:
+      "REC-9 row 13; V-22; journal version 2 design part 2 section 5; X28; decision K (Nathan, 19 November 2026, 12:08)",
     observation:
       "Parent killed with a surviving delegated program: closure and overlapping work blocked, independent scope proceeds.",
     red: "Treat parent death as a stopped operation.",
@@ -574,6 +570,60 @@ export const stateCases: readonly StateCase[] = [
     observation:
       "A retried closure after the move returns the prior disposition.",
     red: "Look up the target in operations/ only.",
+  },
+  {
+    id: "K11.a-delegate-same-boot-refused",
+    ...coordinated,
+    bootIdentity: true,
+    sources:
+      "REC-7; REC-9 row 13; journal version 2 design part 2 section 5; X28; decision K (Nathan, 19 November 2026, 12:08)",
+    observation:
+      "A killed run with a delegate start, same boot or no boot: closure refuses even with a matching row.",
+    red: "Treat a free lease as proof.",
+  },
+  {
+    id: "K11.b-delegate-other-boot-closes",
+    ...coordinated,
+    sources:
+      "REC-7; journal version 2 design part 2 section 5; part 3 section 4; decision K (Nathan, 19 November 2026, 12:08)",
+    observation:
+      "With a boot identity that differs (test entry), the same case closes.",
+    red: "Compare process identifiers instead.",
+  },
+  {
+    id: "K11.c-torn-tail-closes",
+    ...coordinated,
+    sources:
+      "REC-4; REC-7; journal version 2 design part 2 section 4; X29; decision L (Nathan, 19 November 2026, 13:46)",
+    observation:
+      "Killed mid-append with a free lease: closes as completed on present; not-applied on absent refuses.",
+    red: "Refuse every torn tail.",
+  },
+  {
+    id: "K11.d-corrupt-events-still-refuses",
+    ...coordinated,
+    sources:
+      "REC-4; journal version 2 design part 2 section 4; X29; decision C (Nathan, 19 November 2026, 13:46)",
+    observation: "Bytes after the damage: closure refuses as unavailable.",
+    red: "Read corruption as a torn tail.",
+  },
+  {
+    id: "K11.f-record-hidden-in-torn-tail-refuses",
+    ...coordinated,
+    sources:
+      "REC-7; journal version 2 design part 2 section 4; X29; decided by Nathan, 19 November 2026, 16:29 AEDT",
+    observation:
+      "A complete record appended straight after torn bytes, as older code could write it, starts mid-line: closure refuses journal-torn even on another boot; a lone torn tail still closes.",
+    red: "Trust a torn tail without looking for a record inside it (planted fault).",
+  },
+  {
+    id: "K11.g-no-append-after-torn-tail",
+    ...coordinated,
+    sources:
+      "REC-7; CMD-14; journal version 2 design part 2 section 4; decided by Nathan, 19 November 2026, 16:29 AEDT",
+    observation:
+      "After a failed partial write, a later delegate start refuses and no program starts, nothing more is appended, the live lease still refuses closure, and once the run ends the case closes.",
+    red: "Append after a torn tail (planted fault).",
   },
   {
     id: "K11.e-transaction-waits-for-started-effects",
@@ -772,8 +822,9 @@ export const stateCases: readonly StateCase[] = [
   },
   {
     id: "O06.a-delegated-writer",
-    ...sliceB,
-    sources: "REC-7; REC-7a; REC-9 row 13; V-22",
+    ...coordinated,
+    sources:
+      "REC-7; REC-7a; REC-9 row 13; V-22; journal version 2 design part 2 section 5; X28; decision K (Nathan, 19 November 2026, 12:08)",
     observation:
       "Parent SIGKILLed with surviving direct and detached delegates: reclaim and closure blocked; independent scope proceeds.",
     red: "Treat parent death as a stopped operation.",

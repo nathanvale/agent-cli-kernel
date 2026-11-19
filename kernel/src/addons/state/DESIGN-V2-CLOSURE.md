@@ -21,6 +21,13 @@ empty. Version 2's stopped-owner condition for a crashed case is all of:
 3. Every `delegate-admitted` event on the case names a boot identity that
    differs from the current one (section 5). A case with none passes.
 
+The closer reads the case again after it holds the owner lease, and decides
+only on that read; it holds the lease until the closure is published, and
+refuses when that read differs from the request. An owner with an unknown
+scope holds no key coordination lock, only its lease, so a read made before
+the lease is held can be stale; version 1's code read first (decided by
+Nathan, 19 November 2026, 17:43 AEDT).
+
 A torn events tail no longer refuses (section 4). Lock age, PID presence,
 the machine's name and sent signals are still never consulted. Without a
 matching row every closure of an unresolved case still hands off, as O10 and
@@ -260,12 +267,30 @@ Recovery classification already treats a torn tail as started (version 1
 section 8), so `not-applied` needs `excluded`, never mere absence. A corrupt
 `events` file, with bytes after the damage, still refuses.
 
-A torn tail cannot hide a delegate start. `delegate-admitted` is appended
-and flushed before the program starts, and an append that fails stops the
-start, so an incomplete `delegate-admitted` means no start happened. Hiding
-one would need damage to a record already complete and flushed, which is
-outside version 1 section 2's boundary of process crash and file flush,
-as for every other record.
+An incomplete `delegate-admitted` means no start happened:
+`delegate-admitted` is appended and flushed before the program starts, and
+an append that fails stops the start. But a torn tail can hide a later
+complete record. When an append fails part way and the owner goes on, a
+retried start appends a complete `delegate-admitted` straight after the torn
+bytes, mid-line, and starts its program. If the owner then dies, the reader
+takes that record for part of the torn tail, and closure would see no
+delegate. Two rules close this (decided by Nathan, 19 November 2026, 16:29
+AEDT):
+
+1. Nothing is appended after torn bytes. Each append first reads the events
+   file and refuses unless it ends on a whole record. After a failed partial
+   write the run records nothing more for that case, a later delegate start
+   refuses before its program starts, and the case stays unresolved for
+   recovery (case K11.g).
+2. Closure refuses `journal-torn` when a record header starts mid-line
+   anywhere in the events file, as version 1 refused every torn tail. A
+   record body holds no raw newline, so a header can start mid-line only
+   inside a torn tail. This covers journals written before rule 1 (case
+   K11.f).
+
+With both rules, hiding a delegate start would need damage to a record
+already complete and flushed, which is outside version 1 section 2's
+boundary of process crash and file flush, as for every other record.
 
 ## 5. Closing after `delegate-admitted` (only after the container machine restarts)
 

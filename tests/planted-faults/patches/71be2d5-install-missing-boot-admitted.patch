@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index 531813f..4e6e918 100644
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -451,7 +451,7 @@ function stoppedOwnerProblem(
+   const delegateMayRun = target.events.some((event) => {
+     if (event.kind !== "delegate-admitted") return false;
+     const started = delegateBoot(event);
+-    return started === undefined || boot === undefined || started === boot;
++    return boot === undefined || started === boot;
+   });
+   return delegateMayRun ? "delegate-recorded" : undefined;
+ }
