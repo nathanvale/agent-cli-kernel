@@ -571,6 +571,41 @@ export const stateCases: readonly StateCase[] = [
     red: "Compare process identifiers instead.",
   },
   {
+    id: "K11.c-torn-tail-closes",
+    ...coordinated,
+    sources:
+      "REC-4; REC-7; journal version 2 design part 2 section 4; X29; decision L (Nathan, 19 November 2026, 13:46)",
+    observation:
+      "Killed mid-append with a free lease: closes as completed on present; not-applied on absent refuses.",
+    red: "Refuse every torn tail.",
+  },
+  {
+    id: "K11.d-corrupt-events-still-refuses",
+    ...coordinated,
+    sources:
+      "REC-4; journal version 2 design part 2 section 4; X29; decision C (Nathan, 19 November 2026, 13:46)",
+    observation: "Bytes after the damage: closure refuses as unavailable.",
+    red: "Read corruption as a torn tail.",
+  },
+  {
+    id: "K11.f-record-hidden-in-torn-tail-refuses",
+    ...coordinated,
+    sources:
+      "REC-7; journal version 2 design part 2 section 4; X29; decided by Nathan, 19 November 2026, 16:29 AEDT",
+    observation:
+      "A complete record appended straight after torn bytes, as older code could write it, starts mid-line: closure refuses journal-torn even on another boot; a lone torn tail still closes.",
+    red: "Trust a torn tail without looking for a record inside it (planted fault).",
+  },
+  {
+    id: "K11.g-no-append-after-torn-tail",
+    ...coordinated,
+    sources:
+      "REC-7; CMD-14; journal version 2 design part 2 section 4; decided by Nathan, 19 November 2026, 16:29 AEDT",
+    observation:
+      "After a failed partial write, a later delegate start refuses and no program starts, nothing more is appended, the live lease still refuses closure, and once the run ends the case closes.",
+    red: "Append after a torn tail (planted fault).",
+  },
+  {
     id: "K11.e-transaction-waits-for-started-effects",
     ...transactionComponent,
     sources:

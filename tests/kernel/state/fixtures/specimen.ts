@@ -43,6 +43,7 @@ import { movedStateRoot } from "../../../../kernel/src/addons/state/capability-q
 import { deviceFolders } from "../../../../kernel/src/addons/state/qualification.ts";
 import type { DeviceFolder } from "../../../../kernel/src/addons/state/qualification.ts";
 import { approval } from "../../../../kernel/src/addons/approval/index.ts";
+import { encodeRecord } from "../../../../kernel/src/addons/state/framing.ts";
 import { programsAddon } from "../../../../kernel/src/addons/programs/index.ts";
 
 const root = process.env.SX_ROOT ?? "";
@@ -839,6 +840,18 @@ const delegateCode = {
   "delegate-detaches": `const fs=require("node:fs");const c=require("node:child_process").spawn(process.execPath,["-e","setTimeout(()=>{},60000)"],{detached:true,stdio:"ignore"});c.unref();fs.writeFileSync(${JSON.stringify(`${delegateFile}.tmp`)},process.pid+" "+c.pid);fs.renameSync(${JSON.stringify(`${delegateFile}.tmp`)},${JSON.stringify(delegateFile)});setTimeout(()=>{},60000);`,
 } as const;
 
+function delegateRequest(code: string) {
+  const boundary = composed.boundary;
+  if (!boundary) throw new Error("Contract not composed.");
+  return {
+    executable: boundary.path(process.execPath),
+    args: ["-e", code],
+    timeoutMilliseconds: 60_000,
+    outputLimitBytes: 1_024,
+    shutdownMilliseconds: 1_000,
+  };
+}
+
 async function startDelegate(
   programs: ProgramsCapability | undefined,
   recorded: RecordedEffect<"note.write">,
@@ -849,28 +862,24 @@ async function startDelegate(
       : undefined;
   if (code === undefined) return;
   if (!programs) throw new Error("This command has no programs capability.");
-  const boundary = composed.boundary;
-  if (!boundary) throw new Error("Contract not composed.");
   void programs
     .domain(recorded)
-    .start({
-      executable: boundary.path(process.execPath),
-      args: ["-e", code],
-      timeoutMilliseconds: 60_000,
-      outputLimitBytes: 1_024,
-      shutdownMilliseconds: 1_000,
-    })
+    .start(delegateRequest(code))
     .catch(() => undefined);
   await delegateWrotePids();
 }
 
-function delegateWrotePids(): Promise<void> {
+function delegateWrotePids(stop?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     const settle = (fail?: Error) => {
       watcher.close();
       clearTimeout(bound);
+      stop?.removeEventListener("abort", stopped);
       if (fail) reject(fail);
       else resolve();
+    };
+    const stopped = () => {
+      settle();
     };
     const watcher = watch(world, () => {
       if (existsSync(delegateFile)) settle();
@@ -878,8 +887,40 @@ function delegateWrotePids(): Promise<void> {
     const bound = setTimeout(() => {
       settle(new Error("The delegate never started."));
     }, 30_000);
+    stop?.addEventListener("abort", stopped);
     if (existsSync(delegateFile)) settle();
   });
+}
+
+async function retryAfterTornWrite(
+  programs: ProgramsCapability | undefined,
+  recorded: RecordedEffect<"note.write">,
+  operationId: string,
+): Promise<void> {
+  if (fault !== "torn-then-delegate") return;
+  if (!programs) throw new Error("This command has no programs capability.");
+  const record = encodeRecord("delegate-admitted", {
+    effect: recorded.effect,
+    boot: "torn",
+  });
+  appendFileSync(
+    join(root, "operations", operationId, "events"),
+    record.subarray(0, 40),
+  );
+  const stop = new AbortController();
+  const outcome = await Promise.race([
+    programs
+      .domain(recorded)
+      .start(delegateRequest(delegateCode["delegate-survives"]))
+      .then(
+        () => "exited",
+        (error: unknown) =>
+          `refused: ${error instanceof Error ? error.message : String(error)}`,
+      ),
+    delegateWrotePids(stop.signal).then(() => "started"),
+  ]);
+  stop.abort();
+  ledger(`delegate ${outcome}`);
 }
 
 function noteWork(
@@ -887,7 +928,10 @@ function noteWork(
   content: string,
   programs?: ProgramsCapability,
 ) {
-  return async (transaction: EffectTransaction<"note.write">) => {
+  return async (
+    transaction: EffectTransaction<"note.write">,
+    published: { readonly operationId: string },
+  ) => {
     await barrier("pre-effect");
     if (fault === "transient-after-intent") return;
     await transaction.record(
@@ -898,6 +942,7 @@ function noteWork(
             Promise.resolve(0),
           );
         await startDelegate(programs, recorded);
+        await retryAfterTornWrite(programs, recorded, published.operationId);
         await barrier("intent");
         return writeNote(path, content, "apply");
       },

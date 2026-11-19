@@ -49,6 +49,7 @@ import {
 import type { CapabilityQualificationRow } from "../../../kernel/src/addons/state/capability-qualification-table.ts";
 import {
   candidateQualification,
+  machineBootIdentity,
   resolveQualification,
 } from "../../../kernel/src/addons/state/qualification.ts";
 import type { FactOverrides } from "../../../kernel/src/addons/state/qualification.ts";
@@ -57,6 +58,12 @@ import {
   parseRecords,
 } from "../../../kernel/src/addons/state/framing.ts";
 import {
+  appendEvent,
+  delegateBoot,
+  layout,
+  readCase,
+} from "../../../kernel/src/addons/state/store.ts";
+import {
   canonicalise,
   conflicts,
 } from "../../../kernel/src/addons/state/scope.ts";
@@ -64,9 +71,12 @@ import { checkedFlock } from "../../../kernel/src/addons/state/linux-flock.ts";
 import { testFolder } from "../../support/test-folder.ts";
 import {
   caseTest,
+  framed,
   readFramed,
   readOperations,
   supportingTest,
+  versionTwoStore,
+  writeSyntheticOperation,
 } from "./harness.ts";
 import { coordinationExpected, lockFree } from "./holder.ts";
 import { turns } from "../lifecycle/recording-host.ts";
@@ -683,28 +693,30 @@ caseTest("Q01.b-fixture-never-enables", async () => {
   await Promise.resolve();
 });
 
+const candidateRow: CapabilityQualificationRow = {
+  id: "candidate",
+  os: process.platform,
+  majorRelease: "7",
+  observedRelease: "7.2.12-orbstack-00394-gbecdd6130068",
+  filesystem: { name: "btrfs", type: 0x9123683e },
+  primitive: "test route",
+  bootIdentitySource: "/proc/sys/kernel/random/boot_id",
+  processIdentity: "boot identity only",
+  namespace: "test entry",
+  delegatedWriters: "none",
+  failureCases: [movedStateRoot],
+  evidence: {
+    record: "none",
+    review: { session: "none", countersignature: "none", date: "none" },
+  },
+};
+
 test("X27 supporting: in process, a candidate row names the one field that differs", () => {
   const root = temporaryRoot("c3-state-x27-");
   try {
     for (const folder of ["coordination", "operations", "settled", "staging"])
       mkdirSync(join(root, folder));
-    const row: CapabilityQualificationRow = {
-      id: "candidate",
-      os: process.platform,
-      majorRelease: "7",
-      observedRelease: "7.2.12-orbstack-00394-gbecdd6130068",
-      filesystem: { name: "btrfs", type: 0x9123683e },
-      primitive: "test route",
-      bootIdentitySource: "/proc/sys/kernel/random/boot_id",
-      processIdentity: "boot identity only",
-      namespace: "test entry",
-      delegatedWriters: "none",
-      failureCases: [movedStateRoot],
-      evidence: {
-        record: "none",
-        review: { session: "none", countersignature: "none", date: "none" },
-      },
-    };
+    const row = candidateRow;
     const readable: FactOverrides = {
       release: "7.9.0",
       filesystem: 0x9123683e,
@@ -770,6 +782,116 @@ test("framing: torn tails are not state; damage before more bytes is corrupt", (
   damaged[one.length - 3] = (damaged[one.length - 3] ?? 0) ^ 1;
   expect(parseRecords(damaged).ok).toBe(false);
   expect(readFramed(damaged).corrupt).toBe(true);
+});
+
+test("X28 supporting: in process, the boot identity honours a test entry's override and an unreadable or empty one is undefined", () => {
+  const boot = (bootIdentity: string | null) =>
+    candidateQualification("x28", candidateRow, {
+      bootIdentity,
+    }).bootIdentity();
+  expect(boot("boot-one")).toBe("boot-one");
+  expect(boot(null)).toBeUndefined();
+  expect(boot("")).toBeUndefined();
+  let machine: string | undefined;
+  try {
+    const read = readFileSync("/proc/sys/kernel/random/boot_id", "utf8").trim();
+    machine = read === "" ? undefined : read;
+  } catch {
+    machine = undefined;
+  }
+  expect(resolveQualification().bootIdentity()).toBe(machine);
+  expect(machineBootIdentity()).toBe(machine);
+  const event = (payload: Readonly<Record<string, unknown>>) =>
+    delegateBoot({ kind: "delegate-admitted", effect: "e", payload });
+  expect(event({ effect: "e", boot: "boot-one" })).toBe("boot-one");
+  for (const payload of [{ effect: "e" }, { boot: "" }, { boot: 7 }])
+    expect(event(payload)).toBeUndefined();
+  expect(
+    delegateBoot({
+      kind: "effect-started",
+      effect: "e",
+      payload: { boot: "x" },
+    }),
+  ).toBeUndefined();
+});
+
+const tornRefusal =
+  "The events file ends in a torn record, so nothing more is appended to this case.";
+
+test("K11.g supporting: in process, appendEvent appends after a whole record and refuses after torn or corrupt bytes", () => {
+  const path = join(temporaryRoot("c3-state-append-"), "events");
+  writeFileSync(path, "");
+  appendEvent(path, "effect-started", { effect: "e" });
+  appendEvent(path, "effect-confirmed", { effect: "e" });
+  const whole = readFileSync(path);
+  expect(readFramed(whole).records.map((record) => record.kind)).toEqual([
+    "effect-started",
+    "effect-confirmed",
+  ]);
+  const later = framed("completion", { completed: ["e"] });
+  for (const tail of [
+    later.slice(0, 1),
+    later.slice(0, 30),
+    later.slice(0, later.indexOf("\n") + 1),
+    later.slice(0, -1),
+    `${later.slice(0, 30)}\n${later}`,
+  ]) {
+    writeFileSync(path, Buffer.concat([whole, Buffer.from(tail)]));
+    const before = readFileSync(path);
+    expect(() => {
+      appendEvent(path, "delegate-admitted", { effect: "e", boot: "b" });
+    }).toThrow(tornRefusal);
+    expect(readFileSync(path)).toEqual(before);
+  }
+});
+
+test("K11.f supporting: every cut of a record followed by a complete record is refused; a lone torn tail is not", () => {
+  const root = temporaryRoot("c3-state-cuts-");
+  versionTwoStore(root);
+  const id = writeSyntheticOperation(root, join(root, "note"));
+  const events = join(root, "operations", id, "events");
+  const paths = layout(root);
+  const started = framed("effect-started", { effect: "note.write" });
+  const hidden = framed("delegate-admitted", {
+    effect: "note.write",
+    boot: "boot-one",
+  });
+  const lookalike = framed("effect-confirmed", {
+    effect: "note.write",
+    note: `C3S1 effect-started 0000000010 ${"a".repeat(64)}`,
+  });
+  const read = (text: string) => {
+    writeFileSync(events, text);
+    const found = readCase(paths, id);
+    if (found === "not-found" || found === "unreadable")
+      throw new Error(`The case read as ${found}.`);
+    return found;
+  };
+  let hiddenCuts = 0;
+  let corruptCuts = 0;
+  let loneCuts = 0;
+  for (const victim of [hidden, started, lookalike])
+    for (let cut = 1; cut < victim.length; cut += 1) {
+      const merged = read(`${started}${victim.slice(0, cut)}${hidden}`);
+      if (merged === "corrupt") corruptCuts += 1;
+      else {
+        expect(merged.tornTail).toBe(true);
+        expect(merged.recordHiddenInTornTail).toBe(true);
+        hiddenCuts += 1;
+      }
+      const lone = read(`${started}${lookalike}${victim.slice(0, cut)}`);
+      if (lone === "corrupt") throw new Error(`Cut ${String(cut)} is corrupt.`);
+      expect(lone.tornTail).toBe(true);
+      expect(lone.recordHiddenInTornTail).toBe(false);
+      loneCuts += 1;
+    }
+  const lengths = hidden.length + started.length + lookalike.length - 3;
+  expect(loneCuts).toBe(lengths);
+  expect(corruptCuts).toBe(3);
+  expect(hiddenCuts).toBe(lengths - 3);
+  const whole = read(`${started}${lookalike}`);
+  if (whole === "corrupt") throw new Error("A whole journal read as corrupt.");
+  expect(whole.tornTail || whole.recordHiddenInTornTail).toBe(false);
 });
 
 test("scope: aliases share keys; distinct names and unknown scope behave", () => {

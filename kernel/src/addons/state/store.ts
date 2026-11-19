@@ -1,12 +1,14 @@
 import {
   closeSync,
   constants,
+  fstatSync,
   fsyncSync,
   linkSync,
   lstatSync,
   mkdirSync,
   openSync,
   readFileSync,
+  readSync,
   readdirSync,
   renameSync,
   rmSync,
@@ -15,7 +17,12 @@ import {
 import { createHash } from "node:crypto";
 import { isAbsolute, join } from "node:path";
 import { errorCode } from "./coordination.ts";
-import { encodeRecord, parseRecords, plainObject } from "./framing.ts";
+import {
+  encodeRecord,
+  parseRecords,
+  plainObject,
+  recordStartsMidLine,
+} from "./framing.ts";
 import type { ParsedRecord } from "./framing.ts";
 import type { CanonicalScope } from "./scope.ts";
 
@@ -410,6 +417,7 @@ export type Operation = {
   readonly eventBytes: Uint8Array;
   readonly events: readonly JournalEvent[];
   readonly tornTail: boolean;
+  readonly recordHiddenInTornTail: boolean;
   readonly closure: Closure | undefined;
   readonly closureDamaged: boolean;
   readonly status: "closed" | "completed" | "not-applied" | "unresolved";
@@ -501,6 +509,8 @@ function readOperationIn(directory: string, id: string): Operation | "corrupt" {
     eventBytes: events.bytes,
     events: events.events,
     tornTail: events.tornTail,
+    recordHiddenInTornTail:
+      events.tornTail && recordStartsMidLine(events.bytes),
     closure,
     closureDamaged,
     status: statusOf(closure, events.events),
@@ -644,6 +654,22 @@ export async function publishOperation(
 
 const settlingEvents: readonly EventKind[] = ["completion", "not-applied"];
 
+function endsOnWholeRecord(descriptor: number): boolean {
+  const size = fstatSync(descriptor).size;
+  const bytes = new Uint8Array(size);
+  let read = 0;
+  while (read < size) {
+    const count = readSync(descriptor, bytes, read, size - read, read);
+    if (count === 0) break;
+    read += count;
+  }
+  const parsed = parseRecords(bytes.subarray(0, read));
+  return parsed.ok && !parsed.tornTail;
+}
+
+// Accepted decision (Nathan, 19 November 2026, 16:29 AEDT): nothing is
+// appended after torn bytes, so a failed partial write ends the case's
+// journal and a later delegate start refuses before its program starts.
 export function appendEvent(
   eventsPath: string,
   kind: EventKind,
@@ -651,9 +677,13 @@ export function appendEvent(
 ): void {
   const descriptor = openSync(
     eventsPath,
-    constants.O_WRONLY | constants.O_APPEND | constants.O_NOFOLLOW,
+    constants.O_RDWR | constants.O_APPEND | constants.O_NOFOLLOW,
   );
   try {
+    if (!endsOnWholeRecord(descriptor))
+      throw new Error(
+        "The events file ends in a torn record, so nothing more is appended to this case.",
+      );
     const bytes = encodeRecord(
       kind,
       settlingEvents.includes(kind)

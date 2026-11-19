@@ -1,6 +1,7 @@
 import { expect } from "bun:test";
 import { createHash } from "node:crypto";
 import {
+  appendFileSync,
   chmodSync,
   existsSync,
   lstatSync,
@@ -1300,5 +1301,197 @@ caseTest(
     process.kill(-direct, "SIGKILL");
     await delegateBlocks(world, id, [detached]);
     expectCompleted(await world.run(apply("b"), production));
+  }),
+);
+
+function newCase(world: World, before: readonly string[]): string {
+  const found = world.cases().filter((entry) => !before.includes(entry.id));
+  const [first, ...rest] = found;
+  if (!first || rest.length > 0) throw new Error("Expected one new case.");
+  return first.id;
+}
+function caseIds(world: World): readonly string[] {
+  return world.cases().map((entry) => entry.id);
+}
+function tornTail(world: World, id: string): boolean {
+  const found = world.cases().find((entry) => entry.id === id);
+  return found?.events.torn === true;
+}
+async function refusedUnavailable(
+  world: World,
+  id: string,
+  environment: Readonly<Record<string, string>>,
+  reason: string,
+): Promise<void> {
+  const before = outsideCoordination(world);
+  const refused = await world.run(
+    closeArgs(id, await world.revision(id)),
+    environment,
+  );
+  expectRefusedUnchanged(refused, "DOMAIN_SX_UNAVAILABLE");
+  expect(str(refused.envelope.message)).toBe(`State unavailable: ${reason}.`);
+  expect(outsideCoordination(world)).toBe(before);
+  expect(existsSync(closurePath(world, id))).toBe(false);
+}
+const confirmedRecord = framed("effect-confirmed", { effect: "note.write" });
+
+caseTest(
+  "K11.c-torn-tail-closes",
+  plain(async (world) => {
+    await world.killAt(apply("a"), "effect", production);
+    const present = only(world);
+    appendFileSync(eventsPath(world, present), confirmedRecord.slice(0, 30));
+    expect(tornTail(world, present)).toBe(true);
+    const first = await world.revision(present);
+    appendFileSync(eventsPath(world, present), confirmedRecord.slice(30, 90));
+    const second = await world.revision(present);
+    expect(second).not.toBe(first);
+    expectRefusedUnchanged(
+      await world.run(closeArgs(present, first), sameBoot),
+      "DOMAIN_SX_CLOSE_STALE",
+    );
+    await closesUnder(world, present, sameBoot);
+    const closure = world
+      .cases()
+      .find((entry) => entry.id === present)?.closure;
+    expect(at(closure?.records[0]?.payload, "journalRevision")).toBe(second);
+
+    const beforeAbsent = caseIds(world);
+    await world.killAt(apply("b"), "intent", production);
+    const absent = newCase(world, beforeAbsent);
+    const events = eventsPath(world, absent);
+    const started = readFileSync(events);
+    writeFileSync(events, started.subarray(0, started.length - 4));
+    expect(tornTail(world, absent)).toBe(true);
+    const refused = await world.run(
+      closeArgs(absent, await world.revision(absent), "not-applied"),
+      sameBoot,
+    );
+    expectRefusedUnchanged(refused, "DOMAIN_SX_CLOSE_EVIDENCE");
+    expect(existsSync(closurePath(world, absent))).toBe(false);
+    writeFileSync(events, "");
+    expectCompleted(
+      await world.run(
+        closeArgs(absent, await world.revision(absent), "not-applied"),
+        sameBoot,
+      ),
+    );
+
+    const beforeExcluded = caseIds(world);
+    await world.killAt(["send", "m2", "--json"], "intent", production);
+    const excluded = newCase(world, beforeExcluded);
+    appendFileSync(eventsPath(world, excluded), confirmedRecord.slice(0, 30));
+    expect(tornTail(world, excluded)).toBe(true);
+    expectCompleted(
+      await world.run(
+        closeArgs(excluded, await world.revision(excluded), "not-applied"),
+        sameBoot,
+      ),
+    );
+    expect(world.count("message.send")).toBe(0);
+  }),
+);
+
+caseTest(
+  "K11.d-corrupt-events-still-refuses",
+  plain(async (world) => {
+    await world.killAt(apply("a"), "effect", production);
+    const id = only(world);
+    const events = eventsPath(world, id);
+    const before = readFileSync(events);
+    appendFileSync(
+      events,
+      `${confirmedRecord.slice(0, 30)}\n${confirmedRecord}`,
+    );
+    expect(world.cases().find((entry) => entry.id === id)?.events.corrupt).toBe(
+      true,
+    );
+    const refused = await world.run(
+      closeArgs(
+        id,
+        "r-0000000000000000000000000000000000000000000000000000000000000000",
+      ),
+      sameBoot,
+    );
+    expectRefusedUnchanged(refused, "DOMAIN_SX_UNAVAILABLE");
+    expect(str(refused.envelope.message)).toBe(
+      "State unavailable: store-corrupt.",
+    );
+    expect(existsSync(closurePath(world, id))).toBe(false);
+    writeFileSync(events, before);
+    await closesUnder(world, id, sameBoot);
+  }),
+);
+
+function mergedTail(
+  world: World,
+  id: string,
+  delegate: string,
+  cut: number,
+): void {
+  writeFileSync(
+    eventsPath(world, id),
+    `${framed("effect-started", { effect: "note.write" })}${delegate.slice(0, cut)}${delegate}`,
+  );
+}
+
+caseTest(
+  "K11.f-record-hidden-in-torn-tail-refuses",
+  plain(async (world) => {
+    await world.killAt(apply("a"), "effect", production);
+    const id = only(world);
+    const versionOne = framed("delegate-admitted", { effect: "note.write" });
+    const otherBoot = framed("delegate-admitted", {
+      effect: "note.write",
+      boot: "boot-one",
+    });
+    const header = versionOne.indexOf("\n") + 1;
+    for (const delegate of [versionOne, otherBoot])
+      for (const cut of [12, header + 10, delegate.length - 2]) {
+        mergedTail(world, id, delegate, cut);
+        expect(tornTail(world, id)).toBe(true);
+        expect(delegateBoots(world, id)).toEqual([]);
+        await refusedUnavailable(world, id, bootTwo, "journal-torn");
+      }
+    mergedTail(world, id, versionOne, header);
+    expect(world.cases().find((entry) => entry.id === id)?.events.corrupt).toBe(
+      true,
+    );
+    writeFileSync(
+      eventsPath(world, id),
+      `${framed("effect-started", { effect: "note.write" })}${otherBoot.slice(0, header + 10)}`,
+    );
+    await closesUnder(world, id, bootTwo);
+  }),
+);
+
+caseTest(
+  "K11.g-no-append-after-torn-tail",
+  withDelegates(async (world) => {
+    const live = world.start(apply("a"), {
+      ...sameBoot,
+      SX_FAULT: "torn-then-delegate",
+      SX_BARRIER: "intent",
+    });
+    await live.reached("intent");
+    const id = only(world);
+    expect(world.ledger()).toEqual([
+      "delegate refused: The events file ends in a torn record, so nothing more is appended to this case.",
+    ]);
+    expect(delegatePids(world)).toEqual([]);
+    expect(tornTail(world, id)).toBe(true);
+    const torn = readFileSync(eventsPath(world, id));
+    expectRefusedUnchanged(
+      await world.run(closeArgs(id, await world.revision(id)), sameBoot),
+      "DOMAIN_SX_CLOSE_OWNER_LIVE",
+    );
+    live.release("intent");
+    const ended = await live.done;
+    expect(ended.signal).toBeNull();
+    expect(ended.exit).toBe(3);
+    expect(ended.result.transactionState).toBe("unknown");
+    expect(readFileSync(eventsPath(world, id))).toEqual(torn);
+    expect(delegatePids(world)).toEqual([]);
+    await closesUnder(world, id, sameBoot);
   }),
 );

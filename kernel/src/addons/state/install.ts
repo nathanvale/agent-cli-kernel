@@ -437,21 +437,23 @@ function readProblem(
     : { kind: "unavailable", reason: `store-${read}` };
 }
 
-// Accepted decision (Nathan, 19 November 2026, 12:08 AEDT; journal version 2
-// design, decision K): a case whose run started a program closes only after
-// the container machine restarts. Every delegate-admitted must name a boot
-// other than the current one; no boot, or the same boot, refuses.
+// Accepted decisions (Nathan, 19 November 2026; journal version 2 design part
+// 2 sections 4 and 5): a torn tail alone does not refuse, because a free lease
+// means no append can follow (L, 13:46), unless a record hides inside it
+// (16:29). A case whose run started a program closes only after the container
+// machine restarts (K, 12:08): every delegate-admitted must name a boot other
+// than the current one; no boot, or the same boot, refuses.
 function stoppedOwnerProblem(
   target: Operation,
   boot: string | undefined,
 ): string | undefined {
+  if (target.recordHiddenInTornTail) return "journal-torn";
   const delegateMayRun = target.events.some((event) => {
     if (event.kind !== "delegate-admitted") return false;
     const started = delegateBoot(event);
     return started === undefined || boot === undefined || started === boot;
   });
-  if (delegateMayRun) return "delegate-recorded";
-  return target.tornTail ? "journal-torn" : undefined;
+  return delegateMayRun ? "delegate-recorded" : undefined;
 }
 
 function closureMatches(
