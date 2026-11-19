@@ -1,0 +1,17 @@
+diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
+index a20fa3d..75e4acd 100644
+--- a/kernel/src/kernel/lifecycle.ts
++++ b/kernel/src/kernel/lifecycle.ts
+@@ -910,11 +910,7 @@ function inFlightOn(host: ProcessHost): InFlight {
+ }
+ 
+ function heard(listener: CrashListener, error: unknown): Promise<void> {
+-  try {
+-    return Promise.resolve(listener(error));
+-  } catch {
+-    return Promise.resolve();
+-  }
++  return Promise.resolve(listener(error));
+ }
+ 
+ function crashEvery(inFlight: InFlight, host: ProcessHost, error: unknown) {

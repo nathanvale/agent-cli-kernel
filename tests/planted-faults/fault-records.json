@@ -1132,5 +1132,82 @@
     "testFile": "tests/kernel/lifecycle/in-process.test.ts",
     "title": "IP08\\.attached-never-entered",
     "source": "7fb5649 fix(kernel): keep a forgotten run's capability closed"
+  },
+  {
+    "id": "68a85f3-in-process-crash-order",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-order.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.listener-after-records",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "68a85f3-in-process-crash-settle",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-settle.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.listener-after-records",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "68a85f3-in-process-crash-wait",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-wait.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.listener-bound",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "68a85f3-in-process-crash-early",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-early.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.listener-bound",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "68a85f3-in-process-crash-throw",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-throw.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.listener-fails a listener that throws",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "68a85f3-in-process-crash-reject",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-reject.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.listener-fails a listener that rejects",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "68a85f3-in-process-crash-again",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-again.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.second-crash-exits-at-once",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "68a85f3-in-process-crash-twice",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-twice.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.second-crash-exits-at-once",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "68a85f3-in-process-crash-unheard",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-unheard.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.no-listener-unchanged",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "68a85f3-in-process-crash-first",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-first.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.each-entry-listener",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "68a85f3-in-process-crash-error",
+    "patch": "tests/planted-faults/patches/68a85f3-process-host-error.patch",
+    "testFile": "tests/kernel/state/in-process.test.ts",
+    "title": "IP06\\.crash-listener-hears-error",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
   }
 ]

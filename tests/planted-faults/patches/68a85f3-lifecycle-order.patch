@@ -1,0 +1,21 @@
+diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
+index a20fa3d..c1c7e74 100644
+--- a/kernel/src/kernel/lifecycle.ts
++++ b/kernel/src/kernel/lifecycle.ts
+@@ -918,14 +918,15 @@ function heard(listener: CrashListener, error: unknown): Promise<void> {
+ }
+ 
+ function crashEvery(inFlight: InFlight, host: ProcessHost, error: unknown) {
+-  for (const run of inFlight.runs) crashRun(run);
+   if (inFlight.crash !== "none" || inFlight.listeners.size === 0) {
++    for (const run of inFlight.runs) crashRun(run);
+     inFlight.crash = "exited";
+     host.exit(1);
+     return;
+   }
+   inFlight.crash = "listening";
+   const listening = [...inFlight.listeners].map((each) => heard(each, error));
++  for (const run of inFlight.runs) crashRun(run);
+   void within(
+     Promise.allSettled(listening),
+     stopBoundMilliseconds,

@@ -1,0 +1,13 @@
+diff --git a/kernel/src/kernel/process-host.ts b/kernel/src/kernel/process-host.ts
+index c27725d..1cb80e9 100644
+--- a/kernel/src/kernel/process-host.ts
++++ b/kernel/src/kernel/process-host.ts
+@@ -17,7 +17,7 @@ function install() {
+     "SIGTERM",
+   ] as const satisfies readonly StopSignal[])
+     process.on(signal, () => current.signal?.(signal));
+-  process.on("uncaughtException", (error) => current.crash?.(error));
++  process.on("uncaughtException", () => current.crash?.(undefined));
+   process.on("unhandledRejection", (reason) => current.crash?.(reason));
+ }
+ 
