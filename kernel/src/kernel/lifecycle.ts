@@ -5,9 +5,11 @@ import { processHost } from "./process-host.ts";
 import type {
   AttachedAddon,
   EmergencyFacts,
+  InProcessResult,
   ProcessHost,
   RunAddon,
   RunControl,
+  RunInProcess,
   RunSetup,
   StopSignal,
 } from "./process-types.ts";
@@ -161,6 +163,31 @@ export function runProcessOn(
   return (argv) => runInvocation(runtime, setup, plans, host(), argv);
 }
 
+let sharedHost: ProcessHost | undefined;
+function processWideHost(): ProcessHost {
+  sharedHost ??= processHost();
+  return sharedHost;
+}
+
+export function runInProcess(
+  contract: ContractKey,
+  setup: RunSetup = {},
+): RunInProcess {
+  return runInProcessOn(contract, setup, processWideHost);
+}
+
+export function runInProcessOn(
+  contract: ContractKey,
+  setup: RunSetup,
+  host: () => ProcessHost,
+): RunInProcess {
+  const runtime = runtimeOf(contract);
+  if (!runtime)
+    throw new Error("runInProcess needs a contract built by contractFor.");
+  const plans = plansFor(runtime, setup);
+  return (argv) => runOnce(newRun(runtime, setup, plans, host()), argv);
+}
+
 type Run = {
   readonly runtime: ContractRuntime;
   readonly setup: RunSetup;
@@ -301,9 +328,13 @@ async function freezeStatus(
   }
 }
 
+function stopCode(signal: StopSignal): number {
+  return signal === "SIGINT" ? 130 : 143;
+}
+
 function installHooks(run: Run) {
   run.host.onSignal((signal) => {
-    const code = signal === "SIGINT" ? 130 : 143;
+    const code = stopCode(signal);
     if (run.stopped || run.phase === "drained") {
       killAll(run);
       run.host.exit(code);
@@ -748,14 +779,13 @@ async function route(run: Run, resolution: Resolution): Promise<Delivery> {
   );
 }
 
-async function runInvocation(
+function newRun(
   runtime: ContractRuntime,
   setup: RunSetup,
   plans: ReadonlyMap<string, CommandPlan>,
   host: ProcessHost,
-  argv: unknown,
-): Promise<number> {
-  const run: Run = {
+): Run {
+  return {
     runtime,
     setup,
     plans,
@@ -770,12 +800,21 @@ async function runInvocation(
     stopped: undefined,
     emergencyAttempted: false,
   };
-  installHooks(run);
-  const resolution = await runtime.resolve(argv);
+}
+
+async function deliver(
+  run: Run,
+  argv: unknown,
+  output: ProcessHost,
+  machineOnly: boolean,
+): Promise<number | undefined> {
+  const resolution = await run.runtime.resolve(argv);
   const writer = createWriter({
-    host,
-    runtime,
-    machine: resolution.ok ? resolution.value.machine : resolution.machine,
+    host: output,
+    runtime: run.runtime,
+    machine:
+      machineOnly ||
+      (resolution.ok ? resolution.value.machine : resolution.machine),
     stopping: () => run.stopped !== undefined,
   });
   const delivery = await route(run, resolution);
@@ -784,9 +823,104 @@ async function runInvocation(
   const report =
     reporter && !run.stopped ? await freezeStatus(run, reporter) : undefined;
   run.phase = "emitting";
-  const code = await writer.emit(delivery.candidate, delivery.trusted, report);
+  return writer.emit(delivery.candidate, delivery.trusted, report);
+}
+
+async function runInvocation(
+  runtime: ContractRuntime,
+  setup: RunSetup,
+  plans: ReadonlyMap<string, CommandPlan>,
+  host: ProcessHost,
+  argv: unknown,
+): Promise<number> {
+  const run = newRun(runtime, setup, plans, host);
+  installHooks(run);
+  const code = await deliver(run, argv, host, false);
   if (code === undefined || run.stopped) return code ?? 1;
   run.phase = "drained";
   host.exit(code);
   return code;
+}
+
+type Runs = { readonly inFlight: Set<Run>; stopped: StopSignal | undefined };
+const hosts = new WeakMap<ProcessHost, Runs>();
+
+function stopEvery(runs: Runs, host: ProcessHost, signal: StopSignal) {
+  const code = stopCode(signal);
+  const inFlight = [...runs.inFlight];
+  if (runs.stopped) {
+    for (const run of inFlight) killAll(run);
+    host.exit(code);
+    return;
+  }
+  runs.stopped = signal;
+  for (const run of inFlight) {
+    run.stopped = signal;
+    run.controller.abort();
+  }
+  void within(
+    Promise.all(inFlight.map((run) => settleAll(run, settleLimitMilliseconds))),
+    stopBoundMilliseconds,
+    host.now,
+  ).then(() => host.exit(code));
+}
+
+function runsOn(host: ProcessHost): Runs {
+  const known = hosts.get(host);
+  if (known) return known;
+  const runs: Runs = { inFlight: new Set(), stopped: undefined };
+  hosts.set(host, runs);
+  host.onSignal((signal) => stopEvery(runs, host, signal));
+  host.onCrash(() => {
+    for (const run of runs.inFlight) {
+      killAll(run);
+      attemptEmergencyRecord(run);
+    }
+    host.exit(1);
+  });
+  return runs;
+}
+
+const decoder = new TextDecoder();
+
+async function captured(
+  run: Run,
+  code: number,
+  chunks: readonly Uint8Array[],
+): Promise<InProcessResult> {
+  const text = chunks.map((chunk) => decoder.decode(chunk)).join("");
+  const checked =
+    text === "" ? undefined : await run.runtime.validate(JSON.parse(text));
+  return checked?.ok
+    ? {
+        kind: "envelope",
+        runId: run.runId,
+        exitCode: code,
+        envelope: checked.value,
+      }
+    : { kind: "no-envelope", runId: run.runId, exitCode: 1 };
+}
+
+async function runOnce(run: Run, argv: unknown): Promise<InProcessResult> {
+  const runs = runsOn(run.host);
+  run.stopped = runs.stopped;
+  runs.inFlight.add(run);
+  const chunks: Uint8Array[] = [];
+  const output: ProcessHost = {
+    ...run.host,
+    write(stream, bytes) {
+      if (stream === "stdout") chunks.push(bytes);
+      return Promise.resolve(true);
+    },
+  };
+  try {
+    const code = run.stopped
+      ? undefined
+      : await deliver(run, argv, output, true);
+    const signal = run.stopped;
+    if (signal) return { kind: "stopped", runId: run.runId, signal };
+    return await captured(run, code ?? 1, chunks);
+  } finally {
+    runs.inFlight.delete(run);
+  }
 }

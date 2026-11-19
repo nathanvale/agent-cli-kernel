@@ -108,7 +108,7 @@ const library = process.env.SX_COORDINATION_LIBRARY;
 const seams = library
   ? { ...labelled, coordinationLibrary: library }
   : labelled;
-const state = stateAddonWithTestSeams(
+export const state = stateAddonWithTestSeams(
   {
     root,
     report: "sx.pending",
@@ -1062,7 +1062,7 @@ const approvalStore = {
   consumed: join(world, "approval", "consumed"),
 };
 let approvalRuntime: ApprovalRuntime | undefined;
-const approvalAddon: RunAddon<ApprovalCapability> = {
+export const approvalAddon: RunAddon<ApprovalCapability> = {
   attach(run) {
     const instance = approval({
       operation: "sx.approved",
@@ -1697,7 +1697,7 @@ function compose() {
     installedAddons: ["state", "approval"],
   });
 }
-const contract = compose();
+export const contract = compose();
 composed.boundary = contract.boundary;
 
 if (import.meta.main) {
