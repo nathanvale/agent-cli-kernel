@@ -4,8 +4,9 @@ Status: proposed, not reviewed. Read [DESIGN-V2.md](DESIGN-V2.md) first: it
 holds the status, the source of the clause quotes, the section map and the
 store format. This part changes version 1 sections 7.2 and 10 of
 [DESIGN.md](DESIGN.md), and adds to sections 4.3 and 8. That note stays
-frozen and unchanged. The transitions, proposed cases, decisions and open
-points are in [DESIGN-V2-CASES.md](DESIGN-V2-CASES.md).
+frozen and unchanged. The transition table and proposed cases are in
+[DESIGN-V2-TRANSITIONS.md](DESIGN-V2-TRANSITIONS.md); the decisions and open
+points are in part 1 section 8.
 
 ## 1. What changes
 

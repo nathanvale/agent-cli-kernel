@@ -1,19 +1,19 @@
-# State add-on: journal version 2 design, part 1 of 3 (version, layout and moving settled cases)
+# State add-on: journal version 2 design, part 1 of 3 (version, layout, moving settled cases, decisions and open points)
 
 Status: proposed, not reviewed. This note proposes journal version 2 of the
 state add-on. Version 1 is [DESIGN.md](DESIGN.md); it stays frozen and
 unchanged, and wherever this note is silent, version 1 holds. Code follows
 this note after its review, never the reverse. Nathan decided several of its
-points on 19 November 2026 at 12:08; part 3 section 5 lists them apart from
-the points still open.
+points on 19 November 2026 at 12:08; section 8 lists them apart from the
+points still open.
 
 In this note a host is the tool built on the kernel. The machine or virtual
 machine a container runs on is the container machine.
 
 - Part 2, [DESIGN-V2-CLOSURE.md](DESIGN-V2-CLOSURE.md): closing a crashed
   case in production.
-- Part 3, [DESIGN-V2-CASES.md](DESIGN-V2-CASES.md): the new transitions, the
-  proposed cases, the decisions taken and the points still open.
+- Part 3, [DESIGN-V2-TRANSITIONS.md](DESIGN-V2-TRANSITIONS.md): the transition
+  table and the proposed cases that prove it (REC-8; version 1 section 11).
 
 The note is in three parts by choice, to keep each under 5,000 tokens. The
 repository's size check does not cover `kernel/`, so no gate forced it.
@@ -64,7 +64,7 @@ Decided constraints this note keeps:
 | 10. Qualification gate  | Changes (part 2).                                                                                                                           |
 | 11. Transitions         | Keeps X01 to X22. Adds X23 to X30 (part 3). Some frozen cases change with version 2 code, others when a first row lands (part 3 section 2). |
 | 12. Interface           | Keeps; no new host call. `capabilities()` reports matched facts (part 2).                                                                   |
-| 13. Open points         | Keeps them. Adds part 3 section 5.                                                                                                          |
+| 13. Open points         | Keeps them. Adds section 8.                                                                                                                 |
 
 ## 3. How version 1 and version 2 meet (changes 4.1)
 
@@ -221,3 +221,85 @@ Points this note found that the later version must answer:
   when `settled/` is empty.
 - Progress: a protected case must not count against the call's limit, or a
   protected first case stalls every later one.
+
+## 8. Decisions and open points
+
+### 8.1 Decided by Nathan, 19 November 2026, 12:08
+
+- 0: One note covers both items.
+- A, D and H: Only the move into `settled/` ships in version 2. Deleting
+  old cases, the `prune` host call and the Command Contract 3 change it
+  needs (REC-4, DISC-14) are deferred. `settledAt` is kept in settling
+  records now, so a later version has an age to read.
+- F: At most 64 moves per hold of the admission lock, as the default.
+- I: No macOS row for now.
+- K: Closure after `delegate-admitted` only after the container machine
+  restarts. No same-boot proof in version 2.
+- N: The first row is `linux-7-btrfs`, for the pilot `agents-pilot` (an
+  OrbStack container on a Mac, a btrfs volume). Its evidence run happens on
+  the pilot through a worker session.
+- O: No row for a container's own writable layer.
+- Q: The store upgrade is automatic, on the first changing command, with no
+  opt-in. Its rollback cost stays stated (section 3).
+- S: A separate agent session that wrote none of the code reviews a row, and
+  Nathan countersigns it; the row names both and the date.
+- V: Sharing one state root between containers is dropped. One state root
+  belongs to one machine.
+
+### 8.2 Withdrawn by this note
+
+- W: Without deletion a closing case's target cannot leave both folders, so
+  its observation values do not change and nothing is left to decide.
+
+### 8.3 Still open
+
+Each is one decision with one recommendation.
+
+- B: REC-4 says a later run may not invent a record "on the original run's
+  behalf". Recommend the move is allowed: it writes no record or byte, keeps
+  the revision, and needs a valid settling record already present.
+- C: Recommend a corrupt case refuses only a route that reads it.
+  Admission and the report never read `settled/`, and history reads only the
+  case asked for. Version 1 refused every route on any corrupt case.
+- E: Recommend an old program may not open a new store: version 1 refuses a
+  version 2 store. Decision Q's rollback cost rests on this.
+- G: Coordination lock files (`k-<h>.lock`) still grow with each distinct
+  conflict key. Unlinking one is unsafe (two holders on two inodes). Recommend
+  a documented limit, outside version 2.
+- J: What "major release" means on Linux. It is the operating-system kernel's
+  major number, in a container the container machine's. That number carries no
+  compatibility promise and spans years of releases; the start-up self-check,
+  the filesystem type and the evidence run are what protect a closure.
+  Options: major only, as decided, so a row survives operating-system kernel
+  updates; or major and minor, which is tighter but hands off after every
+  minor update until a new run and row. Recommend major only, with the exact
+  release recorded on the row.
+- L: Recommend a free lease is enough after a torn tail, once the
+  transaction waits for its started effects (part 2 section 4).
+- M: Recommend the run record lives at
+  `tests/kernel/state/qualification/<row id>.json`.
+- P: The boot identity names no machine (REC-7 asks identity to distinguish
+  "host/boot identity"). Recommend listing a state root moved between
+  machines as unsupported in each row's `failureCases`, not recording a
+  machine identity: inside a container the readable one belongs to the image
+  and would refuse every case after the container is rebuilt.
+- R: Recommend the owner does not move its own case at transaction end; the
+  next admission does.
+- T: Whether a record written on the hosted `ubuntu-latest` runner and then
+  committed is evidence. Recommend no for now: that runner is unobserved
+  (version 1 section 7), it changes without notice, and the first row needs
+  none.
+- U: Matching also on the coordination route and a readable boot identity,
+  beyond the three facts decided. Recommend yes: both can only refuse more.
+- X: A transaction waits for its started effects: it is marked ended when
+  the work function returns or throws, new `record` and `admitStart` calls
+  refuse, and
+  the lease and key coordination locks stay held until every started
+  `record` settles. This changes today's code for a work function that does
+  not await. Recommend yes; closing after a torn tail depends on it.
+- Y: Whether hosts of this kind start a program inside a recorded effect,
+  or reach outside work through a long-lived link that records no start.
+  Only the first writes `delegate-admitted`, so only it meets decision K's
+  limit. Recommend a host whose outside work runs through a long-lived link
+  starts that link outside any recorded effect, so no case it leaves records
+  a delegate start.
