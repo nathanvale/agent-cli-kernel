@@ -60,6 +60,40 @@ describe("S02 the main flow requests no exit after a stop (finding 2)", () => {
     });
 });
 
+describe("the handler's abort signal at a stop request", () => {
+  for (const [signal, code] of stops)
+    test(`a handler's abort signal aborts on ${signal} and its listener runs before the exit request`, async () => {
+      const entered = deferred();
+      const returned = deferred();
+      const seen: string[] = [];
+      const recorder = recordingHost();
+      const done = runProcessOn(
+        holdContract(async (_programs, stop) => {
+          entered.resolve();
+          seen.push(`entered aborted=${String(stop.aborted)}`);
+          stop.addEventListener(
+            "abort",
+            () => {
+              seen.push(`aborted exits=${String(recorder.exits.length)}`);
+            },
+            { once: true },
+          );
+          await returned.promise;
+        }),
+        { addons: { programs: programsAddon() } },
+        () => recorder.host,
+      )(["hold", "--json"]);
+      await entered.promise;
+      recorder.signal(signal);
+      returned.resolve();
+      expect(await settles(done)).toBe(true);
+      await turns();
+      expect(seen).toEqual(["entered aborted=false", "aborted exits=0"]);
+      expect(recorder.exits).toEqual([code]);
+      expect(recorder.writes).toEqual([]);
+    });
+});
+
 function settleRecorder(
   calls: (number | null)[],
 ): RunAddon<ProgramsCapability> {

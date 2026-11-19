@@ -471,6 +471,7 @@ export type {
   DiagnosticsLevel,
   CapabilitySelection,
   HandlerContext,
+  AbortContext,
   StateIssuer,
   RunProcess,
 } from "./capabilities.ts";
