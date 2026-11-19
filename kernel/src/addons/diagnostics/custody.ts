@@ -287,16 +287,17 @@ async function acquire(
   directory: string,
   abandoned: () => boolean,
 ): Promise<(() => void) | undefined> {
-  const attempts = Math.ceil(
-    limits.lockWaitMilliseconds / limits.lockRetryMilliseconds,
-  );
-  for (let attempt = 0; attempt < attempts && !abandoned(); attempt += 1) {
+  const deadline = performance.now() + limits.lockWaitMilliseconds;
+  do {
+    if (abandoned()) return undefined;
     const release = tryLock(directory);
     if (release) return release;
-    await new Promise((resolve) =>
-      setTimeout(resolve, limits.lockRetryMilliseconds),
-    );
-  }
+    const remaining = deadline - performance.now();
+    if (remaining > 0)
+      await new Promise((resolve) =>
+        setTimeout(resolve, Math.min(limits.lockRetryMilliseconds, remaining)),
+      );
+  } while (performance.now() < deadline);
   return undefined;
 }
 
