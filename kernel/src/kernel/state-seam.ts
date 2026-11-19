@@ -67,6 +67,7 @@ type AttachedRun = {
   transactionStarted: boolean;
   proof: TransactionProof | undefined;
   closed: "returned" | "deadline" | undefined;
+  revoked: boolean;
 };
 const closedReason = {
   returned: "The state capability closed when the handler returned.",
@@ -116,7 +117,8 @@ export function knownProof(
     proof !== undefined &&
     proof.runId === runId &&
     registration?.stateInstance === proof.stateInstance &&
-    registration.runs.get(runId) === proof.run
+    registration.runs.get(runId) === proof.run &&
+    attachedRuns.get(proof.run)?.revoked === false
   );
 }
 export function proofFreeResultAllowed(
@@ -162,7 +164,8 @@ export function issuedScope(
     !registration ||
     issued.runId !== runId ||
     registration.stateInstance !== issued.stateInstance ||
-    registration.runs.get(runId) !== issued.run
+    registration.runs.get(runId) !== issued.run ||
+    attachedRuns.get(issued.run)?.revoked !== false
   )
     return false;
   try {
@@ -282,7 +285,6 @@ const registrations = new WeakMap<
     readonly registration: StateFactoryResult;
     readonly stateInstance: StateInstance;
     readonly runs: Map<string, object>;
-    readonly live: Set<string>;
     readonly active: AsyncLocalStorage<{
       readonly runId: string;
       readonly run: object;
@@ -312,7 +314,6 @@ export function createStateAddon(
     stateInstance,
     runs,
     active,
-    live: new Set(),
   });
   return descriptor;
 }
@@ -320,15 +321,8 @@ export function isStateDescriptor(descriptor: StateAddonDescriptor): boolean {
   return registrations.has(descriptor);
 }
 
-export function rememberedRuns(descriptor: StateAddonDescriptor): {
-  readonly liveIdentities: number;
-  readonly attachedRuns: number;
-} {
-  const state = registrations.get(descriptor);
-  return {
-    liveIdentities: state?.live.size ?? 0,
-    attachedRuns: state?.runs.size ?? 0,
-  };
+export function attachedRunCount(descriptor: StateAddonDescriptor): number {
+  return registrations.get(descriptor)?.runs.size ?? 0;
 }
 
 // Accepted decision (Nathan, 19 November 2026, 12:08 AEDT): the seam forgets a
@@ -341,8 +335,12 @@ export function forgetRun(
   descriptor: StateAddonDescriptor | undefined,
 ): void {
   const state = descriptor ? registrations.get(descriptor) : undefined;
-  state?.live.delete(runId);
   state?.runs.delete(runId);
+}
+
+function revokeIssued(run: object): void {
+  const status = attachedRuns.get(run);
+  if (status) status.revoked = true;
 }
 
 export function attachState<Effect extends string>(
@@ -360,16 +358,17 @@ export function attachState<Effect extends string>(
     throw new Error(
       "State descriptor was not created by contractFor.stateAddon.",
     );
-  if (state.live.has(runId)) {
-    state.runs.delete(runId);
+  const live = state.runs.get(runId);
+  if (live) {
+    revokeIssued(live);
     return undefined;
   }
-  state.live.add(runId);
   const run = Object.freeze({});
   const status: AttachedRun = {
     transactionStarted: false,
     proof: undefined,
     closed: undefined,
+    revoked: false,
   };
   attachedRuns.set(run, status);
   state.runs.set(runId, run);

@@ -1232,6 +1232,41 @@
     "source": "c02caae fix(kernel): require the active attached run for a recorded effect"
   },
   {
+    "id": "ff48724-in-process-keep",
+    "patch": "tests/planted-faults/patches/ff48724-state-seam-keep.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP08\\.reuse-keeps-live-run",
+    "source": "ff48724 fix(kernel): keep a live run attached when its identity is reused"
+  },
+  {
+    "id": "ff48724-state-seam-revoke",
+    "patch": "tests/planted-faults/patches/ff48724-state-seam-revoke.patch",
+    "testFile": "tests/kernel/kernel-repair/state.test.ts",
+    "title": "R02\\.superseded-attachment-refused",
+    "source": "ff48724 fix(kernel): keep a live run attached when its identity is reused"
+  },
+  {
+    "id": "ff48724-state-seam-proof",
+    "patch": "tests/planted-faults/patches/ff48724-state-seam-proof.patch",
+    "testFile": "tests/kernel/correlations.test.ts",
+    "title": "the admitted state specimen validates 27 truth arms",
+    "source": "ff48724 fix(kernel): keep a live run attached when its identity is reused"
+  },
+  {
+    "id": "ff48724-state-seam-scope",
+    "patch": "tests/planted-faults/patches/ff48724-state-seam-scope.patch",
+    "testFile": "tests/kernel/kernel-repair/state.test.ts",
+    "title": "R02\\.superseded-attachment-refused",
+    "source": "ff48724 fix(kernel): keep a live run attached when its identity is reused"
+  },
+  {
+    "id": "ff48724-state-seam-summary",
+    "patch": "tests/planted-faults/patches/ff48724-state-seam-summary.patch",
+    "testFile": "tests/kernel/state-seam.test.ts",
+    "title": "a refused reuse keeps the live run's proof as its trusted summary",
+    "source": "ff48724 fix(kernel): keep a live run attached when its identity is reused"
+  },
+  {
     "id": "68a85f3-in-process-crash-order",
     "patch": "tests/planted-faults/patches/68a85f3-lifecycle-order.patch",
     "testFile": "tests/kernel/lifecycle/in-process.test.ts",

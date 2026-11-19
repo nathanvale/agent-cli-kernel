@@ -9,6 +9,7 @@ import {
 } from "../../../kernel/src/kernel/index.ts";
 import type {
   CauseTable,
+  StateCapability,
   ProgramRequest,
   ProgramsCapability,
 } from "../../../kernel/src/kernel/index.ts";
@@ -231,7 +232,10 @@ const inspectCases = {
 
 export function stateHoldContract(
   root: string,
-  work: (programs: ProgramsCapability) => Promise<void>,
+  work: (
+    programs: ProgramsCapability,
+    state: StateCapability<"rc.note">,
+  ) => Promise<void>,
 ) {
   const state = stateAddon({ root, report: "rc.pending" });
   const handoff = {
@@ -297,7 +301,7 @@ export function stateHoldContract(
       }),
     ],
     run: async (_input, context) => {
-      await work(context.programs);
+      await work(context.programs, context.state);
       return context.result(
         { commandIdentity: "rc.change", causeCode: "DOMAIN_RC_DECLINED" },
         { message: "Declined.", data: null, effects: unchangedEffects },

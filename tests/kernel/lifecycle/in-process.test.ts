@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { programsAddon } from "../../../kernel/src/addons/programs/index.ts";
 import type {
   EmergencyFacts,
+  StateCapability,
   InProcessResult,
   ProgramsCapability,
   RunAddon,
@@ -18,7 +19,7 @@ import type {
   ProcessHost,
 } from "../../../kernel/src/kernel/process-types.ts";
 import type { StateAddonDescriptor } from "../../../kernel/src/kernel/state-seam.ts";
-import { rememberedRuns } from "../../../kernel/src/kernel/state-seam.ts";
+import { attachedRunCount } from "../../../kernel/src/kernel/state-seam.ts";
 import {
   recordRuntime,
   runtimeOf,
@@ -483,8 +484,8 @@ const reusedIdentity = {
   path: "runId",
   reason: "run identity already attached",
 } as const;
-const nothingRemembered = { liveIdentities: 0, attachedRuns: 0 } as const;
-const oneRemembered = { liveIdentities: 1, attachedRuns: 1 } as const;
+const noRunAttached = 0;
+const oneRunAttached = 1;
 const sequentialRuns = 20;
 const stateFolders: string[] = [];
 afterEach(() => {
@@ -500,9 +501,11 @@ function stateHolding(
   stateFolders.push(folder);
   const queue: ReturnType<typeof held>[] = [];
   const controls: RunControl[] = [];
+  const states: StateCapability<"rc.note">[] = [];
   const { contract, descriptor } = stateHoldContract(
     join(folder, "state"),
-    async (programs) => {
+    async (programs, state) => {
+      states.push(state);
       entered.count += 1;
       const gate = queue.shift();
       if (!gate) return;
@@ -519,6 +522,7 @@ function stateHolding(
     descriptor,
     setup,
     entered,
+    states,
     run: (argv: readonly string[] = ["change", "--json"]) => entry(argv),
     start(argv: readonly string[] = ["change", "--json"]) {
       const gate = held();
@@ -555,10 +559,10 @@ describe("IP08 the state seam forgets a run identity when its run finishes", () 
     async () => {
       const recorder = recordingHost();
       const subject = stateHolding(recorder);
-      expect(rememberedRuns(subject.descriptor)).toEqual(nothingRemembered);
+      expect(attachedRunCount(subject.descriptor)).toEqual(noRunAttached);
       const one = subject.start();
       await one.gate.entered.promise;
-      expect(rememberedRuns(subject.descriptor)).toEqual(oneRemembered);
+      expect(attachedRunCount(subject.descriptor)).toEqual(oneRunAttached);
       one.gate.returned.resolve();
       const results = [await one.done];
       for (let index = 0; index < sequentialRuns; index++)
@@ -567,7 +571,7 @@ describe("IP08 the state seam forgets a run identity when its run finishes", () 
         Array.from({ length: sequentialRuns + 1 }, () => "DOMAIN_RC_DECLINED"),
       );
       expect(new Set(results.map(runIdOf)).size).toBe(sequentialRuns + 1);
-      expect(rememberedRuns(subject.descriptor)).toEqual(nothingRemembered);
+      expect(attachedRunCount(subject.descriptor)).toEqual(noRunAttached);
       expect(recorder.exits).toEqual([]);
     },
     timeout,
@@ -590,7 +594,7 @@ describe("IP08 the state seam forgets a run identity when its run finishes", () 
           result: { runId: finished.runId, causeCode: "DOMAIN_RC_DECLINED" },
         },
       });
-      expect(rememberedRuns(subject.descriptor)).toEqual(oneRemembered);
+      expect(attachedRunCount(subject.descriptor)).toEqual(oneRunAttached);
     },
     timeout,
   );
@@ -607,7 +611,7 @@ describe("IP08 the state seam forgets a run identity when its run finishes", () 
       expect(await subject.reuse(runId)).toEqual(reusedIdentity);
       one.gate.returned.resolve();
       expect((await one.done).runId).toBe(runId);
-      expect(rememberedRuns(subject.descriptor)).toEqual(nothingRemembered);
+      expect(attachedRunCount(subject.descriptor)).toEqual(noRunAttached);
       expect((await subject.reuse(runId)).ok).toBe(true);
     },
     timeout,
@@ -621,8 +625,7 @@ describe("IP08 the state seam forgets a run identity when its run finishes", () 
       const subject = stateHolding(recorder, (descriptor) => ({
         ...recorder.host,
         now: () =>
-          performance.now() +
-          (rememberedRuns(descriptor).liveIdentities > 0 ? jump : 0),
+          performance.now() + (attachedRunCount(descriptor) > 0 ? jump : 0),
       }));
       const value = await subject.run([
         "change",
@@ -632,7 +635,7 @@ describe("IP08 the state seam forgets a run identity when its run finishes", () 
       ]);
       expect(causeOf(value)).toBe("DOMAIN_DEADLINE_BEFORE_START");
       expect(subject.entered.count).toBe(0);
-      expect(rememberedRuns(subject.descriptor)).toEqual(nothingRemembered);
+      expect(attachedRunCount(subject.descriptor)).toEqual(noRunAttached);
     },
     timeout,
   );
@@ -651,7 +654,7 @@ describe("IP08 the state seam forgets a run identity when its run finishes", () 
       }));
       const one = subject.start(["change", "--deadline-ms", "60000", "--json"]);
       await one.gate.entered.promise;
-      expect(rememberedRuns(subject.descriptor)).toEqual(oneRemembered);
+      expect(attachedRunCount(subject.descriptor)).toEqual(oneRunAttached);
       clock.fails = true;
       one.gate.returned.resolve();
       const failure = await one.done.then(
@@ -660,7 +663,7 @@ describe("IP08 the state seam forgets a run identity when its run finishes", () 
           error instanceof Error ? error.message : "not an Error",
       );
       expect(failure).toBe("The test clock failed.");
-      expect(rememberedRuns(subject.descriptor)).toEqual(nothingRemembered);
+      expect(attachedRunCount(subject.descriptor)).toEqual(noRunAttached);
     },
     timeout,
   );
@@ -679,12 +682,56 @@ describe("IP08 the state seam forgets a run identity when its run finishes", () 
         const returned = await one.done;
         expect(returned.runId).toBe(runId);
         expect(causeOf(returned)).toBe("DOMAIN_DEADLINE_UNCHANGED");
-        expect(rememberedRuns(subject.descriptor)).toEqual(oneRemembered);
+        expect(attachedRunCount(subject.descriptor)).toEqual(oneRunAttached);
         expect(await subject.reuse(runId)).toEqual(reusedIdentity);
         one.gate.returned.resolve();
-        await turns();
-        expect(rememberedRuns(subject.descriptor)).toEqual(nothingRemembered);
+        expect(
+          await until(
+            () => attachedRunCount(subject.descriptor) === noRunAttached,
+          ),
+        ).toBe(true);
         expect((await subject.reuse(runId)).ok).toBe(true);
+      } finally {
+        jest.useRealTimers();
+        one.gate.returned.resolve();
+      }
+    },
+    timeout,
+  );
+
+  test(
+    "IP08.reuse-keeps-live-run a refused reuse leaves the live run attached, so its deadline still closes it",
+    async () => {
+      jest.useFakeTimers();
+      const recorder = recordingHost();
+      const subject = stateHolding(recorder);
+      const one = subject.start(["change", "--deadline-ms", "1000", "--json"]);
+      try {
+        await one.gate.entered.promise;
+        const runId = subject.liveRunId();
+        expect(await subject.reuse(runId)).toEqual(reusedIdentity);
+        expect(attachedRunCount(subject.descriptor)).toEqual(oneRunAttached);
+        await advance(1000 + cancellationWait);
+        const returned = await one.done;
+        expect(returned.runId).toBe(runId);
+        expect(causeOf(returned)).toBe("DOMAIN_DEADLINE_UNCHANGED");
+        const [kept] = subject.states;
+        if (!kept) throw new Error("The handler kept no state capability.");
+        expect(
+          await kept
+            .transaction(() => Promise.resolve())
+            .then(
+              () => "opened",
+              (error: unknown) =>
+                error instanceof Error ? error.message : "not an Error",
+            ),
+        ).toBe("The state capability closed at the deadline.");
+        one.gate.returned.resolve();
+        expect(
+          await until(
+            () => attachedRunCount(subject.descriptor) === noRunAttached,
+          ),
+        ).toBe(true);
       } finally {
         jest.useRealTimers();
         one.gate.returned.resolve();

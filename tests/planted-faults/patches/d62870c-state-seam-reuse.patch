@@ -1,13 +1,15 @@
 diff --git a/kernel/src/kernel/state-seam.ts b/kernel/src/kernel/state-seam.ts
-index 8601dca..c409118 100644
+index e87fc1c..740d53e 100644
 --- a/kernel/src/kernel/state-seam.ts
 +++ b/kernel/src/kernel/state-seam.ts
-@@ -356,7 +356,7 @@ export function attachState<Effect extends string>(
-     throw new Error(
+@@ -359,10 +359,6 @@ export function attachState<Effect extends string>(
        "State descriptor was not created by contractFor.stateAddon.",
      );
--  if (state.live.has(runId)) {
-+  if (state.runs.has(runId)) {
-     state.runs.delete(runId);
-     return undefined;
-   }
+   const live = state.runs.get(runId);
+-  if (live) {
+-    revokeIssued(live);
+-    return undefined;
+-  }
+   const run = Object.freeze({});
+   const status: AttachedRun = {
+     transactionStarted: false,
