@@ -992,5 +992,40 @@
     "testFile": "tests/kernel/lifecycle/in-process.test.ts",
     "title": "IP07\\.stop-bound",
     "source": "2004547 fix(kernel): kill a stopped run that is still settling at a repeated signal"
+  },
+  {
+    "id": "d62870c-in-process-forget",
+    "patch": "tests/planted-faults/patches/d62870c-lifecycle-forget.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP08\\.memory-returns-to-start",
+    "source": "d62870c feat(kernel): forget an in-process run identity when its run finishes"
+  },
+  {
+    "id": "d62870c-in-process-handler",
+    "patch": "tests/planted-faults/patches/d62870c-lifecycle-handler.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP08\\.live-past-deadline",
+    "source": "d62870c feat(kernel): forget an in-process run identity when its run finishes"
+  },
+  {
+    "id": "d62870c-in-process-process-entry",
+    "patch": "tests/planted-faults/patches/d62870c-lifecycle-process.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP08\\.process-entry-keeps-identity",
+    "source": "d62870c feat(kernel): forget an in-process run identity when its run finishes"
+  },
+  {
+    "id": "d62870c-in-process-live",
+    "patch": "tests/planted-faults/patches/d62870c-state-seam-live.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP08\\.reuse-after-finish-admitted",
+    "source": "d62870c feat(kernel): forget an in-process run identity when its run finishes"
+  },
+  {
+    "id": "d62870c-in-process-reuse",
+    "patch": "tests/planted-faults/patches/d62870c-state-seam-reuse.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP08\\.reuse-while-live-refused",
+    "source": "d62870c feat(kernel): forget an in-process run identity when its run finishes"
   }
 ]

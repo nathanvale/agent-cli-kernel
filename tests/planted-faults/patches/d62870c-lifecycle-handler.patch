@@ -1,0 +1,14 @@
+diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
+index 7577d22..71fc735 100644
+--- a/kernel/src/kernel/lifecycle.ts
++++ b/kernel/src/kernel/lifecycle.ts
+@@ -925,8 +925,7 @@ async function returnedResult(
+ // if entered, has returned.
+ function forgetWhenReturned(run: Run): void {
+   const forget = () => run.runtime.forgetState(run.runId);
+-  if (!run.handler || run.handler.returned) forget();
+-  else void run.handler.returning.then(forget);
++  forget();
+ }
+ 
+ async function runAndReturn(run: Run, argv: unknown): Promise<InProcessResult> {
