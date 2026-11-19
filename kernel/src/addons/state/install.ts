@@ -62,6 +62,7 @@ export type Phase =
   | "admission-wait"
   | "staged"
   | "closure-staged"
+  | "closure-read"
   | UpgradePhase;
 
 export type StateOptions = {
@@ -454,6 +455,36 @@ export function stoppedOwnerProblem(
     return started === undefined || boot === undefined || started === boot;
   });
   return delegateMayRun ? "delegate-recorded" : undefined;
+}
+
+function caseUnderLease(
+  paths: Locked,
+  request: CloseRequest<string>,
+):
+  | { readonly ok: false; readonly stop: CloseResultBody }
+  | {
+      readonly ok: true;
+      readonly target: Operation;
+      readonly release: () => void;
+    } {
+  const id = request.operationId;
+  const lease = paths.tryLock(join(paths.operation(id), "owner.lease"), false);
+  if (lease.kind === "busy") return { ok: false, stop: { kind: "owner-live" } };
+  if (lease.kind === "failed")
+    return {
+      ok: false,
+      stop: { kind: "unavailable", reason: "lease-unreadable" },
+    };
+  const target = readCase(paths, id);
+  const stop =
+    typeof target === "string"
+      ? readProblem(target)
+      : settledCheck(target, request);
+  if (stop || typeof target === "string") {
+    lease.release();
+    return { ok: false, stop: stop ?? { kind: "not-found" } };
+  }
+  return { ok: true, target, release: lease.release };
 }
 
 function closureMatches(
@@ -1227,30 +1258,21 @@ export function install(options: StateOptions, seams: Seams) {
             : (settledCheck(moved, request) ?? { kind: "not-found" }),
       };
     }
-    const lease = paths.tryLock(
-      join(paths.operation(id), "owner.lease"),
-      false,
-    );
-    const stop: CloseResultBody | undefined =
-      lease.kind === "busy"
-        ? { kind: "owner-live" }
-        : lease.kind === "failed"
-          ? { kind: "unavailable", reason: "lease-unreadable" }
-          : settledCheck(target, request);
-    const release = () => {
-      if (lease.kind === "held") lease.release();
+    await phase("closure-read");
+    const leased = caseUnderLease(paths, request);
+    if (!leased.ok) {
       admitted.release();
-    };
-    if (stop) {
-      release();
-      return { ok: false, stop };
+      return leased;
     }
     return {
       ok: true,
       held: admitted.held,
       operations: admitted.operations,
-      target,
-      release,
+      target: leased.target,
+      release: () => {
+        leased.release();
+        admitted.release();
+      },
     };
   }
 

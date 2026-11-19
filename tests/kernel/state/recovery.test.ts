@@ -1510,3 +1510,35 @@ caseTest(
     await closesUnder(world, id, sameBoot);
   }),
 );
+
+supportingTest(
+  "X29 supporting: closure decides on the journal it reads while it holds the lease, so an owner that appends between the first read and the lease refuses as stale",
+  plain(async (world) => {
+    const owner = world.start(
+      ["apply", "a", "--content", "v1", "--unknown-scope", "--json"],
+      {
+        ...bootTwo,
+        SX_FAULT: "admit-delegate",
+        SX_BARRIER: "pre-effect,intent",
+      },
+    );
+    await owner.reached("pre-effect");
+    const id = only(world);
+    expect(caseOf(world, id).events.records).toEqual([]);
+    const before = await world.revision(id);
+    const closer = world.start(closeArgs(id, before, "not-applied"), {
+      ...sameBoot,
+      SX_BARRIER: "closure-read",
+    });
+    await closer.reached("closure-read");
+    owner.release("pre-effect");
+    await owner.reached("intent");
+    owner.kill("SIGKILL");
+    expect((await owner.done).signal).toBe("SIGKILL");
+    expect(delegateBoots(world, id)).toEqual(["boot-two"]);
+    expect(await world.revision(id)).not.toBe(before);
+    closer.release("closure-read");
+    expectRefusedUnchanged(await closer.done, "DOMAIN_SX_CLOSE_STALE");
+    expect(existsSync(closurePath(world, id))).toBe(false);
+  }),
+);
