@@ -13,7 +13,8 @@ machine a container runs on is the container machine.
 - Part 2, [DESIGN-V2-CLOSURE.md](DESIGN-V2-CLOSURE.md): closing a crashed
   case in production.
 - Part 3, [DESIGN-V2-TRANSITIONS.md](DESIGN-V2-TRANSITIONS.md): the transition
-  table and the proposed cases that prove it (REC-8; version 1 section 11).
+  table (REC-8; version 1 section 11), the proposed cases that prove it, and
+  the frozen case table and test entry changes those cases need.
 
 The note is in three parts by choice, to keep each under 5,000 tokens. The
 repository's size check does not cover `kernel/`, so no gate forced it.
@@ -66,7 +67,7 @@ Decided constraints this note keeps:
 | 12. Interface           | Keeps; no new host call. `capabilities()` reports matched facts (part 2).                                                                   |
 | 13. Open points         | Keeps them. Adds section 8.                                                                                                                 |
 
-## 3. How version 1 and version 2 meet (changes 4.1)
+## 3. How version 1 and version 2 meet (changes version 1 section 4.1)
 
 - A version 2 store's format record is
   `{ format: 1, kind: "format", journal: "contract3.state.2" }`. The framing
@@ -105,7 +106,7 @@ Decided constraints this note keeps:
   and the version 1 programs then refuse.
 - Any other `journal` value refuses every route.
 
-## 4. Layout (changes section 3)
+## 4. Layout (changes version 1 section 3)
 
 ```text
 <root>/
@@ -123,7 +124,7 @@ Decided constraints this note keeps:
   journal revision and every closure's `journalRevision` stay valid.
 - Moves go one way: `operations/` to `settled/`.
 
-## 5. Read rule (changes section 5)
+## 5. Read rule (changes version 1 section 5)
 
 The per-case status rules 1 to 5 are unchanged. Version 1 calls a case with
 a valid closure "resolved by closure", and one with its own valid final
@@ -158,7 +159,7 @@ where each route looks:
   (`closureObservation`), not in the version 1 note. It now looks in both
   folders; its values do not change.
 
-## 6. Moving a settled case (adds a step to 7.1)
+## 6. Moving a settled case (adds a step to version 1 section 7.1)
 
 An admission moves settled cases it read at step 4. It does so after its
 own publication (step 6) and before it releases the admission lock (step 7).

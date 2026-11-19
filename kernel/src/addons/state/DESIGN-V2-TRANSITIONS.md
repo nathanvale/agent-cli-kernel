@@ -1,4 +1,4 @@
-# State add-on: journal version 2 design, part 3 of 3 (transition table and proposed cases)
+# State add-on: journal version 2 design, part 3 of 3 (transition table and the cases that prove it)
 
 Status: proposed, not reviewed. Read [DESIGN-V2.md](DESIGN-V2.md) (part 1)
 and [DESIGN-V2-CLOSURE.md](DESIGN-V2-CLOSURE.md) (part 2) first. Version 1,
