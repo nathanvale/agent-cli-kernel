@@ -16,6 +16,10 @@ import { constants, release, type } from "node:os";
 import { join, resolve } from "node:path";
 import { capabilityQualificationTable } from "../../../kernel/src/addons/state/capability-qualification-table.ts";
 import type { CapabilityQualificationRow } from "../../../kernel/src/addons/state/capability-qualification-table.ts";
+import {
+  bootIdentitySource,
+  majorReleaseOf,
+} from "../../../kernel/src/addons/state/qualification.ts";
 import type { FactOverrides } from "../../../kernel/src/addons/state/qualification.ts";
 import { resolveCoordination } from "../../../kernel/src/addons/state/coordination.ts";
 import {
@@ -34,6 +38,7 @@ import {
   recordPath,
   recordSchema,
   registeredCases,
+  otherEntryOnly,
   requiredCaseIds,
   runEntries,
   runsThrough,
@@ -250,14 +255,9 @@ export function caseResults(
         result: "unproved",
         detail: `pending: ${row.reason}`,
       };
-    const only = row.onlyThrough;
-    if (only !== undefined && only.entry !== entry)
-      return {
-        id: row.id,
-        result: "not-runnable",
-        detail: `runs only through ${only.entry}`,
-        reason: only.reason,
-      };
+    const only = otherEntryOnly(row, entry);
+    if (only !== undefined)
+      return { id: row.id, result: "not-runnable", reason: only.reason };
     const exact = tests.get(row.id);
     if (exact === "passed")
       return { id: row.id, result: "pass", detail: "passed" };
@@ -383,7 +383,7 @@ function observedPlatform(): PlatformFacts {
   return {
     os: process.platform,
     release: observed,
-    majorRelease: observed.split(".")[0] ?? observed,
+    majorRelease: majorReleaseOf(observed),
     architecture: process.arch,
     runtime: `bun ${Bun.version}`,
     distribution: distribution(),
@@ -392,15 +392,15 @@ function observedPlatform(): PlatformFacts {
   };
 }
 
-function observedFacts(parent: string, candidate: CandidateRow): ObservedFacts {
+function observedFacts(parent: string): ObservedFacts {
   const route = resolveCoordination();
   return {
     platform: observedPlatform(),
     filesystem: { type: statfsSync(parent).type },
     primitive: route.available ? route.route : "no coordination route",
     bootIdentitySource: {
-      source: candidate.bootIdentitySource,
-      readable: readable(candidate.bootIdentitySource),
+      source: bootIdentitySource,
+      readable: readable(bootIdentitySource),
     },
   };
 }
@@ -527,7 +527,7 @@ function secondRunRefusal(
           context.table ?? capabilityQualificationTable,
           candidate,
           existing,
-          observedFacts(parent, candidate),
+          observedFacts(parent),
         );
   if (problem === undefined && typeof existing === "object") return existing;
   return `Refused: ${problem ?? "no record"}. Repair: on the row's own branch, commit the row and its record from one fixture.ts run on this platform, then rerun.`;
@@ -581,10 +581,12 @@ function writeRecord(
 
 const caseRun: { stop?: () => void } = {};
 
+const readTheRunOutput = "read the run's output above, then rerun";
+
 class CaseRunFailure extends Error {
   constructor(
     message: string,
-    readonly repair = "read the run's output above, then rerun",
+    readonly repair = readTheRunOutput,
   ) {
     super(message);
   }
@@ -670,7 +672,7 @@ export async function capabilityQualificationRun(
   }
   const { candidate, parent, entry, existing } = prepared;
   const selection = capabilityQualificationCases();
-  const observed = observedFacts(parent, candidate);
+  const observed = observedFacts(parent);
   const commit = git(context.root, context.environment, [
     "rev-parse",
     "HEAD",
@@ -690,7 +692,7 @@ export async function capabilityQualificationRun(
     });
   } catch (error) {
     context.print(
-      `Refused: the case run ended without results (${messageOf(error)}); no capability qualification record is written. Repair: ${error instanceof CaseRunFailure ? error.repair : "read the run's output above, then rerun"}.`,
+      `Refused: the case run ended without results (${messageOf(error)}); no capability qualification record is written. Repair: ${error instanceof CaseRunFailure ? error.repair : readTheRunOutput}.`,
     );
     return 1;
   }

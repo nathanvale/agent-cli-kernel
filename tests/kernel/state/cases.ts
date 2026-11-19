@@ -42,17 +42,17 @@ const transactionComponent = {
   ...component,
   platform: "coordination",
 } as const;
-const perRunCases = "decided by Nathan, 19 November 2026, 17:45 AEDT";
+const perRunDecision = "decided by Nathan, 19 November 2026, 17:45 AEDT";
 const pausePoint = {
   onlyThrough: {
     entry: "fixture.ts",
-    reason: `Waits for the closure-staged pause point, which only the test entry has (${perRunCases}).`,
+    reason: `Waits for the closure-staged pause point, which only the test entry has (${perRunDecision}).`,
   },
 } as const;
 const noMatchingRow = {
   onlyThrough: {
     entry: "fixture.ts",
-    reason: `Expects no matching row, but an index.ts run has the row in the production capability qualification table (${perRunCases}).`,
+    reason: `Expects no matching row, but an index.ts run has the row in the production capability qualification table (${perRunDecision}).`,
   },
 } as const;
 const unqualified = {
@@ -966,9 +966,9 @@ export const stateCases: readonly StateCase[] = [
     ...coordinated,
     onlyThrough: {
       entry: "index.ts",
-      reason: `Needs the row in the production capability qualification table, which only an index.ts run on the row's own branch has (${perRunCases}).`,
+      reason: `Needs the row in the production capability qualification table, which only an index.ts run on the row's own branch has (${perRunDecision}).`,
     },
-    sources: `REC-7b; journal version 2 design part 2 section 3; X30; ${perRunCases}`,
+    sources: `REC-7b; journal version 2 design part 2 section 3; X30; ${perRunDecision}`,
     observation:
       "Through index.ts with the row in the production capability qualification table: a crashed case closes as completed and as not-applied, each closure stamped with the row id.",
     red: "Stamp a fixture label.",

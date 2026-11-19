@@ -143,7 +143,8 @@ itself to the row's capability qualification record. A row has two:
   The second must pass every covered case that can run through `index.ts`,
   Q02.e among them: a crashed case closes as completed and as not-applied,
   stamped with the row's `id`. A covered case a run cannot do is written
-  into that run's `cases` as `not-runnable`, with the case table's reason,
+  into that run's `cases` as `not-runnable`, with the case table's reason
+  copied unchanged (Q03.a checks the two are equal),
   never left out. Today K06.e and O07.a wait for a pause point only the test
   entry has, O05.a and O09.a expect no matching row, and Q02.e needs the row
   in the production table.
@@ -167,14 +168,17 @@ Capability qualification record fields:
 | `filesystem`               | the state root's observed filesystem facts only; no path, user name or machine name                                                                                                                                                                                                                                         |
 | `primitive`                | the active coordination route                                                                                                                                                                                                                                                                                               |
 | `bootIdentitySource`       | the source, and whether it was readable; never the value                                                                                                                                                                                                                                                                    |
-| `cases` (in each run)      | `[{ id, result, detail }]`, result `pass`, `fail` or `unproved`; or `{ id, result: "not-runnable", detail, reason }` for a covered case the case table runs only through the other entry, with its reason (decided by Nathan, 19 November 2026, 17:45 AEDT)                                                                 |
+| `cases` (in each run)      | `[{ id, result, detail }]`, result `pass`, `fail` or `unproved`; or `{ id, result: "not-runnable", reason }` for a covered case the case table runs only through the other entry, its `reason` copied from the case table (decided by Nathan, 19 November 2026, 17:45 AEDT)                                                 |
 | `factSource`               | `observed`: every fact above was read from the machine, with no override. The command writes no other value                                                                                                                                                                                                                 |
 
 A capability qualification run covers the cases that run on observed facts:
 the executable closure and stopped-owner cases (families K02, K03, K06, K07,
-K08, O04, O05, O07 and O09), proposed K11.a, K11.c, K11.d and K11.e, and
-Q02.e, which only the second run can do. K11.a's half with no `boot` uses a
-prepared version 1 style journal, not a fact override. A case still pending
+K08, O04, O05, O07 and O09), proposed K11.a, K11.c, K11.d and K11.e, K11.f
+(closure refuses a record hidden in a torn tail; decided by Nathan,
+19 November 2026, 17:52 AEDT), and Q02.e, which only the second run can do.
+The run takes every K11 case in the case table except K11.b, so a later K11
+case joins it with no edit. K11.a's half with no `boot`, and K11.f, use a
+prepared journal, not a fact override. A case still pending
 in the case table is recorded `unproved` and is not required. A run's
 required cases are the covered cases the case table runs through its entry,
 and a row needs every one of them `pass` in each run.
@@ -193,7 +197,8 @@ exists, carries `factSource: "observed"`, matches the row's `os`,
 row's `observedRelease` as its `platform.release`, has, in each run, every
 covered case the case table runs through that run's entry `pass` (Q02.e's
 closures in the second run) and every other covered case marked
-`not-runnable` with a reason, never a case the case table runs there, has,
+`not-runnable` with the case table's reason, never a case the case table
+runs there, has,
 in both capability qualification runs, a `sourceHash` equal to the hash of
 the qualified source files now, holds both capability qualification runs,
 and the row names its reviewing session,

@@ -1918,20 +1918,6 @@
     "source": "3957781 fix(state): run only the covered case files and keep a run inside its parent"
   },
   {
-    "id": "3957781-capability-qualification-run-identity-leak",
-    "patch": "tests/planted-faults/patches/3957781-capability-qualification-run-identity-leak.patch",
-    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
-    "title": "^a capability qualification record names no path, account or machine",
-    "source": "3957781 fix(state): run only the covered case files and keep a run inside its parent"
-  },
-  {
-    "id": "07550c9-capability-qualification-record-second-run-missing",
-    "patch": "tests/planted-faults/patches/07550c9-capability-qualification-record-second-run-missing.patch",
-    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
-    "title": "^Q03.a refuses a second run",
-    "source": "07550c9 feat(state): give each capability qualification run its own required cases"
-  },
-  {
     "id": "07550c9-capability-qualification-record-claimed-not-runnable",
     "patch": "tests/planted-faults/patches/07550c9-capability-qualification-record-claimed-not-runnable.patch",
     "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
@@ -1939,38 +1925,10 @@
     "source": "07550c9 feat(state): give each capability qualification run its own required cases"
   },
   {
-    "id": "07550c9-capability-qualification-record-unmarked",
-    "patch": "tests/planted-faults/patches/07550c9-capability-qualification-record-unmarked.patch",
-    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
-    "title": "^Q03.a refuses a run that (passes|leaves out)",
-    "source": "07550c9 feat(state): give each capability qualification run its own required cases"
-  },
-  {
-    "id": "07550c9-capability-qualification-record-empty-reason",
-    "patch": "tests/planted-faults/patches/07550c9-capability-qualification-record-empty-reason.patch",
-    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
-    "title": "^Q03.a refuses a run that marks a test-entry-only case not-runnable with no reason",
-    "source": "07550c9 feat(state): give each capability qualification run its own required cases"
-  },
-  {
     "id": "07550c9-capability-qualification-record-required-per-entry",
     "patch": "tests/planted-faults/patches/07550c9-capability-qualification-record-required-per-entry.patch",
     "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
     "title": "^each capability qualification run requires the cases the case table runs",
-    "source": "07550c9 feat(state): give each capability qualification run its own required cases"
-  },
-  {
-    "id": "07550c9-capability-qualification-run-marks-not-runnable",
-    "patch": "tests/planted-faults/patches/07550c9-capability-qualification-run-marks-not-runnable.patch",
-    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
-    "title": "^each case result comes from its own test",
-    "source": "07550c9 feat(state): give each capability qualification run its own required cases"
-  },
-  {
-    "id": "07550c9-capability-qualification-run-runnable-only",
-    "patch": "tests/planted-faults/patches/07550c9-capability-qualification-run-runnable-only.patch",
-    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
-    "title": "^a fixture.ts case run over the repository",
     "source": "07550c9 feat(state): give each capability qualification run its own required cases"
   },
   {
@@ -1988,6 +1946,48 @@
     "source": "07550c9 feat(state): give each capability qualification run its own required cases"
   },
   {
+    "id": "07550c9-capability-qualification-harness-closure-label",
+    "patch": "tests/planted-faults/patches/07550c9-capability-qualification-harness-closure-label.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^closureLabel expects the row id",
+    "source": "07550c9 feat(state): give each capability qualification run its own required cases"
+  },
+  {
+    "id": "3957781-capability-qualification-run-identity-leak",
+    "patch": "tests/planted-faults/patches/3957781-capability-qualification-run-identity-leak.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^a capability qualification record holds no path",
+    "source": "3957781 fix(state): run only the covered case files and keep a run inside its parent"
+  },
+  {
+    "id": "07550c9-capability-qualification-record-second-run-missing",
+    "patch": "tests/planted-faults/patches/07550c9-capability-qualification-record-second-run-missing.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a second run missing a case it can run",
+    "source": "07550c9 feat(state): give each capability qualification run its own required cases"
+  },
+  {
+    "id": "07550c9-capability-qualification-record-unmarked",
+    "patch": "tests/planted-faults/patches/07550c9-capability-qualification-record-unmarked.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a run that (passes|leaves out)",
+    "source": "07550c9 feat(state): give each capability qualification run its own required cases"
+  },
+  {
+    "id": "07550c9-capability-qualification-run-marks-not-runnable",
+    "patch": "tests/planted-faults/patches/07550c9-capability-qualification-run-marks-not-runnable.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^each case result comes from its own test",
+    "source": "07550c9 feat(state): give each capability qualification run its own required cases"
+  },
+  {
+    "id": "07550c9-capability-qualification-run-runnable-only",
+    "patch": "tests/planted-faults/patches/07550c9-capability-qualification-run-runnable-only.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run.s own case runner loads only the files",
+    "source": "07550c9 feat(state): give each capability qualification run its own required cases"
+  },
+  {
     "id": "07550c9-capability-qualification-run-repair",
     "patch": "tests/planted-faults/patches/07550c9-capability-qualification-run-repair.patch",
     "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
@@ -1997,15 +1997,8 @@
   {
     "id": "07550c9-capability-qualification-harness-only-through",
     "patch": "tests/planted-faults/patches/07550c9-capability-qualification-harness-only-through.patch",
-    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "testFile": "tests/kernel/state/recovery.test.ts",
     "title": "^Q02.e-production-row-closes",
-    "source": "07550c9 feat(state): give each capability qualification run its own required cases"
-  },
-  {
-    "id": "07550c9-capability-qualification-harness-closure-label",
-    "patch": "tests/planted-faults/patches/07550c9-capability-qualification-harness-closure-label.patch",
-    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
-    "title": "^a closure in an index.ts capability qualification run is stamped",
     "source": "07550c9 feat(state): give each capability qualification run its own required cases"
   }
 ]

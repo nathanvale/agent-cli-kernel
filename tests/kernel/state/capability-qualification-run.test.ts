@@ -57,7 +57,6 @@ import type {
 } from "./capability-qualification-run.ts";
 import type { StateCase } from "./cases.ts";
 import {
-  at,
   caseTest,
   closeArgs,
   closureLabel,
@@ -70,7 +69,8 @@ import {
 
 const folder = ownedFolders();
 const inProcess = 30_000;
-const caseRunBound = 60_000;
+const refusalBound = 20_000;
+const caseRunBound = 50_000;
 const caseRunTimeout = 120_000;
 
 const candidate: CandidateRow = {
@@ -350,12 +350,7 @@ function expectedResults(
       };
     const only = row.onlyThrough;
     if (only !== undefined && only.entry !== entry)
-      return {
-        id: row.id,
-        result: "not-runnable",
-        detail: `runs only through ${only.entry}`,
-        reason: only.reason,
-      };
+      return { id: row.id, result: "not-runnable", reason: only.reason };
     return failed.includes(row.id)
       ? {
           id: row.id,
@@ -415,8 +410,8 @@ test(
       route.available ? route.route : "no coordination route",
     );
     expect(record.bootIdentitySource).toEqual({
-      source: candidate.bootIdentitySource,
-      readable: existsSync(candidate.bootIdentitySource),
+      source: "/proc/sys/kernel/random/boot_id",
+      readable: existsSync("/proc/sys/kernel/random/boot_id"),
     });
     expect(record.runs.length).toBe(1);
     const [run] = record.runs;
@@ -434,23 +429,20 @@ test(
     expect(world.lines).toEqual([
       `Wrote ${recordPath(candidate.id)}: ${summary(expected)}`,
     ]);
-    expectNoIdentity(world, text);
+    await expectNoIdentity(world, text);
   },
   inProcess,
 );
 
-function accountName(): string | undefined {
-  const result = Bun.spawnSync(["id", "-un"], {
-    stdout: "pipe",
-    stderr: "pipe",
-    timeout: 4_000,
-    killSignal: "SIGKILL",
+async function accountName(): Promise<string> {
+  const result = await spawnBounded(["id", "-un"], {
+    boundMilliseconds: 4_000,
   });
-  const name = result.stdout.toString().trim();
-  return result.exitCode === 0 && name !== "" ? name : undefined;
+  expect(result.exit).toBe(0);
+  return result.stdout.trim();
 }
 
-function expectNoIdentity(world: Checkout, text: string): void {
+async function expectNoIdentity(world: Checkout, text: string): Promise<void> {
   const paths = [world.base, world.parent, homedir()].filter(
     (path) => path.length > 1,
   );
@@ -462,13 +454,15 @@ function expectNoIdentity(world: Checkout, text: string): void {
   const { platform } = parseRecord(text);
   const hostRead = [platform.release, platform.distribution, platform.cLibrary];
   for (const value of hostRead) expect(value.length).toBeGreaterThan(0);
-  for (const name of [accountName(), hostname()])
-    if (name !== undefined && name !== "")
-      expect(hostRead.filter((value) => value.includes(name))).toEqual([]);
+  const names = [await accountName(), hostname()];
+  for (const name of names) {
+    expect(name.length).toBeGreaterThan(0);
+    expect(hostRead.filter((value) => value.includes(name))).toEqual([]);
+  }
 }
 
 test(
-  "a capability qualification record names no path, account or machine when USER and LOGNAME are unset",
+  "a capability qualification record holds no path, and no account or machine name in its host-read fields, when USER and LOGNAME are unset",
   async () => {
     const world = checkout();
     const saved = { USER: process.env.USER, LOGNAME: process.env.LOGNAME };
@@ -498,7 +492,7 @@ test(
         else process.env[name] = value;
     }
     expect(seen).toEqual([undefined, undefined, undefined, undefined]);
-    expectNoIdentity(world, readFileSync(world.recordFile, "utf8"));
+    await expectNoIdentity(world, readFileSync(world.recordFile, "utf8"));
   },
   inProcess,
 );
@@ -666,6 +660,28 @@ test(
     expect({ ...both, runs: [] }).toEqual({ ...first, runs: [] });
     expect(both.runs[1]?.commit).toBe(git(world.root, "rev-parse", "HEAD"));
     expect(both.runs[1]?.sourceHash).toBe(first.runs[0]?.sourceHash);
+    const judged = {
+      ...tableRow,
+      os: first.platform.os,
+      majorRelease: first.platform.majorRelease,
+      observedRelease: first.platform.release,
+      filesystem: { name: "observed", type: first.filesystem.type },
+      primitive: first.primitive,
+      bootIdentitySource: first.bootIdentitySource.source,
+    };
+    expect(
+      rowProblems(
+        judged,
+        world.root,
+        sourceHash(qualifiedSourceFiles(world.root)),
+      ),
+    ).toEqual(
+      first.bootIdentitySource.readable
+        ? []
+        : [
+            `${candidate.id}: the boot identity was unreadable in the capability qualification run`,
+          ],
+    );
   },
   inProcess,
 );
@@ -776,7 +792,6 @@ const synthetic: readonly StateCase[] = [
 const syntheticNotRunnable = {
   id: "K02.g-synthetic",
   result: "not-runnable",
-  detail: "runs only through index.ts",
   reason: "Needs the row in the table.",
 } as const;
 
@@ -857,7 +872,7 @@ test("a capability qualification run tells each world its entry and candidate ro
   expect(runOf(second)).toEqual({ entry: "index.ts", candidate });
 });
 
-test("a closure in an index.ts capability qualification run is stamped with the row id, and otherwise with the fixture label", () => {
+test("closureLabel expects the row id in an index.ts capability qualification run, and the fixture label otherwise", () => {
   const saved = process.env[runVariable];
   const labels: string[] = [];
   try {
@@ -1071,6 +1086,9 @@ test(
       ),
     );
     expect(output.join("")).toContain("K02.b-synthetic");
+    expect(report).toMatch(
+      /<testcase name="K02\.g-synthetic"[^>]*>\s*<skipped/,
+    );
     expect(loadedFiles(report)).toEqual([
       "tests/kernel/state/synthetic.test.ts",
     ]);
@@ -1118,7 +1136,7 @@ test(
     const world = runnerWorld();
     const refused = await runCasesWithBun(
       world.request(synthetic),
-      caseRunBound,
+      refusalBound,
     ).then(
       () => "ran",
       (error: unknown) => (error instanceof Error ? error.message : "thrown"),
@@ -1140,7 +1158,7 @@ test(
     });
     const code = await world.run(undefined, undefined, {
       runCases: (request) =>
-        runCasesWithBun({ ...request, root: world.base }, caseRunBound),
+        runCasesWithBun({ ...request, root: world.base }, refusalBound),
     });
     expect(code).toBe(1);
     expect(world.lines).toEqual([
@@ -1189,7 +1207,9 @@ test(
     expect(loadedFiles(report)).toEqual(caseFiles(repository, runnable));
     expect(
       caseResults(report, selection, "fixture.ts").filter(
-        (entry) => entry.detail === "no test ran for this case",
+        (entry) =>
+          entry.result === "fail" &&
+          entry.detail === "no test ran for this case",
       ),
     ).toEqual([]);
     expect(readdirSync(world.parent)).toEqual([]);
@@ -1197,40 +1217,3 @@ test(
   },
   caseRunTimeout,
 );
-
-caseTest("Q02.e-production-row-closes", async () => {
-  const label = closureLabel();
-  expect(label).not.toStartWith("fixture:");
-  const world = makeWorld({ qualification: "fixture" });
-  try {
-    await world.killAt(apply, "effect");
-    await world.killAt(["send", "m2", "--json"], "intent");
-    const operation = (command: string) => {
-      const found = world
-        .operations()
-        .filter((entry) => entry.intent.commandIdentity === command);
-      const [first, ...rest] = found;
-      if (!first || rest.length > 0)
-        throw new Error(`Expected one ${command} operation.`);
-      return first.id;
-    };
-    const closures = [
-      [operation("sx.apply"), "completed", "c1"],
-      [operation("sx.send"), "not-applied", "c2"],
-    ] as const;
-    for (const [id, disposition, closureId] of closures)
-      expectCompleted(
-        await world.run(
-          closeArgs(id, await world.revision(id), disposition, closureId),
-        ),
-      );
-    for (const [id, disposition] of closures) {
-      const closure = world.cases().find((entry) => entry.id === id)?.closure;
-      const payload = closure?.records[0]?.payload;
-      expect(at(payload, "disposition")).toBe(disposition);
-      expect(at(payload, "qualification")).toBe(label);
-    }
-  } finally {
-    world.dispose();
-  }
-});

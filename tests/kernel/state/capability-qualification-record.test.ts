@@ -45,57 +45,74 @@ caseTest("Q03.a-row-cites-capability-qualification-record", () => {
 
 test("the capability qualification run covers the closure and stopped-owner cases the design names, from the case table", () => {
   const families = [
-    ...["K02", "K03", "K06", "K07", "K08"],
+    ...["K02", "K03", "K06", "K07", "K08", "K11"],
     ...["O04", "O05", "O07", "O09"],
   ];
-  const singles = ["K11.a", "K11.c", "K11.d", "K11.e", "Q02.e"];
   const expected = stateCases
     .filter(
       (row) =>
-        families.includes(row.id.slice(0, 3)) ||
-        singles.includes(row.id.slice(0, 5)),
+        (families.includes(row.id.slice(0, 3)) &&
+          row.id.slice(0, 5) !== "K11.b") ||
+        row.id.slice(0, 5) === "Q02.e",
     )
     .map((row) => row.id);
   const selected = capabilityQualificationCases().map((row) => row.id);
   expect(selected).toEqual(expected);
   expect(selected).toContain("K11.e-transaction-waits-for-started-effects");
-  expect(selected).toContain("K08.c-surviving-delegate-process");
   expect(selected.some((id) => id.startsWith("K04."))).toBe(false);
   expect(
     selected.filter((id) => id.startsWith("Q02.")).map((id) => id.slice(0, 5)),
   ).toEqual(["Q02.e"]);
-  for (const entry of runEntries)
-    expect(requiredCaseIds(entry)).toEqual(
-      capabilityQualificationCases()
-        .filter(
-          (row) =>
-            row.status === "executable" &&
-            (row.onlyThrough === undefined || row.onlyThrough.entry === entry),
-        )
-        .map((row) => row.id),
-    );
 });
 
 test("each capability qualification run requires the cases the case table runs through its entry", () => {
-  const onlyThroughTestEntry = capabilityQualificationCases()
-    .filter(
+  const covered = capabilityQualificationCases();
+  for (const entry of runEntries)
+    for (const row of covered)
+      expect({
+        id: row.id,
+        entry,
+        required: requiredCaseIds(entry).includes(row.id),
+      }).toEqual({
+        id: row.id,
+        entry,
+        required:
+          row.status === "executable" &&
+          (row.onlyThrough === undefined || row.onlyThrough.entry === entry),
+      });
+  expect(
+    covered.filter(
       (row) =>
         row.status === "executable" && row.onlyThrough?.entry === "fixture.ts",
-    )
-    .map((row) => row.id.slice(0, 5));
-  expect(onlyThroughTestEntry.sort()).toEqual([
-    "K06.e",
-    "O05.a",
-    "O07.a",
-    "O09.a",
-  ]);
-  const second = requiredCaseIds("index.ts");
-  expect(second.some((id) => id.startsWith("Q02.e-"))).toBe(true);
-  expect(
-    requiredCaseIds("fixture.ts").some((id) => id.startsWith("Q02.e-")),
-  ).toBe(false);
-  for (const id of onlyThroughTestEntry)
-    expect(second.some((required) => required.startsWith(id))).toBe(false);
+    ).length,
+  ).toBeGreaterThan(0);
+  const q02e = covered.filter((row) => row.id.startsWith("Q02.e-"));
+  expect(q02e.length).toBe(1);
+  for (const row of q02e) {
+    expect(requiredCaseIds("index.ts")).toContain(row.id);
+    expect(requiredCaseIds("fixture.ts")).not.toContain(row.id);
+  }
+});
+
+test("K11.f and any later K11 case join both runs' required cases the moment the case table holds them, and K11.b never does", () => {
+  const executable = {
+    status: "executable",
+    layer: "process",
+    platform: "coordination",
+    sources: "test",
+    observation: "test",
+    red: "test",
+  } as const;
+  const rows: readonly StateCase[] = [
+    { ...executable, id: "K11.b-delegate-other-boot-closes" },
+    { ...executable, id: "K11.f-record-hidden-in-torn-tail-refuses" },
+    { ...executable, id: "K11.g-no-append-after-torn-tail" },
+  ];
+  for (const entry of runEntries)
+    expect(requiredCaseIds(entry, rows)).toEqual([
+      "K11.f-record-hidden-in-torn-tail-refuses",
+      "K11.g-no-append-after-torn-tail",
+    ]);
 });
 
 test("a case added to a covered family joins the capability qualification run without an edit", () => {
@@ -178,12 +195,7 @@ function resultsFor(entry: RunEntry): readonly CaseResult[] {
       return { id: entryRow.id, result: "unproved", detail: "pending" };
     const only = entryRow.onlyThrough;
     return only !== undefined && only.entry !== entry
-      ? {
-          id: entryRow.id,
-          result: "not-runnable",
-          detail: `runs only through ${only.entry}`,
-          reason: only.reason,
-        }
+      ? { id: entryRow.id, result: "not-runnable", reason: only.reason }
       : { id: entryRow.id, result: "pass", detail: "passed" };
   });
 }
@@ -271,6 +283,7 @@ function record(
 function problemsFor(
   cited: CapabilityQualificationRow,
   committed: CapabilityQualificationRecord | undefined,
+  cases: readonly StateCase[] = table,
 ): readonly string[] {
   const root = folder("c3-record-");
   if (committed !== undefined) {
@@ -278,7 +291,7 @@ function problemsFor(
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, `${JSON.stringify(committed, null, 2)}\n`);
   }
-  return rowProblems(cited, root, current, table);
+  return rowProblems(cited, root, current, cases);
 }
 
 test("Q03.a accepts a row whose record holds both runs, every required case passed, on the current source", () => {
@@ -406,7 +419,7 @@ test("Q03.a refuses a second run missing a case it can run", () => {
   ).toEqual([`${rowId}: the index.ts run has no result for ${both.id}`]);
 });
 
-test("Q03.a refuses a second run with no Q02.e closure", () => {
+test("Q03.a refuses a second run with no Q02.e result", () => {
   expect(
     problemsWithRun("index.ts", changed("index.ts", indexOnly.id, undefined)),
   ).toEqual([`${rowId}: the index.ts run has no result for ${indexOnly.id}`]);
@@ -419,7 +432,6 @@ test("Q03.a refuses a run that marks a case not-runnable when the case table run
       changed("index.ts", both.id, {
         id: both.id,
         result: "not-runnable",
-        detail: "runs only through fixture.ts",
         reason: "Claimed without the case table.",
       }),
     ),
@@ -447,14 +459,13 @@ const unmarked: readonly (readonly [
     undefined,
   ],
   [
-    "marks a test-entry-only case not-runnable with no reason",
+    "marks a test-entry-only case not-runnable with a reason the case table does not give",
     "index.ts",
     testEntryOnly.id,
     {
       id: testEntryOnly.id,
       result: "not-runnable",
-      detail: "runs only through fixture.ts",
-      reason: " ",
+      reason: "Waits for something else.",
     },
   ],
   [
@@ -471,7 +482,7 @@ for (const [shape, entry, id, result] of unmarked)
     const through =
       only?.status === "executable" ? only.onlyThrough?.entry : undefined;
     expect(problemsWithRun(entry, changed(entry, id, result))).toEqual([
-      `${rowId}: ${id} runs only through ${through ?? ""}, so the ${entry} run must mark it not-runnable with a reason`,
+      `${rowId}: ${id} runs only through ${through ?? ""}, so the ${entry} run must mark it not-runnable with the case table's reason`,
     ]);
   });
 
@@ -507,7 +518,7 @@ const unreadable: readonly (readonly [string, string, string])[] = [
         run("index.ts"),
       ],
     }),
-    "runs[0].cases[0] has fields [detail, id, result], not [detail, id, reason, result]",
+    "runs[0].cases[0] has fields [detail, id, result], not [id, reason, result]",
   ],
   [
     "a short commit",
@@ -529,6 +540,23 @@ for (const [shape, text, why] of unreadable)
       `${rowId}: ${recordPath(rowId)} is not a capability qualification record: ${why}`,
     ]);
   });
+
+test("Q03.a requires K11.f in the first run of a record made while the case table holds it", () => {
+  const k11f = {
+    ...both,
+    id: "K11.f-record-hidden-in-torn-tail-refuses",
+  } as const;
+  const withK11f = [...table, k11f];
+  expect(problemsFor(row(), record(), withK11f)).toEqual([
+    `${rowId}: the fixture.ts run has no result for ${k11f.id}`,
+    `${rowId}: the index.ts run has no result for ${k11f.id}`,
+  ]);
+  const passed = { id: k11f.id, result: "pass", detail: "passed" } as const;
+  const runs = runEntries.map((entry) =>
+    run(entry, { cases: [...resultsFor(entry), passed] }),
+  );
+  expect(problemsFor(row(), record({ runs }), withK11f)).toEqual([]);
+});
 
 test("Q03.a refuses a record missing a required case", () => {
   expect(

@@ -18,6 +18,7 @@ import {
   runVariable,
   worldEnvironment,
 } from "./capability-qualification-run.ts";
+import { otherEntryOnly } from "./capability-qualification-record.ts";
 import { stateCases } from "./cases.ts";
 import { coordinationExpected } from "./holder.ts";
 
@@ -39,9 +40,9 @@ export function caseTest(
     );
     return;
   }
-  const only = row.onlyThrough;
   const entry = runOf(process.env[runVariable])?.entry ?? "fixture.ts";
-  if (only !== undefined && only.entry !== entry) {
+  const only = otherEntryOnly(row, entry);
+  if (only !== undefined) {
     test(`${id} UNPROVED outside ${only.entry}: ${only.reason}`, () => {
       expect(entry).not.toBe(only.entry);
     });
@@ -54,6 +55,15 @@ export function caseTest(
     return;
   }
   test(id, body, timeout);
+}
+
+export function only(world: World, command = "sx.apply"): string {
+  const found = world
+    .operations()
+    .filter((entry) => entry.intent.commandIdentity === command);
+  const [first, ...rest] = found;
+  if (!first || rest.length > 0) throw new Error("Expected one operation.");
+  return first.id;
 }
 
 export function closureLabel(): string {

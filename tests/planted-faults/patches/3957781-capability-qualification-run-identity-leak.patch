@@ -1,5 +1,5 @@
 diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
-index 3810854..75d0245 100644
+index 4ae3f2f..189b871 100644
 --- a/tests/kernel/state/capability-qualification-run.ts
 +++ b/tests/kernel/state/capability-qualification-run.ts
 @@ -382,7 +382,7 @@ function observedPlatform(): PlatformFacts {
@@ -8,6 +8,6 @@ index 3810854..75d0245 100644
      os: process.platform,
 -    release: observed,
 +    release: `${observed} ${String(Reflect.get(require("node:os"), "hostname")())}`,
-     majorRelease: observed.split(".")[0] ?? observed,
+     majorRelease: majorReleaseOf(observed),
      architecture: process.arch,
      runtime: `bun ${Bun.version}`,

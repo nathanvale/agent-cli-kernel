@@ -1,13 +1,13 @@
 diff --git a/tests/kernel/state/capability-qualification-record.ts b/tests/kernel/state/capability-qualification-record.ts
-index d94da1b..3417f6f 100644
+index 1697254..fb8e12f 100644
 --- a/tests/kernel/state/capability-qualification-record.ts
 +++ b/tests/kernel/state/capability-qualification-record.ts
-@@ -348,7 +348,7 @@ function caseProblems(
+@@ -354,7 +354,7 @@ function caseProblems(
    const found = run.cases.find((entry) => entry.id === row.id);
-   const only = row.onlyThrough;
-   if (only !== undefined && only.entry !== run.entry)
--    return found?.result === "not-runnable" && found.reason.trim() !== ""
+   const only = otherEntryOnly(row, run.entry);
+   if (only !== undefined)
+-    return found?.result === "not-runnable" && found.reason === only.reason
 +    return found?.result !== "never"
        ? []
        : [
-           `${row.id} runs only through ${only.entry}, so the ${run.entry} run must mark it not-runnable with a reason`,
+           `${row.id} runs only through ${only.entry}, so the ${run.entry} run must mark it not-runnable with the case table's reason`,

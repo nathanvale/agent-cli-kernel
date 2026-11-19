@@ -1,13 +1,13 @@
 diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
-index 3810854..fb478f8 100644
+index 4ae3f2f..e807d78 100644
 --- a/tests/kernel/state/capability-qualification-run.ts
 +++ b/tests/kernel/state/capability-qualification-run.ts
-@@ -690,7 +690,7 @@ export async function capabilityQualificationRun(
+@@ -692,7 +692,7 @@ export async function capabilityQualificationRun(
      });
    } catch (error) {
      context.print(
--      `Refused: the case run ended without results (${messageOf(error)}); no capability qualification record is written. Repair: ${error instanceof CaseRunFailure ? error.repair : "read the run's output above, then rerun"}.`,
-+      `Refused: the case run ended without results (${messageOf(error)}); no capability qualification record is written. Repair: ${"read the run's output above, then rerun"}.`,
+-      `Refused: the case run ended without results (${messageOf(error)}); no capability qualification record is written. Repair: ${error instanceof CaseRunFailure ? error.repair : readTheRunOutput}.`,
++      `Refused: the case run ended without results (${messageOf(error)}); no capability qualification record is written. Repair: ${readTheRunOutput}.`,
      );
      return 1;
    }

@@ -14,18 +14,17 @@ export function recordPath(rowId: string): string {
 
 export const runEntries = ["fixture.ts", "index.ts"] as const;
 export type RunEntry = (typeof runEntries)[number];
-const caseResultValues = ["pass", "fail", "unproved", "not-runnable"] as const;
+const ranResults = ["pass", "fail", "unproved"] as const;
 
 export type CaseResult =
   | {
       readonly id: string;
-      readonly result: "pass" | "fail" | "unproved";
+      readonly result: (typeof ranResults)[number];
       readonly detail: string;
     }
   | {
       readonly id: string;
       readonly result: "not-runnable";
-      readonly detail: string;
       readonly reason: string;
     };
 
@@ -64,19 +63,23 @@ export type CapabilityQualificationRecord = {
 };
 
 const coveredFamilies = [
-  ...["K02", "K03", "K06", "K07", "K08"],
+  ...["K02", "K03", "K06", "K07", "K08", "K11"],
   ...["O04", "O05", "O07", "O09"],
 ];
-const coveredCases = ["K11.a", "K11.c", "K11.d", "K11.e", "Q02.e"];
+const coveredCases = ["Q02.e"];
+const needsFactOverride = ["K11.b"];
 
 export function capabilityQualificationCases(
   cases: readonly StateCase[] = stateCases,
 ): readonly StateCase[] {
-  return cases.filter(
-    (row) =>
-      coveredFamilies.includes(row.id.slice(0, 3)) ||
-      coveredCases.includes(row.id.slice(0, 5)),
-  );
+  return cases.filter((row) => {
+    const short = row.id.slice(0, 5);
+    return (
+      (coveredFamilies.includes(row.id.slice(0, 3)) &&
+        !needsFactOverride.includes(short)) ||
+      coveredCases.includes(short)
+    );
+  });
 }
 
 export function registeredCases(source: string): readonly string[] {
@@ -85,10 +88,17 @@ export function registeredCases(source: string): readonly string[] {
   );
 }
 
+export function otherEntryOnly(
+  row: StateCase,
+  entry: RunEntry,
+): { readonly entry: RunEntry; readonly reason: string } | undefined {
+  const only = row.status === "executable" ? row.onlyThrough : undefined;
+  return only !== undefined && only.entry !== entry ? only : undefined;
+}
+
 export function runsThrough(row: StateCase, entry: RunEntry): boolean {
   return (
-    row.status === "executable" &&
-    (row.onlyThrough === undefined || row.onlyThrough.entry === entry)
+    row.status === "executable" && otherEntryOnly(row, entry) === undefined
   );
 }
 
@@ -213,23 +223,19 @@ function shaped(value: string, pattern: RegExp, where: string): string {
 function parseCase(source: unknown, where: string): CaseResult {
   const named = own(source, "result");
   if (named === "not-runnable") {
-    const entry = fields(source, ["id", "result", "detail", "reason"], where);
+    const entry = fields(source, ["id", "result", "reason"], where);
     return {
       id: entry.text("id"),
       result: named,
-      detail: entry.text("detail"),
       reason: entry.text("reason"),
     };
   }
   const entry = fields(source, ["id", "result", "detail"], where);
-  const result = oneOf(
-    entry.text("result"),
-    caseResultValues,
-    `${where}.result`,
-  );
-  if (result === "not-runnable")
-    throw new Error(`${where} is not-runnable with no reason`);
-  return { id: entry.text("id"), result, detail: entry.text("detail") };
+  return {
+    id: entry.text("id"),
+    result: oneOf(entry.text("result"), ranResults, `${where}.result`),
+    detail: entry.text("detail"),
+  };
 }
 
 function parseRun(source: unknown, where: string): CapabilityQualificationRun {
@@ -346,12 +352,12 @@ function caseProblems(
 ): readonly string[] {
   if (row.status !== "executable") return [];
   const found = run.cases.find((entry) => entry.id === row.id);
-  const only = row.onlyThrough;
-  if (only !== undefined && only.entry !== run.entry)
-    return found?.result === "not-runnable" && found.reason.trim() !== ""
+  const only = otherEntryOnly(row, run.entry);
+  if (only !== undefined)
+    return found?.result === "not-runnable" && found.reason === only.reason
       ? []
       : [
-          `${row.id} runs only through ${only.entry}, so the ${run.entry} run must mark it not-runnable with a reason`,
+          `${row.id} runs only through ${only.entry}, so the ${run.entry} run must mark it not-runnable with the case table's reason`,
         ];
   if (found === undefined)
     return [`the ${run.entry} run has no result for ${row.id}`];
