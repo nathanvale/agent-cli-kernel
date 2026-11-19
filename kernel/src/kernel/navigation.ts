@@ -108,7 +108,7 @@ function instructionFor(causeCode: string) {
 function helpStep(cli: string): NextStep {
   return { kind: "command", command: `${cli}.help`, args: [] };
 }
-function discoverable(identity: string): boolean {
+export function discoverable(identity: string): boolean {
   return !identity.startsWith("-") && !/[{}]/u.test(identity);
 }
 type HostStep = { readonly repair: string; readonly next: NextStep };

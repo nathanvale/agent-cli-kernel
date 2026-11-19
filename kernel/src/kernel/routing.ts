@@ -1,6 +1,7 @@
 import { splitDeadline, splitDeadlineTokens } from "./deadline.ts";
 import type { CommandDeclaration } from "./declarations.ts";
 import { acceptsRootInput, parseSlots } from "./input.ts";
+import { discoverable } from "./navigation.ts";
 import { usageRefusal } from "./usage.ts";
 import type { UsageFault } from "./usage.ts";
 export function refused(
@@ -115,6 +116,22 @@ function selectCommand(
     )
     .sort((a, b) => b.route.length - a.route.length)[0];
 }
+// Accepted decision A10: an explicit --help request succeeds with exit 0.
+function askedNavigation(
+  cli: string,
+  commands: readonly CommandDeclaration[],
+  tokens: readonly string[],
+  flag: string | undefined,
+) {
+  if (flag !== "--help" || tokens[0] === flag) return { flag, tokens };
+  const command = selectCommand(cli, commands, tokens);
+  return command && discoverable(command.commandIdentity)
+    ? {
+        flag: "--discover-command",
+        tokens: ["--discover-command", command.commandIdentity],
+      }
+    : { flag, tokens: [flag] };
+}
 // Accepted decision (contract question 6 of 8): the host command a declared
 // step's final vector (route, then args) routes to, by the same selection
 // as an invocation, or undefined when it would reach no host command.
@@ -145,15 +162,17 @@ export async function resolveInvocation(
   if (!tokens.length) return refused(cli, { kind: "no-command" }, machine);
   if (navigation.length > 1)
     return refused(cli, { kind: "navigation-conflict" }, machine);
-  if (navigation.length === 1)
+  if (navigation.length === 1) {
+    const asked = askedNavigation(cli, commands, tokens, navigation[0]);
     return resolveBuiltin(
       cli,
       commands,
-      tokens,
+      asked.tokens,
       machine,
-      navigation[0],
+      asked.flag,
       deadlineMilliseconds,
     );
+  }
   const command = selectCommand(cli, commands, tokens);
   return command
     ? resolveCommand(

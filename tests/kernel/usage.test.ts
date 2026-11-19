@@ -201,7 +201,7 @@ const rows: readonly (readonly [string, readonly string[], Expected])[] = [
   ],
   [
     "a navigation switch after a command",
-    ["show", "--help"],
+    ["show", "--discover"],
     refusal(
       "x.dispatch",
       "Give --help or --discover alone, or --discover-command with one command identity.",
@@ -841,4 +841,227 @@ describe("a host command's usage refusal points at its own discovery", () => {
       expect((await contract.validate(result.envelope)).ok).toBe(true);
     }
   });
+});
+
+const shape =
+  "Give --help or --discover alone, or --discover-command with one command identity.";
+const kept: readonly (readonly [string, readonly string[], Expected])[] = [
+  [
+    "--help with another navigation switch is a conflict",
+    ["show", "--help", "--discover"],
+    refusal(
+      "x.dispatch",
+      "Use only one of --help, --discover and --discover-command.",
+    ),
+  ],
+  [
+    "--help with a deadline refuses the deadline",
+    ["show", "--help", "--deadline-ms", "5"],
+    refusal("x.dispatch", "This command does not accept --deadline-ms."),
+  ],
+  [
+    "--help after -- is an operand of the command",
+    ["show", "--", "--help"],
+    refusal(
+      "x.show",
+      "The argument item must match the pattern [a-z]+.",
+      showNext,
+    ),
+  ],
+  [
+    "--help before a route keeps the shape refusal",
+    ["--help", "show"],
+    refusal("x.dispatch", shape),
+  ],
+  [
+    "--discover after a route keeps the shape refusal",
+    ["show", "--discover"],
+    refusal("x.dispatch", shape),
+  ],
+  [
+    "--discover-command after a route keeps the shape refusal",
+    ["show", "--discover-command", "x.show"],
+    refusal("x.dispatch", shape),
+  ],
+];
+
+const asHelp: readonly (readonly [readonly string[], readonly string[]])[] = [
+  [
+    ["show", "--help"],
+    ["--discover-command", "x.show"],
+  ],
+  [
+    ["show", "--title", "a", "--help"],
+    ["--discover-command", "x.show"],
+  ],
+  [
+    ["show", "--nope", "--help"],
+    ["--discover-command", "x.show"],
+  ],
+  [["nope", "--help"], ["--help"]],
+];
+
+function asked(argv: readonly string[]) {
+  return spawnBounded([process.execPath, entry, "usage", ...argv], {
+    env: { ...process.env },
+  });
+}
+
+function discovered(data: unknown): unknown {
+  return read(read(data, "command"), "commandIdentity");
+}
+
+function sharedPrefix() {
+  const all = command({
+    identity: "x.all",
+    route: ["show", "all"],
+    summary: "Show every title.",
+    input: emptyInput,
+    capabilities: {},
+    run: readsUnchanged("x.all"),
+  });
+  return contractFor({ cli: "x", commands: [slotShow(), all] });
+}
+
+describe("a command followed by --help answers with that command's discovery", () => {
+  test(
+    "the production entry prints what --discover-command prints for the command, or plain help for no command, and exits 0",
+    async () => {
+      const shown = await asked(["--discover-command", "x.show"]);
+      expect(
+        shown.stdout.startsWith(
+          "x.show (inspect)\nShow a title.\nRoute: show\n",
+        ),
+      ).toBe(true);
+      const help = await asked(["--help"]);
+      expect(help.stdout.startsWith("Usage: x <command> [options]\n")).toBe(
+        true,
+      );
+      for (const [argv, same] of asHelp) {
+        const expected = same[0] === "--help" ? help : shown;
+        const run = await asked(argv);
+        expect({
+          exit: run.exit,
+          stdout: run.stdout,
+          stderr: run.stderr,
+        }).toEqual({ exit: 0, stdout: expected.stdout, stderr: "" });
+      }
+    },
+    processWatchdog(2 + asHelp.length),
+  );
+
+  test(
+    "the production entry's JSON envelope names command discovery and carries the data --discover-command carries",
+    async () => {
+      const shown = await asked(["--json", "--discover-command", "x.show"]);
+      const help = await asked(["--json", "--help"]);
+      const run = await asked(["show", "--help", "--json"]);
+      const none = await asked(["nope", "--help", "--json"]);
+      expect([run.exit, run.stderr, none.exit, none.stderr]).toEqual([
+        0,
+        "",
+        0,
+        "",
+      ]);
+      const ran = facts(JSON.parse(run.stdout));
+      expect(ran.commandIdentity).toBe("x.command-discovery");
+      expect(discovered(ran.data)).toBe("x.show");
+      expect(ran).toEqual(facts(JSON.parse(shown.stdout)));
+      const unmatched = facts(JSON.parse(none.stdout));
+      expect(unmatched.commandIdentity).toBe("x.help");
+      expect(unmatched).toEqual(facts(JSON.parse(help.stdout)));
+    },
+    processWatchdog(4),
+  );
+
+  test("an in-process run answers each form as its discovery or help twin", async () => {
+    for (const [argv, same] of asHelp) {
+      const run = await inProcess(argv);
+      expect(run.exitCode).toBe(0);
+      expect(run).toEqual(await inProcess(same));
+    }
+  });
+
+  test("resolving a command followed by --help resolves to its command discovery", async () => {
+    const contract = usageContract();
+    const resolved = await contract.resolve(["show", "--help"]);
+    expect(resolved).toEqual({
+      ok: true,
+      value: {
+        commandIdentity: "x.command-discovery",
+        machine: false,
+        input: { commandIdentity: "x.show" },
+      },
+    });
+    expect(resolved).toEqual(
+      await contract.resolve(["--discover-command", "x.show"]),
+    );
+  });
+
+  test("the longest declared route before --help wins", async () => {
+    const contract = sharedPrefix();
+    for (const [argv, identity] of [
+      [["show", "all", "--help"], "x.all"],
+      [["show", "all", "extra", "--help"], "x.all"],
+      [["show", "--help"], "x.show"],
+    ] as const) {
+      const run = await inProcess(argv, contract);
+      expect(discovered(run.facts.data)).toBe(identity);
+      expect(run).toEqual(
+        await inProcess(["--discover-command", identity], contract),
+      );
+    }
+  });
+
+  test("an identity a discovery step cannot carry answers with plain help and still validates", async () => {
+    for (const [identity, route] of [
+      ["x.{odd}", "odd"],
+      ["-odd", "dash"],
+    ] as const) {
+      const contract = contractFor({
+        cli: "x",
+        commands: [ownUsage(identity, route)],
+      });
+      const result = await envelopeOf([route, "--help"], contract);
+      expect({
+        exitCode: result.exitCode,
+        facts: facts(result.envelope),
+      }).toEqual({
+        exitCode: 0,
+        facts: facts((await envelopeOf(["--help"], contract)).envelope),
+      });
+      expect(read(read(result.envelope, "result"), "commandIdentity")).toBe(
+        "x.help",
+      );
+      expect((await contract.validate(result.envelope)).ok).toBe(true);
+    }
+  });
+});
+
+describe("every other navigation form keeps its answer", () => {
+  for (const [name, argv, expected] of kept)
+    test(`${name}: ${expected.message}`, async () => {
+      await expectInProcess(argv, expected);
+    });
+
+  test(
+    "the production entry keeps each refusal and still answers the bare navigation switches",
+    async () => {
+      for (const [, argv, expected] of kept)
+        await expectProcess("usage", argv, expected);
+      for (const [argv, identity] of [
+        [["--help"], "x.help"],
+        [["--discover"], "x.discovery"],
+        [["--discover-command", "x.show"], "x.command-discovery"],
+      ] as const) {
+        const run = await asked(["--json", ...argv]);
+        expect({
+          exit: run.exit,
+          stderr: run.stderr,
+          identity: facts(JSON.parse(run.stdout)).commandIdentity,
+        }).toEqual({ exit: 0, stderr: "", identity });
+      }
+    },
+    processWatchdog(2 * kept.length + 3),
+  );
 });
