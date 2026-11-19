@@ -1,6 +1,7 @@
-import { afterAll, describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, jest, test } from "bun:test";
 import {
   chmodSync,
+  closeSync,
   lstatSync,
   mkdirSync,
   readFileSync,
@@ -9,6 +10,16 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
+import {
+  allocate,
+  prepare,
+} from "../../../kernel/src/addons/diagnostics/custody.ts";
+import type {
+  Allocation,
+  Place,
+} from "../../../kernel/src/addons/diagnostics/custody.ts";
+import { nodeIo } from "../../../kernel/src/addons/diagnostics/io.ts";
+import { turns } from "../lifecycle/recording-host.ts";
 import {
   cleanTrees,
   get,
@@ -527,4 +538,106 @@ describe("D09 setup faults", () => {
       },
       timeout,
     );
+});
+
+const lockWaitOracle = 200;
+const retryIntervalOracle = 10;
+const lateBy = 20;
+const turnBound = 1_000;
+
+function freePlace(): Place {
+  const place = prepare(tree().dir);
+  if (!place) throw new Error("The test tree has no private directory.");
+  return place;
+}
+
+function heldLock(): Place {
+  const place = freePlace();
+  const lock = join(place.directory, ".allocation-lock");
+  mkdirSync(lock, { mode: 0o700 });
+  writeFileSync(join(lock, "holder"), "");
+  return place;
+}
+
+async function waitForLock(
+  place: Place,
+  lateness: (wake: number) => number,
+  abandonedAfter: (elapsed: number) => boolean = () => false,
+) {
+  jest.useFakeTimers();
+  try {
+    const began = performance.now();
+    const outcome: {
+      settled?: { readonly allocation: Allocation; readonly elapsed: number };
+    } = {};
+    void allocate(place, "lock-wait", nodeIo, () =>
+      abandonedAfter(performance.now() - began),
+    ).then((allocation) => {
+      outcome.settled = { allocation, elapsed: performance.now() - began };
+    });
+    let wakes = 0;
+    for (let turn = 0; !outcome.settled && turn < turnBound; turn += 1) {
+      await turns(1);
+      if (jest.getTimerCount() > 0) {
+        jest.advanceTimersToNextTimer();
+        const late = lateness(wakes);
+        // Platform: Bun's jest.advanceTimersByTime(0) moves the fake clock 1 ms.
+        if (late > 0) jest.advanceTimersByTime(late);
+        wakes += 1;
+      }
+    }
+    if (!outcome.settled)
+      throw new Error(`The lock wait did not settle in ${turnBound} turns.`);
+    return { ...outcome.settled, wakes };
+  } finally {
+    jest.useRealTimers();
+  }
+}
+
+test("the allocation lock wait ends at its limit by the clock when every retry wakes late", async () => {
+  const { allocation, elapsed } = await waitForLock(heldLock(), () => lateBy);
+  expect(allocation).toBe("capacity");
+  expect(elapsed).toBeGreaterThanOrEqual(lockWaitOracle);
+  expect(elapsed).toBeLessThanOrEqual(lockWaitOracle + lateBy);
+});
+
+test("an abandoned run ends the allocation lock wait before its limit", async () => {
+  const { allocation, elapsed } = await waitForLock(
+    heldLock(),
+    () => lateBy,
+    (elapsedSoFar) => elapsedSoFar >= 2 * lateBy,
+  );
+  expect(allocation).toBe("abandoned");
+  expect(elapsed).toBeLessThan(lockWaitOracle);
+});
+
+test("with every retry woken on time the allocation lock wait wakes every 10 ms and ends at exactly 200 ms", async () => {
+  const { allocation, elapsed, wakes } = await waitForLock(heldLock(), () => 0);
+  expect(allocation).toBe("capacity");
+  expect(elapsed).toBe(lockWaitOracle);
+  expect(wakes).toBe(lockWaitOracle / retryIntervalOracle);
+});
+
+test("the allocation lock wait arms its last retry for only the time left before its limit", async () => {
+  const { allocation, elapsed } = await waitForLock(heldLock(), (wake) =>
+    wake === 0 ? 3 : 0,
+  );
+  expect(allocation).toBe("capacity");
+  expect(elapsed).toBe(lockWaitOracle);
+});
+
+test("the allocation lock wait tries the lock once even when its limit has passed by the first try", async () => {
+  const checks = { count: 0 };
+  const { allocation } = await waitForLock(
+    freePlace(),
+    () => 0,
+    () => {
+      checks.count += 1;
+      if (checks.count === 1) jest.advanceTimersByTime(lockWaitOracle + lateBy);
+      return false;
+    },
+  );
+  if (typeof allocation !== "object")
+    throw new Error(`The free lock was not taken: ${allocation}.`);
+  closeSync(allocation.descriptor);
 });
