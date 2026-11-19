@@ -10,12 +10,17 @@ on:
     # because GitHub delays or drops scheduled runs at the top of the hour.
     - cron: "37 15 * * *"
   workflow_dispatch:
+  # A change to this workflow runs it on its pull request, since GitHub
+  # dispatches a workflow by hand only once it is on the default branch.
+  pull_request:
+    paths:
+      - .github/workflows/linux-nightly.yml
 
 permissions:
   contents: read
 
 jobs:
-  fault-replay-shard:
+  fault-replay-all:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
