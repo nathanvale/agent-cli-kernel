@@ -1,17 +1,17 @@
 diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
-index 23ac92a..396e455 100644
+index 18e87ed..ba5065c 100644
 --- a/kernel/src/addons/state/install.ts
 +++ b/kernel/src/addons/state/install.ts
-@@ -487,6 +487,8 @@ function caseUnderLease(
-       readonly target: Operation;
+@@ -490,6 +490,8 @@ async function caseUnderLease(
        readonly release: () => void;
-     } {
+     }
+ > {
 +  const read = caseRead(paths, request);
 +  if (!read.ok) return read;
+   await beforeLease();
    const lease = paths.tryLock(
      join(paths.operation(request.operationId), "owner.lease"),
-     false,
-@@ -497,11 +499,6 @@ function caseUnderLease(
+@@ -501,11 +503,6 @@ async function caseUnderLease(
        ok: false,
        stop: { kind: "unavailable", reason: "lease-unreadable" },
      };

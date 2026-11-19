@@ -1683,7 +1683,7 @@
     "id": "d37a77f-install-read-before-lease",
     "patch": "tests/planted-faults/patches/d37a77f-install-read-before-lease.patch",
     "testFile": "tests/kernel/state/recovery.test.ts",
-    "title": "^X29 supporting: a closer takes the owner lease before it reads",
+    "title": "^X29 supporting: closure decides on a fresh read taken after the store read",
     "source": "d37a77f fix(state): decide a closure on the journal read under the target's lease"
   },
   {
