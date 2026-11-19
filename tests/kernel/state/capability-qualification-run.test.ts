@@ -670,7 +670,7 @@ const midRunChanges: readonly (readonly [
   (root: string) => string,
 ])[] = [
   [
-    "a qualified file edited",
+    "an edit to a qualified file",
     (root) =>
       writeFileSync(
         join(root, "kernel/src/addons/state/install.ts"),
@@ -687,7 +687,7 @@ const midRunChanges: readonly (readonly [
 
 for (const [change, make, named] of midRunChanges)
   test(
-    `Q03.b refuses a run whose checkout changed while the cases ran (${change}) and writes no record`,
+    `Q03.b refuses a run whose checkout changed while the cases ran and writes no record, after ${change}`,
     async () => {
       const world = checkout();
       const commit = git(world.root, "rev-parse", "HEAD");
