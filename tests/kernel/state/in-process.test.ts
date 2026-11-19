@@ -1,18 +1,21 @@
 import { expect, test } from "bun:test";
-import { existsSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import { testFolder } from "../../support/test-folder.ts";
+import { spawnBounded } from "../kernel-repair/swarm-process.ts";
 import { at, json, makeWorld, str, supportingTest } from "./harness.ts";
 import type { Json, Observed, World } from "./harness.ts";
 
 const entry = join(import.meta.dir, "fixtures", "in-process-specimen.ts");
+const ranLog = "IN_PROCESS_RAN_LOG";
 const registered: string[] = [];
-const ran: string[] = [];
 
 function inProcessCase(title: string, body: () => Promise<void>): void {
   const id = title.split(" ")[0] ?? title;
   registered.push(id);
   supportingTest(title, async () => {
-    ran.push(id);
+    const log = process.env[ranLog];
+    if (log) appendFileSync(log, `${id}\n`);
     await body();
   });
 }
@@ -274,7 +277,7 @@ for (const [cause, mode, message] of reentered)
     },
   );
 
-test("in-process state cases ran their real bodies on macOS and Linux, and nowhere else claim to", () => {
+test("in-process state cases ran their real bodies on macOS and Linux, and nowhere else claim to", async () => {
   const cases = [
     "IP04.sequence-own-operation-and-proof",
     "IP05.overlap-refused-held-lock",
@@ -286,6 +289,30 @@ test("in-process state cases ran their real bodies on macOS and Linux, and nowhe
     "IP06.on-crash-reentry-rejection",
   ];
   expect(registered).toEqual(cases);
-  const proved = ["darwin", "linux"].includes(process.platform);
-  expect(ran).toEqual(proved ? cases : []);
-});
+  const folder = testFolder("in-process-ran-");
+  try {
+    const log = join(folder, "ran.log");
+    await spawnBounded(
+      [
+        process.execPath,
+        "test",
+        import.meta.path,
+        "--test-name-pattern",
+        `^(?:${cases.join("|").replaceAll(".", "\\.")}) `,
+      ],
+      {
+        cwd: join(import.meta.dir, "../../.."),
+        env: { ...process.env, [ranLog]: log },
+        boundMilliseconds: 60_000,
+        processGroup: true,
+      },
+    );
+    const ran = existsSync(log)
+      ? readFileSync(log, "utf8").split("\n").filter(Boolean)
+      : [];
+    const proved = ["darwin", "linux"].includes(process.platform);
+    expect(ran).toEqual(proved ? cases : []);
+  } finally {
+    rmSync(folder, { recursive: true, force: true });
+  }
+}, 90_000);
