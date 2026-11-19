@@ -10,7 +10,8 @@ boundary trusts the types.
   index read such as `fields[key]` with a key from a payload, and a key
   check in a test. Both also find `Object.prototype` members such as
   `toString`. Witnessed: [r4580070968], [r4580070979], [r4580077776],
-  [5cbff3a].
+  [5cbff3a], [kernel#6 r4622839131] (a fixture's mode table ran
+  `constructor`).
 - Read each value once into the copy you validate, then check and use that
   same copy. A second read of an accessor, or a read after an `await`, can
   differ. Witnessed: [75b4bc0], [r4580077763], [3088c03], [r4606886521],
@@ -60,3 +61,4 @@ boundary trusts the types.
 [d972ded]: https://github.com/nathanvale/bun-typescript-template/commit/d972ded023d0558d9cf47e4e7e2ee5eb5f37b029
 [3088c03]: https://github.com/nathanvale/bun-typescript-template/commit/3088c032c90df81d9d0e5f93700c0769daac5cff
 [8de7e09]: https://github.com/nathanvale/bun-typescript-template/commit/8de7e09c322e1b40304bad9f9332cb976048102e
+[kernel#6 r4622839131]: https://github.com/nathanvale/agent-cli-kernel/pull/6#discussion_r4622839131

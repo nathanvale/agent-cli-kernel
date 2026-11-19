@@ -57,6 +57,10 @@ this file.
 - Read staged Git blobs in one batch by object ID. Witnessed:
   [r4609890969] (the file-size gate started a Git process for each staged
   file).
+- Keep a stopped run where the repeated-signal kill reaches it until the
+  process exits, not only until its handler returns. Witnessed:
+  [kernel#6 r4622839115] (a run that returned during its first-stop settle
+  missed `killNow` at the second signal).
 
 [ac11ed9]: https://github.com/nathanvale/bun-typescript-template/commit/ac11ed98b7d538e8a304cac053aaefcaaf6b2cb3
 [cd2498b]: https://github.com/nathanvale/bun-typescript-template/commit/cd2498b7189a2d45d1906b9c870e8d13da6cd2dd
@@ -72,3 +76,4 @@ this file.
 [r4609956011]: https://github.com/nathanvale/bun-typescript-template/pull/109#discussion_r4609956011
 [r4609956051]: https://github.com/nathanvale/bun-typescript-template/pull/109#discussion_r4609956051
 [r4609890969]: https://github.com/nathanvale/bun-typescript-template/pull/108#discussion_r4609890969
+[kernel#6 r4622839115]: https://github.com/nathanvale/agent-cli-kernel/pull/6#discussion_r4622839115
