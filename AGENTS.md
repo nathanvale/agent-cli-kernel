@@ -5,6 +5,9 @@
 - Run the doctor with `bun run doctor` and apply any repair it names.
 - For CLI kernel work in `kernel/` or `tests/kernel/`, use
   [kernel-work](.agents/skills/kernel-work/SKILL.md).
+- For the author guide stamped with the kernel, `kernel/src/kernel/AGENTS.md`
+  and the `docs` folder beside it, or a red `author-guide` test, use the
+  [author guide upkeep](docs/agents/author-guide.md).
 - Use the [repo gardener](.agents/skills/repo-gardener/SKILL.md) skill for
   an operator correction, review finding, rule row that needs a gate,
   unused guidance, or a name the names check refuses.
