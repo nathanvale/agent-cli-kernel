@@ -21,7 +21,10 @@ runs each test file. What a test must prove is in the
   [#109-bound] (a process-runner case started a nested child with no time
   limit), [kernel#13-readers], [9086c3b] (L08.a started its readers with no
   time limit, and only a reader that exited, not one killed or failed, went
-  through the clean-up that frees a blocked named-pipe open).
+  through the clean-up that frees a blocked named-pipe open),
+  [kernel#18 r4625198722], [93dd83e] (K11.g and the other new state tests
+  started their CLI children with no time limit; the state test harness
+  now gives every `world.start` a 60 s default bound).
 - Template tests: reuse `spawnBounded` (`tests/support/process.ts`), which
   runs the child through `startChild` (`scripts/process-runner.ts`), for that
   bound. Kernel tests: reuse `spawnBounded`
@@ -99,3 +102,5 @@ runs each test file. What a test must prove is in the
 [kernel#12-turns]: https://github.com/nathanvale/agent-cli-kernel/pull/12#pullrequestreview-5968899725
 [kernel#13-readers]: https://github.com/nathanvale/agent-cli-kernel/pull/13#discussion_r4624230342
 [9086c3b]: https://github.com/nathanvale/agent-cli-kernel/commit/9086c3b8b14bcba376aa63027abdd817c1495e53
+[kernel#18 r4625198722]: https://github.com/nathanvale/agent-cli-kernel/pull/18#discussion_r4625198722
+[93dd83e]: https://github.com/nathanvale/agent-cli-kernel/commit/93dd83eec22f119674bddd8bed1f6f2e9c37bf48

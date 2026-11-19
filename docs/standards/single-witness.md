@@ -96,6 +96,12 @@ this file.
   cannot hide a delegate start, yet a complete record appended straight
   after torn bytes read as part of the torn tail at every cut but the three
   just after a header's newline).
+- Decide only on state read while holding what excludes its writer; a
+  read taken before the lock is a stale snapshot. Witnessed:
+  [kernel#18 r4625198714], [d37a77f] (a closer read the case journal,
+  then took the owner's lease, so an owner with an unknown scope could
+  append a delegate start in between and the closure was decided on the
+  stale bytes).
 
 [ac11ed9]: https://github.com/nathanvale/bun-typescript-template/commit/ac11ed98b7d538e8a304cac053aaefcaaf6b2cb3
 [cd2498b]: https://github.com/nathanvale/bun-typescript-template/commit/cd2498b7189a2d45d1906b9c870e8d13da6cd2dd
@@ -123,3 +129,5 @@ this file.
 [e45050c]: https://github.com/nathanvale/agent-cli-kernel/commit/e45050c2bbcafa88b973931119a4512e45d9bfc7
 [run 44456881408]: https://github.com/nathanvale/agent-cli-kernel/actions/runs/44456881408
 [6d4b46d]: https://github.com/nathanvale/agent-cli-kernel/commit/6d4b46de2bb670943cadc1e8003e8f1ff74fb38d
+[kernel#18 r4625198714]: https://github.com/nathanvale/agent-cli-kernel/pull/18#discussion_r4625198714
+[d37a77f]: https://github.com/nathanvale/agent-cli-kernel/commit/d37a77ffc6f8f62c9c89fca2b35e8b16446ef694
