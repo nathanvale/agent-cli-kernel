@@ -6,6 +6,7 @@ import type {
   AttachedAddon,
   EmergencyFacts,
   InProcessResult,
+  InProcessSetup,
   ProcessHost,
   RunAddon,
   RunControl,
@@ -185,18 +186,19 @@ function processWideHost(): ProcessHost {
 
 export function runInProcess(
   contract: ContractKey,
-  setup: RunSetup = {},
+  setup: InProcessSetup = {},
 ): RunInProcess {
   return runInProcessOn(contract, setup, processWideHost);
 }
 
 export function runInProcessOn(
   contract: ContractKey,
-  setup: RunSetup,
+  setup: InProcessSetup,
   host: () => ProcessHost,
 ): RunInProcess {
   const prepared = prepare(contract, setup, "runInProcess");
-  return (argv) => runAndReturn(newRun(prepared, host()), argv);
+  const listener = setup.onCrash;
+  return (argv) => runAndReturn(newRun(prepared, host()), argv, listener);
 }
 
 type Run = {
@@ -863,7 +865,13 @@ async function runInvocation(run: Run, argv: unknown): Promise<number> {
   return code;
 }
 
-type InFlight = { readonly runs: Set<Run>; stopped: StopSignal | undefined };
+type CrashListener = NonNullable<InProcessSetup["onCrash"]>;
+type InFlight = {
+  readonly runs: Set<Run>;
+  readonly listeners: Set<CrashListener>;
+  stopped: StopSignal | undefined;
+  crash: "none" | "listening" | "exited";
+};
 const inFlightByHost = new WeakMap<ProcessHost, InFlight>();
 
 function stopEvery(inFlight: InFlight, host: ProcessHost, signal: StopSignal) {
@@ -889,14 +897,44 @@ function stopEvery(inFlight: InFlight, host: ProcessHost, signal: StopSignal) {
 function inFlightOn(host: ProcessHost): InFlight {
   const known = inFlightByHost.get(host);
   if (known) return known;
-  const inFlight: InFlight = { runs: new Set(), stopped: undefined };
+  const inFlight: InFlight = {
+    runs: new Set(),
+    listeners: new Set(),
+    stopped: undefined,
+    crash: "none",
+  };
   inFlightByHost.set(host, inFlight);
   host.onSignal((signal) => stopEvery(inFlight, host, signal));
-  host.onCrash(() => {
-    for (const run of inFlight.runs) crashRun(run);
+  host.onCrash((error) => crashEvery(inFlight, host, error));
+  return inFlight;
+}
+
+function heard(listener: CrashListener, error: unknown): Promise<void> {
+  try {
+    return Promise.resolve(listener(error));
+  } catch {
+    return Promise.resolve();
+  }
+}
+
+function crashEvery(inFlight: InFlight, host: ProcessHost, error: unknown) {
+  for (const run of inFlight.runs) crashRun(run);
+  if (inFlight.crash !== "none" || inFlight.listeners.size === 0) {
+    inFlight.crash = "exited";
+    host.exit(1);
+    return;
+  }
+  inFlight.crash = "listening";
+  const listening = [...inFlight.listeners].map((each) => heard(each, error));
+  void within(
+    Promise.allSettled(listening),
+    stopBoundMilliseconds,
+    host.now,
+  ).then(() => {
+    if (inFlight.crash !== "listening") return;
+    inFlight.crash = "exited";
     host.exit(1);
   });
-  return inFlight;
 }
 
 const decoder = new TextDecoder();
@@ -929,8 +967,13 @@ function forgetWhenReturned(run: Run): void {
   else void run.handler.returning.then(forget);
 }
 
-async function runAndReturn(run: Run, argv: unknown): Promise<InProcessResult> {
+async function runAndReturn(
+  run: Run,
+  argv: unknown,
+  listener: CrashListener | undefined,
+): Promise<InProcessResult> {
   const inFlight = inFlightOn(run.host);
+  if (listener) inFlight.listeners.add(listener);
   run.stopped = inFlight.stopped;
   inFlight.runs.add(run);
   const chunks: Uint8Array[] = [];

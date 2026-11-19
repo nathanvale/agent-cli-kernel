@@ -33,7 +33,7 @@ export function recordingHost() {
   const exits: number[] = [];
   const installs = { signal: 0, crash: 0 };
   let listener: ((signal: StopSignal) => void) | undefined;
-  let crashListener: (() => void) | undefined;
+  let crashListener: ((error: unknown) => void) | undefined;
   const decoder = new TextDecoder();
   const host: ProcessHost = {
     write(stream, bytes) {
@@ -67,10 +67,10 @@ export function recordingHost() {
         throw new Error("The front door installed no signal hook.");
       listener(name);
     },
-    crash() {
+    crash(error: unknown = new Error("Planted crash.")) {
       if (!crashListener)
         throw new Error("The kernel installed no crash hook.");
-      crashListener();
+      crashListener(error);
     },
   };
 }

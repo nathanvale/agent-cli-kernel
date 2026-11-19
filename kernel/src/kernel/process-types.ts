@@ -11,7 +11,7 @@ export type ProcessHost = {
   ) => Promise<boolean>;
   readonly exit: (code: number) => void;
   readonly onSignal: (listener: (signal: StopSignal) => void) => void;
-  readonly onCrash: (listener: () => void) => void;
+  readonly onCrash: (listener: (error: unknown) => void) => void;
   readonly now: () => number;
 };
 
@@ -88,4 +88,15 @@ export type RunSetup = {
   // Interface: At most one bounded synchronous recording attempt on a catchable crash
   // (LIFE-6a). The state add-on supplies it; without one nothing is written.
   readonly emergencyRecord?: (facts: EmergencyFacts) => void;
+};
+
+// Interface: Accepted decision (Nathan, 19 November 2026, 12:15 and 13:57
+// AEDT): after an uncaught error the kernel stops every run's owned programs
+// and writes its emergency records, then calls `onCrash` once with the error,
+// then exits 1 as soon as the listener settles or 450 ms after the call. A
+// throw or rejection changes nothing, a second crash during the wait exits at
+// once, and the kernel prints nothing. An entry's listener is heard from its
+// first call on; each entry's listener is called once.
+export type InProcessSetup = RunSetup & {
+  readonly onCrash?: (error: unknown) => void | Promise<void>;
 };

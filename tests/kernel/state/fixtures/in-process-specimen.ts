@@ -14,9 +14,15 @@ import {
 const mode = process.argv[2] ?? "";
 const report = join(process.env.SX_WORLD ?? "", "in-process.jsonl");
 
+const listened = mode === "crash-listener";
 const entry = runInProcess(contract, {
   addons: { approval: approvalAddon },
   emergencyRecord: state.emergencyRecord,
+  ...(listened && {
+    onCrash: (error: unknown) => {
+      note("listener", error instanceof Error ? error.message : null);
+    },
+  }),
 });
 
 function apply(name: string, content: string): readonly string[] {
@@ -95,6 +101,7 @@ const modes: Readonly<Record<string, () => Promise<void>>> = {
   overlap,
   crash,
   "crash-both": crashBoth,
+  "crash-listener": crash,
 };
 if (!Object.hasOwn(modes, mode)) throw new Error(`Unknown mode ${mode}.`);
 const selected = modes[mode];

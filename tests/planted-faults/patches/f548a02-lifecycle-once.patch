@@ -1,16 +1,16 @@
 diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
-index d5cf605..38244a8 100644
+index b229ef1..7889cbe 100644
 --- a/kernel/src/kernel/lifecycle.ts
 +++ b/kernel/src/kernel/lifecycle.ts
-@@ -879,7 +879,10 @@ function inFlightOn(host: ProcessHost): InFlight {
-   inFlightByHost.set(host, inFlight);
-   host.onSignal((signal) => stopEvery(inFlight, host, signal));
-   host.onCrash(() => {
--    for (const run of inFlight.runs) crashRun(run);
-+    for (const run of inFlight.runs) {
-+      run.emergencyAttempted = false;
-+      crashRun(run);
-+    }
+@@ -918,7 +918,10 @@ function heard(listener: CrashListener, error: unknown): Promise<void> {
+ }
+ 
+ function crashEvery(inFlight: InFlight, host: ProcessHost, error: unknown) {
+-  for (const run of inFlight.runs) crashRun(run);
++  for (const run of inFlight.runs) {
++    run.emergencyAttempted = false;
++    crashRun(run);
++  }
+   if (inFlight.crash !== "none" || inFlight.listeners.size === 0) {
+     inFlight.crash = "exited";
      host.exit(1);
-   });
-   return inFlight;

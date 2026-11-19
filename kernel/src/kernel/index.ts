@@ -45,6 +45,7 @@ export type {
   AttachedAddon,
   EmergencyFacts,
   InProcessResult,
+  InProcessSetup,
   RunInProcess,
   RunAddon,
   RunControl,
