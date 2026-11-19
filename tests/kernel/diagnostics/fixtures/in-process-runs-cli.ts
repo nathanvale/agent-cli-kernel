@@ -49,24 +49,36 @@ const entry = runInProcess(
   },
 );
 
+const holdBound = 10_000;
+
 async function untilHeld(
+  name: string,
   arrived: Promise<void>,
   run: Promise<unknown>,
 ): Promise<void> {
+  const expiry = AbortSignal.timeout(holdBound);
+  const expired = new Promise<"expired">((resolve) => {
+    expiry.addEventListener("abort", () => resolve("expired"));
+  });
   const settled = await Promise.race([
     arrived.then(() => "held" as const),
     run.then(() => "returned" as const),
+    expired,
   ]);
-  if (settled !== "held")
-    throw new Error("A run returned before its handler was held.");
+  if (settled === "returned")
+    throw new Error(`The ${name} run returned before its handler was held.`);
+  if (settled === "expired")
+    throw new Error(
+      `The ${name} run's handler was not held within ${holdBound} ms.`,
+    );
 }
 
 const first = hold();
 const firstRun = entry(["read", "--json"]);
-await untilHeld(first.arrived, firstRun);
+await untilHeld("first", first.arrived, firstRun);
 const second = hold();
 const secondRun = entry(["read", "--json"]);
-await untilHeld(second.arrived, secondRun);
+await untilHeld("second", second.arrived, secondRun);
 first.release();
 const firstResult = await firstRun;
 second.release();

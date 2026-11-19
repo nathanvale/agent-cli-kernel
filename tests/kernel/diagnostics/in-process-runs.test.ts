@@ -17,6 +17,7 @@ import type { LogRecord } from "@logtape/logtape";
 import type { JsonValue } from "../../../kernel/src/kernel/index.ts";
 import { cleanTrees, get, lines, observe, runCrash, tree } from "./harness.ts";
 import type { Tree } from "./harness.ts";
+import { throwingFacts } from "./fixtures/declarations.ts";
 import { attachedIn, fixtureChildBound } from "./support.ts";
 
 afterAll(cleanTrees);
@@ -33,17 +34,6 @@ function writtenBy(where: Tree, runId: string) {
     runId: get(line, "runId"),
     event: get(line, "event"),
   }));
-}
-
-function throwing(): JsonValue {
-  const facts: Record<string, JsonValue> = {};
-  Object.defineProperty(facts, "boom", {
-    enumerable: true,
-    get() {
-      throw new Error("A getter that throws while it is redacted.");
-    },
-  });
-  return facts;
 }
 
 function nested(depth: number): JsonValue {
@@ -85,6 +75,29 @@ describe("in-process runs of the diagnostics add-on", () => {
           closed: get(status, "closed"),
         }).toEqual({ dropped: 0, complete: true, closed: true });
       }
+    },
+    timeout,
+  );
+
+  test(
+    "two overlapping runs attached by hand each write only their own log lines",
+    async () => {
+      const where = tree();
+      const first = attachedIn(where);
+      const second = attachedIn(where);
+      first.attached.capability.record("opened", { step: 1 });
+      second.attached.capability.record("opened", { step: 1 });
+      first.attached.capability.record("continued", { step: 2 });
+      second.attached.capability.record("continued", { step: 2 });
+      await Promise.all([
+        first.attached.freeze(500),
+        second.attached.freeze(500),
+      ]);
+      for (const { runId } of [first, second])
+        expect(writtenBy(where, runId)).toEqual([
+          { runId, event: "opened" },
+          { runId, event: "continued" },
+        ]);
     },
     timeout,
   );
@@ -169,7 +182,7 @@ describe("in-process runs of the diagnostics add-on", () => {
       const where = tree();
       const failing = attachedIn(where);
       const plain = attachedIn(where);
-      failing.attached.capability.record("throwing", throwing());
+      failing.attached.capability.record("throwing", throwingFacts());
       plain.attached.capability.record("plain", { index: 1 });
       const [failingStatus, plainStatus] = await Promise.all([
         failing.attached.freeze(500),

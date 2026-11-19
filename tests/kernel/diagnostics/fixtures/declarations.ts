@@ -1,4 +1,16 @@
 import { command } from "../../../../kernel/src/kernel/index.ts";
+import type { JsonValue } from "../../../../kernel/src/kernel/index.ts";
+
+export function throwingFacts(): JsonValue {
+  const facts: Record<string, JsonValue> = {};
+  Object.defineProperty(facts, "boom", {
+    enumerable: true,
+    get() {
+      throw new Error("A getter that throws when it is read.");
+    },
+  });
+  return facts;
+}
 
 const token = {
   name: "--token",
