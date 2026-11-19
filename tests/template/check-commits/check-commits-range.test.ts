@@ -441,15 +441,17 @@ describe("check:commits", () => {
     processWatchdog(2),
   );
 
-  test("the CI commits job runs each commit's steps with no stored git token", async () => {
+  test("the CI commits-shard jobs run each commit's steps with no stored git token", async () => {
     const workflow = Bun.YAML.parse(
       await Bun.file(join(repository, ".github/workflows/ci.yml")).text(),
     ) as {
       jobs: {
-        commits: { steps: { uses?: string; with?: Record<string, unknown> }[] };
+        "commits-shard": {
+          steps: { uses?: string; with?: Record<string, unknown> }[];
+        };
       };
     };
-    const checkout = workflow.jobs.commits.steps.find((step) =>
+    const checkout = workflow.jobs["commits-shard"].steps.find((step) =>
       step.uses?.startsWith("actions/checkout@"),
     );
 
