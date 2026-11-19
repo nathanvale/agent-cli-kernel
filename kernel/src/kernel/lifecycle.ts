@@ -974,11 +974,13 @@ function crashEvery(inFlight: InFlight, host: ProcessHost, error: unknown) {
   });
 }
 
-// Platform: Bun ends the process with exit 7 and prints the error when an event
-// listener throws while its uncaughtException handler runs, so the abort and
-// the onCrash calls wait until that handler has returned.
+// Platform: Bun ends the process and prints the error when an event listener
+// throws while its uncaughtException handler runs, so the abort and the
+// onCrash calls wait until that handler has returned. A program started
+// before the abort is killed with the rest.
 function listenThenExit(inFlight: InFlight, host: ProcessHost, error: unknown) {
   for (const run of inFlight.runs) run.controller.abort();
+  for (const run of inFlight.runs) killAll(run);
   const due = host.now() + stopBoundMilliseconds;
   const listening = [...inFlight.listeners].map((each) =>
     callOnCrash(each, error),

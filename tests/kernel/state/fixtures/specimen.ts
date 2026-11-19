@@ -868,6 +868,7 @@ const apply = changing({
   run: async (input, context) => {
     if (fault === "abort-observer-throws")
       context.signal.addEventListener("abort", () => {
+        writeFileSync(join(world, "abort-observer.thrown"), "");
         throw new Error("Planted abort observer failure.");
       });
     await barrier("pre-admission");

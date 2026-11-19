@@ -1,13 +1,14 @@
 diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
-index 68a0a6c..393546b 100644
+index 9182fcd..28d85ca 100644
 --- a/kernel/src/kernel/lifecycle.ts
 +++ b/kernel/src/kernel/lifecycle.ts
-@@ -975,12 +975,12 @@ function crashEvery(inFlight: InFlight, host: ProcessHost, error: unknown) {
- // listener throws while its uncaughtException handler runs, so the abort and
- // the onCrash calls wait until that handler has returned.
+@@ -979,13 +979,13 @@ function crashEvery(inFlight: InFlight, host: ProcessHost, error: unknown) {
+ // onCrash calls wait until that handler has returned. A program started
+ // before the abort is killed with the rest.
  function listenThenExit(inFlight: InFlight, host: ProcessHost, error: unknown) {
 +  inFlight.crash = "listening";
    for (const run of inFlight.runs) run.controller.abort();
+   for (const run of inFlight.runs) killAll(run);
    const due = host.now() + stopBoundMilliseconds;
    const listening = [...inFlight.listeners].map((each) =>
      callOnCrash(each, error),

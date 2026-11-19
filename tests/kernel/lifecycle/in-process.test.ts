@@ -56,6 +56,7 @@ type Holding = {
   readonly controls?: RunControl[];
   readonly kills?: string[];
   readonly onKill?: () => void;
+  readonly programs?: ProgramsCapability[];
   readonly emergencyRecord?: (facts: EmergencyFacts) => void;
   readonly onCrash?: InProcessSetup["onCrash"];
   readonly stopSettleHangs?: true;
@@ -104,6 +105,7 @@ function holding(
   const host = options.host ?? recorder.host;
   const entry = runInProcessOn(
     holdContract(async (programs) => {
+      options.programs?.push(programs);
       const gate = queue.shift();
       entries.push("entered");
       await programs.inspect(shell("exit 0", { timeoutMilliseconds: 5_000 }));
@@ -957,6 +959,7 @@ describe("IP09 onCrash hears the error before the process exits", () => {
         expect(steps).toEqual([
           runId,
           `record ${runId}`,
+          runId,
           "listener aborted=true",
         ]);
         expect(listener.calls).toHaveLength(1);
@@ -1078,11 +1081,11 @@ describe("IP09 onCrash hears the error before the process exits", () => {
       jest.useFakeTimers();
       try {
         recorder.crash();
-        await turns();
-        expect(kills).toHaveLength(1);
+        await listener.called;
+        expect(kills).toHaveLength(2);
         recorder.signal("SIGTERM");
         expect(recorder.exits).toEqual([1]);
-        expect(kills).toHaveLength(2);
+        expect(kills).toHaveLength(3);
         listener.settle.resolve();
         await advance(exactStopBound);
         expect(recorder.exits).toEqual([1]);
@@ -1331,6 +1334,51 @@ describe("IP09 onCrash hears the error before the process exits", () => {
     timeout,
   );
 
+  test(
+    "IP09.program-in-gap a program a run starts after the crash kill but before the abort is killed too",
+    async () => {
+      const recorder = recordingHost();
+      const programs: ProgramsCapability[] = [];
+      const listener = recordedOnCrash();
+      const subject = holding(recorder, {
+        programs,
+        onCrash: listener.onCrash,
+      });
+      const one = await heldRun(subject);
+      const [capability] = programs;
+      if (!capability) throw new Error("The handler kept no programs.");
+      const late: { result?: Promise<unknown> } = {};
+      queueMicrotask(() => {
+        late.result = capability.inspect(
+          shell("sleep 10", { timeoutMilliseconds: 20_000 }),
+        );
+      });
+      try {
+        recorder.crash();
+        await listener.called;
+        const started = late.result;
+        if (!started) throw new Error("The late program never started.");
+        const settled = { done: false };
+        void started.then(
+          () => {
+            settled.done = true;
+          },
+          () => {
+            settled.done = true;
+          },
+        );
+        expect(await until(() => settled.done)).toBe(true);
+        listener.settle.resolve();
+        expect(await until(() => recorder.exits.length > 0)).toBe(true);
+        expect(recorder.exits).toEqual([1]);
+      } finally {
+        one.gate.returned.resolve();
+      }
+      await one.done;
+    },
+    timeout,
+  );
+
   const raisedWhileKilling = [
     [
       "kill-reentry",
@@ -1354,12 +1402,13 @@ describe("IP09 onCrash hears the error before the process exits", () => {
       async () => {
         const recorder = recordingHost();
         const listener = recordedOnCrash();
-        const raised = { count: 0 };
+        const raised: string[] = [];
         const exitsAtCall: number[][] = [];
         const subject = holding(recorder, {
           onKill: () => {
-            raised.count += 1;
-            if (raised.count === 1) raise(recorder);
+            if (raised.length > 0) return;
+            raised.push(name);
+            raise(recorder);
           },
           onCrash: (error) => {
             exitsAtCall.push([...recorder.exits]);
@@ -1372,6 +1421,7 @@ describe("IP09 onCrash hears the error before the process exits", () => {
           const error = new Error("Planted crash with a run in flight.");
           recorder.crash(error);
           await listener.called;
+          expect(raised).toEqual([name]);
           expect(listener.calls).toEqual([[error]]);
           expect(exitsAtCall).toEqual([[]]);
           await turns();
@@ -1395,6 +1445,7 @@ describe("IP09 onCrash hears the error before the process exits", () => {
       const controls: RunControl[] = [];
       const listener = recordedOnCrash();
       const exitsAtCall: number[][] = [];
+      const raised: string[] = [];
       const subject = holding(recorder, {
         controls,
         onCrash: (error) => {
@@ -1408,6 +1459,7 @@ describe("IP09 onCrash hears the error before the process exits", () => {
       control.signal.addEventListener(
         "abort",
         () => {
+          raised.push("abort-signal");
           recorder.signal("SIGTERM");
           recorder.signal("SIGTERM");
         },
@@ -1417,6 +1469,7 @@ describe("IP09 onCrash hears the error before the process exits", () => {
       try {
         recorder.crash();
         await listener.called;
+        expect(raised).toEqual(["abort-signal"]);
         expect(exitsAtCall).toEqual([[]]);
         await turns();
         expect(recorder.exits).toEqual([]);

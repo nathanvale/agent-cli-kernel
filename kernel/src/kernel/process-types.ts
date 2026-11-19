@@ -102,17 +102,17 @@ export type RunSetup = {
 // called once, from that entry's first call on, and exit waits for all of
 // them; the host keeps one per distinct function, so reuse one function across
 // entries. The kernel stops programs and writes records inside the host's
-// crash handler, then aborts runs in flight and calls every `onCrash` once
-// that handler has returned. An error or stop signal that reaches the kernel
+// crash handler, then aborts runs in flight, stops any program started since,
+// and calls every `onCrash` once that handler has returned. An error or stop signal that reaches the kernel
 // while it stops programs, writes records, aborts runs or calls `onCrash`
 // belongs to the first crash: it skips no record, no `onCrash` call and no
 // part of the wait. Once that wait has begun, a second crash or a stop signal
 // exits 1 at once. A crash decides the exit: a stop's own exit no longer
 // fires, and a call made during the wait never starts a run and stays pending
-// until exit. On Bun, an emergency record that makes an event listener throw
-// ends the process with exit 7 and a printed error before `onCrash`, because
-// Bun reports that error inside its own crash handler, where the kernel
-// cannot catch it.
+// until exit. On Bun, an add-on's `killNow` or an emergency record that makes
+// an event listener throw on an uncaught error ends the process with a
+// printed error before `onCrash`, because Bun reports that error inside its
+// own uncaughtException handler, where the kernel cannot catch it.
 export type InProcessSetup = RunSetup & {
   readonly onCrash?: (error: unknown) => void | Promise<void>;
 };
