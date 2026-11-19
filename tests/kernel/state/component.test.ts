@@ -48,8 +48,10 @@ import {
 } from "../../../kernel/src/addons/state/capability-qualification-table.ts";
 import type { CapabilityQualificationRow } from "../../../kernel/src/addons/state/capability-qualification-table.ts";
 import {
+  bootIdentitySource,
   candidateQualification,
   machineBootIdentity,
+  majorReleaseOf,
   resolveQualification,
 } from "../../../kernel/src/addons/state/qualification.ts";
 import type { FactOverrides } from "../../../kernel/src/addons/state/qualification.ts";
@@ -667,7 +669,9 @@ caseTest("Q01.b-fixture-never-enables", async () => {
       expect(report.humanAssistedTakeover).toBe("unavailable");
       expect(report.humanOutcomeUnknownClosure).toBe("unavailable");
     }
-    expect(capabilityQualificationTable).toEqual([]);
+    expect(capabilityQualificationTable.map((row) => row.id)).toEqual([
+      "linux-7-btrfs",
+    ]);
     expect(Object.isFrozen(capabilityQualificationTable)).toBe(true);
     const qualification = resolveQualification();
     expect(qualification.source).toBe("production");
@@ -678,7 +682,8 @@ caseTest("Q01.b-fixture-never-enables", async () => {
     expect(unmatched.matched).toBe(false);
     const detail = unmatched.matched ? "" : unmatched.detail;
     expect(detail).not.toContain("state root's device");
-    expect(detail).toEndWith("; qualified: no capability qualification row");
+    expect(detail).toContain("; qualified: linux-7-btrfs (os linux, major 7, ");
+    expect(detail).toMatch(/\): differs in [a-z ,]*coordination route/);
     const smuggled = {
       root: join(root, "c"),
       report: "cx.pending",
@@ -764,6 +769,62 @@ test("X27 supporting: in process, a candidate row names the one field that diffe
       const result = match(changes, overrides);
       expect(result.matched).toBe(false);
       expect(result.matched ? "" : result.detail).toContain(expected);
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("X27 supporting: the exported boot identity source and major release rule are the ones the matcher uses", () => {
+  const root = temporaryRoot("c3-state-x27-exported-");
+  try {
+    for (const folder of ["coordination", "operations", "settled", "staging"])
+      mkdirSync(join(root, folder));
+    expect(bootIdentitySource).toBe("/proc/sys/kernel/random/boot_id");
+    for (const [release, major] of [
+      ["7.2.12-orbstack-00394-gbecdd6130068", "7"],
+      ["6.8.0-1017-azure", "6"],
+      ["25.6.0", "25"],
+      ["70", "70"],
+    ] as const) {
+      expect(majorReleaseOf(release)).toBe(major);
+      const row: CapabilityQualificationRow = {
+        id: "candidate",
+        os: process.platform,
+        majorRelease: majorReleaseOf(release),
+        observedRelease: release,
+        filesystem: { name: "btrfs", type: 0x9123683e },
+        primitive: "test route",
+        bootIdentitySource,
+        processIdentity: "boot identity only",
+        namespace: "test entry",
+        delegatedWriters: "none",
+        failureCases: [movedStateRoot],
+        evidence: {
+          record: "none",
+          review: { session: "none", countersignature: "none", date: "none" },
+        },
+      };
+      const facts: FactOverrides = {
+        release,
+        filesystem: 0x9123683e,
+        bootIdentity: "boot-one",
+      };
+      expect(
+        candidateQualification("x27", row, facts).match(root, "test route"),
+      ).toEqual({
+        matched: true,
+        label: "fixture:x27",
+        bootIdentity: "boot-one",
+      });
+      const other = candidateQualification(
+        "x27",
+        { ...row, majorRelease: `${major}0` },
+        facts,
+      ).match(root, "test route");
+      expect(other.matched ? "" : other.detail).toEndWith(
+        "): differs in major release",
+      );
     }
   } finally {
     rmSync(root, { recursive: true, force: true });

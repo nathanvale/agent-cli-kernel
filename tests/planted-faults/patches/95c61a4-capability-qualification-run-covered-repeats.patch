@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index 15ff761..54c42ef 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -261,7 +261,7 @@ function caseOfTitle(
+   covered: ReadonlySet<string>,
+ ): string | undefined {
+   const id = name.split(" ")[0] ?? name;
+-  return covered.has(id) && (name === id || name.startsWith(`${id} UNPROVED`))
++  return (name === id || name.startsWith(`${id} UNPROVED`))
+     ? id
+     : undefined;
+ }

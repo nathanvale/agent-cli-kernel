@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index 15ff761..d804c84 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -852,7 +852,7 @@ export async function capabilityQualificationRun(
+       entry,
+       candidate,
+       selection,
+-      files: nulSeparated(context, [
++      files: [] ?? nulSeparated(context, [
+         "ls-tree",
+         "-r",
+         "--name-only",

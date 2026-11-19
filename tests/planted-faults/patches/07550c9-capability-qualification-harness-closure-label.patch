@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/harness.ts b/tests/kernel/state/harness.ts
+index 0ded4ae..b005b6f 100644
+--- a/tests/kernel/state/harness.ts
++++ b/tests/kernel/state/harness.ts
+@@ -58,7 +58,7 @@ export function caseTest(
+ 
+ export function closureLabel(): string {
+   const run = runOf(process.env[runVariable]);
+-  return run?.entry === "index.ts" ? run.candidate.id : "fixture:specimen";
++  return "fixture:specimen";
+ }
+ 
+ async function failClosedControl(): Promise<void> {

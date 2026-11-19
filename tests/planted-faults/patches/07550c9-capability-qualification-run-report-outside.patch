@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index 3810854..a80bce4 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -620,7 +620,7 @@ export async function runCasesWithBun(
+       `no file in ${stateTests} registers a covered case`,
+       `register each covered case with caseTest in ${stateTests}, then rerun`,
+     );
+-  const folder = testFolder(".capability-qualification-run-", request.parent);
++  const folder = testFolder(".capability-qualification-run-");
+   try {
+     const report = join(folder, "report.xml");
+     const child = startChild(

@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index 0b31f1e..1fe8c68 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -374,7 +374,7 @@ export function distributionOf(
+       ? undefined
+       : new RegExp(`^${name}="?([^"\\n]*)"?$`, "m").exec(osRelease)?.[1]
+     )
+-      ?.replace(/[^A-Za-z0-9._-]/g, "")
++      ?.replace(/^$/g, "")
+       .slice(0, 32) ?? "";
+   const id = field("ID");
+   if (id === "") return fallback;

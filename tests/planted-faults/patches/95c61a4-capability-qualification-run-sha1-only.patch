@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index 45909ab..444ab72 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -515,7 +515,7 @@ function workingBytes(path: string, mode: string): Buffer | string {
+ 
+ function committedProblem(place: GitPlace): string | undefined {
+   const format = git(place, ["rev-parse", "--show-object-format"]).trim();
+-  if (format !== "sha1")
++  if (format === "never")
+     return `Refused: the repository's object format is ${format}; a capability qualification record names a 40-character sha1 commit. Repair: run from a sha1 clone.`;
+   const differs = nulSeparated(place, ["ls-tree", "-r", "-z", "HEAD"]).flatMap(
+     (line) => {

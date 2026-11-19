@@ -19,6 +19,7 @@ import {
   bootIdentityFile,
   caseTest,
   closeArgs,
+  closureLabel,
   expectCompleted,
   eventsPath,
   expectRefusedUnchanged,
@@ -27,6 +28,7 @@ import {
   machineBootIdentityRead,
   makeWorld,
   noAppendAfterDamage,
+  only,
   registeredCases,
   str,
   supportingTest,
@@ -60,14 +62,6 @@ const plain = (body: (world: World) => Promise<void>) => () => within({}, body);
 const fixture = (body: (world: World) => Promise<void>) => () =>
   within({ qualification: "fixture" }, body);
 
-function only(world: World, command = "sx.apply"): string {
-  const found = world
-    .operations()
-    .filter((entry) => entry.intent.commandIdentity === command);
-  const [first, ...rest] = found;
-  if (!first || rest.length > 0) throw new Error("Expected one operation.");
-  return first.id;
-}
 function closurePath(world: World, id: string): string {
   const folder = existsSync(join(world.root, "settled", id))
     ? "settled"
@@ -299,7 +293,7 @@ caseTest(
     expect(at(payload, "disposition")).toBe("completed");
     expect(at(payload, "reason")).toBe("independent evidence reviewed");
     expect(at(payload, "journalRevision")).toBe(revision);
-    expect(at(payload, "qualification")).toBe("fixture:specimen");
+    expect(at(payload, "qualification")).toBe(closureLabel());
     expect(at(payload, "evidence")).toEqual([
       { effect: "note.write", observation: "present" },
     ]);
@@ -1094,7 +1088,7 @@ supportingTest(
 );
 
 supportingTest(
-  "X27 supporting: through index.ts the empty capability qualification table refuses closure with the observed facts",
+  "X27 supporting: through index.ts, where no capability qualification row matches, closure refuses with the observed facts",
   plain(async (world) => {
     const production = { SX_ENTRY: "production" };
     await world.killAt(apply("a"), "effect", production);
@@ -1109,18 +1103,47 @@ supportingTest(
     expect(message).toStartWith(
       "State unavailable: stopped-owner-proof-unqualified (observed os ",
     );
-    expect(message).toEndWith("; qualified: no capability qualification row).");
+    expect(message).toContain(
+      "; qualified: linux-7-btrfs (os linux, major 7, ",
+    );
+    expect(message).toMatch(/\): differs in [a-z ,]+\)\.$/);
     expect(outsideCoordination(world, "state/")).toBe(before);
     expect(existsSync(closurePath(world, id))).toBe(false);
     const report = await capabilitiesUnder(world, production);
     expect(at(report, "qualification")).toBe("unqualified");
     expect(at(report, "stoppedOwnerProof")).toBe("unavailable");
     expect(JSON.stringify(at(report, "reasons"))).toContain(
-      "; qualified: no capability qualification row.",
+      "; qualified: linux-7-btrfs (os linux, major 7, ",
     );
     expect(
       world.ledger().filter((line) => line === "entry production"),
     ).toEqual(["entry production", "entry production", "entry production"]);
+  }),
+);
+
+caseTest(
+  "Q02.e-production-row-closes",
+  plain(async (world) => {
+    const label = closureLabel();
+    expect(label).not.toStartWith("fixture:");
+    await world.killAt(apply("a"), "effect");
+    await world.killAt(["send", "m2", "--json"], "intent");
+    const closures = [
+      [only(world), "completed", "c1"],
+      [only(world, "sx.send"), "not-applied", "c2"],
+    ] as const;
+    for (const [id, disposition, closureId] of closures)
+      expectCompleted(
+        await world.run(
+          closeArgs(id, await world.revision(id), disposition, closureId),
+        ),
+      );
+    for (const [id, disposition] of closures) {
+      const payload = world.cases().find((entry) => entry.id === id)?.closure
+        ?.records[0]?.payload;
+      expect(at(payload, "disposition")).toBe(disposition);
+      expect(at(payload, "qualification")).toBe(label);
+    }
   }),
 );
 
@@ -1413,20 +1436,32 @@ function caseIds(world: World): readonly string[] {
 function tornTail(world: World, id: string): boolean {
   return caseOf(world, id).events.torn;
 }
+const productionStartMarker = "entry production";
+function outsideCoordinationAndEffects(world: World): readonly string[] {
+  return [
+    ...outsideCoordination(world)
+      .split("\n")
+      .filter((line) => !line.startsWith("world/ledger.log ")),
+    ...world
+      .ledger()
+      .filter((line) => line !== productionStartMarker)
+      .map((line) => `world/ledger.log line ${line}`),
+  ];
+}
 async function refusedUnavailable(
   world: World,
   id: string,
   environment: Readonly<Record<string, string>>,
   reason: string,
 ): Promise<void> {
-  const before = outsideCoordination(world);
+  const before = outsideCoordinationAndEffects(world);
   const refused = await world.run(
     closeArgs(id, await world.revision(id)),
     environment,
   );
   expectRefusedUnchanged(refused, "DOMAIN_SX_UNAVAILABLE");
   expect(str(refused.envelope.message)).toBe(`State unavailable: ${reason}.`);
-  expect(outsideCoordination(world)).toBe(before);
+  expect(outsideCoordinationAndEffects(world)).toEqual(before);
   expect(existsSync(closurePath(world, id))).toBe(false);
 }
 const confirmedRecord = framed("effect-confirmed", { effect: "note.write" });

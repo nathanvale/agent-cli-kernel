@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index 0b31f1e..fca16f5 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -742,7 +742,7 @@ export async function runCasesWithBun(
+     const finished = await child.finished;
+     delete caseRun.stop;
+     request.output(finished.stdout + finished.stderr);
+-    if (finished.timedOut)
++    if (finished.timedOut === "never")
+       throw new CaseRunFailure(
+         `the case run outlived its ${String(limitMilliseconds)} ms limit`,
+       );

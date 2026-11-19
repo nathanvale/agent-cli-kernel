@@ -1,0 +1,12 @@
+diff --git a/tests/kernel/state/capability-qualification-record.ts b/tests/kernel/state/capability-qualification-record.ts
+index a1775a4..3b430e1 100644
+--- a/tests/kernel/state/capability-qualification-record.ts
++++ b/tests/kernel/state/capability-qualification-record.ts
+@@ -286,7 +286,6 @@ function matchProblems(
+   record: CapabilityQualificationRecord,
+ ): readonly string[] {
+   const pairs: readonly (readonly [string, string, string])[] = [
+-    ["os", record.platform.os, row.os],
+     ["majorRelease", record.platform.majorRelease, row.majorRelease],
+     ["release", record.platform.release, row.observedRelease],
+     ["filesystem type", hex(record.filesystem.type), hex(row.filesystem.type)],

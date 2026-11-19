@@ -1,0 +1,12 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index a1f28f6..9a8b8fa 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -628,7 +628,6 @@ export async function runCasesWithBun(
+     if (!existsSync(report)) throw new Error("the case run wrote no report");
+     return readFileSync(report, "utf8");
+   } finally {
+-    rmSync(folder, { recursive: true, force: true });
+   }
+ }
+ 

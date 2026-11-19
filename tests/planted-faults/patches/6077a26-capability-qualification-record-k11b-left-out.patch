@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-record.ts b/tests/kernel/state/capability-qualification-record.ts
+index 1697254..5b7261b 100644
+--- a/tests/kernel/state/capability-qualification-record.ts
++++ b/tests/kernel/state/capability-qualification-record.ts
+@@ -76,7 +76,7 @@ export function capabilityQualificationCases(
+     const short = row.id.slice(0, 5);
+     return (
+       (coveredFamilies.includes(row.id.slice(0, 3)) &&
+-        !needsFactOverride.includes(short)) ||
++        short !== "") ||
+       coveredCases.includes(short)
+     );
+   });

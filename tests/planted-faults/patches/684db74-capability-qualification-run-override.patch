@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index bcdbf31..03c49f4 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -488,7 +488,7 @@ function prepare(
+   const parsed = parseArguments(argv);
+   if (parsed === undefined) return usage;
+   const overrides = context.environment.SX_FACT_OVERRIDES;
+-  if (overrides !== undefined)
++  if (overrides === "always")
+     return `Refused: SX_FACT_OVERRIDES is set (${overriddenFacts(overrides)}); a capability qualification record holds observed facts only. Repair: unset SX_FACT_OVERRIDES, then rerun.`;
+   const candidate = readCandidate(resolve(parsed.rowFile));
+   if (typeof candidate === "string") return candidate;

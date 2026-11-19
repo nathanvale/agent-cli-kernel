@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-record.ts b/tests/kernel/state/capability-qualification-record.ts
+index a1775a4..05e8eb6 100644
+--- a/tests/kernel/state/capability-qualification-record.ts
++++ b/tests/kernel/state/capability-qualification-record.ts
+@@ -379,7 +379,7 @@ export function rowProblems(
+       ? []
+       : [`factSource is ${record.factSource}, not observed`]),
+     ...matchProblems(row, record),
+-    ...(record.bootIdentitySource.readable
++    ...(true
+       ? []
+       : [
+           "the boot identity was unreadable in the capability qualification run",

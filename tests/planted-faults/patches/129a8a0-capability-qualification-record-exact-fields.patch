@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-record.ts b/tests/kernel/state/capability-qualification-record.ts
+index a1775a4..923f7d8 100644
+--- a/tests/kernel/state/capability-qualification-record.ts
++++ b/tests/kernel/state/capability-qualification-record.ts
+@@ -138,7 +138,7 @@ function fields(source: unknown, keys: readonly string[], where: string) {
+     throw new Error(`${where} is not an object`);
+   const found = Object.keys(source).sort();
+   const wanted = [...keys].sort();
+-  if (found.join(",") !== wanted.join(","))
++  if (found.length < wanted.length)
+     throw new Error(
+       `${where} has fields [${found.join(", ")}], not [${wanted.join(", ")}]`,
+     );

@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-record.ts b/tests/kernel/state/capability-qualification-record.ts
+index 85abe32..d0b0980 100644
+--- a/tests/kernel/state/capability-qualification-record.ts
++++ b/tests/kernel/state/capability-qualification-record.ts
+@@ -111,7 +111,7 @@ export function qualifiedSourceFiles(root: string): readonly SourceFile[] {
+ export function sourceHash(files: readonly SourceFile[]): string {
+   const hash = createHash("sha256");
+   for (const file of [...files].sort(byPath)) {
+-    hash.update(`${file.path}\n${String(file.bytes.byteLength)}\n`);
++    hash.update(`${file.path}\n`);
+     hash.update(file.bytes);
+   }
+   return hash.digest("hex");

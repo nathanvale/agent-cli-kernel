@@ -19,5 +19,6 @@ For a new or changed refusal or bound, use the
 [test proof guide](../standards/test-proof.md#refusals-and-bounds).
 
 For a red `commits` job, run `bun run check:commits <base>`. It checks each
-commit at its own head. For a red `fault-replay` job, run
-`bun run fault-replay <id>`.
+commit at its own head. For a red `fault-replay` check, open the red
+`fault-replay-shard` job and run `bun run fault-replay <id>` for the
+fault it names.

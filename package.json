@@ -12,6 +12,7 @@
     "check:commits": "bun run scripts/check-commits.ts",
     "check:file-size": "bun --no-install scripts/check-file-size.ts",
     "check:names": "bun run scripts/check-names.ts",
+    "capability-qualification-run": "bun run tests/kernel/state/capability-qualification-run.ts",
     "fault-replay": "bun run scripts/planted-faults.ts replay",
     "planted-fault:add": "bun run scripts/planted-faults.ts add",
     "author-guide:write": "bun run tests/kernel/author-guide/example-document.ts",

@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index ee6db01..50a8a47 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -473,7 +473,7 @@ function existingRecord(
+   try {
+     return parseRecord(readFileSync(path, "utf8"));
+   } catch (error) {
+-    return `${recordPath(id)} is not a capability qualification record (${messageOf(error)})`;
++    return undefined;
+   }
+ }
+ 

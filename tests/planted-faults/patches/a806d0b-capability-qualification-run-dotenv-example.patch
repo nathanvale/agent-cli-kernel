@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index 15ff761..739d800 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -614,7 +614,7 @@ function dotenvProblem(root: string): string | undefined {
+   const found = readdirSync(root)
+     .filter(
+       (name) =>
+-        /^\.env(?:\..+)?$/i.test(name) && name.toLowerCase() !== ".env.example",
++        /^\.env(?:\..+)?$/i.test(name),
+     )
+     .sort();
+   return found.length === 0

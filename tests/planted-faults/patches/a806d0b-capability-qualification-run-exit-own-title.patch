@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index 15ff761..01e9600 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -272,7 +272,7 @@ function exitDisagreement(
+ ): string | undefined {
+   const covered = new Set(executableIds(selection));
+   const failed = reportedList(caseRun.report).flatMap(([name, reported]) => {
+-    const id = caseOfTitle(name, covered);
++    const id = name.split(" ")[0];
+     return reported === "failed" && id !== undefined ? [id] : [];
+   });
+   if (caseRun.exitCode !== 0 && failed.length === 0)

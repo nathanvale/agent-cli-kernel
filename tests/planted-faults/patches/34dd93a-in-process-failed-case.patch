@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/in-process.test.ts b/tests/kernel/state/in-process.test.ts
+index 3a34526..a2054cc 100644
+--- a/tests/kernel/state/in-process.test.ts
++++ b/tests/kernel/state/in-process.test.ts
+@@ -16,7 +16,7 @@ function inProcessCase(title: string, body: () => Promise<void>): void {
+   supportingTest(title, async () => {
+     const log = process.env[ranLog];
+     if (log) appendFileSync(log, `${id}\n`);
+-    await body();
++    throw new Error("Planted: the case body fails after its ran line.");
+   });
+ }
+ const continuedCode = 7;

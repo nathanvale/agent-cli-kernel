@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index 45909ab..583bdcb 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -455,7 +455,7 @@ function gitBytes(place: GitPlace, args: readonly string[]): Buffer {
+       env: withoutRepositoryLocation(place.environment),
+       stdout: "pipe",
+       stderr: "pipe",
+-      timeout: bound,
++      timeout: bound * 10,
+       killSignal: "SIGKILL",
+     },
+   );

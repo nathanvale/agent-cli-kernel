@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index bc00310..7cec381 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -263,7 +263,7 @@ function exitDisagreement(
+       return reported === "failed" && covered.has(id);
+     })
+     .map(([name]) => name.split(" ")[0] ?? name);
+-  if (caseRun.exitCode !== 0 && failed.length === 0)
++  if (caseRun.exitCode !== 0)
+     return "no covered case failed in its report";
+   if (caseRun.exitCode === 0 && failed.length > 0)
+     return `${failed.join(", ")} failed in its report`;

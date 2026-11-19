@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index bb727bd..aae7421 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -265,7 +265,7 @@ function ownTitles(
+   const covered = new Set(executableIds(selection));
+   const titles = new Map<string, OwnTitles>();
+   for (const [name, reported] of reportedList(junit)) {
+-    const id = caseOfTitle(name, covered);
++    const id = name.split(" ")[0];
+     if (id === undefined) continue;
+     const known = titles.get(id) ?? {};
+     titles.set(

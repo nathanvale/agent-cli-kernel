@@ -1,0 +1,14 @@
+diff --git a/tests/kernel/state/capability-qualification-record.ts b/tests/kernel/state/capability-qualification-record.ts
+index 2826517..a916bb8 100644
+--- a/tests/kernel/state/capability-qualification-record.ts
++++ b/tests/kernel/state/capability-qualification-record.ts
+@@ -349,8 +349,7 @@ function caseProblems(
+ ): readonly string[] {
+   const found = run.cases.filter((entry) => entry.id === row.id);
+   if (row.status !== "executable") {
+-    if (found.length === 0)
+-      return [`the ${run.entry} run has no result for ${row.id}`];
++    if (found.length === 0) return [];
+     return found.every((entry) => entry.result === "unproved")
+       ? []
+       : [

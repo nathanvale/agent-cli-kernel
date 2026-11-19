@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index bb727bd..109ca2e 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -575,7 +575,7 @@ function resolvesToTracked(
+     inside !== ".." &&
+     !inside.startsWith(`..${sep}`) &&
+     !isAbsolute(inside) &&
+-    places.has(inside.split(sep).join("/"))
++    inside !== "never"
+   );
+ }
+ 

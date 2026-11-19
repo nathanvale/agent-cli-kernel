@@ -2019,7 +2019,7 @@
     "id": "a0d17cc-in-process-control",
     "patch": "tests/planted-faults/patches/a0d17cc-harness-control.patch",
     "testFile": "tests/kernel/state/in-process.test.ts",
-    "title": "IP0[456]\\.|in-process state cases ran",
+    "title": "^in-process state cases ran",
     "source": "a0d17cc test(state): pin which in-process state cases ran their real bodies"
   },
   {
@@ -2077,5 +2077,936 @@
     "testFile": "tests/kernel/state/in-process.test.ts",
     "title": "IP06\\.on-crash-reentry-rejection",
     "source": "9dcecee fix(kernel): stop a program started between the crash kill and the abort"
+  },
+  {
+    "id": "684db74-capability-qualification-record-missing",
+    "patch": "tests/planted-faults/patches/684db74-capability-qualification-record-missing.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a row with no capability qualification record",
+    "source": "684db74 feat(state): add the capability qualification run and its record check"
+  },
+  {
+    "id": "684db74-capability-qualification-record-hosted-link",
+    "patch": "tests/planted-faults/patches/684db74-capability-qualification-record-hosted-link.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a row that cites a hosted run link",
+    "source": "684db74 feat(state): add the capability qualification run and its record check"
+  },
+  {
+    "id": "684db74-capability-qualification-record-fact-source",
+    "patch": "tests/planted-faults/patches/684db74-capability-qualification-record-fact-source.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a record whose factSource is not observed",
+    "source": "684db74 feat(state): add the capability qualification run and its record check"
+  },
+  {
+    "id": "684db74-capability-qualification-record-filesystem",
+    "patch": "tests/planted-faults/patches/684db74-capability-qualification-record-filesystem.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a record whose filesystem does not match the row",
+    "source": "684db74 feat(state): add the capability qualification run and its record check"
+  },
+  {
+    "id": "684db74-capability-qualification-record-observed-release",
+    "patch": "tests/planted-faults/patches/684db74-capability-qualification-record-observed-release.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a record whose observedRelease does not match the row",
+    "source": "684db74 feat(state): add the capability qualification run and its record check"
+  },
+  {
+    "id": "684db74-capability-qualification-record-one-run",
+    "patch": "tests/planted-faults/patches/684db74-capability-qualification-record-one-run.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a record with one capability qualification run only",
+    "source": "684db74 feat(state): add the capability qualification run and its record check"
+  },
+  {
+    "id": "684db74-capability-qualification-record-stale-hash",
+    "patch": "tests/planted-faults/patches/684db74-capability-qualification-record-stale-hash.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a record whose sourceHash is stale",
+    "source": "684db74 feat(state): add the capability qualification run and its record check"
+  },
+  {
+    "id": "684db74-capability-qualification-record-countersignature",
+    "patch": "tests/planted-faults/patches/684db74-capability-qualification-record-countersignature.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a row that names no countersignature",
+    "source": "684db74 feat(state): add the capability qualification run and its record check"
+  },
+  {
+    "id": "684db74-capability-qualification-record-listing-order",
+    "patch": "tests/planted-faults/patches/684db74-capability-qualification-record-listing-order.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^sourceHash is stable across file listing order",
+    "source": "684db74 feat(state): add the capability qualification run and its record check"
+  },
+  {
+    "id": "684db74-capability-qualification-record-bytes",
+    "patch": "tests/planted-faults/patches/684db74-capability-qualification-record-bytes.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^sourceHash changes when a qualified file changes by one byte",
+    "source": "684db74 feat(state): add the capability qualification run and its record check"
+  },
+  {
+    "id": "684db74-capability-qualification-record-framing",
+    "patch": "tests/planted-faults/patches/684db74-capability-qualification-record-framing.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^sourceHash frames each file by its path and length",
+    "source": "684db74 feat(state): add the capability qualification run and its record check"
+  },
+  {
+    "id": "684db74-capability-qualification-run-override",
+    "patch": "tests/planted-faults/patches/684db74-capability-qualification-run-override.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^Q03.b",
+    "source": "684db74 feat(state): add the capability qualification run and its record check"
+  },
+  {
+    "id": "684db74-capability-qualification-run-dirty",
+    "patch": "tests/planted-faults/patches/684db74-capability-qualification-run-dirty.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^Q03.b-capability-qualification-run-refuses",
+    "source": "684db74 feat(state): add the capability qualification run and its record check"
+  },
+  {
+    "id": "684db74-capability-qualification-run-in-place",
+    "patch": "tests/planted-faults/patches/684db74-capability-qualification-run-in-place.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^a killed capability qualification run leaves no record",
+    "source": "684db74 feat(state): add the capability qualification run and its record check"
+  },
+  {
+    "id": "684db74-capability-qualification-run-existing-record",
+    "patch": "tests/planted-faults/patches/684db74-capability-qualification-run-existing-record.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^a fixture.ts capability qualification run refuses when the row already has a record",
+    "source": "684db74 feat(state): add the capability qualification run and its record check"
+  },
+  {
+    "id": "684db74-capability-qualification-run-not-in-table",
+    "patch": "tests/planted-faults/patches/684db74-capability-qualification-run-not-in-table.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^an index.ts capability qualification run needs the row in the table",
+    "source": "684db74 feat(state): add the capability qualification run and its record check"
+  },
+  {
+    "id": "684db74-capability-qualification-run-platform-differs",
+    "patch": "tests/planted-faults/patches/684db74-capability-qualification-run-platform-differs.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^an index.ts capability qualification run needs the row in the table",
+    "source": "684db74 feat(state): add the capability qualification run and its record check"
+  },
+  {
+    "id": "684db74-capability-qualification-run-candidate-row",
+    "patch": "tests/planted-faults/patches/684db74-capability-qualification-run-candidate-row.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^Q03 supporting: a fixture.ts capability qualification run closes through the candidate row",
+    "source": "684db74 feat(state): add the capability qualification run and its record check"
+  },
+  {
+    "id": "684db74-capability-qualification-run-production-entry",
+    "patch": "tests/planted-faults/patches/684db74-capability-qualification-run-production-entry.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^Q03 supporting: an index.ts capability qualification run starts every world",
+    "source": "684db74 feat(state): add the capability qualification run and its record check"
+  },
+  {
+    "id": "684db74-capability-qualification-run-unproved-control",
+    "patch": "tests/planted-faults/patches/684db74-capability-qualification-run-unproved-control.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^each case result comes from its own test",
+    "source": "684db74 feat(state): add the capability qualification run and its record check"
+  },
+  {
+    "id": "129a8a0-capability-qualification-record-os",
+    "patch": "tests/planted-faults/patches/129a8a0-capability-qualification-record-os.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a record whose os does not match the row",
+    "source": "129a8a0 fix(state): settle the two-axis and kernel reviews of the capability qualification run"
+  },
+  {
+    "id": "129a8a0-capability-qualification-record-major-release",
+    "patch": "tests/planted-faults/patches/129a8a0-capability-qualification-record-major-release.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a record whose majorRelease does not match the row",
+    "source": "129a8a0 fix(state): settle the two-axis and kernel reviews of the capability qualification run"
+  },
+  {
+    "id": "129a8a0-capability-qualification-record-primitive",
+    "patch": "tests/planted-faults/patches/129a8a0-capability-qualification-record-primitive.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a record whose primitive does not match the row",
+    "source": "129a8a0 fix(state): settle the two-axis and kernel reviews of the capability qualification run"
+  },
+  {
+    "id": "129a8a0-capability-qualification-record-boot-source",
+    "patch": "tests/planted-faults/patches/129a8a0-capability-qualification-record-boot-source.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a record whose bootIdentitySource does not match the row",
+    "source": "129a8a0 fix(state): settle the two-axis and kernel reviews of the capability qualification run"
+  },
+  {
+    "id": "129a8a0-capability-qualification-record-row",
+    "patch": "tests/planted-faults/patches/129a8a0-capability-qualification-record-row.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a record made for another row",
+    "source": "129a8a0 fix(state): settle the two-axis and kernel reviews of the capability qualification run"
+  },
+  {
+    "id": "129a8a0-capability-qualification-record-boot-unreadable",
+    "patch": "tests/planted-faults/patches/129a8a0-capability-qualification-record-boot-unreadable.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a record whose boot identity was unreadable",
+    "source": "129a8a0 fix(state): settle the two-axis and kernel reviews of the capability qualification run"
+  },
+  {
+    "id": "129a8a0-capability-qualification-record-session",
+    "patch": "tests/planted-faults/patches/129a8a0-capability-qualification-record-session.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a row that names no reviewing session",
+    "source": "129a8a0 fix(state): settle the two-axis and kernel reviews of the capability qualification run"
+  },
+  {
+    "id": "129a8a0-capability-qualification-record-date",
+    "patch": "tests/planted-faults/patches/129a8a0-capability-qualification-record-date.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a row that names no date",
+    "source": "129a8a0 fix(state): settle the two-axis and kernel reviews of the capability qualification run"
+  },
+  {
+    "id": "129a8a0-capability-qualification-record-schema",
+    "patch": "tests/planted-faults/patches/129a8a0-capability-qualification-record-schema.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a record with another schema",
+    "source": "129a8a0 fix(state): settle the two-axis and kernel reviews of the capability qualification run"
+  },
+  {
+    "id": "129a8a0-capability-qualification-record-exact-fields",
+    "patch": "tests/planted-faults/patches/129a8a0-capability-qualification-record-exact-fields.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a record with an extra field",
+    "source": "129a8a0 fix(state): settle the two-axis and kernel reviews of the capability qualification run"
+  },
+  {
+    "id": "129a8a0-capability-qualification-run-candidate-id",
+    "patch": "tests/planted-faults/patches/129a8a0-capability-qualification-run-candidate-id.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run refuses a candidate row with an id",
+    "source": "129a8a0 fix(state): settle the two-axis and kernel reviews of the capability qualification run"
+  },
+  {
+    "id": "129a8a0-capability-qualification-run-candidate-type",
+    "patch": "tests/planted-faults/patches/129a8a0-capability-qualification-run-candidate-type.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run refuses a candidate row with a filesystem type",
+    "source": "129a8a0 fix(state): settle the two-axis and kernel reviews of the capability qualification run"
+  },
+  {
+    "id": "129a8a0-capability-qualification-run-not-a-folder",
+    "patch": "tests/planted-faults/patches/129a8a0-capability-qualification-run-not-a-folder.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run refuses a state root parent that is not a folder",
+    "source": "129a8a0 fix(state): settle the two-axis and kernel reviews of the capability qualification run"
+  },
+  {
+    "id": "129a8a0-capability-qualification-run-ignored-source",
+    "patch": "tests/planted-faults/patches/129a8a0-capability-qualification-run-ignored-source.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run refuses qualified source that git ignores",
+    "source": "129a8a0 fix(state): settle the two-axis and kernel reviews of the capability qualification run"
+  },
+  {
+    "id": "129a8a0-capability-qualification-run-stopped",
+    "patch": "tests/planted-faults/patches/129a8a0-capability-qualification-run-stopped.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^a capability qualification run asked to stop writes no record",
+    "source": "129a8a0 fix(state): settle the two-axis and kernel reviews of the capability qualification run"
+  },
+  {
+    "id": "129a8a0-capability-qualification-run-does-not-qualify",
+    "patch": "tests/planted-faults/patches/129a8a0-capability-qualification-run-does-not-qualify.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^a capability qualification run with a required case that never ran",
+    "source": "129a8a0 fix(state): settle the two-axis and kernel reviews of the capability qualification run"
+  },
+  {
+    "id": "129a8a0-capability-qualification-run-row-differs",
+    "patch": "tests/planted-faults/patches/129a8a0-capability-qualification-run-row-differs.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^an index.ts capability qualification run needs the row in the table",
+    "source": "129a8a0 fix(state): settle the two-axis and kernel reviews of the capability qualification run"
+  },
+  {
+    "id": "129a8a0-capability-qualification-run-runs-shape",
+    "patch": "tests/planted-faults/patches/129a8a0-capability-qualification-run-runs-shape.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^an index.ts capability qualification run needs the row in the table",
+    "source": "129a8a0 fix(state): settle the two-axis and kernel reviews of the capability qualification run"
+  },
+  {
+    "id": "129a8a0-capability-qualification-run-unreadable-record",
+    "patch": "tests/planted-faults/patches/129a8a0-capability-qualification-run-unreadable-record.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^an index.ts capability qualification run refuses a record it cannot read",
+    "source": "129a8a0 fix(state): settle the two-axis and kernel reviews of the capability qualification run"
+  },
+  {
+    "id": "129a8a0-capability-qualification-run-world-override",
+    "patch": "tests/planted-faults/patches/129a8a0-capability-qualification-run-world-override.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^Q03 supporting: a world in a capability qualification run refuses",
+    "source": "129a8a0 fix(state): settle the two-axis and kernel reviews of the capability qualification run"
+  },
+  {
+    "id": "129a8a0-capability-qualification-run-entry-flag",
+    "patch": "tests/planted-faults/patches/129a8a0-capability-qualification-run-entry-flag.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run refuses the arguments row.json parent --from",
+    "source": "129a8a0 fix(state): settle the two-axis and kernel reviews of the capability qualification run"
+  },
+  {
+    "id": "129a8a0-capability-qualification-run-skipped",
+    "patch": "tests/planted-faults/patches/129a8a0-capability-qualification-run-skipped.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^each case result comes from its own test",
+    "source": "129a8a0 fix(state): settle the two-axis and kernel reviews of the capability qualification run"
+  },
+  {
+    "id": "684db74-capability-qualification-record-table-hashed",
+    "patch": "tests/planted-faults/patches/684db74-capability-qualification-record-table-hashed.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^sourceHash does not change when the capability qualification table changes",
+    "source": "684db74 feat(state): add the capability qualification run and its record check"
+  },
+  {
+    "id": "3957781-capability-qualification-run-report-kept",
+    "patch": "tests/planted-faults/patches/3957781-capability-qualification-run-report-kept.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run.s own case runner loads only the files",
+    "source": "3957781 fix(state): run only the covered case files and keep a run inside its parent"
+  },
+  {
+    "id": "3957781-capability-qualification-run-no-case-file",
+    "patch": "tests/planted-faults/patches/3957781-capability-qualification-run-no-case-file.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run.s own case runner refuses a selection no file holds",
+    "source": "3957781 fix(state): run only the covered case files and keep a run inside its parent"
+  },
+  {
+    "id": "684db74-capability-qualification-record-failed-case",
+    "patch": "tests/planted-faults/patches/684db74-capability-qualification-record-failed-case.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a record with a failed required case",
+    "source": "684db74 feat(state): add the capability qualification run and its record check"
+  },
+  {
+    "id": "129a8a0-capability-qualification-record-unproved-case",
+    "patch": "tests/planted-faults/patches/129a8a0-capability-qualification-record-unproved-case.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a record whose required case is unproved",
+    "source": "129a8a0 fix(state): settle the two-axis and kernel reviews of the capability qualification run"
+  },
+  {
+    "id": "129a8a0-capability-qualification-record-missing-case",
+    "patch": "tests/planted-faults/patches/129a8a0-capability-qualification-record-missing-case.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a record missing a required case",
+    "source": "129a8a0 fix(state): settle the two-axis and kernel reviews of the capability qualification run"
+  },
+  {
+    "id": "3957781-capability-qualification-run-case-files",
+    "patch": "tests/planted-faults/patches/3957781-capability-qualification-run-case-files.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run.s own case runner loads only the files",
+    "source": "3957781 fix(state): run only the covered case files and keep a run inside its parent"
+  },
+  {
+    "id": "07550c9-capability-qualification-record-claimed-not-runnable",
+    "patch": "tests/planted-faults/patches/07550c9-capability-qualification-record-claimed-not-runnable.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a run that marks a case not-runnable when the case table runs it there",
+    "source": "07550c9 feat(state): give each capability qualification run its own required cases"
+  },
+  {
+    "id": "07550c9-capability-qualification-record-required-per-entry",
+    "patch": "tests/planted-faults/patches/07550c9-capability-qualification-record-required-per-entry.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^each capability qualification run requires the cases the case table runs",
+    "source": "07550c9 feat(state): give each capability qualification run its own required cases"
+  },
+  {
+    "id": "07550c9-capability-qualification-run-whole-folder",
+    "patch": "tests/planted-faults/patches/07550c9-capability-qualification-run-whole-folder.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run.s own case runner loads only the files",
+    "source": "07550c9 feat(state): give each capability qualification run its own required cases"
+  },
+  {
+    "id": "07550c9-capability-qualification-run-report-outside",
+    "patch": "tests/planted-faults/patches/07550c9-capability-qualification-run-report-outside.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run.s own case runner loads only the files",
+    "source": "07550c9 feat(state): give each capability qualification run its own required cases"
+  },
+  {
+    "id": "07550c9-capability-qualification-harness-closure-label",
+    "patch": "tests/planted-faults/patches/07550c9-capability-qualification-harness-closure-label.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^closureLabel expects the row id",
+    "source": "07550c9 feat(state): give each capability qualification run its own required cases"
+  },
+  {
+    "id": "3957781-capability-qualification-run-identity-leak",
+    "patch": "tests/planted-faults/patches/3957781-capability-qualification-run-identity-leak.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^a capability qualification record holds no path",
+    "source": "3957781 fix(state): run only the covered case files and keep a run inside its parent"
+  },
+  {
+    "id": "07550c9-capability-qualification-record-second-run-missing",
+    "patch": "tests/planted-faults/patches/07550c9-capability-qualification-record-second-run-missing.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a second run missing a case it can run",
+    "source": "07550c9 feat(state): give each capability qualification run its own required cases"
+  },
+  {
+    "id": "07550c9-capability-qualification-record-unmarked",
+    "patch": "tests/planted-faults/patches/07550c9-capability-qualification-record-unmarked.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a run that (passes|leaves out)",
+    "source": "07550c9 feat(state): give each capability qualification run its own required cases"
+  },
+  {
+    "id": "07550c9-capability-qualification-run-marks-not-runnable",
+    "patch": "tests/planted-faults/patches/07550c9-capability-qualification-run-marks-not-runnable.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^each case result comes from its own test",
+    "source": "07550c9 feat(state): give each capability qualification run its own required cases"
+  },
+  {
+    "id": "07550c9-capability-qualification-run-runnable-only",
+    "patch": "tests/planted-faults/patches/07550c9-capability-qualification-run-runnable-only.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run.s own case runner loads only the files",
+    "source": "07550c9 feat(state): give each capability qualification run its own required cases"
+  },
+  {
+    "id": "07550c9-capability-qualification-run-repair",
+    "patch": "tests/planted-faults/patches/07550c9-capability-qualification-run-repair.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^a capability qualification run names the repair when no file registers",
+    "source": "07550c9 feat(state): give each capability qualification run its own required cases"
+  },
+  {
+    "id": "07550c9-capability-qualification-harness-only-through",
+    "patch": "tests/planted-faults/patches/07550c9-capability-qualification-harness-only-through.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^Q02.e-production-row-closes",
+    "source": "07550c9 feat(state): give each capability qualification run its own required cases"
+  },
+  {
+    "id": "6077a26-capability-qualification-record-reason-copied",
+    "patch": "tests/planted-faults/patches/6077a26-capability-qualification-record-reason-copied.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a run that marks a test-entry-only case not-runnable with a reason the case table does not give",
+    "source": "6077a26 feat(state): cover K11.f, keep one reason, and import the qualification rules"
+  },
+  {
+    "id": "6077a26-capability-qualification-record-k11-family",
+    "patch": "tests/planted-faults/patches/6077a26-capability-qualification-record-k11-family.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^K11.f and any later K11 case join",
+    "source": "6077a26 feat(state): cover K11.f, keep one reason, and import the qualification rules"
+  },
+  {
+    "id": "6077a26-capability-qualification-record-k11b-left-out",
+    "patch": "tests/planted-faults/patches/6077a26-capability-qualification-record-k11b-left-out.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^K11.f and any later K11 case join",
+    "source": "6077a26 feat(state): cover K11.f, keep one reason, and import the qualification rules"
+  },
+  {
+    "id": "6077a26-capability-qualification-record-reason-field",
+    "patch": "tests/planted-faults/patches/6077a26-capability-qualification-record-reason-field.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a record with a not-runnable case that also carries a detail",
+    "source": "6077a26 feat(state): cover K11.f, keep one reason, and import the qualification rules"
+  },
+  {
+    "id": "6077a26-capability-qualification-run-name-filter",
+    "patch": "tests/planted-faults/patches/6077a26-capability-qualification-run-name-filter.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run.s own case runner loads only the files",
+    "source": "6077a26 feat(state): cover K11.f, keep one reason, and import the qualification rules"
+  },
+  {
+    "id": "6077a26-capability-qualification-run-boot-source",
+    "patch": "tests/planted-faults/patches/6077a26-capability-qualification-run-boot-source.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^a fixture.ts capability qualification run writes the record the design names",
+    "source": "6077a26 feat(state): cover K11.f, keep one reason, and import the qualification rules"
+  },
+  {
+    "id": "383d361-capability-qualification-run-assume-unchanged",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-run-assume-unchanged.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run refuses a tracked file git marks assume-unchanged",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "383d361-capability-qualification-run-skip-worktree",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-run-skip-worktree.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run refuses a tracked file git marks skip-worktree",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "383d361-capability-qualification-run-committed-bytes",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-run-committed-bytes.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run refuses a tracked file whose bytes differ",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "383d361-capability-qualification-run-exit-code",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-run-exit-code.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^a capability qualification run refuses a test process that exited non-zero with no covered case failing",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "383d361-capability-qualification-run-reported-twice",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-run-reported-twice.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^a capability qualification run refuses a report that names a case twice",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "383d361-capability-qualification-run-git-bound",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-run-git-bound.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run bounds each git read",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "383d361-capability-qualification-run-git-timeout-refusal",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-run-git-timeout-refusal.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run bounds each git read",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "383d361-capability-qualification-run-case-run-bound",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-run-case-run-bound.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run.s own case runner stops a case run that outlives its bound",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "383d361-capability-qualification-run-case-run-timeout-refusal",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-run-case-run-timeout-refusal.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run.s own case runner stops a case run that outlives its bound",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "383d361-capability-qualification-run-missing-report",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-run-missing-report.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run.s own case runner refuses a case run that writes no report",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "383d361-capability-qualification-run-distribution",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-run-distribution.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^a capability qualification record names the distribution",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "383d361-capability-qualification-record-repeated-id",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-record-repeated-id.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a run that lists a case twice",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "383d361-capability-qualification-record-any-failure",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-record-any-failure.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a run that lists a case twice",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "383d361-capability-qualification-record-text-guard",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-record-text-guard.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a record with a number for the os",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "383d361-capability-qualification-record-number-guard",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-record-number-guard.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a record with text for the filesystem type",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "383d361-capability-qualification-record-flag-guard",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-record-flag-guard.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a record with text for the container flag",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "383d361-capability-qualification-record-list-guard",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-record-list-guard.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a record with text for the runs",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "383d361-capability-qualification-record-object-guard",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-record-object-guard.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a record with a list for the record",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "95c61a4-capability-qualification-run-env-file",
+    "patch": "tests/planted-faults/patches/95c61a4-capability-qualification-run-env-file.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run.s own case runner loads only the files",
+    "source": "95c61a4 fix(state): settle the kernel-reviewer pass on the Sol fixes"
+  },
+  {
+    "id": "95c61a4-capability-qualification-run-covered-repeats",
+    "patch": "tests/planted-faults/patches/95c61a4-capability-qualification-run-covered-repeats.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^a capability qualification run ignores a repeated test name that is not a covered case",
+    "source": "95c61a4 fix(state): settle the kernel-reviewer pass on the Sol fixes"
+  },
+  {
+    "id": "95c61a4-capability-qualification-run-sha1-only",
+    "patch": "tests/planted-faults/patches/95c61a4-capability-qualification-run-sha1-only.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run refuses a repository that is not sha1",
+    "source": "95c61a4 fix(state): settle the kernel-reviewer pass on the Sol fixes"
+  },
+  {
+    "id": "95c61a4-capability-qualification-run-link-bytes",
+    "patch": "tests/planted-faults/patches/95c61a4-capability-qualification-run-link-bytes.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^a fixture.ts capability qualification run writes the record the design names",
+    "source": "95c61a4 fix(state): settle the kernel-reviewer pass on the Sol fixes"
+  },
+  {
+    "id": "95c61a4-capability-qualification-run-missing-file",
+    "patch": "tests/planted-faults/patches/95c61a4-capability-qualification-run-missing-file.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run refuses a deleted tracked file",
+    "source": "95c61a4 fix(state): settle the kernel-reviewer pass on the Sol fixes"
+  },
+  {
+    "id": "95c61a4-capability-qualification-run-not-a-link",
+    "patch": "tests/planted-faults/patches/95c61a4-capability-qualification-run-not-a-link.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run refuses a tracked link replaced by a folder",
+    "source": "95c61a4 fix(state): settle the kernel-reviewer pass on the Sol fixes"
+  },
+  {
+    "id": "95c61a4-capability-qualification-run-not-a-file",
+    "patch": "tests/planted-faults/patches/95c61a4-capability-qualification-run-not-a-file.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run refuses a tracked file replaced by a folder",
+    "source": "95c61a4 fix(state): settle the kernel-reviewer pass on the Sol fixes"
+  },
+  {
+    "id": "95c61a4-capability-qualification-run-distribution-cap",
+    "patch": "tests/planted-faults/patches/95c61a4-capability-qualification-run-distribution-cap.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^a capability qualification record names the distribution",
+    "source": "95c61a4 fix(state): settle the kernel-reviewer pass on the Sol fixes"
+  },
+  {
+    "id": "95c61a4-capability-qualification-run-exit-code-reported",
+    "patch": "tests/planted-faults/patches/95c61a4-capability-qualification-run-exit-code-reported.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run.s own case runner loads only the files",
+    "source": "95c61a4 fix(state): settle the kernel-reviewer pass on the Sol fixes"
+  },
+  {
+    "id": "95c61a4-capability-qualification-run-git-bound-size",
+    "patch": "tests/planted-faults/patches/95c61a4-capability-qualification-run-git-bound-size.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run bounds each git read",
+    "source": "95c61a4 fix(state): settle the kernel-reviewer pass on the Sol fixes"
+  },
+  {
+    "id": "95c61a4-capability-qualification-record-one-of",
+    "patch": "tests/planted-faults/patches/95c61a4-capability-qualification-record-one-of.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a record with an unknown",
+    "source": "95c61a4 fix(state): settle the kernel-reviewer pass on the Sol fixes"
+  },
+  {
+    "id": "ae80f32-capability-qualification-run-dotenv",
+    "patch": "tests/planted-faults/patches/ae80f32-capability-qualification-run-dotenv.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^a Bun child started in the checkout loads its .env",
+    "source": "ae80f32 fix(state): settle the Sol second look at the capability qualification run"
+  },
+  {
+    "id": "ae80f32-capability-qualification-run-load-folders",
+    "patch": "tests/planted-faults/patches/ae80f32-capability-qualification-run-load-folders.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run refuses an ignored file in a folder it loads code from",
+    "source": "ae80f32 fix(state): settle the Sol second look at the capability qualification run"
+  },
+  {
+    "id": "ae80f32-capability-qualification-run-tracked-files",
+    "patch": "tests/planted-faults/patches/ae80f32-capability-qualification-run-tracked-files.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^a capability qualification run hands its case runner the files the commit tracks",
+    "source": "ae80f32 fix(state): settle the Sol second look at the capability qualification run"
+  },
+  {
+    "id": "ae80f32-capability-qualification-run-listed-files-only",
+    "patch": "tests/planted-faults/patches/ae80f32-capability-qualification-run-listed-files-only.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run.s own case runner loads only the files",
+    "source": "ae80f32 fix(state): settle the Sol second look at the capability qualification run"
+  },
+  {
+    "id": "ae80f32-capability-qualification-run-exit-zero-with-failure",
+    "patch": "tests/planted-faults/patches/ae80f32-capability-qualification-run-exit-zero-with-failure.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^a capability qualification run refuses a test process that exited 0 though a covered case failed",
+    "source": "ae80f32 fix(state): settle the Sol second look at the capability qualification run"
+  },
+  {
+    "id": "ae80f32-capability-qualification-run-failed-case-written",
+    "patch": "tests/planted-faults/patches/ae80f32-capability-qualification-run-failed-case-written.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^a capability qualification run with a failed required case writes its record",
+    "source": "ae80f32 fix(state): settle the Sol second look at the capability qualification run"
+  },
+  {
+    "id": "ae80f32-capability-qualification-run-unchecked-mode",
+    "patch": "tests/planted-faults/patches/ae80f32-capability-qualification-run-unchecked-mode.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run refuses a tree entry it cannot check",
+    "source": "ae80f32 fix(state): settle the Sol second look at the capability qualification run"
+  },
+  {
+    "id": "ae80f32-capability-qualification-run-boot-readable",
+    "patch": "tests/planted-faults/patches/ae80f32-capability-qualification-run-boot-readable.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the boot identity counts as readable only when",
+    "source": "ae80f32 fix(state): settle the Sol second look at the capability qualification run"
+  },
+  {
+    "id": "ae80f32-capability-qualification-record-source-hash-shape",
+    "patch": "tests/planted-faults/patches/ae80f32-capability-qualification-record-source-hash-shape.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a record with a malformed sourceHash",
+    "source": "ae80f32 fix(state): settle the Sol second look at the capability qualification run"
+  },
+  {
+    "id": "a806d0b-capability-qualification-run-exit-own-title",
+    "patch": "tests/planted-faults/patches/a806d0b-capability-qualification-run-exit-own-title.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^a capability qualification run refuses a non-zero exit explained only by a test",
+    "source": "a806d0b fix(state): read case titles by one rule and close the kernel-reviewer gaps"
+  },
+  {
+    "id": "a806d0b-capability-qualification-run-pattern-titles",
+    "patch": "tests/planted-faults/patches/a806d0b-capability-qualification-run-pattern-titles.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the run's test name pattern selects each executable case",
+    "source": "a806d0b fix(state): read case titles by one rule and close the kernel-reviewer gaps"
+  },
+  {
+    "id": "a806d0b-capability-qualification-run-dotenv-letter-case",
+    "patch": "tests/planted-faults/patches/a806d0b-capability-qualification-run-dotenv-letter-case.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run refuses a .Env.local file",
+    "source": "a806d0b fix(state): read case titles by one rule and close the kernel-reviewer gaps"
+  },
+  {
+    "id": "a806d0b-capability-qualification-run-dotenv-example",
+    "patch": "tests/planted-faults/patches/a806d0b-capability-qualification-run-dotenv-example.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run accepts a committed .env.example",
+    "source": "a806d0b fix(state): read case titles by one rule and close the kernel-reviewer gaps"
+  },
+  {
+    "id": "a806d0b-capability-qualification-run-load-scripts",
+    "patch": "tests/planted-faults/patches/a806d0b-capability-qualification-run-load-scripts.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run refuses an ignored file under scripts",
+    "source": "a806d0b fix(state): read case titles by one rule and close the kernel-reviewer gaps"
+  },
+  {
+    "id": "a806d0b-capability-qualification-run-load-src",
+    "patch": "tests/planted-faults/patches/a806d0b-capability-qualification-run-load-src.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run refuses an ignored file under src",
+    "source": "a806d0b fix(state): read case titles by one rule and close the kernel-reviewer gaps"
+  },
+  {
+    "id": "a806d0b-capability-qualification-run-link-escape",
+    "patch": "tests/planted-faults/patches/a806d0b-capability-qualification-run-link-escape.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run refuses a tracked link that leaves the checkout",
+    "source": "a806d0b fix(state): read case titles by one rule and close the kernel-reviewer gaps"
+  },
+  {
+    "id": "2512c44-capability-qualification-run-real-path",
+    "patch": "tests/planted-faults/patches/2512c44-capability-qualification-run-real-path.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run refuses a tracked case-file link that reaches another checkout",
+    "source": "2512c44 fix(state): require every tracked entry to resolve to a tracked path in the checkout"
+  },
+  {
+    "id": "2512c44-capability-qualification-run-tracked-place",
+    "patch": "tests/planted-faults/patches/2512c44-capability-qualification-run-tracked-place.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run refuses a tracked link to a file git does not track",
+    "source": "2512c44 fix(state): require every tracked entry to resolve to a tracked path in the checkout"
+  },
+  {
+    "id": "2512c44-capability-qualification-run-parent-segment",
+    "patch": "tests/planted-faults/patches/2512c44-capability-qualification-run-parent-segment.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run accepts a tracked link to a tracked name that begins with two dots",
+    "source": "2512c44 fix(state): require every tracked entry to resolve to a tracked path in the checkout"
+  },
+  {
+    "id": "2512c44-capability-qualification-run-own-titles",
+    "patch": "tests/planted-faults/patches/2512c44-capability-qualification-run-own-titles.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^each case result comes from its own test",
+    "source": "2512c44 fix(state): require every tracked entry to resolve to a tracked path in the checkout"
+  },
+  {
+    "id": "dfc5e55-capability-qualification-record-working-copy",
+    "patch": "tests/planted-faults/patches/dfc5e55-capability-qualification-record-working-copy.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03\\.a refuses a record that is only in the working tree",
+    "source": "dfc5e55 fix(state): read the committed record, and check pending cases and review dates, in Q03.a"
+  },
+  {
+    "id": "dfc5e55-capability-qualification-record-pending-result",
+    "patch": "tests/planted-faults/patches/dfc5e55-capability-qualification-record-pending-result.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03\\.a refuses a pending covered case passed rather than recorded unproved",
+    "source": "dfc5e55 fix(state): read the committed record, and check pending cases and review dates, in Q03.a"
+  },
+  {
+    "id": "dfc5e55-capability-qualification-record-pending-missing",
+    "patch": "tests/planted-faults/patches/dfc5e55-capability-qualification-record-pending-missing.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03\\.a refuses a pending covered case left out rather than recorded unproved",
+    "source": "dfc5e55 fix(state): read the committed record, and check pending cases and review dates, in Q03.a"
+  },
+  {
+    "id": "dfc5e55-capability-qualification-record-review-date",
+    "patch": "tests/planted-faults/patches/dfc5e55-capability-qualification-record-review-date.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03\\.a refuses a row that names no real date",
+    "source": "dfc5e55 fix(state): read the committed record, and check pending cases and review dates, in Q03.a"
+  },
+  {
+    "id": "c179ef4-capability-qualification-run-other-row",
+    "patch": "tests/planted-faults/patches/c179ef4-capability-qualification-run-other-row.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^an index\\.ts capability qualification run refuses a record for another row",
+    "source": "c179ef4 fix(state): refuse a prior record for another row, and write only to the candidate's record"
+  },
+  {
+    "id": "c51700a-capability-qualification-run-linked-ignored",
+    "patch": "tests/planted-faults/patches/c51700a-capability-qualification-run-linked-ignored.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run refuses an ignored file reached through a tracked link",
+    "source": "c51700a fix(state): refuse ignored files reached through a tracked link to a folder outside the load folders"
+  },
+  {
+    "id": "79af2d6-capability-qualification-record-git-bound",
+    "patch": "tests/planted-faults/patches/79af2d6-capability-qualification-record-git-bound.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03\\.a bounds its git read",
+    "source": "79af2d6 fix(state): settle the kernel-reviewer pass on the Sol triage's fixes"
+  },
+  {
+    "id": "55e24d6-git-fixture",
+    "patch": "tests/planted-faults/patches/55e24d6-git-fixture.patch",
+    "testFile": "tests/template/test-helpers/git-fixture.test.ts",
+    "title": "^initRepository builds a sha1 repository when the caller's git defaults to sha256",
+    "source": "55e24d6 test(support): build every fixture repository as sha1, whatever the caller's git default"
+  },
+  {
+    "id": "7a68d58-git-fixture-leak",
+    "patch": "tests/planted-faults/patches/7a68d58-git-fixture-leak.patch",
+    "testFile": "tests/template/test-helpers/git-fixture.test.ts",
+    "title": "^the sha256 default never outlives a setup that throws",
+    "source": "7a68d58 test(support): set the sha256 default inside the fixture test's try"
+  },
+  {
+    "id": "e48961c-custody",
+    "patch": "tests/planted-faults/patches/e48961c-custody.patch",
+    "testFile": "tests/kernel/diagnostics/custody.test.ts",
+    "title": "^the allocation lock wait ends at its limit by the clock",
+    "source": "e48961c fix(diagnostics): end the allocation lock wait at its limit by the clock"
+  },
+  {
+    "id": "404b4ed-custody-clamp",
+    "patch": "tests/planted-faults/patches/404b4ed-custody-clamp.patch",
+    "testFile": "tests/kernel/diagnostics/custody.test.ts",
+    "title": "^the allocation lock wait arms its last retry for only the time left",
+    "source": "404b4ed test(diagnostics): state the lock wait's numbers and pin its interval, clamp and first try"
+  },
+  {
+    "id": "404b4ed-custody-first-try",
+    "patch": "tests/planted-faults/patches/404b4ed-custody-first-try.patch",
+    "testFile": "tests/kernel/diagnostics/custody.test.ts",
+    "title": "^the allocation lock wait tries the lock once even when its limit has passed",
+    "source": "404b4ed test(diagnostics): state the lock wait's numbers and pin its interval, clamp and first try"
+  },
+  {
+    "id": "404b4ed-limits-interval",
+    "patch": "tests/planted-faults/patches/404b4ed-limits-interval.patch",
+    "testFile": "tests/kernel/diagnostics/custody.test.ts",
+    "title": "^with every retry woken on time the allocation lock wait",
+    "source": "404b4ed test(diagnostics): state the lock wait's numbers and pin its interval, clamp and first try"
+  },
+  {
+    "id": "404b4ed-limits-deadline",
+    "patch": "tests/planted-faults/patches/404b4ed-limits-deadline.patch",
+    "testFile": "tests/kernel/diagnostics/custody.test.ts",
+    "title": "^with every retry woken on time the allocation lock wait",
+    "source": "404b4ed test(diagnostics): state the lock wait's numbers and pin its interval, clamp and first try"
+  },
+  {
+    "id": "404b4ed-limits-wide",
+    "patch": "tests/planted-faults/patches/404b4ed-limits-wide.patch",
+    "testFile": "tests/kernel/diagnostics/custody.test.ts",
+    "title": "^the allocation lock wait ends at its limit by the clock when every retry wakes late",
+    "source": "404b4ed test(diagnostics): state the lock wait's numbers and pin its interval, clamp and first try"
+  },
+  {
+    "id": "34dd93a-in-process-failed-case",
+    "patch": "tests/planted-faults/patches/34dd93a-in-process-failed-case.patch",
+    "testFile": "tests/kernel/state/in-process.test.ts",
+    "title": "^in-process state cases ran",
+    "source": "34dd93a test(state): fail the in-process pin when its child run fails"
+  },
+  {
+    "id": "73cb18b-git-fixture-maintenance",
+    "patch": "tests/planted-faults/patches/73cb18b-git-fixture-maintenance.patch",
+    "testFile": "tests/template/test-helpers/git-fixture.test.ts",
+    "title": "^a fixture commit starts no background git maintenance",
+    "source": "73cb18b test(support): stop fixture commits from starting background git maintenance"
   }
 ]

@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-record.ts b/tests/kernel/state/capability-qualification-record.ts
+index cb0b2e9..613246e 100644
+--- a/tests/kernel/state/capability-qualification-record.ts
++++ b/tests/kernel/state/capability-qualification-record.ts
+@@ -400,7 +400,7 @@ function runProblems(
+         : [
+             `the ${run.entry} run's sourceHash ${run.sourceHash} is not the qualified source's ${currentHash}`,
+           ]),
+-      ...repeatedIds(run).map(
++      ...([] as string[]).map(
+         (id) => `the ${run.entry} run lists ${id} more than once`,
+       ),
+       ...covered.flatMap((row) => caseProblems(run, row)),
