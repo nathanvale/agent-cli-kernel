@@ -100,9 +100,9 @@ export type HandlerContext<C extends CapabilitySelection> = (C extends {
 // work after that. A run entered with no stop source holds a signal that never
 // aborts. At a deadline the lifecycle waits for the handler inside its
 // cancellation bound (LIFE-6). At the first stop request it waits for the
-// handler inside the stop bound, 450 ms, then exits; a second stop request
-// exits at once (LIFE-11, as the accepted decision of 19 November 2026
-// changes it).
+// handler inside the same stop bound as its add-ons, then exits; a second
+// stop request exits at once (LIFE-11, as the accepted decision of 19
+// November 2026 changes it).
 export type AbortContext = { readonly signal: AbortSignal };
 export type RunProcess = (argv: unknown) => Promise<number>;
 

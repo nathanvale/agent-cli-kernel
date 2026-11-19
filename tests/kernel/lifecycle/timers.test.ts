@@ -166,7 +166,7 @@ describe("the handler's abort signal at a deadline", () => {
     });
 });
 
-const stopWait = 450;
+const stopBoundMilliseconds = 450;
 const addonSettleLimit = 300;
 const stops = [
   ["SIGTERM", 143],
@@ -199,16 +199,21 @@ function slowSettlingPrograms(): RunAddon<ProgramsCapability> {
 }
 
 async function heldUntilStop(
-  work: (signal: AbortSignal, programs: ProgramsCapability) => Promise<void>,
+  work: (
+    signal: AbortSignal,
+    released: Promise<void>,
+    programs: ProgramsCapability,
+  ) => Promise<void>,
   programs: RunAddon<ProgramsCapability> = programsAddon(),
 ) {
   jest.useFakeTimers();
   const entered = deferred();
+  const released = deferred();
   const recorder = recordingHost();
   const done = runProcessOn(
     holdContract(async (capability, signal) => {
       entered.resolve();
-      await work(signal, capability);
+      await work(signal, released.promise, capability);
     }),
     { addons: { programs } },
     () => recorder.host,
@@ -217,29 +222,41 @@ async function heldUntilStop(
   await turns();
   return {
     recorder,
+    async release() {
+      released.resolve();
+      await turns();
+    },
     stop(signal: StopSignal): number {
       const sentAt = performance.now();
       recorder.signal(signal);
       return sentAt;
     },
+    async expectExitAt(sentAt: number, after: number, code: number) {
+      await advance(sentAt + after - 1 - performance.now());
+      expect(recorder.exits).toEqual([]);
+      await advance(1);
+      expect(recorder.exits).toEqual([code]);
+      expect(recorder.exitedAt.map((at) => at - sentAt)).toEqual([after]);
+      expect(recorder.writes).toEqual([]);
+    },
     async finish() {
-      await advance(stopWait);
+      released.resolve();
+      await advance(stopBoundMilliseconds);
       jest.useRealTimers();
       await done;
     },
   };
 }
 
-describe("the stop wait for the handler at a stop request", () => {
+describe("a stop request waits for the handler inside the stop bound", () => {
   for (const [signal, code] of stops)
-    for (const cleanUp of [0, 200, stopWait - 1])
+    for (const cleanUp of [0, 200, stopBoundMilliseconds - 1])
       test(`a stop request on ${signal} waits through a ${String(cleanUp)} ms handler clean-up, then exits ${String(code)} with nothing written`, async () => {
-        const cleaned = deferred();
         const seen: string[] = [];
-        const run = await heldUntilStop(async (abortSignal) => {
+        const run = await heldUntilStop(async (abortSignal, released) => {
           await aborted(abortSignal);
           seen.push("aborted");
-          await cleaned.promise;
+          await released;
           seen.push("cleaned");
         });
         try {
@@ -248,8 +265,7 @@ describe("the stop wait for the handler at a stop request", () => {
           if (cleanUp > 0) await advance(cleanUp);
           expect(seen).toEqual(["aborted"]);
           expect(run.recorder.exits).toEqual([]);
-          cleaned.resolve();
-          await turns();
+          await run.release();
           expect(seen).toEqual(["aborted", "cleaned"]);
           expect(run.recorder.exits).toEqual([code]);
           expect(run.recorder.exitedAt.map((at) => at - sentAt)).toEqual([
@@ -257,50 +273,51 @@ describe("the stop wait for the handler at a stop request", () => {
           ]);
           expect(run.recorder.writes).toEqual([]);
         } finally {
-          cleaned.resolve();
           await run.finish();
         }
       });
 
   for (const [signal, code] of stops)
-    test(`a handler that never ends is cut off at the ${String(stopWait)} ms stop bound on ${signal}, exiting ${String(code)}`, async () => {
-      const released = deferred();
-      const run = await heldUntilStop(() => released.promise);
+    test(`a handler that throws in its clean-up at 200 ms on ${signal} exits ${String(code)} at 200 ms with nothing written`, async () => {
+      const run = await heldUntilStop(async (abortSignal, released) => {
+        await aborted(abortSignal);
+        await released;
+        throw new Error("The handler's clean-up failed.");
+      });
       try {
         const sentAt = run.stop(signal);
-        await advance(stopWait - 1);
+        await advance(200);
         expect(run.recorder.exits).toEqual([]);
-        await advance(1);
+        await run.release();
         expect(run.recorder.exits).toEqual([code]);
-        expect(run.recorder.exitedAt.map((at) => at - sentAt)).toEqual([
-          stopWait,
-        ]);
+        expect(run.recorder.exitedAt.map((at) => at - sentAt)).toEqual([200]);
         expect(run.recorder.writes).toEqual([]);
       } finally {
-        released.resolve();
         await run.finish();
       }
     });
 
   for (const [signal, code] of stops)
-    test(`a handler that never ends beside an add-on that settles at its ${String(addonSettleLimit)} ms limit exits ${String(code)} at the ${String(stopWait)} ms stop bound on ${signal}`, async () => {
-      const released = deferred();
-      const run = await heldUntilStop(async (_signal, programs) => {
+    test(`a handler that never ends is cut off at the ${String(stopBoundMilliseconds)} ms stop bound on ${signal}, exiting ${String(code)}`, async () => {
+      const run = await heldUntilStop((_signal, released) => released);
+      try {
+        const sentAt = run.stop(signal);
+        await run.expectExitAt(sentAt, stopBoundMilliseconds, code);
+      } finally {
+        await run.finish();
+      }
+    });
+
+  for (const [signal, code] of stops)
+    test(`a handler that never ends beside an add-on that settles at its ${String(addonSettleLimit)} ms limit exits ${String(code)} at the ${String(stopBoundMilliseconds)} ms stop bound on ${signal}`, async () => {
+      const run = await heldUntilStop(async (_signal, released, programs) => {
         await programs.inspect(shell("exit 0")).catch(() => undefined);
-        await released.promise;
+        await released;
       }, slowSettlingPrograms());
       try {
         const sentAt = run.stop(signal);
-        await advance(stopWait - 1);
-        expect(run.recorder.exits).toEqual([]);
-        await advance(1);
-        expect(run.recorder.exits).toEqual([code]);
-        expect(run.recorder.exitedAt.map((at) => at - sentAt)).toEqual([
-          stopWait,
-        ]);
-        expect(run.recorder.writes).toEqual([]);
+        await run.expectExitAt(sentAt, stopBoundMilliseconds, code);
       } finally {
-        released.resolve();
         await run.finish();
       }
     });
@@ -309,9 +326,8 @@ describe("the stop wait for the handler at a stop request", () => {
     ["SIGTERM", "SIGINT", 130],
     ["SIGINT", "SIGTERM", 143],
   ] as const)
-    test(`a second stop request (${second} after ${first}) during the stop wait exits ${String(code)} at once`, async () => {
-      const released = deferred();
-      const run = await heldUntilStop(() => released.promise);
+    test(`a second stop request (${second} after ${first}) while the handler is awaited exits ${String(code)} at once`, async () => {
+      const run = await heldUntilStop((_signal, released) => released);
       try {
         run.stop(first);
         await advance(200);
@@ -321,7 +337,6 @@ describe("the stop wait for the handler at a stop request", () => {
         expect(run.recorder.exitedAt).toEqual([againAt]);
         expect(run.recorder.writes).toEqual([]);
       } finally {
-        released.resolve();
         await run.finish();
       }
     });

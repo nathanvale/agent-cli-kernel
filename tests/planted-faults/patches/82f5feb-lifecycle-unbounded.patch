@@ -1,15 +1,17 @@
 diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
-index a9131df..a6a9c78 100644
+index 696430c..2acd118 100644
 --- a/kernel/src/kernel/lifecycle.ts
 +++ b/kernel/src/kernel/lifecycle.ts
-@@ -320,9 +320,7 @@ function installHooks(run: Run) {
+@@ -320,11 +320,7 @@ function installHooks(run: Run) {
      }
      run.stopped = signal;
      run.controller.abort();
--    void within(stopWait(run), stopBoundMilliseconds, run.host.now).then(() =>
--      run.host.exit(code),
--    );
-+    void stopWait(run).then(() => run.host.exit(code));
+-    void within(
+-      settledAfterStopRequest(run),
+-      stopBoundMilliseconds,
+-      run.host.now,
+-    ).then(() => run.host.exit(code));
++    void settledAfterStopRequest(run).then(() => run.host.exit(code));
    });
    run.host.onCrash(() => {
      killAll(run);

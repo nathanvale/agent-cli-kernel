@@ -306,7 +306,7 @@ async function freezeStatus(
 // questions 4 and 20): after the first stop request the run waits for its
 // handler beside its add-ons, inside the one stop bound, so the worst-case
 // exit time and the exit codes stay as LIFE-11 set them.
-function stopWait(run: Run): Promise<unknown> {
+function settledAfterStopRequest(run: Run): Promise<unknown> {
   return Promise.all([run.execution, settleAll(run, settleLimitMilliseconds)]);
 }
 
@@ -320,9 +320,11 @@ function installHooks(run: Run) {
     }
     run.stopped = signal;
     run.controller.abort();
-    void within(stopWait(run), stopBoundMilliseconds, run.host.now).then(() =>
-      run.host.exit(code),
-    );
+    void within(
+      settledAfterStopRequest(run),
+      stopBoundMilliseconds,
+      run.host.now,
+    ).then(() => run.host.exit(code));
   });
   run.host.onCrash(() => {
     killAll(run);
