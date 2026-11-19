@@ -90,6 +90,12 @@ this file.
   `git show` at a fixed commit, and hosted fault replay, [run 44456881408],
   could not resolve the path; the fix adds a committed version 1 reader to
   `tests/kernel/state/harness.ts`).
+- Before resting a safety claim on how a file format reads damage, sweep
+  every cut point of each record, alone and with a complete record after
+  it. Witnessed: [6d4b46d] (the journal version 2 design said a torn tail
+  cannot hide a delegate start, yet a complete record appended straight
+  after torn bytes read as part of the torn tail at every cut but the three
+  just after a header's newline).
 
 [ac11ed9]: https://github.com/nathanvale/bun-typescript-template/commit/ac11ed98b7d538e8a304cac053aaefcaaf6b2cb3
 [cd2498b]: https://github.com/nathanvale/bun-typescript-template/commit/cd2498b7189a2d45d1906b9c870e8d13da6cd2dd
@@ -116,3 +122,4 @@ this file.
 [ff852e8]: https://github.com/nathanvale/agent-cli-kernel/commit/ff852e8f0daed7dc23fc8b092043ab2ddff68c8d
 [e45050c]: https://github.com/nathanvale/agent-cli-kernel/commit/e45050c2bbcafa88b973931119a4512e45d9bfc7
 [run 44456881408]: https://github.com/nathanvale/agent-cli-kernel/actions/runs/44456881408
+[6d4b46d]: https://github.com/nathanvale/agent-cli-kernel/commit/6d4b46de2bb670943cadc1e8003e8f1ff74fb38d
