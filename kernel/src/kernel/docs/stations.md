@@ -125,9 +125,8 @@ handoff's `reason`.
 
 `reachability: "required"` says a test must reach the station.
 `"declared-unreachable"`, with a reason in `unreachableRationale`, is only
-for a result that cannot happen. Command Contract 3 (DISC-8) says:
-"Reviewed unreachable means impossible, not untested." A result that is hard
-to reach stays `required`. See [testing](testing.md#reach-every-station).
+for a result that cannot happen. Unreachable means impossible, not
+untested. A result that is hard to reach stays `required`. See [testing](testing.md#reach-every-station).
 
 ## Stations the kernel adds
 

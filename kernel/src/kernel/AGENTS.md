@@ -12,12 +12,12 @@ folder is `kernel/src/kernel/`. There, follow that repository's top-level
 - Read these documents before any kernel source. They hold what a command
   needs, and each code block in them is copied from an example that the
   kernel repository compiles, lints and tests.
-- Write your commands outside this folder. Command Contract 3 (CMD-6) names
-  `src/cli.ts` as the front door and `src/commands.ts` as its command table.
+- Write your commands outside this folder. `src/cli.ts` is the front door
+  and `src/commands.ts` is its command table.
 - Import the kernel only through `src/kernel/index.ts`. The stamped lint
   refuses any other kernel file.
 - Keep every file in this folder and in `config/kernel/` byte for byte as
-  stamped (CMD-7). A kernel fault is repaired in the kernel repository.
+  stamped. A kernel fault is repaired in the kernel repository.
 
 ## Routes
 
