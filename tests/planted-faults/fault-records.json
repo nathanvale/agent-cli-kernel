@@ -2959,5 +2959,54 @@
     "testFile": "tests/template/check-commits/check-commits-range.test.ts",
     "title": "a since commit that is not behind the head",
     "source": "c3c4a59 fix(check-commits): check every commit when the since commit is not behind the head (GREEN)"
+  },
+  {
+    "id": "f81c945-carried-verdict-rerun",
+    "patch": "tests/planted-faults/patches/f81c945-carried-verdict-rerun.patch",
+    "testFile": "tests/template/check-commits/carried-verdict.test.ts",
+    "title": "a carried head equal to the current head",
+    "source": "f81c945 feat(check-commits): decide a carried verdict from a GitHub-signed merge commit (GREEN)"
+  },
+  {
+    "id": "f81c945-carried-verdict-rewrite",
+    "patch": "tests/planted-faults/patches/f81c945-carried-verdict-rewrite.patch",
+    "testFile": "tests/template/check-commits/carried-verdict.test.ts",
+    "title": "a carried head not behind the current head",
+    "source": "f81c945 feat(check-commits): decide a carried verdict from a GitHub-signed merge commit (GREEN)"
+  },
+  {
+    "id": "f81c945-carried-verdict-retarget",
+    "patch": "tests/planted-faults/patches/f81c945-carried-verdict-retarget.patch",
+    "testFile": "tests/template/check-commits/carried-verdict.test.ts",
+    "title": "a carried base not behind the current base",
+    "source": "f81c945 feat(check-commits): decide a carried verdict from a GitHub-signed merge commit (GREEN)"
+  },
+  {
+    "id": "f81c945-carried-verdict-merge-tree",
+    "patch": "tests/planted-faults/patches/f81c945-carried-verdict-merge-tree.patch",
+    "testFile": "tests/template/check-commits/carried-verdict.test.ts",
+    "title": "a carried run whose merge ran another workflow or checker",
+    "source": "f81c945 feat(check-commits): decide a carried verdict from a GitHub-signed merge commit (GREEN)"
+  },
+  {
+    "id": "f81c945-carried-verdict-head-tree",
+    "patch": "tests/planted-faults/patches/f81c945-carried-verdict-head-tree.patch",
+    "testFile": "tests/template/check-commits/carried-verdict.test.ts",
+    "title": "a carried head whose checker tree differs from the current head",
+    "source": "f81c945 feat(check-commits): decide a carried verdict from a GitHub-signed merge commit (GREEN)"
+  },
+  {
+    "id": "f81c945-carried-verdict-signature",
+    "patch": "tests/planted-faults/patches/f81c945-carried-verdict-signature.patch",
+    "testFile": "tests/template/check-commits/carried-verdict.test.ts",
+    "title": "a signature from another key is refused",
+    "source": "f81c945 feat(check-commits): decide a carried verdict from a GitHub-signed merge commit (GREEN)"
+  },
+  {
+    "id": "f81c945-carried-verdict-workflow",
+    "patch": "tests/planted-faults/patches/f81c945-carried-verdict-workflow.patch",
+    "testFile": "tests/template/check-commits/carried-verdict.test.ts",
+    "title": "a claim workflow_ref",
+    "source": "f81c945 feat(check-commits): decide a carried verdict from a GitHub-signed merge commit (GREEN)"
   }
 ]
