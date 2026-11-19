@@ -24,7 +24,13 @@ import {
   runtimeOf,
 } from "../../../kernel/src/kernel/runtime.ts";
 import { testFolder } from "../../support/test-folder.ts";
-import { cancellationWait, crashWaitBound, stopBound } from "./oracle.ts";
+import {
+  cancellationWait,
+  exactStopBound,
+  stopBound,
+  stopSettleLimit,
+  stops,
+} from "./oracle.ts";
 import {
   advance,
   deferred,
@@ -37,11 +43,6 @@ import {
 } from "./recording-host.ts";
 
 const timeout = 30_000;
-const addonSettleBudget = 300;
-const stops = [
-  ["SIGTERM", 143],
-  ["SIGINT", 130],
-] as const;
 
 type Holding = {
   readonly controls?: RunControl[];
@@ -372,9 +373,9 @@ describe("IP07 the in-process entry checks its contract and bounds", () => {
       jest.useFakeTimers();
       try {
         recorder.signal("SIGTERM");
-        await advance(addonSettleBudget - 1);
+        await advance(stopSettleLimit - 1);
         expect(recorder.exits).toEqual([]);
-        await advance(stopBound - addonSettleBudget + 1);
+        await advance(stopBound - stopSettleLimit + 1);
         expect(recorder.exits).toEqual([143]);
       } finally {
         jest.useRealTimers();
@@ -790,7 +791,7 @@ describe("IP09 onCrash hears the error before the process exits", () => {
       jest.useFakeTimers();
       try {
         recorder.crash();
-        await advance(crashWaitBound - 1);
+        await advance(exactStopBound - 1);
         expect(recorder.exits).toEqual([]);
         await advance(1);
         expect(recorder.exits).toEqual([1]);
@@ -857,7 +858,7 @@ describe("IP09 onCrash hears the error before the process exits", () => {
         expect(recorder.exits).toEqual([]);
         recorder.crash();
         expect(recorder.exits).toEqual([1]);
-        await advance(crashWaitBound);
+        await advance(exactStopBound);
         expect(recorder.exits).toEqual([1]);
         expect(listener.calls).toHaveLength(1);
         expect(facts).toHaveLength(1);
@@ -887,7 +888,7 @@ describe("IP09 onCrash hears the error before the process exits", () => {
         expect(recorder.exits).toEqual([1]);
         expect(kills).toHaveLength(2);
         listener.settle.resolve();
-        await advance(crashWaitBound);
+        await advance(exactStopBound);
         expect(recorder.exits).toEqual([1]);
       } finally {
         jest.useRealTimers();
@@ -914,7 +915,7 @@ describe("IP09 onCrash hears the error before the process exits", () => {
         await advance(100);
         recorder.crash();
         expect(listener.calls).toHaveLength(1);
-        await advance(crashWaitBound - 1);
+        await advance(exactStopBound - 1);
         expect(recorder.exits).toEqual([]);
         await advance(1);
         expect(recorder.exits).toEqual([1]);

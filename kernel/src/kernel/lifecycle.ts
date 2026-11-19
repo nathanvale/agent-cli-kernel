@@ -216,6 +216,7 @@ type Run = {
   stopped: StopSignal | undefined;
   emergencyAttempted: boolean;
   handler: EnteredHandler | undefined;
+  execution: Promise<Execution> | undefined;
 };
 type EnteredHandler = { returned: boolean; readonly returning: Promise<void> };
 type Delivery =
@@ -348,6 +349,14 @@ async function freezeStatus(
   }
 }
 
+// Accepted decision (Nathan, 19 November 2026, 12:08 and 12:15 AEDT,
+// questions 4 and 20): after the first stop request the run waits for its
+// handler beside its add-ons, inside the one stop bound, so the worst-case
+// exit time and the exit codes stay as LIFE-11 set them.
+function settledAfterStopRequest(run: Run): Promise<unknown> {
+  return Promise.all([run.execution, settleAll(run, settleLimitMilliseconds)]);
+}
+
 function stopCode(signal: StopSignal): number {
   return signal === "SIGINT" ? 130 : 143;
 }
@@ -363,7 +372,7 @@ function installHooks(run: Run) {
     run.stopped = signal;
     run.controller.abort();
     void within(
-      settleAll(run, settleLimitMilliseconds),
+      settledAfterStopRequest(run),
       stopBoundMilliseconds,
       run.host.now,
     ).then(() => run.host.exit(code));
@@ -677,10 +686,7 @@ async function runDeclaredCommand(
   if (run.stopped) return undefined;
   if (expired(run, deadlineAt)) return beforeStart(run, identity);
   run.phase = "handler-entered";
-  const execution: Promise<Execution> = attached.enter().then(
-    (outcome) => ({ kind: "returned", outcome }) as const,
-    () => ({ kind: "threw" }) as const,
-  );
+  const execution = enterHandler(run, attached.enter);
   run.handler = handlerOf(execution);
   const first =
     deadlineAt === undefined
@@ -689,6 +695,20 @@ async function runDeclaredCommand(
   return first === undefined
     ? afterDeadline(run, plan.command, execution)
     : afterHandler(run, plan.command, first, deadlineAt);
+}
+
+function enterHandler(run: Run, enter: Enter): Promise<Execution> {
+  let resolveExecution: (execution: Promise<Execution>) => void = () =>
+    undefined;
+  run.execution = new Promise<Execution>((resolve) => {
+    resolveExecution = resolve;
+  });
+  const execution: Promise<Execution> = enter().then(
+    (outcome) => ({ kind: "returned", outcome }) as const,
+    () => ({ kind: "threw" }) as const,
+  );
+  resolveExecution(execution);
+  return execution;
 }
 
 type CheckPhase =
@@ -823,6 +843,7 @@ function newRun(prepared: Prepared, host: ProcessHost): Run {
     stopped: undefined,
     emergencyAttempted: false,
     handler: undefined,
+    execution: undefined,
   };
 }
 

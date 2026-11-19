@@ -1,7 +1,7 @@
 import type { CommandResult } from "../../kernel/src/kernel/index.ts";
 import { expect, test } from "bun:test";
 import { contractFor, command } from "../../kernel/src/kernel/index.ts";
-import type { StateIssuer } from "../../kernel/src/kernel/index.ts";
+import type { EffectTransaction } from "../../kernel/src/kernel/index.ts";
 import {
   attachState,
   createStateAddon,
@@ -82,44 +82,115 @@ test("a handler cannot return a cloned result or a prior invocation with reused 
   ).toMatchObject({ ok: false, path: "result" });
 });
 
-test("a transaction still open after its run is forgotten cannot record an effect", async () => {
-  let issued: StateIssuer | undefined;
-  const descriptor = createStateAddon((issuer) => {
-    issued = issuer;
-    return {
-      ifNoResult: issuer.ifNoResult({
-        kind: "command",
-        command: "specimen.pending",
-        args: [],
-      }),
-      attach: () => ({
-        transaction: async (work) => {
-          await work({
-            record: () => Promise.reject(new Error("Not recorded here.")),
-          });
-          throw new Error("The test transaction proves nothing.");
-        },
-      }),
-    };
-  });
+function recordingState() {
+  const descriptor = createStateAddon((issuer) => ({
+    ifNoResult: issuer.ifNoResult({
+      kind: "command",
+      command: "specimen.pending",
+      args: [],
+    }),
+    attach: (runId) => ({
+      transaction: async (work) => {
+        await work({
+          record: (effect, operation) =>
+            operation(
+              issuer.recordedEffect(runId, effect, (_runId, _effect, begin) =>
+                begin(),
+              ),
+            ),
+        });
+        throw new Error("The test transaction proves nothing.");
+      },
+    }),
+  }));
   const attached = attachState(descriptor, "run-1", ["specimen.note"]);
-  if (!attached || !issued) throw new Error("The state did not attach.");
-  const issuer = issued;
+  if (!attached) throw new Error("The state did not attach.");
+  return { descriptor, attached };
+}
+
+function messageOf(settled: Promise<unknown>): Promise<string> {
+  return settled.then(
+    () => "recorded",
+    (error: unknown) =>
+      error instanceof Error ? error.message : "not an Error",
+  );
+}
+
+const note = () => Promise.resolve("noted");
+const confirmed = () => Promise.resolve(true);
+
+test("a transaction still open after its run is forgotten and its identity reused cannot record an effect", async () => {
+  const { descriptor, attached } = recordingState();
   const open = deferred();
-  const recorded = attached.capability.transaction(async () => {
+  const recorded = attached.capability.transaction(async (transaction) => {
     await open.promise;
-    issuer.recordedEffect("run-1", "specimen.note", (_runId, _effect, start) =>
-      start(),
-    );
+    await transaction.record("specimen.note", note, confirmed);
   });
   attached.close();
   forgetRun("run-1", descriptor);
+  expect(attachState(descriptor, "run-1", ["specimen.note"])).toBeDefined();
   open.resolve();
+  expect(await messageOf(recorded)).toBe(
+    "The state capability closed when the handler returned.",
+  );
+});
+
+async function keptRecord(
+  attached: ReturnType<typeof recordingState>["attached"],
+): Promise<EffectTransaction<"specimen.note">> {
+  let kept: EffectTransaction<"specimen.note"> | undefined;
   expect(
-    await recorded.then(
-      () => "recorded",
-      (error: unknown) =>
-        error instanceof Error ? error.message : "not an Error",
+    await messageOf(
+      attached.capability.transaction((transaction) => {
+        kept = transaction;
+        return Promise.resolve();
+      }),
     ),
-  ).toBe("The state capability closed when the handler returned.");
+  ).toBe("The test transaction proves nothing.");
+  if (!kept) throw new Error("The transaction kept no record.");
+  return kept;
+}
+
+function outsideTheRun(transaction: EffectTransaction<"specimen.note">) {
+  return messageOf(
+    Promise.resolve().then(() =>
+      transaction.record("specimen.note", note, confirmed),
+    ),
+  );
+}
+
+const outsideRefusal = "A recorded effect requires the active attached run.";
+
+test("a record inside its open run's transaction records its effect", async () => {
+  const { attached } = recordingState();
+  const recorded: string[] = [];
+  await messageOf(
+    attached.capability.transaction(async (transaction) => {
+      recorded.push(await transaction.record("specimen.note", note, confirmed));
+    }),
+  );
+  expect(recorded).toEqual(["noted"]);
+});
+
+test("a record kept past its forgotten run and called outside the run cannot record an effect", async () => {
+  const { descriptor, attached } = recordingState();
+  const kept = await keptRecord(attached);
+  attached.close();
+  forgetRun("run-1", descriptor);
+  expect(await outsideTheRun(kept)).toBe(outsideRefusal);
+});
+
+test("a record kept past its forgotten run cannot record under the run that reused its identity", async () => {
+  const { descriptor, attached } = recordingState();
+  const kept = await keptRecord(attached);
+  attached.close();
+  forgetRun("run-1", descriptor);
+  expect(attachState(descriptor, "run-1", ["specimen.note"])).toBeDefined();
+  expect(await outsideTheRun(kept)).toBe(outsideRefusal);
+});
+
+test("a record called outside its run's transaction cannot record an effect, even while the run is open", async () => {
+  const { attached } = recordingState();
+  const kept = await keptRecord(attached);
+  expect(await outsideTheRun(kept)).toBe(outsideRefusal);
 });

@@ -57,6 +57,17 @@ this file.
 - Read staged Git blobs in one batch by object ID. Witnessed:
   [r4609890969] (the file-size gate started a Git process for each staged
   file).
+- Put the state a run shares with an asynchronous callback in place before
+  the call that can trigger that callback, since an async function runs
+  synchronously up to its first `await`. Witnessed: [r4623815208]
+  (`run.execution` was set only after `attached.enter()` returned, so a stop
+  request delivered during handler entry waited for the add-ons alone and
+  cut off the handler's clean-up).
+- When a wait joins several parts, give each part a case where it finishes
+  last, or a fault that drops that part survives. Witnessed: [7c5967e]
+  (CodeRabbit's [review of pull request 9][#9-add-on]: a handler that never
+  ended outlasted the add-on's 300 ms settle, so the stop request case
+  passed with the add-on dropped from the wait).
 - Keep a stopped run where the repeated-signal kill reaches it until the
   process exits, not only until its handler returns. Witnessed:
   [kernel#6 r4622839115] (a run that returned during its first-stop settle
@@ -64,11 +75,6 @@ this file.
 - Drive every route a capability offers to the same shared function, so a
   route that wraps it, such as one that admits before it starts, is proved
   too. Witnessed: [r4622712214] (the domain program route had no proof).
-- When a change deletes a lookup entry, find every guard that reads through
-  that lookup, and make a missing entry read as closed. Witnessed: [7fb5649]
-  (forgetting a run deleted the seam entry that `recordedEffect` read for its
-  closed check, so a transaction left open after its run could record an
-  effect).
 - Pin only what a production host can observe; a recording host whose `exit`
   returns shows state that `runProcess` ends with its process. Witnessed:
   [ef76011] (a case pinned `runProcess` keeping a finished run's identity,
@@ -88,7 +94,9 @@ this file.
 [r4609956011]: https://github.com/nathanvale/bun-typescript-template/pull/109#discussion_r4609956011
 [r4609956051]: https://github.com/nathanvale/bun-typescript-template/pull/109#discussion_r4609956051
 [r4609890969]: https://github.com/nathanvale/bun-typescript-template/pull/108#discussion_r4609890969
+[r4623815208]: https://github.com/nathanvale/agent-cli-kernel/pull/9#discussion_r4623815208
+[7c5967e]: https://github.com/nathanvale/agent-cli-kernel/commit/7c5967e25761e72cbf1d3fb77bc166aa5aef80ae
+[#9-add-on]: https://github.com/nathanvale/agent-cli-kernel/pull/9#pullrequestreview-5968740024
 [kernel#6 r4622839115]: https://github.com/nathanvale/agent-cli-kernel/pull/6#discussion_r4622839115
 [r4622712214]: https://github.com/nathanvale/agent-cli-kernel/pull/4#discussion_r4622712214
-[7fb5649]: https://github.com/nathanvale/agent-cli-kernel/commit/7fb564900cff191397fdc8d1ba6f20e6807abdde
 [ef76011]: https://github.com/nathanvale/agent-cli-kernel/commit/ef76011bdde8d36064b73bd85550d8efc7fb15a6

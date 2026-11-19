@@ -37,6 +37,7 @@ type Recorded = {
 export function recordingHost() {
   const writes: Recorded[] = [];
   const exits: number[] = [];
+  const exitedAt: number[] = [];
   const installs = { signal: 0, crash: 0 };
   let listener: ((signal: StopSignal) => void) | undefined;
   let crashListener: ((error: unknown) => void) | undefined;
@@ -52,6 +53,7 @@ export function recordingHost() {
     },
     exit(code) {
       exits.push(code);
+      exitedAt.push(performance.now());
     },
     onSignal(next) {
       installs.signal += 1;
@@ -67,6 +69,7 @@ export function recordingHost() {
     host,
     writes,
     exits,
+    exitedAt,
     installs,
     signal(name: StopSignal) {
       if (!listener)
