@@ -553,13 +553,13 @@ async function main(
   if (command === "replay" && rest[0] === "--shard")
     return replayAll(
       root,
-      faultsInShard(root, readRecords(root), rest),
+      faultsInShard(root, rest, readRecords, faultsTouchedSince),
       process.env,
     );
   if (command === "replay") return replayAll(root, rest, process.env);
   if (command === "add") return add(root, rest);
   process.stderr.write(
-    "Usage: bun run fault-replay [id ...] | bun run fault-replay --changed-since <base> | bun run fault-replay --shard <part>/<parts> | bun run planted-fault:add <fix sha> <source path> <test file> <title>\n",
+    "Usage: bun run fault-replay [id ...] | bun run fault-replay --changed-since <base> | bun run planted-fault:add <fix sha> <source path> <test file> <title>\n",
   );
   return 2;
 }

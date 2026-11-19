@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { mkdirSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { readRecords } from "../../../scripts/planted-faults.ts";
 import { processWatchdog } from "../../support/process.ts";
 import {
   createPlantedFaultFixture,
@@ -259,10 +260,61 @@ describe("bun run fault-replay", () => {
       const { root } = await repositoryWithFault({});
       const run = await faultReplay(root, ["--shard", "3/2"]);
       expect(run.stderr).toBe(
-        "Usage: bun run fault-replay --shard <part>/<parts>, with whole numbers 1 <= part <= parts. Got '--shard 3/2'. Repair: pass one part, such as --shard 2/4.\n",
+        "Usage: bun run fault-replay --shard <part>/<parts> [--tooling-changed-since <base>], with whole numbers 1 <= part <= parts. Got '--shard 3/2'. Repair: pass one part, such as --shard 2/4.\n",
       );
       expect(verdicts(run.lines)).toEqual([]);
       expect(run.exit).toBe(2);
+    },
+    timeout,
+  );
+
+  test(
+    "FR.g --tooling-changed-since skips a tooling fault its test file leaves untouched, and replays it once that file changes",
+    async () => {
+      const { root, id } = await repositoryWithFault({});
+      const toolingTest = tests(refusalTest).replace(
+        '"../src/limit.ts"',
+        '"../../src/limit.ts"',
+      );
+      const [killed] = readRecords(root);
+      commit(root, "record a tooling fault", {
+        "tests/template/limit.test.ts": toolingTest,
+        "tests/planted-faults/fault-records.json": `${JSON.stringify(
+          [
+            killed,
+            {
+              ...killed,
+              id: "tooling",
+              testFile: "tests/template/limit.test.ts",
+            },
+          ],
+          null,
+          2,
+        )}\n`,
+      });
+      const untouched = await faultReplay(root, [
+        "--shard",
+        "1/1",
+        "--tooling-changed-since",
+        "HEAD",
+      ]);
+      expect(verdicts(untouched.lines)).toEqual([`KILLED ${id}`]);
+      expect(untouched.exit).toBe(0);
+      commit(root, "touch the tooling test", {
+        "tests/template/limit.test.ts": `${toolingTest}\n`,
+      });
+      const touched = await faultReplay(root, [
+        "--shard",
+        "1/1",
+        "--tooling-changed-since",
+        "HEAD~1",
+      ]);
+      expect(verdicts(touched.lines)).toEqual([
+        `KILLED ${id}`,
+        "KILLED tooling",
+      ]);
+      expect(touched.exit).toBe(0);
+      expectNoLeftovers(root, touched.temporary);
     },
     timeout,
   );

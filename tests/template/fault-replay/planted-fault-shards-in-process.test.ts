@@ -89,6 +89,13 @@ describe("shardOf", () => {
     ]);
   });
 
+  test("reads the base after --tooling-changed-since", () => {
+    expect(
+      shardOf(["--shard", "3/4", "--tooling-changed-since", "origin/main"]),
+    ).toEqual({ part: 3, parts: 4, toolingBase: "origin/main" });
+    expect(shardOf(["--shard", "3/4"]).toolingBase).toBeUndefined();
+  });
+
   test("refuses a part outside 1 to its parts, or anything else, naming what it got", () => {
     for (const argv of [
       ["--shard"],
@@ -100,9 +107,13 @@ describe("shardOf", () => {
       ["--shard", "1.5/4"],
       ["--shard", "2"],
       ["--shard", "2/4", "2/4"],
+      ["--shard", "2/4", "--tooling-changed-since"],
+      ["--shard", "2/4", "--tooling-changed-since", ""],
+      ["--shard", "2/4", "--changed-since", "origin/main"],
+      ["--shard", "2/4", "--tooling-changed-since", "origin/main", "HEAD"],
     ])
       expect(() => shardOf(argv)).toThrow(
-        `Usage: bun run fault-replay --shard <part>/<parts>, with whole numbers 1 <= part <= parts. Got '${argv.join(" ")}'. Repair: pass one part, such as --shard 2/4.`,
+        `Usage: bun run fault-replay --shard <part>/<parts> [--tooling-changed-since <base>], with whole numbers 1 <= part <= parts. Got '${argv.join(" ")}'. Repair: pass one part, such as --shard 2/4.`,
       );
   });
 });
@@ -145,28 +156,81 @@ describe("readTimings", () => {
 });
 
 describe("faultsInShard", () => {
-  test("returns the ids of the part it names", () => {
+  const kernel = (id: string) => ({
+    id,
+    testFile: `tests/kernel/${id}.test.ts`,
+  });
+  const tooling = (id: string) => ({
+    id,
+    testFile: `tests/template/naming/${id}.test.ts`,
+  });
+  const mixed = [kernel("k1"), tooling("t1"), kernel("k2"), tooling("t2")];
+
+  function selected(
+    faults: readonly { id: string; testFile: string }[],
+    argv: readonly string[],
+    touched: readonly string[] = [],
+  ) {
+    const asked: string[][] = [];
     const root = folder("fault-shards-");
-    expect(
-      faultsInShard(root, faultsNamed("a", "b", "c"), ["--shard", "2/2"]),
-    ).toEqual(["b"]);
+    const ids = faultsInShard(
+      root,
+      argv,
+      (given) => (given === root ? faults : []),
+      (given, base) => {
+        asked.push([given === root ? "root" : given, base]);
+        return touched;
+      },
+    );
+    return { ids, asked };
+  }
+
+  test("returns the ids of the part it names, every fault record counted", () => {
+    expect(selected(mixed, ["--shard", "2/2"])).toEqual({
+      ids: ["t1", "t2"],
+      asked: [],
+    });
+    expect(selected(mixed, ["--shard", "1/1"]).ids).toEqual([
+      "k1",
+      "t1",
+      "k2",
+      "t2",
+    ]);
   });
 
-  test("refuses a part that would hold no fault record, so it never checks nothing", () => {
-    const root = folder("fault-shards-");
-    expect(() =>
-      faultsInShard(root, faultsNamed("a", "b"), ["--shard", "3/3"]),
-    ).toThrow(
-      "Part 3 of 3 holds no fault record, so it checks nothing. Repair: pass at most 2 parts.",
-    );
+  test("with --tooling-changed-since keeps every other fault but only the tooling faults touched since the base", () => {
     expect(
-      faultsInShard(root, faultsNamed("a", "b"), ["--shard", "2/2"]),
-    ).toEqual(["b"]);
+      selected(
+        mixed,
+        ["--shard", "1/1", "--tooling-changed-since", "origin/main"],
+        ["t2", "k1"],
+      ),
+    ).toEqual({ ids: ["k1", "k2", "t2"], asked: [["root", "origin/main"]] });
+    expect(
+      selected(
+        mixed,
+        ["--shard", "1/1", "--tooling-changed-since", "origin/main"],
+        [],
+      ).ids,
+    ).toEqual(["k1", "k2"]);
+  });
+
+  test("refuses a part that would hold none of the selected fault records, so it never checks nothing", () => {
+    expect(() => selected(mixed.slice(0, 2), ["--shard", "3/3"])).toThrow(
+      "Part 3 of 3 holds none of the 2 selected fault records, so it checks nothing. Repair: pass fewer parts.",
+    );
+    expect(() =>
+      selected(
+        [tooling("t1")],
+        ["--shard", "1/1", "--tooling-changed-since", "HEAD"],
+      ),
+    ).toThrow(
+      "Part 1 of 1 holds none of the 0 selected fault records, so it checks nothing. Repair: pass fewer parts.",
+    );
+    expect(selected(mixed.slice(0, 2), ["--shard", "2/2"]).ids).toEqual(["t1"]);
   });
 
   test("returns no id when there is no fault record, leaving replay to refuse the empty records", () => {
-    expect(
-      faultsInShard(folder("fault-shards-"), [], ["--shard", "1/4"]),
-    ).toEqual([]);
+    expect(selected([], ["--shard", "1/4"]).ids).toEqual([]);
   });
 });

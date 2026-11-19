@@ -3,22 +3,23 @@ import { join } from "node:path";
 import { quoted } from "./planted-fault-patch.ts";
 
 export type Shard = { readonly part: number; readonly parts: number };
-export type Recorded = { readonly id: string };
+export type Selection = Shard & { readonly toolingBase: string | undefined };
+export type Recorded = { readonly id: string; readonly testFile: string };
 
 const timingsPath = "tests/planted-faults/fault-timings.json";
 const unlistedSeconds = 0.35;
 const shardPattern = /^(?<part>[1-9]\d*)\/(?<parts>[1-9]\d*)$/;
 
-export function shardOf(argv: readonly string[]): Shard {
+export function shardOf(argv: readonly string[]): Selection {
   const [, given, ...extra] = argv;
   const found = shardPattern.exec(given ?? "")?.groups;
   const part = Number(found?.part);
   const parts = Number(found?.parts);
   if (found === undefined || part > parts || extra.length > 0)
     throw new Error(
-      `Usage: bun run fault-replay --shard <part>/<parts>, with whole numbers 1 <= part <= parts. Got ${quoted(argv.join(" "))}. Repair: pass one part, such as --shard 2/4.`,
+      `Usage: bun run fault-replay --shard <part>/<parts> [--tooling-changed-since <base>], with whole numbers 1 <= part <= parts. Got ${quoted(argv.join(" "))}. Repair: pass one part, such as --shard 2/4.`,
     );
-  return { part, parts };
+  return { part, parts, toolingBase: undefined };
 }
 
 export function readTimings(root: string): ReadonlyMap<string, number> {
@@ -41,7 +42,7 @@ export function readTimings(root: string): ReadonlyMap<string, number> {
 }
 
 export function shardIds(
-  faults: readonly Recorded[],
+  faults: readonly { readonly id: string }[],
   timings: ReadonlyMap<string, number>,
   { part, parts }: Shard,
 ): string[] {
@@ -64,12 +65,16 @@ export function shardIds(
 
 export function faultsInShard(
   root: string,
-  faults: readonly Recorded[],
   argv: readonly string[],
+  records: (root: string) => readonly Recorded[],
+  touchedSince: (root: string, base: string) => readonly string[],
 ): string[] {
-  const shard = shardOf(argv);
+  const { toolingBase, ...shard } = shardOf(argv);
+  const faults = records(root);
+  const touched =
+    toolingBase === undefined ? [] : touchedSince(root, toolingBase);
   const ids = shardIds(faults, readTimings(root), shard);
-  if (ids.length === 0 && faults.length > 0)
+  if (ids.length === 0 && faults.length > touched.length)
     throw new Error(
       `Part ${shard.part} of ${shard.parts} holds no fault record, so it checks nothing. Repair: pass at most ${faults.length} parts.`,
     );
