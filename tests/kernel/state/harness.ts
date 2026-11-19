@@ -11,6 +11,9 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
+import { resolveCoordination } from "../../../kernel/src/addons/state/coordination.ts";
+import { resolveQualification } from "../../../kernel/src/addons/state/qualification.ts";
+import type { Match } from "../../../kernel/src/addons/state/qualification.ts";
 import { testFolder } from "../../support/test-folder.ts";
 import {
   refuseRunOverrides,
@@ -28,6 +31,27 @@ export const registeredCases: {
   readonly id: string;
   readonly title: string;
 }[] = [];
+
+let rowMatch: Match | undefined;
+
+export function productionRowMatch(): Match {
+  if (rowMatch !== undefined) return rowMatch;
+  const route = resolveCoordination();
+  const folder = testFolder("c3-row-match-");
+  try {
+    rowMatch = resolveQualification().match(
+      folder,
+      route.available ? route.route : undefined,
+    );
+    return rowMatch;
+  } finally {
+    rmSync(folder, { recursive: true, force: true });
+  }
+}
+
+function productionRowControl(): void {
+  expect(productionRowMatch().matched).toBe(true);
+}
 
 function casePlan(
   id: string,
@@ -49,6 +73,12 @@ function casePlan(
       run: () => {
         expect(entry).not.toBe(only.entry);
       },
+    };
+  const match = row.noProductionRow === true ? productionRowMatch() : undefined;
+  if (match?.matched === true)
+    return {
+      title: `${id} UNPROVED where production row ${match.label} matches the state root: closing there is Q02.e's to prove`,
+      run: productionRowControl,
     };
   if (row.nonRoot === true && process.geteuid?.() === 0)
     return {
@@ -128,6 +158,22 @@ export function supportingTest(
     return;
   }
   test(title, body, timeout);
+}
+
+export function noProductionRowTest(
+  title: string,
+  body: () => Promise<void>,
+  timeout = 90_000,
+): void {
+  const match = productionRowMatch();
+  if (match.matched) {
+    test(
+      `${title} UNPROVED where production row ${match.label} matches the state root: closing there is Q02.e's to prove`,
+      productionRowControl,
+    );
+    return;
+  }
+  supportingTest(title, body, timeout);
 }
 
 export type Json =

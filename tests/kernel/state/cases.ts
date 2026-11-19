@@ -23,6 +23,7 @@ export type StateCase = {
         readonly reason: string;
       };
       readonly bootIdentity?: true;
+      readonly noProductionRow?: true;
     }
   | {
       readonly status: "pending";
@@ -817,7 +818,7 @@ export const stateCases: readonly StateCase[] = [
     ...noMatchingRow,
     sources: "REC-7; REC-9 row 7; V-22",
     observation:
-      "A crashed case whose owner record names a live unrelated PID: the decision is the same as without it (unavailable in production), and durable state is unchanged.",
+      "A crashed case whose owner record names a live unrelated PID: the closure decision is the same as for the same crash without it, unavailable where no capability qualification row matches and closed where one does.",
     red: "Decide by PID presence.",
   },
   {
@@ -866,6 +867,7 @@ export const stateCases: readonly StateCase[] = [
   {
     id: "O10.a-unqualified-closure-unavailable",
     ...coordinated,
+    noProductionRow: true,
     sources: "REC-7b; REC-8",
     observation:
       "Production specimen, where no capability qualification row matches: closing a crashed case is unavailable with a handoff, no closure write, protection retained.",

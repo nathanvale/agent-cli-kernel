@@ -28,7 +28,9 @@ import {
   machineBootIdentityRead,
   makeWorld,
   noAppendAfterDamage,
+  noProductionRowTest,
   only,
+  productionRowMatch,
   registeredCases,
   str,
   supportingTest,
@@ -551,38 +553,69 @@ caseTest(
   }),
 );
 
+function nameOwnerPid(world: World, id: string, pid: number): void {
+  const path = join(world.root, "operations", id, "intent");
+  const original = readFileSync(path, "utf8");
+  const payload: unknown = JSON.parse(
+    original.slice(original.indexOf("\n") + 1, -1),
+  );
+  if (typeof payload !== "object" || payload === null) throw new Error("bad");
+  const owner: unknown = Reflect.get(payload, "owner");
+  if (typeof owner !== "object" || owner === null) throw new Error("bad");
+  Reflect.set(owner, "pid", pid);
+  const bytes = new TextEncoder().encode(JSON.stringify(payload));
+  const digest = createHash("sha256")
+    .update("intent\n")
+    .update(bytes)
+    .digest("hex");
+  writeFileSync(
+    path,
+    `C3S1 intent ${String(bytes.length).padStart(10, "0")} ${digest}\n${new TextDecoder().decode(bytes)}\n`,
+  );
+}
+
 caseTest(
   "O05.a-pid-not-consulted",
   plain(async (world) => {
     await world.killAt(apply("a"), "effect");
-    const id = only(world);
-    const path = join(world.root, "operations", id, "intent");
-    const original = readFileSync(path, "utf8");
-    const body = original.slice(original.indexOf("\n") + 1, -1);
-    const payload: unknown = JSON.parse(body);
-    if (typeof payload !== "object" || payload === null) throw new Error("bad");
-    const owner: unknown = Reflect.get(payload, "owner");
-    if (typeof owner !== "object" || owner === null) throw new Error("bad");
-    Reflect.set(owner, "pid", process.pid);
-    const bytes = new TextEncoder().encode(JSON.stringify(payload));
-    const digest = createHash("sha256")
-      .update("intent\n")
-      .update(bytes)
-      .digest("hex");
-    writeFileSync(
-      path,
-      `C3S1 intent ${String(bytes.length).padStart(10, "0")} ${digest}\n${new TextDecoder().decode(bytes)}\n`,
+    const untouched = only(world);
+    await world.killAt(apply("b"), "effect");
+    const named = world
+      .operations()
+      .map((entry) => entry.id)
+      .find((id) => id !== untouched);
+    if (named === undefined) throw new Error("Expected a second operation.");
+    nameOwnerPid(world, named, process.pid);
+    expect(
+      at(
+        world.operations().find((entry) => entry.id === named)?.intent,
+        "owner",
+        "pid",
+      ),
+    ).toBe(process.pid);
+    const decision = async (id: string) => {
+      const run = await close(world, id);
+      return {
+        exit: run.exit,
+        cause: run.result.causeCode ?? null,
+        unqualified: str(run.envelope.message).includes(
+          "stopped-owner-proof-unqualified",
+        ),
+        closed: existsSync(closurePath(world, id)),
+      };
+    };
+    const without = await decision(untouched);
+    expect(without).toEqual(
+      productionRowMatch().matched
+        ? { exit: 0, cause: null, unqualified: false, closed: true }
+        : {
+            exit: 3,
+            cause: "DOMAIN_SX_UNAVAILABLE",
+            unqualified: true,
+            closed: false,
+          },
     );
-    expect(at(world.operations()[0]?.intent, "owner", "pid")).toBe(process.pid);
-    const before = world.snapshot();
-    const refused = await close(world, id);
-    expectRefusedUnchanged(refused, "DOMAIN_SX_UNAVAILABLE");
-    expect(str(refused.envelope.message)).toContain(
-      "stopped-owner-proof-unqualified",
-    );
-    expect(existsSync(closurePath(world, id))).toBe(false);
-    expect(world.operations().map((entry) => entry.id)).toEqual([id]);
-    void before;
+    expect(await decision(named)).toEqual(without);
   }),
 );
 
@@ -1087,7 +1120,7 @@ supportingTest(
   }),
 );
 
-supportingTest(
+noProductionRowTest(
   "X27 supporting: through index.ts, where no capability qualification row matches, closure refuses with the observed facts",
   plain(async (world) => {
     const production = { SX_ENTRY: "production" };
@@ -1852,6 +1885,22 @@ supportingTest(
     ).toBe("c2");
   }),
 );
+
+test("O10.a registered as run where no production row matches the state root, and as UNPROVED where one does", () => {
+  const registered = registeredCases.filter(
+    (entry) => entry.id === "O10.a-unqualified-closure-unavailable",
+  );
+  expect(registered).toHaveLength(1);
+  expect(
+    registered
+      .filter((entry) => entry.title.startsWith(`${entry.id} UNPROVED`))
+      .map((entry) => entry.id),
+  ).toEqual(
+    productionRowMatch().matched
+      ? ["O10.a-unqualified-closure-unavailable"]
+      : [],
+  );
+});
 
 test("K11.a registered as run on Linux, and as UNPROVED where no boot identity can be read", () => {
   const registered = registeredCases.filter(
