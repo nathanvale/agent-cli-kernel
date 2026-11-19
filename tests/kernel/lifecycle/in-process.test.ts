@@ -14,6 +14,7 @@ import {
   runProcessOn,
 } from "../../../kernel/src/kernel/lifecycle.ts";
 import type { ProcessHost } from "../../../kernel/src/kernel/process-types.ts";
+import type { StateAddonDescriptor } from "../../../kernel/src/kernel/state-seam.ts";
 import { rememberedRuns } from "../../../kernel/src/kernel/state-seam.ts";
 import {
   recordRuntime,
@@ -473,15 +474,19 @@ const reusedIdentity = {
   path: "runId",
   reason: "run identity already attached",
 } as const;
-const nothingRemembered = { live: 0, attached: 0 } as const;
-const oneRemembered = { live: 1, attached: 1 } as const;
+const nothingRemembered = { liveIdentities: 0, attachedRuns: 0 } as const;
+const oneRemembered = { liveIdentities: 1, attachedRuns: 1 } as const;
+const sequentialRuns = 20;
 const stateFolders: string[] = [];
 afterEach(() => {
   for (const folder of stateFolders.splice(0))
     rmSync(folder, { recursive: true, force: true });
 });
 
-function stateHolding(recorder: ReturnType<typeof recordingHost>) {
+function stateHolding(
+  recorder: ReturnType<typeof recordingHost>,
+  host: (descriptor: StateAddonDescriptor) => ProcessHost = () => recorder.host,
+) {
   const folder = testFolder("c3-run-identity-");
   stateFolders.push(folder);
   const queue: ReturnType<typeof held>[] = [];
@@ -489,6 +494,7 @@ function stateHolding(recorder: ReturnType<typeof recordingHost>) {
   const { contract, descriptor } = stateHoldContract(
     join(folder, "state"),
     async (programs) => {
+      entered.count += 1;
       const gate = queue.shift();
       if (!gate) return;
       await programs.inspect(shell("exit 0"));
@@ -497,11 +503,13 @@ function stateHolding(recorder: ReturnType<typeof recordingHost>) {
     },
   );
   const setup = { addons: { programs: watched({ controls }) } };
-  const entry = runInProcessOn(contract, setup, () => recorder.host);
+  const entered = { count: 0 };
+  const entry = runInProcessOn(contract, setup, () => host(descriptor));
   return {
     contract,
     descriptor,
     setup,
+    entered,
     run: (argv: readonly string[] = ["change", "--json"]) => entry(argv),
     start(argv: readonly string[] = ["change", "--json"]) {
       const gate = held();
@@ -544,12 +552,12 @@ describe("IP08 the state seam forgets a run identity when its run finishes", () 
       expect(rememberedRuns(subject.descriptor)).toEqual(oneRemembered);
       one.gate.returned.resolve();
       const results = [await one.done];
-      for (let index = 0; index < 20; index++)
+      for (let index = 0; index < sequentialRuns; index++)
         results.push(await subject.run());
       expect(results.map(causeOf)).toEqual(
-        Array.from({ length: 21 }, () => "DOMAIN_RC_DECLINED"),
+        Array.from({ length: sequentialRuns + 1 }, () => "DOMAIN_RC_DECLINED"),
       );
-      expect(new Set(results.map(runIdOf)).size).toBe(21);
+      expect(new Set(results.map(runIdOf)).size).toBe(sequentialRuns + 1);
       expect(rememberedRuns(subject.descriptor)).toEqual(nothingRemembered);
       expect(recorder.exits).toEqual([]);
     },
@@ -564,14 +572,22 @@ describe("IP08 the state seam forgets a run identity when its run finishes", () 
       const finished = await subject.run();
       expect(causeOf(finished)).toBe("DOMAIN_RC_DECLINED");
       const reused = await subject.reuse(finished.runId);
-      expect(reused.ok).toBe(true);
+      if (!reused.ok)
+        throw new Error(`The reuse was refused: ${reused.reason}.`);
+      const built = await subject.contract.buildResult(reused.value);
+      expect(built).toMatchObject({
+        ok: true,
+        value: {
+          result: { runId: finished.runId, causeCode: "DOMAIN_RC_DECLINED" },
+        },
+      });
       expect(rememberedRuns(subject.descriptor)).toEqual(oneRemembered);
     },
     timeout,
   );
 
   test(
-    "IP08.reuse-while-live-refused an identity whose run is still live is refused, then attaches once the run finishes",
+    "IP08.reuse-while-live-refused an identity whose run is still live is refused on every attempt, then attaches once the run finishes",
     async () => {
       const recorder = recordingHost();
       const subject = stateHolding(recorder);
@@ -584,6 +600,30 @@ describe("IP08 the state seam forgets a run identity when its run finishes", () 
       expect((await one.done).runId).toBe(runId);
       expect(rememberedRuns(subject.descriptor)).toEqual(nothingRemembered);
       expect((await subject.reuse(runId)).ok).toBe(true);
+    },
+    timeout,
+  );
+
+  test(
+    "IP08.attached-never-entered a run that attaches state but never enters its handler forgets its identity",
+    async () => {
+      const recorder = recordingHost();
+      const jump = 120_000;
+      const subject = stateHolding(recorder, (descriptor) => ({
+        ...recorder.host,
+        now: () =>
+          performance.now() +
+          (rememberedRuns(descriptor).liveIdentities > 0 ? jump : 0),
+      }));
+      const value = await subject.run([
+        "change",
+        "--deadline-ms",
+        "60000",
+        "--json",
+      ]);
+      expect(causeOf(value)).toBe("DOMAIN_DEADLINE_BEFORE_START");
+      expect(subject.entered.count).toBe(0);
+      expect(rememberedRuns(subject.descriptor)).toEqual(nothingRemembered);
     },
     timeout,
   );

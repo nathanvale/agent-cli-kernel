@@ -18,6 +18,12 @@ import type {
 } from "../../../kernel/src/kernel/process-types.ts";
 import { path } from "../../../kernel/src/kernel/validation/brands.ts";
 import { stateAddon } from "../../../kernel/src/addons/state/index.ts";
+import { readsUnchanged } from "../kernel-repair/handlers.ts";
+import {
+  emptyInput,
+  refusedHandoff,
+  stationWords,
+} from "../kernel-repair/shapes.ts";
 import { timerLimit, unchangedEffects } from "./oracle.ts";
 import { programStopRow, programStopStation } from "./program-stop.ts";
 import { signalGroupIfPresent } from "../../support/signal.ts";
@@ -211,45 +217,11 @@ export function holdContract(
 }
 
 const stateCauses = {
-  DOMAIN_RC_LOCK_HELD: {
-    outcome: "refused",
-    transactionState: "unchanged",
-    failureClass: "domain",
-    exitCode: 3,
-    retryable: false,
-    guidance: "handoff",
-  },
-  DOMAIN_RC_UNRESOLVED: {
-    outcome: "refused",
-    transactionState: "unchanged",
-    failureClass: "domain",
-    exitCode: 3,
-    retryable: false,
-    guidance: "handoff",
-  },
-  DOMAIN_RC_DECLINED: {
-    outcome: "refused",
-    transactionState: "unchanged",
-    failureClass: "domain",
-    exitCode: 3,
-    retryable: false,
-    guidance: "next",
-  },
+  DOMAIN_RC_LOCK_HELD: refusedHandoff,
+  DOMAIN_RC_UNRESOLVED: refusedHandoff,
+  DOMAIN_RC_DECLINED: { ...refusedHandoff, guidance: "next" },
 } as const satisfies CauseTable;
 const allStateCauses = { ...commonCauses, ...stateCauses };
-const stationWords = {
-  retryDelayPolicy: { kind: "none" },
-  reachability: "required",
-  unreachableRationale: null,
-} as const;
-const noInput = {
-  arguments: [],
-  options: [],
-  constraints: [],
-  deadlineSupported: false,
-  additionalArguments: false,
-  additionalOptions: false,
-} as const;
 const inspectCases = {
   next: { kind: "instruction", text: "Inspect listed cases." },
 } as const;
@@ -270,7 +242,7 @@ export function stateHoldContract(
     identity: "rc.pending",
     route: ["pending"],
     summary: "Report unfinished work.",
-    input: noInput,
+    input: emptyInput,
     capabilities: {},
     stations: [
       station(allStateCauses, {
@@ -283,11 +255,7 @@ export function stateHoldContract(
         independentObservable: "rc.pending:read",
       }),
     ],
-    run: (_input, context) =>
-      context.result(
-        { commandIdentity: "rc.pending", causeCode: "SUCCESS_UNCHANGED" },
-        { message: "Read.", data: null, effects: unchangedEffects },
-      ),
+    run: readsUnchanged("rc.pending"),
   });
   const coordination = (
     causeCode: "DOMAIN_RC_LOCK_HELD" | "DOMAIN_RC_UNRESOLVED",
@@ -305,7 +273,7 @@ export function stateHoldContract(
     identity: "rc.change",
     route: ["change"],
     summary: "Hold, then decline to change anything.",
-    input: { ...noInput, deadlineSupported: true },
+    input: { ...emptyInput, deadlineSupported: true },
     capabilities: { programs: true },
     effectClass: "repository-local",
     effects: ["rc.note"],

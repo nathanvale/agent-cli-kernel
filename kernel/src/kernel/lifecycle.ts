@@ -213,9 +213,9 @@ type Run = {
   commandIdentity: string | null;
   stopped: StopSignal | undefined;
   emergencyAttempted: boolean;
-  handler: Handler | undefined;
+  handler: EnteredHandler | undefined;
 };
-type Handler = { returned: boolean; readonly returning: Promise<void> };
+type EnteredHandler = { returned: boolean; readonly returning: Promise<void> };
 type Delivery =
   | { readonly candidate: Validation<unknown>; readonly trusted: TrustedRun }
   | undefined;
@@ -724,8 +724,8 @@ async function checkPhase(
   };
 }
 
-function handlerOf(execution: Promise<Execution>): Handler {
-  const handler: Handler = {
+function handlerOf(execution: Promise<Execution>): EnteredHandler {
+  const handler: EnteredHandler = {
     returned: false,
     returning: execution.then(() => {
       handler.returned = true;
@@ -920,9 +920,9 @@ async function returnedResult(
 }
 
 // Accepted decision (Nathan, 19 November 2026, 12:08 AEDT): the state seam
-// forgets an in-process run's identity once the run has finished. A handler
-// can outlive its run's deadline, so the run stays live until its handler,
-// if entered, has returned.
+// forgets a run identity when its run finishes, and refuses a reused one only
+// while that run is live. A handler can outlive its run's deadline; this code
+// reads such a run as live until the handler returns.
 function forgetWhenReturned(run: Run): void {
   const forget = () => run.runtime.forgetState(run.runId);
   if (!run.handler || run.handler.returned) forget();
