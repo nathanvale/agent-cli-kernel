@@ -375,8 +375,13 @@ function caseProblems(
 }
 
 function repeatedIds(run: CapabilityQualificationRun): readonly string[] {
-  const ids = run.cases.map((entry) => entry.id);
-  return [...new Set(ids.filter((id, index) => ids.indexOf(id) !== index))];
+  const seen = new Set<string>();
+  const repeated = new Set<string>();
+  for (const { id } of run.cases) {
+    if (seen.has(id)) repeated.add(id);
+    seen.add(id);
+  }
+  return [...repeated];
 }
 
 function runProblems(

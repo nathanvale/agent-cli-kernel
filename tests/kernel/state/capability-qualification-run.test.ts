@@ -4,8 +4,10 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  rmSync,
   statSync,
   statfsSync,
+  symlinkSync,
   utimesSync,
   writeFileSync,
 } from "node:fs";
@@ -45,6 +47,7 @@ import {
   caseFiles,
   caseResults,
   distributionOf,
+  reportedTwice,
   runCasesWithBun,
   runOf,
   runVariable,
@@ -100,17 +103,10 @@ const tableRow = {
   },
 } as const;
 
-function junit(
-  selection: readonly StateCase[],
-  failed: readonly string[] = [],
-): string {
+function junit(selection: readonly StateCase[]): string {
   const cases = selection
     .filter((row) => row.status === "executable")
-    .map((row) =>
-      failed.includes(row.id)
-        ? `    <testcase name="${row.id}" time="1"><failure message="x" /></testcase>`
-        : `    <testcase name="${row.id}" classname="" time="1" />`,
-    );
+    .map((row) => `    <testcase name="${row.id}" classname="" time="1" />`);
   return `<?xml version="1.0" encoding="UTF-8"?>\n<testsuites>\n  <testsuite name="state">\n${cases.join("\n")}\n  </testsuite>\n</testsuites>\n`;
 }
 
@@ -141,6 +137,9 @@ function checkout() {
     "kernel/src/addons/programs/index.ts": "programs\n",
     "kernel/src/kernel/state-seam.ts": "seam\n",
   });
+  symlinkSync("state", join(root, "kernel/src/addons/linked-state"));
+  git(root, "add", "--", "kernel/src/addons/linked-state");
+  git(root, "commit", "--quiet", "-m", "a tracked link to a folder");
   const parent = join(base, "parent");
   mkdirSync(parent);
   const rowFile = join(base, "row.json");
@@ -356,7 +355,6 @@ test(
 function expectedResults(
   selection: readonly StateCase[],
   entry: RunEntry,
-  failed: readonly string[] = [],
 ): readonly CaseResult[] {
   return selection.map((row): CaseResult => {
     if (row.status === "pending")
@@ -368,13 +366,7 @@ function expectedResults(
     const only = row.onlyThrough;
     if (only !== undefined && only.entry !== entry)
       return { id: row.id, result: "not-runnable", reason: only.reason };
-    return failed.includes(row.id)
-      ? {
-          id: row.id,
-          result: "fail",
-          detail: "failed; the run's output shows why",
-        }
-      : { id: row.id, result: "pass", detail: "passed" };
+    return { id: row.id, result: "pass", detail: "passed" };
   });
 }
 
@@ -1072,7 +1064,7 @@ test(
       caseFile([
         registered(
           "K02.a-synthetic",
-          `expect(process.env.STATE_TEST_DIR).toBe(${JSON.stringify(world.parent)}); expect(JSON.parse(process.env.${runVariable} ?? "{}").entry).toBe("fixture.ts"); expect(require("node:fs").readdirSync(process.env.STATE_TEST_DIR).filter((name: string) => name.startsWith(".capability-qualification-run-")).length).toBe(1);`,
+          `expect(process.env.CQ_ENV_FILE).toBe(undefined); expect(process.env.STATE_TEST_DIR).toBe(${JSON.stringify(world.parent)}); expect(JSON.parse(process.env.${runVariable} ?? "{}").entry).toBe("fixture.ts"); expect(require("node:fs").readdirSync(process.env.STATE_TEST_DIR).filter((name: string) => name.startsWith(".capability-qualification-run-")).length).toBe(1);`,
         ),
         registered("K02.b-synthetic", "expect(1).toBe(2);"),
         registered(
@@ -1094,6 +1086,7 @@ test(
         registered("K02.e-synthetic", ""),
       ]),
     );
+    writeFileSync(join(world.base, ".env"), "CQ_ENV_FILE=loaded\n");
     const selection = synthetic.filter((row) => row.id !== "K02.f-synthetic");
     expect(caseFiles(world.base, selection)).toEqual([
       "tests/kernel/state/synthetic.test.ts",
@@ -1145,9 +1138,10 @@ test(
     const control = synthetic
       .filter((row) => row.id === "K02.a-synthetic")
       .map((row) => ({ ...row, id: "K02.e-synthetic" }));
-    await withOwnTemporaryFolders(world.outside, () =>
+    const controlRun = await withOwnTemporaryFolders(world.outside, () =>
       runCasesWithBun(world.request(control), caseRunBound),
     );
+    expect(controlRun.exitCode).toBe(0);
     expect(readdirSync(world.outside)).toEqual(["loaded"]);
   },
   caseRunTimeout,
@@ -1227,6 +1221,7 @@ test(
     const { report } = await withOwnTemporaryFolders(world.outside, () =>
       runCasesWithBun(world.request(selection, repository), caseRunBound),
     );
+    expect(reportedTwice(report, selection)).toEqual([]);
     expect(loadedFiles(report)).toEqual(caseFiles(repository, runnable));
     expect(
       caseResults(report, selection, "fixture.ts").filter(
@@ -1335,6 +1330,7 @@ test(
     writeFileSync(join(bin, "git"), "#!/bin/sh\nexec sleep 5\n", {
       mode: 0o755,
     });
+    const started = performance.now();
     const stopped = await world
       .run(
         undefined,
@@ -1345,6 +1341,7 @@ test(
         () => "finished",
         (error: unknown) => (error instanceof Error ? error.message : "thrown"),
       );
+    expect(performance.now() - started).toBeLessThan(2_000);
     expect(stopped).toStartWith("git ");
     expect(stopped).toEndWith(" did not finish within 300 ms");
     expect(world.requests).toEqual([]);
@@ -1356,9 +1353,14 @@ test(
 async function runnerRefusal(
   lines: readonly string[],
   limit: number,
-): Promise<{ readonly refused: string; readonly parent: readonly string[] }> {
+): Promise<{
+  readonly refused: string;
+  readonly parent: readonly string[];
+  readonly quick: boolean;
+}> {
   const world = runnerWorld();
   writeFileSync(join(world.cases, "synthetic.test.ts"), caseFile(lines));
+  const started = performance.now();
   const refused = await runCasesWithBun(
     world.request(synthetic.filter((row) => row.id === "K02.a-synthetic")),
     limit,
@@ -1366,7 +1368,11 @@ async function runnerRefusal(
     () => "ran",
     (error: unknown) => (error instanceof Error ? error.message : "thrown"),
   );
-  return { refused, parent: readdirSync(world.parent) };
+  return {
+    refused,
+    parent: readdirSync(world.parent),
+    quick: performance.now() - started < 3_000,
+  };
 }
 
 test(
@@ -1385,6 +1391,7 @@ test(
     ).toEqual({
       refused: "the case run outlived its 500 ms limit",
       parent: [],
+      quick: true,
     });
   },
   inProcess,
@@ -1398,7 +1405,11 @@ test(
         ["process.exit(0);", registered("K02.a-synthetic", "")],
         refusalBound,
       ),
-    ).toEqual({ refused: "the case run wrote no report", parent: [] });
+    ).toEqual({
+      refused: "the case run wrote no report",
+      parent: [],
+      quick: true,
+    });
   },
   inProcess,
 );
@@ -1419,3 +1430,98 @@ test("a capability qualification record names the distribution by its os-release
   expect(distributionOf('PRETTY_NAME="Some Linux"\n', "Linux")).toBe("Linux");
   expect(distributionOf(undefined, "Darwin")).toBe("Darwin");
 });
+
+const tamperedWorkingTree: readonly (readonly [
+  string,
+  (root: string) => void,
+  string,
+])[] = [
+  [
+    "a deleted tracked file",
+    (root) => rmSync(join(root, "kernel/src/addons/programs/index.ts")),
+    "kernel/src/addons/programs/index.ts (missing)",
+  ],
+  [
+    "a tracked link replaced by a folder of the same name",
+    (root) => {
+      rmSync(join(root, "kernel/src/addons/linked-state"));
+      mkdirSync(join(root, "kernel/src/addons/linked-state"));
+    },
+    "kernel/src/addons/linked-state (not a link)",
+  ],
+  [
+    "a tracked file replaced by a folder",
+    (root) => {
+      rmSync(join(root, "kernel/src/kernel/state-seam.ts"));
+      mkdirSync(join(root, "kernel/src/kernel/state-seam.ts"));
+    },
+    "kernel/src/kernel/state-seam.ts (not a file)",
+  ],
+];
+
+for (const [shape, tamper, listed] of tamperedWorkingTree)
+  test(
+    `the capability qualification run refuses ${shape}`,
+    async () => {
+      const world = checkout();
+      tamper(world.root);
+      expect(await world.run()).toBe(1);
+      refusedWithoutRecord(
+        world,
+        `Refused: tracked files differ from their committed bytes (${listed}); ${committedBytes} Repair: restore or commit them, then rerun.`,
+      );
+    },
+    inProcess,
+  );
+
+test(
+  "the capability qualification run refuses a repository that is not sha1",
+  async () => {
+    const world = checkout();
+    const root = join(world.base, "sha256");
+    mkdirSync(root);
+    git(root, "init", "--quiet", "--object-format=sha256");
+    commitIn(root, "qualified source", {
+      "kernel/src/addons/state/install.ts": "install\n",
+      "kernel/src/addons/programs/index.ts": "programs\n",
+      "kernel/src/kernel/state-seam.ts": "seam\n",
+    });
+    const lines: string[] = [];
+    const code = await capabilityQualificationRun(
+      [world.rowFile, world.parent],
+      {
+        root,
+        cwd: world.base,
+        environment: { ...callerEnvironment(), ...gitEnv },
+        print: (line) => lines.push(line),
+        runCases: () => Promise.reject(new Error("no case run expected")),
+      },
+    );
+    expect(code).toBe(1);
+    expect(lines).toEqual([
+      "Refused: the repository's object format is sha256; a capability qualification record names a 40-character sha1 commit. Repair: run from a sha1 clone.",
+    ]);
+  },
+  inProcess,
+);
+
+test(
+  "a capability qualification run ignores a repeated test name that is not a covered case",
+  async () => {
+    const world = checkout();
+    const code = await world.run(undefined, undefined, {
+      runCases: (request) =>
+        Promise.resolve(
+          ran(
+            junit(request.selection).replace(
+              "</testsuite>",
+              '<testcase name="Z99.a-not-covered" time="0"><skipped /></testcase>\n<testcase name="Z99.a-not-covered" time="0"><skipped /></testcase>\n  </testsuite>',
+            ),
+          ),
+        ),
+    });
+    expect(code).toBe(0);
+    expect(existsSync(world.recordFile)).toBe(true);
+  },
+  inProcess,
+);

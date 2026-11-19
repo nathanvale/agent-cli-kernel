@@ -59,11 +59,15 @@ import type { StateCase } from "./cases.ts";
 // Interface: `bun run capability-qualification-run <candidate row file>
 // <state root parent> [--entry fixture.ts|index.ts]` (journal version 2
 // design part 2 section 3). It runs the covered cases of the state case table
-// through the state test harness on observed facts only, then adds one
-// capability qualification run to the row's record by a temporary file and a
-// rename. It refuses, writing nothing, when SX_FACT_OVERRIDES is set, the
-// checkout is not clean, or a qualified source file is ignored by git. A test
-// world in a run refuses a fact override or candidate row of its own.
+// that can run through the entry, through the state test harness on observed
+// facts only, with no .env file loaded. Only when that test process exits 0
+// and names no covered case twice does it add one capability qualification
+// run to the row's record, by a temporary file and a rename. It refuses,
+// writing nothing, when SX_FACT_OVERRIDES is set, the repository is not sha1,
+// git marks a tracked file assume-unchanged or skip-worktree, any file in
+// HEAD's tree differs from its committed bytes, the checkout has untracked
+// files, a qualified source file is ignored by git, or the run is stopped. A
+// test world in a run refuses a fact override or candidate row of its own.
 
 export const runVariable = "SX_CAPABILITY_QUALIFICATION_RUN";
 const usage =
@@ -248,11 +252,21 @@ function reportedTests(junit: string): ReadonlyMap<string, Reported> {
   return new Map(reportedList(junit));
 }
 
-function reportedTwice(junit: string): readonly string[] {
-  const names = reportedList(junit).map(([name]) => name);
-  return [
-    ...new Set(names.filter((name, index) => names.indexOf(name) !== index)),
-  ];
+export function reportedTwice(
+  junit: string,
+  selection: readonly StateCase[],
+): readonly string[] {
+  const covered = new Set(executableIds(selection));
+  const seen = new Set<string>();
+  const twice = new Set<string>();
+  for (const [name] of reportedList(junit)) {
+    const id = name.split(" ")[0] ?? name;
+    const reads = name === id || name.startsWith(`${id} UNPROVED`);
+    if (!covered.has(id) || !reads) continue;
+    if (seen.has(id)) twice.add(id);
+    seen.add(id);
+  }
+  return [...twice];
 }
 
 export function caseResults(
@@ -501,7 +515,8 @@ function workingBytes(path: string, mode: string): Buffer | string {
 
 function committedProblem(place: GitPlace): string | undefined {
   const format = git(place, ["rev-parse", "--show-object-format"]).trim();
-  const algorithm = format === "sha256" ? "sha256" : "sha1";
+  if (format !== "sha1")
+    return `Refused: the repository's object format is ${format}; a capability qualification record names a 40-character sha1 commit. Repair: run from a sha1 clone.`;
   const differs = nulSeparated(place, ["ls-tree", "-r", "-z", "HEAD"]).flatMap(
     (line) => {
       const tab = line.indexOf("\t");
@@ -509,7 +524,7 @@ function committedProblem(place: GitPlace): string | undefined {
       const path = line.slice(tab + 1);
       const bytes = workingBytes(join(place.root, path), mode);
       if (typeof bytes === "string") return [`${path} (${bytes})`];
-      const local = createHash(algorithm)
+      const local = createHash("sha1")
         .update(`blob ${String(bytes.byteLength)}\0`)
         .update(bytes)
         .digest("hex");
@@ -721,6 +736,7 @@ export async function runCasesWithBun(
     const child = startChild(
       [
         process.execPath,
+        "--no-env-file",
         "test",
         ...files.map((path) => `./${path}`),
         "--test-name-pattern",
@@ -801,7 +817,7 @@ export async function capabilityQualificationRun(
     );
     return 1;
   }
-  const twice = reportedTwice(caseRunResult.report);
+  const twice = reportedTwice(caseRunResult.report, selection);
   if (twice.length > 0) {
     context.print(
       `Refused: Bun reported ${twice.join(", ")} twice; no capability qualification record is written. Repair: give each covered case one test, then rerun.`,
