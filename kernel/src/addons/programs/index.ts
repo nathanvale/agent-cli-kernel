@@ -56,6 +56,9 @@ function positive(value: unknown): boolean {
   return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
 }
 
+const commandProblem =
+  "A program needs an absolute executable path and string arguments.";
+
 function requestProblem(request: ProgramRequest): string | undefined {
   if (
     typeof request.executable !== "string" ||
@@ -63,7 +66,7 @@ function requestProblem(request: ProgramRequest): string | undefined {
     !Array.isArray(request.args) ||
     !request.args.every((arg) => typeof arg === "string")
   )
-    return "A program needs an absolute executable path and string arguments.";
+    return commandProblem;
   if (
     !positive(request.timeoutMilliseconds) ||
     !positive(request.outputLimitBytes) ||
@@ -73,13 +76,77 @@ function requestProblem(request: ProgramRequest): string | undefined {
   return undefined;
 }
 
+// Platform: a Uint8Array's own `byteLength` can be shadowed, and instanceof passes
+// for Object.create(Uint8Array.prototype). The typed-array prototype's getter
+// reads the intrinsic length and throws for anything that is not a typed array.
+const typedArrayPrototype: unknown = Object.getPrototypeOf(
+  Uint8Array.prototype,
+);
+function intrinsicByteLength(input: Uint8Array): number | undefined {
+  try {
+    const length: unknown = Reflect.get(
+      Object(typedArrayPrototype),
+      "byteLength",
+      input,
+    );
+    return typeof length === "number" ? length : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function inputProblem(input: unknown): string | undefined {
   if (input === undefined) return undefined;
-  if (!(input instanceof Uint8Array))
-    return "A program's input must be a Uint8Array.";
-  return input.byteLength > inputLimitBytes
+  const length =
+    input instanceof Uint8Array ? intrinsicByteLength(input) : undefined;
+  if (length === undefined) return "A program's input must be a Uint8Array.";
+  return length > inputLimitBytes
     ? `A program's input is at most ${String(inputLimitBytes)} bytes.`
     : undefined;
+}
+
+function stringList(value: unknown): readonly string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const list: string[] = [];
+  for (const item of Array.from(value, (entry: unknown) => entry)) {
+    if (typeof item !== "string") return undefined;
+    list.push(item);
+  }
+  return Object.freeze(list);
+}
+
+type CheckedRequest = {
+  readonly executable: string;
+  readonly args: readonly string[];
+  readonly timeoutMilliseconds: number;
+  readonly outputLimitBytes: number;
+  readonly shutdownMilliseconds: number;
+  readonly stdin: Uint8Array | "ignore";
+};
+
+// Interface: Reads each request field once into a frozen own copy, checks that
+// copy, and copies the input's bytes, so nothing the caller changes later
+// reaches the program. Throws the refusal before any program or admission.
+function checkedRequest(request: ProgramRequest): CheckedRequest {
+  const read = {
+    executable: request.executable,
+    args: request.args,
+    timeoutMilliseconds: request.timeoutMilliseconds,
+    outputLimitBytes: request.outputLimitBytes,
+    shutdownMilliseconds: request.shutdownMilliseconds,
+  };
+  const args = stringList(read.args);
+  const input: unknown = request.input;
+  const problem =
+    (args === undefined ? commandProblem : undefined) ??
+    requestProblem({ ...read, args: args ?? [] }) ??
+    inputProblem(input);
+  if (problem) throw new Error(problem);
+  return Object.freeze({
+    ...read,
+    args: args ?? [],
+    stdin: input instanceof Uint8Array ? new Uint8Array(input) : "ignore",
+  });
 }
 
 class OwnedGroup {
@@ -188,18 +255,23 @@ async function capture(
 function attachPrograms(run: RunControl): AttachedAddon<ProgramsCapability> {
   const owned = new Set<OwnedGroup>();
 
-  async function start(request: ProgramRequest): Promise<ProgramResult> {
-    const input: unknown = request.input;
-    const problem = requestProblem(request) ?? inputProblem(input);
-    if (problem) throw new Error(problem);
-    const stdin =
-      input instanceof Uint8Array ? new Uint8Array(input) : "ignore";
+  function start(request: ProgramRequest): Promise<ProgramResult> {
+    try {
+      return launch(checkedRequest(request));
+    } catch (error) {
+      return Promise.reject(
+        error instanceof Error ? error : new Error("Invalid program request."),
+      );
+    }
+  }
+
+  async function launch(request: CheckedRequest): Promise<ProgramResult> {
     if (run.signal.aborted)
       throw new Error("The run is stopping; no new program starts.");
     const started = performance.now();
     const child = Bun.spawn([request.executable, ...request.args], {
       detached: true,
-      stdin,
+      stdin: request.stdin,
       stdout: "pipe",
       stderr: "pipe",
     });
@@ -267,11 +339,23 @@ function attachPrograms(run: RunControl): AttachedAddon<ProgramsCapability> {
       return Object.freeze({
         effect: effect.effect,
         start(request: ProgramRequest) {
-          return effect.runId === run.runId
-            ? effect.admitStart(run.runId, effect.effect, () => start(request))
-            : Promise.reject(
-                new Error("The recorded effect belongs to another run."),
-              );
+          if (effect.runId !== run.runId)
+            return Promise.reject(
+              new Error("The recorded effect belongs to another run."),
+            );
+          let checked: CheckedRequest;
+          try {
+            checked = checkedRequest(request);
+          } catch (error) {
+            return Promise.reject(
+              error instanceof Error
+                ? error
+                : new Error("Invalid program request."),
+            );
+          }
+          return effect.admitStart(run.runId, effect.effect, () =>
+            launch(checked),
+          );
         },
       });
     },

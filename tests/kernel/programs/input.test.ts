@@ -229,24 +229,103 @@ describe("a started program's input (accepted decision, Nathan, 19 November 2026
   );
 
   test(
-    "a program reads the input that was checked, not a buffer grown after the check",
+    "an input whose own byteLength is shadowed is judged by its real length",
     async () => {
-      const buffer = new ArrayBuffer(8, { maxByteLength: limitOracle + 1 });
-      const input = new Uint8Array(buffer).fill(97);
-      const base = sh(countBytes);
-      let reads = 0;
-      const request: ProgramRequest = {
-        ...base,
-        input,
-        get args() {
-          reads += 1;
-          if (reads > 2) buffer.resize(limitOracle + 1);
-          return base.args;
-        },
-      };
-      const result = await programs().inspect(request);
-      expect(buffer.byteLength).toBe(limitOracle + 1);
-      expect(result.stdout).toBe("8");
+      const { marker, script } = markedSleep();
+      const input = Object.defineProperty(
+        new Uint8Array(limitOracle + 1),
+        "byteLength",
+        { value: 0 },
+      );
+      expect(await refused("inspect", sh(script, { input }))).toBe(
+        overLimitOracle,
+      );
+      expect(markedPids(marker)).toEqual([]);
+    },
+    timeout,
+  );
+
+  test(
+    "an object that only inherits Uint8Array.prototype is refused",
+    async () => {
+      const { marker, script } = markedSleep();
+      const input: unknown = Object.create(Uint8Array.prototype);
+      expect(await refused("inspect", { ...sh(script), input })).toBe(
+        notBytesOracle,
+      );
+      expect(markedPids(marker)).toEqual([]);
+    },
+    timeout,
+  );
+});
+
+type Admission = { admitted: number; release: () => void };
+
+function domainRoute(admission: Admission) {
+  const attached = programsAddon().attach({
+    runId: "input-run",
+    commandIdentity: "rc.input",
+    summary: "Component test of program input.",
+    signal: new AbortController().signal,
+  });
+  attachedNow.push(attached);
+  const effect = {
+    runId: "input-run",
+    effect: "e.input",
+    admitStart: (
+      _run: string,
+      _effect: string,
+      start: () => Promise<unknown>,
+    ) => {
+      admission.admitted += 1;
+      return new Promise<void>((resolve) => {
+        admission.release = resolve;
+      }).then(start);
+    },
+  };
+  const handle: unknown = Reflect.apply(
+    attached.capability.domain,
+    attached.capability,
+    [effect],
+  );
+  return (request: unknown): Promise<unknown> => {
+    const start: unknown = Reflect.get(Object(handle), "start");
+    return typeof start === "function"
+      ? Promise.resolve(Reflect.apply(start, handle, [request]))
+      : Promise.reject(new Error("No domain start."));
+  };
+}
+
+describe("a started program's input on the domain route", () => {
+  test(
+    "an admitted domain program reads the bytes checked before admission, though the caller changed them while admission was pending",
+    async () => {
+      const admission: Admission = { admitted: 0, release: () => undefined };
+      const input = new TextEncoder().encode("checked");
+      const pending = domainRoute(admission)(sh("/bin/cat", { input }));
+      expect(admission.admitted).toBe(1);
+      input.fill(120);
+      admission.release();
+      const result = await pending;
+      expect(Reflect.get(Object(result), "stdout")).toBe("checked");
+    },
+    timeout,
+  );
+
+  test(
+    "a domain request over the limit is refused before admission and starts no program",
+    async () => {
+      const admission: Admission = { admitted: 0, release: () => undefined };
+      const { marker, script } = markedSleep();
+      const outcome = await domainRoute(admission)(
+        sh(script, { input: new Uint8Array(limitOracle + 1) }),
+      ).then(
+        () => "started",
+        (error: unknown) => (error instanceof Error ? error.message : error),
+      );
+      expect(outcome).toBe(overLimitOracle);
+      expect(admission.admitted).toBe(0);
+      expect(markedPids(marker)).toEqual([]);
     },
     timeout,
   );
