@@ -871,6 +871,44 @@ test("an index.ts capability qualification run needs the row in the table and on
   ).toBe("this platform differs from the record's in filesystem");
 });
 
+test("an index.ts capability qualification run refuses a record for another row", () => {
+  for (const row of ["linux-7-ext4", "../linux-7-ext4"])
+    expect(
+      secondRunProblem([tableRow], candidate, { ...earlier, row }, observed),
+    ).toBe(`the record at ${recordPath(candidate.id)} is for row ${row}`);
+});
+
+for (const row of ["linux-7-ext4", "../linux-7-ext4"])
+  test(
+    `an index.ts capability qualification run refuses a committed record for row ${row} before any case runs, and writes nothing`,
+    async () => {
+      const world = checkout();
+      expect(await world.run()).toBe(0);
+      const first = parseRecord(readFileSync(world.recordFile, "utf8"));
+      const moved = `${JSON.stringify({ ...first, row }, null, 2)}\n`;
+      writeFileSync(world.recordFile, moved);
+      git(world.root, "add", "--", recordPath(candidate.id));
+      git(world.root, "commit", "--quiet", "-m", "a record for another row");
+      expect(
+        await world.run(
+          [world.rowFile, world.parent, "--entry", "index.ts"],
+          undefined,
+          { table: [tableRow] },
+        ),
+      ).toBe(1);
+      expect(world.requests.map((request) => request.entry)).toEqual([
+        "fixture.ts",
+      ]);
+      expect(world.lines.at(-1)).toBe(
+        `Refused: the record at ${recordPath(candidate.id)} is for row ${row}. Repair: on the row's own branch, commit the row and its record from one fixture.ts run on this platform, then rerun.`,
+      );
+      expect(readdirSync(world.folder)).toEqual([`${candidate.id}.json`]);
+      expect(readFileSync(world.recordFile, "utf8")).toBe(moved);
+      expect(git(world.root, "status", "--porcelain")).toBe("");
+    },
+    inProcess,
+  );
+
 const synthetic: readonly StateCase[] = [
   ...["a", "b", "c", "d", "f"].map(
     (letter) =>

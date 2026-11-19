@@ -397,6 +397,8 @@ export function secondRunProblem(
     return `row ${candidate.id} in the capability qualification table differs from the candidate row in ${rowDiffers.join(", ")}`;
   if (existing === undefined)
     return `no capability qualification record at ${recordPath(candidate.id)} from a fixture.ts run`;
+  if (existing.row !== candidate.id)
+    return `the record at ${recordPath(candidate.id)} is for row ${existing.row}`;
   const entries = existing.runs.map((run) => run.entry);
   if (entries.join(",") !== "fixture.ts")
     return `the record holds runs [${entries.join(", ")}]; the index.ts run follows exactly one fixture.ts run`;
@@ -777,11 +779,12 @@ function prepare(
 
 function writeRecord(
   root: string,
+  candidate: CandidateRow,
   record: CapabilityQualificationRecord,
   beforeRename: ((temporary: string) => void) | undefined,
 ): void {
   mkdirSync(join(root, recordFolder), { recursive: true });
-  const final = join(root, recordPath(record.row));
+  const final = join(root, recordPath(candidate.id));
   const temporary = `${final}.partial`;
   const descriptor = openSync(temporary, "w", 0o644);
   try {
@@ -960,8 +963,8 @@ export async function capabilityQualificationRun(
           ...observed,
           runs: [run],
         }
-      : { ...existing, runs: [...existing.runs, run] };
-  writeRecord(context.root, record, context.beforeRename);
+      : { ...existing, row: candidate.id, runs: [...existing.runs, run] };
+  writeRecord(context.root, candidate, record, context.beforeRename);
   const count = (result: CaseResult["result"]) =>
     String(cases.filter((entry) => entry.result === result).length);
   context.print(
