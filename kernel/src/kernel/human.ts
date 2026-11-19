@@ -31,7 +31,8 @@ function help(data: unknown): string[] {
     "",
     "Commands:",
     ...list(data, "commands").map(
-      (item) => `  ${route(item)}  ${texts(item, "summary")}`,
+      (item) =>
+        `  ${route(item)} (${texts(item, "commandIdentity")})  ${texts(item, "summary")}`,
     ),
     "",
     "Options:",

@@ -100,3 +100,38 @@ describe("plain discovery of one command lists its input", () => {
     processWatchdog(2),
   );
 });
+
+const helpText = [
+  "Usage: x <command> [options]",
+  "Commands for x.",
+  "",
+  "Commands:",
+  "  list (x.list)  List titles.",
+  "  show (x.show)  Show a title.",
+  "",
+  "Options:",
+  "  --json  Emit one machine-readable result.",
+  "  --help  Show help.",
+  "  --discover  Discover commands.",
+  "  --discover-command <identity>  Discover one command.",
+  "",
+].join("\n");
+
+describe("plain help names each command's identity beside its route", () => {
+  test("each command line shows the identity --discover-command accepts", async () => {
+    expect(await rendered(["--help"])).toEqual([
+      { stream: "stdout", text: helpText },
+    ]);
+  });
+
+  test(
+    "the production entry prints the same help on stdout and exits 0",
+    async () => {
+      const run = await printed(["--help"]);
+      expect(run.stdout).toBe(helpText);
+      expect(run.stderr).toBe("");
+      expect(run.exit).toBe(0);
+    },
+    processWatchdog(1),
+  );
+});
