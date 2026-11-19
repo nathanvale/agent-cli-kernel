@@ -244,7 +244,14 @@ Points this note found that the later version must answer:
 
 ## 8. Decisions and open points
 
-### 8.1 Decided by Nathan, 19 November 2026, 12:08 and 12:15
+### 8.1 Decided by Nathan, 19 November 2026
+
+Earlier the same day, before this note: a capability qualification row
+matches on the operating system and the major release, the state root's
+filesystem is checked at run time, and the row records the exact release
+observed (10:06); a row cites a committed run record and names its
+independent review, and a hosted run link is not evidence (10:10). Part 2
+sections 2 and 3 follow both. The rest, at 12:08 and 12:15:
 
 - 0: One note covers both items.
 - A, D and H: Only the move into `settled/` ships in version 2. Deleting
@@ -300,7 +307,8 @@ Each is one decision with one recommendation.
   transaction waits for its started effects (part 2 section 4).
 - M: The names of the qualification command, its run record and the
   record's folder. This note calls them `qualify:state`, a run record and
-  `tests/kernel/state/qualification/<row id>.json`, but "qualification" is
+  `tests/kernel/state/qualification/<row id>.json`, with the record schema
+  `state-qualification-run/1`, but "qualification" is
   only a proposed word in the Agent ecosystem glossary, and file and folder
   names must use glossary words. Recommend Nathan accepts names for the
   command, the record and its folder before the slice that adds them.
