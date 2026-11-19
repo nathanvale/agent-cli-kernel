@@ -1,0 +1,12 @@
+diff --git a/tests/support/git-fixture.ts b/tests/support/git-fixture.ts
+index 70e9fee..cf01fd3 100644
+--- a/tests/support/git-fixture.ts
++++ b/tests/support/git-fixture.ts
+@@ -9,7 +9,6 @@ export const gitEnv = {
+   GIT_CONFIG_NOSYSTEM: "1",
+   GIT_CONFIG_COUNT: "0",
+   GIT_CONFIG_PARAMETERS: "",
+-  GIT_DEFAULT_HASH: "sha1",
+   GIT_AUTHOR_NAME: "Fixture",
+   GIT_AUTHOR_EMAIL: "fixture@example.invalid",
+   GIT_COMMITTER_NAME: "Fixture",

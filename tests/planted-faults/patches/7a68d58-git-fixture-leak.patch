@@ -1,0 +1,17 @@
+diff --git a/tests/template/test-helpers/git-fixture.test.ts b/tests/template/test-helpers/git-fixture.test.ts
+index d3b1ceb..0a6f68c 100644
+--- a/tests/template/test-helpers/git-fixture.test.ts
++++ b/tests/template/test-helpers/git-fixture.test.ts
+@@ -6,9 +6,10 @@ import { testFolder } from "../../support/test-folder.ts";
+ 
+ function underSha256<T>(body: () => T): T {
+   const saved = process.env.GIT_DEFAULT_HASH;
++  process.env.GIT_DEFAULT_HASH = "sha256";
++  const result = body();
+   try {
+-    process.env.GIT_DEFAULT_HASH = "sha256";
+-    return body();
++    return result;
+   } finally {
+     if (saved === undefined) delete process.env.GIT_DEFAULT_HASH;
+     else process.env.GIT_DEFAULT_HASH = saved;

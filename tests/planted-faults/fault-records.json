@@ -2940,6 +2940,20 @@
     "source": "79af2d6 fix(state): settle the kernel-reviewer pass on the Sol triage's fixes"
   },
   {
+    "id": "55e24d6-git-fixture",
+    "patch": "tests/planted-faults/patches/55e24d6-git-fixture.patch",
+    "testFile": "tests/template/test-helpers/git-fixture.test.ts",
+    "title": "^initRepository builds a sha1 repository when the caller's git defaults to sha256",
+    "source": "55e24d6 test(support): build every fixture repository as sha1, whatever the caller's git default"
+  },
+  {
+    "id": "7a68d58-git-fixture-leak",
+    "patch": "tests/planted-faults/patches/7a68d58-git-fixture-leak.patch",
+    "testFile": "tests/template/test-helpers/git-fixture.test.ts",
+    "title": "^the sha256 default never outlives a setup that throws",
+    "source": "7a68d58 test(support): set the sha256 default inside the fixture test's try"
+  },
+  {
     "id": "e48961c-custody",
     "patch": "tests/planted-faults/patches/e48961c-custody.patch",
     "testFile": "tests/kernel/diagnostics/custody.test.ts",

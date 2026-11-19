@@ -219,6 +219,18 @@ each row. Decision T also means that, once the first row lands, every change
 to the qualified source files needs a new capability qualification run on the
 pilot in the same pull request: the hosted runner's records do not count.
 
+How V-22 applies to a row in version 2 (decided by Nathan, 19 November 2026,
+17:53 AEDT, confirmed 23:22; drafted as accepted decision A26): the separate
+reviewer applies the parts of V-22 that bear on closure. Two closers and a
+new contender race to at most one closure; a live owner, a surviving started
+program or a merely old coordination lock is never closed; a closer whose read
+predates the owner lease refuses stale; bounded waits honour signals and
+deadlines. The reclaim-only controls (a reused process id, incarnation
+checking, atomic takeover) are recorded as not applicable, because automatic
+reclaim stays unavailable. The row's review record lists what was applied,
+what was not and why. Enabling reclaim later needs a new review against all
+of V-22. V-42 applies in full.
+
 ## 4. Closing after a torn tail (included)
 
 A free lease is enough proof that nobody is mid-append when three things
