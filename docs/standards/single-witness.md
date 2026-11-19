@@ -64,6 +64,15 @@ this file.
 - Drive every route a capability offers to the same shared function, so a
   route that wraps it, such as one that admits before it starts, is proved
   too. Witnessed: [r4622712214] (the domain program route had no proof).
+- Give a new folder in the state root the checks its sibling folders get.
+  Witnessed: [kernel#13 r4624230267], [9086c3b] (`ensureStore` did not
+  check `settled/` on a version 2 store, so a symbolic link there was
+  followed and a move renamed case folders out of the state root).
+- Report a record that exists but cannot be read as the store's problem on
+  every read of it, never as not found. Witnessed: [kernel#13 r4624230310],
+  [ff852e8] (a closer whose moved target was unreadable or corrupt would
+  have reported a missing case; the fix shares `readProblem` with the first
+  read).
 
 [ac11ed9]: https://github.com/nathanvale/bun-typescript-template/commit/ac11ed98b7d538e8a304cac053aaefcaaf6b2cb3
 [cd2498b]: https://github.com/nathanvale/bun-typescript-template/commit/cd2498b7189a2d45d1906b9c870e8d13da6cd2dd
@@ -81,3 +90,7 @@ this file.
 [r4609890969]: https://github.com/nathanvale/bun-typescript-template/pull/108#discussion_r4609890969
 [kernel#6 r4622839115]: https://github.com/nathanvale/agent-cli-kernel/pull/6#discussion_r4622839115
 [r4622712214]: https://github.com/nathanvale/agent-cli-kernel/pull/4#discussion_r4622712214
+[kernel#13 r4624230267]: https://github.com/nathanvale/agent-cli-kernel/pull/13#discussion_r4624230267
+[9086c3b]: https://github.com/nathanvale/agent-cli-kernel/commit/9086c3b8b14bcba376aa63027abdd817c1495e53
+[kernel#13 r4624230310]: https://github.com/nathanvale/agent-cli-kernel/pull/13#discussion_r4624230310
+[ff852e8]: https://github.com/nathanvale/agent-cli-kernel/commit/ff852e8f0daed7dc23fc8b092043ab2ddff68c8d
