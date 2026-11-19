@@ -971,5 +971,12 @@
     "testFile": "tests/kernel/lifecycle/timers.test.ts",
     "title": "a handler that throws in its clean-up at 200 ms",
     "source": "82f5feb fix(kernel): wait for the handler after the first stop request"
+  },
+  {
+    "id": "14d6b55-lifecycle",
+    "patch": "tests/planted-faults/patches/14d6b55-lifecycle.patch",
+    "testFile": "tests/kernel/lifecycle/timers.test.ts",
+    "title": "delivered during handler entry, before the handler's first await",
+    "source": "14d6b55 fix(kernel): give a stop request during handler entry the handler to wait for"
   }
 ]
