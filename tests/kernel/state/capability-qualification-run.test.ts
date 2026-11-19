@@ -903,6 +903,7 @@ test("the run's test name pattern selects each executable case and its UNPROVED 
   expect(pattern.test("K02.a-synthetic")).toBe(true);
   expect(pattern.test("K02.c-synthetic UNPROVED on darwin: x")).toBe(true);
   expect(pattern.test("K02.a-synthetic-other")).toBe(false);
+  expect(pattern.test("K02.a-synthetic and more words")).toBe(false);
   expect(pattern.test("K02xa-synthetic")).toBe(false);
   expect(pattern.test("K08.e-synthetic-pending")).toBe(false);
   expect(pattern.test("CMD-11 supporting: K02.a-synthetic")).toBe(false);
@@ -1671,7 +1672,7 @@ test(
 );
 
 test(
-  "a capability qualification run takes its case files from the commit's tree",
+  "a capability qualification run hands its case runner the files the commit tracks under tests/kernel/state",
   async () => {
     const world = checkout();
     commitIn(world.root, "a case file", {
@@ -1680,7 +1681,7 @@ test(
     });
     expect(await world.run()).toBe(0);
     expect(world.requests.map((request) => request.files)).toEqual([
-      ["tests/kernel/state/recovery.test.ts"],
+      ["tests/kernel/state/notes.md", "tests/kernel/state/recovery.test.ts"],
     ]);
   },
   inProcess,
@@ -1722,3 +1723,97 @@ test("the boot identity counts as readable only when the file reads as non-empty
   expect(bootIdentityReadableAt(write("boot", "boot-one\n"))).toBe(true);
   expect(bootIdentityReadableAt(root)).toBe(false);
 });
+
+test(
+  "a capability qualification run refuses a non-zero exit explained only by a test that is not a covered case's own",
+  async () => {
+    const world = checkout();
+    const [first] = requiredCaseIds("fixture.ts");
+    if (first === undefined) throw new Error("No required case.");
+    const code = await world.run(undefined, undefined, {
+      runCases: (request) =>
+        Promise.resolve(
+          ran(
+            junit(request.selection).replace(
+              "</testsuite>",
+              `<testcase name="${first} and more words" time="1"><failure message="x" /></testcase>\n  </testsuite>`,
+            ),
+            1,
+          ),
+        ),
+    });
+    expect(code).toBe(1);
+    expect(world.lines).toEqual([
+      "Refused: the case run's test process exited 1, but no covered case failed in its report; the evidence does not agree, so no capability qualification record is written. Repair: read the run's output above, then rerun.",
+    ]);
+    expect(existsSync(world.folder)).toBe(false);
+  },
+  inProcess,
+);
+
+for (const name of [".env.test", ".Env.local"])
+  test(
+    `the capability qualification run refuses a ${name} file in the repository root`,
+    async () => {
+      const world = checkout();
+      commitIn(world.root, "ignore dotenv files", {
+        ".gitignore": ".env*\n.Env*\n",
+      });
+      writeFileSync(join(world.root, name), "CQ_ENV_FILE=loaded\n");
+      expect(git(world.root, "status", "--porcelain")).toBe("");
+      expect(await world.run()).toBe(1);
+      refusedWithoutRecord(
+        world,
+        `Refused: dotenv files sit where the run's processes start (${name}); Bun would load them into any child started without --no-env-file. Repair: move them out of the checkout, then rerun.`,
+      );
+    },
+    inProcess,
+  );
+
+test(
+  "the capability qualification run accepts a committed .env.example, which Bun does not load",
+  async () => {
+    const world = checkout();
+    commitIn(world.root, "an example", { ".env.example": "CQ_ENV_FILE=\n" });
+    expect(await world.run()).toBe(0);
+    expect(existsSync(world.recordFile)).toBe(true);
+  },
+  inProcess,
+);
+
+for (const folder of ["scripts", "src"])
+  test(
+    `the capability qualification run refuses an ignored file under ${folder}`,
+    async () => {
+      const world = checkout();
+      commitIn(world.root, "ignore local code", {
+        ".gitignore": "*.local.ts\n",
+      });
+      mkdirSync(join(world.root, folder), { recursive: true });
+      writeFileSync(join(world.root, folder, "probe.local.ts"), "local\n");
+      expect(git(world.root, "status", "--porcelain")).toBe("");
+      expect(await world.run()).toBe(1);
+      refusedWithoutRecord(
+        world,
+        `Refused: git ignores files where the run loads code (!! ${folder}/probe.local.ts); a capability qualification run loads committed files only. Repair: remove those files, then rerun.`,
+      );
+    },
+    inProcess,
+  );
+
+test(
+  "the capability qualification run refuses a tracked link that leaves the checkout",
+  async () => {
+    const world = checkout();
+    const path = "kernel/src/addons/outside";
+    symlinkSync("../../../..", join(world.root, path));
+    git(world.root, "add", "--", path);
+    git(world.root, "commit", "--quiet", "-m", "a link out of the checkout");
+    expect(await world.run()).toBe(1);
+    refusedWithoutRecord(
+      world,
+      `Refused: tracked files differ from their committed bytes (${path} (link leaves the checkout)); ${committedBytes} Repair: restore or commit them, then rerun.`,
+    );
+  },
+  inProcess,
+);

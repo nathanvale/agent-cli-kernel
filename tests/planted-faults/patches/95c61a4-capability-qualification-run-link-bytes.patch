@@ -1,13 +1,13 @@
 diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
-index 45909ab..9f1831e 100644
+index 15ff761..efe9e7d 100644
 --- a/tests/kernel/state/capability-qualification-run.ts
 +++ b/tests/kernel/state/capability-qualification-run.ts
-@@ -506,7 +506,7 @@ function workingBytes(path: string, mode: string): Buffer | string {
-   }
-   if (mode === "120000")
-     return stats.isSymbolicLink()
--      ? Buffer.from(readlinkSync(path))
-+      ? Buffer.from(String(path))
-       : "not a link";
-   if (mode === "100644" || mode === "100755")
-     return stats.isFile() ? readFileSync(path) : "not a file";
+@@ -531,7 +531,7 @@ function linkBytes(root: string, path: string): Buffer | string {
+   const inside = relative(root, resolve(dirname(path), target));
+   return inside.startsWith("..") || isAbsolute(inside)
+     ? "link leaves the checkout"
+-    : Buffer.from(target);
++    : Buffer.from(String(path));
+ }
+ 
+ function workingBytes(

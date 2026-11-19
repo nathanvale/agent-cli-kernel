@@ -2264,7 +2264,7 @@
     "id": "ae80f32-capability-qualification-run-tracked-files",
     "patch": "tests/planted-faults/patches/ae80f32-capability-qualification-run-tracked-files.patch",
     "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
-    "title": "^a capability qualification run takes its case files from the commit",
+    "title": "^a capability qualification run hands its case runner the files the commit tracks",
     "source": "ae80f32 fix(state): settle the Sol second look at the capability qualification run"
   },
   {

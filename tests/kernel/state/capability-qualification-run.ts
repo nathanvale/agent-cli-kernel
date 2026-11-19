@@ -16,7 +16,7 @@ import {
   writeSync,
 } from "node:fs";
 import { constants, release, type } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { capabilityQualificationTable } from "../../../kernel/src/addons/state/capability-qualification-table.ts";
 import type { CapabilityQualificationRow } from "../../../kernel/src/addons/state/capability-qualification-table.ts";
 import {
@@ -58,15 +58,19 @@ import type { StateCase } from "./cases.ts";
 // Interface: `bun run capability-qualification-run <candidate row file>
 // <state root parent> [--entry fixture.ts|index.ts]` (journal version 2
 // design part 2 section 3). It runs the covered cases of the state case table
-// that can run through the entry, through the state test harness on observed
-// facts only, with no .env file loaded. Only when that test process exits 0
-// and names no covered case twice does it add one capability qualification
-// run to the row's record, by a temporary file and a rename. It refuses,
+// that can run through the entry, from the commit's tracked case files,
+// through the state test harness on observed facts only, with no .env file
+// loaded. It adds one capability qualification run to the row's record, a
+// failed case written as fail, by a temporary file and a rename. It refuses,
 // writing nothing, when SX_FACT_OVERRIDES is set, the repository is not sha1,
-// git marks a tracked file assume-unchanged or skip-worktree, any file in
-// HEAD's tree differs from its committed bytes, the checkout has untracked
-// files, a qualified source file is ignored by git, or the run is stopped. A
-// test world in a run refuses a fact override or candidate row of its own.
+// git marks a tracked file assume-unchanged or skip-worktree, a file in the
+// commit's tree differs from its committed bytes, has a mode the run cannot
+// check, or is a link that leaves the checkout, the checkout has untracked
+// files, git ignores a file under kernel, scripts, src or tests, a dotenv
+// file sits in the repository root, the test process's exit code disagrees
+// with its report, a covered case is reported twice, no report is written,
+// or the run is stopped. A test world in a run refuses a fact override or
+// candidate row of its own.
 
 export const runVariable = "SX_CAPABILITY_QUALIFICATION_RUN";
 const usage =
@@ -215,7 +219,7 @@ export function testNamePattern(selection: readonly StateCase[]): string {
   const ids = executableIds(selection).map((id) =>
     id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
   );
-  return `^(?:${ids.join("|")})(?: |$)`;
+  return `^(?:${ids.join("|")})(?: UNPROVED|$)`;
 }
 
 type Reported = "passed" | "failed" | "skipped";
@@ -252,17 +256,25 @@ function reportedTests(junit: string): ReadonlyMap<string, Reported> {
   return new Map(reportedList(junit));
 }
 
+function caseOfTitle(
+  name: string,
+  covered: ReadonlySet<string>,
+): string | undefined {
+  const id = name.split(" ")[0] ?? name;
+  return covered.has(id) && (name === id || name.startsWith(`${id} UNPROVED`))
+    ? id
+    : undefined;
+}
+
 function exitDisagreement(
   caseRun: CaseRun,
   selection: readonly StateCase[],
 ): string | undefined {
   const covered = new Set(executableIds(selection));
-  const failed = reportedList(caseRun.report)
-    .filter(([name, reported]) => {
-      const id = name.split(" ")[0] ?? name;
-      return reported === "failed" && covered.has(id);
-    })
-    .map(([name]) => name.split(" ")[0] ?? name);
+  const failed = reportedList(caseRun.report).flatMap(([name, reported]) => {
+    const id = caseOfTitle(name, covered);
+    return reported === "failed" && id !== undefined ? [id] : [];
+  });
   if (caseRun.exitCode !== 0 && failed.length === 0)
     return "no covered case failed in its report";
   if (caseRun.exitCode === 0 && failed.length > 0)
@@ -278,9 +290,8 @@ export function reportedTwice(
   const seen = new Set<string>();
   const twice = new Set<string>();
   for (const [name] of reportedList(junit)) {
-    const id = name.split(" ")[0] ?? name;
-    const reads = name === id || name.startsWith(`${id} UNPROVED`);
-    if (!covered.has(id) || !reads) continue;
+    const id = caseOfTitle(name, covered);
+    if (id === undefined) continue;
     if (seen.has(id)) twice.add(id);
     seen.add(id);
   }
@@ -515,7 +526,19 @@ function hiddenProblem(place: GitPlace): string | undefined {
     : `Refused: git hides changes to tracked files (${hidden.join("; ")}); ${committedBytesOnly} Repair: clear the flag with git update-index --no-assume-unchanged or --no-skip-worktree, then rerun.`;
 }
 
-function workingBytes(path: string, mode: string): Buffer | string {
+function linkBytes(root: string, path: string): Buffer | string {
+  const target = readlinkSync(path);
+  const inside = relative(root, resolve(dirname(path), target));
+  return inside.startsWith("..") || isAbsolute(inside)
+    ? "link leaves the checkout"
+    : Buffer.from(target);
+}
+
+function workingBytes(
+  root: string,
+  path: string,
+  mode: string,
+): Buffer | string {
   let stats: ReturnType<typeof lstatSync>;
   try {
     stats = lstatSync(path);
@@ -523,9 +546,7 @@ function workingBytes(path: string, mode: string): Buffer | string {
     return "missing";
   }
   if (mode === "120000")
-    return stats.isSymbolicLink()
-      ? Buffer.from(readlinkSync(path))
-      : "not a link";
+    return stats.isSymbolicLink() ? linkBytes(root, path) : "not a link";
   if (mode === "100644" || mode === "100755")
     return stats.isFile() ? readFileSync(path) : "not a file";
   return `mode ${mode} is not checked`;
@@ -540,7 +561,7 @@ function committedProblem(place: GitPlace, commit: string): string | undefined {
       const tab = line.indexOf("\t");
       const [mode = "", , id = ""] = line.slice(0, tab).split(" ");
       const path = line.slice(tab + 1);
-      const bytes = workingBytes(join(place.root, path), mode);
+      const bytes = workingBytes(place.root, join(place.root, path), mode);
       if (typeof bytes === "string") return [`${path} (${bytes})`];
       const local = createHash("sha1")
         .update(`blob ${String(bytes.byteLength)}\0`)
@@ -591,7 +612,10 @@ const loadFolders = ["kernel", "scripts", "src", "tests"] as const;
 
 function dotenvProblem(root: string): string | undefined {
   const found = readdirSync(root)
-    .filter((name) => /^\.env(?:\..+)?$/.test(name) && name !== ".env.example")
+    .filter(
+      (name) =>
+        /^\.env(?:\..+)?$/i.test(name) && name.toLowerCase() !== ".env.example",
+    )
     .sort();
   return found.length === 0
     ? undefined
@@ -836,7 +860,7 @@ export async function capabilityQualificationRun(
         commit,
         "--",
         stateTests,
-      ]).filter((path) => path.endsWith(".test.ts")),
+      ]),
       environment: context.environment,
       output: context.output ?? ((text) => process.stderr.write(text)),
     });

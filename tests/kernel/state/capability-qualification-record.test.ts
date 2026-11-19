@@ -544,7 +544,10 @@ const unreadable: readonly (readonly [string, string, string])[] = [
     "a malformed sourceHash",
     JSON.stringify({
       ...record(),
-      runs: [run("fixture.ts", { sourceHash: "abc123" }), run("index.ts")],
+      runs: [
+        run("fixture.ts", { sourceHash: "c".repeat(63) }),
+        run("index.ts"),
+      ],
     }),
     "runs[0].sourceHash is malformed",
   ],
