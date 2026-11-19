@@ -4,21 +4,8 @@ import {
   runProcess,
 } from "../../../../kernel/src/kernel/index.ts";
 import { programsAddon } from "../../../../kernel/src/addons/programs/index.ts";
+import { emptyInput, unchanged } from "../../kernel-repair/shapes.ts";
 
-const none = {
-  arguments: [],
-  options: [],
-  constraints: [],
-  deadlineSupported: false,
-  additionalArguments: false,
-  additionalOptions: false,
-} as const;
-const empty = {
-  completed: [],
-  remaining: [],
-  uncertain: [],
-  inventoryComplete: true,
-} as const;
 const bounds = {
   timeoutMilliseconds: 3_000,
   outputLimitBytes: 1024,
@@ -29,7 +16,7 @@ const feed = command({
   identity: "pi.feed",
   route: ["feed"],
   summary: "Feed one program its input.",
-  input: none,
+  input: emptyInput,
   capabilities: { programs: true },
   run: async (_input, context) => {
     const result = await context.programs.inspect({
@@ -43,7 +30,7 @@ const feed = command({
       {
         message: "The program read its input.",
         data: { stdout: result.stdout, exitCode: result.exitCode },
-        effects: empty,
+        effects: unchanged,
       },
     );
   },
@@ -53,7 +40,7 @@ const drain = command({
   identity: "pi.drain",
   route: ["drain"],
   summary: "Run one program with no input.",
-  input: none,
+  input: emptyInput,
   capabilities: { programs: true },
   run: async (_input, context) => {
     const result = await context.programs.inspect({
@@ -66,7 +53,7 @@ const drain = command({
       {
         message: "The program read nothing.",
         data: { stdout: result.stdout, exitCode: result.exitCode },
-        effects: empty,
+        effects: unchanged,
       },
     );
   },

@@ -44,7 +44,6 @@ export function programDetails(
 // number with no contract source: room for a secret, a configuration document
 // or a prompt, and small enough to copy once when the program starts.
 const inputLimitBytes = 1_048_576;
-const inputProblem = `A program's input is a Uint8Array of at most ${String(inputLimitBytes)} bytes.`;
 
 const killObservationMilliseconds = 200;
 const pollMilliseconds = 10;
@@ -74,13 +73,12 @@ function requestProblem(request: ProgramRequest): string | undefined {
   return undefined;
 }
 
-// Platform: Bun.spawn copies a typed array given as stdin when it starts the
-// program, so a later change to the caller's bytes never reaches the program.
-function ownInput(request: ProgramRequest): Uint8Array | "ignore" | undefined {
-  const input: unknown = request.input;
-  if (input === undefined) return "ignore";
-  return input instanceof Uint8Array && input.byteLength <= inputLimitBytes
-    ? input
+function inputProblem(input: unknown): string | undefined {
+  if (input === undefined) return undefined;
+  if (!(input instanceof Uint8Array))
+    return "A program's input must be a Uint8Array.";
+  return input.byteLength > inputLimitBytes
+    ? `A program's input is at most ${String(inputLimitBytes)} bytes.`
     : undefined;
 }
 
@@ -191,10 +189,11 @@ function attachPrograms(run: RunControl): AttachedAddon<ProgramsCapability> {
   const owned = new Set<OwnedGroup>();
 
   async function start(request: ProgramRequest): Promise<ProgramResult> {
-    const problem = requestProblem(request);
+    const input: unknown = request.input;
+    const problem = requestProblem(request) ?? inputProblem(input);
     if (problem) throw new Error(problem);
-    const stdin = ownInput(request);
-    if (stdin === undefined) throw new Error(inputProblem);
+    const stdin =
+      input instanceof Uint8Array ? new Uint8Array(input) : "ignore";
     if (run.signal.aborted)
       throw new Error("The run is stopping; no new program starts.");
     const started = performance.now();

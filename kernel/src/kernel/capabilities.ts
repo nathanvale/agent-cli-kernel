@@ -37,7 +37,7 @@ export type ProgramRequest = {
   // supply a bounded input. The programs add-on writes it to the program's
   // stdin and then closes it. A program given none has a closed stdin, and no
   // program ever inherits the CLI's own stdin.
-  readonly input?: Uint8Array;
+  readonly input?: Uint8Array | undefined;
   readonly timeoutMilliseconds: number;
   readonly outputLimitBytes: number;
   readonly shutdownMilliseconds: number;

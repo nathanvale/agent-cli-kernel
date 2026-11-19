@@ -871,14 +871,35 @@
     "id": "61c6f37-index",
     "patch": "tests/planted-faults/patches/61c6f37-index.patch",
     "testFile": "tests/kernel/programs/input.test.ts",
-    "title": "an input one byte over the limit is refused and starts no program$",
+    "title": " inspect: an input one byte over the limit is refused and starts no program$",
+    "source": "61c6f37 feat(programs): let a command supply a bounded input to a program"
+  },
+  {
+    "id": "61c6f37-index-supplied",
+    "patch": "tests/planted-faults/patches/61c6f37-index.patch",
+    "testFile": "tests/kernel/programs/input.test.ts",
+    "title": " supplied: an input one byte over the limit is refused and starts no program$",
     "source": "61c6f37 feat(programs): let a command supply a bounded input to a program"
   },
   {
     "id": "61c6f37-index-view",
     "patch": "tests/planted-faults/patches/61c6f37-index-view.patch",
     "testFile": "tests/kernel/programs/input.test.ts",
-    "title": "an input that is a typed array of another width is refused and starts no program$",
+    "title": " inspect: an input that is a typed array of another width is refused and starts no program$",
+    "source": "61c6f37 feat(programs): let a command supply a bounded input to a program"
+  },
+  {
+    "id": "61c6f37-index-view-supplied",
+    "patch": "tests/planted-faults/patches/61c6f37-index-view.patch",
+    "testFile": "tests/kernel/programs/input.test.ts",
+    "title": " supplied: an input that is a typed array of another width is refused and starts no program$",
+    "source": "61c6f37 feat(programs): let a command supply a bounded input to a program"
+  },
+  {
+    "id": "61c6f37-index-copy",
+    "patch": "tests/planted-faults/patches/61c6f37-index-copy.patch",
+    "testFile": "tests/kernel/programs/input.test.ts",
+    "title": " a program reads the input that was checked, not a buffer grown after the check$",
     "source": "61c6f37 feat(programs): let a command supply a bounded input to a program"
   }
 ]

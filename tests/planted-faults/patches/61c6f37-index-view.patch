@@ -1,15 +1,13 @@
 diff --git a/kernel/src/addons/programs/index.ts b/kernel/src/addons/programs/index.ts
-index 734f09d..f7804c6 100644
+index ef3f66c..6391d7e 100644
 --- a/kernel/src/addons/programs/index.ts
 +++ b/kernel/src/addons/programs/index.ts
-@@ -79,8 +79,8 @@ function requestProblem(request: ProgramRequest): string | undefined {
- function ownInput(request: ProgramRequest): Uint8Array | "ignore" | undefined {
-   const input: unknown = request.input;
-   if (input === undefined) return "ignore";
--  return input instanceof Uint8Array && input.byteLength <= inputLimitBytes
--    ? input
-+  return ArrayBuffer.isView(input) && input.byteLength <= inputLimitBytes
-+    ? new Uint8Array(input.buffer, input.byteOffset, input.byteLength)
-     : undefined;
- }
+@@ -75,7 +75,7 @@ function requestProblem(request: ProgramRequest): string | undefined {
  
+ function inputProblem(input: unknown): string | undefined {
+   if (input === undefined) return undefined;
+-  if (!(input instanceof Uint8Array))
++  if (!ArrayBuffer.isView(input))
+     return "A program's input must be a Uint8Array.";
+   return input.byteLength > inputLimitBytes
+     ? `A program's input is at most ${String(inputLimitBytes)} bytes.`
