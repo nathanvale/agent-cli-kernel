@@ -838,6 +838,7 @@ function noteDeclaration(command: string, input: NoteInput) {
 
 const delegateFile = join(world, "delegates");
 const delegateCode = {
+  "delegate-exits": `const fs=require("node:fs");fs.writeFileSync(${JSON.stringify(`${delegateFile}.tmp`)},String(process.pid));fs.renameSync(${JSON.stringify(`${delegateFile}.tmp`)},${JSON.stringify(delegateFile)});`,
   "delegate-survives": `const fs=require("node:fs");fs.writeFileSync(${JSON.stringify(`${delegateFile}.tmp`)},String(process.pid));fs.renameSync(${JSON.stringify(`${delegateFile}.tmp`)},${JSON.stringify(delegateFile)});setTimeout(()=>{},60000);`,
   "delegate-detaches": `const fs=require("node:fs");const c=require("node:child_process").spawn(process.execPath,["-e","setTimeout(()=>{},60000)"],{detached:true,stdio:"ignore"});c.unref();fs.writeFileSync(${JSON.stringify(`${delegateFile}.tmp`)},process.pid+" "+c.pid);fs.renameSync(${JSON.stringify(`${delegateFile}.tmp`)},${JSON.stringify(delegateFile)});setTimeout(()=>{},60000);`,
 } as const;
@@ -903,7 +904,7 @@ async function tryDelegateStart(
   const outcome = await Promise.race([
     programs
       .domain(recorded)
-      .start(delegateRequest(delegateCode["delegate-survives"]))
+      .start(delegateRequest(delegateCode["delegate-exits"]))
       .then(
         () => "exited",
         (error: unknown) =>

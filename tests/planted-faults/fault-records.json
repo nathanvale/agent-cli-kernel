@@ -1538,5 +1538,26 @@
     "testFile": "tests/kernel/state/recovery.test.ts",
     "title": "^K11.c-torn-tail-closes",
     "source": "6d4b46d feat(state): close a crashed case after a torn tail once the lease is free"
+  },
+  {
+    "id": "3b54e9e-install-unreadable-boot-admitted",
+    "patch": "tests/planted-faults/patches/3b54e9e-install-unreadable-boot-admitted.patch",
+    "testFile": "tests/kernel/state/component.test.ts",
+    "title": "^K11.a supporting: in process, a delegate start refuses on the same boot, on a missing boot, and when the current boot cannot be read$",
+    "source": "3b54e9e fix(state): settle the two-axis review of crashed-case closure"
+  },
+  {
+    "id": "3b54e9e-store-corrupt-tail-appended",
+    "patch": "tests/planted-faults/patches/3b54e9e-store-corrupt-tail-appended.patch",
+    "testFile": "tests/kernel/state/component.test.ts",
+    "title": "^K11.g supporting: in process, appendEvent appends after a whole record and refuses after torn or corrupt bytes$",
+    "source": "3b54e9e fix(state): settle the two-axis review of crashed-case closure"
+  },
+  {
+    "id": "3b54e9e-install-start-after-failed-append",
+    "patch": "tests/planted-faults/patches/3b54e9e-install-start-after-failed-append.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^X28 supporting: a delegate-admitted append that fails stops the start, and the run goes on$",
+    "source": "3b54e9e fix(state): settle the two-axis review of crashed-case closure"
   }
 ]
