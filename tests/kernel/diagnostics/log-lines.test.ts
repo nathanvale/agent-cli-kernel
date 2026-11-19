@@ -1,8 +1,6 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { nodeIo } from "../../../kernel/src/addons/diagnostics/io.ts";
-import { createDiagnostics } from "../../../kernel/src/addons/diagnostics/run.ts";
 import {
   canon,
   cleanTrees,
@@ -13,16 +11,16 @@ import {
   runCrash,
   tree,
 } from "./harness.ts";
-import type { Tree } from "./harness.ts";
 import {
+  attachedIn,
   expectAvailable,
   expectSuccess,
+  fixtureChildBound,
   machine,
   statusOf,
 } from "./support.ts";
 
 afterAll(cleanTrees);
-const childBound = 20_000;
 const timeout = 120_000;
 const entry = join(import.meta.dir, "fixtures/log-lines-cli.ts");
 
@@ -49,7 +47,7 @@ async function launched(script: Readonly<Record<string, unknown>>) {
       entry,
       script,
     },
-    childBound,
+    fixtureChildBound,
   );
   expectSuccess(result);
   expect(get(result.envelope, "result", "data")).toEqual({ logged: true });
@@ -68,18 +66,6 @@ async function logged(script: Readonly<Record<string, unknown>> = {}) {
     text: readFileSync(log.path, "utf8"),
     written: lines(log.path),
   };
-}
-
-function attachedIn(where: Tree) {
-  return createDiagnostics(
-    { cli: "dxs", environment: { XDG_STATE_HOME: where.state } },
-    nodeIo,
-  ).attach({
-    runId: crypto.randomUUID(),
-    commandIdentity: "dxs.read",
-    summary: "Log lines.",
-    signal: new AbortController().signal,
-  });
 }
 
 function column(written: readonly unknown[], ...path: readonly string[]) {
@@ -171,7 +157,7 @@ describe("a host logger's lines sent through diagnostics.record", () => {
           tree: where,
           script: { records: 100, size: 15_000, pace: true, level: "warning" },
         },
-        childBound,
+        fixtureChildBound,
       );
       expectSuccess(result);
       const status = statusOf(result);
@@ -199,7 +185,7 @@ describe("a host logger's lines sent through diagnostics.record", () => {
           tree: where,
           script: { records: 3 },
         },
-        childBound,
+        fixtureChildBound,
       );
       expectSuccess(result);
       const [log] = observe(where.dir).files;
@@ -249,7 +235,7 @@ describe("a host logger's lines sent through diagnostics.record", () => {
     "in process: a record is written under each of the six levels, and at info without one",
     async () => {
       const where = tree();
-      const attached = attachedIn(where);
+      const { attached } = attachedIn(where);
       const { record } = attached.capability;
       record("log", { line: "unlevelled" });
       record("log", { line: "trace" }, "trace");
@@ -279,7 +265,7 @@ describe("a host logger's lines sent through diagnostics.record", () => {
     async () => {
       for (const unlisted of unlistedLevels) {
         const where = tree();
-        const attached = attachedIn(where);
+        const { attached } = attachedIn(where);
         Reflect.apply(attached.capability.record, attached.capability, [
           "log",
           { line: "unlisted" },
