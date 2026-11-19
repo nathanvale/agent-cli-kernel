@@ -540,8 +540,8 @@ describe("D09 setup faults", () => {
     );
 });
 
-const lockWaitMilliseconds = 200;
-const lockRetryMilliseconds = 10;
+const lockWaitOracle = 200;
+const retryIntervalOracle = 10;
 const lateBy = 20;
 const turnBound = 1_000;
 
@@ -597,8 +597,8 @@ async function waitForLock(
 test("the allocation lock wait ends at its limit by the clock when every retry wakes late", async () => {
   const { allocation, elapsed } = await waitForLock(heldLock(), () => lateBy);
   expect(allocation).toBe("capacity");
-  expect(elapsed).toBeGreaterThanOrEqual(lockWaitMilliseconds);
-  expect(elapsed).toBeLessThanOrEqual(lockWaitMilliseconds + lateBy);
+  expect(elapsed).toBeGreaterThanOrEqual(lockWaitOracle);
+  expect(elapsed).toBeLessThanOrEqual(lockWaitOracle + lateBy);
 });
 
 test("an abandoned run ends the allocation lock wait before its limit", async () => {
@@ -608,14 +608,14 @@ test("an abandoned run ends the allocation lock wait before its limit", async ()
     (elapsedSoFar) => elapsedSoFar >= 2 * lateBy,
   );
   expect(allocation).toBe("abandoned");
-  expect(elapsed).toBeLessThan(lockWaitMilliseconds);
+  expect(elapsed).toBeLessThan(lockWaitOracle);
 });
 
-test("with every retry woken on time the allocation lock wait tries every 10 ms and ends at exactly 200 ms", async () => {
+test("with every retry woken on time the allocation lock wait wakes every 10 ms and ends at exactly 200 ms", async () => {
   const { allocation, elapsed, wakes } = await waitForLock(heldLock(), () => 0);
   expect(allocation).toBe("capacity");
-  expect(elapsed).toBe(lockWaitMilliseconds);
-  expect(wakes).toBe(lockWaitMilliseconds / lockRetryMilliseconds);
+  expect(elapsed).toBe(lockWaitOracle);
+  expect(wakes).toBe(lockWaitOracle / retryIntervalOracle);
 });
 
 test("the allocation lock wait arms its last retry for only the time left before its limit", async () => {
@@ -623,23 +623,21 @@ test("the allocation lock wait arms its last retry for only the time left before
     wake === 0 ? 3 : 0,
   );
   expect(allocation).toBe("capacity");
-  expect(elapsed).toBe(lockWaitMilliseconds);
+  expect(elapsed).toBe(lockWaitOracle);
 });
 
 test("the allocation lock wait tries the lock once even when its limit has passed by the first try", async () => {
   const checks = { count: 0 };
-  jest.useFakeTimers();
-  try {
-    const allocation = await allocate(freePlace(), "lock-wait", nodeIo, () => {
+  const { allocation } = await waitForLock(
+    freePlace(),
+    () => 0,
+    () => {
       checks.count += 1;
-      if (checks.count === 1)
-        jest.advanceTimersByTime(lockWaitMilliseconds + lateBy);
+      if (checks.count === 1) jest.advanceTimersByTime(lockWaitOracle + lateBy);
       return false;
-    });
-    if (typeof allocation !== "object")
-      throw new Error(`The free lock was not taken: ${allocation}.`);
-    closeSync(allocation.descriptor);
-  } finally {
-    jest.useRealTimers();
-  }
+    },
+  );
+  if (typeof allocation !== "object")
+    throw new Error(`The free lock was not taken: ${allocation}.`);
+  closeSync(allocation.descriptor);
 });
