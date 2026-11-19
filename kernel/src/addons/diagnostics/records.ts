@@ -201,13 +201,7 @@ function exceededRedactionLimit(record: LogRecord): boolean {
   return !record.message.includes(unmapped);
 }
 
-// Interface: Never calls LogTape's configure, so it neither reads nor changes
-// the process-wide configuration, and no other run shares the pipeline.
-export function pipelineFor(
-  category: readonly string[],
-  deliver: (record: LogRecord) => void,
-  report: () => void,
-): RunPipeline {
+function redactor(): (record: LogRecord) => LogRecord | undefined {
   let redacted: LogRecord | undefined;
   const redact = redactByField(
     (record: LogRecord) => {
@@ -220,22 +214,39 @@ export function pipelineFor(
       maxProperties: limits.redactionEntries,
     },
   );
-  return (level, properties) => {
+  return (record) => {
     redacted = undefined;
     try {
-      redact({
-        category,
-        level,
-        timestamp: Date.now(),
-        rawMessage: "{event}{unmapped}",
-        message: ["", properties["event"], "", unmapped, ""],
-        properties: { ...properties },
-      });
+      redact(record);
     } catch {
+      return undefined;
+    }
+    return redacted;
+  };
+}
+
+// Accepted decision of 19 November 2026 (13:22 AEDT), question 21: the
+// add-on never changes LogTape's process-wide configuration, and each run
+// has its own pipeline.
+export function pipelineFor(
+  category: readonly string[],
+  deliver: (record: LogRecord) => void,
+  report: () => void,
+): RunPipeline {
+  const redact = redactor();
+  return (level, properties) => {
+    const redacted = redact({
+      category,
+      level,
+      timestamp: Date.now(),
+      rawMessage: "{event}{unmapped}",
+      message: ["", properties["event"], "", unmapped, ""],
+      properties: { ...properties },
+    });
+    if (!redacted) {
       report();
       return;
     }
-    if (!redacted) return;
     if (exceededRedactionLimit(redacted)) report();
     deliver(redacted);
   };

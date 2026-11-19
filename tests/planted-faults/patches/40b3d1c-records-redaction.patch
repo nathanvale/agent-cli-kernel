@@ -1,12 +1,12 @@
 diff --git a/kernel/src/addons/diagnostics/records.ts b/kernel/src/addons/diagnostics/records.ts
-index 379b174..236d36b 100644
+index bb46fc6..9944a3d 100644
 --- a/kernel/src/addons/diagnostics/records.ts
 +++ b/kernel/src/addons/diagnostics/records.ts
-@@ -232,7 +232,6 @@ export function pipelineFor(
-         properties: { ...properties },
-       });
-     } catch {
+@@ -244,7 +244,6 @@ export function pipelineFor(
+       properties: { ...properties },
+     });
+     if (!redacted) {
 -      report();
        return;
      }
-     if (!redacted) return;
+     if (exceededRedactionLimit(redacted)) report();

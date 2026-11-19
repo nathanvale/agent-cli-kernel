@@ -1,5 +1,5 @@
 diff --git a/kernel/src/addons/diagnostics/records.ts b/kernel/src/addons/diagnostics/records.ts
-index 379b174..5d6e77a 100644
+index bb46fc6..169ebb9 100644
 --- a/kernel/src/addons/diagnostics/records.ts
 +++ b/kernel/src/addons/diagnostics/records.ts
 @@ -198,7 +198,7 @@ const unmapped = Object.freeze({});
@@ -10,4 +10,4 @@ index 379b174..5d6e77a 100644
 +  return record.message.length === 0;
  }
  
- // Interface: Never calls LogTape's configure, so it neither reads nor changes
+ function redactor(): (record: LogRecord) => LogRecord | undefined {

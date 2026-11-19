@@ -1,12 +1,12 @@
 diff --git a/kernel/src/addons/diagnostics/records.ts b/kernel/src/addons/diagnostics/records.ts
-index 379b174..1cc6515 100644
+index bb46fc6..a657ddc 100644
 --- a/kernel/src/addons/diagnostics/records.ts
 +++ b/kernel/src/addons/diagnostics/records.ts
-@@ -221,6 +221,7 @@ export function pipelineFor(
-     },
-   );
+@@ -235,6 +235,7 @@ export function pipelineFor(
+ ): RunPipeline {
+   const redact = redactor();
    return (level, properties) => {
 +    if (level === "trace") return;
-     redacted = undefined;
-     try {
-       redact({
+     const redacted = redact({
+       category,
+       level,

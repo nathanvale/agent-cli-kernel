@@ -259,7 +259,7 @@ function session(
     pump();
   }
 
-  function assemble(secrets: readonly string[]): RunPipeline | undefined {
+  function pipelineWith(secrets: readonly string[]): RunPipeline | undefined {
     try {
       const make = lineMaker(secrets);
       const sink = (record: LogRecord) => {
@@ -282,7 +282,7 @@ function session(
     if (state !== "idle") return;
     state = "pending";
     const secrets = secretValues(options);
-    pipeline = secrets === undefined ? undefined : assemble(secrets);
+    pipeline = secrets === undefined ? undefined : pipelineWith(secrets);
     if (!pipeline) {
       fail("setup");
       state = "failed";

@@ -14,32 +14,16 @@ import {
   resetSync,
 } from "@logtape/logtape";
 import type { LogRecord } from "@logtape/logtape";
-import { nodeIo } from "../../../kernel/src/addons/diagnostics/io.ts";
-import { createDiagnostics } from "../../../kernel/src/addons/diagnostics/run.ts";
 import type { JsonValue } from "../../../kernel/src/kernel/index.ts";
 import { cleanTrees, get, lines, observe, runCrash, tree } from "./harness.ts";
 import type { Tree } from "./harness.ts";
+import { attachedIn, fixtureChildBound } from "./support.ts";
 
 afterAll(cleanTrees);
 beforeEach(resetSync);
 afterEach(resetSync);
 const timeout = 60_000;
-const childBound = 20_000;
 const entry = join(import.meta.dir, "fixtures/in-process-runs-cli.ts");
-
-function attachedIn(where: Tree) {
-  const runId = crypto.randomUUID();
-  const attached = createDiagnostics(
-    { cli: "dxs", environment: { XDG_STATE_HOME: where.state } },
-    nodeIo,
-  ).attach({
-    runId,
-    commandIdentity: "dxs.read",
-    summary: "In-process run.",
-    signal: new AbortController().signal,
-  });
-  return { runId, attached };
-}
 
 function writtenBy(where: Tree, runId: string) {
   const path = join(where.dir, `${runId}.jsonl`);
@@ -75,7 +59,7 @@ describe("in-process runs of the diagnostics add-on", () => {
       const where = tree();
       const result = await runCrash(
         { argv: [], tree: where, entry },
-        childBound,
+        fixtureChildBound,
       );
       expect({ exit: result.exit, stderr: result.stderr }).toEqual({
         exit: 0,

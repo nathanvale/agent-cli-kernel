@@ -924,8 +924,8 @@
     "source": "1cc1070 feat(diagnostics): let a record carry its level"
   },
   {
-    "id": "1cc1070-run-floor",
-    "patch": "tests/planted-faults/patches/1cc1070-run-floor.patch",
+    "id": "1cc1070-records-trace",
+    "patch": "tests/planted-faults/patches/1cc1070-records-trace.patch",
     "testFile": "tests/kernel/diagnostics/log-lines.test.ts",
     "title": "a log line lands in the run's file under the level it was sent with$",
     "source": "1cc1070 feat(diagnostics): let a record carry its level"

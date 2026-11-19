@@ -6,20 +6,14 @@ import {
 import { diagnosticsAddon } from "../../../../kernel/src/addons/diagnostics/index.ts";
 import { empty, none } from "./declarations.ts";
 
-type Hold = { readonly entered: () => void; readonly released: Promise<void> };
+type Hold = { readonly arrive: () => void; readonly released: Promise<void> };
 const holds: Hold[] = [];
 
 function hold() {
-  let entered = (): void => undefined;
-  let release = (): void => undefined;
-  const reached = new Promise<void>((resolve) => {
-    entered = resolve;
-  });
-  const released = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  holds.push({ entered, released });
-  return { reached, release };
+  const arrival = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  holds.push({ arrive: arrival.resolve, released: release.promise });
+  return { arrived: arrival.promise, release: release.resolve };
 }
 
 const read = command({
@@ -32,7 +26,7 @@ const read = command({
     const held = holds.shift();
     if (!held) throw new Error("A run entered its handler with no hold.");
     context.diagnostics.record("opened", { step: 1 });
-    held.entered();
+    held.arrive();
     await held.released;
     context.diagnostics.record("continued", { step: 2 });
     return context.result(
@@ -55,24 +49,24 @@ const entry = runInProcess(
   },
 );
 
-async function entered(
-  reached: Promise<void>,
+async function untilHeld(
+  arrived: Promise<void>,
   run: Promise<unknown>,
 ): Promise<void> {
-  const first = await Promise.race([
-    reached.then(() => "entered" as const),
+  const settled = await Promise.race([
+    arrived.then(() => "held" as const),
     run.then(() => "returned" as const),
   ]);
-  if (first !== "entered")
+  if (settled !== "held")
     throw new Error("A run returned before its handler was held.");
 }
 
 const first = hold();
 const firstRun = entry(["read", "--json"]);
-await entered(first.reached, firstRun);
+await untilHeld(first.arrived, firstRun);
 const second = hold();
 const secondRun = entry(["read", "--json"]);
-await entered(second.reached, secondRun);
+await untilHeld(second.arrived, secondRun);
 first.release();
 const firstResult = await firstRun;
 second.release();
