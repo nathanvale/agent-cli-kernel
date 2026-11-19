@@ -46,18 +46,30 @@ function emergencies(operation: Observed): number {
     .length;
 }
 
-async function inProcess(mode: string, extra: Record<string, string> = {}) {
-  const world = makeWorld({ entry });
+const childBound = 60_000;
+
+async function inProcess(
+  world: World,
+  mode: string,
+  extra: Record<string, string> = {},
+) {
   const started = world.start([mode], extra);
-  const done = await started.done;
-  return { world, done };
+  const bound = setTimeout(() => {
+    started.kill("SIGKILL");
+  }, childBound);
+  try {
+    return await started.done;
+  } finally {
+    clearTimeout(bound);
+  }
 }
 
 supportingTest(
   "IP04.sequence-own-operation-and-proof two runs in one process each publish their own operation",
   async () => {
-    const { world, done } = await inProcess("sequence");
+    const world = makeWorld({ entry });
     try {
+      const done = await inProcess(world, "sequence");
       expect(done.stdout).toBe("");
       expect(done.stderr).toBe("");
       expect(done.exit).toBe(continuedCode);
@@ -94,10 +106,11 @@ supportingTest(
 supportingTest(
   "IP05.overlap-refused-held-lock a second run in the same process is refused while the first holds its coordination lock",
   async () => {
-    const { world, done } = await inProcess("overlap", {
-      SX_BARRIER: "intent",
-    });
+    const world = makeWorld({ entry });
     try {
+      const done = await inProcess(world, "overlap", {
+        SX_BARRIER: "intent",
+      });
       expect(done.stdout).toBe("");
       expect(done.exit).toBe(continuedCode);
       const second = labelled(world, "second");
@@ -125,8 +138,9 @@ supportingTest(
 supportingTest(
   "IP06.crash-records-only-run-in-flight a crash writes one emergency record, for the run in flight",
   async () => {
-    const { world, done } = await inProcess("crash", { SX_BARRIER: "intent" });
+    const world = makeWorld({ entry });
     try {
+      const done = await inProcess(world, "crash", { SX_BARRIER: "intent" });
       expect(done.exit).toBe(1);
       expect(done.stdout).toBe("");
       expect(done.stderr).toBe("");

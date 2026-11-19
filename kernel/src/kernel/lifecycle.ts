@@ -928,6 +928,6 @@ async function runAndReturn(run: Run, argv: unknown): Promise<InProcessResult> {
     crashRun(run);
     throw error;
   } finally {
-    inFlight.runs.delete(run);
+    if (!run.stopped) inFlight.runs.delete(run);
   }
 }

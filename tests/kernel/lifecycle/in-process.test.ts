@@ -29,6 +29,7 @@ import {
 
 const timeout = 30_000;
 const cancellationWait = 500;
+const addonSettleBudget = 300;
 const stops = [
   ["SIGTERM", 143],
   ["SIGINT", 130],
@@ -36,8 +37,9 @@ const stops = [
 
 type Holding = {
   readonly controls?: RunControl[];
+  readonly kills?: string[];
   readonly emergencyRecord?: (facts: EmergencyFacts) => void;
-  readonly settlesAfterStop?: false;
+  readonly stopSettleHangs?: true;
   readonly host?: ProcessHost;
 };
 
@@ -46,12 +48,19 @@ function watched(options: Holding): RunAddon<ProgramsCapability> {
   return {
     attach(run) {
       options.controls?.push(run);
-      const attached = inner.attach(run);
-      if (options.settlesAfterStop !== false) return attached;
+      const innerAttached = inner.attach(run);
+      const attached = {
+        ...innerAttached,
+        killNow: () => {
+          options.kills?.push(run.runId);
+          innerAttached.killNow();
+        },
+      };
+      if (options.stopSettleHangs !== true) return attached;
       return {
         ...attached,
         settle: (limit) =>
-          run.signal.aborted
+          run.signal.aborted && limit !== undefined
             ? new Promise<boolean>(() => undefined)
             : attached.settle(limit),
       };
@@ -264,6 +273,33 @@ describe("IP02 a stop signal reaches every run in flight", () => {
     },
     timeout,
   );
+
+  test(
+    "IP02.repeated-stop-kills-settling-run a run that returned while its first-stop settle is pending is still killed at the second signal",
+    async () => {
+      const recorder = recordingHost();
+      const controls: RunControl[] = [];
+      const kills: string[] = [];
+      const subject = holding(recorder, {
+        controls,
+        kills,
+        stopSettleHangs: true,
+      });
+      const one = subject.start();
+      await one.gate.entered.promise;
+      recorder.signal("SIGTERM");
+      one.gate.returned.resolve();
+      const returned = await one.done;
+      expect(returned.kind).toBe("stopped");
+      expect(recorder.exits).toEqual([]);
+      expect(kills).toEqual([]);
+      recorder.signal("SIGTERM");
+      expect(recorder.exits).toEqual([143]);
+      expect(kills).toEqual(controls.map((control) => control.runId));
+      expect(kills).toHaveLength(1);
+    },
+    timeout,
+  );
 });
 
 describe("IP03 a crash records at most once for each run in flight", () => {
@@ -317,15 +353,15 @@ describe("IP07 the in-process entry checks its contract and bounds", () => {
     "IP07.stop-bound exit comes at the stop bound when a run in flight never settles",
     async () => {
       const recorder = recordingHost();
-      const subject = holding(recorder, { settlesAfterStop: false });
+      const subject = holding(recorder, { stopSettleHangs: true });
       const one = subject.start();
       await one.gate.entered.promise;
       jest.useFakeTimers();
       try {
         recorder.signal("SIGTERM");
-        await turns();
+        await advance(addonSettleBudget - 1);
         expect(recorder.exits).toEqual([]);
-        await advance(stopBound);
+        await advance(stopBound - addonSettleBudget + 1);
         expect(recorder.exits).toEqual([143]);
       } finally {
         jest.useRealTimers();
