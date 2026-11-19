@@ -28,7 +28,7 @@ export function checkerTree(listing: string): string {
       const tab = entry.indexOf("\t");
       return tab !== -1 && !judgedOnly(entry.slice(tab + 1));
     })
-    .join("\n");
+    .join("\0");
 }
 
 export type Graph = ReadonlyMap<string, readonly string[]>;
@@ -91,7 +91,7 @@ function refusal(
 
 function firstLink(tree: string): string | undefined {
   const entry = tree
-    .split("\n")
+    .split("\0")
     .find((each) => each.startsWith("120000 ") || each.startsWith("160000 "));
   return entry?.slice(entry.indexOf("\t") + 1);
 }
