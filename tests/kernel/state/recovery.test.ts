@@ -1126,6 +1126,19 @@ supportingTest(
 const sameBoot = under(candidate(), readable);
 const bootTwo = under(candidate(), { ...readable, bootIdentity: "boot-two" });
 const production = { SX_ENTRY: "production" };
+const observed = {};
+
+async function closesInWorld(world: World, id: string): Promise<void> {
+  expectCompleted(
+    await world.run(closeArgs(id, await world.revision(id)), observed),
+  );
+  expect(
+    caseOf(world, id).closure?.records.map((record) => record.kind),
+  ).toEqual(["closure"]);
+}
+function otherBoot(machine: string, tag: string): string {
+  return `${machine}-${tag}`;
+}
 
 function caseOf(world: World, id: string): Observed {
   const found = world.cases().find((entry) => entry.id === id);
@@ -1164,6 +1177,35 @@ function preparedJournal(
 
 caseTest(
   "K11.a-delegate-same-boot-refused",
+  fixture(async (world) => {
+    const machine = machineBootIdentityRead();
+    if (machine === undefined) throw new Error("No boot identity to observe.");
+    await world.killAt(apply("a"), "effect", { SX_FAULT: "admit-delegate" });
+    const id = only(world);
+    expect(delegateBoots(world, id)).toEqual([machine]);
+    await refusedDelegate(world, id, observed);
+    for (const delegates of [
+      [{}],
+      [{ boot: "" }],
+      [{ boot: 7 }],
+      [{ boot: otherBoot(machine, "one") }, {}],
+      [{ boot: otherBoot(machine, "one") }, { boot: machine }],
+    ]) {
+      preparedJournal(world, id, delegates);
+      await refusedDelegate(world, id, observed);
+    }
+    preparedJournal(world, id, [
+      { boot: otherBoot(machine, "one") },
+      { boot: otherBoot(machine, "two") },
+    ]);
+    await closesInWorld(world, id);
+  }),
+  90_000,
+  "boot identity",
+);
+
+supportingTest(
+  "K11.a supporting (fact override, not an observed-facts proof): the same refusals and the other-boot control with boot identities set by the test entry",
   plain(async (world) => {
     await world.killAt(apply("a"), "effect", {
       ...sameBoot,
@@ -1265,7 +1307,7 @@ function stopDelegates(world: World): void {
     if (processGroup(pid) === pid) signalGroupIfPresent(pid, "SIGKILL");
 }
 const withDelegates = (body: (world: World) => Promise<void>) =>
-  plain(async (world) => {
+  fixture(async (world) => {
     try {
       await body(world);
     } finally {
@@ -1278,7 +1320,7 @@ async function delegateBlocks(
   pids: readonly number[],
 ): Promise<void> {
   for (const pid of pids) expect(alive(pid)).toBe(true);
-  await refusedDelegate(world, id, sameBoot);
+  await refusedDelegate(world, id, observed);
   expectRefusedUnchanged(
     await world.run(apply("a", "v2"), production),
     "DOMAIN_SX_UNRESOLVED",
@@ -1309,13 +1351,14 @@ caseTest(
   "K08.c-surviving-delegate-process",
   withDelegates(async (world) => {
     await world.killAt(apply("a"), "intent", {
-      ...sameBoot,
       SX_FAULT: "delegate-survives",
     });
     const pids = delegatePids(world);
     expect(pids).toHaveLength(1);
     const id = only(world);
-    expect(delegateBoots(world, id)).toEqual(["boot-one"]);
+    expect(delegateBoots(world, id)).toEqual([
+      machineBootIdentityRead() ?? "no boot",
+    ]);
     writeFileSync(world.note("a"), "v1");
     await delegateBlocks(world, id, pids);
     expectCompleted(await world.run(apply("b"), production));
@@ -1327,7 +1370,6 @@ caseTest(
   "O06.a-delegated-writer",
   withDelegates(async (world) => {
     await world.killAt(apply("a"), "intent", {
-      ...sameBoot,
       SX_FAULT: "delegate-detaches",
     });
     const pids = delegatePids(world);
@@ -1335,10 +1377,12 @@ caseTest(
     if (direct === undefined || detached === undefined)
       throw new Error("Expected a direct and a detached delegate.");
     const id = only(world);
-    expect(delegateBoots(world, id)).toEqual(["boot-one"]);
+    expect(delegateBoots(world, id)).toEqual([
+      machineBootIdentityRead() ?? "no boot",
+    ]);
     writeFileSync(world.note("a"), "v1");
     await delegateBlocks(world, id, pids);
-    const report = await capabilitiesUnder(world, sameBoot);
+    const report = await capabilitiesUnder(world, observed);
     expect(at(report, "automaticReclaim")).toBe("unavailable");
     expect(at(report, "humanAssistedTakeover")).toBe("unavailable");
     process.kill(-direct, "SIGKILL");
@@ -1379,7 +1423,7 @@ const confirmedRecord = framed("effect-confirmed", { effect: "note.write" });
 
 caseTest(
   "K11.c-torn-tail-closes",
-  plain(async (world) => {
+  fixture(async (world) => {
     await world.killAt(apply("a"), "effect", production);
     const present = only(world);
     appendFileSync(eventsPath(world, present), confirmedRecord.slice(0, 30));
@@ -1389,10 +1433,10 @@ caseTest(
     const second = await world.revision(present);
     expect(second).not.toBe(first);
     expectRefusedUnchanged(
-      await world.run(closeArgs(present, first), sameBoot),
+      await world.run(closeArgs(present, first), observed),
       "DOMAIN_SX_CLOSE_STALE",
     );
-    await closesUnder(world, present, sameBoot);
+    await closesInWorld(world, present);
     const closure = caseOf(world, present).closure;
     expect(at(closure?.records[0]?.payload, "journalRevision")).toBe(second);
 
@@ -1405,7 +1449,7 @@ caseTest(
     expect(tornTail(world, absent)).toBe(true);
     const refused = await world.run(
       closeArgs(absent, await world.revision(absent), "not-applied"),
-      sameBoot,
+      observed,
     );
     expectRefusedUnchanged(refused, "DOMAIN_SX_CLOSE_EVIDENCE");
     expect(existsSync(closurePath(world, absent))).toBe(false);
@@ -1413,7 +1457,7 @@ caseTest(
     expectCompleted(
       await world.run(
         closeArgs(absent, await world.revision(absent), "not-applied"),
-        sameBoot,
+        observed,
       ),
     );
 
@@ -1425,7 +1469,7 @@ caseTest(
     expectCompleted(
       await world.run(
         closeArgs(excluded, await world.revision(excluded), "not-applied"),
-        sameBoot,
+        observed,
       ),
     );
     expect(world.count("message.send")).toBe(0);
@@ -1434,7 +1478,7 @@ caseTest(
 
 caseTest(
   "K11.d-corrupt-events-still-refuses",
-  plain(async (world) => {
+  fixture(async (world) => {
     await world.killAt(apply("a"), "effect", production);
     const id = only(world);
     const events = eventsPath(world, id);
@@ -1451,7 +1495,7 @@ caseTest(
         id,
         "r-0000000000000000000000000000000000000000000000000000000000000000",
       ),
-      sameBoot,
+      observed,
     );
     expectRefusedUnchanged(refused, "DOMAIN_SX_UNAVAILABLE");
     expect(str(refused.envelope.message)).toBe(
@@ -1459,7 +1503,7 @@ caseTest(
     );
     expect(existsSync(closurePath(world, id))).toBe(false);
     writeFileSync(events, before);
-    await closesUnder(world, id, sameBoot);
+    await closesInWorld(world, id);
   }),
 );
 
@@ -1477,7 +1521,7 @@ function mergedTail(
 
 caseTest(
   "K11.f-record-hidden-in-torn-tail-refuses",
-  plain(async (world) => {
+  fixture(async (world) => {
     await world.killAt(apply("a"), "effect", production);
     const id = only(world);
     const versionOne = framed("delegate-admitted", { effect: "note.write" });
@@ -1491,7 +1535,7 @@ caseTest(
         mergedTail(world, id, delegate, cut);
         expect(tornTail(world, id)).toBe(true);
         expect(delegateBoots(world, id)).toEqual([]);
-        await refusedUnavailable(world, id, bootTwo, "journal-torn");
+        await refusedUnavailable(world, id, observed, "journal-torn");
       }
     mergedTail(world, id, versionOne, header);
     expect(world.cases().find((entry) => entry.id === id)?.events.corrupt).toBe(
@@ -1501,7 +1545,7 @@ caseTest(
       eventsPath(world, id),
       `${framed("effect-started", { effect: "note.write" })}${otherBoot.slice(0, header + 10)}`,
     );
-    await closesUnder(world, id, bootTwo);
+    await closesInWorld(world, id);
   }),
 );
 
@@ -1533,7 +1577,7 @@ caseTest(
     expect(ended.result.transactionState).toBe("unknown");
     expect(readFileSync(eventsPath(world, id))).toEqual(torn);
     expect(delegatePids(world)).toEqual([]);
-    await closesUnder(world, id, sameBoot);
+    await closesInWorld(world, id);
   }),
 );
 
@@ -1554,14 +1598,13 @@ function pausedCloser(
   disposition: string,
 ) {
   return world.start(closeArgs(id, revision, disposition), {
-    ...sameBoot,
     SX_BARRIER: "closure-read",
   });
 }
 
 supportingTest(
   "X29 supporting: closure decides on a fresh read taken after the store read it was admitted on, so an owner that appends between the two refuses as stale",
-  plain(async (world) => {
+  fixture(async (world) => {
     const owner = unknownScopeOwner(world, "admit-delegate");
     await owner.reached("pre-effect");
     const id = only(world);
@@ -1584,7 +1627,7 @@ supportingTest(
 
 supportingTest(
   "X29 supporting: a closer that read a torn tail mid-append decides on a fresh read of the completed record, and refuses as stale",
-  plain(async (world) => {
+  fixture(async (world) => {
     const owner = unknownScopeOwner(world);
     await owner.reached("pre-effect");
     const id = only(world);
@@ -1610,7 +1653,7 @@ supportingTest(
 
 supportingTest(
   "X29 supporting: a closer whose fresh read finds the case corrupt names the store, not a missing case",
-  plain(async (world) => {
+  fixture(async (world) => {
     await world.killAt(apply("a"), "effect", production);
     const id = only(world);
     const closer = pausedCloser(
@@ -1633,7 +1676,7 @@ supportingTest(
 
 supportingTest(
   "X29 supporting: a case its owner completes between the store read and the fresh read refuses as stale, not as settled",
-  plain(async (world) => {
+  fixture(async (world) => {
     const owner = unknownScopeOwner(world);
     await owner.reached("pre-effect");
     const id = only(world);

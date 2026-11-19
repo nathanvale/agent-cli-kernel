@@ -21,6 +21,7 @@ export function caseTest(
   id: string,
   body: () => Promise<void>,
   timeout = 90_000,
+  needs: "boot identity" | undefined = undefined,
 ): void {
   const row = stateCases.find((entry) => entry.id === id);
   if (!row || row.status !== "executable")
@@ -36,6 +37,12 @@ export function caseTest(
   if (row.nonRoot === true && process.geteuid?.() === 0) {
     test(`${id} UNPROVED as euid 0: root is never denied permission`, () => {
       expect(process.geteuid?.()).toBe(0);
+    });
+    return;
+  }
+  if (needs === "boot identity" && machineBootIdentityRead() === undefined) {
+    test(`${id} UNPROVED on ${process.platform}: no boot identity to observe at ${bootIdentityFile}; its fact-override supporting test runs instead`, () => {
+      expect(machineBootIdentityRead()).toBeUndefined();
     });
     return;
   }

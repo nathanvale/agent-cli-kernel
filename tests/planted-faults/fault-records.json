@@ -1585,28 +1585,28 @@
     "id": "71be2d5-install-same-boot-admitted",
     "patch": "tests/planted-faults/patches/71be2d5-install-same-boot-admitted.patch",
     "testFile": "tests/kernel/state/recovery.test.ts",
-    "title": "^K11.a-delegate-same-boot-refused",
+    "title": "^K11.a supporting \\(fact override",
     "source": "71be2d5 feat(state): close a case after a delegate start only on another boot"
   },
   {
     "id": "71be2d5-install-missing-boot-admitted",
     "patch": "tests/planted-faults/patches/71be2d5-install-missing-boot-admitted.patch",
     "testFile": "tests/kernel/state/recovery.test.ts",
-    "title": "^K11.a-delegate-same-boot-refused",
+    "title": "^K11.a supporting \\(fact override",
     "source": "71be2d5 feat(state): close a case after a delegate start only on another boot"
   },
   {
     "id": "71be2d5-install-first-delegate-only",
     "patch": "tests/planted-faults/patches/71be2d5-install-first-delegate-only.patch",
     "testFile": "tests/kernel/state/recovery.test.ts",
-    "title": "^K11.a-delegate-same-boot-refused",
+    "title": "^K11.a supporting \\(fact override",
     "source": "71be2d5 feat(state): close a case after a delegate start only on another boot"
   },
   {
     "id": "71be2d5-store-empty-boot",
     "patch": "tests/planted-faults/patches/71be2d5-store-empty-boot.patch",
     "testFile": "tests/kernel/state/recovery.test.ts",
-    "title": "^K11.a-delegate-same-boot-refused",
+    "title": "^K11.a supporting \\(fact override",
     "source": "71be2d5 feat(state): close a case after a delegate start only on another boot"
   },
   {
