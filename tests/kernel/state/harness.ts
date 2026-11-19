@@ -64,7 +64,14 @@ export function supportingTest(
   title: string,
   body: () => Promise<void>,
   timeout = 90_000,
+  nonRoot = false,
 ): void {
+  if (nonRoot && process.geteuid?.() === 0) {
+    test(`${title} UNPROVED as euid 0: root is never denied permission`, () => {
+      expect(process.geteuid?.()).toBe(0);
+    });
+    return;
+  }
   if (!coordinationExpected) {
     test(
       `${title} UNPROVED on ${process.platform}: fail-closed control only`,
@@ -403,9 +410,16 @@ export type Started = {
 
 export type World = ReturnType<typeof makeWorld>;
 
+const defaultChildBound = 60_000;
+
 export function makeWorld(
-  options: { readonly qualification?: "fixture"; readonly entry?: string } = {},
+  options: {
+    readonly qualification?: "fixture";
+    readonly entry?: string;
+    readonly childBound?: number;
+  } = {},
 ) {
+  const childBound = options.childBound ?? defaultChildBound;
   const program = options.entry ?? specimen;
   const base = testFolder("c3-state-");
   const root = join(base, "state");
@@ -439,7 +453,7 @@ export function makeWorld(
   function start(
     argv: readonly string[],
     extra: Readonly<Record<string, string>> = {},
-    limitMilliseconds?: number,
+    limitMilliseconds: number = childBound,
   ): Started {
     const barrierDirectory = extra.SX_BARRIER_DIR ?? bars;
     const child = Bun.spawn([process.execPath, program, ...argv], {
@@ -450,13 +464,10 @@ export function makeWorld(
     });
     children.push(child);
     let outlived = false;
-    const limit =
-      limitMilliseconds === undefined
-        ? undefined
-        : setTimeout(() => {
-            outlived = true;
-            child.kill("SIGKILL");
-          }, limitMilliseconds);
+    const limit = setTimeout(() => {
+      outlived = true;
+      child.kill("SIGKILL");
+    }, limitMilliseconds);
     const done = (async () => {
       const [stdout, stderr] = await Promise.all([
         new Response(child.stdout).text(),
@@ -475,6 +486,7 @@ export function makeWorld(
         stderr,
       );
     })();
+    void done.catch(() => undefined);
     return {
       pid: child.pid,
       done,
@@ -510,8 +522,9 @@ export function makeWorld(
   async function run(
     argv: readonly string[],
     extra: Readonly<Record<string, string>> = {},
+    limitMilliseconds: number = childBound,
   ): Promise<Run> {
-    return start(argv, extra).done;
+    return start(argv, extra, limitMilliseconds).done;
   }
 
   function ledger(): readonly string[] {

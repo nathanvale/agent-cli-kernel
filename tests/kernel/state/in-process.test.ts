@@ -46,14 +46,12 @@ function emergencies(operation: Observed): number {
     .length;
 }
 
-const childBound = 60_000;
-
 function inProcess(
   world: World,
   mode: string,
   extra: Record<string, string> = {},
 ) {
-  return world.start([mode], extra, childBound).done;
+  return world.start([mode], extra).done;
 }
 
 supportingTest(

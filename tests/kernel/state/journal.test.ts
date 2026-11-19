@@ -756,6 +756,17 @@ function expectStampWithin(
   expect(stamp).toBeLessThanOrEqual(window.after);
 }
 
+async function expectHistory(
+  world: World,
+  id: string,
+  status: string,
+): Promise<void> {
+  const read = await world.history(id);
+  expect(read.exit).toBe(0);
+  expect(at(read.result.raw, "data", "operationId")).toBe(id);
+  expect(at(read.result.raw, "data", "status")).toBe(status);
+}
+
 function moverLines(world: World): readonly string[] {
   return world.ledger().filter((line) => line.startsWith("mover "));
 }
@@ -811,7 +822,12 @@ caseTest(
     const unchanged = async () => {
       expect(await world.pendingIds()).toEqual(listed);
       expect(caseFolders(world, "operations")).toEqual(cases);
-      for (const id of cases) expect((await world.history(id)).exit).toBe(0);
+      for (const id of cases)
+        await expectHistory(
+          world,
+          id,
+          listed.includes(id) ? "unresolved" : "completed",
+        );
     };
     await world.killAt(apply("c"), "upgrade-staged");
     expect(formatText(world)).toBe(versionOneFormat);
@@ -929,12 +945,12 @@ caseTest(
           4,
         );
       for (const id of caseFolders(world, "operations"))
-        expect((await world.history(id)).exit).toBe(0);
+        await expectHistory(world, id, "completed");
     } finally {
       chmodSync(settled, 0o700);
     }
     expect(caseFolders(world, "settled")).toEqual(moved);
-    for (const id of moved) expect((await world.history(id)).exit).toBe(0);
+    for (const id of moved) await expectHistory(world, id, "completed");
   }),
 );
 
@@ -1143,6 +1159,8 @@ caseTest(
   }),
 );
 
+const upgradeRefused = "State unavailable: store-upgrade.";
+
 supportingTest(
   "X23 supporting: the upgrade refuses a settled/ that is not private, and a format it does not know",
   plain(async (world) => {
@@ -1153,7 +1171,7 @@ supportingTest(
     chmodSync(settled, 0o770);
     const shared = await world.run(apply("b"));
     expectRefusedUnchanged(shared, "DOMAIN_SX_UNAVAILABLE");
-    expect(str(shared.envelope.message)).toContain("store-upgrade");
+    expect(str(shared.envelope.message)).toBe(upgradeRefused);
     expect(formatText(world)).toBe(versionOneFormat);
     chmodSync(settled, 0o700);
     expectCompleted(await world.run(apply("b")));
@@ -1165,7 +1183,7 @@ supportingTest(
     waiting.release("admission-wait");
     const refused = await waiting.done;
     expectRefusedUnchanged(refused, "DOMAIN_SX_UNAVAILABLE");
-    expect(str(refused.envelope.message)).toContain("store-upgrade");
+    expect(str(refused.envelope.message)).toBe(upgradeRefused);
     expect(formatText(world)).toBe(unknown);
     expect(world.noteLedger("c")).toBe(0);
   }),
@@ -1258,4 +1276,66 @@ supportingTest(
     expect(at(report.result.raw, "data", "unfinished")).toEqual([]);
     expect(world.count("entry production")).toBe(4);
   }),
+);
+
+supportingTest(
+  "X24 supporting: the mover moves nothing when settled/ stops being a private folder during its hold",
+  plain(async (world) => {
+    expectCompleted(await world.run(apply("a")));
+    const [first] = caseFolders(world, "operations");
+    if (!first) throw new Error("No case.");
+    const settled = join(world.root, "settled");
+    const elsewhere = join(world.base, "elsewhere");
+    const held = world.start(apply("b"), { SX_BARRIER: "staged" });
+    await held.reached("staged");
+    renameSync(settled, elsewhere);
+    symlinkSync(elsewhere, settled);
+    held.release("staged");
+    expectCompleted(await held.done);
+    expect(readdirSync(elsewhere)).toEqual([]);
+    expect(caseFolders(world, "operations")).toContain(first);
+    expect(world.noteLedger("b")).toBe(1);
+  }),
+);
+
+supportingTest(
+  "X23 supporting: an upgrade that cannot write or remove its staged record refuses and frees the admission lock",
+  plain(async (world) => {
+    expectCompleted(await world.run(apply("a")));
+    asVersionOneStore(world);
+    const staging = join(world.root, "staging");
+    chmodSync(staging, 0o000);
+    let refused;
+    try {
+      refused = await world.run(apply("b"));
+    } finally {
+      chmodSync(staging, 0o700);
+    }
+    expectRefusedUnchanged(refused, "DOMAIN_SX_UNAVAILABLE");
+    expect(str(refused.envelope.message)).toBe(upgradeRefused);
+    expect(formatText(world)).toBe(versionOneFormat);
+    expectCompleted(await world.run(apply("b")));
+    expect(formatText(world)).toBe(versionTwoFormat);
+  }),
+  90_000,
+  true,
+);
+
+supportingTest(
+  "Test harness supporting: the state test world kills a child that outlives its bound",
+  async () => {
+    const world = makeWorld({ childBound: 300 });
+    try {
+      const held = world.start(apply("a"), { SX_BARRIER: "intent" });
+      await held.reached("intent");
+      const ended = await held.done.then(
+        () => "ended",
+        (error: unknown) => (error instanceof Error ? error.message : "failed"),
+      );
+      expect(ended).toContain("outlived its 300 ms limit and was killed.");
+    } finally {
+      world.dispose();
+    }
+  },
+  10_000,
 );

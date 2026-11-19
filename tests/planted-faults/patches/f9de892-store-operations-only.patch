@@ -1,8 +1,8 @@
 diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
-index 8f20023..d94f64b 100644
+index a056567..ca6d003 100644
 --- a/kernel/src/addons/state/store.ts
 +++ b/kernel/src/addons/state/store.ts
-@@ -501,7 +501,7 @@ function fromCaseFolders<T>(
+@@ -526,7 +526,7 @@ function fromCaseFolders<T>(
    id: string,
    read: (directory: string) => T,
  ): T | "not-found" {
