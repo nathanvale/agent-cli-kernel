@@ -71,6 +71,7 @@ type AttachedRun = {
 const closedReason = {
   returned: "The state capability closed when the handler returned.",
   deadline: "The state capability closed at the deadline.",
+  finished: "The state capability closed when its run finished.",
 } as const;
 export function closeAtDeadline(
   runId: string,
@@ -200,7 +201,7 @@ function stateIssuer(
     ): RecordedEffect<Effect> {
       const execution = active.getStore();
       const run = execution?.runId === runId ? execution.run : runs.get(runId);
-      const closed = run ? attachedRuns.get(run)?.closed : undefined;
+      const closed = run ? attachedRuns.get(run)?.closed : "finished";
       if (closed) throw new Error(closedReason[closed]);
       return Object.freeze({
         [recordedEffect]: true as const,
