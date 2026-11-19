@@ -5,6 +5,9 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -51,9 +54,55 @@ jobs:
         with:
           name: test-timings-${{ matrix.shard }}
           path: tests/test-timings.json
-  commits-shard:
+  commits-cache:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    outputs:
+      token: ${{ steps.token.outputs.token }}
+    steps:
+      - uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/verdict-token
+          key: commits-verdict-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: commits-verdict-
+      - id: token
+        run: |
+          token=$(head -c 8192 "$RUNNER_TEMP/verdict-token" 2>/dev/null || true)
+          if [[ $token =~ ^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$ ]]; then
+            echo "token=$token" >> "$GITHUB_OUTPUT"
+          fi
+  commits-carry:
+    if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+    needs: commits-cache
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      since: ${{ steps.carry.outputs.since }}
+      base: ${{ steps.carry.outputs.base }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+          no-cache: true
+      - id: carry
+        env:
+          CARRIED_TOKEN: ${{ needs.commits-cache.outputs.token }}
+        run: bun --no-install scripts/carried-verdict.ts
+  commits-shard:
+    if: github.event_name == 'pull_request'
+    needs: commits-carry
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -67,24 +116,46 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.4
+          no-cache: true
       - run: bun install --frozen-lockfile
       - env:
-          BASE: ${{ github.event.pull_request.base.sha }}
+          BASE: ${{ needs.commits-carry.outputs.base }}
+          CHECK_COMMITS_SINCE: ${{ needs.commits-carry.outputs.since }}
         run: bun run check:commits "$BASE" --shard ${{ matrix.shard }}/4
   commits:
     if: always() && github.event_name == 'pull_request'
-    needs: commits-shard
+    needs: [commits-carry, commits-shard]
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions: {}
     steps:
       - env:
+          CARRY: ${{ needs.commits-carry.result }}
           SHARDS: ${{ needs.commits-shard.result }}
         run: |
-          if [ "$SHARDS" != success ]; then
-            echo "The commits-shard jobs ended $SHARDS. Repair: open the red commits-shard job and follow its Repair line." >&2
+          if [ "$CARRY" != success ] || [ "$SHARDS" != success ]; then
+            echo "commits-carry ended $CARRY and the commits-shard jobs ended $SHARDS. Repair: open the red job and follow its Repair line." >&2
             exit 1
           fi
-          echo "All four commits-shard jobs passed."
+          echo "commits-carry and all four commits-shard jobs passed."
+  commits-token:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    needs: commits
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      id-token: write
+    steps:
+      - env:
+          AUDIENCE: ${{ github.repository }} commits verdict
+        run: |
+          curl -sSf --max-time 20 -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$(jq -rn --arg a "$AUDIENCE" '$a|@uri')" \
+            | jq -r .value > "$RUNNER_TEMP/verdict-token"
+      - uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/verdict-token
+          key: commits-verdict-${{ github.run_id }}-${{ github.run_attempt }}
   fault-replay-shard:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
