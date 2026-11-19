@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index bcdbf31..55d960c 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -301,7 +301,7 @@ export function secondRunProblem(
+       observed.bootIdentitySource.source,
+     ],
+   ]);
+-  return platformDiffers.length > 0
++  return platformDiffers.length > 99
+     ? `this platform differs from the record's in ${platformDiffers.join(", ")}`
+     : undefined;
+ }

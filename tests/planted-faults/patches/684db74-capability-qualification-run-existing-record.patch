@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index bcdbf31..433532f 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -499,7 +499,7 @@ function prepare(
+   if (dirty !== undefined) return dirty;
+   const { entry } = parsed;
+   if (entry === "fixture.ts")
+-    return existsSync(join(context.root, recordPath(candidate.id)))
++    return existsSync(join(context.root, recordPath("none")))
+       ? `Refused: ${recordPath(candidate.id)} exists; a fixture.ts run starts a new capability qualification record. Repair: remove it and commit that, then rerun.`
+       : { candidate, parent, entry, existing: undefined };
+   const existing = secondRunRefusal(context.root, parent, candidate);

@@ -1,0 +1,14 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index bcdbf31..1960784 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -265,8 +265,7 @@ export function secondRunProblem(
+   observed: ObservedFacts,
+ ): string | undefined {
+   const row = table.find((entry) => entry.id === candidate.id);
+-  if (row === undefined)
+-    return `row ${candidate.id} is not in the capability qualification table`;
++  if (row === undefined) return undefined;
+   const rowDiffers = differing([
+     ["os", row.os, candidate.os],
+     ["majorRelease", row.majorRelease, candidate.majorRelease],

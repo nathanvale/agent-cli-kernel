@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-record.ts b/tests/kernel/state/capability-qualification-record.ts
+index 85abe32..b779084 100644
+--- a/tests/kernel/state/capability-qualification-record.ts
++++ b/tests/kernel/state/capability-qualification-record.ts
+@@ -313,7 +313,7 @@ function runProblems(
+   return [
+     ...shape,
+     ...record.runs.flatMap((run) => [
+-      ...(run.sourceHash === currentHash
++      ...(run.sourceHash !== ""
+         ? []
+         : [
+             `the ${run.entry} run's sourceHash ${run.sourceHash} is not the qualified source's ${currentHash}`,

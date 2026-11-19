@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index bcdbf31..3e695ff 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -515,7 +515,7 @@ function writeRecord(
+ ): void {
+   mkdirSync(join(root, recordFolder), { recursive: true });
+   const final = join(root, recordPath(record.row));
+-  const temporary = `${final}.partial`;
++  const temporary = final;
+   const descriptor = openSync(temporary, "w", 0o644);
+   try {
+     writeSync(descriptor, `${JSON.stringify(record, null, 2)}\n`);

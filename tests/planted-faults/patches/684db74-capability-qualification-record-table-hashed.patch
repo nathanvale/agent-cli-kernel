@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-record.ts b/tests/kernel/state/capability-qualification-record.ts
+index 85abe32..58e139e 100644
+--- a/tests/kernel/state/capability-qualification-record.ts
++++ b/tests/kernel/state/capability-qualification-record.ts
+@@ -102,7 +102,7 @@ export function qualifiedSourceFiles(root: string): readonly SourceFile[] {
+         .map((entry) => `${folder}/${entry.name}`),
+     ),
+     stateSeam,
+-  ].filter((path) => path !== leftOut);
++  ];
+   return paths
+     .map((path) => ({ path, bytes: readFileSync(join(root, path)) }))
+     .sort(byPath);

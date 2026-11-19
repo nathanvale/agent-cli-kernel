@@ -1,0 +1,12 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index bcdbf31..8eccd3c 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -496,7 +496,6 @@ function prepare(
+   if (!existsSync(parent) || !statSync(parent).isDirectory())
+     return `Refused: the state root parent ${parent} is not a folder. Repair: create it on the filesystem under test, then rerun.`;
+   const dirty = cleanProblem(context.root);
+-  if (dirty !== undefined) return dirty;
+   const { entry } = parsed;
+   if (entry === "fixture.ts")
+     return existsSync(join(context.root, recordPath(candidate.id)))

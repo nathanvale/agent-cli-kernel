@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-record.ts b/tests/kernel/state/capability-qualification-record.ts
+index 85abe32..a5659eb 100644
+--- a/tests/kernel/state/capability-qualification-record.ts
++++ b/tests/kernel/state/capability-qualification-record.ts
+@@ -322,7 +322,7 @@ function runProblems(
+         const found = run.cases.find((entry) => entry.id === id);
+         if (found === undefined)
+           return [`the ${run.entry} run has no result for ${id}`];
+-        return found.result === "pass"
++        return found.result !== "unproved"
+           ? []
+           : [`${id} is ${found.result} in the ${run.entry} run`];
+       }),
