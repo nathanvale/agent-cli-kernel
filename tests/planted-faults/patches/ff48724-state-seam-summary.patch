@@ -1,0 +1,14 @@
+diff --git a/kernel/src/kernel/state-seam.ts b/kernel/src/kernel/state-seam.ts
+index e87fc1c..8b534dd 100644
+--- a/kernel/src/kernel/state-seam.ts
++++ b/kernel/src/kernel/state-seam.ts
+@@ -144,7 +144,8 @@ export function issuedProof(
+   const run = descriptor
+     ? registrations.get(descriptor)?.runs.get(runId)
+     : undefined;
+-  return run ? attachedRuns.get(run)?.proof : undefined;
++  const status = run ? attachedRuns.get(run) : undefined;
++  return status?.revoked === false ? status.proof : undefined;
+ }
+ // Interface: Runtime counterpart of the ExclusiveScope brand (K2): true only for the
+ // kernel-issued object itself, issued by `descriptor`'s state add-on instance for the

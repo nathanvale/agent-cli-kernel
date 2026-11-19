@@ -11,7 +11,8 @@ here.
   Witnessed: [892a700], [f2270b3].
 - Import shared test fakes and fixtures from
   `tests/kernel/kernel-repair/handlers.ts` and `shapes.ts`. Witnessed:
-  [810345d], [cf72627].
+  [810345d], [cf72627], [7fb5649] (the state fixture copied `emptyInput`,
+  station words and a refused cause row).
 - Give admission commands that launch Git the same isolated environment as
   direct fixture calls. Witnessed: [#91-git].
 - Isolate a test's git from the caller's configuration with `gitEnv` from
@@ -47,3 +48,4 @@ here.
 [#101-git]: https://github.com/nathanvale/bun-typescript-template/pull/101#discussion_r4609075462
 [def3ec4]: https://github.com/nathanvale/bun-typescript-template/commit/def3ec4a0b0bbe9047f9296dc0bbf6424c44a807
 [#109-git]: https://github.com/nathanvale/bun-typescript-template/pull/109#discussion_r4609955976
+[7fb5649]: https://github.com/nathanvale/agent-cli-kernel/commit/7fb564900cff191397fdc8d1ba6f20e6807abdde

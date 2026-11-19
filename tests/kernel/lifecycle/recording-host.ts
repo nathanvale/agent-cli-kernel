@@ -1,12 +1,15 @@
 import { appendFileSync } from "node:fs";
 import { jest } from "bun:test";
 import {
+  changing,
   command,
   commonCauses,
   contractFor,
   station,
 } from "../../../kernel/src/kernel/index.ts";
 import type {
+  CauseTable,
+  StateCapability,
   ProgramRequest,
   ProgramsCapability,
 } from "../../../kernel/src/kernel/index.ts";
@@ -15,6 +18,14 @@ import type {
   StopSignal,
 } from "../../../kernel/src/kernel/process-types.ts";
 import { path } from "../../../kernel/src/kernel/validation/brands.ts";
+import { stateAddon } from "../../../kernel/src/addons/state/index.ts";
+import type { StateAddonDescriptor } from "../../../kernel/src/kernel/state-seam.ts";
+import { readsUnchanged } from "../kernel-repair/handlers.ts";
+import {
+  emptyInput,
+  refusedHandoff,
+  stationWords,
+} from "../kernel-repair/shapes.ts";
 import { timerLimit, unchangedEffects } from "./oracle.ts";
 import { programStopRow, programStopStation } from "./program-stop.ts";
 import { signalGroupIfPresent } from "../../support/signal.ts";
@@ -228,6 +239,107 @@ export function holdContract(
     causes: { DOMAIN_RC_DEADLINE_PROGRAM_STOP_UNCONFIRMED: programStopRow },
     installedAddons: ["programs"],
   });
+}
+
+const stateCauses = {
+  DOMAIN_RC_LOCK_HELD: refusedHandoff,
+  DOMAIN_RC_UNRESOLVED: refusedHandoff,
+  DOMAIN_RC_DECLINED: { ...refusedHandoff, guidance: "next" },
+} as const satisfies CauseTable;
+const allStateCauses = { ...commonCauses, ...stateCauses };
+const inspectCases = {
+  next: { kind: "instruction", text: "Inspect listed cases." },
+} as const;
+
+export function stateHoldContract(
+  root: string,
+  work: (
+    programs: ProgramsCapability,
+    state: StateCapability<"rc.note">,
+  ) => Promise<void>,
+  descriptor: StateAddonDescriptor = stateAddon({
+    root,
+    report: "rc.pending",
+  }).descriptor,
+) {
+  const handoff = {
+    handoff: {
+      owner: "operator",
+      reason: "Coordination refused.",
+      inspect: [{ kind: "command", command: "rc.pending", args: [] }],
+    },
+  } as const;
+  const pending = command({
+    identity: "rc.pending",
+    route: ["pending"],
+    summary: "Report unfinished work.",
+    input: emptyInput,
+    capabilities: {},
+    stations: [
+      station(allStateCauses, {
+        ...stationWords,
+        commandIdentity: "rc.pending",
+        causeCode: "SUCCESS_UNCHANGED",
+        trigger: "Read.",
+        repairAction: null,
+        guidance: inspectCases,
+        independentObservable: "rc.pending:read",
+      }),
+    ],
+    run: readsUnchanged("rc.pending"),
+  });
+  const coordination = (
+    causeCode: "DOMAIN_RC_LOCK_HELD" | "DOMAIN_RC_UNRESOLVED",
+  ) =>
+    station(allStateCauses, {
+      ...stationWords,
+      commandIdentity: "rc.change",
+      causeCode,
+      trigger: "Coordination refused.",
+      repairAction: "Inspect the unfinished report.",
+      guidance: handoff,
+      independentObservable: `rc.change:${causeCode}`,
+    });
+  const change = changing({
+    identity: "rc.change",
+    route: ["change"],
+    summary: "Hold, then decline to change anything.",
+    input: { ...emptyInput, deadlineSupported: true },
+    capabilities: { programs: true },
+    effectClass: "repository-local",
+    effects: ["rc.note"],
+    ifNoResult: descriptor.ifNoResult,
+    heldLockCause: "DOMAIN_RC_LOCK_HELD",
+    unresolvedCaseCause: "DOMAIN_RC_UNRESOLVED",
+    stations: [
+      coordination("DOMAIN_RC_LOCK_HELD"),
+      coordination("DOMAIN_RC_UNRESOLVED"),
+      station(allStateCauses, {
+        ...stationWords,
+        commandIdentity: "rc.change",
+        causeCode: "DOMAIN_RC_DECLINED",
+        trigger: "The handler declined to change anything.",
+        repairAction: "Nothing to repair.",
+        guidance: inspectCases,
+        independentObservable: "rc.change:declined",
+      }),
+    ],
+    run: async (_input, context) => {
+      await work(context.programs, context.state);
+      return context.result(
+        { commandIdentity: "rc.change", causeCode: "DOMAIN_RC_DECLINED" },
+        { message: "Declined.", data: null, effects: unchangedEffects },
+      );
+    },
+  });
+  const contract = contractFor({
+    cli: "rc",
+    commands: [change, pending],
+    state: descriptor,
+    causes: stateCauses,
+    installedAddons: ["state", "programs"],
+  });
+  return { contract, descriptor };
 }
 
 export function note(entry: Record<string, unknown>): void {

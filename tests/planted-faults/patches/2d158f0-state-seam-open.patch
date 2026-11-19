@@ -1,0 +1,17 @@
+diff --git a/kernel/src/kernel/state-seam.ts b/kernel/src/kernel/state-seam.ts
+index 8584fb1..9c831cd 100644
+--- a/kernel/src/kernel/state-seam.ts
++++ b/kernel/src/kernel/state-seam.ts
+@@ -341,12 +341,6 @@ function forgetAttachment(
+   run: object,
+ ): void {
+   const open = attachedRuns.get(run)?.openTransaction;
+-  if (open) {
+-    void open.then(() => {
+-      forgetAttachment(runs, runId, run);
+-    });
+-    return;
+-  }
+   if (runs.get(runId) === run) runs.delete(runId);
+ }
+ 

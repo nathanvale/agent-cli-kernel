@@ -1,0 +1,12 @@
+diff --git a/kernel/src/kernel/state-seam.ts b/kernel/src/kernel/state-seam.ts
+index e84dcc8..7142825 100644
+--- a/kernel/src/kernel/state-seam.ts
++++ b/kernel/src/kernel/state-seam.ts
+@@ -348,7 +348,6 @@ function forgetAttachment(
+     });
+     return;
+   }
+-  if (runs.get(runId) === run) runs.delete(runId);
+ }
+ 
+ function attachOwned<Effect extends string>(

@@ -1,0 +1,13 @@
+diff --git a/kernel/src/kernel/state-seam.ts b/kernel/src/kernel/state-seam.ts
+index e87fc1c..d47d052 100644
+--- a/kernel/src/kernel/state-seam.ts
++++ b/kernel/src/kernel/state-seam.ts
+@@ -360,7 +360,7 @@ export function attachState<Effect extends string>(
+     );
+   const live = state.runs.get(runId);
+   if (live) {
+-    revokeIssued(live);
++    state.runs.delete(runId);
+     return undefined;
+   }
+   const run = Object.freeze({});

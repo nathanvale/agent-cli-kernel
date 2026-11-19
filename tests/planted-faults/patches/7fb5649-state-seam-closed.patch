@@ -1,0 +1,17 @@
+diff --git a/kernel/src/kernel/state-seam.ts b/kernel/src/kernel/state-seam.ts
+index ebf1bd1..12e3265 100644
+--- a/kernel/src/kernel/state-seam.ts
++++ b/kernel/src/kernel/state-seam.ts
+@@ -198,10 +198,8 @@ function stateIssuer(
+       effect: Effect,
+       admitStart: RecordedEffect<Effect>["admitStart"],
+     ): RecordedEffect<Effect> {
+-      const execution = active.getStore();
+-      if (!execution || execution.runId !== runId)
+-        throw new Error("A recorded effect requires the active attached run.");
+-      const closed = attachedRuns.get(execution.run)?.closed;
++      const run = runs.get(runId);
++      const closed = run ? attachedRuns.get(run)?.closed : undefined;
+       if (closed) throw new Error(closedReason[closed]);
+       return Object.freeze({
+         [recordedEffect]: true as const,

@@ -11,7 +11,12 @@ import {
 import type { CauseTable } from "../../kernel/src/kernel/index.ts";
 import { stateAddon } from "../../kernel/src/addons/state/index.ts";
 import { testFolder } from "../support/test-folder.ts";
-import { emptyInput, unchanged } from "./kernel-repair/shapes.ts";
+import {
+  emptyInput,
+  refusedHandoff,
+  stationWords,
+  unchanged,
+} from "./kernel-repair/shapes.ts";
 
 const temporaryRoots: string[] = [];
 afterEach(() => {
@@ -20,29 +25,10 @@ afterEach(() => {
 });
 
 const causes = {
-  DOMAIN_SG_LOCK_HELD: {
-    outcome: "refused",
-    transactionState: "unchanged",
-    failureClass: "domain",
-    exitCode: 3,
-    retryable: false,
-    guidance: "handoff",
-  },
-  DOMAIN_SG_UNRESOLVED: {
-    outcome: "refused",
-    transactionState: "unchanged",
-    failureClass: "domain",
-    exitCode: 3,
-    retryable: false,
-    guidance: "handoff",
-  },
+  DOMAIN_SG_LOCK_HELD: refusedHandoff,
+  DOMAIN_SG_UNRESOLVED: refusedHandoff,
 } as const satisfies CauseTable;
 const allCauses = { ...commonCauses, ...causes };
-const words = {
-  retryDelayPolicy: { kind: "none" },
-  reachability: "required",
-  unreachableRationale: null,
-} as const;
 const handoff = {
   handoff: {
     owner: "operator",
@@ -98,7 +84,7 @@ function changingRoute(seen: unknown[]): Execute {
     capabilities: {},
     stations: [
       station(allCauses, {
-        ...words,
+        ...stationWords,
         commandIdentity: "sg.pending",
         causeCode: "SUCCESS_UNCHANGED",
         trigger: "Read.",
@@ -128,7 +114,7 @@ function changingRoute(seen: unknown[]): Execute {
     unresolvedCaseCause: "DOMAIN_SG_UNRESOLVED",
     stations: [
       station(allCauses, {
-        ...words,
+        ...stationWords,
         commandIdentity: "sg.change",
         causeCode: "DOMAIN_SG_LOCK_HELD",
         trigger: "Coordination refused.",
@@ -137,7 +123,7 @@ function changingRoute(seen: unknown[]): Execute {
         independentObservable: "sg.change:held",
       }),
       station(allCauses, {
-        ...words,
+        ...stationWords,
         commandIdentity: "sg.change",
         causeCode: "DOMAIN_SG_UNRESOLVED",
         trigger: "Coordination refused.",

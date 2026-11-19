@@ -67,6 +67,8 @@ type AttachedRun = {
   transactionStarted: boolean;
   proof: TransactionProof | undefined;
   closed: "returned" | "deadline" | undefined;
+  revoked: boolean;
+  openTransaction: Promise<void> | undefined;
 };
 const closedReason = {
   returned: "The state capability closed when the handler returned.",
@@ -116,7 +118,8 @@ export function knownProof(
     proof !== undefined &&
     proof.runId === runId &&
     registration?.stateInstance === proof.stateInstance &&
-    registration.runs.get(runId) === proof.run
+    registration.runs.get(runId) === proof.run &&
+    attachedRuns.get(proof.run)?.revoked === false
   );
 }
 export function proofFreeResultAllowed(
@@ -162,7 +165,8 @@ export function issuedScope(
     !registration ||
     issued.runId !== runId ||
     registration.stateInstance !== issued.stateInstance ||
-    registration.runs.get(runId) !== issued.run
+    registration.runs.get(runId) !== issued.run ||
+    attachedRuns.get(issued.run)?.revoked !== false
   )
     return false;
   try {
@@ -198,8 +202,10 @@ function stateIssuer(
       effect: Effect,
       admitStart: RecordedEffect<Effect>["admitStart"],
     ): RecordedEffect<Effect> {
-      const run = runs.get(runId);
-      const closed = run ? attachedRuns.get(run)?.closed : undefined;
+      const execution = active.getStore();
+      if (!execution || execution.runId !== runId)
+        throw new Error("A recorded effect requires the active attached run.");
+      const closed = attachedRuns.get(execution.run)?.closed;
       if (closed) throw new Error(closedReason[closed]);
       return Object.freeze({
         [recordedEffect]: true as const,
@@ -280,7 +286,6 @@ const registrations = new WeakMap<
     readonly registration: StateFactoryResult;
     readonly stateInstance: StateInstance;
     readonly runs: Map<string, object>;
-    readonly used: Set<string>;
     readonly active: AsyncLocalStorage<{
       readonly runId: string;
       readonly run: object;
@@ -310,12 +315,62 @@ export function createStateAddon(
     stateInstance,
     runs,
     active,
-    used: new Set(),
   });
   return descriptor;
 }
 export function isStateDescriptor(descriptor: StateAddonDescriptor): boolean {
   return registrations.has(descriptor);
+}
+
+export function attachedRunCount(descriptor: StateAddonDescriptor): number {
+  return registrations.get(descriptor)?.runs.size ?? 0;
+}
+
+// Accepted decision (Nathan, 19 November 2026, 12:08 AEDT): the seam forgets a
+// run identity when its run finishes, so a long-lived process holds only its
+// live runs. A reused identity is refused only while its earlier run is live.
+// A run whose transaction is still open stays live until that transaction
+// ends, so no other run can take its identity meanwhile; this reading is this
+// code's, not the ruling's. The in-process entry calls this; runProcess ends
+// its process instead, and a direct contract.execute caller's run never
+// reports that it finished. Only the attachment's own forget can remove it, so
+// a refused duplicate's finish never removes the live run. An add-on whose
+// attach throws forgets that attachment before the throw leaves the seam.
+function forgetAttachment(
+  runs: Map<string, object>,
+  runId: string,
+  run: object,
+): void {
+  const open = attachedRuns.get(run)?.openTransaction;
+  if (open) {
+    void open.then(() => {
+      forgetAttachment(runs, runId, run);
+    });
+    return;
+  }
+  if (runs.get(runId) === run) runs.delete(runId);
+}
+
+function attachOwned<Effect extends string>(
+  state: {
+    readonly registration: StateFactoryResult;
+    readonly runs: Map<string, object>;
+  },
+  runId: string,
+  run: object,
+  effects: readonly Effect[],
+): import("./capabilities.ts").StateCapability<Effect> {
+  try {
+    return state.registration.attach(runId, effects);
+  } catch (error) {
+    forgetAttachment(state.runs, runId, run);
+    throw error;
+  }
+}
+
+function revokeIssued(run: object): void {
+  const status = attachedRuns.get(run);
+  if (status) status.revoked = true;
 }
 
 export function attachState<Effect extends string>(
@@ -326,6 +381,7 @@ export function attachState<Effect extends string>(
   | {
       readonly capability: import("./capabilities.ts").StateCapability<Effect>;
       readonly close: () => void;
+      readonly forget: () => void;
     }
   | undefined {
   const state = registrations.get(descriptor);
@@ -333,20 +389,22 @@ export function attachState<Effect extends string>(
     throw new Error(
       "State descriptor was not created by contractFor.stateAddon.",
     );
-  if (state.used.has(runId)) {
-    state.runs.delete(runId);
+  const live = state.runs.get(runId);
+  if (live) {
+    revokeIssued(live);
     return undefined;
   }
-  state.used.add(runId);
   const run = Object.freeze({});
   const status: AttachedRun = {
     transactionStarted: false,
     proof: undefined,
     closed: undefined,
+    revoked: false,
+    openTransaction: undefined,
   };
   attachedRuns.set(run, status);
   state.runs.set(runId, run);
-  const attached = state.registration.attach(runId, effects);
+  const attached = attachOwned(state, runId, run, effects);
   const capability: import("./capabilities.ts").StateCapability<Effect> =
     Object.freeze({
       transaction(work) {
@@ -355,9 +413,14 @@ export function attachState<Effect extends string>(
         if (status.transactionStarted)
           return Promise.reject(new Error("One transaction per attached run."));
         status.transactionStarted = true;
-        return state.active.run({ runId, run }, () =>
+        const proving = state.active.run({ runId, run }, () =>
           attached.transaction(work),
         );
+        const ended = () => {
+          status.openTransaction = undefined;
+        };
+        status.openTransaction = proving.then(ended, ended);
+        return proving;
       },
     });
   capabilities.set(capability, [...effects]);
@@ -365,6 +428,9 @@ export function attachState<Effect extends string>(
     capability,
     close: () => {
       status.closed ??= "returned";
+    },
+    forget: () => {
+      forgetAttachment(state.runs, runId, run);
     },
   };
 }
