@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, jest, test } from "bun:test";
 import { programsAddon } from "../../../kernel/src/addons/programs/index.ts";
 import type {
   EmergencyFacts,
@@ -11,7 +11,10 @@ import {
   runInProcessOn,
   runProcessOn,
 } from "../../../kernel/src/kernel/lifecycle.ts";
+import type { ProcessHost } from "../../../kernel/src/kernel/process-types.ts";
+import { stopBound } from "./oracle.ts";
 import {
+  advance,
   deferred,
   holdContract,
   recordingHost,
@@ -21,17 +24,33 @@ import {
 } from "./recording-host.ts";
 
 const timeout = 30_000;
+const cancellationWait = 500;
 const stops = [
   ["SIGTERM", 143],
   ["SIGINT", 130],
 ] as const;
 
-function watched(controls: RunControl[]): RunAddon<ProgramsCapability> {
+type Holding = {
+  readonly controls?: RunControl[];
+  readonly emergencyRecord?: (facts: EmergencyFacts) => void;
+  readonly settlesAfterStop?: false;
+  readonly host?: ProcessHost;
+};
+
+function watched(options: Holding): RunAddon<ProgramsCapability> {
   const inner = programsAddon();
   return {
     attach(run) {
-      controls.push(run);
-      return inner.attach(run);
+      options.controls?.push(run);
+      const attached = inner.attach(run);
+      if (options.settlesAfterStop !== false) return attached;
+      return {
+        ...attached,
+        settle: (limit) =>
+          run.signal.aborted
+            ? new Promise<boolean>(() => undefined)
+            : attached.settle(limit),
+      };
     },
   };
 }
@@ -44,11 +63,12 @@ function held() {
 
 function holding(
   recorder: ReturnType<typeof recordingHost>,
-  controls: RunControl[],
-  emergencyRecord?: (facts: EmergencyFacts) => void,
+  options: Holding = {},
 ) {
   const queue: ReturnType<typeof held>[] = [];
   const entries: string[] = [];
+  const addons = { programs: watched(options) };
+  const host = options.host ?? recorder.host;
   const entry = runInProcessOn(
     holdContract(async (programs) => {
       const gate = queue.shift();
@@ -58,10 +78,10 @@ function holding(
       gate.entered.resolve();
       await gate.returned.promise;
     }),
-    emergencyRecord
-      ? { addons: { programs: watched(controls) }, emergencyRecord }
-      : { addons: { programs: watched(controls) } },
-    () => recorder.host,
+    options.emergencyRecord
+      ? { addons, emergencyRecord: options.emergencyRecord }
+      : { addons },
+    () => host,
   );
   return {
     entries,
@@ -84,7 +104,7 @@ describe("IP01 the in-process entry returns each run's result", () => {
     async () => {
       const recorder = recordingHost();
       const controls: RunControl[] = [];
-      const subject = holding(recorder, controls);
+      const subject = holding(recorder, { controls });
       const first = await subject.run(["hold", "--json"]);
       const second = await subject.run(["hold"]);
       await turns();
@@ -110,7 +130,7 @@ describe("IP01 the in-process entry returns each run's result", () => {
     "IP01.hooks-installed-once the signal and crash hooks install at the first run only",
     async () => {
       const recorder = recordingHost();
-      const subject = holding(recorder, []);
+      const subject = holding(recorder);
       await subject.run(["hold", "--json"]);
       await subject.run(["hold", "--json"]);
       await subject.run(["hold", "--json"]);
@@ -145,7 +165,7 @@ describe("IP02 a stop signal reaches every run in flight", () => {
       async () => {
         const recorder = recordingHost();
         const controls: RunControl[] = [];
-        const subject = holding(recorder, controls);
+        const subject = holding(recorder, { controls });
         const one = subject.start();
         const two = subject.start();
         await Promise.all([one.gate.entered.promise, two.gate.entered.promise]);
@@ -186,7 +206,7 @@ describe("IP02 a stop signal reaches every run in flight", () => {
     "IP02.repeated-stop-exits-at-once a second signal ends the process before the settle bound",
     async () => {
       const recorder = recordingHost();
-      const subject = holding(recorder, []);
+      const subject = holding(recorder);
       const one = subject.start();
       await one.gate.entered.promise;
       recorder.signal("SIGTERM");
@@ -206,7 +226,9 @@ describe("IP03 a crash records at most once for each run in flight", () => {
     async () => {
       const recorder = recordingHost();
       const facts: EmergencyFacts[] = [];
-      const subject = holding(recorder, [], (fact) => facts.push(fact));
+      const subject = holding(recorder, {
+        emergencyRecord: (fact) => facts.push(fact),
+      });
       const finished = await subject.run(["hold", "--json"]);
       const one = subject.start();
       const two = subject.start();
@@ -229,6 +251,129 @@ describe("IP03 a crash records at most once for each run in flight", () => {
       two.gate.returned.resolve();
       const results = await Promise.all([one.done, two.done]);
       expect([...recorded].sort()).toEqual(results.map(runIdOf).sort());
+    },
+    timeout,
+  );
+});
+
+describe("IP07 the in-process entry checks its contract and bounds", () => {
+  test("IP07.contract-refused a contract that contractFor did not build is refused", () => {
+    const recorder = recordingHost();
+    expect(() =>
+      runInProcessOn({ cli: "rc" }, {}, () => recorder.host),
+    ).toThrow("runInProcess needs a contract built by contractFor.");
+    expect(() => runProcessOn({ cli: "rc" }, {}, () => recorder.host)).toThrow(
+      "runProcess needs a contract built by contractFor.",
+    );
+  });
+
+  test(
+    "IP07.stop-bound exit comes at the stop bound when a run in flight never settles",
+    async () => {
+      const recorder = recordingHost();
+      const subject = holding(recorder, { settlesAfterStop: false });
+      const one = subject.start();
+      await one.gate.entered.promise;
+      jest.useFakeTimers();
+      try {
+        recorder.signal("SIGTERM");
+        await turns();
+        expect(recorder.exits).toEqual([]);
+        await advance(stopBound);
+        expect(recorder.exits).toEqual([143]);
+      } finally {
+        jest.useRealTimers();
+        one.gate.returned.resolve();
+      }
+    },
+    timeout,
+  );
+
+  test(
+    "IP07.own-deadline each run's deadline counts from its own start",
+    async () => {
+      jest.useFakeTimers();
+      const recorder = recordingHost();
+      const gates = [held(), held()];
+      let entered = 0;
+      const entry = runInProcessOn(
+        holdContract(async () => {
+          const gate = gates[entered];
+          entered += 1;
+          gate?.entered.resolve();
+          await gate?.returned.promise;
+        }),
+        { addons: { programs: programsAddon() } },
+        () => recorder.host,
+      );
+      const argv = ["hold", "--deadline-ms", "1000", "--json"];
+      const settled: string[] = [];
+      try {
+        const first = entry(argv).then((value) => {
+          settled.push("first");
+          return value;
+        });
+        await gates[0]?.entered.promise;
+        await advance(600);
+        const second = entry(argv).then((value) => {
+          settled.push("second");
+          return value;
+        });
+        await gates[1]?.entered.promise;
+        await advance(400 + cancellationWait);
+        expect(settled).toEqual(["first"]);
+        await advance(600);
+        expect(settled).toEqual(["first", "second"]);
+        for (const value of await Promise.all([first, second])) {
+          if (value.kind !== "envelope")
+            throw new Error(`Expected an envelope, got ${value.kind}.`);
+          expect(value.envelope.result.causeCode).toBe(
+            "DOMAIN_DEADLINE_UNCHANGED",
+          );
+        }
+        expect(recorder.exits).toEqual([]);
+      } finally {
+        jest.useRealTimers();
+        for (const gate of gates) gate.returned.resolve();
+      }
+    },
+    timeout,
+  );
+
+  test(
+    "IP07.rejected-run-records-itself a run that rejects attempts its own emergency record and rejects to the caller",
+    async () => {
+      const recorder = recordingHost();
+      let clockFails = false;
+      const host: ProcessHost = {
+        ...recorder.host,
+        now() {
+          if (clockFails) throw new Error("The test clock failed.");
+          return performance.now();
+        },
+      };
+      const controls: RunControl[] = [];
+      const facts: EmergencyFacts[] = [];
+      const subject = holding(recorder, {
+        controls,
+        host,
+        emergencyRecord: (fact) => facts.push(fact),
+      });
+      const one = subject.start(["hold", "--deadline-ms", "60000", "--json"]);
+      await one.gate.entered.promise;
+      clockFails = true;
+      one.gate.returned.resolve();
+      const failure = await one.done.then(
+        () => "returned",
+        (error: unknown) =>
+          error instanceof Error ? error.message : "not an Error",
+      );
+      expect(failure).toBe("The test clock failed.");
+      expect(facts.map((fact) => fact.runId)).toEqual(
+        controls.map((control) => control.runId),
+      );
+      expect(facts).toHaveLength(1);
+      expect(recorder.exits).toEqual([]);
     },
     timeout,
   );

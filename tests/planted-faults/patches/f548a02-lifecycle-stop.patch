@@ -1,13 +1,13 @@
 diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
-index a812a60..551b872 100644
+index d5cf605..253c498 100644
 --- a/kernel/src/kernel/lifecycle.ts
 +++ b/kernel/src/kernel/lifecycle.ts
-@@ -847,7 +847,7 @@ const hosts = new WeakMap<ProcessHost, Runs>();
+@@ -854,7 +854,7 @@ const inFlightByHost = new WeakMap<ProcessHost, InFlight>();
  
- function stopEvery(runs: Runs, host: ProcessHost, signal: StopSignal) {
+ function stopEvery(inFlight: InFlight, host: ProcessHost, signal: StopSignal) {
    const code = stopCode(signal);
--  const inFlight = [...runs.inFlight];
-+  const inFlight = [...runs.inFlight].slice(-1);
-   if (runs.stopped) {
-     for (const run of inFlight) killAll(run);
+-  const runs = [...inFlight.runs];
++  const runs = [...inFlight.runs].slice(-1);
+   if (inFlight.stopped) {
+     for (const run of runs) killAll(run);
      host.exit(code);

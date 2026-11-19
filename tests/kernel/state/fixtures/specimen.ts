@@ -4,6 +4,7 @@ import {
   mkdirSync,
   readFileSync,
   realpathSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
@@ -39,11 +40,23 @@ const barriers = new Set(
 );
 const fault = process.env.SX_FAULT ?? "";
 
+export const barrierReached = new EventTarget();
+function releaseFile(name: string): string {
+  return join(barrierDirectory, `${name}.release`);
+}
+export function releaseBarrier(name: string): void {
+  writeFileSync(releaseFile(name), "go\n");
+}
+export function closeBarrier(name: string): void {
+  rmSync(releaseFile(name), { force: true });
+}
+
 async function barrier(name: string): Promise<void> {
   if (!barriers.has(name) || barrierDirectory === "") return;
   writeFileSync(join(barrierDirectory, `${name}.reached`), `${process.pid}\n`);
+  barrierReached.dispatchEvent(new Event(name));
   if (fault === `abort-at-${name}`) process.abort();
-  const release = join(barrierDirectory, `${name}.release`);
+  const release = releaseFile(name);
   const until = Date.now() + 60_000;
   while (!existsSync(release)) {
     if (Date.now() > until) throw new Error(`Barrier ${name} never released.`);
