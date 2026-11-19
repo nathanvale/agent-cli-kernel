@@ -36,6 +36,8 @@ import type {
   Phase,
 } from "../../../../kernel/src/addons/state/fixture.ts";
 import { movedStateRoot } from "../../../../kernel/src/addons/state/capability-qualification-table.ts";
+import { deviceFolders } from "../../../../kernel/src/addons/state/qualification.ts";
+import type { DeviceFolder } from "../../../../kernel/src/addons/state/qualification.ts";
 import { approval } from "../../../../kernel/src/addons/approval/index.ts";
 
 const root = process.env.SX_ROOT ?? "";
@@ -158,16 +160,11 @@ function factOverrides(source: unknown): FactOverrides {
   const filesystem = own(source, "filesystem");
   const boot = own(source, "bootIdentity");
   const devices = own(source, "devices");
-  const folders: Record<string, number> = {};
-  for (const folder of [
-    "root",
-    "coordination",
-    "operations",
-    "settled",
-    "staging",
-  ])
-    if (typeof own(devices, folder) === "number")
-      folders[folder] = Number(own(devices, folder));
+  const folders: Partial<Record<DeviceFolder, number | null>> = {};
+  for (const folder of deviceFolders) {
+    const device = own(devices, folder);
+    if (typeof device === "number" || device === null) folders[folder] = device;
+  }
   return {
     ...(typeof release === "string" ? { release } : {}),
     ...(typeof filesystem === "number" || filesystem === null

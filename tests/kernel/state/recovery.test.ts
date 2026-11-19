@@ -957,6 +957,27 @@ caseTest(
       expect(message).toContain(shown);
       expect(message).toEndWith(`): differs in ${differs}).`);
     }
+    for (const [devices, shown, problem] of [
+      [
+        { operations: null },
+        ", operations unreadable (unreadable), ",
+        "; not on the state root's device: operations/; qualified: ",
+      ],
+      [
+        { root: null },
+        ", devices root unreadable (unreadable), ",
+        "; the state root's device is unreadable; qualified: ",
+      ],
+    ] as const) {
+      const message = await refusedUnqualified(
+        world,
+        id,
+        under(candidate(), { ...readable, devices }),
+      );
+      expect(message).toContain(shown);
+      expect(message).toContain(problem);
+      expect(message).toEndWith("): every row field matches).");
+    }
     await closesUnder(world, id, under(candidate(), readable));
   }),
 );
@@ -979,6 +1000,27 @@ caseTest(
         `; not on the state root's device: ${folder}/; qualified: `,
       );
       expect(message).toEndWith("): every row field matches).");
+    }
+    await closesUnder(world, id, under(candidate(), readable));
+  }),
+);
+
+supportingTest(
+  "X27 supporting: a row for another operating system or boot identity source does not match",
+  plain(async (world) => {
+    await world.killAt(apply("a"), "effect");
+    const id = only(world);
+    for (const [fields, differs] of [
+      [{ os: "aix" }, "os"],
+      [{ bootIdentitySource: "/proc/sys/kernel/random/uuid" }, "boot identity"],
+    ] as const) {
+      const message = await refusedUnqualified(
+        world,
+        id,
+        under(candidate(fields), readable),
+      );
+      expect(message).toContain(`(observed os ${process.platform}, `);
+      expect(message).toEndWith(`): differs in ${differs}).`);
     }
     await closesUnder(world, id, under(candidate(), readable));
   }),

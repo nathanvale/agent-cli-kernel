@@ -1,28 +1,30 @@
 import { lstatSync, readFileSync, statfsSync } from "node:fs";
 import { release } from "node:os";
-import { join } from "node:path";
 import { capabilityQualificationTable } from "./capability-qualification-table.ts";
 import type { CapabilityQualificationRow } from "./capability-qualification-table.ts";
 import { errorCode } from "./coordination.ts";
+import { layout } from "./store.ts";
 
 const bootIdentitySource = "/proc/sys/kernel/random/boot_id";
 
-const storeFolders = [
+export const deviceFolders = [
+  "root",
   "coordination",
   "operations",
   "settled",
   "staging",
 ] as const;
-export type DeviceFolder = "root" | (typeof storeFolders)[number];
+export type DeviceFolder = (typeof deviceFolders)[number];
 
 // Interface: test-entry stand-ins for what closure reads from the machine
-// (journal version 2 design part 3 section 4). `null` stands for a fact that
-// cannot be read. A device override replaces lstat's device for that folder.
+// (journal version 2 design part 3 section 4; a device stands in for the
+// state root's filesystem facts Q02.f needs, part 2 section 3). `null`
+// stands for a fact that cannot be read.
 export type FactOverrides = {
   readonly release?: string;
   readonly filesystem?: number | null;
   readonly bootIdentity?: string | null;
-  readonly devices?: Readonly<Partial<Record<DeviceFolder, number>>>;
+  readonly devices?: Readonly<Partial<Record<DeviceFolder, number | null>>>;
 };
 
 type Fact<T> =
@@ -32,11 +34,11 @@ type Fact<T> =
 type EnvironmentFacts = {
   readonly os: string;
   readonly release: string;
-  readonly majorRelease: Fact<string>;
+  readonly majorRelease: string;
   readonly filesystem: Fact<number>;
   readonly primitive: Fact<string>;
   readonly bootIdentity: Fact<string>;
-  readonly devices: readonly (readonly [DeviceFolder, Fact<number>])[];
+  readonly devices: Readonly<Record<DeviceFolder, Fact<number>>>;
 };
 
 export type Match =
@@ -70,19 +72,27 @@ function nonEmpty(fact: Fact<string>): Fact<string> {
   return fact.read && fact.value === "" ? { read: false, why: "empty" } : fact;
 }
 
-function deviceOf(
+function readDevices(
   root: string,
-  folder: DeviceFolder,
   overrides: FactOverrides,
-): Fact<number> {
-  const devices = overrides.devices;
-  const given =
-    devices !== undefined && Object.hasOwn(devices, folder)
-      ? devices[folder]
-      : undefined;
-  return overridden(given, () =>
-    attempt(() => lstatSync(folder === "root" ? root : join(root, folder)).dev),
-  );
+): Readonly<Record<DeviceFolder, Fact<number>>> {
+  const paths = layout(root);
+  const device = (folder: DeviceFolder, path: string) => {
+    const given = overrides.devices;
+    return overridden(
+      given !== undefined && Object.hasOwn(given, folder)
+        ? given[folder]
+        : undefined,
+      () => attempt(() => lstatSync(path).dev),
+    );
+  };
+  return {
+    root: device("root", paths.root),
+    coordination: device("coordination", paths.coordination),
+    operations: device("operations", paths.operations),
+    settled: device("settled", paths.settled),
+    staging: device("staging", paths.staging),
+  };
 }
 
 function readFacts(
@@ -94,10 +104,7 @@ function readFacts(
   return {
     os: process.platform,
     release: observed,
-    majorRelease: nonEmpty({
-      read: true,
-      value: observed.split(".")[0] ?? "",
-    }),
+    majorRelease: observed.split(".")[0] ?? observed,
     filesystem: overridden(overrides.filesystem, () =>
       attempt(() => statfsSync(root).type),
     ),
@@ -110,9 +117,7 @@ function readFacts(
         attempt(() => readFileSync(bootIdentitySource, "utf8").trim()),
       ),
     ),
-    devices: (["root", ...storeFolders] as const).map(
-      (folder) => [folder, deviceOf(root, folder, overrides)] as const,
-    ),
+    devices: readDevices(root, overrides),
   };
 }
 
@@ -124,44 +129,55 @@ function hex(type: number): string {
   return `0x${type.toString(16).toUpperCase()}`;
 }
 
-function offRootDevice(facts: EnvironmentFacts): readonly string[] {
-  const [first, ...folders] = facts.devices;
-  const root = first?.[1];
-  if (!root?.read) return ["root"];
-  return folders
-    .filter(([, device]) => !device.read || device.value !== root.value)
-    .map(([folder]) => `${folder}/`);
+function equals<T>(fact: Fact<T>, expected: T): boolean {
+  return fact.read && fact.value === expected;
 }
+
+const rowChecks: readonly (readonly [
+  string,
+  (row: CapabilityQualificationRow, facts: EnvironmentFacts) => boolean,
+])[] = [
+  ["os", (row, facts) => row.os === facts.os],
+  ["major release", (row, facts) => row.majorRelease === facts.majorRelease],
+  ["filesystem", (row, facts) => equals(facts.filesystem, row.filesystem.type)],
+  [
+    "coordination route",
+    (row, facts) => equals(facts.primitive, row.primitive),
+  ],
+  [
+    "boot identity",
+    (row, facts) =>
+      facts.bootIdentity.read && row.bootIdentitySource === bootIdentitySource,
+  ],
+];
 
 function differences(
   row: CapabilityQualificationRow,
   facts: EnvironmentFacts,
 ): readonly string[] {
-  const { majorRelease, filesystem, primitive, bootIdentity } = facts;
-  return [
-    ...(row.os === facts.os ? [] : ["os"]),
-    ...(majorRelease.read && majorRelease.value === row.majorRelease
-      ? []
-      : ["major release"]),
-    ...(filesystem.read && filesystem.value === row.filesystem.type
-      ? []
-      : ["filesystem"]),
-    ...(primitive.read && primitive.value === row.primitive
-      ? []
-      : ["coordination route"]),
-    ...(bootIdentity.read && row.bootIdentitySource === bootIdentitySource
-      ? []
-      : ["boot identity"]),
-  ];
+  return rowChecks
+    .filter(([, holds]) => !holds(row, facts))
+    .map(([name]) => name);
+}
+
+function deviceProblem(facts: EnvironmentFacts): string | undefined {
+  const { root, ...folders } = facts.devices;
+  if (!root.read) return "the state root's device is unreadable";
+  const off = Object.entries(folders)
+    .filter(([, device]) => !equals(device, root.value))
+    .map(([folder]) => `${folder}/`);
+  return off.length === 0
+    ? undefined
+    : `not on the state root's device: ${off.join(", ")}`;
 }
 
 function observedText(facts: EnvironmentFacts): string {
-  const devices = facts.devices
-    .map(([folder, device]) => `${folder} ${shown(device, String)}`)
+  const devices = deviceFolders
+    .map((folder) => `${folder} ${shown(facts.devices[folder], String)}`)
     .join(", ");
   return [
     `os ${facts.os}`,
-    `release ${facts.release} (major ${shown(facts.majorRelease, String)})`,
+    `release ${facts.release} (major ${facts.majorRelease})`,
     `filesystem ${shown(facts.filesystem, hex)}`,
     `coordination route ${shown(facts.primitive, String)}`,
     `boot identity ${shown(facts.bootIdentity, () => "readable")} from ${bootIdentitySource}`,
@@ -182,23 +198,19 @@ function matchFacts(
   facts: EnvironmentFacts,
   label: (row: CapabilityQualificationRow) => string,
 ): Match {
-  const nested = offRootDevice(facts);
+  const devices = deviceProblem(facts);
   const row =
-    nested.length === 0
+    devices === undefined
       ? rows.find((entry) => differences(entry, facts).length === 0)
       : undefined;
   if (row) return { matched: true, label: label(row) };
-  const qualified =
+  const rowsText =
     rows.length === 0
       ? "no capability qualification row"
       : rows.map((entry) => rowText(entry, facts)).join("; ");
-  const folders =
-    nested.length === 0
-      ? ""
-      : `; not on the state root's device: ${nested.join(", ")}`;
   return {
     matched: false,
-    detail: `observed ${observedText(facts)}${folders}; qualified: ${qualified}`,
+    detail: `observed ${observedText(facts)}${devices === undefined ? "" : `; ${devices}`}; qualified: ${rowsText}`,
   };
 }
 

@@ -13,9 +13,9 @@ export type { Phase } from "./install.ts";
 export type { CapabilityQualificationRow } from "./capability-qualification-table.ts";
 export type { FactOverrides } from "./qualification.ts";
 
-// Interface: a candidate row needs a fixture label, so every closure it
-// enables is stamped `fixture:<label>`; fact overrides need a candidate row.
-// Neither touches the production capability qualification table.
+// Interface: every closure a candidate row enables is stamped
+// `fixture:<label>`, and neither seam reads or writes the production
+// capability qualification table.
 export type QualificationSeams =
   | {
       readonly fixtureLabel?: string;

@@ -646,7 +646,7 @@ export function install(options: StateOptions, seams: Seams) {
         },
   };
   const observers = options.observers ?? {};
-  const qualified = () =>
+  const rowMatch = () =>
     seams.qualification.match(
       paths.root,
       route.available ? route.route : undefined,
@@ -1130,7 +1130,7 @@ export function install(options: StateOptions, seams: Seams) {
     request: CloseRequest<string>,
     runId: string,
   ): Promise<CloseResultBody | Closure> {
-    const match = qualified();
+    const match = rowMatch();
     if (!match.matched)
       return {
         kind: "unavailable",
@@ -1438,7 +1438,7 @@ export function install(options: StateOptions, seams: Seams) {
   }
 
   function capabilities(): CapabilityReport {
-    const match = qualified();
+    const match = rowMatch();
     const coordination = route.available ? "available" : "unavailable";
     const stopped =
       coordination === "unavailable" || !match.matched

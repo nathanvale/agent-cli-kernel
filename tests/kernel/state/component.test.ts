@@ -648,9 +648,14 @@ caseTest("Q01.b-fixture-never-enables", async () => {
     expect(Object.isFrozen(capabilityQualificationTable)).toBe(true);
     const qualification = resolveQualification();
     expect(qualification.source).toBe("production");
-    expect(qualification.match(join(root, "b"), "any route")).toMatchObject({
-      matched: false,
-    });
+    const store = join(root, "b");
+    for (const folder of ["coordination", "operations", "settled", "staging"])
+      mkdirSync(join(store, folder), { recursive: true });
+    const unmatched = qualification.match(store, "any route");
+    expect(unmatched.matched).toBe(false);
+    const detail = unmatched.matched ? "" : unmatched.detail;
+    expect(detail).not.toContain("state root's device");
+    expect(detail).toEndWith("; qualified: no capability qualification row");
     const smuggled = {
       root: join(root, "c"),
       report: "cx.pending",
