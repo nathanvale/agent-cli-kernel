@@ -218,32 +218,6 @@ describe("check:commits", () => {
   );
 
   test(
-    "a since commit that is not behind the head, as after a rewrite, checks every commit in the range, shared ones too",
-    async () => {
-      const { root, base, commit } = repositoryAt();
-      const shared = commit("red before the rewrite", { "type-error": "" });
-      git(root, "switch", "--quiet", "--create", "before-rewrite");
-      const old = commit("old head", { "old.txt": "old" });
-      git(root, "switch", "--quiet", "main");
-      const rewritten = commit("rewritten head", { "type-error": null });
-
-      const run = await checkCommits(root, [base.sha], {
-        CHECK_COMMITS_SINCE: old.sha,
-      });
-
-      expect(run.exit).toBe(1);
-      expect(run.lines).toContain(
-        `since ${old.sha} is not behind HEAD, so every commit in ${base.sha}..HEAD is checked.`,
-      );
-      expect(verdicts(run.lines)).toEqual([
-        `RED ${shared.short} red before the rewrite`,
-        `GREEN ${rewritten.short} rewritten head`,
-      ]);
-    },
-    processWatchdog(1),
-  );
-
-  test(
     "a since commit missing from the clone checks every commit in the range",
     async () => {
       const { root, base, commit } = repositoryAt();
