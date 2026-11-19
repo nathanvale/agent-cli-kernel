@@ -1118,5 +1118,19 @@
     "testFile": "tests/kernel/lifecycle/in-process.test.ts",
     "title": "IP08\\.reuse-while-live-refused",
     "source": "d62870c feat(kernel): forget an in-process run identity when its run finishes"
+  },
+  {
+    "id": "7fb5649-state-seam-closed",
+    "patch": "tests/planted-faults/patches/7fb5649-state-seam-closed.patch",
+    "testFile": "tests/kernel/state-seam.test.ts",
+    "title": "a transaction still open after its run is forgotten cannot record an effect",
+    "source": "7fb5649 fix(kernel): keep a forgotten run's capability closed"
+  },
+  {
+    "id": "7fb5649-in-process-entered",
+    "patch": "tests/planted-faults/patches/7fb5649-lifecycle-entered.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP08\\.attached-never-entered",
+    "source": "7fb5649 fix(kernel): keep a forgotten run's capability closed"
   }
 ]

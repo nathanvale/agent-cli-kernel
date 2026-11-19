@@ -1,0 +1,14 @@
+diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
+index 949cd10..66ba101 100644
+--- a/kernel/src/kernel/lifecycle.ts
++++ b/kernel/src/kernel/lifecycle.ts
+@@ -925,7 +925,8 @@ async function returnedResult(
+ // reads such a run as live until the handler returns.
+ function forgetWhenReturned(run: Run): void {
+   const forget = () => run.runtime.forgetState(run.runId);
+-  if (!run.handler || run.handler.returned) forget();
++  if (!run.handler) return;
++  if (run.handler.returned) forget();
+   else void run.handler.returning.then(forget);
+ }
+ 
