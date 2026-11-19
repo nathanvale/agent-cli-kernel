@@ -106,7 +106,10 @@ export function ensureStore(paths: Layout): boolean {
       rmSync(staged, { force: true });
       flushDirectory(paths.root);
     }
-    return journalOf(paths) !== undefined;
+    const journal = journalOf(paths);
+    return journal === journals.two
+      ? privateDirectory(paths.settled)
+      : journal !== undefined;
   } catch {
     return false;
   }

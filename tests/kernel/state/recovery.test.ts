@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import {
   chmodSync,
   existsSync,
+  mkdirSync,
   readFileSync,
   renameSync,
   rmSync,
@@ -414,6 +415,20 @@ supportingTest(
     const refused = await closer.done;
     expectRefusedUnchanged(refused, "DOMAIN_SX_UNAVAILABLE");
     expect(str(refused.envelope.message)).toContain("store-corrupt");
+  }),
+);
+
+supportingTest(
+  "X26 supporting: a closer whose moved target is unreadable names the store, not a missing case",
+  fixture(async (world) => {
+    const { id, closer } = await closerWaitsWhileTargetMoves(world);
+    const intent = join(world.root, "settled", id, "intent");
+    rmSync(intent);
+    mkdirSync(intent);
+    closer.release("admission-wait");
+    const refused = await closer.done;
+    expectRefusedUnchanged(refused, "DOMAIN_SX_UNAVAILABLE");
+    expect(str(refused.envelope.message)).toContain("store-unreadable");
   }),
 );
 

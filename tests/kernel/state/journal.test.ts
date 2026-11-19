@@ -12,6 +12,7 @@ import {
   renameSync,
   rmSync,
   rmdirSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { open } from "node:fs/promises";
@@ -1065,6 +1066,8 @@ function pipeEvents(world: World, id: string): Uint8Array {
   return bytes;
 }
 
+const readerBound = 30_000;
+
 async function feed(
   pipe: string,
   bytes: Uint8Array,
@@ -1074,7 +1077,10 @@ async function feed(
   const opened = open(pipe, "w");
   const first = await Promise.race([
     opened.then(() => "opened" as const),
-    reader.done.then(() => "exited" as const),
+    reader.done.then(
+      () => "exited" as const,
+      () => "exited" as const,
+    ),
   ]);
   if (first === "exited") {
     const unblock = openSync(pipe, constants.O_RDONLY | constants.O_NONBLOCK);
@@ -1112,7 +1118,7 @@ caseTest(
     expect(await world.pendingIds()).toEqual([]);
     const revision = await world.revision(read);
     const reportedBytes = pipeEvents(world, reported);
-    const report = world.start(["pending", "--json"]);
+    const report = world.start(["pending", "--json"], {}, readerBound);
     await feed(join(live, reported, "events"), reportedBytes, report, () => {
       renameSync(join(live, reported), join(settled, reported));
     });
@@ -1120,7 +1126,7 @@ caseTest(
     expect(listing.exit).toBe(0);
     expect(at(listing.result.raw, "data", "unfinished")).toEqual([]);
     const readBytes = pipeEvents(world, read);
-    const history = world.start(["history", read, "--json"]);
+    const history = world.start(["history", read, "--json"], {}, readerBound);
     await feed(join(live, read, "events"), readBytes, history, () => {
       renameSync(join(live, read), join(settled, read));
     });
@@ -1182,5 +1188,58 @@ supportingTest(
     expect(left).toContain(damaged);
     expect(left).toContain(leaseless);
     expect(existsSync(caseLock(world, damaged))).toBe(false);
+  }),
+);
+
+supportingTest(
+  "X24 supporting: a version 2 store refuses a settled/ that is a symbolic link or not private",
+  plain(async (world) => {
+    expectCompleted(await world.run(apply("a")));
+    const [first] = caseFolders(world, "operations");
+    if (!first) throw new Error("No case.");
+    const settled = join(world.root, "settled");
+    const elsewhere = join(world.base, "elsewhere");
+    mkdirSync(elsewhere, { mode: 0o700 });
+    rmdirSync(settled);
+    symlinkSync(elsewhere, settled);
+    const linked = await world.run(apply("b"));
+    expectRefusedUnchanged(linked, "DOMAIN_SX_UNAVAILABLE");
+    expect(readdirSync(elsewhere)).toEqual([]);
+    expect(caseFolders(world, "operations")).toEqual([first]);
+    rmSync(settled);
+    mkdirSync(settled, { mode: 0o700 });
+    chmodSync(settled, 0o770);
+    expectRefusedUnchanged(
+      await world.run(apply("b")),
+      "DOMAIN_SX_UNAVAILABLE",
+    );
+    expect(caseFolders(world, "settled")).toEqual([]);
+    expect(world.noteLedger("b")).toBe(0);
+    chmodSync(settled, 0o700);
+    expectCompleted(await world.run(apply("b")));
+    expect(caseFolders(world, "settled")).toEqual([first]);
+  }),
+);
+
+supportingTest(
+  "Production entry supporting: through index.ts the store upgrades, a settled case moves and history finds it",
+  plain(async (world) => {
+    const production = { SX_ENTRY: "production" };
+    expectCompleted(await world.run(apply("a"), production));
+    expect(formatText(world)).toBe(versionTwoFormat);
+    expect(versionOneProgram(world.root)).toEqual({
+      read: "corrupt",
+      changing: false,
+    });
+    const [first] = caseFolders(world, "operations");
+    if (!first) throw new Error("No case.");
+    expectCompleted(await world.run(apply("b"), production));
+    expect(caseFolders(world, "settled")).toEqual([first]);
+    const history = await world.run(["history", first, "--json"], production);
+    expect(history.exit).toBe(0);
+    expect(at(history.result.raw, "data", "status")).toBe("completed");
+    const report = await world.run(["pending", "--json"], production);
+    expect(at(report.result.raw, "data", "unfinished")).toEqual([]);
+    expect(world.count("entry production")).toBe(4);
   }),
 );
