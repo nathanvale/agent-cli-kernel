@@ -869,6 +869,7 @@ test("each case result comes from its own test in the run's report", () => {
     '<testcase name="K02.f-synthetic" time="0"><skipped /></testcase>',
     '<testcase name="K02.a-synthetic-other" time="1"><failure /></testcase>',
     '<testcase name="K02.g-synthetic" time="1"><failure /></testcase>',
+    '<testcase name="K02.d-synthetic and more words" time="1" />',
     "</testsuite></testsuites>",
   ].join("\n");
   expect(caseResults(report, synthetic, "fixture.ts")).toEqual([
@@ -1635,7 +1636,15 @@ test(
         "-e",
         "console.log(process.env.CQ_ENV_FILE ?? 'unset')",
       ],
-      { cwd: world.root, env: callerEnvironment(), boundMilliseconds: 10_000 },
+      {
+        cwd: world.root,
+        env: Object.fromEntries(
+          Object.entries(callerEnvironment()).filter(
+            ([name]) => name !== "CQ_ENV_FILE",
+          ),
+        ),
+        boundMilliseconds: 10_000,
+      },
     );
     expect(child.stdout.trim()).toBe("loaded");
     commitIn(world.root, "ignore dotenv files", { ".gitignore": ".env\n" });
@@ -1812,8 +1821,79 @@ test(
     expect(await world.run()).toBe(1);
     refusedWithoutRecord(
       world,
-      `Refused: tracked files differ from their committed bytes (${path} (link leaves the checkout)); ${committedBytes} Repair: restore or commit them, then rerun.`,
+      `Refused: tracked files differ from their committed bytes (${path} (resolves outside the tracked tree)); ${committedBytes} Repair: restore or commit them, then rerun.`,
     );
+  },
+  inProcess,
+);
+
+const outsideTrackedTree = (path: string) =>
+  `Refused: tracked files differ from their committed bytes (${path} (resolves outside the tracked tree)); ${committedBytes} Repair: restore or commit them, then rerun.`;
+
+test(
+  "the capability qualification run refuses a tracked case-file link that reaches another checkout through a linked folder",
+  async () => {
+    const world = checkout();
+    const other = join(world.base, "other-checkout");
+    mkdirSync(other);
+    writeFileSync(
+      join(other, "linked.test.ts"),
+      `${registered("K02.a-kill-after-effect-two-later-changes", "")}\n`,
+    );
+    commitIn(world.root, "ignore installed packages", {
+      ".gitignore": "node_modules/\n",
+    });
+    mkdirSync(join(world.root, "node_modules"));
+    symlinkSync(other, join(world.root, "node_modules/linked-cases"));
+    const path = "tests/kernel/state/linked.test.ts";
+    mkdirSync(join(world.root, "tests/kernel/state"), { recursive: true });
+    symlinkSync(
+      "../../../node_modules/linked-cases/linked.test.ts",
+      join(world.root, path),
+    );
+    git(world.root, "add", "--", path);
+    git(world.root, "commit", "--quiet", "-m", "a case file through a link");
+    expect(git(world.root, "status", "--porcelain")).toBe("");
+    expect(await world.run()).toBe(1);
+    refusedWithoutRecord(world, outsideTrackedTree(path));
+  },
+  inProcess,
+);
+
+test(
+  "the capability qualification run refuses a tracked link to a file git does not track",
+  async () => {
+    const world = checkout();
+    commitIn(world.root, "ignore local files", {
+      ".gitignore": "local-only.ts\n",
+    });
+    writeFileSync(join(world.root, "local-only.ts"), "local\n");
+    const path = "kernel/src/addons/to-local";
+    symlinkSync("../../../local-only.ts", join(world.root, path));
+    git(world.root, "add", "--", path);
+    git(world.root, "commit", "--quiet", "-m", "a link to an untracked file");
+    expect(git(world.root, "status", "--porcelain")).toBe("");
+    expect(await world.run()).toBe(1);
+    refusedWithoutRecord(world, outsideTrackedTree(path));
+  },
+  inProcess,
+);
+
+test(
+  "the capability qualification run accepts a tracked link to a tracked name that begins with two dots",
+  async () => {
+    const world = checkout();
+    commitIn(world.root, "a file in a folder named with two dots", {
+      "..cache/file.ts": "cached\n",
+    });
+    symlinkSync(
+      "../../../..cache/file.ts",
+      join(world.root, "kernel/src/addons/cached"),
+    );
+    git(world.root, "add", "--", "kernel/src/addons/cached");
+    git(world.root, "commit", "--quiet", "-m", "a link into the folder");
+    expect(await world.run()).toBe(0);
+    expect(existsSync(world.recordFile)).toBe(true);
   },
   inProcess,
 );

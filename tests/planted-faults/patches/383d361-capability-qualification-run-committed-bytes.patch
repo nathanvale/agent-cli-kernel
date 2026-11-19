@@ -1,13 +1,13 @@
 diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
-index 0b31f1e..fa4a7b0 100644
+index bb727bd..df917ee 100644
 --- a/tests/kernel/state/capability-qualification-run.ts
 +++ b/tests/kernel/state/capability-qualification-run.ts
-@@ -513,7 +513,7 @@ function committedProblem(place: GitPlace): string | undefined {
-         .update(`blob ${String(bytes.byteLength)}\0`)
-         .update(bytes)
-         .digest("hex");
--      return local === id ? [] : [path];
-+      return [];
-     },
-   );
-   return differs.length === 0
+@@ -616,7 +616,7 @@ function committedProblem(place: GitPlace, commit: string): string | undefined {
+       .update(`blob ${String(bytes.byteLength)}\0`)
+       .update(bytes)
+       .digest("hex");
+-    if (local !== id) return [path];
++    if (local === "never") return [path];
+     return resolvesToTracked(realRoot, full, places)
+       ? []
+       : [`${path} (resolves outside the tracked tree)`];

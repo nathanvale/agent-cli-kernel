@@ -9,6 +9,7 @@ import {
   readFileSync,
   readdirSync,
   readlinkSync,
+  realpathSync,
   renameSync,
   rmSync,
   statSync,
@@ -16,7 +17,7 @@ import {
   writeSync,
 } from "node:fs";
 import { constants, release, type } from "node:os";
-import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { capabilityQualificationTable } from "../../../kernel/src/addons/state/capability-qualification-table.ts";
 import type { CapabilityQualificationRow } from "../../../kernel/src/addons/state/capability-qualification-table.ts";
 import {
@@ -252,8 +253,29 @@ function reportedList(junit: string): readonly (readonly [string, Reported])[] {
   });
 }
 
-function reportedTests(junit: string): ReadonlyMap<string, Reported> {
-  return new Map(reportedList(junit));
+type OwnTitles = {
+  readonly exact?: Reported;
+  readonly control?: readonly [string, Reported];
+};
+
+function ownTitles(
+  junit: string,
+  selection: readonly StateCase[],
+): ReadonlyMap<string, OwnTitles> {
+  const covered = new Set(executableIds(selection));
+  const titles = new Map<string, OwnTitles>();
+  for (const [name, reported] of reportedList(junit)) {
+    const id = caseOfTitle(name, covered);
+    if (id === undefined) continue;
+    const known = titles.get(id) ?? {};
+    titles.set(
+      id,
+      name === id
+        ? { ...known, exact: reported }
+        : { ...known, control: [name, reported] },
+    );
+  }
+  return titles;
 }
 
 function caseOfTitle(
@@ -303,7 +325,7 @@ export function caseResults(
   selection: readonly StateCase[],
   entry: RunEntry,
 ): readonly CaseResult[] {
-  const tests = reportedTests(junit);
+  const titles = ownTitles(junit, selection);
   return selection.map((row): CaseResult => {
     if (row.status === "pending")
       return {
@@ -314,7 +336,7 @@ export function caseResults(
     const only = otherEntryOnly(row, entry);
     if (only !== undefined)
       return { id: row.id, result: "not-runnable", reason: only.reason };
-    const exact = tests.get(row.id);
+    const { exact, control } = titles.get(row.id) ?? {};
     if (exact === "passed")
       return { id: row.id, result: "pass", detail: "passed" };
     if (exact === "skipped")
@@ -325,9 +347,6 @@ export function caseResults(
       detail: "failed; the run's output shows why",
     } as const;
     if (exact === "failed") return failed;
-    const control = [...tests].find(([name]) =>
-      name.startsWith(`${row.id} UNPROVED`),
-    );
     if (control === undefined)
       return {
         id: row.id,
@@ -526,19 +545,41 @@ function hiddenProblem(place: GitPlace): string | undefined {
     : `Refused: git hides changes to tracked files (${hidden.join("; ")}); ${committedBytesOnly} Repair: clear the flag with git update-index --no-assume-unchanged or --no-skip-worktree, then rerun.`;
 }
 
-function linkBytes(root: string, path: string): Buffer | string {
-  const target = readlinkSync(path);
-  const inside = relative(root, resolve(dirname(path), target));
-  return inside.startsWith("..") || isAbsolute(inside)
-    ? "link leaves the checkout"
-    : Buffer.from(target);
+function trackedPlaces(paths: readonly string[]): ReadonlySet<string> {
+  const places = new Set<string>();
+  for (const path of paths) {
+    places.add(path);
+    for (
+      let folder = dirname(path);
+      folder !== "." && !places.has(folder);
+      folder = dirname(folder)
+    )
+      places.add(folder);
+  }
+  return places;
 }
 
-function workingBytes(
-  root: string,
+function resolvesToTracked(
+  realRoot: string,
   path: string,
-  mode: string,
-): Buffer | string {
+  places: ReadonlySet<string>,
+): boolean {
+  let real: string;
+  try {
+    real = realpathSync(path);
+  } catch {
+    return false;
+  }
+  const inside = relative(realRoot, real);
+  return (
+    inside !== ".." &&
+    !inside.startsWith(`..${sep}`) &&
+    !isAbsolute(inside) &&
+    places.has(inside.split(sep).join("/"))
+  );
+}
+
+function workingBytes(path: string, mode: string): Buffer | string {
   let stats: ReturnType<typeof lstatSync>;
   try {
     stats = lstatSync(path);
@@ -546,7 +587,9 @@ function workingBytes(
     return "missing";
   }
   if (mode === "120000")
-    return stats.isSymbolicLink() ? linkBytes(root, path) : "not a link";
+    return stats.isSymbolicLink()
+      ? Buffer.from(readlinkSync(path))
+      : "not a link";
   if (mode === "100644" || mode === "100755")
     return stats.isFile() ? readFileSync(path) : "not a file";
   return `mode ${mode} is not checked`;
@@ -556,20 +599,28 @@ function committedProblem(place: GitPlace, commit: string): string | undefined {
   const format = git(place, ["rev-parse", "--show-object-format"]).trim();
   if (format !== "sha1")
     return `Refused: the repository's object format is ${format}; a capability qualification record names a 40-character sha1 commit. Repair: run from a sha1 clone.`;
-  const differs = nulSeparated(place, ["ls-tree", "-r", "-z", commit]).flatMap(
+  const entries = nulSeparated(place, ["ls-tree", "-r", "-z", commit]).map(
     (line) => {
       const tab = line.indexOf("\t");
       const [mode = "", , id = ""] = line.slice(0, tab).split(" ");
-      const path = line.slice(tab + 1);
-      const bytes = workingBytes(place.root, join(place.root, path), mode);
-      if (typeof bytes === "string") return [`${path} (${bytes})`];
-      const local = createHash("sha1")
-        .update(`blob ${String(bytes.byteLength)}\0`)
-        .update(bytes)
-        .digest("hex");
-      return local === id ? [] : [path];
+      return { mode, id, path: line.slice(tab + 1) };
     },
   );
+  const places = trackedPlaces(entries.map((entry) => entry.path));
+  const realRoot = realpathSync(place.root);
+  const differs = entries.flatMap(({ mode, id, path }) => {
+    const full = join(place.root, path);
+    const bytes = workingBytes(full, mode);
+    if (typeof bytes === "string") return [`${path} (${bytes})`];
+    const local = createHash("sha1")
+      .update(`blob ${String(bytes.byteLength)}\0`)
+      .update(bytes)
+      .digest("hex");
+    if (local !== id) return [path];
+    return resolvesToTracked(realRoot, full, places)
+      ? []
+      : [`${path} (resolves outside the tracked tree)`];
+  });
   return differs.length === 0
     ? undefined
     : `Refused: tracked files differ from their committed bytes (${differs.join("; ")}); ${committedBytesOnly} Repair: restore or commit them, then rerun.`;
