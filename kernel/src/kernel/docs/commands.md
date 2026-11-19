@@ -183,6 +183,9 @@ const success = "SUCCESS_UNCHANGED" satisfies keyof typeof commonCauses;
 - `Bun.spawn`, `Bun.spawnSync`, `Bun.$` and `node:child_process`. Starting a
   program belongs to the programs add-on.
 - An import of any kernel file other than `index.ts`.
+- The `in` operator on a key the type does not declare, such as
+  `"code" in error` in a `catch`. Read the value with `Object.hasOwn` and
+  `Reflect.get`, as the lint message shows.
 
 In `src/` and in tests it refuses:
 
