@@ -35,7 +35,6 @@ import {
   messageOf,
   own,
   parseRecord,
-  qualifiedPaths,
   qualifiedSourceFiles,
   recordFolder,
   recordPath,
@@ -94,6 +93,7 @@ export type CaseRequest = {
   readonly entry: RunEntry;
   readonly candidate: CandidateRow;
   readonly selection: readonly StateCase[];
+  readonly files: readonly string[];
   readonly environment: Environment;
   readonly output: (text: string) => void;
 };
@@ -252,6 +252,24 @@ function reportedTests(junit: string): ReadonlyMap<string, Reported> {
   return new Map(reportedList(junit));
 }
 
+function exitDisagreement(
+  caseRun: CaseRun,
+  selection: readonly StateCase[],
+): string | undefined {
+  const covered = new Set(executableIds(selection));
+  const failed = reportedList(caseRun.report)
+    .filter(([name, reported]) => {
+      const id = name.split(" ")[0] ?? name;
+      return reported === "failed" && covered.has(id);
+    })
+    .map(([name]) => name.split(" ")[0] ?? name);
+  if (caseRun.exitCode !== 0 && failed.length === 0)
+    return "no covered case failed in its report";
+  if (caseRun.exitCode === 0 && failed.length > 0)
+    return `${failed.join(", ")} failed in its report`;
+  return undefined;
+}
+
 export function reportedTwice(
   junit: string,
   selection: readonly StateCase[],
@@ -371,7 +389,7 @@ export function secondRunProblem(
     : undefined;
 }
 
-function readable(path: string): boolean {
+export function bootIdentityReadableAt(path: string): boolean {
   try {
     return readFileSync(path, "utf8").trim() !== "";
   } catch {
@@ -440,7 +458,7 @@ function observedFacts(parent: string): ObservedFacts {
     primitive: route.available ? route.route : "no coordination route",
     bootIdentitySource: {
       source: bootIdentitySource,
-      readable: readable(bootIdentitySource),
+      readable: bootIdentityReadableAt(bootIdentitySource),
     },
   };
 }
@@ -513,11 +531,11 @@ function workingBytes(path: string, mode: string): Buffer | string {
   return `mode ${mode} is not checked`;
 }
 
-function committedProblem(place: GitPlace): string | undefined {
+function committedProblem(place: GitPlace, commit: string): string | undefined {
   const format = git(place, ["rev-parse", "--show-object-format"]).trim();
   if (format !== "sha1")
     return `Refused: the repository's object format is ${format}; a capability qualification record names a 40-character sha1 commit. Repair: run from a sha1 clone.`;
-  const differs = nulSeparated(place, ["ls-tree", "-r", "-z", "HEAD"]).flatMap(
+  const differs = nulSeparated(place, ["ls-tree", "-r", "-z", commit]).flatMap(
     (line) => {
       const tab = line.indexOf("\t");
       const [mode = "", , id = ""] = line.slice(0, tab).split(" ");
@@ -558,6 +576,7 @@ type Prepared = {
   readonly parent: string;
   readonly entry: RunEntry;
   readonly existing: CapabilityQualificationRecord | undefined;
+  readonly commit: string;
 };
 
 function readCandidate(file: string): CandidateRow | string {
@@ -568,8 +587,19 @@ function readCandidate(file: string): CandidateRow | string {
   }
 }
 
-function cleanProblem(place: GitPlace): string | undefined {
-  const fromGit = hiddenProblem(place) ?? committedProblem(place);
+const loadFolders = ["kernel", "scripts", "src", "tests"] as const;
+
+function dotenvProblem(root: string): string | undefined {
+  const found = readdirSync(root)
+    .filter((name) => /^\.env(?:\..+)?$/.test(name) && name !== ".env.example")
+    .sort();
+  return found.length === 0
+    ? undefined
+    : `Refused: dotenv files sit where the run's processes start (${found.join("; ")}); Bun would load them into any child started without --no-env-file. Repair: move them out of the checkout, then rerun.`;
+}
+
+function cleanProblem(place: GitPlace, commit: string): string | undefined {
+  const fromGit = hiddenProblem(place) ?? committedProblem(place, commit);
   if (fromGit !== undefined) return fromGit;
   const lines = (args: readonly string[]) =>
     git(place, ["status", "--porcelain=v1", ...args])
@@ -582,11 +612,11 @@ function cleanProblem(place: GitPlace): string | undefined {
     "--ignored=matching",
     "--untracked-files=all",
     "--",
-    ...qualifiedPaths,
+    ...loadFolders,
   ]);
-  return ignored.length === 0
-    ? undefined
-    : `Refused: git ignores qualified source (${ignored.join("; ")}); sourceHash covers committed bytes only. Repair: remove those files, then rerun.`;
+  if (ignored.length > 0)
+    return `Refused: git ignores files where the run loads code (${ignored.join("; ")}); a capability qualification run loads committed files only. Repair: remove those files, then rerun.`;
+  return dotenvProblem(place.root);
 }
 
 function existingRecord(
@@ -655,17 +685,18 @@ function prepare(
   const parent = resolve(context.cwd, parsed.parentFolder);
   if (!existsSync(parent) || !statSync(parent).isDirectory())
     return `Refused: the state root parent ${parent} is not a folder. Repair: create it on the filesystem under test, then rerun.`;
-  const dirty = cleanProblem(context);
+  const commit = git(context, ["rev-parse", "HEAD"]).trim();
+  const dirty = cleanProblem(context, commit);
   if (dirty !== undefined) return dirty;
   const { entry } = parsed;
   if (entry === "fixture.ts")
     return existsSync(join(context.root, recordPath(candidate.id)))
       ? `Refused: ${recordPath(candidate.id)} exists; a fixture.ts run starts a new capability qualification record. Repair: remove it and commit that, then rerun.`
-      : { candidate, parent, entry, existing: undefined };
+      : { candidate, parent, entry, existing: undefined, commit };
   const existing = secondRunRefusal(context, parent, candidate);
   return typeof existing === "string"
     ? existing
-    : { candidate, parent, entry, existing };
+    : { candidate, parent, entry, existing, commit };
 }
 
 function writeRecord(
@@ -704,12 +735,14 @@ const stateTests = "tests/kernel/state";
 export function caseFiles(
   root: string,
   selection: readonly StateCase[],
+  files: readonly string[],
 ): readonly string[] {
   const covered = executableIds(selection);
-  return readdirSync(join(root, stateTests))
-    .filter((name) => name.endsWith(".test.ts"))
+  return [...files]
+    .filter(
+      (path) => path.startsWith(`${stateTests}/`) && path.endsWith(".test.ts"),
+    )
     .sort()
-    .map((name) => `${stateTests}/${name}`)
     .filter((path) =>
       registeredCases(readFileSync(join(root, path), "utf8")).some((id) =>
         covered.includes(id),
@@ -724,7 +757,7 @@ export async function runCasesWithBun(
   const runnable = request.selection.filter((row) =>
     runsThrough(row, request.entry),
   );
-  const files = caseFiles(request.root, runnable);
+  const files = caseFiles(request.root, runnable, request.files);
   if (files.length === 0)
     throw new CaseRunFailure(
       `no file in ${stateTests} registers a covered case`,
@@ -782,10 +815,9 @@ export async function capabilityQualificationRun(
     context.print(prepared);
     return prepared === usage ? 2 : 1;
   }
-  const { candidate, parent, entry, existing } = prepared;
+  const { candidate, parent, entry, existing, commit } = prepared;
   const selection = capabilityQualificationCases();
   const observed = observedFacts(parent);
-  const commit = git(context, ["rev-parse", "HEAD"]).trim();
   const hash = sourceHash(qualifiedSourceFiles(context.root));
   const started = new Date().toISOString();
   let caseRunResult: CaseRun;
@@ -796,6 +828,15 @@ export async function capabilityQualificationRun(
       entry,
       candidate,
       selection,
+      files: nulSeparated(context, [
+        "ls-tree",
+        "-r",
+        "--name-only",
+        "-z",
+        commit,
+        "--",
+        stateTests,
+      ]).filter((path) => path.endsWith(".test.ts")),
       environment: context.environment,
       output: context.output ?? ((text) => process.stderr.write(text)),
     });
@@ -811,9 +852,10 @@ export async function capabilityQualificationRun(
     );
     return 1;
   }
-  if (caseRunResult.exitCode !== 0) {
+  const disagreement = exitDisagreement(caseRunResult, selection);
+  if (disagreement !== undefined) {
     context.print(
-      `Refused: the case run's test process exited ${String(caseRunResult.exitCode)}; a capability qualification record is written only for a run whose test process passed. Repair: ${readTheRunOutput}.`,
+      `Refused: the case run's test process exited ${String(caseRunResult.exitCode)}, but ${disagreement}; the evidence does not agree, so no capability qualification record is written. Repair: ${readTheRunOutput}.`,
     );
     return 1;
   }

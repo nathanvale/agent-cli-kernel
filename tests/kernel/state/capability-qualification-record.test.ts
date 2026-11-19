@@ -541,6 +541,14 @@ const unreadable: readonly (readonly [string, string, string])[] = [
     "runs[0].cases[0] has fields [detail, id, reason, result], not [id, reason, result]",
   ],
   [
+    "a malformed sourceHash",
+    JSON.stringify({
+      ...record(),
+      runs: [run("fixture.ts", { sourceHash: "abc123" }), run("index.ts")],
+    }),
+    "runs[0].sourceHash is malformed",
+  ],
+  [
     "a short commit",
     JSON.stringify({
       ...record(),

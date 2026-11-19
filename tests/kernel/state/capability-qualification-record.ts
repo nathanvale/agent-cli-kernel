@@ -119,10 +119,6 @@ const qualifiedFolders = [
 ] as const;
 const stateSeam = "kernel/src/kernel/state-seam.ts";
 const tableFile = "kernel/src/addons/state/capability-qualification-table.ts";
-export const qualifiedPaths: readonly string[] = [
-  ...qualifiedFolders,
-  stateSeam,
-];
 
 export function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);

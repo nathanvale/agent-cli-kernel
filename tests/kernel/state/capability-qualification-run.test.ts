@@ -19,6 +19,7 @@ import { bootIdentitySource } from "../../../kernel/src/addons/state/qualificati
 import {
   commitIn,
   git,
+  gitOutput,
   gitEnv,
   inherited,
   initRepository,
@@ -43,6 +44,7 @@ import type {
   RunEntry,
 } from "./capability-qualification-record.ts";
 import {
+  bootIdentityReadableAt,
   capabilityQualificationRun,
   caseFiles,
   caseResults,
@@ -103,10 +105,17 @@ const tableRow = {
   },
 } as const;
 
-function junit(selection: readonly StateCase[]): string {
+function junit(
+  selection: readonly StateCase[],
+  failed: readonly string[] = [],
+): string {
   const cases = selection
     .filter((row) => row.status === "executable")
-    .map((row) => `    <testcase name="${row.id}" classname="" time="1" />`);
+    .map((row) =>
+      failed.includes(row.id)
+        ? `    <testcase name="${row.id}" time="1"><failure message="x" /></testcase>`
+        : `    <testcase name="${row.id}" classname="" time="1" />`,
+    );
   return `<?xml version="1.0" encoding="UTF-8"?>\n<testsuites>\n  <testsuite name="state">\n${cases.join("\n")}\n  </testsuite>\n</testsuites>\n`;
 }
 
@@ -346,7 +355,7 @@ test(
     expect(await world.run()).toBe(1);
     refusedWithoutRecord(
       world,
-      "Refused: git ignores qualified source (!! kernel/src/addons/state/probe.local.ts); sourceHash covers committed bytes only. Repair: remove those files, then rerun.",
+      "Refused: git ignores files where the run loads code (!! kernel/src/addons/state/probe.local.ts); a capability qualification run loads committed files only. Repair: remove those files, then rerun.",
     );
   },
   inProcess,
@@ -500,6 +509,50 @@ test(
     }
     expect(seen).toEqual([undefined, undefined, undefined, undefined]);
     await expectNoIdentity(world, readFileSync(world.recordFile, "utf8"));
+  },
+  inProcess,
+);
+
+test(
+  "a capability qualification run with a failed required case writes its record and does not qualify the row",
+  async () => {
+    const world = checkout();
+    const [first] = requiredCaseIds("fixture.ts");
+    if (first === undefined) throw new Error("No required case.");
+    const code = await world.run(undefined, undefined, {
+      runCases: (request) =>
+        Promise.resolve(ran(junit(request.selection, [first]), 1)),
+    });
+    expect(code).toBe(1);
+    expect(world.lines.at(-1)).toBe(
+      `The fixture.ts run does not qualify row ${candidate.id}: ${first} fail.`,
+    );
+    const cases =
+      parseRecord(readFileSync(world.recordFile, "utf8")).runs[0]?.cases ?? [];
+    expect(cases.find((entry) => entry.id === first)).toEqual({
+      id: first,
+      result: "fail",
+      detail: "failed; the run's output shows why",
+    });
+  },
+  inProcess,
+);
+
+test(
+  "a capability qualification run refuses a test process that exited 0 though a covered case failed",
+  async () => {
+    const world = checkout();
+    const [first] = requiredCaseIds("fixture.ts");
+    if (first === undefined) throw new Error("No required case.");
+    const code = await world.run(undefined, undefined, {
+      runCases: (request) =>
+        Promise.resolve(ran(junit(request.selection, [first]), 0)),
+    });
+    expect(code).toBe(1);
+    expect(world.lines).toEqual([
+      `Refused: the case run's test process exited 0, but ${first} failed in its report; the evidence does not agree, so no capability qualification record is written. Repair: read the run's output above, then rerun.`,
+    ]);
+    expect(existsSync(world.folder)).toBe(false);
   },
   inProcess,
 );
@@ -1016,6 +1069,7 @@ function runnerWorld() {
     mkdirSync(path, { recursive: true });
   const request = (
     selection: readonly StateCase[],
+    files: readonly string[] = [],
     root = base,
     output: (text: string) => void = () => undefined,
   ): CaseRequest => ({
@@ -1024,6 +1078,7 @@ function runnerWorld() {
     entry: "fixture.ts",
     candidate,
     selection,
+    files,
     environment: { ...callerEnvironment(), TMPDIR: outside },
     output,
   });
@@ -1077,6 +1132,16 @@ test(
       ]),
     );
     writeFileSync(
+      join(world.cases, "stray.test.ts"),
+      caseFile([
+        'import { writeFileSync } from "node:fs";',
+        'import { tmpdir } from "node:os";',
+        'import { join } from "node:path";',
+        'writeFileSync(join(tmpdir(), "stray"), "loaded\\n");',
+        registered("K02.a-synthetic", ""),
+      ]),
+    );
+    writeFileSync(
       join(world.cases, "noise.test.ts"),
       caseFile([
         'import { writeFileSync } from "node:fs";',
@@ -1088,15 +1153,26 @@ test(
     );
     writeFileSync(join(world.base, ".env"), "CQ_ENV_FILE=loaded\n");
     const selection = synthetic.filter((row) => row.id !== "K02.f-synthetic");
-    expect(caseFiles(world.base, selection)).toEqual([
-      "tests/kernel/state/synthetic.test.ts",
-    ]);
+    expect(
+      caseFiles(world.base, selection, [
+        "tests/kernel/state/noise.test.ts",
+        "tests/kernel/state/synthetic.test.ts",
+      ]),
+    ).toEqual(["tests/kernel/state/synthetic.test.ts"]);
     const output: string[] = [];
     const { report, exitCode } = await withOwnTemporaryFolders(
       world.outside,
       () =>
         runCasesWithBun(
-          world.request(selection, world.base, (text) => output.push(text)),
+          world.request(
+            selection,
+            [
+              "tests/kernel/state/noise.test.ts",
+              "tests/kernel/state/synthetic.test.ts",
+            ],
+            world.base,
+            (text) => output.push(text),
+          ),
           caseRunBound,
         ),
     );
@@ -1139,7 +1215,10 @@ test(
       .filter((row) => row.id === "K02.a-synthetic")
       .map((row) => ({ ...row, id: "K02.e-synthetic" }));
     const controlRun = await withOwnTemporaryFolders(world.outside, () =>
-      runCasesWithBun(world.request(control), caseRunBound),
+      runCasesWithBun(
+        world.request(control, ["tests/kernel/state/noise.test.ts"]),
+        caseRunBound,
+      ),
     );
     expect(controlRun.exitCode).toBe(0);
     expect(readdirSync(world.outside)).toEqual(["loaded"]);
@@ -1195,7 +1274,11 @@ test("the run loads the files that register the covered cases, and not the coord
         row.status === "executable" &&
         (row.onlyThrough === undefined || row.onlyThrough.entry === entry),
     );
-    const files = caseFiles(repository, runnable);
+    const files = caseFiles(
+      repository,
+      runnable,
+      trackedStateTests(repository),
+    );
     expect(files).not.toContain(
       "tests/kernel/state/linux-coordination.probe.test.ts",
     );
@@ -1219,10 +1302,15 @@ test(
           row.onlyThrough.entry === "fixture.ts"),
     );
     const { report } = await withOwnTemporaryFolders(world.outside, () =>
-      runCasesWithBun(world.request(selection, repository), caseRunBound),
+      runCasesWithBun(
+        world.request(selection, trackedStateTests(repository), repository),
+        caseRunBound,
+      ),
     );
     expect(reportedTwice(report, selection)).toEqual([]);
-    expect(loadedFiles(report)).toEqual(caseFiles(repository, runnable));
+    expect(loadedFiles(report)).toEqual(
+      caseFiles(repository, runnable, trackedStateTests(repository)),
+    );
     expect(
       caseResults(report, selection, "fixture.ts").filter(
         (entry) =>
@@ -1307,7 +1395,7 @@ test(
 );
 
 test(
-  "a capability qualification run refuses a case run whose test process exited non-zero",
+  "a capability qualification run refuses a test process that exited non-zero with no covered case failing",
   async () => {
     const world = checkout();
     const code = await world.run(undefined, undefined, {
@@ -1315,7 +1403,7 @@ test(
     });
     expect(code).toBe(1);
     expect(world.lines).toEqual([
-      "Refused: the case run's test process exited 1; a capability qualification record is written only for a run whose test process passed. Repair: read the run's output above, then rerun.",
+      "Refused: the case run's test process exited 1, but no covered case failed in its report; the evidence does not agree, so no capability qualification record is written. Repair: read the run's output above, then rerun.",
     ]);
     expect(existsSync(world.folder)).toBe(false);
   },
@@ -1341,7 +1429,7 @@ test(
         () => "finished",
         (error: unknown) => (error instanceof Error ? error.message : "thrown"),
       );
-    expect(performance.now() - started).toBeLessThan(2_000);
+    expect(performance.now() - started).toBeLessThan(1_500);
     expect(stopped).toStartWith("git ");
     expect(stopped).toEndWith(" did not finish within 300 ms");
     expect(world.requests).toEqual([]);
@@ -1362,7 +1450,10 @@ async function runnerRefusal(
   writeFileSync(join(world.cases, "synthetic.test.ts"), caseFile(lines));
   const started = performance.now();
   const refused = await runCasesWithBun(
-    world.request(synthetic.filter((row) => row.id === "K02.a-synthetic")),
+    world.request(
+      synthetic.filter((row) => row.id === "K02.a-synthetic"),
+      ["tests/kernel/state/synthetic.test.ts"],
+    ),
     limit,
   ).then(
     () => "ran",
@@ -1371,7 +1462,7 @@ async function runnerRefusal(
   return {
     refused,
     parent: readdirSync(world.parent),
-    quick: performance.now() - started < 3_000,
+    quick: performance.now() - started < 2_500,
   };
 }
 
@@ -1525,3 +1616,109 @@ test(
   },
   inProcess,
 );
+
+function trackedStateTests(root: string): readonly string[] {
+  return gitOutput(root, "ls-files", "-z", "--", "tests/kernel/state")
+    .split("\0")
+    .filter((path) => path.endsWith(".test.ts"));
+}
+
+test(
+  "a Bun child started in the checkout loads its .env, so the capability qualification run refuses one there",
+  async () => {
+    const world = checkout();
+    writeFileSync(join(world.root, ".env"), "CQ_ENV_FILE=loaded\n");
+    const child = await spawnBounded(
+      [
+        process.execPath,
+        "-e",
+        "console.log(process.env.CQ_ENV_FILE ?? 'unset')",
+      ],
+      { cwd: world.root, env: callerEnvironment(), boundMilliseconds: 10_000 },
+    );
+    expect(child.stdout.trim()).toBe("loaded");
+    commitIn(world.root, "ignore dotenv files", { ".gitignore": ".env\n" });
+    expect(git(world.root, "status", "--porcelain")).toBe("");
+    expect(await world.run()).toBe(1);
+    refusedWithoutRecord(
+      world,
+      "Refused: dotenv files sit where the run's processes start (.env); Bun would load them into any child started without --no-env-file. Repair: move them out of the checkout, then rerun.",
+    );
+  },
+  inProcess,
+);
+
+test(
+  "the capability qualification run refuses an ignored file in a folder it loads code from",
+  async () => {
+    const world = checkout();
+    commitIn(world.root, "ignore local tests", {
+      ".gitignore": "*.local.test.ts\n",
+    });
+    mkdirSync(join(world.root, "tests/kernel/state"), { recursive: true });
+    writeFileSync(
+      join(world.root, "tests/kernel/state/sneaky.local.test.ts"),
+      `${registered("K02.a-kill-after-effect-two-later-changes", "")}\n`,
+    );
+    expect(git(world.root, "status", "--porcelain")).toBe("");
+    expect(await world.run()).toBe(1);
+    refusedWithoutRecord(
+      world,
+      "Refused: git ignores files where the run loads code (!! tests/kernel/state/sneaky.local.test.ts); a capability qualification run loads committed files only. Repair: remove those files, then rerun.",
+    );
+  },
+  inProcess,
+);
+
+test(
+  "a capability qualification run takes its case files from the commit's tree",
+  async () => {
+    const world = checkout();
+    commitIn(world.root, "a case file", {
+      "tests/kernel/state/recovery.test.ts": `${registered("K02.a-kill-after-effect-two-later-changes", "")}\n`,
+      "tests/kernel/state/notes.md": "not a test\n",
+    });
+    expect(await world.run()).toBe(0);
+    expect(world.requests.map((request) => request.files)).toEqual([
+      ["tests/kernel/state/recovery.test.ts"],
+    ]);
+  },
+  inProcess,
+);
+
+test(
+  "the capability qualification run refuses a tree entry it cannot check, a submodule among them",
+  async () => {
+    const world = checkout();
+    const path = "kernel/src/addons/module";
+    const head = git(world.root, "rev-parse", "HEAD");
+    git(
+      world.root,
+      "update-index",
+      "--add",
+      "--cacheinfo",
+      `160000,${head},${path}`,
+    );
+    git(world.root, "commit", "--quiet", "-m", "a submodule");
+    mkdirSync(join(world.root, path), { recursive: true });
+    expect(await world.run()).toBe(1);
+    refusedWithoutRecord(
+      world,
+      `Refused: tracked files differ from their committed bytes (${path} (mode 160000 is not checked)); ${committedBytes} Repair: restore or commit them, then rerun.`,
+    );
+  },
+  inProcess,
+);
+
+test("the boot identity counts as readable only when the file reads as non-empty text", () => {
+  const root = folder("c3-boot-");
+  const write = (name: string, text: string) => {
+    writeFileSync(join(root, name), text);
+    return join(root, name);
+  };
+  expect(bootIdentityReadableAt(join(root, "absent"))).toBe(false);
+  expect(bootIdentityReadableAt(write("empty", ""))).toBe(false);
+  expect(bootIdentityReadableAt(write("blank", " \n"))).toBe(false);
+  expect(bootIdentityReadableAt(write("boot", "boot-one\n"))).toBe(true);
+  expect(bootIdentityReadableAt(root)).toBe(false);
+});

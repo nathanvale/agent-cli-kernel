@@ -1,13 +1,13 @@
 diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
-index ee6db01..53227f2 100644
+index bc00310..6b8c0fb 100644
 --- a/tests/kernel/state/capability-qualification-run.ts
 +++ b/tests/kernel/state/capability-qualification-run.ts
-@@ -459,7 +459,7 @@ function cleanProblem(
+@@ -614,7 +614,7 @@ function cleanProblem(place: GitPlace, commit: string): string | undefined {
      "--",
-     ...qualifiedPaths,
+     ...loadFolders,
    ]);
--  return ignored.length === 0
-+  return ignored.length >= 0
-     ? undefined
-     : `Refused: git ignores qualified source (${ignored.join("; ")}); sourceHash covers committed bytes only. Repair: remove those files, then rerun.`;
+-  if (ignored.length > 0)
++  if (ignored.length > 99)
+     return `Refused: git ignores files where the run loads code (${ignored.join("; ")}); a capability qualification run loads committed files only. Repair: remove those files, then rerun.`;
+   return dotenvProblem(place.root);
  }
