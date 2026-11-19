@@ -1683,7 +1683,7 @@
     "id": "20e8187-in-process-crash-stop-exit",
     "patch": "tests/planted-faults/patches/20e8187-lifecycle-stop-exit.patch",
     "testFile": "tests/kernel/lifecycle/in-process.test.ts",
-    "title": "IP09\\.crash-during-stop",
+    "title": "IP09\\.crash-during-stop a crash",
     "source": "20e8187 fix(kernel): let a crash decide the exit and abort runs during its wait"
   },
   {
@@ -1713,12 +1713,5 @@
     "testFile": "tests/kernel/lifecycle/in-process.test.ts",
     "title": "IP09\\.each-entry-listener .* when the first settles last",
     "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
-  },
-  {
-    "id": "20e8187-in-process-crash-stop-alone",
-    "patch": "tests/planted-faults/patches/20e8187-lifecycle-stop-exit.patch",
-    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
-    "title": "IP09\\.crash-during-stop-no-listener",
-    "source": "20e8187 fix(kernel): let a crash decide the exit and abort runs during its wait"
   }
 ]

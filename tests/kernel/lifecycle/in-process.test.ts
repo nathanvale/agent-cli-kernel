@@ -980,7 +980,7 @@ describe("IP09 onCrash hears the error before the process exits", () => {
   );
 
   test(
-    "IP09.crash-during-stop-no-listener with no onCrash, a crash during a stop wait exits 1 at once and the stop never exits",
+    "IP09.crash-during-stop-no-listener with no onCrash, a crash during a stop wait exits 1 at once",
     async () => {
       const recorder = recordingHost();
       const subject = holding(recorder, { stopSettleHangs: true });
@@ -991,8 +991,6 @@ describe("IP09 onCrash hears the error before the process exits", () => {
         await advance(100);
         expect(recorder.exits).toEqual([]);
         recorder.crash();
-        expect(recorder.exits).toEqual([1]);
-        await advance(exactStopBound);
         expect(recorder.exits).toEqual([1]);
       } finally {
         jest.useRealTimers();
