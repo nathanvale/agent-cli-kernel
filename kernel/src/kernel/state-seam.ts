@@ -333,6 +333,8 @@ export function rememberedRuns(descriptor: StateAddonDescriptor): {
 // Accepted decision (Nathan, 19 November 2026, 12:08 AEDT): the seam forgets a
 // run identity when its run finishes, so a long-lived process holds only its
 // live runs. A reused identity is refused only while its earlier run is live.
+// The in-process entry calls this; runProcess ends its process instead, and a
+// direct contract.execute caller's run never reports that it finished.
 export function forgetRun(
   runId: string,
   descriptor: StateAddonDescriptor | undefined,

@@ -502,7 +502,7 @@ function stateHolding(
       entered.count += 1;
       const gate = queue.shift();
       if (!gate) return;
-      await programs.inspect(shell("exit 0"));
+      await programs.inspect(shell("exit 0", { timeoutMilliseconds: 5_000 }));
       gate.entered.resolve();
       await gate.returned.promise;
     },
@@ -570,7 +570,7 @@ describe("IP08 the state seam forgets a run identity when its run finishes", () 
   );
 
   test(
-    "IP08.reuse-after-finish-admitted an identity whose run finished attaches again",
+    "IP08.reuse-after-finish-attaches an identity whose run finished attaches again",
     async () => {
       const recorder = recordingHost();
       const subject = stateHolding(recorder);
@@ -634,6 +634,34 @@ describe("IP08 the state seam forgets a run identity when its run finishes", () 
   );
 
   test(
+    "IP08.rejected-run-forgets a run that rejects forgets its identity",
+    async () => {
+      const recorder = recordingHost();
+      const clock = { fails: false };
+      const subject = stateHolding(recorder, () => ({
+        ...recorder.host,
+        now() {
+          if (clock.fails) throw new Error("The test clock failed.");
+          return performance.now();
+        },
+      }));
+      const one = subject.start(["change", "--deadline-ms", "60000", "--json"]);
+      await one.gate.entered.promise;
+      expect(rememberedRuns(subject.descriptor)).toEqual(oneRemembered);
+      clock.fails = true;
+      one.gate.returned.resolve();
+      const failure = await one.done.then(
+        () => "returned",
+        (error: unknown) =>
+          error instanceof Error ? error.message : "not an Error",
+      );
+      expect(failure).toBe("The test clock failed.");
+      expect(rememberedRuns(subject.descriptor)).toEqual(nothingRemembered);
+    },
+    timeout,
+  );
+
+  test(
     "IP08.live-past-deadline a run whose handler outlives its deadline keeps its identity until the handler returns",
     async () => {
       jest.useFakeTimers();
@@ -662,7 +690,7 @@ describe("IP08 the state seam forgets a run identity when its run finishes", () 
   );
 
   test(
-    "IP08.process-entry-keeps-identity runProcess still writes one envelope and keeps its run identity",
+    "IP08.process-entry-unchanged runProcess with a state command still writes one envelope and requests its exit",
     async () => {
       const recorder = recordingHost();
       const subject = stateHolding(recorder);
@@ -678,9 +706,7 @@ describe("IP08 the state seam forgets a run identity when its run finishes", () 
       const written: unknown = JSON.parse(recorder.writes[0]?.text ?? "null");
       const checked = await runtimeOf(subject.contract)?.validate(written);
       if (!checked?.ok) throw new Error("runProcess wrote no valid envelope.");
-      const runId = checked.value.result.runId;
-      expect(rememberedRuns(subject.descriptor)).toEqual(oneRemembered);
-      expect(await subject.reuse(runId)).toEqual(reusedIdentity);
+      expect(checked.value.result.causeCode).toBe("DOMAIN_RC_DECLINED");
     },
     timeout,
   );
