@@ -1,8 +1,8 @@
 diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
-index b73928f..0846b3f 100644
+index 30bb3d7..81c38a9 100644
 --- a/kernel/src/addons/state/install.ts
 +++ b/kernel/src/addons/state/install.ts
-@@ -627,7 +627,7 @@ export type Seams = {
+@@ -629,7 +629,7 @@ export type Seams = {
  // design, decision F): at most 64 moves per hold of the admission lock. The
  // design sets 128 examined cases per hold, so each cap is observable alone.
  const moveBound = 64;

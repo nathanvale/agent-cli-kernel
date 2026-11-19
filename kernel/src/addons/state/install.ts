@@ -32,6 +32,7 @@ import {
   readCase,
   readClosure,
   readStore,
+  settledIsPrivate,
   storeProblem,
   upgradeStore,
 } from "./store.ts";
@@ -493,6 +494,7 @@ function closureMatches(
   runId: string,
 ): boolean {
   const written = readClosure(paths, closure.operationId);
+  if (written === "unreadable") throw new Error("The closure cannot be read.");
   return (
     typeof written === "object" &&
     written.closureId === closure.closureId &&
@@ -504,7 +506,7 @@ function closureObservation(paths: Layout, operation: Operation): Observation {
   const target = operation.intent.closes;
   if (target === null) return "unobservable";
   const written = readClosure(paths, target);
-  if (written === "damaged") return "unobservable";
+  if (typeof written === "string") return "unobservable";
   if (written === undefined) return "absent";
   return written.recoveryRunId === operation.intent.runId
     ? "present"
@@ -814,15 +816,10 @@ export function install(options: StateOptions, seams: Seams) {
       held.keys.release();
       held.admission.release();
     };
-    let upgraded = true;
-    try {
-      await upgradeStore(paths, phase);
-    } catch {
-      upgraded = false;
-    }
+    const upgradeProblem = await upgradeStore(paths, phase);
     const store = readStore(paths);
-    const refusal: Refusal | undefined = !upgraded
-      ? { kind: "unavailable", reason: "store-upgrade" }
+    const refusal: Refusal | undefined = upgradeProblem
+      ? { kind: "unavailable", reason: upgradeProblem }
       : !store.ok
         ? { kind: "unavailable", reason: `store-${store.reason}` }
         : blocking(paths, store.operations, keys, check);
@@ -897,7 +894,9 @@ export function install(options: StateOptions, seams: Seams) {
       (operation) => operation.status !== "unresolved",
     );
     const tally = { examined: 0, moved: 0 };
-    const examinable = Math.min(candidates.length, examineBound);
+    const examinable = settledIsPrivate(paths)
+      ? Math.min(candidates.length, examineBound)
+      : 0;
     try {
       const start =
         examinable === 0
@@ -919,7 +918,7 @@ export function install(options: StateOptions, seams: Seams) {
       return;
     } finally {
       flushMoved(tally.moved);
-      seams.moverReport?.(tally.examined, tally.moved);
+      reportMoves(tally);
     }
   }
 
@@ -941,6 +940,17 @@ export function install(options: StateOptions, seams: Seams) {
     return (
       absentIsFree && attempt.kind === "failed" && attempt.code === "ENOENT"
     );
+  }
+
+  function reportMoves(tally: {
+    readonly examined: number;
+    readonly moved: number;
+  }): void {
+    try {
+      seams.moverReport?.(tally.examined, tally.moved);
+    } catch {
+      return;
+    }
   }
 
   function flushMoved(moved: number): void {

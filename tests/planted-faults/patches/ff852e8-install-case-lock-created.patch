@@ -1,8 +1,8 @@
 diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
-index b73928f..28ee5b0 100644
+index 30bb3d7..97bdbd5 100644
 --- a/kernel/src/addons/state/install.ts
 +++ b/kernel/src/addons/state/install.ts
-@@ -887,7 +887,7 @@ export function install(options: StateOptions, seams: Seams) {
+@@ -886,7 +886,7 @@ export function install(options: StateOptions, seams: Seams) {
    }
  
    function lockFree(path: string, absentIsFree: boolean): boolean {

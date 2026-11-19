@@ -78,7 +78,9 @@ test("the frozen T3 case table keeps its admitted identities and counts", () => 
 });
 
 const transitionDesigns = ["DESIGN.md", "DESIGN-V2-TRANSITIONS.md"];
-const transitionsAwaitingLaterSlices = ["X30"];
+const casesAwaitingLaterSlices: Readonly<Record<string, readonly string[]>> = {
+  X30: ["Q02.e"],
+};
 
 async function transitionRows(name: string): Promise<string[][]> {
   const design = await Bun.file(
@@ -103,10 +105,10 @@ caseTest("Q01.c-transitions-mapped", async () => {
   for (const row of rows) {
     const cases = (row[4] ?? "").split(",").map((cell) => cell.trim());
     expect(cases.length).toBeGreaterThan(0);
-    const unmapped = cases.filter((id) => !known.has(id));
-    if (transitionsAwaitingLaterSlices.includes(row[1] ?? ""))
-      expect(unmapped.length).toBeGreaterThan(0);
-    else expect(unmapped).toEqual([]);
+    for (const id of cases) expect(id).toMatch(/^[A-Z]\d\d\.[a-z]$/);
+    expect(cases.filter((id) => !known.has(id))).toEqual([
+      ...(casesAwaitingLaterSlices[row[1] ?? ""] ?? []),
+    ]);
   }
   expect(rows.map((row) => row[1])).toEqual(
     Array.from(

@@ -14,7 +14,11 @@ is in the [test harness guide](test-harness.md).
   [185c90d], [5990897], [fa359ec] (the repository description parser had
   five refusals and no test), [97f9e9b] (a length check accepted any reason
   for a parse failure; take the reason from an independent call of the
-  parser), [#90-inventory] (exit 1 also covered unrelated inventory errors).
+  parser), [#90-inventory] (exit 1 also covered unrelated inventory errors),
+  [r4624964198], [198f6ba] (a test that read the boot identity file itself
+  still expected `ENOENT`, so another read failure failed it and a refusal
+  that also named the filesystem passed; the fix expects the reason the test
+  observed, and the boot identity as the only field that differs).
 - Assert the route's response when a test says a command remains available.
   Exit zero with empty output can pass without a response. Witnessed:
   [#90-routes].
@@ -161,3 +165,5 @@ is in the [test harness guide](test-harness.md).
 [f754f36]: https://github.com/nathanvale/agent-cli-kernel/commit/f754f3629123ca9632fba83361a4776109459e97
 [r4624230382]: https://github.com/nathanvale/agent-cli-kernel/pull/13#discussion_r4624230382
 [9086c3b]: https://github.com/nathanvale/agent-cli-kernel/commit/9086c3b8b14bcba376aa63027abdd817c1495e53
+[r4624964198]: https://github.com/nathanvale/agent-cli-kernel/pull/15#discussion_r4624964198
+[198f6ba]: https://github.com/nathanvale/agent-cli-kernel/commit/198f6ba61a79539d2c03a1fbfb70b61ecc26b3d0

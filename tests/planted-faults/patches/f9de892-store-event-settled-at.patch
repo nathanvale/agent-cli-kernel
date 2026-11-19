@@ -1,8 +1,8 @@
 diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
-index 8f20023..bb5038d 100644
+index a056567..2a98d30 100644
 --- a/kernel/src/addons/state/store.ts
 +++ b/kernel/src/addons/state/store.ts
-@@ -632,9 +632,7 @@ export function appendEvent(
+@@ -660,9 +660,7 @@ export function appendEvent(
    try {
      const bytes = encodeRecord(
        kind,
