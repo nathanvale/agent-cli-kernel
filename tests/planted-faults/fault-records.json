@@ -1134,10 +1134,10 @@
     "source": "d62870c feat(kernel): forget an in-process run identity when its run finishes"
   },
   {
-    "id": "b64db4a-state-seam-finished",
-    "patch": "tests/planted-faults/patches/b64db4a-state-seam-finished.patch",
+    "id": "c02caae-state-seam-active",
+    "patch": "tests/planted-faults/patches/c02caae-state-seam-active.patch",
     "testFile": "tests/kernel/state-seam.test.ts",
-    "title": "a record kept past its forgotten run and called outside the run cannot record an effect",
-    "source": "b64db4a fix(kernel): refuse a recorded effect for a run the seam forgot"
+    "title": "a record kept past its forgotten run cannot record under the run that reused its identity",
+    "source": "c02caae fix(kernel): require the active attached run for a recorded effect"
   }
 ]
