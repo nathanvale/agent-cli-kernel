@@ -1370,5 +1370,47 @@
     "testFile": "tests/kernel/state/journal.test.ts",
     "title": "^X24 supporting: a version 2 store refuses",
     "source": "9086c3b fix(state): refuse a version 2 store whose settled/ is a link or not private"
+  },
+  {
+    "id": "1e39e16-qualification-release",
+    "patch": "tests/planted-faults/patches/1e39e16-qualification-release.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^Q02.a-release-major-edges",
+    "source": "1e39e16 feat(state): match a capability qualification row at closure time"
+  },
+  {
+    "id": "1e39e16-qualification-filesystem",
+    "patch": "tests/planted-faults/patches/1e39e16-qualification-filesystem.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^Q02.b-filesystem-mismatch-refused",
+    "source": "1e39e16 feat(state): match a capability qualification row at closure time"
+  },
+  {
+    "id": "1e39e16-qualification-route",
+    "patch": "tests/planted-faults/patches/1e39e16-qualification-route.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^Q02.c-route-mismatch-refused",
+    "source": "1e39e16 feat(state): match a capability qualification row at closure time"
+  },
+  {
+    "id": "1e39e16-qualification-unreadable-filesystem",
+    "patch": "tests/planted-faults/patches/1e39e16-qualification-unreadable-filesystem.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^Q02.d-unreadable-fact-refuses",
+    "source": "1e39e16 feat(state): match a capability qualification row at closure time"
+  },
+  {
+    "id": "1e39e16-qualification-unreadable-boot",
+    "patch": "tests/planted-faults/patches/1e39e16-qualification-unreadable-boot.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^Q02.d-unreadable-fact-refuses",
+    "source": "1e39e16 feat(state): match a capability qualification row at closure time"
+  },
+  {
+    "id": "1e39e16-qualification-nested-mount",
+    "patch": "tests/planted-faults/patches/1e39e16-qualification-nested-mount.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^Q02.f-nested-mount-refused",
+    "source": "1e39e16 feat(state): match a capability qualification row at closure time"
   }
 ]

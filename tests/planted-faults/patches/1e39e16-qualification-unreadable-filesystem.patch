@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/state/qualification.ts b/kernel/src/addons/state/qualification.ts
+index 475cd22..4edd765 100644
+--- a/kernel/src/addons/state/qualification.ts
++++ b/kernel/src/addons/state/qualification.ts
+@@ -143,7 +143,7 @@ function differences(
+     ...(majorRelease.read && majorRelease.value === row.majorRelease
+       ? []
+       : ["major release"]),
+-    ...(filesystem.read && filesystem.value === row.filesystem.type
++    ...(!filesystem.read || filesystem.value === row.filesystem.type
+       ? []
+       : ["filesystem"]),
+     ...(primitive.read && primitive.value === row.primitive

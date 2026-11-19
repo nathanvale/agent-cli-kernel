@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/state/qualification.ts b/kernel/src/addons/state/qualification.ts
+index 475cd22..f226c77 100644
+--- a/kernel/src/addons/state/qualification.ts
++++ b/kernel/src/addons/state/qualification.ts
+@@ -146,7 +146,7 @@ function differences(
+     ...(filesystem.read && filesystem.value === row.filesystem.type
+       ? []
+       : ["filesystem"]),
+-    ...(primitive.read && primitive.value === row.primitive
++    ...(primitive.read
+       ? []
+       : ["coordination route"]),
+     ...(bootIdentity.read && row.bootIdentitySource === bootIdentitySource

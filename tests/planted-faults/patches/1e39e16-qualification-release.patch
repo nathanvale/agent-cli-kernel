@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/state/qualification.ts b/kernel/src/addons/state/qualification.ts
+index 475cd22..2d021be 100644
+--- a/kernel/src/addons/state/qualification.ts
++++ b/kernel/src/addons/state/qualification.ts
+@@ -140,7 +140,7 @@ function differences(
+   const { majorRelease, filesystem, primitive, bootIdentity } = facts;
+   return [
+     ...(row.os === facts.os ? [] : ["os"]),
+-    ...(majorRelease.read && majorRelease.value === row.majorRelease
++    ...(facts.release === row.observedRelease
+       ? []
+       : ["major release"]),
+     ...(filesystem.read && filesystem.value === row.filesystem.type
