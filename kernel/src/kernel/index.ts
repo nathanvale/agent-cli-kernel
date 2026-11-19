@@ -470,6 +470,7 @@ export type {
   ProgramsCapability,
   ApprovalCapability,
   DiagnosticsCapability,
+  DiagnosticsLevel,
   CapabilitySelection,
   HandlerContext,
   AbortContext,

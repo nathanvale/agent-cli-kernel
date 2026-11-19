@@ -33,6 +33,11 @@ export type StateCapability<Effect extends string> = {
 export type ProgramRequest = {
   readonly executable: ParsedPath;
   readonly args: readonly string[];
+  // Accepted decision (Nathan, 19 November 2026, 10:14; CMD-14): a command may
+  // supply a bounded input. The programs add-on writes it to the program's
+  // stdin and then closes it. A program given none has a closed stdin, and no
+  // program ever inherits the CLI's own stdin.
+  readonly input?: Uint8Array | undefined;
   readonly timeoutMilliseconds: number;
   readonly outputLimitBytes: number;
   readonly shutdownMilliseconds: number;
@@ -60,8 +65,24 @@ export type ProgramsCapability = {
 export type ApprovalCapability = {
   readonly check: (request: ApprovalRequest) => Promise<boolean>;
 };
+export type DiagnosticsLevel =
+  | "trace"
+  | "debug"
+  | "info"
+  | "warning"
+  | "error"
+  | "fatal";
 export type DiagnosticsCapability = {
-  readonly record: (event: string, facts: JsonValue) => void;
+  // Interface: One bounded, redacted record in the run's private file, written at
+  // `level`, or at "info" when none is given. A level outside the six is
+  // dropped and counted in `droppedRecords`. A host whose framework has its
+  // own logger sends each log line here, never to stdout or stderr: the event
+  // names the line's source, the facts carry its message and annotations.
+  readonly record: (
+    event: string,
+    facts: JsonValue,
+    level?: DiagnosticsLevel,
+  ) => void;
 };
 export type CapabilitySelection = {
   readonly programs?: true;

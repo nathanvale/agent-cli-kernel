@@ -24,6 +24,7 @@ type Script = {
   readonly crash?: boolean;
   readonly pace?: boolean;
   readonly throwAfter?: boolean;
+  readonly level?: unknown;
   readonly hold?: {
     readonly after: number;
     readonly ready: string;
@@ -65,6 +66,7 @@ function script(): Script {
     crash: read("crash") === true,
     pace: read("pace") === true,
     throwAfter: read("throwAfter") === true,
+    level: read("level"),
   };
   return typeof after === "number" &&
     typeof ready === "string" &&
@@ -127,6 +129,11 @@ function contentsOf(path: string | undefined): string | null {
 
 type Recorder = { readonly record: (event: string, facts: JsonValue) => void };
 
+function recordStep(diagnostics: Recorder, facts: JsonValue, level: unknown) {
+  if (level === undefined) diagnostics.record("step", facts);
+  else Reflect.apply(diagnostics.record, diagnostics, ["step", facts, level]);
+}
+
 async function perform(
   diagnostics: Recorder,
   parsed: { readonly "--token"?: string; readonly "--token-file"?: string },
@@ -168,7 +175,11 @@ async function perform(
       const wideToo =
         plan.keys === undefined ? deep : { ...deep, wide: wide(plan.keys) };
       const facts: JsonValue = { ...wideToo, ...secrets, ...limitForms };
-      diagnostics.record("step", plan.hostile ? hostile(facts) : facts);
+      recordStep(
+        diagnostics,
+        plan.hostile ? hostile(facts) : facts,
+        plan.level,
+      );
       if (plan.pace) await new Promise((resolve) => setTimeout(resolve, 0));
       else if (tasks > 1) await Promise.resolve();
     }
