@@ -1615,5 +1615,12 @@
     "testFile": "tests/kernel/state/recovery.test.ts",
     "title": "^X29 supporting: closure decides on the journal it reads while it holds the lease",
     "source": "d37a77f fix(state): decide a closure on the journal read under the target's lease"
+  },
+  {
+    "id": "adbcace-install-stale-read-under-lease",
+    "patch": "tests/planted-faults/patches/adbcace-install-stale-read-under-lease.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^X29 supporting: a closer that read a torn tail mid-append",
+    "source": "adbcace fix(state): refuse a closure whose read under the lease differs from its request"
   }
 ]

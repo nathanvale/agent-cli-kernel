@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index 081469c..cc7a0ff 100644
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -493,7 +493,7 @@ function caseUnderLease(
+       stop: { kind: "unavailable", reason: "lease-unreadable" },
+     };
+   const read = caseRead(paths, request);
+-  if (read.ok && read.target.revision === request.revision)
++  if (read.ok)
+     return { ok: true, target: read.target, release: lease.release };
+   lease.release();
+   return { ok: false, stop: read.ok ? { kind: "stale-revision" } : read.stop };
