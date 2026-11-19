@@ -135,8 +135,9 @@ test("a transaction still open after its run is forgotten and its identity reuse
   );
 });
 
-test("a record kept past its forgotten run and called outside the run cannot record an effect", async () => {
-  const { descriptor, attached } = recordingState();
+async function keptRecord(
+  attached: ReturnType<typeof recordingState>["attached"],
+): Promise<EffectTransaction<"specimen.note">> {
   let kept: EffectTransaction<"specimen.note"> | undefined;
   expect(
     await messageOf(
@@ -147,14 +148,49 @@ test("a record kept past its forgotten run and called outside the run cannot rec
     ),
   ).toBe("The test transaction proves nothing.");
   if (!kept) throw new Error("The transaction kept no record.");
-  const transaction = kept;
+  return kept;
+}
+
+function outsideTheRun(transaction: EffectTransaction<"specimen.note">) {
+  return messageOf(
+    Promise.resolve().then(() =>
+      transaction.record("specimen.note", note, confirmed),
+    ),
+  );
+}
+
+const outsideRefusal = "A recorded effect requires the active attached run.";
+
+test("a record inside its open run's transaction records its effect", async () => {
+  const { attached } = recordingState();
+  const recorded: string[] = [];
+  await messageOf(
+    attached.capability.transaction(async (transaction) => {
+      recorded.push(await transaction.record("specimen.note", note, confirmed));
+    }),
+  );
+  expect(recorded).toEqual(["noted"]);
+});
+
+test("a record kept past its forgotten run and called outside the run cannot record an effect", async () => {
+  const { descriptor, attached } = recordingState();
+  const kept = await keptRecord(attached);
   attached.close();
   forgetRun("run-1", descriptor);
-  expect(
-    await messageOf(
-      Promise.resolve().then(() =>
-        transaction.record("specimen.note", note, confirmed),
-      ),
-    ),
-  ).toBe("The state capability closed when its run finished.");
+  expect(await outsideTheRun(kept)).toBe(outsideRefusal);
+});
+
+test("a record kept past its forgotten run cannot record under the run that reused its identity", async () => {
+  const { descriptor, attached } = recordingState();
+  const kept = await keptRecord(attached);
+  attached.close();
+  forgetRun("run-1", descriptor);
+  expect(attachState(descriptor, "run-1", ["specimen.note"])).toBeDefined();
+  expect(await outsideTheRun(kept)).toBe(outsideRefusal);
+});
+
+test("a record called outside its run's transaction cannot record an effect, even while the run is open", async () => {
+  const { attached } = recordingState();
+  const kept = await keptRecord(attached);
+  expect(await outsideTheRun(kept)).toBe(outsideRefusal);
 });
