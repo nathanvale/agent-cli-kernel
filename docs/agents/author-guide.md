@@ -1,7 +1,7 @@
 # Author Guide
 
-The author guide is `kernel/src/kernel/AGENTS.md`, the `CLAUDE.md` that
-imports it, and `kernel/src/kernel/docs/`. It is stamped with the kernel.
+The author guide is `kernel/src/kernel/AGENTS.md` and
+`kernel/src/kernel/docs/`. It is stamped with the kernel.
 Its reader is an agent writing commands in a generated repository.
 
 - Write for that reader. Give paths from a generated repository's root,
