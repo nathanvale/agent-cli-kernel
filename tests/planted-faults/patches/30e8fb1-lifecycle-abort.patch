@@ -1,0 +1,14 @@
+diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
+index 4aaf9b5..66a201a 100644
+--- a/kernel/src/kernel/lifecycle.ts
++++ b/kernel/src/kernel/lifecycle.ts
+@@ -965,8 +965,8 @@ function crashEvery(inFlight: InFlight, host: ProcessHost, error: unknown) {
+     host.exit(1);
+     return;
+   }
+-  for (const run of inFlight.runs) run.controller.abort();
+   inFlight.crash = "listening";
++  for (const run of inFlight.runs) run.controller.abort();
+   const due = host.now() + stopBoundMilliseconds;
+   const listening = [...inFlight.listeners].map((each) =>
+     callOnCrash(each, error),

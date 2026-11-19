@@ -1818,5 +1818,33 @@
     "testFile": "tests/kernel/lifecycle/in-process.test.ts",
     "title": "IP09\\.crash-during-stop-no-listener",
     "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "30e8fb1-in-process-crash-claim",
+    "patch": "tests/planted-faults/patches/30e8fb1-lifecycle-claim.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.record-reentry",
+    "source": "30e8fb1 fix(kernel): give the crash path one owner across re-entry"
+  },
+  {
+    "id": "30e8fb1-in-process-crash-abort",
+    "patch": "tests/planted-faults/patches/30e8fb1-lifecycle-abort.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.abort-reentry",
+    "source": "30e8fb1 fix(kernel): give the crash path one owner across re-entry"
+  },
+  {
+    "id": "30e8fb1-in-process-crash-nested",
+    "patch": "tests/planted-faults/patches/30e8fb1-lifecycle-nested.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.abort-reentry",
+    "source": "30e8fb1 fix(kernel): give the crash path one owner across re-entry"
+  },
+  {
+    "id": "a0d17cc-in-process-control",
+    "patch": "tests/planted-faults/patches/a0d17cc-harness-control.patch",
+    "testFile": "tests/kernel/state/in-process.test.ts",
+    "title": "IP0[456]\\.|in-process state cases ran",
+    "source": "a0d17cc test(state): pin which in-process state cases ran their real bodies"
   }
 ]
