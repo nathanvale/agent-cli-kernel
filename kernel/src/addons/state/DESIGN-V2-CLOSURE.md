@@ -3,7 +3,8 @@
 Status: proposed, not reviewed. Read [DESIGN-V2.md](DESIGN-V2.md) first: it
 holds the status, the source of the clause quotes, the section map and the
 store format. This part changes version 1 sections 7.2 and 10 of
-[DESIGN.md](DESIGN.md), which stays frozen and unchanged. The transitions,
+[DESIGN.md](DESIGN.md), and adds to sections 4.3 and 8. That note stays
+frozen and unchanged. The transitions,
 proposed cases and open points are in [DESIGN-V2-CASES.md](DESIGN-V2-CASES.md).
 
 ## 1. What changes
@@ -23,13 +24,15 @@ host name and sent signals are still never consulted. Without a matching row
 every closure of an unresolved case still hands off, as O10 and Q01 pin
 today.
 
-## 2. Matching a row (decision 1a: Nathan, 19 November 2026)
+## 2. Matching a row (decided by Nathan, 19 November 2026)
 
 A row matches on the operating system and the major release, not the exact
 release string, and the state root's filesystem is checked at run time. The
 facts are read at closure time (X30), under the coordination locks, without
 starting a program. Linux in a container is the first target; Darwin is
-second and optional (open point I).
+second and optional (open point I). The decision names the first three
+facts. This design adds the last two, which can only refuse more (open
+point U).
 
 | Fact                  | Linux                               | Darwin                             | Must equal the row's |
 | --------------------- | ----------------------------------- | ---------------------------------- | -------------------- |
@@ -59,22 +62,24 @@ second and optional (open point I).
 - Filesystem. `statfsSync(root).type` reports the filesystem under the root
   however it was mounted, and the numbers are a stable interface:
 
-| The state root sits on                              | Reads as                                                                               | Row                                          |
-| --------------------------------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------- |
-| A named volume                                      | the container host's local filesystem (btrfs `0x9123683E` in the observed environment) | the first row                                |
-| A bind mount of a Linux host folder                 | that filesystem (ext4 `0xEF53`, XFS `0x58465342`)                                      | one row per type, each with its own evidence |
-| A bind mount of a folder shared from another system | a shared type (expected FUSE `0x65735546`; not observed here)                          | none: shared filesystems stay unsupported    |
-| The container's writable layer                      | overlay `0x794C7630`                                                                   | none in version 2 (open point O)             |
-| A network mount                                     | NFS `0x6969` and similar                                                               | none                                         |
+| The state root sits on                              | Reads as                                                                          | Row                                          |
+| --------------------------------------------------- | --------------------------------------------------------------------------------- | -------------------------------------------- |
+| A volume                                            | the container host's local filesystem (btrfs `0x9123683E` on the volume observed) | the first row                                |
+| A bind mount of a Linux host folder                 | that filesystem (ext4 `0xEF53`, XFS `0x58465342`)                                 | one row per type, each with its own evidence |
+| A bind mount of a folder shared from another system | a shared type (expected FUSE `0x65735546`; not observed here)                     | none: shared filesystems stay unsupported    |
+| The container's writable layer                      | overlay `0x794C7630`                                                              | none in version 2 (open point O)             |
+| A network mount                                     | NFS `0x6969` and similar                                                          | none                                         |
 
 - Two containers that share one volume on one host share its kernel, so
   coordination locks and leases exclude across them. The boot identity is
-  also the host kernel's, the same in every container on it.
+  also the host kernel's, the same in every container on it. Neither proof
+  uses a process view, which differs between containers (open point V).
 - The evidence run happens inside a container on a host whose kernel is in
   the row's major release. The state root's parent is an argument, so the
   root is on the volume under test while the repository sits anywhere.
-- First row: `linux-7-btrfs`, a named volume in the one environment observed
-  so far. Its run record is owed (open point N).
+- First row: `linux-7-btrfs`, a volume in the one environment observed so
+  far. Version 1 section 7 records "a btrfs volume" there and not how it was
+  mounted; the run confirms it. Its run record is owed (open point N).
 
 ### 2.2 Darwin (second, optional)
 
@@ -85,7 +90,7 @@ that fixes those numbers, and the local flag is not reported, so a Darwin
 row needs the name, the flag and the boot identity through a foreign call.
 Without that work Darwin has no row and closure there still hands off.
 
-## 3. The row and its run record (decision 1b: Nathan, 19 November 2026)
+## 3. The row and its run record (decided by Nathan, 19 November 2026)
 
 A row cites a committed run record and names its independent review. A hosted
 run link is not evidence. A row's run happens on a machine in that major
@@ -93,46 +98,47 @@ release.
 
 Row fields:
 
-| Field              | Meaning                                                                     | Matched at run time |
-| ------------------ | --------------------------------------------------------------------------- | ------------------- |
-| `id`               | stamped into every closure it enables, for example `linux-7-btrfs`          | no                  |
-| `os`               | `darwin` or `linux`                                                         | yes                 |
-| `majorRelease`     | as section 2                                                                | yes                 |
-| `observedRelease`  | the exact release string the evidence run observed                          | no                  |
-| `filesystem`       | Linux: `{ name, type }`. Darwin: `{ name, local }`                          | yes                 |
-| `primitive`        | the coordination route                                                      | yes                 |
-| `bootIdentity`     | the boot identity source                                                    | yes, readable       |
-| `processIdentity`  | how a delegated program is identified; version 2: boot identity only        | no                  |
-| `namespace`        | the user and process view the run used (non-root; host or container)        | no                  |
-| `delegatedWriters` | the rule of section 5                                                       | no                  |
-| `failureCases`     | what the row does not cover                                                 | no                  |
-| `evidence`         | `{ record, review }`: the record's path, and the reviewer, date and verdict | checked by a test   |
+| Field                | Meaning                                                                     | Matched at run time |
+| -------------------- | --------------------------------------------------------------------------- | ------------------- |
+| `id`                 | stamped into every closure it enables, for example `linux-7-btrfs`          | no                  |
+| `os`                 | `darwin` or `linux`                                                         | yes                 |
+| `majorRelease`       | as section 2                                                                | yes                 |
+| `observedRelease`    | the exact release string the evidence run observed                          | no                  |
+| `filesystem`         | Linux: `{ name, type }`. Darwin: `{ name, local }`                          | yes                 |
+| `primitive`          | the coordination route                                                      | yes                 |
+| `bootIdentitySource` | where the boot identity is read from                                        | yes, readable       |
+| `processIdentity`    | how a delegated program is identified; version 2: boot identity only        | no                  |
+| `namespace`          | the user and process view the run used (non-root; host or container)        | no                  |
+| `delegatedWriters`   | the rule of section 5                                                       | no                  |
+| `failureCases`       | what the row does not cover                                                 | no                  |
+| `evidence`           | `{ record, review }`: the record's path, and the reviewer, date and verdict | checked by a test   |
 
 One repeatable command (proposed name `bun run qualify:state`) runs the
 stopped-owner cases on the platform and writes the record. It supplies the
-candidate row through the labelled test entry, so its closures are stamped
-`fixture:<label>` and it never touches the production table. It refuses a
+candidate row through the labelled test entry, a seam that entry gains
+(part 3 section 4), so its closures are stamped `fixture:<label>` and it
+never touches the production table. It refuses a
 dirty tree. It writes the record to a temporary name and renames it, so a
 killed run leaves no record. Proposed place:
 `tests/kernel/state/qualification/<row id>.json`.
 
 Record fields:
 
-| Field               | Content                                                                                                                                      |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `schema`            | `state-qualification-run/1`                                                                                                                  |
-| `row`               | the candidate row id                                                                                                                         |
-| `commit`            | the full commit the run used                                                                                                                 |
-| `started`, `ended`  | wall clock times                                                                                                                             |
-| `platform`          | `os`, exact `release`, `majorRelease`, architecture, runtime version; on Linux the distribution, C library and whether it ran in a container |
-| `stateRoot`         | the observed `filesystem` facts only; no path, user name or host name                                                                        |
-| `coordinationRoute` | the active route                                                                                                                             |
-| `bootIdentity`      | the source, and whether it was readable; never its value                                                                                     |
-| `cases`             | `[{ id, result, detail }]`, result `pass`, `fail` or `unproved`                                                                              |
+| Field                | Content                                                                                                                                      |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schema`             | `state-qualification-run/1`                                                                                                                  |
+| `row`                | the candidate row id                                                                                                                         |
+| `commit`             | the full commit the run used                                                                                                                 |
+| `started`, `ended`   | wall clock times                                                                                                                             |
+| `platform`           | `os`, exact `release`, `majorRelease`, architecture, runtime version; on Linux the distribution, C library and whether it ran in a container |
+| `stateRoot`          | the observed `filesystem` facts only; no path, user name or host name                                                                        |
+| `primitive`          | the active coordination route                                                                                                                |
+| `bootIdentitySource` | the source, and whether it was readable; never the value                                                                                     |
+| `cases`              | `[{ id, result, detail }]`, result `pass`, `fail` or `unproved`                                                                              |
 
 The run covers the executable closure and stopped-owner cases (families K02,
 K03, K06, K07, K08, O04, O05, O07 and O09) and the proposed cases that need
-no production row (Q02.a to Q02.d, K11.a to K11.e). A case still pending in
+no production row (Q02.a to Q02.d, K11.a to K11.f). A case still pending in
 the case table is recorded `unproved` and is not required. A row needs every
 required case `pass`.
 

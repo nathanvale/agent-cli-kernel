@@ -10,14 +10,15 @@ this note after its review, never the reverse.
 - Part 3, [DESIGN-V2-CASES.md](DESIGN-V2-CASES.md): the new transitions, the
   proposed cases and every open point.
 
-The note is in three parts so each stays under 5,000 tokens, the size the
-repository allows one tracked text file outside `kernel/`.
+The note is in three parts by choice, to keep each under 5,000 tokens. The
+repository's size check does not cover `kernel/`, so no gate forced it.
 
 Clause tags refer to Command Contract 3 (`agent-engineering`, skill
-`agent-cli-design`, `references/contract-3/`). Quotes here were read in a
-local worktree of that repository (`c3-hardening-review`), not at the
-published commit `648f93275717d5b031dd4bb4fc67f80cd9940383`, so they are a
-guide. The review checks them at the published commit.
+`agent-cli-design`, `references/contract-3/`). The clauses were read in a
+local worktree of that repository (`c3-hardening-review`). The three files
+quoted (`recovery.md`, `commands-and-addons.md`, `discovery.md`) were then
+compared with published commit `648f93275717d5b031dd4bb4fc67f80cd9940383`
+in a local clone and are byte-identical there.
 
 ## 1. Why a version 2
 
@@ -35,26 +36,26 @@ Settled constraints this note keeps:
 - Many runs may share one process, but each run is still one transaction and
   one proof (Nathan, 19 November 2026). Version 2 adds no second transaction
   to a run: moving and pruning are storage maintenance, not transactions.
-- A separate change hands the work function `{ operationId }`. It changes no
-  record, file or transition here.
+- A separate change hands the work function `{ operationId }`. It changes
+  nothing in this design.
 
 ## 2. Section map
 
-| Version 1 section       | Version 2                                                                                            |
-| ----------------------- | ---------------------------------------------------------------------------------------------------- |
-| 1. Scope and owners     | Keeps. Adds the prune host call to what the state add-on owns.                                       |
-| 2. Durability boundary  | Keeps.                                                                                               |
-| 3. Storage layout       | Changes: adds `resolved/` (section 4 here).                                                          |
-| 4. Record framing       | Keeps the framing. Changes 4.1 (section 3). Adds `resolvedAt` (section 7) and `boot` (part 2).       |
-| 5. Read rule            | Changes which folders each route reads (section 5).                                                  |
-| 6. Conflict scope       | Keeps.                                                                                               |
-| 7. Coordination         | Keeps both routes. 7.1 gains a step (section 6). 7.2 changes (part 2).                               |
-| 8. Effect recording     | Keeps the steps. Adds: no append after the final event (part 2 section 4).                           |
-| 9. Approval consumption | Keeps.                                                                                               |
-| 10. Qualification gate  | Changes (part 2).                                                                                    |
-| 11. Transitions         | Keeps X01 to X22. Adds X23 to X33 (part 3). Two frozen cases change when a first row lands (part 3). |
-| 12. Interface           | Adds `prune(...)`. `capabilities()` reports matched facts (part 2).                                  |
-| 13. Open points         | Keeps them. Adds part 3's open points.                                                               |
+| Version 1 section       | Version 2                                                                                                                 |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| 1. Scope and owners     | Keeps. Adds the prune host call to what the state add-on owns.                                                            |
+| 2. Durability boundary  | Keeps.                                                                                                                    |
+| 3. Storage layout       | Changes: adds `resolved/` (section 4). `format` is replaced once at the upgrade; version 1 says written once (section 3). |
+| 4. Record framing       | Keeps the framing. Changes 4.1 (section 3). Adds `resolvedAt` (section 7) and `boot` (part 2).                            |
+| 5. Read rule            | Changes which folders each route reads (section 5).                                                                       |
+| 6. Conflict scope       | Keeps.                                                                                                                    |
+| 7. Coordination         | Keeps both routes. 7.1 gains a step (section 6). 7.2 changes (part 2).                                                    |
+| 8. Effect recording     | Keeps the steps. Adds: no append after the final event (part 2 section 4).                                                |
+| 9. Approval consumption | Keeps.                                                                                                                    |
+| 10. Qualification gate  | Changes (part 2).                                                                                                         |
+| 11. Transitions         | Keeps X01 to X22. Adds X23 to X33 (part 3). Two frozen cases change when a first row lands (part 3).                      |
+| 12. Interface           | Adds `prune(...)`. `capabilities()` reports matched facts (part 2).                                                       |
+| 13. Open points         | Keeps them. Adds part 3's open points.                                                                                    |
 
 ## 3. How version 1 and version 2 meet (changes 4.1)
 
@@ -65,17 +66,20 @@ Settled constraints this note keeps:
 - An old program may not open a new store. A version 1 program accepts only
   `journal: "contract3.state"`, so it refuses every route on a version 2
   store, its report included (DISC-14 item 5). An added field would not do
-  this: version 1 ignores unknown fields and would accept the store.
+  this. Version 1's note says any other content refuses, but its code checks
+  only the `journal` value and ignores unknown fields, so it would accept
+  the store.
 - A version 2 program reads a version 1 store as it is: read routes read
   `operations/` only and write nothing. The first changing route upgrades it
   in place under the admission lock (X23): create `resolved/` and flush the
   root, stage the new format record, rename it over `format`, flush the root.
-  Two upgraders write the same bytes, so the step is idempotent.
+  This is the one time `format` is replaced. Two upgraders write the same
+  bytes, so the step is idempotent (open point Q).
 - A version 1 run already in flight at the upgrade finishes normally: its
   records are valid version 2 records, and a later admission moves its case.
 - The upgrade is one way. A root shared by several installed programs is
   upgraded only after all of them run version 2.
-- Any other format content refuses every route, as in version 1.
+- Any other `journal` value refuses every route.
 
 ## 4. Layout (changes section 3)
 
@@ -123,7 +127,7 @@ route looks:
 - A closing case observes its target's closure. This is in the code today
   (`closureObservation`), not in the version 1 note. When the target is in
   neither folder, the observation is `unobservable`, not `absent` as today,
-  because prune may have removed it.
+  because prune may have removed it (open point W).
 
 ## 6. Moving a resolved case (adds a step to 7.1)
 
@@ -138,7 +142,9 @@ A case moves only when all hold:
    closure.
 2. Its `owner.lease` is free (non-blocking probe).
 3. The coordination lock file for `case:<operationId>` is absent, or free.
-   It is opened without create, so moving never adds a lock file. Under the
+   That is the key a closer takes for its target; it is in the code today,
+   not in the version 1 note. It is opened without create, so moving never
+   adds a lock file. Under the
    admission lock no closer can be taking its key locks, so an absent file
    means no closer is active.
 
@@ -152,8 +158,8 @@ the rename fails and the case stays where it is.
   version 1 store, drains over later admissions and prune calls. The number
   is an engineering number with no contract source, and its cost is not
   measured yet.
-- The owner does not move its own case at transaction end. That would add an
-  admission lock wait to the end of every transaction. A crash between the
+- The owner does not move its own case at transaction end (open point R).
+  That would add an admission lock wait to the end of every transaction. A crash between the
   final event and the move leaves a resolved case in `operations/`; it is not
   listed, and the next admission moves it.
 - A later run renames an earlier run's folder but writes no record and no

@@ -8,9 +8,10 @@ to X22 keep their numbers.
 ## 1. Transitions X23 to X33
 
 A crash at the boundary in the second column leaves the durable state in the
-third.
+third. The last column names proposed cases, and two frozen pending ones
+(K08.c, O06.a).
 
-| Id  | Transition                                          | Crash at boundary leaves                                                             | Proposed cases             |
+| Id  | Transition                                          | Crash at boundary leaves                                                             | Cases                      |
 | --- | --------------------------------------------------- | ------------------------------------------------------------------------------------ | -------------------------- |
 | X23 | store upgraded to version 2                         | a version 1 store (an empty `resolved/` and a staged file are ignored), or version 2 | J08.a, J08.b               |
 | X24 | resolved case moved under the admission lock        | the case in exactly one folder; resolved either way; never listed                    | L07.a, L07.c, L07.d, L07.e |
@@ -37,11 +38,16 @@ in that same review.
   unavailable) hold until a first row lands. The review that adds a row
   rewords both to "where no row matches". Until then version 1's X17 keeps
   its cases.
-- X11 keeps its cases; its event gains `boot`.
+- X11 keeps its cases and its event gains `boot`. Its boundary text,
+  "runtime stop proof refused", now holds on the same boot only.
+- O07.b, O08.a, H01.a and H03.a stay pending. Their reason names a reviewed
+  row, but they need reclaim or takeover, which version 2 does not include;
+  the review that adds a row rewords the reason.
 - X12 keeps its cases and gains K11.e.
 - Case Q01.c pins exactly 22 transition rows in `DESIGN.md`. The rows above
   live in this file, so that pin is extended to it with version 2 code.
-- L07.b, K11.b and Q03.a prove rules, not transitions, and map to none.
+- L07.b, K11.b, K11.f and Q03.a prove rules, not transitions, and map to
+  none. K11.a extends frozen K08.b to a matching row and a missing `boot`.
 
 ## 3. Proposed cases
 
@@ -66,31 +72,33 @@ Pruning and the version meeting (part 1):
 
 Closure in production (part 2):
 
-| Proposed id                        | Observation                                                                                                        | Red                                                            |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
-| Q02.a-release-major-edges          | Another release in the same major matches; the next major refuses with the observed facts.                         | Match the exact release, or none (planted fault).              |
-| Q02.b-filesystem-mismatch-refused  | A state root on a filesystem the row does not name refuses with the observed facts; no closure.                    | Trust the row's name without reading the root (planted fault). |
-| Q02.c-route-mismatch-refused       | A row for another coordination route does not match.                                                               | Ignore `primitive`.                                            |
-| Q02.d-unreadable-fact-refuses      | An unreadable filesystem or boot identity refuses; nothing is written.                                             | Treat unreadable as matching.                                  |
-| Q02.e-production-row-closes        | Under a production row a crashed case closes as completed and as not-applied, stamped with the row `id`.           | Stamp a fixture label.                                         |
-| Q03.a-row-cites-run-record         | Every production row cites a committed record that matches it, with every required case passed and a named review. | Accept a hosted run link.                                      |
-| K11.a-delegate-same-boot-refused   | A killed run with a delegate start, same boot or no `boot`: closure refuses even with a matching row.              | Treat a free lease as proof.                                   |
-| K11.b-delegate-other-boot-closes   | With a boot identity that differs (test entry), the same case closes.                                              | Compare process identifiers instead.                           |
-| K11.c-torn-tail-closes             | Killed mid-append with a free lease: closes as completed on `present`; `not-applied` on `absent` refuses.          | Refuse every torn tail.                                        |
-| K11.d-corrupt-events-still-refuses | Bytes after the damage: closure refuses as unavailable.                                                            | Read corruption as a torn tail.                                |
-| K11.e-no-append-after-final-event  | A `record` left pending when work returns appends nothing after the final event, and its `admitStart` refuses.     | Append outside the lease (planted fault).                      |
+| Proposed id                        | Observation                                                                                                                            | Red                                                            |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Q02.a-release-major-edges          | Another release in the same major matches; the next major refuses with the observed facts.                                             | Match the exact release, or none (planted fault).              |
+| Q02.b-filesystem-mismatch-refused  | A state root on a filesystem the row does not name refuses with the observed facts; no closure.                                        | Trust the row's name without reading the root (planted fault). |
+| Q02.c-route-mismatch-refused       | A row for another coordination route does not match.                                                                                   | Ignore `primitive`.                                            |
+| Q02.d-unreadable-fact-refuses      | An unreadable filesystem or boot identity refuses; nothing is written.                                                                 | Treat unreadable as matching.                                  |
+| Q02.e-production-row-closes        | Under a production row a crashed case closes as completed and as not-applied, stamped with the row `id`.                               | Stamp a fixture label.                                         |
+| Q03.a-row-cites-run-record         | Every production row cites a committed record that matches it, with every required case passed and a named review.                     | Accept a hosted run link.                                      |
+| K11.a-delegate-same-boot-refused   | A killed run with a delegate start, same boot or no `boot`: closure refuses even with a matching row.                                  | Treat a free lease as proof.                                   |
+| K11.b-delegate-other-boot-closes   | With a boot identity that differs (test entry), the same case closes.                                                                  | Compare process identifiers instead.                           |
+| K11.c-torn-tail-closes             | Killed mid-append with a free lease: closes as completed on `present`; `not-applied` on `absent` refuses.                              | Refuse every torn tail.                                        |
+| K11.d-corrupt-events-still-refuses | Bytes after the damage: closure refuses as unavailable.                                                                                | Read corruption as a torn tail.                                |
+| K11.e-no-append-after-final-event  | A `record` left pending when work returns appends nothing after the final event, and its `admitStart` refuses.                         | Append outside the lease (planted fault).                      |
+| K11.f-second-container-closer      | A live owner in one container refuses a closer in a second container on the same volume; once the owner is killed, that closer closes. | Decide by the closer's own process view.                       |
 
 ## 4. Test entry
 
-The labelled test entry (`fixture.ts`) gains overrides for the environment
-facts: the release, the state root's filesystem and the boot identity. Cases
-Q02.a, Q02.b, Q02.d, K11.a and K11.b need them. A closure the test entry
-enables is stamped `fixture:<label>`, as today, and `capabilities()` still
-reports `fixture-only`.
+The labelled test entry (`fixture.ts`) takes only a fixture label today. It
+gains two seams: a candidate row, and overrides for the environment facts
+(the release, the state root's filesystem and the boot identity). The
+qualification run and cases Q02.a to Q02.d, K11.a and K11.b need them. A
+closure the test entry enables is stamped `fixture:<label>`, as today, and
+`capabilities()` still reports `fixture-only`.
 
 ## 5. Open points for the review
 
-Each is one decision with a recommendation.
+Each is one decision with one recommendation.
 
 - 0: One note covers both items. Nathan has not confirmed it; the design
   proceeds on that assumption. Recommend yes: both reopen the same frozen
@@ -109,10 +117,9 @@ Each is one decision with a recommendation.
   Recommend an accepted decision with the Command Contract 3 records (owner
   Linear MAG-98): a host-set retention, after which history and a retry
   answer not found. Prune code waits for it; the move does not.
-- E: Recommend a version 1 program refuses a version 2 store, and a version 2
-  program upgrades a version 1 store on its first changing route.
-- F: Recommend 64 moves per hold of the admission lock, and no move by the
-  owner at its own transaction end.
+- E: Recommend an old program may not open a new store: version 1 refuses a
+  version 2 store.
+- F: Recommend at most 64 moves per hold of the admission lock.
 - G: Coordination lock files (`k-<h>.lock`) still grow with each distinct
   conflict key. Unlinking one is unsafe (two holders on two inodes). Recommend
   a documented limit, outside version 2.
@@ -133,13 +140,10 @@ Each is one decision with a recommendation.
 - L: Recommend a free lease is enough after a torn tail, once no append can
   follow the final event (part 2 section 4).
 - M: Recommend the run record lives at
-  `tests/kernel/state/qualification/<row id>.json` and the row's review is
-  named by reviewer, date and verdict.
-- N: Where the first evidence run happens. Recommend the observed container
-  environment (kernel major 7, a named volume on btrfs). The hosted
-  `ubuntu-latest` runner is another kernel major and architecture, so it
-  would be its own row; whether a record written there and then committed
-  counts needs Nathan's word.
+  `tests/kernel/state/qualification/<row id>.json`.
+- N: Which container host the first row is for. Recommend the one observed
+  (kernel major 7, a btrfs volume). A host with another kernel major, or a
+  volume on ext4 or XFS, needs its own row and run.
 - O: Recommend no row for the container's writable layer: state kept there is
   lost with the container, so a tool should keep its state root on a volume.
 - P: The boot identity names no machine (REC-7 asks identity to distinguish
@@ -147,3 +151,24 @@ Each is one decision with a recommendation.
   machines as unsupported in each row's `failureCases`, not recording a
   machine identity: inside a container the readable one belongs to the image
   and would refuse every case after the container is rebuilt.
+- Q: Recommend a version 2 program upgrades a version 1 store in place on
+  its first changing route, with no separate migration command.
+- R: Recommend the owner does not move its own case at transaction end; the
+  next admission does.
+- S: Recommend a row names its review by reviewer, date and verdict.
+- T: Whether a record written on the hosted `ubuntu-latest` runner and then
+  committed is evidence. Recommend no for now: that runner is unobserved
+  (version 1 section 7), it changes without notice, and the first row needs
+  none.
+- U: Matching also on the coordination route and a readable boot identity,
+  beyond the three facts decided. Recommend yes: both can only refuse more.
+- V: Two containers sharing one state root. REC-7b's proposed boundary is
+  "the same host and namespace". Recommend supported, because the lease and
+  the boot identity are the host kernel's and no proof uses a process view;
+  case K11.f in the evidence run proves it.
+- W: A closing case whose target is in neither folder reports
+  `unobservable`, where the code today reports `absent`. Recommend yes.
+- X: No append after the final event: `record` and `admitStart` refuse once
+  the transaction has ended. This changes today's code for a work function
+  that does not await. Recommend yes; closing after a torn tail depends on
+  it.
