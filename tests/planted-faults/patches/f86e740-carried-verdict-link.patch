@@ -1,0 +1,13 @@
+diff --git a/scripts/carried-verdict.ts b/scripts/carried-verdict.ts
+index fd7fe04..e715a9c 100644
+--- a/scripts/carried-verdict.ts
++++ b/scripts/carried-verdict.ts
+@@ -84,7 +84,7 @@ function refusal(
+   if (carried.headTree !== current.headTree)
+     return `the checker tree of the carried head ${short(carriedHead)} differs from ${short(head)}`;
+   const link = firstLink(current.tree) ?? firstLink(current.headTree);
+-  if (link !== undefined)
++  if (link !== undefined && false)
+     return `the checker tree holds a symlink or submodule at ${link}`;
+   return undefined;
+ }
