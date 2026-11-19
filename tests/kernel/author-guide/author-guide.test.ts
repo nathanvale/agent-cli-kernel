@@ -115,6 +115,7 @@ function codeBlocks(path: string): Block[] {
 const indentOf = (line: string) => line.length - line.trimStart().length;
 
 function heldBy(file: string, block: readonly string[]): boolean {
+  if (block.every((line) => line.trim() === "")) return false;
   const lines = file.split("\n");
   const first = block[0] ?? "";
   return lines.some((line, start) => {
@@ -254,6 +255,13 @@ describe("the author guide's documents, stamped with the kernel", () => {
     } finally {
       rmSync(folder, { recursive: true, force: true });
     }
+  });
+
+  test("a ts block with no code is held by no example file, so it cannot pass as copied", () => {
+    const file = [...example.values()][0] ?? "";
+    expect(heldBy(file, [])).toBe(false);
+    expect(heldBy(file, ["", ""])).toBe(false);
+    expect(heldBy(file, file.split("\n").slice(0, 2))).toBe(true);
   });
 
   test("every code block names its language, so none escapes the two checks above", () => {
