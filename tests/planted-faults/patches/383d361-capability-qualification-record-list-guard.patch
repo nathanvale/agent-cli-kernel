@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-record.ts b/tests/kernel/state/capability-qualification-record.ts
+index cb0b2e9..ef742b4 100644
+--- a/tests/kernel/state/capability-qualification-record.ts
++++ b/tests/kernel/state/capability-qualification-record.ts
+@@ -194,7 +194,7 @@ function fields(source: unknown, keys: readonly string[], where: string) {
+     },
+     list(key: string): readonly unknown[] {
+       const value = own(source, key);
+-      if (!Array.isArray(value))
++      if (value === undefined)
+         throw new Error(`${where}.${key} is not a list`);
+       return value.map((entry: unknown) => entry);
+     },

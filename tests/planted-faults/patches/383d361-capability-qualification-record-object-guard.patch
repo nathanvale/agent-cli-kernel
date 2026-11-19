@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-record.ts b/tests/kernel/state/capability-qualification-record.ts
+index cb0b2e9..cc1461c 100644
+--- a/tests/kernel/state/capability-qualification-record.ts
++++ b/tests/kernel/state/capability-qualification-record.ts
+@@ -165,7 +165,7 @@ export function own(source: unknown, key: string): unknown {
+ }
+ 
+ function fields(source: unknown, keys: readonly string[], where: string) {
+-  if (typeof source !== "object" || source === null || Array.isArray(source))
++  if (typeof source !== "object" || source === null)
+     throw new Error(`${where} is not an object`);
+   const found = Object.keys(source).sort();
+   const wanted = [...keys].sort();

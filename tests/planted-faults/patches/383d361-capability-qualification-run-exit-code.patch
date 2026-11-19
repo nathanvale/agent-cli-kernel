@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index 0b31f1e..ee494d2 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -795,7 +795,7 @@ export async function capabilityQualificationRun(
+     );
+     return 1;
+   }
+-  if (caseRunResult.exitCode !== 0) {
++  if (caseRunResult.exitCode === 99) {
+     context.print(
+       `Refused: the case run's test process exited ${String(caseRunResult.exitCode)}; a capability qualification record is written only for a run whose test process passed. Repair: ${readTheRunOutput}.`,
+     );

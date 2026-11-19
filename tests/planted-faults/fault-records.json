@@ -2042,5 +2042,131 @@
     "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
     "title": "^a fixture.ts capability qualification run writes the record the design names",
     "source": "6077a26 feat(state): cover K11.f, keep one reason, and import the qualification rules"
+  },
+  {
+    "id": "383d361-capability-qualification-run-assume-unchanged",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-run-assume-unchanged.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run refuses a tracked file git marks assume-unchanged",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "383d361-capability-qualification-run-skip-worktree",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-run-skip-worktree.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run refuses a tracked file git marks skip-worktree",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "383d361-capability-qualification-run-committed-bytes",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-run-committed-bytes.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run refuses a tracked file whose bytes differ",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "383d361-capability-qualification-run-exit-code",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-run-exit-code.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^a capability qualification run refuses a case run whose test process exited non-zero",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "383d361-capability-qualification-run-reported-twice",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-run-reported-twice.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^a capability qualification run refuses a report that names a case twice",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "383d361-capability-qualification-run-git-bound",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-run-git-bound.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run bounds each git read",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "383d361-capability-qualification-run-git-timeout-refusal",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-run-git-timeout-refusal.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run bounds each git read",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "383d361-capability-qualification-run-case-run-bound",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-run-case-run-bound.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run.s own case runner stops a case run that outlives its bound",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "383d361-capability-qualification-run-case-run-timeout-refusal",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-run-case-run-timeout-refusal.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run.s own case runner stops a case run that outlives its bound",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "383d361-capability-qualification-run-missing-report",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-run-missing-report.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run.s own case runner refuses a case run that writes no report",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "383d361-capability-qualification-run-distribution",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-run-distribution.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^a capability qualification record names the distribution",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "383d361-capability-qualification-record-repeated-id",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-record-repeated-id.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a run that lists a case twice",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "383d361-capability-qualification-record-any-failure",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-record-any-failure.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a run that lists a case twice",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "383d361-capability-qualification-record-text-guard",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-record-text-guard.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a record with a number for the os",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "383d361-capability-qualification-record-number-guard",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-record-number-guard.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a record with text for the filesystem type",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "383d361-capability-qualification-record-flag-guard",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-record-flag-guard.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a record with text for the container flag",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "383d361-capability-qualification-record-list-guard",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-record-list-guard.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a record with text for the runs",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+  },
+  {
+    "id": "383d361-capability-qualification-record-object-guard",
+    "patch": "tests/planted-faults/patches/383d361-capability-qualification-record-object-guard.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a record with a list for the record",
+    "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
   }
 ]

@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index 0b31f1e..fa4a7b0 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -513,7 +513,7 @@ function committedProblem(place: GitPlace): string | undefined {
+         .update(`blob ${String(bytes.byteLength)}\0`)
+         .update(bytes)
+         .digest("hex");
+-      return local === id ? [] : [path];
++      return [];
+     },
+   );
+   return differs.length === 0

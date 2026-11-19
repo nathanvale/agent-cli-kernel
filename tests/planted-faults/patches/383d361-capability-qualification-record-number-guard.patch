@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-record.ts b/tests/kernel/state/capability-qualification-record.ts
+index cb0b2e9..c1e3e7d 100644
+--- a/tests/kernel/state/capability-qualification-record.ts
++++ b/tests/kernel/state/capability-qualification-record.ts
+@@ -182,7 +182,7 @@ function fields(source: unknown, keys: readonly string[], where: string) {
+     },
+     number(key: string): number {
+       const value = own(source, key);
+-      if (typeof value !== "number" || !Number.isInteger(value))
++      if (value === undefined)
+         throw new Error(`${where}.${key} is not a whole number`);
+       return value;
+     },
