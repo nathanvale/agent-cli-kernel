@@ -1,12 +1,11 @@
-# State add-on: journal version 2 design, part 1 of 3 (version, layout, moving settled cases, decisions and open points)
+# State add-on: journal version 2 design, part 1 of 3 (version, layout, moving settled cases and decisions)
 
 Status: accepted (Nathan, 19 November 2026, 13:21 AEDT). This note
 specifies journal version 2 of the state add-on. Version 1 is
 [DESIGN.md](DESIGN.md); it stays frozen and unchanged, and wherever this
 note is silent, version 1 holds. Code follows this note, never the reverse.
-The points in section 8.3 are still open: each keeps its recommendation
-until Nathan decides it, and code that depends on one waits for that
-decision.
+The one point in section 8.3 is still open, and the code slice that
+depends on it waits for its decision.
 
 In this note a host is the tool built on the CLI kernel. The machine or
 virtual machine a container runs on is the container machine.
@@ -152,7 +151,7 @@ where each route looks:
   version 1. History now reads only the case asked for, so a corrupt other
   case no longer refuses it; version 1 read every case first. A corrupt
   case in `settled/` refuses only its own history; admission and the report
-  never read it (open point C). A case reached `settled/` only
+  never read it (decision C). A case reached `settled/` only
   after a valid settling record was read under coordination, and nothing
   writes there, so later damage is outside the durability boundary of
   version 1 section 2: a process crash cannot tear a flushed, linked record.
@@ -208,12 +207,12 @@ the admission lock, so nothing comes between the check and the rename.
   mover stops for that hold, the admission lock is released as usual, and
   the case, still settled, is moved by a later admission. A diagnostics
   event may record the failure; nothing decides on it.
-- The owner does not move its own case at transaction end (open point R). That
+- The owner does not move its own case at transaction end (decision R). That
   would add an admission lock wait to the end of every transaction. A crash
   between the final event and the move leaves a settled case in `operations/`;
   it is not listed, and the next admission moves it.
 - A later run renames an earlier run's folder but writes no record and no
-  byte (open point B).
+  byte (decision B).
 
 ## 7. Deferred: deleting old cases
 
@@ -242,7 +241,7 @@ Points this note found that the later version must answer:
 - Progress: a protected case must not count against the call's limit, or a
   protected first case stalls every later one.
 
-## 8. Decisions and open points
+## 8. Decisions and the open point
 
 ### 8.1 Decided by Nathan, 19 November 2026
 
@@ -275,6 +274,32 @@ sections 2 and 3 follow both. The rest, at 12:08 and 12:15:
 - Wording (12:15): a case that needs no more recovery is a settled case, in
   the folder `settled/`.
 
+At 13:46, each as this note recommended:
+
+- B: The move is allowed. It writes no record or byte and keeps the
+  revision. The move and the one-time upgrade are incidental journal
+  maintenance (DIAG-13), which the CLI kernel's discovery already discloses
+  in `effectExclusions` ("Incidental journal maintenance.").
+- C: A corrupt case refuses only a route that reads it (section 5).
+- E: A version 1 program refuses a version 2 store (section 3).
+- G: Coordination lock files keep growing with each distinct conflict key; a
+  documented limit, outside version 2.
+- J: "Major release" is the first part of `os.release()`, major only, with
+  the exact release recorded on the row (part 2 section 2.1).
+- L: A free lease is enough after a torn tail (part 2 section 4).
+- P: A state root moved between machines is unsupported, listed in each
+  row's `failureCases`; no machine identity is recorded.
+- R: The owner does not move its own case; the next admission does.
+- T: A record from the hosted runner is not evidence for now.
+- U: Matching also covers the coordination route and a readable boot
+  identity (part 2 section 2).
+- X: A transaction waits for its started effects (part 2 section 4).
+- Y: A host whose outside work runs through a long-lived link starts it
+  outside any recorded effect. Work sent through the link for an operation
+  must end when its owner ends, or the host's observer answers
+  `unobservable` while it may be pending. The CLI kernel has nothing to
+  check here; each host proves both branches in its own tests.
+
 ### 8.2 Withdrawn by this note
 
 - W: Without deletion a closing case's target cannot leave both folders, so
@@ -282,64 +307,10 @@ sections 2 and 3 follow both. The rest, at 12:08 and 12:15:
 
 ### 8.3 Still open
 
-Each is one decision with one recommendation.
-
-- B: REC-4 says a later run may not invent a record "on the original run's
-  behalf". Recommend the move is allowed: it writes no record or byte, keeps
-  the revision, and needs a valid settling record already present.
-- C: Recommend a corrupt case refuses only a route that reads it.
-  Admission and the report never read `settled/`, and history reads only the
-  case asked for. Version 1 refused every route on any corrupt case.
-- E: Recommend an old program may not open a new store: version 1 refuses a
-  version 2 store. Decision Q's rollback cost rests on this.
-- G: Coordination lock files (`k-<h>.lock`) still grow with each distinct
-  conflict key. Unlinking one is unsafe (two holders on two inodes). Recommend
-  a documented limit, outside version 2.
-- J: What "major release" means on Linux. It is the operating-system kernel's
-  major number, in a container the container machine's. That number carries no
-  compatibility promise and spans years of releases; the start-up self-check,
-  the filesystem type and the evidence run are what protect a closure.
-  Options: major only, as decided, so a row survives operating-system kernel
-  updates; or major and minor, which is tighter but hands off after every
-  minor update until a new run and row. Recommend major only, with the exact
-  release recorded on the row.
-- L: Recommend a free lease is enough after a torn tail, once the
-  transaction waits for its started effects (part 2 section 4).
-- M: The names of the qualification command, its run record and the
-  record's folder. This note calls them `qualify:state`, a run record and
-  `tests/kernel/state/qualification/<row id>.json`, with the record schema
-  `state-qualification-run/1`, but "qualification" is
-  only a proposed word in the Agent ecosystem glossary, and file and folder
-  names must use glossary words. Recommend Nathan accepts names for the
-  command, the record and its folder before the slice that adds them.
-- P: The boot identity names no machine (REC-7 asks identity to distinguish
-  "host/boot identity"). Recommend listing a state root moved between
-  machines as unsupported in each row's `failureCases`, not recording a
-  machine identity: inside a container the readable one belongs to the image
-  and would refuse every case after the container is rebuilt.
-- R: Recommend the owner does not move its own case at transaction end; the
-  next admission does.
-- T: Whether a record written on the hosted `ubuntu-latest` runner and then
-  committed is evidence. Recommend no for now: that runner is unobserved
-  (version 1 section 7), it changes without notice, and the first row needs
-  none.
-- U: Matching also on the coordination route and a readable boot identity,
-  beyond the three facts decided. Recommend yes: both can only refuse more.
-- X: A transaction waits for its started effects: it is marked ended when
-  the work function returns or throws, new `record` and `admitStart` calls
-  refuse, and
-  the lease and key coordination locks stay held until every started
-  `record` settles. This changes today's code for a work function that does
-  not await. Recommend yes; closing after a torn tail depends on it.
-- Y: Whether hosts of this kind start a program inside a recorded effect,
-  or reach outside work through a long-lived link that records no start.
-  Only the first writes `delegate-admitted`, so only it meets decision K's
-  limit. Recommend a host whose outside work runs through a long-lived link
-  starts that link outside any recorded effect, so no case it leaves records
-  a delegate start. That moves an obligation to the host: work sent through
-  the link for an operation must either end when its owner ends (the link
-  drops requests from an owner that has gone), or the host's observer must
-  answer `unobservable` for that operation while such work may still be
-  pending. Otherwise a free lease and a matching row could close a case
-  whose work is still running. The CLI kernel has nothing to check here: each
-  host proves this obligation, both of its branches, in its own tests.
+- M: The names of the qualification command, its run record, the record's
+  folder and its schema value. This note calls them `qualify:state`, a run
+  record, `tests/kernel/state/qualification/<row id>.json` and
+  `state-qualification-run/1`, but "qualification" is only a proposed word in
+  the Agent ecosystem glossary, and file and folder names must use glossary
+  words. A revised recommendation is with Nathan. Code slice 5, which adds
+  them, waits on it.

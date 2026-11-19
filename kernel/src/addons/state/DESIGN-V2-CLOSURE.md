@@ -6,8 +6,8 @@ holds the status, the source of the clause quotes, the section map and the
 store format. This part changes version 1 sections 7.2 and 10 of
 [DESIGN.md](DESIGN.md), and adds to sections 4.3 and 8. That note stays
 frozen and unchanged. The transition table and proposed cases are in
-[DESIGN-V2-TRANSITIONS.md](DESIGN-V2-TRANSITIONS.md); the decisions and open
-points are in part 1 section 8.
+[DESIGN-V2-TRANSITIONS.md](DESIGN-V2-TRANSITIONS.md); the decisions and the open
+point are in part 1 section 8.
 
 ## 1. What changes
 
@@ -35,7 +35,7 @@ facts are read at closure time (X27), under the coordination locks, without
 starting a program. Linux in a container is the target. A macOS row is left
 out for now (decided by Nathan, 19 November 2026). The decision names the
 first three facts below. This design adds the last two, which can only
-refuse more (open point U).
+refuse more (decision U).
 
 | Fact                  | Read from                           | Must equal the row's |
 | --------------------- | ----------------------------------- | -------------------- |
@@ -70,8 +70,8 @@ refuse more (open point U).
 - That number carries no compatibility promise, and one major spans years of
   operating-system kernels. What protects a closure on Linux is the start-up
   self-check of the coordination call, the filesystem type read at closure
-  time, and the row's evidence run. Major and minor is the alternative (open
-  point J).
+  time, and the row's evidence run. Major only was decided (part 1 section
+  8.1, J).
 - Filesystem. `statfsSync(root).type` reports the filesystem under the root
   however it was mounted, and the numbers are a stable interface:
 
@@ -184,9 +184,11 @@ Version 2 moves the capability qualification table out of `qualification.ts`
 into `capability-qualification-table.ts`, so the matching logic stays inside
 the hash and only the table is left out. The hash needs no history lookup,
 which suits a shallow checkout. REC-7b asks that review to pass V-22 and V-42
-for each row.
+for each row. Decision T also means that, once the first row lands, every
+change to the qualified source files needs a new run on the pilot in the same
+pull request: the hosted runner's records do not count.
 
-## 4. Closing after a torn tail (proposed: open points L and X)
+## 4. Closing after a torn tail (included)
 
 A free lease is enough proof that nobody is mid-append when three things
 hold:
@@ -221,7 +223,10 @@ which blocks overlapping work and every closer: the safe direction. The lease
 is freed only when the record settles, or when the process ends and the
 operating-system kernel frees it (at a deadline the CLI kernel's lifecycle
 exits the process; a single run with no deadline, or a long-lived process,
-keeps it). Case K11.e pins the rule.
+keeps it). In a long-lived process such a case stays live until the process
+ends, so a handler should pass its abort signal to its operations; an
+operation that stops on the signal settles its `record`. Case K11.e pins the
+rule.
 
 With that rule a free lease means no effect and no append is in progress and
 none can follow. A torn tail also arises without a crash: a write that fails
@@ -241,11 +246,11 @@ as for every other record.
 ## 5. Closing after `delegate-admitted` (only after the container machine restarts)
 
 Decided by Nathan, 19 November 2026: accepted as designed, with no same-boot
-proof in version 2. The consequence: a case whose run started a program
-stays unclosable until the container machine restarts. Restarting or
-rebuilding the container does not help. How often that bites turns on open
-point Y: whether hosts of this kind start a program inside a recorded
-effect at all.
+proof in version 2. The consequence: a case whose run started a program stays
+unclosable until the container machine restarts. Restarting or rebuilding the
+container does not help. How often that bites turns on whether a host starts a
+program inside a recorded effect at all; decision Y has a host with a
+long-lived link start it outside any.
 
 A delegated program runs in its own process group, does not hold the lease
 and can outlive its owner (pending cases K08.c and O06.a). Asking whether the
@@ -272,7 +277,7 @@ proof.
 - The boot identity names a boot, not a machine. A state root whose storage
   is moved to, or attached from, a second machine would see another boot
   while the delegate still runs on the first. Each row lists that as
-  unsupported under `failureCases` (open point P).
+  unsupported under `failureCases` (decision P).
 - Remote work a program started is never covered (CMD-14).
 - Deferred, not designed: a same-boot proof, for example the started program
   inheriting a locked descriptor on a per-case delegate lease.
@@ -285,6 +290,6 @@ proof.
 | Run command and record format                | Included (section 3).                                                                                                                       |
 | First row                                    | `linux-7-btrfs` for the pilot (section 2.1). It lands only with its run record, review and countersignature.                                |
 | macOS row                                    | Left out for now.                                                                                                                           |
-| Closing after a torn tail                    | Proposed (section 4); rests on open points L and X.                                                                                         |
+| Closing after a torn tail                    | Included (section 4).                                                                                                                       |
 | Closing after `delegate-admitted`            | Included, only after the container machine restarts (section 5).                                                                            |
 | Human takeover and `outcome-unknown` closure | Not included. Both need a qualified authority source, and case K05.b is still pending. Their refusals and capability reports do not change. |
