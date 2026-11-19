@@ -16,6 +16,11 @@ export const killObservationTolerance = 30;
 export const stopBound = 500;
 export const exactStopBound = 450;
 export const stopSettleLimit = 300;
+
+export const stops = [
+  ["SIGTERM", 143],
+  ["SIGINT", 130],
+] as const;
 export const cancellationWait = 500;
 export const flushBound = 500;
 

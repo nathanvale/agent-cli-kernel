@@ -1,9 +1,9 @@
 diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
-index 696430c..2dc2381 100644
+index 50bcdef..91d23aa 100644
 --- a/kernel/src/kernel/lifecycle.ts
 +++ b/kernel/src/kernel/lifecycle.ts
-@@ -315,7 +315,11 @@ function installHooks(run: Run) {
-     const code = signal === "SIGINT" ? 130 : 143;
+@@ -362,7 +362,11 @@ function installHooks(run: Run) {
+     const code = stopCode(signal);
      if (run.stopped || run.phase === "drained") {
        killAll(run);
 -      run.host.exit(code);

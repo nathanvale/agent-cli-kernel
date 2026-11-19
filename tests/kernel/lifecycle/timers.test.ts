@@ -24,6 +24,7 @@ import {
   exactStopBound,
   overLimitBoundary,
   stopSettleLimit,
+  stops,
   timerLimit,
 } from "./oracle.ts";
 
@@ -170,11 +171,6 @@ describe("the handler's abort signal at a deadline", () => {
     });
 });
 
-const stops = [
-  ["SIGTERM", 143],
-  ["SIGINT", 130],
-] as const;
-
 function slowSettlingPrograms(): RunAddon<ProgramsCapability> {
   const inner = programsAddon();
   return {
@@ -198,6 +194,10 @@ function slowSettlingPrograms(): RunAddon<ProgramsCapability> {
       };
     },
   };
+}
+
+function attachOnFirstUse(programs: ProgramsCapability): Promise<unknown> {
+  return programs.inspect(shell("exit 0")).catch(() => undefined);
 }
 
 async function heldUntilStop(
@@ -315,7 +315,7 @@ describe("a stop request waits for the handler inside the stop bound", () => {
   for (const [signal, code] of stops)
     test(`a handler that never ends beside an add-on that settles at its ${String(stopSettleLimit)} ms limit exits ${String(code)} at the ${String(exactStopBound)} ms stop bound on ${signal}`, async () => {
       const run = await heldUntilStop(async (_signal, released, programs) => {
-        await programs.inspect(shell("exit 0")).catch(() => undefined);
+        await attachOnFirstUse(programs);
         await released;
       }, slowSettlingPrograms());
       try {
@@ -374,7 +374,7 @@ describe("a stop request waits for the handler inside the stop bound", () => {
   for (const [signal, code] of stops)
     test(`a handler that ends at 100 ms beside an add-on that settles at its ${String(stopSettleLimit)} ms limit exits ${String(code)} when the add-on settles, at ${String(stopSettleLimit)} ms, on ${signal}`, async () => {
       const run = await heldUntilStop(async (_signal, released, programs) => {
-        await programs.inspect(shell("exit 0")).catch(() => undefined);
+        await attachOnFirstUse(programs);
         await released;
       }, slowSettlingPrograms());
       try {
