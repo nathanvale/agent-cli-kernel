@@ -1,0 +1,21 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index 18e87ed..a353c80 100644
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -490,6 +490,7 @@ async function caseUnderLease(
+       readonly release: () => void;
+     }
+ > {
++  const cached = caseRead(paths, request);
+   await beforeLease();
+   const lease = paths.tryLock(
+     join(paths.operation(request.operationId), "owner.lease"),
+@@ -501,7 +502,7 @@ async function caseUnderLease(
+       ok: false,
+       stop: { kind: "unavailable", reason: "lease-unreadable" },
+     };
+-  const read = caseRead(paths, request);
++  const read = cached;
+   if (!read.ok) {
+     lease.release();
+     return read;

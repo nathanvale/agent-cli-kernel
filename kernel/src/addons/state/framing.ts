@@ -111,6 +111,20 @@ export function parseRecords(bytes: Uint8Array): ParsedFile {
   return { ok: true, records, tornTail: false };
 }
 
+const recordStartAnywhere = new RegExp(`${headerSource}\\n`, "g");
+const lenientDecoder = new TextDecoder();
+
+// Accepted decision (Nathan, 19 November 2026, 16:29 AEDT): a complete record
+// appended straight after torn bytes starts mid-line, where parseRecords reads
+// it as part of the torn tail. A record body holds no raw newline, so a header
+// can start mid-line only there.
+export function recordStartsMidLine(bytes: Uint8Array): boolean {
+  const text = lenientDecoder.decode(bytes);
+  for (const match of text.matchAll(recordStartAnywhere))
+    if (match.index > 0 && text[match.index - 1] !== "\n") return true;
+  return false;
+}
+
 function containsRecordStart(bytes: Uint8Array): boolean {
   return recordStart.test(new TextDecoder().decode(bytes));
 }

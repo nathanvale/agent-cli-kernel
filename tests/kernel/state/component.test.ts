@@ -49,6 +49,7 @@ import {
 import type { CapabilityQualificationRow } from "../../../kernel/src/addons/state/capability-qualification-table.ts";
 import {
   candidateQualification,
+  machineBootIdentity,
   resolveQualification,
 } from "../../../kernel/src/addons/state/qualification.ts";
 import type { FactOverrides } from "../../../kernel/src/addons/state/qualification.ts";
@@ -57,6 +58,14 @@ import {
   parseRecords,
 } from "../../../kernel/src/addons/state/framing.ts";
 import {
+  appendDelegateStart,
+  appendEvent,
+  delegateBoot,
+  layout,
+  readCase,
+} from "../../../kernel/src/addons/state/store.ts";
+import { stoppedOwnerProblem } from "../../../kernel/src/addons/state/install.ts";
+import {
   canonicalise,
   conflicts,
 } from "../../../kernel/src/addons/state/scope.ts";
@@ -64,9 +73,14 @@ import { checkedFlock } from "../../../kernel/src/addons/state/linux-flock.ts";
 import { testFolder } from "../../support/test-folder.ts";
 import {
   caseTest,
+  framed,
+  machineBootIdentityRead,
+  noAppendAfterDamage,
   readFramed,
   readOperations,
   supportingTest,
+  versionTwoStore,
+  writeSyntheticOperation,
 } from "./harness.ts";
 import { coordinationExpected, lockFree } from "./holder.ts";
 import { turns } from "../lifecycle/recording-host.ts";
@@ -683,28 +697,30 @@ caseTest("Q01.b-fixture-never-enables", async () => {
   await Promise.resolve();
 });
 
+const candidateRow: CapabilityQualificationRow = {
+  id: "candidate",
+  os: process.platform,
+  majorRelease: "7",
+  observedRelease: "7.2.12-orbstack-00394-gbecdd6130068",
+  filesystem: { name: "btrfs", type: 0x9123683e },
+  primitive: "test route",
+  bootIdentitySource: "/proc/sys/kernel/random/boot_id",
+  processIdentity: "boot identity only",
+  namespace: "test entry",
+  delegatedWriters: "none",
+  failureCases: [movedStateRoot],
+  evidence: {
+    record: "none",
+    review: { session: "none", countersignature: "none", date: "none" },
+  },
+};
+
 test("X27 supporting: in process, a candidate row names the one field that differs", () => {
   const root = temporaryRoot("c3-state-x27-");
   try {
     for (const folder of ["coordination", "operations", "settled", "staging"])
       mkdirSync(join(root, folder));
-    const row: CapabilityQualificationRow = {
-      id: "candidate",
-      os: process.platform,
-      majorRelease: "7",
-      observedRelease: "7.2.12-orbstack-00394-gbecdd6130068",
-      filesystem: { name: "btrfs", type: 0x9123683e },
-      primitive: "test route",
-      bootIdentitySource: "/proc/sys/kernel/random/boot_id",
-      processIdentity: "boot identity only",
-      namespace: "test entry",
-      delegatedWriters: "none",
-      failureCases: [movedStateRoot],
-      evidence: {
-        record: "none",
-        review: { session: "none", countersignature: "none", date: "none" },
-      },
-    };
+    const row = candidateRow;
     const readable: FactOverrides = {
       release: "7.9.0",
       filesystem: 0x9123683e,
@@ -719,7 +735,11 @@ test("X27 supporting: in process, a candidate row names the one field that diffe
         { ...row, ...changes },
         { ...readable, ...overrides },
       ).match(root, "test route");
-    expect(match({}, {})).toEqual({ matched: true, label: "fixture:x27" });
+    expect(match({}, {})).toEqual({
+      matched: true,
+      label: "fixture:x27",
+      bootIdentity: "boot-one",
+    });
     const cases: readonly (readonly [
       Partial<CapabilityQualificationRow>,
       FactOverrides,
@@ -770,6 +790,143 @@ test("framing: torn tails are not state; damage before more bytes is corrupt", (
   damaged[one.length - 3] = (damaged[one.length - 3] ?? 0) ^ 1;
   expect(parseRecords(damaged).ok).toBe(false);
   expect(readFramed(damaged).corrupt).toBe(true);
+});
+
+const machineArm =
+  machineBootIdentityRead() === undefined
+    ? `none, as on this machine (${process.platform})`
+    : `the machine's (${process.platform})`;
+
+test(`X28 supporting: in process, the boot identity honours a test entry's override, reads as undefined when unreadable or empty, and reads ${machineArm} otherwise`, () => {
+  const boot = (bootIdentity: string | null) =>
+    candidateQualification("x28", candidateRow, {
+      bootIdentity,
+    }).bootIdentity();
+  expect(boot("boot-one")).toBe("boot-one");
+  expect(boot(null)).toBeUndefined();
+  expect(boot("")).toBeUndefined();
+  const machine = machineBootIdentityRead();
+  expect(resolveQualification().bootIdentity()).toBe(machine);
+  expect(machineBootIdentity()).toBe(machine);
+  const bootOf = (payload: Readonly<Record<string, unknown>>) =>
+    delegateBoot({ kind: "delegate-admitted", effect: "e", payload });
+  expect(bootOf({ effect: "e", boot: "boot-one" })).toBe("boot-one");
+  for (const payload of [{ effect: "e" }, { boot: "" }, { boot: 7 }])
+    expect(bootOf(payload)).toBeUndefined();
+  expect(
+    delegateBoot({
+      kind: "effect-started",
+      effect: "e",
+      payload: { boot: "x" },
+    }),
+  ).toBeUndefined();
+});
+
+test("X28 supporting: in process, appendDelegateStart writes boot only when there is one", () => {
+  const path = join(temporaryRoot("c3-state-delegate-"), "events");
+  writeFileSync(path, "");
+  appendDelegateStart(path, "e", "boot-one");
+  appendDelegateStart(path, "e", undefined);
+  expect(
+    readFramed(readFileSync(path)).records.map((record) => record.payload),
+  ).toEqual([
+    { effect: "e", boot: "boot-one", format: 1, kind: "delegate-admitted" },
+    { effect: "e", format: 1, kind: "delegate-admitted" },
+  ]);
+});
+
+test("K11.g supporting: in process, appendEvent appends after a whole record and refuses after torn or corrupt bytes", () => {
+  const path = join(temporaryRoot("c3-state-append-"), "events");
+  writeFileSync(path, "");
+  appendEvent(path, "effect-started", { effect: "e" });
+  appendEvent(path, "effect-confirmed", { effect: "e" });
+  const whole = readFileSync(path);
+  expect(readFramed(whole).records.map((record) => record.kind)).toEqual([
+    "effect-started",
+    "effect-confirmed",
+  ]);
+  const later = framed("completion", { completed: ["e"] });
+  for (const tail of [
+    later.slice(0, 1),
+    later.slice(0, 30),
+    later.slice(0, later.indexOf("\n") + 1),
+    later.slice(0, -1),
+    `${later.slice(0, 30)}\n${later}`,
+  ]) {
+    writeFileSync(path, Buffer.concat([whole, Buffer.from(tail)]));
+    const before = readFileSync(path);
+    expect(() => {
+      appendEvent(path, "delegate-admitted", { effect: "e", boot: "b" });
+    }).toThrow(noAppendAfterDamage);
+    expect(readFileSync(path)).toEqual(before);
+  }
+});
+
+test("K11.f supporting: in process, the stopped-owner rule refuses journal-torn at every cut of a record followed by a complete record that reads as torn, and passes every lone torn tail", () => {
+  const root = temporaryRoot("c3-state-cuts-");
+  versionTwoStore(root);
+  const id = writeSyntheticOperation(root, join(root, "note"));
+  const events = join(root, "operations", id, "events");
+  const paths = layout(root);
+  const started = framed("effect-started", { effect: "note.write" });
+  const hidden = framed("delegate-admitted", {
+    effect: "note.write",
+    boot: "boot-one",
+  });
+  const lookalike = framed("effect-confirmed", {
+    effect: "note.write",
+    note: `C3S1 effect-started 0000000010 ${"a".repeat(64)}`,
+  });
+  const read = (text: string) => {
+    writeFileSync(events, text);
+    const found = readCase(paths, id);
+    if (found === "not-found" || found === "unreadable")
+      throw new Error(`The case read as ${found}.`);
+    return found;
+  };
+  let hiddenCuts = 0;
+  let corruptCuts = 0;
+  let loneCuts = 0;
+  for (const victim of [hidden, started, lookalike])
+    for (let cut = 1; cut < victim.length; cut += 1) {
+      const merged = read(`${started}${victim.slice(0, cut)}${hidden}`);
+      if (merged === "corrupt") corruptCuts += 1;
+      else {
+        expect(merged.tornTail).toBe(true);
+        expect(stoppedOwnerProblem(merged, "boot-two")).toBe("journal-torn");
+        hiddenCuts += 1;
+      }
+      const lone = read(`${started}${lookalike}${victim.slice(0, cut)}`);
+      if (lone === "corrupt") throw new Error(`Cut ${String(cut)} is corrupt.`);
+      expect(lone.tornTail).toBe(true);
+      expect(stoppedOwnerProblem(lone, "boot-two")).toBeUndefined();
+      loneCuts += 1;
+    }
+  const lengths = hidden.length + started.length + lookalike.length - 3;
+  expect(loneCuts).toBe(lengths);
+  expect(corruptCuts).toBe(3);
+  expect(hiddenCuts).toBe(lengths - 3);
+  const whole = read(`${started}${lookalike}`);
+  if (whole === "corrupt") throw new Error("A whole journal read as corrupt.");
+  expect(whole.tornTail).toBe(false);
+  expect(stoppedOwnerProblem(whole, "boot-two")).toBeUndefined();
+});
+
+test("K11.a supporting: in process, a delegate start refuses on the same boot, on a missing boot, and when the current boot cannot be read", () => {
+  const root = temporaryRoot("c3-state-boots-");
+  versionTwoStore(root);
+  const id = writeSyntheticOperation(root, join(root, "note"));
+  const paths = layout(root);
+  writeFileSync(
+    join(root, "operations", id, "events"),
+    `${framed("effect-started", { effect: "note.write" })}${framed("delegate-admitted", { effect: "note.write", boot: "boot-one" })}`,
+  );
+  const target = readCase(paths, id);
+  if (typeof target === "string")
+    throw new Error(`The case read as ${target}.`);
+  expect(stoppedOwnerProblem(target, "boot-two")).toBeUndefined();
+  expect(stoppedOwnerProblem(target, "boot-one")).toBe("delegate-recorded");
+  expect(stoppedOwnerProblem(target, undefined)).toBe("delegate-recorded");
 });
 
 test("scope: aliases share keys; distinct names and unknown scope behave", () => {

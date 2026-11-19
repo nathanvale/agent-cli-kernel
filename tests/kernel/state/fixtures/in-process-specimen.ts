@@ -2,6 +2,7 @@ import { once } from "node:events";
 import { appendFileSync } from "node:fs";
 import { join } from "node:path";
 import { runInProcess } from "../../../../kernel/src/kernel/index.ts";
+import { programsAddon } from "../../../../kernel/src/addons/programs/index.ts";
 import {
   approvalAddon,
   barrierReached,
@@ -16,7 +17,7 @@ const report = join(process.env.SX_WORLD ?? "", "in-process.jsonl");
 
 const listened = mode.startsWith("on-crash");
 const entry = runInProcess(contract, {
-  addons: { approval: approvalAddon },
+  addons: { approval: approvalAddon, programs: programsAddon() },
   emergencyRecord: mode.startsWith("on-crash-reentry")
     ? (facts) => {
         state.emergencyRecord(facts);

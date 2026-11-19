@@ -1,0 +1,14 @@
+diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
+index 122cd8f..f0b4aab 100644
+--- a/kernel/src/addons/state/store.ts
++++ b/kernel/src/addons/state/store.ts
+@@ -213,8 +213,7 @@ export function appendDelegateStart(
+ export function delegateBoot(event: JournalEvent): string | undefined {
+   const boot = event.payload.boot;
+   return event.kind === "delegate-admitted" &&
+-    typeof boot === "string" &&
+-    boot !== ""
++    typeof boot === "string"
+     ? boot
+     : undefined;
+ }
