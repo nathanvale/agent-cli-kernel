@@ -224,9 +224,9 @@ is freed only when the record settles, or when the process ends and the
 operating-system kernel frees it (at a deadline the CLI kernel's lifecycle
 exits the process; a single run with no deadline, or a long-lived process,
 keeps it). In a long-lived process such a case stays live until the process
-ends, so a handler should pass its abort signal to its operations; an
-operation that stops on the signal settles its `record`. Case K11.e pins the
-rule.
+ends, so a handler should pass its abort signal (the `signal` in its context,
+from pull request 3) to its operations; an operation that stops on the signal
+settles its `record`. Case K11.e pins the rule.
 
 With that rule a free lease means no effect and no append is in progress and
 none can follow. A torn tail also arises without a crash: a write that fails
@@ -249,8 +249,9 @@ Decided by Nathan, 19 November 2026: accepted as designed, with no same-boot
 proof in version 2. The consequence: a case whose run started a program stays
 unclosable until the container machine restarts. Restarting or rebuilding the
 container does not help. How often that bites turns on whether a host starts a
-program inside a recorded effect at all; decision Y has a host with a
-long-lived link start it outside any.
+program inside a recorded effect at all; under decision Y a host that reaches
+outside work through a long-lived link starts that link outside any recorded
+effect.
 
 A delegated program runs in its own process group, does not hold the lease
 and can outlive its owner (pending cases K08.c and O06.a). Asking whether the

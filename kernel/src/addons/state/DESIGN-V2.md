@@ -274,12 +274,14 @@ sections 2 and 3 follow both. The rest, at 12:08 and 12:15:
 - Wording (12:15): a case that needs no more recovery is a settled case, in
   the folder `settled/`.
 
-At 13:46, each as this note recommended:
+Then (Nathan, 19 November 2026, 13:46 AEDT), each as this note
+recommended:
 
-- B: The move is allowed. It writes no record or byte and keeps the
-  revision. The move and the one-time upgrade are incidental journal
-  maintenance (DIAG-13), which the CLI kernel's discovery already discloses
-  in `effectExclusions` ("Incidental journal maintenance.").
+- B: The move is allowed. It writes no record or byte, keeps the revision, and
+  needs a valid settling record already present. The move and the one-time
+  upgrade are incidental journal maintenance (DIAG-13), which the CLI kernel's
+  discovery already discloses in `effectExclusions` ("Incidental journal
+  maintenance.").
 - C: A corrupt case refuses only a route that reads it (section 5).
 - E: A version 1 program refuses a version 2 store (section 3).
 - G: Coordination lock files keep growing with each distinct conflict key; a
@@ -312,5 +314,5 @@ At 13:46, each as this note recommended:
   record, `tests/kernel/state/qualification/<row id>.json` and
   `state-qualification-run/1`, but "qualification" is only a proposed word in
   the Agent ecosystem glossary, and file and folder names must use glossary
-  words. A revised recommendation is with Nathan. Code slice 5, which adds
-  them, waits on it.
+  words. A revised recommendation is with Nathan. The code slice that adds
+  them waits on it.
