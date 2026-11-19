@@ -12,6 +12,7 @@ const briefFamilies = [
   ...["T01", "T02", "T03", "T04"],
   "Q01",
 ];
+const journalVersionTwoFamilies = ["K11"];
 
 test("the frozen T3 case table keeps its admitted identities and counts", () => {
   expect(briefFamilies.length).toBe(46);
@@ -20,9 +21,10 @@ test("the frozen T3 case table keeps its admitted identities and counts", () => 
   for (const id of ids)
     expect(id).toMatch(/^[JLKPOHTQSBC]\d\d\.[a-z]-[a-z0-9-]+$/);
   const families = new Set(ids.map((id) => id.slice(0, 3)));
-  for (const family of briefFamilies) expect(families.has(family)).toBe(true);
+  const knownFamilies = [...briefFamilies, ...journalVersionTwoFamilies];
+  for (const family of knownFamilies) expect(families.has(family)).toBe(true);
   const supporting = [...families].filter(
-    (family) => !briefFamilies.includes(family),
+    (family) => !knownFamilies.includes(family),
   );
   expect(supporting.sort()).toEqual([
     "B01",
@@ -38,9 +40,9 @@ test("the frozen T3 case table keeps its admitted identities and counts", () => 
     "S04",
     "S05",
   ]);
-  expect(stateCases.length).toBe(125);
+  expect(stateCases.length).toBe(126);
   const executable = stateCases.filter((row) => row.status === "executable");
-  expect(executable.length).toBe(116);
+  expect(executable.length).toBe(117);
   for (const row of executable)
     if (row.status === "executable")
       expect(["coordination", "any"]).toContain(row.platform);

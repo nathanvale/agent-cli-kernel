@@ -1,12 +1,19 @@
 import { afterEach, expect, test } from "bun:test";
 import {
+  closeSync,
+  constants,
   existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
   readdirSync,
+  renameSync,
   rmSync,
+  rmdirSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import {
   changing,
   command,
@@ -18,6 +25,7 @@ import type {
   ApprovalRuntime,
   AuthorityId,
   CauseTable,
+  EffectTransaction,
   RecordedEffect,
   ResourceId,
   StateCapability,
@@ -28,6 +36,10 @@ import type {
   PublishedOperation,
 } from "../../../kernel/src/addons/state/index.ts";
 import { stateAddonWithTestSeams } from "../../../kernel/src/addons/state/fixture.ts";
+import {
+  errorCode,
+  resolveCoordination,
+} from "../../../kernel/src/addons/state/coordination.ts";
 import {
   qualificationRows,
   resolveQualification,
@@ -49,6 +61,7 @@ import {
   supportingTest,
 } from "./harness.ts";
 import { coordinationExpected, lockFree } from "./holder.ts";
+import { turns } from "../lifecycle/recording-host.ts";
 
 const causes = {
   DOMAIN_CX_LOCK_HELD: {
@@ -127,6 +140,7 @@ type Scenario = (
     readonly root: string;
     readonly state: ReturnType<typeof stateAddon>;
     readonly published: PublishedOperation;
+    readonly transaction: EffectTransaction<"e.one" | "e.two">;
   },
 ) => Promise<void>;
 
@@ -158,6 +172,10 @@ async function inTransaction(
     readonly root?: string;
     readonly keys?: readonly string[];
     readonly observers?: Readonly<Record<string, Observer>>;
+    readonly build?: (options: {
+      readonly root: string;
+      readonly report: string;
+    }) => ReturnType<typeof stateAddon>;
   } = {},
 ): Promise<{
   readonly root: string;
@@ -173,11 +191,13 @@ async function inTransaction(
       readonly authority: (value: unknown) => AuthorityId;
     };
   } = {};
-  const state = stateAddon({
-    root,
-    report: "cx.pending",
-    observers: options.observers ?? {},
-  });
+  const state = options.build
+    ? options.build({ root, report: "cx.pending" })
+    : stateAddon({
+        root,
+        report: "cx.pending",
+        observers: options.observers ?? {},
+      });
   const pending = command({
     identity: "cx.pending",
     route: ["pending"],
@@ -258,7 +278,7 @@ async function inTransaction(
                 (recorded) => operation(recorded),
                 () => Promise.resolve(true),
               ),
-            { root, state, published },
+            { root, state, published, transaction },
           );
         },
       );
@@ -749,6 +769,325 @@ caseTest("B06.a-effect-recorded-once", async () => {
     "effect-started",
   ]);
 });
+
+const expectedEndedRefusal = {
+  record:
+    "The transaction ended when its work function returned or threw, so record refuses. Await every record inside the work function.",
+  admitStart:
+    "The transaction ended when its work function returned or threw, so admitStart refuses. Await every record inside the work function.",
+} as const;
+
+function eventLines(root: string): readonly string[] {
+  const [operation] = readOperations(root);
+  return operation
+    ? operation.events.records.map((record) =>
+        typeof record.payload.effect === "string"
+          ? `${record.kind} ${record.payload.effect}`
+          : record.kind,
+      )
+    : [];
+}
+
+function coordinationNow(root: string): {
+  readonly journal: readonly string[];
+  readonly leaseHeld: boolean;
+  readonly keyLocksHeld: readonly boolean[];
+} {
+  const [operation] = readOperations(root);
+  if (!operation) throw new Error("No operation.");
+  const coordination = join(root, "coordination");
+  return {
+    journal: eventLines(root),
+    leaseHeld: !lockFree(join(root, "operations", operation.id, "owner.lease")),
+    keyLocksHeld: readdirSync(coordination)
+      .filter((name) => name.startsWith("k-"))
+      .map((name) => !lockFree(join(coordination, name))),
+  };
+}
+
+function refusalOf(call: Promise<unknown>): Promise<string> {
+  return call.then(
+    () => "not refused",
+    (error: unknown) => (error instanceof Error ? error.message : "no message"),
+  );
+}
+
+const readBackTrue = () => Promise.resolve(true);
+
+const endedTurnLimit = 100;
+
+async function untilEnded(
+  transaction: EffectTransaction<"e.one" | "e.two">,
+  startedEffect: "e.one" | "e.two",
+): Promise<string> {
+  const probeOperation = () =>
+    Promise.reject(new Error("A probe record ran its operation."));
+  let refusal = "not probed";
+  for (let turn = 0; turn < endedTurnLimit; turn++) {
+    refusal = await refusalOf(
+      transaction.record(startedEffect, probeOperation, readBackTrue),
+    );
+    if (refusal === expectedEndedRefusal.record) break;
+    await turns(1);
+  }
+  return refusal;
+}
+
+async function pendingRecordSettlesBeforeTheFinalEvent(): Promise<void> {
+  const workReturned = Promise.withResolvers<void>();
+  let ended = "not waited";
+  let whileOperationRan: ReturnType<typeof coordinationNow> | undefined;
+  let whileReadBackRan: ReturnType<typeof coordinationNow> | undefined;
+  const { root, outcome } = await inTransaction((_record, host) => {
+    void host.transaction.record(
+      "e.one",
+      async () => {
+        await workReturned.promise;
+        ended = await untilEnded(host.transaction, "e.one");
+        whileOperationRan = coordinationNow(host.root);
+      },
+      () => {
+        whileReadBackRan = coordinationNow(host.root);
+        return Promise.resolve(true);
+      },
+    );
+    workReturned.resolve();
+    return Promise.resolve();
+  });
+  const stillOwned = {
+    journal: ["effect-started e.one"],
+    leaseHeld: true,
+    keyLocksHeld: [true],
+  };
+  expect(ended).toBe(expectedEndedRefusal.record);
+  expect(whileOperationRan).toEqual(stillOwned);
+  expect(whileReadBackRan).toEqual(stillOwned);
+  expect(coordinationNow(root)).toEqual({
+    journal: ["effect-started e.one", "effect-confirmed e.one", "outcome"],
+    leaseHeld: false,
+    keyLocksHeld: [false],
+  });
+  expect(outcome?.kind === "ran" ? outcome.workFailed : undefined).toBe(false);
+  expect(outcome?.proof.transactionState).toBe("partially-completed");
+  expect(outcome?.proof.effects).toEqual({
+    completed: ["e.one"],
+    remaining: ["e.two"],
+    uncertain: [],
+    inventoryComplete: true,
+  });
+}
+
+async function recordStillRunningWhenWorkThrowsSettlesFirst(): Promise<void> {
+  const workThrew = Promise.withResolvers<void>();
+  let ended = "not waited";
+  let whileSurvivorRan: ReturnType<typeof coordinationNow> | undefined;
+  const { root, outcome } = await inTransaction(async (_record, host) => {
+    try {
+      await Promise.all([
+        host.transaction.record(
+          "e.one",
+          () => Promise.reject(new Error("The first effect failed.")),
+          readBackTrue,
+        ),
+        host.transaction.record(
+          "e.two",
+          async () => {
+            await workThrew.promise;
+            ended = await untilEnded(host.transaction, "e.two");
+            whileSurvivorRan = coordinationNow(host.root);
+          },
+          readBackTrue,
+        ),
+      ]);
+    } finally {
+      workThrew.resolve();
+    }
+  });
+  const beforeTheSurvivorSettled = [
+    "effect-started e.one",
+    "effect-started e.two",
+    "effect-unconfirmed e.one",
+  ];
+  expect(ended).toBe(expectedEndedRefusal.record);
+  expect(whileSurvivorRan).toEqual({
+    journal: beforeTheSurvivorSettled,
+    leaseHeld: true,
+    keyLocksHeld: [true],
+  });
+  expect(coordinationNow(root)).toEqual({
+    journal: [...beforeTheSurvivorSettled, "effect-confirmed e.two", "outcome"],
+    leaseHeld: false,
+    keyLocksHeld: [false],
+  });
+  expect(outcome?.kind === "ran" ? outcome.workFailed : undefined).toBe(true);
+  expect(outcome?.proof.transactionState).toBe("unknown");
+  expect(outcome?.proof.effects).toEqual({
+    completed: ["e.two"],
+    remaining: [],
+    uncertain: ["e.one"],
+    inventoryComplete: true,
+  });
+}
+
+async function callsAfterWorkReturnedAreRefused(): Promise<void> {
+  const workReturned = Promise.withResolvers<void>();
+  let lateCalls = 0;
+  const late = () => {
+    lateCalls += 1;
+    return Promise.resolve();
+  };
+  let ended = "not waited";
+  const whileWaiting = { record: "not called", admitStart: "not called" };
+  let retained: EffectTransaction<"e.one" | "e.two"> | undefined;
+  const { root } = await inTransaction((_record, host) => {
+    retained = host.transaction;
+    void host.transaction.record(
+      "e.one",
+      async (recorded) => {
+        await workReturned.promise;
+        ended = await untilEnded(host.transaction, "e.one");
+        whileWaiting.record = await refusalOf(
+          host.transaction.record("e.two", late, readBackTrue),
+        );
+        whileWaiting.admitStart = await refusalOf(
+          recorded.admitStart(recorded.runId, recorded.effect, late),
+        );
+      },
+      readBackTrue,
+    );
+    workReturned.resolve();
+    return Promise.resolve();
+  });
+  expect(ended).toBe(expectedEndedRefusal.record);
+  expect(whileWaiting).toEqual(expectedEndedRefusal);
+  if (!retained) throw new Error("No transaction.");
+  expect(await refusalOf(retained.record("e.two", late, readBackTrue))).toBe(
+    expectedEndedRefusal.record,
+  );
+  expect(lateCalls).toBe(0);
+  expect(eventLines(root)).toEqual([
+    "effect-started e.one",
+    "effect-confirmed e.one",
+    "outcome",
+  ]);
+}
+
+async function failedFinalAppendLeavesTheTransactionEnded(): Promise<void> {
+  let retained: EffectTransaction<"e.one" | "e.two"> | undefined;
+  let events = "";
+  let appendRefused = "not tried";
+  const { outcome } = await inTransaction((_record, host) => {
+    retained = host.transaction;
+    events = join(
+      host.root,
+      "operations",
+      host.published.operationId,
+      "events",
+    );
+    renameSync(events, `${events}.aside`);
+    mkdirSync(events);
+    appendRefused = appendOpenCode(events);
+    return Promise.resolve();
+  });
+  expect(appendRefused).toBe("EISDIR");
+  expect(readdirSync(events)).toEqual([]);
+  expect(outcome?.kind).toBe("ran");
+  rmdirSync(events);
+  renameSync(`${events}.aside`, events);
+  expect(readFileSync(events).byteLength).toBe(0);
+  let lateCalls = 0;
+  if (!retained) throw new Error("No transaction.");
+  expect(
+    await refusalOf(
+      retained.record(
+        "e.one",
+        () => {
+          lateCalls += 1;
+          return Promise.resolve();
+        },
+        readBackTrue,
+      ),
+    ),
+  ).toBe(expectedEndedRefusal.record);
+  expect(lateCalls).toBe(0);
+  expect(readFileSync(events).byteLength).toBe(0);
+}
+
+function appendOpenCode(path: string): string {
+  try {
+    closeSync(openSync(path, constants.O_WRONLY | constants.O_APPEND));
+    return "opened";
+  } catch (error) {
+    return errorCode(error);
+  }
+}
+
+caseTest("K11.e-transaction-waits-for-started-effects", async () => {
+  await pendingRecordSettlesBeforeTheFinalEvent();
+  await recordStillRunningWhenWorkThrowsSettlesFirst();
+  await callsAfterWorkReturnedAreRefused();
+  await failedFinalAppendLeavesTheTransactionEnded();
+});
+
+supportingTest(
+  "X13 supporting: the final event is appended, then the key coordination locks are released, then the lease last",
+  async () => {
+    const route = resolveCoordination();
+    if (!route.available) throw new Error("No coordination route.");
+    const releases: { name: string; finalEventAppended: boolean }[] = [];
+    const { root } = await inTransaction(
+      async (record) => {
+        await record(() => Promise.resolve());
+      },
+      undefined,
+      {
+        keys: ["k1", "k2"],
+        build: (options) =>
+          stateAddonWithTestSeams(options, {
+            coordination: {
+              ...route,
+              tryLock(path, create) {
+                const attempt = route.tryLock(path, create);
+                if (attempt.kind !== "held") return attempt;
+                let held = true;
+                return {
+                  kind: "held",
+                  release() {
+                    if (held)
+                      releases.push({
+                        name: basename(path),
+                        finalEventAppended:
+                          eventLines(options.root).at(-1) === "outcome",
+                      });
+                    held = false;
+                    attempt.release();
+                  },
+                };
+              },
+            },
+          }),
+      },
+    );
+    const keyLocks = readdirSync(join(root, "coordination")).filter((name) =>
+      name.startsWith("k-"),
+    );
+    expect(keyLocks.length).toBe(2);
+    expect(releases.map((release) => release.finalEventAppended)).toEqual([
+      false,
+      true,
+      true,
+      true,
+    ]);
+    expect(releases.at(0)?.name).toBe("admission.lock");
+    expect(
+      releases
+        .slice(1, 3)
+        .map((release) => release.name)
+        .sort(),
+    ).toEqual(keyLocks.sort());
+    expect(releases.at(3)?.name).toBe("owner.lease");
+  },
+);
 
 caseTest("C01.j-failure-after-admission-releases-everything", async () => {
   const keys = ["k1", "k2", "k3"];

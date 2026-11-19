@@ -1083,5 +1083,47 @@
     "testFile": "tests/kernel/lifecycle/in-process.test.ts",
     "title": "IP07\\.rejected-run-records-itself",
     "source": "5a83146 fix(kernel): settle the kernel reviewer's findings on the in-process entry"
+  },
+  {
+    "id": "460be51-install-no-wait",
+    "patch": "tests/planted-faults/patches/460be51-install-no-wait.patch",
+    "testFile": "tests/kernel/state/component.test.ts",
+    "title": "^K11\\.e-transaction-waits-for-started-effects$",
+    "source": "460be51 feat(state): make a transaction wait for its started effects"
+  },
+  {
+    "id": "460be51-install-late-record",
+    "patch": "tests/planted-faults/patches/460be51-install-late-record.patch",
+    "testFile": "tests/kernel/state/component.test.ts",
+    "title": "^K11\\.e-transaction-waits-for-started-effects$",
+    "source": "460be51 feat(state): make a transaction wait for its started effects"
+  },
+  {
+    "id": "460be51-install-late-start",
+    "patch": "tests/planted-faults/patches/460be51-install-late-start.patch",
+    "testFile": "tests/kernel/state/component.test.ts",
+    "title": "^K11\\.e-transaction-waits-for-started-effects$",
+    "source": "460be51 feat(state): make a transaction wait for its started effects"
+  },
+  {
+    "id": "460be51-install-ended-late",
+    "patch": "tests/planted-faults/patches/460be51-install-ended-late.patch",
+    "testFile": "tests/kernel/state/component.test.ts",
+    "title": "^K11\\.e-transaction-waits-for-started-effects$",
+    "source": "460be51 feat(state): make a transaction wait for its started effects"
+  },
+  {
+    "id": "460be51-install-lease-first",
+    "patch": "tests/planted-faults/patches/460be51-install-lease-first.patch",
+    "testFile": "tests/kernel/state/component.test.ts",
+    "title": "^X13 supporting: the final event is appended, then the key coordination locks are released, then the lease last$",
+    "source": "460be51 feat(state): make a transaction wait for its started effects"
+  },
+  {
+    "id": "460be51-install-lease-early",
+    "patch": "tests/planted-faults/patches/460be51-install-lease-early.patch",
+    "testFile": "tests/kernel/state/component.test.ts",
+    "title": "^X13 supporting: the final event is appended, then the key coordination locks are released, then the lease last$",
+    "source": "460be51 feat(state): make a transaction wait for its started effects"
   }
 ]

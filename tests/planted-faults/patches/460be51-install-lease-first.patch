@@ -1,0 +1,14 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index d50d835..35485b2 100644
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -838,8 +838,8 @@ export function install(options: StateOptions, seams: Seams) {
+     );
+     finish(held.events, observation);
+     active.delete(runId);
+-    held.releaseKeyLocks();
+     held.releaseLease();
++    held.releaseKeyLocks();
+     return { observation, workFailed };
+   }
+ 
