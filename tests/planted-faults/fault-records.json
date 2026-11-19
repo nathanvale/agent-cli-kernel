@@ -908,5 +908,12 @@
     "testFile": "tests/kernel/abort-signal.test.ts",
     "title": "^command\\(\\): a context signal that is a revoked Proxy is refused before the handler$",
     "source": "e15dec5 fix(kernel): keep the abort signal's instanceof check inside the catch"
+  },
+  {
+    "id": "4d42f8c-install",
+    "patch": "tests/planted-faults/patches/4d42f8c-install.patch",
+    "testFile": "tests/kernel/state/component.test.ts",
+    "title": "^work is refused when the state add-on published no operation",
+    "source": "4d42f8c fix(state): refuse work when no operation was published for it"
   }
 ]
