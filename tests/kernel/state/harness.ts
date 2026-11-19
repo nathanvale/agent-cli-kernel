@@ -417,6 +417,12 @@ export function makeWorld(
       ? readFileSync(file, "utf8").split("\n").filter(Boolean)
       : [];
   }
+  function labels(): readonly string[] {
+    const file = join(world, "labels.log");
+    return existsSync(file)
+      ? readFileSync(file, "utf8").split("\n").filter(Boolean)
+      : [];
+  }
   function count(prefix: string): number {
     return ledger().filter((line) => line.startsWith(prefix)).length;
   }
@@ -491,6 +497,7 @@ export function makeWorld(
     start,
     run,
     ledger,
+    labels,
     count,
     note,
     noteLedger,

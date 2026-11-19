@@ -866,5 +866,12 @@
     "testFile": "tests/template/file-size/file-size.test.ts",
     "title": "^the file-size command refuses malformed and excluded recorded hits$",
     "source": "b021da0 fix(gates): refuse excluded recorded hits"
+  },
+  {
+    "id": "4d42f8c-install",
+    "patch": "tests/planted-faults/patches/4d42f8c-install.patch",
+    "testFile": "tests/kernel/state/component.test.ts",
+    "title": "^work is refused when the state add-on published no operation",
+    "source": "4d42f8c fix(state): refuse work when no operation was published for it"
   }
 ]

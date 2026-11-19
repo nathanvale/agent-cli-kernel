@@ -20,8 +20,13 @@ import type {
   CauseTable,
   RecordedEffect,
   ResourceId,
+  StateCapability,
 } from "../../../kernel/src/kernel/index.ts";
 import { stateAddon } from "../../../kernel/src/addons/state/index.ts";
+import type {
+  Observer,
+  PublishedOperation,
+} from "../../../kernel/src/addons/state/index.ts";
 import { stateAddonWithTestSeams } from "../../../kernel/src/addons/state/fixture.ts";
 import {
   qualificationRows,
@@ -37,7 +42,12 @@ import {
 } from "../../../kernel/src/addons/state/scope.ts";
 import { checkedFlock } from "../../../kernel/src/addons/state/linux-flock.ts";
 import { testFolder } from "../../support/test-folder.ts";
-import { caseTest, readFramed, readOperations } from "./harness.ts";
+import {
+  caseTest,
+  readFramed,
+  readOperations,
+  supportingTest,
+} from "./harness.ts";
 import { coordinationExpected, lockFree } from "./holder.ts";
 
 const causes = {
@@ -116,6 +126,7 @@ type Scenario = (
   host: {
     readonly root: string;
     readonly state: ReturnType<typeof stateAddon>;
+    readonly published: PublishedOperation;
   },
 ) => Promise<void>;
 
@@ -143,7 +154,11 @@ async function inTransaction(
     readonly resource: (value: unknown) => ResourceId;
     readonly authority: (value: unknown) => AuthorityId;
   }) => Approval,
-  options: { readonly root?: string; readonly keys?: readonly string[] } = {},
+  options: {
+    readonly root?: string;
+    readonly keys?: readonly string[];
+    readonly observers?: Readonly<Record<string, Observer>>;
+  } = {},
 ): Promise<{
   readonly root: string;
   readonly state: ReturnType<typeof stateAddon>;
@@ -158,7 +173,11 @@ async function inTransaction(
       readonly authority: (value: unknown) => AuthorityId;
     };
   } = {};
-  const state = stateAddon({ root, report: "cx.pending" });
+  const state = stateAddon({
+    root,
+    report: "cx.pending",
+    observers: options.observers ?? {},
+  });
   const pending = command({
     identity: "cx.pending",
     route: ["pending"],
@@ -231,7 +250,7 @@ async function inTransaction(
         approval && boundary
           ? { ...declaration, approval: approval(boundary) }
           : declaration,
-        async (transaction) => {
+        async (transaction, published) => {
           await scenario(
             (operation) =>
               transaction.record(
@@ -239,7 +258,7 @@ async function inTransaction(
                 (recorded) => operation(recorded),
                 () => Promise.resolve(true),
               ),
-            { root, state },
+            { root, state, published },
           );
         },
       );
@@ -278,6 +297,104 @@ function eventKinds(root: string): readonly string[] {
   const [operation] = readOperations(root);
   return operation ? operation.events.records.map((record) => record.kind) : [];
 }
+
+supportingTest(
+  "CMD-11 supporting: work holds the published operation identity before any effect starts",
+  async () => {
+    let held = "";
+    let publishedWhenHeld: readonly string[] = [];
+    let journalWhenHeld: readonly string[] = ["unread"];
+    const { root } = await inTransaction(async (record, host) => {
+      held = host.published.operationId;
+      publishedWhenHeld = readOperations(host.root).map((entry) => entry.id);
+      journalWhenHeld = eventKinds(host.root);
+      await record(() => Promise.resolve());
+    });
+    const [operation, ...rest] = readOperations(root);
+    expect(rest).toEqual([]);
+    if (!operation) throw new Error("No operation.");
+    expect(held).toBe(operation.id);
+    expect(publishedWhenHeld).toEqual([operation.id]);
+    expect(journalWhenHeld).toEqual([]);
+  },
+);
+
+supportingTest(
+  "CMD-11 supporting: an Observer finds the label a handler wrote with its operation identity",
+  async () => {
+    const labels = new Set<string>();
+    const observers: Readonly<Record<string, Observer>> = {
+      "e.one": ({ operationId }) =>
+        Promise.resolve(labels.has(operationId) ? "present" : "absent"),
+    };
+    const classOf = async (host: {
+      readonly root: string;
+      readonly state: ReturnType<typeof stateAddon>;
+    }) => {
+      const [operation, ...rest] = readOperations(host.root);
+      expect(rest).toEqual([]);
+      if (!operation) throw new Error("No operation.");
+      const found = await host.state.history(operation.id);
+      if (!found.ok) throw new Error(`History refused: ${found.reason}`);
+      return found.history.observed["e.one"];
+    };
+    const labelled = await inTransaction(
+      async (record, host) => {
+        await record(() => {
+          labels.add(host.published.operationId);
+          return Promise.resolve();
+        });
+      },
+      undefined,
+      { observers },
+    );
+    expect(await classOf(labelled)).toBe("completed");
+    const unlabelled = await inTransaction(
+      async (record) => {
+        await record(() => Promise.resolve());
+      },
+      undefined,
+      { observers },
+    );
+    expect(await classOf(unlabelled)).toBe("uncertain");
+  },
+);
+
+test("work is refused when the state add-on published no operation for it", async () => {
+  const state = stateAddon({
+    root: join(temporaryRoot("c3-state-component-"), "state"),
+    report: "cx.pending",
+  });
+  let ran = false;
+  const forged: StateCapability<"e.one"> = {
+    transaction: (work) =>
+      work({
+        record: () => Promise.reject(new Error("Forged transaction.")),
+      }).then(() => {
+        throw new Error("Forged capability.");
+      }),
+  };
+  const refused: unknown = await state
+    .transaction(
+      forged,
+      {
+        command: "cx.change",
+        scope: { resources: [{ resource: "r", key: "component" }] },
+      },
+      () => {
+        ran = true;
+        return Promise.resolve();
+      },
+    )
+    .then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+  expect(refused instanceof Error ? refused.message : refused).toBe(
+    "Work runs only after the state add-on publishes its operation.",
+  );
+  expect(ran).toBe(false);
+});
 
 caseTest("B01.a-admit-start-active-effect", async () => {
   let recordedBeforeStart = false;

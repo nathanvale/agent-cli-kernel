@@ -26,6 +26,7 @@ import type {
   JsonValue,
   RunAddon,
 } from "../../../../kernel/src/kernel/index.ts";
+import { stateAddon } from "../../../../kernel/src/addons/state/index.ts";
 import type { Observer } from "../../../../kernel/src/addons/state/index.ts";
 import { stateAddonWithTestSeams } from "../../../../kernel/src/addons/state/fixture.ts";
 import type { Phase } from "../../../../kernel/src/addons/state/fixture.ts";
@@ -55,6 +56,7 @@ const notes = join(world, "notes");
 const ledgerFile = join(world, "ledger.log");
 const providerLog = join(world, "provider.log");
 const outbox = join(world, "outbox");
+const labels = join(world, "labels.log");
 
 function ledger(line: string): void {
   appendFileSync(ledgerFile, `${line}\n`);
@@ -108,15 +110,17 @@ const library = process.env.SX_COORDINATION_LIBRARY;
 const seams = library
   ? { ...labelled, coordinationLibrary: library }
   : labelled;
-const state = stateAddonWithTestSeams(
-  {
-    root,
-    report: "sx.pending",
-    observers,
-    admissionWaitMilliseconds: Number.isFinite(waitBound) ? waitBound : 2000,
-  },
-  seams,
-);
+const stateOptions = {
+  root,
+  report: "sx.pending",
+  observers,
+  admissionWaitMilliseconds: Number.isFinite(waitBound) ? waitBound : 2000,
+};
+const productionEntry = process.env.SX_ENTRY === "production";
+if (productionEntry) ledger("entry production");
+const state = productionEntry
+  ? stateAddon(stateOptions)
+  : stateAddonWithTestSeams(stateOptions, seams);
 
 const handoffRefusal = {
   outcome: "refused",
@@ -924,10 +928,11 @@ const send = changing({
         },
         facts: { message: id },
       },
-      async (transaction) => {
+      async (transaction, published) => {
         await transaction.record(
           "message.send",
           async () => {
+            appendFileSync(labels, `${published.operationId} ${id}\n`);
             await barrier("intent");
             appendFileSync(providerLog, `sent ${id} send\n`);
             writeFileSync(join(outbox, id), "message");
