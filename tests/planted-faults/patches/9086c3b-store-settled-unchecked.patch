@@ -1,0 +1,16 @@
+diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
+index 600b9f7..8f20023 100644
+--- a/kernel/src/addons/state/store.ts
++++ b/kernel/src/addons/state/store.ts
+@@ -106,10 +106,7 @@ export function ensureStore(paths: Layout): boolean {
+       rmSync(staged, { force: true });
+       flushDirectory(paths.root);
+     }
+-    const journal = journalOf(paths);
+-    return journal === journals.two
+-      ? privateDirectory(paths.settled)
+-      : journal !== undefined;
++    return journalOf(paths) !== undefined;
+   } catch {
+     return false;
+   }
