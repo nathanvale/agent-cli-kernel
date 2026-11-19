@@ -64,35 +64,7 @@ jobs:
         with:
           bun-version: 1.4.4
       - run: bun install --frozen-lockfile
-      - id: verdict
-        env:
-          NUMBER: ${{ github.event.pull_request.number }}
-          BASE_REF: ${{ github.base_ref }}
-          CHECKER: ${{ hashFiles('.github/workflows/ci.yml', 'scripts/**', 'package.json', 'bun.lock', 'repository.json') }}
-        run: echo "key=commits-verdict-$NUMBER-$BASE_REF-$CHECKER" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache/restore@v4
-        with:
-          path: ${{ runner.temp }}/verdict
-          key: ${{ steps.verdict.outputs.key }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: ${{ steps.verdict.outputs.key }}-
-      - id: check
-        env:
-          BASE: origin/${{ github.base_ref }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          VERDICT: ${{ runner.temp }}/verdict
-        run: |
-          green=$(cat "$VERDICT" 2>/dev/null || true)
-          if [[ ! $green =~ ^[0-9a-f]{40}$ || $green == "$HEAD_SHA" ]]; then
-            green=""
-          else
-            echo "Carried forward: ${green:0:7}, the last all-GREEN head of this pull request."
-          fi
-          CHECK_COMMITS_SINCE="$green" bun run check:commits "$BASE"
-          echo "$HEAD_SHA" > "$VERDICT"
-      - uses: actions/cache/save@v4
-        with:
-          path: ${{ runner.temp }}/verdict
-          key: ${{ steps.verdict.outputs.key }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - run: bun run check:commits "origin/${{ github.base_ref }}"
   fault-replay-shard:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
