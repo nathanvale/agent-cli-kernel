@@ -1,0 +1,13 @@
+diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
+index ef1a1fa..e4e892f 100644
+--- a/kernel/src/kernel/lifecycle.ts
++++ b/kernel/src/kernel/lifecycle.ts
+@@ -307,7 +307,7 @@ async function freezeStatus(
+ // handler beside its add-ons, inside the one stop bound, so the worst-case
+ // exit time and the exit codes stay as LIFE-11 set them.
+ function settledAfterStopRequest(run: Run): Promise<unknown> {
+-  return Promise.all([run.execution, settleAll(run, settleLimitMilliseconds)]);
++  return Promise.all([run.execution]);
+ }
+ 
+ function installHooks(run: Run) {

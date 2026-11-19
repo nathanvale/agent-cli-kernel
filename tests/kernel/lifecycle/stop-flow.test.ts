@@ -11,7 +11,7 @@ import type {
 import { runProcessOn } from "../../../kernel/src/kernel/lifecycle.ts";
 import { receipt } from "./checks.ts";
 import { exitWithin, launch, readLedger, release } from "./harness.ts";
-import { stopBound, supporting, tolerance } from "./oracle.ts";
+import { stopBound, stops, supporting, tolerance } from "./oracle.ts";
 import {
   deferred,
   holdContract,
@@ -24,10 +24,6 @@ import {
 } from "./recording-host.ts";
 
 const timeout = 30_000;
-const stops = [
-  ["SIGTERM", 143],
-  ["SIGINT", 130],
-] as const;
 
 async function settles(done: Promise<number>): Promise<boolean> {
   return Promise.race([
