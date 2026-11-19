@@ -213,7 +213,9 @@ type Run = {
   commandIdentity: string | null;
   stopped: StopSignal | undefined;
   emergencyAttempted: boolean;
+  handler: Handler | undefined;
 };
+type Handler = { returned: boolean; readonly returning: Promise<void> };
 type Delivery =
   | { readonly candidate: Validation<unknown>; readonly trusted: TrustedRun }
   | undefined;
@@ -677,6 +679,7 @@ async function runDeclaredCommand(
     (outcome) => ({ kind: "returned", outcome }) as const,
     () => ({ kind: "threw" }) as const,
   );
+  run.handler = handlerOf(execution);
   const first =
     deadlineAt === undefined
       ? await execution
@@ -719,6 +722,16 @@ async function checkPhase(
     kind: "refused",
     delivery: await refusal(run, identity, outcome.path),
   };
+}
+
+function handlerOf(execution: Promise<Execution>): Handler {
+  const handler: Handler = {
+    returned: false,
+    returning: execution.then(() => {
+      handler.returned = true;
+    }),
+  };
+  return handler;
 }
 
 function expired(run: Run, deadlineAt: number | undefined): boolean {
@@ -807,6 +820,7 @@ function newRun(prepared: Prepared, host: ProcessHost): Run {
     commandIdentity: null,
     stopped: undefined,
     emergencyAttempted: false,
+    handler: undefined,
   };
 }
 
@@ -905,6 +919,16 @@ async function returnedResult(
     : { kind: "no-envelope", runId: run.runId, exitCode: 1 };
 }
 
+// Accepted decision (Nathan, 19 November 2026, 12:08 AEDT): the state seam
+// forgets an in-process run's identity once the run has finished. A handler
+// can outlive its run's deadline, so the run stays live until its handler,
+// if entered, has returned.
+function forgetWhenReturned(run: Run): void {
+  const forget = () => run.runtime.forgetState(run.runId);
+  if (!run.handler || run.handler.returned) forget();
+  else void run.handler.returning.then(forget);
+}
+
 async function runAndReturn(run: Run, argv: unknown): Promise<InProcessResult> {
   const inFlight = inFlightOn(run.host);
   run.stopped = inFlight.stopped;
@@ -929,5 +953,6 @@ async function runAndReturn(run: Run, argv: unknown): Promise<InProcessResult> {
     throw error;
   } finally {
     if (!run.stopped) inFlight.runs.delete(run);
+    forgetWhenReturned(run);
   }
 }

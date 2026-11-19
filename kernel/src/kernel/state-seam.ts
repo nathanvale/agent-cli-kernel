@@ -280,7 +280,7 @@ const registrations = new WeakMap<
     readonly registration: StateFactoryResult;
     readonly stateInstance: StateInstance;
     readonly runs: Map<string, object>;
-    readonly used: Set<string>;
+    readonly live: Set<string>;
     readonly active: AsyncLocalStorage<{
       readonly runId: string;
       readonly run: object;
@@ -310,12 +310,35 @@ export function createStateAddon(
     stateInstance,
     runs,
     active,
-    used: new Set(),
+    live: new Set(),
   });
   return descriptor;
 }
 export function isStateDescriptor(descriptor: StateAddonDescriptor): boolean {
   return registrations.has(descriptor);
+}
+
+// Interface: What one state add-on instance remembers about runs: `live` holds
+// the run identities it refuses to attach again, and `attached` the runs whose
+// proofs and scopes it still honours.
+export function rememberedRuns(descriptor: StateAddonDescriptor): {
+  readonly live: number;
+  readonly attached: number;
+} {
+  const state = registrations.get(descriptor);
+  return { live: state?.live.size ?? 0, attached: state?.runs.size ?? 0 };
+}
+
+// Accepted decision (Nathan, 19 November 2026, 12:08 AEDT): the seam forgets a
+// run identity when its run finishes, so a long-lived process holds only its
+// live runs. A reused identity is refused only while its earlier run is live.
+export function forgetRun(
+  runId: string,
+  descriptor: StateAddonDescriptor | undefined,
+): void {
+  const state = descriptor ? registrations.get(descriptor) : undefined;
+  state?.live.delete(runId);
+  state?.runs.delete(runId);
 }
 
 export function attachState<Effect extends string>(
@@ -333,11 +356,11 @@ export function attachState<Effect extends string>(
     throw new Error(
       "State descriptor was not created by contractFor.stateAddon.",
     );
-  if (state.used.has(runId)) {
+  if (state.live.has(runId)) {
     state.runs.delete(runId);
     return undefined;
   }
-  state.used.add(runId);
+  state.live.add(runId);
   const run = Object.freeze({});
   const status: AttachedRun = {
     transactionStarted: false,

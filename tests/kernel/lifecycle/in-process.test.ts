@@ -1,4 +1,6 @@
-import { describe, expect, jest, test } from "bun:test";
+import { afterEach, describe, expect, jest, test } from "bun:test";
+import { rmSync } from "node:fs";
+import { join } from "node:path";
 import { programsAddon } from "../../../kernel/src/addons/programs/index.ts";
 import type {
   EmergencyFacts,
@@ -12,10 +14,12 @@ import {
   runProcessOn,
 } from "../../../kernel/src/kernel/lifecycle.ts";
 import type { ProcessHost } from "../../../kernel/src/kernel/process-types.ts";
+import { rememberedRuns } from "../../../kernel/src/kernel/state-seam.ts";
 import {
   recordRuntime,
   runtimeOf,
 } from "../../../kernel/src/kernel/runtime.ts";
+import { testFolder } from "../../support/test-folder.ts";
 import { stopBound } from "./oracle.ts";
 import {
   advance,
@@ -23,6 +27,7 @@ import {
   holdContract,
   recordingHost,
   shell,
+  stateHoldContract,
   turns,
   until,
 } from "./recording-host.ts";
@@ -456,6 +461,179 @@ describe("IP07 the in-process entry checks its contract and bounds", () => {
       );
       expect(facts).toHaveLength(1);
       expect(recorder.exits).toEqual([]);
+    },
+    timeout,
+  );
+});
+
+const reusedIdentity = {
+  ok: false,
+  path: "runId",
+  reason: "run identity already attached",
+} as const;
+const nothingRemembered = { live: 0, attached: 0 } as const;
+const oneRemembered = { live: 1, attached: 1 } as const;
+const stateFolders: string[] = [];
+afterEach(() => {
+  for (const folder of stateFolders.splice(0))
+    rmSync(folder, { recursive: true, force: true });
+});
+
+function stateHolding(recorder: ReturnType<typeof recordingHost>) {
+  const folder = testFolder("c3-run-identity-");
+  stateFolders.push(folder);
+  const queue: ReturnType<typeof held>[] = [];
+  const controls: RunControl[] = [];
+  const { contract, descriptor } = stateHoldContract(
+    join(folder, "state"),
+    async (programs) => {
+      const gate = queue.shift();
+      if (!gate) return;
+      await programs.inspect(shell("exit 0"));
+      gate.entered.resolve();
+      await gate.returned.promise;
+    },
+  );
+  const setup = { addons: { programs: watched({ controls }) } };
+  const entry = runInProcessOn(contract, setup, () => recorder.host);
+  return {
+    contract,
+    descriptor,
+    setup,
+    run: (argv: readonly string[] = ["change", "--json"]) => entry(argv),
+    start(argv: readonly string[] = ["change", "--json"]) {
+      const gate = held();
+      queue.push(gate);
+      return { gate, done: entry(argv) };
+    },
+    liveRunId() {
+      const [control] = controls;
+      if (!control) throw new Error("No run attached the programs add-on.");
+      return control.runId;
+    },
+    reuse(runId: string) {
+      const signal = new AbortController().signal;
+      const programs = programsAddon().attach({
+        runId,
+        commandIdentity: "rc.change",
+        summary: "Reuse a run identity.",
+        signal,
+      }).capability;
+      return contract.execute("rc.change", [], runId, { programs, signal });
+    },
+  };
+}
+
+function causeOf(value: InProcessResult): string {
+  if (value.kind !== "envelope")
+    throw new Error(`Expected an envelope, got ${value.kind}.`);
+  return value.envelope.result.causeCode;
+}
+
+describe("IP08 the state seam forgets a run identity when its run finishes", () => {
+  test(
+    "IP08.memory-returns-to-start many runs in sequence leave the state seam's memory at its starting size",
+    async () => {
+      const recorder = recordingHost();
+      const subject = stateHolding(recorder);
+      expect(rememberedRuns(subject.descriptor)).toEqual(nothingRemembered);
+      const one = subject.start();
+      await one.gate.entered.promise;
+      expect(rememberedRuns(subject.descriptor)).toEqual(oneRemembered);
+      one.gate.returned.resolve();
+      const results = [await one.done];
+      for (let index = 0; index < 20; index++)
+        results.push(await subject.run());
+      expect(results.map(causeOf)).toEqual(
+        Array.from({ length: 21 }, () => "DOMAIN_RC_DECLINED"),
+      );
+      expect(new Set(results.map(runIdOf)).size).toBe(21);
+      expect(rememberedRuns(subject.descriptor)).toEqual(nothingRemembered);
+      expect(recorder.exits).toEqual([]);
+    },
+    timeout,
+  );
+
+  test(
+    "IP08.reuse-after-finish-admitted an identity whose run finished attaches again",
+    async () => {
+      const recorder = recordingHost();
+      const subject = stateHolding(recorder);
+      const finished = await subject.run();
+      expect(causeOf(finished)).toBe("DOMAIN_RC_DECLINED");
+      const reused = await subject.reuse(finished.runId);
+      expect(reused.ok).toBe(true);
+      expect(rememberedRuns(subject.descriptor)).toEqual(oneRemembered);
+    },
+    timeout,
+  );
+
+  test(
+    "IP08.reuse-while-live-refused an identity whose run is still live is refused, then attaches once the run finishes",
+    async () => {
+      const recorder = recordingHost();
+      const subject = stateHolding(recorder);
+      const one = subject.start();
+      await one.gate.entered.promise;
+      const runId = subject.liveRunId();
+      expect(await subject.reuse(runId)).toEqual(reusedIdentity);
+      expect(await subject.reuse(runId)).toEqual(reusedIdentity);
+      one.gate.returned.resolve();
+      expect((await one.done).runId).toBe(runId);
+      expect(rememberedRuns(subject.descriptor)).toEqual(nothingRemembered);
+      expect((await subject.reuse(runId)).ok).toBe(true);
+    },
+    timeout,
+  );
+
+  test(
+    "IP08.live-past-deadline a run whose handler outlives its deadline keeps its identity until the handler returns",
+    async () => {
+      jest.useFakeTimers();
+      const recorder = recordingHost();
+      const subject = stateHolding(recorder);
+      const one = subject.start(["change", "--deadline-ms", "1000", "--json"]);
+      try {
+        await one.gate.entered.promise;
+        const runId = subject.liveRunId();
+        await advance(1000 + cancellationWait);
+        const returned = await one.done;
+        expect(returned.runId).toBe(runId);
+        expect(causeOf(returned)).toBe("DOMAIN_DEADLINE_UNCHANGED");
+        expect(rememberedRuns(subject.descriptor)).toEqual(oneRemembered);
+        expect(await subject.reuse(runId)).toEqual(reusedIdentity);
+        one.gate.returned.resolve();
+        await turns();
+        expect(rememberedRuns(subject.descriptor)).toEqual(nothingRemembered);
+        expect((await subject.reuse(runId)).ok).toBe(true);
+      } finally {
+        jest.useRealTimers();
+        one.gate.returned.resolve();
+      }
+    },
+    timeout,
+  );
+
+  test(
+    "IP08.process-entry-keeps-identity runProcess still writes one envelope and keeps its run identity",
+    async () => {
+      const recorder = recordingHost();
+      const subject = stateHolding(recorder);
+      const code = await runProcessOn(
+        subject.contract,
+        subject.setup,
+        () => recorder.host,
+      )(["change", "--json"]);
+      await turns();
+      expect(code).toBe(3);
+      expect(recorder.exits).toEqual([3]);
+      expect(recorder.writes.map((write) => write.stream)).toEqual(["stdout"]);
+      const written: unknown = JSON.parse(recorder.writes[0]?.text ?? "null");
+      const checked = await runtimeOf(subject.contract)?.validate(written);
+      if (!checked?.ok) throw new Error("runProcess wrote no valid envelope.");
+      const runId = checked.value.result.runId;
+      expect(rememberedRuns(subject.descriptor)).toEqual(oneRemembered);
+      expect(await subject.reuse(runId)).toEqual(reusedIdentity);
     },
     timeout,
   );

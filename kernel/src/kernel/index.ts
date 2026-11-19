@@ -15,6 +15,7 @@ import {
   createStateAddon,
   attachState,
   closeAtDeadline,
+  forgetRun,
   issuedProof,
   proofFreeResultAllowed,
 } from "./state-seam.ts";
@@ -452,6 +453,7 @@ export function contractFor<
     validate,
     trustedSummary: (runId) => issuedProof(runId, spec.state),
     closeStateAtDeadline: (runId) => closeAtDeadline(runId, spec.state),
+    forgetState: (runId) => forgetRun(runId, spec.state),
   });
   return contract;
 }

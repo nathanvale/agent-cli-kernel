@@ -64,6 +64,7 @@ export type ContractRuntime = {
   readonly validate: (value: unknown) => Promise<Validation<Envelope>>;
   readonly trustedSummary: (runId: string) => StateObservation | undefined;
   readonly closeStateAtDeadline: (runId: string) => boolean | undefined;
+  readonly forgetState: (runId: string) => void;
 };
 
 export type ContractKey = { readonly cli?: string };
