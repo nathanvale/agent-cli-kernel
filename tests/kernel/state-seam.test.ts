@@ -6,6 +6,8 @@ import {
   attachState,
   createStateAddon,
   forgetRun,
+  issuedProof,
+  knownProof,
 } from "../../kernel/src/kernel/state-seam.ts";
 import { deferred } from "./lifecycle/recording-host.ts";
 import { emptyInput, unchanged } from "./kernel-repair/shapes.ts";
@@ -193,4 +195,33 @@ test("a record called outside its run's transaction cannot record an effect, eve
   const { attached } = recordingState();
   const kept = await keptRecord(attached);
   expect(await outsideTheRun(kept)).toBe(outsideRefusal);
+});
+
+test("a refused reuse keeps the live run's proof as its trusted summary but refuses it as a result", async () => {
+  const descriptor = createStateAddon((issuer) => ({
+    ifNoResult: issuer.ifNoResult({
+      kind: "command",
+      command: "specimen.pending",
+      args: [],
+    }),
+    attach: (runId) => ({
+      transaction: async (work) => {
+        await work({
+          record: () => Promise.reject(new Error("Not recorded here.")),
+        });
+        return issuer.transactionProof(runId, {
+          transactionState: "unchanged",
+          effects: unchanged,
+        });
+      },
+    }),
+  }));
+  const attached = attachState(descriptor, "run-1", ["specimen.note"]);
+  if (!attached) throw new Error("The state did not attach.");
+  const proof = await attached.capability.transaction(() => Promise.resolve());
+  expect(issuedProof("run-1", descriptor)).toBe(proof);
+  expect(knownProof(proof, "run-1", descriptor)).toBe(true);
+  expect(attachState(descriptor, "run-1", ["specimen.note"])).toBeUndefined();
+  expect(issuedProof("run-1", descriptor)).toBe(proof);
+  expect(knownProof(proof, "run-1", descriptor)).toBe(false);
 });

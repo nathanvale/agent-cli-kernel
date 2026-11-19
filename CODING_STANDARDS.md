@@ -146,9 +146,9 @@ row's guide or gate note cites two distinct witnesses.
 ### Finish cases
 
 - Each fault breaks forgetting an in-process run's identity
-  (`kernel/src/kernel/lifecycle.ts`) on one way to finish, and its `IP08`
-  case kills it: a handler that returns, a run that never enters its
-  handler, a rejected run, and a handler past its deadline.
+  (`kernel/src/kernel/lifecycle.ts`), and its `IP08` case kills it: never
+  forgetting, forgetting before a handler past its deadline returns, and
+  skipping a run that never enters its handler or that rejects.
 - Review only: other finish work, and other ways to finish, such as a
   signal.
 - Witnessed: [7fb5649], [ef76011].

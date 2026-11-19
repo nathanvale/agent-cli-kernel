@@ -676,8 +676,11 @@ describe("IP08 the state seam forgets a run identity when its run finishes", () 
         expect(attachedRunCount(subject.descriptor)).toEqual(oneRunAttached);
         expect(await subject.reuse(runId)).toEqual(reusedIdentity);
         one.gate.returned.resolve();
-        await turns();
-        expect(attachedRunCount(subject.descriptor)).toEqual(noRunAttached);
+        expect(
+          await until(
+            () => attachedRunCount(subject.descriptor) === noRunAttached,
+          ),
+        ).toBe(true);
         expect((await subject.reuse(runId)).ok).toBe(true);
       } finally {
         jest.useRealTimers();
