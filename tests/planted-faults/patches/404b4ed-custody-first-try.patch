@@ -1,0 +1,12 @@
+diff --git a/kernel/src/addons/diagnostics/custody.ts b/kernel/src/addons/diagnostics/custody.ts
+index bbaf28c..f381ea3 100644
+--- a/kernel/src/addons/diagnostics/custody.ts
++++ b/kernel/src/addons/diagnostics/custody.ts
+@@ -290,6 +290,7 @@ async function acquire(
+   const deadline = performance.now() + limits.lockWaitMilliseconds;
+   do {
+     if (abandoned()) return undefined;
++    if (performance.now() >= deadline) break;
+     const release = tryLock(directory);
+     if (release) return release;
+     const remaining = deadline - performance.now();

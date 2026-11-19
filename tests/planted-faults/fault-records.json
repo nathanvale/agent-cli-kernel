@@ -2945,5 +2945,40 @@
     "testFile": "tests/kernel/diagnostics/custody.test.ts",
     "title": "^the allocation lock wait ends at its limit by the clock",
     "source": "e48961c fix(diagnostics): end the allocation lock wait at its limit by the clock"
+  },
+  {
+    "id": "404b4ed-custody-clamp",
+    "patch": "tests/planted-faults/patches/404b4ed-custody-clamp.patch",
+    "testFile": "tests/kernel/diagnostics/custody.test.ts",
+    "title": "^the allocation lock wait arms its last retry for only the time left",
+    "source": "404b4ed test(diagnostics): state the lock wait's numbers and pin its interval, clamp and first try"
+  },
+  {
+    "id": "404b4ed-custody-first-try",
+    "patch": "tests/planted-faults/patches/404b4ed-custody-first-try.patch",
+    "testFile": "tests/kernel/diagnostics/custody.test.ts",
+    "title": "^the allocation lock wait tries the lock once even when its limit has passed",
+    "source": "404b4ed test(diagnostics): state the lock wait's numbers and pin its interval, clamp and first try"
+  },
+  {
+    "id": "404b4ed-limits-interval",
+    "patch": "tests/planted-faults/patches/404b4ed-limits-interval.patch",
+    "testFile": "tests/kernel/diagnostics/custody.test.ts",
+    "title": "^with every retry woken on time the allocation lock wait",
+    "source": "404b4ed test(diagnostics): state the lock wait's numbers and pin its interval, clamp and first try"
+  },
+  {
+    "id": "404b4ed-limits-deadline",
+    "patch": "tests/planted-faults/patches/404b4ed-limits-deadline.patch",
+    "testFile": "tests/kernel/diagnostics/custody.test.ts",
+    "title": "^with every retry woken on time the allocation lock wait",
+    "source": "404b4ed test(diagnostics): state the lock wait's numbers and pin its interval, clamp and first try"
+  },
+  {
+    "id": "404b4ed-limits-wide",
+    "patch": "tests/planted-faults/patches/404b4ed-limits-wide.patch",
+    "testFile": "tests/kernel/diagnostics/custody.test.ts",
+    "title": "^the allocation lock wait ends at its limit by the clock when every retry wakes late",
+    "source": "404b4ed test(diagnostics): state the lock wait's numbers and pin its interval, clamp and first try"
   }
 ]
