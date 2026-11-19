@@ -1,0 +1,12 @@
+diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
+index d5cf605..02eddd0 100644
+--- a/kernel/src/kernel/lifecycle.ts
++++ b/kernel/src/kernel/lifecycle.ts
+@@ -907,7 +907,6 @@ async function returnedResult(
+ 
+ async function runAndReturn(run: Run, argv: unknown): Promise<InProcessResult> {
+   const inFlight = inFlightOn(run.host);
+-  run.stopped = inFlight.stopped;
+   inFlight.runs.add(run);
+   const chunks: Uint8Array[] = [];
+   const capture: ProcessHost = {

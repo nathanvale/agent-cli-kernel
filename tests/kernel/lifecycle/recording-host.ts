@@ -29,7 +29,9 @@ export function recordingHost() {
   const writes: Recorded[] = [];
   const exits: number[] = [];
   const exitedAt: number[] = [];
+  const installs = { signal: 0, crash: 0 };
   let listener: ((signal: StopSignal) => void) | undefined;
+  let crashListener: (() => void) | undefined;
   const decoder = new TextDecoder();
   const host: ProcessHost = {
     write(stream, bytes) {
@@ -45,9 +47,13 @@ export function recordingHost() {
       exitedAt.push(performance.now());
     },
     onSignal(next) {
+      installs.signal += 1;
       listener = next;
     },
-    onCrash: () => undefined,
+    onCrash(next) {
+      installs.crash += 1;
+      crashListener = next;
+    },
     now: () => performance.now(),
   };
   return {
@@ -55,10 +61,16 @@ export function recordingHost() {
     writes,
     exits,
     exitedAt,
+    installs,
     signal(name: StopSignal) {
       if (!listener)
         throw new Error("The front door installed no signal hook.");
       listener(name);
+    },
+    crash() {
+      if (!crashListener)
+        throw new Error("The kernel installed no crash hook.");
+      crashListener();
     },
   };
 }
@@ -108,8 +120,16 @@ export async function advance(milliseconds: number): Promise<void> {
   }
 }
 
+const listingBound = 5_000;
 export function markedPids(marker: string): readonly number[] {
-  const listed = Bun.spawnSync(["/bin/ps", "-A", "-o", "pid=,args="]);
+  const listed = Bun.spawnSync(["/bin/ps", "-A", "-o", "pid=,args="], {
+    timeout: listingBound,
+    killSignal: "SIGKILL",
+  });
+  if (!listed.success)
+    throw new Error(
+      `UNPROVED: /bin/ps did not list processes within ${String(listingBound)} ms.`,
+    );
   return listed.stdout
     .toString()
     .split("\n")

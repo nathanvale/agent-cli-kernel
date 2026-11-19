@@ -68,6 +68,13 @@ this file.
   (CodeRabbit's [review of pull request 9][#9-add-on]: a handler that never
   ended outlasted the add-on's 300 ms settle, so the stop request case
   passed with the add-on dropped from the wait).
+- Keep a stopped run where the repeated-signal kill reaches it until the
+  process exits, not only until its handler returns. Witnessed:
+  [kernel#6 r4622839115] (a run that returned during its first-stop settle
+  missed `killNow` at the second signal).
+- Drive every route a capability offers to the same shared function, so a
+  route that wraps it, such as one that admits before it starts, is proved
+  too. Witnessed: [r4622712214] (the domain program route had no proof).
 
 [ac11ed9]: https://github.com/nathanvale/bun-typescript-template/commit/ac11ed98b7d538e8a304cac053aaefcaaf6b2cb3
 [cd2498b]: https://github.com/nathanvale/bun-typescript-template/commit/cd2498b7189a2d45d1906b9c870e8d13da6cd2dd
@@ -86,3 +93,5 @@ this file.
 [r4623815208]: https://github.com/nathanvale/agent-cli-kernel/pull/9#discussion_r4623815208
 [7c5967e]: https://github.com/nathanvale/agent-cli-kernel/commit/7c5967e25761e72cbf1d3fb77bc166aa5aef80ae
 [#9-add-on]: https://github.com/nathanvale/agent-cli-kernel/pull/9#pullrequestreview-5968740024
+[kernel#6 r4622839115]: https://github.com/nathanvale/agent-cli-kernel/pull/6#discussion_r4622839115
+[r4622712214]: https://github.com/nathanvale/agent-cli-kernel/pull/4#discussion_r4622712214

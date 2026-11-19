@@ -1,0 +1,24 @@
+diff --git a/kernel/src/addons/programs/index.ts b/kernel/src/addons/programs/index.ts
+index 23147db..e0556a7 100644
+--- a/kernel/src/addons/programs/index.ts
++++ b/kernel/src/addons/programs/index.ts
+@@ -343,18 +343,8 @@ function attachPrograms(run: RunControl): AttachedAddon<ProgramsCapability> {
+             return Promise.reject(
+               new Error("The recorded effect belongs to another run."),
+             );
+-          let checked: CheckedRequest;
+-          try {
+-            checked = checkedRequest(request);
+-          } catch (error) {
+-            return Promise.reject(
+-              error instanceof Error
+-                ? error
+-                : new Error("Invalid program request."),
+-            );
+-          }
+           return effect.admitStart(run.runId, effect.effect, () =>
+-            launch(checked),
++            start(request),
+           );
+         },
+       });

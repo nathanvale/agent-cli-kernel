@@ -868,6 +868,55 @@
     "source": "b021da0 fix(gates): refuse excluded recorded hits"
   },
   {
+    "id": "61c6f37-index",
+    "patch": "tests/planted-faults/patches/61c6f37-index.patch",
+    "testFile": "tests/kernel/programs/program-input.test.ts",
+    "title": " inspect: an input one byte over the limit is refused and starts no program$",
+    "source": "61c6f37 feat(programs): let a command supply a bounded input to a program"
+  },
+  {
+    "id": "61c6f37-index-supplied",
+    "patch": "tests/planted-faults/patches/61c6f37-index.patch",
+    "testFile": "tests/kernel/programs/program-input.test.ts",
+    "title": " supplied: an input one byte over the limit is refused and starts no program$",
+    "source": "61c6f37 feat(programs): let a command supply a bounded input to a program"
+  },
+  {
+    "id": "61c6f37-index-view",
+    "patch": "tests/planted-faults/patches/61c6f37-index-view.patch",
+    "testFile": "tests/kernel/programs/program-input.test.ts",
+    "title": " inspect: an input that is a typed array of another width is refused and starts no program$",
+    "source": "61c6f37 feat(programs): let a command supply a bounded input to a program"
+  },
+  {
+    "id": "61c6f37-index-view-supplied",
+    "patch": "tests/planted-faults/patches/61c6f37-index-view.patch",
+    "testFile": "tests/kernel/programs/program-input.test.ts",
+    "title": " supplied: an input that is a typed array of another width is refused and starts no program$",
+    "source": "61c6f37 feat(programs): let a command supply a bounded input to a program"
+  },
+  {
+    "id": "61c6f37-index-copy",
+    "patch": "tests/planted-faults/patches/61c6f37-index-copy.patch",
+    "testFile": "tests/kernel/programs/program-input.test.ts",
+    "title": "an admitted domain program reads the bytes checked before admission, though the caller changed them while admission was pending$",
+    "source": "61c6f37 feat(programs): let a command supply a bounded input to a program"
+  },
+  {
+    "id": "e1c416d-index",
+    "patch": "tests/planted-faults/patches/e1c416d-index.patch",
+    "testFile": "tests/kernel/programs/program-input.test.ts",
+    "title": "an input whose own byteLength is shadowed is judged by its real length$",
+    "source": "e1c416d fix(programs): judge input by its real length and check domain requests first"
+  },
+  {
+    "id": "e1c416d-index-admission",
+    "patch": "tests/planted-faults/patches/e1c416d-index-admission.patch",
+    "testFile": "tests/kernel/programs/program-input.test.ts",
+    "title": "a domain request over the limit is refused before admission and starts no program$",
+    "source": "e1c416d fix(programs): judge input by its real length and check domain requests first"
+  },
+  {
     "id": "1cc1070-run",
     "patch": "tests/planted-faults/patches/1cc1070-run.patch",
     "testFile": "tests/kernel/diagnostics/log-lines.test.ts",
@@ -985,5 +1034,103 @@
     "testFile": "tests/kernel/lifecycle/timers.test.ts",
     "title": "a handler that ends at 100 ms beside an add-on",
     "source": "82f5feb fix(kernel): wait for the handler after the first stop request"
+  },
+  {
+    "id": "f548a02-in-process-exit",
+    "patch": "tests/planted-faults/patches/f548a02-lifecycle-exit.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP01\\.no-exit-after-run",
+    "source": "f548a02 feat(kernel): run many commands in one process through runInProcess"
+  },
+  {
+    "id": "f548a02-in-process-stop-every",
+    "patch": "tests/planted-faults/patches/f548a02-lifecycle-stop.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP02\\.stop-reaches-every-run",
+    "source": "f548a02 feat(kernel): run many commands in one process through runInProcess"
+  },
+  {
+    "id": "f548a02-in-process-late",
+    "patch": "tests/planted-faults/patches/f548a02-lifecycle-late.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP02\\.stop-reaches-every-run",
+    "source": "f548a02 feat(kernel): run many commands in one process through runInProcess"
+  },
+  {
+    "id": "f548a02-in-process-finished",
+    "patch": "tests/planted-faults/patches/f548a02-lifecycle-finished.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP03\\.crash-records-run-in-flight",
+    "source": "f548a02 feat(kernel): run many commands in one process through runInProcess"
+  },
+  {
+    "id": "f548a02-in-process-record-once",
+    "patch": "tests/planted-faults/patches/f548a02-lifecycle-once.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP03\\.crash-records-run-in-flight",
+    "source": "f548a02 feat(kernel): run many commands in one process through runInProcess"
+  },
+  {
+    "id": "f548a02-in-process-repeat",
+    "patch": "tests/planted-faults/patches/f548a02-lifecycle-repeat.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP02\\.repeated-stop-exits-at-once",
+    "source": "f548a02 feat(kernel): run many commands in one process through runInProcess"
+  },
+  {
+    "id": "aa61e37-in-process-stop-bound",
+    "patch": "tests/planted-faults/patches/aa61e37-lifecycle-bound.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP07\\.stop-bound",
+    "source": "aa61e37 fix(kernel): settle the in-process entry's review findings"
+  },
+  {
+    "id": "aa61e37-in-process-rejected",
+    "patch": "tests/planted-faults/patches/aa61e37-lifecycle-rejected.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP07\\.rejected-run-records-itself",
+    "source": "aa61e37 fix(kernel): settle the in-process entry's review findings"
+  },
+  {
+    "id": "aa61e37-in-process-contract",
+    "patch": "tests/planted-faults/patches/aa61e37-lifecycle-contract.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP07\\.contract-refused",
+    "source": "aa61e37 fix(kernel): settle the in-process entry's review findings"
+  },
+  {
+    "id": "2004547-in-process-settling",
+    "patch": "tests/planted-faults/patches/2004547-lifecycle-settling.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP02\\.repeated-stop-kills-settling-run",
+    "source": "2004547 fix(kernel): kill a stopped run that is still settling at a repeated signal"
+  },
+  {
+    "id": "2004547-in-process-short-stop",
+    "patch": "tests/planted-faults/patches/2004547-lifecycle-short.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP07\\.stop-bound",
+    "source": "2004547 fix(kernel): kill a stopped run that is still settling at a repeated signal"
+  },
+  {
+    "id": "f548a02-in-process-host",
+    "patch": "tests/planted-faults/patches/f548a02-lifecycle-host.patch",
+    "testFile": "tests/kernel/state/in-process.test.ts",
+    "title": "IP06\\.crash-records-every-run-in-flight",
+    "source": "f548a02 feat(kernel): run many commands in one process through runInProcess"
+  },
+  {
+    "id": "f548a02-in-process-own-start",
+    "patch": "tests/planted-faults/patches/f548a02-lifecycle-ownstart.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP07\\.own-deadline",
+    "source": "f548a02 feat(kernel): run many commands in one process through runInProcess"
+  },
+  {
+    "id": "5a83146-in-process-abort",
+    "patch": "tests/planted-faults/patches/5a83146-lifecycle-abort.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP07\\.rejected-run-records-itself",
+    "source": "5a83146 fix(kernel): settle the kernel reviewer's findings on the in-process entry"
   }
 ]
