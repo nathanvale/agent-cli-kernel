@@ -343,6 +343,43 @@ describe("a stop request waits for the handler inside the stop bound", () => {
         await run.finish();
       }
     });
+
+  for (const [signal, code] of stops)
+    test(`a stop request on ${signal} delivered during handler entry, before the handler's first await, waits through its 200 ms clean-up, then exits ${String(code)}`, async () => {
+      jest.useFakeTimers();
+      const recorder = recordingHost();
+      const released = deferred();
+      const seen: string[] = [];
+      let sentAt = Number.NaN;
+      const done = runProcessOn(
+        holdContract(async (_programs, abortSignal) => {
+          sentAt = performance.now();
+          recorder.signal(signal);
+          seen.push(`aborted=${String(abortSignal.aborted)}`);
+          await released.promise;
+          seen.push("cleaned");
+        }),
+        { addons: { programs: programsAddon() } },
+        () => recorder.host,
+      )(["hold", "--json"]);
+      try {
+        await turns();
+        await advance(200);
+        expect(seen).toEqual(["aborted=true"]);
+        expect(recorder.exits).toEqual([]);
+        released.resolve();
+        await turns();
+        expect(seen).toEqual(["aborted=true", "cleaned"]);
+        expect(recorder.exits).toEqual([code]);
+        expect(recorder.exitedAt.map((at) => at - sentAt)).toEqual([200]);
+        expect(recorder.writes).toEqual([]);
+      } finally {
+        released.resolve();
+        await advance(exactStopBound);
+        jest.useRealTimers();
+        await done;
+      }
+    });
 });
 
 test("P4.canary fake timers advance the clock and fire a raw over-limit delay early", () => {

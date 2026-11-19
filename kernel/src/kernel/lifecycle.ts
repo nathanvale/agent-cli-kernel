@@ -636,11 +636,7 @@ async function runDeclaredCommand(
   if (run.stopped) return undefined;
   if (expired(run, deadlineAt)) return beforeStart(run, identity);
   run.phase = "handler-entered";
-  const execution: Promise<Execution> = attached.enter().then(
-    (outcome) => ({ kind: "returned", outcome }) as const,
-    () => ({ kind: "threw" }) as const,
-  );
-  run.execution = execution;
+  const execution = enterHandler(run, attached.enter);
   const first =
     deadlineAt === undefined
       ? await execution
@@ -648,6 +644,19 @@ async function runDeclaredCommand(
   return first === undefined
     ? afterDeadline(run, plan.command, execution)
     : afterHandler(run, plan.command, first, deadlineAt);
+}
+
+function enterHandler(run: Run, enter: Enter): Promise<Execution> {
+  let handOver: (execution: Promise<Execution>) => void = () => undefined;
+  run.execution = new Promise<Execution>((resolve) => {
+    handOver = resolve;
+  });
+  const execution: Promise<Execution> = enter().then(
+    (outcome) => ({ kind: "returned", outcome }) as const,
+    () => ({ kind: "threw" }) as const,
+  );
+  handOver(execution);
+  return execution;
 }
 
 type CheckPhase =
