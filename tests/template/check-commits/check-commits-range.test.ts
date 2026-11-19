@@ -218,6 +218,89 @@ describe("check:commits", () => {
   );
 
   test(
+    "--shard splits the range into blocks by count, so each commit is checked by exactly one part, in range order",
+    async () => {
+      const { root, base, commit } = repositoryAt();
+      const made = ["one", "two", "three", "four", "five"].map((name) =>
+        commit(`commit ${name}`, { [`${name}.txt`]: name }),
+      );
+      const since = { CHECK_COMMITS_SINCE: base.sha };
+
+      const parts = [];
+      for (const part of ["1/2", "2/2"])
+        parts.push(
+          await checkCommits(root, [base.sha, "--shard", part], since),
+        );
+
+      expect(parts.map((run) => run.exit)).toEqual([0, 0]);
+      expect(parts.map((run) => verdicts(run.lines))).toEqual([
+        made
+          .slice(0, 2)
+          .map(
+            ({ short }, at) => `GREEN ${short} commit ${["one", "two"][at]}`,
+          ),
+        made
+          .slice(2)
+          .map(
+            ({ short }, at) =>
+              `GREEN ${short} commit ${["three", "four", "five"][at]}`,
+          ),
+      ]);
+    },
+    processWatchdog(3),
+  );
+
+  test(
+    "--shard passes a part that holds none of the range's commits, saying the other parts check them",
+    async () => {
+      const { root, base, commit } = repositoryAt();
+      const only = commit("the only commit", { "a.txt": "a" });
+
+      const empty = await checkCommits(root, [base.sha, "--shard", "1/2"], {
+        CHECK_COMMITS_SINCE: base.sha,
+      });
+      const full = await checkCommits(root, [base.sha, "--shard", "2/2"], {
+        CHECK_COMMITS_SINCE: base.sha,
+      });
+
+      expect(empty.exit).toBe(0);
+      expect(verdicts(empty.lines)).toEqual([]);
+      expect(empty.lines).toContain(
+        `Part 1 of 2 holds none of the 1 commits in ${base.sha}..HEAD, so the other parts check them.`,
+      );
+      expect(full.exit).toBe(0);
+      expect(verdicts(full.lines)).toEqual([
+        `GREEN ${only.short} the only commit`,
+      ]);
+    },
+    processWatchdog(2),
+  );
+
+  test(
+    "--shard outside 1 to its parts, or anything after it, is a usage error with exit 2 that checks nothing",
+    async () => {
+      const { root, base, commit } = repositoryAt();
+      commit("a commit", { "a.txt": "a" });
+
+      for (const shard of [
+        ["--shard"],
+        ["--shard", "0/2"],
+        ["--shard", "3/2"],
+        ["--shard", "1.5/2"],
+        ["--shard", "1/2", "extra"],
+      ]) {
+        const run = await checkCommits(root, [base.sha, ...shard]);
+        expect(run.stderr).toBe(
+          `Usage: bun run check:commits <base> [head] --shard <part>/<parts>, with whole numbers 1 <= part <= parts. Got '${shard.join(" ")}'. Repair: pass one part, such as --shard 2/4.\n`,
+        );
+        expect(verdicts(run.lines)).toEqual([]);
+        expect(run.exit).toBe(2);
+      }
+    },
+    processWatchdog(5),
+  );
+
+  test(
     "a since commit missing from the clone checks every commit in the range",
     async () => {
       const { root, base, commit } = repositoryAt();
