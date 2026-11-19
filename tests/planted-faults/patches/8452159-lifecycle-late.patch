@@ -1,0 +1,13 @@
+diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
+index dd33c4f..0941172 100644
+--- a/kernel/src/kernel/lifecycle.ts
++++ b/kernel/src/kernel/lifecycle.ts
+@@ -889,7 +889,7 @@ function stopEvery(inFlight: InFlight, host: ProcessHost, signal: StopSignal) {
+   }
+   void within(
+     Promise.all(runs.map(settledAfterStopRequest)),
+-    stopBoundMilliseconds,
++    cancellationMilliseconds,
+     host.now,
+   ).then(() => host.exit(code));
+ }
