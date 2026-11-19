@@ -791,11 +791,14 @@ function under(
     SX_FACT_OVERRIDES: JSON.stringify(overrides),
   };
 }
-function outsideCoordination(world: World): string {
+function outsideCoordination(world: World, prefix = ""): string {
   return world
     .snapshot()
     .split("\n")
-    .filter((line) => !line.startsWith("state/coordination/"))
+    .filter(
+      (line) =>
+        line.startsWith(prefix) && !line.startsWith("state/coordination/"),
+    )
     .join("\n");
 }
 async function refusedUnqualified(
@@ -1036,7 +1039,7 @@ function bootIdentityReadable(): boolean {
 }
 
 supportingTest(
-  "X27 supporting: without an override the boot identity is read from the machine",
+  "X27 supporting: without an override the boot identity is read from the machine (refuses where it is unreadable, as on macOS; closes where it is readable, as on Linux)",
   plain(async (world) => {
     await world.killAt(apply("a"), "effect");
     const id = only(world);
@@ -1051,6 +1054,37 @@ supportingTest(
       under(candidate(), facts),
     );
     expect(message).toContain(", boot identity unreadable (ENOENT) from ");
+  }),
+);
+
+supportingTest(
+  "X27 supporting: through index.ts the empty capability qualification table refuses closure with the observed facts",
+  plain(async (world) => {
+    const production = { SX_ENTRY: "production" };
+    await world.killAt(apply("a"), "effect", production);
+    const id = only(world);
+    const before = outsideCoordination(world, "state/");
+    const refused = await world.run(
+      closeArgs(id, await world.revision(id)),
+      production,
+    );
+    expectRefusedUnchanged(refused, "DOMAIN_SX_UNAVAILABLE");
+    const message = str(refused.envelope.message);
+    expect(message).toStartWith(
+      "State unavailable: stopped-owner-proof-unqualified (observed os ",
+    );
+    expect(message).toEndWith("; qualified: no capability qualification row).");
+    expect(outsideCoordination(world, "state/")).toBe(before);
+    expect(existsSync(closurePath(world, id))).toBe(false);
+    const report = await capabilitiesUnder(world, production);
+    expect(at(report, "qualification")).toBe("unqualified");
+    expect(at(report, "stoppedOwnerProof")).toBe("unavailable");
+    expect(JSON.stringify(at(report, "reasons"))).toContain(
+      "; qualified: no capability qualification row.",
+    );
+    expect(
+      world.ledger().filter((line) => line === "entry production"),
+    ).toEqual(["entry production", "entry production", "entry production"]);
   }),
 );
 
