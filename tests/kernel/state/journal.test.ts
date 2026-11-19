@@ -631,7 +631,10 @@ supportingTest(
   "CMD-11 supporting: a run killed before its outside write leaves a label carrying the published operation identity",
   () =>
     within({}, async (world) => {
-      await world.killAt(["send", "m1", "--json"], "intent");
+      await world.killAt(["send", "m1", "--json"], "intent", {
+        SX_ENTRY: "production",
+      });
+      expect(world.count("entry production")).toBe(1);
       const [operation, ...rest] = world.operations();
       expect(rest).toEqual([]);
       if (!operation) throw new Error("No operation.");

@@ -26,6 +26,7 @@ import type {
   JsonValue,
   RunAddon,
 } from "../../../../kernel/src/kernel/index.ts";
+import { stateAddon } from "../../../../kernel/src/addons/state/index.ts";
 import type { Observer } from "../../../../kernel/src/addons/state/index.ts";
 import { stateAddonWithTestSeams } from "../../../../kernel/src/addons/state/fixture.ts";
 import type { Phase } from "../../../../kernel/src/addons/state/fixture.ts";
@@ -109,15 +110,17 @@ const library = process.env.SX_COORDINATION_LIBRARY;
 const seams = library
   ? { ...labelled, coordinationLibrary: library }
   : labelled;
-const state = stateAddonWithTestSeams(
-  {
-    root,
-    report: "sx.pending",
-    observers,
-    admissionWaitMilliseconds: Number.isFinite(waitBound) ? waitBound : 2000,
-  },
-  seams,
-);
+const stateOptions = {
+  root,
+  report: "sx.pending",
+  observers,
+  admissionWaitMilliseconds: Number.isFinite(waitBound) ? waitBound : 2000,
+};
+const productionEntry = process.env.SX_ENTRY === "production";
+if (productionEntry) ledger("entry production");
+const state = productionEntry
+  ? stateAddon(stateOptions)
+  : stateAddonWithTestSeams(stateOptions, seams);
 
 const handoffRefusal = {
   outcome: "refused",
