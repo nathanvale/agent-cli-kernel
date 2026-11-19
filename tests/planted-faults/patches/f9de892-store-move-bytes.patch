@@ -1,0 +1,15 @@
+diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
+index a056567..5a1a50e 100644
+--- a/kernel/src/addons/state/store.ts
++++ b/kernel/src/addons/state/store.ts
+@@ -600,6 +600,10 @@ export function moveSettledCase(
+     if (errorCode(error) !== "ENOENT") throw error;
+   }
+   renameSync(paths.operation(id), paths.settledCase(id));
++  writeSync(
++    openSync(join(paths.settledCase(id), "events"), constants.O_WRONLY | constants.O_APPEND),
++    "\n",
++  );
+   return "moved";
+ }
+ 

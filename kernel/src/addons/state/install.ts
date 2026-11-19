@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { lstatSync } from "node:fs";
 import { join } from "node:path";
 import { contractFor } from "../../kernel/index.ts";
 import type {
@@ -14,7 +13,7 @@ import type {
   StateObservation,
   TransactionProof,
 } from "../../kernel/index.ts";
-import { errorCode, waitLock } from "./coordination.ts";
+import { waitLock } from "./coordination.ts";
 import type { CoordinationRoute, LockAttempt } from "./coordination.ts";
 import type { CapabilityReport, Qualification } from "./qualification.ts";
 import { canonicalise, conflicts, currentKeys } from "./scope.ts";
@@ -22,13 +21,18 @@ import type { CanonicalScope, ScopeDeclaration } from "./scope.ts";
 import {
   appendEvent,
   ensureStore,
+  flushMoves,
   layout,
+  moveSettledCase,
   operationPattern,
   publishClosure,
   publishOperation,
+  readCase,
   readClosure,
-  readOperation,
   readStore,
+  settledIsPrivate,
+  storeProblem,
+  upgradeStore,
 } from "./store.ts";
 import type {
   Closure,
@@ -36,6 +40,7 @@ import type {
   Intent,
   Layout,
   Operation,
+  UpgradePhase,
 } from "./store.ts";
 
 export type { ScopeDeclaration } from "./scope.ts";
@@ -52,7 +57,11 @@ export type Observer = (input: {
   readonly revisions: Readonly<Record<string, string>>;
 }) => Promise<Observation>;
 
-export type Phase = "admission-wait" | "staged" | "closure-staged";
+export type Phase =
+  | "admission-wait"
+  | "staged"
+  | "closure-staged"
+  | UpgradePhase;
 
 export type StateOptions = {
   readonly root: string;
@@ -419,6 +428,14 @@ function settledCheck(
     : { kind: "not-unresolved" };
 }
 
+function readProblem(
+  read: "not-found" | "corrupt" | "unreadable",
+): CloseResultBody {
+  return read === "not-found"
+    ? { kind: "not-found" }
+    : { kind: "unavailable", reason: `store-${read}` };
+}
+
 function stoppedOwnerProblem(
   qualification: Qualification,
   target: Operation,
@@ -436,6 +453,7 @@ function closureMatches(
   runId: string,
 ): boolean {
   const written = readClosure(paths, closure.operationId);
+  if (written === "unreadable") throw new Error("The closure cannot be read.");
   return (
     typeof written === "object" &&
     written.closureId === closure.closureId &&
@@ -447,7 +465,7 @@ function closureObservation(paths: Layout, operation: Operation): Observation {
   const target = operation.intent.closes;
   if (target === null) return "unobservable";
   const written = readClosure(paths, target);
-  if (written === "damaged") return "unobservable";
+  if (typeof written === "string") return "unobservable";
   if (written === undefined) return "absent";
   return written.recoveryRunId === operation.intent.runId
     ? "present"
@@ -603,7 +621,19 @@ export type Seams = {
   readonly qualification: Qualification;
   readonly phase: (name: Phase) => Promise<void>;
   readonly coordination: CoordinationRoute;
+  readonly moverStart?: (candidates: number) => number;
+  readonly moverReport?: (examined: number, moved: number) => void;
 };
+
+// Accepted decision (Nathan, 19 November 2026, 12:08 AEDT; journal version 2
+// design, decision F): at most 64 moves per hold of the admission lock. The
+// design sets 128 examined cases per hold, so each cap is observable alone.
+const moveBound = 64;
+const examineBound = 128;
+
+function randomStart(candidates: number): number {
+  return Math.floor(Math.random() * candidates);
+}
 
 export function install(options: StateOptions, seams: Seams) {
   // Platform: Checked before anything else: Math.max and Math.min pass NaN through,
@@ -740,10 +770,13 @@ export function install(options: StateOptions, seams: Seams) {
       held.keys.release();
       held.admission.release();
     };
+    const upgradeProblem = await upgradeStore(paths, phase);
     const store = readStore(paths);
-    const refusal: Refusal | undefined = !store.ok
-      ? { kind: "unavailable", reason: `store-${store.reason}` }
-      : blocking(paths, store.operations, keys, check);
+    const refusal: Refusal | undefined = upgradeProblem
+      ? { kind: "unavailable", reason: upgradeProblem }
+      : !store.ok
+        ? { kind: "unavailable", reason: `store-${store.reason}` }
+        : blocking(paths, store.operations, keys, check);
     if (refusal || !store.ok) {
       release();
       return {
@@ -794,7 +827,10 @@ export function install(options: StateOptions, seams: Seams) {
   async function open(
     runId: string,
     intent: Omit<Intent, "operationId" | "runId" | "owner">,
-    held: Acquired,
+    admitted: {
+      readonly held: Acquired;
+      readonly operations: readonly Operation[];
+    },
   ) {
     let opened: Awaited<ReturnType<typeof begin>>;
     try {
@@ -802,8 +838,82 @@ export function install(options: StateOptions, seams: Seams) {
     } catch {
       opened = undefined;
     }
-    held.admission.release();
+    if (opened) moveSettled(admitted.operations);
+    admitted.held.admission.release();
     return opened;
+  }
+
+  function moveSettled(read: readonly Operation[]): void {
+    const candidates = read.filter(
+      (operation) => operation.status !== "unresolved",
+    );
+    const tally = { examined: 0, moved: 0 };
+    const examinable = settledIsPrivate(paths)
+      ? Math.min(candidates.length, examineBound)
+      : 0;
+    try {
+      const start =
+        examinable === 0
+          ? 0
+          : (seams.moverStart ?? randomStart)(candidates.length) %
+            candidates.length;
+      while (tally.examined < examinable && tally.moved < moveBound) {
+        const candidate =
+          candidates[(start + tally.examined) % candidates.length];
+        tally.examined += 1;
+        if (
+          candidate &&
+          movable(candidate) &&
+          moveSettledCase(paths, candidate.intent.operationId) === "moved"
+        )
+          tally.moved += 1;
+      }
+    } catch {
+      return;
+    } finally {
+      flushMoved(tally.moved);
+      reportMoves(tally);
+    }
+  }
+
+  function movable(candidate: Operation): boolean {
+    const id = candidate.intent.operationId;
+    return (
+      !candidate.closureDamaged &&
+      lockFree(join(paths.operation(id), "owner.lease"), false) &&
+      lockFree(paths.keyLock(`case:${id}`), true)
+    );
+  }
+
+  function lockFree(path: string, absentIsFree: boolean): boolean {
+    const attempt = paths.tryLock(path, false);
+    if (attempt.kind === "held") {
+      attempt.release();
+      return true;
+    }
+    return (
+      absentIsFree && attempt.kind === "failed" && attempt.code === "ENOENT"
+    );
+  }
+
+  function reportMoves(tally: {
+    readonly examined: number;
+    readonly moved: number;
+  }): void {
+    try {
+      seams.moverReport?.(tally.examined, tally.moved);
+    } catch {
+      return;
+    }
+  }
+
+  function flushMoved(moved: number): void {
+    if (moved === 0) return;
+    try {
+      flushMoves(paths);
+    } catch {
+      return;
+    }
   }
 
   // Accepted decision (Nathan, 19 November 2026, 13:46 AEDT; journal version 2
@@ -881,7 +991,7 @@ export function install(options: StateOptions, seams: Seams) {
         closes: null,
         coordination: admitted.held.order,
       },
-      admitted.held,
+      admitted,
     );
     if (!opened) {
       admitted.release();
@@ -1068,6 +1178,7 @@ export function install(options: StateOptions, seams: Seams) {
     | {
         readonly ok: true;
         readonly held: Acquired;
+        readonly operations: readonly Operation[];
         readonly target: Operation;
         readonly release: () => void;
       }
@@ -1087,30 +1198,45 @@ export function install(options: StateOptions, seams: Seams) {
             ? { kind: "owner-live" }
             : admitted.refusal,
       };
+    const target = admitted.operations.find(
+      (operation) => operation.intent.operationId === id,
+    );
+    if (!target) {
+      admitted.release();
+      const moved = readCase(paths, id);
+      return {
+        ok: false,
+        stop:
+          typeof moved === "string"
+            ? readProblem(moved)
+            : (settledCheck(moved, request) ?? { kind: "not-found" }),
+      };
+    }
     const lease = paths.tryLock(
       join(paths.operation(id), "owner.lease"),
       false,
-    );
-    const target = admitted.operations.find(
-      (operation) => operation.intent.operationId === id,
     );
     const stop: CloseResultBody | undefined =
       lease.kind === "busy"
         ? { kind: "owner-live" }
         : lease.kind === "failed"
           ? { kind: "unavailable", reason: "lease-unreadable" }
-          : !target
-            ? { kind: "not-found" }
-            : settledCheck(target, request);
+          : settledCheck(target, request);
     const release = () => {
       if (lease.kind === "held") lease.release();
       admitted.release();
     };
-    if (stop || !target) {
+    if (stop) {
       release();
-      return { ok: false, stop: stop ?? { kind: "not-found" } };
+      return { ok: false, stop };
     }
-    return { ok: true, held: admitted.held, target, release };
+    return {
+      ok: true,
+      held: admitted.held,
+      operations: admitted.operations,
+      target,
+      release,
+    };
   }
 
   async function closeCase<Effect extends string>(
@@ -1128,10 +1254,8 @@ export function install(options: StateOptions, seams: Seams) {
     const problem = closeRequestProblem(request, effect);
     if (problem || !effect)
       return stop(problem ?? { kind: "unavailable", reason: "declaration" });
-    const first = readTarget(request.operationId);
-    if (first === "not-found") return stop({ kind: "not-found" });
-    if (first === "corrupt" || first === "unreadable")
-      return stop({ kind: "unavailable", reason: `store-${first}` });
+    const first = readCase(paths, request.operationId);
+    if (typeof first === "string") return stop(readProblem(first));
     const early = settledCheck(first, request);
     if (early) return stop(early);
     const targetKeys = currentKeys(first.intent.scope);
@@ -1162,7 +1286,7 @@ export function install(options: StateOptions, seams: Seams) {
         closes: request.operationId,
         coordination: admitted.held.order,
       },
-      admitted.held,
+      admitted,
     );
     if (!opened) {
       admitted.release();
@@ -1196,21 +1320,6 @@ export function install(options: StateOptions, seams: Seams) {
           }
         : { kind: "recovery-failed", recoveryOperationId: opened.operationId };
     return issuer.transactionProof(runId, observation);
-  }
-
-  function readTarget(
-    id: string,
-  ): Operation | "not-found" | "corrupt" | "unreadable" {
-    try {
-      lstatSync(paths.operation(id));
-    } catch (error) {
-      return errorCode(error) === "ENOENT" ? "not-found" : "unreadable";
-    }
-    try {
-      return readOperation(paths, id);
-    } catch {
-      return "unreadable";
-    }
   }
 
   async function transaction<Effect extends string>(
@@ -1272,12 +1381,10 @@ export function install(options: StateOptions, seams: Seams) {
   async function history(operationId: string): Promise<HistoryResult> {
     if (!operationPattern.test(operationId))
       return { ok: false, reason: "not-found" };
-    const store = readStore(paths);
-    if (!store.ok) return store;
-    const operation = store.operations.find(
-      (entry) => entry.intent.operationId === operationId,
-    );
-    if (!operation) return { ok: false, reason: "not-found" };
+    const problem = storeProblem(paths);
+    if (problem) return { ok: false, reason: problem };
+    const operation = readCase(paths, operationId);
+    if (typeof operation === "string") return { ok: false, reason: operation };
     const intent = operation.intent;
     const closure = operation.closure;
     return {

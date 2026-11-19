@@ -4,7 +4,14 @@ import {
   contractFor,
   runProcess,
 } from "../../../../kernel/src/kernel/index.ts";
-import { empty, input, none, plain, readData } from "./declarations.ts";
+import {
+  empty,
+  input,
+  none,
+  plain,
+  readData,
+  throwingFacts,
+} from "./declarations.ts";
 import type { JsonValue } from "../../../../kernel/src/kernel/index.ts";
 import { diagnosticsAddon } from "../../../../kernel/src/addons/diagnostics/index.ts";
 import type { StatusAddon } from "../../../../kernel/src/addons/diagnostics/index.ts";
@@ -88,18 +95,6 @@ function wide(keys: number): JsonValue {
   return result;
 }
 
-function hostile(facts: JsonValue): JsonValue {
-  const value: Record<string, JsonValue> = {};
-  Object.defineProperty(value, "boom", {
-    enumerable: true,
-    get() {
-      throw new Error("hostile getter");
-    },
-  });
-  void facts;
-  return value;
-}
-
 async function held(path: string) {
   const until = Date.now() + 60_000;
   while (!existsSync(path)) {
@@ -177,7 +172,7 @@ async function perform(
       const facts: JsonValue = { ...wideToo, ...secrets, ...limitForms };
       recordStep(
         diagnostics,
-        plan.hostile ? hostile(facts) : facts,
+        plan.hostile ? throwingFacts() : facts,
         plan.level,
       );
       if (plan.pace) await new Promise((resolve) => setTimeout(resolve, 0));

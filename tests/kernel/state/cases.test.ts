@@ -12,7 +12,7 @@ const briefFamilies = [
   ...["T01", "T02", "T03", "T04"],
   "Q01",
 ];
-const journalVersionTwoFamilies = ["K11"];
+const journalVersionTwoFamilies = ["J08", "L07", "L08", "K10", "K11"];
 
 test("the frozen T3 case table keeps its admitted identities and counts", () => {
   expect(briefFamilies.length).toBe(46);
@@ -40,9 +40,9 @@ test("the frozen T3 case table keeps its admitted identities and counts", () => 
     "S04",
     "S05",
   ]);
-  expect(stateCases.length).toBe(126);
+  expect(stateCases.length).toBe(138);
   const executable = stateCases.filter((row) => row.status === "executable");
-  expect(executable.length).toBe(117);
+  expect(executable.length).toBe(129);
   for (const row of executable)
     if (row.status === "executable")
       expect(["coordination", "any"]).toContain(row.platform);
@@ -54,6 +54,8 @@ test("the frozen T3 case table keeps its admitted identities and counts", () => 
   ).toEqual([
     "K06.h-unreadable-case-unavailable",
     "L04.a-corrupt-journal-refuses",
+    "L07.b-admission-does-not-read-settled",
+    "L07.g-failed-move-keeps-outcome",
     "S03.a-store-failure-preserves-item",
   ]);
   const pending = stateCases.filter((row) => row.status === "pending");
@@ -77,26 +79,45 @@ test("the frozen T3 case table keeps its admitted identities and counts", () => 
   }
 });
 
-caseTest("Q01.c-transitions-mapped", async () => {
+const transitionDesigns = ["DESIGN.md", "DESIGN-V2-TRANSITIONS.md"];
+const casesAwaitingLaterSlices: Readonly<Record<string, readonly string[]>> = {
+  X27: ["Q02.a", "Q02.b", "Q02.c", "Q02.d"],
+  X28: ["K11.a"],
+  X29: ["K11.c", "K11.d"],
+  X30: ["Q02.e"],
+};
+
+async function transitionRows(name: string): Promise<string[][]> {
   const design = await Bun.file(
-    new URL("../../../kernel/src/addons/state/DESIGN.md", import.meta.url),
+    new URL(`../../../kernel/src/addons/state/${name}`, import.meta.url),
   ).text();
-  const rows = design
+  return design
     .split("\n")
     .filter((line) => /^\| X\d\d \|/.test(line))
     .map((line) => line.split("|").map((cell) => cell.trim()));
-  expect(rows.length).toBe(22);
+}
+
+caseTest("Q01.c-transitions-mapped", async () => {
+  const [versionOne, versionTwo] = await Promise.all(
+    transitionDesigns.map(transitionRows),
+  );
+  expect(versionOne?.length).toBe(22);
+  expect(versionTwo?.length).toBe(8);
+  const rows = [...(versionOne ?? []), ...(versionTwo ?? [])];
   const known = new Set(
     stateCases.map((row) => row.id.replace(/^([A-Z]\d\d\.[a-z]).*$/, "$1")),
   );
   for (const row of rows) {
     const cases = (row[4] ?? "").split(",").map((cell) => cell.trim());
     expect(cases.length).toBeGreaterThan(0);
-    for (const id of cases) expect(known.has(id)).toBe(true);
+    for (const id of cases) expect(id).toMatch(/^[A-Z]\d\d\.[a-z]$/);
+    expect(cases.filter((id) => !known.has(id))).toEqual([
+      ...(casesAwaitingLaterSlices[row[1] ?? ""] ?? []),
+    ]);
   }
   expect(rows.map((row) => row[1])).toEqual(
     Array.from(
-      { length: 22 },
+      { length: 30 },
       (_, index) => `X${String(index + 1).padStart(2, "0")}`,
     ),
   );

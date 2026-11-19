@@ -120,9 +120,20 @@ const labelled =
     ? { ...phased, fixtureLabel: "specimen" }
     : phased;
 const library = process.env.SX_COORDINATION_LIBRARY;
+const moverStart = process.env.SX_MOVER_START;
+const mover = {
+  ...(moverStart === undefined ? {} : { moverStart: Number(moverStart) }),
+  ...(process.env.SX_MOVER_REPORT === "1"
+    ? {
+        moverReport: (examined: number, moved: number) => {
+          ledger(`mover examined ${String(examined)} moved ${String(moved)}`);
+        },
+      }
+    : {}),
+};
 const seams = library
-  ? { ...labelled, coordinationLibrary: library }
-  : labelled;
+  ? { ...labelled, ...mover, coordinationLibrary: library }
+  : { ...labelled, ...mover };
 const stateOptions = {
   root,
   report: "sx.pending",

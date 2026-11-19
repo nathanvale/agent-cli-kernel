@@ -1,0 +1,28 @@
+diff --git a/kernel/src/addons/diagnostics/records.ts b/kernel/src/addons/diagnostics/records.ts
+index bb46fc6..d64f998 100644
+--- a/kernel/src/addons/diagnostics/records.ts
++++ b/kernel/src/addons/diagnostics/records.ts
+@@ -192,6 +192,7 @@ export type RunPipeline = (
+ ) => void;
+ 
+ const unmapped = Object.freeze({});
++let latest: (record: LogRecord) => void = () => undefined;
+ 
+ // Platform: LogTape 2.4.2 reports a redaction limit only to its process-wide
+ // meta logger. It also replaces a message placeholder that names no property
+@@ -233,6 +234,7 @@ export function pipelineFor(
+   deliver: (record: LogRecord) => void,
+   report: () => void,
+ ): RunPipeline {
++  latest = deliver;
+   const redact = redactor();
+   return (level, properties) => {
+     const redacted = redact({
+@@ -248,6 +250,6 @@ export function pipelineFor(
+       return;
+     }
+     if (exceededRedactionLimit(redacted)) report();
+-    deliver(redacted);
++    latest(redacted);
+   };
+ }
