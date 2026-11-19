@@ -60,9 +60,9 @@ describe("S02 the main flow requests no exit after a stop (finding 2)", () => {
     });
 });
 
-describe("the handler's stop signal at a stop request", () => {
+describe("the handler's abort signal at a stop request", () => {
   for (const [signal, code] of stops)
-    test(`a handler's stop signal aborts on ${signal} and its listener runs before the exit request`, async () => {
+    test(`a handler's abort signal aborts on ${signal} and its listener runs before the exit request`, async () => {
       const entered = deferred();
       const returned = deferred();
       const seen: string[] = [];

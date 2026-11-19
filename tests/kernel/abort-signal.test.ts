@@ -56,8 +56,8 @@ type Execute = (
   runId: string,
 ) => Promise<{ readonly ok: boolean }>;
 
-function inspectRoute(seen: unknown[]): Execute {
-  const read = command({
+function reading(seen: unknown[]) {
+  return command({
     identity: "sg.read",
     route: ["read"],
     summary: "Read.",
@@ -71,7 +71,18 @@ function inspectRoute(seen: unknown[]): Execute {
       );
     },
   });
-  const contract = contractFor({ cli: "sg", commands: [read] });
+}
+
+function inspectRoute(seen: unknown[]): Execute {
+  const contract = contractFor({ cli: "sg", commands: [reading(seen)] });
+  return (context, runId) => contract.execute("sg.read", [], runId, context);
+}
+
+function spreadRoute(seen: unknown[]): Execute {
+  const contract = contractFor({
+    cli: "sg",
+    commands: [{ ...reading(seen) }],
+  });
   return (context, runId) => contract.execute("sg.read", [], runId, context);
 }
 
@@ -156,16 +167,23 @@ function changingRoute(seen: unknown[]): Execute {
 }
 
 const routes = [
+  { name: "command()", build: inspectRoute },
+  { name: "changing()", build: changingRoute },
+  { name: "a spread of a declaration", build: spreadRoute },
+] as const;
+const lookalikes = [
   {
-    name: "command()",
-    build: inspectRoute,
-    refusal: "undeclared or unavailable capability",
+    name: "a plain object",
+    make: () => ({ aborted: false, addEventListener: () => undefined }),
   },
-  { name: "changing()", build: changingRoute, refusal: "state unavailable" },
+  {
+    name: "an object that only inherits the prototype",
+    make: (): unknown => Object.create(AbortSignal.prototype),
+  },
 ] as const;
 
 for (const route of routes) {
-  test(`${route.name}: a handler entered with no stop source holds a signal that has not aborted`, async () => {
+  test(`${route.name}: a handler entered with no stop source holds an abort signal that has not aborted`, async () => {
     const seen: unknown[] = [];
     const executed = await route.build(seen)({}, "run-idle");
     expect(executed.ok).toBe(true);
@@ -177,7 +195,7 @@ for (const route of routes) {
     );
   });
 
-  test(`${route.name}: a handler holds the very stop signal its run supplied`, async () => {
+  test(`${route.name}: a handler holds the very abort signal its run supplied`, async () => {
     const controller = new AbortController();
     const seen: unknown[] = [];
     const executed = await route.build(seen)(
@@ -189,17 +207,18 @@ for (const route of routes) {
     expect(seen[0]).toBe(controller.signal);
   });
 
-  test(`${route.name}: a context signal that is not a stop signal is refused before the handler`, async () => {
-    const seen: unknown[] = [];
-    const executed = await route.build(seen)(
-      { signal: { aborted: false, addEventListener: () => undefined } },
-      "run-lookalike",
-    );
-    expect(executed).toMatchObject({
-      ok: false,
-      path: "capabilities",
-      reason: route.refusal,
+  for (const lookalike of lookalikes)
+    test(`${route.name}: a context signal that is ${lookalike.name} is refused before the handler`, async () => {
+      const seen: unknown[] = [];
+      const executed = await route.build(seen)(
+        { signal: lookalike.make() },
+        "run-lookalike",
+      );
+      expect(executed).toMatchObject({
+        ok: false,
+        path: "capabilities",
+        reason: "context signal is not an abort signal",
+      });
+      expect(seen).toEqual([]);
     });
-    expect(seen).toEqual([]);
-  });
 }

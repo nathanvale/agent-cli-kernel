@@ -1,13 +1,15 @@
 diff --git a/kernel/src/kernel/validation/context.ts b/kernel/src/kernel/validation/context.ts
-index 56439e7..e11374a 100644
+index 8c3af14..475834a 100644
 --- a/kernel/src/kernel/validation/context.ts
 +++ b/kernel/src/kernel/validation/context.ts
-@@ -22,7 +22,7 @@ export function handlerContext<C extends CapabilitySelection>(
-     Object.keys(value).some(
-       (key) =>
-         !(changing && key === "state") &&
--        !(key === "signal" && value.signal instanceof AbortSignal) &&
-+        key !== "signal" &&
-         !Object.hasOwn(selection, key),
-     )
-   )
+@@ -28,7 +28,9 @@ export function abortSignalOf(
+   context: Readonly<Record<string, unknown>>,
+ ): AbortSignal | undefined {
+   if (!Object.hasOwn(context, "signal")) return new AbortController().signal;
+-  return abortSignal(context.signal) ? context.signal : undefined;
++  return abortSignal(context.signal)
++    ? context.signal
++    : new AbortController().signal;
+ }
+ export function handlerContext<C extends CapabilitySelection>(
+   value: unknown,

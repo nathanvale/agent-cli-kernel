@@ -14,12 +14,16 @@ import type {
   ApprovalRequest,
   CapabilitySelection,
   HandlerContext,
-  StopContext,
+  AbortContext,
 } from "./capabilities.ts";
 import type { InputSchema, ParsedInput } from "./input-types.ts";
 import { parseInput, acceptsRootInput } from "./input.ts";
 import { validateHostInput } from "./host-input.ts";
-import { handlerContext, approvalContext } from "./validation/context.ts";
+import {
+  abortSignalOf,
+  approvalContext,
+  handlerContext,
+} from "./validation/context.ts";
 import { record, text } from "./validation/primitives.ts";
 import { freeze } from "./stations.ts";
 import type { DeclaredStation } from "./stations.ts";
@@ -171,13 +175,28 @@ function contextSnapshot(value: unknown): Record<string, unknown> | undefined {
   }
   return snapshot;
 }
-function stopContext(checked: Record<string, unknown>): StopContext {
-  return {
-    signal:
-      checked.signal instanceof AbortSignal
-        ? checked.signal
-        : new AbortController().signal,
-  };
+function entryContext<C extends CapabilitySelection>(
+  context: unknown,
+  capabilities: C,
+  changing: boolean,
+): Validation<Record<string, unknown> & HandlerContext<C> & AbortContext> {
+  const checked = contextSnapshot(context);
+  const signal = checked ? abortSignalOf(checked) : undefined;
+  if (checked && !signal)
+    return {
+      ok: false,
+      path: "capabilities",
+      reason: "context signal is not an abort signal",
+    };
+  if (!checked || !signal || !handlerContext(checked, capabilities, changing))
+    return {
+      ok: false,
+      path: "capabilities",
+      reason: changing
+        ? "state unavailable"
+        : "undeclared or unavailable capability",
+    };
+  return { ok: true, value: { ...checked, signal } };
 }
 export type HandlerEntry<Identity extends string = string> = (
   state?: unknown,
@@ -217,7 +236,9 @@ async function preflight<I extends InputSchema, C extends CapabilitySelection>(
 ): Promise<
   Validation<{
     readonly input: ParsedInput<I>;
-    readonly context: Record<string, unknown> & HandlerContext<C>;
+    readonly context: Record<string, unknown> &
+      HandlerContext<C> &
+      AbortContext;
   }>
 > {
   const parsed = await parseInput(spec.input, argv);
@@ -234,15 +255,9 @@ async function preflight<I extends InputSchema, C extends CapabilitySelection>(
     registration,
   );
   if (!future.ok) return future;
-  const checked = contextSnapshot(context);
-  if (!checked || !handlerContext(checked, spec.capabilities, changing))
-    return {
-      ok: false,
-      path: "capabilities",
-      reason: changing
-        ? "state unavailable"
-        : "undeclared or unavailable capability",
-    };
+  const entry = entryContext(context, spec.capabilities, changing);
+  if (!entry.ok) return entry;
+  const checked = entry.value;
   if (
     spec.capabilities.approval &&
     (!spec.approval ||
@@ -287,7 +302,7 @@ export function command<
     readonly run: (
       input: ParsedInput<I>,
       context: HandlerContext<C> &
-        StopContext &
+        AbortContext &
         ResultContext<Identity, S, "inspect", C, P>,
     ) => CommandResult<Identity> | Promise<CommandResult<Identity>>;
   } & ApprovalFor<C, I>,
@@ -328,7 +343,6 @@ export function command<
           await spec.run(parsed, {
             ...checked,
             ...resultContext(declaration, runId, invocation),
-            ...stopContext(checked),
           }),
           spec.identity,
           runId,
@@ -378,7 +392,7 @@ export function changing<
     readonly run: (
       input: ParsedInput<I>,
       context: HandlerContext<C> &
-        StopContext & {
+        AbortContext & {
           readonly state: StateCapability<Effect>;
         } & ResultContext<Identity, S, "repository-local" | "external">,
     ) => Promise<CommandResult<Identity>>;
@@ -419,7 +433,6 @@ export function changing<
           await spec.run(parsed, {
             ...entered,
             ...resultContext(declaration, runId, invocation),
-            ...stopContext(checked),
           }),
           spec.identity,
           runId,

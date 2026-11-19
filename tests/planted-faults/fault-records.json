@@ -870,8 +870,29 @@
   {
     "id": "b165bed-context",
     "patch": "tests/planted-faults/patches/b165bed-context.patch",
-    "testFile": "tests/kernel/stop-signal.test.ts",
-    "title": "a context signal that is not a stop signal is refused before the handler$",
+    "testFile": "tests/kernel/abort-signal.test.ts",
+    "title": "^command\\(\\): a context signal that is a plain object is refused before the handler$",
+    "source": "b165bed feat(kernel): give every handler its run's stop signal"
+  },
+  {
+    "id": "b165bed-context-changing",
+    "patch": "tests/planted-faults/patches/b165bed-context.patch",
+    "testFile": "tests/kernel/abort-signal.test.ts",
+    "title": "^changing\\(\\): a context signal that is a plain object is refused before the handler$",
+    "source": "b165bed feat(kernel): give every handler its run's stop signal"
+  },
+  {
+    "id": "b165bed-context-spread",
+    "patch": "tests/planted-faults/patches/b165bed-context.patch",
+    "testFile": "tests/kernel/abort-signal.test.ts",
+    "title": "^a spread of a declaration: a context signal that is a plain object is refused before the handler$",
+    "source": "b165bed feat(kernel): give every handler its run's stop signal"
+  },
+  {
+    "id": "b165bed-context-prototype",
+    "patch": "tests/planted-faults/patches/b165bed-context-prototype.patch",
+    "testFile": "tests/kernel/abort-signal.test.ts",
+    "title": "^command\\(\\): a context signal that is an object that only inherits the prototype is refused before the handler$",
     "source": "b165bed feat(kernel): give every handler its run's stop signal"
   }
 ]

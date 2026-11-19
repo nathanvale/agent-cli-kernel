@@ -1,0 +1,13 @@
+diff --git a/kernel/src/kernel/validation/context.ts b/kernel/src/kernel/validation/context.ts
+index 8c3af14..468bc69 100644
+--- a/kernel/src/kernel/validation/context.ts
++++ b/kernel/src/kernel/validation/context.ts
+@@ -16,7 +16,7 @@ export const addonNames: readonly CapabilityAddonName[] = Object.freeze(
+ // and throws when `aborted` is read.
+ function abortSignal(value: unknown): value is AbortSignal {
+   try {
+-    return value instanceof AbortSignal && typeof value.aborted === "boolean";
++    return value instanceof AbortSignal;
+   } catch {
+     return false;
+   }

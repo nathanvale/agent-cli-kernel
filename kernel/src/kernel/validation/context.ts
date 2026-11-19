@@ -12,6 +12,24 @@ export function capabilityAddonName(key: string): key is CapabilityAddonName {
 export const addonNames: readonly CapabilityAddonName[] = Object.freeze(
   Object.keys(capabilityMethods).filter(capabilityAddonName),
 );
+// Platform: An object that only inherits AbortSignal.prototype passes instanceof
+// and throws when `aborted` is read.
+function abortSignal(value: unknown): value is AbortSignal {
+  try {
+    return value instanceof AbortSignal && typeof value.aborted === "boolean";
+  } catch {
+    return false;
+  }
+}
+// Interface: The one owner of a context's abort signal. No `signal` key: a signal
+// that never aborts. A real one: that signal. Anything else: undefined, and
+// the caller refuses before the handler.
+export function abortSignalOf(
+  context: Readonly<Record<string, unknown>>,
+): AbortSignal | undefined {
+  if (!Object.hasOwn(context, "signal")) return new AbortController().signal;
+  return abortSignal(context.signal) ? context.signal : undefined;
+}
 export function handlerContext<C extends CapabilitySelection>(
   value: unknown,
   selection: C,
@@ -22,7 +40,7 @@ export function handlerContext<C extends CapabilitySelection>(
     Object.keys(value).some(
       (key) =>
         !(changing && key === "state") &&
-        !(key === "signal" && value.signal instanceof AbortSignal) &&
+        key !== "signal" &&
         !Object.hasOwn(selection, key),
     )
   )

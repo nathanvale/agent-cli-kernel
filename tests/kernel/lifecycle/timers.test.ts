@@ -21,16 +21,19 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-async function heldUntilDeadline(deadline: number) {
+async function heldUntilDeadline(
+  deadline: number,
+  work?: (signal: AbortSignal, startedAt: number) => Promise<void>,
+) {
   jest.useFakeTimers();
   const entered = deferred();
   const returned = deferred();
   const recorder = recordingHost();
   const startedAt = performance.now();
   const done = runProcessOn(
-    holdContract(async () => {
+    holdContract(async (_programs, signal) => {
       entered.resolve();
-      await returned.promise;
+      await (work ? work(signal, startedAt) : returned.promise);
     }),
     { addons: { programs: programsAddon() } },
     () => recorder.host,
@@ -101,54 +104,60 @@ describe("T06 small and boundary deadlines keep their exact timing (finding 1)",
     });
 });
 
-describe("the handler's stop signal at a deadline", () => {
-  test("a handler waiting on its stop signal cleans up at the deadline and does not wait out the cancellation bound", async () => {
-    jest.useFakeTimers();
-    const deadline = 300;
-    const entered = deferred();
-    const seen: string[] = [];
-    const recorder = recordingHost();
-    const startedAt = performance.now();
-    const done = runProcessOn(
-      holdContract(async (_programs, signal) => {
-        entered.resolve();
-        seen.push(`entered aborted=${String(signal.aborted)}`);
-        await new Promise<void>((resolve) => {
-          signal.addEventListener(
-            "abort",
-            () => {
-              resolve();
-            },
-            { once: true },
-          );
-        });
-        seen.push(`cleaned at=${String(performance.now() - startedAt)}`);
-      }),
-      { addons: { programs: programsAddon() } },
-      () => recorder.host,
-    )(["hold", "--deadline-ms", String(deadline), "--json"]);
-    try {
-      await entered.promise;
-      await turns();
-      await advance(deadline - 1);
-      expect(seen).toEqual(["entered aborted=false"]);
-      expect(recorder.writes).toEqual([]);
-      await advance(1);
-      expect(seen).toEqual([
-        "entered aborted=false",
-        `cleaned at=${String(deadline)}`,
-      ]);
-      const [write] = recorder.writes;
-      expect(recorder.writes.length).toBe(1);
-      expect(causeOf(write?.text ?? "null")).toBe("DOMAIN_DEADLINE_UNCHANGED");
-      expect((write?.at ?? 0) - startedAt).toBe(deadline);
-      expect(recorder.exits).toEqual([3]);
-    } finally {
-      await advance(cancellationWait);
-      jest.useRealTimers();
-      await done;
-    }
+function aborted(signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    signal.addEventListener(
+      "abort",
+      () => {
+        resolve();
+      },
+      { once: true },
+    );
   });
+}
+
+describe("the handler's abort signal at a deadline", () => {
+  for (const cleanUp of [0, 200])
+    test(`a handler waiting on its abort signal is awaited through a ${String(cleanUp)} ms clean-up, and the result is written when it returns`, async () => {
+      const deadline = 300;
+      const cleaned = deferred();
+      const seen: string[] = [];
+      const run = await heldUntilDeadline(
+        deadline,
+        async (signal, startedAt) => {
+          seen.push(`entered aborted=${String(signal.aborted)}`);
+          await aborted(signal);
+          seen.push(`aborted at=${String(performance.now() - startedAt)}`);
+          await cleaned.promise;
+          seen.push(`cleaned at=${String(performance.now() - startedAt)}`);
+        },
+      );
+      try {
+        await advance(deadline - 1);
+        expect(seen).toEqual(["entered aborted=false"]);
+        await advance(1);
+        if (cleanUp > 0) await advance(cleanUp);
+        expect(seen).toEqual([
+          "entered aborted=false",
+          `aborted at=${String(deadline)}`,
+        ]);
+        expect(run.recorder.writes).toEqual([]);
+        cleaned.resolve();
+        await turns();
+        expect(seen[2]).toBe(`cleaned at=${String(deadline + cleanUp)}`);
+        const [write] = run.recorder.writes;
+        expect(run.recorder.writes.length).toBe(1);
+        expect(causeOf(write?.text ?? "null")).toBe(
+          "DOMAIN_DEADLINE_UNCHANGED",
+        );
+        expect((write?.at ?? 0) - run.startedAt).toBe(deadline + cleanUp);
+        expect(run.recorder.exits).toEqual([3]);
+      } finally {
+        cleaned.resolve();
+        await advance(cancellationWait);
+        await run.finish();
+      }
+    });
 });
 
 test("P4.canary fake timers advance the clock and fire a raw over-limit delay early", () => {

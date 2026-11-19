@@ -79,11 +79,13 @@ export type HandlerContext<C extends CapabilitySelection> = (C extends {
   (C extends { diagnostics: true }
     ? { readonly diagnostics: DiagnosticsCapability }
     : object);
-// Interface: Every handler context carries its run's stop signal. It aborts at the
-// first stop request or at the deadline: start no new work after that. A run
-// entered with no stop source holds a signal that never aborts. The
-// lifecycle's waits and exits are unchanged (LIFE-6, LIFE-11).
-export type StopContext = { readonly signal: AbortSignal };
+// Interface: A handler built by command() or changing() holds its run's abort
+// signal. It aborts at the first stop request or at the deadline: start no new
+// work after that. A run entered with no stop source holds a signal that never
+// aborts. At a deadline the lifecycle waits for the handler inside its
+// cancellation bound (LIFE-6). At a stop request it does not wait, so only
+// what an abort listener does at once is sure to run (LIFE-11).
+export type AbortContext = { readonly signal: AbortSignal };
 export type RunProcess = (argv: unknown) => Promise<number>;
 
 export type ApprovalRequest = {
