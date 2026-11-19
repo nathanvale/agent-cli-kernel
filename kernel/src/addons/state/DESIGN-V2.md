@@ -197,8 +197,8 @@ the admission lock, so nothing comes between the check and the rename.
   it shrinks as a backlog drains. Version 1 sizes the 2,000 ms wait for a
   hold of milliseconds. Whether this stays inside it is not measured yet:
   the code review times one admission, step 4's read included, against a
-  just-upgraded backlog of settled cases and against 64 moved and 128
-  ineligible candidates, before the number is relied on.
+  just-upgraded backlog of settled cases and against the worst hold, 64 moved
+  and 64 ineligible candidates, before the number is relied on.
 - A move across a bind mount of the same filesystem fails with `EXDEV`
   although the device matches; it is a failed move like any other.
 - A move that fails (a rename or a directory flush error) does not change

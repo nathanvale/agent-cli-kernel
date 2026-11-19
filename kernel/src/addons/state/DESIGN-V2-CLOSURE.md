@@ -142,18 +142,18 @@ stopped-owner cases on the platform and writes the record, in two runs:
 
 Record fields:
 
-| Field                 | Content                                                                                                                                                                                                                                                                                                       |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `schema`              | `state-qualification-run/1`                                                                                                                                                                                                                                                                                   |
-| `row`                 | the candidate row id                                                                                                                                                                                                                                                                                          |
-| `runs`                | one entry for each run, in order: `{ entry, commit, started, ended, cases }`. `entry` is the test entry or `index.ts`; `commit` is the full commit that run used (the second is the row's commit); `started` and `ended` are wall clock times                                                                 |
-| `sourceHash`          | SHA-256 over each qualified file in sorted path order, each entered as its path, a newline, its byte length, a newline and its bytes as committed. The files: `kernel/src/addons/state/*.ts` except `capability-qualification-table.ts`; `kernel/src/addons/programs/*.ts`; `kernel/src/kernel/state-seam.ts` |
-| `platform`            | `os`, exact `release`, `majorRelease`, architecture, runtime version, distribution, C library, and whether it ran in a container                                                                                                                                                                              |
-| `filesystem`          | the state root's observed filesystem facts only; no path, user name or machine name                                                                                                                                                                                                                           |
-| `primitive`           | the active coordination route                                                                                                                                                                                                                                                                                 |
-| `bootIdentitySource`  | the source, and whether it was readable; never the value                                                                                                                                                                                                                                                      |
-| `cases` (in each run) | `[{ id, result, detail }]`, result `pass`, `fail` or `unproved`                                                                                                                                                                                                                                               |
-| `factSource`          | `observed`: every fact above was read from the machine, with no override. The command writes no other value                                                                                                                                                                                                   |
+| Field                      | Content                                                                                                                                                                                                                                                                                                       |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schema`                   | `state-qualification-run/1`                                                                                                                                                                                                                                                                                   |
+| `row`                      | the candidate row id                                                                                                                                                                                                                                                                                          |
+| `runs`                     | one entry for each run, in order: `{ entry, commit, sourceHash, started, ended, cases }`. `entry` is the test entry or `index.ts`; `commit` is the full commit that run used (the second is the row's commit); `sourceHash` is computed at that commit; `started` and `ended` are wall clock times            |
+| `sourceHash` (in each run) | SHA-256 over each qualified file in sorted path order, each entered as its path, a newline, its byte length, a newline and its bytes as committed. The files: `kernel/src/addons/state/*.ts` except `capability-qualification-table.ts`; `kernel/src/addons/programs/*.ts`; `kernel/src/kernel/state-seam.ts` |
+| `platform`                 | `os`, exact `release`, `majorRelease`, architecture, runtime version, distribution, C library, and whether it ran in a container                                                                                                                                                                              |
+| `filesystem`               | the state root's observed filesystem facts only; no path, user name or machine name                                                                                                                                                                                                                           |
+| `primitive`                | the active coordination route                                                                                                                                                                                                                                                                                 |
+| `bootIdentitySource`       | the source, and whether it was readable; never the value                                                                                                                                                                                                                                                      |
+| `cases` (in each run)      | `[{ id, result, detail }]`, result `pass`, `fail` or `unproved`                                                                                                                                                                                                                                               |
+| `factSource`               | `observed`: every fact above was read from the machine, with no override. The command writes no other value                                                                                                                                                                                                   |
 
 The run covers the cases that run on observed facts: the executable closure
 and stopped-owner cases (families K02, K03, K06, K07, K08, O04, O05, O07 and
@@ -174,15 +174,15 @@ Left out of the run:
 Q03.a refuses a production row unless its record exists, carries `factSource:
 "observed"`, matches the row's `os`, `majorRelease`, `filesystem`, `primitive`
 and `bootIdentitySource`, has the row's `observedRelease` as its
-`platform.release`, has every required case `pass`, has a `sourceHash` equal
-to the hash of the qualified source files now, has both runs, and the row
-names its reviewing session, Nathan's countersignature and the date. So a
-change to that source invalidates the row until a new run. Version 2 moves the
-capability qualification table out of `qualification.ts` into
-`capability-qualification-table.ts`, so the matching logic stays inside the
-hash and only the table is left out. The hash needs no history lookup, which
-suits a shallow checkout. REC-7b asks that review to pass V-22 and V-42 for
-each row.
+`platform.release`, has every required case `pass`, has, in both runs, a
+`sourceHash` equal to the hash of the qualified source files now, has both
+runs, and the row names its reviewing session, Nathan's countersignature and
+the date. So a change to that source invalidates the row until a new run.
+Version 2 moves the capability qualification table out of `qualification.ts`
+into `capability-qualification-table.ts`, so the matching logic stays inside
+the hash and only the table is left out. The hash needs no history lookup,
+which suits a shallow checkout. REC-7b asks that review to pass V-22 and V-42
+for each row.
 
 ## 4. Closing after a torn tail (proposed: open points L and X)
 
