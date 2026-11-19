@@ -44,6 +44,9 @@ in that same review.
   row, but they need reclaim or takeover, which version 2 does not include;
   the review that adds a row rewords the reason.
 - X12 keeps its cases and gains K11.e.
+- X26 to X28 assume open point H's recommended option, where prune is not
+  journaled. Under the journaled option a crash there also leaves the
+  calling command's unresolved case.
 - Case Q01.c pins exactly 22 transition rows in `DESIGN.md`. The rows above
   live in this file, so that pin is extended to it with version 2 code.
 - L07.b, K11.b, K11.f and Q03.a prove rules, not transitions, and map to
@@ -117,11 +120,9 @@ Each is one decision with one recommendation.
 - D: Deleting history. REC-4 says "Keep the original intent and closure
   history readable" and that a same-identity closure retry "returns its prior
   disposition"; DISC-14 item 3 says the report "never deletes history".
-  Options: no deletion, so only the move lands and `resolved/` grows without
-  bound; or an accepted decision with the Command Contract 3 records (owner
-  Linear MAG-98) for a host-set retention, after which history and a retry
-  answer not found. Recommend the accepted decision. Prune code waits for
-  it; the move does not.
+  Recommend an accepted decision with the Command Contract 3 records (owner
+  Linear MAG-98): a host-set retention, after which history and a retry
+  answer not found. Prune code waits for it; the move does not.
 - E: Recommend an old program may not open a new store: version 1 refuses a
   version 2 store.
 - F: Recommend at most 64 moves per hold of the admission lock.
@@ -130,12 +131,20 @@ Each is one decision with one recommendation.
   a documented limit, outside version 2.
 - H: Who may call `prune`. It deletes durable state, so an inspect command
   or `ifNoResult` that called it would change state from a read-only command
-  (DISC-14 item 1, REC-3). Options: a documented rule only, which is simplest
-  and enforced by nothing; or `prune` takes the recorded-effect capability,
-  so it runs only inside a changing command's recorded effect. The second is
-  enforced by the capability a program start already needs, but each prune
-  run is journaled, and one that crashes leaves an unresolved case that
-  blocks later prune runs until it is closed. Recommend the capability.
+  (CMD-4, CMD-10a, DISC-14 item 1). Options:
+  - A documented rule only. Simplest; nothing enforces it.
+  - `prune` takes the changing command's state capability (`ctx.state`),
+    which only `changing()` handlers receive, as `transaction` and `close`
+    do, and refuses one whose run has ended. Enforced, and nothing is
+    journaled. A command that only prunes
+    starts no transaction, so it returns a result without a transaction
+    proof, which the kernel allows today when no transaction started.
+  - `prune` takes the recorded-effect capability, so it runs as a journaled
+    effect. Enforced and recorded, but a crashed prune leaves an unresolved
+    case, and closing it needs a matching row and an observer for the prune
+    effect. Where no row matches, pruning then stops for good.
+
+  Recommend the state capability.
 - I: A macOS row needs a foreign call (`statfs`, `sysctlbyname`) in one
   confined Darwin module with a start-up self-check, as `linux-flock.ts` is
   for Linux, and the lint ban widened by that file. Recommend leaving it out
@@ -166,8 +175,10 @@ Each is one decision with one recommendation.
   on. `linux-7-btrfs` is only the worked example, from the one environment
   observed (an OrbStack container on a Mac). A deployment on another host
   kernel major, or on a volume on ext4 or XFS, matches no row and still
-  hands off. Recommend the first row and its evidence run target the real
-  deployment once Nathan names it.
+  hands off. Recommend running the qualification command first in the
+  observed environment, to prove the command and its record, and making the
+  first production row the deployment's own host kernel and volume
+  filesystem.
 - O: Recommend no row for the container's writable layer: state kept there is
   lost with the container, so a tool should keep its state root on a volume.
 - P: The boot identity names no machine (REC-7 asks identity to distinguish
@@ -180,9 +191,10 @@ Each is one decision with one recommendation.
   so a tool rolled back to a version 1 release cannot read its state.
   Options: automatic, at the first changing route of any version 2 program,
   which needs no host work but removes the way back at the first changing
-  command after an update; or explicit, by a state add-on factory option or
-  a host call, so a host can ship version 2, confirm it, then upgrade. The
-  explicit form costs a version 2 program that still runs on a version 1
+  command after an update, and nothing then holds a shared root until all
+  its programs run version 2; or explicit, by a state add-on factory option
+  or a host call, so a host can ship version 2, confirm it, then upgrade.
+  The explicit form costs a version 2 program that still runs on a version 1
   store (no moves, no prune) and a step a host can forget. Recommend
   explicit.
 - R: Recommend the owner does not move its own case at transaction end; the
@@ -195,19 +207,21 @@ Each is one decision with one recommendation.
 - U: Matching also on the coordination route and a readable boot identity,
   beyond the three facts decided. Recommend yes: both can only refuse more.
 - V: Two containers sharing one state root. REC-7b's proposed boundary is
-  "the same host and namespace". Options: a row claims it only when it cites
-  a passed K11.f record, a separate step that needs a container runtime; or
-  every row lists it under `failureCases`. Recommend the first: the lease
-  and the boot identity are the host kernel's and no proof uses a process
-  view.
+  "the same host and namespace". Options: a row claims it only with a passed
+  K11.f record in its `sharedRoot`, written by the same command in its
+  two-container step, which needs a container runtime; or every row lists it
+  under `failureCases`. Recommend the first: the lease and the boot identity
+  are the host kernel's and no proof uses a process view.
 - W: A closing case whose target is in neither folder reports
   `unobservable`, where the code today reports `absent`. Recommend yes.
 - X: No append after the final event: `record` and `admitStart` refuse once
   the transaction has ended. This changes today's code for a work function
   that does not await. Recommend yes; closing after a torn tail depends on
   it.
-- Y: Whether tools of this kind start a program inside a recorded effect, or
-  reach outside work through a long-lived link that records no start. Only
-  the first writes `delegate-admitted`, so only it meets K's limit. Recommend
-  Nathan answers this before K: if no program starts inside an effect, the
-  limit never applies.
+- Y: Whether hosts of this kind start a program inside a recorded effect,
+  or reach outside work through a long-lived link that records no start.
+  Only the first writes `delegate-admitted`, so only it meets K's limit.
+  Recommend a host whose outside work runs through a long-lived link starts
+  that link outside any recorded effect, so no case it leaves records a
+  delegate start; K's limit then falls only on a host that starts a program
+  inside an effect.

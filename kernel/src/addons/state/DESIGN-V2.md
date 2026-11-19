@@ -35,7 +35,8 @@ Settled constraints this note keeps:
 
 - Many runs may share one process, but each run is still one transaction and
   one proof (Nathan, 19 November 2026). Version 2 adds no second transaction
-  to a run: moving and pruning are storage maintenance, not transactions.
+  to a run: moving is storage maintenance under the admission lock, and
+  pruning opens no transaction of its own.
 - A separate change hands the work function `{ operationId }`. It changes
   nothing in this design.
 
@@ -174,14 +175,12 @@ the rename fails and the case stays where it is.
 
 ## 7. Prune (new host call)
 
-`prune(effect, { olderThanMilliseconds, limit })` is on the instance
+`prune(..., { olderThanMilliseconds, limit })` is on the instance
 `stateAddon` returns. It deletes durable state, so it must never run from an
-inspect command or the `ifNoResult` command (DISC-14 item 1, REC-3). How
-that is kept is open point H. The form recommended there takes the
-recorded-effect capability, so prune runs only inside a changing command's
-recorded effect, as that command's declared effect. Prune opens no
-transaction of its own, so a run still has one, and it changes no case's
-disposition.
+inspect command, which "performs no domain mutation" (CMD-4) and "cannot open
+a transaction" (CMD-10a), nor from the `ifNoResult` command (DISC-14 item 1,
+REC-3). What it takes to keep that is open point H; each option still opens no second
+transaction in a run, and none changes a case's disposition.
 
 1. Delete leftovers `staging/prune-*` (they count toward `limit`).
 2. With no coordination lock: list `resolved/` names in name order, read each
