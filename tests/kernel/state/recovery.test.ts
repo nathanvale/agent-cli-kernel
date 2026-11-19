@@ -3,10 +3,12 @@ import { createHash } from "node:crypto";
 import {
   chmodSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   readFileSync,
   renameSync,
   rmSync,
+  statfsSync,
   utimesSync,
   writeFileSync,
 } from "node:fs";
@@ -23,6 +25,7 @@ import {
 } from "./harness.ts";
 import type { World } from "./harness.ts";
 import { coordinationExpected } from "./holder.ts";
+import { resolveCoordination } from "../../../kernel/src/addons/state/coordination.ts";
 
 const apply = (name: string, content = "v1") => [
   "apply",
@@ -770,5 +773,344 @@ caseTest(
     expectRefusedUnchanged(refused, "DOMAIN_SX_UNAVAILABLE");
     expect(str(refused.envelope.message)).toContain("store-unreadable");
     expect(existsSync(closurePath(world, id))).toBe(false);
+  }),
+);
+
+const coordinationRoute = resolveCoordination();
+const primitive = coordinationRoute.available
+  ? coordinationRoute.route
+  : "no coordination route";
+const pilotRelease = "7.2.12-orbstack-00394-gbecdd6130068";
+const btrfs = 0x9123683e;
+const bootIdentityFile = "/proc/sys/kernel/random/boot_id";
+const readable = {
+  release: pilotRelease,
+  filesystem: btrfs,
+  bootIdentity: "boot-one",
+};
+
+function candidate(fields: Readonly<Record<string, string | number>> = {}) {
+  return {
+    os: process.platform,
+    majorRelease: "7",
+    observedRelease: pilotRelease,
+    filesystemName: "btrfs",
+    filesystemType: btrfs,
+    primitive,
+    bootIdentitySource: bootIdentityFile,
+    ...fields,
+  };
+}
+function under(
+  row: ReturnType<typeof candidate>,
+  overrides: Readonly<Record<string, unknown>>,
+): Record<string, string> {
+  return {
+    SX_CANDIDATE_ROW: JSON.stringify(row),
+    SX_FACT_OVERRIDES: JSON.stringify(overrides),
+  };
+}
+function outsideCoordination(world: World, prefix = ""): string {
+  return world
+    .snapshot()
+    .split("\n")
+    .filter(
+      (line) =>
+        line.startsWith(prefix) && !line.startsWith("state/coordination/"),
+    )
+    .join("\n");
+}
+async function refusedUnqualified(
+  world: World,
+  id: string,
+  environment: Readonly<Record<string, string>>,
+): Promise<string> {
+  const before = outsideCoordination(world);
+  const refused = await world.run(
+    closeArgs(id, await world.revision(id)),
+    environment,
+  );
+  expectRefusedUnchanged(refused, "DOMAIN_SX_UNAVAILABLE");
+  const message = str(refused.envelope.message);
+  expect(message).toStartWith(
+    "State unavailable: stopped-owner-proof-unqualified (observed os ",
+  );
+  expect(outsideCoordination(world)).toBe(before);
+  expect(existsSync(closurePath(world, id))).toBe(false);
+  return message;
+}
+async function closesUnder(
+  world: World,
+  id: string,
+  environment: Readonly<Record<string, string>>,
+): Promise<void> {
+  expectCompleted(
+    await world.run(closeArgs(id, await world.revision(id)), environment),
+  );
+  const closure = world.cases().find((entry) => entry.id === id)?.closure;
+  expect(at(closure?.records[0]?.payload, "qualification")).toBe(
+    "fixture:specimen",
+  );
+}
+async function capabilitiesUnder(
+  world: World,
+  environment: Readonly<Record<string, string>>,
+) {
+  const run = await world.run(["capabilities", "--json"], environment);
+  expect(run.exit).toBe(0);
+  return at(run.result.raw, "data");
+}
+
+caseTest(
+  "Q02.a-release-major-edges",
+  plain(async (world) => {
+    await world.killAt(apply("a"), "effect");
+    const id = only(world);
+    for (const [release, major] of [
+      ["6.20.1", "6"],
+      ["8.0.0", "8"],
+      ["70.1.0", "70"],
+    ] as const) {
+      const message = await refusedUnqualified(
+        world,
+        id,
+        under(candidate(), { ...readable, release }),
+      );
+      expect(message).toContain(`, release ${release} (major ${major}), `);
+      expect(message).toContain("; qualified: candidate (os ");
+      expect(message).toContain(", major 7, filesystem btrfs 0x9123683E, ");
+      expect(message).toEndWith("): differs in major release).");
+    }
+    const refusedReport = await capabilitiesUnder(
+      world,
+      under(candidate(), { ...readable, release: "8.0.0" }),
+    );
+    expect(at(refusedReport, "stoppedOwnerProof")).toBe("unavailable");
+    expect(at(refusedReport, "qualification")).toBe("unqualified");
+    expect(JSON.stringify(at(refusedReport, "reasons"))).toContain(
+      "differs in major release",
+    );
+    const sameMajor = under(candidate(), {
+      ...readable,
+      release: "7.99.0-other",
+    });
+    const report = await capabilitiesUnder(world, sameMajor);
+    expect(at(report, "stoppedOwnerProof")).toBe("fixture-only");
+    expect(at(report, "qualification")).toBe("fixture:specimen");
+    await closesUnder(world, id, sameMajor);
+  }),
+);
+
+caseTest(
+  "Q02.b-filesystem-mismatch-refused",
+  plain(async (world) => {
+    await world.killAt(apply("a"), "effect");
+    const id = only(world);
+    const observed = statfsSync(world.root).type;
+    const nfs = 0x6969;
+    expect(observed).not.toBe(nfs);
+    const facts = { release: pilotRelease, bootIdentity: "boot-one" };
+    const message = await refusedUnqualified(
+      world,
+      id,
+      under(candidate({ filesystemName: "nfs", filesystemType: nfs }), facts),
+    );
+    expect(message).toContain(
+      `, filesystem 0x${observed.toString(16).toUpperCase()}, `,
+    );
+    expect(message).toContain(", filesystem nfs 0x6969, ");
+    expect(message).toEndWith("): differs in filesystem).");
+    await closesUnder(
+      world,
+      id,
+      under(
+        candidate({ filesystemName: "observed", filesystemType: observed }),
+        facts,
+      ),
+    );
+  }),
+);
+
+caseTest(
+  "Q02.c-route-mismatch-refused",
+  plain(async (world) => {
+    await world.killAt(apply("a"), "effect");
+    const id = only(world);
+    const message = await refusedUnqualified(
+      world,
+      id,
+      under(candidate({ primitive: "another coordination route" }), readable),
+    );
+    expect(message).toContain(`, coordination route ${primitive}, `);
+    expect(message).toContain(
+      ", coordination route another coordination route, ",
+    );
+    expect(message).toEndWith("): differs in coordination route).");
+    await closesUnder(world, id, under(candidate(), readable));
+  }),
+);
+
+caseTest(
+  "Q02.d-unreadable-fact-refuses",
+  plain(async (world) => {
+    await world.killAt(apply("a"), "effect");
+    const id = only(world);
+    for (const [overrides, shown, differs] of [
+      [
+        { filesystem: null },
+        ", filesystem unreadable (unreadable), ",
+        "filesystem",
+      ],
+      [
+        { bootIdentity: null },
+        ", boot identity unreadable (unreadable) from ",
+        "boot identity",
+      ],
+      [
+        { bootIdentity: "" },
+        ", boot identity unreadable (empty) from ",
+        "boot identity",
+      ],
+    ] as const) {
+      const message = await refusedUnqualified(
+        world,
+        id,
+        under(candidate(), { ...readable, ...overrides }),
+      );
+      expect(message).toContain(shown);
+      expect(message).toEndWith(`): differs in ${differs}).`);
+    }
+    for (const [devices, shown, problem] of [
+      [
+        { operations: null },
+        ", operations unreadable (unreadable), ",
+        "; not on the state root's device: operations/; qualified: ",
+      ],
+      [
+        { root: null },
+        ", devices root unreadable (unreadable), ",
+        "; the state root's device is unreadable; qualified: ",
+      ],
+    ] as const) {
+      const message = await refusedUnqualified(
+        world,
+        id,
+        under(candidate(), { ...readable, devices }),
+      );
+      expect(message).toContain(shown);
+      expect(message).toContain(problem);
+      expect(message).toEndWith("): every row field matches).");
+    }
+    await closesUnder(world, id, under(candidate(), readable));
+  }),
+);
+
+caseTest(
+  "Q02.f-nested-mount-refused",
+  plain(async (world) => {
+    await world.killAt(apply("a"), "effect");
+    const id = only(world);
+    const root = lstatSync(world.root).dev;
+    for (const folder of ["coordination", "operations", "settled", "staging"]) {
+      const message = await refusedUnqualified(
+        world,
+        id,
+        under(candidate(), { ...readable, devices: { [folder]: root + 1 } }),
+      );
+      expect(message).toContain(`, devices root ${String(root)}, `);
+      expect(message).toContain(`${folder} ${String(root + 1)}`);
+      expect(message).toContain(
+        `; not on the state root's device: ${folder}/; qualified: `,
+      );
+      expect(message).toEndWith("): every row field matches).");
+    }
+    await closesUnder(world, id, under(candidate(), readable));
+  }),
+);
+
+supportingTest(
+  "X27 supporting: a row for another operating system or boot identity source does not match",
+  plain(async (world) => {
+    await world.killAt(apply("a"), "effect");
+    const id = only(world);
+    for (const [fields, differs] of [
+      [{ os: "aix" }, "os"],
+      [{ bootIdentitySource: "/proc/sys/kernel/random/uuid" }, "boot identity"],
+    ] as const) {
+      const message = await refusedUnqualified(
+        world,
+        id,
+        under(candidate(fields), readable),
+      );
+      expect(message).toContain(`(observed os ${process.platform}, `);
+      expect(message).toEndWith(`): differs in ${differs}).`);
+    }
+    await closesUnder(world, id, under(candidate(), readable));
+  }),
+);
+
+function bootIdentityObserved(): string {
+  try {
+    return readFileSync(bootIdentityFile, "utf8").trim() === ""
+      ? "empty"
+      : "readable";
+  } catch (error) {
+    const code: unknown =
+      typeof error === "object" && error !== null
+        ? Reflect.get(error, "code")
+        : undefined;
+    return typeof code === "string" ? code : "UNKNOWN";
+  }
+}
+
+supportingTest(
+  "X27 supporting: without an override the boot identity is read from the machine (refuses where it is unreadable, as on macOS; closes where it is readable, as on Linux)",
+  plain(async (world) => {
+    await world.killAt(apply("a"), "effect");
+    const id = only(world);
+    const facts = { release: pilotRelease, filesystem: btrfs };
+    const observed = bootIdentityObserved();
+    if (observed === "readable") {
+      await closesUnder(world, id, under(candidate(), facts));
+      return;
+    }
+    const message = await refusedUnqualified(
+      world,
+      id,
+      under(candidate(), facts),
+    );
+    expect(message).toContain(`, boot identity unreadable (${observed}) from `);
+    expect(message).toEndWith("): differs in boot identity).");
+  }),
+);
+
+supportingTest(
+  "X27 supporting: through index.ts the empty capability qualification table refuses closure with the observed facts",
+  plain(async (world) => {
+    const production = { SX_ENTRY: "production" };
+    await world.killAt(apply("a"), "effect", production);
+    const id = only(world);
+    const before = outsideCoordination(world, "state/");
+    const refused = await world.run(
+      closeArgs(id, await world.revision(id)),
+      production,
+    );
+    expectRefusedUnchanged(refused, "DOMAIN_SX_UNAVAILABLE");
+    const message = str(refused.envelope.message);
+    expect(message).toStartWith(
+      "State unavailable: stopped-owner-proof-unqualified (observed os ",
+    );
+    expect(message).toEndWith("; qualified: no capability qualification row).");
+    expect(outsideCoordination(world, "state/")).toBe(before);
+    expect(existsSync(closurePath(world, id))).toBe(false);
+    const report = await capabilitiesUnder(world, production);
+    expect(at(report, "qualification")).toBe("unqualified");
+    expect(at(report, "stoppedOwnerProof")).toBe("unavailable");
+    expect(JSON.stringify(at(report, "reasons"))).toContain(
+      "; qualified: no capability qualification row.",
+    );
+    expect(
+      world.ledger().filter((line) => line === "entry production"),
+    ).toEqual(["entry production", "entry production", "entry production"]);
   }),
 );

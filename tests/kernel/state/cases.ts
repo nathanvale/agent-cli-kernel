@@ -906,6 +906,49 @@ export const stateCases: readonly StateCase[] = [
     red: "Let the fixture write the production table.",
   },
   {
+    id: "Q02.a-release-major-edges",
+    ...coordinated,
+    sources:
+      "REC-7b; journal version 2 design part 2 sections 2 and 2.1; X27; decision J (Nathan, 19 November 2026, 13:46)",
+    observation:
+      "Another release in the same major matches; the next major refuses with the observed facts.",
+    red: "Match the exact release, or none (planted fault).",
+  },
+  {
+    id: "Q02.b-filesystem-mismatch-refused",
+    ...coordinated,
+    sources:
+      "REC-7b; journal version 2 design part 2 sections 2 and 2.1; X27; decision of Nathan, 19 November 2026, 10:06",
+    observation:
+      "A state root on a filesystem the row does not name refuses with the observed facts; no closure.",
+    red: "Trust the row's name without reading the root (planted fault).",
+  },
+  {
+    id: "Q02.c-route-mismatch-refused",
+    ...coordinated,
+    sources:
+      "REC-7b; journal version 2 design part 2 section 2; X27; decision U (Nathan, 19 November 2026, 13:46)",
+    observation: "A row for another coordination route does not match.",
+    red: "Ignore primitive (planted fault).",
+  },
+  {
+    id: "Q02.d-unreadable-fact-refuses",
+    ...coordinated,
+    sources:
+      "REC-7b; journal version 2 design part 2 section 2; X27; decision U (Nathan, 19 November 2026, 13:46)",
+    observation:
+      "An unreadable filesystem or boot identity refuses; nothing is written.",
+    red: "Treat unreadable as matching (planted fault).",
+  },
+  {
+    id: "Q02.f-nested-mount-refused",
+    ...coordinated,
+    sources: "REC-7b; journal version 2 design part 2 section 2",
+    observation:
+      "A store folder on a mount nested under the state root refuses closure with the observed facts.",
+    red: "Check only the root (planted fault).",
+  },
+  {
     id: "Q01.c-transitions-mapped",
     ...component,
     sources: "REC-8",

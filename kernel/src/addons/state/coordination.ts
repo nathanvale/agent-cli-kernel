@@ -27,6 +27,7 @@ export type LockAttempt =
 export type CoordinationRoute =
   | {
       readonly available: true;
+      readonly route: string;
       readonly basis: string;
       readonly tryLock: (path: string, create?: boolean) => LockAttempt;
     }
@@ -113,6 +114,7 @@ export function resolveCoordination(library?: string): CoordinationRoute {
   if (library === undefined && process.platform === "darwin")
     return {
       available: true,
+      route: routes.darwin,
       basis: `${routes.darwin}; ${facts()}`,
       tryLock: darwinTryLock,
     };
@@ -131,6 +133,7 @@ export function resolveCoordination(library?: string): CoordinationRoute {
     };
   return {
     available: true,
+    route: routes.linux(loaded.library),
     basis: `${routes.linux(loaded.library)}; ${facts()}; filesystem not checked`,
     tryLock: flockTryLock(loaded.lock),
   };
