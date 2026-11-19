@@ -1147,8 +1147,10 @@ caseTest(
     const history = world.start(["history", read, "--json"], {}, readerBound);
     await feed(join(live, read, "events"), readBytes, history, () => {
       renameSync(join(live, read), join(settled, read));
+      const moved = join(settled, read, "events");
+      writeFileSync(`${moved}.plain`, readBytes);
+      renameSync(`${moved}.plain`, moved);
     });
-    await feed(join(settled, read, "events"), readBytes, history);
     const found = await history.done;
     expect(found.exit).toBe(0);
     expect(at(found.result.raw, "data", "status")).toBe("closed");
