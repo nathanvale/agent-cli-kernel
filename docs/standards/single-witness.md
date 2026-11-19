@@ -75,6 +75,10 @@ this file.
 - Drive every route a capability offers to the same shared function, so a
   route that wraps it, such as one that admits before it starts, is proved
   too. Witnessed: [r4622712214] (the domain program route had no proof).
+- Pin only what a production host can observe; a recording host whose `exit`
+  returns shows state that `runProcess` ends with its process. Witnessed:
+  [ef76011] (a case pinned `runProcess` keeping a finished run's identity,
+  the opposite of the accepted decision's wording).
 - Give a new folder in the state root the checks its sibling folders get.
   Witnessed: [kernel#13 r4624230267], [9086c3b] (`ensureStore` did not
   check `settled/` on a version 2 store, so a symbolic link there was
@@ -127,6 +131,7 @@ this file.
 [#9-add-on]: https://github.com/nathanvale/agent-cli-kernel/pull/9#pullrequestreview-5968740024
 [kernel#6 r4622839115]: https://github.com/nathanvale/agent-cli-kernel/pull/6#discussion_r4622839115
 [r4622712214]: https://github.com/nathanvale/agent-cli-kernel/pull/4#discussion_r4622712214
+[ef76011]: https://github.com/nathanvale/agent-cli-kernel/commit/ef76011bdde8d36064b73bd85550d8efc7fb15a6
 [kernel#13 r4624230267]: https://github.com/nathanvale/agent-cli-kernel/pull/13#discussion_r4624230267
 [9086c3b]: https://github.com/nathanvale/agent-cli-kernel/commit/9086c3b8b14bcba376aa63027abdd817c1495e53
 [kernel#13 r4624230310]: https://github.com/nathanvale/agent-cli-kernel/pull/13#discussion_r4624230310

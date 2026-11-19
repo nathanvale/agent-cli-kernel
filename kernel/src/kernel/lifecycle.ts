@@ -213,8 +213,11 @@ type Run = {
   commandIdentity: string | null;
   stopped: StopSignal | undefined;
   emergencyAttempted: boolean;
+  handler: EnteredHandler | undefined;
+  enter: Enter | undefined;
   execution: Promise<Execution> | undefined;
 };
+type EnteredHandler = { returned: boolean; readonly returning: Promise<void> };
 type Delivery =
   | { readonly candidate: Validation<unknown>; readonly trusted: TrustedRun }
   | undefined;
@@ -681,10 +684,12 @@ async function runDeclaredCommand(
   if (checked.kind === "refused") return checked.delivery;
   const attached = await attachState(run, identity, checked.attach);
   if ("delivery" in attached) return attached.delivery;
+  run.enter = attached.enter;
   if (run.stopped) return undefined;
   if (expired(run, deadlineAt)) return beforeStart(run, identity);
   run.phase = "handler-entered";
   const execution = enterHandler(run, attached.enter);
+  run.handler = handlerOf(execution);
   const first =
     deadlineAt === undefined
       ? await execution
@@ -741,6 +746,16 @@ async function checkPhase(
     kind: "refused",
     delivery: await refusal(run, identity, outcome.path),
   };
+}
+
+function handlerOf(execution: Promise<Execution>): EnteredHandler {
+  const handler: EnteredHandler = {
+    returned: false,
+    returning: execution.then(() => {
+      handler.returned = true;
+    }),
+  };
+  return handler;
 }
 
 function expired(run: Run, deadlineAt: number | undefined): boolean {
@@ -829,6 +844,8 @@ function newRun(prepared: Prepared, host: ProcessHost): Run {
     commandIdentity: null,
     stopped: undefined,
     emergencyAttempted: false,
+    handler: undefined,
+    enter: undefined,
     execution: undefined,
   };
 }
@@ -928,6 +945,18 @@ async function returnedResult(
     : { kind: "no-envelope", runId: run.runId, exitCode: 1 };
 }
 
+// Accepted decision (Nathan, 19 November 2026, 12:08 AEDT): the state seam
+// forgets a run identity when its run finishes, and refuses a reused one only
+// while that run is live. A handler can outlive its run's deadline; this code
+// reads such a run as live until the handler returns.
+function forgetWhenReturned(run: Run): void {
+  const enter = run.enter;
+  if (!enter) return;
+  const forget = () => run.runtime.forgetState(enter);
+  if (!run.handler || run.handler.returned) forget();
+  else void run.handler.returning.then(forget);
+}
+
 async function runAndReturn(run: Run, argv: unknown): Promise<InProcessResult> {
   const inFlight = inFlightOn(run.host);
   run.stopped = inFlight.stopped;
@@ -953,5 +982,6 @@ async function runAndReturn(run: Run, argv: unknown): Promise<InProcessResult> {
     throw error;
   } finally {
     if (!run.stopped) inFlight.runs.delete(run);
+    forgetWhenReturned(run);
   }
 }

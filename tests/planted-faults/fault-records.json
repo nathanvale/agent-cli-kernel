@@ -1713,5 +1713,145 @@
     "testFile": "tests/kernel/state/recovery.test.ts",
     "title": "^X29 supporting: the closer holds the owner lease until its closure is published",
     "source": "d990c5b test(state): make the lease and pin proofs see what they claim"
+  },
+  {
+    "id": "d62870c-in-process-forget",
+    "patch": "tests/planted-faults/patches/d62870c-lifecycle-forget.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP08\\.memory-returns-to-start",
+    "source": "d62870c feat(kernel): forget an in-process run identity when its run finishes"
+  },
+  {
+    "id": "d62870c-in-process-handler",
+    "patch": "tests/planted-faults/patches/d62870c-lifecycle-handler.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP08\\.live-past-deadline",
+    "source": "d62870c feat(kernel): forget an in-process run identity when its run finishes"
+  },
+  {
+    "id": "d62870c-in-process-live",
+    "patch": "tests/planted-faults/patches/d62870c-state-seam-live.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP08\\.reuse-after-finish-attaches",
+    "source": "d62870c feat(kernel): forget an in-process run identity when its run finishes"
+  },
+  {
+    "id": "d62870c-in-process-reuse",
+    "patch": "tests/planted-faults/patches/d62870c-state-seam-reuse.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP08\\.reuse-while-live-refused",
+    "source": "d62870c feat(kernel): forget an in-process run identity when its run finishes"
+  },
+  {
+    "id": "7fb5649-state-seam-closed",
+    "patch": "tests/planted-faults/patches/7fb5649-state-seam-closed.patch",
+    "testFile": "tests/kernel/state-seam.test.ts",
+    "title": "a late callback in a forgotten run's context cannot record under the run that reused its identity",
+    "source": "7fb5649 fix(kernel): keep a forgotten run's capability closed"
+  },
+  {
+    "id": "7fb5649-in-process-entered",
+    "patch": "tests/planted-faults/patches/7fb5649-lifecycle-entered.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP08\\.attached-never-entered",
+    "source": "7fb5649 fix(kernel): keep a forgotten run's capability closed"
+  },
+  {
+    "id": "d62870c-in-process-rejected",
+    "patch": "tests/planted-faults/patches/d62870c-lifecycle-rejected.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP08\\.rejected-run-forgets",
+    "source": "d62870c feat(kernel): forget an in-process run identity when its run finishes"
+  },
+  {
+    "id": "c02caae-state-seam-active",
+    "patch": "tests/planted-faults/patches/c02caae-state-seam-active.patch",
+    "testFile": "tests/kernel/state-seam.test.ts",
+    "title": "a record kept past its forgotten run cannot record under the run that reused its identity",
+    "source": "c02caae fix(kernel): require the active attached run for a recorded effect"
+  },
+  {
+    "id": "ff48724-in-process-keep",
+    "patch": "tests/planted-faults/patches/ff48724-state-seam-keep.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP08\\.reuse-keeps-live-run",
+    "source": "ff48724 fix(kernel): keep a live run attached when its identity is reused"
+  },
+  {
+    "id": "ff48724-state-seam-revoke",
+    "patch": "tests/planted-faults/patches/ff48724-state-seam-revoke.patch",
+    "testFile": "tests/kernel/kernel-repair/state.test.ts",
+    "title": "R02\\.superseded-attachment-refused",
+    "source": "ff48724 fix(kernel): keep a live run attached when its identity is reused"
+  },
+  {
+    "id": "ff48724-state-seam-proof",
+    "patch": "tests/planted-faults/patches/ff48724-state-seam-proof.patch",
+    "testFile": "tests/kernel/correlations.test.ts",
+    "title": "the admitted state specimen validates 27 truth arms",
+    "source": "ff48724 fix(kernel): keep a live run attached when its identity is reused"
+  },
+  {
+    "id": "ff48724-state-seam-scope",
+    "patch": "tests/planted-faults/patches/ff48724-state-seam-scope.patch",
+    "testFile": "tests/kernel/kernel-repair/state.test.ts",
+    "title": "R02\\.superseded-attachment-refused",
+    "source": "ff48724 fix(kernel): keep a live run attached when its identity is reused"
+  },
+  {
+    "id": "ff48724-state-seam-summary",
+    "patch": "tests/planted-faults/patches/ff48724-state-seam-summary.patch",
+    "testFile": "tests/kernel/state-seam.test.ts",
+    "title": "a refused reuse keeps the live run's proof as its trusted summary",
+    "source": "ff48724 fix(kernel): keep a live run attached when its identity is reused"
+  },
+  {
+    "id": "2d158f0-state-seam-open",
+    "patch": "tests/planted-faults/patches/2d158f0-state-seam-open.patch",
+    "testFile": "tests/kernel/state-seam.test.ts",
+    "title": "a run whose transaction is still running stays live",
+    "source": "2d158f0 fix(kernel): keep a run live until its open transaction ends"
+  },
+  {
+    "id": "2d158f0-state-seam-later",
+    "patch": "tests/planted-faults/patches/2d158f0-state-seam-later.patch",
+    "testFile": "tests/kernel/state-seam.test.ts",
+    "title": "a run whose transaction is still running stays live",
+    "source": "2d158f0 fix(kernel): keep a run live until its open transaction ends"
+  },
+  {
+    "id": "7eae994-in-process-duplicate",
+    "patch": "tests/planted-faults/patches/7eae994-state-seam-duplicate.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP08\\.duplicate-keeps-live-run",
+    "source": "7eae994 fix(kernel): let only the attachment that a run created forget it"
+  },
+  {
+    "id": "7eae994-in-process-deadline",
+    "patch": "tests/planted-faults/patches/d62870c-lifecycle-handler.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP08\\.duplicate-keeps-live-run",
+    "source": "7eae994 fix(kernel): let only the attachment that a run created forget it"
+  },
+  {
+    "id": "7eae994-in-process-crash",
+    "patch": "tests/planted-faults/patches/7eae994-lifecycle-crash.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP08\\.duplicate-then-crash",
+    "source": "7eae994 fix(kernel): let only the attachment that a run created forget it"
+  },
+  {
+    "id": "7eae994-in-process-attach",
+    "patch": "tests/planted-faults/patches/7eae994-state-seam-attach.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP08\\.attach-throws-forgets",
+    "source": "7eae994 fix(kernel): let only the attachment that a run created forget it"
+  },
+  {
+    "id": "7eae994-state-seam-owner",
+    "patch": "tests/planted-faults/patches/7eae994-state-seam-owner.patch",
+    "testFile": "tests/kernel/state-seam.test.ts",
+    "title": "an attachment's forget never removes a later attachment",
+    "source": "7eae994 fix(kernel): let only the attachment that a run created forget it"
   }
 ]
