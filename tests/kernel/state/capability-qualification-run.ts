@@ -201,13 +201,14 @@ const runOwnedVariables = [
   "SX_FACT_OVERRIDES",
   "SX_CANDIDATE_ROW",
   "SX_QUALIFICATION",
+  "SX_ENTRY",
 ];
 
 export function refuseRunOverrides(extra: Readonly<Record<string, string>>) {
   const taken = runOwnedVariables.filter((name) => Object.hasOwn(extra, name));
   if (taken.length > 0)
     throw new Error(
-      `A capability qualification run sets no ${taken.join(", ")} for one test: every world runs on observed facts and the candidate row.`,
+      `A capability qualification run sets no ${taken.join(", ")} for one test: every world runs on observed facts, the candidate row and the run's own entry.`,
     );
 }
 

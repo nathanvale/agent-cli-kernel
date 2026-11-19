@@ -1075,24 +1075,34 @@ test("Q03 supporting: an index.ts capability qualification run starts every worl
   }
 });
 
-test("Q03 supporting: a world in a capability qualification run refuses a fact override or candidate row of its own", async () => {
-  const run = worldUnder(runVariableValue("fixture.ts", candidate));
-  try {
-    for (const name of ["SX_FACT_OVERRIDES", "SX_CANDIDATE_ROW"]) {
-      const refused = await run
-        .run(["pending", "--json"], { [name]: "{}" })
-        .then(
-          () => "ran",
-          (error: unknown) =>
-            error instanceof Error ? error.message : "thrown",
-        );
-      expect(refused).toBe(
-        `A capability qualification run sets no ${name} for one test: every world runs on observed facts and the candidate row.`,
-      );
+test("Q03 supporting: a world in a capability qualification run refuses a fact override, candidate row, qualification or entry of its own", async () => {
+  const owned = [
+    ["SX_FACT_OVERRIDES", "{}"],
+    ["SX_CANDIDATE_ROW", "{}"],
+    ["SX_QUALIFICATION", "fixture"],
+    ["SX_ENTRY", "production"],
+  ] as const;
+  for (const entry of runEntries) {
+    const run = worldUnder(runVariableValue(entry, candidate));
+    try {
+      for (const [name, value] of owned) {
+        const refused = await run
+          .run(["pending", "--json"], { [name]: value })
+          .then(
+            () => "ran",
+            (error: unknown) =>
+              error instanceof Error ? error.message : "thrown",
+          );
+        expect({ entry, name, refused }).toEqual({
+          entry,
+          name,
+          refused: `A capability qualification run sets no ${name} for one test: every world runs on observed facts, the candidate row and the run's own entry.`,
+        });
+      }
+      expect(run.ledger()).toEqual([]);
+    } finally {
+      run.dispose();
     }
-    expect(run.ledger()).toEqual([]);
-  } finally {
-    run.dispose();
   }
 });
 
