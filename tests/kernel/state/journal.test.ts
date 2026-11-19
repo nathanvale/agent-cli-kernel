@@ -21,6 +21,7 @@ import {
   at,
   caseTest,
   closeArgs,
+  eventsPath,
   expectCompleted,
   expectRefusedUnchanged,
   formatRecord,
@@ -63,9 +64,6 @@ const fixture = (body: (world: World) => Promise<void>) => () =>
 function eventKinds(world: World, id: string): readonly string[] {
   const operation = world.operations().find((entry) => entry.id === id);
   return operation ? operation.events.records.map((record) => record.kind) : [];
-}
-function eventsPath(world: World, id: string): string {
-  return join(world.root, "operations", id, "events");
 }
 function flipLastPayloadByte(path: string): void {
   const bytes = readFileSync(path);

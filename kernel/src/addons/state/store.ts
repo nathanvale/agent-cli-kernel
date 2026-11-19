@@ -670,6 +670,10 @@ function endsOnWholeRecord(descriptor: number): boolean {
 // Accepted decision (Nathan, 19 November 2026, 16:29 AEDT): nothing is
 // appended after torn bytes, so a failed partial write ends the case's
 // journal and a later delegate start refuses before its program starts.
+// Interface: each append reads the whole events file once, so one append
+// costs time linear in the records already written and a case's appends
+// cost time quadratic in its records: three per declared effect, one per
+// delegate start, and the final and emergency events.
 export function appendEvent(
   eventsPath: string,
   kind: EventKind,
@@ -682,7 +686,7 @@ export function appendEvent(
   try {
     if (!endsOnWholeRecord(descriptor))
       throw new Error(
-        "The events file ends in a torn record, so nothing more is appended to this case.",
+        "The events file does not end on a whole record, so nothing more is appended to this case.",
       );
     const bytes = encodeRecord(
       kind,

@@ -443,7 +443,7 @@ function readProblem(
 // (16:29). A case whose run started a program closes only after the container
 // machine restarts (K, 12:08): every delegate-admitted must name a boot other
 // than the current one; no boot, or the same boot, refuses.
-function stoppedOwnerProblem(
+export function stoppedOwnerProblem(
   target: Operation,
   boot: string | undefined,
 ): string | undefined {
@@ -1156,10 +1156,7 @@ export function install(options: StateOptions, seams: Seams) {
         reason: "stopped-owner-proof-unqualified",
         detail: match.detail,
       };
-    const reason = stoppedOwnerProblem(
-      target,
-      seams.qualification.bootIdentity(),
-    );
+    const reason = stoppedOwnerProblem(target, match.bootIdentity);
     if (reason) return { kind: "unavailable", reason };
     if (target.revision !== request.revision) return { kind: "stale-revision" };
     if (request.disposition === "outcome-unknown")

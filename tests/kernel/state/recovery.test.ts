@@ -1,4 +1,4 @@
-import { expect } from "bun:test";
+import { expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import {
   appendFileSync,
@@ -16,16 +16,22 @@ import {
 import { join } from "node:path";
 import {
   at,
+  bootIdentityFile,
   caseTest,
   closeArgs,
   expectCompleted,
+  eventsPath,
   expectRefusedUnchanged,
   framed,
+  machineBootIdentityRead,
   makeWorld,
+  noAppendAfterDamage,
   str,
   supportingTest,
 } from "./harness.ts";
-import type { World } from "./harness.ts";
+import type { Observed, World } from "./harness.ts";
+import { processGroup } from "../lifecycle/harness.ts";
+import { signalGroupIfPresent } from "../../support/signal.ts";
 import { coordinationExpected } from "./holder.ts";
 import { resolveCoordination } from "../../../kernel/src/addons/state/coordination.ts";
 
@@ -764,7 +770,6 @@ const primitive = coordinationRoute.available
   : "no coordination route";
 const pilotRelease = "7.2.12-orbstack-00394-gbecdd6130068";
 const btrfs = 0x9123683e;
-const bootIdentityFile = "/proc/sys/kernel/random/boot_id";
 const readable = {
   release: pilotRelease,
   filesystem: btrfs,
@@ -1032,11 +1037,7 @@ supportingTest(
 );
 
 function bootIdentityReadable(): boolean {
-  try {
-    return readFileSync(bootIdentityFile, "utf8").trim() !== "";
-  } catch {
-    return false;
-  }
+  return machineBootIdentityRead() !== undefined;
 }
 
 supportingTest(
@@ -1093,34 +1094,24 @@ const sameBoot = under(candidate(), readable);
 const bootTwo = under(candidate(), { ...readable, bootIdentity: "boot-two" });
 const production = { SX_ENTRY: "production" };
 
-function eventsPath(world: World, id: string): string {
-  return join(world.root, "operations", id, "events");
-}
-function delegateBoots(world: World, id: string): readonly unknown[] {
+function caseOf(world: World, id: string): Observed {
   const found = world.cases().find((entry) => entry.id === id);
   if (!found) throw new Error(`No case ${id}.`);
-  return found.events.records
-    .filter((record) => record.kind === "delegate-admitted")
+  return found;
+}
+function delegateBoots(world: World, id: string): readonly unknown[] {
+  return caseOf(world, id)
+    .events.records.filter((record) => record.kind === "delegate-admitted")
     .map((record) =>
       Object.hasOwn(record.payload, "boot") ? record.payload.boot : "no boot",
     );
 }
-async function refusedDelegate(
+function refusedDelegate(
   world: World,
   id: string,
   environment: Readonly<Record<string, string>>,
 ): Promise<void> {
-  const before = outsideCoordination(world);
-  const refused = await world.run(
-    closeArgs(id, await world.revision(id)),
-    environment,
-  );
-  expectRefusedUnchanged(refused, "DOMAIN_SX_UNAVAILABLE");
-  expect(str(refused.envelope.message)).toBe(
-    "State unavailable: delegate-recorded.",
-  );
-  expect(outsideCoordination(world)).toBe(before);
-  expect(existsSync(closurePath(world, id))).toBe(false);
+  return refusedUnavailable(world, id, environment, "delegate-recorded");
 }
 function preparedJournal(
   world: World,
@@ -1183,7 +1174,7 @@ caseTest(
 );
 
 supportingTest(
-  "X28 supporting: the production entry writes the machine's boot identity into delegate-admitted",
+  "X28 supporting: the production entry writes the machine's boot identity into delegate-admitted where it can be read (Linux), and no boot where it cannot (macOS)",
   plain(async (world) => {
     await world.killAt(apply("a"), "intent", {
       ...production,
@@ -1191,12 +1182,43 @@ supportingTest(
     });
     expect(world.ledger()).toContain("entry production");
     expect(delegateBoots(world, only(world))).toEqual([
-      bootIdentityReadable()
-        ? readFileSync(bootIdentityFile, "utf8").trim()
-        : "no boot",
+      machineBootIdentityRead() ?? "no boot",
     ]);
   }),
 );
+
+const failedAppendTitle =
+  "X28 supporting: a delegate-admitted append that fails stops the start, and the run goes on";
+if (process.geteuid?.() === 0)
+  test(`${failedAppendTitle} UNPROVED as euid 0: root is never denied permission`, () => {
+    expect(process.geteuid?.()).toBe(0);
+  });
+else
+  supportingTest(
+    failedAppendTitle,
+    plain(async (world) => {
+      try {
+        expectCompleted(
+          await world.run(apply("a"), {
+            ...production,
+            SX_FAULT: "delegate-append-fails",
+          }),
+        );
+        const [entry, refusal, ...rest] = world.ledger();
+        expect(entry).toBe("entry production");
+        expect(refusal).toStartWith("delegate refused: EACCES");
+        expect(rest).toHaveLength(1);
+        expect(delegatePids(world)).toEqual([]);
+        expect(
+          caseOf(world, only(world)).events.records.map(
+            (record) => record.kind,
+          ),
+        ).toEqual(["effect-started", "effect-confirmed", "completion"]);
+      } finally {
+        stopDelegates(world);
+      }
+    }),
+  );
 
 function delegatePids(world: World): readonly number[] {
   const file = join(world.world, "delegates");
@@ -1214,12 +1236,7 @@ function alive(pid: number): boolean {
 }
 function stopDelegates(world: World): void {
   for (const pid of delegatePids(world))
-    for (const target of [-pid, pid])
-      try {
-        process.kill(target, "SIGKILL");
-      } catch {
-        continue;
-      }
+    if (processGroup(pid) === pid) signalGroupIfPresent(pid, "SIGKILL");
 }
 const withDelegates = (body: (world: World) => Promise<void>) =>
   plain(async (world) => {
@@ -1314,8 +1331,7 @@ function caseIds(world: World): readonly string[] {
   return world.cases().map((entry) => entry.id);
 }
 function tornTail(world: World, id: string): boolean {
-  const found = world.cases().find((entry) => entry.id === id);
-  return found?.events.torn === true;
+  return caseOf(world, id).events.torn;
 }
 async function refusedUnavailable(
   world: World,
@@ -1351,9 +1367,7 @@ caseTest(
       "DOMAIN_SX_CLOSE_STALE",
     );
     await closesUnder(world, present, sameBoot);
-    const closure = world
-      .cases()
-      .find((entry) => entry.id === present)?.closure;
+    const closure = caseOf(world, present).closure;
     expect(at(closure?.records[0]?.payload, "journalRevision")).toBe(second);
 
     const beforeAbsent = caseIds(world);
@@ -1469,20 +1483,21 @@ caseTest(
   "K11.g-no-append-after-torn-tail",
   withDelegates(async (world) => {
     const live = world.start(apply("a"), {
-      ...sameBoot,
+      ...production,
       SX_FAULT: "torn-then-delegate",
       SX_BARRIER: "intent",
     });
     await live.reached("intent");
     const id = only(world);
     expect(world.ledger()).toEqual([
-      "delegate refused: The events file ends in a torn record, so nothing more is appended to this case.",
+      "entry production",
+      `delegate refused: ${noAppendAfterDamage}`,
     ]);
     expect(delegatePids(world)).toEqual([]);
     expect(tornTail(world, id)).toBe(true);
     const torn = readFileSync(eventsPath(world, id));
     expectRefusedUnchanged(
-      await world.run(closeArgs(id, await world.revision(id)), sameBoot),
+      await world.run(closeArgs(id, await world.revision(id)), production),
       "DOMAIN_SX_CLOSE_OWNER_LIVE",
     );
     live.release("intent");

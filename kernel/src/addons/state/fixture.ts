@@ -38,10 +38,14 @@ function fixtureQualification(seams: QualificationSeams): Qualification {
       seams.candidateRow,
       seams.factOverrides ?? {},
     );
-  const matched: Match = { matched: true, label: `fixture:${label}` };
+  const matched = (): Match => ({
+    matched: true,
+    label: `fixture:${label}`,
+    bootIdentity: machineBootIdentity(),
+  });
   return Object.freeze({
     source: "fixture",
-    match: () => matched,
+    match: matched,
     bootIdentity: machineBootIdentity,
   });
 }

@@ -42,11 +42,16 @@ type EnvironmentFacts = {
 };
 
 export type Match =
-  | { readonly matched: true; readonly label: string }
+  | {
+      readonly matched: true;
+      readonly label: string;
+      readonly bootIdentity: string | undefined;
+    }
   | { readonly matched: false; readonly detail: string };
 
 // Interface: `bootIdentity` reads the boot identity now, with a test entry's
-// override, and is undefined when it cannot be read or is empty.
+// override, and is undefined when it cannot be read or is empty. A matched
+// Match carries the boot identity that same match read.
 export type Qualification = {
   readonly source: "production" | "fixture";
   readonly match: (root: string, primitive: string | undefined) => Match;
@@ -219,7 +224,14 @@ function matchFacts(
     devices === undefined
       ? rows.find((entry) => differences(entry, facts).length === 0)
       : undefined;
-  if (row) return { matched: true, label: label(row) };
+  if (row)
+    return {
+      matched: true,
+      label: label(row),
+      bootIdentity: facts.bootIdentity.read
+        ? facts.bootIdentity.value
+        : undefined,
+    };
   const rowsText =
     rows.length === 0
       ? "no capability qualification row"

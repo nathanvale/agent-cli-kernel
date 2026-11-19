@@ -306,6 +306,20 @@ export function writeSyntheticOperation(
   return id;
 }
 
+export const bootIdentityFile = "/proc/sys/kernel/random/boot_id";
+
+export function machineBootIdentityRead(): string | undefined {
+  try {
+    const read = readFileSync(bootIdentityFile, "utf8").trim();
+    return read === "" ? undefined : read;
+  } catch {
+    return undefined;
+  }
+}
+
+export const noAppendAfterDamage =
+  "The events file does not end on a whole record, so nothing more is appended to this case.";
+
 export function closeArgs(
   id: string,
   revision: string,
@@ -402,6 +416,10 @@ export type Started = {
 };
 
 export type World = ReturnType<typeof makeWorld>;
+
+export function eventsPath(world: World, id: string): string {
+  return join(world.root, "operations", id, "events");
+}
 
 export function makeWorld(
   options: { readonly qualification?: "fixture"; readonly entry?: string } = {},

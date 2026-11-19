@@ -1,10 +1,12 @@
 import {
   appendFileSync,
+  chmodSync,
   existsSync,
   mkdirSync,
   readFileSync,
   realpathSync,
   rmSync,
+  statSync,
   watch,
   writeFileSync,
 } from "node:fs";
@@ -892,21 +894,11 @@ function delegateWrotePids(stop?: AbortSignal): Promise<void> {
   });
 }
 
-async function retryAfterTornWrite(
+async function tryDelegateStart(
   programs: ProgramsCapability | undefined,
   recorded: RecordedEffect<"note.write">,
-  operationId: string,
-): Promise<void> {
-  if (fault !== "torn-then-delegate") return;
+): Promise<string> {
   if (!programs) throw new Error("This command has no programs capability.");
-  const record = encodeRecord("delegate-admitted", {
-    effect: recorded.effect,
-    boot: "torn",
-  });
-  appendFileSync(
-    join(root, "operations", operationId, "events"),
-    record.subarray(0, 40),
-  );
   const stop = new AbortController();
   const outcome = await Promise.race([
     programs
@@ -920,7 +912,32 @@ async function retryAfterTornWrite(
     delegateWrotePids(stop.signal).then(() => "started"),
   ]);
   stop.abort();
-  ledger(`delegate ${outcome}`);
+  return outcome;
+}
+
+async function startAfterFailedWrite(
+  programs: ProgramsCapability | undefined,
+  recorded: RecordedEffect<"note.write">,
+  operationId: string,
+): Promise<void> {
+  const events = join(root, "operations", operationId, "events");
+  if (fault === "torn-then-delegate") {
+    const record = encodeRecord("delegate-admitted", {
+      effect: recorded.effect,
+      boot: "torn",
+    });
+    appendFileSync(events, record.subarray(0, 40));
+    ledger(`delegate ${await tryDelegateStart(programs, recorded)}`);
+  }
+  if (fault === "delegate-append-fails") {
+    const mode = statSync(events).mode & 0o777;
+    chmodSync(events, 0o400);
+    try {
+      ledger(`delegate ${await tryDelegateStart(programs, recorded)}`);
+    } finally {
+      chmodSync(events, mode);
+    }
+  }
 }
 
 function noteWork(
@@ -942,7 +959,7 @@ function noteWork(
             Promise.resolve(0),
           );
         await startDelegate(programs, recorded);
-        await retryAfterTornWrite(programs, recorded, published.operationId);
+        await startAfterFailedWrite(programs, recorded, published.operationId);
         await barrier("intent");
         return writeNote(path, content, "apply");
       },
