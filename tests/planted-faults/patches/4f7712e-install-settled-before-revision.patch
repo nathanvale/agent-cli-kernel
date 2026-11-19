@@ -1,0 +1,18 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index 4b38db8..1ad2a60 100644
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -498,9 +498,10 @@ function caseUnderLease(
+     return { ok: false, stop: readProblem(read) };
+   }
+   const stop: CloseResultBody | undefined =
+-    read.revision === request.revision
+-      ? settledCheck(read, request)
+-      : { kind: "stale-revision" };
++    settledCheck(read, request) ??
++    (read.revision === request.revision
++      ? undefined
++      : { kind: "stale-revision" });
+   if (stop) {
+     lease.release();
+     return { ok: false, stop };

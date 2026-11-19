@@ -1671,5 +1671,12 @@
     "testFile": "tests/kernel/state/recovery.test.ts",
     "title": "^X29 supporting: a closer whose fresh read finds the case corrupt",
     "source": "adbcace fix(state): refuse a closure whose read under the lease differs from its request"
+  },
+  {
+    "id": "4f7712e-install-settled-before-revision",
+    "patch": "tests/planted-faults/patches/4f7712e-install-settled-before-revision.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^X29 supporting: a case its owner completes between the store read and the fresh read",
+    "source": "4f7712e fix(state): check the fresh read's revision before its settled state"
   }
 ]
