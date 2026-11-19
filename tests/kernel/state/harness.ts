@@ -12,7 +12,10 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { resolveCoordination } from "../../../kernel/src/addons/state/coordination.ts";
-import { resolveQualification } from "../../../kernel/src/addons/state/qualification.ts";
+import {
+  deviceFolders,
+  resolveQualification,
+} from "../../../kernel/src/addons/state/qualification.ts";
 import type { Match } from "../../../kernel/src/addons/state/qualification.ts";
 import { testFolder } from "../../support/test-folder.ts";
 import {
@@ -39,6 +42,8 @@ export function productionRowMatch(): Match {
   const route = resolveCoordination();
   const folder = testFolder("c3-row-match-");
   try {
+    for (const name of deviceFolders)
+      if (name !== "root") mkdirSync(join(folder, name));
     rowMatch = resolveQualification().match(
       folder,
       route.available ? route.route : undefined,
