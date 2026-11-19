@@ -466,14 +466,17 @@ function caseRead(
   | { readonly ok: true; readonly target: Operation } {
   const read = readCase(paths, request.operationId);
   if (typeof read === "string") return { ok: false, stop: readProblem(read) };
-  const stop = settledCheck(read, request);
+  const stop: CloseResultBody | undefined =
+    read.revision === request.revision
+      ? settledCheck(read, request)
+      : { kind: "stale-revision" };
   return stop ? { ok: false, stop } : { ok: true, target: read };
 }
 
 // Accepted decision (Nathan, 19 November 2026, 17:43 AEDT): the closer
 // reads the case again once it holds the owner lease and decides only on
 // that read, which no owner can append to, and refuses when it differs
-// from the revision the request names, before any other check of it.
+// from the revision the request names.
 function caseUnderLease(
   paths: Locked,
   request: CloseRequest<string>,
@@ -484,28 +487,22 @@ function caseUnderLease(
       readonly target: Operation;
       readonly release: () => void;
     } {
-  const id = request.operationId;
-  const lease = paths.tryLock(join(paths.operation(id), "owner.lease"), false);
+  const lease = paths.tryLock(
+    join(paths.operation(request.operationId), "owner.lease"),
+    false,
+  );
   if (lease.kind === "busy") return { ok: false, stop: { kind: "owner-live" } };
   if (lease.kind === "failed")
     return {
       ok: false,
       stop: { kind: "unavailable", reason: "lease-unreadable" },
     };
-  const read = readCase(paths, id);
-  if (typeof read === "string") {
+  const read = caseRead(paths, request);
+  if (!read.ok) {
     lease.release();
-    return { ok: false, stop: readProblem(read) };
+    return read;
   }
-  const stop: CloseResultBody | undefined =
-    read.revision === request.revision
-      ? settledCheck(read, request)
-      : { kind: "stale-revision" };
-  if (stop) {
-    lease.release();
-    return { ok: false, stop };
-  }
-  return { ok: true, target: read, release: lease.release };
+  return { ok: true, target: read.target, release: lease.release };
 }
 
 function closureMatches(

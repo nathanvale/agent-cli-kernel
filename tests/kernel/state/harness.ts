@@ -40,9 +40,11 @@ export function caseTest(
     return;
   }
   if (row.bootIdentity === true && machineBootIdentityRead() === undefined) {
-    test(`${id} UNPROVED on ${process.platform}: no boot identity to observe at ${bootIdentityFile}; its fact-override supporting test runs instead`, () => {
-      expect(machineBootIdentityRead()).toBeUndefined();
-    });
+    test(
+      `${id} UNPROVED on ${process.platform}: no boot identity to observe at ${bootIdentityFile}; its refusals run as a fail-closed control, and its fact-override supporting test runs the rest`,
+      body,
+      timeout,
+    );
     return;
   }
   test(id, body, timeout);

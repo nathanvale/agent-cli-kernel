@@ -1,38 +1,25 @@
 diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
-index 4b38db8..a12cd98 100644
+index 23ac92a..396e455 100644
 --- a/kernel/src/addons/state/install.ts
 +++ b/kernel/src/addons/state/install.ts
-@@ -485,6 +485,13 @@ function caseUnderLease(
+@@ -487,6 +487,8 @@ function caseUnderLease(
+       readonly target: Operation;
        readonly release: () => void;
      } {
-   const id = request.operationId;
-+  const read = readCase(paths, id);
-+  if (typeof read === "string") return { ok: false, stop: readProblem(read) };
-+  const stop: CloseResultBody | undefined =
-+    read.revision === request.revision
-+      ? settledCheck(read, request)
-+      : { kind: "stale-revision" };
-+  if (stop) return { ok: false, stop };
-   const lease = paths.tryLock(join(paths.operation(id), "owner.lease"), false);
-   if (lease.kind === "busy") return { ok: false, stop: { kind: "owner-live" } };
-   if (lease.kind === "failed")
-@@ -492,19 +499,6 @@ function caseUnderLease(
++  const read = caseRead(paths, request);
++  if (!read.ok) return read;
+   const lease = paths.tryLock(
+     join(paths.operation(request.operationId), "owner.lease"),
+     false,
+@@ -497,11 +499,6 @@ function caseUnderLease(
        ok: false,
        stop: { kind: "unavailable", reason: "lease-unreadable" },
      };
--  const read = readCase(paths, id);
--  if (typeof read === "string") {
+-  const read = caseRead(paths, request);
+-  if (!read.ok) {
 -    lease.release();
--    return { ok: false, stop: readProblem(read) };
+-    return read;
 -  }
--  const stop: CloseResultBody | undefined =
--    read.revision === request.revision
--      ? settledCheck(read, request)
--      : { kind: "stale-revision" };
--  if (stop) {
--    lease.release();
--    return { ok: false, stop };
--  }
-   return { ok: true, target: read, release: lease.release };
+   return { ok: true, target: read.target, release: lease.release };
  }
  
