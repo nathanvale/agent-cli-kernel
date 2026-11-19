@@ -54,15 +54,16 @@ refuse more (open point U).
 
 ### 2.1 Linux in a container
 
-- Major release. A container runs on the container machine's
-  operating-system kernel, so `os.release()` inside it is that kernel's
-  release (observed: `7.2.12-orbstack-00394-gbecdd6130068`, version 1
-  section 7). The major release is that operating-system kernel's major, `7`. The image's
+- Major release. A container runs on the container machine's operating-system
+  kernel, so `os.release()` inside it is that kernel's release (observed:
+  `7.2.12-orbstack-00394-gbecdd6130068`, version 1 section 7). The major
+  release is that operating-system kernel's major, `7`. The image's
   distribution and C library are recorded as observed and not matched.
 - That number carries no compatibility promise, and one major spans years of
-  operating-system kernels. What protects a closure on Linux is the start-up self-check of
-  the coordination call, the filesystem type read at closure time, and the
-  row's evidence run. Major and minor is the alternative (open point J).
+  operating-system kernels. What protects a closure on Linux is the start-up
+  self-check of the coordination call, the filesystem type read at closure
+  time, and the row's evidence run. Major and minor is the alternative (open
+  point J).
 - Filesystem. `statfsSync(root).type` reports the filesystem under the root
   however it was mounted, and the numbers are a stable interface:
 
@@ -78,9 +79,9 @@ refuse more (open point U).
   containers is not supported (decided by Nathan, 19 November 2026).
 - First row: `linux-7-btrfs`, for the pilot `agents-pilot`: an OrbStack
   container on a Mac, with the state root on a btrfs volume (decided by
-  Nathan, 19 November 2026). A deployment on another operating-system kernel major, or on a
-  volume on ext4 or XFS, matches no row and still hands off until its own
-  run and row.
+  Nathan, 19 November 2026). A deployment on another operating-system kernel
+  major, or on a volume on ext4 or XFS, matches no row and still hands off
+  until its own run and row.
 - Its evidence run happens on the pilot, through a worker session. The state
   root's parent is an argument, so the root is on the volume under test
   while the repository sits anywhere.
@@ -158,10 +159,10 @@ Left out of the run:
 - Q02.e (a closure stamped with the row's `id`) and Q03.a need the row to
   exist. The test suite proves them once the row lands.
 
-Q03.a refuses a production row unless its record exists, carries
-`factSource: "observed"`, matches the row's `os`, `majorRelease`,
-`filesystem`, `primitive` and `bootIdentitySource`, has the row's
-`observedRelease` as its `platform.release`, has every required case `pass`, and the row names its
+Q03.a refuses a production row unless its record exists, carries `factSource:
+"observed"`, matches the row's `os`, `majorRelease`, `filesystem`, `primitive`
+and `bootIdentitySource`, has the row's `observedRelease` as its
+`platform.release`, has every required case `pass`, and the row names its
 reviewing session, Nathan's countersignature and the date. REC-7b asks that
 review to pass V-22 and V-42 for each row.
 
@@ -184,7 +185,8 @@ resource after a closure. In a process that goes on to other runs, that
 owner is still alive. So version 2 adds a rule to version 1 section 8, in
 this order:
 
-1. When the work function returns, the transaction is marked ended before
+1. When the work function returns or throws, the transaction is marked
+   ended before
    anything else, so a failed final append cannot leave it open. New
    `record` and `admitStart` calls refuse.
 2. The transaction waits for every `record` call already started, its
@@ -194,15 +196,17 @@ this order:
 3. Only then is the final event appended, the key coordination locks
    released, and the lease released last.
 
-A `record` that never settles keeps the lease held. In a process that ends,
-the operating-system kernel then frees it; in a long-lived process the case
-stays live, which blocks overlapping work and every closer: the safe
-direction. Case K11.e pins the rule.
+A `record` that never settles keeps the lease held, so its case stays live,
+which blocks overlapping work and every closer: the safe direction. The
+lease is freed only when the record settles, or when the process ends and
+the operating-system kernel frees it (at a deadline the kernel lifecycle
+exits the process; a single run with no deadline, or a long-lived process,
+keeps it). Case K11.e pins the rule.
 
-With that rule a free lease means no effect and no append is in progress
-and none can follow. A torn tail also arises without a crash: a write that fails part
-way (a full disk) leaves one, and the owner still releases its lease only at
-its end. The closure binds the torn bytes through `journalRevision`.
+With that rule a free lease means no effect and no append is in progress and
+none can follow. A torn tail also arises without a crash: a write that fails
+part way (a full disk) leaves one, and the owner still releases its lease only
+at its end. The closure binds the torn bytes through `journalRevision`.
 Recovery classification already treats a torn tail as started (version 1
 section 8), so `not-applied` needs `excluded`, never mere absence. A corrupt
 `events` file, with bytes after the damage, still refuses.

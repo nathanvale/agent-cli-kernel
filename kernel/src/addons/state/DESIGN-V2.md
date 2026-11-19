@@ -94,8 +94,10 @@ Decided constraints this note keeps:
   installed programs is not enough. A version 1 process lacks version 2's
   rule that a transaction waits for its started effects (part 2 section 4),
   so after releasing its lease it may still act, while version 2 could move
-  or close its case. The add-on cannot detect such a process, so this is a
-  host obligation, and each row lists it under `failureCases`.
+  or close its case. The add-on cannot detect such a process. This holds on
+  every platform, because moving needs no capability qualification row: it
+  is a host obligation that the state add-on's interface comment states,
+  and each row also lists it under `failureCases`.
 - Records a version 1 run wrote before it exited are valid version 2
   records, and a later admission moves its case.
 - Nothing holds back the upgrade of a root that several installed programs
@@ -186,10 +188,10 @@ the admission lock, so nothing comes between the check and the rename.
   keeps it there. A backlog, such as a just-upgraded version 1 store, drains
   over later admissions. The number has no contract source, and its cost is
   not measured yet.
-- The owner does not move its own case at transaction end (open point R).
-  That would add an admission lock wait to the end of every transaction. A
-  crash between the final event and the move leaves a settled case in `operations/`; it is not
-  listed, and the next admission moves it.
+- The owner does not move its own case at transaction end (open point R). That
+  would add an admission lock wait to the end of every transaction. A crash
+  between the final event and the move leaves a settled case in `operations/`;
+  it is not listed, and the next admission moves it.
 - A later run renames an earlier run's folder but writes no record and no
   byte (open point B).
 
