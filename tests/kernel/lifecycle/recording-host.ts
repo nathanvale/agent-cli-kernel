@@ -28,6 +28,7 @@ type Recorded = {
 export function recordingHost() {
   const writes: Recorded[] = [];
   const exits: number[] = [];
+  const exitedAt: number[] = [];
   let listener: ((signal: StopSignal) => void) | undefined;
   const decoder = new TextDecoder();
   const host: ProcessHost = {
@@ -41,6 +42,7 @@ export function recordingHost() {
     },
     exit(code) {
       exits.push(code);
+      exitedAt.push(performance.now());
     },
     onSignal(next) {
       listener = next;
@@ -52,6 +54,7 @@ export function recordingHost() {
     host,
     writes,
     exits,
+    exitedAt,
     signal(name: StopSignal) {
       if (!listener)
         throw new Error("The front door installed no signal hook.");

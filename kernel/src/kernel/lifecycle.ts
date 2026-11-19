@@ -175,6 +175,7 @@ type Run = {
   commandIdentity: string | null;
   stopped: StopSignal | undefined;
   emergencyAttempted: boolean;
+  execution: Promise<Execution> | undefined;
 };
 type Delivery =
   | { readonly candidate: Validation<unknown>; readonly trusted: TrustedRun }
@@ -301,6 +302,14 @@ async function freezeStatus(
   }
 }
 
+// Accepted decision (Nathan, 19 November 2026, 12:08 and 12:15 AEDT,
+// questions 4 and 20): after the first stop request the run waits for its
+// handler beside its add-ons, inside the one stop bound, so the worst-case
+// exit time and the exit codes stay as LIFE-11 set them.
+function stopWait(run: Run): Promise<unknown> {
+  return Promise.all([run.execution, settleAll(run, settleLimitMilliseconds)]);
+}
+
 function installHooks(run: Run) {
   run.host.onSignal((signal) => {
     const code = signal === "SIGINT" ? 130 : 143;
@@ -311,11 +320,9 @@ function installHooks(run: Run) {
     }
     run.stopped = signal;
     run.controller.abort();
-    void within(
-      settleAll(run, settleLimitMilliseconds),
-      stopBoundMilliseconds,
-      run.host.now,
-    ).then(() => run.host.exit(code));
+    void within(stopWait(run), stopBoundMilliseconds, run.host.now).then(() =>
+      run.host.exit(code),
+    );
   });
   run.host.onCrash(() => {
     killAll(run);
@@ -631,6 +638,7 @@ async function runDeclaredCommand(
     (outcome) => ({ kind: "returned", outcome }) as const,
     () => ({ kind: "threw" }) as const,
   );
+  run.execution = execution;
   const first =
     deadlineAt === undefined
       ? await execution
@@ -769,6 +777,7 @@ async function runInvocation(
     commandIdentity: null,
     stopped: undefined,
     emergencyAttempted: false,
+    execution: undefined,
   };
   installHooks(run);
   const resolution = await runtime.resolve(argv);

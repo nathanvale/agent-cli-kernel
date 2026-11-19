@@ -5,12 +5,18 @@
 // can be driven past the limit here with no production seam.
 import { afterEach, describe, expect, jest, test } from "bun:test";
 import { programsAddon } from "../../../kernel/src/addons/programs/index.ts";
+import type {
+  ProgramsCapability,
+  RunAddon,
+} from "../../../kernel/src/kernel/index.ts";
 import { runProcessOn } from "../../../kernel/src/kernel/lifecycle.ts";
+import type { StopSignal } from "../../../kernel/src/kernel/process-types.ts";
 import {
   advance,
   deferred,
   holdContract,
   recordingHost,
+  shell,
   turns,
 } from "./recording-host.ts";
 import { overLimitBoundary, timerLimit } from "./oracle.ts";
@@ -155,6 +161,167 @@ describe("the handler's abort signal at a deadline", () => {
       } finally {
         cleaned.resolve();
         await advance(cancellationWait);
+        await run.finish();
+      }
+    });
+});
+
+const stopWait = 450;
+const addonSettleLimit = 300;
+const stops = [
+  ["SIGTERM", 143],
+  ["SIGINT", 130],
+] as const;
+
+function slowSettlingPrograms(): RunAddon<ProgramsCapability> {
+  const inner = programsAddon();
+  return {
+    attach(run) {
+      const attached = inner.attach(run);
+      return {
+        ...attached,
+        capability: {
+          ...attached.capability,
+          inspect: () =>
+            Promise.reject(new Error("The test add-on starts no program.")),
+        },
+        settle: (limit) =>
+          limit === undefined
+            ? Promise.resolve(false)
+            : new Promise<boolean>((resolve) => {
+                setTimeout(() => {
+                  resolve(false);
+                }, limit);
+              }),
+      };
+    },
+  };
+}
+
+async function heldUntilStop(
+  work: (signal: AbortSignal, programs: ProgramsCapability) => Promise<void>,
+  programs: RunAddon<ProgramsCapability> = programsAddon(),
+) {
+  jest.useFakeTimers();
+  const entered = deferred();
+  const recorder = recordingHost();
+  const done = runProcessOn(
+    holdContract(async (capability, signal) => {
+      entered.resolve();
+      await work(signal, capability);
+    }),
+    { addons: { programs } },
+    () => recorder.host,
+  )(["hold", "--json"]);
+  await entered.promise;
+  await turns();
+  return {
+    recorder,
+    stop(signal: StopSignal): number {
+      const sentAt = performance.now();
+      recorder.signal(signal);
+      return sentAt;
+    },
+    async finish() {
+      await advance(stopWait);
+      jest.useRealTimers();
+      await done;
+    },
+  };
+}
+
+describe("the stop wait for the handler at a stop request", () => {
+  for (const [signal, code] of stops)
+    for (const cleanUp of [0, 200, stopWait - 1])
+      test(`a stop request on ${signal} waits through a ${String(cleanUp)} ms handler clean-up, then exits ${String(code)} with nothing written`, async () => {
+        const cleaned = deferred();
+        const seen: string[] = [];
+        const run = await heldUntilStop(async (abortSignal) => {
+          await aborted(abortSignal);
+          seen.push("aborted");
+          await cleaned.promise;
+          seen.push("cleaned");
+        });
+        try {
+          const sentAt = run.stop(signal);
+          await turns();
+          if (cleanUp > 0) await advance(cleanUp);
+          expect(seen).toEqual(["aborted"]);
+          expect(run.recorder.exits).toEqual([]);
+          cleaned.resolve();
+          await turns();
+          expect(seen).toEqual(["aborted", "cleaned"]);
+          expect(run.recorder.exits).toEqual([code]);
+          expect(run.recorder.exitedAt.map((at) => at - sentAt)).toEqual([
+            cleanUp,
+          ]);
+          expect(run.recorder.writes).toEqual([]);
+        } finally {
+          cleaned.resolve();
+          await run.finish();
+        }
+      });
+
+  for (const [signal, code] of stops)
+    test(`a handler that never ends is cut off at the ${String(stopWait)} ms stop bound on ${signal}, exiting ${String(code)}`, async () => {
+      const released = deferred();
+      const run = await heldUntilStop(() => released.promise);
+      try {
+        const sentAt = run.stop(signal);
+        await advance(stopWait - 1);
+        expect(run.recorder.exits).toEqual([]);
+        await advance(1);
+        expect(run.recorder.exits).toEqual([code]);
+        expect(run.recorder.exitedAt.map((at) => at - sentAt)).toEqual([
+          stopWait,
+        ]);
+        expect(run.recorder.writes).toEqual([]);
+      } finally {
+        released.resolve();
+        await run.finish();
+      }
+    });
+
+  for (const [signal, code] of stops)
+    test(`a handler that never ends beside an add-on that settles at its ${String(addonSettleLimit)} ms limit exits ${String(code)} at the ${String(stopWait)} ms stop bound on ${signal}`, async () => {
+      const released = deferred();
+      const run = await heldUntilStop(async (_signal, programs) => {
+        await programs.inspect(shell("exit 0")).catch(() => undefined);
+        await released.promise;
+      }, slowSettlingPrograms());
+      try {
+        const sentAt = run.stop(signal);
+        await advance(stopWait - 1);
+        expect(run.recorder.exits).toEqual([]);
+        await advance(1);
+        expect(run.recorder.exits).toEqual([code]);
+        expect(run.recorder.exitedAt.map((at) => at - sentAt)).toEqual([
+          stopWait,
+        ]);
+        expect(run.recorder.writes).toEqual([]);
+      } finally {
+        released.resolve();
+        await run.finish();
+      }
+    });
+
+  for (const [first, second, code] of [
+    ["SIGTERM", "SIGINT", 130],
+    ["SIGINT", "SIGTERM", 143],
+  ] as const)
+    test(`a second stop request (${second} after ${first}) during the stop wait exits ${String(code)} at once`, async () => {
+      const released = deferred();
+      const run = await heldUntilStop(() => released.promise);
+      try {
+        run.stop(first);
+        await advance(200);
+        expect(run.recorder.exits).toEqual([]);
+        const againAt = run.stop(second);
+        expect(run.recorder.exits).toEqual([code]);
+        expect(run.recorder.exitedAt).toEqual([againAt]);
+        expect(run.recorder.writes).toEqual([]);
+      } finally {
+        released.resolve();
         await run.finish();
       }
     });
