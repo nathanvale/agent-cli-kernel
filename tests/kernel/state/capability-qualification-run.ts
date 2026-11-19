@@ -290,11 +290,46 @@ function caseOfTitle(
     : undefined;
 }
 
+function completeReport(junit: string): boolean {
+  const text = junit.trim();
+  const count = (pattern: RegExp) => [...text.matchAll(pattern)].length;
+  return (
+    /^(?:<\?xml[^>]*\?>\s*)?<testsuites\b[^>]*>[\s\S]*<\/testsuites>$/.test(
+      text,
+    ) &&
+    count(/<testsuite\b[^>]*[^/]>/g) === count(/<\/testsuite>/g) &&
+    count(/<testcase\b[^>]*[^/]>/g) === count(/<\/testcase>/g)
+  );
+}
+
+function excludedResults(
+  junit: string,
+  selection: readonly StateCase[],
+  entry: RunEntry,
+): readonly string[] {
+  const excluded = new Set(
+    executableIds(selection.filter((row) => !runsThrough(row, entry))),
+  );
+  return [
+    ...new Set(
+      reportedList(junit).flatMap(([name, reported]) => {
+        const id = caseOfTitle(name, excluded);
+        return id === undefined || reported === "skipped"
+          ? []
+          : [`${id}, which the ${entry} run cannot do, as ${reported}`];
+      }),
+    ),
+  ];
+}
+
 function exitDisagreement(
   caseRun: CaseRun,
   selection: readonly StateCase[],
+  entry: RunEntry,
 ): string | undefined {
-  const covered = new Set(executableIds(selection));
+  const covered = new Set(
+    executableIds(selection.filter((row) => runsThrough(row, entry))),
+  );
   const failed = reportedList(caseRun.report).flatMap(([name, reported]) => {
     const id = caseOfTitle(name, covered);
     return reported === "failed" && id !== undefined ? [id] : [];
@@ -929,7 +964,20 @@ export async function capabilityQualificationRun(
     );
     return 1;
   }
-  const disagreement = exitDisagreement(caseRunResult, selection);
+  if (!completeReport(caseRunResult.report)) {
+    context.print(
+      `Refused: the case run's report is not a complete JUnit document; no capability qualification record is written. Repair: ${readTheRunOutput}.`,
+    );
+    return 1;
+  }
+  const excluded = excludedResults(caseRunResult.report, selection, entry);
+  if (excluded.length > 0) {
+    context.print(
+      `Refused: the case run reported ${excluded.join("; ")}; no capability qualification record is written. Repair: ${readTheRunOutput}.`,
+    );
+    return 1;
+  }
+  const disagreement = exitDisagreement(caseRunResult, selection, entry);
   if (disagreement !== undefined) {
     context.print(
       `Refused: the case run's test process exited ${String(caseRunResult.exitCode)}, but ${disagreement}; the evidence does not agree, so no capability qualification record is written. Repair: ${readTheRunOutput}.`,
