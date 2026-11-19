@@ -4,8 +4,10 @@
 //   - emergencyRecord: give it to runProcess(contract, { emergencyRecord }).
 //   - transaction(ctx.state, declaration, work): the only way a changing
 //     handler opens its transaction. Scope comes from validated input and
-//     is canonicalised before any coordination. Returns the transaction
-//     proof plus what happened: ran, or one refusal kind.
+//     is canonicalised before any coordination. `work` is handed the
+//     transaction and the published operation's identity, before any effect
+//     runs. Returns the transaction proof plus what happened: ran, or one
+//     refusal kind.
 //   - close(ctx.state, request): the recovery command's closure transaction.
 //   - report() and history(operationId): read-only data for the host's
 //     ifNoResult and case-history inspect commands.
@@ -24,6 +26,7 @@ export type {
   HistoryResult,
   Observation,
   Observer,
+  PublishedOperation,
   RecoveryClass,
   Refusal,
   ReportResult,
