@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index f3e6e5a..653a35d 100644
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1268,7 +1268,7 @@ export function install(options: StateOptions, seams: Seams) {
+       ok: true,
+       held: admitted.held,
+       operations: admitted.operations,
+-      target: leased.target,
++      target,
+       release: () => {
+         leased.release();
+         admitted.release();
