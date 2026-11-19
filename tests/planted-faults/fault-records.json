@@ -1699,5 +1699,19 @@
     "testFile": "tests/kernel/state/recovery.test.ts",
     "title": "^X29 supporting: a closure another closer published while this one waited",
     "source": "f9f1a40 fix(state): check the revision first on every read a closer makes"
+  },
+  {
+    "id": "d990c5b-install-read-cached-before-lease",
+    "patch": "tests/planted-faults/patches/d990c5b-install-read-cached-before-lease.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^X29 supporting: closure decides on a fresh read taken after the store read",
+    "source": "d990c5b test(state): make the lease and pin proofs see what they claim"
+  },
+  {
+    "id": "d990c5b-install-lease-released-after-staging",
+    "patch": "tests/planted-faults/patches/d990c5b-install-lease-released-after-staging.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^X29 supporting: the closer holds the owner lease until its closure is published",
+    "source": "d990c5b test(state): make the lease and pin proofs see what they claim"
   }
 ]
