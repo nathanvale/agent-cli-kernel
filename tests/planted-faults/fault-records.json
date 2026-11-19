@@ -936,5 +936,33 @@
     "testFile": "tests/kernel/state/component.test.ts",
     "title": "^work is refused when the state add-on published no operation",
     "source": "4d42f8c fix(state): refuse work when no operation was published for it"
+  },
+  {
+    "id": "82f5feb-lifecycle",
+    "patch": "tests/planted-faults/patches/82f5feb-lifecycle.patch",
+    "testFile": "tests/kernel/lifecycle/timers.test.ts",
+    "title": "waits through a [0-9]+ ms handler clean-up",
+    "source": "82f5feb fix(kernel): wait for the handler after the first stop request"
+  },
+  {
+    "id": "82f5feb-lifecycle-unbounded",
+    "patch": "tests/planted-faults/patches/82f5feb-lifecycle-unbounded.patch",
+    "testFile": "tests/kernel/lifecycle/timers.test.ts",
+    "title": "a handler that never ends is cut off at the 450 ms stop bound",
+    "source": "82f5feb fix(kernel): wait for the handler after the first stop request"
+  },
+  {
+    "id": "82f5feb-lifecycle-stacked",
+    "patch": "tests/planted-faults/patches/82f5feb-lifecycle-stacked.patch",
+    "testFile": "tests/kernel/lifecycle/timers.test.ts",
+    "title": "a handler that never ends beside an add-on that settles at its 300 ms limit",
+    "source": "82f5feb fix(kernel): wait for the handler after the first stop request"
+  },
+  {
+    "id": "82f5feb-lifecycle-second",
+    "patch": "tests/planted-faults/patches/82f5feb-lifecycle-second.patch",
+    "testFile": "tests/kernel/lifecycle/timers.test.ts",
+    "title": "a second stop request \\(SIG[A-Z]+ after SIG[A-Z]+\\) during the stop wait exits",
+    "source": "82f5feb fix(kernel): wait for the handler after the first stop request"
   }
 ]
