@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index 23ac92a..30b9c09 100644
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -468,7 +468,7 @@ function caseRead(
+   if (typeof read === "string") return { ok: false, stop: readProblem(read) };
+   const stop: CloseResultBody | undefined =
+     read.revision === request.revision
+-      ? settledCheck(read, request)
++      ? undefined
+       : { kind: "stale-revision" };
+   return stop ? { ok: false, stop } : { ok: true, target: read };
+ }

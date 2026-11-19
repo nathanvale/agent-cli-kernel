@@ -1692,5 +1692,12 @@
     "testFile": "tests/kernel/state/recovery.test.ts",
     "title": "^X29 supporting: the closer holds the owner lease until its closure is published",
     "source": "d37a77f fix(state): decide a closure on the journal read under the target's lease"
+  },
+  {
+    "id": "f9f1a40-install-settled-check-dropped",
+    "patch": "tests/planted-faults/patches/f9f1a40-install-settled-check-dropped.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^X29 supporting: a closure another closer published while this one waited",
+    "source": "f9f1a40 fix(state): check the revision first on every read a closer makes"
   }
 ]
