@@ -24,3 +24,5 @@
   batches. After round three, address comments that identify real faults.
 - Merge with a merge commit on the operator's word. GitHub protects
   `main` from direct pushes.
+
+Throwaway proof line 1 for the commits verdict. Do not merge.
