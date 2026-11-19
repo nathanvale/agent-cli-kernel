@@ -19,7 +19,9 @@ import type { CapabilityReport, Qualification } from "./qualification.ts";
 import { canonicalise, conflicts, currentKeys } from "./scope.ts";
 import type { CanonicalScope, ScopeDeclaration } from "./scope.ts";
 import {
+  appendDelegateStart,
   appendEvent,
+  delegateBoot,
   ensureStore,
   flushMoves,
   layout,
@@ -61,6 +63,8 @@ export type Phase =
   | "admission-wait"
   | "staged"
   | "closure-staged"
+  | "closure-read"
+  | "closure-published"
   | UpgradePhase;
 
 export type StateOptions = {
@@ -436,10 +440,73 @@ function readProblem(
     : { kind: "unavailable", reason: `store-${read}` };
 }
 
-function stoppedOwnerProblem(target: Operation): string | undefined {
-  if (target.events.some((event) => event.kind === "delegate-admitted"))
-    return "delegate-recorded";
-  return target.tornTail ? "journal-torn" : undefined;
+// Accepted decisions (Nathan, 19 November 2026; journal version 2 design part
+// 2 sections 4 and 5): a torn tail alone does not refuse, because a free lease
+// means no append can follow (L, 13:46), unless a record hides inside it
+// (16:29). A case whose run started a program closes only after the container
+// machine restarts (K, 12:08): every delegate-admitted must name a boot other
+// than the current one; no boot, or the same boot, refuses.
+export function stoppedOwnerProblem(
+  target: Operation,
+  boot: string | undefined,
+): string | undefined {
+  if (target.recordHiddenInTornTail) return "journal-torn";
+  const delegateMayRun = target.events.some((event) => {
+    if (event.kind !== "delegate-admitted") return false;
+    const started = delegateBoot(event);
+    return started === undefined || boot === undefined || started === boot;
+  });
+  return delegateMayRun ? "delegate-recorded" : undefined;
+}
+
+function caseRead(
+  paths: Locked,
+  request: CloseRequest<string>,
+):
+  | { readonly ok: false; readonly stop: CloseResultBody }
+  | { readonly ok: true; readonly target: Operation } {
+  const read = readCase(paths, request.operationId);
+  if (typeof read === "string") return { ok: false, stop: readProblem(read) };
+  const stop: CloseResultBody | undefined =
+    read.revision === request.revision
+      ? settledCheck(read, request)
+      : { kind: "stale-revision" };
+  return stop ? { ok: false, stop } : { ok: true, target: read };
+}
+
+// Accepted decision (Nathan, 19 November 2026, 17:43 AEDT): the closer
+// reads the case again once it holds the owner lease and decides only on
+// that read, which no owner can append to, and refuses when it differs
+// from the revision the request names.
+async function caseUnderLease(
+  paths: Locked,
+  request: CloseRequest<string>,
+  beforeLease: () => Promise<void>,
+): Promise<
+  | { readonly ok: false; readonly stop: CloseResultBody }
+  | {
+      readonly ok: true;
+      readonly target: Operation;
+      readonly release: () => void;
+    }
+> {
+  await beforeLease();
+  const lease = paths.tryLock(
+    join(paths.operation(request.operationId), "owner.lease"),
+    false,
+  );
+  if (lease.kind === "busy") return { ok: false, stop: { kind: "owner-live" } };
+  if (lease.kind === "failed")
+    return {
+      ok: false,
+      stop: { kind: "unavailable", reason: "lease-unreadable" },
+    };
+  const read = caseRead(paths, request);
+  if (!read.ok) {
+    lease.release();
+    return read;
+  }
+  return { ok: true, target: read.target, release: lease.release };
 }
 
 function closureMatches(
@@ -1077,7 +1144,11 @@ export function install(options: StateOptions, seams: Seams) {
               new Error("The recorded effect is not active for this run."),
             );
           try {
-            appendEvent(events, "delegate-admitted", { effect });
+            appendDelegateStart(
+              events,
+              effect,
+              seams.qualification.bootIdentity(),
+            );
           } catch (error) {
             return Promise.reject(
               error instanceof Error
@@ -1147,9 +1218,8 @@ export function install(options: StateOptions, seams: Seams) {
         reason: "stopped-owner-proof-unqualified",
         detail: match.detail,
       };
-    const reason = stoppedOwnerProblem(target);
+    const reason = stoppedOwnerProblem(target, match.bootIdentity);
     if (reason) return { kind: "unavailable", reason };
-    if (target.revision !== request.revision) return { kind: "stale-revision" };
     if (request.disposition === "outcome-unknown")
       return { kind: "unavailable", reason: "human-closure-unqualified" };
     const classes = await classify(target, observers, paths);
@@ -1209,39 +1279,25 @@ export function install(options: StateOptions, seams: Seams) {
     );
     if (!target) {
       admitted.release();
-      const moved = readCase(paths, id);
-      return {
-        ok: false,
-        stop:
-          typeof moved === "string"
-            ? readProblem(moved)
-            : (settledCheck(moved, request) ?? { kind: "not-found" }),
-      };
+      const moved = caseRead(paths, request);
+      return { ok: false, stop: moved.ok ? { kind: "not-found" } : moved.stop };
     }
-    const lease = paths.tryLock(
-      join(paths.operation(id), "owner.lease"),
-      false,
+    const leased = await caseUnderLease(paths, request, () =>
+      phase("closure-read"),
     );
-    const stop: CloseResultBody | undefined =
-      lease.kind === "busy"
-        ? { kind: "owner-live" }
-        : lease.kind === "failed"
-          ? { kind: "unavailable", reason: "lease-unreadable" }
-          : settledCheck(target, request);
-    const release = () => {
-      if (lease.kind === "held") lease.release();
+    if (!leased.ok) {
       admitted.release();
-    };
-    if (stop) {
-      release();
-      return { ok: false, stop };
+      return leased;
     }
     return {
       ok: true,
       held: admitted.held,
       operations: admitted.operations,
-      target,
-      release,
+      target: leased.target,
+      release: () => {
+        leased.release();
+        admitted.release();
+      },
     };
   }
 
@@ -1260,11 +1316,9 @@ export function install(options: StateOptions, seams: Seams) {
     const problem = closeRequestProblem(request, effect);
     if (problem || !effect)
       return stop(problem ?? { kind: "unavailable", reason: "declaration" });
-    const first = readCase(paths, request.operationId);
-    if (typeof first === "string") return stop(readProblem(first));
-    const early = settledCheck(first, request);
-    if (early) return stop(early);
-    const targetKeys = currentKeys(first.intent.scope);
+    const first = caseRead(paths, request);
+    if (!first.ok) return stop(first.stop);
+    const targetKeys = currentKeys(first.target.intent.scope);
     const admitted = await admitClosure(request, targetKeys);
     if (!admitted.ok) return stop(admitted.stop);
     const decision = await closureDecision(admitted.target, request, runId);
@@ -1311,8 +1365,13 @@ export function install(options: StateOptions, seams: Seams) {
         transaction
           .record(
             effect,
-            () =>
-              publishClosure(paths, decision, () => phase("closure-staged")),
+            async () => {
+              const published = await publishClosure(paths, decision, () =>
+                phase("closure-staged"),
+              );
+              await phase("closure-published");
+              return published;
+            },
             () => Promise.resolve(closureMatches(paths, decision, runId)),
           )
           .then(() => undefined),

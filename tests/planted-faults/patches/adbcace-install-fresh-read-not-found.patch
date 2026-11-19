@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index 23ac92a..4c33183 100644
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -500,7 +500,7 @@ function caseUnderLease(
+   const read = caseRead(paths, request);
+   if (!read.ok) {
+     lease.release();
+-    return read;
++    return { ok: false, stop: { kind: "not-found" } };
+   }
+   return { ok: true, target: read.target, release: lease.release };
+ }

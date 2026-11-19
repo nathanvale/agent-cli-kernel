@@ -1,0 +1,17 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index 531813f..b931c5a 100644
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1082,11 +1082,7 @@ export function install(options: StateOptions, seams: Seams) {
+               new Error("The recorded effect is not active for this run."),
+             );
+           try {
+-            appendDelegateStart(
+-              events,
+-              effect,
+-              seams.qualification.bootIdentity(),
+-            );
++            appendDelegateStart(events, effect, undefined);
+           } catch (error) {
+             return Promise.reject(
+               error instanceof Error

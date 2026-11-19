@@ -1,0 +1,19 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index c89a362..971096b 100644
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1087,12 +1087,8 @@ export function install(options: StateOptions, seams: Seams) {
+               effect,
+               seams.qualification.bootIdentity(),
+             );
+-          } catch (error) {
+-            return Promise.reject(
+-              error instanceof Error
+-                ? error
+-                : new Error("delegate record failed"),
+-            );
++          } catch {
++            void 0;
+           }
+           let pending: Promise<R>;
+           try {
