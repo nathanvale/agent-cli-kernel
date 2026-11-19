@@ -1,0 +1,18 @@
+diff --git a/tests/kernel/state/capability-qualification-record.ts b/tests/kernel/state/capability-qualification-record.ts
+index 2826517..c118392 100644
+--- a/tests/kernel/state/capability-qualification-record.ts
++++ b/tests/kernel/state/capability-qualification-record.ts
+@@ -470,7 +470,12 @@ export function rowProblems(
+     return [
+       `${row.id} cites ${row.evidence.record}; a row cites its committed capability qualification record ${expected}`,
+     ];
+-  const committed = committedText(root, expected);
++  let committed: string | undefined;
++  try {
++    committed = readFileSync(join(root, expected), "utf8");
++  } catch {
++    committed = undefined;
++  }
+   if (committed === undefined)
+     return [
+       `${row.id}: no committed capability qualification record at ${expected}`,

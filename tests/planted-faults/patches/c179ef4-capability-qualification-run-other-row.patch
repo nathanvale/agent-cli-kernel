@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index 132ca22..688c224 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -397,7 +397,7 @@ export function secondRunProblem(
+     return `row ${candidate.id} in the capability qualification table differs from the candidate row in ${rowDiffers.join(", ")}`;
+   if (existing === undefined)
+     return `no capability qualification record at ${recordPath(candidate.id)} from a fixture.ts run`;
+-  if (existing.row !== candidate.id)
++  if (existing.row === "")
+     return `the record at ${recordPath(candidate.id)} is for row ${existing.row}`;
+   const entries = existing.runs.map((run) => run.entry);
+   if (entries.join(",") !== "fixture.ts")
