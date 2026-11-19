@@ -65,8 +65,24 @@ export type ProgramsCapability = {
 export type ApprovalCapability = {
   readonly check: (request: ApprovalRequest) => Promise<boolean>;
 };
+export type DiagnosticsLevel =
+  | "trace"
+  | "debug"
+  | "info"
+  | "warning"
+  | "error"
+  | "fatal";
 export type DiagnosticsCapability = {
-  readonly record: (event: string, facts: JsonValue) => void;
+  // Interface: One bounded, redacted record in the run's private file, written at
+  // `level`, or at "info" when none is given. A level outside the six is
+  // dropped and counted in `droppedRecords`. A host whose framework has its
+  // own logger sends each log line here, never to stdout or stderr: the event
+  // names the line's source, the facts carry its message and annotations.
+  readonly record: (
+    event: string,
+    facts: JsonValue,
+    level?: DiagnosticsLevel,
+  ) => void;
 };
 export type CapabilitySelection = {
   readonly programs?: true;
@@ -84,6 +100,13 @@ export type HandlerContext<C extends CapabilitySelection> = (C extends {
   (C extends { diagnostics: true }
     ? { readonly diagnostics: DiagnosticsCapability }
     : object);
+// Interface: A handler built by command() or changing() holds its run's abort
+// signal. It aborts at the first stop request or at the deadline: start no new
+// work after that. A run entered with no stop source holds a signal that never
+// aborts. At a deadline the lifecycle waits for the handler inside its
+// cancellation bound (LIFE-6). At a stop request it does not wait, so only
+// what an abort listener does at once is sure to run (LIFE-11).
+export type AbortContext = { readonly signal: AbortSignal };
 export type RunProcess = (argv: unknown) => Promise<number>;
 
 export type ApprovalRequest = {

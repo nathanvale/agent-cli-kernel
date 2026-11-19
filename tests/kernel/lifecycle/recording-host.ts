@@ -145,7 +145,7 @@ const rcCauses = {
   DOMAIN_RC_DEADLINE_PROGRAM_STOP_UNCONFIRMED: programStopRow,
 } as const;
 export function holdContract(
-  work: (programs: ProgramsCapability) => Promise<void>,
+  work: (programs: ProgramsCapability, signal: AbortSignal) => Promise<void>,
 ) {
   const hold = command({
     identity: "rc.hold",
@@ -180,7 +180,7 @@ export function holdContract(
     ],
     programStopCause: "DOMAIN_RC_DEADLINE_PROGRAM_STOP_UNCONFIRMED",
     run: async (_input, context) => {
-      await work(context.programs);
+      await work(context.programs, context.signal);
       return context.result(
         { commandIdentity: "rc.hold", causeCode: "SUCCESS_UNCHANGED" },
         { message: "Released.", data: null, effects: unchangedEffects },

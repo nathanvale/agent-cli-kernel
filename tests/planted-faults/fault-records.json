@@ -917,6 +917,69 @@
     "source": "e1c416d fix(programs): judge input by its real length and check domain requests first"
   },
   {
+    "id": "1cc1070-run",
+    "patch": "tests/planted-faults/patches/1cc1070-run.patch",
+    "testFile": "tests/kernel/diagnostics/log-lines.test.ts",
+    "title": "a level outside the six",
+    "source": "1cc1070 feat(diagnostics): let a record carry its level"
+  },
+  {
+    "id": "1cc1070-run-floor",
+    "patch": "tests/planted-faults/patches/1cc1070-run-floor.patch",
+    "testFile": "tests/kernel/diagnostics/log-lines.test.ts",
+    "title": "a log line lands in the run's file under the level it was sent with$",
+    "source": "1cc1070 feat(diagnostics): let a record carry its level"
+  },
+  {
+    "id": "b6906dc-run",
+    "patch": "tests/planted-faults/patches/b6906dc-run.patch",
+    "testFile": "tests/kernel/diagnostics/log-lines.test.ts",
+    "title": "a run whose only record has a level outside the six opens no file$",
+    "source": "b6906dc fix(diagnostics): prove the level refusal alone and under the caps"
+  },
+  {
+    "id": "b165bed-context",
+    "patch": "tests/planted-faults/patches/b165bed-context.patch",
+    "testFile": "tests/kernel/abort-signal.test.ts",
+    "title": "^command\\(\\): a context signal that is a plain object is refused before the handler$",
+    "source": "b165bed feat(kernel): give every handler its run's stop signal"
+  },
+  {
+    "id": "b165bed-context-changing",
+    "patch": "tests/planted-faults/patches/b165bed-context.patch",
+    "testFile": "tests/kernel/abort-signal.test.ts",
+    "title": "^changing\\(\\): a context signal that is a plain object is refused before the handler$",
+    "source": "b165bed feat(kernel): give every handler its run's stop signal"
+  },
+  {
+    "id": "b165bed-context-spread",
+    "patch": "tests/planted-faults/patches/b165bed-context.patch",
+    "testFile": "tests/kernel/abort-signal.test.ts",
+    "title": "^a spread of a declaration: a context signal that is a plain object is refused before the handler$",
+    "source": "b165bed feat(kernel): give every handler its run's stop signal"
+  },
+  {
+    "id": "b165bed-context-prototype",
+    "patch": "tests/planted-faults/patches/b165bed-context-prototype.patch",
+    "testFile": "tests/kernel/abort-signal.test.ts",
+    "title": "^command\\(\\): a context signal that is an object that only inherits the prototype is refused before the handler$",
+    "source": "b165bed feat(kernel): give every handler its run's stop signal"
+  },
+  {
+    "id": "10c4870-context",
+    "patch": "tests/planted-faults/patches/10c4870-context.patch",
+    "testFile": "tests/kernel/abort-signal.test.ts",
+    "title": "^command\\(\\): a context signal that is a prototype-only object with its own aborted property is refused before the handler$",
+    "source": "10c4870 fix(kernel): brand-check the abort signal through its prototype getter"
+  },
+  {
+    "id": "e15dec5-context",
+    "patch": "tests/planted-faults/patches/e15dec5-context.patch",
+    "testFile": "tests/kernel/abort-signal.test.ts",
+    "title": "^command\\(\\): a context signal that is a revoked Proxy is refused before the handler$",
+    "source": "e15dec5 fix(kernel): keep the abort signal's instanceof check inside the catch"
+  },
+  {
     "id": "4d42f8c-install",
     "patch": "tests/planted-faults/patches/4d42f8c-install.patch",
     "testFile": "tests/kernel/state/component.test.ts",

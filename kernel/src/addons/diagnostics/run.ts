@@ -6,6 +6,7 @@ import type {
   AttachedAddon,
   Diagnostics,
   DiagnosticsCapability,
+  DiagnosticsLevel,
   JsonValue,
   RunAddon,
   RunControl,
@@ -53,6 +54,15 @@ export type StatusAttached = AttachedAddon<DiagnosticsCapability> & {
 export type StatusAddon = {
   readonly reportsStatus: true;
   readonly attach: (run: RunControl) => StatusAttached;
+};
+
+const listedLevels: Readonly<Record<DiagnosticsLevel, true>> = {
+  trace: true,
+  debug: true,
+  info: true,
+  warning: true,
+  error: true,
+  fatal: true,
 };
 
 function optionValues(
@@ -288,7 +298,7 @@ function session(
           {
             category: [options.cli, "diagnostics"],
             sinks: ["diagnostics"],
-            lowestLevel: "debug",
+            lowestLevel: "trace",
             parentSinks: "override",
           },
           {
@@ -321,10 +331,18 @@ function session(
     setup = prepareSink();
   }
 
-  function record(event: string, facts: JsonValue) {
+  function record(
+    event: string,
+    facts: JsonValue,
+    level: DiagnosticsLevel = "info",
+  ) {
     if (frozen) return;
     sequence += 1;
-    if (inputClosed || run.signal.aborted) {
+    if (
+      inputClosed ||
+      run.signal.aborted ||
+      !Object.hasOwn(listedLevels, level)
+    ) {
       dropped += 1;
       return;
     }
@@ -335,7 +353,7 @@ function session(
     }
     handed += 1;
     try {
-      logger.info("{event}", {
+      logger[level]("{event}", {
         event,
         facts,
         seq: sequence,

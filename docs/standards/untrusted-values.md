@@ -19,6 +19,13 @@ boundary trusts the types.
 - Validate the same object you pass on. A spread drops non-enumerable
   properties, and a hidden `toJSON` rewrites serialised data. Witnessed:
   [r4580070938], [r4580077749].
+- Brand-check a platform object such as an `AbortSignal` or a typed array
+  by reading its prototype's getter with the value as receiver, inside one
+  catch with any `instanceof` test. `instanceof` and an own property both
+  pass for `Object.create(AbortSignal.prototype)`, a real `Uint8Array` can
+  shadow `byteLength`, and `instanceof` throws for a revoked Proxy.
+  Witnessed: [r4622699406], [r4622733380], [r4622712159] (an input defining
+  `byteLength` as 0 passed a size limit), [r4622824082].
 - Return frozen copies of tables and stations, so a caller keeps the
   validator's reference data intact. Witnessed: [r4580070877],
   [r4580070890].
@@ -60,3 +67,7 @@ boundary trusts the types.
 [d972ded]: https://github.com/nathanvale/bun-typescript-template/commit/d972ded023d0558d9cf47e4e7e2ee5eb5f37b029
 [3088c03]: https://github.com/nathanvale/bun-typescript-template/commit/3088c032c90df81d9d0e5f93700c0769daac5cff
 [8de7e09]: https://github.com/nathanvale/bun-typescript-template/commit/8de7e09c322e1b40304bad9f9332cb976048102e
+[r4622699406]: https://github.com/nathanvale/agent-cli-kernel/pull/3#discussion_r4622699406
+[r4622733380]: https://github.com/nathanvale/agent-cli-kernel/pull/3#discussion_r4622733380
+[r4622712159]: https://github.com/nathanvale/agent-cli-kernel/pull/4#discussion_r4622712159
+[r4622824082]: https://github.com/nathanvale/agent-cli-kernel/pull/3#discussion_r4622824082

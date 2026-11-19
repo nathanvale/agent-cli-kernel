@@ -1,0 +1,13 @@
+diff --git a/kernel/src/kernel/validation/context.ts b/kernel/src/kernel/validation/context.ts
+index f921b11..600d67c 100644
+--- a/kernel/src/kernel/validation/context.ts
++++ b/kernel/src/kernel/validation/context.ts
+@@ -20,7 +20,7 @@ function abortSignal(value: unknown): value is AbortSignal {
+   if (!(value instanceof AbortSignal)) return false;
+   try {
+     return (
+-      typeof Reflect.get(AbortSignal.prototype, "aborted", value) === "boolean"
++      typeof value.aborted === "boolean"
+     );
+   } catch {
+     return false;

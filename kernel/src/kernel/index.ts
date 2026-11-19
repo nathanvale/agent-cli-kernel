@@ -468,8 +468,10 @@ export type {
   ProgramsCapability,
   ApprovalCapability,
   DiagnosticsCapability,
+  DiagnosticsLevel,
   CapabilitySelection,
   HandlerContext,
+  AbortContext,
   StateIssuer,
   RunProcess,
 } from "./capabilities.ts";

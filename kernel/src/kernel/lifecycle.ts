@@ -487,7 +487,7 @@ async function capabilities(
   run: Run,
   plan: CommandPlan,
 ): Promise<Record<string, unknown> | undefined> {
-  const context: Record<string, unknown> = {};
+  const context: Record<string, unknown> = { signal: run.controller.signal };
   for (const entry of plan.addons) {
     if (entry.name !== "approval" && entry.addon.reportsStatus !== true) {
       context[entry.name] = deferred(run, plan.command, entry);

@@ -1,0 +1,16 @@
+diff --git a/kernel/src/kernel/validation/context.ts b/kernel/src/kernel/validation/context.ts
+index 5562ff1..7f5e0e7 100644
+--- a/kernel/src/kernel/validation/context.ts
++++ b/kernel/src/kernel/validation/context.ts
+@@ -18,10 +18,7 @@ export const addonNames: readonly CapabilityAddonName[] = Object.freeze(
+ // included, so reading it through the prototype is the brand check.
+ function abortSignal(value: unknown): value is AbortSignal {
+   try {
+-    if (!(value instanceof AbortSignal)) return false;
+-    return (
+-      typeof Reflect.get(AbortSignal.prototype, "aborted", value) === "boolean"
+-    );
++    return value instanceof AbortSignal;
+   } catch {
+     return false;
+   }
