@@ -21,16 +21,19 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-async function heldUntilDeadline(deadline: number) {
+async function heldUntilDeadline(
+  deadline: number,
+  work?: (signal: AbortSignal, startedAt: number) => Promise<void>,
+) {
   jest.useFakeTimers();
   const entered = deferred();
   const returned = deferred();
   const recorder = recordingHost();
   const startedAt = performance.now();
   const done = runProcessOn(
-    holdContract(async () => {
+    holdContract(async (_programs, signal) => {
       entered.resolve();
-      await returned.promise;
+      await (work ? work(signal, startedAt) : returned.promise);
     }),
     { addons: { programs: programsAddon() } },
     () => recorder.host,
@@ -96,6 +99,62 @@ describe("T06 small and boundary deadlines keep their exact timing (finding 1)",
           deadline + cancellationWait,
         );
       } finally {
+        await run.finish();
+      }
+    });
+});
+
+function aborted(signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    signal.addEventListener(
+      "abort",
+      () => {
+        resolve();
+      },
+      { once: true },
+    );
+  });
+}
+
+describe("the handler's abort signal at a deadline", () => {
+  for (const cleanUp of [0, 200])
+    test(`a handler waiting on its abort signal is awaited through a ${String(cleanUp)} ms clean-up, and the result is written when it returns`, async () => {
+      const deadline = 300;
+      const cleaned = deferred();
+      const seen: string[] = [];
+      const run = await heldUntilDeadline(
+        deadline,
+        async (signal, startedAt) => {
+          seen.push(`entered aborted=${String(signal.aborted)}`);
+          await aborted(signal);
+          seen.push(`aborted at=${String(performance.now() - startedAt)}`);
+          await cleaned.promise;
+          seen.push(`cleaned at=${String(performance.now() - startedAt)}`);
+        },
+      );
+      try {
+        await advance(deadline - 1);
+        expect(seen).toEqual(["entered aborted=false"]);
+        await advance(1);
+        if (cleanUp > 0) await advance(cleanUp);
+        expect(seen).toEqual([
+          "entered aborted=false",
+          `aborted at=${String(deadline)}`,
+        ]);
+        expect(run.recorder.writes).toEqual([]);
+        cleaned.resolve();
+        await turns();
+        expect(seen[2]).toBe(`cleaned at=${String(deadline + cleanUp)}`);
+        const [write] = run.recorder.writes;
+        expect(run.recorder.writes.length).toBe(1);
+        expect(causeOf(write?.text ?? "null")).toBe(
+          "DOMAIN_DEADLINE_UNCHANGED",
+        );
+        expect((write?.at ?? 0) - run.startedAt).toBe(deadline + cleanUp);
+        expect(run.recorder.exits).toEqual([3]);
+      } finally {
+        cleaned.resolve();
+        await advance(cancellationWait);
         await run.finish();
       }
     });

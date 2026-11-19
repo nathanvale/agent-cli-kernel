@@ -868,6 +868,48 @@
     "source": "b021da0 fix(gates): refuse excluded recorded hits"
   },
   {
+    "id": "b165bed-context",
+    "patch": "tests/planted-faults/patches/b165bed-context.patch",
+    "testFile": "tests/kernel/abort-signal.test.ts",
+    "title": "^command\\(\\): a context signal that is a plain object is refused before the handler$",
+    "source": "b165bed feat(kernel): give every handler its run's stop signal"
+  },
+  {
+    "id": "b165bed-context-changing",
+    "patch": "tests/planted-faults/patches/b165bed-context.patch",
+    "testFile": "tests/kernel/abort-signal.test.ts",
+    "title": "^changing\\(\\): a context signal that is a plain object is refused before the handler$",
+    "source": "b165bed feat(kernel): give every handler its run's stop signal"
+  },
+  {
+    "id": "b165bed-context-spread",
+    "patch": "tests/planted-faults/patches/b165bed-context.patch",
+    "testFile": "tests/kernel/abort-signal.test.ts",
+    "title": "^a spread of a declaration: a context signal that is a plain object is refused before the handler$",
+    "source": "b165bed feat(kernel): give every handler its run's stop signal"
+  },
+  {
+    "id": "b165bed-context-prototype",
+    "patch": "tests/planted-faults/patches/b165bed-context-prototype.patch",
+    "testFile": "tests/kernel/abort-signal.test.ts",
+    "title": "^command\\(\\): a context signal that is an object that only inherits the prototype is refused before the handler$",
+    "source": "b165bed feat(kernel): give every handler its run's stop signal"
+  },
+  {
+    "id": "10c4870-context",
+    "patch": "tests/planted-faults/patches/10c4870-context.patch",
+    "testFile": "tests/kernel/abort-signal.test.ts",
+    "title": "^command\\(\\): a context signal that is a prototype-only object with its own aborted property is refused before the handler$",
+    "source": "10c4870 fix(kernel): brand-check the abort signal through its prototype getter"
+  },
+  {
+    "id": "e15dec5-context",
+    "patch": "tests/planted-faults/patches/e15dec5-context.patch",
+    "testFile": "tests/kernel/abort-signal.test.ts",
+    "title": "^command\\(\\): a context signal that is a revoked Proxy is refused before the handler$",
+    "source": "e15dec5 fix(kernel): keep the abort signal's instanceof check inside the catch"
+  },
+  {
     "id": "4d42f8c-install",
     "patch": "tests/planted-faults/patches/4d42f8c-install.patch",
     "testFile": "tests/kernel/state/component.test.ts",
