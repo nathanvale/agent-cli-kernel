@@ -40,8 +40,8 @@ test("show refuses a planet it does not know and points at list", async () => {
 
 ## Through the real process
 
-Every required station must be reached by a test through the real process.
-Start the real entry file and check what a caller sees:
+Reach each station you declare as `required` with a test through the real
+process. Start the real entry file and check what a caller sees:
 the exit code, stdout and stderr.
 
 ```ts
