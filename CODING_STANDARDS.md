@@ -115,9 +115,10 @@ row's guide or gate note cites two distinct witnesses.
 
 - `bun run fault-replay` replays each record in
   `tests/planted-faults/fault-records.json` in a temporary worktree.
-- A pull request's `fault-replay` check replays each record whose test is
-  outside `tests/template/`, and each other record its change touches. The
-  Linux nightly replays every record. Pre-push replays those its push
+- A pull request's `fault-replay-shard` jobs replay each record whose test
+  is outside `tests/template/`, and each other record its change touches;
+  `fault-replay` passes when all of them do. The Linux nightly
+  replays every record. Pre-push replays those its push
   touches (`--changed-since <base>`).
 - Fault replay fails on a fault record whose named test passes with the
   planted fault applied or fails without it, or whose patch file is
