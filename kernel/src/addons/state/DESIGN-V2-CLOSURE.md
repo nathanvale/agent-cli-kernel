@@ -217,9 +217,9 @@ this order:
    released, and the lease released last.
 
 A `record` that never settles keeps the lease held, so its case stays live,
-which blocks overlapping work and every closer: the safe direction. The
-lease is freed only when the record settles, or when the process ends and
-the operating-system kernel frees it (at a deadline the kernel lifecycle
+which blocks overlapping work and every closer: the safe direction. The lease
+is freed only when the record settles, or when the process ends and the
+operating-system kernel frees it (at a deadline the CLI kernel's lifecycle
 exits the process; a single run with no deadline, or a long-lived process,
 keeps it). Case K11.e pins the rule.
 

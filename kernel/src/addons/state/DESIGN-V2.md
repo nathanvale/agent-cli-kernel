@@ -8,8 +8,8 @@ The points in section 8.3 are still open: each keeps its recommendation
 until Nathan decides it, and code that depends on one waits for that
 decision.
 
-In this note a host is the tool built on the kernel. The machine or virtual
-machine a container runs on is the container machine.
+In this note a host is the tool built on the CLI kernel. The machine or
+virtual machine a container runs on is the container machine.
 
 - Part 2, [DESIGN-V2-CLOSURE.md](DESIGN-V2-CLOSURE.md): closing a crashed
   case in production.
@@ -127,10 +127,10 @@ Decided constraints this note keeps:
 
 ## 5. Read rule (changes version 1 section 5)
 
-The per-case status rules 1 to 5 are unchanged. Version 1 calls a case with
-a valid closure "resolved by closure", and one with its own valid final
-event "resolved by its own run". Version 2 calls both a settled case, the
-kernel glossary's term (decided by Nathan, 19 November 2026); the statuses
+The per-case status rules 1 to 5 are unchanged. Version 1 calls a case with a
+valid closure "resolved by closure", and one with its own valid final event
+"resolved by its own run". Version 2 calls both a settled case, the Agent
+ecosystem glossary's term (decided by Nathan, 19 November 2026); the statuses
 keep their names, `completed`, `not-applied` and `closed`. What changes is
 where each route looks:
 
@@ -341,5 +341,5 @@ Each is one decision with one recommendation.
   drops requests from an owner that has gone), or the host's observer must
   answer `unobservable` for that operation while such work may still be
   pending. Otherwise a free lease and a matching row could close a case
-  whose work is still running. The kernel has nothing to check here: each
+  whose work is still running. The CLI kernel has nothing to check here: each
   host proves this obligation, both of its branches, in its own tests.
