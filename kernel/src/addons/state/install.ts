@@ -473,7 +473,7 @@ function caseRead(
 // Accepted decision (Nathan, 19 November 2026, 17:43 AEDT): the closer
 // reads the case again once it holds the owner lease and decides only on
 // that read, which no owner can append to, and refuses when it differs
-// from the revision the request names.
+// from the revision the request names, before any other check of it.
 function caseUnderLease(
   paths: Locked,
   request: CloseRequest<string>,
@@ -492,11 +492,20 @@ function caseUnderLease(
       ok: false,
       stop: { kind: "unavailable", reason: "lease-unreadable" },
     };
-  const read = caseRead(paths, request);
-  if (read.ok && read.target.revision === request.revision)
-    return { ok: true, target: read.target, release: lease.release };
-  lease.release();
-  return { ok: false, stop: read.ok ? { kind: "stale-revision" } : read.stop };
+  const read = readCase(paths, id);
+  if (typeof read === "string") {
+    lease.release();
+    return { ok: false, stop: readProblem(read) };
+  }
+  const stop: CloseResultBody | undefined =
+    read.revision === request.revision
+      ? settledCheck(read, request)
+      : { kind: "stale-revision" };
+  if (stop) {
+    lease.release();
+    return { ok: false, stop };
+  }
+  return { ok: true, target: read, release: lease.release };
 }
 
 function closureMatches(

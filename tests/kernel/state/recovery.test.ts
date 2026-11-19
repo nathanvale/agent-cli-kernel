@@ -1630,3 +1630,24 @@ supportingTest(
     expect(existsSync(closurePath(world, id))).toBe(false);
   }),
 );
+
+supportingTest(
+  "X29 supporting: a case its owner completes between the store read and the fresh read refuses as stale, not as settled",
+  plain(async (world) => {
+    const owner = unknownScopeOwner(world);
+    await owner.reached("pre-effect");
+    const id = only(world);
+    const before = await world.revision(id);
+    const closer = pausedCloser(world, id, before, "not-applied");
+    await closer.reached("closure-read");
+    owner.release("pre-effect");
+    owner.release("intent");
+    expectCompleted(await owner.done);
+    expect(
+      caseOf(world, id).events.records.map((record) => record.kind),
+    ).toEqual(["effect-started", "effect-confirmed", "completion"]);
+    closer.release("closure-read");
+    expectRefusedUnchanged(await closer.done, "DOMAIN_SX_CLOSE_STALE");
+    expect(existsSync(closurePath(world, id))).toBe(false);
+  }),
+);
