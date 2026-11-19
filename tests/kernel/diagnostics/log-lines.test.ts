@@ -10,7 +10,7 @@ import {
   limits,
   lines,
   observe,
-  run,
+  runCrash,
   tree,
 } from "./harness.ts";
 import type { Tree } from "./harness.ts";
@@ -22,6 +22,7 @@ import {
 } from "./support.ts";
 
 afterAll(cleanTrees);
+const childBound = 20_000;
 const timeout = 120_000;
 const entry = join(import.meta.dir, "fixtures/log-lines-cli.ts");
 
@@ -41,12 +42,15 @@ const unlistedLevels = ["warn", "constructor", 3];
 async function launched(script: Readonly<Record<string, unknown>>) {
   const where = tree();
   const secret = `LOGLINEMARKER-${crypto.randomUUID()}`;
-  const result = await run({
-    argv: ["read", "--token", secret, ...machine],
-    tree: where,
-    entry,
-    script,
-  });
+  const result = await runCrash(
+    {
+      argv: ["read", "--token", secret, ...machine],
+      tree: where,
+      entry,
+      script,
+    },
+    childBound,
+  );
   expectSuccess(result);
   expect(get(result.envelope, "result", "data")).toEqual({ logged: true });
   const status = statusOf(result);
@@ -161,11 +165,14 @@ describe("a host logger's lines sent through diagnostics.record", () => {
     "levelled lines past the 1,000,000 byte run cap stop being written and are counted",
     async () => {
       const where = tree();
-      const result = await run({
-        argv: ["read", ...machine],
-        tree: where,
-        script: { records: 100, size: 15_000, pace: true, level: "warning" },
-      });
+      const result = await runCrash(
+        {
+          argv: ["read", ...machine],
+          tree: where,
+          script: { records: 100, size: 15_000, pace: true, level: "warning" },
+        },
+        childBound,
+      );
       expectSuccess(result);
       const status = statusOf(result);
       expectAvailable(status);
@@ -186,11 +193,14 @@ describe("a host logger's lines sent through diagnostics.record", () => {
     "a record sent without a level is still written at info",
     async () => {
       const where = tree();
-      const result = await run({
-        argv: ["read", ...machine],
-        tree: where,
-        script: { records: 3 },
-      });
+      const result = await runCrash(
+        {
+          argv: ["read", ...machine],
+          tree: where,
+          script: { records: 3 },
+        },
+        childBound,
+      );
       expectSuccess(result);
       const [log] = observe(where.dir).files;
       if (!log) throw new Error("The run wrote no diagnostics file.");
