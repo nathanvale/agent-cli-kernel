@@ -29,7 +29,7 @@ import {
   makeWorld,
   str,
   supportingTest,
-  versionOneProgram,
+  versionOneReader,
   versionTwoStore,
   writeSyntheticOperation,
 } from "./harness.ts";
@@ -765,19 +765,16 @@ caseTest(
   plain(async (world) => {
     expectCompleted(await world.run(apply("a")));
     expect(formatText(world)).toBe(versionTwoFormat);
-    expect(versionOneProgram(world.root)).toEqual({
-      read: "corrupt",
-      changing: false,
-    });
+    expect(versionOneReader(world.root)).toBe("corrupt");
     const format = join(world.root, "format");
-    const accepted = { read: ["completed"], changing: true };
+    const accepted = ["completed"];
     writeFileSync(format, versionOneFormat);
-    expect(versionOneProgram(world.root)).toEqual(accepted);
+    expect(versionOneReader(world.root)).toEqual(accepted);
     writeFileSync(
       format,
       framed("format", { journal: journals.one, version: 2 }),
     );
-    expect(versionOneProgram(world.root)).toEqual(accepted);
+    expect(versionOneReader(world.root)).toEqual(accepted);
     const [operation] = world.operations();
     if (!operation) throw new Error("No operation.");
     const other = formatRecord("contract3.state.3");
@@ -881,10 +878,13 @@ caseTest(
     ]);
     expect((await world.pendingIds()).length).toBe(1);
     asVersionOneStore(world);
-    expect(versionOneProgram(world.root)).toEqual({
-      read: ["closed", "completed", "completed", "not-applied", "unresolved"],
-      changing: true,
-    });
+    expect(versionOneReader(world.root)).toEqual([
+      "closed",
+      "completed",
+      "completed",
+      "not-applied",
+      "unresolved",
+    ]);
   }),
 );
 
@@ -1244,10 +1244,7 @@ supportingTest(
     const production = { SX_ENTRY: "production" };
     expectCompleted(await world.run(apply("a"), production));
     expect(formatText(world)).toBe(versionTwoFormat);
-    expect(versionOneProgram(world.root)).toEqual({
-      read: "corrupt",
-      changing: false,
-    });
+    expect(versionOneReader(world.root)).toBe("corrupt");
     const [first] = caseFolders(world, "operations");
     if (!first) throw new Error("No case.");
     expectCompleted(await world.run(apply("b"), production));

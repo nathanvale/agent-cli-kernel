@@ -84,6 +84,12 @@ this file.
   [ff852e8] (a closer whose moved target was unreadable or corrupt would
   have reported a missing case; the fix shares `readProblem` with the first
   read).
+- Prove a compatibility claim with code committed in the tree, never with
+  git history, which a shallow checkout or another folder lacks. Witnessed:
+  [ff852e8], [e45050c] (J08.a and J08.c read version 1's store with
+  `git show` at a fixed commit, and hosted fault replay, [run 44456881408],
+  could not resolve the path; the fix adds a committed version 1 reader to
+  `tests/kernel/state/harness.ts`).
 
 [ac11ed9]: https://github.com/nathanvale/bun-typescript-template/commit/ac11ed98b7d538e8a304cac053aaefcaaf6b2cb3
 [cd2498b]: https://github.com/nathanvale/bun-typescript-template/commit/cd2498b7189a2d45d1906b9c870e8d13da6cd2dd
@@ -108,3 +114,5 @@ this file.
 [9086c3b]: https://github.com/nathanvale/agent-cli-kernel/commit/9086c3b8b14bcba376aa63027abdd817c1495e53
 [kernel#13 r4624230310]: https://github.com/nathanvale/agent-cli-kernel/pull/13#discussion_r4624230310
 [ff852e8]: https://github.com/nathanvale/agent-cli-kernel/commit/ff852e8f0daed7dc23fc8b092043ab2ddff68c8d
+[e45050c]: https://github.com/nathanvale/agent-cli-kernel/commit/e45050c2bbcafa88b973931119a4512e45d9bfc7
+[run 44456881408]: https://github.com/nathanvale/agent-cli-kernel/actions/runs/44456881408

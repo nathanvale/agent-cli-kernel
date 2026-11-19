@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/diagnostics/records.ts b/kernel/src/addons/diagnostics/records.ts
+index bb46fc6..169ebb9 100644
+--- a/kernel/src/addons/diagnostics/records.ts
++++ b/kernel/src/addons/diagnostics/records.ts
+@@ -198,7 +198,7 @@ const unmapped = Object.freeze({});
+ // when, and only when, a limit was exceeded, so the run reads that replacement
+ // as its own report.
+ function exceededRedactionLimit(record: LogRecord): boolean {
+-  return !record.message.includes(unmapped);
++  return record.message.length === 0;
+ }
+ 
+ function redactor(): (record: LogRecord) => LogRecord | undefined {
