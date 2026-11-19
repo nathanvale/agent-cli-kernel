@@ -1,0 +1,17 @@
+diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
+index 00f55b6..7b6ba7d 100644
+--- a/kernel/src/kernel/lifecycle.ts
++++ b/kernel/src/kernel/lifecycle.ts
+@@ -877,12 +877,6 @@ const inFlightByHost = new WeakMap<ProcessHost, InFlight>();
+ function stopEvery(inFlight: InFlight, host: ProcessHost, signal: StopSignal) {
+   const code = stopCode(signal);
+   const runs = [...inFlight.runs];
+-  if (inFlight.crash === "listening") {
+-    for (const run of runs) killAll(run);
+-    inFlight.crash = "exited";
+-    host.exit(1);
+-    return;
+-  }
+   if (inFlight.stopped) {
+     for (const run of runs) killAll(run);
+     host.exit(code);

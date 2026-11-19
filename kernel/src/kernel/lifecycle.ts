@@ -6,6 +6,7 @@ import type {
   AttachedAddon,
   EmergencyFacts,
   InProcessResult,
+  InProcessSetup,
   ProcessHost,
   RunAddon,
   RunControl,
@@ -185,18 +186,19 @@ function processWideHost(): ProcessHost {
 
 export function runInProcess(
   contract: ContractKey,
-  setup: RunSetup = {},
+  setup: InProcessSetup = {},
 ): RunInProcess {
   return runInProcessOn(contract, setup, processWideHost);
 }
 
 export function runInProcessOn(
   contract: ContractKey,
-  setup: RunSetup,
+  setup: InProcessSetup,
   host: () => ProcessHost,
 ): RunInProcess {
   const prepared = prepare(contract, setup, "runInProcess");
-  return (argv) => runAndReturn(newRun(prepared, host()), argv);
+  const listener = setup.onCrash;
+  return (argv) => runAndReturn(newRun(prepared, host()), argv, listener);
 }
 
 type Run = {
@@ -889,12 +891,25 @@ async function runInvocation(run: Run, argv: unknown): Promise<number> {
   return code;
 }
 
-type InFlight = { readonly runs: Set<Run>; stopped: StopSignal | undefined };
+type OnCrash = NonNullable<InProcessSetup["onCrash"]>;
+type InFlight = {
+  readonly runs: Set<Run>;
+  readonly listeners: Set<OnCrash>;
+  stopped: StopSignal | undefined;
+  crash: "none" | "stopping" | "listening" | "exited";
+};
 const inFlightByHost = new WeakMap<ProcessHost, InFlight>();
 
 function stopEvery(inFlight: InFlight, host: ProcessHost, signal: StopSignal) {
   const code = stopCode(signal);
   const runs = [...inFlight.runs];
+  if (inFlight.crash === "stopping") return;
+  if (inFlight.crash === "listening") {
+    for (const run of runs) killAll(run);
+    inFlight.crash = "exited";
+    host.exit(1);
+    return;
+  }
   if (inFlight.stopped) {
     for (const run of runs) killAll(run);
     host.exit(code);
@@ -909,20 +924,75 @@ function stopEvery(inFlight: InFlight, host: ProcessHost, signal: StopSignal) {
     Promise.all(runs.map(settledAfterStopRequest)),
     stopBoundMilliseconds,
     host.now,
-  ).then(() => host.exit(code));
+  ).then(() => {
+    if (inFlight.crash === "none") host.exit(code);
+  });
 }
 
 function inFlightOn(host: ProcessHost): InFlight {
   const known = inFlightByHost.get(host);
   if (known) return known;
-  const inFlight: InFlight = { runs: new Set(), stopped: undefined };
+  const inFlight: InFlight = {
+    runs: new Set(),
+    listeners: new Set(),
+    stopped: undefined,
+    crash: "none",
+  };
   inFlightByHost.set(host, inFlight);
   host.onSignal((signal) => stopEvery(inFlight, host, signal));
-  host.onCrash(() => {
-    for (const run of inFlight.runs) crashRun(run);
-    host.exit(1);
-  });
+  host.onCrash((error) => crashEvery(inFlight, host, error));
   return inFlight;
+}
+
+const untilExit = new Promise<InProcessResult>(() => undefined);
+
+function callOnCrash(listener: OnCrash, error: unknown): Promise<void> {
+  try {
+    return Promise.resolve(listener(error));
+  } catch {
+    return Promise.resolve();
+  }
+}
+
+function crashEvery(inFlight: InFlight, host: ProcessHost, error: unknown) {
+  if (inFlight.crash === "stopping") return;
+  if (inFlight.crash !== "none") {
+    for (const run of inFlight.runs) crashRun(run);
+    inFlight.crash = "exited";
+    host.exit(1);
+    return;
+  }
+  inFlight.crash = "stopping";
+  for (const run of inFlight.runs) crashRun(run);
+  if (inFlight.listeners.size === 0) {
+    inFlight.crash = "exited";
+    host.exit(1);
+    return;
+  }
+  queueMicrotask(() => {
+    listenThenExit(inFlight, host, error);
+  });
+}
+
+// Platform: Bun ends the process and prints the error when an event listener
+// throws while its uncaughtException handler runs, so the abort and the
+// onCrash calls wait until that handler has returned. A program started
+// before the abort is killed with the rest.
+function listenThenExit(inFlight: InFlight, host: ProcessHost, error: unknown) {
+  for (const run of inFlight.runs) run.controller.abort();
+  for (const run of inFlight.runs) killAll(run);
+  const due = host.now() + stopBoundMilliseconds;
+  const listening = [...inFlight.listeners].map((each) =>
+    callOnCrash(each, error),
+  );
+  inFlight.crash = "listening";
+  void within(Promise.allSettled(listening), due - host.now(), host.now).then(
+    () => {
+      if (inFlight.crash !== "listening") return;
+      inFlight.crash = "exited";
+      host.exit(1);
+    },
+  );
 }
 
 const decoder = new TextDecoder();
@@ -957,8 +1027,14 @@ function forgetWhenReturned(run: Run): void {
   else void run.handler.returning.then(forget);
 }
 
-async function runAndReturn(run: Run, argv: unknown): Promise<InProcessResult> {
+async function runAndReturn(
+  run: Run,
+  argv: unknown,
+  listener: OnCrash | undefined,
+): Promise<InProcessResult> {
   const inFlight = inFlightOn(run.host);
+  if (inFlight.crash !== "none") return untilExit;
+  if (listener) inFlight.listeners.add(listener);
   run.stopped = inFlight.stopped;
   inFlight.runs.add(run);
   const chunks: Uint8Array[] = [];

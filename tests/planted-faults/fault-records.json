@@ -1575,6 +1575,510 @@
     "source": "01a8093 fix(state): settle the two-axis review of capability qualification matching"
   },
   {
+    "id": "71be2d5-install-boot-not-written",
+    "patch": "tests/planted-faults/patches/71be2d5-install-boot-not-written.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^K11.b-delegate-other-boot-closes",
+    "source": "71be2d5 feat(state): close a case after a delegate start only on another boot"
+  },
+  {
+    "id": "71be2d5-install-same-boot-admitted",
+    "patch": "tests/planted-faults/patches/71be2d5-install-same-boot-admitted.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^K11.a supporting \\(fact override",
+    "source": "71be2d5 feat(state): close a case after a delegate start only on another boot"
+  },
+  {
+    "id": "71be2d5-install-missing-boot-admitted",
+    "patch": "tests/planted-faults/patches/71be2d5-install-missing-boot-admitted.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^K11.a supporting \\(fact override",
+    "source": "71be2d5 feat(state): close a case after a delegate start only on another boot"
+  },
+  {
+    "id": "71be2d5-install-first-delegate-only",
+    "patch": "tests/planted-faults/patches/71be2d5-install-first-delegate-only.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^K11.a supporting \\(fact override",
+    "source": "71be2d5 feat(state): close a case after a delegate start only on another boot"
+  },
+  {
+    "id": "71be2d5-store-empty-boot",
+    "patch": "tests/planted-faults/patches/71be2d5-store-empty-boot.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^K11.a supporting \\(fact override",
+    "source": "71be2d5 feat(state): close a case after a delegate start only on another boot"
+  },
+  {
+    "id": "6d4b46d-store-append-after-torn",
+    "patch": "tests/planted-faults/patches/6d4b46d-store-append-after-torn.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^K11.g-no-append-after-torn-tail",
+    "source": "6d4b46d feat(state): close a crashed case after a torn tail once the lease is free"
+  },
+  {
+    "id": "6d4b46d-framing-mid-line-scan",
+    "patch": "tests/planted-faults/patches/6d4b46d-framing-mid-line-scan.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^K11.f-record-hidden-in-torn-tail-refuses",
+    "source": "6d4b46d feat(state): close a crashed case after a torn tail once the lease is free"
+  },
+  {
+    "id": "6d4b46d-install-torn-tail-refused",
+    "patch": "tests/planted-faults/patches/6d4b46d-install-torn-tail-refused.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^K11.c-torn-tail-closes",
+    "source": "6d4b46d feat(state): close a crashed case after a torn tail once the lease is free"
+  },
+  {
+    "id": "3b54e9e-install-unreadable-boot-admitted",
+    "patch": "tests/planted-faults/patches/3b54e9e-install-unreadable-boot-admitted.patch",
+    "testFile": "tests/kernel/state/component.test.ts",
+    "title": "^K11.a supporting: in process, a delegate start refuses on the same boot, on a missing boot, and when the current boot cannot be read$",
+    "source": "3b54e9e fix(state): settle the two-axis review of crashed-case closure"
+  },
+  {
+    "id": "3b54e9e-store-corrupt-tail-appended",
+    "patch": "tests/planted-faults/patches/3b54e9e-store-corrupt-tail-appended.patch",
+    "testFile": "tests/kernel/state/component.test.ts",
+    "title": "^K11.g supporting: in process, appendEvent appends after a whole record and refuses after torn or corrupt bytes$",
+    "source": "3b54e9e fix(state): settle the two-axis review of crashed-case closure"
+  },
+  {
+    "id": "3b54e9e-install-start-after-failed-append",
+    "patch": "tests/planted-faults/patches/3b54e9e-install-start-after-failed-append.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^X28 supporting: a delegate-admitted append that fails stops the start, and the run goes on$",
+    "source": "3b54e9e fix(state): settle the two-axis review of crashed-case closure"
+  },
+  {
+    "id": "d37a77f-install-decide-on-first-read",
+    "patch": "tests/planted-faults/patches/d37a77f-install-decide-on-first-read.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^X29 supporting: closure decides on a fresh read taken after the store read",
+    "source": "d37a77f fix(state): decide a closure on the journal read under the target's lease"
+  },
+  {
+    "id": "adbcace-install-stale-read-under-lease",
+    "patch": "tests/planted-faults/patches/adbcace-install-stale-read-under-lease.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^X29 supporting: a closer that read a torn tail mid-append",
+    "source": "adbcace fix(state): refuse a closure whose read under the lease differs from its request"
+  },
+  {
+    "id": "adbcace-install-fresh-read-not-found",
+    "patch": "tests/planted-faults/patches/adbcace-install-fresh-read-not-found.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^X29 supporting: a closer whose fresh read finds the case corrupt",
+    "source": "adbcace fix(state): refuse a closure whose read under the lease differs from its request"
+  },
+  {
+    "id": "4f7712e-install-settled-before-revision",
+    "patch": "tests/planted-faults/patches/4f7712e-install-settled-before-revision.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^X29 supporting: a case its owner completes between the store read and the fresh read",
+    "source": "4f7712e fix(state): check the fresh read's revision before its settled state"
+  },
+  {
+    "id": "d37a77f-install-read-before-lease",
+    "patch": "tests/planted-faults/patches/d37a77f-install-read-before-lease.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^X29 supporting: closure decides on a fresh read taken after the store read",
+    "source": "d37a77f fix(state): decide a closure on the journal read under the target's lease"
+  },
+  {
+    "id": "d37a77f-install-lease-released-early",
+    "patch": "tests/planted-faults/patches/d37a77f-install-lease-released-early.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^X29 supporting: the closer holds the owner lease until its closure is published",
+    "source": "d37a77f fix(state): decide a closure on the journal read under the target's lease"
+  },
+  {
+    "id": "f9f1a40-install-settled-check-dropped",
+    "patch": "tests/planted-faults/patches/f9f1a40-install-settled-check-dropped.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^X29 supporting: a closure another closer published while this one waited",
+    "source": "f9f1a40 fix(state): check the revision first on every read a closer makes"
+  },
+  {
+    "id": "d990c5b-install-read-cached-before-lease",
+    "patch": "tests/planted-faults/patches/d990c5b-install-read-cached-before-lease.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^X29 supporting: closure decides on a fresh read taken after the store read",
+    "source": "d990c5b test(state): make the lease and pin proofs see what they claim"
+  },
+  {
+    "id": "d990c5b-install-lease-released-after-staging",
+    "patch": "tests/planted-faults/patches/d990c5b-install-lease-released-after-staging.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^X29 supporting: the closer holds the owner lease until its closure is published",
+    "source": "d990c5b test(state): make the lease and pin proofs see what they claim"
+  },
+  {
+    "id": "d62870c-in-process-forget",
+    "patch": "tests/planted-faults/patches/d62870c-lifecycle-forget.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP08\\.memory-returns-to-start",
+    "source": "d62870c feat(kernel): forget an in-process run identity when its run finishes"
+  },
+  {
+    "id": "d62870c-in-process-handler",
+    "patch": "tests/planted-faults/patches/d62870c-lifecycle-handler.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP08\\.live-past-deadline",
+    "source": "d62870c feat(kernel): forget an in-process run identity when its run finishes"
+  },
+  {
+    "id": "d62870c-in-process-live",
+    "patch": "tests/planted-faults/patches/d62870c-state-seam-live.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP08\\.reuse-after-finish-attaches",
+    "source": "d62870c feat(kernel): forget an in-process run identity when its run finishes"
+  },
+  {
+    "id": "d62870c-in-process-reuse",
+    "patch": "tests/planted-faults/patches/d62870c-state-seam-reuse.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP08\\.reuse-while-live-refused",
+    "source": "d62870c feat(kernel): forget an in-process run identity when its run finishes"
+  },
+  {
+    "id": "7fb5649-state-seam-closed",
+    "patch": "tests/planted-faults/patches/7fb5649-state-seam-closed.patch",
+    "testFile": "tests/kernel/state-seam.test.ts",
+    "title": "a late callback in a forgotten run's context cannot record under the run that reused its identity",
+    "source": "7fb5649 fix(kernel): keep a forgotten run's capability closed"
+  },
+  {
+    "id": "7fb5649-in-process-entered",
+    "patch": "tests/planted-faults/patches/7fb5649-lifecycle-entered.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP08\\.attached-never-entered",
+    "source": "7fb5649 fix(kernel): keep a forgotten run's capability closed"
+  },
+  {
+    "id": "d62870c-in-process-rejected",
+    "patch": "tests/planted-faults/patches/d62870c-lifecycle-rejected.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP08\\.rejected-run-forgets",
+    "source": "d62870c feat(kernel): forget an in-process run identity when its run finishes"
+  },
+  {
+    "id": "c02caae-state-seam-active",
+    "patch": "tests/planted-faults/patches/c02caae-state-seam-active.patch",
+    "testFile": "tests/kernel/state-seam.test.ts",
+    "title": "a record kept past its forgotten run cannot record under the run that reused its identity",
+    "source": "c02caae fix(kernel): require the active attached run for a recorded effect"
+  },
+  {
+    "id": "ff48724-in-process-keep",
+    "patch": "tests/planted-faults/patches/ff48724-state-seam-keep.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP08\\.reuse-keeps-live-run",
+    "source": "ff48724 fix(kernel): keep a live run attached when its identity is reused"
+  },
+  {
+    "id": "ff48724-state-seam-revoke",
+    "patch": "tests/planted-faults/patches/ff48724-state-seam-revoke.patch",
+    "testFile": "tests/kernel/kernel-repair/state.test.ts",
+    "title": "R02\\.superseded-attachment-refused",
+    "source": "ff48724 fix(kernel): keep a live run attached when its identity is reused"
+  },
+  {
+    "id": "ff48724-state-seam-proof",
+    "patch": "tests/planted-faults/patches/ff48724-state-seam-proof.patch",
+    "testFile": "tests/kernel/correlations.test.ts",
+    "title": "the admitted state specimen validates 27 truth arms",
+    "source": "ff48724 fix(kernel): keep a live run attached when its identity is reused"
+  },
+  {
+    "id": "ff48724-state-seam-scope",
+    "patch": "tests/planted-faults/patches/ff48724-state-seam-scope.patch",
+    "testFile": "tests/kernel/kernel-repair/state.test.ts",
+    "title": "R02\\.superseded-attachment-refused",
+    "source": "ff48724 fix(kernel): keep a live run attached when its identity is reused"
+  },
+  {
+    "id": "ff48724-state-seam-summary",
+    "patch": "tests/planted-faults/patches/ff48724-state-seam-summary.patch",
+    "testFile": "tests/kernel/state-seam.test.ts",
+    "title": "a refused reuse keeps the live run's proof as its trusted summary",
+    "source": "ff48724 fix(kernel): keep a live run attached when its identity is reused"
+  },
+  {
+    "id": "2d158f0-state-seam-open",
+    "patch": "tests/planted-faults/patches/2d158f0-state-seam-open.patch",
+    "testFile": "tests/kernel/state-seam.test.ts",
+    "title": "a run whose transaction is still running stays live",
+    "source": "2d158f0 fix(kernel): keep a run live until its open transaction ends"
+  },
+  {
+    "id": "2d158f0-state-seam-later",
+    "patch": "tests/planted-faults/patches/2d158f0-state-seam-later.patch",
+    "testFile": "tests/kernel/state-seam.test.ts",
+    "title": "a run whose transaction is still running stays live",
+    "source": "2d158f0 fix(kernel): keep a run live until its open transaction ends"
+  },
+  {
+    "id": "7eae994-in-process-duplicate",
+    "patch": "tests/planted-faults/patches/7eae994-state-seam-duplicate.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP08\\.duplicate-keeps-live-run",
+    "source": "7eae994 fix(kernel): let only the attachment that a run created forget it"
+  },
+  {
+    "id": "7eae994-in-process-deadline",
+    "patch": "tests/planted-faults/patches/d62870c-lifecycle-handler.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP08\\.duplicate-keeps-live-run",
+    "source": "7eae994 fix(kernel): let only the attachment that a run created forget it"
+  },
+  {
+    "id": "7eae994-in-process-crash",
+    "patch": "tests/planted-faults/patches/7eae994-lifecycle-crash.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP08\\.duplicate-then-crash",
+    "source": "7eae994 fix(kernel): let only the attachment that a run created forget it"
+  },
+  {
+    "id": "7eae994-in-process-attach",
+    "patch": "tests/planted-faults/patches/7eae994-state-seam-attach.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP08\\.attach-throws-forgets",
+    "source": "7eae994 fix(kernel): let only the attachment that a run created forget it"
+  },
+  {
+    "id": "7eae994-state-seam-owner",
+    "patch": "tests/planted-faults/patches/7eae994-state-seam-owner.patch",
+    "testFile": "tests/kernel/state-seam.test.ts",
+    "title": "an attachment's forget never removes a later attachment",
+    "source": "7eae994 fix(kernel): let only the attachment that a run created forget it"
+  },
+  {
+    "id": "68a85f3-in-process-crash-order",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-order.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.listener-after-records",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "68a85f3-in-process-crash-settle",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-settle.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.listener-after-records",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "68a85f3-in-process-crash-wait",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-wait.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.listener-bound",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "68a85f3-in-process-crash-early",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-early.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.listener-bound",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "68a85f3-in-process-crash-throw",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-throw.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.listener-fails an onCrash that throws",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "68a85f3-in-process-crash-reject",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-reject.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.listener-fails an onCrash that rejects",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "68a85f3-in-process-crash-again",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-again.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.second-crash-exits-at-once",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "68a85f3-in-process-crash-twice",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-twice.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.second-crash-exits-at-once",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "68a85f3-in-process-crash-unheard",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-unheard.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.no-listener-unchanged",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "68a85f3-in-process-crash-first",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-first.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.each-entry-listener",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "68a85f3-in-process-crash-error",
+    "patch": "tests/planted-faults/patches/68a85f3-process-host-error.patch",
+    "testFile": "tests/kernel/state/in-process.test.ts",
+    "title": "IP06\\.on-crash-hears-error",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "68a85f3-in-process-crash-print",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-print.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.listener-after-records",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "20e8187-in-process-crash-abort",
+    "patch": "tests/planted-faults/patches/20e8187-lifecycle-abort.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.listener-after-records",
+    "source": "20e8187 fix(kernel): let a crash decide the exit and abort runs during its wait"
+  },
+  {
+    "id": "20e8187-in-process-crash-signal",
+    "patch": "tests/planted-faults/patches/20e8187-lifecycle-signal.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.signal-during-wait",
+    "source": "20e8187 fix(kernel): let a crash decide the exit and abort runs during its wait"
+  },
+  {
+    "id": "20e8187-in-process-crash-stop-exit",
+    "patch": "tests/planted-faults/patches/20e8187-lifecycle-stop-exit.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.crash-during-stop a crash",
+    "source": "20e8187 fix(kernel): let a crash decide the exit and abort runs during its wait"
+  },
+  {
+    "id": "20e8187-in-process-crash-pending",
+    "patch": "tests/planted-faults/patches/20e8187-lifecycle-pending.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.call-during-wait",
+    "source": "20e8187 fix(kernel): let a crash decide the exit and abort runs during its wait"
+  },
+  {
+    "id": "20e8187-in-process-crash-reason",
+    "patch": "tests/planted-faults/patches/20e8187-process-host-reason.patch",
+    "testFile": "tests/kernel/state/in-process.test.ts",
+    "title": "IP06\\.on-crash-hears-rejection",
+    "source": "20e8187 fix(kernel): let a crash decide the exit and abort runs during its wait"
+  },
+  {
+    "id": "a4c193c-in-process-crash-due",
+    "patch": "tests/planted-faults/patches/a4c193c-lifecycle-due.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.bound-from-call",
+    "source": "a4c193c fix(kernel): start the crash wait before calling onCrash"
+  },
+  {
+    "id": "68a85f3-in-process-crash-last",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-last.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.each-entry-listener .* when the first settles last",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "68a85f3-in-process-crash-stopped",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-stopped.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.crash-during-stop-no-listener",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "30e8fb1-in-process-crash-claim",
+    "patch": "tests/planted-faults/patches/30e8fb1-lifecycle-claim.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.record-reentry",
+    "source": "30e8fb1 fix(kernel): give the crash path one owner across re-entry"
+  },
+  {
+    "id": "30e8fb1-in-process-crash-abort",
+    "patch": "tests/planted-faults/patches/30e8fb1-lifecycle-abort.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.abort-reentry",
+    "source": "30e8fb1 fix(kernel): give the crash path one owner across re-entry"
+  },
+  {
+    "id": "30e8fb1-in-process-crash-nested",
+    "patch": "tests/planted-faults/patches/30e8fb1-lifecycle-nested.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.abort-reentry",
+    "source": "30e8fb1 fix(kernel): give the crash path one owner across re-entry"
+  },
+  {
+    "id": "a0d17cc-in-process-control",
+    "patch": "tests/planted-faults/patches/a0d17cc-harness-control.patch",
+    "testFile": "tests/kernel/state/in-process.test.ts",
+    "title": "IP0[456]\\.|in-process state cases ran",
+    "source": "a0d17cc test(state): pin which in-process state cases ran their real bodies"
+  },
+  {
+    "id": "4a015ec-in-process-crash-stop-guard",
+    "patch": "tests/planted-faults/patches/4a015ec-lifecycle-stop-guard.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.signal-while-stopping",
+    "source": "4a015ec fix(kernel): keep a stop signal out of the crash's stopping phase"
+  },
+  {
+    "id": "6ff2c16-in-process-crash-calls",
+    "patch": "tests/planted-faults/patches/6ff2c16-lifecycle-calls.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.listener-reentry",
+    "source": "6ff2c16 fix(kernel): call onCrash only after the host's crash handler returns"
+  },
+  {
+    "id": "6ff2c16-in-process-crash-handler",
+    "patch": "tests/planted-faults/patches/6ff2c16-lifecycle-handler.patch",
+    "testFile": "tests/kernel/state/in-process.test.ts",
+    "title": "IP06\\.on-crash-reentry-error",
+    "source": "6ff2c16 fix(kernel): call onCrash only after the host's crash handler returns"
+  },
+  {
+    "id": "6ff2c16-in-process-crash-kill",
+    "patch": "tests/planted-faults/patches/30e8fb1-lifecycle-nested.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.kill-reentry",
+    "source": "6ff2c16 fix(kernel): call onCrash only after the host's crash handler returns"
+  },
+  {
+    "id": "6ff2c16-in-process-crash-kill-signal",
+    "patch": "tests/planted-faults/patches/4a015ec-lifecycle-stop-guard.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.kill-signal",
+    "source": "6ff2c16 fix(kernel): call onCrash only after the host's crash handler returns"
+  },
+  {
+    "id": "6ff2c16-in-process-crash-abort-signal",
+    "patch": "tests/planted-faults/patches/4a015ec-lifecycle-stop-guard.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.abort-signal",
+    "source": "6ff2c16 fix(kernel): call onCrash only after the host's crash handler returns"
+  },
+  {
+    "id": "9dcecee-in-process-crash-gap",
+    "patch": "tests/planted-faults/patches/9dcecee-lifecycle-gap.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.program-in-gap",
+    "source": "9dcecee fix(kernel): stop a program started between the crash kill and the abort"
+  },
+  {
+    "id": "9dcecee-in-process-crash-rejection",
+    "patch": "tests/planted-faults/patches/30e8fb1-lifecycle-nested.patch",
+    "testFile": "tests/kernel/state/in-process.test.ts",
+    "title": "IP06\\.on-crash-reentry-rejection",
+    "source": "9dcecee fix(kernel): stop a program started between the crash kill and the abort"
+  },
+  {
     "id": "684db74-capability-qualification-record-missing",
     "patch": "tests/planted-faults/patches/684db74-capability-qualification-record-missing.patch",
     "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
@@ -2385,286 +2889,6 @@
     "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
     "title": "^each case result comes from its own test",
     "source": "2512c44 fix(state): require every tracked entry to resolve to a tracked path in the checkout"
-  },
-  {
-    "id": "71be2d5-install-boot-not-written",
-    "patch": "tests/planted-faults/patches/71be2d5-install-boot-not-written.patch",
-    "testFile": "tests/kernel/state/recovery.test.ts",
-    "title": "^K11.b-delegate-other-boot-closes",
-    "source": "71be2d5 feat(state): close a case after a delegate start only on another boot"
-  },
-  {
-    "id": "71be2d5-install-same-boot-admitted",
-    "patch": "tests/planted-faults/patches/71be2d5-install-same-boot-admitted.patch",
-    "testFile": "tests/kernel/state/recovery.test.ts",
-    "title": "^K11.a supporting \\(fact override",
-    "source": "71be2d5 feat(state): close a case after a delegate start only on another boot"
-  },
-  {
-    "id": "71be2d5-install-missing-boot-admitted",
-    "patch": "tests/planted-faults/patches/71be2d5-install-missing-boot-admitted.patch",
-    "testFile": "tests/kernel/state/recovery.test.ts",
-    "title": "^K11.a supporting \\(fact override",
-    "source": "71be2d5 feat(state): close a case after a delegate start only on another boot"
-  },
-  {
-    "id": "71be2d5-install-first-delegate-only",
-    "patch": "tests/planted-faults/patches/71be2d5-install-first-delegate-only.patch",
-    "testFile": "tests/kernel/state/recovery.test.ts",
-    "title": "^K11.a supporting \\(fact override",
-    "source": "71be2d5 feat(state): close a case after a delegate start only on another boot"
-  },
-  {
-    "id": "71be2d5-store-empty-boot",
-    "patch": "tests/planted-faults/patches/71be2d5-store-empty-boot.patch",
-    "testFile": "tests/kernel/state/recovery.test.ts",
-    "title": "^K11.a supporting \\(fact override",
-    "source": "71be2d5 feat(state): close a case after a delegate start only on another boot"
-  },
-  {
-    "id": "6d4b46d-store-append-after-torn",
-    "patch": "tests/planted-faults/patches/6d4b46d-store-append-after-torn.patch",
-    "testFile": "tests/kernel/state/recovery.test.ts",
-    "title": "^K11.g-no-append-after-torn-tail",
-    "source": "6d4b46d feat(state): close a crashed case after a torn tail once the lease is free"
-  },
-  {
-    "id": "6d4b46d-framing-mid-line-scan",
-    "patch": "tests/planted-faults/patches/6d4b46d-framing-mid-line-scan.patch",
-    "testFile": "tests/kernel/state/recovery.test.ts",
-    "title": "^K11.f-record-hidden-in-torn-tail-refuses",
-    "source": "6d4b46d feat(state): close a crashed case after a torn tail once the lease is free"
-  },
-  {
-    "id": "6d4b46d-install-torn-tail-refused",
-    "patch": "tests/planted-faults/patches/6d4b46d-install-torn-tail-refused.patch",
-    "testFile": "tests/kernel/state/recovery.test.ts",
-    "title": "^K11.c-torn-tail-closes",
-    "source": "6d4b46d feat(state): close a crashed case after a torn tail once the lease is free"
-  },
-  {
-    "id": "3b54e9e-install-unreadable-boot-admitted",
-    "patch": "tests/planted-faults/patches/3b54e9e-install-unreadable-boot-admitted.patch",
-    "testFile": "tests/kernel/state/component.test.ts",
-    "title": "^K11.a supporting: in process, a delegate start refuses on the same boot, on a missing boot, and when the current boot cannot be read$",
-    "source": "3b54e9e fix(state): settle the two-axis review of crashed-case closure"
-  },
-  {
-    "id": "3b54e9e-store-corrupt-tail-appended",
-    "patch": "tests/planted-faults/patches/3b54e9e-store-corrupt-tail-appended.patch",
-    "testFile": "tests/kernel/state/component.test.ts",
-    "title": "^K11.g supporting: in process, appendEvent appends after a whole record and refuses after torn or corrupt bytes$",
-    "source": "3b54e9e fix(state): settle the two-axis review of crashed-case closure"
-  },
-  {
-    "id": "3b54e9e-install-start-after-failed-append",
-    "patch": "tests/planted-faults/patches/3b54e9e-install-start-after-failed-append.patch",
-    "testFile": "tests/kernel/state/recovery.test.ts",
-    "title": "^X28 supporting: a delegate-admitted append that fails stops the start, and the run goes on$",
-    "source": "3b54e9e fix(state): settle the two-axis review of crashed-case closure"
-  },
-  {
-    "id": "d37a77f-install-decide-on-first-read",
-    "patch": "tests/planted-faults/patches/d37a77f-install-decide-on-first-read.patch",
-    "testFile": "tests/kernel/state/recovery.test.ts",
-    "title": "^X29 supporting: closure decides on a fresh read taken after the store read",
-    "source": "d37a77f fix(state): decide a closure on the journal read under the target's lease"
-  },
-  {
-    "id": "adbcace-install-stale-read-under-lease",
-    "patch": "tests/planted-faults/patches/adbcace-install-stale-read-under-lease.patch",
-    "testFile": "tests/kernel/state/recovery.test.ts",
-    "title": "^X29 supporting: a closer that read a torn tail mid-append",
-    "source": "adbcace fix(state): refuse a closure whose read under the lease differs from its request"
-  },
-  {
-    "id": "adbcace-install-fresh-read-not-found",
-    "patch": "tests/planted-faults/patches/adbcace-install-fresh-read-not-found.patch",
-    "testFile": "tests/kernel/state/recovery.test.ts",
-    "title": "^X29 supporting: a closer whose fresh read finds the case corrupt",
-    "source": "adbcace fix(state): refuse a closure whose read under the lease differs from its request"
-  },
-  {
-    "id": "4f7712e-install-settled-before-revision",
-    "patch": "tests/planted-faults/patches/4f7712e-install-settled-before-revision.patch",
-    "testFile": "tests/kernel/state/recovery.test.ts",
-    "title": "^X29 supporting: a case its owner completes between the store read and the fresh read",
-    "source": "4f7712e fix(state): check the fresh read's revision before its settled state"
-  },
-  {
-    "id": "d37a77f-install-read-before-lease",
-    "patch": "tests/planted-faults/patches/d37a77f-install-read-before-lease.patch",
-    "testFile": "tests/kernel/state/recovery.test.ts",
-    "title": "^X29 supporting: closure decides on a fresh read taken after the store read",
-    "source": "d37a77f fix(state): decide a closure on the journal read under the target's lease"
-  },
-  {
-    "id": "d37a77f-install-lease-released-early",
-    "patch": "tests/planted-faults/patches/d37a77f-install-lease-released-early.patch",
-    "testFile": "tests/kernel/state/recovery.test.ts",
-    "title": "^X29 supporting: the closer holds the owner lease until its closure is published",
-    "source": "d37a77f fix(state): decide a closure on the journal read under the target's lease"
-  },
-  {
-    "id": "f9f1a40-install-settled-check-dropped",
-    "patch": "tests/planted-faults/patches/f9f1a40-install-settled-check-dropped.patch",
-    "testFile": "tests/kernel/state/recovery.test.ts",
-    "title": "^X29 supporting: a closure another closer published while this one waited",
-    "source": "f9f1a40 fix(state): check the revision first on every read a closer makes"
-  },
-  {
-    "id": "d990c5b-install-read-cached-before-lease",
-    "patch": "tests/planted-faults/patches/d990c5b-install-read-cached-before-lease.patch",
-    "testFile": "tests/kernel/state/recovery.test.ts",
-    "title": "^X29 supporting: closure decides on a fresh read taken after the store read",
-    "source": "d990c5b test(state): make the lease and pin proofs see what they claim"
-  },
-  {
-    "id": "d990c5b-install-lease-released-after-staging",
-    "patch": "tests/planted-faults/patches/d990c5b-install-lease-released-after-staging.patch",
-    "testFile": "tests/kernel/state/recovery.test.ts",
-    "title": "^X29 supporting: the closer holds the owner lease until its closure is published",
-    "source": "d990c5b test(state): make the lease and pin proofs see what they claim"
-  },
-  {
-    "id": "d62870c-in-process-forget",
-    "patch": "tests/planted-faults/patches/d62870c-lifecycle-forget.patch",
-    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
-    "title": "IP08\\.memory-returns-to-start",
-    "source": "d62870c feat(kernel): forget an in-process run identity when its run finishes"
-  },
-  {
-    "id": "d62870c-in-process-handler",
-    "patch": "tests/planted-faults/patches/d62870c-lifecycle-handler.patch",
-    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
-    "title": "IP08\\.live-past-deadline",
-    "source": "d62870c feat(kernel): forget an in-process run identity when its run finishes"
-  },
-  {
-    "id": "d62870c-in-process-live",
-    "patch": "tests/planted-faults/patches/d62870c-state-seam-live.patch",
-    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
-    "title": "IP08\\.reuse-after-finish-attaches",
-    "source": "d62870c feat(kernel): forget an in-process run identity when its run finishes"
-  },
-  {
-    "id": "d62870c-in-process-reuse",
-    "patch": "tests/planted-faults/patches/d62870c-state-seam-reuse.patch",
-    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
-    "title": "IP08\\.reuse-while-live-refused",
-    "source": "d62870c feat(kernel): forget an in-process run identity when its run finishes"
-  },
-  {
-    "id": "7fb5649-state-seam-closed",
-    "patch": "tests/planted-faults/patches/7fb5649-state-seam-closed.patch",
-    "testFile": "tests/kernel/state-seam.test.ts",
-    "title": "a late callback in a forgotten run's context cannot record under the run that reused its identity",
-    "source": "7fb5649 fix(kernel): keep a forgotten run's capability closed"
-  },
-  {
-    "id": "7fb5649-in-process-entered",
-    "patch": "tests/planted-faults/patches/7fb5649-lifecycle-entered.patch",
-    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
-    "title": "IP08\\.attached-never-entered",
-    "source": "7fb5649 fix(kernel): keep a forgotten run's capability closed"
-  },
-  {
-    "id": "d62870c-in-process-rejected",
-    "patch": "tests/planted-faults/patches/d62870c-lifecycle-rejected.patch",
-    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
-    "title": "IP08\\.rejected-run-forgets",
-    "source": "d62870c feat(kernel): forget an in-process run identity when its run finishes"
-  },
-  {
-    "id": "c02caae-state-seam-active",
-    "patch": "tests/planted-faults/patches/c02caae-state-seam-active.patch",
-    "testFile": "tests/kernel/state-seam.test.ts",
-    "title": "a record kept past its forgotten run cannot record under the run that reused its identity",
-    "source": "c02caae fix(kernel): require the active attached run for a recorded effect"
-  },
-  {
-    "id": "ff48724-in-process-keep",
-    "patch": "tests/planted-faults/patches/ff48724-state-seam-keep.patch",
-    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
-    "title": "IP08\\.reuse-keeps-live-run",
-    "source": "ff48724 fix(kernel): keep a live run attached when its identity is reused"
-  },
-  {
-    "id": "ff48724-state-seam-revoke",
-    "patch": "tests/planted-faults/patches/ff48724-state-seam-revoke.patch",
-    "testFile": "tests/kernel/kernel-repair/state.test.ts",
-    "title": "R02\\.superseded-attachment-refused",
-    "source": "ff48724 fix(kernel): keep a live run attached when its identity is reused"
-  },
-  {
-    "id": "ff48724-state-seam-proof",
-    "patch": "tests/planted-faults/patches/ff48724-state-seam-proof.patch",
-    "testFile": "tests/kernel/correlations.test.ts",
-    "title": "the admitted state specimen validates 27 truth arms",
-    "source": "ff48724 fix(kernel): keep a live run attached when its identity is reused"
-  },
-  {
-    "id": "ff48724-state-seam-scope",
-    "patch": "tests/planted-faults/patches/ff48724-state-seam-scope.patch",
-    "testFile": "tests/kernel/kernel-repair/state.test.ts",
-    "title": "R02\\.superseded-attachment-refused",
-    "source": "ff48724 fix(kernel): keep a live run attached when its identity is reused"
-  },
-  {
-    "id": "ff48724-state-seam-summary",
-    "patch": "tests/planted-faults/patches/ff48724-state-seam-summary.patch",
-    "testFile": "tests/kernel/state-seam.test.ts",
-    "title": "a refused reuse keeps the live run's proof as its trusted summary",
-    "source": "ff48724 fix(kernel): keep a live run attached when its identity is reused"
-  },
-  {
-    "id": "2d158f0-state-seam-open",
-    "patch": "tests/planted-faults/patches/2d158f0-state-seam-open.patch",
-    "testFile": "tests/kernel/state-seam.test.ts",
-    "title": "a run whose transaction is still running stays live",
-    "source": "2d158f0 fix(kernel): keep a run live until its open transaction ends"
-  },
-  {
-    "id": "2d158f0-state-seam-later",
-    "patch": "tests/planted-faults/patches/2d158f0-state-seam-later.patch",
-    "testFile": "tests/kernel/state-seam.test.ts",
-    "title": "a run whose transaction is still running stays live",
-    "source": "2d158f0 fix(kernel): keep a run live until its open transaction ends"
-  },
-  {
-    "id": "7eae994-in-process-duplicate",
-    "patch": "tests/planted-faults/patches/7eae994-state-seam-duplicate.patch",
-    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
-    "title": "IP08\\.duplicate-keeps-live-run",
-    "source": "7eae994 fix(kernel): let only the attachment that a run created forget it"
-  },
-  {
-    "id": "7eae994-in-process-deadline",
-    "patch": "tests/planted-faults/patches/d62870c-lifecycle-handler.patch",
-    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
-    "title": "IP08\\.duplicate-keeps-live-run",
-    "source": "7eae994 fix(kernel): let only the attachment that a run created forget it"
-  },
-  {
-    "id": "7eae994-in-process-crash",
-    "patch": "tests/planted-faults/patches/7eae994-lifecycle-crash.patch",
-    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
-    "title": "IP08\\.duplicate-then-crash",
-    "source": "7eae994 fix(kernel): let only the attachment that a run created forget it"
-  },
-  {
-    "id": "7eae994-in-process-attach",
-    "patch": "tests/planted-faults/patches/7eae994-state-seam-attach.patch",
-    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
-    "title": "IP08\\.attach-throws-forgets",
-    "source": "7eae994 fix(kernel): let only the attachment that a run created forget it"
-  },
-  {
-    "id": "7eae994-state-seam-owner",
-    "patch": "tests/planted-faults/patches/7eae994-state-seam-owner.patch",
-    "testFile": "tests/kernel/state-seam.test.ts",
-    "title": "an attachment's forget never removes a later attachment",
-    "source": "7eae994 fix(kernel): let only the attachment that a run created forget it"
   },
   {
     "id": "dfc5e55-capability-qualification-record-working-copy",

@@ -1,0 +1,13 @@
+diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
+index 5c9c3b7..9ab608f 100644
+--- a/kernel/src/kernel/lifecycle.ts
++++ b/kernel/src/kernel/lifecycle.ts
+@@ -961,7 +961,7 @@ function crashEvery(inFlight: InFlight, host: ProcessHost, error: unknown) {
+   const listening = [...inFlight.listeners].map((each) =>
+     callOnCrash(each, error),
+   );
+-  void within(Promise.allSettled(listening), due - host.now(), host.now).then(
++  void within(Promise.all(listening), due - host.now(), host.now).then(
+     () => {
+       if (inFlight.crash !== "listening") return;
+       inFlight.crash = "exited";

@@ -2,7 +2,7 @@ import type { ProcessHost, StopSignal } from "./process-types.ts";
 
 const current: {
   signal?: (signal: StopSignal) => void;
-  crash?: () => void;
+  crash?: (error: unknown) => void;
 } = {};
 let installed = false;
 
@@ -17,8 +17,8 @@ function install() {
     "SIGTERM",
   ] as const satisfies readonly StopSignal[])
     process.on(signal, () => current.signal?.(signal));
-  process.on("uncaughtException", () => current.crash?.());
-  process.on("unhandledRejection", () => current.crash?.());
+  process.on("uncaughtException", (error) => current.crash?.(error));
+  process.on("unhandledRejection", (reason) => current.crash?.(reason));
 }
 
 export function processHost(): ProcessHost {
