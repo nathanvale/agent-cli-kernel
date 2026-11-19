@@ -89,21 +89,39 @@ type Block = {
 
 function codeBlocks(path: string): Block[] {
   const blocks: Block[] = [];
-  let open: { language: string; line: number; lines: string[] } | undefined;
+  let open:
+    | { fence: string; language: string; line: number; lines: string[] }
+    | undefined;
   readFileSync(path, "utf8")
     .split("\n")
     .forEach((text, index) => {
-      const fence = /^```(\S*)$/.exec(text);
-      if (!fence) {
-        open?.lines.push(text);
-        return;
-      }
+      const fence = /^ {0,3}(`{3,}|~{3,})[ \t]*(\S*)[ \t]*$/.exec(text);
+      const marker = fence?.[1] ?? "";
       if (open) {
-        blocks.push({ document: relative(guideFolder, path), ...open });
+        const closes =
+          marker.startsWith(open.fence[0] ?? "") &&
+          marker.length >= open.fence.length &&
+          fence?.[2] === "";
+        if (!closes) {
+          open.lines.push(text);
+          return;
+        }
+        blocks.push({
+          document: relative(guideFolder, path),
+          language: open.language,
+          line: open.line,
+          lines: open.lines,
+        });
         open = undefined;
         return;
       }
-      open = { language: fence[1] ?? "", line: index + 1, lines: [] };
+      if (fence)
+        open = {
+          fence: marker,
+          language: fence[2] ?? "",
+          line: index + 1,
+          lines: [],
+        };
     });
   if (open)
     throw new Error(
@@ -251,6 +269,33 @@ describe("the author guide's documents, stamped with the kernel", () => {
     try {
       expect(() => codeBlocks(path)).toThrow(
         `${relative(guideFolder, path)}:3: this code block never closes.`,
+      );
+    } finally {
+      rmSync(folder, { recursive: true, force: true });
+    }
+  });
+
+  test("tilde and longer fences are read as code blocks, so their lines cannot escape the checks", () => {
+    const folder = testFolder("kernel-author-guide-fence-");
+    const read = (name: string, text: string) => {
+      write(folder, name, text);
+      return codeBlocks(join(folder, name)).map((block) => [
+        block.language,
+        ...block.lines,
+      ]);
+    };
+    try {
+      expect(read("tilde.md", "~~~ts\nconst stale = 1;\n~~~\n")).toEqual([
+        ["ts", "const stale = 1;"],
+      ]);
+      expect(
+        read("long.md", "````text\n```ts\nconst inner = 1;\n```\n````\n"),
+      ).toEqual([["text", "```ts", "const inner = 1;", "```"]]);
+      expect(
+        read("mixed.md", "```ts\nconst a = 1;\n~~~\nconst b = 2;\n```\n"),
+      ).toEqual([["ts", "const a = 1;", "~~~", "const b = 2;"]]);
+      expect(() => read("open-tilde.md", "~~~ts\nconst stale = 1;\n")).toThrow(
+        "open-tilde.md:1: this code block never closes.",
       );
     } finally {
       rmSync(folder, { recursive: true, force: true });
