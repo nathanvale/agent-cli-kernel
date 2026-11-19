@@ -17,6 +17,7 @@ import {
   type Source,
   sourceIn,
 } from "./planted-fault-patch.ts";
+import { faultsInShard } from "./planted-fault-shards.ts";
 import {
   runWithOwnTools,
   startChild,
@@ -549,6 +550,12 @@ async function main(
 ): Promise<number> {
   if (command === "replay" && rest[0] === "--changed-since")
     return replayChangedSince(root, rest);
+  if (command === "replay" && rest[0] === "--shard")
+    return replayAll(
+      root,
+      faultsInShard(root, rest, readRecords, faultsTouchedSince),
+      process.env,
+    );
   if (command === "replay") return replayAll(root, rest, process.env);
   if (command === "add") return add(root, rest);
   process.stderr.write(
