@@ -17,8 +17,8 @@ export const addonNames: readonly CapabilityAddonName[] = Object.freeze(
 // throws for any object that is not a real AbortSignal, a Proxy of one
 // included, so reading it through the prototype is the brand check.
 function abortSignal(value: unknown): value is AbortSignal {
-  if (!(value instanceof AbortSignal)) return false;
   try {
+    if (!(value instanceof AbortSignal)) return false;
     return (
       typeof Reflect.get(AbortSignal.prototype, "aborted", value) === "boolean"
     );

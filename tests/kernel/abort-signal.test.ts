@@ -192,6 +192,14 @@ const lookalikes = [
     name: "a Proxy of a real abort signal",
     make: (): unknown => new Proxy(new AbortController().signal, {}),
   },
+  {
+    name: "a revoked Proxy",
+    make: (): unknown => {
+      const revocable = Proxy.revocable(new AbortController().signal, {});
+      revocable.revoke();
+      return revocable.proxy;
+    },
+  },
 ] as const;
 
 for (const route of routes) {
