@@ -1,0 +1,18 @@
+diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
+index a056567..fbf3cff 100644
+--- a/kernel/src/addons/state/store.ts
++++ b/kernel/src/addons/state/store.ts
+@@ -707,12 +707,7 @@ export function readClosure(paths: Layout, id: string): ClosureRead {
+ }
+ 
+ function closureIn(directory: string, id: string): ClosureRead {
+-  let bytes: Uint8Array | undefined;
+-  try {
+-    bytes = readOptional(join(directory, "closure"));
+-  } catch {
+-    return "unreadable";
+-  }
++  const bytes = readOptional(join(directory, "closure"));
+   if (!bytes) return undefined;
+   const parsed = parseRecords(bytes);
+   const record =

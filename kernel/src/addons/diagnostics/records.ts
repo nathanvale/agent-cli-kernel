@@ -1,4 +1,6 @@
 import type { LogRecord } from "@logtape/logtape";
+import { DEFAULT_REDACT_FIELDS, redactByField } from "@logtape/redaction";
+import type { DiagnosticsLevel } from "../../kernel/index.ts";
 import { limits } from "./limits.ts";
 
 export const markers = {
@@ -181,5 +183,71 @@ export function lineMaker(
       bytes: encoder.encode(`${shortened(text, record)}\n`),
       truncated: true,
     };
+  };
+}
+
+export type RunPipeline = (
+  level: DiagnosticsLevel,
+  properties: Readonly<Record<string, unknown>>,
+) => void;
+
+const unmapped = Object.freeze({});
+
+// Platform: LogTape 2.4.2 reports a redaction limit only to its process-wide
+// meta logger. It also replaces a message placeholder that names no property
+// when, and only when, a limit was exceeded, so the run reads that replacement
+// as its own report.
+function exceededRedactionLimit(record: LogRecord): boolean {
+  return !record.message.includes(unmapped);
+}
+
+function redactor(): (record: LogRecord) => LogRecord | undefined {
+  let redacted: LogRecord | undefined;
+  const redact = redactByField(
+    (record: LogRecord) => {
+      redacted = record;
+    },
+    {
+      fieldPatterns: DEFAULT_REDACT_FIELDS,
+      action: () => markers.redacted,
+      maxDepth: limits.redactionDepth,
+      maxProperties: limits.redactionEntries,
+    },
+  );
+  return (record) => {
+    redacted = undefined;
+    try {
+      redact(record);
+    } catch {
+      return undefined;
+    }
+    return redacted;
+  };
+}
+
+// Accepted decision of 19 November 2026 (13:22 AEDT), question 21: the
+// add-on never changes LogTape's process-wide configuration, and each run
+// has its own pipeline.
+export function pipelineFor(
+  category: readonly string[],
+  deliver: (record: LogRecord) => void,
+  report: () => void,
+): RunPipeline {
+  const redact = redactor();
+  return (level, properties) => {
+    const redacted = redact({
+      category,
+      level,
+      timestamp: Date.now(),
+      rawMessage: "{event}{unmapped}",
+      message: ["", properties["event"], "", unmapped, ""],
+      properties: { ...properties },
+    });
+    if (!redacted) {
+      report();
+      return;
+    }
+    if (exceededRedactionLimit(redacted)) report();
+    deliver(redacted);
   };
 }

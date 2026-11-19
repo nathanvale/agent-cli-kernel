@@ -1,0 +1,17 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index 30bb3d7..2db2312 100644
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -900,11 +900,7 @@ export function install(options: StateOptions, seams: Seams) {
+     readonly examined: number;
+     readonly moved: number;
+   }): void {
+-    try {
+-      seams.moverReport?.(tally.examined, tally.moved);
+-    } catch {
+-      return;
+-    }
++    seams.moverReport?.(tally.examined, tally.moved);
+   }
+ 
+   function flushMoved(moved: number): void {

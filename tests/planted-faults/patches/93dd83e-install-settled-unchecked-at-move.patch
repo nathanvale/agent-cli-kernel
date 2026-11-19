@@ -1,0 +1,15 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index 30bb3d7..3d166cc 100644
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -848,9 +848,7 @@ export function install(options: StateOptions, seams: Seams) {
+       (operation) => operation.status !== "unresolved",
+     );
+     const tally = { examined: 0, moved: 0 };
+-    const examinable = settledIsPrivate(paths)
+-      ? Math.min(candidates.length, examineBound)
+-      : 0;
++    const examinable = Math.min(candidates.length, examineBound);
+     try {
+       const start =
+         examinable === 0

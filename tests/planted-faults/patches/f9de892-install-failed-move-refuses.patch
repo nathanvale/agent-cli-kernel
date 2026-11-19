@@ -1,0 +1,15 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index 30bb3d7..aeddd2a 100644
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -868,8 +868,8 @@ export function install(options: StateOptions, seams: Seams) {
+         )
+           tally.moved += 1;
+       }
+-    } catch {
+-      return;
++    } catch (error) {
++      throw error;
+     } finally {
+       flushMoved(tally.moved);
+       reportMoves(tally);
