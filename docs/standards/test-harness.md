@@ -45,7 +45,10 @@ runs each test file. What a test must prove is in the
 - Wait on an event the subject produces (a ready file, ledger line, or
   barrier), or drive the fake clock in
   `tests/kernel/lifecycle/recording-host.ts`. Witnessed: [b077b0b],
-  [4386b03].
+  [4386b03], [kernel#12-turns] (a count of event-loop turns is not an
+  event: state tests waited one turn for a transaction to end, and failed
+  on correct code that took two more; a turn count may only bound the
+  wait).
 - Widen a race control until it catches its fault on every run. Witnessed:
   [2b2907a] (caught in 48 of 50 runs before widening).
 - Bound a duration a test reads back from output by zero below and, above,
@@ -91,3 +94,4 @@ runs each test file. What a test must prove is in the
 [#99-timings]: https://github.com/nathanvale/bun-typescript-template/pull/99#discussion_r4608746456
 [#99-shards]: https://github.com/nathanvale/bun-typescript-template/pull/99#discussion_r4608771631
 [#109-bound]: https://github.com/nathanvale/bun-typescript-template/pull/109#discussion_r4610027050
+[kernel#12-turns]: https://github.com/nathanvale/agent-cli-kernel/pull/12#pullrequestreview-5968899725

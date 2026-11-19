@@ -987,6 +987,55 @@
     "source": "4d42f8c fix(state): refuse work when no operation was published for it"
   },
   {
+    "id": "82f5feb-lifecycle",
+    "patch": "tests/planted-faults/patches/82f5feb-lifecycle.patch",
+    "testFile": "tests/kernel/lifecycle/timers.test.ts",
+    "title": "waits through a [0-9]+ ms handler clean-up",
+    "source": "82f5feb fix(kernel): wait for the handler after the first stop request"
+  },
+  {
+    "id": "82f5feb-lifecycle-unbounded",
+    "patch": "tests/planted-faults/patches/82f5feb-lifecycle-unbounded.patch",
+    "testFile": "tests/kernel/lifecycle/timers.test.ts",
+    "title": "a handler that never ends is cut off at the 450 ms stop bound",
+    "source": "82f5feb fix(kernel): wait for the handler after the first stop request"
+  },
+  {
+    "id": "82f5feb-lifecycle-stacked",
+    "patch": "tests/planted-faults/patches/82f5feb-lifecycle-stacked.patch",
+    "testFile": "tests/kernel/lifecycle/timers.test.ts",
+    "title": "a handler that never ends beside an add-on that settles at its 300 ms limit",
+    "source": "82f5feb fix(kernel): wait for the handler after the first stop request"
+  },
+  {
+    "id": "82f5feb-lifecycle-second",
+    "patch": "tests/planted-faults/patches/82f5feb-lifecycle-second.patch",
+    "testFile": "tests/kernel/lifecycle/timers.test.ts",
+    "title": "a second stop request \\(SIG[A-Z]+ after SIG[A-Z]+\\) while the handler is awaited exits",
+    "source": "82f5feb fix(kernel): wait for the handler after the first stop request"
+  },
+  {
+    "id": "82f5feb-lifecycle-raw",
+    "patch": "tests/planted-faults/patches/82f5feb-lifecycle-raw.patch",
+    "testFile": "tests/kernel/lifecycle/timers.test.ts",
+    "title": "a handler that throws in its clean-up at 200 ms",
+    "source": "82f5feb fix(kernel): wait for the handler after the first stop request"
+  },
+  {
+    "id": "14d6b55-lifecycle",
+    "patch": "tests/planted-faults/patches/14d6b55-lifecycle.patch",
+    "testFile": "tests/kernel/lifecycle/timers.test.ts",
+    "title": "delivered during handler entry, before the handler's first await",
+    "source": "14d6b55 fix(kernel): give a stop request during handler entry the handler to wait for"
+  },
+  {
+    "id": "82f5feb-lifecycle-add-on",
+    "patch": "tests/planted-faults/patches/82f5feb-lifecycle-add-on.patch",
+    "testFile": "tests/kernel/lifecycle/timers.test.ts",
+    "title": "a handler that ends at 100 ms beside an add-on",
+    "source": "82f5feb fix(kernel): wait for the handler after the first stop request"
+  },
+  {
     "id": "f548a02-in-process-exit",
     "patch": "tests/planted-faults/patches/f548a02-lifecycle-exit.patch",
     "testFile": "tests/kernel/lifecycle/in-process.test.ts",
@@ -1083,6 +1132,48 @@
     "testFile": "tests/kernel/lifecycle/in-process.test.ts",
     "title": "IP07\\.rejected-run-records-itself",
     "source": "5a83146 fix(kernel): settle the kernel reviewer's findings on the in-process entry"
+  },
+  {
+    "id": "460be51-install-no-wait",
+    "patch": "tests/planted-faults/patches/460be51-install-no-wait.patch",
+    "testFile": "tests/kernel/state/component.test.ts",
+    "title": "^K11\\.e-transaction-waits-for-started-effects$",
+    "source": "460be51 feat(state): make a transaction wait for its started effects"
+  },
+  {
+    "id": "460be51-install-late-record",
+    "patch": "tests/planted-faults/patches/460be51-install-late-record.patch",
+    "testFile": "tests/kernel/state/component.test.ts",
+    "title": "^K11\\.e-transaction-waits-for-started-effects$",
+    "source": "460be51 feat(state): make a transaction wait for its started effects"
+  },
+  {
+    "id": "460be51-install-late-start",
+    "patch": "tests/planted-faults/patches/460be51-install-late-start.patch",
+    "testFile": "tests/kernel/state/component.test.ts",
+    "title": "^K11\\.e-transaction-waits-for-started-effects$",
+    "source": "460be51 feat(state): make a transaction wait for its started effects"
+  },
+  {
+    "id": "460be51-install-ended-late",
+    "patch": "tests/planted-faults/patches/460be51-install-ended-late.patch",
+    "testFile": "tests/kernel/state/component.test.ts",
+    "title": "^K11\\.e-transaction-waits-for-started-effects$",
+    "source": "460be51 feat(state): make a transaction wait for its started effects"
+  },
+  {
+    "id": "460be51-install-lease-first",
+    "patch": "tests/planted-faults/patches/460be51-install-lease-first.patch",
+    "testFile": "tests/kernel/state/component.test.ts",
+    "title": "^X13 supporting: the final event is appended, then the key coordination locks are released, then the lease last$",
+    "source": "460be51 feat(state): make a transaction wait for its started effects"
+  },
+  {
+    "id": "460be51-install-lease-early",
+    "patch": "tests/planted-faults/patches/460be51-install-lease-early.patch",
+    "testFile": "tests/kernel/state/component.test.ts",
+    "title": "^X13 supporting: the final event is appended, then the key coordination locks are released, then the lease last$",
+    "source": "460be51 feat(state): make a transaction wait for its started effects"
   },
   {
     "id": "d62870c-in-process-forget",

@@ -453,6 +453,15 @@ export const stateCases: readonly StateCase[] = [
       "A later overlapping run never appends to the earlier case's events and is refused by the unresolved-case station.",
     red: "Reconcile an earlier operation inside a later operation.",
   },
+  {
+    id: "K11.e-transaction-waits-for-started-effects",
+    ...transactionComponent,
+    sources:
+      "REC-4; CMD-11; journal version 2 design part 2 section 4; X12; open point X (decided by Nathan, 19 November 2026, 13:46)",
+    observation:
+      "A record left pending when work returns or throws settles before the final event, with the lease still held; a record or admitStart called after work returns refuses; a failed final append still leaves the transaction ended.",
+    red: "Release the lease while a started effect runs; accept a call after work returns; mark the transaction ended only after the final append succeeds.",
+  },
 
   {
     id: "P01.a-symlink-alias",

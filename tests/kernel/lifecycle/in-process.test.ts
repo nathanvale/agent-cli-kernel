@@ -21,7 +21,12 @@ import {
   runtimeOf,
 } from "../../../kernel/src/kernel/runtime.ts";
 import { testFolder } from "../../support/test-folder.ts";
-import { cancellationWait, stopBound } from "./oracle.ts";
+import {
+  cancellationWait,
+  stopBound,
+  stopSettleLimit,
+  stops,
+} from "./oracle.ts";
 import {
   advance,
   deferred,
@@ -34,11 +39,6 @@ import {
 } from "./recording-host.ts";
 
 const timeout = 30_000;
-const addonSettleBudget = 300;
-const stops = [
-  ["SIGTERM", 143],
-  ["SIGINT", 130],
-] as const;
 
 type Holding = {
   readonly controls?: RunControl[];
@@ -364,9 +364,9 @@ describe("IP07 the in-process entry checks its contract and bounds", () => {
       jest.useFakeTimers();
       try {
         recorder.signal("SIGTERM");
-        await advance(addonSettleBudget - 1);
+        await advance(stopSettleLimit - 1);
         expect(recorder.exits).toEqual([]);
-        await advance(stopBound - addonSettleBudget + 1);
+        await advance(stopBound - stopSettleLimit + 1);
         expect(recorder.exits).toEqual([143]);
       } finally {
         jest.useRealTimers();

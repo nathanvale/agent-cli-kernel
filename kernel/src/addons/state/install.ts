@@ -239,6 +239,27 @@ type ActiveRun = {
   emergencyWritten: boolean;
 };
 
+type InFlight = { count: number; wake: () => void };
+
+type Recording<Effect extends string> = {
+  ended: boolean;
+  readonly records: InFlight;
+  readonly started: Effect[];
+  readonly confirmed: Effect[];
+};
+
+type TransactionHold = {
+  readonly events: string;
+  readonly releaseKeyLocks: () => void;
+  readonly releaseLease: () => void;
+};
+
+function endedRefusal(call: "record" | "admitStart"): Error {
+  return new Error(
+    `The transaction ended when its work function returned or threw, so ${call} refuses. Await every record inside the work function.`,
+  );
+}
+
 const closureIdPattern = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const revisionPattern = /^r-[0-9a-f]{64}$/;
 
@@ -785,24 +806,40 @@ export function install(options: StateOptions, seams: Seams) {
     return opened;
   }
 
+  // Accepted decision (Nathan, 19 November 2026, 13:46 AEDT; journal version 2
+  // design, open point X): a transaction waits for its started effects with no
+  // time limit. A record that never settles keeps the lease until it settles or
+  // the process ends; runProcess ends the process at a run's deadline.
   async function runRecorded<Effect extends string>(
     issuer: StateIssuer,
     runId: string,
     declared: readonly Effect[],
-    events: string,
+    held: TransactionHold,
     work: (transaction: EffectTransaction<Effect>) => Promise<void>,
   ) {
-    const started: Effect[] = [];
-    const confirmed: Effect[] = [];
+    const recording: Recording<Effect> = {
+      ended: false,
+      records: { count: 0, wake: () => {} },
+      started: [],
+      confirmed: [],
+    };
     let workFailed = false;
     try {
-      await work(recorder(issuer, runId, declared, events, started, confirmed));
+      await work(recorder(issuer, runId, declared, held.events, recording));
     } catch {
       workFailed = true;
     }
-    const observation = observationOf(declared, confirmed, started);
-    finish(events, observation);
+    recording.ended = true;
+    await settled(recording.records);
+    const observation = observationOf(
+      declared,
+      recording.confirmed,
+      recording.started,
+    );
+    finish(held.events, observation);
     active.delete(runId);
+    held.releaseKeyLocks();
+    held.releaseLease();
     return { observation, workFailed };
   }
 
@@ -855,11 +892,13 @@ export function install(options: StateOptions, seams: Seams) {
       issuer,
       runId,
       declared,
-      opened.events,
+      {
+        events: opened.events,
+        releaseKeyLocks: admitted.release,
+        releaseLease: opened.releaseLease,
+      },
       work,
     );
-    admitted.release();
-    opened.releaseLease();
     slot.outcome = { kind: "ran", operationId: opened.operationId, workFailed };
     return issuer.transactionProof(runId, observation);
   }
@@ -895,10 +934,10 @@ export function install(options: StateOptions, seams: Seams) {
     runId: string,
     declared: readonly Effect[],
     events: string,
-    started: Effect[],
-    confirmed: Effect[],
+    recording: Recording<Effect>,
   ): EffectTransaction<Effect> {
-    return {
+    const { started, confirmed } = recording;
+    const unguarded: EffectTransaction<Effect> = {
       async record<T>(
         effect: Effect,
         operation: (capability: RecordedEffect<Effect>) => Promise<T>,
@@ -910,14 +949,15 @@ export function install(options: StateOptions, seams: Seams) {
         started.push(effect);
         const lifetime: {
           state: "active" | "closing";
-          inflight: number;
-          wake: () => void;
-        } = { state: "active", inflight: 0, wake: () => {} };
+          readonly starts: InFlight;
+        } = { state: "active", starts: { count: 0, wake: () => {} } };
         const admitStart = <R>(
           startRun: string,
           startEffect: Effect,
           start: () => Promise<R>,
         ): Promise<R> => {
+          if (recording.ended)
+            return Promise.reject(endedRefusal("admitStart"));
           if (
             startRun !== runId ||
             startEffect !== effect ||
@@ -935,7 +975,6 @@ export function install(options: StateOptions, seams: Seams) {
                 : new Error("delegate record failed"),
             );
           }
-          lifetime.inflight += 1;
           let pending: Promise<R>;
           try {
             pending = start();
@@ -944,10 +983,7 @@ export function install(options: StateOptions, seams: Seams) {
               error instanceof Error ? error : new Error("start failed"),
             );
           }
-          return pending.finally(() => {
-            lifetime.inflight -= 1;
-            if (lifetime.inflight === 0) lifetime.wake();
-          });
+          return tracked(lifetime.starts, pending);
         };
         const capability = issuer.recordedEffect(runId, effect, admitStart);
         let result: T;
@@ -955,7 +991,7 @@ export function install(options: StateOptions, seams: Seams) {
           result = await operation(capability);
         } catch (error) {
           lifetime.state = "closing";
-          await settled(lifetime);
+          await settled(lifetime.starts);
           appendEvent(events, "effect-unconfirmed", {
             effect,
             reason: "operation-failed",
@@ -963,7 +999,7 @@ export function install(options: StateOptions, seams: Seams) {
           throw error;
         }
         lifetime.state = "closing";
-        await settled(lifetime);
+        await settled(lifetime.starts);
         let present = false;
         let reason = "read-back-false";
         try {
@@ -976,6 +1012,15 @@ export function install(options: StateOptions, seams: Seams) {
           confirmed.push(effect);
         } else appendEvent(events, "effect-unconfirmed", { effect, reason });
         return result;
+      },
+    };
+    return {
+      record(effect, operation, readBack) {
+        if (recording.ended) return Promise.reject(endedRefusal("record"));
+        return tracked(
+          recording.records,
+          unguarded.record(effect, operation, readBack),
+        );
       },
     };
   }
@@ -1127,7 +1172,11 @@ export function install(options: StateOptions, seams: Seams) {
       issuer,
       runId,
       declared,
-      opened.events,
+      {
+        events: opened.events,
+        releaseKeyLocks: admitted.release,
+        releaseLease: opened.releaseLease,
+      },
       (transaction) =>
         transaction
           .record(
@@ -1138,8 +1187,6 @@ export function install(options: StateOptions, seams: Seams) {
           )
           .then(() => undefined),
     );
-    admitted.release();
-    opened.releaseLease();
     slot.outcome =
       observation.transactionState === "completed"
         ? {
@@ -1339,12 +1386,17 @@ export function install(options: StateOptions, seams: Seams) {
   });
 }
 
-function settled(lifetime: {
-  inflight: number;
-  wake: () => void;
-}): Promise<void> {
-  if (lifetime.inflight === 0) return Promise.resolve();
+function tracked<R>(inFlight: InFlight, pending: Promise<R>): Promise<R> {
+  inFlight.count += 1;
+  return pending.finally(() => {
+    inFlight.count -= 1;
+    if (inFlight.count === 0) inFlight.wake();
+  });
+}
+
+function settled(inFlight: InFlight): Promise<void> {
+  if (inFlight.count === 0) return Promise.resolve();
   return new Promise((resolve) => {
-    lifetime.wake = resolve;
+    inFlight.wake = resolve;
   });
 }
