@@ -106,10 +106,7 @@ export function ensureStore(paths: Layout): boolean {
       rmSync(staged, { force: true });
       flushDirectory(paths.root);
     }
-    const journal = journalOf(paths);
-    return journal === journals.two
-      ? privateDirectory(paths.settled)
-      : journal !== undefined;
+    return storeProblem(paths) === undefined;
   } catch {
     return false;
   }
@@ -537,7 +534,10 @@ export function storeProblem(
     return "missing";
   }
   try {
-    return privateDirectory(paths.root) && journalOf(paths) !== undefined
+    const journal = journalOf(paths);
+    return privateDirectory(paths.root) &&
+      journal !== undefined &&
+      (journal === journals.one || privateDirectory(paths.settled))
       ? undefined
       : "corrupt";
   } catch {

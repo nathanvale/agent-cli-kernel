@@ -1075,21 +1075,23 @@ async function feed(
   whileBlocked: () => void = () => undefined,
 ): Promise<void> {
   const opened = open(pipe, "w");
+  const ended = reader.done.then(
+    () => new Error(`The reader exited before it read ${pipe}.`),
+    (error: unknown) =>
+      error instanceof Error ? error : new Error(`The reader failed: ${pipe}.`),
+  );
   const first = await Promise.race([
     opened.then(() => "opened" as const),
-    reader.done.then(
-      () => "exited" as const,
-      () => "exited" as const,
-    ),
+    ended,
   ]);
-  if (first === "exited") {
+  if (first !== "opened") {
     const unblock = openSync(pipe, constants.O_RDONLY | constants.O_NONBLOCK);
     try {
       await (await opened).close();
     } finally {
       closeSync(unblock);
     }
-    throw new Error(`The reader exited before it read ${pipe}.`);
+    throw first;
   }
   const handle = await opened;
   try {
@@ -1195,29 +1197,44 @@ supportingTest(
   "X24 supporting: a version 2 store refuses a settled/ that is a symbolic link or not private",
   plain(async (world) => {
     expectCompleted(await world.run(apply("a")));
-    const [first] = caseFolders(world, "operations");
-    if (!first) throw new Error("No case.");
+    expectCompleted(await world.run(apply("b")));
+    const [moved] = caseFolders(world, "settled");
+    if (!moved) throw new Error("No moved case.");
     const settled = join(world.root, "settled");
     const elsewhere = join(world.base, "elsewhere");
-    mkdirSync(elsewhere, { mode: 0o700 });
-    rmdirSync(settled);
+    renameSync(settled, elsewhere);
     symlinkSync(elsewhere, settled);
-    const linked = await world.run(apply("b"));
-    expectRefusedUnchanged(linked, "DOMAIN_SX_UNAVAILABLE");
-    expect(readdirSync(elsewhere)).toEqual([]);
-    expect(caseFolders(world, "operations")).toEqual([first]);
+    const refusedAs = async (
+      argv: readonly string[],
+      cause: string,
+      message: string,
+    ) => {
+      const run = await world.run(argv);
+      expectRefusedUnchanged(
+        run,
+        cause,
+        cause === "DOMAIN_SX_UNAVAILABLE" ? 3 : 4,
+      );
+      expect(str(run.envelope.message)).toBe(message);
+    };
+    const corrupt = "The journal is corrupt.";
+    const store = "State unavailable: store.";
+    const unreadable = "SCHEMA_SX_STATE_UNREADABLE";
+    await refusedAs(["history", moved, "--json"], unreadable, corrupt);
+    await refusedAs(["pending", "--json"], unreadable, corrupt);
+    await refusedAs(apply("c"), "DOMAIN_SX_UNAVAILABLE", store);
+    expect(readdirSync(elsewhere)).toEqual([moved]);
     rmSync(settled);
-    mkdirSync(settled, { mode: 0o700 });
-    chmodSync(settled, 0o770);
-    expectRefusedUnchanged(
-      await world.run(apply("b")),
-      "DOMAIN_SX_UNAVAILABLE",
-    );
-    expect(caseFolders(world, "settled")).toEqual([]);
-    expect(world.noteLedger("b")).toBe(0);
+    renameSync(elsewhere, settled);
+    for (const mode of [0o770, 0o707]) {
+      chmodSync(settled, mode);
+      await refusedAs(apply("c"), "DOMAIN_SX_UNAVAILABLE", store);
+      expect(caseFolders(world, "settled")).toEqual([moved]);
+    }
+    expect(world.noteLedger("c")).toBe(0);
     chmodSync(settled, 0o700);
-    expectCompleted(await world.run(apply("b")));
-    expect(caseFolders(world, "settled")).toEqual([first]);
+    expectCompleted(await world.run(apply("c")));
+    expect(caseFolders(world, "settled").length).toBe(2);
   }),
 );
 
@@ -1237,8 +1254,10 @@ supportingTest(
     expect(caseFolders(world, "settled")).toEqual([first]);
     const history = await world.run(["history", first, "--json"], production);
     expect(history.exit).toBe(0);
+    expect(at(history.result.raw, "data", "operationId")).toBe(first);
     expect(at(history.result.raw, "data", "status")).toBe("completed");
     const report = await world.run(["pending", "--json"], production);
+    expect(report.exit).toBe(0);
     expect(at(report.result.raw, "data", "unfinished")).toEqual([]);
     expect(world.count("entry production")).toBe(4);
   }),
