@@ -2,8 +2,9 @@
 
 The test harness is the tooling that starts and observes a real CLI process.
 This guide lists how this repository's test harness bounds and releases the
-processes it starts, fakes the tools they call, waits on time, and keeps the
-suite timings the hosted check shards by. What a test must prove is in the
+processes it starts, fakes the tools they call, and waits on time. It also
+covers the test timings, which decide which shard of the hosted `test` job
+runs each test file. What a test must prove is in the
 [test proof guide](test-proof.md).
 
 ## Processes
