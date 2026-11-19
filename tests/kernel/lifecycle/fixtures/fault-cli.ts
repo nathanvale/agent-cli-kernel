@@ -43,6 +43,7 @@ import {
 import { record } from "../../../../kernel/src/kernel/validation/primitives.ts";
 import { ledger, ledgerPath, sleep } from "../ledger.ts";
 import { programStopRow, programStopStation } from "../program-stop.ts";
+import { abortWithoutCoreDump } from "../../../support/abort.ts";
 
 const streamProbe = new URL(
   "../../programs/fixtures/stream-probe.sh",
@@ -223,7 +224,7 @@ const read = command({
   capabilities: {},
   run: (input, context) => {
     ledger("dispatch-start");
-    if (scenario.has("abort")) process.abort();
+    if (scenario.has("abort")) abortWithoutCoreDump();
     return context.result(
       { commandIdentity: "fx.read", causeCode: "SUCCESS_UNCHANGED" },
       {
