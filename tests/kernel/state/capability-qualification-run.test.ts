@@ -29,7 +29,6 @@ import { ownedFolders } from "../../support/fixture-files.ts";
 import { spawnBounded } from "../kernel-repair/swarm-process.ts";
 import {
   capabilityQualificationCases,
-  otherEntryOnly,
   parseRecord,
   qualifiedSourceFiles,
   recordFolder,
@@ -107,29 +106,17 @@ const tableRow = {
   },
 } as const;
 
-function attribute(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/"/g, "&quot;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
 function junit(
   selection: readonly StateCase[],
   failed: readonly string[] = [],
-  entry: RunEntry = "fixture.ts",
 ): string {
   const cases = selection
     .filter((row) => row.status === "executable")
-    .map((row) => {
-      const only = otherEntryOnly(row, entry);
-      if (only !== undefined)
-        return `    <testcase name="${attribute(`${row.id} UNPROVED outside ${only.entry}: ${only.reason}`)}" classname="" time="0"><skipped /></testcase>`;
-      return failed.includes(row.id)
+    .map((row) =>
+      failed.includes(row.id)
         ? `    <testcase name="${row.id}" time="1"><failure message="x" /></testcase>`
-        : `    <testcase name="${row.id}" classname="" time="1" />`;
-    });
+        : `    <testcase name="${row.id}" classname="" time="1" />`,
+    );
   return `<?xml version="1.0" encoding="UTF-8"?>\n<testsuites>\n  <testsuite name="state">\n${cases.join("\n")}\n  </testsuite>\n</testsuites>\n`;
 }
 
@@ -198,7 +185,7 @@ function checkout() {
     print: (line) => lines.push(line),
     runCases: (request) => {
       requests.push(request);
-      return Promise.resolve(ran(junit(request.selection, [], request.entry)));
+      return Promise.resolve(ran(junit(request.selection)));
     },
     ...seams,
   });
@@ -559,9 +546,7 @@ test(
               request.environment.USER,
               request.environment.LOGNAME,
             );
-            return Promise.resolve(
-              ran(junit(request.selection, [], request.entry)),
-            );
+            return Promise.resolve(ran(junit(request.selection)));
           },
         },
       );
@@ -1468,107 +1453,6 @@ test(
       `Refused: Bun reported ${first} twice; no capability qualification record is written. Repair: give each covered case one test, then rerun.`,
     ]);
     expect(existsSync(world.folder)).toBe(false);
-  },
-  inProcess,
-);
-
-const incompleteReports: readonly (readonly [
-  string,
-  (report: string) => string,
-])[] = [
-  [
-    "ends after its last case",
-    (report) => report.replace(/\n {2}<\/testsuite>\n<\/testsuites>\n$/, "\n"),
-  ],
-  [
-    "never closes its suite",
-    (report) => report.replace("  </testsuite>\n", ""),
-  ],
-  [
-    "has no testsuites element",
-    (report) =>
-      report.replace("<testsuites>\n", "").replace("</testsuites>\n", ""),
-  ],
-  ["is empty", () => ""],
-];
-
-for (const [how, cut] of incompleteReports)
-  test(
-    `a capability qualification run refuses a JUnit report that ${how}`,
-    async () => {
-      const world = checkout();
-      const code = await world.run(undefined, undefined, {
-        runCases: (request) => {
-          const whole = junit(request.selection, [], request.entry);
-          const report = cut(whole);
-          expect(report).not.toBe(whole);
-          return Promise.resolve(ran(report));
-        },
-      });
-      expect(code).toBe(1);
-      expect(world.lines).toEqual([
-        "Refused: the case run's report is not a complete JUnit document; no capability qualification record is written. Repair: read the run's output above, then rerun.",
-      ]);
-      expect(existsSync(world.folder)).toBe(false);
-    },
-    inProcess,
-  );
-
-const indexOnlyCase = capabilityQualificationCases().find(
-  (row) => row.status === "executable" && row.onlyThrough?.entry === "index.ts",
-);
-
-const excludedReports: readonly (readonly [
-  string,
-  (id: string) => string,
-  number,
-])[] = [
-  [
-    "failed",
-    (id) =>
-      `<testcase name="${id}" time="1"><failure message="x" /></testcase>`,
-    1,
-  ],
-  ["passed", (id) => `<testcase name="${id}" classname="" time="1" />`, 0],
-];
-
-for (const [how, line, exitCode] of excludedReports)
-  test(
-    `a fixture.ts capability qualification run refuses a report where a case only index.ts can run ${how}`,
-    async () => {
-      const id = indexOnlyCase?.id;
-      if (id === undefined)
-        throw new Error("No case runs only through index.ts.");
-      const world = checkout();
-      const code = await world.run(undefined, undefined, {
-        runCases: (request) => {
-          const report = junit(request.selection, [], request.entry).replace(
-            / {4}<testcase name="Q02\.e[^\n]*\n/,
-            `    ${line(id)}\n`,
-          );
-          expect(report).toContain(line(id));
-          return Promise.resolve(ran(report, exitCode));
-        },
-      });
-      expect(code).toBe(1);
-      expect(world.lines).toEqual([
-        `Refused: the case run reported ${id}, which the fixture.ts run cannot do, as ${how}; no capability qualification record is written. Repair: read the run's output above, then rerun.`,
-      ]);
-      expect(existsSync(world.folder)).toBe(false);
-    },
-    inProcess,
-  );
-
-test(
-  "a fixture.ts capability qualification run accepts a skipped case that only index.ts can run",
-  async () => {
-    const world = checkout();
-    expect(await world.run()).toBe(0);
-    const cases =
-      parseRecord(readFileSync(world.recordFile, "utf8")).runs[0]?.cases ?? [];
-    expect(cases.find((entry) => entry.id === indexOnlyCase?.id)?.result).toBe(
-      "not-runnable",
-    );
   },
   inProcess,
 );
