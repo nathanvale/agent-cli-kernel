@@ -19,7 +19,10 @@ import type {
   ProcessHost,
 } from "../../../kernel/src/kernel/process-types.ts";
 import type { StateAddonDescriptor } from "../../../kernel/src/kernel/state-seam.ts";
-import { attachedRunCount } from "../../../kernel/src/kernel/state-seam.ts";
+import {
+  attachedRunCount,
+  createStateAddon,
+} from "../../../kernel/src/kernel/state-seam.ts";
 import {
   recordRuntime,
   runtimeOf,
@@ -502,6 +505,7 @@ afterEach(() => {
 function stateHolding(
   recorder: ReturnType<typeof recordingHost>,
   host: (descriptor: StateAddonDescriptor) => ProcessHost = () => recorder.host,
+  emergencyRecord?: (facts: EmergencyFacts) => void,
 ) {
   const folder = testFolder("c3-run-identity-");
   stateFolders.push(folder);
@@ -520,7 +524,10 @@ function stateHolding(
       await gate.returned.promise;
     },
   );
-  const setup = { addons: { programs: watched({ controls }) } };
+  const setup = {
+    addons: { programs: watched({ controls }) },
+    ...(emergencyRecord && { emergencyRecord }),
+  };
   const entered = { count: 0 };
   const entry = runInProcessOn(contract, setup, () => host(descriptor));
   return {
@@ -551,6 +558,22 @@ function stateHolding(
       return contract.execute("rc.change", [], runId, { programs, signal });
     },
   };
+}
+
+function asUuid(
+  id: string,
+): `${string}-${string}-${string}-${string}-${string}` {
+  const [a, b, c, d, e, ...rest] = id.split("-");
+  if (
+    a === undefined ||
+    b === undefined ||
+    c === undefined ||
+    d === undefined ||
+    e === undefined ||
+    rest.length > 0
+  )
+    throw new Error(`${id} is not a run identity.`);
+  return `${a}-${b}-${c}-${d}-${e}`;
 }
 
 function causeOf(value: InProcessResult): string {
@@ -742,6 +765,121 @@ describe("IP08 the state seam forgets a run identity when its run finishes", () 
         jest.useRealTimers();
         one.gate.returned.resolve();
       }
+    },
+    timeout,
+  );
+
+  test(
+    "IP08.duplicate-keeps-live-run a refused in-process duplicate leaves the live run attached, so its deadline still closes it",
+    async () => {
+      jest.useFakeTimers();
+      const recorder = recordingHost();
+      const subject = stateHolding(recorder);
+      const one = subject.start(["change", "--deadline-ms", "1000", "--json"]);
+      try {
+        await one.gate.entered.promise;
+        const runId = subject.liveRunId();
+        const duplicate = jest
+          .spyOn(crypto, "randomUUID")
+          .mockReturnValueOnce(asUuid(runId));
+        const refused = await subject.run(["change", "--json"]);
+        duplicate.mockRestore();
+        expect(refused.runId).toBe(runId);
+        expect(causeOf(refused)).toBe("USAGE_INVALID_INVOCATION");
+        expect(attachedRunCount(subject.descriptor)).toEqual(oneRunAttached);
+        await advance(1000 + cancellationWait);
+        const returned = await one.done;
+        expect(causeOf(returned)).toBe("DOMAIN_DEADLINE_UNCHANGED");
+        expect(attachedRunCount(subject.descriptor)).toEqual(oneRunAttached);
+        const [kept] = subject.states;
+        if (!kept) throw new Error("The handler kept no state capability.");
+        expect(
+          await kept
+            .transaction(() => Promise.resolve())
+            .then(
+              () => "opened",
+              (error: unknown) =>
+                error instanceof Error ? error.message : "not an Error",
+            ),
+        ).toBe("The state capability closed at the deadline.");
+        one.gate.returned.resolve();
+        expect(
+          await until(
+            () => attachedRunCount(subject.descriptor) === noRunAttached,
+          ),
+        ).toBe(true);
+      } finally {
+        jest.useRealTimers();
+        one.gate.returned.resolve();
+      }
+    },
+    timeout,
+  );
+
+  test(
+    "IP08.duplicate-then-crash a refused in-process duplicate leaves the live run attached when it crashes",
+    async () => {
+      const recorder = recordingHost();
+      const facts: EmergencyFacts[] = [];
+      const subject = stateHolding(
+        recorder,
+        () => recorder.host,
+        (fact) => facts.push(fact),
+      );
+      const one = subject.start();
+      try {
+        await one.gate.entered.promise;
+        const runId = subject.liveRunId();
+        const duplicate = jest
+          .spyOn(crypto, "randomUUID")
+          .mockReturnValueOnce(asUuid(runId));
+        const refused = await subject.run(["change", "--json"]);
+        duplicate.mockRestore();
+        expect(refused.runId).toBe(runId);
+        expect(causeOf(refused)).toBe("USAGE_INVALID_INVOCATION");
+        expect(attachedRunCount(subject.descriptor)).toEqual(oneRunAttached);
+        recorder.crash();
+        expect(facts.map((fact) => fact.runId)).toEqual([runId]);
+        expect(attachedRunCount(subject.descriptor)).toEqual(oneRunAttached);
+        expect(recorder.exits).toEqual([1]);
+        one.gate.returned.resolve();
+        expect(runIdOf(await one.done)).toBe(runId);
+        expect(attachedRunCount(subject.descriptor)).toEqual(noRunAttached);
+      } finally {
+        one.gate.returned.resolve();
+      }
+    },
+    timeout,
+  );
+
+  test(
+    "IP08.attach-throws-forgets a state add-on whose attach throws leaves no run attached",
+    async () => {
+      const recorder = recordingHost();
+      const folder = testFolder("c3-run-identity-");
+      stateFolders.push(folder);
+      const descriptor = createStateAddon((issuer) => ({
+        ifNoResult: issuer.ifNoResult({
+          kind: "command",
+          command: "rc.pending",
+          args: [],
+        }),
+        attach() {
+          throw new Error("The state add-on could not attach.");
+        },
+      }));
+      const { contract } = stateHoldContract(
+        join(folder, "state"),
+        () => Promise.resolve(),
+        descriptor,
+      );
+      const returned = await runInProcessOn(
+        contract,
+        { addons: { programs: watched({ controls: [] }) } },
+        () => recorder.host,
+      )(["change", "--json"]);
+      expect(causeOf(returned)).toBe("INTERNAL_PREPARATION");
+      expect(attachedRunCount(descriptor)).toEqual(noRunAttached);
     },
     timeout,
   );

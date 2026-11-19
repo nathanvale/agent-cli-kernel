@@ -333,19 +333,39 @@ export function attachedRunCount(descriptor: StateAddonDescriptor): number {
 // ends, so no other run can take its identity meanwhile; this reading is this
 // code's, not the ruling's. The in-process entry calls this; runProcess ends
 // its process instead, and a direct contract.execute caller's run never
-// reports that it finished.
-export function forgetRun(
+// reports that it finished. Only the attachment's own forget can remove it, so
+// a refused duplicate's finish never removes the live run. An add-on whose
+// attach throws forgets that attachment before the throw leaves the seam.
+function forgetAttachment(
+  runs: Map<string, object>,
   runId: string,
-  descriptor: StateAddonDescriptor | undefined,
+  run: object,
 ): void {
-  const state = descriptor ? registrations.get(descriptor) : undefined;
-  const run = state?.runs.get(runId);
-  const open = run ? attachedRuns.get(run)?.openTransaction : undefined;
+  const open = attachedRuns.get(run)?.openTransaction;
   if (open) {
-    void open.then(() => state?.runs.delete(runId));
+    void open.then(() => {
+      forgetAttachment(runs, runId, run);
+    });
     return;
   }
-  state?.runs.delete(runId);
+  if (runs.get(runId) === run) runs.delete(runId);
+}
+
+function attachOwned<Effect extends string>(
+  state: {
+    readonly registration: StateFactoryResult;
+    readonly runs: Map<string, object>;
+  },
+  runId: string,
+  run: object,
+  effects: readonly Effect[],
+): import("./capabilities.ts").StateCapability<Effect> {
+  try {
+    return state.registration.attach(runId, effects);
+  } catch (error) {
+    forgetAttachment(state.runs, runId, run);
+    throw error;
+  }
 }
 
 function revokeIssued(run: object): void {
@@ -361,6 +381,7 @@ export function attachState<Effect extends string>(
   | {
       readonly capability: import("./capabilities.ts").StateCapability<Effect>;
       readonly close: () => void;
+      readonly forget: () => void;
     }
   | undefined {
   const state = registrations.get(descriptor);
@@ -383,7 +404,7 @@ export function attachState<Effect extends string>(
   };
   attachedRuns.set(run, status);
   state.runs.set(runId, run);
-  const attached = state.registration.attach(runId, effects);
+  const attached = attachOwned(state, runId, run, effects);
   const capability: import("./capabilities.ts").StateCapability<Effect> =
     Object.freeze({
       transaction(work) {
@@ -407,6 +428,9 @@ export function attachState<Effect extends string>(
     capability,
     close: () => {
       status.closed ??= "returned";
+    },
+    forget: () => {
+      forgetAttachment(state.runs, runId, run);
     },
   };
 }

@@ -216,6 +216,7 @@ type Run = {
   stopped: StopSignal | undefined;
   emergencyAttempted: boolean;
   handler: EnteredHandler | undefined;
+  enter: Enter | undefined;
   execution: Promise<Execution> | undefined;
 };
 type EnteredHandler = { returned: boolean; readonly returning: Promise<void> };
@@ -685,6 +686,7 @@ async function runDeclaredCommand(
   if (checked.kind === "refused") return checked.delivery;
   const attached = await attachState(run, identity, checked.attach);
   if ("delivery" in attached) return attached.delivery;
+  run.enter = attached.enter;
   if (run.stopped) return undefined;
   if (expired(run, deadlineAt)) return beforeStart(run, identity);
   run.phase = "handler-entered";
@@ -845,6 +847,7 @@ function newRun(prepared: Prepared, host: ProcessHost): Run {
     stopped: undefined,
     emergencyAttempted: false,
     handler: undefined,
+    enter: undefined,
     execution: undefined,
   };
 }
@@ -1015,7 +1018,9 @@ async function returnedResult(
 // while that run is live. A handler can outlive its run's deadline; this code
 // reads such a run as live until the handler returns.
 function forgetWhenReturned(run: Run): void {
-  const forget = () => run.runtime.forgetState(run.runId);
+  const enter = run.enter;
+  if (!enter) return;
+  const forget = () => run.runtime.forgetState(enter);
   if (!run.handler || run.handler.returned) forget();
   else void run.handler.returning.then(forget);
 }

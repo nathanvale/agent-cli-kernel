@@ -19,6 +19,7 @@ import type {
 } from "../../../kernel/src/kernel/process-types.ts";
 import { path } from "../../../kernel/src/kernel/validation/brands.ts";
 import { stateAddon } from "../../../kernel/src/addons/state/index.ts";
+import type { StateAddonDescriptor } from "../../../kernel/src/kernel/state-seam.ts";
 import { readsUnchanged } from "../kernel-repair/handlers.ts";
 import {
   emptyInput,
@@ -256,8 +257,11 @@ export function stateHoldContract(
     programs: ProgramsCapability,
     state: StateCapability<"rc.note">,
   ) => Promise<void>,
+  descriptor: StateAddonDescriptor = stateAddon({
+    root,
+    report: "rc.pending",
+  }).descriptor,
 ) {
-  const state = stateAddon({ root, report: "rc.pending" });
   const handoff = {
     handoff: {
       owner: "operator",
@@ -304,7 +308,7 @@ export function stateHoldContract(
     capabilities: { programs: true },
     effectClass: "repository-local",
     effects: ["rc.note"],
-    ifNoResult: state.descriptor.ifNoResult,
+    ifNoResult: descriptor.ifNoResult,
     heldLockCause: "DOMAIN_RC_LOCK_HELD",
     unresolvedCaseCause: "DOMAIN_RC_UNRESOLVED",
     stations: [
@@ -331,11 +335,11 @@ export function stateHoldContract(
   const contract = contractFor({
     cli: "rc",
     commands: [change, pending],
-    state: state.descriptor,
+    state: descriptor,
     causes: stateCauses,
     installedAddons: ["state", "programs"],
   });
-  return { contract, descriptor: state.descriptor };
+  return { contract, descriptor };
 }
 
 export function note(entry: Record<string, unknown>): void {
