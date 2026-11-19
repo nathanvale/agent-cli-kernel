@@ -42,28 +42,28 @@ row's guide or gate note cites two distinct witnesses.
 
 ## Rule table
 
-| Rule                                          | Today       | Gates                                                                                                                     | Planned (parked)                           | Guide                                                               |
-| --------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------- |
-| Each test fails for the reason its name gives | Partial     | [lint `repository/require-to-throw-message`](#test-proof)                                                                 | Typed rule ids                             | [Test proof](docs/standards/test-proof.md#refusals-and-bounds)      |
-| Each new refusal or bound has a planted fault | Partial     | [script `fault-replay`, job `fault-replay`](#planted-faults)                                                              | None                                       | [Test proof](docs/standards/test-proof.md#planted-faults)           |
-| Process proofs use the production entry       | Review only | None                                                                                                                      | None                                       | [Test proof](docs/standards/test-proof.md#production-entry)         |
-| Script functions are tested in-process        | Partial     | [job `test`, fault `aaedd58-doctor`](#in-process-tests)                                                                   | None                                       | [Test proof](docs/standards/test-proof.md#in-process-tests)         |
-| Test processes are bounded and released       | Review only | None                                                                                                                      | Lint `tests-use-bounded-runner`            | [Test harness](docs/standards/test-harness.md#processes)            |
-| Tests fake a tool with a stub script          | Review only | None                                                                                                                      | Lint `tests-stub-tools`                    | [Test harness](docs/standards/test-harness.md#fake-tools)           |
-| Tests wait on events, not wall time           | Partial     | [lint `repository/tests-no-sleep`](#time)                                                                                 | None                                       | [Test harness](docs/standards/test-harness.md#time)                 |
-| Test timings follow a moved suite             | Review only | None                                                                                                                      | Test that timing keys match the test files | [Test harness](docs/standards/test-harness.md#timings)              |
-| A lint rule holds on each shape it can meet   | Review only | None                                                                                                                      | None                                       | [Test proof](docs/standards/test-proof.md#lint-rules)               |
-| Finish work is proved on every finish path    | Review only | None                                                                                                                      | Fault for each finish path                 | [Finish paths](docs/standards/finish-paths.md#finish-cases)         |
-| A guard reads a missing entry as closed       | Review only | None                                                                                                                      | Seam guards hold their run object          | [Finish paths](docs/standards/finish-paths.md#forgotten-entries)    |
-| One rule holds on every construction route    | Review only | None                                                                                                                      | `AdmittedCommand` brand                    | [One rule, one path](docs/standards/one-rule-one-path.md)           |
-| Every exit path emits exactly one envelope    | Review only | None                                                                                                                      | None                                       | [Failure envelopes](docs/standards/failure-envelopes.md)            |
-| Untrusted values are read once, as own data   | Partial     | [lint `repository/no-locale-compare`, lint `repository/no-in-operator`, fault `b9e392f-payload-rules`](#untrusted-values) | None                                       | [Untrusted values](docs/standards/untrusted-values.md#object-model) |
-| Delays, waits, and work have stated bounds    | Review only | None                                                                                                                      | `Milliseconds` and `Bound` brands          | [Untrusted values](docs/standards/untrusted-values.md#bounds)       |
-| Behaviour holds on Linux and macOS            | Partial     | [job `test`, lint `repository/no-host-path-literal`, fault `b79a4ac-platform-rules`](#linux-and-macos)                    | None                                       | [Platform parity](docs/standards/platform-parity.md)                |
-| Glossary terms only                           | Partial     | [job `test`](#glossary)                                                                                                   | Lint `glossary-term`                       | [Glossary map](GLOSSARY-MAP.md)                                     |
-| One owner per constant, fake, and helper      | Partial     | [lint `repository/tests-use-test-folder`](#one-owner)                                                                     | None                                       | [One owner](docs/standards/one-owner.md)                            |
-| Each commit is green at its own head          | Partial     | [script `check:commits`, job `commits`](#commits)                                                                         | None                                       | None                                                                |
-| Say it in code, not in a comment              | Partial     | [lint `repository/no-comments`, fault `5ac4285-template-rules`, fault `bbfce9a-template-rules`](#comments)                | None                                       | None                                                                |
+| Rule                                          | Today       | Gates                                                                                                                                                           | Planned (parked)                           | Guide                                                               |
+| --------------------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------- |
+| Each test fails for the reason its name gives | Partial     | [lint `repository/require-to-throw-message`](#test-proof)                                                                                                       | Typed rule ids                             | [Test proof](docs/standards/test-proof.md#refusals-and-bounds)      |
+| Each new refusal or bound has a planted fault | Partial     | [script `fault-replay`, job `fault-replay`](#planted-faults)                                                                                                    | None                                       | [Test proof](docs/standards/test-proof.md#planted-faults)           |
+| Process proofs use the production entry       | Review only | None                                                                                                                                                            | None                                       | [Test proof](docs/standards/test-proof.md#production-entry)         |
+| Script functions are tested in-process        | Partial     | [job `test`, fault `aaedd58-doctor`](#in-process-tests)                                                                                                         | None                                       | [Test proof](docs/standards/test-proof.md#in-process-tests)         |
+| Test processes are bounded and released       | Review only | None                                                                                                                                                            | Lint `tests-use-bounded-runner`            | [Test harness](docs/standards/test-harness.md#processes)            |
+| Tests fake a tool with a stub script          | Review only | None                                                                                                                                                            | Lint `tests-stub-tools`                    | [Test harness](docs/standards/test-harness.md#fake-tools)           |
+| Tests wait on events, not wall time           | Partial     | [lint `repository/tests-no-sleep`](#time)                                                                                                                       | None                                       | [Test harness](docs/standards/test-harness.md#time)                 |
+| Test timings follow a moved suite             | Review only | None                                                                                                                                                            | Test that timing keys match the test files | [Test harness](docs/standards/test-harness.md#timings)              |
+| A lint rule holds on each shape it can meet   | Review only | None                                                                                                                                                            | None                                       | [Test proof](docs/standards/test-proof.md#lint-rules)               |
+| Finish work is proved on every finish path    | Partial     | [fault `d62870c-in-process-forget`, fault `7fb5649-in-process-entered`, fault `d62870c-in-process-rejected`, fault `d62870c-in-process-handler`](#finish-cases) | None                                       | [Finish paths](docs/standards/finish-paths.md#finish-cases)         |
+| A guard reads a missing entry as closed       | Partial     | [fault `7fb5649-state-seam-closed`, fault `c02caae-state-seam-active`](#forgotten-entries)                                                                      | Seam guards hold their run object          | [Finish paths](docs/standards/finish-paths.md#forgotten-entries)    |
+| One rule holds on every construction route    | Review only | None                                                                                                                                                            | `AdmittedCommand` brand                    | [One rule, one path](docs/standards/one-rule-one-path.md)           |
+| Every exit path emits exactly one envelope    | Review only | None                                                                                                                                                            | None                                       | [Failure envelopes](docs/standards/failure-envelopes.md)            |
+| Untrusted values are read once, as own data   | Partial     | [lint `repository/no-locale-compare`, lint `repository/no-in-operator`, fault `b9e392f-payload-rules`](#untrusted-values)                                       | None                                       | [Untrusted values](docs/standards/untrusted-values.md#object-model) |
+| Delays, waits, and work have stated bounds    | Review only | None                                                                                                                                                            | `Milliseconds` and `Bound` brands          | [Untrusted values](docs/standards/untrusted-values.md#bounds)       |
+| Behaviour holds on Linux and macOS            | Partial     | [job `test`, lint `repository/no-host-path-literal`, fault `b79a4ac-platform-rules`](#linux-and-macos)                                                          | None                                       | [Platform parity](docs/standards/platform-parity.md)                |
+| Glossary terms only                           | Partial     | [job `test`](#glossary)                                                                                                                                         | Lint `glossary-term`                       | [Glossary map](GLOSSARY-MAP.md)                                     |
+| One owner per constant, fake, and helper      | Partial     | [lint `repository/tests-use-test-folder`](#one-owner)                                                                                                           | None                                       | [One owner](docs/standards/one-owner.md)                            |
+| Each commit is green at its own head          | Partial     | [script `check:commits`, job `commits`](#commits)                                                                                                               | None                                       | None                                                                |
+| Say it in code, not in a comment              | Partial     | [lint `repository/no-comments`, fault `5ac4285-template-rules`, fault `bbfce9a-template-rules`](#comments)                                                      | None                                       | None                                                                |
 
 ## Gate notes
 
@@ -142,6 +142,25 @@ row's guide or gate note cites two distinct witnesses.
 - The lint catches delay-only waits. Review the timing controls
   outside its matcher. See [the gate's coverage](docs/standards/gate-coverage.md#timer-lint).
 - Witnessed: [d1436c0].
+
+### Finish cases
+
+- Each fault breaks forgetting an in-process run's identity
+  (`kernel/src/kernel/lifecycle.ts`) on one way to finish, and its `IP08`
+  case kills it: a handler that returns, a run that never enters its
+  handler, a rejected run, and a handler past its deadline.
+- Review only: other finish work, and other ways to finish, such as a
+  signal.
+- Witnessed: [7fb5649], [ef76011].
+
+### Forgotten entries
+
+- Each fault makes `recordedEffect` (`kernel/src/kernel/state-seam.ts`)
+  read its run through the identity lookup, the first always and the second
+  outside its transaction. A seam case that reuses a forgotten run's
+  identity kills each.
+- Review only: other guards, and a missing entry whose key no run reused.
+- Witnessed: [7fb5649], [c02caae].
 
 ### Untrusted values
 
@@ -229,3 +248,6 @@ when adding, fixing, or pruning a lint hit.
 [r4580070979]: https://github.com/nathanvale/bun-typescript-template/pull/6#discussion_r4580070979
 [r4580077776]: https://github.com/nathanvale/bun-typescript-template/pull/6#discussion_r4580077776
 [r4606943328]: https://github.com/nathanvale/bun-typescript-template/pull/80#discussion_r4606943328
+[7fb5649]: https://github.com/nathanvale/agent-cli-kernel/commit/7fb564900cff191397fdc8d1ba6f20e6807abdde
+[ef76011]: https://github.com/nathanvale/agent-cli-kernel/commit/ef76011bdde8d36064b73bd85550d8efc7fb15a6
+[c02caae]: https://github.com/nathanvale/agent-cli-kernel/commit/c02caae41a3100ab2c8d5272d21a60acb7a0b992
