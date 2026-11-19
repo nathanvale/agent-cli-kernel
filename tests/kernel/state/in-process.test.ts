@@ -177,34 +177,39 @@ supportingTest(
   },
 );
 
-supportingTest(
-  "IP06.crash-listener-hears-error the listener hears the thrown error, then the process exits 1 with nothing printed",
-  async () => {
-    const world = makeWorld({ entry });
-    try {
-      const done = await inProcess(world, "crash-listener", {
-        SX_BARRIER: "intent",
-      });
-      expect(done.exit).toBe(1);
-      expect(done.stdout).toBe("");
-      expect(done.stderr).toBe("");
-      expect(lines(world).map((line) => line.label)).toEqual([
-        "first",
-        "held",
-        "listener",
-      ]);
-      expect(labelled(world, "listener")).toBe(
-        "Planted crash while the second run is in flight.",
-      );
-      const finishedRun = str(at(labelled(world, "first"), "runId"));
-      const finished = operationOf(world, finishedRun);
-      const inFlight = world
-        .operations()
-        .filter((operation) => operation.id !== finished.id);
-      expect(emergencies(finished)).toBe(0);
-      expect(inFlight.map(emergencies)).toEqual([1]);
-    } finally {
-      world.dispose();
-    }
-  },
-);
+const heard = [
+  ["error", "on-crash", "Planted crash while the second run is in flight."],
+  [
+    "rejection",
+    "on-crash-rejection",
+    "Planted rejection while the second run is in flight.",
+  ],
+] as const;
+for (const [cause, mode, message] of heard)
+  supportingTest(
+    `IP06.on-crash-hears-${cause} onCrash hears the uncaught ${cause}, then the process exits 1 with nothing printed`,
+    async () => {
+      const world = makeWorld({ entry });
+      try {
+        const done = await inProcess(world, mode, { SX_BARRIER: "intent" });
+        expect(done.exit).toBe(1);
+        expect(done.stdout).toBe("");
+        expect(done.stderr).toBe("");
+        expect(lines(world).map((line) => line.label)).toEqual([
+          "first",
+          "held",
+          "listener",
+        ]);
+        expect(labelled(world, "listener")).toBe(message);
+        const finishedRun = str(at(labelled(world, "first"), "runId"));
+        const finished = operationOf(world, finishedRun);
+        const inFlight = world
+          .operations()
+          .filter((operation) => operation.id !== finished.id);
+        expect(emergencies(finished)).toBe(0);
+        expect(inFlight.map(emergencies)).toEqual([1]);
+      } finally {
+        world.dispose();
+      }
+    },
+  );

@@ -91,12 +91,18 @@ export type RunSetup = {
 };
 
 // Interface: Accepted decision (Nathan, 19 November 2026, 12:15 and 13:57
-// AEDT): after an uncaught error the kernel stops every run's owned programs
-// and writes its emergency records, then calls `onCrash` once with the error,
-// then exits 1 as soon as the listener settles or 450 ms after the call. A
-// throw or rejection changes nothing, a second crash during the wait exits at
-// once, and the kernel prints nothing. An entry's listener is heard from its
-// first call on; each entry's listener is called once.
+// AEDT): after an uncaught error or unhandled rejection the kernel attempts to
+// kill every run's owned programs and writes its emergency records, then calls
+// `onCrash` once with the error, then exits 1 as soon as it settles or 450 ms
+// after the call. A throw or rejection changes nothing, a second crash during
+// the wait exits at once, and the kernel prints nothing.
+// Interface: Provisional reading, for Nathan: each entry's `onCrash` is
+// called once, from that entry's first call on, and exit waits for all of
+// them; the host keeps one per distinct function, so reuse one function across
+// entries. Runs in flight are aborted before `onCrash` is called. Once a crash
+// has happened it decides the exit: a stop signal during the wait exits 1 at
+// once, a stop's own exit no longer fires, and a call made during the wait
+// never starts a run and stays pending until exit.
 export type InProcessSetup = RunSetup & {
   readonly onCrash?: (error: unknown) => void | Promise<void>;
 };

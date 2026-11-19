@@ -14,6 +14,7 @@ export const tolerance = 100;
 export const killObservationTolerance = 30;
 
 export const stopBound = 500;
+export const crashWaitBound = 450;
 export const cancellationWait = 500;
 export const flushBound = 500;
 

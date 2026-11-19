@@ -1165,14 +1165,14 @@
     "id": "68a85f3-in-process-crash-throw",
     "patch": "tests/planted-faults/patches/68a85f3-lifecycle-throw.patch",
     "testFile": "tests/kernel/lifecycle/in-process.test.ts",
-    "title": "IP09\\.listener-fails a listener that throws",
+    "title": "IP09\\.listener-fails an onCrash that throws",
     "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
   },
   {
     "id": "68a85f3-in-process-crash-reject",
     "patch": "tests/planted-faults/patches/68a85f3-lifecycle-reject.patch",
     "testFile": "tests/kernel/lifecycle/in-process.test.ts",
-    "title": "IP09\\.listener-fails a listener that rejects",
+    "title": "IP09\\.listener-fails an onCrash that rejects",
     "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
   },
   {
@@ -1207,7 +1207,7 @@
     "id": "68a85f3-in-process-crash-error",
     "patch": "tests/planted-faults/patches/68a85f3-process-host-error.patch",
     "testFile": "tests/kernel/state/in-process.test.ts",
-    "title": "IP06\\.crash-listener-hears-error",
+    "title": "IP06\\.on-crash-hears-error",
     "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
   }
 ]

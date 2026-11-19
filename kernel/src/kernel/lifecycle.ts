@@ -865,10 +865,10 @@ async function runInvocation(run: Run, argv: unknown): Promise<number> {
   return code;
 }
 
-type CrashListener = NonNullable<InProcessSetup["onCrash"]>;
+type OnCrash = NonNullable<InProcessSetup["onCrash"]>;
 type InFlight = {
   readonly runs: Set<Run>;
-  readonly listeners: Set<CrashListener>;
+  readonly listeners: Set<OnCrash>;
   stopped: StopSignal | undefined;
   crash: "none" | "listening" | "exited";
 };
@@ -877,6 +877,12 @@ const inFlightByHost = new WeakMap<ProcessHost, InFlight>();
 function stopEvery(inFlight: InFlight, host: ProcessHost, signal: StopSignal) {
   const code = stopCode(signal);
   const runs = [...inFlight.runs];
+  if (inFlight.crash === "listening") {
+    for (const run of runs) killAll(run);
+    inFlight.crash = "exited";
+    host.exit(1);
+    return;
+  }
   if (inFlight.stopped) {
     for (const run of runs) killAll(run);
     host.exit(code);
@@ -891,7 +897,9 @@ function stopEvery(inFlight: InFlight, host: ProcessHost, signal: StopSignal) {
     Promise.all(runs.map((run) => settleAll(run, settleLimitMilliseconds))),
     stopBoundMilliseconds,
     host.now,
-  ).then(() => host.exit(code));
+  ).then(() => {
+    if (inFlight.crash === "none") host.exit(code);
+  });
 }
 
 function inFlightOn(host: ProcessHost): InFlight {
@@ -909,7 +917,9 @@ function inFlightOn(host: ProcessHost): InFlight {
   return inFlight;
 }
 
-function heard(listener: CrashListener, error: unknown): Promise<void> {
+const untilExit = new Promise<InProcessResult>(() => undefined);
+
+function callOnCrash(listener: OnCrash, error: unknown): Promise<void> {
   try {
     return Promise.resolve(listener(error));
   } catch {
@@ -925,7 +935,10 @@ function crashEvery(inFlight: InFlight, host: ProcessHost, error: unknown) {
     return;
   }
   inFlight.crash = "listening";
-  const listening = [...inFlight.listeners].map((each) => heard(each, error));
+  for (const run of inFlight.runs) run.controller.abort();
+  const listening = [...inFlight.listeners].map((each) =>
+    callOnCrash(each, error),
+  );
   void within(
     Promise.allSettled(listening),
     stopBoundMilliseconds,
@@ -970,9 +983,10 @@ function forgetWhenReturned(run: Run): void {
 async function runAndReturn(
   run: Run,
   argv: unknown,
-  listener: CrashListener | undefined,
+  listener: OnCrash | undefined,
 ): Promise<InProcessResult> {
   const inFlight = inFlightOn(run.host);
+  if (inFlight.crash !== "none") return untilExit;
   if (listener) inFlight.listeners.add(listener);
   run.stopped = inFlight.stopped;
   inFlight.runs.add(run);

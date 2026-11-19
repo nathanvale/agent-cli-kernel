@@ -14,7 +14,7 @@ import {
 const mode = process.argv[2] ?? "";
 const report = join(process.env.SX_WORLD ?? "", "in-process.jsonl");
 
-const listened = mode === "crash-listener";
+const listened = mode.startsWith("on-crash");
 const entry = runInProcess(contract, {
   addons: { approval: approvalAddon },
   emergencyRecord: state.emergencyRecord,
@@ -82,6 +82,22 @@ async function crash(): Promise<void> {
   await second;
 }
 
+async function rejectionHeard(): Promise<void> {
+  releaseBarrier("intent");
+  note("first", await entry(apply("a", "v1")));
+  closeBarrier("intent");
+  const held = reached("intent");
+  const second = entry(apply("b", "v2"));
+  await heldAt(held, "intent", second);
+  note("held", true);
+  setTimeout(() => {
+    void Promise.reject(
+      new Error("Planted rejection while the second run is in flight."),
+    );
+  }, 0);
+  await second;
+}
+
 async function crashBoth(): Promise<void> {
   const firstHeld = reached("intent");
   const first = entry(apply("a", "v1"));
@@ -101,7 +117,8 @@ const modes: Readonly<Record<string, () => Promise<void>>> = {
   overlap,
   crash,
   "crash-both": crashBoth,
-  "crash-listener": crash,
+  "on-crash": crash,
+  "on-crash-rejection": rejectionHeard,
 };
 if (!Object.hasOwn(modes, mode)) throw new Error(`Unknown mode ${mode}.`);
 const selected = modes[mode];

@@ -13,7 +13,10 @@ import {
   runInProcessOn,
   runProcessOn,
 } from "../../../kernel/src/kernel/lifecycle.ts";
-import type { ProcessHost } from "../../../kernel/src/kernel/process-types.ts";
+import type {
+  InProcessSetup,
+  ProcessHost,
+} from "../../../kernel/src/kernel/process-types.ts";
 import type { StateAddonDescriptor } from "../../../kernel/src/kernel/state-seam.ts";
 import { rememberedRuns } from "../../../kernel/src/kernel/state-seam.ts";
 import {
@@ -21,7 +24,7 @@ import {
   runtimeOf,
 } from "../../../kernel/src/kernel/runtime.ts";
 import { testFolder } from "../../support/test-folder.ts";
-import { cancellationWait, stopBound } from "./oracle.ts";
+import { cancellationWait, crashWaitBound, stopBound } from "./oracle.ts";
 import {
   advance,
   deferred,
@@ -44,7 +47,7 @@ type Holding = {
   readonly controls?: RunControl[];
   readonly kills?: string[];
   readonly emergencyRecord?: (facts: EmergencyFacts) => void;
-  readonly onCrash?: (error: unknown) => void | Promise<void>;
+  readonly onCrash?: InProcessSetup["onCrash"];
   readonly stopSettleHangs?: true;
   readonly host?: ProcessHost;
 };
@@ -92,7 +95,7 @@ function holding(
     holdContract(async (programs) => {
       const gate = queue.shift();
       entries.push("entered");
-      await programs.inspect(shell("exit 0"));
+      await programs.inspect(shell("exit 0", { timeoutMilliseconds: 5_000 }));
       if (!gate) return;
       gate.entered.resolve();
       await gate.returned.promise;
@@ -712,9 +715,7 @@ describe("IP08 the state seam forgets a run identity when its run finishes", () 
   );
 });
 
-const crashWaitBound = 450;
-
-function listening() {
+function recordedOnCrash() {
   const calls: unknown[][] = [];
   const settle = deferred();
   return {
@@ -727,32 +728,41 @@ function listening() {
   };
 }
 
-describe("IP09 a crash listener hears the error before the process exits", () => {
+async function heldRun(subject: ReturnType<typeof holding>) {
+  const one = subject.start();
+  await one.gate.entered.promise;
+  return one;
+}
+
+describe("IP09 onCrash hears the error before the process exits", () => {
   test(
-    "IP09.listener-after-records the listener hears the error after programs are stopped and records written, and exit follows its settle",
+    "IP09.listener-after-records onCrash hears the error after the kill attempt, the records and the abort, and exit follows its settle",
     async () => {
+      const recorder = recordingHost();
+      const steps: string[] = [];
+      const controls: RunControl[] = [];
+      const listener = recordedOnCrash();
+      const subject = holding(recorder, {
+        controls,
+        kills: steps,
+        emergencyRecord: (fact) => steps.push(`record ${fact.runId}`),
+        onCrash: (error) => {
+          steps.push(`listener aborted=${String(controls[0]?.signal.aborted)}`);
+          return listener.onCrash(error);
+        },
+      });
+      const one = await heldRun(subject);
       jest.useFakeTimers();
       try {
-        const recorder = recordingHost();
-        const steps: string[] = [];
-        const controls: RunControl[] = [];
-        const listener = listening();
-        const subject = holding(recorder, {
-          controls,
-          kills: steps,
-          emergencyRecord: (fact) => steps.push(`record ${fact.runId}`),
-          onCrash: (error) => {
-            steps.push("listener");
-            return listener.onCrash(error);
-          },
-        });
-        const one = subject.start();
-        await one.gate.entered.promise;
         const runId = controls[0]?.runId;
         if (runId === undefined) throw new Error("No run attached programs.");
         const error = new Error("Planted crash with a run in flight.");
         recorder.crash(error);
-        expect(steps).toEqual([runId, `record ${runId}`, "listener"]);
+        expect(steps).toEqual([
+          runId,
+          `record ${runId}`,
+          "listener aborted=true",
+        ]);
         expect(listener.calls).toHaveLength(1);
         expect(listener.calls[0]?.[0]).toBe(error);
         await turns();
@@ -761,24 +771,24 @@ describe("IP09 a crash listener hears the error before the process exits", () =>
         await turns();
         expect(recorder.exits).toEqual([1]);
         expect(recorder.writes).toEqual([]);
-        one.gate.returned.resolve();
-        await one.done;
       } finally {
         jest.useRealTimers();
+        one.gate.returned.resolve();
       }
+      await one.done;
     },
     timeout,
   );
 
   test(
-    "IP09.listener-bound a listener that never settles meets exit 450 ms after the crash",
+    "IP09.listener-bound an onCrash that never settles meets exit 450 ms after the crash",
     async () => {
+      const recorder = recordingHost();
+      const listener = recordedOnCrash();
+      const subject = holding(recorder, { onCrash: listener.onCrash });
+      await subject.run(["hold", "--json"]);
       jest.useFakeTimers();
       try {
-        const recorder = recordingHost();
-        const listener = listening();
-        const subject = holding(recorder, { onCrash: listener.onCrash });
-        await subject.run(["hold", "--json"]);
         recorder.crash();
         await advance(crashWaitBound - 1);
         expect(recorder.exits).toEqual([]);
@@ -804,46 +814,44 @@ describe("IP09 a crash listener hears the error before the process exits", () =>
   ] as const;
   for (const [name, onCrash] of failing)
     test(
-      `IP09.listener-fails a listener that ${name} still meets exit 1 at once`,
+      `IP09.listener-fails an onCrash that ${name} still meets exit 1 without waiting for the bound`,
       async () => {
+        const recorder = recordingHost();
+        const facts: EmergencyFacts[] = [];
+        const subject = holding(recorder, {
+          onCrash,
+          emergencyRecord: (fact) => facts.push(fact),
+        });
+        const one = await heldRun(subject);
         jest.useFakeTimers();
         try {
-          const recorder = recordingHost();
-          const facts: EmergencyFacts[] = [];
-          const subject = holding(recorder, {
-            onCrash,
-            emergencyRecord: (fact) => facts.push(fact),
-          });
-          const one = subject.start();
-          await one.gate.entered.promise;
           recorder.crash();
           await turns();
           expect(recorder.exits).toEqual([1]);
           expect(facts).toHaveLength(1);
           expect(recorder.writes).toEqual([]);
-          one.gate.returned.resolve();
-          await one.done;
         } finally {
           jest.useRealTimers();
+          one.gate.returned.resolve();
         }
+        await one.done;
       },
       timeout,
     );
 
   test(
-    "IP09.second-crash-exits-at-once a second crash during the wait exits at once and calls no listener again",
+    "IP09.second-crash-exits-at-once a second crash during the wait exits at once, exits only once, and calls no onCrash again",
     async () => {
+      const recorder = recordingHost();
+      const facts: EmergencyFacts[] = [];
+      const listener = recordedOnCrash();
+      const subject = holding(recorder, {
+        onCrash: listener.onCrash,
+        emergencyRecord: (fact) => facts.push(fact),
+      });
+      const one = await heldRun(subject);
       jest.useFakeTimers();
       try {
-        const recorder = recordingHost();
-        const facts: EmergencyFacts[] = [];
-        const listener = listening();
-        const subject = holding(recorder, {
-          onCrash: listener.onCrash,
-          emergencyRecord: (fact) => facts.push(fact),
-        });
-        const one = subject.start();
-        await one.gate.entered.promise;
         recorder.crash();
         await turns();
         expect(recorder.exits).toEqual([]);
@@ -853,8 +861,92 @@ describe("IP09 a crash listener hears the error before the process exits", () =>
         expect(recorder.exits).toEqual([1]);
         expect(listener.calls).toHaveLength(1);
         expect(facts).toHaveLength(1);
+      } finally {
+        jest.useRealTimers();
         one.gate.returned.resolve();
-        await one.done;
+      }
+      await one.done;
+    },
+    timeout,
+  );
+
+  test(
+    "IP09.signal-during-wait a stop signal during the wait exits 1 at once and only once",
+    async () => {
+      const recorder = recordingHost();
+      const kills: string[] = [];
+      const listener = recordedOnCrash();
+      const subject = holding(recorder, { kills, onCrash: listener.onCrash });
+      const one = await heldRun(subject);
+      jest.useFakeTimers();
+      try {
+        recorder.crash();
+        await turns();
+        expect(kills).toHaveLength(1);
+        recorder.signal("SIGTERM");
+        expect(recorder.exits).toEqual([1]);
+        expect(kills).toHaveLength(2);
+        listener.settle.resolve();
+        await advance(crashWaitBound);
+        expect(recorder.exits).toEqual([1]);
+      } finally {
+        jest.useRealTimers();
+        one.gate.returned.resolve();
+      }
+      await one.done;
+    },
+    timeout,
+  );
+
+  test(
+    "IP09.crash-during-stop a crash during a stop's settle decides the exit: 1, after onCrash, never the stop's code",
+    async () => {
+      const recorder = recordingHost();
+      const listener = recordedOnCrash();
+      const subject = holding(recorder, {
+        stopSettleHangs: true,
+        onCrash: listener.onCrash,
+      });
+      const one = await heldRun(subject);
+      jest.useFakeTimers();
+      try {
+        recorder.signal("SIGTERM");
+        await advance(100);
+        recorder.crash();
+        expect(listener.calls).toHaveLength(1);
+        await advance(crashWaitBound - 1);
+        expect(recorder.exits).toEqual([]);
+        await advance(1);
+        expect(recorder.exits).toEqual([1]);
+      } finally {
+        jest.useRealTimers();
+        one.gate.returned.resolve();
+      }
+      await one.done;
+    },
+    timeout,
+  );
+
+  test(
+    "IP09.call-during-wait a call made during the wait never starts its run and stays pending",
+    async () => {
+      const recorder = recordingHost();
+      const listener = recordedOnCrash();
+      const subject = holding(recorder, { onCrash: listener.onCrash });
+      await subject.run(["hold", "--json"]);
+      jest.useFakeTimers();
+      try {
+        recorder.crash();
+        const late = subject.start();
+        const settled = { late: false };
+        void late.done.then(() => {
+          settled.late = true;
+        });
+        listener.settle.resolve();
+        await turns();
+        expect(recorder.exits).toEqual([1]);
+        expect(subject.entries).toHaveLength(1);
+        expect(settled.late).toBe(false);
       } finally {
         jest.useRealTimers();
       }
@@ -863,35 +955,37 @@ describe("IP09 a crash listener hears the error before the process exits", () =>
   );
 
   test(
-    "IP09.no-listener-unchanged with no listener a crash still exits 1 at once",
+    "IP09.no-listener-unchanged with no onCrash a crash still exits 1 at once",
     async () => {
       const recorder = recordingHost();
       const facts: EmergencyFacts[] = [];
       const subject = holding(recorder, {
         emergencyRecord: (fact) => facts.push(fact),
       });
-      const one = subject.start();
-      await one.gate.entered.promise;
-      recorder.crash();
-      expect(recorder.exits).toEqual([1]);
-      expect(facts).toHaveLength(1);
-      expect(recorder.writes).toEqual([]);
-      one.gate.returned.resolve();
+      const one = await heldRun(subject);
+      try {
+        recorder.crash();
+        expect(recorder.exits).toEqual([1]);
+        expect(facts).toHaveLength(1);
+        expect(recorder.writes).toEqual([]);
+      } finally {
+        one.gate.returned.resolve();
+      }
       await one.done;
     },
     timeout,
   );
 
   test(
-    "IP09.each-entry-listener two entries on one host each have their listener called once",
+    "IP09.each-entry-listener two entries on one host each have their onCrash called once, and exit waits for both",
     async () => {
+      const recorder = recordingHost();
+      const first = recordedOnCrash();
+      const second = recordedOnCrash();
+      await holding(recorder, { onCrash: first.onCrash }).run(["hold"]);
+      await holding(recorder, { onCrash: second.onCrash }).run(["hold"]);
       jest.useFakeTimers();
       try {
-        const recorder = recordingHost();
-        const first = listening();
-        const second = listening();
-        await holding(recorder, { onCrash: first.onCrash }).run(["hold"]);
-        await holding(recorder, { onCrash: second.onCrash }).run(["hold"]);
         const error = new Error("Planted crash after two entries ran.");
         recorder.crash(error);
         expect(first.calls).toEqual([[error]]);
