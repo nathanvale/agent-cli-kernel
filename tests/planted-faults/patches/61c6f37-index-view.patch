@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/programs/index.ts b/kernel/src/addons/programs/index.ts
+index 23147db..44d7acc 100644
+--- a/kernel/src/addons/programs/index.ts
++++ b/kernel/src/addons/programs/index.ts
+@@ -98,7 +98,7 @@ function intrinsicByteLength(input: Uint8Array): number | undefined {
+ function inputProblem(input: unknown): string | undefined {
+   if (input === undefined) return undefined;
+   const length =
+-    input instanceof Uint8Array ? intrinsicByteLength(input) : undefined;
++    ArrayBuffer.isView(input) ? intrinsicByteLength(input) : undefined;
+   if (length === undefined) return "A program's input must be a Uint8Array.";
+   return length > inputLimitBytes
+     ? `A program's input is at most ${String(inputLimitBytes)} bytes.`

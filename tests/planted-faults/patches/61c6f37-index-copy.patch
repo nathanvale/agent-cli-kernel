@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/programs/index.ts b/kernel/src/addons/programs/index.ts
+index 23147db..1fb9c48 100644
+--- a/kernel/src/addons/programs/index.ts
++++ b/kernel/src/addons/programs/index.ts
+@@ -145,7 +145,7 @@ function checkedRequest(request: ProgramRequest): CheckedRequest {
+   return Object.freeze({
+     ...read,
+     args: args ?? [],
+-    stdin: input instanceof Uint8Array ? new Uint8Array(input) : "ignore",
++    stdin: input instanceof Uint8Array ? input : "ignore",
+   });
+ }
+ 
