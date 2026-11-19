@@ -1,12 +1,12 @@
 diff --git a/tests/kernel/state/capability-qualification-record.ts b/tests/kernel/state/capability-qualification-record.ts
-index 2826517..c118392 100644
+index c1f1be4..a5807d7 100644
 --- a/tests/kernel/state/capability-qualification-record.ts
 +++ b/tests/kernel/state/capability-qualification-record.ts
-@@ -470,7 +470,12 @@ export function rowProblems(
+@@ -479,7 +479,12 @@ export function rowProblems(
      return [
        `${row.id} cites ${row.evidence.record}; a row cites its committed capability qualification record ${expected}`,
      ];
--  const committed = committedText(root, expected);
+-  const committed = committedText(root, expected, bound);
 +  let committed: string | undefined;
 +  try {
 +    committed = readFileSync(join(root, expected), "utf8");
