@@ -929,5 +929,19 @@
     "testFile": "tests/kernel/lifecycle/in-process.test.ts",
     "title": "IP07\\.contract-refused",
     "source": "aa61e37 fix(kernel): settle the in-process entry's review findings"
+  },
+  {
+    "id": "2004547-in-process-settling",
+    "patch": "tests/planted-faults/patches/2004547-lifecycle-settling.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP02\\.repeated-stop-kills-settling-run",
+    "source": "2004547 fix(kernel): kill a stopped run that is still settling at a repeated signal"
+  },
+  {
+    "id": "2004547-in-process-short-stop",
+    "patch": "tests/planted-faults/patches/2004547-lifecycle-short.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP07\\.stop-bound",
+    "source": "2004547 fix(kernel): kill a stopped run that is still settling at a repeated signal"
   }
 ]
