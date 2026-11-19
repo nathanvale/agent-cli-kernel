@@ -4,6 +4,7 @@ import {
   mkdirSync,
   readFileSync,
   realpathSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
@@ -40,11 +41,23 @@ const barriers = new Set(
 );
 const fault = process.env.SX_FAULT ?? "";
 
+export const barrierReached = new EventTarget();
+function releaseFile(name: string): string {
+  return join(barrierDirectory, `${name}.release`);
+}
+export function releaseBarrier(name: string): void {
+  writeFileSync(releaseFile(name), "go\n");
+}
+export function closeBarrier(name: string): void {
+  rmSync(releaseFile(name), { force: true });
+}
+
 async function barrier(name: string): Promise<void> {
   if (!barriers.has(name) || barrierDirectory === "") return;
   writeFileSync(join(barrierDirectory, `${name}.reached`), `${process.pid}\n`);
+  barrierReached.dispatchEvent(new Event(name));
   if (fault === `abort-at-${name}`) process.abort();
-  const release = join(barrierDirectory, `${name}.release`);
+  const release = releaseFile(name);
   const until = Date.now() + 60_000;
   while (!existsSync(release)) {
     if (Date.now() > until) throw new Error(`Barrier ${name} never released.`);
@@ -118,7 +131,7 @@ const stateOptions = {
 };
 const productionEntry = process.env.SX_ENTRY === "production";
 if (productionEntry) ledger("entry production");
-const state = productionEntry
+export const state = productionEntry
   ? stateAddon(stateOptions)
   : stateAddonWithTestSeams(stateOptions, seams);
 
@@ -1067,7 +1080,7 @@ const approvalStore = {
   consumed: join(world, "approval", "consumed"),
 };
 let approvalRuntime: ApprovalRuntime | undefined;
-const approvalAddon: RunAddon<ApprovalCapability> = {
+export const approvalAddon: RunAddon<ApprovalCapability> = {
   attach(run) {
     const instance = approval({
       operation: "sx.approved",
@@ -1702,7 +1715,7 @@ function compose() {
     installedAddons: ["state", "approval"],
   });
 }
-const contract = compose();
+export const contract = compose();
 composed.boundary = contract.boundary;
 
 if (import.meta.main) {

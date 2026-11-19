@@ -39,10 +39,12 @@ import { renderGuidance } from "./guidance.ts";
 import { wireResult } from "./validation/result.ts";
 
 export { command, changing } from "./declarations.ts";
-export { runProcess } from "./lifecycle.ts";
+export { runInProcess, runProcess } from "./lifecycle.ts";
 export type {
   AttachedAddon,
   EmergencyFacts,
+  InProcessResult,
+  RunInProcess,
   RunAddon,
   RunControl,
   RunSetup,
