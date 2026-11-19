@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { ownedFolders } from "../../support/fixture-files.ts";
 import { commitIn, git, initRepository } from "../../support/git-fixture.ts";
@@ -109,6 +109,32 @@ describe("decide", () => {
     });
   });
 
+  test("a checker tree holding a symlink judges every commit", () => {
+    const linked = `workflow\n120000 blob ${sha(7)}\tscripts/lib.ts`;
+
+    expect(
+      decide({ ...current, tree: linked }, { ...carried, tree: linked }, graph),
+    ).toEqual({
+      since: undefined,
+      judge: [P1, P2, P3],
+      reason: `No carried verdict: the checker tree holds a symlink or submodule at scripts/lib.ts, ${all}`,
+    });
+  });
+
+  test("a head checker tree holding a submodule judges every commit", () => {
+    const linked = `scripts\n160000 commit ${sha(8)}\tvendor/tool`;
+
+    expect(
+      decide(
+        { ...current, headTree: linked },
+        { ...carried, headTree: linked },
+        graph,
+      ).reason,
+    ).toBe(
+      `No carried verdict: the checker tree holds a symlink or submodule at vendor/tool, ${all}`,
+    );
+  });
+
   test("a current merge without two parents is refused before any judging", () => {
     expect(() => decide({ ...current, parents: [P3] }, carried, graph)).toThrow(
       `The current merge ${short(current.sha)} has 1 parents, so it is not a pull request merge. Repair: run this on a pull_request event.`,
@@ -170,7 +196,7 @@ describe("judged-only folders", () => {
     const text = readFileSync(file, "utf8");
     return [
       ...text.matchAll(/(?:from|import)\s*\(?\s*"(\.{1,2}\/[^"]+)"/g),
-    ].map((match) => resolve(dirname(file), match[1] ?? ""));
+    ].map((match) => realpathSync(resolve(dirname(file), match[1] ?? "")));
   }
 
   test("nothing the commits jobs run imports a file from a judged-only folder", () => {
@@ -280,6 +306,16 @@ describe("readToken", () => {
     ).toEqual({ refused: "the carried token uses none, not RS256" });
   });
 
+  test("a header that decodes to null is refused", async () => {
+    expect(
+      await readToken(
+        `${part(null)}.${part(claims)}.c2ln`,
+        published,
+        expected,
+      ),
+    ).toEqual({ refused: "the carried token uses undefined, not RS256" });
+  });
+
   test("a token that is not three parts is refused", async () => {
     expect(await readToken("one.two", published, expected)).toEqual({
       refused: "the carried token is not a signed JWT",
@@ -363,6 +399,7 @@ describe("carry", () => {
     return carry({
       root,
       current,
+      head: git(root, "rev-parse", `${current}^2`),
       token: await token({ ...claims, sha: carriedMerge }),
       keys: () => Promise.resolve(published),
       expected,
@@ -393,6 +430,23 @@ describe("carry", () => {
       judge: [p1, p2, p3],
       reason: `No carried verdict: the checker tree of the carried merge ${short(merge)} differs from ${short(current)}, so every commit in ${short(git(root, "rev-parse", `${current}^1`))}..${short(p3)} is judged.`,
     });
+  });
+
+  test("a current merge of another head than the one checked out is refused", async () => {
+    const { root, p2, carried: merge, current } = repositoryWithTwoRuns();
+
+    const stopped = await carry({
+      root,
+      current,
+      head: p2,
+      token: await token({ ...claims, sha: merge }),
+      keys: () => Promise.resolve(published),
+      expected,
+    }).catch((error: unknown) => String(error));
+
+    expect(stopped).toBe(
+      `Error: The current merge ${short(current)} merges ${short(git(root, "rev-parse", `${current}^2`))}, not the checked-out head ${short(p2)}. Repair: check out the pull request head and rerun.`,
+    );
   });
 
   test("a carried merge this clone cannot fetch judges every commit", async () => {

@@ -1,4 +1,4 @@
-import { appendFileSync, existsSync, readFileSync } from "node:fs";
+import { appendFileSync } from "node:fs";
 import { withoutRepositoryLocation } from "./process-runner.ts";
 
 const judgedOnlyFolders = [
@@ -83,7 +83,17 @@ function refusal(
     return `the checker tree of the carried merge ${short(carried.sha)} differs from ${short(current.sha)}`;
   if (carried.headTree !== current.headTree)
     return `the checker tree of the carried head ${short(carriedHead)} differs from ${short(head)}`;
+  const link = firstLink(current.tree) ?? firstLink(current.headTree);
+  if (link !== undefined)
+    return `the checker tree holds a symlink or submodule at ${link}`;
   return undefined;
+}
+
+function firstLink(tree: string): string | undefined {
+  const entry = tree
+    .split("\n")
+    .find((each) => each.startsWith("120000 ") || each.startsWith("160000 "));
+  return entry?.slice(entry.indexOf("\t") + 1);
 }
 
 // Interface: `graph` holds every commit behind the current head and the
@@ -181,8 +191,8 @@ export async function readToken(
   let head: Claims;
   let claims: Claims;
   try {
-    head = decoded(header) as Claims;
-    claims = decoded(body) as Claims;
+    head = { ...(decoded(header) as Claims) };
+    claims = { ...(decoded(body) as Claims) };
   } catch {
     return { refused: "the carried token is not a signed JWT" };
   }
@@ -280,6 +290,7 @@ function graphOf(root: string, tips: readonly string[]): Graph {
 export type Environment = {
   readonly root: string;
   readonly current: string;
+  readonly head: string;
   readonly token: string | undefined;
   readonly keys: () => Promise<readonly JsonWebKey[]>;
   readonly expected: Expected;
@@ -302,7 +313,13 @@ async function carriedFacts(env: Environment): Promise<MergeFacts | Refused> {
     return {
       refused: `the carried merge ${short(read.merge)} could not be fetched`,
     };
-  return factsOf(env.root, read.merge);
+  try {
+    return factsOf(env.root, read.merge);
+  } catch (error) {
+    return {
+      refused: `the carried merge ${short(read.merge)} could not be read (${error instanceof Error ? error.message : String(error)})`,
+    };
+  }
 }
 
 // Interface: `current` is the merge commit this pull_request run executes
@@ -314,7 +331,13 @@ export async function carry(env: Environment): Promise<Decision> {
       `The current merge ${short(env.current)} is not in this clone and could not be fetched. Repair: check out with fetch-depth 0 and rerun.`,
     );
   const current = factsOf(env.root, env.current);
-  const carried = await carriedFacts(env);
+  if (current.parents[1] !== env.head)
+    throw new Error(
+      `The current merge ${short(env.current)} merges ${short(current.parents[1] ?? "nothing")}, not the checked-out head ${short(env.head)}. Repair: check out the pull request head and rerun.`,
+    );
+  const carried = await carriedFacts(env).catch((error: unknown) => ({
+    refused: `the carried token could not be read (${error instanceof Error ? error.message : String(error)})`,
+  }));
   const tips = current.parents.slice(0, 2);
   return decide(current, carried, graphOf(env.root, tips));
 }
@@ -329,27 +352,31 @@ async function publishedKeys(): Promise<readonly JsonWebKey[]> {
 }
 
 if (import.meta.main) {
-  const [tokenFile] = process.argv.slice(2);
-  const { GITHUB_SHA, GITHUB_REPOSITORY, GITHUB_REPOSITORY_ID, GITHUB_OUTPUT } =
-    process.env;
+  const {
+    GITHUB_SHA,
+    GITHUB_REPOSITORY,
+    GITHUB_REPOSITORY_ID,
+    GITHUB_OUTPUT,
+    CARRIED_TOKEN,
+  } = process.env;
   if (
-    tokenFile === undefined ||
     GITHUB_SHA === undefined ||
     GITHUB_REPOSITORY === undefined ||
     GITHUB_REPOSITORY_ID === undefined
   ) {
     process.stderr.write(
-      "Usage: GITHUB_SHA=<merge> GITHUB_REPOSITORY=<owner/name> GITHUB_REPOSITORY_ID=<id> bun scripts/carried-verdict.ts <token file>\n",
+      "Usage: GITHUB_SHA=<merge> GITHUB_REPOSITORY=<owner/name> GITHUB_REPOSITORY_ID=<id> [CARRIED_TOKEN=<jwt>] bun scripts/carried-verdict.ts\n",
     );
     process.exit(2);
   }
+  const root = process.cwd();
   try {
+    const head = git(root, ["rev-parse", "HEAD"]).stdout.trim();
     const decision = await carry({
-      root: process.cwd(),
+      root,
       current: GITHUB_SHA,
-      token: existsSync(tokenFile)
-        ? readFileSync(tokenFile, "utf8")
-        : undefined,
+      head,
+      token: CARRIED_TOKEN,
       keys: publishedKeys,
       expected: {
         audience: `${GITHUB_REPOSITORY} commits verdict`,
@@ -358,11 +385,11 @@ if (import.meta.main) {
       },
     });
     process.stdout.write(`${decision.reason}\n`);
-    const base = factsOf(process.cwd(), GITHUB_SHA).parents[0] ?? "";
+    const base = factsOf(root, GITHUB_SHA).parents[0] ?? "";
     if (GITHUB_OUTPUT !== undefined)
       appendFileSync(
         GITHUB_OUTPUT,
-        `since=${decision.since ?? ""}\nbase=${base}\njudge=${decision.judge.length}\n`,
+        `since=${decision.since ?? ""}\nbase=${base}\n`,
       );
   } catch (error) {
     process.stderr.write(
