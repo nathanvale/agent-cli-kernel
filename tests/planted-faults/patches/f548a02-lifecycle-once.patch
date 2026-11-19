@@ -1,0 +1,16 @@
+diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
+index d5cf605..38244a8 100644
+--- a/kernel/src/kernel/lifecycle.ts
++++ b/kernel/src/kernel/lifecycle.ts
+@@ -879,7 +879,10 @@ function inFlightOn(host: ProcessHost): InFlight {
+   inFlightByHost.set(host, inFlight);
+   host.onSignal((signal) => stopEvery(inFlight, host, signal));
+   host.onCrash(() => {
+-    for (const run of inFlight.runs) crashRun(run);
++    for (const run of inFlight.runs) {
++      run.emergencyAttempted = false;
++      crashRun(run);
++    }
+     host.exit(1);
+   });
+   return inFlight;

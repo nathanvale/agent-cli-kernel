@@ -83,7 +83,7 @@ export type Json =
   | string
   | Json[]
   | { [key: string]: Json };
-function json(value: unknown): Json {
+export function json(value: unknown): Json {
   if (value === null || typeof value === "boolean" || typeof value === "string")
     return value;
   if (typeof value === "number") return value;
@@ -316,8 +316,9 @@ export type Started = {
 export type World = ReturnType<typeof makeWorld>;
 
 export function makeWorld(
-  options: { readonly qualification?: "fixture" } = {},
+  options: { readonly qualification?: "fixture"; readonly entry?: string } = {},
 ) {
+  const program = options.entry ?? specimen;
   const base = testFolder("c3-state-");
   const root = join(base, "state");
   const world = join(base, "world");
@@ -350,21 +351,35 @@ export function makeWorld(
   function start(
     argv: readonly string[],
     extra: Readonly<Record<string, string>> = {},
+    limitMilliseconds?: number,
   ): Started {
     const barrierDirectory = extra.SX_BARRIER_DIR ?? bars;
-    const child = Bun.spawn([process.execPath, specimen, ...argv], {
+    const child = Bun.spawn([process.execPath, program, ...argv], {
       env: env(extra),
       stdin: "ignore",
       stdout: "pipe",
       stderr: "pipe",
     });
     children.push(child);
+    let outlived = false;
+    const limit =
+      limitMilliseconds === undefined
+        ? undefined
+        : setTimeout(() => {
+            outlived = true;
+            child.kill("SIGKILL");
+          }, limitMilliseconds);
     const done = (async () => {
       const [stdout, stderr] = await Promise.all([
         new Response(child.stdout).text(),
         new Response(child.stderr).text(),
       ]);
       await child.exited;
+      clearTimeout(limit);
+      if (outlived)
+        throw new Error(
+          `${argv.join(" ")} outlived its ${String(limitMilliseconds)} ms limit and was killed.`,
+        );
       return parseRun(
         child.signalCode ? null : child.exitCode,
         child.signalCode ?? null,

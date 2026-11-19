@@ -1,0 +1,13 @@
+diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
+index 17a1342..6f620aa 100644
+--- a/kernel/src/kernel/lifecycle.ts
++++ b/kernel/src/kernel/lifecycle.ts
+@@ -799,7 +799,7 @@ function newRun(prepared: Prepared, host: ProcessHost): Run {
+     ...prepared,
+     host,
+     runId: crypto.randomUUID(),
+-    startedAt: host.now(),
++    startedAt: ((prepared as { first?: number }).first ??= host.now()),
+     controller: new AbortController(),
+     attached: [],
+     reporter: undefined,
