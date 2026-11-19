@@ -1,0 +1,14 @@
+diff --git a/kernel/src/kernel/state-seam.ts b/kernel/src/kernel/state-seam.ts
+index e87fc1c..af55c54 100644
+--- a/kernel/src/kernel/state-seam.ts
++++ b/kernel/src/kernel/state-seam.ts
+@@ -164,8 +164,7 @@ export function issuedScope(
+     !registration ||
+     issued.runId !== runId ||
+     registration.stateInstance !== issued.stateInstance ||
+-    registration.runs.get(runId) !== issued.run ||
+-    attachedRuns.get(issued.run)?.revoked !== false
++    registration.runs.get(runId) !== issued.run
+   )
+     return false;
+   try {

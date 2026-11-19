@@ -1,0 +1,14 @@
+diff --git a/kernel/src/kernel/state-seam.ts b/kernel/src/kernel/state-seam.ts
+index e87fc1c..f2df4c5 100644
+--- a/kernel/src/kernel/state-seam.ts
++++ b/kernel/src/kernel/state-seam.ts
+@@ -117,8 +117,7 @@ export function knownProof(
+     proof !== undefined &&
+     proof.runId === runId &&
+     registration?.stateInstance === proof.stateInstance &&
+-    registration.runs.get(runId) === proof.run &&
+-    attachedRuns.get(proof.run)?.revoked === false
++    registration.runs.get(runId) === proof.run
+   );
+ }
+ export function proofFreeResultAllowed(
