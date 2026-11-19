@@ -1,5 +1,11 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import {
+  existsSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+} from "node:fs";
 import { cp, rm, symlink, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { ESLint } from "eslint";
@@ -99,6 +105,10 @@ function codeBlocks(path: string): Block[] {
       }
       open = { language: fence[1] ?? "", line: index + 1, lines: [] };
     });
+  if (open)
+    throw new Error(
+      `${relative(guideFolder, path)}:${String(open.line)}: this code block never closes.`,
+    );
   return blocks;
 }
 
@@ -231,6 +241,19 @@ describe("the author guide's documents, stamped with the kernel", () => {
             `${block.document}:${String(block.line)}: this ts block is in no example file. Repair: copy the lines again from tests/kernel/author-guide/example, or change the example and run ${writeCommand}.`,
         ),
     ).toEqual([]);
+  });
+
+  test("a code block that never closes is refused, so its lines cannot escape the checks", () => {
+    const folder = testFolder("kernel-author-guide-fence-");
+    const path = join(folder, "unclosed.md");
+    write(folder, "unclosed.md", "# Guide\n\n```ts\nconst stale = 1;\n");
+    try {
+      expect(() => codeBlocks(path)).toThrow(
+        `${relative(guideFolder, path)}:3: this code block never closes.`,
+      );
+    } finally {
+      rmSync(folder, { recursive: true, force: true });
+    }
   });
 
   test("every code block names its language, so none escapes the two checks above", () => {
