@@ -51,9 +51,13 @@ jobs:
         with:
           name: test-timings-${{ matrix.shard }}
           path: tests/test-timings.json
-  commits:
+  commits-shard:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -64,7 +68,23 @@ jobs:
         with:
           bun-version: 1.4.4
       - run: bun install --frozen-lockfile
-      - run: bun run check:commits "origin/${{ github.base_ref }}"
+      - env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: bun run check:commits "$BASE" --shard ${{ matrix.shard }}/4
+  commits:
+    if: always() && github.event_name == 'pull_request'
+    needs: commits-shard
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - env:
+          SHARDS: ${{ needs.commits-shard.result }}
+        run: |
+          if [ "$SHARDS" != success ]; then
+            echo "The commits-shard jobs ended $SHARDS. Repair: open the red commits-shard job and follow its Repair line." >&2
+            exit 1
+          fi
+          echo "All four commits-shard jobs passed."
   fault-replay-shard:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
