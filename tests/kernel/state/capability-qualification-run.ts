@@ -66,7 +66,8 @@ import type { StateCase } from "./cases.ts";
 // writing nothing, when SX_FACT_OVERRIDES is set, the repository is not sha1,
 // git marks a tracked file assume-unchanged or skip-worktree, a file in the
 // commit's tree differs from its committed bytes, has a mode the run cannot
-// check, or is a link that leaves the checkout, the checkout has untracked
+// check, or does not resolve, through every link along the way, to a tracked
+// file or folder inside the checkout's real root, the checkout has untracked
 // files, git ignores a file under kernel, scripts, src or tests, a dotenv
 // file sits in the repository root, the test process's exit code disagrees
 // with its report, a covered case is reported twice, no report is written,

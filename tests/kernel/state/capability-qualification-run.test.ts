@@ -4,6 +4,7 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   rmSync,
   statSync,
   statfsSync,
@@ -12,7 +13,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { homedir, hostname, release } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { movedStateRoot } from "../../../kernel/src/addons/state/capability-qualification-table.ts";
 import { resolveCoordination } from "../../../kernel/src/addons/state/coordination.ts";
 import { bootIdentitySource } from "../../../kernel/src/addons/state/qualification.ts";
@@ -1834,22 +1835,32 @@ test(
   "the capability qualification run refuses a tracked case-file link that reaches another checkout through a linked folder",
   async () => {
     const world = checkout();
-    const other = join(world.base, "other-checkout");
-    mkdirSync(other);
-    writeFileSync(
-      join(other, "linked.test.ts"),
-      `${registered("K02.a-kill-after-effect-two-later-changes", "")}\n`,
-    );
-    commitIn(world.root, "ignore installed packages", {
+    const committed = `${registered("K02.a-kill-after-effect-two-later-changes", "")}\n`;
+    commitIn(world.root, "a case file, with installed packages ignored", {
       ".gitignore": "node_modules/\n",
+      "tests/kernel/state/real.test.ts": committed,
     });
+    const other = join(world.base, "other-checkout");
+    mkdirSync(join(other, "a", "b"), { recursive: true });
+    mkdirSync(join(other, "tests/kernel/state"), { recursive: true });
+    writeFileSync(
+      join(other, "tests/kernel/state/real.test.ts"),
+      `${committed}// another checkout's bytes\n`,
+    );
     mkdirSync(join(world.root, "node_modules"));
-    symlinkSync(other, join(world.root, "node_modules/linked-cases"));
-    const path = "tests/kernel/state/linked.test.ts";
-    mkdirSync(join(world.root, "tests/kernel/state"), { recursive: true });
     symlinkSync(
-      "../../../node_modules/linked-cases/linked.test.ts",
-      join(world.root, path),
+      join(other, "a", "b"),
+      join(world.root, "node_modules/linked-cases"),
+    );
+    const path = "tests/kernel/state/linked.test.ts";
+    const text =
+      "../../../node_modules/linked-cases/../../tests/kernel/state/real.test.ts";
+    expect(resolve(dirname(join(world.root, path)), text)).toBe(
+      join(world.root, "tests/kernel/state/real.test.ts"),
+    );
+    symlinkSync(text, join(world.root, path));
+    expect(realpathSync(join(world.root, path))).toBe(
+      realpathSync(join(other, "tests/kernel/state/real.test.ts")),
     );
     git(world.root, "add", "--", path);
     git(world.root, "commit", "--quiet", "-m", "a case file through a link");
