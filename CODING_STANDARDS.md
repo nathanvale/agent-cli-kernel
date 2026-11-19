@@ -59,7 +59,7 @@ row's guide or gate note cites two distinct witnesses.
 | Every exit path emits exactly one envelope    | Review only | None                                                                                                                                                            | None                                       | [Failure envelopes](docs/standards/failure-envelopes.md)            |
 | Untrusted values are read once, as own data   | Partial     | [lint `repository/no-locale-compare`, lint `repository/no-in-operator`, fault `b9e392f-payload-rules`](#untrusted-values)                                       | None                                       | [Untrusted values](docs/standards/untrusted-values.md#object-model) |
 | Delays, waits, and work have stated bounds    | Review only | None                                                                                                                                                            | `Milliseconds` and `Bound` brands          | [Untrusted values](docs/standards/untrusted-values.md#bounds)       |
-| Behaviour holds on Linux and macOS            | Partial     | [job `test`, lint `repository/no-host-path-literal`, fault `b79a4ac-platform-rules`](#linux-and-macos)                                                          | None                                       | [Platform parity](docs/standards/platform-parity.md)                |
+| Behaviour holds on Linux and macOS            | Partial     | [job `test`, lint `repository/no-host-path-literal`, fault `b79a4ac-platform-rules`, fault `a0d17cc-in-process-control`](#linux-and-macos)                      | None                                       | [Platform parity](docs/standards/platform-parity.md)                |
 | Glossary terms only                           | Partial     | [job `test`](#glossary)                                                                                                                                         | Lint `glossary-term`                       | [Glossary map](GLOSSARY-MAP.md)                                     |
 | One owner per constant, fake, and helper      | Partial     | [lint `repository/tests-use-test-folder`](#one-owner)                                                                                                           | None                                       | [One owner](docs/standards/one-owner.md)                            |
 | Each commit is green at its own head          | Partial     | [script `check:commits`, job `commits`](#commits)                                                                                                               | None                                       | None                                                                |
@@ -71,8 +71,9 @@ row's guide or gate note cites two distinct witnesses.
 
 - `.github/workflows/ci.yml` runs on every pull request.
 - `R1.platform-outcomes-pinned` pins unproved diagnostics rows only.
-- State `caseTest` titles can show `UNPROVED` off their platform, but no test
-  pins their count.
+- State `caseTest` and `supportingTest` cases can go unproved off their
+  platform; only the in-process ones are pinned, as Platform Parity says
+  (fault `a0d17cc-in-process-control`).
 - `tests/kernel/approval/component.test.ts` still reports unproved cases
   through `test.skip`.
 - `.github/workflows/macos-nightly.yml` runs on schedule once it reaches

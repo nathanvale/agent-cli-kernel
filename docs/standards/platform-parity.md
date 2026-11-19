@@ -10,6 +10,11 @@ there, and its title says so.
 - Pin unproved counts as the shared "Observed evidence crosses a real
   boundary" rule asks. `R1.platform-outcomes-pinned` in
   `tests/kernel/diagnostics/cases.test.ts` is the local pattern.
+- The last case in `tests/kernel/state/in-process.test.ts` pins which
+  in-process state cases ran their real bodies. Fault
+  `a0d17cc-in-process-control` makes `supportingTest` skip the `IP06.on-crash`
+  bodies, and that last case kills it. Other `supportingTest` users stay
+  unpinned.
 - Derive a system path from the host, and check each precondition the test
   relies on with a test-owned read. Witnessed: [8e4ec47], [ff5fffe].
 - Pass bulk data by file or stdin. Linux limits one argument to 131,072

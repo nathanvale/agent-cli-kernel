@@ -1853,5 +1853,229 @@
     "testFile": "tests/kernel/state-seam.test.ts",
     "title": "an attachment's forget never removes a later attachment",
     "source": "7eae994 fix(kernel): let only the attachment that a run created forget it"
+  },
+  {
+    "id": "68a85f3-in-process-crash-order",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-order.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.listener-after-records",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "68a85f3-in-process-crash-settle",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-settle.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.listener-after-records",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "68a85f3-in-process-crash-wait",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-wait.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.listener-bound",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "68a85f3-in-process-crash-early",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-early.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.listener-bound",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "68a85f3-in-process-crash-throw",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-throw.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.listener-fails an onCrash that throws",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "68a85f3-in-process-crash-reject",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-reject.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.listener-fails an onCrash that rejects",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "68a85f3-in-process-crash-again",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-again.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.second-crash-exits-at-once",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "68a85f3-in-process-crash-twice",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-twice.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.second-crash-exits-at-once",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "68a85f3-in-process-crash-unheard",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-unheard.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.no-listener-unchanged",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "68a85f3-in-process-crash-first",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-first.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.each-entry-listener",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "68a85f3-in-process-crash-error",
+    "patch": "tests/planted-faults/patches/68a85f3-process-host-error.patch",
+    "testFile": "tests/kernel/state/in-process.test.ts",
+    "title": "IP06\\.on-crash-hears-error",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "68a85f3-in-process-crash-print",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-print.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.listener-after-records",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "20e8187-in-process-crash-abort",
+    "patch": "tests/planted-faults/patches/20e8187-lifecycle-abort.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.listener-after-records",
+    "source": "20e8187 fix(kernel): let a crash decide the exit and abort runs during its wait"
+  },
+  {
+    "id": "20e8187-in-process-crash-signal",
+    "patch": "tests/planted-faults/patches/20e8187-lifecycle-signal.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.signal-during-wait",
+    "source": "20e8187 fix(kernel): let a crash decide the exit and abort runs during its wait"
+  },
+  {
+    "id": "20e8187-in-process-crash-stop-exit",
+    "patch": "tests/planted-faults/patches/20e8187-lifecycle-stop-exit.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.crash-during-stop a crash",
+    "source": "20e8187 fix(kernel): let a crash decide the exit and abort runs during its wait"
+  },
+  {
+    "id": "20e8187-in-process-crash-pending",
+    "patch": "tests/planted-faults/patches/20e8187-lifecycle-pending.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.call-during-wait",
+    "source": "20e8187 fix(kernel): let a crash decide the exit and abort runs during its wait"
+  },
+  {
+    "id": "20e8187-in-process-crash-reason",
+    "patch": "tests/planted-faults/patches/20e8187-process-host-reason.patch",
+    "testFile": "tests/kernel/state/in-process.test.ts",
+    "title": "IP06\\.on-crash-hears-rejection",
+    "source": "20e8187 fix(kernel): let a crash decide the exit and abort runs during its wait"
+  },
+  {
+    "id": "a4c193c-in-process-crash-due",
+    "patch": "tests/planted-faults/patches/a4c193c-lifecycle-due.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.bound-from-call",
+    "source": "a4c193c fix(kernel): start the crash wait before calling onCrash"
+  },
+  {
+    "id": "68a85f3-in-process-crash-last",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-last.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.each-entry-listener .* when the first settles last",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "68a85f3-in-process-crash-stopped",
+    "patch": "tests/planted-faults/patches/68a85f3-lifecycle-stopped.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.crash-during-stop-no-listener",
+    "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+  },
+  {
+    "id": "30e8fb1-in-process-crash-claim",
+    "patch": "tests/planted-faults/patches/30e8fb1-lifecycle-claim.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.record-reentry",
+    "source": "30e8fb1 fix(kernel): give the crash path one owner across re-entry"
+  },
+  {
+    "id": "30e8fb1-in-process-crash-abort",
+    "patch": "tests/planted-faults/patches/30e8fb1-lifecycle-abort.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.abort-reentry",
+    "source": "30e8fb1 fix(kernel): give the crash path one owner across re-entry"
+  },
+  {
+    "id": "30e8fb1-in-process-crash-nested",
+    "patch": "tests/planted-faults/patches/30e8fb1-lifecycle-nested.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.abort-reentry",
+    "source": "30e8fb1 fix(kernel): give the crash path one owner across re-entry"
+  },
+  {
+    "id": "a0d17cc-in-process-control",
+    "patch": "tests/planted-faults/patches/a0d17cc-harness-control.patch",
+    "testFile": "tests/kernel/state/in-process.test.ts",
+    "title": "IP0[456]\\.|in-process state cases ran",
+    "source": "a0d17cc test(state): pin which in-process state cases ran their real bodies"
+  },
+  {
+    "id": "4a015ec-in-process-crash-stop-guard",
+    "patch": "tests/planted-faults/patches/4a015ec-lifecycle-stop-guard.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.signal-while-stopping",
+    "source": "4a015ec fix(kernel): keep a stop signal out of the crash's stopping phase"
+  },
+  {
+    "id": "6ff2c16-in-process-crash-calls",
+    "patch": "tests/planted-faults/patches/6ff2c16-lifecycle-calls.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.listener-reentry",
+    "source": "6ff2c16 fix(kernel): call onCrash only after the host's crash handler returns"
+  },
+  {
+    "id": "6ff2c16-in-process-crash-handler",
+    "patch": "tests/planted-faults/patches/6ff2c16-lifecycle-handler.patch",
+    "testFile": "tests/kernel/state/in-process.test.ts",
+    "title": "IP06\\.on-crash-reentry-error",
+    "source": "6ff2c16 fix(kernel): call onCrash only after the host's crash handler returns"
+  },
+  {
+    "id": "6ff2c16-in-process-crash-kill",
+    "patch": "tests/planted-faults/patches/30e8fb1-lifecycle-nested.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.kill-reentry",
+    "source": "6ff2c16 fix(kernel): call onCrash only after the host's crash handler returns"
+  },
+  {
+    "id": "6ff2c16-in-process-crash-kill-signal",
+    "patch": "tests/planted-faults/patches/4a015ec-lifecycle-stop-guard.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.kill-signal",
+    "source": "6ff2c16 fix(kernel): call onCrash only after the host's crash handler returns"
+  },
+  {
+    "id": "6ff2c16-in-process-crash-abort-signal",
+    "patch": "tests/planted-faults/patches/4a015ec-lifecycle-stop-guard.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.abort-signal",
+    "source": "6ff2c16 fix(kernel): call onCrash only after the host's crash handler returns"
+  },
+  {
+    "id": "9dcecee-in-process-crash-gap",
+    "patch": "tests/planted-faults/patches/9dcecee-lifecycle-gap.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.program-in-gap",
+    "source": "9dcecee fix(kernel): stop a program started between the crash kill and the abort"
+  },
+  {
+    "id": "9dcecee-in-process-crash-rejection",
+    "patch": "tests/planted-faults/patches/30e8fb1-lifecycle-nested.patch",
+    "testFile": "tests/kernel/state/in-process.test.ts",
+    "title": "IP06\\.on-crash-reentry-rejection",
+    "source": "9dcecee fix(kernel): stop a program started between the crash kill and the abort"
   }
 ]

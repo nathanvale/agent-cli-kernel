@@ -1,0 +1,15 @@
+diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
+index 68a0a6c..b822b3e 100644
+--- a/kernel/src/kernel/lifecycle.ts
++++ b/kernel/src/kernel/lifecycle.ts
+@@ -966,9 +966,7 @@ function crashEvery(inFlight: InFlight, host: ProcessHost, error: unknown) {
+     host.exit(1);
+     return;
+   }
+-  queueMicrotask(() => {
+-    listenThenExit(inFlight, host, error);
+-  });
++  listenThenExit(inFlight, host, error);
+ }
+ 
+ // Platform: Bun ends the process with exit 7 and prints the error when an event

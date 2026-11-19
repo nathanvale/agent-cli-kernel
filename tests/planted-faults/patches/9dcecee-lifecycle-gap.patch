@@ -1,0 +1,12 @@
+diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
+index 9182fcd..f786131 100644
+--- a/kernel/src/kernel/lifecycle.ts
++++ b/kernel/src/kernel/lifecycle.ts
+@@ -980,7 +980,6 @@ function crashEvery(inFlight: InFlight, host: ProcessHost, error: unknown) {
+ // before the abort is killed with the rest.
+ function listenThenExit(inFlight: InFlight, host: ProcessHost, error: unknown) {
+   for (const run of inFlight.runs) run.controller.abort();
+-  for (const run of inFlight.runs) killAll(run);
+   const due = host.now() + stopBoundMilliseconds;
+   const listening = [...inFlight.listeners].map((each) =>
+     callOnCrash(each, error),

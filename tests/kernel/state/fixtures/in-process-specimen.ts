@@ -15,9 +15,21 @@ import {
 const mode = process.argv[2] ?? "";
 const report = join(process.env.SX_WORLD ?? "", "in-process.jsonl");
 
+const listened = mode.startsWith("on-crash");
 const entry = runInProcess(contract, {
   addons: { approval: approvalAddon, programs: programsAddon() },
-  emergencyRecord: state.emergencyRecord,
+  emergencyRecord: mode.startsWith("on-crash-reentry")
+    ? (facts) => {
+        state.emergencyRecord(facts);
+        note("record", facts.runId);
+        throw new Error("Planted emergency record failure.");
+      }
+    : state.emergencyRecord,
+  ...(listened && {
+    onCrash: (error: unknown) => {
+      note("listener", error instanceof Error ? error.message : null);
+    },
+  }),
 });
 
 function apply(name: string, content: string): readonly string[] {
@@ -63,7 +75,7 @@ async function overlap(): Promise<void> {
   note("first", await first);
 }
 
-async function crash(): Promise<void> {
+async function crashWhileHeld(plant: () => void): Promise<void> {
   releaseBarrier("intent");
   note("first", await entry(apply("a", "v1")));
   closeBarrier("intent");
@@ -71,10 +83,22 @@ async function crash(): Promise<void> {
   const second = entry(apply("b", "v2"));
   await heldAt(held, "intent", second);
   note("held", true);
-  setTimeout(() => {
-    throw new Error("Planted crash while the second run is in flight.");
-  }, 0);
+  setTimeout(plant, 0);
   await second;
+}
+
+function crash(): Promise<void> {
+  return crashWhileHeld(() => {
+    throw new Error("Planted crash while the second run is in flight.");
+  });
+}
+
+function rejectionHeard(): Promise<void> {
+  return crashWhileHeld(() => {
+    void Promise.reject(
+      new Error("Planted rejection while the second run is in flight."),
+    );
+  });
 }
 
 async function crashBoth(): Promise<void> {
@@ -96,6 +120,10 @@ const modes: Readonly<Record<string, () => Promise<void>>> = {
   overlap,
   crash,
   "crash-both": crashBoth,
+  "on-crash": crash,
+  "on-crash-rejection": rejectionHeard,
+  "on-crash-reentry": crash,
+  "on-crash-reentry-rejection": rejectionHeard,
 };
 if (!Object.hasOwn(modes, mode)) throw new Error(`Unknown mode ${mode}.`);
 const selected = modes[mode];

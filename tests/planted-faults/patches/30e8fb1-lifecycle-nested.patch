@@ -1,0 +1,12 @@
+diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
+index 4aaf9b5..465cedf 100644
+--- a/kernel/src/kernel/lifecycle.ts
++++ b/kernel/src/kernel/lifecycle.ts
+@@ -951,7 +951,6 @@ function callOnCrash(listener: OnCrash, error: unknown): Promise<void> {
+ }
+ 
+ function crashEvery(inFlight: InFlight, host: ProcessHost, error: unknown) {
+-  if (inFlight.crash === "stopping") return;
+   if (inFlight.crash !== "none") {
+     for (const run of inFlight.runs) crashRun(run);
+     inFlight.crash = "exited";

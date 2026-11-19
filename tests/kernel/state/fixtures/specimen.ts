@@ -988,6 +988,11 @@ const apply = changing({
     ...changeStations("sx.apply"),
   ],
   run: async (input, context) => {
+    if (fault === "abort-observer-throws")
+      context.signal.addEventListener("abort", () => {
+        writeFileSync(join(world, "abort-observer.thrown"), "");
+        throw new Error("Planted abort observer failure.");
+      });
     await barrier("pre-admission");
     const { path, declaration } = noteDeclaration("sx.apply", input);
     const plan = existsSync(join(world, "dependency.down"))
