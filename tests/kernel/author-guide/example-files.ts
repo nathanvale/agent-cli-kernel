@@ -5,7 +5,8 @@ export const repository = join(import.meta.dir, "../../..");
 const exampleFolder = join(import.meta.dir, "example");
 const stored = ".txt";
 
-const byCodeUnit = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+export const byCodeUnit = (a: string, b: string) =>
+  a < b ? -1 : a > b ? 1 : 0;
 
 function filesUnder(folder: string): string[] {
   return readdirSync(folder).flatMap((name) => {

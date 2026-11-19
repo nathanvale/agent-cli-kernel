@@ -1,12 +1,18 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { cp, rm, symlink, writeFile } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { ESLint } from "eslint";
 import { write } from "../../support/fixture-files.ts";
 import { spawnBounded } from "../../support/process.ts";
 import { testFolder } from "../../support/test-folder.ts";
 import { typecheckTree } from "../kernel-repair/harness.ts";
+import {
+  exampleDocument,
+  exampleDocumentPath,
+  guideFolder,
+  writeCommand,
+} from "./example-document.ts";
 import { exampleFiles, repository } from "./example-files.ts";
 
 const kernelSource = join(repository, "kernel");
@@ -52,6 +58,61 @@ async function build(): Promise<string> {
 function generatedRepository(): Promise<string> {
   built ??= build();
   return built;
+}
+
+function guideDocuments(folder = guideFolder): string[] {
+  return readdirSync(folder).flatMap((name) => {
+    const path = join(folder, name);
+    if (statSync(path).isDirectory()) return guideDocuments(path);
+    return name.endsWith(".md") ? [path] : [];
+  });
+}
+
+type Block = {
+  readonly document: string;
+  readonly line: number;
+  readonly language: string;
+  readonly lines: readonly string[];
+};
+
+function codeBlocks(path: string): Block[] {
+  const blocks: Block[] = [];
+  let open: { language: string; line: number; lines: string[] } | undefined;
+  readFileSync(path, "utf8")
+    .split("\n")
+    .forEach((text, index) => {
+      const fence = /^```(\S*)$/.exec(text);
+      if (!fence) {
+        open?.lines.push(text);
+        return;
+      }
+      if (open) {
+        blocks.push({ document: relative(guideFolder, path), ...open });
+        open = undefined;
+        return;
+      }
+      open = { language: fence[1] ?? "", line: index + 1, lines: [] };
+    });
+  return blocks;
+}
+
+const indentOf = (line: string) => line.length - line.trimStart().length;
+
+function heldBy(file: string, block: readonly string[]): boolean {
+  const lines = file.split("\n");
+  const first = block[0] ?? "";
+  return lines.some((line, start) => {
+    const shift = indentOf(line) - indentOf(first);
+    return (
+      shift >= 0 &&
+      block.every((wanted, offset) => {
+        const found = lines[start + offset];
+        return wanted === ""
+          ? found === ""
+          : found === `${" ".repeat(shift)}${wanted}`;
+      })
+    );
+  });
 }
 
 describe("the author guide's example, built as a generated repository with the base stamp roots", () => {
@@ -113,4 +174,101 @@ describe("the author guide's example, built as a generated repository with the b
     },
     treeBound,
   );
+
+  test(
+    "docs/example.md's transcript is what the example prints",
+    async () => {
+      const tree = await generatedRepository();
+      const transcripts = codeBlocks(exampleDocumentPath).filter(
+        (block) => block.language === "text",
+      );
+      expect(transcripts.length).toBe(1);
+      const printed: string[] = [];
+      for (const line of transcripts[0]?.lines ?? []) {
+        if (!line.startsWith("$ ")) continue;
+        const [runner, ...argv] = line.slice(2).split(" ");
+        expect(runner).toBe("bun");
+        const run = await spawnBounded([process.execPath, ...argv], {
+          cwd: tree,
+        });
+        printed.push(
+          line,
+          ...`${run.stdout}${run.stderr}`.trimEnd().split("\n"),
+        );
+      }
+      expect(printed.filter((line) => line.startsWith("$ ")).length).toBe(3);
+      expect(printed).toEqual([...(transcripts[0]?.lines ?? [])]);
+    },
+    treeBound,
+  );
+});
+
+describe("the author guide's documents, stamped with the kernel", () => {
+  test(`docs/example.md shows each example file whole, as ${writeCommand} writes it`, () => {
+    const current = readFileSync(exampleDocumentPath, "utf8");
+    expect(current).toBe(exampleDocument(current, example));
+  });
+
+  test("every ts block in every guide document is copied from an example file", () => {
+    const blocks = guideDocuments()
+      .flatMap(codeBlocks)
+      .filter((block) => block.language === "ts");
+    expect(blocks.length).toBeGreaterThan(example.size);
+    expect(
+      blocks
+        .filter(
+          (block) =>
+            ![...example.values()].some((file) => heldBy(file, block.lines)),
+        )
+        .map(
+          (block) =>
+            `${block.document}:${String(block.line)}: this ts block is in no example file. Repair: copy the lines again from tests/kernel/author-guide/example, or change the example and run ${writeCommand}.`,
+        ),
+    ).toEqual([]);
+  });
+
+  test("every code block names its language, so none escapes the two checks above", () => {
+    expect(
+      guideDocuments()
+        .flatMap(codeBlocks)
+        .filter((block) => block.language !== "ts" && block.language !== "text")
+        .map((block) => `${block.document}:${String(block.line)}`),
+    ).toEqual([]);
+    expect(
+      guideDocuments()
+        .filter((path) => path !== exampleDocumentPath)
+        .flatMap(codeBlocks)
+        .filter((block) => block.language === "text")
+        .map((block) => `${block.document}:${String(block.line)}`),
+    ).toEqual([]);
+  });
+
+  test("every local link in a guide document names a file inside the stamp root", () => {
+    const documents = guideDocuments();
+    expect(documents.map((path) => relative(guideFolder, path)).sort()).toEqual(
+      [
+        "AGENTS.md",
+        "docs/commands.md",
+        "docs/example.md",
+        "docs/stations.md",
+        "docs/testing.md",
+      ],
+    );
+    const broken = documents.flatMap((path) =>
+      [
+        ...readFileSync(path, "utf8").matchAll(
+          /\]\(([^()\s#]+)(?:#[^()\s]*)?\)|^@(\S+)$/gm,
+        ),
+      ]
+        .map((match) => match[1] ?? match[2] ?? "")
+        .filter((target) => !/^[a-z]+:/.test(target))
+        .map((target) => resolve(dirname(path), target))
+        .filter(
+          (target) =>
+            !existsSync(target) || !target.startsWith(`${guideFolder}/`),
+        )
+        .map((target) => `${relative(guideFolder, path)} -> ${target}`),
+    );
+    expect(broken).toEqual([]);
+  });
 });

@@ -14,6 +14,7 @@
     "check:names": "bun run scripts/check-names.ts",
     "fault-replay": "bun run scripts/planted-faults.ts replay",
     "planted-fault:add": "bun run scripts/planted-faults.ts add",
+    "author-guide:write": "bun run tests/kernel/author-guide/example-document.ts",
     "pretest": "bun run doctor",
     "test": "bun test --parallel=2 --path-ignore-patterns 'kernel/**'",
     "test:area": "bun run scripts/test-area.ts",
