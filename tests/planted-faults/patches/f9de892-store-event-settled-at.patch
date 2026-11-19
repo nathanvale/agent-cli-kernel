@@ -1,0 +1,15 @@
+diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
+index 13bfb2f..824f41d 100644
+--- a/kernel/src/addons/state/store.ts
++++ b/kernel/src/addons/state/store.ts
+@@ -621,9 +621,7 @@ export function appendEvent(
+   try {
+     const bytes = encodeRecord(
+       kind,
+-      settlingEvents.includes(kind)
+-        ? { ...payload, settledAt: Date.now() }
+-        : payload,
++      payload,
+     );
+     let offset = 0;
+     while (offset < bytes.byteLength)

@@ -1,0 +1,20 @@
+diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
+index 13bfb2f..c4b5ef2 100644
+--- a/kernel/src/addons/state/store.ts
++++ b/kernel/src/addons/state/store.ts
+@@ -134,10 +134,12 @@ export async function upgradeStore(
+   if (!privateDirectory(paths.settled))
+     throw new Error("settled/ is not a private directory.");
+   flushDirectory(paths.root);
+-  const staged = join(paths.staging, `format-${crypto.randomUUID()}`);
+-  writeDurable(staged, encodeRecord("format", { journal: journals.two }));
++  writeDurable(
++    paths.format,
++    encodeRecord("format", { journal: journals.two }),
++    false,
++  );
+   await phase("upgrade-staged");
+-  renameSync(staged, paths.format);
+   flushDirectory(paths.root);
+   await phase("upgraded");
+ }

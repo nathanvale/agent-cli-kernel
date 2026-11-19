@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index 69cf9d6..1af839f 100644
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1183,7 +1183,7 @@ export function install(options: StateOptions, seams: Seams) {
+     const target = admitted.operations.find(
+       (operation) => operation.intent.operationId === id,
+     );
+-    if (!target) {
++    if (!target && Date.now() < 0) {
+       admitted.release();
+       const moved = readCase(paths, id);
+       return {

@@ -1125,5 +1125,145 @@
     "testFile": "tests/kernel/state/component.test.ts",
     "title": "^X13 supporting: the final event is appended, then the key coordination locks are released, then the lease last$",
     "source": "460be51 feat(state): make a transaction wait for its started effects"
+  },
+  {
+    "id": "f9de892-store-added-field",
+    "patch": "tests/planted-faults/patches/f9de892-store-added-field.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^J08\\.a-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-store-in-place",
+    "patch": "tests/planted-faults/patches/f9de892-store-in-place.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^J08\\.b-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-store-event-settled-at",
+    "patch": "tests/planted-faults/patches/f9de892-store-event-settled-at.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^J08\\.c-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-store-closure-settled-at",
+    "patch": "tests/planted-faults/patches/f9de892-store-closure-settled-at.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^J08\\.c-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-store-move-bytes",
+    "patch": "tests/planted-faults/patches/f9de892-store-move-bytes.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^L07\\.a-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-store-occupied",
+    "patch": "tests/planted-faults/patches/f9de892-store-occupied.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^L07\\.f-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-store-trust-moved-read",
+    "patch": "tests/planted-faults/patches/f9de892-store-trust-moved-read.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^L08\\.a-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-store-operations-only",
+    "patch": "tests/planted-faults/patches/f9de892-store-operations-only.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^K10\\.a-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-install-admission-reads-settled",
+    "patch": "tests/planted-faults/patches/f9de892-install-admission-reads-settled.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^L07\\.b-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-install-report-reads-settled",
+    "patch": "tests/planted-faults/patches/f9de892-install-report-reads-settled.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^L07\\.b-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-install-lease",
+    "patch": "tests/planted-faults/patches/f9de892-install-lease.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^L07\\.d-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-install-case-lock",
+    "patch": "tests/planted-faults/patches/f9de892-install-case-lock.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^L07\\.d-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-install-refused-moves",
+    "patch": "tests/planted-faults/patches/f9de892-install-refused-moves.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^L07\\.d-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-install-move-cap-high",
+    "patch": "tests/planted-faults/patches/f9de892-install-move-cap-high.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^L07\\.e-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-install-move-cap-low",
+    "patch": "tests/planted-faults/patches/f9de892-install-move-cap-low.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^L07\\.e-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-install-examine-cap-high",
+    "patch": "tests/planted-faults/patches/f9de892-install-examine-cap-high.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^L07\\.f-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-install-examine-cap-low",
+    "patch": "tests/planted-faults/patches/f9de892-install-examine-cap-low.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^L07\\.f-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-install-front",
+    "patch": "tests/planted-faults/patches/f9de892-install-front.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^L07\\.f-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-install-failed-move-refuses",
+    "patch": "tests/planted-faults/patches/f9de892-install-failed-move-refuses.patch",
+    "testFile": "tests/kernel/state/component.test.ts",
+    "title": "^L07\\.g-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-install-moved-target",
+    "patch": "tests/planted-faults/patches/f9de892-install-moved-target.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^X26 supporting: a closer",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
   }
 ]

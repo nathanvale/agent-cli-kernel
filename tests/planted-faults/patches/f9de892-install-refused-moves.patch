@@ -1,0 +1,12 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index 69cf9d6..b2e3cf2 100644
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -767,6 +767,7 @@ export function install(options: StateOptions, seams: Seams) {
+       upgraded = false;
+     }
+     const store = readStore(paths);
++    if (store.ok) moveSettled(store.operations);
+     const refusal: Refusal | undefined = !upgraded
+       ? { kind: "unavailable", reason: "store-upgrade" }
+       : !store.ok

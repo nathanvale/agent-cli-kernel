@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
+index 13bfb2f..5b09367 100644
+--- a/kernel/src/addons/state/store.ts
++++ b/kernel/src/addons/state/store.ts
+@@ -502,7 +502,7 @@ function readCaseIn(
+   } catch {
+     read = "unreadable";
+   }
+-  return folderRemains(directory) ? read : "moved";
++  return read === "corrupt" && !folderRemains(directory) ? "moved" : read;
+ }
+ 
+ export type CaseRead = Operation | "not-found" | "corrupt" | "unreadable";
