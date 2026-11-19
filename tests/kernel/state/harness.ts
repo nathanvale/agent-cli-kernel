@@ -13,6 +13,7 @@ import {
 import { join } from "node:path";
 import { testFolder } from "../../support/test-folder.ts";
 import {
+  refuseRunOverrides,
   runVariable,
   worldEnvironment,
 } from "./capability-qualification-run.ts";
@@ -436,6 +437,7 @@ export function makeWorld(
       SX_WORLD: world,
       SX_BARRIER_DIR: bars,
     };
+    if (capabilityQualificationRun !== undefined) refuseRunOverrides(extra);
     const qualification =
       capabilityQualificationRun ??
       (options.qualification

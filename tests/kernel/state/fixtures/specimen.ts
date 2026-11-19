@@ -39,6 +39,7 @@ import { movedStateRoot } from "../../../../kernel/src/addons/state/capability-q
 import { deviceFolders } from "../../../../kernel/src/addons/state/qualification.ts";
 import type { DeviceFolder } from "../../../../kernel/src/addons/state/qualification.ts";
 import { approval } from "../../../../kernel/src/addons/approval/index.ts";
+import { own } from "../capability-qualification-record.ts";
 
 const root = process.env.SX_ROOT ?? "";
 const world = process.env.SX_WORLD ?? "";
@@ -120,13 +121,6 @@ const observers: Readonly<Record<string, Observer>> = {
   "audit.emit": () => Promise.resolve("unobservable"),
 };
 
-function own(source: unknown, key: string): unknown {
-  return typeof source === "object" &&
-    source !== null &&
-    Object.hasOwn(source, key)
-    ? Reflect.get(source, key)
-    : undefined;
-}
 function text(source: unknown, key: string): string {
   const value = own(source, key);
   if (typeof value !== "string") throw new Error(`Row field ${key} is text.`);

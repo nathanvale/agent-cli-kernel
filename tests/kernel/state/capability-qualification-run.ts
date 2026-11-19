@@ -15,6 +15,7 @@ import { constants, release, type } from "node:os";
 import { join, resolve } from "node:path";
 import { capabilityQualificationTable } from "../../../kernel/src/addons/state/capability-qualification-table.ts";
 import type { CapabilityQualificationRow } from "../../../kernel/src/addons/state/capability-qualification-table.ts";
+import type { FactOverrides } from "../../../kernel/src/addons/state/qualification.ts";
 import { resolveCoordination } from "../../../kernel/src/addons/state/coordination.ts";
 import {
   startChild,
@@ -23,8 +24,10 @@ import {
 import { testFolder } from "../../support/test-folder.ts";
 import {
   capabilityQualificationCases,
+  messageOf,
   own,
   parseRecord,
+  qualifiedPaths,
   qualifiedSourceFiles,
   recordFolder,
   recordPath,
@@ -47,14 +50,15 @@ import type { StateCase } from "./cases.ts";
 // design part 2 section 3). It runs the covered cases of the state case table
 // through the state test harness on observed facts only, then adds one
 // capability qualification run to the row's record by a temporary file and a
-// rename. It refuses, writing nothing, when SX_FACT_OVERRIDES is set or the
-// checkout is not clean.
+// rename. It refuses, writing nothing, when SX_FACT_OVERRIDES is set, the
+// checkout is not clean, or a qualified source file is ignored by git. A test
+// world in a run refuses a fact override or candidate row of its own.
 
 export const runVariable = "SX_CAPABILITY_QUALIFICATION_RUN";
 const usage =
   "Usage: bun run capability-qualification-run <candidate row file> <state root parent> [--entry fixture.ts|index.ts]";
 const caseRunMilliseconds = 60 * 60_000;
-const gitMilliseconds = 30_000;
+const gitMilliseconds = 10_000;
 
 export type CandidateRow = Pick<
   CapabilityQualificationRow,
@@ -67,19 +71,27 @@ export type CandidateRow = Pick<
   | "bootIdentitySource"
 >;
 
+export type Environment = Readonly<Record<string, string | undefined>>;
+
 export type CaseRequest = {
   readonly root: string;
   readonly parent: string;
   readonly entry: RunEntry;
   readonly candidate: CandidateRow;
   readonly selection: readonly StateCase[];
+  readonly environment: Environment;
+  readonly output: (text: string) => void;
 };
 
 export type RunContext = {
   readonly root: string;
-  readonly environment: Readonly<Record<string, string | undefined>>;
+  readonly cwd: string;
+  readonly environment: Environment;
   readonly print: (line: string) => void;
+  readonly output?: (text: string) => void;
   readonly runCases?: (request: CaseRequest) => Promise<string>;
+  readonly table?: readonly CapabilityQualificationRow[];
+  readonly stopped?: () => boolean;
   readonly beforeRename?: (temporary: string) => void;
 };
 
@@ -114,10 +126,6 @@ function candidateRow(source: unknown): CandidateRow {
   };
 }
 
-function parseCandidateRow(source: string): CandidateRow {
-  return candidateRow(JSON.parse(source));
-}
-
 export function runVariableValue(
   entry: RunEntry,
   candidate: CandidateRow,
@@ -140,9 +148,8 @@ export function worldEnvironment(
     entry = found;
     candidate = candidateRow(own(parsed, "candidate"));
   } catch (error) {
-    const why = error instanceof Error ? error.message : String(error);
     throw new Error(
-      `${runVariable} is not a capability qualification run: ${why}`,
+      `${runVariable} is not a capability qualification run: ${messageOf(error)}`,
       { cause: error },
     );
   }
@@ -159,6 +166,20 @@ export function worldEnvironment(
       bootIdentitySource: candidate.bootIdentitySource,
     }),
   };
+}
+
+const runOwnedVariables = [
+  "SX_FACT_OVERRIDES",
+  "SX_CANDIDATE_ROW",
+  "SX_QUALIFICATION",
+];
+
+export function refuseRunOverrides(extra: Readonly<Record<string, string>>) {
+  const taken = runOwnedVariables.filter((name) => Object.hasOwn(extra, name));
+  if (taken.length > 0)
+    throw new Error(
+      `A capability qualification run sets no ${taken.join(", ")} for one test: every world runs on observed facts and the candidate row.`,
+    );
 }
 
 function executableIds(selection: readonly StateCase[]): readonly string[] {
@@ -367,11 +388,15 @@ function observedFacts(parent: string, candidate: CandidateRow): ObservedFacts {
   };
 }
 
-function git(root: string, args: readonly string[]): string {
+function git(
+  root: string,
+  environment: Environment,
+  args: readonly string[],
+): string {
   const result = Bun.spawnSync(
     ["git", "-C", root, "-c", "core.quotepath=off", ...args],
     {
-      env: withoutRepositoryLocation(process.env),
+      env: withoutRepositoryLocation(environment),
       stdout: "pipe",
       stderr: "pipe",
       timeout: gitMilliseconds,
@@ -385,12 +410,17 @@ function git(root: string, args: readonly string[]): string {
   return result.stdout.toString();
 }
 
+const factNames = Object.keys({
+  release: true,
+  filesystem: true,
+  bootIdentity: true,
+  devices: true,
+} satisfies Record<keyof FactOverrides, true>);
+
 function overriddenFacts(value: string): string {
   try {
     const parsed: unknown = JSON.parse(value);
-    const facts = ["release", "filesystem", "bootIdentity", "devices"].filter(
-      (fact) => own(parsed, fact) !== undefined,
-    );
+    const facts = factNames.filter((fact) => own(parsed, fact) !== undefined);
     return facts.length > 0 ? facts.join(", ") : "no known fact";
   } catch {
     return "unreadable";
@@ -406,26 +436,32 @@ type Prepared = {
 
 function readCandidate(file: string): CandidateRow | string {
   try {
-    return parseCandidateRow(readFileSync(file, "utf8"));
+    return candidateRow(JSON.parse(readFileSync(file, "utf8")));
   } catch (error) {
-    const why = error instanceof Error ? error.message : String(error);
-    return `Refused: the candidate row ${file} is unreadable (${why}). Repair: give a JSON file with the row's id, os, majorRelease, observedRelease, filesystem, primitive and bootIdentitySource, then rerun.`;
+    return `Refused: the candidate row ${file} is unreadable (${messageOf(error)}). Repair: give a JSON file with the row's id, os, majorRelease, observedRelease, filesystem, primitive and bootIdentitySource, then rerun.`;
   }
 }
 
-function cleanProblem(root: string): string | undefined {
-  const changed = git(root, [
-    "status",
-    "--porcelain=v1",
+function cleanProblem(
+  root: string,
+  environment: Environment,
+): string | undefined {
+  const lines = (args: readonly string[]) =>
+    git(root, environment, ["status", "--porcelain=v1", ...args])
+      .split("\n")
+      .filter(Boolean);
+  const changed = lines(["--untracked-files=all"]);
+  if (changed.length > 0)
+    return `Refused: the checkout is not clean (${changed.join("; ")}); a capability qualification run records the commit it ran. Repair: commit or remove those changes, then rerun.`;
+  const ignored = lines([
+    "--ignored=matching",
     "--untracked-files=all",
-  ])
-    .split("\n")
-    .filter(Boolean);
-  if (changed.length === 0) return undefined;
-  const shown = changed.slice(0, 5).join("; ");
-  const more =
-    changed.length > 5 ? ` and ${String(changed.length - 5)} more` : "";
-  return `Refused: the checkout is not clean (${shown}${more}); a capability qualification run records the commit it ran. Repair: commit or remove those changes, then rerun.`;
+    "--",
+    ...qualifiedPaths,
+  ]);
+  return ignored.length === 0
+    ? undefined
+    : `Refused: git ignores qualified source (${ignored.join("; ")}); sourceHash covers committed bytes only. Repair: remove those files, then rerun.`;
 }
 
 function existingRecord(
@@ -437,8 +473,7 @@ function existingRecord(
   try {
     return parseRecord(readFileSync(path, "utf8"));
   } catch (error) {
-    const why = error instanceof Error ? error.message : String(error);
-    return `${recordPath(id)} is not a capability qualification record (${why})`;
+    return `${recordPath(id)} is not a capability qualification record (${messageOf(error)})`;
   }
 }
 
@@ -463,16 +498,16 @@ function parseArguments(argv: readonly string[]):
 }
 
 function secondRunRefusal(
-  root: string,
+  context: RunContext,
   parent: string,
   candidate: CandidateRow,
 ): CapabilityQualificationRecord | string {
-  const existing = existingRecord(root, candidate.id);
+  const existing = existingRecord(context.root, candidate.id);
   const problem =
     typeof existing === "string"
       ? existing
       : secondRunProblem(
-          capabilityQualificationTable,
+          context.table ?? capabilityQualificationTable,
           candidate,
           existing,
           observedFacts(parent, candidate),
@@ -490,19 +525,19 @@ function prepare(
   const overrides = context.environment.SX_FACT_OVERRIDES;
   if (overrides !== undefined)
     return `Refused: SX_FACT_OVERRIDES is set (${overriddenFacts(overrides)}); a capability qualification record holds observed facts only. Repair: unset SX_FACT_OVERRIDES, then rerun.`;
-  const candidate = readCandidate(resolve(parsed.rowFile));
+  const candidate = readCandidate(resolve(context.cwd, parsed.rowFile));
   if (typeof candidate === "string") return candidate;
-  const parent = resolve(parsed.parentFolder);
+  const parent = resolve(context.cwd, parsed.parentFolder);
   if (!existsSync(parent) || !statSync(parent).isDirectory())
     return `Refused: the state root parent ${parent} is not a folder. Repair: create it on the filesystem under test, then rerun.`;
-  const dirty = cleanProblem(context.root);
+  const dirty = cleanProblem(context.root, context.environment);
   if (dirty !== undefined) return dirty;
   const { entry } = parsed;
   if (entry === "fixture.ts")
     return existsSync(join(context.root, recordPath(candidate.id)))
       ? `Refused: ${recordPath(candidate.id)} exists; a fixture.ts run starts a new capability qualification record. Repair: remove it and commit that, then rerun.`
       : { candidate, parent, entry, existing: undefined };
-  const existing = secondRunRefusal(context.root, parent, candidate);
+  const existing = secondRunRefusal(context, parent, candidate);
   return typeof existing === "string"
     ? existing
     : { candidate, parent, entry, existing };
@@ -527,9 +562,12 @@ function writeRecord(
   renameSync(temporary, final);
 }
 
-const active: { stop?: () => void } = {};
+const caseRun: { stop?: () => void } = {};
 
-async function bunTest(request: CaseRequest): Promise<string> {
+export async function runCasesWithBun(
+  request: CaseRequest,
+  limitMilliseconds = caseRunMilliseconds,
+): Promise<string> {
   const report = join(
     testFolder("c3-capability-qualification-run-"),
     "report.xml",
@@ -547,20 +585,20 @@ async function bunTest(request: CaseRequest): Promise<string> {
     {
       cwd: request.root,
       env: {
-        ...withoutRepositoryLocation(process.env),
+        ...withoutRepositoryLocation(request.environment),
         STATE_TEST_DIR: request.parent,
         [runVariable]: runVariableValue(request.entry, request.candidate),
       },
-      limitMilliseconds: caseRunMilliseconds,
+      limitMilliseconds,
     },
   );
-  active.stop = child.stop;
+  caseRun.stop = child.stop;
   const finished = await child.finished;
-  delete active.stop;
-  process.stderr.write(finished.stdout + finished.stderr);
+  delete caseRun.stop;
+  request.output(finished.stdout + finished.stderr);
   if (finished.timedOut)
     throw new Error(
-      `the case run outlived its ${String(caseRunMilliseconds / 60_000)} minute limit`,
+      `the case run outlived its ${String(limitMilliseconds)} ms limit`,
     );
   if (!existsSync(report)) throw new Error("the case run wrote no report");
   return readFileSync(report, "utf8");
@@ -578,22 +616,32 @@ export async function capabilityQualificationRun(
   const { candidate, parent, entry, existing } = prepared;
   const selection = capabilityQualificationCases();
   const observed = observedFacts(parent, candidate);
-  const commit = git(context.root, ["rev-parse", "HEAD"]).trim();
+  const commit = git(context.root, context.environment, [
+    "rev-parse",
+    "HEAD",
+  ]).trim();
   const hash = sourceHash(qualifiedSourceFiles(context.root));
   const started = new Date().toISOString();
   let report: string;
   try {
-    report = await (context.runCases ?? bunTest)({
+    report = await (context.runCases ?? runCasesWithBun)({
       root: context.root,
       parent,
       entry,
       candidate,
       selection,
+      environment: context.environment,
+      output: context.output ?? ((text) => process.stderr.write(text)),
     });
   } catch (error) {
-    const why = error instanceof Error ? error.message : String(error);
     context.print(
-      `Refused: the case run ended without results (${why}); no capability qualification record is written. Repair: read the run's output above, then rerun.`,
+      `Refused: the case run ended without results (${messageOf(error)}); no capability qualification record is written. Repair: read the run's output above, then rerun.`,
+    );
+    return 1;
+  }
+  if (context.stopped?.() === true) {
+    context.print(
+      "Stopped: the run was asked to stop, so no capability qualification record is written.",
     );
     return 1;
   }
@@ -623,12 +671,12 @@ export async function capabilityQualificationRun(
     `Wrote ${recordPath(candidate.id)}: ${count("pass")} pass, ${count("fail")} fail, ${count("unproved")} unproved.`,
   );
   const required = requiredCaseIds(selection);
-  const short = cases.filter(
+  const notPassed = cases.filter(
     (entry) => required.includes(entry.id) && entry.result !== "pass",
   );
-  if (short.length === 0) return 0;
+  if (notPassed.length === 0) return 0;
   context.print(
-    `The ${entry} run does not qualify row ${candidate.id}: ${short.map((entry) => `${entry.id} ${entry.result}`).join(", ")}.`,
+    `The ${entry} run does not qualify row ${candidate.id}: ${notPassed.map((entry) => `${entry.id} ${entry.result}`).join(", ")}.`,
   );
   return 1;
 }
@@ -638,12 +686,19 @@ if (import.meta.main) {
   for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"] as const)
     process.on(signal, () => {
       stoppedBy ??= 128 + constants.signals[signal];
-      active.stop?.();
+      caseRun.stop?.();
     });
-  const code = await capabilityQualificationRun(process.argv.slice(2), {
-    root: join(import.meta.dir, "..", "..", ".."),
-    environment: process.env,
-    print: (line) => process.stdout.write(`${line}\n`),
-  });
-  process.exitCode = stoppedBy ?? code;
+  try {
+    const code = await capabilityQualificationRun(process.argv.slice(2), {
+      root: join(import.meta.dir, "..", "..", ".."),
+      cwd: process.cwd(),
+      environment: process.env,
+      print: (line) => process.stdout.write(`${line}\n`),
+      stopped: () => stoppedBy !== undefined,
+    });
+    process.exitCode = stoppedBy ?? code;
+  } catch (error) {
+    process.stderr.write(`${messageOf(error)}\n`);
+    process.exitCode = stoppedBy ?? 2;
+  }
 }

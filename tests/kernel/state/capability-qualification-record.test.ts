@@ -29,6 +29,7 @@ const repository = join(import.meta.dir, "..", "..", "..");
 caseTest("Q03.a-row-cites-capability-qualification-record", () => {
   const current = sourceHash(qualifiedSourceFiles(repository));
   expect(current).toMatch(/^[0-9a-f]{64}$/);
+  expect(capabilityQualificationTable.map((row) => row.id)).toEqual([]);
   for (const row of capabilityQualificationTable)
     expect({
       row: row.id,
@@ -278,6 +279,59 @@ test("Q03.a refuses a record with a failed required case", () => {
   ).toEqual([`${rowId}: ${required[0] ?? ""} is fail in the index.ts run`]);
 });
 
+test("Q03.a refuses a record whose required case is unproved", () => {
+  const unproved = run("fixture.ts", {
+    cases: [
+      {
+        id: required[0] ?? "",
+        result: "unproved",
+        detail: "UNPROVED on darwin: fail-closed control only",
+      },
+      { id: required[1] ?? "", result: "pass", detail: "passed" },
+    ],
+  });
+  expect(
+    problemsFor(row(), record({ runs: [unproved, run("index.ts")] })),
+  ).toEqual([
+    `${rowId}: ${required[0] ?? ""} is unproved in the fixture.ts run`,
+  ]);
+});
+
+const unreadable: readonly (readonly [string, string, string])[] = [
+  [
+    "another schema",
+    JSON.stringify({
+      ...record(),
+      schema: "capability-qualification-record/2",
+    }),
+    "the schema is capability-qualification-record/2, not capability-qualification-record/1",
+  ],
+  [
+    "an extra field",
+    JSON.stringify({ ...record(), hostname: "pilot" }),
+    "the record has fields [bootIdentitySource, factSource, filesystem, hostname, platform, primitive, row, runs, schema], not [bootIdentitySource, factSource, filesystem, platform, primitive, row, runs, schema]",
+  ],
+  [
+    "a short commit",
+    JSON.stringify({
+      ...record(),
+      runs: [run("fixture.ts", { commit: "abc1234" }), run("index.ts")],
+    }),
+    "runs[0].commit is malformed",
+  ],
+];
+
+for (const [shape, text, why] of unreadable)
+  test(`Q03.a refuses a record with ${shape}`, () => {
+    const root = testFolder("c3-record-");
+    const path = join(root, recordPath(rowId));
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, text);
+    expect(rowProblems(row(), root, current, required)).toEqual([
+      `${rowId}: ${recordPath(rowId)} is not a capability qualification record: ${why}`,
+    ]);
+  });
+
 test("Q03.a refuses a record missing a required case", () => {
   const missing = run("fixture.ts", {
     cases: [{ id: required[0] ?? "", result: "pass", detail: "passed" }],
@@ -387,12 +441,15 @@ test("sourceHash is stable across file listing order", () => {
 });
 
 test("sourceHash frames each file by its path and length", () => {
-  const joined = [
-    { path: "kernel/src/kernel/state-seam.ts", bytes: Buffer.from("ab") },
-  ];
+  const seam = "kernel/src/kernel/state-seam.ts";
+  const neighbour = "kernel/src/kernel/state-seam.tt";
   const split = [
-    { path: "kernel/src/kernel/state-seam.ts", bytes: Buffer.from("a") },
-    { path: "kernel/src/kernel/state-seam.tt", bytes: Buffer.from("b") },
+    { path: seam, bytes: Buffer.from("a") },
+    { path: neighbour, bytes: Buffer.from("b") },
   ];
+  const joined = [{ path: seam, bytes: Buffer.from(`a${neighbour}\nb`) }];
+  const unframed = (files: typeof split) =>
+    files.map((file) => `${file.path}\n${file.bytes.toString()}`).join("");
+  expect(unframed(joined)).toBe(unframed(split));
   expect(sourceHash(joined)).not.toBe(sourceHash(split));
 });

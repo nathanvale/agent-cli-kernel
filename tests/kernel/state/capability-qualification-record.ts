@@ -87,7 +87,15 @@ const qualifiedFolders = [
   "kernel/src/addons/state",
 ] as const;
 const stateSeam = "kernel/src/kernel/state-seam.ts";
-const leftOut = "kernel/src/addons/state/capability-qualification-table.ts";
+const tableFile = "kernel/src/addons/state/capability-qualification-table.ts";
+export const qualifiedPaths: readonly string[] = [
+  ...qualifiedFolders,
+  stateSeam,
+];
+
+export function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
 
 function byPath(left: SourceFile, right: SourceFile): number {
   if (left.path === right.path) return 0;
@@ -102,7 +110,7 @@ export function qualifiedSourceFiles(root: string): readonly SourceFile[] {
         .map((entry) => `${folder}/${entry.name}`),
     ),
     stateSeam,
-  ].filter((path) => path !== leftOut);
+  ].filter((path) => path !== tableFile);
   return paths
     .map((path) => ({ path, bytes: readFileSync(join(root, path)) }))
     .sort(byPath);
@@ -361,9 +369,8 @@ export function rowProblems(
   try {
     record = parseRecord(readFileSync(path, "utf8"));
   } catch (error) {
-    const why = error instanceof Error ? error.message : String(error);
     return [
-      `${row.id}: ${expected} is not a capability qualification record: ${why}`,
+      `${row.id}: ${expected} is not a capability qualification record: ${messageOf(error)}`,
     ];
   }
   const problems = [

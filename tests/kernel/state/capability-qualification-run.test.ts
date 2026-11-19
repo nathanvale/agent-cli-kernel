@@ -11,14 +11,15 @@ import { hostname, release, userInfo } from "node:os";
 import { join } from "node:path";
 import { movedStateRoot } from "../../../kernel/src/addons/state/capability-qualification-table.ts";
 import { resolveCoordination } from "../../../kernel/src/addons/state/coordination.ts";
-import { startChild } from "../../../scripts/process-runner.ts";
 import {
   commitIn,
   git,
+  gitEnv,
   inherited,
   initRepository,
 } from "../../support/git-fixture.ts";
 import { testFolder } from "../../support/test-folder.ts";
+import { spawnBounded } from "../kernel-repair/swarm-process.ts";
 import {
   capabilityQualificationCases,
   parseRecord,
@@ -26,13 +27,18 @@ import {
   recordFolder,
   recordPath,
   recordSchema,
+  requiredCaseIds,
   rowProblems,
   sourceHash,
 } from "./capability-qualification-record.ts";
-import type { CapabilityQualificationRecord } from "./capability-qualification-record.ts";
+import type {
+  CapabilityQualificationRecord,
+  CaseResult,
+} from "./capability-qualification-record.ts";
 import {
   capabilityQualificationRun,
   caseResults,
+  runCasesWithBun,
   runVariable,
   runVariableValue,
   secondRunProblem,
@@ -56,6 +62,8 @@ import {
   supportingTest,
 } from "./harness.ts";
 
+const inProcess = 30_000;
+
 const candidate: CandidateRow = {
   id: "linux-7-btrfs",
   os: "linux",
@@ -66,11 +74,36 @@ const candidate: CandidateRow = {
   bootIdentitySource: "/proc/sys/kernel/random/boot_id",
 };
 
-function junit(selection: readonly StateCase[]): string {
+const tableRow = {
+  ...candidate,
+  processIdentity: "boot identity only",
+  namespace: "non-root in a container",
+  delegatedWriters: "after another boot",
+  failureCases: [movedStateRoot],
+  evidence: {
+    record: recordPath(candidate.id),
+    review: { session: "s", countersignature: "Nathan", date: "2026-11-20" },
+  },
+} as const;
+
+function junit(
+  selection: readonly StateCase[],
+  failed: readonly string[] = [],
+): string {
   const cases = selection
     .filter((row) => row.status === "executable")
-    .map((row) => `    <testcase name="${row.id}" classname="" time="1" />`);
+    .map((row) =>
+      failed.includes(row.id)
+        ? `    <testcase name="${row.id}" time="1"><failure message="x" /></testcase>`
+        : `    <testcase name="${row.id}" classname="" time="1" />`,
+    );
   return `<?xml version="1.0" encoding="UTF-8"?>\n<testsuites>\n  <testsuite name="state">\n${cases.join("\n")}\n  </testsuite>\n</testsuites>\n`;
+}
+
+function callerEnvironment(): Record<string, string | undefined> {
+  return Object.fromEntries(
+    Object.entries(inherited()).filter(([name]) => !name.startsWith("SX_")),
+  );
 }
 
 function checkout() {
@@ -93,7 +126,8 @@ function checkout() {
     seams: Partial<RunContext> = {},
   ): RunContext => ({
     root,
-    environment,
+    cwd: base,
+    environment: { ...callerEnvironment(), ...gitEnv, ...environment },
     print: (line) => lines.push(line),
     runCases: (request) => {
       requests.push(request);
@@ -101,6 +135,11 @@ function checkout() {
     },
     ...seams,
   });
+  const run = (
+    argv: readonly string[] = [rowFile, parent],
+    environment: Readonly<Record<string, string>> = {},
+    seams: Partial<RunContext> = {},
+  ) => capabilityQualificationRun(argv, context(environment, seams));
   return {
     base,
     root,
@@ -108,27 +147,44 @@ function checkout() {
     rowFile,
     lines,
     requests,
-    context,
+    run,
     folder: join(root, recordFolder),
     recordFile: join(root, recordPath(candidate.id)),
   };
 }
 
-caseTest("Q03.b-capability-qualification-run-refuses", async () => {
-  const world = checkout();
-  writeFileSync(join(world.root, "notes.txt"), "draft\n");
-  expect(
-    await capabilityQualificationRun(
-      [world.rowFile, world.parent],
-      world.context(),
-    ),
-  ).toBe(1);
-  expect(world.lines).toEqual([
-    "Refused: the checkout is not clean (?? notes.txt); a capability qualification run records the commit it ran. Repair: commit or remove those changes, then rerun.",
-  ]);
+type Checkout = ReturnType<typeof checkout>;
+
+function refusedWithoutRecord(world: Checkout, line: string): void {
+  expect(world.lines).toEqual([line]);
   expect(world.requests).toEqual([]);
-  expect(existsSync(world.folder)).toBe(false);
-});
+  expect(existsSync(world.recordFile)).toBe(false);
+}
+
+const overrideRefusal = (facts: string) =>
+  `Refused: SX_FACT_OVERRIDES is set (${facts}); a capability qualification record holds observed facts only. Repair: unset SX_FACT_OVERRIDES, then rerun.`;
+
+caseTest(
+  "Q03.b-capability-qualification-run-refuses",
+  async () => {
+    const dirty = checkout();
+    writeFileSync(join(dirty.root, "notes.txt"), "draft\n");
+    expect(await dirty.run()).toBe(1);
+    refusedWithoutRecord(
+      dirty,
+      "Refused: the checkout is not clean (?? notes.txt); a capability qualification run records the commit it ran. Repair: commit or remove those changes, then rerun.",
+    );
+    expect(existsSync(dirty.folder)).toBe(false);
+    const overridden = checkout();
+    const environment = {
+      SX_FACT_OVERRIDES: JSON.stringify({ release: "7.2.12" }),
+    };
+    expect(await overridden.run(undefined, environment)).toBe(1);
+    refusedWithoutRecord(overridden, overrideRefusal("release"));
+    expect(existsSync(overridden.folder)).toBe(false);
+  },
+  inProcess,
+);
 
 const overrides: readonly (readonly [string, unknown])[] = [
   ["release", "7.2.12"],
@@ -138,217 +194,387 @@ const overrides: readonly (readonly [string, unknown])[] = [
 ];
 
 for (const [fact, value] of overrides)
-  test(`Q03.b refuses a ${fact} fact override and writes no record`, async () => {
+  test(
+    `Q03.b refuses a ${fact} fact override and writes no record`,
+    async () => {
+      const world = checkout();
+      const environment = {
+        SX_FACT_OVERRIDES: JSON.stringify({ [fact]: value }),
+      };
+      expect(await world.run(undefined, environment)).toBe(1);
+      refusedWithoutRecord(world, overrideRefusal(fact));
+      expect(existsSync(world.folder)).toBe(false);
+    },
+    inProcess,
+  );
+
+test(
+  "Q03.b refuses through the command's own entry when a fact override is set",
+  async () => {
     const world = checkout();
-    const environment = {
-      SX_FACT_OVERRIDES: JSON.stringify({ [fact]: value }),
-    };
+    const entry = join(import.meta.dir, "capability-qualification-run.ts");
+    const row = { ...candidate, id: "entry-refusal-proof" };
+    writeFileSync(world.rowFile, JSON.stringify(row));
+    const finished = await spawnBounded(
+      [process.execPath, entry, world.rowFile, world.parent],
+      {
+        cwd: world.base,
+        env: {
+          ...callerEnvironment(),
+          SX_FACT_OVERRIDES: JSON.stringify({ release: "7.2.12" }),
+        },
+        boundMilliseconds: 20_000,
+        processGroup: true,
+      },
+    );
+    expect(finished.exit).toBe(1);
+    expect(finished.stdout).toBe(`${overrideRefusal("release")}\n`);
+    const repository = join(import.meta.dir, "..", "..", "..");
+    expect(existsSync(join(repository, recordPath(row.id)))).toBe(false);
+  },
+  inProcess,
+);
+
+const usageLine =
+  "Usage: bun run capability-qualification-run <candidate row file> <state root parent> [--entry fixture.ts|index.ts]";
+
+const usages: readonly (readonly string[])[] = [
+  ["row.json"],
+  ["row.json", "parent", "--entry"],
+  ["row.json", "parent", "--entry", "main.ts"],
+  ["row.json", "parent", "--from", "index.ts"],
+  ["row.json", "parent", "--entry", "index.ts", "again"],
+];
+
+for (const argv of usages)
+  test(
+    `the capability qualification run refuses the arguments ${argv.join(" ")} with its usage`,
+    async () => {
+      const world = checkout();
+      expect(await world.run(argv)).toBe(2);
+      refusedWithoutRecord(world, usageLine);
+    },
+    inProcess,
+  );
+
+const rowRepair =
+  "Repair: give a JSON file with the row's id, os, majorRelease, observedRelease, filesystem, primitive and bootIdentitySource, then rerun.";
+const unreadableRows: readonly (readonly [string, CandidateRow, string])[] = [
+  [
+    "an id that is not a file name",
+    { ...candidate, id: "../linux_7" },
+    "id ../linux_7 is not lower-case words joined by hyphens",
+  ],
+  [
+    "a filesystem type that is not a whole number",
+    { ...candidate, filesystem: { name: "btrfs", type: 1.5 } },
+    "filesystem.type is not a whole number",
+  ],
+  ["an empty os", { ...candidate, os: "" }, "os is not text"],
+];
+
+for (const [shape, row, why] of unreadableRows)
+  test(
+    `the capability qualification run refuses a candidate row with ${shape}`,
+    async () => {
+      const world = checkout();
+      writeFileSync(world.rowFile, JSON.stringify(row));
+      expect(await world.run()).toBe(1);
+      refusedWithoutRecord(
+        world,
+        `Refused: the candidate row ${world.rowFile} is unreadable (${why}). ${rowRepair}`,
+      );
+    },
+    inProcess,
+  );
+
+test(
+  "the capability qualification run refuses a state root parent that is not a folder",
+  async () => {
+    const world = checkout();
+    expect(await world.run([world.rowFile, world.rowFile])).toBe(1);
+    refusedWithoutRecord(
+      world,
+      `Refused: the state root parent ${world.rowFile} is not a folder. Repair: create it on the filesystem under test, then rerun.`,
+    );
+  },
+  inProcess,
+);
+
+test(
+  "the capability qualification run refuses qualified source that git ignores",
+  async () => {
+    const world = checkout();
+    commitIn(world.root, "ignore local files", {
+      ".gitignore": "*.local.ts\n",
+    });
+    writeFileSync(
+      join(world.root, "kernel/src/addons/state/probe.local.ts"),
+      "local\n",
+    );
+    expect(await world.run()).toBe(1);
+    refusedWithoutRecord(
+      world,
+      "Refused: git ignores qualified source (!! kernel/src/addons/state/probe.local.ts); sourceHash covers committed bytes only. Repair: remove those files, then rerun.",
+    );
+  },
+  inProcess,
+);
+
+function expectedResults(
+  selection: readonly StateCase[],
+  failed: readonly string[] = [],
+): readonly CaseResult[] {
+  return selection.map((row) =>
+    row.status === "pending"
+      ? { id: row.id, result: "unproved", detail: `pending: ${row.reason}` }
+      : failed.includes(row.id)
+        ? {
+            id: row.id,
+            result: "fail",
+            detail: "failed; the run's output shows why",
+          }
+        : { id: row.id, result: "pass", detail: "passed" },
+  );
+}
+
+test(
+  "a fixture.ts capability qualification run writes the record the design names",
+  async () => {
+    const world = checkout();
+    expect(await world.run(["row.json", "parent"])).toBe(0);
+    const selection = capabilityQualificationCases();
+    expect(world.requests.length).toBe(1);
+    const [request] = world.requests;
+    expect(request?.entry).toBe("fixture.ts");
+    expect(request?.parent).toBe(world.parent);
+    expect(request?.candidate).toEqual(candidate);
+    expect(request?.selection.map((row) => row.id)).toEqual(
+      selection.map((row) => row.id),
+    );
+    const text = readFileSync(world.recordFile, "utf8");
+    const record = parseRecord(text);
+    const raw: unknown = JSON.parse(text);
+    const keys =
+      typeof raw === "object" && raw !== null ? Object.keys(raw) : [];
+    expect(keys.sort()).toEqual([
+      "bootIdentitySource",
+      "factSource",
+      "filesystem",
+      "platform",
+      "primitive",
+      "row",
+      "runs",
+      "schema",
+    ]);
+    expect(record.schema).toBe(recordSchema);
+    expect(record.row).toBe(candidate.id);
+    expect(record.factSource).toBe("observed");
+    expect(record.platform.os).toBe(process.platform);
+    expect(record.platform.release).toBe(release());
+    expect(record.platform.majorRelease).toBe(release().split(".")[0] ?? "");
+    expect(record.platform.architecture).toBe(process.arch);
+    expect(record.platform.runtime).toBe(`bun ${Bun.version}`);
+    expect(record.filesystem).toEqual({ type: statfsSync(world.parent).type });
+    const route = resolveCoordination();
+    expect(record.primitive).toBe(
+      route.available ? route.route : "no coordination route",
+    );
+    expect(record.bootIdentitySource).toEqual({
+      source: candidate.bootIdentitySource,
+      readable: existsSync(candidate.bootIdentitySource),
+    });
+    expect(record.runs.length).toBe(1);
+    const [run] = record.runs;
+    expect(run?.entry).toBe("fixture.ts");
+    expect(run?.commit).toBe(git(world.root, "rev-parse", "HEAD"));
+    expect(run?.sourceHash).toBe(sourceHash(qualifiedSourceFiles(world.root)));
+    expect(Date.parse(run?.started ?? "")).toBeLessThanOrEqual(
+      Date.parse(run?.ended ?? ""),
+    );
+    expect(run?.cases).toEqual(expectedResults(selection));
+    expect(world.lines).toEqual([
+      `Wrote ${recordPath(candidate.id)}: ${String(requiredCaseIds().length)} pass, 0 fail, ${String(selection.length - requiredCaseIds().length)} unproved.`,
+    ]);
+    for (const secret of [
+      world.base,
+      world.parent,
+      userInfo().username,
+      hostname(),
+    ])
+      expect(text).not.toContain(secret);
+    if (existsSync(candidate.bootIdentitySource))
+      expect(text).not.toContain(
+        readFileSync(candidate.bootIdentitySource, "utf8").trim(),
+      );
+  },
+  inProcess,
+);
+
+test(
+  "a capability qualification run with a failed required case writes its record and does not qualify the row",
+  async () => {
+    const world = checkout();
+    const [first] = requiredCaseIds();
+    if (first === undefined) throw new Error("No required case.");
+    const code = await world.run(undefined, undefined, {
+      runCases: (request) => Promise.resolve(junit(request.selection, [first])),
+    });
+    expect(code).toBe(1);
+    expect(world.lines.at(-1)).toBe(
+      `The fixture.ts run does not qualify row ${candidate.id}: ${first} fail.`,
+    );
     expect(
-      await capabilityQualificationRun(
-        [world.rowFile, world.parent],
-        world.context(environment),
+      parseRecord(readFileSync(world.recordFile, "utf8")).runs[0]?.cases,
+    ).toEqual(expectedResults(capabilityQualificationCases(), [first]));
+  },
+  inProcess,
+);
+
+test(
+  "a capability qualification run whose cases end without a report writes no record",
+  async () => {
+    const world = checkout();
+    const code = await world.run(undefined, undefined, {
+      runCases: () => Promise.reject(new Error("the case run wrote no report")),
+    });
+    expect(code).toBe(1);
+    expect(world.lines).toEqual([
+      "Refused: the case run ended without results (the case run wrote no report); no capability qualification record is written. Repair: read the run's output above, then rerun.",
+    ]);
+    expect(existsSync(world.folder)).toBe(false);
+  },
+  inProcess,
+);
+
+test(
+  "a capability qualification run asked to stop writes no record",
+  async () => {
+    const world = checkout();
+    const code = await world.run(undefined, undefined, { stopped: () => true });
+    expect(code).toBe(1);
+    expect(world.requests.length).toBe(1);
+    expect(world.lines).toEqual([
+      "Stopped: the run was asked to stop, so no capability qualification record is written.",
+    ]);
+    expect(existsSync(world.folder)).toBe(false);
+  },
+  inProcess,
+);
+
+test(
+  "a killed capability qualification run leaves no record: the temporary file is not one",
+  async () => {
+    const world = checkout();
+    const killed = world.run(undefined, undefined, {
+      beforeRename: () => {
+        throw new Error("killed before the rename");
+      },
+    });
+    const stopped = await killed.then(
+      () => "finished",
+      (error: unknown) => (error instanceof Error ? error.message : "thrown"),
+    );
+    expect(stopped).toBe("killed before the rename");
+    expect(existsSync(world.recordFile)).toBe(false);
+    expect(readdirSync(world.folder)).toEqual([`${candidate.id}.json.partial`]);
+    expect(rowProblems(tableRow, world.root, "c".repeat(64))).toEqual([
+      `${candidate.id}: no capability qualification record at ${recordPath(candidate.id)}`,
+    ]);
+  },
+  inProcess,
+);
+
+test(
+  "a fixture.ts capability qualification run refuses when the row already has a record",
+  async () => {
+    const world = checkout();
+    commitIn(world.root, "an earlier record", {
+      [recordPath(candidate.id)]: "{}\n",
+    });
+    expect(await world.run()).toBe(1);
+    expect(world.lines).toEqual([
+      `Refused: ${recordPath(candidate.id)} exists; a fixture.ts run starts a new capability qualification record. Repair: remove it and commit that, then rerun.`,
+    ]);
+    expect(world.requests).toEqual([]);
+    expect(readFileSync(world.recordFile, "utf8")).toBe("{}\n");
+  },
+  inProcess,
+);
+
+const secondRepair =
+  "Repair: on the row's own branch, commit the row and its record from one fixture.ts run on this platform, then rerun.";
+
+test(
+  "an index.ts capability qualification run refuses a row that is not in the capability qualification table",
+  async () => {
+    const world = checkout();
+    expect(
+      await world.run([world.rowFile, world.parent, "--entry", "index.ts"]),
+    ).toBe(1);
+    refusedWithoutRecord(
+      world,
+      `Refused: row ${candidate.id} is not in the capability qualification table. ${secondRepair}`,
+    );
+    expect(existsSync(world.folder)).toBe(false);
+  },
+  inProcess,
+);
+
+test(
+  "an index.ts capability qualification run refuses a record it cannot read",
+  async () => {
+    const world = checkout();
+    commitIn(world.root, "a damaged record", {
+      [recordPath(candidate.id)]: "{}\n",
+    });
+    expect(
+      await world.run(
+        [world.rowFile, world.parent, "--entry", "index.ts"],
+        undefined,
+        { table: [tableRow] },
       ),
     ).toBe(1);
     expect(world.lines).toEqual([
-      `Refused: SX_FACT_OVERRIDES is set (${fact}); a capability qualification record holds observed facts only. Repair: unset SX_FACT_OVERRIDES, then rerun.`,
+      `Refused: ${recordPath(candidate.id)} is not a capability qualification record (the record has fields [], not [bootIdentitySource, factSource, filesystem, platform, primitive, row, runs, schema]). ${secondRepair}`,
     ]);
     expect(world.requests).toEqual([]);
-    expect(existsSync(world.folder)).toBe(false);
-  });
+    expect(readFileSync(world.recordFile, "utf8")).toBe("{}\n");
+  },
+  inProcess,
+);
 
-test("Q03.b refuses through the command's own entry when a fact override is set", async () => {
-  const world = checkout();
-  const entry = join(import.meta.dir, "capability-qualification-run.ts");
-  const row = { ...candidate, id: "entry-refusal-proof" };
-  writeFileSync(world.rowFile, JSON.stringify(row));
-  const child = startChild(
-    [process.execPath, entry, world.rowFile, world.parent],
-    {
-      cwd: world.base,
-      env: {
-        ...inherited(),
-        SX_FACT_OVERRIDES: JSON.stringify({ release: "7.2.12" }),
-      },
-      limitMilliseconds: 30_000,
-    },
-  );
-  const finished = await child.finished;
-  expect(finished.timedOut).toBe(false);
-  expect(finished.exitCode).toBe(1);
-  expect(finished.stdout).toBe(
-    "Refused: SX_FACT_OVERRIDES is set (release); a capability qualification record holds observed facts only. Repair: unset SX_FACT_OVERRIDES, then rerun.\n",
-  );
-  const repository = join(import.meta.dir, "..", "..", "..");
-  expect(existsSync(join(repository, recordPath(row.id)))).toBe(false);
-});
-
-test("the capability qualification run refuses without its two arguments", async () => {
-  const world = checkout();
-  expect(
-    await capabilityQualificationRun([world.rowFile], world.context()),
-  ).toBe(2);
-  expect(world.lines).toEqual([
-    "Usage: bun run capability-qualification-run <candidate row file> <state root parent> [--entry fixture.ts|index.ts]",
-  ]);
-  expect(world.requests).toEqual([]);
-});
-
-test("a fixture.ts capability qualification run writes the record the design names", async () => {
-  const world = checkout();
-  expect(
-    await capabilityQualificationRun(
-      [world.rowFile, world.parent],
-      world.context(),
-    ),
-  ).toBe(0);
-  const selection = capabilityQualificationCases();
-  expect(world.requests.length).toBe(1);
-  const [request] = world.requests;
-  expect(request?.entry).toBe("fixture.ts");
-  expect(request?.candidate).toEqual(candidate);
-  expect(request?.selection.map((row) => row.id)).toEqual(
-    selection.map((row) => row.id),
-  );
-  const text = readFileSync(world.recordFile, "utf8");
-  const record = parseRecord(text);
-  expect(Object.keys(record).sort()).toEqual([
-    "bootIdentitySource",
-    "factSource",
-    "filesystem",
-    "platform",
-    "primitive",
-    "row",
-    "runs",
-    "schema",
-  ]);
-  expect(record.schema).toBe(recordSchema);
-  expect(record.row).toBe(candidate.id);
-  expect(record.factSource).toBe("observed");
-  expect(Object.keys(record.platform).sort()).toEqual([
-    "architecture",
-    "cLibrary",
-    "container",
-    "distribution",
-    "majorRelease",
-    "os",
-    "release",
-    "runtime",
-  ]);
-  expect(record.platform.os).toBe(process.platform);
-  expect(record.platform.release).toBe(release());
-  expect(record.platform.majorRelease).toBe(release().split(".")[0] ?? "");
-  expect(record.platform.architecture).toBe(process.arch);
-  expect(record.platform.runtime).toBe(`bun ${Bun.version}`);
-  expect(record.filesystem).toEqual({ type: statfsSync(world.parent).type });
-  const route = resolveCoordination();
-  expect(record.primitive).toBe(
-    route.available ? route.route : "no coordination route",
-  );
-  expect(record.bootIdentitySource).toEqual({
-    source: candidate.bootIdentitySource,
-    readable: existsSync(candidate.bootIdentitySource),
-  });
-  expect(record.runs.length).toBe(1);
-  const [run] = record.runs;
-  expect(Object.keys(run ?? {}).sort()).toEqual([
-    "cases",
-    "commit",
-    "ended",
-    "entry",
-    "sourceHash",
-    "started",
-  ]);
-  expect(run?.entry).toBe("fixture.ts");
-  expect(run?.commit).toBe(git(world.root, "rev-parse", "HEAD"));
-  expect(run?.sourceHash).toBe(sourceHash(qualifiedSourceFiles(world.root)));
-  expect(Date.parse(run?.started ?? "")).toBeLessThanOrEqual(
-    Date.parse(run?.ended ?? ""),
-  );
-  expect(run?.cases).toEqual(caseResults(junit(selection), selection));
-  expect(world.lines.at(-1)).toStartWith(`Wrote ${recordPath(candidate.id)}: `);
-  for (const secret of [
-    world.base,
-    world.parent,
-    userInfo().username,
-    hostname(),
-  ])
-    expect(text).not.toContain(secret);
-  if (existsSync(candidate.bootIdentitySource))
-    expect(text).not.toContain(
-      readFileSync(candidate.bootIdentitySource, "utf8").trim(),
-    );
-});
-
-test("a killed capability qualification run leaves no record: the temporary file is not one", async () => {
-  const world = checkout();
-  const killed = capabilityQualificationRun(
-    [world.rowFile, world.parent],
-    world.context(
-      {},
-      {
-        beforeRename: () => {
-          throw new Error("killed before the rename");
-        },
-      },
-    ),
-  );
-  const stopped = await killed.then(
-    () => "finished",
-    (error: unknown) => (error instanceof Error ? error.message : "thrown"),
-  );
-  expect(stopped).toBe("killed before the rename");
-  expect(existsSync(world.recordFile)).toBe(false);
-  expect(readdirSync(world.folder)).toEqual([`${candidate.id}.json.partial`]);
-  const row = {
-    ...candidate,
-    processIdentity: "boot identity only",
-    namespace: "test",
-    delegatedWriters: "test",
-    failureCases: [movedStateRoot],
-    evidence: {
-      record: recordPath(candidate.id),
-      review: { session: "s", countersignature: "Nathan", date: "2026-11-20" },
-    },
-  } as const;
-  expect(rowProblems(row, world.root, "c".repeat(64))).toEqual([
-    `${candidate.id}: no capability qualification record at ${recordPath(candidate.id)}`,
-  ]);
-});
-
-test("a fixture.ts capability qualification run refuses when the row already has a record", async () => {
-  const world = checkout();
-  mkdirSync(world.folder, { recursive: true });
-  writeFileSync(world.recordFile, "{}\n");
-  commitIn(world.root, "an earlier record", {});
-  git(world.root, "add", "--", recordPath(candidate.id));
-  git(world.root, "commit", "--quiet", "-m", "record");
-  expect(
-    await capabilityQualificationRun(
-      [world.rowFile, world.parent],
-      world.context(),
-    ),
-  ).toBe(1);
-  expect(world.lines).toEqual([
-    `Refused: ${recordPath(candidate.id)} exists; a fixture.ts run starts a new capability qualification record. Repair: remove it and commit that, then rerun.`,
-  ]);
-  expect(world.requests).toEqual([]);
-  expect(readFileSync(world.recordFile, "utf8")).toBe("{}\n");
-});
-
-test("an index.ts capability qualification run refuses a row that is not in the capability qualification table", async () => {
-  const world = checkout();
-  expect(
-    await capabilityQualificationRun(
-      [world.rowFile, world.parent, "--entry", "index.ts"],
-      world.context(),
-    ),
-  ).toBe(1);
-  expect(world.lines).toEqual([
-    `Refused: row ${candidate.id} is not in the capability qualification table. Repair: on the row's own branch, commit the row and its record from one fixture.ts run on this platform, then rerun.`,
-  ]);
-  expect(world.requests).toEqual([]);
-  expect(existsSync(world.folder)).toBe(false);
-});
+test(
+  "an index.ts capability qualification run appends to the record its fixture.ts run wrote",
+  async () => {
+    const world = checkout();
+    expect(await world.run()).toBe(0);
+    const first = parseRecord(readFileSync(world.recordFile, "utf8"));
+    git(world.root, "add", "--", recordPath(candidate.id));
+    git(world.root, "commit", "--quiet", "-m", "the fixture.ts record");
+    expect(
+      await world.run(
+        [world.rowFile, world.parent, "--entry", "index.ts"],
+        undefined,
+        { table: [tableRow] },
+      ),
+    ).toBe(0);
+    expect(world.requests.map((request) => request.entry)).toEqual([
+      "fixture.ts",
+      "index.ts",
+    ]);
+    const both = parseRecord(readFileSync(world.recordFile, "utf8"));
+    expect(both.runs.map((run) => run.entry)).toEqual([
+      "fixture.ts",
+      "index.ts",
+    ]);
+    expect(both.runs[0]).toEqual(first.runs[0]);
+    expect({ ...both, runs: [] }).toEqual({ ...first, runs: [] });
+    expect(both.runs[1]?.commit).toBe(git(world.root, "rev-parse", "HEAD"));
+    expect(both.runs[1]?.sourceHash).toBe(first.runs[0]?.sourceHash);
+  },
+  inProcess,
+);
 
 const observed: ObservedFacts = {
   platform: {
@@ -380,17 +606,6 @@ const earlier: CapabilityQualificationRecord = {
   ...observed,
   runs: [firstRun],
 };
-const tableRow = {
-  ...candidate,
-  processIdentity: "boot identity only",
-  namespace: "non-root in a container",
-  delegatedWriters: "after another boot",
-  failureCases: [movedStateRoot],
-  evidence: {
-    record: recordPath(candidate.id),
-    review: { session: "s", countersignature: "Nathan", date: "2026-11-20" },
-  },
-} as const;
 
 test("an index.ts capability qualification run needs the row in the table and one fixture.ts run on this platform", () => {
   expect(secondRunProblem([tableRow], candidate, earlier, observed)).toBe(
@@ -589,3 +804,84 @@ test("Q03 supporting: an index.ts capability qualification run starts every worl
     run.dispose();
   }
 });
+
+test("Q03 supporting: a world in a capability qualification run refuses a fact override or candidate row of its own", async () => {
+  const run = worldUnder(runVariableValue("fixture.ts", candidate));
+  try {
+    for (const name of ["SX_FACT_OVERRIDES", "SX_CANDIDATE_ROW"]) {
+      const refused = await run
+        .run(["pending", "--json"], { [name]: "{}" })
+        .then(
+          () => "ran",
+          (error: unknown) =>
+            error instanceof Error ? error.message : "thrown",
+        );
+      expect(refused).toBe(
+        `A capability qualification run sets no ${name} for one test: every world runs on observed facts and the candidate row.`,
+      );
+    }
+    expect(run.ledger()).toEqual([]);
+  } finally {
+    run.dispose();
+  }
+});
+
+test(
+  "the capability qualification run's own case runner reads each case from Bun's report",
+  async () => {
+    const base = testFolder("c3-runner-");
+    const parent = join(base, "parent");
+    mkdirSync(join(base, "tests", "kernel", "state"), { recursive: true });
+    mkdirSync(parent);
+    writeFileSync(
+      join(base, "tests", "kernel", "state", "synthetic.test.ts"),
+      [
+        'import { expect, test } from "bun:test";',
+        `test("K02.a-synthetic", () => { expect(process.env.STATE_TEST_DIR).toBe(${JSON.stringify(parent)}); expect(JSON.parse(process.env.${runVariable} ?? "{}").entry).toBe("fixture.ts"); });`,
+        'test("K02.b-synthetic", () => { expect(1).toBe(2); });',
+        'test("K02.c-synthetic UNPROVED on darwin: fail-closed control only", () => {});',
+        'test("K02.f-synthetic", () => { throw new Error("not in the pattern"); });',
+        "",
+      ].join("\n"),
+    );
+    const output: string[] = [];
+    const report = await runCasesWithBun(
+      {
+        root: base,
+        parent,
+        entry: "fixture.ts",
+        candidate,
+        selection: synthetic.filter((row) => row.id !== "K02.f-synthetic"),
+        environment: callerEnvironment(),
+        output: (text) => output.push(text),
+      },
+      20_000,
+    );
+    expect(output.join("")).toContain("K02.b-synthetic");
+    expect(caseResults(report, synthetic)).toEqual([
+      { id: "K02.a-synthetic", result: "pass", detail: "passed" },
+      {
+        id: "K02.b-synthetic",
+        result: "fail",
+        detail: "failed; the run's output shows why",
+      },
+      {
+        id: "K02.c-synthetic",
+        result: "unproved",
+        detail: "UNPROVED on darwin: fail-closed control only",
+      },
+      {
+        id: "K02.d-synthetic",
+        result: "fail",
+        detail: "no test ran for this case",
+      },
+      { id: "K02.f-synthetic", result: "fail", detail: "skipped" },
+      {
+        id: "K08.e-synthetic-pending",
+        result: "unproved",
+        detail: "pending: Needs a delegated program.",
+      },
+    ]);
+  },
+  inProcess,
+);
