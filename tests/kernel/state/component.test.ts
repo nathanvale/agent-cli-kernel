@@ -4,6 +4,7 @@ import {
   closeSync,
   constants,
   existsSync,
+  lstatSync,
   mkdirSync,
   openSync,
   readFileSync,
@@ -41,8 +42,16 @@ import {
   errorCode,
   resolveCoordination,
 } from "../../../kernel/src/addons/state/coordination.ts";
-import { capabilityQualificationTable } from "../../../kernel/src/addons/state/capability-qualification-table.ts";
-import { resolveQualification } from "../../../kernel/src/addons/state/qualification.ts";
+import {
+  capabilityQualificationTable,
+  movedStateRoot,
+} from "../../../kernel/src/addons/state/capability-qualification-table.ts";
+import type { CapabilityQualificationRow } from "../../../kernel/src/addons/state/capability-qualification-table.ts";
+import {
+  candidateQualification,
+  resolveQualification,
+} from "../../../kernel/src/addons/state/qualification.ts";
+import type { FactOverrides } from "../../../kernel/src/addons/state/qualification.ts";
 import {
   encodeRecord,
   parseRecords,
@@ -672,6 +681,73 @@ caseTest("Q01.b-fixture-never-enables", async () => {
     rmSync(root, { recursive: true, force: true });
   }
   await Promise.resolve();
+});
+
+test("X27 supporting: in process, a candidate row names the one field that differs", () => {
+  const root = temporaryRoot("c3-state-x27-");
+  try {
+    for (const folder of ["coordination", "operations", "settled", "staging"])
+      mkdirSync(join(root, folder));
+    const row: CapabilityQualificationRow = {
+      id: "candidate",
+      os: process.platform,
+      majorRelease: "7",
+      observedRelease: "7.2.12-orbstack-00394-gbecdd6130068",
+      filesystem: { name: "btrfs", type: 0x9123683e },
+      primitive: "test route",
+      bootIdentitySource: "/proc/sys/kernel/random/boot_id",
+      processIdentity: "boot identity only",
+      namespace: "test entry",
+      delegatedWriters: "none",
+      failureCases: [movedStateRoot],
+      evidence: {
+        record: "none",
+        review: { session: "none", countersignature: "none", date: "none" },
+      },
+    };
+    const readable: FactOverrides = {
+      release: "7.9.0",
+      filesystem: 0x9123683e,
+      bootIdentity: "boot-one",
+    };
+    const match = (
+      changes: Partial<CapabilityQualificationRow>,
+      overrides: FactOverrides,
+    ) =>
+      candidateQualification(
+        "x27",
+        { ...row, ...changes },
+        { ...readable, ...overrides },
+      ).match(root, "test route");
+    expect(match({}, {})).toEqual({ matched: true, label: "fixture:x27" });
+    const cases: readonly (readonly [
+      Partial<CapabilityQualificationRow>,
+      FactOverrides,
+      string,
+    ])[] = [
+      [{ os: "aix" }, {}, "): differs in os"],
+      [{}, { release: "8.0.0" }, "): differs in major release"],
+      [
+        { filesystem: { name: "nfs", type: 0x6969 } },
+        {},
+        "): differs in filesystem",
+      ],
+      [{ primitive: "another route" }, {}, "): differs in coordination route"],
+      [{}, { bootIdentity: null }, "): differs in boot identity"],
+      [
+        {},
+        { devices: { settled: lstatSync(root).dev + 1 } },
+        "; not on the state root's device: settled/; qualified: candidate (",
+      ],
+    ];
+    for (const [changes, overrides, expected] of cases) {
+      const result = match(changes, overrides);
+      expect(result.matched).toBe(false);
+      expect(result.matched ? "" : result.detail).toContain(expected);
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("framing: the add-on encoder and the test-owned reader agree", () => {
