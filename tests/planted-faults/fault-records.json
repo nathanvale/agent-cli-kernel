@@ -2938,5 +2938,12 @@
     "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
     "title": "^Q03\\.a bounds its git read",
     "source": "79af2d6 fix(state): settle the kernel-reviewer pass on the Sol triage's fixes"
+  },
+  {
+    "id": "3d9a5c3-check-commits",
+    "patch": "tests/planted-faults/patches/3d9a5c3-check-commits.patch",
+    "testFile": "tests/template/check-commits/check-commits-range.test.ts",
+    "title": "a since commit that is not behind the head",
+    "source": "3d9a5c3 fix(check-commits): check every commit when the since commit is not behind the head (GREEN)"
   }
 ]
