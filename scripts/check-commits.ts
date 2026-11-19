@@ -222,19 +222,22 @@ export async function main(argv: readonly string[], run: Run): Promise<number> {
     print("Refused: repair the doctor's FAIL lines, then rerun.");
     return 1;
   }
-  const range = commitsToCheck(run, base, head);
-  if (range.length === 0) {
+  let commits = commitsToCheck(run, base, head);
+  if (commits.length === 0) {
     print(
       `No commits in ${base}..${head} to check, so this gate checks nothing. Repair: name a base that ${head} is ahead of.`,
     );
     return 1;
   }
-  const commits = shard === undefined ? range : blockOf(range, shard);
-  if (commits.length === 0) {
-    print(
-      `Part ${shard?.part} of ${shard?.parts} holds none of the ${range.length} commits in ${base}..${head}, so the other parts check them.`,
-    );
-    return 0;
+  if (shard !== undefined) {
+    const inRange = commits.length;
+    commits = blockOf(commits, shard);
+    if (commits.length === 0) {
+      print(
+        `Part ${shard.part} of ${shard.parts} holds none of the ${inRange} commits in ${base}..${head}, so the other parts check them.`,
+      );
+      return 0;
+    }
   }
   const started = performance.now();
   let red = 0;
