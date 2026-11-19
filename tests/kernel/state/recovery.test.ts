@@ -597,7 +597,7 @@ caseTest(
       const run = await close(world, id);
       return {
         exit: run.exit,
-        cause: run.result.causeCode ?? null,
+        cause: run.result.causeCode,
         unqualified: str(run.envelope.message).includes(
           "stopped-owner-proof-unqualified",
         ),
@@ -607,7 +607,12 @@ caseTest(
     const without = await decision(untouched);
     expect(without).toEqual(
       productionRowMatch().matched
-        ? { exit: 0, cause: null, unqualified: false, closed: true }
+        ? {
+            exit: 0,
+            cause: "SUCCESS_COMPLETED",
+            unqualified: false,
+            closed: true,
+          }
         : {
             exit: 3,
             cause: "DOMAIN_SX_UNAVAILABLE",
