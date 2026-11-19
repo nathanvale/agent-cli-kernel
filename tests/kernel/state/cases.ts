@@ -949,6 +949,24 @@ export const stateCases: readonly StateCase[] = [
     red: "Check only the root (planted fault).",
   },
   {
+    id: "Q03.a-row-cites-capability-qualification-record",
+    ...component,
+    sources:
+      "REC-7b; V-22; V-42; journal version 2 design part 2 section 3; decisions of Nathan, 19 November 2026 (10:10, and T and M at 13:46 and 13:54)",
+    observation:
+      "Every production row cites a committed capability qualification record that matches it, marked factSource observed, holding both capability qualification runs with every required case passed and a sourceHash equal to the current qualified source, and names its reviewing session, Nathan's countersignature and the date.",
+    red: "Accept a hosted run link, a capability qualification record made with overrides or for changed source, or one without the index.ts capability qualification run (planted fault).",
+  },
+  {
+    id: "Q03.b-capability-qualification-run-refuses",
+    ...component,
+    sources:
+      "REC-7b; journal version 2 design part 2 section 3 and part 3 section 4",
+    observation:
+      "bun run capability-qualification-run refuses a dirty tree, and refuses when any fact override is set; it writes no capability qualification record.",
+    red: "Run with an override (planted fault).",
+  },
+  {
     id: "Q01.c-transitions-mapped",
     ...component,
     sources: "REC-8",

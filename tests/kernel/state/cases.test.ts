@@ -12,7 +12,10 @@ const briefFamilies = [
   ...["T01", "T02", "T03", "T04"],
   "Q01",
 ];
-const journalVersionTwoFamilies = ["J08", "L07", "L08", "K10", "K11", "Q02"];
+const journalVersionTwoFamilies = [
+  ...["J08", "L07", "L08", "K10", "K11"],
+  ...["Q02", "Q03"],
+];
 
 test("the frozen T3 case table keeps its admitted identities and counts", () => {
   expect(briefFamilies.length).toBe(46);
@@ -40,9 +43,9 @@ test("the frozen T3 case table keeps its admitted identities and counts", () => 
     "S04",
     "S05",
   ]);
-  expect(stateCases.length).toBe(143);
+  expect(stateCases.length).toBe(145);
   const executable = stateCases.filter((row) => row.status === "executable");
-  expect(executable.length).toBe(134);
+  expect(executable.length).toBe(136);
   for (const row of executable)
     if (row.status === "executable")
       expect(["coordination", "any"]).toContain(row.platform);
@@ -128,6 +131,8 @@ test("every executable case is registered once and no pending case is claimed", 
     "component.test.ts",
     "seams.test.ts",
     "route.test.ts",
+    "capability-qualification-record.test.ts",
+    "capability-qualification-run.test.ts",
   ];
   const sources = await Promise.all(
     files.map((name) => Bun.file(new URL(name, import.meta.url)).text()),

@@ -12,6 +12,10 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { testFolder } from "../../support/test-folder.ts";
+import {
+  runVariable,
+  worldEnvironment,
+} from "./capability-qualification-run.ts";
 import { stateCases } from "./cases.ts";
 import { coordinationExpected } from "./holder.ts";
 
@@ -415,6 +419,10 @@ export function makeWorld(
   mkdirSync(join(world, "notes"), { recursive: true });
   mkdirSync(bars);
   const children: { kill: (signal?: number | NodeJS.Signals) => void }[] = [];
+  const capabilityQualificationRun = worldEnvironment(
+    process.env[runVariable],
+    options.qualification,
+  );
 
   function env(
     extra: Readonly<Record<string, string>>,
@@ -428,12 +436,12 @@ export function makeWorld(
       SX_WORLD: world,
       SX_BARRIER_DIR: bars,
     };
-    return {
-      ...(options.qualification
-        ? { ...environment, SX_QUALIFICATION: options.qualification }
-        : environment),
-      ...extra,
-    };
+    const qualification =
+      capabilityQualificationRun ??
+      (options.qualification
+        ? { SX_QUALIFICATION: options.qualification }
+        : {});
+    return { ...environment, ...qualification, ...extra };
   }
 
   function start(
