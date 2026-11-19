@@ -1,0 +1,22 @@
+diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
+index ef1a1fa..3927366 100644
+--- a/kernel/src/kernel/lifecycle.ts
++++ b/kernel/src/kernel/lifecycle.ts
+@@ -647,16 +647,11 @@ async function runDeclaredCommand(
+ }
+ 
+ function enterHandler(run: Run, enter: Enter): Promise<Execution> {
+-  let resolveExecution: (execution: Promise<Execution>) => void = () =>
+-    undefined;
+-  run.execution = new Promise<Execution>((resolve) => {
+-    resolveExecution = resolve;
+-  });
+   const execution: Promise<Execution> = enter().then(
+     (outcome) => ({ kind: "returned", outcome }) as const,
+     () => ({ kind: "threw" }) as const,
+   );
+-  resolveExecution(execution);
++  run.execution = execution;
+   return execution;
+ }
+ 
