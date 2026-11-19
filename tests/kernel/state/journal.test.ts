@@ -21,8 +21,10 @@ import {
   at,
   caseTest,
   closeArgs,
+  eventsPath,
   expectCompleted,
   expectRefusedUnchanged,
+  flipLastPayloadByte,
   formatRecord,
   framed,
   journals,
@@ -63,15 +65,6 @@ const fixture = (body: (world: World) => Promise<void>) => () =>
 function eventKinds(world: World, id: string): readonly string[] {
   const operation = world.operations().find((entry) => entry.id === id);
   return operation ? operation.events.records.map((record) => record.kind) : [];
-}
-function eventsPath(world: World, id: string): string {
-  return join(world.root, "operations", id, "events");
-}
-function flipLastPayloadByte(path: string): void {
-  const bytes = readFileSync(path);
-  const index = bytes.length - 3;
-  bytes[index] = (bytes[index] ?? 0) ^ 1;
-  writeFileSync(path, bytes);
 }
 
 caseTest(
@@ -1326,7 +1319,7 @@ supportingTest(
 supportingTest(
   "Test harness supporting: the state test world kills a child that outlives its bound",
   async () => {
-    const world = makeWorld({ childBound: 300 });
+    const world = makeWorld({ childBound: 2_000 });
     try {
       const held = world.start(apply("a"), { SX_BARRIER: "intent" });
       await held.reached("intent");
@@ -1334,7 +1327,7 @@ supportingTest(
         () => "ended",
         (error: unknown) => (error instanceof Error ? error.message : "failed"),
       );
-      expect(ended).toContain("outlived its 300 ms limit and was killed.");
+      expect(ended).toContain("outlived its 2000 ms limit and was killed.");
     } finally {
       world.dispose();
     }

@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
+index 122cd8f..be4fb4d 100644
+--- a/kernel/src/addons/state/store.ts
++++ b/kernel/src/addons/state/store.ts
+@@ -680,7 +680,7 @@ export function appendEvent(
+     constants.O_RDWR | constants.O_APPEND | constants.O_NOFOLLOW,
+   );
+   try {
+-    if (!endsOnWholeRecord(descriptor))
++    if (descriptor < 0 && !endsOnWholeRecord(descriptor))
+       throw new Error(
+         "The events file ends in a torn record, so nothing more is appended to this case.",
+       );

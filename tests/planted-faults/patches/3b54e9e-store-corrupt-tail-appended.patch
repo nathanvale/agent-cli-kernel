@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
+index f60e131..3639496 100644
+--- a/kernel/src/addons/state/store.ts
++++ b/kernel/src/addons/state/store.ts
+@@ -664,7 +664,7 @@ function endsOnWholeRecord(descriptor: number): boolean {
+     read += count;
+   }
+   const parsed = parseRecords(bytes.subarray(0, read));
+-  return parsed.ok && !parsed.tornTail;
++  return !parsed.ok || !parsed.tornTail;
+ }
+ 
+ // Accepted decision (Nathan, 19 November 2026, 16:29 AEDT): nothing is
