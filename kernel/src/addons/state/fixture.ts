@@ -13,9 +13,16 @@ export function stateAddonWithTestSeams(
     readonly phase?: (name: Phase) => Promise<void>;
     readonly coordinationLibrary?: string;
     readonly coordination?: CoordinationRoute;
+    readonly moverStart?: number;
+    readonly moverReport?: (examined: number, moved: number) => void;
   },
 ) {
+  const start = seams.moverStart;
   return install(options, {
+    ...(start === undefined ? {} : { moverStart: () => start }),
+    ...(seams.moverReport === undefined
+      ? {}
+      : { moverReport: seams.moverReport }),
     qualification:
       seams.fixtureLabel === undefined
         ? resolveQualification()

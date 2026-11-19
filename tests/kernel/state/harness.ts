@@ -238,40 +238,70 @@ export function readFramed(bytes: Uint8Array): FileRead {
   return { records, torn: false, corrupt: false };
 }
 
-export function writeSyntheticOperation(root: string, path: string): string {
-  const id = `op-${createHash("sha256").update(path).digest("hex").slice(0, 32)}`;
-  const directory = join(root, "operations", id);
-  mkdirSync(directory);
-  const payload = JSON.stringify({
-    operationId: id,
-    commandIdentity: "test.synthetic",
-    runId: "synthetic-run",
-    effects: ["note.write"],
-    scope: {
-      resources: [{ resource: "note:synthetic", path, keys: [] }],
-      invariants: [],
-      unknown: false,
-      keys: [],
-    },
-    revisions: {},
-    facts: null,
-    approval: null,
-    closes: null,
-    owner: { lease: "owner.lease", pid: 0, startedAt: 0 },
-    coordination: [],
-    format: 1,
-    kind: "intent",
-  });
-  const body = new TextEncoder().encode(payload);
+export function framed(
+  kind: string,
+  payload: Readonly<Record<string, Json>>,
+): string {
+  const body = JSON.stringify({ ...payload, format: 1, kind });
   const digest = createHash("sha256")
-    .update("intent\n")
+    .update(`${kind}\n`)
     .update(body)
     .digest("hex");
+  return `C3S1 ${kind} ${String(new TextEncoder().encode(body).length).padStart(10, "0")} ${digest}\n${body}\n`;
+}
+
+export const journals = {
+  one: "contract3.state",
+  two: "contract3.state.2",
+} as const;
+
+export function formatRecord(journal: string): string {
+  return framed("format", { journal });
+}
+
+export function versionTwoStore(root: string): void {
+  for (const folder of ["coordination", "operations", "settled", "staging"])
+    mkdirSync(join(root, folder), { recursive: true, mode: 0o700 });
+  writeFileSync(join(root, "format"), formatRecord(journals.two));
+}
+
+export function writeSyntheticOperation(
+  root: string,
+  path: string,
+  options: { readonly id?: string; readonly completed?: true } = {},
+): string {
+  const id =
+    options.id ??
+    `op-${createHash("sha256").update(path).digest("hex").slice(0, 32)}`;
+  const directory = join(root, "operations", id);
+  mkdirSync(directory);
   writeFileSync(
     join(directory, "intent"),
-    `C3S1 intent ${String(body.length).padStart(10, "0")} ${digest}\n${payload}\n`,
+    framed("intent", {
+      operationId: id,
+      commandIdentity: "test.synthetic",
+      runId: "synthetic-run",
+      effects: ["note.write"],
+      scope: {
+        resources: [{ resource: "note:synthetic", path, keys: [] }],
+        invariants: [],
+        unknown: false,
+        keys: [],
+      },
+      revisions: {},
+      facts: null,
+      approval: null,
+      closes: null,
+      owner: { lease: "owner.lease", pid: 0, startedAt: 0 },
+      coordination: [],
+    }),
   );
-  writeFileSync(join(directory, "events"), "");
+  writeFileSync(
+    join(directory, "events"),
+    options.completed
+      ? `${framed("effect-started", { effect: "note.write" })}${framed("effect-confirmed", { effect: "note.write" })}${framed("completion", { completed: ["note.write"] })}`
+      : "",
+  );
   writeFileSync(join(directory, "owner.lease"), "");
   return id;
 }
@@ -283,8 +313,11 @@ export type Observed = {
   readonly closure: FileRead | undefined;
 };
 
-export function readOperations(root: string): readonly Observed[] {
-  const directory = join(root, "operations");
+export function readOperations(
+  root: string,
+  folder: "operations" | "settled" = "operations",
+): readonly Observed[] {
+  const directory = join(root, folder);
   if (!existsSync(directory)) return [];
   return readdirSync(directory)
     .sort()
@@ -524,6 +557,8 @@ export function makeWorld(
     killAt,
     clearRelease,
     operations: () => readOperations(root),
+    settled: () => readOperations(root, "settled"),
+    cases: () => [...readOperations(root), ...readOperations(root, "settled")],
     dispose() {
       for (const child of children) child.kill("SIGKILL");
       rmSync(base, { recursive: true, force: true });

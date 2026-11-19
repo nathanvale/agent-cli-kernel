@@ -32,7 +32,7 @@ function labelled(world: World, label: string): Json {
 
 function operationOf(world: World, runId: string): Observed {
   const matches = world
-    .operations()
+    .cases()
     .filter((operation) => operation.intent.runId === runId);
   if (matches.length !== 1)
     throw new Error(`Expected one operation for ${runId}.`);
@@ -86,7 +86,7 @@ supportingTest(
         return runId;
       });
       expect(new Set(runs).size).toBe(2);
-      expect(world.operations()).toHaveLength(2);
+      expect(world.cases()).toHaveLength(2);
       expect(world.noteLedger("a")).toBe(1);
       expect(world.noteLedger("b")).toBe(1);
     } finally {
@@ -139,7 +139,7 @@ supportingTest(
       expect(lines(world).map((line) => line.label)).toEqual(["first", "held"]);
       const finishedRun = str(at(labelled(world, "first"), "runId"));
       const finished = operationOf(world, finishedRun);
-      const operations = world.operations();
+      const operations = world.cases();
       expect(operations).toHaveLength(2);
       const inFlight = operations.filter(
         (operation) => operation.id !== finished.id,

@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import {
+  chmodSync,
   closeSync,
   constants,
   existsSync,
@@ -1064,6 +1065,65 @@ supportingTest(
     expect(releases.at(3)?.name).toBe("owner.lease");
   },
 );
+
+caseTest("L07.g-failed-move-keeps-outcome", async () => {
+  const recordBoth: Scenario = async (record, host) => {
+    await record(() => Promise.resolve());
+    await host.transaction.record(
+      "e.two",
+      () => Promise.resolve(),
+      () => Promise.resolve(true),
+    );
+  };
+  const first = await inTransaction(recordBoth, undefined, { keys: ["k1"] });
+  expect(first.outcome?.kind).toBe("ran");
+  const root = first.root;
+  const [settledCase, ...others] = readOperations(root);
+  expect(others).toEqual([]);
+  if (!settledCase) throw new Error("No case.");
+  const settled = join(root, "settled");
+  chmodSync(settled, 0o500);
+  let admissionFree = false;
+  let second: Awaited<ReturnType<typeof inTransaction>>;
+  try {
+    second = await inTransaction(
+      async (record, host) => {
+        admissionFree = lockFree(
+          join(host.root, "coordination", "admission.lock"),
+        );
+        await recordBoth(record, host);
+      },
+      undefined,
+      { keys: ["k2"], root },
+    );
+  } finally {
+    chmodSync(settled, 0o700);
+  }
+  expect(second.outcome?.kind).toBe("ran");
+  expect(
+    second.outcome?.kind === "ran" ? second.outcome.workFailed : true,
+  ).toBe(false);
+  expect(admissionFree).toBe(true);
+  expect(readdirSync(settled)).toEqual([]);
+  const operations = readOperations(root);
+  expect(operations.map((entry) => entry.id)).toContain(settledCase.id);
+  for (const entry of operations)
+    expect(entry.events.records.map((record) => record.kind)).toEqual([
+      "effect-started",
+      "effect-confirmed",
+      "effect-started",
+      "effect-confirmed",
+      "completion",
+    ]);
+  const third = await inTransaction(recordBoth, undefined, {
+    keys: ["k3"],
+    root,
+  });
+  expect(third.outcome?.kind).toBe("ran");
+  expect(readOperations(root, "settled").map((entry) => entry.id)).toEqual(
+    operations.map((entry) => entry.id).sort(),
+  );
+});
 
 caseTest("C01.j-failure-after-admission-releases-everything", async () => {
   const keys = ["k1", "k2", "k3"];

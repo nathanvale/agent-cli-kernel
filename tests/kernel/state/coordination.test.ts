@@ -350,7 +350,7 @@ caseTest(
     expectCompleted(await winner.done);
     expectCompleted(await world.run(orders[settled] ?? []));
     const recorded = world
-      .operations()
+      .cases()
       .map((entry) => at(entry.intent, "coordination"));
     expect(recorded.length).toBe(2);
     for (const order of recorded) {

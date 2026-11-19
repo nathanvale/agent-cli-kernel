@@ -53,7 +53,10 @@ function only(world: World, command = "sx.apply"): string {
   return first.id;
 }
 function closurePath(world: World, id: string): string {
-  return join(world.root, "operations", id, "closure");
+  const folder = existsSync(join(world.root, "settled", id))
+    ? "settled"
+    : "operations";
+  return join(world.root, folder, id, "closure");
 }
 function closeArgs(
   id: string,
@@ -355,6 +358,37 @@ caseTest(
     expect(at(history.result.raw, "data", "status")).toBe("closed");
     expectCompleted(await world.run(apply("a", "again")));
     expect(world.noteLedger("a")).toBe(3);
+  }),
+);
+
+caseTest(
+  "K10.a-retry-after-move",
+  fixture(async (world) => {
+    await world.killAt(apply("a"), "effect");
+    const id = only(world);
+    const revision = await world.revision(id);
+    expectCompleted(await world.run(closeArgs(id, revision)));
+    const closer = only(world, "sx.close");
+    const bytes = readFileSync(closurePath(world, id));
+    expectCompleted(await world.run(apply("b")));
+    expect(world.settled().map((entry) => entry.id)).toEqual(
+      [id, closer].sort(),
+    );
+    const again = await world.run(closeArgs(id, revision));
+    expect(again.exit).toBe(0);
+    expect(again.result.causeCode).toBe("SUCCESS_UNCHANGED");
+    expect(at(again.result.raw, "data", "disposition")).toBe("completed");
+    expect(readFileSync(join(world.root, "settled", id, "closure"))).toEqual(
+      bytes,
+    );
+    expect(
+      world.operations().map((entry) => entry.intent.commandIdentity),
+    ).toEqual(["sx.apply"]);
+    const observed = await world.history(closer);
+    expect(at(observed.result.raw, "data", "observed")).toEqual({
+      "state.closure": "completed",
+    });
+    expect(world.noteLedger("a")).toBe(1);
   }),
 );
 

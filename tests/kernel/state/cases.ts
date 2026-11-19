@@ -183,6 +183,32 @@ export const stateCases: readonly StateCase[] = [
       "Repeat J01, P01 and K02 after deleting diagnostics: same pending, admission, closure and scope.",
     red: "Derive any admission, scope or recovery fact from diagnostics.",
   },
+  {
+    id: "J08.a-v1-program-refuses-v2-store",
+    ...coordinated,
+    sources:
+      "DISC-14 item 5; CMD-11; journal version 2 design part 1 section 3; X23; decision E (Nathan, 19 November 2026, 13:46)",
+    observation: "A version 1 reader refuses every route on a version 2 store.",
+    red: "Mark version 2 by an added field only.",
+  },
+  {
+    id: "J08.b-upgrade-crash-points",
+    ...coordinated,
+    sources:
+      "CMD-11; REC-8; DIAG-13; journal version 2 design part 1 section 3; X23; decision Q (Nathan, 19 November 2026, 12:08)",
+    observation:
+      "Killed before and after the format rename: version 1 or version 2; no case lost or relisted.",
+    red: "Rewrite format in place.",
+  },
+  {
+    id: "J08.c-settled-at-written",
+    ...coordinated,
+    sources:
+      "REC-4; journal version 2 design part 1 section 7; decisions A, D and H (Nathan, 19 November 2026, 12:08)",
+    observation:
+      "completion, not-applied and closure records carry settledAt; a version 1 reader still reads them.",
+    red: "Omit settledAt.",
+  },
 
   {
     id: "L01.a-kill-at-intent-listed",
@@ -301,6 +327,76 @@ export const stateCases: readonly StateCase[] = [
     observation:
       "The process aborts (SIGABRT) after its intent: no envelope, and the report lists the intent.",
     red: "Treat a missing result as unchanged.",
+  },
+  {
+    id: "L07.a-settled-moved-not-listed",
+    ...coordinated,
+    sources:
+      "DISC-14 item 3; REC-4; DIAG-13; journal version 2 design part 1 sections 4 and 6; X24; decision B (Nathan, 19 November 2026, 13:46)",
+    observation:
+      "After a completed run and the next admission, the case is in settled/ with the same revision; history finds it.",
+    red: "Change bytes when moving.",
+  },
+  {
+    id: "L07.b-admission-does-not-read-settled",
+    ...coordinated,
+    nonRoot: true,
+    sources:
+      "DISC-14 item 5; journal version 2 design part 1 section 5; decision C (Nathan, 19 November 2026, 13:46)",
+    observation:
+      "With settled/ unreadable (non-root), admission and the report succeed; that case's history refuses.",
+    red: "Read settled/ at admission (planted fault).",
+  },
+  {
+    id: "L07.c-crash-between-final-event-and-move",
+    ...coordinated,
+    sources:
+      "DISC-14; REC-8; journal version 2 design part 1 section 6; X24; decision R (Nathan, 19 November 2026, 13:46)",
+    observation:
+      "Killed after the final event: not listed, the next overlapping change proceeds and moves it.",
+    red: "List a settled case kept in operations/.",
+  },
+  {
+    id: "L07.d-move-skips-live-or-closing",
+    ...coordinated,
+    sources: "REC-3; REC-7; journal version 2 design part 1 section 6; X24",
+    observation:
+      "A case whose lease or case: coordination lock is held stays in operations/. A refused admission moves nothing.",
+    red: "Move under a closer.",
+  },
+  {
+    id: "L07.e-move-bound",
+    ...coordinated,
+    sources:
+      "CMD-12; journal version 2 design part 1 section 6; X24; decision F (Nathan, 19 November 2026, 12:08)",
+    observation: "65 settled cases: one admission moves 64, the next moves 1.",
+    red: "Unbounded moves (planted fault).",
+  },
+  {
+    id: "L07.f-examination-bound",
+    ...coordinated,
+    sources:
+      "CMD-12; journal version 2 design part 1 section 6; journal version 2 design part 3 section 4",
+    observation:
+      "128 ineligible settled cases ahead of one eligible case in name order, and no new case settled in between. The test entry fixes the start and reports how many cases a hold examined: from the front, one hold examines 128 and moves none; from any other start, the next hold moves the eligible case.",
+    red: "Examine without a bound, or always from the front (planted fault).",
+  },
+  {
+    id: "L07.g-failed-move-keeps-outcome",
+    ...transactionComponent,
+    nonRoot: true,
+    sources: "CMD-11; DIAG-13; journal version 2 design part 1 section 6",
+    observation:
+      "A rename that fails after publication: the transaction runs and reports its own effects, the admission lock is released, the case stays settled in operations/.",
+    red: "Refuse the admission on a failed move (planted fault).",
+  },
+  {
+    id: "L08.a-reader-races-move",
+    ...coordinated,
+    sources: "DISC-14; REC-4; journal version 2 design part 1 section 5; X25",
+    observation:
+      "Report and history during moves: a closed case is never listed, an existing case is never corrupt or not found.",
+    red: "Trust a read whose folder has gone.",
   },
 
   {
@@ -452,6 +548,14 @@ export const stateCases: readonly StateCase[] = [
     observation:
       "A later overlapping run never appends to the earlier case's events and is refused by the unresolved-case station.",
     red: "Reconcile an earlier operation inside a later operation.",
+  },
+  {
+    id: "K10.a-retry-after-move",
+    ...coordinated,
+    sources: "REC-4; DISC-15; journal version 2 design part 1 section 5; X26",
+    observation:
+      "A retried closure after the move returns the prior disposition.",
+    red: "Look up the target in operations/ only.",
   },
   {
     id: "K11.e-transaction-waits-for-started-effects",
