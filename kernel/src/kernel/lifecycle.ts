@@ -957,18 +957,17 @@ function crashEvery(inFlight: InFlight, host: ProcessHost, error: unknown) {
   }
   inFlight.crash = "listening";
   for (const run of inFlight.runs) run.controller.abort();
+  const due = host.now() + stopBoundMilliseconds;
   const listening = [...inFlight.listeners].map((each) =>
     callOnCrash(each, error),
   );
-  void within(
-    Promise.allSettled(listening),
-    stopBoundMilliseconds,
-    host.now,
-  ).then(() => {
-    if (inFlight.crash !== "listening") return;
-    inFlight.crash = "exited";
-    host.exit(1);
-  });
+  void within(Promise.allSettled(listening), due - host.now(), host.now).then(
+    () => {
+      if (inFlight.crash !== "listening") return;
+      inFlight.crash = "exited";
+      host.exit(1);
+    },
+  );
 }
 
 const decoder = new TextDecoder();

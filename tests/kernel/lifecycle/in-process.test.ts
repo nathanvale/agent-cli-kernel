@@ -816,7 +816,7 @@ describe("IP09 onCrash hears the error before the process exits", () => {
         await turns();
         expect(recorder.exits).toEqual([]);
         listener.settle.resolve();
-        await turns();
+        expect(await until(() => recorder.exits.length > 0)).toBe(true);
         expect(recorder.exits).toEqual([1]);
         expect(recorder.writes).toEqual([]);
       } finally {
@@ -874,7 +874,7 @@ describe("IP09 onCrash hears the error before the process exits", () => {
         jest.useFakeTimers();
         try {
           recorder.crash();
-          await turns();
+          expect(await until(() => recorder.exits.length > 0)).toBe(true);
           expect(recorder.exits).toEqual([1]);
           expect(facts).toHaveLength(1);
           expect(recorder.writes).toEqual([]);
@@ -991,7 +991,7 @@ describe("IP09 onCrash hears the error before the process exits", () => {
           settled.late = true;
         });
         listener.settle.resolve();
-        await turns();
+        expect(await until(() => recorder.exits.length > 0)).toBe(true);
         expect(recorder.exits).toEqual([1]);
         expect(subject.entries).toHaveLength(1);
         expect(settled.late).toBe(false);
@@ -1024,26 +1024,60 @@ describe("IP09 onCrash hears the error before the process exits", () => {
     timeout,
   );
 
+  for (const last of ["second", "first"] as const)
+    test(
+      `IP09.each-entry-listener two entries on one host each have their onCrash called once, and exit waits for both, when the ${last} settles last`,
+      async () => {
+        const recorder = recordingHost();
+        const first = recordedOnCrash();
+        const second = recordedOnCrash();
+        await holding(recorder, { onCrash: first.onCrash }).run(["hold"]);
+        await holding(recorder, { onCrash: second.onCrash }).run(["hold"]);
+        const [early, late] =
+          last === "second" ? [first, second] : [second, first];
+        jest.useFakeTimers();
+        try {
+          const error = new Error("Planted crash after two entries ran.");
+          recorder.crash(error);
+          expect(first.calls).toEqual([[error]]);
+          expect(second.calls).toEqual([[error]]);
+          early.settle.resolve();
+          await turns();
+          expect(recorder.exits).toEqual([]);
+          late.settle.resolve();
+          expect(await until(() => recorder.exits.length > 0)).toBe(true);
+          expect(recorder.exits).toEqual([1]);
+        } finally {
+          jest.useRealTimers();
+        }
+      },
+      timeout,
+    );
+
   test(
-    "IP09.each-entry-listener two entries on one host each have their onCrash called once, and exit waits for both",
+    "IP09.bound-from-call synchronous work inside onCrash counts against the 450 ms wait",
     async () => {
       const recorder = recordingHost();
-      const first = recordedOnCrash();
-      const second = recordedOnCrash();
-      await holding(recorder, { onCrash: first.onCrash }).run(["hold"]);
-      await holding(recorder, { onCrash: second.onCrash }).run(["hold"]);
+      const listener = recordedOnCrash();
+      const busy = 300;
+      const subject = holding(recorder, {
+        onCrash: (error) => {
+          jest.advanceTimersByTime(busy);
+          return listener.onCrash(error);
+        },
+      });
+      await subject.run(["hold", "--json"]);
       jest.useFakeTimers();
       try {
-        const error = new Error("Planted crash after two entries ran.");
-        recorder.crash(error);
-        expect(first.calls).toEqual([[error]]);
-        expect(second.calls).toEqual([[error]]);
-        first.settle.resolve();
-        await turns();
+        const crashedAt = performance.now();
+        recorder.crash();
+        await advance(exactStopBound - busy - 1);
         expect(recorder.exits).toEqual([]);
-        second.settle.resolve();
-        await turns();
+        await advance(1);
         expect(recorder.exits).toEqual([1]);
+        expect(recorder.exitedAt.map((at) => at - crashedAt)).toEqual([
+          exactStopBound,
+        ]);
       } finally {
         jest.useRealTimers();
       }

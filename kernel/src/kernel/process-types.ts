@@ -95,7 +95,9 @@ export type RunSetup = {
 // kill every run's owned programs and writes its emergency records, then calls
 // `onCrash` once with the error, then exits 1 as soon as it settles or 450 ms
 // after the call. A throw or rejection changes nothing, a second crash during
-// the wait exits at once, and the kernel prints nothing.
+// the wait exits at once, and the kernel prints nothing. `onCrash` must not
+// block: the 450 ms counts from the first call, and the kernel cannot
+// interrupt synchronous work inside it.
 // Interface: Provisional reading, for Nathan: each entry's `onCrash` is
 // called once, from that entry's first call on, and exit waits for all of
 // them; the host keeps one per distinct function, so reuse one function across
