@@ -292,7 +292,7 @@ test("in-process state cases ran their real bodies on macOS and Linux, and nowhe
   const folder = testFolder("in-process-ran-");
   try {
     const log = join(folder, "ran.log");
-    await spawnBounded(
+    const child = await spawnBounded(
       [
         process.execPath,
         "test",
@@ -311,7 +311,11 @@ test("in-process state cases ran their real bodies on macOS and Linux, and nowhe
       ? readFileSync(log, "utf8").split("\n").filter(Boolean)
       : [];
     const proved = ["darwin", "linux"].includes(process.platform);
-    expect(ran).toEqual(proved ? cases : []);
+    expect({
+      exit: child.exit,
+      ran,
+      output: child.exit === 0 ? [] : child.stderr.split("\n").slice(-40),
+    }).toEqual({ exit: 0, ran: proved ? cases : [], output: [] });
   } finally {
     rmSync(folder, { recursive: true, force: true });
   }
