@@ -900,6 +900,7 @@ const inFlightByHost = new WeakMap<ProcessHost, InFlight>();
 function stopEvery(inFlight: InFlight, host: ProcessHost, signal: StopSignal) {
   const code = stopCode(signal);
   const runs = [...inFlight.runs];
+  if (inFlight.crash === "stopping") return;
   if (inFlight.crash === "listening") {
     for (const run of runs) killAll(run);
     inFlight.crash = "exited";

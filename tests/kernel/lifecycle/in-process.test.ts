@@ -1109,6 +1109,42 @@ describe("IP09 onCrash hears the error before the process exits", () => {
   );
 
   test(
+    "IP09.signal-while-stopping stop signals raised while the crash writes its records do not take the exit",
+    async () => {
+      const recorder = recordingHost();
+      const steps: string[] = [];
+      const listener = recordedOnCrash();
+      const subject = holding(recorder, {
+        onCrash: (error) => {
+          steps.push("listener");
+          return listener.onCrash(error);
+        },
+        emergencyRecord: () => {
+          steps.push("record started");
+          recorder.signal("SIGTERM");
+          recorder.signal("SIGTERM");
+          steps.push("record written");
+        },
+      });
+      const one = await heldRun(subject);
+      jest.useFakeTimers();
+      try {
+        recorder.crash();
+        expect(steps).toEqual(["record started", "record written", "listener"]);
+        expect(recorder.exits).toEqual([]);
+        listener.settle.resolve();
+        expect(await until(() => recorder.exits.length > 0)).toBe(true);
+        expect(recorder.exits).toEqual([1]);
+      } finally {
+        jest.useRealTimers();
+        one.gate.returned.resolve();
+      }
+      await one.done;
+    },
+    timeout,
+  );
+
+  test(
     "IP09.no-listener-unchanged with no onCrash a crash still exits 1 at once",
     async () => {
       const recorder = recordingHost();
