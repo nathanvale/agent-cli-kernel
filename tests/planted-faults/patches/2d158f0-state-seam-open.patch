@@ -1,15 +1,17 @@
 diff --git a/kernel/src/kernel/state-seam.ts b/kernel/src/kernel/state-seam.ts
-index 2a271d2..94823ff 100644
+index 8584fb1..9c831cd 100644
 --- a/kernel/src/kernel/state-seam.ts
 +++ b/kernel/src/kernel/state-seam.ts
-@@ -340,10 +340,6 @@ export function forgetRun(
-   const state = descriptor ? registrations.get(descriptor) : undefined;
-   const run = state?.runs.get(runId);
-   const open = run ? attachedRuns.get(run)?.openTransaction : undefined;
+@@ -341,12 +341,6 @@ function forgetAttachment(
+   run: object,
+ ): void {
+   const open = attachedRuns.get(run)?.openTransaction;
 -  if (open) {
--    void open.then(() => state?.runs.delete(runId));
+-    void open.then(() => {
+-      forgetAttachment(runs, runId, run);
+-    });
 -    return;
 -  }
-   state?.runs.delete(runId);
+   if (runs.get(runId) === run) runs.delete(runId);
  }
  

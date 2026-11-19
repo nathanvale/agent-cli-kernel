@@ -6,7 +6,6 @@ import {
   attachState,
   attachedRunCount,
   createStateAddon,
-  forgetRun,
   issuedProof,
   knownProof,
 } from "../../kernel/src/kernel/state-seam.ts";
@@ -123,14 +122,14 @@ const note = () => Promise.resolve("noted");
 const confirmed = () => Promise.resolve(true);
 
 test("a transaction still open after its handler returns cannot record an effect", async () => {
-  const { descriptor, attached } = recordingState();
+  const { attached } = recordingState();
   const open = deferred();
   const recorded = attached.capability.transaction(async (transaction) => {
     await open.promise;
     await transaction.record("specimen.note", note, confirmed);
   });
   attached.close();
-  forgetRun("run-1", descriptor);
+  attached.forget();
   open.resolve();
   expect(await messageOf(recorded)).toBe(
     "The state capability closed when the handler returned.",
@@ -175,10 +174,10 @@ test("a record inside its open run's transaction records its effect", async () =
 });
 
 test("a record kept past its forgotten run and called outside the run cannot record an effect", async () => {
-  const { descriptor, attached } = recordingState();
+  const { attached } = recordingState();
   const kept = await keptRecord(attached);
   attached.close();
-  forgetRun("run-1", descriptor);
+  attached.forget();
   expect(await outsideTheRun(kept)).toBe(outsideRefusal);
 });
 
@@ -186,7 +185,7 @@ test("a record kept past its forgotten run cannot record under the run that reus
   const { descriptor, attached } = recordingState();
   const kept = await keptRecord(attached);
   attached.close();
-  forgetRun("run-1", descriptor);
+  attached.forget();
   expect(attachState(descriptor, "run-1", ["specimen.note"])).toBeDefined();
   expect(await outsideTheRun(kept)).toBe(outsideRefusal);
 });
@@ -233,7 +232,7 @@ test("a run whose transaction is still running stays live after its handler retu
     await open.promise;
   });
   attached.close();
-  forgetRun("run-1", descriptor);
+  attached.forget();
   expect(attachedRunCount(descriptor)).toBe(1);
   expect(attachState(descriptor, "run-1", ["specimen.note"])).toBeUndefined();
   open.resolve();
@@ -261,7 +260,7 @@ test("a late callback in a forgotten run's context cannot record under the run t
     ),
   ).toBe("The test transaction proves nothing.");
   attached.close();
-  forgetRun("run-1", descriptor);
+  attached.forget();
   expect(await until(() => attachedRunCount(descriptor) === 0)).toBe(true);
   expect(attachState(descriptor, "run-1", ["specimen.note"])).toBeDefined();
   later.resolve();
@@ -270,4 +269,14 @@ test("a late callback in a forgotten run's context cannot record under the run t
   expect(await callback).toBe(
     "The state capability closed when the handler returned.",
   );
+});
+
+test("an attachment's forget never removes a later attachment of the same identity", () => {
+  const { descriptor, attached } = recordingState();
+  attached.forget();
+  expect(attachedRunCount(descriptor)).toBe(0);
+  const later = attachState(descriptor, "run-1", ["specimen.note"]);
+  expect(later).toBeDefined();
+  attached.forget();
+  expect(attachedRunCount(descriptor)).toBe(1);
 });

@@ -1,12 +1,12 @@
 diff --git a/kernel/src/kernel/state-seam.ts b/kernel/src/kernel/state-seam.ts
-index e87fc1c..4cbad1d 100644
+index e84dcc8..7142825 100644
 --- a/kernel/src/kernel/state-seam.ts
 +++ b/kernel/src/kernel/state-seam.ts
-@@ -335,7 +335,6 @@ export function forgetRun(
-   descriptor: StateAddonDescriptor | undefined,
- ): void {
-   const state = descriptor ? registrations.get(descriptor) : undefined;
--  state?.runs.delete(runId);
+@@ -348,7 +348,6 @@ function forgetAttachment(
+     });
+     return;
+   }
+-  if (runs.get(runId) === run) runs.delete(runId);
  }
  
- function revokeIssued(run: object): void {
+ function attachOwned<Effect extends string>(

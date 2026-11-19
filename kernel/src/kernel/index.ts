@@ -15,7 +15,6 @@ import {
   createStateAddon,
   attachState,
   closeAtDeadline,
-  forgetRun,
   issuedProof,
   proofFreeResultAllowed,
 } from "./state-seam.ts";
@@ -113,6 +112,7 @@ export function contractFor<
     ]),
   );
   const acceptedResults = new WeakSet<object>();
+  const forgetters = new WeakMap<Enter, () => void>();
   const navigation = navigationData(spec.cli, commands, stationMap);
   async function validate(value: unknown) {
     const checked = await validateEnvelope(
@@ -316,6 +316,7 @@ export function contractFor<
         ).finally(() => attached?.close());
         return accepted(outcome, identity, runId, invocation, parsed);
       };
+      if (attached) forgetters.set(enter, attached.forget);
       return { ok: true, value: enter };
     };
     return { ok: true, value: attach };
@@ -453,7 +454,7 @@ export function contractFor<
     validate,
     trustedSummary: (runId) => issuedProof(runId, spec.state),
     closeStateAtDeadline: (runId) => closeAtDeadline(runId, spec.state),
-    forgetState: (runId) => forgetRun(runId, spec.state),
+    forgetState: (enter) => forgetters.get(enter)?.(),
   });
   return contract;
 }
