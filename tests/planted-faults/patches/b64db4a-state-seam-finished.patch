@@ -1,0 +1,13 @@
+diff --git a/kernel/src/kernel/state-seam.ts b/kernel/src/kernel/state-seam.ts
+index 24c811b..7803487 100644
+--- a/kernel/src/kernel/state-seam.ts
++++ b/kernel/src/kernel/state-seam.ts
+@@ -201,7 +201,7 @@ function stateIssuer(
+     ): RecordedEffect<Effect> {
+       const execution = active.getStore();
+       const run = execution?.runId === runId ? execution.run : runs.get(runId);
+-      const closed = run ? attachedRuns.get(run)?.closed : "finished";
++      const closed = run ? attachedRuns.get(run)?.closed : undefined;
+       if (closed) throw new Error(closedReason[closed]);
+       return Object.freeze({
+         [recordedEffect]: true as const,
