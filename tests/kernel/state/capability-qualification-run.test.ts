@@ -1099,6 +1099,7 @@ supportingTest(
       );
       expect(message).toContain("differs in");
       expect(message).toContain("major release");
+      expect(message).toContain("; qualified: candidate (os linux, major 0, ");
     } finally {
       control.dispose();
       run.dispose();
