@@ -1,7 +1,7 @@
 # Capability qualification records
 
-Each file here is the capability qualification record that one capability
-qualification row cites, named `<row id>.json`. Only
+Each file here is the capability qualification record that one
+capability qualification row cites, named `<row id>.json`. Only
 `bun run capability-qualification-run` writes one; never edit a record by
 hand.
 
@@ -10,8 +10,8 @@ hand.
   (`kernel/src/addons/state/DESIGN-V2-CLOSURE.md`).
 - A row needs two capability qualification runs in its record: the first
   through the test entry (`fixture.ts`) with the candidate row, the second
-  through `index.ts` with the row in the production capability qualification
-  table, on the row's own branch.
+  through `index.ts` with the row in the production
+  capability qualification table, on the row's own branch.
 - Case Q03.a, in `capability-qualification-record.test.ts`, refuses a
   production row whose record is missing, made with an overridden fact, for
   another platform or for changed source, short of a run or a passed required
@@ -29,3 +29,5 @@ The candidate row file is JSON with the row's `id`, `os`, `majorRelease`,
 `observedRelease`, `filesystem` (`name` and `type`), `primitive` and
 `bootIdentitySource`, kept outside the checkout. The state root parent is a
 folder on the filesystem under test; each case makes its state root inside it.
+Give both as absolute paths: `bun run` starts the command at the repository
+root.
