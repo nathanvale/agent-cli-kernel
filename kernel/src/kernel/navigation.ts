@@ -111,6 +111,9 @@ function helpStep(cli: string): NextStep {
 function discoverable(identity: string): boolean {
   return !identity.startsWith("-") && !/[{}]/u.test(identity);
 }
+// Accepted decision (Nathan, 20 November 2026, 07:37 AEDT; WIRE-18): a
+// command's own discovery counts as the help a usage refusal points to, so a
+// host command's refusal points at its discovery, not at the CLI's help.
 const hostSteps: Partial<
   Record<keyof typeof commonCauses, (identity: string, cli: string) => NextStep>
 > = {
