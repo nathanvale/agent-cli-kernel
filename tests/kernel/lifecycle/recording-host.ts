@@ -67,12 +67,32 @@ export function recordingHost() {
         throw new Error("The front door installed no signal hook.");
       listener(name);
     },
+    stopAt(name: StopSignal): number {
+      const sentAt = performance.now();
+      if (!listener)
+        throw new Error("The front door installed no signal hook.");
+      listener(name);
+      return sentAt;
+    },
     crash() {
       if (!crashListener)
         throw new Error("The kernel installed no crash hook.");
       crashListener();
     },
   };
+}
+
+export function aborted(signal: AbortSignal): Promise<void> {
+  if (signal.aborted) return Promise.resolve();
+  return new Promise((resolve) => {
+    signal.addEventListener(
+      "abort",
+      () => {
+        resolve();
+      },
+      { once: true },
+    );
+  });
 }
 
 export function deferred() {
