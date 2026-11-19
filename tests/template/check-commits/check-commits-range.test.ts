@@ -290,9 +290,12 @@ describe("check:commits", () => {
         ["--shard", "1/2", "extra"],
       ]) {
         const run = await checkCommits(root, [base.sha, ...shard]);
-        expect(run.stderr).toBe(
-          `Usage: bun run check:commits <base> [head] --shard <part>/<parts>, with whole numbers 1 <= part <= parts. Got '${shard.join(" ")}'. Repair: pass one part, such as --shard 2/4.\n`,
-        );
+        expect(
+          run.stderr.split("\n").filter((line) => !line.startsWith("$ ")),
+        ).toEqual([
+          `Usage: bun run check:commits <base> [head] --shard <part>/<parts>, with whole numbers 1 <= part <= parts. Got '${shard.join(" ")}'. Repair: pass one part, such as --shard 2/4.`,
+          "",
+        ]);
         expect(verdicts(run.lines)).toEqual([]);
         expect(run.exit).toBe(2);
       }

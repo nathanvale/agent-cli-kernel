@@ -26,6 +26,18 @@ describe("main", () => {
     expect(shown.lines).toEqual([""]);
   });
 
+  test("a part past its parts is refused with the shard usage line and exit code 2, before the doctor runs", async () => {
+    const { base, run } = repositoryAt();
+
+    const shown = await captured(() => main([base.sha, "--shard", "3/2"], run));
+
+    expect(shown.value).toBe(2);
+    expect(shown.stderr).toBe(
+      "Usage: bun run check:commits <base> [head] --shard <part>/<parts>, with whole numbers 1 <= part <= parts. Got '--shard 3/2'. Repair: pass one part, such as --shard 2/4.\n",
+    );
+    expect(shown.lines).toEqual([""]);
+  });
+
   test(
     "a Bun other than the pin is refused after the doctor names it, with exit code 1 and no commit checked",
     async () => {
