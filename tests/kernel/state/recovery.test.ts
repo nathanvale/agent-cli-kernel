@@ -1436,20 +1436,32 @@ function caseIds(world: World): readonly string[] {
 function tornTail(world: World, id: string): boolean {
   return caseOf(world, id).events.torn;
 }
+const productionStartMarker = "entry production";
+function outsideCoordinationAndEffects(world: World): readonly string[] {
+  return [
+    ...outsideCoordination(world)
+      .split("\n")
+      .filter((line) => !line.startsWith("world/ledger.log ")),
+    ...world
+      .ledger()
+      .filter((line) => line !== productionStartMarker)
+      .map((line) => `world/ledger.log line ${line}`),
+  ];
+}
 async function refusedUnavailable(
   world: World,
   id: string,
   environment: Readonly<Record<string, string>>,
   reason: string,
 ): Promise<void> {
-  const before = outsideCoordination(world);
+  const before = outsideCoordinationAndEffects(world);
   const refused = await world.run(
     closeArgs(id, await world.revision(id)),
     environment,
   );
   expectRefusedUnchanged(refused, "DOMAIN_SX_UNAVAILABLE");
   expect(str(refused.envelope.message)).toBe(`State unavailable: ${reason}.`);
-  expect(outsideCoordination(world)).toBe(before);
+  expect(outsideCoordinationAndEffects(world)).toEqual(before);
   expect(existsSync(closurePath(world, id))).toBe(false);
 }
 const confirmedRecord = framed("effect-confirmed", { effect: "note.write" });
