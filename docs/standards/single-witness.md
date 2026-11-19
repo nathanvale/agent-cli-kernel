@@ -111,6 +111,11 @@ this file.
   stale, not as the later state. Witnessed: [kernel#18 r4625574054],
   [4f7712e] (a case completed after the caller's read refused as a
   conflict, "already has a different closure").
+- Make a reader that collects delimited blocks refuse a block still open at
+  the end of its input, so the lines in it cannot escape the checks that
+  read the blocks. Witnessed: [kernel#21 r4634973490], [0800d56] (the author
+  guide's fence parser dropped an unclosed code block, so a stale or untyped
+  example passed the language and freshness checks).
 
 [ac11ed9]: https://github.com/nathanvale/bun-typescript-template/commit/ac11ed98b7d538e8a304cac053aaefcaaf6b2cb3
 [cd2498b]: https://github.com/nathanvale/bun-typescript-template/commit/cd2498b7189a2d45d1906b9c870e8d13da6cd2dd
@@ -143,3 +148,5 @@ this file.
 [d37a77f]: https://github.com/nathanvale/agent-cli-kernel/commit/d37a77ffc6f8f62c9c89fca2b35e8b16446ef694
 [kernel#18 r4625574054]: https://github.com/nathanvale/agent-cli-kernel/pull/18#discussion_r4625574054
 [4f7712e]: https://github.com/nathanvale/agent-cli-kernel/commit/4f7712e80e9ea127b4bf43b7d9f69e8cd6a8954a
+[kernel#21 r4634973490]: https://github.com/nathanvale/agent-cli-kernel/pull/21#discussion_r4634973490
+[0800d56]: https://github.com/nathanvale/agent-cli-kernel/commit/0800d56170e923cf87a7913092ad5c45430fdee7
