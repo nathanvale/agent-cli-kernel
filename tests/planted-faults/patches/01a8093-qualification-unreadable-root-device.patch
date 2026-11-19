@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/state/qualification.ts b/kernel/src/addons/state/qualification.ts
+index 89feb3a..e4c2b22 100644
+--- a/kernel/src/addons/state/qualification.ts
++++ b/kernel/src/addons/state/qualification.ts
+@@ -162,7 +162,7 @@ function differences(
+ 
+ function deviceProblem(facts: EnvironmentFacts): string | undefined {
+   const { root, ...folders } = facts.devices;
+-  if (!root.read) return "the state root's device is unreadable";
++  if (!root.read) return undefined;
+   const off = Object.entries(folders)
+     .filter(([, device]) => !equals(device, root.value))
+     .map(([folder]) => `${folder}/`);

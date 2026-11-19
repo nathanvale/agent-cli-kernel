@@ -30,7 +30,14 @@ import type {
 import { stateAddon } from "../../../../kernel/src/addons/state/index.ts";
 import type { Observer } from "../../../../kernel/src/addons/state/index.ts";
 import { stateAddonWithTestSeams } from "../../../../kernel/src/addons/state/fixture.ts";
-import type { Phase } from "../../../../kernel/src/addons/state/fixture.ts";
+import type {
+  CapabilityQualificationRow,
+  FactOverrides,
+  Phase,
+} from "../../../../kernel/src/addons/state/fixture.ts";
+import { movedStateRoot } from "../../../../kernel/src/addons/state/capability-qualification-table.ts";
+import { deviceFolders } from "../../../../kernel/src/addons/state/qualification.ts";
+import type { DeviceFolder } from "../../../../kernel/src/addons/state/qualification.ts";
 import { approval } from "../../../../kernel/src/addons/approval/index.ts";
 
 const root = process.env.SX_ROOT ?? "";
@@ -113,12 +120,79 @@ const observers: Readonly<Record<string, Observer>> = {
   "audit.emit": () => Promise.resolve("unobservable"),
 };
 
+function own(source: unknown, key: string): unknown {
+  return typeof source === "object" &&
+    source !== null &&
+    Object.hasOwn(source, key)
+    ? Reflect.get(source, key)
+    : undefined;
+}
+function text(source: unknown, key: string): string {
+  const value = own(source, key);
+  if (typeof value !== "string") throw new Error(`Row field ${key} is text.`);
+  return value;
+}
+
+function candidateRow(source: unknown): CapabilityQualificationRow {
+  const type = own(source, "filesystemType");
+  if (typeof type !== "number") throw new Error("filesystemType is a number.");
+  return {
+    id: "candidate",
+    os: text(source, "os"),
+    majorRelease: text(source, "majorRelease"),
+    observedRelease: text(source, "observedRelease"),
+    filesystem: { name: text(source, "filesystemName"), type },
+    primitive: text(source, "primitive"),
+    bootIdentitySource: text(source, "bootIdentitySource"),
+    processIdentity: "boot identity only",
+    namespace: "test entry",
+    delegatedWriters: "none",
+    failureCases: [movedStateRoot],
+    evidence: {
+      record: "none",
+      review: { session: "none", countersignature: "none", date: "none" },
+    },
+  };
+}
+
+function factOverrides(source: unknown): FactOverrides {
+  const release = own(source, "release");
+  const filesystem = own(source, "filesystem");
+  const boot = own(source, "bootIdentity");
+  const devices = own(source, "devices");
+  const folders: Partial<Record<DeviceFolder, number | null>> = {};
+  for (const folder of deviceFolders) {
+    const device = own(devices, folder);
+    if (typeof device === "number" || device === null) folders[folder] = device;
+  }
+  return {
+    ...(typeof release === "string" ? { release } : {}),
+    ...(typeof filesystem === "number" || filesystem === null
+      ? { filesystem }
+      : {}),
+    ...(typeof boot === "string" || boot === null
+      ? { bootIdentity: boot }
+      : {}),
+    ...(devices === undefined ? {} : { devices: folders }),
+  };
+}
+
 const waitBound = Number(process.env.SX_ADMISSION_WAIT ?? "2000");
 const phased = { phase: (name: Phase) => barrier(name) };
+const candidate = process.env.SX_CANDIDATE_ROW;
 const labelled =
-  process.env.SX_QUALIFICATION === "fixture"
-    ? { ...phased, fixtureLabel: "specimen" }
-    : phased;
+  candidate !== undefined
+    ? {
+        ...phased,
+        fixtureLabel: "specimen",
+        candidateRow: candidateRow(JSON.parse(candidate)),
+        factOverrides: factOverrides(
+          JSON.parse(process.env.SX_FACT_OVERRIDES ?? "{}"),
+        ),
+      }
+    : process.env.SX_QUALIFICATION === "fixture"
+      ? { ...phased, fixtureLabel: "specimen" }
+      : phased;
 const library = process.env.SX_COORDINATION_LIBRARY;
 const moverStart = process.env.SX_MOVER_START;
 const mover = {

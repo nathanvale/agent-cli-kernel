@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/state/qualification.ts b/kernel/src/addons/state/qualification.ts
+index 89feb3a..76d73d6 100644
+--- a/kernel/src/addons/state/qualification.ts
++++ b/kernel/src/addons/state/qualification.ts
+@@ -147,7 +147,7 @@ const rowChecks: readonly (readonly [
+   [
+     "boot identity",
+     (row, facts) =>
+-      facts.bootIdentity.read && row.bootIdentitySource === bootIdentitySource,
++      facts.bootIdentity.read,
+   ],
+ ];
+ 
