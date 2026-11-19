@@ -7,6 +7,7 @@ import {
   readFileSync,
   readdirSync,
   renameSync,
+  rmSync,
   statSync,
   statfsSync,
   writeSync,
@@ -21,7 +22,6 @@ import {
   startChild,
   withoutRepositoryLocation,
 } from "../../../scripts/process-runner.ts";
-import { testFolder } from "../../support/test-folder.ts";
 import {
   capabilityQualificationCases,
   messageOf,
@@ -356,9 +356,9 @@ function cLibrary(): string {
     if (readdirSync("/lib").some((name) => name.startsWith("ld-musl-")))
       return "musl";
   } catch {
-    return "unknown";
+    return "not found";
   }
-  return "unknown";
+  return "not found";
 }
 
 function observedPlatform(): PlatformFacts {
@@ -563,45 +563,73 @@ function writeRecord(
 }
 
 const caseRun: { stop?: () => void } = {};
+const stateTests = "tests/kernel/state";
+
+export function caseFiles(
+  root: string,
+  selection: readonly StateCase[],
+): readonly string[] {
+  const covered = executableIds(selection);
+  return readdirSync(join(root, stateTests))
+    .filter((name) => name.endsWith(".test.ts"))
+    .sort()
+    .map((name) => `${stateTests}/${name}`)
+    .filter((path) =>
+      [
+        ...readFileSync(join(root, path), "utf8").matchAll(
+          /caseTest\(\s*"([^"]+)"/g,
+        ),
+      ].some((match) => covered.includes(match[1] ?? "")),
+    );
+}
 
 export async function runCasesWithBun(
   request: CaseRequest,
   limitMilliseconds = caseRunMilliseconds,
 ): Promise<string> {
-  const report = join(
-    testFolder("c3-capability-qualification-run-"),
-    "report.xml",
+  const files = caseFiles(request.root, request.selection);
+  if (files.length === 0)
+    throw new Error(`no file in ${stateTests} holds a covered case`);
+  const folder = join(
+    request.parent,
+    `.capability-qualification-run-${String(process.pid)}`,
   );
-  const child = startChild(
-    [
-      process.execPath,
-      "test",
-      "./tests/kernel/state",
-      "--test-name-pattern",
-      testNamePattern(request.selection),
-      "--reporter=junit",
-      `--reporter-outfile=${report}`,
-    ],
-    {
-      cwd: request.root,
-      env: {
-        ...withoutRepositoryLocation(request.environment),
-        STATE_TEST_DIR: request.parent,
-        [runVariable]: runVariableValue(request.entry, request.candidate),
+  mkdirSync(folder);
+  try {
+    const report = join(folder, "report.xml");
+    const child = startChild(
+      [
+        process.execPath,
+        "test",
+        ...files.map((path) => `./${path}`),
+        "--test-name-pattern",
+        testNamePattern(request.selection),
+        "--reporter=junit",
+        `--reporter-outfile=${report}`,
+      ],
+      {
+        cwd: request.root,
+        env: {
+          ...withoutRepositoryLocation(request.environment),
+          STATE_TEST_DIR: request.parent,
+          [runVariable]: runVariableValue(request.entry, request.candidate),
+        },
+        limitMilliseconds,
       },
-      limitMilliseconds,
-    },
-  );
-  caseRun.stop = child.stop;
-  const finished = await child.finished;
-  delete caseRun.stop;
-  request.output(finished.stdout + finished.stderr);
-  if (finished.timedOut)
-    throw new Error(
-      `the case run outlived its ${String(limitMilliseconds)} ms limit`,
     );
-  if (!existsSync(report)) throw new Error("the case run wrote no report");
-  return readFileSync(report, "utf8");
+    caseRun.stop = child.stop;
+    const finished = await child.finished;
+    delete caseRun.stop;
+    request.output(finished.stdout + finished.stderr);
+    if (finished.timedOut)
+      throw new Error(
+        `the case run outlived its ${String(limitMilliseconds)} ms limit`,
+      );
+    if (!existsSync(report)) throw new Error("the case run wrote no report");
+    return readFileSync(report, "utf8");
+  } finally {
+    rmSync(folder, { recursive: true, force: true });
+  }
 }
 
 export async function capabilityQualificationRun(

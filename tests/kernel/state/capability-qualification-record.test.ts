@@ -61,7 +61,9 @@ test("the capability qualification run covers the closure and stopped-owner case
     .filter((row) => row.status === "executable")
     .map((row) => row.id);
   expect(requiredCaseIds()).toEqual(executable);
-  expect(requiredCaseIds()).not.toContain("K08.c-surviving-delegate-process");
+  for (const row of capabilityQualificationCases())
+    if (row.status === "pending")
+      expect(requiredCaseIds()).not.toContain(row.id);
 });
 
 test("a case added to a covered family joins the capability qualification run without an edit", () => {
@@ -75,13 +77,28 @@ test("a case added to a covered family joins the capability qualification run wi
     red: "test",
   } as const;
   const notCovered = { ...added, id: "K11.b-delegate-other-boot-closes" };
-  const ids = capabilityQualificationCases([added, notCovered]).map(
-    (row) => row.id,
-  );
-  expect(ids).toEqual(["K11.a-delegate-same-boot-refused"]);
-  expect(requiredCaseIds([added, notCovered])).toEqual([
+  const pending = {
+    id: "K11.c-torn-tail-closes",
+    status: "pending",
+    supplier: "T2-slice-B",
+    reason: "Not built yet.",
+    sources: "test",
+    observation: "test",
+    red: "test",
+  } as const;
+  const rows = [added, notCovered, pending];
+  expect(capabilityQualificationCases(rows).map((row) => row.id)).toEqual([
     "K11.a-delegate-same-boot-refused",
+    "K11.c-torn-tail-closes",
   ]);
+  expect(requiredCaseIds(rows)).toEqual(["K11.a-delegate-same-boot-refused"]);
+  expect(
+    requiredCaseIds([
+      added,
+      notCovered,
+      { ...added, id: "K11.c-torn-tail-closes" },
+    ]),
+  ).toEqual(["K11.a-delegate-same-boot-refused", "K11.c-torn-tail-closes"]);
 });
 
 const rowId = "linux-7-btrfs";

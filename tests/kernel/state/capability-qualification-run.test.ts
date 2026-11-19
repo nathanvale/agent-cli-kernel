@@ -7,7 +7,7 @@ import {
   statfsSync,
   writeFileSync,
 } from "node:fs";
-import { hostname, release, userInfo } from "node:os";
+import { homedir, hostname, release, userInfo } from "node:os";
 import { join } from "node:path";
 import { movedStateRoot } from "../../../kernel/src/addons/state/capability-qualification-table.ts";
 import { resolveCoordination } from "../../../kernel/src/addons/state/coordination.ts";
@@ -37,6 +37,7 @@ import type {
 } from "./capability-qualification-record.ts";
 import {
   capabilityQualificationRun,
+  caseFiles,
   caseResults,
   runCasesWithBun,
   runVariable,
@@ -122,12 +123,18 @@ function checkout() {
   const lines: string[] = [];
   const requests: CaseRequest[] = [];
   const context = (
-    environment: Readonly<Record<string, string>> = {},
+    environment: Readonly<Record<string, string | undefined>> = {},
     seams: Partial<RunContext> = {},
   ): RunContext => ({
     root,
     cwd: base,
-    environment: { ...callerEnvironment(), ...gitEnv, ...environment },
+    environment: Object.fromEntries(
+      Object.entries({
+        ...callerEnvironment(),
+        ...gitEnv,
+        ...environment,
+      }).filter(([, value]) => value !== undefined),
+    ),
     print: (line) => lines.push(line),
     runCases: (request) => {
       requests.push(request);
@@ -137,7 +144,7 @@ function checkout() {
   });
   const run = (
     argv: readonly string[] = [rowFile, parent],
-    environment: Readonly<Record<string, string>> = {},
+    environment: Readonly<Record<string, string | undefined>> = {},
     seams: Partial<RunContext> = {},
   ) => capabilityQualificationRun(argv, context(environment, seams));
   return {
@@ -396,17 +403,62 @@ test(
     expect(world.lines).toEqual([
       `Wrote ${recordPath(candidate.id)}: ${String(requiredCaseIds().length)} pass, 0 fail, ${String(selection.length - requiredCaseIds().length)} unproved.`,
     ]);
-    for (const secret of [
-      world.base,
-      world.parent,
-      userInfo().username,
-      hostname(),
-    ])
-      expect(text).not.toContain(secret);
-    if (existsSync(candidate.bootIdentitySource))
-      expect(text).not.toContain(
-        readFileSync(candidate.bootIdentitySource, "utf8").trim(),
-      );
+    expectNoIdentity(world, text);
+  },
+  inProcess,
+);
+
+function accountNames(): readonly string[] {
+  const uid = process.getuid?.();
+  const passwd =
+    uid === undefined || !existsSync("/etc/passwd")
+      ? []
+      : readFileSync("/etc/passwd", "utf8")
+          .split("\n")
+          .map((line) => line.split(":"))
+          .filter((fields) => fields[2] === String(uid))
+          .map((fields) => fields[0] ?? "");
+  return [
+    ...passwd,
+    process.env.USER ?? "",
+    process.env.LOGNAME ?? "",
+    userInfo().username,
+    hostname(),
+  ].filter((name) => name !== "");
+}
+
+function ownStrings(value: unknown, key = ""): readonly string[] {
+  if (key === "cases") return [];
+  if (typeof value === "string") return [value];
+  if (typeof value !== "object" || value === null) return [];
+  return Object.entries(value).flatMap(([name, entry]) =>
+    ownStrings(entry, name),
+  );
+}
+
+function expectNoIdentity(world: Checkout, text: string): void {
+  const paths = [world.base, world.parent, homedir()].filter(
+    (path) => path.length > 1,
+  );
+  for (const path of paths) expect(text).not.toContain(path);
+  if (existsSync(candidate.bootIdentitySource))
+    expect(text).not.toContain(
+      readFileSync(candidate.bootIdentitySource, "utf8").trim(),
+    );
+  const fields = ownStrings(JSON.parse(text));
+  expect(fields.length).toBeGreaterThan(10);
+  for (const name of accountNames())
+    expect(fields.filter((field) => field.includes(name))).toEqual([]);
+}
+
+test(
+  "a capability qualification record names no path, account or machine when USER and LOGNAME are unset",
+  async () => {
+    const world = checkout();
+    expect(
+      await world.run(undefined, { USER: undefined, LOGNAME: undefined }),
+    ).toBe(0);
+    expectNoIdentity(world, readFileSync(world.recordFile, "utf8"));
   },
   inProcess,
 );
@@ -826,24 +878,59 @@ test("Q03 supporting: a world in a capability qualification run refuses a fact o
   }
 });
 
+function registered(id: string, body: string, title = id): string {
+  return `caseTest(${JSON.stringify(id)}, () => { ${body} }, ${JSON.stringify(title)});`;
+}
+
+function caseFile(lines: readonly string[]): string {
+  return [
+    'import { expect, test } from "bun:test";',
+    "function caseTest(id: string, body: () => void, title = id) {",
+    "  test(title, body);",
+    "}",
+    ...lines,
+    "",
+  ].join("\n");
+}
+
 test(
-  "the capability qualification run's own case runner reads each case from Bun's report",
+  "the capability qualification run's own case runner loads only the files that hold covered cases and reads each case from Bun's report",
   async () => {
     const base = testFolder("c3-runner-");
     const parent = join(base, "parent");
-    mkdirSync(join(base, "tests", "kernel", "state"), { recursive: true });
-    mkdirSync(parent);
+    const scratch = join(base, "scratch");
+    const marker = join(base, "loaded");
+    const folder = join(base, "tests", "kernel", "state");
+    for (const path of [folder, parent, scratch])
+      mkdirSync(path, { recursive: true });
     writeFileSync(
-      join(base, "tests", "kernel", "state", "synthetic.test.ts"),
-      [
-        'import { expect, test } from "bun:test";',
-        `test("K02.a-synthetic", () => { expect(process.env.STATE_TEST_DIR).toBe(${JSON.stringify(parent)}); expect(JSON.parse(process.env.${runVariable} ?? "{}").entry).toBe("fixture.ts"); });`,
-        'test("K02.b-synthetic", () => { expect(1).toBe(2); });',
-        'test("K02.c-synthetic UNPROVED on darwin: fail-closed control only", () => {});',
-        'test("K02.f-synthetic", () => { throw new Error("not in the pattern"); });',
-        "",
-      ].join("\n"),
+      join(folder, "synthetic.test.ts"),
+      caseFile([
+        registered(
+          "K02.a-synthetic",
+          `expect(process.env.STATE_TEST_DIR).toBe(${JSON.stringify(parent)}); expect(JSON.parse(process.env.${runVariable} ?? "{}").entry).toBe("fixture.ts");`,
+        ),
+        registered("K02.b-synthetic", "expect(1).toBe(2);"),
+        registered(
+          "K02.c-synthetic",
+          "",
+          "K02.c-synthetic UNPROVED on darwin: fail-closed control only",
+        ),
+        registered("K02.f-synthetic", 'throw new Error("not in the pattern");'),
+      ]),
     );
+    writeFileSync(
+      join(folder, "noise.test.ts"),
+      caseFile([
+        'import { writeFileSync } from "node:fs";',
+        `writeFileSync(${JSON.stringify(marker)}, "loaded\\n");`,
+        registered("Z99.a-not-covered", ""),
+      ]),
+    );
+    const selection = synthetic.filter((row) => row.id !== "K02.f-synthetic");
+    expect(caseFiles(base, selection)).toEqual([
+      "tests/kernel/state/synthetic.test.ts",
+    ]);
     const output: string[] = [];
     const report = await runCasesWithBun(
       {
@@ -851,13 +938,16 @@ test(
         parent,
         entry: "fixture.ts",
         candidate,
-        selection: synthetic.filter((row) => row.id !== "K02.f-synthetic"),
-        environment: callerEnvironment(),
+        selection,
+        environment: { ...callerEnvironment(), TMPDIR: scratch },
         output: (text) => output.push(text),
       },
       20_000,
     );
     expect(output.join("")).toContain("K02.b-synthetic");
+    expect(existsSync(marker)).toBe(false);
+    expect(readdirSync(parent)).toEqual([]);
+    expect(readdirSync(scratch)).toEqual([]);
     expect(caseResults(report, synthetic)).toEqual([
       { id: "K02.a-synthetic", result: "pass", detail: "passed" },
       {
@@ -885,3 +975,80 @@ test(
   },
   inProcess,
 );
+
+test(
+  "the capability qualification run's own case runner refuses a selection no file holds",
+  async () => {
+    const base = testFolder("c3-runner-");
+    const parent = join(base, "parent");
+    mkdirSync(join(base, "tests", "kernel", "state"), { recursive: true });
+    mkdirSync(parent);
+    const refused = await runCasesWithBun(
+      {
+        root: base,
+        parent,
+        entry: "fixture.ts",
+        candidate,
+        selection: synthetic,
+        environment: callerEnvironment(),
+        output: () => undefined,
+      },
+      20_000,
+    ).then(
+      () => "ran",
+      (error: unknown) => (error instanceof Error ? error.message : "thrown"),
+    );
+    expect(refused).toBe("no file in tests/kernel/state holds a covered case");
+    expect(readdirSync(parent)).toEqual([]);
+  },
+  inProcess,
+);
+
+const repository = join(import.meta.dir, "..", "..", "..");
+
+test("the run loads the files that register the covered cases, and not the coordination probe", () => {
+  const files = caseFiles(repository, capabilityQualificationCases());
+  expect(files).toContain("tests/kernel/state/recovery.test.ts");
+  expect(files).toContain("tests/kernel/state/component.test.ts");
+  expect(files).not.toContain(
+    "tests/kernel/state/linux-coordination.probe.test.ts",
+  );
+  const sources = files.map((path) =>
+    readFileSync(join(repository, path), "utf8"),
+  );
+  for (const id of requiredCaseIds())
+    expect(sources.some((source) => source.includes(`"${id}"`))).toBe(true);
+});
+
+test("a case run over the repository's covered files leaves nothing outside its state root parent", async () => {
+  const base = testFolder("c3-runner-");
+  const parent = join(base, "parent");
+  const scratch = join(base, "scratch");
+  for (const path of [parent, scratch]) mkdirSync(path);
+  const selection = capabilityQualificationCases().filter((row) =>
+    ["K02.a", "K11.e"].includes(row.id.slice(0, 5)),
+  );
+  expect(caseFiles(repository, selection)).toEqual([
+    "tests/kernel/state/component.test.ts",
+    "tests/kernel/state/recovery.test.ts",
+  ]);
+  const report = await runCasesWithBun(
+    {
+      root: repository,
+      parent,
+      entry: "fixture.ts",
+      candidate,
+      selection,
+      environment: { ...callerEnvironment(), TMPDIR: scratch },
+      output: () => undefined,
+    },
+    40_000,
+  );
+  expect(
+    caseResults(report, selection).filter(
+      (entry) => entry.detail === "no test ran for this case",
+    ),
+  ).toEqual([]);
+  expect(readdirSync(parent)).toEqual([]);
+  expect(readdirSync(scratch)).toEqual([]);
+}, 90_000);
