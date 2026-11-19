@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect } from "bun:test";
 import { createHash } from "node:crypto";
 import {
   appendFileSync,
@@ -1219,38 +1219,31 @@ supportingTest(
   }),
 );
 
-const failedAppendTitle =
-  "X28 supporting: a delegate-admitted append that fails stops the start, and the run goes on";
-if (process.geteuid?.() === 0)
-  test(`${failedAppendTitle} UNPROVED as euid 0: root is never denied permission`, () => {
-    expect(process.geteuid?.()).toBe(0);
-  });
-else
-  supportingTest(
-    failedAppendTitle,
-    plain(async (world) => {
-      try {
-        expectCompleted(
-          await world.run(apply("a"), {
-            ...production,
-            SX_FAULT: "delegate-append-fails",
-          }),
-        );
-        const [entry, refusal, ...rest] = world.ledger();
-        expect(entry).toBe("entry production");
-        expect(refusal).toStartWith("delegate refused: EACCES");
-        expect(rest).toHaveLength(1);
-        expect(delegatePids(world)).toEqual([]);
-        expect(
-          caseOf(world, only(world)).events.records.map(
-            (record) => record.kind,
-          ),
-        ).toEqual(["effect-started", "effect-confirmed", "completion"]);
-      } finally {
-        stopDelegates(world);
-      }
-    }),
-  );
+supportingTest(
+  "X28 supporting: a delegate-admitted append that fails stops the start, and the run goes on",
+  plain(async (world) => {
+    try {
+      expectCompleted(
+        await world.run(apply("a"), {
+          ...production,
+          SX_FAULT: "delegate-append-fails",
+        }),
+      );
+      const [entry, refusal, ...rest] = world.ledger();
+      expect(entry).toBe("entry production");
+      expect(refusal).toStartWith("delegate refused: EACCES");
+      expect(rest).toHaveLength(1);
+      expect(delegatePids(world)).toEqual([]);
+      expect(
+        caseOf(world, only(world)).events.records.map((record) => record.kind),
+      ).toEqual(["effect-started", "effect-confirmed", "completion"]);
+    } finally {
+      stopDelegates(world);
+    }
+  }),
+  90_000,
+  true,
+);
 
 function delegatePids(world: World): readonly number[] {
   const file = join(world.world, "delegates");
