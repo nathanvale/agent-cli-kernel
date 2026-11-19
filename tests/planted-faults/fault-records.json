@@ -871,7 +871,7 @@
     "id": "1cc1070-run",
     "patch": "tests/planted-faults/patches/1cc1070-run.patch",
     "testFile": "tests/kernel/diagnostics/log-lines.test.ts",
-    "title": "a level outside the six is dropped and counted, and the result is unchanged$",
+    "title": "a level outside the six",
     "source": "1cc1070 feat(diagnostics): let a record carry its level"
   }
 ]

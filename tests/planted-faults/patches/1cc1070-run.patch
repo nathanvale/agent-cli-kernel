@@ -1,13 +1,13 @@
 diff --git a/kernel/src/addons/diagnostics/run.ts b/kernel/src/addons/diagnostics/run.ts
-index fa9a587..4e20e32 100644
+index dace8dd..539313c 100644
 --- a/kernel/src/addons/diagnostics/run.ts
 +++ b/kernel/src/addons/diagnostics/run.ts
-@@ -339,7 +339,7 @@ function session(
-   ) {
-     if (frozen) return;
-     sequence += 1;
--    const write = writeAt.get(level);
-+    const write = writeAt.get(level) ?? writeAt.get("info");
-     if (inputClosed || run.signal.aborted || !write) {
+@@ -341,7 +341,7 @@ function session(
+     if (
+       inputClosed ||
+       run.signal.aborted ||
+-      !Object.hasOwn(listedLevels, level)
++      false
+     ) {
        dropped += 1;
        return;

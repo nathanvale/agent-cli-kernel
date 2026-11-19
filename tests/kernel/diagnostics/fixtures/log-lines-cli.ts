@@ -3,15 +3,48 @@ import {
   contractFor,
   runProcess,
 } from "../../../../kernel/src/kernel/index.ts";
-import type { JsonValue } from "../../../../kernel/src/kernel/index.ts";
+import type {
+  DiagnosticsCapability,
+  JsonValue,
+} from "../../../../kernel/src/kernel/index.ts";
 import { diagnosticsAddon } from "../../../../kernel/src/addons/diagnostics/index.ts";
-import { empty, input } from "./declarations.ts";
+import { empty, input, scriptValue } from "./declarations.ts";
 
-function scripted(key: string): unknown {
-  const raw: unknown = JSON.parse(process.env.DXS_SCRIPT ?? "{}");
-  return typeof raw === "object" && raw !== null
-    ? Reflect.get(raw, key)
-    : undefined;
+type Line = (name: string, pad?: number) => JsonValue;
+
+function sendUnlisted(diagnostics: DiagnosticsCapability, line: Line) {
+  const unlisted = scriptValue("unlisted");
+  if (unlisted !== undefined)
+    Reflect.apply(diagnostics.record, diagnostics, [
+      "log",
+      line("unlisted"),
+      unlisted,
+    ]);
+}
+
+function sendEachLevel(diagnostics: DiagnosticsCapability, line: Line) {
+  const oversize = scriptValue("oversize");
+  diagnostics.record("log", line("unlevelled"));
+  diagnostics.record("log", line("trace"), "trace");
+  diagnostics.record("log", line("debug"), "debug");
+  diagnostics.record("log", line("info"), "info");
+  sendUnlisted(diagnostics, line);
+  diagnostics.record("log", line("warning"), "warning");
+  diagnostics.record(
+    "log",
+    line("error", typeof oversize === "number" ? oversize : 0),
+    "error",
+  );
+  diagnostics.record("log", line("fatal"), "fatal");
+}
+
+function sendBurst(
+  diagnostics: DiagnosticsCapability,
+  line: Line,
+  lines: number,
+) {
+  for (let sent = 0; sent < lines; sent += 1)
+    diagnostics.record("log", line("burst"), "warning");
 }
 
 const read = command({
@@ -21,34 +54,20 @@ const read = command({
   input,
   capabilities: { diagnostics: true },
   run: (parsed, context) => {
-    const oversize = scripted("oversize");
-    const unlisted = scripted("unlisted");
-    const line = (name: string, pad = 0): JsonValue => ({
+    const line: Line = (name, pad = 0) => ({
       message: `${name} line for ${parsed["--token"] ?? "nobody"}`,
       annotations: { password: "log-line-password", pad: "x".repeat(pad) },
     });
-    context.diagnostics.record("log", line("unlevelled"));
-    context.diagnostics.record("log", line("trace"), "trace");
-    context.diagnostics.record("log", line("debug"), "debug");
-    context.diagnostics.record("log", line("info"), "info");
-    if (unlisted !== undefined)
-      Reflect.apply(context.diagnostics.record, context.diagnostics, [
-        "log",
-        line("unlisted"),
-        unlisted,
-      ]);
-    context.diagnostics.record("log", line("warning"), "warning");
-    context.diagnostics.record(
-      "log",
-      line("error", typeof oversize === "number" ? oversize : 0),
-      "error",
-    );
-    context.diagnostics.record("log", line("fatal"), "fatal");
+    const burst = scriptValue("burst");
+    if (scriptValue("alone") === true) sendUnlisted(context.diagnostics, line);
+    else if (typeof burst === "number")
+      sendBurst(context.diagnostics, line, burst);
+    else sendEachLevel(context.diagnostics, line);
     return context.result(
       { commandIdentity: "dxs.read", causeCode: "SUCCESS_UNCHANGED" },
       {
         message: "Read specimen data.",
-        data: { lines: 7 },
+        data: { logged: true },
         effects: empty,
       },
     );

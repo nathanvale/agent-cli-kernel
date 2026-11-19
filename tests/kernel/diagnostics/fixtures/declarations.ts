@@ -52,15 +52,18 @@ export const plain = command({
     ),
 });
 
+export function scriptValue(key: string): unknown {
+  const raw: unknown = JSON.parse(process.env.DXS_SCRIPT ?? "{}");
+  return typeof raw === "object" && raw !== null
+    ? Reflect.get(raw, key)
+    : undefined;
+}
+
 export function readData(records: number): {
   records: number;
   padding?: string;
 } {
-  const raw: unknown = JSON.parse(process.env.DXS_SCRIPT ?? "{}");
-  const bytes: unknown =
-    typeof raw === "object" && raw !== null
-      ? Reflect.get(raw, "dataBytes")
-      : undefined;
+  const bytes = scriptValue("dataBytes");
   return typeof bytes === "number"
     ? { records, padding: "y".repeat(bytes) }
     : { records };

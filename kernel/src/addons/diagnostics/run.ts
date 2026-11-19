@@ -56,15 +56,14 @@ export type StatusAddon = {
   readonly attach: (run: RunControl) => StatusAttached;
 };
 
-type Write = (logger: Logger, properties: Record<string, unknown>) => void;
-const writeAt: ReadonlyMap<DiagnosticsLevel, Write> = new Map([
-  ["trace", (logger, properties) => logger.trace("{event}", properties)],
-  ["debug", (logger, properties) => logger.debug("{event}", properties)],
-  ["info", (logger, properties) => logger.info("{event}", properties)],
-  ["warning", (logger, properties) => logger.warning("{event}", properties)],
-  ["error", (logger, properties) => logger.error("{event}", properties)],
-  ["fatal", (logger, properties) => logger.fatal("{event}", properties)],
-]);
+const listedLevels: Readonly<Record<DiagnosticsLevel, true>> = {
+  trace: true,
+  debug: true,
+  info: true,
+  warning: true,
+  error: true,
+  fatal: true,
+};
 
 function optionValues(
   argv: readonly string[],
@@ -339,8 +338,11 @@ function session(
   ) {
     if (frozen) return;
     sequence += 1;
-    const write = writeAt.get(level);
-    if (inputClosed || run.signal.aborted || !write) {
+    if (
+      inputClosed ||
+      run.signal.aborted ||
+      !Object.hasOwn(listedLevels, level)
+    ) {
       dropped += 1;
       return;
     }
@@ -351,7 +353,7 @@ function session(
     }
     handed += 1;
     try {
-      write(logger, {
+      logger[level]("{event}", {
         event,
         facts,
         seq: sequence,
