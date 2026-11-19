@@ -1,13 +1,15 @@
 diff --git a/tests/kernel/state/capability-qualification-record.ts b/tests/kernel/state/capability-qualification-record.ts
-index d94da1b..5bfb4ba 100644
+index cb0b2e9..835f827 100644
 --- a/tests/kernel/state/capability-qualification-record.ts
 +++ b/tests/kernel/state/capability-qualification-record.ts
-@@ -359,7 +359,7 @@ function caseProblems(
-     return [
-       `${row.id} is marked not-runnable in the ${run.entry} run, but the case table runs it there`,
-     ];
--  return found.result === "pass"
-+  return found.result !== "unproved"
-     ? []
-     : [`${row.id} is ${found.result} in the ${run.entry} run`];
- }
+@@ -365,7 +365,9 @@ function caseProblems(
+         ];
+   if (found.length === 0)
+     return [`the ${run.entry} run has no result for ${row.id}`];
+-  const worst = found.find((entry) => entry.result !== "pass");
++  const worst = found.find(
++    (entry) => entry.result !== "pass" && entry.result !== "fail",
++  );
+   if (worst === undefined) return [];
+   return worst.result === "not-runnable"
+     ? [

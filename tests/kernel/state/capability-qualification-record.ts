@@ -351,23 +351,32 @@ function caseProblems(
   row: StateCase,
 ): readonly string[] {
   if (row.status !== "executable") return [];
-  const found = run.cases.find((entry) => entry.id === row.id);
+  const found = run.cases.filter((entry) => entry.id === row.id);
   const only = otherEntryOnly(row, run.entry);
   if (only !== undefined)
-    return found?.result === "not-runnable" && found.reason === only.reason
+    return found.length > 0 &&
+      found.every(
+        (entry) =>
+          entry.result === "not-runnable" && entry.reason === only.reason,
+      )
       ? []
       : [
           `${row.id} runs only through ${only.entry}, so the ${run.entry} run must mark it not-runnable with the case table's reason`,
         ];
-  if (found === undefined)
+  if (found.length === 0)
     return [`the ${run.entry} run has no result for ${row.id}`];
-  if (found.result === "not-runnable")
-    return [
-      `${row.id} is marked not-runnable in the ${run.entry} run, but the case table runs it there`,
-    ];
-  return found.result === "pass"
-    ? []
-    : [`${row.id} is ${found.result} in the ${run.entry} run`];
+  const worst = found.find((entry) => entry.result !== "pass");
+  if (worst === undefined) return [];
+  return worst.result === "not-runnable"
+    ? [
+        `${row.id} is marked not-runnable in the ${run.entry} run, but the case table runs it there`,
+      ]
+    : [`${row.id} is ${worst.result} in the ${run.entry} run`];
+}
+
+function repeatedIds(run: CapabilityQualificationRun): readonly string[] {
+  const ids = run.cases.map((entry) => entry.id);
+  return [...new Set(ids.filter((id, index) => ids.indexOf(id) !== index))];
 }
 
 function runProblems(
@@ -391,6 +400,9 @@ function runProblems(
         : [
             `the ${run.entry} run's sourceHash ${run.sourceHash} is not the qualified source's ${currentHash}`,
           ]),
+      ...repeatedIds(run).map(
+        (id) => `the ${run.entry} run lists ${id} more than once`,
+      ),
       ...covered.flatMap((row) => caseProblems(run, row)),
     ]),
   ];

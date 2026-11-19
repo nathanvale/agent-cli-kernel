@@ -4,7 +4,9 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  statSync,
   statfsSync,
+  utimesSync,
   writeFileSync,
 } from "node:fs";
 import { homedir, hostname, release } from "node:os";
@@ -42,6 +44,7 @@ import {
   capabilityQualificationRun,
   caseFiles,
   caseResults,
+  distributionOf,
   runCasesWithBun,
   runOf,
   runVariable,
@@ -53,6 +56,7 @@ import {
 import type {
   CandidateRow,
   CaseRequest,
+  CaseRun,
   ObservedFacts,
   RunContext,
 } from "./capability-qualification-run.ts";
@@ -110,6 +114,18 @@ function junit(
   return `<?xml version="1.0" encoding="UTF-8"?>\n<testsuites>\n  <testsuite name="state">\n${cases.join("\n")}\n  </testsuite>\n</testsuites>\n`;
 }
 
+function ran(report: string, exitCode = 0): CaseRun {
+  return { report, exitCode };
+}
+
+function bootIdentityReadable(): boolean {
+  try {
+    return readFileSync(bootIdentitySource, "utf8").trim() !== "";
+  } catch {
+    return false;
+  }
+}
+
 function callerEnvironment(): Record<string, string | undefined> {
   return Object.fromEntries(
     Object.entries(inherited()).filter(([name]) => !name.startsWith("SX_")),
@@ -147,7 +163,7 @@ function checkout() {
     print: (line) => lines.push(line),
     runCases: (request) => {
       requests.push(request);
-      return Promise.resolve(junit(request.selection));
+      return Promise.resolve(ran(junit(request.selection)));
     },
     ...seams,
   });
@@ -412,7 +428,7 @@ test(
     );
     expect(record.bootIdentitySource).toEqual({
       source: bootIdentitySource,
-      readable: existsSync(bootIdentitySource),
+      readable: bootIdentityReadable(),
     });
     expect(record.runs.length).toBe(1);
     const [run] = record.runs;
@@ -448,7 +464,7 @@ async function expectNoIdentity(world: Checkout, text: string): Promise<void> {
     (path) => path.length > 1,
   );
   for (const path of paths) expect(text).not.toContain(path);
-  if (existsSync(bootIdentitySource))
+  if (bootIdentityReadable())
     expect(text).not.toContain(readFileSync(bootIdentitySource, "utf8").trim());
   const { platform } = parseRecord(text);
   const hostRead = [platform.release, platform.distribution, platform.cLibrary];
@@ -480,7 +496,7 @@ test(
               request.environment.USER,
               request.environment.LOGNAME,
             );
-            return Promise.resolve(junit(request.selection));
+            return Promise.resolve(ran(junit(request.selection)));
           },
         },
       );
@@ -497,23 +513,28 @@ test(
 );
 
 test(
-  "a capability qualification run with a failed required case writes its record and does not qualify the row",
+  "a capability qualification run with a required case that never ran writes its record and does not qualify the row",
   async () => {
     const world = checkout();
     const [first] = requiredCaseIds("fixture.ts");
     if (first === undefined) throw new Error("No required case.");
     const code = await world.run(undefined, undefined, {
-      runCases: (request) => Promise.resolve(junit(request.selection, [first])),
+      runCases: (request) =>
+        Promise.resolve(
+          ran(junit(request.selection.filter((row) => row.id !== first))),
+        ),
     });
     expect(code).toBe(1);
     expect(world.lines.at(-1)).toBe(
       `The fixture.ts run does not qualify row ${candidate.id}: ${first} fail.`,
     );
-    expect(
-      parseRecord(readFileSync(world.recordFile, "utf8")).runs[0]?.cases,
-    ).toEqual(
-      expectedResults(capabilityQualificationCases(), "fixture.ts", [first]),
-    );
+    const cases =
+      parseRecord(readFileSync(world.recordFile, "utf8")).runs[0]?.cases ?? [];
+    expect(cases.find((entry) => entry.id === first)).toEqual({
+      id: first,
+      result: "fail",
+      detail: "no test ran for this case",
+    });
   },
   inProcess,
 );
@@ -675,7 +696,7 @@ test(
         sourceHash(qualifiedSourceFiles(world.root)),
       ),
     ).toEqual(
-      existsSync(bootIdentitySource)
+      bootIdentityReadable()
         ? []
         : [
             `${candidate.id}: the boot identity was unreadable in the capability qualification run`,
@@ -980,13 +1001,13 @@ test("Q03 supporting: a world in a capability qualification run refuses a fact o
 });
 
 function registered(id: string, body: string, title = id): string {
-  return `caseTest(${JSON.stringify(id)}, () => { ${body} }, ${JSON.stringify(title)});`;
+  return `caseTest(${JSON.stringify(id)}, async () => { ${body} }, ${JSON.stringify(title)});`;
 }
 
 function caseFile(lines: readonly string[]): string {
   return [
     'import { expect, test } from "bun:test";',
-    "function caseTest(id: string, body: () => void, title = id) {",
+    "function caseTest(id: string, body: () => Promise<void>, title = id) {",
     "  test(title, body);",
     "}",
     ...lines,
@@ -1078,12 +1099,15 @@ test(
       "tests/kernel/state/synthetic.test.ts",
     ]);
     const output: string[] = [];
-    const report = await withOwnTemporaryFolders(world.outside, () =>
-      runCasesWithBun(
-        world.request(selection, world.base, (text) => output.push(text)),
-        caseRunBound,
-      ),
+    const { report, exitCode } = await withOwnTemporaryFolders(
+      world.outside,
+      () =>
+        runCasesWithBun(
+          world.request(selection, world.base, (text) => output.push(text)),
+          caseRunBound,
+        ),
     );
+    expect(exitCode).toBe(1);
     expect(output.join("")).toContain("K02.b-synthetic");
     expect(report).toMatch(
       /<testcase name="K02\.g-synthetic"[^>]*>\s*<skipped/,
@@ -1200,7 +1224,7 @@ test(
         (row.onlyThrough === undefined ||
           row.onlyThrough.entry === "fixture.ts"),
     );
-    const report = await withOwnTemporaryFolders(world.outside, () =>
+    const { report } = await withOwnTemporaryFolders(world.outside, () =>
       runCasesWithBun(world.request(selection, repository), caseRunBound),
     );
     expect(loadedFiles(report)).toEqual(caseFiles(repository, runnable));
@@ -1216,3 +1240,182 @@ test(
   },
   caseRunTimeout,
 );
+
+const committedBytes =
+  "a capability qualification run reads committed bytes only.";
+
+for (const flag of ["assume-unchanged", "skip-worktree"] as const)
+  test(
+    `the capability qualification run refuses a tracked file git marks ${flag}`,
+    async () => {
+      const world = checkout();
+      const path = "kernel/src/addons/state/install.ts";
+      git(world.root, "update-index", `--${flag}`, "--", path);
+      writeFileSync(join(world.root, path), "replaced\n");
+      expect(git(world.root, "status", "--porcelain")).toBe("");
+      expect(await world.run()).toBe(1);
+      refusedWithoutRecord(
+        world,
+        `Refused: git hides changes to tracked files (${flag} ${path}); ${committedBytes} Repair: clear the flag with git update-index --no-assume-unchanged or --no-skip-worktree, then rerun.`,
+      );
+    },
+    inProcess,
+  );
+
+test(
+  "the capability qualification run refuses a tracked file whose bytes differ from the commit when git status cannot see it",
+  async () => {
+    const world = checkout();
+    const path = "kernel/src/addons/state/install.ts";
+    git(world.root, "config", "core.trustctime", "false");
+    git(world.root, "config", "core.checkStat", "minimal");
+    const file = join(world.root, path);
+    const earlier = new Date(statSync(file).mtimeMs - 3_600_000);
+    utimesSync(file, earlier, earlier);
+    git(world.root, "update-index", "--really-refresh");
+    writeFileSync(file, "instalm\n");
+    utimesSync(file, earlier, earlier);
+    expect(git(world.root, "status", "--porcelain")).toBe("");
+    expect(await world.run()).toBe(1);
+    refusedWithoutRecord(
+      world,
+      `Refused: tracked files differ from their committed bytes (${path}); ${committedBytes} Repair: restore or commit them, then rerun.`,
+    );
+  },
+  inProcess,
+);
+
+test(
+  "a capability qualification run refuses a report that names a case twice",
+  async () => {
+    const world = checkout();
+    const [first] = requiredCaseIds("fixture.ts");
+    if (first === undefined) throw new Error("No required case.");
+    const code = await world.run(undefined, undefined, {
+      runCases: (request) =>
+        Promise.resolve(
+          ran(
+            junit(request.selection).replace(
+              "</testsuite>",
+              `<testcase name="${first}" time="1" />\n  </testsuite>`,
+            ),
+          ),
+        ),
+    });
+    expect(code).toBe(1);
+    expect(world.lines).toEqual([
+      `Refused: Bun reported ${first} twice; no capability qualification record is written. Repair: give each covered case one test, then rerun.`,
+    ]);
+    expect(existsSync(world.folder)).toBe(false);
+  },
+  inProcess,
+);
+
+test(
+  "a capability qualification run refuses a case run whose test process exited non-zero",
+  async () => {
+    const world = checkout();
+    const code = await world.run(undefined, undefined, {
+      runCases: (request) => Promise.resolve(ran(junit(request.selection), 1)),
+    });
+    expect(code).toBe(1);
+    expect(world.lines).toEqual([
+      "Refused: the case run's test process exited 1; a capability qualification record is written only for a run whose test process passed. Repair: read the run's output above, then rerun.",
+    ]);
+    expect(existsSync(world.folder)).toBe(false);
+  },
+  inProcess,
+);
+
+test(
+  "the capability qualification run bounds each git read",
+  async () => {
+    const world = checkout();
+    const bin = folder("c3-stub-git-");
+    writeFileSync(join(bin, "git"), "#!/bin/sh\nexec sleep 5\n", {
+      mode: 0o755,
+    });
+    const stopped = await world
+      .run(
+        undefined,
+        { PATH: `${bin}:${process.env.PATH ?? ""}` },
+        { gitMilliseconds: 300 },
+      )
+      .then(
+        () => "finished",
+        (error: unknown) => (error instanceof Error ? error.message : "thrown"),
+      );
+    expect(stopped).toStartWith("git ");
+    expect(stopped).toEndWith(" did not finish within 300 ms");
+    expect(world.requests).toEqual([]);
+    expect(existsSync(world.folder)).toBe(false);
+  },
+  inProcess,
+);
+
+async function runnerRefusal(
+  lines: readonly string[],
+  limit: number,
+): Promise<{ readonly refused: string; readonly parent: readonly string[] }> {
+  const world = runnerWorld();
+  writeFileSync(join(world.cases, "synthetic.test.ts"), caseFile(lines));
+  const refused = await runCasesWithBun(
+    world.request(synthetic.filter((row) => row.id === "K02.a-synthetic")),
+    limit,
+  ).then(
+    () => "ran",
+    (error: unknown) => (error instanceof Error ? error.message : "thrown"),
+  );
+  return { refused, parent: readdirSync(world.parent) };
+}
+
+test(
+  "the capability qualification run's own case runner stops a case run that outlives its bound",
+  async () => {
+    expect(
+      await runnerRefusal(
+        [
+          registered(
+            "K02.a-synthetic",
+            "await new Promise((resolve) => setTimeout(resolve, 4_000));",
+          ),
+        ],
+        500,
+      ),
+    ).toEqual({
+      refused: "the case run outlived its 500 ms limit",
+      parent: [],
+    });
+  },
+  inProcess,
+);
+
+test(
+  "the capability qualification run's own case runner refuses a case run that writes no report",
+  async () => {
+    expect(
+      await runnerRefusal(
+        ["process.exit(0);", registered("K02.a-synthetic", "")],
+        refusalBound,
+      ),
+    ).toEqual({ refused: "the case run wrote no report", parent: [] });
+  },
+  inProcess,
+);
+
+test("a capability qualification record names the distribution by its os-release ID and VERSION_ID only", () => {
+  expect(
+    distributionOf(
+      'PRETTY_NAME="Debian GNU/Linux 13 (trixie) at nathan-pc"\nID=debian\nVERSION_ID="13"\n',
+      "Linux",
+    ),
+  ).toBe("debian 13");
+  expect(
+    distributionOf('ID="my distro; rm -rf"\nVERSION_ID=1.2\n', "Linux"),
+  ).toBe("mydistrorm-rf 1.2");
+  expect(distributionOf(`ID=${"x".repeat(40)}\n`, "Linux")).toBe(
+    "x".repeat(32),
+  );
+  expect(distributionOf('PRETTY_NAME="Some Linux"\n', "Linux")).toBe("Linux");
+  expect(distributionOf(undefined, "Darwin")).toBe("Darwin");
+});

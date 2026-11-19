@@ -1823,7 +1823,7 @@
     "id": "129a8a0-capability-qualification-run-does-not-qualify",
     "patch": "tests/planted-faults/patches/129a8a0-capability-qualification-run-does-not-qualify.patch",
     "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
-    "title": "^a capability qualification run with a failed required case",
+    "title": "^a capability qualification run with a required case that never ran",
     "source": "129a8a0 fix(state): settle the two-axis and kernel reviews of the capability qualification run"
   },
   {

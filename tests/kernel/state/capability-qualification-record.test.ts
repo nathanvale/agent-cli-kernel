@@ -694,3 +694,80 @@ test("sourceHash frames each file by its path and length", () => {
   expect(unframed(joined)).toBe(unframed(split));
   expect(sourceHash(joined)).not.toBe(sourceHash(split));
 });
+
+test("Q03.a refuses a run that lists a case twice, even when one entry passes", () => {
+  const cases = [
+    { id: both.id, result: "pass", detail: "passed" } as const,
+    ...changed("index.ts", both.id, {
+      id: both.id,
+      result: "fail",
+      detail: "failed",
+    }),
+  ];
+  expect(
+    problemsFor(
+      row(),
+      record({ runs: [run("fixture.ts"), run("index.ts", { cases })] }),
+    ),
+  ).toEqual([
+    `${rowId}: the index.ts run lists ${both.id} more than once`,
+    `${rowId}: ${both.id} is fail in the index.ts run`,
+  ]);
+});
+
+const shapes: readonly (readonly [string, unknown, string])[] = [
+  ["a list for the record", [], "the record is not an object"],
+  [
+    "a number for the os",
+    { ...record(), platform: { ...record().platform, os: 7 } },
+    "platform.os is not text",
+  ],
+  [
+    "text for the filesystem type",
+    { ...record(), filesystem: { type: "btrfs" } },
+    "filesystem.type is not a whole number",
+  ],
+  [
+    "text for the container flag",
+    { ...record(), platform: { ...record().platform, container: "yes" } },
+    "platform.container is not true or false",
+  ],
+  [
+    "text for the runs",
+    { ...record(), runs: "two" },
+    "the record.runs is not a list",
+  ],
+  [
+    "an unknown entry",
+    {
+      ...record(),
+      runs: [{ ...run("fixture.ts"), entry: "main.ts" }, run("index.ts")],
+    },
+    "runs[0].entry is main.ts, not one of fixture.ts, index.ts",
+  ],
+  [
+    "an unknown result",
+    {
+      ...record(),
+      runs: [
+        {
+          ...run("fixture.ts"),
+          cases: [{ id: both.id, result: "skipped", detail: "x" }],
+        },
+        run("index.ts"),
+      ],
+    },
+    "runs[0].cases[0].result is skipped, not one of pass, fail, unproved",
+  ],
+];
+
+for (const [shape, committed, why] of shapes)
+  test(`Q03.a refuses a record with ${shape}`, () => {
+    const root = folder("c3-record-");
+    const path = join(root, recordPath(rowId));
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, JSON.stringify(committed));
+    expect(rowProblems(row(), root, current, table)).toEqual([
+      `${rowId}: ${recordPath(rowId)} is not a capability qualification record: ${why}`,
+    ]);
+  });

@@ -1,11 +1,14 @@
+import { createHash } from "node:crypto";
 import {
   closeSync,
   existsSync,
+  lstatSync,
   fsyncSync,
   mkdirSync,
   openSync,
   readFileSync,
   readdirSync,
+  readlinkSync,
   renameSync,
   rmSync,
   statSync,
@@ -91,13 +94,16 @@ export type CaseRequest = {
   readonly output: (text: string) => void;
 };
 
+export type CaseRun = { readonly report: string; readonly exitCode: number };
+
 export type RunContext = {
   readonly root: string;
   readonly cwd: string;
   readonly environment: Environment;
   readonly print: (line: string) => void;
   readonly output?: (text: string) => void;
-  readonly runCases?: (request: CaseRequest) => Promise<string>;
+  readonly runCases?: (request: CaseRequest) => Promise<CaseRun>;
+  readonly gitMilliseconds?: number;
   readonly table?: readonly CapabilityQualificationRow[];
   readonly stopped?: () => boolean;
   readonly beforeRename?: (temporary: string) => void;
@@ -222,24 +228,31 @@ function decoded(value: string): string {
     .replace(/&amp;/g, "&");
 }
 
-function reportedTests(junit: string): ReadonlyMap<string, Reported> {
-  const tests = new Map<string, Reported>();
-  for (const match of junit.matchAll(
-    /<testcase\b([^>]*?)(?:\/>|>([\s\S]*?)<\/testcase>)/g,
-  )) {
+function reportedList(junit: string): readonly (readonly [string, Reported])[] {
+  return [
+    ...junit.matchAll(/<testcase\b([^>]*?)(?:\/>|>([\s\S]*?)<\/testcase>)/g),
+  ].flatMap((match) => {
     const name = /\bname="([^"]*)"/.exec(match[1] ?? "")?.[1];
-    if (name === undefined) continue;
+    if (name === undefined) return [];
     const body = match[2] ?? "";
-    tests.set(
-      decoded(name),
-      /<(?:failure|error)\b/.test(body)
-        ? "failed"
-        : /<skipped\b/.test(body)
-          ? "skipped"
-          : "passed",
-    );
-  }
-  return tests;
+    const reported: Reported = /<(?:failure|error)\b/.test(body)
+      ? "failed"
+      : /<skipped\b/.test(body)
+        ? "skipped"
+        : "passed";
+    return [[decoded(name), reported] as const];
+  });
+}
+
+function reportedTests(junit: string): ReadonlyMap<string, Reported> {
+  return new Map(reportedList(junit));
+}
+
+function reportedTwice(junit: string): readonly string[] {
+  const names = reportedList(junit).map(([name]) => name);
+  return [
+    ...new Set(names.filter((name, index) => names.indexOf(name) !== index)),
+  ];
 }
 
 export function caseResults(
@@ -352,16 +365,29 @@ function readable(path: string): boolean {
   }
 }
 
+export function distributionOf(
+  osRelease: string | undefined,
+  fallback: string,
+): string {
+  const field = (name: string) =>
+    (osRelease === undefined
+      ? undefined
+      : new RegExp(`^${name}="?([^"\\n]*)"?$`, "m").exec(osRelease)?.[1]
+    )
+      ?.replace(/[^A-Za-z0-9._-]/g, "")
+      .slice(0, 32) ?? "";
+  const id = field("ID");
+  if (id === "") return fallback;
+  const version = field("VERSION_ID");
+  return version === "" ? id : `${id} ${version}`;
+}
+
 function distribution(): string {
   try {
-    const found = /^PRETTY_NAME="?([^"\n]*)"?$/m.exec(
-      readFileSync("/etc/os-release", "utf8"),
-    )?.[1];
-    if (found !== undefined && found !== "") return found;
+    return distributionOf(readFileSync("/etc/os-release", "utf8"), type());
   } catch {
     return type();
   }
-  return type();
 }
 
 function cLibrary(): string {
@@ -405,26 +431,94 @@ function observedFacts(parent: string): ObservedFacts {
   };
 }
 
-function git(
-  root: string,
-  environment: Environment,
-  args: readonly string[],
-): string {
+type GitPlace = Pick<RunContext, "root" | "environment" | "gitMilliseconds">;
+
+function gitBytes(place: GitPlace, args: readonly string[]): Buffer {
+  const bound = place.gitMilliseconds ?? gitMilliseconds;
   const result = Bun.spawnSync(
-    ["git", "-C", root, "-c", "core.quotepath=off", ...args],
+    ["git", "-C", place.root, "-c", "core.quotepath=off", ...args],
     {
-      env: withoutRepositoryLocation(environment),
+      env: withoutRepositoryLocation(place.environment),
       stdout: "pipe",
       stderr: "pipe",
-      timeout: gitMilliseconds,
+      timeout: bound,
       killSignal: "SIGKILL",
     },
   );
+  if (result.exitedDueToTimeout)
+    throw new Error(
+      `git ${args.join(" ")} did not finish within ${String(bound)} ms`,
+    );
   if (result.exitCode !== 0)
     throw new Error(
       `git ${args.join(" ")} failed: ${result.stderr.toString().trim()}`,
     );
-  return result.stdout.toString();
+  return result.stdout;
+}
+
+function git(place: GitPlace, args: readonly string[]): string {
+  return gitBytes(place, args).toString();
+}
+
+function nulSeparated(place: GitPlace, args: readonly string[]): string[] {
+  return git(place, args).split("\0").filter(Boolean);
+}
+
+const committedBytesOnly =
+  "a capability qualification run reads committed bytes only.";
+
+function hiddenProblem(place: GitPlace): string | undefined {
+  const hidden = nulSeparated(place, ["ls-files", "-v", "-z"]).flatMap(
+    (line) => {
+      const tag = line.slice(0, 1);
+      const path = line.slice(2);
+      return [
+        ...(tag !== tag.toUpperCase() ? [`assume-unchanged ${path}`] : []),
+        ...(tag.toUpperCase() === "S" ? [`skip-worktree ${path}`] : []),
+      ];
+    },
+  );
+  return hidden.length === 0
+    ? undefined
+    : `Refused: git hides changes to tracked files (${hidden.join("; ")}); ${committedBytesOnly} Repair: clear the flag with git update-index --no-assume-unchanged or --no-skip-worktree, then rerun.`;
+}
+
+function workingBytes(path: string, mode: string): Buffer | string {
+  let stats: ReturnType<typeof lstatSync>;
+  try {
+    stats = lstatSync(path);
+  } catch {
+    return "missing";
+  }
+  if (mode === "120000")
+    return stats.isSymbolicLink()
+      ? Buffer.from(readlinkSync(path))
+      : "not a link";
+  if (mode === "100644" || mode === "100755")
+    return stats.isFile() ? readFileSync(path) : "not a file";
+  return `mode ${mode} is not checked`;
+}
+
+function committedProblem(place: GitPlace): string | undefined {
+  const format = git(place, ["rev-parse", "--show-object-format"]).trim();
+  const algorithm = format === "sha256" ? "sha256" : "sha1";
+  const differs = nulSeparated(place, ["ls-tree", "-r", "-z", "HEAD"]).flatMap(
+    (line) => {
+      const tab = line.indexOf("\t");
+      const [mode = "", , id = ""] = line.slice(0, tab).split(" ");
+      const path = line.slice(tab + 1);
+      const bytes = workingBytes(join(place.root, path), mode);
+      if (typeof bytes === "string") return [`${path} (${bytes})`];
+      const local = createHash(algorithm)
+        .update(`blob ${String(bytes.byteLength)}\0`)
+        .update(bytes)
+        .digest("hex");
+      return local === id ? [] : [path];
+    },
+  );
+  return differs.length === 0
+    ? undefined
+    : `Refused: tracked files differ from their committed bytes (${differs.join("; ")}); ${committedBytesOnly} Repair: restore or commit them, then rerun.`;
 }
 
 const factNames = Object.keys({
@@ -459,12 +553,11 @@ function readCandidate(file: string): CandidateRow | string {
   }
 }
 
-function cleanProblem(
-  root: string,
-  environment: Environment,
-): string | undefined {
+function cleanProblem(place: GitPlace): string | undefined {
+  const fromGit = hiddenProblem(place) ?? committedProblem(place);
+  if (fromGit !== undefined) return fromGit;
   const lines = (args: readonly string[]) =>
-    git(root, environment, ["status", "--porcelain=v1", ...args])
+    git(place, ["status", "--porcelain=v1", ...args])
       .split("\n")
       .filter(Boolean);
   const changed = lines(["--untracked-files=all"]);
@@ -547,7 +640,7 @@ function prepare(
   const parent = resolve(context.cwd, parsed.parentFolder);
   if (!existsSync(parent) || !statSync(parent).isDirectory())
     return `Refused: the state root parent ${parent} is not a folder. Repair: create it on the filesystem under test, then rerun.`;
-  const dirty = cleanProblem(context.root, context.environment);
+  const dirty = cleanProblem(context);
   if (dirty !== undefined) return dirty;
   const { entry } = parsed;
   if (entry === "fixture.ts")
@@ -612,7 +705,7 @@ export function caseFiles(
 export async function runCasesWithBun(
   request: CaseRequest,
   limitMilliseconds = caseRunMilliseconds,
-): Promise<string> {
+): Promise<CaseRun> {
   const runnable = request.selection.filter((row) =>
     runsThrough(row, request.entry),
   );
@@ -655,7 +748,10 @@ export async function runCasesWithBun(
       );
     if (!existsSync(report))
       throw new CaseRunFailure("the case run wrote no report");
-    return readFileSync(report, "utf8");
+    return {
+      report: readFileSync(report, "utf8"),
+      exitCode: finished.exitCode,
+    };
   } finally {
     rmSync(folder, { recursive: true, force: true });
   }
@@ -673,15 +769,12 @@ export async function capabilityQualificationRun(
   const { candidate, parent, entry, existing } = prepared;
   const selection = capabilityQualificationCases();
   const observed = observedFacts(parent);
-  const commit = git(context.root, context.environment, [
-    "rev-parse",
-    "HEAD",
-  ]).trim();
+  const commit = git(context, ["rev-parse", "HEAD"]).trim();
   const hash = sourceHash(qualifiedSourceFiles(context.root));
   const started = new Date().toISOString();
-  let report: string;
+  let caseRunResult: CaseRun;
   try {
-    report = await (context.runCases ?? runCasesWithBun)({
+    caseRunResult = await (context.runCases ?? runCasesWithBun)({
       root: context.root,
       parent,
       entry,
@@ -702,7 +795,20 @@ export async function capabilityQualificationRun(
     );
     return 1;
   }
-  const cases = caseResults(report, selection, entry);
+  if (caseRunResult.exitCode !== 0) {
+    context.print(
+      `Refused: the case run's test process exited ${String(caseRunResult.exitCode)}; a capability qualification record is written only for a run whose test process passed. Repair: ${readTheRunOutput}.`,
+    );
+    return 1;
+  }
+  const twice = reportedTwice(caseRunResult.report);
+  if (twice.length > 0) {
+    context.print(
+      `Refused: Bun reported ${twice.join(", ")} twice; no capability qualification record is written. Repair: give each covered case one test, then rerun.`,
+    );
+    return 1;
+  }
+  const cases = caseResults(caseRunResult.report, selection, entry);
   const run: CapabilityQualificationRun = {
     entry,
     commit,
