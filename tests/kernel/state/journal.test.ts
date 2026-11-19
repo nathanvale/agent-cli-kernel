@@ -1,16 +1,41 @@
 import { expect } from "bun:test";
-import { existsSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
+import { createHash } from "node:crypto";
+import {
+  chmodSync,
+  closeSync,
+  constants,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  rmdirSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { open } from "node:fs/promises";
 import { join } from "node:path";
 import {
   at,
   caseTest,
+  closeArgs,
   expectCompleted,
   expectRefusedUnchanged,
+  formatRecord,
+  framed,
+  journals,
   makeWorld,
   str,
   supportingTest,
+  versionOneReader,
+  versionTwoStore,
+  writeSyntheticOperation,
 } from "./harness.ts";
-import type { World } from "./harness.ts";
+import type { Json, Started, World } from "./harness.ts";
+import { holdLock } from "./holder.ts";
+import { layout } from "../../../kernel/src/addons/state/store.ts";
 
 const apply = (name: string, content = "v1") => [
   "apply",
@@ -680,4 +705,639 @@ caseTest(
     expect(world.operations()[0]?.events.torn).toBe(true);
     expect(await world.pendingIds()).toEqual([operation.id]);
   }),
+);
+
+const versionOneFormat = formatRecord(journals.one);
+const versionTwoFormat = formatRecord(journals.two);
+
+function formatText(world: World): string {
+  return readFileSync(join(world.root, "format"), "utf8");
+}
+
+function asVersionOneStore(world: World): void {
+  const settled = join(world.root, "settled");
+  for (const id of readdirSync(settled))
+    renameSync(join(settled, id), join(world.root, "operations", id));
+  rmdirSync(settled);
+  writeFileSync(join(world.root, "format"), versionOneFormat);
+}
+
+function caseFolders(
+  world: World,
+  folder: "operations" | "settled",
+): readonly string[] {
+  const directory = join(world.root, folder);
+  return existsSync(directory) ? readdirSync(directory).sort() : [];
+}
+
+function fileDigests(directory: string): Readonly<Record<string, string>> {
+  const out: Record<string, string> = {};
+  for (const name of readdirSync(directory).sort())
+    out[name] = createHash("sha256")
+      .update(readFileSync(join(directory, name)))
+      .digest("hex");
+  return out;
+}
+
+async function closeCompleted(world: World, id: string): Promise<void> {
+  expectCompleted(await world.run(closeArgs(id, await world.revision(id))));
+}
+
+function caseLock(world: World, id: string): string {
+  return layout(world.root).keyLock(`case:${id}`);
+}
+
+function expectStampWithin(
+  stamp: Json | undefined,
+  window: { readonly before: number; readonly after: number },
+): void {
+  if (typeof stamp !== "number") throw new Error("No settledAt.");
+  expect(stamp).toBeGreaterThanOrEqual(window.before);
+  expect(stamp).toBeLessThanOrEqual(window.after);
+}
+
+async function expectHistory(
+  world: World,
+  id: string,
+  status: string,
+): Promise<void> {
+  const read = await world.history(id);
+  expect(read.exit).toBe(0);
+  expect(at(read.result.raw, "data", "operationId")).toBe(id);
+  expect(at(read.result.raw, "data", "status")).toBe(status);
+}
+
+function moverLines(world: World): readonly string[] {
+  return world.ledger().filter((line) => line.startsWith("mover "));
+}
+
+caseTest(
+  "J08.a-v1-program-refuses-v2-store",
+  plain(async (world) => {
+    expectCompleted(await world.run(apply("a")));
+    expect(formatText(world)).toBe(versionTwoFormat);
+    expect(versionOneReader(world.root)).toBe("corrupt");
+    const format = join(world.root, "format");
+    const accepted = ["completed"];
+    writeFileSync(format, versionOneFormat);
+    expect(versionOneReader(world.root)).toEqual(accepted);
+    writeFileSync(
+      format,
+      framed("format", { journal: journals.one, version: 2 }),
+    );
+    expect(versionOneReader(world.root)).toEqual(accepted);
+    const [operation] = world.operations();
+    if (!operation) throw new Error("No operation.");
+    const other = formatRecord("contract3.state.3");
+    writeFileSync(format, other);
+    expectRefusedUnchanged(
+      await world.run(["pending", "--json"]),
+      "SCHEMA_SX_STATE_UNREADABLE",
+      4,
+    );
+    expectRefusedUnchanged(
+      await world.history(operation.id),
+      "SCHEMA_SX_STATE_UNREADABLE",
+      4,
+    );
+    expectRefusedUnchanged(
+      await world.run(apply("b")),
+      "DOMAIN_SX_UNAVAILABLE",
+    );
+    expect(formatText(world)).toBe(other);
+    expect(world.noteLedger("b")).toBe(0);
+  }),
+);
+
+caseTest(
+  "J08.b-upgrade-crash-points",
+  plain(async (world) => {
+    expectCompleted(await world.run(apply("a")));
+    await world.killAt(apply("b"), "effect");
+    asVersionOneStore(world);
+    const listed = await world.pendingIds();
+    expect(listed.length).toBe(1);
+    const cases = caseFolders(world, "operations");
+    expect(cases.length).toBe(2);
+    const unchanged = async () => {
+      expect(await world.pendingIds()).toEqual(listed);
+      expect(caseFolders(world, "operations")).toEqual(cases);
+      for (const id of cases)
+        await expectHistory(
+          world,
+          id,
+          listed.includes(id) ? "unresolved" : "completed",
+        );
+    };
+    await world.killAt(apply("c"), "upgrade-staged");
+    expect(formatText(world)).toBe(versionOneFormat);
+    expect(caseFolders(world, "settled")).toEqual([]);
+    const staging = join(world.root, "staging");
+    const staged = readdirSync(staging).map((name) =>
+      readFileSync(join(staging, name), "utf8"),
+    );
+    expect(staged).toEqual([versionTwoFormat]);
+    await unchanged();
+    await world.killAt(apply("c"), "upgraded");
+    expect(formatText(world)).toBe(versionTwoFormat);
+    expect(formatText(world)).toBe(staged[0] ?? "");
+    expect(caseFolders(world, "settled")).toEqual([]);
+    await unchanged();
+    expectCompleted(await world.run(apply("c")));
+    expect(formatText(world)).toBe(versionTwoFormat);
+    expect(await world.pendingIds()).toEqual(listed);
+    expect(caseFolders(world, "settled")).toEqual(
+      cases.filter((id) => !listed.includes(id)),
+    );
+  }),
+);
+
+caseTest(
+  "J08.c-settled-at-written",
+  fixture(async (world) => {
+    const before = Date.now();
+    expectCompleted(await world.run(apply("a")));
+    await world.run(apply("b"), { SX_FAULT: "transient-after-intent" });
+    await world.run(apply("c"), { SX_FAULT: "readback-throws" });
+    await world.killAt(apply("d"), "effect");
+    const listedBeforeClosure = await world.pendingIds();
+    expect(listedBeforeClosure.length).toBe(2);
+    const killed = world
+      .operations()
+      .find(
+        (entry) =>
+          listedBeforeClosure.includes(entry.id) &&
+          entry.events.records.length === 1,
+      );
+    if (!killed) throw new Error("No killed case.");
+    await closeCompleted(world, killed.id);
+    const window = { before, after: Date.now() };
+    const cases = world.cases();
+    const stamped: string[] = [];
+    for (const entry of cases) {
+      expect(entry.events.torn || entry.events.corrupt).toBe(false);
+      for (const record of entry.events.records)
+        if (record.kind === "completion" || record.kind === "not-applied") {
+          expectStampWithin(record.payload.settledAt, window);
+          stamped.push(record.kind);
+        } else expect(record.payload.settledAt).toBeUndefined();
+      if (!entry.closure) continue;
+      expect(entry.closure.torn || entry.closure.corrupt).toBe(false);
+      expectStampWithin(entry.closure.records[0]?.payload.settledAt, window);
+      stamped.push("closure");
+    }
+    expect(stamped.sort()).toEqual([
+      "closure",
+      "completion",
+      "completion",
+      "not-applied",
+    ]);
+    expect((await world.pendingIds()).length).toBe(1);
+    asVersionOneStore(world);
+    expect(versionOneReader(world.root)).toEqual([
+      "closed",
+      "completed",
+      "completed",
+      "not-applied",
+      "unresolved",
+    ]);
+  }),
+);
+
+caseTest(
+  "L07.a-settled-moved-not-listed",
+  plain(async (world) => {
+    expectCompleted(await world.run(apply("a")));
+    const [first, ...rest] = caseFolders(world, "operations");
+    expect(rest).toEqual([]);
+    if (!first) throw new Error("No case.");
+    const revision = await world.revision(first);
+    const digests = fileDigests(join(world.root, "operations", first));
+    expectCompleted(await world.run(apply("b")));
+    expect(caseFolders(world, "settled")).toEqual([first]);
+    expect(caseFolders(world, "operations")).not.toContain(first);
+    expect(fileDigests(join(world.root, "settled", first))).toEqual(digests);
+    expect(existsSync(caseLock(world, first))).toBe(false);
+    const history = await world.history(first);
+    expect(history.exit).toBe(0);
+    expect(at(history.result.raw, "data", "status")).toBe("completed");
+    expect(await world.revision(first)).toBe(revision);
+    expect(await world.pendingIds()).toEqual([]);
+  }),
+);
+
+caseTest(
+  "L07.b-admission-does-not-read-settled",
+  plain(async (world) => {
+    for (const name of ["a", "b", "c"])
+      expectCompleted(await world.run(apply(name)));
+    const moved = caseFolders(world, "settled");
+    expect(moved.length).toBe(2);
+    const settled = join(world.root, "settled");
+    chmodSync(settled, 0o000);
+    try {
+      expectCompleted(await world.run(apply("d")));
+      expect(await world.pendingIds()).toEqual([]);
+      for (const id of moved)
+        expectRefusedUnchanged(
+          await world.history(id),
+          "SCHEMA_SX_STATE_UNREADABLE",
+          4,
+        );
+      for (const id of caseFolders(world, "operations"))
+        await expectHistory(world, id, "completed");
+    } finally {
+      chmodSync(settled, 0o700);
+    }
+    expect(caseFolders(world, "settled")).toEqual(moved);
+    for (const id of moved) await expectHistory(world, id, "completed");
+  }),
+);
+
+caseTest(
+  "L07.c-crash-between-final-event-and-move",
+  plain(async (world) => {
+    await world.killAt(apply("a"), "complete");
+    const [first, ...rest] = caseFolders(world, "operations");
+    expect(rest).toEqual([]);
+    if (!first) throw new Error("No case.");
+    expect(eventKinds(world, first).at(-1)).toBe("completion");
+    expect(await world.pendingIds()).toEqual([]);
+    expectCompleted(await world.run(apply("a", "v2")));
+    expect(caseFolders(world, "settled")).toEqual([first]);
+    expect(world.noteLedger("a")).toBe(2);
+  }),
+);
+
+caseTest(
+  "L07.d-move-skips-live-or-closing",
+  plain(async (world) => {
+    await world.killAt(apply("u"), "effect");
+    const [unresolved] = await world.pendingIds();
+    expectCompleted(await world.run(apply("a")));
+    const settledCase = caseFolders(world, "operations").find(
+      (id) => id !== unresolved,
+    );
+    if (!unresolved || !settledCase) throw new Error("No cases.");
+    expectRefusedUnchanged(
+      await world.run(apply("u", "v2")),
+      "DOMAIN_SX_UNRESOLVED",
+    );
+    expect(caseFolders(world, "settled")).toEqual([]);
+    const releaseLease = holdLock(
+      join(world.root, "operations", settledCase, "owner.lease"),
+    );
+    try {
+      expectCompleted(await world.run(apply("b")));
+    } finally {
+      releaseLease();
+    }
+    expect(caseFolders(world, "settled")).toEqual([]);
+    const closerLock = caseLock(world, settledCase);
+    expect(existsSync(closerLock)).toBe(false);
+    const releaseCase = holdLock(closerLock);
+    try {
+      expectCompleted(await world.run(apply("c")));
+    } finally {
+      releaseCase();
+    }
+    expect(caseFolders(world, "settled").length).toBe(1);
+    expect(caseFolders(world, "operations")).toContain(settledCase);
+    expectCompleted(await world.run(apply("d")));
+    expect(caseFolders(world, "settled")).toContain(settledCase);
+    expect(caseFolders(world, "operations")).toContain(unresolved);
+  }),
+);
+
+caseTest(
+  "L07.e-move-bound",
+  plain(async (world) => {
+    versionTwoStore(world.root);
+    const synthetic = Array.from({ length: 65 }, (_, index) =>
+      writeSyntheticOperation(world.root, world.note(`s${String(index)}`), {
+        completed: true,
+      }),
+    );
+    const movedSynthetic = () =>
+      caseFolders(world, "settled").filter((id) => synthetic.includes(id));
+    expectCompleted(await world.run(apply("a")));
+    expect(movedSynthetic().length).toBe(64);
+    expectCompleted(await world.run(apply("b")));
+    expect(movedSynthetic().length).toBe(65);
+  }),
+);
+
+caseTest(
+  "L07.f-examination-bound",
+  plain(async (world) => {
+    versionTwoStore(world.root);
+    const ids = Array.from(
+      { length: 129 },
+      (_, index) => `op-${index.toString(16).padStart(32, "0")}`,
+    );
+    for (const id of ids)
+      writeSyntheticOperation(world.root, world.note(id), {
+        id,
+        completed: true,
+      });
+    for (const id of ids.slice(0, 128))
+      mkdirSync(join(world.root, "settled", id));
+    const eligible = ids[128] ?? "";
+    await world.killAt(apply("a"), "intent", {
+      SX_MOVER_REPORT: "1",
+      SX_MOVER_START: "0",
+    });
+    expect(moverLines(world)).toEqual(["mover examined 128 moved 0"]);
+    expect(caseFolders(world, "operations")).toContain(eligible);
+    expect((await world.pendingIds()).length).toBe(1);
+    expectCompleted(
+      await world.run(apply("b"), {
+        SX_MOVER_REPORT: "1",
+        SX_MOVER_START: "1",
+      }),
+    );
+    expect(moverLines(world)).toEqual([
+      "mover examined 128 moved 0",
+      "mover examined 128 moved 1",
+    ]);
+    expect(caseFolders(world, "operations")).not.toContain(eligible);
+    expect(existsSync(join(world.root, "settled", eligible, "intent"))).toBe(
+      true,
+    );
+  }),
+);
+
+function pipeEvents(world: World, id: string): Uint8Array {
+  const events = join(world.root, "operations", id, "events");
+  const bytes = readFileSync(events);
+  rmSync(events);
+  const made = Bun.spawnSync(["mkfifo", events], {
+    stdin: "ignore",
+    stdout: "ignore",
+    stderr: "pipe",
+    timeout: 4_000,
+  });
+  if (made.exitCode !== 0)
+    throw new Error(`mkfifo failed: ${made.stderr.toString()}`);
+  return bytes;
+}
+
+const readerBound = 30_000;
+
+async function feed(
+  pipe: string,
+  bytes: Uint8Array,
+  reader: Started,
+  whileBlocked: () => void = () => undefined,
+): Promise<void> {
+  const opened = open(pipe, "w");
+  const ended = reader.done.then(
+    () => new Error(`The reader exited before it read ${pipe}.`),
+    (error: unknown) =>
+      error instanceof Error ? error : new Error(`The reader failed: ${pipe}.`),
+  );
+  const first = await Promise.race([
+    opened.then(() => "opened" as const),
+    ended,
+  ]);
+  if (first !== "opened") {
+    const unblock = openSync(pipe, constants.O_RDONLY | constants.O_NONBLOCK);
+    try {
+      await (await opened).close();
+    } finally {
+      closeSync(unblock);
+    }
+    throw first;
+  }
+  const handle = await opened;
+  try {
+    whileBlocked();
+    await handle.write(bytes);
+  } finally {
+    await handle.close();
+  }
+}
+
+caseTest(
+  "L08.a-reader-races-move",
+  fixture(async (world) => {
+    await world.killAt(apply("a"), "effect");
+    await world.killAt(apply("c"), "effect");
+    const crashed = [...(await world.pendingIds())].sort();
+    const [reported, read] = crashed;
+    if (!reported || !read || crashed.length !== 2)
+      throw new Error("Expected two crashed cases.");
+    for (const id of crashed) await closeCompleted(world, id);
+    const live = join(world.root, "operations");
+    const settled = join(world.root, "settled");
+    for (const id of crashed)
+      if (existsSync(join(settled, id)))
+        renameSync(join(settled, id), join(live, id));
+    expect(await world.pendingIds()).toEqual([]);
+    const revision = await world.revision(read);
+    const reportedBytes = pipeEvents(world, reported);
+    const report = world.start(["pending", "--json"], {}, readerBound);
+    await feed(join(live, reported, "events"), reportedBytes, report, () => {
+      renameSync(join(live, reported), join(settled, reported));
+    });
+    const listing = await report.done;
+    expect(listing.exit).toBe(0);
+    expect(at(listing.result.raw, "data", "unfinished")).toEqual([]);
+    const readBytes = pipeEvents(world, read);
+    const history = world.start(["history", read, "--json"], {}, readerBound);
+    await feed(join(live, read, "events"), readBytes, history, () => {
+      renameSync(join(live, read), join(settled, read));
+      const moved = join(settled, read, "events");
+      writeFileSync(`${moved}.plain`, readBytes);
+      renameSync(`${moved}.plain`, moved);
+    });
+    const found = await history.done;
+    expect(found.exit).toBe(0);
+    expect(at(found.result.raw, "data", "status")).toBe("closed");
+    expect(at(found.result.raw, "data", "journal", "revision")).toBe(revision);
+    expect(at(found.result.raw, "data", "closure", "disposition")).toBe(
+      "completed",
+    );
+  }),
+);
+
+const upgradeRefused = "State unavailable: store-upgrade.";
+
+supportingTest(
+  "X23 supporting: the upgrade refuses a settled/ that is not private, and a format it does not know",
+  plain(async (world) => {
+    expectCompleted(await world.run(apply("a")));
+    asVersionOneStore(world);
+    const settled = join(world.root, "settled");
+    mkdirSync(settled);
+    chmodSync(settled, 0o770);
+    const shared = await world.run(apply("b"));
+    expectRefusedUnchanged(shared, "DOMAIN_SX_UNAVAILABLE");
+    expect(str(shared.envelope.message)).toBe(upgradeRefused);
+    expect(formatText(world)).toBe(versionOneFormat);
+    chmodSync(settled, 0o700);
+    expectCompleted(await world.run(apply("b")));
+    expect(formatText(world)).toBe(versionTwoFormat);
+    const waiting = world.start(apply("c"), { SX_BARRIER: "admission-wait" });
+    await waiting.reached("admission-wait");
+    const unknown = formatRecord("contract3.state.3");
+    writeFileSync(join(world.root, "format"), unknown);
+    waiting.release("admission-wait");
+    const refused = await waiting.done;
+    expectRefusedUnchanged(refused, "DOMAIN_SX_UNAVAILABLE");
+    expect(str(refused.envelope.message)).toBe(upgradeRefused);
+    expect(formatText(world)).toBe(unknown);
+    expect(world.noteLedger("c")).toBe(0);
+  }),
+);
+
+supportingTest(
+  "X24 supporting: the mover leaves a case with a damaged closure or no lease file",
+  plain(async (world) => {
+    versionTwoStore(world.root);
+    const [damaged, leaseless, eligible] = ["x", "y", "z"].map((name) =>
+      writeSyntheticOperation(world.root, world.note(name), {
+        completed: true,
+      }),
+    );
+    if (!damaged || !leaseless || !eligible) throw new Error("No cases.");
+    const operations = join(world.root, "operations");
+    writeFileSync(join(operations, damaged, "closure"), "damaged");
+    rmSync(join(operations, leaseless, "owner.lease"));
+    expectCompleted(await world.run(apply("a")));
+    expect(caseFolders(world, "settled")).toEqual([eligible]);
+    const left = caseFolders(world, "operations");
+    expect(left).toContain(damaged);
+    expect(left).toContain(leaseless);
+    expect(existsSync(caseLock(world, damaged))).toBe(false);
+  }),
+);
+
+supportingTest(
+  "X24 supporting: a version 2 store refuses a settled/ that is a symbolic link or not private",
+  plain(async (world) => {
+    expectCompleted(await world.run(apply("a")));
+    expectCompleted(await world.run(apply("b")));
+    const [moved] = caseFolders(world, "settled");
+    if (!moved) throw new Error("No moved case.");
+    const settled = join(world.root, "settled");
+    const elsewhere = join(world.base, "elsewhere");
+    renameSync(settled, elsewhere);
+    symlinkSync(elsewhere, settled);
+    const refusedAs = async (
+      argv: readonly string[],
+      cause: string,
+      message: string,
+    ) => {
+      const run = await world.run(argv);
+      expectRefusedUnchanged(
+        run,
+        cause,
+        cause === "DOMAIN_SX_UNAVAILABLE" ? 3 : 4,
+      );
+      expect(str(run.envelope.message)).toBe(message);
+    };
+    const corrupt = "The journal is corrupt.";
+    const store = "State unavailable: store.";
+    const unreadable = "SCHEMA_SX_STATE_UNREADABLE";
+    await refusedAs(["history", moved, "--json"], unreadable, corrupt);
+    await refusedAs(["pending", "--json"], unreadable, corrupt);
+    await refusedAs(apply("c"), "DOMAIN_SX_UNAVAILABLE", store);
+    expect(readdirSync(elsewhere)).toEqual([moved]);
+    rmSync(settled);
+    renameSync(elsewhere, settled);
+    for (const mode of [0o770, 0o707]) {
+      chmodSync(settled, mode);
+      await refusedAs(apply("c"), "DOMAIN_SX_UNAVAILABLE", store);
+      expect(caseFolders(world, "settled")).toEqual([moved]);
+    }
+    expect(world.noteLedger("c")).toBe(0);
+    chmodSync(settled, 0o700);
+    expectCompleted(await world.run(apply("c")));
+    expect(caseFolders(world, "settled").length).toBe(2);
+  }),
+);
+
+supportingTest(
+  "Production entry supporting: through index.ts the store upgrades, a settled case moves and history finds it",
+  plain(async (world) => {
+    const production = { SX_ENTRY: "production" };
+    expectCompleted(await world.run(apply("a"), production));
+    expect(formatText(world)).toBe(versionTwoFormat);
+    expect(versionOneReader(world.root)).toBe("corrupt");
+    const [first] = caseFolders(world, "operations");
+    if (!first) throw new Error("No case.");
+    expectCompleted(await world.run(apply("b"), production));
+    expect(caseFolders(world, "settled")).toEqual([first]);
+    const history = await world.run(["history", first, "--json"], production);
+    expect(history.exit).toBe(0);
+    expect(at(history.result.raw, "data", "operationId")).toBe(first);
+    expect(at(history.result.raw, "data", "status")).toBe("completed");
+    const report = await world.run(["pending", "--json"], production);
+    expect(report.exit).toBe(0);
+    expect(at(report.result.raw, "data", "unfinished")).toEqual([]);
+    expect(world.count("entry production")).toBe(4);
+  }),
+);
+
+supportingTest(
+  "X24 supporting: the mover moves nothing when settled/ stops being a private folder during its hold",
+  plain(async (world) => {
+    expectCompleted(await world.run(apply("a")));
+    const [first] = caseFolders(world, "operations");
+    if (!first) throw new Error("No case.");
+    const settled = join(world.root, "settled");
+    const elsewhere = join(world.base, "elsewhere");
+    const held = world.start(apply("b"), { SX_BARRIER: "staged" });
+    await held.reached("staged");
+    renameSync(settled, elsewhere);
+    symlinkSync(elsewhere, settled);
+    held.release("staged");
+    expectCompleted(await held.done);
+    expect(readdirSync(elsewhere)).toEqual([]);
+    expect(caseFolders(world, "operations")).toContain(first);
+    expect(world.noteLedger("b")).toBe(1);
+  }),
+);
+
+supportingTest(
+  "X23 supporting: an upgrade that cannot write or remove its staged record refuses and frees the admission lock",
+  plain(async (world) => {
+    expectCompleted(await world.run(apply("a")));
+    asVersionOneStore(world);
+    const staging = join(world.root, "staging");
+    chmodSync(staging, 0o000);
+    let refused;
+    try {
+      refused = await world.run(apply("b"));
+    } finally {
+      chmodSync(staging, 0o700);
+    }
+    expectRefusedUnchanged(refused, "DOMAIN_SX_UNAVAILABLE");
+    expect(str(refused.envelope.message)).toBe(upgradeRefused);
+    expect(formatText(world)).toBe(versionOneFormat);
+    expectCompleted(await world.run(apply("b")));
+    expect(formatText(world)).toBe(versionTwoFormat);
+  }),
+  90_000,
+  true,
+);
+
+supportingTest(
+  "Test harness supporting: the state test world kills a child that outlives its bound",
+  async () => {
+    const world = makeWorld({ childBound: 300 });
+    try {
+      const held = world.start(apply("a"), { SX_BARRIER: "intent" });
+      await held.reached("intent");
+      const ended = await held.done.then(
+        () => "ended",
+        (error: unknown) => (error instanceof Error ? error.message : "failed"),
+      );
+      expect(ended).toContain("outlived its 300 ms limit and was killed.");
+    } finally {
+      world.dispose();
+    }
+  },
+  10_000,
 );

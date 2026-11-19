@@ -14,6 +14,7 @@ import {
 } from "node:fs";
 import { createHash } from "node:crypto";
 import { isAbsolute, join } from "node:path";
+import { errorCode } from "./coordination.ts";
 import { encodeRecord, parseRecords, plainObject } from "./framing.ts";
 import type { ParsedRecord } from "./framing.ts";
 import type { CanonicalScope } from "./scope.ts";
@@ -27,8 +28,10 @@ export function layout(root: string) {
     coordination: join(root, "coordination"),
     admission: join(root, "coordination", "admission.lock"),
     operations: join(root, "operations"),
+    settled: join(root, "settled"),
     staging: join(root, "staging"),
     operation: (id: string) => join(root, "operations", id),
+    settledCase: (id: string) => join(root, "settled", id),
     keyLock: (key: string) =>
       join(
         root,
@@ -94,10 +97,7 @@ export function ensureStore(paths: Layout): boolean {
       lstatSync(paths.format);
     } catch {
       const staged = join(paths.staging, `format-${crypto.randomUUID()}`);
-      writeDurable(
-        staged,
-        encodeRecord("format", { journal: "contract3.state" }),
-      );
+      writeDurable(staged, encodeRecord("format", { journal: journals.one }));
       try {
         linkSync(staged, paths.format);
       } catch (error) {
@@ -106,20 +106,69 @@ export function ensureStore(paths: Layout): boolean {
       rmSync(staged, { force: true });
       flushDirectory(paths.root);
     }
-    return formatValid(paths);
+    return storeProblem(paths) === undefined;
   } catch {
     return false;
   }
 }
 
-function formatValid(paths: Layout): boolean {
+const journals = { one: "contract3.state", two: "contract3.state.2" } as const;
+type Journal = (typeof journals)[keyof typeof journals];
+
+function journalOf(paths: Layout): Journal | undefined {
   const parsed = parseRecords(readFileSync(paths.format));
   const record = parsed.ok && !parsed.tornTail ? parsed.records : [];
-  return (
-    record.length === 1 &&
-    record[0]?.kind === "format" &&
-    record[0].payload.journal === "contract3.state"
-  );
+  const journal = record[0]?.payload.journal;
+  return record.length === 1 && record[0]?.kind === "format"
+    ? Object.values(journals).find((known) => known === journal)
+    : undefined;
+}
+
+export type UpgradePhase = "upgrade-staged" | "upgraded";
+
+export type UpgradeProblem = "store-upgrade" | "store-upgrade-unconfirmed";
+
+export async function upgradeStore(
+  paths: Layout,
+  phase: (name: UpgradePhase) => Promise<void>,
+): Promise<UpgradeProblem | undefined> {
+  const staged = join(paths.staging, `format-${crypto.randomUUID()}`);
+  let replaced = false;
+  try {
+    const journal = journalOf(paths);
+    if (journal === journals.two) return undefined;
+    if (journal !== journals.one) return "store-upgrade";
+    mkdirSync(paths.settled, { recursive: true, mode: 0o700 });
+    if (!privateDirectory(paths.settled)) return "store-upgrade";
+    flushDirectory(paths.root);
+    writeDurable(staged, encodeRecord("format", { journal: journals.two }));
+    await phase("upgrade-staged");
+    renameSync(staged, paths.format);
+    replaced = true;
+    flushDirectory(paths.root);
+    await phase("upgraded");
+    return undefined;
+  } catch {
+    if (replaced) return "store-upgrade-unconfirmed";
+    removeStaged(staged);
+    return "store-upgrade";
+  }
+}
+
+function removeStaged(staged: string): void {
+  try {
+    rmSync(staged, { force: true });
+  } catch {
+    return;
+  }
+}
+
+export function settledIsPrivate(paths: Layout): boolean {
+  try {
+    return privateDirectory(paths.settled);
+  } catch {
+    return false;
+  }
 }
 
 export type Intent = {
@@ -445,11 +494,7 @@ function statusOf(
       : "unresolved";
 }
 
-export function readOperation(
-  paths: Layout,
-  id: string,
-): Operation | "corrupt" {
-  const directory = paths.operation(id);
+function readOperationIn(directory: string, id: string): Operation | "corrupt" {
   const intent = readIntent(directory, id);
   const events = intent && readEvents(directory, intent.intent.effects);
   if (!intent || !events) return "corrupt";
@@ -467,26 +512,100 @@ export function readOperation(
   };
 }
 
-export function readStore(paths: Layout): ReadResult {
+function folderRemains(directory: string): boolean {
+  try {
+    lstatSync(directory);
+    return true;
+  } catch (error) {
+    return errorCode(error) !== "ENOENT";
+  }
+}
+
+function fromCaseFolders<T>(
+  paths: Layout,
+  id: string,
+  read: (directory: string) => T,
+): T | "not-found" {
+  for (const directory of [paths.operation(id), paths.settledCase(id)]) {
+    const value = read(directory);
+    if (folderRemains(directory)) return value;
+  }
+  return "not-found";
+}
+
+function readCaseIn(
+  directory: string,
+  id: string,
+): Operation | "corrupt" | "unreadable" {
+  try {
+    return readOperationIn(directory, id);
+  } catch {
+    return "unreadable";
+  }
+}
+
+export type CaseRead = Operation | "not-found" | "corrupt" | "unreadable";
+
+export function readCase(paths: Layout, id: string): CaseRead {
+  return fromCaseFolders(paths, id, (directory) => readCaseIn(directory, id));
+}
+
+export function storeProblem(
+  paths: Layout,
+): "missing" | "unreadable" | "corrupt" | undefined {
   try {
     lstatSync(paths.root);
   } catch {
-    return { ok: false, reason: "missing" };
+    return "missing";
   }
   try {
-    if (!privateDirectory(paths.root) || !formatValid(paths))
-      return { ok: false, reason: "corrupt" };
+    const journal = journalOf(paths);
+    return privateDirectory(paths.root) &&
+      journal !== undefined &&
+      (journal === journals.one || privateDirectory(paths.settled))
+      ? undefined
+      : "corrupt";
+  } catch {
+    return "unreadable";
+  }
+}
+
+export function readStore(paths: Layout): ReadResult {
+  const problem = storeProblem(paths);
+  if (problem) return { ok: false, reason: problem };
+  try {
     const operations: Operation[] = [];
     for (const name of readdirSync(paths.operations).sort()) {
       if (!operationPattern.test(name)) return { ok: false, reason: "corrupt" };
-      const operation = readOperation(paths, name);
-      if (operation === "corrupt") return { ok: false, reason: "corrupt" };
-      operations.push(operation);
+      const read = readCaseIn(paths.operation(name), name);
+      if (!folderRemains(paths.operation(name))) continue;
+      if (read === "corrupt" || read === "unreadable")
+        return { ok: false, reason: read };
+      operations.push(read);
     }
     return { ok: true, operations };
   } catch {
     return { ok: false, reason: "unreadable" };
   }
+}
+
+export function moveSettledCase(
+  paths: Layout,
+  id: string,
+): "moved" | "occupied" {
+  try {
+    lstatSync(paths.settledCase(id));
+    return "occupied";
+  } catch (error) {
+    if (errorCode(error) !== "ENOENT") throw error;
+  }
+  renameSync(paths.operation(id), paths.settledCase(id));
+  return "moved";
+}
+
+export function flushMoves(paths: Layout): void {
+  flushDirectory(paths.operations);
+  flushDirectory(paths.settled);
 }
 
 export async function publishOperation(
@@ -527,6 +646,8 @@ export async function publishOperation(
   };
 }
 
+const settlingEvents: readonly EventKind[] = ["completion", "not-applied"];
+
 export function appendEvent(
   eventsPath: string,
   kind: EventKind,
@@ -537,7 +658,12 @@ export function appendEvent(
     constants.O_WRONLY | constants.O_APPEND | constants.O_NOFOLLOW,
   );
   try {
-    const bytes = encodeRecord(kind, payload);
+    const bytes = encodeRecord(
+      kind,
+      settlingEvents.includes(kind)
+        ? { ...payload, settledAt: Date.now() }
+        : payload,
+    );
     let offset = 0;
     while (offset < bytes.byteLength)
       offset += writeSync(descriptor, bytes, offset);
@@ -553,7 +679,10 @@ export function publishClosure(
   beforeLink: () => Promise<void>,
 ): Promise<"published" | "exists"> {
   const staged = join(paths.staging, `closure-${crypto.randomUUID()}`);
-  writeDurable(staged, encodeRecord(recordKinds.closure, closure));
+  writeDurable(
+    staged,
+    encodeRecord(recordKinds.closure, { ...closure, settledAt: Date.now() }),
+  );
   return beforeLink().then(() => {
     try {
       linkSync(staged, join(paths.operation(closure.operationId), "closure"));
@@ -568,11 +697,22 @@ export function publishClosure(
   });
 }
 
-export function readClosure(
-  paths: Layout,
-  id: string,
-): Closure | "damaged" | undefined {
-  const bytes = readOptional(join(paths.operation(id), "closure"));
+export type ClosureRead = Closure | "damaged" | "unreadable" | undefined;
+
+export function readClosure(paths: Layout, id: string): ClosureRead {
+  const found = fromCaseFolders(paths, id, (directory) =>
+    closureIn(directory, id),
+  );
+  return found === "not-found" ? undefined : found;
+}
+
+function closureIn(directory: string, id: string): ClosureRead {
+  let bytes: Uint8Array | undefined;
+  try {
+    bytes = readOptional(join(directory, "closure"));
+  } catch {
+    return "unreadable";
+  }
   if (!bytes) return undefined;
   const parsed = parseRecords(bytes);
   const record =

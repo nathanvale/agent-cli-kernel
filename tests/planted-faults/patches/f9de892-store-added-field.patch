@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
+index a056567..7be6c96 100644
+--- a/kernel/src/addons/state/store.ts
++++ b/kernel/src/addons/state/store.ts
+@@ -141,7 +141,7 @@ export async function upgradeStore(
+     mkdirSync(paths.settled, { recursive: true, mode: 0o700 });
+     if (!privateDirectory(paths.settled)) return "store-upgrade";
+     flushDirectory(paths.root);
+-    writeDurable(staged, encodeRecord("format", { journal: journals.two }));
++    writeDurable(staged, encodeRecord("format", { journal: journals.one, version: 2 }));
+     await phase("upgrade-staged");
+     renameSync(staged, paths.format);
+     replaced = true;

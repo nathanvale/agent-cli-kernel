@@ -13,6 +13,12 @@
 //   - report() and history(operationId): read-only data for the host's
 //     ifNoResult and case-history inspect commands.
 //   - capabilities(): which gated capabilities are available, and why not.
+// - The first changing command upgrades the state root to journal version 2,
+//   one way: a version 1 program then refuses every route on it, its report
+//   included. Every version 1 process that used the root must have exited
+//   before a version 2 program first runs a changing command there; replacing
+//   the installed programs is not enough. The add-on cannot detect such a
+//   process (journal version 2 design part 1 section 3).
 import { install } from "./install.ts";
 import type { StateOptions } from "./install.ts";
 import { resolveCoordination } from "./coordination.ts";

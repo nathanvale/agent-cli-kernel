@@ -60,7 +60,9 @@ is in the [test harness guide](test-harness.md).
 - Build a process proof's subject through `index.ts`, the production seam
   the shared test-execution rule asks for. A test entry such as `fixture.ts`,
   or a fault-wrapped CLI, proves only the fixture. Witnessed: [e55f94a],
-  [7ea1ee3].
+  [7ea1ee3], [r4624230382], [9086c3b] (the upgrade, move and history
+  process proofs ran only through `fixture.ts`; the fix adds one through
+  `SX_ENTRY` production).
 - Start the entry from the folder a caller starts it in. `bun run <script>`
   moves the child to the package root, so a proof through a package script
   never exercises the entry's own process folder. Witnessed: [c5a554e].
@@ -157,3 +159,5 @@ is in the [test harness guide](test-harness.md).
 [#102-copy-key]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609902960
 [r4622139095]: https://github.com/nathanvale/agent-cli-kernel/pull/2#discussion_r4622139095
 [f754f36]: https://github.com/nathanvale/agent-cli-kernel/commit/f754f3629123ca9632fba83361a4776109459e97
+[r4624230382]: https://github.com/nathanvale/agent-cli-kernel/pull/13#discussion_r4624230382
+[9086c3b]: https://github.com/nathanvale/agent-cli-kernel/commit/9086c3b8b14bcba376aa63027abdd817c1495e53

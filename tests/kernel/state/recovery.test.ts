@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import {
   chmodSync,
   existsSync,
+  mkdirSync,
   readFileSync,
   renameSync,
   rmSync,
@@ -13,10 +14,12 @@ import { join } from "node:path";
 import {
   at,
   caseTest,
+  closeArgs,
   expectCompleted,
   expectRefusedUnchanged,
   makeWorld,
   str,
+  supportingTest,
 } from "./harness.ts";
 import type { World } from "./harness.ts";
 import { coordinationExpected } from "./holder.ts";
@@ -53,29 +56,10 @@ function only(world: World, command = "sx.apply"): string {
   return first.id;
 }
 function closurePath(world: World, id: string): string {
-  return join(world.root, "operations", id, "closure");
-}
-function closeArgs(
-  id: string,
-  revision: string,
-  disposition = "completed",
-  closureId = "c1",
-  ...extra: string[]
-): string[] {
-  return [
-    "close",
-    id,
-    "--disposition",
-    disposition,
-    "--closure-id",
-    closureId,
-    "--revision",
-    revision,
-    "--reason",
-    "independent evidence reviewed",
-    ...extra,
-    "--json",
-  ];
+  const folder = existsSync(join(world.root, "settled", id))
+    ? "settled"
+    : "operations";
+  return join(world.root, folder, id, "closure");
 }
 async function close(
   world: World,
@@ -355,6 +339,116 @@ caseTest(
     expect(at(history.result.raw, "data", "status")).toBe("closed");
     expectCompleted(await world.run(apply("a", "again")));
     expect(world.noteLedger("a")).toBe(3);
+  }),
+);
+
+caseTest(
+  "K10.a-retry-after-move",
+  fixture(async (world) => {
+    await world.killAt(apply("a"), "effect");
+    const id = only(world);
+    const revision = await world.revision(id);
+    expectCompleted(await world.run(closeArgs(id, revision)));
+    const closer = only(world, "sx.close");
+    const bytes = readFileSync(closurePath(world, id));
+    expectCompleted(await world.run(apply("b")));
+    expect(world.settled().map((entry) => entry.id)).toEqual(
+      [id, closer].sort(),
+    );
+    const again = await world.run(closeArgs(id, revision));
+    expect(again.exit).toBe(0);
+    expect(again.result.causeCode).toBe("SUCCESS_UNCHANGED");
+    expect(at(again.result.raw, "data", "disposition")).toBe("completed");
+    expect(readFileSync(join(world.root, "settled", id, "closure"))).toEqual(
+      bytes,
+    );
+    expect(
+      world.operations().map((entry) => entry.intent.commandIdentity),
+    ).toEqual(["sx.apply"]);
+    const observed = await world.history(closer);
+    expect(at(observed.result.raw, "data", "observed")).toEqual({
+      "state.closure": "completed",
+    });
+    expect(world.noteLedger("a")).toBe(1);
+  }),
+);
+
+async function closerWaitsWhileTargetMoves(world: World) {
+  const live = world.start(apply("a"), { SX_BARRIER: "intent" });
+  await live.reached("intent");
+  const id = only(world);
+  const closer = world.start(closeArgs(id, await world.revision(id)), {
+    SX_BARRIER: "admission-wait",
+  });
+  await closer.reached("admission-wait");
+  live.release("intent");
+  expectCompleted(await live.done);
+  expectCompleted(await world.run(apply("b")));
+  expect(world.settled().map((entry) => entry.id)).toEqual([id]);
+  return { id, closer };
+}
+
+supportingTest(
+  "X26 supporting: a closer whose target settles and moves while it waits finds it in settled/",
+  fixture(async (world) => {
+    const { id, closer } = await closerWaitsWhileTargetMoves(world);
+    closer.release("admission-wait");
+    expectRefusedUnchanged(await closer.done, "DOMAIN_SX_CLOSE_CONFLICT");
+    expect(existsSync(join(world.root, "settled", id, "closure"))).toBe(false);
+    expect(world.cases().map((entry) => entry.intent.commandIdentity)).toEqual([
+      "sx.apply",
+      "sx.apply",
+    ]);
+  }),
+);
+
+supportingTest(
+  "X26 supporting: a closer whose moved target is corrupt names the store, not a missing case",
+  fixture(async (world) => {
+    const { id, closer } = await closerWaitsWhileTargetMoves(world);
+    const intent = join(world.root, "settled", id, "intent");
+    const bytes = readFileSync(intent);
+    const index = bytes.length - 3;
+    bytes[index] = (bytes[index] ?? 0) ^ 1;
+    writeFileSync(intent, bytes);
+    closer.release("admission-wait");
+    const refused = await closer.done;
+    expectRefusedUnchanged(refused, "DOMAIN_SX_UNAVAILABLE");
+    expect(str(refused.envelope.message)).toContain("store-corrupt");
+  }),
+);
+
+supportingTest(
+  "X26 supporting: a closer whose moved target is unreadable names the store, not a missing case",
+  fixture(async (world) => {
+    const { id, closer } = await closerWaitsWhileTargetMoves(world);
+    const intent = join(world.root, "settled", id, "intent");
+    rmSync(intent);
+    mkdirSync(intent);
+    closer.release("admission-wait");
+    const refused = await closer.done;
+    expectRefusedUnchanged(refused, "DOMAIN_SX_UNAVAILABLE");
+    expect(str(refused.envelope.message)).toContain("store-unreadable");
+  }),
+);
+
+supportingTest(
+  "X26 supporting: a closer's history stays readable when its target's closure cannot be read",
+  fixture(async (world) => {
+    await world.killAt(apply("a"), "effect");
+    const id = only(world);
+    expectCompleted(await world.run(closeArgs(id, await world.revision(id))));
+    const closer = only(world, "sx.close");
+    expectCompleted(await world.run(apply("b")));
+    const closure = join(world.root, "settled", id, "closure");
+    rmSync(closure);
+    mkdirSync(closure);
+    const read = await world.history(closer);
+    expect(read.exit).toBe(0);
+    expect(at(read.result.raw, "data", "operationId")).toBe(closer);
+    expect(at(read.result.raw, "data", "observed")).toEqual({
+      "state.closure": "uncertain",
+    });
   }),
 );
 

@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index 30bb3d7..3222e07 100644
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1208,7 +1208,7 @@ export function install(options: StateOptions, seams: Seams) {
+         ok: false,
+         stop:
+           typeof moved === "string"
+-            ? readProblem(moved)
++            ? { kind: "not-found" }
+             : (settledCheck(moved, request) ?? { kind: "not-found" }),
+       };
+     }
