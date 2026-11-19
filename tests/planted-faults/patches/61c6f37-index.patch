@@ -1,13 +1,13 @@
 diff --git a/kernel/src/addons/programs/index.ts b/kernel/src/addons/programs/index.ts
-index ef3f66c..d0360d6 100644
+index 23147db..ea28a55 100644
 --- a/kernel/src/addons/programs/index.ts
 +++ b/kernel/src/addons/programs/index.ts
-@@ -77,7 +77,7 @@ function inputProblem(input: unknown): string | undefined {
-   if (input === undefined) return undefined;
-   if (!(input instanceof Uint8Array))
-     return "A program's input must be a Uint8Array.";
--  return input.byteLength > inputLimitBytes
-+  return input.byteLength > inputLimitBytes + 1
+@@ -100,7 +100,7 @@ function inputProblem(input: unknown): string | undefined {
+   const length =
+     input instanceof Uint8Array ? intrinsicByteLength(input) : undefined;
+   if (length === undefined) return "A program's input must be a Uint8Array.";
+-  return length > inputLimitBytes
++  return length > inputLimitBytes + 1
      ? `A program's input is at most ${String(inputLimitBytes)} bytes.`
      : undefined;
  }
