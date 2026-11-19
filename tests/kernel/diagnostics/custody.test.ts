@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, jest, test } from "bun:test";
 import {
   chmodSync,
   lstatSync,
@@ -9,6 +9,17 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
+import {
+  allocate,
+  prepare,
+} from "../../../kernel/src/addons/diagnostics/custody.ts";
+import type {
+  Allocation,
+  Place,
+} from "../../../kernel/src/addons/diagnostics/custody.ts";
+import { nodeIo } from "../../../kernel/src/addons/diagnostics/io.ts";
+import { limits } from "../../../kernel/src/addons/diagnostics/limits.ts";
+import { turns } from "../lifecycle/recording-host.ts";
 import {
   cleanTrees,
   get,
@@ -527,4 +538,62 @@ describe("D09 setup faults", () => {
       },
       timeout,
     );
+});
+
+const lateBy = 3 * limits.lockRetryMilliseconds;
+const turnBound = 1_000;
+
+function heldLock(): Place {
+  const place = prepare(tree().dir);
+  if (!place) throw new Error("The test tree has no private directory.");
+  const lock = join(place.directory, ".allocation-lock");
+  mkdirSync(lock, { mode: 0o700 });
+  writeFileSync(join(lock, "holder"), "");
+  return place;
+}
+
+async function waitWithLateRetries(
+  place: Place,
+  abandonedAfter: (elapsed: number) => boolean,
+) {
+  jest.useFakeTimers();
+  try {
+    const began = performance.now();
+    const outcome: {
+      settled?: { readonly allocation: Allocation; readonly elapsed: number };
+    } = {};
+    void allocate(place, "late-retries", nodeIo, () =>
+      abandonedAfter(performance.now() - began),
+    ).then((allocation) => {
+      outcome.settled = { allocation, elapsed: performance.now() - began };
+    });
+    for (let turn = 0; !outcome.settled && turn < turnBound; turn += 1) {
+      await turns(1);
+      if (jest.getTimerCount() > 0) jest.advanceTimersByTime(lateBy);
+    }
+    if (!outcome.settled)
+      throw new Error(`The lock wait did not settle in ${turnBound} turns.`);
+    return outcome.settled;
+  } finally {
+    jest.useRealTimers();
+  }
+}
+
+test("the allocation lock wait ends at its limit by the clock when every retry wakes late", async () => {
+  const { allocation, elapsed } = await waitWithLateRetries(
+    heldLock(),
+    () => false,
+  );
+  expect(allocation).toBe("capacity");
+  expect(elapsed).toBeGreaterThanOrEqual(limits.lockWaitMilliseconds);
+  expect(elapsed).toBeLessThanOrEqual(limits.lockWaitMilliseconds + lateBy);
+});
+
+test("an abandoned run ends the allocation lock wait before its limit", async () => {
+  const { allocation, elapsed } = await waitWithLateRetries(
+    heldLock(),
+    (elapsedSoFar) => elapsedSoFar >= 2 * lateBy,
+  );
+  expect(allocation).toBe("abandoned");
+  expect(elapsed).toBeLessThan(limits.lockWaitMilliseconds);
 });
