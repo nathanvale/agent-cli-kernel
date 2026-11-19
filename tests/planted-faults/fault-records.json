@@ -1202,5 +1202,26 @@
     "testFile": "tests/kernel/state/component.test.ts",
     "title": "^X13 supporting: the final event is appended, then the key coordination locks are released, then the lease last$",
     "source": "460be51 feat(state): make a transaction wait for its started effects"
+  },
+  {
+    "id": "8452159-in-process-stop-handler",
+    "patch": "tests/planted-faults/patches/8452159-lifecycle-handler.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP10\\.waits-for-handler",
+    "source": "8452159 fix(kernel): wait for every in-process run's handler after a stop request"
+  },
+  {
+    "id": "8452159-in-process-stop-first",
+    "patch": "tests/planted-faults/patches/8452159-lifecycle-first.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP10\\.waits-for-every-run",
+    "source": "8452159 fix(kernel): wait for every in-process run's handler after a stop request"
+  },
+  {
+    "id": "8452159-in-process-stop-late",
+    "patch": "tests/planted-faults/patches/8452159-lifecycle-late.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP10\\.handler-never-ends",
+    "source": "8452159 fix(kernel): wait for every in-process run's handler after a stop request"
   }
 ]
