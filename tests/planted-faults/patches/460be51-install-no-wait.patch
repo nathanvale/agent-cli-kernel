@@ -1,0 +1,12 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index 716ad3f..ad5aaae 100644
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -828,7 +828,6 @@ export function install(options: StateOptions, seams: Seams) {
+       workFailed = true;
+     }
+     recording.ended = true;
+-    await settled(recording);
+     const observation = observationOf(
+       declared,
+       recording.confirmed,

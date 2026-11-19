@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index 716ad3f..ea42f4b 100644
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -952,8 +952,6 @@ export function install(options: StateOptions, seams: Seams) {
+           startEffect: Effect,
+           start: () => Promise<R>,
+         ): Promise<R> => {
+-          if (recording.ended)
+-            return Promise.reject(endedRefusal("admitStart"));
+           if (
+             startRun !== runId ||
+             startEffect !== effect ||

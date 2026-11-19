@@ -1,0 +1,31 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index 716ad3f..74f1928 100644
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -827,14 +827,13 @@ export function install(options: StateOptions, seams: Seams) {
+     } catch {
+       workFailed = true;
+     }
+-    recording.ended = true;
+     await settled(recording);
+     const observation = observationOf(
+       declared,
+       recording.confirmed,
+       recording.started,
+     );
+-    finish(opened.events, observation);
++    recording.ended = finish(opened.events, observation);
+     active.delete(runId);
+     releaseKeyLocks();
+     opened.releaseLease();
+@@ -920,8 +919,9 @@ export function install(options: StateOptions, seams: Seams) {
+           uncertain: [...effects.uncertain],
+         });
+     } catch {
+-      return;
++      return false;
+     }
++    return true;
+   }
+ 
+   function recorder<Effect extends string>(
