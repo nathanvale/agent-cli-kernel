@@ -2245,5 +2245,68 @@
     "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
     "title": "^Q03.a refuses a record with an unknown",
     "source": "95c61a4 fix(state): settle the kernel-reviewer pass on the Sol fixes"
+  },
+  {
+    "id": "ae80f32-capability-qualification-run-dotenv",
+    "patch": "tests/planted-faults/patches/ae80f32-capability-qualification-run-dotenv.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^a Bun child started in the checkout loads its .env",
+    "source": "ae80f32 fix(state): settle the Sol second look at the capability qualification run"
+  },
+  {
+    "id": "ae80f32-capability-qualification-run-load-folders",
+    "patch": "tests/planted-faults/patches/ae80f32-capability-qualification-run-load-folders.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run refuses an ignored file in a folder it loads code from",
+    "source": "ae80f32 fix(state): settle the Sol second look at the capability qualification run"
+  },
+  {
+    "id": "ae80f32-capability-qualification-run-tracked-files",
+    "patch": "tests/planted-faults/patches/ae80f32-capability-qualification-run-tracked-files.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^a capability qualification run takes its case files from the commit",
+    "source": "ae80f32 fix(state): settle the Sol second look at the capability qualification run"
+  },
+  {
+    "id": "ae80f32-capability-qualification-run-listed-files-only",
+    "patch": "tests/planted-faults/patches/ae80f32-capability-qualification-run-listed-files-only.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run.s own case runner loads only the files",
+    "source": "ae80f32 fix(state): settle the Sol second look at the capability qualification run"
+  },
+  {
+    "id": "ae80f32-capability-qualification-run-exit-zero-with-failure",
+    "patch": "tests/planted-faults/patches/ae80f32-capability-qualification-run-exit-zero-with-failure.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^a capability qualification run refuses a test process that exited 0 though a covered case failed",
+    "source": "ae80f32 fix(state): settle the Sol second look at the capability qualification run"
+  },
+  {
+    "id": "ae80f32-capability-qualification-run-failed-case-written",
+    "patch": "tests/planted-faults/patches/ae80f32-capability-qualification-run-failed-case-written.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^a capability qualification run with a failed required case writes its record",
+    "source": "ae80f32 fix(state): settle the Sol second look at the capability qualification run"
+  },
+  {
+    "id": "ae80f32-capability-qualification-run-unchecked-mode",
+    "patch": "tests/planted-faults/patches/ae80f32-capability-qualification-run-unchecked-mode.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the capability qualification run refuses a tree entry it cannot check",
+    "source": "ae80f32 fix(state): settle the Sol second look at the capability qualification run"
+  },
+  {
+    "id": "ae80f32-capability-qualification-run-boot-readable",
+    "patch": "tests/planted-faults/patches/ae80f32-capability-qualification-run-boot-readable.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "^the boot identity counts as readable only when",
+    "source": "ae80f32 fix(state): settle the Sol second look at the capability qualification run"
+  },
+  {
+    "id": "ae80f32-capability-qualification-record-source-hash-shape",
+    "patch": "tests/planted-faults/patches/ae80f32-capability-qualification-record-source-hash-shape.patch",
+    "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+    "title": "^Q03.a refuses a record with a malformed sourceHash",
+    "source": "ae80f32 fix(state): settle the Sol second look at the capability qualification run"
   }
 ]

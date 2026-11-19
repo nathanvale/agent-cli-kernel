@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index bc00310..f0e8f2e 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -616,7 +616,7 @@ function cleanProblem(place: GitPlace, commit: string): string | undefined {
+   ]);
+   if (ignored.length > 0)
+     return `Refused: git ignores files where the run loads code (${ignored.join("; ")}); a capability qualification run loads committed files only. Repair: remove those files, then rerun.`;
+-  return dotenvProblem(place.root);
++  return undefined;
+ }
+ 
+ function existingRecord(

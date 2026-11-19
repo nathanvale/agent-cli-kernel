@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-record.ts b/tests/kernel/state/capability-qualification-record.ts
+index 8397524..f53e9d5 100644
+--- a/tests/kernel/state/capability-qualification-record.ts
++++ b/tests/kernel/state/capability-qualification-record.ts
+@@ -245,7 +245,7 @@ function parseRun(source: unknown, where: string): CapabilityQualificationRun {
+     commit: shaped(run.text("commit"), /^[0-9a-f]{40}$/, `${where}.commit`),
+     sourceHash: shaped(
+       run.text("sourceHash"),
+-      /^[0-9a-f]{64}$/,
++      /^[0-9a-f]+$/,
+       `${where}.sourceHash`,
+     ),
+     started: run.text("started"),

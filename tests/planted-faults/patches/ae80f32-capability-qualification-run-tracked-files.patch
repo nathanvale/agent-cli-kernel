@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index bc00310..a73d91d 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -836,7 +836,7 @@ export async function capabilityQualificationRun(
+         commit,
+         "--",
+         stateTests,
+-      ]).filter((path) => path.endsWith(".test.ts")),
++      ]),
+       environment: context.environment,
+       output: context.output ?? ((text) => process.stderr.write(text)),
+     });

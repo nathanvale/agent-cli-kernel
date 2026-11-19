@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index bc00310..56f30c8 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -528,7 +528,7 @@ function workingBytes(path: string, mode: string): Buffer | string {
+       : "not a link";
+   if (mode === "100644" || mode === "100755")
+     return stats.isFile() ? readFileSync(path) : "not a file";
+-  return `mode ${mode} is not checked`;
++  return Buffer.from("");
+ }
+ 
+ function committedProblem(place: GitPlace, commit: string): string | undefined {
