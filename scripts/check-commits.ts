@@ -163,15 +163,9 @@ function report(
 function commitsToCheck(run: Run, base: string, head: string): Commit[] {
   const { fixedPoint } = run;
   const present = git(run, ["cat-file", "-e", `${fixedPoint}^{commit}`]).ok;
-  const behind =
-    present && git(run, ["merge-base", "--is-ancestor", fixedPoint, head]).ok;
   if (!present)
     print(
       `since ${fixedPoint} is not in this clone, so every commit in ${base}..${head} is checked.`,
-    );
-  else if (!behind)
-    print(
-      `since ${fixedPoint} is not behind ${head}, so every commit in ${base}..${head} is checked.`,
     );
   const listed = git(run, [
     "rev-list",
@@ -179,7 +173,7 @@ function commitsToCheck(run: Run, base: string, head: string): Commit[] {
     "--no-commit-header",
     "--format=%H %h %s",
     head,
-    ...(behind ? [`^${fixedPoint}`] : []),
+    ...(present ? [`^${fixedPoint}`] : []),
     "--not",
     base,
   ]);
