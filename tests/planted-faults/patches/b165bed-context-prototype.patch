@@ -1,20 +1,16 @@
 diff --git a/kernel/src/kernel/validation/context.ts b/kernel/src/kernel/validation/context.ts
-index f921b11..445679a 100644
+index 5562ff1..7f5e0e7 100644
 --- a/kernel/src/kernel/validation/context.ts
 +++ b/kernel/src/kernel/validation/context.ts
-@@ -17,14 +17,7 @@ export const addonNames: readonly CapabilityAddonName[] = Object.freeze(
- // throws for any object that is not a real AbortSignal, a Proxy of one
+@@ -18,10 +18,7 @@ export const addonNames: readonly CapabilityAddonName[] = Object.freeze(
  // included, so reading it through the prototype is the brand check.
  function abortSignal(value: unknown): value is AbortSignal {
--  if (!(value instanceof AbortSignal)) return false;
--  try {
+   try {
+-    if (!(value instanceof AbortSignal)) return false;
 -    return (
 -      typeof Reflect.get(AbortSignal.prototype, "aborted", value) === "boolean"
 -    );
--  } catch {
--    return false;
--  }
-+  return value instanceof AbortSignal;
- }
- // Interface: The one owner of a context's abort signal. No `signal` key: a signal
- // that never aborts. A real one: that signal. Anything else: undefined, and
++    return value instanceof AbortSignal;
+   } catch {
+     return false;
+   }
