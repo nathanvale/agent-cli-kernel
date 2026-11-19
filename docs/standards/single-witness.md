@@ -57,6 +57,17 @@ this file.
 - Read staged Git blobs in one batch by object ID. Witnessed:
   [r4609890969] (the file-size gate started a Git process for each staged
   file).
+- Put the state a run shares with an asynchronous callback in place before
+  the call that can trigger that callback, since an async function runs
+  synchronously up to its first `await`. Witnessed: [r4623815208]
+  (`run.execution` was set only after `attached.enter()` returned, so a stop
+  request delivered during handler entry waited for the add-ons alone and
+  cut off the handler's clean-up).
+- When a wait joins several parts, give each part a case where it finishes
+  last, or a fault that drops that part survives. Witnessed: [7c5967e]
+  (CodeRabbit's [review of pull request 9][#9-add-on]: a handler that never
+  ended outlasted the add-on's 300 ms settle, so the stop request case
+  passed with the add-on dropped from the wait).
 
 [ac11ed9]: https://github.com/nathanvale/bun-typescript-template/commit/ac11ed98b7d538e8a304cac053aaefcaaf6b2cb3
 [cd2498b]: https://github.com/nathanvale/bun-typescript-template/commit/cd2498b7189a2d45d1906b9c870e8d13da6cd2dd
@@ -72,3 +83,6 @@ this file.
 [r4609956011]: https://github.com/nathanvale/bun-typescript-template/pull/109#discussion_r4609956011
 [r4609956051]: https://github.com/nathanvale/bun-typescript-template/pull/109#discussion_r4609956051
 [r4609890969]: https://github.com/nathanvale/bun-typescript-template/pull/108#discussion_r4609890969
+[r4623815208]: https://github.com/nathanvale/agent-cli-kernel/pull/9#discussion_r4623815208
+[7c5967e]: https://github.com/nathanvale/agent-cli-kernel/commit/7c5967e25761e72cbf1d3fb77bc166aa5aef80ae
+[#9-add-on]: https://github.com/nathanvale/agent-cli-kernel/pull/9#pullrequestreview-5968740024
