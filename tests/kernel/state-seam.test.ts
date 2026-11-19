@@ -147,12 +147,13 @@ test("a record kept past its forgotten run and called outside the run cannot rec
     ),
   ).toBe("The test transaction proves nothing.");
   if (!kept) throw new Error("The transaction kept no record.");
+  const transaction = kept;
   attached.close();
   forgetRun("run-1", descriptor);
   expect(
     await messageOf(
       Promise.resolve().then(() =>
-        kept?.record("specimen.note", note, confirmed),
+        transaction.record("specimen.note", note, confirmed),
       ),
     ),
   ).toBe("The state capability closed when its run finished.");
