@@ -21,6 +21,13 @@ empty. Version 2's stopped-owner condition for a crashed case is all of:
 3. Every `delegate-admitted` event on the case names a boot identity that
    differs from the current one (section 5). A case with none passes.
 
+The closer reads the case again after it holds the owner lease, and decides
+only on that read; it holds the lease until the closure is published, and
+refuses when that read differs from the request. An owner with an unknown
+scope holds no key coordination lock, only its lease, so a read made before
+the lease is held can be stale; version 1's code read first (decided by
+Nathan, 19 November 2026, 17:43 AEDT).
+
 A torn events tail no longer refuses (section 4). Lock age, PID presence,
 the machine's name and sent signals are still never consulted. Without a
 matching row every closure of an unresolved case still hands off, as O10 and

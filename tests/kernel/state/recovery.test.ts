@@ -1536,32 +1536,71 @@ caseTest(
   }),
 );
 
+function unknownScopeOwner(world: World, fault?: string) {
+  return world.start(
+    ["apply", "a", "--content", "v1", "--unknown-scope", "--json"],
+    {
+      ...production,
+      ...(fault === undefined ? {} : { SX_FAULT: fault }),
+      SX_BARRIER: "pre-effect,intent",
+    },
+  );
+}
+function pausedCloser(
+  world: World,
+  id: string,
+  revision: string,
+  disposition: string,
+) {
+  return world.start(closeArgs(id, revision, disposition), {
+    ...sameBoot,
+    SX_BARRIER: "closure-read",
+  });
+}
+
 supportingTest(
   "X29 supporting: closure decides on the journal it reads while it holds the lease, so an owner that appends between the first read and the lease refuses as stale",
   plain(async (world) => {
-    const owner = world.start(
-      ["apply", "a", "--content", "v1", "--unknown-scope", "--json"],
-      {
-        ...bootTwo,
-        SX_FAULT: "admit-delegate",
-        SX_BARRIER: "pre-effect,intent",
-      },
-    );
+    const owner = unknownScopeOwner(world, "admit-delegate");
     await owner.reached("pre-effect");
     const id = only(world);
     expect(caseOf(world, id).events.records).toEqual([]);
     const before = await world.revision(id);
-    const closer = world.start(closeArgs(id, before, "not-applied"), {
-      ...sameBoot,
-      SX_BARRIER: "closure-read",
-    });
+    const closer = pausedCloser(world, id, before, "not-applied");
     await closer.reached("closure-read");
     owner.release("pre-effect");
     await owner.reached("intent");
     owner.kill("SIGKILL");
     expect((await owner.done).signal).toBe("SIGKILL");
-    expect(delegateBoots(world, id)).toEqual(["boot-two"]);
+    expect(world.ledger()).toContain("entry production");
+    expect(delegateBoots(world, id)).toHaveLength(1);
     expect(await world.revision(id)).not.toBe(before);
+    closer.release("closure-read");
+    expectRefusedUnchanged(await closer.done, "DOMAIN_SX_CLOSE_STALE");
+    expect(existsSync(closurePath(world, id))).toBe(false);
+  }),
+);
+
+supportingTest(
+  "X29 supporting: a closer that read a torn tail mid-append decides on the completed record it reads under the lease, and refuses as stale",
+  plain(async (world) => {
+    const owner = unknownScopeOwner(world);
+    await owner.reached("pre-effect");
+    const id = only(world);
+    const delegate = framed("delegate-admitted", {
+      effect: "note.write",
+      boot: "boot-one",
+    });
+    appendFileSync(eventsPath(world, id), delegate.slice(0, 40));
+    writeFileSync(world.note("a"), "v1");
+    expect(tornTail(world, id)).toBe(true);
+    const before = await world.revision(id);
+    const closer = pausedCloser(world, id, before, "completed");
+    await closer.reached("closure-read");
+    appendFileSync(eventsPath(world, id), delegate.slice(40));
+    expect(delegateBoots(world, id)).toEqual(["boot-one"]);
+    owner.kill("SIGKILL");
+    expect((await owner.done).signal).toBe("SIGKILL");
     closer.release("closure-read");
     expectRefusedUnchanged(await closer.done, "DOMAIN_SX_CLOSE_STALE");
     expect(existsSync(closurePath(world, id))).toBe(false);

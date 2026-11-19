@@ -458,6 +458,22 @@ export function stoppedOwnerProblem(
   return delegateMayRun ? "delegate-recorded" : undefined;
 }
 
+function caseRead(
+  paths: Locked,
+  request: CloseRequest<string>,
+):
+  | { readonly ok: false; readonly stop: CloseResultBody }
+  | { readonly ok: true; readonly target: Operation } {
+  const read = readCase(paths, request.operationId);
+  if (typeof read === "string") return { ok: false, stop: readProblem(read) };
+  const stop = settledCheck(read, request);
+  return stop ? { ok: false, stop } : { ok: true, target: read };
+}
+
+// Accepted decision (Nathan, 19 November 2026, 17:43 AEDT): the closer
+// reads the case again once it holds the owner lease and decides only on
+// that read, which no owner can append to, and refuses when it differs
+// from the revision the request names.
 function caseUnderLease(
   paths: Locked,
   request: CloseRequest<string>,
@@ -476,16 +492,11 @@ function caseUnderLease(
       ok: false,
       stop: { kind: "unavailable", reason: "lease-unreadable" },
     };
-  const target = readCase(paths, id);
-  const stop =
-    typeof target === "string"
-      ? readProblem(target)
-      : settledCheck(target, request);
-  if (stop || typeof target === "string") {
-    lease.release();
-    return { ok: false, stop: stop ?? { kind: "not-found" } };
-  }
-  return { ok: true, target, release: lease.release };
+  const read = caseRead(paths, request);
+  if (read.ok && read.target.revision === request.revision)
+    return { ok: true, target: read.target, release: lease.release };
+  lease.release();
+  return { ok: false, stop: read.ok ? { kind: "stale-revision" } : read.stop };
 }
 
 function closureMatches(
@@ -1199,7 +1210,6 @@ export function install(options: StateOptions, seams: Seams) {
       };
     const reason = stoppedOwnerProblem(target, match.bootIdentity);
     if (reason) return { kind: "unavailable", reason };
-    if (target.revision !== request.revision) return { kind: "stale-revision" };
     if (request.disposition === "outcome-unknown")
       return { kind: "unavailable", reason: "human-closure-unqualified" };
     const classes = await classify(target, observers, paths);
@@ -1259,14 +1269,8 @@ export function install(options: StateOptions, seams: Seams) {
     );
     if (!target) {
       admitted.release();
-      const moved = readCase(paths, id);
-      return {
-        ok: false,
-        stop:
-          typeof moved === "string"
-            ? readProblem(moved)
-            : (settledCheck(moved, request) ?? { kind: "not-found" }),
-      };
+      const moved = caseRead(paths, request);
+      return { ok: false, stop: moved.ok ? { kind: "not-found" } : moved.stop };
     }
     await phase("closure-read");
     const leased = caseUnderLease(paths, request);
@@ -1301,11 +1305,9 @@ export function install(options: StateOptions, seams: Seams) {
     const problem = closeRequestProblem(request, effect);
     if (problem || !effect)
       return stop(problem ?? { kind: "unavailable", reason: "declaration" });
-    const first = readCase(paths, request.operationId);
-    if (typeof first === "string") return stop(readProblem(first));
-    const early = settledCheck(first, request);
-    if (early) return stop(early);
-    const targetKeys = currentKeys(first.intent.scope);
+    const first = caseRead(paths, request);
+    if (!first.ok) return stop(first.stop);
+    const targetKeys = currentKeys(first.target.intent.scope);
     const admitted = await admitClosure(request, targetKeys);
     if (!admitted.ok) return stop(admitted.stop);
     const decision = await closureDecision(admitted.target, request, runId);
