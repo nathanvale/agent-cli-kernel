@@ -69,6 +69,9 @@ function checkSay<R extends Rule>(check: CheckOf<R>, slot: string): string {
   return checkWords[check.rule](check, slot);
 }
 
+// Accepted decision (Nathan, 20 November 2026, 07:00 AEDT; ND8-4): these
+// words may name declared slot names, bounds, choices and patterns, and never
+// name caller text.
 const words: {
   readonly [K in Kind]: (fault: FaultOf<K>, cli: string) => string;
 } = {
