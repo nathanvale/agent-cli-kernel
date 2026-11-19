@@ -12,11 +12,16 @@ export function capabilityAddonName(key: string): key is CapabilityAddonName {
 export const addonNames: readonly CapabilityAddonName[] = Object.freeze(
   Object.keys(capabilityMethods).filter(capabilityAddonName),
 );
-// Platform: An object that only inherits AbortSignal.prototype passes instanceof
-// and throws when `aborted` is read.
+// Platform: instanceof and an own `aborted` property can both be forged with
+// Object.create(AbortSignal.prototype). The prototype's own `aborted` getter
+// throws for any object that is not a real AbortSignal, a Proxy of one
+// included, so reading it through the prototype is the brand check.
 function abortSignal(value: unknown): value is AbortSignal {
+  if (!(value instanceof AbortSignal)) return false;
   try {
-    return value instanceof AbortSignal && typeof value.aborted === "boolean";
+    return (
+      typeof Reflect.get(AbortSignal.prototype, "aborted", value) === "boolean"
+    );
   } catch {
     return false;
   }

@@ -180,6 +180,18 @@ const lookalikes = [
     name: "an object that only inherits the prototype",
     make: (): unknown => Object.create(AbortSignal.prototype),
   },
+  {
+    name: "a prototype-only object with its own aborted property",
+    make: (): unknown =>
+      Object.defineProperty(Object.create(AbortSignal.prototype), "aborted", {
+        value: false,
+        enumerable: true,
+      }),
+  },
+  {
+    name: "a Proxy of a real abort signal",
+    make: (): unknown => new Proxy(new AbortController().signal, {}),
+  },
 ] as const;
 
 for (const route of routes) {
