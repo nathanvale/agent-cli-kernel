@@ -11,16 +11,16 @@ A crash at the boundary in the second column leaves the durable state in the
 third. The last column names proposed cases, and two frozen pending ones
 (K08.c, O06.a).
 
-| Id  | Transition                                          | Crash at boundary leaves                                                             | Cases                      |
-| --- | --------------------------------------------------- | ------------------------------------------------------------------------------------ | -------------------------- |
-| X23 | store upgraded to version 2                         | a version 1 store (an empty `resolved/` and a staged file are ignored), or version 2 | J08.a, J08.b               |
-| X24 | resolved case moved under the admission lock        | the case in exactly one folder; resolved either way; never listed                    | L07.a, L07.c, L07.d, L07.e |
-| X25 | read route meets a moving case                      | nothing written                                                                      | L08.a                      |
-| X26 | closure retried after the case moved                | the prior disposition, read from `resolved/`                                         | K10.a                      |
-| X27 | environment facts read and matched against the rows | nothing written                                                                      | Q02.a, Q02.b, Q02.c, Q02.d |
-| X28 | `delegate-admitted` appended with the boot identity | listed; closure refused on the same boot                                             | K08.c, O06.a, K11.a        |
-| X29 | stopped-owner condition evaluated after a torn tail | nothing written                                                                      | K11.c, K11.d               |
-| X30 | closure linked under a production row               | valid closure stamped with the row's `id`                                            | Q02.e                      |
+| Id  | Transition                                          | Crash at boundary leaves                                                            | Cases                      |
+| --- | --------------------------------------------------- | ----------------------------------------------------------------------------------- | -------------------------- |
+| X23 | store upgraded to version 2                         | a version 1 store (an empty `settled/` and a staged file are ignored), or version 2 | J08.a, J08.b               |
+| X24 | settled case moved under the admission lock         | the case in exactly one folder; settled either way; never listed                    | L07.a, L07.c, L07.d, L07.e |
+| X25 | read route meets a moving case                      | nothing written                                                                     | L08.a                      |
+| X26 | closure retried after the case moved                | the prior disposition, read from `settled/`                                         | K10.a                      |
+| X27 | environment facts read and matched against the rows | nothing written                                                                     | Q02.a, Q02.b, Q02.c, Q02.d |
+| X28 | `delegate-admitted` appended with the boot identity | listed; closure refused on the same boot                                            | K08.c, O06.a, K11.a        |
+| X29 | stopped-owner condition evaluated after a torn tail | nothing written                                                                     | K11.c, K11.d               |
+| X30 | closure linked under a production row               | valid closure stamped with the row's `id`                                           | Q02.e                      |
 
 Deleting old cases, and its transitions and cases, are deferred to a later
 version (part 1 section 7).
@@ -46,50 +46,56 @@ in that same review.
 - X12 keeps its cases and gains K11.e.
 - Case Q01.c pins exactly 22 transition rows in `DESIGN.md`. The rows above
   live in this file, so that pin is extended to it with version 2 code.
-- L07.b, K11.b and Q03.a prove rules, not transitions, and map to none.
+- L07.b, J08.c, K11.b, Q03.a and Q03.b prove rules, not transitions, and
+  map to none.
   K11.a extends frozen K08.b to a matching row and a missing `boot`.
 
 ## 3. Proposed cases
 
-The version meeting and moving resolved cases (part 1):
+The version meeting and moving settled cases (part 1):
 
-| Proposed id                              | Observation                                                                                                        | Red                                            |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
-| J08.a-v1-program-refuses-v2-store        | A version 1 reader refuses every route on a version 2 store.                                                       | Mark version 2 by an added field only.         |
-| J08.b-upgrade-crash-points               | Killed before and after the format rename: version 1 or version 2; no case lost or relisted.                       | Rewrite `format` in place.                     |
-| L07.a-resolved-moved-not-listed          | After a completed run and the next admission, the case is in `resolved/` with the same revision; history finds it. | Change bytes when moving.                      |
-| L07.b-admission-does-not-read-resolved   | With `resolved/` unreadable (non-root), admission and the report succeed; that case's history refuses.             | Read `resolved/` at admission (planted fault). |
-| L07.c-crash-between-final-event-and-move | Killed after the final event: not listed, the next overlapping change proceeds and moves it.                       | List a resolved case kept in `operations/`.    |
-| L07.d-move-skips-live-or-closing         | A case whose lease or `case:` coordination lock is held stays in `operations/`. A refused admission moves nothing. | Move under a closer.                           |
-| L07.e-move-bound                         | 65 resolved cases: one admission moves 64, the next moves 1.                                                       | Unbounded moves (planted fault).               |
-| L08.a-reader-races-move                  | Report and history during moves: a closed case is never listed, an existing case is never corrupt or not found.    | Trust a read whose folder has gone.            |
-| K10.a-retry-after-move                   | A retried closure after the move returns the prior disposition.                                                    | Look up the target in `operations/` only.      |
+| Proposed id                              | Observation                                                                                                        | Red                                           |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------- |
+| J08.a-v1-program-refuses-v2-store        | A version 1 reader refuses every route on a version 2 store.                                                       | Mark version 2 by an added field only.        |
+| J08.b-upgrade-crash-points               | Killed before and after the format rename: version 1 or version 2; no case lost or relisted.                       | Rewrite `format` in place.                    |
+| J08.c-settled-at-written                 | `completion`, `not-applied` and closure records carry `settledAt`; a version 1 reader still reads them.            | Omit `settledAt`.                             |
+| L07.a-settled-moved-not-listed           | After a completed run and the next admission, the case is in `settled/` with the same revision; history finds it.  | Change bytes when moving.                     |
+| L07.b-admission-does-not-read-settled    | With `settled/` unreadable (non-root), admission and the report succeed; that case's history refuses.              | Read `settled/` at admission (planted fault). |
+| L07.c-crash-between-final-event-and-move | Killed after the final event: not listed, the next overlapping change proceeds and moves it.                       | List a settled case kept in `operations/`.    |
+| L07.d-move-skips-live-or-closing         | A case whose lease or `case:` coordination lock is held stays in `operations/`. A refused admission moves nothing. | Move under a closer.                          |
+| L07.e-move-bound                         | 65 settled cases: one admission moves 64, the next moves 1.                                                        | Unbounded moves (planted fault).              |
+| L08.a-reader-races-move                  | Report and history during moves: a closed case is never listed, an existing case is never corrupt or not found.    | Trust a read whose folder has gone.           |
+| K10.a-retry-after-move                   | A retried closure after the move returns the prior disposition.                                                    | Look up the target in `operations/` only.     |
 
 Closure in production (part 2):
 
-| Proposed id                        | Observation                                                                                                                                                                                          | Red                                                            |
-| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| Q02.a-release-major-edges          | Another release in the same major matches; the next major refuses with the observed facts.                                                                                                           | Match the exact release, or none (planted fault).              |
-| Q02.b-filesystem-mismatch-refused  | A state root on a filesystem the row does not name refuses with the observed facts; no closure.                                                                                                      | Trust the row's name without reading the root (planted fault). |
-| Q02.c-route-mismatch-refused       | A row for another coordination route does not match.                                                                                                                                                 | Ignore `primitive`.                                            |
-| Q02.d-unreadable-fact-refuses      | An unreadable filesystem or boot identity refuses; nothing is written.                                                                                                                               | Treat unreadable as matching.                                  |
-| Q02.e-production-row-closes        | Under a production row a crashed case closes as completed and as not-applied, stamped with the row `id`.                                                                                             | Stamp a fixture label.                                         |
-| Q03.a-row-cites-run-record         | Every production row cites a committed record that matches it, marked `facts: "observed"`, with every required case passed, and names its reviewing session, Nathan's countersignature and the date. | Accept a hosted run link, or a record made with overrides.     |
-| K11.a-delegate-same-boot-refused   | A killed run with a delegate start, same boot or no `boot`: closure refuses even with a matching row.                                                                                                | Treat a free lease as proof.                                   |
-| K11.b-delegate-other-boot-closes   | With a boot identity that differs (test entry), the same case closes.                                                                                                                                | Compare process identifiers instead.                           |
-| K11.c-torn-tail-closes             | Killed mid-append with a free lease: closes as completed on `present`; `not-applied` on `absent` refuses.                                                                                            | Refuse every torn tail.                                        |
-| K11.d-corrupt-events-still-refuses | Bytes after the damage: closure refuses as unavailable.                                                                                                                                              | Read corruption as a torn tail.                                |
-| K11.e-no-append-after-final-event  | A `record` left pending when work returns appends nothing after the final event, and its `admitStart` refuses.                                                                                       | Append outside the lease (planted fault).                      |
+| Proposed id                               | Observation                                                                                                                                                                                               | Red                                                                        |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Q02.a-release-major-edges                 | Another release in the same major matches; the next major refuses with the observed facts.                                                                                                                | Match the exact release, or none (planted fault).                          |
+| Q02.b-filesystem-mismatch-refused         | A state root on a filesystem the row does not name refuses with the observed facts; no closure.                                                                                                           | Trust the row's name without reading the root (planted fault).             |
+| Q02.c-route-mismatch-refused              | A row for another coordination route does not match.                                                                                                                                                      | Ignore `primitive` (planted fault).                                        |
+| Q02.d-unreadable-fact-refuses             | An unreadable filesystem or boot identity refuses; nothing is written.                                                                                                                                    | Treat unreadable as matching (planted fault).                              |
+| Q02.e-production-row-closes               | Under a production row a crashed case closes as completed and as not-applied, stamped with the row `id`.                                                                                                  | Stamp a fixture label.                                                     |
+| Q03.a-row-cites-run-record                | Every production row cites a committed record that matches it, marked `factSource: "observed"`, with every required case passed, and names its reviewing session, Nathan's countersignature and the date. | Accept a hosted run link, or a record made with overrides (planted fault). |
+| Q03.b-qualify-refuses-dirty-or-overridden | The qualification command refuses a dirty tree, and refuses when any fact override is set; it writes no record.                                                                                           | Run with an override (planted fault).                                      |
+| K11.a-delegate-same-boot-refused          | A killed run with a delegate start, same boot or no `boot`: closure refuses even with a matching row.                                                                                                     | Treat a free lease as proof.                                               |
+| K11.b-delegate-other-boot-closes          | With a boot identity that differs (test entry), the same case closes.                                                                                                                                     | Compare process identifiers instead.                                       |
+| K11.c-torn-tail-closes                    | Killed mid-append with a free lease: closes as completed on `present`; `not-applied` on `absent` refuses.                                                                                                 | Refuse every torn tail.                                                    |
+| K11.d-corrupt-events-still-refuses        | Bytes after the damage: closure refuses as unavailable.                                                                                                                                                   | Read corruption as a torn tail.                                            |
+| K11.e-no-append-after-final-event         | A `record` left pending when work returns appends nothing after the final event, and its `admitStart` refuses.                                                                                            | Append outside the lease (planted fault).                                  |
 
 ## 4. Test entry
 
-The labelled test entry (`fixture.ts`) takes only a fixture label today. It
+The labelled test entry (`fixture.ts`) takes a fixture label, an observation
+hook and a C library name today. It
 gains two seams: a candidate row, and overrides for the environment facts
 (the release, the state root's filesystem and the boot identity).
 
 - The qualification command uses the candidate row seam only. It refuses to
-  run when any fact override is set, and its record says `facts: "observed"`.
-- Cases Q02.a to Q02.d and K11.b use the overrides, in the test suite only.
+  run when any fact override is set, and its record says
+  `factSource: "observed"`.
+- Cases Q02.a, Q02.b, Q02.d and K11.b use the overrides, and Q02.c a
+  candidate row, in the test suite only.
 - A closure the test entry enables is stamped `fixture:<label>`, as today,
   and `capabilities()` still reports `fixture-only`.
 
@@ -98,9 +104,9 @@ gains two seams: a candidate row, and overrides for the environment facts
 ### 5.1 Decided by Nathan, 19 November 2026, 12:08
 
 - 0: One note covers both items.
-- A, D and H: Only the move into `resolved/` ships in version 2. Deleting
+- A, D and H: Only the move into `settled/` ships in version 2. Deleting
   old cases, the `prune` host call and the Command Contract 3 change it
-  needs (REC-4, DISC-14) are deferred. `resolvedAt` is kept in resolving
+  needs (REC-4, DISC-14) are deferred. `settledAt` is kept in settling
   records now, so a later version has an age to read.
 - F: At most 64 moves per hold of the admission lock, as the default.
 - I: No macOS row for now.
@@ -116,29 +122,34 @@ gains two seams: a candidate row, and overrides for the environment facts
   Nathan countersigns it; the row names both and the date.
 - V: Sharing one state root between containers is dropped. One state root
   belongs to one machine.
-- W: Withdrawn. Without deletion a closing case's target cannot leave both
-  folders, so its observation values do not change.
 
-### 5.2 Still open
+### 5.2 Withdrawn by this note
+
+- W: Without deletion a closing case's target cannot leave both folders, so
+  its observation values do not change and nothing is left to decide.
+
+### 5.3 Still open
 
 Each is one decision with one recommendation.
 
 - B: REC-4 says a later run may not invent a record "on the original run's
   behalf". Recommend the move is allowed: it writes no record or byte, keeps
-  the revision, and needs a valid resolving record already present.
-- C: Recommend a corrupt case in `resolved/` does not refuse admission or the
-  report; only its history refuses.
+  the revision, and needs a valid settling record already present.
+- C: Recommend a corrupt case refuses only a route that reads it.
+  Admission and the report never read `settled/`, and history reads only the
+  case asked for. Version 1 refused every route on any corrupt case.
 - E: Recommend an old program may not open a new store: version 1 refuses a
   version 2 store. Decision Q's rollback cost rests on this.
 - G: Coordination lock files (`k-<h>.lock`) still grow with each distinct
   conflict key. Unlinking one is unsafe (two holders on two inodes). Recommend
   a documented limit, outside version 2.
-- J: What "major release" means on Linux. It is the kernel's major number,
+- J: What "major release" means on Linux. It is the operating-system
+  kernel's major number,
   in a container the container machine's. That number carries no
-  compatibility promise and spans years of kernels; the start-up self-check,
+  compatibility promise and spans years of releases; the start-up self-check,
   the filesystem type and the evidence run are what protect a closure.
-  Options: major only, as decided, so a row survives kernel updates; or
-  major and minor, which is tighter but hands off after every minor kernel
+  Options: major only, as decided, so a row survives operating-system kernel updates; or
+  major and minor, which is tighter but hands off after every minor
   update until a new run and row. Recommend major only, with the exact
   release recorded on the row.
 - L: Recommend a free lease is enough after a torn tail, once no append can

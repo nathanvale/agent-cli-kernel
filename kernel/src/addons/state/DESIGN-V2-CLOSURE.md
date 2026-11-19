@@ -7,9 +7,6 @@ store format. This part changes version 1 sections 7.2 and 10 of
 frozen and unchanged. The transitions, proposed cases, decisions and open
 points are in [DESIGN-V2-CASES.md](DESIGN-V2-CASES.md).
 
-In this note a host is the tool built on the kernel. The machine or virtual
-machine a container runs on is the container machine.
-
 ## 1. What changes
 
 Version 1's candidate proof is "lease free and no `delegate-admitted` event
@@ -60,10 +57,10 @@ refuse more (open point U).
 - Major release. A container runs on the container machine's
   operating-system kernel, so `os.release()` inside it is that kernel's
   release (observed: `7.2.12-orbstack-00394-gbecdd6130068`, version 1
-  section 7). The major release is that kernel's major, `7`. The image's
+  section 7). The major release is that operating-system kernel's major, `7`. The image's
   distribution and C library are recorded as observed and not matched.
 - That number carries no compatibility promise, and one major spans years of
-  kernels. What protects a closure on Linux is the start-up self-check of
+  operating-system kernels. What protects a closure on Linux is the start-up self-check of
   the coordination call, the filesystem type read at closure time, and the
   row's evidence run. Major and minor is the alternative (open point J).
 - Filesystem. `statfsSync(root).type` reports the filesystem under the root
@@ -81,7 +78,7 @@ refuse more (open point U).
   containers is not supported (decided by Nathan, 19 November 2026).
 - First row: `linux-7-btrfs`, for the pilot `agents-pilot`: an OrbStack
   container on a Mac, with the state root on a btrfs volume (decided by
-  Nathan, 19 November 2026). A deployment on another kernel major, or on a
+  Nathan, 19 November 2026). A deployment on another operating-system kernel major, or on a
   volume on ext4 or XFS, matches no row and still hands off until its own
   run and row.
 - Its evidence run happens on the pilot, through a worker session. The state
@@ -116,17 +113,17 @@ One repeatable command (proposed name `bun run qualify:state`) runs the
 stopped-owner cases on the platform and writes the record. It supplies the
 candidate row through the labelled test entry, a seam that entry gains
 (part 3 section 4), so its closures are stamped `fixture:<label>` and it
-never touches the production table.
+never touches the production capability qualification table.
 
 - The test proof guide says a proof through a test entry "proves only the
   fixture". That holds for the entry: the run proves the platform's
   mechanisms (the coordination route, the lease, the filesystem, crash
   recovery) under the candidate row, and Q02.e proves the production entry
   once the row lands.
-- It refuses a dirty tree.
-- It refuses to run when any environment fact is overridden (part 3 section
-  4): a record made with an overridden release, filesystem or boot identity
-  proves nothing about the platform.
+- It refuses a dirty tree, and it refuses to run when any environment fact
+  is overridden (case Q03.b; part 3 section 4): a record made with an
+  overridden release, filesystem or boot identity proves nothing about the
+  platform.
 - It writes the record to a temporary name and renames it, so a killed run
   leaves no record. Proposed place:
   `tests/kernel/state/qualification/<row id>.json`.
@@ -140,11 +137,11 @@ Record fields:
 | `commit`             | the full commit the run used                                                                                                     |
 | `started`, `ended`   | wall clock times                                                                                                                 |
 | `platform`           | `os`, exact `release`, `majorRelease`, architecture, runtime version, distribution, C library, and whether it ran in a container |
-| `stateRoot`          | the observed `filesystem` facts only; no path, user name or machine name                                                         |
+| `filesystem`         | the state root's observed filesystem facts only; no path, user name or machine name                                              |
 | `primitive`          | the active coordination route                                                                                                    |
 | `bootIdentitySource` | the source, and whether it was readable; never the value                                                                         |
 | `cases`              | `[{ id, result, detail }]`, result `pass`, `fail` or `unproved`                                                                  |
-| `facts`              | `observed`: every fact above was read from the machine, with no override. The command writes no other value                      |
+| `factSource`         | `observed`: every fact above was read from the machine, with no override. The command writes no other value                      |
 
 The run covers the cases that run on observed facts: the executable closure
 and stopped-owner cases (families K02, K03, K06, K07, K08, O04, O05, O07 and
@@ -155,18 +152,20 @@ A row needs every required case `pass`.
 
 Left out of the run:
 
-- Q02.a to Q02.d and K11.b need a fact override. They prove the matching
-  logic, which is the same on every platform, so the test suite owns them.
+- Q02.a, Q02.b, Q02.d and K11.b need a fact override, and Q02.c a
+  candidate row for another route. They prove the matching logic, which is
+  the same on every platform, so the test suite owns them.
 - Q02.e (a closure stamped with the row's `id`) and Q03.a need the row to
   exist. The test suite proves them once the row lands.
 
 Q03.a refuses a production row unless its record exists, carries
-`facts: "observed"`, matches the row's `os`, `majorRelease`, `filesystem`
-and `primitive`, has every required case `pass`, and the row names its
+`factSource: "observed"`, matches the row's `os`, `majorRelease`,
+`filesystem`, `primitive` and `bootIdentitySource`, has the row's
+`observedRelease` as its `platform.release`, has every required case `pass`, and the row names its
 reviewing session, Nathan's countersignature and the date. REC-7b asks that
 review to pass V-22 and V-42 for each row.
 
-## 4. Closing after a torn tail (included)
+## 4. Closing after a torn tail (proposed: open points L and X)
 
 A free lease is enough proof that nobody is mid-append when three things
 hold:
@@ -222,7 +221,7 @@ proof.
   `delegate-recorded`, as today.
 - K08.c and O06.a become executable as that refusal: a surviving delegate
   blocks closure and overlapping work on the same boot.
-- In a container the boot identity is the container machine's kernel's.
+- In a container the boot identity is the container machine's.
   Restarting only the container keeps it, so closure refuses: the safe
   direction.
 - The boot identity names a boot, not a machine. A state root whose storage
@@ -241,6 +240,6 @@ proof.
 | Run command and record format                | Included (section 3).                                                                                                                       |
 | First row                                    | `linux-7-btrfs` for the pilot (section 2.1). It lands only with its run record, review and countersignature.                                |
 | macOS row                                    | Left out for now.                                                                                                                           |
-| Closing after a torn tail                    | Included (section 4).                                                                                                                       |
+| Closing after a torn tail                    | Proposed (section 4); rests on open points L and X.                                                                                         |
 | Closing after `delegate-admitted`            | Included, only after the container machine restarts (section 5).                                                                            |
 | Human takeover and `outcome-unknown` closure | Not included. Both need a qualified authority source, and case K05.b is still pending. Their refusals and capability reports do not change. |
