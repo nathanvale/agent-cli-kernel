@@ -1228,6 +1228,88 @@ caseTest("L07.g-failed-move-keeps-outcome", async () => {
   );
 });
 
+supportingTest(
+  "X24 supporting: a mover report that throws leaves the published transaction to run and release",
+  async () => {
+    const { root, outcome } = await inTransaction(
+      async (record) => {
+        await record(() => Promise.resolve());
+      },
+      undefined,
+      {
+        build: (options) =>
+          stateAddonWithTestSeams(options, {
+            moverReport: () => {
+              throw new Error("The mover report failed.");
+            },
+          }),
+      },
+    );
+    expect(outcome?.kind).toBe("ran");
+    const [operation] = readOperations(root);
+    if (!operation) throw new Error("No operation.");
+    expect(operation.events.records.at(-1)?.kind).toBe("outcome");
+    expect(lockFree(join(root, "coordination", "admission.lock"))).toBe(true);
+    expect(
+      lockFree(join(root, "operations", operation.id, "owner.lease")),
+    ).toBe(true);
+  },
+);
+
+supportingTest(
+  "X23 supporting: an upgrade that fails after staging removes its staged format record",
+  async () => {
+    const { root, outcome } = await inTransaction(
+      async (record) => {
+        await record(() => Promise.resolve());
+      },
+      undefined,
+      {
+        build: (options) =>
+          stateAddonWithTestSeams(options, {
+            phase: (name) =>
+              name === "upgrade-staged"
+                ? Promise.reject(new Error("The staged upgrade failed."))
+                : Promise.resolve(),
+          }),
+      },
+    );
+    expect(outcome?.kind === "unavailable" ? outcome.reason : "").toBe(
+      "store-upgrade",
+    );
+    expect(readdirSync(join(root, "staging"))).toEqual([]);
+    const format = readFramed(readFileSync(join(root, "format")));
+    expect(format.records[0]?.payload.journal).toBe("contract3.state");
+    expect(readOperations(root)).toEqual([]);
+  },
+);
+
+supportingTest(
+  "X23 supporting: a failure after the format rename says the format was replaced",
+  async () => {
+    const recordOne: Scenario = async (record) => {
+      await record(() => Promise.resolve());
+    };
+    const { root, outcome } = await inTransaction(recordOne, undefined, {
+      build: (options) =>
+        stateAddonWithTestSeams(options, {
+          phase: (name) =>
+            name === "upgraded"
+              ? Promise.reject(new Error("The upgrade was not confirmed."))
+              : Promise.resolve(),
+        }),
+    });
+    expect(outcome?.kind === "unavailable" ? outcome.reason : "").toBe(
+      "store-upgrade-unconfirmed",
+    );
+    const format = readFramed(readFileSync(join(root, "format")));
+    expect(format.records[0]?.payload.journal).toBe("contract3.state.2");
+    expect(readOperations(root)).toEqual([]);
+    const next = await inTransaction(recordOne, undefined, { root });
+    expect(next.outcome?.kind).toBe("ran");
+  },
+);
+
 caseTest("C01.j-failure-after-admission-releases-everything", async () => {
   const keys = ["k1", "k2", "k3"];
   const first = await inTransaction(() => Promise.resolve(), undefined, {

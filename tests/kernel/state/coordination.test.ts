@@ -205,9 +205,11 @@ caseTest(
     );
     try {
       const before = world.snapshot();
-      const invalid = await world.run(["apply", "a", "--json"], {
-        SX_ADMISSION_WAIT: "10000",
-      });
+      const invalid = await world.run(
+        ["apply", "a", "--json"],
+        { SX_ADMISSION_WAIT: "10000" },
+        20_000,
+      );
       expect(invalid.exit).toBe(2);
       expect(invalid.result.causeCode).toBe("USAGE_INVALID_INVOCATION");
       expect(world.snapshot()).toBe(before);
@@ -468,10 +470,11 @@ caseTest(
     );
     let released = false;
     try {
-      const contender = world.start(apply("a"), {
-        SX_BARRIER: "admission-wait",
-        SX_ADMISSION_WAIT: "20000",
-      });
+      const contender = world.start(
+        apply("a"),
+        { SX_BARRIER: "admission-wait", SX_ADMISSION_WAIT: "20000" },
+        45_000,
+      );
       await contender.reached("admission-wait");
       contender.release("admission-wait");
       const synthetic = writeSyntheticOperation(world.root, world.note("a"));

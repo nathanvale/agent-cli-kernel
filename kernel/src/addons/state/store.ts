@@ -126,24 +126,49 @@ function journalOf(paths: Layout): Journal | undefined {
 
 export type UpgradePhase = "upgrade-staged" | "upgraded";
 
+export type UpgradeProblem = "store-upgrade" | "store-upgrade-unconfirmed";
+
 export async function upgradeStore(
   paths: Layout,
   phase: (name: UpgradePhase) => Promise<void>,
-): Promise<void> {
-  const journal = journalOf(paths);
-  if (journal === journals.two) return;
-  if (journal !== journals.one)
-    throw new Error("The format record names no known journal.");
-  mkdirSync(paths.settled, { recursive: true, mode: 0o700 });
-  if (!privateDirectory(paths.settled))
-    throw new Error("settled/ is not a private directory.");
-  flushDirectory(paths.root);
+): Promise<UpgradeProblem | undefined> {
   const staged = join(paths.staging, `format-${crypto.randomUUID()}`);
-  writeDurable(staged, encodeRecord("format", { journal: journals.two }));
-  await phase("upgrade-staged");
-  renameSync(staged, paths.format);
-  flushDirectory(paths.root);
-  await phase("upgraded");
+  let replaced = false;
+  try {
+    const journal = journalOf(paths);
+    if (journal === journals.two) return undefined;
+    if (journal !== journals.one) return "store-upgrade";
+    mkdirSync(paths.settled, { recursive: true, mode: 0o700 });
+    if (!privateDirectory(paths.settled)) return "store-upgrade";
+    flushDirectory(paths.root);
+    writeDurable(staged, encodeRecord("format", { journal: journals.two }));
+    await phase("upgrade-staged");
+    renameSync(staged, paths.format);
+    replaced = true;
+    flushDirectory(paths.root);
+    await phase("upgraded");
+    return undefined;
+  } catch {
+    if (replaced) return "store-upgrade-unconfirmed";
+    removeStaged(staged);
+    return "store-upgrade";
+  }
+}
+
+function removeStaged(staged: string): void {
+  try {
+    rmSync(staged, { force: true });
+  } catch {
+    return;
+  }
+}
+
+export function settledIsPrivate(paths: Layout): boolean {
+  try {
+    return privateDirectory(paths.settled);
+  } catch {
+    return false;
+  }
 }
 
 export type Intent = {
@@ -672,21 +697,22 @@ export function publishClosure(
   });
 }
 
-export function readClosure(
-  paths: Layout,
-  id: string,
-): Closure | "damaged" | undefined {
+export type ClosureRead = Closure | "damaged" | "unreadable" | undefined;
+
+export function readClosure(paths: Layout, id: string): ClosureRead {
   const found = fromCaseFolders(paths, id, (directory) =>
     closureIn(directory, id),
   );
   return found === "not-found" ? undefined : found;
 }
 
-function closureIn(
-  directory: string,
-  id: string,
-): Closure | "damaged" | undefined {
-  const bytes = readOptional(join(directory, "closure"));
+function closureIn(directory: string, id: string): ClosureRead {
+  let bytes: Uint8Array | undefined;
+  try {
+    bytes = readOptional(join(directory, "closure"));
+  } catch {
+    return "unreadable";
+  }
   if (!bytes) return undefined;
   const parsed = parseRecords(bytes);
   const record =

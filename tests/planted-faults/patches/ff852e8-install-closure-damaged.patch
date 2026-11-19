@@ -1,8 +1,8 @@
 diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
-index b73928f..590f8a1 100644
+index 30bb3d7..3df5adf 100644
 --- a/kernel/src/addons/state/install.ts
 +++ b/kernel/src/addons/state/install.ts
-@@ -880,7 +880,6 @@ export function install(options: StateOptions, seams: Seams) {
+@@ -879,7 +879,6 @@ export function install(options: StateOptions, seams: Seams) {
    function movable(candidate: Operation): boolean {
      const id = candidate.intent.operationId;
      return (

@@ -1204,6 +1204,55 @@
     "source": "460be51 feat(state): make a transaction wait for its started effects"
   },
   {
+    "id": "8452159-in-process-stop-handler",
+    "patch": "tests/planted-faults/patches/8452159-lifecycle-handler.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP10\\.waits-for-handler",
+    "source": "8452159 fix(kernel): wait for every in-process run's handler after a stop request"
+  },
+  {
+    "id": "8452159-in-process-stop-first",
+    "patch": "tests/planted-faults/patches/8452159-lifecycle-first.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP10\\.waits-for-every-run .* when the second run returns last",
+    "source": "8452159 fix(kernel): wait for every in-process run's handler after a stop request"
+  },
+  {
+    "id": "8452159-in-process-stop-late",
+    "patch": "tests/planted-faults/patches/8452159-lifecycle-late.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP10\\.handler-never-ends",
+    "source": "8452159 fix(kernel): wait for every in-process run's handler after a stop request"
+  },
+  {
+    "id": "8452159-in-process-stop-earlier",
+    "patch": "tests/planted-faults/patches/8452159-lifecycle-earlier.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP10\\.waits-for-every-run .* when the first run returns last",
+    "source": "8452159 fix(kernel): wait for every in-process run's handler after a stop request"
+  },
+  {
+    "id": "8452159-in-process-stop-add-on",
+    "patch": "tests/planted-faults/patches/8452159-lifecycle-add-on.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP10\\.waits-for-add-on",
+    "source": "8452159 fix(kernel): wait for every in-process run's handler after a stop request"
+  },
+  {
+    "id": "14d6b55-in-process-entry",
+    "patch": "tests/planted-faults/patches/14d6b55-lifecycle.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP10\\.stop-during-entry",
+    "source": "14d6b55 fix(kernel): give a stop request during handler entry the handler to wait for"
+  },
+  {
+    "id": "9086c3b-store-settled-unchecked",
+    "patch": "tests/planted-faults/patches/9086c3b-store-settled-unchecked.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^X24 supporting: a version 2 store refuses",
+    "source": "9086c3b fix(state): refuse a version 2 store whose settled/ is a link or not private"
+  },
+  {
     "id": "f9de892-store-added-field",
     "patch": "tests/planted-faults/patches/f9de892-store-added-field.patch",
     "testFile": "tests/kernel/state/journal.test.ts",
@@ -1393,11 +1442,53 @@
     "source": "ff852e8 fix(state): refuse an unknown format at the upgrade and pin the mover's rules"
   },
   {
-    "id": "9086c3b-store-settled-unchecked",
-    "patch": "tests/planted-faults/patches/9086c3b-store-settled-unchecked.patch",
+    "id": "93dd83e-install-report-throws",
+    "patch": "tests/planted-faults/patches/93dd83e-install-report-throws.patch",
+    "testFile": "tests/kernel/state/component.test.ts",
+    "title": "^X24 supporting: a mover report that throws",
+    "source": "93dd83e fix(state): keep a failed upgrade, report or closure read from spreading"
+  },
+  {
+    "id": "93dd83e-store-staged-left",
+    "patch": "tests/planted-faults/patches/93dd83e-store-staged-left.patch",
+    "testFile": "tests/kernel/state/component.test.ts",
+    "title": "^X23 supporting: an upgrade that fails after staging",
+    "source": "93dd83e fix(state): keep a failed upgrade, report or closure read from spreading"
+  },
+  {
+    "id": "93dd83e-store-replaced-unsaid",
+    "patch": "tests/planted-faults/patches/93dd83e-store-replaced-unsaid.patch",
+    "testFile": "tests/kernel/state/component.test.ts",
+    "title": "^X23 supporting: a failure after the format rename",
+    "source": "93dd83e fix(state): keep a failed upgrade, report or closure read from spreading"
+  },
+  {
+    "id": "93dd83e-install-settled-unchecked-at-move",
+    "patch": "tests/planted-faults/patches/93dd83e-install-settled-unchecked-at-move.patch",
     "testFile": "tests/kernel/state/journal.test.ts",
-    "title": "^X24 supporting: a version 2 store refuses",
-    "source": "9086c3b fix(state): refuse a version 2 store whose settled/ is a link or not private"
+    "title": "^X24 supporting: the mover moves nothing when settled/ stops",
+    "source": "93dd83e fix(state): keep a failed upgrade, report or closure read from spreading"
+  },
+  {
+    "id": "93dd83e-store-closure-read-throws",
+    "patch": "tests/planted-faults/patches/93dd83e-store-closure-read-throws.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^X26 supporting: a closer's history stays readable",
+    "source": "93dd83e fix(state): keep a failed upgrade, report or closure read from spreading"
+  },
+  {
+    "id": "93dd83e-store-remove-staged-throws",
+    "patch": "tests/planted-faults/patches/93dd83e-store-remove-staged-throws.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^X23 supporting: an upgrade that cannot write or remove",
+    "source": "93dd83e fix(state): keep a failed upgrade, report or closure read from spreading"
+  },
+  {
+    "id": "93dd83e-harness-child-unbounded",
+    "patch": "tests/planted-faults/patches/93dd83e-harness-child-unbounded.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^Test harness supporting: the state test world kills",
+    "source": "93dd83e fix(state): keep a failed upgrade, report or closure read from spreading"
   },
   {
     "id": "1e39e16-qualification-release",

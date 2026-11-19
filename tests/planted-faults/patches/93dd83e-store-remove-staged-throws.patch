@@ -1,0 +1,17 @@
+diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
+index a056567..807ed77 100644
+--- a/kernel/src/addons/state/store.ts
++++ b/kernel/src/addons/state/store.ts
+@@ -156,11 +156,7 @@ export async function upgradeStore(
+ }
+ 
+ function removeStaged(staged: string): void {
+-  try {
+-    rmSync(staged, { force: true });
+-  } catch {
+-    return;
+-  }
++  rmSync(staged, { force: true });
+ }
+ 
+ export function settledIsPrivate(paths: Layout): boolean {

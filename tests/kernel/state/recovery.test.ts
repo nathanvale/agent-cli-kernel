@@ -435,6 +435,26 @@ supportingTest(
   }),
 );
 
+supportingTest(
+  "X26 supporting: a closer's history stays readable when its target's closure cannot be read",
+  fixture(async (world) => {
+    await world.killAt(apply("a"), "effect");
+    const id = only(world);
+    expectCompleted(await world.run(closeArgs(id, await world.revision(id))));
+    const closer = only(world, "sx.close");
+    expectCompleted(await world.run(apply("b")));
+    const closure = join(world.root, "settled", id, "closure");
+    rmSync(closure);
+    mkdirSync(closure);
+    const read = await world.history(closer);
+    expect(read.exit).toBe(0);
+    expect(at(read.result.raw, "data", "operationId")).toBe(closer);
+    expect(at(read.result.raw, "data", "observed")).toEqual({
+      "state.closure": "uncertain",
+    });
+  }),
+);
+
 caseTest(
   "K08.a-live-writer-blocks-closure",
   fixture(async (world) => {
@@ -1029,11 +1049,17 @@ supportingTest(
   }),
 );
 
-function bootIdentityReadable(): boolean {
+function bootIdentityObserved(): string {
   try {
-    return readFileSync(bootIdentityFile, "utf8").trim() !== "";
-  } catch {
-    return false;
+    return readFileSync(bootIdentityFile, "utf8").trim() === ""
+      ? "empty"
+      : "readable";
+  } catch (error) {
+    const code: unknown =
+      typeof error === "object" && error !== null
+        ? Reflect.get(error, "code")
+        : undefined;
+    return typeof code === "string" ? code : "UNKNOWN";
   }
 }
 
@@ -1043,7 +1069,8 @@ supportingTest(
     await world.killAt(apply("a"), "effect");
     const id = only(world);
     const facts = { release: pilotRelease, filesystem: btrfs };
-    if (bootIdentityReadable()) {
+    const observed = bootIdentityObserved();
+    if (observed === "readable") {
       await closesUnder(world, id, under(candidate(), facts));
       return;
     }
@@ -1052,7 +1079,8 @@ supportingTest(
       id,
       under(candidate(), facts),
     );
-    expect(message).toContain(", boot identity unreadable (ENOENT) from ");
+    expect(message).toContain(`, boot identity unreadable (${observed}) from `);
+    expect(message).toEndWith("): differs in boot identity).");
   }),
 );
 
