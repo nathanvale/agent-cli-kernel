@@ -165,7 +165,9 @@ An admission moves settled cases it read at step 4. It does so after its
 own publication (step 6) and before it releases the admission lock (step 7).
 A refused admission never reaches that point, so a refusal moves nothing.
 
-A case moves only when all hold:
+The mover examines at most 64 settled cases per hold of the admission lock,
+in the order step 4 read them, whether or not each one moves. A case moves
+only when all hold:
 
 1. Its status is `completed`, `not-applied` or `closed`, with no damaged
    closure.
@@ -184,11 +186,20 @@ there, and leaves the case where it is if something is. Every mover holds
 the admission lock, so nothing comes between the check and the rename.
 
 - At most 64 moves per hold of the admission lock, as the default (decided
-  by Nathan, 19 November 2026): 64 renames and two directory flushes.
-  Version 1 sizes the 2,000 ms wait for a hold of milliseconds, and this
-  keeps it there. A backlog, such as a just-upgraded version 1 store, drains
-  over later admissions. The number has no contract source, and its cost is
-  not measured yet.
+  by Nathan, 19 November 2026). The extra work under the lock is then at
+  most 64 eligibility checks (two non-blocking opens each), 64 renames and
+  two directory flushes. Step 4's read of `operations/` is version 1's
+  existing cost; with version 2 it covers unresolved cases and settled cases
+  not yet moved. Version 1 sizes the 2,000 ms wait for a hold of
+  milliseconds. Whether this stays inside it is not measured yet: the code
+  review measures one admission against 64 moved and 64 refused candidates
+  before the number is relied on.
+- A move that fails (a rename or a directory flush error) does not change
+  the admission's outcome. Publication is already done, so the transaction
+  goes on and its result reports what happened to its own effects. The
+  mover stops for that hold, the admission lock is released as usual, and
+  the case, still settled, is moved by a later admission. A diagnostics
+  event may record the failure; nothing decides on it.
 - The owner does not move its own case at transaction end (open point R). That
   would add an admission lock wait to the end of every transaction. A crash
   between the final event and the move leaves a settled case in `operations/`;
@@ -303,4 +314,10 @@ Each is one decision with one recommendation.
   Only the first writes `delegate-admitted`, so only it meets decision K's
   limit. Recommend a host whose outside work runs through a long-lived link
   starts that link outside any recorded effect, so no case it leaves records
-  a delegate start.
+  a delegate start. That moves an obligation to the host: work sent through
+  the link for an operation must either end when its owner ends (the link
+  drops requests from an owner that has gone), or the host's observer must
+  answer `unobservable` for that operation while such work may still be
+  pending. Otherwise a free lease and a matching row could close a case
+  whose work is still running. Case K11.g proves the obligation with a
+  test host.
