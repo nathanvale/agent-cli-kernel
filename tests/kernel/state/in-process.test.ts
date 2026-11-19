@@ -1,10 +1,21 @@
-import { expect } from "bun:test";
+import { expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { at, json, makeWorld, str, supportingTest } from "./harness.ts";
 import type { Json, Observed, World } from "./harness.ts";
 
 const entry = join(import.meta.dir, "fixtures", "in-process-specimen.ts");
+const registered: string[] = [];
+const ran: string[] = [];
+
+function inProcessCase(title: string, body: () => Promise<void>): void {
+  const id = title.split(" ")[0] ?? title;
+  registered.push(id);
+  supportingTest(title, async () => {
+    ran.push(id);
+    await body();
+  });
+}
 const continuedCode = 7;
 
 type Line = { readonly label: string; readonly value: Json };
@@ -54,7 +65,7 @@ function inProcess(
   return world.start([mode], extra).done;
 }
 
-supportingTest(
+inProcessCase(
   "IP04.sequence-own-operation-and-proof two runs in one process each publish their own operation",
   async () => {
     const world = makeWorld({ entry });
@@ -93,7 +104,7 @@ supportingTest(
   },
 );
 
-supportingTest(
+inProcessCase(
   "IP05.overlap-refused-held-lock a second run in the same process is refused while the first holds its coordination lock",
   async () => {
     const world = makeWorld({ entry });
@@ -125,7 +136,7 @@ supportingTest(
   },
 );
 
-supportingTest(
+inProcessCase(
   "IP06.crash-records-only-run-in-flight a crash writes one emergency record, for the run in flight",
   async () => {
     const world = makeWorld({ entry });
@@ -151,7 +162,7 @@ supportingTest(
   },
 );
 
-supportingTest(
+inProcessCase(
   "IP06.crash-records-every-run-in-flight a crash with two runs in flight writes one emergency record for each",
   async () => {
     const world = makeWorld({ entry });
@@ -184,7 +195,7 @@ const heard = [
   ],
 ] as const;
 for (const [cause, mode, message] of heard)
-  supportingTest(
+  inProcessCase(
     `IP06.on-crash-hears-${cause} onCrash hears the uncaught ${cause}, then the process exits 1 with nothing printed`,
     async () => {
       const world = makeWorld({ entry });
@@ -211,3 +222,17 @@ for (const [cause, mode, message] of heard)
       }
     },
   );
+
+test("in-process state cases ran their real bodies on macOS and Linux, and nowhere else claim to", () => {
+  const cases = [
+    "IP04.sequence-own-operation-and-proof",
+    "IP05.overlap-refused-held-lock",
+    "IP06.crash-records-only-run-in-flight",
+    "IP06.crash-records-every-run-in-flight",
+    "IP06.on-crash-hears-error",
+    "IP06.on-crash-hears-rejection",
+  ];
+  expect(registered).toEqual(cases);
+  const proved = ["darwin", "linux"].includes(process.platform);
+  expect(ran).toEqual(proved ? cases : []);
+});
