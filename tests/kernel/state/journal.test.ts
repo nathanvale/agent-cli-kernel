@@ -1,5 +1,5 @@
 import { expect } from "bun:test";
-import { readFileSync, writeFileSync, chmodSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
 import { join } from "node:path";
 import {
   at,
@@ -624,6 +624,24 @@ supportingTest(
       expect(at(run.result.raw, "next")).toBeUndefined();
       expect(world.noteLedger("a")).toBe(1);
       expect(await world.pendingIds()).toEqual([]);
+    }),
+);
+
+supportingTest(
+  "CMD-11 supporting: a run killed before its outside write leaves a label carrying the published operation identity",
+  () =>
+    within({}, async (world) => {
+      await world.killAt(["send", "m1", "--json"], "intent", {
+        SX_ENTRY: "production",
+      });
+      expect(world.count("entry production")).toBe(1);
+      const [operation, ...rest] = world.operations();
+      expect(rest).toEqual([]);
+      if (!operation) throw new Error("No operation.");
+      expect(world.count("message.send")).toBe(0);
+      expect(existsSync(join(world.world, "outbox", "m1"))).toBe(false);
+      expect(existsSync(join(world.world, "provider.log"))).toBe(false);
+      expect(world.labels()).toEqual([`${operation.id} m1`]);
     }),
 );
 

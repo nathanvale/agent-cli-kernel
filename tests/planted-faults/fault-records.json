@@ -887,5 +887,12 @@
     "testFile": "tests/kernel/diagnostics/log-lines.test.ts",
     "title": "a run whose only record has a level outside the six opens no file$",
     "source": "b6906dc fix(diagnostics): prove the level refusal alone and under the caps"
+  },
+  {
+    "id": "4d42f8c-install",
+    "patch": "tests/planted-faults/patches/4d42f8c-install.patch",
+    "testFile": "tests/kernel/state/component.test.ts",
+    "title": "^work is refused when the state add-on published no operation",
+    "source": "4d42f8c fix(state): refuse work when no operation was published for it"
   }
 ]
