@@ -992,5 +992,26 @@
     "testFile": "tests/kernel/lifecycle/in-process.test.ts",
     "title": "IP07\\.stop-bound",
     "source": "2004547 fix(kernel): kill a stopped run that is still settling at a repeated signal"
+  },
+  {
+    "id": "f548a02-in-process-host",
+    "patch": "tests/planted-faults/patches/f548a02-lifecycle-host.patch",
+    "testFile": "tests/kernel/state/in-process.test.ts",
+    "title": "IP06\\.crash-records-every-run-in-flight",
+    "source": "f548a02 feat(kernel): run many commands in one process through runInProcess"
+  },
+  {
+    "id": "f548a02-in-process-own-start",
+    "patch": "tests/planted-faults/patches/f548a02-lifecycle-ownstart.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP07\\.own-deadline",
+    "source": "f548a02 feat(kernel): run many commands in one process through runInProcess"
+  },
+  {
+    "id": "5a83146-in-process-abort",
+    "patch": "tests/planted-faults/patches/5a83146-lifecycle-abort.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP07\\.rejected-run-records-itself",
+    "source": "5a83146 fix(kernel): settle the kernel reviewer's findings on the in-process entry"
   }
 ]
