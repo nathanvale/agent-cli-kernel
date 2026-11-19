@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/diagnostics/custody.ts b/kernel/src/addons/diagnostics/custody.ts
+index bbaf28c..4f016aa 100644
+--- a/kernel/src/addons/diagnostics/custody.ts
++++ b/kernel/src/addons/diagnostics/custody.ts
+@@ -295,7 +295,7 @@ async function acquire(
+     const remaining = deadline - performance.now();
+     if (remaining > 0)
+       await new Promise((resolve) =>
+-        setTimeout(resolve, Math.min(limits.lockRetryMilliseconds, remaining)),
++        setTimeout(resolve, limits.lockRetryMilliseconds),
+       );
+   } while (performance.now() < deadline);
+   return undefined;

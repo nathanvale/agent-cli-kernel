@@ -187,22 +187,57 @@ function commitsToCheck(run: Run, base: string, head: string): Commit[] {
     });
 }
 
+type Shard = { readonly part: number; readonly parts: number };
+
+const shardPattern = /^(?<part>[1-9]\d*)\/(?<parts>[1-9]\d*)$/;
+
+function shardOf(argv: readonly string[]): Shard | string {
+  const [, given, ...extra] = argv;
+  const found = shardPattern.exec(given ?? "")?.groups;
+  const part = Number(found?.part);
+  const parts = Number(found?.parts);
+  if (found === undefined || part > parts || extra.length > 0)
+    return `Usage: bun run check:commits <base> [head] --shard <part>/<parts>, with whole numbers 1 <= part <= parts. Got '${argv.join(" ")}'. Repair: pass one part, such as --shard 2/4.\n`;
+  return { part, parts };
+}
+
+function blockOf<T>(items: readonly T[], { part, parts }: Shard): T[] {
+  const edge = (at: number) => Math.floor((at * items.length) / parts);
+  return items.slice(edge(part - 1), edge(part));
+}
+
 export async function main(argv: readonly string[], run: Run): Promise<number> {
-  const [base, head = "HEAD"] = argv;
+  const at = argv.indexOf("--shard");
+  const [base, head = "HEAD"] = at === -1 ? argv : argv.slice(0, at);
+  const shard = at === -1 ? undefined : shardOf(argv.slice(at));
   if (base === undefined) {
     process.stderr.write("Usage: bun run check:commits <base> [head]\n");
+    return 2;
+  }
+  if (typeof shard === "string") {
+    process.stderr.write(shard);
     return 2;
   }
   if (!(await doctor(run.root))) {
     print("Refused: repair the doctor's FAIL lines, then rerun.");
     return 1;
   }
-  const commits = commitsToCheck(run, base, head);
+  let commits = commitsToCheck(run, base, head);
   if (commits.length === 0) {
     print(
       `No commits in ${base}..${head} to check, so this gate checks nothing. Repair: name a base that ${head} is ahead of.`,
     );
     return 1;
+  }
+  if (shard !== undefined) {
+    const inRange = commits.length;
+    commits = blockOf(commits, shard);
+    if (commits.length === 0) {
+      print(
+        `Part ${shard.part} of ${shard.parts} holds none of the ${inRange} commits in ${base}..${head}, so the other parts check them.`,
+      );
+      return 0;
+    }
   }
   const started = performance.now();
   let red = 0;

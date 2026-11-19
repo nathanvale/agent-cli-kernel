@@ -188,8 +188,8 @@ row's guide or gate note cites two distinct witnesses.
 ### Commits
 
 - `bun run check:commits <base>` installs, type-checks and lints each commit
-  in `<base>..HEAD` at its own head, in a temporary worktree. The `commits`
-  job in `.github/workflows/ci.yml` runs it against the pull request base.
+  in `<base>..HEAD` at its own head, in a temporary worktree. Four
+  `commits-shard` jobs split a pull request's range; `commits` needs all.
 - It never checks `f20777f` or an older commit. Some of those are red.
 - Format and tests at each commit stay review.
 - Witnessed: [2d0c390], [258365e], [59d45c1], [de45f44], [d3df03e],
