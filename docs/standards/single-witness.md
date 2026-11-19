@@ -120,6 +120,11 @@ this file.
   blank set, since a check over no lines passes for every file. Witnessed:
   [kernel#21 review 5984293964], [fd6d26b] (an empty `ts` block in the author
   guide matched the first example file, so it passed the freshness check).
+- Make a reader of a format recognise every delimiter form that format
+  allows, so a block written in another form cannot escape the checks.
+  Witnessed: [kernel#21 r4635908632], [f49bca3] (the author guide's fence
+  parser knew only three backticks, so a `~~~ts` block's code skipped the
+  language and freshness checks).
 
 [ac11ed9]: https://github.com/nathanvale/bun-typescript-template/commit/ac11ed98b7d538e8a304cac053aaefcaaf6b2cb3
 [cd2498b]: https://github.com/nathanvale/bun-typescript-template/commit/cd2498b7189a2d45d1906b9c870e8d13da6cd2dd
@@ -156,3 +161,5 @@ this file.
 [0800d56]: https://github.com/nathanvale/agent-cli-kernel/commit/0800d56170e923cf87a7913092ad5c45430fdee7
 [kernel#21 review 5984293964]: https://github.com/nathanvale/agent-cli-kernel/pull/21#pullrequestreview-5984293964
 [fd6d26b]: https://github.com/nathanvale/agent-cli-kernel/commit/fd6d26b6cda0782605199a7f3ee5ea4ab2c52482
+[kernel#21 r4635908632]: https://github.com/nathanvale/agent-cli-kernel/pull/21#discussion_r4635908632
+[f49bca3]: https://github.com/nathanvale/agent-cli-kernel/commit/f49bca3dc3963ebb6fc4f5ff730e88cf08bd2c99
