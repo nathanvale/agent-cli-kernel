@@ -106,13 +106,14 @@ a command step there names a read-only command.
 ## Braces
 
 In `repairAction` and in guidance text, braces mark a template token.
-Guidance text is an instruction's `text`, a command step's `args` and a
-handoff's `reason`.
+Guidance text is an instruction's `text`, a command step's `args`, and a
+handoff's `reason`, its resource `kind` and `id`, and its `inspect` steps.
 
 - The tokens are `{runId}`, `{completedEffects}`, `{remainingEffects}`,
   `{uncertainEffects}`, `{idempotencyKey}` and `{binding.<name>}`.
-- `{binding.<name>}` must be a whole command-step argument, and the result
-  then carries a `bindings` fact with that name.
+- `{binding.<name>}` must be the whole of a command-step argument or the
+  whole of a handoff's resource `id`, and the result then carries a
+  `bindings` fact with that name.
 - Any other brace makes `contractFor` throw when the CLI starts, with
   `Invalid run binding placement or guidance template token.` or
   `Malformed guidance template token.` The message names no station, so
