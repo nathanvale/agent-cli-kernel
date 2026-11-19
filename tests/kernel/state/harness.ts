@@ -17,37 +17,46 @@ import { coordinationExpected } from "./holder.ts";
 
 const specimen = join(import.meta.dir, "fixtures", "specimen.ts");
 
+export const registeredCases: {
+  readonly id: string;
+  readonly title: string;
+}[] = [];
+
+function casePlan(
+  id: string,
+  body: () => Promise<void>,
+): { readonly title: string; readonly run: () => Promise<void> | void } {
+  const row = stateCases.find((entry) => entry.id === id);
+  if (!row || row.status !== "executable")
+    throw new Error(`${id} is not an executable frozen case.`);
+  if (row.platform === "coordination" && !coordinationExpected)
+    return {
+      title: `${id} UNPROVED on ${process.platform}: fail-closed control only`,
+      run: failClosedControl,
+    };
+  if (row.nonRoot === true && process.geteuid?.() === 0)
+    return {
+      title: `${id} UNPROVED as euid 0: root is never denied permission`,
+      run: () => {
+        expect(process.geteuid?.()).toBe(0);
+      },
+    };
+  if (row.bootIdentity === true && machineBootIdentityRead() === undefined)
+    return {
+      title: `${id} UNPROVED on ${process.platform}: no boot identity to observe at ${bootIdentityFile}; its refusals run as a fail-closed control, and its fact-override supporting test runs the rest`,
+      run: body,
+    };
+  return { title: id, run: body };
+}
+
 export function caseTest(
   id: string,
   body: () => Promise<void>,
   timeout = 90_000,
 ): void {
-  const row = stateCases.find((entry) => entry.id === id);
-  if (!row || row.status !== "executable")
-    throw new Error(`${id} is not an executable frozen case.`);
-  if (row.platform === "coordination" && !coordinationExpected) {
-    test(
-      `${id} UNPROVED on ${process.platform}: fail-closed control only`,
-      failClosedControl,
-      timeout,
-    );
-    return;
-  }
-  if (row.nonRoot === true && process.geteuid?.() === 0) {
-    test(`${id} UNPROVED as euid 0: root is never denied permission`, () => {
-      expect(process.geteuid?.()).toBe(0);
-    });
-    return;
-  }
-  if (row.bootIdentity === true && machineBootIdentityRead() === undefined) {
-    test(
-      `${id} UNPROVED on ${process.platform}: no boot identity to observe at ${bootIdentityFile}; its refusals run as a fail-closed control, and its fact-override supporting test runs the rest`,
-      body,
-      timeout,
-    );
-    return;
-  }
-  test(id, body, timeout);
+  const plan = casePlan(id, body);
+  registeredCases.push({ id, title: plan.title });
+  test(plan.title, plan.run, timeout);
 }
 
 async function failClosedControl(): Promise<void> {

@@ -1,4 +1,4 @@
-import { expect } from "bun:test";
+import { expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import {
   appendFileSync,
@@ -27,6 +27,7 @@ import {
   machineBootIdentityRead,
   makeWorld,
   noAppendAfterDamage,
+  registeredCases,
   str,
   supportingTest,
 } from "./harness.ts";
@@ -1746,35 +1747,52 @@ supportingTest(
     const lease = join(world.root, "operations", id, "owner.lease");
     expect(lockFree(lease)).toBe(true);
     const closer = world.start(closeArgs(id, await world.revision(id)), {
-      SX_BARRIER: "closure-staged",
+      SX_BARRIER: "closure-staged,closure-published",
     });
     await closer.reached("closure-staged");
     expect(lockFree(lease)).toBe(false);
     expect(existsSync(closurePath(world, id))).toBe(false);
     closer.release("closure-staged");
+    await closer.reached("closure-published");
+    expect(existsSync(closurePath(world, id))).toBe(true);
+    expect(lockFree(lease)).toBe(false);
+    closer.release("closure-published");
     expectCompleted(await closer.done);
     expect(existsSync(closurePath(world, id))).toBe(true);
     expect(lockFree(lease)).toBe(true);
   }),
 );
 
+async function staleFirstRead(
+  world: World,
+  closer: Readonly<Record<string, string>>,
+): Promise<void> {
+  const owner = world.start(apply("a"), { SX_BARRIER: "intent" });
+  await owner.reached("intent");
+  const id = only(world);
+  const before = await world.revision(id);
+  owner.release("intent");
+  expectCompleted(await owner.done);
+  expect(caseOf(world, id).events.records.map((record) => record.kind)).toEqual(
+    ["effect-started", "effect-confirmed", "completion"],
+  );
+  expectRefusedUnchanged(
+    await world.run(closeArgs(id, before, "completed"), closer),
+    "DOMAIN_SX_CLOSE_STALE",
+  );
+  expect(existsSync(closurePath(world, id))).toBe(false);
+}
+
 supportingTest(
   "X29 supporting: a closer whose caller read the case before its owner completed it refuses as stale at its first read",
-  fixture(async (world) => {
-    const owner = world.start(apply("a"), { SX_BARRIER: "intent" });
-    await owner.reached("intent");
-    const id = only(world);
-    const before = await world.revision(id);
-    owner.release("intent");
-    expectCompleted(await owner.done);
-    expect(
-      caseOf(world, id).events.records.map((record) => record.kind),
-    ).toEqual(["effect-started", "effect-confirmed", "completion"]);
-    expectRefusedUnchanged(
-      await world.run(closeArgs(id, before, "completed"), observed),
-      "DOMAIN_SX_CLOSE_STALE",
-    );
-    expect(existsSync(closurePath(world, id))).toBe(false);
+  fixture((world) => staleFirstRead(world, observed)),
+);
+
+supportingTest(
+  "X29 supporting: through index.ts, a closer whose caller read the case before its owner completed it refuses as stale at its first read",
+  plain(async (world) => {
+    await staleFirstRead(world, production);
+    expect(world.ledger()).toContain("entry production");
   }),
 );
 
@@ -1799,3 +1817,17 @@ supportingTest(
     ).toBe("c2");
   }),
 );
+
+test("K11.a registered as run on Linux, and as UNPROVED where no boot identity can be read", () => {
+  const registered = registeredCases.filter(
+    (entry) => entry.id === "K11.a-delegate-same-boot-refused",
+  );
+  expect(registered).toHaveLength(1);
+  expect(
+    registered
+      .filter((entry) => entry.title.startsWith(`${entry.id} UNPROVED`))
+      .map((entry) => entry.id),
+  ).toEqual(
+    process.platform === "linux" ? [] : ["K11.a-delegate-same-boot-refused"],
+  );
+});

@@ -64,6 +64,7 @@ export type Phase =
   | "staged"
   | "closure-staged"
   | "closure-read"
+  | "closure-published"
   | UpgradePhase;
 
 export type StateOptions = {
@@ -477,16 +478,19 @@ function caseRead(
 // reads the case again once it holds the owner lease and decides only on
 // that read, which no owner can append to, and refuses when it differs
 // from the revision the request names.
-function caseUnderLease(
+async function caseUnderLease(
   paths: Locked,
   request: CloseRequest<string>,
-):
+  beforeLease: () => Promise<void>,
+): Promise<
   | { readonly ok: false; readonly stop: CloseResultBody }
   | {
       readonly ok: true;
       readonly target: Operation;
       readonly release: () => void;
-    } {
+    }
+> {
+  await beforeLease();
   const lease = paths.tryLock(
     join(paths.operation(request.operationId), "owner.lease"),
     false,
@@ -1278,8 +1282,9 @@ export function install(options: StateOptions, seams: Seams) {
       const moved = caseRead(paths, request);
       return { ok: false, stop: moved.ok ? { kind: "not-found" } : moved.stop };
     }
-    await phase("closure-read");
-    const leased = caseUnderLease(paths, request);
+    const leased = await caseUnderLease(paths, request, () =>
+      phase("closure-read"),
+    );
     if (!leased.ok) {
       admitted.release();
       return leased;
@@ -1360,8 +1365,13 @@ export function install(options: StateOptions, seams: Seams) {
         transaction
           .record(
             effect,
-            () =>
-              publishClosure(paths, decision, () => phase("closure-staged")),
+            async () => {
+              const published = await publishClosure(paths, decision, () =>
+                phase("closure-staged"),
+              );
+              await phase("closure-published");
+              return published;
+            },
             () => Promise.resolve(closureMatches(paths, decision, runId)),
           )
           .then(() => undefined),
