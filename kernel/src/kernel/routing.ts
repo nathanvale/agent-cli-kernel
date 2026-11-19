@@ -1,6 +1,6 @@
 import { splitDeadline, splitDeadlineTokens } from "./deadline.ts";
 import type { CommandDeclaration } from "./declarations.ts";
-import { parseInput, acceptsRootInput } from "./input.ts";
+import { acceptsRootInput, parseSlots } from "./input.ts";
 import { usageRefusal } from "./usage.ts";
 import type { UsageFault } from "./usage.ts";
 export function refused(
@@ -46,11 +46,11 @@ async function resolveBuiltin(
   deadlineMilliseconds?: number,
 ) {
   if (deadlineMilliseconds !== undefined)
-    return refused(cli, { kind: "invalid" }, machine);
+    return refused(cli, { kind: "deadline-unsupported" }, machine);
   const command = commands.find((item) => item.route[0] === flag);
   const expected = flag === "--discover-command" ? 2 : 1;
   if (!command || tokens[0] !== flag || tokens.length !== expected)
-    return refused(cli, { kind: "invalid" }, machine);
+    return refused(cli, { kind: "navigation-shape" }, machine);
   if (
     flag === "--discover-command" &&
     !commands.some((item) => item.commandIdentity === tokens[1])
@@ -76,11 +76,14 @@ async function resolveCommand(
   machine: boolean,
   deadlineMilliseconds?: number,
 ) {
+  const refuse = (fault: UsageFault) =>
+    refused(cli, fault, machine, command.commandIdentity);
   if (deadlineMilliseconds !== undefined && !command.input.deadlineSupported)
-    return refused(cli, { kind: "invalid" }, machine, command.commandIdentity);
-  const parsed = await parseInput(command.input, args);
-  if (!parsed.ok || !acceptsRootInput(command.route, parsed.value))
-    return refused(cli, { kind: "invalid" }, machine, command.commandIdentity);
+    return refuse({ kind: "deadline-unsupported" });
+  const parsed = await parseSlots(command.input, args);
+  if (!parsed.ok) return refuse(parsed.fault);
+  if (!acceptsRootInput(command.route, parsed.value))
+    return refuse({ kind: "root-input" });
   const resolved = {
     commandIdentity: command.commandIdentity,
     machine,
@@ -137,10 +140,11 @@ export async function resolveInvocation(
     return refused(cli, { kind: "invalid" }, false);
   const { tokens: globalTokens, machine, navigation } = globalSwitches(argv);
   const deadline = splitDeadline(globalTokens);
-  if (!deadline.ok) return refused(cli, { kind: "invalid" }, machine);
+  if (!deadline.ok) return refused(cli, { kind: "deadline" }, machine);
   const { tokens, deadlineMilliseconds } = deadline.value;
   if (!tokens.length) return refused(cli, { kind: "no-command" }, machine);
-  if (navigation.length > 1) return refused(cli, { kind: "invalid" }, machine);
+  if (navigation.length > 1)
+    return refused(cli, { kind: "navigation-conflict" }, machine);
   if (navigation.length === 1)
     return resolveBuiltin(
       cli,

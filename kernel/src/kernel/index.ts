@@ -428,7 +428,7 @@ export function contractFor<
       )
         return refused(
           spec.cli,
-          { kind: "invalid" },
+          { kind: "later-step" },
           resolved.value.machine,
           selected.commandIdentity,
         );

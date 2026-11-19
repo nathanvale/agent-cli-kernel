@@ -142,6 +142,37 @@ export function slotShow() {
   });
 }
 
+export function pairShow() {
+  return command({
+    identity: "x.pair",
+    route: ["pair"],
+    summary: "Pair two sides.",
+    input: {
+      ...emptyInput,
+      arguments: [
+        {
+          name: "name",
+          summary: "Name.",
+          required: true,
+          value: text(8, null),
+        },
+      ],
+      options: [
+        { ...optional, name: "--left", summary: "Left.", value: null },
+        { ...optional, name: "--right", summary: "Right.", value: null },
+        { ...optional, name: "--up", summary: "Up.", value: null },
+        { ...optional, name: "--both", summary: "Both.", value: null },
+      ],
+      constraints: [
+        { kind: "requires", ifPresent: "--both", thenPresent: "--left" },
+        { kind: "exclusive", members: ["--left", "--right", "--up"] },
+      ],
+    },
+    capabilities: {},
+    run: readsUnchanged("x.pair"),
+  });
+}
+
 export function bareList() {
   return command({
     identity: "x.list",
@@ -339,6 +370,8 @@ export const scenarios: Readonly<Record<string, () => object>> = {
   "schema-station": schemaLoad,
   "default-words": () => contractFor({ cli: "x", commands: [deadlineRead()] }),
   slots: () => contractFor({ cli: "x", commands: [slotShow(), bareList()] }),
+  usage: () =>
+    contractFor({ cli: "x", commands: [slotShow(), bareList(), pairShow()] }),
   "json-after-delimiter": () =>
     contractFor({ cli: "x", commands: [filterShow(), go(["--", "--json"])] }),
 };

@@ -79,6 +79,13 @@ const refusals: readonly (readonly [
   [["show", `--flag=${marker}`], "kf.show", usage, 2],
   [["show", "--title"], "kf.show", usage, 2],
   [["show", `-${marker}`], "kf.show", usage, 2],
+  [["show", "--title", marker, "--count"], "kf.show", usage, 2],
+  [["show", "--title", marker, "--title", marker], "kf.show", usage, 2],
+  [["show", "--title", marker, "--count", "99999"], "kf.show", usage, 2],
+  [["show", "--title", marker, "--mode", "c"], "kf.show", usage, 2],
+  [["show", "--title", marker, "--flag", `--${marker}`], "kf.show", usage, 2],
+  [["pair", marker, "--both"], "kf.pair", usage, 2],
+  [["pair", marker, "--left", "--right"], "kf.pair", usage, 2],
   [["show", "--deadline-ms", marker], "kf.dispatch", usage, 2],
   [["show", "--deadline-ms", "-5"], "kf.dispatch", usage, 2],
   [
