@@ -1678,5 +1678,40 @@
     "testFile": "tests/kernel/state-seam.test.ts",
     "title": "a run whose transaction is still running stays live",
     "source": "2d158f0 fix(kernel): keep a run live until its open transaction ends"
+  },
+  {
+    "id": "7eae994-in-process-duplicate",
+    "patch": "tests/planted-faults/patches/7eae994-state-seam-duplicate.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP08\\.duplicate-keeps-live-run",
+    "source": "7eae994 fix(kernel): let only the attachment that a run created forget it"
+  },
+  {
+    "id": "7eae994-in-process-deadline",
+    "patch": "tests/planted-faults/patches/d62870c-lifecycle-handler.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP08\\.duplicate-keeps-live-run",
+    "source": "7eae994 fix(kernel): let only the attachment that a run created forget it"
+  },
+  {
+    "id": "7eae994-in-process-crash",
+    "patch": "tests/planted-faults/patches/7eae994-lifecycle-crash.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP08\\.duplicate-then-crash",
+    "source": "7eae994 fix(kernel): let only the attachment that a run created forget it"
+  },
+  {
+    "id": "7eae994-in-process-attach",
+    "patch": "tests/planted-faults/patches/7eae994-state-seam-attach.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP08\\.attach-throws-forgets",
+    "source": "7eae994 fix(kernel): let only the attachment that a run created forget it"
+  },
+  {
+    "id": "7eae994-state-seam-owner",
+    "patch": "tests/planted-faults/patches/7eae994-state-seam-owner.patch",
+    "testFile": "tests/kernel/state-seam.test.ts",
+    "title": "an attachment's forget never removes a later attachment",
+    "source": "7eae994 fix(kernel): let only the attachment that a run created forget it"
   }
 ]
