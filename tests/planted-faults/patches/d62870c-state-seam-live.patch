@@ -1,12 +1,12 @@
 diff --git a/kernel/src/kernel/state-seam.ts b/kernel/src/kernel/state-seam.ts
-index 8601dca..27123cd 100644
+index e87fc1c..4cbad1d 100644
 --- a/kernel/src/kernel/state-seam.ts
 +++ b/kernel/src/kernel/state-seam.ts
-@@ -337,7 +337,6 @@ export function forgetRun(
+@@ -335,7 +335,6 @@ export function forgetRun(
    descriptor: StateAddonDescriptor | undefined,
  ): void {
    const state = descriptor ? registrations.get(descriptor) : undefined;
--  state?.live.delete(runId);
-   state?.runs.delete(runId);
+-  state?.runs.delete(runId);
  }
  
+ function revokeIssued(run: object): void {
