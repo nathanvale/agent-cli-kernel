@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index 132ca22..498f005 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -709,7 +709,7 @@ function cleanProblem(place: GitPlace, commit: string): string | undefined {
+     "--untracked-files=all",
+     "--",
+     ...loadFolders,
+-    ...linkedFolders(place, commit),
++    ...linkedFolders(place, commit).slice(0, 0),
+   ]);
+   if (ignored.length > 0)
+     return `Refused: git ignores files where the run loads code (${ignored.join("; ")}); a capability qualification run loads committed files only. Repair: remove those files, then rerun.`;

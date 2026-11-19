@@ -1,0 +1,12 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index 45909ab..50c863b 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -736,7 +736,6 @@ export async function runCasesWithBun(
+     const child = startChild(
+       [
+         process.execPath,
+-        "--no-env-file",
+         "test",
+         ...files.map((path) => `./${path}`),
+         "--test-name-pattern",

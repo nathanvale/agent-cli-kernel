@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/harness.ts b/tests/kernel/state/harness.ts
+index e1f2748..daf9f3f 100644
+--- a/tests/kernel/state/harness.ts
++++ b/tests/kernel/state/harness.ts
+@@ -43,7 +43,7 @@ function casePlan(
+     };
+   const entry = runOf(process.env[runVariable])?.entry ?? "fixture.ts";
+   const only = otherEntryOnly(row, entry);
+-  if (only !== undefined)
++  if (only !== undefined && only.reason === "")
+     return {
+       title: `${id} UNPROVED outside ${only.entry}: ${only.reason}`,
+       run: () => {

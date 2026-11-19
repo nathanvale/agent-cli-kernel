@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index 4ae3f2f..189b871 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -382,7 +382,7 @@ function observedPlatform(): PlatformFacts {
+   const observed = release();
+   return {
+     os: process.platform,
+-    release: observed,
++    release: `${observed} ${String(Reflect.get(require("node:os"), "hostname")())}`,
+     majorRelease: majorReleaseOf(observed),
+     architecture: process.arch,
+     runtime: `bun ${Bun.version}`,

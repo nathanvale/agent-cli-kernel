@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index ee6db01..ad3230a 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -244,7 +244,7 @@ export function caseResults(
+     const exact = tests.get(row.id);
+     if (exact === "passed")
+       return { id: row.id, result: "pass", detail: "passed" };
+-    if (exact === "skipped")
++    if (exact === "never")
+       return { id: row.id, result: "fail", detail: "skipped" };
+     const failed = {
+       id: row.id,

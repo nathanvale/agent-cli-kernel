@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-record.ts b/tests/kernel/state/capability-qualification-record.ts
+index cb0b2e9..e65891e 100644
+--- a/tests/kernel/state/capability-qualification-record.ts
++++ b/tests/kernel/state/capability-qualification-record.ts
+@@ -176,7 +176,7 @@ function fields(source: unknown, keys: readonly string[], where: string) {
+   return {
+     text(key: string): string {
+       const value = own(source, key);
+-      if (typeof value !== "string")
++      if (typeof value === "symbol")
+         throw new Error(`${where}.${key} is not text`);
+       return value;
+     },

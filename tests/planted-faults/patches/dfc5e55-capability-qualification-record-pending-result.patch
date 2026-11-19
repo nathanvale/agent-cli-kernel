@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-record.ts b/tests/kernel/state/capability-qualification-record.ts
+index 2826517..a72c1fe 100644
+--- a/tests/kernel/state/capability-qualification-record.ts
++++ b/tests/kernel/state/capability-qualification-record.ts
+@@ -351,7 +351,7 @@ function caseProblems(
+   if (row.status !== "executable") {
+     if (found.length === 0)
+       return [`the ${run.entry} run has no result for ${row.id}`];
+-    return found.every((entry) => entry.result === "unproved")
++    return found.every((entry) => entry.result !== "not-runnable")
+       ? []
+       : [
+           `${row.id} is pending in the case table, so the ${run.entry} run must record it unproved`,

@@ -1,0 +1,14 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index bc00310..b659ebb 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -738,7 +738,8 @@ export function caseFiles(
+   files: readonly string[],
+ ): readonly string[] {
+   const covered = executableIds(selection);
+-  return [...files]
++  return readdirSync(join(root, stateTests))
++    .map((name) => `${stateTests}/${name}`)
+     .filter(
+       (path) => path.startsWith(`${stateTests}/`) && path.endsWith(".test.ts"),
+     )

@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index ee6db01..e7ba2e2 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -113,7 +113,7 @@ function candidateRow(source: unknown): CandidateRow {
+     throw new Error(`id ${id} is not lower-case words joined by hyphens`);
+   const filesystem = own(source, "filesystem");
+   const fileType = own(filesystem, "type");
+-  if (typeof fileType !== "number" || !Number.isInteger(fileType))
++  if (typeof fileType !== "number")
+     throw new Error("filesystem.type is not a whole number");
+   return {
+     id,

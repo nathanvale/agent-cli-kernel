@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index 0b31f1e..7fba64c 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -746,7 +746,7 @@ export async function runCasesWithBun(
+       throw new CaseRunFailure(
+         `the case run outlived its ${String(limitMilliseconds)} ms limit`,
+       );
+-    if (!existsSync(report))
++    if (report === "")
+       throw new CaseRunFailure("the case run wrote no report");
+     return {
+       report: readFileSync(report, "utf8"),

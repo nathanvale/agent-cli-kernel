@@ -1,0 +1,12 @@
+diff --git a/tests/kernel/state/capability-qualification-record.ts b/tests/kernel/state/capability-qualification-record.ts
+index a1775a4..6dc5a36 100644
+--- a/tests/kernel/state/capability-qualification-record.ts
++++ b/tests/kernel/state/capability-qualification-record.ts
+@@ -287,7 +287,6 @@ function matchProblems(
+ ): readonly string[] {
+   const pairs: readonly (readonly [string, string, string])[] = [
+     ["os", record.platform.os, row.os],
+-    ["majorRelease", record.platform.majorRelease, row.majorRelease],
+     ["release", record.platform.release, row.observedRelease],
+     ["filesystem type", hex(record.filesystem.type), hex(row.filesystem.type)],
+     ["primitive", record.primitive, row.primitive],

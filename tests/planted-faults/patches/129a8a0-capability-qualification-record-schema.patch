@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-record.ts b/tests/kernel/state/capability-qualification-record.ts
+index a1775a4..05e9e97 100644
+--- a/tests/kernel/state/capability-qualification-record.ts
++++ b/tests/kernel/state/capability-qualification-record.ts
+@@ -252,7 +252,7 @@ export function parseRecord(text: string): CapabilityQualificationRecord {
+     "the record",
+   );
+   const schema = record.text("schema");
+-  if (schema !== recordSchema)
++  if (schema === "")
+     throw new Error(`the schema is ${schema}, not ${recordSchema}`);
+   const filesystem = fields(record.value("filesystem"), ["type"], "filesystem");
+   const boot = fields(

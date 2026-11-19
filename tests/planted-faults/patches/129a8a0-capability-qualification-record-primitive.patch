@@ -1,0 +1,12 @@
+diff --git a/tests/kernel/state/capability-qualification-record.ts b/tests/kernel/state/capability-qualification-record.ts
+index a1775a4..7973828 100644
+--- a/tests/kernel/state/capability-qualification-record.ts
++++ b/tests/kernel/state/capability-qualification-record.ts
+@@ -290,7 +290,6 @@ function matchProblems(
+     ["majorRelease", record.platform.majorRelease, row.majorRelease],
+     ["release", record.platform.release, row.observedRelease],
+     ["filesystem type", hex(record.filesystem.type), hex(row.filesystem.type)],
+-    ["primitive", record.primitive, row.primitive],
+     [
+       "bootIdentitySource",
+       record.bootIdentitySource.source,

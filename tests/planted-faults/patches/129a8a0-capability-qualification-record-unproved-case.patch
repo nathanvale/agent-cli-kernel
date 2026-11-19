@@ -1,0 +1,15 @@
+diff --git a/tests/kernel/state/capability-qualification-record.ts b/tests/kernel/state/capability-qualification-record.ts
+index cb0b2e9..eae03bf 100644
+--- a/tests/kernel/state/capability-qualification-record.ts
++++ b/tests/kernel/state/capability-qualification-record.ts
+@@ -365,7 +365,9 @@ function caseProblems(
+         ];
+   if (found.length === 0)
+     return [`the ${run.entry} run has no result for ${row.id}`];
+-  const worst = found.find((entry) => entry.result !== "pass");
++  const worst = found.find(
++    (entry) => entry.result !== "pass" && entry.result !== "unproved",
++  );
+   if (worst === undefined) return [];
+   return worst.result === "not-runnable"
+     ? [

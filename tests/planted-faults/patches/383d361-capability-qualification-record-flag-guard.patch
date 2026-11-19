@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-record.ts b/tests/kernel/state/capability-qualification-record.ts
+index cb0b2e9..20ff85c 100644
+--- a/tests/kernel/state/capability-qualification-record.ts
++++ b/tests/kernel/state/capability-qualification-record.ts
+@@ -188,7 +188,7 @@ function fields(source: unknown, keys: readonly string[], where: string) {
+     },
+     flag(key: string): boolean {
+       const value = own(source, key);
+-      if (typeof value !== "boolean")
++      if (value === undefined)
+         throw new Error(`${where}.${key} is not true or false`);
+       return value;
+     },

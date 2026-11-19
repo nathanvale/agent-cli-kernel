@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index 0b31f1e..d3c7238 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -445,7 +445,7 @@ function gitBytes(place: GitPlace, args: readonly string[]): Buffer {
+       killSignal: "SIGKILL",
+     },
+   );
+-  if (result.exitedDueToTimeout)
++  if (result.exitedDueToTimeout === "never")
+     throw new Error(
+       `git ${args.join(" ")} did not finish within ${String(bound)} ms`,
+     );

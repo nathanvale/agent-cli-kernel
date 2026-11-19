@@ -97,6 +97,8 @@
     "tests/kernel/lifecycle/fixtures/declining-host.ts",
     "tests/kernel/state/fixtures/specimen.ts",
     "tests/kernel/state/fixtures/in-process-specimen.ts",
+    "tests/kernel/state/fixtures/probe-folder-ledger.ts",
+    "tests/kernel/state/capability-qualification-run.ts",
     "kernel/src/addons/state/index.ts",
     "tests/kernel/kernel-repair/swarm-cli.ts",
     "tests/kernel/locks/fixtures.ts"

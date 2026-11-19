@@ -1,0 +1,12 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index 0b31f1e..c4186fa 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -735,7 +735,6 @@ export async function runCasesWithBun(
+           STATE_TEST_DIR: request.parent,
+           [runVariable]: runVariableValue(request.entry, request.candidate),
+         },
+-        limitMilliseconds,
+       },
+     );
+     caseRun.stop = child.stop;

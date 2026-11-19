@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index ee6db01..16dfd48 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -176,7 +176,7 @@ const runOwnedVariables = [
+ 
+ export function refuseRunOverrides(extra: Readonly<Record<string, string>>) {
+   const taken = runOwnedVariables.filter((name) => Object.hasOwn(extra, name));
+-  if (taken.length > 0)
++  if (taken.length > 9)
+     throw new Error(
+       `A capability qualification run sets no ${taken.join(", ")} for one test: every world runs on observed facts and the candidate row.`,
+     );

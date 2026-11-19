@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index bc00310..d871a71 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -391,7 +391,7 @@ export function secondRunProblem(
+ 
+ export function bootIdentityReadableAt(path: string): boolean {
+   try {
+-    return readFileSync(path, "utf8").trim() !== "";
++    return readFileSync(path, "utf8") !== "";
+   } catch {
+     return false;
+   }

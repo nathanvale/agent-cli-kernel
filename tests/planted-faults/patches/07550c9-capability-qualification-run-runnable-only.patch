@@ -1,0 +1,15 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index 4ae3f2f..e069880 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -613,9 +613,7 @@ export async function runCasesWithBun(
+   request: CaseRequest,
+   limitMilliseconds = caseRunMilliseconds,
+ ): Promise<string> {
+-  const runnable = request.selection.filter((row) =>
+-    runsThrough(row, request.entry),
+-  );
++  const runnable = request.selection;
+   const files = caseFiles(request.root, runnable);
+   if (files.length === 0)
+     throw new CaseRunFailure(

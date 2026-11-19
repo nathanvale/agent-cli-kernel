@@ -1,0 +1,15 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index f79311d..eb2ae77 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -567,7 +567,9 @@ function resolvesToTracked(
+ ): boolean {
+   let real: string;
+   try {
+-    real = realpathSync(path);
++    real = lstatSync(path).isSymbolicLink()
++      ? resolve(dirname(path), readlinkSync(path))
++      : path;
+   } catch {
+     return false;
+   }
