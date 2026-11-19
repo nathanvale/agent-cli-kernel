@@ -1,7 +1,5 @@
 import { constants, fstatSync, openSync, readSync } from "node:fs";
-import { configureSync, getLogger } from "@logtape/logtape";
-import type { LogRecord, Logger } from "@logtape/logtape";
-import { DEFAULT_REDACT_FIELDS, redactByField } from "@logtape/redaction";
+import type { LogRecord } from "@logtape/logtape";
 import type {
   AttachedAddon,
   Diagnostics,
@@ -21,7 +19,9 @@ import {
 import type { Opened } from "./custody.ts";
 import type { DiagnosticsIo } from "./io.ts";
 import { limits } from "./limits.ts";
-import { lineMaker, markers } from "./records.ts";
+import { runPipeline } from "./pipeline.ts";
+import type { RunPipeline, SelfReport } from "./pipeline.ts";
+import { lineMaker } from "./records.ts";
 import type { Line } from "./records.ts";
 
 type Available = Extract<Diagnostics, { readonly status: "available" }>;
@@ -172,15 +172,15 @@ function session(
   let accounting: "ok" | "invalid" | "unavailable" = "ok";
   let opened: Opened | undefined;
   let closed = false;
-  let logger: Logger | undefined;
+  let pipeline: RunPipeline | undefined;
   let setup: Promise<void> | undefined;
   let pumping: Promise<void> | undefined;
   let finishing: Promise<void> | undefined;
   let freezing: Promise<Diagnostics> | undefined;
   const queue: Line[] = [];
   let queuedBytes = 0;
-  let metaCount = 0;
-  const metaReports: string[] = [];
+  let selfReportCount = 0;
+  const selfReports: SelfReport[] = [];
 
   function fail(kind: SinkFailure) {
     failure ??= kind;
@@ -262,57 +262,23 @@ function session(
     pump();
   }
 
-  function sink(record: LogRecord) {
-    arrived += 1;
-    try {
-      admit(make(record));
-    } catch {
-      dropped += 1;
-    }
+  function selfReport(cause: SelfReport) {
+    selfReportCount += 1;
+    if (selfReports.length < limits.selfReports) selfReports.push(cause);
   }
-  let make: (record: LogRecord) => Line = () => {
-    throw new Error("Diagnostics are not configured.");
-  };
 
-  function configure(secrets: readonly string[]): Logger | undefined {
+  function assemble(secrets: readonly string[]): RunPipeline | undefined {
     try {
-      make = lineMaker(secrets);
-      configureSync({
-        reset: true,
-        sinks: {
-          diagnostics: redactByField(sink, {
-            fieldPatterns: DEFAULT_REDACT_FIELDS,
-            action: () => markers.redacted,
-            maxDepth: limits.redactionDepth,
-            maxProperties: limits.redactionEntries,
-          }),
-          meta: (record: LogRecord) => {
-            metaCount += 1;
-            if (metaReports.length < limits.metaReports)
-              metaReports.push(
-                String(record.rawMessage).slice(0, limits.metaReportCharacters),
-              );
-          },
-        },
-        loggers: [
-          {
-            category: [options.cli, "diagnostics"],
-            sinks: ["diagnostics"],
-            lowestLevel: "trace",
-            parentSinks: "override",
-          },
-          {
-            category: ["logtape", "meta"],
-            sinks: ["meta"],
-            lowestLevel: "warning",
-            parentSinks: "override",
-          },
-        ],
-      });
-      return getLogger([options.cli, "diagnostics"]).with({
-        runId: run.runId,
-        commandIdentity: run.commandIdentity,
-      });
+      const make = lineMaker(secrets);
+      const sink = (record: LogRecord) => {
+        arrived += 1;
+        try {
+          admit(make(record));
+        } catch {
+          dropped += 1;
+        }
+      };
+      return runPipeline([options.cli, "diagnostics"], sink, selfReport);
     } catch {
       return undefined;
     }
@@ -322,8 +288,8 @@ function session(
     if (state !== "idle") return;
     state = "pending";
     const secrets = secretValues(options);
-    logger = secrets === undefined ? undefined : configure(secrets);
-    if (!logger) {
+    pipeline = secrets === undefined ? undefined : assemble(secrets);
+    if (!pipeline) {
       fail("setup");
       state = "failed";
       return;
@@ -347,21 +313,19 @@ function session(
       return;
     }
     begin();
-    if (!logger) {
+    if (!pipeline) {
       dropped += 1;
       return;
     }
     handed += 1;
-    try {
-      logger[level]("{event}", {
-        event,
-        facts,
-        seq: sequence,
-        elapsedMilliseconds: Math.round(performance.now() - started),
-      });
-    } catch {
-      return;
-    }
+    pipeline(level, {
+      runId: run.runId,
+      commandIdentity: run.commandIdentity,
+      event,
+      facts,
+      seq: sequence,
+      elapsedMilliseconds: Math.round(performance.now() - started),
+    });
   }
 
   function checkedSize(descriptor: number): number | undefined {
@@ -417,7 +381,7 @@ function session(
   }
 
   function build(): Diagnostics {
-    const available = facts(metaCount === 0);
+    const available = facts(selfReportCount === 0);
     const consistent =
       [
         available.droppedRecords,

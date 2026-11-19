@@ -18,7 +18,6 @@ export const limits = {
   lockWaitMilliseconds: 200,
   lockRetryMilliseconds: 10,
   foreignLockStaleMilliseconds: 60_000,
-  metaReports: 8,
-  metaReportCharacters: 200,
+  selfReports: 8,
   secretFileBytes: 65_536,
 } as const;

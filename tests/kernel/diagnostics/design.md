@@ -155,3 +155,18 @@ this section is the record; the case identities do not change.
   entry carries no `diagnostics` key (14:19), and the host, not the kernel or
   this add-on, owns redaction of public output (14:37); this add-on redacts
   at its own sink only.
+
+## Corrections, 19 November 2026 (in-process runs)
+
+Nathan's decision of 19 November 2026, 13:22 AEDT: the add-on stops changing
+LogTape's process-wide configuration and gives each run its own chain.
+
+- The add-on no longer calls `configureSync` or `getLogger`. Each run builds
+  its own LogTape record and passes it through `redactByField` to that run's
+  sink (`pipeline.ts`). Overlapping in-process runs keep their log lines
+  apart, and a tool's own LogTape configuration is left as it was found.
+- LogTape reports its own trouble only to the process-wide meta logger. The
+  run now counts its own self reports instead: a redaction that throws (the
+  record is dropped) and a redaction limit, read from LogTape's replacement
+  of an unmapped message placeholder. Either still makes `countsComplete`
+  false. A tool's own LogTape warnings no longer count against a run.
