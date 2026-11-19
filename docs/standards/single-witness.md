@@ -57,6 +57,10 @@ this file.
 - Read staged Git blobs in one batch by object ID. Witnessed:
   [r4609890969] (the file-size gate started a Git process for each staged
   file).
+- Keep a stopped run where the repeated-signal kill reaches it until the
+  process exits, not only until its handler returns. Witnessed:
+  [kernel#6 r4622839115] (a run that returned during its first-stop settle
+  missed `killNow` at the second signal).
 - Drive every route a capability offers to the same shared function, so a
   route that wraps it, such as one that admits before it starts, is proved
   too. Witnessed: [r4622712214] (the domain program route had no proof).
@@ -75,4 +79,5 @@ this file.
 [r4609956011]: https://github.com/nathanvale/bun-typescript-template/pull/109#discussion_r4609956011
 [r4609956051]: https://github.com/nathanvale/bun-typescript-template/pull/109#discussion_r4609956051
 [r4609890969]: https://github.com/nathanvale/bun-typescript-template/pull/108#discussion_r4609890969
+[kernel#6 r4622839115]: https://github.com/nathanvale/agent-cli-kernel/pull/6#discussion_r4622839115
 [r4622712214]: https://github.com/nathanvale/agent-cli-kernel/pull/4#discussion_r4622712214

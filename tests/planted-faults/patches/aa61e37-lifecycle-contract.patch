@@ -1,0 +1,13 @@
+diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
+index d5cf605..a74f39d 100644
+--- a/kernel/src/kernel/lifecycle.ts
++++ b/kernel/src/kernel/lifecycle.ts
+@@ -163,7 +163,7 @@ function prepare(
+   entry: "runProcess" | "runInProcess",
+ ): Prepared {
+   const runtime = runtimeOf(contract);
+-  if (!runtime)
++  if (!runtime && entry === "runProcess")
+     throw new Error(`${entry} needs a contract built by contractFor.`);
+   return { runtime, setup, plans: plansFor(runtime, setup) };
+ }

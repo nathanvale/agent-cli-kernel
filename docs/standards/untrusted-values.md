@@ -10,7 +10,8 @@ boundary trusts the types.
   index read such as `fields[key]` with a key from a payload, and a key
   check in a test. Both also find `Object.prototype` members such as
   `toString`. Witnessed: [r4580070968], [r4580070979], [r4580077776],
-  [5cbff3a].
+  [5cbff3a], [kernel#6 r4622839131] (a fixture's mode table ran
+  `constructor`).
 - Read each value once into the copy you validate, then check and use that
   same copy. A second read of an accessor, or a read after an `await`, can
   differ. Witnessed: [75b4bc0], [r4580077763], [3088c03], [r4606886521],
@@ -71,3 +72,4 @@ boundary trusts the types.
 [r4622733380]: https://github.com/nathanvale/agent-cli-kernel/pull/3#discussion_r4622733380
 [r4622712159]: https://github.com/nathanvale/agent-cli-kernel/pull/4#discussion_r4622712159
 [r4622824082]: https://github.com/nathanvale/agent-cli-kernel/pull/3#discussion_r4622824082
+[kernel#6 r4622839131]: https://github.com/nathanvale/agent-cli-kernel/pull/6#discussion_r4622839131
