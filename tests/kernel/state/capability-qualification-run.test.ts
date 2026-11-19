@@ -462,9 +462,9 @@ function expectNoIdentity(world: Checkout, text: string): void {
   const { platform } = parseRecord(text);
   const hostRead = [platform.release, platform.distribution, platform.cLibrary];
   for (const value of hostRead) expect(value.length).toBeGreaterThan(0);
-  const words = hostRead.flatMap((value) => value.split(/[^A-Za-z0-9_.-]+/));
   for (const name of [accountName(), hostname()])
-    if (name !== undefined) expect(words).not.toContain(name);
+    if (name !== undefined && name !== "")
+      expect(hostRead.filter((value) => value.includes(name))).toEqual([]);
 }
 
 test(
