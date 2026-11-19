@@ -19,3 +19,5 @@ export function ownedFolders(): (prefix: string) => string {
     return path;
   };
 }
+
+export const throwawayLintFailure: any = 1;
