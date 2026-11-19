@@ -191,6 +191,27 @@ export type JournalEvent = {
   readonly payload: Readonly<Record<string, unknown>>;
 };
 
+export function appendDelegateStart(
+  eventsPath: string,
+  effect: string,
+  boot: string | undefined,
+): void {
+  appendEvent(
+    eventsPath,
+    "delegate-admitted",
+    boot === undefined ? { effect } : { effect, boot },
+  );
+}
+
+export function delegateBoot(event: JournalEvent): string | undefined {
+  const boot = event.payload.boot;
+  return event.kind === "delegate-admitted" &&
+    typeof boot === "string" &&
+    boot !== ""
+    ? boot
+    : undefined;
+}
+
 export const dispositions = [
   "completed",
   "not-applied",

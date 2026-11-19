@@ -19,7 +19,9 @@ import type { CapabilityReport, Qualification } from "./qualification.ts";
 import { canonicalise, conflicts, currentKeys } from "./scope.ts";
 import type { CanonicalScope, ScopeDeclaration } from "./scope.ts";
 import {
+  appendDelegateStart,
   appendEvent,
+  delegateBoot,
   ensureStore,
   flushMoves,
   layout,
@@ -435,9 +437,20 @@ function readProblem(
     : { kind: "unavailable", reason: `store-${read}` };
 }
 
-function stoppedOwnerProblem(target: Operation): string | undefined {
-  if (target.events.some((event) => event.kind === "delegate-admitted"))
-    return "delegate-recorded";
+// Accepted decision (Nathan, 19 November 2026, 12:08 AEDT; journal version 2
+// design, decision K): a case whose run started a program closes only after
+// the container machine restarts. Every delegate-admitted must name a boot
+// other than the current one; no boot, or the same boot, refuses.
+function stoppedOwnerProblem(
+  target: Operation,
+  boot: string | undefined,
+): string | undefined {
+  const delegateMayRun = target.events.some((event) => {
+    if (event.kind !== "delegate-admitted") return false;
+    const started = delegateBoot(event);
+    return started === undefined || boot === undefined || started === boot;
+  });
+  if (delegateMayRun) return "delegate-recorded";
   return target.tornTail ? "journal-torn" : undefined;
 }
 
@@ -1067,7 +1080,11 @@ export function install(options: StateOptions, seams: Seams) {
               new Error("The recorded effect is not active for this run."),
             );
           try {
-            appendEvent(events, "delegate-admitted", { effect });
+            appendDelegateStart(
+              events,
+              effect,
+              seams.qualification.bootIdentity(),
+            );
           } catch (error) {
             return Promise.reject(
               error instanceof Error
@@ -1137,7 +1154,10 @@ export function install(options: StateOptions, seams: Seams) {
         reason: "stopped-owner-proof-unqualified",
         detail: match.detail,
       };
-    const reason = stoppedOwnerProblem(target);
+    const reason = stoppedOwnerProblem(
+      target,
+      seams.qualification.bootIdentity(),
+    );
     if (reason) return { kind: "unavailable", reason };
     if (target.revision !== request.revision) return { kind: "stale-revision" };
     if (request.disposition === "outcome-unknown")

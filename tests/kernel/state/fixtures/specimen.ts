@@ -5,6 +5,7 @@ import {
   readFileSync,
   realpathSync,
   rmSync,
+  watch,
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
@@ -25,6 +26,9 @@ import type {
   ApprovalRuntime,
   CauseTable,
   JsonValue,
+  ParsedPath,
+  ProgramsCapability,
+  RecordedEffect,
   RunAddon,
 } from "../../../../kernel/src/kernel/index.ts";
 import { stateAddon } from "../../../../kernel/src/addons/state/index.ts";
@@ -39,6 +43,7 @@ import { movedStateRoot } from "../../../../kernel/src/addons/state/capability-q
 import { deviceFolders } from "../../../../kernel/src/addons/state/qualification.ts";
 import type { DeviceFolder } from "../../../../kernel/src/addons/state/qualification.ts";
 import { approval } from "../../../../kernel/src/addons/approval/index.ts";
+import { programsAddon } from "../../../../kernel/src/addons/programs/index.ts";
 
 const root = process.env.SX_ROOT ?? "";
 const world = process.env.SX_WORLD ?? "";
@@ -828,7 +833,60 @@ function noteDeclaration(command: string, input: NoteInput) {
   };
 }
 
-function noteWork(path: string, content: string) {
+const delegateFile = join(world, "delegates");
+const delegateCode = {
+  "delegate-survives": `const fs=require("node:fs");fs.writeFileSync(${JSON.stringify(`${delegateFile}.tmp`)},String(process.pid));fs.renameSync(${JSON.stringify(`${delegateFile}.tmp`)},${JSON.stringify(delegateFile)});setTimeout(()=>{},60000);`,
+  "delegate-detaches": `const fs=require("node:fs");const c=require("node:child_process").spawn(process.execPath,["-e","setTimeout(()=>{},60000)"],{detached:true,stdio:"ignore"});c.unref();fs.writeFileSync(${JSON.stringify(`${delegateFile}.tmp`)},process.pid+" "+c.pid);fs.renameSync(${JSON.stringify(`${delegateFile}.tmp`)},${JSON.stringify(delegateFile)});setTimeout(()=>{},60000);`,
+} as const;
+
+async function startDelegate(
+  programs: ProgramsCapability | undefined,
+  recorded: RecordedEffect<"note.write">,
+): Promise<void> {
+  const code =
+    fault === "delegate-survives" || fault === "delegate-detaches"
+      ? delegateCode[fault]
+      : undefined;
+  if (code === undefined) return;
+  if (!programs) throw new Error("This command has no programs capability.");
+  const boundary = composed.boundary;
+  if (!boundary) throw new Error("Contract not composed.");
+  void programs
+    .domain(recorded)
+    .start({
+      executable: boundary.path(process.execPath),
+      args: ["-e", code],
+      timeoutMilliseconds: 60_000,
+      outputLimitBytes: 1_024,
+      shutdownMilliseconds: 1_000,
+    })
+    .catch(() => undefined);
+  await delegateWrotePids();
+}
+
+function delegateWrotePids(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const settle = (fail?: Error) => {
+      watcher.close();
+      clearTimeout(bound);
+      if (fail) reject(fail);
+      else resolve();
+    };
+    const watcher = watch(world, () => {
+      if (existsSync(delegateFile)) settle();
+    });
+    const bound = setTimeout(() => {
+      settle(new Error("The delegate never started."));
+    }, 30_000);
+    if (existsSync(delegateFile)) settle();
+  });
+}
+
+function noteWork(
+  path: string,
+  content: string,
+  programs?: ProgramsCapability,
+) {
   return async (transaction: EffectTransaction<"note.write">) => {
     await barrier("pre-effect");
     if (fault === "transient-after-intent") return;
@@ -839,6 +897,7 @@ function noteWork(path: string, content: string) {
           await recorded.admitStart(recorded.runId, recorded.effect, () =>
             Promise.resolve(0),
           );
+        await startDelegate(programs, recorded);
         await barrier("intent");
         return writeNote(path, content, "apply");
       },
@@ -855,7 +914,7 @@ const apply = changing({
   route: ["apply"],
   summary: "Write one synthetic note.",
   input: changeInput,
-  capabilities: {},
+  capabilities: { programs: true },
   effectClass: "repository-local",
   effects: ["note.write"],
   ifNoResult: state.descriptor.ifNoResult,
@@ -874,7 +933,7 @@ const apply = changing({
           await state.transaction(
             context.state,
             declaration,
-            noteWork(path, input["--content"]),
+            noteWork(path, input["--content"], context.programs),
           ),
         );
     await barrier("complete");
@@ -1188,6 +1247,7 @@ const composed: {
   boundary?: {
     readonly authority: (value: unknown) => AuthorityId;
     readonly resource: (value: unknown) => ResourceId;
+    readonly path: (value: unknown) => ParsedPath;
   };
 } = {};
 function approvalRequest(input: {
@@ -1797,7 +1857,7 @@ function compose() {
     ],
     state: state.descriptor,
     causes,
-    installedAddons: ["state", "approval"],
+    installedAddons: ["state", "approval", "programs"],
   });
 }
 export const contract = compose();
@@ -1805,7 +1865,7 @@ composed.boundary = contract.boundary;
 
 if (import.meta.main) {
   const code = await runProcess(contract, {
-    addons: { approval: approvalAddon },
+    addons: { approval: approvalAddon, programs: programsAddon() },
     emergencyRecord: state.emergencyRecord,
   })(process.argv.slice(2));
   process.exitCode = code;

@@ -45,9 +45,12 @@ export type Match =
   | { readonly matched: true; readonly label: string }
   | { readonly matched: false; readonly detail: string };
 
+// Interface: `bootIdentity` reads the boot identity now, with a test entry's
+// override, and is undefined when it cannot be read or is empty.
 export type Qualification = {
   readonly source: "production" | "fixture";
   readonly match: (root: string, primitive: string | undefined) => Match;
+  readonly bootIdentity: () => string | undefined;
 };
 
 function attempt<T>(read: () => T): Fact<T> {
@@ -70,6 +73,23 @@ function overridden<T>(
 
 function nonEmpty(fact: Fact<string>): Fact<string> {
   return fact.read && fact.value === "" ? { read: false, why: "empty" } : fact;
+}
+
+function readBootIdentity(overrides: FactOverrides): Fact<string> {
+  return nonEmpty(
+    overridden(overrides.bootIdentity, () =>
+      attempt(() => readFileSync(bootIdentitySource, "utf8").trim()),
+    ),
+  );
+}
+
+function bootIdentityOf(overrides: FactOverrides): string | undefined {
+  const fact = readBootIdentity(overrides);
+  return fact.read ? fact.value : undefined;
+}
+
+export function machineBootIdentity(): string | undefined {
+  return bootIdentityOf({});
 }
 
 function readDevices(
@@ -112,11 +132,7 @@ function readFacts(
       primitive === undefined
         ? { read: false, why: "no coordination route" }
         : { read: true, value: primitive },
-    bootIdentity: nonEmpty(
-      overridden(overrides.bootIdentity, () =>
-        attempt(() => readFileSync(bootIdentitySource, "utf8").trim()),
-      ),
-    ),
+    bootIdentity: readBootIdentity(overrides),
     devices: readDevices(root, overrides),
   };
 }
@@ -224,6 +240,7 @@ function qualificationOver(
     source,
     match: (root: string, primitive: string | undefined) =>
       matchFacts(rows, readFacts(root, primitive, overrides), label),
+    bootIdentity: () => bootIdentityOf(overrides),
   });
 }
 

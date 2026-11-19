@@ -5,6 +5,7 @@ import type { CoordinationRoute } from "./coordination.ts";
 import type { CapabilityQualificationRow } from "./capability-qualification-table.ts";
 import {
   candidateQualification,
+  machineBootIdentity,
   resolveQualification,
 } from "./qualification.ts";
 import type { FactOverrides, Match, Qualification } from "./qualification.ts";
@@ -38,7 +39,11 @@ function fixtureQualification(seams: QualificationSeams): Qualification {
       seams.factOverrides ?? {},
     );
   const matched: Match = { matched: true, label: `fixture:${label}` };
-  return Object.freeze({ source: "fixture", match: () => matched });
+  return Object.freeze({
+    source: "fixture",
+    match: () => matched,
+    bootIdentity: machineBootIdentity,
+  });
 }
 
 export function stateAddonWithTestSeams(

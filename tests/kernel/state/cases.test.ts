@@ -40,9 +40,9 @@ test("the frozen T3 case table keeps its admitted identities and counts", () => 
     "S04",
     "S05",
   ]);
-  expect(stateCases.length).toBe(143);
+  expect(stateCases.length).toBe(145);
   const executable = stateCases.filter((row) => row.status === "executable");
-  expect(executable.length).toBe(134);
+  expect(executable.length).toBe(138);
   for (const row of executable)
     if (row.status === "executable")
       expect(["coordination", "any"]).toContain(row.platform);
@@ -65,8 +65,6 @@ test("the frozen T3 case table keeps its admitted identities and counts", () => 
     "J07.a-diagnostics-removed",
     "K04.b-unknown-closure-with-fixture-authority",
     "K05.b-actual-credential-nonforgeability",
-    "K08.c-surviving-delegate-process",
-    "O06.a-delegated-writer",
     "O07.b-reclaim-race",
     "O08.a-takeover-crash-points",
   ]);
@@ -80,7 +78,7 @@ test("the frozen T3 case table keeps its admitted identities and counts", () => 
 });
 
 const transitionDesigns = ["DESIGN.md", "DESIGN-V2-TRANSITIONS.md"];
-const transitionsAwaitingLaterSlices = ["X28", "X29", "X30"];
+const transitionsAwaitingLaterSlices = ["X29", "X30"];
 
 async function transitionRows(name: string): Promise<string[][]> {
   const design = await Bun.file(

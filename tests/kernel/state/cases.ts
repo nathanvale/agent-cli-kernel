@@ -44,12 +44,6 @@ const unqualified = {
   reason:
     "Needs a reviewed qualification row (REC-7b). The foundation table is empty, so the expected foundation outcome is O10 and Q01.",
 } as const;
-const sliceB = {
-  status: "pending",
-  supplier: "T2-slice-B",
-  reason:
-    "Needs a real delegated program started through the programs add-on bound to the recorded effect after slice B.",
-} as const;
 
 export const stateCases: readonly StateCase[] = [
   {
@@ -535,8 +529,9 @@ export const stateCases: readonly StateCase[] = [
   },
   {
     id: "K08.c-surviving-delegate-process",
-    ...sliceB,
-    sources: "REC-9 row 13; V-22",
+    ...coordinated,
+    sources:
+      "REC-9 row 13; V-22; journal version 2 design part 2 section 5; X28; decision K (Nathan, 19 November 2026, 12:08)",
     observation:
       "Parent killed with a surviving delegated program: closure and overlapping work blocked, independent scope proceeds.",
     red: "Treat parent death as a stopped operation.",
@@ -556,6 +551,24 @@ export const stateCases: readonly StateCase[] = [
     observation:
       "A retried closure after the move returns the prior disposition.",
     red: "Look up the target in operations/ only.",
+  },
+  {
+    id: "K11.a-delegate-same-boot-refused",
+    ...coordinated,
+    sources:
+      "REC-7; REC-9 row 13; journal version 2 design part 2 section 5; X28; decision K (Nathan, 19 November 2026, 12:08)",
+    observation:
+      "A killed run with a delegate start, same boot or no boot: closure refuses even with a matching row.",
+    red: "Treat a free lease as proof.",
+  },
+  {
+    id: "K11.b-delegate-other-boot-closes",
+    ...coordinated,
+    sources:
+      "REC-7; journal version 2 design part 2 section 5; part 3 section 4; decision K (Nathan, 19 November 2026, 12:08)",
+    observation:
+      "With a boot identity that differs (test entry), the same case closes.",
+    red: "Compare process identifiers instead.",
   },
   {
     id: "K11.e-transaction-waits-for-started-effects",
@@ -753,8 +766,9 @@ export const stateCases: readonly StateCase[] = [
   },
   {
     id: "O06.a-delegated-writer",
-    ...sliceB,
-    sources: "REC-7; REC-7a; REC-9 row 13; V-22",
+    ...coordinated,
+    sources:
+      "REC-7; REC-7a; REC-9 row 13; V-22; journal version 2 design part 2 section 5; X28; decision K (Nathan, 19 November 2026, 12:08)",
     observation:
       "Parent SIGKILLed with surviving direct and detached delegates: reclaim and closure blocked; independent scope proceeds.",
     red: "Treat parent death as a stopped operation.",

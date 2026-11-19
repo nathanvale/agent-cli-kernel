@@ -19,6 +19,7 @@ import {
   closeArgs,
   expectCompleted,
   expectRefusedUnchanged,
+  framed,
   makeWorld,
   str,
   supportingTest,
@@ -1050,5 +1051,220 @@ supportingTest(
       under(candidate(), facts),
     );
     expect(message).toContain(", boot identity unreadable (ENOENT) from ");
+  }),
+);
+
+const sameBoot = under(candidate(), readable);
+const bootTwo = under(candidate(), { ...readable, bootIdentity: "boot-two" });
+const production = { SX_ENTRY: "production" };
+
+function eventsPath(world: World, id: string): string {
+  return join(world.root, "operations", id, "events");
+}
+function delegateBoots(world: World, id: string): readonly unknown[] {
+  const found = world.cases().find((entry) => entry.id === id);
+  if (!found) throw new Error(`No case ${id}.`);
+  return found.events.records
+    .filter((record) => record.kind === "delegate-admitted")
+    .map((record) =>
+      Object.hasOwn(record.payload, "boot") ? record.payload.boot : "no boot",
+    );
+}
+async function refusedDelegate(
+  world: World,
+  id: string,
+  environment: Readonly<Record<string, string>>,
+): Promise<void> {
+  const before = outsideCoordination(world);
+  const refused = await world.run(
+    closeArgs(id, await world.revision(id)),
+    environment,
+  );
+  expectRefusedUnchanged(refused, "DOMAIN_SX_UNAVAILABLE");
+  expect(str(refused.envelope.message)).toBe(
+    "State unavailable: delegate-recorded.",
+  );
+  expect(outsideCoordination(world)).toBe(before);
+  expect(existsSync(closurePath(world, id))).toBe(false);
+}
+function preparedJournal(
+  world: World,
+  id: string,
+  delegates: readonly Readonly<Record<string, string | number>>[],
+): void {
+  writeFileSync(
+    eventsPath(world, id),
+    [
+      framed("effect-started", { effect: "note.write" }),
+      ...delegates.map((extra) =>
+        framed("delegate-admitted", { effect: "note.write", ...extra }),
+      ),
+    ].join(""),
+  );
+}
+
+caseTest(
+  "K11.a-delegate-same-boot-refused",
+  plain(async (world) => {
+    await world.killAt(apply("a"), "effect", {
+      ...sameBoot,
+      SX_FAULT: "admit-delegate",
+    });
+    const id = only(world);
+    expect(delegateBoots(world, id)).toEqual(["boot-one"]);
+    await refusedDelegate(world, id, sameBoot);
+    for (const delegates of [
+      [{}],
+      [{ boot: "" }],
+      [{ boot: 7 }],
+      [{ boot: "boot-one" }, {}],
+      [{ boot: "boot-one" }, { boot: "boot-two" }],
+    ]) {
+      preparedJournal(world, id, delegates);
+      await refusedDelegate(world, id, bootTwo);
+    }
+    preparedJournal(world, id, [{ boot: "boot-one" }, { boot: "boot-three" }]);
+    await closesUnder(world, id, bootTwo);
+  }),
+);
+
+caseTest(
+  "K11.b-delegate-other-boot-closes",
+  plain(async (world) => {
+    await world.killAt(apply("a"), "effect", {
+      ...sameBoot,
+      SX_FAULT: "admit-delegate",
+    });
+    const id = only(world);
+    expect(delegateBoots(world, id)).toEqual(["boot-one"]);
+    await refusedDelegate(world, id, sameBoot);
+    await closesUnder(world, id, bootTwo);
+    const closure = world.cases().find((entry) => entry.id === id)?.closure;
+    expect(at(closure?.records[0]?.payload, "disposition")).toBe("completed");
+    expect(at(closure?.records[0]?.payload, "evidence")).toEqual([
+      { effect: "note.write", observation: "present" },
+    ]);
+  }),
+);
+
+supportingTest(
+  "X28 supporting: the production entry writes the machine's boot identity into delegate-admitted",
+  plain(async (world) => {
+    await world.killAt(apply("a"), "intent", {
+      ...production,
+      SX_FAULT: "admit-delegate",
+    });
+    expect(world.ledger()).toContain("entry production");
+    expect(delegateBoots(world, only(world))).toEqual([
+      bootIdentityReadable()
+        ? readFileSync(bootIdentityFile, "utf8").trim()
+        : "no boot",
+    ]);
+  }),
+);
+
+function delegatePids(world: World): readonly number[] {
+  const file = join(world.world, "delegates");
+  return existsSync(file)
+    ? readFileSync(file, "utf8").split(" ").map(Number)
+    : [];
+}
+function alive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+function stopDelegates(world: World): void {
+  for (const pid of delegatePids(world))
+    for (const target of [-pid, pid])
+      try {
+        process.kill(target, "SIGKILL");
+      } catch {
+        continue;
+      }
+}
+const withDelegates = (body: (world: World) => Promise<void>) =>
+  plain(async (world) => {
+    try {
+      await body(world);
+    } finally {
+      stopDelegates(world);
+    }
+  });
+async function delegateBlocks(
+  world: World,
+  id: string,
+  pids: readonly number[],
+): Promise<void> {
+  for (const pid of pids) expect(alive(pid)).toBe(true);
+  await refusedDelegate(world, id, sameBoot);
+  expectRefusedUnchanged(
+    await world.run(apply("a", "v2"), production),
+    "DOMAIN_SX_UNRESOLVED",
+  );
+  expect(await world.pendingIds()).toEqual([id]);
+  for (const pid of pids) expect(alive(pid)).toBe(true);
+}
+
+supportingTest(
+  "X28 supporting: an unreadable boot identity writes delegate-admitted without boot, and the program still starts",
+  withDelegates(async (world) => {
+    const unreadable = under(candidate(), { ...readable, bootIdentity: null });
+    await world.killAt(apply("a"), "intent", {
+      ...unreadable,
+      SX_FAULT: "delegate-survives",
+    });
+    const pids = delegatePids(world);
+    expect(pids).toHaveLength(1);
+    const id = only(world);
+    expect(delegateBoots(world, id)).toEqual(["no boot"]);
+    writeFileSync(world.note("a"), "v1");
+    await delegateBlocks(world, id, pids);
+    await refusedDelegate(world, id, bootTwo);
+  }),
+);
+
+caseTest(
+  "K08.c-surviving-delegate-process",
+  withDelegates(async (world) => {
+    await world.killAt(apply("a"), "intent", {
+      ...sameBoot,
+      SX_FAULT: "delegate-survives",
+    });
+    const pids = delegatePids(world);
+    expect(pids).toHaveLength(1);
+    const id = only(world);
+    expect(delegateBoots(world, id)).toEqual(["boot-one"]);
+    writeFileSync(world.note("a"), "v1");
+    await delegateBlocks(world, id, pids);
+    expectCompleted(await world.run(apply("b"), production));
+    expect(await world.pendingIds()).toEqual([id]);
+  }),
+);
+
+caseTest(
+  "O06.a-delegated-writer",
+  withDelegates(async (world) => {
+    await world.killAt(apply("a"), "intent", {
+      ...sameBoot,
+      SX_FAULT: "delegate-detaches",
+    });
+    const pids = delegatePids(world);
+    const [direct, detached] = pids;
+    if (direct === undefined || detached === undefined)
+      throw new Error("Expected a direct and a detached delegate.");
+    const id = only(world);
+    expect(delegateBoots(world, id)).toEqual(["boot-one"]);
+    writeFileSync(world.note("a"), "v1");
+    await delegateBlocks(world, id, pids);
+    const report = await capabilitiesUnder(world, sameBoot);
+    expect(at(report, "automaticReclaim")).toBe("unavailable");
+    expect(at(report, "humanAssistedTakeover")).toBe("unavailable");
+    process.kill(-direct, "SIGKILL");
+    await delegateBlocks(world, id, [detached]);
+    expectCompleted(await world.run(apply("b"), production));
   }),
 );
