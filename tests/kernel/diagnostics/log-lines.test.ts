@@ -1,6 +1,8 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { nodeIo } from "../../../kernel/src/addons/diagnostics/io.ts";
+import { createDiagnostics } from "../../../kernel/src/addons/diagnostics/run.ts";
 import {
   canon,
   cleanTrees,
@@ -11,6 +13,7 @@ import {
   run,
   tree,
 } from "./harness.ts";
+import type { Tree } from "./harness.ts";
 import {
   expectAvailable,
   expectSuccess,
@@ -61,6 +64,18 @@ async function logged(script: Readonly<Record<string, unknown>> = {}) {
     text: readFileSync(log.path, "utf8"),
     written: lines(log.path),
   };
+}
+
+function attachedIn(where: Tree) {
+  return createDiagnostics(
+    { cli: "dxs", environment: { XDG_STATE_HOME: where.state } },
+    nodeIo,
+  ).attach({
+    runId: crypto.randomUUID(),
+    commandIdentity: "dxs.read",
+    summary: "Log lines.",
+    signal: new AbortController().signal,
+  });
 }
 
 function column(written: readonly unknown[], ...path: readonly string[]) {
@@ -215,6 +230,58 @@ describe("a host logger's lines sent through diagnostics.record", () => {
           failure: get(status, "sinkFailure"),
           dropped: get(status, "droppedRecords"),
         }).toEqual({ file: null, failure: null, dropped: 1 });
+      }
+    },
+    timeout,
+  );
+
+  test(
+    "in process: a record is written under each of the six levels, and at info without one",
+    async () => {
+      const where = tree();
+      const attached = attachedIn(where);
+      const { record } = attached.capability;
+      record("log", { line: "unlevelled" });
+      record("log", { line: "trace" }, "trace");
+      record("log", { line: "debug" }, "debug");
+      record("log", { line: "info" }, "info");
+      record("log", { line: "warning" }, "warning");
+      record("log", { line: "error" }, "error");
+      record("log", { line: "fatal" }, "fatal");
+      const frozen = await attached.freeze(500);
+      expect({
+        closed: get(frozen, "closed"),
+        dropped: get(frozen, "droppedRecords"),
+      }).toEqual({ closed: true, dropped: 0 });
+      const [log] = observe(where.dir).files;
+      if (!log) throw new Error("The session wrote no diagnostics file.");
+      const written = lines(log.path);
+      expect(column(written, "level")).toEqual(sentLevels);
+      expect(column(written, "facts", "line")).toEqual(
+        sent.map((line) => line.name),
+      );
+    },
+    timeout,
+  );
+
+  test(
+    "in process: a session whose only record has a level outside the six opens no file",
+    async () => {
+      for (const unlisted of unlistedLevels) {
+        const where = tree();
+        const attached = attachedIn(where);
+        Reflect.apply(attached.capability.record, attached.capability, [
+          "log",
+          { line: "unlisted" },
+          unlisted,
+        ]);
+        const frozen = await attached.freeze(500);
+        expect({
+          status: get(frozen, "status"),
+          file: get(frozen, "file"),
+          dropped: get(frozen, "droppedRecords"),
+        }).toEqual({ status: "available", file: null, dropped: 1 });
+        expect(observe(where.dir).files).toEqual([]);
       }
     },
     timeout,
