@@ -19,12 +19,16 @@ here.
   `tests/support/git-fixture.ts`, and set it on `process.env` around an
   in-process subject that runs git. The standards fixture used to inherit
   runtime configuration. Witnessed: [#85-env], [#92-git]. The shared environment
-  disables the global and system files and clears runtime configuration (`GIT_CONFIG_COUNT`, its `KEY_n` and
-  `VALUE_n` pairs, and `GIT_CONFIG_PARAMETERS`). A user's `diff.orderFile`
+  disables the global and system files, clears `GIT_CONFIG_PARAMETERS`, and
+  replaces any runtime `GIT_CONFIG_COUNT` with its own two `KEY_n` and
+  `VALUE_n` pairs, `maintenance.auto=false` and `gc.auto=0`, so a fixture
+  commit starts no background git maintenance. A user's `diff.orderFile`
   changed what the staged readers listed. Witnessed: [f929eb7], [7a62deb],
   [#84-git] (a local copy left runtime configuration in the replay fixture),
   [#90-git] (the bootstrap fixture inherited a signing requirement),
-  [#101-git] (the naming fixture inherited a setting that disabled its hook).
+  [#101-git] (the naming fixture inherited a setting that disabled its hook),
+  [73cb18b] (a commit's background maintenance still changed `.git` while a
+  test removed the folder, on macOS).
 - Start every child and git call a hook can reach from
   `withoutRepositoryLocation` in `scripts/process-runner.ts`, so none reads
   the hook's repository through `GIT_DIR` or the variables beside it.
@@ -49,3 +53,4 @@ here.
 [def3ec4]: https://github.com/nathanvale/bun-typescript-template/commit/def3ec4a0b0bbe9047f9296dc0bbf6424c44a807
 [#109-git]: https://github.com/nathanvale/bun-typescript-template/pull/109#discussion_r4609955976
 [7fb5649]: https://github.com/nathanvale/agent-cli-kernel/commit/7fb564900cff191397fdc8d1ba6f20e6807abdde
+[73cb18b]: https://github.com/nathanvale/agent-cli-kernel/commit/73cb18b9e96a5d549be88b007c194a90195aeae8
