@@ -60,7 +60,7 @@ const unqualified = {
   status: "pending",
   supplier: "qualification",
   reason:
-    "Needs a reviewed qualification row (REC-7b). The foundation table is empty, so the expected foundation outcome is O10 and Q01.",
+    "Needs a reviewed capability qualification row that enables reclaim or takeover (REC-7b). Journal version 2 rows enable closure only, so the expected outcome is still O10 and Q01.",
 } as const;
 
 export const stateCases: readonly StateCase[] = [
@@ -868,7 +868,7 @@ export const stateCases: readonly StateCase[] = [
     ...coordinated,
     sources: "REC-7b; REC-8",
     observation:
-      "Production specimen: closing a crashed case is unavailable with a handoff, no closure write, protection retained.",
+      "Production specimen, where no capability qualification row matches: closing a crashed case is unavailable with a handoff, no closure write, protection retained.",
     red: "Fall back to lease or PID heuristics without a row.",
   },
   {
@@ -966,7 +966,7 @@ export const stateCases: readonly StateCase[] = [
     ...anyPlatform,
     sources: "REC-5; REC-7b; REC-8",
     observation:
-      "The production qualification table is empty and every gated capability reports unavailable with its reason.",
+      "Where no capability qualification row matches, every gated capability reports unavailable with its reason.",
     red: "Enable a capability with no row.",
   },
   {
