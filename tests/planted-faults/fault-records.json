@@ -3085,5 +3085,12 @@
     "testFile": "tests/template/check-commits/carried-verdict-workflow.test.ts",
     "title": "commits-token runs only after commits passed",
     "source": "2541839 ci: carry the commits check's verdict forward on a GitHub-signed token (GREEN)"
+  },
+  {
+    "id": "73cb18b-git-fixture-maintenance",
+    "patch": "tests/planted-faults/patches/73cb18b-git-fixture-maintenance.patch",
+    "testFile": "tests/template/test-helpers/git-fixture.test.ts",
+    "title": "^a fixture commit starts no background git maintenance",
+    "source": "73cb18b test(support): stop fixture commits from starting background git maintenance"
   }
 ]
