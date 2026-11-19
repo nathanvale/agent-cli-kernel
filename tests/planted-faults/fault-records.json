@@ -1176,6 +1176,13 @@
     "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
   },
   {
+    "id": "f9de892-store-report-trusts-moved-read",
+    "patch": "tests/planted-faults/patches/f9de892-store-report-trusts-moved-read.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^L08\\.a-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
     "id": "f9de892-store-operations-only",
     "patch": "tests/planted-faults/patches/f9de892-store-operations-only.patch",
     "testFile": "tests/kernel/state/recovery.test.ts",
@@ -1263,7 +1270,49 @@
     "id": "f9de892-install-moved-target",
     "patch": "tests/planted-faults/patches/f9de892-install-moved-target.patch",
     "testFile": "tests/kernel/state/recovery.test.ts",
-    "title": "^X26 supporting: a closer",
+    "title": "^X26 supporting: a closer whose target settles",
     "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "ff852e8-store-upgrade-unknown",
+    "patch": "tests/planted-faults/patches/ff852e8-store-upgrade-unknown.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^X23 supporting: the upgrade refuses",
+    "source": "ff852e8 fix(state): refuse an unknown format at the upgrade and pin the mover's rules"
+  },
+  {
+    "id": "ff852e8-store-upgrade-private",
+    "patch": "tests/planted-faults/patches/ff852e8-store-upgrade-private.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^X23 supporting: the upgrade refuses",
+    "source": "ff852e8 fix(state): refuse an unknown format at the upgrade and pin the mover's rules"
+  },
+  {
+    "id": "ff852e8-install-closure-damaged",
+    "patch": "tests/planted-faults/patches/ff852e8-install-closure-damaged.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^X24 supporting: the mover leaves",
+    "source": "ff852e8 fix(state): refuse an unknown format at the upgrade and pin the mover's rules"
+  },
+  {
+    "id": "ff852e8-install-lease-absent",
+    "patch": "tests/planted-faults/patches/ff852e8-install-lease-absent.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^X24 supporting: the mover leaves",
+    "source": "ff852e8 fix(state): refuse an unknown format at the upgrade and pin the mover's rules"
+  },
+  {
+    "id": "ff852e8-install-case-lock-created",
+    "patch": "tests/planted-faults/patches/ff852e8-install-case-lock-created.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^L07\\.a-",
+    "source": "ff852e8 fix(state): refuse an unknown format at the upgrade and pin the mover's rules"
+  },
+  {
+    "id": "ff852e8-install-moved-target-corrupt",
+    "patch": "tests/planted-faults/patches/ff852e8-install-moved-target-corrupt.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^X26 supporting: a closer whose moved target is corrupt",
+    "source": "ff852e8 fix(state): refuse an unknown format at the upgrade and pin the mover's rules"
   }
 ]

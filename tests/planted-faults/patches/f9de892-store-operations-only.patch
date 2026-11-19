@@ -1,15 +1,13 @@
 diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
-index 13bfb2f..94a69d5 100644
+index 8f20023..d94f64b 100644
 --- a/kernel/src/addons/state/store.ts
 +++ b/kernel/src/addons/state/store.ts
-@@ -509,9 +509,7 @@ export type CaseRead = Operation | "not-found" | "corrupt" | "unreadable";
- 
- export function readCase(paths: Layout, id: string): CaseRead {
-   const unmoved = readCaseIn(paths.operation(id), id);
--  if (unmoved !== "moved") return unmoved;
--  const settled = readCaseIn(paths.settledCase(id), id);
--  return settled === "moved" ? "not-found" : settled;
-+  return unmoved === "moved" ? "not-found" : unmoved;
- }
- 
- export function storeProblem(
+@@ -501,7 +501,7 @@ function fromCaseFolders<T>(
+   id: string,
+   read: (directory: string) => T,
+ ): T | "not-found" {
+-  for (const directory of [paths.operation(id), paths.settledCase(id)]) {
++  for (const directory of [paths.operation(id)]) {
+     const value = read(directory);
+     if (folderRemains(directory)) return value;
+   }

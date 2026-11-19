@@ -1,8 +1,8 @@
 diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
-index 69cf9d6..f467e7b 100644
+index b73928f..b12b028 100644
 --- a/kernel/src/addons/state/install.ts
 +++ b/kernel/src/addons/state/install.ts
-@@ -848,8 +848,7 @@ export function install(options: StateOptions, seams: Seams) {
+@@ -856,8 +856,7 @@ export function install(options: StateOptions, seams: Seams) {
        const start =
          examinable === 0
            ? 0

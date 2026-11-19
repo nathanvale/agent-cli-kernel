@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index b73928f..28ee5b0 100644
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -887,7 +887,7 @@ export function install(options: StateOptions, seams: Seams) {
+   }
+ 
+   function lockFree(path: string, absentIsFree: boolean): boolean {
+-    const attempt = paths.tryLock(path, false);
++    const attempt = paths.tryLock(path, true);
+     if (attempt.kind === "held") {
+       attempt.release();
+       return true;

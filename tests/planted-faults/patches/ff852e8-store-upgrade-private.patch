@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
+index 8f20023..38ec1ff 100644
+--- a/kernel/src/addons/state/store.ts
++++ b/kernel/src/addons/state/store.ts
+@@ -135,8 +135,6 @@ export async function upgradeStore(
+   if (journal !== journals.one)
+     throw new Error("The format record names no known journal.");
+   mkdirSync(paths.settled, { recursive: true, mode: 0o700 });
+-  if (!privateDirectory(paths.settled))
+-    throw new Error("settled/ is not a private directory.");
+   flushDirectory(paths.root);
+   const staged = join(paths.staging, `format-${crypto.randomUUID()}`);
+   writeDurable(staged, encodeRecord("format", { journal: journals.two }));

@@ -1,13 +1,13 @@
 diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
-index 13bfb2f..5b09367 100644
+index 8f20023..ea6cc50 100644
 --- a/kernel/src/addons/state/store.ts
 +++ b/kernel/src/addons/state/store.ts
-@@ -502,7 +502,7 @@ function readCaseIn(
-   } catch {
-     read = "unreadable";
+@@ -503,7 +503,7 @@ function fromCaseFolders<T>(
+ ): T | "not-found" {
+   for (const directory of [paths.operation(id), paths.settledCase(id)]) {
+     const value = read(directory);
+-    if (folderRemains(directory)) return value;
++    if (typeof value === "object" || folderRemains(directory)) return value;
    }
--  return folderRemains(directory) ? read : "moved";
-+  return read === "corrupt" && !folderRemains(directory) ? "moved" : read;
+   return "not-found";
  }
- 
- export type CaseRead = Operation | "not-found" | "corrupt" | "unreadable";

@@ -1,8 +1,8 @@
 diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
-index 13bfb2f..8b5e52a 100644
+index 8f20023..79c0903 100644
 --- a/kernel/src/addons/state/store.ts
 +++ b/kernel/src/addons/state/store.ts
-@@ -135,7 +135,7 @@ export async function upgradeStore(
+@@ -139,7 +139,7 @@ export async function upgradeStore(
      throw new Error("settled/ is not a private directory.");
    flushDirectory(paths.root);
    const staged = join(paths.staging, `format-${crypto.randomUUID()}`);

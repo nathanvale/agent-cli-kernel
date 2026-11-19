@@ -1,8 +1,8 @@
 diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
-index 69cf9d6..8ab988a 100644
+index b73928f..08535c2 100644
 --- a/kernel/src/addons/state/install.ts
 +++ b/kernel/src/addons/state/install.ts
-@@ -618,7 +618,7 @@ export type Seams = {
+@@ -626,7 +626,7 @@ export type Seams = {
  // Accepted decision (Nathan, 19 November 2026, 12:08 AEDT; journal version 2
  // design, decision F): at most 64 moves per hold of the admission lock. The
  // design sets 128 examined cases per hold, so each cap is observable alone.

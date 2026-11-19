@@ -1,9 +1,9 @@
 diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
-index 13bfb2f..a3b087f 100644
+index 8f20023..1cefbe7 100644
 --- a/kernel/src/addons/state/store.ts
 +++ b/kernel/src/addons/state/store.ts
-@@ -561,6 +561,10 @@ export function moveSettledCase(
-     if (Reflect.get(Object(error), "code") !== "ENOENT") throw error;
+@@ -572,6 +572,10 @@ export function moveSettledCase(
+     if (errorCode(error) !== "ENOENT") throw error;
    }
    renameSync(paths.operation(id), paths.settledCase(id));
 +  writeSync(

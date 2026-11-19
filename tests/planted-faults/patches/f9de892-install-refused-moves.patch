@@ -1,8 +1,8 @@
 diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
-index 69cf9d6..b2e3cf2 100644
+index b73928f..e185fbd 100644
 --- a/kernel/src/addons/state/install.ts
 +++ b/kernel/src/addons/state/install.ts
-@@ -767,6 +767,7 @@ export function install(options: StateOptions, seams: Seams) {
+@@ -775,6 +775,7 @@ export function install(options: StateOptions, seams: Seams) {
        upgraded = false;
      }
      const store = readStore(paths);

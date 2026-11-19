@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index b73928f..6f55b45 100644
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -881,7 +881,7 @@ export function install(options: StateOptions, seams: Seams) {
+     const id = candidate.intent.operationId;
+     return (
+       !candidate.closureDamaged &&
+-      lockFree(join(paths.operation(id), "owner.lease"), false) &&
++      lockFree(join(paths.operation(id), "owner.lease"), true) &&
+       lockFree(paths.keyLock(`case:${id}`), true)
+     );
+   }

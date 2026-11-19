@@ -1,5 +1,5 @@
 diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
-index 69cf9d6..829d59d 100644
+index b73928f..6a6e464 100644
 --- a/kernel/src/addons/state/install.ts
 +++ b/kernel/src/addons/state/install.ts
 @@ -1,4 +1,5 @@
@@ -8,7 +8,7 @@ index 69cf9d6..829d59d 100644
  import { join } from "node:path";
  import { contractFor } from "../../kernel/index.ts";
  import type {
-@@ -766,6 +767,7 @@ export function install(options: StateOptions, seams: Seams) {
+@@ -774,6 +775,7 @@ export function install(options: StateOptions, seams: Seams) {
      } catch {
        upgraded = false;
      }
