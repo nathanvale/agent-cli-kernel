@@ -1,5 +1,5 @@
 diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
-index d5cf605..b803dee 100644
+index 17a1342..98b2334 100644
 --- a/kernel/src/kernel/lifecycle.ts
 +++ b/kernel/src/kernel/lifecycle.ts
 @@ -923,6 +923,7 @@ async function runAndReturn(run: Run, argv: unknown): Promise<InProcessResult> {
@@ -9,4 +9,4 @@ index d5cf605..b803dee 100644
 +    run.host.exit(code ?? 1);
      return await returnedResult(run, code ?? 1, chunks);
    } catch (error) {
-     crashRun(run);
+     run.controller.abort();
