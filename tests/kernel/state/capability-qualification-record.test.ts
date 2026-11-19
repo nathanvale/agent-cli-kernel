@@ -668,11 +668,32 @@ const reviewGaps: readonly (readonly [
     "no review date (YYYY-MM-DD)",
   ],
   [
+    "real date in a common year",
+    { ...review, date: "2026-02-29" },
+    "no review date (YYYY-MM-DD)",
+  ],
+  [
     "real month",
     { ...review, date: "2026-13-01" },
     "no review date (YYYY-MM-DD)",
   ],
 ];
+
+test("Q03.a bounds its git read below a test's own timeout", () => {
+  const root = committedRoot(`${JSON.stringify(record(), null, 2)}\n`);
+  const bin = folder("c3-stub-git-");
+  writeFileSync(join(bin, "git"), "#!/bin/sh\nexec sleep 5\n", {
+    mode: 0o755,
+  });
+  const started = performance.now();
+  expect(() =>
+    rowProblems(row(), root, current, table, {
+      environment: { ...process.env, PATH: `${bin}:${process.env.PATH ?? ""}` },
+      milliseconds: 300,
+    }),
+  ).toThrow("git cat-file did not finish within 300 ms");
+  expect(performance.now() - started).toBeLessThan(1_500);
+});
 
 test("Q03.a accepts a review on a leap day", () => {
   const cited = row({

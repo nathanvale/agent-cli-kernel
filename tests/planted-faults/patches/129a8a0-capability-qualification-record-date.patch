@@ -1,13 +1,13 @@
 diff --git a/tests/kernel/state/capability-qualification-record.ts b/tests/kernel/state/capability-qualification-record.ts
-index a1775a4..9f3b21e 100644
+index 2826517..c03e3bd 100644
 --- a/tests/kernel/state/capability-qualification-record.ts
 +++ b/tests/kernel/state/capability-qualification-record.ts
-@@ -345,7 +345,7 @@ function reviewProblems(row: CapabilityQualificationRow): readonly string[] {
+@@ -433,7 +433,7 @@ function reviewProblems(row: CapabilityQualificationRow): readonly string[] {
      ...(countersignature.trim() === ""
        ? ["the row names no countersignature"]
        : []),
--    ...(/^\d{4}-\d{2}-\d{2}$/.test(date)
-+    ...(date !== "" || /^\d{4}-\d{2}-\d{2}$/.test(date)
+-    ...(calendarDate(date)
++    ...(date !== "" || calendarDate(date)
        ? []
        : ["the row names no review date (YYYY-MM-DD)"]),
    ];

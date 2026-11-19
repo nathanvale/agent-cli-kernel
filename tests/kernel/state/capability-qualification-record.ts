@@ -439,23 +439,31 @@ function reviewProblems(row: CapabilityQualificationRow): readonly string[] {
   ];
 }
 
-const gitMilliseconds = 10_000;
+const gitMilliseconds = 4_000;
 
-function committedText(root: string, path: string): string | undefined {
+export type GitBound = {
+  readonly environment?: Readonly<Record<string, string | undefined>>;
+  readonly milliseconds?: number;
+};
+
+function committedText(
+  root: string,
+  path: string,
+  bound: GitBound,
+): string | undefined {
+  const limit = bound.milliseconds ?? gitMilliseconds;
   const result = Bun.spawnSync(
     ["git", "-C", root, "cat-file", "blob", `HEAD:${path}`],
     {
-      env: withoutRepositoryLocation(process.env),
+      env: withoutRepositoryLocation(bound.environment ?? process.env),
       stdout: "pipe",
       stderr: "pipe",
-      timeout: gitMilliseconds,
+      timeout: limit,
       killSignal: "SIGKILL",
     },
   );
   if (result.exitedDueToTimeout)
-    throw new Error(
-      `git cat-file did not finish within ${String(gitMilliseconds)} ms`,
-    );
+    throw new Error(`git cat-file did not finish within ${String(limit)} ms`);
   return result.exitCode === 0 ? result.stdout.toString("utf8") : undefined;
 }
 
@@ -464,13 +472,14 @@ export function rowProblems(
   root: string,
   currentHash: string,
   cases: readonly StateCase[] = stateCases,
+  bound: GitBound = {},
 ): readonly string[] {
   const expected = recordPath(row.id);
   if (row.evidence.record !== expected)
     return [
       `${row.id} cites ${row.evidence.record}; a row cites its committed capability qualification record ${expected}`,
     ];
-  const committed = committedText(root, expected);
+  const committed = committedText(root, expected, bound);
   if (committed === undefined)
     return [
       `${row.id}: no committed capability qualification record at ${expected}`,

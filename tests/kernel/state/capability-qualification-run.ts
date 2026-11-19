@@ -68,7 +68,8 @@ import type { StateCase } from "./cases.ts";
 // commit's tree differs from its committed bytes, has a mode the run cannot
 // check, or does not resolve, through every link along the way, to a tracked
 // file or folder inside the checkout's real root, the checkout has untracked
-// files, git ignores a file under kernel, scripts, src or tests, a dotenv
+// files, git ignores a file under kernel, scripts, src or tests or in a
+// tracked folder a tracked link reaches, a dotenv
 // file sits in the repository root, the test process's exit code disagrees
 // with its report, a covered case is reported twice, no report is written,
 // or the run is stopped. A test world in a run refuses a fact override or
