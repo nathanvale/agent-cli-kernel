@@ -126,8 +126,11 @@ async function lateRequest(shape: LateShape, signal: "SIGTERM" | "SIGINT") {
       markedProcesses: markedPids(marker).length,
     };
   } finally {
-    killMarked(marker);
-    await rm(dir, { recursive: true, force: true });
+    try {
+      killMarked(marker);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   }
 }
 
