@@ -121,7 +121,7 @@ jobs:
       - env:
           BASE: ${{ needs.commits-carry.outputs.base }}
           CHECK_COMMITS_SINCE: ${{ needs.commits-carry.outputs.since }}
-        run: echo forged
+        run: bun run check:commits "$BASE" --shard ${{ matrix.shard }}/4
   commits:
     if: always() && github.event_name == 'pull_request'
     needs: [commits-carry, commits-shard]
@@ -133,7 +133,7 @@ jobs:
           CARRY: ${{ needs.commits-carry.result }}
           SHARDS: ${{ needs.commits-shard.result }}
         run: |
-          if false; then
+          if [ "$CARRY" != success ] || [ "$SHARDS" != success ]; then
             echo "commits-carry ended $CARRY and the commits-shard jobs ended $SHARDS. Repair: open the red job and follow its Repair line." >&2
             exit 1
           fi
