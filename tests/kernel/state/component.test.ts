@@ -814,6 +814,27 @@ function refusalOf(call: Promise<unknown>): Promise<string> {
 
 const readBackTrue = () => Promise.resolve(true);
 
+const endedTurnLimit = 100;
+
+async function untilEnded(
+  transaction: EffectTransaction<"e.one" | "e.two">,
+  startedEffect: "e.one" | "e.two",
+): Promise<void> {
+  const probeOperation = () =>
+    Promise.reject(new Error("A probe record ran its operation."));
+  for (let turn = 0; turn < endedTurnLimit; turn++) {
+    const refusal = await refusalOf(
+      transaction.record(startedEffect, probeOperation, readBackTrue),
+    );
+    if (refusal === expectedEndedRefusal.record) return;
+    expect(refusal).toBe("Undeclared or already recorded effect.");
+    await turns(1);
+  }
+  throw new Error(
+    `The transaction did not refuse a record within ${endedTurnLimit} event-loop turns of its work returning.`,
+  );
+}
+
 async function pendingRecordSettlesBeforeTheFinalEvent(): Promise<void> {
   const workReturned = Promise.withResolvers<void>();
   let whileOperationRan: ReturnType<typeof coordinationNow> | undefined;
@@ -823,13 +844,12 @@ async function pendingRecordSettlesBeforeTheFinalEvent(): Promise<void> {
       "e.one",
       async () => {
         await workReturned.promise;
-        await turns(1);
+        await untilEnded(host.transaction, "e.one");
         whileOperationRan = coordinationNow(host.root);
       },
-      async () => {
-        await turns(1);
+      () => {
         whileReadBackRan = coordinationNow(host.root);
-        return true;
+        return Promise.resolve(true);
       },
     );
     workReturned.resolve();
@@ -872,7 +892,7 @@ async function recordStillRunningWhenWorkThrowsSettlesFirst(): Promise<void> {
           "e.two",
           async () => {
             await workThrew.promise;
-            await turns(1);
+            await untilEnded(host.transaction, "e.two");
             whileSurvivorRan = coordinationNow(host.root);
           },
           readBackTrue,
@@ -922,7 +942,7 @@ async function callsAfterWorkReturnedAreRefused(): Promise<void> {
       "e.one",
       async (recorded) => {
         await workReturned.promise;
-        await turns(1);
+        await untilEnded(host.transaction, "e.one");
         whileWaiting.record = await refusalOf(
           host.transaction.record("e.two", late, readBackTrue),
         );
