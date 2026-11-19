@@ -673,11 +673,15 @@ caseTest(
     await world.killAt(apply("a"), "effect");
     const id = only(world);
     const operations = JSON.stringify(world.operations());
-    const refused = await close(world, id);
+    const refused = await world.run(
+      closeArgs(id, await world.revision(id)),
+      under(candidate({ os: "no-such-os" }), {}),
+    );
     expectRefusedUnchanged(refused, "DOMAIN_SX_UNAVAILABLE");
     expect(str(refused.envelope.message)).toContain(
       "stopped-owner-proof-unqualified",
     );
+    expect(str(refused.envelope.message)).toMatch(/: differs in os[,)]/);
     expect(at(refused.result.raw, "handoff", "inspect")).toEqual([
       { kind: "command", command: "sx.capabilities", args: [] },
     ]);
@@ -1890,22 +1894,6 @@ supportingTest(
     ).toBe("c2");
   }),
 );
-
-test("O10.a registered as run where no production row matches the state root, and as UNPROVED where one does", () => {
-  const registered = registeredCases.filter(
-    (entry) => entry.id === "O10.a-unqualified-closure-unavailable",
-  );
-  expect(registered).toHaveLength(1);
-  expect(
-    registered
-      .filter((entry) => entry.title.startsWith(`${entry.id} UNPROVED`))
-      .map((entry) => entry.id),
-  ).toEqual(
-    productionRowMatch().matched
-      ? ["O10.a-unqualified-closure-unavailable"]
-      : [],
-  );
-});
 
 test("K11.a registered as run on Linux, and as UNPROVED where no boot identity can be read", () => {
   const registered = registeredCases.filter(

@@ -79,12 +79,6 @@ function casePlan(
         expect(entry).not.toBe(only.entry);
       },
     };
-  const match = row.noProductionRow === true ? productionRowMatch() : undefined;
-  if (match?.matched === true)
-    return {
-      title: `${id} UNPROVED where production row ${match.label} matches the state root: closing there is Q02.e's to prove`,
-      run: productionRowControl,
-    };
   if (row.nonRoot === true && process.geteuid?.() === 0)
     return {
       title: `${id} UNPROVED as euid 0: root is never denied permission`,

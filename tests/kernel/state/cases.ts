@@ -23,7 +23,6 @@ export type StateCase = {
         readonly reason: string;
       };
       readonly bootIdentity?: true;
-      readonly noProductionRow?: true;
     }
   | {
       readonly status: "pending";
@@ -867,10 +866,9 @@ export const stateCases: readonly StateCase[] = [
   {
     id: "O10.a-unqualified-closure-unavailable",
     ...coordinated,
-    noProductionRow: true,
     sources: "REC-7b; REC-8",
     observation:
-      "Production specimen, where no capability qualification row matches: closing a crashed case is unavailable with a handoff, no closure write, protection retained.",
+      "Where no capability qualification row matches (the test entry's candidate row names another operating system, so the case holds on every host): closing a crashed case is unavailable with a handoff, no closure write, protection retained.",
     red: "Fall back to lease or PID heuristics without a row.",
   },
   {

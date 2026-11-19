@@ -67,13 +67,6 @@ test("the frozen T3 case table keeps its admitted identities and counts", () => 
       .filter((row) => row.status === "executable" && row.bootIdentity === true)
       .map((row) => row.id),
   ).toEqual(["K11.a-delegate-same-boot-refused"]);
-  expect(
-    executable
-      .filter(
-        (row) => row.status === "executable" && row.noProductionRow === true,
-      )
-      .map((row) => row.id),
-  ).toEqual(["O10.a-unqualified-closure-unavailable"]);
   const pending = stateCases.filter((row) => row.status === "pending");
   expect(pending.map((row) => row.id).sort()).toEqual([
     "H01.a-attestation-satisfies-stop-only",
