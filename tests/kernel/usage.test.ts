@@ -25,8 +25,14 @@ import { recordingHost } from "./lifecycle/recording-host.ts";
 const usage = "USAGE_INVALID_INVOCATION";
 const helpStep = { kind: "command", command: "x.help", args: [] } as const;
 const bare = "No command was given. Run x --help to list the commands.";
-const showNext = helpStep;
-const pairNext = helpStep;
+const discoveryStep = (identity: string) =>
+  ({
+    kind: "command",
+    command: "x.command-discovery",
+    args: [identity],
+  }) as const;
+const showNext = discoveryStep("x.show");
+const pairNext = discoveryStep("x.pair");
 
 type Expected = {
   readonly commandIdentity: string;
@@ -377,7 +383,7 @@ describe("a usage refusal says what was wrong", () => {
       refusal(
         "x.hostile",
         "The argument item could not be checked against its declared pattern in time.",
-        { ...helpStep },
+        discoveryStep("x.hostile"),
       ),
       contractFor({ cli: "x", commands: [hostile] }),
     );
@@ -406,9 +412,11 @@ describe("a usage refusal says what was wrong", () => {
     });
     await expectInProcess(
       ["--"],
-      refusal("x.root", "This command needs at least one option or argument.", {
-        ...helpStep,
-      }),
+      refusal(
+        "x.root",
+        "This command needs at least one option or argument.",
+        discoveryStep("x.root"),
+      ),
       contractFor({ cli: "x", commands: [root] }),
     );
   });
@@ -478,7 +486,7 @@ describe("a usage refusal says what was wrong", () => {
       refusal(
         "x.source",
         "A value in this invocation cannot be passed on to this command's next step.",
-        { ...helpStep },
+        discoveryStep("x.source"),
       ),
       contractFor({ cli: "x", commands: [source, target] }),
     );
@@ -506,5 +514,173 @@ describe("a usage refusal says what was wrong", () => {
       path: "input",
       reason: "pattern mismatch",
     });
+  });
+});
+
+const stepRoutes: Readonly<Record<string, readonly string[]>> = {
+  "x.command-discovery": ["--discover-command"],
+};
+
+function guidanceNext(
+  contract: { readonly discoverCommand: (identity: string) => unknown },
+  identity: string,
+  causeCode: string,
+) {
+  const stations = read(contract.discoverCommand(identity), "stations");
+  const found: unknown = Array.isArray(stations)
+    ? stations.find((entry) => read(entry, "causeCode") === causeCode)
+    : undefined;
+  return read(read(found, "guidance"), "next");
+}
+
+const itemInput = {
+  ...emptyInput,
+  arguments: [
+    {
+      name: "item",
+      summary: "Item.",
+      required: true,
+      value: {
+        kind: "string",
+        minLength: 1,
+        maxLength: 8,
+        choices: null,
+        pattern: null,
+      },
+    },
+  ],
+} as const satisfies InputSchema;
+
+function ownUsage(identity: string, route: string) {
+  return command({
+    identity,
+    route: [route],
+    summary: "Read one item.",
+    input: itemInput,
+    capabilities: {},
+    run: readsUnchanged(identity),
+  });
+}
+
+describe("a host command's usage refusal points at its own discovery", () => {
+  test(
+    "running the refusal's next step prints that command's discovery and exits 0",
+    async () => {
+      const refused = await spawnBounded(
+        [process.execPath, entry, "usage", "show", "--json"],
+        { env: { ...process.env } },
+      );
+      const next = facts(JSON.parse(refused.stdout)).next;
+      expect(next).toEqual(discoveryStep("x.show"));
+      const route = stepRoutes[String(read(next, "command"))] ?? [];
+      const args = read(next, "args");
+      const vector = [
+        ...route,
+        ...(Array.isArray(args) ? args.map(String) : []),
+      ];
+      expect(vector).toEqual(["--discover-command", "x.show"]);
+      const shown = await spawnBounded(
+        [process.execPath, entry, "usage", ...vector],
+        { env: { ...process.env } },
+      );
+      expect({ exit: shown.exit, stderr: shown.stderr }).toEqual({
+        exit: 0,
+        stderr: "",
+      });
+      expect(
+        shown.stdout.startsWith(
+          "x.show (inspect)\nShow a title.\nRoute: show\n",
+        ),
+      ).toBe(true);
+    },
+    processWatchdog(2),
+  );
+
+  test("discovery shows the discovery step for usage and keeps help for a schema refusal and for dispatch", () => {
+    const contract = usageContract();
+    expect([
+      guidanceNext(contract, "x.show", usage),
+      guidanceNext(contract, "x.show", "SCHEMA_INVALID_INPUT"),
+      guidanceNext(contract, "x.dispatch", usage),
+    ]).toEqual([discoveryStep("x.show"), helpStep, helpStep]);
+  });
+
+  test("a command that declares its own usage station keeps its words", async () => {
+    const own = station(commonCauses, {
+      commandIdentity: "x.own",
+      causeCode: "USAGE_INVALID_INVOCATION",
+      trigger: "Own usage refusal.",
+      guidance: {
+        next: { kind: "instruction", text: "Name one item for x.own." },
+      },
+      repairAction: "Name one item.",
+      retryDelayPolicy: { kind: "none" },
+      reachability: "required",
+      unreachableRationale: null,
+      independentObservable: "usage-own-station",
+    });
+    const served = station(commonCauses, {
+      commandIdentity: "x.own",
+      causeCode: "SUCCESS_UNCHANGED",
+      trigger: "Read.",
+      guidance: { next: { kind: "done" } },
+      repairAction: null,
+      retryDelayPolicy: { kind: "none" },
+      reachability: "required",
+      unreachableRationale: null,
+      independentObservable: "usage-own-read",
+    });
+    const declared = command({
+      identity: "x.own",
+      route: ["own"],
+      summary: "Read one item.",
+      input: itemInput,
+      capabilities: {},
+      stations: [own, served],
+      run: (_input, context) =>
+        context.result(served, {
+          message: "Read.",
+          data: null,
+          effects: unchanged,
+        }),
+    });
+    await expectInProcess(
+      ["own"],
+      refusal("x.own", "The required argument item is missing.", {
+        kind: "instruction",
+        text: "Name one item for x.own.",
+      }),
+      contractFor({ cli: "x", commands: [declared] }),
+    );
+  });
+
+  test("an identity a discovery step cannot carry falls back to help and still validates", async () => {
+    for (const [identity, route] of [
+      ["x.{odd}", "odd"],
+      ["-odd", "dash"],
+    ] as const) {
+      const contract = contractFor({
+        cli: "x",
+        commands: [ownUsage(identity, route)],
+      });
+      const result = await runInProcessOn(
+        contract,
+        {},
+        () => recordingHost().host,
+      )([route]);
+      if (result.kind !== "envelope")
+        throw new Error(`Expected an envelope, got ${result.kind}.`);
+      expect({
+        exitCode: result.exitCode,
+        facts: facts(result.envelope),
+      }).toEqual({
+        exitCode: 2,
+        facts: {
+          ...refusal(identity, "The required argument item is missing."),
+          data: null,
+        },
+      });
+      expect((await contract.validate(result.envelope)).ok).toBe(true);
+    }
   });
 });

@@ -116,7 +116,13 @@ test(
       "instruction",
     ]);
     expect(discovered(read, "USAGE_INVALID_INVOCATION")).toMatchObject({
-      guidance: { next: { kind: "command", command: "x.help", args: [] } },
+      guidance: {
+        next: {
+          kind: "command",
+          command: "x.command-discovery",
+          args: ["x.read"],
+        },
+      },
     });
   },
   processTimeout,

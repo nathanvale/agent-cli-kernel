@@ -105,6 +105,27 @@ function instructionFor(causeCode: string) {
     ([code]) => code === causeCode,
   )?.[1];
 }
+function helpStep(cli: string): NextStep {
+  return { kind: "command", command: `${cli}.help`, args: [] };
+}
+function discoverable(identity: string): boolean {
+  return !identity.startsWith("-") && !/[{}]/u.test(identity);
+}
+const hostSteps: Partial<
+  Record<keyof typeof commonCauses, (identity: string, cli: string) => NextStep>
+> = {
+  USAGE_INVALID_INVOCATION: (identity, cli) =>
+    discoverable(identity)
+      ? {
+          kind: "command",
+          command: `${cli}.command-discovery`,
+          args: [identity],
+        }
+      : helpStep(cli),
+};
+function hostStepFor(causeCode: string) {
+  return Object.entries(hostSteps).find(([code]) => code === causeCode)?.[1];
+}
 function kernelRepair(causeCode: string, success: boolean): string | null {
   if (success) return null;
   if (causeCode === "DOMAIN_AUTHORITY_REQUIRED")
@@ -118,6 +139,7 @@ function kernelWords(
   causeCode: string,
   command: CommandDeclaration,
   cli: string,
+  host: boolean,
 ):
   | { readonly next: NextStep; readonly handoff?: never }
   | { readonly handoff: Handoff; readonly next?: never } {
@@ -149,7 +171,8 @@ function kernelWords(
   const instruction = instructionFor(causeCode);
   if (instruction)
     return { next: { kind: "instruction", text: instruction.next } };
-  return { next: { kind: "command", command: `${cli}.help`, args: [] } };
+  const step = host ? hostStepFor(causeCode) : undefined;
+  return { next: step ? step(command.commandIdentity, cli) : helpStep(cli) };
 }
 export function hostKernelCauses(command: CommandDeclaration): string[] {
   const needed = [
@@ -188,13 +211,14 @@ export function stationsFor(
   const needed = builtin
     ? builtinKernelCauses(command, cli)
     : hostKernelCauses(command);
-  return addKernelStations(command, cli, causes, needed);
+  return addKernelStations(command, cli, causes, needed, !builtin);
 }
 function addKernelStations(
   command: CommandDeclaration,
   cli: string,
   causes: CauseTable,
   needed: readonly string[],
+  host: boolean,
 ): readonly DeclaredStation[] {
   const entries = [...command.stations];
   for (const causeCode of needed) {
@@ -209,7 +233,7 @@ function addKernelStations(
         causeCode === "SUCCESS_UNCHANGED"
           ? command.summary
           : `Kernel ${causeCode}.`,
-      guidance: kernelWords(causeCode, command, cli),
+      guidance: kernelWords(causeCode, command, cli, host),
       repairAction: kernelRepair(causeCode, row.outcome === "success"),
       retryDelayPolicy: { kind: "none" },
       reachability: "required",
