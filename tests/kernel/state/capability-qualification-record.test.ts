@@ -521,6 +521,27 @@ const unreadable: readonly (readonly [string, string, string])[] = [
     "runs[0].cases[0] has fields [detail, id, result], not [id, reason, result]",
   ],
   [
+    "a not-runnable case that also carries a detail",
+    JSON.stringify({
+      ...record(),
+      runs: [
+        {
+          ...run("fixture.ts"),
+          cases: [
+            {
+              id: indexOnly.id,
+              result: "not-runnable",
+              reason: indexOnly.onlyThrough.reason,
+              detail: "runs only through index.ts",
+            },
+          ],
+        },
+        run("index.ts"),
+      ],
+    }),
+    "runs[0].cases[0] has fields [detail, id, reason, result], not [id, reason, result]",
+  ],
+  [
     "a short commit",
     JSON.stringify({
       ...record(),

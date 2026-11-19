@@ -11,6 +11,7 @@ import { homedir, hostname, release } from "node:os";
 import { join } from "node:path";
 import { movedStateRoot } from "../../../kernel/src/addons/state/capability-qualification-table.ts";
 import { resolveCoordination } from "../../../kernel/src/addons/state/coordination.ts";
+import { bootIdentitySource } from "../../../kernel/src/addons/state/qualification.ts";
 import {
   commitIn,
   git,
@@ -80,7 +81,7 @@ const candidate: CandidateRow = {
   observedRelease: "7.2.12-orbstack-00394-gbecdd6130068",
   filesystem: { name: "btrfs", type: 0x9123683e },
   primitive: "linux flock(LOCK_EX|LOCK_NB) through libc.so.6",
-  bootIdentitySource: "/proc/sys/kernel/random/boot_id",
+  bootIdentitySource: "/proc/self/candidate-boot-identity",
 };
 
 const tableRow = {
@@ -410,8 +411,8 @@ test(
       route.available ? route.route : "no coordination route",
     );
     expect(record.bootIdentitySource).toEqual({
-      source: "/proc/sys/kernel/random/boot_id",
-      readable: existsSync("/proc/sys/kernel/random/boot_id"),
+      source: bootIdentitySource,
+      readable: existsSync(bootIdentitySource),
     });
     expect(record.runs.length).toBe(1);
     const [run] = record.runs;
@@ -447,10 +448,8 @@ async function expectNoIdentity(world: Checkout, text: string): Promise<void> {
     (path) => path.length > 1,
   );
   for (const path of paths) expect(text).not.toContain(path);
-  if (existsSync(candidate.bootIdentitySource))
-    expect(text).not.toContain(
-      readFileSync(candidate.bootIdentitySource, "utf8").trim(),
-    );
+  if (existsSync(bootIdentitySource))
+    expect(text).not.toContain(readFileSync(bootIdentitySource, "utf8").trim());
   const { platform } = parseRecord(text);
   const hostRead = [platform.release, platform.distribution, platform.cLibrary];
   for (const value of hostRead) expect(value.length).toBeGreaterThan(0);
@@ -667,7 +666,7 @@ test(
       observedRelease: first.platform.release,
       filesystem: { name: "observed", type: first.filesystem.type },
       primitive: first.primitive,
-      bootIdentitySource: first.bootIdentitySource.source,
+      bootIdentitySource,
     };
     expect(
       rowProblems(
@@ -676,7 +675,7 @@ test(
         sourceHash(qualifiedSourceFiles(world.root)),
       ),
     ).toEqual(
-      first.bootIdentitySource.readable
+      existsSync(bootIdentitySource)
         ? []
         : [
             `${candidate.id}: the boot identity was unreadable in the capability qualification run`,
@@ -1044,7 +1043,7 @@ function loadedFiles(report: string): readonly string[] {
 }
 
 test(
-  "the capability qualification run's own case runner loads only the files that hold covered cases and reads each case from Bun's report",
+  "the capability qualification run's own case runner loads only the files that hold covered cases, skips each case its entry cannot run, and reads each case from Bun's report",
   async () => {
     const world = runnerWorld();
     writeFileSync(
