@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index 15ff761..f78d8cf 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -529,7 +529,7 @@ function hiddenProblem(place: GitPlace): string | undefined {
+ function linkBytes(root: string, path: string): Buffer | string {
+   const target = readlinkSync(path);
+   const inside = relative(root, resolve(dirname(path), target));
+-  return inside.startsWith("..") || isAbsolute(inside)
++  return inside === "never" && isAbsolute(inside)
+     ? "link leaves the checkout"
+     : Buffer.from(target);
+ }

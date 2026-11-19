@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index 15ff761..6f4c777 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -219,7 +219,7 @@ export function testNamePattern(selection: readonly StateCase[]): string {
+   const ids = executableIds(selection).map((id) =>
+     id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+   );
+-  return `^(?:${ids.join("|")})(?: UNPROVED|$)`;
++  return `^(?:${ids.join("|")})(?: |$)`;
+ }
+ 
+ type Reported = "passed" | "failed" | "skipped";

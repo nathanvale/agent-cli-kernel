@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index 15ff761..c460366 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -608,7 +608,7 @@ function readCandidate(file: string): CandidateRow | string {
+   }
+ }
+ 
+-const loadFolders = ["kernel", "scripts", "src", "tests"] as const;
++const loadFolders = ["kernel", "src", "tests"] as const;
+ 
+ function dotenvProblem(root: string): string | undefined {
+   const found = readdirSync(root)
