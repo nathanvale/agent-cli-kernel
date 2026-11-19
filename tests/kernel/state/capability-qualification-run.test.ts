@@ -681,7 +681,7 @@ test(
     expect(existsSync(world.recordFile)).toBe(false);
     expect(readdirSync(world.folder)).toEqual([`${candidate.id}.json.partial`]);
     expect(rowProblems(tableRow, world.root, "c".repeat(64))).toEqual([
-      `${candidate.id}: no capability qualification record at ${recordPath(candidate.id)}`,
+      `${candidate.id}: no committed capability qualification record at ${recordPath(candidate.id)}`,
     ]);
   },
   inProcess,
@@ -774,6 +774,8 @@ test(
     expect({ ...both, runs: [] }).toEqual({ ...first, runs: [] });
     expect(both.runs[1]?.commit).toBe(git(world.root, "rev-parse", "HEAD"));
     expect(both.runs[1]?.sourceHash).toBe(first.runs[0]?.sourceHash);
+    git(world.root, "add", "--", recordPath(candidate.id));
+    git(world.root, "commit", "--quiet", "-m", "the index.ts record");
     const judged = {
       ...tableRow,
       os: first.platform.os,
