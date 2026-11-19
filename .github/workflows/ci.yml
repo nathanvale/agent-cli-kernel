@@ -81,7 +81,7 @@ jobs:
         with:
           bun-version: 1.4.4
       - env:
-          BASE: origin/${{ github.base_ref }}
+          BASE: ${{ github.event.pull_request.base.sha }}
         run: bun run fault-replay --shard ${{ matrix.shard }}/4 --tooling-changed-since "$BASE"
   fault-replay:
     if: always() && github.event_name == 'pull_request'
