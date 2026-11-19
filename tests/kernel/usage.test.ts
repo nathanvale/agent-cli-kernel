@@ -9,7 +9,7 @@ import type { InputSchema } from "../../kernel/src/kernel/index.ts";
 import { renderHuman } from "../../kernel/src/kernel/human.ts";
 import { runInProcessOn } from "../../kernel/src/kernel/lifecycle.ts";
 import { readsUnchanged } from "./kernel-repair/handlers.ts";
-import { emptyInput, unchanged } from "./kernel-repair/shapes.ts";
+import { emptyInput, repairWords, unchanged } from "./kernel-repair/shapes.ts";
 import {
   bareList,
   pairShow,
@@ -72,7 +72,15 @@ function usageContract() {
   });
 }
 
-async function inProcess(
+function repairOf(envelope: unknown) {
+  const result = read(envelope, "result");
+  return {
+    repairAction: read(result, "repairAction"),
+    next: read(result, "next"),
+  };
+}
+
+async function envelopeOf(
   argv: readonly string[],
   contract: object = usageContract(),
 ) {
@@ -83,6 +91,11 @@ async function inProcess(
   )(argv);
   if (result.kind !== "envelope")
     throw new Error(`Expected an envelope, got ${result.kind}.`);
+  return result;
+}
+
+async function inProcess(argv: readonly string[], contract?: object) {
+  const result = await envelopeOf(argv, contract);
   return {
     exitCode: result.exitCode,
     facts: facts(result.envelope),
@@ -631,7 +644,7 @@ const stepRoutes: Readonly<Record<string, readonly string[]>> = {
   "x.command-discovery": ["--discover-command"],
 };
 
-function guidanceNext(
+function discoveredWords(
   contract: { readonly discoverCommand: (identity: string) => unknown },
   identity: string,
   causeCode: string,
@@ -640,8 +653,17 @@ function guidanceNext(
   const found: unknown = Array.isArray(stations)
     ? stations.find((entry) => read(entry, "causeCode") === causeCode)
     : undefined;
-  return read(read(found, "guidance"), "next");
+  return {
+    repairAction: read(found, "repairAction"),
+    next: read(read(found, "guidance"), "next"),
+  };
 }
+
+const hostWords = {
+  repairAction: repairWords.discovery,
+  next: discoveryStep("x.show"),
+};
+const helpWords = { repairAction: repairWords.inspect, next: helpStep };
 
 const itemInput = {
   ...emptyInput,
@@ -706,13 +728,37 @@ describe("a host command's usage refusal points at its own discovery", () => {
     processWatchdog(2),
   );
 
-  test("discovery shows the discovery step for usage and keeps help for a schema refusal and for dispatch", () => {
+  test(
+    "the production entry pairs the discovery repair words with the discovery step, and a bare invocation keeps the inspect words with help",
+    async () => {
+      const run = (tokens: readonly string[]) =>
+        spawnBounded([process.execPath, entry, "usage", ...tokens], {
+          env: { ...process.env },
+        });
+      const host = await run(["show", "--json"]);
+      const bareRun = await run(["--json"]);
+      expect([
+        repairOf(JSON.parse(host.stdout)),
+        repairOf(JSON.parse(bareRun.stdout)),
+      ]).toEqual([hostWords, helpWords]);
+    },
+    processWatchdog(2),
+  );
+
+  test("an in-process usage refusal pairs the discovery repair words with the discovery step, and a bare invocation keeps the inspect words with help", async () => {
+    expect([
+      repairOf((await envelopeOf(["show"])).envelope),
+      repairOf((await envelopeOf([])).envelope),
+    ]).toEqual([hostWords, helpWords]);
+  });
+
+  test("discovery shows the discovery words for usage and keeps the inspect words with help for a schema refusal and for dispatch", () => {
     const contract = usageContract();
     expect([
-      guidanceNext(contract, "x.show", usage),
-      guidanceNext(contract, "x.show", "SCHEMA_INVALID_INPUT"),
-      guidanceNext(contract, "x.dispatch", usage),
-    ]).toEqual([discoveryStep("x.show"), helpStep, helpStep]);
+      discoveredWords(contract, "x.show", usage),
+      discoveredWords(contract, "x.show", "SCHEMA_INVALID_INPUT"),
+      discoveredWords(contract, "x.dispatch", usage),
+    ]).toEqual([hostWords, helpWords, helpWords]);
   });
 
   test("a command that declares its own usage station keeps its words", async () => {
@@ -754,17 +800,23 @@ describe("a host command's usage refusal points at its own discovery", () => {
           effects: unchanged,
         }),
     });
+    const contract = contractFor({ cli: "x", commands: [declared] });
+    const ownNext = {
+      kind: "instruction",
+      text: "Name one item for x.own.",
+    } as const;
     await expectInProcess(
       ["own"],
-      refusal("x.own", "The required argument item is missing.", {
-        kind: "instruction",
-        text: "Name one item for x.own.",
-      }),
-      contractFor({ cli: "x", commands: [declared] }),
+      refusal("x.own", "The required argument item is missing.", ownNext),
+      contract,
     );
+    expect(repairOf((await envelopeOf(["own"], contract)).envelope)).toEqual({
+      repairAction: "Name one item.",
+      next: ownNext,
+    });
   });
 
-  test("an identity a discovery step cannot carry falls back to help and still validates", async () => {
+  test("an identity a discovery step cannot carry falls back to help with the inspect repair words and still validates", async () => {
     for (const [identity, route] of [
       ["x.{odd}", "odd"],
       ["-odd", "dash"],
@@ -773,22 +825,18 @@ describe("a host command's usage refusal points at its own discovery", () => {
         cli: "x",
         commands: [ownUsage(identity, route)],
       });
-      const result = await runInProcessOn(
-        contract,
-        {},
-        () => recordingHost().host,
-      )([route]);
-      if (result.kind !== "envelope")
-        throw new Error(`Expected an envelope, got ${result.kind}.`);
+      const result = await envelopeOf([route], contract);
       expect({
         exitCode: result.exitCode,
         facts: facts(result.envelope),
+        words: repairOf(result.envelope),
       }).toEqual({
         exitCode: 2,
         facts: {
           ...refusal(identity, "The required argument item is missing."),
           data: null,
         },
+        words: helpWords,
       });
       expect((await contract.validate(result.envelope)).ok).toBe(true);
     }
