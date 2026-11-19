@@ -68,7 +68,7 @@ async function overlap(): Promise<void> {
   note("first", await first);
 }
 
-async function crash(): Promise<void> {
+async function crashWhileHeld(plant: () => void): Promise<void> {
   releaseBarrier("intent");
   note("first", await entry(apply("a", "v1")));
   closeBarrier("intent");
@@ -76,26 +76,22 @@ async function crash(): Promise<void> {
   const second = entry(apply("b", "v2"));
   await heldAt(held, "intent", second);
   note("held", true);
-  setTimeout(() => {
-    throw new Error("Planted crash while the second run is in flight.");
-  }, 0);
+  setTimeout(plant, 0);
   await second;
 }
 
-async function rejectionHeard(): Promise<void> {
-  releaseBarrier("intent");
-  note("first", await entry(apply("a", "v1")));
-  closeBarrier("intent");
-  const held = reached("intent");
-  const second = entry(apply("b", "v2"));
-  await heldAt(held, "intent", second);
-  note("held", true);
-  setTimeout(() => {
+function crash(): Promise<void> {
+  return crashWhileHeld(() => {
+    throw new Error("Planted crash while the second run is in flight.");
+  });
+}
+
+function rejectionHeard(): Promise<void> {
+  return crashWhileHeld(() => {
     void Promise.reject(
       new Error("Planted rejection while the second run is in flight."),
     );
-  }, 0);
-  await second;
+  });
 }
 
 async function crashBoth(): Promise<void> {
