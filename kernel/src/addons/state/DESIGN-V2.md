@@ -59,7 +59,7 @@ Decided constraints this note keeps:
 | 5. Read rule            | Changes which folders each route reads (section 5).                                                                                         |
 | 6. Conflict scope       | Keeps.                                                                                                                                      |
 | 7. Coordination         | Keeps both routes. 7.1 gains a step (section 6). 7.2 changes (part 2).                                                                      |
-| 8. Effect recording     | Keeps the steps. Adds: no append after the final event (part 2 section 4).                                                                  |
+| 8. Effect recording     | Keeps the steps. Adds: a transaction waits for its started effects before its final event (part 2 section 4).                               |
 | 9. Approval consumption | Keeps.                                                                                                                                      |
 | 10. Qualification gate  | Changes (part 2).                                                                                                                           |
 | 11. Transitions         | Keeps X01 to X22. Adds X23 to X30 (part 3). Some frozen cases change with version 2 code, others when a first row lands (part 3 section 2). |
@@ -89,8 +89,15 @@ Decided constraints this note keeps:
 - The upgrade is one way, and that has a rollback cost. After it a version 1
   program refuses every route on that store, its report included. A tool
   rolled back to a version 1 release can no longer read its own state.
-- A version 1 run already in flight at the upgrade finishes normally: its
-  records are valid version 2 records, and a later admission moves its case.
+- Every version 1 process that used the root must have exited before a
+  version 2 program first runs a changing command there; replacing the
+  installed programs is not enough. A version 1 process lacks version 2's
+  rule that a transaction waits for its started effects (part 2 section 4),
+  so after releasing its lease it may still act, while version 2 could move
+  or close its case. The add-on cannot detect such a process, so this is a
+  host obligation, and each row lists it under `failureCases`.
+- Records a version 1 run wrote before it exited are valid version 2
+  records, and a later admission moves its case.
 - Nothing holds back the upgrade of a root that several installed programs
   share: the first version 2 program to run a changing command upgrades it,
   and the version 1 programs then refuse.
@@ -208,3 +215,7 @@ Points this note found that the later version must answer:
 - Keeping the target of a crashed closer, which is closed later by
   observing that target's closure.
 - What history and a same-identity closure retry answer for a deleted case.
+- Moving: a prune call must move settled cases left in `operations/` even
+  when `settled/` is empty.
+- Progress: a protected case must not count against the call's limit, or a
+  protected first case stalls every later one.

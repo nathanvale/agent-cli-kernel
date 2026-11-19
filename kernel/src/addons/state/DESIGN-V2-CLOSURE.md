@@ -179,14 +179,28 @@ hold:
 The code holds 1 and 3 today. It does not hold 2: a work function that
 returns without awaiting a `record` call lets that call append
 `effect-confirmed`, or admit a program start, after the final event and
-after the lease is released. In a process that goes on to other runs, that
-owner is still alive. So version 2 adds a rule to version 1 section 8: once
-the final event is appended the transaction is ended. `record` and
-`admitStart` refuse, and a read-back still in flight appends nothing. Case
-K11.e pins it.
+after the lease is released. Worse, its operation can still change the
+resource after a closure. In a process that goes on to other runs, that
+owner is still alive. So version 2 adds a rule to version 1 section 8, in
+this order:
 
-With that rule a free lease means no append is in progress and none can
-follow. A torn tail also arises without a crash: a write that fails part
+1. When the work function returns, the transaction is marked ended before
+   anything else, so a failed final append cannot leave it open. New
+   `record` and `admitStart` calls refuse.
+2. The transaction waits for every `record` call already started, its
+   operation and its read-back, to settle, still holding the lease and the
+   key coordination locks. Their events are appended and count in the
+   run's proof.
+3. Only then is the final event appended, the key coordination locks
+   released, and the lease released last.
+
+A `record` that never settles keeps the lease held. In a process that ends,
+the operating-system kernel then frees it; in a long-lived process the case
+stays live, which blocks overlapping work and every closer: the safe
+direction. Case K11.e pins the rule.
+
+With that rule a free lease means no effect and no append is in progress
+and none can follow. A torn tail also arises without a crash: a write that fails part
 way (a full disk) leaves one, and the owner still releases its lease only at
 its end. The closure binds the torn bytes through `journalRevision`.
 Recovery classification already treats a torn tail as started (version 1

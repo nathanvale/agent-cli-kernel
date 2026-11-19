@@ -69,20 +69,20 @@ The version meeting and moving settled cases (part 1):
 
 Closure in production (part 2):
 
-| Proposed id                               | Observation                                                                                                                                                                                               | Red                                                                        |
-| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| Q02.a-release-major-edges                 | Another release in the same major matches; the next major refuses with the observed facts.                                                                                                                | Match the exact release, or none (planted fault).                          |
-| Q02.b-filesystem-mismatch-refused         | A state root on a filesystem the row does not name refuses with the observed facts; no closure.                                                                                                           | Trust the row's name without reading the root (planted fault).             |
-| Q02.c-route-mismatch-refused              | A row for another coordination route does not match.                                                                                                                                                      | Ignore `primitive` (planted fault).                                        |
-| Q02.d-unreadable-fact-refuses             | An unreadable filesystem or boot identity refuses; nothing is written.                                                                                                                                    | Treat unreadable as matching (planted fault).                              |
-| Q02.e-production-row-closes               | Under a production row a crashed case closes as completed and as not-applied, stamped with the row `id`.                                                                                                  | Stamp a fixture label.                                                     |
-| Q03.a-row-cites-run-record                | Every production row cites a committed record that matches it, marked `factSource: "observed"`, with every required case passed, and names its reviewing session, Nathan's countersignature and the date. | Accept a hosted run link, or a record made with overrides (planted fault). |
-| Q03.b-qualify-refuses-dirty-or-overridden | The qualification command refuses a dirty tree, and refuses when any fact override is set; it writes no record.                                                                                           | Run with an override (planted fault).                                      |
-| K11.a-delegate-same-boot-refused          | A killed run with a delegate start, same boot or no `boot`: closure refuses even with a matching row.                                                                                                     | Treat a free lease as proof.                                               |
-| K11.b-delegate-other-boot-closes          | With a boot identity that differs (test entry), the same case closes.                                                                                                                                     | Compare process identifiers instead.                                       |
-| K11.c-torn-tail-closes                    | Killed mid-append with a free lease: closes as completed on `present`; `not-applied` on `absent` refuses.                                                                                                 | Refuse every torn tail.                                                    |
-| K11.d-corrupt-events-still-refuses        | Bytes after the damage: closure refuses as unavailable.                                                                                                                                                   | Read corruption as a torn tail.                                            |
-| K11.e-no-append-after-final-event         | A `record` left pending when work returns appends nothing after the final event, and its `admitStart` refuses.                                                                                            | Append outside the lease (planted fault).                                  |
+| Proposed id                                 | Observation                                                                                                                                                                                                                  | Red                                                                        |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Q02.a-release-major-edges                   | Another release in the same major matches; the next major refuses with the observed facts.                                                                                                                                   | Match the exact release, or none (planted fault).                          |
+| Q02.b-filesystem-mismatch-refused           | A state root on a filesystem the row does not name refuses with the observed facts; no closure.                                                                                                                              | Trust the row's name without reading the root (planted fault).             |
+| Q02.c-route-mismatch-refused                | A row for another coordination route does not match.                                                                                                                                                                         | Ignore `primitive` (planted fault).                                        |
+| Q02.d-unreadable-fact-refuses               | An unreadable filesystem or boot identity refuses; nothing is written.                                                                                                                                                       | Treat unreadable as matching (planted fault).                              |
+| Q02.e-production-row-closes                 | Under a production row a crashed case closes as completed and as not-applied, stamped with the row `id`.                                                                                                                     | Stamp a fixture label.                                                     |
+| Q03.a-row-cites-run-record                  | Every production row cites a committed record that matches it, marked `factSource: "observed"`, with every required case passed, and names its reviewing session, Nathan's countersignature and the date.                    | Accept a hosted run link, or a record made with overrides (planted fault). |
+| Q03.b-qualify-refuses-dirty-or-overridden   | The qualification command refuses a dirty tree, and refuses when any fact override is set; it writes no record.                                                                                                              | Run with an override (planted fault).                                      |
+| K11.a-delegate-same-boot-refused            | A killed run with a delegate start, same boot or no `boot`: closure refuses even with a matching row.                                                                                                                        | Treat a free lease as proof.                                               |
+| K11.b-delegate-other-boot-closes            | With a boot identity that differs (test entry), the same case closes.                                                                                                                                                        | Compare process identifiers instead.                                       |
+| K11.c-torn-tail-closes                      | Killed mid-append with a free lease: closes as completed on `present`; `not-applied` on `absent` refuses.                                                                                                                    | Refuse every torn tail.                                                    |
+| K11.d-corrupt-events-still-refuses          | Bytes after the damage: closure refuses as unavailable.                                                                                                                                                                      | Read corruption as a torn tail.                                            |
+| K11.e-transaction-waits-for-started-effects | A `record` left pending when work returns settles before the final event, with the lease still held; a `record` or `admitStart` called after work returns refuses; a failed final append still leaves the transaction ended. | Release the lease while a started effect runs (planted fault).             |
 
 ## 4. Test entry
 
@@ -152,8 +152,8 @@ Each is one decision with one recommendation.
   major and minor, which is tighter but hands off after every minor
   update until a new run and row. Recommend major only, with the exact
   release recorded on the row.
-- L: Recommend a free lease is enough after a torn tail, once no append can
-  follow the final event (part 2 section 4).
+- L: Recommend a free lease is enough after a torn tail, once the
+  transaction waits for its started effects (part 2 section 4).
 - M: Recommend the run record lives at
   `tests/kernel/state/qualification/<row id>.json`.
 - P: The boot identity names no machine (REC-7 asks identity to distinguish
@@ -169,10 +169,11 @@ Each is one decision with one recommendation.
   none.
 - U: Matching also on the coordination route and a readable boot identity,
   beyond the three facts decided. Recommend yes: both can only refuse more.
-- X: No append after the final event: `record` and `admitStart` refuse once
-  the transaction has ended. This changes today's code for a work function
-  that does not await. Recommend yes; closing after a torn tail depends on
-  it.
+- X: A transaction waits for its started effects: it is marked ended when
+  the work function returns, new `record` and `admitStart` calls refuse, and
+  the lease and key coordination locks stay held until every started
+  `record` settles. This changes today's code for a work function that does
+  not await. Recommend yes; closing after a torn tail depends on it.
 - Y: Whether hosts of this kind start a program inside a recorded effect,
   or reach outside work through a long-lived link that records no start.
   Only the first writes `delegate-admitted`, so only it meets decision K's
