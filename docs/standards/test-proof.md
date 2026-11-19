@@ -45,6 +45,11 @@ is in the [test harness guide](test-harness.md).
   expects none. Witnessed: [8946615].
 - Require one recorded process before checking that it exited. A missing
   process ledger lets an empty-result check pass. Witnessed: [#84-ledger].
+- Prove that a killed run made no outside write by checking each write's own
+  target. A ledger line written after those writes cannot show they did not
+  happen: a proof that reads only that line stays green when a fault makes the
+  writes happen before the kill. Witnessed: [r4622139095], [f754f36] (the fix
+  asserts that no outbox message and no provider log exist).
 - Show that a planted input changes the result when nothing blocks it, with
   a control, before asserting the subject ignores it. A `HOME` change under
   `GIT_CONFIG_GLOBAL=/dev/null` hides the planted `.gitconfig` whether or not
@@ -150,3 +155,5 @@ is in the [test harness guide](test-harness.md).
 [#102-arguments]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609659207
 [#102-mock-key]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609902952
 [#102-copy-key]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609902960
+[r4622139095]: https://github.com/nathanvale/agent-cli-kernel/pull/2#discussion_r4622139095
+[f754f36]: https://github.com/nathanvale/agent-cli-kernel/commit/f754f3629123ca9632fba83361a4776109459e97
