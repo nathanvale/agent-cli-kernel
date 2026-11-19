@@ -8,18 +8,23 @@ export type Recorded = { readonly id: string; readonly testFile: string };
 
 const timingsPath = "tests/planted-faults/fault-timings.json";
 const unlistedSeconds = 0.35;
+const toolingTests = "tests/template/";
+const toolingOption = "--tooling-changed-since";
 const shardPattern = /^(?<part>[1-9]\d*)\/(?<parts>[1-9]\d*)$/;
 
 export function shardOf(argv: readonly string[]): Selection {
-  const [, given, ...extra] = argv;
+  const [, given, option, toolingBase, ...extra] = argv;
   const found = shardPattern.exec(given ?? "")?.groups;
   const part = Number(found?.part);
   const parts = Number(found?.parts);
-  if (found === undefined || part > parts || extra.length > 0)
+  const toolingRead =
+    option === undefined ||
+    (option === toolingOption && (toolingBase ?? "") !== "");
+  if (found === undefined || part > parts || !toolingRead || extra.length > 0)
     throw new Error(
-      `Usage: bun run fault-replay --shard <part>/<parts> [--tooling-changed-since <base>], with whole numbers 1 <= part <= parts. Got ${quoted(argv.join(" "))}. Repair: pass one part, such as --shard 2/4.`,
+      `Usage: bun run fault-replay --shard <part>/<parts> [${toolingOption} <base>], with whole numbers 1 <= part <= parts. Got ${quoted(argv.join(" "))}. Repair: pass one part, such as --shard 2/4.`,
     );
-  return { part, parts, toolingBase: undefined };
+  return { part, parts, toolingBase };
 }
 
 export function readTimings(root: string): ReadonlyMap<string, number> {
@@ -71,12 +76,19 @@ export function faultsInShard(
 ): string[] {
   const { toolingBase, ...shard } = shardOf(argv);
   const faults = records(root);
-  const touched =
-    toolingBase === undefined ? [] : touchedSince(root, toolingBase);
-  const ids = shardIds(faults, readTimings(root), shard);
-  if (ids.length === 0 && faults.length > touched.length)
+  const touched = new Set(
+    toolingBase === undefined ? [] : touchedSince(root, toolingBase),
+  );
+  const selected = faults.filter(
+    ({ id, testFile }) =>
+      toolingBase === undefined ||
+      !testFile.startsWith(toolingTests) ||
+      touched.has(id),
+  );
+  const ids = shardIds(selected, readTimings(root), shard);
+  if (ids.length === 0 && faults.length > 0)
     throw new Error(
-      `Part ${shard.part} of ${shard.parts} holds no fault record, so it checks nothing. Repair: pass at most ${faults.length} parts.`,
+      `Part ${shard.part} of ${shard.parts} holds none of the ${selected.length} selected fault records, so it checks nothing. Repair: pass fewer parts.`,
     );
   return ids;
 }
