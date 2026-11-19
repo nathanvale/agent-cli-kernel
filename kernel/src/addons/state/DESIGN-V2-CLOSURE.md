@@ -88,7 +88,7 @@ refuse more (decision U).
   container on a Mac, with the state root on a btrfs volume (decided by
   Nathan, 19 November 2026). A deployment on another operating-system kernel
   major, or on a volume on ext4 or XFS, matches no row and still hands off
-  until its own run and row.
+  until its own capability qualification runs and row.
 - Its capability qualification run happens on the pilot, through a worker
   session. The state root's parent is an argument, so the root is on the
   volume under test while the repository sits anywhere.
@@ -114,7 +114,7 @@ Row fields:
 | `primitive`          | the coordination route                                                                                                          | yes                 |
 | `bootIdentitySource` | where the boot identity is read from                                                                                            | yes, readable       |
 | `processIdentity`    | how a delegated program is identified; version 2: boot identity only                                                            | no                  |
-| `namespace`          | the user and process view the run used (non-root; in a container)                                                               | no                  |
+| `namespace`          | the user and process view the capability qualification run used (non-root; in a container)                                      | no                  |
 | `delegatedWriters`   | the rule of section 5                                                                                                           | no                  |
 | `failureCases`       | what the row does not cover                                                                                                     | no                  |
 | `evidence`           | `{ record, review }`: the capability qualification record's path; the reviewing session, Nathan's countersignature and the date | checked by a test   |
@@ -178,17 +178,18 @@ Q03.a refuses a production row unless its capability qualification record
 exists, carries `factSource: "observed"`, matches the row's `os`,
 `majorRelease`, `filesystem`, `primitive` and `bootIdentitySource`, has the
 row's `observedRelease` as its `platform.release`, has every required case
-`pass`, has, in both runs, a `sourceHash` equal to the hash of the qualified
-source files now, has both runs, and the row names its reviewing session,
+`pass`, has, in both capability qualification runs, a `sourceHash` equal to
+the hash of the qualified source files now, holds both
+capability qualification runs, and the row names its reviewing session,
 Nathan's countersignature and the date. So a change to that source invalidates
-the row until a new run. Version 2 moves the capability qualification table
-out of `qualification.ts` into `capability-qualification-table.ts`, so the
-matching logic stays inside the hash and only the table is left out. The hash
-needs no history lookup, which suits a shallow checkout. REC-7b asks that
-review to pass V-22 and V-42 for each row. Decision T also means that, once
-the first row lands, every change to the qualified source files needs a new
-capability qualification run on the pilot in the same pull request: the hosted
-runner's records do not count.
+the row until a new capability qualification run. Version 2 moves the
+capability qualification table out of `qualification.ts` into
+`capability-qualification-table.ts`, so the matching logic stays inside the
+hash and only the table is left out. The hash needs no history lookup, which
+suits a shallow checkout. REC-7b asks that review to pass V-22 and V-42 for
+each row. Decision T also means that, once the first row lands, every change
+to the qualified source files needs a new capability qualification run on the
+pilot in the same pull request: the hosted runner's records do not count.
 
 ## 4. Closing after a torn tail (included)
 
@@ -287,12 +288,12 @@ proof.
 
 ## 6. Parts of the closure work
 
-| Part                                         | Version 2                                                                                                                                   |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Matching rule                                | Included (section 2).                                                                                                                       |
-| Run command and record format                | Included (section 3).                                                                                                                       |
-| First row                                    | `linux-7-btrfs` for the pilot (section 2.1). It lands only with its capability qualification record, review and countersignature.           |
-| macOS row                                    | Left out for now.                                                                                                                           |
-| Closing after a torn tail                    | Included (section 4).                                                                                                                       |
-| Closing after `delegate-admitted`            | Included, only after the container machine restarts (section 5).                                                                            |
-| Human takeover and `outcome-unknown` closure | Not included. Both need a qualified authority source, and case K05.b is still pending. Their refusals and capability reports do not change. |
+| Part                                                   | Version 2                                                                                                                                   |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Matching rule                                          | Included (section 2).                                                                                                                       |
+| Capability qualification run command and record format | Included (section 3).                                                                                                                       |
+| First row                                              | `linux-7-btrfs` for the pilot (section 2.1). It lands only with its capability qualification record, review and countersignature.           |
+| macOS row                                              | Left out for now.                                                                                                                           |
+| Closing after a torn tail                              | Included (section 4).                                                                                                                       |
+| Closing after `delegate-admitted`                      | Included, only after the container machine restarts (section 5).                                                                            |
+| Human takeover and `outcome-unknown` closure           | Not included. Both need a qualified authority source, and case K05.b is still pending. Their refusals and capability reports do not change. |

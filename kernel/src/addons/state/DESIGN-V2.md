@@ -107,11 +107,14 @@ Decided constraints this note keeps:
 
 ## 4. Layout (changes version 1 section 3)
 
-````text <root>/ format                     journal "contract3.state.2"
-coordination/              unchanged operations/<operationId>/  every
-unresolved case, and settled cases not yet moved settled/<operationId>/
-settled cases, same files, moved by one rename(2) staging/
-private work area; unchanged ```
+```text
+<root>/
+  format                     journal "contract3.state.2"
+  coordination/              unchanged
+  operations/<operationId>/  every unresolved case, and settled cases not yet moved
+  settled/<operationId>/     settled cases, same files, moved by one rename(2)
+  staging/                   private work area; unchanged
+```
 
 - A case enters `settled/` only when it holds a valid settling record: a
   valid closure, or its own `completion` or `not-applied` with no damaged
@@ -300,7 +303,7 @@ recommended:
 
 At 13:54 (Nathan, 19 November 2026, 13:54 AEDT):
 
-- M: The qualification command is `bun run capability-qualification-run`.
+- M: The command is `bun run capability-qualification-run`.
   One capability qualification run is one run of it on one platform. A
   capability qualification record is the committed file a row cites,
   holding that row's runs, at
@@ -312,4 +315,3 @@ At 13:54 (Nathan, 19 November 2026, 13:54 AEDT):
 
 - W: Without deletion a closing case's target cannot leave both folders, so
   its observation values do not change and nothing is left to decide.
-````
