@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index bb727bd..d5891f4 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -566,7 +566,7 @@ function resolvesToTracked(
+ ): boolean {
+   let real: string;
+   try {
+-    real = realpathSync(path);
++    real = path;
+   } catch {
+     return false;
+   }
