@@ -2938,5 +2938,12 @@
     "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
     "title": "^Q03\\.a bounds its git read",
     "source": "79af2d6 fix(state): settle the kernel-reviewer pass on the Sol triage's fixes"
+  },
+  {
+    "id": "34dd93a-in-process-failed-case",
+    "patch": "tests/planted-faults/patches/34dd93a-in-process-failed-case.patch",
+    "testFile": "tests/kernel/state/in-process.test.ts",
+    "title": "^in-process state cases ran",
+    "source": "34dd93a test(state): fail the in-process pin when its child run fails"
   }
 ]
