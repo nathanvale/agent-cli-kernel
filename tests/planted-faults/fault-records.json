@@ -1655,7 +1655,7 @@
     "id": "d37a77f-install-decide-on-first-read",
     "patch": "tests/planted-faults/patches/d37a77f-install-decide-on-first-read.patch",
     "testFile": "tests/kernel/state/recovery.test.ts",
-    "title": "^X29 supporting: closure decides on the journal it reads while it holds the lease",
+    "title": "^X29 supporting: closure decides on a fresh read taken after the store read",
     "source": "d37a77f fix(state): decide a closure on the journal read under the target's lease"
   },
   {

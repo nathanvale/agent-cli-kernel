@@ -324,6 +324,13 @@ export function machineBootIdentityRead(): string | undefined {
   }
 }
 
+export function flipLastPayloadByte(path: string): void {
+  const bytes = readFileSync(path);
+  const index = bytes.length - 3;
+  bytes[index] = (bytes[index] ?? 0) ^ 1;
+  writeFileSync(path, bytes);
+}
+
 export const noAppendAfterDamage =
   "The events file does not end on a whole record, so nothing more is appended to this case.";
 

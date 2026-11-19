@@ -22,6 +22,7 @@ import {
   expectCompleted,
   eventsPath,
   expectRefusedUnchanged,
+  flipLastPayloadByte,
   framed,
   machineBootIdentityRead,
   makeWorld,
@@ -1559,7 +1560,7 @@ function pausedCloser(
 }
 
 supportingTest(
-  "X29 supporting: closure decides on the journal it reads while it holds the lease, so an owner that appends between the first read and the lease refuses as stale",
+  "X29 supporting: closure decides on a fresh read taken after the store read it was admitted on, so an owner that appends between the two refuses as stale",
   plain(async (world) => {
     const owner = unknownScopeOwner(world, "admit-delegate");
     await owner.reached("pre-effect");
@@ -1582,7 +1583,7 @@ supportingTest(
 );
 
 supportingTest(
-  "X29 supporting: a closer that read a torn tail mid-append decides on the completed record it reads under the lease, and refuses as stale",
+  "X29 supporting: a closer that read a torn tail mid-append decides on a fresh read of the completed record, and refuses as stale",
   plain(async (world) => {
     const owner = unknownScopeOwner(world);
     await owner.reached("pre-effect");
@@ -1603,6 +1604,29 @@ supportingTest(
     expect((await owner.done).signal).toBe("SIGKILL");
     closer.release("closure-read");
     expectRefusedUnchanged(await closer.done, "DOMAIN_SX_CLOSE_STALE");
+    expect(existsSync(closurePath(world, id))).toBe(false);
+  }),
+);
+
+supportingTest(
+  "X29 supporting: a closer whose fresh read finds the case corrupt names the store, not a missing case",
+  plain(async (world) => {
+    await world.killAt(apply("a"), "effect", production);
+    const id = only(world);
+    const closer = pausedCloser(
+      world,
+      id,
+      await world.revision(id),
+      "completed",
+    );
+    await closer.reached("closure-read");
+    flipLastPayloadByte(join(world.root, "operations", id, "intent"));
+    closer.release("closure-read");
+    const refused = await closer.done;
+    expectRefusedUnchanged(refused, "DOMAIN_SX_UNAVAILABLE");
+    expect(str(refused.envelope.message)).toBe(
+      "State unavailable: store-corrupt.",
+    );
     expect(existsSync(closurePath(world, id))).toBe(false);
   }),
 );
