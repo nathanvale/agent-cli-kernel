@@ -10,6 +10,7 @@ export type Resolution =
       readonly commandIdentity: string;
       readonly causeCode: "USAGE_INVALID_INVOCATION" | "USAGE_UNKNOWN_COMMAND";
       readonly machine: boolean;
+      readonly message: string;
     }
   | {
       readonly ok: true;

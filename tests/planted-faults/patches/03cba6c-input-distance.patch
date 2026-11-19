@@ -1,0 +1,13 @@
+diff --git a/kernel/src/kernel/input.ts b/kernel/src/kernel/input.ts
+index c0c5105..7f7ea2f 100644
+--- a/kernel/src/kernel/input.ts
++++ b/kernel/src/kernel/input.ts
+@@ -156,7 +156,7 @@ type ParseState = {
+   literal: boolean;
+   values: Record<string, unknown>;
+ };
+-const nearest = 2;
++const nearest = 3;
+ const bare = (name: string) => name.replace(/^-+/, "");
+ function swapped(a: string, b: string, i: number, j: number): boolean {
+   return i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1];

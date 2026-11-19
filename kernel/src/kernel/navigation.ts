@@ -105,12 +105,57 @@ function instructionFor(causeCode: string) {
     ([code]) => code === causeCode,
   )?.[1];
 }
-function kernelRepair(causeCode: string, success: boolean): string | null {
+function helpStep(cli: string): NextStep {
+  return { kind: "command", command: `${cli}.help`, args: [] };
+}
+export function discoverable(identity: string): boolean {
+  return !identity.startsWith("-") && !/[{}]/u.test(identity);
+}
+type HostStep = { readonly repair: string; readonly next: NextStep };
+// Accepted decisions (Nathan, 20 November 2026, 07:37 AEDT; WIRE-18): a
+// command's own discovery counts as the help a usage refusal points to, so a
+// host command's refusal points at its discovery, not at the CLI's help.
+// (Nathan, 20 November 2026, 07:50 AEDT): its repair text points at that
+// discovery too.
+const hostSteps: Partial<
+  Record<
+    keyof typeof commonCauses,
+    (identity: string, cli: string) => HostStep | undefined
+  >
+> = {
+  USAGE_INVALID_INVOCATION: (identity, cli) =>
+    discoverable(identity)
+      ? {
+          repair: "Correct the invocation using this command's discovery.",
+          next: {
+            kind: "command",
+            command: `${cli}.command-discovery`,
+            args: [identity],
+          },
+        }
+      : undefined,
+};
+function hostStepFor(
+  causeCode: string,
+  identity: string,
+  cli: string,
+): HostStep | undefined {
+  return Object.entries(hostSteps).find(([code]) => code === causeCode)?.[1]?.(
+    identity,
+    cli,
+  );
+}
+function kernelRepair(
+  causeCode: string,
+  success: boolean,
+  hostStep: HostStep | undefined,
+): string | null {
   if (success) return null;
   if (causeCode === "DOMAIN_AUTHORITY_REQUIRED")
     return "Obtain an exact-item grant from the command's authority owner, then decide on a new run.";
   return (
     instructionFor(causeCode)?.repair ??
+    hostStep?.repair ??
     "Inspect the command, its input and independently observable resource before a new run."
   );
 }
@@ -118,6 +163,7 @@ function kernelWords(
   causeCode: string,
   command: CommandDeclaration,
   cli: string,
+  hostStep: HostStep | undefined,
 ):
   | { readonly next: NextStep; readonly handoff?: never }
   | { readonly handoff: Handoff; readonly next?: never } {
@@ -149,7 +195,7 @@ function kernelWords(
   const instruction = instructionFor(causeCode);
   if (instruction)
     return { next: { kind: "instruction", text: instruction.next } };
-  return { next: { kind: "command", command: `${cli}.help`, args: [] } };
+  return { next: hostStep?.next ?? helpStep(cli) };
 }
 export function hostKernelCauses(command: CommandDeclaration): string[] {
   const needed = [
@@ -188,19 +234,23 @@ export function stationsFor(
   const needed = builtin
     ? builtinKernelCauses(command, cli)
     : hostKernelCauses(command);
-  return addKernelStations(command, cli, causes, needed);
+  return addKernelStations(command, cli, causes, needed, !builtin);
 }
 function addKernelStations(
   command: CommandDeclaration,
   cli: string,
   causes: CauseTable,
   needed: readonly string[],
+  host: boolean,
 ): readonly DeclaredStation[] {
   const entries = [...command.stations];
   for (const causeCode of needed) {
     if (entries.some((entry) => entry.causeCode === causeCode)) continue;
     const row = causes[causeCode];
     if (!row) throw new Error("Missing common cause.");
+    const hostStep = host
+      ? hostStepFor(causeCode, command.commandIdentity, cli)
+      : undefined;
     entries.push({
       commandIdentity: command.commandIdentity,
       causeCode,
@@ -209,8 +259,12 @@ function addKernelStations(
         causeCode === "SUCCESS_UNCHANGED"
           ? command.summary
           : `Kernel ${causeCode}.`,
-      guidance: kernelWords(causeCode, command, cli),
-      repairAction: kernelRepair(causeCode, row.outcome === "success"),
+      guidance: kernelWords(causeCode, command, cli, hostStep),
+      repairAction: kernelRepair(
+        causeCode,
+        row.outcome === "success",
+        hostStep,
+      ),
       retryDelayPolicy: { kind: "none" },
       reachability: "required",
       unreachableRationale: null,
