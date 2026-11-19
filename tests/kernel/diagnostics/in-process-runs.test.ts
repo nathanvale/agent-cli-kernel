@@ -17,13 +17,15 @@ import type { LogRecord } from "@logtape/logtape";
 import { nodeIo } from "../../../kernel/src/addons/diagnostics/io.ts";
 import { createDiagnostics } from "../../../kernel/src/addons/diagnostics/run.ts";
 import type { JsonValue } from "../../../kernel/src/kernel/index.ts";
-import { cleanTrees, get, lines, observe, tree } from "./harness.ts";
+import { cleanTrees, get, lines, observe, runCrash, tree } from "./harness.ts";
 import type { Tree } from "./harness.ts";
 
 afterAll(cleanTrees);
 beforeEach(resetSync);
 afterEach(resetSync);
 const timeout = 60_000;
+const childBound = 20_000;
+const entry = join(import.meta.dir, "fixtures/in-process-runs-cli.ts");
 
 function attachedIn(where: Tree) {
   const runId = crypto.randomUUID();
@@ -68,33 +70,37 @@ function nested(depth: number): JsonValue {
 
 describe("in-process runs of the diagnostics add-on", () => {
   test(
-    "two overlapping in-process runs each write only their own log lines",
+    "two overlapping in-process runs through runInProcess each write only their own log lines",
     async () => {
       const where = tree();
-      const first = attachedIn(where);
-      const second = attachedIn(where);
-      first.attached.capability.record("first-opened", { index: 1 });
-      second.attached.capability.record("second-opened", { index: 1 });
-      first.attached.capability.record("first-continued", { index: 2 });
-      second.attached.capability.record("second-continued", { index: 2 });
-      const [firstStatus, secondStatus] = await Promise.all([
-        first.attached.freeze(500),
-        second.attached.freeze(500),
-      ]);
-      expect(writtenBy(where, first.runId)).toEqual([
-        { runId: first.runId, event: "first-opened" },
-        { runId: first.runId, event: "first-continued" },
-      ]);
-      expect(writtenBy(where, second.runId)).toEqual([
-        { runId: second.runId, event: "second-opened" },
-        { runId: second.runId, event: "second-continued" },
-      ]);
-      for (const status of [firstStatus, secondStatus])
+      const result = await runCrash(
+        { argv: [], tree: where, entry },
+        childBound,
+      );
+      expect({ exit: result.exit, stderr: result.stderr }).toEqual({
+        exit: 0,
+        stderr: "",
+      });
+      const runs = get(result.envelope, "runs");
+      if (!Array.isArray(runs) || runs.length !== 2)
+        throw new Error("The fixture reported no two runs.");
+      for (const run of runs) {
+        const runId = String(get(run, "runId"));
+        expect({
+          kind: get(run, "kind"),
+          exitCode: get(run, "exitCode"),
+        }).toEqual({ kind: "envelope", exitCode: 0 });
+        expect(writtenBy(where, runId)).toEqual([
+          { runId, event: "opened" },
+          { runId, event: "continued" },
+        ]);
+        const status = get(run, "envelope", "diagnostics");
         expect({
           dropped: get(status, "droppedRecords"),
           complete: get(status, "countsComplete"),
           closed: get(status, "closed"),
         }).toEqual({ dropped: 0, complete: true, closed: true });
+      }
     },
     timeout,
   );

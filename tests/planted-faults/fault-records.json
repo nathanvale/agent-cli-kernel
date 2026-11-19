@@ -1095,7 +1095,7 @@
     "id": "40b3d1c-records-shared",
     "patch": "tests/planted-faults/patches/40b3d1c-records-shared.patch",
     "testFile": "tests/kernel/diagnostics/in-process-runs.test.ts",
-    "title": "two overlapping in-process runs each write only their own log lines$",
+    "title": "two overlapping in-process runs through runInProcess each write only their own log lines$",
     "source": "40b3d1c fix(diagnostics): give each run its own pipeline, not LogTape's global one"
   },
   {
