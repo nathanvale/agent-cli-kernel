@@ -302,7 +302,7 @@ test("in-process state cases ran their real bodies on macOS and Linux, and nowhe
       ],
       {
         cwd: join(import.meta.dir, "../../.."),
-        env: { ...process.env, [ranLog]: log },
+        env: { ...process.env, [ranLog]: log, STATE_TEST_DIR: folder },
         boundMilliseconds: 60_000,
         processGroup: true,
       },
