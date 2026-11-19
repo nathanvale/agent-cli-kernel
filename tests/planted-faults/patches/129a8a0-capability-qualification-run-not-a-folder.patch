@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index ee6db01..d30629b 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -528,7 +528,7 @@ function prepare(
+   const candidate = readCandidate(resolve(context.cwd, parsed.rowFile));
+   if (typeof candidate === "string") return candidate;
+   const parent = resolve(context.cwd, parsed.parentFolder);
+-  if (!existsSync(parent) || !statSync(parent).isDirectory())
++  if (!existsSync(parent))
+     return `Refused: the state root parent ${parent} is not a folder. Repair: create it on the filesystem under test, then rerun.`;
+   const dirty = cleanProblem(context.root, context.environment);
+   if (dirty !== undefined) return dirty;

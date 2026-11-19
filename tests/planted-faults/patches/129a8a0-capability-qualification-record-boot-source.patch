@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-record.ts b/tests/kernel/state/capability-qualification-record.ts
+index a1775a4..a4074b7 100644
+--- a/tests/kernel/state/capability-qualification-record.ts
++++ b/tests/kernel/state/capability-qualification-record.ts
+@@ -293,7 +293,7 @@ function matchProblems(
+     ["primitive", record.primitive, row.primitive],
+     [
+       "bootIdentitySource",
+-      record.bootIdentitySource.source,
++      row.bootIdentitySource,
+       row.bootIdentitySource,
+     ],
+   ];

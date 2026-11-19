@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index ee6db01..5c14592 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -488,7 +488,7 @@ function parseArguments(argv: readonly string[]):
+   const entry =
+     flag === undefined
+       ? "fixture.ts"
+-      : runEntries.find((each) => flag === "--entry" && each === named);
++      : runEntries.find((each) => each === named);
+   return rowFile === undefined ||
+     parentFolder === undefined ||
+     entry === undefined ||

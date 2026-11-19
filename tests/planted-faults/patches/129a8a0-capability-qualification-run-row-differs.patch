@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index ee6db01..a8e16cd 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -300,7 +300,7 @@ export function secondRunProblem(
+       candidate.bootIdentitySource,
+     ],
+   ]);
+-  if (rowDiffers.length > 0)
++  if (rowDiffers.length > 99)
+     return `row ${candidate.id} in the capability qualification table differs from the candidate row in ${rowDiffers.join(", ")}`;
+   if (existing === undefined)
+     return `no capability qualification record at ${recordPath(candidate.id)} from a fixture.ts run`;
