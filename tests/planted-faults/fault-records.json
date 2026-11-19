@@ -1853,5 +1853,40 @@
     "testFile": "tests/kernel/lifecycle/in-process.test.ts",
     "title": "IP09\\.signal-while-stopping",
     "source": "4a015ec fix(kernel): keep a stop signal out of the crash's stopping phase"
+  },
+  {
+    "id": "6ff2c16-in-process-crash-calls",
+    "patch": "tests/planted-faults/patches/6ff2c16-lifecycle-calls.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.listener-reentry",
+    "source": "6ff2c16 fix(kernel): call onCrash only after the host's crash handler returns"
+  },
+  {
+    "id": "6ff2c16-in-process-crash-handler",
+    "patch": "tests/planted-faults/patches/6ff2c16-lifecycle-handler.patch",
+    "testFile": "tests/kernel/state/in-process.test.ts",
+    "title": "IP06\\.on-crash-reentry",
+    "source": "6ff2c16 fix(kernel): call onCrash only after the host's crash handler returns"
+  },
+  {
+    "id": "6ff2c16-in-process-crash-kill",
+    "patch": "tests/planted-faults/patches/30e8fb1-lifecycle-nested.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.kill-reentry",
+    "source": "6ff2c16 fix(kernel): call onCrash only after the host's crash handler returns"
+  },
+  {
+    "id": "6ff2c16-in-process-crash-kill-signal",
+    "patch": "tests/planted-faults/patches/4a015ec-lifecycle-stop-guard.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.kill-signal",
+    "source": "6ff2c16 fix(kernel): call onCrash only after the host's crash handler returns"
+  },
+  {
+    "id": "6ff2c16-in-process-crash-abort-signal",
+    "patch": "tests/planted-faults/patches/4a015ec-lifecycle-stop-guard.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.abort-signal",
+    "source": "6ff2c16 fix(kernel): call onCrash only after the host's crash handler returns"
   }
 ]
