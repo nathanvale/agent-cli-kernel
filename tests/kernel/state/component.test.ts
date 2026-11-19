@@ -1,7 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
 import {
+  closeSync,
+  constants,
   existsSync,
   mkdirSync,
+  openSync,
   readFileSync,
   readdirSync,
   renameSync,
@@ -33,8 +36,10 @@ import type {
   PublishedOperation,
 } from "../../../kernel/src/addons/state/index.ts";
 import { stateAddonWithTestSeams } from "../../../kernel/src/addons/state/fixture.ts";
-import { resolveCoordination } from "../../../kernel/src/addons/state/coordination.ts";
-import { install } from "../../../kernel/src/addons/state/install.ts";
+import {
+  errorCode,
+  resolveCoordination,
+} from "../../../kernel/src/addons/state/coordination.ts";
 import {
   qualificationRows,
   resolveQualification,
@@ -56,6 +61,7 @@ import {
   supportingTest,
 } from "./harness.ts";
 import { coordinationExpected, lockFree } from "./holder.ts";
+import { turns } from "../lifecycle/recording-host.ts";
 
 const causes = {
   DOMAIN_CX_LOCK_HELD: {
@@ -764,18 +770,12 @@ caseTest("B06.a-effect-recorded-once", async () => {
   ]);
 });
 
-const endedRefusal = {
+const expectedEndedRefusal = {
   record:
     "The transaction ended when its work function returned or threw, so record refuses. Await every record inside the work function.",
   admitStart:
     "The transaction ended when its work function returned or threw, so admitStart refuses. Await every record inside the work function.",
 } as const;
-
-function eventLoopTurn(): Promise<void> {
-  return new Promise((resolve) => {
-    setImmediate(resolve);
-  });
-}
 
 function eventLines(root: string): readonly string[] {
   const [operation] = readOperations(root);
@@ -823,11 +823,11 @@ async function pendingRecordSettlesBeforeTheFinalEvent(): Promise<void> {
       "e.one",
       async () => {
         await workReturned.promise;
-        await eventLoopTurn();
+        await turns(1);
         whileOperationRan = coordinationNow(host.root);
       },
       async () => {
-        await eventLoopTurn();
+        await turns(1);
         whileReadBackRan = coordinationNow(host.root);
         return true;
       },
@@ -872,7 +872,7 @@ async function recordStillRunningWhenWorkThrowsSettlesFirst(): Promise<void> {
           "e.two",
           async () => {
             await workThrew.promise;
-            await eventLoopTurn();
+            await turns(1);
             whileSurvivorRan = coordinationNow(host.root);
           },
           readBackTrue,
@@ -922,7 +922,7 @@ async function callsAfterWorkReturnedAreRefused(): Promise<void> {
       "e.one",
       async (recorded) => {
         await workReturned.promise;
-        await eventLoopTurn();
+        await turns(1);
         whileWaiting.record = await refusalOf(
           host.transaction.record("e.two", late, readBackTrue),
         );
@@ -935,10 +935,10 @@ async function callsAfterWorkReturnedAreRefused(): Promise<void> {
     workReturned.resolve();
     return Promise.resolve();
   });
-  expect(whileWaiting).toEqual(endedRefusal);
+  expect(whileWaiting).toEqual(expectedEndedRefusal);
   if (!retained) throw new Error("No transaction.");
   expect(await refusalOf(retained.record("e.two", late, readBackTrue))).toBe(
-    endedRefusal.record,
+    expectedEndedRefusal.record,
   );
   expect(lateCalls).toBe(0);
   expect(eventLines(root)).toEqual([
@@ -951,6 +951,7 @@ async function callsAfterWorkReturnedAreRefused(): Promise<void> {
 async function failedFinalAppendLeavesTheTransactionEnded(): Promise<void> {
   let retained: EffectTransaction<"e.one" | "e.two"> | undefined;
   let events = "";
+  let appendRefused = "not tried";
   const { outcome } = await inTransaction((_record, host) => {
     retained = host.transaction;
     events = join(
@@ -961,8 +962,11 @@ async function failedFinalAppendLeavesTheTransactionEnded(): Promise<void> {
     );
     renameSync(events, `${events}.aside`);
     mkdirSync(events);
+    appendRefused = appendOpenCode(events);
     return Promise.resolve();
   });
+  expect(appendRefused).toBe("EISDIR");
+  expect(readdirSync(events)).toEqual([]);
   expect(outcome?.kind).toBe("ran");
   rmdirSync(events);
   renameSync(`${events}.aside`, events);
@@ -980,28 +984,29 @@ async function failedFinalAppendLeavesTheTransactionEnded(): Promise<void> {
         readBackTrue,
       ),
     ),
-  ).toBe(endedRefusal.record);
+  ).toBe(expectedEndedRefusal.record);
   expect(lateCalls).toBe(0);
   expect(readFileSync(events).byteLength).toBe(0);
+}
+
+function appendOpenCode(path: string): string {
+  try {
+    closeSync(openSync(path, constants.O_WRONLY | constants.O_APPEND));
+    return "opened";
+  } catch (error) {
+    return errorCode(error);
+  }
 }
 
 caseTest("K11.e-transaction-waits-for-started-effects", async () => {
   await pendingRecordSettlesBeforeTheFinalEvent();
   await recordStillRunningWhenWorkThrowsSettlesFirst();
+  await callsAfterWorkReturnedAreRefused();
+  await failedFinalAppendLeavesTheTransactionEnded();
 });
 
 supportingTest(
-  "K11.e supporting: a record or admitStart called after work returned is refused",
-  callsAfterWorkReturnedAreRefused,
-);
-
-supportingTest(
-  "K11.e supporting: a failed final append still leaves the transaction ended",
-  failedFinalAppendLeavesTheTransactionEnded,
-);
-
-supportingTest(
-  "K11.e supporting: the final event is appended, then the key coordination locks are released, then the lease last",
+  "X13 supporting: the final event is appended, then the key coordination locks are released, then the lease last",
   async () => {
     const route = resolveCoordination();
     if (!route.available) throw new Error("No coordination route.");
@@ -1014,9 +1019,7 @@ supportingTest(
       {
         keys: ["k1", "k2"],
         build: (options) =>
-          install(options, {
-            qualification: resolveQualification(),
-            phase: () => Promise.resolve(),
+          stateAddonWithTestSeams(options, {
             coordination: {
               ...route,
               tryLock(path, create) {

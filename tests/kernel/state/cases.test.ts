@@ -21,12 +21,10 @@ test("the frozen T3 case table keeps its admitted identities and counts", () => 
   for (const id of ids)
     expect(id).toMatch(/^[JLKPOHTQSBC]\d\d\.[a-z]-[a-z0-9-]+$/);
   const families = new Set(ids.map((id) => id.slice(0, 3)));
-  for (const family of [...briefFamilies, ...journalVersionTwoFamilies])
-    expect(families.has(family)).toBe(true);
+  const knownFamilies = [...briefFamilies, ...journalVersionTwoFamilies];
+  for (const family of knownFamilies) expect(families.has(family)).toBe(true);
   const supporting = [...families].filter(
-    (family) =>
-      !briefFamilies.includes(family) &&
-      !journalVersionTwoFamilies.includes(family),
+    (family) => !knownFamilies.includes(family),
   );
   expect(supporting.sort()).toEqual([
     "B01",

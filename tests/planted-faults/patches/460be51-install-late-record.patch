@@ -1,5 +1,5 @@
 diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
-index 716ad3f..171d225 100644
+index d50d835..c336993 100644
 --- a/kernel/src/addons/state/install.ts
 +++ b/kernel/src/addons/state/install.ts
 @@ -1016,7 +1016,6 @@ export function install(options: StateOptions, seams: Seams) {
@@ -7,6 +7,6 @@ index 716ad3f..171d225 100644
      return {
        record(effect, operation, readBack) {
 -        if (recording.ended) return Promise.reject(endedRefusal("record"));
-         recording.inflight += 1;
-         return effects.record(effect, operation, readBack).finally(() => {
-           recording.inflight -= 1;
+         return tracked(
+           recording.records,
+           unguarded.record(effect, operation, readBack),
