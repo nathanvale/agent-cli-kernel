@@ -202,11 +202,7 @@ async function heldUntilStop(
   const entered = deferred();
   const released = deferred();
   const recorder = recordingHost();
-  const stop = (signal: StopSignal): number => {
-    const sentAt = performance.now();
-    recorder.signal(signal);
-    return sentAt;
-  };
+  const stop = (signal: StopSignal): number => recorder.stopAt(signal);
   const done = runProcessOn(
     holdContract(async (capability, signal) => {
       entered.resolve();

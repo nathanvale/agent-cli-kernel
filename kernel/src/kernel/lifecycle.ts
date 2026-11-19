@@ -348,8 +348,9 @@ async function freezeStatus(
 // Accepted decision (Nathan, 19 November 2026, 12:08 and 12:15 AEDT,
 // questions 4 and 20): after the first stop request the run waits for its
 // handler beside its add-ons, inside the one stop bound, so the worst-case
-// exit time and the exit codes stay as LIFE-11 set them. Both entries wait
-// this way: runProcess for its one run, runInProcess for every run in flight.
+// exit time and the exit codes stay as LIFE-11 set them. The 12:15 ruling
+// covers both entries: runProcess waits for its one run, runInProcess for
+// every run in flight.
 function settledAfterStopRequest(run: Run): Promise<unknown> {
   return Promise.all([run.execution, settleAll(run, settleLimitMilliseconds)]);
 }
