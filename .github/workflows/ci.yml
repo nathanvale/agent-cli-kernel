@@ -21,6 +21,7 @@ jobs:
           ls -la /var/crash 2>&1 | head -5
       - name: Bun child that calls abort, three each way
         run: |
+          set +e
           for variant in default nocore; do
             for i in 1 2 3; do
               start=$(date +%s%N)
@@ -31,8 +32,10 @@ jobs:
           done
           ls -la /var/crash 2>&1 | head -5
       - name: L06s.abort and L06.b, default core limit
+        if: ${{ !cancelled() }}
         run: bun test tests/kernel/lifecycle/lifecycle.test.ts tests/kernel/state/journal.test.ts -t "L06s.abort|L06.b-abort-then-report" 2>&1 | grep -E "\((pass|fail)\)|^ *[0-9]+ (pass|fail)"
       - name: L06s.abort and L06.b, core limit 0
+        if: ${{ !cancelled() }}
         run: |
           ulimit -c 0
           bun test tests/kernel/lifecycle/lifecycle.test.ts tests/kernel/state/journal.test.ts -t "L06s.abort|L06.b-abort-then-report" 2>&1 | grep -E "\((pass|fail)\)|^ *[0-9]+ (pass|fail)"
