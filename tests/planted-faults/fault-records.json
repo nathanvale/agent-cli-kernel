@@ -2952,5 +2952,12 @@
     "testFile": "tests/template/test-helpers/git-fixture.test.ts",
     "title": "^the sha256 default never outlives a setup that throws",
     "source": "7a68d58 test(support): set the sha256 default inside the fixture test's try"
+  },
+  {
+    "id": "c3c4a59-check-commits",
+    "patch": "tests/planted-faults/patches/c3c4a59-check-commits.patch",
+    "testFile": "tests/template/check-commits/check-commits-range.test.ts",
+    "title": "a since commit that is not behind the head",
+    "source": "c3c4a59 fix(check-commits): check every commit when the since commit is not behind the head (GREEN)"
   }
 ]
