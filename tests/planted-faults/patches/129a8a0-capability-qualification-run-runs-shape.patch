@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index ee6db01..9cec10e 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -305,7 +305,7 @@ export function secondRunProblem(
+   if (existing === undefined)
+     return `no capability qualification record at ${recordPath(candidate.id)} from a fixture.ts run`;
+   const entries = existing.runs.map((run) => run.entry);
+-  if (entries.join(",") !== "fixture.ts")
++  if (entries.length === 0)
+     return `the record holds runs [${entries.join(", ")}]; the index.ts run follows exactly one fixture.ts run`;
+   const platformDiffers = differing([
+     ["os", existing.platform.os, observed.platform.os],

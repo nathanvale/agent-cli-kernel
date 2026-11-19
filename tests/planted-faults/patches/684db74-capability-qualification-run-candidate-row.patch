@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index bcdbf31..211b50f 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -147,7 +147,7 @@ export function worldEnvironment(
+     );
+   }
+   if (entry === "index.ts") return { SX_ENTRY: "production" };
+-  if (qualification !== "fixture") return {};
++  if (qualification !== undefined) return {};
+   return {
+     SX_CANDIDATE_ROW: JSON.stringify({
+       os: candidate.os,

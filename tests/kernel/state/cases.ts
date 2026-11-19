@@ -18,6 +18,10 @@ export type StateCase = {
       readonly layer: "process" | "component";
       readonly platform: "coordination" | "any";
       readonly nonRoot?: true;
+      readonly onlyThrough?: {
+        readonly entry: "fixture.ts" | "index.ts";
+        readonly reason: string;
+      };
       readonly bootIdentity?: true;
     }
   | {
@@ -38,6 +42,19 @@ const component = {
 const transactionComponent = {
   ...component,
   platform: "coordination",
+} as const;
+const perRunDecision = "decided by Nathan, 19 November 2026, 17:45 AEDT";
+const pausePoint = {
+  onlyThrough: {
+    entry: "fixture.ts",
+    reason: `Waits for the closure-staged pause point, which only the test entry has (${perRunDecision}).`,
+  },
+} as const;
+const noMatchingRow = {
+  onlyThrough: {
+    entry: "fixture.ts",
+    reason: `Expects no matching row, but an index.ts run has the row in the production capability qualification table (${perRunDecision}).`,
+  },
 } as const;
 const unqualified = {
   status: "pending",
@@ -499,6 +516,7 @@ export const stateCases: readonly StateCase[] = [
   {
     id: "K06.e-kill-before-closure-publication",
     ...coordinated,
+    ...pausePoint,
     sources: "REC-4; REC-9 row 9",
     observation:
       "Killed after the closure is staged and before it is linked: no valid closure, still listed, a later valid closure succeeds.",
@@ -796,6 +814,7 @@ export const stateCases: readonly StateCase[] = [
   {
     id: "O05.a-pid-not-consulted",
     ...coordinated,
+    ...noMatchingRow,
     sources: "REC-7; REC-9 row 7; V-22",
     observation:
       "A crashed case whose owner record names a live unrelated PID: the decision is the same as without it (unavailable in production), and durable state is unchanged.",
@@ -813,6 +832,7 @@ export const stateCases: readonly StateCase[] = [
   {
     id: "O07.a-two-closers",
     ...coordinated,
+    ...pausePoint,
     sources: "REC-7; REC-9 row 7; V-22",
     observation:
       "Two closure commands for one crashed case released together under fixture qualification: exactly one closure record; the other is refused or returns the same disposition.",
@@ -837,6 +857,7 @@ export const stateCases: readonly StateCase[] = [
   {
     id: "O09.a-reclaim-is-coordination-only",
     ...coordinated,
+    ...noMatchingRow,
     sources: "REC-7; REC-3; V-22",
     observation:
       "After the owner is killed the kernel frees its coordination locks; a new overlapping operation acquires them yet is refused by the unresolved-case station; closure count 0, effect count unchanged.",
@@ -992,12 +1013,42 @@ export const stateCases: readonly StateCase[] = [
     red: "Treat unreadable as matching (planted fault).",
   },
   {
+    id: "Q02.e-production-row-closes",
+    ...coordinated,
+    onlyThrough: {
+      entry: "index.ts",
+      reason: `Needs the row in the production capability qualification table, which only an index.ts run on the row's own branch has (${perRunDecision}).`,
+    },
+    sources: `REC-7b; journal version 2 design part 2 section 3; X30; ${perRunDecision}`,
+    observation:
+      "Through index.ts with the row in the production capability qualification table: a crashed case closes as completed and as not-applied, each closure stamped with the row id.",
+    red: "Stamp a fixture label.",
+  },
+  {
     id: "Q02.f-nested-mount-refused",
     ...coordinated,
     sources: "REC-7b; journal version 2 design part 2 section 2",
     observation:
       "A store folder on a mount nested under the state root refuses closure with the observed facts.",
     red: "Check only the root (planted fault).",
+  },
+  {
+    id: "Q03.a-row-cites-capability-qualification-record",
+    ...component,
+    sources:
+      "REC-7b; V-22; V-42; journal version 2 design part 2 section 3; decisions of Nathan, 19 November 2026 (10:10, and T and M at 13:46 and 13:54)",
+    observation:
+      "Every production row cites a committed capability qualification record that matches it, marked factSource observed, holding both capability qualification runs with every required case passed and a sourceHash equal to the current qualified source, and names its reviewing session, Nathan's countersignature and the date.",
+    red: "Accept a hosted run link, a capability qualification record made with overrides or for changed source, or one without the index.ts capability qualification run (planted fault).",
+  },
+  {
+    id: "Q03.b-capability-qualification-run-refuses",
+    ...component,
+    sources:
+      "REC-7b; journal version 2 design part 2 section 3 and part 3 section 4",
+    observation:
+      "bun run capability-qualification-run refuses a dirty tree, and refuses when any fact override is set; it writes no capability qualification record.",
+    red: "Run with an override (planted fault).",
   },
   {
     id: "Q01.c-transitions-mapped",

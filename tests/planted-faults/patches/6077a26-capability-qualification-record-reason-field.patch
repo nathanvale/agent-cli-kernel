@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-record.ts b/tests/kernel/state/capability-qualification-record.ts
+index 1697254..0ffe7c0 100644
+--- a/tests/kernel/state/capability-qualification-record.ts
++++ b/tests/kernel/state/capability-qualification-record.ts
+@@ -223,7 +223,7 @@ function shaped(value: string, pattern: RegExp, where: string): string {
+ function parseCase(source: unknown, where: string): CaseResult {
+   const named = own(source, "result");
+   if (named === "not-runnable") {
+-    const entry = fields(source, ["id", "result", "reason"], where);
++    const entry = fields(source, ["id", "result", "reason", "detail"].filter((key) => Object.hasOwn(Object(source), key)), where);
+     return {
+       id: entry.text("id"),
+       result: named,

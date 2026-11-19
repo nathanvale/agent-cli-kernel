@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-record.ts b/tests/kernel/state/capability-qualification-record.ts
+index cb0b2e9..ae37b97 100644
+--- a/tests/kernel/state/capability-qualification-record.ts
++++ b/tests/kernel/state/capability-qualification-record.ts
+@@ -357,7 +357,7 @@ function caseProblems(
+     return found.length > 0 &&
+       found.every(
+         (entry) =>
+-          entry.result === "not-runnable" && entry.reason === only.reason,
++          entry.result === "not-runnable",
+       )
+       ? []
+       : [

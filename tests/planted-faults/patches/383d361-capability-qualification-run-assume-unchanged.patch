@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index 0b31f1e..c86df72 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -473,7 +473,7 @@ function hiddenProblem(place: GitPlace): string | undefined {
+       const tag = line.slice(0, 1);
+       const path = line.slice(2);
+       return [
+-        ...(tag !== tag.toUpperCase() ? [`assume-unchanged ${path}`] : []),
++        ...(tag === "never" ? [`assume-unchanged ${path}`] : []),
+         ...(tag.toUpperCase() === "S" ? [`skip-worktree ${path}`] : []),
+       ];
+     },

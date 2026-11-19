@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-record.ts b/tests/kernel/state/capability-qualification-record.ts
+index cb0b2e9..44dfc85 100644
+--- a/tests/kernel/state/capability-qualification-record.ts
++++ b/tests/kernel/state/capability-qualification-record.ts
+@@ -367,7 +367,7 @@ function caseProblems(
+     return [`the ${run.entry} run has no result for ${row.id}`];
+   const worst = found.find((entry) => entry.result !== "pass");
+   if (worst === undefined) return [];
+-  return worst.result === "not-runnable"
++  return worst.result === "never"
+     ? [
+         `${row.id} is marked not-runnable in the ${run.entry} run, but the case table runs it there`,
+       ]

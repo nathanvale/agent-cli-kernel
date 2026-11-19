@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-record.ts b/tests/kernel/state/capability-qualification-record.ts
+index 85abe32..cac66e5 100644
+--- a/tests/kernel/state/capability-qualification-record.ts
++++ b/tests/kernel/state/capability-qualification-record.ts
+@@ -305,7 +305,7 @@ function runProblems(
+ ): readonly string[] {
+   const entries = record.runs.map((run) => run.entry);
+   const shape =
+-    entries.join(",") === runEntries.join(",")
++    entries.includes("fixture.ts")
+       ? []
+       : [
+           `the record holds runs [${entries.join(", ")}]; a row needs fixture.ts, then index.ts`,

@@ -1,0 +1,12 @@
+diff --git a/tests/kernel/state/capability-qualification-record.ts b/tests/kernel/state/capability-qualification-record.ts
+index c1f1be4..a99458f 100644
+--- a/tests/kernel/state/capability-qualification-record.ts
++++ b/tests/kernel/state/capability-qualification-record.ts
+@@ -458,7 +458,6 @@ function committedText(
+       env: withoutRepositoryLocation(bound.environment ?? process.env),
+       stdout: "pipe",
+       stderr: "pipe",
+-      timeout: limit,
+       killSignal: "SIGKILL",
+     },
+   );

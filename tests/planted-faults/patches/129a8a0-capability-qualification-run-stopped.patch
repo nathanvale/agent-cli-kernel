@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index ee6db01..e09b8ef 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -639,7 +639,7 @@ export async function capabilityQualificationRun(
+     );
+     return 1;
+   }
+-  if (context.stopped?.() === true) {
++  if (context.stopped?.() === false) {
+     context.print(
+       "Stopped: the run was asked to stop, so no capability qualification record is written.",
+     );

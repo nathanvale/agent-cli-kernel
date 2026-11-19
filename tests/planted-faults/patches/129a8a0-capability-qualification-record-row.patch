@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-record.ts b/tests/kernel/state/capability-qualification-record.ts
+index a1775a4..9093e76 100644
+--- a/tests/kernel/state/capability-qualification-record.ts
++++ b/tests/kernel/state/capability-qualification-record.ts
+@@ -374,7 +374,7 @@ export function rowProblems(
+     ];
+   }
+   const problems = [
+-    ...(record.row === row.id ? [] : [`the record is for row ${record.row}`]),
++    ...(record.row !== "" ? [] : [`the record is for row ${record.row}`]),
+     ...(record.factSource === "observed"
+       ? []
+       : [`factSource is ${record.factSource}, not observed`]),

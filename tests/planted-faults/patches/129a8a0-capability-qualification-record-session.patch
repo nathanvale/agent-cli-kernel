@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-record.ts b/tests/kernel/state/capability-qualification-record.ts
+index a1775a4..dc85b92 100644
+--- a/tests/kernel/state/capability-qualification-record.ts
++++ b/tests/kernel/state/capability-qualification-record.ts
+@@ -341,7 +341,7 @@ function runProblems(
+ function reviewProblems(row: CapabilityQualificationRow): readonly string[] {
+   const { session, countersignature, date } = row.evidence.review;
+   return [
+-    ...(session.trim() === "" ? ["the row names no reviewing session"] : []),
++    ...(session.trim() === "none" ? ["the row names no reviewing session"] : []),
+     ...(countersignature.trim() === ""
+       ? ["the row names no countersignature"]
+       : []),

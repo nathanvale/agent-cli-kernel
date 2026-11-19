@@ -19,6 +19,7 @@ import {
   bootIdentityFile,
   caseTest,
   closeArgs,
+  closureLabel,
   expectCompleted,
   eventsPath,
   expectRefusedUnchanged,
@@ -27,6 +28,7 @@ import {
   machineBootIdentityRead,
   makeWorld,
   noAppendAfterDamage,
+  only,
   registeredCases,
   str,
   supportingTest,
@@ -60,14 +62,6 @@ const plain = (body: (world: World) => Promise<void>) => () => within({}, body);
 const fixture = (body: (world: World) => Promise<void>) => () =>
   within({ qualification: "fixture" }, body);
 
-function only(world: World, command = "sx.apply"): string {
-  const found = world
-    .operations()
-    .filter((entry) => entry.intent.commandIdentity === command);
-  const [first, ...rest] = found;
-  if (!first || rest.length > 0) throw new Error("Expected one operation.");
-  return first.id;
-}
 function closurePath(world: World, id: string): string {
   const folder = existsSync(join(world.root, "settled", id))
     ? "settled"
@@ -299,7 +293,7 @@ caseTest(
     expect(at(payload, "disposition")).toBe("completed");
     expect(at(payload, "reason")).toBe("independent evidence reviewed");
     expect(at(payload, "journalRevision")).toBe(revision);
-    expect(at(payload, "qualification")).toBe("fixture:specimen");
+    expect(at(payload, "qualification")).toBe(closureLabel());
     expect(at(payload, "evidence")).toEqual([
       { effect: "note.write", observation: "present" },
     ]);
@@ -1121,6 +1115,32 @@ supportingTest(
     expect(
       world.ledger().filter((line) => line === "entry production"),
     ).toEqual(["entry production", "entry production", "entry production"]);
+  }),
+);
+
+caseTest(
+  "Q02.e-production-row-closes",
+  plain(async (world) => {
+    const label = closureLabel();
+    expect(label).not.toStartWith("fixture:");
+    await world.killAt(apply("a"), "effect");
+    await world.killAt(["send", "m2", "--json"], "intent");
+    const closures = [
+      [only(world), "completed", "c1"],
+      [only(world, "sx.send"), "not-applied", "c2"],
+    ] as const;
+    for (const [id, disposition, closureId] of closures)
+      expectCompleted(
+        await world.run(
+          closeArgs(id, await world.revision(id), disposition, closureId),
+        ),
+      );
+    for (const [id, disposition] of closures) {
+      const payload = world.cases().find((entry) => entry.id === id)?.closure
+        ?.records[0]?.payload;
+      expect(at(payload, "disposition")).toBe(disposition);
+      expect(at(payload, "qualification")).toBe(label);
+    }
   }),
 );
 

@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { stateCases } from "./cases.ts";
+import { caseRegistrations } from "./capability-qualification-record.ts";
 import { caseTest, machineBootIdentityRead } from "./harness.ts";
 
 const briefFamilies = [
@@ -12,7 +13,10 @@ const briefFamilies = [
   ...["T01", "T02", "T03", "T04"],
   "Q01",
 ];
-const journalVersionTwoFamilies = ["J08", "L07", "L08", "K10", "K11", "Q02"];
+const journalVersionTwoFamilies = [
+  ...["J08", "L07", "L08", "K10", "K11"],
+  ...["Q02", "Q03"],
+];
 
 test("the frozen T3 case table keeps its admitted identities and counts", () => {
   expect(briefFamilies.length).toBe(46);
@@ -40,9 +44,9 @@ test("the frozen T3 case table keeps its admitted identities and counts", () => 
     "S04",
     "S05",
   ]);
-  expect(stateCases.length).toBe(149);
+  expect(stateCases.length).toBe(152);
   const executable = stateCases.filter((row) => row.status === "executable");
-  expect(executable.length).toBe(142);
+  expect(executable.length).toBe(145);
   for (const row of executable)
     if (row.status === "executable")
       expect(["coordination", "any"]).toContain(row.platform);
@@ -93,9 +97,8 @@ test("a case that needs a boot identity runs its body on Linux and is unproved o
 });
 
 const transitionDesigns = ["DESIGN.md", "DESIGN-V2-TRANSITIONS.md"];
-const casesAwaitingLaterSlices: Readonly<Record<string, readonly string[]>> = {
-  X30: ["Q02.e"],
-};
+const casesAwaitingLaterSlices: Readonly<Record<string, readonly string[]>> =
+  {};
 
 async function transitionRows(name: string): Promise<string[][]> {
   const design = await Bun.file(
@@ -143,15 +146,13 @@ test("every executable case is registered once and no pending case is claimed", 
     "component.test.ts",
     "seams.test.ts",
     "route.test.ts",
+    "capability-qualification-record.test.ts",
+    "capability-qualification-run.test.ts",
   ];
   const sources = await Promise.all(
     files.map((name) => Bun.file(new URL(name, import.meta.url)).text()),
   );
-  const registered = sources.flatMap((source) =>
-    [...source.matchAll(/caseTest\(\s*"([^"]+)"/g)].map(
-      (match) => match[1] ?? "",
-    ),
-  );
+  const registered = sources.flatMap(caseRegistrations);
   const executable = stateCases
     .filter((row) => row.status === "executable")
     .map((row) => row.id)

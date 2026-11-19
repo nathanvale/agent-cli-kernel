@@ -5,7 +5,16 @@ import type { CapabilityQualificationRow } from "./capability-qualification-tabl
 import { errorCode } from "./coordination.ts";
 import { layout } from "./store.ts";
 
-const bootIdentitySource = "/proc/sys/kernel/random/boot_id";
+// Interface: the capability qualification run command uses these two, so a
+// capability qualification record carries the add-on's own values: the boot
+// identity source a row's `bootIdentitySource` must equal, and the rule that
+// turns an os.release() string into the major release a row's
+// `majorRelease` must equal (decision J, Nathan, 19 November 2026, 13:46).
+export const bootIdentitySource = "/proc/sys/kernel/random/boot_id";
+
+export function majorReleaseOf(release: string): string {
+  return release.split(".")[0] ?? release;
+}
 
 export const deviceFolders = [
   "root",
@@ -129,7 +138,7 @@ function readFacts(
   return {
     os: process.platform,
     release: observed,
-    majorRelease: observed.split(".")[0] ?? observed,
+    majorRelease: majorReleaseOf(observed),
     filesystem: overridden(overrides.filesystem, () =>
       attempt(() => statfsSync(root).type),
     ),

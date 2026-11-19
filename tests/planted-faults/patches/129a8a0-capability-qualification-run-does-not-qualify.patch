@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index ee6db01..e0756a2 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -674,7 +674,7 @@ export async function capabilityQualificationRun(
+   const notPassed = cases.filter(
+     (entry) => required.includes(entry.id) && entry.result !== "pass",
+   );
+-  if (notPassed.length === 0) return 0;
++  if (notPassed.length >= 0) return 0;
+   context.print(
+     `The ${entry} run does not qualify row ${candidate.id}: ${notPassed.map((entry) => `${entry.id} ${entry.result}`).join(", ")}.`,
+   );

@@ -12,6 +12,13 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { testFolder } from "../../support/test-folder.ts";
+import {
+  refuseRunOverrides,
+  runOf,
+  runVariable,
+  worldEnvironment,
+} from "./capability-qualification-run.ts";
+import { otherEntryOnly } from "./capability-qualification-record.ts";
 import { stateCases } from "./cases.ts";
 import { coordinationExpected } from "./holder.ts";
 
@@ -33,6 +40,15 @@ function casePlan(
     return {
       title: `${id} UNPROVED on ${process.platform}: fail-closed control only`,
       run: failClosedControl,
+    };
+  const entry = runOf(process.env[runVariable])?.entry ?? "fixture.ts";
+  const only = otherEntryOnly(row, entry);
+  if (only !== undefined)
+    return {
+      title: `${id} UNPROVED outside ${only.entry}: ${only.reason}`,
+      run: () => {
+        expect(entry).not.toBe(only.entry);
+      },
     };
   if (row.nonRoot === true && process.geteuid?.() === 0)
     return {
@@ -57,6 +73,20 @@ export function caseTest(
   const plan = casePlan(id, body);
   registeredCases.push({ id, title: plan.title });
   test(plan.title, plan.run, timeout);
+}
+
+export function only(world: World, command = "sx.apply"): string {
+  const found = world
+    .operations()
+    .filter((entry) => entry.intent.commandIdentity === command);
+  const [first, ...rest] = found;
+  if (!first || rest.length > 0) throw new Error("Expected one operation.");
+  return first.id;
+}
+
+export function closureLabel(): string {
+  const run = runOf(process.env[runVariable]);
+  return run?.entry === "index.ts" ? run.candidate.id : "fixture:specimen";
 }
 
 async function failClosedControl(): Promise<void> {
@@ -471,6 +501,10 @@ export function makeWorld(
   mkdirSync(join(world, "notes"), { recursive: true });
   mkdirSync(bars);
   const children: { kill: (signal?: number | NodeJS.Signals) => void }[] = [];
+  const capabilityQualificationRun = worldEnvironment(
+    process.env[runVariable],
+    options.qualification,
+  );
 
   function env(
     extra: Readonly<Record<string, string>>,
@@ -484,12 +518,13 @@ export function makeWorld(
       SX_WORLD: world,
       SX_BARRIER_DIR: bars,
     };
-    return {
-      ...(options.qualification
-        ? { ...environment, SX_QUALIFICATION: options.qualification }
-        : environment),
-      ...extra,
-    };
+    if (capabilityQualificationRun !== undefined) refuseRunOverrides(extra);
+    const qualification =
+      capabilityQualificationRun ??
+      (options.qualification
+        ? { SX_QUALIFICATION: options.qualification }
+        : {});
+    return { ...environment, ...qualification, ...extra };
   }
 
   function start(
