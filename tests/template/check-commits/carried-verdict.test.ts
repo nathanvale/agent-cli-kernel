@@ -111,7 +111,7 @@ describe("decide", () => {
   });
 
   test("a checker tree holding a symlink judges every commit", () => {
-    const linked = `workflow\n120000 blob ${sha(7)}\tscripts/lib.ts`;
+    const linked = `workflow\x00120000 blob ${sha(7)}\tscripts/lib.ts`;
 
     expect(
       decide({ ...current, tree: linked }, { ...carried, tree: linked }, graph),
@@ -123,7 +123,7 @@ describe("decide", () => {
   });
 
   test("a head checker tree holding a submodule judges every commit", () => {
-    const linked = `scripts\n160000 commit ${sha(8)}\tvendor/tool`;
+    const linked = `scripts\x00160000 commit ${sha(8)}\tvendor/tool`;
 
     expect(
       decide(
@@ -173,8 +173,15 @@ describe("checkerTree", () => {
         "scripts/notes.md",
       ]
         .map((path) => `100644 blob ${sha(1)}\t${path}`)
-        .join("\n"),
+        .join("\0"),
     );
+  });
+
+  test("a file name holding a newline never reads as two entries", () => {
+    const twoEntries = entry("x", "1") + entry("y", "2");
+    const oneCrafted = entry(`x\n100644 blob ${sha(2)}\ty`, "1");
+
+    expect(checkerTree(oneCrafted)).not.toBe(checkerTree(twoEntries));
   });
 
   test("a changed blob outside the judged-only folders changes the tree", () => {
