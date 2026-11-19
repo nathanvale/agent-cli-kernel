@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/diagnostics/run.ts b/kernel/src/addons/diagnostics/run.ts
+index dace8dd..9359c84 100644
+--- a/kernel/src/addons/diagnostics/run.ts
++++ b/kernel/src/addons/diagnostics/run.ts
+@@ -298,7 +298,7 @@ function session(
+           {
+             category: [options.cli, "diagnostics"],
+             sinks: ["diagnostics"],
+-            lowestLevel: "trace",
++            lowestLevel: "debug",
+             parentSinks: "override",
+           },
+           {

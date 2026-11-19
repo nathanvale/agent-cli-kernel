@@ -13,9 +13,7 @@ import {
   recordingHost,
   turns,
 } from "./recording-host.ts";
-import { overLimitBoundary, timerLimit } from "./oracle.ts";
-
-const cancellationWait = 500;
+import { cancellationWait, overLimitBoundary, timerLimit } from "./oracle.ts";
 
 afterEach(() => {
   jest.useRealTimers();

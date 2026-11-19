@@ -120,8 +120,16 @@ export async function advance(milliseconds: number): Promise<void> {
   }
 }
 
+const listingBound = 5_000;
 export function markedPids(marker: string): readonly number[] {
-  const listed = Bun.spawnSync(["/bin/ps", "-A", "-o", "pid=,args="]);
+  const listed = Bun.spawnSync(["/bin/ps", "-A", "-o", "pid=,args="], {
+    timeout: listingBound,
+    killSignal: "SIGKILL",
+  });
+  if (!listed.success)
+    throw new Error(
+      `UNPROVED: /bin/ps did not list processes within ${String(listingBound)} ms.`,
+    );
   return listed.stdout
     .toString()
     .split("\n")

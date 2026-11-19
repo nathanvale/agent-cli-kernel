@@ -1,7 +1,8 @@
 // Interface: a host uses these.
 // - stateAddon(options) creates one state add-on instance and returns:
 //   - descriptor: give it to contractFor({ state }) and to approval runtime().
-//   - emergencyRecord: give it to runProcess(contract, { emergencyRecord }).
+//   - emergencyRecord: give it to runProcess or runInProcess, as
+//     (contract, { emergencyRecord }).
 //   - transaction(ctx.state, declaration, work): the only way a changing
 //     handler opens its transaction. Scope comes from validated input and
 //     is canonicalised before any coordination. `work` is handed the

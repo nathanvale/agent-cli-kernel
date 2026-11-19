@@ -58,7 +58,9 @@ export type EmergencyFacts = {
 // Interface: What one in-process run returns instead of writing it. `envelope` is the
 // one validated envelope machine mode would write, `no-envelope` is a run whose
 // fallback also failed, and `stopped` is a run a stop signal ended or a call
-// made after one, which never ran.
+// made after one, which never ran. A run that fails inside the kernel rejects
+// instead, after it is aborted and its owned programs and emergency record are
+// attempted.
 export type InProcessResult =
   | {
       readonly kind: "envelope";

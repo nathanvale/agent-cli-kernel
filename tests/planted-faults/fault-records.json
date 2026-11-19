@@ -868,6 +868,76 @@
     "source": "b021da0 fix(gates): refuse excluded recorded hits"
   },
   {
+    "id": "61c6f37-index",
+    "patch": "tests/planted-faults/patches/61c6f37-index.patch",
+    "testFile": "tests/kernel/programs/program-input.test.ts",
+    "title": " inspect: an input one byte over the limit is refused and starts no program$",
+    "source": "61c6f37 feat(programs): let a command supply a bounded input to a program"
+  },
+  {
+    "id": "61c6f37-index-supplied",
+    "patch": "tests/planted-faults/patches/61c6f37-index.patch",
+    "testFile": "tests/kernel/programs/program-input.test.ts",
+    "title": " supplied: an input one byte over the limit is refused and starts no program$",
+    "source": "61c6f37 feat(programs): let a command supply a bounded input to a program"
+  },
+  {
+    "id": "61c6f37-index-view",
+    "patch": "tests/planted-faults/patches/61c6f37-index-view.patch",
+    "testFile": "tests/kernel/programs/program-input.test.ts",
+    "title": " inspect: an input that is a typed array of another width is refused and starts no program$",
+    "source": "61c6f37 feat(programs): let a command supply a bounded input to a program"
+  },
+  {
+    "id": "61c6f37-index-view-supplied",
+    "patch": "tests/planted-faults/patches/61c6f37-index-view.patch",
+    "testFile": "tests/kernel/programs/program-input.test.ts",
+    "title": " supplied: an input that is a typed array of another width is refused and starts no program$",
+    "source": "61c6f37 feat(programs): let a command supply a bounded input to a program"
+  },
+  {
+    "id": "61c6f37-index-copy",
+    "patch": "tests/planted-faults/patches/61c6f37-index-copy.patch",
+    "testFile": "tests/kernel/programs/program-input.test.ts",
+    "title": "an admitted domain program reads the bytes checked before admission, though the caller changed them while admission was pending$",
+    "source": "61c6f37 feat(programs): let a command supply a bounded input to a program"
+  },
+  {
+    "id": "e1c416d-index",
+    "patch": "tests/planted-faults/patches/e1c416d-index.patch",
+    "testFile": "tests/kernel/programs/program-input.test.ts",
+    "title": "an input whose own byteLength is shadowed is judged by its real length$",
+    "source": "e1c416d fix(programs): judge input by its real length and check domain requests first"
+  },
+  {
+    "id": "e1c416d-index-admission",
+    "patch": "tests/planted-faults/patches/e1c416d-index-admission.patch",
+    "testFile": "tests/kernel/programs/program-input.test.ts",
+    "title": "a domain request over the limit is refused before admission and starts no program$",
+    "source": "e1c416d fix(programs): judge input by its real length and check domain requests first"
+  },
+  {
+    "id": "1cc1070-run",
+    "patch": "tests/planted-faults/patches/1cc1070-run.patch",
+    "testFile": "tests/kernel/diagnostics/log-lines.test.ts",
+    "title": "a level outside the six",
+    "source": "1cc1070 feat(diagnostics): let a record carry its level"
+  },
+  {
+    "id": "1cc1070-run-floor",
+    "patch": "tests/planted-faults/patches/1cc1070-run-floor.patch",
+    "testFile": "tests/kernel/diagnostics/log-lines.test.ts",
+    "title": "a log line lands in the run's file under the level it was sent with$",
+    "source": "1cc1070 feat(diagnostics): let a record carry its level"
+  },
+  {
+    "id": "b6906dc-run",
+    "patch": "tests/planted-faults/patches/b6906dc-run.patch",
+    "testFile": "tests/kernel/diagnostics/log-lines.test.ts",
+    "title": "a run whose only record has a level outside the six opens no file$",
+    "source": "b6906dc fix(diagnostics): prove the level refusal alone and under the caps"
+  },
+  {
     "id": "b165bed-context",
     "patch": "tests/planted-faults/patches/b165bed-context.patch",
     "testFile": "tests/kernel/abort-signal.test.ts",
@@ -992,6 +1062,27 @@
     "testFile": "tests/kernel/lifecycle/in-process.test.ts",
     "title": "IP07\\.stop-bound",
     "source": "2004547 fix(kernel): kill a stopped run that is still settling at a repeated signal"
+  },
+  {
+    "id": "f548a02-in-process-host",
+    "patch": "tests/planted-faults/patches/f548a02-lifecycle-host.patch",
+    "testFile": "tests/kernel/state/in-process.test.ts",
+    "title": "IP06\\.crash-records-every-run-in-flight",
+    "source": "f548a02 feat(kernel): run many commands in one process through runInProcess"
+  },
+  {
+    "id": "f548a02-in-process-own-start",
+    "patch": "tests/planted-faults/patches/f548a02-lifecycle-ownstart.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP07\\.own-deadline",
+    "source": "f548a02 feat(kernel): run many commands in one process through runInProcess"
+  },
+  {
+    "id": "5a83146-in-process-abort",
+    "patch": "tests/planted-faults/patches/5a83146-lifecycle-abort.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP07\\.rejected-run-records-itself",
+    "source": "5a83146 fix(kernel): settle the kernel reviewer's findings on the in-process entry"
   },
   {
     "id": "d62870c-in-process-forget",

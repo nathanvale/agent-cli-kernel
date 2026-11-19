@@ -1,0 +1,13 @@
+diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
+index 17a1342..6141f8f 100644
+--- a/kernel/src/kernel/lifecycle.ts
++++ b/kernel/src/kernel/lifecycle.ts
+@@ -187,7 +187,7 @@ export function runInProcess(
+   contract: ContractKey,
+   setup: RunSetup = {},
+ ): RunInProcess {
+-  return runInProcessOn(contract, setup, processWideHost);
++  return runInProcessOn(contract, setup, processHost);
+ }
+ 
+ export function runInProcessOn(
