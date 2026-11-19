@@ -1482,5 +1482,61 @@
     "testFile": "tests/kernel/state/recovery.test.ts",
     "title": "^Q02.d-unreadable-fact-refuses",
     "source": "01a8093 fix(state): settle the two-axis review of capability qualification matching"
+  },
+  {
+    "id": "71be2d5-install-boot-not-written",
+    "patch": "tests/planted-faults/patches/71be2d5-install-boot-not-written.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^K11.b-delegate-other-boot-closes",
+    "source": "71be2d5 feat(state): close a case after a delegate start only on another boot"
+  },
+  {
+    "id": "71be2d5-install-same-boot-admitted",
+    "patch": "tests/planted-faults/patches/71be2d5-install-same-boot-admitted.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^K11.a-delegate-same-boot-refused",
+    "source": "71be2d5 feat(state): close a case after a delegate start only on another boot"
+  },
+  {
+    "id": "71be2d5-install-missing-boot-admitted",
+    "patch": "tests/planted-faults/patches/71be2d5-install-missing-boot-admitted.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^K11.a-delegate-same-boot-refused",
+    "source": "71be2d5 feat(state): close a case after a delegate start only on another boot"
+  },
+  {
+    "id": "71be2d5-install-first-delegate-only",
+    "patch": "tests/planted-faults/patches/71be2d5-install-first-delegate-only.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^K11.a-delegate-same-boot-refused",
+    "source": "71be2d5 feat(state): close a case after a delegate start only on another boot"
+  },
+  {
+    "id": "71be2d5-store-empty-boot",
+    "patch": "tests/planted-faults/patches/71be2d5-store-empty-boot.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^K11.a-delegate-same-boot-refused",
+    "source": "71be2d5 feat(state): close a case after a delegate start only on another boot"
+  },
+  {
+    "id": "6d4b46d-store-append-after-torn",
+    "patch": "tests/planted-faults/patches/6d4b46d-store-append-after-torn.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^K11.g-no-append-after-torn-tail",
+    "source": "6d4b46d feat(state): close a crashed case after a torn tail once the lease is free"
+  },
+  {
+    "id": "6d4b46d-framing-mid-line-scan",
+    "patch": "tests/planted-faults/patches/6d4b46d-framing-mid-line-scan.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^K11.f-record-hidden-in-torn-tail-refuses",
+    "source": "6d4b46d feat(state): close a crashed case after a torn tail once the lease is free"
+  },
+  {
+    "id": "6d4b46d-install-torn-tail-refused",
+    "patch": "tests/planted-faults/patches/6d4b46d-install-torn-tail-refused.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^K11.c-torn-tail-closes",
+    "source": "6d4b46d feat(state): close a crashed case after a torn tail once the lease is free"
   }
 ]

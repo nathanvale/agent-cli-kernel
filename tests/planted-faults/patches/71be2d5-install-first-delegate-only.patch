@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index 531813f..c05c905 100644
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -448,7 +448,7 @@ function stoppedOwnerProblem(
+   boot: string | undefined,
+ ): string | undefined {
+   if (target.recordHiddenInTornTail) return "journal-torn";
+-  const delegateMayRun = target.events.some((event) => {
++  const delegateMayRun = target.events.filter((event) => event.kind === "delegate-admitted").slice(0, 1).some((event) => {
+     if (event.kind !== "delegate-admitted") return false;
+     const started = delegateBoot(event);
+     return started === undefined || boot === undefined || started === boot;
