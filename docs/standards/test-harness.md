@@ -19,7 +19,9 @@ runs each test file. What a test must prove is in the
   prevent the test timeout and cleanup), [#90-process] (bootstrap helpers
   could wait indefinitely for a generated repository command),
   [#109-bound] (a process-runner case started a nested child with no time
-  limit).
+  limit), [kernel#13-readers], [9086c3b] (L08.a started its readers with no
+  time limit, and only a reader that exited, not one killed or failed, went
+  through the clean-up that frees a blocked named-pipe open).
 - Template tests: reuse `spawnBounded` (`tests/support/process.ts`), which
   runs the child through `startChild` (`scripts/process-runner.ts`), for that
   bound. Kernel tests: reuse `spawnBounded`
@@ -95,3 +97,5 @@ runs each test file. What a test must prove is in the
 [#99-shards]: https://github.com/nathanvale/bun-typescript-template/pull/99#discussion_r4608771631
 [#109-bound]: https://github.com/nathanvale/bun-typescript-template/pull/109#discussion_r4610027050
 [kernel#12-turns]: https://github.com/nathanvale/agent-cli-kernel/pull/12#pullrequestreview-5968899725
+[kernel#13-readers]: https://github.com/nathanvale/agent-cli-kernel/pull/13#discussion_r4624230342
+[9086c3b]: https://github.com/nathanvale/agent-cli-kernel/commit/9086c3b8b14bcba376aa63027abdd817c1495e53

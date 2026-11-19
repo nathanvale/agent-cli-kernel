@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import {
+  chmodSync,
   closeSync,
   constants,
   existsSync,
@@ -1086,6 +1087,147 @@ supportingTest(
         .sort(),
     ).toEqual(keyLocks.sort());
     expect(releases.at(3)?.name).toBe("owner.lease");
+  },
+);
+
+caseTest("L07.g-failed-move-keeps-outcome", async () => {
+  const recordBoth: Scenario = async (record, host) => {
+    await record(() => Promise.resolve());
+    await host.transaction.record(
+      "e.two",
+      () => Promise.resolve(),
+      () => Promise.resolve(true),
+    );
+  };
+  const first = await inTransaction(recordBoth, undefined, { keys: ["k1"] });
+  expect(first.outcome?.kind).toBe("ran");
+  const root = first.root;
+  const [settledCase, ...others] = readOperations(root);
+  expect(others).toEqual([]);
+  if (!settledCase) throw new Error("No case.");
+  const settled = join(root, "settled");
+  chmodSync(settled, 0o500);
+  let admissionFree = false;
+  let second: Awaited<ReturnType<typeof inTransaction>>;
+  try {
+    second = await inTransaction(
+      async (record, host) => {
+        admissionFree = lockFree(
+          join(host.root, "coordination", "admission.lock"),
+        );
+        await recordBoth(record, host);
+      },
+      undefined,
+      { keys: ["k2"], root },
+    );
+  } finally {
+    chmodSync(settled, 0o700);
+  }
+  expect(second.outcome?.kind).toBe("ran");
+  expect(
+    second.outcome?.kind === "ran" ? second.outcome.workFailed : true,
+  ).toBe(false);
+  expect(admissionFree).toBe(true);
+  expect(readdirSync(settled)).toEqual([]);
+  const operations = readOperations(root);
+  expect(operations.map((entry) => entry.id)).toContain(settledCase.id);
+  for (const entry of operations)
+    expect(entry.events.records.map((record) => record.kind)).toEqual([
+      "effect-started",
+      "effect-confirmed",
+      "effect-started",
+      "effect-confirmed",
+      "completion",
+    ]);
+  const third = await inTransaction(recordBoth, undefined, {
+    keys: ["k3"],
+    root,
+  });
+  expect(third.outcome?.kind).toBe("ran");
+  expect(readOperations(root, "settled").map((entry) => entry.id)).toEqual(
+    operations.map((entry) => entry.id).sort(),
+  );
+});
+
+supportingTest(
+  "X24 supporting: a mover report that throws leaves the published transaction to run and release",
+  async () => {
+    const { root, outcome } = await inTransaction(
+      async (record) => {
+        await record(() => Promise.resolve());
+      },
+      undefined,
+      {
+        build: (options) =>
+          stateAddonWithTestSeams(options, {
+            moverReport: () => {
+              throw new Error("The mover report failed.");
+            },
+          }),
+      },
+    );
+    expect(outcome?.kind).toBe("ran");
+    const [operation] = readOperations(root);
+    if (!operation) throw new Error("No operation.");
+    expect(operation.events.records.at(-1)?.kind).toBe("outcome");
+    expect(lockFree(join(root, "coordination", "admission.lock"))).toBe(true);
+    expect(
+      lockFree(join(root, "operations", operation.id, "owner.lease")),
+    ).toBe(true);
+  },
+);
+
+supportingTest(
+  "X23 supporting: an upgrade that fails after staging removes its staged format record",
+  async () => {
+    const { root, outcome } = await inTransaction(
+      async (record) => {
+        await record(() => Promise.resolve());
+      },
+      undefined,
+      {
+        build: (options) =>
+          stateAddonWithTestSeams(options, {
+            phase: (name) =>
+              name === "upgrade-staged"
+                ? Promise.reject(new Error("The staged upgrade failed."))
+                : Promise.resolve(),
+          }),
+      },
+    );
+    expect(outcome?.kind === "unavailable" ? outcome.reason : "").toBe(
+      "store-upgrade",
+    );
+    expect(readdirSync(join(root, "staging"))).toEqual([]);
+    const format = readFramed(readFileSync(join(root, "format")));
+    expect(format.records[0]?.payload.journal).toBe("contract3.state");
+    expect(readOperations(root)).toEqual([]);
+  },
+);
+
+supportingTest(
+  "X23 supporting: a failure after the format rename says the format was replaced",
+  async () => {
+    const recordOne: Scenario = async (record) => {
+      await record(() => Promise.resolve());
+    };
+    const { root, outcome } = await inTransaction(recordOne, undefined, {
+      build: (options) =>
+        stateAddonWithTestSeams(options, {
+          phase: (name) =>
+            name === "upgraded"
+              ? Promise.reject(new Error("The upgrade was not confirmed."))
+              : Promise.resolve(),
+        }),
+    });
+    expect(outcome?.kind === "unavailable" ? outcome.reason : "").toBe(
+      "store-upgrade-unconfirmed",
+    );
+    const format = readFramed(readFileSync(join(root, "format")));
+    expect(format.records[0]?.payload.journal).toBe("contract3.state.2");
+    expect(readOperations(root)).toEqual([]);
+    const next = await inTransaction(recordOne, undefined, { root });
+    expect(next.outcome?.kind).toBe("ran");
   },
 );
 

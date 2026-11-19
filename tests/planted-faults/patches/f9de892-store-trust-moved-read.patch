@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
+index a056567..11f1bd4 100644
+--- a/kernel/src/addons/state/store.ts
++++ b/kernel/src/addons/state/store.ts
+@@ -528,7 +528,7 @@ function fromCaseFolders<T>(
+ ): T | "not-found" {
+   for (const directory of [paths.operation(id), paths.settledCase(id)]) {
+     const value = read(directory);
+-    if (folderRemains(directory)) return value;
++    if (typeof value === "object" || folderRemains(directory)) return value;
+   }
+   return "not-found";
+ }

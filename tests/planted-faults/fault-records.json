@@ -1202,5 +1202,250 @@
     "testFile": "tests/kernel/state/component.test.ts",
     "title": "^X13 supporting: the final event is appended, then the key coordination locks are released, then the lease last$",
     "source": "460be51 feat(state): make a transaction wait for its started effects"
+  },
+  {
+    "id": "9086c3b-store-settled-unchecked",
+    "patch": "tests/planted-faults/patches/9086c3b-store-settled-unchecked.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^X24 supporting: a version 2 store refuses",
+    "source": "9086c3b fix(state): refuse a version 2 store whose settled/ is a link or not private"
+  },
+  {
+    "id": "f9de892-store-added-field",
+    "patch": "tests/planted-faults/patches/f9de892-store-added-field.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^J08\\.a-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-store-in-place",
+    "patch": "tests/planted-faults/patches/f9de892-store-in-place.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^J08\\.b-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-store-event-settled-at",
+    "patch": "tests/planted-faults/patches/f9de892-store-event-settled-at.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^J08\\.c-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-store-closure-settled-at",
+    "patch": "tests/planted-faults/patches/f9de892-store-closure-settled-at.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^J08\\.c-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-store-move-bytes",
+    "patch": "tests/planted-faults/patches/f9de892-store-move-bytes.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^L07\\.a-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-store-occupied",
+    "patch": "tests/planted-faults/patches/f9de892-store-occupied.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^L07\\.f-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-store-trust-moved-read",
+    "patch": "tests/planted-faults/patches/f9de892-store-trust-moved-read.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^L08\\.a-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-store-report-trusts-moved-read",
+    "patch": "tests/planted-faults/patches/f9de892-store-report-trusts-moved-read.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^L08\\.a-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-store-operations-only",
+    "patch": "tests/planted-faults/patches/f9de892-store-operations-only.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^K10\\.a-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-install-admission-reads-settled",
+    "patch": "tests/planted-faults/patches/f9de892-install-admission-reads-settled.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^L07\\.b-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-install-report-reads-settled",
+    "patch": "tests/planted-faults/patches/f9de892-install-report-reads-settled.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^L07\\.b-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-install-lease",
+    "patch": "tests/planted-faults/patches/f9de892-install-lease.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^L07\\.d-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-install-case-lock",
+    "patch": "tests/planted-faults/patches/f9de892-install-case-lock.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^L07\\.d-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-install-refused-moves",
+    "patch": "tests/planted-faults/patches/f9de892-install-refused-moves.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^L07\\.d-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-install-move-cap-high",
+    "patch": "tests/planted-faults/patches/f9de892-install-move-cap-high.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^L07\\.e-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-install-move-cap-low",
+    "patch": "tests/planted-faults/patches/f9de892-install-move-cap-low.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^L07\\.e-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-install-examine-cap-high",
+    "patch": "tests/planted-faults/patches/f9de892-install-examine-cap-high.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^L07\\.f-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-install-examine-cap-low",
+    "patch": "tests/planted-faults/patches/f9de892-install-examine-cap-low.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^L07\\.f-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-install-front",
+    "patch": "tests/planted-faults/patches/f9de892-install-front.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^L07\\.f-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-install-failed-move-refuses",
+    "patch": "tests/planted-faults/patches/f9de892-install-failed-move-refuses.patch",
+    "testFile": "tests/kernel/state/component.test.ts",
+    "title": "^L07\\.g-",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "f9de892-install-moved-target",
+    "patch": "tests/planted-faults/patches/f9de892-install-moved-target.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^X26 supporting: a closer whose target settles",
+    "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+  },
+  {
+    "id": "ff852e8-store-upgrade-unknown",
+    "patch": "tests/planted-faults/patches/ff852e8-store-upgrade-unknown.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^X23 supporting: the upgrade refuses",
+    "source": "ff852e8 fix(state): refuse an unknown format at the upgrade and pin the mover's rules"
+  },
+  {
+    "id": "ff852e8-store-upgrade-private",
+    "patch": "tests/planted-faults/patches/ff852e8-store-upgrade-private.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^X23 supporting: the upgrade refuses",
+    "source": "ff852e8 fix(state): refuse an unknown format at the upgrade and pin the mover's rules"
+  },
+  {
+    "id": "ff852e8-install-closure-damaged",
+    "patch": "tests/planted-faults/patches/ff852e8-install-closure-damaged.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^X24 supporting: the mover leaves",
+    "source": "ff852e8 fix(state): refuse an unknown format at the upgrade and pin the mover's rules"
+  },
+  {
+    "id": "ff852e8-install-lease-absent",
+    "patch": "tests/planted-faults/patches/ff852e8-install-lease-absent.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^X24 supporting: the mover leaves",
+    "source": "ff852e8 fix(state): refuse an unknown format at the upgrade and pin the mover's rules"
+  },
+  {
+    "id": "ff852e8-install-case-lock-created",
+    "patch": "tests/planted-faults/patches/ff852e8-install-case-lock-created.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^L07\\.a-",
+    "source": "ff852e8 fix(state): refuse an unknown format at the upgrade and pin the mover's rules"
+  },
+  {
+    "id": "ff852e8-install-moved-target-corrupt",
+    "patch": "tests/planted-faults/patches/ff852e8-install-moved-target-corrupt.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^X26 supporting: a closer whose moved target is corrupt",
+    "source": "ff852e8 fix(state): refuse an unknown format at the upgrade and pin the mover's rules"
+  },
+  {
+    "id": "93dd83e-install-report-throws",
+    "patch": "tests/planted-faults/patches/93dd83e-install-report-throws.patch",
+    "testFile": "tests/kernel/state/component.test.ts",
+    "title": "^X24 supporting: a mover report that throws",
+    "source": "93dd83e fix(state): keep a failed upgrade, report or closure read from spreading"
+  },
+  {
+    "id": "93dd83e-store-staged-left",
+    "patch": "tests/planted-faults/patches/93dd83e-store-staged-left.patch",
+    "testFile": "tests/kernel/state/component.test.ts",
+    "title": "^X23 supporting: an upgrade that fails after staging",
+    "source": "93dd83e fix(state): keep a failed upgrade, report or closure read from spreading"
+  },
+  {
+    "id": "93dd83e-store-replaced-unsaid",
+    "patch": "tests/planted-faults/patches/93dd83e-store-replaced-unsaid.patch",
+    "testFile": "tests/kernel/state/component.test.ts",
+    "title": "^X23 supporting: a failure after the format rename",
+    "source": "93dd83e fix(state): keep a failed upgrade, report or closure read from spreading"
+  },
+  {
+    "id": "93dd83e-install-settled-unchecked-at-move",
+    "patch": "tests/planted-faults/patches/93dd83e-install-settled-unchecked-at-move.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^X24 supporting: the mover moves nothing when settled/ stops",
+    "source": "93dd83e fix(state): keep a failed upgrade, report or closure read from spreading"
+  },
+  {
+    "id": "93dd83e-store-closure-read-throws",
+    "patch": "tests/planted-faults/patches/93dd83e-store-closure-read-throws.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^X26 supporting: a closer's history stays readable",
+    "source": "93dd83e fix(state): keep a failed upgrade, report or closure read from spreading"
+  },
+  {
+    "id": "93dd83e-store-remove-staged-throws",
+    "patch": "tests/planted-faults/patches/93dd83e-store-remove-staged-throws.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^X23 supporting: an upgrade that cannot write or remove",
+    "source": "93dd83e fix(state): keep a failed upgrade, report or closure read from spreading"
+  },
+  {
+    "id": "93dd83e-harness-child-unbounded",
+    "patch": "tests/planted-faults/patches/93dd83e-harness-child-unbounded.patch",
+    "testFile": "tests/kernel/state/journal.test.ts",
+    "title": "^Test harness supporting: the state test world kills",
+    "source": "93dd83e fix(state): keep a failed upgrade, report or closure read from spreading"
   }
 ]

@@ -1,0 +1,18 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index 30bb3d7..b7f5312 100644
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1,4 +1,5 @@
+ import { randomUUID } from "node:crypto";
++import { readdirSync } from "node:fs";
+ import { join } from "node:path";
+ import { contractFor } from "../../kernel/index.ts";
+ import type {
+@@ -771,6 +772,7 @@ export function install(options: StateOptions, seams: Seams) {
+       held.admission.release();
+     };
+     const upgradeProblem = await upgradeStore(paths, phase);
++    readdirSync(paths.settled);
+     const store = readStore(paths);
+     const refusal: Refusal | undefined = upgradeProblem
+       ? { kind: "unavailable", reason: upgradeProblem }

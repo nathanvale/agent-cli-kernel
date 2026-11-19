@@ -64,7 +64,14 @@ export function supportingTest(
   title: string,
   body: () => Promise<void>,
   timeout = 90_000,
+  nonRoot = false,
 ): void {
+  if (nonRoot && process.geteuid?.() === 0) {
+    test(`${title} UNPROVED as euid 0: root is never denied permission`, () => {
+      expect(process.geteuid?.()).toBe(0);
+    });
+    return;
+  }
   if (!coordinationExpected) {
     test(
       `${title} UNPROVED on ${process.platform}: fail-closed control only`,
@@ -238,42 +245,95 @@ export function readFramed(bytes: Uint8Array): FileRead {
   return { records, torn: false, corrupt: false };
 }
 
-export function writeSyntheticOperation(root: string, path: string): string {
-  const id = `op-${createHash("sha256").update(path).digest("hex").slice(0, 32)}`;
-  const directory = join(root, "operations", id);
-  mkdirSync(directory);
-  const payload = JSON.stringify({
-    operationId: id,
-    commandIdentity: "test.synthetic",
-    runId: "synthetic-run",
-    effects: ["note.write"],
-    scope: {
-      resources: [{ resource: "note:synthetic", path, keys: [] }],
-      invariants: [],
-      unknown: false,
-      keys: [],
-    },
-    revisions: {},
-    facts: null,
-    approval: null,
-    closes: null,
-    owner: { lease: "owner.lease", pid: 0, startedAt: 0 },
-    coordination: [],
-    format: 1,
-    kind: "intent",
-  });
-  const body = new TextEncoder().encode(payload);
+export function framed(
+  kind: string,
+  payload: Readonly<Record<string, Json>>,
+): string {
+  const body = JSON.stringify({ ...payload, format: 1, kind });
   const digest = createHash("sha256")
-    .update("intent\n")
+    .update(`${kind}\n`)
     .update(body)
     .digest("hex");
+  return `C3S1 ${kind} ${String(new TextEncoder().encode(body).length).padStart(10, "0")} ${digest}\n${body}\n`;
+}
+
+export const journals = {
+  one: "contract3.state",
+  two: "contract3.state.2",
+} as const;
+
+export function formatRecord(journal: string): string {
+  return framed("format", { journal });
+}
+
+export function versionTwoStore(root: string): void {
+  for (const folder of ["coordination", "operations", "settled", "staging"])
+    mkdirSync(join(root, folder), { recursive: true, mode: 0o700 });
+  writeFileSync(join(root, "format"), formatRecord(journals.two));
+}
+
+export function writeSyntheticOperation(
+  root: string,
+  path: string,
+  options: { readonly id?: string; readonly completed?: true } = {},
+): string {
+  const id =
+    options.id ??
+    `op-${createHash("sha256").update(path).digest("hex").slice(0, 32)}`;
+  const directory = join(root, "operations", id);
+  mkdirSync(directory);
   writeFileSync(
     join(directory, "intent"),
-    `C3S1 intent ${String(body.length).padStart(10, "0")} ${digest}\n${payload}\n`,
+    framed("intent", {
+      operationId: id,
+      commandIdentity: "test.synthetic",
+      runId: "synthetic-run",
+      effects: ["note.write"],
+      scope: {
+        resources: [{ resource: "note:synthetic", path, keys: [] }],
+        invariants: [],
+        unknown: false,
+        keys: [],
+      },
+      revisions: {},
+      facts: null,
+      approval: null,
+      closes: null,
+      owner: { lease: "owner.lease", pid: 0, startedAt: 0 },
+      coordination: [],
+    }),
   );
-  writeFileSync(join(directory, "events"), "");
+  writeFileSync(
+    join(directory, "events"),
+    options.completed
+      ? `${framed("effect-started", { effect: "note.write" })}${framed("effect-confirmed", { effect: "note.write" })}${framed("completion", { completed: ["note.write"] })}`
+      : "",
+  );
   writeFileSync(join(directory, "owner.lease"), "");
   return id;
+}
+
+export function closeArgs(
+  id: string,
+  revision: string,
+  disposition = "completed",
+  closureId = "c1",
+  ...extra: string[]
+): string[] {
+  return [
+    "close",
+    id,
+    "--disposition",
+    disposition,
+    "--closure-id",
+    closureId,
+    "--revision",
+    revision,
+    "--reason",
+    "independent evidence reviewed",
+    ...extra,
+    "--json",
+  ];
 }
 
 export type Observed = {
@@ -283,8 +343,11 @@ export type Observed = {
   readonly closure: FileRead | undefined;
 };
 
-export function readOperations(root: string): readonly Observed[] {
-  const directory = join(root, "operations");
+export function readOperations(
+  root: string,
+  folder: "operations" | "settled" = "operations",
+): readonly Observed[] {
+  const directory = join(root, folder);
   if (!existsSync(directory)) return [];
   return readdirSync(directory)
     .sort()
@@ -305,6 +368,38 @@ export function readOperations(root: string): readonly Observed[] {
     });
 }
 
+export function versionOneReader(root: string): Json {
+  const format = readFramed(readFileSync(join(root, "format")));
+  const [record, ...rest] = format.records;
+  const accepted =
+    !format.torn &&
+    !format.corrupt &&
+    rest.length === 0 &&
+    record?.kind === "format" &&
+    record.payload.journal === journals.one;
+  if (!accepted) return "corrupt";
+  const operations = readOperations(root);
+  if (operations.some((operation) => operation.events.corrupt))
+    return "corrupt";
+  return operations.map(versionOneStatus).sort();
+}
+
+function versionOneStatus(operation: Observed): string {
+  const closure = operation.closure;
+  if (
+    closure &&
+    !closure.torn &&
+    !closure.corrupt &&
+    closure.records.length === 1 &&
+    closure.records[0]?.kind === "closure"
+  )
+    return "closed";
+  const own = operation.events.records.find(
+    (record) => record.kind === "completion" || record.kind === "not-applied",
+  );
+  return own?.kind === "completion" ? "completed" : (own?.kind ?? "unresolved");
+}
+
 export type Started = {
   readonly pid: number;
   readonly reached: (phase: string) => Promise<void>;
@@ -315,9 +410,16 @@ export type Started = {
 
 export type World = ReturnType<typeof makeWorld>;
 
+const defaultChildBound = 60_000;
+
 export function makeWorld(
-  options: { readonly qualification?: "fixture"; readonly entry?: string } = {},
+  options: {
+    readonly qualification?: "fixture";
+    readonly entry?: string;
+    readonly childBound?: number;
+  } = {},
 ) {
+  const childBound = options.childBound ?? defaultChildBound;
   const program = options.entry ?? specimen;
   const base = testFolder("c3-state-");
   const root = join(base, "state");
@@ -351,7 +453,7 @@ export function makeWorld(
   function start(
     argv: readonly string[],
     extra: Readonly<Record<string, string>> = {},
-    limitMilliseconds?: number,
+    limitMilliseconds: number = childBound,
   ): Started {
     const barrierDirectory = extra.SX_BARRIER_DIR ?? bars;
     const child = Bun.spawn([process.execPath, program, ...argv], {
@@ -362,13 +464,10 @@ export function makeWorld(
     });
     children.push(child);
     let outlived = false;
-    const limit =
-      limitMilliseconds === undefined
-        ? undefined
-        : setTimeout(() => {
-            outlived = true;
-            child.kill("SIGKILL");
-          }, limitMilliseconds);
+    const limit = setTimeout(() => {
+      outlived = true;
+      child.kill("SIGKILL");
+    }, limitMilliseconds);
     const done = (async () => {
       const [stdout, stderr] = await Promise.all([
         new Response(child.stdout).text(),
@@ -387,6 +486,7 @@ export function makeWorld(
         stderr,
       );
     })();
+    void done.catch(() => undefined);
     return {
       pid: child.pid,
       done,
@@ -422,8 +522,9 @@ export function makeWorld(
   async function run(
     argv: readonly string[],
     extra: Readonly<Record<string, string>> = {},
+    limitMilliseconds: number = childBound,
   ): Promise<Run> {
-    return start(argv, extra).done;
+    return start(argv, extra, limitMilliseconds).done;
   }
 
   function ledger(): readonly string[] {
@@ -524,6 +625,8 @@ export function makeWorld(
     killAt,
     clearRelease,
     operations: () => readOperations(root),
+    settled: () => readOperations(root, "settled"),
+    cases: () => [...readOperations(root), ...readOperations(root, "settled")],
     dispose() {
       for (const child of children) child.kill("SIGKILL");
       rmSync(base, { recursive: true, force: true });

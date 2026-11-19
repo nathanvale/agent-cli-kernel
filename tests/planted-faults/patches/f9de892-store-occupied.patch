@@ -1,0 +1,17 @@
+diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
+index a056567..55603b2 100644
+--- a/kernel/src/addons/state/store.ts
++++ b/kernel/src/addons/state/store.ts
+@@ -593,12 +593,6 @@ export function moveSettledCase(
+   paths: Layout,
+   id: string,
+ ): "moved" | "occupied" {
+-  try {
+-    lstatSync(paths.settledCase(id));
+-    return "occupied";
+-  } catch (error) {
+-    if (errorCode(error) !== "ENOENT") throw error;
+-  }
+   renameSync(paths.operation(id), paths.settledCase(id));
+   return "moved";
+ }

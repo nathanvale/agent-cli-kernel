@@ -1,0 +1,12 @@
+diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
+index a056567..f6dcb5c 100644
+--- a/kernel/src/addons/state/store.ts
++++ b/kernel/src/addons/state/store.ts
+@@ -578,7 +578,6 @@ export function readStore(paths: Layout): ReadResult {
+     for (const name of readdirSync(paths.operations).sort()) {
+       if (!operationPattern.test(name)) return { ok: false, reason: "corrupt" };
+       const read = readCaseIn(paths.operation(name), name);
+-      if (!folderRemains(paths.operation(name))) continue;
+       if (read === "corrupt" || read === "unreadable")
+         return { ok: false, reason: read };
+       operations.push(read);
