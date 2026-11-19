@@ -21,7 +21,7 @@ import {
 import type { StateAddonDescriptor } from "./state-seam.ts";
 import type { CauseTable, Effects, Validation } from "./types.ts";
 import { proofValue } from "./validation/state.ts";
-import { invocationTokens, resolveInvocation } from "./routing.ts";
+import { invocationTokens, refused, resolveInvocation } from "./routing.ts";
 import { recordRuntime } from "./runtime.ts";
 import type { Attach, Enter, KernelFacts } from "./runtime.ts";
 import { authority, resource, path } from "./validation/brands.ts";
@@ -426,12 +426,12 @@ export function contractFor<
           await validateFutureInputs(selected, resolved.value.input, inputTable)
         ).ok
       )
-        return {
-          ok: false,
-          commandIdentity: selected.commandIdentity,
-          causeCode: "USAGE_INVALID_INVOCATION",
-          machine: resolved.value.machine,
-        } as const;
+        return refused(
+          spec.cli,
+          { kind: "invalid" },
+          resolved.value.machine,
+          selected.commandIdentity,
+        );
       const route = selected?.route ?? [];
       const tokens = invocationTokens(
         raw.map((token) => (typeof token === "string" ? token : "")),
