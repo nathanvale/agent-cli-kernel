@@ -14,6 +14,7 @@ import {
 } from "node:fs";
 import { createHash } from "node:crypto";
 import { isAbsolute, join } from "node:path";
+import { errorCode } from "./coordination.ts";
 import { encodeRecord, parseRecords, plainObject } from "./framing.ts";
 import type { ParsedRecord } from "./framing.ts";
 import type { CanonicalScope } from "./scope.ts";
@@ -129,7 +130,10 @@ export async function upgradeStore(
   paths: Layout,
   phase: (name: UpgradePhase) => Promise<void>,
 ): Promise<void> {
-  if (journalOf(paths) === journals.two) return;
+  const journal = journalOf(paths);
+  if (journal === journals.two) return;
+  if (journal !== journals.one)
+    throw new Error("The format record names no known journal.");
   mkdirSync(paths.settled, { recursive: true, mode: 0o700 });
   if (!privateDirectory(paths.settled))
     throw new Error("settled/ is not a private directory.");
@@ -488,30 +492,37 @@ function folderRemains(directory: string): boolean {
     lstatSync(directory);
     return true;
   } catch (error) {
-    return Reflect.get(Object(error), "code") !== "ENOENT";
+    return errorCode(error) !== "ENOENT";
   }
+}
+
+function fromCaseFolders<T>(
+  paths: Layout,
+  id: string,
+  read: (directory: string) => T,
+): T | "not-found" {
+  for (const directory of [paths.operation(id), paths.settledCase(id)]) {
+    const value = read(directory);
+    if (folderRemains(directory)) return value;
+  }
+  return "not-found";
 }
 
 function readCaseIn(
   directory: string,
   id: string,
-): Operation | "corrupt" | "unreadable" | "moved" {
-  let read: Operation | "corrupt" | "unreadable";
+): Operation | "corrupt" | "unreadable" {
   try {
-    read = readOperationIn(directory, id);
+    return readOperationIn(directory, id);
   } catch {
-    read = "unreadable";
+    return "unreadable";
   }
-  return folderRemains(directory) ? read : "moved";
 }
 
 export type CaseRead = Operation | "not-found" | "corrupt" | "unreadable";
 
 export function readCase(paths: Layout, id: string): CaseRead {
-  const unmoved = readCaseIn(paths.operation(id), id);
-  if (unmoved !== "moved") return unmoved;
-  const settled = readCaseIn(paths.settledCase(id), id);
-  return settled === "moved" ? "not-found" : settled;
+  return fromCaseFolders(paths, id, (directory) => readCaseIn(directory, id));
 }
 
 export function storeProblem(
@@ -539,7 +550,7 @@ export function readStore(paths: Layout): ReadResult {
     for (const name of readdirSync(paths.operations).sort()) {
       if (!operationPattern.test(name)) return { ok: false, reason: "corrupt" };
       const read = readCaseIn(paths.operation(name), name);
-      if (read === "moved") continue;
+      if (!folderRemains(paths.operation(name))) continue;
       if (read === "corrupt" || read === "unreadable")
         return { ok: false, reason: read };
       operations.push(read);
@@ -558,7 +569,7 @@ export function moveSettledCase(
     lstatSync(paths.settledCase(id));
     return "occupied";
   } catch (error) {
-    if (Reflect.get(Object(error), "code") !== "ENOENT") throw error;
+    if (errorCode(error) !== "ENOENT") throw error;
   }
   renameSync(paths.operation(id), paths.settledCase(id));
   return "moved";
@@ -662,10 +673,10 @@ export function readClosure(
   paths: Layout,
   id: string,
 ): Closure | "damaged" | undefined {
-  const unmoved = closureIn(paths.operation(id), id);
-  return folderRemains(paths.operation(id))
-    ? unmoved
-    : closureIn(paths.settledCase(id), id);
+  const found = fromCaseFolders(paths, id, (directory) =>
+    closureIn(directory, id),
+  );
+  return found === "not-found" ? undefined : found;
 }
 
 function closureIn(

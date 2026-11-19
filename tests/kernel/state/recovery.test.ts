@@ -13,6 +13,7 @@ import { join } from "node:path";
 import {
   at,
   caseTest,
+  closeArgs,
   expectCompleted,
   expectRefusedUnchanged,
   makeWorld,
@@ -58,28 +59,6 @@ function closurePath(world: World, id: string): string {
     ? "settled"
     : "operations";
   return join(world.root, folder, id, "closure");
-}
-function closeArgs(
-  id: string,
-  revision: string,
-  disposition = "completed",
-  closureId = "c1",
-  ...extra: string[]
-): string[] {
-  return [
-    "close",
-    id,
-    "--disposition",
-    disposition,
-    "--closure-id",
-    closureId,
-    "--revision",
-    revision,
-    "--reason",
-    "independent evidence reviewed",
-    ...extra,
-    "--json",
-  ];
 }
 async function close(
   world: World,
@@ -393,20 +372,25 @@ caseTest(
   }),
 );
 
+async function closerWaitsWhileTargetMoves(world: World) {
+  const live = world.start(apply("a"), { SX_BARRIER: "intent" });
+  await live.reached("intent");
+  const id = only(world);
+  const closer = world.start(closeArgs(id, await world.revision(id)), {
+    SX_BARRIER: "admission-wait",
+  });
+  await closer.reached("admission-wait");
+  live.release("intent");
+  expectCompleted(await live.done);
+  expectCompleted(await world.run(apply("b")));
+  expect(world.settled().map((entry) => entry.id)).toEqual([id]);
+  return { id, closer };
+}
+
 supportingTest(
   "X26 supporting: a closer whose target settles and moves while it waits finds it in settled/",
   fixture(async (world) => {
-    const live = world.start(apply("a"), { SX_BARRIER: "intent" });
-    await live.reached("intent");
-    const id = only(world);
-    const closer = world.start(closeArgs(id, await world.revision(id)), {
-      SX_BARRIER: "admission-wait",
-    });
-    await closer.reached("admission-wait");
-    live.release("intent");
-    expectCompleted(await live.done);
-    expectCompleted(await world.run(apply("b")));
-    expect(world.settled().map((entry) => entry.id)).toEqual([id]);
+    const { id, closer } = await closerWaitsWhileTargetMoves(world);
     closer.release("admission-wait");
     expectRefusedUnchanged(await closer.done, "DOMAIN_SX_CLOSE_CONFLICT");
     expect(existsSync(join(world.root, "settled", id, "closure"))).toBe(false);
@@ -414,6 +398,22 @@ supportingTest(
       "sx.apply",
       "sx.apply",
     ]);
+  }),
+);
+
+supportingTest(
+  "X26 supporting: a closer whose moved target is corrupt names the store, not a missing case",
+  fixture(async (world) => {
+    const { id, closer } = await closerWaitsWhileTargetMoves(world);
+    const intent = join(world.root, "settled", id, "intent");
+    const bytes = readFileSync(intent);
+    const index = bytes.length - 3;
+    bytes[index] = (bytes[index] ?? 0) ^ 1;
+    writeFileSync(intent, bytes);
+    closer.release("admission-wait");
+    const refused = await closer.done;
+    expectRefusedUnchanged(refused, "DOMAIN_SX_UNAVAILABLE");
+    expect(str(refused.envelope.message)).toContain("store-corrupt");
   }),
 );
 

@@ -306,6 +306,80 @@ export function writeSyntheticOperation(
   return id;
 }
 
+export function closeArgs(
+  id: string,
+  revision: string,
+  disposition = "completed",
+  closureId = "c1",
+  ...extra: string[]
+): string[] {
+  return [
+    "close",
+    id,
+    "--disposition",
+    disposition,
+    "--closure-id",
+    closureId,
+    "--revision",
+    revision,
+    "--reason",
+    "independent evidence reviewed",
+    ...extra,
+    "--json",
+  ];
+}
+
+const versionOneCommit = "8b4ed49ed7beea9c2db182ea81ac22f3c207e458";
+
+const versionOneReader = `import { ensureStore, layout, readStore } from "./store.ts";
+const paths = layout(process.argv[2] ?? "");
+const read = readStore(paths);
+console.log(JSON.stringify({
+  read: read.ok
+    ? read.operations.map((operation) => operation.status).sort()
+    : read.reason,
+  changing: ensureStore(paths),
+}));
+`;
+
+export function versionOneProgram(root: string): Json {
+  const folder = testFolder("c3-state-v1-");
+  try {
+    for (const file of ["store.ts", "framing.ts"]) {
+      const shown = Bun.spawnSync(
+        ["git", "show", `${versionOneCommit}:kernel/src/addons/state/${file}`],
+        {
+          cwd: import.meta.dir,
+          stdin: "ignore",
+          stdout: "pipe",
+          stderr: "pipe",
+          timeout: 4_000,
+        },
+      );
+      if (shown.exitCode !== 0)
+        throw new Error(
+          `git show ${versionOneCommit} ${file} failed: ${shown.stderr.toString()}`,
+        );
+      writeFileSync(join(folder, file), shown.stdout);
+    }
+    writeFileSync(join(folder, "reader.ts"), versionOneReader);
+    const ran = Bun.spawnSync(
+      [process.execPath, join(folder, "reader.ts"), root],
+      {
+        stdin: "ignore",
+        stdout: "pipe",
+        stderr: "pipe",
+        timeout: 30_000,
+      },
+    );
+    if (ran.exitCode !== 0)
+      throw new Error(`The version 1 reader failed: ${ran.stderr.toString()}`);
+    return json(JSON.parse(ran.stdout.toString()));
+  } finally {
+    rmSync(folder, { recursive: true, force: true });
+  }
+}
+
 export type Observed = {
   readonly id: string;
   readonly intent: { [key: string]: Json };

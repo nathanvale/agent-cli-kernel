@@ -19,20 +19,22 @@ import { join } from "node:path";
 import {
   at,
   caseTest,
+  closeArgs,
   expectCompleted,
   expectRefusedUnchanged,
   formatRecord,
   framed,
   journals,
   makeWorld,
-  readFramed,
   str,
   supportingTest,
+  versionOneProgram,
   versionTwoStore,
   writeSyntheticOperation,
 } from "./harness.ts";
-import type { Started, World } from "./harness.ts";
+import type { Json, Started, World } from "./harness.ts";
 import { holdLock } from "./holder.ts";
+import { layout } from "../../../kernel/src/addons/state/store.ts";
 
 const apply = (name: string, content = "v1") => [
   "apply",
@@ -711,18 +713,6 @@ function formatText(world: World): string {
   return readFileSync(join(world.root, "format"), "utf8");
 }
 
-function versionOneAccepts(root: string): boolean {
-  const read = readFramed(readFileSync(join(root, "format")));
-  const [record, ...rest] = read.records;
-  return (
-    !read.torn &&
-    !read.corrupt &&
-    rest.length === 0 &&
-    record?.kind === "format" &&
-    record.payload.journal === journals.one
-  );
-}
-
 function asVersionOneStore(world: World): void {
   const settled = join(world.root, "settled");
   for (const id of readdirSync(settled))
@@ -748,24 +738,21 @@ function fileDigests(directory: string): Readonly<Record<string, string>> {
   return out;
 }
 
-function closeArgs(id: string, revision: string): string[] {
-  return [
-    "close",
-    id,
-    "--disposition",
-    "completed",
-    "--closure-id",
-    "c1",
-    "--revision",
-    revision,
-    "--reason",
-    "read back present",
-    "--json",
-  ];
-}
-
 async function closeCompleted(world: World, id: string): Promise<void> {
   expectCompleted(await world.run(closeArgs(id, await world.revision(id))));
+}
+
+function caseLock(world: World, id: string): string {
+  return layout(world.root).keyLock(`case:${id}`);
+}
+
+function expectStampWithin(
+  stamp: Json | undefined,
+  window: { readonly before: number; readonly after: number },
+): void {
+  if (typeof stamp !== "number") throw new Error("No settledAt.");
+  expect(stamp).toBeGreaterThanOrEqual(window.before);
+  expect(stamp).toBeLessThanOrEqual(window.after);
 }
 
 function moverLines(world: World): readonly string[] {
@@ -777,15 +764,19 @@ caseTest(
   plain(async (world) => {
     expectCompleted(await world.run(apply("a")));
     expect(formatText(world)).toBe(versionTwoFormat);
-    expect(versionOneAccepts(world.root)).toBe(false);
+    expect(versionOneProgram(world.root)).toEqual({
+      read: "corrupt",
+      changing: false,
+    });
     const format = join(world.root, "format");
+    const accepted = { read: ["completed"], changing: true };
     writeFileSync(format, versionOneFormat);
-    expect(versionOneAccepts(world.root)).toBe(true);
+    expect(versionOneProgram(world.root)).toEqual(accepted);
     writeFileSync(
       format,
       framed("format", { journal: journals.one, version: 2 }),
     );
-    expect(versionOneAccepts(world.root)).toBe(true);
+    expect(versionOneProgram(world.root)).toEqual(accepted);
     const [operation] = world.operations();
     if (!operation) throw new Error("No operation.");
     const other = formatRecord("contract3.state.3");
@@ -866,33 +857,33 @@ caseTest(
       );
     if (!killed) throw new Error("No killed case.");
     await closeCompleted(world, killed.id);
-    const after = Date.now();
-    const cases = [...world.operations(), ...world.settled()];
-    const stamps: Record<string, number> = {};
+    const window = { before, after: Date.now() };
+    const cases = world.cases();
+    const stamped: string[] = [];
     for (const entry of cases) {
       expect(entry.events.torn || entry.events.corrupt).toBe(false);
-      for (const record of entry.events.records) {
-        const stamp = record.payload.settledAt;
+      for (const record of entry.events.records)
         if (record.kind === "completion" || record.kind === "not-applied") {
-          if (typeof stamp !== "number") throw new Error("No settledAt.");
-          expect(stamp).toBeGreaterThanOrEqual(before);
-          expect(stamp).toBeLessThanOrEqual(after);
-          stamps[record.kind] = (stamps[record.kind] ?? 0) + 1;
-        } else expect(stamp).toBeUndefined();
-      }
-      const closure = entry.closure;
-      if (!closure) continue;
-      expect(closure.torn || closure.corrupt).toBe(false);
-      const stamp = closure.records[0]?.payload.settledAt;
-      if (typeof stamp !== "number") throw new Error("No closure settledAt.");
-      expect(stamp).toBeGreaterThanOrEqual(before);
-      expect(stamp).toBeLessThanOrEqual(after);
-      stamps.closure = (stamps.closure ?? 0) + 1;
+          expectStampWithin(record.payload.settledAt, window);
+          stamped.push(record.kind);
+        } else expect(record.payload.settledAt).toBeUndefined();
+      if (!entry.closure) continue;
+      expect(entry.closure.torn || entry.closure.corrupt).toBe(false);
+      expectStampWithin(entry.closure.records[0]?.payload.settledAt, window);
+      stamped.push("closure");
     }
-    expect(stamps).toEqual({ completion: 2, "not-applied": 1, closure: 1 });
+    expect(stamped.sort()).toEqual([
+      "closure",
+      "completion",
+      "completion",
+      "not-applied",
+    ]);
     expect((await world.pendingIds()).length).toBe(1);
-    for (const entry of cases)
-      expect((await world.history(entry.id)).exit).toBe(0);
+    asVersionOneStore(world);
+    expect(versionOneProgram(world.root)).toEqual({
+      read: ["closed", "completed", "completed", "not-applied", "unresolved"],
+      changing: true,
+    });
   }),
 );
 
@@ -909,6 +900,7 @@ caseTest(
     expect(caseFolders(world, "settled")).toEqual([first]);
     expect(caseFolders(world, "operations")).not.toContain(first);
     expect(fileDigests(join(world.root, "settled", first))).toEqual(digests);
+    expect(existsSync(caseLock(world, first))).toBe(false);
     const history = await world.history(first);
     expect(history.exit).toBe(0);
     expect(at(history.result.raw, "data", "status")).toBe("completed");
@@ -984,13 +976,9 @@ caseTest(
       releaseLease();
     }
     expect(caseFolders(world, "settled")).toEqual([]);
-    const caseLock = join(
-      world.root,
-      "coordination",
-      `k-${createHash("sha256").update(`case:${settledCase}`).digest("hex").slice(0, 32)}.lock`,
-    );
-    expect(existsSync(caseLock)).toBe(false);
-    const releaseCase = holdLock(caseLock);
+    const closerLock = caseLock(world, settledCase);
+    expect(existsSync(closerLock)).toBe(false);
+    const releaseCase = holdLock(closerLock);
     try {
       expectCompleted(await world.run(apply("c")));
     } finally {
@@ -1038,14 +1026,13 @@ caseTest(
     for (const id of ids.slice(0, 128))
       mkdirSync(join(world.root, "settled", id));
     const eligible = ids[128] ?? "";
-    expectCompleted(
-      await world.run(apply("a"), {
-        SX_MOVER_REPORT: "1",
-        SX_MOVER_START: "0",
-      }),
-    );
+    await world.killAt(apply("a"), "intent", {
+      SX_MOVER_REPORT: "1",
+      SX_MOVER_START: "0",
+    });
     expect(moverLines(world)).toEqual(["mover examined 128 moved 0"]);
     expect(caseFolders(world, "operations")).toContain(eligible);
+    expect((await world.pendingIds()).length).toBe(1);
     expectCompleted(
       await world.run(apply("b"), {
         SX_MOVER_REPORT: "1",
@@ -1145,5 +1132,55 @@ caseTest(
     expect(at(found.result.raw, "data", "closure", "disposition")).toBe(
       "completed",
     );
+  }),
+);
+
+supportingTest(
+  "X23 supporting: the upgrade refuses a settled/ that is not private, and a format it does not know",
+  plain(async (world) => {
+    expectCompleted(await world.run(apply("a")));
+    asVersionOneStore(world);
+    const settled = join(world.root, "settled");
+    mkdirSync(settled);
+    chmodSync(settled, 0o770);
+    const shared = await world.run(apply("b"));
+    expectRefusedUnchanged(shared, "DOMAIN_SX_UNAVAILABLE");
+    expect(str(shared.envelope.message)).toContain("store-upgrade");
+    expect(formatText(world)).toBe(versionOneFormat);
+    chmodSync(settled, 0o700);
+    expectCompleted(await world.run(apply("b")));
+    expect(formatText(world)).toBe(versionTwoFormat);
+    const waiting = world.start(apply("c"), { SX_BARRIER: "admission-wait" });
+    await waiting.reached("admission-wait");
+    const unknown = formatRecord("contract3.state.3");
+    writeFileSync(join(world.root, "format"), unknown);
+    waiting.release("admission-wait");
+    const refused = await waiting.done;
+    expectRefusedUnchanged(refused, "DOMAIN_SX_UNAVAILABLE");
+    expect(str(refused.envelope.message)).toContain("store-upgrade");
+    expect(formatText(world)).toBe(unknown);
+    expect(world.noteLedger("c")).toBe(0);
+  }),
+);
+
+supportingTest(
+  "X24 supporting: the mover leaves a case with a damaged closure or no lease file",
+  plain(async (world) => {
+    versionTwoStore(world.root);
+    const [damaged, leaseless, eligible] = ["x", "y", "z"].map((name) =>
+      writeSyntheticOperation(world.root, world.note(name), {
+        completed: true,
+      }),
+    );
+    if (!damaged || !leaseless || !eligible) throw new Error("No cases.");
+    const operations = join(world.root, "operations");
+    writeFileSync(join(operations, damaged, "closure"), "damaged");
+    rmSync(join(operations, leaseless, "owner.lease"));
+    expectCompleted(await world.run(apply("a")));
+    expect(caseFolders(world, "settled")).toEqual([eligible]);
+    const left = caseFolders(world, "operations");
+    expect(left).toContain(damaged);
+    expect(left).toContain(leaseless);
+    expect(existsSync(caseLock(world, damaged))).toBe(false);
   }),
 );

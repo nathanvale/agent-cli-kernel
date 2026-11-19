@@ -427,6 +427,14 @@ function settledCheck(
     : { kind: "not-unresolved" };
 }
 
+function readProblem(
+  read: "not-found" | "corrupt" | "unreadable",
+): CloseResultBody {
+  return read === "not-found"
+    ? { kind: "not-found" }
+    : { kind: "unavailable", reason: `store-${read}` };
+}
+
 function stoppedOwnerProblem(
   qualification: Qualification,
   target: Operation,
@@ -1188,9 +1196,10 @@ export function install(options: StateOptions, seams: Seams) {
       const moved = readCase(paths, id);
       return {
         ok: false,
-        stop: (typeof moved === "object" && settledCheck(moved, request)) || {
-          kind: "not-found",
-        },
+        stop:
+          typeof moved === "string"
+            ? readProblem(moved)
+            : (settledCheck(moved, request) ?? { kind: "not-found" }),
       };
     }
     const lease = paths.tryLock(
@@ -1236,9 +1245,7 @@ export function install(options: StateOptions, seams: Seams) {
     if (problem || !effect)
       return stop(problem ?? { kind: "unavailable", reason: "declaration" });
     const first = readCase(paths, request.operationId);
-    if (first === "not-found") return stop({ kind: "not-found" });
-    if (first === "corrupt" || first === "unreadable")
-      return stop({ kind: "unavailable", reason: `store-${first}` });
+    if (typeof first === "string") return stop(readProblem(first));
     const early = settledCheck(first, request);
     if (early) return stop(early);
     const targetKeys = currentKeys(first.intent.scope);
