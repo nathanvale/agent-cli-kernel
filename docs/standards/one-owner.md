@@ -22,13 +22,16 @@ here.
   disables the global and system files, clears `GIT_CONFIG_PARAMETERS`, and
   replaces any runtime `GIT_CONFIG_COUNT` with its own two `KEY_n` and
   `VALUE_n` pairs, `maintenance.auto=false` and `gc.auto=0`, so a fixture
-  commit starts no background git maintenance. A user's `diff.orderFile`
+  commit starts no background git maintenance. It also pins
+  `GIT_DEFAULT_HASH` to `sha1`, so a caller's sha256 default cannot change a
+  fixture repository's object format. A user's `diff.orderFile`
   changed what the staged readers listed. Witnessed: [f929eb7], [7a62deb],
   [#84-git] (a local copy left runtime configuration in the replay fixture),
   [#90-git] (the bootstrap fixture inherited a signing requirement),
   [#101-git] (the naming fixture inherited a setting that disabled its hook),
   [73cb18b] (a commit's background maintenance still changed `.git` while a
-  test removed the folder, on macOS).
+  test removed the folder, on macOS), [55e24d6] (a caller's sha256 default
+  made fixture repositories sha256).
 - Start every child and git call a hook can reach from
   `withoutRepositoryLocation` in `scripts/process-runner.ts`, so none reads
   the hook's repository through `GIT_DIR` or the variables beside it.
@@ -54,3 +57,4 @@ here.
 [#109-git]: https://github.com/nathanvale/bun-typescript-template/pull/109#discussion_r4609955976
 [7fb5649]: https://github.com/nathanvale/agent-cli-kernel/commit/7fb564900cff191397fdc8d1ba6f20e6807abdde
 [73cb18b]: https://github.com/nathanvale/agent-cli-kernel/commit/73cb18b9e96a5d549be88b007c194a90195aeae8
+[55e24d6]: https://github.com/nathanvale/agent-cli-kernel/commit/55e24d6fe702b002de8173e05b0c21907c315422
