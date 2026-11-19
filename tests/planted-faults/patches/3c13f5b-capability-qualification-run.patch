@@ -1,0 +1,39 @@
+diff --git a/tests/kernel/state/capability-qualification-run.ts b/tests/kernel/state/capability-qualification-run.ts
+index 6d6a3d0..4d8c892 100644
+--- a/tests/kernel/state/capability-qualification-run.ts
++++ b/tests/kernel/state/capability-qualification-run.ts
+@@ -717,22 +717,6 @@ function cleanProblem(place: GitPlace, commit: string): string | undefined {
+   return dotenvProblem(place.root);
+ }
+ 
+-function changedWhileRunning(
+-  place: GitPlace,
+-  commit: string,
+-): string | undefined {
+-  const head = git(place, ["rev-parse", "HEAD"]).trim();
+-  const problem =
+-    head === commit
+-      ? cleanProblem(place, commit)
+-          ?.replace(/^Refused: /, "")
+-          .replace(/\.? Repair: [\s\S]*$/, "")
+-      : `HEAD moved to ${head}`;
+-  return problem === undefined
+-    ? undefined
+-    : `Refused: the checkout changed while the cases ran (${problem}); the cases may not have run commit ${commit}, so no capability qualification record is written. Repair: restore the checkout to that commit with no changes, then rerun.`;
+-}
+-
+ function existingRecord(
+   root: string,
+   id: string,
+@@ -967,11 +951,6 @@ export async function capabilityQualificationRun(
+     );
+     return 1;
+   }
+-  const changed = changedWhileRunning(context, commit);
+-  if (changed !== undefined) {
+-    context.print(changed);
+-    return 1;
+-  }
+   const disagreement = exitDisagreement(caseRunResult, selection);
+   if (disagreement !== undefined) {
+     context.print(

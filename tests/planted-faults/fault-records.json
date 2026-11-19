@@ -3008,5 +3008,12 @@
     "testFile": "tests/template/test-helpers/git-fixture.test.ts",
     "title": "^a fixture commit starts no background git maintenance",
     "source": "73cb18b test(support): stop fixture commits from starting background git maintenance"
+  },
+  {
+    "id": "3c13f5b-capability-qualification-run",
+    "patch": "tests/planted-faults/patches/3c13f5b-capability-qualification-run.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "Q03.b refuses a run whose checkout changed while the cases ran (a qualified file edited) and writes no record",
+    "source": "3c13f5b fix(state): refuse a capability qualification run whose checkout changed while its cases ran"
   }
 ]
