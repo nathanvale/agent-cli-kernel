@@ -68,6 +68,7 @@ type AttachedRun = {
   proof: TransactionProof | undefined;
   closed: "returned" | "deadline" | undefined;
   revoked: boolean;
+  openTransaction: Promise<void> | undefined;
 };
 const closedReason = {
   returned: "The state capability closed when the handler returned.",
@@ -328,13 +329,21 @@ export function attachedRunCount(descriptor: StateAddonDescriptor): number {
 // Accepted decision (Nathan, 19 November 2026, 12:08 AEDT): the seam forgets a
 // run identity when its run finishes, so a long-lived process holds only its
 // live runs. A reused identity is refused only while its earlier run is live.
-// The in-process entry calls this; runProcess ends its process instead, and a
+// A run whose transaction is still open stays live until that transaction
+// ends, so no other run can take its identity meanwhile; this reading is this
+// code's, not the ruling's. The in-process entry calls this; runProcess ends its process instead, and a
 // direct contract.execute caller's run never reports that it finished.
 export function forgetRun(
   runId: string,
   descriptor: StateAddonDescriptor | undefined,
 ): void {
   const state = descriptor ? registrations.get(descriptor) : undefined;
+  const run = state?.runs.get(runId);
+  const open = run ? attachedRuns.get(run)?.openTransaction : undefined;
+  if (open) {
+    void open.then(() => state?.runs.delete(runId));
+    return;
+  }
   state?.runs.delete(runId);
 }
 
@@ -369,6 +378,7 @@ export function attachState<Effect extends string>(
     proof: undefined,
     closed: undefined,
     revoked: false,
+    openTransaction: undefined,
   };
   attachedRuns.set(run, status);
   state.runs.set(runId, run);
@@ -381,9 +391,14 @@ export function attachState<Effect extends string>(
         if (status.transactionStarted)
           return Promise.reject(new Error("One transaction per attached run."));
         status.transactionStarted = true;
-        return state.active.run({ runId, run }, () =>
+        const proving = state.active.run({ runId, run }, () =>
           attached.transaction(work),
         );
+        const ended = () => {
+          status.openTransaction = undefined;
+        };
+        status.openTransaction = proving.then(ended, ended);
+        return proving;
       },
     });
   capabilities.set(capability, [...effects]);
