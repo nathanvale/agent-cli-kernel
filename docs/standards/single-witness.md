@@ -116,6 +116,10 @@ this file.
   read the blocks. Witnessed: [kernel#21 r4634973490], [0800d56] (the author
   guide's fence parser dropped an unclosed code block, so a stale or untyped
   example passed the language and freshness checks).
+- Make a check that a set of lines appears somewhere refuse an empty or
+  blank set, since a check over no lines passes for every file. Witnessed:
+  [kernel#21 review 5984293964], [fd6d26b] (an empty `ts` block in the author
+  guide matched the first example file, so it passed the freshness check).
 
 [ac11ed9]: https://github.com/nathanvale/bun-typescript-template/commit/ac11ed98b7d538e8a304cac053aaefcaaf6b2cb3
 [cd2498b]: https://github.com/nathanvale/bun-typescript-template/commit/cd2498b7189a2d45d1906b9c870e8d13da6cd2dd
@@ -150,3 +154,5 @@ this file.
 [4f7712e]: https://github.com/nathanvale/agent-cli-kernel/commit/4f7712e80e9ea127b4bf43b7d9f69e8cd6a8954a
 [kernel#21 r4634973490]: https://github.com/nathanvale/agent-cli-kernel/pull/21#discussion_r4634973490
 [0800d56]: https://github.com/nathanvale/agent-cli-kernel/commit/0800d56170e923cf87a7913092ad5c45430fdee7
+[kernel#21 review 5984293964]: https://github.com/nathanvale/agent-cli-kernel/pull/21#pullrequestreview-5984293964
+[fd6d26b]: https://github.com/nathanvale/agent-cli-kernel/commit/fd6d26b6cda0782605199a7f3ee5ea4ab2c52482
