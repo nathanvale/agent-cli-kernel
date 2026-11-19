@@ -12,7 +12,7 @@ import {
   utimesSync,
   writeFileSync,
 } from "node:fs";
-import { homedir, hostname, release } from "node:os";
+import { homedir, release, type } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { movedStateRoot } from "../../../kernel/src/addons/state/capability-qualification-table.ts";
 import { resolveCoordination } from "../../../kernel/src/addons/state/coordination.ts";
@@ -134,9 +134,22 @@ function bootIdentityReadable(): boolean {
 
 function callerEnvironment(): Record<string, string | undefined> {
   return Object.fromEntries(
-    Object.entries(inherited()).filter(([name]) => !name.startsWith("SX_")),
+    Object.entries(inherited()).filter(
+      ([name]) => !name.startsWith("SX_") && name !== "CQ_ENV_FILE",
+    ),
   );
 }
+
+test("the run tests start each child without a CQ_ENV_FILE the parent process set", () => {
+  const saved = process.env.CQ_ENV_FILE;
+  process.env.CQ_ENV_FILE = "parent";
+  try {
+    expect(Object.hasOwn(callerEnvironment(), "CQ_ENV_FILE")).toBe(false);
+  } finally {
+    if (saved === undefined) delete process.env.CQ_ENV_FILE;
+    else process.env.CQ_ENV_FILE = saved;
+  }
+});
 
 function checkout() {
   const base = folder("c3-run-");
@@ -448,20 +461,24 @@ test(
     expect(world.lines).toEqual([
       `Wrote ${recordPath(candidate.id)}: ${summary(expected)}`,
     ]);
-    await expectNoIdentity(world, text);
+    expectNoIdentity(world, text);
   },
   inProcess,
 );
 
-async function accountName(): Promise<string> {
-  const result = await spawnBounded(["id", "-un"], {
-    boundMilliseconds: 4_000,
-  });
-  expect(result.exit).toBe(0);
-  return result.stdout.trim();
+function osRelease(): string | undefined {
+  try {
+    return readFileSync("/etc/os-release", "utf8");
+  } catch {
+    return undefined;
+  }
 }
 
-async function expectNoIdentity(world: Checkout, text: string): Promise<void> {
+function expectNoIdentity(
+  world: Checkout,
+  text: string,
+  markers: readonly string[] = [],
+): void {
   const paths = [world.base, world.parent, homedir()].filter(
     (path) => path.length > 1,
   );
@@ -469,14 +486,45 @@ async function expectNoIdentity(world: Checkout, text: string): Promise<void> {
   if (bootIdentityReadable())
     expect(text).not.toContain(readFileSync(bootIdentitySource, "utf8").trim());
   const { platform } = parseRecord(text);
-  const hostRead = [platform.release, platform.distribution, platform.cLibrary];
-  for (const value of hostRead) expect(value.length).toBeGreaterThan(0);
-  const names = [await accountName(), hostname()];
-  for (const name of names) {
-    expect(name.length).toBeGreaterThan(0);
-    expect(hostRead.filter((value) => value.includes(name))).toEqual([]);
-  }
+  expect(platform.release).toBe(release());
+  expect(platform.distribution).toBe(distributionOf(osRelease(), type()));
+  expect(platform.cLibrary).toMatch(
+    /^(?:glibc \d+(?:\.\d+)*|musl|unknown|not read off Linux)$/,
+  );
+  for (const marker of markers) expect(text).not.toContain(marker);
 }
+
+const identityMarkers = {
+  USER: "cq-account-marker",
+  LOGNAME: "cq-login-marker",
+  HOSTNAME: "cq-machine-marker",
+};
+
+test(
+  "a capability qualification record copies no account or machine name its process environment gives it",
+  async () => {
+    const world = checkout();
+    const names = Object.keys(identityMarkers);
+    const saved = Object.fromEntries(
+      names.map((name) => [name, process.env[name]]),
+    );
+    for (const [name, value] of Object.entries(identityMarkers))
+      process.env[name] = value;
+    try {
+      expect(await world.run(undefined, identityMarkers)).toBe(0);
+    } finally {
+      for (const [name, value] of Object.entries(saved))
+        if (value === undefined) delete process.env[name];
+        else process.env[name] = value;
+    }
+    expectNoIdentity(
+      world,
+      readFileSync(world.recordFile, "utf8"),
+      Object.values(identityMarkers),
+    );
+  },
+  inProcess,
+);
 
 test(
   "a capability qualification record holds no path, and no account or machine name in its host-read fields, when USER and LOGNAME are unset",
@@ -509,7 +557,7 @@ test(
         else process.env[name] = value;
     }
     expect(seen).toEqual([undefined, undefined, undefined, undefined]);
-    await expectNoIdentity(world, readFileSync(world.recordFile, "utf8"));
+    expectNoIdentity(world, readFileSync(world.recordFile, "utf8"));
   },
   inProcess,
 );
