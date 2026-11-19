@@ -866,5 +866,40 @@
     "testFile": "tests/template/file-size/file-size.test.ts",
     "title": "^the file-size command refuses malformed and excluded recorded hits$",
     "source": "b021da0 fix(gates): refuse excluded recorded hits"
+  },
+  {
+    "id": "f548a02-in-process-exit",
+    "patch": "tests/planted-faults/patches/f548a02-lifecycle-exit.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP01\\.no-exit-after-run",
+    "source": "f548a02 feat(kernel): run many commands in one process through runInProcess"
+  },
+  {
+    "id": "f548a02-in-process-stop-every",
+    "patch": "tests/planted-faults/patches/f548a02-lifecycle-stop.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP02\\.stop-reaches-every-run",
+    "source": "f548a02 feat(kernel): run many commands in one process through runInProcess"
+  },
+  {
+    "id": "f548a02-in-process-late",
+    "patch": "tests/planted-faults/patches/f548a02-lifecycle-late.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP02\\.stop-reaches-every-run",
+    "source": "f548a02 feat(kernel): run many commands in one process through runInProcess"
+  },
+  {
+    "id": "f548a02-in-process-finished",
+    "patch": "tests/planted-faults/patches/f548a02-lifecycle-finished.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP03\\.crash-records-run-in-flight",
+    "source": "f548a02 feat(kernel): run many commands in one process through runInProcess"
+  },
+  {
+    "id": "f548a02-in-process-record-once",
+    "patch": "tests/planted-faults/patches/f548a02-lifecycle-once.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP03\\.crash-records-run-in-flight",
+    "source": "f548a02 feat(kernel): run many commands in one process through runInProcess"
   }
 ]
