@@ -48,20 +48,12 @@ function emergencies(operation: Observed): number {
 
 const childBound = 60_000;
 
-async function inProcess(
+function inProcess(
   world: World,
   mode: string,
   extra: Record<string, string> = {},
 ) {
-  const started = world.start([mode], extra);
-  const bound = setTimeout(() => {
-    started.kill("SIGKILL");
-  }, childBound);
-  try {
-    return await started.done;
-  } finally {
-    clearTimeout(bound);
-  }
+  return world.start([mode], extra, childBound).done;
 }
 
 supportingTest(
@@ -155,6 +147,30 @@ supportingTest(
       expect(inFlight).toHaveLength(1);
       expect(emergencies(finished)).toBe(0);
       expect(inFlight.map(emergencies)).toEqual([1]);
+    } finally {
+      world.dispose();
+    }
+  },
+);
+
+supportingTest(
+  "IP06.crash-records-every-run-in-flight a crash with two runs in flight writes one emergency record for each",
+  async () => {
+    const world = makeWorld({ entry });
+    try {
+      const done = await inProcess(world, "crash-both", {
+        SX_BARRIER: "intent",
+      });
+      expect(done.exit).toBe(1);
+      expect(done.stdout).toBe("");
+      expect(done.stderr).toBe("");
+      expect(lines(world).map((line) => line.label)).toEqual(["held"]);
+      const operations = world.operations();
+      expect(operations).toHaveLength(2);
+      expect(
+        new Set(operations.map((operation) => operation.intent.runId)).size,
+      ).toBe(2);
+      expect(operations.map(emergencies)).toEqual([1, 1]);
     } finally {
       world.dispose();
     }

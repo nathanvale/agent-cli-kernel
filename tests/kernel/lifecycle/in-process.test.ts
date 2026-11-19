@@ -16,7 +16,7 @@ import {
   recordRuntime,
   runtimeOf,
 } from "../../../kernel/src/kernel/runtime.ts";
-import { stopBound } from "./oracle.ts";
+import { cancellationWait, stopBound } from "./oracle.ts";
 import {
   advance,
   deferred,
@@ -28,7 +28,6 @@ import {
 } from "./recording-host.ts";
 
 const timeout = 30_000;
-const cancellationWait = 500;
 const addonSettleBudget = 300;
 const stops = [
   ["SIGTERM", 143],
@@ -404,7 +403,9 @@ describe("IP07 the in-process entry checks its contract and bounds", () => {
         await gates[1]?.entered.promise;
         await advance(400 + cancellationWait);
         expect(settled).toEqual(["first"]);
-        await advance(600);
+        await advance(600 - 1);
+        expect(settled).toEqual(["first"]);
+        await advance(1);
         expect(settled).toEqual(["first", "second"]);
         for (const value of await Promise.all([first, second])) {
           if (value.kind !== "envelope")
@@ -451,6 +452,7 @@ describe("IP07 the in-process entry checks its contract and bounds", () => {
           error instanceof Error ? error.message : "not an Error",
       );
       expect(failure).toBe("The test clock failed.");
+      expect(controls.map((control) => control.signal.aborted)).toEqual([true]);
       expect(facts.map((fact) => fact.runId)).toEqual(
         controls.map((control) => control.runId),
       );

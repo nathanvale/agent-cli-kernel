@@ -925,6 +925,7 @@ async function runAndReturn(run: Run, argv: unknown): Promise<InProcessResult> {
     if (signal) return { kind: "stopped", runId: run.runId, signal };
     return await returnedResult(run, code ?? 1, chunks);
   } catch (error) {
+    run.controller.abort();
     crashRun(run);
     throw error;
   } finally {

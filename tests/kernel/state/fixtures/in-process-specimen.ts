@@ -76,10 +76,25 @@ async function crash(): Promise<void> {
   await second;
 }
 
+async function crashBoth(): Promise<void> {
+  const firstHeld = reached("intent");
+  const first = entry(apply("a", "v1"));
+  await heldAt(firstHeld, "intent", first);
+  const secondHeld = reached("intent");
+  const second = entry(apply("b", "v2"));
+  await heldAt(secondHeld, "intent", second);
+  note("held", true);
+  setTimeout(() => {
+    throw new Error("Planted crash while two runs are in flight.");
+  }, 0);
+  await Promise.all([first, second]);
+}
+
 const modes: Readonly<Record<string, () => Promise<void>>> = {
   sequence,
   overlap,
   crash,
+  "crash-both": crashBoth,
 };
 if (!Object.hasOwn(modes, mode)) throw new Error(`Unknown mode ${mode}.`);
 const selected = modes[mode];

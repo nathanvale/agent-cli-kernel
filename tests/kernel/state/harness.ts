@@ -351,6 +351,7 @@ export function makeWorld(
   function start(
     argv: readonly string[],
     extra: Readonly<Record<string, string>> = {},
+    limitMilliseconds?: number,
   ): Started {
     const barrierDirectory = extra.SX_BARRIER_DIR ?? bars;
     const child = Bun.spawn([process.execPath, program, ...argv], {
@@ -360,12 +361,25 @@ export function makeWorld(
       stderr: "pipe",
     });
     children.push(child);
+    let outlived = false;
+    const limit =
+      limitMilliseconds === undefined
+        ? undefined
+        : setTimeout(() => {
+            outlived = true;
+            child.kill("SIGKILL");
+          }, limitMilliseconds);
     const done = (async () => {
       const [stdout, stderr] = await Promise.all([
         new Response(child.stdout).text(),
         new Response(child.stderr).text(),
       ]);
       await child.exited;
+      clearTimeout(limit);
+      if (outlived)
+        throw new Error(
+          `${argv.join(" ")} outlived its ${String(limitMilliseconds)} ms limit and was killed.`,
+        );
       return parseRun(
         child.signalCode ? null : child.exitCode,
         child.signalCode ?? null,
