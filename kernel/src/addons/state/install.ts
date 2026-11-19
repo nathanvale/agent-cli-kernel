@@ -85,6 +85,11 @@ export type Refusal =
       readonly detail?: string;
     };
 
+// Interface: What the work function learns about its published operation before any
+// effect runs. `operationId` is the identity an Observer is later handed, so a
+// host can label an outside object with it and find that label as evidence.
+export type PublishedOperation = { readonly operationId: string };
+
 export type TransactionResult<Effect extends string> = {
   readonly proof: TransactionProof<Effect>;
 } & (
@@ -193,6 +198,7 @@ type Slot =
   | {
       readonly kind: "transaction";
       readonly declaration: Declaration;
+      operationId?: string;
       outcome?:
         | Refusal
         | {
@@ -844,6 +850,7 @@ export function install(options: StateOptions, seams: Seams) {
       admitted.release();
       return refuse({ kind: "unavailable", reason: "store-publication" });
     }
+    slot.operationId = opened.operationId;
     const { observation, workFailed } = await runRecorded(
       issuer,
       runId,
@@ -1162,10 +1169,23 @@ export function install(options: StateOptions, seams: Seams) {
   async function transaction<Effect extends string>(
     capability: StateCapability<Effect>,
     declaration: Declaration,
-    work: (transaction: EffectTransaction<Effect>) => Promise<void>,
+    work: (
+      transaction: EffectTransaction<Effect>,
+      published: PublishedOperation,
+    ) => Promise<void>,
   ): Promise<TransactionResult<Effect>> {
-    const marker = (inner: EffectTransaction<Effect>) => work(inner);
-    const slot: Slot = { kind: "transaction", declaration };
+    const slot: Extract<Slot, { kind: "transaction" }> = {
+      kind: "transaction",
+      declaration,
+    };
+    const marker = (inner: EffectTransaction<Effect>) =>
+      slot.operationId === undefined
+        ? Promise.reject(
+            new Error(
+              "Work runs only after the state add-on publishes its operation.",
+            ),
+          )
+        : work(inner, Object.freeze({ operationId: slot.operationId }));
     slots.set(marker, slot);
     const proof = await capability.transaction(marker);
     const outcome = slot.outcome;

@@ -915,5 +915,12 @@
     "testFile": "tests/kernel/programs/input.test.ts",
     "title": "a domain request over the limit is refused before admission and starts no program$",
     "source": "e1c416d fix(programs): judge input by its real length and check domain requests first"
+  },
+  {
+    "id": "4d42f8c-install",
+    "patch": "tests/planted-faults/patches/4d42f8c-install.patch",
+    "testFile": "tests/kernel/state/component.test.ts",
+    "title": "^work is refused when the state add-on published no operation",
+    "source": "4d42f8c fix(state): refuse work when no operation was published for it"
   }
 ]
