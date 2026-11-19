@@ -239,6 +239,35 @@ describe("bun run fault-replay", () => {
   );
 
   test(
+    "FR.z --shard replays only its part, and the part that holds a SURVIVED fault exits 1",
+    async () => {
+      const { root, id } = await repositoryWithFault({ weak: "^L\\.weak " });
+      const first = await faultReplay(root, ["--shard", "1/2"]);
+      const second = await faultReplay(root, ["--shard", "2/2"]);
+      expect(verdicts(first.lines)).toEqual([`KILLED ${id}`]);
+      expect(first.exit).toBe(0);
+      expect(verdicts(second.lines)).toEqual(["SURVIVED weak"]);
+      expect(second.exit).toBe(1);
+      expectNoLeftovers(root, second.temporary);
+    },
+    timeout,
+  );
+
+  test(
+    "FR.o --shard past its parts is refused with exit 2 and runs nothing",
+    async () => {
+      const { root } = await repositoryWithFault({});
+      const run = await faultReplay(root, ["--shard", "3/2"]);
+      expect(run.stderr).toBe(
+        "Usage: bun run fault-replay --shard <part>/<parts>, with whole numbers 1 <= part <= parts. Got '--shard 3/2'. Repair: pass one part, such as --shard 2/4.\n",
+      );
+      expect(verdicts(run.lines)).toEqual([]);
+      expect(run.exit).toBe(2);
+    },
+    timeout,
+  );
+
+  test(
     "FR.i planted-fault:add refuses a source path the fix does not change, and writes nothing",
     async () => {
       const { root, fix } = await repositoryWithFault({});
