@@ -1,0 +1,14 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index 4b38db8..f06f95c 100644
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -505,7 +505,8 @@ function caseUnderLease(
+     lease.release();
+     return { ok: false, stop };
+   }
+-  return { ok: true, target: read, release: lease.release };
++  lease.release();
++  return { ok: true, target: read, release: () => undefined };
+ }
+ 
+ function closureMatches(

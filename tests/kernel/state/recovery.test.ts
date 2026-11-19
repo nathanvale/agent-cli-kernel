@@ -33,7 +33,7 @@ import {
 import type { Observed, World } from "./harness.ts";
 import { processGroup } from "../lifecycle/harness.ts";
 import { signalGroupIfPresent } from "../../support/signal.ts";
-import { coordinationExpected } from "./holder.ts";
+import { coordinationExpected, lockFree } from "./holder.ts";
 import { resolveCoordination } from "../../../kernel/src/addons/state/coordination.ts";
 
 const apply = (name: string, content = "v1") => [
@@ -1200,8 +1200,6 @@ caseTest(
     ]);
     await closesInWorld(world, id);
   }),
-  90_000,
-  "boot identity",
 );
 
 supportingTest(
@@ -1591,6 +1589,11 @@ function unknownScopeOwner(world: World, fault?: string) {
     },
   );
 }
+function holdsNoKeyLock(world: World, id: string): void {
+  const intent = caseOf(world, id).intent;
+  expect(at(intent, "scope", "unknown")).toBe(true);
+  expect(at(intent, "coordination")).toEqual([]);
+}
 function pausedCloser(
   world: World,
   id: string,
@@ -1608,6 +1611,7 @@ supportingTest(
     const owner = unknownScopeOwner(world, "admit-delegate");
     await owner.reached("pre-effect");
     const id = only(world);
+    holdsNoKeyLock(world, id);
     expect(caseOf(world, id).events.records).toEqual([]);
     const before = await world.revision(id);
     const closer = pausedCloser(world, id, before, "not-applied");
@@ -1631,6 +1635,7 @@ supportingTest(
     const owner = unknownScopeOwner(world);
     await owner.reached("pre-effect");
     const id = only(world);
+    holdsNoKeyLock(world, id);
     const delegate = framed("delegate-admitted", {
       effect: "note.write",
       boot: "boot-one",
@@ -1680,6 +1685,7 @@ supportingTest(
     const owner = unknownScopeOwner(world);
     await owner.reached("pre-effect");
     const id = only(world);
+    holdsNoKeyLock(world, id);
     const before = await world.revision(id);
     const closer = pausedCloser(world, id, before, "not-applied");
     await closer.reached("closure-read");
@@ -1692,5 +1698,49 @@ supportingTest(
     closer.release("closure-read");
     expectRefusedUnchanged(await closer.done, "DOMAIN_SX_CLOSE_STALE");
     expect(existsSync(closurePath(world, id))).toBe(false);
+  }),
+);
+
+supportingTest(
+  "X29 supporting: a closer takes the owner lease before it reads, so a live owner that appended since the caller's read refuses as owner-live, not stale",
+  fixture(async (world) => {
+    const owner = unknownScopeOwner(world);
+    await owner.reached("pre-effect");
+    const id = only(world);
+    holdsNoKeyLock(world, id);
+    const before = await world.revision(id);
+    const closer = pausedCloser(world, id, before, "not-applied");
+    await closer.reached("closure-read");
+    owner.release("pre-effect");
+    await owner.reached("intent");
+    expect(
+      caseOf(world, id).events.records.map((record) => record.kind),
+    ).toEqual(["effect-started"]);
+    expect(await world.revision(id)).not.toBe(before);
+    closer.release("closure-read");
+    expectRefusedUnchanged(await closer.done, "DOMAIN_SX_CLOSE_OWNER_LIVE");
+    expect(existsSync(closurePath(world, id))).toBe(false);
+    owner.release("intent");
+    expectCompleted(await owner.done);
+  }),
+);
+
+supportingTest(
+  "X29 supporting: the closer holds the owner lease until its closure is published",
+  fixture(async (world) => {
+    await world.killAt(apply("a"), "effect", production);
+    const id = only(world);
+    const lease = join(world.root, "operations", id, "owner.lease");
+    expect(lockFree(lease)).toBe(true);
+    const closer = world.start(closeArgs(id, await world.revision(id)), {
+      SX_BARRIER: "closure-staged",
+    });
+    await closer.reached("closure-staged");
+    expect(lockFree(lease)).toBe(false);
+    expect(existsSync(closurePath(world, id))).toBe(false);
+    closer.release("closure-staged");
+    expectCompleted(await closer.done);
+    expect(existsSync(closurePath(world, id))).toBe(true);
+    expect(lockFree(lease)).toBe(true);
   }),
 );

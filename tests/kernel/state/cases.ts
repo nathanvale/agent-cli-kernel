@@ -18,6 +18,7 @@ export type StateCase = {
       readonly layer: "process" | "component";
       readonly platform: "coordination" | "any";
       readonly nonRoot?: true;
+      readonly bootIdentity?: true;
     }
   | {
       readonly status: "pending";
@@ -555,6 +556,7 @@ export const stateCases: readonly StateCase[] = [
   {
     id: "K11.a-delegate-same-boot-refused",
     ...coordinated,
+    bootIdentity: true,
     sources:
       "REC-7; REC-9 row 13; journal version 2 design part 2 section 5; X28; decision K (Nathan, 19 November 2026, 12:08)",
     observation:

@@ -1678,5 +1678,19 @@
     "testFile": "tests/kernel/state/recovery.test.ts",
     "title": "^X29 supporting: a case its owner completes between the store read and the fresh read",
     "source": "4f7712e fix(state): check the fresh read's revision before its settled state"
+  },
+  {
+    "id": "d37a77f-install-read-before-lease",
+    "patch": "tests/planted-faults/patches/d37a77f-install-read-before-lease.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^X29 supporting: a closer takes the owner lease before it reads",
+    "source": "d37a77f fix(state): decide a closure on the journal read under the target's lease"
+  },
+  {
+    "id": "d37a77f-install-lease-released-early",
+    "patch": "tests/planted-faults/patches/d37a77f-install-lease-released-early.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^X29 supporting: the closer holds the owner lease until its closure is published",
+    "source": "d37a77f fix(state): decide a closure on the journal read under the target's lease"
   }
 ]

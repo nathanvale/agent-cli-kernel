@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { stateCases } from "./cases.ts";
-import { caseTest } from "./harness.ts";
+import { caseTest, machineBootIdentityRead } from "./harness.ts";
 
 const briefFamilies = [
   ...["J01", "J02", "J03", "J04", "J05", "J06", "J07"],
@@ -58,6 +58,11 @@ test("the frozen T3 case table keeps its admitted identities and counts", () => 
     "L07.g-failed-move-keeps-outcome",
     "S03.a-store-failure-preserves-item",
   ]);
+  expect(
+    executable
+      .filter((row) => row.status === "executable" && row.bootIdentity === true)
+      .map((row) => row.id),
+  ).toEqual(["K11.a-delegate-same-boot-refused"]);
   const pending = stateCases.filter((row) => row.status === "pending");
   expect(pending.map((row) => row.id).sort()).toEqual([
     "H01.a-attestation-satisfies-stop-only",
@@ -75,6 +80,16 @@ test("the frozen T3 case table keeps its admitted identities and counts", () => 
     expect(row.observation.length).toBeGreaterThan(0);
     expect(row.red.length).toBeGreaterThan(0);
   }
+});
+
+test("a case that needs a boot identity runs its body on Linux and is unproved on macOS", () => {
+  const needing = stateCases
+    .filter((row) => row.status === "executable" && row.bootIdentity === true)
+    .map((row) => row.id);
+  const unproved = machineBootIdentityRead() === undefined ? needing : [];
+  expect(unproved).toEqual(
+    process.platform === "linux" ? [] : ["K11.a-delegate-same-boot-refused"],
+  );
 });
 
 const transitionDesigns = ["DESIGN.md", "DESIGN-V2-TRANSITIONS.md"];
