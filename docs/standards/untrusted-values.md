@@ -20,11 +20,12 @@ boundary trusts the types.
   properties, and a hidden `toJSON` rewrites serialised data. Witnessed:
   [r4580070938], [r4580077749].
 - Brand-check a platform object such as an `AbortSignal` or a typed array
-  by reading its prototype's getter with the value as receiver. `instanceof`
-  and an own property both pass for `Object.create(AbortSignal.prototype)`,
-  and a real `Uint8Array` can shadow `byteLength`. Witnessed: [r4622699406],
-  [r4622733380], [r4622712159] (an input defining `byteLength` as 0 passed a
-  size limit).
+  by reading its prototype's getter with the value as receiver, inside one
+  catch with any `instanceof` test. `instanceof` and an own property both
+  pass for `Object.create(AbortSignal.prototype)`, a real `Uint8Array` can
+  shadow `byteLength`, and `instanceof` throws for a revoked Proxy.
+  Witnessed: [r4622699406], [r4622733380], [r4622712159] (an input defining
+  `byteLength` as 0 passed a size limit), [r4622824082].
 - Return frozen copies of tables and stations, so a caller keeps the
   validator's reference data intact. Witnessed: [r4580070877],
   [r4580070890].
@@ -69,3 +70,4 @@ boundary trusts the types.
 [r4622699406]: https://github.com/nathanvale/agent-cli-kernel/pull/3#discussion_r4622699406
 [r4622733380]: https://github.com/nathanvale/agent-cli-kernel/pull/3#discussion_r4622733380
 [r4622712159]: https://github.com/nathanvale/agent-cli-kernel/pull/4#discussion_r4622712159
+[r4622824082]: https://github.com/nathanvale/agent-cli-kernel/pull/3#discussion_r4622824082
