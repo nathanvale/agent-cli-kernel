@@ -9,6 +9,7 @@ import {
   decide,
   judgedOnly,
   readToken,
+  tokenFromHex,
   type Graph,
   type MergeFacts,
 } from "../../../scripts/carried-verdict.ts";
@@ -260,6 +261,23 @@ async function token(
   );
   return `${signed}.${Buffer.from(signature).toString("base64url")}`;
 }
+
+describe("tokenFromHex", () => {
+  test("hex from commits-cache decodes to the token it encodes", () => {
+    expect(tokenFromHex(Buffer.from("a.b.c").toString("hex"))).toBe("a.b.c");
+  });
+
+  test("no hex is no token", () => {
+    expect([tokenFromHex(undefined), tokenFromHex("")]).toEqual([
+      undefined,
+      undefined,
+    ]);
+  });
+
+  test("text that is not hex passes through for readToken to refuse", () => {
+    expect(tokenFromHex("not hex")).toBe("not hex");
+  });
+});
 
 describe("readToken", () => {
   test("a token GitHub signed for this workflow names its merge commit", async () => {

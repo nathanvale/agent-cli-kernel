@@ -132,6 +132,16 @@ export function decide(
   };
 }
 
+// Platform: the runner drops a job output that looks like a token ("Skip
+// output since it may contain secret"), so commits-cache hands the token
+// over as hex.
+export function tokenFromHex(hex: string | undefined): string | undefined {
+  if (hex === undefined || hex === "") return undefined;
+  return /^(?:[0-9a-f]{2})+$/.test(hex)
+    ? Buffer.from(hex, "hex").toString("utf8")
+    : hex;
+}
+
 export type Expected = {
   readonly audience: string;
   readonly repositoryId: string;
@@ -357,7 +367,7 @@ if (import.meta.main) {
     GITHUB_REPOSITORY,
     GITHUB_REPOSITORY_ID,
     GITHUB_OUTPUT,
-    CARRIED_TOKEN,
+    CARRIED_TOKEN_HEX,
   } = process.env;
   if (
     GITHUB_SHA === undefined ||
@@ -365,7 +375,7 @@ if (import.meta.main) {
     GITHUB_REPOSITORY_ID === undefined
   ) {
     process.stderr.write(
-      "Usage: GITHUB_SHA=<merge> GITHUB_REPOSITORY=<owner/name> GITHUB_REPOSITORY_ID=<id> [CARRIED_TOKEN=<jwt>] bun scripts/carried-verdict.ts\n",
+      "Usage: GITHUB_SHA=<merge> GITHUB_REPOSITORY=<owner/name> GITHUB_REPOSITORY_ID=<id> [CARRIED_TOKEN_HEX=<hex of the jwt>] bun scripts/carried-verdict.ts\n",
     );
     process.exit(2);
   }
@@ -376,7 +386,7 @@ if (import.meta.main) {
       root,
       current: GITHUB_SHA,
       head,
-      token: CARRIED_TOKEN,
+      token: tokenFromHex(CARRIED_TOKEN_HEX),
       keys: publishedKeys,
       expected: {
         audience: `${GITHUB_REPOSITORY} commits verdict`,

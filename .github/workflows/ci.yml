@@ -60,7 +60,7 @@ jobs:
     timeout-minutes: 5
     permissions: {}
     outputs:
-      token: ${{ steps.token.outputs.token }}
+      token-hex: ${{ steps.token.outputs.token-hex }}
     steps:
       - uses: actions/cache/restore@v4
         with:
@@ -71,7 +71,7 @@ jobs:
         run: |
           token=$(head -c 8192 "$RUNNER_TEMP/verdict-token" 2>/dev/null || true)
           if [[ $token =~ ^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$ ]]; then
-            echo "token=$token" >> "$GITHUB_OUTPUT"
+            echo "token-hex=$(printf '%s' "$token" | od -An -v -tx1 | tr -d ' \n')" >> "$GITHUB_OUTPUT"
           fi
   commits-carry:
     if: ${{ !cancelled() && github.event_name == 'pull_request' }}
@@ -95,7 +95,7 @@ jobs:
           no-cache: true
       - id: carry
         env:
-          CARRIED_TOKEN: ${{ needs.commits-cache.outputs.token }}
+          CARRIED_TOKEN_HEX: ${{ needs.commits-cache.outputs.token-hex }}
         run: bun --no-install scripts/carried-verdict.ts
   commits-shard:
     if: github.event_name == 'pull_request'

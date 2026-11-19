@@ -60,7 +60,7 @@ describe("the carried verdict in ci.yml", () => {
       "run",
     ]);
     expect(cache.outputs).toEqual({
-      token: "${{ steps.token.outputs.token }}",
+      "token-hex": "${{ steps.token.outputs.token-hex }}",
     });
   });
 
@@ -72,7 +72,9 @@ describe("the carried verdict in ci.yml", () => {
       carry.steps.some((step) => step.uses?.startsWith("actions/cache")),
     ).toBe(false);
     expect(carry.steps.at(-1)).toMatchObject({
-      env: { CARRIED_TOKEN: "${{ needs.commits-cache.outputs.token }}" },
+      env: {
+        CARRIED_TOKEN_HEX: "${{ needs.commits-cache.outputs.token-hex }}",
+      },
       run: "bun --no-install scripts/carried-verdict.ts",
     });
   });
