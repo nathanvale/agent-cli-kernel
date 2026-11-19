@@ -1,0 +1,30 @@
+diff --git a/kernel/src/addons/diagnostics/custody.ts b/kernel/src/addons/diagnostics/custody.ts
+index bbaf28c..22d5651 100644
+--- a/kernel/src/addons/diagnostics/custody.ts
++++ b/kernel/src/addons/diagnostics/custody.ts
+@@ -287,17 +287,16 @@ async function acquire(
+   directory: string,
+   abandoned: () => boolean,
+ ): Promise<(() => void) | undefined> {
+-  const deadline = performance.now() + limits.lockWaitMilliseconds;
+-  do {
+-    if (abandoned()) return undefined;
++  const attempts = Math.ceil(
++    limits.lockWaitMilliseconds / limits.lockRetryMilliseconds,
++  );
++  for (let attempt = 0; attempt < attempts && !abandoned(); attempt += 1) {
+     const release = tryLock(directory);
+     if (release) return release;
+-    const remaining = deadline - performance.now();
+-    if (remaining > 0)
+-      await new Promise((resolve) =>
+-        setTimeout(resolve, Math.min(limits.lockRetryMilliseconds, remaining)),
+-      );
+-  } while (performance.now() < deadline);
++    await new Promise((resolve) =>
++      setTimeout(resolve, limits.lockRetryMilliseconds),
++    );
++  }
+   return undefined;
+ }
+ 

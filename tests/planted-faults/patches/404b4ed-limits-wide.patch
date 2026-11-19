@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/diagnostics/limits.ts b/kernel/src/addons/diagnostics/limits.ts
+index 3cd4b0d..28b2671 100644
+--- a/kernel/src/addons/diagnostics/limits.ts
++++ b/kernel/src/addons/diagnostics/limits.ts
+@@ -15,7 +15,7 @@ export const limits = {
+   flushMilliseconds: 500,
+   flushMarginMilliseconds: 50,
+   pruneAgeMilliseconds: 7 * 24 * 60 * 60 * 1000,
+-  lockWaitMilliseconds: 200,
++  lockWaitMilliseconds: 2_000,
+   lockRetryMilliseconds: 10,
+   foreignLockStaleMilliseconds: 60_000,
+   secretFileBytes: 65_536,
