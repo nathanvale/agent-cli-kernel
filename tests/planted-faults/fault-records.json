@@ -1923,5 +1923,19 @@
     "testFile": "tests/kernel/lifecycle/in-process.test.ts",
     "title": "IP09\\.abort-signal",
     "source": "6ff2c16 fix(kernel): call onCrash only after the host's crash handler returns"
+  },
+  {
+    "id": "9dcecee-in-process-crash-gap",
+    "patch": "tests/planted-faults/patches/9dcecee-lifecycle-gap.patch",
+    "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+    "title": "IP09\\.program-in-gap",
+    "source": "9dcecee fix(kernel): stop a program started between the crash kill and the abort"
+  },
+  {
+    "id": "9dcecee-in-process-crash-rejection",
+    "patch": "tests/planted-faults/patches/30e8fb1-lifecycle-nested.patch",
+    "testFile": "tests/kernel/state/in-process.test.ts",
+    "title": "IP06\\.on-crash-reentry-rejection",
+    "source": "9dcecee fix(kernel): stop a program started between the crash kill and the abort"
   }
 ]
