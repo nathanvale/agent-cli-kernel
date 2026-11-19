@@ -1440,5 +1440,26 @@
     "testFile": "tests/kernel/state/recovery.test.ts",
     "title": "^Q02.f-nested-mount-refused",
     "source": "1e39e16 feat(state): match a capability qualification row at closure time"
+  },
+  {
+    "id": "01a8093-qualification-os",
+    "patch": "tests/planted-faults/patches/01a8093-qualification-os.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^X27 supporting: a row for another operating system",
+    "source": "01a8093 fix(state): settle the two-axis review of capability qualification matching"
+  },
+  {
+    "id": "01a8093-qualification-boot-source",
+    "patch": "tests/planted-faults/patches/01a8093-qualification-boot-source.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^X27 supporting: a row for another operating system",
+    "source": "01a8093 fix(state): settle the two-axis review of capability qualification matching"
+  },
+  {
+    "id": "01a8093-qualification-unreadable-device",
+    "patch": "tests/planted-faults/patches/01a8093-qualification-unreadable-device.patch",
+    "testFile": "tests/kernel/state/recovery.test.ts",
+    "title": "^Q02.d-unreadable-fact-refuses",
+    "source": "01a8093 fix(state): settle the two-axis review of capability qualification matching"
   }
 ]

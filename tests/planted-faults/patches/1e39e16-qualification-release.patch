@@ -1,13 +1,13 @@
 diff --git a/kernel/src/addons/state/qualification.ts b/kernel/src/addons/state/qualification.ts
-index 475cd22..2d021be 100644
+index 89feb3a..7b0f3bf 100644
 --- a/kernel/src/addons/state/qualification.ts
 +++ b/kernel/src/addons/state/qualification.ts
-@@ -140,7 +140,7 @@ function differences(
-   const { majorRelease, filesystem, primitive, bootIdentity } = facts;
-   return [
-     ...(row.os === facts.os ? [] : ["os"]),
--    ...(majorRelease.read && majorRelease.value === row.majorRelease
-+    ...(facts.release === row.observedRelease
-       ? []
-       : ["major release"]),
-     ...(filesystem.read && filesystem.value === row.filesystem.type
+@@ -138,7 +138,7 @@ const rowChecks: readonly (readonly [
+   (row: CapabilityQualificationRow, facts: EnvironmentFacts) => boolean,
+ ])[] = [
+   ["os", (row, facts) => row.os === facts.os],
+-  ["major release", (row, facts) => row.majorRelease === facts.majorRelease],
++  ["major release", (row, facts) => row.observedRelease === facts.release],
+   ["filesystem", (row, facts) => equals(facts.filesystem, row.filesystem.type)],
+   [
+     "coordination route",

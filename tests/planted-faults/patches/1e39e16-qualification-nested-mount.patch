@@ -1,13 +1,13 @@
 diff --git a/kernel/src/addons/state/qualification.ts b/kernel/src/addons/state/qualification.ts
-index 475cd22..529beb8 100644
+index 89feb3a..aed8e97 100644
 --- a/kernel/src/addons/state/qualification.ts
 +++ b/kernel/src/addons/state/qualification.ts
-@@ -182,7 +182,7 @@ function matchFacts(
-   facts: EnvironmentFacts,
-   label: (row: CapabilityQualificationRow) => string,
- ): Match {
--  const nested = offRootDevice(facts);
-+  const nested = offRootDevice(facts).filter((folder) => folder === "root");
-   const row =
-     nested.length === 0
-       ? rows.find((entry) => differences(entry, facts).length === 0)
+@@ -163,7 +163,7 @@ function differences(
+ function deviceProblem(facts: EnvironmentFacts): string | undefined {
+   const { root, ...folders } = facts.devices;
+   if (!root.read) return "the state root's device is unreadable";
+-  const off = Object.entries(folders)
++  const off = Object.entries({})
+     .filter(([, device]) => !equals(device, root.value))
+     .map(([folder]) => `${folder}/`);
+   return off.length === 0
