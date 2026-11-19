@@ -1606,7 +1606,7 @@
     "id": "7fb5649-state-seam-closed",
     "patch": "tests/planted-faults/patches/7fb5649-state-seam-closed.patch",
     "testFile": "tests/kernel/state-seam.test.ts",
-    "title": "a record kept past its forgotten run and called outside the run cannot record an effect",
+    "title": "a late callback in a forgotten run's context cannot record under the run that reused its identity",
     "source": "7fb5649 fix(kernel): keep a forgotten run's capability closed"
   },
   {

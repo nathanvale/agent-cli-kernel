@@ -122,7 +122,7 @@ function messageOf(settled: Promise<unknown>): Promise<string> {
 const note = () => Promise.resolve("noted");
 const confirmed = () => Promise.resolve(true);
 
-test("a transaction still open after its handler returns cannot record an effect, and its identity stays taken", async () => {
+test("a transaction still open after its handler returns cannot record an effect", async () => {
   const { descriptor, attached } = recordingState();
   const open = deferred();
   const recorded = attached.capability.transaction(async (transaction) => {
@@ -131,7 +131,6 @@ test("a transaction still open after its handler returns cannot record an effect
   });
   attached.close();
   forgetRun("run-1", descriptor);
-  expect(attachState(descriptor, "run-1", ["specimen.note"])).toBeUndefined();
   open.resolve();
   expect(await messageOf(recorded)).toBe(
     "The state capability closed when the handler returned.",
@@ -230,9 +229,7 @@ test("a refused reuse keeps the live run's proof as its trusted summary but refu
 test("a run whose transaction is still running stays live after its handler returns, so no other run can take its identity", async () => {
   const { descriptor, attached } = recordingState();
   const open = deferred();
-  const kept: EffectTransaction<"specimen.note">[] = [];
-  const running = attached.capability.transaction(async (transaction) => {
-    kept.push(transaction);
+  const running = attached.capability.transaction(async () => {
     await open.promise;
   });
   attached.close();
@@ -243,4 +240,34 @@ test("a run whose transaction is still running stays live after its handler retu
   expect(await messageOf(running)).toBe("The test transaction proves nothing.");
   expect(await until(() => attachedRunCount(descriptor) === 0)).toBe(true);
   expect(attachState(descriptor, "run-1", ["specimen.note"])).toBeDefined();
+});
+
+test("a late callback in a forgotten run's context cannot record under the run that reused its identity", async () => {
+  const { descriptor, attached } = recordingState();
+  const later = deferred();
+  const late: Promise<string>[] = [];
+  expect(
+    await messageOf(
+      attached.capability.transaction((transaction) => {
+        late.push(
+          messageOf(
+            later.promise.then(() =>
+              transaction.record("specimen.note", note, confirmed),
+            ),
+          ),
+        );
+        return Promise.resolve();
+      }),
+    ),
+  ).toBe("The test transaction proves nothing.");
+  attached.close();
+  forgetRun("run-1", descriptor);
+  expect(await until(() => attachedRunCount(descriptor) === 0)).toBe(true);
+  expect(attachState(descriptor, "run-1", ["specimen.note"])).toBeDefined();
+  later.resolve();
+  const [callback] = late;
+  if (!callback) throw new Error("The transaction scheduled no callback.");
+  expect(await callback).toBe(
+    "The state capability closed when the handler returned.",
+  );
 });

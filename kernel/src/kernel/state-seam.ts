@@ -331,8 +331,9 @@ export function attachedRunCount(descriptor: StateAddonDescriptor): number {
 // live runs. A reused identity is refused only while its earlier run is live.
 // A run whose transaction is still open stays live until that transaction
 // ends, so no other run can take its identity meanwhile; this reading is this
-// code's, not the ruling's. The in-process entry calls this; runProcess ends its process instead, and a
-// direct contract.execute caller's run never reports that it finished.
+// code's, not the ruling's. The in-process entry calls this; runProcess ends
+// its process instead, and a direct contract.execute caller's run never
+// reports that it finished.
 export function forgetRun(
   runId: string,
   descriptor: StateAddonDescriptor | undefined,
