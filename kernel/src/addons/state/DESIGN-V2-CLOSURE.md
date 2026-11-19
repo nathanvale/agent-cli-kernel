@@ -1,13 +1,12 @@
 # State add-on: journal version 2 design, part 2 of 3 (closing a crashed case in production)
 
 Status: accepted (Nathan, 19 November 2026, 13:21 AEDT). Read
-[DESIGN-V2.md](DESIGN-V2.md) first: it
-holds the status, the source of the clause quotes, the section map and the
-store format. This part changes version 1 sections 7.2 and 10 of
-[DESIGN.md](DESIGN.md), and adds to sections 4.3 and 8. That note stays
-frozen and unchanged. The transition table and proposed cases are in
-[DESIGN-V2-TRANSITIONS.md](DESIGN-V2-TRANSITIONS.md); the decisions and the open
-point are in part 1 section 8.
+[DESIGN-V2.md](DESIGN-V2.md) first: it holds the status, the source of the
+clause quotes, the section map and the store format. This part changes version
+1 sections 7.2 and 10 of [DESIGN.md](DESIGN.md), and adds to sections 4.3 and
+8. That note stays frozen and unchanged. The transition table and proposed
+cases are in [DESIGN-V2-TRANSITIONS.md](DESIGN-V2-TRANSITIONS.md); the
+decisions are in part 1 section 8.
 
 ## 1. What changes
 
@@ -70,8 +69,8 @@ refuse more (decision U).
 - That number carries no compatibility promise, and one major spans years of
   operating-system kernels. What protects a closure on Linux is the start-up
   self-check of the coordination call, the filesystem type read at closure
-  time, and the row's evidence run. Major only was decided (part 1 section
-  8.1, J).
+  time, and the row's capability qualification run. Major only was decided
+  (part 1 section 8.1, J).
 - Filesystem. `statfsSync(root).type` reports the filesystem under the root
   however it was mounted, and the numbers are a stable interface:
 
@@ -90,103 +89,106 @@ refuse more (decision U).
   Nathan, 19 November 2026). A deployment on another operating-system kernel
   major, or on a volume on ext4 or XFS, matches no row and still hands off
   until its own run and row.
-- Its evidence run happens on the pilot, through a worker session. The state
-  root's parent is an argument, so the root is on the volume under test
-  while the repository sits anywhere.
+- Its capability qualification run happens on the pilot, through a worker
+  session. The state root's parent is an argument, so the root is on the
+  volume under test while the repository sits anywhere.
 
-## 3. The row and its run record (decided by Nathan, 19 November 2026)
+## 3. The row and its capability qualification record (decided by Nathan, 19 November 2026)
 
-A row cites a committed run record and names its independent review. A hosted
-run link is not evidence. A row's run happens on a machine in that major
-release. A separate agent session that wrote none of the code reviews the
-row, and Nathan countersigns it.
+A row cites its committed capability qualification record and names its
+independent review. A hosted run link is not evidence. A row's capability
+qualification runs happen on a machine in that major release. The names below
+were decided by Nathan on 19 November 2026 at 13:54 AEDT. A separate agent
+session that wrote none of the code reviews the row, and Nathan countersigns
+it.
 
 Row fields:
 
-| Field                | Meaning                                                                                                | Matched at run time |
-| -------------------- | ------------------------------------------------------------------------------------------------------ | ------------------- |
-| `id`                 | stamped into every closure it enables, for example `linux-7-btrfs`                                     | no                  |
-| `os`                 | `linux`                                                                                                | yes                 |
-| `majorRelease`       | as section 2                                                                                           | yes                 |
-| `observedRelease`    | the exact release string the evidence run observed                                                     | no                  |
-| `filesystem`         | `{ name, type }`                                                                                       | yes                 |
-| `primitive`          | the coordination route                                                                                 | yes                 |
-| `bootIdentitySource` | where the boot identity is read from                                                                   | yes, readable       |
-| `processIdentity`    | how a delegated program is identified; version 2: boot identity only                                   | no                  |
-| `namespace`          | the user and process view the run used (non-root; in a container)                                      | no                  |
-| `delegatedWriters`   | the rule of section 5                                                                                  | no                  |
-| `failureCases`       | what the row does not cover                                                                            | no                  |
-| `evidence`           | `{ record, review }`: the record's path; the reviewing session, Nathan's countersignature and the date | checked by a test   |
+| Field                | Meaning                                                                                                                         | Matched at run time |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| `id`                 | stamped into every closure it enables, for example `linux-7-btrfs`                                                              | no                  |
+| `os`                 | `linux`                                                                                                                         | yes                 |
+| `majorRelease`       | as section 2                                                                                                                    | yes                 |
+| `observedRelease`    | the exact release string the capability qualification run observed                                                              | no                  |
+| `filesystem`         | `{ name, type }`                                                                                                                | yes                 |
+| `primitive`          | the coordination route                                                                                                          | yes                 |
+| `bootIdentitySource` | where the boot identity is read from                                                                                            | yes, readable       |
+| `processIdentity`    | how a delegated program is identified; version 2: boot identity only                                                            | no                  |
+| `namespace`          | the user and process view the run used (non-root; in a container)                                                               | no                  |
+| `delegatedWriters`   | the rule of section 5                                                                                                           | no                  |
+| `failureCases`       | what the row does not cover                                                                                                     | no                  |
+| `evidence`           | `{ record, review }`: the capability qualification record's path; the reviewing session, Nathan's countersignature and the date | checked by a test   |
 
-One repeatable command (working name `bun run qualify:state`; open point M)
-runs the
-stopped-owner cases on the platform and writes the record, in two runs:
+One repeatable command, `bun run capability-qualification-run`, runs the
+stopped-owner cases on the platform. Each capability qualification run adds
+itself to the row's capability qualification record. A row has two:
 
-- First run: it supplies the candidate row through the labelled test entry,
-  a seam that entry gains (part 3 section 4), so its closures are stamped
-  `fixture:<label>`. It never touches the production
-  capability qualification table. The test proof guide says a proof
-  through a test entry "proves only the fixture". That holds for the entry:
-  this run proves the platform's mechanisms (the coordination route, the
-  lease, the filesystem, crash recovery) under the candidate row.
-- Second run: on the row's own branch before it merges, the same command
-  runs on the pilot through `index.ts`, with the row in the production
-  capability qualification table (case Q02.e). It adds its run to the same
-  record file. Q03.a requires both runs, with the same `sourceHash` and
-  every required case `pass`.
-- It refuses a dirty tree, and it refuses to run when any environment fact
-  is overridden (case Q03.b; part 3 section 4): a record made with an
-  overridden release, filesystem or boot identity proves nothing about the
-  platform.
+- First capability qualification run: it supplies the candidate row through
+  the labelled test entry, a seam that entry gains (part 3 section 4), so its
+  closures are stamped `fixture:<label>`. It never touches the production
+  capability qualification table. The test proof guide says a proof through a
+  test entry "proves only the fixture". That holds for the entry: this one
+  proves the platform's mechanisms (the coordination route, the lease, the
+  filesystem, crash recovery) under the candidate row.
+- Second capability qualification run: on the row's own branch before it
+  merges, the same command runs on the pilot through `index.ts`, with the row
+  in the production capability qualification table (case Q02.e). It adds
+  itself to the same capability qualification record. Q03.a requires both,
+  with the same `sourceHash` and every required case `pass`.
+- It refuses a dirty tree, and it refuses to run when any environment fact is
+  overridden (case Q03.b; part 3 section 4): a capability qualification record
+  made with an overridden release, filesystem or boot identity proves nothing
+  about the platform.
 - It writes the record to a temporary name and renames it, so a killed run
-  leaves no record. Working place (open point M):
-  `tests/kernel/state/qualification/<row id>.json`.
+  leaves no record. Place:
+  `tests/kernel/state/capability-qualification/<row id>.json`.
 
-Record fields:
+Capability qualification record fields:
 
-| Field                      | Content                                                                                                                                                                                                                                                                                                       |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `schema`                   | `state-qualification-run/1`                                                                                                                                                                                                                                                                                   |
-| `row`                      | the candidate row id                                                                                                                                                                                                                                                                                          |
-| `runs`                     | one entry for each run, in order: `{ entry, commit, sourceHash, started, ended, cases }`. `entry` is the test entry or `index.ts`; `commit` is the full commit that run used (the second is the row's commit); `sourceHash` is computed at that commit; `started` and `ended` are wall clock times            |
-| `sourceHash` (in each run) | SHA-256 over each qualified file in sorted path order, each entered as its path, a newline, its byte length, a newline and its bytes as committed. The files: `kernel/src/addons/state/*.ts` except `capability-qualification-table.ts`; `kernel/src/addons/programs/*.ts`; `kernel/src/kernel/state-seam.ts` |
-| `platform`                 | `os`, exact `release`, `majorRelease`, architecture, runtime version, distribution, C library, and whether it ran in a container                                                                                                                                                                              |
-| `filesystem`               | the state root's observed filesystem facts only; no path, user name or machine name                                                                                                                                                                                                                           |
-| `primitive`                | the active coordination route                                                                                                                                                                                                                                                                                 |
-| `bootIdentitySource`       | the source, and whether it was readable; never the value                                                                                                                                                                                                                                                      |
-| `cases` (in each run)      | `[{ id, result, detail }]`, result `pass`, `fail` or `unproved`                                                                                                                                                                                                                                               |
-| `factSource`               | `observed`: every fact above was read from the machine, with no override. The command writes no other value                                                                                                                                                                                                   |
+| Field                      | Content                                                                                                                                                                                                                                                                                                                     |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schema`                   | `capability-qualification-record/1`                                                                                                                                                                                                                                                                                         |
+| `row`                      | the candidate row id                                                                                                                                                                                                                                                                                                        |
+| `runs`                     | one entry for each capability qualification run, in order: `{ entry, commit, sourceHash, started, ended, cases }`. `entry` is the test entry or `index.ts`; `commit` is the full commit that run used (the second is the row's commit); `sourceHash` is computed at that commit; `started` and `ended` are wall clock times |
+| `sourceHash` (in each run) | SHA-256 over each qualified file in sorted path order, each entered as its path, a newline, its byte length, a newline and its bytes as committed. The files: `kernel/src/addons/state/*.ts` except `capability-qualification-table.ts`; `kernel/src/addons/programs/*.ts`; `kernel/src/kernel/state-seam.ts`               |
+| `platform`                 | `os`, exact `release`, `majorRelease`, architecture, runtime version, distribution, C library, and whether it ran in a container                                                                                                                                                                                            |
+| `filesystem`               | the state root's observed filesystem facts only; no path, user name or machine name                                                                                                                                                                                                                                         |
+| `primitive`                | the active coordination route                                                                                                                                                                                                                                                                                               |
+| `bootIdentitySource`       | the source, and whether it was readable; never the value                                                                                                                                                                                                                                                                    |
+| `cases` (in each run)      | `[{ id, result, detail }]`, result `pass`, `fail` or `unproved`                                                                                                                                                                                                                                                             |
+| `factSource`               | `observed`: every fact above was read from the machine, with no override. The command writes no other value                                                                                                                                                                                                                 |
 
-The run covers the cases that run on observed facts: the executable closure
-and stopped-owner cases (families K02, K03, K06, K07, K08, O04, O05, O07 and
-O09) and proposed K11.a, K11.c, K11.d and K11.e. K11.a's half with no
-`boot` uses a prepared version 1 style journal, not a fact override. A case
-still pending in the case table is recorded `unproved` and is not required.
-A row needs every required case `pass`.
+A capability qualification run covers the cases that run on observed facts:
+the executable closure and stopped-owner cases (families K02, K03, K06, K07,
+K08, O04, O05, O07 and O09) and proposed K11.a, K11.c, K11.d and K11.e.
+K11.a's half with no `boot` uses a prepared version 1 style journal, not a
+fact override. A case still pending in the case table is recorded `unproved`
+and is not required. A row needs every required case `pass`.
 
-Left out of the run:
+Left out of a capability qualification run:
 
 - Q02.a, Q02.b, Q02.d, Q02.f and K11.b need a fact override, and Q02.c a
   candidate row for another route. They prove the matching logic, which is
   the same on every platform, so the test suite owns them.
-- Q02.e needs the row in the production table: it is the second run on the
-  pilot, above. Q03.a checks committed records, so the test suite owns
-  it.
+- Q02.e needs the row in the production table: it is the second capability
+  qualification run on the pilot, above. Q03.a checks committed records, so
+  the test suite owns it.
 
-Q03.a refuses a production row unless its record exists, carries `factSource:
-"observed"`, matches the row's `os`, `majorRelease`, `filesystem`, `primitive`
-and `bootIdentitySource`, has the row's `observedRelease` as its
-`platform.release`, has every required case `pass`, has, in both runs, a
-`sourceHash` equal to the hash of the qualified source files now, has both
-runs, and the row names its reviewing session, Nathan's countersignature and
-the date. So a change to that source invalidates the row until a new run.
-Version 2 moves the capability qualification table out of `qualification.ts`
-into `capability-qualification-table.ts`, so the matching logic stays inside
-the hash and only the table is left out. The hash needs no history lookup,
-which suits a shallow checkout. REC-7b asks that review to pass V-22 and V-42
-for each row. Decision T also means that, once the first row lands, every
-change to the qualified source files needs a new run on the pilot in the same
-pull request: the hosted runner's records do not count.
+Q03.a refuses a production row unless its capability qualification record
+exists, carries `factSource: "observed"`, matches the row's `os`,
+`majorRelease`, `filesystem`, `primitive` and `bootIdentitySource`, has the
+row's `observedRelease` as its `platform.release`, has every required case
+`pass`, has, in both runs, a `sourceHash` equal to the hash of the qualified
+source files now, has both runs, and the row names its reviewing session,
+Nathan's countersignature and the date. So a change to that source invalidates
+the row until a new run. Version 2 moves the capability qualification table
+out of `qualification.ts` into `capability-qualification-table.ts`, so the
+matching logic stays inside the hash and only the table is left out. The hash
+needs no history lookup, which suits a shallow checkout. REC-7b asks that
+review to pass V-22 and V-42 for each row. Decision T also means that, once
+the first row lands, every change to the qualified source files needs a new
+capability qualification run on the pilot in the same pull request: the hosted
+runner's records do not count.
 
 ## 4. Closing after a torn tail (included)
 
@@ -289,7 +291,7 @@ proof.
 | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | Matching rule                                | Included (section 2).                                                                                                                       |
 | Run command and record format                | Included (section 3).                                                                                                                       |
-| First row                                    | `linux-7-btrfs` for the pilot (section 2.1). It lands only with its run record, review and countersignature.                                |
+| First row                                    | `linux-7-btrfs` for the pilot (section 2.1). It lands only with its capability qualification record, review and countersignature.           |
 | macOS row                                    | Left out for now.                                                                                                                           |
 | Closing after a torn tail                    | Included (section 4).                                                                                                                       |
 | Closing after `delegate-admitted`            | Included, only after the container machine restarts (section 5).                                                                            |

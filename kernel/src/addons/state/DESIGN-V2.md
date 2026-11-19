@@ -4,8 +4,7 @@ Status: accepted (Nathan, 19 November 2026, 13:21 AEDT). This note
 specifies journal version 2 of the state add-on. Version 1 is
 [DESIGN.md](DESIGN.md); it stays frozen and unchanged, and wherever this
 note is silent, version 1 holds. Code follows this note, never the reverse.
-The one point in section 8.3 is still open, and the code slice that
-depends on it waits for its decision.
+Every open point is decided; section 8 lists them.
 
 In this note a host is the tool built on the CLI kernel. The machine or
 virtual machine a container runs on is the container machine.
@@ -108,14 +107,11 @@ Decided constraints this note keeps:
 
 ## 4. Layout (changes version 1 section 3)
 
-```text
-<root>/
-  format                     journal "contract3.state.2"
-  coordination/              unchanged
-  operations/<operationId>/  every unresolved case, and settled cases not yet moved
-  settled/<operationId>/    settled cases, same files, moved by one rename(2)
-  staging/                   private work area; unchanged
-```
+````text <root>/ format                     journal "contract3.state.2"
+coordination/              unchanged operations/<operationId>/  every
+unresolved case, and settled cases not yet moved settled/<operationId>/
+settled cases, same files, moved by one rename(2) staging/
+private work area; unchanged ```
 
 - A case enters `settled/` only when it holds a valid settling record: a
   valid closure, or its own `completion` or `not-applied` with no damaged
@@ -241,14 +237,14 @@ Points this note found that the later version must answer:
 - Progress: a protected case must not count against the call's limit, or a
   protected first case stalls every later one.
 
-## 8. Decisions and the open point
+## 8. Decisions
 
 ### 8.1 Decided by Nathan, 19 November 2026
 
-Earlier the same day, before this note: a capability qualification row
-matches on the operating system and the major release, the state root's
-filesystem is checked at run time, and the row records the exact release
-observed (10:06); a row cites a committed run record and names its
+Earlier the same day, before this note: a capability qualification row matches
+on the operating system and the major release, the state root's filesystem is
+checked at run time, and the row records the exact release observed (10:06); a
+row cites a committed capability qualification record and names its
 independent review, and a hosted run link is not evidence (10:10). Part 2
 sections 2 and 3 follow both. The rest, at 12:08 and 12:15:
 
@@ -262,8 +258,8 @@ sections 2 and 3 follow both. The rest, at 12:08 and 12:15:
 - K: Closure after `delegate-admitted` only after the container machine
   restarts. No same-boot proof in version 2.
 - N: The first row is `linux-7-btrfs`, for the pilot `agents-pilot` (an
-  OrbStack container on a Mac, a btrfs volume). Its evidence run happens on
-  the pilot through a worker session.
+  OrbStack container on a Mac, a btrfs volume). Its capability qualification
+  run happens on the pilot through a worker session.
 - O: No row for a container's own writable layer.
 - Q: The store upgrade is automatic, on the first changing command, with no
   opt-in. Its rollback cost stays stated (section 3).
@@ -302,17 +298,18 @@ recommended:
   `unobservable` while it may be pending. The CLI kernel has nothing to
   check here; each host proves both branches in its own tests.
 
+At 13:54 (Nathan, 19 November 2026, 13:54 AEDT):
+
+- M: The qualification command is `bun run capability-qualification-run`.
+  One capability qualification run is one run of it on one platform. A
+  capability qualification record is the committed file a row cites,
+  holding that row's runs, at
+  `tests/kernel/state/capability-qualification/<row id>.json`, with schema
+  `capability-qualification-record/1`. Both terms are accepted in the Agent
+  ecosystem glossary.
+
 ### 8.2 Withdrawn by this note
 
 - W: Without deletion a closing case's target cannot leave both folders, so
   its observation values do not change and nothing is left to decide.
-
-### 8.3 Still open
-
-- M: The names of the qualification command, its run record, the record's
-  folder and its schema value. This note calls them `qualify:state`, a run
-  record, `tests/kernel/state/qualification/<row id>.json` and
-  `state-qualification-run/1`, but "qualification" is only a proposed word in
-  the Agent ecosystem glossary, and file and folder names must use glossary
-  words. A revised recommendation is with Nathan. The code slice that adds
-  them waits on it.
+````
