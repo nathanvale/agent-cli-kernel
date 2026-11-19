@@ -254,6 +254,7 @@ describe("the author guide's documents, stamped with the kernel", () => {
     expect(documents.map((path) => relative(guideFolder, path)).sort()).toEqual(
       [
         "AGENTS.md",
+        "CLAUDE.md",
         "docs/commands.md",
         "docs/example.md",
         "docs/stations.md",
