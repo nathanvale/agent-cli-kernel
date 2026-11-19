@@ -1,4 +1,4 @@
-import { describe, expect, jest, test } from "bun:test";
+import { afterEach, describe, expect, jest, test } from "bun:test";
 import { programsAddon } from "../../../kernel/src/addons/programs/index.ts";
 import type {
   EmergencyFacts,
@@ -35,6 +35,9 @@ import {
 } from "./recording-host.ts";
 
 const timeout = 30_000;
+afterEach(() => {
+  jest.useRealTimers();
+});
 
 type Holding = {
   readonly controls?: RunControl[];
