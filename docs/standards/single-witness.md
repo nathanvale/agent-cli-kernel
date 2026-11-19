@@ -64,11 +64,6 @@ this file.
 - Drive every route a capability offers to the same shared function, so a
   route that wraps it, such as one that admits before it starts, is proved
   too. Witnessed: [r4622712214] (the domain program route had no proof).
-- When a change deletes a lookup entry, find every guard that reads through
-  that lookup, and make a missing entry read as closed. Witnessed: [7fb5649]
-  (forgetting a run deleted the seam entry that `recordedEffect` read for its
-  closed check, so a transaction left open after its run could record an
-  effect).
 - Pin only what a production host can observe; a recording host whose `exit`
   returns shows state that `runProcess` ends with its process. Witnessed:
   [ef76011] (a case pinned `runProcess` keeping a finished run's identity,
@@ -90,5 +85,4 @@ this file.
 [r4609890969]: https://github.com/nathanvale/bun-typescript-template/pull/108#discussion_r4609890969
 [kernel#6 r4622839115]: https://github.com/nathanvale/agent-cli-kernel/pull/6#discussion_r4622839115
 [r4622712214]: https://github.com/nathanvale/agent-cli-kernel/pull/4#discussion_r4622712214
-[7fb5649]: https://github.com/nathanvale/agent-cli-kernel/commit/7fb564900cff191397fdc8d1ba6f20e6807abdde
 [ef76011]: https://github.com/nathanvale/agent-cli-kernel/commit/ef76011bdde8d36064b73bd85550d8efc7fb15a6
