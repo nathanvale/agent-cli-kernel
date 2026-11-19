@@ -1,8 +1,25 @@
 import { expect } from "bun:test";
+import { nodeIo } from "../../../kernel/src/addons/diagnostics/io.ts";
+import { createDiagnostics } from "../../../kernel/src/addons/diagnostics/run.ts";
 import { canon, get, run, tree } from "./harness.ts";
-import type { Launch, Run } from "./harness.ts";
+import type { Launch, Run, Tree } from "./harness.ts";
 
 export const machine = ["--json"] as const;
+export const fixtureChildBound = 20_000;
+
+export function attachedIn(where: Tree) {
+  const runId = crypto.randomUUID();
+  const attached = createDiagnostics(
+    { cli: "dxs", environment: { XDG_STATE_HOME: where.state } },
+    nodeIo,
+  ).attach({
+    runId,
+    commandIdentity: "dxs.read",
+    summary: "In-process run.",
+    signal: new AbortController().signal,
+  });
+  return { runId, attached };
+}
 
 export function statusOf(result: Run): unknown {
   return get(result.envelope, "diagnostics");

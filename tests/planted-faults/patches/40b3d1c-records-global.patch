@@ -1,0 +1,17 @@
+diff --git a/kernel/src/addons/diagnostics/records.ts b/kernel/src/addons/diagnostics/records.ts
+index bb46fc6..dba0826 100644
+--- a/kernel/src/addons/diagnostics/records.ts
++++ b/kernel/src/addons/diagnostics/records.ts
+@@ -1,3 +1,4 @@
++import { configureSync } from "@logtape/logtape";
+ import type { LogRecord } from "@logtape/logtape";
+ import { DEFAULT_REDACT_FIELDS, redactByField } from "@logtape/redaction";
+ import type { DiagnosticsLevel } from "../../kernel/index.ts";
+@@ -233,6 +234,7 @@ export function pipelineFor(
+   deliver: (record: LogRecord) => void,
+   report: () => void,
+ ): RunPipeline {
++  configureSync({ reset: true, sinks: {}, loggers: [] });
+   const redact = redactor();
+   return (level, properties) => {
+     const redacted = redact({

@@ -924,8 +924,8 @@
     "source": "1cc1070 feat(diagnostics): let a record carry its level"
   },
   {
-    "id": "1cc1070-run-floor",
-    "patch": "tests/planted-faults/patches/1cc1070-run-floor.patch",
+    "id": "1cc1070-records-trace",
+    "patch": "tests/planted-faults/patches/1cc1070-records-trace.patch",
     "testFile": "tests/kernel/diagnostics/log-lines.test.ts",
     "title": "a log line lands in the run's file under the level it was sent with$",
     "source": "1cc1070 feat(diagnostics): let a record carry its level"
@@ -1132,6 +1132,34 @@
     "testFile": "tests/kernel/lifecycle/in-process.test.ts",
     "title": "IP07\\.rejected-run-records-itself",
     "source": "5a83146 fix(kernel): settle the kernel reviewer's findings on the in-process entry"
+  },
+  {
+    "id": "40b3d1c-records-global",
+    "patch": "tests/planted-faults/patches/40b3d1c-records-global.patch",
+    "testFile": "tests/kernel/diagnostics/in-process-runs.test.ts",
+    "title": "a run (leaves the tool's own LogTape configuration|in a process with no LogTape configuration)",
+    "source": "40b3d1c fix(diagnostics): give each run its own pipeline, not LogTape's global one"
+  },
+  {
+    "id": "40b3d1c-records-shared",
+    "patch": "tests/planted-faults/patches/40b3d1c-records-shared.patch",
+    "testFile": "tests/kernel/diagnostics/in-process-runs.test.ts",
+    "title": "two overlapping (in-process runs through runInProcess|runs attached by hand) each write only their own log lines$",
+    "source": "40b3d1c fix(diagnostics): give each run its own pipeline, not LogTape's global one"
+  },
+  {
+    "id": "40b3d1c-records-limit",
+    "patch": "tests/planted-faults/patches/40b3d1c-records-limit.patch",
+    "testFile": "tests/kernel/diagnostics/in-process-runs.test.ts",
+    "title": "a record past LogTape's redaction depth",
+    "source": "40b3d1c fix(diagnostics): give each run its own pipeline, not LogTape's global one"
+  },
+  {
+    "id": "40b3d1c-records-redaction",
+    "patch": "tests/planted-faults/patches/40b3d1c-records-redaction.patch",
+    "testFile": "tests/kernel/diagnostics/in-process-runs.test.ts",
+    "title": "a record whose facts throw while redacted",
+    "source": "40b3d1c fix(diagnostics): give each run its own pipeline, not LogTape's global one"
   },
   {
     "id": "460be51-install-no-wait",
