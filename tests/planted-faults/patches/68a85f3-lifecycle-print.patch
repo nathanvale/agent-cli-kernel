@@ -1,12 +1,12 @@
 diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
-index 00f55b6..238b482 100644
+index 4aaf9b5..faff541 100644
 --- a/kernel/src/kernel/lifecycle.ts
 +++ b/kernel/src/kernel/lifecycle.ts
-@@ -928,6 +928,7 @@ function callOnCrash(listener: OnCrash, error: unknown): Promise<void> {
+@@ -951,6 +951,7 @@ function callOnCrash(listener: OnCrash, error: unknown): Promise<void> {
  }
  
  function crashEvery(inFlight: InFlight, host: ProcessHost, error: unknown) {
 +  void host.write("stderr", new TextEncoder().encode(String(error)));
-   for (const run of inFlight.runs) crashRun(run);
-   if (inFlight.crash !== "none" || inFlight.listeners.size === 0) {
-     inFlight.crash = "exited";
+   if (inFlight.crash === "stopping") return;
+   if (inFlight.crash !== "none") {
+     for (const run of inFlight.runs) crashRun(run);

@@ -893,7 +893,7 @@ type InFlight = {
   readonly runs: Set<Run>;
   readonly listeners: Set<OnCrash>;
   stopped: StopSignal | undefined;
-  crash: "none" | "listening" | "exited";
+  crash: "none" | "stopping" | "listening" | "exited";
 };
 const inFlightByHost = new WeakMap<ProcessHost, InFlight>();
 
@@ -951,14 +951,22 @@ function callOnCrash(listener: OnCrash, error: unknown): Promise<void> {
 }
 
 function crashEvery(inFlight: InFlight, host: ProcessHost, error: unknown) {
-  for (const run of inFlight.runs) crashRun(run);
-  if (inFlight.crash !== "none" || inFlight.listeners.size === 0) {
+  if (inFlight.crash === "stopping") return;
+  if (inFlight.crash !== "none") {
+    for (const run of inFlight.runs) crashRun(run);
     inFlight.crash = "exited";
     host.exit(1);
     return;
   }
-  inFlight.crash = "listening";
+  inFlight.crash = "stopping";
+  for (const run of inFlight.runs) crashRun(run);
+  if (inFlight.listeners.size === 0) {
+    inFlight.crash = "exited";
+    host.exit(1);
+    return;
+  }
   for (const run of inFlight.runs) run.controller.abort();
+  inFlight.crash = "listening";
   const due = host.now() + stopBoundMilliseconds;
   const listening = [...inFlight.listeners].map((each) =>
     callOnCrash(each, error),

@@ -101,7 +101,10 @@ export type RunSetup = {
 // cannot interrupt synchronous work inside it. Each entry's `onCrash` is
 // called once, from that entry's first call on, and exit waits for all of
 // them; the host keeps one per distinct function, so reuse one function across
-// entries. Runs in flight are aborted before `onCrash` is called. Once a crash
+// entries. Runs in flight are aborted before `onCrash` is called. An error
+// raised while the kernel stops programs, writes records and aborts runs
+// belongs to the first crash: it skips no record, no `onCrash` call and no
+// part of the wait. Once a crash
 // has happened it decides the exit: a stop signal during the wait exits 1 at
 // once, a stop's own exit no longer fires, and a call made during the wait
 // never starts a run and stays pending until exit.
