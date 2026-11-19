@@ -70,15 +70,22 @@ Settled constraints this note keeps:
   only the `journal` value and ignores unknown fields, so it would accept
   the store.
 - A version 2 program reads a version 1 store as it is: read routes read
-  `operations/` only and write nothing. The first changing route upgrades it
-  in place under the admission lock (X23): create `resolved/` and flush the
-  root, stage the new format record, rename it over `format`, flush the root.
-  This is the one time `format` is replaced. Two upgraders write the same
-  bytes, so the step is idempotent (open point Q).
+  `operations/` only and write nothing. Until the upgrade it also moves
+  nothing and `prune` refuses, and what it writes stays readable by a
+  version 1 program, which ignores the added fields.
+- The upgrade step (X23), under the admission lock: create `resolved/` and
+  flush the root, stage the new format record, rename it over `format`,
+  flush the root. This is the one time `format` is replaced. Two upgraders
+  write the same bytes, so the step is idempotent.
+- What triggers the step is open point Q: the first changing route of any
+  version 2 program, or only once the host opts in.
+- The upgrade is one way, and that has a rollback cost. After it a version 1
+  program refuses every route on that store, its report included. A tool
+  rolled back to a version 1 release can no longer read its own state.
 - A version 1 run already in flight at the upgrade finishes normally: its
   records are valid version 2 records, and a later admission moves its case.
-- The upgrade is one way. A root shared by several installed programs is
-  upgraded only after all of them run version 2.
+- A root shared by several installed programs is upgraded only after all of
+  them run version 2.
 - Any other `journal` value refuses every route.
 
 ## 4. Layout (changes section 3)
@@ -167,9 +174,14 @@ the rename fails and the case stays where it is.
 
 ## 7. Prune (new host call)
 
-`prune({ olderThanMilliseconds, limit })` is on the instance `stateAddon`
-returns, beside `report()` and `history()`. It is not a transaction, writes no
-journal record and changes no case's disposition (open point H).
+`prune(effect, { olderThanMilliseconds, limit })` is on the instance
+`stateAddon` returns. It deletes durable state, so it must never run from an
+inspect command or the `ifNoResult` command (DISC-14 item 1, REC-3). How
+that is kept is open point H. The form recommended there takes the
+recorded-effect capability, so prune runs only inside a changing command's
+recorded effect, as that command's declared effect. Prune opens no
+transaction of its own, so a run still has one, and it changes no case's
+disposition.
 
 1. Delete leftovers `staging/prune-*` (they count toward `limit`).
 2. With no coordination lock: list `resolved/` names in name order, read each

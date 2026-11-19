@@ -72,29 +72,32 @@ Pruning and the version meeting (part 1):
 
 Closure in production (part 2):
 
-| Proposed id                        | Observation                                                                                                                            | Red                                                            |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| Q02.a-release-major-edges          | Another release in the same major matches; the next major refuses with the observed facts.                                             | Match the exact release, or none (planted fault).              |
-| Q02.b-filesystem-mismatch-refused  | A state root on a filesystem the row does not name refuses with the observed facts; no closure.                                        | Trust the row's name without reading the root (planted fault). |
-| Q02.c-route-mismatch-refused       | A row for another coordination route does not match.                                                                                   | Ignore `primitive`.                                            |
-| Q02.d-unreadable-fact-refuses      | An unreadable filesystem or boot identity refuses; nothing is written.                                                                 | Treat unreadable as matching.                                  |
-| Q02.e-production-row-closes        | Under a production row a crashed case closes as completed and as not-applied, stamped with the row `id`.                               | Stamp a fixture label.                                         |
-| Q03.a-row-cites-run-record         | Every production row cites a committed record that matches it, with every required case passed and a named review.                     | Accept a hosted run link.                                      |
-| K11.a-delegate-same-boot-refused   | A killed run with a delegate start, same boot or no `boot`: closure refuses even with a matching row.                                  | Treat a free lease as proof.                                   |
-| K11.b-delegate-other-boot-closes   | With a boot identity that differs (test entry), the same case closes.                                                                  | Compare process identifiers instead.                           |
-| K11.c-torn-tail-closes             | Killed mid-append with a free lease: closes as completed on `present`; `not-applied` on `absent` refuses.                              | Refuse every torn tail.                                        |
-| K11.d-corrupt-events-still-refuses | Bytes after the damage: closure refuses as unavailable.                                                                                | Read corruption as a torn tail.                                |
-| K11.e-no-append-after-final-event  | A `record` left pending when work returns appends nothing after the final event, and its `admitStart` refuses.                         | Append outside the lease (planted fault).                      |
-| K11.f-second-container-closer      | A live owner in one container refuses a closer in a second container on the same volume; once the owner is killed, that closer closes. | Decide by the closer's own process view.                       |
+| Proposed id                        | Observation                                                                                                                                                                                      | Red                                                            |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| Q02.a-release-major-edges          | Another release in the same major matches; the next major refuses with the observed facts.                                                                                                       | Match the exact release, or none (planted fault).              |
+| Q02.b-filesystem-mismatch-refused  | A state root on a filesystem the row does not name refuses with the observed facts; no closure.                                                                                                  | Trust the row's name without reading the root (planted fault). |
+| Q02.c-route-mismatch-refused       | A row for another coordination route does not match.                                                                                                                                             | Ignore `primitive`.                                            |
+| Q02.d-unreadable-fact-refuses      | An unreadable filesystem or boot identity refuses; nothing is written.                                                                                                                           | Treat unreadable as matching.                                  |
+| Q02.e-production-row-closes        | Under a production row a crashed case closes as completed and as not-applied, stamped with the row `id`.                                                                                         | Stamp a fixture label.                                         |
+| Q03.a-row-cites-run-record         | Every production row cites a committed record that matches it, marked `facts: "observed"`, with every required case passed and a named review.                                                   | Accept a hosted run link, or a record made with overrides.     |
+| K11.a-delegate-same-boot-refused   | A killed run with a delegate start, same boot or no `boot`: closure refuses even with a matching row.                                                                                            | Treat a free lease as proof.                                   |
+| K11.b-delegate-other-boot-closes   | With a boot identity that differs (test entry), the same case closes.                                                                                                                            | Compare process identifiers instead.                           |
+| K11.c-torn-tail-closes             | Killed mid-append with a free lease: closes as completed on `present`; `not-applied` on `absent` refuses.                                                                                        | Refuse every torn tail.                                        |
+| K11.d-corrupt-events-still-refuses | Bytes after the damage: closure refuses as unavailable.                                                                                                                                          | Read corruption as a torn tail.                                |
+| K11.e-no-append-after-final-event  | A `record` left pending when work returns appends nothing after the final event, and its `admitStart` refuses.                                                                                   | Append outside the lease (planted fault).                      |
+| K11.f-second-container-closer      | Separate evidence step, not in the qualification command: a live owner in one container refuses a closer in a second container on the same volume; once the owner is killed, that closer closes. | Decide by the closer's own process view.                       |
 
 ## 4. Test entry
 
 The labelled test entry (`fixture.ts`) takes only a fixture label today. It
 gains two seams: a candidate row, and overrides for the environment facts
-(the release, the state root's filesystem and the boot identity). The
-qualification run and cases Q02.a to Q02.d, K11.a and K11.b need them. A
-closure the test entry enables is stamped `fixture:<label>`, as today, and
-`capabilities()` still reports `fixture-only`.
+(the release, the state root's filesystem and the boot identity).
+
+- The qualification command uses the candidate row seam only. It refuses to
+  run when any fact override is set, and its record says `facts: "observed"`.
+- Cases Q02.a to Q02.d and K11.b use the overrides, in the test suite only.
+- A closure the test entry enables is stamped `fixture:<label>`, as today,
+  and `capabilities()` still reports `fixture-only`.
 
 ## 5. Open points for the review
 
@@ -114,36 +117,57 @@ Each is one decision with one recommendation.
 - D: Deleting history. REC-4 says "Keep the original intent and closure
   history readable" and that a same-identity closure retry "returns its prior
   disposition"; DISC-14 item 3 says the report "never deletes history".
-  Recommend an accepted decision with the Command Contract 3 records (owner
-  Linear MAG-98): a host-set retention, after which history and a retry
-  answer not found. Prune code waits for it; the move does not.
+  Options: no deletion, so only the move lands and `resolved/` grows without
+  bound; or an accepted decision with the Command Contract 3 records (owner
+  Linear MAG-98) for a host-set retention, after which history and a retry
+  answer not found. Recommend the accepted decision. Prune code waits for
+  it; the move does not.
 - E: Recommend an old program may not open a new store: version 1 refuses a
   version 2 store.
 - F: Recommend at most 64 moves per hold of the admission lock.
 - G: Coordination lock files (`k-<h>.lock`) still grow with each distinct
   conflict key. Unlinking one is unsafe (two holders on two inodes). Recommend
   a documented limit, outside version 2.
-- H: Recommend prune is retention maintenance, not a journaled effect; a host
-  may still expose it through its own changing command.
+- H: Who may call `prune`. It deletes durable state, so an inspect command
+  or `ifNoResult` that called it would change state from a read-only command
+  (DISC-14 item 1, REC-3). Options: a documented rule only, which is simplest
+  and enforced by nothing; or `prune` takes the recorded-effect capability,
+  so it runs only inside a changing command's recorded effect. The second is
+  enforced by the capability a program start already needs, but each prune
+  run is journaled, and one that crashes leaves an unresolved case that
+  blocks later prune runs until it is closed. Recommend the capability.
 - I: A macOS row needs a foreign call (`statfs`, `sysctlbyname`) in one
   confined Darwin module with a start-up self-check, as `linux-flock.ts` is
   for Linux, and the lint ban widened by that file. Recommend leaving it out
   of version 2's first delivery: Linux in a container is the target, and
   Darwin keeps handing off until someone wants the row.
-- J: Recommend "major release" is the first part of `os.release()`. In a
-  container that is the host kernel's major, not the image's distribution.
-  It spans many kernels, so the row also records the exact release observed.
-- K: Recommend closure after a delegate start only across a host restart.
-  A container restart would be more convenient, but it is proof only when a
-  state root is tied to one container, which the add-on cannot show. A
+- J: What "major release" means on Linux. It is the kernel's major number,
+  in a container the host kernel's. That number carries no compatibility
+  promise and spans years of kernels; the start-up self-check, the
+  filesystem type and the evidence run are what protect a closure. Options:
+  major only, as decided, so a row survives host kernel updates; or major
+  and minor, which is tighter but hands off after every minor kernel update
+  until a new run and row. Recommend major only, with the exact release
+  recorded on the row.
+- K: Closing after a delegated start. Today's design leaves such a case
+  unclosable until the host restarts; restarting the container is not
+  enough. Options: host restart only, which fails safe; a delegate lease the
+  program inherits (part 2 section 5.1), which closes on the same boot but
+  fails unsafe for a program that closes inherited descriptors, and reopens
+  CMD-14 and case C01.e; or a container restart as proof, which holds only
+  when a state root is tied to one container, and the add-on cannot show
+  that. Recommend host restart only for version 2, after Y is answered. A
   version 1 delegated case stays unclosable.
 - L: Recommend a free lease is enough after a torn tail, once no append can
   follow the final event (part 2 section 4).
 - M: Recommend the run record lives at
   `tests/kernel/state/qualification/<row id>.json`.
-- N: Which container host the first row is for. Recommend the one observed
-  (kernel major 7, a btrfs volume). A host with another kernel major, or a
-  volume on ext4 or XFS, needs its own row and run.
+- N: Which host kernel and which volume filesystem the real containers run
+  on. `linux-7-btrfs` is only the worked example, from the one environment
+  observed (an OrbStack container on a Mac). A deployment on another host
+  kernel major, or on a volume on ext4 or XFS, matches no row and still
+  hands off. Recommend the first row and its evidence run target the real
+  deployment once Nathan names it.
 - O: Recommend no row for the container's writable layer: state kept there is
   lost with the container, so a tool should keep its state root on a volume.
 - P: The boot identity names no machine (REC-7 asks identity to distinguish
@@ -151,8 +175,16 @@ Each is one decision with one recommendation.
   machines as unsupported in each row's `failureCases`, not recording a
   machine identity: inside a container the readable one belongs to the image
   and would refuse every case after the container is rebuilt.
-- Q: Recommend a version 2 program upgrades a version 1 store in place on
-  its first changing route, with no separate migration command.
+- Q: When a version 1 store is upgraded. Either way the upgrade is one way:
+  afterwards a version 1 program refuses every route, its report included,
+  so a tool rolled back to a version 1 release cannot read its state.
+  Options: automatic, at the first changing route of any version 2 program,
+  which needs no host work but removes the way back at the first changing
+  command after an update; or explicit, by a state add-on factory option or
+  a host call, so a host can ship version 2, confirm it, then upgrade. The
+  explicit form costs a version 2 program that still runs on a version 1
+  store (no moves, no prune) and a step a host can forget. Recommend
+  explicit.
 - R: Recommend the owner does not move its own case at transaction end; the
   next admission does.
 - S: Recommend a row names its review by reviewer, date and verdict.
@@ -163,12 +195,19 @@ Each is one decision with one recommendation.
 - U: Matching also on the coordination route and a readable boot identity,
   beyond the three facts decided. Recommend yes: both can only refuse more.
 - V: Two containers sharing one state root. REC-7b's proposed boundary is
-  "the same host and namespace". Recommend supported, because the lease and
-  the boot identity are the host kernel's and no proof uses a process view;
-  case K11.f in the evidence run proves it.
+  "the same host and namespace". Options: a row claims it only when it cites
+  a passed K11.f record, a separate step that needs a container runtime; or
+  every row lists it under `failureCases`. Recommend the first: the lease
+  and the boot identity are the host kernel's and no proof uses a process
+  view.
 - W: A closing case whose target is in neither folder reports
   `unobservable`, where the code today reports `absent`. Recommend yes.
 - X: No append after the final event: `record` and `admitStart` refuse once
   the transaction has ended. This changes today's code for a work function
   that does not await. Recommend yes; closing after a torn tail depends on
   it.
+- Y: Whether tools of this kind start a program inside a recorded effect, or
+  reach outside work through a long-lived link that records no start. Only
+  the first writes `delegate-admitted`, so only it meets K's limit. Recommend
+  Nathan answers this before K: if no program starts inside an effect, the
+  limit never applies.

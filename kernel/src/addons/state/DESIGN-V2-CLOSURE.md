@@ -56,15 +56,18 @@ point U).
 - Major release. A container runs on its host's operating-system kernel, so
   `os.release()` inside it is the host kernel's release (observed:
   `7.2.12-orbstack-00394-gbecdd6130068`, version 1 section 7). The major
-  release is that kernel's major, `7` (open point J). The image's
-  distribution and C library are recorded as observed and not matched; the
-  Linux route's start-up self-check covers the C library at run time.
+  release is that kernel's major, `7`. The image's distribution and C
+  library are recorded as observed and not matched.
+- That number carries no compatibility promise, and one major spans years of
+  kernels. What protects a closure on Linux is the start-up self-check of
+  the coordination call, the filesystem type read at closure time, and the
+  row's evidence run. Major and minor is the alternative (open point J).
 - Filesystem. `statfsSync(root).type` reports the filesystem under the root
   however it was mounted, and the numbers are a stable interface:
 
 | The state root sits on                              | Reads as                                                                          | Row                                          |
 | --------------------------------------------------- | --------------------------------------------------------------------------------- | -------------------------------------------- |
-| A volume                                            | the container host's local filesystem (btrfs `0x9123683E` on the volume observed) | the first row                                |
+| A volume                                            | the container host's local filesystem (btrfs `0x9123683E` on the volume observed) | the worked example                           |
 | A bind mount of a Linux host folder                 | that filesystem (ext4 `0xEF53`, XFS `0x58465342`)                                 | one row per type, each with its own evidence |
 | A bind mount of a folder shared from another system | a shared type (expected FUSE `0x65735546`; not observed here)                     | none: shared filesystems stay unsupported    |
 | The container's writable layer                      | overlay `0x794C7630`                                                              | none in version 2 (open point O)             |
@@ -77,9 +80,12 @@ point U).
 - The evidence run happens inside a container on a host whose kernel is in
   the row's major release. The state root's parent is an argument, so the
   root is on the volume under test while the repository sits anywhere.
-- First row: `linux-7-btrfs`, a volume in the one environment observed so
-  far. Version 1 section 7 records "a btrfs volume" there and not how it was
-  mounted; the run confirms it. Its run record is owed (open point N).
+- Worked example: `linux-7-btrfs`, a volume in the one environment observed
+  so far, an OrbStack container on a Mac. Version 1 section 7 records "a
+  btrfs volume" there and not how it was mounted.
+- Which host kernel and volume filesystem the real containers run on is
+  open point N. A deployment on another host kernel major, or on a volume on
+  ext4 or XFS, matches no row and still hands off.
 
 ### 2.2 Darwin (second, optional)
 
@@ -117,9 +123,11 @@ One repeatable command (proposed name `bun run qualify:state`) runs the
 stopped-owner cases on the platform and writes the record. It supplies the
 candidate row through the labelled test entry, a seam that entry gains
 (part 3 section 4), so its closures are stamped `fixture:<label>` and it
-never touches the production table. It refuses a
-dirty tree. It writes the record to a temporary name and renames it, so a
-killed run leaves no record. Proposed place:
+never touches the production table. It refuses a dirty tree. It also
+refuses to run when any environment fact is overridden (part 3 section 4):
+a record made with an overridden release, filesystem or boot identity proves
+nothing about the platform. It writes the record to a temporary name and
+renames it, so a killed run leaves no record. Proposed place:
 `tests/kernel/state/qualification/<row id>.json`.
 
 Record fields:
@@ -135,19 +143,28 @@ Record fields:
 | `primitive`          | the active coordination route                                                                                                                |
 | `bootIdentitySource` | the source, and whether it was readable; never the value                                                                                     |
 | `cases`              | `[{ id, result, detail }]`, result `pass`, `fail` or `unproved`                                                                              |
+| `facts`              | `observed`: every fact above was read from the machine, with no override. The command writes no other value                                  |
 
-The run covers the executable closure and stopped-owner cases (families K02,
-K03, K06, K07, K08, O04, O05, O07 and O09) and the proposed cases that need
-no production row (Q02.a to Q02.d, K11.a to K11.f). A case still pending in
-the case table is recorded `unproved` and is not required. A row needs every
+The run covers the cases that run on observed facts: the executable closure
+and stopped-owner cases (families K02, K03, K06, K07, K08, O04, O05, O07 and
+O09) and proposed K11.a, K11.c, K11.d and K11.e. A case still pending in the
+case table is recorded `unproved` and is not required. A row needs every
 required case `pass`.
 
-Two cases cannot be in the run, because they need the row to exist: Q02.e
-(a closure stamped with the row's `id`) and Q03.a. The test suite proves
-them once the row lands. Q03.a refuses a production row unless its record
-exists, matches the row's `os`, `majorRelease`, `filesystem` and
-`primitive`, has every required case `pass`, and the row names its review.
-REC-7b asks that review to pass V-22 and V-42 for each row.
+Left out of the run:
+
+- Q02.a to Q02.d and K11.b need a fact override. They prove the matching
+  logic, which is the same on every platform, so the test suite owns them.
+- Q02.e (a closure stamped with the row's `id`) and Q03.a need the row to
+  exist. The test suite proves them once the row lands.
+- K11.f needs two containers, so a container runtime. It is a separate step
+  with its own record, and the evidence for the two-container claim only
+  (open point V). The command itself needs no container runtime.
+
+Q03.a refuses a production row unless its record exists, carries
+`facts: "observed"`, matches the row's `os`, `majorRelease`, `filesystem`
+and `primitive`, has every required case `pass`, and the row names its
+review. REC-7b asks that review to pass V-22 and V-42 for each row.
 
 ## 4. Closing after a torn tail (included)
 
@@ -177,13 +194,22 @@ Recovery classification already treats a torn tail as started (version 1
 section 8), so `not-applied` needs `excluded`, never mere absence. A corrupt
 `events` file, with bytes after the damage, still refuses.
 
-## 5. Closing after `delegate-admitted` (included, across a restart only)
+## 5. Closing after `delegate-admitted` (included, across a host restart only)
+
+The consequence first. A case whose run started a program stays unclosable
+until the host restarts. In a container deployment the host is the machine
+or virtual machine under the containers, so restarting or rebuilding the
+container does not help. For those cases version 2 leaves the
+blocked-for-good problem it set out to remove. How much that matters turns
+on open point Y: whether tools of this kind start a program inside a
+recorded effect at all.
 
 A delegated program runs in its own process group, does not hold the lease
 and can outlive its owner (pending cases K08.c and O06.a). Asking whether the
 group is empty does not see a descendant that left the group, as the
 programs add-on already states, and REC-7 says "a dead parent with a live
-child is not a stopped operation". So no same-boot check is proof.
+child is not a stopped operation". So no same-boot check of the group is
+proof.
 
 - `delegate-admitted` gains `boot`: the boot identity, read by the state
   add-on in `admitStart` and written before the start, as today. The programs
@@ -212,14 +238,38 @@ child is not a stopped operation". So no same-boot check is proof.
   point P).
 - Remote work a program started is never covered (CMD-14).
 
+### 5.1 An alternative weighed: a delegate lease
+
+The started program could inherit an open, locked file descriptor on a
+per-case `delegate.lease`. The coordination lock belongs to the open file
+description, so it stays held while the program, or any descendant, keeps
+that descriptor. A free delegate lease would then show they are all gone, on
+the same boot and across containers that share a volume. Its limits:
+
+- It fails in the unsafe direction. A program that closes its inherited
+  descriptors, as one that detaches into the background commonly does, frees
+  the lease while it still runs. The boot rule fails safe.
+- `Bun.spawn` passes no descriptor beyond stdin, stdout and stderr (version 1
+  section 7, question N5). The locked descriptor would have to be the
+  program's stdin. CMD-14 says that is closed, and the bounded input decided
+  on 19 November 2026 makes it a pipe the add-on writes and then closes. So
+  the programs add-on would need another start route.
+- Frozen case C01.e proves a started program does not hold the coordination
+  lock, and both routes set close-on-exec for that reason. Its control half,
+  where the holder hands its locked descriptor to the child as stdin, shows
+  the mechanism works. A delegate lease is a deliberate exception to the
+  rule C01.e pins.
+
+This note recommends against it for version 2 (open point K).
+
 ## 6. Parts of the closure work
 
 | Part                                         | Version 2                                                                                                                                   |
 | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | Matching rule                                | Included (section 2).                                                                                                                       |
 | Run command and record format                | Included (section 3).                                                                                                                       |
-| First row: Linux in a container              | `linux-7-btrfs` (section 2.1). It lands only with its run record and review; that evidence is owed.                                         |
+| First row: Linux in a container              | Its target is open point N; `linux-7-btrfs` is the worked example (section 2.1). A row lands only with its run record and review.           |
 | macOS row                                    | Second and optional (section 2.2). Not included unless open point I is taken up.                                                            |
 | Closing after a torn tail                    | Included (section 4).                                                                                                                       |
-| Closing after `delegate-admitted`            | Included across a restart only (section 5).                                                                                                 |
+| Closing after `delegate-admitted`            | Included across a host restart only (section 5).                                                                                            |
 | Human takeover and `outcome-unknown` closure | Not included. Both need a qualified authority source, and case K05.b is still pending. Their refusals and capability reports do not change. |
