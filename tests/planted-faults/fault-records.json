@@ -901,5 +901,12 @@
     "testFile": "tests/kernel/abort-signal.test.ts",
     "title": "^command\\(\\): a context signal that is a prototype-only object with its own aborted property is refused before the handler$",
     "source": "10c4870 fix(kernel): brand-check the abort signal through its prototype getter"
+  },
+  {
+    "id": "e15dec5-context",
+    "patch": "tests/planted-faults/patches/e15dec5-context.patch",
+    "testFile": "tests/kernel/abort-signal.test.ts",
+    "title": "^command\\(\\): a context signal that is a revoked Proxy is refused before the handler$",
+    "source": "e15dec5 fix(kernel): keep the abort signal's instanceof check inside the catch"
   }
 ]
