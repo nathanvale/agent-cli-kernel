@@ -53,16 +53,15 @@ function dataOf(run: OwnCliRun | undefined): unknown {
 }
 
 export function wantsFindings(own: OwnCli): boolean {
-  const last = own.runs.at(-1);
-  if (last?.command === "report") {
-    const found = field(dataOf(last), "findings");
-    return typeof found === "number" && found > 0;
-  }
-  return (
-    last?.command === "sweep" &&
-    field(parsed(last.ran.stdout), "result", "causeCode") ===
+  return own.runs.some((run) => {
+    if (
+      field(parsed(run.ran.stdout), "result", "causeCode") ===
       "DOMAIN_VERIFY_FINDINGS"
-  );
+    )
+      return true;
+    const found = field(dataOf(run), "findings");
+    return run.command === "report" && typeof found === "number" && found > 0;
+  });
 }
 
 function runFailure(own: OwnCli, { command, ran }: OwnCliRun): string[] {
@@ -143,14 +142,21 @@ function sweepJudged(own: OwnCli, data: unknown): Judged {
   };
 }
 
-function unmetLine(own: OwnCli, step: unknown): string {
-  const name = String(field(step, "step"));
-  const evidence = own.evidence?.get(name);
-  const shown =
-    evidence === undefined
-      ? "its evidence file could not be read"
-      : `expected ${quoted(field(evidence, "expected"))}, observed ${quoted(field(evidence, "observed"))}`;
-  return `${own.name}: step ${name} is unmet at ${listOf(field(step, "unmet")).join(", ")}: ${shown}. Repair: make the target do what the step expects. Change the scenario in ${featurePath} only when the example's documented output changed on purpose; ${own.repair}`;
+function unmetLines(own: OwnCli, listed: readonly unknown[]): string[] {
+  const unmet = new Map<string, unknown>();
+  for (const [name, evidence] of own.evidence ?? [])
+    if (field(evidence, "verdict") === "unmet")
+      unmet.set(name, field(evidence, "unmet"));
+  for (const step of listed)
+    unmet.set(String(field(step, "step")), field(step, "unmet"));
+  return [...unmet].map(([name, keys]) => {
+    const evidence = own.evidence?.get(name);
+    const shown =
+      evidence === undefined
+        ? "its evidence file could not be read"
+        : `expected ${quoted(field(evidence, "expected"))}, observed ${quoted(field(evidence, "observed"))}`;
+    return `${own.name}: step ${name} is unmet at ${listOf(keys).join(", ")}: ${shown}. Repair: make the target do what the step expects. Change the scenario in ${featurePath} only when the example's documented output changed on purpose; ${own.repair}`;
+  });
 }
 
 function reportJudged(own: OwnCli, data: unknown): Judged {
@@ -166,8 +172,7 @@ function reportJudged(own: OwnCli, data: unknown): Judged {
     failures.push(
       `${own.name}: the sweep found ${plural(findings, "failed check")}, each listed here; stations are compared with ${recordPath} once the sweep is clean. Repair: ${own.repair}`,
     );
-  for (const step of listOf(field(data, "unmet")))
-    failures.push(unmetLine(own, step));
+  failures.push(...unmetLines(own, listOf(field(data, "unmet"))));
   for (const step of listOf(field(data, "unconfirmed")))
     failures.push(
       `${own.name}: step ${String(step)}'s process end was not confirmed. Repair: make the target exit on its own within the step's limit.`,
@@ -191,7 +196,12 @@ export function ownCliFailures(own: OwnCli, record: unknown): string[] {
   const found = findingLines(own);
   const last = own.runs.at(-1);
   if (last !== undefined && runFailure(own, last).length > 0)
-    return [...recorded.failures, ...ranFailures, ...found];
+    return [
+      ...recorded.failures,
+      ...ranFailures,
+      ...unmetLines(own, []),
+      ...found,
+    ];
   const data = dataOf(last);
   const judged =
     last?.command === "sweep"

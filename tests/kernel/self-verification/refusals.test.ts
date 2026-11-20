@@ -255,6 +255,38 @@ describe("self-verification refuses what verify-cli reports, each with a repair"
     ]);
   });
 
+  test("a refused report with no data still quotes each failed check and each unmet step", () => {
+    const own: OwnCli = {
+      name: "example",
+      repair,
+      evidence: new Map([
+        [
+          "read-only-command/show-known-planet",
+          {
+            verdict: "unmet",
+            unmet: ["result.data"],
+            expected: { moons: 2 },
+            observed: { moons: 200 },
+          },
+        ],
+      ]),
+      findings: envelope({ findings: [finding] }),
+      runs: [
+        { command: "drive", ran: envelope(null, 3) },
+        {
+          command: "report",
+          ran: envelope(null, 3, { causeCode: "DOMAIN_VERIFY_FINDINGS" }),
+        },
+      ],
+    };
+    expect(ownCliFailures(own, reportRecord)).toEqual([
+      `example: bun skills/verify-cli/verify.ts drive exited 3: said Repair: ${repair}`,
+      `example: bun skills/verify-cli/verify.ts report exited 3: said Repair: ${repair}`,
+      `example: step read-only-command/show-known-planet is unmet at result.data: expected {"moons":2}, observed {"moons":200}. Repair: make the target do what the step expects. Change the scenario in ${featurePath} only when the example's documented output changed on purpose; ${repair}`,
+      foundLine,
+    ]);
+  });
+
   test("the read-only feature file must show exactly one scenario", () => {
     expect(() => featureScenario("no block")).toThrow(
       `${featurePath} shows 0 scenario blocks. Repair: keep exactly one json block there, the scenario self-verification drives.`,
