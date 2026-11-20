@@ -7,26 +7,16 @@ this file.
 
 - Check what a protocol promises on every observation, not only what the
   author asked for, so a step can fail on a broken promise its scenario did
-  not name. Witnessed: [0ab74b8] (a target whose envelope claimed exit 99
-  while the process exited 0 passed every scenario and the sweep).
+  not name. Witnessed: [0ab74b8].
 - Prove a child ran by an output only a run produces, never by its exit code
-  alone. Witnessed: [67e7adc] (`bun --cwd <repository> run check` printed
-  bun's help and exited 0, having run nothing).
+  alone. Witnessed: [67e7adc].
 - Give a list one order at both ends: a checker that requires it sorted
-  must read it from a producer that sorts it. Witnessed: [bdd5e9c] (the state
-  add-on reports a transaction's effects in the order they ran, and its
-  transaction proof refuses them unless sorted by name, so `drive`'s effects
-  `target.run` then `evidence.write` failed every run until they were named
-  `step.run` and `step.write`).
+  must read it from a producer that sorts it. Witnessed: [bdd5e9c].
 - Return a report as its owner gives it, every field kept. Witnessed:
-  [0669e10] (verify-cli's pending rebuilt the state report and dropped each
-  run id).
+  [0669e10].
 - Turn off only the restriction an exception needs; a rule turned off for a
-  file drops every restriction it holds. Witnessed: [0669e10] (the kernel-free
-  check's scoped exception turned off `no-restricted-properties`, and with it
-  the state factory ban).
-- Keep the state a step leaves beside what it printed. Witnessed: [18894b0]
-  (a read-only proof could not show that its command wrote nothing).
+  file drops every restriction it holds. Witnessed: [0669e10].
+- Keep the state a step leaves beside what it printed. Witnessed: [18894b0].
 - Make a guard against an empty gate count what the gate would run.
   Witnessed: [ac11ed9] (a test area whose tests sit only in subfolders was
   counted as empty).
@@ -175,6 +165,10 @@ this file.
   its name. Witnessed: [911189b] (the fault record reader skipped every
   dot-named file, so a record renamed `.x.json` was never replayed; Fable
   review of pull request 54).
+- Credit coverage only from a run whose checks all passed. Witnessed:
+  [044431e].
+- Observe both sides again before blaming the judge for a mismatch.
+  Witnessed: [0aeb3de].
 - Create a file the tool owns with exclusive create, not a check and then
   a write, so two writers of the same name cannot both succeed.
   Witnessed: [911189b] (two `planted-fault:add` runs for one id both
@@ -230,3 +224,5 @@ this file.
 [8cbec55]: https://github.com/nathanvale/agent-cli-kernel/commit/8cbec55e65afbbba5650d447e00cac40ce0e01c3
 [911189b]: https://github.com/nathanvale/agent-cli-kernel/commit/911189bb75fa97d60acaacfba6034417522804aa
 [0669e10]: https://github.com/nathanvale/agent-cli-kernel/commit/0669e10e32c420aa077e8491818f1d1417f1a1c9
+[044431e]: https://github.com/nathanvale/agent-cli-kernel/commit/044431e8b510ef9104ab7e4ade72f5d7ae980a69
+[0aeb3de]: https://github.com/nathanvale/agent-cli-kernel/commit/0aeb3de88a7ea51e3882ff3ac30f9c0dde64614b

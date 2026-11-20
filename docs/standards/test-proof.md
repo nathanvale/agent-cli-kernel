@@ -56,7 +56,8 @@ is in the [test harness guide](test-harness.md).
   case allowed 5 s for a 500 ms escalation).
 - Require a project's evidence list to exist and contain at least one entry.
   A check against an empty array can accept a missing field. Witnessed:
-  [#91-projects], [0669e10] (an empty `result` counted as a step's expectation).
+  [#91-projects], [0669e10] (an empty `result` counted as a step's expectation),
+  [77251da] (an empty string in an includes list did too).
 - Prove a resolution by a refusal only the right folder can give. A recorded
   hit or an empty result passes for a skipped check too, and a process
   folder with the same tail as the injected one passes for the wrong
@@ -145,7 +146,9 @@ is in the [test harness guide](test-harness.md).
   and test selector current in the same commit and require `KILLED`.
   A split guard left a patch stale, and the original changed-file selector
   missed test-only edits. Witnessed: [#54-stale], [#77-test].
-- Treat a surviving fault as a missing test. Witnessed: [d72cd9e], [640ba05].
+- Treat a surviving fault as a missing test. Witnessed: [d72cd9e], [640ba05],
+  [3779b5e] (eleven trust-check guards each changed alone left every test
+  green; Fable review of pull request 56).
 
 [#91-count]: https://github.com/nathanvale/bun-typescript-template/pull/91#discussion_r4607744321
 [185c90d]: https://github.com/nathanvale/bun-typescript-template/commit/185c90d11dd167ee4874e383ba26cd7d64a70964
@@ -202,3 +205,5 @@ is in the [test harness guide](test-harness.md).
 [8cbec55]: https://github.com/nathanvale/agent-cli-kernel/commit/8cbec55e65afbbba5650d447e00cac40ce0e01c3
 [911189b]: https://github.com/nathanvale/agent-cli-kernel/commit/911189bb75fa97d60acaacfba6034417522804aa
 [0669e10]: https://github.com/nathanvale/agent-cli-kernel/commit/0669e10e32c420aa077e8491818f1d1417f1a1c9
+[77251da]: https://github.com/nathanvale/agent-cli-kernel/commit/77251da5e767409e3dd634a13fa836d45d4fc138
+[3779b5e]: https://github.com/nathanvale/agent-cli-kernel/commit/3779b5e0e4e5653217c14115c0025e6fd2197c30

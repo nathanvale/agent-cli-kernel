@@ -38,6 +38,16 @@ boundary trusts the types.
   keys as equal and follows the runtime collation. Witnessed: [r4580077765],
   [57c8c8b].
 
+## Paths and outputs
+
+- Judge a path by where it really is: resolve symbolic links in the part
+  that exists before walking its parents. Witnessed: [480dec5] (a run folder
+  reached through a link into a checkout passed the work-tree rule).
+- Compare another program's output by a hash of its bytes, not only its
+  length, blanking only a field drawn anew on every run. Witnessed:
+  [b2dcc8f] (same-length altered stdout passed the probe comparison;
+  CodeRabbit on pull request 55).
+
 ## Bounds
 
 - Check `NaN` explicitly. `Math.max` and `Math.min` pass it through, and a
@@ -49,7 +59,11 @@ boundary trusts the types.
   [0ab74b8] (the verification skill's front door gave `Bun.spawnSync` a
   timeout that only sends SIGTERM, so a child that ignored it outlived the
   bound, and its output had no cap), [0669e10] (the check read a run's index
-  before arming any watchdog, so a FIFO there could block it).
+  before arming any watchdog, so a FIFO there could block it), [90162b3]
+  (drive read an expected file whole and threw on a folder there),
+  [6df13fd] (the check and report read evidence files the same unbounded
+  way), [1e3ac9a] (the check signalled only its child, so the target's own
+  child outlived it, and a stop waited out the whole limit).
 - State a complexity bound for each traversal and append. Witnessed:
   [r4580077771] (a shared subgraph cost about 2^35 visits), [d972ded]
   (quadratic append).
@@ -69,7 +83,9 @@ boundary trusts the types.
   `ENOENT`), [0ab74b8] (the verification skill read an unreadable step file
   as a clean step with no unmet check, and an unreadable `package.json` as a
   missing dependency), [0669e10] (it read an unreadable `package.json` as no
-  toolchain pin, and every evidence read failure as a missing file).
+  toolchain pin, and every evidence read failure as a missing file),
+  [480dec5] (git's "not a git repository" also names a broken work tree
+  pointer, so launch now decides absence by the `.git` entry).
 - Read a required input as present or refused, never as empty, so a missing
   input cannot pass for one with nothing in it. Witnessed: [r4609956011]
   (a missing patch file read as an empty patch, so replay reported that it
@@ -120,3 +136,8 @@ boundary trusts the types.
 [8cbec55]: https://github.com/nathanvale/agent-cli-kernel/commit/8cbec55e65afbbba5650d447e00cac40ce0e01c3
 [911189b]: https://github.com/nathanvale/agent-cli-kernel/commit/911189bb75fa97d60acaacfba6034417522804aa
 [0669e10]: https://github.com/nathanvale/agent-cli-kernel/commit/0669e10e32c420aa077e8491818f1d1417f1a1c9
+[90162b3]: https://github.com/nathanvale/agent-cli-kernel/commit/90162b36d83506c2ea27fe67a08a10b358718ee6
+[6df13fd]: https://github.com/nathanvale/agent-cli-kernel/commit/6df13fd160de1b9236151991bfdf1d60011c0a99
+[1e3ac9a]: https://github.com/nathanvale/agent-cli-kernel/commit/1e3ac9add31562f55f160263790001e91357d626
+[480dec5]: https://github.com/nathanvale/agent-cli-kernel/commit/480dec562f5b95c329df84b3e3f69125e3b20131
+[b2dcc8f]: https://github.com/nathanvale/agent-cli-kernel/commit/b2dcc8feba2b211d775f3cc22f1bb16a0ffc4a1c
