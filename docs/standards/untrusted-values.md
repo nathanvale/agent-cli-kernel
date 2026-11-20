@@ -49,7 +49,9 @@ boundary trusts the types.
 - Compare another program's output by a hash of its bytes, not only its
   length, blanking only a field drawn anew on every run. Witnessed:
   [b2dcc8f] (same-length altered stdout passed the probe comparison;
-  CodeRabbit on pull request 55).
+  CodeRabbit on pull request 55), [1c5a65d] (the blanking matched every
+  `runId`, so a run id nested in the target's own data hid a change; Sol
+  recheck of pull request 56).
 
 ## Bounds
 
@@ -145,3 +147,4 @@ boundary trusts the types.
 [480dec5]: https://github.com/nathanvale/agent-cli-kernel/commit/480dec562f5b95c329df84b3e3f69125e3b20131
 [b2dcc8f]: https://github.com/nathanvale/agent-cli-kernel/commit/b2dcc8feba2b211d775f3cc22f1bb16a0ffc4a1c
 [02311f4]: https://github.com/nathanvale/agent-cli-kernel/commit/02311f4b282fa2c1fd75b6cee9b1f03a045d2df0
+[1c5a65d]: https://github.com/nathanvale/agent-cli-kernel/commit/1c5a65d1c58a0078562d00c583a687524ea59c39
