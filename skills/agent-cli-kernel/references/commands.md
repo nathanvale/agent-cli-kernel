@@ -118,7 +118,8 @@ before the handler runs.
 
 - `message`: one line for a person.
 - `data`: a JSON value on a success, `null` on every other result. Build it
-  from a literal or a `type` alias. An `interface` does not compile there.
+  from a literal or a `type` alias. An `interface` compiles there only when
+  it declares a string index signature of `JsonValue`.
 - `effects`: always this constant, because a read-only command changes
   nothing.
 
@@ -160,7 +161,8 @@ await runProcess(contract)(process.argv.slice(2));
   `--discover-command <identity>`. With `--json` the result is one JSON
   envelope on stdout.
 - Without `--json`, a success of one of your commands prints its message
-  and then its data to stdout. Any other result prints one line to stderr.
+  to stdout, then its data unless the data is `null`. Any other result
+  prints one line to stderr.
 - `--help` lists the commands with their identities. `<command> --help`
   answers with exit code 0 and that command's discovery: its arguments,
   options and possible results, the same as

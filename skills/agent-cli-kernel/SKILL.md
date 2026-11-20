@@ -16,8 +16,6 @@ to one commit. This skill ships inside that package, at
   needs, and each code block in them is copied from an example that the
   kernel repository compiles, lints and tests as a repository that depends
   on the package.
-- Write your commands in your repository's `src/`. `src/cli.ts` is the front
-  door and `src/commands.ts` is its command table.
 - Import the kernel from `agent-cli-kernel`, and an add-on from
   `agent-cli-kernel/addons/<name>`. The package's `exports` map refuses any
   deeper path, and the type check reports it.
