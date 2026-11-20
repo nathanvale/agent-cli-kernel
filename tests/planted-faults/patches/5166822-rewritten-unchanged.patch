@@ -1,0 +1,13 @@
+diff --git a/scripts/glossary-ownership.ts b/scripts/glossary-ownership.ts
+index b0461a4..bb21ec6 100644
+--- a/scripts/glossary-ownership.ts
++++ b/scripts/glossary-ownership.ts
+@@ -148,7 +148,7 @@ export function sourceProblems(
+         `The export's "${name}" differs from the template at ${ownership.sharedSource.commit}. Repair: copy it from there, or list it in rewrittenHere with the reason in the pull request.`,
+     );
+   const unchanged = [...rewritten]
+-    .filter((name) => here.get(name) === there.get(name))
++    .filter((name) => false && here.get(name) === there.get(name))
+     .map(
+       (name) =>
+         `${ownershipFile} lists "${name}" in rewrittenHere, and the export's text is the template's. Repair: remove it from rewrittenHere.`,

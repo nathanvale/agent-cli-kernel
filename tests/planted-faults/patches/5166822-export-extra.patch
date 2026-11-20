@@ -1,0 +1,13 @@
+diff --git a/scripts/glossary-ownership.ts b/scripts/glossary-ownership.ts
+index b0461a4..837cacb 100644
+--- a/scripts/glossary-ownership.ts
++++ b/scripts/glossary-ownership.ts
+@@ -154,7 +154,7 @@ export function sourceProblems(
+         `${ownershipFile} lists "${name}" in rewrittenHere, and the export's text is the template's. Repair: remove it from rewrittenHere.`,
+     );
+   const missing = [...here.keys()]
+-    .filter((name) => !there.has(name))
++    .filter((name) => false && !there.has(name))
+     .map(
+       (name) =>
+         `The export holds "${name}", which the template at ${ownership.sharedSource.commit} does not. Repair: remove it, or copy the section again.`,

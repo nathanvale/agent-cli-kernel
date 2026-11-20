@@ -1,0 +1,13 @@
+diff --git a/scripts/glossary-ownership.ts b/scripts/glossary-ownership.ts
+index b0461a4..cb692ba 100644
+--- a/scripts/glossary-ownership.ts
++++ b/scripts/glossary-ownership.ts
+@@ -178,7 +178,7 @@ export function transferProblems(
+       : [
+           `${ownershipFile} accepts handoff "${ownership.acceptedHandoff}", and the template's transfer names "${String(handoff)}". Repair: accept the handoff the template records.`,
+         ]),
+-    ...(same
++    ...(true
+       ? []
+       : [
+           `${ownershipFile} accepts a different list of entries than the template's transfer lists. Repair: make kernelEntries the template's list, and nothing else.`,

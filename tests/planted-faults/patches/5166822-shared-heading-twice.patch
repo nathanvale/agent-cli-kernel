@@ -1,0 +1,13 @@
+diff --git a/scripts/glossary-ownership.ts b/scripts/glossary-ownership.ts
+index b0461a4..cacdd34 100644
+--- a/scripts/glossary-ownership.ts
++++ b/scripts/glossary-ownership.ts
+@@ -23,7 +23,7 @@ function refuse(message: string): never {
+ 
+ export function sharedSection(glossary: string): string {
+   const at = glossary.indexOf(sharedHeading);
+-  if (at < 0 || glossary.indexOf(sharedHeading, at + sharedHeading.length) >= 0)
++  if (at < 0)
+     refuse(
+       `GLOSSARY.md needs exactly one "${sharedHeading.trim()}" heading. Repair: keep one, and no other heading with that text.`,
+     );

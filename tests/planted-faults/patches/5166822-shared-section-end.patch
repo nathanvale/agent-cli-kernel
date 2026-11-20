@@ -1,0 +1,13 @@
+diff --git a/scripts/glossary-ownership.ts b/scripts/glossary-ownership.ts
+index b0461a4..a6df231 100644
+--- a/scripts/glossary-ownership.ts
++++ b/scripts/glossary-ownership.ts
+@@ -27,7 +27,7 @@ export function sharedSection(glossary: string): string {
+     refuse(
+       `GLOSSARY.md needs exactly one "${sharedHeading.trim()}" heading. Repair: keep one, and no other heading with that text.`,
+     );
+-  return glossary.slice(at);
++  return glossary.slice(at).split("\n## ")[0] + "\n";
+ }
+ 
+ export function entryNames(text: string): string[] {

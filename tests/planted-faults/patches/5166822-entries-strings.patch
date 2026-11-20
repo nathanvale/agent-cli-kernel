@@ -1,0 +1,13 @@
+diff --git a/scripts/glossary-ownership.ts b/scripts/glossary-ownership.ts
+index b0461a4..2bd598b 100644
+--- a/scripts/glossary-ownership.ts
++++ b/scripts/glossary-ownership.ts
+@@ -45,7 +45,7 @@ function mapOf(value: unknown, what: string): Map<string, unknown> {
+ }
+ 
+ function stringsOf(value: unknown, what: string): string[] {
+-  if (!Array.isArray(value) || !value.every((n) => typeof n === "string"))
++  if (!Array.isArray(value))
+     refuse(
+       `${ownershipFile} needs ${what} as an array of strings. Repair: list each name as a string.`,
+     );
