@@ -1,0 +1,12 @@
+diff --git a/tests/kernel/self-verification/self-verification.ts b/tests/kernel/self-verification/self-verification.ts
+index c627656..f89666d 100644
+--- a/tests/kernel/self-verification/self-verification.ts
++++ b/tests/kernel/self-verification/self-verification.ts
+@@ -199,7 +199,6 @@ export function ownCliFailures(own: OwnCli, record: unknown): string[] {
+     return [
+       ...recorded.failures,
+       ...ranFailures,
+-      ...unmetLines(own, []),
+       ...found,
+     ];
+   const data = dataOf(last);

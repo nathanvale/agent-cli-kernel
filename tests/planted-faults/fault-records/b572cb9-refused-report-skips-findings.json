@@ -1,0 +1,7 @@
+{
+  "id": "b572cb9-refused-report-skips-findings",
+  "patch": "tests/planted-faults/patches/b572cb9-refused-report-skips-findings.patch",
+  "testFile": "tests/kernel/self-verification/refusals.test.ts",
+  "title": "a refused report with no data still quotes each failed check and each unmet step$",
+  "source": "b572cb9 fix(self-verification): quote failed checks and unmet steps when report is refused"
+}
