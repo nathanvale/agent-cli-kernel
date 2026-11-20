@@ -88,7 +88,7 @@
     },
     {
       "term": "Kernel lockfile",
-      "reason": "The template holds the one lockfile for generated repositories, and MAG-126 makes the pin move that writes it. This repository has no kernel lockfile.",
+      "reason": "The template's one lockfile for generated repositories does not exist yet. MAG-126 makes the pin move that writes it, in the template. This repository has no kernel lockfile.",
       "ticket": "MAG-126"
     }
   ]
