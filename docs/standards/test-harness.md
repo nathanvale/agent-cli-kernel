@@ -86,11 +86,11 @@ runs each test file. What a test must prove is in the
   `tests/check-commits.test.ts` key, and every moved template suite ran on
   shard 3).
 - `bun run fault-replay --shard <part>/<parts>` splits the fault records by
-  the seconds in `tests/planted-faults/fault-timings.json`, heaviest first,
-  and counts a fault the file does not list as 0.35 s. When a hosted
+  the seconds in `tests/planted-faults/fault-timings/<id>.json`, heaviest
+  first, and counts a fault with no timing file as 0.35 s. When a hosted
   fault replay log shows a fault at 1 s or more (`KILLED <id> in <seconds>
-  s`), list it with those seconds, and drop the ids of records that left.
-  A part that holds no fault record fails.
+  s`), write those seconds to its timing file, and delete the timing files
+  of records that left. A part that holds no fault record fails.
 
 [#92-bound]: https://github.com/nathanvale/bun-typescript-template/pull/92#discussion_r4607819546
 [#85-probe]: https://github.com/nathanvale/bun-typescript-template/pull/85#discussion_r4607322041

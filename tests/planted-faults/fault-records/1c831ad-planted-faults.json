@@ -1,0 +1,7 @@
+{
+  "id": "1c831ad-planted-faults",
+  "patch": "tests/planted-faults/patches/1c831ad-planted-faults.patch",
+  "testFile": "tests/template/fault-replay/planted-fault-changes-in-process.test.ts",
+  "title": "faultsTouchedSince refuses a failed search for a moved anchor",
+  "source": "1c831ad fix(faults): name the failed anchor search and its repair (GREEN)"
+}

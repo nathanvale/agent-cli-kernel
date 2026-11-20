@@ -1,12 +1,14 @@
 import { spyOn } from "bun:test";
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import type { Fault } from "../../scripts/planted-faults.ts";
+import {
+  type Fault,
+  recordFile,
+  recordsPath,
+} from "../../scripts/planted-faults.ts";
 import { repositoryLocation } from "../../scripts/process-runner.ts";
 import { ownedFolders, write } from "./fixture-files.ts";
 import { commit, gitEnv, gitOutput, initRepository } from "./git-fixture.ts";
-
-export const recordsPath = "tests/planted-faults/fault-records.json";
 
 export const stepVariable = "FAULT_REPLAY_STEP_SECONDS";
 
@@ -48,10 +50,12 @@ export function headOf(root: string): string {
 }
 
 export function recorded(root: string, faults: readonly Fault[]): void {
-  for (const fault of faults)
+  rmSync(join(root, recordsPath), { recursive: true, force: true });
+  for (const fault of faults) {
     if (!existsSync(join(root, fault.patch)))
       write(root, fault.patch, "unused\n");
-  write(root, recordsPath, `${JSON.stringify(faults, null, 2)}\n`);
+    write(root, recordFile(fault.id), `${JSON.stringify(fault, null, 2)}\n`);
+  }
   gitOutput(root, "add", "--", "tests/planted-faults");
   gitOutput(root, "commit", "--quiet", "-m", "record the faults");
 }

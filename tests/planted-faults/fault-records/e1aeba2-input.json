@@ -1,0 +1,7 @@
+{
+  "id": "e1aeba2-input",
+  "patch": "tests/planted-faults/patches/e1aeba2-input.patch",
+  "testFile": "tests/kernel/pinned-commit.test.ts",
+  "title": "the binary checks a pattern-checked option as the source run does: it accepts a matching name and refuses a mismatching one as a pattern mismatch",
+  "source": "e1aeba2 fix(kernel): start the pattern worker from a blob URL so a binary checks patterns"
+}

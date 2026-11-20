@@ -1,0 +1,7 @@
+{
+  "id": "82f5feb-lifecycle-unbounded",
+  "patch": "tests/planted-faults/patches/82f5feb-lifecycle-unbounded.patch",
+  "testFile": "tests/kernel/lifecycle/timers.test.ts",
+  "title": "a handler that never ends is cut off at the 450 ms stop bound",
+  "source": "82f5feb fix(kernel): wait for the handler after the first stop request"
+}

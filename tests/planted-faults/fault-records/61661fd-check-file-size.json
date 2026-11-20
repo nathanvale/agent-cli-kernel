@@ -1,0 +1,7 @@
+{
+  "id": "61661fd-check-file-size",
+  "patch": "tests/planted-faults/patches/61661fd-check-file-size.patch",
+  "testFile": "tests/template/file-size/file-size.test.ts",
+  "title": "^the hook uses the staged record when a temporary recorded hit is removed$",
+  "source": "61661fd fix(gates): read recorded hits from the staged tree"
+}

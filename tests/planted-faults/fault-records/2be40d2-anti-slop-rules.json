@@ -1,0 +1,7 @@
+{
+  "id": "2be40d2-anti-slop-rules",
+  "patch": "tests/planted-faults/patches/2be40d2-anti-slop-rules.patch",
+  "testFile": "tests/template/lint/anti-slop-rules.test.ts",
+  "title": "^anti-slop/no-unknown-type-aliases refuses the r4609659195 shape",
+  "source": "2be40d2 fix(lint): give each alias expansion its own parameter map"
+}

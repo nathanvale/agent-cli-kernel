@@ -1,0 +1,7 @@
+{
+  "id": "f548a02-in-process-record-once",
+  "patch": "tests/planted-faults/patches/f548a02-lifecycle-once.patch",
+  "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+  "title": "IP03\\.crash-records-run-in-flight",
+  "source": "f548a02 feat(kernel): run many commands in one process through runInProcess"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "6077a26-capability-qualification-record-k11b-left-out",
+  "patch": "tests/planted-faults/patches/6077a26-capability-qualification-record-k11b-left-out.patch",
+  "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+  "title": "^K11.f and any later K11 case join",
+  "source": "6077a26 feat(state): cover K11.f, keep one reason, and import the qualification rules"
+}

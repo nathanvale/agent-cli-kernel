@@ -1,0 +1,7 @@
+{
+  "id": "8779659-anti-slop-rules",
+  "patch": "tests/planted-faults/patches/8779659-anti-slop-rules.patch",
+  "testFile": "tests/template/lint/anti-slop-rules.test.ts",
+  "title": "^anti-slop/no-accumulating-spread refuses the r4609019149 shape",
+  "source": "8779659 fix(lint): check the loop write that holds the spread"
+}

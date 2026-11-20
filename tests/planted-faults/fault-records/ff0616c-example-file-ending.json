@@ -1,0 +1,7 @@
+{
+  "id": "ff0616c-example-file-ending",
+  "patch": "tests/planted-faults/patches/ff0616c-example-file-ending.patch",
+  "testFile": "tests/kernel/author-guide/author-guide.test.ts",
+  "title": "an example file stored without the \\.txt ending is refused",
+  "source": "ff0616c test(author-guide): prove an example CLI as a repository that depends on the kernel"
+}

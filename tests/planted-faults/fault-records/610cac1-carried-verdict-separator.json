@@ -1,0 +1,7 @@
+{
+  "id": "610cac1-carried-verdict-separator",
+  "patch": "tests/planted-faults/patches/610cac1-carried-verdict-separator.patch",
+  "testFile": "tests/template/check-commits/carried-verdict.test.ts",
+  "title": "a file name holding a newline never reads as two entries",
+  "source": "610cac1 fix(check-commits): keep git's NUL separators in the checker tree (GREEN)"
+}

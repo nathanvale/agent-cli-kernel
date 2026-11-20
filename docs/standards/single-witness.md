@@ -143,6 +143,21 @@ this file.
   in `.fallowrc.json` `entry`, so a dead-code report on it reads as a
   missing root. Witnessed: [39d64c3] (the author guide's writer lost its root
   when its `package.json` script was dropped).
+- Expect an order in a result only when the test fixes every input that
+  sets it; an id built from a fixture commit's SHA sorts differently from
+  run to run. Witnessed: [8cbec55] (a `faultsTouchedSince` case expected
+  `[id, other.id]`, and once fault records came back in id order, a SHA
+  that sorted after the other record's id reversed it; Sol 6.1 review).
+- Skip only the named files a tool leaves, such as `.DS_Store`, and refuse
+  every other unexpected entry, so a record cannot leave a gate through
+  its name. Witnessed: [911189b] (the fault record reader skipped every
+  dot-named file, so a record renamed `.x.json` was never replayed; Fable
+  review of pull request 54).
+- Create a file the tool owns with exclusive create, not a check and then
+  a write, so two writers of the same name cannot both succeed.
+  Witnessed: [911189b] (two `planted-fault:add` runs for one id both
+  printed `Added`, and on macOS an id differing only by case overwrote
+  another record; Fable review of pull request 54).
 
 [ac11ed9]: https://github.com/nathanvale/bun-typescript-template/commit/ac11ed98b7d538e8a304cac053aaefcaaf6b2cb3
 [cd2498b]: https://github.com/nathanvale/bun-typescript-template/commit/cd2498b7189a2d45d1906b9c870e8d13da6cd2dd
@@ -186,3 +201,5 @@ this file.
 [096c862]: https://github.com/nathanvale/agent-cli-kernel/commit/096c862356a1b827bdf10d860ec5d4bd33797c1d
 [4ca0141]: https://github.com/nathanvale/agent-cli-kernel/commit/4ca014175963a134a585af49006a56d374700e33
 [39d64c3]: https://github.com/nathanvale/agent-cli-kernel/commit/39d64c307e73a6153c572d6259df791e779efc4e
+[8cbec55]: https://github.com/nathanvale/agent-cli-kernel/commit/8cbec55e65afbbba5650d447e00cac40ce0e01c3
+[911189b]: https://github.com/nathanvale/agent-cli-kernel/commit/911189bb75fa97d60acaacfba6034417522804aa

@@ -1,0 +1,7 @@
+{
+  "id": "40b3d1c-records-global",
+  "patch": "tests/planted-faults/patches/40b3d1c-records-global.patch",
+  "testFile": "tests/kernel/diagnostics/in-process-runs.test.ts",
+  "title": "a run (leaves the tool's own LogTape configuration|in a process with no LogTape configuration)",
+  "source": "40b3d1c fix(diagnostics): give each run its own pipeline, not LogTape's global one"
+}

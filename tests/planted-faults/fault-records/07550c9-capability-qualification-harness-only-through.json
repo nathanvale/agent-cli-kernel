@@ -1,0 +1,7 @@
+{
+  "id": "07550c9-capability-qualification-harness-only-through",
+  "patch": "tests/planted-faults/patches/07550c9-capability-qualification-harness-only-through.patch",
+  "testFile": "tests/kernel/state/recovery.test.ts",
+  "title": "^Q02.e-production-row-closes",
+  "source": "07550c9 feat(state): give each capability qualification run its own required cases"
+}

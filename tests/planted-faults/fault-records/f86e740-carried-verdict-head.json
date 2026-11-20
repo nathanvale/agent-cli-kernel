@@ -1,0 +1,7 @@
+{
+  "id": "f86e740-carried-verdict-head",
+  "patch": "tests/planted-faults/patches/f86e740-carried-verdict-head.patch",
+  "testFile": "tests/template/check-commits/carried-verdict.test.ts",
+  "title": "a current merge of another head than the one checked out",
+  "source": "f86e740 fix(check-commits): refuse a carried verdict over links, and judge everything on any carried failure"
+}

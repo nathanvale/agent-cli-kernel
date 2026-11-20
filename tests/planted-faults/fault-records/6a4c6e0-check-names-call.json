@@ -1,0 +1,7 @@
+{
+  "id": "6a4c6e0-check-names-call",
+  "patch": "tests/planted-faults/patches/6a4c6e0-check-names-call.patch",
+  "testFile": "tests/template/naming/names-check-hook.test.ts",
+  "title": "^NG\\.c ",
+  "source": "6a4c6e0 feat(naming): refuse a badly named new file before Claude Code writes it"
+}

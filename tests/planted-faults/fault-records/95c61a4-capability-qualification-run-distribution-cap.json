@@ -1,0 +1,7 @@
+{
+  "id": "95c61a4-capability-qualification-run-distribution-cap",
+  "patch": "tests/planted-faults/patches/95c61a4-capability-qualification-run-distribution-cap.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^a capability qualification record names the distribution",
+  "source": "95c61a4 fix(state): settle the kernel-reviewer pass on the Sol fixes"
+}

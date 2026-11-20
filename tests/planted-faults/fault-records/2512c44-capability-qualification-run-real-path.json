@@ -1,0 +1,7 @@
+{
+  "id": "2512c44-capability-qualification-run-real-path",
+  "patch": "tests/planted-faults/patches/2512c44-capability-qualification-run-real-path.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^the capability qualification run refuses a tracked case-file link that reaches another checkout",
+  "source": "2512c44 fix(state): require every tracked entry to resolve to a tracked path in the checkout"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "684db74-capability-qualification-record-one-run",
+  "patch": "tests/planted-faults/patches/684db74-capability-qualification-record-one-run.patch",
+  "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+  "title": "^Q03.a refuses a record with one capability qualification run only",
+  "source": "684db74 feat(state): add the capability qualification run and its record check"
+}

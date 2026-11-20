@@ -1,0 +1,7 @@
+{
+  "id": "68a85f3-in-process-crash-unheard",
+  "patch": "tests/planted-faults/patches/68a85f3-lifecycle-unheard.patch",
+  "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+  "title": "IP09\\.no-listener-unchanged",
+  "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "82f5feb-lifecycle-add-on",
+  "patch": "tests/planted-faults/patches/82f5feb-lifecycle-add-on.patch",
+  "testFile": "tests/kernel/lifecycle/timers.test.ts",
+  "title": "a handler that ends at 100 ms beside an add-on",
+  "source": "82f5feb fix(kernel): wait for the handler after the first stop request"
+}

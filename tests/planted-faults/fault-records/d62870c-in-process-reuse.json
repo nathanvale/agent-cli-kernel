@@ -1,0 +1,7 @@
+{
+  "id": "d62870c-in-process-reuse",
+  "patch": "tests/planted-faults/patches/d62870c-state-seam-reuse.patch",
+  "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+  "title": "IP08\\.reuse-while-live-refused",
+  "source": "d62870c feat(kernel): forget an in-process run identity when its run finishes"
+}

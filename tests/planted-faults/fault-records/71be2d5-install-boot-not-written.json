@@ -1,0 +1,7 @@
+{
+  "id": "71be2d5-install-boot-not-written",
+  "patch": "tests/planted-faults/patches/71be2d5-install-boot-not-written.patch",
+  "testFile": "tests/kernel/state/recovery.test.ts",
+  "title": "^K11.b-delegate-other-boot-closes",
+  "source": "71be2d5 feat(state): close a case after a delegate start only on another boot"
+}

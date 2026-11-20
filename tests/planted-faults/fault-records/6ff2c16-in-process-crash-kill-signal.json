@@ -1,0 +1,7 @@
+{
+  "id": "6ff2c16-in-process-crash-kill-signal",
+  "patch": "tests/planted-faults/patches/4a015ec-lifecycle-stop-guard.patch",
+  "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+  "title": "IP09\\.kill-signal",
+  "source": "6ff2c16 fix(kernel): call onCrash only after the host's crash handler returns"
+}

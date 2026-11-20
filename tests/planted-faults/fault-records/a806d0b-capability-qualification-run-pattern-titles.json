@@ -1,0 +1,7 @@
+{
+  "id": "a806d0b-capability-qualification-run-pattern-titles",
+  "patch": "tests/planted-faults/patches/a806d0b-capability-qualification-run-pattern-titles.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^the run's test name pattern selects each executable case",
+  "source": "a806d0b fix(state): read case titles by one rule and close the kernel-reviewer gaps"
+}

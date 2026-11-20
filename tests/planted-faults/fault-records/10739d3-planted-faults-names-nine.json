@@ -1,0 +1,7 @@
+{
+  "id": "10739d3-planted-faults-names-nine",
+  "patch": "tests/planted-faults/patches/10739d3-planted-faults-names-nine.patch",
+  "testFile": "tests/template/fault-replay/planted-faults-in-process.test.ts",
+  "title": "places names at most ten",
+  "source": "10739d3 fix(faults): place each hunk of a planted fault by its exact anchor (GREEN)"
+}

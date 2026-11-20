@@ -1,0 +1,7 @@
+{
+  "id": "f548a02-in-process-host",
+  "patch": "tests/planted-faults/patches/f548a02-lifecycle-host.patch",
+  "testFile": "tests/kernel/state/in-process.test.ts",
+  "title": "IP06\\.crash-records-every-run-in-flight",
+  "source": "f548a02 feat(kernel): run many commands in one process through runInProcess"
+}

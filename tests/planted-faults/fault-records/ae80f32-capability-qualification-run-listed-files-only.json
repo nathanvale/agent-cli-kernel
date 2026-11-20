@@ -1,0 +1,7 @@
+{
+  "id": "ae80f32-capability-qualification-run-listed-files-only",
+  "patch": "tests/planted-faults/patches/ae80f32-capability-qualification-run-listed-files-only.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^the capability qualification run.s own case runner loads only the files",
+  "source": "ae80f32 fix(state): settle the Sol second look at the capability qualification run"
+}

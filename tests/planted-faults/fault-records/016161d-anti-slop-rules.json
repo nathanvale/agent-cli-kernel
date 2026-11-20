@@ -1,0 +1,7 @@
+{
+  "id": "016161d-anti-slop-rules",
+  "patch": "tests/planted-faults/patches/016161d-anti-slop-rules.patch",
+  "testFile": "tests/template/lint/anti-slop-rules.test.ts",
+  "title": "^anti-slop/no-accumulating-spread refuses the r4609659202 shape",
+  "source": "016161d fix(lint): refuse an accumulating spread at any reducer arity"
+}

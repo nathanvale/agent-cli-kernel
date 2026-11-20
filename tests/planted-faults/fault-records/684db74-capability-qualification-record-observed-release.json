@@ -1,0 +1,7 @@
+{
+  "id": "684db74-capability-qualification-record-observed-release",
+  "patch": "tests/planted-faults/patches/684db74-capability-qualification-record-observed-release.patch",
+  "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+  "title": "^Q03.a refuses a record whose observedRelease does not match the row",
+  "source": "684db74 feat(state): add the capability qualification run and its record check"
+}

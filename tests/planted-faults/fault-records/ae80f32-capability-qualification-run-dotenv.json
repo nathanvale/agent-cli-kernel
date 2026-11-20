@@ -1,0 +1,7 @@
+{
+  "id": "ae80f32-capability-qualification-run-dotenv",
+  "patch": "tests/planted-faults/patches/ae80f32-capability-qualification-run-dotenv.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^a Bun child started in the checkout loads its .env",
+  "source": "ae80f32 fix(state): settle the Sol second look at the capability qualification run"
+}

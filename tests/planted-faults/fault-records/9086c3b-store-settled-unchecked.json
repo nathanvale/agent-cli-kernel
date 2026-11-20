@@ -1,0 +1,7 @@
+{
+  "id": "9086c3b-store-settled-unchecked",
+  "patch": "tests/planted-faults/patches/9086c3b-store-settled-unchecked.patch",
+  "testFile": "tests/kernel/state/journal.test.ts",
+  "title": "^X24 supporting: a version 2 store refuses",
+  "source": "9086c3b fix(state): refuse a version 2 store whose settled/ is a link or not private"
+}

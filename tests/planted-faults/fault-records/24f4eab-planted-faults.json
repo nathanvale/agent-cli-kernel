@@ -1,0 +1,7 @@
+{
+  "id": "24f4eab-planted-faults",
+  "patch": "tests/planted-faults/patches/24f4eab-planted-faults.patch",
+  "testFile": "tests/template/fault-replay/planted-fault-changes-in-process.test.ts",
+  "title": "faultsTouchedSince refuses a fault whose patch file is missing",
+  "source": "24f4eab fix(faults): refuse a missing patch file by name (GREEN)"
+}

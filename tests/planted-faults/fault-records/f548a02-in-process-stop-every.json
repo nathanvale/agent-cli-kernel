@@ -1,0 +1,7 @@
+{
+  "id": "f548a02-in-process-stop-every",
+  "patch": "tests/planted-faults/patches/f548a02-lifecycle-stop.patch",
+  "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+  "title": "IP02\\.stop-reaches-every-run",
+  "source": "f548a02 feat(kernel): run many commands in one process through runInProcess"
+}

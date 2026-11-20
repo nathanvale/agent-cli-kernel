@@ -1,0 +1,7 @@
+{
+  "id": "1b72951-eslint-rules-cause-keys",
+  "patch": "tests/planted-faults/patches/1b72951-eslint-rules-cause-keys.patch",
+  "testFile": "tests/kernel/generated-repository-lint.test.ts",
+  "title": "a kernel entry that exports a commonCauses whose keys are not cause codes fails loudly instead of passing every cause literal",
+  "source": "1b72951 fix(lint): count only cause-code keys when cause-literal-owner reads its owner"
+}

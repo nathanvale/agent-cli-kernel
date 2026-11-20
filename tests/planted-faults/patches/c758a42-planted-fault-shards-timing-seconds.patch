@@ -1,0 +1,13 @@
+diff --git a/scripts/planted-fault-shards.ts b/scripts/planted-fault-shards.ts
+index 7bbb027..b4a0340 100644
+--- a/scripts/planted-fault-shards.ts
++++ b/scripts/planted-fault-shards.ts
+@@ -48,7 +48,7 @@ function readTiming(root: string, name: string): [string, number] {
+     );
+   const text = readFileSync(join(root, where), "utf8");
+   const seconds = jsonIn(text);
+-  if (typeof seconds !== "number" || !(seconds > 0))
++  if (typeof seconds !== "number")
+     throw new Error(
+       `${where} holds ${quoted(text.trim())}. Repair: write one positive number of seconds, such as 1.5.`,
+     );

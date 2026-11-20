@@ -1,0 +1,7 @@
+{
+  "id": "30e8fb1-in-process-crash-claim",
+  "patch": "tests/planted-faults/patches/30e8fb1-lifecycle-claim.patch",
+  "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+  "title": "IP09\\.record-reentry",
+  "source": "30e8fb1 fix(kernel): give the crash path one owner across re-entry"
+}

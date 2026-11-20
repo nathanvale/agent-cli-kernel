@@ -1,0 +1,7 @@
+{
+  "id": "a11290a-check-file-size-stale",
+  "patch": "tests/planted-faults/patches/a11290a-check-file-size-stale.patch",
+  "testFile": "tests/template/file-size/file-size.test.ts",
+  "title": "^a temporary recorded hit must leave when its tracked text shrinks or disappears$",
+  "source": "a11290a feat(gates): enforce the template file-size limit"
+}

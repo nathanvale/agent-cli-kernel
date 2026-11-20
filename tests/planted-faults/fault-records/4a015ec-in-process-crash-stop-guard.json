@@ -1,0 +1,7 @@
+{
+  "id": "4a015ec-in-process-crash-stop-guard",
+  "patch": "tests/planted-faults/patches/4a015ec-lifecycle-stop-guard.patch",
+  "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+  "title": "IP09\\.signal-while-stopping",
+  "source": "4a015ec fix(kernel): keep a stop signal out of the crash's stopping phase"
+}

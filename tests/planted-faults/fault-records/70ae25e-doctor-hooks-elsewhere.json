@@ -1,0 +1,7 @@
+{
+  "id": "70ae25e-doctor-hooks-elsewhere",
+  "patch": "tests/planted-faults/patches/70ae25e-doctor-hooks-elsewhere.patch",
+  "testFile": "tests/template/doctor/doctor-hooks.test.ts",
+  "title": "^hooks warns when core.hooksPath names another folder",
+  "source": "70ae25e feat(doctor): warn when core.hooksPath does not run this checkout's .githooks"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "404b4ed-limits-wide",
+  "patch": "tests/planted-faults/patches/404b4ed-limits-wide.patch",
+  "testFile": "tests/kernel/diagnostics/custody.test.ts",
+  "title": "^the allocation lock wait ends at its limit by the clock when every retry wakes late",
+  "source": "404b4ed test(diagnostics): state the lock wait's numbers and pin its interval, clamp and first try"
+}

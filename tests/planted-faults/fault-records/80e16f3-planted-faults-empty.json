@@ -1,0 +1,7 @@
+{
+  "id": "80e16f3-planted-faults-empty",
+  "patch": "tests/planted-faults/patches/80e16f3-planted-faults-empty.patch",
+  "testFile": "tests/template/fault-replay/planted-faults.test.ts",
+  "title": "FR\\.w --changed-since with an empty list",
+  "source": "80e16f3 fix(faults): replay a fault whose record changed, and refuse an empty list"
+}

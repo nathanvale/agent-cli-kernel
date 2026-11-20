@@ -1,0 +1,7 @@
+{
+  "id": "684db74-capability-qualification-record-framing",
+  "patch": "tests/planted-faults/patches/684db74-capability-qualification-record-framing.patch",
+  "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+  "title": "^sourceHash frames each file by its path and length",
+  "source": "684db74 feat(state): add the capability qualification run and its record check"
+}

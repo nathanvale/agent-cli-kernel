@@ -1,0 +1,7 @@
+{
+  "id": "6077a26-capability-qualification-record-reason-copied",
+  "patch": "tests/planted-faults/patches/6077a26-capability-qualification-record-reason-copied.patch",
+  "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+  "title": "^Q03.a refuses a run that marks a test-entry-only case not-runnable with a reason the case table does not give",
+  "source": "6077a26 feat(state): cover K11.f, keep one reason, and import the qualification rules"
+}

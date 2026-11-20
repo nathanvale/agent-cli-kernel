@@ -1,0 +1,7 @@
+{
+  "id": "def3ec4-process-runner",
+  "patch": "tests/planted-faults/patches/def3ec4-process-runner.patch",
+  "testFile": "tests/template/process-runner/process-runner.test.ts",
+  "title": "^CE[.]e ",
+  "source": "def3ec4 fix(process-runner): keep a hook's git location out of every child (GREEN)"
+}

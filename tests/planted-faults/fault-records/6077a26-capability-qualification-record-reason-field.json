@@ -1,0 +1,7 @@
+{
+  "id": "6077a26-capability-qualification-record-reason-field",
+  "patch": "tests/planted-faults/patches/6077a26-capability-qualification-record-reason-field.patch",
+  "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+  "title": "^Q03.a refuses a record with a not-runnable case that also carries a detail",
+  "source": "6077a26 feat(state): cover K11.f, keep one reason, and import the qualification rules"
+}

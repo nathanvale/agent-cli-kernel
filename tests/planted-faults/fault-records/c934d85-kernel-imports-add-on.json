@@ -1,0 +1,7 @@
+{
+  "id": "c934d85-kernel-imports-add-on",
+  "patch": "tests/planted-faults/patches/c934d85-kernel-imports-add-on.patch",
+  "testFile": "tests/kernel/add-on-boundary.test.ts",
+  "title": "^no file under kernel/src/kernel imports an add-on",
+  "source": "c934d85 test(kernel): refuse any import of an add-on from kernel/src/kernel"
+}

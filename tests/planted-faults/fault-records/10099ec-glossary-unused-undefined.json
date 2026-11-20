@@ -1,0 +1,7 @@
+{
+  "id": "10099ec-glossary-unused-undefined",
+  "patch": "tests/planted-faults/patches/10099ec-glossary-unused-undefined.patch",
+  "testFile": "tests/template/naming/glossary-files.test.ts",
+  "title": "^GM\\.e ",
+  "source": "10099ec feat(naming): record a glossary term that no tracked file uses yet"
+}

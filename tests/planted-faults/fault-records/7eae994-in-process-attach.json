@@ -1,0 +1,7 @@
+{
+  "id": "7eae994-in-process-attach",
+  "patch": "tests/planted-faults/patches/7eae994-state-seam-attach.patch",
+  "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+  "title": "IP08\\.attach-throws-forgets",
+  "source": "7eae994 fix(kernel): let only the attachment that a run created forget it"
+}

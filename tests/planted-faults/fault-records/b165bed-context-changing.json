@@ -1,0 +1,7 @@
+{
+  "id": "b165bed-context-changing",
+  "patch": "tests/planted-faults/patches/b165bed-context.patch",
+  "testFile": "tests/kernel/abort-signal.test.ts",
+  "title": "^changing\\(\\): a context signal that is a plain object is refused before the handler$",
+  "source": "b165bed feat(kernel): give every handler its run's stop signal"
+}

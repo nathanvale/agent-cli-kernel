@@ -1,0 +1,7 @@
+{
+  "id": "3b54e9e-install-start-after-failed-append",
+  "patch": "tests/planted-faults/patches/3b54e9e-install-start-after-failed-append.patch",
+  "testFile": "tests/kernel/state/recovery.test.ts",
+  "title": "^X28 supporting: a delegate-admitted append that fails stops the start, and the run goes on$",
+  "source": "3b54e9e fix(state): settle the two-axis review of crashed-case closure"
+}

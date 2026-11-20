@@ -1,0 +1,7 @@
+{
+  "id": "684db74-capability-qualification-run-existing-record",
+  "patch": "tests/planted-faults/patches/684db74-capability-qualification-run-existing-record.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^a fixture.ts capability qualification run refuses when the row already has a record",
+  "source": "684db74 feat(state): add the capability qualification run and its record check"
+}

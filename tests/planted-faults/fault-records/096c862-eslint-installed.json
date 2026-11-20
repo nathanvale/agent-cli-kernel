@@ -1,0 +1,7 @@
+{
+  "id": "096c862-eslint-installed",
+  "patch": "tests/planted-faults/patches/096c862-eslint-installed.patch",
+  "testFile": "tests/kernel/pinned-commit.test.ts",
+  "title": "a repository that installs the kernel lints its src/kernel and src/addons files as its own source: no kernel path keeps an allowance",
+  "source": "096c862 fix(lint): lint every source file of a repository that installs the kernel as its own"
+}

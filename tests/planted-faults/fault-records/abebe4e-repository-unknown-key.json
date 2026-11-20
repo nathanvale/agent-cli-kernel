@@ -1,0 +1,7 @@
+{
+  "id": "abebe4e-repository-unknown-key",
+  "patch": "tests/planted-faults/patches/abebe4e-repository-unknown-key.patch",
+  "testFile": "tests/template/repository/repository.test.ts",
+  "title": "^an unknown key is refused",
+  "source": "abebe4e Gate tools read the repository from repository.json"
+}

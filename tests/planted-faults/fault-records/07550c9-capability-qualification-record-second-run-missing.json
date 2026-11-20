@@ -1,0 +1,7 @@
+{
+  "id": "07550c9-capability-qualification-record-second-run-missing",
+  "patch": "tests/planted-faults/patches/07550c9-capability-qualification-record-second-run-missing.patch",
+  "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+  "title": "^Q03.a refuses a second run missing a case it can run",
+  "source": "07550c9 feat(state): give each capability qualification run its own required cases"
+}

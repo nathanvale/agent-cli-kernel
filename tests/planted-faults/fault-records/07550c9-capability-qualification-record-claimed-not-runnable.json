@@ -1,0 +1,7 @@
+{
+  "id": "07550c9-capability-qualification-record-claimed-not-runnable",
+  "patch": "tests/planted-faults/patches/07550c9-capability-qualification-record-claimed-not-runnable.patch",
+  "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+  "title": "^Q03.a refuses a run that marks a case not-runnable when the case table runs it there",
+  "source": "07550c9 feat(state): give each capability qualification run its own required cases"
+}

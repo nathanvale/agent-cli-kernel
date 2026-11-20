@@ -1,0 +1,7 @@
+{
+  "id": "a11290a-check-file-size-git-deadline",
+  "patch": "tests/planted-faults/patches/a11290a-check-file-size-git-deadline.patch",
+  "testFile": "tests/template/file-size/file-size.test.ts",
+  "title": "^the file-size command stops a Git read at its deadline$",
+  "source": "a11290a feat(gates): enforce the template file-size limit"
+}

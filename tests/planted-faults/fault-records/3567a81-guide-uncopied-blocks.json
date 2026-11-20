@@ -1,0 +1,7 @@
+{
+  "id": "3567a81-guide-uncopied-blocks",
+  "patch": "tests/planted-faults/patches/3567a81-guide-uncopied-blocks.patch",
+  "testFile": "tests/kernel/author-guide/author-guide.test.ts",
+  "title": "every ts block in every skill document is copied from an example file",
+  "source": "3567a81 test(author-guide): settle the code review of the author skill's gate"
+}

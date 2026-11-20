@@ -1,0 +1,7 @@
+{
+  "id": "1fd64d7-planted-faults",
+  "patch": "tests/planted-faults/patches/1fd64d7-planted-faults.patch",
+  "testFile": "tests/template/fault-replay/planted-fault-changes-in-process.test.ts",
+  "title": "names a fault whose patch deletes a whole file when only that file changed",
+  "source": "1fd64d7 fix(faults): take a deleted file's hunk path from the side it is removed from (GREEN)"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "ae80f32-capability-qualification-run-boot-readable",
+  "patch": "tests/planted-faults/patches/ae80f32-capability-qualification-run-boot-readable.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^the boot identity counts as readable only when",
+  "source": "ae80f32 fix(state): settle the Sol second look at the capability qualification run"
+}

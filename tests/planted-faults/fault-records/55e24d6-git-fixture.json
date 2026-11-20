@@ -1,0 +1,7 @@
+{
+  "id": "55e24d6-git-fixture",
+  "patch": "tests/planted-faults/patches/55e24d6-git-fixture.patch",
+  "testFile": "tests/template/test-helpers/git-fixture.test.ts",
+  "title": "^initRepository builds a sha1 repository when the caller's git defaults to sha256",
+  "source": "55e24d6 test(support): build every fixture repository as sha1, whatever the caller's git default"
+}

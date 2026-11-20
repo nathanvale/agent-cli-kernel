@@ -1,0 +1,7 @@
+{
+  "id": "68a85f3-in-process-crash-wait",
+  "patch": "tests/planted-faults/patches/68a85f3-lifecycle-wait.patch",
+  "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+  "title": "IP09\\.listener-bound",
+  "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+}

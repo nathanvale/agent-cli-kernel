@@ -1,0 +1,7 @@
+{
+  "id": "2004547-in-process-short-stop",
+  "patch": "tests/planted-faults/patches/2004547-lifecycle-short.patch",
+  "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+  "title": "IP07\\.stop-bound",
+  "source": "2004547 fix(kernel): kill a stopped run that is still settling at a repeated signal"
+}

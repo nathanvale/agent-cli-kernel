@@ -1,0 +1,19 @@
+diff --git a/scripts/planted-faults.ts b/scripts/planted-faults.ts
+index 60dc4ea..46f0c42 100644
+--- a/scripts/planted-faults.ts
++++ b/scripts/planted-faults.ts
+@@ -514,13 +514,7 @@ export function add(root: string, argv: readonly string[]): number {
+     return 2;
+   }
+   mkdirSync(join(root, patchFolder), { recursive: true });
+-  if (!createdNew(join(root, fault.patch), reverse)) {
+-    rmSync(join(root, recordFile(id)));
+-    process.stderr.write(
+-      `${fault.patch} already exists, and no record names it. Repair: delete or rename that patch if nothing uses it, then run this command again.\n`,
+-    );
+-    return 2;
+-  }
++  writeFileSync(join(root, fault.patch), reverse);
+   print(`Added ${id}. Replay it: bun run fault-replay ${id}`);
+   return 0;
+ }

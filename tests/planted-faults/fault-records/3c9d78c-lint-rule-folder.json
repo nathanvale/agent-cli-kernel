@@ -1,0 +1,7 @@
+{
+  "id": "3c9d78c-lint-rule-folder",
+  "patch": "tests/planted-faults/patches/3c9d78c-lint-rule-folder.patch",
+  "testFile": "tests/template/glossary/lint-rule-folder.test.ts",
+  "title": "the glossary scan lists no file inside a lint rule folder",
+  "source": "3c9d78c test(glossary): keep lint rule probes in folders the glossary scan never walks"
+}

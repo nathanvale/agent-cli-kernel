@@ -1,0 +1,7 @@
+{
+  "id": "20e8187-in-process-crash-pending",
+  "patch": "tests/planted-faults/patches/20e8187-lifecycle-pending.patch",
+  "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+  "title": "IP09\\.call-during-wait",
+  "source": "20e8187 fix(kernel): let a crash decide the exit and abort runs during its wait"
+}
