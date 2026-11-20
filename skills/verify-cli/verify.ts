@@ -268,10 +268,12 @@ export async function helperProbe(
 function probeResultOf(value: unknown): ProbeResult | undefined {
   const exitCode = at(value, "exitCode");
   const stdoutBytes = at(value, "stdoutBytes");
+  const stdoutSha256 = at(value, "stdoutSha256");
   const stderrSha256 = at(value, "stderrSha256");
   if (
     (exitCode !== null && typeof exitCode !== "number") ||
     typeof stdoutBytes !== "number" ||
+    typeof stdoutSha256 !== "string" ||
     typeof stderrSha256 !== "string"
   )
     return undefined;
@@ -279,6 +281,7 @@ function probeResultOf(value: unknown): ProbeResult | undefined {
     argv: listOf(at(value, "argv")).map(String),
     exitCode,
     stdoutBytes,
+    stdoutSha256,
     stderrSha256,
   };
 }
@@ -298,6 +301,7 @@ export function compared(
   const fields = [
     ["exit code", helper.exitCode, raw.exitCode],
     ["stdout byte count", helper.stdoutBytes, raw.stdoutBytes],
+    ["stdout hash", helper.stdoutSha256, raw.stdoutSha256],
     ["stderr hash", helper.stderrSha256, raw.stderrSha256],
   ] as const;
   return fields

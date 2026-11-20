@@ -25,7 +25,11 @@ import type {
   Ran,
   Spawn,
 } from "../../../skills/verify-cli/verify.ts";
-import { targetLimits } from "../../../skills/verify-cli/helper/place.ts";
+import {
+  probeResult,
+  sha256,
+  targetLimits,
+} from "../../../skills/verify-cli/helper/place.ts";
 import { verificationRun } from "../../../skills/verify-cli/helper/place.ts";
 import { spawnBounded } from "../kernel-repair/swarm-process.ts";
 import {
@@ -537,8 +541,14 @@ describe("the check's own steps, in process", () => {
     );
   });
 
-  test("an observation is compared on its exit code, its stdout byte count and its stderr hash", () => {
-    const raw = { argv: ["x"], exitCode: 2, stdoutBytes: 0, stderrSha256: "a" };
+  test("an observation is compared on its exit code, its stdout byte count and hash, and its stderr hash", () => {
+    const raw = {
+      argv: ["x"],
+      exitCode: 2,
+      stdoutBytes: 0,
+      stdoutSha256: "c",
+      stderrSha256: "a",
+    };
     expect(compared(raw, raw)).toEqual([]);
     expect(compared({ ...raw, exitCode: 0 }, raw)).toEqual([
       {
@@ -553,6 +563,12 @@ describe("the check's own steps, in process", () => {
           'for ["x"] the helper saw stdout byte count 3, and a raw run saw 0.',
       },
     ]);
+    expect(compared({ ...raw, stdoutSha256: "d" }, raw)).toEqual([
+      {
+        id: "observation-mismatch",
+        detail: 'for ["x"] the helper saw stdout hash d, and a raw run saw c.',
+      },
+    ]);
     expect(compared({ ...raw, stderrSha256: "b" }, raw)).toEqual([
       {
         id: "observation-mismatch",
@@ -564,10 +580,43 @@ describe("the check's own steps, in process", () => {
     ]);
   });
 
+  test("a probe's stdout is hashed without the run id each run draws, and with every other byte", () => {
+    const line = (runId: string, moons: number) =>
+      `{"result":{"runId":"${runId}","data":{"moons":${String(moons)}}}}\n`;
+    const first = probeResult([], {
+      exitCode: 0,
+      stdout: line("91d19276-8b8b-43e8-9995-fcf3696fcf12", 2),
+      stderr: "",
+    });
+    const second = probeResult([], {
+      exitCode: 0,
+      stdout: line("e83ba2da-1b47-4d44-a97f-fb39399094d2", 2),
+      stderr: "",
+    });
+    const altered = probeResult([], {
+      exitCode: 0,
+      stdout: line("e83ba2da-1b47-4d44-a97f-fb39399094d2", 3),
+      stderr: "",
+    });
+    expect(first.stdoutSha256).toBe(second.stdoutSha256);
+    expect(altered.stdoutBytes).toBe(first.stdoutBytes);
+    expect(altered.stdoutSha256).not.toBe(first.stdoutSha256);
+  });
+
   test("the helper's probe is compared with raw runs of the same two probes", async () => {
     const seen = [
-      { argv: ["--verify-cli-undeclared-option"], exitCode: 2, stdoutBytes: 0 },
-      { argv: ["--discover", "--json"], exitCode: 0, stdoutBytes: 2 },
+      {
+        argv: ["--verify-cli-undeclared-option"],
+        exitCode: 2,
+        stdoutBytes: 0,
+        stdoutSha256: sha256(""),
+      },
+      {
+        argv: ["--discover", "--json"],
+        exitCode: 0,
+        stdoutBytes: 2,
+        stdoutSha256: sha256("{}"),
+      },
     ];
     const { spawn, calls } = fake((args) => {
       if (args.includes("probe"))
@@ -629,12 +678,14 @@ describe("the check's own steps, in process", () => {
             argv: ["--verify-cli-undeclared-option"],
             exitCode: 2,
             stdoutBytes: 0,
+            stdoutSha256: empty,
             stderrSha256,
           },
           {
             argv: ["--discover", "--json"],
             exitCode: 0,
             stdoutBytes: 0,
+            stdoutSha256: empty,
             stderrSha256: empty,
           },
         ],

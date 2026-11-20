@@ -32,11 +32,18 @@ export type ProbeResult = {
   readonly argv: readonly string[];
   readonly exitCode: number | null;
   readonly stdoutBytes: number;
+  readonly stdoutSha256: string;
   readonly stderrSha256: string;
 };
 
 export function sha256(text: string | Uint8Array): string {
   return createHash("sha256").update(text).digest("hex");
+}
+
+const runIdField = /"runId":"[0-9a-f-]{36}"/g;
+
+function withoutRunIds(stdout: string): string {
+  return stdout.replaceAll(runIdField, '"runId":""');
 }
 
 export function probeResult(
@@ -51,6 +58,7 @@ export function probeResult(
     argv: [...argv],
     exitCode: ran.exitCode,
     stdoutBytes: Buffer.byteLength(ran.stdout),
+    stdoutSha256: sha256(withoutRunIds(ran.stdout)),
     stderrSha256: sha256(ran.stderr),
   };
 }

@@ -195,6 +195,7 @@ function answering(
             argv,
             exitCode: 0,
             stdoutBytes: 0,
+            stdoutSha256: emptySha256,
             stderrSha256: emptySha256,
           })),
         }),
