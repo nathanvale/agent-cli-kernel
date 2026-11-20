@@ -24,8 +24,8 @@ How a process proof starts its subject, and where an in-process test calls it. T
 - Call and assert each function a script or the CLI runs, unexported ones
   too, from the test that imports its file, beside the process proof that
   spawns the entry. Coverage cannot see into a spawned process, so a
-  function proved only that way reads as untested and its mutants never
-  run. Witnessed: [0ab74b8] (three verification skill functions ran
+  function proved only that way reads as untested and the code changes no test detects in it
+  go unreported. Witnessed: [0ab74b8] (three verification skill functions ran
   only in spawned helpers).
 - Resolve each path from the environment a function is given, not from the
   process's own folder, so an in-process call runs on what the test injects.

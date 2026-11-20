@@ -52,10 +52,10 @@ folder index:
   goes to that descriptor; nothing reopens by path.
 - allocation: under the allocation lock (exclusively created lock file in
   the directory, holder pid inside, stale only when that pid is not alive),
-  prune and reserve. Confirmed-closed logs are those whose last line is the
-  add-on's closure record; anything else is ambiguous and never pruned.
+  remove old logs and reserve. Confirmed-closed logs are those whose last line is the
+  add-on's closure record; anything else is ambiguous and never removed.
   Each non-closed log is charged at `max(size, 1,000,000)` so concurrent
-  growth cannot pass the aggregate cap. Prune closed logs whose mtime is
+  growth cannot pass the aggregate cap. Remove closed logs whose mtime is
   older than seven days, then oldest closed first, until this run's
   1,000,000 bytes and one file fit. No room: no file, `sinkFailure:
   "capacity"`, counts kept.

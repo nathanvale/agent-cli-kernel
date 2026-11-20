@@ -13,7 +13,7 @@ Run state, state on disk, locks, file creation and child processes. A lesson see
   synchronously up to its first `await`. Witnessed: [r4623815208]
   (`run.execution` was set only after `attached.enter()` returned, so a stop
   request delivered during handler entry waited for the add-ons alone and
-  cut off the handler's clean-up).
+  cut off the handler's final release of its resources).
 - Keep a stopped run where the repeated-signal kill reaches it until the
   process exits, not only until its handler returns. Witnessed:
   [kernel#6 r4622839115] (a run that returned during its first-stop settle

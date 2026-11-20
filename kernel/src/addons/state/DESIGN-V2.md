@@ -235,7 +235,7 @@ Points this note found that the later version must answer:
 - Keeping the target of a crashed closer, which is closed later by
   observing that target's closure.
 - What history and a same-identity closure retry answer for a deleted case.
-- Moving: a prune call must move settled cases left in `operations/` even
+- Moving: a `prune` call must move settled cases left in `operations/` even
   when `settled/` is empty.
 - Progress: a protected case must not count against the call's limit, or a
   protected first case stalls every later one.
