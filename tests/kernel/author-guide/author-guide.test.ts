@@ -630,6 +630,21 @@ describe("kernel behaviour the author skill states in words", () => {
     ).toThrow(new Error("Malformed guidance template token."));
   });
 
+  test("commands.md and stations.md: add-ons are chosen only in installedAddons, and approval without state throws at start-up with the message the guide quotes", () => {
+    expect(() =>
+      kernel.contractFor({
+        cli: "guide",
+        commands: [],
+        installedAddons: ["approval"],
+      }),
+    ).toThrow(
+      new Error(
+        "Approval requires the state add-on: list state in installedAddons and pass the add-on made by contractFor.stateAddon.",
+      ),
+    );
+    expect(readContract().cli).toBe("guide");
+  });
+
   test("stations.md: a template token in a repair action, and a brace in a trigger, a summary or a message, are accepted", async () => {
     const contract = readContract(
       { repairAction: "Inspect run {runId}.", text: "Run it again." },

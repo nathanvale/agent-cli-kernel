@@ -22,10 +22,16 @@ to one commit. This skill ships inside that package, at
 - Leave `node_modules/agent-cli-kernel/` as installed. A kernel fault is
   repaired in the kernel repository, and reaches your repository when its
   dependency line names a commit that holds the repair.
+- Move the pin as its own change. Replace the commit in the `agent-cli-kernel`
+  dependency line of `package.json`, which reads
+  `github:nathanvale/agent-cli-kernel#<full 40-character commit>`, then
+  install. The new commit needs a passed kernel trial. Upgrading from the
+  template never moves it.
 
 ## Routes
 
-- Writing or changing a command, its input, or its entry file: read
+- Writing or changing a command, its input, its entry file, or the add-ons
+  a CLI uses (`installedAddons`): read
   [commands](references/commands.md).
 - Declaring a result a command can produce, such as a refusal, or reading a
   throw when the CLI starts: read [stations](references/stations.md).
