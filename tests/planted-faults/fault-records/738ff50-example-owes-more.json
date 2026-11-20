@@ -1,0 +1,7 @@
+{
+  "id": "738ff50-example-owes-more",
+  "patch": "tests/planted-faults/patches/738ff50-example-owes-more.patch",
+  "testFile": "tests/kernel/self-verification/self-verification.test.ts",
+  "title": "the author skill's example passes the sweep, meets its read-only scenario, and owes only what the record lists$",
+  "source": "738ff50 test(self-verification): sweep the kernel's own CLIs with verify-cli on every change (K8)"
+}

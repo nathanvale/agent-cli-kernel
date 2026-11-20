@@ -1,0 +1,7 @@
+{
+  "id": "738ff50-refusal-passes",
+  "patch": "tests/planted-faults/patches/738ff50-refusal-passes.patch",
+  "testFile": "tests/kernel/self-verification/self-verification.test.ts",
+  "title": "a sweep with findings is refused with its own repair$",
+  "source": "738ff50 test(self-verification): sweep the kernel's own CLIs with verify-cli on every change (K8)"
+}

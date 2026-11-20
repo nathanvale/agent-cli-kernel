@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/self-verification/self-verification.ts b/tests/kernel/self-verification/self-verification.ts
+index 94dd94f..769ca42 100644
+--- a/tests/kernel/self-verification/self-verification.ts
++++ b/tests/kernel/self-verification/self-verification.ts
+@@ -107,7 +107,7 @@ function sweepOwed(own: OwnCli, data: unknown) {
+ function reportOwed(own: OwnCli, data: unknown) {
+   const failures: string[] = [];
+   const findings = field(data, "findings");
+-  if (findings !== 0)
++  if (findings === undefined)
+     failures.push(
+       `${own.name}: the sweep found ${String(findings)} failed checks. Repair: run ${checkLine} findings ${own.entry} for the list, then repair the target or its declarations.`,
+     );

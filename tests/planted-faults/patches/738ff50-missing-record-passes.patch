@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/self-verification/self-verification.ts b/tests/kernel/self-verification/self-verification.ts
+index 94dd94f..b3e4570 100644
+--- a/tests/kernel/self-verification/self-verification.ts
++++ b/tests/kernel/self-verification/self-verification.ts
+@@ -62,7 +62,7 @@ function recordFailures(
+   const listed = field(record, name);
+   const expected = listOf(listed).map(owedResult);
+   const kept = expected.filter((entry) => entry !== undefined);
+-  if (!Array.isArray(listed) || kept.length !== expected.length)
++  if (kept.length !== expected.length)
+     return {
+       expected: kept,
+       failures: [

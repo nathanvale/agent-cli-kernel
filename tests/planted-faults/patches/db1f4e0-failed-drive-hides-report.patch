@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/self-verification/self-verification.ts b/tests/kernel/self-verification/self-verification.ts
+index 94dd94f..430d302 100644
+--- a/tests/kernel/self-verification/self-verification.ts
++++ b/tests/kernel/self-verification/self-verification.ts
+@@ -159,7 +159,7 @@ export function ownCliFailures(own: OwnCli, record: unknown): string[] {
+   const { expected, failures } = recordFailures(own.name, record);
+   const ranFailures = own.runs.flatMap((run) => runFailure(own, run));
+   const last = own.runs.at(-1);
+-  if (last !== undefined && runFailure(own, last).length > 0)
++  if (ranFailures.length > 0)
+     return [...failures, ...ranFailures];
+   const data = field(parsed(last?.ran.stdout ?? ""), "result", "data");
+   const judged =

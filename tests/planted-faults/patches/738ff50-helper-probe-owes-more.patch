@@ -1,0 +1,25 @@
+diff --git a/skills/verify-cli/helper/ready.ts b/skills/verify-cli/helper/ready.ts
+index aa44f74..38e1ad7 100644
+--- a/skills/verify-cli/helper/ready.ts
++++ b/skills/verify-cli/helper/ready.ts
+@@ -233,6 +233,20 @@ export function probeCommand(bun: () => ParsedPath) {
+         guidance: { next: { kind: "done" } },
+         independentObservable: `${probeIdentity}:observed`,
+       }),
++      station(causes, {
++        ...stationWords,
++        commandIdentity: probeIdentity,
++        causeCode: "DOMAIN_VERIFY_TARGET_START",
++        trigger: "The target answered neither probe.",
++        repairAction: "Repair the target, then run probe again.",
++        guidance: {
++          next: {
++            kind: "instruction",
++            text: "Run the target's entry file with Bun yourself.",
++          },
++        },
++        independentObservable: `${probeIdentity}:not-started`,
++      }),
+     ],
+     run: async (input, context) => {
+       const runTarget = targetRunner(context.programs, bun(), input.target);

@@ -1,0 +1,12 @@
+diff --git a/tests/kernel/author-guide/example/src/commands.ts.txt b/tests/kernel/author-guide/example/src/commands.ts.txt
+index d64f3f6..62aa981 100644
+--- a/tests/kernel/author-guide/example/src/commands.ts.txt
++++ b/tests/kernel/author-guide/example/src/commands.ts.txt
+@@ -61,6 +61,7 @@ const list = command({
+   capabilities: {},
+   run: (input, context) => {
+     const atLeast = input["--at-least"] ?? 0;
++    process.stderr.write("moons: listing\n");
+     const planets = [...moons]
+       .filter(([, count]) => count >= atLeast)
+       .map(([planet]) => planet);
