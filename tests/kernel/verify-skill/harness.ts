@@ -10,11 +10,12 @@ import { spawnBounded } from "../../support/process.ts";
 import { testFolder } from "../../support/test-folder.ts";
 
 export const repository = join(import.meta.dir, "../../..");
-const skill = join(repository, "skills/verify-agent-cli");
+export const skill = join(repository, "skills/verify-agent-cli");
 export const helperEntry = join(skill, "helper/cli.ts");
 export const frontDoor = join(skill, "verify.ts");
 export const targetEntry = join(import.meta.dir, "fixtures/target-cli.ts");
 export const liarEntry = join(import.meta.dir, "fixtures/liar-cli.ts");
+export const brokenEntry = join(import.meta.dir, "fixtures/broken-cli.ts");
 export const helperBound = 30_000;
 
 export type World = {

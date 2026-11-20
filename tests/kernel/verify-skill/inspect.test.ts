@@ -1,6 +1,10 @@
 import { afterAll, describe, expect, setDefaultTimeout, test } from "bun:test";
+import { cpSync, rmSync } from "node:fs";
+import { join } from "node:path";
 import { spawnBounded } from "../../support/process.ts";
+import { testFolder } from "../../support/test-folder.ts";
 import {
+  brokenEntry,
   resultCause,
   environment,
   field,
@@ -9,6 +13,7 @@ import {
   helperBound,
   liarEntry,
   releaseWorlds,
+  skill,
   targetEntry,
   world,
 } from "./harness.ts";
@@ -149,6 +154,32 @@ describe("the front door, verify.ts, which does not go through the kernel", () =
     expect(ran.stdout).toBe("");
     expect(ran.stderr).toContain(
       "verify-agent-cli: RAW FAIL target-usage: an unknown command exited 0",
+    );
+  });
+
+  test("verify.ts doctor exits 70 naming both raw target checks when the target throws before its kernel answers", async () => {
+    const at = world();
+    const ran = await front(at, "doctor", "--entry", brokenEntry);
+    expect(ran.exit).toBe(70);
+    expect(ran.stderr).toContain("verify-agent-cli: RAW FAIL target-usage: ");
+    expect(ran.stderr).toContain(
+      "verify-agent-cli: RAW FAIL target-discovery: --discover --json exited 1",
+    );
+  });
+
+  test("verify.ts exits 70 with RAW FAIL kernel-import when agent-cli-kernel does not load", async () => {
+    const at = world();
+    const outside = testFolder("kernel-verify-skill-copy-");
+    const copy = join(outside, "skill");
+    cpSync(skill, copy, { recursive: true });
+    const ran = await spawnBounded(
+      [process.execPath, "--no-install", join(copy, "verify.ts"), "pending"],
+      { cwd: at.repo, env: environment(at), boundMilliseconds: helperBound },
+    ).finally(() => rmSync(outside, { recursive: true, force: true }));
+    expect(ran.exit).toBe(70);
+    expect(ran.stderr).toContain("verify-agent-cli: RAW FAIL kernel-import: ");
+    expect(ran.stderr).toContain(
+      "verify-agent-cli: RAW FAIL helper-no-envelope: ",
     );
   });
 });
