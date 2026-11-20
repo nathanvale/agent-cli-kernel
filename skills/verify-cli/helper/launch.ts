@@ -70,7 +70,7 @@ export function workTreeAbove(folder: string): string | undefined {
 }
 
 function runAbove(folder: string): string | undefined {
-  return nearestAbove(dirname(folder), (candidate) =>
+  return nearestAbove(dirname(physical(folder)), (candidate) =>
     existsSync(verificationRun(candidate).index),
   );
 }

@@ -288,6 +288,23 @@ describe("what launch checks before it makes anything", () => {
     expect(existsSync(inner)).toBe(false);
   });
 
+  test("a run folder that is a symbolic link into another run is refused where it really is", () => {
+    const at = world();
+    const outer = runFolder(at, "outer");
+    mkdirSync(join(outer, "evidence"), { recursive: true });
+    writeFileSync(join(outer, "evidence", "index.jsonl"), "");
+    const inner = join(outer, "scratch", "inner");
+    mkdirSync(inner, { recursive: true });
+    const alias = join(at.folder, "alias");
+    symlinkSync(inner, alias);
+    expect(launchRefusal(alias, at.example)).toEqual({
+      kind: "refused",
+      causeCode: "DOMAIN_VERIFY_RUN_EXISTS",
+      message: `${alias} is inside the run at ${realpathSync(outer)}.`,
+    });
+    expect(lsTree(inner)).toEqual([]);
+  });
+
   test("the pinned commit is the full commit the kernel dependency names, and an unreadable package.json keeps its reason", () => {
     const at = world();
     expect(pinnedCommitOf(at.repo)).toEqual({
