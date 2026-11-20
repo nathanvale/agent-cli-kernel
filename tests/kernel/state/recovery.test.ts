@@ -29,6 +29,7 @@ import {
   makeWorld,
   noAppendAfterDamage,
   only,
+  productionRowMatch,
   registeredCases,
   str,
   supportingTest,
@@ -48,7 +49,10 @@ const apply = (name: string, content = "v1") => [
 ];
 
 async function within(
-  options: { readonly qualification?: "fixture" },
+  options: {
+    readonly qualification?: "fixture";
+    readonly base?: string | undefined;
+  },
   body: (world: World) => Promise<void>,
 ): Promise<void> {
   const world = makeWorld(options);
@@ -551,38 +555,74 @@ caseTest(
   }),
 );
 
+function nameOwnerPid(world: World, id: string, pid: number): void {
+  const path = join(world.root, "operations", id, "intent");
+  const original = readFileSync(path, "utf8");
+  const payload: unknown = JSON.parse(
+    original.slice(original.indexOf("\n") + 1, -1),
+  );
+  if (typeof payload !== "object" || payload === null) throw new Error("bad");
+  const owner: unknown = Reflect.get(payload, "owner");
+  if (typeof owner !== "object" || owner === null) throw new Error("bad");
+  Reflect.set(owner, "pid", pid);
+  const bytes = new TextEncoder().encode(JSON.stringify(payload));
+  const digest = createHash("sha256")
+    .update("intent\n")
+    .update(bytes)
+    .digest("hex");
+  writeFileSync(
+    path,
+    `C3S1 intent ${String(bytes.length).padStart(10, "0")} ${digest}\n${new TextDecoder().decode(bytes)}\n`,
+  );
+}
+
 caseTest(
   "O05.a-pid-not-consulted",
   plain(async (world) => {
     await world.killAt(apply("a"), "effect");
-    const id = only(world);
-    const path = join(world.root, "operations", id, "intent");
-    const original = readFileSync(path, "utf8");
-    const body = original.slice(original.indexOf("\n") + 1, -1);
-    const payload: unknown = JSON.parse(body);
-    if (typeof payload !== "object" || payload === null) throw new Error("bad");
-    const owner: unknown = Reflect.get(payload, "owner");
-    if (typeof owner !== "object" || owner === null) throw new Error("bad");
-    Reflect.set(owner, "pid", process.pid);
-    const bytes = new TextEncoder().encode(JSON.stringify(payload));
-    const digest = createHash("sha256")
-      .update("intent\n")
-      .update(bytes)
-      .digest("hex");
-    writeFileSync(
-      path,
-      `C3S1 intent ${String(bytes.length).padStart(10, "0")} ${digest}\n${new TextDecoder().decode(bytes)}\n`,
+    const untouched = only(world);
+    await world.killAt(apply("b"), "effect");
+    const named = world
+      .operations()
+      .map((entry) => entry.id)
+      .find((id) => id !== untouched);
+    if (named === undefined) throw new Error("Expected a second operation.");
+    nameOwnerPid(world, named, process.pid);
+    expect(
+      at(
+        world.operations().find((entry) => entry.id === named)?.intent,
+        "owner",
+        "pid",
+      ),
+    ).toBe(process.pid);
+    const decision = async (id: string) => {
+      const run = await close(world, id);
+      return {
+        exit: run.exit,
+        cause: run.result.causeCode,
+        unqualified: str(run.envelope.message).includes(
+          "stopped-owner-proof-unqualified",
+        ),
+        closed: existsSync(closurePath(world, id)),
+      };
+    };
+    const without = await decision(untouched);
+    expect(without).toEqual(
+      productionRowMatch().matched
+        ? {
+            exit: 0,
+            cause: "SUCCESS_COMPLETED",
+            unqualified: false,
+            closed: true,
+          }
+        : {
+            exit: 3,
+            cause: "DOMAIN_SX_UNAVAILABLE",
+            unqualified: true,
+            closed: false,
+          },
     );
-    expect(at(world.operations()[0]?.intent, "owner", "pid")).toBe(process.pid);
-    const before = world.snapshot();
-    const refused = await close(world, id);
-    expectRefusedUnchanged(refused, "DOMAIN_SX_UNAVAILABLE");
-    expect(str(refused.envelope.message)).toContain(
-      "stopped-owner-proof-unqualified",
-    );
-    expect(existsSync(closurePath(world, id))).toBe(false);
-    expect(world.operations().map((entry) => entry.id)).toEqual([id]);
-    void before;
+    expect(await decision(named)).toEqual(without);
   }),
 );
 
@@ -635,11 +675,15 @@ caseTest(
     await world.killAt(apply("a"), "effect");
     const id = only(world);
     const operations = JSON.stringify(world.operations());
-    const refused = await close(world, id);
+    const refused = await world.run(
+      closeArgs(id, await world.revision(id)),
+      under(candidate({ os: "no-such-os" }), {}),
+    );
     expectRefusedUnchanged(refused, "DOMAIN_SX_UNAVAILABLE");
     expect(str(refused.envelope.message)).toContain(
       "stopped-owner-proof-unqualified",
     );
+    expect(str(refused.envelope.message)).toMatch(/: differs in os[,)]/);
     expect(at(refused.result.raw, "handoff", "inspect")).toEqual([
       { kind: "command", command: "sx.capabilities", args: [] },
     ]);
@@ -1087,38 +1131,42 @@ supportingTest(
   }),
 );
 
+const tmpfs = existsSync("/dev/shm") ? "/dev/shm" : undefined;
+
 supportingTest(
   "X27 supporting: through index.ts, where no capability qualification row matches, closure refuses with the observed facts",
-  plain(async (world) => {
-    const production = { SX_ENTRY: "production" };
-    await world.killAt(apply("a"), "effect", production);
-    const id = only(world);
-    const before = outsideCoordination(world, "state/");
-    const refused = await world.run(
-      closeArgs(id, await world.revision(id)),
-      production,
-    );
-    expectRefusedUnchanged(refused, "DOMAIN_SX_UNAVAILABLE");
-    const message = str(refused.envelope.message);
-    expect(message).toStartWith(
-      "State unavailable: stopped-owner-proof-unqualified (observed os ",
-    );
-    expect(message).toContain(
-      "; qualified: linux-7-btrfs (os linux, major 7, ",
-    );
-    expect(message).toMatch(/\): differs in [a-z ,]+\)\.$/);
-    expect(outsideCoordination(world, "state/")).toBe(before);
-    expect(existsSync(closurePath(world, id))).toBe(false);
-    const report = await capabilitiesUnder(world, production);
-    expect(at(report, "qualification")).toBe("unqualified");
-    expect(at(report, "stoppedOwnerProof")).toBe("unavailable");
-    expect(JSON.stringify(at(report, "reasons"))).toContain(
-      "; qualified: linux-7-btrfs (os linux, major 7, ",
-    );
-    expect(
-      world.ledger().filter((line) => line === "entry production"),
-    ).toEqual(["entry production", "entry production", "entry production"]);
-  }),
+  () =>
+    within({ base: tmpfs }, async (world) => {
+      expect(productionRowMatch(tmpfs).matched).toBe(false);
+      const production = { SX_ENTRY: "production" };
+      await world.killAt(apply("a"), "effect", production);
+      const id = only(world);
+      const before = outsideCoordination(world, "state/");
+      const refused = await world.run(
+        closeArgs(id, await world.revision(id)),
+        production,
+      );
+      expectRefusedUnchanged(refused, "DOMAIN_SX_UNAVAILABLE");
+      const message = str(refused.envelope.message);
+      expect(message).toStartWith(
+        "State unavailable: stopped-owner-proof-unqualified (observed os ",
+      );
+      expect(message).toContain(
+        "; qualified: linux-7-btrfs (os linux, major 7, ",
+      );
+      expect(message).toMatch(/\): differs in [a-z ,]+\)\.$/);
+      expect(outsideCoordination(world, "state/")).toBe(before);
+      expect(existsSync(closurePath(world, id))).toBe(false);
+      const report = await capabilitiesUnder(world, production);
+      expect(at(report, "qualification")).toBe("unqualified");
+      expect(at(report, "stoppedOwnerProof")).toBe("unavailable");
+      expect(JSON.stringify(at(report, "reasons"))).toContain(
+        "; qualified: linux-7-btrfs (os linux, major 7, ",
+      );
+      expect(
+        world.ledger().filter((line) => line === "entry production"),
+      ).toEqual(["entry production", "entry production", "entry production"]);
+    }),
 );
 
 caseTest(
