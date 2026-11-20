@@ -22,9 +22,9 @@ const allowedPackages =
 function specifiers(file: string): readonly string[] {
   return [
     ...readFileSync(file, "utf8").matchAll(
-      /\bfrom\s+"([^"]+)"|\bimport\(\s*"([^"]+)"\s*\)/g,
+      /\bfrom\s+"([^"]+)"|\bimport\(\s*"([^"]+)"\s*\)|^\s*import\s+"([^"]+)"/gm,
     ),
-  ].map((match) => match[1] ?? match[2] ?? "");
+  ].map((match) => match[1] ?? match[2] ?? match[3] ?? "");
 }
 
 describe("the skill folder is self-contained", () => {
