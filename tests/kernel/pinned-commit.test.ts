@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import {
   copyFileSync,
+  existsSync,
   lstatSync,
   mkdirSync,
   readFileSync,
@@ -15,10 +16,11 @@ import { testFolder } from "../support/test-folder.ts";
 import { spawnBounded } from "./kernel-repair/swarm-process.ts";
 
 const repository = join(import.meta.dir, "../..");
-const setupBound = 240_000;
-const installBound = 180_000;
-const buildBound = 120_000;
+const installBound = 120_000;
+const buildBound = 60_000;
+const setupBound = installBound + 2 * buildBound + 60_000;
 const runBound = 30_000;
+const testBound = runBound + 30_000;
 
 function record(value: unknown): Readonly<Record<string, unknown>> {
   if (typeof value !== "object" || value === null || Array.isArray(value))
@@ -265,11 +267,20 @@ test(
     const { loaded, deep } = record(JSON.parse(imported.stdout));
     const counts = record(loaded);
     expect(Object.keys(counts)).toEqual(exportNames);
+    expect(exportNames.filter((name) => !(Number(counts[name]) > 0))).toEqual(
+      [],
+    );
     expect(
-      exportNames.filter((name) => typeof counts[name] !== "number"),
-    ).toEqual([]);
-    expect(counts["."]).toBeGreaterThan(0);
-    expect(text(deep)).not.toBe("imported");
+      existsSync(
+        join(
+          world.consumer,
+          "node_modules/agent-cli-kernel/kernel/src/kernel/index.ts",
+        ),
+      ),
+    ).toBe(true);
+    expect(text(deep)).toStartWith(
+      "Cannot find package 'agent-cli-kernel' imported from ",
+    );
   },
   setupBound,
 );
@@ -290,48 +301,67 @@ function expectKernelOnly(inputs: readonly string[]): void {
   ).toEqual([]);
 }
 
-test("a CLI with no add-on bundles with no add-on file and no @logtape, and runs from the bundle", async () => {
-  expect(world.bundle?.exit).toBe(0);
-  expectKernelOnly(
-    metafileInputs(join(world.consumer, "dist/bundle-meta.json")),
-  );
-  const ran = await run(
-    [process.execPath, "dist/cli.js", "status", "--json"],
-    world.consumer,
-  );
-  expect(ran.exit).toBe(0);
-  expect(ran.stdout).toContain("SUCCESS_UNCHANGED");
-});
+test(
+  "a CLI with no add-on bundles with no add-on file and no @logtape, and runs from the bundle",
+  async () => {
+    expect(world.bundle?.exit).toBe(0);
+    expectKernelOnly(
+      metafileInputs(join(world.consumer, "dist/bundle-meta.json")),
+    );
+    const ran = await run(
+      [process.execPath, "dist/cli.js", "status", "--json"],
+      world.consumer,
+    );
+    expect(ran.exit).toBe(0);
+    expect(ran.stdout).toContain("SUCCESS_UNCHANGED");
+  },
+  testBound,
+);
 
-test("a CLI with no add-on compiles to a binary with no add-on file and no @logtape, and the binary runs", async () => {
-  expect(world.binary?.exit).toBe(0);
-  expectKernelOnly(
-    metafileInputs(join(world.consumer, "dist/binary-meta.json")),
-  );
-  const ran = await run(
-    [join(world.consumer, "dist/bare"), "status", "--json"],
-    world.consumer,
-  );
-  expect(ran.exit).toBe(0);
-  expect(ran.stdout).toContain("SUCCESS_UNCHANGED");
-});
+test(
+  "a CLI with no add-on compiles to a binary with no add-on file and no @logtape, and the binary runs",
+  async () => {
+    expect(world.binary?.exit).toBe(0);
+    expectKernelOnly(
+      metafileInputs(join(world.consumer, "dist/binary-meta.json")),
+    );
+    const ran = await run(
+      [join(world.consumer, "dist/bare"), "status", "--json"],
+      world.consumer,
+    );
+    expect(ran.exit).toBe(0);
+    expect(ran.stdout).toContain("SUCCESS_UNCHANGED");
+  },
+  testBound,
+);
 
-test("the installed kernel accepts a pattern-checked option when the CLI runs from source", async () => {
-  const ran = await run(
-    [process.execPath, "src/cli.ts", "match", "--name", "abc", "--json"],
-    world.consumer,
-  );
-  expect(ran.exit).toBe(0);
-  expect(ran.stdout).toContain("SUCCESS_UNCHANGED");
-});
+test(
+  "the installed kernel accepts a pattern-checked option when the CLI runs from source",
+  async () => {
+    const ran = await run(
+      [process.execPath, "src/cli.ts", "match", "--name", "abc", "--json"],
+      world.consumer,
+    );
+    expect(ran.exit).toBe(0);
+    expect(ran.stdout).toContain("SUCCESS_UNCHANGED");
+  },
+  testBound,
+);
 
-test("the binary refuses a pattern-checked option as USAGE_INVALID_INVOCATION until K1c moves the pattern worker's source inside input.ts, since no binary carries pattern-worker.ts", async () => {
-  expect(world.binary?.exit).toBe(0);
-  const ran = await run(
-    [join(world.consumer, "dist/bare"), "match", "--name", "abc", "--json"],
-    world.consumer,
-  );
-  expect(ran.exit).not.toBe(0);
-  expect(ran.stdout).toContain("USAGE_INVALID_INVOCATION");
-  expect(ran.stdout).not.toContain("SUCCESS_UNCHANGED");
-});
+test(
+  "the binary refuses a pattern-checked option as USAGE_INVALID_INVOCATION until K1c moves the pattern worker's source inside input.ts, since no binary carries pattern-worker.ts",
+  async () => {
+    expect(world.binary?.exit).toBe(0);
+    const ran = await run(
+      [join(world.consumer, "dist/bare"), "match", "--name", "abc", "--json"],
+      world.consumer,
+    );
+    expect(ran.exit).not.toBe(0);
+    expect(ran.stdout).toContain("USAGE_INVALID_INVOCATION");
+    expect(ran.stdout).toContain(
+      "The option --name could not be checked because its declared pattern is not valid.",
+    );
+    expect(ran.stdout).not.toContain("SUCCESS_UNCHANGED");
+  },
+  testBound,
+);
