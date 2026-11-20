@@ -1,0 +1,41 @@
+import { expect, test } from "bun:test";
+import { runInProcess } from "agent-cli-kernel";
+import { contract } from "../src/commands.ts";
+
+const run = runInProcess(contract);
+
+async function resultOf(argv: readonly string[]) {
+  const ran = await run(argv);
+  if (ran.kind !== "envelope")
+    throw new Error(`Expected an envelope, got ${ran.kind}.`);
+  return ran.envelope.result;
+}
+
+test("list returns every planet, or only those with enough moons", async () => {
+  expect(await resultOf(["list"])).toMatchObject({
+    exitCode: 0,
+    causeCode: "SUCCESS_UNCHANGED",
+    data: { planets: ["venus", "earth", "mars"] },
+  });
+  expect(await resultOf(["list", "--at-least", "2"])).toMatchObject({
+    data: { planets: ["mars"] },
+  });
+});
+
+test("show returns a known planet's moons", async () => {
+  expect(await resultOf(["show", "mars"])).toMatchObject({
+    exitCode: 0,
+    causeCode: "SUCCESS_UNCHANGED",
+    data: { planet: "mars", moons: 2 },
+  });
+});
+
+test("show refuses a planet it does not know and points at list", async () => {
+  expect(await resultOf(["show", "pluto"])).toMatchObject({
+    exitCode: 3,
+    outcome: "refused",
+    causeCode: "DOMAIN_MOONS_UNKNOWN_PLANET",
+    data: null,
+    next: { kind: "command", command: "moons.list", args: [] },
+  });
+});
