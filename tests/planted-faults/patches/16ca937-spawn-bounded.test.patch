@@ -1,0 +1,23 @@
+diff --git a/tests/template/process-runner/spawn-bounded.test.ts b/tests/template/process-runner/spawn-bounded.test.ts
+index d6db4c5..b97a572 100644
+--- a/tests/template/process-runner/spawn-bounded.test.ts
++++ b/tests/template/process-runner/spawn-bounded.test.ts
+@@ -1,8 +1,6 @@
+ import { expect, test } from "bun:test";
+ import { spawnBounded } from "../../support/process.ts";
+-import { ownedFolders } from "../../support/fixture-files.ts";
+-
+-const folder = ownedFolders();
++import { testFolder } from "../../support/test-folder.ts";
+ 
+ function failure(run: Promise<unknown>): Promise<string> {
+   return run.then(
+@@ -49,7 +47,7 @@ test("spawnBounded returns the output and exit code of a child inside its bound"
+ 
+ test("spawnBounded still stops the child and says why when ps cannot start", async () => {
+   const path = process.env.PATH;
+-  process.env.PATH = folder("spawn-bounded-no-ps-");
++  process.env.PATH = testFolder("spawn-bounded-no-ps-");
+   try {
+     const outcome = await failure(
+       spawnBounded(["/bin/sh", "-c", "/bin/sleep 33"], {
