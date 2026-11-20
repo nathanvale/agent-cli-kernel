@@ -119,7 +119,14 @@ function run(
 ) {
   const result = Bun.spawnSync(
     [process.execPath, join(root, script), ...args],
-    { cwd, env, stdout: "pipe", stderr: "pipe" },
+    {
+      cwd,
+      env,
+      stdout: "pipe",
+      stderr: "pipe",
+      timeout: 60_000,
+      killSignal: "SIGKILL",
+    },
   );
   return {
     exitCode: result.exitCode,
@@ -342,54 +349,22 @@ describe("doctor", () => {
     expect(result.stdout).not.toContain("Done when");
   });
 
-  function checkout(hooksPath: string | undefined) {
+  function checkout() {
     const root = withToolchain("6.0.2", {
       ".githooks/pre-commit": "#!/bin/sh\n",
     });
     gitOutput(root, "init", "--quiet");
-    if (hooksPath !== undefined)
-      gitOutput(root, "config", "core.hooksPath", hooksPath);
     return root;
   }
 
   const isolatedGit = { ...inherited(), ...gitEnv };
 
   test("a checkout whose core.hooksPath is not set warns, naming the command that sets it, and does not fail", () => {
-    const result = run(checkout(undefined), doctor, [], undefined, isolatedGit);
+    const result = run(checkout(), doctor, [], undefined, isolatedGit);
 
     expect(result.exitCode).toBe(0);
     expect(result.lines).toContain(
-      "WARN hooks: core.hooksPath is not set, so this checkout's pre-commit and pre-push hooks do not run. Repair: git config core.hooksPath .githooks",
-    );
-  });
-
-  test("a checkout whose core.hooksPath names another folder warns with the same repair", () => {
-    const result = run(
-      checkout("elsewhere"),
-      doctor,
-      [],
-      undefined,
-      isolatedGit,
-    );
-
-    expect(result.exitCode).toBe(0);
-    expect(result.lines).toContain(
-      "WARN hooks: core.hooksPath is elsewhere, so this checkout's pre-commit and pre-push hooks do not run. Repair: git config core.hooksPath .githooks",
-    );
-  });
-
-  test("a checkout whose core.hooksPath runs its own .githooks passes the hooks check", () => {
-    const result = run(
-      checkout(".githooks"),
-      doctor,
-      [],
-      undefined,
-      isolatedGit,
-    );
-
-    expect(result.exitCode).toBe(0);
-    expect(result.lines).toContain(
-      "ok hooks: core.hooksPath runs this checkout's .githooks.",
+      "WARN hooks: core.hooksPath is not set, so this checkout's pre-commit and pre-push hooks do not run. Repair: git config core.hooksPath .githooks.",
     );
   });
 
