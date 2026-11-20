@@ -132,6 +132,10 @@ this file.
   since `node:fs` `globSync` lists folders too. Witnessed: [2c62768] (a
   glossary scope pattern that named only a folder would have passed the
   check that each pattern names something that exists).
+- Declare a script that people or a document run by path as a runtime root
+  in `.fallowrc.json` `entry`, so a dead-code report on it reads as a
+  missing root. Witnessed: [39d64c3] (the author guide's writer lost its root
+  when its `package.json` script was dropped).
 
 [ac11ed9]: https://github.com/nathanvale/bun-typescript-template/commit/ac11ed98b7d538e8a304cac053aaefcaaf6b2cb3
 [cd2498b]: https://github.com/nathanvale/bun-typescript-template/commit/cd2498b7189a2d45d1906b9c870e8d13da6cd2dd
@@ -172,3 +176,4 @@ this file.
 [kernel#49 r4637980677]: https://github.com/nathanvale/agent-cli-kernel/pull/49#discussion_r4637980677
 [7f15a16]: https://github.com/nathanvale/agent-cli-kernel/commit/7f15a164d817265cc6f82882ff6efa2b76a4556b
 [2c62768]: https://github.com/nathanvale/agent-cli-kernel/commit/2c62768ceddd1af9a7f3b4fabf1b9d32818acf2e
+[39d64c3]: https://github.com/nathanvale/agent-cli-kernel/commit/39d64c307e73a6153c572d6259df791e779efc4e

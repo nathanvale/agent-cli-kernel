@@ -18,13 +18,17 @@ is in the [test harness guide](test-harness.md).
   [r4624964198], [198f6ba] (a test that read the boot identity file itself
   still expected `ENOENT`, so another read failure failed it and a refusal
   that also named the filesystem passed; the fix expects the reason the test
-  observed, and the boot identity as the only field that differs).
+  observed, and the boot identity as the only field that differs),
+  [f8ff37f] (the author guide's brace case matched its error by substring
+  with `toThrow`, and searched its own expected string for a station name).
 - Assert the route's response when a test says a command remains available.
   Exit zero with empty output can pass without a response. Witnessed:
   [#90-routes].
 - Shape the input so only the named guard can refuse it. An earlier parse or
   build check, or a neighbouring cap at the same limit, keeps the test green
-  with the named guard removed. Witnessed: [640ba05], [96ab832], [c193c51].
+  with the named guard removed. Witnessed: [640ba05], [96ab832], [c193c51],
+  [f8ff37f] (an equals-sign option case used a required option, so a
+  missing-option refusal could also have failed it).
 - Control each side of a boundary: the last admitted and the first refused
   value or case. Checks further out stay green under an off-by-one limit.
   Witnessed: [e07d962], [d72cd9e].
@@ -43,6 +47,11 @@ is in the [test harness guide](test-harness.md).
   folder with the same tail as the injected one passes for the wrong
   folder. Give the test distinct fallback and destination folders, and
   assert the destination in the refusal. Witnessed: [9ad6bf2], [#72-cwd].
+- Assert all of what the title names. A prefix of the output passes with the
+  rest missing, and a path that exists passes for a folder where the title
+  says file. Witnessed: [ff0616c] (the author guide's plain-text case
+  checked only the first line), [0463f35] (its link case accepted a link to
+  a folder).
 - Prove that a fixture meant to lack something lacks it, and fail loudly
   when its location supplies it. `STATE_TEST_DIR` can place a test folder
   inside the checkout, where git finds the parent repository for a case that
@@ -173,3 +182,6 @@ is in the [test harness guide](test-harness.md).
 [198f6ba]: https://github.com/nathanvale/agent-cli-kernel/commit/198f6ba61a79539d2c03a1fbfb70b61ecc26b3d0
 [kernel#48 r4637879795]: https://github.com/nathanvale/agent-cli-kernel/pull/48#discussion_r4637879795
 [7a3c409]: https://github.com/nathanvale/agent-cli-kernel/commit/7a3c409920548ef30a9df2c89a0fac608d4704fd
+[f8ff37f]: https://github.com/nathanvale/agent-cli-kernel/commit/f8ff37f4e31d26ce34fcc4e5b0467a2a5ed013f3
+[ff0616c]: https://github.com/nathanvale/agent-cli-kernel/commit/ff0616cd9c3310bf1170e28308c3c748353fc57b
+[0463f35]: https://github.com/nathanvale/agent-cli-kernel/commit/0463f35b14fd6aadced45cab40b44436fb480b33
