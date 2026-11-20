@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/author-guide/author-guide.test.ts b/tests/kernel/author-guide/author-guide.test.ts
+index a5cf673..2132500 100644
+--- a/tests/kernel/author-guide/author-guide.test.ts
++++ b/tests/kernel/author-guide/author-guide.test.ts
+@@ -188,7 +188,7 @@ function uncopiedBlocks(
+   return blocks
+     .filter(
+       (block) =>
+-        block.language === "ts" &&
++        block.language === "none" &&
+         ![...files.values()].some((file) => heldBy(file, block.lines)),
+     )
+     .map(

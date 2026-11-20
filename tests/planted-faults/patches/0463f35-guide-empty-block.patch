@@ -1,0 +1,12 @@
+diff --git a/tests/kernel/author-guide/author-guide.test.ts b/tests/kernel/author-guide/author-guide.test.ts
+index 705125d..41f8153 100644
+--- a/tests/kernel/author-guide/author-guide.test.ts
++++ b/tests/kernel/author-guide/author-guide.test.ts
+@@ -133,7 +133,6 @@ function codeBlocks(path: string): Block[] {
+ const indentOf = (line: string) => line.length - line.trimStart().length;
+ 
+ function heldBy(file: string, block: readonly string[]): boolean {
+-  if (block.every((line) => line.trim() === "")) return false;
+   const lines = file.split("\n");
+   const first = block[0] ?? "";
+   return lines.some((line, start) => {

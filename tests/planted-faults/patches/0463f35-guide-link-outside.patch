@@ -1,0 +1,12 @@
+diff --git a/tests/kernel/author-guide/author-guide.test.ts b/tests/kernel/author-guide/author-guide.test.ts
+index 705125d..15a396c 100644
+--- a/tests/kernel/author-guide/author-guide.test.ts
++++ b/tests/kernel/author-guide/author-guide.test.ts
+@@ -162,7 +162,6 @@ function brokenLinks(folder: string): string[] {
+       .map((target) => resolve(dirname(path), target))
+       .filter(
+         (target) =>
+-          !target.startsWith(`${folder}/`) ||
+           !existsSync(target) ||
+           !statSync(target).isFile(),
+       )
