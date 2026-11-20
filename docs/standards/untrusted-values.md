@@ -66,6 +66,13 @@ boundary trusts the types.
   `ENOENT`), [0ab74b8] (the verification skill read an unreadable step file
   as a clean step with no unmet check, and an unreadable `package.json` as a
   missing dependency).
+- Read a required input as present or refused, never as empty, so a missing
+  input cannot pass for one with nothing in it. Witnessed: [r4609956011]
+  (a missing patch file read as an empty patch, so replay reported that it
+  held no hunk and `--changed-since` skipped its fault), [r4638567056],
+  [8309f88] (`cause-literal-owner` read a missing `src/kernel/causes.ts` in
+  a generated repository as no cause code, so every free cause literal
+  passed).
 
 [r4580070968]: https://github.com/nathanvale/bun-typescript-template/pull/6#discussion_r4580070968
 [r4580070979]: https://github.com/nathanvale/bun-typescript-template/pull/6#discussion_r4580070979
@@ -101,3 +108,6 @@ boundary trusts the types.
 [5048d5e]: https://github.com/nathanvale/agent-cli-kernel/commit/5048d5e01932fa8ab9c177e351f33423cb507c1e
 [e766237]: https://github.com/nathanvale/agent-cli-kernel/commit/e76623703cff72cc32c30a97164243e2cc86f255
 [0ab74b8]: https://github.com/nathanvale/agent-cli-kernel/commit/0ab74b894857b6b741be277e2f2fd41764e96cd2
+[r4609956011]: https://github.com/nathanvale/bun-typescript-template/pull/109#discussion_r4609956011
+[r4638567056]: https://github.com/nathanvale/bun-typescript-template/pull/116#discussion_r4638567056
+[8309f88]: https://github.com/nathanvale/agent-cli-kernel/commit/8309f887aeabeedebd4f559e01ef319d78d39efa

@@ -1,0 +1,13 @@
+diff --git a/kernel/config/kernel/eslint-rules.mjs b/kernel/config/kernel/eslint-rules.mjs
+index bd21f5a..e442202 100644
+--- a/kernel/config/kernel/eslint-rules.mjs
++++ b/kernel/config/kernel/eslint-rules.mjs
+@@ -146,7 +146,7 @@ function exportedCauseKeys(entry) {
+         .find(({ name }) => name === "commonCauses")
+     : undefined;
+   if (exported === undefined)
+-    throw missing(`${entry} does not export commonCauses`);
++    return new Set();
+   const owner =
+     exported.flags & ts.SymbolFlags.Alias
+       ? checker.getAliasedSymbol(exported)

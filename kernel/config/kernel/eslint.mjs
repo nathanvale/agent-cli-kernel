@@ -1,8 +1,8 @@
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import { readFileSync } from "node:fs";
-import { isAbsolute } from "node:path";
-import kernelRules from "./eslint-rules.mjs";
+import { isAbsolute, resolve } from "node:path";
+import kernelRules, { holdsKernelSource } from "./eslint-rules.mjs";
 
 const stateFactoryProperty = {
   property: "stateAddon",
@@ -225,7 +225,10 @@ function settingsOf(options = {}) {
 
 export function kernelLint(options) {
   const { rootDir, srcDir, testDirs, addons, repository } = settingsOf(options);
-  const selected = (name) => addons.includes(name);
+  const own = holdsKernelSource(resolve(rootDir, srcDir));
+  const selected = (name) => own && addons.includes(name);
+  const kernelOnly = (...blocks) => (own ? blocks : []);
+  const kernelPaths = (...paths) => (own ? paths : []);
   const source = `${srcDir}/${ts}`;
   const boundary = `${srcDir}/kernel/validation/${ts}`;
   const ffiRoute = `${srcDir}/addons/state/linux-flock.ts`;
@@ -278,17 +281,17 @@ export function kernelLint(options) {
     },
     {
       files: [source],
-      ignores: [
+      ignores: kernelPaths(
         `${srcDir}/kernel/**`,
         ...(selected("state") ? [ffiRoute] : []),
-      ],
+      ),
       rules: hostRules(),
     },
     ...when("state", {
       files: [ffiRoute],
       rules: hostRules({ banFfi: false }),
     }),
-    {
+    ...kernelOnly({
       files: [`${srcDir}/kernel/index.ts`],
       rules: {
         "no-restricted-properties": ["error", ...programProperties],
@@ -310,8 +313,8 @@ export function kernelLint(options) {
           },
         ],
       },
-    },
-    {
+    }),
+    ...kernelOnly({
       files: [boundary],
       rules: {
         "@typescript-eslint/consistent-type-assertions": "off",
@@ -336,8 +339,8 @@ export function kernelLint(options) {
           ffiImport,
         ],
       },
-    },
-    ...(testDirs.length === 0
+    }),
+    ...(testDirs.length === 0 || !own
       ? []
       : [
           {
@@ -383,16 +386,16 @@ export function kernelLint(options) {
         ],
       },
     }),
-    {
+    ...kernelOnly({
       files: [`${srcDir}/kernel/process-host.ts`],
       rules: { "repository/no-domain-output": "off" },
-    },
+    }),
     {
       files: [source],
-      ignores: [
+      ignores: kernelPaths(
         `${srcDir}/kernel/**`,
         ...addons.map((name) => `${srcDir}/addons/${name}/**`),
-      ],
+      ),
       plugins: { repository },
       rules: {
         "repository/no-in-operator": "error",

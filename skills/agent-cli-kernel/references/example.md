@@ -80,7 +80,10 @@ const list = command({
       .filter(([, count]) => count >= atLeast)
       .map(([planet]) => planet);
     return context.result(
-      { commandIdentity: "moons.list", causeCode: "SUCCESS_UNCHANGED" },
+      {
+        commandIdentity: "moons.list",
+        causeCode: "SUCCESS_UNCHANGED" satisfies keyof typeof commonCauses,
+      },
       {
         message: `${String(planets.length)} planets.`,
         data: { planets },
@@ -116,7 +119,7 @@ const show = command({
     station(causes, {
       ...stationWords,
       commandIdentity: "moons.show",
-      causeCode: "SUCCESS_UNCHANGED",
+      causeCode: "SUCCESS_UNCHANGED" satisfies keyof typeof commonCauses,
       trigger: "The planet is one this CLI knows.",
       repairAction: null,
       guidance: { next: { kind: "done" } },
@@ -149,7 +152,10 @@ const show = command({
         },
       );
     return context.result(
-      { commandIdentity: "moons.show", causeCode: "SUCCESS_UNCHANGED" },
+      {
+        commandIdentity: "moons.show",
+        causeCode: "SUCCESS_UNCHANGED" satisfies keyof typeof commonCauses,
+      },
       {
         message: `${input.planet} has ${String(count)} moons.`,
         data: { planet: input.planet, moons: count },

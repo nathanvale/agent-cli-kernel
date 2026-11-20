@@ -49,7 +49,10 @@ const list = command({
       .filter(([, count]) => count >= atLeast)
       .map(([planet]) => planet);
     return context.result(
-      { commandIdentity: "moons.list", causeCode: "SUCCESS_UNCHANGED" },
+      {
+        commandIdentity: "moons.list",
+        causeCode: "SUCCESS_UNCHANGED" satisfies keyof typeof commonCauses,
+      },
       {
         message: `${String(planets.length)} planets.`,
         data: { planets },
@@ -175,9 +178,9 @@ await runProcess(contract)(process.argv.slice(2));
 ## What the kernel's lint refuses
 
 The package exports its lint as `kernelLint` from `agent-cli-kernel/lint`.
-Where your repository uses it, it checks `src/` and the test folders you
-name, and it ignores inline `eslint-disable` comments. In `src/` it
-refuses:
+Where your repository uses it, it checks every file in `src/`, including
+`src/kernel/` and `src/addons/`, and the test folders you name, and it
+ignores inline `eslint-disable` comments. In `src/` it refuses:
 
 - `console`, `process.stdout` and `process.stderr`. Return `data` and let
   the kernel write it.
@@ -186,6 +189,11 @@ refuses:
 - The `in` operator on a key the type does not declare, such as
   `"code" in error` in a `catch`. Read the value with `Object.hasOwn` and
   `Reflect.get`.
+- A kernel cause code written as a free string, such as
+  `causeCode: "SUCCESS_UNCHANGED"`. Write
+  `"SUCCESS_UNCHANGED" satisfies keyof typeof commonCauses`, so a renamed
+  or removed code fails the type check. Your own codes, such as
+  `DOMAIN_MOONS_UNKNOWN_PLANET`, need no change.
 
 In `src/` and in tests it refuses:
 
