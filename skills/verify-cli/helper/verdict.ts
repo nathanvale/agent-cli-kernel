@@ -15,7 +15,18 @@ export type StepRun = {
   readonly stderr: string;
 };
 
-export type FileSeen = { readonly content: string | null };
+export type FileKind =
+  | "file"
+  | "absent"
+  | "folder"
+  | "other"
+  | "too-large"
+  | "unreadable";
+
+export type FileSeen = {
+  readonly kind: FileKind;
+  readonly content: string | null;
+};
 
 export function resultAt(result: unknown, path: string): unknown {
   let current = result;
@@ -84,8 +95,11 @@ export function unmetOf(
       isDeepStrictEqual(resultAt(result, key), wanted) ? [] : [`result.${key}`],
     ),
     ...(expect.files ?? []).flatMap((file, index) => {
-      const seen = files[index]?.content ?? null;
-      const held = file.absent === true ? seen === null : seen === file.content;
+      const seen = files[index];
+      const held =
+        file.absent === true
+          ? seen?.kind === "absent"
+          : seen?.kind === "file" && seen.content === file.content;
       return held ? [] : [`files.${String(index)}`];
     }),
     ...contractUnmet(step, observed),
@@ -145,6 +159,7 @@ export function stepFile(
       ...shown,
       stderr: observed.stderr,
       files: files.map((file) => file.content),
+      fileKinds: files.map((file) => file.kind),
     },
     unmet: [...unmet],
     verdict: unmet.length === 0 ? ("met" as const) : ("unmet" as const),

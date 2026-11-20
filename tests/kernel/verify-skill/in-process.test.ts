@@ -9,6 +9,7 @@ import {
 } from "../../../skills/verify-cli/helper/cli.ts";
 import {
   blockedEnding,
+  fileReadLimit,
   fileSeen,
   keptStep,
   stepRunOf,
@@ -34,6 +35,7 @@ import {
   scenarioOf,
 } from "../../../skills/verify-cli/helper/scenario.ts";
 import type { ScenarioStep } from "../../../skills/verify-cli/helper/scenario.ts";
+import type { FileKind } from "../../../skills/verify-cli/helper/verdict.ts";
 import {
   contractUnmet,
   stationOf,
@@ -46,6 +48,7 @@ import {
   field,
   fixture,
   lsTree,
+  makeFifo,
   pinnedCommit,
   readOnlyScenario,
   releaseWorlds,
@@ -489,7 +492,10 @@ describe("how a step is judged", () => {
       unmetOf(
         step(expectation, "bun"),
         observed(envelopeLine(0), { outputTruncated: true, timedOut: true }),
-        [{ content: "b" }, { content: "here" }],
+        [
+          { kind: "file", content: "b" },
+          { kind: "file", content: "here" },
+        ],
       ),
     ).toEqual([
       "exitCode",
@@ -793,16 +799,69 @@ describe("how drive runs and keeps a step", () => {
     expect(stepRunOf(ran)).toEqual({ ...ran, timedOut: false });
   });
 
-  test("a file a step expects reads as its content, or as absent", async () => {
+  test("a file a step expects reads as its content, or as what stood there instead", async () => {
     const at = world();
     const path = join(at.folder, "seen.txt");
-    expect(await fileSeen(path)).toEqual({ content: null });
+    expect(await fileSeen(path)).toEqual({ kind: "absent", content: null });
+    expect(await fileSeen(join(path, "below"))).toEqual({
+      kind: "absent",
+      content: null,
+    });
     writeFileSync(path, "here");
-    expect(await fileSeen(path)).toEqual({ content: "here" });
-    const folderRead = await fileSeen(at.folder).catch((error: unknown) =>
-      field(error, "code"),
-    );
-    expect(folderRead).toBe("EISDIR");
+    expect(await fileSeen(path)).toEqual({ kind: "file", content: "here" });
+    expect(await fileSeen(join(path, "below"))).toEqual({
+      kind: "absent",
+      content: null,
+    });
+    expect(await fileSeen(at.folder)).toEqual({
+      kind: "folder",
+      content: null,
+    });
+    const pipe = join(at.folder, "pipe");
+    await makeFifo(pipe);
+    expect(await fileSeen(pipe)).toEqual({ kind: "other", content: null });
+    const large = join(at.folder, "large");
+    writeFileSync(large, "x".repeat(fileReadLimit));
+    expect((await fileSeen(large)).kind).toBe("file");
+    writeFileSync(large, "x".repeat(fileReadLimit + 1));
+    expect(await fileSeen(large)).toEqual({
+      kind: "too-large",
+      content: null,
+    });
+  });
+
+  test("an expected file holds only as a file, and an absent one only when nothing stands there", () => {
+    const step: ScenarioStep = {
+      name: "s",
+      runner: "bun",
+      argv: ["-e", ""],
+      timeoutMilliseconds: 1,
+      outputLimitBytes: 1,
+      expect: {
+        exitCode: 0,
+        files: [
+          { path: "/x/a", absent: true },
+          { path: "/x/b", content: "" },
+        ],
+      },
+    };
+    const observed = {
+      exitCode: 0,
+      timedOut: false,
+      outputTruncated: false,
+      terminationConfirmed: true,
+      stdout: "",
+      stderr: "",
+    };
+    const seen = (kind: FileKind) => ({ kind, content: null });
+    expect(
+      unmetOf(step, observed, [seen("absent"), { kind: "file", content: "" }]),
+    ).toEqual([]);
+    for (const kind of ["folder", "other", "too-large", "unreadable"] as const)
+      expect(unmetOf(step, observed, [seen(kind), seen(kind)])).toEqual([
+        "files.0",
+        "files.1",
+      ]);
   });
 
   test("a kept step's index row names its file and the SHA-256 of its content", async () => {

@@ -1,5 +1,5 @@
-import { existsSync } from "node:fs";
-import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { constants, existsSync } from "node:fs";
+import { appendFile, mkdir, open, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { changing, station } from "agent-cli-kernel";
 import type { ParsedPath, ProgramResult } from "agent-cli-kernel";
@@ -38,12 +38,44 @@ import type { FileSeen, StepRun } from "./verdict.ts";
 
 const identity = "verify-cli.drive";
 
+export const fileReadLimit = 1_048_576;
+
+function notFile(kind: Exclude<FileSeen["kind"], "file">): FileSeen {
+  return { kind, content: null };
+}
+
+async function openedFile(
+  handle: Awaited<ReturnType<typeof open>>,
+): Promise<FileSeen> {
+  const info = await handle.stat();
+  if (info.isDirectory()) return notFile("folder");
+  if (!info.isFile()) return notFile("other");
+  if (info.size > fileReadLimit) return notFile("too-large");
+  const buffer = Buffer.alloc(fileReadLimit + 1);
+  const { bytesRead } = await handle.read(buffer, 0, buffer.byteLength, 0);
+  if (bytesRead > fileReadLimit) return notFile("too-large");
+  return {
+    kind: "file",
+    content: buffer.subarray(0, bytesRead).toString("utf8"),
+  };
+}
+
 export async function fileSeen(path: string): Promise<FileSeen> {
+  let handle: Awaited<ReturnType<typeof open>>;
   try {
-    return { content: await readFile(path, "utf8") };
+    handle = await open(path, constants.O_RDONLY | constants.O_NONBLOCK);
   } catch (error) {
-    if (at(error, "code") === "ENOENT") return { content: null };
-    throw error;
+    const code = at(error, "code");
+    return notFile(
+      code === "ENOENT" || code === "ENOTDIR" ? "absent" : "unreadable",
+    );
+  }
+  try {
+    return await openedFile(handle);
+  } catch {
+    return notFile("unreadable");
+  } finally {
+    await handle.close();
   }
 }
 

@@ -384,6 +384,66 @@ describe("drive", () => {
     },
     watchdog(2),
   );
+
+  test(
+    "a folder where a step expects a file is an unmet step, kept as evidence, and the run can still be cleaned",
+    async () => {
+      const at = world();
+      const run = await launched(at, "r1");
+      const ran = await helper(at, [
+        "drive",
+        run,
+        scenarioFile(at, {
+          schema: "verify-scenario/1",
+          feature: "folder-where-file",
+          steps: [
+            {
+              name: "make-folder",
+              runner: "bun",
+              argv: [
+                "-e",
+                "require('node:fs').mkdirSync(process.argv[1])",
+                "{scratch}/notes",
+              ],
+              expect: {
+                exitCode: 0,
+                stderr: "",
+                files: [{ path: "{scratch}/notes", absent: true }],
+              },
+            },
+            {
+              name: "expect-file",
+              runner: "bun",
+              argv: ["-e", ""],
+              expect: {
+                exitCode: 0,
+                stderr: "",
+                files: [{ path: "{scratch}/notes", content: "x" }],
+              },
+            },
+          ],
+        }),
+      ]);
+      expect({ exit: ran.exit, cause: causeOf(ran) }).toEqual({
+        exit: 3,
+        cause: "DOMAIN_VERIFY_EXPECTATION_UNMET",
+      });
+      for (const step of ["make-folder", "expect-file"]) {
+        const kept = stepFile(run, "folder-where-file", step);
+        expect({
+          unmet: field(kept, "unmet"),
+          files: field(kept, "observed", "files"),
+          kinds: field(kept, "observed", "fileKinds"),
+        }).toEqual({ unmet: ["files.0"], files: [null], kinds: ["folder"] });
+      }
+      const cleaned = await helper(at, ["cleanup", run]);
+      expect({ exit: cleaned.exit, cause: causeOf(cleaned) }).toEqual({
+        exit: 0,
+        cause: "SUCCESS_COMPLETED",
+      });
+    },
+    watchdog(3),
+  );
 });
 
 const ruleDetails: Readonly<Record<string, string>> = {
