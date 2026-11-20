@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { quoted } from "./planted-fault-patch.ts";
 
@@ -6,11 +6,16 @@ export type Shard = { readonly part: number; readonly parts: number };
 export type Selection = Shard & { readonly toolingBase: string | undefined };
 export type Recorded = { readonly id: string; readonly testFile: string };
 
-const timingsPath = "tests/planted-faults/fault-timings.json";
+export const timingsPath = "tests/planted-faults/fault-timings";
+const timingExtension = ".json";
 const unlistedSeconds = 0.35;
 const toolingTests = "tests/template/";
 const toolingOption = "--tooling-changed-since";
 const shardPattern = /^(?<part>[1-9]\d*)\/(?<parts>[1-9]\d*)$/;
+
+export function timingFile(id: string): string {
+  return `${timingsPath}/${id}${timingExtension}`;
+}
 
 export function shardOf(argv: readonly string[]): Selection {
   const [, given, option, toolingBase, ...extra] = argv;
@@ -27,23 +32,38 @@ export function shardOf(argv: readonly string[]): Selection {
   return { part, parts, toolingBase };
 }
 
-export function readTimings(root: string): ReadonlyMap<string, number> {
-  const path = join(root, timingsPath);
-  if (!existsSync(path)) return new Map();
-  const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed))
-    throw new Error(
-      `${timingsPath} must hold one JSON object of fault ids and seconds. Repair: make its top level an object, such as { "<id>": 1.5 }.`,
-    );
-  const timings = new Map<string, number>();
-  for (const [id, seconds] of Object.entries(parsed)) {
-    if (typeof seconds !== "number" || !(seconds > 0))
-      throw new Error(
-        `${timingsPath} gives ${id} ${JSON.stringify(seconds)}. Repair: give each fault id a positive number of seconds.`,
-      );
-    timings.set(id, seconds);
+function jsonIn(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
   }
-  return timings;
+}
+
+function readTiming(root: string, name: string): [string, number] {
+  const where = `${timingsPath}/${name}`;
+  if (!name.endsWith(timingExtension))
+    throw new Error(
+      `${where} is not a fault timing file. Repair: name each timing <fault id>${timingExtension}, and keep nothing else in ${timingsPath}.`,
+    );
+  const text = readFileSync(join(root, where), "utf8");
+  const seconds = jsonIn(text);
+  if (typeof seconds !== "number" || !(seconds > 0))
+    throw new Error(
+      `${where} holds ${quoted(text.trim())}. Repair: write one positive number of seconds, such as 1.5.`,
+    );
+  return [name.slice(0, -timingExtension.length), seconds];
+}
+
+export function readTimings(root: string): ReadonlyMap<string, number> {
+  const folder = join(root, timingsPath);
+  if (!existsSync(folder)) return new Map();
+  return new Map(
+    readdirSync(folder)
+      .filter((name) => !name.startsWith("."))
+      .toSorted()
+      .map((name) => readTiming(root, name)),
+  );
 }
 
 export function shardIds(

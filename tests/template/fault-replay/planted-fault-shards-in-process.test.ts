@@ -6,12 +6,13 @@ import {
   shardIds,
   shardOf,
   type Shard,
+  timingFile,
+  timingsPath,
 } from "../../../scripts/planted-fault-shards.ts";
 import { readRecords } from "../../../scripts/planted-faults.ts";
 import { ownedFolders, write } from "../../support/fixture-files.ts";
 
 const repository = join(import.meta.dir, "../../..");
-const timingsPath = "tests/planted-faults/fault-timings.json";
 const folder = ownedFolders();
 
 function faultsNamed(...ids: readonly string[]) {
@@ -28,9 +29,9 @@ function split(
   );
 }
 
-function rootWithTimings(text: string): string {
+function rootWithTimings(files: Readonly<Record<string, string>>): string {
   const root = folder("fault-shards-");
-  write(root, timingsPath, text);
+  for (const [path, text] of Object.entries(files)) write(root, path, text);
   return root;
 }
 
@@ -119,32 +120,52 @@ describe("shardOf", () => {
 });
 
 describe("readTimings", () => {
-  test("reads each fault's measured seconds", () => {
-    const root = rootWithTimings('{ "a": 2.5, "b": 60 }\n');
+  test("reads each fault's measured seconds from its own file, in id order", () => {
+    const root = rootWithTimings({
+      [timingFile("b")]: "60\n",
+      [timingFile("a")]: "2.5\n",
+    });
     expect([...readTimings(root)]).toEqual([
       ["a", 2.5],
       ["b", 60],
     ]);
   });
 
-  test("reads no timings when the file is absent", () => {
+  test("reads a timing file added beside the others, with no list to update", () => {
+    const root = rootWithTimings({ [timingFile("a")]: "2.5\n" });
+    write(root, timingFile("c"), "4\n");
+    expect([...readTimings(root).keys()]).toEqual(["a", "c"]);
+  });
+
+  test("reads no timings when the folder is absent", () => {
     expect([...readTimings(folder("fault-shards-"))]).toEqual([]);
   });
 
-  test("refuses a timing that is not a positive number, naming the fault and the value", () => {
-    for (const value of ["0", "-1", '"3"', "null"]) {
-      const root = rootWithTimings(`{ "a": 1, "b": ${value} }\n`);
+  test("skips a hidden file in the timings folder", () => {
+    const root = rootWithTimings({
+      [timingFile("a")]: "1\n",
+      [`${timingsPath}/.DS_Store`]: "x",
+    });
+    expect([...readTimings(root)]).toEqual([["a", 1]]);
+  });
+
+  test("refuses a timing that is not a positive number, naming its file and the value", () => {
+    for (const value of ["0", "-1", '"3"', "null", "{}", "not json", ""]) {
+      const root = rootWithTimings({
+        [timingFile("a")]: "1\n",
+        [timingFile("b")]: `${value}\n`,
+      });
       expect(() => readTimings(root)).toThrow(
-        `${timingsPath} gives b ${value}. Repair: give each fault id a positive number of seconds.`,
+        `${timingFile("b")} holds '${value}'. Repair: write one positive number of seconds, such as 1.5.`,
       );
     }
   });
 
-  test("refuses a file that is not one JSON object", () => {
-    for (const text of ["[]\n", "1\n", "null\n"])
-      expect(() => readTimings(rootWithTimings(text))).toThrow(
-        `${timingsPath} must hold one JSON object of fault ids and seconds. Repair: make its top level an object, such as { "<id>": 1.5 }.`,
-      );
+  test("refuses a file in the timings folder that is not a .json timing, naming it", () => {
+    const root = rootWithTimings({ [`${timingsPath}/a.txt`]: "1\n" });
+    expect(() => readTimings(root)).toThrow(
+      `${timingsPath}/a.txt is not a fault timing file. Repair: name each timing <fault id>.json, and keep nothing else in ${timingsPath}.`,
+    );
   });
 
   test("lists only ids that this repository's fault records hold", () => {
