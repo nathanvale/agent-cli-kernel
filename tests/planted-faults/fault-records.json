@@ -3134,5 +3134,26 @@
     "testFile": "tests/template/check-commits/carried-verdict.test.ts",
     "title": "checker trees whose paths differ only in bytes that are not UTF-8",
     "source": "1998f0b fix(check-commits): read the checker tree byte for byte (GREEN)"
+  },
+  {
+    "id": "c934d85-kernel-imports-add-on",
+    "patch": "tests/planted-faults/patches/c934d85-kernel-imports-add-on.patch",
+    "testFile": "tests/kernel/add-on-boundary.test.ts",
+    "title": "^no file under kernel/src/kernel imports an add-on",
+    "source": "c934d85 test(kernel): refuse any import of an add-on from kernel/src/kernel"
+  },
+  {
+    "id": "082b658-bundle-carries-add-on",
+    "patch": "tests/planted-faults/patches/082b658-bundle-carries-add-on.patch",
+    "testFile": "tests/kernel/pinned-commit.test.ts",
+    "title": "^a CLI with no add-on bundles with no add-on file",
+    "source": "082b658 feat(kernel): name the kernel repository agent-cli-kernel and export the kernel and its add-ons"
+  },
+  {
+    "id": "082b658-export-target-missing",
+    "patch": "tests/planted-faults/patches/082b658-export-target-missing.patch",
+    "testFile": "tests/kernel/pinned-commit.test.ts",
+    "title": "^a repository installs the kernel by name at a pinned commit",
+    "source": "082b658 feat(kernel): name the kernel repository agent-cli-kernel and export the kernel and its add-ons"
   }
 ]
