@@ -1,7 +1,8 @@
 import { existsSync } from "node:fs";
 import { availableParallelism, loadavg } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { resolveToolchain } from "../src/toolchain-resolution.ts";
+import { withoutRepositoryLocation } from "./process-runner.ts";
 
 export type Finding = {
   status: "ok" | "FAIL" | "WARN";
@@ -168,12 +169,51 @@ function hostLoad(): Finding {
   return { status: "ok", check: "load", detail: `${summary}.` };
 }
 
+const hooksFolder = ".githooks";
+
+function gitRead(root: string, args: readonly string[]) {
+  const result = Bun.spawnSync(["git", "-C", root, ...args], {
+    env: withoutRepositoryLocation(process.env),
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  return { exitCode: result.exitCode, value: result.stdout.toString().trim() };
+}
+
+function hooks(root: string): Finding {
+  if (!existsSync(join(root, hooksFolder)))
+    return {
+      status: "ok",
+      check: "hooks",
+      detail: `no ${hooksFolder} folder, so no repository hooks apply.`,
+    };
+  if (gitRead(root, ["rev-parse", "--show-toplevel"]).exitCode !== 0)
+    return {
+      status: "ok",
+      check: "hooks",
+      detail: "not a git checkout, so no git hooks apply.",
+    };
+  const { value } = gitRead(root, ["config", "--get", "core.hooksPath"]);
+  if (value !== "" && resolve(root, value) === resolve(root, hooksFolder))
+    return {
+      status: "ok",
+      check: "hooks",
+      detail: `core.hooksPath runs this checkout's ${hooksFolder}.`,
+    };
+  return {
+    status: "WARN",
+    check: "hooks",
+    detail: `core.hooksPath is ${value === "" ? "not set" : value}, so this checkout's pre-commit and pre-push hooks do not run. Repair: git config core.hooksPath ${hooksFolder}`,
+  };
+}
+
 export async function doctor(root: string): Promise<boolean> {
   const installed = toolchain(root);
   const findings = [
     await bunVersion(root),
     installed,
     ...(installed.status === "ok" ? [fallowReadiness(root)] : []),
+    hooks(root),
     hostLoad(),
   ];
   for (const { status, check, detail } of findings)
