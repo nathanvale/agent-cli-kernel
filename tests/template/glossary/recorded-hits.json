@@ -16,20 +16,6 @@
       "count": 1
     },
     {
-      "file": "kernel/src/kernel/declarations.ts",
-      "term": "Admitted",
-      "surface": "public-identifier",
-      "text": "admitChangingShape",
-      "count": 1
-    },
-    {
-      "file": "kernel/src/kernel/declarations.ts",
-      "term": "Admitted",
-      "surface": "public-identifier",
-      "text": "admitInspectShape",
-      "count": 1
-    },
-    {
       "file": "kernel/src/kernel/future-input.ts",
       "term": "Run binding",
       "surface": "visible-text",

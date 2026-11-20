@@ -90,6 +90,16 @@ The kernel repository's own statement, read at one commit, of its kernel and
 add-on folders and of the add-ons each add-on requires.
 _Avoid_: manifest (for a kernel declaration), hand-kept list
 
+### Internal kernel names
+
+**Validate inspect shape**:
+`validateInspectShape` checks an inspect command declaration's fields before
+construction or registration. It does not admit a command for a run.
+
+**Validate changing shape**:
+`validateChangingShape` checks a changing command declaration's fields before
+construction or registration. It does not admit a command for a run.
+
 ### Verifying a CLI
 
 **verify-cli**:
