@@ -1,0 +1,7 @@
+{
+  "id": "4acba45-term-scope-docs",
+  "patch": "tests/planted-faults/patches/4acba45-term-scope-docs.patch",
+  "testFile": "tests/template/glossary/glossary.test.ts",
+  "title": "^the scope reads the skills and the docs",
+  "source": "4acba45 fix(glossary): fail the doctor on an unset commit hook, retire the stamped phrases, read the skills and docs for Pin words"
+}

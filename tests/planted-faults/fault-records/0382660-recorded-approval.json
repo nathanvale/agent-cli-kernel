@@ -1,0 +1,7 @@
+{
+  "id": "0382660-recorded-approval",
+  "patch": "tests/planted-faults/patches/0382660-recorded-approval.patch",
+  "testFile": "tests/template/naming/names-check-growth.test.ts",
+  "title": "^--against admits an addition that carries an approval",
+  "source": "0382660 fix(glossary): check a link by its own name, stop a call when this repository's check is broken, refuse list growth, read the map's owners"
+}

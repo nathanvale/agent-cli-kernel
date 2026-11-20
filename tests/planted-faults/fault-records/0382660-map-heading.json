@@ -1,0 +1,7 @@
+{
+  "id": "0382660-map-heading",
+  "patch": "tests/planted-faults/patches/0382660-map-heading.patch",
+  "testFile": "tests/template/naming/glossary-files.test.ts",
+  "title": "^GM.h a link to a heading",
+  "source": "0382660 fix(glossary): check a link by its own name, stop a call when this repository's check is broken, refuse list growth, read the map's owners"
+}

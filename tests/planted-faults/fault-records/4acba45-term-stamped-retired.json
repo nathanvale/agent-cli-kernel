@@ -1,0 +1,7 @@
+{
+  "id": "4acba45-term-stamped-retired",
+  "patch": "tests/planted-faults/patches/4acba45-term-stamped-retired.patch",
+  "testFile": "tests/template/glossary/glossary.test.ts",
+  "title": "^the retired phrase stamped kernel turns the check red in a document",
+  "source": "4acba45 fix(glossary): fail the doctor on an unset commit hook, retire the stamped phrases, read the skills and docs for Pin words"
+}

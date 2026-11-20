@@ -1,0 +1,7 @@
+{
+  "id": "4acba45-term-pin-words",
+  "patch": "tests/planted-faults/patches/4acba45-term-pin-words.patch",
+  "testFile": "tests/template/glossary/glossary.test.ts",
+  "title": "^the retired phrase a pin record turns the check red in a document",
+  "source": "4acba45 fix(glossary): fail the doctor on an unset commit hook, retire the stamped phrases, read the skills and docs for Pin words"
+}

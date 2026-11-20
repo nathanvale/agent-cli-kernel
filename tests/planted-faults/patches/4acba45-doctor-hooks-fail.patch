@@ -1,0 +1,13 @@
+diff --git a/scripts/doctor.ts b/scripts/doctor.ts
+index c8d5ecb..c77077e 100644
+--- a/scripts/doctor.ts
++++ b/scripts/doctor.ts
+@@ -260,7 +260,7 @@ export function hooks(root: string): Finding {
+       check: "hooks",
+       detail: `${detail} A hosted check commits nothing, so it needs none.`,
+     };
+-  return { status: "FAIL", check: "hooks", detail };
++  return { status: "WARN", check: "hooks", detail };
+ }
+ 
+ export async function doctor(root: string): Promise<boolean> {
