@@ -4,10 +4,6 @@ import { dirname, join } from "node:path";
 import { processWatchdog } from "../kernel-repair/swarm-process.ts";
 import { materialiseKf, oneEnvelope, runKf } from "./harness.ts";
 
-// Accepted decision "Contract question 6 of 8" (K1-spec-11): at declaration
-// every declared command step must route to the command it names
-// (`resolve(route ++ args)` selects the target). INPUT-3, STEP-6, STEP-12,
-// DISC-13, CMD-9 step 2. Expected values come from expectations.md (KF4).
 let entry = "";
 beforeAll(async () => {
   entry = await materialiseKf();

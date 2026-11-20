@@ -6,14 +6,6 @@ import { tolerance } from "../lifecycle/oracle.ts";
 import { emptyComplete, materialiseKf, oneEnvelope, runKf } from "./harness.ts";
 import type { KfRun } from "./harness.ts";
 
-// Accepted decision "Contract question 5 of 8" (K3-spec-4), its 16:23
-// follow-up, and "Expectations points N2 and N3" (16:25, option A): when an
-// owned program cannot be confirmed stopped the CLI claims no certainty on
-// any exit path. LIFE-11, LIFE-6, WIRE-12, WIRE-13, WIRE-18, DISC-11b. The
-// unconfirmed stop comes from a host programs add-on whose settle resolves
-// false or throws (the shipped add-on has no deterministic trigger: a
-// stated proof gap). Expected values come from expectations.md (KF3) and the
-// N2 and N3 ruling.
 let entry = "";
 beforeAll(async () => {
   entry = await materialiseKf();

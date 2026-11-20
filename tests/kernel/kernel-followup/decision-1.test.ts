@@ -11,11 +11,6 @@ import {
 } from "./harness.ts";
 import type { KfRun } from "./harness.ts";
 
-// Accepted decision "Contract question 3 of 8" (K3-spec-5): an add-on that
-// throws while the kernel attaches it before handler entry is a preparation
-// fault. LIFE-1, WIRE-15 (refused, unchanged, internal, exit 1), WIRE-18
-// INTERNAL_PREPARATION (N), LIFE-9 step 1, CMD-9 step 6. Expected values come
-// from expectations.md (KF1), written from the frozen contract.
 let entry = "";
 beforeAll(async () => {
   entry = await materialiseKf();
@@ -67,8 +62,6 @@ describe("KF1.a approval-attach-relative-directory", () => {
         KF_GRANTS: "relative/grants",
       });
       expectPreparation(run, "kf.read");
-      // Twin: an absolute, empty grant store denies after the check started
-      // (accepted decision B3: owner human).
       const store = join(dirname(entry), "grants-inspect");
       await mkdir(store);
       const twin = await runKf(entry, "read", ["read", "--json"], {

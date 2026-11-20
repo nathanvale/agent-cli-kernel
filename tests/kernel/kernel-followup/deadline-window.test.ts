@@ -4,12 +4,6 @@ import { dirname, join } from "node:path";
 import { processWatchdog } from "../kernel-repair/swarm-process.ts";
 import { emptyComplete, materialiseKf, oneEnvelope, runKf } from "./harness.ts";
 
-// The step-2 builder's Left item 2 (K2-spec-3): from the deadline on, the
-// run's state capability starts no transaction and records no effect.
-// LIFE-6, WIRE-12, WIRE-15; accepted decision N9 (17:06): with no
-// transaction started before the deadline, DOMAIN_DEADLINE_UNCHANGED with
-// the declared effects remaining. Expected values come from expectations.md
-// (KF9).
 let entry = "";
 beforeAll(async () => {
   entry = await materialiseKf();

@@ -225,9 +225,6 @@ function redactor(): (record: LogRecord) => LogRecord | undefined {
   };
 }
 
-// Accepted decision of 19 November 2026 (13:22 AEDT), question 21: the
-// add-on never changes LogTape's process-wide configuration, and each run
-// has its own pipeline.
 export function pipelineFor(
   category: readonly string[],
   deliver: (record: LogRecord) => void,

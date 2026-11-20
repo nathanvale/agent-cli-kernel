@@ -112,11 +112,6 @@ export function discoverable(identity: string): boolean {
   return !identity.startsWith("-") && !/[{}]/u.test(identity);
 }
 type HostStep = { readonly repair: string; readonly next: NextStep };
-// Accepted decisions (Nathan, 20 November 2026, 07:37 AEDT; WIRE-18): a
-// command's own discovery counts as the help a usage refusal points to, so a
-// host command's refusal points at its discovery, not at the CLI's help.
-// (Nathan, 20 November 2026, 07:50 AEDT): its repair text points at that
-// discovery too.
 const hostSteps: Partial<
   Record<
     keyof typeof commonCauses,

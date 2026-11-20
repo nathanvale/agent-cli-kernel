@@ -440,7 +440,6 @@ describe("CMD-9 steps 3 to 6 order (supporting C2)", () => {
       receipt(entry, observed);
       try {
         const { result } = assertEnvelope(entry, observed);
-        // B3.02: the runtime denial carries the default station words (accepted decision B3).
         expect({
           guidance: { handoff: result.handoff },
           repairAction: result.repairAction,
@@ -630,9 +629,6 @@ describe("B1 deadline refusal identity (Nathan, 16 November 2026)", () => {
       ["read", "--deadline-ms", "0", "--json"],
       "fx.dispatch",
     ),
-    // B1.04: built-in routes. Set by accepted decision B1
-    // (today's behaviour, matching DISC-1's incompatible built-in options
-    // row), reported to Nathan for confirmation.
     usage(
       "B1.04.help",
       ["--help", "--deadline-ms", "100", "--json"],

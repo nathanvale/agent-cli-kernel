@@ -70,10 +70,6 @@ export function admitInspectShape(declaration: {
   if (declaration.ifNoResult !== undefined)
     throw new Error("An inspect command has no ifNoResult.");
 }
-// Accepted decision N1b: an inspect command that runs programs and
-// supports a deadline declares its program-stop station, a failed and
-// unchanged station with a handoff (WIRE-13, WIRE-14, WIRE-15). The kernel
-// does not enforce its name (N1e).
 function requireProgramStopStation(declaration: CommandDeclaration): void {
   if (
     declaration.capabilities.programs !== true ||

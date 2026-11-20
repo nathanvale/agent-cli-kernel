@@ -23,14 +23,6 @@ import {
   runKf,
 } from "./harness.ts";
 
-// Accepted decisions: contract question 5 of 8, its 16:23 follow-up
-// (option C), the seven calls of 17:06 (form H, the name, the declaration
-// rule N1b) and the four points of 17:24 (the station words N1d; the name
-// is not enforced, N1e). An inspect command that runs programs and supports
-// a deadline declares DOMAIN_<CLI>_DEADLINE_PROGRAM_STOP_UNCONFIRMED in its
-// own station table; the kernel selects it when the deadline passed and an
-// owned program was not confirmed stopped. Expected values come from
-// expectations.md (KF3.b, KF3.f).
 let entry = "";
 beforeAll(async () => {
   entry = await materialiseKf();

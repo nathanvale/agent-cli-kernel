@@ -41,9 +41,6 @@ test("handoff objects ignore key order while inspection arrays preserve declarat
     summary: "Check notes.",
     input,
     stations: [refused],
-    // Never run: this test builds the station directly. A handler of a
-    // command without approval may not select DOMAIN_AUTHORITY_REQUIRED
-    // (accepted decision, contract question 7 of 8; reading N6 (a)).
     run: () => Promise.reject(new Error("The handler never runs here.")),
   });
   const contract = contractFor({ cli: "notes", commands: [check] });

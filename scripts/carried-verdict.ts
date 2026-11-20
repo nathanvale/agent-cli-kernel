@@ -10,9 +10,6 @@ const judgedOnlyFolders = [
   ".codex/",
 ] as const;
 
-// Interface: a path the commits jobs never read or run. A change there is
-// judged, never trusted. Every other path, a new one included, is part of
-// the checker tree.
 export function judgedOnly(path: string): boolean {
   return (
     judgedOnlyFolders.some((folder) => path.startsWith(folder)) ||
@@ -20,7 +17,6 @@ export function judgedOnly(path: string): boolean {
   );
 }
 
-// Interface: `listing` is `git ls-tree -r -z --full-tree <commit>`.
 export function checkerTree(listing: string): string {
   return listing
     .split("\0")
@@ -96,9 +92,6 @@ function firstLink(tree: string): string | undefined {
   return entry?.slice(entry.indexOf("\t") + 1);
 }
 
-// Interface: `graph` holds every commit behind the current head and the
-// current base, each with its parents, in `git rev-list --parents
-// --topo-order` order.
 export function decide(
   current: MergeFacts,
   carried: MergeFacts | Refused,
@@ -186,9 +179,6 @@ function wrongClaim(claims: Claims, expected: Expected): string | undefined {
     : `the carried token's ${wrong} claim is ${JSON.stringify(claims[wrong])}`;
 }
 
-// Interface: `keys` is the `keys` list GitHub publishes at
-// https://token.actions.githubusercontent.com/.well-known/jwks. Expiry is not
-// read: the token proves what a past run executed, not who holds it now.
 export async function readToken(
   token: string,
   keys: readonly JsonWebKey[],
@@ -343,9 +333,6 @@ async function carriedFacts(env: Environment): Promise<MergeFacts | Refused> {
   }
 }
 
-// Interface: `current` is the merge commit this pull_request run executes
-// (GITHUB_SHA). Every failure to prove a carried head is a refusal, which
-// judges every commit; only a current merge that cannot be read throws.
 export async function carry(env: Environment): Promise<Decision> {
   if (!present(env.root, env.current))
     throw new Error(

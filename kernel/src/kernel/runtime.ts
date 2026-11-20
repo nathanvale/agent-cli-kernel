@@ -24,8 +24,6 @@ export type Resolution =
     };
 
 export type Enter = () => Promise<Validation<CommandResult>>;
-// CMD-9 step 6 before handler entry. Called at most once; a throw is a
-// preparation fault (accepted decision, contract question 3 of 8).
 export type Attach = () => Validation<Enter>;
 
 export type KernelFacts = {

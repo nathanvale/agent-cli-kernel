@@ -1,12 +1,6 @@
 import { station } from "../../../kernel/src/kernel/index.ts";
 import type { CauseTable } from "../../../kernel/src/kernel/index.ts";
 
-// One owner for the lifecycle fixtures' program-stop station. Accepted
-// decisions of 17:06 (form H, the name, the declaration rule N1b) and 17:24
-// (the words, N1d): an inspect command that runs programs and supports a
-// deadline declares DOMAIN_<CLI>_DEADLINE_PROGRAM_STOP_UNCONFIRMED in its own
-// cause and station tables. The trigger is the expectations author's
-// recommended wording (N1f, open).
 export const programStopRow = {
   outcome: "failed",
   transactionState: "unchanged",

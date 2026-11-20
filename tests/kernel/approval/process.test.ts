@@ -882,11 +882,6 @@ test("T4S.r1-stop-coordination-lost: attestation consumed, no refund", async () 
   ]);
 });
 
-// B3.04 (accepted decision B3; CMD-15, WIRE-9, WIRE-18): through the real front door,
-// on a command that declares no DOMAIN_AUTHORITY_REQUIRED tuple, the
-// missing, stale (expired and revision), consumed and mismatched grant
-// variants give byte-identical public output once the run identity is
-// removed, each carrying the kernel's default authority words.
 const defaultAuthorityWords = {
   handoff: {
     owner: "human",

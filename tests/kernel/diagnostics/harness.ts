@@ -196,13 +196,6 @@ export function run(launch: Launch): Promise<Run> {
   return start(launch).finished;
 }
 
-// Platform: a CLI that calls abort() exits only after the host has dealt with
-// the aborted process. Hosted ubuntu runners took 17,769 ms to 27,337 ms for
-// D15.crash-cannot-pass and D17.crash-no-status alone (runs 44220059795,
-// 44228141798, 44231023432), and 57,917 ms, 59,780 ms and more than
-// 60,000 ms when R2's child aborted at the same time (run 44231300109
-// attempt 1, run 44231023432 attempts 2 and 1); Darwin and Linux containers
-// take milliseconds.
 const overlappingAbortMilliseconds = 60_000;
 export const crashExitBound = 2 * overlappingAbortMilliseconds;
 export const teardownMargin = 15_000;
