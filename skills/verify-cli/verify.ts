@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 import type { Subprocess } from "bun";
 import {
   at,
@@ -149,7 +149,7 @@ export function bound(argv: readonly string[]): Bound {
       run: existsSync(place.index) ? place : undefined,
     };
   return {
-    root: read.run.repository,
+    root: existsSync(read.run.repository) ? read.run.repository : undefined,
     target: ["drive", "report"].includes(name)
       ? join(read.run.repository, read.run.target)
       : undefined,
@@ -430,10 +430,13 @@ export type Relayed = {
   readonly text: string;
 };
 
-export function relayed(helper: Ran, json: boolean): Relayed {
+export function relayed(helper: Ran, json: boolean, self: string): Relayed {
   if (json) return { stream: "stdout", text: helper.stdout };
   const envelope = oneJsonLine(helper.stdout);
-  const message = String(at(envelope, "message"));
+  const message = String(at(envelope, "message")).replaceAll(
+    `${cli} --help`,
+    () => `${self} --help`,
+  );
   if (helper.exitCode !== 0) return { stream: "stderr", text: `${message}\n` };
   const data = at(envelope, "result", "data");
   return {
@@ -443,6 +446,16 @@ export function relayed(helper: Ran, json: boolean): Relayed {
         ? `${message}\n`
         : `${message}\n${JSON.stringify(data, null, 2)}\n`,
   };
+}
+
+function beforeLiteral(argv: readonly string[]): readonly string[] {
+  const literal = argv.indexOf("--");
+  return literal < 0 ? argv : argv.slice(0, literal);
+}
+
+function afterLiteral(argv: readonly string[]): readonly string[] {
+  const literal = argv.indexOf("--");
+  return literal < 0 ? [] : argv.slice(literal);
 }
 
 export type Checked =
@@ -456,7 +469,9 @@ export async function kernelFreeCheck(
   limits: Limits = defaultLimits,
 ): Promise<Checked> {
   const argv = absoluteArgv(
-    given.filter((word) => word !== "--json"),
+    beforeLiteral(given)
+      .filter((word) => word !== "--json")
+      .concat(afterLiteral(given)),
     cwd,
   );
   const found = bound(argv);
@@ -470,6 +485,7 @@ export async function kernelFreeCheck(
   const failures: Failure[] = [];
   if (
     found.target !== undefined &&
+    existsSync(found.target) &&
     [
       "ready",
       "probe",
@@ -486,7 +502,13 @@ export async function kernelFreeCheck(
   const milliseconds =
     name === "drive" ? limits.driveMilliseconds : limits.commandMilliseconds;
   const helper = await spawn(
-    ["--no-install", helperEntry, ...argv, "--json"],
+    [
+      "--no-install",
+      helperEntry,
+      ...beforeLiteral(argv),
+      "--json",
+      ...afterLiteral(argv),
+    ],
     root,
     milliseconds,
   );
@@ -640,7 +662,13 @@ export async function main(
     };
   return {
     exit: checked.helper.exitCode ?? kernelFaultExit,
-    writes: [relayed(checked.helper, argv.includes("--json"))],
+    writes: [
+      relayed(
+        checked.helper,
+        beforeLiteral(argv).includes("--json"),
+        `bun ${relative(cwd, import.meta.path)}`,
+      ),
+    ],
   };
 }
 

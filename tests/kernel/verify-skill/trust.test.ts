@@ -891,19 +891,19 @@ describe("the check's own steps, in process", () => {
       stderr: "",
       timedOut: false,
     });
-    expect(relayed(ran(0, { a: 1 }), true)).toEqual({
+    expect(relayed(ran(0, { a: 1 }), true, "bun v.ts")).toEqual({
       stream: "stdout",
       text: ran(0, { a: 1 }).stdout,
     });
-    expect(relayed(ran(0, { a: 1 }), false)).toEqual({
+    expect(relayed(ran(0, { a: 1 }), false, "bun v.ts")).toEqual({
       stream: "stdout",
       text: 'Said.\n{\n  "a": 1\n}\n',
     });
-    expect(relayed(ran(0, null), false)).toEqual({
+    expect(relayed(ran(0, null), false, "bun v.ts")).toEqual({
       stream: "stdout",
       text: "Said.\n",
     });
-    expect(relayed(ran(3, null), false)).toEqual({
+    expect(relayed(ran(3, null), false, "bun v.ts")).toEqual({
       stream: "stderr",
       text: "Said.\n",
     });
@@ -966,6 +966,37 @@ describe("the check's own steps, in process", () => {
     },
     watchdog(1),
   );
+
+  test("--json goes before a literal --, and a --json after it is the target's word", async () => {
+    const { spawn, calls } = fake((args) => {
+      if (args.includes("-e")) return {};
+      if (args.includes("verify-cli-undeclared-command"))
+        return { exitCode: 2, stdout: envelope(2) };
+      return { exitCode: 0, stdout: envelope(0) };
+    });
+    await kernelFreeCheck(["--help", "--", "--json"], "/w", spawn);
+    expect(calls.at(-1)?.slice(2)).toEqual([
+      "--help",
+      "--json",
+      "--",
+      "--json",
+    ]);
+  });
+
+  test("a human message that names the helper's own name names the check's command instead", () => {
+    const ran = {
+      exitCode: 2,
+      signal: null,
+      stdout: `${JSON.stringify({ message: "No command was given. Run verify-cli --help to list the commands.", result: { exitCode: 2, data: null } })}\n`,
+      stderr: "",
+      timedOut: false,
+    };
+    expect(relayed(ran, false, "bun x/verify.ts")).toEqual({
+      stream: "stderr",
+      text: "No command was given. Run bun x/verify.ts --help to list the commands.\n",
+    });
+    expect(relayed(ran, true, "bun x/verify.ts").text).toBe(ran.stdout);
+  });
 
   test("a trusted run passes the helper's answer on, and asks the helper for its envelope", async () => {
     const { spawn, calls } = fake((args) =>

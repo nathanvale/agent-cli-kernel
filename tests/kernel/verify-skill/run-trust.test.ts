@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { appendFileSync, existsSync } from "node:fs";
+import { appendFileSync, existsSync, renameSync } from "node:fs";
 import { join } from "node:path";
 import {
   defaultLimits,
@@ -163,6 +163,31 @@ describe("the check on a run already launched", () => {
       );
     },
     watchdog(2, 1),
+  );
+});
+
+describe("a run whose repository has moved", () => {
+  test(
+    "pending, cleanup and report still answer, from the folder they run in",
+    async () => {
+      const at = world();
+      const run = await driven(at);
+      const moved = `${at.repo}-moved`;
+      renameSync(at.repo, moved);
+      for (const argv of [
+        ["pending", run],
+        ["report", run],
+        ["cleanup", run],
+      ]) {
+        const ran = await viaKernelFreeCheck(at, argv, { cwd: at.folder });
+        expect({ argv, raw: ran.stderr.includes("RAW FAIL") }).toEqual({
+          argv,
+          raw: false,
+        });
+      }
+      expect(existsSync(join(run, "scratch"))).toBe(false);
+    },
+    watchdog(2, 3),
   );
 });
 

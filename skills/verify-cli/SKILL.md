@@ -194,7 +194,10 @@ bun node_modules/agent-cli-kernel/skills/verify-cli/verify.ts <command> <argumen
 | `pending <run folder>`               | The helper's unfinished changes to that run                     |
 
 `<target>` is the target's entry file, such as `src/cli.ts`. Add `--json`
-for the helper's envelope. `verify.ts <command> --help` shows one command.
+for the helper's envelope, before any `--`. `verify.ts <command> --help`
+shows one command. The helper calls itself `verify-cli`; there is no
+command of that name, so read it as the `verify.ts` line above. Without
+`--json`, its messages already name that line.
 
 What the helper cannot do yet: a step cannot run in another folder or with
 its own environment, a compiled target cannot be started, and a target
