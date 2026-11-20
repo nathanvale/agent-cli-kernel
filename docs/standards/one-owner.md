@@ -8,7 +8,9 @@ here.
   module. Witnessed: [56aee86], [e7c771c].
 - Run a format or shape rule through its one helper. A second copy of a
   constructor's shape rule gave admission a different refusal text.
-  Witnessed: [892a700], [f2270b3].
+  Witnessed: [892a700], [f2270b3], [04ef358] (the standards check sorted
+  fault record files its own way, so it listed them in a different order
+  from replay; Sol 6.1 check of pull request 54).
 - Import shared test fakes and fixtures from
   `tests/kernel/kernel-repair/handlers.ts` and `shapes.ts`. Witnessed:
   [810345d], [cf72627], [7fb5649] (the state fixture copied `emptyInput`,
@@ -75,3 +77,4 @@ here.
 [ff0616c]: https://github.com/nathanvale/agent-cli-kernel/commit/ff0616cd9c3310bf1170e28308c3c748353fc57b
 [0463f35]: https://github.com/nathanvale/agent-cli-kernel/commit/0463f35b14fd6aadced45cab40b44436fb480b33
 [3567a81]: https://github.com/nathanvale/agent-cli-kernel/commit/3567a8125e36f43eb6b3f448a5f51fb122090536
+[04ef358]: https://github.com/nathanvale/agent-cli-kernel/commit/04ef3587677146fa53e4cf509bdb651997907298
