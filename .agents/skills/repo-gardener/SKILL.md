@@ -10,19 +10,21 @@ Paths below are from the repository root. These owners hold the rules; follow
 each pointer rather than a copy:
 
 - [CODING_STANDARDS.md](../../../CODING_STANDARDS.md): the rule table, how a
-  row enters, the Today levels, the Gates cell, and the gate notes.
+  row enters, the Today levels and the Gates cell. The gate notes live in
+  [test gate notes](../../../docs/standards/gate-notes-tests.md) and
+  [repository gate notes](../../../docs/standards/gate-notes-repository.md).
 - [docs/standards/](../../../docs/standards/): the guide each row links.
-  [Single witness](../../../docs/standards/single-witness.md) holds lessons
-  seen once.
+  [Single witness](../../../docs/standards/single-witness.md) lists the files
+  that hold lessons seen once, by subject.
 - [tests/template/lint/lint-rules.test.ts](../../../tests/template/lint/lint-rules.test.ts) and
   [tests/template/lint/anti-slop-rules.test.ts](../../../tests/template/lint/anti-slop-rules.test.ts)
   for template rules, and
   [tests/kernel/lint-rules.test.ts](../../../tests/kernel/lint-rules.test.ts)
   for kernel rules: a failing and a passing snippet for each lint, each case
   naming its witness.
-- [Planted-fault guide](../../../docs/standards/test-proof.md#planted-faults):
+- [Planted-fault guide](../../../docs/standards/planted-faults.md#planted-faults):
   how to record a fault in `tests/planted-faults/fault-records/`.
-- [Recorded hits](../../../CODING_STANDARDS.md#recorded-hits): existing hits
+- [Recorded hits](../../../docs/standards/gate-notes-repository.md#recorded-hits): existing hits
   of a new lint.
 - [GLOSSARY-MAP.md](../../../GLOSSARY-MAP.md): the glossary that owns each
   word. [GLOSSARY.md](../../../GLOSSARY.md) holds this repository's words,
@@ -98,16 +100,17 @@ the same witness brought again stays one.
      cites it): add the witness to that gate note's `Witnessed:` line.
    - Otherwise: add the witness to the guide bullet that teaches the lesson,
      or add a bullet under the row's guide heading.
-4. With no row, look for the lesson in single witness:
-   - Absent: add it there as one bullet with its witness, in place of
-     `- None yet.` when that line is there. Add no row.
+4. With no row, look for the lesson in the single witness files:
+   - Absent: add it as one bullet with its witness to the single witness
+     file whose subject it matches, in place of `- None yet.` when that line
+     is there. Add no row.
    - Present, citing this same witness: change nothing.
    - Present, citing a different witness: this is the second witness. Add
      a row at the highest level that would stop the mistake, in the order
      architecture, types, lint, test, prose. Write it Review only, with a
      guide bullet that cites both witnesses, and name the gate in Planned
      (parked) unless the level is prose. Delete the single witness bullet,
-     and restore `- None yet.` when no bullet remains.
+     and restore `- None yet.` in its file when no bullet remains.
 5. Report the row, its gates, each edit, and the next step: Gate for a
    lint or test level, the code owner for architecture or types.
 
@@ -137,8 +140,9 @@ Done when each item holds:
 4. Move the row: name the gate in its Gates cell, as
    ``lint `repository/<rule id>` `` or ``fault `<record id>` ``, link its
    gate note, mark it Partial, and drop the gate from Planned (parked). Write
-   the gate note: what the gate refuses and where, what stays review, and
-   `Witnessed:`.
+   the gate note under its own heading in the gate notes file for its subject
+   (test or repository), and link that file and heading from the Gates cell:
+   what the gate refuses and where, what stays review, and `Witnessed:`.
 5. Cut each guide bullet the gate now enforces in full, and narrow each one
    it enforces in part. Move a cut bullet's witnesses to the gate note.
 6. Report the row, its gate and the red proof, each edit, and any part left

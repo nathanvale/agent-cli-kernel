@@ -401,7 +401,7 @@ A commit or review thread that shows a mistake: the commit that fixed it, the
 review thread that caught it, or a commit that carries it.
 
 **Gate note**:
-The note in `CODING_STANDARDS.md` that says what a rule row's gates refuse and
+The note in a gate notes guide under `docs/standards/` that says what a rule row's gates refuse and
 where, what stays with the reviewer, and which witnesses taught it.
 
 **Citable origins**:
