@@ -1,0 +1,7 @@
+{
+  "id": "6077a26-capability-qualification-run-name-filter",
+  "patch": "tests/planted-faults/patches/6077a26-capability-qualification-run-name-filter.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^the capability qualification run.s own case runner loads only the files",
+  "source": "6077a26 feat(state): cover K11.f, keep one reason, and import the qualification rules"
+}

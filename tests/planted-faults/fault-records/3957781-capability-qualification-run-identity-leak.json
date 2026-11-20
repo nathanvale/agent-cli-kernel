@@ -1,0 +1,7 @@
+{
+  "id": "3957781-capability-qualification-run-identity-leak",
+  "patch": "tests/planted-faults/patches/3957781-capability-qualification-run-identity-leak.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^a capability qualification record holds no path",
+  "source": "3957781 fix(state): run only the covered case files and keep a run inside its parent"
+}

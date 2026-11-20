@@ -1,0 +1,7 @@
+{
+  "id": "911189b-planted-fault-folders-order",
+  "patch": "tests/planted-faults/patches/911189b-planted-fault-folders-order.patch",
+  "testFile": "tests/template/fault-replay/planted-fault-records-in-process.test.ts",
+  "title": "readRecords reads every record file in the folder, in id order",
+  "source": "911189b fix(planted-faults): refuse an old list and odd files, read records one way, add exclusively"
+}

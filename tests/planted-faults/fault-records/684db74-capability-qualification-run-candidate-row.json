@@ -1,0 +1,7 @@
+{
+  "id": "684db74-capability-qualification-run-candidate-row",
+  "patch": "tests/planted-faults/patches/684db74-capability-qualification-run-candidate-row.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^Q03 supporting: a fixture.ts capability qualification run closes through the candidate row",
+  "source": "684db74 feat(state): add the capability qualification run and its record check"
+}

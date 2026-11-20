@@ -1,0 +1,7 @@
+{
+  "id": "ff48724-state-seam-scope",
+  "patch": "tests/planted-faults/patches/ff48724-state-seam-scope.patch",
+  "testFile": "tests/kernel/kernel-repair/state.test.ts",
+  "title": "R02\\.superseded-attachment-refused",
+  "source": "ff48724 fix(kernel): keep a live run attached when its identity is reused"
+}

@@ -1,0 +1,21 @@
+diff --git a/scripts/planted-faults.ts b/scripts/planted-faults.ts
+index 26dae3b..27fbf1a 100644
+--- a/scripts/planted-faults.ts
++++ b/scripts/planted-faults.ts
+@@ -142,15 +142,7 @@ function readRecord(root: string, name: string): Fault {
+       `${where} is not a fault record file. Repair: name each record <id>${recordExtension}, and keep nothing else in ${recordsPath}.`,
+     );
+   const text = readFileSync(join(root, where), "utf8");
+-  let entry: unknown;
+-  try {
+-    entry = JSON.parse(text);
+-  } catch (error) {
+-    throw new Error(
+-      `${where} is not one JSON fault record: ${error instanceof Error ? error.message : String(error)}. Repair: write one JSON object with the five record fields.`,
+-      { cause: error },
+-    );
+-  }
++  const entry: unknown = JSON.parse(text);
+   const fault = parseFault(entry, where, root);
+   if (where !== recordFile(fault.id))
+     throw new Error(

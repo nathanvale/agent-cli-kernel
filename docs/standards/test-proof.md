@@ -23,7 +23,12 @@ is in the [test harness guide](test-harness.md).
   with `toThrow`, and searched its own expected string for a station name),
   [kernel#53 r4639172891], [79431f5] (the cause owner refusal cases checked
   a prefix and one fragment, so a refusal without its repair or naming
-  another entry passed).
+  another entry passed),
+  [8cbec55] (the record folder's refusal tests checked a prefix of the
+  not-JSON message and left out repairs; the fix takes the parser's words
+  from `JSON.parse`; Sol 6.1 review).
+- Name only behaviour a caller can observe. Witnessed: [911189b] (a test
+  asserted `readTimings`' map order, which nothing reads; Fable review).
 - Assert the route's response when a test says a command remains available.
   Exit zero with empty output can pass without a response. Witnessed:
   [#90-routes].
@@ -31,7 +36,9 @@ is in the [test harness guide](test-harness.md).
   build check, or a neighbouring cap at the same limit, keeps the test green
   with the named guard removed. Witnessed: [640ba05], [96ab832], [c193c51],
   [f8ff37f] (an equals-sign option case used a required option, so a
-  missing-option refusal could also have failed it).
+  missing-option refusal could also have failed it),
+  [8cbec55] (a file that was not `<id>.json` also held bad JSON; the fix
+  gives it a valid record; Sol 6.1 review).
 - Control each side of a boundary: the last admitted and the first refused
   value or case. Checks further out stay green under an off-by-one limit.
   Witnessed: [e07d962], [d72cd9e], [3567a81] (the author guide's example
@@ -76,7 +83,9 @@ is in the [test harness guide](test-harness.md).
   target. A ledger line written after those writes cannot show they did not
   happen: a proof that reads only that line stays green when a fault makes the
   writes happen before the kill. Witnessed: [r4622139095], [f754f36] (the fix
-  asserts that no outbox message and no provider log exist).
+  asserts that no outbox message and no provider log exist), [8cbec55]
+  ("writes nothing" cases for planted-fault:add compared only the record
+  file names, so an overwritten record passed; Sol 6.1 review).
 - Show that a planted input changes the result when nothing blocks it, with
   a control, before asserting the subject ignores it. A `HOME` change under
   `GIT_CONFIG_GLOBAL=/dev/null` hides the planted `.gitconfig` whether or not
@@ -112,14 +121,15 @@ is in the [test harness guide](test-harness.md).
 ## Planted faults
 
 - Apply the shared RED-then-GREEN rule to every new refusal or bound.
-- Record each planted fault in `tests/planted-faults/fault-records.json`.
-  After the fix commit, run
+- Record each planted fault in its own file,
+  `tests/planted-faults/fault-records/<id>.json`. After the fix commit, run
   `bun run planted-fault:add <fix sha> <source path> <test file> <title>`,
   then `bun run fault-replay <id>` until it prints `KILLED`. Witnessed:
   [9050fec], [b8664cf] (each recorded faults for refusals that had landed
   with no record), [86749b9] (so did the author skill's eight), [848b6de] (two
   gate checks ran only on the real documents, so a fault that dropped them
-  could not fail).
+  could not fail), [c5ce7de] (the fault record folder's readers added
+  five refusals with no record; Sol 6.1 review).
 - Replay affected fault records when you edit or move a test that catches
   a planted fault, or change the source its patch targets. Keep the patch
   and test selector current in the same commit and require `KILLED`.
@@ -210,3 +220,6 @@ is in the [test harness guide](test-harness.md).
 [848b6de]: https://github.com/nathanvale/agent-cli-kernel/commit/848b6de1e7b9bc0792a8ea70f6604f700a09229d
 [kernel#53 r4639172891]: https://github.com/nathanvale/agent-cli-kernel/pull/53#discussion_r4639172891
 [79431f5]: https://github.com/nathanvale/agent-cli-kernel/commit/79431f561abf1deecd55c9b1dcb91e8c1560f746
+[c5ce7de]: https://github.com/nathanvale/agent-cli-kernel/commit/c5ce7de4210286905ff472706c107b35e0ef42cb
+[8cbec55]: https://github.com/nathanvale/agent-cli-kernel/commit/8cbec55e65afbbba5650d447e00cac40ce0e01c3
+[911189b]: https://github.com/nathanvale/agent-cli-kernel/commit/911189bb75fa97d60acaacfba6034417522804aa

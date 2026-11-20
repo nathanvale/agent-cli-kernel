@@ -1,0 +1,7 @@
+{
+  "id": "07550c9-capability-qualification-harness-closure-label",
+  "patch": "tests/planted-faults/patches/07550c9-capability-qualification-harness-closure-label.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^closureLabel expects the row id",
+  "source": "07550c9 feat(state): give each capability qualification run its own required cases"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "f91b625-swarm-process",
+  "patch": "tests/planted-faults/patches/f91b625-swarm-process.patch",
+  "testFile": "tests/kernel/diagnostics/cases.test.ts",
+  "title": "T5 ledger: a ledger child past its bound",
+  "source": "f91b625 test(kernel): show a hung R2 child's output in its failure (GREEN)"
+}

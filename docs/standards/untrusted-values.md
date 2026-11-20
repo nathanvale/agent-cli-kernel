@@ -21,7 +21,9 @@ boundary trusts the types.
   twice).
 - Validate the same object you pass on. A spread drops non-enumerable
   properties, and a hidden `toJSON` rewrites serialised data. Witnessed:
-  [r4580070938], [r4580077749].
+  [r4580070938], [r4580077749], [8cbec55] (the standards check spread a
+  parsed fault record after its file path, so a `file` key in the record
+  replaced the path a problem names; Sol 6.1 review).
 - Brand-check a platform object such as an `AbortSignal` or a typed array
   by reading its prototype's getter with the value as receiver, inside one
   catch with any `instanceof` test. `instanceof` and an own property both
@@ -67,7 +69,9 @@ boundary trusts the types.
   held no hunk and `--changed-since` skipped its fault), [r4638567056],
   [8309f88] (`cause-literal-owner` read a missing `src/kernel/causes.ts` in
   a generated repository as no cause code, so every free cause literal
-  passed).
+  passed), [911189b] (an old `fault-records.json` that a merge left in the
+  tree was read by no reader, so its records never replayed and every gate
+  passed; Fable review of pull request 54).
 
 [r4580070968]: https://github.com/nathanvale/bun-typescript-template/pull/6#discussion_r4580070968
 [r4580070979]: https://github.com/nathanvale/bun-typescript-template/pull/6#discussion_r4580070979
@@ -105,3 +109,5 @@ boundary trusts the types.
 [r4609956011]: https://github.com/nathanvale/bun-typescript-template/pull/109#discussion_r4609956011
 [r4638567056]: https://github.com/nathanvale/bun-typescript-template/pull/116#discussion_r4638567056
 [8309f88]: https://github.com/nathanvale/agent-cli-kernel/commit/8309f887aeabeedebd4f559e01ef319d78d39efa
+[8cbec55]: https://github.com/nathanvale/agent-cli-kernel/commit/8cbec55e65afbbba5650d447e00cac40ce0e01c3
+[911189b]: https://github.com/nathanvale/agent-cli-kernel/commit/911189bb75fa97d60acaacfba6034417522804aa

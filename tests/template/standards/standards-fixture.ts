@@ -2,11 +2,11 @@ import { afterAll } from "bun:test";
 import { mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { recordFile } from "../../../scripts/planted-faults.ts";
 import { git } from "../../support/git-fixture.ts";
 import { testFolder } from "../../support/test-folder.ts";
 import {
   citationProblems,
-  faultRecordsFile,
   linkProblems,
   standards,
 } from "./standards-documents.ts";
@@ -98,9 +98,10 @@ export function standardsFixture() {
       "docs/standards/guide.md": `# Guide\n\n## Lesson\n\n- Witnessed: [${short}], [r1].\n\n[${short}]: ${commitPage}${sha}\n[r1]: ${thread}\n`,
       ".agents/skills/fixture/SKILL.md":
         "---\nname: fixture\n---\n\n[checks](../../../AGENTS.md#checks)\n",
-      [faultRecordsFile]: JSON.stringify([
-        { id: "fixture", source: `${short} base` },
-      ]),
+      [recordFile("fixture")]: JSON.stringify({
+        id: "fixture",
+        source: `${short} base`,
+      }),
     };
     change(files, sha);
     for (const [path, content] of Object.entries(files)) {

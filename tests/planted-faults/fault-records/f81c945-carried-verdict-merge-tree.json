@@ -1,0 +1,7 @@
+{
+  "id": "f81c945-carried-verdict-merge-tree",
+  "patch": "tests/planted-faults/patches/f81c945-carried-verdict-merge-tree.patch",
+  "testFile": "tests/template/check-commits/carried-verdict.test.ts",
+  "title": "a carried run whose merge ran another workflow or checker",
+  "source": "f81c945 feat(check-commits): decide a carried verdict from a GitHub-signed merge commit (GREEN)"
+}

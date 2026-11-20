@@ -1,0 +1,7 @@
+{
+  "id": "f548a02-in-process-late",
+  "patch": "tests/planted-faults/patches/f548a02-lifecycle-late.patch",
+  "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+  "title": "IP02\\.stop-reaches-every-run",
+  "source": "f548a02 feat(kernel): run many commands in one process through runInProcess"
+}

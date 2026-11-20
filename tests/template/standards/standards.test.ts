@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
-import { faultRecordsFile, root, standards } from "./standards-documents.ts";
+import { recordFile } from "../../../scripts/planted-faults.ts";
+import { root, standards } from "./standards-documents.ts";
 import {
   absent,
   allProblems,
@@ -94,10 +95,10 @@ test.each([
   [
     "a row whose fault record is gone",
     (files: Record<string, string>) => {
-      files[faultRecordsFile] = "[]";
+      Reflect.deleteProperty(files, recordFile("fixture"));
     },
     [
-      'CODING_STANDARDS.md: row "Gated rule" names fault `fixture`, which no record in tests/planted-faults/fault-records.json has as its id. Repair: restore the gate, or correct the row\'s Gates cell and mark it Review only if no gate remains.',
+      'CODING_STANDARDS.md: row "Gated rule" names fault `fixture`, which no record in tests/planted-faults/fault-records has as its id. Repair: restore the gate, or correct the row\'s Gates cell and mark it Review only if no gate remains.',
     ],
   ],
   [

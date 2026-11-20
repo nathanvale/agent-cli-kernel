@@ -1,0 +1,15 @@
+diff --git a/scripts/planted-fault-folders.ts b/scripts/planted-fault-folders.ts
+index 8cf0881..125267d 100644
+--- a/scripts/planted-fault-folders.ts
++++ b/scripts/planted-fault-folders.ts
+@@ -57,10 +57,6 @@ function parsedEntry(where: string, stem: string, text: string): RecordEntry {
+   const id = new Map<string, unknown>(
+     typeof entry === "object" && entry !== null ? Object.entries(entry) : [],
+   ).get("id");
+-  if (typeof id === "string" && id !== "" && id !== stem)
+-    throw new Error(
+-      `${where} holds the record ${id}. Repair: rename the file ${id}${fileExtension}, or correct its id.`,
+-    );
+   return { file: where, entry };
+ }
+ 

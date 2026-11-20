@@ -1,0 +1,7 @@
+{
+  "id": "aa61e37-in-process-rejected",
+  "patch": "tests/planted-faults/patches/aa61e37-lifecycle-rejected.patch",
+  "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+  "title": "IP07\\.rejected-run-records-itself",
+  "source": "aa61e37 fix(kernel): settle the in-process entry's review findings"
+}

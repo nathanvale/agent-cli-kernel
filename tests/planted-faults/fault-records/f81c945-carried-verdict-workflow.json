@@ -1,0 +1,7 @@
+{
+  "id": "f81c945-carried-verdict-workflow",
+  "patch": "tests/planted-faults/patches/f81c945-carried-verdict-workflow.patch",
+  "testFile": "tests/template/check-commits/carried-verdict.test.ts",
+  "title": "a claim workflow_ref",
+  "source": "f81c945 feat(check-commits): decide a carried verdict from a GitHub-signed merge commit (GREEN)"
+}

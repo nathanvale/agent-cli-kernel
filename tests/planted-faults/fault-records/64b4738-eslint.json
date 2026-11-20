@@ -1,0 +1,7 @@
+{
+  "id": "64b4738-eslint",
+  "patch": "tests/planted-faults/patches/64b4738-eslint.patch",
+  "testFile": "tests/kernel/generated-repository-lint.test.ts",
+  "title": "kernelLint settings a missing srcDir fails loudly$",
+  "source": "64b4738 feat(lint): the kernel lint module takes its folders as settings (MAG-121)"
+}

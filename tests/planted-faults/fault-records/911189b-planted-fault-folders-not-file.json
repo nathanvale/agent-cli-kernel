@@ -1,0 +1,7 @@
+{
+  "id": "911189b-planted-fault-folders-not-file",
+  "patch": "tests/planted-faults/patches/911189b-planted-fault-folders-not-file.patch",
+  "testFile": "tests/template/fault-replay/planted-fault-records-in-process.test.ts",
+  "title": "readRecords refuses a folder in the records folder named like a record",
+  "source": "911189b fix(planted-faults): refuse an old list and odd files, read records one way, add exclusively"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "8d55f96-test-area",
+  "patch": "tests/planted-faults/patches/8d55f96-test-area.patch",
+  "testFile": "tests/template/doctor/doctor.test.ts",
+  "title": "a declared area that holds no test file fails",
+  "source": "8d55f96 Gates that would check nothing fail"
+}

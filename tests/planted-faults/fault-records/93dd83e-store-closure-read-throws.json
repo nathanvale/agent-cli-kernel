@@ -1,0 +1,7 @@
+{
+  "id": "93dd83e-store-closure-read-throws",
+  "patch": "tests/planted-faults/patches/93dd83e-store-closure-read-throws.patch",
+  "testFile": "tests/kernel/state/recovery.test.ts",
+  "title": "^X26 supporting: a closer's history stays readable",
+  "source": "93dd83e fix(state): keep a failed upgrade, report or closure read from spreading"
+}

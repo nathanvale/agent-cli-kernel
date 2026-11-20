@@ -1,0 +1,7 @@
+{
+  "id": "7fb5649-in-process-entered",
+  "patch": "tests/planted-faults/patches/7fb5649-lifecycle-entered.patch",
+  "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+  "title": "IP08\\.attached-never-entered",
+  "source": "7fb5649 fix(kernel): keep a forgotten run's capability closed"
+}

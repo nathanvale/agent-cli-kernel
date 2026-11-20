@@ -1,0 +1,7 @@
+{
+  "id": "07550c9-capability-qualification-run-report-outside",
+  "patch": "tests/planted-faults/patches/07550c9-capability-qualification-run-report-outside.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^the capability qualification run.s own case runner loads only the files",
+  "source": "07550c9 feat(state): give each capability qualification run its own required cases"
+}

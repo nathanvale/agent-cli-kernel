@@ -1,0 +1,7 @@
+{
+  "id": "6d4b46d-framing-mid-line-scan",
+  "patch": "tests/planted-faults/patches/6d4b46d-framing-mid-line-scan.patch",
+  "testFile": "tests/kernel/state/recovery.test.ts",
+  "title": "^K11.f-record-hidden-in-torn-tail-refuses",
+  "source": "6d4b46d feat(state): close a crashed case after a torn tail once the lease is free"
+}

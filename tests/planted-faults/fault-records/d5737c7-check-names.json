@@ -1,0 +1,7 @@
+{
+  "id": "d5737c7-check-names",
+  "patch": "tests/planted-faults/patches/d5737c7-check-names.patch",
+  "testFile": "tests/template/naming/names-check-hook.test.ts",
+  "title": "^NG\\.g ",
+  "source": "d5737c7 fix(names): name the missing field of a recognised tool call (GREEN)"
+}

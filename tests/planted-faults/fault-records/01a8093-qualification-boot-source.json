@@ -1,0 +1,7 @@
+{
+  "id": "01a8093-qualification-boot-source",
+  "patch": "tests/planted-faults/patches/01a8093-qualification-boot-source.patch",
+  "testFile": "tests/kernel/state/recovery.test.ts",
+  "title": "^X27 supporting: a row for another operating system",
+  "source": "01a8093 fix(state): settle the two-axis review of capability qualification matching"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "16ca937-spawn-bounded.test",
+  "patch": "tests/planted-faults/patches/16ca937-spawn-bounded.test.patch",
+  "testFile": "tests/template/process-runner/spawn-bounded-folders.test.ts",
+  "title": "a spawn-bounded run leaves no empty PATH folder in the temp folder, whole or filtered to the no-ps case",
+  "source": "16ca937 test(process-runner): remove the empty PATH folder after the no-ps case"
+}

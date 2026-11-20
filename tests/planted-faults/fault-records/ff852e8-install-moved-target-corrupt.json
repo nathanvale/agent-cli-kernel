@@ -1,0 +1,7 @@
+{
+  "id": "ff852e8-install-moved-target-corrupt",
+  "patch": "tests/planted-faults/patches/ff852e8-install-moved-target-corrupt.patch",
+  "testFile": "tests/kernel/state/recovery.test.ts",
+  "title": "^X26 supporting: a closer whose moved target is corrupt",
+  "source": "ff852e8 fix(state): refuse an unknown format at the upgrade and pin the mover's rules"
+}

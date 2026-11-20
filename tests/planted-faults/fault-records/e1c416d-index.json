@@ -1,0 +1,7 @@
+{
+  "id": "e1c416d-index",
+  "patch": "tests/planted-faults/patches/e1c416d-index.patch",
+  "testFile": "tests/kernel/programs/program-input.test.ts",
+  "title": "an input whose own byteLength is shadowed is judged by its real length$",
+  "source": "e1c416d fix(programs): judge input by its real length and check domain requests first"
+}

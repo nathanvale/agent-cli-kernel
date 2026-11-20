@@ -1,0 +1,7 @@
+{
+  "id": "0463f35-guide-empty-block",
+  "patch": "tests/planted-faults/patches/0463f35-guide-empty-block.patch",
+  "testFile": "tests/kernel/author-guide/author-guide.test.ts",
+  "title": "a ts block with no code is held by no example file",
+  "source": "0463f35 docs(kernel): ship the author guide as the skill agent-cli-kernel"
+}

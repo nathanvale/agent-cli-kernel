@@ -1,0 +1,7 @@
+{
+  "id": "dd0f4da-anti-slop-rules",
+  "patch": "tests/planted-faults/patches/dd0f4da-anti-slop-rules.patch",
+  "testFile": "tests/template/lint/anti-slop-rules.test.ts",
+  "title": "^anti-slop/no-reduce-accumulator-copy refuses the r4609902960 shape",
+  "source": "dd0f4da fix(lint): read template keys on reducer copy calls"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "b6906dc-run",
+  "patch": "tests/planted-faults/patches/b6906dc-run.patch",
+  "testFile": "tests/kernel/diagnostics/log-lines.test.ts",
+  "title": "a run whose only record has a level outside the six opens no file$",
+  "source": "b6906dc fix(diagnostics): prove the level refusal alone and under the caps"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "93dd83e-store-staged-left",
+  "patch": "tests/planted-faults/patches/93dd83e-store-staged-left.patch",
+  "testFile": "tests/kernel/state/component.test.ts",
+  "title": "^X23 supporting: an upgrade that fails after staging",
+  "source": "93dd83e fix(state): keep a failed upgrade, report or closure read from spreading"
+}

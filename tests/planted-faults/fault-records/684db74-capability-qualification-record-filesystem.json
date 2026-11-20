@@ -1,0 +1,7 @@
+{
+  "id": "684db74-capability-qualification-record-filesystem",
+  "patch": "tests/planted-faults/patches/684db74-capability-qualification-record-filesystem.patch",
+  "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+  "title": "^Q03.a refuses a record whose filesystem does not match the row",
+  "source": "684db74 feat(state): add the capability qualification run and its record check"
+}

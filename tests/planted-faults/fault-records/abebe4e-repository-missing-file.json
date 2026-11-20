@@ -1,0 +1,7 @@
+{
+  "id": "abebe4e-repository-missing-file",
+  "patch": "tests/planted-faults/patches/abebe4e-repository-missing-file.patch",
+  "testFile": "tests/template/repository/repository.test.ts",
+  "title": "^a missing file is refused",
+  "source": "abebe4e Gate tools read the repository from repository.json"
+}

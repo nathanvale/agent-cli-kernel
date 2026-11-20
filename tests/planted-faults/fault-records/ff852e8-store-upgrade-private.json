@@ -1,0 +1,7 @@
+{
+  "id": "ff852e8-store-upgrade-private",
+  "patch": "tests/planted-faults/patches/ff852e8-store-upgrade-private.patch",
+  "testFile": "tests/kernel/state/journal.test.ts",
+  "title": "^X23 supporting: the upgrade refuses",
+  "source": "ff852e8 fix(state): refuse an unknown format at the upgrade and pin the mover's rules"
+}

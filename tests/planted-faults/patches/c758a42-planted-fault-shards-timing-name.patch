@@ -1,0 +1,12 @@
+diff --git a/scripts/planted-fault-folders.ts b/scripts/planted-fault-folders.ts
+index ae9e9e3..917473c 100644
+--- a/scripts/planted-fault-folders.ts
++++ b/scripts/planted-fault-folders.ts
+@@ -32,7 +32,6 @@ export function folderFiles(
+         );
+       if (!entry.isFile()) throw notOne();
+       if (entry.name.startsWith(".")) throw notOne();
+-      if (!entry.name.endsWith(fileExtension)) throw notOne();
+       return {
+         file,
+         id: entry.name.slice(0, -fileExtension.length),

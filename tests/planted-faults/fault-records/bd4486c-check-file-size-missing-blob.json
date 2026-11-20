@@ -1,0 +1,7 @@
+{
+  "id": "bd4486c-check-file-size-missing-blob",
+  "patch": "tests/planted-faults/patches/bd4486c-check-file-size-missing-blob.patch",
+  "testFile": "tests/template/file-size/file-size.test.ts",
+  "title": "^the staged scan refuses a missing eligible blob and skips a missing vendor blob$",
+  "source": "bd4486c fix(gates): check staged blobs in one Git batch"
+}

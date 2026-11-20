@@ -1,0 +1,7 @@
+{
+  "id": "4d42f8c-install",
+  "patch": "tests/planted-faults/patches/4d42f8c-install.patch",
+  "testFile": "tests/kernel/state/component.test.ts",
+  "title": "^work is refused when the state add-on published no operation",
+  "source": "4d42f8c fix(state): refuse work when no operation was published for it"
+}

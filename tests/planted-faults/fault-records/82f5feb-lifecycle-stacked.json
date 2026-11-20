@@ -1,0 +1,7 @@
+{
+  "id": "82f5feb-lifecycle-stacked",
+  "patch": "tests/planted-faults/patches/82f5feb-lifecycle-stacked.patch",
+  "testFile": "tests/kernel/lifecycle/timers.test.ts",
+  "title": "a handler that never ends beside an add-on that settles at its 300 ms limit",
+  "source": "82f5feb fix(kernel): wait for the handler after the first stop request"
+}

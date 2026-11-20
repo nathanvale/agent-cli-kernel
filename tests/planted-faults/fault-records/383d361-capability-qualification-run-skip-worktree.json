@@ -1,0 +1,7 @@
+{
+  "id": "383d361-capability-qualification-run-skip-worktree",
+  "patch": "tests/planted-faults/patches/383d361-capability-qualification-run-skip-worktree.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^the capability qualification run refuses a tracked file git marks skip-worktree",
+  "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+}

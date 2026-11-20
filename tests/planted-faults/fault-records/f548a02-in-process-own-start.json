@@ -1,0 +1,7 @@
+{
+  "id": "f548a02-in-process-own-start",
+  "patch": "tests/planted-faults/patches/f548a02-lifecycle-ownstart.patch",
+  "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+  "title": "IP07\\.own-deadline",
+  "source": "f548a02 feat(kernel): run many commands in one process through runInProcess"
+}

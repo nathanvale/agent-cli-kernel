@@ -1,0 +1,7 @@
+{
+  "id": "082b658-bundle-carries-add-on",
+  "patch": "tests/planted-faults/patches/082b658-bundle-carries-add-on.patch",
+  "testFile": "tests/kernel/pinned-commit.test.ts",
+  "title": "^a CLI with no add-on bundles with no add-on file",
+  "source": "082b658 feat(kernel): name the kernel repository agent-cli-kernel and export the kernel and its add-ons"
+}

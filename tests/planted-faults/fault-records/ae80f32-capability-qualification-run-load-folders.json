@@ -1,0 +1,7 @@
+{
+  "id": "ae80f32-capability-qualification-run-load-folders",
+  "patch": "tests/planted-faults/patches/ae80f32-capability-qualification-run-load-folders.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^the capability qualification run refuses an ignored file in a folder it loads code from",
+  "source": "ae80f32 fix(state): settle the Sol second look at the capability qualification run"
+}

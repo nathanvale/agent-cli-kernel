@@ -1,0 +1,7 @@
+{
+  "id": "b79a4ac-platform-rules",
+  "patch": "tests/planted-faults/patches/b79a4ac-platform-rules.patch",
+  "testFile": "tests/template/lint/lint-rules.test.ts",
+  "title": "^no-host-path-literal refuses the ff5fffe shape",
+  "source": "b79a4ac feat(lint): refuse a host path literal such as /private/tmp outside the kernel"
+}

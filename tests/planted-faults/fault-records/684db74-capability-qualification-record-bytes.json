@@ -1,0 +1,7 @@
+{
+  "id": "684db74-capability-qualification-record-bytes",
+  "patch": "tests/planted-faults/patches/684db74-capability-qualification-record-bytes.patch",
+  "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+  "title": "^sourceHash changes when a qualified file changes by one byte",
+  "source": "684db74 feat(state): add the capability qualification run and its record check"
+}

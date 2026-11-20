@@ -2,7 +2,6 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
-  readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -17,6 +16,7 @@ import {
   type Source,
   sourceIn,
 } from "./planted-fault-patch.ts";
+import { recordFiles, type RecordEntry } from "./planted-fault-folders.ts";
 import { faultsInShard } from "./planted-fault-shards.ts";
 import {
   runWithOwnTools,
@@ -24,8 +24,13 @@ import {
   withoutRepositoryLocation,
 } from "./process-runner.ts";
 
-const recordsPath = "tests/planted-faults/fault-records.json";
+export const recordsPath = "tests/planted-faults/fault-records";
 const patchFolder = "tests/planted-faults/patches";
+const recordExtension = ".json";
+
+export function recordFile(id: string): string {
+  return `${recordsPath}/${id}${recordExtension}`;
+}
 
 export type Fault = {
   id: string;
@@ -129,26 +134,14 @@ function parseFault(entry: unknown, where: string, root: string): Fault {
   return fault;
 }
 
+export function recordEntries(root: string): RecordEntry[] {
+  return recordFiles(root, recordsPath);
+}
+
 export function readRecords(root: string): Fault[] {
-  const path = join(root, recordsPath);
-  if (!existsSync(path)) return [];
-  const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
-  if (!Array.isArray(parsed))
-    throw new Error(
-      `${recordsPath} must hold an array of fault records. Repair: make its top level one JSON array.`,
-    );
-  const faults = parsed.map((entry, index) =>
-    parseFault(entry, `${recordsPath} record ${index}`, root),
+  return recordEntries(root).map(({ file, entry }) =>
+    parseFault(entry, file, root),
   );
-  const ids = new Set<string>();
-  for (const { id } of faults) {
-    if (ids.has(id))
-      throw new Error(
-        `${recordsPath} lists ${id} twice. Repair: remove one record, or give it another id.`,
-      );
-    ids.add(id);
-  }
-  return faults;
 }
 
 function commitWorkingTreeInScratchIndex(root: string): string {
@@ -359,15 +352,6 @@ export function report(
   }
 }
 
-const recordFields = ["id", "patch", "testFile", "title", "source"] as const;
-
-function recordKey(entry: unknown): string {
-  const own = new Map<string, unknown>(
-    typeof entry === "object" && entry !== null ? Object.entries(entry) : [],
-  );
-  return JSON.stringify(recordFields.map((name) => own.get(name)));
-}
-
 export function faultsTouchedSince(root: string, base: string): string[] {
   if (!git(root, ["rev-parse", "--verify", "--quiet", `${base}^{commit}`]).ok)
     throw new Error(
@@ -385,16 +369,8 @@ export function faultsTouchedSince(root: string, base: string): string[] {
       .split("\0")
       .filter((path) => path !== ""),
   );
-  const recordsChanged = changed.has(recordsPath);
-  const before = recordsChanged
-    ? git(root, ["show", `${base}:${recordsPath}`])
-    : undefined;
-  const earlier: unknown = before?.ok ? JSON.parse(before.stdout) : [];
-  const recordedBefore = new Set(
-    (Array.isArray(earlier) ? earlier : []).map(recordKey),
-  );
   const recordChanged = (fault: Fault): boolean =>
-    recordsChanged && !recordedBefore.has(recordKey(fault));
+    changed.has(recordFile(fault.id));
   const atBase = sourceAt(root, base);
   const patched = (fault: Fault): string[] => {
     const text = patchText(root, fault);
@@ -426,7 +402,7 @@ export async function replayAll(
   const unknown = ids.filter((id) => !faults.some((fault) => fault.id === id));
   if (unknown.length > 0) {
     process.stderr.write(
-      `No fault record ${unknown.join(", ")} in ${recordsPath}. Repair: pass an id that file lists.\n`,
+      `No fault record ${unknown.join(", ")} in ${recordsPath}. Repair: pass an id that folder holds.\n`,
     );
     return 2;
   }
@@ -459,6 +435,16 @@ export async function replayAll(
     `${killed} of ${chosen.length} planted faults KILLED in ${seconds.toFixed(1)} s, ${(seconds / chosen.length).toFixed(1)} s per fault, with Bun ${Bun.version}.`,
   );
   return killed === chosen.length ? 0 : 1;
+}
+
+function createdNew(path: string, text: string): boolean {
+  try {
+    writeFileSync(path, text, { flag: "wx" });
+    return true;
+  } catch (error) {
+    if (Reflect.get(Object(error), "code") === "EEXIST") return false;
+    throw error;
+  }
 }
 
 export function add(root: string, argv: readonly string[]): number {
@@ -506,20 +492,35 @@ export function add(root: string, argv: readonly string[]): number {
     "planted-fault:add",
     root,
   );
-  const faults = readRecords(root);
-  if (faults.some((each) => each.id === id)) {
+  const caseTwin = readRecords(root).find(
+    (each) => each.id !== id && each.id.toLowerCase() === id.toLowerCase(),
+  );
+  if (caseTwin !== undefined) {
     process.stderr.write(
-      `${recordsPath} already lists ${id}. Repair: plant it again by hand, run git diff -- ${quoted(sourcePath)} > ${quoted(fault.patch)}, then undo the planted edit; or add the new record by hand under another id.\n`,
+      `${recordsPath} already holds ${caseTwin.id}, which differs from ${id} only by letter case, and a macOS folder holds one file for both. Repair: add the new record by hand under an id that differs by more than case.\n`,
+    );
+    return 2;
+  }
+  mkdirSync(join(root, recordsPath), { recursive: true });
+  if (
+    !createdNew(
+      join(root, recordFile(id)),
+      `${JSON.stringify(fault, null, 2)}\n`,
+    )
+  ) {
+    process.stderr.write(
+      `${recordsPath} already holds ${id}. Repair: plant it again by hand, run git diff -- ${quoted(sourcePath)} > ${quoted(fault.patch)}, then undo the planted edit; or add the new record by hand under another id.\n`,
     );
     return 2;
   }
   mkdirSync(join(root, patchFolder), { recursive: true });
-  writeFileSync(join(root, fault.patch), reverse);
-  faults.push(fault);
-  writeFileSync(
-    join(root, recordsPath),
-    `${JSON.stringify(faults, null, 2)}\n`,
-  );
+  if (!createdNew(join(root, fault.patch), reverse)) {
+    rmSync(join(root, recordFile(id)));
+    process.stderr.write(
+      `${fault.patch} already exists, and no record names it. Repair: delete or rename that patch if nothing uses it, then run this command again.\n`,
+    );
+    return 2;
+  }
   print(`Added ${id}. Replay it: bun run fault-replay ${id}`);
   return 0;
 }

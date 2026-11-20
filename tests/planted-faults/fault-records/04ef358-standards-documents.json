@@ -1,0 +1,7 @@
+{
+  "id": "04ef358-standards-documents",
+  "patch": "tests/planted-faults/patches/04ef358-standards-documents.patch",
+  "testFile": "tests/template/standards/standards-witnesses.test.ts",
+  "title": "two fault records whose ids differ by a suffix",
+  "source": "04ef358 fix(planted-faults): read fault records in id order in the standards check too"
+}

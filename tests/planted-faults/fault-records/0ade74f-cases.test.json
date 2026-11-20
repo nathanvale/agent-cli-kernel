@@ -1,0 +1,7 @@
+{
+  "id": "0ade74f-cases.test",
+  "patch": "tests/planted-faults/patches/0ade74f-cases.test.patch",
+  "testFile": "tests/kernel/diagnostics/cases.test.ts",
+  "title": "T5 ledger: a ledger child past its bound",
+  "source": "0ade74f test(kernel): kill a hung crash run's and R2 child's whole process group (GREEN)"
+}

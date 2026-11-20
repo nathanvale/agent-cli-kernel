@@ -1,0 +1,7 @@
+{
+  "id": "95c61a4-capability-qualification-run-env-file",
+  "patch": "tests/planted-faults/patches/95c61a4-capability-qualification-run-env-file.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^the capability qualification run.s own case runner loads only the files",
+  "source": "95c61a4 fix(state): settle the kernel-reviewer pass on the Sol fixes"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "ff48724-state-seam-summary",
+  "patch": "tests/planted-faults/patches/ff48724-state-seam-summary.patch",
+  "testFile": "tests/kernel/state-seam.test.ts",
+  "title": "a refused reuse keeps the live run's proof as its trusted summary",
+  "source": "ff48724 fix(kernel): keep a live run attached when its identity is reused"
+}

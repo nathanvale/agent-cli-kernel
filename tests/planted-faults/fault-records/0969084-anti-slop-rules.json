@@ -1,0 +1,7 @@
+{
+  "id": "0969084-anti-slop-rules",
+  "patch": "tests/planted-faults/patches/0969084-anti-slop-rules.patch",
+  "testFile": "tests/template/lint/anti-slop-rules.test.ts",
+  "title": "^anti-slop/no-accumulating-spread refuses the r4609659202 initial value shape",
+  "source": "0969084 fix(lint): charge a spread only to the reduce its callback enters first"
+}

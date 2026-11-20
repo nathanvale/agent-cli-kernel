@@ -1,0 +1,7 @@
+{
+  "id": "a806d0b-capability-qualification-run-dotenv-example",
+  "patch": "tests/planted-faults/patches/a806d0b-capability-qualification-run-dotenv-example.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^the capability qualification run accepts a committed .env.example",
+  "source": "a806d0b fix(state): read case titles by one rule and close the kernel-reviewer gaps"
+}

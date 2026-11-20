@@ -1,0 +1,7 @@
+{
+  "id": "f86c589-glossary-unused",
+  "patch": "tests/planted-faults/patches/f86c589-glossary-unused.patch",
+  "testFile": "tests/template/naming/glossary-files.test.ts",
+  "title": "^GM\\.c ",
+  "source": "f86c589 test(naming): check tracked names and the glossary files"
+}
