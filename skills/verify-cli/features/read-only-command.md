@@ -1,8 +1,10 @@
 # A read-only command
 
 A user runs a command that only reads. With `--json` it prints one envelope
-naming the command and its cause; without it, one human line. A refusal
-prints one stderr line and exits 3. Nothing changes.
+naming the command and its cause; without it, the message on stdout,
+followed on a success by the result's data as indented JSON. A refusal
+prints one stderr line and exits 3. Nothing changes: a `--json` envelope
+says `transactionState` `unchanged`, with empty effects.
 
 ## Sub-features
 
@@ -64,3 +66,6 @@ Stations: 1 swept, 1 driven, 1 owed. Steps: 2 met, 0 unmet.
   unknown-planet refusal stays owed. Add a `--json` step for it to drive it.
 - `result` compares exact values. `data` is compared whole; use a dotted
   key such as `data.moons` to compare one field.
+- To show that nothing changed, expect `transactionState` and `effects` in a
+  `--json` step's `result`. The helper sees only what the CLI reports and
+  the files a step names; it does not watch the whole disk.
