@@ -27,27 +27,22 @@ export type Workflow = {
 
 const workflows = join(resolve(import.meta.dir, "../.."), ".github/workflows");
 
-// Interface: this repository's workflow files, by file name.
 export function workflowFiles(): string[] {
   return readdirSync(workflows).filter((file) => /\.ya?ml$/.test(file));
 }
 
-// Interface: one of this repository's workflows, parsed as GitHub reads it.
 export function workflowOf(file: string): Workflow {
   return Bun.YAML.parse(
     readFileSync(join(workflows, file), "utf8"),
   ) as Workflow;
 }
 
-// Interface: one job of a workflow, or a throw naming the file and job.
 export function jobOf(file: string, name: string): Job {
   const found = workflowOf(file).jobs[name];
   if (found === undefined) throw new Error(`${file} has no job ${name}.`);
   return found;
 }
 
-// Interface: the check names a workflow's jobs report under: each job's
-// name, or its id when it has none. A required status check matches these.
 export function checkNames(file: string): string[] {
   return Object.entries(workflowOf(file).jobs).map(
     ([id, job]) => job.name ?? id,
