@@ -16,7 +16,7 @@ import {
 } from "../../../skills/verify-cli/helper/place.ts";
 import {
   causeOf,
-  checks,
+  expectationChecks,
   contractChecks,
   envelopeOf,
   identityOf,
@@ -112,7 +112,7 @@ describe("what drive reads from the target's output", () => {
       file: "one",
     };
     expect(
-      checks(
+      expectationChecks(
         {
           exitCode: undefined,
           causeCode: undefined,
@@ -126,7 +126,7 @@ describe("what drive reads from the target's output", () => {
       ),
     ).toEqual([]);
     expect(
-      checks(
+      expectationChecks(
         {
           exitCode: 0,
           causeCode: "USAGE_X",

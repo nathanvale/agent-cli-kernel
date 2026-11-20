@@ -1,4 +1,4 @@
-// Interface: the check that does not go through the kernel. It imports
+// Interface: the kernel-free check: it does not go through the kernel. It imports
 // agent-cli-kernel only to see that it loads, starts its children with
 // Bun.spawn and writes its own streams, so the consumer lint's five hits on
 // this file are recorded in eslint-suppressions.json on purpose. It shares

@@ -250,6 +250,72 @@ its reason and lets the gate pass until a commit fixes it. Fix every new
 violation so the list only shrinks after its gate lands.
 _Avoid_: known hit, allowlist, baseline
 
+### Verifying a CLI
+
+**verify-cli**:
+The skill that ships in the kernel package beside the author skill, at
+`skills/verify-cli/`, and shows that a CLI built on the kernel works the way
+a user meets it.
+_Avoid_: verification skill (in a name)
+
+**Kernel-free check**:
+verify-cli's front door, `verify.ts`. It checks that the installed kernel
+loads, runs the target's raw exit codes, and compares the helper's envelope
+exit code with its process exit code, all without the kernel's code. A
+failure prints `RAW FAIL` lines and exits 70.
+_Avoid_: shell, wrapper (for the kernel-free check)
+
+**Helper**:
+verify-cli's own CLI, built on the kernel, which the kernel-free check
+starts for every command.
+
+**Target**:
+The CLI that verify-cli judges. The helper starts it as a separate process
+and never imports it.
+_Avoid_: app (for a target)
+
+**Verification folder**:
+The folder that holds verify-cli's state, runs and diagnostics:
+`verify-cli` under `XDG_STATE_HOME`, or under `HOME/.local/state`.
+
+**Verification run**:
+One named set of steps against one target, made by `launch` and ended by
+`cleanup`. Its run record holds the repository and the target's entry file.
+_Avoid_: session (for a verification run)
+
+**Scratch folder**:
+The folder a verification run's target runs in, with its own `HOME`.
+Cleanup removes it.
+
+**Evidence folder**:
+The folder that keeps one file per step of a verification run. Cleanup
+never removes it.
+_Avoid_: receipts (for the evidence folder)
+
+**Step**:
+One run of the target by `drive`, with the expectations the author gave and
+the contract checks, kept as one evidence file.
+
+**Scenario**:
+The steps a feature file names, each with the expectations its author
+wrote from what the feature must do, never from the target's discovery.
+
+**Sweep**:
+The checks the target's own discovery implies for every command: help,
+usage refusals, exit codes and streams. It trusts the declarations.
+
+**Finding**:
+One check of a sweep that failed, with what it expected and what it saw.
+
+**Owed result**:
+A declared result of the target that neither the sweep nor a `--json` step
+of the verification run has reached.
+
+**Contract check**:
+A check `drive` makes on every step of the target unasked: an envelope's
+exit code is the process's, `--json` prints one envelope and nothing on
+stderr, and a failed run prints nothing on stdout.
+
 ### Tools and their messages
 
 **Refusal**:

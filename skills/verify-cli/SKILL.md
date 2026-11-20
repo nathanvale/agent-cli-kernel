@@ -22,7 +22,7 @@ door:
 bun node_modules/agent-cli-kernel/skills/verify-cli/verify.ts <command> [arguments]
 ```
 
-`verify.ts` is the check that does not go through the kernel. It loads the
+`verify.ts` is the kernel-free check: it does not go through the kernel. It loads the
 kernel, runs the helper as a child, and compares the exit code the helper's
 envelope claims with the exit code its process really had. On `doctor` it
 also runs your CLI twice by hand: an unknown command must exit 2 with one
@@ -73,7 +73,7 @@ the command.
 
 1. When `node_modules/agent-cli-kernel` is missing, run
    `bun install --frozen-lockfile` once.
-2. Pick a run name no earlier run used, such as `status-2026-11-20`, and run
+2. Pick a name for the verification run that no earlier run used, such as `status-2026-11-20`, and run
    `launch <run>`. Pass `--entry <file>` when the CLI's entry is not
    `src/cli.ts`.
 3. Done when `launch` exits 0 and prints the evidence folder.

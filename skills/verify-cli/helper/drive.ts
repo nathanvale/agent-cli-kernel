@@ -24,12 +24,12 @@ import { readRunRecord, runPlace } from "./place.ts";
 import type { RunPlace, RunRecord } from "./place.ts";
 import {
   causeOf,
-  checks,
+  expectationChecks,
   contractChecks,
   envelopeOf,
   identityOf,
 } from "./transcript.ts";
-import type { Check, Expectations } from "./transcript.ts";
+import type { ExpectationCheck, Expectations } from "./transcript.ts";
 
 const identity = "verify-cli.drive";
 const outputLimitBytes = 1_048_576;
@@ -115,8 +115,8 @@ type Driven = {
     readonly removed: readonly string[];
     readonly truncated: boolean;
   };
-  readonly checks: readonly Check[];
-  readonly contract: readonly Check[];
+  readonly checks: readonly ExpectationCheck[];
+  readonly contract: readonly ExpectationCheck[];
 };
 
 const listingLimit = 500;
@@ -203,7 +203,7 @@ function keptStep(ran: ProgramResult, facts: StepFacts): Driven {
     causeCode: causeOf(envelope, ran.stderr),
     file: facts.file,
     scratchChanges: facts.scratchChanges,
-    checks: checks(facts.expected, seen),
+    checks: expectationChecks(facts.expected, seen),
     contract: contractChecks(seen, facts.argv, {
       script: facts.script,
       timedOut,

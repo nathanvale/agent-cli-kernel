@@ -18,7 +18,7 @@ export type Seen = {
   readonly file: string | null;
 };
 
-export type Check = {
+export type ExpectationCheck = {
   readonly expectation: string;
   readonly wanted: JsonValue;
   readonly seen: JsonValue;
@@ -47,7 +47,10 @@ export function causeOf(envelope: unknown, stderr: string): string | null {
   return line?.[1] ?? null;
 }
 
-export function checks(expected: Expectations, seen: Seen): Check[] {
+export function expectationChecks(
+  expected: Expectations,
+  seen: Seen,
+): ExpectationCheck[] {
   const envelope = envelopeOf(seen.stdout);
   const cause = causeOf(envelope, seen.stderr);
   return [
@@ -125,7 +128,7 @@ export function contractChecks(
   seen: Seen,
   argv: readonly string[],
   how: { readonly script: boolean; readonly timedOut: boolean },
-): Check[] {
+): ExpectationCheck[] {
   if (how.script || how.timedOut || seen.exitCode === null) return [];
   const envelope = envelopeOf(seen.stdout);
   const claimed = at(envelope, "result", "exitCode");
