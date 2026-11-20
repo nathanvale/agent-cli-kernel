@@ -1,0 +1,13 @@
+diff --git a/kernel/config/kernel/eslint-rules.mjs b/kernel/config/kernel/eslint-rules.mjs
+index bd21f5a..dfbf3ec 100644
+--- a/kernel/config/kernel/eslint-rules.mjs
++++ b/kernel/config/kernel/eslint-rules.mjs
+@@ -334,7 +334,7 @@ export default {
+           );
+         const installed = !holdsKernelSource(root);
+         const services = typeServices(context);
+-        if (!services || (!installed && causeOwners.test(file))) return {};
++        if (!services || causeOwners.test(file)) return {};
+         const checker = services.program.getTypeChecker();
+         const keys = commonCauseKeys(services.program);
+         const ownerTyped = (type) =>

@@ -1,0 +1,13 @@
+diff --git a/kernel/config/kernel/eslint-rules.mjs b/kernel/config/kernel/eslint-rules.mjs
+index bd21f5a..3d2f964 100644
+--- a/kernel/config/kernel/eslint-rules.mjs
++++ b/kernel/config/kernel/eslint-rules.mjs
+@@ -162,7 +162,7 @@ function exportedCauseKeys(entry) {
+ 
+ function commonCauseKeys(program) {
+   if (!ownerKeys.has(program))
+-    ownerKeys.set(program, exportedCauseKeys(kernelEntry));
++    ownerKeys.set(program, new Set());
+   return ownerKeys.get(program);
+ }
+ 
