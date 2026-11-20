@@ -1,13 +1,13 @@
 diff --git a/tests/kernel/self-verification/self-verification.ts b/tests/kernel/self-verification/self-verification.ts
-index 94dd94f..53bf7a6 100644
+index 603dd1b..190f17d 100644
 --- a/tests/kernel/self-verification/self-verification.ts
 +++ b/tests/kernel/self-verification/self-verification.ts
-@@ -96,7 +96,7 @@ function runFailure(own: OwnCli, { command, ran }: OwnCliRun): string[] {
+@@ -114,7 +114,7 @@ function missingFields(
  function sweepOwed(own: OwnCli, data: unknown) {
    const checks = field(data, "checks");
-   const failures =
--    typeof checks === "number" && checks > 0
-+    typeof checks === "number"
-       ? []
-       : [
-           `${own.name}: the sweep ran no check. Repair: a sweep that checks nothing proves nothing; run ${checkLine} sweep ${own.entry} by hand and repair the target's discovery.`,
+   const failures = missingFields(own, "sweep", data, { owed: "list" });
+-  if (!(typeof checks === "number" && checks > 0))
++  if (!(typeof checks === "number"))
+     failures.push(
+       `${own.name}: the sweep ran no check. Repair: a sweep that checks nothing proves nothing; run ${checkLine} sweep ${own.entry} by hand and repair the target's discovery.`,
+     );

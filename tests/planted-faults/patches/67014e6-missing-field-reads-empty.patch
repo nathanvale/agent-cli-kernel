@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/self-verification/self-verification.ts b/tests/kernel/self-verification/self-verification.ts
+index 603dd1b..f157f23 100644
+--- a/tests/kernel/self-verification/self-verification.ts
++++ b/tests/kernel/self-verification/self-verification.ts
+@@ -102,7 +102,7 @@ function missingFields(
+   return Object.entries(fields)
+     .filter(([name, kind]) =>
+       kind === "list"
+-        ? !Array.isArray(field(data, name))
++        ? field(data, name) === null
+         : typeof field(data, name) !== "number",
+     )
+     .map(
