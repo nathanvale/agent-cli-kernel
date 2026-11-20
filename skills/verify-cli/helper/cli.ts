@@ -28,7 +28,7 @@ export function helperContract(environment: Environment, cwd: string) {
   const root = verificationFolder(environment);
   const state = stateAddon({
     root: join(root, "state"),
-    report: "verify-agent-cli.pending",
+    report: "verify-cli.pending",
   });
   const program =
     (path: string): (() => ParsedPath) =>

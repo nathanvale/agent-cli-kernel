@@ -14,7 +14,7 @@ import { failureText, refusalOf, unfinishedChange } from "./outcome.ts";
 import type { State } from "./outcome.ts";
 import { runPlace } from "./place.ts";
 
-const identity = "verify-agent-cli.cleanup";
+const identity = "verify-cli.cleanup";
 
 export function cleanupCommand(state: State, root: string) {
   return changing({

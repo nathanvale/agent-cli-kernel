@@ -34,7 +34,7 @@ describe("the front door, verify.ts, which does not go through the kernel", () =
     const refused = await front(at, "evidence", "nope");
     expect({ exit: refused.exit, stderr: refused.stderr }).toEqual({
       exit: 3,
-      stderr: `verify-agent-cli: No run named nope under ${at.state}/verify-agent-cli. [DOMAIN_VERIFY_RUN_MISSING]\n`,
+      stderr: `verify-cli: No run named nope under ${at.state}/verify-cli. [DOMAIN_VERIFY_RUN_MISSING]\n`,
     });
     const envelope = await front(at, "pending", "--json");
     expect(field(JSON.parse(envelope.stdout), "result", "causeCode")).toBe(
@@ -62,7 +62,7 @@ describe("the front door, verify.ts, which does not go through the kernel", () =
       stdout: "",
     });
     expect(ran.stderr.split("\n")[0]).toBe(
-      "verify-agent-cli: RAW FAIL target-usage-exit: an unknown command exited 0, not 2. stderr: liar: No declared command matches this invocation. [USAGE_UNKNOWN_COMMAND]",
+      "verify-cli: RAW FAIL target-usage-exit: an unknown command exited 0, not 2. stderr: liar: No declared command matches this invocation. [USAGE_UNKNOWN_COMMAND]",
     );
   });
 
@@ -71,10 +71,10 @@ describe("the front door, verify.ts, which does not go through the kernel", () =
     const ran = await front(at, "doctor", "--entry", brokenEntry);
     expect(ran.exit).toBe(70);
     expect(ran.stderr).toContain(
-      "verify-agent-cli: RAW FAIL target-usage-exit: an unknown command exited 1",
+      "verify-cli: RAW FAIL target-usage-exit: an unknown command exited 1",
     );
     expect(ran.stderr).toContain(
-      "verify-agent-cli: RAW FAIL target-discovery: --discover --json exited 1",
+      "verify-cli: RAW FAIL target-discovery: --discover --json exited 1",
     );
   });
 
@@ -90,9 +90,7 @@ describe("the front door, verify.ts, which does not go through the kernel", () =
       { cwd: at.repo, env: environment(at), boundMilliseconds: helperBound },
     );
     expect(ran.exit).toBe(70);
-    expect(ran.stderr).toContain("verify-agent-cli: RAW FAIL kernel-import: ");
-    expect(ran.stderr).toContain(
-      "verify-agent-cli: RAW FAIL helper-no-envelope: ",
-    );
+    expect(ran.stderr).toContain("verify-cli: RAW FAIL kernel-import: ");
+    expect(ran.stderr).toContain("verify-cli: RAW FAIL helper-no-envelope: ");
   });
 });

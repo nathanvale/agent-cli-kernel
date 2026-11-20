@@ -127,7 +127,7 @@ describe("sweep and findings", () => {
     });
     expect(field(listed.result, "data", "findings")).toContainEqual({
       check: "unknown-command-exit",
-      argv: ["verify-agent-cli-no-such-command"],
+      argv: ["verify-cli-no-such-command"],
       expected: "2",
       saw: "0",
     });

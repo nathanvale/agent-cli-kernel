@@ -16,7 +16,7 @@ import { entryFor, readRunRecord, runPlace } from "./place.ts";
 import type { RunRecord } from "./place.ts";
 import { envelopeOf } from "./transcript.ts";
 
-const identity = "verify-agent-cli.doctor";
+const identity = "verify-cli.doctor";
 const bounds = {
   timeoutMilliseconds: 30_000,
   outputLimitBytes: 1_048_576,
@@ -140,7 +140,7 @@ async function targetChecks(
     failures.push(
       `--help exited ${String(help.exitCode)} with ${String(help.stdout.length)} bytes of stdout and ${String(help.stderr.length)} of stderr`,
     );
-  const unknown = await ask("verify-agent-cli-no-such-command");
+  const unknown = await ask("verify-cli-no-such-command");
   if (unknown.exitCode !== 2)
     failures.push(
       `an unknown command exited ${String(unknown.exitCode)}; it must exit 2`,

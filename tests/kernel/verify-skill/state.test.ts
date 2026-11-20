@@ -82,7 +82,7 @@ describe("the helper's state", () => {
       const pending = await helper(at, "pending");
       expect(field(pending.result, "data", "unfinished")).toEqual([
         expect.objectContaining({
-          commandIdentity: "verify-agent-cli.drive",
+          commandIdentity: "verify-cli.drive",
           effects: ["step.run", "step.write"],
         }),
       ]);
@@ -112,7 +112,7 @@ describe("the helper's state", () => {
       expect({ exit: stopped.exit, stderr: stopped.stderr }).toEqual({
         exit: 143,
         stderr:
-          "verify-agent-cli: stopped by SIGTERM; the helper stopped its drive first.\n",
+          "verify-cli: stopped by SIGTERM; the helper stopped its drive first.\n",
       });
       expect(alive(ledgeredPid(ledger))).toBe(false);
       const cleanup = await front(at, "cleanup", "r1");
@@ -125,11 +125,8 @@ describe("the helper's state", () => {
     "a state folder that is a file makes launch DOMAIN_VERIFY_STATE_UNAVAILABLE and pending DOMAIN_VERIFY_STATE_UNAVAILABLE",
     async () => {
       const at = world();
-      mkdirSync(join(at.state, "verify-agent-cli"));
-      writeFileSync(
-        join(at.state, "verify-agent-cli", "state"),
-        "not a folder",
-      );
+      mkdirSync(join(at.state, "verify-cli"));
+      writeFileSync(join(at.state, "verify-cli", "state"), "not a folder");
       const launch = await helper(at, "launch", "r1", "--entry", targetEntry);
       expect({ exit: launch.exit, cause: resultCause(launch) }).toEqual({
         exit: 3,

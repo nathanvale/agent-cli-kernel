@@ -60,7 +60,7 @@ test(
       spawnBounded(
         [
           process.execPath,
-          "node_modules/agent-cli-kernel/skills/verify-agent-cli/verify.ts",
+          "node_modules/agent-cli-kernel/skills/verify-cli/verify.ts",
           ...argv,
         ],
         {
@@ -96,7 +96,7 @@ test(
       steps: [{ step: "status", exitCode: 0, unmet: 0 }],
     });
     expect(
-      readJson(join(state, "verify-agent-cli/runs/r1/evidence/status.json")),
+      readJson(join(state, "verify-cli/runs/r1/evidence/status.json")),
     ).toMatchObject({ causeCode: "SUCCESS_UNCHANGED", oneEnvelope: true });
   },
   installBound + 7 * stepBound + 10_000,

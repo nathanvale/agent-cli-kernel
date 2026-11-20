@@ -10,7 +10,7 @@ can reach; keep each file's four sections.
 - Run every command from the repository root, once
   `node_modules/agent-cli-kernel` is installed.
 - `verify.ts` below stands for
-  `bun node_modules/agent-cli-kernel/skills/verify-agent-cli/verify.ts`.
+  `bun node_modules/agent-cli-kernel/skills/verify-cli/verify.ts`.
   Write the full command each time.
 - Launch a fresh run for each feature: `verify.ts launch <run>`, then
   `verify.ts doctor --run <run>`. Both exit 0 before any step.

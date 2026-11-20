@@ -15,7 +15,7 @@ import { exitBound } from "../lifecycle/harness.ts";
 import { testFolder } from "../../support/test-folder.ts";
 
 export const repository = join(import.meta.dir, "../../..");
-export const skill = join(repository, "skills/verify-agent-cli");
+export const skill = join(repository, "skills/verify-cli");
 export const helperEntry = join(skill, "helper/cli.ts");
 export const frontDoor = join(skill, "verify.ts");
 export const targetEntry = join(import.meta.dir, "fixtures/target-cli.ts");
@@ -84,7 +84,7 @@ export function world(): World {
   symlinkSync(repository, join(repo, "node_modules", "agent-cli-kernel"));
   const state = join(folder, "state");
   mkdirSync(state);
-  return { state, repo, runs: join(state, "verify-agent-cli", "runs") };
+  return { state, repo, runs: join(state, "verify-cli", "runs") };
 }
 
 export function environment(at: World): Record<string, string | undefined> {

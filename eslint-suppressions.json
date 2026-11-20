@@ -44,7 +44,7 @@
       "count": 10
     }
   },
-  "skills/verify-agent-cli/verify.ts": {
+  "skills/verify-cli/verify.ts": {
     "no-restricted-properties": {
       "count": 1
     },

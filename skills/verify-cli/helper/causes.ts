@@ -98,7 +98,7 @@ export const runArgument = {
 const inspectState = {
   owner: "operator",
   reason: "The helper's state needs a look before another change to this run.",
-  inspect: [{ kind: "command", command: "verify-agent-cli.pending", args: [] }],
+  inspect: [{ kind: "command", command: "verify-cli.pending", args: [] }],
 } as const;
 
 export function stateStations<const Identity extends string>(

@@ -8,7 +8,7 @@ import {
   unchangedSuccess,
 } from "./causes.ts";
 
-const identity = "verify-agent-cli.pending";
+const identity = "verify-cli.pending";
 
 export function pendingCommand(state: State) {
   return command({

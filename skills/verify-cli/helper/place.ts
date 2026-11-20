@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 import { at } from "./json.ts";
 
-export const cli = "verify-agent-cli";
+export const cli = "verify-cli";
 
 export type Environment = Readonly<Record<string, string | undefined>>;
 

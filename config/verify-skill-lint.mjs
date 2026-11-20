@@ -2,7 +2,7 @@ import { kernelLint } from "../kernel/config/kernel/eslint.mjs";
 import repository from "../eslint-rules.mjs";
 import platformRules from "./platform-rules.mjs";
 
-const skill = "skills/verify-agent-cli";
+const skill = "skills/verify-cli";
 
 export const verifySkillPaths = [`${skill}/**`];
 

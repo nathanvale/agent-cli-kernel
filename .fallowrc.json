@@ -111,7 +111,7 @@
     "tests/kernel/kernel-repair/swarm-cli.ts",
     "tests/kernel/locks/fixtures.ts",
     "tests/kernel/author-guide/example-document.ts",
-    "skills/verify-agent-cli/helper/cli.ts",
-    "skills/verify-agent-cli/verify.ts"
+    "skills/verify-cli/helper/cli.ts",
+    "skills/verify-cli/verify.ts"
   ]
 }

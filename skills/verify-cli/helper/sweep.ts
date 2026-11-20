@@ -41,8 +41,8 @@ type Sweep = {
   }[];
 };
 
-const unknownWord = "verify-agent-cli-no-such-command";
-const undeclaredOption = "--verify-agent-cli-undeclared-option";
+const unknownWord = "verify-cli-no-such-command";
+const undeclaredOption = "--verify-cli-undeclared-option";
 
 function words(value: unknown): readonly string[] {
   return listOf(value)
@@ -319,8 +319,8 @@ function unreadableMessage(reasons: readonly string[]): string {
   return `The run's evidence cannot be read: ${reasons.join("; ")}.`;
 }
 
-const sweepIdentity = "verify-agent-cli.sweep";
-const findingsIdentity = "verify-agent-cli.findings";
+const sweepIdentity = "verify-cli.sweep";
+const findingsIdentity = "verify-cli.findings";
 
 export function sweepCommand(root: string, cwd: string, bun: () => ParsedPath) {
   return command({

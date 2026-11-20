@@ -12,7 +12,7 @@ import {
 import { runPlace } from "./place.ts";
 import { readSteps } from "./steps.ts";
 
-const identity = "verify-agent-cli.evidence";
+const identity = "verify-cli.evidence";
 
 export function evidenceCommand(root: string) {
   return command({

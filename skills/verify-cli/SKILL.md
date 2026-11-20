@@ -1,13 +1,13 @@
 ---
 
-name: verify-agent-cli
+name: verify-cli
 description: Prove that a CLI built on agent-cli-kernel really works, the way a user meets it. Use when asked to verify, smoke-test or prove a command of a repository that installs agent-cli-kernel, before claiming a CLI change is done, or when its tests pass but nobody has run the real CLI.
 ---
 
 # Verifying a CLI built on agent-cli-kernel
 
 Your repository installs the kernel as the package `agent-cli-kernel`. This
-skill ships inside it, at `node_modules/agent-cli-kernel/skills/verify-agent-cli/`,
+skill ships inside it, at `node_modules/agent-cli-kernel/skills/verify-cli/`,
 with its own helper: a small CLI built on the same kernel. It judges your
 CLI from outside, as a user would: it starts it as a separate process and
 reads the exit code, stdout, stderr, the `--json` envelope, and the files it
@@ -19,7 +19,7 @@ Run every helper command from your repository's root, through its front
 door:
 
 ```text
-bun node_modules/agent-cli-kernel/skills/verify-agent-cli/verify.ts <command> [arguments]
+bun node_modules/agent-cli-kernel/skills/verify-cli/verify.ts <command> [arguments]
 ```
 
 `verify.ts` is the check that does not go through the kernel. It loads the
@@ -117,7 +117,7 @@ starts with the script's name.
 ## Evidence
 
 Each step writes one JSON file to
-`${XDG_STATE_HOME:-$HOME/.local/state}/verify-agent-cli/runs/<run>/evidence/<step>.json`:
+`${XDG_STATE_HOME:-$HOME/.local/state}/verify-cli/runs/<run>/evidence/<step>.json`:
 the argv, the full command, exit code, stdout, stderr, whether it timed out,
 the cause, the files the step added to or removed from the scratch folder
 (`scratchChanges`), and each expectation with what was seen. `run.json` beside it

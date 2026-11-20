@@ -1,7 +1,7 @@
-diff --git a/skills/verify-agent-cli/verify.ts b/skills/verify-agent-cli/verify.ts
+diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
 index df723bb..d6fa0c2 100644
---- a/skills/verify-agent-cli/verify.ts
-+++ b/skills/verify-agent-cli/verify.ts
+--- a/skills/verify-cli/verify.ts
++++ b/skills/verify-cli/verify.ts
 @@ -126,7 +126,7 @@ export function helperFailures(helper: Ran): string[] {
      return [
        `helper-no-envelope: the helper exited ${String(helper.exitCode)} without one envelope on stdout. stderr: ${firstLine(helper.stderr)}`,

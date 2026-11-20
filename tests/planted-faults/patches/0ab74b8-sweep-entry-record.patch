@@ -1,7 +1,7 @@
-diff --git a/skills/verify-agent-cli/helper/sweep.ts b/skills/verify-agent-cli/helper/sweep.ts
+diff --git a/skills/verify-cli/helper/sweep.ts b/skills/verify-cli/helper/sweep.ts
 index 88949c7..0b2c55d 100644
---- a/skills/verify-agent-cli/helper/sweep.ts
-+++ b/skills/verify-agent-cli/helper/sweep.ts
+--- a/skills/verify-cli/helper/sweep.ts
++++ b/skills/verify-cli/helper/sweep.ts
 @@ -292,7 +292,7 @@ async function sweeper(
    let target: string;
    try {

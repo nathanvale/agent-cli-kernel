@@ -1,7 +1,7 @@
-diff --git a/skills/verify-agent-cli/helper/outcome.ts b/skills/verify-agent-cli/helper/outcome.ts
+diff --git a/skills/verify-cli/helper/outcome.ts b/skills/verify-cli/helper/outcome.ts
 index 37998f7..a3a30dd 100644
---- a/skills/verify-agent-cli/helper/outcome.ts
-+++ b/skills/verify-agent-cli/helper/outcome.ts
+--- a/skills/verify-cli/helper/outcome.ts
++++ b/skills/verify-cli/helper/outcome.ts
 @@ -21,7 +21,7 @@ export function refusalOf(
        return undefined;
      case "held-lock":

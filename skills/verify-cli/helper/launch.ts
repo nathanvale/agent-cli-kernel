@@ -16,7 +16,7 @@ import type { State } from "./outcome.ts";
 import { runPlace } from "./place.ts";
 import type { RunRecord } from "./place.ts";
 
-const identity = "verify-agent-cli.launch";
+const identity = "verify-cli.launch";
 
 function recordText(record: RunRecord): string {
   return `${JSON.stringify(record, null, 2)}\n`;

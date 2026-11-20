@@ -1,7 +1,7 @@
-diff --git a/skills/verify-agent-cli/verify.ts b/skills/verify-agent-cli/verify.ts
+diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
 index 271ed02..5e22eeb 100644
---- a/skills/verify-agent-cli/verify.ts
-+++ b/skills/verify-agent-cli/verify.ts
+--- a/skills/verify-cli/verify.ts
++++ b/skills/verify-cli/verify.ts
 @@ -294,7 +294,7 @@ function forwardStops(): void {
    for (const signal of ["SIGTERM", "SIGINT"] as const)
      process.on(signal, () => {

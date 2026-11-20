@@ -7,8 +7,8 @@ import {
   relayed,
   targetFailures,
   verify,
-} from "../../../skills/verify-agent-cli/verify.ts";
-import type { Bounds } from "../../../skills/verify-agent-cli/verify.ts";
+} from "../../../skills/verify-cli/verify.ts";
+import type { Bounds } from "../../../skills/verify-cli/verify.ts";
 import {
   environment,
   helper,
@@ -143,7 +143,7 @@ describe("the check that does not go through the kernel", () => {
     });
     expect(relayed(ran(3, null), false)).toEqual({
       stream: "stderr",
-      text: "verify-agent-cli: m [C_D]\n",
+      text: "verify-cli: m [C_D]\n",
     });
   });
 

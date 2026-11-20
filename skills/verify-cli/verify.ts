@@ -14,7 +14,7 @@ import {
 } from "./helper/place.ts";
 
 const rawFailureExit = 70;
-const unknownWord = "verify-agent-cli-no-such-command";
+const unknownWord = "verify-cli-no-such-command";
 
 export type Bounds = {
   readonly helperMilliseconds: number;
@@ -239,7 +239,7 @@ export function relayed(helper: Ran, json: boolean): Relayed {
     const cause = String(at(envelope, "result", "causeCode"));
     return {
       stream: "stderr",
-      text: `verify-agent-cli: ${message} [${cause}]\n`,
+      text: `verify-cli: ${message} [${cause}]\n`,
     };
   }
   const data = at(envelope, "result", "data");
@@ -308,13 +308,13 @@ if (import.meta.main) {
   const stopped = stopExit();
   if (stopped !== undefined) {
     process.stderr.write(
-      `verify-agent-cli: stopped by ${String(received)}; the helper stopped its drive first.\n`,
+      `verify-cli: stopped by ${String(received)}; the helper stopped its drive first.\n`,
     );
     process.exit(stopped);
   }
   if (failures.length > 0) {
     for (const failure of failures)
-      process.stderr.write(`verify-agent-cli: RAW FAIL ${failure}\n`);
+      process.stderr.write(`verify-cli: RAW FAIL ${failure}\n`);
     process.exit(rawFailureExit);
   }
   const { stream, text } = relayed(helper, argv.includes("--json"));

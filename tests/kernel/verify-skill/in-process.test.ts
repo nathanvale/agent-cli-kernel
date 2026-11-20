@@ -1,26 +1,26 @@
 import { afterAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { helperContract } from "../../../skills/verify-agent-cli/helper/cli.ts";
+import { helperContract } from "../../../skills/verify-cli/helper/cli.ts";
 import type { Refusal } from "agent-cli-kernel/addons/state";
-import { readJsonFile } from "../../../skills/verify-agent-cli/helper/json.ts";
+import { readJsonFile } from "../../../skills/verify-cli/helper/json.ts";
 import {
   refusalOf,
   unfinishedChange,
-} from "../../../skills/verify-agent-cli/helper/outcome.ts";
-import { readSteps } from "../../../skills/verify-agent-cli/helper/steps.ts";
+} from "../../../skills/verify-cli/helper/outcome.ts";
+import { readSteps } from "../../../skills/verify-cli/helper/steps.ts";
 import {
   readRunRecord,
   runPlace,
   verificationFolder,
-} from "../../../skills/verify-agent-cli/helper/place.ts";
+} from "../../../skills/verify-cli/helper/place.ts";
 import {
   causeOf,
   checks,
   contractChecks,
   envelopeOf,
   identityOf,
-} from "../../../skills/verify-agent-cli/helper/transcript.ts";
+} from "../../../skills/verify-cli/helper/transcript.ts";
 import {
   environment,
   field,
@@ -175,14 +175,14 @@ describe("what drive reads from the target's output", () => {
 describe("where the helper keeps runs", () => {
   test("runs live under XDG_STATE_HOME, else under HOME, and neither absolute is refused", () => {
     expect(verificationFolder({ XDG_STATE_HOME: "/s", HOME: "/h" })).toBe(
-      "/s/verify-agent-cli",
+      "/s/verify-cli",
     );
     expect(verificationFolder({ XDG_STATE_HOME: "s", HOME: "/h" })).toBe(
-      "/h/.local/state/verify-agent-cli",
+      "/h/.local/state/verify-cli",
     );
     expect(() => verificationFolder({ HOME: "h" })).toThrow(
       new Error(
-        "verify-agent-cli needs XDG_STATE_HOME or HOME as an absolute path, to place its runs. Repair: set HOME, or XDG_STATE_HOME, to an absolute folder.",
+        "verify-cli needs XDG_STATE_HOME or HOME as an absolute path, to place its runs. Repair: set HOME, or XDG_STATE_HOME, to an absolute folder.",
       ),
     );
   });
@@ -218,7 +218,7 @@ describe("the helper's own reads and refusals", () => {
       helperContract({ ...environment(at), PATH: "" }, at.repo),
     ).toThrow(
       new Error(
-        "verify-agent-cli needs env on PATH to start the target. Repair: put the folder that holds env on PATH.",
+        "verify-cli needs env on PATH to start the target. Repair: put the folder that holds env on PATH.",
       ),
     );
   });

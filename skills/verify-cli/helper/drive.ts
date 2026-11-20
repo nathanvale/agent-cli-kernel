@@ -31,7 +31,7 @@ import {
 } from "./transcript.ts";
 import type { Check, Expectations } from "./transcript.ts";
 
-const identity = "verify-agent-cli.drive";
+const identity = "verify-cli.drive";
 const outputLimitBytes = 1_048_576;
 const shutdownMilliseconds = 2_000;
 
@@ -420,8 +420,8 @@ export function driveCommand(
         guidance: {
           next: {
             kind: "command",
-            command: "verify-agent-cli.command-discovery",
-            args: ["verify-agent-cli.drive"],
+            command: "verify-cli.command-discovery",
+            args: ["verify-cli.drive"],
           },
         },
         independentObservable: `${identity}:argv-invalid`,
