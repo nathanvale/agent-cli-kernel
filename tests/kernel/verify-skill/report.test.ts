@@ -369,16 +369,19 @@ describe("the helper's own state, one folder for each run", () => {
       const ledger = join(at.folder, "ledger");
       const gate = join(at.folder, "gate");
       await makeFifo(gate);
+      const held = oneStep("hold", "hold", ["hold", ledger, gate]);
+      const scenario = scenarioFile(at, {
+        ...held,
+        steps: held.steps.map((step) => ({
+          ...step,
+          timeoutMilliseconds: 60_000,
+        })),
+      });
+      const started = performance.now();
       let stopped: { readonly exit: number; readonly stderr: string };
       try {
         stopped = await spawnBounded(
-          [
-            process.execPath,
-            checkEntry,
-            "drive",
-            run,
-            scenarioFile(at, oneStep("hold", "hold", ["hold", ledger, gate])),
-          ],
+          [process.execPath, checkEntry, "drive", run, scenario],
           {
             cwd: at.repo,
             env: at.env,
@@ -394,11 +397,12 @@ describe("the helper's own state, one folder for each run", () => {
         stderr:
           "verify-cli: stopped by SIGTERM; the helper stopped its children first.\n",
       });
+      expect(performance.now() - started).toBeLessThan(30_000);
       expect(alive(ledgeredPid(ledger))).toBe(false);
       expect(
         readFileSync(join(run, "evidence", "index.jsonl"), "utf8"),
       ).toContain('"row":"run"');
     },
-    watchdog(1, 1),
+    watchdog(1, 2),
   );
 });
