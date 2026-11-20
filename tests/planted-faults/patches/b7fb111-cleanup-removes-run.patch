@@ -1,8 +1,36 @@
 diff --git a/skills/verify-cli/helper/cleanup.ts b/skills/verify-cli/helper/cleanup.ts
-index 4529aea..9bb7be3 100644
+index 4529aea..d814a08 100644
 --- a/skills/verify-cli/helper/cleanup.ts
 +++ b/skills/verify-cli/helper/cleanup.ts
-@@ -93,7 +93,7 @@ export function cleanupCommand(state: State) {
+@@ -65,7 +65,7 @@ export function cleanupCommand(state: State) {
+     ],
+     run: async (input, context) => {
+       const place = runPlace(input.run);
+-      if (!existsSync(place.index))
++      if (!existsSync(place.index) && !existsSync(place.state))
+         return context.result(
+           { commandIdentity: identity, causeCode: "DOMAIN_VERIFY_RUN_MISSING" },
+           {
+@@ -75,6 +75,7 @@ export function cleanupCommand(state: State) {
+           },
+         );
+       let clean = false;
++      let launched = true;
+       let failure = "";
+       const outcome = await state.transaction(
+         context.state,
+@@ -84,6 +85,10 @@ export function cleanupCommand(state: State) {
+           facts: { run: input.run, scratch: place.scratch },
+         },
+         async (transaction) => {
++          if (!existsSync(place.index)) {
++            launched = false;
++            return;
++          }
+           try {
+             clean = !existsSync(place.scratch);
+           } catch (error) {
+@@ -93,7 +98,7 @@ export function cleanupCommand(state: State) {
            if (clean) return;
            await transaction.record(
              "scratch.remove",
@@ -11,3 +39,16 @@ index 4529aea..9bb7be3 100644
              () =>
                Promise.resolve(
                  !existsSync(place.scratch) && existsSync(place.index),
+@@ -103,6 +108,12 @@ export function cleanupCommand(state: State) {
+       );
+       const blocked =
+         refusalOf(outcome, input.run) ??
++        (launched
++          ? undefined
++          : {
++              causeCode: "DOMAIN_VERIFY_RUN_MISSING" as const,
++              message: `${input.run} holds no run that launch made.`,
++            }) ??
+         (clean
+           ? {
+               causeCode: "DOMAIN_VERIFY_RUN_CLEAN" as const,

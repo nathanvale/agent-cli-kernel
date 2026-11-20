@@ -65,7 +65,10 @@ export function pendingCommand(state: State) {
     ],
     run: (input, context) => {
       const run = input.run;
-      if (run === undefined || !existsSync(runPlace(run).index))
+      if (
+        run === undefined ||
+        (!existsSync(runPlace(run).index) && !existsSync(runPlace(run).state))
+      )
         return context.result(
           { commandIdentity: identity, causeCode: "DOMAIN_VERIFY_RUN_MISSING" },
           {
@@ -84,9 +87,11 @@ export function pendingCommand(state: State) {
           {
             message: `${String(report.unfinished.length)} unfinished changes.`,
             data: {
+              ok: report.ok,
               unfinished: report.unfinished.map((entry) => ({
                 operationId: entry.operationId,
                 commandIdentity: entry.commandIdentity,
+                runId: entry.runId,
                 effects: [...entry.effects],
               })),
             },
@@ -98,7 +103,7 @@ export function pendingCommand(state: State) {
           { commandIdentity: identity, causeCode: unchangedSuccess },
           {
             message: "0 unfinished changes.",
-            data: { unfinished: [] },
+            data: { ok: true, unfinished: [] },
             effects: nothingChanged,
           },
         );

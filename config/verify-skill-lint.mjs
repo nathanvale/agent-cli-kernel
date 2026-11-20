@@ -64,7 +64,14 @@ export default [
     files: [kernelFreeCheck],
     plugins: { "kernel-free": kernelFreeRules },
     rules: {
-      "no-restricted-properties": "off",
+      "no-restricted-properties": [
+        "error",
+        {
+          property: "stateAddon",
+          message:
+            "Only the state add-on folder may author the state add-on factory.",
+        },
+      ],
       "repository/no-domain-output": "off",
       "kernel-free/no-kernel-import": "error",
     },

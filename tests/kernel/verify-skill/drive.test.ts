@@ -121,7 +121,7 @@ describe("drive", () => {
   );
 
   test(
-    "drive never overwrites a receipt",
+    "drive never overwrites an evidence file",
     async () => {
       const at = world();
       const run = await launched(at, "r1");
@@ -326,16 +326,15 @@ describe("drive", () => {
   );
 
   test(
-    "each target step starts in the repository root, and placeholders name the scratch folder and the repository",
+    "each target step starts in the repository root, and placeholders name the scratch folder and the repository, in a file's content too",
     async () => {
       const at = world();
       const run = await launched(at, "r1", fixture(at, "target-cli.ts"));
       const ran = await helper(at, [
         "drive",
         run,
-        scenarioFile(
-          at,
-          oneStep("where", {
+        scenarioFile(at, {
+          ...oneStep("where", {
             name: "where",
             argv: ["where", "{scratch}/x"],
             expect: {
@@ -344,7 +343,38 @@ describe("drive", () => {
               stderr: "",
             },
           }),
-        ),
+          steps: [
+            {
+              name: "where",
+              argv: ["where", "{scratch}/x"],
+              expect: {
+                exitCode: 0,
+                stdout: `{repository} {scratch}/x\n`,
+                stderr: "",
+              },
+            },
+            {
+              name: "write-paths",
+              runner: "bun",
+              argv: [
+                "-e",
+                "await Bun.write(process.argv[1], process.argv[2])",
+                "{scratch}/paths",
+                "{repository}|{scratch}",
+              ],
+              expect: {
+                exitCode: 0,
+                stderr: "",
+                files: [
+                  {
+                    path: "{scratch}/paths",
+                    content: "{repository}|{scratch}",
+                  },
+                ],
+              },
+            },
+          ],
+        }),
       ]);
       expect(causeOf(ran)).toBe("SUCCESS_COMPLETED");
       expect(field(stepFile(run, "where", "where"), "argv")).toEqual([
@@ -355,6 +385,22 @@ describe("drive", () => {
     watchdog(2),
   );
 });
+
+const ruleDetails: Readonly<Record<string, string>> = {
+  "unknown-field":
+    "the scenario has the field extra, which the format does not name",
+  "bad-name": "feature must be 1 to 64 lower-case letters, digits and hyphens",
+  "duplicate-step": "two steps are named show-known-planet",
+  "step-count": "the scenario has 0 steps; it needs 1 to 200",
+  "exit-code-only":
+    "steps.0.expect must hold exitCode and at least one expectation on stdout, stderr, the result or a file",
+  "includes-on-target-step":
+    "steps.0.expect has stdoutIncludes or stderrIncludes on a target step, which must be exact",
+  "path-outside-scratch":
+    'steps.0.expect.files.0.path "{scratch}/../x" must start {scratch}/ and hold no .. segment',
+  "limit-out-of-range": "steps.0.timeoutMilliseconds is 0, outside 1 to 600000",
+  "bad-value": "steps.0.argv must be a list of strings",
+};
 
 const brokenScenarios: readonly (readonly [string, unknown])[] = [
   ["unknown-field", { ...readOnlyScenario, extra: true }],
@@ -424,10 +470,13 @@ describe("drive refuses a scenario that breaks a rule", () => {
         run,
         join(at.folder, "missing.json"),
       ]);
-      expect(causeOf(ran)).toBe("DOMAIN_VERIFY_SCENARIO");
-      expect(String(field(JSON.parse(ran.stdout), "message"))).toContain(
-        "breaks the rule unreadable:",
-      );
+      expect({
+        cause: causeOf(ran),
+        message: field(parsed(ran.stdout), "message"),
+      }).toEqual({
+        cause: "DOMAIN_VERIFY_SCENARIO",
+        message: `The scenario breaks the rule unreadable: ${join(at.folder, "missing.json")} is missing.`,
+      });
       expect(lsTree(join(run, "evidence"))).toEqual(["index.jsonl"]);
     },
     watchdog(2),
@@ -444,13 +493,15 @@ describe("drive refuses a scenario that breaks a rule", () => {
           run,
           scenarioFile(at, scenario),
         ]);
-        expect({ exit: ran.exit, cause: causeOf(ran) }).toEqual({
+        expect({
+          exit: ran.exit,
+          cause: causeOf(ran),
+          message: field(parsed(ran.stdout), "message"),
+        }).toEqual({
           exit: 3,
           cause: "DOMAIN_VERIFY_SCENARIO",
+          message: `The scenario breaks the rule ${rule}: ${String(ruleDetails[rule])}.`,
         });
-        expect(String(field(JSON.parse(ran.stdout), "message"))).toContain(
-          `breaks the rule ${rule}:`,
-        );
         expect(lsTree(join(run, "evidence"))).toEqual(["index.jsonl"]);
         expect(indexRows(run)).toHaveLength(1);
       },

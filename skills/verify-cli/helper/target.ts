@@ -17,7 +17,7 @@ export type Ran = {
 export type Drive = (argv: readonly string[]) => Promise<Ran>;
 
 export function targetDrive(
-  programs: ProgramsCapability,
+  programs: Pick<ProgramsCapability, "supplied">,
   bun: ParsedPath,
   entry: string,
 ): Drive {

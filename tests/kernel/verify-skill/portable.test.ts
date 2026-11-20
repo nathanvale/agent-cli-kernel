@@ -2,7 +2,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { cpSync, mkdirSync, readFileSync, symlinkSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import {
-  check,
+  viaKernelFreeCheck,
   ownedFolder,
   rawFailIds,
   releaseWorlds,
@@ -51,7 +51,7 @@ describe("the skill folder is self-contained", () => {
       const nowhere = ownedFolder("kernel-verify-skill-nowhere-");
       const copy = join(nowhere, "verify-cli");
       cpSync(skill, copy, { recursive: true });
-      const ran = await check(at, ["ready", at.example], {
+      const ran = await viaKernelFreeCheck(at, ["ready", at.example], {
         entry: join(copy, "verify.ts"),
       });
       expect({ exit: ran.exit, stdout: ran.stdout }).toEqual({
@@ -75,7 +75,7 @@ describe("the skill folder is self-contained", () => {
       );
       const copy = join(elsewhere, "tools", "verify-cli");
       cpSync(skill, copy, { recursive: true });
-      const ran = await check(at, ["ready", at.example], {
+      const ran = await viaKernelFreeCheck(at, ["ready", at.example], {
         entry: join(copy, "verify.ts"),
       });
       expect({ exit: ran.exit, stderr: ran.stderr }).toEqual({

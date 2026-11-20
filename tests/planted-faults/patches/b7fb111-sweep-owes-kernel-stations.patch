@@ -1,7 +1,16 @@
 diff --git a/skills/verify-cli/helper/target.ts b/skills/verify-cli/helper/target.ts
-index c4fb2bf..a18ef9d 100644
+index c4fb2bf..1dc27ea 100644
 --- a/skills/verify-cli/helper/target.ts
 +++ b/skills/verify-cli/helper/target.ts
+@@ -17,7 +17,7 @@ export type Ran = {
+ export type Drive = (argv: readonly string[]) => Promise<Ran>;
+ 
+ export function targetDrive(
+-  programs: ProgramsCapability,
++  programs: Pick<ProgramsCapability, "supplied">,
+   bun: ParsedPath,
+   entry: string,
+ ): Drive {
 @@ -97,5 +97,5 @@ export function ownCommands(discovery: unknown): Commands {
  }
  

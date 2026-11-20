@@ -1,13 +1,290 @@
 diff --git a/skills/verify-cli/helper/scenario.ts b/skills/verify-cli/helper/scenario.ts
-index cb3d7f9..d9eeaad 100644
+index cb3d7f9..095c8ae 100644
 --- a/skills/verify-cli/helper/scenario.ts
 +++ b/skills/verify-cli/helper/scenario.ts
-@@ -184,7 +184,7 @@ function expectations(
-   const includes = ["stdoutIncludes", "stderrIncludes"].filter(
-     (key) => at(entry, key) !== undefined,
+@@ -1,10 +1,11 @@
+ import { readFileSync, statSync } from "node:fs";
++import type { Stats } from "node:fs";
+ import type { JsonValue } from "agent-cli-kernel";
+-import { at, listOf } from "./json.ts";
++import { at, listOf, parsedJson } from "./json.ts";
+ import { scenarioSchema } from "./place.ts";
+ import { limits } from "./target.ts";
+ 
+-export const scenarioBytesLimit = 1_048_576;
++const scenarioBytesLimit = 1_048_576;
+ const stepCountLimit = 200;
+ const stepTimeoutLimit = 600_000;
+ const stepOutputLimit = 8_388_608;
+@@ -140,13 +141,13 @@ function fileExpectation(value: unknown, where: string): FileExpectation {
+   const entry = record(value, where);
+   onlyFields(entry, fileFields, where);
+   const path = optionalText(at(entry, "path"), `${where}.path`) ?? "";
++  const content = optionalText(at(entry, "content"), `${where}.content`);
++  const absent = at(entry, "absent");
+   if (!path.startsWith("{scratch}/") || path.split("/").includes(".."))
+     fail(
+       "path-outside-scratch",
+       `${where}.path ${JSON.stringify(path)} must start {scratch}/ and hold no .. segment`,
+     );
+-  const content = optionalText(at(entry, "content"), `${where}.content`);
+-  const absent = at(entry, "absent");
+   if (content !== undefined && absent === undefined) return { path, content };
+   if (absent === true && content === undefined) return { path, absent: true };
+   return fail("bad-value", `${where} must hold content, or "absent": true`);
+@@ -163,6 +164,66 @@ const expectFields = [
+   "stderrIncludes",
+ ];
+ 
++type Given = {
++  readonly exitCode: unknown;
++  readonly stdout: string | undefined;
++  readonly stderr: string | undefined;
++  readonly result: unknown;
++  readonly files: unknown;
++  readonly timedOut: unknown;
++  readonly stdoutIncludes: unknown;
++  readonly stderrIncludes: unknown;
++};
++
++function givenExpectations(entry: object, where: string): Given {
++  return {
++    exitCode: at(entry, "exitCode"),
++    stdout: optionalText(at(entry, "stdout"), `${where}.stdout`),
++    stderr: optionalText(at(entry, "stderr"), `${where}.stderr`),
++    result: at(entry, "result"),
++    files: at(entry, "files"),
++    timedOut: at(entry, "timedOut"),
++    stdoutIncludes: at(entry, "stdoutIncludes"),
++    stderrIncludes: at(entry, "stderrIncludes"),
++  };
++}
++
++function resultExpectation(value: unknown, where: string) {
++  if (value === undefined) return undefined;
++  return Object.fromEntries(
++    Object.entries(record(value, where)).map(
++      ([key, item]: [string, unknown]) => [key, jsonValue(item)],
++    ),
++  );
++}
++
++function fileExpectations(value: unknown, where: string) {
++  if (value === undefined) return undefined;
++  const items = Array.isArray(value)
++    ? listOf(value)
++    : fail("bad-value", `${where} must be a list`);
++  return items.map((item, index) =>
++    fileExpectation(item, `${where}.${String(index)}`),
++  );
++}
++
++function includesExpectation(value: unknown, where: string) {
++  return value === undefined ? undefined : strings(value, where);
++}
++
++function presentIf<const Key extends string, Value>(
++  key: Key,
++  value: Value | undefined,
++): Partial<Record<Key, Value>> {
++  const field: Partial<Record<Key, Value>> = {};
++  if (value !== undefined) field[key] = value;
++  return field;
++}
++
++function nonEmpty(value: object | undefined): boolean {
++  return value !== undefined && Object.keys(value).length > 0;
++}
++
+ function expectations(
+   value: unknown,
+   runner: "target" | "bun",
+@@ -170,68 +231,53 @@ function expectations(
+ ): Expectations {
+   const entry = record(value, where);
+   onlyFields(entry, expectFields, where);
+-  const exitCode = at(entry, "exitCode");
++  const given = givenExpectations(entry, where);
+   if (
+-    exitCode === undefined ||
+-    Object.keys(entry).every((key) => key === "exitCode" || key === "timedOut")
++    runner === "nobody" &&
++    (given.stdoutIncludes !== undefined || given.stderrIncludes !== undefined)
+   )
+     fail(
+-      "exit-code-only",
+-      `${where} must hold exitCode and something more than exitCode and timedOut`,
++      "includes-on-target-step",
++      `${where} has stdoutIncludes or stderrIncludes on a target step, which must be exact`,
+     );
+-  if (typeof exitCode !== "number" || !Number.isSafeInteger(exitCode))
+-    fail("bad-value", `${where}.exitCode must be a whole number`);
+-  const includes = ["stdoutIncludes", "stderrIncludes"].filter(
+-    (key) => at(entry, key) !== undefined,
++  if (given.timedOut !== undefined && typeof given.timedOut !== "boolean")
++    fail("bad-value", `${where}.timedOut must be true or false`);
++  const result = resultExpectation(given.result, `${where}.result`);
++  const files = fileExpectations(given.files, `${where}.files`);
++  const stdoutIncludes = includesExpectation(
++    given.stdoutIncludes,
++    `${where}.stdoutIncludes`,
++  );
++  const stderrIncludes = includesExpectation(
++    given.stderrIncludes,
++    `${where}.stderrIncludes`,
    );
 -  if (runner === "target" && includes.length > 0)
-+  if (runner === "target" && includes.length > 0 && false)
++  const observes =
++    given.stdout !== undefined ||
++    given.stderr !== undefined ||
++    [result, files, stdoutIncludes, stderrIncludes].some(nonEmpty);
++  if (given.exitCode === undefined || !observes)
      fail(
-       "includes-on-target-step",
-       `${where} has ${includes.join(" and ")} on a target step, which must be exact`,
+-      "includes-on-target-step",
+-      `${where} has ${includes.join(" and ")} on a target step, which must be exact`,
++      "exit-code-only",
++      `${where} must hold exitCode and at least one expectation on stdout, stderr, the result or a file`,
+     );
+-  const timedOut = at(entry, "timedOut");
+-  if (timedOut !== undefined && typeof timedOut !== "boolean")
+-    fail("bad-value", `${where}.timedOut must be true or false`);
+-  const result = at(entry, "result");
+-  const files = at(entry, "files");
+-  const stdoutIncludes = at(entry, "stdoutIncludes");
+-  const stderrIncludes = at(entry, "stderrIncludes");
++  if (
++    typeof given.exitCode !== "number" ||
++    !Number.isSafeInteger(given.exitCode)
++  )
++    fail("bad-value", `${where}.exitCode must be a whole number`);
+   return {
+-    exitCode,
+-    ...(typeof timedOut === "boolean" ? { timedOut } : {}),
+-    ...optionalField(
+-      "stdout",
+-      optionalText(at(entry, "stdout"), `${where}.stdout`),
++    exitCode: given.exitCode,
++    ...presentIf(
++      "timedOut",
++      typeof given.timedOut === "boolean" ? given.timedOut : undefined,
+     ),
+-    ...optionalField(
+-      "stderr",
+-      optionalText(at(entry, "stderr"), `${where}.stderr`),
+-    ),
+-    ...(result === undefined
+-      ? {}
+-      : {
+-          result: Object.fromEntries(
+-            Object.entries(record(result, `${where}.result`)).map(
+-              ([key, item]: [string, unknown]) => [key, jsonValue(item)],
+-            ),
+-          ),
+-        }),
+-    ...(files === undefined
+-      ? {}
+-      : {
+-          files: (Array.isArray(files)
+-            ? listOf(files)
+-            : fail("bad-value", `${where}.files must be a list`)
+-          ).map((item, index) =>
+-            fileExpectation(item, `${where}.files.${String(index)}`),
+-          ),
+-        }),
+-    ...(stdoutIncludes === undefined
+-      ? {}
+-      : { stdoutIncludes: strings(stdoutIncludes, `${where}.stdoutIncludes`) }),
+-    ...(stderrIncludes === undefined
+-      ? {}
+-      : { stderrIncludes: strings(stderrIncludes, `${where}.stderrIncludes`) }),
++    ...presentIf("stdout", given.stdout),
++    ...presentIf("stderr", given.stderr),
++    ...presentIf("result", result),
++    ...presentIf("files", files),
++    ...presentIf("stdoutIncludes", stdoutIncludes),
++    ...presentIf("stderrIncludes", stderrIncludes),
+   };
+ }
+ 
+@@ -310,26 +356,35 @@ export function scenarioOf(value: unknown): Scenario {
+   return { feature, steps };
+ }
+ 
++function readFailure(error: unknown): string {
++  return at(error, "code") === "ENOENT"
++    ? "is missing"
++    : `cannot be read: ${error instanceof Error ? error.message : String(error)}`;
++}
++
+ export function readScenario(path: string): ScenarioRead {
+   try {
+-    let size: number;
++    let stats: Stats;
+     try {
+-      size = statSync(path).size;
+-    } catch {
+-      return fail("unreadable", `${path} is missing or cannot be read`);
++      stats = statSync(path);
++    } catch (error) {
++      return fail("unreadable", `${path} ${readFailure(error)}`);
+     }
+-    if (size > scenarioBytesLimit)
++    if (!stats.isFile()) fail("unreadable", `${path} is not a regular file`);
++    if (stats.size > scenarioBytesLimit)
+       fail(
+         "unreadable",
+-        `${path} is ${String(size)} bytes, over ${String(scenarioBytesLimit)}`,
++        `${path} is ${String(stats.size)} bytes, over ${String(scenarioBytesLimit)}`,
+       );
+-    let parsed: unknown;
++    let text: string;
+     try {
+-      parsed = JSON.parse(readFileSync(path, "utf8"));
+-    } catch {
+-      return fail("unreadable", `${path} is not JSON`);
++      text = readFileSync(path, "utf8");
++    } catch (error) {
++      return fail("unreadable", `${path} ${readFailure(error)}`);
+     }
+-    return { kind: "read", scenario: scenarioOf(parsed) };
++    const parsed = parsedJson(text);
++    if (parsed === undefined) fail("unreadable", `${path} is not JSON`);
++    return { kind: "read", scenario: deepFrozen(scenarioOf(parsed)) };
+   } catch (error) {
+     if (error instanceof Broken)
+       return { kind: "broken", rule: error.rule, detail: error.message };
+@@ -337,6 +392,14 @@ export function readScenario(path: string): ScenarioRead {
+   }
+ }
+ 
++function deepFrozen<Value>(value: Value): Value {
++  if (typeof value === "object" && value !== null) {
++    for (const item of Object.values(value)) deepFrozen(item);
++    Object.freeze(value);
++  }
++  return value;
++}
++
+ export type Places = {
+   readonly scratch: string;
+   readonly repository: string;
+@@ -390,10 +453,15 @@ export function placedStep(step: ScenarioStep, places: Places): ScenarioStep {
+       ...(expect.files === undefined
+         ? {}
+         : {
+-            files: expect.files.map((file) => ({
+-              ...file,
+-              path: placed(file.path, places),
+-            })),
++            files: expect.files.map((file) =>
++              file.content === undefined
++                ? { ...file, path: placed(file.path, places) }
++                : {
++                    ...file,
++                    path: placed(file.path, places),
++                    content: placed(file.content, places),
++                  },
++            ),
+           }),
+       ...(expect.stdoutIncludes === undefined
+         ? {}

@@ -1,8 +1,16 @@
 diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
-index 42290a3..f837d29 100644
+index aa5fc9c..9096680 100644
 --- a/skills/verify-cli/verify.ts
 +++ b/skills/verify-cli/verify.ts
-@@ -281,7 +281,6 @@ export function compared(
+@@ -36,6 +36,7 @@ export const defaultLimits: Limits = {
+ 
+ export type Ran = {
+   readonly exitCode: number | null;
++  readonly signal: string | null;
+   readonly stdout: string;
+   readonly stderr: string;
+   readonly timedOut: boolean;
+@@ -281,7 +282,6 @@ export function compared(
        },
      ];
    const fields = [
@@ -10,3 +18,68 @@ index 42290a3..f837d29 100644
      ["stdout byte count", helper.stdoutBytes, raw.stdoutBytes],
      ["stderr hash", helper.stderrSha256, raw.stderrSha256],
    ] as const;
+@@ -344,8 +344,14 @@ export function evidenceFailures(place: RunPlace): Failure[] {
+     let bytes: Uint8Array;
+     try {
+       bytes = readFileSync(path);
+-    } catch {
+-      failures.push({ id: "evidence-mismatch", detail: `${path} is missing.` });
++    } catch (error) {
++      failures.push({
++        id: "evidence-mismatch",
++        detail:
++          at(error, "code") === "ENOENT"
++            ? `${path} is missing.`
++            : `${path} cannot be read: ${error instanceof Error ? firstLine(error.message) : String(error)}`,
++      });
+       continue;
+     }
+     if (sha256(bytes) !== row.sha256)
+@@ -381,7 +387,7 @@ export type Checked =
+   | { readonly kind: "untrusted"; readonly failures: readonly Failure[] }
+   | { readonly kind: "trusted"; readonly helper: Ran };
+ 
+-export async function check(
++export async function kernelFreeCheck(
+   given: readonly string[],
+   cwd: string,
+   spawn: Spawn,
+@@ -475,7 +481,13 @@ export function bunSpawn(
+ ): Spawn {
+   return async (args, cwd, milliseconds) => {
+     if (received !== undefined)
+-      return { exitCode: null, stdout: "", stderr: "", timedOut: false };
++      return {
++        exitCode: null,
++        signal: null,
++        stdout: "",
++        stderr: "",
++        timedOut: false,
++      };
+     const child = Bun.spawn([process.execPath, ...args], {
+       cwd,
+       env: { ...env },
+@@ -503,7 +515,13 @@ export function bunSpawn(
+     term.cancel();
+     kill.cancel();
+     running.delete(child);
+-    return { exitCode: child.exitCode, stdout, stderr, timedOut };
++    return {
++      exitCode: child.exitCode,
++      signal: child.signalCode === null ? null : String(child.signalCode),
++      stdout,
++      stderr,
++      timedOut,
++    };
+   };
+ }
+ 
+@@ -529,7 +547,7 @@ export async function main(
+ ): Promise<{ readonly exit: number; readonly writes: readonly Relayed[] }> {
+   let checked: Checked;
+   try {
+-    checked = await check(argv, cwd, spawn, limits);
++    checked = await kernelFreeCheck(argv, cwd, spawn, limits);
+   } catch (error) {
+     checked = {
+       kind: "untrusted",

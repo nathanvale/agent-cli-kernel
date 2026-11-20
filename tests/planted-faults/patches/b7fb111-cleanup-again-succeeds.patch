@@ -1,8 +1,35 @@
 diff --git a/skills/verify-cli/helper/cleanup.ts b/skills/verify-cli/helper/cleanup.ts
-index 4529aea..1517c03 100644
+index 4529aea..7776190 100644
 --- a/skills/verify-cli/helper/cleanup.ts
 +++ b/skills/verify-cli/helper/cleanup.ts
-@@ -90,7 +90,7 @@ export function cleanupCommand(state: State) {
+@@ -65,7 +65,7 @@ export function cleanupCommand(state: State) {
+     ],
+     run: async (input, context) => {
+       const place = runPlace(input.run);
+-      if (!existsSync(place.index))
++      if (!existsSync(place.index) && !existsSync(place.state))
+         return context.result(
+           { commandIdentity: identity, causeCode: "DOMAIN_VERIFY_RUN_MISSING" },
+           {
+@@ -75,6 +75,7 @@ export function cleanupCommand(state: State) {
+           },
+         );
+       let clean = false;
++      let launched = true;
+       let failure = "";
+       const outcome = await state.transaction(
+         context.state,
+@@ -84,13 +85,17 @@ export function cleanupCommand(state: State) {
+           facts: { run: input.run, scratch: place.scratch },
+         },
+         async (transaction) => {
++          if (!existsSync(place.index)) {
++            launched = false;
++            return;
++          }
+           try {
+             clean = !existsSync(place.scratch);
+           } catch (error) {
              failure = failureText(error);
              throw error;
            }
@@ -11,3 +38,16 @@ index 4529aea..1517c03 100644
            await transaction.record(
              "scratch.remove",
              () => rm(place.scratch, { recursive: true, force: true }),
+@@ -103,6 +108,12 @@ export function cleanupCommand(state: State) {
+       );
+       const blocked =
+         refusalOf(outcome, input.run) ??
++        (launched
++          ? undefined
++          : {
++              causeCode: "DOMAIN_VERIFY_RUN_MISSING" as const,
++              message: `${input.run} holds no run that launch made.`,
++            }) ??
+         (clean
+           ? {
+               causeCode: "DOMAIN_VERIFY_RUN_CLEAN" as const,

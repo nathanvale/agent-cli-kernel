@@ -14,6 +14,7 @@ import {
 import { dirname, join } from "node:path";
 import { spawnBounded } from "../kernel-repair/swarm-process.ts";
 import { exampleFiles } from "../author-guide/example-files.ts";
+import { gitEnv, inherited } from "../../support/git-fixture.ts";
 import { testFolder } from "../../support/test-folder.ts";
 
 export const repository = join(import.meta.dir, "../../..");
@@ -88,7 +89,11 @@ export function world(): World {
     folder,
     repo,
     example: join(repo, "src", "cli.ts"),
-    env: { ...process.env, XDG_STATE_HOME: join(folder, "xdg-state") },
+    env: {
+      ...inherited(),
+      ...gitEnv,
+      XDG_STATE_HOME: join(folder, "xdg-state"),
+    },
   };
 }
 
@@ -173,8 +178,19 @@ export async function helper(
   env: Record<string, string | undefined> = at.env,
 ): Promise<Helped> {
   const ran = await spawnBounded(
+    [process.execPath, checkEntry, ...argv, "--json"],
+    { cwd: at.repo, env, boundMilliseconds: checkBound },
+  );
+  return { ...ran, result: field(parsed(ran.stdout), "result") };
+}
+
+export async function helperAlone(
+  at: World,
+  argv: readonly string[],
+): Promise<Helped> {
+  const ran = await spawnBounded(
     [process.execPath, helperEntry, ...argv, "--json"],
-    { cwd: at.repo, env, boundMilliseconds: helperBound },
+    { cwd: at.repo, env: at.env, boundMilliseconds: helperBound },
   );
   return { ...ran, result: field(parsed(ran.stdout), "result") };
 }
@@ -183,7 +199,7 @@ export function causeOf(helped: Helped): unknown {
   return field(helped.result, "causeCode");
 }
 
-export function check(
+export function viaKernelFreeCheck(
   at: World,
   argv: readonly string[],
   options: {

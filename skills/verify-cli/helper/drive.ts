@@ -20,7 +20,7 @@ import {
   unreadableStation,
 } from "./causes.ts";
 import { at, parsedJson } from "./json.ts";
-import { refusalOf, unfinishedChange } from "./outcome.ts";
+import { failureText, refusalOf, unfinishedChange } from "./outcome.ts";
 import type { State } from "./outcome.ts";
 import { indexText, readIndex, runPlace, sha256, targetArgs } from "./place.ts";
 import type { RunPlace, RunRow, StepRow } from "./place.ts";
@@ -297,34 +297,44 @@ export function driveCommand(state: State, bun: () => ParsedPath) {
           await transaction.record(
             "scenario.drive",
             async (effect) => {
-              await mkdir(join(place.evidence, scenario.feature), {
-                recursive: true,
-              });
-              for (const step of steps) {
-                const ran = await context.programs.domain(effect).start({
-                  executable: bun(),
-                  args: [...stepArgs(step, run)],
-                  timeoutMilliseconds: step.timeoutMilliseconds,
-                  outputLimitBytes: step.outputLimitBytes,
-                  shutdownMilliseconds: limits.shutdownMilliseconds,
+              try {
+                await mkdir(join(place.evidence, scenario.feature), {
+                  recursive: true,
                 });
-                context.diagnostics.record("drive.step", {
-                  feature: scenario.feature,
-                  step: step.name,
-                  exitCode: ran.exitCode,
-                  timedOut: programDetails(ran)?.timedOut ?? false,
-                  terminationConfirmed: ran.terminationConfirmed,
-                });
-                const kept = await keptStep(place, scenario.feature, step, ran);
-                await writeFile(
-                  join(place.evidence, kept.row.file),
-                  kept.content,
-                  {
-                    flag: "wx",
-                  },
-                );
-                await appendFile(place.index, indexText([kept.row]));
-                written.push(kept);
+                for (const step of steps) {
+                  const ran = await context.programs.domain(effect).start({
+                    executable: bun(),
+                    args: [...stepArgs(step, run)],
+                    timeoutMilliseconds: step.timeoutMilliseconds,
+                    outputLimitBytes: step.outputLimitBytes,
+                    shutdownMilliseconds: limits.shutdownMilliseconds,
+                  });
+                  context.diagnostics.record("drive.step", {
+                    feature: scenario.feature,
+                    step: step.name,
+                    exitCode: ran.exitCode,
+                    timedOut: programDetails(ran)?.timedOut ?? false,
+                    terminationConfirmed: ran.terminationConfirmed,
+                  });
+                  const kept = await keptStep(
+                    place,
+                    scenario.feature,
+                    step,
+                    ran,
+                  );
+                  await writeFile(
+                    join(place.evidence, kept.row.file),
+                    kept.content,
+                    {
+                      flag: "wx",
+                    },
+                  );
+                  await appendFile(place.index, indexText([kept.row]));
+                  written.push(kept);
+                }
+              } catch (error) {
+                failure = failureText(error);
+                throw error;
               }
             },
             () => confirmed(place, written),
@@ -350,7 +360,7 @@ export function driveCommand(state: State, bun: () => ParsedPath) {
         const ending = unfinishedChange(
           outcome.proof.transactionState,
           `Drive failed before it ran a step: ${failure}`,
-          `The drive of ${scenario.feature} is unconfirmed after ${String(written.length)} of ${String(steps.length)} steps; read the run's index.`,
+          `The drive of ${scenario.feature} is unconfirmed after ${String(written.length)} of ${String(steps.length)} steps: ${failure}. Read the run's index.`,
         );
         return context.result(
           { commandIdentity: identity, causeCode: ending.causeCode },

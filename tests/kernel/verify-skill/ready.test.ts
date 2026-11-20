@@ -1,4 +1,5 @@
 import { afterAll, describe, expect, test } from "bun:test";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   quotedLine,
@@ -7,11 +8,12 @@ import {
 } from "../../../skills/verify-cli/helper/ready.ts";
 import {
   causeOf,
-  check,
+  viaKernelFreeCheck,
   envelopeIn,
   field,
   fixture,
   helper,
+  helperAlone,
   releaseWorlds,
   watchdog,
   world,
@@ -25,7 +27,7 @@ describe("ready", () => {
     "ready passes the author guide's example",
     async () => {
       const at = world();
-      const plain = await check(at, ["ready", at.example]);
+      const plain = await viaKernelFreeCheck(at, ["ready", at.example]);
       expect(plain).toMatchObject({
         exit: 0,
         stderr: "",
@@ -33,7 +35,11 @@ describe("ready", () => {
       expect(plain.stdout.split("\n")[0]).toBe(
         "The target is ready: 8 readiness checks passed.",
       );
-      const json = await check(at, ["ready", at.example, "--json"]);
+      const json = await viaKernelFreeCheck(at, [
+        "ready",
+        at.example,
+        "--json",
+      ]);
       expect(field(envelopeIn(json), "result", "data")).toEqual({
         contractVersion: "3.0.0",
         commands: [
@@ -49,7 +55,7 @@ describe("ready", () => {
     "ready refuses a target that selects approval without state and quotes the kernel's sentence",
     async () => {
       const at = world();
-      const ran = await check(at, [
+      const ran = await viaKernelFreeCheck(at, [
         "ready",
         fixture(at, "approval-cli.ts"),
         "--json",
@@ -122,7 +128,7 @@ describe("ready", () => {
     "each step starts in the repository root",
     async () => {
       const at = world();
-      const ran = await check(
+      const ran = await viaKernelFreeCheck(
         at,
         ["ready", join("..", "fixtures", "relative-cli.ts")],
         { cwd: join(at.repo, "src") },
@@ -139,7 +145,7 @@ describe("ready", () => {
     "the helper's own input takes an absolute target path only",
     async () => {
       const at = world();
-      const ran = await helper(at, ["ready", "src/cli.ts"]);
+      const ran = await helperAlone(at, ["ready", "src/cli.ts"]);
       expect({ exit: ran.exit, cause: causeOf(ran) }).toEqual({
         exit: 2,
         cause: "USAGE_INVALID_INVOCATION",
@@ -182,7 +188,14 @@ describe("how ready judges its two probes", () => {
   };
 
   test("a sound target passes all eight checks", () => {
-    expect(readiness(usage, discovery, "1.4.4", "1.4.4")).toMatchObject({
+    expect(
+      readiness(
+        usage,
+        discovery,
+        { kind: "pinned", version: "1.4.4" },
+        "1.4.4",
+      ),
+    ).toMatchObject({
       kind: "judged",
       failed: [],
       contractVersion: "3.0.0",
@@ -194,7 +207,7 @@ describe("how ready judges its two probes", () => {
       readiness(
         { exitCode: 1, stdout: "", stderr: "trace\nerror: boom\nmore\n" },
         { exitCode: 1, stdout: "", stderr: "" },
-        null,
+        { kind: "none" },
         "1.4.4",
       ),
     ).toEqual({
@@ -206,7 +219,12 @@ describe("how ready judges its two probes", () => {
 
   test("a target that answered only one probe started, and its failed checks are findings", () => {
     expect(
-      readiness(usage, { exitCode: 1, stdout: "", stderr: "" }, null, "1.4.4"),
+      readiness(
+        usage,
+        { exitCode: 1, stdout: "", stderr: "" },
+        { kind: "none" },
+        "1.4.4",
+      ),
     ).toMatchObject({
       kind: "judged",
       failed: [
@@ -230,11 +248,20 @@ describe("how ready judges its two probes", () => {
     expect(quotedLine("")).toBe("");
   });
 
-  test("the toolchain pin is read from packageManager, and no field pins nothing", () => {
+  test("the toolchain pin is read from packageManager, no field pins nothing, and an unreadable package.json fails the check", () => {
     const at = world();
-    expect(toolchainBun(at.repo)).toBe(Bun.version);
+    expect(toolchainBun(at.repo)).toEqual({
+      kind: "pinned",
+      version: Bun.version,
+    });
     writePackage(at.repo, { packageManager: undefined });
-    expect(toolchainBun(at.repo)).toBeNull();
-    expect(toolchainBun(undefined)).toBeNull();
+    expect(toolchainBun(at.repo)).toEqual({ kind: "none" });
+    expect(toolchainBun(undefined)).toEqual({ kind: "none" });
+    writeFileSync(join(at.repo, "package.json"), "{ not json");
+    const unreadable = toolchainBun(at.repo);
+    expect(unreadable.kind).toBe("unreadable");
+    expect(readiness(usage, discovery, unreadable, Bun.version)).toMatchObject({
+      failed: ["bun-matches-toolchain-pin"],
+    });
   });
 });

@@ -17,17 +17,19 @@ import { spawnBounded } from "../kernel-repair/swarm-process.ts";
 import { alive } from "../lifecycle/harness.ts";
 import {
   causeOf,
-  check,
+  viaKernelFreeCheck,
   checkBound,
   checkEntry,
   field,
   fixture,
   helper,
+  helperAlone,
   helperBound,
   ledgeredPid,
   ledgerHolds,
   lsTree,
   makeFifo,
+  rawFailIds,
   readOnlyScenario,
   releaseFifo,
   releaseWorlds,
@@ -63,7 +65,7 @@ describe("report and cleanup", () => {
       const at = world();
       const run = await launched(at);
       await helper(at, ["drive", run, scenarioFile(at, readOnlyScenario)]);
-      const ran = await check(at, ["report", run, "--json"]);
+      const ran = await viaKernelFreeCheck(at, ["report", run, "--json"]);
       expect({ exit: ran.exit, stderr: ran.stderr }).toEqual({
         exit: 0,
         stderr: "",
@@ -102,10 +104,15 @@ describe("report and cleanup", () => {
       const at = world();
       const run = await launched(at);
       expect(
-        (await check(at, ["drive", run, scenarioFile(at, readOnlyScenario)]))
-          .exit,
+        (
+          await viaKernelFreeCheck(at, [
+            "drive",
+            run,
+            scenarioFile(at, readOnlyScenario),
+          ])
+        ).exit,
       ).toBe(0);
-      const cleaned = await check(at, ["cleanup", run]);
+      const cleaned = await viaKernelFreeCheck(at, ["cleanup", run]);
       expect({ exit: cleaned.exit, stderr: cleaned.stderr }).toEqual({
         exit: 0,
         stderr: "",
@@ -118,8 +125,17 @@ describe("report and cleanup", () => {
         "evidence/read-only-command/show-unknown-planet.json",
         "state",
       ]);
-      expect((await check(at, ["report", run])).exit).toBe(0);
-      const again = await check(at, ["cleanup", run, "--json"]);
+      expect((await viaKernelFreeCheck(at, ["report", run])).exit).toBe(0);
+      const drivenAgain = await helper(at, [
+        "drive",
+        run,
+        scenarioFile(at, { ...readOnlyScenario, feature: "after-cleanup" }),
+      ]);
+      expect({ exit: drivenAgain.exit, cause: causeOf(drivenAgain) }).toEqual({
+        exit: 3,
+        cause: "DOMAIN_VERIFY_RUN_CLEAN",
+      });
+      const again = await viaKernelFreeCheck(at, ["cleanup", run, "--json"]);
       expect({
         exit: again.exit,
         cause: field(JSON.parse(again.stdout), "result", "causeCode"),
@@ -182,7 +198,7 @@ describe("what the report reads", () => {
     ]);
   });
 
-  test("report lists a process end that was not confirmed", () => {
+  test("the report reads each step's unmet list and process end, and names a missing evidence file", () => {
     const at = world();
     const place = runPlace(runFolder(at, "r1"));
     mkdirSync(join(place.evidence, "f"), { recursive: true });
@@ -234,17 +250,27 @@ describe("the helper's own state, one folder for each run", () => {
         run,
         scenarioFile(at, oneStep("hold", "hold", ["hold", ledger, gate])),
       ]);
+      let cleanup: Awaited<ReturnType<typeof helper>> | undefined;
+      let finished: Awaited<ReturnType<typeof helper>> | undefined;
       try {
         await ledgerHolds(ledger, "holding", helperBound);
-        const cleanup = await helper(at, ["cleanup", run]);
-        expect({ exit: cleanup.exit, cause: causeOf(cleanup) }).toEqual({
-          exit: 3,
-          cause: "DOMAIN_VERIFY_RUN_HELD",
-        });
+        cleanup = await helper(at, ["cleanup", run]);
       } finally {
-        await releaseFifo(gate);
+        try {
+          await releaseFifo(gate);
+        } finally {
+          finished = await held;
+        }
       }
-      expect(causeOf(await held)).toBe("SUCCESS_COMPLETED");
+      expect({
+        exit: cleanup.exit,
+        cause: causeOf(cleanup),
+        finished: causeOf(finished),
+      }).toEqual({
+        exit: 3,
+        cause: "DOMAIN_VERIFY_RUN_HELD",
+        finished: "SUCCESS_COMPLETED",
+      });
     },
     watchdog(4),
   );
@@ -254,7 +280,7 @@ describe("the helper's own state, one folder for each run", () => {
     async () => {
       const at = world();
       const run = await launched(at, fixture(at, "target-cli.ts"));
-      const killed = await helper(at, [
+      const killed = await helperAlone(at, [
         "drive",
         run,
         scenarioFile(at, oneStep("orphan", "orphan", ["orphan", "now"])),
@@ -267,6 +293,47 @@ describe("the helper's own state, one folder for each run", () => {
           effects: ["scenario.drive"],
         }),
       ]);
+      const cleanup = await helper(at, ["cleanup", run]);
+      expect({ exit: cleanup.exit, cause: causeOf(cleanup) }).toEqual({
+        exit: 3,
+        cause: "DOMAIN_VERIFY_RUN_UNRESOLVED",
+      });
+    },
+    watchdog(4),
+  );
+
+  test(
+    "a run whose index is gone but whose state holds an unfinished change is listed by pending and refused by cleanup as unresolved",
+    async () => {
+      const at = world();
+      const run = await launched(at, fixture(at, "target-cli.ts"));
+      const killed = await helperAlone(at, [
+        "drive",
+        run,
+        scenarioFile(at, oneStep("orphan", "orphan", ["orphan", "now"])),
+      ]);
+      expect(killed.signal).toBe("SIGKILL");
+      rmSync(join(run, "evidence", "index.jsonl"));
+      const pending = await helper(at, ["pending", run]);
+      expect({
+        cause: causeOf(pending),
+        unfinished: field(pending.result, "data", "unfinished"),
+      }).toEqual({
+        cause: "SUCCESS_UNCHANGED",
+        unfinished: [
+          expect.objectContaining({ commandIdentity: "verify-cli.drive" }),
+        ],
+      });
+      const unfinished = field(pending.result, "data", "unfinished");
+      expect(
+        Array.isArray(unfinished)
+          ? unfinished.map((entry: unknown) =>
+              typeof entry === "object" && entry !== null
+                ? Object.keys(entry).sort()
+                : [],
+            )
+          : [],
+      ).toEqual([["commandIdentity", "effects", "operationId", "runId"]]);
       const cleanup = await helper(at, ["cleanup", run]);
       expect({ exit: cleanup.exit, cause: causeOf(cleanup) }).toEqual({
         exit: 3,
@@ -302,16 +369,21 @@ describe("the helper's own state, one folder for each run", () => {
   );
 
   test(
-    "a run whose index cannot be read is refused by drive and report as DOMAIN_VERIFY_EVIDENCE_UNREADABLE",
+    "a run whose index cannot be read is untrusted by the check, and refused by the helper's drive and report as DOMAIN_VERIFY_EVIDENCE_UNREADABLE",
     async () => {
       const at = world();
       const run = await launched(at);
       writeFileSync(join(run, "evidence", "index.jsonl"), "not an index\n");
+      const checked = await helper(at, ["report", run]);
+      expect({ exit: checked.exit, ids: rawFailIds(checked.stderr) }).toEqual({
+        exit: 70,
+        ids: ["evidence-mismatch"],
+      });
       for (const argv of [
         ["drive", run, scenarioFile(at, readOnlyScenario)],
         ["report", run],
       ]) {
-        const ran = await helper(at, argv);
+        const ran = await helperAlone(at, argv);
         expect({ exit: ran.exit, cause: causeOf(ran) }).toEqual({
           exit: 3,
           cause: "DOMAIN_VERIFY_EVIDENCE_UNREADABLE",
@@ -396,6 +468,51 @@ describe("the helper's own state, one folder for each run", () => {
         exit: 143,
         stderr:
           "verify-cli: stopped by SIGTERM; the helper stopped its children first.\n",
+      });
+      expect(performance.now() - started).toBeLessThan(30_000);
+      expect(alive(ledgeredPid(ledger))).toBe(false);
+      expect(
+        readFileSync(join(run, "evidence", "index.jsonl"), "utf8"),
+      ).toContain('"row":"run"');
+    },
+    watchdog(1, 2),
+  );
+
+  test(
+    "the check stopped by SIGINT in the middle of a drive stops the helper and the target, and exits 130",
+    async () => {
+      const at = world();
+      const run = await launched(at, fixture(at, "target-cli.ts"));
+      const ledger = join(at.folder, "ledger");
+      const gate = join(at.folder, "gate");
+      await makeFifo(gate);
+      const held = oneStep("hold", "hold", ["hold", ledger, gate]);
+      const scenario = scenarioFile(at, {
+        ...held,
+        steps: held.steps.map((step) => ({
+          ...step,
+          timeoutMilliseconds: 60_000,
+        })),
+      });
+      const started = performance.now();
+      let stopped: { readonly exit: number; readonly stderr: string };
+      try {
+        stopped = await spawnBounded(
+          [process.execPath, checkEntry, "drive", run, scenario],
+          {
+            cwd: at.repo,
+            env: at.env,
+            boundMilliseconds: checkBound,
+            signalAt: { ledger, line: "holding", signal: "SIGINT" },
+          },
+        );
+      } finally {
+        if (alive(ledgeredPid(ledger))) await releaseFifo(gate);
+      }
+      expect({ exit: stopped.exit, stderr: stopped.stderr }).toEqual({
+        exit: 130,
+        stderr:
+          "verify-cli: stopped by SIGINT; the helper stopped its children first.\n",
       });
       expect(performance.now() - started).toBeLessThan(30_000);
       expect(alive(ledgeredPid(ledger))).toBe(false);

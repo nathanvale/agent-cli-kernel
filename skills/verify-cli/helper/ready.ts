@@ -36,14 +36,21 @@ export function quotedLine(stderr: string): string {
   return line.slice(0, quoteLimit);
 }
 
-export function toolchainBun(root: string | undefined): string | null {
-  if (root === undefined) return null;
+export type ToolchainPin =
+  | { readonly kind: "none" }
+  | { readonly kind: "pinned"; readonly version: string }
+  | { readonly kind: "unreadable"; readonly reason: string };
+
+export function toolchainBun(root: string | undefined): ToolchainPin {
+  if (root === undefined) return { kind: "none" };
   const read = readJsonFile(join(root, "package.json"));
+  if (read.kind === "unreadable")
+    return { kind: "unreadable", reason: read.reason };
   const manager =
     read.kind === "read" ? at(read.value, "packageManager") : null;
   return typeof manager === "string" && manager.startsWith("bun@")
-    ? manager.slice("bun@".length)
-    : null;
+    ? { kind: "pinned", version: manager.slice("bun@".length) }
+    : { kind: "none" };
 }
 
 export type Readiness =
@@ -58,7 +65,7 @@ export type Readiness =
 export function readiness(
   usage: Ran,
   discovery: Ran,
-  pinnedBun: string | null,
+  pinnedBun: ToolchainPin,
   runningBun: string,
 ): Readiness {
   const envelope = envelopeOf(discovery.stdout);
@@ -72,7 +79,8 @@ export function readiness(
   const checks: readonly [string, boolean][] = [
     [
       "bun-matches-toolchain-pin",
-      pinnedBun === null || pinnedBun === runningBun,
+      pinnedBun.kind === "none" ||
+        (pinnedBun.kind === "pinned" && pinnedBun.version === runningBun),
     ],
     ["usage-probe-exit", usage.exitCode === 2],
     ["usage-probe-stdout-empty", usage.stdout === ""],

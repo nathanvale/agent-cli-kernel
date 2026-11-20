@@ -5,12 +5,12 @@ import {
   absoluteArgv,
   bound,
   bunSpawn,
-  check as checkIn,
   compared,
   defaultLimits,
   envelopeFailures,
   evidenceFailures,
   failureLine,
+  kernelFreeCheck,
   helperProbe,
   kernelImport,
   main,
@@ -24,7 +24,7 @@ import { runPlace } from "../../../skills/verify-cli/helper/place.ts";
 import { spawnBounded } from "../kernel-repair/swarm-process.ts";
 import {
   causeOf,
-  check,
+  viaKernelFreeCheck,
   field,
   fixtures,
   helper,
@@ -93,7 +93,7 @@ async function untrusted(
   entry: string,
   argv: readonly string[],
 ): Promise<readonly string[]> {
-  const ran = await check(at, argv, { entry });
+  const ran = await viaKernelFreeCheck(at, argv, { entry });
   expect({ exit: ran.exit, stdout: ran.stdout }).toEqual({
     exit: 70,
     stdout: "",
@@ -107,7 +107,9 @@ describe("kernel faults the check reports", () => {
     async () => {
       const at = world();
       const entry = installedCopy(at);
-      const ran = await check(at, ["ready", at.example], { entry });
+      const ran = await viaKernelFreeCheck(at, ["ready", at.example], {
+        entry,
+      });
       expect({ exit: ran.exit, stderr: ran.stderr }).toEqual({
         exit: 0,
         stderr: "",
@@ -212,7 +214,11 @@ describe("kernel faults the check reports", () => {
     "a refusal on stdout is a finding, not an untrusted run",
     async () => {
       const { at, entry } = faulted(kernelFaults.refusalOnStdout);
-      const ran = await check(at, ["ready", at.example, "--json"], { entry });
+      const ran = await viaKernelFreeCheck(
+        at,
+        ["ready", at.example, "--json"],
+        { entry },
+      );
       expect({
         exit: ran.exit,
         cause: field(JSON.parse(ran.stdout), "result", "causeCode"),
@@ -228,14 +234,22 @@ describe("kernel faults the check reports", () => {
     "findings shows what sweep refused",
     async () => {
       const { at, entry } = faulted(kernelFaults.refusalOnStdout);
-      const swept = await check(at, ["sweep", at.example, "--json"], { entry });
+      const swept = await viaKernelFreeCheck(
+        at,
+        ["sweep", at.example, "--json"],
+        { entry },
+      );
       expect({
         exit: swept.exit,
         data: field(JSON.parse(swept.stdout), "result", "data"),
       }).toEqual({ exit: 3, data: null });
-      const found = await check(at, ["findings", at.example, "--json"], {
-        entry,
-      });
+      const found = await viaKernelFreeCheck(
+        at,
+        ["findings", at.example, "--json"],
+        {
+          entry,
+        },
+      );
       const findings = field(
         JSON.parse(found.stdout),
         "result",
@@ -275,12 +289,12 @@ describe("evidence the check confirms", () => {
   }
 
   test(
-    "a missing receipt cannot be trusted",
+    "a missing evidence file cannot be trusted",
     async () => {
       const at = world();
       const { run, file } = await driven(at);
       rmSync(file);
-      const ran = await check(at, ["report", run]);
+      const ran = await viaKernelFreeCheck(at, ["report", run]);
       expect({
         exit: ran.exit,
         stdout: ran.stdout,
@@ -295,14 +309,14 @@ describe("evidence the check confirms", () => {
   );
 
   test(
-    "a changed receipt cannot be trusted",
+    "a changed evidence file cannot be trusted",
     async () => {
       const at = world();
       const { run, file } = await driven(at);
       const bytes = readFileSync(file);
       bytes[0] = bytes[0] === 0x7b ? 0x5b : 0x7b;
       writeFileSync(file, bytes);
-      const ran = await check(at, ["report", run, "--json"]);
+      const ran = await viaKernelFreeCheck(at, ["report", run, "--json"]);
       expect({
         exit: ran.exit,
         stdout: ran.stdout,
@@ -334,6 +348,7 @@ function fake(answers: (args: readonly string[]) => Partial<Ran>): {
       calls.push(args);
       return Promise.resolve({
         exitCode: 0,
+        signal: null,
         stdout: "",
         stderr: "",
         timedOut: false,
@@ -355,7 +370,10 @@ describe("the check's own steps, in process", () => {
     ]) {
       const ran = await main(argv, "/", spawn);
       expect(ran.exit).toBe(70);
-      expect(ran.writes.every((write) => write.stream === "stderr")).toBe(true);
+      expect(ran.writes.map((write) => write.stream)).toEqual([
+        "stderr",
+        "stderr",
+      ]);
       for (const write of ran.writes)
         expect(write.text).toMatch(
           /^verify-cli: RAW FAIL [a-z-]+: .+ Repair: .+\n$/,
@@ -406,16 +424,29 @@ describe("the check's own steps, in process", () => {
   test(
     "a child that ignores SIGTERM is killed when the grace runs out",
     async () => {
+      const at = world();
+      const ledger = join(at.folder, "stubborn-ledger");
       const limits = { ...defaultLimits, graceMilliseconds: 300 };
       const started = performance.now();
-      const ran = await bunSpawn(process.env, limits)(
-        [join(fixtures, "stubborn-cli.ts")],
+      const ran = await bunSpawn(at.env, limits)(
+        [join(fixtures, "stubborn-cli.ts"), ledger],
         fixtures,
-        200,
+        1_000,
       );
-      expect(ran.timedOut).toBe(true);
-      expect(ran.exitCode).toBeNull();
-      expect(performance.now() - started).toBeLessThan(5_000);
+      const elapsed = performance.now() - started;
+      expect({
+        timedOut: ran.timedOut,
+        exitCode: ran.exitCode,
+        signal: ran.signal,
+        ledger: readFileSync(ledger, "utf8"),
+      }).toEqual({
+        timedOut: true,
+        exitCode: null,
+        signal: "SIGKILL",
+        ledger: "listening\nsigterm\n",
+      });
+      expect(elapsed).toBeGreaterThanOrEqual(1_300);
+      expect(elapsed).toBeLessThan(2_500);
     },
     watchdog(1),
   );
@@ -514,9 +545,10 @@ describe("the check's own steps, in process", () => {
     ]);
   });
 
-  test("an envelope is one line, and a run that times out is a child-timeout", () => {
+  test("an envelope is one line whose exit code is the process's", () => {
     const ok = {
       exitCode: 0,
+      signal: null,
       stdout: envelope(0),
       stderr: "",
       timedOut: false,
@@ -527,6 +559,15 @@ describe("the check's own steps, in process", () => {
         (failure) => failure.id,
       ),
     ).toEqual(["helper-exit-mismatch"]);
+    expect(
+      envelopeFailures({ ...ok, stdout: `${envelope(0)}${envelope(0)}` }, "x")
+        .failures,
+    ).toEqual([
+      {
+        id: "helper-no-envelope",
+        detail: "x exited 0 without exactly one envelope on stdout. stderr: ",
+      },
+    ]);
   });
 
   test("each path argument of a known command is made absolute, and other words are kept", () => {
@@ -546,6 +587,7 @@ describe("the check's own steps, in process", () => {
   test("the helper's result is relayed as its envelope, its message and data, or its message on stderr", () => {
     const ran = (exitCode: number, data: unknown) => ({
       exitCode,
+      signal: null,
       stdout: `${JSON.stringify({ message: "Said.", result: { exitCode, data } })}\n`,
       stderr: "",
       timedOut: false,
@@ -569,7 +611,13 @@ describe("the check's own steps, in process", () => {
   });
 
   test("a run that passed its limit is a child-timeout, and one that ended is not", () => {
-    const ran = { exitCode: null, stdout: "", stderr: "", timedOut: true };
+    const ran = {
+      exitCode: null,
+      signal: null,
+      stdout: "",
+      stderr: "",
+      timedOut: true,
+    };
     expect(timeoutFailure(ran, "a probe", 5)).toEqual([
       {
         id: "child-timeout",
@@ -626,7 +674,7 @@ describe("the check's own steps, in process", () => {
         ? { exitCode: 2, stdout: envelope(2) }
         : { exitCode: 0, stdout: envelope(0) },
     );
-    const checked = await checkIn(["--help", "--json"], "/w", spawn);
+    const checked = await kernelFreeCheck(["--help", "--json"], "/w", spawn);
     expect(checked.kind).toBe("trusted");
     expect(calls.at(-1)?.slice(-2)).toEqual(["--help", "--json"]);
     expect(calls).toHaveLength(3);

@@ -32,14 +32,21 @@ describe("the lint on the skill folder", () => {
     ).toContain("repository/no-domain-output");
   }, 60_000);
 
-  test("the kernel-free check may start its children and write its streams", async () => {
+  test("the kernel-free check may start its children and write its streams, and nothing more", async () => {
     expect(await ruleIds(checkEntry, "")).toEqual([]);
+    expect(
+      await ruleIds(
+        checkEntry,
+        "const made = { stateAddon: 1 }.stateAddon;\nvoid made;",
+      ),
+    ).toContain("no-restricted-properties");
   }, 60_000);
 
   for (const [shape, line] of [
     ["a static import", 'import "agent-cli-kernel";'],
     ["a dynamic import", 'void import("agent-cli-kernel/addons/programs");'],
     ["a re-export", 'export { command } from "agent-cli-kernel";'],
+    ["an export of everything", 'export * from "agent-cli-kernel";'],
   ] as const)
     test(`the kernel-free check may not import the kernel: ${shape}`, async () => {
       expect(await ruleIds(checkEntry, line)).toContain(

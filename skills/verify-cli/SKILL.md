@@ -111,12 +111,13 @@ A scenario file:
 - A step runs Bun on the bound target with its `argv`, in the repository
   root. `"runner": "bun"` passes `argv` to Bun alone, such as
   `["run", "check"]`.
-- `expect` needs `exitCode` and something more: exact `stdout` and
+- `expect` needs `exitCode` and at least one of: exact `stdout` or
   `stderr`; `result`, whose keys are fields of the envelope's result or
   dotted paths into it, ending in `length` for a list's size; `files`, each
-  a `{scratch}/` path with exact `content` or `"absent": true`; `timedOut`;
-  and, on a `"runner": "bun"` step only, `stdoutIncludes` and
-  `stderrIncludes`, for output with timings.
+  a `{scratch}/` path with exact `content` or `"absent": true`; and, on a
+  `"runner": "bun"` step only, `stdoutIncludes` and `stderrIncludes`, for
+  output with timings. An empty `result`, `files` or includes list does not
+  count. `timedOut` may be added to any of them.
 - `{scratch}` becomes the run's scratch folder and `{repository}` the
   repository root, in every string of `argv` and `expect`.
 - A step that passes its time limit is unmet unless it expects

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { at, parsedJson } from "./json.ts";
 
@@ -204,16 +204,30 @@ export function indexText(rows: readonly (RunRow | StepRow)[]): string {
   return rows.map((row) => `${JSON.stringify(row)}\n`).join("");
 }
 
+const indexBytesLimit = 16_777_216;
+
+function readFailure(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export function readIndex(place: RunPlace): IndexRead {
   let content: string;
   try {
+    const stats = statSync(place.index);
+    if (!stats.isFile())
+      return {
+        kind: "unreadable",
+        reason: `${place.index} is not a regular file`,
+      };
+    if (stats.size > indexBytesLimit)
+      return {
+        kind: "unreadable",
+        reason: `${place.index} is ${String(stats.size)} bytes, over ${String(indexBytesLimit)}`,
+      };
     content = readFileSync(place.index, "utf8");
   } catch (error) {
     if (at(error, "code") === "ENOENT") return { kind: "missing" };
-    return {
-      kind: "unreadable",
-      reason: error instanceof Error ? error.message : String(error),
-    };
+    return { kind: "unreadable", reason: readFailure(error) };
   }
   const lines = content.split("\n");
   if (lines.pop() !== "")

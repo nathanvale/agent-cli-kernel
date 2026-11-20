@@ -248,16 +248,31 @@ describe("what launch checks before it makes anything", () => {
     expect(workTreeAbove(deep)).toBe(at.folder);
   });
 
-  test("the pinned commit is the full commit the kernel dependency names", () => {
+  test("the pinned commit is the full commit the kernel dependency names, and an unreadable package.json keeps its reason", () => {
     const at = world();
-    expect(pinnedCommitOf(at.repo)).toBe(pinnedCommit);
+    expect(pinnedCommitOf(at.repo)).toEqual({
+      kind: "pinned",
+      commit: pinnedCommit,
+    });
     writePackage(at.repo, {
       dependencies: {
         "agent-cli-kernel": `github:x/y#${pinnedCommit.slice(0, 39)}`,
       },
     });
-    expect(pinnedCommitOf(at.repo)).toBeUndefined();
-    expect(pinnedCommitOf(join(at.folder, "nowhere"))).toBeUndefined();
+    expect(pinnedCommitOf(at.repo)).toEqual({
+      kind: "unpinned",
+      reason: `${join(at.repo, "package.json")} has no kernel pin: its agent-cli-kernel dependency names no full commit.`,
+    });
+    expect(pinnedCommitOf(join(at.folder, "nowhere"))).toEqual({
+      kind: "unpinned",
+      reason: `${join(at.folder, "nowhere", "package.json")} is missing`,
+    });
+    writeFileSync(join(at.repo, "package.json"), "{ not json");
+    const unreadable = pinnedCommitOf(at.repo);
+    expect(unreadable.kind).toBe("unpinned");
+    expect(unreadable.kind === "unpinned" ? unreadable.reason : "").toStartWith(
+      `${join(at.repo, "package.json")} is not JSON: `,
+    );
   });
 
   test("git facts are null without git or outside a work tree, counted inside one, and any other failure is reported", async () => {
@@ -298,6 +313,24 @@ describe("what launch checks before it makes anything", () => {
     ).toEqual({
       kind: "failed",
       reason: "git rev-parse HEAD exited 1: fatal: other",
+    });
+    expect(
+      await gitFacts(
+        (args) =>
+          Promise.resolve(
+            args.includes("status")
+              ? {
+                  exitCode: 128,
+                  stdout: "",
+                  stderr: "fatal: index is locked\n",
+                }
+              : { exitCode: 0, stdout: `${pinnedCommit}\n`, stderr: "" },
+          ),
+        "/r",
+      ),
+    ).toEqual({
+      kind: "failed",
+      reason: "git status --porcelain exited 128: fatal: index is locked",
     });
   });
 });

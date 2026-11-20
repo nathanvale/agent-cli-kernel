@@ -1,6 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import type { ProgramRequest } from "agent-cli-kernel";
 import type { Refusal } from "agent-cli-kernel/addons/state";
 import {
   helperContract,
@@ -25,13 +26,12 @@ import {
   repositoryRoot,
   runPlace,
   runRowOf,
-  sha256,
   stepRowOf,
 } from "../../../skills/verify-cli/helper/place.ts";
 import {
   placedStep,
   readScenario,
-  scenarioBytesLimit,
+  scenarioOf,
 } from "../../../skills/verify-cli/helper/scenario.ts";
 import type { ScenarioStep } from "../../../skills/verify-cli/helper/scenario.ts";
 import {
@@ -41,9 +41,11 @@ import {
   stepFile,
   unmetOf,
 } from "../../../skills/verify-cli/helper/verdict.ts";
+import { targetDrive } from "../../../skills/verify-cli/helper/target.ts";
 import {
   field,
   fixture,
+  lsTree,
   pinnedCommit,
   readOnlyScenario,
   releaseWorlds,
@@ -83,6 +85,77 @@ describe("the helper's commands, run in process", () => {
       expect(await cause(["cleanup", run])).toBe("SUCCESS_COMPLETED");
     },
     watchdog(9),
+  );
+
+  test(
+    "each command's refusals come back through the kernel's in-process runner",
+    async () => {
+      const at = world();
+      const never = runFolder(at, "never");
+      const cause = async (argv: readonly string[]) => {
+        const ran = await helperContract(at.env, argv).inProcess();
+        if (ran.kind !== "envelope")
+          throw new Error(`Expected an envelope, got ${ran.kind}.`);
+        return [ran.exitCode, ran.envelope.result.causeCode];
+      };
+      expect(await cause(["ready", fixture(at, "throwing-cli.ts")])).toEqual([
+        3,
+        "DOMAIN_VERIFY_TARGET_START",
+      ]);
+      expect(await cause(["launch", at.repo, at.example])).toEqual([
+        3,
+        "DOMAIN_VERIFY_RUN_EXISTS",
+      ]);
+      for (const name of ["report", "cleanup", "pending"])
+        expect(await cause([name, never])).toEqual([
+          3,
+          "DOMAIN_VERIFY_RUN_MISSING",
+        ]);
+      expect(
+        await cause(["drive", never, scenarioFile(at, readOnlyScenario)]),
+      ).toEqual([3, "DOMAIN_VERIFY_RUN_MISSING"]);
+      expect(lsTree(never)).toEqual([]);
+    },
+    watchdog(6),
+  );
+
+  test(
+    "report lists a process end that was not confirmed",
+    async () => {
+      const at = world();
+      const run = runFolder(at, "r1");
+      const inProcess = (argv: readonly string[]) =>
+        helperContract(at.env, argv).inProcess();
+      const launched = await inProcess(["launch", run, at.example]);
+      expect(launched.kind).toBe("envelope");
+      const place = runPlace(run);
+      mkdirSync(join(place.evidence, "f"));
+      const content = `${JSON.stringify({
+        unmet: [],
+        observed: { terminationConfirmed: false },
+      })}\n`;
+      writeFileSync(join(place.evidence, "f", "lingered.json"), content);
+      const row = {
+        row: "step",
+        feature: "f",
+        step: "lingered",
+        runner: "target",
+        verdict: "met",
+        commandIdentity: null,
+        causeCode: null,
+        exitCode: 0,
+        file: "f/lingered.json",
+        sha256: "0".repeat(64),
+      } as const;
+      writeFileSync(place.index, indexText([row]), { flag: "a" });
+      const reported = await inProcess(["report", run]);
+      if (reported.kind !== "envelope")
+        throw new Error(`Expected an envelope, got ${reported.kind}.`);
+      expect(field(reported.envelope.result, "data", "unconfirmed")).toEqual([
+        "f/lingered",
+      ]);
+    },
+    watchdog(2),
   );
 
   test("the state root is the run's own state folder for a command on a run, and a relative name the state add-on never opens otherwise", () => {
@@ -197,12 +270,9 @@ describe("the bounds of a scenario, on both sides", () => {
     const at = world();
     const text = JSON.stringify({ ...base, steps: stepsOf(1) });
     const exact = join(at.folder, "exact.json");
-    writeFileSync(exact, text + " ".repeat(scenarioBytesLimit - text.length));
+    writeFileSync(exact, text + " ".repeat(1_048_576 - text.length));
     expect(brokenRule(readScenario(exact))).toBeNull();
-    writeFileSync(
-      exact,
-      text + " ".repeat(scenarioBytesLimit - text.length + 1),
-    );
+    writeFileSync(exact, text + " ".repeat(1_048_577 - text.length));
     expect(brokenRule(readScenario(exact))).toBe("unreadable");
     writeFileSync(exact, "{ not json");
     expect(brokenRule(readScenario(exact))).toBe("unreadable");
@@ -236,6 +306,113 @@ describe("the bounds of a scenario, on both sides", () => {
     );
   });
 
+  test("a field of the wrong type is a bad value", () => {
+    const at = world();
+    const rule = (step: Record<string, unknown>) =>
+      brokenRule(
+        scenarioWith(at, {
+          ...base,
+          steps: [
+            {
+              name: "s",
+              argv: [],
+              expect: { exitCode: 0, stdout: "" },
+              ...step,
+            },
+          ],
+        }),
+      );
+    expect(rule({ expect: "x" })).toBe("bad-value");
+    expect(rule({ argv: [1] })).toBe("bad-value");
+    expect(rule({ expect: { exitCode: 0, stdout: 1 } })).toBe("bad-value");
+    expect(rule({ timeoutMilliseconds: 1.5 })).toBe("bad-value");
+    expect(rule({ expect: { exitCode: 0.5, stdout: "" } })).toBe("bad-value");
+    expect(rule({ expect: { exitCode: 0, stdout: "", timedOut: "yes" } })).toBe(
+      "bad-value",
+    );
+    expect(rule({ runner: "node" })).toBe("bad-value");
+    expect(
+      rule({
+        expect: {
+          exitCode: 0,
+          files: [{ path: "{scratch}/a", content: "", absent: true }],
+        },
+      }),
+    ).toBe("bad-value");
+    expect(
+      brokenRule(
+        scenarioWith(at, {
+          ...base,
+          schema: "verify-scenario/2",
+          steps: stepsOf(1),
+        }),
+      ),
+    ).toBe("unknown-field");
+  });
+
+  test("an empty result, file list or includes list is no expectation", () => {
+    const at = world();
+    const rule = (expectation: Record<string, unknown>, runner = "target") =>
+      brokenRule(
+        scenarioWith(at, {
+          ...base,
+          steps: [{ name: "s", runner, argv: [], expect: expectation }],
+        }),
+      );
+    expect(rule({ exitCode: 0, result: {} })).toBe("exit-code-only");
+    expect(rule({ exitCode: 0, files: [] })).toBe("exit-code-only");
+    expect(rule({ exitCode: 0, stdoutIncludes: [] }, "bun")).toBe(
+      "exit-code-only",
+    );
+    expect(rule({ exitCode: 0, stderrIncludes: [] }, "bun")).toBe(
+      "exit-code-only",
+    );
+    expect(rule({ exitCode: 0, result: { causeCode: "X" } })).toBeNull();
+    expect(rule({ exitCode: 0, stdoutIncludes: ["x"] }, "bun")).toBeNull();
+  });
+
+  test("a scenario is read once, as frozen data", () => {
+    let reads = 0;
+    const expectation = { exitCode: 0, stdout: "" };
+    Object.defineProperty(expectation, "stdoutIncludes", {
+      enumerable: true,
+      get: () => {
+        reads += 1;
+        return reads === 1 ? undefined : [];
+      },
+    });
+    expect(() =>
+      scenarioOf({
+        ...base,
+        steps: [{ name: "s", argv: [], expect: expectation }],
+      }),
+    ).not.toThrow();
+    expect(reads).toBe(1);
+    const at = world();
+    const read = scenarioWith(at, { ...base, steps: stepsOf(1) });
+    expect(
+      read.kind === "read" && Object.isFrozen(read.scenario.steps[0]?.expect),
+    ).toBe(true);
+  });
+
+  test("a scenario path that is missing, a folder, or not JSON names which", () => {
+    const at = world();
+    const detail = (path: string) => {
+      const read = readScenario(path);
+      return read.kind === "broken" ? `${read.rule}: ${read.detail}` : "read";
+    };
+    expect(detail(join(at.folder, "none.json"))).toBe(
+      `unreadable: ${join(at.folder, "none.json")} is missing`,
+    );
+    expect(detail(at.folder)).toBe(
+      `unreadable: ${at.folder} is not a regular file`,
+    );
+    writeFileSync(join(at.folder, "bad.json"), "{");
+    expect(detail(join(at.folder, "bad.json"))).toBe(
+      `unreadable: ${join(at.folder, "bad.json")} is not JSON`,
+    );
+  });
+
   test("placeholders become the scratch folder and the repository in every string of argv and expect", () => {
     const step: ScenarioStep = {
       name: "s",
@@ -261,7 +438,7 @@ describe("the bounds of a scenario, on both sides", () => {
         stdout: "/s",
         stderr: "/r",
         result: { "data.path": "/s/z", "data.list": ["/r"] },
-        files: [{ path: "/s/f", content: "{scratch}" }],
+        files: [{ path: "/s/f", content: "/s" }],
         stdoutIncludes: ["/s"],
         stderrIncludes: ["/r"],
       },
@@ -480,6 +657,34 @@ describe("the run's folder and its index", () => {
     });
   });
 
+  test("an index must be a regular file of at most 16,777,216 bytes", () => {
+    const at = world();
+    const place = runPlace(runFolder(at, "r1"));
+    mkdirSync(place.evidence, { recursive: true });
+    const first = indexText([row]);
+    writeFileSync(
+      place.index,
+      first + " ".repeat(16_777_216 - first.length - 1) + "\n",
+    );
+    expect(readIndex(place)).toEqual({
+      kind: "unreadable",
+      reason: `line 2 of ${place.index} is not a step row`,
+    });
+    writeFileSync(place.index, first);
+    expect(readIndex(place).kind).toBe("read");
+    writeFileSync(place.index, first + "x".repeat(16_777_217 - first.length));
+    expect(readIndex(place)).toEqual({
+      kind: "unreadable",
+      reason: `${place.index} is 16777217 bytes, over 16777216`,
+    });
+    rmSync(place.index);
+    mkdirSync(place.index);
+    expect(readIndex(place)).toEqual({
+      kind: "unreadable",
+      reason: `${place.index} is not a regular file`,
+    });
+  });
+
   test("a run row needs its nine fields, and its two git facts may be null", () => {
     expect(runRowOf(row)).toEqual(row);
     expect(
@@ -614,7 +819,7 @@ describe("how drive runs and keeps a step", () => {
       causeCode: null,
       exitCode: 0,
       file: join("f", "s.json"),
-      sha256: sha256(kept.content),
+      sha256: new Bun.CryptoHasher("sha256").update(kept.content).digest("hex"),
     });
     expect(stepRowOf(JSON.parse(indexText([kept.row])))).toEqual(kept.row);
     expect(stepRowOf({ ...kept.row, verdict: "maybe" })).toBeUndefined();
@@ -629,6 +834,37 @@ describe("how drive runs and keeps a step", () => {
       "DOMAIN_VERIFY_RUN_CLEAN",
     );
     expect(blockedEnding(undefined, where)).toBeUndefined();
+  });
+});
+
+describe("how the helper runs a target", () => {
+  test("a target runs as Bun on its entry file with the given words, and its streams come back whole", async () => {
+    const seen: ProgramRequest[] = [];
+    const programs = {
+      supplied: (request: ProgramRequest) => {
+        seen.push(request);
+        return Promise.resolve({
+          exitCode: 2,
+          stdout: "out",
+          stderr: "err",
+          terminationConfirmed: true,
+          outputTruncated: false,
+        });
+      },
+    };
+    const bun = helperContract({}, []).contract.boundary.path("/bun");
+    const drive = targetDrive(programs, bun, "/r/cli.ts");
+    expect(await drive(["list"])).toEqual({
+      exitCode: 2,
+      stdout: "out",
+      stderr: "err",
+    });
+    expect(seen.map((request) => [...request.args])).toEqual([
+      ["--no-install", "/r/cli.ts", "list"],
+    ]);
+    expect(seen.map((request) => request.timeoutMilliseconds)).toEqual([
+      20_000,
+    ]);
   });
 });
 

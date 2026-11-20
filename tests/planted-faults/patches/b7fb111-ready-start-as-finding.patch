@@ -1,8 +1,40 @@
 diff --git a/skills/verify-cli/helper/ready.ts b/skills/verify-cli/helper/ready.ts
-index f5bb2d2..c5b2fe3 100644
+index f5bb2d2..76962bd 100644
 --- a/skills/verify-cli/helper/ready.ts
 +++ b/skills/verify-cli/helper/ready.ts
-@@ -63,7 +63,7 @@ export function readiness(
+@@ -36,14 +36,21 @@ export function quotedLine(stderr: string): string {
+   return line.slice(0, quoteLimit);
+ }
+ 
+-export function toolchainBun(root: string | undefined): string | null {
+-  if (root === undefined) return null;
++export type ToolchainPin =
++  | { readonly kind: "none" }
++  | { readonly kind: "pinned"; readonly version: string }
++  | { readonly kind: "unreadable"; readonly reason: string };
++
++export function toolchainBun(root: string | undefined): ToolchainPin {
++  if (root === undefined) return { kind: "none" };
+   const read = readJsonFile(join(root, "package.json"));
++  if (read.kind === "unreadable")
++    return { kind: "unreadable", reason: read.reason };
+   const manager =
+     read.kind === "read" ? at(read.value, "packageManager") : null;
+   return typeof manager === "string" && manager.startsWith("bun@")
+-    ? manager.slice("bun@".length)
+-    : null;
++    ? { kind: "pinned", version: manager.slice("bun@".length) }
++    : { kind: "none" };
+ }
+ 
+ export type Readiness =
+@@ -58,12 +65,12 @@ export type Readiness =
+ export function readiness(
+   usage: Ran,
+   discovery: Ran,
+-  pinnedBun: string | null,
++  pinnedBun: ToolchainPin,
+   runningBun: string,
  ): Readiness {
    const envelope = envelopeOf(discovery.stdout);
    const usageAnswered = usageLine.test(usage.stderr);
@@ -11,3 +43,13 @@ index f5bb2d2..c5b2fe3 100644
      return {
        kind: "not-started",
        message: `The target did not start: its usage probe exited ${String(usage.exitCode)}, and its discovery probe wrote no envelope. Its first error: ${quotedLine(usage.stderr)}`,
+@@ -72,7 +79,8 @@ export function readiness(
+   const checks: readonly [string, boolean][] = [
+     [
+       "bun-matches-toolchain-pin",
+-      pinnedBun === null || pinnedBun === runningBun,
++      pinnedBun.kind === "none" ||
++        (pinnedBun.kind === "pinned" && pinnedBun.version === runningBun),
+     ],
+     ["usage-probe-exit", usage.exitCode === 2],
+     ["usage-probe-stdout-empty", usage.stdout === ""],

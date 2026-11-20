@@ -65,7 +65,7 @@ export function cleanupCommand(state: State) {
     ],
     run: async (input, context) => {
       const place = runPlace(input.run);
-      if (!existsSync(place.index))
+      if (!existsSync(place.index) && !existsSync(place.state))
         return context.result(
           { commandIdentity: identity, causeCode: "DOMAIN_VERIFY_RUN_MISSING" },
           {
@@ -75,6 +75,7 @@ export function cleanupCommand(state: State) {
           },
         );
       let clean = false;
+      let launched = true;
       let failure = "";
       const outcome = await state.transaction(
         context.state,
@@ -84,6 +85,10 @@ export function cleanupCommand(state: State) {
           facts: { run: input.run, scratch: place.scratch },
         },
         async (transaction) => {
+          if (!existsSync(place.index)) {
+            launched = false;
+            return;
+          }
           try {
             clean = !existsSync(place.scratch);
           } catch (error) {
@@ -103,6 +108,12 @@ export function cleanupCommand(state: State) {
       );
       const blocked =
         refusalOf(outcome, input.run) ??
+        (launched
+          ? undefined
+          : {
+              causeCode: "DOMAIN_VERIFY_RUN_MISSING" as const,
+              message: `${input.run} holds no run that launch made.`,
+            }) ??
         (clean
           ? {
               causeCode: "DOMAIN_VERIFY_RUN_CLEAN" as const,

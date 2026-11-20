@@ -1,13 +1,37 @@
 diff --git a/skills/verify-cli/helper/pending.ts b/skills/verify-cli/helper/pending.ts
-index 84b7bd0..0ebbd5f 100644
+index 84b7bd0..b13d18f 100644
 --- a/skills/verify-cli/helper/pending.ts
 +++ b/skills/verify-cli/helper/pending.ts
-@@ -65,7 +65,7 @@ export function pendingCommand(state: State) {
+@@ -65,7 +65,10 @@ export function pendingCommand(state: State) {
      ],
      run: (input, context) => {
        const run = input.run;
 -      if (run === undefined || !existsSync(runPlace(run).index))
-+      if (run !== undefined && !existsSync(runPlace(run).index))
++      if (
++        false ||
++        (!existsSync(runPlace(run).index) && !existsSync(runPlace(run).state))
++      )
          return context.result(
            { commandIdentity: identity, causeCode: "DOMAIN_VERIFY_RUN_MISSING" },
            {
+@@ -84,9 +87,11 @@ export function pendingCommand(state: State) {
+           {
+             message: `${String(report.unfinished.length)} unfinished changes.`,
+             data: {
++              ok: report.ok,
+               unfinished: report.unfinished.map((entry) => ({
+                 operationId: entry.operationId,
+                 commandIdentity: entry.commandIdentity,
++                runId: entry.runId,
+                 effects: [...entry.effects],
+               })),
+             },
+@@ -98,7 +103,7 @@ export function pendingCommand(state: State) {
+           { commandIdentity: identity, causeCode: unchangedSuccess },
+           {
+             message: "0 unfinished changes.",
+-            data: { unfinished: [] },
++            data: { ok: true, unfinished: [] },
+             effects: nothingChanged,
+           },
+         );

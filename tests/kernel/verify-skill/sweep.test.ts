@@ -6,7 +6,7 @@ import {
 } from "../../../skills/verify-cli/helper/target.ts";
 import {
   causeOf,
-  check,
+  viaKernelFreeCheck,
   envelopeIn,
   field,
   fixture,
@@ -63,7 +63,7 @@ describe("sweep", () => {
     "sweep passes the author guide's example and counts its checks",
     async () => {
       const at = world();
-      const ran = await check(at, ["sweep", at.example]);
+      const ran = await viaKernelFreeCheck(at, ["sweep", at.example]);
       expect({ exit: ran.exit, stderr: ran.stderr }).toEqual({
         exit: 0,
         stderr: "",
@@ -79,7 +79,7 @@ describe("sweep", () => {
     "sweep owes the two stations of show that need input",
     async () => {
       const at = world();
-      const ran = await check(at, ["sweep", at.example, "--json"]);
+      const ran = await viaKernelFreeCheck(at, ["sweep", at.example, "--json"]);
       expect(field(envelopeIn(ran), "result", "data", "owed")).toEqual([
         { command: "moons.show", cause: "SUCCESS_UNCHANGED" },
         { command: "moons.show", cause: "DOMAIN_MOONS_UNKNOWN_PLANET" },
