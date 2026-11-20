@@ -92,5 +92,13 @@
   "79af2d6-capability-qualification-record-git-bound": 5.5,
   "4fc11f9-probes.test": 3.7,
   "16ca937-spawn-bounded.test": 3.1,
-  "e1aeba2-input": 7.8
+  "e1aeba2-input": 7.8,
+  "096c862-eslint-installed": 7.0,
+  "8309f88-eslint-rules-owner-file": 8.9,
+  "8309f88-eslint-rules-installed-owner": 7.9,
+  "8309f88-eslint-rules-entry-missing": 2.6,
+  "8309f88-eslint-rules-no-export": 2.8,
+  "8309f88-eslint-rules-no-code": 2.4,
+  "1b72951-eslint-rules-cause-keys": 2.4,
+  "79431f5-eslint-rules-owner-repair": 2.9
 }

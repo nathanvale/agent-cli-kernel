@@ -3358,5 +3358,61 @@
     "testFile": "tests/kernel/author-guide/author-guide.test.ts",
     "title": "every code block is ts or the example's transcript",
     "source": "3567a81 test(author-guide): settle the code review of the author skill's gate"
+  },
+  {
+    "id": "096c862-eslint-installed",
+    "patch": "tests/planted-faults/patches/096c862-eslint-installed.patch",
+    "testFile": "tests/kernel/pinned-commit.test.ts",
+    "title": "a repository that installs the kernel lints its src/kernel and src/addons files as its own source: no kernel path keeps an allowance",
+    "source": "096c862 fix(lint): lint every source file of a repository that installs the kernel as its own"
+  },
+  {
+    "id": "8309f88-eslint-rules-owner-file",
+    "patch": "tests/planted-faults/patches/8309f88-eslint-rules-owner-file.patch",
+    "testFile": "tests/kernel/pinned-commit.test.ts",
+    "title": "a repository that installs the kernel lints its src/kernel and src/addons files as its own source: no kernel path keeps an allowance",
+    "source": "8309f88 fix(lint): learn the cause codes from the kernel's exported commonCauses"
+  },
+  {
+    "id": "8309f88-eslint-rules-installed-owner",
+    "patch": "tests/planted-faults/patches/8309f88-eslint-rules-installed-owner.patch",
+    "testFile": "tests/kernel/pinned-commit.test.ts",
+    "title": "the installed cause-literal-owner learns the codes from the installed kernel: it refuses a free known code and admits one checked against commonCauses",
+    "source": "8309f88 fix(lint): learn the cause codes from the kernel's exported commonCauses"
+  },
+  {
+    "id": "8309f88-eslint-rules-entry-missing",
+    "patch": "tests/planted-faults/patches/8309f88-eslint-rules-entry-missing.patch",
+    "testFile": "tests/kernel/generated-repository-lint.test.ts",
+    "title": "a kernel entry that is missing fails loudly instead of passing every cause literal",
+    "source": "8309f88 fix(lint): learn the cause codes from the kernel's exported commonCauses"
+  },
+  {
+    "id": "8309f88-eslint-rules-no-export",
+    "patch": "tests/planted-faults/patches/8309f88-eslint-rules-no-export.patch",
+    "testFile": "tests/kernel/generated-repository-lint.test.ts",
+    "title": "a kernel entry that does not export commonCauses fails loudly instead of passing every cause literal",
+    "source": "8309f88 fix(lint): learn the cause codes from the kernel's exported commonCauses"
+  },
+  {
+    "id": "8309f88-eslint-rules-no-code",
+    "patch": "tests/planted-faults/patches/8309f88-eslint-rules-no-code.patch",
+    "testFile": "tests/kernel/generated-repository-lint.test.ts",
+    "title": "a kernel entry that exports a commonCauses that names no code fails loudly instead of passing every cause literal",
+    "source": "8309f88 fix(lint): learn the cause codes from the kernel's exported commonCauses"
+  },
+  {
+    "id": "1b72951-eslint-rules-cause-keys",
+    "patch": "tests/planted-faults/patches/1b72951-eslint-rules-cause-keys.patch",
+    "testFile": "tests/kernel/generated-repository-lint.test.ts",
+    "title": "a kernel entry that exports a commonCauses whose keys are not cause codes fails loudly instead of passing every cause literal",
+    "source": "1b72951 fix(lint): count only cause-code keys when cause-literal-owner reads its owner"
+  },
+  {
+    "id": "79431f5-eslint-rules-owner-repair",
+    "patch": "tests/planted-faults/patches/79431f5-eslint-rules-owner-repair.patch",
+    "testFile": "tests/kernel/generated-repository-lint.test.ts",
+    "title": "a kernel entry that is missing fails loudly instead of passing every cause literal",
+    "source": "79431f5 test(kernel): assert each cause owner refusal in full"
   }
 ]

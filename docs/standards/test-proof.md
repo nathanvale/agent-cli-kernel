@@ -20,7 +20,10 @@ is in the [test harness guide](test-harness.md).
   that also named the filesystem passed; the fix expects the reason the test
   observed, and the boot identity as the only field that differs),
   [f8ff37f] (the author guide's brace case matched its error by substring
-  with `toThrow`, and searched its own expected string for a station name).
+  with `toThrow`, and searched its own expected string for a station name),
+  [kernel#53 r4639172891], [79431f5] (the cause owner refusal cases checked
+  a prefix and one fragment, so a refusal without its repair or naming
+  another entry passed).
 - Assert the route's response when a test says a command remains available.
   Exit zero with empty output can pass without a response. Witnessed:
   [#90-routes].
@@ -48,7 +51,10 @@ is in the [test harness guide](test-harness.md).
   hit or an empty result passes for a skipped check too, and a process
   folder with the same tail as the injected one passes for the wrong
   folder. Give the test distinct fallback and destination folders, and
-  assert the destination in the refusal. Witnessed: [9ad6bf2], [#72-cwd].
+  assert the destination in the refusal. Witnessed: [9ad6bf2], [#72-cwd],
+  [4ca0141] (the installed cause case expected no finding in
+  `src/app/typed.ts` and passed if ESLint skipped that file; it now
+  asserts both files were linted).
 - Assert all of what the title names. A prefix of the output passes with the
   rest missing, and a path that exists passes for a folder where the title
   says file. Witnessed: [ff0616c] (the author guide's plain-text case
@@ -87,6 +93,10 @@ is in the [test harness guide](test-harness.md).
 - Start the entry from the folder a caller starts it in. `bun run <script>`
   moves the child to the package root, so a proof through a package script
   never exercises the entry's own process folder. Witnessed: [c5a554e].
+- Prove a consumer lint through the call the template writes, not only a
+  stronger one. Witnessed: [b146440] (the installed-kernel lint cases
+  selected every add-on with no plugin, while the template passes
+  `addons: []` and a plugin).
 
 ## In-process tests
 
@@ -138,7 +148,8 @@ is in the [test harness guide](test-harness.md).
   `no-accumulating-spread`), [#102-arguments] (`consume(item, ...args)` was
   reported as an accumulator copy), [#102-mock-key] (``vi[`mock`]`` passed
   `no-module-mocking`), [#102-copy-key] (``all[`concat`]`` passed
-  `no-reduce-accumulator-copy`).
+  `no-reduce-accumulator-copy`), [1b72951] (a `commonCauses` whose keys
+  were not cause codes passed `cause-literal-owner`'s no-code refusal).
 
 [#91-count]: https://github.com/nathanvale/bun-typescript-template/pull/91#discussion_r4607744321
 [185c90d]: https://github.com/nathanvale/bun-typescript-template/commit/185c90d11dd167ee4874e383ba26cd7d64a70964
@@ -188,9 +199,14 @@ is in the [test harness guide](test-harness.md).
 [198f6ba]: https://github.com/nathanvale/agent-cli-kernel/commit/198f6ba61a79539d2c03a1fbfb70b61ecc26b3d0
 [kernel#48 r4637879795]: https://github.com/nathanvale/agent-cli-kernel/pull/48#discussion_r4637879795
 [7a3c409]: https://github.com/nathanvale/agent-cli-kernel/commit/7a3c409920548ef30a9df2c89a0fac608d4704fd
+[b146440]: https://github.com/nathanvale/agent-cli-kernel/commit/b146440b8fd1075791ee997ca93c59f410b9e978
+[4ca0141]: https://github.com/nathanvale/agent-cli-kernel/commit/4ca014175963a134a585af49006a56d374700e33
+[1b72951]: https://github.com/nathanvale/agent-cli-kernel/commit/1b72951c42401d2567bec8327ab2726f3852fd95
 [f8ff37f]: https://github.com/nathanvale/agent-cli-kernel/commit/f8ff37f4e31d26ce34fcc4e5b0467a2a5ed013f3
 [ff0616c]: https://github.com/nathanvale/agent-cli-kernel/commit/ff0616cd9c3310bf1170e28308c3c748353fc57b
 [0463f35]: https://github.com/nathanvale/agent-cli-kernel/commit/0463f35b14fd6aadced45cab40b44436fb480b33
 [86749b9]: https://github.com/nathanvale/agent-cli-kernel/commit/86749b9a2dd7b2295a2405513d75299b14550db3
 [3567a81]: https://github.com/nathanvale/agent-cli-kernel/commit/3567a8125e36f43eb6b3f448a5f51fb122090536
 [848b6de]: https://github.com/nathanvale/agent-cli-kernel/commit/848b6de1e7b9bc0792a8ea70f6604f700a09229d
+[kernel#53 r4639172891]: https://github.com/nathanvale/agent-cli-kernel/pull/53#discussion_r4639172891
+[79431f5]: https://github.com/nathanvale/agent-cli-kernel/commit/79431f561abf1deecd55c9b1dcb91e8c1560f746

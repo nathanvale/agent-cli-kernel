@@ -1,0 +1,14 @@
+diff --git a/kernel/config/kernel/eslint-rules.mjs b/kernel/config/kernel/eslint-rules.mjs
+index c058a08..bd21f5a 100644
+--- a/kernel/config/kernel/eslint-rules.mjs
++++ b/kernel/config/kernel/eslint-rules.mjs
+@@ -154,8 +154,7 @@ function exportedCauseKeys(entry) {
+   const keys = checker
+     .getTypeOfSymbol(owner)
+     .getProperties()
+-    .map(({ name }) => name)
+-    .filter((name) => causeShape.test(name));
++    .map(({ name }) => name);
+   if (keys.length === 0)
+     throw missing(`commonCauses in ${entry} names no cause code`);
+   return new Set(keys);
