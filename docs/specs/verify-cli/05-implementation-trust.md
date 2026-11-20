@@ -5,9 +5,9 @@ Continues [part 4](04-implementation-scenarios.md). Sources are in [part
 
 ## Implementation Decisions (continued)
 
-**I18. The trust model.** The kernel-free check is the one entry file. No
-kernel code runs in its own process. It starts children and compares raw exit
-codes and bytes.
+**I18. The trust model.** The kernel-free check is the one entry file,
+`verify.ts`. No kernel code runs in its own process. It starts children and
+compares raw exit codes and bytes.
 
 Exit 70 means one thing: this run's verdict cannot be trusted, because the
 installed kernel or the helper is broken. A target that misbehaves while the
@@ -24,12 +24,14 @@ In order, the check:
    `--json`. The helper's `stdout` must be exactly one envelope, else
    `helper-no-envelope`. The envelope's exit code must equal the process's,
    else `helper-exit-mismatch`. Both must be 2, else `helper-usage-exit`.
-4. For a command that drives a target, runs the helper's `probe` and then the
-   same two probes raw. Each pair must agree on the exit code, the `stdout`
-   byte count and the hash of `stderr`, else `observation-mismatch`.
-5. For a command on a launched run root, confirms that each index row's
-   receipt exists and matches its recorded hash, else `evidence-mismatch`. It
-   does this before the command, and again after `drive` and `cleanup`.
+4. For `ready`, `probe`, `sweep`, `findings`, `launch`, `drive` and `report`,
+   runs the helper's `probe` and then the same two probes raw. Each pair must
+   agree on the exit code, the `stdout` byte count and the hash of `stderr`,
+   else `observation-mismatch`.
+5. For a command on a verification run, confirms that each index row's
+   evidence file exists and matches its recorded hash, else
+   `evidence-mismatch`. It does this before the command, and again after
+   `drive` and `cleanup`.
 6. Runs the requested command once, in the repository root, with `--json`
    added. The same envelope rules as step 3 apply.
 7. Passes the result on. With `--json` it writes the helper's envelope, byte
@@ -51,44 +53,52 @@ Rules:
   `check-internal`, exit 70.
 - Each child the check starts is bounded: 60,000 milliseconds for a probe,
   600,000 for a requested command, and 7,200,000 for `drive`, which is above
-  the most a valid scenario can take. A child that passes its limit is
-  `child-timeout`.
+  the most a valid scenario can take. A child that passes its limit is sent a
+  termination signal, is killed after a grace of 10,000 milliseconds if it
+  ignores that, and is reported as `child-timeout`.
+- The check stopped by an interrupt or a termination signal stops the helper
+  and the target first, then exits 130 or 143.
 - Probing the helper, not the target, is what keeps the blame right. A fault
   that makes every process exit 0 is caught on every command, even one whose
   honest exit is 0.
+- Step 4 covers `launch` so that a kernel fault is not blamed on the
+  repository. With the programs add-on dropping `stderr`, `launch` once read
+  git's "not a git repository" as an empty failure and refused the launch.
 
 Kernel fault classes the skill must detect. Each is planted in the installed
-kernel of a scratch generated repository. All seven were run in this revision.
+kernel of a generated repository, one at a time, and restored after.
 
-| Class | The fault                                                | Report                                |
-| ----- | -------------------------------------------------------- | ------------------------------------- |
-| KF1   | The kernel exits 0 from every process                    | 70, `helper-exit-mismatch`            |
-| KF2   | Building a contract throws                               | 70, `helper-no-envelope`              |
-| KF3   | The package's entry cannot be imported                   | 70, `kernel-import`                   |
-| KF4   | The kernel writes each envelope twice                    | 70, `helper-no-envelope`              |
-| KF5   | The programs add-on reports every child's exit code as 0 | 70, `observation-mismatch`            |
-| KF6   | The programs add-on drops every child's `stderr`         | 70, `observation-mismatch`            |
-| KF7   | The kernel writes a refusal's line to `stdout`           | 3, finding `usage-probe-stdout-empty` |
+| Class | The fault                                                | `ready` and `sweep`        | `--help` | `launch` |
+| ----- | -------------------------------------------------------- | -------------------------- | -------- | -------- |
+| KF1   | The kernel exits 0 from every process                    | 70, `helper-exit-mismatch` | 70       | 70       |
+| KF2   | Building a contract throws                               | 70, `helper-no-envelope`   | 70       | 70       |
+| KF3   | The package's entry cannot be imported                   | 70, `kernel-import`        | 70       | 70       |
+| KF4   | The kernel writes each envelope twice                    | 70, `helper-no-envelope`   | 70       | 70       |
+| KF5   | The programs add-on reports every child's exit code as 0 | 70, `observation-mismatch` | 0        | 70       |
+| KF6   | The programs add-on drops every child's `stderr`         | 70, `observation-mismatch` | 0        | 70       |
+| KF7   | The kernel writes a refusal's line to `stdout`           | 3, a finding               | 0        | 0        |
 
-- The helper alone is blind to KF1: it found seven failed checks and exited 0.
-  It is misled by KF5 and KF6: alone, it reported a failed check against a
-  healthy target.
+- The helper alone is blind to KF1: it found failed checks and exited 0. It is
+  misled by KF5 and KF6: alone, it reported a failed check against a healthy
+  target.
+- KF5 and KF6 leave `--help` at 0, rightly: that command starts no target, so
+  nothing was misreported.
 - KF7 breaks the target's public behaviour while the helper stays honest. So
   it is a finding, and its repair names the installed kernel as well as the
   target.
-- One evidence fault class, EF1: a receipt is missing or its bytes changed.
-  Report: 70, `evidence-mismatch`. Designed and not run.
+- One evidence fault class, EF1: an evidence file is missing, or its bytes
+  changed. Report: 70, `evidence-mismatch`.
 
 Not protected against: a fault in Bun or the operating system; a hostile
 target, which has the agent's rights; a wrong expectation; a command missing
 from discovery that no scenario names; a fault that changes the raw run and
 the helper's record in the same way.
 
-KF1 to KF7 passed on macOS only, with the prototype. Steps 5 and 7,
-`check-internal` and `child-timeout` are designed and not run.
+Passed on macOS only: the seven classes in the build's own transcript and
+tests, and EF1 in its tests. The healthy path passed on Linux too.
 
-**I19. Fit with the kernel repository.** At the commit this was read against,
-neither the compiler nor any lint covers TypeScript under the skills folder.
+**I19. Fit with the kernel repository.** Before this work, neither the
+compiler nor any lint covered TypeScript under the skills folder.
 
 - The compiler and the linter take in the skill's TypeScript.
 - The consumer lint, the same one a generated repository runs, covers every
@@ -106,19 +116,25 @@ neither the compiler nor any lint covers TypeScript under the skills folder.
     may break. It names the one file that may write the process streams, the
     one folder that may start a process, and the one file that may use the
     foreign-function interface. The kernel-free check is one more named owner.
-  - So, for that one file, the configuration turns off two rules, the ban on
-    starting a process directly and the ban on writing the process streams,
-    and adds one rule only that file has: no import of the kernel, static or
-    dynamic. The file's name is a named constant in the lint configuration.
-    The reason is in the new rule's message.
-  - Costs: turning a rule off for a file does not count its uses, so only
-    review and the file size gate bound that file. And the departure from the
+  - So, for `verify.ts` only, the configuration lifts the ban on starting a
+    process directly and the ban on writing the process streams, and adds one
+    rule only that file has: no import of the kernel, as a static import, a
+    dynamic import or a re-export. The reason is in that rule's message.
+  - An exception lifts only the restriction it needs. The first build turned a
+    whole rule off for the file, and with it the ban on authoring the state
+    add-on's factory. That ban now stays on.
+  - Costs: lifting a ban for a file does not count its uses, so only review
+    and the file size gate bound that file. And the departure from the
     decisions record's wording needs the independent check's agreement.
-- The dead-code tool requires every file to sit in a zone. The skill folder
-  gets a zone that may import the kernel and nothing else, and its entry files
-  are registered.
-- Each entry file only starts something. Every function lives in a module that
-  a test can import (TD2).
+- The lint's recorded hits hold no file under the skill folder.
+- The dead-code tool requires every file to sit in a zone. The skills folder
+  is a zone that may import the kernel and nothing else, and the two entry
+  files are registered.
+- The helper's entry file only starts the helper. `verify.ts` is the
+  exception: it holds the kernel-free check's functions as well as its start,
+  because splitting it would put the scoped exception on two files. A test
+  still imports it and calls each function, since it starts the check only
+  when it is the program being run (TD2).
 - Every file stays under the 5,000-token file size gate. The skills folder is
   inside that gate's scan.
 - No code comment cites an identifier from this specification: no decision,
@@ -126,15 +142,15 @@ neither the compiler nor any lint covers TypeScript under the skills folder.
   names and file names say the behaviour in words. The repository's comment
   lint already refuses most comments; this rule covers the kinds it admits.
 
-The uncovered state passed on macOS only. The zone rule was read in the
-dead-code tool's settings. The scoped exception, the zone and the entry split
-are designed and not run.
+Passed on macOS only: the repository's check command at commit `0d7c96b`, one
+document-only commit before the build's head, and the build's lint tests. A
+search of the build for this specification's identifiers found none.
 
-**I20. Without kernel unit K7.** K7 would give the programs add-on a working
-folder and an environment for each program. It is parked, because any change
-to that add-on voids a capability qualification record: the record of the
-Linux runs that qualified the state add-on on one platform, which Nathan
-countersigned. Nothing here needs it.
+**I20. Without the programs add-on's folder and environment (K7).** That unit
+would give the programs add-on a working folder and an environment for each
+program. It is parked, because any change to that add-on voids a capability
+qualification record: the record of the Linux runs that qualified the state
+add-on on one platform, which Nathan countersigned. Nothing here needs it.
 
 - Working folder: the kernel-free check starts the helper in the repository
   root, and each child inherits it (I7).
@@ -142,14 +158,14 @@ countersigned. Nothing here needs it.
   line (I15).
 - The check command is a `"runner": "bun"` step with the arguments `run` and
   `check`, a time limit of 600,000 milliseconds, and the expectations exit
-  code 0 and `stderr` including the test runner's line for no failures, a line
+  code 0 and `stderr` including the test runner's line for no failures: a line
   feed, ` 0 fail` and a line feed.
-- What stays out of reach without K7: a different working folder or
-  environment for one step; a compiled target; a target whose state root is
-  fixed inside the repository.
+- What stays out of reach: a different working folder or environment for one
+  step; a compiled target; a target whose state folder is fixed inside the
+  repository.
 
-Decided by Nathan: K7 stays parked. The inherited working folder passed on
-macOS only.
+Decided by Nathan: the unit stays parked. Passed on macOS only, in the build's
+tests.
 
 **I21. The skill document and the feature map.** `SKILL.md` has frontmatter
 and pstack's six sections, in pstack's order: Launch, Doctor, Drive, Evidence,
@@ -171,6 +187,10 @@ Cleanup, Helpers.
   other three. It shows only commands and scenarios that were run, with their
   real output. The read-only one uses the author skill's example. The changing
   one states that the author skill has no guidance for a changing command yet.
+- A seed file says what a run prints as the kernel prints it. Without
+  `--json`, a success prints its message on `stdout`, then its data as
+  indented JSON. A cold worker once read a looser line and wrote a step no CLI
+  could meet.
 - The installed skill is read-only: it sits under `node_modules`. So a
   generated repository keeps its own map and scenarios in its own tree, in a
   `verify/` folder at its root: `verify/features/` for feature files and
@@ -185,4 +205,5 @@ Cleanup, Helpers.
 - If a scenario cannot pass, the feature file's Gotchas says why and the
   report shows it unmet. The scenario is never weakened.
 
-The formatter result passed on macOS only. The rest is designed and not run.
+Passed on macOS only: the build's document tests, and a cold worker that
+proved the read-only feature from the installed skill alone.

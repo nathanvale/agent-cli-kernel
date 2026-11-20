@@ -3,7 +3,7 @@
 A repository agent works in a generated repository. A kernel agent maintains
 the kernel repository. A carrying agent copies the skill folder into another
 product. [Part 10](10-traceability.md#user-stories) maps each story to its
-decisions and criteria.
+decisions and criteria. The words are the kernel glossary's.
 
 ## User Stories
 
@@ -44,28 +44,29 @@ decisions and criteria.
     state add-on.
 12. As a repository agent, I want `ready` to say when my Bun is not the pinned
     Bun, so that I do not chase a toolchain difference.
-13. As a repository agent, I want a passing `ready` to list my host commands
+13. As a repository agent, I want a passing `ready` to list my own commands
     and the contract version, so that I can see what a sweep will cover.
 
 ### Sweeping
 
 14. As a repository agent, I want a sweep derived from my CLI's discovery, so
     that kernel-promised behaviour is checked with nothing written.
-15. As a repository agent, I want the sweep to list the stations still owed,
-    so that I know which need a scenario.
+15. As a repository agent, I want the sweep to list the owed results, so that
+    I know which stations need a scenario.
 16. As a repository agent, I want `sweep` to exit 3 when a check fails, so
     that a script can stop on it.
-17. As a repository agent, I want `findings` to list every failed check as
-    data, so that I can read them all, since a refusal carries no data.
+17. As a repository agent, I want `findings` to list every failed check of the
+    sweep as data, so that I can read them all, since a refusal carries no
+    data.
 18. As a repository agent, I want a command with no route word swept
     correctly, so that the unknown-command check is not held against it.
 19. As a repository agent, I want stations the kernel adds left out of the
-    owed list, so that I owe only what I declared.
+    owed results, so that I owe only what I declared.
 
 ### Launching a run
 
-20. As a repository agent, I want `launch` to bind one target to a run root,
-    so that every later command drives the same CLI.
+20. As a repository agent, I want `launch` to bind one target to a
+    verification run, so that every later command drives the same CLI.
 21. As a repository agent, I want `launch` to refuse a folder that holds
     anything, so that two runs never mix their evidence.
 22. As a repository agent, I want `launch` to refuse a folder inside a git
@@ -87,11 +88,11 @@ decisions and criteria.
     cannot drop an expectation.
 28. As a repository agent, I want each step bounded in time and output, so
     that a hung or flooding CLI ends as an unmet step.
-29. As a repository agent, I want one receipt for each step with what was
-    expected, what was observed and which expectation was unmet, so that I can
-    repair without running it again.
-30. As a repository agent, I want a `{work}` placeholder, so that a changing
-    command writes under the run root.
+29. As a repository agent, I want one evidence file for each step with what
+    was expected, what was observed and which expectation was unmet, so that I
+    can repair without running it again.
+30. As a repository agent, I want a `{scratch}` placeholder, so that a
+    changing command writes under the scratch folder.
 31. As a repository agent, I want to drive a changing command twice, so that
     its second run is shown and not assumed.
 32. As a repository agent, I want to drive an interrupted run and the refusal
@@ -100,10 +101,10 @@ decisions and criteria.
     the same evidence holds it.
 34. As a repository agent, I want a scenario that cannot pass reported as
     unmet, so that it is never weakened.
-35. As a repository agent, I want a feature driven twice in one run root
-    refused, so that no receipt is ever overwritten.
+35. As a repository agent, I want a feature driven twice in one verification
+    run refused, so that no evidence file is ever overwritten.
 36. As a repository agent, I want `drive` to run every step and then exit 3 if
-    any was unmet, so that I get every receipt in one run.
+    any was unmet, so that I get every evidence file in one run.
 
 ### Reporting
 
@@ -114,17 +115,18 @@ decisions and criteria.
 
 ### Cleaning up and recovering
 
-39. As a repository agent, I want cleanup to remove only the run's `work/`
-    folder, so that receipts and the index survive.
+39. As a repository agent, I want cleanup to remove only the scratch folder,
+    so that the evidence folder survives.
 40. As a repository agent, I want cleanup to stop nothing by name, so that no
     other process dies.
-41. As a repository agent, I want a second cleanup to be harmless, so that I
-    can run it after every failed attempt.
-42. As a repository agent, I want every command on a run root to check each
-    receipt against its recorded hash, so that a changed or missing receipt
-    exits 70.
+41. As a repository agent, I want a second cleanup refused under its own
+    cause, so that I know nothing is left to remove and nothing else was
+    touched.
+42. As a repository agent, I want every command on a verification run to check
+    each evidence file against its recorded hash, so that a changed or missing
+    one exits 70.
 43. As a repository agent, I want `pending` to show a helper change that was
-    interrupted, so that I know to launch a new run root.
+    interrupted, so that I know to launch a new verification run.
 44. As a repository agent, I want a command on a folder that was never
     launched refused with its repair, so that I do not drive a half-made run.
 
@@ -151,8 +153,9 @@ decisions and criteria.
     contract, so that other skills can depend on it.
 52. As a kernel agent, I want no code comment to cite a specification
     identifier, so that the code reads without this document.
-53. As a kernel agent, I want the skill to work without kernel unit K7, so
-    that the countersigned capability qualification record stays valid.
+53. As a kernel agent, I want the skill to work without the programs add-on's
+    folder and environment (K7), so that the countersigned capability
+    qualification record stays valid.
 54. As a carrying agent, I want to know what must be installed beside the
     skill folder, so that a missing kernel is a named failure and not a stack
     trace.
@@ -170,3 +173,21 @@ decisions and criteria.
     separately.
 59. As Nathan, I want every review finding answered in a ledger, so that I can
     see what was fixed and what was declined.
+
+### Added in correction round 1
+
+60. As a repository agent, I want `launch` to refuse a target path that holds
+    no file, so that a run is never bound to nothing.
+61. As a repository agent, I want `launch` to refuse a `git` failure it cannot
+    read, so that a broken `git` is not recorded as no work tree.
+62. As a repository agent, I want each target step checked against what the
+    kernel promises, unasked, so that an envelope that lies about its exit
+    code cannot pass my scenario.
+63. As a repository agent, I want a wrongly typed scenario field refused by
+    name, so that a string where a list belongs never runs.
+64. As a repository agent, I want the check stopped by Ctrl-C to stop the
+    helper and my CLI first, so that nothing is left running.
+65. As a repository agent, I want a run whose index cannot be read refused by
+    name, so that I keep the folder for review and launch another.
+66. As a kernel agent, I want the probes compared before `launch` too, so that
+    a kernel fault is never recorded as a fault of the repository.
