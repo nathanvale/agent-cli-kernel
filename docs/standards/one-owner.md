@@ -45,6 +45,12 @@ here.
   `Bun.Glob` `scanSync`, so it could race with tests that make and remove
   probe folders), [ff0616c] (the author guide's example reader walked its
   folder with its own recursion), [0463f35] (so did its document scan).
+- Use the owner's constant, helper or matcher, or own the value outright,
+  instead of a copy, which stops matching when its owner changes.
+  Witnessed: [3567a81] (the author guide's install case copied
+  git-fixture's private 4 s git bound into its own timeout, and its
+  `thrownMessage` repeated `messageOf`, where `toThrow(new Error(message))`
+  already compares the whole message).
 
 [#91-git]: https://github.com/nathanvale/bun-typescript-template/pull/91#discussion_r4607744335
 [56aee86]: https://github.com/nathanvale/bun-typescript-template/commit/56aee86bf059fb2629819fa2b6a1664d776629d5
@@ -68,3 +74,4 @@ here.
 [9824b41]: https://github.com/nathanvale/agent-cli-kernel/commit/9824b413ed3743656fef68d502086545fac6d130
 [ff0616c]: https://github.com/nathanvale/agent-cli-kernel/commit/ff0616cd9c3310bf1170e28308c3c748353fc57b
 [0463f35]: https://github.com/nathanvale/agent-cli-kernel/commit/0463f35b14fd6aadced45cab40b44436fb480b33
+[3567a81]: https://github.com/nathanvale/agent-cli-kernel/commit/3567a8125e36f43eb6b3f448a5f51fb122090536
