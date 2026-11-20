@@ -3166,8 +3166,22 @@
   {
     "id": "d065305-doctor-hooks-elsewhere",
     "patch": "tests/planted-faults/patches/d065305-doctor-hooks-elsewhere.patch",
-    "testFile": "tests/template/doctor/doctor.test.ts",
-    "title": "^doctor a checkout whose core.hooksPath names another folder warns",
+    "testFile": "tests/template/doctor/doctor-hooks.test.ts",
+    "title": "^hooks warns when core.hooksPath names another folder",
     "source": "d065305 feat(doctor): warn when core.hooksPath does not run this checkout's .githooks"
+  },
+  {
+    "id": "3cc017b-doctor-hooks-git-bound",
+    "patch": "tests/planted-faults/patches/3cc017b-doctor-hooks-git-bound.patch",
+    "testFile": "tests/template/doctor/doctor-hooks.test.ts",
+    "title": "^hooks stops a git that does not answer at its bound",
+    "source": "3cc017b fix(doctor): bound the hooks check's git read, report a git failure, and test it in process"
+  },
+  {
+    "id": "3cc017b-doctor-hooks-git-failure",
+    "patch": "tests/planted-faults/patches/3cc017b-doctor-hooks-git-failure.patch",
+    "testFile": "tests/template/doctor/doctor-hooks.test.ts",
+    "title": "^hooks warns, with git's exit and reason, when git config cannot be read",
+    "source": "3cc017b fix(doctor): bound the hooks check's git read, report a git failure, and test it in process"
   }
 ]
