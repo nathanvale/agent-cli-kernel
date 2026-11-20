@@ -334,12 +334,16 @@ an envelope's exit code is the process's, `--json` prints one envelope and
 nothing on stderr, and a failed run prints nothing on stdout.
 
 **Self-verification**:
-The kernel's own test area that runs verify-cli on the kernel's two CLIs on
-every change: it sweeps the helper, and it launches, drives and reports the
-author skill's example with the scenario verify-cli's read-only feature file
-shows. It fails on a finding, an unmet step, an owed result its record does
-not list, or a recorded owed result that is no longer owed, and prints a
-repair for each.
+The kernel's own test area that runs verify-cli on every change against two
+CLIs: the helper, which it sweeps, and the author skill's example, which it
+launches, drives with the scenario verify-cli's read-only feature file
+shows, and reports on. Its station record, `stations.json`, lists each
+station that each run reaches, as swept, driven or owed, and the helper's
+check count. It fails, printing a repair, on a run verify-cli cannot trust,
+a finding (quoting each failed check), an unmet step (quoting what was
+expected and observed), an unconfirmed process end, a sweep with no check,
+a report with nothing driven, and any station or count that differs from
+the record.
 
 ### Tools and their messages
 

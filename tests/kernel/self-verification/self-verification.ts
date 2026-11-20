@@ -1,10 +1,15 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { field, parsed, repository } from "../verify-skill/harness.ts";
+import { field, parsed } from "../verify-skill/harness.ts";
+import {
+  recordOf,
+  recordPath,
+  type Station,
+  stationFailures,
+  stationOf,
+} from "./station-record.ts";
 
-export const recordPath = "tests/kernel/self-verification/owed-results.json";
 export const featurePath = "skills/verify-cli/features/read-only-command.md";
-const checkLine = "bun skills/verify-cli/verify.ts";
+export const checkLine = "bun skills/verify-cli/verify.ts";
+const quoteLimit = 1_500;
 
 export type Ran = {
   readonly exit: number;
@@ -16,35 +21,23 @@ export type OwnCliRun = { readonly command: string; readonly ran: Ran };
 
 export type OwnCli = {
   readonly name: string;
-  readonly entry: string;
+  readonly repair: string;
   readonly runs: readonly OwnCliRun[];
+  readonly findings?: Ran | undefined;
+  readonly evidence?: ReadonlyMap<string, unknown> | undefined;
 };
-
-type OwedResult = { readonly command: string; readonly cause: string };
-
-const key = (owed: OwedResult) => `${owed.command} ${owed.cause}`;
 
 function listOf(value: unknown): readonly unknown[] {
   return Array.isArray(value) ? value : [];
 }
 
-function owedResult(value: unknown): OwedResult | undefined {
-  const command = field(value, "command");
-  const cause = field(value, "cause");
-  return typeof command === "string" && typeof cause === "string"
-    ? { command, cause }
-    : undefined;
+function quoted(value: unknown): string {
+  const text = JSON.stringify(value) ?? "undefined";
+  return text.length > quoteLimit ? `${text.slice(0, quoteLimit)}...` : text;
 }
 
-export function readRecord(): unknown {
-  return parsed(readFileSync(join(repository, recordPath), "utf8"));
-}
-
-export function recordedNames(record: unknown): readonly string[] {
-  return typeof record === "object" && record !== null
-    ? Object.keys(record)
-    : [];
-}
+const plural = (count: number, word: string) =>
+  `${String(count)} ${word}${count === 1 ? "" : "s"}`;
 
 export function featureScenario(markdown: string): unknown {
   const blocks = [...markdown.matchAll(/```json\n([\s\S]*?)```/g)];
@@ -55,21 +48,21 @@ export function featureScenario(markdown: string): unknown {
   return parsed(blocks[0]?.[1] ?? "");
 }
 
-function recordFailures(
-  name: string,
-  record: unknown,
-): { readonly expected: readonly OwedResult[]; readonly failures: string[] } {
-  const listed = field(record, name);
-  const expected = listOf(listed).map(owedResult);
-  const kept = expected.filter((entry) => entry !== undefined);
-  if (!Array.isArray(listed) || kept.length !== expected.length)
-    return {
-      expected: kept,
-      failures: [
-        `${name}: ${recordPath} holds no list of { command, cause } entries for this CLI. Repair: give "${name}" the list of owed results its self-verification run leaves.`,
-      ],
-    };
-  return { expected: kept, failures: [] };
+function dataOf(run: OwnCliRun | undefined): unknown {
+  return field(parsed(run?.ran.stdout ?? ""), "result", "data");
+}
+
+export function wantsFindings(own: OwnCli): boolean {
+  const last = own.runs.at(-1);
+  if (last?.command === "report") {
+    const found = field(dataOf(last), "findings");
+    return typeof found === "number" && found > 0;
+  }
+  return (
+    last?.command === "sweep" &&
+    field(parsed(last.ran.stdout), "result", "causeCode") ===
+      "DOMAIN_VERIFY_FINDINGS"
+  );
 }
 
 function runFailure(own: OwnCli, { command, ran }: OwnCliRun): string[] {
@@ -80,17 +73,28 @@ function runFailure(own: OwnCli, { command, ran }: OwnCliRun): string[] {
     ];
   const envelope = parsed(ran.stdout);
   if (ran.exit !== 0) {
-    const repair = field(envelope, "result", "repairAction");
     const message = field(envelope, "message");
     return [
-      `${own.name}: ${line} exited ${String(ran.exit)}: ${typeof message === "string" ? message : ran.stderr.trim()} Repair: ${typeof repair === "string" ? repair : `run ${line} by hand on ${own.entry} and follow its message.`}`,
+      `${own.name}: ${line} exited ${String(ran.exit)}: ${typeof message === "string" ? message : ran.stderr.trim()} Repair: ${own.repair}`,
     ];
   }
   if (field(envelope, "result", "data") === undefined)
     return [
-      `${own.name}: ${line} exited 0 with no envelope on stdout. Repair: run ${line} --json by hand on ${own.entry}; verify-cli must print one envelope.`,
+      `${own.name}: ${line} exited 0 with no envelope on stdout. Repair: verify-cli must print one envelope with --json; ${own.repair}`,
     ];
   return [];
+}
+
+function findingLines(own: OwnCli): string[] {
+  if (own.findings === undefined || !wantsFindings(own)) return [];
+  const failed = runFailure(own, { command: "findings", ran: own.findings });
+  if (failed.length > 0) return failed;
+  return listOf(
+    field(dataOf({ command: "findings", ran: own.findings }), "findings"),
+  ).map(
+    (finding) =>
+      `${own.name}: check ${String(field(finding, "check"))} on ${quoted(field(finding, "argv"))} expected ${quoted(field(finding, "expected"))} and saw ${quoted(field(finding, "saw"))}. Repair: ${own.repair}`,
+  );
 }
 
 function missingFields(
@@ -111,17 +115,45 @@ function missingFields(
     );
 }
 
-function sweepOwed(own: OwnCli, data: unknown) {
+type Judged = {
+  readonly stations: readonly (Station | undefined)[];
+  readonly checks: number | undefined;
+  readonly failures: string[];
+  readonly clean: boolean;
+};
+
+function sweepJudged(own: OwnCli, data: unknown): Judged {
   const checks = field(data, "checks");
-  const failures = missingFields(own, "sweep", data, { owed: "list" });
+  const failures = missingFields(own, "sweep", data, {
+    swept: "list",
+    owed: "list",
+  });
   if (!(typeof checks === "number" && checks > 0))
     failures.push(
-      `${own.name}: the sweep ran no check. Repair: a sweep that checks nothing proves nothing; run ${checkLine} sweep ${own.entry} by hand and repair the target's discovery.`,
+      `${own.name}: the sweep ran no check. Repair: a sweep that checks nothing proves nothing; ${own.repair}`,
     );
-  return { owed: listOf(field(data, "owed")).map(owedResult), failures };
+  return {
+    stations: [
+      ...listOf(field(data, "swept")).map((each) => stationOf(each, "swept")),
+      ...listOf(field(data, "owed")).map((each) => stationOf(each, "owed")),
+    ],
+    checks: typeof checks === "number" && checks > 0 ? checks : undefined,
+    failures,
+    clean: true,
+  };
 }
 
-function reportOwed(own: OwnCli, data: unknown) {
+function unmetLine(own: OwnCli, step: unknown): string {
+  const name = String(field(step, "step"));
+  const evidence = own.evidence?.get(name);
+  const shown =
+    evidence === undefined
+      ? "its evidence file could not be read"
+      : `expected ${quoted(field(evidence, "expected"))}, observed ${quoted(field(evidence, "observed"))}`;
+  return `${own.name}: step ${name} is unmet at ${listOf(field(step, "unmet")).join(", ")}: ${shown}. Repair: make the target do what the step expects. Change the scenario in ${featurePath} only when the example's documented output changed on purpose; ${own.repair}`;
+}
+
+function reportJudged(own: OwnCli, data: unknown): Judged {
   const failures = missingFields(own, "report", data, {
     findings: "number",
     unmet: "list",
@@ -129,14 +161,13 @@ function reportOwed(own: OwnCli, data: unknown) {
     stations: "list",
   });
   const findings = field(data, "findings");
-  if (typeof findings === "number" && findings !== 0)
+  const found = typeof findings === "number" && findings !== 0;
+  if (found)
     failures.push(
-      `${own.name}: the sweep found ${String(findings)} failed checks. Repair: run ${checkLine} findings ${own.entry} for the list, then repair the target or its declarations.`,
+      `${own.name}: the sweep found ${plural(findings, "failed check")}, each listed here; stations are compared with ${recordPath} once the sweep is clean. Repair: ${own.repair}`,
     );
   for (const step of listOf(field(data, "unmet")))
-    failures.push(
-      `${own.name}: step ${String(field(step, "step"))} is unmet: ${listOf(field(step, "unmet")).join(", ")}. Repair: make the target do what the step expects. Change the scenario in ${featurePath} only when the example's documented output changed on purpose.`,
-    );
+    failures.push(unmetLine(own, step));
   for (const step of listOf(field(data, "unconfirmed")))
     failures.push(
       `${own.name}: step ${String(step)}'s process end was not confirmed. Repair: make the target exit on its own within the step's limit.`,
@@ -147,67 +178,56 @@ function reportOwed(own: OwnCli, data: unknown) {
       `${own.name}: the scenario drove no station. Repair: give ${featurePath}'s scenario a met --json step.`,
     );
   return {
-    owed: stations
-      .filter((station) => field(station, "state") === "owed")
-      .map(owedResult),
+    stations: stations.map((each) => stationOf(each)),
+    checks: undefined,
     failures,
+    clean: !found,
   };
 }
 
-function owedFailures(
-  name: string,
-  observed: readonly OwedResult[],
-  expected: readonly OwedResult[],
-): string[] {
-  const seen = new Set(observed.map(key));
-  const recorded = new Set(expected.map(key));
-  return [
-    ...[...seen]
-      .filter((entry) => !recorded.has(entry))
-      .map(
-        (entry) =>
-          `${name}: ${entry} is owed and ${recordPath} does not list it. Repair: drive it with a --json step in a scenario, or add it to "${name}" in that record when no scenario can reach it yet.`,
-      ),
-    ...[...recorded]
-      .filter((entry) => !seen.has(entry))
-      .map(
-        (entry) =>
-          `${name}: ${recordPath} lists ${entry}, which is no longer owed. Repair: remove it from "${name}" in that record.`,
-      ),
-  ];
-}
-
 export function ownCliFailures(own: OwnCli, record: unknown): string[] {
-  const { expected, failures } = recordFailures(own.name, record);
+  const recorded = recordOf(own.name, record);
   const ranFailures = own.runs.flatMap((run) => runFailure(own, run));
+  const found = findingLines(own);
   const last = own.runs.at(-1);
   if (last !== undefined && runFailure(own, last).length > 0)
-    return [...failures, ...ranFailures];
-  const data = field(parsed(last?.ran.stdout ?? ""), "result", "data");
+    return [...recorded.failures, ...ranFailures, ...found];
+  const data = dataOf(last);
   const judged =
     last?.command === "sweep"
-      ? sweepOwed(own, data)
+      ? sweepJudged(own, data)
       : last?.command === "report"
-        ? reportOwed(own, data)
+        ? reportJudged(own, data)
         : undefined;
   if (judged === undefined)
     return [
-      ...failures,
+      ...recorded.failures,
       ...ranFailures,
-      `${own.name}: its runs end with ${String(last?.command)}, which lists no owed results. Repair: end them with sweep or report.`,
+      `${own.name}: its runs end with ${String(last?.command)}, which lists no stations. Repair: end them with sweep or report.`,
     ];
-  const owed = judged.owed.filter((entry) => entry !== undefined);
+  const stations = judged.stations.filter((each) => each !== undefined);
   const unread =
-    owed.length === judged.owed.length
+    stations.length === judged.stations.length
       ? []
       : [
-          `${own.name}: ${last?.command ?? ""} listed an owed result with no command or cause. Repair: run ${checkLine} ${last?.command ?? ""} --json by hand and repair verify-cli's output.`,
+          `${own.name}: ${last?.command ?? ""} listed a station with no command, cause or state. Repair: run ${checkLine} ${last?.command ?? ""} --json by hand and repair verify-cli's output.`,
+        ];
+  const checks =
+    recorded.checks === undefined ||
+    judged.checks === undefined ||
+    recorded.checks === judged.checks
+      ? []
+      : [
+          `${own.name}: the sweep ran ${String(judged.checks)} checks, and ${recordPath} says ${String(recorded.checks)}. Repair: if a command, input or station changed on purpose, set "checks" to ${String(judged.checks)}; otherwise find the check that changed.`,
         ];
   return [
-    ...failures,
+    ...recorded.failures,
     ...ranFailures,
     ...judged.failures,
+    ...found,
     ...unread,
-    ...owedFailures(own.name, owed, expected),
+    ...(judged.clean
+      ? [...checks, ...stationFailures(own.name, stations, recorded)]
+      : []),
   ];
 }
