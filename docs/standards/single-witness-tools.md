@@ -1,5 +1,32 @@
 # Single Witness: Tools and gates
 
+- Read a tracked path's own entry (`lstatSync`), never the file it points to:
+  `existsSync` follows a symlink, so a tracked link that points nowhere drops
+  out of a full-tree check. Witnessed: [0382660] (a dangling tracked symlink
+  with a forbidden name passed the full-tree names check).
+- Tell a foreign repository from this repository's own broken check by the
+  tree that owns the path, and stop the call when the broken one is this
+  repository's: a missing rule file here is a failure, not a pass. Witnessed:
+  [0382660] (the hooks exited 0 when `GLOSSARY.md` was missing, and a
+  malformed payload exited 1, which does not block).
+- Check a list of recorded exceptions against its base revision, and refuse
+  an addition no reviewed change approved: a check that reads only the
+  current list lets a new bad name and its new recorded hit pass together.
+  Witnessed: [0382660] (both recorded lists could grow with no check).
+- Read what a map claims, not only that its targets exist: its owner rows and
+  the heading each link names. Witnessed: [0382660] (a duplicate owner and a
+  missing heading anchor passed the map check).
+- Fail a doctor check for a setup that only the checkout's own contributor
+  can make, and name the command; warn only when the state is unknown. A
+  warning scrolls past on a fresh checkout. Witnessed: [4acba45] (the
+  kernel dropped `prepare`, and a fresh clone ran with no commit hook while
+  the doctor only warned).
+- Scan every folder a retired word can live in, and keep the retired phrase
+  out of the allowed list: a scanner scoped to source lets the word live on in
+  the skills and docs. Witnessed: [4acba45] (the contract-word table allowed
+  "stamped kernel" and "stamped add-on" and read neither `skills/` nor
+  `docs/`).
+
 How a gate, a script or a check reads a tool, its output and its inputs. A lesson seen once waits here as one bullet; the
 [single witness guide](single-witness.md) says how it leaves.
 
@@ -89,3 +116,5 @@ How a gate, a script or a check reads a tool, its output and its inputs. A lesso
 [0669e10]: https://github.com/nathanvale/agent-cli-kernel/commit/0669e10e32c420aa077e8491818f1d1417f1a1c9
 [044431e]: https://github.com/nathanvale/agent-cli-kernel/commit/044431e8b510ef9104ab7e4ade72f5d7ae980a69
 [973abac]: https://github.com/nathanvale/agent-cli-kernel/commit/973abac66b578259a73b21857f5a92090f249717
+[0382660]: https://github.com/nathanvale/agent-cli-kernel/commit/0382660efda051a37b3fc8f6fd90340855b80ef0
+[4acba45]: https://github.com/nathanvale/agent-cli-kernel/commit/4acba45087d1aecbeac150c9edc0b050ffc3b029
