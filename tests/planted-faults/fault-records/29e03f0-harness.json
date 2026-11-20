@@ -1,0 +1,7 @@
+{
+  "id": "29e03f0-harness",
+  "patch": "tests/planted-faults/patches/29e03f0-harness.patch",
+  "testFile": "tests/kernel/diagnostics/cases.test.ts",
+  "title": "waiting for record bytes outlasts a log file that is still empty",
+  "source": "29e03f0 test(diagnostics): add waitForRecordBytes, which waits until the sink holds its opened file"
+}

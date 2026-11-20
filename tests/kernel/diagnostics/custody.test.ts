@@ -31,6 +31,7 @@ import {
   tree,
   waitForFile,
   waitForLog,
+  waitForRecordBytes,
 } from "./harness.ts";
 import type { Tree } from "./harness.ts";
 import { reportUnproved, unprovedHere } from "./platform.ts";
@@ -371,7 +372,7 @@ describe("D04 handle custody", () => {
         script: { records: 4, hold: { after: 1, ready, go } },
       });
       await waitForFile(ready);
-      await waitForLog(where.dir);
+      await waitForRecordBytes(where.dir);
       const original = onlyLog(where.dir);
       const moved = join(where.root, "moved.jsonl");
       renameSync(original.path, moved);
