@@ -3155,5 +3155,19 @@
     "testFile": "tests/kernel/pinned-commit.test.ts",
     "title": "^a repository installs the kernel by name at a pinned commit",
     "source": "a810bf3 feat(kernel): name the kernel repository agent-cli-kernel and export the kernel and its add-ons"
+  },
+  {
+    "id": "d065305-doctor-hooks-unset",
+    "patch": "tests/planted-faults/patches/d065305-doctor-hooks-unset.patch",
+    "testFile": "tests/template/doctor/doctor.test.ts",
+    "title": "^doctor a checkout whose core.hooksPath is not set warns",
+    "source": "d065305 feat(doctor): warn when core.hooksPath does not run this checkout's .githooks"
+  },
+  {
+    "id": "d065305-doctor-hooks-elsewhere",
+    "patch": "tests/planted-faults/patches/d065305-doctor-hooks-elsewhere.patch",
+    "testFile": "tests/template/doctor/doctor.test.ts",
+    "title": "^doctor a checkout whose core.hooksPath names another folder warns",
+    "source": "d065305 feat(doctor): warn when core.hooksPath does not run this checkout's .githooks"
   }
 ]

@@ -1,0 +1,13 @@
+diff --git a/scripts/doctor.ts b/scripts/doctor.ts
+index 7c0aa8b..cea711b 100644
+--- a/scripts/doctor.ts
++++ b/scripts/doctor.ts
+@@ -194,7 +194,7 @@ function hooks(root: string): Finding {
+       detail: "not a git checkout, so no git hooks apply.",
+     };
+   const { value } = gitRead(root, ["config", "--get", "core.hooksPath"]);
+-  if (value !== "" && resolve(root, value) === resolve(root, hooksFolder))
++  if (value === "" || resolve(root, value) === resolve(root, hooksFolder))
+     return {
+       status: "ok",
+       check: "hooks",
