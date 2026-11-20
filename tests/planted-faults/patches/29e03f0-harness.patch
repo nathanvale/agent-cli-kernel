@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/diagnostics/harness.ts b/tests/kernel/diagnostics/harness.ts
+index 8f90a2c..e04786f 100644
+--- a/tests/kernel/diagnostics/harness.ts
++++ b/tests/kernel/diagnostics/harness.ts
+@@ -352,7 +352,7 @@ export async function waitForLog(
+   }
+ }
+ 
+-const sinkHoldsItsFile = 1;
++const sinkHoldsItsFile = 0;
+ 
+ export function waitForRecordBytes(dir: string, timeoutMilliseconds = 30_000) {
+   return waitForLog(dir, timeoutMilliseconds, sinkHoldsItsFile);

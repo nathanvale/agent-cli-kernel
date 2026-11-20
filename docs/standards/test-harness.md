@@ -73,6 +73,11 @@ runs each test file. What a test must prove is in the
   event: state tests waited one turn for a transaction to end, and failed
   on correct code that took two more; a turn count may only bound the
   wait).
+- Wait for the event that finishes setup, not for the first sign of it. A
+  test that moved the diagnostics log as soon as the file existed raced the
+  sink's own check that the name still held the inode it opened, and the
+  sink correctly refused and wrote nothing; it now waits for the first
+  record byte. Witnessed: [kernel#54-run], [kernel#55-run].
 - Widen a race control until it catches its fault on every run. Witnessed:
   [2b2907a] (caught in 48 of 50 runs before widening).
 - Bound a duration a test reads back from output by zero below and, above,
@@ -96,6 +101,8 @@ runs each test file. What a test must prove is in the
   s`), write those seconds to its timing file, and delete the timing files
   of records that left. A part that holds no fault record fails.
 
+[kernel#54-run]: https://github.com/nathanvale/agent-cli-kernel/actions/runs/44694912382
+[kernel#55-run]: https://github.com/nathanvale/agent-cli-kernel/actions/runs/44725390642
 [#92-bound]: https://github.com/nathanvale/bun-typescript-template/pull/92#discussion_r4607819546
 [#85-probe]: https://github.com/nathanvale/bun-typescript-template/pull/85#discussion_r4607322041
 [e990da6]: https://github.com/nathanvale/bun-typescript-template/commit/e990da67151a9c3b6a0e90c240f7e0860856c4d2
