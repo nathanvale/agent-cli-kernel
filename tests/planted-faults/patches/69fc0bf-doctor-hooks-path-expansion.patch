@@ -1,0 +1,13 @@
+diff --git a/scripts/doctor.ts b/scripts/doctor.ts
+index b355d6b..25981f7 100644
+--- a/scripts/doctor.ts
++++ b/scripts/doctor.ts
+@@ -237,7 +237,7 @@ export function hooks(root: string): Finding {
+     return hooksUnread(
+       `git rev-parse --show-toplevel exited ${String(checkout.exitCode)} (${checkout.reason})`,
+     );
+-  const read = gitRead(root, ["config", "--path", "--get", "core.hooksPath"]);
++  const read = gitRead(root, ["config", "--get", "core.hooksPath"]);
+   if (!read.launched)
+     return hooksUnread(`git could not start (${read.reason})`);
+   if (read.timedOut)

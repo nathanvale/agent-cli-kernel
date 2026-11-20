@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/pinned-commit.test.ts b/tests/kernel/pinned-commit.test.ts
+index baebf39..63a89bd 100644
+--- a/tests/kernel/pinned-commit.test.ts
++++ b/tests/kernel/pinned-commit.test.ts
+@@ -85,7 +85,7 @@ function workingTreeCommit(source: string, destination: string): string {
+     copied.push(path);
+   }
+   gitOutput(destination, "init", "--quiet", "--initial-branch=main");
+-  writeFileSync(join(destination, ".pathspec"), copied.join("\0"));
++  writeFileSync(join(destination, ".pathspec"), paths.join("\0"));
+   gitOutput(
+     destination,
+     "add",

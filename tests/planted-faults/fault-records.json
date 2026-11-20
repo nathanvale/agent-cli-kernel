@@ -3211,5 +3211,40 @@
     "testFile": "tests/template/doctor/doctor-hooks.test.ts",
     "title": "^hooks warns, with git's exit and reason, when git config cannot be read",
     "source": "07cdae8 fix(doctor): bound the hooks check's git read, report a git failure, and test it in process"
+  },
+  {
+    "id": "69fc0bf-doctor-hooks-git-launch",
+    "patch": "tests/planted-faults/patches/69fc0bf-doctor-hooks-git-launch.patch",
+    "testFile": "tests/template/doctor/doctor-hooks.test.ts",
+    "title": "^hooks warns when git cannot start",
+    "source": "69fc0bf fix(doctor): read core.hooksPath as git does, and warn when git cannot start or read the checkout"
+  },
+  {
+    "id": "69fc0bf-doctor-hooks-unread-checkout",
+    "patch": "tests/planted-faults/patches/69fc0bf-doctor-hooks-unread-checkout.patch",
+    "testFile": "tests/template/doctor/doctor-hooks.test.ts",
+    "title": "^hooks warns, with git's reason, when a checkout's configuration cannot be read",
+    "source": "69fc0bf fix(doctor): read core.hooksPath as git does, and warn when git cannot start or read the checkout"
+  },
+  {
+    "id": "69fc0bf-doctor-hooks-path-expansion",
+    "patch": "tests/planted-faults/patches/69fc0bf-doctor-hooks-path-expansion.patch",
+    "testFile": "tests/template/doctor/doctor-hooks.test.ts",
+    "title": "^hooks reads core.hooksPath as git does",
+    "source": "69fc0bf fix(doctor): read core.hooksPath as git does, and warn when git cannot start or read the checkout"
+  },
+  {
+    "id": "7a3c409-add-on-scan-empty",
+    "patch": "tests/planted-faults/patches/7a3c409-add-on-scan-empty.patch",
+    "testFile": "tests/kernel/add-on-boundary.test.ts",
+    "title": "^the add-on import scan refuses a kernel folder with no file to scan",
+    "source": "7a3c409 test(kernel): refuse an add-on import scan that finds no file"
+  },
+  {
+    "id": "5048d5e-working-tree-pathspec",
+    "patch": "tests/planted-faults/patches/5048d5e-working-tree-pathspec.patch",
+    "testFile": "tests/kernel/pinned-commit.test.ts",
+    "title": "^the working-tree copy commits only the tracked files",
+    "source": "5048d5e test(kernel): stage only the tracked files the working-tree copy holds"
   }
 ]
