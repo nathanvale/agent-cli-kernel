@@ -19,7 +19,9 @@ boundary trusts the types.
   twice).
 - Validate the same object you pass on. A spread drops non-enumerable
   properties, and a hidden `toJSON` rewrites serialised data. Witnessed:
-  [r4580070938], [r4580077749].
+  [r4580070938], [r4580077749], [8cbec55] (the standards check spread a
+  parsed fault record after its file path, so a `file` key in the record
+  replaced the path a problem names; Sol 6.1 review).
 - Brand-check a platform object such as an `AbortSignal` or a typed array
   by reading its prototype's getter with the value as receiver, inside one
   catch with any `instanceof` test. `instanceof` and an own property both
@@ -73,3 +75,4 @@ boundary trusts the types.
 [r4622712159]: https://github.com/nathanvale/agent-cli-kernel/pull/4#discussion_r4622712159
 [r4622824082]: https://github.com/nathanvale/agent-cli-kernel/pull/3#discussion_r4622824082
 [kernel#6 r4622839131]: https://github.com/nathanvale/agent-cli-kernel/pull/6#discussion_r4622839131
+[8cbec55]: https://github.com/nathanvale/agent-cli-kernel/commit/8cbec55e65afbbba5650d447e00cac40ce0e01c3
