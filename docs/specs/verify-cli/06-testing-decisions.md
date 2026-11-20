@@ -66,7 +66,7 @@ and the decisions record says so.
 patch that removes or weakens the guard, with a fault record, one file each,
 naming the test that must go red. Fault replay must print `KILLED` for each. A
 surviving fault is a missing test. This covers every row below, not only the
-kernel fault classes. The build has 145 fault records for this skill.
+kernel fault classes. The build has 183 fault records for this skill.
 
 Kernel fault classes. Each has two things.
 
@@ -80,7 +80,7 @@ row names a list, one for each member.
 | Guard                                                                                                                                                                                                        | Planted fault                                                     | Test that must go red                                                                                                                              |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Each failure id of the kernel-free check: `kernel-import`, `helper-no-envelope`, `helper-exit-mismatch`, `helper-usage-exit`, `observation-mismatch`, `evidence-mismatch`, `check-internal`, `child-timeout` | The check skips that comparison                                   | The report test of the fault class, or the in-process case, that only that id catches                                                              |
-| `observation-mismatch`, each compared field: exit code, `stdout` byte count, `stderr` hash; and an observation with a field missing                                                                          | The check drops that field, or accepts the shapeless observation  | KF5 for the exit code, KF6 for the hash, in-process cases for the rest                                                                             |
+| `observation-mismatch`, each compared field: exit code, `stdout` byte count, `stdout` hash, `stderr` hash; and an observation with a field missing                                                           | The check drops that field, or accepts the shapeless observation  | KF5 for the exit code, KF6 for the `stderr` hash, in-process cases for the rest                                                                    |
 | The probe comparison before `launch`                                                                                                                                                                         | `launch` is left out of step 4                                    | KF5 and KF6, `launch` included                                                                                                                     |
 | `evidence-mismatch`, each case: evidence file missing, evidence file changed                                                                                                                                 | The check accepts that case                                       | The two EF1 cases                                                                                                                                  |
 | A stop signal is passed on to the helper and the target; a child that ignores the termination signal is killed after the grace                                                                               | The check passes no signal on, or never kills                     | The two stop cases and the grace case                                                                                                              |
@@ -134,8 +134,24 @@ row names a list, one for each member.
 - The lint tests that prove a rule on each shape it can meet, under
   `tests/template/lint/`.
 - The shared test folder and process helpers under `tests/support/`.
-- The build's own tests, `tests/kernel/verify-skill/`: eleven files, 175
+- The build's own tests, `tests/kernel/verify-skill/`: thirteen files, 210
   tests.
 - Outside the kernel repository: `verify-template`'s green and red pairs, and
   the cold-start trial's state tests, which reach a held, an unresolved and an
   unavailable refusal through real processes.
+
+## Acceptance criteria added in correction round 2
+
+These continue [part 7](07-acceptance-criteria.md), which is at the file size
+gate's limit. There is one criterion for each new observable result of a fix
+the review marked P0 or P1. Each passed on macOS only, in the build's tests at
+`67b734d`.
+
+| #    | Observable result                                                                                                                                                                            | Test title                                                                                                                                                                                             |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| AC54 | A target that answers a probe differently on each run exits 3 with a `TARGET FAIL target-not-repeatable` line. A target that hangs on a probe gets the helper's verdict, exit 3, not exit 70 | "a target that answers each run differently is the target's failure, exit 3, not 70"; "a target that runs past the helper's own limit on a probe is the helper's to judge, not a timeout of the check" |
+| AC55 | An envelope over 65,536 bytes reaches a slow reader whole                                                                                                                                    | "an envelope over 64 KiB reaches a slow reader whole"                                                                                                                                                  |
+| AC56 | A station whose sweep run failed a check is owed, not swept, and `report` ends its line with the count of failed checks                                                                      | "a station is swept only when every check on its run passed"; "a station whose run failed a check is owed, and the report counts the failed checks"                                                    |
+| AC57 | A folder where a step expects a file makes the step unmet at that file. Its evidence file is written, with `folder` in `fileKinds`, and the run can still be cleaned                         | "a folder where a step expects a file is an unmet step, kept as evidence, and the run can still be cleaned"                                                                                            |
+| AC58 | `launch` refuses a folder inside another verification run with `DOMAIN_VERIFY_RUN_EXISTS`, and judges a folder reached through a symbolic link where it really is                            | "a run folder inside another run is refused before anything is made"; "a run folder is judged where it really is, through any symbolic link"                                                           |
+| AC59 | An empty string in an includes list is refused as `bad-value` before anything runs                                                                                                           | "an empty string in an includes list observes nothing and is refused"                                                                                                                                  |

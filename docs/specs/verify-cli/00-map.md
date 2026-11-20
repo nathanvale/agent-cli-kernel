@@ -2,10 +2,10 @@
 
 This is the map of the specification. Status: proposed, not accepted (20
 November 2026, Australia/Melbourne). It is the second version, after
-correction round 1. The skill is built: kernel pull request 56. Where that
-build has run evidence, this specification follows it, and the first table
-below says where. Once accepted, code follows this specification, never the
-reverse.
+correction rounds 1 and 2. The skill is built: kernel pull request 56, read
+here at commit `67b734d`. Where that build has run evidence, this
+specification follows it, and the first table below says where. Once accepted,
+code follows this specification, never the reverse.
 
 ## In one screen
 
@@ -20,11 +20,11 @@ reverse.
 4. Evidence is plain files that outlive cleanup, each with a recorded hash.
 5. Exit 70 means "do not trust this run". A target that cannot start is a
    refusal, exit 3, that quotes the target's own error.
-6. There are 21 implementation decisions, 6 testing decisions, 53 acceptance
+6. There are 21 implementation decisions, 6 testing decisions, 59 acceptance
    criteria and 66 user stories. Each criterion names its test and its
    expected result.
 7. The build passed its own instructions end to end on Linux and macOS, and
-   its 175 tests on macOS.
+   its 210 tests on macOS.
 
 ## Where the inputs and the code disagreed
 
@@ -32,21 +32,27 @@ Each row is a place this specification follows the code, or a kernel standard,
 over an input or over its own earlier text. Nathan should read these first.
 The first table is where it now follows the build.
 
-| Point                   | The second version said                                                                                      | The build, with run evidence                                                                                                                                               | Now                 |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
-| A second `cleanup`      | It succeeds and removes nothing                                                                              | Refused, `DOMAIN_VERIFY_RUN_CLEAN`, exit 3. The kernel's proof refuses a changing command's success that changed nothing                                                   | I8, I14, AC33       |
-| Effect names            | Nothing; round 1 first asked for `step.run` and `step.write`                                                 | One effect for each changing command: `run.create`, `scenario.drive`, `scratch.remove`. The first build's pair is gone                                                     | I4                  |
-| `pending`               | A required run folder                                                                                        | Optional in its declaration; a missing folder is refused                                                                                                                   | I6, AC53            |
-| `findings` and AC9      | AC9 asked for readiness check ids among findings                                                             | The sweep's findings only. `ready` names its own failed checks                                                                                                             | I6, AC9             |
-| Scenario rules          | Nine ids                                                                                                     | Ten: `bad-value` for a wrong field type. `path-outside-scratch` for the path rule                                                                                          | I13, AC25           |
-| Step verdicts           | Expectations only                                                                                            | Four contract checks on every target step, listed as `contract.<name>`                                                                                                     | I13, AC50           |
-| `launch` refusals       | Three causes, and a git failure with none                                                                    | `DOMAIN_VERIFY_TARGET_MISSING` and `DOMAIN_VERIFY_GIT_FAILED` added                                                                                                        | I8, I14, AC20, AC21 |
-| The probe comparison    | For commands that drive a target                                                                             | For `launch` too, so a kernel fault is not blamed on the repository                                                                                                        | I18, AC11           |
-| Stop signals            | Not covered                                                                                                  | The check stops the helper and the target, then exits 130 or 143                                                                                                           | I18, AC49           |
-| Entry files             | Each only starts something                                                                                   | `verify.ts` holds the check's functions too, so the scoped exception stays on one file                                                                                     | I19, TD2            |
-| The lint exception      | Two rules turned off for one file                                                                            | Only the two bans lifted; the state add-on factory ban stays                                                                                                               | I19, AC37           |
-| An interrupted `launch` | AC35, a `launch` stopped in process                                                                          | An interrupted `drive`, and one whose index is then removed                                                                                                                | I16, AC35           |
-| Words and names         | Run root, `work/`, receipt, evidence index, owed station, host command; its own cause codes and schema names | The kernel glossary's words; the build's cause codes; `verify-index/1` and `verify-step/1`; `scratch/` and `{scratch}`; evidence files at `evidence/<feature>/<step>.json` | Every part; I8, I12 |
+| Point                                                   | The second version said                                                                                      | The build, with run evidence                                                                                                                                               | Now                 |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| A second `cleanup`                                      | It succeeds and removes nothing                                                                              | Refused, `DOMAIN_VERIFY_RUN_CLEAN`, exit 3. The kernel's proof refuses a changing command's success that changed nothing                                                   | I8, I14, AC33       |
+| Effect names                                            | Nothing; round 1 first asked for `step.run` and `step.write`                                                 | One effect for each changing command: `run.create`, `scenario.drive`, `scratch.remove`. The first build's pair is gone                                                     | I4                  |
+| `pending`                                               | A required run folder                                                                                        | Optional in its declaration; a missing folder is refused                                                                                                                   | I6, AC53            |
+| `findings` and AC9                                      | AC9 asked for readiness check ids among findings                                                             | The sweep's findings only. `ready` names its own failed checks                                                                                                             | I6, AC9             |
+| Scenario rules                                          | Nine ids                                                                                                     | Ten: `bad-value` for a wrong field type. `path-outside-scratch` for the path rule                                                                                          | I13, AC25           |
+| Step verdicts                                           | Expectations only                                                                                            | Four contract checks on every target step, listed as `contract.<name>`                                                                                                     | I13, AC50           |
+| `launch` refusals                                       | Three causes, and a git failure with none                                                                    | `DOMAIN_VERIFY_TARGET_MISSING` and `DOMAIN_VERIFY_GIT_FAILED` added                                                                                                        | I8, I14, AC20, AC21 |
+| The probe comparison                                    | For commands that drive a target                                                                             | For `launch` too, so a kernel fault is not blamed on the repository                                                                                                        | I18, AC11           |
+| Stop signals                                            | Not covered                                                                                                  | The check stops the helper and the target, then exits 130 or 143                                                                                                           | I18, AC49           |
+| Entry files                                             | Each only starts something                                                                                   | `verify.ts` holds the check's functions too, so the scoped exception stays on one file                                                                                     | I19, TD2            |
+| The lint exception                                      | Two rules turned off for one file                                                                            | Only the two bans lifted; the state add-on factory ban stays                                                                                                               | I19, AC37           |
+| An interrupted `launch`                                 | AC35, a `launch` stopped in process                                                                          | An interrupted `drive`, and one whose index is then removed                                                                                                                | I16, AC35           |
+| Words and names                                         | Run root, `work/`, receipt, evidence index, owed station, host command; its own cause codes and schema names | The kernel glossary's words; the build's cause codes; `verify-index/1` and `verify-step/1`; `scratch/` and `{scratch}`; evidence files at `evidence/<feature>/<step>.json` | Every part; I8, I12 |
+| A target that answers differently on each run (round 2) | Blamed on the kernel, exit 70                                                                                | Exit 3, `TARGET FAIL target-not-repeatable` (`0aeb3de`)                                                                                                                    | I18, AC54           |
+| What a probe comparison reads (round 2)                 | Exit code, `stdout` byte count, `stderr` hash                                                                | A hash of `stdout` too (`b2dcc8f`)                                                                                                                                         | I18                 |
+| A swept station (round 2)                               | The sweep observed its cause                                                                                 | Only when every check on that run passed (`044431e`)                                                                                                                       | I10, I11, AC56      |
+| Evidence files (round 2)                                | No record of what stood at a file's path, or of the repository when the step ran                             | `fileKinds` and `repository` (`90162b3`, `c5a9d71`)                                                                                                                        | I12, AC57           |
+| The run folder (round 2)                                | Judged by its path; git facts null when `git` says no work tree                                              | Judged through symbolic links; refused inside another run; null only with no `.git` entry (`480dec5`)                                                                      | I14, AC58           |
+| The last readiness check's id (round 2)                 | `discovery-has-host-command`                                                                                 | `discovery-lists-a-command` (`06a566b`)                                                                                                                                    | I9                  |
 
 Where it follows the code or a kernel standard over an input:
 
@@ -93,7 +99,7 @@ The parts keep `to-spec`'s section order.
 evidence](04-implementation-scenarios.md) (I11 to I17)
 5. [Implementation Decisions: trust and fit](05-implementation-trust.md) (I18
    to I21)
-6. [Testing Decisions](06-testing-decisions.md) (TD1 to TD6)
+6. [Testing Decisions](06-testing-decisions.md) (TD1 to TD6, and AC54 to AC59)
 7. [Testing Decisions: acceptance criteria](07-acceptance-criteria.md) (AC1 to
    AC53)
 8. [Out of Scope](08-out-of-scope.md)
@@ -105,7 +111,7 @@ evidence](04-implementation-scenarios.md) (I11 to I17)
 folder](11-proposals-and-words.md)
 
 [findings.tsv](findings.tsv) answers every finding of the two reviews and of
-correction round 1, one row each.
+correction rounds 1 and 2, one row each.
 
 ## Sources
 
@@ -121,10 +127,11 @@ Linear, the issue tracker. A citation gives a letter, then a file and line.
 | `IF`, `IS` | The two blind ideas reports: `IF` by a Fable 5.2 worker, `IS` by a Sol 6.1 worker. Both are model names                                   |
 | `RF`, `RS` | The two blind reviews of the first version, by the same two models                                                                        |
 | `CR`, `CB` | Correction round 1, `inputs/corrections/round-1.md`, and its addendum on the build's differences                                          |
-| `BW`       | The build: kernel pull request 56, branch `skills/verify-agent-cli` at commit `4169ded`                                                   |
+| `CN`       | Correction round 2, the builder's note, `inputs/corrections/round-2-build.md`                                                             |
+| `BW`       | The build: kernel pull request 56, branch `skills/verify-agent-cli`, at commit `4169ded` for round 1 and `67b734d` for round 2            |
 | `PB`       | That pull request's body                                                                                                                  |
 | `BE`       | The build's evidence folder, `redesign/` in the builder's notes                                                                           |
-| `E`        | The evidence folder of the planning record. Files 16 to 25 are the second version's runs, 26 and 27 this round's                          |
+| `E`        | The evidence folder of the planning record. Files 16 to 25 are the second version's runs, 26 and 27 round 1's, 28 to 30 round 2's         |
 | `FW`       | The earlier trial's scratch work, the first prototype                                                                                     |
 | `KR`       | The kernel repository at commit `5b89b1f`                                                                                                 |
 | `TP`       | The template repository at commit `5292c0d`                                                                                               |
@@ -147,5 +154,6 @@ Each claim carries one of the glossary's claim tags: passed on Linux; passed
 on macOS only; designed and not run; decided by Nathan; open. None is open.
 "Passed on Linux" here means the build's end-to-end run in a container on the
 Mac mini, with the same run on macOS. "Passed on macOS only" means the build's
-tests and transcripts on macOS; this round ran the 175 tests again. "Read in
-the kernel's source" marks a fact taken from a file and not from a run.
+tests and transcripts on macOS; correction round 2 ran its 210 tests again.
+"Read in the kernel's source" marks a fact taken from a file and not from a
+run.

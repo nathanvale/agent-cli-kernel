@@ -138,6 +138,9 @@ macOS only.
 - The kernel-free check starts the helper in the repository root. A child
   inherits its parent's working folder, so every step starts there, wherever
   the agent started the command. No change to the programs add-on is needed.
+  Once the bound repository is gone, the check starts the helper in the folder
+  the command was started in, so `report`, `cleanup` and `pending` still
+  answer (build commit `57a347b`).
 - A step's environment is the one the agent's command line had. The helper
   records no environment, since it may hold secrets.
 
@@ -193,16 +196,16 @@ checks.
   word takes any plain word as that command's argument and exits 0.
 - The discovery probe is `--discover --json`.
 
-| Check id                      | What must hold                                                                            |
-| ----------------------------- | ----------------------------------------------------------------------------------------- |
-| `bun-matches-toolchain-pin`   | The running Bun is the version in the root's `packageManager`, when that field exists     |
-| `usage-probe-exit`            | The usage probe exits 2                                                                   |
-| `usage-probe-stdout-empty`    | Its `stdout` is empty                                                                     |
-| `usage-probe-one-stderr-line` | Its `stderr` is one line ending `[USAGE_UNKNOWN_COMMAND]` or `[USAGE_INVALID_INVOCATION]` |
-| `discovery-exit`              | The discovery probe exits 0                                                               |
-| `discovery-stderr-empty`      | Its `stderr` is empty                                                                     |
-| `discovery-one-envelope`      | Its `stdout` is one envelope whose exit code is 0                                         |
-| `discovery-has-host-command`  | It lists one command of the target's own, or more                                         |
+| Check id                      | What must hold                                                                                             |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `bun-matches-toolchain-pin`   | The running Bun is the version in the root's `packageManager`, when that field exists                      |
+| `usage-probe-exit`            | The usage probe exits 2                                                                                    |
+| `usage-probe-stdout-empty`    | Its `stdout` is empty                                                                                      |
+| `usage-probe-one-stderr-line` | Its `stderr` is one line ending `[USAGE_UNKNOWN_COMMAND]` or `[USAGE_INVALID_INVOCATION]`                  |
+| `discovery-exit`              | The discovery probe exits 0                                                                                |
+| `discovery-stderr-empty`      | Its `stderr` is empty                                                                                      |
+| `discovery-one-envelope`      | Its `stdout` is one envelope whose exit code is 0                                                          |
+| `discovery-lists-a-command`   | It lists one command of the target's own, or more. This is the sweep's name for the same check (`06a566b`) |
 
 - The target did not start when the usage probe's `stderr` is not such a line
   and the discovery probe wrote no envelope. `ready` then refuses with
@@ -244,6 +247,8 @@ trusts the declarations.
   with `--json`: empty `stderr`, an envelope whose exit code equals the
   process's, a declared cause, its own command identity. No other command is
   run.
+- A run of the sweep reaches a station only when every check on that run
+  passed. Otherwise the station stays an owed result (`044431e`).
 - That is 9 checks on the CLI, 9 on each command and 4 on each command run: 31
   for the author skill's example. A CLI with one command on an empty route
   gets 15.

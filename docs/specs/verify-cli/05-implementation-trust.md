@@ -25,15 +25,20 @@ In order, the check:
    `helper-no-envelope`. The envelope's exit code must equal the process's,
    else `helper-exit-mismatch`. Both must be 2, else `helper-usage-exit`.
 4. For `ready`, `probe`, `sweep`, `findings`, `launch`, `drive` and `report`,
-   runs the helper's `probe` and then the same two probes raw. Each pair must
-   agree on the exit code, the `stdout` byte count and the hash of `stderr`,
-   else `observation-mismatch`.
+   runs the helper's `probe` and then the same two probes raw, under the
+   helper's own step limits. Each pair must agree on the exit code, the
+   `stdout` byte count, the hash of `stdout` with the envelope's run id
+   blanked, and the hash of `stderr` (`b2dcc8f`). A pair that disagrees is
+   probed once more. When the helper and the raw runs each answer the same
+   twice, the kernel is at fault: `observation-mismatch`. When either side
+   changes between runs, the target is: `target-not-repeatable` (`0aeb3de`).
 5. For a command on a verification run, confirms that each index row's
    evidence file exists and matches its recorded hash, else
    `evidence-mismatch`. It does this before the command, and again after
    `drive` and `cleanup`.
 6. Runs the requested command once, in the repository root, with `--json`
-   added. The same envelope rules as step 3 apply.
+   added before any literal `--`; words after `--` pass untouched (`57a347b`).
+   The same envelope rules as step 3 apply.
 7. Passes the result on. With `--json` it writes the helper's envelope, byte
    for byte. Without, it writes the envelope's message, to `stdout` on exit 0
    and to `stderr` otherwise, then the data of a success as indented JSON. It
@@ -45,6 +50,12 @@ Rules:
 - A failure prints `verify-cli: RAW FAIL <id>: <detail> Repair: <next step>`
   on `stderr`, one line for each. `stdout` stays empty, with or without
   `--json`. The exit code is 70.
+- `target-not-repeatable` is the one failure that is the target's. Its line
+  starts `verify-cli: TARGET FAIL`. When it is the only failure, the exit code
+  is 3; with any other failure, 70 (`0aeb3de`).
+- A target that runs past the helper's limit on a probe is the helper's to
+  judge, exit 3. It is not a `child-timeout` of the check (`0aeb3de`, test
+  `5781a53`).
 - That is the documented outcome for a run that cannot be trusted. It is not
   an envelope, on purpose. The check cannot use the kernel's writer, and a
   second, hand-built writer of the envelope would be a second owner of that
@@ -55,9 +66,15 @@ Rules:
   600,000 for a requested command, and 7,200,000 for `drive`, which is above
   the most a valid scenario can take. A child that passes its limit is sent a
   termination signal, is killed after a grace of 10,000 milliseconds if it
-  ignores that, and is reported as `child-timeout`.
+  ignores that, and is reported as `child-timeout`. Each child runs in its own
+  process group, and the signal goes to the group, so no process a child
+  started outlives the check (`1e3ac9a`).
 - The check stopped by an interrupt or a termination signal stops the helper
   and the target first, then exits 130 or 143.
+- The check waits for each write before it exits, so an envelope over 65,536
+  bytes reaches a slow reader whole (`9214b48`).
+- Without `--json`, a helper message that names the helper's own name names
+  the `verify.ts` command line instead (`57a347b`).
 - Probing the helper, not the target, is what keeps the blame right. A fault
   that makes every process exit 0 is caught on every command, even one whose
   honest exit is 0.
@@ -82,12 +99,16 @@ kernel of a generated repository, one at a time, and restored after.
   misled by KF5 and KF6: alone, it reported a failed check against a healthy
   target.
 - KF5 and KF6 leave `--help` at 0, rightly: that command starts no target, so
-  nothing was misreported.
+  nothing was misreported. Planted after a healthy `launch`, KF5 is caught by
+  `drive` and by `report`, 70.
 - KF7 breaks the target's public behaviour while the helper stays honest. So
   it is a finding, and its repair names the installed kernel as well as the
   target.
 - One evidence fault class, EF1: an evidence file is missing, or its bytes
   changed. Report: 70, `evidence-mismatch`.
+- One target fault class, TF1: the target answers a probe differently on each
+  run, such as a process id on `stderr`. Report: 3, `target-not-repeatable`.
+  Before `0aeb3de` it was blamed on the kernel.
 
 Not protected against: a fault in Bun or the operating system; a hostile
 target, which has the agent's rights; a wrong expectation; a command missing

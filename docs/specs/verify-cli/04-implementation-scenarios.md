@@ -11,7 +11,8 @@ A scenario is what pstack calls a journey: one feature, as an ordered list of
 steps. `report` gives one state to each `required` station of each of the
 target's own commands:
 
-- `swept`: the sweep observed that cause from that command.
+- `swept`: the sweep observed that cause from that command, on a run whose
+  checks all passed.
 - `driven`: a met target step's envelope names that command identity and cause
   code.
 - `owed`: neither. This is an owed result.
@@ -26,7 +27,8 @@ Rules:
   that declares none has the command's summary as its trigger, so it stays in:
   somebody still has to drive it.
 - Owed results change no exit code. `report` prints
-  `Stations: <n> swept, <n> driven, <n> owed. Steps: <n> met, <n> unmet.` Its
+  `Stations: <n> swept, <n> driven, <n> owed. Steps: <n> met, <n> unmet.` When
+  the sweep has failed checks, the line ends with their count (`044431e`). Its
   data lists each station with its state and the step or check that gave it,
   each unmet step with its unmet expectations, each step whose process end was
   not confirmed, and the sweep's finding count.
@@ -39,8 +41,9 @@ passed on macOS only.
 **I12. Formats.** Three formats, each with a `schema` name ending in its
 version: `verify-scenario/1`, `verify-index/1` and `verify-step/1`. The
 snippets below are the build's own: the scenario from its seed feature map,
-the index and the evidence file from its macOS run. They are trimmed to the
-parts that carry a decision. The repository's formatter has laid them out.
+the index from its macOS run, and the evidence file from this revision's run
+of the build at `67b734d`. They are trimmed to the parts that carry a
+decision. The repository's formatter has laid them out.
 
 A scenario file. Two of the six steps of the changing-command example:
 
@@ -88,11 +91,16 @@ A scenario file. Two of the six steps of the changing-command example:
 - A key of `result` is a field of the envelope's result, or a dotted path into
   it. The value there must equal the expected value exactly. A path may end in
   `length` for a list's size.
-- A `files` entry is a path with exact `content`, or with `"absent": true`.
+- A `files` entry is a path with exact `content`, or with `"absent": true`. An
+  expected file holds only as a regular file of at most 1,048,576 bytes, and
+  an absent one only when nothing stands at its path. A folder, a pipe, a file
+  too large or one that cannot be read makes the step unmet at that file; it
+  is not a failure of `drive` (`90162b3`).
 - `{scratch}` becomes the absolute path of the verification run's scratch
   folder. `{repository}` becomes the repository root. Both are replaced in
-  every string of `argv` and `expect`, a file's `content` included. No other
-  text in braces is touched.
+  every string of `argv` and `expect`, a file's `content` included, and put in
+  as they are, dollar signs and all (`77251da`). No other text in braces is
+  touched.
 - Target steps must be exact. `stdoutIncludes` and `stderrIncludes` loosen
   that only where exact text is impossible, such as a test runner's timings.
 
@@ -113,7 +121,9 @@ row for each step, in JSON Lines:
   evidence folder. `sha256` is the SHA-256 (Secure Hash Algorithm, 256 bits)
   hash of that file's bytes. Every hash in this specification is that one.
 - An index over 16,777,216 bytes, or one that is not a regular file, is
-  unreadable.
+  unreadable. So is an evidence file over 134,217,728 bytes or one that is not
+  a regular file. Each is opened without blocking, so a named pipe there
+  cannot hold the check (`6df13fd`).
 
 One step's evidence file, whole:
 
@@ -139,16 +149,28 @@ One step's evidence file, whole:
     "stderrBytes": 60,
     "stdout": "",
     "stderr": "moons: No planet named pluto. [DOMAIN_MOONS_UNKNOWN_PLANET]\n",
-    "files": []
+    "files": [],
+    "fileKinds": []
   },
   "unmet": [],
-  "verdict": "met"
+  "verdict": "met",
+  "repository": {
+    "headCommit": "f0ab4e2491c60ed404ebc71e40ed96a2bce376d8",
+    "uncommittedPaths": 11,
+    "gitFailure": null
+  }
 }
 ```
 
 - `observed` holds `stdout` in full unless the step has a `result`
   expectation. Then it holds the observed value at each `result` key instead.
-  `files` holds the content seen for each expected file.
+  `files` holds the content seen for each expected file, and `fileKinds` what
+  stood at its path: `file`, `absent`, `folder`, `other`, `too-large` or
+  `unreadable` (`90162b3`).
+- `repository` holds the repository's head commit and count of uncommitted
+  paths when `drive` ran the step, with any `git` failure. `drive` reads them
+  again before its steps, so a change made after `launch` shows against the
+  run row (`c5a9d71`).
 - `unmet` lists each expectation that did not hold, as a string: `exitCode`,
   `timedOut`, `outputTruncated`, `stdout`, `stderr`, `stdoutIncludes.<index>`,
   `stderrIncludes.<index>`, `result.<key>` or `files.<index>`; and each broken
@@ -161,18 +183,18 @@ Passed on Linux and on macOS: the helper wrote these files in both runs.
 once and checks all of it before any step runs. A broken rule refuses with
 `DOMAIN_VERIFY_SCENARIO` and names the rule.
 
-| Rule id                   | What the rule refuses                                                                                                                       |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `unreadable`              | A path that is missing, is not a regular file, is not JSON, or is over 1,048,576 bytes; the message says which                              |
-| `unknown-field`           | A field this format does not name, or a `schema` other than `verify-scenario/1`                                                             |
-| `bad-value`               | A field of the wrong type, such as an `argv` that is not a list of strings                                                                  |
-| `bad-name`                | A `feature` or step `name` that is not 1 to 64 of lower-case letters, digits and hyphens                                                    |
-| `duplicate-step`          | Two steps with one name                                                                                                                     |
-| `step-count`              | No step, or more than 200                                                                                                                   |
-| `exit-code-only`          | A step whose `expect` lacks `exitCode`, or has nothing beside it but `timedOut`. An empty `result`, `files` or includes list does not count |
-| `includes-on-target-step` | `stdoutIncludes` or `stderrIncludes` on a target step                                                                                       |
-| `path-outside-scratch`    | A `files` path that does not start `{scratch}/`, or that has a `..` segment                                                                 |
-| `limit-out-of-range`      | A `timeoutMilliseconds` outside 1 to 600,000, an `outputLimitBytes` outside 1 to 8,388,608, or step time limits that sum past 3,600,000     |
+| Rule id                   | What the rule refuses                                                                                                                                                                |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `unreadable`              | A path that is missing, is not a regular file, is not JSON, or is over 1,048,576 bytes; the message says which                                                                       |
+| `unknown-field`           | A field this format does not name, or a `schema` other than `verify-scenario/1`                                                                                                      |
+| `bad-value`               | A field of the wrong type, such as an `argv` that is not a list of strings; an empty string in an includes list, which observes nothing; an `argv` word that holds a NUL (`77251da`) |
+| `bad-name`                | A `feature` or step `name` that is not 1 to 64 of lower-case letters, digits and hyphens                                                                                             |
+| `duplicate-step`          | Two steps with one name                                                                                                                                                              |
+| `step-count`              | No step, or more than 200                                                                                                                                                            |
+| `exit-code-only`          | A step whose `expect` lacks `exitCode`, or has nothing beside it but `timedOut`. An empty `result`, `files` or includes list does not count                                          |
+| `includes-on-target-step` | `stdoutIncludes` or `stderrIncludes` on a target step                                                                                                                                |
+| `path-outside-scratch`    | A `files` path that does not start `{scratch}/`, or that has a `..` segment                                                                                                          |
+| `limit-out-of-range`      | A `timeoutMilliseconds` outside 1 to 600,000, an `outputLimitBytes` outside 1 to 8,388,608, or step time limits that sum past 3,600,000                                              |
 
 - No step passes on an exit code alone. Bun given a working folder as two
   words printed its usage text and exited 0, running nothing.
@@ -207,9 +229,12 @@ holding three: `scratch/`, the scratch folder, which a run may fill and
 cleanup removes; `evidence/`, the evidence folder, which holds the run's index
 and the evidence files; and `state/`, the helper's own state.
 
-- The run folder must be new or empty, and outside every git work tree. The
-  helper finds a work tree by a `.git` entry in the folder or any folder above
-  it.
+- The run folder must be new or empty, outside every git work tree and outside
+  every other verification run. It is judged where it really is: symbolic
+  links are resolved first. The helper finds a work tree by a `.git` entry in
+  the folder or any folder above it. A folder inside another run is refused
+  with `DOMAIN_VERIFY_RUN_EXISTS`, so cleanup of the outer run cannot remove
+  the inner run's evidence (`480dec5`).
 - `launch` refuses, before it makes anything: a target path with no file; a
   folder that is a file or holds an entry; a folder inside a work tree; a
   target with no `package.json` above it, or with no kernel Pin in it; and a
@@ -217,9 +242,10 @@ and the evidence files; and `state/`, the helper's own state.
 - The run row records the binding (I7), the pinned commit from the Pin, the
   Bun version, the platform, and two git facts about the repository root: its
   head commit and its count of uncommitted paths. With no `git` on the path,
-  or when `git` says the root is not a work tree, both are null. Any other
-  `git` failure refuses the launch with `DOMAIN_VERIFY_GIT_FAILED` and its
-  reason.
+  or with no `.git` entry at or above the root, both are null. Every `git`
+  failure inside a work tree refuses the launch with
+  `DOMAIN_VERIFY_GIT_FAILED` and its reason (`480dec5`). The count holds
+  untracked files.
 - `cleanup` removes the scratch folder and nothing else, and says what it
   removed and what it kept. A second `cleanup` is refused with
   `DOMAIN_VERIFY_RUN_CLEAN`: nothing is left to remove (I8).

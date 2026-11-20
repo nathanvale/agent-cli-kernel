@@ -153,21 +153,21 @@ check; Claim tag.
 Each file is formatted by the kernel repository's formatter, which lays out
 tables and JSON snippets, and passes the kernel's file size gate, which allows
 5,000 tokens. The counts are the gate's own, from running it over this folder,
-formatted, in a scratch copy of the kernel repository (`E/27`). The kernel's
-names check passes every path here too.
+formatted, in a scratch copy of the kernel repository at the build's head
+(`E/30`). The kernel's names check passes every path here too.
 
 | File                             | Tokens | Limit |
 | -------------------------------- | ------ | ----- |
-| `00-map.md`                      | 3,349  | 5,000 |
+| `00-map.md`                      | 3,752  | 5,000 |
 | `01-problem-and-solution.md`     | 720    | 5,000 |
 | `02-user-stories.md`             | 2,408  | 5,000 |
-| `03-implementation-commands.md`  | 4,011  | 5,000 |
-| `04-implementation-scenarios.md` | 3,817  | 5,000 |
-| `05-implementation-trust.md`     | 3,069  | 5,000 |
-| `06-testing-decisions.md`        | 2,414  | 5,000 |
-| `07-acceptance-criteria.md`      | 4,699  | 5,000 |
+| `03-implementation-commands.md`  | 4,113  | 5,000 |
+| `04-implementation-scenarios.md` | 4,290  | 5,000 |
+| `05-implementation-trust.md`     | 3,490  | 5,000 |
+| `06-testing-decisions.md`        | 2,913  | 5,000 |
+| `07-acceptance-criteria.md`      | 4,777  | 5,000 |
 | `08-out-of-scope.md`             | 561    | 5,000 |
-| `09-further-notes.md`            | 2,368  | 5,000 |
-| `10-traceability.md`             | 4,179  | 5,000 |
-| `11-proposals-and-words.md`      | 2,517  | 5,000 |
-| `findings.tsv`                   | 3,338  | 5,000 |
+| `09-further-notes.md`            | 2,381  | 5,000 |
+| `10-traceability.md`             | 4,431  | 5,000 |
+| `11-proposals-and-words.md`      | 2,522  | 5,000 |
+| `findings.tsv`                   | 3,932  | 5,000 |

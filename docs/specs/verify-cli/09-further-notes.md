@@ -8,14 +8,14 @@ Each slice can merge on its own and is verified by its criteria. Each also
 meets AC36, AC39, AC40, AC41, AC43 and AC44 at its own head. The build landed
 S1 to S5 as one pull request, each commit green at its own head.
 
-| Slice | What it adds                                                                                                                                             | Criteria                                                                        |
-| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| S1    | The skill folder; the compiler, lint and dead-code scope with the scoped exception; the kernel-free check without the evidence step; `ready` and `probe` | AC4 to AC8, AC11 for KF1 to KF4, AC12, AC14, AC16, AC17, AC18, AC37, AC38, AC49 |
-| S2    | `sweep` and `findings`; the comparison of the helper's probes with raw runs                                                                              | AC1, AC2, AC3, AC9, AC10, AC11 for KF5 and KF6, AC13                            |
-| S3    | `launch`, `cleanup`, `pending`                                                                                                                           | AC19 to AC22, AC35, AC52, AC53, and AC33 without `drive`                        |
-| S4    | `drive`, evidence files, the run's index, the evidence step of the check, `report`                                                                       | AC15, AC23 to AC34, AC50, AC51                                                  |
-| S5    | `SKILL.md`, the seed feature map, the install case, both end-to-end runs, the cold worker                                                                | AC42, AC45, AC46, AC47                                                          |
-| S6    | The exploration report                                                                                                                                   | AC48                                                                            |
+| Slice | What it adds                                                                                                                                             | Criteria                                                                                    |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| S1    | The skill folder; the compiler, lint and dead-code scope with the scoped exception; the kernel-free check without the evidence step; `ready` and `probe` | AC4 to AC8, AC11 for KF1 to KF4, AC12, AC14, AC16, AC17, AC18, AC37, AC38, AC49, AC54, AC55 |
+| S2    | `sweep` and `findings`; the comparison of the helper's probes with raw runs                                                                              | AC1, AC2, AC3, AC9, AC10, AC11 for KF5 and KF6, AC13, AC56                                  |
+| S3    | `launch`, `cleanup`, `pending`                                                                                                                           | AC19 to AC22, AC35, AC52, AC53, AC58, and AC33 without `drive`                              |
+| S4    | `drive`, evidence files, the run's index, the evidence step of the check, `report`                                                                       | AC15, AC23 to AC34, AC50, AC51, AC57, AC59                                                  |
+| S5    | `SKILL.md`, the seed feature map, the install case, both end-to-end runs, the cold worker                                                                | AC42, AC45, AC46, AC47                                                                      |
+| S6    | The exploration report                                                                                                                                   | AC48                                                                                        |
 
 ### Gaps for the builder
 
@@ -23,13 +23,27 @@ Where this specification asks for something the build does not do, and a
 decision of Nathan's or a kernel standard requires it. Everything else follows
 the build.
 
-| Gap                                                                                                                                        | Required by                                                                                    | Where it shows                                                                                                                 |
-| ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Three test titles say "run root", and two fault record names say "receipt"                                                                 | Nathan's naming call, `D:63`: the builder's words, not run root or receipt                     | The build's tests of `launch`, `drive` and the helper's state; the two fault records for a missing and a changed evidence file |
-| Three files say "owed station", where the glossary's word is owed result                                                                   | The same call, `D:63`, and the kernel's rule row "Glossary terms only"                         | The command table of `SKILL.md`, and the guidance text of `sweep` and of `report`                                              |
-| The pull request body does not say which add-on each command uses, or that approval is left out. It also still says the vocabulary is open | The brief, `B:19`, which `D:12` records Nathan accepting; and `D:63`                           | The body of kernel pull request 56                                                                                             |
-| The hosted check's result for the pull request's head is not in the build's evidence                                                       | The kernel's review routine: a gate the hosted result does not show green is unproved          | The build's evidence has the check command on macOS, and Linux for the end-to-end run only                                     |
-| The exploration report of slice S6                                                                                                         | Nathan, `D:9`: "explore how the author skill, design skill, could leverage the helpers itself" | Not in pull request 56. The coordinator moved it to a separate worker, so it is owed by that unit, not by the builder          |
+| Gap                                                                    | Required by                                                                                    | Where it shows                                                                                                                 |
+| ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| The hosted check's result for the pull request's head is still to come | The kernel's review routine: a gate the hosted result does not show green is unproved          | The pull request body gives the hosted checks as green at `4169ded`, and says the result at the new head follows the next push |
+| The exploration report of slice S6                                     | Nathan, `D:9`: "explore how the author skill, design skill, could leverage the helpers itself" | Not in pull request 56. The coordinator moved it to a separate worker, so it is owed by that unit, not by the builder          |
+
+Closed since correction round 1, each checked against the build at `67b734d`:
+
+- The dropped words are gone from the three test titles, the two fault record
+  names and the three files that said "owed station" (`be55216`).
+- The pull request body now gives each command's add-ons, says approval is
+  left out, and records the vocabulary as decided.
+
+Parked under the review rule that only P0 and P1 findings are fixed before
+merge. None is a gap for the builder:
+
+- `cleanup`'s read-back also asks that the index still exists (P3).
+- `SKILL.md` lists no field of the envelope's result, so a second cold worker
+  asserted one that does not exist; the step was unmet, so nothing false
+  passed (P2).
+- The reviewer's altered scratch repository, which no run of this round uses
+  (P3).
 
 ### Slice S6: how the other skills could use the helper
 
@@ -114,7 +128,8 @@ worth a kernel decision later.
   end to end in a Linux container, and the tests on macOS. This revision ran
   the tests again on macOS only.
 - The hosted check for pull request 56, and fault replay. Fault replay was
-  read from the build's evidence, 148 of 148 killed, and not run again here.
+  read from the build's evidence, 202 of 202 killed at `99fd062`, and not run
+  again here.
 - The build's cold worker run was read from its command ledger, not repeated.
 - A cause code for which no test title names it was taken from the build's
   source: `DOMAIN_VERIFY_CHANGE_UNCHANGED` is reached in process only.
