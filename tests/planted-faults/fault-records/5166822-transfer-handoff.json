@@ -1,0 +1,7 @@
+{
+  "id": "5166822-transfer-handoff",
+  "patch": "tests/planted-faults/patches/5166822-transfer-handoff.patch",
+  "testFile": "tests/template/naming/shared-tool-words.test.ts",
+  "title": "^SA\\.k ",
+  "source": "5166822 feat(glossary): accept the template's transfer and own the kernel's words"
+}

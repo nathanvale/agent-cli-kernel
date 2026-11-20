@@ -1,0 +1,13 @@
+diff --git a/scripts/glossary-ownership.ts b/scripts/glossary-ownership.ts
+index b0461a4..0774a61 100644
+--- a/scripts/glossary-ownership.ts
++++ b/scripts/glossary-ownership.ts
+@@ -95,7 +95,7 @@ export function ownershipProblems(
+   const shared = new Set(entryNames(sharedSection(glossary)));
+   return [
+     ...ownership.kernelEntries
+-      .filter((name) => !own.has(name))
++      .filter((name) => !own.has(name) && own.has(name))
+       .map(
+         (name) =>
+           `${ownershipFile} accepts "${name}", and GLOSSARY.md does not define it outside the shared tool words. Repair: define it here, or remove it from kernelEntries.`,

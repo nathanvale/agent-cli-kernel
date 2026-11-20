@@ -1,0 +1,13 @@
+diff --git a/scripts/glossary-ownership.ts b/scripts/glossary-ownership.ts
+index b0461a4..10ee9cd 100644
+--- a/scripts/glossary-ownership.ts
++++ b/scripts/glossary-ownership.ts
+@@ -64,7 +64,7 @@ export function readOwnership(text: string): Ownership {
+   const own = mapOf(JSON.parse(text), "its top level");
+   const source = mapOf(field(own, "sharedSource"), "sharedSource");
+   const commit = stringOf(field(source, "commit"), "sharedSource.commit");
+-  if (!/^[0-9a-f]{40}$/.test(commit))
++  if (commit === "")
+     refuse(
+       `${ownershipFile} sharedSource.commit is not a full 40-character commit. Repair: record the full commit the export was copied from.`,
+     );

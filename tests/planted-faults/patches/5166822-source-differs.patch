@@ -1,0 +1,13 @@
+diff --git a/scripts/glossary-ownership.ts b/scripts/glossary-ownership.ts
+index b0461a4..10bc927 100644
+--- a/scripts/glossary-ownership.ts
++++ b/scripts/glossary-ownership.ts
+@@ -141,7 +141,7 @@ export function sourceProblems(
+   const rewritten = new Set(ownership.sharedSource.rewrittenHere);
+   const differs = [...there.keys()]
+     .filter(
+-      (name) => !rewritten.has(name) && here.get(name) !== there.get(name),
++      (name) => !rewritten.has(name) && here.get(name) !== there.get(name) && false,
+     )
+     .map(
+       (name) =>
