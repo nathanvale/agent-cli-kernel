@@ -42,7 +42,10 @@ is in the [test harness guide](test-harness.md).
   hit or an empty result passes for a skipped check too, and a process
   folder with the same tail as the injected one passes for the wrong
   folder. Give the test distinct fallback and destination folders, and
-  assert the destination in the refusal. Witnessed: [9ad6bf2], [#72-cwd].
+  assert the destination in the refusal. Witnessed: [9ad6bf2], [#72-cwd],
+  [4ca0141] (the installed cause case expected no finding in
+  `src/app/typed.ts` and passed if ESLint skipped that file; it now
+  asserts both files were linted).
 - Prove that a fixture meant to lack something lacks it, and fail loudly
   when its location supplies it. `STATE_TEST_DIR` can place a test folder
   inside the checkout, where git finds the parent repository for a case that
@@ -178,3 +181,4 @@ is in the [test harness guide](test-harness.md).
 [kernel#48 r4637879795]: https://github.com/nathanvale/agent-cli-kernel/pull/48#discussion_r4637879795
 [7a3c409]: https://github.com/nathanvale/agent-cli-kernel/commit/7a3c409920548ef30a9df2c89a0fac608d4704fd
 [b146440]: https://github.com/nathanvale/agent-cli-kernel/commit/b146440b8fd1075791ee997ca93c59f410b9e978
+[4ca0141]: https://github.com/nathanvale/agent-cli-kernel/commit/4ca014175963a134a585af49006a56d374700e33
