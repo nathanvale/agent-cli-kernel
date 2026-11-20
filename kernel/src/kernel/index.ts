@@ -81,6 +81,10 @@ export function contractFor<
     throw new Error(
       "State is not in installedAddons, or its descriptor was not created by contractFor.stateAddon.",
     );
+  if (installed.includes("approval") && !installed.includes("state"))
+    throw new Error(
+      "Approval requires the state add-on: list state in installedAddons and pass the add-on made by contractFor.stateAddon.",
+    );
   const hostCommands = [...spec.commands];
   const causes: typeof commonCauses & CauseTable = structuredClone({
     ...commonCauses,

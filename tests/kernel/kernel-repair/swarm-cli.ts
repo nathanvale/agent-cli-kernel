@@ -1,6 +1,7 @@
 import { appendFileSync } from "node:fs";
 import { contractFor, runProcess } from "../../../kernel/src/kernel/index.ts";
 import { approvalAddon } from "./swarm-approval.ts";
+import { inertState } from "./shapes.ts";
 import { approvedRead, scenarios } from "./swarm-commands.ts";
 
 const ledger = process.env.LEDGER ?? "";
@@ -11,7 +12,8 @@ if (scenario === "inspect-approval")
     contractFor({
       cli: "x",
       commands: [approvedRead(() => note("handler-entered"))],
-      installedAddons: ["approval"],
+      state: inertState("x"),
+      installedAddons: ["state", "approval"],
     }),
     { addons: { approval: approvalAddon("x.read", note) } },
   )(argv);
