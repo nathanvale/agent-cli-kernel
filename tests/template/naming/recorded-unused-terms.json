@@ -2,26 +2,6 @@
   "about": "Terms that GLOSSARY.md defines and no tracked file uses yet, each with the reason and the ticket that will bring it into use. The glossary files test fails on an unused term not listed here, on a listed term that a tracked file now uses, and on a listed term that GLOSSARY.md no longer defines: remove an entry in the change that first uses its term.",
   "terms": [
     {
-      "term": "Repository shape",
-      "reason": "A word for the plan: the recipe table holds the shapes without naming them. MAG-129 removes all but one shape, and the word can go with them.",
-      "ticket": "MAG-129"
-    },
-    {
-      "term": "Template version",
-      "reason": "MAG-108 owns the design of template versions and builds the first one.",
-      "ticket": "MAG-108"
-    },
-    {
-      "term": "Kernel split",
-      "reason": "Names the whole change. No ticket is known to bring it into a tracked file here; MAG-114 is the kernel split spec, which uses the word.",
-      "ticket": "MAG-114"
-    },
-    {
-      "term": "Sibling repository",
-      "reason": "The kernel reader reads the kernel repository as a sibling repository. MAG-123 builds the kernel reader.",
-      "ticket": "MAG-123"
-    },
-    {
       "term": "Carry-out",
       "reason": "MAG-122 performs the carry-out in the kernel repository. MAG-124 brings the word here with the pin, which records the carry-out identity.",
       "ticket": "MAG-124"
@@ -37,11 +17,6 @@
       "ticket": "MAG-124"
     },
     {
-      "term": "Kernel migration",
-      "reason": "Not designed. No ticket is known to bring it into a tracked file here; MAG-114 is the kernel split spec, which uses the word.",
-      "ticket": "MAG-114"
-    },
-    {
       "term": "Kernel repository alignment",
       "reason": "Not decided. No ticket is known to bring it into a tracked file here; MAG-114 is the kernel split spec, which uses the word.",
       "ticket": "MAG-114"
@@ -50,16 +25,6 @@
       "term": "Add-on selection",
       "reason": "Nathan's 10:52 decision of 20 November 2026 on MAG-114 keeps a generated repository's add-on choice only in installedAddons, in the generated repository's own source. No tracked file here names a selection.",
       "ticket": "MAG-114"
-    },
-    {
-      "term": "Kernel seam",
-      "reason": "The seam is the kernel reader's interface. MAG-123 builds the kernel reader.",
-      "ticket": "MAG-123"
-    },
-    {
-      "term": "Kernel lockfile",
-      "reason": "The template's one lockfile for generated repositories does not exist yet. MAG-126 makes the pin move that writes it, in the template. This repository has no kernel lockfile.",
-      "ticket": "MAG-126"
     }
   ]
 }
