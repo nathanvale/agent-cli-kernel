@@ -20,7 +20,10 @@ is in the [test harness guide](test-harness.md).
   that also named the filesystem passed; the fix expects the reason the test
   observed, and the boot identity as the only field that differs),
   [f8ff37f] (the author guide's brace case matched its error by substring
-  with `toThrow`, and searched its own expected string for a station name).
+  with `toThrow`, and searched its own expected string for a station name),
+  [kernel#53 r4639172891], [79431f5] (the cause owner refusal cases checked
+  a prefix and one fragment, so a refusal without its repair or naming
+  another entry passed).
 - Assert the route's response when a test says a command remains available.
   Exit zero with empty output can pass without a response. Witnessed:
   [#90-routes].
@@ -205,3 +208,5 @@ is in the [test harness guide](test-harness.md).
 [86749b9]: https://github.com/nathanvale/agent-cli-kernel/commit/86749b9a2dd7b2295a2405513d75299b14550db3
 [3567a81]: https://github.com/nathanvale/agent-cli-kernel/commit/3567a8125e36f43eb6b3f448a5f51fb122090536
 [848b6de]: https://github.com/nathanvale/agent-cli-kernel/commit/848b6de1e7b9bc0792a8ea70f6604f700a09229d
+[kernel#53 r4639172891]: https://github.com/nathanvale/agent-cli-kernel/pull/53#discussion_r4639172891
+[79431f5]: https://github.com/nathanvale/agent-cli-kernel/commit/79431f561abf1deecd55c9b1dcb91e8c1560f746
