@@ -253,11 +253,14 @@ export function hooks(root: string): Finding {
       check: "hooks",
       detail: `core.hooksPath runs this checkout's ${hooksFolder}.`,
     };
-  return {
-    status: "WARN",
-    check: "hooks",
-    detail: `core.hooksPath is ${value === "" ? "not set" : value}, so this checkout's pre-commit and pre-push hooks do not run. Repair: git config core.hooksPath ${hooksFolder}.`,
-  };
+  const detail = `core.hooksPath is ${value === "" ? "not set" : value}, so this checkout's pre-commit and pre-push hooks do not run. Repair: git config core.hooksPath ${hooksFolder}.`;
+  if (process.env.CI === "true")
+    return {
+      status: "ok",
+      check: "hooks",
+      detail: `${detail} A hosted check commits nothing, so it needs none.`,
+    };
+  return { status: "FAIL", check: "hooks", detail };
 }
 
 export async function doctor(root: string): Promise<boolean> {

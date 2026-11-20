@@ -28,7 +28,7 @@ function underEnvironment<T>(
 }
 
 function hooksOf(root: string, changes: Record<string, string> = {}) {
-  return underEnvironment({ ...gitEnv, ...changes }, () => hooks(root));
+  return underEnvironment({ ...gitEnv, CI: "", ...changes }, () => hooks(root));
 }
 
 function checkout(hooksPath?: string): string {
@@ -64,19 +64,27 @@ test("hooks passes a .githooks folder outside any git checkout", () => {
   });
 });
 
-test("hooks warns when core.hooksPath is not set, naming the command that sets it", () => {
+test("hooks fails when core.hooksPath is not set, naming the command that sets it", () => {
   expect(hooksOf(checkout())).toEqual({
-    status: "WARN",
+    status: "FAIL",
     check: "hooks",
     detail: `core.hooksPath is not set, ${notRun}`,
   });
 });
 
-test("hooks warns when core.hooksPath names another folder", () => {
+test("hooks fails when core.hooksPath names another folder", () => {
   expect(hooksOf(checkout("elsewhere"))).toEqual({
-    status: "WARN",
+    status: "FAIL",
     check: "hooks",
     detail: `core.hooksPath is elsewhere, ${notRun}`,
+  });
+});
+
+test("hooks does not fail an unset core.hooksPath in a hosted check, which commits nothing", () => {
+  expect(hooksOf(checkout(), { CI: "true" })).toEqual({
+    status: "ok",
+    check: "hooks",
+    detail: `core.hooksPath is not set, ${notRun} A hosted check commits nothing, so it needs none.`,
   });
 });
 
@@ -149,7 +157,7 @@ test("hooks reads core.hooksPath as git does: a home-relative path expands, and 
   });
   gitOutput(root, "config", "core.hooksPath", ".githooks ");
   expect(hooksOf(root)).toEqual({
-    status: "WARN",
+    status: "FAIL",
     check: "hooks",
     detail: `core.hooksPath is .githooks , ${notRun}`,
   });

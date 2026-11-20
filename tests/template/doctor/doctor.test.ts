@@ -359,13 +359,17 @@ describe("doctor", () => {
 
   const isolatedGit = { ...inherited(), ...gitEnv };
 
-  test("a checkout whose core.hooksPath is not set warns, naming the command that sets it, and does not fail", () => {
-    const result = run(checkout(), doctor, [], undefined, isolatedGit);
+  test("a checkout whose core.hooksPath is not set fails, naming the command that sets it", () => {
+    const result = run(checkout(), doctor, [], undefined, {
+      ...isolatedGit,
+      CI: "",
+    });
 
-    expect(result.exitCode).toBe(0);
+    expect(result.exitCode).toBe(1);
     expect(result.lines).toContain(
-      "WARN hooks: core.hooksPath is not set, so this checkout's pre-commit and pre-push hooks do not run. Repair: git config core.hooksPath .githooks.",
+      "FAIL hooks: core.hooksPath is not set, so this checkout's pre-commit and pre-push hooks do not run. Repair: git config core.hooksPath .githooks.",
     );
+    expect(result.stdout).toEndWith("\nDone when bun run doctor passes.\n");
   });
 
   test("an installed toolchain without fallow fails with the install repair", () => {
