@@ -3,7 +3,7 @@
   "base": {
     "roots": ["src/kernel", "config/kernel"],
     "packages": {},
-    "deadCodeEntries": ["src/kernel/index.ts", "src/kernel/pattern-worker.ts"]
+    "deadCodeEntries": ["src/kernel/index.ts"]
   },
   "addons": {
     "approval": {

@@ -7,11 +7,13 @@ boundary trusts the types.
 ## Object model
 
 - Check own data with `Object.hasOwn` where the lint does not reach: an
-  index read such as `fields[key]` with a key from a payload, and a key
-  check in a test. Both also find `Object.prototype` members such as
-  `toString`. Witnessed: [r4580070968], [r4580070979], [r4580077776],
-  [5cbff3a], [kernel#6 r4622839131] (a fixture's mode table ran
-  `constructor`).
+  index read such as `fields[key]` with a key from a payload, a key check
+  in a test, and source kept in a string. Each also finds
+  `Object.prototype` members such as `toString`. Witnessed: [r4580070968],
+  [r4580070979], [r4580077776], [5cbff3a], [kernel#6 r4622839131] (a
+  fixture's mode table ran `constructor`), [e766237] (the pattern
+  worker's source, moved into a string in `input.ts`, still checked its
+  message with `in` and read each field twice).
 - Read each value once into the copy you validate, then check and use that
   same copy. A second read of an accessor, or a read after an `await`, can
   differ. Witnessed: [75b4bc0], [r4580077763], [3088c03], [r4606886521],
@@ -94,4 +96,5 @@ boundary trusts the types.
 [kernel#48 r4637879772]: https://github.com/nathanvale/agent-cli-kernel/pull/48#discussion_r4637879772
 [69fc0bf]: https://github.com/nathanvale/agent-cli-kernel/commit/69fc0bf37518800b76c9e9b9e5b1cba6934172bd
 [5048d5e]: https://github.com/nathanvale/agent-cli-kernel/commit/5048d5e01932fa8ab9c177e351f33423cb507c1e
+[e766237]: https://github.com/nathanvale/agent-cli-kernel/commit/e76623703cff72cc32c30a97164243e2cc86f255
 [8cbec55]: https://github.com/nathanvale/agent-cli-kernel/commit/8cbec55e65afbbba5650d447e00cac40ce0e01c3
