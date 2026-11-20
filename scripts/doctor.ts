@@ -170,30 +170,56 @@ function hostLoad(): Finding {
 }
 
 const hooksFolder = ".githooks";
+const gitMilliseconds = 4_000;
 
 function gitRead(root: string, args: readonly string[]) {
   const result = Bun.spawnSync(["git", "-C", root, ...args], {
     env: withoutRepositoryLocation(process.env),
     stdout: "pipe",
     stderr: "pipe",
+    timeout: gitMilliseconds,
+    killSignal: "SIGKILL",
   });
-  return { exitCode: result.exitCode, value: result.stdout.toString().trim() };
+  return {
+    timedOut: result.exitedDueToTimeout === true,
+    exitCode: result.exitCode,
+    value: result.stdout.toString().trim(),
+    reason: result.stderr.toString().trim(),
+  };
 }
 
-function hooks(root: string): Finding {
+function hooksUnread(why: string): Finding {
+  return {
+    status: "WARN",
+    check: "hooks",
+    detail: `${why}, so whether this checkout's hooks run is unknown. Repair: run git config --get core.hooksPath in the repository root to see why.`,
+  };
+}
+
+export function hooks(root: string): Finding {
   if (!existsSync(join(root, hooksFolder)))
     return {
       status: "ok",
       check: "hooks",
       detail: `no ${hooksFolder} folder, so no repository hooks apply.`,
     };
-  if (gitRead(root, ["rev-parse", "--show-toplevel"]).exitCode !== 0)
+  const checkout = gitRead(root, ["rev-parse", "--show-toplevel"]);
+  if (checkout.timedOut)
+    return hooksUnread(`git did not answer within ${gitMilliseconds} ms`);
+  if (checkout.exitCode !== 0)
     return {
       status: "ok",
       check: "hooks",
       detail: "not a git checkout, so no git hooks apply.",
     };
-  const { value } = gitRead(root, ["config", "--get", "core.hooksPath"]);
+  const read = gitRead(root, ["config", "--get", "core.hooksPath"]);
+  if (read.timedOut)
+    return hooksUnread(`git did not answer within ${gitMilliseconds} ms`);
+  if (read.exitCode !== 0 && read.exitCode !== 1)
+    return hooksUnread(
+      `git config --get core.hooksPath exited ${String(read.exitCode)} (${read.reason})`,
+    );
+  const { value } = read;
   if (value !== "" && resolve(root, value) === resolve(root, hooksFolder))
     return {
       status: "ok",
@@ -203,7 +229,7 @@ function hooks(root: string): Finding {
   return {
     status: "WARN",
     check: "hooks",
-    detail: `core.hooksPath is ${value === "" ? "not set" : value}, so this checkout's pre-commit and pre-push hooks do not run. Repair: git config core.hooksPath ${hooksFolder}`,
+    detail: `core.hooksPath is ${value === "" ? "not set" : value}, so this checkout's pre-commit and pre-push hooks do not run. Repair: git config core.hooksPath ${hooksFolder}.`,
   };
 }
 

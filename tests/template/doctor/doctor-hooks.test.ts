@@ -1,0 +1,119 @@
+import { expect, test } from "bun:test";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { hooks } from "../../../scripts/doctor.ts";
+import { ownedFolders } from "../../support/fixture-files.ts";
+import { gitEnv, gitOutput } from "../../support/git-fixture.ts";
+
+const folder = ownedFolders();
+const notRun =
+  "so this checkout's pre-commit and pre-push hooks do not run. Repair: git config core.hooksPath .githooks.";
+
+function underEnvironment<T>(
+  changes: Readonly<Record<string, string>>,
+  body: () => T,
+): T {
+  const saved = Object.fromEntries(
+    Object.keys(changes).map((name) => [name, process.env[name]]),
+  );
+  for (const [name, value] of Object.entries(changes))
+    process.env[name] = value;
+  try {
+    return body();
+  } finally {
+    for (const [name, value] of Object.entries(saved))
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+  }
+}
+
+function hooksOf(root: string, changes: Record<string, string> = {}) {
+  return underEnvironment({ ...gitEnv, ...changes }, () => hooks(root));
+}
+
+function checkout(hooksPath?: string): string {
+  const root = folder("doctor-hooks-");
+  mkdirSync(join(root, ".githooks"));
+  gitOutput(root, "init", "--quiet");
+  if (hooksPath !== undefined)
+    gitOutput(root, "config", "core.hooksPath", hooksPath);
+  return root;
+}
+
+function stubGit(script: string): Record<string, string> {
+  const bin = folder("doctor-hooks-git-");
+  writeFileSync(join(bin, "git"), `#!/bin/sh\n${script}\n`, { mode: 0o755 });
+  return { PATH: `${bin}:${process.env.PATH ?? ""}` };
+}
+
+test("hooks passes a folder with no .githooks", () => {
+  expect(hooksOf(folder("doctor-hooks-"))).toEqual({
+    status: "ok",
+    check: "hooks",
+    detail: "no .githooks folder, so no repository hooks apply.",
+  });
+});
+
+test("hooks passes a .githooks folder outside any git checkout", () => {
+  const root = folder("doctor-hooks-");
+  mkdirSync(join(root, ".githooks"));
+  expect(hooksOf(root)).toEqual({
+    status: "ok",
+    check: "hooks",
+    detail: "not a git checkout, so no git hooks apply.",
+  });
+});
+
+test("hooks warns when core.hooksPath is not set, naming the command that sets it", () => {
+  expect(hooksOf(checkout())).toEqual({
+    status: "WARN",
+    check: "hooks",
+    detail: `core.hooksPath is not set, ${notRun}`,
+  });
+});
+
+test("hooks warns when core.hooksPath names another folder", () => {
+  expect(hooksOf(checkout("elsewhere"))).toEqual({
+    status: "WARN",
+    check: "hooks",
+    detail: `core.hooksPath is elsewhere, ${notRun}`,
+  });
+});
+
+test("hooks passes when core.hooksPath runs this checkout's .githooks, written relative or absolute", () => {
+  const relative = checkout(".githooks");
+  const absolute = checkout();
+  gitOutput(absolute, "config", "core.hooksPath", join(absolute, ".githooks"));
+  for (const root of [relative, absolute])
+    expect(hooksOf(root)).toEqual({
+      status: "ok",
+      check: "hooks",
+      detail: "core.hooksPath runs this checkout's .githooks.",
+    });
+});
+
+test("hooks warns, with git's exit and reason, when git config cannot be read", () => {
+  const root = checkout();
+  const failing = stubGit(
+    'case "$3" in rev-parse) echo "$2"; exit 0;; *) echo "stub refused" >&2; exit 2;; esac',
+  );
+  expect(hooksOf(root, failing)).toEqual({
+    status: "WARN",
+    check: "hooks",
+    detail:
+      "git config --get core.hooksPath exited 2 (stub refused), so whether this checkout's hooks run is unknown. Repair: run git config --get core.hooksPath in the repository root to see why.",
+  });
+});
+
+test("hooks stops a git that does not answer at its bound and warns", () => {
+  const root = checkout();
+  const started = performance.now();
+  const finding = hooksOf(root, stubGit("exec sleep 10"));
+  expect(performance.now() - started).toBeLessThan(6_000);
+  expect(finding).toEqual({
+    status: "WARN",
+    check: "hooks",
+    detail:
+      "git did not answer within 4000 ms, so whether this checkout's hooks run is unknown. Repair: run git config --get core.hooksPath in the repository root to see why.",
+  });
+}, 15_000);
