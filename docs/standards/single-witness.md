@@ -132,6 +132,13 @@ this file.
   since `node:fs` `globSync` lists folders too. Witnessed: [2c62768] (a
   glossary scope pattern that named only a folder would have passed the
   check that each pattern names something that exists).
+- Grant a lint allowance for a path only where that path holds what the
+  allowance is for; a repository that installs the kernel lints its own
+  `src/kernel/` as application code. Witnessed: [r4638567003], [096c862]
+  (`kernelLint` skipped the host rules for `src/kernel/**` and turned
+  `no-domain-output` off for `src/kernel/process-host.ts` in every
+  repository, so a generated repository's file there could write to
+  stdout).
 
 [ac11ed9]: https://github.com/nathanvale/bun-typescript-template/commit/ac11ed98b7d538e8a304cac053aaefcaaf6b2cb3
 [cd2498b]: https://github.com/nathanvale/bun-typescript-template/commit/cd2498b7189a2d45d1906b9c870e8d13da6cd2dd
@@ -172,3 +179,5 @@ this file.
 [kernel#49 r4637980677]: https://github.com/nathanvale/agent-cli-kernel/pull/49#discussion_r4637980677
 [7f15a16]: https://github.com/nathanvale/agent-cli-kernel/commit/7f15a164d817265cc6f82882ff6efa2b76a4556b
 [2c62768]: https://github.com/nathanvale/agent-cli-kernel/commit/2c62768ceddd1af9a7f3b4fabf1b9d32818acf2e
+[r4638567003]: https://github.com/nathanvale/bun-typescript-template/pull/116#discussion_r4638567003
+[096c862]: https://github.com/nathanvale/agent-cli-kernel/commit/096c862356a1b827bdf10d860ec5d4bd33797c1d
