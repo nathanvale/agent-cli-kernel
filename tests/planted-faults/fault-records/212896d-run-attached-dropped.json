@@ -1,0 +1,7 @@
+{
+  "id": "212896d-run-attached-dropped",
+  "patch": "tests/planted-faults/patches/212896d-run-attached-dropped.patch",
+  "testFile": "tests/kernel/diagnostics/type-names.test.ts",
+  "title": "^deprecated diagnostics names and new names are the same public types$",
+  "source": "212896d refactor(diagnostics): name the add-on types for the diagnostics add-on"
+}
