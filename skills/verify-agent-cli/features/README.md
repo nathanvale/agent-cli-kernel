@@ -37,10 +37,10 @@ can reach; keep each file's four sections.
   `verify.ts evidence <run>` lists.
 - Prove a change with a second, read-only step, never with the change's own
   message alone.
-- Finish with `verify.ts cleanup <run>` and `verify.ts evidence <run>`:
+- After the last step, run `verify.ts sweep --run <run>`: results the
+  feature reached leave the `owed` list.
+- Then finish with `verify.ts cleanup <run>` and `verify.ts evidence <run>`:
   every step listed and `scratch: removed`.
-- Run `verify.ts sweep --run <run>`: results the feature reached leave the
-  `owed` list.
 
 ## Feature entry contract
 

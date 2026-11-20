@@ -26,8 +26,8 @@ Preconditions:
 - You know one command with a required argument, from its `--help`. If the
   CLI has none, `usage-missing` fails with that reason.
 
-- **Root help.** Run `verify.ts drive <run> help-root '["--help"]' --expect-exit 0 --expect-stdout "Usage: " --expect-empty-stderr`. Exit 0.
-- **Command help.** Run `verify.ts drive <run> help-command '["status","--help"]' --expect-exit 0 --expect-stdout "Possible results:" --expect-empty-stderr`. Exit 0.
+- **Root help.** Run `verify.ts drive <run> help-root '["--help"]' --expect-exit 0 --expect-stdout "Usage: " --expect-stdout "status (" --expect-empty-stderr`, with a `--expect-stdout "<word> ("` for each of your commands. Exit 0.
+- **Command help.** Run `verify.ts drive <run> help-command '["status","--help"]' --expect-exit 0 --expect-stdout "Route: status" --expect-stdout "Options:" --expect-stdout "Possible results:" --expect-empty-stderr`. Exit 0.
 - **Unknown command.** Run `verify.ts drive <run> usage-unknown '["no-such-command"]' --expect-exit 2 --expect-cause USAGE_UNKNOWN_COMMAND --expect-empty-stdout`. Exit 0; the evidence file shows one stderr line ending in the cause.
 - **Missing argument.** For a command with a required argument, such as `save <path>`, run `verify.ts drive <run> usage-missing '["save"]' --expect-exit 2 --expect-cause USAGE_INVALID_INVOCATION --expect-stderr "is missing"`. Exit 0.
 - **Refusal as JSON.** Run `verify.ts drive <run> usage-json '["no-such-command","--json"]' --expect-exit 2 --expect-cause USAGE_UNKNOWN_COMMAND --expect-empty-stderr`. Exit 0; the evidence shows `"oneEnvelope": true`.
