@@ -89,7 +89,8 @@ export function readiness(
     ["discovery-stderr-empty", discovery.stderr === ""],
     [
       "discovery-one-envelope",
-      envelope !== null && at(envelope, "result", "exitCode") === 0,
+      envelope !== null &&
+        at(envelope, "result", "exitCode") === discovery.exitCode,
     ],
     ["discovery-lists-a-command", commands.length > 0],
   ];

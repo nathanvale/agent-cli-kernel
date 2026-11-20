@@ -38,12 +38,15 @@ const sweepChecks = [
   "unknown-command-stderr-one-line-with-cause",
   "discovery-exit",
   "discovery-stderr-empty",
+  "discovery-one-envelope",
   "discovery-lists-a-command",
   "command-discovery-exit",
+  "command-discovery-one-envelope",
   "usage-exit",
   "usage-json-stderr-empty",
   "usage-envelope-exit-equals-process-exit",
   "usage-cause-is-declared",
+  "usage-cause-is-invalid-invocation",
   "usage-human-exit",
   "usage-human-stdout-empty",
   "usage-human-stderr-one-line-with-cause",
@@ -69,7 +72,7 @@ describe("sweep", () => {
         stderr: "",
       });
       expect(ran.stdout.split("\n")[0]).toBe(
-        "31 checks passed. Stations owed: 2.",
+        "36 checks passed. Stations owed: 2.",
       );
     },
     watchdog(0, 1),
@@ -102,7 +105,7 @@ describe("sweep", () => {
         owed: field(ran.result, "data", "owed"),
       }).toEqual({
         exit: 0,
-        message: "15 checks passed. Stations owed: 1.",
+        message: "18 checks passed. Stations owed: 1.",
         owed: [{ command: "greeter.greet", cause: "SUCCESS_UNCHANGED" }],
       });
     },
@@ -222,7 +225,7 @@ describe("which commands and stations the sweep counts", () => {
     ).toBe(false);
   });
 
-  test("the sweep counts nine checks on a CLI with no host command, and owes nothing", async () => {
+  test("the sweep counts ten checks on a CLI with no host command, and owes nothing", async () => {
     const answers = new Map<
       string,
       { exitCode: number; stdout: string; stderr: string }
@@ -247,8 +250,8 @@ describe("which commands and stations the sweep counts", () => {
       failed: found.findings.map((entry) => entry.check),
       owed: found.owed,
     }).toEqual({
-      checks: 9,
-      failed: ["discovery-lists-a-command"],
+      checks: 10,
+      failed: ["discovery-one-envelope", "discovery-lists-a-command"],
       owed: [],
     });
   });

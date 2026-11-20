@@ -55,7 +55,7 @@ function discovery(): Answer {
   return {
     out: envelope(
       {
-        exitCode: lie === "discovery-one-envelope" ? 5 : 0,
+        exitCode: lie === "discovery-one-envelope" ? 5 : exit,
         commandIdentity: "liar.discovery",
         causeCode: "SUCCESS_UNCHANGED",
       },
@@ -67,10 +67,11 @@ function discovery(): Answer {
 }
 
 function commandDiscovery(): Answer {
+  const exit = lie === "command-discovery-exit" ? 1 : 0;
   return {
     out: envelope(
       {
-        exitCode: 0,
+        exitCode: lie === "command-discovery-one-envelope" ? 5 : exit,
         commandIdentity: "liar.command-discovery",
         causeCode: "SUCCESS_UNCHANGED",
       },
@@ -82,16 +83,20 @@ function commandDiscovery(): Answer {
             reachability: "required",
             trigger: "Report the status.",
           },
-          {
-            causeCode: "USAGE_INVALID_INVOCATION",
-            reachability: "required",
-            trigger: "Kernel USAGE_INVALID_INVOCATION.",
-          },
+          ...(lie === "usage-cause-is-declared"
+            ? []
+            : [
+                {
+                  causeCode: "USAGE_INVALID_INVOCATION",
+                  reachability: "required",
+                  trigger: "Kernel USAGE_INVALID_INVOCATION.",
+                },
+              ]),
         ],
       },
     ),
     err: "",
-    exit: lie === "command-discovery-exit" ? 1 : 0,
+    exit,
   };
 }
 
@@ -103,8 +108,8 @@ function usage(json: boolean): Answer {
         exitCode: lie === "usage-envelope-exit-equals-process-exit" ? 3 : exit,
         commandIdentity: "liar.status",
         causeCode:
-          lie === "usage-cause-is-declared"
-            ? "USAGE_OTHER"
+          lie === "usage-cause-is-invalid-invocation"
+            ? "SUCCESS_UNCHANGED"
             : "USAGE_INVALID_INVOCATION",
       }),
       err: lie === "usage-json-stderr-empty" ? "warning\n" : "",

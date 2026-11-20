@@ -9,7 +9,7 @@ import {
   targetArgument,
   unchangedSuccess,
 } from "./causes.ts";
-import { at, listOf, parsedJson } from "./json.ts";
+import { at, listOf } from "./json.ts";
 import { discoveryProbe } from "./place.ts";
 import {
   envelopeOf,
@@ -112,8 +112,17 @@ async function commandChecks(
   const identity = item.identity;
   const oneArgv = ["--discover-command", identity, "--json"];
   const one = await runTarget(oneArgv);
-  const data = at(parsedJson(one.stdout), "result", "data");
-  expect("command-discovery-exit", oneArgv, "0", String(one.exitCode));
+  const oneEnvelope = envelopeOf(one.stdout);
+  const data = at(oneEnvelope, "result", "data");
+  const discovered = [
+    expect("command-discovery-exit", oneArgv, "0", String(one.exitCode)),
+    expect(
+      "command-discovery-one-envelope",
+      oneArgv,
+      "true",
+      String(at(oneEnvelope, "result", "exitCode") === one.exitCode),
+    ),
+  ].every(Boolean);
   const stations = listOf(at(data, "stations"));
   const declared = stations.map((entry) => String(at(entry, "causeCode")));
   const seen = new Map<string, string>();
@@ -137,8 +146,14 @@ async function commandChecks(
       "true",
       String(declared.includes(refusalCause)),
     ),
+    expect(
+      "usage-cause-is-invalid-invocation",
+      machineArgv,
+      invalidInvocation,
+      refusalCause,
+    ),
   ].every(Boolean);
-  if (usageHeld) seen.set(refusalCause, "usage-exit");
+  if (discovered && usageHeld) seen.set(refusalCause, "usage-exit");
 
   const humanArgv = [...item.route, undeclaredOption];
   const human = await runTarget(humanArgv);
@@ -190,7 +205,7 @@ async function commandChecks(
         String(at(result, "commandIdentity")),
       ),
     ].every(Boolean);
-    if (runHeld) seen.set(cause, "run-names-its-command");
+    if (discovered && runHeld) seen.set(cause, "run-names-its-command");
   }
 
   const required = stations
@@ -226,6 +241,12 @@ export async function sweep(runTarget: TargetRunner): Promise<Sweep> {
   );
   expect("discovery-exit", discoveryProbe, "0", String(discover.exitCode));
   expect("discovery-stderr-empty", discoveryProbe, "", discover.stderr);
+  expect(
+    "discovery-one-envelope",
+    discoveryProbe,
+    "true",
+    String(at(discovery, "result", "exitCode") === discover.exitCode),
+  );
   expect(
     "discovery-lists-a-command",
     discoveryProbe,
