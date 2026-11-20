@@ -1,11 +1,11 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
 import { mkdir, readdir, symlink, writeFile } from "node:fs/promises";
-import { dirname, join, relative, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { ESLint } from "eslint";
 import * as kernel from "../../../kernel/src/kernel/index.ts";
 import { write } from "../../support/fixture-files.ts";
-import { gitEnv, gitOutput, inherited } from "../../support/git-fixture.ts";
+import { gitEnv, inherited } from "../../support/git-fixture.ts";
 import { treeFiles } from "../../support/lint-rule-folder.ts";
 import { testFolder } from "../../support/test-folder.ts";
 import { typecheckTree } from "../kernel-repair/harness.ts";
@@ -23,9 +23,9 @@ import {
 } from "./example-document.ts";
 import { exampleFiles, packageName, repository } from "./example-files.ts";
 
-const treeBound = 130_000;
+const exampleBound = 130_000;
 const installBound = 90_000;
-const gitCallBound = 4_000;
+const gitBound = 10_000;
 const example = exampleFiles();
 const folders: string[] = [];
 let built: Promise<string> | undefined;
@@ -71,7 +71,7 @@ async function build(tree: string): Promise<string> {
   return tree;
 }
 
-function consumer(): Promise<string> {
+function exampleTree(): Promise<string> {
   built ??= build(ownedFolder("kernel-author-guide-"));
   return built;
 }
@@ -177,32 +177,67 @@ function blobId(bytes: Uint8Array): string {
     .digest("hex");
 }
 
-function thrownMessage(run: () => unknown): string {
-  try {
-    run();
-  } catch (error) {
-    return error instanceof Error ? error.message : String(error);
-  }
-  return "nothing was thrown";
+function skillBlocks(): Block[] {
+  return skillDocuments().flatMap(codeBlocks);
+}
+
+function uncopiedBlocks(
+  blocks: readonly Block[],
+  files: ReadonlyMap<string, string>,
+): string[] {
+  return blocks
+    .filter(
+      (block) =>
+        block.language === "ts" &&
+        ![...files.values()].some((file) => heldBy(file, block.lines)),
+    )
+    .map(
+      (block) =>
+        `${block.document}:${String(block.line)}: this ts block is in no example file. Repair: copy the lines again from tests/kernel/author-guide/example, or change the example and run ${writeCommand}.`,
+    );
+}
+
+const transcriptDocument = "references/example.md";
+
+function unlabelledBlocks(blocks: readonly Block[]): string[] {
+  return blocks
+    .filter(
+      (block) =>
+        block.language !== "ts" &&
+        !(block.language === "text" && block.document === transcriptDocument),
+    )
+    .map(
+      (block) =>
+        `${block.document}:${String(block.line)}: this code block is neither ts nor the transcript in ${transcriptDocument}, so no check reads it. Repair: label it ts and copy it from the example.`,
+    );
+}
+
+function xmlText(text: string): string {
+  return text
+    .replaceAll("&apos;", "'")
+    .replaceAll("&quot;", '"')
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&amp;", "&");
 }
 
 describe("the author guide's example, laid out as a repository that depends on the kernel package", () => {
   test(
     "it compiles under the repository's compiler settings",
     async () => {
-      const run = await typecheckTree(await consumer());
+      const run = await typecheckTree(await exampleTree());
       expect({ exit: run.exit, output: run.stdout + run.stderr }).toEqual({
         exit: 0,
         output: "",
       });
     },
-    treeBound,
+    exampleBound,
   );
 
   test(
     "the kernel's lint, loaded from the package, reads every example file and reports nothing",
     async () => {
-      const tree = await consumer();
+      const tree = await exampleTree();
       const results = await new ESLint({ cwd: tree }).lintFiles(["."]);
       const read = results.map((result) => relative(tree, result.filePath));
       for (const path of example.keys()) expect(read).toContain(path);
@@ -215,31 +250,52 @@ describe("the author guide's example, laid out as a repository that depends on t
         ),
       ).toEqual([]);
     },
-    treeBound,
+    exampleBound,
   );
 
   test(
-    "its own tests pass, in process and through its real entry file",
+    "its own tests all pass, each by name, in process and through its real entry file",
     async () => {
-      const run = await spawnBounded([process.execPath, "test"], {
-        cwd: await consumer(),
-        boundMilliseconds: treeBound - 10_000,
-      });
-      const summary = `${run.stdout}\n${run.stderr}`;
-      expect({
-        exit: run.exit,
-        ran: / [1-9][0-9]* pass\n/.test(summary),
-        failed: / 0 fail\n/.test(summary),
-        files: summary.includes(" across 2 files."),
-      }).toEqual({ exit: 0, ran: true, failed: true, files: true });
+      const tree = await exampleTree();
+      const report = join(tree, "junit.xml");
+      const run = await spawnBounded(
+        [
+          process.execPath,
+          "test",
+          "--reporter=junit",
+          `--reporter-outfile=${report}`,
+        ],
+        { cwd: tree, boundMilliseconds: exampleBound - 10_000 },
+      );
+      expect(run.exit).toBe(0);
+      const passed = [
+        ...readFileSync(report, "utf8").matchAll(
+          /<testcase name="([^"]*)"[^>]* file="([^"]*)"[^>]* assertions="[1-9][0-9]*" \/>/g,
+        ),
+      ]
+        .map(([, name = "", file = ""]) => `${file}: ${xmlText(name)}`)
+        .sort();
+      const declared = [...example]
+        .filter(([path]) => path.startsWith("tests/"))
+        .flatMap(([path, text]) =>
+          [...text.matchAll(/^test\(\s*"([^"]+)"/gm)].map(
+            ([, title = ""]) => `${path}: ${title}`,
+          ),
+        )
+        .sort();
+      expect(
+        declared.filter((entry) => entry.startsWith("tests/cli.test.ts: "))
+          .length,
+      ).toBeGreaterThan(0);
+      expect(passed).toEqual(declared);
     },
-    treeBound,
+    exampleBound,
   );
 
   test(
     "references/example.md's transcript is what the example prints",
     async () => {
-      const tree = await consumer();
+      const tree = await exampleTree();
       const transcripts = codeBlocks(exampleDocumentPath).filter(
         (block) => block.language === "text",
       );
@@ -260,7 +316,7 @@ describe("the author guide's example, laid out as a repository that depends on t
       expect(printed.filter((line) => line.startsWith("$ ")).length).toBe(3);
       expect(printed).toEqual([...(transcripts[0]?.lines ?? [])]);
     },
-    treeBound,
+    exampleBound,
   );
 });
 
@@ -268,16 +324,19 @@ describe("the kernel package, installed by git ref", () => {
   test(
     `a git-ref install of this checkout's HEAD carries the skill at node_modules/${packageName}/skills/${packageName}/: every file there at HEAD, unchanged, and every file its documents link`,
     async () => {
-      const head = gitOutput(repository, "rev-parse", "HEAD").trim();
+      const git = (...args: string[]) =>
+        spawnBounded(["git", ...args], {
+          cwd: repository,
+          env: { ...inherited(), ...gitEnv },
+          boundMilliseconds: gitBound,
+        });
+      const revision = await git("rev-parse", "HEAD");
+      expect(revision.exit).toBe(0);
+      const head = revision.stdout.trim();
       const skillPath = relative(repository, skillFolder);
-      const shipped = gitOutput(
-        repository,
-        "ls-tree",
-        "-r",
-        head,
-        "--",
-        skillPath,
-      )
+      const tree = await git("ls-tree", "-r", head, "--", skillPath);
+      expect(tree.exit).toBe(0);
+      const shipped = tree.stdout
         .split("\n")
         .filter((line) => line !== "")
         .map((line) => {
@@ -323,7 +382,7 @@ describe("the kernel package, installed by git ref", () => {
       ).toEqual([]);
       expect(brokenLinks(join(installedPackage, skillPath))).toEqual([]);
     },
-    installBound + 2 * gitCallBound + 10_000,
+    installBound + 2 * gitBound + 10_000,
   );
 });
 
@@ -333,14 +392,33 @@ describe("the author skill's documents, shipped in the kernel package", () => {
     expect(current).toBe(exampleDocument(current, example));
   });
 
-  test("references/example.md is refused when it has a section for a file the example lacks, or none for one it has", () => {
+  test("references/example.md is refused when it has a section for a file the example lacks, misses one it has, or repeats one", () => {
     const files = new Map([["src/a.ts", "const a = 1;\n"]]);
+    const two = new Map([...files, ["src/b.ts", "const b = 2;\n"]]);
     const block = (path: string) => `## \`${path}\`\n\n\`\`\`ts\n\`\`\`\n`;
-    expect(thrownMessage(() => exampleDocument(block("src/b.ts"), files))).toBe(
-      "references/example.md has a section for src/b.ts, which is no example file. Repair: name one of src/a.ts, or delete the section.",
+    const shape =
+      "A section is a heading of the form ## `<path>`, a blank line, then a ts code block.";
+    expect(() => exampleDocument(block("src/b.ts"), files)).toThrow(
+      new Error(
+        "references/example.md has a section for src/b.ts, which is no example file. Repair: name one of src/a.ts, or delete the section.",
+      ),
     );
-    expect(thrownMessage(() => exampleDocument("# Example\n", files))).toBe(
-      "references/example.md shows no example file. Repair: give it exactly one section for each of src/a.ts. A section is a heading of the form ## `<path>`, a blank line, then a ts code block.",
+    expect(() => exampleDocument("# Example\n", files)).toThrow(
+      new Error(
+        `references/example.md shows no example file. Repair: give it exactly one section for each of src/a.ts. ${shape}`,
+      ),
+    );
+    expect(() => exampleDocument(block("src/a.ts"), two)).toThrow(
+      new Error(
+        `references/example.md shows src/a.ts. Repair: give it exactly one section for each of src/a.ts, src/b.ts. ${shape}`,
+      ),
+    );
+    expect(() =>
+      exampleDocument(`${block("src/a.ts")}\n${block("src/a.ts")}`, files),
+    ).toThrow(
+      new Error(
+        `references/example.md shows src/a.ts, src/a.ts. Repair: give it exactly one section for each of src/a.ts. ${shape}`,
+      ),
     );
     expect(exampleDocument(block("src/a.ts"), files)).toBe(
       "## `src/a.ts`\n\n```ts\nconst a = 1;\n```\n",
@@ -352,35 +430,41 @@ describe("the author skill's documents, shipped in the kernel package", () => {
     write(folder, "src/a.ts.txt", "const a = 1;\n");
     expect([...exampleFiles(folder).keys()]).toEqual(["src/a.ts"]);
     write(folder, "src/b.ts", "const b = 2;\n");
-    expect(thrownMessage(() => exampleFiles(folder))).toBe(
-      "src/b.ts is in the example folder without the .txt ending. Repair: store each example file as <path in a repository that depends on the kernel>.txt.",
+    expect(() => exampleFiles(folder)).toThrow(
+      new Error(
+        "src/b.ts is in the example folder without the .txt ending. Repair: store each example file as <path in a repository that depends on the kernel>.txt.",
+      ),
     );
   });
 
-  test("every ts block in every skill document is copied from an example file", () => {
-    const blocks = skillDocuments()
-      .flatMap(codeBlocks)
-      .filter((block) => block.language === "ts");
-    expect(blocks.length).toBeGreaterThan(example.size);
+  test("every ts block in every skill document is copied from an example file, and one that is not is refused", () => {
+    const blocks = skillBlocks();
     expect(
-      blocks
-        .filter(
-          (block) =>
-            ![...example.values()].some((file) => heldBy(file, block.lines)),
-        )
-        .map(
-          (block) =>
-            `${block.document}:${String(block.line)}: this ts block is in no example file. Repair: copy the lines again from tests/kernel/author-guide/example, or change the example and run ${writeCommand}.`,
-        ),
-    ).toEqual([]);
+      blocks.filter((block) => block.language === "ts").length,
+    ).toBeGreaterThan(example.size);
+    expect(uncopiedBlocks(blocks, example)).toEqual([]);
+    const files = new Map([["src/a.ts", "const a = 1;\nconst b = 2;\n"]]);
+    const block = (lines: readonly string[]) => ({
+      document: "references/x.md",
+      line: 3,
+      language: "ts",
+      lines,
+    });
+    expect(
+      uncopiedBlocks([block(["const b = 2;"]), block(["const c = 3;"])], files),
+    ).toEqual([
+      `references/x.md:3: this ts block is in no example file. Repair: copy the lines again from tests/kernel/author-guide/example, or change the example and run ${writeCommand}.`,
+    ]);
   });
 
   test("a code block that never closes is refused, so its lines cannot escape the checks", () => {
     const folder = ownedFolder("kernel-author-guide-fence-");
     const path = join(folder, "unclosed.md");
     write(folder, "unclosed.md", "# Guide\n\n```ts\nconst stale = 1;\n");
-    expect(thrownMessage(() => codeBlocks(path))).toBe(
-      `${relative(skillFolder, path)}:3: this code block never closes.`,
+    expect(() => codeBlocks(path)).toThrow(
+      new Error(
+        `${relative(skillFolder, path)}:3: this code block never closes.`,
+      ),
     );
   });
 
@@ -411,20 +495,42 @@ describe("the author skill's documents, shipped in the kernel package", () => {
     expect(heldBy(file, file.split("\n").slice(0, 2))).toBe(true);
   });
 
-  test("every code block names its language, so none escapes the two checks above", () => {
+  test("every code block is ts or the example's transcript, so none escapes the checks above, and any other is refused", () => {
+    expect(unlabelledBlocks(skillBlocks())).toEqual([]);
+    const block = (document: string, language: string) => ({
+      document,
+      line: 5,
+      language,
+      lines: ["x"],
+    });
     expect(
-      skillDocuments()
-        .flatMap(codeBlocks)
-        .filter((block) => block.language !== "ts" && block.language !== "text")
-        .map((block) => `${block.document}:${String(block.line)}`),
-    ).toEqual([]);
+      unlabelledBlocks([
+        block("references/commands.md", ""),
+        block("references/commands.md", "text"),
+        block(transcriptDocument, "text"),
+        block("SKILL.md", "ts"),
+      ]),
+    ).toEqual(
+      ["", "text"].map(
+        () =>
+          `references/commands.md:5: this code block is neither ts nor the transcript in ${transcriptDocument}, so no check reads it. Repair: label it ts and copy it from the example.`,
+      ),
+    );
+  });
+
+  test("SKILL.md's frontmatter parses as YAML, names the skill as its folder does, and describes it", () => {
+    const text = readFileSync(join(skillFolder, "SKILL.md"), "utf8");
+    const frontmatter = /^---\n([\s\S]*?)\n---\n/.exec(text)?.[1];
+    expect(typeof frontmatter).toBe("string");
+    const parsed: unknown = Bun.YAML.parse(frontmatter ?? "");
+    const fields = typeof parsed === "object" && parsed !== null ? parsed : {};
+    const description: unknown = Reflect.get(fields, "description");
+    expect(Object.keys(fields).sort()).toEqual(["description", "name"]);
+    expect(Reflect.get(fields, "name")).toBe(packageName);
     expect(
-      skillDocuments()
-        .filter((path) => path !== exampleDocumentPath)
-        .flatMap(codeBlocks)
-        .filter((block) => block.language === "text")
-        .map((block) => `${block.document}:${String(block.line)}`),
-    ).toEqual([]);
+      typeof description === "string" && description.includes(packageName),
+    ).toBe(true);
+    expect(basename(skillFolder)).toBe(packageName);
   });
 
   test("every local link in a skill document names a file, not a folder, inside the skill's folder", () => {
@@ -453,6 +559,12 @@ describe("the author skill's documents, shipped in the kernel package", () => {
 });
 
 describe("kernel behaviour the author skill states in words", () => {
+  const usageRefusal = (message: string) => ({
+    kind: "envelope",
+    exitCode: 2,
+    envelope: { message, result: { causeCode: "USAGE_INVALID_INVOCATION" } },
+  });
+
   function readContract(
     refusal = { repairAction: "Repair the input.", text: "Run it again." },
     words = { trigger: "The read ran.", summary: "Read.", message: "Read." },
@@ -504,24 +616,18 @@ describe("kernel behaviour the author skill states in words", () => {
   test("stations.md: a brace that is no template token, in a repair action or in guidance text, throws at start-up with exactly the message the guide quotes, which names no station", () => {
     const placement =
       "Invalid run binding placement or guidance template token.";
-    expect(
-      thrownMessage(() =>
-        readContract({ repairAction: "Pass {name}.", text: "Run it again." }),
-      ),
-    ).toBe(placement);
-    expect(
-      thrownMessage(() =>
-        readContract({ repairAction: "Pass a name.", text: "Send {name}." }),
-      ),
-    ).toBe(placement);
-    expect(
-      thrownMessage(() =>
-        readContract({
-          repairAction: "Close the } first.",
-          text: "Run it again.",
-        }),
-      ),
-    ).toBe("Malformed guidance template token.");
+    expect(() =>
+      readContract({ repairAction: "Pass {name}.", text: "Run it again." }),
+    ).toThrow(new Error(placement));
+    expect(() =>
+      readContract({ repairAction: "Pass a name.", text: "Send {name}." }),
+    ).toThrow(new Error(placement));
+    expect(() =>
+      readContract({
+        repairAction: "Close the } first.",
+        text: "Run it again.",
+      }),
+    ).toThrow(new Error("Malformed guidance template token."));
   });
 
   test("stations.md: a template token in a repair action, and a brace in a trigger, a summary or a message, are accepted", async () => {
@@ -563,16 +669,53 @@ describe("kernel behaviour the author skill states in words", () => {
     );
   });
 
-  test("commands.md: a usage refusal is exit code 2 and its message names what was wrong", async () => {
-    const run = kernel.runInProcess(readContract());
-    expect(await run(["read", "--wat"])).toMatchObject({
-      kind: "envelope",
-      exitCode: 2,
-      envelope: {
-        message: "The invocation uses an option this command does not declare.",
-        result: { causeCode: "USAGE_INVALID_INVOCATION" },
+  test("commands.md: a usage refusal is exit code 2 and its message names what was wrong: an option the command does not declare, or a missing argument", async () => {
+    expect(
+      await kernel.runInProcess(readContract())(["read", "--wat"]),
+    ).toMatchObject(
+      usageRefusal(
+        "The invocation uses an option this command does not declare.",
+      ),
+    );
+    const show = kernel.command({
+      identity: "guide.show",
+      route: ["show"],
+      summary: "Show.",
+      input: {
+        ...emptyInput,
+        arguments: [
+          {
+            name: "planet",
+            summary: "The planet.",
+            required: true,
+            value: {
+              kind: "string",
+              minLength: 1,
+              maxLength: 9,
+              choices: null,
+              pattern: null,
+            },
+          },
+        ],
       },
+      capabilities: {},
+      run: (input, context) =>
+        context.result(
+          { commandIdentity: "guide.show", causeCode: "SUCCESS_UNCHANGED" },
+          { message: input.planet, data: null, effects: unchanged },
+        ),
     });
+    const run = kernel.runInProcess(
+      kernel.contractFor({ cli: "guide", commands: [show] }),
+    );
+    expect(await run(["show", "mars"])).toMatchObject({
+      kind: "envelope",
+      exitCode: 0,
+      envelope: { message: "mars" },
+    });
+    expect(await run(["show"])).toMatchObject(
+      usageRefusal("The required argument planet is missing."),
+    );
   });
 
   test("commands.md: an option's value is the next word, and the same value after an equals sign is refused as an undeclared option", async () => {
@@ -612,13 +755,10 @@ describe("kernel behaviour the author skill states in words", () => {
       exitCode: 0,
       envelope: { result: { data: 3 } },
     });
-    expect(await run(["count", "--to=3"])).toMatchObject({
-      kind: "envelope",
-      exitCode: 2,
-      envelope: {
-        message: "The invocation uses an option this command does not declare.",
-        result: { causeCode: "USAGE_INVALID_INVOCATION" },
-      },
-    });
+    expect(await run(["count", "--to=3"])).toMatchObject(
+      usageRefusal(
+        "The invocation uses an option this command does not declare.",
+      ),
+    );
   });
 });
