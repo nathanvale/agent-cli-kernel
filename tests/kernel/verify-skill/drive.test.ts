@@ -148,10 +148,11 @@ describe("drive", () => {
   );
 
   test(
-    "a timed-out step is unmet",
+    "a timed-out step is unmet, and is stopped at its own limit",
     async () => {
       const at = world();
       const run = await launched(at, "r1");
+      const started = performance.now();
       const ran = await helper(at, [
         "drive",
         run,
@@ -166,6 +167,7 @@ describe("drive", () => {
           }),
         ),
       ]);
+      expect(performance.now() - started).toBeLessThan(10_000);
       expect(causeOf(ran)).toBe("DOMAIN_VERIFY_EXPECTATION_UNMET");
       const kept = stepFile(run, "time-limit", "hangs");
       expect(field(kept, "unmet")).toContain("timedOut");

@@ -22,6 +22,12 @@ import {
   world,
   writePackage,
 } from "./harness.ts";
+import {
+  commitIn,
+  git,
+  gitResult,
+  initRepository,
+} from "../../support/git-fixture.ts";
 
 afterAll(releaseWorlds);
 
@@ -273,6 +279,27 @@ describe("what launch checks before it makes anything", () => {
     expect(unreadable.kind === "unpinned" ? unreadable.reason : "").toStartWith(
       `${join(at.repo, "package.json")} is not JSON: `,
     );
+  });
+
+  test("the count of uncommitted paths holds untracked files", async () => {
+    const at = world();
+    const root = join(at.folder, "tracked");
+    initRepository(root);
+    commitIn(root, "first", { "a.txt": "a\n" });
+    writeFileSync(join(root, "untracked.txt"), "b\n");
+    const ask = (args: readonly string[]) => {
+      const ran = gitResult(root, ...args);
+      return Promise.resolve({
+        exitCode: ran.exitCode,
+        stdout: ran.stdout.toString(),
+        stderr: ran.stderr.toString(),
+      });
+    };
+    expect(await gitFacts(ask, root)).toEqual({
+      kind: "facts",
+      headCommit: git(root, "rev-parse", "HEAD"),
+      uncommittedPaths: 1,
+    });
   });
 
   test("git facts are null without git or outside a work tree, counted inside one, and any other failure is reported", async () => {

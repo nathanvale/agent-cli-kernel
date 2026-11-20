@@ -304,6 +304,12 @@ describe("the bounds of a scenario, on both sides", () => {
         files: [{ path: "{scratch}/a/../../b", absent: true }],
       }),
     ).toBe("path-outside-scratch");
+    expect(
+      rule({
+        exitCode: 0,
+        files: [{ path: "{scratch}-other/x", absent: true }],
+      }),
+    ).toBe("path-outside-scratch");
     expect(rule({ exitCode: 0, files: [{ path: "{scratch}/a" }] })).toBe(
       "bad-value",
     );
