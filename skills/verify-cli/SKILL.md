@@ -159,7 +159,9 @@ when there are any. Its data gives each station of your commands one
 state, the step or check that gave it, each unmet step, and each step
 whose process end was not confirmed. Only a met target step run with
 `--json` drives a station, and the sweep sweeps a station only when every
-check on the run that reached it passed.
+check on the run that reached it passed. A target whose sweep reaches no
+station at all, such as one whose discovery fails, gets no report:
+`DOMAIN_VERIFY_FINDINGS`, exit 3.
 
 ## Cleanup
 

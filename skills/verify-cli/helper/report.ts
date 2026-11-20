@@ -122,6 +122,21 @@ export function reportCommand(bun: () => ParsedPath) {
         },
         independentObservable: `${identity}:reported`,
       }),
+      station(causes, {
+        ...stationWords,
+        commandIdentity: identity,
+        causeCode: "DOMAIN_VERIFY_FINDINGS",
+        trigger: "The sweep reached no station of the target's commands.",
+        repairAction:
+          "Run the findings command on the run's target, repair its discovery, then report again.",
+        guidance: {
+          next: {
+            kind: "instruction",
+            text: "Run findings with the run's target to list every failed check.",
+          },
+        },
+        independentObservable: `${identity}:no-stations`,
+      }),
       missingRunStation(identity),
       unreadableStation(identity),
     ],
@@ -158,6 +173,15 @@ export function reportCommand(bun: () => ParsedPath) {
           join(read.run.repository, read.run.target),
         ),
       );
+      if (found.required.length === 0)
+        return context.result(
+          { commandIdentity: identity, causeCode: "DOMAIN_VERIFY_FINDINGS" },
+          {
+            message: `The sweep reached no station of the target's commands, so nothing can be reported: ${String(found.findings.length)} failed check${found.findings.length === 1 ? "" : "s"}; run findings to see ${found.findings.length === 1 ? "it" : "them"}.`,
+            data: null,
+            effects: nothingChanged,
+          },
+        );
       const states = stationStates(found, read.steps);
       const count = (state: StationState["state"]) =>
         String(states.filter((entry) => entry.state === state).length);

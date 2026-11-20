@@ -130,6 +130,30 @@ describe("report and cleanup", () => {
   );
 
   test(
+    "a target whose discovery yields no station gets no report, only its findings",
+    async () => {
+      const at = world();
+      const run = await launched(at, fixture(at, "liar-cli.ts"));
+      const env = { ...at.env, VERIFY_LIE: "discovery-lists-a-command" };
+      const ran = await viaKernelFreeCheck(at, ["report", run, "--json"], {
+        env,
+      });
+      const envelope: unknown = JSON.parse(ran.stdout);
+      expect({
+        exit: ran.exit,
+        cause: field(envelope, "result", "causeCode"),
+        message: field(envelope, "message"),
+      }).toEqual({
+        exit: 3,
+        cause: "DOMAIN_VERIFY_FINDINGS",
+        message:
+          "The sweep reached no station of the target's commands, so nothing can be reported: 1 failed check; run findings to see it.",
+      });
+    },
+    watchdog(1, 1),
+  );
+
+  test(
     "evidence outlives cleanup",
     async () => {
       const at = world();
