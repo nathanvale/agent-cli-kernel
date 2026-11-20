@@ -3134,5 +3134,12 @@
     "testFile": "tests/template/check-commits/carried-verdict.test.ts",
     "title": "checker trees whose paths differ only in bytes that are not UTF-8",
     "source": "1998f0b fix(check-commits): read the checker tree byte for byte (GREEN)"
+  },
+  {
+    "id": "cc81e74-index-approval-state",
+    "patch": "tests/planted-faults/patches/cc81e74-index-approval-state.patch",
+    "testFile": "tests/kernel/kernel-repair/swarm-declarations.test.ts",
+    "title": "^S3\\.approval-needs-state",
+    "source": "cc81e74 feat(kernel): refuse the approval add-on installed without the state add-on"
   }
 ]
