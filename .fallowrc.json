@@ -30,6 +30,10 @@
       {
         "name": "lint-config",
         "patterns": ["eslint.config.mjs", "eslint-rules.mjs", "config/**"]
+      },
+      {
+        "name": "skills",
+        "patterns": ["skills/**"]
       }
     ],
     "rules": [
@@ -47,10 +51,14 @@
       },
       {
         "from": "tests",
-        "allow": ["cli", "scripts", "kernel", "lint-config"]
+        "allow": ["cli", "scripts", "kernel", "lint-config", "skills"]
       },
       {
         "from": "lint-config",
+        "allow": ["kernel"]
+      },
+      {
+        "from": "skills",
         "allow": ["kernel"]
       }
     ],
@@ -102,6 +110,8 @@
     "kernel/src/addons/state/index.ts",
     "tests/kernel/kernel-repair/swarm-cli.ts",
     "tests/kernel/locks/fixtures.ts",
-    "tests/kernel/author-guide/example-document.ts"
+    "tests/kernel/author-guide/example-document.ts",
+    "skills/verify-agent-cli/helper/cli.ts",
+    "skills/verify-agent-cli/verify.ts"
   ]
 }

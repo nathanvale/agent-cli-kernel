@@ -44,6 +44,14 @@
       "count": 10
     }
   },
+  "skills/verify-agent-cli/verify.ts": {
+    "no-restricted-properties": {
+      "count": 1
+    },
+    "repository/no-domain-output": {
+      "count": 3
+    }
+  },
   "tests/template/doctor/doctor.test.ts": {
     "repository/tests-use-test-folder": {
       "count": 2

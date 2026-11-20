@@ -4,6 +4,7 @@
     "src/**/*.ts",
     "scripts/**/*.ts",
     "tests/**/*.ts",
+    "skills/**/*.ts",
     "kernel/src/**/*.ts",
     "kernel/src/**/*.mts",
     "kernel/src/**/*.cts",
