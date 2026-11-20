@@ -1,0 +1,11 @@
+diff --git a/tests/support/lint-rule-folder.ts b/tests/support/lint-rule-folder.ts
+index 66ddf45..aaaf9d7 100644
+--- a/tests/support/lint-rule-folder.ts
++++ b/tests/support/lint-rule-folder.ts
+@@ -15,6 +15,5 @@ export function treeFiles(pattern: string, cwd: string): string[] {
+     exclude: [`**/${prefix}*`],
+     withFileTypes: true,
+   })
+-    .filter((entry) => entry.isFile())
+     .map((entry) => relative(cwd, join(entry.parentPath, entry.name)));
+ }

@@ -123,6 +123,15 @@ this file.
   [kernel#48 r4637879806], [5048d5e] (the pinned-commit test's working-tree
   copy skipped a tracked file deleted from the working tree but still named
   it in `git add`'s pathspec, so setup failed).
+- Make an exclude meant for folders check that the entry is a folder, so a
+  file whose name starts the same way is still scanned. Witnessed:
+  [kernel#49 r4637980677], [7f15a16] (the glossary scan's
+  `**/lint-rule-folder-*` exclude also skipped a file with that prefix, so
+  the file escaped the glossary check).
+- Keep only files when a check asks whether a scan pattern names anything,
+  since `node:fs` `globSync` lists folders too. Witnessed: [2c62768] (a
+  glossary scope pattern that named only a folder would have passed the
+  check that each pattern names something that exists).
 
 [ac11ed9]: https://github.com/nathanvale/bun-typescript-template/commit/ac11ed98b7d538e8a304cac053aaefcaaf6b2cb3
 [cd2498b]: https://github.com/nathanvale/bun-typescript-template/commit/cd2498b7189a2d45d1906b9c870e8d13da6cd2dd
@@ -160,3 +169,6 @@ this file.
 [kernel#48 r4637879806]: https://github.com/nathanvale/agent-cli-kernel/pull/48#discussion_r4637879806
 [69fc0bf]: https://github.com/nathanvale/agent-cli-kernel/commit/69fc0bf37518800b76c9e9b9e5b1cba6934172bd
 [5048d5e]: https://github.com/nathanvale/agent-cli-kernel/commit/5048d5e01932fa8ab9c177e351f33423cb507c1e
+[kernel#49 r4637980677]: https://github.com/nathanvale/agent-cli-kernel/pull/49#discussion_r4637980677
+[7f15a16]: https://github.com/nathanvale/agent-cli-kernel/commit/7f15a164d817265cc6f82882ff6efa2b76a4556b
+[2c62768]: https://github.com/nathanvale/agent-cli-kernel/commit/2c62768ceddd1af9a7f3b4fabf1b9d32818acf2e

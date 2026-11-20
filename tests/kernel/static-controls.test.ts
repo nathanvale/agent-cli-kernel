@@ -1,27 +1,24 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { ESLint } from "eslint";
+import { lintRuleFolder } from "../support/lint-rule-folder.ts";
 import { reviewSpecimens } from "./locks/review-specimens.ts";
 
 const root = resolve(import.meta.dir, "../..");
-const probes = resolve(root, "tests/kernel/lint-probes");
+let probes: string;
 let stateProbes: string;
 let handlerProbes: string;
 const eslint = new ESLint({ cwd: root });
 beforeAll(async () => {
-  await mkdir(probes, { recursive: true });
-  const handlerRoot = resolve(root, "kernel/src/handlers");
-  await mkdir(handlerRoot, { recursive: true });
-  handlerProbes = await mkdtemp(`${handlerRoot}/lint-probes-`);
-  for (const extension of ["ts", "mts", "cts"])
+  probes = lintRuleFolder(resolve(root, "tests/kernel"));
+  handlerProbes = lintRuleFolder(resolve(root, "kernel/src/handlers"));
+  stateProbes = lintRuleFolder(resolve(root, "kernel/src/addons/state"));
+  for (const extension of ["ts", "mts", "cts"]) {
     await writeFile(`${handlerProbes}/control.${extension}`, "export {};\n");
-  const stateRoot = resolve(root, "kernel/src/addons/state");
-  await mkdir(stateRoot, { recursive: true });
-  stateProbes = await mkdtemp(`${stateRoot}/lint-probes-`);
-  await writeFile(`${stateProbes}/control.ts`, "export {};\n");
-  for (const extension of ["ts", "mts", "cts"])
     await writeFile(`${probes}/control.${extension}`, "export {};\n");
+  }
+  await writeFile(`${stateProbes}/control.ts`, "export {};\n");
 });
 afterAll(async () => {
   await rm(probes, { recursive: true, force: true });
@@ -36,8 +33,8 @@ async function findings(source: string, filePath: string) {
 }
 
 for (const extension of ["ts", "mts", "cts"]) {
-  const file = `${probes}/control.${extension}`;
   test(`final config rejects casts and expected-error markers in ${extension} tests`, async () => {
+    const file = `${probes}/control.${extension}`;
     expect(
       (await findings('export const value = "x" as string;', file)).map(
         (m) => m.ruleId,
@@ -53,6 +50,7 @@ for (const extension of ["ts", "mts", "cts"]) {
     ).toContain("@typescript-eslint/ban-ts-comment");
   });
   test(`final config retains const, satisfies and genuine generics in ${extension}`, async () => {
+    const file = `${probes}/control.${extension}`;
     expect(
       await findings(
         'export const value = { name: "x" } as const satisfies { readonly name: string }; export function identity<T>(value: T): T { return value; }',
