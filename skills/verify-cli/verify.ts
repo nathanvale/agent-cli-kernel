@@ -114,7 +114,7 @@ export function bound(argv: readonly string[]): Bound {
     const target = positional(argv, 2);
     return {
       root: target === undefined ? undefined : repositoryRoot(target),
-      target: undefined,
+      target,
       run: undefined,
     };
   }
@@ -402,7 +402,15 @@ export async function check(
   const failures: Failure[] = [];
   if (
     found.target !== undefined &&
-    ["ready", "probe", "sweep", "findings", "drive", "report"].includes(name)
+    [
+      "ready",
+      "probe",
+      "sweep",
+      "findings",
+      "launch",
+      "drive",
+      "report",
+    ].includes(name)
   )
     failures.push(
       ...(await observationFailures(spawn, found.target, root, limits)),

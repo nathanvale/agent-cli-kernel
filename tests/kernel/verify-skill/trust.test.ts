@@ -155,33 +155,35 @@ describe("kernel faults the check reports", () => {
     );
 
   test(
-    "a programs add-on that reports every exit code as 0 is reported as an observation mismatch",
+    "a programs add-on that reports every exit code as 0 is reported as an observation mismatch, launch included",
     async () => {
       const { at, entry } = faulted(kernelFaults.programsExitZero);
       for (const argv of [
         ["ready", at.example],
         ["sweep", at.example],
+        ["launch", runFolder(at, "r1"), at.example],
       ])
         expect(await untrusted(at, entry, argv)).toEqual([
           "observation-mismatch",
         ]);
     },
-    watchdog(0, 2),
+    watchdog(0, 3),
   );
 
   test(
-    "a programs add-on that drops stderr is reported as an observation mismatch",
+    "a programs add-on that drops stderr is reported as an observation mismatch, launch included",
     async () => {
       const { at, entry } = faulted(kernelFaults.programsDropStderr);
       for (const argv of [
         ["ready", at.example],
         ["sweep", at.example],
+        ["launch", runFolder(at, "r1"), at.example],
       ])
         expect(await untrusted(at, entry, argv)).toEqual([
           "observation-mismatch",
         ]);
     },
-    watchdog(0, 2),
+    watchdog(0, 3),
   );
 
   test(
@@ -592,7 +594,7 @@ describe("the check's own steps, in process", () => {
       const run = runFolder(at, "r1");
       expect(bound(["launch", run, at.example])).toEqual({
         root: at.repo,
-        target: undefined,
+        target: at.example,
         run: undefined,
       });
       expect(bound(["report", run])).toEqual({
