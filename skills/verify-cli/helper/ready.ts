@@ -18,8 +18,8 @@ import {
   repositoryRoot,
   usageProbe,
 } from "./place.ts";
-import { envelopeOf, ownCommands, targetDrive } from "./target.ts";
-import type { Drive, Listed, Ran } from "./target.ts";
+import { envelopeOf, ownCommands, targetRunner } from "./target.ts";
+import type { TargetRunner, Listed, Ran } from "./target.ts";
 
 const readyIdentity = "verify-cli.ready";
 const probeIdentity = "verify-cli.probe";
@@ -91,7 +91,7 @@ export function readiness(
       "discovery-one-envelope",
       envelope !== null && at(envelope, "result", "exitCode") === 0,
     ],
-    ["discovery-has-host-command", commands.length > 0],
+    ["discovery-lists-a-command", commands.length > 0],
   ];
   const version = at(envelope, "contractVersion");
   return {
@@ -104,10 +104,12 @@ export function readiness(
 
 const readinessCheckCount = 8;
 
-async function probesOf(drive: Drive): Promise<{ usage: Ran; discovery: Ran }> {
+async function probesOf(
+  runTarget: TargetRunner,
+): Promise<{ usage: Ran; discovery: Ran }> {
   return {
-    usage: await drive(usageProbe),
-    discovery: await drive(discoveryProbe),
+    usage: await runTarget(usageProbe),
+    discovery: await runTarget(discoveryProbe),
   };
 }
 
@@ -167,7 +169,7 @@ export function readyCommand(bun: () => ParsedPath) {
     ],
     run: async (input, context) => {
       const { usage, discovery } = await probesOf(
-        targetDrive(context.programs, bun(), input.target),
+        targetRunner(context.programs, bun(), input.target),
       );
       const judged = readiness(
         usage,
@@ -232,10 +234,10 @@ export function probeCommand(bun: () => ParsedPath) {
       }),
     ],
     run: async (input, context) => {
-      const drive = targetDrive(context.programs, bun(), input.target);
+      const runTarget = targetRunner(context.programs, bun(), input.target);
       const probes = [];
       for (const argv of probeArgvs)
-        probes.push(probeResult(argv, await drive(argv)));
+        probes.push(probeResult(argv, await runTarget(argv)));
       return context.result(
         { commandIdentity: probeIdentity, causeCode: unchangedSuccess },
         {

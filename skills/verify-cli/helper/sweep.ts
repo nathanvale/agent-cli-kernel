@@ -16,9 +16,9 @@ import {
   kernelAdded,
   ownCommands,
   stringAt,
-  targetDrive,
+  targetRunner,
 } from "./target.ts";
-import type { Drive, Listed } from "./target.ts";
+import type { TargetRunner, Listed } from "./target.ts";
 
 export type Finding = {
   readonly check: string;
@@ -76,18 +76,18 @@ function oneLineEnding(stderr: string, cause: string): string {
 }
 
 async function cliChecks(
-  drive: Drive,
+  runTarget: TargetRunner,
   expect: Expect,
   hasEmptyRoute: boolean,
 ): Promise<void> {
   const helpArgv = ["--help"];
-  const help = await drive(helpArgv);
+  const help = await runTarget(helpArgv);
   expect("help-exit", helpArgv, "0", String(help.exitCode));
   expect("help-stderr-empty", helpArgv, "", help.stderr);
   expect("help-usage-line", helpArgv, "Usage: ", help.stdout.slice(0, 7));
   if (hasEmptyRoute) return;
   const unknownArgv = [unknownWord];
-  const unknown = await drive(unknownArgv);
+  const unknown = await runTarget(unknownArgv);
   expect("unknown-command-exit", unknownArgv, "2", String(unknown.exitCode));
   expect("unknown-command-stdout-empty", unknownArgv, "", unknown.stdout);
   expect(
@@ -105,13 +105,13 @@ type CommandSweep = {
 };
 
 async function commandChecks(
-  drive: Drive,
+  runTarget: TargetRunner,
   expect: Expect,
   item: Listed,
 ): Promise<CommandSweep> {
   const identity = item.identity;
   const oneArgv = ["--discover-command", identity, "--json"];
-  const one = await drive(oneArgv);
+  const one = await runTarget(oneArgv);
   const data = at(parsedJson(one.stdout), "result", "data");
   expect("command-discovery-exit", oneArgv, "0", String(one.exitCode));
   const stations = listOf(at(data, "stations"));
@@ -119,7 +119,7 @@ async function commandChecks(
   const seen = new Map<string, string>();
 
   const machineArgv = [...item.route, undeclaredOption, "--json"];
-  const machine = await drive(machineArgv);
+  const machine = await runTarget(machineArgv);
   const refusal = at(envelopeOf(machine.stdout), "result");
   const refusalCause = String(at(refusal, "causeCode"));
   const usageHeld = [
@@ -141,7 +141,7 @@ async function commandChecks(
   if (usageHeld) seen.set(refusalCause, "usage-exit");
 
   const humanArgv = [...item.route, undeclaredOption];
-  const human = await drive(humanArgv);
+  const human = await runTarget(humanArgv);
   expect("usage-human-exit", humanArgv, "2", String(human.exitCode));
   expect("usage-human-stdout-empty", humanArgv, "", human.stdout);
   expect(
@@ -152,7 +152,7 @@ async function commandChecks(
   );
 
   const commandHelpArgv = [...item.route, "--help"];
-  const commandHelp = await drive(commandHelpArgv);
+  const commandHelp = await runTarget(commandHelpArgv);
   expect(
     "command-help-exit",
     commandHelpArgv,
@@ -166,7 +166,7 @@ async function commandChecks(
   ].some((slot) => at(slot, "required") === true);
   if (item.effectClass === "inspect" && !needsInput) {
     const runArgv = [...item.route, "--json"];
-    const ran = await drive(runArgv);
+    const ran = await runTarget(runArgv);
     const result = at(envelopeOf(ran.stdout), "result");
     const cause = String(at(result, "causeCode"));
     const runHeld = [
@@ -213,14 +213,14 @@ async function commandChecks(
   };
 }
 
-export async function sweep(drive: Drive): Promise<Sweep> {
+export async function sweep(runTarget: TargetRunner): Promise<Sweep> {
   const tally: Tally = { checks: 0, findings: [] };
   const expect = expecter(tally);
-  const discover = await drive(discoveryProbe);
+  const discover = await runTarget(discoveryProbe);
   const discovery = envelopeOf(discover.stdout);
   const commands = ownCommands(discovery).own;
   await cliChecks(
-    drive,
+    runTarget,
     expect,
     commands.some((item) => item.route.length === 0),
   );
@@ -236,7 +236,7 @@ export async function sweep(drive: Drive): Promise<Sweep> {
   const swept: Swept[] = [];
   const owed: Station[] = [];
   for (const item of commands) {
-    const one = await commandChecks(drive, expect, item);
+    const one = await commandChecks(runTarget, expect, item);
     required.push(...one.required);
     swept.push(...one.swept);
     owed.push(...one.owed);
@@ -301,7 +301,7 @@ export function sweepCommand(bun: () => ParsedPath) {
     ],
     run: async (input, context) => {
       const found = await sweep(
-        targetDrive(context.programs, bun(), input.target),
+        targetRunner(context.programs, bun(), input.target),
       );
       if (found.findings.length > 0)
         return context.result(
@@ -357,7 +357,7 @@ export function findingsCommand(bun: () => ParsedPath) {
     ],
     run: async (input, context) => {
       const found = await sweep(
-        targetDrive(context.programs, bun(), input.target),
+        targetRunner(context.programs, bun(), input.target),
       );
       return context.result(
         { commandIdentity: findingsIdentity, causeCode: unchangedSuccess },

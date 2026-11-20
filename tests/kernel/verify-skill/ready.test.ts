@@ -230,7 +230,7 @@ describe("how ready judges its two probes", () => {
       failed: [
         "discovery-exit",
         "discovery-one-envelope",
-        "discovery-has-host-command",
+        "discovery-lists-a-command",
       ],
     });
   });

@@ -8,13 +8,13 @@ export type Ran = {
   readonly stderr: string;
 };
 
-export type Drive = (argv: readonly string[]) => Promise<Ran>;
+export type TargetRunner = (argv: readonly string[]) => Promise<Ran>;
 
-export function targetDrive(
+export function targetRunner(
   programs: Pick<ProgramsCapability, "supplied">,
   bun: ParsedPath,
   entry: string,
-): Drive {
+): TargetRunner {
   return async (argv) => {
     const ran = await programs.supplied({
       executable: bun,

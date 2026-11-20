@@ -26,7 +26,7 @@ const readyChecks = [
   "discovery-exit",
   "discovery-stderr-empty",
   "discovery-one-envelope",
-  "discovery-has-host-command",
+  "discovery-lists-a-command",
 ] as const;
 
 const sweepChecks = [

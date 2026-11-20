@@ -25,8 +25,7 @@ const listed = [
   },
   { commandIdentity: "liar.dispatch", route: [], effectClass: "inspect" },
   { commandIdentity: "liar.help", route: ["--help"], effectClass: "inspect" },
-  ...(lie === "discovery-lists-a-command" ||
-  lie === "discovery-has-host-command"
+  ...(lie === "discovery-lists-a-command"
     ? []
     : [
         {

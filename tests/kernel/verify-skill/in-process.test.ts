@@ -43,7 +43,7 @@ import {
   stepFile,
   unmetOf,
 } from "../../../skills/verify-cli/helper/verdict.ts";
-import { targetDrive } from "../../../skills/verify-cli/helper/target.ts";
+import { targetRunner } from "../../../skills/verify-cli/helper/target.ts";
 import {
   field,
   fixture,
@@ -970,8 +970,8 @@ describe("how the helper runs a target", () => {
       },
     };
     const bun = helperContract({}, []).contract.boundary.path("/bun");
-    const drive = targetDrive(programs, bun, "/r/cli.ts");
-    expect(await drive(["list"])).toEqual({
+    const runTarget = targetRunner(programs, bun, "/r/cli.ts");
+    expect(await runTarget(["list"])).toEqual({
       exitCode: 2,
       stdout: "out",
       stderr: "err",

@@ -17,7 +17,7 @@ import { readIndex, verificationRun } from "./place.ts";
 import type { VerificationRun, StepRow } from "./place.ts";
 import { sweep } from "./sweep.ts";
 import type { Station, Sweep } from "./sweep.ts";
-import { targetDrive } from "./target.ts";
+import { targetRunner } from "./target.ts";
 
 const identity = "verify-cli.report";
 
@@ -142,7 +142,7 @@ export function reportCommand(bun: () => ParsedPath) {
           },
         );
       const found = await sweep(
-        targetDrive(
+        targetRunner(
           context.programs,
           bun(),
           join(read.run.repository, read.run.target),
