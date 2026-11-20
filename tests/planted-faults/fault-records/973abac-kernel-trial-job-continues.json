@@ -1,0 +1,7 @@
+{
+  "id": "973abac-kernel-trial-job-continues",
+  "patch": "tests/planted-faults/patches/973abac-kernel-trial-job-continues.patch",
+  "testFile": "tests/template/kernel-trial/kernel-trial-workflow.test.ts",
+  "title": "shows red when the trial fails: neither its job nor any of its steps continues on error",
+  "source": "973abac test(kernel-trial): refuse continue-on-error on the kernel trial's job and steps"
+}

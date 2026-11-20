@@ -1,34 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { join, resolve } from "node:path";
 import { spawnBounded } from "../../support/process.ts";
+import { type Job, jobOf, workflowOf } from "../../support/workflows.ts";
 
-type Step = {
-  uses?: string;
-  run?: string;
-  with?: Record<string, unknown>;
-  env?: Record<string, unknown>;
-};
-type Job = {
-  if?: string;
-  needs?: string | string[];
-  permissions?: Record<string, string>;
-  outputs?: Record<string, string>;
-  steps: Step[];
-};
-type Workflow = {
-  permissions?: Record<string, string>;
-  jobs: Record<string, Job>;
-};
-
-const root = resolve(import.meta.dir, "../../..");
-const workflow = Bun.YAML.parse(
-  await Bun.file(join(root, ".github/workflows/ci.yml")).text(),
-) as Workflow;
-const job = (name: string): Job => {
-  const found = workflow.jobs[name];
-  if (found === undefined) throw new Error(`ci.yml has no job ${name}.`);
-  return found;
-};
+const workflow = workflowOf("ci.yml");
+const job = (name: string): Job => jobOf("ci.yml", name);
 
 describe("the carried verdict in ci.yml", () => {
   test("only commits-token can mint an OIDC token", () => {

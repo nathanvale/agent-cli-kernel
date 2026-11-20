@@ -1,0 +1,50 @@
+name: Kernel trial
+
+# The template's kernel trial on the head commit of each kernel pull request,
+# with the template checked out beside the kernel repository, as advice
+# only. It shows whether the change would break the template before anyone
+# moves the template's pin. Advice only: its check, kernel-trial, is not a
+# required status check, so a red one does not block merging, and its name
+# is no job name in ci.yml, so it cannot take a required check's place. It
+# has no path filter, so it reports on every pull request.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  kernel-trial:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out the kernel repository at the pull request's head commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          path: agent-cli-kernel
+          persist-credentials: false
+      - name: Check out the template beside it
+        uses: actions/checkout@v4
+        with:
+          repository: nathanvale/bun-typescript-template
+          path: bun-typescript-template
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+          no-cache: true
+      - working-directory: bun-typescript-template
+        run: bun install --frozen-lockfile
+      # The generated repository installs the head commit from GitHub by its
+      # full identity, which GitHub serves for any commit pushed to the
+      # repository, a pull request's head included. The Bun cache starts
+      # empty, so the install reads GitHub's archive afresh.
+      - name: Kernel trial
+        working-directory: bun-typescript-template
+        env:
+          COMMIT: ${{ github.event.pull_request.head.sha }}
+          KERNEL: ${{ github.workspace }}/agent-cli-kernel
+          BUN_INSTALL_CACHE_DIR: ${{ runner.temp }}/kernel-trial-bun-cache
+        run: bun run kernel-trial "$COMMIT" --kernel "$KERNEL"
