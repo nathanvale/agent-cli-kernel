@@ -130,6 +130,34 @@ describe("report and cleanup", () => {
   );
 
   test(
+    "a command whose own discovery fails has its stations owed, however its runs answer",
+    async () => {
+      const at = world();
+      const run = await launched(at, fixture(at, "liar-cli.ts"));
+      const env = { ...at.env, VERIFY_LIE: "command-discovery-one-envelope" };
+      const ran = await viaKernelFreeCheck(at, ["report", run, "--json"], {
+        env,
+      });
+      const envelope: unknown = JSON.parse(ran.stdout);
+      expect({
+        exit: ran.exit,
+        stations: field(envelope, "result", "data", "stations"),
+      }).toEqual({
+        exit: 0,
+        stations: [
+          {
+            command: "liar.status",
+            cause: "SUCCESS_UNCHANGED",
+            state: "owed",
+            by: null,
+          },
+        ],
+      });
+    },
+    watchdog(1, 1),
+  );
+
+  test(
     "a target whose discovery yields no station gets no report, only its findings",
     async () => {
       const at = world();
