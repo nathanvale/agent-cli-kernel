@@ -377,20 +377,43 @@ test(
   testBound,
 );
 
+const runIdentity = /"runId":"[0-9a-f-]{36}"/;
+
+async function sourceAndBinary(name: string) {
+  const argv = ["match", "--name", name, "--json"];
+  const [source, binary] = await Promise.all([
+    run([process.execPath, "src/cli.ts", ...argv], world.consumer),
+    run([join(world.consumer, "dist/bare"), ...argv], world.consumer),
+  ]);
+  const answer = ({ exit, stdout, stderr }: Ran) => {
+    if (!runIdentity.test(stdout))
+      throw new Error(`Expected one run identity in ${stdout}`);
+    return {
+      exit,
+      stdout: stdout.replace(runIdentity, '"runId":"<run>"'),
+      stderr,
+    };
+  };
+  return { source: answer(source), binary: answer(binary) };
+}
+
 test(
-  "the binary refuses a pattern-checked option as USAGE_INVALID_INVOCATION until K1c moves the pattern worker's source inside input.ts, since no binary carries pattern-worker.ts",
+  "the binary checks a pattern-checked option as the source run does: it accepts a matching name and refuses a mismatching one as a pattern mismatch",
   async () => {
     expect(world.binary?.exit).toBe(0);
-    const ran = await run(
-      [join(world.consumer, "dist/bare"), "match", "--name", "abc", "--json"],
-      world.consumer,
+    const [matching, mismatching] = await Promise.all([
+      sourceAndBinary("abc"),
+      sourceAndBinary("ABC"),
+    ]);
+    expect(matching.binary).toEqual(matching.source);
+    expect(matching.binary.exit).toBe(0);
+    expect(matching.binary.stdout).toContain("SUCCESS_UNCHANGED");
+    expect(mismatching.binary).toEqual(mismatching.source);
+    expect(mismatching.binary.exit).not.toBe(0);
+    expect(mismatching.binary.stdout).toContain("USAGE_INVALID_INVOCATION");
+    expect(mismatching.binary.stdout).toContain(
+      "The option --name must match the pattern [a-z]+.",
     );
-    expect(ran.exit).not.toBe(0);
-    expect(ran.stdout).toContain("USAGE_INVALID_INVOCATION");
-    expect(ran.stdout).toContain(
-      "The option --name could not be checked because its declared pattern is not valid.",
-    );
-    expect(ran.stdout).not.toContain("SUCCESS_UNCHANGED");
   },
   testBound,
 );

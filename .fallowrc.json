@@ -89,7 +89,6 @@
     "scripts/planted-faults.ts",
     "scripts/test-area.ts",
     "kernel/src/kernel/index.ts",
-    "kernel/src/kernel/pattern-worker.ts",
     "kernel/src/addons/programs/index.ts",
     "kernel/src/addons/diagnostics/index.ts",
     "tests/kernel/**/fixtures/*-cli.ts",

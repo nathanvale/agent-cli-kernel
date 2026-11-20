@@ -19,6 +19,28 @@ export const emptyInput = {
   additionalOptions: false,
 } as const satisfies InputSchema;
 export type PatternResult = "match" | "mismatch" | "invalid" | "budget";
+const patternWorkerSource = `self.onmessage = (event) => {
+  const value = event.data;
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    !("pattern" in value) ||
+    !("input" in value) ||
+    typeof value.pattern !== "string" ||
+    (value.input !== null && typeof value.input !== "string")
+  ) {
+    self.postMessage("invalid");
+    return;
+  }
+  try {
+    const pattern = new RegExp("^(?:" + value.pattern + ")$", "u");
+    self.postMessage(
+      value.input === null || pattern.test(value.input) ? "match" : "mismatch",
+    );
+  } catch {
+    self.postMessage("invalid");
+  }
+};`;
 export async function matchPattern(
   pattern: string,
   input: string | null,
@@ -26,10 +48,12 @@ export async function matchPattern(
   if (pattern.length > 1024 || (input !== null && [...input].length > 4096))
     return "budget";
   return new Promise((resolve) => {
-    const worker = new Worker(
-      new URL("./pattern-worker.ts", import.meta.url).href,
+    const address = URL.createObjectURL(
+      new Blob([patternWorkerSource], { type: "text/javascript" }),
     );
+    const worker = new Worker(address);
     const finish = (result: PatternResult) => {
+      URL.revokeObjectURL(address);
       clearTimeout(timer);
       void worker.terminate();
       resolve(result);
