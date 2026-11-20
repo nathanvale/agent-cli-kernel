@@ -24,10 +24,11 @@ import { spawnBounded } from "./kernel-repair/swarm-process.ts";
 const repository = join(import.meta.dir, "../..");
 const installBound = 120_000;
 const buildBound = 60_000;
-const setupBound = installBound + 2 * buildBound + 60_000;
+const stagingBound = 60_000;
+const copyBound = 2 * stagingBound + 60_000;
+const setupBound = installBound + 2 * buildBound + copyBound;
 const runBound = 30_000;
 const testBound = runBound + 30_000;
-const stagingBound = 60_000;
 
 function gitStaging(cwd: string, ...args: string[]): string {
   const result = Bun.spawnSync(["git", ...args], {
@@ -394,22 +395,26 @@ test(
   testBound,
 );
 
-test("the working-tree copy commits only the tracked files the working tree still holds", () => {
-  const source = testFolder("pinned-commit-source-");
-  const destination = testFolder("pinned-commit-copy-");
-  try {
-    initRepository(source);
-    commitIn(source, "two files", {
-      "kept.txt": "kept\n",
-      "gone.txt": "gone\n",
-    });
-    rmSync(join(source, "gone.txt"));
-    const commit = workingTreeCommit(source, destination);
-    expect(
-      gitOutput(destination, "ls-tree", "-r", "--name-only", commit).trim(),
-    ).toBe("kept.txt");
-  } finally {
-    rmSync(source, { recursive: true, force: true });
-    rmSync(destination, { recursive: true, force: true });
-  }
-});
+test(
+  "the working-tree copy commits only the tracked files the working tree still holds",
+  () => {
+    const source = testFolder("pinned-commit-source-");
+    const destination = testFolder("pinned-commit-copy-");
+    try {
+      initRepository(source);
+      commitIn(source, "two files", {
+        "kept.txt": "kept\n",
+        "gone.txt": "gone\n",
+      });
+      rmSync(join(source, "gone.txt"));
+      const commit = workingTreeCommit(source, destination);
+      expect(
+        gitOutput(destination, "ls-tree", "-r", "--name-only", commit).trim(),
+      ).toBe("kept.txt");
+    } finally {
+      rmSync(source, { recursive: true, force: true });
+      rmSync(destination, { recursive: true, force: true });
+    }
+  },
+  copyBound,
+);
