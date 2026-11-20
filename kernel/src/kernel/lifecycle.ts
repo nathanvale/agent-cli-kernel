@@ -37,12 +37,6 @@ const settleLimitMilliseconds = 300;
 const stopBoundMilliseconds = 450;
 const cancellationMilliseconds = 500;
 const flushMilliseconds = 500;
-// Accepted decision (Nathan, 16 November 2026, 14:19; DIAG-1): a status is
-// due only after handler entry, so a usage or approval refusal and a deadline
-// before
-// start carry no `diagnostics` key. Set to true to give every refusal of a
-// command that declares a status-reporting add-on a status too (see
-// `reporterFor`).
 const statusOnPreHandlerRefusal = false;
 
 const messages = {
@@ -280,10 +274,6 @@ async function settleAll(run: Run, limit?: number) {
   return settled.every((item) => !item.owned || item.stopped);
 }
 
-// Accepted decision N9: no transaction started before the deadline,
-// and the closed capability refuses every later one, so nothing changed and
-// every declared effect remains. The kernel's own observation, used on the
-// deadline path only; it does not widen the trusted summary elsewhere.
 function noneStarted(command: CommandDeclaration): StateObservation {
   return {
     transactionState: "unchanged",
@@ -296,11 +286,6 @@ function noneStarted(command: CommandDeclaration): StateObservation {
   };
 }
 
-// Accepted decisions (contract question 5 of 8; N2, N3):
-// with an owned program not confirmed stopped the run claims no certainty.
-// The proof's completed and remaining effects are kept, nothing moves to
-// uncertain, and the inventory is incomplete; without a proof, nothing is
-// known.
 function unconfirmedSummary(
   summary: StateObservation | undefined,
 ): StateObservation {
@@ -349,12 +334,6 @@ async function freezeStatus(
   }
 }
 
-// Accepted decision (Nathan, 19 November 2026, 12:08 and 12:15 AEDT,
-// questions 4 and 20): after the first stop request the run waits for its
-// handler beside its add-ons, inside the one stop bound, so the worst-case
-// exit time and the exit codes stay as LIFE-11 set them. The 12:15 ruling
-// covers both entries: runProcess waits for its one run, runInProcess for
-// every run in flight.
 function settledAfterStopRequest(run: Run): Promise<unknown> {
   return Promise.all([run.execution, settleAll(run, settleLimitMilliseconds)]);
 }
@@ -537,13 +516,6 @@ function deferred(run: Run, command: CommandDeclaration, plan: Plan) {
   return Object.freeze(Object.fromEntries(methods));
 }
 
-// CMD-9 steps 5 and 6: the approval add-on attaches before the handler,
-// because its check is the step 5 preflight, and so does a status-reporting
-// add-on, whose attach is effect-free, so its status exists even when the
-// handler never uses it. Every other declared capability attaches when the
-// handler first uses it. Undefined when an approval attach throws or
-// rejects: a preparation fault before handler entry (accepted decision,
-// contract question 3 of 8).
 async function capabilities(
   run: Run,
   plan: CommandPlan,
@@ -589,9 +561,6 @@ async function afterDeadline(
     run.runtime.trustedSummary(run.runId) ??
     (started === false ? noneStarted(command) : undefined);
   const summary = stopped === true ? issued : unconfirmedSummary(issued);
-  // Accepted decisions (contract question 5 of 8; form H): an inspect
-  // command with an owned program not confirmed stopped gets its declared
-  // program-stop station.
   const programStop =
     command.effectClass === "inspect" && stopped !== true
       ? programStopOf(command)
@@ -718,9 +687,6 @@ type CheckPhase =
   | { readonly kind: "deadline" }
   | { readonly kind: "refused"; readonly delivery: Delivery }
   | { readonly kind: "entry"; readonly attach: Attach };
-// Runs the runtime's check phase raced against the deadline. Every refusal
-// here keeps the handler-entry fact false (`handlerEntered` unset), so it never
-// carries a status (accepted decision DIAG-1; DS05).
 async function checkPhase(
   run: Run,
   value: Resolved,
@@ -1014,10 +980,6 @@ async function returnedResult(
     : { kind: "no-envelope", runId: run.runId, exitCode: 1 };
 }
 
-// Accepted decision (Nathan, 19 November 2026, 12:08 AEDT): the state seam
-// forgets a run identity when its run finishes, and refuses a reused one only
-// while that run is live. A handler can outlive its run's deadline; this code
-// reads such a run as live until the handler returns.
 function forgetWhenReturned(run: Run): void {
   const enter = run.enter;
   if (!enter) return;

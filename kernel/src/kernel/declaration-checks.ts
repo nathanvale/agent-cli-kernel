@@ -76,10 +76,6 @@ function validateStationSet(
     seen.add(station.causeCode);
   }
 }
-// Accepted decision (contract question 6 of 8; INPUT-3, STEP-6): a declared
-// step to a host command must route to that command. Returns the identity
-// it would reach instead, if any. A binding element is a token equal to no
-// route token, so it never reroutes (STEP-10).
 function reroutes(
   cli: string,
   target: CommandDeclaration,

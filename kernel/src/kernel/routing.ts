@@ -116,7 +116,6 @@ function selectCommand(
     )
     .sort((a, b) => b.route.length - a.route.length)[0];
 }
-// Accepted decision A10: an explicit --help request succeeds with exit 0.
 function askedNavigation(
   cli: string,
   commands: readonly CommandDeclaration[],
@@ -132,9 +131,6 @@ function askedNavigation(
       }
     : { flag, tokens: [flag] };
 }
-// Accepted decision (contract question 6 of 8): the host command a declared
-// step's final vector (route, then args) routes to, by the same selection
-// as an invocation, or undefined when it would reach no host command.
 export function routedIdentity(
   cli: string,
   commands: readonly CommandDeclaration[],

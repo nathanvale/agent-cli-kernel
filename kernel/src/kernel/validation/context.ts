@@ -26,9 +26,6 @@ function abortSignal(value: unknown): value is AbortSignal {
     return false;
   }
 }
-// Interface: The one owner of a context's abort signal. No `signal` key: a signal
-// that never aborts. A real one: that signal. Anything else: undefined, and
-// the caller refuses before the handler.
 export function abortSignalOf(
   context: Readonly<Record<string, unknown>>,
 ): AbortSignal | undefined {
