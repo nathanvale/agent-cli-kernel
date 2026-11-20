@@ -781,7 +781,7 @@ describe("glossary check proof", () => {
   if (contractFolder !== undefined)
     test("R5b every quote id is a clause in the frozen contract or a decision id", () => {
       const contract = join(root, contractFolder);
-      const text = [...new Bun.Glob("*.md").scanSync({ cwd: contract })]
+      const text = treeFiles("*.md", contract)
         .map((name) => readFileSync(join(contract, name), "utf8"))
         .join("\n");
       const missing = table.quoteIds.filter(
