@@ -35,14 +35,18 @@ exits 3, since the helper's probes of it cannot be confirmed.
 
 1. When `node_modules/agent-cli-kernel` is missing, run
    `bun install --frozen-lockfile` once.
-2. Choose a new folder for the run, outside every git work tree, such as
-   one under `$TMPDIR`. Run `launch <run folder> <target entry file>`.
+2. Choose a new folder for the run, outside every git work tree and every
+   other run, such as `"$(mktemp -d)/run"`, which works where `$TMPDIR` is
+   not set, as on most Linux hosts. Symbolic links are followed: the folder
+   is judged where it really is. Run `launch <run folder> <target entry file>`.
 3. Done when `launch` exits 0. The run folder now holds `scratch/`, which a
    run may fill and cleanup removes; `evidence/`, with the run's
    `index.jsonl`; and `state/`, the helper's own state. The index's first
    row binds the run to the target, the repository root, the pinned commit,
    Bun, the platform, and the repository's head commit and count of
-   uncommitted paths.
+   uncommitted paths, untracked files included. Both are null when the
+   repository has no `.git` at or above it; any other git failure refuses
+   the launch as `DOMAIN_VERIFY_GIT_FAILED`.
 
 A target that keeps state takes its state folder from an argument or an
 environment variable. Point it under the run's `scratch/` folder: put

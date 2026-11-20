@@ -1,9 +1,18 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { chmodSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import {
   folderTaken,
   gitFacts,
+  launchRefusal,
   pinnedCommitOf,
   workTreeAbove,
 } from "../../../skills/verify-cli/helper/launch.ts";
@@ -187,6 +196,7 @@ describe("launch", () => {
         "#!/bin/sh\necho 'fatal: the stub git refuses to answer' >&2\nexit 128\n",
       );
       chmodSync(join(stubs, "git"), 0o755);
+      mkdirSync(join(at.repo, ".git"));
       const run = runFolder(at, "r1");
       const ran = await helper(at, ["launch", run, at.example], {
         ...at.env,
@@ -251,7 +261,31 @@ describe("what launch checks before it makes anything", () => {
     const deep = join(at.folder, "a", "b", "c");
     expect(workTreeAbove(deep)).toBeUndefined();
     writeFileSync(join(at.folder, ".git"), "gitdir: elsewhere\n");
-    expect(workTreeAbove(deep)).toBe(at.folder);
+    expect(workTreeAbove(deep)).toBe(realpathSync(at.folder));
+  });
+
+  test("a run folder is judged where it really is, through any symbolic link", () => {
+    const at = world();
+    const tree = join(at.folder, "tree");
+    mkdirSync(join(tree, ".git"), { recursive: true });
+    mkdirSync(join(tree, "inside"));
+    const link = join(at.folder, "link");
+    symlinkSync(join(tree, "inside"), link);
+    expect(workTreeAbove(join(link, "run", "deeper"))).toBe(realpathSync(tree));
+  });
+
+  test("a run folder inside another run is refused before anything is made", () => {
+    const at = world();
+    const outer = runFolder(at, "outer");
+    mkdirSync(join(outer, "evidence"), { recursive: true });
+    writeFileSync(join(outer, "evidence", "index.jsonl"), "");
+    const inner = join(outer, "scratch", "inner");
+    expect(launchRefusal(inner, at.example)).toEqual({
+      kind: "refused",
+      causeCode: "DOMAIN_VERIFY_RUN_EXISTS",
+      message: `${inner} is inside the run at ${realpathSync(outer)}.`,
+    });
+    expect(existsSync(inner)).toBe(false);
   });
 
   test("the pinned commit is the full commit the kernel dependency names, and an unreadable package.json keeps its reason", () => {
@@ -302,12 +336,24 @@ describe("what launch checks before it makes anything", () => {
     });
   });
 
-  test("git facts are null without git or outside a work tree, counted inside one, and any other failure is reported", async () => {
-    expect(await gitFacts(null, "/r")).toEqual({
+  test("git facts are null without git or outside a work tree, counted inside one, and any git failure inside one is reported", async () => {
+    const at = world();
+    const outside = join(at.folder, "plain");
+    mkdirSync(outside);
+    const tree = join(at.folder, "tree");
+    mkdirSync(tree);
+    writeFileSync(join(tree, ".git"), "gitdir: /gone/.git/worktrees/x\n");
+    expect(await gitFacts(null, tree)).toEqual({
       kind: "facts",
       headCommit: null,
       uncommittedPaths: null,
     });
+    expect(
+      await gitFacts(
+        () => Promise.reject(new Error("git is not asked outside a work tree")),
+        outside,
+      ),
+    ).toEqual({ kind: "facts", headCommit: null, uncommittedPaths: null });
     const answer =
       (head: { exitCode: number; stdout: string; stderr: string }) =>
       (args: readonly string[]) =>
@@ -321,26 +367,21 @@ describe("what launch checks before it makes anything", () => {
         answer({
           exitCode: 128,
           stdout: "",
-          stderr: "fatal: not a git repository (or any parent)\n",
+          stderr: "fatal: not a git repository: /gone/.git/worktrees/x\n",
         }),
-        "/r",
-      ),
-    ).toEqual({ kind: "facts", headCommit: null, uncommittedPaths: null });
-    expect(
-      await gitFacts(
-        answer({ exitCode: 0, stdout: `${pinnedCommit}\n`, stderr: "" }),
-        "/r",
-      ),
-    ).toEqual({ kind: "facts", headCommit: pinnedCommit, uncommittedPaths: 2 });
-    expect(
-      await gitFacts(
-        answer({ exitCode: 1, stdout: "", stderr: "\nfatal: other\n" }),
-        "/r",
+        tree,
       ),
     ).toEqual({
       kind: "failed",
-      reason: "git rev-parse HEAD exited 1: fatal: other",
+      reason:
+        "git rev-parse HEAD exited 128: fatal: not a git repository: /gone/.git/worktrees/x",
     });
+    expect(
+      await gitFacts(
+        answer({ exitCode: 0, stdout: `${pinnedCommit}\n`, stderr: "" }),
+        tree,
+      ),
+    ).toEqual({ kind: "facts", headCommit: pinnedCommit, uncommittedPaths: 2 });
     expect(
       await gitFacts(
         (args) =>
@@ -353,7 +394,7 @@ describe("what launch checks before it makes anything", () => {
                 }
               : { exitCode: 0, stdout: `${pinnedCommit}\n`, stderr: "" },
           ),
-        "/r",
+        tree,
       ),
     ).toEqual({
       kind: "failed",

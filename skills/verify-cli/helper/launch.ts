@@ -1,6 +1,6 @@
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join, relative } from "node:path";
+import { basename, dirname, join, relative } from "node:path";
 import { changing, station } from "agent-cli-kernel";
 import type { ParsedPath, ProgramsCapability } from "agent-cli-kernel";
 import { callerProgramDisclosure } from "agent-cli-kernel/addons/programs";
@@ -38,14 +38,41 @@ export function folderTaken(folder: string): boolean {
   return readdirSync(folder).length > 0;
 }
 
-export function workTreeAbove(folder: string): string | undefined {
-  let current = folder;
+function physical(folder: string): string {
+  let existing = folder;
+  const rest: string[] = [];
+  while (!existsSync(existing)) {
+    const parent = dirname(existing);
+    if (parent === existing) break;
+    rest.unshift(basename(existing));
+    existing = parent;
+  }
+  return join(realpathSync(existing), ...rest);
+}
+
+function nearestAbove(
+  folder: string,
+  holds: (candidate: string) => boolean,
+): string | undefined {
+  let current = physical(folder);
   for (;;) {
-    if (existsSync(join(current, ".git"))) return current;
+    if (holds(current)) return current;
     const parent = dirname(current);
     if (parent === current) return undefined;
     current = parent;
   }
+}
+
+export function workTreeAbove(folder: string): string | undefined {
+  return nearestAbove(folder, (candidate) =>
+    existsSync(join(candidate, ".git")),
+  );
+}
+
+function runAbove(folder: string): string | undefined {
+  return nearestAbove(dirname(folder), (candidate) =>
+    existsSync(verificationRun(candidate).index),
+  );
 }
 
 const pinShape = /#([0-9a-f]{40})$/;
@@ -85,8 +112,6 @@ export type Ask = (args: readonly string[]) => Promise<{
   readonly stderr: string;
 }>;
 
-const noWorkTree = /not a git repository/;
-
 function firstLine(text: string): string {
   return text.split("\n").find((line) => line.trim() !== "") ?? "";
 }
@@ -95,11 +120,9 @@ export async function gitFacts(
   ask: Ask | null,
   root: string,
 ): Promise<GitFacts> {
-  if (ask === null)
+  if (ask === null || workTreeAbove(root) === undefined)
     return { kind: "facts", headCommit: null, uncommittedPaths: null };
   const head = await ask(["-C", root, "rev-parse", "HEAD"]);
-  if (head.exitCode !== 0 && noWorkTree.test(head.stderr))
-    return { kind: "facts", headCommit: null, uncommittedPaths: null };
   if (head.exitCode !== 0)
     return {
       kind: "failed",
@@ -166,6 +189,13 @@ export function launchRefusal(
       causeCode: "DOMAIN_VERIFY_RUN_EXISTS",
       message: `${folder} is not a new or empty folder.`,
     };
+  const outer = runAbove(folder);
+  if (outer !== undefined)
+    return {
+      kind: "refused",
+      causeCode: "DOMAIN_VERIFY_RUN_EXISTS",
+      message: `${folder} is inside the run at ${outer}.`,
+    };
   const tree = workTreeAbove(folder);
   if (tree !== undefined)
     return {
@@ -210,7 +240,8 @@ const refusalStations = [
     ...stationWords,
     commandIdentity: identity,
     causeCode: "DOMAIN_VERIFY_RUN_EXISTS",
-    trigger: "The run's folder exists and is not empty.",
+    trigger:
+      "The run's folder exists and is not empty, or sits inside another run.",
     repairAction:
       "Name a new or empty folder; a run's evidence is never reused.",
     guidance: {
@@ -255,8 +286,7 @@ const refusalStations = [
     ...stationWords,
     commandIdentity: identity,
     causeCode: "DOMAIN_VERIFY_GIT_FAILED",
-    trigger:
-      "git failed for a reason other than the repository not being a work tree.",
+    trigger: "git failed inside the repository's work tree.",
     repairAction: "Repair what the quoted git error names, then launch again.",
     guidance: {
       next: {
