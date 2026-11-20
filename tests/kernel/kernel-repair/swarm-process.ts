@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { exitBound } from "../lifecycle/harness.ts";
 
-const entry = new URL("swarm-cli.ts", import.meta.url).pathname;
+export const entry = new URL("swarm-cli.ts", import.meta.url).pathname;
 
 export type ScenarioRun = {
   readonly exit: number;

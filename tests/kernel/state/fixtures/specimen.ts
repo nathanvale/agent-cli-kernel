@@ -48,6 +48,7 @@ import { approval } from "../../../../kernel/src/addons/approval/index.ts";
 import { own } from "../capability-qualification-record.ts";
 import { encodeRecord } from "../../../../kernel/src/addons/state/framing.ts";
 import { programsAddon } from "../../../../kernel/src/addons/programs/index.ts";
+import { abortWithoutCoreDump } from "../../fixtures/abort.ts";
 
 const root = process.env.SX_ROOT ?? "";
 const world = process.env.SX_WORLD ?? "";
@@ -72,7 +73,7 @@ async function barrier(name: string): Promise<void> {
   if (!barriers.has(name) || barrierDirectory === "") return;
   writeFileSync(join(barrierDirectory, `${name}.reached`), `${process.pid}\n`);
   barrierReached.dispatchEvent(new Event(name));
-  if (fault === `abort-at-${name}`) process.abort();
+  if (fault === `abort-at-${name}`) abortWithoutCoreDump();
   const release = releaseFile(name);
   const until = Date.now() + 60_000;
   while (!existsSync(release)) {

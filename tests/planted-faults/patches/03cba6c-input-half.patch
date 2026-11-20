@@ -1,0 +1,13 @@
+diff --git a/kernel/src/kernel/input.ts b/kernel/src/kernel/input.ts
+index c0c5105..e81aa80 100644
+--- a/kernel/src/kernel/input.ts
++++ b/kernel/src/kernel/input.ts
+@@ -187,7 +187,7 @@ function closestOption(schema: InputSchema, token: string): Slot | null {
+     for (const name of [option.name, ...option.aliases].map(bare)) {
+       if (Math.abs(name.length - typed.length) > nearest) continue;
+       const found = distance(typed, name);
+-      if (found < best && found * 2 < name.length) {
++      if (found < best) {
+         closest = { kind: "option", name: option.name };
+         best = found;
+       }

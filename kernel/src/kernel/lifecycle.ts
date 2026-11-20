@@ -46,7 +46,6 @@ const flushMilliseconds = 500;
 const statusOnPreHandlerRefusal = false;
 
 const messages = {
-  USAGE_UNKNOWN_COMMAND: "No declared command matches this invocation.",
   USAGE_INVALID_INVOCATION:
     "The invocation is not valid for the selected command.",
   INTERNAL_PREPARATION: "The CLI could not prepare this command.",
@@ -816,7 +815,7 @@ async function route(run: Run, resolution: Resolution): Promise<Delivery> {
       run,
       resolution.commandIdentity,
       resolution.causeCode,
-      messages[resolution.causeCode],
+      resolution.message,
     );
   }
   const value = resolution.value;

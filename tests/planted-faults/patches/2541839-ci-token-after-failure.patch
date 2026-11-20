@@ -1,0 +1,13 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 29ff873..b337da2 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -139,7 +139,7 @@ jobs:
+           fi
+           echo "commits-carry and all four commits-shard jobs passed."
+   commits-token:
+-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
++    if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+     needs: commits
+     runs-on: ubuntu-latest
+     timeout-minutes: 5

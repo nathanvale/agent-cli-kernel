@@ -1,0 +1,13 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 6137d23..6dbfc05 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -123,7 +123,7 @@ jobs:
+           CHECK_COMMITS_SINCE: ${{ needs.commits-carry.outputs.since }}
+         run: bun run check:commits "$BASE" --shard ${{ matrix.shard }}/4
+   commits:
+-    if: always() && github.event_name == 'pull_request'
++    if: github.event_name == 'pull_request'
+     needs: [commits-carry, commits-shard]
+     runs-on: ubuntu-latest
+     timeout-minutes: 5

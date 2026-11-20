@@ -1,0 +1,13 @@
+diff --git a/scripts/carried-verdict.ts b/scripts/carried-verdict.ts
+index 42a9bdf..a03976a 100644
+--- a/scripts/carried-verdict.ts
++++ b/scripts/carried-verdict.ts
+@@ -151,7 +151,7 @@ function wrongClaim(claims: Claims, expected: Expected): string | undefined {
+     [
+       "workflow_ref",
+       typeof claims.workflow_ref === "string" &&
+-        workflowRef.test(claims.workflow_ref),
++        workflowRef.test(claims.workflow_ref) || true,
+     ],
+     ["job_workflow_ref", claims.job_workflow_ref === claims.workflow_ref],
+     ["runner_environment", claims.runner_environment === "github-hosted"],

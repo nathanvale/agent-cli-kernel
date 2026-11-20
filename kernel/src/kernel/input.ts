@@ -8,6 +8,7 @@ import type {
   ValueSchema,
 } from "./input-types.ts";
 import type { Validation } from "./types.ts";
+import type { InputFault, Slot, ValueCheck } from "./usage.ts";
 import { parsedInput } from "./validation/input.ts";
 export const emptyInput = {
   arguments: [],
@@ -46,57 +47,158 @@ export async function matchPattern(
     worker.postMessage({ pattern, input });
   });
 }
+type Checked<T> =
+  | { readonly ok: true; readonly value: T }
+  | { readonly ok: false; readonly check: ValueCheck };
+type IntegerValue = Extract<ValueSchema, { readonly kind: "integer" }>;
+type StringValue = Extract<ValueSchema, { readonly kind: "string" }>;
+const reject = (check: ValueCheck) => ({ ok: false, check }) as const;
+function checkInteger(token: string, schema: IntegerValue): Checked<number> {
+  if (!/^-?(0|[1-9][0-9]*)$/.test(token))
+    return reject({ rule: "integer syntax" });
+  const value = Number(token);
+  return Number.isSafeInteger(value) &&
+    value >= schema.minimum &&
+    value <= schema.maximum
+    ? { ok: true, value }
+    : reject({
+        rule: "integer bounds",
+        minimum: schema.minimum,
+        maximum: schema.maximum,
+      });
+}
+async function checkString(
+  token: string,
+  schema: StringValue,
+): Promise<Checked<string>> {
+  const length = [...token].length;
+  if (length < schema.minLength || length > schema.maxLength)
+    return reject({
+      rule: "string bounds",
+      minLength: schema.minLength,
+      maxLength: schema.maxLength,
+    });
+  if (schema.choices !== null && !schema.choices.includes(token))
+    return reject({ rule: "string choices", choices: schema.choices });
+  if (schema.pattern === null) return { ok: true, value: token };
+  const result = await matchPattern(schema.pattern, token);
+  if (result === "match") return { ok: true, value: token };
+  return reject(
+    result === "mismatch"
+      ? { rule: "pattern mismatch", pattern: schema.pattern }
+      : { rule: `pattern ${result}` },
+  );
+}
+async function checkValue(
+  token: string,
+  schema: ValueSchema,
+): Promise<Checked<string | number>> {
+  return schema.kind === "integer"
+    ? checkInteger(token, schema)
+    : checkString(token, schema);
+}
 export async function parseValue(
   token: string,
   schema: ValueSchema,
 ): Promise<Validation<string | number>> {
-  const reject = (reason: string): Validation<never> => ({
-    ok: false,
-    path: "input",
-    reason,
-  });
-  if (schema.kind === "integer") {
-    if (!/^-?(0|[1-9][0-9]*)$/.test(token)) return reject("integer syntax");
-    const value = Number(token);
-    return Number.isSafeInteger(value) &&
-      value >= schema.minimum &&
-      value <= schema.maximum
-      ? { ok: true, value }
-      : reject("integer bounds");
-  }
-  const length = [...token].length;
-  if (length < schema.minLength || length > schema.maxLength)
-    return reject("string bounds");
-  if (schema.choices !== null && !schema.choices.includes(token))
-    return reject("string choices");
-  if (schema.pattern !== null) {
-    const result = await matchPattern(schema.pattern, token);
-    if (result !== "match") return reject(`pattern ${result}`);
-  }
-  return { ok: true, value: token };
+  const checked = await checkValue(token, schema);
+  return checked.ok
+    ? checked
+    : { ok: false, path: "input", reason: checked.check.rule };
 }
-function constraintsHold(
+function slotOf(schema: InputSchema, name: string): Slot {
+  return {
+    kind: schema.options.some((slot) => slot.name === name)
+      ? "option"
+      : "argument",
+    name,
+  };
+}
+function missingFault(
   schema: InputSchema,
   values: Record<string, unknown>,
-): boolean {
-  return schema.constraints.every((item) =>
-    item.kind === "requires"
-      ? !Object.hasOwn(values, item.ifPresent) ||
-        Object.hasOwn(values, item.thenPresent)
-      : item.members.filter((name) => Object.hasOwn(values, name)).length <= 1,
+): InputFault | undefined {
+  const slot = [...schema.arguments, ...schema.options].find(
+    (item) => item.required && !Object.hasOwn(values, item.name),
   );
+  return slot && { kind: "missing", slot: slotOf(schema, slot.name) };
 }
+function constraintFault(
+  schema: InputSchema,
+  values: Record<string, unknown>,
+): InputFault | undefined {
+  const present = (name: string) => Object.hasOwn(values, name);
+  for (const item of schema.constraints) {
+    if (item.kind === "requires") {
+      if (present(item.ifPresent) && !present(item.thenPresent))
+        return {
+          kind: "requires",
+          slot: slotOf(schema, item.ifPresent),
+          needs: slotOf(schema, item.thenPresent),
+        };
+      continue;
+    }
+    const [first, second] = item.members.filter(present);
+    if (first !== undefined && second !== undefined)
+      return {
+        kind: "exclusive",
+        slots: [slotOf(schema, first), slotOf(schema, second)],
+      };
+  }
+  return undefined;
+}
+type Slots<T> =
+  | { readonly ok: true; readonly value: T }
+  | { readonly ok: false; readonly fault: InputFault };
 type ParseState = {
   index: number;
   operand: number;
   literal: boolean;
   values: Record<string, unknown>;
 };
+const nearest = 2;
+const bare = (name: string) => name.replace(/^-+/, "");
+function swapped(a: string, b: string, i: number, j: number): boolean {
+  return i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1];
+}
+function distance(a: string, b: string): number {
+  const width = b.length + 1;
+  const grid: number[] = [];
+  const at = (i: number, j: number) => grid[i * width + j] ?? 0;
+  for (let i = 0; i <= a.length; i++)
+    for (let j = 0; j <= b.length; j++)
+      grid.push(
+        i === 0 || j === 0
+          ? i + j
+          : Math.min(
+              at(i - 1, j) + 1,
+              at(i, j - 1) + 1,
+              at(i - 1, j - 1) + (a[i - 1] === b[j - 1] ? 0 : 1),
+              swapped(a, b, i, j) ? at(i - 2, j - 2) + 1 : Infinity,
+            ),
+      );
+  return at(a.length, b.length);
+}
+function closestOption(schema: InputSchema, token: string): Slot | null {
+  const typed = bare(token);
+  let closest: Slot | null = null;
+  let best = nearest + 1;
+  for (const option of schema.options)
+    for (const name of [option.name, ...option.aliases].map(bare)) {
+      if (Math.abs(name.length - typed.length) > nearest) continue;
+      const found = distance(typed, name);
+      if (found < best && found * 2 < name.length) {
+        closest = { kind: "option", name: option.name };
+        best = found;
+      }
+    }
+  return closest;
+}
 function selectSlot(
   schema: InputSchema,
   state: ParseState,
   token: string,
-): Validation<{ slot: ArgumentSchema | OptionSchema; consumesValue: boolean }> {
+): Slots<{ slot: ArgumentSchema | OptionSchema; consumesValue: boolean }> {
   const option =
     !state.literal && token.startsWith("-")
       ? schema.options.find(
@@ -104,14 +206,20 @@ function selectSlot(
         )
       : undefined;
   if (!state.literal && token.startsWith("-") && !option)
-    return { ok: false, path: "argv", reason: "unknown option" };
+    return {
+      ok: false,
+      fault: { kind: "unknown-option", closest: closestOption(schema, token) },
+    };
   const slot = option ?? schema.arguments[state.operand++];
-  if (!slot) return { ok: false, path: "argv", reason: "additional argument" };
+  if (!slot) return { ok: false, fault: { kind: "extra-argument" } };
   if (
     Object.hasOwn(state.values, slot.name) &&
     !("repeatable" in slot && slot.repeatable)
   )
-    return { ok: false, path: slot.name, reason: "repeated slot" };
+    return {
+      ok: false,
+      fault: { kind: "repeated", slot: slotOf(schema, slot.name) },
+    };
   return {
     ok: true,
     value: { slot, consumesValue: option !== undefined && slot.value !== null },
@@ -135,22 +243,61 @@ function saveValue(
 async function parseToken(
   schema: InputSchema,
   state: ParseState,
-  argv: readonly unknown[],
+  tokens: readonly string[],
   token: string,
-): Promise<Validation<null>> {
+): Promise<Slots<null>> {
   const selected = selectSlot(schema, state, token);
   if (!selected.ok) return selected;
   const { slot, consumesValue } = selected.value;
-  const raw: unknown = consumesValue ? argv[++state.index] : token;
-  if (typeof raw !== "string")
-    return { ok: false, path: slot.name, reason: "missing value" };
+  const raw = consumesValue ? tokens[++state.index] : token;
+  if (raw === undefined)
+    return {
+      ok: false,
+      fault: { kind: "missing-value", slot: slotOf(schema, slot.name) },
+    };
   const parsed =
     slot.value === null
       ? ({ ok: true, value: true } as const)
-      : await parseValue(raw, slot.value);
-  if (!parsed.ok) return parsed;
+      : await checkValue(raw, slot.value);
+  if (!parsed.ok)
+    return {
+      ok: false,
+      fault: {
+        kind: "value",
+        slot: slotOf(schema, slot.name),
+        check: parsed.check,
+      },
+    };
   saveValue(state, slot, parsed.value);
   return { ok: true, value: null };
+}
+const required = {
+  path: "input",
+  reason: "required slot or constraint",
+} as const;
+type Kind = InputFault["kind"];
+type FaultOf<K extends Kind> = Extract<InputFault, { readonly kind: K }>;
+const validations: {
+  readonly [K in Kind]: (fault: FaultOf<K>) => {
+    readonly path: string;
+    readonly reason: string;
+  };
+} = {
+  "unknown-option": () => ({ path: "argv", reason: "unknown option" }),
+  "extra-argument": () => ({ path: "argv", reason: "additional argument" }),
+  "missing-value": (fault) => ({
+    path: fault.slot.name,
+    reason: "missing value",
+  }),
+  repeated: (fault) => ({ path: fault.slot.name, reason: "repeated slot" }),
+  value: (fault) => ({ path: "input", reason: fault.check.rule }),
+  missing: () => required,
+  requires: () => required,
+  exclusive: () => required,
+  invalid: () => required,
+};
+function validationOf<K extends Kind>(fault: FaultOf<K>) {
+  return validations[fault.kind](fault);
 }
 export async function parseInput<I extends InputSchema>(
   schema: I,
@@ -170,16 +317,20 @@ export async function parseInput<I extends InputSchema>(
       path: "--deadline-ms",
       reason: "command does not support deadlines",
     };
-  const parsed = await parseDomainInput(schema, tokens);
-  return parsed.ok && deadlineMilliseconds !== undefined
+  const parsed = await parseSlots(schema, tokens);
+  if (!parsed.ok) return { ok: false, ...validationOf(parsed.fault) };
+  return deadlineMilliseconds !== undefined
     ? { ...parsed, deadlineMilliseconds }
     : parsed;
 }
 
-async function parseDomainInput<I extends InputSchema>(
+export async function parseSlots<I extends InputSchema>(
   schema: I,
   tokens: readonly string[],
-): Promise<Validation<ParsedInput<I>>> {
+): Promise<
+  | { readonly ok: true; readonly value: ParsedInput<I> }
+  | { readonly ok: false; readonly fault: InputFault }
+> {
   const state: ParseState = {
     index: 0,
     operand: 0,
@@ -187,9 +338,8 @@ async function parseDomainInput<I extends InputSchema>(
     values: {},
   };
   for (; state.index < tokens.length; state.index++) {
-    const token: unknown = tokens[state.index];
-    if (typeof token !== "string")
-      return { ok: false, path: "argv", reason: "expected string" };
+    const token = tokens[state.index];
+    if (token === undefined) return { ok: false, fault: { kind: "invalid" } };
     if (!state.literal && token === "--") {
       state.literal = true;
       continue;
@@ -197,10 +347,13 @@ async function parseDomainInput<I extends InputSchema>(
     const parsed = await parseToken(schema, state, tokens, token);
     if (!parsed.ok) return parsed;
   }
-  return parsedInput(state.values, schema) &&
-    constraintsHold(schema, state.values)
-    ? { ok: true, value: state.values }
-    : { ok: false, path: "input", reason: "required slot or constraint" };
+  const broken = constraintFault(schema, state.values);
+  if (parsedInput(state.values, schema) && !broken)
+    return { ok: true, value: state.values };
+  return {
+    ok: false,
+    fault: missingFault(schema, state.values) ?? broken ?? { kind: "invalid" },
+  };
 }
 
 function setValue(

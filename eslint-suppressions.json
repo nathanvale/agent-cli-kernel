@@ -25,9 +25,6 @@
     }
   },
   "kernel/src/kernel/index.ts": {
-    "repository/cause-literal-owner": {
-      "count": 1
-    },
     "repository/no-in-operator": {
       "count": 1
     }
@@ -45,11 +42,6 @@
   "kernel/src/kernel/pattern-worker.ts": {
     "repository/no-in-operator": {
       "count": 2
-    }
-  },
-  "kernel/src/kernel/routing.ts": {
-    "repository/cause-literal-owner": {
-      "count": 9
     }
   },
   "kernel/src/kernel/validation/result.ts": {

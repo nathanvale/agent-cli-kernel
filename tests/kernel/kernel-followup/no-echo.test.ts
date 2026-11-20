@@ -9,9 +9,11 @@ import type { KfRun } from "./harness.ts";
 // kernel never echoes an argument value in a refusal it makes itself; the
 // host owns redaction of its own prose. DIAG-12, WIRE-3, WIRE-7, LIFE-2,
 // LIFE-9 step 2 ("a bounded constant message, no copied bad payload").
-// Built to reading (a) of N10a: the fixed messages name nothing. Every
-// caller value carries a test-owned marker; no byte of stdout or stderr may
-// carry it, in machine or human mode. Expected values come from
+// Accepted decision (Nathan, 20 November 2026, 07:00 AEDT; ND8-4): a kernel
+// refusal may name declared slot names, bounds, choices and patterns, and
+// never names caller text. This replaces reading (a) of N10a, where the fixed
+// messages named nothing. Every caller value carries a test-owned marker; no
+// byte of stdout or stderr may carry it, in machine or human mode. Expected values come from
 // expectations.md (KF10).
 let entry = "";
 beforeAll(async () => {
@@ -79,6 +81,13 @@ const refusals: readonly (readonly [
   [["show", `--flag=${marker}`], "kf.show", usage, 2],
   [["show", "--title"], "kf.show", usage, 2],
   [["show", `-${marker}`], "kf.show", usage, 2],
+  [["show", "--title", marker, "--count"], "kf.show", usage, 2],
+  [["show", "--title", marker, "--title", marker], "kf.show", usage, 2],
+  [["show", "--title", marker, "--count", "99999"], "kf.show", usage, 2],
+  [["show", "--title", marker, "--mode", "c"], "kf.show", usage, 2],
+  [["show", "--title", marker, "--flag", `--${marker}`], "kf.show", usage, 2],
+  [["pair", marker, "--both"], "kf.pair", usage, 2],
+  [["pair", marker, "--left", "--right"], "kf.pair", usage, 2],
   [["show", "--deadline-ms", marker], "kf.dispatch", usage, 2],
   [["show", "--deadline-ms", "-5"], "kf.dispatch", usage, 2],
   [
@@ -118,6 +127,20 @@ describe("KF10.a no-argument-value-in-kernel-refusals", () => {
       });
       expect(machine.envelope?.message).toBe(`Shown ${marker}.`);
       expect(carriers(machine, human)).toEqual([machine.stdout, human.stdout]);
+    },
+    processWatchdog(2),
+  );
+  test(
+    `KF10.a pair a --${marker}: one edit from the declared alias --KF10MAR, the suggestion names --left and carries no argument value`,
+    async () => {
+      const runs = await bothModes(["pair", "a", `--${marker}`]);
+      const message =
+        "The invocation uses an option this command does not declare. Did you mean --left?";
+      expect({
+        machine: runs.machine.envelope?.message,
+        human: runs.human.stderr,
+      }).toEqual({ machine: message, human: `kf: ${message} [${usage}]\n` });
+      expectRefusal(runs, "kf.pair", usage, 2);
     },
     processWatchdog(2),
   );

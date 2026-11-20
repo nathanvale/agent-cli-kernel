@@ -153,8 +153,10 @@ itself to the row's capability qualification record. A row has two:
   into that run's `cases` as `not-runnable`, with the case table's reason
   copied unchanged (Q03.a checks the two are equal),
   never left out. Today K06.e and O07.a wait for a pause point only the test
-  entry has, O05.a and O09.a expect no matching row, and Q02.e needs the row
-  in the production table.
+  entry has, O09.a expects no matching row, and Q02.e needs the row in the
+  production table. O05.a compares the closure decision with and without a
+  live PID in the owner record, so it holds whether or not a row matches; it
+  keeps the reason it was recorded with until the next pair of runs.
 - It refuses a dirty tree, and it refuses to run when any environment fact is
   overridden (case Q03.b; part 3 section 4): a capability qualification record
   made with an overridden release, filesystem or boot identity proves nothing

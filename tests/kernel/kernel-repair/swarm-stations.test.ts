@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runtimeOf } from "../../../kernel/src/kernel/runtime.ts";
 import type { ContractKey } from "../../../kernel/src/kernel/runtime.ts";
+import { repairWords } from "./shapes.ts";
 import { selectingLoad } from "./swarm-commands.ts";
 import type { ScenarioRun } from "./swarm-process.ts";
 import { processWatchdog, runScenario } from "./swarm-process.ts";
@@ -116,6 +117,17 @@ test(
       "instruction",
     ]);
     expect(discovered(read, "USAGE_INVALID_INVOCATION")).toMatchObject({
+      repairAction: repairWords.discovery,
+      guidance: {
+        next: {
+          kind: "command",
+          command: "x.command-discovery",
+          args: ["x.read"],
+        },
+      },
+    });
+    expect(discovered(dispatch, "USAGE_INVALID_INVOCATION")).toMatchObject({
+      repairAction: repairWords.inspect,
       guidance: { next: { kind: "command", command: "x.help", args: [] } },
     });
   },

@@ -11,6 +11,12 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
+import { resolveCoordination } from "../../../kernel/src/addons/state/coordination.ts";
+import {
+  deviceFolders,
+  resolveQualification,
+} from "../../../kernel/src/addons/state/qualification.ts";
+import type { Match } from "../../../kernel/src/addons/state/qualification.ts";
 import { testFolder } from "../../support/test-folder.ts";
 import {
   refuseRunOverrides,
@@ -28,6 +34,27 @@ export const registeredCases: {
   readonly id: string;
   readonly title: string;
 }[] = [];
+
+const rowMatches = new Map<string | undefined, Match>();
+
+export function productionRowMatch(base?: string): Match {
+  const known = rowMatches.get(base);
+  if (known !== undefined) return known;
+  const route = resolveCoordination();
+  const folder = testFolder("c3-row-match-", base);
+  try {
+    for (const name of deviceFolders)
+      if (name !== "root") mkdirSync(join(folder, name));
+    const match = resolveQualification().match(
+      folder,
+      route.available ? route.route : undefined,
+    );
+    rowMatches.set(base, match);
+    return match;
+  } finally {
+    rmSync(folder, { recursive: true, force: true });
+  }
+}
 
 function casePlan(
   id: string,
@@ -489,11 +516,12 @@ export function makeWorld(
     readonly qualification?: "fixture";
     readonly entry?: string;
     readonly childBound?: number;
+    readonly base?: string | undefined;
   } = {},
 ) {
   const childBound = options.childBound ?? defaultChildBound;
   const program = options.entry ?? specimen;
-  const base = testFolder("c3-state-");
+  const base = testFolder("c3-state-", options.base);
   const root = join(base, "state");
   const world = join(base, "world");
   const bars = join(base, "barriers");

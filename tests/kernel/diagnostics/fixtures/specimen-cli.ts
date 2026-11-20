@@ -18,6 +18,7 @@ import type { StatusAddon } from "../../../../kernel/src/addons/diagnostics/inde
 import { programsAddon } from "../../../../kernel/src/addons/programs/index.ts";
 import { createDiagnostics } from "../../../../kernel/src/addons/diagnostics/run.ts";
 import { faultIo } from "./fault-io.ts";
+import { abortWithoutCoreDump } from "../../fixtures/abort.ts";
 
 type Script = {
   readonly records?: number | undefined;
@@ -184,7 +185,7 @@ async function perform(
     }
   }
   await Promise.all(Array.from({ length: tasks }, (_, task) => worker(task)));
-  if (plan.crash) process.abort();
+  if (plan.crash) abortWithoutCoreDump();
   if (plan.throwAfter)
     throw new Error("specimen handler fault after recording");
   return records;
