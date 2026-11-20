@@ -514,7 +514,7 @@ for (const item of cases)
 test("require-to-throw-message refuses a bare rejects.toThrow()", async () => {
   const found = await hits(
     "require-to-throw-message",
-    "tests/kernel/state/component.test.ts",
+    "tests/kernel/state/state-addon.test.ts",
     'await expect(Promise.reject(new Error("limit"))).rejects.toThrow();',
   );
   expect(found.map(({ line }) => line)).toEqual([1]);
@@ -754,7 +754,7 @@ for (const [rule, code, fix] of bypasses)
   test(`${rule} ${fix ? "refuses" : "admits"} ${code} and names the fix`, async () => {
     const found = await hits(
       rule,
-      "tests/kernel/state/component.test.ts",
+      "tests/kernel/state/state-addon.test.ts",
       code,
     );
     expect(
@@ -824,7 +824,7 @@ const commentCases = [
     [1],
   ],
   [
-    "tests/kernel/state/component.test.ts",
+    "tests/kernel/state/state-addon.test.ts",
     "/* Narration */ export const a = 1;",
     [1],
   ],
@@ -890,7 +890,7 @@ const commentCases = [
     [],
   ],
   [
-    "tests/kernel/state/component.test.ts",
+    "tests/kernel/state/state-addon.test.ts",
     "// The accepted\n// decision N4a keeps the line on stdout.\nexport const a = 1;",
     [],
   ],

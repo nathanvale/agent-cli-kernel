@@ -1,7 +1,7 @@
 {
   "id": "3b54e9e-store-corrupt-tail-appended",
   "patch": "tests/planted-faults/patches/3b54e9e-store-corrupt-tail-appended.patch",
-  "testFile": "tests/kernel/state/component.test.ts",
+  "testFile": "tests/kernel/state/state-addon.test.ts",
   "title": "^K11.g supporting: in process, appendEvent appends after a whole record and refuses after torn or corrupt bytes$",
   "source": "3b54e9e fix(state): settle the two-axis review of crashed-case closure"
 }

@@ -1,7 +1,7 @@
 {
   "id": "460be51-install-lease-early",
   "patch": "tests/planted-faults/patches/460be51-install-lease-early.patch",
-  "testFile": "tests/kernel/state/component.test.ts",
+  "testFile": "tests/kernel/state/state-addon.test.ts",
   "title": "^X13 supporting: the final event is appended, then the key coordination locks are released, then the lease last$",
   "source": "460be51 feat(state): make a transaction wait for its started effects"
 }

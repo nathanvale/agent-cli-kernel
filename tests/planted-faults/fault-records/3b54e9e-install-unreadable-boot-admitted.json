@@ -1,7 +1,7 @@
 {
   "id": "3b54e9e-install-unreadable-boot-admitted",
   "patch": "tests/planted-faults/patches/3b54e9e-install-unreadable-boot-admitted.patch",
-  "testFile": "tests/kernel/state/component.test.ts",
+  "testFile": "tests/kernel/state/state-addon.test.ts",
   "title": "^K11.a supporting: in process, a delegate start refuses on the same boot, on a missing boot, and when the current boot cannot be read$",
   "source": "3b54e9e fix(state): settle the two-axis review of crashed-case closure"
 }

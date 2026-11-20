@@ -207,7 +207,7 @@
       "count": 2
     }
   },
-  "tests/kernel/state/component.test.ts": {
+  "tests/kernel/state/state-addon.test.ts": {
     "repository/require-to-throw-message": {
       "count": 6
     }
