@@ -18,8 +18,8 @@ standard to a fresh checkout yet. [MAG-65] owns preparing that route,
 
 A rule row enters with at least two witnesses. Its guide cites them, or its gate
 note does when the row has no guide in `docs/standards/`. A guide bullet cites
-the witnesses that taught it, one or more. A guide bullet with no citation tells the
-reviewer how to apply the rule row. A lesson with one witness waits in
+one or more witnesses that taught it. An uncited guide bullet tells the reviewer
+how to apply its row. A lesson with one witness waits in
 [Single witness](docs/standards/single-witness.md) until a second arrives.
 
 Each rule row names what enforces it today:
@@ -31,14 +31,12 @@ Each rule row names what enforces it today:
 The Gates cell names each gate as `script`, `lint`, `job` or `fault` with its
 id, and links the gate note. A `fault` id is a record id in
 `tests/planted-faults/fault-records.json`. **Planned (parked)** names agreed
-gates that do not exist yet. Plan units U4 to U6 in the description of [#8]
-first named them. The lints and the fault replay have landed. The rest has no
-slot, and [MAG-98], the Contract 3 scope issue, does not list them.
+gates that do not exist yet. Plan units U4 to U6 of [#8] first named some;
+none has a slot, and the Contract 3 scope issue, [MAG-98], omits them.
 
-When a planned gate lands, name it in the Gates cell, mark the row Partial,
-and cut the guide bullets it now enforces. `bun run test:area standards`
-checks that every cited commit, link and named gate exists, and that each
-row's guide or gate note cites two distinct witnesses.
+`bun run test:area standards` checks that every cited commit, link and named
+gate exists, and that each row's guide or gate note cites two distinct
+witnesses.
 
 ## Rule table
 
@@ -59,6 +57,7 @@ row's guide or gate note cites two distinct witnesses.
 | Every exit path emits exactly one envelope    | Review only | None                                                                                                                                                            | None                                       | [Failure envelopes](docs/standards/failure-envelopes.md)            |
 | Untrusted values are read once, as own data   | Partial     | [lint `repository/no-locale-compare`, lint `repository/no-in-operator`, fault `b9e392f-payload-rules`](#untrusted-values)                                       | None                                       | [Untrusted values](docs/standards/untrusted-values.md#object-model) |
 | Delays, waits, and work have stated bounds    | Review only | None                                                                                                                                                            | `Milliseconds` and `Bound` brands          | [Untrusted values](docs/standards/untrusted-values.md#bounds)       |
+| A failed read never reads as absent           | Review only | None                                                                                                                                                            | Fault that reads every failure as absent   | [Untrusted values](docs/standards/untrusted-values.md#failed-reads) |
 | Behaviour holds on Linux and macOS            | Partial     | [job `test`, lint `repository/no-host-path-literal`, fault `b79a4ac-platform-rules`, fault `a0d17cc-in-process-control`](#linux-and-macos)                      | None                                       | [Platform parity](docs/standards/platform-parity.md)                |
 | Glossary terms only                           | Partial     | [job `test`](#glossary)                                                                                                                                         | Lint `glossary-term`                       | [Glossary map](GLOSSARY-MAP.md)                                     |
 | One owner per constant, fake, and helper      | Partial     | [lint `repository/tests-use-test-folder`](#one-owner)                                                                                                           | None                                       | [One owner](docs/standards/one-owner.md)                            |

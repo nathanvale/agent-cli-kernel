@@ -46,6 +46,20 @@ boundary trusts the types.
   [r4580077771] (a shared subgraph cost about 2^35 visits), [d972ded]
   (quadratic append).
 
+## Failed reads
+
+- Read a failure as absence only when it says so, such as `ENOENT` or git's
+  "not a git repository", and report every other failure with its reason on
+  every read. A record or checkout that exists but cannot be read is the
+  reader's problem, never a missing one. Witnessed: [kernel#13 r4624230310],
+  [ff852e8] (a closer whose moved target was unreadable or corrupt would
+  have reported a missing case; the fix shares `readProblem` with the first
+  read), [kernel#48 r4637879772], [69fc0bf] (the doctor read every
+  `git rev-parse` failure as no checkout, so a malformed git configuration
+  passed as ok), [5048d5e] (the pinned-commit test's working-tree copy
+  skipped a tracked file on any `lstat` failure; it now skips only
+  `ENOENT`).
+
 [r4580070968]: https://github.com/nathanvale/bun-typescript-template/pull/6#discussion_r4580070968
 [r4580070979]: https://github.com/nathanvale/bun-typescript-template/pull/6#discussion_r4580070979
 [r4580077776]: https://github.com/nathanvale/bun-typescript-template/pull/6#discussion_r4580077776
@@ -73,3 +87,8 @@ boundary trusts the types.
 [r4622712159]: https://github.com/nathanvale/agent-cli-kernel/pull/4#discussion_r4622712159
 [r4622824082]: https://github.com/nathanvale/agent-cli-kernel/pull/3#discussion_r4622824082
 [kernel#6 r4622839131]: https://github.com/nathanvale/agent-cli-kernel/pull/6#discussion_r4622839131
+[kernel#13 r4624230310]: https://github.com/nathanvale/agent-cli-kernel/pull/13#discussion_r4624230310
+[ff852e8]: https://github.com/nathanvale/agent-cli-kernel/commit/ff852e8f0daed7dc23fc8b092043ab2ddff68c8d
+[kernel#48 r4637879772]: https://github.com/nathanvale/agent-cli-kernel/pull/48#discussion_r4637879772
+[69fc0bf]: https://github.com/nathanvale/agent-cli-kernel/commit/69fc0bf37518800b76c9e9b9e5b1cba6934172bd
+[5048d5e]: https://github.com/nathanvale/agent-cli-kernel/commit/5048d5e01932fa8ab9c177e351f33423cb507c1e

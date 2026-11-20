@@ -49,6 +49,10 @@ is in the [test harness guide](test-harness.md).
   expects none. Witnessed: [8946615].
 - Require one recorded process before checking that it exited. A missing
   process ledger lets an empty-result check pass. Witnessed: [#84-ledger].
+- Refuse a gate's scan that finds no file, so the gate cannot pass on
+  nothing. Witnessed: [kernel#48 r4637879795], [7a3c409] (the add-on import
+  scan returned no imports for an empty `kernel/src/kernel`, and the gate
+  passed).
 - Prove that a killed run made no outside write by checking each write's own
   target. A ledger line written after those writes cannot show they did not
   happen: a proof that reads only that line stays green when a fault makes the
@@ -167,3 +171,5 @@ is in the [test harness guide](test-harness.md).
 [9086c3b]: https://github.com/nathanvale/agent-cli-kernel/commit/9086c3b8b14bcba376aa63027abdd817c1495e53
 [r4624964198]: https://github.com/nathanvale/agent-cli-kernel/pull/15#discussion_r4624964198
 [198f6ba]: https://github.com/nathanvale/agent-cli-kernel/commit/198f6ba61a79539d2c03a1fbfb70b61ecc26b3d0
+[kernel#48 r4637879795]: https://github.com/nathanvale/agent-cli-kernel/pull/48#discussion_r4637879795
+[7a3c409]: https://github.com/nathanvale/agent-cli-kernel/commit/7a3c409920548ef30a9df2c89a0fac608d4704fd

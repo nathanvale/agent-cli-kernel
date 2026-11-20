@@ -83,11 +83,6 @@ this file.
   Witnessed: [kernel#13 r4624230267], [9086c3b] (`ensureStore` did not
   check `settled/` on a version 2 store, so a symbolic link there was
   followed and a move renamed case folders out of the state root).
-- Report a record that exists but cannot be read as the store's problem on
-  every read of it, never as not found. Witnessed: [kernel#13 r4624230310],
-  [ff852e8] (a closer whose moved target was unreadable or corrupt would
-  have reported a missing case; the fix shares `readProblem` with the first
-  read).
 - Prove a compatibility claim with code committed in the tree, never with
   git history, which a shallow checkout or another folder lacks. Witnessed:
   [ff852e8], [e45050c] (J08.a and J08.c read version 1's store with
@@ -111,6 +106,23 @@ this file.
   stale, not as the later state. Witnessed: [kernel#18 r4625574054],
   [4f7712e] (a case completed after the caller's read refused as a
   conflict, "already has a different closure").
+- Report a tool that cannot start as the step's finding; `Bun.spawnSync`
+  throws then instead of returning a failed result. Witnessed:
+  [kernel#48 r4637879754], [69fc0bf] (the doctor's hooks check let a git
+  missing from `PATH` throw, so the doctor crashed instead of warning).
+- Read a path setting as its tool reads it, with `git config --path` for
+  git, so a home-relative value is compared expanded. Witnessed:
+  [kernel#48 r4637879781], [69fc0bf] (the doctor compared a `core.hooksPath`
+  written as `~/...` without expanding it).
+- Strip only the line end from a tool's output, so whitespace that belongs
+  to the value survives. Witnessed: [kernel#48 r4637879764], [69fc0bf]
+  (`trim()` read a `core.hooksPath` of `.githooks` with a trailing space as
+  `.githooks`).
+- Build a command's file list from the files a step produced, not from the
+  list it started with, so a file the step skipped is not named. Witnessed:
+  [kernel#48 r4637879806], [5048d5e] (the pinned-commit test's working-tree
+  copy skipped a tracked file deleted from the working tree but still named
+  it in `git add`'s pathspec, so setup failed).
 
 [ac11ed9]: https://github.com/nathanvale/bun-typescript-template/commit/ac11ed98b7d538e8a304cac053aaefcaaf6b2cb3
 [cd2498b]: https://github.com/nathanvale/bun-typescript-template/commit/cd2498b7189a2d45d1906b9c870e8d13da6cd2dd
@@ -134,7 +146,6 @@ this file.
 [ef76011]: https://github.com/nathanvale/agent-cli-kernel/commit/ef76011bdde8d36064b73bd85550d8efc7fb15a6
 [kernel#13 r4624230267]: https://github.com/nathanvale/agent-cli-kernel/pull/13#discussion_r4624230267
 [9086c3b]: https://github.com/nathanvale/agent-cli-kernel/commit/9086c3b8b14bcba376aa63027abdd817c1495e53
-[kernel#13 r4624230310]: https://github.com/nathanvale/agent-cli-kernel/pull/13#discussion_r4624230310
 [ff852e8]: https://github.com/nathanvale/agent-cli-kernel/commit/ff852e8f0daed7dc23fc8b092043ab2ddff68c8d
 [e45050c]: https://github.com/nathanvale/agent-cli-kernel/commit/e45050c2bbcafa88b973931119a4512e45d9bfc7
 [run 44456881408]: https://github.com/nathanvale/agent-cli-kernel/actions/runs/44456881408
@@ -143,3 +154,9 @@ this file.
 [d37a77f]: https://github.com/nathanvale/agent-cli-kernel/commit/d37a77ffc6f8f62c9c89fca2b35e8b16446ef694
 [kernel#18 r4625574054]: https://github.com/nathanvale/agent-cli-kernel/pull/18#discussion_r4625574054
 [4f7712e]: https://github.com/nathanvale/agent-cli-kernel/commit/4f7712e80e9ea127b4bf43b7d9f69e8cd6a8954a
+[kernel#48 r4637879754]: https://github.com/nathanvale/agent-cli-kernel/pull/48#discussion_r4637879754
+[kernel#48 r4637879781]: https://github.com/nathanvale/agent-cli-kernel/pull/48#discussion_r4637879781
+[kernel#48 r4637879764]: https://github.com/nathanvale/agent-cli-kernel/pull/48#discussion_r4637879764
+[kernel#48 r4637879806]: https://github.com/nathanvale/agent-cli-kernel/pull/48#discussion_r4637879806
+[69fc0bf]: https://github.com/nathanvale/agent-cli-kernel/commit/69fc0bf37518800b76c9e9b9e5b1cba6934172bd
+[5048d5e]: https://github.com/nathanvale/agent-cli-kernel/commit/5048d5e01932fa8ab9c177e351f33423cb507c1e
