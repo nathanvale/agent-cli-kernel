@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/self-verification/self-verification.ts b/tests/kernel/self-verification/self-verification.ts
+index eb92aa9..feb3d08 100644
+--- a/tests/kernel/self-verification/self-verification.ts
++++ b/tests/kernel/self-verification/self-verification.ts
+@@ -67,7 +67,7 @@ export function wantsFindings(own: OwnCli): boolean {
+ 
+ function runFailure(own: OwnCli, { command, ran }: OwnCliRun): string[] {
+   const line = `${checkLine} ${command}`;
+-  if (ran.exit === 70)
++  if (ran.exit === 71)
+     return [
+       `${own.name}: ${line} exited 70, so its run cannot be trusted: ${ran.stderr.trim()} Repair: follow each RAW FAIL line's repair, then run this test again.`,
+     ];

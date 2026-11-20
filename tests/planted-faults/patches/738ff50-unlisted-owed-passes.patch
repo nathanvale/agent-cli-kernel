@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/self-verification/station-record.ts b/tests/kernel/self-verification/station-record.ts
+index e77623a..036a696 100644
+--- a/tests/kernel/self-verification/station-record.ts
++++ b/tests/kernel/self-verification/station-record.ts
+@@ -87,7 +87,7 @@ export function stationFailures(
+   const failures: string[] = [];
+   for (const [key, state] of seen) {
+     const recorded = record.stations.get(key);
+-    if (recorded === undefined)
++    if (recorded === undefined && state === "driven")
+       failures.push(
+         `${name}: ${key} is ${state} and ${recordPath} does not list it. Repair: ${state === "owed" ? "drive it with a --json step in a scenario; if no scenario can reach it yet, add it" : "if the station is new on purpose, add it"} to "${name}" with state "${state}".`,
+       );

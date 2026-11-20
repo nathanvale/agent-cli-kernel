@@ -1,0 +1,7 @@
+{
+  "id": "98c4576-repeated-entry-passes",
+  "patch": "tests/planted-faults/patches/98c4576-repeated-entry-passes.patch",
+  "testFile": "tests/kernel/self-verification/refusals.test.ts",
+  "title": "a CLI the record does not name, or a station it lists twice, is refused$",
+  "source": "98c4576 fix(self-verification): quote each failed check and pin every station the runs reach"
+}

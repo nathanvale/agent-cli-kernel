@@ -1,0 +1,251 @@
+{
+  "example": {
+    "stations": [
+      {
+        "command": "moons.list",
+        "cause": "SUCCESS_UNCHANGED",
+        "state": "swept"
+      },
+      {
+        "command": "moons.show",
+        "cause": "SUCCESS_UNCHANGED",
+        "state": "driven"
+      },
+      {
+        "command": "moons.show",
+        "cause": "DOMAIN_MOONS_UNKNOWN_PLANET",
+        "state": "owed"
+      }
+    ]
+  },
+  "helper": {
+    "checks": 113,
+    "stations": [
+      {
+        "command": "verify-cli.pending",
+        "cause": "DOMAIN_VERIFY_RUN_MISSING",
+        "state": "swept"
+      },
+      {
+        "command": "verify-cli.cleanup",
+        "cause": "SUCCESS_COMPLETED",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.cleanup",
+        "cause": "DOMAIN_VERIFY_RUN_CLEAN",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.cleanup",
+        "cause": "DOMAIN_VERIFY_RUN_MISSING",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.cleanup",
+        "cause": "DOMAIN_VERIFY_RUN_HELD",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.cleanup",
+        "cause": "DOMAIN_VERIFY_RUN_UNRESOLVED",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.cleanup",
+        "cause": "DOMAIN_VERIFY_STATE_UNAVAILABLE",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.cleanup",
+        "cause": "DOMAIN_VERIFY_CHANGE_UNCHANGED",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.cleanup",
+        "cause": "DOMAIN_VERIFY_CHANGE_UNKNOWN",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.drive",
+        "cause": "SUCCESS_COMPLETED",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.drive",
+        "cause": "DOMAIN_VERIFY_EXPECTATION_UNMET",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.drive",
+        "cause": "DOMAIN_VERIFY_SCENARIO",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.drive",
+        "cause": "DOMAIN_VERIFY_ALREADY_DRIVEN",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.drive",
+        "cause": "DOMAIN_VERIFY_RUN_CLEAN",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.drive",
+        "cause": "DOMAIN_VERIFY_RUN_MISSING",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.drive",
+        "cause": "DOMAIN_VERIFY_EVIDENCE_UNREADABLE",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.drive",
+        "cause": "DOMAIN_VERIFY_RUN_HELD",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.drive",
+        "cause": "DOMAIN_VERIFY_RUN_UNRESOLVED",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.drive",
+        "cause": "DOMAIN_VERIFY_STATE_UNAVAILABLE",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.drive",
+        "cause": "DOMAIN_VERIFY_CHANGE_UNCHANGED",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.drive",
+        "cause": "DOMAIN_VERIFY_CHANGE_UNKNOWN",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.findings",
+        "cause": "SUCCESS_UNCHANGED",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.launch",
+        "cause": "SUCCESS_COMPLETED",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.launch",
+        "cause": "DOMAIN_VERIFY_TARGET_MISSING",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.launch",
+        "cause": "DOMAIN_VERIFY_RUN_EXISTS",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.launch",
+        "cause": "DOMAIN_VERIFY_RUN_IN_WORK_TREE",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.launch",
+        "cause": "DOMAIN_VERIFY_NO_PIN",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.launch",
+        "cause": "DOMAIN_VERIFY_GIT_FAILED",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.launch",
+        "cause": "DOMAIN_VERIFY_RUN_HELD",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.launch",
+        "cause": "DOMAIN_VERIFY_RUN_UNRESOLVED",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.launch",
+        "cause": "DOMAIN_VERIFY_STATE_UNAVAILABLE",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.launch",
+        "cause": "DOMAIN_VERIFY_CHANGE_UNCHANGED",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.launch",
+        "cause": "DOMAIN_VERIFY_CHANGE_UNKNOWN",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.pending",
+        "cause": "SUCCESS_UNCHANGED",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.pending",
+        "cause": "DOMAIN_VERIFY_STATE_UNAVAILABLE",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.probe",
+        "cause": "SUCCESS_UNCHANGED",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.ready",
+        "cause": "SUCCESS_UNCHANGED",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.ready",
+        "cause": "DOMAIN_VERIFY_TARGET_START",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.ready",
+        "cause": "DOMAIN_VERIFY_FINDINGS",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.report",
+        "cause": "SUCCESS_UNCHANGED",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.report",
+        "cause": "DOMAIN_VERIFY_FINDINGS",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.report",
+        "cause": "DOMAIN_VERIFY_RUN_MISSING",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.report",
+        "cause": "DOMAIN_VERIFY_EVIDENCE_UNREADABLE",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.sweep",
+        "cause": "SUCCESS_UNCHANGED",
+        "state": "owed"
+      },
+      {
+        "command": "verify-cli.sweep",
+        "cause": "DOMAIN_VERIFY_FINDINGS",
+        "state": "owed"
+      }
+    ]
+  }
+}

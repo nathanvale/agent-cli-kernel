@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/self-verification/station-record.ts b/tests/kernel/self-verification/station-record.ts
+index e77623a..644a97d 100644
+--- a/tests/kernel/self-verification/station-record.ts
++++ b/tests/kernel/self-verification/station-record.ts
+@@ -91,7 +91,7 @@ export function stationFailures(
+       failures.push(
+         `${name}: ${key} is ${state} and ${recordPath} does not list it. Repair: ${state === "owed" ? "drive it with a --json step in a scenario; if no scenario can reach it yet, add it" : "if the station is new on purpose, add it"} to "${name}" with state "${state}".`,
+       );
+-    else if (recorded !== state)
++    else if (recorded !== state && state === "driven")
+       failures.push(
+         `${name}: ${key} is ${state}, and ${recordPath} lists it as ${recorded}. Repair: restore what made it ${recorded}; if the change is on purpose, set its state to "${state}".`,
+       );

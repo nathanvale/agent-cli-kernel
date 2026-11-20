@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/self-verification/station-record.ts b/tests/kernel/self-verification/station-record.ts
+index e77623a..c12f0a4 100644
+--- a/tests/kernel/self-verification/station-record.ts
++++ b/tests/kernel/self-verification/station-record.ts
+@@ -97,7 +97,7 @@ export function stationFailures(
+       );
+   }
+   for (const [key, state] of record.stations)
+-    if (!seen.has(key))
++    if (!seen.has(key) && state === "driven")
+       failures.push(
+         `${name}: ${recordPath} lists ${key} as ${state}, and the run reached no such station. Repair: restore the command or station; if it was removed on purpose, remove the entry from "${name}".`,
+       );

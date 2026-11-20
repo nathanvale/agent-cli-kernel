@@ -1,0 +1,7 @@
+{
+  "id": "98c4576-findings-unquoted",
+  "patch": "tests/planted-faults/patches/98c4576-findings-unquoted.patch",
+  "testFile": "tests/kernel/self-verification/refusals.test.ts",
+  "title": "a sweep with findings is refused, each failed check quoted with what it saw$",
+  "source": "98c4576 fix(self-verification): quote each failed check and pin every station the runs reach"
+}

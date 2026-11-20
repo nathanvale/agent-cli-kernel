@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/self-verification/station-record.ts b/tests/kernel/self-verification/station-record.ts
+index e77623a..a7fc10e 100644
+--- a/tests/kernel/self-verification/station-record.ts
++++ b/tests/kernel/self-verification/station-record.ts
+@@ -61,7 +61,7 @@ export function recordOf(name: string, record: unknown): StationRecord {
+     );
+   for (const entry of entries) {
+     if (entry === undefined) continue;
+-    if (stations.has(stationKey(entry)))
++    if (stations.has(stationKey(entry)) && entry.state === "driven")
+       failures.push(
+         `${name}: ${recordPath} lists ${stationKey(entry)} twice. Repair: keep one entry for it.`,
+       );
