@@ -158,6 +158,17 @@ import { contract } from "./commands.ts";
 await runProcess(contract)(process.argv.slice(2));
 ```
 
+## Choose add-ons
+
+`installedAddons` on `contractFor` is the one place a CLI chooses add-ons.
+Its names are `"state"`, `"programs"`, `"approval"` and `"diagnostics"`. Leave
+it out and the CLI uses none.
+
+- Name an add-on in `installedAddons` to select it. Importing it, or naming
+  it in a command's `capabilities`, selects nothing.
+- List `"state"` with `"approval"`, since approval needs state. Without it the
+  CLI throws at start-up. See [stations](stations.md#start-up-throws).
+
 ## What the kernel adds
 
 - Every CLI accepts `--json`, `--help`, `--discover` and
