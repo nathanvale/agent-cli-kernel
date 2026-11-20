@@ -1,0 +1,13 @@
+diff --git a/skills/verify-agent-cli/helper/transcript.ts b/skills/verify-agent-cli/helper/transcript.ts
+index 3fc8aa8..f3a863d 100644
+--- a/skills/verify-agent-cli/helper/transcript.ts
++++ b/skills/verify-agent-cli/helper/transcript.ts
+@@ -90,7 +90,7 @@ export function checks(expected: Expectations, seen: Seen): Check[] {
+             expectation: "--expect-file",
+             wanted: expected.file,
+             seen: seen.file,
+-            met: seen.file !== null && seen.file.includes(expected.file),
++            met: true,
+           },
+         ]),
+     ...(expected.emptyStdout

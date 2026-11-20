@@ -1,0 +1,13 @@
+diff --git a/skills/verify-agent-cli/helper/drive.ts b/skills/verify-agent-cli/helper/drive.ts
+index cab6f84..16930aa 100644
+--- a/skills/verify-agent-cli/helper/drive.ts
++++ b/skills/verify-agent-cli/helper/drive.ts
+@@ -33,7 +33,7 @@ import type { Check, Expectations } from "./transcript.ts";
+ 
+ const identity = "verify-agent-cli.drive";
+ const outputLimitBytes = 1_048_576;
+-const shutdownMilliseconds = 2_000;
++const shutdownMilliseconds = 20_000;
+ 
+ const textOption = <const Name extends string, const Repeat extends boolean>(
+   name: Name,

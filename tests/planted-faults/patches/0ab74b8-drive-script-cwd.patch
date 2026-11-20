@@ -1,0 +1,13 @@
+diff --git a/skills/verify-agent-cli/helper/drive.ts b/skills/verify-agent-cli/helper/drive.ts
+index cab6f84..cf3bb52 100644
+--- a/skills/verify-agent-cli/helper/drive.ts
++++ b/skills/verify-agent-cli/helper/drive.ts
+@@ -79,7 +79,7 @@ function targetCommand(
+ ): readonly string[] {
+   const home = place.home;
+   const where = script
+-    ? [`--cwd=${record.repository}`, "run", ...argv]
++    ? ["--cwd", record.repository, "run", ...argv]
+     : ["--no-install", `--cwd=${place.scratch}`, record.entry, ...argv];
+   return [
+     `HOME=${home}`,

@@ -3409,13 +3409,6 @@
     "source": "bdd5e9c feat(verify-skill): add the verify-agent-cli helper, built on the kernel, behind a kernel-free front door"
   },
   {
-    "id": "bdd5e9c-doctor-usage",
-    "patch": "tests/planted-faults/patches/bdd5e9c-doctor-usage.patch",
-    "testFile": "tests/kernel/verify-skill/inspect.test.ts",
-    "title": "doctor refuses a target whose unknown command does not exit 2",
-    "source": "bdd5e9c feat(verify-skill): add the verify-agent-cli helper, built on the kernel, behind a kernel-free front door"
-  },
-  {
     "id": "bdd5e9c-sweep-findings",
     "patch": "tests/planted-faults/patches/bdd5e9c-sweep-findings.patch",
     "testFile": "tests/kernel/verify-skill/inspect.test.ts",
@@ -3465,13 +3458,6 @@
     "source": "bdd5e9c feat(verify-skill): add the verify-agent-cli helper, built on the kernel, behind a kernel-free front door"
   },
   {
-    "id": "bdd5e9c-drive-timeout",
-    "patch": "tests/planted-faults/patches/bdd5e9c-drive-timeout.patch",
-    "testFile": "tests/kernel/verify-skill/runs.test.ts",
-    "title": "drive stops a target that outlives --timeout-ms",
-    "source": "bdd5e9c feat(verify-skill): add the verify-agent-cli helper, built on the kernel, behind a kernel-free front door"
-  },
-  {
     "id": "bdd5e9c-verify-exit-mismatch",
     "patch": "tests/planted-faults/patches/bdd5e9c-verify-exit-mismatch.patch",
     "testFile": "tests/kernel/verify-skill/in-process.test.ts",
@@ -3483,13 +3469,6 @@
     "patch": "tests/planted-faults/patches/bdd5e9c-verify-no-envelope.patch",
     "testFile": "tests/kernel/verify-skill/in-process.test.ts",
     "title": "a helper whose envelope disagrees with its exit code",
-    "source": "bdd5e9c feat(verify-skill): add the verify-agent-cli helper, built on the kernel, behind a kernel-free front door"
-  },
-  {
-    "id": "bdd5e9c-verify-target-usage",
-    "patch": "tests/planted-faults/patches/bdd5e9c-verify-target-usage.patch",
-    "testFile": "tests/kernel/verify-skill/in-process.test.ts",
-    "title": "the target's raw exit codes pass for a sound CLI and fail for one that lies",
     "source": "bdd5e9c feat(verify-skill): add the verify-agent-cli helper, built on the kernel, behind a kernel-free front door"
   },
   {
@@ -3512,5 +3491,152 @@
     "testFile": "tests/kernel/verify-skill/inspect.test.ts",
     "title": "naming both raw target checks when the target throws",
     "source": "bdd5e9c feat(verify-skill): add the verify-agent-cli helper, built on the kernel, behind a kernel-free front door"
+  },
+  {
+    "id": "0ab74b8-doctor-usage-exit",
+    "patch": "tests/planted-faults/patches/0ab74b8-doctor-usage-exit.patch",
+    "testFile": "tests/kernel/verify-skill/inspect.test.ts",
+    "title": "doctor refuses a target whose unknown command does not exit 2",
+    "source": "0ab74b8 fix(verify-skill): settle the Sol 6.1 standards and spec reviews"
+  },
+  {
+    "id": "0ab74b8-verify-usage-exit",
+    "patch": "tests/planted-faults/patches/0ab74b8-verify-usage-exit.patch",
+    "testFile": "tests/kernel/verify-skill/front.test.ts",
+    "title": "verify.ts doctor exits 70 with RAW FAIL target-usage-exit",
+    "source": "0ab74b8 fix(verify-skill): settle the Sol 6.1 standards and spec reviews"
+  },
+  {
+    "id": "0ab74b8-drive-timeout",
+    "patch": "tests/planted-faults/patches/0ab74b8-drive-timeout.patch",
+    "testFile": "tests/kernel/verify-skill/runs.test.ts",
+    "title": "drive stops a target that outlives --timeout-ms",
+    "source": "0ab74b8 fix(verify-skill): settle the Sol 6.1 standards and spec reviews"
+  },
+  {
+    "id": "0ab74b8-cli-env-missing",
+    "patch": "tests/planted-faults/patches/0ab74b8-cli-env-missing.patch",
+    "testFile": "tests/kernel/verify-skill/in-process.test.ts",
+    "title": "the helper refuses to start without env on PATH",
+    "source": "0ab74b8 fix(verify-skill): settle the Sol 6.1 standards and spec reviews"
+  },
+  {
+    "id": "0ab74b8-doctor-help",
+    "patch": "tests/planted-faults/patches/0ab74b8-doctor-help.patch",
+    "testFile": "tests/kernel/verify-skill/inspect.test.ts",
+    "title": "doctor refuses a target whose help fails",
+    "source": "0ab74b8 fix(verify-skill): settle the Sol 6.1 standards and spec reviews"
+  },
+  {
+    "id": "0ab74b8-drive-record-gone",
+    "patch": "tests/planted-faults/patches/0ab74b8-drive-record-gone.patch",
+    "testFile": "tests/kernel/verify-skill/contract.test.ts",
+    "title": "a run whose record is gone is DOMAIN_VERIFY_RUN_MISSING",
+    "source": "0ab74b8 fix(verify-skill): settle the Sol 6.1 standards and spec reviews"
+  },
+  {
+    "id": "0ab74b8-transcript-expect-file",
+    "patch": "tests/planted-faults/patches/0ab74b8-transcript-expect-file.patch",
+    "testFile": "tests/kernel/verify-skill/runs.test.ts",
+    "title": "drive keeps the text of the file --read-file names",
+    "source": "0ab74b8 fix(verify-skill): settle the Sol 6.1 standards and spec reviews"
+  },
+  {
+    "id": "0ab74b8-drive-output-budget",
+    "patch": "tests/planted-faults/patches/0ab74b8-drive-output-budget.patch",
+    "testFile": "tests/kernel/verify-skill/contract.test.ts",
+    "title": "drive keeps at most 1 MiB of each stream",
+    "source": "0ab74b8 fix(verify-skill): settle the Sol 6.1 standards and spec reviews"
+  },
+  {
+    "id": "0ab74b8-drive-shutdown-budget",
+    "patch": "tests/planted-faults/patches/0ab74b8-drive-shutdown-budget.patch",
+    "testFile": "tests/kernel/verify-skill/contract.test.ts",
+    "title": "a target that holds out after SIGTERM is killed when its 2 s shutdown budget runs out",
+    "source": "0ab74b8 fix(verify-skill): settle the Sol 6.1 standards and spec reviews"
+  },
+  {
+    "id": "0ab74b8-doctor-package-unreadable",
+    "patch": "tests/planted-faults/patches/0ab74b8-doctor-package-unreadable.patch",
+    "testFile": "tests/kernel/verify-skill/inspect.test.ts",
+    "title": "doctor reports a package.json it cannot read as unreadable",
+    "source": "0ab74b8 fix(verify-skill): settle the Sol 6.1 standards and spec reviews"
+  },
+  {
+    "id": "0ab74b8-steps-unreadable",
+    "patch": "tests/planted-faults/patches/0ab74b8-steps-unreadable.patch",
+    "testFile": "tests/kernel/verify-skill/inspect.test.ts",
+    "title": "evidence and sweep --run refuse a run whose evidence holds a file they cannot read",
+    "source": "0ab74b8 fix(verify-skill): settle the Sol 6.1 standards and spec reviews"
+  },
+  {
+    "id": "0ab74b8-contract-envelope-exit",
+    "patch": "tests/planted-faults/patches/0ab74b8-contract-envelope-exit.patch",
+    "testFile": "tests/kernel/verify-skill/contract.test.ts",
+    "title": "an envelope whose exit code is not the process's fails the drive",
+    "source": "0ab74b8 fix(verify-skill): settle the Sol 6.1 standards and spec reviews"
+  },
+  {
+    "id": "0ab74b8-contract-refusal-stdout",
+    "patch": "tests/planted-faults/patches/0ab74b8-contract-refusal-stdout.patch",
+    "testFile": "tests/kernel/verify-skill/contract.test.ts",
+    "title": "a failed run that prints on stdout fails the drive",
+    "source": "0ab74b8 fix(verify-skill): settle the Sol 6.1 standards and spec reviews"
+  },
+  {
+    "id": "0ab74b8-contract-json-envelope",
+    "patch": "tests/planted-faults/patches/0ab74b8-contract-json-envelope.patch",
+    "testFile": "tests/kernel/verify-skill/contract.test.ts",
+    "title": "--json with no envelope fails the drive",
+    "source": "0ab74b8 fix(verify-skill): settle the Sol 6.1 standards and spec reviews"
+  },
+  {
+    "id": "0ab74b8-expect-empty-stdout",
+    "patch": "tests/planted-faults/patches/0ab74b8-expect-empty-stdout.patch",
+    "testFile": "tests/kernel/verify-skill/contract.test.ts",
+    "title": "--json with no envelope fails the drive, and --expect-empty-stdout fails on any stdout",
+    "source": "0ab74b8 fix(verify-skill): settle the Sol 6.1 standards and spec reviews"
+  },
+  {
+    "id": "0ab74b8-verify-kill-escalation",
+    "patch": "tests/planted-faults/patches/0ab74b8-verify-kill-escalation.patch",
+    "testFile": "tests/kernel/verify-skill/raw.test.ts",
+    "title": "a target that ignores SIGTERM is killed when the raw check's grace runs out",
+    "source": "0ab74b8 fix(verify-skill): settle the Sol 6.1 standards and spec reviews"
+  },
+  {
+    "id": "0ab74b8-verify-forward-stop",
+    "patch": "tests/planted-faults/patches/0ab74b8-verify-forward-stop.patch",
+    "testFile": "tests/kernel/verify-skill/state.test.ts",
+    "title": "verify.ts stopped by SIGTERM in the middle of a drive",
+    "source": "0ab74b8 fix(verify-skill): settle the Sol 6.1 standards and spec reviews"
+  },
+  {
+    "id": "0ab74b8-drive-script-cwd",
+    "patch": "tests/planted-faults/patches/0ab74b8-drive-script-cwd.patch",
+    "testFile": "tests/kernel/verify-skill/runs.test.ts",
+    "title": "drive starts the target in the run's scratch folder, and a package script in the repository root",
+    "source": "0ab74b8 fix(verify-skill): settle the Sol 6.1 standards and spec reviews"
+  },
+  {
+    "id": "0ab74b8-verify-entry-record",
+    "patch": "tests/planted-faults/patches/0ab74b8-verify-entry-record.patch",
+    "testFile": "tests/kernel/verify-skill/front.test.ts",
+    "title": "verify.ts doctor --run checks the entry the run recorded",
+    "source": "0ab74b8 fix(verify-skill): settle the Sol 6.1 standards and spec reviews"
+  },
+  {
+    "id": "0ab74b8-sweep-entry-record",
+    "patch": "tests/planted-faults/patches/0ab74b8-sweep-entry-record.patch",
+    "testFile": "tests/kernel/verify-skill/inspect.test.ts",
+    "title": "sweep --run uses the run's entry",
+    "source": "0ab74b8 fix(verify-skill): settle the Sol 6.1 standards and spec reviews"
+  },
+  {
+    "id": "0ab74b8-doctor-entry-record",
+    "patch": "tests/planted-faults/patches/0ab74b8-doctor-entry-record.patch",
+    "testFile": "tests/kernel/verify-skill/inspect.test.ts",
+    "title": "doctor uses the entry a run recorded",
+    "source": "0ab74b8 fix(verify-skill): settle the Sol 6.1 standards and spec reviews"
   }
 ]
