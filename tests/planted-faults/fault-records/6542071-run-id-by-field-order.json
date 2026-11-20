@@ -1,0 +1,7 @@
+{
+  "id": "6542071-run-id-by-field-order",
+  "patch": "tests/planted-faults/patches/6542071-run-id-by-field-order.patch",
+  "testFile": "tests/kernel/verify-skill/trust.test.ts",
+  "title": "a probe's stdout is hashed without the run id each run draws, and with every other byte",
+  "source": "6542071 fix(verify-skill): find the envelope's run id by its structure, not by field order"
+}

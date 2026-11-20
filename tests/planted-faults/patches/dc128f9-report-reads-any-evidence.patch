@@ -1,0 +1,15 @@
+diff --git a/skills/verify-cli/helper/report.ts b/skills/verify-cli/helper/report.ts
+index c567446..9fe21f1 100644
+--- a/skills/verify-cli/helper/report.ts
++++ b/skills/verify-cli/helper/report.ts
+@@ -74,9 +74,7 @@ export function stepDetails(
+       };
+     const listed = at(read.value, "unmet");
+     if (
+-      at(read.value, "schema") !== stepSchema ||
+-      !Array.isArray(listed) ||
+-      (listed.length === 0) !== (row.verdict === "met")
++      listed === "never"
+     )
+       return {
+         kind: "unreadable",
