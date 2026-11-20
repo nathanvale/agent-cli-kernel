@@ -325,7 +325,7 @@ test("the installed kernel accepts a pattern-checked option when the CLI runs fr
   expect(ran.stdout).toContain("SUCCESS_UNCHANGED");
 });
 
-test("the binary refuses a pattern-checked option as USAGE_INVALID_INVOCATION until the pattern worker's source moves inside input.ts, since no binary carries pattern-worker.ts", async () => {
+test("the binary refuses a pattern-checked option as USAGE_INVALID_INVOCATION until K1c moves the pattern worker's source inside input.ts, since no binary carries pattern-worker.ts", async () => {
   expect(world.binary?.exit).toBe(0);
   const ran = await run(
     [join(world.consumer, "dist/bare"), "match", "--name", "abc", "--json"],
