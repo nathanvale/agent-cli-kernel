@@ -22,7 +22,7 @@ export function targetArgs(
   return ["--no-install", entry, ...argv];
 }
 
-export type Observation = {
+export type ProbeResult = {
   readonly argv: readonly string[];
   readonly exitCode: number | null;
   readonly stdoutBytes: number;
@@ -33,14 +33,14 @@ export function sha256(text: string | Uint8Array): string {
   return createHash("sha256").update(text).digest("hex");
 }
 
-export function observation(
+export function probeResult(
   argv: readonly string[],
   ran: {
     readonly exitCode: number | null;
     readonly stdout: string;
     readonly stderr: string;
   },
-): Observation {
+): ProbeResult {
   return {
     argv: [...argv],
     exitCode: ran.exitCode,
@@ -59,7 +59,7 @@ export function repositoryRoot(path: string): string | undefined {
   }
 }
 
-export type RunPlace = {
+export type VerificationRun = {
   readonly folder: string;
   readonly scratch: string;
   readonly evidence: string;
@@ -67,7 +67,7 @@ export type RunPlace = {
   readonly state: string;
 };
 
-export function runPlace(folder: string): RunPlace {
+export function verificationRun(folder: string): VerificationRun {
   const evidence = join(folder, "evidence");
   return {
     folder,
@@ -210,7 +210,7 @@ function readFailure(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export function readIndex(place: RunPlace): IndexRead {
+export function readIndex(place: VerificationRun): IndexRead {
   let content: string;
   try {
     const stats = statSync(place.index);

@@ -1,5 +1,5 @@
 diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
-index 4f9d259..748c98a 100644
+index 6e8de36..51c71ce 100644
 --- a/skills/verify-cli/verify.ts
 +++ b/skills/verify-cli/verify.ts
 @@ -241,7 +241,7 @@ export async function helperProbe(

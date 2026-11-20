@@ -1,5 +1,5 @@
 diff --git a/skills/verify-cli/helper/report.ts b/skills/verify-cli/helper/report.ts
-index 1255db5..00e2df2 100644
+index 4e96345..ba1e396 100644
 --- a/skills/verify-cli/helper/report.ts
 +++ b/skills/verify-cli/helper/report.ts
 @@ -34,7 +34,6 @@ export function stationStates(

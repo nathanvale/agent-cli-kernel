@@ -1,8 +1,8 @@
 diff --git a/skills/verify-cli/helper/pending.ts b/skills/verify-cli/helper/pending.ts
-index d42e304..71176a7 100644
+index d1f147e..d3376fb 100644
 --- a/skills/verify-cli/helper/pending.ts
 +++ b/skills/verify-cli/helper/pending.ts
-@@ -98,7 +98,7 @@ export function pendingCommand(state: State) {
+@@ -99,7 +99,7 @@ export function pendingCommand(state: State) {
              effects: nothingChanged,
            },
          );

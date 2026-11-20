@@ -1,8 +1,8 @@
 diff --git a/skills/verify-cli/helper/place.ts b/skills/verify-cli/helper/place.ts
-index 8672b9e..2bf00e2 100644
+index 03d99b0..f394ce1 100644
 --- a/skills/verify-cli/helper/place.ts
 +++ b/skills/verify-cli/helper/place.ts
-@@ -219,7 +219,7 @@ export function readIndex(place: RunPlace): IndexRead {
+@@ -219,7 +219,7 @@ export function readIndex(place: VerificationRun): IndexRead {
          kind: "unreadable",
          reason: `${place.index} is not a regular file`,
        };

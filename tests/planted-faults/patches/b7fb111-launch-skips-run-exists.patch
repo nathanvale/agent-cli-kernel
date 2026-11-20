@@ -1,8 +1,8 @@
 diff --git a/skills/verify-cli/helper/launch.ts b/skills/verify-cli/helper/launch.ts
-index 3e3b635..95c03a7 100644
+index 07ba990..dfc1edc 100644
 --- a/skills/verify-cli/helper/launch.ts
 +++ b/skills/verify-cli/helper/launch.ts
-@@ -155,7 +155,7 @@ export function launchRefusal(
+@@ -160,7 +160,7 @@ export function launchRefusal(
        causeCode: "DOMAIN_VERIFY_TARGET_MISSING",
        message: `The target ${target} does not exist.`,
      };

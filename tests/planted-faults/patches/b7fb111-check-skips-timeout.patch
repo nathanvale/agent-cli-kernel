@@ -1,5 +1,5 @@
 diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
-index 4f9d259..04702a4 100644
+index 6e8de36..a062184 100644
 --- a/skills/verify-cli/verify.ts
 +++ b/skills/verify-cli/verify.ts
 @@ -158,7 +158,7 @@ export function timeoutFailure(

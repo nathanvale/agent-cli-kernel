@@ -1,8 +1,8 @@
 diff --git a/skills/verify-cli/helper/launch.ts b/skills/verify-cli/helper/launch.ts
-index 3e3b635..9f8d624 100644
+index 07ba990..b25ca95 100644
 --- a/skills/verify-cli/helper/launch.ts
 +++ b/skills/verify-cli/helper/launch.ts
-@@ -305,7 +305,7 @@ export function launchCommand(state: State, git: () => ParsedPath | null) {
+@@ -310,7 +310,7 @@ export function launchCommand(state: State, git: () => ParsedPath | null) {
          gitAsk(context.programs, git()),
          checked.root,
        );

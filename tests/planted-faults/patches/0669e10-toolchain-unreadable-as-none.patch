@@ -1,5 +1,5 @@
 diff --git a/skills/verify-cli/helper/ready.ts b/skills/verify-cli/helper/ready.ts
-index e111af9..4938512 100644
+index d5fa7e4..70ffade 100644
 --- a/skills/verify-cli/helper/ready.ts
 +++ b/skills/verify-cli/helper/ready.ts
 @@ -45,7 +45,7 @@ export function toolchainBun(root: string | undefined): ToolchainPin {

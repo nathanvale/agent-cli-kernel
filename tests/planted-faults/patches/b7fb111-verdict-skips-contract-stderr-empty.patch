@@ -1,5 +1,5 @@
 diff --git a/skills/verify-cli/helper/verdict.ts b/skills/verify-cli/helper/verdict.ts
-index ad56b82..b0ab641 100644
+index efa8c9a..7bf1c3b 100644
 --- a/skills/verify-cli/helper/verdict.ts
 +++ b/skills/verify-cli/helper/verdict.ts
 @@ -46,7 +46,6 @@ export function contractUnmet(

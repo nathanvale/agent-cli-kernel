@@ -1,11 +1,11 @@
 diff --git a/skills/verify-cli/helper/cleanup.ts b/skills/verify-cli/helper/cleanup.ts
-index 3336ac3..8155e98 100644
+index 501e268..d60c477 100644
 --- a/skills/verify-cli/helper/cleanup.ts
 +++ b/skills/verify-cli/helper/cleanup.ts
 @@ -65,7 +65,7 @@ export function cleanupCommand(state: State) {
      ],
      run: async (input, context) => {
-       const place = runPlace(input.run);
+       const place = verificationRun(input.run);
 -      if (!existsSync(place.index) && !existsSync(place.state))
 +      if (!existsSync(place.index) && !existsSync(place.state) && false)
          return context.result(

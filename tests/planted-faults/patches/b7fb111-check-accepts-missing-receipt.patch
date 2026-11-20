@@ -1,8 +1,8 @@
 diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
-index 4f9d259..0a369d1 100644
+index 6e8de36..a722975 100644
 --- a/skills/verify-cli/verify.ts
 +++ b/skills/verify-cli/verify.ts
-@@ -346,7 +346,7 @@ export function evidenceFailures(place: RunPlace): Failure[] {
+@@ -346,7 +346,7 @@ export function evidenceFailures(place: VerificationRun): Failure[] {
      try {
        bytes = readFileSync(path);
      } catch (error) {

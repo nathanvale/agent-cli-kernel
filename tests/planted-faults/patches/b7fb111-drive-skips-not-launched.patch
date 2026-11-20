@@ -1,10 +1,10 @@
 diff --git a/skills/verify-cli/helper/drive.ts b/skills/verify-cli/helper/drive.ts
-index 3414820..9981228 100644
+index 406ea44..7f73b8e 100644
 --- a/skills/verify-cli/helper/drive.ts
 +++ b/skills/verify-cli/helper/drive.ts
-@@ -236,7 +236,7 @@ export function driveCommand(state: State, bun: () => ParsedPath) {
+@@ -242,7 +242,7 @@ export function driveCommand(state: State, bun: () => ParsedPath) {
      run: async (input, context) => {
-       const place = runPlace(input.run);
+       const place = verificationRun(input.run);
        const before = readIndex(place);
 -      if (before.kind === "missing")
 +      if (before.kind === "missing" && false)

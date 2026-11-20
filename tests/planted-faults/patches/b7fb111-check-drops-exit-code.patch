@@ -1,5 +1,5 @@
 diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
-index 4f9d259..9096680 100644
+index 6e8de36..65708f6 100644
 --- a/skills/verify-cli/verify.ts
 +++ b/skills/verify-cli/verify.ts
 @@ -282,7 +282,6 @@ export function compared(

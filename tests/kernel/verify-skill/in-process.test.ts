@@ -11,7 +11,7 @@ import {
   blockedEnding,
   fileSeen,
   keptStep,
-  observedOf,
+  stepRunOf,
   stepArgs,
 } from "../../../skills/verify-cli/helper/drive.ts";
 import { launchRefusal } from "../../../skills/verify-cli/helper/launch.ts";
@@ -24,7 +24,7 @@ import {
   indexText,
   readIndex,
   repositoryRoot,
-  runPlace,
+  verificationRun,
   runRowOf,
   stepRowOf,
 } from "../../../skills/verify-cli/helper/place.ts";
@@ -36,7 +36,7 @@ import {
 import type { ScenarioStep } from "../../../skills/verify-cli/helper/scenario.ts";
 import {
   contractUnmet,
-  creditOf,
+  stationOf,
   resultAt,
   stepFile,
   unmetOf,
@@ -128,7 +128,7 @@ describe("the helper's commands, run in process", () => {
         helperContract(at.env, argv).inProcess();
       const launched = await inProcess(["launch", run, at.example]);
       expect(launched.kind).toBe("envelope");
-      const place = runPlace(run);
+      const place = verificationRun(run);
       mkdirSync(join(place.evidence, "f"));
       const content = `${JSON.stringify({
         unmet: [],
@@ -576,18 +576,18 @@ describe("how a step is judged", () => {
 
   test("only a target step's envelope credits a station", () => {
     expect(
-      creditOf(step({ exitCode: 0, stderr: "" }), envelopeLine(0)),
+      stationOf(step({ exitCode: 0, stderr: "" }), envelopeLine(0)),
     ).toEqual({
       commandIdentity: "a.show",
       causeCode: "SUCCESS_UNCHANGED",
     });
     expect(
-      creditOf(step({ exitCode: 0, stderr: "" }, "bun"), envelopeLine(0)),
+      stationOf(step({ exitCode: 0, stderr: "" }, "bun"), envelopeLine(0)),
     ).toEqual({
       commandIdentity: null,
       causeCode: null,
     });
-    expect(creditOf(step({ exitCode: 0, stderr: "" }), "plain\n")).toEqual({
+    expect(stationOf(step({ exitCode: 0, stderr: "" }), "plain\n")).toEqual({
       commandIdentity: null,
       causeCode: null,
     });
@@ -632,7 +632,7 @@ describe("the run's folder and its index", () => {
 
   test("an index reads as missing, read, or unreadable with its reason", () => {
     const at = world();
-    const place = runPlace(runFolder(at, "r1"));
+    const place = verificationRun(runFolder(at, "r1"));
     expect(readIndex(place)).toEqual({ kind: "missing" });
     mkdirSync(place.evidence, { recursive: true });
     writeFileSync(place.index, indexText([row]));
@@ -659,7 +659,7 @@ describe("the run's folder and its index", () => {
 
   test("an index must be a regular file of at most 16,777,216 bytes", () => {
     const at = world();
-    const place = runPlace(runFolder(at, "r1"));
+    const place = verificationRun(runFolder(at, "r1"));
     mkdirSync(place.evidence, { recursive: true });
     const first = indexText([row]);
     writeFileSync(
@@ -790,7 +790,7 @@ describe("how drive runs and keeps a step", () => {
   });
 
   test("what a step observed comes from the program's result, and a result with no details did not time out", () => {
-    expect(observedOf(ran)).toEqual({ ...ran, timedOut: false });
+    expect(stepRunOf(ran)).toEqual({ ...ran, timedOut: false });
   });
 
   test("a file a step expects reads as its content, or as absent", async () => {
@@ -807,7 +807,7 @@ describe("how drive runs and keeps a step", () => {
 
   test("a kept step's index row names its file and the SHA-256 of its content", async () => {
     const at = world();
-    const place = runPlace(runFolder(at, "r1"));
+    const place = verificationRun(runFolder(at, "r1"));
     const kept = await keptStep(place, "f", step, ran);
     expect(kept.row).toEqual({
       row: "step",

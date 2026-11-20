@@ -1,10 +1,10 @@
 diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
-index 4f9d259..71ffc4e 100644
+index 6e8de36..dbe911a 100644
 --- a/skills/verify-cli/verify.ts
 +++ b/skills/verify-cli/verify.ts
-@@ -336,7 +336,7 @@ export async function observationFailures(
+@@ -336,7 +336,7 @@ export async function probeFailures(
  
- export function evidenceFailures(place: RunPlace): Failure[] {
+ export function evidenceFailures(place: VerificationRun): Failure[] {
    const read = readIndex(place);
 -  if (read.kind === "missing") return [];
 +  if (read.kind !== "unreadable") return [];

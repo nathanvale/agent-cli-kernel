@@ -1,8 +1,8 @@
 diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
-index 4f9d259..2a23781 100644
+index 6e8de36..bb272a4 100644
 --- a/skills/verify-cli/verify.ts
 +++ b/skills/verify-cli/verify.ts
-@@ -504,7 +504,6 @@ export function bunSpawn(
+@@ -502,7 +502,6 @@ export function bunSpawn(
        timedOut = true;
        child.kill("SIGTERM");
      });

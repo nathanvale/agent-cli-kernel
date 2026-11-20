@@ -1,8 +1,8 @@
 diff --git a/skills/verify-cli/helper/launch.ts b/skills/verify-cli/helper/launch.ts
-index 3e3b635..b517256 100644
+index 07ba990..214b92c 100644
 --- a/skills/verify-cli/helper/launch.ts
 +++ b/skills/verify-cli/helper/launch.ts
-@@ -176,7 +176,7 @@ export function launchRefusal(
+@@ -181,7 +181,7 @@ export function launchRefusal(
        message: `No package.json sits at or above ${target}.`,
      };
    const pin = pinnedCommitOf(root);

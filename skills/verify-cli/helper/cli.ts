@@ -8,7 +8,7 @@ import { cleanupCommand } from "./cleanup.ts";
 import { driveCommand } from "./drive.ts";
 import { launchCommand } from "./launch.ts";
 import { pendingCommand } from "./pending.ts";
-import { runPlace } from "./place.ts";
+import { verificationRun } from "./place.ts";
 import { probeCommand, readyCommand } from "./ready.ts";
 import { reportCommand } from "./report.ts";
 import { findingsCommand, sweepCommand } from "./sweep.ts";
@@ -23,7 +23,7 @@ export function stateRoot(argv: readonly string[]): string {
   return runCommands.includes(argv[0] ?? "") &&
     folder !== undefined &&
     folder.startsWith("/")
-    ? runPlace(folder).state
+    ? verificationRun(folder).state
     : unboundState;
 }
 

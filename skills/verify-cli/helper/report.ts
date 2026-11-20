@@ -13,8 +13,8 @@ import {
   unreadableStation,
 } from "./causes.ts";
 import { at, listOf, readJsonFile } from "./json.ts";
-import { readIndex, runPlace } from "./place.ts";
-import type { RunPlace, StepRow } from "./place.ts";
+import { readIndex, verificationRun } from "./place.ts";
+import type { VerificationRun, StepRow } from "./place.ts";
 import { sweep } from "./sweep.ts";
 import type { Station, Sweep } from "./sweep.ts";
 import { targetDrive } from "./target.ts";
@@ -60,7 +60,7 @@ export type Details =
   | { readonly kind: "unreadable"; readonly reason: string };
 
 export function stepDetails(
-  place: RunPlace,
+  place: VerificationRun,
   steps: readonly StepRow[],
 ): Details {
   const details: StepDetail[] = [];
@@ -109,7 +109,7 @@ export function reportCommand(bun: () => ParsedPath) {
       unreadableStation(identity),
     ],
     run: async (input, context) => {
-      const place = runPlace(input.run);
+      const place = verificationRun(input.run);
       const read = readIndex(place);
       if (read.kind === "missing")
         return context.result(

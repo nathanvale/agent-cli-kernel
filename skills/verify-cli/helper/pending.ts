@@ -10,7 +10,7 @@ import {
   unchangedSuccess,
 } from "./causes.ts";
 import type { State } from "./outcome.ts";
-import { runPlace } from "./place.ts";
+import { verificationRun } from "./place.ts";
 
 const identity = "verify-cli.pending";
 
@@ -67,7 +67,8 @@ export function pendingCommand(state: State) {
       const run = input.run;
       if (
         run === undefined ||
-        (!existsSync(runPlace(run).index) && !existsSync(runPlace(run).state))
+        (!existsSync(verificationRun(run).index) &&
+          !existsSync(verificationRun(run).state))
       )
         return context.result(
           { commandIdentity: identity, causeCode: "DOMAIN_VERIFY_RUN_MISSING" },
@@ -113,7 +114,7 @@ export function pendingCommand(state: State) {
           causeCode: "DOMAIN_VERIFY_STATE_UNAVAILABLE",
         },
         {
-          message: `The state at ${runPlace(run).state} is ${report.reason}.`,
+          message: `The state at ${verificationRun(run).state} is ${report.reason}.`,
           data: null,
           effects: nothingChanged,
         },

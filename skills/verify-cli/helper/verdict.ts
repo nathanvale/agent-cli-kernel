@@ -6,7 +6,7 @@ import { jsonValue } from "./scenario.ts";
 import type { ScenarioStep } from "./scenario.ts";
 import { envelopeOf, stringAt } from "./target.ts";
 
-export type Observed = {
+export type StepRun = {
   readonly exitCode: number | null;
   readonly timedOut: boolean;
   readonly outputTruncated: boolean;
@@ -34,7 +34,7 @@ function asksForJson(argv: readonly string[]): boolean {
 
 export function contractUnmet(
   step: ScenarioStep,
-  observed: Observed,
+  observed: StepRun,
 ): readonly string[] {
   if (
     step.runner !== "target" ||
@@ -59,7 +59,7 @@ export function contractUnmet(
 
 export function unmetOf(
   step: ScenarioStep,
-  observed: Observed,
+  observed: StepRun,
   files: readonly FileSeen[],
 ): readonly string[] {
   const expect = step.expect;
@@ -92,12 +92,12 @@ export function unmetOf(
   ];
 }
 
-export type Credit = {
+export type StepStation = {
   readonly commandIdentity: string | null;
   readonly causeCode: string | null;
 };
 
-export function creditOf(step: ScenarioStep, stdout: string): Credit {
+export function stationOf(step: ScenarioStep, stdout: string): StepStation {
   const envelope = step.runner === "target" ? envelopeOf(stdout) : null;
   return {
     commandIdentity: stringAt(envelope, "result", "commandIdentity"),
@@ -108,7 +108,7 @@ export function creditOf(step: ScenarioStep, stdout: string): Credit {
 export function stepFile(
   feature: string,
   step: ScenarioStep,
-  observed: Observed,
+  observed: StepRun,
   files: readonly FileSeen[],
 ) {
   const unmet = unmetOf(step, observed, files);

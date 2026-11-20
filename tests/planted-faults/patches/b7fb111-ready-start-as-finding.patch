@@ -1,5 +1,5 @@
 diff --git a/skills/verify-cli/helper/ready.ts b/skills/verify-cli/helper/ready.ts
-index e111af9..76962bd 100644
+index d5fa7e4..49bc4e9 100644
 --- a/skills/verify-cli/helper/ready.ts
 +++ b/skills/verify-cli/helper/ready.ts
 @@ -70,7 +70,7 @@ export function readiness(

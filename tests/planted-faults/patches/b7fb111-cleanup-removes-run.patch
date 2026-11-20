@@ -1,5 +1,5 @@
 diff --git a/skills/verify-cli/helper/cleanup.ts b/skills/verify-cli/helper/cleanup.ts
-index 3336ac3..d814a08 100644
+index 501e268..b610863 100644
 --- a/skills/verify-cli/helper/cleanup.ts
 +++ b/skills/verify-cli/helper/cleanup.ts
 @@ -98,7 +98,7 @@ export function cleanupCommand(state: State) {

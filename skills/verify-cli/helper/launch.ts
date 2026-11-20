@@ -17,7 +17,12 @@ import {
 import { at, readJsonFile } from "./json.ts";
 import { failureText, refusalOf, unfinishedChange } from "./outcome.ts";
 import type { State } from "./outcome.ts";
-import { indexSchema, indexText, repositoryRoot, runPlace } from "./place.ts";
+import {
+  indexSchema,
+  indexText,
+  repositoryRoot,
+  verificationRun,
+} from "./place.ts";
 import type { RunRow } from "./place.ts";
 
 const identity = "verify-cli.launch";
@@ -294,7 +299,7 @@ export function launchCommand(state: State, git: () => ParsedPath | null) {
       ...stateStations(identity),
     ],
     run: async (input, context) => {
-      const place = runPlace(input.run);
+      const place = verificationRun(input.run);
       const checked = launchRefusal(input.run, input.target);
       if (checked.kind === "refused")
         return context.result(

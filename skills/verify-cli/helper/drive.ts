@@ -22,13 +22,19 @@ import {
 import { at, parsedJson } from "./json.ts";
 import { failureText, refusalOf, unfinishedChange } from "./outcome.ts";
 import type { State } from "./outcome.ts";
-import { indexText, readIndex, runPlace, sha256, targetArgs } from "./place.ts";
-import type { RunPlace, RunRow, StepRow } from "./place.ts";
+import {
+  indexText,
+  readIndex,
+  verificationRun,
+  sha256,
+  targetArgs,
+} from "./place.ts";
+import type { VerificationRun, RunRow, StepRow } from "./place.ts";
 import { placedStep, readScenario } from "./scenario.ts";
 import type { Scenario, ScenarioStep } from "./scenario.ts";
 import { limits } from "./target.ts";
-import { creditOf, stepFile } from "./verdict.ts";
-import type { FileSeen, Observed } from "./verdict.ts";
+import { stationOf, stepFile } from "./verdict.ts";
+import type { FileSeen, StepRun } from "./verdict.ts";
 
 const identity = "verify-cli.drive";
 
@@ -41,7 +47,7 @@ export async function fileSeen(path: string): Promise<FileSeen> {
   }
 }
 
-export function observedOf(ran: ProgramResult): Observed {
+export function stepRunOf(ran: ProgramResult): StepRun {
   return {
     exitCode: ran.exitCode,
     timedOut: programDetails(ran)?.timedOut ?? false,
@@ -65,19 +71,19 @@ function stepText(value: unknown): string {
 export type Written = { readonly row: StepRow; readonly content: string };
 
 export async function keptStep(
-  place: RunPlace,
+  place: VerificationRun,
   feature: string,
   step: ScenarioStep,
   ran: ProgramResult,
 ): Promise<Written> {
-  const observed = observedOf(ran);
+  const observed = stepRunOf(ran);
   const files = await Promise.all(
     (step.expect.files ?? []).map((file) => fileSeen(file.path)),
   );
   const kept = stepFile(feature, step, observed, files);
   const file = join(feature, `${step.name}.json`);
   const content = stepText(kept);
-  const credit = creditOf(step, observed.stdout);
+  const credit = stationOf(step, observed.stdout);
   return {
     row: {
       row: "step",
@@ -96,7 +102,7 @@ export async function keptStep(
 }
 
 async function confirmed(
-  place: RunPlace,
+  place: VerificationRun,
   written: readonly Written[],
 ): Promise<boolean> {
   const read = readIndex(place);
@@ -234,7 +240,7 @@ export function driveCommand(state: State, bun: () => ParsedPath) {
       ...stateStations(identity),
     ],
     run: async (input, context) => {
-      const place = runPlace(input.run);
+      const place = verificationRun(input.run);
       const before = readIndex(place);
       if (before.kind === "missing")
         return context.result(

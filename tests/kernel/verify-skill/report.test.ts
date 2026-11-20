@@ -11,7 +11,7 @@ import {
   stationStates,
   stepDetails,
 } from "../../../skills/verify-cli/helper/report.ts";
-import { runPlace } from "../../../skills/verify-cli/helper/place.ts";
+import { verificationRun } from "../../../skills/verify-cli/helper/place.ts";
 import type { StepRow } from "../../../skills/verify-cli/helper/place.ts";
 import { spawnBounded } from "../kernel-repair/swarm-process.ts";
 import { alive } from "../lifecycle/harness.ts";
@@ -201,7 +201,7 @@ describe("what the report reads", () => {
 
   test("the report reads each step's unmet list and process end, and names a missing evidence file", () => {
     const at = world();
-    const place = runPlace(runFolder(at, "r1"));
+    const place = verificationRun(runFolder(at, "r1"));
     mkdirSync(join(place.evidence, "f"), { recursive: true });
     const write = (step: string, confirmed: boolean, unmet: string[]) =>
       writeFileSync(

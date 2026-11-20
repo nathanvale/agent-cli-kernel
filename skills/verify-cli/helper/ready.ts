@@ -13,7 +13,7 @@ import {
 import { at, readJsonFile } from "./json.ts";
 import {
   discoveryProbe,
-  observation,
+  probeResult,
   probeArgvs,
   repositoryRoot,
   usageProbe,
@@ -235,7 +235,7 @@ export function probeCommand(bun: () => ParsedPath) {
       const drive = targetDrive(context.programs, bun(), input.target);
       const probes = [];
       for (const argv of probeArgvs)
-        probes.push(observation(argv, await drive(argv)));
+        probes.push(probeResult(argv, await drive(argv)));
       return context.result(
         { commandIdentity: probeIdentity, causeCode: unchangedSuccess },
         {

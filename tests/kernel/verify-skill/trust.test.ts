@@ -14,13 +14,13 @@ import {
   helperProbe,
   kernelImport,
   main,
-  observationFailures,
+  probeFailures,
   relayed,
   stopExit,
   timeoutFailure,
 } from "../../../skills/verify-cli/verify.ts";
 import type { Ran, Spawn } from "../../../skills/verify-cli/verify.ts";
-import { runPlace } from "../../../skills/verify-cli/helper/place.ts";
+import { verificationRun } from "../../../skills/verify-cli/helper/place.ts";
 import { spawnBounded } from "../kernel-repair/swarm-process.ts";
 import {
   causeOf,
@@ -332,7 +332,7 @@ describe("evidence the check confirms", () => {
 
   test("each index row's file is confirmed by its hash, and an unlaunched folder has nothing to confirm", () => {
     const at = world();
-    const place = runPlace(runFolder(at, "none"));
+    const place = verificationRun(runFolder(at, "none"));
     expect(evidenceFailures(place)).toEqual([]);
   });
 });
@@ -536,9 +536,7 @@ describe("the check's own steps, in process", () => {
         ? { exitCode: 0, stdout: "{}" }
         : { exitCode: 2, stdout: "" };
     });
-    expect(
-      await observationFailures(spawn, "/t.ts", "/", defaultLimits),
-    ).toEqual([]);
+    expect(await probeFailures(spawn, "/t.ts", "/", defaultLimits)).toEqual([]);
     expect(calls.slice(1)).toEqual([
       ["--no-install", "/t.ts", "--verify-cli-undeclared-option"],
       ["--no-install", "/t.ts", "--discover", "--json"],
@@ -561,12 +559,7 @@ describe("the check's own steps, in process", () => {
           }
         : { exitCode: 2 },
     );
-    const failures = await observationFailures(
-      spawn,
-      "/t.ts",
-      "/",
-      defaultLimits,
-    );
+    const failures = await probeFailures(spawn, "/t.ts", "/", defaultLimits);
     expect(failures[0]).toEqual({
       id: "observation-mismatch",
       detail:
@@ -685,7 +678,7 @@ describe("the check's own steps, in process", () => {
       expect(bound(["report", run])).toEqual({
         root: at.repo,
         target: at.example,
-        run: runPlace(run),
+        run: verificationRun(run),
       });
       expect(bound(["cleanup", run]).target).toBeUndefined();
       expect(bound(["--help"])).toEqual({

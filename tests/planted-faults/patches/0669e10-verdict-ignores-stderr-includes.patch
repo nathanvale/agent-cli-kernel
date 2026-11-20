@@ -1,5 +1,5 @@
 diff --git a/skills/verify-cli/helper/verdict.ts b/skills/verify-cli/helper/verdict.ts
-index ad56b82..93fe5a9 100644
+index efa8c9a..40db693 100644
 --- a/skills/verify-cli/helper/verdict.ts
 +++ b/skills/verify-cli/helper/verdict.ts
 @@ -78,7 +78,7 @@ export function unmetOf(

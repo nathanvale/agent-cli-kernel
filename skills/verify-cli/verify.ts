@@ -4,15 +4,15 @@ import type { Subprocess } from "bun";
 import { at, listOf } from "./helper/json.ts";
 import {
   cli,
-  observation,
+  probeResult,
   probeArgvs,
   readIndex,
   repositoryRoot,
-  runPlace,
+  verificationRun,
   sha256,
   targetArgs,
 } from "./helper/place.ts";
-import type { Observation, RunPlace } from "./helper/place.ts";
+import type { ProbeResult, VerificationRun } from "./helper/place.ts";
 
 const untrustedExit = 70;
 const helperEntry = join(import.meta.dir, "helper", "cli.ts");
@@ -103,7 +103,7 @@ function positional(argv: readonly string[], index: number) {
 export type Bound = {
   readonly root: string | undefined;
   readonly target: string | undefined;
-  readonly run: RunPlace | undefined;
+  readonly run: VerificationRun | undefined;
 };
 
 export function bound(argv: readonly string[]): Bound {
@@ -121,7 +121,7 @@ export function bound(argv: readonly string[]): Bound {
   }
   if (!runCommands.includes(name) || first === undefined)
     return { root: undefined, target: undefined, run: undefined };
-  const place = runPlace(first);
+  const place = verificationRun(first);
   const read = readIndex(place);
   if (read.kind !== "read")
     return {
@@ -251,7 +251,7 @@ export async function helperProbe(
       ];
 }
 
-function observationOf(value: unknown): Observation | undefined {
+function probeResultOf(value: unknown): ProbeResult | undefined {
   const exitCode = at(value, "exitCode");
   const stdoutBytes = at(value, "stdoutBytes");
   const stderrSha256 = at(value, "stderrSha256");
@@ -270,8 +270,8 @@ function observationOf(value: unknown): Observation | undefined {
 }
 
 export function compared(
-  helper: Observation | undefined,
-  raw: Observation,
+  helper: ProbeResult | undefined,
+  raw: ProbeResult,
 ): Failure[] {
   const where = JSON.stringify(raw.argv);
   if (helper === undefined)
@@ -294,7 +294,7 @@ export function compared(
     }));
 }
 
-export async function observationFailures(
+export async function probeFailures(
   spawn: Spawn,
   target: string,
   root: string,
@@ -328,13 +328,13 @@ export async function observationFailures(
     );
     if (rawLate.length > 0) return rawLate;
     failures.push(
-      ...compared(observationOf(seen[index]), observation(argv, raw)),
+      ...compared(probeResultOf(seen[index]), probeResult(argv, raw)),
     );
   }
   return failures;
 }
 
-export function evidenceFailures(place: RunPlace): Failure[] {
+export function evidenceFailures(place: VerificationRun): Failure[] {
   const read = readIndex(place);
   if (read.kind === "missing") return [];
   if (read.kind === "unreadable")
@@ -419,9 +419,7 @@ export async function kernelFreeCheck(
       "report",
     ].includes(name)
   )
-    failures.push(
-      ...(await observationFailures(spawn, found.target, root, limits)),
-    );
+    failures.push(...(await probeFailures(spawn, found.target, root, limits)));
   if (found.run !== undefined) failures.push(...evidenceFailures(found.run));
   if (failures.length > 0) return { kind: "untrusted", failures };
   const milliseconds =

@@ -13,7 +13,7 @@ import {
 } from "./causes.ts";
 import { failureText, refusalOf, unfinishedChange } from "./outcome.ts";
 import type { State } from "./outcome.ts";
-import { runPlace } from "./place.ts";
+import { verificationRun } from "./place.ts";
 
 const identity = "verify-cli.cleanup";
 
@@ -64,7 +64,7 @@ export function cleanupCommand(state: State) {
       ...stateStations(identity),
     ],
     run: async (input, context) => {
-      const place = runPlace(input.run);
+      const place = verificationRun(input.run);
       if (!existsSync(place.index) && !existsSync(place.state))
         return context.result(
           { commandIdentity: identity, causeCode: "DOMAIN_VERIFY_RUN_MISSING" },

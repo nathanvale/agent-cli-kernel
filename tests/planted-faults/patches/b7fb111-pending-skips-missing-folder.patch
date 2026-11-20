@@ -1,5 +1,5 @@
 diff --git a/skills/verify-cli/helper/pending.ts b/skills/verify-cli/helper/pending.ts
-index d42e304..b13d18f 100644
+index d1f147e..576eead 100644
 --- a/skills/verify-cli/helper/pending.ts
 +++ b/skills/verify-cli/helper/pending.ts
 @@ -66,7 +66,7 @@ export function pendingCommand(state: State) {
@@ -8,6 +8,6 @@ index d42e304..b13d18f 100644
        if (
 -        run === undefined ||
 +        false ||
-         (!existsSync(runPlace(run).index) && !existsSync(runPlace(run).state))
+         (!existsSync(verificationRun(run).index) &&
+           !existsSync(verificationRun(run).state))
        )
-         return context.result(

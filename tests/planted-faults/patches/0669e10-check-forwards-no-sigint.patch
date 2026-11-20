@@ -1,8 +1,8 @@
 diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
-index 4f9d259..a86422f 100644
+index 6e8de36..38e10e2 100644
 --- a/skills/verify-cli/verify.ts
 +++ b/skills/verify-cli/verify.ts
-@@ -527,7 +527,7 @@ export function bunSpawn(
+@@ -525,7 +525,7 @@ export function bunSpawn(
  }
  
  function forwardStops(): void {

@@ -1,8 +1,8 @@
 diff --git a/skills/verify-cli/helper/launch.ts b/skills/verify-cli/helper/launch.ts
-index 3e3b635..e39d033 100644
+index 07ba990..f840c9f 100644
 --- a/skills/verify-cli/helper/launch.ts
 +++ b/skills/verify-cli/helper/launch.ts
-@@ -101,7 +101,7 @@ export async function gitFacts(
+@@ -106,7 +106,7 @@ export async function gitFacts(
        reason: `git rev-parse HEAD exited ${String(head.exitCode)}: ${firstLine(head.stderr)}`,
      };
    const status = await ask(["-C", root, "status", "--porcelain"]);

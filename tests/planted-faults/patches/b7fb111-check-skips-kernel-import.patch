@@ -1,5 +1,5 @@
 diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
-index 4f9d259..c4ba20e 100644
+index 6e8de36..96284ce 100644
 --- a/skills/verify-cli/verify.ts
 +++ b/skills/verify-cli/verify.ts
 @@ -184,7 +184,7 @@ export async function kernelImport(

@@ -1,8 +1,8 @@
 diff --git a/skills/verify-cli/helper/drive.ts b/skills/verify-cli/helper/drive.ts
-index 3414820..9847a26 100644
+index 406ea44..5b4bf86 100644
 --- a/skills/verify-cli/helper/drive.ts
 +++ b/skills/verify-cli/helper/drive.ts
-@@ -286,7 +286,7 @@ export function driveCommand(state: State, bun: () => ParsedPath) {
+@@ -292,7 +292,7 @@ export function driveCommand(state: State, bun: () => ParsedPath) {
                  : "the index is gone";
              throw new Error(failure);
            }
@@ -11,7 +11,7 @@ index 3414820..9847a26 100644
              blocked = "driven";
              return;
            }
-@@ -326,7 +326,7 @@ export function driveCommand(state: State, bun: () => ParsedPath) {
+@@ -332,7 +332,7 @@ export function driveCommand(state: State, bun: () => ParsedPath) {
                      join(place.evidence, kept.row.file),
                      kept.content,
                      {

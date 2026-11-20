@@ -1,8 +1,8 @@
 diff --git a/skills/verify-cli/helper/place.ts b/skills/verify-cli/helper/place.ts
-index 8672b9e..e333e48 100644
+index 03d99b0..3f89695 100644
 --- a/skills/verify-cli/helper/place.ts
 +++ b/skills/verify-cli/helper/place.ts
-@@ -244,7 +244,7 @@ export function readIndex(place: RunPlace): IndexRead {
+@@ -244,7 +244,7 @@ export function readIndex(place: VerificationRun): IndexRead {
    const steps: StepRow[] = [];
    for (const [number, line] of lines.slice(1).entries()) {
      const row = stepRowOf(parsedJson(line));
