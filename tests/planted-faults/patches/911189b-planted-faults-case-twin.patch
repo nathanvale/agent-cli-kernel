@@ -1,0 +1,13 @@
+diff --git a/scripts/planted-faults.ts b/scripts/planted-faults.ts
+index 60dc4ea..3778254 100644
+--- a/scripts/planted-faults.ts
++++ b/scripts/planted-faults.ts
+@@ -495,7 +495,7 @@ export function add(root: string, argv: readonly string[]): number {
+   const caseTwin = readRecords(root).find(
+     (each) => each.id !== id && each.id.toLowerCase() === id.toLowerCase(),
+   );
+-  if (caseTwin !== undefined) {
++  if (caseTwin !== undefined && caseTwin.id === id) {
+     process.stderr.write(
+       `${recordsPath} already holds ${caseTwin.id}, which differs from ${id} only by letter case, and a macOS folder holds one file for both. Repair: add the new record by hand under an id that differs by more than case.\n`,
+     );

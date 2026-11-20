@@ -1,0 +1,13 @@
+diff --git a/scripts/planted-faults.ts b/scripts/planted-faults.ts
+index 60dc4ea..40207ad 100644
+--- a/scripts/planted-faults.ts
++++ b/scripts/planted-faults.ts
+@@ -439,7 +439,7 @@ export async function replayAll(
+ 
+ function createdNew(path: string, text: string): boolean {
+   try {
+-    writeFileSync(path, text, { flag: "wx" });
++    writeFileSync(path, text);
+     return true;
+   } catch (error) {
+     if (Reflect.get(Object(error), "code") === "EEXIST") return false;

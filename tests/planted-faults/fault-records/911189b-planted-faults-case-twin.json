@@ -1,0 +1,7 @@
+{
+  "id": "911189b-planted-faults-case-twin",
+  "patch": "tests/planted-faults/patches/911189b-planted-faults-case-twin.patch",
+  "testFile": "tests/template/fault-replay/planted-fault-records-in-process.test.ts",
+  "title": "add refuses an id that differs from a recorded one only by letter case",
+  "source": "911189b fix(planted-faults): refuse an old list and odd files, read records one way, add exclusively"
+}

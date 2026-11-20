@@ -1,0 +1,12 @@
+diff --git a/scripts/planted-fault-folders.ts b/scripts/planted-fault-folders.ts
+index 8cf0881..a5f0561 100644
+--- a/scripts/planted-fault-folders.ts
++++ b/scripts/planted-fault-folders.ts
+@@ -32,7 +32,6 @@ export function folderFiles(
+         new Error(
+           `${file} is not a ${kind} file. Repair: keep each ${kind} as a plain file named <id>${fileExtension}, with no leading dot, and nothing else in ${folder}.`,
+         );
+-      if (!entry.isFile()) throw notOne();
+       if (entry.name.startsWith(".")) throw notOne();
+       if (!entry.name.endsWith(fileExtension)) throw notOne();
+       return {
