@@ -74,6 +74,10 @@ is in the [test harness guide](test-harness.md).
 - Start the entry from the folder a caller starts it in. `bun run <script>`
   moves the child to the package root, so a proof through a package script
   never exercises the entry's own process folder. Witnessed: [c5a554e].
+- Prove a consumer lint through the call the template writes, not only a
+  stronger one. Witnessed: [b146440] (the installed-kernel lint cases
+  selected every add-on with no plugin, while the template passes
+  `addons: []` and a plugin).
 
 ## In-process tests
 
@@ -173,3 +177,4 @@ is in the [test harness guide](test-harness.md).
 [198f6ba]: https://github.com/nathanvale/agent-cli-kernel/commit/198f6ba61a79539d2c03a1fbfb70b61ecc26b3d0
 [kernel#48 r4637879795]: https://github.com/nathanvale/agent-cli-kernel/pull/48#discussion_r4637879795
 [7a3c409]: https://github.com/nathanvale/agent-cli-kernel/commit/7a3c409920548ef30a9df2c89a0fac608d4704fd
+[b146440]: https://github.com/nathanvale/agent-cli-kernel/commit/b146440b8fd1075791ee997ca93c59f410b9e978
