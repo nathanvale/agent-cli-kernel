@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/author-guide/author-guide.test.ts b/tests/kernel/author-guide/author-guide.test.ts
+index 705125d..2583cf7 100644
+--- a/tests/kernel/author-guide/author-guide.test.ts
++++ b/tests/kernel/author-guide/author-guide.test.ts
+@@ -95,7 +95,7 @@ function codeBlocks(path: string): Block[] {
+   readFileSync(path, "utf8")
+     .split("\n")
+     .forEach((text, index) => {
+-      const fence = /^ {0,3}(`{3,}|~{3,})[ \t]*(\S*)[ \t]*$/.exec(text);
++      const fence = /^ {0,3}(`{3})[ \t]*(\S*)[ \t]*$/.exec(text);
+       const marker = fence?.[1] ?? "";
+       if (open) {
+         const closes =
