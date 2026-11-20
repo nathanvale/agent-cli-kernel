@@ -33,5 +33,5 @@ to one commit. This skill ships inside that package, at
 - Starting a CLI, or wanting whole files to copy: read
   [example](references/example.md).
 - Writing a command that changes a file or any other resource: that needs
-  the state add-on, which owns its own guidance. This skill covers
-  read-only commands.
+  the state add-on. This skill covers read-only commands only, and the state
+  add-on's guidance is not written yet.
