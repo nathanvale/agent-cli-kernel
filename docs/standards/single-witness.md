@@ -135,6 +135,10 @@ this file.
   `no-domain-output` off for `src/kernel/process-host.ts` in every
   repository, so a generated repository's file there could write to
   stdout).
+- Check the type of each field a test reads from a tool's JSON output instead
+  of coercing it, so an unexpected value cannot pass for an expected one.
+  Witnessed: [4ca0141] (`String(message.ruleId)` would have read any rule id
+  value as text, and a result with no messages skipped its path check).
 
 [ac11ed9]: https://github.com/nathanvale/bun-typescript-template/commit/ac11ed98b7d538e8a304cac053aaefcaaf6b2cb3
 [cd2498b]: https://github.com/nathanvale/bun-typescript-template/commit/cd2498b7189a2d45d1906b9c870e8d13da6cd2dd
@@ -176,3 +180,4 @@ this file.
 [2c62768]: https://github.com/nathanvale/agent-cli-kernel/commit/2c62768ceddd1af9a7f3b4fabf1b9d32818acf2e
 [r4638567003]: https://github.com/nathanvale/bun-typescript-template/pull/116#discussion_r4638567003
 [096c862]: https://github.com/nathanvale/agent-cli-kernel/commit/096c862356a1b827bdf10d860ec5d4bd33797c1d
+[4ca0141]: https://github.com/nathanvale/agent-cli-kernel/commit/4ca014175963a134a585af49006a56d374700e33
