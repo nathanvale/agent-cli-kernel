@@ -53,7 +53,9 @@ is in the [test harness guide](test-harness.md).
   target. A ledger line written after those writes cannot show they did not
   happen: a proof that reads only that line stays green when a fault makes the
   writes happen before the kill. Witnessed: [r4622139095], [f754f36] (the fix
-  asserts that no outbox message and no provider log exist).
+  asserts that no outbox message and no provider log exist), [8cbec55]
+  ("writes nothing" cases for planted-fault:add compared only the record
+  file names, so an overwritten record passed; Sol 6.1 review).
 - Show that a planted input changes the result when nothing blocks it, with
   a control, before asserting the subject ignores it. A `HOME` change under
   `GIT_CONFIG_GLOBAL=/dev/null` hides the planted `.gitconfig` whether or not
@@ -169,3 +171,4 @@ is in the [test harness guide](test-harness.md).
 [r4624964198]: https://github.com/nathanvale/agent-cli-kernel/pull/15#discussion_r4624964198
 [198f6ba]: https://github.com/nathanvale/agent-cli-kernel/commit/198f6ba61a79539d2c03a1fbfb70b61ecc26b3d0
 [c5ce7de]: https://github.com/nathanvale/agent-cli-kernel/commit/c5ce7de4210286905ff472706c107b35e0ef42cb
+[8cbec55]: https://github.com/nathanvale/agent-cli-kernel/commit/8cbec55e65afbbba5650d447e00cac40ce0e01c3
