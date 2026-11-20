@@ -3330,5 +3330,33 @@
     "testFile": "tests/kernel/author-guide/author-guide.test.ts",
     "title": "an example file stored without the \\.txt ending is refused",
     "source": "ff0616c test(author-guide): prove an example CLI as a repository that depends on the kernel"
+  },
+  {
+    "id": "0463f35-example-section-repeated",
+    "patch": "tests/planted-faults/patches/0463f35-example-section-repeated.patch",
+    "testFile": "tests/kernel/author-guide/author-guide.test.ts",
+    "title": "references/example\\.md is refused when it has a section for a file",
+    "source": "0463f35 docs(kernel): ship the author guide as the skill agent-cli-kernel"
+  },
+  {
+    "id": "0463f35-example-document-unchanged",
+    "patch": "tests/planted-faults/patches/0463f35-example-document-unchanged.patch",
+    "testFile": "tests/kernel/author-guide/author-guide.test.ts",
+    "title": "references/example\\.md is refused when it has a section for a file",
+    "source": "0463f35 docs(kernel): ship the author guide as the skill agent-cli-kernel"
+  },
+  {
+    "id": "3567a81-guide-uncopied-blocks",
+    "patch": "tests/planted-faults/patches/3567a81-guide-uncopied-blocks.patch",
+    "testFile": "tests/kernel/author-guide/author-guide.test.ts",
+    "title": "every ts block in every skill document is copied from an example file",
+    "source": "3567a81 test(author-guide): settle the code review of the author skill's gate"
+  },
+  {
+    "id": "3567a81-guide-unlabelled-blocks",
+    "patch": "tests/planted-faults/patches/3567a81-guide-unlabelled-blocks.patch",
+    "testFile": "tests/kernel/author-guide/author-guide.test.ts",
+    "title": "every code block is ts or the example's transcript",
+    "source": "3567a81 test(author-guide): settle the code review of the author skill's gate"
   }
 ]
