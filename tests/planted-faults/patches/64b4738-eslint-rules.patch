@@ -1,8 +1,8 @@
 diff --git a/kernel/config/kernel/eslint-rules.mjs b/kernel/config/kernel/eslint-rules.mjs
-index cbe4bcd..9daf983 100644
+index bd21f5a..c9ae51b 100644
 --- a/kernel/config/kernel/eslint-rules.mjs
 +++ b/kernel/config/kernel/eslint-rules.mjs
-@@ -2,6 +2,7 @@ import { posix } from "node:path";
+@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
  import ts from "typescript";
  
  const localeNames = new Set(["localeCompare", "Collator"]);
@@ -10,7 +10,7 @@ index cbe4bcd..9daf983 100644
  const comparisons = new Set(["===", "!==", "==", "!="]);
  const folding = new Set(["TemplateLiteral", "BinaryExpression"]);
  const comma = { type: "Literal", value: "," };
-@@ -12,6 +13,20 @@ const prototypeOwners = new Set([
+@@ -14,6 +15,20 @@ const prototypeOwners = new Set([
    "NewableFunction",
  ]);
  const ownerKeys = new WeakMap();
@@ -31,7 +31,7 @@ index cbe4bcd..9daf983 100644
  
  function constantText(context, node, depth = 0) {
    if (!node || depth > 8) return undefined;
-@@ -147,9 +162,254 @@ function ownerImport(context, file, root) {
+@@ -191,9 +206,254 @@ function ownerImport(context, file, root, installed) {
  const causeShape =
    /^(?:SUCCESS|USAGE|SCHEMA|DOMAIN|TRANSIENT|INTERNAL)_[A-Z0-9_]+$/;
  const causeOwners = /\/kernel\/(?:causes|state-causes|stations)\.ts$/;
@@ -286,7 +286,7 @@ index cbe4bcd..9daf983 100644
      "no-locale-compare": {
        meta: {
          type: "problem",
-@@ -278,18 +538,9 @@ export default {
+@@ -322,19 +582,10 @@ export default {
        },
        create(context) {
          const file = context.filename.replaceAll("\\", "/");
@@ -301,13 +301,14 @@ index cbe4bcd..9daf983 100644
 -            `repository/cause-literal-owner lints ${file}, outside ${root}. Run ESLint from the folder that holds eslint.config.mjs.`,
 -          );
 +        const root = contractRoot.exec(file)?.[1];
+         const installed = !holdsKernelSource(root);
          const services = typeServices(context);
--        if (!services || causeOwners.test(file)) return {};
-+        if (!root || !services || causeOwners.test(file)) return {};
+-        if (!services || (!installed && causeOwners.test(file))) return {};
++        if (!root || !services || (!installed && causeOwners.test(file))) return {};
          const checker = services.program.getTypeChecker();
-         const keys = commonCauseKeys(
-           services.program,
-@@ -342,6 +593,106 @@ export default {
+         const keys = commonCauseKeys(services.program);
+         const ownerTyped = (type) =>
+@@ -383,6 +634,106 @@ export default {
          };
        },
      },
