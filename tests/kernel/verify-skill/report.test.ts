@@ -99,6 +99,37 @@ describe("report and cleanup", () => {
   );
 
   test(
+    "a station whose run failed a check is owed, and the report counts the failed checks",
+    async () => {
+      const at = world();
+      const run = await launched(at, fixture(at, "liar-cli.ts"));
+      const env = { ...at.env, VERIFY_LIE: "run-names-its-command" };
+      const ran = await viaKernelFreeCheck(at, ["report", run, "--json"], {
+        env,
+      });
+      const envelope: unknown = JSON.parse(ran.stdout);
+      expect({
+        exit: ran.exit,
+        message: field(envelope, "message"),
+        stations: field(envelope, "result", "data", "stations"),
+      }).toEqual({
+        exit: 0,
+        message:
+          "Stations: 0 swept, 0 driven, 1 owed. Steps: 0 met, 0 unmet. The sweep found 1 failed check; run findings to see it.",
+        stations: [
+          {
+            command: "liar.status",
+            cause: "SUCCESS_UNCHANGED",
+            state: "owed",
+            by: null,
+          },
+        ],
+      });
+    },
+    watchdog(1, 1),
+  );
+
+  test(
     "evidence outlives cleanup",
     async () => {
       const at = world();

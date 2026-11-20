@@ -83,6 +83,13 @@ export function stepDetails(
   return { kind: "read", steps: details };
 }
 
+function failedChecks(count: number): string {
+  if (count === 0) return "";
+  return count === 1
+    ? " The sweep found 1 failed check; run findings to see it."
+    : ` The sweep found ${String(count)} failed checks; run findings to see them.`;
+}
+
 export function reportCommand(bun: () => ParsedPath) {
   return command({
     identity,
@@ -148,7 +155,7 @@ export function reportCommand(bun: () => ParsedPath) {
       return context.result(
         { commandIdentity: identity, causeCode: unchangedSuccess },
         {
-          message: `Stations: ${count("swept")} swept, ${count("driven")} driven, ${count("owed")} owed. Steps: ${String(details.steps.length - unmet.length)} met, ${String(unmet.length)} unmet.`,
+          message: `Stations: ${count("swept")} swept, ${count("driven")} driven, ${count("owed")} owed. Steps: ${String(details.steps.length - unmet.length)} met, ${String(unmet.length)} unmet.${failedChecks(found.findings.length)}`,
           data: {
             stations: states.map((entry) => ({ ...entry })),
             unmet: unmet.map((step) => ({

@@ -63,7 +63,9 @@ function expecter(tally: Tally) {
     saw: string,
   ) => {
     tally.checks += 1;
-    if (expected !== saw) tally.findings.push({ check, argv, expected, saw });
+    if (expected === saw) return true;
+    tally.findings.push({ check, argv, expected, saw });
+    return false;
   };
 }
 
@@ -120,21 +122,23 @@ async function commandChecks(
   const machine = await drive(machineArgv);
   const refusal = at(envelopeOf(machine.stdout), "result");
   const refusalCause = String(at(refusal, "causeCode"));
-  expect("usage-exit", machineArgv, "2", String(machine.exitCode));
-  expect("usage-json-stderr-empty", machineArgv, "", machine.stderr);
-  expect(
-    "usage-envelope-exit-equals-process-exit",
-    machineArgv,
-    String(machine.exitCode),
-    String(at(refusal, "exitCode")),
-  );
-  expect(
-    "usage-cause-is-declared",
-    machineArgv,
-    "true",
-    String(declared.includes(refusalCause)),
-  );
-  seen.set(refusalCause, "usage-exit");
+  const usageHeld = [
+    expect("usage-exit", machineArgv, "2", String(machine.exitCode)),
+    expect("usage-json-stderr-empty", machineArgv, "", machine.stderr),
+    expect(
+      "usage-envelope-exit-equals-process-exit",
+      machineArgv,
+      String(machine.exitCode),
+      String(at(refusal, "exitCode")),
+    ),
+    expect(
+      "usage-cause-is-declared",
+      machineArgv,
+      "true",
+      String(declared.includes(refusalCause)),
+    ),
+  ].every(Boolean);
+  if (usageHeld) seen.set(refusalCause, "usage-exit");
 
   const humanArgv = [...item.route, undeclaredOption];
   const human = await drive(humanArgv);
@@ -165,26 +169,28 @@ async function commandChecks(
     const ran = await drive(runArgv);
     const result = at(envelopeOf(ran.stdout), "result");
     const cause = String(at(result, "causeCode"));
-    expect("run-json-stderr-empty", runArgv, "", ran.stderr);
-    expect(
-      "run-envelope-exit-equals-process-exit",
-      runArgv,
-      String(ran.exitCode),
-      String(at(result, "exitCode")),
-    );
-    expect(
-      "run-cause-is-declared",
-      runArgv,
-      "true",
-      String(declared.includes(cause)),
-    );
-    expect(
-      "run-names-its-command",
-      runArgv,
-      identity,
-      String(at(result, "commandIdentity")),
-    );
-    seen.set(cause, "run-names-its-command");
+    const runHeld = [
+      expect("run-json-stderr-empty", runArgv, "", ran.stderr),
+      expect(
+        "run-envelope-exit-equals-process-exit",
+        runArgv,
+        String(ran.exitCode),
+        String(at(result, "exitCode")),
+      ),
+      expect(
+        "run-cause-is-declared",
+        runArgv,
+        "true",
+        String(declared.includes(cause)),
+      ),
+      expect(
+        "run-names-its-command",
+        runArgv,
+        identity,
+        String(at(result, "commandIdentity")),
+      ),
+    ].every(Boolean);
+    if (runHeld) seen.set(cause, "run-names-its-command");
   }
 
   const required = stations

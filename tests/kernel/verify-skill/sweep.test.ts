@@ -252,4 +252,88 @@ describe("which commands and stations the sweep counts", () => {
       owed: [],
     });
   });
+
+  test("a station is swept only when every check on its run passed", async () => {
+    const envelope = (result: object) =>
+      `${JSON.stringify({ contractVersion: "3.0.0", result })}\n`;
+    const required = (causeCode: string) => ({
+      causeCode,
+      reachability: "required",
+      trigger: "The host's own.",
+    });
+    const answers = new Map([
+      [
+        "--discover --json",
+        envelope({
+          exitCode: 0,
+          data: {
+            commands: [
+              {
+                commandIdentity: "x.help",
+                route: ["--help"],
+                effectClass: "inspect",
+              },
+              {
+                commandIdentity: "x.go",
+                route: ["go"],
+                effectClass: "inspect",
+              },
+            ],
+          },
+        }),
+      ],
+      [
+        "--discover-command x.go --json",
+        envelope({
+          exitCode: 0,
+          data: {
+            input: { arguments: [], options: [] },
+            stations: [
+              required("SUCCESS_UNCHANGED"),
+              required("USAGE_INVALID_INVOCATION"),
+            ],
+          },
+        }),
+      ],
+      [
+        "go --verify-cli-undeclared-option --json",
+        envelope({ exitCode: 2, causeCode: "USAGE_INVALID_INVOCATION" }),
+      ],
+      [
+        "go --json",
+        envelope({
+          exitCode: 0,
+          causeCode: "SUCCESS_UNCHANGED",
+          commandIdentity: "x.other",
+        }),
+      ],
+    ]);
+    const exits = new Map([
+      ["verify-cli-no-such-command", 2],
+      ["go --verify-cli-undeclared-option --json", 2],
+      ["go --verify-cli-undeclared-option", 2],
+    ]);
+    const found = await sweep((argv) => {
+      const key = argv.join(" ");
+      return Promise.resolve({
+        exitCode: exits.get(key) ?? 0,
+        stdout:
+          answers.get(key) ?? (key.endsWith("--help") ? "Usage: x\n" : ""),
+        stderr: key.endsWith("--verify-cli-undeclared-option")
+          ? "x: bad [USAGE_INVALID_INVOCATION]\n"
+          : key === "verify-cli-no-such-command"
+            ? "x: no [USAGE_UNKNOWN_COMMAND]\n"
+            : "",
+      });
+    });
+    expect({
+      failed: found.findings.map((entry) => entry.check),
+      swept: found.swept.map((entry) => entry.cause),
+      owed: found.owed.map((entry) => entry.cause),
+    }).toEqual({
+      failed: ["run-names-its-command"],
+      swept: ["USAGE_INVALID_INVOCATION"],
+      owed: ["SUCCESS_UNCHANGED"],
+    });
+  });
 });

@@ -141,10 +141,12 @@ its verdict, the command and cause its envelope named, and the SHA-256 of
 its file. Evidence is never overwritten.
 
 Run `report <run folder>`: `Stations: <n> swept, <n> driven, <n> owed.
-Steps: <n> met, <n> unmet.` Its data gives each station of your commands
-one state, the step or check that gave it, each unmet step, and each step
+Steps: <n> met, <n> unmet.`, then the count of the sweep's failed checks
+when there are any. Its data gives each station of your commands one
+state, the step or check that gave it, each unmet step, and each step
 whose process end was not confirmed. Only a met target step run with
-`--json` drives a station.
+`--json` drives a station, and the sweep sweeps a station only when every
+check on the run that reached it passed.
 
 ## Cleanup
 

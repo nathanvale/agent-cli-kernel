@@ -321,8 +321,9 @@ it saw.
 
 **Owed result**:
 A required station of the target's own commands that neither the sweep nor
-a met `--json` step of the verification run has reached. A station the
-kernel adds is left out.
+a met `--json` step of the verification run has reached. A run of the
+sweep reaches a station only when every check on that run passed. A
+station the kernel adds is left out.
 
 **Contract check**:
 A check `drive` makes unasked on every target step that ended by itself:
