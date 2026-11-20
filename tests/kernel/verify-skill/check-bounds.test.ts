@@ -2,6 +2,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import { bunSpawn, defaultLimits } from "../../../skills/verify-cli/verify.ts";
 import { spawnBounded } from "../kernel-repair/swarm-process.ts";
+import { goneWithin } from "../lifecycle/harness.ts";
 import {
   checkBound,
   checkEntry,
@@ -95,6 +96,42 @@ describe("the check's own bounds", () => {
       await driver.exited;
       clearTimeout(timer);
       expect(stdout).toBe("device");
+    },
+    watchdog(1),
+  );
+
+  test(
+    "a child that runs past its limit is stopped with the processes it started",
+    async () => {
+      const at = world();
+      const ledger = join(at.folder, "hanging-ledger");
+      const ran = await bunSpawn(at.env, {
+        ...defaultLimits,
+        graceMilliseconds: 300,
+      })([join(fixtures, "hanging-cli.ts"), ledger], fixtures, 1_000);
+      const pid = ledgeredPid(ledger);
+      const gone = await goneWithin(pid, 2_000);
+      if (!gone) process.kill(pid, "SIGKILL");
+      expect({ timedOut: ran.timedOut, gone }).toEqual({
+        timedOut: true,
+        gone: true,
+      });
+    },
+    watchdog(1),
+  );
+
+  test(
+    "a stop signal ends each child at once, and kills it when the grace runs out",
+    async () => {
+      const at = world();
+      const ledger = join(at.folder, "stop-ledger");
+      const ran = await spawnBounded(
+        [process.execPath, join(fixtures, "stop-cli.ts"), ledger],
+        { cwd: fixtures, env: at.env, boundMilliseconds: helperBound },
+      );
+      const seen = parsed(ran.stdout);
+      expect(field(seen, "signal")).toBe("SIGKILL");
+      expect(Number(field(seen, "milliseconds"))).toBeLessThan(5_000);
     },
     watchdog(1),
   );

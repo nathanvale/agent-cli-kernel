@@ -80,7 +80,7 @@ const repairs: Readonly<Record<FailureId, string>> = {
   "helper-usage-exit": kernelRepair,
   "observation-mismatch": kernelRepair,
   "target-not-repeatable":
-    "Make the target answer the same probe the same way on every run: nothing that changes between runs, such as a process id, a time or a first-use note, in its usage refusal or its discovery. Then run the command again.",
+    "Keep anything that changes between runs, such as a process id or a time, out of the target's usage refusal and discovery, then run the command again.",
   "evidence-mismatch":
     "Keep this run's folder as it is for review, and launch a new run in another folder.",
   "check-internal": `Report this line to ${cli}'s owner.`,
@@ -242,6 +242,13 @@ export function envelopeFailures(
   return { failures: [], envelope };
 }
 
+function judgedRun(ran: Ran, what: string, milliseconds: number) {
+  const late = timeoutFailure(ran, what, milliseconds);
+  return late.length > 0
+    ? { failures: late, envelope: undefined }
+    : envelopeFailures(ran, what);
+}
+
 export async function helperProbe(
   spawn: Spawn,
   cwd: string,
@@ -252,13 +259,7 @@ export async function helperProbe(
     cwd,
     limits.probeMilliseconds,
   );
-  const late = timeoutFailure(
-    ran,
-    "the helper's probe",
-    limits.probeMilliseconds,
-  );
-  if (late.length > 0) return late;
-  const judged = envelopeFailures(ran, "the helper's probe");
+  const judged = judgedRun(ran, "the helper's probe", limits.probeMilliseconds);
   if (judged.failures.length > 0) return judged.failures;
   return ran.exitCode === 2
     ? []
@@ -336,13 +337,11 @@ async function probeRound(
     root,
     limits.commandMilliseconds,
   );
-  const late = timeoutFailure(
+  const judged = judgedRun(
     ran,
     "the helper's probe command",
     limits.commandMilliseconds,
   );
-  if (late.length > 0) return { kind: "failed", failures: late };
-  const judged = envelopeFailures(ran, "the helper's probe command");
   if (judged.failures.length > 0)
     return { kind: "failed", failures: judged.failures };
   const seen = listOf(at(judged.envelope, "result", "data", "probes"));
@@ -486,15 +485,7 @@ export async function kernelFreeCheck(
   if (
     found.target !== undefined &&
     existsSync(found.target) &&
-    [
-      "ready",
-      "probe",
-      "sweep",
-      "findings",
-      "launch",
-      "drive",
-      "report",
-    ].includes(name)
+    [...targetCommands, "launch", "drive", "report"].includes(name)
   )
     failures.push(...(await probeFailures(spawn, found.target, root, limits)));
   if (found.run !== undefined) failures.push(...evidenceFailures(found.run));
@@ -512,14 +503,9 @@ export async function kernelFreeCheck(
     root,
     milliseconds,
   );
-  const late = timeoutFailure(
-    helper,
-    `the helper's ${name} command`,
-    milliseconds,
+  failures.push(
+    ...judgedRun(helper, `the helper's ${name} command`, milliseconds).failures,
   );
-  if (late.length > 0) return { kind: "untrusted", failures: late };
-  const judged = envelopeFailures(helper, `the helper's ${name} command`);
-  failures.push(...judged.failures);
   if (found.run !== undefined && ["drive", "cleanup"].includes(name))
     failures.push(...evidenceFailures(found.run));
   return failures.length > 0
@@ -557,6 +543,14 @@ function afterDelay(milliseconds: number) {
   return { passed, cancel: () => clearTimeout(timer) };
 }
 
+function signalGroup(child: Subprocess, signal: NodeJS.Signals): void {
+  try {
+    process.kill(-child.pid, signal);
+  } catch {
+    child.kill(signal);
+  }
+}
+
 export function bunSpawn(
   env: Readonly<Record<string, string | undefined>>,
   limits: Limits = defaultLimits,
@@ -576,6 +570,7 @@ export function bunSpawn(
       stdin: "ignore",
       stdout: "pipe",
       stderr: "pipe",
+      detached: true,
     });
     running.add(child);
     let timedOut = false;
@@ -583,9 +578,11 @@ export function bunSpawn(
     const kill = afterDelay(milliseconds + limits.graceMilliseconds);
     void term.passed.then(() => {
       timedOut = true;
-      child.kill("SIGTERM");
+      signalGroup(child, "SIGTERM");
     });
-    void kill.passed.then(() => child.kill("SIGKILL"));
+    void kill.passed.then(() => {
+      signalGroup(child, "SIGKILL");
+    });
     const drain = child.exited.then(() => afterDelay(limits.graceMilliseconds));
     const drained = drain.then((delay) => delay.passed);
     const [stdout, stderr] = await Promise.all([
@@ -593,6 +590,7 @@ export function bunSpawn(
       capped(child.stderr, outputBytes ?? limits.outputBytes, drained),
     ]);
     await child.exited;
+    signalGroup(child, "SIGKILL");
     (await drain).cancel();
     term.cancel();
     kill.cancel();
@@ -607,11 +605,14 @@ export function bunSpawn(
   };
 }
 
-function forwardStops(): void {
+export function forwardStops(limits: Limits = defaultLimits): void {
   for (const signal of ["SIGTERM", "SIGINT"] as const)
     process.on(signal, () => {
       received ??= signal;
-      for (const child of running) child.kill("SIGTERM");
+      for (const child of running) signalGroup(child, "SIGTERM");
+      setTimeout(() => {
+        for (const child of running) signalGroup(child, "SIGKILL");
+      }, limits.graceMilliseconds).unref();
     });
 }
 

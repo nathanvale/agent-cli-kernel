@@ -170,7 +170,9 @@ remove. Each step's process group is ended before the step returns, so
 cleanup stops nothing.
 
 A helper stopped with Ctrl-C or SIGTERM through `verify.ts` stops its
-children first, then `verify.ts` exits 130 or 143. A helper killed outright
+children first, then `verify.ts` exits 130 or 143. Each child of
+`verify.ts` runs in its own process group, which is sent the stop signal
+and is killed when 10 seconds of grace run out. A helper killed outright
 leaves its change unfinished: the next change to that run is refused as
 `DOMAIN_VERIFY_RUN_UNRESOLVED`. Read `pending <run folder>`, keep the run
 folder as evidence, and launch a new run.
