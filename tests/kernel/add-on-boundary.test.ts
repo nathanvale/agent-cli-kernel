@@ -10,6 +10,10 @@ function addOnImports(root: string): readonly string[] {
   const kernel = join(root, "kernel/src/kernel");
   const addons = join(root, "kernel/src/addons");
   const files = [...new Bun.Glob("**/*.{ts,mts,cts}").scanSync(kernel)].sort();
+  if (files.length === 0)
+    throw new Error(
+      `The add-on import scan found no file under kernel/src/kernel in ${root}, so it would check nothing.`,
+    );
   return files.flatMap((file) => {
     const path = join(kernel, file);
     const source = readFileSync(path, "utf8");
@@ -56,4 +60,12 @@ test("the add-on import scan finds a value import, a type import, a re-export, a
     "kernel/src/kernel/probe.ts imports ../addons/state/index.ts",
     "kernel/src/kernel/probe.ts imports agent-cli-kernel/addons/programs",
   ]);
+});
+
+test("the add-on import scan refuses a kernel folder with no file to scan, so the gate never passes on nothing", () => {
+  const root = folder("add-on-boundary-empty-");
+  mkdirSync(join(root, "kernel/src/kernel"), { recursive: true });
+  expect(() => addOnImports(root)).toThrow(
+    "The add-on import scan found no file under kernel/src/kernel",
+  );
 });
