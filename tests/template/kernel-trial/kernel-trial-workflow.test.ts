@@ -87,6 +87,17 @@ describe("the kernel trial workflow", () => {
   });
 });
 
+describe("the kernel trial's result", () => {
+  test("shows red when the trial fails: neither its job nor any of its steps continues on error", () => {
+    const job = jobOf("kernel-trial.yml", "kernel-trial");
+    expect([
+      Object.hasOwn(job, "continue-on-error"),
+      job.steps.filter((step) => Object.hasOwn(step, "continue-on-error"))
+        .length,
+    ]).toEqual([false, 0]);
+  });
+});
+
 describe("required checks and path filters", () => {
   test("ci.yml, where the required checks run, has no path filter", () => {
     expect(pathFiltered("ci.yml")).toBe(false);
