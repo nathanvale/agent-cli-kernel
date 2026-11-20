@@ -158,8 +158,9 @@ function owedFailures(
 export function ownCliFailures(own: OwnCli, record: unknown): string[] {
   const { expected, failures } = recordFailures(own.name, record);
   const ranFailures = own.runs.flatMap((run) => runFailure(own, run));
-  if (ranFailures.length > 0) return [...failures, ...ranFailures];
   const last = own.runs.at(-1);
+  if (last !== undefined && runFailure(own, last).length > 0)
+    return [...failures, ...ranFailures];
   const data = field(parsed(last?.ran.stdout ?? ""), "result", "data");
   const judged =
     last?.command === "sweep"
@@ -170,6 +171,7 @@ export function ownCliFailures(own: OwnCli, record: unknown): string[] {
   if (judged === undefined)
     return [
       ...failures,
+      ...ranFailures,
       `${own.name}: its runs end with ${String(last?.command)}, which lists no owed results. Repair: end them with sweep or report.`,
     ];
   const owed = judged.owed.filter((entry) => entry !== undefined);
@@ -181,6 +183,7 @@ export function ownCliFailures(own: OwnCli, record: unknown): string[] {
         ];
   return [
     ...failures,
+    ...ranFailures,
     ...judged.failures,
     ...unread,
     ...owedFailures(own.name, owed, expected),

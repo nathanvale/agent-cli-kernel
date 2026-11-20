@@ -216,6 +216,28 @@ describe("self-verification refuses what verify-cli reports, each with a repair"
     ]);
   });
 
+  test("a failed drive still lets the report's own failures through", () => {
+    const report = reported({ findings: 1 });
+    expect(
+      ownCliFailures(
+        {
+          ...report,
+          runs: [
+            {
+              command: "drive",
+              ran: envelope(null, 3, { repairAction: "Read the evidence." }),
+            },
+            ...report.runs,
+          ],
+        },
+        recorded,
+      ),
+    ).toEqual([
+      "example: bun skills/verify-cli/verify.ts drive exited 3: said Repair: Read the evidence.",
+      "example: the sweep found 1 failed checks. Repair: run bun skills/verify-cli/verify.ts findings src/cli.ts for the list, then repair the target or its declarations.",
+    ]);
+  });
+
   test("the read-only feature file must show exactly one scenario", () => {
     expect(() => featureScenario("no block")).toThrow(
       `${featurePath} shows 0 scenario blocks. Repair: keep exactly one json block there, the scenario self-verification drives.`,
