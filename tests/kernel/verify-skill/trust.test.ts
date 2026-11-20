@@ -545,6 +545,35 @@ describe("the check's own steps, in process", () => {
     ]);
   });
 
+  test("a probe observation without its byte count is no observation", async () => {
+    const { spawn } = fake((args) =>
+      args.includes("probe")
+        ? {
+            stdout: envelope(0, {
+              probes: [
+                {
+                  argv: ["--verify-cli-undeclared-option"],
+                  exitCode: 2,
+                  stderrSha256: "a",
+                },
+              ],
+            }),
+          }
+        : { exitCode: 2 },
+    );
+    const failures = await observationFailures(
+      spawn,
+      "/t.ts",
+      "/",
+      defaultLimits,
+    );
+    expect(failures[0]).toEqual({
+      id: "observation-mismatch",
+      detail:
+        'the helper\'s probe returned no observation for ["--verify-cli-undeclared-option"].',
+    });
+  });
+
   test("an envelope is one line whose exit code is the process's", () => {
     const ok = {
       exitCode: 0,

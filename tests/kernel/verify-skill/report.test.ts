@@ -190,6 +190,7 @@ describe("what the report reads", () => {
         row("bun", "met", "a.show", "SUCCESS_UNCHANGED", "bun"),
         row("plain", "met", null, null),
         row("missing", "met", "a.show", "DOMAIN_A_MISSING"),
+        row("other", "met", "a.other", "SUCCESS_UNCHANGED"),
       ]).map((entry) => `${entry.command} ${entry.cause} ${entry.state}`),
     ).toEqual([
       "a.list SUCCESS_UNCHANGED swept",
