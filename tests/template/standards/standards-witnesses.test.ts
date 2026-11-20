@@ -124,6 +124,23 @@ test.each([
   },
 );
 
+test("the standards check reads fault records through replay's reader, so a record whose id is not its file name stops it", async () => {
+  const repository = fixture((files: Record<string, string>) => {
+    files[recordFile("renamed")] = JSON.stringify({
+      id: "fixture",
+      source: "fix: no commit",
+    });
+  });
+  const refusal = await citationProblems(repository).then(
+    () => "the standards check passed",
+    (error: unknown) =>
+      error instanceof Error ? error.message : String(error),
+  );
+  expect(refusal).toBe(
+    "tests/planted-faults/fault-records/renamed.json holds the record fixture. Repair: rename the file fixture.json, or correct its id.",
+  );
+});
+
 const kernelWeb = "https://github.com/owner/kernel";
 
 test.each([

@@ -1,15 +1,12 @@
-diff --git a/scripts/planted-fault-shards.ts b/scripts/planted-fault-shards.ts
-index 7bbb027..280ff15 100644
---- a/scripts/planted-fault-shards.ts
-+++ b/scripts/planted-fault-shards.ts
-@@ -42,10 +42,6 @@ function jsonIn(text: string): unknown {
- 
- function readTiming(root: string, name: string): [string, number] {
-   const where = `${timingsPath}/${name}`;
--  if (!name.endsWith(timingExtension))
--    throw new Error(
--      `${where} is not a fault timing file. Repair: name each timing <fault id>${timingExtension}, and keep nothing else in ${timingsPath}.`,
--    );
-   const text = readFileSync(join(root, where), "utf8");
-   const seconds = jsonIn(text);
-   if (typeof seconds !== "number" || !(seconds > 0))
+diff --git a/scripts/planted-fault-folders.ts b/scripts/planted-fault-folders.ts
+index ae9e9e3..917473c 100644
+--- a/scripts/planted-fault-folders.ts
++++ b/scripts/planted-fault-folders.ts
+@@ -32,7 +32,6 @@ export function folderFiles(
+         );
+       if (!entry.isFile()) throw notOne();
+       if (entry.name.startsWith(".")) throw notOne();
+-      if (!entry.name.endsWith(fileExtension)) throw notOne();
+       return {
+         file,
+         id: entry.name.slice(0, -fileExtension.length),

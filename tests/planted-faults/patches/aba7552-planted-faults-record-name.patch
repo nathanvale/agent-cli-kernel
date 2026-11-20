@@ -1,15 +1,12 @@
-diff --git a/scripts/planted-faults.ts b/scripts/planted-faults.ts
-index 26dae3b..7cd3af3 100644
---- a/scripts/planted-faults.ts
-+++ b/scripts/planted-faults.ts
-@@ -137,10 +137,6 @@ function parseFault(entry: unknown, where: string, root: string): Fault {
- 
- function readRecord(root: string, name: string): Fault {
-   const where = `${recordsPath}/${name}`;
--  if (!name.endsWith(recordExtension))
--    throw new Error(
--      `${where} is not a fault record file. Repair: name each record <id>${recordExtension}, and keep nothing else in ${recordsPath}.`,
--    );
-   const text = readFileSync(join(root, where), "utf8");
-   let entry: unknown;
-   try {
+diff --git a/scripts/planted-fault-folders.ts b/scripts/planted-fault-folders.ts
+index ae9e9e3..917473c 100644
+--- a/scripts/planted-fault-folders.ts
++++ b/scripts/planted-fault-folders.ts
+@@ -32,7 +32,6 @@ export function folderFiles(
+         );
+       if (!entry.isFile()) throw notOne();
+       if (entry.name.startsWith(".")) throw notOne();
+-      if (!entry.name.endsWith(fileExtension)) throw notOne();
+       return {
+         file,
+         id: entry.name.slice(0, -fileExtension.length),

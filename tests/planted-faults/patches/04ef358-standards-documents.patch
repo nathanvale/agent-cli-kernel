@@ -1,14 +1,11 @@
-diff --git a/tests/template/standards/standards-documents.ts b/tests/template/standards/standards-documents.ts
-index f06020c..3c5a8e6 100644
---- a/tests/template/standards/standards-documents.ts
-+++ b/tests/template/standards/standards-documents.ts
-@@ -205,8 +205,8 @@ export function faultRecords(
-   if (!existsSync(folder)) return [];
-   return readdirSync(folder)
-     .filter((name) => name.endsWith(".json"))
-+    .toSorted()
-     .map((name) => name.slice(0, -".json".length))
--    .toSorted(idOrder)
-     .map((stem) => {
-       const file = recordFile(stem);
-       const { id, source } = JSON.parse(
+diff --git a/scripts/planted-fault-folders.ts b/scripts/planted-fault-folders.ts
+index ae9e9e3..2535359 100644
+--- a/scripts/planted-fault-folders.ts
++++ b/scripts/planted-fault-folders.ts
+@@ -39,5 +39,5 @@ export function folderFiles(
+         text: readFileSync(join(root, file), "utf8"),
+       };
+     })
+-    .toSorted((left, right) => idOrder(left.id, right.id));
++    .toSorted((left, right) => idOrder(left.file, right.file));
+ }

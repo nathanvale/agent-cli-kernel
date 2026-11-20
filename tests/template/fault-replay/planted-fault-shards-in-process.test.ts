@@ -120,30 +120,30 @@ describe("shardOf", () => {
 });
 
 describe("readTimings", () => {
-  test("reads each fault's measured seconds from its own file, in id order", () => {
+  test("reads each fault's measured seconds from its own file", () => {
     const root = rootWithTimings({
       [timingFile("b")]: "60\n",
       [timingFile("a-b")]: "1.5\n",
       [timingFile("a")]: "2.5\n",
     });
-    expect([...readTimings(root)]).toEqual([
-      ["a", 2.5],
-      ["a-b", 1.5],
-      ["b", 60],
-    ]);
+    expect(Object.fromEntries(readTimings(root))).toEqual({
+      a: 2.5,
+      "a-b": 1.5,
+      b: 60,
+    });
   });
 
   test("reads a timing file added beside the others, with no list to update", () => {
     const root = rootWithTimings({ [timingFile("a")]: "2.5\n" });
     write(root, timingFile("c"), "4\n");
-    expect([...readTimings(root).keys()]).toEqual(["a", "c"]);
+    expect(Object.fromEntries(readTimings(root))).toEqual({ a: 2.5, c: 4 });
   });
 
   test("reads no timings when the folder is absent", () => {
     expect([...readTimings(folder("fault-shards-"))]).toEqual([]);
   });
 
-  test("skips a hidden file in the timings folder", () => {
+  test("skips the macOS .DS_Store file in the timings folder", () => {
     const root = rootWithTimings({
       [timingFile("a")]: "1\n",
       [`${timingsPath}/.DS_Store`]: "x",
@@ -164,9 +164,22 @@ describe("readTimings", () => {
   });
 
   test("refuses a file in the timings folder that is not a .json timing, naming it", () => {
-    const root = rootWithTimings({ [`${timingsPath}/a.txt`]: "1\n" });
+    for (const name of ["a.txt", ".a.json", "a.json/inner.json"]) {
+      const root = rootWithTimings({ [`${timingsPath}/${name}`]: "1\n" });
+      const refused = name.split("/")[0];
+      expect(() => readTimings(root)).toThrow(
+        `${timingsPath}/${refused} is not a fault timing file. Repair: keep each fault timing as a plain file named <id>.json, with no leading dot, and nothing else in ${timingsPath}.`,
+      );
+    }
+  });
+
+  test("refuses the old single list of timings, naming it", () => {
+    const root = rootWithTimings({
+      [timingFile("a")]: "1\n",
+      "tests/planted-faults/fault-timings.json": '{ "b": 2 }\n',
+    });
     expect(() => readTimings(root)).toThrow(
-      `${timingsPath}/a.txt is not a fault timing file. Repair: name each timing <fault id>.json, and keep nothing else in ${timingsPath}.`,
+      "tests/planted-faults/fault-timings.json is the old single list of each fault timing, which nothing reads any more. Repair: move each entry in it to its own file, tests/planted-faults/fault-timings/<id>.json, then delete tests/planted-faults/fault-timings.json.",
     );
   });
 

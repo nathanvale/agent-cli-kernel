@@ -2,8 +2,6 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
-  readdirSync,
-  readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -11,7 +9,6 @@ import { constants, tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import {
   hunksOf,
-  idOrder,
   patchText,
   place,
   quoted,
@@ -19,6 +16,7 @@ import {
   type Source,
   sourceIn,
 } from "./planted-fault-patch.ts";
+import { recordFiles, type RecordEntry } from "./planted-fault-folders.ts";
 import { faultsInShard } from "./planted-fault-shards.ts";
 import {
   runWithOwnTools,
@@ -136,37 +134,14 @@ function parseFault(entry: unknown, where: string, root: string): Fault {
   return fault;
 }
 
-function readRecord(root: string, name: string): Fault {
-  const where = `${recordsPath}/${name}`;
-  if (!name.endsWith(recordExtension))
-    throw new Error(
-      `${where} is not a fault record file. Repair: name each record <id>${recordExtension}, and keep nothing else in ${recordsPath}.`,
-    );
-  const text = readFileSync(join(root, where), "utf8");
-  let entry: unknown;
-  try {
-    entry = JSON.parse(text);
-  } catch (error) {
-    throw new Error(
-      `${where} is not one JSON fault record: ${error instanceof Error ? error.message : String(error)}. Repair: write one JSON object with the five record fields.`,
-      { cause: error },
-    );
-  }
-  const fault = parseFault(entry, where, root);
-  if (where !== recordFile(fault.id))
-    throw new Error(
-      `${where} holds the record ${fault.id}. Repair: rename the file ${fault.id}${recordExtension}, or correct its id.`,
-    );
-  return fault;
+export function recordEntries(root: string): RecordEntry[] {
+  return recordFiles(root, recordsPath);
 }
 
 export function readRecords(root: string): Fault[] {
-  const folder = join(root, recordsPath);
-  if (!existsSync(folder)) return [];
-  return readdirSync(folder)
-    .filter((name) => !name.startsWith("."))
-    .map((name) => readRecord(root, name))
-    .toSorted((left, right) => idOrder(left.id, right.id));
+  return recordEntries(root).map(({ file, entry }) =>
+    parseFault(entry, file, root),
+  );
 }
 
 function commitWorkingTreeInScratchIndex(root: string): string {
@@ -462,6 +437,16 @@ export async function replayAll(
   return killed === chosen.length ? 0 : 1;
 }
 
+function createdNew(path: string, text: string): boolean {
+  try {
+    writeFileSync(path, text, { flag: "wx" });
+    return true;
+  } catch (error) {
+    if (Reflect.get(Object(error), "code") === "EEXIST") return false;
+    throw error;
+  }
+}
+
 export function add(root: string, argv: readonly string[]): number {
   const [sha, sourcePath, testFile, title] = argv;
   if (
@@ -507,19 +492,35 @@ export function add(root: string, argv: readonly string[]): number {
     "planted-fault:add",
     root,
   );
-  if (readRecords(root).some((each) => each.id === id)) {
+  const caseTwin = readRecords(root).find(
+    (each) => each.id !== id && each.id.toLowerCase() === id.toLowerCase(),
+  );
+  if (caseTwin !== undefined) {
+    process.stderr.write(
+      `${recordsPath} already holds ${caseTwin.id}, which differs from ${id} only by letter case, and a macOS folder holds one file for both. Repair: add the new record by hand under an id that differs by more than case.\n`,
+    );
+    return 2;
+  }
+  mkdirSync(join(root, recordsPath), { recursive: true });
+  if (
+    !createdNew(
+      join(root, recordFile(id)),
+      `${JSON.stringify(fault, null, 2)}\n`,
+    )
+  ) {
     process.stderr.write(
       `${recordsPath} already holds ${id}. Repair: plant it again by hand, run git diff -- ${quoted(sourcePath)} > ${quoted(fault.patch)}, then undo the planted edit; or add the new record by hand under another id.\n`,
     );
     return 2;
   }
   mkdirSync(join(root, patchFolder), { recursive: true });
-  mkdirSync(join(root, recordsPath), { recursive: true });
-  writeFileSync(join(root, fault.patch), reverse);
-  writeFileSync(
-    join(root, recordFile(id)),
-    `${JSON.stringify(fault, null, 2)}\n`,
-  );
+  if (!createdNew(join(root, fault.patch), reverse)) {
+    rmSync(join(root, recordFile(id)));
+    process.stderr.write(
+      `${fault.patch} already exists, and no record names it. Repair: delete or rename that patch if nothing uses it, then run this command again.\n`,
+    );
+    return 2;
+  }
   print(`Added ${id}. Replay it: bun run fault-replay ${id}`);
   return 0;
 }

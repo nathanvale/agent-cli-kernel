@@ -6,8 +6,7 @@ import {
   statSync,
 } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
-import { idOrder } from "../../../scripts/planted-fault-patch.ts";
-import { recordFile, recordsPath } from "../../../scripts/planted-faults.ts";
+import { recordEntries } from "../../../scripts/planted-faults.ts";
 import { readRepository } from "../../../scripts/repository.ts";
 import {
   type Ancestry,
@@ -201,19 +200,16 @@ function citationsIn(file: string, text: string, history: Ancestry): string[] {
 export function faultRecords(
   repository: string,
 ): { file: string; id: string | undefined; source: string | undefined }[] {
-  const folder = join(repository, recordsPath);
-  if (!existsSync(folder)) return [];
-  return readdirSync(folder)
-    .filter((name) => name.endsWith(".json"))
-    .map((name) => name.slice(0, -".json".length))
-    .toSorted(idOrder)
-    .map((stem) => {
-      const file = recordFile(stem);
-      const { id, source } = JSON.parse(
-        readFileSync(join(repository, file), "utf8"),
-      ) as { id?: string; source?: string };
-      return { file, id, source };
-    });
+  return recordEntries(repository).map(({ file, entry }) => {
+    const own = new Map<string, unknown>(
+      typeof entry === "object" && entry !== null ? Object.entries(entry) : [],
+    );
+    const text = (name: string) => {
+      const value = own.get(name);
+      return typeof value === "string" ? value : undefined;
+    };
+    return { file, id: text("id"), source: text("source") };
+  });
 }
 
 function faultSourceProblems(repository: string, history: Ancestry): string[] {

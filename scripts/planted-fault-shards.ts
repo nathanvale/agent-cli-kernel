@@ -1,6 +1,5 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import { idOrder, quoted } from "./planted-fault-patch.ts";
+import { folderFiles } from "./planted-fault-folders.ts";
+import { quoted } from "./planted-fault-patch.ts";
 
 export type Shard = { readonly part: number; readonly parts: number };
 export type Selection = Shard & { readonly toolingBase: string | undefined };
@@ -40,29 +39,21 @@ function jsonIn(text: string): unknown {
   }
 }
 
-function readTiming(root: string, name: string): [string, number] {
-  const where = `${timingsPath}/${name}`;
-  if (!name.endsWith(timingExtension))
-    throw new Error(
-      `${where} is not a fault timing file. Repair: name each timing <fault id>${timingExtension}, and keep nothing else in ${timingsPath}.`,
-    );
-  const text = readFileSync(join(root, where), "utf8");
+function readTiming(where: string, text: string): number {
   const seconds = jsonIn(text);
   if (typeof seconds !== "number" || !(seconds > 0))
     throw new Error(
       `${where} holds ${quoted(text.trim())}. Repair: write one positive number of seconds, such as 1.5.`,
     );
-  return [name.slice(0, -timingExtension.length), seconds];
+  return seconds;
 }
 
 export function readTimings(root: string): ReadonlyMap<string, number> {
-  const folder = join(root, timingsPath);
-  if (!existsSync(folder)) return new Map();
   return new Map(
-    readdirSync(folder)
-      .filter((name) => !name.startsWith("."))
-      .map((name) => readTiming(root, name))
-      .toSorted(([left], [right]) => idOrder(left, right)),
+    folderFiles(root, timingsPath, "fault timing").map(({ file, id, text }) => [
+      id,
+      readTiming(file, text),
+    ]),
   );
 }
 

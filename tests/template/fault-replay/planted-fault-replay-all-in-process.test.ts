@@ -141,7 +141,7 @@ describe("replayAll", () => {
 
   test.each([
     ["no records folder", null],
-    ["an empty records folder", ".gitkeep"],
+    ["an empty records folder", ".DS_Store"],
   ])(
     "exits 1 and says it checks nothing with %s",
     async (_name, hidden) => {
