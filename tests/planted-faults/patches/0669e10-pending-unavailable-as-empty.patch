@@ -1,13 +1,20 @@
 diff --git a/skills/verify-cli/helper/pending.ts b/skills/verify-cli/helper/pending.ts
-index d1f147e..d3376fb 100644
+index 00c7825..18ee168 100644
 --- a/skills/verify-cli/helper/pending.ts
 +++ b/skills/verify-cli/helper/pending.ts
-@@ -99,7 +99,7 @@ export function pendingCommand(state: State) {
+@@ -99,6 +99,15 @@ export function pendingCommand(state: State) {
              effects: nothingChanged,
            },
          );
--      if (report.reason === "missing")
-+      if (report.reason === "missing" || true)
-         return context.result(
-           { commandIdentity: identity, causeCode: unchangedSuccess },
-           {
++      if (report.reason !== "never")
++        return context.result(
++          { commandIdentity: identity, causeCode: unchangedSuccess },
++          {
++            message: "0 unfinished changes.",
++            data: { ok: true, unfinished: [] },
++            effects: nothingChanged,
++          },
++        );
+       return context.result(
+         {
+           commandIdentity: identity,
