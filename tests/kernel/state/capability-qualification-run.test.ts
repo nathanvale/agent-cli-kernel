@@ -664,6 +664,53 @@ test(
   inProcess,
 );
 
+const midRunChanges: readonly (readonly [
+  string,
+  (root: string) => void,
+  (root: string) => string,
+])[] = [
+  [
+    "an edit to a qualified file",
+    (root) =>
+      writeFileSync(
+        join(root, "kernel/src/addons/state/install.ts"),
+        "edited\n",
+      ),
+    () => "kernel/src/addons/state/install.ts",
+  ],
+  [
+    "a new commit",
+    (root) => commitIn(root, "a change during the run", { "notes.txt": "x\n" }),
+    (root) => `HEAD moved to ${git(root, "rev-parse", "HEAD")}`,
+  ],
+];
+
+for (const [change, make, named] of midRunChanges)
+  test(
+    `Q03.b refuses a run whose checkout changed while the cases ran and writes no record, after ${change}`,
+    async () => {
+      const world = checkout();
+      const commit = git(world.root, "rev-parse", "HEAD");
+      const code = await world.run(undefined, undefined, {
+        runCases: (request) => {
+          make(world.root);
+          return Promise.resolve(ran(junit(request.selection)));
+        },
+      });
+      expect(code).toBe(1);
+      expect(world.lines).toHaveLength(1);
+      expect(world.lines[0]).toStartWith(
+        "Refused: the checkout changed while the cases ran (",
+      );
+      expect(world.lines[0]).toContain(named(world.root));
+      expect(world.lines[0]).toEndWith(
+        `); the cases may not have run commit ${commit}, so no capability qualification record is written. Repair: restore the checkout to that commit with no changes, then rerun.`,
+      );
+      expect(existsSync(world.folder)).toBe(false);
+    },
+    inProcess,
+  );
+
 test(
   "a killed capability qualification run leaves no record: the temporary file is not one",
   async () => {

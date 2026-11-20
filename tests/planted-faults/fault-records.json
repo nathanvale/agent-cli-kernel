@@ -3134,5 +3134,12 @@
     "testFile": "tests/template/check-commits/carried-verdict.test.ts",
     "title": "checker trees whose paths differ only in bytes that are not UTF-8",
     "source": "1998f0b fix(check-commits): read the checker tree byte for byte (GREEN)"
+  },
+  {
+    "id": "3c13f5b-capability-qualification-run",
+    "patch": "tests/planted-faults/patches/3c13f5b-capability-qualification-run.patch",
+    "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+    "title": "Q03.b refuses a run whose checkout changed while the cases ran and writes no record, after an edit to a qualified file",
+    "source": "3c13f5b fix(state): refuse a capability qualification run whose checkout changed while its cases ran"
   }
 ]
