@@ -11,7 +11,13 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
-import { gitEnv, gitOutput, inherited } from "../support/git-fixture.ts";
+import {
+  commitIn,
+  gitEnv,
+  gitOutput,
+  inherited,
+  initRepository,
+} from "../support/git-fixture.ts";
 import { testFolder } from "../support/test-folder.ts";
 import { spawnBounded } from "./kernel-repair/swarm-process.ts";
 
@@ -58,25 +64,28 @@ async function run(
   return spawnBounded(argv, { cwd, env: environment, boundMilliseconds });
 }
 
-function workingTreeCommit(destination: string): string {
-  const paths = gitOutput(repository, "ls-files", "-z")
+function workingTreeCommit(source: string, destination: string): string {
+  const paths = gitOutput(source, "ls-files", "-z")
     .split("\0")
     .filter((path) => path !== "");
+  const copied: string[] = [];
   for (const path of paths) {
-    const from = join(repository, path);
+    const from = join(source, path);
     const to = join(destination, path);
     let facts;
     try {
       facts = lstatSync(from);
-    } catch {
-      continue;
+    } catch (error) {
+      if (Reflect.get(Object(error), "code") === "ENOENT") continue;
+      throw error;
     }
     mkdirSync(dirname(to), { recursive: true });
     if (facts.isSymbolicLink()) symlinkSync(readlinkSync(from), to);
     else copyFileSync(from, to);
+    copied.push(path);
   }
   gitOutput(destination, "init", "--quiet", "--initial-branch=main");
-  writeFileSync(join(destination, ".pathspec"), paths.join("\0"));
+  writeFileSync(join(destination, ".pathspec"), copied.join("\0"));
   gitOutput(
     destination,
     "add",
@@ -164,7 +173,7 @@ beforeAll(async () => {
   world.base = testFolder("pinned-commit-");
   world.kernel = join(world.base, "kernel");
   world.consumer = join(world.base, "consumer");
-  world.commit = workingTreeCommit(world.kernel);
+  world.commit = workingTreeCommit(repository, world.kernel);
   mkdirSync(join(world.consumer, "src"), { recursive: true });
   const dev = ["@eslint/js", "typescript-eslint", "eslint", "typescript"];
   writeFileSync(
@@ -365,3 +374,23 @@ test(
   },
   testBound,
 );
+
+test("the working-tree copy commits only the tracked files the working tree still holds", () => {
+  const source = testFolder("pinned-commit-source-");
+  const destination = testFolder("pinned-commit-copy-");
+  try {
+    initRepository(source);
+    commitIn(source, "two files", {
+      "kept.txt": "kept\n",
+      "gone.txt": "gone\n",
+    });
+    rmSync(join(source, "gone.txt"));
+    const commit = workingTreeCommit(source, destination);
+    expect(
+      gitOutput(destination, "ls-tree", "-r", "--name-only", commit).trim(),
+    ).toBe("kept.txt");
+  } finally {
+    rmSync(source, { recursive: true, force: true });
+    rmSync(destination, { recursive: true, force: true });
+  }
+});
