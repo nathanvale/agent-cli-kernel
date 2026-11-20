@@ -63,8 +63,11 @@ options.
   by you from what the command must do. Take expectations from the
   feature's purpose, never from the CLI's own discovery output.
 
-Run both. A green sweep with owed results is unfinished: drive each owed
-result in a scenario, then run `sweep --run <run>` to see it counted.
+Run both. A feature is done when the results its steps reached leave
+`owed`; the CLI as a whole is done when `owed` is empty. Drive each owed
+result in a scenario, then run `sweep --run <run>` to see it counted. Only
+a step run with `--json` counts: without it there is no envelope to name
+the command.
 
 ## Launch
 

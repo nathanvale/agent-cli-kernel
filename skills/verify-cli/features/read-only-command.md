@@ -23,10 +23,10 @@ Preconditions:
 - `verify.ts doctor --run <run>` exits 0 and lists the command with
   `effectClass` `inspect`.
 
-- **Human read.** Run `verify.ts drive <run> read-human '["status"]' --expect-exit 0 --expect-stdout "The command-line tool runs." --expect-stdout '"ready": true' --expect-empty-stderr`. Exit 0; the message comes first, then the data.
+- **Human read.** Run `verify.ts drive <run> read-human '["status"]' --expect-exit 0 --expect-stdout "The command-line tool runs." --expect-stdout '"ready": true' --expect-empty-stderr`. Exit 0; the evidence's stdout shows the message line, then the data.
 - **JSON read.** Run `verify.ts drive <run> read-json '["status","--json"]' --expect-exit 0 --expect-cause SUCCESS_UNCHANGED --expect-stdout '"ready":true' --expect-empty-stderr`. Exit 0; the evidence shows `"oneEnvelope": true`.
-- **Domain refusal.** For a command that refuses a bad value, such as `show pluto` in the author skill's example, run `verify.ts drive <run> read-refusal '["show","pluto"]' --expect-exit 3 --expect-cause DOMAIN_MOONS_UNKNOWN_PLANET`. Exit 0. A CLI with no such refusal reports this step as not proved, with that reason.
-- **Owed results.** Run `verify.ts sweep --run <run>`. The command's results you drove are gone from `owed`.
+- **Domain refusal.** For a command that refuses a bad value, such as `show pluto` in the author skill's example, run `verify.ts drive <run> read-refusal '["show","pluto"]' --expect-exit 3 --expect-cause DOMAIN_MOONS_UNKNOWN_PLANET --expect-empty-stdout`, then `verify.ts drive <run> read-refusal-json '["show","pluto","--json"]' --expect-exit 3 --expect-cause DOMAIN_MOONS_UNKNOWN_PLANET --expect-empty-stderr`. Each exits 0. A CLI with no such refusal reports this step as not proved, with that reason.
+- **Owed results.** Run `verify.ts sweep --run <run>`. The results your `--json` steps reached are gone from `owed`; other commands' results stay there.
 
 ## Gotchas
 
