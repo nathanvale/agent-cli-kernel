@@ -153,6 +153,11 @@ this file.
   its name. Witnessed: [911189b] (the fault record reader skipped every
   dot-named file, so a record renamed `.x.json` was never replayed; Fable
   review of pull request 54).
+- Create a file the tool owns with exclusive create, not a check and then
+  a write, so two writers of the same name cannot both succeed.
+  Witnessed: [911189b] (two `planted-fault:add` runs for one id both
+  printed `Added`, and on macOS an id differing only by case overwrote
+  another record; Fable review of pull request 54).
 
 [ac11ed9]: https://github.com/nathanvale/bun-typescript-template/commit/ac11ed98b7d538e8a304cac053aaefcaaf6b2cb3
 [cd2498b]: https://github.com/nathanvale/bun-typescript-template/commit/cd2498b7189a2d45d1906b9c870e8d13da6cd2dd
