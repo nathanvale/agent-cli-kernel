@@ -333,6 +333,14 @@ A check `drive` makes unasked on every target step that ended by itself:
 an envelope's exit code is the process's, `--json` prints one envelope and
 nothing on stderr, and a failed run prints nothing on stdout.
 
+**Self-verification**:
+The kernel's own test area that runs verify-cli on the kernel's two CLIs on
+every change: it sweeps the helper, and it launches, drives and reports the
+author skill's example with the scenario verify-cli's read-only feature file
+shows. It fails on a finding, an unmet step, an owed result its record does
+not list, or a recorded owed result that is no longer owed, and prints a
+repair for each.
+
 ### Tools and their messages
 
 **Refusal**:
