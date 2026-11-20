@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { basename, resolve } from "node:path";
-import { probeBatch, readRun } from "./probes.ts";
+import { probeBatch, readRun } from "./lock-probes.ts";
 
 const root = resolve(import.meta.dir, "../../..");
 const probe = probeBatch("kernel-probes-");

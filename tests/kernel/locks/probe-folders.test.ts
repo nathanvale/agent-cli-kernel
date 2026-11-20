@@ -8,7 +8,7 @@ import {
 } from "../kernel-repair/swarm-process.ts";
 
 const root = resolve(import.meta.dir, "../../..");
-const probes = "./tests/kernel/locks/probes.test.ts";
+const probes = "./tests/kernel/locks/lock-probes.test.ts";
 const folder = ownedFolders();
 
 async function probesRun(filter: string) {

@@ -104,6 +104,11 @@ construction or registration. It does not admit a command for a run.
 `validateChangingShape` checks a changing command declaration's fields before
 construction or registration. It does not admit a command for a run.
 
+**Lock probe**:
+A compiler input used by the kernel's lock tests to check a type constraint
+with the native and lint-view compilers. `lock-probes.ts` owns their batch
+runner. This is separate from verify-cli's Probe of a target CLI.
+
 ### Verifying a CLI
 
 **verify-cli**:
