@@ -1,0 +1,7 @@
+{
+  "id": "460be51-install-late-record",
+  "patch": "tests/planted-faults/patches/460be51-install-late-record.patch",
+  "testFile": "tests/kernel/state/component.test.ts",
+  "title": "^K11\\.e-transaction-waits-for-started-effects$",
+  "source": "460be51 feat(state): make a transaction wait for its started effects"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "8048731-child-env-limit",
+  "patch": "tests/planted-faults/patches/8048731-child-env-limit.patch",
+  "testFile": "tests/template/process-runner/process-runner.test.ts",
+  "title": "CE\\.a ",
+  "source": "8048731 fix(faults): bound each replay step and escalate a stop to SIGKILL"
+}

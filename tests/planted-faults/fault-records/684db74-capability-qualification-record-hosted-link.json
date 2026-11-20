@@ -1,0 +1,7 @@
+{
+  "id": "684db74-capability-qualification-record-hosted-link",
+  "patch": "tests/planted-faults/patches/684db74-capability-qualification-record-hosted-link.patch",
+  "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+  "title": "^Q03.a refuses a row that cites a hosted run link",
+  "source": "684db74 feat(state): add the capability qualification run and its record check"
+}

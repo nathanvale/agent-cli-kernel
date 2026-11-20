@@ -1,0 +1,7 @@
+{
+  "id": "98374b7-planted-faults-test-file",
+  "patch": "tests/planted-faults/patches/98374b7-planted-faults-test-file.patch",
+  "testFile": "tests/template/fault-replay/planted-fault-changes-in-process.test.ts",
+  "title": "faultsTouchedSince names a fault whose test file changed",
+  "source": "98374b7 fix(faults): count a fault's test file and a rename's old path as touched"
+}

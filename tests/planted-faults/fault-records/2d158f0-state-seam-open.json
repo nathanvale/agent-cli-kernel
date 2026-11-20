@@ -1,0 +1,7 @@
+{
+  "id": "2d158f0-state-seam-open",
+  "patch": "tests/planted-faults/patches/2d158f0-state-seam-open.patch",
+  "testFile": "tests/kernel/state-seam.test.ts",
+  "title": "a run whose transaction is still running stays live",
+  "source": "2d158f0 fix(kernel): keep a run live until its open transaction ends"
+}

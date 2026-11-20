@@ -1,0 +1,7 @@
+{
+  "id": "f548a02-in-process-repeat",
+  "patch": "tests/planted-faults/patches/f548a02-lifecycle-repeat.patch",
+  "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+  "title": "IP02\\.repeated-stop-exits-at-once",
+  "source": "f548a02 feat(kernel): run many commands in one process through runInProcess"
+}

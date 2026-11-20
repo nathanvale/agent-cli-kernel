@@ -1,0 +1,7 @@
+{
+  "id": "95c61a4-capability-qualification-run-covered-repeats",
+  "patch": "tests/planted-faults/patches/95c61a4-capability-qualification-run-covered-repeats.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^a capability qualification run ignores a repeated test name that is not a covered case",
+  "source": "95c61a4 fix(state): settle the kernel-reviewer pass on the Sol fixes"
+}

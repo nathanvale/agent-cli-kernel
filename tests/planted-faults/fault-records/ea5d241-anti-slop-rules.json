@@ -1,0 +1,7 @@
+{
+  "id": "ea5d241-anti-slop-rules",
+  "patch": "tests/planted-faults/patches/ea5d241-anti-slop-rules.patch",
+  "testFile": "tests/template/lint/anti-slop-rules.test.ts",
+  "title": "^anti-slop/no-module-mocking refuses the r4609902952 shape",
+  "source": "ea5d241 fix(lint): read a template key as a module mock method"
+}

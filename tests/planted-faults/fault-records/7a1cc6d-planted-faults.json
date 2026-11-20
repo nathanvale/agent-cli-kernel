@@ -1,0 +1,7 @@
+{
+  "id": "7a1cc6d-planted-faults",
+  "patch": "tests/planted-faults/patches/7a1cc6d-planted-faults.patch",
+  "testFile": "tests/template/fault-replay/planted-faults-in-process.test.ts",
+  "title": "STALE anchor ambiguous at only the real blank lines",
+  "source": "7a1cc6d fix(faults): read a file's lines without the end-of-file separator, keeping its real blank lines (GREEN)"
+}

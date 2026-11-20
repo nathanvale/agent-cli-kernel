@@ -1,0 +1,7 @@
+{
+  "id": "6d4b46d-install-torn-tail-refused",
+  "patch": "tests/planted-faults/patches/6d4b46d-install-torn-tail-refused.patch",
+  "testFile": "tests/kernel/state/recovery.test.ts",
+  "title": "^K11.c-torn-tail-closes",
+  "source": "6d4b46d feat(state): close a crashed case after a torn tail once the lease is free"
+}

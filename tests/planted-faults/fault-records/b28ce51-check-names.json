@@ -1,0 +1,7 @@
+{
+  "id": "b28ce51-check-names",
+  "patch": "tests/planted-faults/patches/b28ce51-check-names.patch",
+  "testFile": "tests/template/naming/pre-commit.test.ts",
+  "title": "^PC\\.b ",
+  "source": "b28ce51 fix(naming): judge --staged names by the glossary and recorded hits git has staged"
+}

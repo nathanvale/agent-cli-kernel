@@ -1,0 +1,7 @@
+{
+  "id": "f9de892-store-added-field",
+  "patch": "tests/planted-faults/patches/f9de892-store-added-field.patch",
+  "testFile": "tests/kernel/state/journal.test.ts",
+  "title": "^J08\\.a-",
+  "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+}

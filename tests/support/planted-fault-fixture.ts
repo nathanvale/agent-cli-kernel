@@ -7,6 +7,7 @@ import {
   rmSync,
 } from "node:fs";
 import { join } from "node:path";
+import { readRecords, recordFile } from "../../scripts/planted-faults.ts";
 import { write } from "./fixture-files.ts";
 import {
   commit,
@@ -171,20 +172,6 @@ export function addFault(
   );
 }
 
-type FaultRecord = {
-  id: string;
-  patch: string;
-  testFile: string;
-  title: string;
-  source: string;
-};
-
-function records(root: string): FaultRecord[] {
-  return JSON.parse(
-    readFileSync(join(root, "tests/planted-faults/fault-records.json"), "utf8"),
-  ) as FaultRecord[];
-}
-
 export function verdicts(lines: readonly string[]): string[] {
   return lines.flatMap((line) =>
     /^(KILLED|SURVIVED|STALE|BROKEN|TIMEOUT) /.test(line)
@@ -328,19 +315,15 @@ export function createPlantedFaultFixture() {
     expect(added.stdout).toBe(
       `Added ${fix}-limit. Replay it: bun run fault-replay ${fix}-limit\n`,
     );
-    const [killed] = records(root);
+    const [killed] = readRecords(root);
     if (killed === undefined)
       throw new Error("planted-fault:add wrote no record.");
-    const siblings = Object.entries(siblingTitlesById).map(([id, title]) => ({
-      ...killed,
-      id,
-      title,
-    }));
-    write(
-      root,
-      "tests/planted-faults/fault-records.json",
-      `${JSON.stringify([killed, ...siblings], null, 2)}\n`,
-    );
+    for (const [id, title] of Object.entries(siblingTitlesById))
+      write(
+        root,
+        recordFile(id),
+        `${JSON.stringify({ ...killed, id, title }, null, 2)}\n`,
+      );
     gitOutput(root, "add", "--", "tests/planted-faults");
     gitOutput(root, "commit", "--quiet", "-m", "record the faults");
     return { root, fix, id: `${fix}-limit`, killed };

@@ -1,0 +1,7 @@
+{
+  "id": "a4c193c-in-process-crash-due",
+  "patch": "tests/planted-faults/patches/a4c193c-lifecycle-due.patch",
+  "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+  "title": "IP09\\.bound-from-call",
+  "source": "a4c193c fix(kernel): start the crash wait before calling onCrash"
+}

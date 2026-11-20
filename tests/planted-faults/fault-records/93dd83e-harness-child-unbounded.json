@@ -1,0 +1,7 @@
+{
+  "id": "93dd83e-harness-child-unbounded",
+  "patch": "tests/planted-faults/patches/93dd83e-harness-child-unbounded.patch",
+  "testFile": "tests/kernel/state/journal.test.ts",
+  "title": "^Test harness supporting: the state test world kills",
+  "source": "93dd83e fix(state): keep a failed upgrade, report or closure read from spreading"
+}

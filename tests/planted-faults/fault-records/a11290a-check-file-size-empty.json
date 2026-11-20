@@ -1,0 +1,7 @@
+{
+  "id": "a11290a-check-file-size-empty",
+  "patch": "tests/planted-faults/patches/a11290a-check-file-size-empty.patch",
+  "testFile": "tests/template/file-size/file-size.test.ts",
+  "title": "^a working tree with no tracked texts cannot pass the scan$",
+  "source": "a11290a feat(gates): enforce the template file-size limit"
+}

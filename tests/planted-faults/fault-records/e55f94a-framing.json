@@ -1,0 +1,7 @@
+{
+  "id": "e55f94a-framing",
+  "patch": "tests/planted-faults/patches/e55f94a-framing.patch",
+  "testFile": "tests/kernel/state/journal.test.ts",
+  "title": "^J04\\.g-",
+  "source": "e55f94a fix(contract3-state): repair round 1, test seams off the host path and missing controls"
+}

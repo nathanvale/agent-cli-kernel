@@ -1,0 +1,7 @@
+{
+  "id": "404b4ed-limits-interval",
+  "patch": "tests/planted-faults/patches/404b4ed-limits-interval.patch",
+  "testFile": "tests/kernel/diagnostics/custody.test.ts",
+  "title": "^with every retry woken on time the allocation lock wait",
+  "source": "404b4ed test(diagnostics): state the lock wait's numbers and pin its interval, clamp and first try"
+}

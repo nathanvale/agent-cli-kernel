@@ -1,0 +1,7 @@
+{
+  "id": "79af2d6-capability-qualification-record-git-bound",
+  "patch": "tests/planted-faults/patches/79af2d6-capability-qualification-record-git-bound.patch",
+  "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+  "title": "^Q03\\.a bounds its git read",
+  "source": "79af2d6 fix(state): settle the kernel-reviewer pass on the Sol triage's fixes"
+}

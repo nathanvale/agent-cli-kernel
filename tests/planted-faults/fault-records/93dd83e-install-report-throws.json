@@ -1,0 +1,7 @@
+{
+  "id": "93dd83e-install-report-throws",
+  "patch": "tests/planted-faults/patches/93dd83e-install-report-throws.patch",
+  "testFile": "tests/kernel/state/component.test.ts",
+  "title": "^X24 supporting: a mover report that throws",
+  "source": "93dd83e fix(state): keep a failed upgrade, report or closure read from spreading"
+}

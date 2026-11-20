@@ -1,0 +1,7 @@
+{
+  "id": "83577c3-anti-slop-rules",
+  "patch": "tests/planted-faults/patches/83577c3-anti-slop-rules.patch",
+  "testFile": "tests/template/lint/anti-slop-rules.test.ts",
+  "title": "^anti-slop/no-unknown-type-aliases refuses the r4609019138 shape",
+  "source": "83577c3 fix(lint): expand a nested alias argument in its own context"
+}

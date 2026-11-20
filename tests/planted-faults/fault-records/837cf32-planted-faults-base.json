@@ -1,0 +1,7 @@
+{
+  "id": "837cf32-planted-faults-base",
+  "patch": "tests/planted-faults/patches/837cf32-planted-faults-base.patch",
+  "testFile": "tests/template/fault-replay/planted-fault-changes-in-process.test.ts",
+  "title": "faultsTouchedSince refuses a base git cannot resolve",
+  "source": "837cf32 feat(faults): replay only the faults a change touches"
+}

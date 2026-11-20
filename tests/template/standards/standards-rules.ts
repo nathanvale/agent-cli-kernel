@@ -1,12 +1,12 @@
 import { existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { ESLint } from "eslint";
+import { recordsPath } from "../../../scripts/planted-faults.ts";
 import type { Citable } from "../../support/commit-links.ts";
 import { git } from "../../support/git-fixture.ts";
 import {
   citableOf,
   faultRecords,
-  faultRecordsFile,
   headings,
   matching,
   readWithCodeBlanked,
@@ -241,7 +241,7 @@ export async function gateProblems(repository: string): Promise<string[]> {
     },
     fault: {
       ids: new Set(faultRecords(repository).map(({ id }) => id)),
-      owner: `no record in ${faultRecordsFile} has as its id`,
+      owner: `no record in ${recordsPath} has as its id`,
     },
   };
   return ruleTable(repository).rows.flatMap((row) =>

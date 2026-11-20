@@ -1,0 +1,7 @@
+{
+  "id": "c179ef4-capability-qualification-run-other-row",
+  "patch": "tests/planted-faults/patches/c179ef4-capability-qualification-run-other-row.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^an index\\.ts capability qualification run refuses a record for another row",
+  "source": "c179ef4 fix(state): refuse a prior record for another row, and write only to the candidate's record"
+}

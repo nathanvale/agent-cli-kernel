@@ -1,0 +1,7 @@
+{
+  "id": "abebe4e-repository-web",
+  "patch": "tests/planted-faults/patches/abebe4e-repository-web.patch",
+  "testFile": "tests/template/repository/repository.test.ts",
+  "title": "^a web address that is not a GitHub repository page is refused",
+  "source": "abebe4e Gate tools read the repository from repository.json"
+}

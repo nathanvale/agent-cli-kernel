@@ -1,0 +1,7 @@
+{
+  "id": "68a85f3-in-process-crash-error",
+  "patch": "tests/planted-faults/patches/68a85f3-process-host-error.patch",
+  "testFile": "tests/kernel/state/in-process.test.ts",
+  "title": "IP06\\.on-crash-hears-error",
+  "source": "68a85f3 feat(kernel): give the in-process entry a crash listener"
+}

@@ -30,7 +30,7 @@ Each rule row names what enforces it today:
 
 The Gates cell names each gate as `script`, `lint`, `job` or `fault` with its
 id, and links the gate note. A `fault` id is a record id in
-`tests/planted-faults/fault-records.json`. **Planned (parked)** names agreed
+`tests/planted-faults/fault-records/`. **Planned (parked)** names agreed
 gates that do not exist yet. Plan units U4 to U6 in the description of [#8]
 first named them. The lints and the fault replay have landed. The rest has no
 slot, and [MAG-98], the Contract 3 scope issue, does not list them.
@@ -114,7 +114,7 @@ row's guide or gate note cites two distinct witnesses.
 ### Planted faults
 
 - `bun run fault-replay` replays each record in
-  `tests/planted-faults/fault-records.json` in a temporary worktree.
+  `tests/planted-faults/fault-records/` in a temporary worktree.
 - A pull request's `fault-replay-shard` jobs replay each record whose test
   is outside `tests/template/`, and each other record its change touches;
   `fault-replay` passes when all of them do. The Linux nightly

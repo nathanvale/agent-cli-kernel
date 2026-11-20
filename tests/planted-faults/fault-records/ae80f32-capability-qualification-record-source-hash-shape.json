@@ -1,0 +1,7 @@
+{
+  "id": "ae80f32-capability-qualification-record-source-hash-shape",
+  "patch": "tests/planted-faults/patches/ae80f32-capability-qualification-record-source-hash-shape.patch",
+  "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+  "title": "^Q03.a refuses a record with a malformed sourceHash",
+  "source": "ae80f32 fix(state): settle the Sol second look at the capability qualification run"
+}

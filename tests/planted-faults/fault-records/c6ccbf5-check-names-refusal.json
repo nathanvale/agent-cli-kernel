@@ -1,0 +1,7 @@
+{
+  "id": "c6ccbf5-check-names-refusal",
+  "patch": "tests/planted-faults/patches/c6ccbf5-check-names-refusal.patch",
+  "testFile": "tests/template/naming/check-names.test.ts",
+  "title": "^CN\\.a ",
+  "source": "c6ccbf5 feat(naming): add check:names to judge the names it is given"
+}

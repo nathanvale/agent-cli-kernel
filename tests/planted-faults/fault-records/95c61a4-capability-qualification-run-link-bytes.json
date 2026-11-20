@@ -1,0 +1,7 @@
+{
+  "id": "95c61a4-capability-qualification-run-link-bytes",
+  "patch": "tests/planted-faults/patches/95c61a4-capability-qualification-run-link-bytes.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^a fixture.ts capability qualification run writes the record the design names",
+  "source": "95c61a4 fix(state): settle the kernel-reviewer pass on the Sol fixes"
+}

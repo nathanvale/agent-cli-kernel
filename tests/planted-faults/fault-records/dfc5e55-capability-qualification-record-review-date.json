@@ -1,0 +1,7 @@
+{
+  "id": "dfc5e55-capability-qualification-record-review-date",
+  "patch": "tests/planted-faults/patches/dfc5e55-capability-qualification-record-review-date.patch",
+  "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+  "title": "^Q03\\.a refuses a row that names no real date",
+  "source": "dfc5e55 fix(state): read the committed record, and check pending cases and review dates, in Q03.a"
+}

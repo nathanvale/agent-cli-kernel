@@ -1,0 +1,7 @@
+{
+  "id": "684db74-capability-qualification-run-unproved-control",
+  "patch": "tests/planted-faults/patches/684db74-capability-qualification-run-unproved-control.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^each case result comes from its own test",
+  "source": "684db74 feat(state): add the capability qualification run and its record check"
+}

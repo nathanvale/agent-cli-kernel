@@ -1,0 +1,7 @@
+{
+  "id": "684db74-capability-qualification-record-listing-order",
+  "patch": "tests/planted-faults/patches/684db74-capability-qualification-record-listing-order.patch",
+  "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+  "title": "^sourceHash is stable across file listing order",
+  "source": "684db74 feat(state): add the capability qualification run and its record check"
+}

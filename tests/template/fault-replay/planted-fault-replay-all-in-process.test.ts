@@ -1,7 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { type Fault, replayAll } from "../../../scripts/planted-faults.ts";
+import {
+  type Fault,
+  recordFile,
+  recordsPath,
+  replayAll,
+} from "../../../scripts/planted-faults.ts";
 import {
   createPlantedFaultFixture,
   guarded,
@@ -9,7 +14,6 @@ import {
   limitTests,
   type Planted,
   recorded,
-  recordsPath,
   rejection,
   sample,
   stepVariable,
@@ -121,7 +125,7 @@ describe("replayAll", () => {
     expect(run.result).toBe(2);
     expect(run.stdout).toBe("");
     expect(run.stderr).toBe(
-      `No fault record nope, gone in ${recordsPath}. Repair: pass an id that file lists.\n`,
+      `No fault record nope, gone in ${recordsPath}. Repair: pass an id that folder holds.\n`,
     );
     expect(run.leftovers).toEqual([]);
   }, 60_000);
@@ -136,14 +140,14 @@ describe("replayAll", () => {
   }, 60_000);
 
   test.each([
-    ["no records file", null],
-    ["an empty records list", "[]"],
+    ["no records folder", null],
+    ["an empty records folder", ".gitkeep"],
   ])(
     "exits 1 and says it checks nothing with %s",
-    async (_name, content) => {
+    async (_name, hidden) => {
       const root = repository("planted-faults-empty-");
       commit(root, "base", { "package.json": "{}" });
-      if (content !== null) write(root, recordsPath, content);
+      if (hidden !== null) write(root, `${recordsPath}/${hidden}`, "");
 
       const run = await replayedAll(root);
 
@@ -202,7 +206,7 @@ describe("replayAll", () => {
       gitOutput(root, "diff", "-R", "--", "src/limit.ts"),
     );
     write(root, "tests/limit.test.ts", limitTests);
-    write(root, recordsPath, `${JSON.stringify([fault], null, 2)}\n`);
+    write(root, recordFile(fault.id), `${JSON.stringify(fault, null, 2)}\n`);
     const head = headOf(root);
     const status = gitOutput(root, "status", "--porcelain");
 

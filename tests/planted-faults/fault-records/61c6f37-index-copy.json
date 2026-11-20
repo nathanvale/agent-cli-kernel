@@ -1,0 +1,7 @@
+{
+  "id": "61c6f37-index-copy",
+  "patch": "tests/planted-faults/patches/61c6f37-index-copy.patch",
+  "testFile": "tests/kernel/programs/program-input.test.ts",
+  "title": "an admitted domain program reads the bytes checked before admission, though the caller changed them while admission was pending$",
+  "source": "61c6f37 feat(programs): let a command supply a bounded input to a program"
+}

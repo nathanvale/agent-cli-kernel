@@ -1,0 +1,7 @@
+{
+  "id": "c02caae-state-seam-active",
+  "patch": "tests/planted-faults/patches/c02caae-state-seam-active.patch",
+  "testFile": "tests/kernel/state-seam.test.ts",
+  "title": "a record kept past its forgotten run cannot record under the run that reused its identity",
+  "source": "c02caae fix(kernel): require the active attached run for a recorded effect"
+}

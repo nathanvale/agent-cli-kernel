@@ -1,0 +1,7 @@
+{
+  "id": "684db74-capability-qualification-record-fact-source",
+  "patch": "tests/planted-faults/patches/684db74-capability-qualification-record-fact-source.patch",
+  "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+  "title": "^Q03.a refuses a record whose factSource is not observed",
+  "source": "684db74 feat(state): add the capability qualification run and its record check"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "9dcecee-in-process-crash-rejection",
+  "patch": "tests/planted-faults/patches/30e8fb1-lifecycle-nested.patch",
+  "testFile": "tests/kernel/state/in-process.test.ts",
+  "title": "IP06\\.on-crash-reentry-rejection",
+  "source": "9dcecee fix(kernel): stop a program started between the crash kill and the abort"
+}

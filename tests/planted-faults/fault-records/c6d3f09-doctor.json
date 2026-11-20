@@ -1,0 +1,7 @@
+{
+  "id": "c6d3f09-doctor",
+  "patch": "tests/planted-faults/patches/c6d3f09-doctor.patch",
+  "testFile": "tests/template/doctor/doctor.test.ts",
+  "title": "not ready fails on the failing check",
+  "source": "c6d3f09 feat(doctor): check fallow's readiness with fallow doctor"
+}

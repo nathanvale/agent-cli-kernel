@@ -1,0 +1,7 @@
+{
+  "id": "ddd9e83-planted-faults",
+  "patch": "tests/planted-faults/patches/ddd9e83-planted-faults.patch",
+  "testFile": "tests/template/fault-replay/planted-fault-changes-in-process.test.ts",
+  "title": "faultsTouchedSince refuses a git read that outlasts its bound",
+  "source": "ddd9e83 fix(faults): end each synchronous git read of the fault tool at 4 s (GREEN)"
+}

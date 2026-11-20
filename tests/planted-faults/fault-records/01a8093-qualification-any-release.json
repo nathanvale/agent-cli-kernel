@@ -1,0 +1,7 @@
+{
+  "id": "01a8093-qualification-any-release",
+  "patch": "tests/planted-faults/patches/01a8093-qualification-any-release.patch",
+  "testFile": "tests/kernel/state/recovery.test.ts",
+  "title": "^Q02.a-release-major-edges",
+  "source": "01a8093 fix(state): settle the two-axis review of capability qualification matching"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "ae80f32-capability-qualification-run-failed-case-written",
+  "patch": "tests/planted-faults/patches/ae80f32-capability-qualification-run-failed-case-written.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^a capability qualification run with a failed required case writes its record",
+  "source": "ae80f32 fix(state): settle the Sol second look at the capability qualification run"
+}

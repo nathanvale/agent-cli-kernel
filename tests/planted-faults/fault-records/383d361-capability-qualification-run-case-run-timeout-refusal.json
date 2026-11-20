@@ -1,0 +1,7 @@
+{
+  "id": "383d361-capability-qualification-run-case-run-timeout-refusal",
+  "patch": "tests/planted-faults/patches/383d361-capability-qualification-run-case-run-timeout-refusal.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^the capability qualification run.s own case runner stops a case run that outlives its bound",
+  "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+}

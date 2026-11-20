@@ -1,0 +1,7 @@
+{
+  "id": "404b4ed-custody-first-try",
+  "patch": "tests/planted-faults/patches/404b4ed-custody-first-try.patch",
+  "testFile": "tests/kernel/diagnostics/custody.test.ts",
+  "title": "^the allocation lock wait tries the lock once even when its limit has passed",
+  "source": "404b4ed test(diagnostics): state the lock wait's numbers and pin its interval, clamp and first try"
+}

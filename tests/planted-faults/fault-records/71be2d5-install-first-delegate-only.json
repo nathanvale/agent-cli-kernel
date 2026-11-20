@@ -1,0 +1,7 @@
+{
+  "id": "71be2d5-install-first-delegate-only",
+  "patch": "tests/planted-faults/patches/71be2d5-install-first-delegate-only.patch",
+  "testFile": "tests/kernel/state/recovery.test.ts",
+  "title": "^K11.a supporting \\(fact override",
+  "source": "71be2d5 feat(state): close a case after a delegate start only on another boot"
+}

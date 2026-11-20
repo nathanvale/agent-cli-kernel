@@ -1,0 +1,7 @@
+{
+  "id": "dbd74b7-glossary-note-line",
+  "patch": "tests/planted-faults/patches/dbd74b7-glossary-note-line.patch",
+  "testFile": "tests/template/naming/names.test.ts",
+  "title": "^NM\\.d after the last note",
+  "source": "dbd74b7 feat(naming): leave an Avoid word that a note covers to the reviewer"
+}

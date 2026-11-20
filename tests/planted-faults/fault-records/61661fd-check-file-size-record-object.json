@@ -1,0 +1,7 @@
+{
+  "id": "61661fd-check-file-size-record-object",
+  "patch": "tests/planted-faults/patches/61661fd-check-file-size-record-object.patch",
+  "testFile": "tests/template/file-size/file-size.test.ts",
+  "title": "^the file-size command refuses malformed and excluded recorded hits$",
+  "source": "61661fd fix(gates): read recorded hits from the staged tree"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "129a8a0-capability-qualification-run-runs-shape",
+  "patch": "tests/planted-faults/patches/129a8a0-capability-qualification-run-runs-shape.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^an index.ts capability qualification run needs the row in the table",
+  "source": "129a8a0 fix(state): settle the two-axis and kernel reviews of the capability qualification run"
+}

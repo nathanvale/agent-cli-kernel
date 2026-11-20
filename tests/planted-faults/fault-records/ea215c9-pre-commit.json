@@ -1,0 +1,7 @@
+{
+  "id": "ea215c9-pre-commit",
+  "patch": "tests/planted-faults/patches/ea215c9-pre-commit.patch",
+  "testFile": "tests/template/naming/pre-commit.test.ts",
+  "title": "^PC[.]c the pre-commit type check uses the staged contents of a partially staged file$",
+  "source": "ea215c9 fix(hooks): type-check the staged tree"
+}

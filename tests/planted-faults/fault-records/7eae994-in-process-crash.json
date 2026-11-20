@@ -1,0 +1,7 @@
+{
+  "id": "7eae994-in-process-crash",
+  "patch": "tests/planted-faults/patches/7eae994-lifecycle-crash.patch",
+  "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+  "title": "IP08\\.duplicate-then-crash",
+  "source": "7eae994 fix(kernel): let only the attachment that a run created forget it"
+}

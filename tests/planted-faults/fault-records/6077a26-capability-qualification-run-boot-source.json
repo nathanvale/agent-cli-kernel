@@ -1,0 +1,7 @@
+{
+  "id": "6077a26-capability-qualification-run-boot-source",
+  "patch": "tests/planted-faults/patches/6077a26-capability-qualification-run-boot-source.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^a fixture.ts capability qualification run writes the record the design names",
+  "source": "6077a26 feat(state): cover K11.f, keep one reason, and import the qualification rules"
+}

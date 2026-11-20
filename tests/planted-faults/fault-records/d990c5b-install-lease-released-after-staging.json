@@ -1,0 +1,7 @@
+{
+  "id": "d990c5b-install-lease-released-after-staging",
+  "patch": "tests/planted-faults/patches/d990c5b-install-lease-released-after-staging.patch",
+  "testFile": "tests/kernel/state/recovery.test.ts",
+  "title": "^X29 supporting: the closer holds the owner lease until its closure is published",
+  "source": "d990c5b test(state): make the lease and pin proofs see what they claim"
+}

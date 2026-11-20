@@ -1,0 +1,7 @@
+{
+  "id": "abebe4e-repository-commit",
+  "patch": "tests/planted-faults/patches/abebe4e-repository-commit.patch",
+  "testFile": "tests/template/repository/repository.test.ts",
+  "title": "^a commit that is not a full SHA is refused",
+  "source": "abebe4e Gate tools read the repository from repository.json"
+}

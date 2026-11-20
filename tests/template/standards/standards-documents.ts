@@ -6,6 +6,7 @@ import {
   statSync,
 } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
+import { recordsPath } from "../../../scripts/planted-faults.ts";
 import { readRepository } from "../../../scripts/repository.ts";
 import {
   type Ancestry,
@@ -196,24 +197,27 @@ function citationsIn(file: string, text: string, history: Ancestry): string[] {
   return problems;
 }
 
-export const faultRecordsFile = "tests/planted-faults/fault-records.json";
-
 export function faultRecords(
   repository: string,
-): { id?: string; source?: string }[] {
-  const path = join(repository, faultRecordsFile);
-  return existsSync(path)
-    ? (JSON.parse(readFileSync(path, "utf8")) as {
+): { file: string; id?: string; source?: string }[] {
+  const folder = join(repository, recordsPath);
+  if (!existsSync(folder)) return [];
+  return readdirSync(folder)
+    .filter((name) => name.endsWith(".json"))
+    .toSorted()
+    .map((name) => ({
+      file: `${recordsPath}/${name}`,
+      ...(JSON.parse(readFileSync(join(folder, name), "utf8")) as {
         id?: string;
         source?: string;
-      }[])
-    : [];
+      }),
+    }));
 }
 
 function faultSourceProblems(repository: string, history: Ancestry): string[] {
-  return faultRecords(repository).flatMap(({ id, source = "" }) => {
+  return faultRecords(repository).flatMap(({ file, id, source = "" }) => {
     const sha = /^[0-9a-f]{7,40}(?= )/.exec(source)?.[0];
-    const where = `${faultRecordsFile}: record "${id}"`;
+    const where = `${file}: record "${id}"`;
     if (sha === undefined)
       return [
         `${where} has source "${source}", which does not start with its fix commit's SHA. Repair: write "<short sha> <subject>", as bun run planted-fault:add does.`,

@@ -1,0 +1,7 @@
+{
+  "id": "10739d3-planted-faults-ambiguous",
+  "patch": "tests/planted-faults/patches/10739d3-planted-faults-ambiguous.patch",
+  "testFile": "tests/template/fault-replay/planted-faults-in-process.test.ts",
+  "title": "STALE anchor ambiguous",
+  "source": "10739d3 fix(faults): place each hunk of a planted fault by its exact anchor (GREEN)"
+}

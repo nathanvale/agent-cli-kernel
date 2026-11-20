@@ -1,0 +1,7 @@
+{
+  "id": "1e39e16-qualification-nested-mount",
+  "patch": "tests/planted-faults/patches/1e39e16-qualification-nested-mount.patch",
+  "testFile": "tests/kernel/state/recovery.test.ts",
+  "title": "^Q02.f-nested-mount-refused",
+  "source": "1e39e16 feat(state): match a capability qualification row at closure time"
+}

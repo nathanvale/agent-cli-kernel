@@ -1,0 +1,7 @@
+{
+  "id": "d990c5b-install-read-cached-before-lease",
+  "patch": "tests/planted-faults/patches/d990c5b-install-read-cached-before-lease.patch",
+  "testFile": "tests/kernel/state/recovery.test.ts",
+  "title": "^X29 supporting: closure decides on a fresh read taken after the store read",
+  "source": "d990c5b test(state): make the lease and pin proofs see what they claim"
+}

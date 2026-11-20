@@ -1,0 +1,7 @@
+{
+  "id": "1a93f4b-index",
+  "patch": "tests/planted-faults/patches/1a93f4b-index.patch",
+  "testFile": "tests/kernel/kernel-followup/decision-1.test.ts",
+  "title": "^KF1\\.c ",
+  "source": "1a93f4b feat(contract3): refuse an add-on attach fault before handler entry as a preparation fault (KF1)"
+}

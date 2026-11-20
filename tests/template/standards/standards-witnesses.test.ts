@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { readFileSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
+import { recordFile } from "../../../scripts/planted-faults.ts";
 import { git } from "../../support/git-fixture.ts";
 import {
   citationProblems,
@@ -86,15 +87,16 @@ test.each([
   [
     "a fault record whose source is not an ancestor or names no commit",
     (files: Record<string, string>, sha: string) => {
-      files["tests/planted-faults/fault-records.json"] = JSON.stringify([
+      for (const record of [
         { id: "fixture", source: `${sha.slice(0, 7)} fix: kept` },
         { id: "lost", source: `${absent.slice(0, 7)} fix: lost` },
         { id: "bare", source: "fix: no commit" },
-      ]);
+      ])
+        files[recordFile(record.id)] = JSON.stringify(record);
     },
     () => [
-      `tests/planted-faults/fault-records.json: record "lost" names source ${absent.slice(0, 7)}, which is not an ancestor of HEAD. Repair: cite a commit in this branch's history, or correct the SHA.`,
-      'tests/planted-faults/fault-records.json: record "bare" has source "fix: no commit", which does not start with its fix commit\'s SHA. Repair: write "<short sha> <subject>", as bun run planted-fault:add does.',
+      'tests/planted-faults/fault-records/bare.json: record "bare" has source "fix: no commit", which does not start with its fix commit\'s SHA. Repair: write "<short sha> <subject>", as bun run planted-fault:add does.',
+      `tests/planted-faults/fault-records/lost.json: record "lost" names source ${absent.slice(0, 7)}, which is not an ancestor of HEAD. Repair: cite a commit in this branch's history, or correct the SHA.`,
     ],
   ],
 ])(
@@ -193,6 +195,6 @@ test("a shallow clone that cuts a cited commit fails and says to fetch the histo
   expect(await citationProblems(repository)).toEqual([
     `CODING_STANDARDS.md:16: [${sha?.slice(0, 7)}] cites ${sha}, which is not an ancestor of HEAD. Repair: cite a commit in this branch's history, or correct the SHA. ${fetch}`,
     `docs/standards/guide.md:7: [${sha?.slice(0, 7)}] cites ${sha}, which is not an ancestor of HEAD. Repair: cite a commit in this branch's history, or correct the SHA. ${fetch}`,
-    `tests/planted-faults/fault-records.json: record "fixture" names source ${sha?.slice(0, 7)}, which is not an ancestor of HEAD. Repair: cite a commit in this branch's history, or correct the SHA. ${fetch}`,
+    `tests/planted-faults/fault-records/fixture.json: record "fixture" names source ${sha?.slice(0, 7)}, which is not an ancestor of HEAD. Repair: cite a commit in this branch's history, or correct the SHA. ${fetch}`,
   ]);
 });

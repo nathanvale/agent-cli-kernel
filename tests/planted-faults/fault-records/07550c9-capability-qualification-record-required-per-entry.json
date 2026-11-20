@@ -1,0 +1,7 @@
+{
+  "id": "07550c9-capability-qualification-record-required-per-entry",
+  "patch": "tests/planted-faults/patches/07550c9-capability-qualification-record-required-per-entry.patch",
+  "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+  "title": "^each capability qualification run requires the cases the case table runs",
+  "source": "07550c9 feat(state): give each capability qualification run its own required cases"
+}

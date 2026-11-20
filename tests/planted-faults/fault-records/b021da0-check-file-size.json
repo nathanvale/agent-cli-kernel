@@ -1,0 +1,7 @@
+{
+  "id": "b021da0-check-file-size",
+  "patch": "tests/planted-faults/patches/b021da0-check-file-size.patch",
+  "testFile": "tests/template/file-size/file-size.test.ts",
+  "title": "^the file-size command refuses malformed and excluded recorded hits$",
+  "source": "b021da0 fix(gates): refuse excluded recorded hits"
+}

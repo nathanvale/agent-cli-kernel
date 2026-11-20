@@ -85,8 +85,8 @@ is in the [test harness guide](test-harness.md).
 ## Planted faults
 
 - Apply the shared RED-then-GREEN rule to every new refusal or bound.
-- Record each planted fault in `tests/planted-faults/fault-records.json`.
-  After the fix commit, run
+- Record each planted fault in its own file,
+  `tests/planted-faults/fault-records/<id>.json`. After the fix commit, run
   `bun run planted-fault:add <fix sha> <source path> <test file> <title>`,
   then `bun run fault-replay <id>` until it prints `KILLED`. Witnessed:
   [9050fec], [b8664cf] (each recorded faults for refusals that had landed

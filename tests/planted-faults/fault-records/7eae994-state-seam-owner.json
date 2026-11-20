@@ -1,0 +1,7 @@
+{
+  "id": "7eae994-state-seam-owner",
+  "patch": "tests/planted-faults/patches/7eae994-state-seam-owner.patch",
+  "testFile": "tests/kernel/state-seam.test.ts",
+  "title": "an attachment's forget never removes a later attachment",
+  "source": "7eae994 fix(kernel): let only the attachment that a run created forget it"
+}

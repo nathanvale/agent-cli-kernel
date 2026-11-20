@@ -1,0 +1,7 @@
+{
+  "id": "442de9a-swarm-process",
+  "patch": "tests/planted-faults/patches/442de9a-swarm-process.patch",
+  "testFile": "tests/kernel/diagnostics/cases.test.ts",
+  "title": "T5 test harness: a run past its bound fails with the output it wrote while",
+  "source": "442de9a test(kernel): bound the wait after a bound run's SIGKILL (GREEN)"
+}
