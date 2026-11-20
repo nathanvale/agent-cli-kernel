@@ -98,5 +98,6 @@
   "8309f88-eslint-rules-installed-owner": 7.9,
   "8309f88-eslint-rules-entry-missing": 2.6,
   "8309f88-eslint-rules-no-export": 2.8,
-  "8309f88-eslint-rules-no-code": 2.4
+  "8309f88-eslint-rules-no-code": 2.4,
+  "1b72951-eslint-rules-cause-keys": 2.4
 }
