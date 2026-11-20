@@ -78,7 +78,7 @@ test("GM.i an owner row with no name, or a second row for one owner, fails", () 
   const rows = ownedMap([
     "|  | Words | [GLOSSARY.md](GLOSSARY.md) |",
     "| Kernel | Words | [here](GLOSSARY.md) |",
-    "| kernel | More words | [there](AGENTS.md) |",
+    "| kernel | No word | [there](AGENTS.md) |",
   ]);
   expect(mapProblems(rows, root)).toEqual([
     "GLOSSARY-MAP.md has a row with no owner name in its first cell. Repair: name the glossary or project that owns those words.",
@@ -97,6 +97,23 @@ test("GM.j an owner whose glossary file defines no term fails", () => {
   ).toEqual([
     'GLOSSARY-MAP.md makes "Kernel" the owner of GLOSSARY.md, which defines no term. Repair: point the row at the glossary that defines its words.',
   ]);
+});
+
+test("GM.k a glossary row whose target is not a GLOSSARY.md file fails, unless it owns no word", () => {
+  expect(
+    mapProblems(
+      ownedMap(["| Kernel | Kernel words | [here](package.json) |"]),
+      root,
+    ),
+  ).toEqual([
+    'GLOSSARY-MAP.md makes "Kernel" the owner of package.json, which is not a GLOSSARY.md file. Repair: point the row at the glossary that defines its words, or begin its Owns cell with "No word".',
+  ]);
+  expect(
+    mapProblems(
+      ownedMap(["| Kernel | No word. A copy | [here](package.json) |"]),
+      root,
+    ),
+  ).toEqual([]);
 });
 
 test("GM.b a map that points to no file fails", () => {
