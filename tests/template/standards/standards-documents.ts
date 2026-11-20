@@ -199,19 +199,18 @@ function citationsIn(file: string, text: string, history: Ancestry): string[] {
 
 export function faultRecords(
   repository: string,
-): { file: string; id?: string; source?: string }[] {
+): { file: string; id: string | undefined; source: string | undefined }[] {
   const folder = join(repository, recordsPath);
   if (!existsSync(folder)) return [];
   return readdirSync(folder)
     .filter((name) => name.endsWith(".json"))
     .toSorted()
-    .map((name) => ({
-      file: `${recordsPath}/${name}`,
-      ...(JSON.parse(readFileSync(join(folder, name), "utf8")) as {
-        id?: string;
-        source?: string;
-      }),
-    }));
+    .map((name) => {
+      const { id, source } = JSON.parse(
+        readFileSync(join(folder, name), "utf8"),
+      ) as { id?: string; source?: string };
+      return { file: `${recordsPath}/${name}`, id, source };
+    });
 }
 
 function faultSourceProblems(repository: string, history: Ancestry): string[] {

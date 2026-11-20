@@ -23,6 +23,16 @@ import { gitOutput, commit } from "../../support/git-fixture.ts";
 const { faultReplay, folder, repositoryWithFault } =
   createPlantedFaultFixture();
 
+function recordTexts(root: string): Record<string, string> {
+  const folder = join(root, recordsPath);
+  return Object.fromEntries(
+    readdirSync(folder).map((name) => [
+      name,
+      readFileSync(join(folder, name), "utf8"),
+    ]),
+  );
+}
+
 describe("bun run fault-replay", () => {
   test(
     "FR.a planted-fault:add stores the fix's reverse hunk, and the fault is KILLED with exit 0",
@@ -322,13 +332,13 @@ describe("bun run fault-replay", () => {
     "FR.i planted-fault:add refuses a source path the fix does not change, and writes nothing",
     async () => {
       const { root, fix } = await repositoryWithFault({});
-      const before = readdirSync(join(root, recordsPath));
+      const before = recordTexts(root);
       const added = await addFault(root, fix, "package.json");
       expect(added.stderr).toBe(
         `${fix} does not change package.json. Repair: pass a path that git diff --name-only ${fix}^ ${fix} lists.\n`,
       );
       expect(added.exit).toBe(2);
-      expect(readdirSync(join(root, recordsPath))).toEqual(before);
+      expect(recordTexts(root)).toEqual(before);
       expect(readdirSync(join(root, "tests/planted-faults/patches"))).toEqual([
         `${fix}-limit.patch`,
       ]);
@@ -360,7 +370,7 @@ describe("bun run fault-replay", () => {
             refusalTest.replace("must be", "has to be"),
           ),
         });
-        const before = readdirSync(join(root, recordsPath));
+        const before = recordTexts(root);
         const added = await addFault(
           root,
           reworded,
@@ -370,7 +380,7 @@ describe("bun run fault-replay", () => {
         );
         expect(added.stderr).toBe(`${refusal}\n`);
         expect(added.exit).toBe(2);
-        expect(readdirSync(join(root, recordsPath))).toEqual(before);
+        expect(recordTexts(root)).toEqual(before);
         expect(readdirSync(join(root, "tests/planted-faults/patches"))).toEqual(
           [`${id}.patch`],
         );

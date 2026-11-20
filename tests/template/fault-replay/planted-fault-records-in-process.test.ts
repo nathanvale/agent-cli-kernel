@@ -87,7 +87,10 @@ describe("readRecords", () => {
 
   test("refuses a file in the records folder that is not a .json record, naming it", () => {
     const root = recordsIn(
-      { [sampleFile]: text(sample), [`${recordsPath}/notes.txt`]: "x" },
+      {
+        [sampleFile]: text(sample),
+        [`${recordsPath}/notes.txt`]: text({ ...sample, id: "notes" }),
+      },
       ["tests/limit.test.ts"],
     );
 
@@ -98,9 +101,17 @@ describe("readRecords", () => {
 
   test("refuses a record file that is not JSON, naming the file", () => {
     const root = recordsIn({ [sampleFile]: "not json" });
+    const parserSays = (() => {
+      try {
+        JSON.parse("not json");
+      } catch (error) {
+        return error instanceof Error ? error.message : String(error);
+      }
+      throw new Error("JSON.parse accepted 'not json'.");
+    })();
 
     expect(() => readRecords(root)).toThrow(
-      `${sampleFile} is not one JSON fault record: JSON Parse error`,
+      `${sampleFile} is not one JSON fault record: ${parserSays}. Repair: write one JSON object with the five record fields.`,
     );
   });
 
@@ -147,10 +158,10 @@ describe("readRecords", () => {
     ]);
 
     expect(() => readRecords(empty)).toThrow(
-      `${sampleFile} needs a non-empty string title.`,
+      `${sampleFile} needs a non-empty string title. Repair: name the bun test -t pattern that selects the test that kills the planted fault.`,
     );
     expect(() => readRecords(number)).toThrow(
-      `${sampleFile} needs a non-empty string patch.`,
+      `${sampleFile} needs a non-empty string patch. Repair: name the planted fault's patch under tests/planted-faults/patches.`,
     );
   });
 
@@ -163,7 +174,7 @@ describe("readRecords", () => {
     const root = recordsIn({ [sampleFile]: entry });
 
     expect(() => readRecords(root)).toThrow(
-      `${sampleFile} needs a non-empty string id.`,
+      `${sampleFile} needs a non-empty string id. Repair: name it <fix short sha>-<source file name>.`,
     );
   });
 

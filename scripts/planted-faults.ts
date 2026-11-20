@@ -141,9 +141,10 @@ function readRecord(root: string, name: string): Fault {
     throw new Error(
       `${where} is not a fault record file. Repair: name each record <id>${recordExtension}, and keep nothing else in ${recordsPath}.`,
     );
+  const text = readFileSync(join(root, where), "utf8");
   let entry: unknown;
   try {
-    entry = JSON.parse(readFileSync(join(root, where), "utf8"));
+    entry = JSON.parse(text);
   } catch (error) {
     throw new Error(
       `${where} is not one JSON fault record: ${error instanceof Error ? error.message : String(error)}. Repair: write one JSON object with the five record fields.`,
