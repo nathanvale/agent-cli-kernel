@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { join, resolve } from "node:path";
+import { spawnBounded } from "../../support/process.ts";
 
 type Step = {
   uses?: string;
@@ -97,6 +98,31 @@ describe("the carried verdict in ci.yml", () => {
       CARRY: "${{ needs.commits-carry.result }}",
       SHARDS: "${{ needs.commits-shard.result }}",
     });
+  });
+
+  test("commits runs even when a part failed or was skipped, so it can fail", () => {
+    expect(job("commits").if).toMatch(/^always\(\) && /);
+  });
+
+  test("the commits gate passes only when commits-carry and the parts both succeeded", async () => {
+    const script = job("commits").steps[0]?.run ?? "";
+    const exits = [];
+    for (const [carry, shards] of [
+      ["success", "success"],
+      ["failure", "success"],
+      ["success", "failure"],
+      ["skipped", "success"],
+      ["success", "cancelled"],
+    ])
+      exits.push(
+        (
+          await spawnBounded(["bash", "-e", "-c", script], {
+            env: { PATH: process.env.PATH, CARRY: carry, SHARDS: shards },
+          })
+        ).exit,
+      );
+
+    expect(exits).toEqual([0, 1, 1, 1, 1]);
   });
 
   test("every job that runs Bun for commits turns off the setup-bun binary cache", () => {
