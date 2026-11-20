@@ -111,6 +111,11 @@ this file.
   stale, not as the later state. Witnessed: [kernel#18 r4625574054],
   [4f7712e] (a case completed after the caller's read refused as a
   conflict, "already has a different closure").
+- Expect an order in a result only when the test fixes every input that
+  sets it; an id built from a fixture commit's SHA sorts differently from
+  run to run. Witnessed: [8cbec55] (a `faultsTouchedSince` case expected
+  `[id, other.id]`, and once fault records came back in id order, a SHA
+  that sorted after the other record's id reversed it; Sol 6.1 review).
 
 [ac11ed9]: https://github.com/nathanvale/bun-typescript-template/commit/ac11ed98b7d538e8a304cac053aaefcaaf6b2cb3
 [cd2498b]: https://github.com/nathanvale/bun-typescript-template/commit/cd2498b7189a2d45d1906b9c870e8d13da6cd2dd
@@ -143,3 +148,4 @@ this file.
 [d37a77f]: https://github.com/nathanvale/agent-cli-kernel/commit/d37a77ffc6f8f62c9c89fca2b35e8b16446ef694
 [kernel#18 r4625574054]: https://github.com/nathanvale/agent-cli-kernel/pull/18#discussion_r4625574054
 [4f7712e]: https://github.com/nathanvale/agent-cli-kernel/commit/4f7712e80e9ea127b4bf43b7d9f69e8cd6a8954a
+[8cbec55]: https://github.com/nathanvale/agent-cli-kernel/commit/8cbec55e65afbbba5650d447e00cac40ce0e01c3
