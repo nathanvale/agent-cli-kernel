@@ -3407,5 +3407,12 @@
     "testFile": "tests/kernel/generated-repository-lint.test.ts",
     "title": "a kernel entry that exports a commonCauses whose keys are not cause codes fails loudly instead of passing every cause literal",
     "source": "1b72951 fix(lint): count only cause-code keys when cause-literal-owner reads its owner"
+  },
+  {
+    "id": "79431f5-eslint-rules-owner-repair",
+    "patch": "tests/planted-faults/patches/79431f5-eslint-rules-owner-repair.patch",
+    "testFile": "tests/kernel/generated-repository-lint.test.ts",
+    "title": "a kernel entry that is missing fails loudly instead of passing every cause literal",
+    "source": "79431f5 test(kernel): assert each cause owner refusal in full"
   }
 ]
