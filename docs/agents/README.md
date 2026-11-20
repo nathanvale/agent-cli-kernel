@@ -4,6 +4,8 @@
   [CLI kernel authority and record owners](cli-kernel.md).
 - For opening, reviewing, or merging a pull request, use the
   [pull request workflow](pull-requests.md).
+- For changing the author skill that ships in the package, or a red
+  `author-guide` test, use the [author guide upkeep](author-guide.md).
 - For choosing a test area or reproducing a failed hosted check, use
   [Checks](#checks).
 

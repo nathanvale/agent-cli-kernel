@@ -18,16 +18,22 @@ is in the [test harness guide](test-harness.md).
   [r4624964198], [198f6ba] (a test that read the boot identity file itself
   still expected `ENOENT`, so another read failure failed it and a refusal
   that also named the filesystem passed; the fix expects the reason the test
-  observed, and the boot identity as the only field that differs).
+  observed, and the boot identity as the only field that differs),
+  [f8ff37f] (the author guide's brace case matched its error by substring
+  with `toThrow`, and searched its own expected string for a station name).
 - Assert the route's response when a test says a command remains available.
   Exit zero with empty output can pass without a response. Witnessed:
   [#90-routes].
 - Shape the input so only the named guard can refuse it. An earlier parse or
   build check, or a neighbouring cap at the same limit, keeps the test green
-  with the named guard removed. Witnessed: [640ba05], [96ab832], [c193c51].
+  with the named guard removed. Witnessed: [640ba05], [96ab832], [c193c51],
+  [f8ff37f] (an equals-sign option case used a required option, so a
+  missing-option refusal could also have failed it).
 - Control each side of a boundary: the last admitted and the first refused
   value or case. Checks further out stay green under an off-by-one limit.
-  Witnessed: [e07d962], [d72cd9e].
+  Witnessed: [e07d962], [d72cd9e], [3567a81] (the author guide's example
+  document case refused a document with no section, and not one that
+  showed one file of two or repeated one).
 - Pin a bound with a tolerance tighter than the fault it must catch. A
   first-signal kill at 550 ms passed a 500 ms bound plus its tolerance.
   Witnessed: [b8760b4], [8485278], [aa161e5] (a lower bound only, so a late
@@ -46,6 +52,13 @@ is in the [test harness guide](test-harness.md).
   [4ca0141] (the installed cause case expected no finding in
   `src/app/typed.ts` and passed if ESLint skipped that file; it now
   asserts both files were linted).
+- Assert all of what the title names. A prefix of the output passes with the
+  rest missing, and a path that exists passes for a folder where the title
+  says file. Witnessed: [ff0616c] (the author guide's plain-text case
+  checked only the first line), [0463f35] (its link case accepted a link to
+  a folder), [3567a81] (its case titled "its own tests pass, in process and
+  through its real entry file" counted results, and a pin for a sentence
+  naming two usage refusals checked one).
 - Prove that a fixture meant to lack something lacks it, and fail loudly
   when its location supplies it. `STATE_TEST_DIR` can place a test folder
   inside the checkout, where git finds the parent repository for a case that
@@ -101,7 +114,9 @@ is in the [test harness guide](test-harness.md).
   `bun run planted-fault:add <fix sha> <source path> <test file> <title>`,
   then `bun run fault-replay <id>` until it prints `KILLED`. Witnessed:
   [9050fec], [b8664cf] (each recorded faults for refusals that had landed
-  with no record).
+  with no record), [86749b9] (so did the author skill's eight), [848b6de] (two
+  gate checks ran only on the real documents, so a fault that dropped them
+  could not fail).
 - Replay affected fault records when you edit or move a test that catches
   a planted fault, or change the source its patch targets. Keep the patch
   and test selector current in the same commit and require `KILLED`.
@@ -184,3 +199,9 @@ is in the [test harness guide](test-harness.md).
 [b146440]: https://github.com/nathanvale/agent-cli-kernel/commit/b146440b8fd1075791ee997ca93c59f410b9e978
 [4ca0141]: https://github.com/nathanvale/agent-cli-kernel/commit/4ca014175963a134a585af49006a56d374700e33
 [1b72951]: https://github.com/nathanvale/agent-cli-kernel/commit/1b72951c42401d2567bec8327ab2726f3852fd95
+[f8ff37f]: https://github.com/nathanvale/agent-cli-kernel/commit/f8ff37f4e31d26ce34fcc4e5b0467a2a5ed013f3
+[ff0616c]: https://github.com/nathanvale/agent-cli-kernel/commit/ff0616cd9c3310bf1170e28308c3c748353fc57b
+[0463f35]: https://github.com/nathanvale/agent-cli-kernel/commit/0463f35b14fd6aadced45cab40b44436fb480b33
+[86749b9]: https://github.com/nathanvale/agent-cli-kernel/commit/86749b9a2dd7b2295a2405513d75299b14550db3
+[3567a81]: https://github.com/nathanvale/agent-cli-kernel/commit/3567a8125e36f43eb6b3f448a5f51fb122090536
+[848b6de]: https://github.com/nathanvale/agent-cli-kernel/commit/848b6de1e7b9bc0792a8ea70f6604f700a09229d

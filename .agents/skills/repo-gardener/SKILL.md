@@ -50,10 +50,12 @@ A lint rule's owner determines where to define, enable, and test it.
 - A rule both owners need has one copy per owner. Change both copies to
   the same text, with a case in each owner's cases file.
 - `eslint-rules.mjs` re-exports the kernel's rule file, and
-  `config/kernel-lint.mjs` passes this repository's folders to the kernel's
-  stamped lint. Leave both unchanged.
-- Rules stamped into generated repositories live in `kernel/config/kernel/`,
-  outside the write scope. Report a change there for the code owner.
+  `config/kernel-lint.mjs` passes this repository's folders to
+  `kernelLint`, the lint that generated repositories run from the installed
+  kernel. Leave both unchanged.
+- Rules that generated repositories run from the installed kernel live in
+  `kernel/config/kernel/`, outside the write scope. Report a change there for
+  the code owner.
 
 ## Write scope
 

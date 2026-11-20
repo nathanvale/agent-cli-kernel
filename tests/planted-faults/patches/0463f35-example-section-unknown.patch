@@ -1,0 +1,14 @@
+diff --git a/tests/kernel/author-guide/example-document.ts b/tests/kernel/author-guide/example-document.ts
+index b6f4a75..ff39372 100644
+--- a/tests/kernel/author-guide/example-document.ts
++++ b/tests/kernel/author-guide/example-document.ts
+@@ -22,7 +22,8 @@ export function exampleDocument(
+   const shown: string[] = [];
+   const written = current.replace(section, (_whole, path: string) => {
+     const text = files.get(path);
+-    if (text === undefined)
++    if (text === undefined) return _whole;
++    if (text === null)
+       throw new Error(
+         `references/example.md has a section for ${path}, which is no example file. Repair: name one of ${[...files.keys()].join(", ")}, or delete the section.`,
+       );

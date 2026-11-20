@@ -139,6 +139,10 @@ this file.
   of coercing it, so an unexpected value cannot pass for an expected one.
   Witnessed: [4ca0141] (`String(message.ruleId)` would have read any rule id
   value as text, and a result with no messages skipped its path check).
+- Declare a script that people or a document run by path as a runtime root
+  in `.fallowrc.json` `entry`, so a dead-code report on it reads as a
+  missing root. Witnessed: [39d64c3] (the author guide's writer lost its root
+  when its `package.json` script was dropped).
 
 [ac11ed9]: https://github.com/nathanvale/bun-typescript-template/commit/ac11ed98b7d538e8a304cac053aaefcaaf6b2cb3
 [cd2498b]: https://github.com/nathanvale/bun-typescript-template/commit/cd2498b7189a2d45d1906b9c870e8d13da6cd2dd
@@ -181,3 +185,4 @@ this file.
 [r4638567003]: https://github.com/nathanvale/bun-typescript-template/pull/116#discussion_r4638567003
 [096c862]: https://github.com/nathanvale/agent-cli-kernel/commit/096c862356a1b827bdf10d860ec5d4bd33797c1d
 [4ca0141]: https://github.com/nathanvale/agent-cli-kernel/commit/4ca014175963a134a585af49006a56d374700e33
+[39d64c3]: https://github.com/nathanvale/agent-cli-kernel/commit/39d64c307e73a6153c572d6259df791e779efc4e

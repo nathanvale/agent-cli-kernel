@@ -1,0 +1,65 @@
+import { expect, setDefaultTimeout, test } from "bun:test";
+import { join } from "node:path";
+
+const cli = join(import.meta.dir, "../src/cli.ts");
+
+setDefaultTimeout(30_000);
+
+function invoke(...argv: string[]) {
+  const ran = Bun.spawnSync([process.execPath, cli, ...argv], {
+    timeout: 20_000,
+  });
+  return {
+    exitCode: ran.exitCode,
+    stdout: ran.stdout.toString(),
+    stderr: ran.stderr.toString(),
+  };
+}
+
+test("show --json writes one envelope to stdout and exits 0", () => {
+  const ran = invoke("show", "mars", "--json");
+  const envelope: unknown = JSON.parse(ran.stdout);
+  expect(ran.exitCode).toBe(0);
+  expect(ran.stderr).toBe("");
+  expect(envelope).toMatchObject({
+    contractVersion: "3.0.0",
+    result: {
+      commandIdentity: "moons.show",
+      causeCode: "SUCCESS_UNCHANGED",
+      data: { planet: "mars", moons: 2 },
+    },
+  });
+});
+
+test("show without --json prints the message, then the data", () => {
+  const ran = invoke("show", "mars");
+  expect(ran.exitCode).toBe(0);
+  expect(ran.stdout).toBe(
+    [
+      "mars has 2 moons.",
+      "{",
+      '  "planet": "mars",',
+      '  "moons": 2',
+      "}",
+      "",
+    ].join("\n"),
+  );
+});
+
+test("a refusal exits with its cause's code and writes one line to stderr", () => {
+  const ran = invoke("show", "pluto");
+  expect(ran.exitCode).toBe(3);
+  expect(ran.stdout).toBe("");
+  expect(ran.stderr).toBe(
+    "moons: No planet named pluto. [DOMAIN_MOONS_UNKNOWN_PLANET]\n",
+  );
+});
+
+test("list runs through the real entry", () => {
+  const ran = invoke("list", "--at-least", "1", "--json");
+  const envelope: unknown = JSON.parse(ran.stdout);
+  expect(ran.exitCode).toBe(0);
+  expect(envelope).toMatchObject({
+    result: { data: { planets: ["earth", "mars"] } },
+  });
+});

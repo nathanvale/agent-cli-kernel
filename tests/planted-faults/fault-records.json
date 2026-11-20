@@ -3276,6 +3276,90 @@
     "source": "e1aeba2 fix(kernel): start the pattern worker from a blob URL so a binary checks patterns"
   },
   {
+    "id": "0463f35-guide-fence-unclosed",
+    "patch": "tests/planted-faults/patches/0463f35-guide-fence-unclosed.patch",
+    "testFile": "tests/kernel/author-guide/author-guide.test.ts",
+    "title": "a code block that never closes is refused",
+    "source": "0463f35 docs(kernel): ship the author guide as the skill agent-cli-kernel"
+  },
+  {
+    "id": "0463f35-guide-fence-kinds",
+    "patch": "tests/planted-faults/patches/0463f35-guide-fence-kinds.patch",
+    "testFile": "tests/kernel/author-guide/author-guide.test.ts",
+    "title": "tilde and longer fences are read as code blocks",
+    "source": "0463f35 docs(kernel): ship the author guide as the skill agent-cli-kernel"
+  },
+  {
+    "id": "0463f35-guide-empty-block",
+    "patch": "tests/planted-faults/patches/0463f35-guide-empty-block.patch",
+    "testFile": "tests/kernel/author-guide/author-guide.test.ts",
+    "title": "a ts block with no code is held by no example file",
+    "source": "0463f35 docs(kernel): ship the author guide as the skill agent-cli-kernel"
+  },
+  {
+    "id": "0463f35-guide-link-folder",
+    "patch": "tests/planted-faults/patches/0463f35-guide-link-folder.patch",
+    "testFile": "tests/kernel/author-guide/author-guide.test.ts",
+    "title": "every local link in a skill document names a file, not a folder",
+    "source": "0463f35 docs(kernel): ship the author guide as the skill agent-cli-kernel"
+  },
+  {
+    "id": "0463f35-guide-link-outside",
+    "patch": "tests/planted-faults/patches/0463f35-guide-link-outside.patch",
+    "testFile": "tests/kernel/author-guide/author-guide.test.ts",
+    "title": "every local link in a skill document names a file, not a folder",
+    "source": "0463f35 docs(kernel): ship the author guide as the skill agent-cli-kernel"
+  },
+  {
+    "id": "0463f35-example-section-unknown",
+    "patch": "tests/planted-faults/patches/0463f35-example-section-unknown.patch",
+    "testFile": "tests/kernel/author-guide/author-guide.test.ts",
+    "title": "references/example\\.md is refused when it has a section for a file",
+    "source": "0463f35 docs(kernel): ship the author guide as the skill agent-cli-kernel"
+  },
+  {
+    "id": "0463f35-example-section-missing",
+    "patch": "tests/planted-faults/patches/0463f35-example-section-missing.patch",
+    "testFile": "tests/kernel/author-guide/author-guide.test.ts",
+    "title": "references/example\\.md is refused when it has a section for a file",
+    "source": "0463f35 docs(kernel): ship the author guide as the skill agent-cli-kernel"
+  },
+  {
+    "id": "ff0616c-example-file-ending",
+    "patch": "tests/planted-faults/patches/ff0616c-example-file-ending.patch",
+    "testFile": "tests/kernel/author-guide/author-guide.test.ts",
+    "title": "an example file stored without the \\.txt ending is refused",
+    "source": "ff0616c test(author-guide): prove an example CLI as a repository that depends on the kernel"
+  },
+  {
+    "id": "0463f35-example-section-repeated",
+    "patch": "tests/planted-faults/patches/0463f35-example-section-repeated.patch",
+    "testFile": "tests/kernel/author-guide/author-guide.test.ts",
+    "title": "references/example\\.md is refused when it has a section for a file",
+    "source": "0463f35 docs(kernel): ship the author guide as the skill agent-cli-kernel"
+  },
+  {
+    "id": "0463f35-example-document-unchanged",
+    "patch": "tests/planted-faults/patches/0463f35-example-document-unchanged.patch",
+    "testFile": "tests/kernel/author-guide/author-guide.test.ts",
+    "title": "references/example\\.md is refused when it has a section for a file",
+    "source": "0463f35 docs(kernel): ship the author guide as the skill agent-cli-kernel"
+  },
+  {
+    "id": "3567a81-guide-uncopied-blocks",
+    "patch": "tests/planted-faults/patches/3567a81-guide-uncopied-blocks.patch",
+    "testFile": "tests/kernel/author-guide/author-guide.test.ts",
+    "title": "every ts block in every skill document is copied from an example file",
+    "source": "3567a81 test(author-guide): settle the code review of the author skill's gate"
+  },
+  {
+    "id": "3567a81-guide-unlabelled-blocks",
+    "patch": "tests/planted-faults/patches/3567a81-guide-unlabelled-blocks.patch",
+    "testFile": "tests/kernel/author-guide/author-guide.test.ts",
+    "title": "every code block is ts or the example's transcript",
+    "source": "3567a81 test(author-guide): settle the code review of the author skill's gate"
+  },
+  {
     "id": "096c862-eslint-installed",
     "patch": "tests/planted-faults/patches/096c862-eslint-installed.patch",
     "testFile": "tests/kernel/pinned-commit.test.ts",

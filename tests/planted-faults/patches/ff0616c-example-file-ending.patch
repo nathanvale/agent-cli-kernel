@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/author-guide/example-files.ts b/tests/kernel/author-guide/example-files.ts
+index 939f4a4..f5e065c 100644
+--- a/tests/kernel/author-guide/example-files.ts
++++ b/tests/kernel/author-guide/example-files.ts
+@@ -16,7 +16,7 @@ export function exampleFiles(
+   return new Map(
+     treeFiles("**/*", folder)
+       .map((path): [string, string] => {
+-        if (!path.endsWith(stored))
++        if (path === "")
+           throw new Error(
+             `${path} is in the example folder without the ${stored} ending. Repair: store each example file as <path in a repository that depends on the kernel>${stored}.`,
+           );

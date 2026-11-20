@@ -163,7 +163,7 @@ file extensions in those directories.
   `repository` plugin.
 - The kernel lint rules and their recorded hits run from
   `config/kernel-repository-lint.mjs`.
-- `kernel/config/kernel/` is stamped, so it holds only the rules
-  `kernelLint` turns on. The kernel repository's own lint rules,
-  `no-comments` and the three test lint rules, live in
-  `config/kernel-repository-rules.mjs`.
+- `kernel/config/kernel/` reaches generated repositories in the installed
+  kernel, so it holds only the rules `kernelLint` turns on. The kernel
+  repository's own lint rules, `no-comments` and the three test lint rules,
+  live in `config/kernel-repository-rules.mjs`.
