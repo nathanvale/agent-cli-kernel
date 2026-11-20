@@ -27,6 +27,8 @@ is in the [test harness guide](test-harness.md).
   [8cbec55] (the record folder's refusal tests checked a prefix of the
   not-JSON message and left out repairs; the fix takes the parser's words
   from `JSON.parse`; Sol 6.1 review).
+- Name only behaviour a caller can observe. Witnessed: [911189b] (a test
+  asserted `readTimings`' map order, which nothing reads; Fable review).
 - Assert the route's response when a test says a command remains available.
   Exit zero with empty output can pass without a response. Witnessed:
   [#90-routes].
@@ -220,3 +222,4 @@ is in the [test harness guide](test-harness.md).
 [79431f5]: https://github.com/nathanvale/agent-cli-kernel/commit/79431f561abf1deecd55c9b1dcb91e8c1560f746
 [c5ce7de]: https://github.com/nathanvale/agent-cli-kernel/commit/c5ce7de4210286905ff472706c107b35e0ef42cb
 [8cbec55]: https://github.com/nathanvale/agent-cli-kernel/commit/8cbec55e65afbbba5650d447e00cac40ce0e01c3
+[911189b]: https://github.com/nathanvale/agent-cli-kernel/commit/911189bb75fa97d60acaacfba6034417522804aa
