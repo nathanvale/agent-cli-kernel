@@ -86,11 +86,6 @@
         "count": 1
       }
     },
-    "kernel/src/kernel/pattern-worker.ts": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
     "kernel/src/kernel/stations.ts": {
       "crap_moderate": {
         "count": 1
@@ -386,11 +381,6 @@
       }
     },
     "kernel/src/kernel/navigation.ts\u0000addEffectStations": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
-    "kernel/src/kernel/pattern-worker.ts\u0000<arrow>": {
       "crap_moderate": {
         "count": 1
       }

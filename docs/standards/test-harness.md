@@ -41,9 +41,12 @@ runs each test file. What a test must prove is in the
   guide's gate, a kernel test, used the template's `spawnBounded`).
 - In `finally` or per-case teardown, release the CLI, its ledgered children,
   then its temporary folders. Witnessed: [d592b6d], [70c7280], [#84-cleanup],
-  [#91-cleanup], [5533cd6], [ff0616c] (the author guide's gate lost its
-  temporary folder when the build that made it failed, since teardown read
-  the path from the failed build).
+  [#91-cleanup], [5533cd6], [e766237] (the pinned-commit binary case joined
+  its CLI runs with `Promise.all`, so one run passing its bound could fail
+  the case and let teardown remove the folder while another still ran; it
+  now waits for every run to settle), [ff0616c] (the author guide's gate
+  lost its temporary folder when the build that made it failed, since
+  teardown read the path from the failed build).
 - At teardown, send SIGKILL, and only to a pid still in its ledgered process
   group. Witnessed: [0ebe7cf], [1a29b19].
 
@@ -123,5 +126,6 @@ runs each test file. What a test must prove is in the
 [93dd83e]: https://github.com/nathanvale/agent-cli-kernel/commit/93dd83eec22f119674bddd8bed1f6f2e9c37bf48
 [kernel#48 review 5987095580]: https://github.com/nathanvale/agent-cli-kernel/pull/48#pullrequestreview-5987095580
 [fdfa794]: https://github.com/nathanvale/agent-cli-kernel/commit/fdfa7946a86df7fac0c9f29b454f3776efc8dcfe
+[e766237]: https://github.com/nathanvale/agent-cli-kernel/commit/e76623703cff72cc32c30a97164243e2cc86f255
 [ff0616c]: https://github.com/nathanvale/agent-cli-kernel/commit/ff0616cd9c3310bf1170e28308c3c748353fc57b
 [308d494]: https://github.com/nathanvale/agent-cli-kernel/commit/308d4943bbc78d9852e116ac334cb30c2b8d7a8b

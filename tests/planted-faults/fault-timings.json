@@ -91,5 +91,6 @@
   "95c61a4-capability-qualification-run-git-bound-size": 3.6,
   "79af2d6-capability-qualification-record-git-bound": 5.5,
   "4fc11f9-probes.test": 3.7,
-  "16ca937-spawn-bounded.test": 3.1
+  "16ca937-spawn-bounded.test": 3.1,
+  "e1aeba2-input": 7.8
 }
