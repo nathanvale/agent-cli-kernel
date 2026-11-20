@@ -1,0 +1,7 @@
+{
+  "id": "0463f35-example-document-unchanged",
+  "patch": "tests/planted-faults/patches/0463f35-example-document-unchanged.patch",
+  "testFile": "tests/kernel/author-guide/author-guide.test.ts",
+  "title": "references/example\\.md is refused when it has a section for a file",
+  "source": "0463f35 docs(kernel): ship the author guide as the skill agent-cli-kernel"
+}

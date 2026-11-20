@@ -1,0 +1,4 @@
+import { runProcess } from "agent-cli-kernel";
+import { contract } from "./commands.ts";
+
+await runProcess(contract)(process.argv.slice(2));
