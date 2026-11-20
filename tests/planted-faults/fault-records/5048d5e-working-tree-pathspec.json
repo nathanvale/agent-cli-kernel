@@ -1,0 +1,7 @@
+{
+  "id": "5048d5e-working-tree-pathspec",
+  "patch": "tests/planted-faults/patches/5048d5e-working-tree-pathspec.patch",
+  "testFile": "tests/kernel/pinned-commit.test.ts",
+  "title": "^the working-tree copy commits only the tracked files",
+  "source": "5048d5e test(kernel): stage only the tracked files the working-tree copy holds"
+}

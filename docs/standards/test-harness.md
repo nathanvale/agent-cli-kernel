@@ -25,6 +25,11 @@ runs each test file. What a test must prove is in the
   [kernel#18 r4625198722], [93dd83e] (K11.g and the other new state tests
   started their CLI children with no time limit; the state test harness
   now gives every `world.start` a 60 s default bound).
+- Give a test or a setup hook a timeout that covers the sum of the bounds of
+  every child it runs in sequence, not only the largest one. Witnessed:
+  [kernel#48 review 5987095580], [fdfa794] (setup reserved 60 s for a copy
+  that ran two git staging calls bounded at 60 s each, and the copy test ran
+  on the default timeout).
 - Template tests: reuse `spawnBounded` (`tests/support/process.ts`), which
   runs the child through `startChild` (`scripts/process-runner.ts`), for that
   bound. Kernel tests: reuse `spawnBounded`
@@ -110,3 +115,5 @@ runs each test file. What a test must prove is in the
 [9086c3b]: https://github.com/nathanvale/agent-cli-kernel/commit/9086c3b8b14bcba376aa63027abdd817c1495e53
 [kernel#18 r4625198722]: https://github.com/nathanvale/agent-cli-kernel/pull/18#discussion_r4625198722
 [93dd83e]: https://github.com/nathanvale/agent-cli-kernel/commit/93dd83eec22f119674bddd8bed1f6f2e9c37bf48
+[kernel#48 review 5987095580]: https://github.com/nathanvale/agent-cli-kernel/pull/48#pullrequestreview-5987095580
+[fdfa794]: https://github.com/nathanvale/agent-cli-kernel/commit/fdfa7946a86df7fac0c9f29b454f3776efc8dcfe

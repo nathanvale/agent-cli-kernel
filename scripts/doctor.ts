@@ -1,7 +1,8 @@
 import { existsSync } from "node:fs";
 import { availableParallelism, loadavg } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { resolveToolchain } from "../src/toolchain-resolution.ts";
+import { withoutRepositoryLocation } from "./process-runner.ts";
 
 export type Finding = {
   status: "ok" | "FAIL" | "WARN";
@@ -168,12 +169,104 @@ function hostLoad(): Finding {
   return { status: "ok", check: "load", detail: `${summary}.` };
 }
 
+const hooksFolder = ".githooks";
+const gitMilliseconds = 4_000;
+
+type GitRead =
+  | { readonly launched: false; readonly reason: string }
+  | {
+      readonly launched: true;
+      readonly timedOut: boolean;
+      readonly exitCode: number | null;
+      readonly value: string;
+      readonly reason: string;
+    };
+
+function gitRead(root: string, args: readonly string[]): GitRead {
+  let result;
+  try {
+    result = Bun.spawnSync(["git", "-C", root, ...args], {
+      env: withoutRepositoryLocation(process.env),
+      stdout: "pipe",
+      stderr: "pipe",
+      timeout: gitMilliseconds,
+      killSignal: "SIGKILL",
+    });
+  } catch (error) {
+    return {
+      launched: false,
+      reason: error instanceof Error ? error.message : String(error),
+    };
+  }
+  return {
+    launched: true,
+    timedOut: result.exitedDueToTimeout === true,
+    exitCode: result.exitCode,
+    value: result.stdout.toString().replace(/\n$/, ""),
+    reason: result.stderr.toString().trim(),
+  };
+}
+
+function hooksUnread(why: string): Finding {
+  return {
+    status: "WARN",
+    check: "hooks",
+    detail: `${why}, so whether this checkout's hooks run is unknown. Repair: run git config --get core.hooksPath in the repository root to see why.`,
+  };
+}
+
+export function hooks(root: string): Finding {
+  if (!existsSync(join(root, hooksFolder)))
+    return {
+      status: "ok",
+      check: "hooks",
+      detail: `no ${hooksFolder} folder, so no repository hooks apply.`,
+    };
+  const checkout = gitRead(root, ["rev-parse", "--show-toplevel"]);
+  if (!checkout.launched)
+    return hooksUnread(`git could not start (${checkout.reason})`);
+  if (checkout.timedOut)
+    return hooksUnread(`git did not answer within ${gitMilliseconds} ms`);
+  if (checkout.exitCode !== 0 && /not a git repository/.test(checkout.reason))
+    return {
+      status: "ok",
+      check: "hooks",
+      detail: "not a git checkout, so no git hooks apply.",
+    };
+  if (checkout.exitCode !== 0)
+    return hooksUnread(
+      `git rev-parse --show-toplevel exited ${String(checkout.exitCode)} (${checkout.reason})`,
+    );
+  const read = gitRead(root, ["config", "--path", "--get", "core.hooksPath"]);
+  if (!read.launched)
+    return hooksUnread(`git could not start (${read.reason})`);
+  if (read.timedOut)
+    return hooksUnread(`git did not answer within ${gitMilliseconds} ms`);
+  if (read.exitCode !== 0 && read.exitCode !== 1)
+    return hooksUnread(
+      `git config --get core.hooksPath exited ${String(read.exitCode)} (${read.reason})`,
+    );
+  const { value } = read;
+  if (value !== "" && resolve(root, value) === resolve(root, hooksFolder))
+    return {
+      status: "ok",
+      check: "hooks",
+      detail: `core.hooksPath runs this checkout's ${hooksFolder}.`,
+    };
+  return {
+    status: "WARN",
+    check: "hooks",
+    detail: `core.hooksPath is ${value === "" ? "not set" : value}, so this checkout's pre-commit and pre-push hooks do not run. Repair: git config core.hooksPath ${hooksFolder}.`,
+  };
+}
+
 export async function doctor(root: string): Promise<boolean> {
   const installed = toolchain(root);
   const findings = [
     await bunVersion(root),
     installed,
     ...(installed.status === "ok" ? [fallowReadiness(root)] : []),
+    hooks(root),
     hostLoad(),
   ];
   for (const { status, check, detail } of findings)

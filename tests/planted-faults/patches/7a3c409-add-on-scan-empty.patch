@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/add-on-boundary.test.ts b/tests/kernel/add-on-boundary.test.ts
+index c8f8bb3..2deaf4a 100644
+--- a/tests/kernel/add-on-boundary.test.ts
++++ b/tests/kernel/add-on-boundary.test.ts
+@@ -10,7 +10,7 @@ function addOnImports(root: string): readonly string[] {
+   const kernel = join(root, "kernel/src/kernel");
+   const addons = join(root, "kernel/src/addons");
+   const files = [...new Bun.Glob("**/*.{ts,mts,cts}").scanSync(kernel)].sort();
+-  if (files.length === 0)
++  if (files.length < 0)
+     throw new Error(
+       `The add-on import scan found no file under kernel/src/kernel in ${root}, so it would check nothing.`,
+     );

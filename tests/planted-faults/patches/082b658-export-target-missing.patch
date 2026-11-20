@@ -1,0 +1,13 @@
+diff --git a/package.json b/package.json
+index 96d5508..60a6683 100644
+--- a/package.json
++++ b/package.json
+@@ -8,7 +8,7 @@
+     "./addons/approval": "./kernel/src/addons/approval/index.ts",
+     "./addons/diagnostics": "./kernel/src/addons/diagnostics/index.ts",
+     "./addons/programs": "./kernel/src/addons/programs/index.ts",
+-    "./addons/state": "./kernel/src/addons/state/index.ts",
++    "./addons/state": "./kernel/src/addons/state/missing.ts",
+     "./lint": "./kernel/config/kernel/eslint.mjs",
+     "./lint-rules": "./kernel/config/kernel/eslint-rules.mjs",
+     "./kernel-declaration.json": "./kernel/config/kernel/kernel-declaration.json",

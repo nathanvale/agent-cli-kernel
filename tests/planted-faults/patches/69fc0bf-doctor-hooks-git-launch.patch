@@ -1,0 +1,12 @@
+diff --git a/scripts/doctor.ts b/scripts/doctor.ts
+index b355d6b..4d1f5f1 100644
+--- a/scripts/doctor.ts
++++ b/scripts/doctor.ts
+@@ -193,6 +193,7 @@ function gitRead(root: string, args: readonly string[]): GitRead {
+       killSignal: "SIGKILL",
+     });
+   } catch (error) {
++    throw error;
+     return {
+       launched: false,
+       reason: error instanceof Error ? error.message : String(error),

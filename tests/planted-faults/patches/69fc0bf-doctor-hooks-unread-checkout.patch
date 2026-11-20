@@ -1,0 +1,13 @@
+diff --git a/scripts/doctor.ts b/scripts/doctor.ts
+index b355d6b..97f83a0 100644
+--- a/scripts/doctor.ts
++++ b/scripts/doctor.ts
+@@ -227,7 +227,7 @@ export function hooks(root: string): Finding {
+     return hooksUnread(`git could not start (${checkout.reason})`);
+   if (checkout.timedOut)
+     return hooksUnread(`git did not answer within ${gitMilliseconds} ms`);
+-  if (checkout.exitCode !== 0 && /not a git repository/.test(checkout.reason))
++  if (checkout.exitCode !== 0)
+     return {
+       status: "ok",
+       check: "hooks",
