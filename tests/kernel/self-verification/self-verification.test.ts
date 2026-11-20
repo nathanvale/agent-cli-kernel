@@ -216,6 +216,44 @@ describe("self-verification refuses what verify-cli reports, each with a repair"
     ]);
   });
 
+  test("a sweep or a report missing a field it must hold is refused, never read as empty", () => {
+    const repair = (command: string, name: string, kind: string) =>
+      `example: bun skills/verify-cli/verify.ts ${command}'s result holds no ${name} ${kind}. Repair: run bun skills/verify-cli/verify.ts ${command} --json by hand and repair verify-cli's output; a missing ${name} never reads as empty.`;
+    expect(
+      ownCliFailures(swept(envelope({ checks: 3 })), {
+        example: [],
+      }),
+    ).toEqual([repair("sweep", "owed", "list")]);
+    const report = reported({});
+    expect(
+      ownCliFailures(
+        {
+          ...report,
+          runs: [
+            {
+              command: "report",
+              ran: envelope({
+                stations: [
+                  { ...owed, state: "owed" },
+                  {
+                    command: "moons.show",
+                    cause: "SUCCESS_UNCHANGED",
+                    state: "driven",
+                  },
+                ],
+              }),
+            },
+          ],
+        },
+        recorded,
+      ),
+    ).toEqual([
+      repair("report", "findings", "number"),
+      repair("report", "unmet", "list"),
+      repair("report", "unconfirmed", "list"),
+    ]);
+  });
+
   test("a failed drive still lets the report's own failures through", () => {
     const report = reported({ findings: 1 });
     expect(

@@ -93,21 +93,43 @@ function runFailure(own: OwnCli, { command, ran }: OwnCliRun): string[] {
   return [];
 }
 
+function missingFields(
+  own: OwnCli,
+  command: string,
+  data: unknown,
+  fields: Readonly<Record<string, "list" | "number">>,
+): string[] {
+  return Object.entries(fields)
+    .filter(([name, kind]) =>
+      kind === "list"
+        ? !Array.isArray(field(data, name))
+        : typeof field(data, name) !== "number",
+    )
+    .map(
+      ([name, kind]) =>
+        `${own.name}: ${checkLine} ${command}'s result holds no ${name} ${kind}. Repair: run ${checkLine} ${command} --json by hand and repair verify-cli's output; a missing ${name} never reads as empty.`,
+    );
+}
+
 function sweepOwed(own: OwnCli, data: unknown) {
   const checks = field(data, "checks");
-  const failures =
-    typeof checks === "number" && checks > 0
-      ? []
-      : [
-          `${own.name}: the sweep ran no check. Repair: a sweep that checks nothing proves nothing; run ${checkLine} sweep ${own.entry} by hand and repair the target's discovery.`,
-        ];
+  const failures = missingFields(own, "sweep", data, { owed: "list" });
+  if (!(typeof checks === "number" && checks > 0))
+    failures.push(
+      `${own.name}: the sweep ran no check. Repair: a sweep that checks nothing proves nothing; run ${checkLine} sweep ${own.entry} by hand and repair the target's discovery.`,
+    );
   return { owed: listOf(field(data, "owed")).map(owedResult), failures };
 }
 
 function reportOwed(own: OwnCli, data: unknown) {
-  const failures: string[] = [];
+  const failures = missingFields(own, "report", data, {
+    findings: "number",
+    unmet: "list",
+    unconfirmed: "list",
+    stations: "list",
+  });
   const findings = field(data, "findings");
-  if (findings !== 0)
+  if (typeof findings === "number" && findings !== 0)
     failures.push(
       `${own.name}: the sweep found ${String(findings)} failed checks. Repair: run ${checkLine} findings ${own.entry} for the list, then repair the target or its declarations.`,
     );
