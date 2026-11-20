@@ -27,7 +27,9 @@ is in the [test harness guide](test-harness.md).
   [#90-routes].
 - Shape the input so only the named guard can refuse it. An earlier parse or
   build check, or a neighbouring cap at the same limit, keeps the test green
-  with the named guard removed. Witnessed: [640ba05], [96ab832], [c193c51].
+  with the named guard removed. Witnessed: [640ba05], [96ab832], [c193c51],
+  [8cbec55] (a file that was not `<id>.json` also held bad JSON; the fix
+  gives it a valid record; Sol 6.1 review).
 - Control each side of a boundary: the last admitted and the first refused
   value or case. Checks further out stay green under an off-by-one limit.
   Witnessed: [e07d962], [d72cd9e].
