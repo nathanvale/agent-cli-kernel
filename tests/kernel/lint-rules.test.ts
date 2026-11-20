@@ -98,7 +98,7 @@ const fixes = [
   },
   {
     rule: "no-in-operator",
-    filePath: "kernel/src/kernel/pattern-worker.ts",
+    filePath: "kernel/src/kernel/input.ts",
     failing: [
       "export const job = (value: unknown): readonly unknown[] =>",
       '  typeof value === "object" && value !== null && "pattern" in value && "input" in value',

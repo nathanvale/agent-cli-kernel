@@ -39,11 +39,6 @@
       "count": 15
     }
   },
-  "kernel/src/kernel/pattern-worker.ts": {
-    "repository/no-in-operator": {
-      "count": 2
-    }
-  },
   "kernel/src/kernel/validation/result.ts": {
     "repository/no-in-operator": {
       "count": 10

@@ -3267,5 +3267,12 @@
     "testFile": "tests/template/glossary/lint-rule-folder.test.ts",
     "title": "the glossary scan still lists a file whose name starts like a lint rule folder",
     "source": "7f15a16 test(glossary): skip only lint rule folders, not files that share their prefix"
+  },
+  {
+    "id": "e1aeba2-input",
+    "patch": "tests/planted-faults/patches/e1aeba2-input.patch",
+    "testFile": "tests/kernel/pinned-commit.test.ts",
+    "title": "the binary checks a pattern-checked option as the source run does: it accepts a matching name and refuses a mismatching one as a pattern mismatch",
+    "source": "e1aeba2 fix(kernel): start the pattern worker from a blob URL so a binary checks patterns"
   }
 ]
