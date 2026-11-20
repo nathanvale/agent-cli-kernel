@@ -36,13 +36,45 @@ export function ownedFolder(prefix: string): string {
   return folder;
 }
 
-export function releaseFifo(path: string): void {
-  const descriptor = openSync(path, constants.O_WRONLY | constants.O_NONBLOCK);
+function openWriter(path: string): number | undefined {
   try {
-    writeSync(descriptor, "go");
-  } finally {
-    closeSync(descriptor);
+    return openSync(path, constants.O_WRONLY | constants.O_NONBLOCK);
+  } catch (error) {
+    if (field(error, "code") === "ENXIO") return undefined;
+    throw error;
   }
+}
+
+export function releaseFifo(path: string): Promise<void> {
+  const started = Date.now();
+  return new Promise<void>((resolve, reject) => {
+    const poll = setInterval(() => {
+      let descriptor: number | undefined;
+      try {
+        descriptor = openWriter(path);
+      } catch (error) {
+        clearInterval(poll);
+        reject(error instanceof Error ? error : new Error(String(error)));
+        return;
+      }
+      if (descriptor !== undefined) {
+        clearInterval(poll);
+        try {
+          writeSync(descriptor, "go");
+        } finally {
+          closeSync(descriptor);
+        }
+        resolve();
+      } else if (Date.now() - started >= helperBound) {
+        clearInterval(poll);
+        reject(
+          new Error(
+            `No reader opened ${path} within ${String(helperBound)} ms.`,
+          ),
+        );
+      }
+    }, 5);
+  });
 }
 
 export function ledgeredPid(ledger: string): number {

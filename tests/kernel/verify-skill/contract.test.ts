@@ -2,12 +2,15 @@ import { afterAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 import { mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { spawnBounded } from "../kernel-repair/swarm-process.ts";
+import { alive } from "../lifecycle/harness.ts";
 import {
   field,
   helper,
   helperBound,
+  ledgeredPid,
   liarEntry,
   readJson,
+  releaseFifo,
   releaseWorlds,
   resultCause,
   targetEntry,
@@ -111,15 +114,20 @@ describe("the bounds drive keeps", () => {
       boundMilliseconds: helperBound,
     });
     expect(made.exit).toBe(0);
-    await helper(
-      at,
-      "drive",
-      "r1",
-      "stubborn",
-      JSON.stringify(["hold", join(at.repo, "ledger"), gate]),
-      "--timeout-ms",
-      "300",
-    );
+    const ledger = join(at.repo, "ledger");
+    try {
+      await helper(
+        at,
+        "drive",
+        "r1",
+        "stubborn",
+        JSON.stringify(["hold", ledger, gate]),
+        "--timeout-ms",
+        "300",
+      );
+    } finally {
+      if (alive(ledgeredPid(ledger))) await releaseFifo(gate);
+    }
     const kept = readJson(join(at.runs, "r1/evidence/stubborn.json"));
     expect(kept).toMatchObject({ timedOut: true, terminationConfirmed: true });
     expect(Number(field(kept, "elapsedMilliseconds"))).toBeLessThan(5_000);

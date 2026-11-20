@@ -50,7 +50,7 @@ describe("the helper's state", () => {
           cause: "DOMAIN_VERIFY_RUN_HELD",
         });
       } finally {
-        releaseFifo(gate);
+        await releaseFifo(gate);
       }
       expect(resultCause(await held)).toBe("SUCCESS_COMPLETED");
     },
@@ -107,7 +107,7 @@ describe("the helper's state", () => {
           },
         );
       } finally {
-        if (alive(ledgeredPid(ledger))) releaseFifo(gate);
+        if (alive(ledgeredPid(ledger))) await releaseFifo(gate);
       }
       expect({ exit: stopped.exit, stderr: stopped.stderr }).toEqual({
         exit: 143,
