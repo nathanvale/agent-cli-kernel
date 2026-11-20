@@ -25,6 +25,42 @@ test("a fixture that keeps every rule has no problems", async () => {
   expect(await allProblems(fixture(() => {}))).toEqual([]);
 });
 
+function moveGateNote(files: Record<string, string>, heading: string) {
+  const text = files[standards] ?? "";
+  const note =
+    /\n## Gate notes\n[\s\S]*?(?=\n\[[^\]]+\]: )/.exec(text)?.[0] ?? "";
+  const definitions = text.slice(text.indexOf("\n[", text.indexOf(note)));
+  files[standards] = text
+    .replace(note, "\n## Gate notes\n")
+    .replace("](#gated)", "](docs/standards/notes.md#gated)");
+  files["docs/standards/notes.md"] =
+    `# Notes\n\n${note.replace("## Gate notes\n\n### Gated", heading)}${definitions}`;
+}
+
+test("a gate note in a guide file counts, with its witnesses and heading", async () => {
+  expect(
+    await allProblems(
+      fixture((files) => {
+        moveGateNote(files, "## Gated");
+      }),
+    ),
+  ).toEqual([]);
+});
+
+test("a gate note link to a file whose heading is gone is not a note", async () => {
+  expect(
+    await allProblems(
+      fixture((files) => {
+        moveGateNote(files, "## Other");
+      }),
+    ),
+  ).toEqual([
+    "CODING_STANDARDS.md:7: link docs/standards/notes.md#gated names #gated, which no heading in docs/standards/notes.md gives. Repair: use one of: #notes, #other.",
+    'CODING_STANDARDS.md: row "Gated rule" has no guide and no gate note. Repair: link its guide in the Guide cell, or link a gate note heading, under ## Gate notes or in a file, from its Gates cell.',
+    'CODING_STANDARDS.md: row "Gated rule" needs two distinct witnesses in its guide or gate note, and has 0. Repair: cite a second commit or review thread, or move the lesson back to docs/standards/single-witness.md.',
+  ]);
+});
+
 test.each([
   [
     "a guide that cites a commit outside HEAD's history",
@@ -76,7 +112,7 @@ test.each([
       files[standards] = (files[standards] ?? "").replace("](#gated)", "]");
     },
     [
-      'CODING_STANDARDS.md: row "Gated rule" has no guide and no gate note. Repair: link its guide in the Guide cell, or link a heading under ## Gate notes from its Gates cell.',
+      'CODING_STANDARDS.md: row "Gated rule" has no guide and no gate note. Repair: link its guide in the Guide cell, or link a gate note heading, under ## Gate notes or in a file, from its Gates cell.',
       'CODING_STANDARDS.md: row "Gated rule" needs two distinct witnesses in its guide or gate note, and has 0. Repair: cite a second commit or review thread, or move the lesson back to docs/standards/single-witness.md.',
     ],
   ],
