@@ -3099,5 +3099,19 @@
     "testFile": "tests/template/check-commits/carried-verdict.test.ts",
     "title": "a file name holding a newline never reads as two entries",
     "source": "610cac1 fix(check-commits): keep git's NUL separators in the checker tree (GREEN)"
+  },
+  {
+    "id": "2541839-ci-gate-always",
+    "patch": "tests/planted-faults/patches/2541839-ci-gate-always.patch",
+    "testFile": "tests/template/check-commits/carried-verdict-workflow.test.ts",
+    "title": "commits runs even when a part failed or was skipped",
+    "source": "2541839 ci: carry the commits check's verdict forward on a GitHub-signed token (GREEN)"
+  },
+  {
+    "id": "2541839-ci-gate-either",
+    "patch": "tests/planted-faults/patches/2541839-ci-gate-either.patch",
+    "testFile": "tests/template/check-commits/carried-verdict-workflow.test.ts",
+    "title": "the commits gate passes only when commits-carry and the parts both succeeded",
+    "source": "2541839 ci: carry the commits check's verdict forward on a GitHub-signed token (GREEN)"
   }
 ]
