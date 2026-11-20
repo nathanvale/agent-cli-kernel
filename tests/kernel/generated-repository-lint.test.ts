@@ -181,22 +181,28 @@ describe("kernelLint in a host layout", () => {
 });
 
 describe("cause-literal-owner's owner", () => {
-  for (const [kind, entry, refused] of [
-    ["is missing", undefined, "the kernel entry "],
+  const noCode = (index: string) =>
+    `commonCauses in ${index} names no cause code`;
+  for (const [kind, entry, cause] of [
+    [
+      "is missing",
+      undefined,
+      (index: string) => `the kernel entry ${index} is missing`,
+    ],
     [
       "does not export commonCauses",
       "export const causes = {};",
-      "does not export commonCauses",
+      (index: string) => `${index} does not export commonCauses`,
     ],
     [
       "exports a commonCauses that names no code",
       "export const commonCauses = {};",
-      "names no cause code",
+      noCode,
     ],
     [
       "exports a commonCauses whose keys are not cause codes",
       "export const commonCauses = { unrelated: 1 };",
-      "names no cause code",
+      noCode,
     ],
   ] as const)
     test(
@@ -212,10 +218,12 @@ describe("cause-literal-owner's owner", () => {
         } catch (error) {
           refusal = String(error);
         }
-        expect(refusal).toContain(
-          "repository/cause-literal-owner cannot learn the cause codes: ",
+        expect(refusal).toBe(
+          [
+            `Error: Error while loading rule 'repository/cause-literal-owner': repository/cause-literal-owner cannot learn the cause codes: ${cause(index)}. Repair: install agent-cli-kernel at its Pin again, so its entry exports commonCauses.`,
+            `Occurred while linting ${join(tree, "src/app/cause.ts")}`,
+          ].join("\n"),
         );
-        expect(refusal).toContain(refused);
       },
       lintBound,
     );
