@@ -18,7 +18,10 @@ is in the [test harness guide](test-harness.md).
   [r4624964198], [198f6ba] (a test that read the boot identity file itself
   still expected `ENOENT`, so another read failure failed it and a refusal
   that also named the filesystem passed; the fix expects the reason the test
-  observed, and the boot identity as the only field that differs).
+  observed, and the boot identity as the only field that differs),
+  [8cbec55] (the record folder's refusal tests checked a prefix of the
+  not-JSON message and left out repairs; the fix takes the parser's words
+  from `JSON.parse`; Sol 6.1 review).
 - Assert the route's response when a test says a command remains available.
   Exit zero with empty output can pass without a response. Witnessed:
   [#90-routes].
