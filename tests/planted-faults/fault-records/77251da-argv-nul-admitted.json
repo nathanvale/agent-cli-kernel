@@ -1,0 +1,7 @@
+{
+  "id": "77251da-argv-nul-admitted",
+  "patch": "tests/planted-faults/patches/77251da-argv-nul-admitted.patch",
+  "testFile": "tests/kernel/verify-skill/in-process.test.ts",
+  "title": "a word of argv that holds a NUL is refused before anything runs",
+  "source": "77251da fix(verify-skill): refuse scenario words that observe or run nothing, and place folders as they are"
+}

@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/drive.ts b/skills/verify-cli/helper/drive.ts
+index 1111a19..a3ff2e0 100644
+--- a/skills/verify-cli/helper/drive.ts
++++ b/skills/verify-cli/helper/drive.ts
+@@ -354,7 +354,7 @@ export function driveCommand(
+                   const ran = await context.programs.domain(effect).start({
+                     executable: bun(),
+                     args: [...stepArgs(step, run)],
+-                    timeoutMilliseconds: step.timeoutMilliseconds,
++                    timeoutMilliseconds: targetLimits.timeoutMilliseconds,
+                     outputLimitBytes: step.outputLimitBytes,
+                     shutdownMilliseconds: targetLimits.shutdownMilliseconds,
+                   });

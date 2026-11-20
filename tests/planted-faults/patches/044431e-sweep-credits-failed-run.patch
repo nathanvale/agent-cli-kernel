@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/sweep.ts b/skills/verify-cli/helper/sweep.ts
+index cde99eb..ebbf170 100644
+--- a/skills/verify-cli/helper/sweep.ts
++++ b/skills/verify-cli/helper/sweep.ts
+@@ -190,7 +190,7 @@ async function commandChecks(
+         String(at(result, "commandIdentity")),
+       ),
+     ].every(Boolean);
+-    if (runHeld) seen.set(cause, "run-names-its-command");
++    seen.set(cause, "run-names-its-command");
+   }
+ 
+   const required = stations

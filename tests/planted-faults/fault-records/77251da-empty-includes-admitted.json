@@ -1,0 +1,7 @@
+{
+  "id": "77251da-empty-includes-admitted",
+  "patch": "tests/planted-faults/patches/77251da-empty-includes-admitted.patch",
+  "testFile": "tests/kernel/verify-skill/in-process.test.ts",
+  "title": "an empty string in an includes list observes nothing and is refused",
+  "source": "77251da fix(verify-skill): refuse scenario words that observe or run nothing, and place folders as they are"
+}

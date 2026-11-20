@@ -1,0 +1,7 @@
+{
+  "id": "57a347b-moved-repository-root-kept",
+  "patch": "tests/planted-faults/patches/57a347b-moved-repository-root-kept.patch",
+  "testFile": "tests/kernel/verify-skill/run-trust.test.ts",
+  "title": "pending, cleanup and report still answer, from the folder they run in",
+  "source": "57a347b fix(verify-skill): keep a run answerable after its repository moves, and pass words after -- untouched"
+}

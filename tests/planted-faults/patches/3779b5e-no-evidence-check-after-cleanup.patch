@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
+index ea4197f..6987cac 100644
+--- a/skills/verify-cli/verify.ts
++++ b/skills/verify-cli/verify.ts
+@@ -506,7 +506,7 @@ export async function kernelFreeCheck(
+   failures.push(
+     ...judgedRun(helper, `the helper's ${name} command`, milliseconds).failures,
+   );
+-  if (found.run !== undefined && ["drive", "cleanup"].includes(name))
++  if (found.run !== undefined && ["drive"].includes(name))
+     failures.push(...evidenceFailures(found.run));
+   return failures.length > 0
+     ? { kind: "untrusted", failures }

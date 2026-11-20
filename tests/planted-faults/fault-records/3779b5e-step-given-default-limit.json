@@ -1,0 +1,7 @@
+{
+  "id": "3779b5e-step-given-default-limit",
+  "patch": "tests/planted-faults/patches/3779b5e-step-given-default-limit.patch",
+  "testFile": "tests/kernel/verify-skill/drive.test.ts",
+  "title": "a timed-out step is unmet, and is stopped at its own limit",
+  "source": "3779b5e test(verify-skill): prove the trust check's guards that no test failed without"
+}

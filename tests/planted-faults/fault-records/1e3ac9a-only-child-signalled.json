@@ -1,0 +1,7 @@
+{
+  "id": "1e3ac9a-only-child-signalled",
+  "patch": "tests/planted-faults/patches/1e3ac9a-only-child-signalled.patch",
+  "testFile": "tests/kernel/verify-skill/check-bounds.test.ts",
+  "title": "a child that runs past its limit is stopped with the processes it started",
+  "source": "1e3ac9a fix(verify-skill): stop each child of the check with the processes it started"
+}

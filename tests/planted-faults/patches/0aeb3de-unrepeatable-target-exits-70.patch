@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
+index ea4197f..aad65c6 100644
+--- a/skills/verify-cli/verify.ts
++++ b/skills/verify-cli/verify.ts
+@@ -96,7 +96,7 @@ export function failureLine(failure: Failure): string {
+ 
+ export function untrustedExit(failures: readonly Failure[]): number {
+   return failures.every((failure) => failure.id === "target-not-repeatable")
+-    ? targetFaultExit
++    ? kernelFaultExit
+     : kernelFaultExit;
+ }
+ 

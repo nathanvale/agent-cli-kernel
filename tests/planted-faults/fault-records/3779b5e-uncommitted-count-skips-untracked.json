@@ -1,0 +1,7 @@
+{
+  "id": "3779b5e-uncommitted-count-skips-untracked",
+  "patch": "tests/planted-faults/patches/3779b5e-uncommitted-count-skips-untracked.patch",
+  "testFile": "tests/kernel/verify-skill/launch.test.ts",
+  "title": "the count of uncommitted paths holds untracked files",
+  "source": "3779b5e test(verify-skill): prove the trust check's guards that no test failed without"
+}

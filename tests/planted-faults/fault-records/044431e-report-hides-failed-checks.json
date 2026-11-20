@@ -1,0 +1,7 @@
+{
+  "id": "044431e-report-hides-failed-checks",
+  "patch": "tests/planted-faults/patches/044431e-report-hides-failed-checks.patch",
+  "testFile": "tests/kernel/verify-skill/report.test.ts",
+  "title": "a station whose run failed a check is owed, and the report counts the failed checks",
+  "source": "044431e fix(verify-skill): sweep a station only when every check on its run passed"
+}

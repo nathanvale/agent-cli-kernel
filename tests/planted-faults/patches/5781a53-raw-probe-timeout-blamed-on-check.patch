@@ -1,0 +1,16 @@
+diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
+index ea4197f..8661a05 100644
+--- a/skills/verify-cli/verify.ts
++++ b/skills/verify-cli/verify.ts
+@@ -358,6 +358,11 @@ async function probeRound(
+         ),
+       ),
+     );
++  if (raw.some((seen) => seen.exitCode === null))
++    return {
++      kind: "failed",
++      failures: [{ id: "child-timeout", detail: "a raw run ran past its limit." }],
++    };
+   return {
+     kind: "seen",
+     helper: probeArgvs.map((_, index) => probeResultOf(seen[index])),

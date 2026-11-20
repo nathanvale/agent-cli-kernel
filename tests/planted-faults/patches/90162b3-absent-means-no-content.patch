@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/verdict.ts b/skills/verify-cli/helper/verdict.ts
+index 4885ea8..065e41d 100644
+--- a/skills/verify-cli/helper/verdict.ts
++++ b/skills/verify-cli/helper/verdict.ts
+@@ -98,7 +98,7 @@ export function unmetOf(
+       const seen = files[index];
+       const held =
+         file.absent === true
+-          ? seen?.kind === "absent"
++          ? seen?.content === null
+           : seen?.kind === "file" && seen.content === file.content;
+       return held ? [] : [`files.${String(index)}`];
+     }),

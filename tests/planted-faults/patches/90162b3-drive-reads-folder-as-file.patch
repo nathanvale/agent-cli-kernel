@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/drive.ts b/skills/verify-cli/helper/drive.ts
+index 1111a19..cbc777e 100644
+--- a/skills/verify-cli/helper/drive.ts
++++ b/skills/verify-cli/helper/drive.ts
+@@ -50,7 +50,7 @@ async function openedFile(
+   handle: Awaited<ReturnType<typeof open>>,
+ ): Promise<FileSeen> {
+   const info = await handle.stat();
+-  if (info.isDirectory()) return notFile("folder");
++  if (info.isDirectory()) throw new Error("EISDIR: illegal operation on a directory, read");
+   if (!info.isFile()) return notFile("other");
+   if (info.size > fileReadLimit) return notFile("too-large");
+   const buffer = Buffer.alloc(fileReadLimit + 1);

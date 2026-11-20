@@ -1,5 +1,5 @@
 diff --git a/skills/verify-cli/helper/ready.ts b/skills/verify-cli/helper/ready.ts
-index d5fa7e4..da46613 100644
+index e9501bd..c818d3c 100644
 --- a/skills/verify-cli/helper/ready.ts
 +++ b/skills/verify-cli/helper/ready.ts
 @@ -96,7 +96,9 @@ export function readiness(
@@ -8,7 +8,7 @@ index d5fa7e4..da46613 100644
      kind: "judged",
 -    failed: checks.filter(([, held]) => !held).map(([id]) => id),
 +    failed: checks
-+      .filter(([id, held]) => !held && id !== "discovery-has-host-command")
++      .filter(([id, held]) => !held && id !== "discovery-lists-a-command")
 +      .map(([id]) => id),
      contractVersion: typeof version === "string" ? version : null,
      commands,

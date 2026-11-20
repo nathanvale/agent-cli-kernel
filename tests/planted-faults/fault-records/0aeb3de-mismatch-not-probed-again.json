@@ -1,0 +1,7 @@
+{
+  "id": "0aeb3de-mismatch-not-probed-again",
+  "patch": "tests/planted-faults/patches/0aeb3de-mismatch-not-probed-again.patch",
+  "testFile": "tests/kernel/verify-skill/trust.test.ts",
+  "title": "a mismatch is probed once more: steady sides that differ blame the kernel, and a side that changes blames the target",
+  "source": "0aeb3de fix(verify-skill): tell a target that answers differently from a lying kernel"
+}

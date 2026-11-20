@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/drive.ts b/skills/verify-cli/helper/drive.ts
+index 1111a19..8fcae87 100644
+--- a/skills/verify-cli/helper/drive.ts
++++ b/skills/verify-cli/helper/drive.ts
+@@ -117,7 +117,7 @@ export async function keptStep(
+   );
+   const kept = stepFile(feature, step, observed, files);
+   const file = join(feature, `${step.name}.json`);
+-  const content = stepText({ ...kept, repository });
++  const content = stepText(kept);
+   const credit = stationOf(step, observed.stdout);
+   return {
+     row: {

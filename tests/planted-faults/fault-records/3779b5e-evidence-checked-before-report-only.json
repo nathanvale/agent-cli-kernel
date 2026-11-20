@@ -1,0 +1,7 @@
+{
+  "id": "3779b5e-evidence-checked-before-report-only",
+  "patch": "tests/planted-faults/patches/3779b5e-evidence-checked-before-report-only.patch",
+  "testFile": "tests/kernel/verify-skill/run-trust.test.ts",
+  "title": "a changed evidence file stops pending, drive and cleanup before they run",
+  "source": "3779b5e test(verify-skill): prove the trust check's guards that no test failed without"
+}

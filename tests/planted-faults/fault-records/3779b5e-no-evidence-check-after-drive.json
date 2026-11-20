@@ -1,0 +1,7 @@
+{
+  "id": "3779b5e-no-evidence-check-after-drive",
+  "patch": "tests/planted-faults/patches/3779b5e-no-evidence-check-after-drive.patch",
+  "testFile": "tests/kernel/verify-skill/run-trust.test.ts",
+  "title": "evidence a step changes during drive is caught when drive ends",
+  "source": "3779b5e test(verify-skill): prove the trust check's guards that no test failed without"
+}
