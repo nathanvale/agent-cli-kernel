@@ -7,12 +7,14 @@ export type Expectations = {
   readonly stdout: string | undefined;
   readonly stderr: string | undefined;
   readonly emptyStderr: boolean;
+  readonly file: string | undefined;
 };
 
 export type Seen = {
   readonly exitCode: number | null;
   readonly stdout: string;
   readonly stderr: string;
+  readonly file: string | null;
 };
 
 export type Check = {
@@ -86,6 +88,16 @@ export function checks(expected: Expectations, seen: Seen): Check[] {
             wanted: expected.stderr,
             seen: seen.stderr.includes(expected.stderr),
             met: seen.stderr.includes(expected.stderr),
+          },
+        ]),
+    ...(expected.file === undefined
+      ? []
+      : [
+          {
+            expectation: "--expect-file",
+            wanted: expected.file,
+            seen: seen.file,
+            met: seen.file !== null && seen.file.includes(expected.file),
           },
         ]),
     ...(expected.emptyStderr

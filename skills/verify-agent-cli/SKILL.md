@@ -93,10 +93,13 @@ fails.
 
 Expectation options: `--expect-exit <n>`, `--expect-cause <code>` (read from
 the `--json` envelope, or from the one stderr line), `--expect-stdout <text>`,
-`--expect-stderr <text>` (each a substring), `--expect-empty-stderr`. Other
-options: `--stdin <text>`, `--timeout-ms <n>` (default 30000; the target is
-stopped when it runs out), and `--bun`, which gives argv to `bun` in the
-repository root instead of to your CLI, for a package script.
+`--expect-stderr <text>` (each a substring), `--expect-empty-stderr`, and
+`--expect-file <text>` with `--read-file <path>`, which keeps a file's text
+after the step (a relative path is read from the run's scratch folder).
+Other options: `--stdin <text>`, `--timeout-ms <n>` (default 30000; the
+target is stopped when it runs out), and `--script`, which runs a
+`package.json` script in the repository root instead of your CLI: argv
+starts with the script's name.
 
 ## Evidence
 
@@ -109,7 +112,7 @@ never overwritten.
 
 Proof standard: drive the real path a user takes, capture the action and the
 resulting state, and check side effects with a second, read-only step (the
-CLI's own read command, or `--bun` with a script that reads the file).
+CLI's own read command, or `--read-file` on the step that made the change).
 
 ## Cleanup
 
@@ -128,6 +131,7 @@ launch a new run under another name.
 ## What the helper cannot do yet
 
 - Its programs add-on takes no working folder or environment, so the helper
-  starts your CLI as `env HOME=... bun --cwd <folder> <entry>`.
+  starts your CLI as `env HOME=... bun --cwd <folder> <entry>`, and a script
+  as `env HOME=... bun run --cwd <repository> <script>`.
 - A program's stdin is closed after `--stdin`'s text, and its output is kept
   as text, not bytes.

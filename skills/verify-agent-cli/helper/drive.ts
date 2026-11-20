@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 import { changing, station } from "agent-cli-kernel";
 import type { ParsedPath, ProgramResult } from "agent-cli-kernel";
 import {
@@ -64,12 +64,12 @@ function targetCommand(
   record: RunRecord,
   place: RunPlace,
   argv: readonly string[],
-  bun: boolean,
+  script: boolean,
 ): readonly string[] {
   const home = place.home;
-  const where = bun
-    ? [record.repository, ...argv]
-    : [place.scratch, record.entry, ...argv];
+  const where = script
+    ? ["run", "--cwd", record.repository, ...argv]
+    : ["--no-install", "--cwd", place.scratch, record.entry, ...argv];
   return [
     `HOME=${home}`,
     `XDG_STATE_HOME=${join(home, ".local", "state")}`,
@@ -77,8 +77,6 @@ function targetCommand(
     `XDG_DATA_HOME=${join(home, ".local", "share")}`,
     `XDG_CACHE_HOME=${join(home, ".cache")}`,
     process.execPath,
-    "--no-install",
-    "--cwd",
     ...where,
   ];
 }
@@ -99,8 +97,21 @@ type Driven = {
   readonly oneEnvelope: boolean;
   readonly commandIdentity: string | null;
   readonly causeCode: string | null;
+  readonly file: { readonly path: string; readonly text: string | null } | null;
   readonly checks: readonly Check[];
 };
+
+async function fileText(
+  place: RunPlace,
+  path: string,
+): Promise<{ readonly path: string; readonly text: string | null }> {
+  const full = isAbsolute(path) ? path : join(place.scratch, path);
+  try {
+    return { path: full, text: await readFile(full, "utf8") };
+  } catch {
+    return { path: full, text: null };
+  }
+}
 
 function evidenceText(driven: Driven): string {
   return `${JSON.stringify(driven, null, 2)}\n`;
@@ -174,14 +185,22 @@ export function driveCommand(
         },
         textOption("--stdin", "Text to write to the target's stdin."),
         {
-          name: "--bun",
+          name: "--script",
           aliases: [],
           summary:
-            'Give argv to bun in the repository root, such as ["run","check"], instead of to the target\'s entry file in the scratch folder.',
+            'Run a package.json script in the repository root instead of the target\'s entry file: argv starts with its name, such as ["check"].',
           required: false,
           repeatable: false,
           value: null,
         },
+        textOption(
+          "--read-file",
+          "After the target ends, keep this file's text in the evidence. A relative path is read from the run's scratch folder.",
+        ),
+        textOption(
+          "--expect-file",
+          "Text the file named by --read-file must hold.",
+        ),
       ],
     },
     capabilities: { programs: true, diagnostics: true },
@@ -298,6 +317,7 @@ export function driveCommand(
         stdout: input["--expect-stdout"],
         stderr: input["--expect-stderr"],
         emptyStderr: input["--expect-empty-stderr"] === true,
+        file: input["--expect-file"],
       };
       const stdin = input["--stdin"];
       let blocked: "missing" | "step" | undefined;
@@ -330,7 +350,7 @@ export function driveCommand(
             record,
             place,
             argv,
-            input["--bun"] === true,
+            input["--script"] === true,
           );
           const startedAt = new Date().toISOString();
           const started = performance.now();
@@ -350,10 +370,14 @@ export function driveCommand(
               }),
             (result) => Promise.resolve(result.terminationConfirmed),
           );
+          const read = input["--read-file"];
+          const keptFile =
+            read === undefined ? null : await fileText(place, read);
           const seen = {
             exitCode: ran.exitCode,
             stdout: ran.stdout,
             stderr: ran.stderr,
+            file: keptFile?.text ?? null,
           };
           const envelope = envelopeOf(ran.stdout);
           const details = programDetails(ran);
@@ -386,6 +410,7 @@ export function driveCommand(
             oneEnvelope: envelope !== null,
             commandIdentity: identityOf(envelope),
             causeCode: causeOf(envelope, ran.stderr),
+            file: keptFile,
             checks: checks(expected, seen),
           };
           await transaction.record(

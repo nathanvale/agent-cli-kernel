@@ -92,7 +92,12 @@ describe("what drive reads from the target's output", () => {
   });
 
   test("each expectation is checked only when given, and records what was seen", () => {
-    const seen = { exitCode: 2, stdout: "out", stderr: "t: bad. [USAGE_X]\n" };
+    const seen = {
+      exitCode: 2,
+      stdout: "out",
+      stderr: "t: bad. [USAGE_X]\n",
+      file: "one",
+    };
     expect(
       checks(
         {
@@ -101,6 +106,7 @@ describe("what drive reads from the target's output", () => {
           stdout: undefined,
           stderr: undefined,
           emptyStderr: false,
+          file: undefined,
         },
         seen,
       ),
@@ -113,6 +119,7 @@ describe("what drive reads from the target's output", () => {
           stdout: "out",
           stderr: "missing",
           emptyStderr: true,
+          file: "two",
         },
         seen,
       ).map((check) => [check.expectation, check.met]),
@@ -121,6 +128,7 @@ describe("what drive reads from the target's output", () => {
       ["--expect-cause", true],
       ["--expect-stdout", true],
       ["--expect-stderr", false],
+      ["--expect-file", false],
       ["--expect-empty-stderr", false],
     ]);
   });

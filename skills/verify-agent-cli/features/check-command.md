@@ -20,13 +20,13 @@ Preconditions:
 - `verify.ts doctor --run <run>` exits 0.
 - The working tree holds the change you are proving.
 
-- **Check.** Run `verify.ts drive <run> check-pass '["run","check"]' --bun --timeout-ms 600000 --expect-exit 0 --expect-stderr "bun test"`. Exit 0.
+- **Check.** Run `verify.ts drive <run> check-pass '["check"]' --script --timeout-ms 600000 --expect-exit 0 --expect-stderr "bun test"`. Exit 0.
 - **Steps.** Read the evidence file. Its stderr holds `$ eslint`, `$ biome format`, `$ tsc`, `$ bun test` and the fallow step, in that order, and its stdout holds the test summary.
 
 ## Gotchas
 
-- `--bun` runs `bun` in the repository root, not in the scratch folder, with
-  `HOME` inside the run's scratch folder.
+- `--script` runs `bun run <script>` in the repository root, not in the
+  scratch folder, with `HOME` inside the run's scratch folder.
 - The check takes minutes; give `--timeout-ms` room, or the step is stopped
   and fails.
 - bun prints each script's `$ <command>` line on stderr, so stderr is not

@@ -38,7 +38,14 @@ export function world(): World {
   mkdirSync(join(repo, "node_modules"), { recursive: true });
   writeFileSync(
     join(repo, "package.json"),
-    JSON.stringify({ dependencies: { "agent-cli-kernel": "test" } }),
+    JSON.stringify({
+      dependencies: { "agent-cli-kernel": "test" },
+      scripts: {
+        where:
+          'bun -e "process.stdout.write(process.cwd() + \\" \\" + process.env.HOME)"',
+        hang: 'bun -e "setInterval(() => {}, 1000)"',
+      },
+    }),
   );
   symlinkSync(repository, join(repo, "node_modules", "agent-cli-kernel"));
   const state = join(folder, "state");

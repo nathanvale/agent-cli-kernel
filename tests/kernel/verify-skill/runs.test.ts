@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, setDefaultTimeout, test } from "bun:test";
-import { existsSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   resultCause,
@@ -100,7 +100,7 @@ describe("drive", () => {
     ]);
   });
 
-  test("drive starts the target in the run's scratch folder, with HOME inside it", async () => {
+  test("drive starts the target in the run's scratch folder, and a package script in the repository root, each with HOME inside the scratch folder", async () => {
     const at = world();
     await helper(at, "launch", "r1", "--entry", targetEntry);
     await helper(at, "drive", "r1", "entry", '["status"]');
@@ -118,16 +118,9 @@ describe("drive", () => {
         "status",
       ]),
     );
-    await helper(
-      at,
-      "drive",
-      "r1",
-      "bun",
-      '["-e","process.stdout.write(process.cwd() + \\" \\" + process.env.HOME)"]',
-      "--bun",
-    );
+    await helper(at, "drive", "r1", "where", '["where"]', "--script");
     expect(
-      field(readJson(join(at.runs, "r1/evidence/bun.json")), "stdout"),
+      field(readJson(join(at.runs, "r1/evidence/where.json")), "stdout"),
     ).toBe(`${at.repo} ${join(scratch, "home")}`);
   });
 
@@ -192,8 +185,8 @@ describe("drive", () => {
       "drive",
       "r1",
       "stopped",
-      '["-e","await new Promise(() => setInterval(() => {}, 1000))"]',
-      "--bun",
+      '["hang"]',
+      "--script",
       "--timeout-ms",
       "500",
     );
@@ -244,5 +237,34 @@ describe("cleanup and evidence", () => {
         cause: "DOMAIN_VERIFY_RUN_MISSING",
       });
     }
+  });
+
+  test("drive keeps the text of the file --read-file names and checks it with --expect-file", async () => {
+    const at = world();
+    await helper(at, "launch", "r1", "--entry", targetEntry);
+    writeFileSync(join(at.runs, "r1/scratch/note.txt"), "two");
+    const ran = await helper(
+      at,
+      "drive",
+      "r1",
+      "read",
+      '["status"]',
+      "--read-file",
+      "note.txt",
+      "--expect-file",
+      "one",
+    );
+    expect(resultCause(ran)).toBe("DOMAIN_VERIFY_EXPECTATION_UNMET");
+    expect(readJson(join(at.runs, "r1/evidence/read.json"))).toMatchObject({
+      file: { path: join(at.runs, "r1/scratch/note.txt"), text: "two" },
+      checks: [
+        {
+          expectation: "--expect-file",
+          wanted: "one",
+          seen: "two",
+          met: false,
+        },
+      ],
+    });
   });
 });

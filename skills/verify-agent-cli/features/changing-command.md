@@ -30,9 +30,9 @@ Preconditions:
 - The CLI keeps its state under the folder it runs in, or under `HOME`;
   both are inside the run's scratch folder.
 
-- **First change.** Run `verify.ts drive <run> change-first '["save","note.txt","--content","one","--json"]' --expect-exit 0 --expect-cause SUCCESS_COMPLETED --expect-empty-stderr`. Exit 0.
-- **Read back.** Read the change through the CLI's own read command when it has one. Otherwise read the file with a script: run `verify.ts drive <run> change-read-back '["-e","process.stdout.write(await Bun.file(\"<scratch>/note.txt\").text())"]' --bun --expect-exit 0 --expect-stdout one`, with the `scratch` path `launch` printed in place of `<scratch>`. Exit 0. `--bun` runs in the repository root, so the path must be absolute.
-- **Second run.** Run `verify.ts drive <run> change-second '["save","note.txt","--content","two","--json"]' --expect-exit 0 --expect-cause SUCCESS_COMPLETED`. Exit 0, and a second read-back step shows `two`.
+- **First change.** Run `verify.ts drive <run> change-first '["save","note.txt","--content","one","--json"]' --read-file note.txt --expect-file one --expect-exit 0 --expect-cause SUCCESS_COMPLETED --expect-empty-stderr`. Exit 0; the evidence keeps the file's text beside what the CLI printed.
+- **Read back.** Read the change through a second, read-only view: the CLI's own read command when it has one, such as `verify.ts drive <run> change-read-back '["show","note.txt","--json"]' --expect-stdout one`. A CLI with no read command for it reports this step as not reachable; the `--read-file` text above is then the only view.
+- **Second run.** Run `verify.ts drive <run> change-second '["save","note.txt","--content","two","--json"]' --read-file note.txt --expect-file two --expect-exit 0 --expect-cause SUCCESS_COMPLETED`. Exit 0.
 - **Interrupted run.** Make the change block for real: run `mkfifo <scratch>/blocked` with the `scratch` path from `launch`. Then run `verify.ts drive <run> change-interrupted '["save","blocked","--content","x","--json"]' --timeout-ms 3000 --expect-exit 143`. Exit 0; the evidence shows `"timedOut": true`.
 - **Blocked.** Run `verify.ts drive <run> change-blocked '["save","blocked","--content","y","--json"]' --timeout-ms 10000 --expect-exit 3 --expect-cause <the unresolved-case cause from save --help>`. Exit 0.
 - **Report.** Run `verify.ts drive <run> change-report '["pending","--json"]' --expect-exit 0 --expect-stdout save`. Exit 0; the evidence names the unfinished operation.
