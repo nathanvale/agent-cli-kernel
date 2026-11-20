@@ -1,0 +1,7 @@
+{
+  "id": "0669e10-index-size-unbounded",
+  "patch": "tests/planted-faults/patches/0669e10-index-size-unbounded.patch",
+  "testFile": "tests/kernel/verify-skill/in-process.test.ts",
+  "title": "an index must be a regular file of at most 16,777,216 bytes",
+  "source": "0669e10 fix(verify-skill): settle the Sol 6.1 standards and spec reviews of the reconciled build"
+}

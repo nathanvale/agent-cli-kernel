@@ -1,0 +1,7 @@
+{
+  "id": "90162b3-absent-means-no-content",
+  "patch": "tests/planted-faults/patches/90162b3-absent-means-no-content.patch",
+  "testFile": "tests/kernel/verify-skill/in-process.test.ts",
+  "title": "an expected file holds only as a file, and an absent one only when nothing stands there",
+  "source": "90162b3 fix(verify-skill): judge a folder or pipe where a file is expected as an unmet step"
+}

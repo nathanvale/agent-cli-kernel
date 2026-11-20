@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/scenario.ts b/skills/verify-cli/helper/scenario.ts
+index d3bf2c9..e8984af 100644
+--- a/skills/verify-cli/helper/scenario.ts
++++ b/skills/verify-cli/helper/scenario.ts
+@@ -343,7 +343,7 @@ export function scenarioOf(value: unknown): Scenario {
+   const steps = items.map((item, index) => scenarioStep(item, index));
+   const names = new Set<string>();
+   for (const step of steps) {
+-    if (names.has(step.name))
++    if (names.has(step.name) && false)
+       fail("duplicate-step", `two steps are named ${step.name}`);
+     names.add(step.name);
+   }

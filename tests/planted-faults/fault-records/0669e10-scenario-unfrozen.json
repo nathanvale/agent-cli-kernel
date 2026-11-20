@@ -1,0 +1,7 @@
+{
+  "id": "0669e10-scenario-unfrozen",
+  "patch": "tests/planted-faults/patches/0669e10-scenario-unfrozen.patch",
+  "testFile": "tests/kernel/verify-skill/in-process.test.ts",
+  "title": "a scenario is read once, as frozen data",
+  "source": "0669e10 fix(verify-skill): settle the Sol 6.1 standards and spec reviews of the reconciled build"
+}

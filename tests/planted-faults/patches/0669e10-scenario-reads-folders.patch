@@ -1,0 +1,12 @@
+diff --git a/skills/verify-cli/helper/scenario.ts b/skills/verify-cli/helper/scenario.ts
+index d3bf2c9..9e96c7c 100644
+--- a/skills/verify-cli/helper/scenario.ts
++++ b/skills/verify-cli/helper/scenario.ts
+@@ -370,7 +370,6 @@ export function readScenario(path: string): ScenarioRead {
+     } catch (error) {
+       return fail("unreadable", `${path} ${readFailure(error)}`);
+     }
+-    if (!stats.isFile()) fail("unreadable", `${path} is not a regular file`);
+     if (stats.size > scenarioBytesLimit)
+       fail(
+         "unreadable",

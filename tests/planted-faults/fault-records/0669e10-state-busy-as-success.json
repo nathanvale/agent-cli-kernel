@@ -1,0 +1,7 @@
+{
+  "id": "0669e10-state-busy-as-success",
+  "patch": "tests/planted-faults/patches/0669e10-state-busy-as-success.patch",
+  "testFile": "tests/kernel/verify-skill/in-process.test.ts",
+  "title": "each state refusal maps to its station",
+  "source": "0669e10 fix(verify-skill): settle the Sol 6.1 standards and spec reviews of the reconciled build"
+}

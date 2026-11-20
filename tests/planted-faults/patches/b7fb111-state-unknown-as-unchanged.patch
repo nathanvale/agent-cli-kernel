@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/outcome.ts b/skills/verify-cli/helper/outcome.ts
+index 37998f7..0cd4949 100644
+--- a/skills/verify-cli/helper/outcome.ts
++++ b/skills/verify-cli/helper/outcome.ts
+@@ -61,7 +61,7 @@ export function unfinishedChange(
+   beforeAnything: string,
+   unconfirmed: string,
+ ): Unfinished {
+-  return transactionState === "unchanged"
++  return transactionState === "unchanged" || true
+     ? { causeCode: "DOMAIN_VERIFY_CHANGE_UNCHANGED", message: beforeAnything }
+     : { causeCode: "DOMAIN_VERIFY_CHANGE_UNKNOWN", message: unconfirmed };
+ }

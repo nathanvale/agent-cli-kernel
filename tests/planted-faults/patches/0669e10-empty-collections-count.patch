@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/scenario.ts b/skills/verify-cli/helper/scenario.ts
+index d3bf2c9..2d2436a 100644
+--- a/skills/verify-cli/helper/scenario.ts
++++ b/skills/verify-cli/helper/scenario.ts
+@@ -255,7 +255,7 @@ function expectations(
+   const observes =
+     given.stdout !== undefined ||
+     given.stderr !== undefined ||
+-    [result, files, stdoutIncludes, stderrIncludes].some(nonEmpty);
++    [result, files, stdoutIncludes, stderrIncludes].some((item) => item !== undefined);
+   if (given.exitCode === undefined || !observes)
+     fail(
+       "exit-code-only",

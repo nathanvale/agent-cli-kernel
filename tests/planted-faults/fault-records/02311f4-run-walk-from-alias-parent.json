@@ -1,0 +1,7 @@
+{
+  "id": "02311f4-run-walk-from-alias-parent",
+  "patch": "tests/planted-faults/patches/02311f4-run-walk-from-alias-parent.patch",
+  "testFile": "tests/kernel/verify-skill/launch.test.ts",
+  "title": "a run folder that is a symbolic link into another run is refused where it really is",
+  "source": "02311f4 fix(verify-skill): refuse a run folder that is a symbolic link into another run"
+}

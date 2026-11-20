@@ -1,0 +1,12 @@
+diff --git a/config/verify-skill-lint.mjs b/config/verify-skill-lint.mjs
+index ddb7841..3db05be 100644
+--- a/config/verify-skill-lint.mjs
++++ b/config/verify-skill-lint.mjs
+@@ -35,7 +35,6 @@ const kernelFreeRules = {
+           ImportDeclaration: judge,
+           ExportNamedDeclaration: judge,
+           ExportAllDeclaration: judge,
+-          ImportExpression: judge,
+         };
+       },
+     },

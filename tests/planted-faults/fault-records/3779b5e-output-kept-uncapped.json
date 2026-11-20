@@ -1,0 +1,7 @@
+{
+  "id": "3779b5e-output-kept-uncapped",
+  "patch": "tests/planted-faults/patches/3779b5e-output-kept-uncapped.patch",
+  "testFile": "tests/kernel/verify-skill/check-bounds.test.ts",
+  "title": "a child's output is kept up to the check's output limit",
+  "source": "3779b5e test(verify-skill): prove the trust check's guards that no test failed without"
+}

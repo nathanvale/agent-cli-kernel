@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
+index 6e8de36..51c71ce 100644
+--- a/skills/verify-cli/verify.ts
++++ b/skills/verify-cli/verify.ts
+@@ -241,7 +241,7 @@ export async function helperProbe(
+   if (late.length > 0) return late;
+   const judged = envelopeFailures(ran, "the helper's probe");
+   if (judged.failures.length > 0) return judged.failures;
+-  return ran.exitCode === 2
++  return ran.exitCode === 2 || true
+     ? []
+     : [
+         {

@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-check-skips-exit-mismatch",
+  "patch": "tests/planted-faults/patches/b7fb111-check-skips-exit-mismatch.patch",
+  "testFile": "tests/kernel/verify-skill/trust.test.ts",
+  "title": "a kernel that exits 0 from every process is reported as an exit mismatch",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

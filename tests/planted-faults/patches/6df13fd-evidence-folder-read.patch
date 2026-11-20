@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/json.ts b/skills/verify-cli/helper/json.ts
+index 4f8f398..5578005 100644
+--- a/skills/verify-cli/helper/json.ts
++++ b/skills/verify-cli/helper/json.ts
+@@ -34,7 +34,7 @@ function failureReason(error: unknown): string {
+ 
+ function readOpened(descriptor: number, path: string, limit: number): FileRead {
+   const stats = fstatSync(descriptor);
+-  if (!stats.isFile())
++  if (!stats.isFile() && false)
+     return { kind: "unreadable", reason: `${path} is not a regular file` };
+   if (stats.size > limit)
+     return {

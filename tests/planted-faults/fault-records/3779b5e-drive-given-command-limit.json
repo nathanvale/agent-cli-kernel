@@ -1,0 +1,7 @@
+{
+  "id": "3779b5e-drive-given-command-limit",
+  "patch": "tests/planted-faults/patches/3779b5e-drive-given-command-limit.patch",
+  "testFile": "tests/kernel/verify-skill/run-trust.test.ts",
+  "title": "drive is given the drive limit, and other run commands the command limit",
+  "source": "3779b5e test(verify-skill): prove the trust check's guards that no test failed without"
+}

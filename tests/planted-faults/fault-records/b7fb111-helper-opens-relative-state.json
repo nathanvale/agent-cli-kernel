@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-helper-opens-relative-state",
+  "patch": "tests/planted-faults/patches/b7fb111-helper-opens-relative-state.patch",
+  "testFile": "tests/kernel/verify-skill/in-process.test.ts",
+  "title": "the state root is the run's own state folder",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

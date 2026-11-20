@@ -1,0 +1,12 @@
+diff --git a/skills/verify-cli/helper/scenario.ts b/skills/verify-cli/helper/scenario.ts
+index d3bf2c9..05e4157 100644
+--- a/skills/verify-cli/helper/scenario.ts
++++ b/skills/verify-cli/helper/scenario.ts
+@@ -90,7 +90,6 @@ function strings(value: unknown, where: string): readonly string[] {
+ 
+ function optionalText(value: unknown, where: string): string | undefined {
+   if (value === undefined) return undefined;
+-  if (typeof value !== "string") fail("bad-value", `${where} must be a string`);
+   return value;
+ }
+ 

@@ -1,0 +1,7 @@
+{
+  "id": "3779b5e-unmet-evidence-unconfirmed",
+  "patch": "tests/planted-faults/patches/3779b5e-unmet-evidence-unconfirmed.patch",
+  "testFile": "tests/kernel/verify-skill/run-trust.test.ts",
+  "title": "a changed evidence file of an unmet step cannot be trusted either",
+  "source": "3779b5e test(verify-skill): prove the trust check's guards that no test failed without"
+}

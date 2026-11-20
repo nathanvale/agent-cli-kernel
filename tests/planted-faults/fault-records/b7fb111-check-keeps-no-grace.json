@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-check-keeps-no-grace",
+  "patch": "tests/planted-faults/patches/b7fb111-check-keeps-no-grace.patch",
+  "testFile": "tests/kernel/verify-skill/trust.test.ts",
+  "title": "a child that ignores SIGTERM is killed when the grace runs out",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

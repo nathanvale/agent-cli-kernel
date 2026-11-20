@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-scenario-skips-step-count",
+  "patch": "tests/planted-faults/patches/b7fb111-scenario-skips-step-count.patch",
+  "testFile": "tests/kernel/verify-skill/drive.test.ts",
+  "title": "drive refuses a scenario that breaks a rule: step-count",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

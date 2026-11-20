@@ -1,0 +1,7 @@
+{
+  "id": "90162b3-expected-file-read-whole",
+  "patch": "tests/planted-faults/patches/90162b3-expected-file-read-whole.patch",
+  "testFile": "tests/kernel/verify-skill/in-process.test.ts",
+  "title": "a file a step expects reads as its content, or as what stood there instead",
+  "source": "90162b3 fix(verify-skill): judge a folder or pipe where a file is expected as an unmet step"
+}

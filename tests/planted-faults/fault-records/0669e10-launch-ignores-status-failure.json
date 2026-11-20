@@ -1,0 +1,7 @@
+{
+  "id": "0669e10-launch-ignores-status-failure",
+  "patch": "tests/planted-faults/patches/0669e10-launch-ignores-status-failure.patch",
+  "testFile": "tests/kernel/verify-skill/launch.test.ts",
+  "title": "git facts are null without git or outside a work tree",
+  "source": "0669e10 fix(verify-skill): settle the Sol 6.1 standards and spec reviews of the reconciled build"
+}

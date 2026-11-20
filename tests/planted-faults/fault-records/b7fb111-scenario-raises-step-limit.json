@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-scenario-raises-step-limit",
+  "patch": "tests/planted-faults/patches/b7fb111-scenario-raises-step-limit.patch",
+  "testFile": "tests/kernel/verify-skill/in-process.test.ts",
+  "title": "a step's time limit is 1 to 600,000 ms",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

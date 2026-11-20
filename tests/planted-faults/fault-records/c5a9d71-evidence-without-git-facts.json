@@ -1,0 +1,7 @@
+{
+  "id": "c5a9d71-evidence-without-git-facts",
+  "patch": "tests/planted-faults/patches/c5a9d71-evidence-without-git-facts.patch",
+  "testFile": "tests/kernel/verify-skill/drive.test.ts",
+  "title": "each evidence file records the repository's head commit and uncommitted paths when its step ran",
+  "source": "c5a9d71 fix(verify-skill): record the repository's git facts in each evidence file"
+}

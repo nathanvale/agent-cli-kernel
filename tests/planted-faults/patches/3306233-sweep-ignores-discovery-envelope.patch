@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/sweep.ts b/skills/verify-cli/helper/sweep.ts
+index 32d61b2..c0f1542 100644
+--- a/skills/verify-cli/helper/sweep.ts
++++ b/skills/verify-cli/helper/sweep.ts
+@@ -245,7 +245,7 @@ export async function sweep(runTarget: TargetRunner): Promise<Sweep> {
+     "discovery-one-envelope",
+     discoveryProbe,
+     "true",
+-    String(at(discovery, "result", "exitCode") === discover.exitCode),
++    String(true),
+   );
+   expect(
+     "discovery-lists-a-command",

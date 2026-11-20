@@ -1,0 +1,12 @@
+diff --git a/kernel/src/kernel/process-host.ts b/kernel/src/kernel/process-host.ts
+index c27725d..c8c49f8 100644
+--- a/kernel/src/kernel/process-host.ts
++++ b/kernel/src/kernel/process-host.ts
+@@ -27,6 +27,7 @@ export function processHost(): ProcessHost {
+       const target = stream === "stdout" ? process.stdout : process.stderr;
+       return new Promise((resolve) => {
+         try {
++          if (stream === "stdout") target.write(bytes);
+           target.write(bytes, (error) => resolve(!error));
+         } catch {
+           resolve(false);

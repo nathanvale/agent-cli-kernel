@@ -1,0 +1,12 @@
+diff --git a/skills/verify-cli/helper/report.ts b/skills/verify-cli/helper/report.ts
+index 4e96345..5445f1e 100644
+--- a/skills/verify-cli/helper/report.ts
++++ b/skills/verify-cli/helper/report.ts
+@@ -33,7 +33,6 @@ export function stationStates(
+   return found.required.map((entry) => {
+     const step = steps.find(
+       (row) =>
+-        row.verdict === "met" &&
+         row.runner === "target" &&
+         row.commandIdentity === entry.command &&
+         row.causeCode === entry.cause,

@@ -5,6 +5,7 @@ import kernel, { kernelPaths } from "./config/kernel-repository-lint.mjs";
 import payloadRules from "./config/payload-rules.mjs";
 import platformRules from "./config/platform-rules.mjs";
 import templateRules from "./config/template-rules.mjs";
+import verifySkill, { verifySkillPaths } from "./config/verify-skill-lint.mjs";
 import tseslint from "typescript-eslint";
 
 const localRules = {
@@ -58,7 +59,7 @@ export default defineConfig(
   },
   {
     files: ["**/*.{ts,mts,cts,mjs}"],
-    ignores: kernelPaths,
+    ignores: [...kernelPaths, ...verifySkillPaths],
     plugins: { repository: localRules },
     rules: {
       "repository/no-comments": "error",
@@ -113,4 +114,5 @@ export default defineConfig(
     },
   },
   ...kernel.map(withChainedTypeAssertions),
+  ...verifySkill,
 );

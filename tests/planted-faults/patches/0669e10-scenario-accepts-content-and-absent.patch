@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/scenario.ts b/skills/verify-cli/helper/scenario.ts
+index d3bf2c9..391ce23 100644
+--- a/skills/verify-cli/helper/scenario.ts
++++ b/skills/verify-cli/helper/scenario.ts
+@@ -148,7 +148,7 @@ function fileExpectation(value: unknown, where: string): FileExpectation {
+       "path-outside-scratch",
+       `${where}.path ${JSON.stringify(path)} must start {scratch}/ and hold no .. segment`,
+     );
+-  if (content !== undefined && absent === undefined) return { path, content };
++  if (content !== undefined) return { path, content };
+   if (absent === true && content === undefined) return { path, absent: true };
+   return fail("bad-value", `${where} must hold content, or "absent": true`);
+ }

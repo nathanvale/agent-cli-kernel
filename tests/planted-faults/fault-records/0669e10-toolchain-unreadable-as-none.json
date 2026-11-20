@@ -1,0 +1,7 @@
+{
+  "id": "0669e10-toolchain-unreadable-as-none",
+  "patch": "tests/planted-faults/patches/0669e10-toolchain-unreadable-as-none.patch",
+  "testFile": "tests/kernel/verify-skill/ready.test.ts",
+  "title": "an unreadable package.json fails the check",
+  "source": "0669e10 fix(verify-skill): settle the Sol 6.1 standards and spec reviews of the reconciled build"
+}

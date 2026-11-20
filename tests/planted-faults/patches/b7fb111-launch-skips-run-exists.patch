@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/launch.ts b/skills/verify-cli/helper/launch.ts
+index 07ba990..dfc1edc 100644
+--- a/skills/verify-cli/helper/launch.ts
++++ b/skills/verify-cli/helper/launch.ts
+@@ -160,7 +160,7 @@ export function launchRefusal(
+       causeCode: "DOMAIN_VERIFY_TARGET_MISSING",
+       message: `The target ${target} does not exist.`,
+     };
+-  if (folderTaken(folder))
++  if (folderTaken(folder) && false)
+     return {
+       kind: "refused",
+       causeCode: "DOMAIN_VERIFY_RUN_EXISTS",

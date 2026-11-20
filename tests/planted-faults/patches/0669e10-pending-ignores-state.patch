@@ -1,0 +1,14 @@
+diff --git a/skills/verify-cli/helper/pending.ts b/skills/verify-cli/helper/pending.ts
+index d1f147e..457968e 100644
+--- a/skills/verify-cli/helper/pending.ts
++++ b/skills/verify-cli/helper/pending.ts
+@@ -67,8 +67,7 @@ export function pendingCommand(state: State) {
+       const run = input.run;
+       if (
+         run === undefined ||
+-        (!existsSync(verificationRun(run).index) &&
+-          !existsSync(verificationRun(run).state))
++        !existsSync(verificationRun(run).index)
+       )
+         return context.result(
+           { commandIdentity: identity, causeCode: "DOMAIN_VERIFY_RUN_MISSING" },

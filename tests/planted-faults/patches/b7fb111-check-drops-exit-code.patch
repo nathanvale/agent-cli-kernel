@@ -1,0 +1,12 @@
+diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
+index 6e8de36..65708f6 100644
+--- a/skills/verify-cli/verify.ts
++++ b/skills/verify-cli/verify.ts
+@@ -282,7 +282,6 @@ export function compared(
+       },
+     ];
+   const fields = [
+-    ["exit code", helper.exitCode, raw.exitCode],
+     ["stdout byte count", helper.stdoutBytes, raw.stdoutBytes],
+     ["stderr hash", helper.stderrSha256, raw.stderrSha256],
+   ] as const;

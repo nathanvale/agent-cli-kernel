@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-verdict-meets-cut-output",
+  "patch": "tests/planted-faults/patches/b7fb111-verdict-meets-cut-output.patch",
+  "testFile": "tests/kernel/verify-skill/drive.test.ts",
+  "title": "a cut output is unmet",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

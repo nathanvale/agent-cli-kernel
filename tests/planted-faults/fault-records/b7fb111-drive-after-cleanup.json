@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-drive-after-cleanup",
+  "patch": "tests/planted-faults/patches/b7fb111-drive-after-cleanup.patch",
+  "testFile": "tests/kernel/verify-skill/in-process.test.ts",
+  "title": "a feature already driven, or a scratch folder already removed",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

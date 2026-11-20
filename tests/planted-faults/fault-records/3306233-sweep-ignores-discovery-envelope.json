@@ -1,0 +1,7 @@
+{
+  "id": "3306233-sweep-ignores-discovery-envelope",
+  "patch": "tests/planted-faults/patches/3306233-sweep-ignores-discovery-envelope.patch",
+  "testFile": "tests/kernel/verify-skill/sweep.test.ts",
+  "title": "each check goes red on a CLI that breaks it: sweep's discovery-one-envelope$",
+  "source": "3306233 fix(verify-skill): check the sweep's discovery envelopes and the usage refusal's cause"
+}

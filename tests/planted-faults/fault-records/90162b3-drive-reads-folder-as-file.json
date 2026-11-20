@@ -1,0 +1,7 @@
+{
+  "id": "90162b3-drive-reads-folder-as-file",
+  "patch": "tests/planted-faults/patches/90162b3-drive-reads-folder-as-file.patch",
+  "testFile": "tests/kernel/verify-skill/drive.test.ts",
+  "title": "a folder where a step expects a file is an unmet step, kept as evidence, and the run can still be cleaned",
+  "source": "90162b3 fix(verify-skill): judge a folder or pipe where a file is expected as an unmet step"
+}

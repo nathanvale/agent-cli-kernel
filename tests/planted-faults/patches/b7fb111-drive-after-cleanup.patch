@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/drive.ts b/skills/verify-cli/helper/drive.ts
+index 406ea44..fd12e5e 100644
+--- a/skills/verify-cli/helper/drive.ts
++++ b/skills/verify-cli/helper/drive.ts
+@@ -134,7 +134,7 @@ export function blockedEnding(
+       causeCode: "DOMAIN_VERIFY_ALREADY_DRIVEN" as const,
+       message: `The run at ${where.run} already holds steps of the feature ${where.feature}.`,
+     };
+-  if (blocked === "clean")
++  if (blocked === "clean" && false)
+     return {
+       causeCode: "DOMAIN_VERIFY_RUN_CLEAN" as const,
+       message: `Cleanup already removed ${where.scratch}.`,

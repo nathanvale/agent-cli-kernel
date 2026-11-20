@@ -1,0 +1,7 @@
+{
+  "id": "dc128f9-report-reads-any-evidence",
+  "patch": "tests/planted-faults/patches/dc128f9-report-reads-any-evidence.patch",
+  "testFile": "tests/kernel/verify-skill/report.test.ts",
+  "title": "the report reads each step's unmet list and process end, and names a missing evidence file",
+  "source": "dc128f9 fix(verify-skill): read an evidence file in report only when it is a step file that agrees with its index row"
+}

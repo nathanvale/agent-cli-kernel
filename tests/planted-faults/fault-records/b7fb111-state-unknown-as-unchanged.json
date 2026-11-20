@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-state-unknown-as-unchanged",
+  "patch": "tests/planted-faults/patches/b7fb111-state-unknown-as-unchanged.patch",
+  "testFile": "tests/kernel/verify-skill/report.test.ts",
+  "title": "a scratch folder cleanup cannot remove makes cleanup",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

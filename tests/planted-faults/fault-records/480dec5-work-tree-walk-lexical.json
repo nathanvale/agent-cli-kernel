@@ -1,0 +1,7 @@
+{
+  "id": "480dec5-work-tree-walk-lexical",
+  "patch": "tests/planted-faults/patches/480dec5-work-tree-walk-lexical.patch",
+  "testFile": "tests/kernel/verify-skill/launch.test.ts",
+  "title": "a run folder is judged where it really is, through any symbolic link",
+  "source": "480dec5 fix(verify-skill): judge a run folder where it really is, and read git only inside a work tree"
+}

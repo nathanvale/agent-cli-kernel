@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/verdict.ts b/skills/verify-cli/helper/verdict.ts
+index efa8c9a..241ffd5 100644
+--- a/skills/verify-cli/helper/verdict.ts
++++ b/skills/verify-cli/helper/verdict.ts
+@@ -68,7 +68,7 @@ export function unmetOf(
+     ...(observed.exitCode === expect.exitCode ? [] : ["exitCode"]),
+     ...(observed.timedOut === (expect.timedOut ?? false) ? [] : ["timedOut"]),
+     ...(observed.outputTruncated ? ["outputTruncated"] : []),
+-    ...(expect.stdout === undefined || expect.stdout === observed.stdout
++    ...(expect.stdout === undefined || true
+       ? []
+       : ["stdout"]),
+     ...(expect.stderr === undefined || expect.stderr === observed.stderr

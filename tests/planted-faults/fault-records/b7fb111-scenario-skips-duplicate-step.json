@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-scenario-skips-duplicate-step",
+  "patch": "tests/planted-faults/patches/b7fb111-scenario-skips-duplicate-step.patch",
+  "testFile": "tests/kernel/verify-skill/drive.test.ts",
+  "title": "drive refuses a scenario that breaks a rule: duplicate-step",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

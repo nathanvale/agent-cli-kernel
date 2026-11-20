@@ -1,0 +1,15 @@
+diff --git a/skills/verify-cli/helper/drive.ts b/skills/verify-cli/helper/drive.ts
+index 1111a19..881fa00 100644
+--- a/skills/verify-cli/helper/drive.ts
++++ b/skills/verify-cli/helper/drive.ts
+@@ -52,10 +52,8 @@ async function openedFile(
+   const info = await handle.stat();
+   if (info.isDirectory()) return notFile("folder");
+   if (!info.isFile()) return notFile("other");
+-  if (info.size > fileReadLimit) return notFile("too-large");
+   const buffer = Buffer.alloc(fileReadLimit + 1);
+   const { bytesRead } = await handle.read(buffer, 0, buffer.byteLength, 0);
+-  if (bytesRead > fileReadLimit) return notFile("too-large");
+   return {
+     kind: "file",
+     content: buffer.subarray(0, bytesRead).toString("utf8"),

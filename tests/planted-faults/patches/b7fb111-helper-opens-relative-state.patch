@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/cli.ts b/skills/verify-cli/helper/cli.ts
+index 4fe5938..21e9d24 100644
+--- a/skills/verify-cli/helper/cli.ts
++++ b/skills/verify-cli/helper/cli.ts
+@@ -22,7 +22,7 @@ export function stateRoot(argv: readonly string[]): string {
+   const folder = argv.slice(1).find((word) => !word.startsWith("-"));
+   return runCommands.includes(argv[0] ?? "") &&
+     folder !== undefined &&
+-    folder.startsWith("/")
++    folder !== ""
+     ? verificationRun(folder).state
+     : unboundState;
+ }

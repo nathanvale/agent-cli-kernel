@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-verdict-skips-contract-one-envelope",
+  "patch": "tests/planted-faults/patches/b7fb111-verdict-skips-contract-one-envelope.patch",
+  "testFile": "tests/kernel/verify-skill/in-process.test.ts",
+  "title": "the kernel's promises are checked on a target step",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

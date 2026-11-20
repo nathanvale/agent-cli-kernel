@@ -1,0 +1,7 @@
+{
+  "id": "3779b5e-no-evidence-check-after-cleanup",
+  "patch": "tests/planted-faults/patches/3779b5e-no-evidence-check-after-cleanup.patch",
+  "testFile": "tests/kernel/verify-skill/run-trust.test.ts",
+  "title": "evidence changed while cleanup runs is caught when cleanup ends",
+  "source": "3779b5e test(verify-skill): prove the trust check's guards that no test failed without"
+}

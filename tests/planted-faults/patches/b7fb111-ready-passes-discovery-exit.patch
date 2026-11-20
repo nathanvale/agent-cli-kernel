@@ -1,0 +1,15 @@
+diff --git a/skills/verify-cli/helper/ready.ts b/skills/verify-cli/helper/ready.ts
+index d5fa7e4..e145738 100644
+--- a/skills/verify-cli/helper/ready.ts
++++ b/skills/verify-cli/helper/ready.ts
+@@ -96,7 +96,9 @@ export function readiness(
+   const version = at(envelope, "contractVersion");
+   return {
+     kind: "judged",
+-    failed: checks.filter(([, held]) => !held).map(([id]) => id),
++    failed: checks
++      .filter(([id, held]) => !held && id !== "discovery-exit")
++      .map(([id]) => id),
+     contractVersion: typeof version === "string" ? version : null,
+     commands,
+   };

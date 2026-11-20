@@ -1,0 +1,7 @@
+{
+  "id": "5781a53-raw-probe-timeout-blamed-on-check",
+  "patch": "tests/planted-faults/patches/5781a53-raw-probe-timeout-blamed-on-check.patch",
+  "testFile": "tests/kernel/verify-skill/trust.test.ts",
+  "title": "a target that runs past the helper's own limit on a probe is the helper's to judge, not a timeout of the check",
+  "source": "5781a53 test(verify-skill): prove a target's probe that runs past the helper's limit is no timeout of the check"
+}
