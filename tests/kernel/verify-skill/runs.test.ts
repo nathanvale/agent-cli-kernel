@@ -8,10 +8,11 @@ import {
   readJson,
   releaseWorlds,
   targetEntry,
+  watchdog,
   world,
 } from "./harness.ts";
 
-setDefaultTimeout(60_000);
+setDefaultTimeout(watchdog(7));
 afterAll(releaseWorlds);
 
 describe("launch", () => {
@@ -103,21 +104,11 @@ describe("drive", () => {
   test("drive starts the target in the run's scratch folder, and a package script in the repository root, each with HOME inside the scratch folder", async () => {
     const at = world();
     await helper(at, "launch", "r1", "--entry", targetEntry);
-    await helper(at, "drive", "r1", "entry", '["status"]');
+    await helper(at, "drive", "r1", "entry", '["where"]');
     const scratch = join(at.runs, "r1/scratch");
-    const command = field(
-      readJson(join(at.runs, "r1/evidence/entry.json")),
-      "command",
-    );
-    expect(command).toEqual(
-      expect.arrayContaining([
-        `HOME=${join(scratch, "home")}`,
-        "--cwd",
-        scratch,
-        targetEntry,
-        "status",
-      ]),
-    );
+    expect(
+      field(readJson(join(at.runs, "r1/evidence/entry.json")), "stdout"),
+    ).toBe(`${scratch} ${join(scratch, "home")}\n`);
     await helper(at, "drive", "r1", "where", '["where"]', "--script");
     expect(
       field(readJson(join(at.runs, "r1/evidence/where.json")), "stdout"),
@@ -191,10 +182,9 @@ describe("drive", () => {
       "500",
     );
     expect(resultCause(ran)).toBe("SUCCESS_COMPLETED");
-    expect(readJson(join(at.runs, "r1/evidence/stopped.json"))).toMatchObject({
-      timedOut: true,
-      terminationConfirmed: true,
-    });
+    const kept = readJson(join(at.runs, "r1/evidence/stopped.json"));
+    expect(kept).toMatchObject({ timedOut: true, terminationConfirmed: true });
+    expect(Number(field(kept, "elapsedMilliseconds"))).toBeLessThan(5_000);
   });
 });
 
@@ -256,7 +246,11 @@ describe("cleanup and evidence", () => {
     );
     expect(resultCause(ran)).toBe("DOMAIN_VERIFY_EXPECTATION_UNMET");
     expect(readJson(join(at.runs, "r1/evidence/read.json"))).toMatchObject({
-      file: { path: join(at.runs, "r1/scratch/note.txt"), text: "two" },
+      file: {
+        path: join(at.runs, "r1/scratch/note.txt"),
+        text: "two",
+        problem: null,
+      },
       checks: [
         {
           expectation: "--expect-file",

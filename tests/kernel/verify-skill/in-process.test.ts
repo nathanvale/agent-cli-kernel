@@ -1,9 +1,14 @@
 import { afterAll, describe, expect, setDefaultTimeout, test } from "bun:test";
-import { writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { helperContract } from "../../../skills/verify-agent-cli/helper/cli.ts";
 import type { Refusal } from "agent-cli-kernel/addons/state";
-import { refusalOf } from "../../../skills/verify-agent-cli/helper/outcome.ts";
+import { readJsonFile } from "../../../skills/verify-agent-cli/helper/json.ts";
+import {
+  refusalOf,
+  unfinishedChange,
+} from "../../../skills/verify-agent-cli/helper/outcome.ts";
+import { readSteps } from "../../../skills/verify-agent-cli/helper/steps.ts";
 import {
   readRunRecord,
   runPlace,
@@ -12,28 +17,21 @@ import {
 import {
   causeOf,
   checks,
+  contractChecks,
   envelopeOf,
   identityOf,
 } from "../../../skills/verify-agent-cli/helper/transcript.ts";
-import {
-  entryOf,
-  helperFailures,
-  kernelFailures,
-  relayed,
-  targetFailures,
-  verify,
-} from "../../../skills/verify-agent-cli/verify.ts";
 import {
   environment,
   field,
   liarEntry,
   releaseWorlds,
-  repository,
   targetEntry,
   world,
 } from "./harness.ts";
 
 setDefaultTimeout(60_000);
+
 afterAll(releaseWorlds);
 
 describe("the helper's commands, run in process", () => {
@@ -59,7 +57,22 @@ describe("the helper's commands, run in process", () => {
         "0",
       ]),
     ).toBe("SUCCESS_COMPLETED");
+    expect(
+      await causeAfter([
+        "drive",
+        "r1",
+        "read",
+        '["touch","made.txt"]',
+        "--read-file",
+        "made.txt",
+        "--expect-file",
+        "touched",
+      ]),
+    ).toBe("SUCCESS_COMPLETED");
     expect(await causeAfter(["evidence", "r1"])).toBe("SUCCESS_UNCHANGED");
+    expect(await causeAfter(["sweep", "--run", "r1"])).toBe(
+      "SUCCESS_UNCHANGED",
+    );
     expect(await causeAfter(["sweep", "--entry", targetEntry])).toBe(
       "SUCCESS_UNCHANGED",
     );
@@ -105,6 +118,7 @@ describe("what drive reads from the target's output", () => {
           causeCode: undefined,
           stdout: [],
           stderr: [],
+          emptyStdout: false,
           emptyStderr: false,
           file: undefined,
         },
@@ -118,6 +132,7 @@ describe("what drive reads from the target's output", () => {
           causeCode: "USAGE_X",
           stdout: ["out", "absent"],
           stderr: ["missing"],
+          emptyStdout: true,
           emptyStderr: true,
           file: "two",
         },
@@ -130,6 +145,7 @@ describe("what drive reads from the target's output", () => {
       ["--expect-stdout", false],
       ["--expect-stderr", false],
       ["--expect-file", false],
+      ["--expect-empty-stdout", false],
       ["--expect-empty-stderr", false],
     ]);
   });
@@ -195,78 +211,74 @@ describe("where the helper keeps runs", () => {
   });
 });
 
-describe("the check that does not go through the kernel", () => {
-  test("the kernel loads, so it adds no failure", async () => {
-    expect(await kernelFailures()).toEqual([]);
-  });
-
-  test("the target's raw exit codes pass for a sound CLI and fail for one that lies", () => {
-    const place = { cwd: repository, env: process.env };
-    expect(targetFailures(targetEntry, place)).toEqual([]);
-    expect(
-      targetFailures(liarEntry, place).map((line) => line.split(":")[0]),
-    ).toEqual(["target-usage"]);
-  });
-
-  test("a helper whose envelope disagrees with its exit code, or prints none, is a raw failure", () => {
-    const envelope = (exitCode: number) =>
-      `${JSON.stringify({ message: "m", result: { exitCode } })}\n`;
-    expect(
-      helperFailures({ exitCode: 3, stdout: envelope(3), stderr: "" }),
-    ).toEqual([]);
-    expect(
-      helperFailures({ exitCode: 0, stdout: envelope(3), stderr: "" }),
-    ).toEqual([
-      "helper-exit-mismatch: the helper's envelope says exit 3, but its process exited 0. Its message: m",
-    ]);
-    expect(
-      helperFailures({ exitCode: 1, stdout: "", stderr: "error: boom\n" }),
-    ).toEqual([
-      "helper-no-envelope: the helper exited 1 without one envelope on stdout. stderr: error: boom",
-    ]);
-  });
-
-  test("the raw check reads the entry from --entry, else src/cli.ts", () => {
-    expect(entryOf(["doctor"], "/r")).toBe("/r/src/cli.ts");
-    expect(entryOf(["doctor", "--entry", "bin/x.ts"], "/r")).toBe(
-      "/r/bin/x.ts",
-    );
-    expect(entryOf(["doctor", "--entry", "/abs/x.ts"], "/r")).toBe("/abs/x.ts");
-  });
-
-  test("verify runs the raw checks and the helper, and finds nothing wrong with a sound target", async () => {
+describe("the helper's own reads and refusals", () => {
+  test("the helper refuses to start without env on PATH, naming the repair", () => {
     const at = world();
-    const ran = await verify(["doctor", "--entry", targetEntry], {
-      cwd: at.repo,
-      env: environment(at),
-    });
-    expect(ran.failures).toEqual([]);
-    expect(ran.helper.exitCode).toBe(0);
+    expect(() =>
+      helperContract({ ...environment(at), PATH: "" }, at.repo),
+    ).toThrow(
+      new Error(
+        "verify-agent-cli needs env on PATH to start the target. Repair: put the folder that holds env on PATH.",
+      ),
+    );
   });
 
-  test("the helper's result is relayed as its envelope, its message and data, or one stderr line with its cause", () => {
-    const line = (exitCode: number, data: unknown) =>
-      `${JSON.stringify({ message: "m", result: { exitCode, causeCode: "C_D", data } })}\n`;
-    const ran = (exitCode: number, data: unknown) => ({
-      exitCode,
-      stdout: line(exitCode, data),
-      stderr: "",
+  test("a JSON file reads as missing, read, or unreadable with its reason", () => {
+    const at = world();
+    const file = join(at.repo, "x.json");
+    expect(readJsonFile(file)).toEqual({ kind: "missing" });
+    writeFileSync(file, '{"a":1}');
+    expect(readJsonFile(file)).toEqual({ kind: "read", value: { a: 1 } });
+    writeFileSync(file, "{");
+    expect(readJsonFile(file).kind).toBe("unreadable");
+    expect(readJsonFile(at.repo).kind).toBe("unreadable");
+  });
+
+  test("a step file that is not JSON, or not a step, is listed as unreadable rather than as a clean step", () => {
+    const at = world();
+    const folder = join(at.repo, "evidence");
+    mkdirSync(folder);
+    writeFileSync(join(folder, "a.json"), "{");
+    writeFileSync(join(folder, "b.json"), "{}");
+    writeFileSync(
+      join(folder, "c.json"),
+      JSON.stringify({
+        startedAt: "t",
+        exitCode: 0,
+        checks: [{ met: true }],
+        contract: [{ met: false }],
+      }),
+    );
+    const read = readSteps(folder);
+    expect(read.unreadable.length).toBe(2);
+    expect(read.steps).toMatchObject([
+      { step: "c", unmet: 1, contractHeld: false },
+    ]);
+  });
+
+  test("an unfinished change maps to CHANGE_UNCHANGED before any effect, and to CHANGE_UNKNOWN after one", () => {
+    expect(unfinishedChange("unchanged", "before", "after")).toEqual({
+      causeCode: "DOMAIN_VERIFY_CHANGE_UNCHANGED",
+      message: "before",
     });
-    expect(relayed(ran(0, { a: 1 }), true)).toEqual({
-      stream: "stdout",
-      text: line(0, { a: 1 }),
+    expect(unfinishedChange("unknown", "before", "after")).toEqual({
+      causeCode: "DOMAIN_VERIFY_CHANGE_UNKNOWN",
+      message: "after",
     });
-    expect(relayed(ran(0, { a: 1 }), false)).toEqual({
-      stream: "stdout",
-      text: 'm\n{\n  "a": 1\n}\n',
-    });
-    expect(relayed(ran(0, null), false)).toEqual({
-      stream: "stdout",
-      text: "m\n",
-    });
-    expect(relayed(ran(3, null), false)).toEqual({
-      stream: "stderr",
-      text: "verify-agent-cli: m [C_D]\n",
-    });
+  });
+
+  test("the kernel's promises are checked only for the target's own runs that ended by themselves", () => {
+    const seen = { exitCode: 3, stdout: "x\n", stderr: "", file: null };
+    const ran = { script: false, timedOut: false };
+    expect(contractChecks(seen, ["a"], ran).map((check) => check.met)).toEqual([
+      false,
+    ]);
+    expect(contractChecks(seen, ["a"], { ...ran, script: true })).toEqual([]);
+    expect(contractChecks(seen, ["a"], { ...ran, timedOut: true })).toEqual([]);
+    expect(
+      contractChecks(seen, ["--", "--json"], ran).map(
+        (check) => check.expectation,
+      ),
+    ).toEqual(["contract: a failed run prints nothing on stdout"]);
   });
 });

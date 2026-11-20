@@ -2,7 +2,7 @@ import { afterAll, expect, test } from "bun:test";
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { gitEnv, inherited } from "../../support/git-fixture.ts";
-import { spawnBounded } from "../../support/process.ts";
+import { spawnBounded } from "../kernel-repair/swarm-process.ts";
 import { testFolder } from "../../support/test-folder.ts";
 import { field, readJson, repository, targetEntry } from "./harness.ts";
 
@@ -20,6 +20,7 @@ async function installedRepository(): Promise<string> {
   const head = await spawnBounded(["git", "rev-parse", "HEAD"], {
     cwd: repository,
     env: { ...inherited(), ...gitEnv },
+    boundMilliseconds: stepBound,
   });
   expect(head.exit).toBe(0);
   const folder = testFolder("kernel-verify-skill-install-");
@@ -98,5 +99,5 @@ test(
       readJson(join(state, "verify-agent-cli/runs/r1/evidence/status.json")),
     ).toMatchObject({ causeCode: "SUCCESS_UNCHANGED", oneEnvelope: true });
   },
-  installBound + 6 * stepBound,
+  installBound + 7 * stepBound + 10_000,
 );

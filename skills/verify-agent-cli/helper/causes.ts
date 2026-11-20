@@ -1,7 +1,6 @@
 import { commonCauses, station } from "agent-cli-kernel";
 import type { CauseTable } from "agent-cli-kernel";
-
-export const cli = "verify-agent-cli";
+export { cli } from "./place.ts";
 
 export const unchangedSuccess =
   "SUCCESS_UNCHANGED" satisfies keyof typeof commonCauses;
@@ -29,6 +28,7 @@ export const causes = {
   DOMAIN_VERIFY_ARGV_INVALID: refusedNext,
   DOMAIN_VERIFY_DOCTOR_FAILED: refusedNext,
   DOMAIN_VERIFY_SWEEP_FAILED: refusedNext,
+  DOMAIN_VERIFY_EVIDENCE_UNREADABLE: refusedHandoff,
   DOMAIN_VERIFY_RUN_HELD: refusedHandoff,
   DOMAIN_VERIFY_RUN_UNRESOLVED: refusedHandoff,
   DOMAIN_VERIFY_STATE_UNAVAILABLE: refusedHandoff,
@@ -155,4 +155,31 @@ export function stateStations<const Identity extends string>(
       independentObservable: `${identity}:change-unknown`,
     }),
   ] as const;
+}
+
+export function unreadableStation<const Identity extends string>(
+  identity: Identity,
+) {
+  return station(causes, {
+    ...stationWords,
+    commandIdentity: identity,
+    causeCode: "DOMAIN_VERIFY_EVIDENCE_UNREADABLE",
+    trigger: "A file in the run's evidence folder cannot be read as a step.",
+    repairAction:
+      "Read the files the message names; launch a new run if they were changed by hand.",
+    guidance: {
+      handoff: {
+        owner: "operator",
+        reason:
+          "The run's evidence folder holds a file the helper cannot read.",
+        inspect: [
+          {
+            kind: "instruction",
+            text: "Open each file the message names, in the run's evidence folder.",
+          },
+        ],
+      },
+    },
+    independentObservable: `${identity}:evidence-unreadable`,
+  });
 }

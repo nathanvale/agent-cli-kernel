@@ -17,11 +17,18 @@ import {
   stationWords,
   completedSuccess,
 } from "./causes.ts";
+import { at } from "./json.ts";
 import { failureText, refusalOf, unfinishedChange } from "./outcome.ts";
 import type { State } from "./outcome.ts";
 import { readRunRecord, runPlace } from "./place.ts";
 import type { RunPlace, RunRecord } from "./place.ts";
-import { causeOf, checks, envelopeOf, identityOf } from "./transcript.ts";
+import {
+  causeOf,
+  checks,
+  contractChecks,
+  envelopeOf,
+  identityOf,
+} from "./transcript.ts";
 import type { Check, Expectations } from "./transcript.ts";
 
 const identity = "verify-agent-cli.drive";
@@ -72,8 +79,8 @@ function targetCommand(
 ): readonly string[] {
   const home = place.home;
   const where = script
-    ? ["run", "--cwd", record.repository, ...argv]
-    : ["--no-install", "--cwd", place.scratch, record.entry, ...argv];
+    ? [`--cwd=${record.repository}`, "run", ...argv]
+    : ["--no-install", `--cwd=${place.scratch}`, record.entry, ...argv];
   return [
     `HOME=${home}`,
     `XDG_STATE_HOME=${join(home, ".local", "state")}`,
@@ -102,13 +109,14 @@ type Driven = {
   readonly oneEnvelope: boolean;
   readonly commandIdentity: string | null;
   readonly causeCode: string | null;
-  readonly file: { readonly path: string; readonly text: string | null } | null;
+  readonly file: KeptFile | null;
   readonly scratchChanges: {
     readonly added: readonly string[];
     readonly removed: readonly string[];
     readonly truncated: boolean;
   };
   readonly checks: readonly Check[];
+  readonly contract: readonly Check[];
 };
 
 const listingLimit = 500;
@@ -132,16 +140,91 @@ function changes(before: readonly string[], after: readonly string[]) {
   };
 }
 
-async function fileText(
-  place: RunPlace,
-  path: string,
-): Promise<{ readonly path: string; readonly text: string | null }> {
+type KeptFile = {
+  readonly path: string;
+  readonly text: string | null;
+  readonly problem: string | null;
+};
+
+async function fileText(place: RunPlace, path: string): Promise<KeptFile> {
   const full = isAbsolute(path) ? path : join(place.scratch, path);
   try {
-    return { path: full, text: await readFile(full, "utf8") };
-  } catch {
-    return { path: full, text: null };
+    return { path: full, text: await readFile(full, "utf8"), problem: null };
+  } catch (error) {
+    return {
+      path: full,
+      text: null,
+      problem:
+        at(error, "code") === "ENOENT"
+          ? "absent"
+          : error instanceof Error
+            ? error.message
+            : String(error),
+    };
   }
+}
+
+type StepFacts = {
+  readonly step: string;
+  readonly argv: readonly string[];
+  readonly command: readonly string[];
+  readonly startedAt: string;
+  readonly started: number;
+  readonly script: boolean;
+  readonly scratchChanges: Driven["scratchChanges"];
+  readonly file: KeptFile | null;
+  readonly expected: Expectations;
+};
+
+function keptStep(ran: ProgramResult, facts: StepFacts): Driven {
+  const envelope = envelopeOf(ran.stdout);
+  const timedOut = programDetails(ran)?.timedOut ?? false;
+  const seen = {
+    exitCode: ran.exitCode,
+    stdout: ran.stdout,
+    stderr: ran.stderr,
+    file: facts.file?.text ?? null,
+  };
+  return {
+    step: facts.step,
+    argv: facts.argv,
+    command: facts.command,
+    startedAt: facts.startedAt,
+    elapsedMilliseconds: Math.round(performance.now() - facts.started),
+    exitCode: ran.exitCode,
+    terminationConfirmed: ran.terminationConfirmed,
+    timedOut,
+    signal: programDetails(ran)?.signal ?? null,
+    outputTruncated: ran.outputTruncated,
+    stdout: ran.stdout,
+    stderr: ran.stderr,
+    oneEnvelope: envelope !== null,
+    commandIdentity: identityOf(envelope),
+    causeCode: causeOf(envelope, ran.stderr),
+    file: facts.file,
+    scratchChanges: facts.scratchChanges,
+    checks: checks(facts.expected, seen),
+    contract: contractChecks(seen, facts.argv, {
+      script: facts.script,
+      timedOut,
+    }),
+  };
+}
+
+function traceOf(ran: ProgramResult, run: string) {
+  const details = programDetails(ran);
+  return {
+    run,
+    pid: details?.pid ?? null,
+    exitCode: ran.exitCode,
+    timedOut: details?.timedOut ?? false,
+    signal: details?.signal ?? null,
+    attempts: (details?.attempts ?? []).map((attempt) => ({
+      signal: attempt.signal,
+      afterMilliseconds: attempt.afterMilliseconds,
+    })),
+    terminationConfirmed: ran.terminationConfirmed,
+  };
 }
 
 function evidenceText(driven: Driven): string {
@@ -215,6 +298,14 @@ export function driveCommand(
           "Text the target's stderr must hold. Repeat it for more texts.",
           true,
         ),
+        {
+          name: "--expect-empty-stdout",
+          aliases: [],
+          summary: "The target must write nothing to stdout.",
+          required: false,
+          repeatable: false,
+          value: null,
+        },
         {
           name: "--expect-empty-stderr",
           aliases: [],
@@ -358,6 +449,7 @@ export function driveCommand(
         causeCode: input["--expect-cause"],
         stdout: input["--expect-stdout"] ?? [],
         stderr: input["--expect-stderr"] ?? [],
+        emptyStdout: input["--expect-empty-stdout"] === true,
         emptyStderr: input["--expect-empty-stderr"] === true,
         file: input["--expect-file"],
       };
@@ -413,51 +505,19 @@ export function driveCommand(
               }),
             (result) => Promise.resolve(result.terminationConfirmed),
           );
-          const scratchChanges = changes(before, await listing(place.scratch));
           const read = input["--read-file"];
-          const keptFile =
-            read === undefined ? null : await fileText(place, read);
-          const seen = {
-            exitCode: ran.exitCode,
-            stdout: ran.stdout,
-            stderr: ran.stderr,
-            file: keptFile?.text ?? null,
-          };
-          const envelope = envelopeOf(ran.stdout);
-          const details = programDetails(ran);
-          context.diagnostics.record("drive.target", {
-            run: input.run,
-            step: input.step,
-            pid: details?.pid ?? null,
-            exitCode: ran.exitCode,
-            timedOut: details?.timedOut ?? false,
-            signal: details?.signal ?? null,
-            attempts: (details?.attempts ?? []).map((attempt) => ({
-              signal: attempt.signal,
-              afterMilliseconds: attempt.afterMilliseconds,
-            })),
-            terminationConfirmed: ran.terminationConfirmed,
-          });
-          const kept: Driven = {
+          const kept = keptStep(ran, {
             step: input.step,
             argv,
             command,
             startedAt,
-            elapsedMilliseconds: Math.round(performance.now() - started),
-            exitCode: ran.exitCode,
-            terminationConfirmed: ran.terminationConfirmed,
-            timedOut: details?.timedOut ?? false,
-            signal: details?.signal ?? null,
-            outputTruncated: ran.outputTruncated,
-            stdout: ran.stdout,
-            stderr: ran.stderr,
-            oneEnvelope: envelope !== null,
-            commandIdentity: identityOf(envelope),
-            causeCode: causeOf(envelope, ran.stderr),
-            file: keptFile,
-            scratchChanges,
-            checks: checks(expected, seen),
-          };
+            started,
+            script: input["--script"] === true,
+            scratchChanges: changes(before, await listing(place.scratch)),
+            file: read === undefined ? null : await fileText(place, read),
+            expected,
+          });
+          context.diagnostics.record("drive.target", traceOf(ran, input.run));
           await transaction.record(
             "step.write",
             () => writeFile(file, evidenceText(kept), { flag: "wx" }),
@@ -505,7 +565,9 @@ export function driveCommand(
           { message: ending.message, data: null, transaction: outcome.proof },
         );
       }
-      const unmet = proved.checks.filter((check) => !check.met);
+      const unmet = [...proved.contract, ...proved.checks].filter(
+        (check) => !check.met,
+      );
       if (unmet.length > 0)
         return context.result(
           {

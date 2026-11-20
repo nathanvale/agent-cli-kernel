@@ -24,12 +24,14 @@ Preconditions:
 - `verify.ts launch <run>` exits 0.
 
 - **Help.** Run `verify.ts drive <run> approval-help '["--help"]' --expect-exit 1 --expect-stderr "Approval requires the state add-on"`. Exit 0; stdout is empty.
-- **Command.** Run `verify.ts drive <run> approval-command '["status","--json"]' --expect-exit 1 --expect-stderr "Approval requires the state add-on"`. Exit 0; the evidence shows `"oneEnvelope": false`.
-- **Doctor.** Run `verify.ts doctor --run <run>`. Exit 70, with `RAW FAIL target-usage` and `RAW FAIL target-discovery` lines: the CLI never reaches its kernel's refusals.
+- **Command.** Run `verify.ts drive <run> approval-command '["status"]' --expect-exit 1 --expect-empty-stdout --expect-stderr "Approval requires the state add-on"`. Exit 0; the evidence shows `"oneEnvelope": false`.
+- **Doctor.** Run `verify.ts doctor --run <run>`. Exit 70, with `RAW FAIL target-usage-exit`, `RAW FAIL target-usage-streams` and `RAW FAIL target-discovery` lines: the CLI never reaches its kernel's refusals.
 
 ## Gotchas
 
 - The refusal is a start-up throw with a stack trace, not an envelope, so
   `--expect-cause` has nothing to read. Match the stderr text.
+- Drive it without `--json`: with `--json`, the missing envelope breaks the
+  kernel's promise and the step fails, which is true but not this feature.
 - The repair is to list `"state"` too and pass the state add-on's
   descriptor to `contractFor`.

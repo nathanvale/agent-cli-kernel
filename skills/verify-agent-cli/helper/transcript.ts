@@ -6,6 +6,7 @@ export type Expectations = {
   readonly causeCode: string | undefined;
   readonly stdout: readonly string[];
   readonly stderr: readonly string[];
+  readonly emptyStdout: boolean;
   readonly emptyStderr: boolean;
   readonly file: string | undefined;
 };
@@ -92,6 +93,16 @@ export function checks(expected: Expectations, seen: Seen): Check[] {
             met: seen.file !== null && seen.file.includes(expected.file),
           },
         ]),
+    ...(expected.emptyStdout
+      ? [
+          {
+            expectation: "--expect-empty-stdout",
+            wanted: "",
+            seen: seen.stdout,
+            met: seen.stdout === "",
+          },
+        ]
+      : []),
     ...(expected.emptyStderr
       ? [
           {
@@ -99,6 +110,60 @@ export function checks(expected: Expectations, seen: Seen): Check[] {
             wanted: "",
             seen: seen.stderr,
             met: seen.stderr === "",
+          },
+        ]
+      : []),
+  ];
+}
+
+function asksForJson(argv: readonly string[]): boolean {
+  const literal = argv.indexOf("--");
+  return (literal < 0 ? argv : argv.slice(0, literal)).includes("--json");
+}
+
+export function contractChecks(
+  seen: Seen,
+  argv: readonly string[],
+  how: { readonly script: boolean; readonly timedOut: boolean },
+): Check[] {
+  if (how.script || how.timedOut || seen.exitCode === null) return [];
+  const envelope = envelopeOf(seen.stdout);
+  const claimed = at(envelope, "result", "exitCode");
+  const json = asksForJson(argv);
+  return [
+    ...(json
+      ? [
+          {
+            expectation: "contract: --json prints one envelope on stdout",
+            wanted: true,
+            seen: envelope !== null,
+            met: envelope !== null,
+          },
+          {
+            expectation: "contract: --json leaves stderr empty",
+            wanted: "",
+            seen: seen.stderr,
+            met: seen.stderr === "",
+          },
+        ]
+      : []),
+    ...(envelope === null
+      ? []
+      : [
+          {
+            expectation: "contract: the envelope's exit code is the process's",
+            wanted: seen.exitCode,
+            seen: typeof claimed === "number" ? claimed : null,
+            met: claimed === seen.exitCode,
+          },
+        ]),
+    ...(!json && seen.exitCode !== 0
+      ? [
+          {
+            expectation: "contract: a failed run prints nothing on stdout",
+            wanted: "",
+            seen: seen.stdout,
+            met: seen.stdout === "",
           },
         ]
       : []),

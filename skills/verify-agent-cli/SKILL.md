@@ -28,8 +28,12 @@ envelope claims with the exit code its process really had. On `doctor` it
 also runs your CLI twice by hand: an unknown command must exit 2 with one
 stderr line ending `[USAGE_UNKNOWN_COMMAND]`, and `--discover --json` must
 exit 0 with one envelope. Any mismatch prints `RAW FAIL` lines and exits 70.
-A kernel fault can break the helper and your CLI together; exit 70 is how
-you see it. Treat exit 70 as a broken installed kernel, never as a pass.
+Each line names the check that failed: `kernel-*` for the installed kernel,
+`target-*` for your CLI, `helper-*` for the helper. A kernel fault can break
+the helper and your CLI together; exit 70 is how you see it. Treat exit 70
+as a failure to diagnose from those lines, never as a pass. Ctrl-C or
+SIGTERM to `verify.ts` reaches the helper, which stops its drive first; then
+`verify.ts` exits 130 or 143.
 
 | Command                                              | What it does                                                                |
 | ---------------------------------------------------- | --------------------------------------------------------------------------- |
@@ -92,10 +96,17 @@ fails.
    `DOMAIN_VERIFY_EXPECTATION_UNMET` means the feature failed: report it with
    the evidence file. Keep the expectation as written.
 
+Every drive of your CLI also checks what the kernel promises every command,
+without being asked: an envelope's exit code is the process's; with
+`--json`, stdout holds one envelope and stderr is empty; without it, a run
+that fails prints nothing on stdout. A broken promise fails the step, and
+the evidence lists it under `contract`. A `--script` step, and a step its
+timeout stopped, skip these checks.
+
 Expectation options: `--expect-exit <n>`, `--expect-cause <code>` (read from
 the `--json` envelope, or from the one stderr line), `--expect-stdout <text>`,
 `--expect-stderr <text>` (each a substring, and each may repeat),
-`--expect-empty-stderr`, and
+`--expect-empty-stdout`, `--expect-empty-stderr`, and
 `--expect-file <text>` with `--read-file <path>`, which keeps a file's text
 after the step (a relative path is read from the run's scratch folder).
 Other options: `--stdin <text>`, `--timeout-ms <n>` (default 30000; the
@@ -126,15 +137,17 @@ run is refused as `DOMAIN_VERIFY_RUN_CLEAN`, exit 3: nothing is left to
 remove. Every process a drive starts is stopped by that drive, so nothing is
 left running; the helper never stops a process by name.
 
-A helper stopped with Ctrl-C or SIGTERM stops its drive and leaves the run
-usable. A helper killed outright leaves the run refused as
+A helper stopped with Ctrl-C or SIGTERM through `verify.ts` stops its drive
+and leaves the run usable. A helper killed outright leaves the run refused as
 `DOMAIN_VERIFY_RUN_UNRESOLVED`: read `pending`, keep that run's evidence, and
 launch a new run under another name.
 
 ## What the helper cannot do yet
 
 - Its programs add-on takes no working folder or environment, so the helper
-  starts your CLI as `env HOME=... bun --cwd <folder> <entry>`, and a script
-  as `env HOME=... bun run --cwd <repository> <script>`.
+  starts your CLI as `env HOME=... bun --cwd=<folder> <entry>`, and a script
+  as `env HOME=... bun --cwd=<repository> run <script>`. Bun reads
+  `bun --cwd <folder> run <script>`, without the equals sign, as `bun run`
+  with no script: it prints its help and exits 0, having run nothing.
 - A program's stdin is closed after `--stdin`'s text, and its output is kept
   as text, not bytes.

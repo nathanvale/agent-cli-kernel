@@ -90,7 +90,7 @@ const hold = command({
   },
   capabilities: {},
   run: (input, context) => {
-    appendFileSync(input.ledger, "holding\n");
+    appendFileSync(input.ledger, `holding\npid ${String(process.pid)}\n`);
     const read = readFileSync(input.fifo, "utf8");
     return context.result(
       { commandIdentity: "target.hold", causeCode: "SUCCESS_UNCHANGED" },
@@ -117,6 +117,75 @@ const touch = command({
       { message: "Touched.", data: null, effects: nothingChanged },
     );
   },
+});
+
+const where = command({
+  identity: "target.where",
+  route: ["where"],
+  summary: "Print the folder the target runs in, and its HOME.",
+  input: noInput,
+  capabilities: {},
+  run: (_input, context) =>
+    context.result(
+      { commandIdentity: "target.where", causeCode: "SUCCESS_UNCHANGED" },
+      {
+        message: `${process.cwd()} ${process.env.HOME ?? ""}`,
+        data: null,
+        effects: nothingChanged,
+      },
+    ),
+});
+
+const orphan = command({
+  identity: "target.orphan",
+  route: ["orphan"],
+  summary: "Kill the process that started the target, then return.",
+  input: {
+    ...noInput,
+    arguments: [
+      {
+        name: "confirm",
+        summary: "Any word; a sweep never supplies one.",
+        required: true,
+        value: text,
+      },
+    ],
+  },
+  capabilities: {},
+  run: (_input, context) => {
+    process.kill(process.ppid, "SIGKILL");
+    return context.result(
+      { commandIdentity: "target.orphan", causeCode: "SUCCESS_UNCHANGED" },
+      { message: "Orphaned.", data: null, effects: nothingChanged },
+    );
+  },
+});
+
+const flood = command({
+  identity: "target.flood",
+  route: ["flood"],
+  summary: "Return more data than the helper keeps.",
+  input: {
+    ...noInput,
+    arguments: [
+      {
+        name: "confirm",
+        summary: "Any word; a sweep never supplies one.",
+        required: true,
+        value: text,
+      },
+    ],
+  },
+  capabilities: {},
+  run: (_input, context) =>
+    context.result(
+      { commandIdentity: "target.flood", causeCode: "SUCCESS_UNCHANGED" },
+      {
+        message: "Flooded.",
+        data: { text: "x".repeat(1_100_000) },
+        effects: nothingChanged,
+      },
+    ),
 });
 
 const name = command({
@@ -175,7 +244,7 @@ const name = command({
 
 const contract = contractFor({
   cli: "target",
-  commands: [status, hold, touch, name],
+  commands: [status, hold, touch, where, orphan, flood, name],
   causes,
   installedAddons: [],
 });

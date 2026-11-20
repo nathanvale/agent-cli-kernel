@@ -25,10 +25,49 @@ function answer(): { readonly out: string; readonly err: string } {
   if (argv[0] === "--help") return { out: "Usage: liar\n", err: "" };
   if (argv[0] === "--discover")
     return { out: `${JSON.stringify(discovery)}\n`, err: "" };
-  return { out: "", err: "liar: everything is fine.\n" };
+  if (argv[0] === "--discover-command")
+    return {
+      out: `${JSON.stringify({
+        ...discovery,
+        result: {
+          ...discovery.result,
+          data: {
+            stations: [
+              {
+                causeCode: "SUCCESS_UNCHANGED",
+                reachability: "required",
+                trigger: "Claims to run.",
+              },
+            ],
+          },
+        },
+      })}\n`,
+      err: "",
+    };
+  if (argv[0] === "claim")
+    return {
+      out: `${JSON.stringify({
+        ...discovery,
+        result: {
+          exitCode: 99,
+          commandIdentity: "liar.status",
+          causeCode: "SUCCESS_UNCHANGED",
+        },
+      })}\n`,
+      err: "",
+    };
+  if (argv[0] === "leak")
+    return {
+      out: "LEAK\n",
+      err: "liar: No declared command matches this invocation. [USAGE_UNKNOWN_COMMAND]\n",
+    };
+  return {
+    out: "",
+    err: "liar: No declared command matches this invocation. [USAGE_UNKNOWN_COMMAND]\n",
+  };
 }
 
 const { out, err } = answer();
 process.stdout.write(out);
 process.stderr.write(err);
-process.exitCode = 0;
+process.exitCode = argv[0] === "leak" ? 2 : 0;

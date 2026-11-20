@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { isAbsolute, join } from "node:path";
+import { join } from "node:path";
 import { command, station } from "agent-cli-kernel";
 import type { ParsedPath, ProgramsCapability } from "agent-cli-kernel";
 import { callerProgramDisclosure } from "agent-cli-kernel/addons/programs";
@@ -11,8 +11,9 @@ import {
   stationWords,
   unchangedSuccess,
 } from "./causes.ts";
-import { at, jsonFile, listOf } from "./json.ts";
-import { readRunRecord, runPlace } from "./place.ts";
+import { at, listOf, readJsonFile } from "./json.ts";
+import { entryFor, readRunRecord, runPlace } from "./place.ts";
+import type { RunRecord } from "./place.ts";
 import { envelopeOf } from "./transcript.ts";
 
 const identity = "verify-agent-cli.doctor";
@@ -50,46 +51,66 @@ function userCommands(found: unknown): Listed[] {
     );
 }
 
-function packageFailures(cwd: string): string[] {
-  const pin = at(
-    jsonFile(join(cwd, "package.json")),
-    "dependencies",
-    "agent-cli-kernel",
+function fieldIn(
+  path: string,
+  names: readonly string[],
+  absent: string,
+): { readonly value: unknown; readonly failure: string | undefined } {
+  const read = readJsonFile(path);
+  if (read.kind === "unreadable")
+    return { value: undefined, failure: read.reason };
+  const value = read.kind === "read" ? at(read.value, ...names) : undefined;
+  return {
+    value,
+    failure: read.kind === "missing" ? `${path} is missing` : absent,
+  };
+}
+
+function packageFacts(cwd: string): {
+  readonly pin: string | null;
+  readonly failures: readonly string[];
+} {
+  const pin = fieldIn(
+    join(cwd, "package.json"),
+    ["dependencies", "agent-cli-kernel"],
+    "package.json names no agent-cli-kernel dependency",
   );
-  const installed = at(
-    jsonFile(join(cwd, "node_modules", "agent-cli-kernel", "package.json")),
-    "name",
+  const installed = fieldIn(
+    join(cwd, "node_modules", "agent-cli-kernel", "package.json"),
+    ["name"],
+    "node_modules/agent-cli-kernel is not the kernel package",
   );
-  return [
-    ...(typeof pin === "string"
-      ? []
-      : ["package.json names no agent-cli-kernel dependency"]),
-    ...(installed === "agent-cli-kernel"
-      ? []
-      : ["node_modules/agent-cli-kernel is not installed"]),
-  ];
+  return {
+    pin: typeof pin.value === "string" ? pin.value : null,
+    failures: [
+      ...(typeof pin.value === "string" ? [] : [pin.failure ?? ""]),
+      ...(installed.value === "agent-cli-kernel"
+        ? []
+        : [installed.failure ?? ""]),
+    ],
+  };
 }
 
 function runFailures(
   root: string,
   run: string | undefined,
-): { readonly failures: string[]; readonly entry: string | undefined } {
-  if (run === undefined) return { failures: [], entry: undefined };
+): { readonly failures: string[]; readonly record: RunRecord | undefined } {
+  if (run === undefined) return { failures: [], record: undefined };
   const place = runPlace(root, run);
   try {
     const record = readRunRecord(place);
     if (record === undefined)
-      return { failures: [`run ${run} was never launched`], entry: undefined };
+      return { failures: [`run ${run} was never launched`], record: undefined };
     return {
       failures: existsSync(place.scratch)
         ? []
         : [`run ${run} has no scratch folder: cleanup removed it`],
-      entry: record.entry,
+      record,
     };
   } catch (error) {
     return {
       failures: [error instanceof Error ? error.message : String(error)],
-      entry: undefined,
+      record: undefined,
     };
   }
 }
@@ -120,13 +141,16 @@ async function targetChecks(
       `--help exited ${String(help.exitCode)} with ${String(help.stdout.length)} bytes of stdout and ${String(help.stderr.length)} of stderr`,
     );
   const unknown = await ask("verify-agent-cli-no-such-command");
+  if (unknown.exitCode !== 2)
+    failures.push(
+      `an unknown command exited ${String(unknown.exitCode)}; it must exit 2`,
+    );
   if (
-    unknown.exitCode !== 2 ||
     unknown.stdout !== "" ||
-    !unknown.stderr.endsWith("[USAGE_UNKNOWN_COMMAND]\n")
+    !/^[^\n]+ \[USAGE_UNKNOWN_COMMAND\]\n$/.test(unknown.stderr)
   )
     failures.push(
-      `an unknown command exited ${String(unknown.exitCode)}; it must exit 2 with an empty stdout and one stderr line ending [USAGE_UNKNOWN_COMMAND]`,
+      "an unknown command must print nothing on stdout and one stderr line ending [USAGE_UNKNOWN_COMMAND]",
     );
   const discovery = await ask("--discover", "--json");
   const result = at(envelopeOf(discovery.stdout), "result");
@@ -222,14 +246,10 @@ export function doctorCommand(
     ],
     run: async (input, context) => {
       const run = runFailures(root, input["--run"]);
-      const entry = input["--entry"] ?? run.entry ?? "src/cli.ts";
-      const entryPath = isAbsolute(entry) ? entry : join(cwd, entry);
+      const entryPath = entryFor(input["--entry"], run.record, cwd);
+      const facts = packageFacts(cwd);
       const target = await targetChecks(context.programs, bun(), entryPath);
-      const failed = [
-        ...packageFailures(cwd),
-        ...run.failures,
-        ...target.failures,
-      ];
+      const failed = [...facts.failures, ...run.failures, ...target.failures];
       if (failed.length > 0)
         return context.result(
           {
@@ -242,18 +262,13 @@ export function doctorCommand(
             effects: nothingChanged,
           },
         );
-      const pin = at(
-        jsonFile(join(cwd, "package.json")),
-        "dependencies",
-        "agent-cli-kernel",
-      );
       return context.result(
         { commandIdentity: identity, causeCode: unchangedSuccess },
         {
           message: `${target.cli} is worth driving: ${String(target.commands.length)} commands.`,
           data: {
             repository: cwd,
-            pin: typeof pin === "string" ? pin : null,
+            pin: facts.pin,
             entry: entryPath,
             cli: target.cli,
             commands: target.commands.map((entry) => ({

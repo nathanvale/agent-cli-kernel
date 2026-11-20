@@ -1,7 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
-import { cli } from "./causes.ts";
 import { at } from "./json.ts";
+
+export const cli = "verify-agent-cli";
 
 export type Environment = Readonly<Record<string, string | undefined>>;
 
@@ -67,4 +68,15 @@ export function readRunRecord(place: RunPlace): RunRecord | undefined {
       `${place.record} is not a run record this helper wrote. Repair: launch a new run under another name.`,
     );
   return { run: place.run, repository, entry, launchedAt };
+}
+
+const defaultEntry = "src/cli.ts";
+
+export function entryFor(
+  given: string | undefined,
+  record: RunRecord | undefined,
+  cwd: string,
+): string {
+  const entry = given ?? record?.entry ?? defaultEntry;
+  return isAbsolute(entry) ? entry : join(cwd, entry);
 }

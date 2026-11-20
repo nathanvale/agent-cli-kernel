@@ -27,7 +27,9 @@ can reach; keep each file's four sections.
   feature. Report it with its evidence file. Keep the journey as written,
   and keep its expectations.
 - Report a step whose precondition the repository lacks (no changing
-  command, say) as not proved, with the reason. It is never a pass.
+  command, say) as not proved, with the reason. It is never a pass, and a
+  feature with a step not proved is not proved as a whole: report which
+  steps passed.
 
 ## Proof and cleanup
 

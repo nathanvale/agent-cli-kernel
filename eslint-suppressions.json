@@ -49,7 +49,7 @@
       "count": 1
     },
     "repository/no-domain-output": {
-      "count": 3
+      "count": 4
     }
   },
   "tests/template/doctor/doctor.test.ts": {

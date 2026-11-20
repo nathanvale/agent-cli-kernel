@@ -1,5 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { isAbsolute, join } from "node:path";
+import { existsSync } from "node:fs";
 import { command, station } from "agent-cli-kernel";
 import type { ParsedPath, ProgramsCapability } from "agent-cli-kernel";
 import { callerProgramDisclosure } from "agent-cli-kernel/addons/programs";
@@ -10,9 +9,11 @@ import {
   nothingChanged,
   stationWords,
   unchangedSuccess,
+  unreadableStation,
 } from "./causes.ts";
 import { at, listOf, parsedJson } from "./json.ts";
-import { runPlace } from "./place.ts";
+import { entryFor, readRunRecord, runPlace } from "./place.ts";
+import { readSteps } from "./steps.ts";
 
 type Ran = {
   readonly exitCode: number | null;
@@ -49,17 +50,26 @@ function words(value: unknown): readonly string[] {
     .map(String);
 }
 
-function driven(root: string, run: string | undefined): readonly Result[] {
-  if (run === undefined) return [];
+type Driven =
+  | { readonly kind: "read"; readonly results: readonly Result[] }
+  | { readonly kind: "unreadable"; readonly reasons: readonly string[] };
+
+function driven(root: string, run: string | undefined): Driven {
+  if (run === undefined) return { kind: "read", results: [] };
   const evidence = runPlace(root, run).evidence;
-  if (!existsSync(evidence)) return [];
-  return readdirSync(evidence)
-    .filter((name) => name.endsWith(".json") && name !== "run.json")
-    .map((name) => parsedJson(readFileSync(join(evidence, name), "utf8")))
-    .map((step) => ({
-      command: String(at(step, "commandIdentity")),
-      cause: String(at(step, "causeCode")),
-    }));
+  if (!existsSync(evidence)) return { kind: "read", results: [] };
+  const { steps, unreadable } = readSteps(evidence);
+  if (unreadable.length > 0) return { kind: "unreadable", reasons: unreadable };
+  return {
+    kind: "read",
+    results: steps
+      .filter((step) => step.contractHeld)
+      .flatMap((step) =>
+        step.commandIdentity === null || step.causeCode === null
+          ? []
+          : [{ command: step.commandIdentity, cause: step.causeCode }],
+      ),
+  };
 }
 
 async function sweep(drive: Drive, already: readonly Result[]): Promise<Sweep> {
@@ -267,29 +277,46 @@ const targetOptions = {
   ],
 } as const;
 
-function sweeper(
+type Swept =
+  | { readonly kind: "swept"; readonly report: Sweep }
+  | { readonly kind: "unreadable"; readonly reasons: readonly string[] };
+
+async function sweeper(
   root: string,
   cwd: string,
   bun: () => ParsedPath,
   programs: ProgramsCapability,
   entry: string | undefined,
   run: string | undefined,
-): Promise<Sweep> {
-  const file = entry ?? "src/cli.ts";
-  const target = isAbsolute(file) ? file : join(cwd, file);
-  return sweep(
-    async (argv) => {
-      const ran = await programs.supplied({
-        executable: bun(),
-        args: ["--no-install", target, ...argv],
-        timeoutMilliseconds: 30_000,
-        outputLimitBytes: 1_048_576,
-        shutdownMilliseconds: 2_000,
-      });
-      return { exitCode: ran.exitCode, stdout: ran.stdout, stderr: ran.stderr };
-    },
-    driven(root, run),
-  );
+): Promise<Swept> {
+  let target: string;
+  try {
+    const record =
+      run === undefined ? undefined : readRunRecord(runPlace(root, run));
+    target = entryFor(entry, record, cwd);
+  } catch (error) {
+    return {
+      kind: "unreadable",
+      reasons: [error instanceof Error ? error.message : String(error)],
+    };
+  }
+  const already = driven(root, run);
+  if (already.kind === "unreadable") return already;
+  const report = await sweep(async (argv) => {
+    const ran = await programs.supplied({
+      executable: bun(),
+      args: ["--no-install", target, ...argv],
+      timeoutMilliseconds: 30_000,
+      outputLimitBytes: 1_048_576,
+      shutdownMilliseconds: 2_000,
+    });
+    return { exitCode: ran.exitCode, stdout: ran.stdout, stderr: ran.stderr };
+  }, already.results);
+  return { kind: "swept", report };
+}
+
+function unreadableMessage(reasons: readonly string[]): string {
+  return `The run's evidence cannot be read: ${reasons.join("; ")}.`;
 }
 
 const sweepIdentity = "verify-agent-cli.sweep";
@@ -333,9 +360,10 @@ export function sweepCommand(root: string, cwd: string, bun: () => ParsedPath) {
         },
         independentObservable: `${sweepIdentity}:failed`,
       }),
+      unreadableStation(sweepIdentity),
     ],
     run: async (input, context) => {
-      const report = await sweeper(
+      const swept = await sweeper(
         root,
         cwd,
         bun,
@@ -343,6 +371,19 @@ export function sweepCommand(root: string, cwd: string, bun: () => ParsedPath) {
         input["--entry"],
         input["--run"],
       );
+      if (swept.kind === "unreadable")
+        return context.result(
+          {
+            commandIdentity: sweepIdentity,
+            causeCode: "DOMAIN_VERIFY_EVIDENCE_UNREADABLE",
+          },
+          {
+            message: unreadableMessage(swept.reasons),
+            data: null,
+            effects: nothingChanged,
+          },
+        );
+      const report = swept.report;
       const first = report.findings[0];
       if (first !== undefined)
         return context.result(
@@ -400,9 +441,10 @@ export function findingsCommand(
         },
         independentObservable: `${findingsIdentity}:listed`,
       }),
+      unreadableStation(findingsIdentity),
     ],
     run: async (input, context) => {
-      const report = await sweeper(
+      const swept = await sweeper(
         root,
         cwd,
         bun,
@@ -410,6 +452,19 @@ export function findingsCommand(
         input["--entry"],
         input["--run"],
       );
+      if (swept.kind === "unreadable")
+        return context.result(
+          {
+            commandIdentity: findingsIdentity,
+            causeCode: "DOMAIN_VERIFY_EVIDENCE_UNREADABLE",
+          },
+          {
+            message: unreadableMessage(swept.reasons),
+            data: null,
+            effects: nothingChanged,
+          },
+        );
+      const report = swept.report;
       return context.result(
         { commandIdentity: findingsIdentity, causeCode: unchangedSuccess },
         {

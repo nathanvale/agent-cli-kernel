@@ -21,7 +21,7 @@ Preconditions:
 - The working tree holds the change you are proving.
 
 - **Check.** Run `verify.ts drive <run> check-pass '["check"]' --script --timeout-ms 600000 --expect-exit 0 --expect-stderr "bun test"`. Exit 0.
-- **Steps.** Read the evidence file. Its stderr holds `$ eslint`, `$ biome format`, `$ tsc`, `$ bun test` and the fallow step, in that order, and its stdout holds the test summary.
+- **Steps.** Read the evidence file. Its stderr holds bun's `$ eslint`, `$ biome format`, `$ tsc` and `$ bun test` lines in that order, then the test summary; its stdout holds the fallow step's JSON report.
 
 ## Gotchas
 
@@ -29,5 +29,8 @@ Preconditions:
   scratch folder, with `HOME` inside the run's scratch folder.
 - The check takes minutes; give `--timeout-ms` room, or the step is stopped
   and fails.
-- bun prints each script's `$ <command>` line on stderr, so stderr is not
-  empty here.
+- bun prints each script's `$ <command>` line, and `bun test` its summary,
+  on stderr, so stderr is not empty here. The fallow step runs with
+  `--silent`, so it has no `$` line.
+- An exit 0 alone proves nothing: a `bun` that ran no script also exits 0.
+  The `--expect-stderr "bun test"` expectation is what shows the check ran.

@@ -1,5 +1,4 @@
-import { existsSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync } from "node:fs";
 import { command, station } from "agent-cli-kernel";
 import {
   causes,
@@ -8,37 +7,12 @@ import {
   runArgument,
   stationWords,
   unchangedSuccess,
+  unreadableStation,
 } from "./causes.ts";
-import { at, jsonFile, listOf } from "./json.ts";
 import { runPlace } from "./place.ts";
+import { readSteps } from "./steps.ts";
 
 const identity = "verify-agent-cli.evidence";
-
-type Step = {
-  readonly step: string;
-  readonly file: string;
-  readonly startedAt: string;
-  readonly exitCode: number | null;
-  readonly causeCode: string | null;
-  readonly unmet: number;
-};
-
-function stepOf(folder: string, name: string): Step {
-  const file = join(folder, name);
-  const parsed = jsonFile(file);
-  const exitCode = at(parsed, "exitCode");
-  const causeCode = at(parsed, "causeCode");
-  const startedAt = at(parsed, "startedAt");
-  const checks = at(parsed, "checks");
-  return {
-    step: name.slice(0, -".json".length),
-    file,
-    startedAt: typeof startedAt === "string" ? startedAt : "",
-    exitCode: typeof exitCode === "number" ? exitCode : null,
-    causeCode: typeof causeCode === "string" ? causeCode : null,
-    unmet: listOf(checks).filter((check) => at(check, "met") !== true).length,
-  };
-}
 
 export function evidenceCommand(root: string) {
   return command({
@@ -71,6 +45,7 @@ export function evidenceCommand(root: string) {
         },
         independentObservable: `${identity}:run-missing`,
       }),
+      unreadableStation(identity),
     ],
     run: (input, context) => {
       const place = runPlace(root, input.run);
@@ -83,10 +58,19 @@ export function evidenceCommand(root: string) {
             effects: nothingChanged,
           },
         );
-      const steps = readdirSync(place.evidence)
-        .filter((name) => name.endsWith(".json") && name !== "run.json")
-        .map((name) => stepOf(place.evidence, name))
-        .sort((a, b) => (a.startedAt < b.startedAt ? -1 : 1));
+      const { steps, unreadable } = readSteps(place.evidence);
+      if (unreadable.length > 0)
+        return context.result(
+          {
+            commandIdentity: identity,
+            causeCode: "DOMAIN_VERIFY_EVIDENCE_UNREADABLE",
+          },
+          {
+            message: `Run ${input.run} holds evidence the helper cannot read: ${unreadable.join("; ")}.`,
+            data: null,
+            effects: nothingChanged,
+          },
+        );
       return context.result(
         { commandIdentity: identity, causeCode: unchangedSuccess },
         {

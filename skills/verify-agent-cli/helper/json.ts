@@ -21,11 +21,34 @@ export function parsedJson(text: string): unknown {
   }
 }
 
-export function jsonFile(path: string): unknown {
+export type JsonRead =
+  | { readonly kind: "missing" }
+  | { readonly kind: "read"; readonly value: unknown }
+  | { readonly kind: "unreadable"; readonly reason: string };
+
+function errorCode(error: unknown): unknown {
+  return at(error, "code");
+}
+
+export function readJsonFile(path: string): JsonRead {
+  let text: string;
   try {
-    return parsedJson(readFileSync(path, "utf8"));
-  } catch {
-    return undefined;
+    text = readFileSync(path, "utf8");
+  } catch (error) {
+    if (errorCode(error) === "ENOENT") return { kind: "missing" };
+    return {
+      kind: "unreadable",
+      reason: error instanceof Error ? error.message : String(error),
+    };
+  }
+  try {
+    const value: unknown = JSON.parse(text);
+    return { kind: "read", value };
+  } catch (error) {
+    return {
+      kind: "unreadable",
+      reason: `${path} is not JSON: ${error instanceof Error ? error.message : String(error)}`,
+    };
   }
 }
 

@@ -1,12 +1,17 @@
 import {
+  closeSync,
+  constants,
   mkdirSync,
+  openSync,
   readFileSync,
   rmSync,
   symlinkSync,
   writeFileSync,
+  writeSync,
 } from "node:fs";
 import { join } from "node:path";
-import { spawnBounded } from "../../support/process.ts";
+import { spawnBounded } from "../kernel-repair/swarm-process.ts";
+import { exitBound } from "../lifecycle/harness.ts";
 import { testFolder } from "../../support/test-folder.ts";
 
 export const repository = join(import.meta.dir, "../../..");
@@ -16,7 +21,39 @@ export const frontDoor = join(skill, "verify.ts");
 export const targetEntry = join(import.meta.dir, "fixtures/target-cli.ts");
 export const liarEntry = join(import.meta.dir, "fixtures/liar-cli.ts");
 export const brokenEntry = join(import.meta.dir, "fixtures/broken-cli.ts");
-export const helperBound = 30_000;
+export const stubbornEntry = join(import.meta.dir, "fixtures/stubborn-cli.ts");
+const made: string[] = [];
+
+export const helperBound = exitBound;
+
+export function watchdog(runs: number): number {
+  return runs * helperBound + 10_000;
+}
+
+export function ownedFolder(prefix: string): string {
+  const folder = testFolder(prefix);
+  made.push(folder);
+  return folder;
+}
+
+export function releaseFifo(path: string): void {
+  const descriptor = openSync(path, constants.O_WRONLY | constants.O_NONBLOCK);
+  try {
+    writeSync(descriptor, "go");
+  } finally {
+    closeSync(descriptor);
+  }
+}
+
+export function ledgeredPid(ledger: string): number {
+  const line = readFileSync(ledger, "utf8")
+    .split("\n")
+    .find((entry) => entry.startsWith("pid "));
+  const pid = Number(line?.slice("pid ".length));
+  if (!Number.isSafeInteger(pid) || pid <= 0)
+    throw new Error(`${ledger} holds no pid line.`);
+  return pid;
+}
 
 export type World = {
   readonly state: string;
@@ -24,16 +61,13 @@ export type World = {
   readonly runs: string;
 };
 
-const made: string[] = [];
-
 export function releaseWorlds(): void {
   for (const folder of made.splice(0))
     rmSync(folder, { recursive: true, force: true });
 }
 
 export function world(): World {
-  const folder = testFolder("kernel-verify-skill-");
-  made.push(folder);
+  const folder = ownedFolder("kernel-verify-skill-");
   const repo = join(folder, "repo");
   mkdirSync(join(repo, "node_modules"), { recursive: true });
   writeFileSync(
@@ -99,4 +133,41 @@ export function resultCause(helped: Helped): unknown {
 
 export function readJson(path: string): unknown {
   return parsed(readFileSync(path, "utf8"));
+}
+
+export function ledgerHolds(
+  ledger: string,
+  line: string,
+  boundMilliseconds: number,
+): Promise<void> {
+  const started = Date.now();
+  return new Promise<void>((resolve, reject) => {
+    const poll = setInterval(() => {
+      let lines: readonly string[];
+      try {
+        lines = readFileSync(ledger, "utf8").split("\n");
+      } catch {
+        lines = [];
+      }
+      if (lines.includes(line)) {
+        clearInterval(poll);
+        resolve();
+      } else if (Date.now() - started >= boundMilliseconds) {
+        clearInterval(poll);
+        reject(
+          new Error(
+            `${ledger} did not hold the line "${line}" within ${String(boundMilliseconds)} ms.`,
+          ),
+        );
+      }
+    }, 5);
+  });
+}
+
+export function front(at: World, ...argv: readonly string[]) {
+  return spawnBounded([process.execPath, frontDoor, ...argv], {
+    cwd: at.repo,
+    env: environment(at),
+    boundMilliseconds: helperBound,
+  });
 }
