@@ -22,7 +22,7 @@ after it in every file and folder name. It refuses a word noted
 **Kernel repository**:
 The repository that is the canonical owner of the kernel and add-on source and
 of their tests.
-_Avoid_: core repository, kernel package
+_Avoid_: core repository, kernel package (for the repository: the package is what a consumer installs)
 
 **Carry-out**:
 The single commit that brought the kernel, the add-ons, their tests and the
@@ -68,20 +68,36 @@ The kernel as a consuming repository holds it: installed as a package at a
 pin, imported by its package name, with none of its source owned there.
 _Avoid_: vendored kernel, kernel copy (for the installed kernel)
 
+**Kernel package**:
+What a consuming repository installs at a pin: the kernel, its add-ons, the
+kernel's lint and the skills it ships. It is named `agent-cli-kernel`.
+
 **Add-on**:
-An optional capability using the kernel's public interface without importing
-or patching another add-on. The four accepted capabilities are state,
-programs, approval and diagnostics. An add-on may require another add-on to be
-selected.
+An optional capability that uses the kernel's public interface without
+importing or patching another add-on, and may require another add-on to be
+selected. The four are the state, programs, approval and diagnostics add-ons.
+
+**State add-on**:
+The add-on that owns the journal and the state a changing command works in.
+
+**Programs add-on**:
+The add-on that owns starting and stopping the programs a command runs.
+
+**Approval add-on**:
+The add-on that checks authority before a command attempts its approved
+effects.
+
+**Diagnostics add-on**:
+The add-on that owns the diagnostic records of a run and their custody.
 
 **Add-on selection**:
-The add-ons one consuming repository uses, recorded only in its
-`installedAddons`. The kernel is always used and is not part of the selection.
+The add-ons one consuming repository uses. The kernel is always used and is not
+part of the selection.
 _Avoid_: starter, profile, variant (for an add-on selection)
 
 **Add-on requirement**:
-A package an add-on needs, declared in the kernel's `package.json` as an
-ordinary dependency. The diagnostics add-on's `@logtape` packages are add-on
+A package an add-on needs in order to run, which the kernel carries as an
+ordinary dependency. The diagnostics add-on's logging packages are add-on
 requirements.
 _Avoid_: optional peer (for an add-on requirement); dependency (unqualified)
 

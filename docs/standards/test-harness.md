@@ -21,7 +21,7 @@ runs each test file. What a test must prove is in the
   [#109-bound] (a process-runner case started a nested child with no time
   limit), [kernel#13-readers], [9086c3b] (L08.a started its readers with no
   time limit, and only a reader that exited, not one killed or failed, went
-  through the clean-up that frees a blocked named-pipe open),
+  through the release step that frees a blocked named-pipe open),
   [kernel#18 r4625198722], [93dd83e] (K11.g and the other new state tests
   started their CLI children with no time limit; the state test harness
   now gives every `world.start` a 60 s default bound), [4ca0141] (the
