@@ -14,9 +14,9 @@ is an agent writing commands in that repository.
   the kernel by its package name, `agent-cli-kernel`.
 - Change a code block by changing the example in
   `tests/kernel/author-guide/example/`, then run
-  `bun run tests/kernel/author-guide/example-document.ts`. Each example file
-  is stored as its path in that repository plus `.txt`, formatted as Biome
-  formats TypeScript.
+  `bun run tests/kernel/author-guide/example-document.ts`.
+- Store each example file as its path in that repository plus `.txt`, and
+  format it as Biome formats TypeScript.
 - Copy a shorter excerpt into another reference by hand. The gate refuses a
   `ts` block that no example file holds.
 - State kernel behaviour in words only after running it. When a planned
