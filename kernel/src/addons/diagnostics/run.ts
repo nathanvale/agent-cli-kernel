@@ -44,15 +44,20 @@ export type DiagnosticsOptions = {
   readonly secrets?: SecretSources;
 };
 
-export type StatusAttached = AttachedAddon<DiagnosticsCapability> & {
+export type DiagnosticsAttached = AttachedAddon<DiagnosticsCapability> & {
   // Interface: Once, after the result is frozen: stop input, flush and close within the
   // limit, then resolve the frozen status. It never rejects.
   readonly freeze: (limitMilliseconds: number) => Promise<Diagnostics>;
 };
-export type StatusAddon = {
+export type DiagnosticsAddon = {
   readonly reportsStatus: true;
-  readonly attach: (run: RunControl) => StatusAttached;
+  readonly attach: (run: RunControl) => DiagnosticsAttached;
 };
+
+/** @deprecated Use DiagnosticsAttached; accepted decision N11 keeps this alias. */
+export type StatusAttached = DiagnosticsAttached;
+/** @deprecated Use DiagnosticsAddon; accepted decision N11 keeps this alias. */
+export type StatusAddon = DiagnosticsAddon;
 
 const listedLevels: Readonly<Record<DiagnosticsLevel, true>> = {
   trace: true,
@@ -151,7 +156,7 @@ function session(
   options: DiagnosticsOptions,
   io: DiagnosticsIo,
   run: RunControl,
-): StatusAttached {
+): DiagnosticsAttached {
   const started = performance.now();
   let sequence = 0;
   let handed = 0;
@@ -442,8 +447,8 @@ function session(
 export function createDiagnostics(
   options: DiagnosticsOptions,
   io: DiagnosticsIo,
-): StatusAddon {
-  const addon: StatusAddon = {
+): DiagnosticsAddon {
+  const addon: DiagnosticsAddon = {
     reportsStatus: true,
     attach: (run) => session(options, io, run),
   };

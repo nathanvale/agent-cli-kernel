@@ -109,6 +109,12 @@ A compiler input used by the kernel's lock tests to check a type constraint
 with the native and lint-view compilers. `lock-probes.ts` owns their batch
 runner. This is separate from verify-cli's Probe of a target CLI.
 
+**Diagnostics add-on**:
+The optional diagnostics capability. `DiagnosticsAddon` is its public type;
+`DiagnosticsAttached` is the attachment to one run, including its bounded
+`freeze` operation. `StatusAddon` and `StatusAttached` remain exported as
+deprecated aliases of those types under accepted decision N11.
+
 ### Verifying a CLI
 
 **verify-cli**:
