@@ -239,6 +239,30 @@ describe("kernel faults the check reports", () => {
   );
 
   test(
+    "a target whose discovery changes only in a run id nested in its data is not repeatable, exit 3",
+    async () => {
+      const at = world();
+      const ran = await viaKernelFreeCheck(at, [
+        "ready",
+        join(at.repo, "fixtures", "nested-run-id-cli.ts"),
+      ]);
+      expect({
+        exit: ran.exit,
+        stdout: ran.stdout,
+        lines: ran.stderr
+          .split("\n")
+          .filter((line) => line !== "")
+          .map((line) => line.split(":").slice(0, 2).join(":")),
+      }).toEqual({
+        exit: 3,
+        stdout: "",
+        lines: ["verify-cli: TARGET FAIL target-not-repeatable"],
+      });
+    },
+    watchdog(0, 1),
+  );
+
+  test(
     "the helper alone cannot see an exit code the kernel flattens",
     async () => {
       const { at } = faulted(kernelFaults.exitsZero);
@@ -653,6 +677,15 @@ describe("the check's own steps, in process", () => {
     expect(first.stdoutSha256).toBe(second.stdoutSha256);
     expect(altered.stdoutBytes).toBe(first.stdoutBytes);
     expect(altered.stdoutSha256).not.toBe(first.stdoutSha256);
+    const nested = (inner: string) =>
+      probeResult([], {
+        exitCode: 0,
+        stdout: `{"result":{"runId":"91d19276-8b8b-43e8-9995-fcf3696fcf12","data":{"last":{"runId":"${inner}"}}}}\n`,
+        stderr: "",
+      });
+    expect(
+      nested("91d19276-8b8b-43e8-9995-fcf3696fcf12").stdoutSha256,
+    ).not.toBe(nested("e83ba2da-1b47-4d44-a97f-fb39399094d2").stdoutSha256);
   });
 
   test("the helper's probe is compared with raw runs of the same two probes", async () => {
