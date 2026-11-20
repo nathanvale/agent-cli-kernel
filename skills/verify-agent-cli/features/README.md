@@ -7,8 +7,8 @@ can reach; keep each file's four sections.
 
 ## Baseline
 
-- Run every command from the repository root, after
-  `bun install --frozen-lockfile`.
+- Run every command from the repository root, once
+  `node_modules/agent-cli-kernel` is installed.
 - `verify.ts` below stands for
   `bun node_modules/agent-cli-kernel/skills/verify-agent-cli/verify.ts`.
   Write the full command each time.
@@ -26,8 +26,8 @@ can reach; keep each file's four sections.
 - A step that exits 3 with `DOMAIN_VERIFY_EXPECTATION_UNMET` is a failed
   feature. Report it with its evidence file. Keep the journey as written,
   and keep its expectations.
-- A precondition the repository lacks (no changing command, say) is a
-  failure to report, with the reason, never a skipped step.
+- Report a step whose precondition the repository lacks (no changing
+  command, say) as not proved, with the reason. It is never a pass.
 
 ## Proof and cleanup
 

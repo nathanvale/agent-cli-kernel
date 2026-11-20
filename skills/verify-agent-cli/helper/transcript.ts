@@ -4,8 +4,8 @@ import { at, parsedJson } from "./json.ts";
 export type Expectations = {
   readonly exitCode: number | undefined;
   readonly causeCode: string | undefined;
-  readonly stdout: string | undefined;
-  readonly stderr: string | undefined;
+  readonly stdout: readonly string[];
+  readonly stderr: readonly string[];
   readonly emptyStderr: boolean;
   readonly file: string | undefined;
 };
@@ -70,26 +70,18 @@ export function checks(expected: Expectations, seen: Seen): Check[] {
             met: cause === expected.causeCode,
           },
         ]),
-    ...(expected.stdout === undefined
-      ? []
-      : [
-          {
-            expectation: "--expect-stdout",
-            wanted: expected.stdout,
-            seen: seen.stdout.includes(expected.stdout),
-            met: seen.stdout.includes(expected.stdout),
-          },
-        ]),
-    ...(expected.stderr === undefined
-      ? []
-      : [
-          {
-            expectation: "--expect-stderr",
-            wanted: expected.stderr,
-            seen: seen.stderr.includes(expected.stderr),
-            met: seen.stderr.includes(expected.stderr),
-          },
-        ]),
+    ...expected.stdout.map((text) => ({
+      expectation: "--expect-stdout",
+      wanted: text,
+      seen: seen.stdout.includes(text),
+      met: seen.stdout.includes(text),
+    })),
+    ...expected.stderr.map((text) => ({
+      expectation: "--expect-stderr",
+      wanted: text,
+      seen: seen.stderr.includes(text),
+      met: seen.stderr.includes(text),
+    })),
     ...(expected.file === undefined
       ? []
       : [

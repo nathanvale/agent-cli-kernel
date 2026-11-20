@@ -1,4 +1,4 @@
-import { appendFileSync, readFileSync } from "node:fs";
+import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import {
   command,
   commonCauses,
@@ -99,6 +99,26 @@ const hold = command({
   },
 });
 
+const touch = command({
+  identity: "target.touch",
+  route: ["touch"],
+  summary: "Write a file, though the command declares no change.",
+  input: {
+    ...noInput,
+    arguments: [
+      { name: "path", summary: "The file.", required: true, value: text },
+    ],
+  },
+  capabilities: {},
+  run: (input, context) => {
+    writeFileSync(input.path, "touched");
+    return context.result(
+      { commandIdentity: "target.touch", causeCode: "SUCCESS_UNCHANGED" },
+      { message: "Touched.", data: null, effects: nothingChanged },
+    );
+  },
+});
+
 const name = command({
   identity: "target.name",
   route: ["name"],
@@ -155,7 +175,7 @@ const name = command({
 
 const contract = contractFor({
   cli: "target",
-  commands: [status, hold, name],
+  commands: [status, hold, touch, name],
   causes,
   installedAddons: [],
 });

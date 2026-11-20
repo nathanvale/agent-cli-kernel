@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
+import { readdir, readFile, writeFile } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
 import { changing, station } from "agent-cli-kernel";
 import type { ParsedPath, ProgramResult } from "agent-cli-kernel";
@@ -28,13 +28,17 @@ const identity = "verify-agent-cli.drive";
 const outputLimitBytes = 1_048_576;
 const shutdownMilliseconds = 2_000;
 
-const textOption = (name: string, summary: string) =>
+const textOption = <const Name extends string, const Repeat extends boolean>(
+  name: Name,
+  summary: string,
+  repeatable: Repeat,
+) =>
   ({
     name,
     aliases: [],
     summary,
     required: false,
-    repeatable: false,
+    repeatable,
     value: {
       kind: "string",
       minLength: 1,
@@ -76,6 +80,7 @@ function targetCommand(
     `XDG_CONFIG_HOME=${join(home, ".config")}`,
     `XDG_DATA_HOME=${join(home, ".local", "share")}`,
     `XDG_CACHE_HOME=${join(home, ".cache")}`,
+    "BUN_RUNTIME_TRANSPILER_CACHE_PATH=0",
     process.execPath,
     ...where,
   ];
@@ -98,8 +103,34 @@ type Driven = {
   readonly commandIdentity: string | null;
   readonly causeCode: string | null;
   readonly file: { readonly path: string; readonly text: string | null } | null;
+  readonly scratchChanges: {
+    readonly added: readonly string[];
+    readonly removed: readonly string[];
+    readonly truncated: boolean;
+  };
   readonly checks: readonly Check[];
 };
+
+const listingLimit = 500;
+
+async function listing(folder: string): Promise<readonly string[]> {
+  try {
+    const names = await readdir(folder, { recursive: true });
+    return names.map(String).sort();
+  } catch {
+    return [];
+  }
+}
+
+function changes(before: readonly string[], after: readonly string[]) {
+  const added = after.filter((name) => !before.includes(name));
+  const removed = before.filter((name) => !after.includes(name));
+  return {
+    added: added.slice(0, listingLimit),
+    removed: removed.slice(0, listingLimit),
+    truncated: added.length > listingLimit || removed.length > listingLimit,
+  };
+}
 
 async function fileText(
   place: RunPlace,
@@ -172,9 +203,18 @@ export function driveCommand(
         textOption(
           "--expect-cause",
           "The cause code the target's envelope, or its one stderr line, must name.",
+          false,
         ),
-        textOption("--expect-stdout", "Text the target's stdout must hold."),
-        textOption("--expect-stderr", "Text the target's stderr must hold."),
+        textOption(
+          "--expect-stdout",
+          "Text the target's stdout must hold. Repeat it for more texts.",
+          true,
+        ),
+        textOption(
+          "--expect-stderr",
+          "Text the target's stderr must hold. Repeat it for more texts.",
+          true,
+        ),
         {
           name: "--expect-empty-stderr",
           aliases: [],
@@ -183,7 +223,7 @@ export function driveCommand(
           repeatable: false,
           value: null,
         },
-        textOption("--stdin", "Text to write to the target's stdin."),
+        textOption("--stdin", "Text to write to the target's stdin.", false),
         {
           name: "--script",
           aliases: [],
@@ -196,10 +236,12 @@ export function driveCommand(
         textOption(
           "--read-file",
           "After the target ends, keep this file's text in the evidence. A relative path is read from the run's scratch folder.",
+          false,
         ),
         textOption(
           "--expect-file",
           "Text the file named by --read-file must hold.",
+          false,
         ),
       ],
     },
@@ -314,8 +356,8 @@ export function driveCommand(
       const expected: Expectations = {
         exitCode: input["--expect-exit"],
         causeCode: input["--expect-cause"],
-        stdout: input["--expect-stdout"],
-        stderr: input["--expect-stderr"],
+        stdout: input["--expect-stdout"] ?? [],
+        stderr: input["--expect-stderr"] ?? [],
         emptyStderr: input["--expect-empty-stderr"] === true,
         file: input["--expect-file"],
       };
@@ -352,6 +394,7 @@ export function driveCommand(
             argv,
             input["--script"] === true,
           );
+          const before = await listing(place.scratch);
           const startedAt = new Date().toISOString();
           const started = performance.now();
           const ran: ProgramResult = await transaction.record(
@@ -370,6 +413,7 @@ export function driveCommand(
               }),
             (result) => Promise.resolve(result.terminationConfirmed),
           );
+          const scratchChanges = changes(before, await listing(place.scratch));
           const read = input["--read-file"];
           const keptFile =
             read === undefined ? null : await fileText(place, read);
@@ -411,6 +455,7 @@ export function driveCommand(
             commandIdentity: identityOf(envelope),
             causeCode: causeOf(envelope, ran.stderr),
             file: keptFile,
+            scratchChanges,
             checks: checks(expected, seen),
           };
           await transaction.record(

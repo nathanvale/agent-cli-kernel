@@ -64,7 +64,8 @@ result in a scenario, then run `sweep --run <run>` to see it counted.
 
 ## Launch
 
-1. Run `bun install --frozen-lockfile` once.
+1. When `node_modules/agent-cli-kernel` is missing, run
+   `bun install --frozen-lockfile` once.
 2. Pick a run name no earlier run used, such as `status-2026-11-20`, and run
    `launch <run>`. Pass `--entry <file>` when the CLI's entry is not
    `src/cli.ts`.
@@ -93,7 +94,8 @@ fails.
 
 Expectation options: `--expect-exit <n>`, `--expect-cause <code>` (read from
 the `--json` envelope, or from the one stderr line), `--expect-stdout <text>`,
-`--expect-stderr <text>` (each a substring), `--expect-empty-stderr`, and
+`--expect-stderr <text>` (each a substring, and each may repeat),
+`--expect-empty-stderr`, and
 `--expect-file <text>` with `--read-file <path>`, which keeps a file's text
 after the step (a relative path is read from the run's scratch folder).
 Other options: `--stdin <text>`, `--timeout-ms <n>` (default 30000; the
@@ -106,7 +108,8 @@ starts with the script's name.
 Each step writes one JSON file to
 `${XDG_STATE_HOME:-$HOME/.local/state}/verify-agent-cli/runs/<run>/evidence/<step>.json`:
 the argv, the full command, exit code, stdout, stderr, whether it timed out,
-the cause, and each expectation with what was seen. `run.json` beside it
+the cause, the files the step added to or removed from the scratch folder
+(`scratchChanges`), and each expectation with what was seen. `run.json` beside it
 records the repository and entry. A step name is used once, so evidence is
 never overwritten.
 

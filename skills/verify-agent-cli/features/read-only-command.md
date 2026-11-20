@@ -23,9 +23,9 @@ Preconditions:
 - `verify.ts doctor --run <run>` exits 0 and lists the command with
   `effectClass` `inspect`.
 
-- **Human read.** Run `verify.ts drive <run> read-human '["status"]' --expect-exit 0 --expect-stdout "The command-line tool runs." --expect-empty-stderr`. Exit 0.
+- **Human read.** Run `verify.ts drive <run> read-human '["status"]' --expect-exit 0 --expect-stdout "The command-line tool runs." --expect-stdout '"ready": true' --expect-empty-stderr`. Exit 0; the message comes first, then the data.
 - **JSON read.** Run `verify.ts drive <run> read-json '["status","--json"]' --expect-exit 0 --expect-cause SUCCESS_UNCHANGED --expect-stdout '"ready":true' --expect-empty-stderr`. Exit 0; the evidence shows `"oneEnvelope": true`.
-- **Domain refusal.** For a command that refuses a bad value, such as `show pluto` in the author skill's example, run `verify.ts drive <run> read-refusal '["show","pluto"]' --expect-exit 3 --expect-cause DOMAIN_MOONS_UNKNOWN_PLANET`. Exit 0. A CLI with no such refusal reports this step as not reachable.
+- **Domain refusal.** For a command that refuses a bad value, such as `show pluto` in the author skill's example, run `verify.ts drive <run> read-refusal '["show","pluto"]' --expect-exit 3 --expect-cause DOMAIN_MOONS_UNKNOWN_PLANET`. Exit 0. A CLI with no such refusal reports this step as not proved, with that reason.
 - **Owed results.** Run `verify.ts sweep --run <run>`. The command's results you drove are gone from `owed`.
 
 ## Gotchas
@@ -33,4 +33,6 @@ Preconditions:
 - Without `--json`, a success prints the data as indented JSON after the
   message line; match a short substring, not the whole block.
 - A read-only command changes nothing. Its evidence shows
-  `"transactionState":"unchanged"` in the envelope.
+  `"transactionState":"unchanged"` in the envelope and an empty
+  `scratchChanges.added`; a file there is a change the command did not
+  declare.

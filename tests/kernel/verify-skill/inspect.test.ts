@@ -46,6 +46,7 @@ describe("doctor", () => {
       { identity: "target.hold", route: ["hold"], effectClass: "inspect" },
       { identity: "target.name", route: ["name"], effectClass: "inspect" },
       { identity: "target.status", route: ["status"], effectClass: "inspect" },
+      { identity: "target.touch", route: ["touch"], effectClass: "inspect" },
     ]);
   });
 
@@ -83,6 +84,7 @@ describe("sweep and findings", () => {
       { command: "target.hold", cause: "SUCCESS_UNCHANGED" },
       { command: "target.name", cause: "SUCCESS_UNCHANGED" },
       { command: "target.name", cause: "DOMAIN_TARGET_UNKNOWN_NAME" },
+      { command: "target.touch", cause: "SUCCESS_UNCHANGED" },
     ]);
   });
 
@@ -101,6 +103,7 @@ describe("sweep and findings", () => {
     );
     expect(field(ran.result, "data", "owed")).toEqual([
       { command: "target.hold", cause: "SUCCESS_UNCHANGED" },
+      { command: "target.touch", cause: "SUCCESS_UNCHANGED" },
     ]);
   });
 
@@ -133,7 +136,7 @@ describe("the front door, verify.ts, which does not go through the kernel", () =
       exit: 0,
       stderr: "",
     });
-    expect(ran.stdout).toStartWith("target is worth driving: 3 commands.\n");
+    expect(ran.stdout).toStartWith("target is worth driving: 4 commands.\n");
     const refused = await front(at, "evidence", "nope");
     expect({ exit: refused.exit, stderr: refused.stderr }).toEqual({
       exit: 3,

@@ -267,4 +267,34 @@ describe("cleanup and evidence", () => {
       ],
     });
   });
+
+  test("drive lists the files a step left in the scratch folder, none for a read, and checks each repeated stdout text", async () => {
+    const at = world();
+    await helper(at, "launch", "r1", "--entry", targetEntry);
+    await helper(
+      at,
+      "drive",
+      "r1",
+      "read",
+      '["status","--json"]',
+      "--expect-stdout",
+      '"ready":true',
+      "--expect-stdout",
+      "SUCCESS_UNCHANGED",
+    );
+    await helper(at, "drive", "r1", "touch", '["touch","made.txt"]');
+    expect(readJson(join(at.runs, "r1/evidence/read.json"))).toMatchObject({
+      scratchChanges: { added: [], removed: [], truncated: false },
+      checks: [
+        { expectation: "--expect-stdout", met: true },
+        { expectation: "--expect-stdout", met: true },
+      ],
+    });
+    expect(
+      field(
+        readJson(join(at.runs, "r1/evidence/touch.json")),
+        "scratchChanges",
+      ),
+    ).toEqual({ added: ["made.txt"], removed: [], truncated: false });
+  });
 });
