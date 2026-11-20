@@ -7,9 +7,9 @@ import * as kernel from "../../../kernel/src/kernel/index.ts";
 import { write } from "../../support/fixture-files.ts";
 import { gitEnv, gitOutput, inherited } from "../../support/git-fixture.ts";
 import { treeFiles } from "../../support/lint-rule-folder.ts";
-import { spawnBounded } from "../../support/process.ts";
 import { testFolder } from "../../support/test-folder.ts";
 import { typecheckTree } from "../kernel-repair/harness.ts";
+import { spawnBounded } from "../kernel-repair/swarm-process.ts";
 import {
   emptyInput,
   stationWords,
@@ -23,8 +23,9 @@ import {
 } from "./example-document.ts";
 import { exampleFiles, packageName, repository } from "./example-files.ts";
 
-const treeBound = 120_000;
-const installBound = 120_000;
+const treeBound = 130_000;
+const installBound = 90_000;
+const gitCallBound = 4_000;
 const example = exampleFiles();
 const folders: string[] = [];
 let built: Promise<string> | undefined;
@@ -169,6 +170,13 @@ function brokenLinks(folder: string): string[] {
   );
 }
 
+function blobId(bytes: Uint8Array): string {
+  return new Bun.CryptoHasher("sha1")
+    .update(`blob ${String(bytes.byteLength)}\0`)
+    .update(bytes)
+    .digest("hex");
+}
+
 function thrownMessage(run: () => unknown): string {
   try {
     run();
@@ -266,14 +274,20 @@ describe("the kernel package, installed by git ref", () => {
         repository,
         "ls-tree",
         "-r",
-        "--name-only",
         head,
         "--",
         skillPath,
       )
         .split("\n")
-        .filter((path) => path !== "");
-      expect(shipped).toContain(`${skillPath}/SKILL.md`);
+        .filter((line) => line !== "")
+        .map((line) => {
+          const [, blob = "", path = ""] =
+            /^\d+ blob ([0-9a-f]{40})\t(.+)$/.exec(line) ?? [];
+          return { blob, path };
+        });
+      expect(shipped.map(({ path }) => path)).toContain(
+        `${skillPath}/SKILL.md`,
+      );
       const folder = ownedFolder("kernel-author-guide-install-");
       await writeFile(
         join(folder, "package.json"),
@@ -291,7 +305,7 @@ describe("the kernel package, installed by git ref", () => {
       const installed = await spawnBounded([process.execPath, "install"], {
         cwd: folder,
         env: { ...inherited(), ...gitEnv },
-        boundMilliseconds: installBound - 10_000,
+        boundMilliseconds: installBound,
       });
       expect({
         exit: installed.exit,
@@ -299,16 +313,17 @@ describe("the kernel package, installed by git ref", () => {
       }).toEqual({ exit: 0, output: "" });
       const installedPackage = join(folder, "node_modules", packageName);
       expect(
-        shipped.filter(
-          (path) =>
-            !existsSync(join(installedPackage, path)) ||
-            readFileSync(join(installedPackage, path), "utf8") !==
-              gitOutput(repository, "show", `${head}:${path}`),
-        ),
+        shipped
+          .filter(
+            ({ blob, path }) =>
+              !existsSync(join(installedPackage, path)) ||
+              blobId(readFileSync(join(installedPackage, path))) !== blob,
+          )
+          .map(({ path }) => path),
       ).toEqual([]);
       expect(brokenLinks(join(installedPackage, skillPath))).toEqual([]);
     },
-    installBound,
+    installBound + 2 * gitCallBound + 10_000,
   );
 });
 
@@ -426,10 +441,13 @@ describe("the author skill's documents, shipped in the kernel package", () => {
     ]);
     expect(brokenLinks(skillFolder)).toEqual([]);
     const folder = ownedFolder("kernel-author-guide-links-");
-    write(folder, "SKILL.md", "[a folder](references)\n");
-    write(folder, "references/x.md", "# X\n");
-    expect(brokenLinks(folder)).toEqual([
-      `SKILL.md -> ${join(folder, "references")}`,
+    const skill = join(folder, "skill");
+    write(skill, "SKILL.md", "[a folder](references)\n[outside](../x.md)\n");
+    write(skill, "references/x.md", "# X\n");
+    write(folder, "x.md", "# Outside\n");
+    expect(brokenLinks(skill)).toEqual([
+      `SKILL.md -> ${join(skill, "references")}`,
+      `SKILL.md -> ${join(folder, "x.md")}`,
     ]);
   });
 });
