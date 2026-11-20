@@ -829,6 +829,7 @@ describe("the check's own steps, in process", () => {
                 {
                   argv: ["--verify-cli-undeclared-option"],
                   exitCode: 2,
+                  stdoutSha256: "b",
                   stderrSha256: "a",
                 },
               ],

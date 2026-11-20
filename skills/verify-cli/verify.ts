@@ -484,7 +484,6 @@ export async function kernelFreeCheck(
   const failures: Failure[] = [];
   if (
     found.target !== undefined &&
-    existsSync(found.target) &&
     [...targetCommands, "launch", "drive", "report"].includes(name)
   )
     failures.push(...(await probeFailures(spawn, found.target, root, limits)));
