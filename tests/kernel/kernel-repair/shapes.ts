@@ -17,6 +17,11 @@ export const stationWords = {
   reachability: "required",
   unreachableRationale: null,
 } as const;
+export const repairWords = {
+  discovery: "Correct the invocation using this command's discovery.",
+  inspect:
+    "Inspect the command, its input and independently observable resource before a new run.",
+} as const;
 export const refusedHandoff = {
   outcome: "refused",
   transactionState: "unchanged",

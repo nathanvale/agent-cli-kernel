@@ -2079,6 +2079,20 @@
     "source": "9dcecee fix(kernel): stop a program started between the crash kill and the abort"
   },
   {
+    "id": "03cba6c-input-distance",
+    "patch": "tests/planted-faults/patches/03cba6c-input-distance.patch",
+    "testFile": "tests/kernel/usage.test.ts",
+    "title": "the absolute limit refuses distance 3 from --reviewer-name",
+    "source": "03cba6c feat(kernel): suggest the closest declared option for a misspelt one"
+  },
+  {
+    "id": "03cba6c-input-half",
+    "patch": "tests/planted-faults/patches/03cba6c-input-half.patch",
+    "testFile": "tests/kernel/usage.test.ts",
+    "title": "the half-length limit refuses distance 2 from --left",
+    "source": "03cba6c feat(kernel): suggest the closest declared option for a misspelt one"
+  },
+  {
     "id": "684db74-capability-qualification-record-missing",
     "patch": "tests/planted-faults/patches/684db74-capability-qualification-record-missing.patch",
     "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
@@ -2954,6 +2968,76 @@
     "source": "7a68d58 test(support): set the sha256 default inside the fixture test's try"
   },
   {
+    "id": "c3c4a59-check-commits",
+    "patch": "tests/planted-faults/patches/c3c4a59-check-commits.patch",
+    "testFile": "tests/template/check-commits/check-commits-range.test.ts",
+    "title": "a since commit that is not behind the head",
+    "source": "c3c4a59 fix(check-commits): check every commit when the since commit is not behind the head (GREEN)"
+  },
+  {
+    "id": "f81c945-carried-verdict-rerun",
+    "patch": "tests/planted-faults/patches/f81c945-carried-verdict-rerun.patch",
+    "testFile": "tests/template/check-commits/carried-verdict.test.ts",
+    "title": "a carried head equal to the current head",
+    "source": "f81c945 feat(check-commits): decide a carried verdict from a GitHub-signed merge commit (GREEN)"
+  },
+  {
+    "id": "f81c945-carried-verdict-rewrite",
+    "patch": "tests/planted-faults/patches/f81c945-carried-verdict-rewrite.patch",
+    "testFile": "tests/template/check-commits/carried-verdict.test.ts",
+    "title": "a carried head not behind the current head",
+    "source": "f81c945 feat(check-commits): decide a carried verdict from a GitHub-signed merge commit (GREEN)"
+  },
+  {
+    "id": "f81c945-carried-verdict-retarget",
+    "patch": "tests/planted-faults/patches/f81c945-carried-verdict-retarget.patch",
+    "testFile": "tests/template/check-commits/carried-verdict.test.ts",
+    "title": "a carried base not behind the current base",
+    "source": "f81c945 feat(check-commits): decide a carried verdict from a GitHub-signed merge commit (GREEN)"
+  },
+  {
+    "id": "f81c945-carried-verdict-merge-tree",
+    "patch": "tests/planted-faults/patches/f81c945-carried-verdict-merge-tree.patch",
+    "testFile": "tests/template/check-commits/carried-verdict.test.ts",
+    "title": "a carried run whose merge ran another workflow or checker",
+    "source": "f81c945 feat(check-commits): decide a carried verdict from a GitHub-signed merge commit (GREEN)"
+  },
+  {
+    "id": "f81c945-carried-verdict-head-tree",
+    "patch": "tests/planted-faults/patches/f81c945-carried-verdict-head-tree.patch",
+    "testFile": "tests/template/check-commits/carried-verdict.test.ts",
+    "title": "a carried head whose checker tree differs from the current head",
+    "source": "f81c945 feat(check-commits): decide a carried verdict from a GitHub-signed merge commit (GREEN)"
+  },
+  {
+    "id": "f81c945-carried-verdict-signature",
+    "patch": "tests/planted-faults/patches/f81c945-carried-verdict-signature.patch",
+    "testFile": "tests/template/check-commits/carried-verdict.test.ts",
+    "title": "a signature from another key is refused",
+    "source": "f81c945 feat(check-commits): decide a carried verdict from a GitHub-signed merge commit (GREEN)"
+  },
+  {
+    "id": "f81c945-carried-verdict-workflow",
+    "patch": "tests/planted-faults/patches/f81c945-carried-verdict-workflow.patch",
+    "testFile": "tests/template/check-commits/carried-verdict.test.ts",
+    "title": "a claim workflow_ref",
+    "source": "f81c945 feat(check-commits): decide a carried verdict from a GitHub-signed merge commit (GREEN)"
+  },
+  {
+    "id": "f86e740-carried-verdict-link",
+    "patch": "tests/planted-faults/patches/f86e740-carried-verdict-link.patch",
+    "testFile": "tests/template/check-commits/carried-verdict.test.ts",
+    "title": "a checker tree holding a symlink judges every commit",
+    "source": "f86e740 fix(check-commits): refuse a carried verdict over links, and judge everything on any carried failure"
+  },
+  {
+    "id": "f86e740-carried-verdict-head",
+    "patch": "tests/planted-faults/patches/f86e740-carried-verdict-head.patch",
+    "testFile": "tests/template/check-commits/carried-verdict.test.ts",
+    "title": "a current merge of another head than the one checked out",
+    "source": "f86e740 fix(check-commits): refuse a carried verdict over links, and judge everything on any carried failure"
+  },
+  {
     "id": "e48961c-custody",
     "patch": "tests/planted-faults/patches/e48961c-custody.patch",
     "testFile": "tests/kernel/diagnostics/custody.test.ts",
@@ -3003,11 +3087,53 @@
     "source": "34dd93a test(state): fail the in-process pin when its child run fails"
   },
   {
+    "id": "2541839-ci-minting",
+    "patch": "tests/planted-faults/patches/2541839-ci-minting.patch",
+    "testFile": "tests/template/check-commits/carried-verdict-workflow.test.ts",
+    "title": "only commits-token can mint an OIDC token",
+    "source": "2541839 ci: carry the commits check's verdict forward on a GitHub-signed token (GREEN)"
+  },
+  {
+    "id": "2541839-ci-token-after-failure",
+    "patch": "tests/planted-faults/patches/2541839-ci-token-after-failure.patch",
+    "testFile": "tests/template/check-commits/carried-verdict-workflow.test.ts",
+    "title": "commits-token runs only after commits passed",
+    "source": "2541839 ci: carry the commits check's verdict forward on a GitHub-signed token (GREEN)"
+  },
+  {
     "id": "73cb18b-git-fixture-maintenance",
     "patch": "tests/planted-faults/patches/73cb18b-git-fixture-maintenance.patch",
     "testFile": "tests/template/test-helpers/git-fixture.test.ts",
     "title": "^a fixture commit starts no background git maintenance",
     "source": "73cb18b test(support): stop fixture commits from starting background git maintenance"
+  },
+  {
+    "id": "610cac1-carried-verdict-separator",
+    "patch": "tests/planted-faults/patches/610cac1-carried-verdict-separator.patch",
+    "testFile": "tests/template/check-commits/carried-verdict.test.ts",
+    "title": "a file name holding a newline never reads as two entries",
+    "source": "610cac1 fix(check-commits): keep git's NUL separators in the checker tree (GREEN)"
+  },
+  {
+    "id": "2541839-ci-gate-always",
+    "patch": "tests/planted-faults/patches/2541839-ci-gate-always.patch",
+    "testFile": "tests/template/check-commits/carried-verdict-workflow.test.ts",
+    "title": "commits runs even when a part failed or was skipped",
+    "source": "2541839 ci: carry the commits check's verdict forward on a GitHub-signed token (GREEN)"
+  },
+  {
+    "id": "2541839-ci-gate-either",
+    "patch": "tests/planted-faults/patches/2541839-ci-gate-either.patch",
+    "testFile": "tests/template/check-commits/carried-verdict-workflow.test.ts",
+    "title": "the commits gate passes only when commits-carry and the parts both succeeded",
+    "source": "2541839 ci: carry the commits check's verdict forward on a GitHub-signed token (GREEN)"
+  },
+  {
+    "id": "1998f0b-carried-verdict-bytes",
+    "patch": "tests/planted-faults/patches/1998f0b-carried-verdict-bytes.patch",
+    "testFile": "tests/template/check-commits/carried-verdict.test.ts",
+    "title": "checker trees whose paths differ only in bytes that are not UTF-8",
+    "source": "1998f0b fix(check-commits): read the checker tree byte for byte (GREEN)"
   },
   {
     "id": "3c13f5b-capability-qualification-run",

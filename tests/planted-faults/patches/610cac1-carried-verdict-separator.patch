@@ -1,0 +1,13 @@
+diff --git a/scripts/carried-verdict.ts b/scripts/carried-verdict.ts
+index 278614d..57619ee 100644
+--- a/scripts/carried-verdict.ts
++++ b/scripts/carried-verdict.ts
+@@ -28,7 +28,7 @@ export function checkerTree(listing: string): string {
+       const tab = entry.indexOf("\t");
+       return tab !== -1 && !judgedOnly(entry.slice(tab + 1));
+     })
+-    .join("\0");
++    .join("\n");
+ }
+ 
+ export type Graph = ReadonlyMap<string, readonly string[]>;

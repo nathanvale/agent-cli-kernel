@@ -1,0 +1,13 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 6137d23..f5732bf 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -133,7 +133,7 @@ jobs:
+           CARRY: ${{ needs.commits-carry.result }}
+           SHARDS: ${{ needs.commits-shard.result }}
+         run: |
+-          if [ "$CARRY" != success ] || [ "$SHARDS" != success ]; then
++          if [ "$CARRY" != success ] && [ "$SHARDS" != success ]; then
+             echo "commits-carry ended $CARRY and the commits-shard jobs ended $SHARDS. Repair: open the red job and follow its Repair line." >&2
+             exit 1
+           fi

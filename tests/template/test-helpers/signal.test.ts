@@ -15,10 +15,31 @@ test("signalIfPresent signals a live process and reports true", async () => {
   expect(await child.exited).not.toBe(0);
 });
 
-test.skipIf(root)(
+function oldestForeignProcess(): number | undefined {
+  const listed = Bun.spawnSync(["ps", "-A", "-o", "pid=,uid="], {
+    timeout: 5_000,
+  });
+  if (listed.exitCode !== 0) return undefined;
+  const ours = process.getuid?.();
+  return listed.stdout
+    .toString()
+    .split("\n")
+    .map((line) => line.trim().split(/\s+/).map(Number))
+    .filter(
+      ([pid, uid]) =>
+        Number.isInteger(pid) && Number.isInteger(uid) && uid !== ours,
+    )
+    .map(([pid]) => pid ?? 0)
+    .sort((a, b) => a - b)
+    .find((pid) => pid > 0);
+}
+
+const foreign = root ? undefined : oldestForeignProcess();
+
+test.skipIf(foreign === undefined)(
   "signalIfPresent rethrows EPERM, because the process exists and is not ours",
   () => {
-    expect(() => signalIfPresent(1, "SIGCONT")).toThrow("EPERM");
+    expect(() => signalIfPresent(foreign ?? 0, "SIGCONT")).toThrow("EPERM");
   },
 );
 

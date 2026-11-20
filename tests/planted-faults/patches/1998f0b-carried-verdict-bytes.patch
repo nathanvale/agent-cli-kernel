@@ -1,0 +1,13 @@
+diff --git a/scripts/carried-verdict.ts b/scripts/carried-verdict.ts
+index 2038ddc..dec518a 100644
+--- a/scripts/carried-verdict.ts
++++ b/scripts/carried-verdict.ts
+@@ -274,7 +274,7 @@ export function treeOf(root: string, sha: string): string {
+   const listed = git(
+     root,
+     ["ls-tree", "-r", "-z", "--full-tree", sha],
+-    "latin1",
++    "utf8",
+   );
+   if (!listed.ok) throw new Error(listed.stderr);
+   return checkerTree(listed.stdout);

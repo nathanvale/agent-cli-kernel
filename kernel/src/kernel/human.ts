@@ -31,7 +31,8 @@ function help(data: unknown): string[] {
     "",
     "Commands:",
     ...list(data, "commands").map(
-      (item) => `  ${route(item)}  ${texts(item, "summary")}`,
+      (item) =>
+        `  ${route(item)} (${texts(item, "commandIdentity")})  ${texts(item, "summary")}`,
     ),
     "",
     "Options:",
@@ -53,12 +54,52 @@ function discovery(data: unknown): string[] {
   ];
 }
 
+function numeral(value: unknown, key: string): string {
+  return record(value) && typeof value[key] === "number"
+    ? oneLine(String(value[key]))
+    : "";
+}
+
+function strings(value: unknown, key: string): string[] {
+  return list(value, key).map((item) =>
+    typeof item === "string" ? oneLine(item) : "",
+  );
+}
+
+function valueWords(value: unknown): string {
+  if (!record(value)) return "";
+  if (value.kind === "integer")
+    return `integer, ${numeral(value, "minimum")} to ${numeral(value, "maximum")}`;
+  const choices = strings(value, "choices");
+  if (choices.length > 0) return choices.join("|");
+  const pattern = texts(value, "pattern");
+  return `string, length ${numeral(value, "minLength")} to ${numeral(value, "maxLength")}${pattern ? `, pattern ${pattern}` : ""}`;
+}
+
+function slot(item: unknown): string {
+  const words = valueWords(record(item) ? item.value : undefined);
+  const aliases = strings(item, "aliases").map((alias) => `, ${alias}`);
+  const presence =
+    record(item) && item.required === true ? "required" : "optional";
+  const repeatable =
+    record(item) && item.repeatable === true ? ", repeatable" : "";
+  return `  ${texts(item, "name")}${aliases.join("")}${words ? ` <${words}>` : ""}  ${presence}${repeatable}  ${texts(item, "summary")}`;
+}
+
 function commandDiscovery(data: unknown): string[] {
   const command = record(data) ? data.command : undefined;
+  const input = record(data) ? data.input : undefined;
+  const slotArguments = list(input, "arguments");
+  const options = list(input, "options");
   return [
     `${texts(command, "commandIdentity")} (${texts(command, "effectClass")})`,
     texts(command, "summary"),
     `Route: ${route(command)}`,
+    ...(slotArguments.length > 0
+      ? ["Arguments:", ...slotArguments.map(slot)]
+      : []),
+    "Options:",
+    ...(options.length > 0 ? options.map(slot) : ["  (none)"]),
     "Possible results:",
     ...list(data, "stations").map(
       (item) =>

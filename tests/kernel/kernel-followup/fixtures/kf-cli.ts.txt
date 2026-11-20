@@ -1081,6 +1081,38 @@ const show = command({
     );
   },
 } as never);
+const pair = command({
+  identity: "kf.pair",
+  route: ["pair"],
+  summary: "Pair kf sides.",
+  input: {
+    ...input,
+    arguments: [
+      {
+        name: "name",
+        summary: "Pair name.",
+        required: true,
+        value: { kind: "string", minLength: 1, maxLength: 12, choices: null, pattern: null },
+      },
+    ],
+    options: [
+      { ...titleOption, name: "--left", aliases: ["--KF10MAR"], summary: "Left side.", value: null },
+      { ...titleOption, name: "--right", summary: "Right side.", value: null },
+      { ...titleOption, name: "--both", summary: "Both sides.", value: null },
+    ],
+    constraints: [
+      { kind: "requires", ifPresent: "--both", thenPresent: "--left" },
+      { kind: "exclusive", members: ["--left", "--right"] },
+    ],
+  },
+  capabilities: {},
+  stations: [success("kf.pair")],
+  run: (_parsed, context) =>
+    context.result(
+      { commandIdentity: "kf.pair", causeCode: "SUCCESS_UNCHANGED" },
+      { message: "Paired.", data: null, effects: empty },
+    ),
+} as never);
 function change(state: StateAddonDescriptor) {
   return changing({
     identity: "kf.change",
@@ -1238,7 +1270,7 @@ const scenarios: Readonly<Record<string, (argv: string[]) => Promise<unknown>>> 
       return runProcess(
         contractFor({
           cli: "kf",
-          commands: [show, change(state), pending],
+          commands: [show, pair, change(state), pending],
           causes,
           state,
           installedAddons: ["state", "approval"],
