@@ -20,6 +20,7 @@ import {
   runCrash,
   teardownMargin,
   tree,
+  waitForRecordBytes,
 } from "./harness.ts";
 import { reportUnproved, unprovedHere, unprovedOn } from "./platform.ts";
 
@@ -457,3 +458,22 @@ test(
   },
   heldBound + teardownMargin,
 );
+
+test("T5 test harness: waiting for record bytes outlasts a log file that is still empty", async () => {
+  const dir = testFolder("dxs-record-bytes-");
+  try {
+    const log = join(dir, "run.jsonl");
+    writeFileSync(log, "");
+    const refusal = await waitForRecordBytes(dir, 100).then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+    expect(refusal).toEqual(
+      new Error(`No log with 1 bytes appeared in ${dir}.`),
+    );
+    writeFileSync(log, "{}\n");
+    await waitForRecordBytes(dir, 100);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
