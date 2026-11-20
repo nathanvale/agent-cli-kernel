@@ -158,6 +158,11 @@ this file.
   Witnessed: [911189b] (two `planted-fault:add` runs for one id both
   printed `Added`, and on macOS an id differing only by case overwrote
   another record; Fable review of pull request 54).
+- Keep an advisory check advisory by leaving it out of the required checks,
+  never by letting it continue on error, which hides a failure as green.
+  Witnessed: [973abac] (the kernel trial's workflow tests passed with
+  `continue-on-error` on its job or trial step; Sol 6.1 check of pull
+  request 60).
 
 [ac11ed9]: https://github.com/nathanvale/bun-typescript-template/commit/ac11ed98b7d538e8a304cac053aaefcaaf6b2cb3
 [cd2498b]: https://github.com/nathanvale/bun-typescript-template/commit/cd2498b7189a2d45d1906b9c870e8d13da6cd2dd
@@ -203,3 +208,4 @@ this file.
 [39d64c3]: https://github.com/nathanvale/agent-cli-kernel/commit/39d64c307e73a6153c572d6259df791e779efc4e
 [8cbec55]: https://github.com/nathanvale/agent-cli-kernel/commit/8cbec55e65afbbba5650d447e00cac40ce0e01c3
 [911189b]: https://github.com/nathanvale/agent-cli-kernel/commit/911189bb75fa97d60acaacfba6034417522804aa
+[973abac]: https://github.com/nathanvale/agent-cli-kernel/commit/973abac66b578259a73b21857f5a92090f249717
