@@ -10,10 +10,14 @@
   `poteto-mode` skill.
 - Bring the branch up to date by merging `main` into it. Never rebase or
   force-push.
-- Do not rely on CodeRabbit or Copilot. Either may review, and neither is
-  required by GitHub's merge gate. While Copilot has no review quota, add
-  one review in its place before merge: a fresh Fable 5.2 agent for a
-  complex pull request, or one more Sol 6.1 worker for any other.
+- Do not wait on CodeRabbit; it may not review. Copilot reviews each pull
+  request once when it opens. A complex pull request gets up to three
+  Copilot reviews, one after each round of fixes, at Balanced effort when it
+  is really complex; the repository default stays at Lite. While Copilot has
+  no review quota, add one review in its place before merge: a fresh Fable
+  5.2 agent for a complex pull request, or one more Sol 6.1 worker for any
+  other. Ask the coordinator before dropping that review once the quota
+  returns.
 - Only the pull request's author pushes to its branch. Leave the review
   bots' fix buttons, such as CodeRabbit's "Fix comments", unticked.
 - Answer every review thread. Commit each fix, then run the
@@ -25,7 +29,8 @@
   every required hosted check is green at the current head; no review
   thread is open; an agent that did not write the pull request, on a different model
   (a Monash Sol 6.1 worker), has checked it against its acceptance and passed
-  it; and it changes no README design,
+  it at the current head, or such an agent, one that did not write those
+  commits, has rechecked every commit after the checked head; and it changes no README design,
   layout, structure or length, no version, tag, release or publication, and
   needs no admin bypass. Any other pull request waits for the operator.
   GitHub protects `main` from direct pushes.
