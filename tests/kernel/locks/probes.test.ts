@@ -1,8 +1,5 @@
-import { afterAll, expect, test } from "bun:test";
-import { writeFileSync } from "node:fs";
-import { rm } from "node:fs/promises";
-import { basename, join, resolve } from "node:path";
-import { testFolder } from "../../support/test-folder.ts";
+import { expect, test } from "bun:test";
+import { basename, resolve } from "node:path";
 import { probeBatch, readRun } from "./probes.ts";
 
 const root = resolve(import.meta.dir, "../../..");
@@ -86,8 +83,6 @@ for (const leak of leaks)
     leakProbe.timeout(),
   );
 
-const fixtureDirectory = testFolder("kernel-probes-fixture-");
-afterAll(() => rm(fixtureDirectory, { recursive: true, force: true }));
 const sharedFaults = [
   {
     name: "a type error",
@@ -100,15 +95,16 @@ const sharedFaults = [
     code: 1109,
   },
 ].map((fault, index) => {
-  const fixture = join(fixtureDirectory, `shared-fixture-${index}.ts`);
-  writeFileSync(fixture, fault.source);
-  const importer = probeBatch(`kernel-probes-importers-${index}-`);
+  const fixture = `shared-fixture-${index}.ts`;
+  const importer = probeBatch(`kernel-probes-importers-${index}-`, {
+    [fixture]: fault.source,
+  });
   return {
     ...fault,
-    fixture: basename(fixture),
+    fixture,
     importers: ["a", "b"].map((name) =>
       importer(
-        `import { planted } from ${JSON.stringify(fixture)};\nexport const ${name} = planted;\n`,
+        `import { planted } from "../${fixture}";\nexport const ${name} = planted;\n`,
       ),
     ),
     unrelated: importer("export const unrelated = 1;\n"),
@@ -175,12 +171,10 @@ test(
 // Platform: The lint-view parser overflows its stack on the deep nesting in this
 // imported file and exits at once, while the sibling still instantiates a
 // 999-element tuple chain. Declaring global gives the crasher its own program.
-const deep = join(fixtureDirectory, "deep.ts");
-writeFileSync(
-  deep,
-  `export const deep = ${"(".repeat(50_000)}1${")".repeat(50_000)};\n`,
-);
-const crasher = `import { deep } from ${JSON.stringify(deep)};\ndeclare global {}\nexport const read = deep;\n`;
+const deep = {
+  "deep.ts": `export const deep = ${"(".repeat(50_000)}1${")".repeat(50_000)};\n`,
+};
+const crasher = `import { deep } from "../deep.ts";\ndeclare global {}\nexport const read = deep;\n`;
 const slow =
   'type Count<N extends number, A extends 0[] = []> = A["length"] extends N ? A : Count<N, [...A, 0]>;\nexport const slow: Count<999>["length"] = 999;\n';
 
@@ -198,7 +192,7 @@ const drains = (
   ] as const
 ).map(([join, sibling]) => {
   const prefix = `kernel-probes-drain-${join}-`;
-  const drained = probeBatch(prefix);
+  const drained = probeBatch(prefix, deep);
   drained(slow, [sibling]);
   return {
     join,

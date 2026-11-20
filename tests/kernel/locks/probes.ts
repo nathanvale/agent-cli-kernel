@@ -165,7 +165,10 @@ function changesGlobalScope(source: string): boolean {
   );
 }
 
-export function probeBatch(prefix: string) {
+export function probeBatch(
+  prefix: string,
+  companions: Readonly<Record<string, string>> = {},
+) {
   const registered: Registered[] = [];
   let directory: string | undefined;
   let runs = 0;
@@ -242,11 +245,14 @@ export function probeBatch(prefix: string) {
     directory = base;
     await mkdir(join(base, "locks"));
     await symlink(join(root, "node_modules"), join(base, "node_modules"));
-    await Promise.all(
-      [...registered, sentinel].map((probe) =>
+    await Promise.all([
+      ...[...registered, sentinel].map((probe) =>
         writeFile(join(base, probe.file), probe.source),
       ),
-    );
+      ...Object.entries(companions).map(([file, source]) =>
+        writeFile(join(base, file), source),
+      ),
+    ]);
     const native = compileWith(base, "native");
     const lintView = compileWith(base, "lint-view");
     await drain([native, lintView]);
