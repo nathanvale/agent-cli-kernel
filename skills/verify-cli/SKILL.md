@@ -172,7 +172,7 @@ bun node_modules/agent-cli-kernel/skills/verify-cli/verify.ts <command> <argumen
 | ------------------------------------ | --------------------------------------------------------------- |
 | `ready <target>`                     | Two probes and eight readiness checks                           |
 | `probe <target>`                     | What the helper observed for the two probes, unjudged           |
-| `sweep <target>`                     | Every check the target's discovery implies; the owed stations   |
+| `sweep <target>`                     | Every check the target's discovery implies; the owed results    |
 | `findings <target>`                  | The same sweep as data, every finding listed                    |
 | `launch <run folder> <target>`       | Make a run folder bound to one target                           |
 | `drive <run folder> <scenario file>` | Run one scenario; one evidence file and index row for each step |

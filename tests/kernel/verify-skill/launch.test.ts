@@ -31,7 +31,7 @@ function message(ran: { readonly stdout: string }): unknown {
 
 describe("launch", () => {
   test(
-    "launch makes a run root bound to one target",
+    "launch makes a verification run bound to one target",
     async () => {
       const at = world();
       expect(workTreeAbove(at.folder)).toBeUndefined();

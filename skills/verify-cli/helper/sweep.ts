@@ -272,7 +272,7 @@ export function sweepCommand(bun: () => ParsedPath) {
         guidance: {
           next: {
             kind: "instruction",
-            text: "Drive each owed station through a scenario; the sweep cannot reach them.",
+            text: "Drive each owed result through a scenario; the sweep cannot reach them.",
           },
         },
         independentObservable: `${sweepIdentity}:clean`,

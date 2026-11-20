@@ -100,7 +100,7 @@ export function reportCommand(bun: () => ParsedPath) {
         guidance: {
           next: {
             kind: "instruction",
-            text: "Write a scenario for each owed station, or say in its feature file why it stays owed.",
+            text: "Write a scenario for each owed result, or say in its feature file why it stays owed.",
           },
         },
         independentObservable: `${identity}:reported`,

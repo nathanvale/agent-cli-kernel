@@ -277,7 +277,7 @@ describe("the helper's own state, one folder for each run", () => {
   );
 
   test(
-    "an interrupted helper change is listed and holds its run root",
+    "an interrupted helper change is listed and holds its verification run",
     async () => {
       const at = world();
       const run = await launched(at, fixture(at, "target-cli.ts"));

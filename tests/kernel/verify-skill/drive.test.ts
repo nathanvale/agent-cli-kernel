@@ -234,7 +234,7 @@ describe("drive", () => {
   );
 
   test(
-    "a changing command keeps its state under the run root",
+    "a changing command keeps its state under its verification run",
     async () => {
       const at = world();
       const run = await launched(at, "r1", fixture(at, "notes-cli.ts"));
