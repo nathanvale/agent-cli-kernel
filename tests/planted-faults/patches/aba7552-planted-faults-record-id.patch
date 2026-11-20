@@ -1,0 +1,15 @@
+diff --git a/scripts/planted-faults.ts b/scripts/planted-faults.ts
+index 26dae3b..7f4b53d 100644
+--- a/scripts/planted-faults.ts
++++ b/scripts/planted-faults.ts
+@@ -152,10 +152,6 @@ function readRecord(root: string, name: string): Fault {
+     );
+   }
+   const fault = parseFault(entry, where, root);
+-  if (where !== recordFile(fault.id))
+-    throw new Error(
+-      `${where} holds the record ${fault.id}. Repair: rename the file ${fault.id}${recordExtension}, or correct its id.`,
+-    );
+   return fault;
+ }
+ 

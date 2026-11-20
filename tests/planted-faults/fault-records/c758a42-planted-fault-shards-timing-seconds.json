@@ -1,0 +1,7 @@
+{
+  "id": "c758a42-planted-fault-shards-timing-seconds",
+  "patch": "tests/planted-faults/patches/c758a42-planted-fault-shards-timing-seconds.patch",
+  "testFile": "tests/template/fault-replay/planted-fault-shards-in-process.test.ts",
+  "title": "readTimings refuses a timing that is not a positive number",
+  "source": "c758a42 refactor(planted-faults): keep each fault timing in its own file"
+}

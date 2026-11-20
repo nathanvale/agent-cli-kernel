@@ -1,0 +1,15 @@
+diff --git a/scripts/planted-fault-shards.ts b/scripts/planted-fault-shards.ts
+index 7bbb027..280ff15 100644
+--- a/scripts/planted-fault-shards.ts
++++ b/scripts/planted-fault-shards.ts
+@@ -42,10 +42,6 @@ function jsonIn(text: string): unknown {
+ 
+ function readTiming(root: string, name: string): [string, number] {
+   const where = `${timingsPath}/${name}`;
+-  if (!name.endsWith(timingExtension))
+-    throw new Error(
+-      `${where} is not a fault timing file. Repair: name each timing <fault id>${timingExtension}, and keep nothing else in ${timingsPath}.`,
+-    );
+   const text = readFileSync(join(root, where), "utf8");
+   const seconds = jsonIn(text);
+   if (typeof seconds !== "number" || !(seconds > 0))
