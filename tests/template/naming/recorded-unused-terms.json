@@ -62,29 +62,9 @@
       "ticket": "MAG-126"
     },
     {
-      "term": "Stamp record",
-      "reason": "The stamp check compares a folder with its stamp record. MAG-123 builds the stamp check.",
-      "ticket": "MAG-123"
-    },
-    {
-      "term": "Stamp check",
-      "reason": "MAG-123 builds the stamp check.",
-      "ticket": "MAG-123"
-    },
-    {
-      "term": "Stamp checker",
-      "reason": "MAG-123 builds the stamp checker that a generated repository carries.",
-      "ticket": "MAG-123"
-    },
-    {
-      "term": "Restamp",
-      "reason": "MAG-128 builds Restamp.",
-      "ticket": "MAG-128"
-    },
-    {
       "term": "Add-on selection",
-      "reason": "MAG-125 makes Bootstrap stamp an add-on selection.",
-      "ticket": "MAG-125"
+      "reason": "Nathan's 10:52 decision of 20 November 2026 on MAG-114 keeps a generated repository's add-on choice only in installedAddons, in the generated repository's own source. No tracked file here names a selection.",
+      "ticket": "MAG-114"
     },
     {
       "term": "Kernel seam",
@@ -105,6 +85,11 @@
       "term": "Claim tag",
       "reason": "A word for the plan. No ticket is known to bring it into a tracked file here; MAG-114 is the kernel split spec, which uses the word.",
       "ticket": "MAG-114"
+    },
+    {
+      "term": "Kernel lockfile",
+      "reason": "The template holds the one lockfile for generated repositories, and MAG-126 makes the pin move that writes it. This repository has no kernel lockfile.",
+      "ticket": "MAG-126"
     }
   ]
 }
