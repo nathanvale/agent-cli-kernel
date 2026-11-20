@@ -9,10 +9,12 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { gitEnv, gitOutput, inherited } from "../../support/git-fixture.ts";
 
 const repository = join(import.meta.dir, "../../..");
 const scripts = [
   "scripts/doctor.ts",
+  "scripts/process-runner.ts",
   "scripts/test-area.ts",
   "scripts/repository.ts",
   "src/toolchain-resolution.ts",
@@ -108,10 +110,16 @@ function withToolchain(
   return root;
 }
 
-function run(root: string, script: string, args: string[] = [], cwd = root) {
+function run(
+  root: string,
+  script: string,
+  args: string[] = [],
+  cwd = root,
+  env: Record<string, string | undefined> = process.env,
+) {
   const result = Bun.spawnSync(
     [process.execPath, join(root, script), ...args],
-    { cwd, stdout: "pipe", stderr: "pipe" },
+    { cwd, env, stdout: "pipe", stderr: "pipe" },
   );
   return {
     exitCode: result.exitCode,
@@ -219,7 +227,7 @@ describe("doctor", () => {
     );
 
     expect(result.exitCode).toBe(1);
-    expect(result.stdout.trimEnd().split("\n")).toHaveLength(4);
+    expect(result.stdout.trimEnd().split("\n")).toHaveLength(5);
     const toolchainLine = result.lines.find((line) =>
       line.startsWith("FAIL toolchain: "),
     );
@@ -332,6 +340,57 @@ describe("doctor", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).not.toContain("Done when");
+  });
+
+  function checkout(hooksPath: string | undefined) {
+    const root = withToolchain("6.0.2", {
+      ".githooks/pre-commit": "#!/bin/sh\n",
+    });
+    gitOutput(root, "init", "--quiet");
+    if (hooksPath !== undefined)
+      gitOutput(root, "config", "core.hooksPath", hooksPath);
+    return root;
+  }
+
+  const isolatedGit = { ...inherited(), ...gitEnv };
+
+  test("a checkout whose core.hooksPath is not set warns, naming the command that sets it, and does not fail", () => {
+    const result = run(checkout(undefined), doctor, [], undefined, isolatedGit);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.lines).toContain(
+      "WARN hooks: core.hooksPath is not set, so this checkout's pre-commit and pre-push hooks do not run. Repair: git config core.hooksPath .githooks",
+    );
+  });
+
+  test("a checkout whose core.hooksPath names another folder warns with the same repair", () => {
+    const result = run(
+      checkout("elsewhere"),
+      doctor,
+      [],
+      undefined,
+      isolatedGit,
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.lines).toContain(
+      "WARN hooks: core.hooksPath is elsewhere, so this checkout's pre-commit and pre-push hooks do not run. Repair: git config core.hooksPath .githooks",
+    );
+  });
+
+  test("a checkout whose core.hooksPath runs its own .githooks passes the hooks check", () => {
+    const result = run(
+      checkout(".githooks"),
+      doctor,
+      [],
+      undefined,
+      isolatedGit,
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.lines).toContain(
+      "ok hooks: core.hooksPath runs this checkout's .githooks.",
+    );
   });
 
   test("an installed toolchain without fallow fails with the install repair", () => {
