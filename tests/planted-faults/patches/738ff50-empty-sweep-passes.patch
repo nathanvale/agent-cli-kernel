@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/self-verification/self-verification.ts b/tests/kernel/self-verification/self-verification.ts
+index eb92aa9..36de437 100644
+--- a/tests/kernel/self-verification/self-verification.ts
++++ b/tests/kernel/self-verification/self-verification.ts
+@@ -128,7 +128,7 @@ function sweepJudged(own: OwnCli, data: unknown): Judged {
+     swept: "list",
+     owed: "list",
+   });
+-  if (!(typeof checks === "number" && checks > 0))
++  if (!(typeof checks === "number"))
+     failures.push(
+       `${own.name}: the sweep ran no check. Repair: a sweep that checks nothing proves nothing; ${own.repair}`,
+     );

@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/self-verification/self-verification.ts b/tests/kernel/self-verification/self-verification.ts
+index c627656..0faa9e0 100644
+--- a/tests/kernel/self-verification/self-verification.ts
++++ b/tests/kernel/self-verification/self-verification.ts
+@@ -147,7 +147,7 @@ function unmetLines(own: OwnCli, listed: readonly unknown[]): string[] {
+   for (const [name, evidence] of own.evidence ?? [])
+     if (field(evidence, "verdict") === "unmet")
+       unmet.set(name, field(evidence, "unmet"));
+-  for (const step of listed)
++  for (const step of listed.slice(1))
+     unmet.set(String(field(step, "step")), field(step, "unmet"));
+   return [...unmet].map(([name, keys]) => {
+     const evidence = own.evidence?.get(name);

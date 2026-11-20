@@ -1,0 +1,7 @@
+{
+  "id": "98c4576-example-list-removed",
+  "patch": "tests/planted-faults/patches/98c4576-example-list-removed.patch",
+  "testFile": "tests/kernel/self-verification/self-verification.test.ts",
+  "title": "the author skill's example passes the sweep, meets its read-only scenario, and reaches only the stations the record lists$",
+  "source": "98c4576 fix(self-verification): quote each failed check and pin every station the runs reach"
+}

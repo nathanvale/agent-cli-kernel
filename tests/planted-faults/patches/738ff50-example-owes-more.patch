@@ -1,0 +1,33 @@
+diff --git a/tests/kernel/author-guide/example/src/commands.ts.txt b/tests/kernel/author-guide/example/src/commands.ts.txt
+index d64f3f6..8b8294a 100644
+--- a/tests/kernel/author-guide/example/src/commands.ts.txt
++++ b/tests/kernel/author-guide/example/src/commands.ts.txt
+@@ -59,6 +59,28 @@ const list = command({
+     ],
+   },
+   capabilities: {},
++  stations: [
++    station(causes, {
++      ...stationWords,
++      commandIdentity: "moons.list",
++      causeCode: "SUCCESS_UNCHANGED" satisfies keyof typeof commonCauses,
++      trigger: "The planets were listed.",
++      repairAction: null,
++      guidance: { next: { kind: "done" } },
++      independentObservable: "moons.list:listed",
++    }),
++    station(causes, {
++      ...stationWords,
++      commandIdentity: "moons.list",
++      causeCode: "DOMAIN_MOONS_UNKNOWN_PLANET",
++      trigger: "No planet has that many moons.",
++      repairAction: "Ask for fewer moons.",
++      guidance: {
++        next: { kind: "command", command: "moons.list", args: [] },
++      },
++      independentObservable: "moons.list:none",
++    }),
++  ],
+   run: (input, context) => {
+     const atLeast = input["--at-least"] ?? 0;
+     const planets = [...moons]

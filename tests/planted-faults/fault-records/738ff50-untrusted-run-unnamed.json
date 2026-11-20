@@ -1,0 +1,7 @@
+{
+  "id": "738ff50-untrusted-run-unnamed",
+  "patch": "tests/planted-faults/patches/738ff50-untrusted-run-unnamed.patch",
+  "testFile": "tests/kernel/self-verification/refusals.test.ts",
+  "title": "a run verify-cli cannot trust is refused with its RAW FAIL lines$",
+  "source": "738ff50 test(self-verification): sweep the kernel's own CLIs with verify-cli on every change (K8)"
+}

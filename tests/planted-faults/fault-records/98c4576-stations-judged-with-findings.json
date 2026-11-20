@@ -1,0 +1,7 @@
+{
+  "id": "98c4576-stations-judged-with-findings",
+  "patch": "tests/planted-faults/patches/98c4576-stations-judged-with-findings.patch",
+  "testFile": "tests/kernel/self-verification/refusals.test.ts",
+  "title": "a report with findings, an unmet step, an unconfirmed end, or nothing driven is refused$",
+  "source": "98c4576 fix(self-verification): quote each failed check and pin every station the runs reach"
+}

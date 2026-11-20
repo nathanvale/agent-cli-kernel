@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/self-verification/self-verification.ts b/tests/kernel/self-verification/self-verification.ts
+index c627656..2393a00 100644
+--- a/tests/kernel/self-verification/self-verification.ts
++++ b/tests/kernel/self-verification/self-verification.ts
+@@ -58,7 +58,7 @@ export function wantsFindings(own: OwnCli): boolean {
+       field(parsed(run.ran.stdout), "result", "causeCode") ===
+       "DOMAIN_VERIFY_FINDINGS"
+     )
+-      return true;
++      return run.command === "sweep";
+     const found = field(dataOf(run), "findings");
+     return run.command === "report" && typeof found === "number" && found > 0;
+   });

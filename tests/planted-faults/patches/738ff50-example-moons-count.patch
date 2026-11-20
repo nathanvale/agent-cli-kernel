@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/author-guide/example/src/commands.ts.txt b/tests/kernel/author-guide/example/src/commands.ts.txt
+index d64f3f6..6a80cc3 100644
+--- a/tests/kernel/author-guide/example/src/commands.ts.txt
++++ b/tests/kernel/author-guide/example/src/commands.ts.txt
+@@ -4,7 +4,7 @@ import type { CauseTable } from "agent-cli-kernel";
+ const moons = new Map([
+   ["venus", 0],
+   ["earth", 1],
+-  ["mars", 2],
++  ["mars", 3],
+ ]);
+ 
+ const causes = {

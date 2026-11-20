@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/self-verification/self-verification.ts b/tests/kernel/self-verification/self-verification.ts
+index eb92aa9..685a1c8 100644
+--- a/tests/kernel/self-verification/self-verification.ts
++++ b/tests/kernel/self-verification/self-verification.ts
+@@ -173,7 +173,7 @@ function reportJudged(own: OwnCli, data: unknown): Judged {
+       `${own.name}: step ${String(step)}'s process end was not confirmed. Repair: make the target exit on its own within the step's limit.`,
+     );
+   const stations = listOf(field(data, "stations"));
+-  if (!stations.some((station) => field(station, "state") === "driven"))
++  if (stations.length === 0)
+     failures.push(
+       `${own.name}: the scenario drove no station. Repair: give ${featurePath}'s scenario a met --json step.`,
+     );

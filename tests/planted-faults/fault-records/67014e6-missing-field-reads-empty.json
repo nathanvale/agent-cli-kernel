@@ -1,0 +1,7 @@
+{
+  "id": "67014e6-missing-field-reads-empty",
+  "patch": "tests/planted-faults/patches/67014e6-missing-field-reads-empty.patch",
+  "testFile": "tests/kernel/self-verification/refusals.test.ts",
+  "title": "a sweep or a report missing a field it must hold is refused, never read as empty$",
+  "source": "67014e6 fix(self-verification): refuse a sweep or report result that lacks a field it must hold"
+}

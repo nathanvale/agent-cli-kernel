@@ -333,6 +333,18 @@ A check `drive` makes unasked on every target step that ended by itself:
 an envelope's exit code is the process's, `--json` prints one envelope and
 nothing on stderr, and a failed run prints nothing on stdout.
 
+**Self-verification**:
+The kernel's own test area that runs verify-cli on every change against two
+CLIs: the helper, which it sweeps, and the author skill's example, which it
+launches, drives with the scenario verify-cli's read-only feature file
+shows, and reports on. Its station record, `stations.json`, lists each
+station that each run reaches, as swept, driven or owed, and the helper's
+check count. It fails, printing a repair, on a run verify-cli cannot trust,
+a finding (quoting each failed check), an unmet step (quoting what was
+expected and observed), an unconfirmed process end, a sweep with no check,
+a report with nothing driven, and any station or count that differs from
+the record.
+
 ### Tools and their messages
 
 **Refusal**:
