@@ -1,2 +1,2 @@
 process.on("SIGTERM", () => undefined);
-setInterval(() => undefined, 1_000);
+setTimeout(() => process.exit(0), 10_000);
