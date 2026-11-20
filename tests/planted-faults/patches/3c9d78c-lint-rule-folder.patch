@@ -6,7 +6,7 @@ index 66ddf45..6302897 100644
  export function treeFiles(pattern: string, cwd: string): string[] {
    return globSync(pattern, {
      cwd,
--    exclude: [`**/${prefix}*`],
+-    exclude: (entry) => entry.isDirectory() && entry.name.startsWith(prefix),
      withFileTypes: true,
    })
      .filter((entry) => entry.isFile())
