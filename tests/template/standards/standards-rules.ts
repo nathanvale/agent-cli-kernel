@@ -127,24 +127,56 @@ function witnessesIn(
   );
 }
 
+type Note = { path: string; anchor: string };
+
+function noteFile(repository: string, { path }: Note): string {
+  return join(repository, path === "" ? standards : path);
+}
+
+function sectionWitnesses(
+  file: string,
+  anchor: string | undefined,
+  citable: Citable,
+): string[] {
+  return existsSync(file) && statSync(file).isFile()
+    ? witnessesIn(readWithCodeBlanked(file), anchor, citable)
+    : [];
+}
+
+function noteExists(
+  repository: string,
+  note: Note,
+  gateNotes: string[],
+): boolean {
+  if (note.path === "") return gateNotes.includes(note.anchor);
+  const file = noteFile(repository, note);
+  return (
+    existsSync(file) &&
+    statSync(file).isFile() &&
+    headings(readWithCodeBlanked(file)).some(({ slug }) => slug === note.anchor)
+  );
+}
+
 function rowWitnesses(
   repository: string,
   row: Row,
-  notes: string[],
+  notes: Note[],
   citable: Citable,
 ) {
   const guides = [
     ...row.guide.matchAll(/\]\(([^)#]*)(?:#([^)]+))?\)/g),
-  ].flatMap(([, path = "", anchor]) => {
-    const file = join(repository, path === "" ? standards : path);
-    return existsSync(file) && statSync(file).isFile()
-      ? witnessesIn(readWithCodeBlanked(file), anchor, citable)
-      : [];
-  });
-  const text = readWithCodeBlanked(join(repository, standards));
+  ].flatMap(([, path = "", anchor]) =>
+    sectionWitnesses(
+      join(repository, path === "" ? standards : path),
+      anchor,
+      citable,
+    ),
+  );
   return new Set([
     ...guides,
-    ...notes.flatMap((anchor) => witnessesIn(text, anchor, citable)),
+    ...notes.flatMap((note) =>
+      sectionWitnesses(noteFile(repository, note), note.anchor, citable),
+    ),
   ]);
 }
 
@@ -154,12 +186,15 @@ export function rowProblems(repository: string): string[] {
   for (const row of rows) {
     const where = `${standards}: row "${row.rule}"`;
     const hasGuide = /\]\([^)]+\)/.test(row.guide);
-    const notes = [...row.gates.matchAll(/\]\(#([^)]+)\)/g)].map(
-      ([, anchor]) => anchor ?? "",
+    const notes = [...row.gates.matchAll(/\]\(([^)#\s]*)#([^)]+)\)/g)].map(
+      ([, path = "", anchor = ""]) => ({ path, anchor }),
     );
-    if (!hasGuide && !notes.some((anchor) => gateNotes.includes(anchor)))
+    if (
+      !hasGuide &&
+      !notes.some((note) => noteExists(repository, note, gateNotes))
+    )
       problems.push(
-        `${where} has no guide and no gate note. Repair: link its guide in the Guide cell, or link a heading under ## Gate notes from its Gates cell.`,
+        `${where} has no guide and no gate note. Repair: link its guide in the Guide cell, or link a gate note heading, under ## Gate notes or in a file, from its Gates cell.`,
       );
     const witnesses = rowWitnesses(repository, row, notes, citable).size;
     if (witnesses < 2)

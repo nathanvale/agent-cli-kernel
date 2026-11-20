@@ -29,7 +29,7 @@ diff.
 2. Prove each case you add or change with a focused run from
    [AGENTS.md checks](../../../AGENTS.md#checks).
 3. For each new refusal or bound, apply the
-   [planted-fault guide](../../../docs/standards/test-proof.md#planted-faults).
+   [planted-fault guide](../../../docs/standards/planted-faults.md#planted-faults).
 4. Send the full suite and timing-sensitive cases where
    [AGENTS.md checks](../../../AGENTS.md#checks) sends them.
 5. Before changing `kernel/src/addons/state/*.ts` (except
@@ -55,7 +55,7 @@ Done when each item holds at the pushed head:
 
 1. Read the diff and the commit bodies in its range. Planted-fault evidence
    lives in `tests/planted-faults/fault-records/`; judge it against the
-   [planted-fault guide](../../../docs/standards/test-proof.md#planted-faults).
+   [planted-fault guide](../../../docs/standards/planted-faults.md#planted-faults).
 2. Run the [review routine](../../../CODING_STANDARDS.md#review-routine) on
    that diff. Its last step is your report.
 
