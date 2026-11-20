@@ -35,27 +35,25 @@ export const registeredCases: {
   readonly title: string;
 }[] = [];
 
-let rowMatch: Match | undefined;
+const rowMatches = new Map<string | undefined, Match>();
 
-export function productionRowMatch(): Match {
-  if (rowMatch !== undefined) return rowMatch;
+export function productionRowMatch(base?: string): Match {
+  const known = rowMatches.get(base);
+  if (known !== undefined) return known;
   const route = resolveCoordination();
-  const folder = testFolder("c3-row-match-");
+  const folder = testFolder("c3-row-match-", base);
   try {
     for (const name of deviceFolders)
       if (name !== "root") mkdirSync(join(folder, name));
-    rowMatch = resolveQualification().match(
+    const match = resolveQualification().match(
       folder,
       route.available ? route.route : undefined,
     );
-    return rowMatch;
+    rowMatches.set(base, match);
+    return match;
   } finally {
     rmSync(folder, { recursive: true, force: true });
   }
-}
-
-function productionRowControl(): void {
-  expect(productionRowMatch().matched).toBe(true);
 }
 
 function casePlan(
@@ -157,22 +155,6 @@ export function supportingTest(
     return;
   }
   test(title, body, timeout);
-}
-
-export function noProductionRowTest(
-  title: string,
-  body: () => Promise<void>,
-  timeout = 90_000,
-): void {
-  const match = productionRowMatch();
-  if (match.matched) {
-    test(
-      `${title} UNPROVED where production row ${match.label} matches the state root: closing there is Q02.e's to prove`,
-      productionRowControl,
-    );
-    return;
-  }
-  supportingTest(title, body, timeout);
 }
 
 export type Json =
@@ -534,11 +516,12 @@ export function makeWorld(
     readonly qualification?: "fixture";
     readonly entry?: string;
     readonly childBound?: number;
+    readonly base?: string | undefined;
   } = {},
 ) {
   const childBound = options.childBound ?? defaultChildBound;
   const program = options.entry ?? specimen;
-  const base = testFolder("c3-state-");
+  const base = testFolder("c3-state-", options.base);
   const root = join(base, "state");
   const world = join(base, "world");
   const bars = join(base, "barriers");

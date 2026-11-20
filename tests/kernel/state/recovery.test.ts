@@ -28,7 +28,6 @@ import {
   machineBootIdentityRead,
   makeWorld,
   noAppendAfterDamage,
-  noProductionRowTest,
   only,
   productionRowMatch,
   registeredCases,
@@ -50,7 +49,10 @@ const apply = (name: string, content = "v1") => [
 ];
 
 async function within(
-  options: { readonly qualification?: "fixture" },
+  options: {
+    readonly qualification?: "fixture";
+    readonly base?: string | undefined;
+  },
   body: (world: World) => Promise<void>,
 ): Promise<void> {
   const world = makeWorld(options);
@@ -1129,38 +1131,42 @@ supportingTest(
   }),
 );
 
-noProductionRowTest(
+const tmpfs = existsSync("/dev/shm") ? "/dev/shm" : undefined;
+
+supportingTest(
   "X27 supporting: through index.ts, where no capability qualification row matches, closure refuses with the observed facts",
-  plain(async (world) => {
-    const production = { SX_ENTRY: "production" };
-    await world.killAt(apply("a"), "effect", production);
-    const id = only(world);
-    const before = outsideCoordination(world, "state/");
-    const refused = await world.run(
-      closeArgs(id, await world.revision(id)),
-      production,
-    );
-    expectRefusedUnchanged(refused, "DOMAIN_SX_UNAVAILABLE");
-    const message = str(refused.envelope.message);
-    expect(message).toStartWith(
-      "State unavailable: stopped-owner-proof-unqualified (observed os ",
-    );
-    expect(message).toContain(
-      "; qualified: linux-7-btrfs (os linux, major 7, ",
-    );
-    expect(message).toMatch(/\): differs in [a-z ,]+\)\.$/);
-    expect(outsideCoordination(world, "state/")).toBe(before);
-    expect(existsSync(closurePath(world, id))).toBe(false);
-    const report = await capabilitiesUnder(world, production);
-    expect(at(report, "qualification")).toBe("unqualified");
-    expect(at(report, "stoppedOwnerProof")).toBe("unavailable");
-    expect(JSON.stringify(at(report, "reasons"))).toContain(
-      "; qualified: linux-7-btrfs (os linux, major 7, ",
-    );
-    expect(
-      world.ledger().filter((line) => line === "entry production"),
-    ).toEqual(["entry production", "entry production", "entry production"]);
-  }),
+  () =>
+    within({ base: tmpfs }, async (world) => {
+      expect(productionRowMatch(tmpfs).matched).toBe(false);
+      const production = { SX_ENTRY: "production" };
+      await world.killAt(apply("a"), "effect", production);
+      const id = only(world);
+      const before = outsideCoordination(world, "state/");
+      const refused = await world.run(
+        closeArgs(id, await world.revision(id)),
+        production,
+      );
+      expectRefusedUnchanged(refused, "DOMAIN_SX_UNAVAILABLE");
+      const message = str(refused.envelope.message);
+      expect(message).toStartWith(
+        "State unavailable: stopped-owner-proof-unqualified (observed os ",
+      );
+      expect(message).toContain(
+        "; qualified: linux-7-btrfs (os linux, major 7, ",
+      );
+      expect(message).toMatch(/\): differs in [a-z ,]+\)\.$/);
+      expect(outsideCoordination(world, "state/")).toBe(before);
+      expect(existsSync(closurePath(world, id))).toBe(false);
+      const report = await capabilitiesUnder(world, production);
+      expect(at(report, "qualification")).toBe("unqualified");
+      expect(at(report, "stoppedOwnerProof")).toBe("unavailable");
+      expect(JSON.stringify(at(report, "reasons"))).toContain(
+        "; qualified: linux-7-btrfs (os linux, major 7, ",
+      );
+      expect(
+        world.ledger().filter((line) => line === "entry production"),
+      ).toEqual(["entry production", "entry production", "entry production"]);
+    }),
 );
 
 caseTest(
