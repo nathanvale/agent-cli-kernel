@@ -200,6 +200,20 @@ export default kernelLint({
 });
 `;
 
+const templateLintConfig = `import { kernelLint } from "agent-cli-kernel/lint";
+import kernelRules from "agent-cli-kernel/lint-rules";
+
+const repository = { rules: { ...kernelRules.rules } };
+
+export default kernelLint({
+  rootDir: import.meta.dirname,
+  srcDir: "src",
+  testDirs: [],
+  addons: [],
+  plugin: repository,
+});
+`;
+
 const applicationFiles = {
   "src/kernel/process-host.ts":
     'export const out = () => process.stdout.write("x");',
@@ -225,6 +239,7 @@ const applicationFiles = {
 
 function writeConsumerLint(consumer: string): void {
   writeFileSync(join(consumer, "eslint.config.mjs"), consumerLintConfig);
+  writeFileSync(join(consumer, "template.config.mjs"), templateLintConfig);
   writeFileSync(
     join(consumer, "tsconfig.json"),
     `${JSON.stringify({
@@ -488,23 +503,28 @@ test(
   testBound,
 );
 
-let consumerLint: Promise<Ran> | undefined;
+const consumerLints = new Map<string, Promise<Ran>>();
 const untypedGlobal = (ruleId: string) =>
   ruleId.startsWith("@typescript-eslint/no-unsafe-");
 
-async function consumerFindings() {
-  consumerLint ??= run(
-    [
-      process.execPath,
-      "node_modules/eslint/bin/eslint.js",
-      "--format",
-      "json",
-      ...["src/kernel", "src/addons", "src/app"],
-    ],
-    world.consumer,
-    lintBound,
-  );
-  const ran = await consumerLint;
+async function consumerFindings(config = "eslint.config.mjs") {
+  const started =
+    consumerLints.get(config) ??
+    run(
+      [
+        process.execPath,
+        "node_modules/eslint/bin/eslint.js",
+        "--config",
+        config,
+        "--format",
+        "json",
+        ...["src/kernel", "src/addons", "src/app"],
+      ],
+      world.consumer,
+      lintBound,
+    );
+  consumerLints.set(config, started);
+  const ran = await started;
   if (ran.exit !== 0 && ran.exit !== 1)
     throw new Error(`ESLint exited ${ran.exit}:\n${ran.stderr}`);
   const results: unknown = JSON.parse(ran.stdout);
@@ -528,47 +548,60 @@ async function consumerFindings() {
     );
 }
 
+const kernelPathFindings = [
+  {
+    file: "src/addons/diagnostics/log.ts",
+    ruleId: "no-restricted-imports",
+  },
+  {
+    file: "src/addons/programs/run.ts",
+    ruleId: "no-restricted-properties",
+  },
+  {
+    file: "src/addons/state/linux-flock.ts",
+    ruleId: "no-restricted-imports",
+  },
+  {
+    file: "src/kernel/causes.ts",
+    ruleId: "repository/cause-literal-owner",
+  },
+  { file: "src/kernel/in.ts", ruleId: "repository/no-in-operator" },
+  { file: "src/kernel/index.ts", ruleId: "no-restricted-syntax" },
+  {
+    file: "src/kernel/process-host.ts",
+    ruleId: "repository/no-domain-output",
+  },
+  { file: "src/kernel/runtime.ts", ruleId: "no-restricted-imports" },
+  { file: "src/kernel/runtime.ts", ruleId: "no-restricted-syntax" },
+  {
+    file: "src/kernel/validation/brand.ts",
+    ruleId: "no-restricted-syntax",
+  },
+];
+
+async function kernelPathHits(config?: string) {
+  return (await consumerFindings(config))
+    .filter(
+      ({ file, ruleId }) =>
+        !file.startsWith("src/app/") && !untypedGlobal(ruleId),
+    )
+    .map(({ file, ruleId }) => ({ file, ruleId }));
+}
+
 test(
   "a repository that installs the kernel lints its src/kernel and src/addons files as its own source: no kernel path keeps an allowance",
   async () => {
-    const found = await consumerFindings();
-    expect(
-      found
-        .filter(
-          ({ file, ruleId }) =>
-            !file.startsWith("src/app/") && !untypedGlobal(ruleId),
-        )
-        .map(({ file, ruleId }) => ({ file, ruleId })),
-    ).toEqual([
-      {
-        file: "src/addons/diagnostics/log.ts",
-        ruleId: "no-restricted-imports",
-      },
-      {
-        file: "src/addons/programs/run.ts",
-        ruleId: "no-restricted-properties",
-      },
-      {
-        file: "src/addons/state/linux-flock.ts",
-        ruleId: "no-restricted-imports",
-      },
-      {
-        file: "src/kernel/causes.ts",
-        ruleId: "repository/cause-literal-owner",
-      },
-      { file: "src/kernel/in.ts", ruleId: "repository/no-in-operator" },
-      { file: "src/kernel/index.ts", ruleId: "no-restricted-syntax" },
-      {
-        file: "src/kernel/process-host.ts",
-        ruleId: "repository/no-domain-output",
-      },
-      { file: "src/kernel/runtime.ts", ruleId: "no-restricted-imports" },
-      { file: "src/kernel/runtime.ts", ruleId: "no-restricted-syntax" },
-      {
-        file: "src/kernel/validation/brand.ts",
-        ruleId: "no-restricted-syntax",
-      },
-    ]);
+    expect(await kernelPathHits()).toEqual(kernelPathFindings);
+  },
+  lintBound,
+);
+
+test(
+  "the template's kernelLint call, with no add-on and the kernel's rules spread into its plugin, refuses the same kernel paths",
+  async () => {
+    expect(await kernelPathHits("template.config.mjs")).toEqual(
+      kernelPathFindings,
+    );
   },
   lintBound,
 );
