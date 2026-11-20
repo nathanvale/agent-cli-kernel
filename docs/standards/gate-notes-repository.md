@@ -28,7 +28,7 @@ What the gates of the repository rows refuse and where, what stays with the revi
 
 ## Glossary
 
-- `tests/template/glossary/glossary.test.ts`, with its shrinking `known-hits.json`,
+- `tests/template/glossary/glossary.test.ts`, with its shrinking `recorded-hits.json`,
   checks the `scope` listed in `tests/template/glossary/term-table.json`.
 - That scope is kernel source, kernel tests, and the kernel's lint config.
   `src/` and docs are review only.

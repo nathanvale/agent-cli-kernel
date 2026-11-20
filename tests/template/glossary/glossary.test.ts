@@ -468,14 +468,14 @@ function treeHits(table: Table): Hit[] {
   });
 }
 
-type Known = {
+type RecordedHit = {
   readonly file: string;
   readonly term: string;
   readonly surface: string;
   readonly text: string;
   readonly count: number;
 };
-const KNOWN_PATH = join(here, "known-hits.json");
+const RECORDED_PATH = join(here, "recorded-hits.json");
 
 function keyOf(hit: {
   file: string;
@@ -485,11 +485,11 @@ function keyOf(hit: {
 }): string {
   return [hit.file, hit.term, hit.surface, hit.text].join("\u001f");
 }
-function loadKnown(): Known[] {
-  if (!existsSync(KNOWN_PATH)) return [];
-  const raw = readJson(KNOWN_PATH);
+function loadRecordedHits(): RecordedHit[] {
+  if (!existsSync(RECORDED_PATH)) return [];
+  const raw = readJson(RECORDED_PATH);
   if (!isRecord(raw) || !Array.isArray(raw.hits))
-    throw new Error("known-hits.json needs a hits array.");
+    throw new Error("recorded-hits.json needs a hits array.");
   return raw.hits.map((item, index) => {
     if (
       !isRecord(item) ||
@@ -499,7 +499,7 @@ function loadKnown(): Known[] {
       typeof item.text !== "string" ||
       typeof item.count !== "number"
     )
-      throw new Error(`known-hits.json hits[${index}] is malformed.`);
+      throw new Error(`recorded-hits.json hits[${index}] is malformed.`);
     return {
       file: item.file,
       term: item.term,
@@ -523,10 +523,10 @@ function tally(hits: readonly Hit[]): Map<string, Counted> {
 }
 function unexpectedHits(
   counts: ReadonlyMap<string, Counted>,
-  known: ReadonlyMap<string, Known>,
+  recorded: ReadonlyMap<string, RecordedHit>,
 ): string[] {
   return [...counts]
-    .filter(([key, { count }]) => count > (known.get(key)?.count ?? 0))
+    .filter(([key, { count }]) => count > (recorded.get(key)?.count ?? 0))
     .map(
       ([, { hit }]) =>
         `${hit.file}:${hit.line} [${hit.term} / ${hit.surface}] ${hit.message} Text: ${hit.text}`,
@@ -534,14 +534,14 @@ function unexpectedHits(
 }
 function fixedHits(
   counts: ReadonlyMap<string, Counted>,
-  known: ReadonlyMap<string, Known>,
+  recorded: ReadonlyMap<string, RecordedHit>,
 ): string[] {
-  return [...known]
+  return [...recorded]
     .map(([key, item]) => ({ item, now: counts.get(key)?.count ?? 0 }))
     .filter(({ item, now }) => now < item.count)
     .map(
       ({ item, now }) =>
-        `${item.file} [${item.term} / ${item.surface}] is fixed (${now} of ${item.count} left): remove or lower it in known-hits.json. Text: ${item.text}`,
+        `${item.file} [${item.term} / ${item.surface}] is fixed (${now} of ${item.count} left): remove or lower it in recorded-hits.json. Text: ${item.text}`,
     );
 }
 
@@ -555,11 +555,13 @@ describe("glossary check", () => {
     expect(missing).toEqual([]);
   });
 
-  test("no avoid-word appears outside the shrinking known-hits list", () => {
+  test("no avoid-word appears outside the shrinking recorded-hits list", () => {
     const counts = tally(treeHits(table));
-    const known = new Map(loadKnown().map((item) => [keyOf(item), item]));
-    expect(unexpectedHits(counts, known)).toEqual([]);
-    expect(fixedHits(counts, known)).toEqual([]);
+    const recorded = new Map(
+      loadRecordedHits().map((item) => [keyOf(item), item]),
+    );
+    expect(unexpectedHits(counts, recorded)).toEqual([]);
+    expect(fixedHits(counts, recorded)).toEqual([]);
   });
 });
 
