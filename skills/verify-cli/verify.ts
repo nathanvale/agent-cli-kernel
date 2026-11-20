@@ -583,6 +583,15 @@ export async function main(
   };
 }
 
+function written(write: Relayed): Promise<void> {
+  const stream = write.stream === "stdout" ? process.stdout : process.stderr;
+  return new Promise((done) => {
+    stream.write(write.text, () => {
+      done();
+    });
+  });
+}
+
 if (import.meta.main) {
   forwardStops();
   const { exit, writes } = await main(
@@ -590,8 +599,6 @@ if (import.meta.main) {
     process.cwd(),
     bunSpawn(process.env),
   );
-  for (const write of writes)
-    if (write.stream === "stdout") process.stdout.write(write.text);
-    else process.stderr.write(write.text);
+  for (const write of writes) await written(write);
   process.exit(exit);
 }
