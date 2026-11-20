@@ -6,8 +6,7 @@ import kernelRules from "./eslint-rules.mjs";
 
 const stateFactoryProperty = {
   property: "stateAddon",
-  message:
-    "Only the stamped state add-on folder may author the state add-on factory.",
+  message: "Only the state add-on folder may author the state add-on factory.",
 };
 // Platform: CMD-14: no-restricted-imports sees static imports only, so the dynamic
 // import of the process module is banned by syntax in every source scope (F09).
@@ -40,7 +39,7 @@ const stateIndexOnly = {
 const kernelIndexOnly = {
   regex: "(?:^|/)kernel/(?!index\\.(?:ts|mts|cts)$)",
   message:
-    "Code outside the kernel imports the stamped kernel through its public index only.",
+    "Code outside the kernel imports the kernel through its public index only.",
 };
 const ffiMessage =
   "bun:ffi belongs only to the state add-on's linux-flock.ts (the Linux coordination lock call).";
@@ -129,7 +128,7 @@ function hostRules({ banFfi = true, logging = loggingImports } = {}) {
         selector:
           "ImportExpression[source.value=/(^|\\x2f)kernel\\x2f(?!index[.](ts|mts|cts)$)/]",
         message:
-          "Code outside the kernel imports the stamped kernel through its public index only.",
+          "Code outside the kernel imports the kernel through its public index only.",
       },
       {
         selector:
@@ -307,7 +306,7 @@ export function kernelLint(options) {
             selector:
               "ObjectPattern > :matches(Property[key.name='stateAddon'], Property[key.value='stateAddon'])",
             message:
-              "Only the stamped state add-on may extract the state add-on factory.",
+              "Only the state add-on may extract the state add-on factory.",
           },
         ],
       },
