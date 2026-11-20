@@ -80,12 +80,12 @@ const repairs: Readonly<Record<FailureId, string>> = {
   "helper-usage-exit": kernelRepair,
   "observation-mismatch": kernelRepair,
   "target-not-repeatable":
-    "Keep anything that changes between runs, such as a process id or a time, out of the target's usage refusal and discovery, then run the command again.",
+    "Keep what changes between runs, such as a process id, out of the target's usage refusal and discovery, then run the command again.",
   "evidence-mismatch":
     "Keep this run's folder as it is for review, and launch a new run in another folder.",
   "check-internal": `Report this line to ${cli}'s owner.`,
   "child-timeout":
-    "Find what held the child past its limit, such as a target waiting on input, and run the command again.",
+    "Find what held the child past its limit, then run the command again.",
 };
 
 export function failureLine(failure: Failure): string {
@@ -447,14 +447,9 @@ export function relayed(helper: Ran, json: boolean, self: string): Relayed {
   };
 }
 
-function beforeLiteral(argv: readonly string[]): readonly string[] {
-  const literal = argv.indexOf("--");
-  return literal < 0 ? argv : argv.slice(0, literal);
-}
-
-function afterLiteral(argv: readonly string[]): readonly string[] {
-  const literal = argv.indexOf("--");
-  return literal < 0 ? [] : argv.slice(literal);
+function beforeLiteral(argv: readonly string[], after = false) {
+  const literal = argv.indexOf("--") >>> 0;
+  return after ? argv.slice(literal) : argv.slice(0, literal);
 }
 
 export type Checked =
@@ -470,7 +465,7 @@ export async function kernelFreeCheck(
   const argv = absoluteArgv(
     beforeLiteral(given)
       .filter((word) => word !== "--json")
-      .concat(afterLiteral(given)),
+      .concat(beforeLiteral(given, true)),
     cwd,
   );
   const found = bound(argv);
@@ -497,7 +492,7 @@ export async function kernelFreeCheck(
       helperEntry,
       ...beforeLiteral(argv),
       "--json",
-      ...afterLiteral(argv),
+      ...beforeLiteral(argv, true),
     ],
     root,
     milliseconds,
@@ -604,9 +599,15 @@ export function bunSpawn(
   };
 }
 
-export function forwardStops(limits: Limits = defaultLimits): void {
+export function forwardStops(
+  limits = defaultLimits,
+  listen: (signal: NodeJS.Signals, stop: () => void) => unknown = (
+    signal,
+    stop,
+  ) => process.on(signal, stop),
+): void {
   for (const signal of ["SIGTERM", "SIGINT"] as const)
-    process.on(signal, () => {
+    listen(signal, () => {
       received ??= signal;
       for (const child of running) signalGroup(child, "SIGTERM");
       setTimeout(() => {

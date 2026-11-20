@@ -1,6 +1,10 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { bunSpawn, defaultLimits } from "../../../skills/verify-cli/verify.ts";
+import {
+  bunSpawn,
+  defaultLimits,
+  forwardStops,
+} from "../../../skills/verify-cli/verify.ts";
 import { spawnBounded } from "../kernel-repair/swarm-process.ts";
 import { goneWithin } from "../lifecycle/harness.ts";
 import {
@@ -135,4 +139,10 @@ describe("the check's own bounds", () => {
     },
     watchdog(1),
   );
+
+  test("the check listens for SIGTERM and SIGINT, and for nothing else", () => {
+    const heard: string[] = [];
+    forwardStops(defaultLimits, (signal) => heard.push(signal));
+    expect(heard).toEqual(["SIGTERM", "SIGINT"]);
+  });
 });
