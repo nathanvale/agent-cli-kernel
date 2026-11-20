@@ -456,9 +456,6 @@ describe("K3K5 a settle fault keeps the exit path", () => {
         settleThrows,
       );
       const { result } = parsed(observed);
-      // Accepted decisions of 16:23 and 17:06 (KF3.b): a settle fault is an
-      // owned program not confirmed stopped, so the inspect command's
-      // declared program-stop station prints, with its handoff.
       expect(result.causeCode).toBe(
         "DOMAIN_ST_DEADLINE_PROGRAM_STOP_UNCONFIRMED",
       );
@@ -656,7 +653,6 @@ describe("K3K5 a rejected settle keeps the exit path", () => {
         "300",
         "--json",
       ],
-      // Accepted decisions of 16:23 and 17:06 (KF3.b).
       "DOMAIN_ST_DEADLINE_PROGRAM_STOP_UNCONFIRMED",
       3,
     ],
@@ -727,11 +723,6 @@ test(
   timeout,
 );
 
-// Kernel follow-up KF1.d and KF8 (expectations.md, KF family): the accepted
-// decision "Contract question 1 of 8" (no `diagnostics` key on a result
-// before handler entry) at the check-phase sites, on `st.guarded`, which
-// declares diagnostics and approval. Each case has a flipped twin after
-// handler entry that does carry the key. Expected values are test-owned.
 describe("KF1.d and KF8 no key at the check-phase sites", () => {
   const preparation = {
     outcome: "refused",
@@ -826,11 +817,6 @@ describe("KF1.d and KF8 no key at the check-phase sites", () => {
   );
 });
 
-// Kernel follow-up KF6 (accepted decision "Contract question 8 of 8"; N4a,
-// N4b at 17:06; N4c at 17:24): in human mode a result that carries a
-// diagnostics status prints one `Diagnostics:` line, always on stdout, after
-// the result text on success and beside the one stderr line on a refusal or
-// failure. The words are test-owned literals from the ruled table.
 describe("KF6 the human Diagnostics line", () => {
   async function human(
     argv: readonly string[],

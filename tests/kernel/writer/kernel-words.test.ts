@@ -1,7 +1,3 @@
-// B3 (Nathan, 16 November 2026): on DOMAIN_AUTHORITY_REQUIRED, naming the
-// authority owner's role is enough and the owner is `human`; the base's
-// default station words are an accepted decision. A command may declare its own tuple (DISC-11b)
-// and is not required to. Expected words are test-owned literals.
 import { expect, test } from "bun:test";
 import {
   command,

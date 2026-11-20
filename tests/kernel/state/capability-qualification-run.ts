@@ -56,25 +56,6 @@ import type {
 } from "./capability-qualification-record.ts";
 import type { StateCase } from "./cases.ts";
 
-// Interface: `bun run capability-qualification-run <candidate row file>
-// <state root parent> [--entry fixture.ts|index.ts]` (journal version 2
-// design part 2 section 3). It runs the covered cases of the state case table
-// that can run through the entry, from the commit's tracked case files,
-// through the state test harness on observed facts only, with no .env file
-// loaded. It adds one capability qualification run to the row's record, a
-// failed case written as fail, by a temporary file and a rename. It refuses,
-// writing nothing, when SX_FACT_OVERRIDES is set, the repository is not sha1,
-// git marks a tracked file assume-unchanged or skip-worktree, a file in the
-// commit's tree differs from its committed bytes, has a mode the run cannot
-// check, or does not resolve, through every link along the way, to a tracked
-// file or folder inside the checkout's real root, the checkout has untracked
-// files, git ignores a file under kernel, scripts, src or tests or in a
-// tracked folder a tracked link reaches, a dotenv
-// file sits in the repository root, the test process's exit code disagrees
-// with its report, a covered case is reported twice, no report is written,
-// or the run is stopped. A test world in a run refuses a fact override or
-// candidate row of its own.
-
 export const runVariable = "SX_CAPABILITY_QUALIFICATION_RUN";
 const usage =
   "Usage: bun run capability-qualification-run <candidate row file> <state root parent> [--entry fixture.ts|index.ts]";

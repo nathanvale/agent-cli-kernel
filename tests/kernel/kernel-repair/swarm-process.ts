@@ -22,8 +22,6 @@ function resultOf(stdout: string): ScenarioRun["result"] {
     : undefined;
 }
 
-// Interface: thrown when a run passes its bound, with the output it wrote
-// before it was killed.
 export class BoundPassed extends Error {
   readonly stdout: string;
   readonly stderr: string;

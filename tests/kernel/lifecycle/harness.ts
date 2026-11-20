@@ -472,12 +472,6 @@ export function requireTools(): void {
 }
 
 export const exitBound = 20_000;
-// Platform: H2: a CLI that calls abort() is reported gone only after the host has dealt
-// with the aborted process. Hosted ubuntu runners took 23,798 ms (run
-// 43768259751) and 27,461 ms (run 43771790891) for L06s.abort, and more than
-// 20,000 ms in run 43780233662; Darwin takes milliseconds. Only the abort
-// scenario waits this long, about twice the slowest observation, and its own
-// test timeout (abortTimeout) stays above it so R1 still releases a real hang.
 export const abortExitBound = 60_000;
 export const abortTimeout = 75_000;
 export async function exitWithin(

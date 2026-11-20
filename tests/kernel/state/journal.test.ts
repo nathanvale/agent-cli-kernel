@@ -618,8 +618,6 @@ caseTest(
   }),
 );
 
-// Accepted decision "Contract question 4 of 8": the issued proof is the
-// trusted summary, so the fallback reports the completed change it proved.
 supportingTest(
   "V-23 supporting: refusal after a completed transaction is never unchanged",
   () =>

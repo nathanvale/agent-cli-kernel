@@ -1,7 +1,3 @@
-// Kernel follow-up KF6.a `file` (accepted decision "Contract question 8 of
-// 8"; N4a and N4b at 17:06): with the shipped diagnostics add-on, human mode
-// ends stdout with `Diagnostics: <file>`, the absolute path of the run's
-// private log (DIAG-7, mode 0600); machine mode is unchanged (LIFE-1).
 import { afterAll, expect, test } from "bun:test";
 import { statSync } from "node:fs";
 import { cleanTrees, get, run, tree } from "./harness.ts";

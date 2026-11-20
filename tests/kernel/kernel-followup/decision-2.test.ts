@@ -5,13 +5,6 @@ import { processWatchdog } from "../kernel-repair/swarm-process.ts";
 import { emptyComplete, materialiseKf, oneEnvelope, runKf } from "./harness.ts";
 import type { KfRun } from "./harness.ts";
 
-// Accepted decision "Contract question 4 of 8" (K2-spec-5): the trusted
-// summary is any proof the kernel's state seam issued for the run, whether
-// or not the handler returned. LIFE-9 steps 1 and 2, LIFE-10, WIRE-12,
-// WIRE-15 failed rows, WIRE-18 INTERNAL_RESULT_* (H), DISC-11b. Each case runs
-// on two layers: `seam` (a state add-on instance through the kernel's state
-// seam) and `addon` (the shipped state add-on). Expected values come from
-// expectations.md (KF2).
 let entry = "";
 beforeAll(async () => {
   entry = await materialiseKf();

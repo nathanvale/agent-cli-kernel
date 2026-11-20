@@ -5,16 +5,6 @@ import { processWatchdog } from "../kernel-repair/swarm-process.ts";
 import { humanOneLine, materialiseKf, oneEnvelope, runKf } from "./harness.ts";
 import type { KfRun } from "./harness.ts";
 
-// Accepted decision "Nine open questions answered", item 6 (ND8-4): the
-// kernel never echoes an argument value in a refusal it makes itself; the
-// host owns redaction of its own prose. DIAG-12, WIRE-3, WIRE-7, LIFE-2,
-// LIFE-9 step 2 ("a bounded constant message, no copied bad payload").
-// Accepted decision (Nathan, 20 November 2026, 07:00 AEDT; ND8-4): a kernel
-// refusal may name declared slot names, bounds, choices and patterns, and
-// never names caller text. This replaces reading (a) of N10a, where the fixed
-// messages named nothing. Every caller value carries a test-owned marker; no
-// byte of stdout or stderr may carry it, in machine or human mode. Expected values come from
-// expectations.md (KF10).
 let entry = "";
 beforeAll(async () => {
   entry = await materialiseKf();

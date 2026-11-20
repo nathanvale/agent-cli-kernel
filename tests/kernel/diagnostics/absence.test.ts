@@ -19,11 +19,6 @@ const read = ["read", ...machine] as const;
 const timeout = 60_000;
 const repository = join(import.meta.dir, "../../..");
 
-// Accepted decision (Nathan, 16 November 2026, 14:19, contract question 1
-// of 8): a result refused before handler entry carries no key; the key
-// appears only after handler entry, for a command that declares diagnostics.
-const preDispatchKey = false;
-
 function hasKey(result: Run): boolean {
   return (
     typeof result.envelope === "object" &&
@@ -186,7 +181,7 @@ describe("D01 absent when disabled", () => {
       expect(get(result.envelope, "result", "causeCode")).toBe(
         "USAGE_INVALID_INVOCATION",
       );
-      expect(hasKey(result)).toBe(preDispatchKey);
+      expect(hasKey(result)).toBe(false);
       expect(observe(where.state).exists).toBe(false);
     },
     timeout,

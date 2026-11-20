@@ -5,14 +5,6 @@ import { dirname, join, resolve } from "node:path";
 import { processWatchdog } from "../kernel-repair/swarm-process.ts";
 import { emptyComplete, materialiseKf, oneEnvelope, runKf } from "./harness.ts";
 
-// Accepted decision "Contract question 7 of 8" (ledger OP-55): a handler
-// may not select the stations that belong before handler entry. Built to
-// the coordinator's provisional readings N5 (a) (a command may still
-// declare a pre-entry tuple for its words; that grants no selection) and
-// N6 (a) (on a command that declares approval a handler may select
-// DOMAIN_AUTHORITY_REQUIRED for the denial at revalidation; a command
-// without approval may not). DISC-11b, CMD-9 steps 3 to 5, WIRE-16, LIFE-7,
-// LIFE-9, CMD-8. Expected values come from expectations.md (KF5).
 let entry = "";
 beforeAll(async () => {
   entry = await materialiseKf();
