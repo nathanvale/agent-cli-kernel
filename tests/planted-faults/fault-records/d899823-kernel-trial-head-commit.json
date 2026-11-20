@@ -1,0 +1,7 @@
+{
+  "id": "d899823-kernel-trial-head-commit",
+  "patch": "tests/planted-faults/patches/d899823-kernel-trial-head-commit.patch",
+  "testFile": "tests/template/kernel-trial/kernel-trial-workflow.test.ts",
+  "title": "checks out the kernel repository at the pull request's head commit and the template beside it, installs the template, then runs its kernel trial on that commit with an empty Bun cache",
+  "source": "d899823 ci(kernel-trial): run the template's kernel trial on each pull request's head commit, as advice only"
+}

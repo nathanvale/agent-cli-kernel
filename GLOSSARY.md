@@ -232,8 +232,10 @@ commit it undoes.
 
 **Fault replay**:
 A run that applies each selected planted fault's patch in a temporary
-worktree. Its named test must pass without the patch and fail with it. The
-hosted check replays every fault record. Pre-push replays fault records
+worktree. Its named test must pass without the patch and fail with it. On a
+pull request, the hosted check replays each record whose test is outside
+`tests/template/` and each other record the change touches, in four parts.
+The Linux nightly replays every record. Pre-push replays fault records
 affected by the push.
 
 **Fault timing**:

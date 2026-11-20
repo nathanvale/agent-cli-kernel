@@ -32,12 +32,22 @@ diff.
    [planted-fault guide](../../../docs/standards/test-proof.md#planted-faults).
 4. Send the full suite and timing-sensitive cases where
    [AGENTS.md checks](../../../AGENTS.md#checks) sends them.
+5. Before changing `kernel/src/addons/state/*.ts` (except
+   `capability-qualification-table.ts`), `kernel/src/addons/programs/*.ts` or
+   `kernel/src/kernel/state-seam.ts`, read the
+   [record fields](../../../kernel/src/addons/state/DESIGN-V2-CLOSURE.md) and
+   the [`Q03.a` row](../../../kernel/src/addons/state/DESIGN-V2-TRANSITIONS.md).
+   Any such change alters the capability qualification row's `sourceHash`, so
+   `Q03.a` fails until a new capability qualification record, with Nathan's
+   countersignature, lands in the same change.
 
 Done when each item holds at the pushed head:
 
 - `bun run doctor` exits 0.
 - Every added or changed case has a green focused run.
 - Every new refusal or bound meets the planted-fault guide.
+- A change to the qualified source carries its new capability qualification
+  record.
 - Hosted CI is green, or each case it did not run is reported **unproved**.
   An unproved case is never reported as a pass.
 

@@ -1,0 +1,7 @@
+{
+  "id": "d899823-path-filter-required-name",
+  "patch": "tests/planted-faults/patches/d899823-path-filter-required-name.patch",
+  "testFile": "tests/template/kernel-trial/kernel-trial-workflow.test.ts",
+  "title": "no workflow that has a path filter names a check as ci.yml does, because a required check that a path filter skips never reports and blocks merging",
+  "source": "d899823 ci(kernel-trial): run the template's kernel trial on each pull request's head commit, as advice only"
+}

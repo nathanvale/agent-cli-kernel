@@ -94,15 +94,12 @@ this file.
 - Prove a compatibility claim with code committed in the tree, never with
   git history, which a shallow checkout or another folder lacks. Witnessed:
   [ff852e8], [e45050c] (J08.a and J08.c read version 1's store with
-  `git show` at a fixed commit, and hosted fault replay, [run 44456881408],
-  could not resolve the path; the fix adds a committed version 1 reader to
-  `tests/kernel/state/harness.ts`).
+  `git show`, which hosted fault replay, [run 44456881408], could not
+  resolve).
 - Before resting a safety claim on how a file format reads damage, sweep
   every cut point of each record, alone and with a complete record after
-  it. Witnessed: [6d4b46d] (the journal version 2 design said a torn tail
-  cannot hide a delegate start, yet a complete record appended straight
-  after torn bytes read as part of the torn tail at every cut but the three
-  just after a header's newline).
+  it. Witnessed: [6d4b46d] (a complete record appended after torn bytes read as part of the
+  torn tail at almost every cut).
 - Decide only on state read while holding what excludes its writer; a
   read taken before the lock is a stale snapshot. Witnessed:
   [kernel#18 r4625198714], [d37a77f] (a closer read the case journal,
@@ -143,8 +140,7 @@ this file.
 - Grant a lint allowance for a path only where that path holds what the
   allowance is for; a repository that installs the kernel lints its own
   `src/kernel/` as application code. Witnessed: [r4638567003], [096c862]
-  (`kernelLint` skipped the host rules for `src/kernel/**` and turned
-  `no-domain-output` off for `src/kernel/process-host.ts` in every
+  (`kernelLint` turned host rules off for `src/kernel/**` in every
   repository, so a generated repository's file there could write to
   stdout).
 - Check the type of each field a test reads from a tool's JSON output instead
@@ -174,6 +170,11 @@ this file.
   Witnessed: [911189b] (two `planted-fault:add` runs for one id both
   printed `Added`, and on macOS an id differing only by case overwrote
   another record; Fable review of pull request 54).
+- Keep an advisory check advisory by leaving it out of the required checks,
+  never by letting it continue on error, which hides a failure as green.
+  Witnessed: [973abac] (the kernel trial's workflow tests passed with
+  `continue-on-error` on its job or trial step; Sol 6.1 check of pull
+  request 60).
 
 [ac11ed9]: https://github.com/nathanvale/bun-typescript-template/commit/ac11ed98b7d538e8a304cac053aaefcaaf6b2cb3
 [cd2498b]: https://github.com/nathanvale/bun-typescript-template/commit/cd2498b7189a2d45d1906b9c870e8d13da6cd2dd
@@ -226,3 +227,4 @@ this file.
 [0669e10]: https://github.com/nathanvale/agent-cli-kernel/commit/0669e10e32c420aa077e8491818f1d1417f1a1c9
 [044431e]: https://github.com/nathanvale/agent-cli-kernel/commit/044431e8b510ef9104ab7e4ade72f5d7ae980a69
 [0aeb3de]: https://github.com/nathanvale/agent-cli-kernel/commit/0aeb3de88a7ea51e3882ff3ac30f9c0dde64614b
+[973abac]: https://github.com/nathanvale/agent-cli-kernel/commit/973abac66b578259a73b21857f5a92090f249717

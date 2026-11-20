@@ -1,0 +1,7 @@
+{
+  "id": "d899823-kernel-trial-required-name",
+  "patch": "tests/planted-faults/patches/d899823-kernel-trial-required-name.patch",
+  "testFile": "tests/template/kernel-trial/kernel-trial-workflow.test.ts",
+  "title": "its one check, kernel-trial, shares its name with no job in ci.yml, where the required checks run, so it cannot stand in for one",
+  "source": "d899823 ci(kernel-trial): run the template's kernel trial on each pull request's head commit, as advice only"
+}
