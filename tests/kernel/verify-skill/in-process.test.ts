@@ -609,6 +609,12 @@ describe("how a step is judged", () => {
     expect(
       contractUnmet(
         step({ exitCode: 0, stderr: "" }),
+        observed('{"contractVersion":"3.0.0","result":{"exitCode":0}}\n'),
+      ),
+    ).toEqual(["contract.json-one-envelope"]);
+    expect(
+      contractUnmet(
+        step({ exitCode: 0, stderr: "" }),
         observed("", { stderr: "x" }),
       ),
     ).toEqual(["contract.json-one-envelope", "contract.json-stderr-empty"]);

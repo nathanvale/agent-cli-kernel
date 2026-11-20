@@ -258,7 +258,7 @@ describe("which commands and stations the sweep counts", () => {
 
   test("a station is swept only when every check on its run passed", async () => {
     const envelope = (result: object) =>
-      `${JSON.stringify({ contractVersion: "3.0.0", result })}\n`;
+      `${JSON.stringify({ contractVersion: "3.0.0", result: { commandIdentity: "x.go", causeCode: "SUCCESS_UNCHANGED", ...result } })}\n`;
     const required = (causeCode: string) => ({
       causeCode,
       reachability: "required",

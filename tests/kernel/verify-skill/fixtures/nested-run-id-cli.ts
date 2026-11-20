@@ -8,6 +8,8 @@ if (argv.join(" ") === "--discover --json") {
     result: {
       runId: runId(),
       exitCode: 0,
+      commandIdentity: "nested.discovery",
+      causeCode: "SUCCESS_UNCHANGED",
       data: {
         commands: [
           {

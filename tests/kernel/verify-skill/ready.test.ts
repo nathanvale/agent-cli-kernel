@@ -168,6 +168,8 @@ describe("how ready judges its two probes", () => {
       contractVersion: "3.0.0",
       result: {
         exitCode: 0,
+        commandIdentity: "moons.discovery",
+        causeCode: "SUCCESS_UNCHANGED",
         data: {
           commands: [
             {

@@ -30,8 +30,9 @@ export function envelopeOf(stdout: string): unknown {
   if (lines.length !== 2 || lines[1] !== "") return null;
   const parsed = parsedJson(lines[0] ?? "");
   return typeof at(parsed, "contractVersion") === "string" &&
-    typeof at(parsed, "result") === "object" &&
-    at(parsed, "result") !== null
+    typeof at(parsed, "result", "exitCode") === "number" &&
+    typeof at(parsed, "result", "commandIdentity") === "string" &&
+    typeof at(parsed, "result", "causeCode") === "string"
     ? parsed
     : null;
 }
