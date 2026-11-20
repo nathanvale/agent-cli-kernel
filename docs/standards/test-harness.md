@@ -24,7 +24,8 @@ runs each test file. What a test must prove is in the
   through the clean-up that frees a blocked named-pipe open),
   [kernel#18 r4625198722], [93dd83e] (K11.g and the other new state tests
   started their CLI children with no time limit; the state test harness
-  now gives every `world.start` a 60 s default bound).
+  now gives every `world.start` a 60 s default bound), [4ca0141] (the
+  installed-kernel lint process and its cases shared one 120 s bound).
 - Give a test or a setup hook a timeout that covers the sum of the bounds of
   every child it runs in sequence, not only the largest one. Witnessed:
   [kernel#48 review 5987095580], [fdfa794] (setup reserved 60 s for a copy
@@ -121,3 +122,4 @@ runs each test file. What a test must prove is in the
 [kernel#48 review 5987095580]: https://github.com/nathanvale/agent-cli-kernel/pull/48#pullrequestreview-5987095580
 [fdfa794]: https://github.com/nathanvale/agent-cli-kernel/commit/fdfa7946a86df7fac0c9f29b454f3776efc8dcfe
 [e766237]: https://github.com/nathanvale/agent-cli-kernel/commit/e76623703cff72cc32c30a97164243e2cc86f255
+[4ca0141]: https://github.com/nathanvale/agent-cli-kernel/commit/4ca014175963a134a585af49006a56d374700e33
