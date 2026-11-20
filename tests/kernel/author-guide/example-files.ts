@@ -7,7 +7,8 @@ export const packageName = "agent-cli-kernel";
 const exampleFolder = join(import.meta.dir, "example");
 const stored = ".txt";
 
-const byCodeUnit = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+export const byCodeUnit = (a: string, b: string) =>
+  a < b ? -1 : a > b ? 1 : 0;
 
 export function exampleFiles(
   folder = exampleFolder,
