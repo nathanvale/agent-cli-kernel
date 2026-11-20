@@ -13,7 +13,7 @@ import {
   unreadableStation,
 } from "./causes.ts";
 import { at, listOf, readJsonFile } from "./json.ts";
-import { readIndex, verificationRun } from "./place.ts";
+import { readIndex, stepSchema, verificationRun } from "./place.ts";
 import type { VerificationRun, StepRow } from "./place.ts";
 import { sweep } from "./sweep.ts";
 import type { Station, Sweep } from "./sweep.ts";
@@ -72,7 +72,17 @@ export function stepDetails(
         kind: "unreadable",
         reason: read.kind === "missing" ? `${path} is missing` : read.reason,
       };
-    const unmet = listOf(at(read.value, "unmet")).map(String);
+    const listed = at(read.value, "unmet");
+    if (
+      at(read.value, "schema") !== stepSchema ||
+      !Array.isArray(listed) ||
+      (listed.length === 0) !== (row.verdict === "met")
+    )
+      return {
+        kind: "unreadable",
+        reason: `${path} is not a ${stepSchema} evidence file that agrees with its index row`,
+      };
+    const unmet = listOf(listed).map(String);
     details.push({
       step: `${row.feature}/${row.step}`,
       unmet,

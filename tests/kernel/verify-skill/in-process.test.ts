@@ -134,6 +134,7 @@ describe("the helper's commands, run in process", () => {
       const place = verificationRun(run);
       mkdirSync(join(place.evidence, "f"));
       const content = `${JSON.stringify({
+        schema: "verify-step/1",
         unmet: [],
         observed: { terminationConfirmed: false },
       })}\n`;

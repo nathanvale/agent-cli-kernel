@@ -238,6 +238,7 @@ describe("what the report reads", () => {
       writeFileSync(
         join(place.evidence, "f", `${step}.json`),
         JSON.stringify({
+          schema: "verify-step/1",
           unmet,
           observed: { terminationConfirmed: confirmed },
         }),
@@ -265,6 +266,17 @@ describe("what the report reads", () => {
       kind: "unreadable",
       reason: `${join(place.evidence, "f", "ended.json")} is missing`,
     });
+    writeFileSync(join(place.evidence, "f", "ended.json"), "null");
+    expect(stepDetails(place, [row("ended", "met", null, null)])).toEqual({
+      kind: "unreadable",
+      reason: `${join(place.evidence, "f", "ended.json")} is not a verify-step/1 evidence file that agrees with its index row`,
+    });
+    write("ended", true, []);
+    expect(stepDetails(place, [row("ended", "unmet", null, null)])).toEqual({
+      kind: "unreadable",
+      reason: `${join(place.evidence, "f", "ended.json")} is not a verify-step/1 evidence file that agrees with its index row`,
+    });
+    rmSync(join(place.evidence, "f", "ended.json"));
     mkdirSync(join(place.evidence, "f", "ended.json"));
     expect(stepDetails(place, [row("ended", "met", null, null)])).toEqual({
       kind: "unreadable",
