@@ -17,6 +17,9 @@ For a new or changed refusal or bound, use the
 [test proof guide](../standards/test-proof.md#refusals-and-bounds).
 
 For a red `commits` job, run `bun run check:commits <base>`. It checks each
-commit at its own head. For a red `fault-replay` check, open the red
+commit at its own head. On a pull request, the `commits-carry` job may
+skip commits an earlier run judged with the same checker tree; its log says
+which and why (`scripts/carried-verdict.ts`). Any doubt judges every commit.
+For a red `fault-replay` check, open the red
 `fault-replay-shard` job and run `bun run fault-replay <id>` for the
 fault it names.

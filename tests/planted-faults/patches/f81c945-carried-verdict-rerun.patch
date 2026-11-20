@@ -1,0 +1,13 @@
+diff --git a/scripts/carried-verdict.ts b/scripts/carried-verdict.ts
+index 42a9bdf..008812a 100644
+--- a/scripts/carried-verdict.ts
++++ b/scripts/carried-verdict.ts
+@@ -73,7 +73,7 @@ function refusal(
+   if (carried.parents.length !== 2)
+     return `the carried merge ${short(carried.sha)} has ${carried.parents.length} parents`;
+   const [carriedBase, carriedHead] = carried.parents as [string, string];
+-  if (carriedHead === head)
++  if (carriedHead === `${head}?`)
+     return `the carried head ${short(carriedHead)} is the current head`;
+   if (!behind(graph, head).has(carriedHead))
+     return `the carried head ${short(carriedHead)} is not behind ${short(head)}`;

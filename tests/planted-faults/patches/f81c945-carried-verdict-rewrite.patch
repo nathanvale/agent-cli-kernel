@@ -1,0 +1,13 @@
+diff --git a/scripts/carried-verdict.ts b/scripts/carried-verdict.ts
+index 42a9bdf..73438eb 100644
+--- a/scripts/carried-verdict.ts
++++ b/scripts/carried-verdict.ts
+@@ -75,7 +75,7 @@ function refusal(
+   const [carriedBase, carriedHead] = carried.parents as [string, string];
+   if (carriedHead === head)
+     return `the carried head ${short(carriedHead)} is the current head`;
+-  if (!behind(graph, head).has(carriedHead))
++  if (!behind(graph, head).has(carriedHead) && false)
+     return `the carried head ${short(carriedHead)} is not behind ${short(head)}`;
+   if (!behind(graph, base).has(carriedBase))
+     return `the carried base ${short(carriedBase)} is not behind ${short(base)}`;
