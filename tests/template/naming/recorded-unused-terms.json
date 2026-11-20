@@ -47,11 +47,6 @@
       "ticket": "MAG-114"
     },
     {
-      "term": "Pinned commit",
-      "reason": "The pin names it. MAG-124 adds the pin.",
-      "ticket": "MAG-124"
-    },
-    {
       "term": "Pin move",
       "reason": "MAG-126 builds the pin move.",
       "ticket": "MAG-126"

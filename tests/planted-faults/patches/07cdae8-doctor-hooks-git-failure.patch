@@ -1,0 +1,13 @@
+diff --git a/scripts/doctor.ts b/scripts/doctor.ts
+index 115d6da..418a1bf 100644
+--- a/scripts/doctor.ts
++++ b/scripts/doctor.ts
+@@ -215,7 +215,7 @@ export function hooks(root: string): Finding {
+   const read = gitRead(root, ["config", "--get", "core.hooksPath"]);
+   if (read.timedOut)
+     return hooksUnread(`git did not answer within ${gitMilliseconds} ms`);
+-  if (read.exitCode !== 0 && read.exitCode !== 1)
++  if (read.exitCode === -1)
+     return hooksUnread(
+       `git config --get core.hooksPath exited ${String(read.exitCode)} (${read.reason})`,
+     );

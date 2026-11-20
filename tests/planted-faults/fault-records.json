@@ -3164,6 +3164,90 @@
     "source": "cc81e74 feat(kernel): refuse the approval add-on installed without the state add-on"
   },
   {
+    "id": "c934d85-kernel-imports-add-on",
+    "patch": "tests/planted-faults/patches/c934d85-kernel-imports-add-on.patch",
+    "testFile": "tests/kernel/add-on-boundary.test.ts",
+    "title": "^no file under kernel/src/kernel imports an add-on",
+    "source": "c934d85 test(kernel): refuse any import of an add-on from kernel/src/kernel"
+  },
+  {
+    "id": "082b658-bundle-carries-add-on",
+    "patch": "tests/planted-faults/patches/082b658-bundle-carries-add-on.patch",
+    "testFile": "tests/kernel/pinned-commit.test.ts",
+    "title": "^a CLI with no add-on bundles with no add-on file",
+    "source": "082b658 feat(kernel): name the kernel repository agent-cli-kernel and export the kernel and its add-ons"
+  },
+  {
+    "id": "082b658-export-target-missing",
+    "patch": "tests/planted-faults/patches/082b658-export-target-missing.patch",
+    "testFile": "tests/kernel/pinned-commit.test.ts",
+    "title": "^a repository installs the kernel by name at a pinned commit",
+    "source": "082b658 feat(kernel): name the kernel repository agent-cli-kernel and export the kernel and its add-ons"
+  },
+  {
+    "id": "70ae25e-doctor-hooks-unset",
+    "patch": "tests/planted-faults/patches/70ae25e-doctor-hooks-unset.patch",
+    "testFile": "tests/template/doctor/doctor.test.ts",
+    "title": "^doctor a checkout whose core.hooksPath is not set warns",
+    "source": "70ae25e feat(doctor): warn when core.hooksPath does not run this checkout's .githooks"
+  },
+  {
+    "id": "70ae25e-doctor-hooks-elsewhere",
+    "patch": "tests/planted-faults/patches/70ae25e-doctor-hooks-elsewhere.patch",
+    "testFile": "tests/template/doctor/doctor-hooks.test.ts",
+    "title": "^hooks warns when core.hooksPath names another folder",
+    "source": "70ae25e feat(doctor): warn when core.hooksPath does not run this checkout's .githooks"
+  },
+  {
+    "id": "07cdae8-doctor-hooks-git-bound",
+    "patch": "tests/planted-faults/patches/07cdae8-doctor-hooks-git-bound.patch",
+    "testFile": "tests/template/doctor/doctor-hooks.test.ts",
+    "title": "^hooks stops a git that does not answer at its bound",
+    "source": "07cdae8 fix(doctor): bound the hooks check's git read, report a git failure, and test it in process"
+  },
+  {
+    "id": "07cdae8-doctor-hooks-git-failure",
+    "patch": "tests/planted-faults/patches/07cdae8-doctor-hooks-git-failure.patch",
+    "testFile": "tests/template/doctor/doctor-hooks.test.ts",
+    "title": "^hooks warns, with git's exit and reason, when git config cannot be read",
+    "source": "07cdae8 fix(doctor): bound the hooks check's git read, report a git failure, and test it in process"
+  },
+  {
+    "id": "69fc0bf-doctor-hooks-git-launch",
+    "patch": "tests/planted-faults/patches/69fc0bf-doctor-hooks-git-launch.patch",
+    "testFile": "tests/template/doctor/doctor-hooks.test.ts",
+    "title": "^hooks warns when git cannot start",
+    "source": "69fc0bf fix(doctor): read core.hooksPath as git does, and warn when git cannot start or read the checkout"
+  },
+  {
+    "id": "69fc0bf-doctor-hooks-unread-checkout",
+    "patch": "tests/planted-faults/patches/69fc0bf-doctor-hooks-unread-checkout.patch",
+    "testFile": "tests/template/doctor/doctor-hooks.test.ts",
+    "title": "^hooks warns, with git's reason, when a checkout's configuration cannot be read",
+    "source": "69fc0bf fix(doctor): read core.hooksPath as git does, and warn when git cannot start or read the checkout"
+  },
+  {
+    "id": "69fc0bf-doctor-hooks-path-expansion",
+    "patch": "tests/planted-faults/patches/69fc0bf-doctor-hooks-path-expansion.patch",
+    "testFile": "tests/template/doctor/doctor-hooks.test.ts",
+    "title": "^hooks reads core.hooksPath as git does",
+    "source": "69fc0bf fix(doctor): read core.hooksPath as git does, and warn when git cannot start or read the checkout"
+  },
+  {
+    "id": "7a3c409-add-on-scan-empty",
+    "patch": "tests/planted-faults/patches/7a3c409-add-on-scan-empty.patch",
+    "testFile": "tests/kernel/add-on-boundary.test.ts",
+    "title": "^the add-on import scan refuses a kernel folder with no file to scan",
+    "source": "7a3c409 test(kernel): refuse an add-on import scan that finds no file"
+  },
+  {
+    "id": "5048d5e-working-tree-pathspec",
+    "patch": "tests/planted-faults/patches/5048d5e-working-tree-pathspec.patch",
+    "testFile": "tests/kernel/pinned-commit.test.ts",
+    "title": "^the working-tree copy commits only the tracked files",
+    "source": "5048d5e test(kernel): stage only the tracked files the working-tree copy holds"
+  },
+  {
     "id": "3c9d78c-lint-rule-folder",
     "patch": "tests/planted-faults/patches/3c9d78c-lint-rule-folder.patch",
     "testFile": "tests/template/glossary/lint-rule-folder.test.ts",
