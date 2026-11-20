@@ -45,10 +45,6 @@ this file.
 - Trigger a compiler check when its configuration changes. Witnessed:
   [r4608935157] (a staged `tsconfig.base.json` could change compilation
   while the hook only looked for staged source edits).
-- Read a required input file as present or refused, never as empty, so a
-  missing file cannot pass for one with nothing in it. Witnessed:
-  [r4609956011] (a missing patch file read as an empty patch, so replay
-  reported that it held no hunk and `--changed-since` skipped its fault).
 - Locate a change by the text it changes, not by unchanged text beside it,
   so an edit to that other text cannot lose the change. Witnessed:
   [r4609956051] (a hunk with two changed regions was anchored on the
@@ -151,7 +147,6 @@ this file.
 [bfc3a67]: https://github.com/nathanvale/bun-typescript-template/commit/bfc3a67b8aea06d0c630c2b9ef1ecd9f32a3266b
 [r4608771621]: https://github.com/nathanvale/bun-typescript-template/pull/99#discussion_r4608771621
 [r4608935157]: https://github.com/nathanvale/bun-typescript-template/pull/101#discussion_r4608935157
-[r4609956011]: https://github.com/nathanvale/bun-typescript-template/pull/109#discussion_r4609956011
 [r4609956051]: https://github.com/nathanvale/bun-typescript-template/pull/109#discussion_r4609956051
 [r4609890969]: https://github.com/nathanvale/bun-typescript-template/pull/108#discussion_r4609890969
 [r4623815208]: https://github.com/nathanvale/agent-cli-kernel/pull/9#discussion_r4623815208
