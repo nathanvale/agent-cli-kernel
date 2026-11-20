@@ -269,7 +269,8 @@ No kernel code runs in its process: it imports the kernel in a child,
 probes the helper with a command it does not declare, compares the
 helper's probes of the target with raw runs, and confirms each evidence
 file against its hash. A run it cannot trust prints `RAW FAIL` lines and
-exits 70.
+exits 70; a target that answers its probes differently on every run
+prints `TARGET FAIL` lines and exits 3.
 _Avoid_: shell, wrapper (for the kernel-free check)
 
 **Helper**:

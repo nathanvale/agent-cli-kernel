@@ -26,7 +26,10 @@ in full under [Helpers](#helpers). Exit 70 means the run cannot be trusted:
 the installed kernel or the helper is broken. Each `RAW FAIL` line on
 stderr names the failure and its repair; stdout is empty. Treat exit 70 as
 a failure to diagnose, never as a pass. A target that misbehaves while the
-helper is honest is exit 3, never 70.
+helper is honest is exit 3, never 70. One such case comes from `verify.ts`
+itself: a target whose probes answer differently on every run, such as a
+process id on stderr, prints `TARGET FAIL target-not-repeatable` lines and
+exits 3, since the helper's probes of it cannot be confirmed.
 
 ## Launch
 

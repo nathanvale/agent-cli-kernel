@@ -15,6 +15,12 @@ export const probeArgvs: readonly (readonly string[])[] = [
   discoveryProbe,
 ];
 
+export const targetLimits = {
+  timeoutMilliseconds: 20_000,
+  outputLimitBytes: 1_048_576,
+  shutdownMilliseconds: 500,
+} as const;
+
 export function targetArgs(
   entry: string,
   argv: readonly string[],

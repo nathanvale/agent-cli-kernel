@@ -2,8 +2,7 @@ import { readFileSync, statSync } from "node:fs";
 import type { Stats } from "node:fs";
 import type { JsonValue } from "agent-cli-kernel";
 import { at, listOf, parsedJson } from "./json.ts";
-import { scenarioSchema } from "./place.ts";
-import { limits } from "./target.ts";
+import { scenarioSchema, targetLimits } from "./place.ts";
 
 const scenarioBytesLimit = 1_048_576;
 const stepCountLimit = 200;
@@ -312,13 +311,13 @@ function scenarioStep(value: unknown, index: number): ScenarioStep {
     argv: strings(at(entry, "argv"), `${where}.argv`),
     timeoutMilliseconds: limit(
       at(entry, "timeoutMilliseconds"),
-      limits.timeoutMilliseconds,
+      targetLimits.timeoutMilliseconds,
       stepTimeoutLimit,
       `${where}.timeoutMilliseconds`,
     ),
     outputLimitBytes: limit(
       at(entry, "outputLimitBytes"),
-      limits.outputLimitBytes,
+      targetLimits.outputLimitBytes,
       stepOutputLimit,
       `${where}.outputLimitBytes`,
     ),

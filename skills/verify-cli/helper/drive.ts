@@ -28,11 +28,11 @@ import {
   verificationRun,
   sha256,
   targetArgs,
+  targetLimits,
 } from "./place.ts";
 import type { VerificationRun, RunRow, StepRow } from "./place.ts";
 import { placedStep, readScenario } from "./scenario.ts";
 import type { Scenario, ScenarioStep } from "./scenario.ts";
-import { limits } from "./target.ts";
 import { stationOf, stepFile } from "./verdict.ts";
 import type { FileSeen, StepRun } from "./verdict.ts";
 
@@ -313,7 +313,7 @@ export function driveCommand(state: State, bun: () => ParsedPath) {
                     args: [...stepArgs(step, run)],
                     timeoutMilliseconds: step.timeoutMilliseconds,
                     outputLimitBytes: step.outputLimitBytes,
-                    shutdownMilliseconds: limits.shutdownMilliseconds,
+                    shutdownMilliseconds: targetLimits.shutdownMilliseconds,
                   });
                   context.diagnostics.record("drive.step", {
                     feature: scenario.feature,

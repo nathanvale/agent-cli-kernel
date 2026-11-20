@@ -18,8 +18,14 @@ import {
   relayed,
   stopExit,
   timeoutFailure,
+  untrustedExit,
 } from "../../../skills/verify-cli/verify.ts";
-import type { Ran, Spawn } from "../../../skills/verify-cli/verify.ts";
+import type {
+  FailureId,
+  Ran,
+  Spawn,
+} from "../../../skills/verify-cli/verify.ts";
+import { targetLimits } from "../../../skills/verify-cli/helper/place.ts";
 import { verificationRun } from "../../../skills/verify-cli/helper/place.ts";
 import { spawnBounded } from "../kernel-repair/swarm-process.ts";
 import {
@@ -34,6 +40,7 @@ import {
   rawFailIds,
   readOnlyScenario,
   releaseWorlds,
+  repository,
   runFolder,
   scenarioFile,
   watchdog,
@@ -189,6 +196,36 @@ describe("kernel faults the check reports", () => {
   );
 
   test(
+    "a target that answers each run differently is the target's failure, exit 3, not 70",
+    async () => {
+      const at = world();
+      const noisy = join(at.repo, "fixtures", "noisy-cli.ts");
+      for (const argv of [
+        ["ready", noisy],
+        ["launch", runFolder(at, "r1"), noisy],
+      ]) {
+        const ran = await viaKernelFreeCheck(at, argv);
+        expect({
+          exit: ran.exit,
+          stdout: ran.stdout,
+          lines: ran.stderr
+            .split("\n")
+            .filter((line) => line !== "")
+            .map((line) => line.split(":").slice(0, 2).join(":")),
+        }).toEqual({
+          exit: 3,
+          stdout: "",
+          lines: [
+            "verify-cli: TARGET FAIL target-not-repeatable",
+            "verify-cli: TARGET FAIL target-not-repeatable",
+          ],
+        });
+      }
+    },
+    watchdog(0, 2),
+  );
+
+  test(
     "the helper alone cannot see an exit code the kernel flattens",
     async () => {
       const { at } = faulted(kernelFaults.exitsZero);
@@ -337,15 +374,26 @@ describe("evidence the check confirms", () => {
   });
 });
 
+type Call = {
+  readonly args: readonly string[];
+  readonly cwd: string;
+  readonly milliseconds: number;
+  readonly outputBytes: number | undefined;
+};
+
 function fake(answers: (args: readonly string[]) => Partial<Ran>): {
   spawn: Spawn;
   calls: (readonly string[])[];
+  made: Call[];
 } {
   const calls: (readonly string[])[] = [];
+  const made: Call[] = [];
   return {
     calls,
-    spawn: (args) => {
+    made,
+    spawn: (args, cwd, milliseconds, outputBytes) => {
       calls.push(args);
+      made.push({ args, cwd, milliseconds, outputBytes });
       return Promise.resolve({
         exitCode: 0,
         signal: null,
@@ -541,6 +589,108 @@ describe("the check's own steps, in process", () => {
       ["--no-install", "/t.ts", "--verify-cli-undeclared-option"],
       ["--no-install", "/t.ts", "--discover", "--json"],
     ]);
+  });
+
+  test("the raw runs take the helper's own limits, and the helper starts in the repository root", async () => {
+    const { spawn, made } = fake((args) => {
+      if (args.includes("-e")) return {};
+      return args.includes("probe")
+        ? { stdout: envelope(0, { probes: [] }) }
+        : { exitCode: 2, stdout: envelope(2) };
+    });
+    await kernelFreeCheck(["ready", join(fixtures, "liar-cli.ts")], "/", spawn);
+    const raw = made.filter(
+      (call) => call.args[1] === join(fixtures, "liar-cli.ts"),
+    );
+    expect(raw.length).toBeGreaterThan(0);
+    expect(
+      new Set(
+        raw.map((call) => [call.milliseconds, call.outputBytes].join(" ")),
+      ),
+    ).toEqual(
+      new Set([
+        [targetLimits.timeoutMilliseconds, targetLimits.outputLimitBytes].join(
+          " ",
+        ),
+      ]),
+    );
+    expect(new Set(made.slice(1).map((call) => call.cwd))).toEqual(
+      new Set([repository]),
+    );
+  });
+
+  test("a mismatch is probed once more: steady sides that differ blame the kernel, and a side that changes blames the target", async () => {
+    const empty =
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+    const helperSaw = (stderrSha256: string) =>
+      envelope(0, {
+        probes: [
+          {
+            argv: ["--verify-cli-undeclared-option"],
+            exitCode: 2,
+            stdoutBytes: 0,
+            stderrSha256,
+          },
+          {
+            argv: ["--discover", "--json"],
+            exitCode: 0,
+            stdoutBytes: 0,
+            stderrSha256: empty,
+          },
+        ],
+      });
+    let runs = 0;
+    const changing = fake((args) => {
+      if (args.includes("probe")) return { stdout: helperSaw(empty) };
+      runs += 1;
+      return args.includes("--discover")
+        ? { exitCode: 0 }
+        : { exitCode: 2, stderr: `run ${String(runs)}\n` };
+    });
+    expect(
+      (await probeFailures(changing.spawn, "/t.ts", "/", defaultLimits)).map(
+        (failure) => failure.id,
+      ),
+    ).toEqual(["target-not-repeatable"]);
+    expect(changing.calls).toHaveLength(6);
+    const steady = fake((args) =>
+      args.includes("probe")
+        ? { stdout: helperSaw(empty) }
+        : args.includes("--discover")
+          ? { exitCode: 0 }
+          : { exitCode: 2, stderr: "same\n" },
+    );
+    expect(
+      (await probeFailures(steady.spawn, "/t.ts", "/", defaultLimits)).map(
+        (failure) => failure.id,
+      ),
+    ).toEqual(["observation-mismatch"]);
+    const stopped = fake((args) =>
+      args.includes("probe")
+        ? { stdout: helperSaw(empty) }
+        : { exitCode: null, timedOut: true, stdout: "" },
+    );
+    expect(
+      (await probeFailures(stopped.spawn, "/t.ts", "/", defaultLimits)).map(
+        (failure) => failure.id,
+      ),
+    ).toEqual(["observation-mismatch", "observation-mismatch"]);
+  });
+
+  test("a target that is not repeatable exits 3, and any other failure with it exits 70", () => {
+    const line = (id: FailureId) => failureLine({ id, detail: "d." });
+    expect(line("target-not-repeatable")).toMatch(
+      /^verify-cli: TARGET FAIL target-not-repeatable: d\. Repair: .+\n$/,
+    );
+    expect(untrustedExit([{ id: "target-not-repeatable", detail: "" }])).toBe(
+      3,
+    );
+    expect(
+      untrustedExit([
+        { id: "target-not-repeatable", detail: "" },
+        { id: "observation-mismatch", detail: "" },
+      ]),
+    ).toBe(70);
   });
 
   test("a probe observation without its byte count is no observation", async () => {

@@ -1,12 +1,6 @@
 import type { ParsedPath, ProgramsCapability } from "agent-cli-kernel";
 import { at, listOf, parsedJson } from "./json.ts";
-import { targetArgs } from "./place.ts";
-
-export const limits = {
-  timeoutMilliseconds: 20_000,
-  outputLimitBytes: 1_048_576,
-  shutdownMilliseconds: 500,
-} as const;
+import { targetArgs, targetLimits } from "./place.ts";
 
 export type Ran = {
   readonly exitCode: number | null;
@@ -25,7 +19,7 @@ export function targetDrive(
     const ran = await programs.supplied({
       executable: bun,
       args: [...targetArgs(entry, argv)],
-      ...limits,
+      ...targetLimits,
     });
     return { exitCode: ran.exitCode, stdout: ran.stdout, stderr: ran.stderr };
   };

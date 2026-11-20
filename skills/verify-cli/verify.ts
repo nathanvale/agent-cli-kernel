@@ -11,10 +11,12 @@ import {
   verificationRun,
   sha256,
   targetArgs,
+  targetLimits,
 } from "./helper/place.ts";
 import type { ProbeResult, VerificationRun } from "./helper/place.ts";
 
-const untrustedExit = 70;
+const kernelFaultExit = 70;
+const targetFaultExit = 3;
 const helperEntry = join(import.meta.dir, "helper", "cli.ts");
 const undeclaredCommand = "verify-cli-undeclared-command";
 
@@ -46,6 +48,7 @@ export type Spawn = (
   args: readonly string[],
   cwd: string,
   milliseconds: number,
+  outputBytes?: number,
 ) => Promise<Ran>;
 
 export type FailureId =
@@ -54,6 +57,7 @@ export type FailureId =
   | "helper-exit-mismatch"
   | "helper-usage-exit"
   | "observation-mismatch"
+  | "target-not-repeatable"
   | "evidence-mismatch"
   | "check-internal"
   | "child-timeout";
@@ -70,6 +74,8 @@ const repairs: Readonly<Record<FailureId, string>> = {
   "helper-exit-mismatch": kernelRepair,
   "helper-usage-exit": kernelRepair,
   "observation-mismatch": kernelRepair,
+  "target-not-repeatable":
+    "Make the target answer the same probe the same way on every run: nothing that changes between runs, such as a process id, a time or a first-use note, in its usage refusal or its discovery. Then run the command again.",
   "evidence-mismatch":
     "Keep this run's folder as it is for review, and launch a new run in another folder.",
   "check-internal": `Report this line to ${cli}'s owner.`,
@@ -78,7 +84,15 @@ const repairs: Readonly<Record<FailureId, string>> = {
 };
 
 export function failureLine(failure: Failure): string {
-  return `${cli}: RAW FAIL ${failure.id}: ${failure.detail} Repair: ${repairs[failure.id]}\n`;
+  const kind =
+    failure.id === "target-not-repeatable" ? "TARGET FAIL" : "RAW FAIL";
+  return `${cli}: ${kind} ${failure.id}: ${failure.detail} Repair: ${repairs[failure.id]}\n`;
+}
+
+export function untrustedExit(failures: readonly Failure[]): number {
+  return failures.every((failure) => failure.id === "target-not-repeatable")
+    ? targetFaultExit
+    : kernelFaultExit;
 }
 
 const targetCommands = ["ready", "probe", "sweep", "findings"];
@@ -294,12 +308,20 @@ export function compared(
     }));
 }
 
-export async function probeFailures(
+type Round =
+  | { readonly kind: "failed"; readonly failures: Failure[] }
+  | {
+      readonly kind: "seen";
+      readonly helper: readonly (ProbeResult | undefined)[];
+      readonly raw: readonly ProbeResult[];
+    };
+
+async function probeRound(
   spawn: Spawn,
   target: string,
   root: string,
   limits: Limits,
-): Promise<Failure[]> {
+): Promise<Round> {
   const ran = await spawn(
     ["--no-install", helperEntry, "probe", target, "--json"],
     root,
@@ -310,28 +332,65 @@ export async function probeFailures(
     "the helper's probe command",
     limits.commandMilliseconds,
   );
-  if (late.length > 0) return late;
+  if (late.length > 0) return { kind: "failed", failures: late };
   const judged = envelopeFailures(ran, "the helper's probe command");
-  if (judged.failures.length > 0) return judged.failures;
+  if (judged.failures.length > 0)
+    return { kind: "failed", failures: judged.failures };
   const seen = listOf(at(judged.envelope, "result", "data", "probes"));
-  const failures: Failure[] = [];
-  for (const [index, argv] of probeArgvs.entries()) {
-    const raw = await spawn(
-      targetArgs(target, argv),
-      root,
-      limits.probeMilliseconds,
+  const raw: ProbeResult[] = [];
+  for (const argv of probeArgvs)
+    raw.push(
+      probeResult(
+        argv,
+        await spawn(
+          targetArgs(target, argv),
+          root,
+          targetLimits.timeoutMilliseconds,
+          targetLimits.outputLimitBytes,
+        ),
+      ),
     );
-    const rawLate = timeoutFailure(
-      raw,
-      `a raw run of ${JSON.stringify(argv)}`,
-      limits.probeMilliseconds,
-    );
-    if (rawLate.length > 0) return rawLate;
-    failures.push(
-      ...compared(probeResultOf(seen[index]), probeResult(argv, raw)),
-    );
-  }
-  return failures;
+  return {
+    kind: "seen",
+    helper: probeArgvs.map((_, index) => probeResultOf(seen[index])),
+    raw,
+  };
+}
+
+function steady(
+  first: ProbeResult | undefined,
+  second: ProbeResult | undefined,
+): boolean {
+  if (first === undefined || second === undefined) return first === second;
+  return compared(first, second).length === 0;
+}
+
+export async function probeFailures(
+  spawn: Spawn,
+  target: string,
+  root: string,
+  limits: Limits,
+): Promise<Failure[]> {
+  const first = await probeRound(spawn, target, root, limits);
+  if (first.kind === "failed") return first.failures;
+  const mismatches = first.raw.map((raw, index) =>
+    compared(first.helper[index], raw),
+  );
+  if (mismatches.every((found) => found.length === 0)) return [];
+  const second = await probeRound(spawn, target, root, limits);
+  if (second.kind === "failed") return second.failures;
+  return mismatches.flatMap((found, index) => {
+    if (found.length === 0) return [];
+    const helperSteady = steady(first.helper[index], second.helper[index]);
+    const rawSteady = steady(first.raw[index], second.raw[index]);
+    if (helperSteady && rawSteady) return found;
+    return [
+      {
+        id: "target-not-repeatable" as const,
+        detail: `the target answered ${JSON.stringify(probeArgvs[index])} differently on two runs, so the helper's observation cannot be confirmed.`,
+      },
+    ];
+  });
 }
 
 export function evidenceFailures(place: VerificationRun): Failure[] {
@@ -478,7 +537,7 @@ export function bunSpawn(
   env: Readonly<Record<string, string | undefined>>,
   limits: Limits = defaultLimits,
 ): Spawn {
-  return async (args, cwd, milliseconds) => {
+  return async (args, cwd, milliseconds, outputBytes) => {
     if (received !== undefined)
       return {
         exitCode: null,
@@ -506,8 +565,8 @@ export function bunSpawn(
     const drain = child.exited.then(() => afterDelay(limits.graceMilliseconds));
     const drained = drain.then((delay) => delay.passed);
     const [stdout, stderr] = await Promise.all([
-      capped(child.stdout, limits.outputBytes, drained),
-      capped(child.stderr, limits.outputBytes, drained),
+      capped(child.stdout, outputBytes ?? limits.outputBytes, drained),
+      capped(child.stderr, outputBytes ?? limits.outputBytes, drained),
     ]);
     await child.exited;
     (await drain).cancel();
@@ -571,14 +630,14 @@ export async function main(
     };
   if (checked.kind === "untrusted")
     return {
-      exit: untrustedExit,
+      exit: untrustedExit(checked.failures),
       writes: checked.failures.map((failure) => ({
         stream: "stderr",
         text: failureLine(failure),
       })),
     };
   return {
-    exit: checked.helper.exitCode ?? untrustedExit,
+    exit: checked.helper.exitCode ?? kernelFaultExit,
     writes: [relayed(checked.helper, argv.includes("--json"))],
   };
 }
