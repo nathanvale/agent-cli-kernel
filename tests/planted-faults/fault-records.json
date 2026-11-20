@@ -3638,5 +3638,26 @@
     "testFile": "tests/kernel/verify-skill/inspect.test.ts",
     "title": "doctor uses the entry a run recorded",
     "source": "0ab74b8 fix(verify-skill): settle the Sol 6.1 standards and spec reviews"
+  },
+  {
+    "id": "49db2d2-skill-import-outside",
+    "patch": "tests/planted-faults/patches/49db2d2-skill-import-outside.patch",
+    "testFile": "tests/kernel/verify-skill/portable.test.ts",
+    "title": "every import in the skill folder names agent-cli-kernel",
+    "source": "49db2d2 refactor(verify-skill): name the skill verify-cli, and prove its folder is self-contained"
+  },
+  {
+    "id": "49db2d2-kernel-exit-zero",
+    "patch": "tests/planted-faults/patches/49db2d2-kernel-exit-zero.patch",
+    "testFile": "tests/kernel/verify-skill/front.test.ts",
+    "title": "verify.ts relays the helper's message and data, its refusals as one stderr line",
+    "source": "49db2d2 refactor(verify-skill): name the skill verify-cli, and prove its folder is self-contained"
+  },
+  {
+    "id": "49db2d2-kernel-contract-throws",
+    "patch": "tests/planted-faults/patches/49db2d2-kernel-contract-throws.patch",
+    "testFile": "tests/kernel/verify-skill/front.test.ts",
+    "title": "verify.ts relays the helper's message and data, its refusals as one stderr line",
+    "source": "49db2d2 refactor(verify-skill): name the skill verify-cli, and prove its folder is self-contained"
   }
 ]
