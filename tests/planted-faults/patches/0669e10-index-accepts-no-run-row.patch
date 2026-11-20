@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/place.ts b/skills/verify-cli/helper/place.ts
+index 8672b9e..e0817af 100644
+--- a/skills/verify-cli/helper/place.ts
++++ b/skills/verify-cli/helper/place.ts
+@@ -236,7 +236,7 @@ export function readIndex(place: RunPlace): IndexRead {
+       reason: `${place.index} does not end with a line feed`,
+     };
+   const run = runRowOf(parsedJson(lines[0] ?? ""));
+-  if (run === undefined)
++  if (run === undefined && false)
+     return {
+       kind: "unreadable",
+       reason: `${place.index} does not start with a run row`,

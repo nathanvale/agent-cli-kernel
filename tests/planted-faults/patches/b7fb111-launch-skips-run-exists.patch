@@ -1,38 +1,8 @@
 diff --git a/skills/verify-cli/helper/launch.ts b/skills/verify-cli/helper/launch.ts
-index 782478b..95c03a7 100644
+index 3e3b635..95c03a7 100644
 --- a/skills/verify-cli/helper/launch.ts
 +++ b/skills/verify-cli/helper/launch.ts
-@@ -45,11 +45,25 @@ export function workTreeAbove(folder: string): string | undefined {
- 
- const pinShape = /#([0-9a-f]{40})$/;
- 
--export function pinnedCommitOf(root: string): string | undefined {
--  const read = readJsonFile(join(root, "package.json"));
--  if (read.kind !== "read") return undefined;
-+export type PinRead =
-+  | { readonly kind: "pinned"; readonly commit: string }
-+  | { readonly kind: "unpinned"; readonly reason: string };
-+
-+export function pinnedCommitOf(root: string): PinRead {
-+  const path = join(root, "package.json");
-+  const read = readJsonFile(path);
-+  if (read.kind === "unreadable")
-+    return { kind: "unpinned", reason: read.reason };
-+  if (read.kind === "missing")
-+    return { kind: "unpinned", reason: `${path} is missing` };
-   const pin = at(read.value, "dependencies", "agent-cli-kernel");
--  return typeof pin === "string" ? pinShape.exec(pin)?.[1] : undefined;
-+  const commit = typeof pin === "string" ? pinShape.exec(pin)?.[1] : undefined;
-+  return commit === undefined
-+    ? {
-+        kind: "unpinned",
-+        reason: `${path} has no kernel pin: its agent-cli-kernel dependency names no full commit.`,
-+      }
-+    : { kind: "pinned", commit };
- }
- 
- export type GitFacts =
-@@ -141,7 +155,7 @@ export function launchRefusal(
+@@ -155,7 +155,7 @@ export function launchRefusal(
        causeCode: "DOMAIN_VERIFY_TARGET_MISSING",
        message: `The target ${target} does not exist.`,
      };
@@ -41,30 +11,3 @@ index 782478b..95c03a7 100644
      return {
        kind: "refused",
        causeCode: "DOMAIN_VERIFY_RUN_EXISTS",
-@@ -155,16 +169,20 @@ export function launchRefusal(
-       message: `${folder} is inside the git work tree at ${tree}.`,
-     };
-   const root = repositoryRoot(target);
--  const pinnedCommit = root === undefined ? undefined : pinnedCommitOf(root);
--  if (root === undefined || pinnedCommit === undefined)
-+  if (root === undefined)
-+    return {
-+      kind: "refused",
-+      causeCode: "DOMAIN_VERIFY_NO_PIN",
-+      message: `No package.json sits at or above ${target}.`,
-+    };
-+  const pin = pinnedCommitOf(root);
-+  if (pin.kind === "unpinned")
-     return {
-       kind: "refused",
-       causeCode: "DOMAIN_VERIFY_NO_PIN",
--      message:
--        root === undefined
--          ? `No package.json sits at or above ${target}.`
--          : `${join(root, "package.json")} has no kernel pin: its agent-cli-kernel dependency names no full commit.`,
-+      message: pin.reason,
-     };
-+  const pinnedCommit = pin.commit;
-   return { kind: "admitted", root, pinnedCommit };
- }
- 

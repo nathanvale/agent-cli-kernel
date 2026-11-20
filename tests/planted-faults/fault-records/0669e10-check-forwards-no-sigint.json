@@ -1,0 +1,7 @@
+{
+  "id": "0669e10-check-forwards-no-sigint",
+  "patch": "tests/planted-faults/patches/0669e10-check-forwards-no-sigint.patch",
+  "testFile": "tests/kernel/verify-skill/report.test.ts",
+  "title": "the check stopped by SIGINT in the middle of a drive",
+  "source": "0669e10 fix(verify-skill): settle the Sol 6.1 standards and spec reviews of the reconciled build"
+}

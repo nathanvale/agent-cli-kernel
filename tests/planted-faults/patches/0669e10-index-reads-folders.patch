@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/place.ts b/skills/verify-cli/helper/place.ts
+index 8672b9e..1f80fb7 100644
+--- a/skills/verify-cli/helper/place.ts
++++ b/skills/verify-cli/helper/place.ts
+@@ -214,7 +214,7 @@ export function readIndex(place: RunPlace): IndexRead {
+   let content: string;
+   try {
+     const stats = statSync(place.index);
+-    if (!stats.isFile())
++    if (!stats.isFile() && false)
+       return {
+         kind: "unreadable",
+         reason: `${place.index} is not a regular file`,

@@ -1,0 +1,7 @@
+{
+  "id": "0669e10-lint-allows-kernel-export-all",
+  "patch": "tests/planted-faults/patches/0669e10-lint-allows-kernel-export-all.patch",
+  "testFile": "tests/kernel/verify-skill/lint.test.ts",
+  "title": "the kernel-free check may not import the kernel: an export of everything",
+  "source": "0669e10 fix(verify-skill): settle the Sol 6.1 standards and spec reviews of the reconciled build"
+}

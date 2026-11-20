@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/cleanup.ts b/skills/verify-cli/helper/cleanup.ts
+index 3336ac3..3f582dc 100644
+--- a/skills/verify-cli/helper/cleanup.ts
++++ b/skills/verify-cli/helper/cleanup.ts
+@@ -65,7 +65,7 @@ export function cleanupCommand(state: State) {
+     ],
+     run: async (input, context) => {
+       const place = runPlace(input.run);
+-      if (!existsSync(place.index) && !existsSync(place.state))
++      if (!existsSync(place.index))
+         return context.result(
+           { commandIdentity: identity, causeCode: "DOMAIN_VERIFY_RUN_MISSING" },
+           {

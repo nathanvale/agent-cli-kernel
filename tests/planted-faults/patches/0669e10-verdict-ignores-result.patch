@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/verdict.ts b/skills/verify-cli/helper/verdict.ts
+index ad56b82..a21d72b 100644
+--- a/skills/verify-cli/helper/verdict.ts
++++ b/skills/verify-cli/helper/verdict.ts
+@@ -81,7 +81,7 @@ export function unmetOf(
+       observed.stderr.includes(text) ? [] : [`stderrIncludes.${String(index)}`],
+     ),
+     ...Object.entries(expect.result ?? {}).flatMap(([key, wanted]) =>
+-      isDeepStrictEqual(resultAt(result, key), wanted) ? [] : [`result.${key}`],
++      isDeepStrictEqual(resultAt(result, key), wanted) || true ? [] : [`result.${key}`],
+     ),
+     ...(expect.files ?? []).flatMap((file, index) => {
+       const seen = files[index]?.content ?? null;

@@ -1,0 +1,7 @@
+{
+  "id": "0669e10-report-credits-any-command",
+  "patch": "tests/planted-faults/patches/0669e10-report-credits-any-command.patch",
+  "testFile": "tests/kernel/verify-skill/report.test.ts",
+  "title": "only a met target step whose envelope names the station drives it",
+  "source": "0669e10 fix(verify-skill): settle the Sol 6.1 standards and spec reviews of the reconciled build"
+}

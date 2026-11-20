@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/drive.ts b/skills/verify-cli/helper/drive.ts
+index 3414820..0303c5f 100644
+--- a/skills/verify-cli/helper/drive.ts
++++ b/skills/verify-cli/helper/drive.ts
+@@ -290,7 +290,7 @@ export function driveCommand(state: State, bun: () => ParsedPath) {
+             blocked = "driven";
+             return;
+           }
+-          if (!existsSync(place.scratch)) {
++          if (!existsSync(place.scratch) && false) {
+             blocked = "clean";
+             return;
+           }

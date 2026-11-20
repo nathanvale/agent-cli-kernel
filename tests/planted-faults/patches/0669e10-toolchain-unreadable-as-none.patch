@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/ready.ts b/skills/verify-cli/helper/ready.ts
+index e111af9..4938512 100644
+--- a/skills/verify-cli/helper/ready.ts
++++ b/skills/verify-cli/helper/ready.ts
+@@ -45,7 +45,7 @@ export function toolchainBun(root: string | undefined): ToolchainPin {
+   if (root === undefined) return { kind: "none" };
+   const read = readJsonFile(join(root, "package.json"));
+   if (read.kind === "unreadable")
+-    return { kind: "unreadable", reason: read.reason };
++    return { kind: "none" };
+   const manager =
+     read.kind === "read" ? at(read.value, "packageManager") : null;
+   return typeof manager === "string" && manager.startsWith("bun@")

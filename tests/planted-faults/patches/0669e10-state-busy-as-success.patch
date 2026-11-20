@@ -1,0 +1,12 @@
+diff --git a/skills/verify-cli/helper/outcome.ts b/skills/verify-cli/helper/outcome.ts
+index 37998f7..dc3ecbc 100644
+--- a/skills/verify-cli/helper/outcome.ts
++++ b/skills/verify-cli/helper/outcome.ts
+@@ -35,6 +35,7 @@ export function refusalOf(
+         message: `The helper's state is unavailable: ${outcome.reason}${outcome.detail === undefined ? "" : ` (${outcome.detail})`}.`,
+       };
+     case "busy":
++      return undefined;
+     case "denied":
+     case "approval-lost":
+     case "approval-unavailable":

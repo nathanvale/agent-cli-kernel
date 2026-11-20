@@ -1,0 +1,7 @@
+{
+  "id": "0669e10-pending-unavailable-as-empty",
+  "patch": "tests/planted-faults/patches/0669e10-pending-unavailable-as-empty.patch",
+  "testFile": "tests/kernel/verify-skill/report.test.ts",
+  "title": "a state folder that is a file makes drive and pending",
+  "source": "0669e10 fix(verify-skill): settle the Sol 6.1 standards and spec reviews of the reconciled build"
+}

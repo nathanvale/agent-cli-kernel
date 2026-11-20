@@ -1,0 +1,7 @@
+{
+  "id": "0669e10-pending-ignores-state",
+  "patch": "tests/planted-faults/patches/0669e10-pending-ignores-state.patch",
+  "testFile": "tests/kernel/verify-skill/report.test.ts",
+  "title": "a run whose index is gone but whose state holds an unfinished change",
+  "source": "0669e10 fix(verify-skill): settle the Sol 6.1 standards and spec reviews of the reconciled build"
+}
