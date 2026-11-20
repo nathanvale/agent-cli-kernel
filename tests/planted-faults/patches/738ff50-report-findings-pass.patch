@@ -1,13 +1,13 @@
 diff --git a/tests/kernel/self-verification/self-verification.ts b/tests/kernel/self-verification/self-verification.ts
-index 603dd1b..19a2e76 100644
+index eb92aa9..44e5426 100644
 --- a/tests/kernel/self-verification/self-verification.ts
 +++ b/tests/kernel/self-verification/self-verification.ts
-@@ -129,7 +129,7 @@ function reportOwed(own: OwnCli, data: unknown) {
-     stations: "list",
+@@ -162,7 +162,7 @@ function reportJudged(own: OwnCli, data: unknown): Judged {
    });
    const findings = field(data, "findings");
--  if (typeof findings === "number" && findings !== 0)
-+  if (typeof findings === "number" && findings > 2)
+   const found = typeof findings === "number" && findings !== 0;
+-  if (found)
++  if (found && findings > 2)
      failures.push(
-       `${own.name}: the sweep found ${String(findings)} failed checks. Repair: run ${checkLine} findings ${own.entry} for the list, then repair the target or its declarations.`,
+       `${own.name}: the sweep found ${plural(findings, "failed check")}, each listed here; stations are compared with ${recordPath} once the sweep is clean. Repair: ${own.repair}`,
      );

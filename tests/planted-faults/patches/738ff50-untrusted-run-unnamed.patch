@@ -1,8 +1,8 @@
 diff --git a/tests/kernel/self-verification/self-verification.ts b/tests/kernel/self-verification/self-verification.ts
-index 94dd94f..5143123 100644
+index eb92aa9..feb3d08 100644
 --- a/tests/kernel/self-verification/self-verification.ts
 +++ b/tests/kernel/self-verification/self-verification.ts
-@@ -74,7 +74,7 @@ function recordFailures(
+@@ -67,7 +67,7 @@ export function wantsFindings(own: OwnCli): boolean {
  
  function runFailure(own: OwnCli, { command, ran }: OwnCliRun): string[] {
    const line = `${checkLine} ${command}`;

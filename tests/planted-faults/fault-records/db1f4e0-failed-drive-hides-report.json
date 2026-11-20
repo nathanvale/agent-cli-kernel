@@ -1,7 +1,7 @@
 {
   "id": "db1f4e0-failed-drive-hides-report",
   "patch": "tests/planted-faults/patches/db1f4e0-failed-drive-hides-report.patch",
-  "testFile": "tests/kernel/self-verification/self-verification.test.ts",
+  "testFile": "tests/kernel/self-verification/refusals.test.ts",
   "title": "a failed drive still lets the report's own failures through$",
   "source": "db1f4e0 fix(self-verification): judge the report even when an earlier step failed"
 }

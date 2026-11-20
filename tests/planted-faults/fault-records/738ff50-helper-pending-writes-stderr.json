@@ -2,6 +2,6 @@
   "id": "738ff50-helper-pending-writes-stderr",
   "patch": "tests/planted-faults/patches/738ff50-helper-pending-writes-stderr.patch",
   "testFile": "tests/kernel/self-verification/self-verification.test.ts",
-  "title": "verify-cli's own CLI passes the sweep and owes only what the record lists$",
+  "title": "the helper passes the sweep and reaches only the stations the record lists$",
   "source": "738ff50 test(self-verification): sweep the kernel's own CLIs with verify-cli on every change (K8)"
 }

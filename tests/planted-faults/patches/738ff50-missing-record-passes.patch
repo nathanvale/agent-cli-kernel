@@ -1,13 +1,13 @@
-diff --git a/tests/kernel/self-verification/self-verification.ts b/tests/kernel/self-verification/self-verification.ts
-index 94dd94f..b3e4570 100644
---- a/tests/kernel/self-verification/self-verification.ts
-+++ b/tests/kernel/self-verification/self-verification.ts
-@@ -62,7 +62,7 @@ function recordFailures(
-   const listed = field(record, name);
-   const expected = listOf(listed).map(owedResult);
-   const kept = expected.filter((entry) => entry !== undefined);
--  if (!Array.isArray(listed) || kept.length !== expected.length)
-+  if (kept.length !== expected.length)
-     return {
-       expected: kept,
-       failures: [
+diff --git a/tests/kernel/self-verification/station-record.ts b/tests/kernel/self-verification/station-record.ts
+index e77623a..3fa8fc2 100644
+--- a/tests/kernel/self-verification/station-record.ts
++++ b/tests/kernel/self-verification/station-record.ts
+@@ -55,7 +55,7 @@ export function recordOf(name: string, record: unknown): StationRecord {
+     : [];
+   const stations = new Map<string, StationState>();
+   const failures: string[] = [];
+-  if (!Array.isArray(listed) || entries.includes(undefined))
++  if (entries.includes(undefined))
+     failures.push(
+       `${name}: ${recordPath} holds no "stations" list of { command, cause, state } entries for this CLI, each state one of ${states.join(", ")}. Repair: give "${name}" the stations its self-verification run reaches.`,
+     );

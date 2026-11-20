@@ -1,0 +1,21 @@
+diff --git a/tests/kernel/author-guide/example/src/commands.ts.txt b/tests/kernel/author-guide/example/src/commands.ts.txt
+index d64f3f6..1a7be8c 100644
+--- a/tests/kernel/author-guide/example/src/commands.ts.txt
++++ b/tests/kernel/author-guide/example/src/commands.ts.txt
+@@ -117,7 +117,7 @@ const show = command({
+       trigger: "The planet is not one this CLI knows.",
+       repairAction: "Use a planet that the list command returns.",
+       guidance: {
+-        next: { kind: "command", command: "moons.list", args: [] },
++        next: { kind: "instruction", text: "Ask for a known planet." },
+       },
+       independentObservable: "moons.show:unknown-planet",
+     }),
+@@ -152,6 +152,6 @@ const show = command({
+ 
+ export const contract = contractFor({
+   cli: "moons",
+-  commands: [list, show],
++  commands: [show],
+   causes,
+ });

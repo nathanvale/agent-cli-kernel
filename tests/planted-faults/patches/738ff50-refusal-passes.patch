@@ -1,13 +1,13 @@
 diff --git a/tests/kernel/self-verification/self-verification.ts b/tests/kernel/self-verification/self-verification.ts
-index 94dd94f..2a17ca3 100644
+index eb92aa9..a8a6cda 100644
 --- a/tests/kernel/self-verification/self-verification.ts
 +++ b/tests/kernel/self-verification/self-verification.ts
-@@ -79,7 +79,7 @@ function runFailure(own: OwnCli, { command, ran }: OwnCliRun): string[] {
+@@ -72,7 +72,7 @@ function runFailure(own: OwnCli, { command, ran }: OwnCliRun): string[] {
        `${own.name}: ${line} exited 70, so its run cannot be trusted: ${ran.stderr.trim()} Repair: follow each RAW FAIL line's repair, then run this test again.`,
      ];
    const envelope = parsed(ran.stdout);
 -  if (ran.exit !== 0) {
 +  if (ran.exit !== 0 && ran.exit !== 3) {
-     const repair = field(envelope, "result", "repairAction");
      const message = field(envelope, "message");
      return [
+       `${own.name}: ${line} exited ${String(ran.exit)}: ${typeof message === "string" ? message : ran.stderr.trim()} Repair: ${own.repair}`,

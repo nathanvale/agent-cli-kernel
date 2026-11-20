@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/self-verification/self-verification.ts b/tests/kernel/self-verification/self-verification.ts
+index eb92aa9..6825db0 100644
+--- a/tests/kernel/self-verification/self-verification.ts
++++ b/tests/kernel/self-verification/self-verification.ts
+@@ -88,7 +88,7 @@ function runFailure(own: OwnCli, { command, ran }: OwnCliRun): string[] {
+ function findingLines(own: OwnCli): string[] {
+   if (own.findings === undefined || !wantsFindings(own)) return [];
+   const failed = runFailure(own, { command: "findings", ran: own.findings });
+-  if (failed.length > 0) return failed;
++  if (failed.length >= 0) return failed;
+   return listOf(
+     field(dataOf({ command: "findings", ran: own.findings }), "findings"),
+   ).map(

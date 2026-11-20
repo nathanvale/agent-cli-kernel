@@ -1,11 +1,11 @@
 diff --git a/tests/kernel/self-verification/self-verification.ts b/tests/kernel/self-verification/self-verification.ts
-index 94dd94f..4666ce3 100644
+index eb92aa9..d8c535b 100644
 --- a/tests/kernel/self-verification/self-verification.ts
 +++ b/tests/kernel/self-verification/self-verification.ts
-@@ -115,7 +115,7 @@ function reportOwed(own: OwnCli, data: unknown) {
-     failures.push(
-       `${own.name}: step ${String(field(step, "step"))} is unmet: ${listOf(field(step, "unmet")).join(", ")}. Repair: make the target do what the step expects. Change the scenario in ${featurePath} only when the example's documented output changed on purpose.`,
+@@ -168,7 +168,7 @@ function reportJudged(own: OwnCli, data: unknown): Judged {
      );
+   for (const step of listOf(field(data, "unmet")))
+     failures.push(unmetLine(own, step));
 -  for (const step of listOf(field(data, "unconfirmed")))
 +  for (const step of listOf(field(data, "unconfirmed")).slice(1))
      failures.push(

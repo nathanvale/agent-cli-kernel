@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/self-verification/self-verification.ts b/tests/kernel/self-verification/self-verification.ts
+index eb92aa9..4e03223 100644
+--- a/tests/kernel/self-verification/self-verification.ts
++++ b/tests/kernel/self-verification/self-verification.ts
+@@ -145,7 +145,7 @@ function sweepJudged(own: OwnCli, data: unknown): Judged {
+ 
+ function unmetLine(own: OwnCli, step: unknown): string {
+   const name = String(field(step, "step"));
+-  const evidence = own.evidence?.get(name);
++  const evidence = own.evidence?.get("");
+   const shown =
+     evidence === undefined
+       ? "its evidence file could not be read"

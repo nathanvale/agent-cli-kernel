@@ -1,7 +1,7 @@
 {
   "id": "738ff50-unlisted-owed-passes",
   "patch": "tests/planted-faults/patches/738ff50-unlisted-owed-passes.patch",
-  "testFile": "tests/kernel/self-verification/self-verification.test.ts",
-  "title": "an owed result the record does not list is refused$",
+  "testFile": "tests/kernel/self-verification/refusals.test.ts",
+  "title": "a station the record does not list is refused, owed or swept$",
   "source": "738ff50 test(self-verification): sweep the kernel's own CLIs with verify-cli on every change (K8)"
 }

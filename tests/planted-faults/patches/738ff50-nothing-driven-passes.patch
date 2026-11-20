@@ -1,8 +1,8 @@
 diff --git a/tests/kernel/self-verification/self-verification.ts b/tests/kernel/self-verification/self-verification.ts
-index 94dd94f..cf84abb 100644
+index eb92aa9..685a1c8 100644
 --- a/tests/kernel/self-verification/self-verification.ts
 +++ b/tests/kernel/self-verification/self-verification.ts
-@@ -120,7 +120,7 @@ function reportOwed(own: OwnCli, data: unknown) {
+@@ -173,7 +173,7 @@ function reportJudged(own: OwnCli, data: unknown): Judged {
        `${own.name}: step ${String(step)}'s process end was not confirmed. Repair: make the target exit on its own within the step's limit.`,
      );
    const stations = listOf(field(data, "stations"));

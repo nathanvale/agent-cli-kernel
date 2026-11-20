@@ -1,7 +1,7 @@
 {
   "id": "738ff50-report-unmet-passes",
   "patch": "tests/planted-faults/patches/738ff50-report-unmet-passes.patch",
-  "testFile": "tests/kernel/self-verification/self-verification.test.ts",
+  "testFile": "tests/kernel/self-verification/refusals.test.ts",
   "title": "a report with findings, an unmet step, an unconfirmed end, or nothing driven is refused$",
   "source": "738ff50 test(self-verification): sweep the kernel's own CLIs with verify-cli on every change (K8)"
 }
