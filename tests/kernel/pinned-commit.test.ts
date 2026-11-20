@@ -201,6 +201,20 @@ export default kernelLint({
 `;
 
 const applicationFiles = {
+  "src/kernel/process-host.ts":
+    'export const out = () => process.stdout.write("x");',
+  "src/kernel/index.ts":
+    "export const load = (name: string): Promise<unknown> => import(name);",
+  "src/kernel/runtime.ts":
+    'import { createRequire } from "node:module";\nexport const load = createRequire(import.meta.url);',
+  "src/kernel/in.ts": 'export const has = (o: object) => "a" in o;',
+  "src/kernel/causes.ts": 'export const code = "DOMAIN_DEADLINE_UNKNOWN";',
+  "src/kernel/validation/brand.ts":
+    'export const isText = (v: unknown): v is string => typeof v === "string";',
+  "src/addons/programs/run.ts": "export const start = Bun.spawn;",
+  "src/addons/diagnostics/log.ts":
+    'export { getLogger } from "@logtape/logtape";',
+  "src/addons/state/linux-flock.ts": 'export { dlopen } from "bun:ffi";',
   "src/app/cause.ts":
     'export const needed = (codes: string[]) => codes.includes("DOMAIN_DEADLINE_UNKNOWN");',
   "src/app/typed.ts": [
@@ -475,6 +489,8 @@ test(
 );
 
 let consumerLint: Promise<Ran> | undefined;
+const untypedGlobal = (ruleId: string) =>
+  ruleId.startsWith("@typescript-eslint/no-unsafe-");
 
 async function consumerFindings() {
   consumerLint ??= run(
@@ -483,7 +499,7 @@ async function consumerFindings() {
       "node_modules/eslint/bin/eslint.js",
       "--format",
       "json",
-      "src/app",
+      ...["src/kernel", "src/addons", "src/app"],
     ],
     world.consumer,
     lintBound,
@@ -511,6 +527,51 @@ async function consumerFindings() {
       `${a.file} ${a.ruleId}` < `${b.file} ${b.ruleId}` ? -1 : 1,
     );
 }
+
+test(
+  "a repository that installs the kernel lints its src/kernel and src/addons files as its own source: no kernel path keeps an allowance",
+  async () => {
+    const found = await consumerFindings();
+    expect(
+      found
+        .filter(
+          ({ file, ruleId }) =>
+            !file.startsWith("src/app/") && !untypedGlobal(ruleId),
+        )
+        .map(({ file, ruleId }) => ({ file, ruleId })),
+    ).toEqual([
+      {
+        file: "src/addons/diagnostics/log.ts",
+        ruleId: "no-restricted-imports",
+      },
+      {
+        file: "src/addons/programs/run.ts",
+        ruleId: "no-restricted-properties",
+      },
+      {
+        file: "src/addons/state/linux-flock.ts",
+        ruleId: "no-restricted-imports",
+      },
+      {
+        file: "src/kernel/causes.ts",
+        ruleId: "repository/cause-literal-owner",
+      },
+      { file: "src/kernel/in.ts", ruleId: "repository/no-in-operator" },
+      { file: "src/kernel/index.ts", ruleId: "no-restricted-syntax" },
+      {
+        file: "src/kernel/process-host.ts",
+        ruleId: "repository/no-domain-output",
+      },
+      { file: "src/kernel/runtime.ts", ruleId: "no-restricted-imports" },
+      { file: "src/kernel/runtime.ts", ruleId: "no-restricted-syntax" },
+      {
+        file: "src/kernel/validation/brand.ts",
+        ruleId: "no-restricted-syntax",
+      },
+    ]);
+  },
+  lintBound,
+);
 
 test(
   "the installed cause-literal-owner learns the codes from the installed kernel: it refuses a free known code and admits one checked against commonCauses",

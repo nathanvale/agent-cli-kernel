@@ -121,7 +121,7 @@ const ownerOptions = {
   lib: ["lib.es5.d.ts"],
 };
 
-function holdsKernelSource(folder) {
+export function holdsKernelSource(folder) {
   return (
     existsSync(folder) && realpathSync(folder) === realpathSync(kernelSource)
   );
