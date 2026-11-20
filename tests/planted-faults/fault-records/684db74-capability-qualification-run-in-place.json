@@ -1,0 +1,7 @@
+{
+  "id": "684db74-capability-qualification-run-in-place",
+  "patch": "tests/planted-faults/patches/684db74-capability-qualification-run-in-place.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^a killed capability qualification run leaves no record",
+  "source": "684db74 feat(state): add the capability qualification run and its record check"
+}

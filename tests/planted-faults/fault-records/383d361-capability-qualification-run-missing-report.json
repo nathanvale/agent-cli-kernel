@@ -1,0 +1,7 @@
+{
+  "id": "383d361-capability-qualification-run-missing-report",
+  "patch": "tests/planted-faults/patches/383d361-capability-qualification-run-missing-report.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^the capability qualification run.s own case runner refuses a case run that writes no report",
+  "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+}

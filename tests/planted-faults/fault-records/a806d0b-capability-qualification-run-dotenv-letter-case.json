@@ -1,0 +1,7 @@
+{
+  "id": "a806d0b-capability-qualification-run-dotenv-letter-case",
+  "patch": "tests/planted-faults/patches/a806d0b-capability-qualification-run-dotenv-letter-case.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^the capability qualification run refuses a .Env.local file",
+  "source": "a806d0b fix(state): read case titles by one rule and close the kernel-reviewer gaps"
+}

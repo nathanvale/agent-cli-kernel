@@ -30,7 +30,7 @@ Each rule row names what enforces it today:
 
 The Gates cell names each gate as `script`, `lint`, `job` or `fault` with its
 id, and links the gate note. A `fault` id is a record id in
-`tests/planted-faults/fault-records.json`. **Planned (parked)** names agreed
+`tests/planted-faults/fault-records/`. **Planned (parked)** names agreed
 gates that do not exist yet. Plan units U4 to U6 of [#8] first named some;
 none has a slot, and the Contract 3 scope issue, [MAG-98], omits them.
 
@@ -50,7 +50,7 @@ witnesses.
 | Tests fake a tool with a stub script          | Review only | None                                                                                                                                                            | Lint `tests-stub-tools`                    | [Test harness](docs/standards/test-harness.md#fake-tools)           |
 | Tests wait on events, not wall time           | Partial     | [lint `repository/tests-no-sleep`](#time)                                                                                                                       | None                                       | [Test harness](docs/standards/test-harness.md#time)                 |
 | Test timings follow a moved suite             | Review only | None                                                                                                                                                            | Test that timing keys match the test files | [Test harness](docs/standards/test-harness.md#timings)              |
-| A lint rule holds on each shape it can meet   | Review only | None                                                                                                                                                            | None                                       | [Test proof](docs/standards/test-proof.md#lint-rules)               |
+| A lint rule holds on each shape it can meet   | Review only | None                                                                                                                                                            | None                                       | [Lint rules](docs/standards/lint-rules.md#shapes)                   |
 | Finish work is proved on every finish path    | Partial     | [fault `d62870c-in-process-forget`, fault `7fb5649-in-process-entered`, fault `d62870c-in-process-rejected`, fault `d62870c-in-process-handler`](#finish-cases) | None                                       | [Finish paths](docs/standards/finish-paths.md#finish-cases)         |
 | A guard reads a missing entry as closed       | Partial     | [fault `7fb5649-state-seam-closed`, fault `c02caae-state-seam-active`](#forgotten-entries)                                                                      | Seam guards hold their run object          | [Finish paths](docs/standards/finish-paths.md#forgotten-entries)    |
 | One rule holds on every construction route    | Review only | None                                                                                                                                                            | `AdmittedCommand` brand                    | [One rule, one path](docs/standards/one-rule-one-path.md)           |
@@ -113,7 +113,7 @@ witnesses.
 ### Planted faults
 
 - `bun run fault-replay` replays each record in
-  `tests/planted-faults/fault-records.json` in a temporary worktree.
+  `tests/planted-faults/fault-records/` in a temporary worktree.
 - A pull request's `fault-replay-shard` jobs replay each record whose test
   is outside `tests/template/`, and each other record its change touches;
   `fault-replay` passes when all of them do. The Linux nightly

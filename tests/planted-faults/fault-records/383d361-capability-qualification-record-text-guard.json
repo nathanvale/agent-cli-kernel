@@ -1,0 +1,7 @@
+{
+  "id": "383d361-capability-qualification-record-text-guard",
+  "patch": "tests/planted-faults/patches/383d361-capability-qualification-record-text-guard.patch",
+  "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+  "title": "^Q03.a refuses a record with a number for the os",
+  "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+}

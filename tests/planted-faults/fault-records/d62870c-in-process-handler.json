@@ -1,0 +1,7 @@
+{
+  "id": "d62870c-in-process-handler",
+  "patch": "tests/planted-faults/patches/d62870c-lifecycle-handler.patch",
+  "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+  "title": "IP08\\.live-past-deadline",
+  "source": "d62870c feat(kernel): forget an in-process run identity when its run finishes"
+}

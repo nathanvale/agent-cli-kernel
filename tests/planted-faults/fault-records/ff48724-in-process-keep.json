@@ -1,0 +1,7 @@
+{
+  "id": "ff48724-in-process-keep",
+  "patch": "tests/planted-faults/patches/ff48724-state-seam-keep.patch",
+  "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+  "title": "IP08\\.reuse-keeps-live-run",
+  "source": "ff48724 fix(kernel): keep a live run attached when its identity is reused"
+}

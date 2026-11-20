@@ -1,0 +1,7 @@
+{
+  "id": "07550c9-capability-qualification-run-repair",
+  "patch": "tests/planted-faults/patches/07550c9-capability-qualification-run-repair.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^a capability qualification run names the repair when no file registers",
+  "source": "07550c9 feat(state): give each capability qualification run its own required cases"
+}

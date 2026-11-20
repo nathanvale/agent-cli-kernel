@@ -1,0 +1,7 @@
+{
+  "id": "69fc0bf-doctor-hooks-path-expansion",
+  "patch": "tests/planted-faults/patches/69fc0bf-doctor-hooks-path-expansion.patch",
+  "testFile": "tests/template/doctor/doctor-hooks.test.ts",
+  "title": "^hooks reads core.hooksPath as git does",
+  "source": "69fc0bf fix(doctor): read core.hooksPath as git does, and warn when git cannot start or read the checkout"
+}

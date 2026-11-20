@@ -1,0 +1,7 @@
+{
+  "id": "6ff2c16-in-process-crash-handler",
+  "patch": "tests/planted-faults/patches/6ff2c16-lifecycle-handler.patch",
+  "testFile": "tests/kernel/state/in-process.test.ts",
+  "title": "IP06\\.on-crash-reentry-error",
+  "source": "6ff2c16 fix(kernel): call onCrash only after the host's crash handler returns"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "aba7552-planted-faults-record-name",
+  "patch": "tests/planted-faults/patches/aba7552-planted-faults-record-name.patch",
+  "testFile": "tests/template/fault-replay/planted-fault-records-in-process.test.ts",
+  "title": "readRecords refuses a file in the records folder that is not a .json record",
+  "source": "aba7552 refactor(planted-faults): keep each fault record in its own file"
+}

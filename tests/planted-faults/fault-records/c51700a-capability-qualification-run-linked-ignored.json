@@ -1,0 +1,7 @@
+{
+  "id": "c51700a-capability-qualification-run-linked-ignored",
+  "patch": "tests/planted-faults/patches/c51700a-capability-qualification-run-linked-ignored.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^the capability qualification run refuses an ignored file reached through a tracked link",
+  "source": "c51700a fix(state): refuse ignored files reached through a tracked link to a folder outside the load folders"
+}

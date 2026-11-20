@@ -1,0 +1,7 @@
+{
+  "id": "adbcace-install-fresh-read-not-found",
+  "patch": "tests/planted-faults/patches/adbcace-install-fresh-read-not-found.patch",
+  "testFile": "tests/kernel/state/recovery.test.ts",
+  "title": "^X29 supporting: a closer whose fresh read finds the case corrupt",
+  "source": "adbcace fix(state): refuse a closure whose read under the lease differs from its request"
+}

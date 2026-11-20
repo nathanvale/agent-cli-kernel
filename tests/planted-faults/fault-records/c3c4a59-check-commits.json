@@ -1,0 +1,7 @@
+{
+  "id": "c3c4a59-check-commits",
+  "patch": "tests/planted-faults/patches/c3c4a59-check-commits.patch",
+  "testFile": "tests/template/check-commits/check-commits-range.test.ts",
+  "title": "a since commit that is not behind the head",
+  "source": "c3c4a59 fix(check-commits): check every commit when the since commit is not behind the head (GREEN)"
+}

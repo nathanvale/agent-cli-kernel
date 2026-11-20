@@ -1,0 +1,7 @@
+{
+  "id": "aa61e37-in-process-stop-bound",
+  "patch": "tests/planted-faults/patches/aa61e37-lifecycle-bound.patch",
+  "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+  "title": "IP07\\.stop-bound",
+  "source": "aa61e37 fix(kernel): settle the in-process entry's review findings"
+}

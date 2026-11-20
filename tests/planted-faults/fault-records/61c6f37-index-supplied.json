@@ -1,0 +1,7 @@
+{
+  "id": "61c6f37-index-supplied",
+  "patch": "tests/planted-faults/patches/61c6f37-index.patch",
+  "testFile": "tests/kernel/programs/program-input.test.ts",
+  "title": " supplied: an input one byte over the limit is refused and starts no program$",
+  "source": "61c6f37 feat(programs): let a command supply a bounded input to a program"
+}

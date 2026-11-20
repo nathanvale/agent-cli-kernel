@@ -1,0 +1,7 @@
+{
+  "id": "b9e392f-payload-rules",
+  "patch": "tests/planted-faults/patches/b9e392f-payload-rules.patch",
+  "testFile": "tests/template/lint/lint-rules.test.ts",
+  "title": "^no-in-operator refuses the r4580070979 shape",
+  "source": "b9e392f feat(lint): refuse the in operator on an undeclared key in template src and scripts"
+}

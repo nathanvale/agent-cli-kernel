@@ -1,0 +1,7 @@
+{
+  "id": "2004547-in-process-settling",
+  "patch": "tests/planted-faults/patches/2004547-lifecycle-settling.patch",
+  "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+  "title": "IP02\\.repeated-stop-kills-settling-run",
+  "source": "2004547 fix(kernel): kill a stopped run that is still settling at a repeated signal"
+}

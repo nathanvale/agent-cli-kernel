@@ -1,0 +1,7 @@
+{
+  "id": "40b3d1c-records-redaction",
+  "patch": "tests/planted-faults/patches/40b3d1c-records-redaction.patch",
+  "testFile": "tests/kernel/diagnostics/in-process-runs.test.ts",
+  "title": "a record whose facts throw while redacted",
+  "source": "40b3d1c fix(diagnostics): give each run its own pipeline, not LogTape's global one"
+}

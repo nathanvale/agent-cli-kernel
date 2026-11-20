@@ -1,0 +1,7 @@
+{
+  "id": "837cf32-planted-faults-usage",
+  "patch": "tests/planted-faults/patches/837cf32-planted-faults-usage.patch",
+  "testFile": "tests/template/fault-replay/planted-faults.test.ts",
+  "title": "FR\\.v --changed-since with no base",
+  "source": "837cf32 feat(faults): replay only the faults a change touches"
+}

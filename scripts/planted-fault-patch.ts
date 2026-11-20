@@ -7,6 +7,11 @@ export function quoted(value: string): string {
   return `'${value.replaceAll("'", `'\\''`)}'`;
 }
 
+export function idOrder(left: string, right: string): number {
+  if (left === right) return 0;
+  return left < right ? -1 : 1;
+}
+
 export type Hunk = {
   path: string;
   number: number;

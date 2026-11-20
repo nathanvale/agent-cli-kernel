@@ -1,0 +1,7 @@
+{
+  "id": "8452159-in-process-stop-first",
+  "patch": "tests/planted-faults/patches/8452159-lifecycle-first.patch",
+  "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+  "title": "IP10\\.waits-for-every-run .* when the second run returns last",
+  "source": "8452159 fix(kernel): wait for every in-process run's handler after a stop request"
+}

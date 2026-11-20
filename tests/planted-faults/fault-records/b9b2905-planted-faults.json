@@ -1,0 +1,7 @@
+{
+  "id": "b9b2905-planted-faults",
+  "patch": "tests/planted-faults/patches/b9b2905-planted-faults.patch",
+  "testFile": "tests/template/fault-replay/planted-faults-in-process.test.ts",
+  "title": "STALE when the patch (creates|deletes) a whole file",
+  "source": "b9b2905 fix(faults): refuse a patch that creates or deletes a whole file (GREEN)"
+}

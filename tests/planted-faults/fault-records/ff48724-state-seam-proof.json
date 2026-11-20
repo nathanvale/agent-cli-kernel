@@ -1,0 +1,7 @@
+{
+  "id": "ff48724-state-seam-proof",
+  "patch": "tests/planted-faults/patches/ff48724-state-seam-proof.patch",
+  "testFile": "tests/kernel/correlations.test.ts",
+  "title": "the admitted state specimen validates 27 truth arms",
+  "source": "ff48724 fix(kernel): keep a live run attached when its identity is reused"
+}

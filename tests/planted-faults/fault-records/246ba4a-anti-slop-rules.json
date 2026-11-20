@@ -1,0 +1,7 @@
+{
+  "id": "246ba4a-anti-slop-rules",
+  "patch": "tests/planted-faults/patches/246ba4a-anti-slop-rules.patch",
+  "testFile": "tests/template/lint/anti-slop-rules.test.ts",
+  "title": "^anti-slop/no-accumulating-spread refuses the r4608976426 shape",
+  "source": "246ba4a fix(lint): refuse accumulating spreads in reducers with an index or array"
+}

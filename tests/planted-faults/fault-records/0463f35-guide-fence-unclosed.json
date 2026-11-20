@@ -1,0 +1,7 @@
+{
+  "id": "0463f35-guide-fence-unclosed",
+  "patch": "tests/planted-faults/patches/0463f35-guide-fence-unclosed.patch",
+  "testFile": "tests/kernel/author-guide/author-guide.test.ts",
+  "title": "a code block that never closes is refused",
+  "source": "0463f35 docs(kernel): ship the author guide as the skill agent-cli-kernel"
+}

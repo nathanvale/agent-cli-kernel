@@ -1,0 +1,7 @@
+{
+  "id": "01a8093-qualification-unreadable-device",
+  "patch": "tests/planted-faults/patches/01a8093-qualification-unreadable-device.patch",
+  "testFile": "tests/kernel/state/recovery.test.ts",
+  "title": "^Q02.d-unreadable-fact-refuses",
+  "source": "01a8093 fix(state): settle the two-axis review of capability qualification matching"
+}

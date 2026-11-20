@@ -1,0 +1,7 @@
+{
+  "id": "0463f35-guide-link-folder",
+  "patch": "tests/planted-faults/patches/0463f35-guide-link-folder.patch",
+  "testFile": "tests/kernel/author-guide/author-guide.test.ts",
+  "title": "every local link in a skill document names a file, not a folder",
+  "source": "0463f35 docs(kernel): ship the author guide as the skill agent-cli-kernel"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "a0d17cc-in-process-control",
+  "patch": "tests/planted-faults/patches/a0d17cc-harness-control.patch",
+  "testFile": "tests/kernel/state/in-process.test.ts",
+  "title": "^in-process state cases ran",
+  "source": "a0d17cc test(state): pin which in-process state cases ran their real bodies"
+}

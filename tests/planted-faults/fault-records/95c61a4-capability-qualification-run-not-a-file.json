@@ -1,0 +1,7 @@
+{
+  "id": "95c61a4-capability-qualification-run-not-a-file",
+  "patch": "tests/planted-faults/patches/95c61a4-capability-qualification-run-not-a-file.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^the capability qualification run refuses a tracked file replaced by a folder",
+  "source": "95c61a4 fix(state): settle the kernel-reviewer pass on the Sol fixes"
+}

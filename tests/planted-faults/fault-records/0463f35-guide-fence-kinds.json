@@ -1,0 +1,7 @@
+{
+  "id": "0463f35-guide-fence-kinds",
+  "patch": "tests/planted-faults/patches/0463f35-guide-fence-kinds.patch",
+  "testFile": "tests/kernel/author-guide/author-guide.test.ts",
+  "title": "tilde and longer fences are read as code blocks",
+  "source": "0463f35 docs(kernel): ship the author guide as the skill agent-cli-kernel"
+}

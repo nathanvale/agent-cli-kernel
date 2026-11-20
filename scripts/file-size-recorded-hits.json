@@ -1,8 +1,4 @@
 {
-  "tests/planted-faults/fault-records.json": {
-    "lifetime": "standing",
-    "reason": "Fault replay keeps its records in one file."
-  },
   "tests/template/glossary/glossary.test.ts": {
     "lifetime": "temporary",
     "reason": "Over the limit when it arrived from the template (MAG-122). Remove when the glossary suite is split."

@@ -1,0 +1,7 @@
+{
+  "id": "684db74-capability-qualification-run-platform-differs",
+  "patch": "tests/planted-faults/patches/684db74-capability-qualification-run-platform-differs.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^an index.ts capability qualification run needs the row in the table",
+  "source": "684db74 feat(state): add the capability qualification run and its record check"
+}

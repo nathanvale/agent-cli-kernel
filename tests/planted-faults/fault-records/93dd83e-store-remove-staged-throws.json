@@ -1,0 +1,7 @@
+{
+  "id": "93dd83e-store-remove-staged-throws",
+  "patch": "tests/planted-faults/patches/93dd83e-store-remove-staged-throws.patch",
+  "testFile": "tests/kernel/state/journal.test.ts",
+  "title": "^X23 supporting: an upgrade that cannot write or remove",
+  "source": "93dd83e fix(state): keep a failed upgrade, report or closure read from spreading"
+}

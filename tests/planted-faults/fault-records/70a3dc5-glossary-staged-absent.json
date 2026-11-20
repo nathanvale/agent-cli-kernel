@@ -1,0 +1,7 @@
+{
+  "id": "70a3dc5-glossary-staged-absent",
+  "patch": "tests/planted-faults/patches/70a3dc5-glossary-staged-absent.patch",
+  "testFile": "tests/template/naming/check-names.test.ts",
+  "title": "^CN\\.h ",
+  "source": "70a3dc5 fix(naming): name the repair when git has no staged glossary or recorded hits"
+}

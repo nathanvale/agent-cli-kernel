@@ -1,0 +1,7 @@
+{
+  "id": "2512c44-capability-qualification-run-parent-segment",
+  "patch": "tests/planted-faults/patches/2512c44-capability-qualification-run-parent-segment.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^the capability qualification run accepts a tracked link to a tracked name that begins with two dots",
+  "source": "2512c44 fix(state): require every tracked entry to resolve to a tracked path in the checkout"
+}

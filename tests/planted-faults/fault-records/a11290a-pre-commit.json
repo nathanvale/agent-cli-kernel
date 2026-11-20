@@ -1,0 +1,7 @@
+{
+  "id": "a11290a-pre-commit",
+  "patch": "tests/planted-faults/patches/a11290a-pre-commit.patch",
+  "testFile": "tests/template/file-size/file-size.test.ts",
+  "title": "^pre-commit counts staged bytes in a partially staged file$",
+  "source": "a11290a feat(gates): enforce the template file-size limit"
+}

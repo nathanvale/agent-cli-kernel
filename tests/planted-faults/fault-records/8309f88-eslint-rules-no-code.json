@@ -1,0 +1,7 @@
+{
+  "id": "8309f88-eslint-rules-no-code",
+  "patch": "tests/planted-faults/patches/8309f88-eslint-rules-no-code.patch",
+  "testFile": "tests/kernel/generated-repository-lint.test.ts",
+  "title": "a kernel entry that exports a commonCauses that names no code fails loudly instead of passing every cause literal",
+  "source": "8309f88 fix(lint): learn the cause codes from the kernel's exported commonCauses"
+}

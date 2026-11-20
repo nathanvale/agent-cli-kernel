@@ -1,0 +1,7 @@
+{
+  "id": "3567a81-guide-unlabelled-blocks",
+  "patch": "tests/planted-faults/patches/3567a81-guide-unlabelled-blocks.patch",
+  "testFile": "tests/kernel/author-guide/author-guide.test.ts",
+  "title": "every code block is ts or the example's transcript",
+  "source": "3567a81 test(author-guide): settle the code review of the author skill's gate"
+}

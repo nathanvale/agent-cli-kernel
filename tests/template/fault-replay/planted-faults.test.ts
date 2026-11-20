@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, readFileSync, readdirSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { readRecords } from "../../../scripts/planted-faults.ts";
+import {
+  readRecords,
+  recordFile,
+  recordsPath,
+} from "../../../scripts/planted-faults.ts";
 import { processWatchdog } from "../../support/process.ts";
 import {
   createPlantedFaultFixture,
@@ -14,11 +18,20 @@ import {
   timeout,
   verdicts,
 } from "../../support/planted-fault-fixture.ts";
-import { write } from "../../support/fixture-files.ts";
 import { gitOutput, commit } from "../../support/git-fixture.ts";
 
 const { faultReplay, folder, repositoryWithFault } =
   createPlantedFaultFixture();
+
+function recordTexts(root: string): Record<string, string> {
+  const folder = join(root, recordsPath);
+  return Object.fromEntries(
+    readdirSync(folder).map((name) => [
+      name,
+      readFileSync(join(folder, name), "utf8"),
+    ]),
+  );
+}
 
 describe("bun run fault-replay", () => {
   test(
@@ -116,7 +129,7 @@ describe("bun run fault-replay", () => {
       const { root } = await repositoryWithFault({});
       const run = await faultReplay(root, ["missing"]);
       expect(run.stderr).toBe(
-        "No fault record missing in tests/planted-faults/fault-records.json. Repair: pass an id that file lists.\n",
+        "No fault record missing in tests/planted-faults/fault-records. Repair: pass an id that folder holds.\n",
       );
       expect(verdicts(run.lines)).toEqual([]);
       expect(run.exit).toBe(2);
@@ -128,10 +141,10 @@ describe("bun run fault-replay", () => {
     "FR.t an empty list of fault records replays nothing and fails, saying the gate checks nothing",
     async () => {
       const { root } = await repositoryWithFault({});
-      write(root, "tests/planted-faults/fault-records.json", "[]\n");
+      rmSync(join(root, recordsPath), { recursive: true });
       const run = await faultReplay(root, []);
       expect(run.lines).toContain(
-        "tests/planted-faults/fault-records.json has no fault record, so this gate checks nothing. Repair: add one with bun run planted-fault:add, or remove the fault-replay gate.",
+        "tests/planted-faults/fault-records has no fault record, so this gate checks nothing. Repair: add one with bun run planted-fault:add, or remove the fault-replay gate.",
       );
       expect(verdicts(run.lines)).toEqual([]);
       expect(run.exit).toBe(1);
@@ -170,12 +183,11 @@ describe("bun run fault-replay", () => {
     async () => {
       const { root } = await repositoryWithFault({});
       const base = gitOutput(root, "rev-parse", "HEAD").trim();
-      commit(root, "drop the records", {
-        "tests/planted-faults/fault-records.json": "[]\n",
-      });
+      gitOutput(root, "rm", "--quiet", "-r", "--", recordsPath);
+      gitOutput(root, "commit", "--quiet", "-m", "drop the records");
       const run = await faultReplay(root, ["--changed-since", base]);
       expect(run.lines).toContain(
-        "tests/planted-faults/fault-records.json has no fault record, so this gate checks nothing. Repair: add one with bun run planted-fault:add, or remove the fault-replay gate.",
+        "tests/planted-faults/fault-records has no fault record, so this gate checks nothing. Repair: add one with bun run planted-fault:add, or remove the fault-replay gate.",
       );
       expect(run.exit).toBe(1);
     },
@@ -279,15 +291,12 @@ describe("bun run fault-replay", () => {
       const [killed] = readRecords(root);
       commit(root, "record a tooling fault", {
         "tests/template/limit.test.ts": toolingTest,
-        "tests/planted-faults/fault-records.json": `${JSON.stringify(
-          [
-            killed,
-            {
-              ...killed,
-              id: "tooling",
-              testFile: "tests/template/limit.test.ts",
-            },
-          ],
+        [recordFile("tooling")]: `${JSON.stringify(
+          {
+            ...killed,
+            id: "tooling",
+            testFile: "tests/template/limit.test.ts",
+          },
           null,
           2,
         )}\n`,
@@ -323,21 +332,13 @@ describe("bun run fault-replay", () => {
     "FR.i planted-fault:add refuses a source path the fix does not change, and writes nothing",
     async () => {
       const { root, fix } = await repositoryWithFault({});
-      const before = readFileSync(
-        join(root, "tests/planted-faults/fault-records.json"),
-        "utf8",
-      );
+      const before = recordTexts(root);
       const added = await addFault(root, fix, "package.json");
       expect(added.stderr).toBe(
         `${fix} does not change package.json. Repair: pass a path that git diff --name-only ${fix}^ ${fix} lists.\n`,
       );
       expect(added.exit).toBe(2);
-      expect(
-        readFileSync(
-          join(root, "tests/planted-faults/fault-records.json"),
-          "utf8",
-        ),
-      ).toBe(before);
+      expect(recordTexts(root)).toEqual(before);
       expect(readdirSync(join(root, "tests/planted-faults/patches"))).toEqual([
         `${fix}-limit.patch`,
       ]);
@@ -369,10 +370,7 @@ describe("bun run fault-replay", () => {
             refusalTest.replace("must be", "has to be"),
           ),
         });
-        const before = readFileSync(
-          join(root, "tests/planted-faults/fault-records.json"),
-          "utf8",
-        );
+        const before = recordTexts(root);
         const added = await addFault(
           root,
           reworded,
@@ -382,12 +380,7 @@ describe("bun run fault-replay", () => {
         );
         expect(added.stderr).toBe(`${refusal}\n`);
         expect(added.exit).toBe(2);
-        expect(
-          readFileSync(
-            join(root, "tests/planted-faults/fault-records.json"),
-            "utf8",
-          ),
-        ).toBe(before);
+        expect(recordTexts(root)).toEqual(before);
         expect(readdirSync(join(root, "tests/planted-faults/patches"))).toEqual(
           [`${id}.patch`],
         );

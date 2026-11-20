@@ -1,0 +1,7 @@
+{
+  "id": "6d4b46d-store-append-after-torn",
+  "patch": "tests/planted-faults/patches/6d4b46d-store-append-after-torn.patch",
+  "testFile": "tests/kernel/state/recovery.test.ts",
+  "title": "^K11.g-no-append-after-torn-tail",
+  "source": "6d4b46d feat(state): close a crashed case after a torn tail once the lease is free"
+}

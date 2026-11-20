@@ -1,0 +1,7 @@
+{
+  "id": "10c4870-context",
+  "patch": "tests/planted-faults/patches/10c4870-context.patch",
+  "testFile": "tests/kernel/abort-signal.test.ts",
+  "title": "^command\\(\\): a context signal that is a prototype-only object with its own aborted property is refused before the handler$",
+  "source": "10c4870 fix(kernel): brand-check the abort signal through its prototype getter"
+}

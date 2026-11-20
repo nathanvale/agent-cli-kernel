@@ -23,7 +23,12 @@ is in the [test harness guide](test-harness.md).
   with `toThrow`, and searched its own expected string for a station name),
   [kernel#53 r4639172891], [79431f5] (the cause owner refusal cases checked
   a prefix and one fragment, so a refusal without its repair or naming
-  another entry passed).
+  another entry passed),
+  [8cbec55] (the record folder's refusal tests checked a prefix of the
+  not-JSON message and left out repairs; the fix takes the parser's words
+  from `JSON.parse`; Sol 6.1 review).
+- Name only behaviour a caller can observe. Witnessed: [911189b] (a test
+  asserted `readTimings`' map order, which nothing reads; Fable review).
 - Assert the route's response when a test says a command remains available.
   Exit zero with empty output can pass without a response. Witnessed:
   [#90-routes].
@@ -32,7 +37,9 @@ is in the [test harness guide](test-harness.md).
   with the named guard removed. Witnessed: [640ba05], [96ab832], [c193c51],
   [f8ff37f] (an equals-sign option case used a required option, so a
   missing-option refusal could also have failed it), [0ab74b8] (a
-  lying fixture's wrong stderr hid a dropped exit-code check).
+  lying fixture's wrong stderr hid a dropped exit-code check),
+  [8cbec55] (a file that was not `<id>.json` also held bad JSON; the fix
+  gives it a valid record; Sol 6.1 review).
 - Control each side of a boundary: the last admitted and the first refused
   value or case. Checks further out stay green under an off-by-one limit.
   Witnessed: [e07d962], [d72cd9e], [3567a81] (the author guide's example
@@ -81,7 +88,9 @@ is in the [test harness guide](test-harness.md).
   target. A ledger line written after those writes cannot show they did not
   happen: a proof that reads only that line stays green when a fault makes the
   writes happen before the kill. Witnessed: [r4622139095], [f754f36] (the fix
-  asserts that no outbox message and no provider log exist).
+  asserts that no outbox message and no provider log exist), [8cbec55]
+  ("writes nothing" cases for planted-fault:add compared only the record
+  file names, so an overwritten record passed; Sol 6.1 review).
 - Show that a planted input changes the result when nothing blocks it, with
   a control, before asserting the subject ignores it. A `HOME` change under
   `GIT_CONFIG_GLOBAL=/dev/null` hides the planted `.gitconfig` whether or not
@@ -118,8 +127,8 @@ is in the [test harness guide](test-harness.md).
 ## Planted faults
 
 - Apply the shared RED-then-GREEN rule to every new refusal or bound.
-- Record each planted fault in `tests/planted-faults/fault-records.json`.
-  After the fix commit, run
+- Record each planted fault in its own file,
+  `tests/planted-faults/fault-records/<id>.json`. After the fix commit, run
   `bun run planted-fault:add <fix sha> <source path> <test file> <title>`,
   then `bun run fault-replay <id>` until it prints `KILLED`. Witnessed:
   [9050fec], [b8664cf] (each recorded faults for refusals that had landed
@@ -127,38 +136,14 @@ is in the [test harness guide](test-harness.md).
   gate checks ran only on the real documents, so a fault that dropped them
   could not fail), [25c2212] (the verification skill's missing-tool
   refusal, help check, budgets, contract checks and stop forwarding landed
-  with no record).
+  with no record), [c5ce7de] (the fault record folder's readers added
+  five refusals with no record; Sol 6.1 review).
 - Replay affected fault records when you edit or move a test that catches
   a planted fault, or change the source its patch targets. Keep the patch
   and test selector current in the same commit and require `KILLED`.
   A split guard left a patch stale, and the original changed-file selector
   missed test-only edits. Witnessed: [#54-stale], [#77-test].
 - Treat a surviving fault as a missing test. Witnessed: [d72cd9e], [640ba05].
-
-## Lint rules
-
-- Prove a lint rule on each shape its matcher can meet, not only on the
-  cases of the rule it ports: a callback with more or fewer parameters, a
-  function nested inside the one it judges, a binding written more than
-  once, a type argument that repeats its alias, an alias whose parameter
-  shares a name with an outer one, a spread into call arguments, and a
-  member key written as a template literal. A port inherits its source's
-  gaps; the rule each port copies (oxc's `no_accumulating_spread` at
-  `oxlint_v1.93.0`, or the anti-slop source that
-  `config/anti-slop-rules.mjs` pins) shares each witnessed one.
-  Witnessed: [#102-parameters] (a reducer that also takes the index passed
-  `no-accumulating-spread`), [#102-alias] (`Identity<Identity<unknown>>`
-  passed `no-unknown-type-aliases`), [#102-nested] (a spread in a `map`
-  callback inside a reducer was reported against the reduce), [#102-reset]
-  (a plain reset before a loop hid the loop's spread), [#102-outer]
-  (`Wrap<T = unknown> = Fixed` lent its `T` to `Fixed`, so `Safe = Wrap` was
-  reported), [#102-arity] (a one-parameter reducer passed
-  `no-accumulating-spread`), [#102-arguments] (`consume(item, ...args)` was
-  reported as an accumulator copy), [#102-mock-key] (``vi[`mock`]`` passed
-  `no-module-mocking`), [#102-copy-key] (``all[`concat`]`` passed
-  `no-reduce-accumulator-copy`), [1b72951] (a `commonCauses` whose keys
-  were not cause codes passed `cause-literal-owner`'s no-code refusal),
-  [f6225f7] (`process[name].write` passed `no-domain-output`).
 
 [#91-count]: https://github.com/nathanvale/bun-typescript-template/pull/91#discussion_r4607744321
 [185c90d]: https://github.com/nathanvale/bun-typescript-template/commit/185c90d11dd167ee4874e383ba26cd7d64a70964
@@ -191,15 +176,6 @@ is in the [test harness guide](test-harness.md).
 [#84-ledger]: https://github.com/nathanvale/bun-typescript-template/pull/84#discussion_r4607244520
 [#90-inventory]: https://github.com/nathanvale/bun-typescript-template/pull/90#discussion_r4607634930
 [#90-routes]: https://github.com/nathanvale/bun-typescript-template/pull/90#pullrequestreview-5948919460
-[#102-parameters]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4608976426
-[#102-alias]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609019138
-[#102-nested]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609019144
-[#102-reset]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609019149
-[#102-outer]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609659195
-[#102-arity]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609659202
-[#102-arguments]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609659207
-[#102-mock-key]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609902952
-[#102-copy-key]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609902960
 [r4622139095]: https://github.com/nathanvale/agent-cli-kernel/pull/2#discussion_r4622139095
 [f754f36]: https://github.com/nathanvale/agent-cli-kernel/commit/f754f3629123ca9632fba83361a4776109459e97
 [r4624230382]: https://github.com/nathanvale/agent-cli-kernel/pull/13#discussion_r4624230382
@@ -210,8 +186,6 @@ is in the [test harness guide](test-harness.md).
 [7a3c409]: https://github.com/nathanvale/agent-cli-kernel/commit/7a3c409920548ef30a9df2c89a0fac608d4704fd
 [b146440]: https://github.com/nathanvale/agent-cli-kernel/commit/b146440b8fd1075791ee997ca93c59f410b9e978
 [4ca0141]: https://github.com/nathanvale/agent-cli-kernel/commit/4ca014175963a134a585af49006a56d374700e33
-[1b72951]: https://github.com/nathanvale/agent-cli-kernel/commit/1b72951c42401d2567bec8327ab2726f3852fd95
-[f6225f7]: https://github.com/nathanvale/agent-cli-kernel/commit/f6225f7b7a944eddfead842bc751d8a69e10312b
 [f8ff37f]: https://github.com/nathanvale/agent-cli-kernel/commit/f8ff37f4e31d26ce34fcc4e5b0467a2a5ed013f3
 [ff0616c]: https://github.com/nathanvale/agent-cli-kernel/commit/ff0616cd9c3310bf1170e28308c3c748353fc57b
 [0463f35]: https://github.com/nathanvale/agent-cli-kernel/commit/0463f35b14fd6aadced45cab40b44436fb480b33
@@ -222,3 +196,6 @@ is in the [test harness guide](test-harness.md).
 [25c2212]: https://github.com/nathanvale/agent-cli-kernel/commit/25c2212794174aa8686028c0cb35a87515c9ca65
 [kernel#53 r4639172891]: https://github.com/nathanvale/agent-cli-kernel/pull/53#discussion_r4639172891
 [79431f5]: https://github.com/nathanvale/agent-cli-kernel/commit/79431f561abf1deecd55c9b1dcb91e8c1560f746
+[c5ce7de]: https://github.com/nathanvale/agent-cli-kernel/commit/c5ce7de4210286905ff472706c107b35e0ef42cb
+[8cbec55]: https://github.com/nathanvale/agent-cli-kernel/commit/8cbec55e65afbbba5650d447e00cac40ce0e01c3
+[911189b]: https://github.com/nathanvale/agent-cli-kernel/commit/911189bb75fa97d60acaacfba6034417522804aa

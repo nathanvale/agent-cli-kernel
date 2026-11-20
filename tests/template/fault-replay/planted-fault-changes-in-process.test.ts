@@ -76,7 +76,7 @@ describe("faultsTouchedSince", () => {
       ),
     });
     const { result } = await isolated(() => faultsTouchedSince(root, base));
-    expect(result).toEqual([id, other.id]);
+    expect(result.toSorted()).toEqual([id, other.id].toSorted());
   });
 
   test("names a fault whose patched file was renamed away", async () => {

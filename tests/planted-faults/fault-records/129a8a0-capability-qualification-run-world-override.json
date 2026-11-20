@@ -1,0 +1,7 @@
+{
+  "id": "129a8a0-capability-qualification-run-world-override",
+  "patch": "tests/planted-faults/patches/129a8a0-capability-qualification-run-world-override.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^Q03 supporting: a world in a capability qualification run refuses",
+  "source": "129a8a0 fix(state): settle the two-axis and kernel reviews of the capability qualification run"
+}

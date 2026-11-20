@@ -1,0 +1,7 @@
+{
+  "id": "7eae994-in-process-deadline",
+  "patch": "tests/planted-faults/patches/d62870c-lifecycle-handler.patch",
+  "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+  "title": "IP08\\.duplicate-keeps-live-run",
+  "source": "7eae994 fix(kernel): let only the attachment that a run created forget it"
+}

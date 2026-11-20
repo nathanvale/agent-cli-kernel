@@ -44,7 +44,7 @@ Done when each item holds at the pushed head:
 ## Review
 
 1. Read the diff and the commit bodies in its range. Planted-fault evidence
-   lives in `tests/planted-faults/fault-records.json`; judge it against the
+   lives in `tests/planted-faults/fault-records/`; judge it against the
    [planted-fault guide](../../../docs/standards/test-proof.md#planted-faults).
 2. Run the [review routine](../../../CODING_STANDARDS.md#review-routine) on
    that diff. Its last step is your report.

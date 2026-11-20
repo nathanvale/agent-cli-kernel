@@ -1,0 +1,11 @@
+diff --git a/scripts/planted-fault-folders.ts b/scripts/planted-fault-folders.ts
+index ae9e9e3..2535359 100644
+--- a/scripts/planted-fault-folders.ts
++++ b/scripts/planted-fault-folders.ts
+@@ -39,5 +39,5 @@ export function folderFiles(
+         text: readFileSync(join(root, file), "utf8"),
+       };
+     })
+-    .toSorted((left, right) => idOrder(left.id, right.id));
++    .toSorted((left, right) => idOrder(left.file, right.file));
+ }

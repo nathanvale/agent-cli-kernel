@@ -1,0 +1,7 @@
+{
+  "id": "f9de892-store-report-trusts-moved-read",
+  "patch": "tests/planted-faults/patches/f9de892-store-report-trusts-moved-read.patch",
+  "testFile": "tests/kernel/state/journal.test.ts",
+  "title": "^L08\\.a-",
+  "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+}

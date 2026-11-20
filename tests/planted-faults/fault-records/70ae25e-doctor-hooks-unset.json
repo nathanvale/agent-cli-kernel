@@ -1,0 +1,7 @@
+{
+  "id": "70ae25e-doctor-hooks-unset",
+  "patch": "tests/planted-faults/patches/70ae25e-doctor-hooks-unset.patch",
+  "testFile": "tests/template/doctor/doctor.test.ts",
+  "title": "^doctor a checkout whose core.hooksPath is not set warns",
+  "source": "70ae25e feat(doctor): warn when core.hooksPath does not run this checkout's .githooks"
+}

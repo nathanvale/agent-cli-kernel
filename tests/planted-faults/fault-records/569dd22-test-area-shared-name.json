@@ -1,0 +1,7 @@
+{
+  "id": "569dd22-test-area-shared-name",
+  "patch": "tests/planted-faults/patches/569dd22-test-area-shared-name.patch",
+  "testFile": "tests/template/doctor/doctor.test.ts",
+  "title": "naming both folders",
+  "source": "569dd22 fix(test-area): refuse one area name given to more than one folder"
+}

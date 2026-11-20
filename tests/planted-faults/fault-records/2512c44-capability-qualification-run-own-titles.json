@@ -1,0 +1,7 @@
+{
+  "id": "2512c44-capability-qualification-run-own-titles",
+  "patch": "tests/planted-faults/patches/2512c44-capability-qualification-run-own-titles.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^each case result comes from its own test",
+  "source": "2512c44 fix(state): require every tracked entry to resolve to a tracked path in the checkout"
+}

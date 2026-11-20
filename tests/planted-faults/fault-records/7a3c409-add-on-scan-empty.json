@@ -1,0 +1,7 @@
+{
+  "id": "7a3c409-add-on-scan-empty",
+  "patch": "tests/planted-faults/patches/7a3c409-add-on-scan-empty.patch",
+  "testFile": "tests/kernel/add-on-boundary.test.ts",
+  "title": "^the add-on import scan refuses a kernel folder with no file to scan",
+  "source": "7a3c409 test(kernel): refuse an add-on import scan that finds no file"
+}

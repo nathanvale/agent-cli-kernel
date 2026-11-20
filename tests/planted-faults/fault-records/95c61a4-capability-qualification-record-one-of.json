@@ -1,0 +1,7 @@
+{
+  "id": "95c61a4-capability-qualification-record-one-of",
+  "patch": "tests/planted-faults/patches/95c61a4-capability-qualification-record-one-of.patch",
+  "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+  "title": "^Q03.a refuses a record with an unknown",
+  "source": "95c61a4 fix(state): settle the kernel-reviewer pass on the Sol fixes"
+}

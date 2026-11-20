@@ -1,0 +1,7 @@
+{
+  "id": "6ff2c16-in-process-crash-kill",
+  "patch": "tests/planted-faults/patches/30e8fb1-lifecycle-nested.patch",
+  "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+  "title": "IP09\\.kill-reentry",
+  "source": "6ff2c16 fix(kernel): call onCrash only after the host's crash handler returns"
+}

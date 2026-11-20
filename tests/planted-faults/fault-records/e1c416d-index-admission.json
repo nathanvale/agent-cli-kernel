@@ -1,0 +1,7 @@
+{
+  "id": "e1c416d-index-admission",
+  "patch": "tests/planted-faults/patches/e1c416d-index-admission.patch",
+  "testFile": "tests/kernel/programs/program-input.test.ts",
+  "title": "a domain request over the limit is refused before admission and starts no program$",
+  "source": "e1c416d fix(programs): judge input by its real length and check domain requests first"
+}

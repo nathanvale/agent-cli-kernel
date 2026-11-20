@@ -1,0 +1,7 @@
+{
+  "id": "dbd74b7-glossary-note-semicolon",
+  "patch": "tests/planted-faults/patches/dbd74b7-glossary-note-semicolon.patch",
+  "testFile": "tests/template/naming/names.test.ts",
+  "title": "^NM\\.d before a semicolon",
+  "source": "dbd74b7 feat(naming): leave an Avoid word that a note covers to the reviewer"
+}

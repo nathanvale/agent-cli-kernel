@@ -5,12 +5,13 @@ import {
   add,
   type Fault,
   readRecords,
+  recordFile,
+  recordsPath,
 } from "../../../scripts/planted-faults.ts";
 import {
   createPlantedFaultFixture,
   guarded,
   limitTests,
-  recordsPath,
   rejection,
   sample,
   unguarded,
@@ -21,55 +22,153 @@ import { gitOutput, commit } from "../../support/git-fixture.ts";
 const { folder, isolated, repository } = createPlantedFaultFixture();
 
 describe("readRecords", () => {
-  function recordsIn(content: string | null, files: string[] = []): string {
+  function recordsIn(
+    files: Readonly<Record<string, string>>,
+    tests: string[] = [],
+  ): string {
     const root = folder("planted-faults-records-");
-    for (const file of files) write(root, file, "");
-    if (content !== null) write(root, recordsPath, content);
+    for (const file of tests) write(root, file, "");
+    for (const [path, content] of Object.entries(files))
+      write(root, path, content);
     return root;
   }
 
-  test("gives no records when the records file is absent", () => {
-    expect(readRecords(recordsIn(null))).toEqual([]);
+  const text = (record: unknown) => JSON.stringify(record);
+  const sampleFile = recordFile(sample.id);
+
+  test("gives no records when the records folder is absent", () => {
+    expect(readRecords(recordsIn({}))).toEqual([]);
   });
 
-  test("reads each record in file order, with every field", () => {
-    const other: Fault = { ...sample, id: "def5678-other" };
-    const root = recordsIn(JSON.stringify([sample, other]), [
+  test("reads every record file in the folder, in id order, with every field", () => {
+    const longer: Fault = { ...sample, id: `${sample.id}-longer` };
+    const other: Fault = { ...sample, id: "000aaaa-other" };
+    const root = recordsIn(
+      {
+        [recordFile(longer.id)]: text(longer),
+        [sampleFile]: text(sample),
+        [recordFile(other.id)]: text(other),
+      },
+      ["tests/limit.test.ts"],
+    );
+
+    expect(readRecords(root)).toEqual([other, sample, longer]);
+  });
+
+  test("reads a record file added beside the others, with no list to update", () => {
+    const root = recordsIn({ [sampleFile]: text(sample) }, [
       "tests/limit.test.ts",
     ]);
+    const added: Fault = { ...sample, id: "def5678-added" };
+    write(root, recordFile(added.id), text(added));
 
-    expect(readRecords(root)).toEqual([sample, other]);
+    expect(readRecords(root).map(({ id }) => id)).toEqual([
+      sample.id,
+      added.id,
+    ]);
   });
 
   test("keeps only the five named fields of a record", () => {
-    const root = recordsIn(JSON.stringify([{ ...sample, extra: "ignored" }]), [
+    const root = recordsIn({ [sampleFile]: text({ ...sample, extra: "x" }) }, [
       "tests/limit.test.ts",
     ]);
 
     expect(readRecords(root)).toEqual([sample]);
   });
 
-  test("refuses a file whose top level is not an array", () => {
-    const root = recordsIn(JSON.stringify({ id: "x" }));
+  test("skips the macOS .DS_Store file in the records folder", () => {
+    const root = recordsIn(
+      { [sampleFile]: text(sample), [`${recordsPath}/.DS_Store`]: "x" },
+      ["tests/limit.test.ts"],
+    );
+
+    expect(readRecords(root)).toEqual([sample]);
+  });
+
+  test("refuses any other dot-named file in the records folder, naming it", () => {
+    const hidden: Fault = { ...sample, id: "def5678-hidden" };
+    const root = recordsIn(
+      {
+        [sampleFile]: text(sample),
+        [`${recordsPath}/.${hidden.id}.json`]: text(hidden),
+      },
+      ["tests/limit.test.ts"],
+    );
 
     expect(() => readRecords(root)).toThrow(
-      `${recordsPath} must hold an array of fault records. Repair: make its top level one JSON array.`,
+      `${recordsPath}/.def5678-hidden.json is not a fault record file. Repair: keep each fault record as a plain file named <id>.json, with no leading dot, and nothing else in ${recordsPath}.`,
     );
   });
 
-  test("refuses a file that is not JSON", () => {
-    const root = recordsIn("not json");
+  test("refuses a folder in the records folder named like a record, naming it", () => {
+    const root = recordsIn(
+      {
+        [sampleFile]: text(sample),
+        [`${recordsPath}/def5678-folder.json/inner.json`]: text(sample),
+      },
+      ["tests/limit.test.ts"],
+    );
 
-    expect(() => readRecords(root)).toThrow("JSON Parse error");
+    expect(() => readRecords(root)).toThrow(
+      `${recordsPath}/def5678-folder.json is not a fault record file. Repair: keep each fault record as a plain file named <id>.json, with no leading dot, and nothing else in ${recordsPath}.`,
+    );
   });
 
-  test("refuses an id listed twice and names it", () => {
-    const root = recordsIn(JSON.stringify([sample, sample]), [
+  test("refuses the old single list of records, beside the folder or alone, naming it", () => {
+    const repair =
+      "tests/planted-faults/fault-records.json is the old single list of each fault record, which nothing reads any more. Repair: move each entry in it to its own file, tests/planted-faults/fault-records/<id>.json, then delete tests/planted-faults/fault-records.json.";
+    const beside = recordsIn(
+      {
+        [sampleFile]: text(sample),
+        "tests/planted-faults/fault-records.json": text([sample]),
+      },
+      ["tests/limit.test.ts"],
+    );
+    const alone = recordsIn({
+      "tests/planted-faults/fault-records.json": text([sample]),
+    });
+
+    expect(() => readRecords(beside)).toThrow(repair);
+    expect(() => readRecords(alone)).toThrow(repair);
+  });
+
+  test("refuses a file in the records folder that is not a .json record, naming it", () => {
+    const root = recordsIn(
+      {
+        [sampleFile]: text(sample),
+        [`${recordsPath}/notes.txt`]: text({ ...sample, id: "notes" }),
+      },
+      ["tests/limit.test.ts"],
+    );
+
+    expect(() => readRecords(root)).toThrow(
+      `${recordsPath}/notes.txt is not a fault record file. Repair: keep each fault record as a plain file named <id>.json, with no leading dot, and nothing else in ${recordsPath}.`,
+    );
+  });
+
+  test("refuses a record file that is not JSON, naming the file", () => {
+    const root = recordsIn({ [sampleFile]: "not json" });
+    const parserSays = (() => {
+      try {
+        JSON.parse("not json");
+      } catch (error) {
+        return error instanceof Error ? error.message : String(error);
+      }
+      throw new Error("JSON.parse accepted 'not json'.");
+    })();
+
+    expect(() => readRecords(root)).toThrow(
+      `${sampleFile} is not one JSON fault record: ${parserSays}. Repair: write one JSON object with the five record fields.`,
+    );
+  });
+
+  test("refuses a record whose id is not its file name, naming both", () => {
+    const root = recordsIn({ [recordFile("other")]: text(sample) }, [
       "tests/limit.test.ts",
     ]);
 
     expect(() => readRecords(root)).toThrow(
-      `${recordsPath} lists abc1234-limit twice. Repair: remove one record, or give it another id.`,
+      `${recordFile("other")} holds the record abc1234-limit. Repair: rename the file abc1234-limit.json, or correct its id.`,
     );
   });
 
@@ -88,28 +187,28 @@ describe("readRecords", () => {
   ])("refuses a record with no %s and gives its repair", (field, repair) => {
     const record: Record<string, string> = { ...sample };
     delete record[field];
-    const root = recordsIn(JSON.stringify([sample, record]), [
+    const root = recordsIn({ [sampleFile]: text(record) }, [
       "tests/limit.test.ts",
     ]);
 
     expect(() => readRecords(root)).toThrow(
-      `${recordsPath} record 1 needs a non-empty string ${field}. Repair: ${repair}`,
+      `${sampleFile} needs a non-empty string ${field}. Repair: ${repair}`,
     );
   });
 
   test("refuses a record whose field is empty or not text", () => {
-    const empty = recordsIn(JSON.stringify([{ ...sample, title: "" }]), [
+    const empty = recordsIn({ [sampleFile]: text({ ...sample, title: "" }) }, [
       "tests/limit.test.ts",
     ]);
-    const number = recordsIn(JSON.stringify([{ ...sample, patch: 3 }]), [
+    const number = recordsIn({ [sampleFile]: text({ ...sample, patch: 3 }) }, [
       "tests/limit.test.ts",
     ]);
 
     expect(() => readRecords(empty)).toThrow(
-      `${recordsPath} record 0 needs a non-empty string title.`,
+      `${sampleFile} needs a non-empty string title. Repair: name the bun test -t pattern that selects the test that kills the planted fault.`,
     );
     expect(() => readRecords(number)).toThrow(
-      `${recordsPath} record 0 needs a non-empty string patch.`,
+      `${sampleFile} needs a non-empty string patch. Repair: name the planted fault's patch under tests/planted-faults/patches.`,
     );
   });
 
@@ -117,25 +216,28 @@ describe("readRecords", () => {
     ["null", "null"],
     ["a string", '"abc"'],
     ["a number", "7"],
+    ["a list", "[]"],
   ])("refuses a record that is %s", (_name, entry) => {
-    const root = recordsIn(`[${entry}]`);
+    const root = recordsIn({ [sampleFile]: entry });
 
     expect(() => readRecords(root)).toThrow(
-      `${recordsPath} record 0 needs a non-empty string id.`,
+      `${sampleFile} needs a non-empty string id. Repair: name it <fix short sha>-<source file name>.`,
     );
   });
 
   test("refuses a record whose test file does not exist", () => {
-    const root = recordsIn(JSON.stringify([sample]));
+    const root = recordsIn({ [sampleFile]: text(sample) });
 
     expect(() => readRecords(root)).toThrow(
-      `${recordsPath} record 0 names testFile tests/limit.test.ts, which does not exist. Repair: name a test file relative to the repository root.`,
+      `${sampleFile} names testFile tests/limit.test.ts, which does not exist. Repair: name a test file relative to the repository root.`,
     );
   });
 
-  test("reads the file under the root it is given, not another", () => {
-    const left = recordsIn(JSON.stringify([sample]), ["tests/limit.test.ts"]);
-    const right = recordsIn(null);
+  test("reads the folder under the root it is given, not another", () => {
+    const left = recordsIn({ [sampleFile]: text(sample) }, [
+      "tests/limit.test.ts",
+    ]);
+    const right = recordsIn({});
 
     expect(readRecords(left)).toEqual([sample]);
     expect(readRecords(right)).toEqual([]);
@@ -174,33 +276,34 @@ describe("add", () => {
     "^L\\.refuses ",
   ];
 
-  test("stores the fix's reverse hunk and a record naming it", async () => {
+  test("stores the fix's reverse hunk and a record file naming it", async () => {
     const { root, fix, full } = fixed();
 
     const run = await added(root, args(fix));
 
     const id = `${fix}-limit`;
+    const record = {
+      id,
+      patch: `tests/planted-faults/patches/${id}.patch`,
+      testFile: "tests/limit.test.ts",
+      title: "^L\\.refuses ",
+      source: `${fix} fix: refuse a NaN limit`,
+    };
     expect(run.result).toBe(0);
     expect(run.stdout).toBe(
       `Added ${id}. Replay it: bun run fault-replay ${id}\n`,
     );
     expect(run.stderr).toBe("");
-    expect(savedRecords(root)).toEqual([
-      {
-        id,
-        patch: `tests/planted-faults/patches/${id}.patch`,
-        testFile: "tests/limit.test.ts",
-        title: "^L\\.refuses ",
-        source: `${fix} fix: refuse a NaN limit`,
-      },
-    ]);
+    expect(savedRecords(root)).toEqual([record]);
     expect(
       readFileSync(
         join(root, `tests/planted-faults/patches/${id}.patch`),
         "utf8",
       ),
     ).toBe(gitOutput(root, "diff", full, `${full}^`, "--", "src/limit.ts"));
-    expect(readFileSync(join(root, recordsPath), "utf8")).toEndWith("}\n]\n");
+    expect(readFileSync(join(root, recordFile(id)), "utf8")).toBe(
+      `${JSON.stringify(record, null, 2)}\n`,
+    );
     expect(run.leftovers).toEqual([]);
   });
 
@@ -229,10 +332,14 @@ describe("add", () => {
     );
   });
 
-  test("adds to the records already there, in order", async () => {
+  test("adds a record file beside the records already there, leaving them as they were", async () => {
     const { root, fix } = fixed();
     const first = await added(root, args(fix));
     expect(first.result).toBe(0);
+    const firstRecord = readFileSync(
+      join(root, recordFile(`${fix}-limit`)),
+      "utf8",
+    );
 
     const second = await added(root, [
       fix,
@@ -246,6 +353,9 @@ describe("add", () => {
       [`${fix}-limit`, "^L\\.refuses "],
       [`${fix}-other`, "x"],
     ]);
+    expect(readFileSync(join(root, recordFile(`${fix}-limit`)), "utf8")).toBe(
+      firstRecord,
+    );
   });
 
   test("names the id after the source file without its extension", async () => {
@@ -269,22 +379,89 @@ describe("add", () => {
   test("refuses an id already recorded and leaves the files as they were", async () => {
     const { root, fix } = fixed();
     await added(root, args(fix));
-    const records = readFileSync(join(root, recordsPath), "utf8");
+    const recordPath = join(root, recordFile(`${fix}-limit`));
+    const record = readFileSync(recordPath, "utf8");
     const patchPath = join(
       root,
       `tests/planted-faults/patches/${fix}-limit.patch`,
     );
     writeFileSync(patchPath, "edited by hand\n");
 
+    const run = await added(root, [
+      fix,
+      "src/limit.ts",
+      "tests/limit.test.ts",
+      "^another title ",
+    ]);
+
+    expect(run.result).toBe(2);
+    expect(run.stdout).toBe("");
+    expect(run.stderr).toBe(
+      `${recordsPath} already holds ${fix}-limit. Repair: plant it again by hand, run git diff -- 'src/limit.ts' > 'tests/planted-faults/patches/${fix}-limit.patch', then undo the planted edit; or add the new record by hand under another id.\n`,
+    );
+    expect(readFileSync(recordPath, "utf8")).toBe(record);
+    expect(readdirSync(join(root, recordsPath))).toEqual([`${fix}-limit.json`]);
+    expect(readFileSync(patchPath, "utf8")).toBe("edited by hand\n");
+  });
+
+  test("refuses an id that differs from a recorded one only by letter case, and writes nothing", async () => {
+    const root = repository("planted-faults-add-case-");
+    commit(root, "base", { "src/limit.ts": "a\n", "lib/Limit.ts": "a\n" });
+    commit(root, "fix: both limits", {
+      "src/limit.ts": "b\n",
+      "lib/Limit.ts": "b\n",
+      "tests/limit.test.ts": limitTests,
+    });
+    const short = gitOutput(root, "rev-parse", "--short", "HEAD").trim();
+    const first = await added(root, [
+      short,
+      "src/limit.ts",
+      "tests/limit.test.ts",
+      "^L ",
+    ]);
+    expect(first.result).toBe(0);
+    const record = readFileSync(
+      join(root, recordFile(`${short}-limit`)),
+      "utf8",
+    );
+
+    const run = await added(root, [
+      short,
+      "lib/Limit.ts",
+      "tests/limit.test.ts",
+      "^L ",
+    ]);
+
+    expect(run.result).toBe(2);
+    expect(run.stdout).toBe("");
+    expect(run.stderr).toBe(
+      `${recordsPath} already holds ${short}-limit, which differs from ${short}-Limit only by letter case, and a macOS folder holds one file for both. Repair: add the new record by hand under an id that differs by more than case.\n`,
+    );
+    expect(readdirSync(join(root, recordsPath))).toEqual([
+      `${short}-limit.json`,
+    ]);
+    expect(readFileSync(join(root, recordFile(`${short}-limit`)), "utf8")).toBe(
+      record,
+    );
+    expect(readdirSync(join(root, "tests/planted-faults/patches"))).toEqual([
+      `${short}-limit.patch`,
+    ]);
+  });
+
+  test("refuses a patch that already exists with no record, keeping it and writing no record", async () => {
+    const { root, fix } = fixed();
+    const patch = `tests/planted-faults/patches/${fix}-limit.patch`;
+    write(root, patch, "kept\n");
+
     const run = await added(root, args(fix));
 
     expect(run.result).toBe(2);
     expect(run.stdout).toBe("");
     expect(run.stderr).toBe(
-      `${recordsPath} already lists ${fix}-limit. Repair: plant it again by hand, run git diff -- 'src/limit.ts' > 'tests/planted-faults/patches/${fix}-limit.patch', then undo the planted edit; or add the new record by hand under another id.\n`,
+      `${patch} already exists, and no record names it. Repair: delete or rename that patch if nothing uses it, then run this command again.\n`,
     );
-    expect(readFileSync(join(root, recordsPath), "utf8")).toBe(records);
-    expect(readFileSync(patchPath, "utf8")).toBe("edited by hand\n");
+    expect(readFileSync(join(root, patch), "utf8")).toBe("kept\n");
+    expect(readdirSync(join(root, recordsPath))).toEqual([]);
   });
 
   test.each([
@@ -366,7 +543,7 @@ describe("add", () => {
     expect(run.result).toBe(0);
     expect(existsSync(join(elsewhere, recordsPath))).toBe(false);
     expect(readdirSync(join(root, "tests/planted-faults")).sort()).toEqual([
-      "fault-records.json",
+      "fault-records",
       "patches",
     ]);
   });

@@ -1,0 +1,7 @@
+{
+  "id": "383d361-capability-qualification-run-exit-code",
+  "patch": "tests/planted-faults/patches/383d361-capability-qualification-run-exit-code.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^a capability qualification run refuses a test process that exited non-zero with no covered case failing",
+  "source": "383d361 fix(state): prove committed bytes, refuse repeated or failed results, and bound what was unbounded"
+}

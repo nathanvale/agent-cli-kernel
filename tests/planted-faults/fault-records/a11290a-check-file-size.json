@@ -1,0 +1,7 @@
+{
+  "id": "a11290a-check-file-size",
+  "patch": "tests/planted-faults/patches/a11290a-check-file-size.patch",
+  "testFile": "tests/template/file-size/file-size.test.ts",
+  "title": "^the package command passes 5000 tokens and refuses 5001$",
+  "source": "a11290a feat(gates): enforce the template file-size limit"
+}

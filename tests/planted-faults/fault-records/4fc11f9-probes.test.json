@@ -1,0 +1,7 @@
+{
+  "id": "4fc11f9-probes.test",
+  "patch": "tests/planted-faults/patches/4fc11f9-probes.test.patch",
+  "testFile": "tests/kernel/locks/probe-folders.test.ts",
+  "title": "a locks probe run leaves no folder in the temp folder when its filter matches some of its tests or none",
+  "source": "4fc11f9 test(locks): write each probe fixture in the batch that compiles it"
+}

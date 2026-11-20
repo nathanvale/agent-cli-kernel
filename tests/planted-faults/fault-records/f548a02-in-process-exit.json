@@ -1,0 +1,7 @@
+{
+  "id": "f548a02-in-process-exit",
+  "patch": "tests/planted-faults/patches/f548a02-lifecycle-exit.patch",
+  "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+  "title": "IP01\\.no-exit-after-run",
+  "source": "f548a02 feat(kernel): run many commands in one process through runInProcess"
+}

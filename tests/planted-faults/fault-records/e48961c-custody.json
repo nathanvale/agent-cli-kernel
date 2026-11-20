@@ -1,0 +1,7 @@
+{
+  "id": "e48961c-custody",
+  "patch": "tests/planted-faults/patches/e48961c-custody.patch",
+  "testFile": "tests/kernel/diagnostics/custody.test.ts",
+  "title": "^the allocation lock wait ends at its limit by the clock",
+  "source": "e48961c fix(diagnostics): end the allocation lock wait at its limit by the clock"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "f9de892-install-moved-target",
+  "patch": "tests/planted-faults/patches/f9de892-install-moved-target.patch",
+  "testFile": "tests/kernel/state/recovery.test.ts",
+  "title": "^X26 supporting: a closer whose target settles",
+  "source": "f9de892 feat(state): store version 2 with settled/ and moving settled cases"
+}

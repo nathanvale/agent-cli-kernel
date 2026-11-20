@@ -1,0 +1,7 @@
+{
+  "id": "d2034aa-pre-commit",
+  "patch": "tests/planted-faults/patches/d2034aa-pre-commit.patch",
+  "testFile": "tests/template/naming/pre-commit.test.ts",
+  "title": "^PC\\.a ",
+  "source": "d2034aa feat(hooks): refuse a commit that adds a badly named file"
+}

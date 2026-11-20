@@ -16,7 +16,11 @@ list. The lessons recur across pull requests #4, #5, and #6.
   guidance path. Witnessed: [#5 r4575427505].
 - Name the exact restriction that refused the input in the repair message.
   Witnessed: [#4 r4024233462], [4afda36] (the recipe table's last refusal
-  was reached by elimination, not by a check of its own condition).
+  was reached by elimination, not by a check of its own condition),
+  [8cbec55] (a fault record file that could not be read was reported as
+  bad JSON with a JSON repair; Sol 6.1 review), [911189b] (a folder named
+  like a record failed with a bare `EISDIR` that named no file; Fable
+  review of pull request 54).
 - Give each result an entry can return a case of its own, the one with no
   envelope included. Witnessed: [kernel#6 r4622774177] (`runInProcess`
   returned `no-envelope` when the result and the fallback both failed, and
@@ -32,3 +36,5 @@ list. The lessons recur across pull requests #4, #5, and #6.
 [75b4bc0]: https://github.com/nathanvale/bun-typescript-template/commit/75b4bc045d038970858b95b136f9f176fd3fc4cc
 [4afda36]: https://github.com/nathanvale/bun-typescript-template/commit/4afda36976516ad56087d6afc2ae6a69ca01e68d
 [kernel#6 r4622774177]: https://github.com/nathanvale/agent-cli-kernel/pull/6#discussion_r4622774177
+[8cbec55]: https://github.com/nathanvale/agent-cli-kernel/commit/8cbec55e65afbbba5650d447e00cac40ce0e01c3
+[911189b]: https://github.com/nathanvale/agent-cli-kernel/commit/911189bb75fa97d60acaacfba6034417522804aa

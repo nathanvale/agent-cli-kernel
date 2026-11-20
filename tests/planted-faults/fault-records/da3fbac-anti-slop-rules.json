@@ -1,0 +1,7 @@
+{
+  "id": "da3fbac-anti-slop-rules",
+  "patch": "tests/planted-faults/patches/da3fbac-anti-slop-rules.patch",
+  "testFile": "tests/template/lint/anti-slop-rules.test.ts",
+  "title": "^anti-slop/no-accumulating-spread refuses the r4609659207 shape",
+  "source": "da3fbac fix(lint): judge only spreads that build an array or object"
+}

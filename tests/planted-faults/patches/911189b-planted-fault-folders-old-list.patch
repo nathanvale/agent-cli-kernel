@@ -1,0 +1,15 @@
+diff --git a/scripts/planted-fault-folders.ts b/scripts/planted-fault-folders.ts
+index 8cf0881..b17bd43 100644
+--- a/scripts/planted-fault-folders.ts
++++ b/scripts/planted-fault-folders.ts
+@@ -19,10 +19,6 @@ export function folderFiles(
+   kind: string,
+ ): FolderFile[] {
+   const list = `${folder}${fileExtension}`;
+-  if (existsSync(join(root, list)))
+-    throw new Error(
+-      `${list} is the old single list of each ${kind}, which nothing reads any more. Repair: move each entry in it to its own file, ${folder}/<id>${fileExtension}, then delete ${list}.`,
+-    );
+   if (!existsSync(join(root, folder))) return [];
+   return readdirSync(join(root, folder), { withFileTypes: true })
+     .filter((entry) => entry.name !== systemNoise)

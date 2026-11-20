@@ -1,0 +1,7 @@
+{
+  "id": "07550c9-capability-qualification-run-marks-not-runnable",
+  "patch": "tests/planted-faults/patches/07550c9-capability-qualification-run-marks-not-runnable.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^each case result comes from its own test",
+  "source": "07550c9 feat(state): give each capability qualification run its own required cases"
+}

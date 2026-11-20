@@ -1,0 +1,7 @@
+{
+  "id": "3957781-capability-qualification-run-report-kept",
+  "patch": "tests/planted-faults/patches/3957781-capability-qualification-run-report-kept.patch",
+  "testFile": "tests/kernel/state/capability-qualification-run.test.ts",
+  "title": "^the capability qualification run.s own case runner loads only the files",
+  "source": "3957781 fix(state): run only the covered case files and keep a run inside its parent"
+}

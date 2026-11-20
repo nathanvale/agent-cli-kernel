@@ -1,0 +1,7 @@
+{
+  "id": "b456208-json-equality",
+  "patch": "tests/planted-faults/patches/b456208-json-equality.patch",
+  "testFile": "tests/kernel/kernel-repair/equality.test.ts",
+  "title": "^R15\\.",
+  "source": "b456208 fix(contract3): JSON equality sorts keys by code unit, not locale (F16)"
+}

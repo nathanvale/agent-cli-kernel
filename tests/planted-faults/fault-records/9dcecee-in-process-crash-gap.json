@@ -1,0 +1,7 @@
+{
+  "id": "9dcecee-in-process-crash-gap",
+  "patch": "tests/planted-faults/patches/9dcecee-lifecycle-gap.patch",
+  "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+  "title": "IP09\\.program-in-gap",
+  "source": "9dcecee fix(kernel): stop a program started between the crash kill and the abort"
+}

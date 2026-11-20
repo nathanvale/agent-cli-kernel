@@ -1,0 +1,7 @@
+{
+  "id": "14d6b55-in-process-entry",
+  "patch": "tests/planted-faults/patches/14d6b55-lifecycle.patch",
+  "testFile": "tests/kernel/lifecycle/in-process.test.ts",
+  "title": "IP10\\.stop-during-entry",
+  "source": "14d6b55 fix(kernel): give a stop request during handler entry the handler to wait for"
+}
