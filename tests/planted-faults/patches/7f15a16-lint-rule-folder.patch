@@ -1,0 +1,13 @@
+diff --git a/tests/support/lint-rule-folder.ts b/tests/support/lint-rule-folder.ts
+index 94ba45f..66ddf45 100644
+--- a/tests/support/lint-rule-folder.ts
++++ b/tests/support/lint-rule-folder.ts
+@@ -12,7 +12,7 @@ export function lintRuleFolder(parent: string): string {
+ export function treeFiles(pattern: string, cwd: string): string[] {
+   return globSync(pattern, {
+     cwd,
+-    exclude: (entry) => entry.isDirectory() && entry.name.startsWith(prefix),
++    exclude: [`**/${prefix}*`],
+     withFileTypes: true,
+   })
+     .filter((entry) => entry.isFile())

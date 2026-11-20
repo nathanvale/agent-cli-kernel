@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import ts from "typescript";
+import { treeFiles } from "../../support/lint-rule-folder.ts";
 
 const root = join(import.meta.dir, "../../..");
 const here = import.meta.dir;
@@ -455,7 +456,7 @@ function loadTable(): Table {
 function filesInScope(table: Table): string[] {
   const files = new Set<string>();
   for (const pattern of table.scope)
-    for (const file of new Bun.Glob(pattern).scanSync({ cwd: root }))
+    for (const file of treeFiles(pattern, root))
       if (!inScope(file, table.exempt)) files.add(file);
   return [...files].sort();
 }
@@ -549,9 +550,7 @@ describe("glossary check", () => {
 
   test("every exempt and scope pattern names something that exists", () => {
     const missing = [...table.scope, ...table.exempt].filter(
-      (pattern) =>
-        [...new Bun.Glob(pattern).scanSync({ cwd: root, onlyFiles: true })]
-          .length === 0,
+      (pattern) => treeFiles(pattern, root).length === 0,
     );
     expect(missing).toEqual([]);
   });
@@ -729,15 +728,7 @@ describe("glossary check proof", () => {
     const dead = table.terms.flatMap((term) =>
       term.avoid.flatMap((avoid) =>
         avoid.pathsOnly
-          .filter(
-            (pattern) =>
-              [
-                ...new Bun.Glob(pattern).scanSync({
-                  cwd: root,
-                  onlyFiles: true,
-                }),
-              ].length === 0,
-          )
+          .filter((pattern) => treeFiles(pattern, root).length === 0)
           .map((pattern) => `${term.term}: ${pattern}`),
       ),
     );
@@ -790,7 +781,7 @@ describe("glossary check proof", () => {
   if (contractFolder !== undefined)
     test("R5b every quote id is a clause in the frozen contract or a decision id", () => {
       const contract = join(root, contractFolder);
-      const text = [...new Bun.Glob("*.md").scanSync({ cwd: contract })]
+      const text = treeFiles("*.md", contract)
         .map((name) => readFileSync(join(contract, name), "utf8"))
         .join("\n");
       const missing = table.quoteIds.filter(
