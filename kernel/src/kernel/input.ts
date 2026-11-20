@@ -21,26 +21,36 @@ export const emptyInput = {
 export type PatternResult = "match" | "mismatch" | "invalid" | "budget";
 const patternWorkerSource = `self.onmessage = (event) => {
   const value = event.data;
+  const fields = typeof value === "object" && value !== null ? value : {};
+  const hasPattern = Object.hasOwn(fields, "pattern");
+  const hasInput = Object.hasOwn(fields, "input");
+  const pattern = hasPattern ? fields.pattern : undefined;
+  const input = hasInput ? fields.input : undefined;
   if (
-    typeof value !== "object" ||
-    value === null ||
-    !("pattern" in value) ||
-    !("input" in value) ||
-    typeof value.pattern !== "string" ||
-    (value.input !== null && typeof value.input !== "string")
+    !hasPattern ||
+    !hasInput ||
+    typeof pattern !== "string" ||
+    (input !== null && typeof input !== "string")
   ) {
     self.postMessage("invalid");
     return;
   }
   try {
-    const pattern = new RegExp("^(?:" + value.pattern + ")$", "u");
+    const expression = new RegExp("^(?:" + pattern + ")$", "u");
     self.postMessage(
-      value.input === null || pattern.test(value.input) ? "match" : "mismatch",
+      input === null || expression.test(input) ? "match" : "mismatch",
     );
   } catch {
     self.postMessage("invalid");
   }
 };`;
+const patternWorker: { address?: string } = {};
+function patternWorkerAddress(): string {
+  patternWorker.address ??= URL.createObjectURL(
+    new Blob([patternWorkerSource], { type: "text/javascript" }),
+  );
+  return patternWorker.address;
+}
 export async function matchPattern(
   pattern: string,
   input: string | null,
@@ -48,12 +58,8 @@ export async function matchPattern(
   if (pattern.length > 1024 || (input !== null && [...input].length > 4096))
     return "budget";
   return new Promise((resolve) => {
-    const address = URL.createObjectURL(
-      new Blob([patternWorkerSource], { type: "text/javascript" }),
-    );
-    const worker = new Worker(address);
+    const worker = new Worker(patternWorkerAddress());
     const finish = (result: PatternResult) => {
-      URL.revokeObjectURL(address);
       clearTimeout(timer);
       void worker.terminate();
       resolve(result);

@@ -379,12 +379,22 @@ test(
 
 const runIdentity = /"runId":"[0-9a-f-]{36}"/;
 
+async function bothSettled<A, B>(
+  first: Promise<A>,
+  second: Promise<B>,
+): Promise<[A, B]> {
+  const [one, two] = await Promise.allSettled([first, second]);
+  if (one.status === "rejected") throw one.reason;
+  if (two.status === "rejected") throw two.reason;
+  return [one.value, two.value];
+}
+
 async function sourceAndBinary(name: string) {
   const argv = ["match", "--name", name, "--json"];
-  const [source, binary] = await Promise.all([
+  const [source, binary] = await bothSettled(
     run([process.execPath, "src/cli.ts", ...argv], world.consumer),
     run([join(world.consumer, "dist/bare"), ...argv], world.consumer),
-  ]);
+  );
   const answer = ({ exit, stdout, stderr }: Ran) => {
     if (!runIdentity.test(stdout))
       throw new Error(`Expected one run identity in ${stdout}`);
@@ -401,10 +411,10 @@ test(
   "the binary checks a pattern-checked option as the source run does: it accepts a matching name and refuses a mismatching one as a pattern mismatch",
   async () => {
     expect(world.binary?.exit).toBe(0);
-    const [matching, mismatching] = await Promise.all([
+    const [matching, mismatching] = await bothSettled(
       sourceAndBinary("abc"),
       sourceAndBinary("ABC"),
-    ]);
+    );
     expect(matching.binary).toEqual(matching.source);
     expect(matching.binary.exit).toBe(0);
     expect(matching.binary.stdout).toContain("SUCCESS_UNCHANGED");
