@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-scenario-raises-name-length",
+  "patch": "tests/planted-faults/patches/b7fb111-scenario-raises-name-length.patch",
+  "testFile": "tests/kernel/verify-skill/in-process.test.ts",
+  "title": "a name may be 64 characters, and not 65",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

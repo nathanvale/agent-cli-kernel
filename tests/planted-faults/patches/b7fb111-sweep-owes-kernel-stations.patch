@@ -1,0 +1,11 @@
+diff --git a/skills/verify-cli/helper/target.ts b/skills/verify-cli/helper/target.ts
+index d962633..1dc27ea 100644
+--- a/skills/verify-cli/helper/target.ts
++++ b/skills/verify-cli/helper/target.ts
+@@ -97,5 +97,5 @@ export function ownCommands(discovery: unknown): Commands {
+ }
+ 
+ export function kernelAdded(cause: string, trigger: string): boolean {
+-  return trigger === `Kernel ${cause}.`;
++  return trigger === `Kernel ${cause}.` && false;
+ }

@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-scenario-raises-time-sum",
+  "patch": "tests/planted-faults/patches/b7fb111-scenario-raises-time-sum.patch",
+  "testFile": "tests/kernel/verify-skill/in-process.test.ts",
+  "title": "the steps' time limits may sum to 3,600,000 ms",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

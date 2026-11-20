@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/scenario.ts b/skills/verify-cli/helper/scenario.ts
+index d3bf2c9..5944fbf 100644
+--- a/skills/verify-cli/helper/scenario.ts
++++ b/skills/verify-cli/helper/scenario.ts
+@@ -384,7 +384,7 @@ export function readScenario(path: string): ScenarioRead {
+     }
+     const parsed = parsedJson(text);
+     if (parsed === undefined) fail("unreadable", `${path} is not JSON`);
+-    return { kind: "read", scenario: deepFrozen(scenarioOf(parsed)) };
++    return { kind: "read", scenario: scenarioOf(parsed) };
+   } catch (error) {
+     if (error instanceof Broken)
+       return { kind: "broken", rule: error.rule, detail: error.message };

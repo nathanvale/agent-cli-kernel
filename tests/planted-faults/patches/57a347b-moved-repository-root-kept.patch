@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
+index ea4197f..9e4bc06 100644
+--- a/skills/verify-cli/verify.ts
++++ b/skills/verify-cli/verify.ts
+@@ -149,7 +149,7 @@ export function bound(argv: readonly string[]): Bound {
+       run: existsSync(place.index) ? place : undefined,
+     };
+   return {
+-    root: existsSync(read.run.repository) ? read.run.repository : undefined,
++    root: read.run.repository,
+     target: ["drive", "report"].includes(name)
+       ? join(read.run.repository, read.run.target)
+       : undefined,

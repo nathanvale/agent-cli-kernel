@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/scenario.ts b/skills/verify-cli/helper/scenario.ts
+index d66c8dc..8657560 100644
+--- a/skills/verify-cli/helper/scenario.ts
++++ b/skills/verify-cli/helper/scenario.ts
+@@ -420,7 +420,7 @@ export type Places = {
+ 
+ function placed(text: string, places: Places): string {
+   return text
+-    .replaceAll("{scratch}", () => places.scratch)
++    .replaceAll("{scratch}", places.scratch)
+     .replaceAll("{repository}", () => places.repository);
+ }
+ 

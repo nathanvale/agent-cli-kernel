@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/report.ts b/skills/verify-cli/helper/report.ts
+index 4e96345..c914f09 100644
+--- a/skills/verify-cli/helper/report.ts
++++ b/skills/verify-cli/helper/report.ts
+@@ -36,7 +36,7 @@ export function stationStates(
+         row.verdict === "met" &&
+         row.runner === "target" &&
+         row.commandIdentity === entry.command &&
+-        row.causeCode === entry.cause,
++        true,
+     );
+     if (step !== undefined)
+       return { ...entry, state: "driven", by: `${step.feature}/${step.step}` };

@@ -1,0 +1,14 @@
+diff --git a/skills/verify-cli/helper/scenario.ts b/skills/verify-cli/helper/scenario.ts
+index d3bf2c9..4dd579b 100644
+--- a/skills/verify-cli/helper/scenario.ts
++++ b/skills/verify-cli/helper/scenario.ts
+@@ -262,8 +262,7 @@ function expectations(
+       `${where} must hold exitCode and at least one expectation on stdout, stderr, the result or a file`,
+     );
+   if (
+-    typeof given.exitCode !== "number" ||
+-    !Number.isSafeInteger(given.exitCode)
++    typeof given.exitCode !== "number"
+   )
+     fail("bad-value", `${where}.exitCode must be a whole number`);
+   return {

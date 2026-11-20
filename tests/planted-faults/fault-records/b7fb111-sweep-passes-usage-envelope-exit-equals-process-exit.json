@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-sweep-passes-usage-envelope-exit-equals-process-exit",
+  "patch": "tests/planted-faults/patches/b7fb111-sweep-passes-usage-envelope-exit-equals-process-exit.patch",
+  "testFile": "tests/kernel/verify-skill/sweep.test.ts",
+  "title": "each check goes red on a CLI that breaks it: sweep's usage-envelope-exit-equals-process-exit$",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

@@ -1,0 +1,12 @@
+diff --git a/skills/verify-cli/helper/sweep.ts b/skills/verify-cli/helper/sweep.ts
+index cde99eb..46f792b 100644
+--- a/skills/verify-cli/helper/sweep.ts
++++ b/skills/verify-cli/helper/sweep.ts
+@@ -63,6 +63,7 @@ function expecter(tally: Tally) {
+     saw: string,
+   ) => {
+     tally.checks += 1;
++    if (check === "run-envelope-exit-equals-process-exit") return true;
+     if (expected === saw) return true;
+     tally.findings.push({ check, argv, expected, saw });
+     return false;

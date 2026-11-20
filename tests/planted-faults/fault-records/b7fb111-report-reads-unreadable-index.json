@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-report-reads-unreadable-index",
+  "patch": "tests/planted-faults/patches/b7fb111-report-reads-unreadable-index.patch",
+  "testFile": "tests/kernel/verify-skill/report.test.ts",
+  "title": "a run whose index cannot be read",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

@@ -1,0 +1,12 @@
+diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
+index 6e8de36..f064fba 100644
+--- a/skills/verify-cli/verify.ts
++++ b/skills/verify-cli/verify.ts
+@@ -257,7 +257,6 @@ function probeResultOf(value: unknown): ProbeResult | undefined {
+   const stderrSha256 = at(value, "stderrSha256");
+   if (
+     (exitCode !== null && typeof exitCode !== "number") ||
+-    typeof stdoutBytes !== "number" ||
+     typeof stderrSha256 !== "string"
+   )
+     return undefined;

@@ -1,0 +1,14 @@
+diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
+index ea4197f..f2a6e91 100644
+--- a/skills/verify-cli/verify.ts
++++ b/skills/verify-cli/verify.ts
+@@ -353,8 +353,7 @@ async function probeRound(
+         await spawn(
+           targetArgs(target, argv),
+           root,
+-          targetLimits.timeoutMilliseconds,
+-          targetLimits.outputLimitBytes,
++          limits.probeMilliseconds,
+         ),
+       ),
+     );

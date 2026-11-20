@@ -1,0 +1,7 @@
+{
+  "id": "77251da-placeholder-reads-dollar-patterns",
+  "patch": "tests/planted-faults/patches/77251da-placeholder-reads-dollar-patterns.patch",
+  "testFile": "tests/kernel/verify-skill/in-process.test.ts",
+  "title": "a placeholder's folder is put in as it is, dollar signs and all",
+  "source": "77251da fix(verify-skill): refuse scenario words that observe or run nothing, and place folders as they are"
+}

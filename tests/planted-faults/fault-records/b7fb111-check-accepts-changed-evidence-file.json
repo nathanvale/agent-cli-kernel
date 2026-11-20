@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-check-accepts-changed-evidence-file",
+  "patch": "tests/planted-faults/patches/b7fb111-check-accepts-changed-evidence-file.patch",
+  "testFile": "tests/kernel/verify-skill/trust.test.ts",
+  "title": "a changed evidence file cannot be trusted",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

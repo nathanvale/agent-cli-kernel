@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
+index ea4197f..eb8fb40 100644
+--- a/skills/verify-cli/verify.ts
++++ b/skills/verify-cli/verify.ts
+@@ -477,7 +477,7 @@ export async function kernelFreeCheck(
+   const root = found.root ?? cwd;
+   const first = [
+     ...(await kernelImport(spawn, import.meta.dir, limits)),
+-    ...(await helperProbe(spawn, root, limits)),
++    ...(await helperProbe(spawn, cwd, limits)),
+   ];
+   if (first.length > 0) return { kind: "untrusted", failures: first };
+   const name = argv[0] ?? "";

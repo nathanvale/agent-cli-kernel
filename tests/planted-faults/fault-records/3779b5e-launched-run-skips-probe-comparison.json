@@ -1,0 +1,7 @@
+{
+  "id": "3779b5e-launched-run-skips-probe-comparison",
+  "patch": "tests/planted-faults/patches/3779b5e-launched-run-skips-probe-comparison.patch",
+  "testFile": "tests/kernel/verify-skill/run-trust.test.ts",
+  "title": "a programs fault that arrives after launch is caught by drive and by report",
+  "source": "3779b5e test(verify-skill): prove the trust check's guards that no test failed without"
+}

@@ -1,0 +1,12 @@
+diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
+index ea4197f..f09c9c8 100644
+--- a/skills/verify-cli/verify.ts
++++ b/skills/verify-cli/verify.ts
+@@ -524,7 +524,6 @@ async function capped(
+   const reader = stream.getReader();
+   const kept: Uint8Array[] = [];
+   let size = 0;
+-  void done.then(() => reader.cancel().catch(() => undefined));
+   for (;;) {
+     const next = await reader.read().catch(() => undefined);
+     if (next === undefined || next.done) break;

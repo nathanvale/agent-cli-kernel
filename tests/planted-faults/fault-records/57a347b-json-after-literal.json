@@ -1,0 +1,7 @@
+{
+  "id": "57a347b-json-after-literal",
+  "patch": "tests/planted-faults/patches/57a347b-json-after-literal.patch",
+  "testFile": "tests/kernel/verify-skill/trust.test.ts",
+  "title": "--json goes before a literal --, and a --json after it is the target's word",
+  "source": "57a347b fix(verify-skill): keep a run answerable after its repository moves, and pass words after -- untouched"
+}

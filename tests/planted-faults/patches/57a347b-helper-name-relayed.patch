@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
+index ea4197f..58f3b39 100644
+--- a/skills/verify-cli/verify.ts
++++ b/skills/verify-cli/verify.ts
+@@ -434,7 +434,7 @@ export function relayed(helper: Ran, json: boolean, self: string): Relayed {
+   const envelope = oneJsonLine(helper.stdout);
+   const message = String(at(envelope, "message")).replaceAll(
+     `${cli} --help`,
+-    () => `${self} --help`,
++    () => `${cli} --help`,
+   );
+   if (helper.exitCode !== 0) return { stream: "stderr", text: `${message}\n` };
+   const data = at(envelope, "result", "data");

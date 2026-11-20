@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-helper-takes-relative-paths",
+  "patch": "tests/planted-faults/patches/b7fb111-helper-takes-relative-paths.patch",
+  "testFile": "tests/kernel/verify-skill/ready.test.ts",
+  "title": "the helper's own input takes an absolute target path only",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

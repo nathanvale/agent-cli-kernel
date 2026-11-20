@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/launch.ts b/skills/verify-cli/helper/launch.ts
+index aab37a2..5e0c598 100644
+--- a/skills/verify-cli/helper/launch.ts
++++ b/skills/verify-cli/helper/launch.ts
+@@ -70,7 +70,7 @@ export function workTreeAbove(folder: string): string | undefined {
+ }
+ 
+ function runAbove(folder: string): string | undefined {
+-  return nearestAbove(dirname(physical(folder)), (candidate) =>
++  return nearestAbove(dirname(folder), (candidate) =>
+     existsSync(verificationRun(candidate).index),
+   );
+ }

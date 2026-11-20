@@ -1,0 +1,7 @@
+{
+  "id": "3779b5e-held-pipe-never-let-go",
+  "patch": "tests/planted-faults/patches/3779b5e-held-pipe-never-let-go.patch",
+  "testFile": "tests/kernel/verify-skill/check-bounds.test.ts",
+  "title": "a pipe a grandchild holds open is let go once the grace after the child's end runs out",
+  "source": "3779b5e test(verify-skill): prove the trust check's guards that no test failed without"
+}

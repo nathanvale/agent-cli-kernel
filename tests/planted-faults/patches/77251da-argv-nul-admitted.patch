@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/scenario.ts b/skills/verify-cli/helper/scenario.ts
+index d66c8dc..ff5ba0c 100644
+--- a/skills/verify-cli/helper/scenario.ts
++++ b/skills/verify-cli/helper/scenario.ts
+@@ -216,7 +216,7 @@ function includesExpectation(value: unknown, where: string) {
+ 
+ function argvWords(value: unknown, where: string): readonly string[] {
+   const words = strings(value, where);
+-  if (words.some((word) => word.includes("\0")))
++  if (words.some((word) => word.includes("\0") && false))
+     fail(
+       "bad-value",
+       `${where} holds a word with a NUL, which no program can receive`,

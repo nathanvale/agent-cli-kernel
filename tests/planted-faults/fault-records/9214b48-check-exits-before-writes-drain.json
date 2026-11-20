@@ -1,0 +1,7 @@
+{
+  "id": "9214b48-check-exits-before-writes-drain",
+  "patch": "tests/planted-faults/patches/9214b48-check-exits-before-writes-drain.patch",
+  "testFile": "tests/kernel/verify-skill/check-bounds.test.ts",
+  "title": "an envelope over 64 KiB reaches a slow reader whole",
+  "source": "9214b48 fix(verify-skill): wait for each write before the check exits"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "6df13fd-evidence-folder-read",
+  "patch": "tests/planted-faults/patches/6df13fd-evidence-folder-read.patch",
+  "testFile": "tests/kernel/verify-skill/trust.test.ts",
+  "title": "an evidence file that is a folder or too large is named as such, never read",
+  "source": "6df13fd fix(verify-skill): read each evidence file as a regular file of bounded size"
+}

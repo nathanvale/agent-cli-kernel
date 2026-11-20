@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
+index 8db4702..9c62771 100644
+--- a/skills/verify-cli/verify.ts
++++ b/skills/verify-cli/verify.ts
+@@ -410,7 +410,7 @@ export function evidenceFailures(place: VerificationRun): Failure[] {
+   for (const row of read.steps) {
+     const path = join(place.evidence, row.file);
+     const file = readRegularFile(path, evidenceBytesLimit);
+-    if (file.kind !== "read")
++    if (file.kind !== "read" && file.kind !== "missing")
+       failures.push({
+         id: "evidence-mismatch",
+         detail: file.kind === "missing" ? `${path} is missing.` : file.reason,

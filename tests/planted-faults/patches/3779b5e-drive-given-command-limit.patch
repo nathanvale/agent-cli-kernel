@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
+index ea4197f..a01afc8 100644
+--- a/skills/verify-cli/verify.ts
++++ b/skills/verify-cli/verify.ts
+@@ -491,7 +491,7 @@ export async function kernelFreeCheck(
+   if (found.run !== undefined) failures.push(...evidenceFailures(found.run));
+   if (failures.length > 0) return { kind: "untrusted", failures };
+   const milliseconds =
+-    name === "drive" ? limits.driveMilliseconds : limits.commandMilliseconds;
++    limits.commandMilliseconds;
+   const helper = await spawn(
+     [
+       "--no-install",

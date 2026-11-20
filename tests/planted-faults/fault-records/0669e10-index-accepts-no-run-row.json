@@ -1,0 +1,7 @@
+{
+  "id": "0669e10-index-accepts-no-run-row",
+  "patch": "tests/planted-faults/patches/0669e10-index-accepts-no-run-row.patch",
+  "testFile": "tests/kernel/verify-skill/in-process.test.ts",
+  "title": "an index reads as missing, read, or unreadable with its reason",
+  "source": "0669e10 fix(verify-skill): settle the Sol 6.1 standards and spec reviews of the reconciled build"
+}

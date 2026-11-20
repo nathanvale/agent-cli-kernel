@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/scenario.ts b/skills/verify-cli/helper/scenario.ts
+index d3bf2c9..11a93d8 100644
+--- a/skills/verify-cli/helper/scenario.ts
++++ b/skills/verify-cli/helper/scenario.ts
+@@ -459,7 +459,7 @@ export function placedStep(step: ScenarioStep, places: Places): ScenarioStep {
+                 : {
+                     ...file,
+                     path: placed(file.path, places),
+-                    content: placed(file.content, places),
++                    content: file.content,
+                   },
+             ),
+           }),

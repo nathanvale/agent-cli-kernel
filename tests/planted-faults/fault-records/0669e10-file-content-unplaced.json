@@ -1,0 +1,7 @@
+{
+  "id": "0669e10-file-content-unplaced",
+  "patch": "tests/planted-faults/patches/0669e10-file-content-unplaced.patch",
+  "testFile": "tests/kernel/verify-skill/drive.test.ts",
+  "title": "placeholders name the scratch folder and the repository, in a file's content too",
+  "source": "0669e10 fix(verify-skill): settle the Sol 6.1 standards and spec reviews of the reconciled build"
+}

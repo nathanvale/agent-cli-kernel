@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
+index 8db4702..be3784f 100644
+--- a/skills/verify-cli/verify.ts
++++ b/skills/verify-cli/verify.ts
+@@ -484,7 +484,7 @@ export async function kernelFreeCheck(
+   const failures: Failure[] = [];
+   if (
+     found.target !== undefined &&
+-    [...targetCommands, "launch", "drive", "report"].includes(name)
++    [...targetCommands, "drive", "report"].includes(name)
+   )
+     failures.push(...(await probeFailures(spawn, found.target, root, limits)));
+   if (found.run !== undefined) failures.push(...evidenceFailures(found.run));

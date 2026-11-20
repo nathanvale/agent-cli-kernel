@@ -1,0 +1,7 @@
+{
+  "id": "06a566b-ready-passes-discovery-lists-a-command",
+  "patch": "tests/planted-faults/patches/06a566b-ready-passes-discovery-lists-a-command.patch",
+  "testFile": "tests/kernel/verify-skill/sweep.test.ts",
+  "title": "each check goes red on a CLI that breaks it: ready's discovery-lists-a-command$",
+  "source": "06a566b refactor(verify-skill): name one run of the target a target runner, and ready's last check by what it checks"
+}

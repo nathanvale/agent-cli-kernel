@@ -1,0 +1,7 @@
+{
+  "id": "0aeb3de-unrepeatable-target-exits-70",
+  "patch": "tests/planted-faults/patches/0aeb3de-unrepeatable-target-exits-70.patch",
+  "testFile": "tests/kernel/verify-skill/trust.test.ts",
+  "title": "a target that is not repeatable exits 3, and any other failure with it exits 70",
+  "source": "0aeb3de fix(verify-skill): tell a target that answers differently from a lying kernel"
+}

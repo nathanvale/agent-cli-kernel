@@ -1,0 +1,12 @@
+diff --git a/skills/verify-cli/helper/place.ts b/skills/verify-cli/helper/place.ts
+index 3bdbc0f..53f3f74 100644
+--- a/skills/verify-cli/helper/place.ts
++++ b/skills/verify-cli/helper/place.ts
+@@ -41,6 +41,7 @@ export function sha256(text: string | Uint8Array): string {
+ }
+ 
+ function withoutRunIds(stdout: string): string {
++  return stdout.replaceAll(/"runId":"[0-9a-f-]{36}"/g, '"runId":""');
+   const runId = at(parsedJson(stdout.trimEnd()), "result", "runId");
+   if (typeof runId !== "string") return stdout;
+   const field = `"runId":${JSON.stringify(runId)}`;

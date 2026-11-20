@@ -1,0 +1,7 @@
+{
+  "id": "1e3ac9a-stop-never-kills",
+  "patch": "tests/planted-faults/patches/1e3ac9a-stop-never-kills.patch",
+  "testFile": "tests/kernel/verify-skill/check-bounds.test.ts",
+  "title": "a stop signal ends each child at once, and kills it when the grace runs out",
+  "source": "1e3ac9a fix(verify-skill): stop each child of the check with the processes it started"
+}

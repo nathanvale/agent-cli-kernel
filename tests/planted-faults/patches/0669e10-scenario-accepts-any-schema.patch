@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/scenario.ts b/skills/verify-cli/helper/scenario.ts
+index d3bf2c9..257ffaf 100644
+--- a/skills/verify-cli/helper/scenario.ts
++++ b/skills/verify-cli/helper/scenario.ts
+@@ -329,7 +329,7 @@ function scenarioStep(value: unknown, index: number): ScenarioStep {
+ export function scenarioOf(value: unknown): Scenario {
+   const top = record(value, "the scenario");
+   onlyFields(top, ["schema", "feature", "steps"], "the scenario");
+-  if (at(top, "schema") !== scenarioSchema)
++  if (at(top, "schema") === undefined)
+     fail("unknown-field", `the scenario's schema must be ${scenarioSchema}`);
+   const feature = name(at(top, "feature"), "feature");
+   const listed = at(top, "steps");

@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-launch-skips-work-tree",
+  "patch": "tests/planted-faults/patches/b7fb111-launch-skips-work-tree.patch",
+  "testFile": "tests/kernel/verify-skill/launch.test.ts",
+  "title": "launch refuses a folder inside a work tree",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-lint-allows-kernel-static",
+  "patch": "tests/planted-faults/patches/b7fb111-lint-allows-kernel-static.patch",
+  "testFile": "tests/kernel/verify-skill/lint.test.ts",
+  "title": "the kernel-free check may not import the kernel: a static import",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-check-skips-no-envelope",
+  "patch": "tests/planted-faults/patches/b7fb111-check-skips-no-envelope.patch",
+  "testFile": "tests/kernel/verify-skill/trust.test.ts",
+  "title": "a kernel whose contract throws while it is built is reported as no envelope",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

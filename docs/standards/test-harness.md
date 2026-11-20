@@ -33,13 +33,17 @@ runs each test file. What a test must prove is in the
   [kernel#48 review 5987095580], [fdfa794] (setup reserved 60 s for a copy
   that ran two git staging calls bounded at 60 s each, and the copy test ran
   on the default timeout), [308d494] (the author guide's install case
-  allowed 120 s for a 110 s install and up to seven 4 s git calls).
+  allowed 120 s for a 110 s install and up to seven 4 s git calls),
+  [0ab74b8] (the verification skill's cases ran up to six 30 s helpers
+  under a 60 s timeout).
 - Template tests: reuse `spawnBounded` (`tests/support/process.ts`), which
   runs the child through `startChild` (`scripts/process-runner.ts`), for that
   bound. Kernel tests: reuse `spawnBounded`
   (`tests/kernel/kernel-repair/swarm-process.ts`) or `exitWithin`
   (`tests/kernel/lifecycle/harness.ts`). Witnessed: [308d494] (the author
-  guide's gate, a kernel test, used the template's `spawnBounded`).
+  guide's gate, a kernel test, used the template's `spawnBounded`),
+  [0ab74b8] (so did the verification skill's tests, and one started its
+  helper with no limit at all).
 - In `finally` or per-case teardown, release the CLI, its ledgered children,
   then its temporary folders. Witnessed: [d592b6d], [70c7280], [#84-cleanup],
   [#91-cleanup], [5533cd6], [e766237] (the pinned-commit binary case joined
@@ -138,3 +142,4 @@ runs each test file. What a test must prove is in the
 [4ca0141]: https://github.com/nathanvale/agent-cli-kernel/commit/4ca014175963a134a585af49006a56d374700e33
 [ff0616c]: https://github.com/nathanvale/agent-cli-kernel/commit/ff0616cd9c3310bf1170e28308c3c748353fc57b
 [308d494]: https://github.com/nathanvale/agent-cli-kernel/commit/308d4943bbc78d9852e116ac334cb30c2b8d7a8b
+[0ab74b8]: https://github.com/nathanvale/agent-cli-kernel/commit/0ab74b894857b6b741be277e2f2fd41764e96cd2

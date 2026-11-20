@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-kernel-envelope-twice",
+  "patch": "tests/planted-faults/patches/b7fb111-kernel-envelope-twice.patch",
+  "testFile": "tests/kernel/verify-skill/ready.test.ts",
+  "title": "^ready ready passes the author guide's example$",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}
