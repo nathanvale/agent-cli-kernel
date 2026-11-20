@@ -3113,5 +3113,12 @@
     "testFile": "tests/template/check-commits/carried-verdict-workflow.test.ts",
     "title": "the commits gate passes only when commits-carry and the parts both succeeded",
     "source": "2541839 ci: carry the commits check's verdict forward on a GitHub-signed token (GREEN)"
+  },
+  {
+    "id": "1998f0b-carried-verdict-bytes",
+    "patch": "tests/planted-faults/patches/1998f0b-carried-verdict-bytes.patch",
+    "testFile": "tests/template/check-commits/carried-verdict.test.ts",
+    "title": "checker trees whose paths differ only in bytes that are not UTF-8",
+    "source": "1998f0b fix(check-commits): read the checker tree byte for byte (GREEN)"
   }
 ]
