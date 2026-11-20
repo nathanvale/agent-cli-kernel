@@ -3155,5 +3155,12 @@
     "testFile": "tests/template/process-runner/spawn-bounded-folders.test.ts",
     "title": "a spawn-bounded run leaves no empty PATH folder in the temp folder, whole or filtered to the no-ps case",
     "source": "16ca937 test(process-runner): remove the empty PATH folder after the no-ps case"
+  },
+  {
+    "id": "cc81e74-index-approval-state",
+    "patch": "tests/planted-faults/patches/cc81e74-index-approval-state.patch",
+    "testFile": "tests/kernel/kernel-repair/swarm-declarations.test.ts",
+    "title": "^S3\\.approval-needs-state",
+    "source": "cc81e74 feat(kernel): refuse the approval add-on installed without the state add-on"
   }
 ]

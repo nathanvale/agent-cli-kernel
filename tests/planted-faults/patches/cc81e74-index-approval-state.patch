@@ -1,0 +1,15 @@
+diff --git a/kernel/src/kernel/index.ts b/kernel/src/kernel/index.ts
+index 29188c7..ae4574f 100644
+--- a/kernel/src/kernel/index.ts
++++ b/kernel/src/kernel/index.ts
+@@ -81,10 +81,6 @@ export function contractFor<
+     throw new Error(
+       "State is not in installedAddons, or its descriptor was not created by contractFor.stateAddon.",
+     );
+-  if (installed.includes("approval") && !installed.includes("state"))
+-    throw new Error(
+-      "Approval requires the state add-on: list state in installedAddons and pass the add-on made by contractFor.stateAddon.",
+-    );
+   const hostCommands = [...spec.commands];
+   const causes: typeof commonCauses & CauseTable = structuredClone({
+     ...commonCauses,

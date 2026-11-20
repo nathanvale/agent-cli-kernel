@@ -10,6 +10,7 @@ import type {
   RunAddon,
 } from "../../../../kernel/src/kernel/index.ts";
 import { programsAddon } from "../../../../kernel/src/addons/programs/index.ts";
+import { inertState } from "../../kernel-repair/shapes.ts";
 import { runProcessOn } from "../../../../kernel/src/kernel/lifecycle.ts";
 import { processHost } from "../../../../kernel/src/kernel/process-host.ts";
 import type {
@@ -388,7 +389,8 @@ const contract = contractFor({
   cli: "st",
   commands: [report, plain, guarded],
   causes: stOwnCauses,
-  installedAddons: ["diagnostics", "programs", "approval"],
+  state: inertState("st"),
+  installedAddons: ["diagnostics", "programs", "approval", "state"],
 });
 const runtime = runtimeOf(contract);
 if (!runtime) throw new Error("Fixture contract has no runtime.");
