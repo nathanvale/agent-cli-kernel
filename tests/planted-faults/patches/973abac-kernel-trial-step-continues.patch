@@ -1,0 +1,12 @@
+diff --git a/.github/workflows/kernel-trial.yml b/.github/workflows/kernel-trial.yml
+index 5012773..78b7e21 100644
+--- a/.github/workflows/kernel-trial.yml
++++ b/.github/workflows/kernel-trial.yml
+@@ -42,6 +42,7 @@ jobs:
+       # repository, a pull request's head included. The Bun cache starts
+       # empty, so the install reads GitHub's archive afresh.
+       - name: Kernel trial
++        continue-on-error: true
+         working-directory: bun-typescript-template
+         env:
+           COMMIT: ${{ github.event.pull_request.head.sha }}

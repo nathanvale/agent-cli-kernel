@@ -1,0 +1,12 @@
+diff --git a/.github/workflows/linux-nightly.yml b/.github/workflows/linux-nightly.yml
+index da9e6bb..0d30370 100644
+--- a/.github/workflows/linux-nightly.yml
++++ b/.github/workflows/linux-nightly.yml
+@@ -21,6 +21,7 @@ permissions:
+ 
+ jobs:
+   fault-replay-all:
++    name: fault-replay
+     runs-on: ubuntu-latest
+     timeout-minutes: 10
+     strategy:

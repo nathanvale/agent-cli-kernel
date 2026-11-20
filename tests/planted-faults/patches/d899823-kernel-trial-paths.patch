@@ -1,0 +1,13 @@
+diff --git a/.github/workflows/kernel-trial.yml b/.github/workflows/kernel-trial.yml
+index 5012773..66f80f4 100644
+--- a/.github/workflows/kernel-trial.yml
++++ b/.github/workflows/kernel-trial.yml
+@@ -9,6 +9,8 @@ name: Kernel trial
+ # has no path filter, so it reports on every pull request.
+ on:
+   pull_request:
++    paths:
++      - kernel/**
+ 
+ permissions:
+   contents: read

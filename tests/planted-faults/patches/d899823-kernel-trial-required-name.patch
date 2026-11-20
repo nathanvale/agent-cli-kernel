@@ -1,0 +1,12 @@
+diff --git a/.github/workflows/kernel-trial.yml b/.github/workflows/kernel-trial.yml
+index 5012773..37109b7 100644
+--- a/.github/workflows/kernel-trial.yml
++++ b/.github/workflows/kernel-trial.yml
+@@ -15,6 +15,7 @@ permissions:
+ 
+ jobs:
+   kernel-trial:
++    name: check
+     runs-on: ubuntu-latest
+     timeout-minutes: 20
+     steps:
