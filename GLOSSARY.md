@@ -92,6 +92,10 @@ _Avoid_: manifest (for a kernel declaration), hand-kept list
 
 ### Internal kernel names
 
+**Names check result**:
+The names check's `NamesCheckResult`: stderr text and a numeric process exit
+code. It is a script result, separate from Command Contract 3's Outcome.
+
 **Validate inspect shape**:
 `validateInspectShape` checks an inspect command declaration's fields before
 construction or registration. It does not admit a command for a run.
