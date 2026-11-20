@@ -12,6 +12,12 @@ this file.
 - Prove a child ran by an output only a run produces, never by its exit code
   alone. Witnessed: [67e7adc] (`bun --cwd <repository> run check` printed
   bun's help and exited 0, having run nothing).
+- Give a list one order at both ends: a checker that requires it sorted
+  must read it from a producer that sorts it. Witnessed: [bdd5e9c] (the state
+  add-on reports a transaction's effects in the order they ran, and its
+  transaction proof refuses them unless sorted by name, so `drive`'s effects
+  `target.run` then `evidence.write` failed every run until they were named
+  `step.run` and `step.write`).
 - Keep the state a step leaves beside what it printed. Witnessed: [18894b0]
   (a read-only proof could not show that its command wrote nothing).
 - Make a guard against an empty gate count what the gate would run.
@@ -198,3 +204,4 @@ this file.
 [0ab74b8]: https://github.com/nathanvale/agent-cli-kernel/commit/0ab74b894857b6b741be277e2f2fd41764e96cd2
 [67e7adc]: https://github.com/nathanvale/agent-cli-kernel/commit/67e7adcdeda288d3199748178ef0723c212668c3
 [18894b0]: https://github.com/nathanvale/agent-cli-kernel/commit/18894b0852b26411e5583a7008f2feb54e459f3e
+[bdd5e9c]: https://github.com/nathanvale/agent-cli-kernel/commit/bdd5e9cf017ea99cd6d63d501e0ef06a0652ca7f

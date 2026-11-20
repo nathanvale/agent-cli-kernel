@@ -31,9 +31,8 @@ is in the [test harness guide](test-harness.md).
   build check, or a neighbouring cap at the same limit, keeps the test green
   with the named guard removed. Witnessed: [640ba05], [96ab832], [c193c51],
   [f8ff37f] (an equals-sign option case used a required option, so a
-  missing-option refusal could also have failed it), [0ab74b8] (the
-  verification skill's lying fixture also printed the wrong stderr, so the
-  exit-code check could go with no case failing).
+  missing-option refusal could also have failed it), [0ab74b8] (a
+  lying fixture's wrong stderr hid a dropped exit-code check).
 - Control each side of a boundary: the last admitted and the first refused
   value or case. Checks further out stay green under an off-by-one limit.
   Witnessed: [e07d962], [d72cd9e], [3567a81] (the author guide's example
@@ -64,10 +63,8 @@ is in the [test harness guide](test-harness.md).
   checked only the first line), [0463f35] (its link case accepted a link to
   a folder), [3567a81] (its case titled "its own tests pass, in process and
   through its real entry file" counted results, and a pin for a sentence
-  naming two usage refusals checked one), [0ab74b8] (the verification
-  skill's relay case checked a prefix, its folder case checked the
-  arguments it passed rather than what the target saw, and its SIGTERM case
-  never checked that the target stopped).
+  naming two usage refusals checked one), [0ab74b8] (three verification
+  skill cases checked a prefix, the arguments sent, or a stop request alone).
 - Prove that a fixture meant to lack something lacks it, and fail loudly
   when its location supplies it. `STATE_TEST_DIR` can place a test folder
   inside the checkout, where git finds the parent repository for a case that
@@ -112,9 +109,8 @@ is in the [test harness guide](test-harness.md).
   too, from the test that imports its file, beside the process proof that
   spawns the entry. Coverage cannot see into a spawned process, so a
   function proved only that way reads as untested and its mutants never
-  run. Witnessed: [0ab74b8] (the verification skill's file read-back,
-  evidence reader and unfinished-change mapping ran only in spawned
-  helpers).
+  run. Witnessed: [0ab74b8] (three verification skill functions ran
+  only in spawned helpers).
 - Resolve each path from the environment a function is given, not from the
   process's own folder, so an in-process call runs on what the test injects.
   Witnessed: [244b63a].
@@ -161,7 +157,8 @@ is in the [test harness guide](test-harness.md).
   reported as an accumulator copy), [#102-mock-key] (``vi[`mock`]`` passed
   `no-module-mocking`), [#102-copy-key] (``all[`concat`]`` passed
   `no-reduce-accumulator-copy`), [1b72951] (a `commonCauses` whose keys
-  were not cause codes passed `cause-literal-owner`'s no-code refusal).
+  were not cause codes passed `cause-literal-owner`'s no-code refusal),
+  [f6225f7] (`process[name].write` passed `no-domain-output`).
 
 [#91-count]: https://github.com/nathanvale/bun-typescript-template/pull/91#discussion_r4607744321
 [185c90d]: https://github.com/nathanvale/bun-typescript-template/commit/185c90d11dd167ee4874e383ba26cd7d64a70964
@@ -214,6 +211,7 @@ is in the [test harness guide](test-harness.md).
 [b146440]: https://github.com/nathanvale/agent-cli-kernel/commit/b146440b8fd1075791ee997ca93c59f410b9e978
 [4ca0141]: https://github.com/nathanvale/agent-cli-kernel/commit/4ca014175963a134a585af49006a56d374700e33
 [1b72951]: https://github.com/nathanvale/agent-cli-kernel/commit/1b72951c42401d2567bec8327ab2726f3852fd95
+[f6225f7]: https://github.com/nathanvale/agent-cli-kernel/commit/f6225f7b7a944eddfead842bc751d8a69e10312b
 [f8ff37f]: https://github.com/nathanvale/agent-cli-kernel/commit/f8ff37f4e31d26ce34fcc4e5b0467a2a5ed013f3
 [ff0616c]: https://github.com/nathanvale/agent-cli-kernel/commit/ff0616cd9c3310bf1170e28308c3c748353fc57b
 [0463f35]: https://github.com/nathanvale/agent-cli-kernel/commit/0463f35b14fd6aadced45cab40b44436fb480b33
