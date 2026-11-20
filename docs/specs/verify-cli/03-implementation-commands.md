@@ -150,32 +150,34 @@ folder passed on macOS only.
 **I8. Exit and cause codes.** One envelope on every exit except 70, 130 and 143.
 The names are the build's.
 
-| Exit     | Cause code                                                                                  | Outcome           | Selected by                                                                         |
-| -------- | ------------------------------------------------------------------------------------------- | ----------------- | ----------------------------------------------------------------------------------- |
-| 0        | `SUCCESS_UNCHANGED`                                                                         | success           | every read-only command                                                             |
-| 0        | `SUCCESS_COMPLETED`                                                                         | success           | `launch`, `drive`, `cleanup`                                                        |
-| 3        | `DOMAIN_VERIFY_TARGET_START`                                                                | refused           | `ready`: the target answered neither probe                                          |
-| 3        | `DOMAIN_VERIFY_FINDINGS`                                                                    | refused           | `ready`, `sweep`: a check failed                                                    |
-| 3        | `DOMAIN_VERIFY_TARGET_MISSING`                                                              | refused           | `launch`: no file at the target's path                                              |
-| 3        | `DOMAIN_VERIFY_RUN_EXISTS`                                                                  | refused           | `launch`: the folder is not new or empty                                            |
-| 3        | `DOMAIN_VERIFY_RUN_IN_WORK_TREE`                                                            | refused           | `launch`: the folder is inside a git work tree                                      |
-| 3        | `DOMAIN_VERIFY_NO_PIN`                                                                      | refused           | `launch`: no `package.json` above the target, or none with a kernel Pin             |
-| 3        | `DOMAIN_VERIFY_GIT_FAILED`                                                                  | refused           | `launch`: `git` failed for a reason other than "no work tree"                       |
-| 3        | `DOMAIN_VERIFY_RUN_MISSING`                                                                 | refused           | `drive`, `report`, `cleanup`, `pending`: the folder holds no run that `launch` made |
-| 3        | `DOMAIN_VERIFY_RUN_CLEAN`                                                                   | refused           | `cleanup`, `drive`: the scratch folder is already removed                           |
-| 3        | `DOMAIN_VERIFY_SCENARIO`                                                                    | refused           | `drive`: the scenario file breaks a rule in I13                                     |
-| 3        | `DOMAIN_VERIFY_ALREADY_DRIVEN`                                                              | refused           | `drive`: the index holds a row for this feature                                     |
-| 3        | `DOMAIN_VERIFY_EVIDENCE_UNREADABLE`                                                         | refused           | `drive`, `report`: the index or an evidence file cannot be read                     |
-| 3        | `DOMAIN_VERIFY_RUN_HELD`, `DOMAIN_VERIFY_RUN_UNRESOLVED`, `DOMAIN_VERIFY_STATE_UNAVAILABLE` | refused           | a changing command, and `pending` for the third: the state add-on refused           |
-| 3        | `DOMAIN_VERIFY_EXPECTATION_UNMET`                                                           | failed, completed | `drive`: every evidence file was written and a step was unmet                       |
-| 3        | `DOMAIN_VERIFY_CHANGE_UNKNOWN`                                                              | failed, unknown   | a changing command: its change started and was not confirmed                        |
-| 3        | `DOMAIN_VERIFY_CHANGE_UNCHANGED`                                                            | failed, unchanged | a changing command: it failed before it touched anything                            |
-| 1, 2, 4  | the kernel's own                                                                            |                   | internal, usage and schema results                                                  |
-| 70       | none                                                                                        | none              | the kernel-free check: the run cannot be trusted (I18)                              |
-| 130, 143 | none                                                                                        | none              | the kernel-free check was stopped by an interrupt or a termination signal (I18)     |
+| Exit     | Cause code                                                                                  | Outcome           | Selected by                                                                          |
+| -------- | ------------------------------------------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------ |
+| 0        | `SUCCESS_UNCHANGED`                                                                         | success           | every read-only command                                                              |
+| 0        | `SUCCESS_COMPLETED`                                                                         | success           | `launch`, `drive`, `cleanup`                                                         |
+| 3        | `DOMAIN_VERIFY_TARGET_START`                                                                | refused           | `ready`: the target answered neither probe                                           |
+| 3        | `DOMAIN_VERIFY_FINDINGS`                                                                    | refused           | `ready`, `sweep`: a check failed. `report`: the sweep reached no station (`aa593d7`) |
+| 3        | `DOMAIN_VERIFY_TARGET_MISSING`                                                              | refused           | `launch`: no file at the target's path                                               |
+| 3        | `DOMAIN_VERIFY_RUN_EXISTS`                                                                  | refused           | `launch`: the folder is not new or empty                                             |
+| 3        | `DOMAIN_VERIFY_RUN_IN_WORK_TREE`                                                            | refused           | `launch`: the folder is inside a git work tree                                       |
+| 3        | `DOMAIN_VERIFY_NO_PIN`                                                                      | refused           | `launch`: no `package.json` above the target, or none with a kernel Pin              |
+| 3        | `DOMAIN_VERIFY_GIT_FAILED`                                                                  | refused           | `launch`: `git` failed for a reason other than "no work tree"                        |
+| 3        | `DOMAIN_VERIFY_RUN_MISSING`                                                                 | refused           | `drive`, `report`, `cleanup`, `pending`: the folder holds no run that `launch` made  |
+| 3        | `DOMAIN_VERIFY_RUN_CLEAN`                                                                   | refused           | `cleanup`, `drive`: the scratch folder is already removed                            |
+| 3        | `DOMAIN_VERIFY_SCENARIO`                                                                    | refused           | `drive`: the scenario file breaks a rule in I13                                      |
+| 3        | `DOMAIN_VERIFY_ALREADY_DRIVEN`                                                              | refused           | `drive`: the index holds a row for this feature                                      |
+| 3        | `DOMAIN_VERIFY_EVIDENCE_UNREADABLE`                                                         | refused           | `drive`, `report`: the index or an evidence file cannot be read                      |
+| 3        | `DOMAIN_VERIFY_RUN_HELD`, `DOMAIN_VERIFY_RUN_UNRESOLVED`, `DOMAIN_VERIFY_STATE_UNAVAILABLE` | refused           | a changing command, and `pending` for the third: the state add-on refused            |
+| 3        | `DOMAIN_VERIFY_EXPECTATION_UNMET`                                                           | failed, completed | `drive`: every evidence file was written and a step was unmet                        |
+| 3        | `DOMAIN_VERIFY_CHANGE_UNKNOWN`                                                              | failed, unknown   | a changing command: its change started and was not confirmed                         |
+| 3        | `DOMAIN_VERIFY_CHANGE_UNCHANGED`                                                            | failed, unchanged | a changing command: it failed before it touched anything                             |
+| 1, 2, 4  | the kernel's own                                                                            |                   | internal, usage and schema results                                                   |
+| 70       | none                                                                                        | none              | the kernel-free check: the run cannot be trusted (I18)                               |
+| 130, 143 | none                                                                                        | none              | the kernel-free check was stopped by an interrupt or a termination signal (I18)      |
 
-- `findings`, `report` and `pending` gate nothing: each succeeds whenever it
-  can read what it reports.
+- `findings` gates nothing: it succeeds whenever it can read what it reports.
+  `report` refuses when the sweep reached no station or the evidence cannot be
+  read. `pending` refuses when the run is missing or its state folder is gone
+  or unreadable (`aa593d7`, `dc128f9`, `a3fe92f`).
 - A refusal's message names the exact restriction that refused. Its station's
   repair action names the next step.
 - A second `cleanup` is a refusal, `DOMAIN_VERIFY_RUN_CLEAN`, not a success. A
@@ -204,7 +206,7 @@ checks.
 | `usage-probe-one-stderr-line` | Its `stderr` is one line ending `[USAGE_UNKNOWN_COMMAND]` or `[USAGE_INVALID_INVOCATION]`                  |
 | `discovery-exit`              | The discovery probe exits 0                                                                                |
 | `discovery-stderr-empty`      | Its `stderr` is empty                                                                                      |
-| `discovery-one-envelope`      | Its `stdout` is one envelope whose exit code is 0                                                          |
+| `discovery-one-envelope`      | Its `stdout` is one envelope whose exit code equals the process's (`3306233`)                              |
 | `discovery-lists-a-command`   | It lists one command of the target's own, or more. This is the sweep's name for the same check (`06a566b`) |
 
 - The target did not start when the usage probe's `stderr` is not such a line
@@ -234,14 +236,19 @@ trusts the declarations.
   other listed command is the target's own. Routes cannot tell them apart: a
   command of the target's own may have an empty route, as dispatch does.
 - Checks on the CLI: `--help` exits 0 with empty `stderr` and `stdout`
-  starting `Usage: `. `--discover --json` exits 0 with empty `stderr` and
-  lists a command of the target's own. Unless one of those has an empty route,
-  an unknown command exits 2 with empty `stdout` and one `stderr` line ending
-  `[USAGE_UNKNOWN_COMMAND]`.
-- Checks on each of the target's own commands: its command discovery exits 0.
-  An undeclared option with `--json` exits 2 with empty `stderr`, an envelope
-  whose exit code equals the process's, and a cause the command declares.
-  Without `--json` it exits 2 with empty `stdout` and one `stderr` line ending
+  starting `Usage: `. `--discover --json` exits 0 with empty `stderr`, writes
+  one envelope whose exit code equals the process's
+  (`discovery-one-envelope`), and lists a command of the target's own. Unless
+  one of those has an empty route, an unknown command exits 2 with empty
+  `stdout` and one `stderr` line ending `[USAGE_UNKNOWN_COMMAND]`.
+- Checks on each of the target's own commands: its command discovery exits 0
+  and writes one envelope whose exit code equals the process's
+  (`command-discovery-one-envelope`). An undeclared option with `--json` exits
+  2 with empty `stderr`, an envelope whose exit code equals the process's, and
+  a cause the command declares, which must be `USAGE_INVALID_INVOCATION`
+  (`usage-cause-is-invalid-invocation`). A command's stations are credited
+  only when its command discovery held (`3306233`). Without `--json` it exits
+  2 with empty `stdout` and one `stderr` line ending
   `[USAGE_INVALID_INVOCATION]`. Its `--help` exits 0.
 - Each such command of effect class `inspect` that needs no input is run once
   with `--json`: empty `stderr`, an envelope whose exit code equals the
@@ -249,9 +256,9 @@ trusts the declarations.
   run.
 - A run of the sweep reaches a station only when every check on that run
   passed. Otherwise the station stays an owed result (`044431e`).
-- That is 9 checks on the CLI, 9 on each command and 4 on each command run: 31
-  for the author skill's example. A CLI with one command on an empty route
-  gets 15.
+- That is 10 checks on the CLI, 11 on each command and 4 on each command run:
+  36 for the author skill's example. A CLI with one command on an empty route
+  gets 18.
 - A check id states what must hold. A finding is a failed check: its id, the
   arguments, what was expected and what was seen.
 - Success prints `<n> checks passed. Stations owed: <n>.` A failure refuses
@@ -259,5 +266,5 @@ trusts the declarations.
 - The sweep cannot catch a wrong declaration, a command missing from
   discovery, wrong data, a refusal that needs input, or any change.
 
-Passed on Linux and on macOS for the example. The empty route passed on macOS
-only.
+Passed on Linux and on macOS for the example. The counts of 36 and 18 passed
+on macOS only: the Linux run was before the three new checks.

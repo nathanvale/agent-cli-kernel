@@ -19,7 +19,9 @@ target's own commands:
 
 Rules:
 
-- A step run without `--json` writes no envelope, so it credits no station.
+- A step run without `--json` writes no envelope, so it credits no station. A
+  line counts as an envelope only when its result has a numeric exit code, a
+  command identity and a cause code (`3ad9232`).
 - A `"runner": "bun"` step never credits a station. It may run another entry
   file.
 - A station the kernel adds is left out. Its trigger is exactly
@@ -32,6 +34,12 @@ Rules:
   data lists each station with its state and the step or check that gave it,
   each unmet step with its unmet expectations, each step whose process end was
   not confirmed, and the sweep's finding count.
+- `report` refuses with `DOMAIN_VERIFY_FINDINGS` when the sweep reaches no
+  station of the target's commands: a clean line on no evidence would mislead
+  (`aa593d7`).
+- `report` reads an evidence file only when it is a `verify-step/1` file whose
+  unmet list agrees with its index row's verdict. Any other file is
+  `DOMAIN_VERIFY_EVIDENCE_UNREADABLE`, naming it (`dc128f9`).
 - `findings` returns the check count and each finding of the sweep. `pending`
   returns the state add-on's report whole, every field kept.
 
@@ -206,7 +214,7 @@ once and checks all of it before any step runs. A broken rule refuses with
   `outputTruncated`.
 - On every target step that ended by itself, `drive` also makes four contract
   checks, unasked. With `--json`, `stdout` is one envelope
-  (`contract.json-one-envelope`) and `stderr` is empty
+  (`contract.json-one-envelope`), by the rule of I11, and `stderr` is empty
   (`contract.json-stderr-empty`). An envelope's exit code is the process's
   (`contract.envelope-exit-code`). Without `--json`, a failed run prints
   nothing on `stdout` (`contract.failure-stdout-empty`). A target whose
@@ -234,7 +242,8 @@ and the evidence files; and `state/`, the helper's own state.
   links are resolved first. The helper finds a work tree by a `.git` entry in
   the folder or any folder above it. A folder inside another run is refused
   with `DOMAIN_VERIFY_RUN_EXISTS`, so cleanup of the outer run cannot remove
-  the inner run's evidence (`480dec5`).
+  the inner run's evidence (`480dec5`). So is a folder that is itself a
+  symbolic link into another run (`02311f4`).
 - `launch` refuses, before it makes anything: a target path with no file; a
   folder that is a file or holds an entry; a folder inside a work tree; a
   target with no `package.json` above it, or with no kernel Pin in it; and a

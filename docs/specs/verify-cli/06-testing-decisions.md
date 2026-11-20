@@ -66,7 +66,7 @@ and the decisions record says so.
 patch that removes or weakens the guard, with a fault record, one file each,
 naming the test that must go red. Fault replay must print `KILLED` for each. A
 surviving fault is a missing test. This covers every row below, not only the
-kernel fault classes. The build has 183 fault records for this skill.
+kernel fault classes. The build has 195 fault records for this skill.
 
 Kernel fault classes. Each has two things.
 
@@ -134,7 +134,7 @@ row names a list, one for each member.
 - The lint tests that prove a rule on each shape it can meet, under
   `tests/template/lint/`.
 - The shared test folder and process helpers under `tests/support/`.
-- The build's own tests, `tests/kernel/verify-skill/`: thirteen files, 210
+- The build's own tests, `tests/kernel/verify-skill/`: thirteen files, 218
   tests.
 - Outside the kernel repository: `verify-template`'s green and red pairs, and
   the cold-start trial's state tests, which reach a held, an unresolved and an
@@ -147,11 +147,24 @@ gate's limit. There is one criterion for each new observable result of a fix
 the review marked P0 or P1. Each passed on macOS only, in the build's tests at
 `67b734d`.
 
-| #    | Observable result                                                                                                                                                                            | Test title                                                                                                                                                                                             |
-| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| AC54 | A target that answers a probe differently on each run exits 3 with a `TARGET FAIL target-not-repeatable` line. A target that hangs on a probe gets the helper's verdict, exit 3, not exit 70 | "a target that answers each run differently is the target's failure, exit 3, not 70"; "a target that runs past the helper's own limit on a probe is the helper's to judge, not a timeout of the check" |
-| AC55 | An envelope over 65,536 bytes reaches a slow reader whole                                                                                                                                    | "an envelope over 64 KiB reaches a slow reader whole"                                                                                                                                                  |
-| AC56 | A station whose sweep run failed a check is owed, not swept, and `report` ends its line with the count of failed checks                                                                      | "a station is swept only when every check on its run passed"; "a station whose run failed a check is owed, and the report counts the failed checks"                                                    |
-| AC57 | A folder where a step expects a file makes the step unmet at that file. Its evidence file is written, with `folder` in `fileKinds`, and the run can still be cleaned                         | "a folder where a step expects a file is an unmet step, kept as evidence, and the run can still be cleaned"                                                                                            |
-| AC58 | `launch` refuses a folder inside another verification run with `DOMAIN_VERIFY_RUN_EXISTS`, and judges a folder reached through a symbolic link where it really is                            | "a run folder inside another run is refused before anything is made"; "a run folder is judged where it really is, through any symbolic link"                                                           |
-| AC59 | An empty string in an includes list is refused as `bad-value` before anything runs                                                                                                           | "an empty string in an includes list observes nothing and is refused"                                                                                                                                  |
+| #    | Observable result                                                                                                                                                                            | Test title                                                                                                                                                                                                                                                                                               |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AC54 | A target that answers a probe differently on each run exits 3 with a `TARGET FAIL target-not-repeatable` line. A target that hangs on a probe gets the helper's verdict, exit 3, not exit 70 | "a target that answers each run differently is the target's failure, exit 3, not 70"; "a target that runs past the helper's own limit on a probe is the helper's to judge, not a timeout of the check"; "a target whose discovery changes only in a run id nested in its data is not repeatable, exit 3" |
+| AC55 | An envelope over 65,536 bytes reaches a slow reader whole                                                                                                                                    | "an envelope over 64 KiB reaches a slow reader whole"                                                                                                                                                                                                                                                    |
+| AC56 | A station whose sweep run failed a check is owed, not swept, and `report` ends its line with the count of failed checks                                                                      | "a station is swept only when every check on its run passed"; "a station whose run failed a check is owed, and the report counts the failed checks"; "a command whose own discovery fails has its stations owed, however its runs answer"                                                                |
+| AC57 | A folder where a step expects a file makes the step unmet at that file. Its evidence file is written, with `folder` in `fileKinds`, and the run can still be cleaned                         | "a folder where a step expects a file is an unmet step, kept as evidence, and the run can still be cleaned"                                                                                                                                                                                              |
+| AC58 | `launch` refuses a folder inside another verification run with `DOMAIN_VERIFY_RUN_EXISTS`, and judges a folder reached through a symbolic link where it really is                            | "a run folder inside another run is refused before anything is made"; "a run folder is judged where it really is, through any symbolic link"; "a run folder that is a symbolic link into another run is refused where it really is"                                                                      |
+| AC59 | An empty string in an includes list is refused as `bad-value` before anything runs                                                                                                           | "an empty string in an includes list observes nothing and is refused"                                                                                                                                                                                                                                    |
+
+## Acceptance criteria added in correction round 3
+
+One criterion for each new observable result of the build's last fixes that no
+criterion covered. Each passed on macOS only, in the build's tests at the
+merged commit, `f7f4d69`. The three titles added to AC54, AC56 and AC58 above
+are from the same round.
+
+| #    | Observable result                                                                                                                    | Test title                                                                                            |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| AC60 | `pending` on a launched run whose state folder is gone exits 3 with `DOMAIN_VERIFY_STATE_UNAVAILABLE` and names the folder           | "pending on a launched run whose state folder is gone is refused, not reported as nothing unfinished" |
+| AC61 | In process, an evidence file that holds `null`, or whose unmet list disagrees with its index row, is unreadable to `report`, by name | "the report reads each step's unmet list and process end, and names a missing evidence file"          |
+| AC62 | When the sweep reaches no station of the target's commands, `report` exits 3 with `DOMAIN_VERIFY_FINDINGS`                           | "a target whose discovery yields no station gets no report, only its findings"                        |

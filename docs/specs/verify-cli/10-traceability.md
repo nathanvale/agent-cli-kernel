@@ -6,7 +6,7 @@ reviews number their findings. Shortened paths:
 
 | Short            | Full                                                      |
 | ---------------- | --------------------------------------------------------- |
-| `E/16` to `E/30` | The evidence file whose name starts with that number      |
+| `E/16` to `E/33` | The evidence file whose name starts with that number      |
 | `KR/src/`        | `KR/kernel/src/`                                          |
 | `KR/std/`        | `KR/docs/standards/`                                      |
 | `KR/author/`     | `KR/skills/agent-cli-kernel/`                             |
@@ -33,17 +33,17 @@ reviews number their findings. Shortened paths:
 | I5 judged from outside                      | `B:21`, `C:13`, `IF:39`, `P:29`; a search of `KR/src/` for a terminal check found none                                                                                                                                                                                                                                              |
 | I6 commands                                 | `B:19`, `IF:19` to `:27`, `IF:40`, `KR/author/references/commands.md:120`, `BW/skill/SKILL.md:171` to `:181`, `BW/skill/helper/pending.ts:22`, `CB:6`, `CB:8`, `RS` and `CR:19` on AC9                                                                                                                                              |
 | I7 target binding                           | `RS` Spec 2, `RF` Spec 3, `B:21`, `BW/skill/verify.ts:87` to `:135`, `BW/skill/helper/place.ts:52`, `BW/tests/ready.test.ts:128`, `:145`, `E/22`, build commit `57a347b`                                                                                                                                                            |
-| I8 exit and cause codes                     | `BW/skill/helper/causes.ts:21` to `:62`, `CR:7`, `CB:11`, `BW/kernel/src/kernel/validation/result.ts:118` to `:128`, `E/07-discover.txt:3`, `BE/mac:244` to `:246`, `KR/std/failure-envelopes.md:17`                                                                                                                                |
-| I9 `ready`                                  | `IF:43`, `D:18`, `BW/skill/helper/ready.ts:26`, `:80` to `:96`, `BW/skill/helper/place.ts:11`, `BE/mac:92` to `:107`, `E/18:14` to `:29`, `KR/GLOSSARY.md:113`, `06a566b`                                                                                                                                                           |
-| I10 the sweep                               | `D:10`, `C:27`, `IF:37`, `BW/skill/helper/target.ts:68` to `:101`, `BW/skill/helper/sweep.ts:81` to `:224`, `BE/mac:215` to `:238`, `BW/tests/sweep.test.ts:92`, `044431e`                                                                                                                                                          |
-| I11 scenarios and the report                | `D:10`, `C:23`, `IS:50`, `IF:44`, `IF:48`, `BW/skill/helper/target.ts:99`, `BW/skill/helper/report.ts:151`, `BE/mac:130` to `:157`, `044431e`                                                                                                                                                                                       |
+| I8 exit and cause codes                     | `aa593d7`, `a3fe92f`, `BW/skill/helper/causes.ts:21` to `:62`, `CR:7`, `CB:11`, `BW/kernel/src/kernel/validation/result.ts:118` to `:128`, `E/07-discover.txt:3`, `BE/mac:244` to `:246`, `KR/std/failure-envelopes.md:17`                                                                                                          |
+| I9 `ready`                                  | `IF:43`, `D:18`, `BW/skill/helper/ready.ts:26`, `:80` to `:96`, `BW/skill/helper/place.ts:11`, `BE/mac:92` to `:107`, `E/18:14` to `:29`, `KR/GLOSSARY.md:113`, `06a566b`, `3306233`                                                                                                                                                |
+| I10 the sweep                               | `D:10`, `C:27`, `IF:37`, `BW/skill/helper/target.ts:68` to `:101`, `BW/skill/helper/sweep.ts:81` to `:224`, `BE/mac:215` to `:238`, `BW/tests/sweep.test.ts:92`, `044431e`, `3306233`, `E/31`                                                                                                                                       |
+| I11 scenarios and the report                | `D:10`, `C:23`, `IS:50`, `IF:44`, `IF:48`, `BW/skill/helper/target.ts:99`, `BW/skill/helper/report.ts:151`, `BE/mac:130` to `:157`, `044431e`, `aa593d7`, `dc128f9`, `3ad9232`                                                                                                                                                      |
 | I12 formats                                 | `IS:30`, `IF:44`, `BW/skill/helper/place.ts:7` to `:9`, `:81` to `:104`, `:207`, `BW/skill/helper/verdict.ts:108` to `:150`, `BW/skill/features/changing-command.md:34`, `BE/mac-run/evidence/`, `E/28`, `90162b3`, `c5a9d71`, `6df13fd`                                                                                            |
-| I13 scenario rules, bounds, contract checks | `D:10`, `E/12-check-through-bun-cwd.txt:1` to `:9`, `BW/skill/helper/scenario.ts:8` to `:13`, `BW/skill/helper/verdict.ts:35` to `:58`, `BW/skill/helper/target.ts:5`, `BW/skill/helper/drive.ts:128` to `:134`, `CB:7`, `KR/CODING_STANDARDS.md:59`, `77251da`, `90162b3`                                                          |
-| I14 the verification run                    | `B:22`, `P:33`, `TP/vt/SKILL.md:41`, `TP/vt/scripts/session.sh:93` to `:100`, `BW/skill/helper/launch.ts:142` to `:185`, `BW/skill/helper/cleanup.ts:120`, `KR/src/addons/programs/index.ts:22`, `BE/mac:159` to `:183`, `480dec5`, `c5a9d71`, `E/28`                                                                               |
+| I13 scenario rules, bounds, contract checks | `D:10`, `E/12-check-through-bun-cwd.txt:1` to `:9`, `BW/skill/helper/scenario.ts:8` to `:13`, `BW/skill/helper/verdict.ts:35` to `:58`, `BW/skill/helper/target.ts:5`, `BW/skill/helper/drive.ts:128` to `:134`, `CB:7`, `KR/CODING_STANDARDS.md:59`, `77251da`, `90162b3`, `3ad9232`                                               |
+| I14 the verification run                    | `B:22`, `P:33`, `TP/vt/SKILL.md:41`, `TP/vt/scripts/session.sh:93` to `:100`, `BW/skill/helper/launch.ts:142` to `:185`, `BW/skill/helper/cleanup.ts:120`, `KR/src/addons/programs/index.ts:22`, `BE/mac:159` to `:183`, `480dec5`, `c5a9d71`, `02311f4`, `E/28`, `E/31`                                                            |
 | I15 where state lives                       | `RF` Spec 2, `B:34`, `BW/skill/SKILL.md:44`, `BW/tests/drive.test.ts:237`, `E/19:15` to `:17`                                                                                                                                                                                                                                       |
 | I16 an interrupted change                   | `B:34`, `CB:10`, `BW/tests/report.test.ts:280`, `:307`, `BW/tests/drive.test.ts:205`, `E/17:21` to `:42`, `KR/src/addons/state/capability-qualification-table.ts:8`                                                                                                                                                                 |
 | I17 diagnostics is not the evidence         | `B:19`, `B:22`, `C:24`, `IF:29`, `KR/src/addons/diagnostics/limits.ts:8`, `:17`, `BW/skill/helper/drive.ts:312`                                                                                                                                                                                                                     |
-| I18 the trust model                         | `B:20`, `B:39`, `C:10`, `C:32`, `RS` Spec 1, `RF` Spec 1, `RF` Standards 9, `KR/std/failure-envelopes.md:3`, `BW/skill/verify.ts:29` to `:76`, `:391` to `:446`, `:527` to `:539`, `BE/faults`, `PB`, `E/16`, `E/18:31` to `:35`, `0aeb3de`, `5781a53`, `b2dcc8f`, `9214b48`, `1e3ac9a`, `57a347b`, `a0eb33a`                       |
+| I18 the trust model                         | `B:20`, `B:39`, `C:10`, `C:32`, `RS` Spec 1, `RF` Spec 1, `RF` Standards 9, `KR/std/failure-envelopes.md:3`, `BW/skill/verify.ts:29` to `:76`, `:391` to `:446`, `:527` to `:539`, `BE/faults`, `PB`, `E/16`, `E/18:31` to `:35`, `0aeb3de`, `5781a53`, `b2dcc8f`, `9214b48`, `1e3ac9a`, `57a347b`, `a0eb33a`, `1c5a65d`, `6542071` |
 | I19 fit with the kernel repository          | `D:32`, `D:49`, `B:41`, `C:33`, `KR/GLOSSARY.md:247`, `KR/std/gate-coverage.md:151`, `KR/lint:231`, `:377`, `:387`, `BW/config/verify-skill-lint.mjs`, `BW/.fallowrc.json:35`, `:114`, `BW/tsconfig.json:7`, `BW/skill/verify.ts:588`, `CB:9`, `BE/check`                                                                           |
 | I20 without the parked unit                 | `D:48`, `D:11`, `D:27`, `C:15`, `BW/tests/drive.test.ts:256`, `:301`, `E/12-check-through-bun-cwd.txt:43` to `:44`                                                                                                                                                                                                                  |
 | I21 skill document and map                  | `B:13`, `B:34`, `P:27` to `:38`, `KR/GLOSSARY.md:270`, `BW/skill/SKILL.md`, `BW/skill/features/README.md`, `BW/tests/document.test.ts:37`, `CB:13`, `E/19:19` to `:23`                                                                                                                                                              |
@@ -56,40 +56,42 @@ reviews number their findings. Shortened paths:
 | TD2 in-process tests    | `D:53`, `KR/CODING_STANDARDS.md:48`, `KR/std/test-proof.md:93`, `:98`, `KR/author/references/testing.md:8`, `RS` Standards 1, `RF` Standards 1, `TS:15`, `BW/tests/in-process.test.ts:61`, `CB:9`         |
 | TD3 a good test         | `KR/std/test-proof.md:12`, `:27`, `:32`, `:52`, `:59`, `KR/CODING_STANDARDS.md:49` to `:51`, `D:49`                                                                                                       |
 | TD4 planted faults      | `KR/CODING_STANDARDS.md:46`, `KR/std/test-proof.md:104`, `:118`, `RS` Standards 2, `RF` Standards 2, `IF:41`, `B:39`, `BW/tests/planted-faults/fault-records/`, `BE/replay`, `BF/replay-3.txt`, `3779b5e` |
-| TD5 platforms           | `B:38`, `KR/CODING_STANDARDS.md:61`, `KR/std/platform-parity.md:3`, `:22`, `BE/linux`, `E/29`                                                                                                             |
-| TD6 prior art           | `KR/tests/kernel/author-guide/author-guide.test.ts:44`, `KR/author/references/testing.md:47`, `TP/vt/SKILL.md:80`, `R/unit-b/tests/state.test.ts:67`, `:111`, `:147`, `E/29`                              |
+| TD5 platforms           | `B:38`, `KR/CODING_STANDARDS.md:61`, `KR/std/platform-parity.md:3`, `:22`, `BE/linux`, `E/32`                                                                                                             |
+| TD6 prior art           | `KR/tests/kernel/author-guide/author-guide.test.ts:44`, `KR/author/references/testing.md:47`, `TP/vt/SKILL.md:80`, `R/unit-b/tests/state.test.ts:67`, `:111`, `:147`, `E/32`                              |
 
 ## Acceptance criteria
 
 Each criterion, the decisions it shows, and the run behind its last column.
-`E/29` is correction round 2's run of the build's tests at `67b734d`, which
-lists every title. Line numbers into `BW` and `BE` are as read at `4169ded`.
+`E/32` is correction round 3's run of the build's tests at the merged commit,
+`f7f4d69`, which lists every title. `E/31` is a run of the merged skill
+against the example. Line numbers into `BW` and `BE` are as read at `4169ded`.
 
-| Criteria                     | Decisions                    | Evidence                                                                   |
-| ---------------------------- | ---------------------------- | -------------------------------------------------------------------------- |
-| AC1, AC2                     | I10                          | `BE/linux:224`, `BE/mac:215` to `:238`, `E/29`                             |
-| AC3                          | I10                          | `E/29`, `E/18:37` to `:41`                                                 |
-| AC4                          | I9                           | `BE/linux:100`, `BE/mac:92` to `:107`                                      |
-| AC5 to AC10                  | I6, I9, I10, I18             | `E/29`                                                                     |
-| AC11                         | I18                          | `BE/faults:1` to `:260`, `E/29`                                            |
-| AC12 to AC18, AC49           | I2, I7, I18                  | `E/29`; `BE/faults:263` to `:375` for AC13                                 |
-| AC19                         | I14                          | `BE/mac:76` to `:89`, `BE/linux:81` to `:96`                               |
-| AC20, AC21, AC22             | I8, I14                      | `E/29`                                                                     |
-| AC23                         | I11, I12                     | `BE/mac:110` to `:127`, `:248` to `:252`, `BE/linux:118`, `:257`           |
-| AC24 to AC30, AC50, AC51     | I12, I13, I15, I16, I20      | `E/29`                                                                     |
-| AC31                         | I11                          | `BE/mac:131`, `BE/linux:138`                                               |
-| AC32, AC34, AC35, AC52, AC53 | I11, I14, I16                | `E/29`                                                                     |
-| AC33                         | I14                          | `BE/mac:159` to `:212`, `:244` to `:246`, `BE/linux:166` to `:220`, `:253` |
-| AC36                         | I19                          | `BE/check:220`. The hosted result was not read                             |
-| AC37, AC38, AC42, AC45       | I19, I21, TD1                | `E/29`                                                                     |
-| AC39                         | I1, I19                      | `BE/check`, and `E/27` for this folder's own paths                         |
-| AC40, AC43                   | I19, TD2                     | `BE/check:3`, `:207` to `:220`                                             |
-| AC41                         | I19                          | A search of `BW/skill/` and `BW/tests/` in this round found none           |
-| AC44                         | TD4                          | `BE/replay`: 148 of 148 killed. 145 of the records are this skill's        |
-| AC46                         | TD5, I21                     | `BE/mac`, `BE/linux`, `BE/linux/mini-cleanup.txt`, `PB`                    |
-| AC47                         | I21                          | `BE/cold/run/command-ledger.md`                                            |
-| AC48                         | Slice S6                     | Not run. `E/20` holds two seed trials. Sources `D:9`, `B:56` to `:65`      |
-| AC54 to AC59                 | I10, I11, I12, I13, I14, I18 | `E/29`; `E/28` for AC58. Sources `CN`, with the commit each decision cites |
+| Criteria                     | Decisions                    | Evidence                                                                               |
+| ---------------------------- | ---------------------------- | -------------------------------------------------------------------------------------- |
+| AC1, AC2                     | I10                          | `E/31`, `E/32`; `BE/linux:224` and `BE/mac:215` to `:238` for the run before `3306233` |
+| AC3                          | I10                          | `E/32`, `E/18:37` to `:41`                                                             |
+| AC4                          | I9                           | `BE/linux:100`, `BE/mac:92` to `:107`                                                  |
+| AC5 to AC10                  | I6, I9, I10, I18             | `E/32`                                                                                 |
+| AC11                         | I18                          | `BE/faults:1` to `:260`, `E/32`                                                        |
+| AC12 to AC18, AC49           | I2, I7, I18                  | `E/32`; `BE/faults:263` to `:375` for AC13                                             |
+| AC19                         | I14                          | `BE/mac:76` to `:89`, `BE/linux:81` to `:96`                                           |
+| AC20, AC21, AC22             | I8, I14                      | `E/32`                                                                                 |
+| AC23                         | I11, I12                     | `BE/mac:110` to `:127`, `:248` to `:252`, `BE/linux:118`, `:257`                       |
+| AC24 to AC30, AC50, AC51     | I12, I13, I15, I16, I20      | `E/32`                                                                                 |
+| AC31                         | I11                          | `BE/mac:131`, `BE/linux:138`                                                           |
+| AC32, AC34, AC35, AC52, AC53 | I11, I14, I16                | `E/32`                                                                                 |
+| AC33                         | I14                          | `BE/mac:159` to `:212`, `:244` to `:246`, `BE/linux:166` to `:220`, `:253`             |
+| AC36                         | I19                          | `BE/check:220`. The hosted result was not read                                         |
+| AC37, AC38, AC42, AC45       | I19, I21, TD1                | `E/32`                                                                                 |
+| AC39                         | I1, I19                      | `BE/check`, and `E/27` for this folder's own paths                                     |
+| AC40, AC43                   | I19, TD2                     | `BE/check:3`, `:207` to `:220`                                                         |
+| AC41                         | I19                          | A search of `BW/skill/` and `BW/tests/` in this round found none                       |
+| AC44                         | TD4                          | `BE/replay`: 148 of 148 killed. 145 of the records are this skill's                    |
+| AC46                         | TD5, I21                     | `BE/mac`, `BE/linux`, `BE/linux/mini-cleanup.txt`, `PB`                                |
+| AC47                         | I21                          | `BE/cold/run/command-ledger.md`                                                        |
+| AC48                         | Slice S6                     | Not run. `E/20` holds two seed trials. Sources `D:9`, `B:56` to `:65`                  |
+| AC54 to AC59                 | I10, I11, I12, I13, I14, I18 | `E/32`; `E/28` for AC58. Sources `CN`, with the commit each decision cites             |
+| AC60, AC61, AC62             | I8, I11                      | `E/32`; `E/31` for AC60. Sources `CT`, with the commit each decision cites             |
 
 ## Slices
 
@@ -140,7 +142,7 @@ lists every title. Line numbers into `BW` and `BE` are as read at `4169ded`.
 | 65         | I8             | AC52                     |
 | 66         | I18            | AC11                     |
 
-Correction round 2 added no story.
+Correction rounds 2 and 3 added no story.
 
 Proposals without a source, the words, and this folder's place and sizes are
 in [part 11](11-proposals-and-words.md).

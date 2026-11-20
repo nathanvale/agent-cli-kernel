@@ -27,11 +27,14 @@ In order, the check:
 4. For `ready`, `probe`, `sweep`, `findings`, `launch`, `drive` and `report`,
    runs the helper's `probe` and then the same two probes raw, under the
    helper's own step limits. Each pair must agree on the exit code, the
-   `stdout` byte count, the hash of `stdout` with the envelope's run id
-   blanked, and the hash of `stderr` (`b2dcc8f`). A pair that disagrees is
-   probed once more. When the helper and the raw runs each answer the same
-   twice, the kernel is at fault: `observation-mismatch`. When either side
-   changes between runs, the target is: `target-not-repeatable` (`0aeb3de`).
+   `stdout` byte count, the hash of `stdout` with the envelope's own run id
+   blanked, and the hash of `stderr` (`b2dcc8f`). The check finds that run id
+   by parsing the line, whatever the order of its fields; a run id nested in
+   the target's own data is hashed like any other byte (`1c5a65d`, `6542071`).
+   A pair that disagrees is probed once more. When the helper and the raw runs
+   each answer the same twice, the kernel is at fault: `observation-mismatch`.
+   When either side changes between runs, the target is:
+   `target-not-repeatable` (`0aeb3de`).
 5. For a command on a verification run, confirms that each index row's
    evidence file exists and matches its recorded hash, else
    `evidence-mismatch`. It does this before the command, and again after
@@ -107,8 +110,9 @@ kernel of a generated repository, one at a time, and restored after.
 - One evidence fault class, EF1: an evidence file is missing, or its bytes
   changed. Report: 70, `evidence-mismatch`.
 - One target fault class, TF1: the target answers a probe differently on each
-  run, such as a process id on `stderr`. Report: 3, `target-not-repeatable`.
-  Before `0aeb3de` it was blamed on the kernel.
+  run, such as a process id on `stderr`, or a run id nested in its discovery
+  data. Report: 3, `target-not-repeatable`. Before `0aeb3de` it was blamed on
+  the kernel.
 
 Not protected against: a fault in Bun or the operating system; a hostile
 target, which has the agent's rights; a wrong expectation; a command missing

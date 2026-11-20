@@ -2,10 +2,10 @@
 
 This is the map of the specification. Status: proposed, not accepted (20
 November 2026, Australia/Melbourne). It is the second version, after
-correction rounds 1 and 2. The skill is built: kernel pull request 56, read
-here at commit `67b734d`. Where that build has run evidence, this
-specification follows it, and the first table below says where. Once accepted,
-code follows this specification, never the reverse.
+correction rounds 1, 2 and 3. It describes `verify-cli` as merged into kernel
+main at commit `f7f4d69`, by kernel pull request 56. Where that build has run
+evidence, this specification follows it, and the first table below says where.
+Once accepted, code follows this specification, never the reverse.
 
 ## In one screen
 
@@ -20,11 +20,11 @@ code follows this specification, never the reverse.
 4. Evidence is plain files that outlive cleanup, each with a recorded hash.
 5. Exit 70 means "do not trust this run". A target that cannot start is a
    refusal, exit 3, that quotes the target's own error.
-6. There are 21 implementation decisions, 6 testing decisions, 59 acceptance
+6. There are 21 implementation decisions, 6 testing decisions, 62 acceptance
    criteria and 66 user stories. Each criterion names its test and its
    expected result.
 7. The build passed its own instructions end to end on Linux and macOS, and
-   its 210 tests on macOS.
+   its 218 tests on macOS.
 
 ## Where the inputs and the code disagreed
 
@@ -53,6 +53,10 @@ The first table is where it now follows the build.
 | Evidence files (round 2)                                | No record of what stood at a file's path, or of the repository when the step ran                             | `fileKinds` and `repository` (`90162b3`, `c5a9d71`)                                                                                                                        | I12, AC57           |
 | The run folder (round 2)                                | Judged by its path; git facts null when `git` says no work tree                                              | Judged through symbolic links; refused inside another run; null only with no `.git` entry (`480dec5`)                                                                      | I14, AC58           |
 | The last readiness check's id (round 2)                 | `discovery-has-host-command`                                                                                 | `discovery-lists-a-command` (`06a566b`)                                                                                                                                    | I9                  |
+| The example's sweep (round 3)                           | 31 checks                                                                                                    | 36: three more check ids (`3306233`)                                                                                                                                       | I10, AC1, AC9       |
+| What counts as an envelope (round 3)                    | A line with a contract version and a result                                                                  | Only one whose result has a numeric exit code, a command identity and a cause code (`3ad9232`)                                                                             | I13, AC50           |
+| `report` (round 3)                                      | Succeeds whenever it can read the run                                                                        | Refuses when the sweep reaches no station, and when an evidence file is not a step file that agrees with its index row (`aa593d7`, `dc128f9`)                              | I8, I11, AC61, AC62 |
+| `pending` with its state folder gone (round 3)          | No unfinished changes                                                                                        | Refused, `DOMAIN_VERIFY_STATE_UNAVAILABLE` (`a3fe92f`)                                                                                                                     | I8, AC60            |
 
 Where it follows the code or a kernel standard over an input:
 
@@ -99,7 +103,7 @@ The parts keep `to-spec`'s section order.
 evidence](04-implementation-scenarios.md) (I11 to I17)
 5. [Implementation Decisions: trust and fit](05-implementation-trust.md) (I18
    to I21)
-6. [Testing Decisions](06-testing-decisions.md) (TD1 to TD6, and AC54 to AC59)
+6. [Testing Decisions](06-testing-decisions.md) (TD1 to TD6, and AC54 to AC62)
 7. [Testing Decisions: acceptance criteria](07-acceptance-criteria.md) (AC1 to
    AC53)
 8. [Out of Scope](08-out-of-scope.md)
@@ -111,7 +115,7 @@ evidence](04-implementation-scenarios.md) (I11 to I17)
 folder](11-proposals-and-words.md)
 
 [findings.tsv](findings.tsv) answers every finding of the two reviews and of
-correction rounds 1 and 2, one row each.
+correction rounds 1, 2 and 3, one row each.
 
 ## Sources
 
@@ -119,26 +123,27 @@ These are planning records. Like the records the CLI kernel authority lists,
 they live outside the kernel repository. Their owner is MAG-114, an issue in
 Linear, the issue tracker. A citation gives a letter, then a file and line.
 
-| Letter     | Source                                                                                                                                    |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `D`        | The decisions record, `inputs/DECISIONS.md`. The authority                                                                                |
-| `B`        | The brief, `inputs/BRIEF.md`                                                                                                              |
-| `C`        | The comparison of the two ideas reports, `inputs/COMPARISON.md`                                                                           |
-| `IF`, `IS` | The two blind ideas reports: `IF` by a Fable 5.2 worker, `IS` by a Sol 6.1 worker. Both are model names                                   |
-| `RF`, `RS` | The two blind reviews of the first version, by the same two models                                                                        |
-| `CR`, `CB` | Correction round 1, `inputs/corrections/round-1.md`, and its addendum on the build's differences                                          |
-| `CN`       | Correction round 2, the builder's note, `inputs/corrections/round-2-build.md`                                                             |
-| `BW`       | The build: kernel pull request 56, branch `skills/verify-agent-cli`, at commit `4169ded` for round 1 and `67b734d` for round 2            |
-| `PB`       | That pull request's body                                                                                                                  |
-| `BE`       | The build's evidence folder, `redesign/` in the builder's notes                                                                           |
-| `E`        | The evidence folder of the planning record. Files 16 to 25 are the second version's runs, 26 and 27 round 1's, 28 to 30 round 2's         |
-| `FW`       | The earlier trial's scratch work, the first prototype                                                                                     |
-| `KR`       | The kernel repository at commit `5b89b1f`                                                                                                 |
-| `TP`       | The template repository at commit `5292c0d`                                                                                               |
-| `CD`       | A copy of Nathan's user-level `cli-design` skill, taken for the instruction review                                                        |
-| `P`        | pstack's `create-verification-skill`, version 0.15.32. pstack is a set of agent skills; this one says what a verification skill must hold |
-| `R`        | The cold-start trial: a fresh agent built two commands, one changing, in a generated repository                                           |
-| `TS`       | The `to-spec` skill, whose section order this follows                                                                                     |
+| Letter     | Source                                                                                                                                                                             |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `D`        | The decisions record, `inputs/DECISIONS.md`. The authority                                                                                                                         |
+| `B`        | The brief, `inputs/BRIEF.md`                                                                                                                                                       |
+| `C`        | The comparison of the two ideas reports, `inputs/COMPARISON.md`                                                                                                                    |
+| `IF`, `IS` | The two blind ideas reports: `IF` by a Fable 5.2 worker, `IS` by a Sol 6.1 worker. Both are model names                                                                            |
+| `RF`, `RS` | The two blind reviews of the first version, by the same two models                                                                                                                 |
+| `CR`, `CB` | Correction round 1, `inputs/corrections/round-1.md`, and its addendum on the build's differences                                                                                   |
+| `CN`       | Correction round 2, the builder's note, `inputs/corrections/round-2-build.md`                                                                                                      |
+| `CT`       | Correction round 3, `inputs/corrections/round-3-build.md`                                                                                                                          |
+| `BW`       | The build: kernel pull request 56, branch `skills/verify-agent-cli`, at commit `4169ded` for round 1, `67b734d` for round 2 and `f7f4d69`, the merge into kernel main, for round 3 |
+| `PB`       | That pull request's body                                                                                                                                                           |
+| `BE`       | The build's evidence folder, `redesign/` in the builder's notes                                                                                                                    |
+| `E`        | The evidence folder of the planning record. Files 16 to 25 are the second version's runs, 26 and 27 round 1's, 28 to 30 round 2's, 31 to 33 round 3's                              |
+| `FW`       | The earlier trial's scratch work, the first prototype                                                                                                                              |
+| `KR`       | The kernel repository at commit `5b89b1f`                                                                                                                                          |
+| `TP`       | The template repository at commit `5292c0d`                                                                                                                                        |
+| `CD`       | A copy of Nathan's user-level `cli-design` skill, taken for the instruction review                                                                                                 |
+| `P`        | pstack's `create-verification-skill`, version 0.15.32. pstack is a set of agent skills; this one says what a verification skill must hold                                          |
+| `R`        | The cold-start trial: a fresh agent built two commands, one changing, in a generated repository                                                                                    |
+| `TS`       | The `to-spec` skill, whose section order this follows                                                                                                                              |
 
 Queued work is named by what it does, with its tag in brackets: the consumer
 lint rules (K5); building `verify-cli` (K6); the programs add-on's folder and
@@ -154,6 +159,6 @@ Each claim carries one of the glossary's claim tags: passed on Linux; passed
 on macOS only; designed and not run; decided by Nathan; open. None is open.
 "Passed on Linux" here means the build's end-to-end run in a container on the
 Mac mini, with the same run on macOS. "Passed on macOS only" means the build's
-tests and transcripts on macOS; correction round 2 ran its 210 tests again.
-"Read in the kernel's source" marks a fact taken from a file and not from a
-run.
+tests and transcripts on macOS; correction round 3 ran its 218 tests again, at
+the merged commit. "Read in the kernel's source" marks a fact taken from a
+file and not from a run.
