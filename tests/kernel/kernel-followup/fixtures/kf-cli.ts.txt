@@ -143,6 +143,19 @@ const pending = command({
     ),
 });
 
+function inertState(): StateAddonDescriptor {
+  return contractFor.stateAddon((issuer) => ({
+    ifNoResult: issuer.ifNoResult({
+      kind: "command",
+      command: "kf.pending",
+      args: [],
+    }),
+    attach() {
+      throw new Error("The read scenario never attaches state.");
+    },
+  }));
+}
+
 function seamState(): StateAddonDescriptor {
   return contractFor.stateAddon((issuer) => ({
     ifNoResult: issuer.ifNoResult({
@@ -1236,7 +1249,8 @@ const scenarios: Readonly<Record<string, (argv: string[]) => Promise<unknown>>> 
           cli: "kf",
           commands: [read],
           causes,
-          installedAddons: ["approval"],
+          state: inertState(),
+          installedAddons: ["state", "approval"],
         }),
         { addons: { approval: approvalAddon("kf.read") } },
       )(argv),

@@ -8,7 +8,7 @@ import {
 import { neverRuns, readsUnchanged } from "./handlers.ts";
 import { contractUnchecked } from "./harness.ts";
 import { approvedRead } from "./swarm-commands.ts";
-import { emptyInput, unchanged } from "./shapes.ts";
+import { emptyInput, inertState, unchanged } from "./shapes.ts";
 
 function base() {
   return command({
@@ -213,7 +213,8 @@ test("F1.unguarded-raw-refused: a declaration without the two-phase entry may no
     contractUnchecked(contractFor, {
       cli: "x",
       commands: [declaration],
-      installedAddons: ["approval"],
+      state: inertState("x"),
+      installedAddons: ["state", "approval"],
     });
   expect(refusalOf(admitGuarded({ ...guarded }))).toBe(refusal);
   expect(refusalOf(admitGuarded({ ...guarded, execute: neverRuns }))).toBe(
@@ -248,7 +249,8 @@ test("X-K1-3.case-b-station-table: an inspect command that declares approval dec
       contractUnchecked(contractFor, {
         cli: "x",
         commands: [{ ...withoutTable, stations: [] }],
-        installedAddons: ["approval"],
+        state: inertState("x"),
+        installedAddons: ["state", "approval"],
       }),
     ),
   ).toBe(refusal);
@@ -257,7 +259,41 @@ test("X-K1-3.case-b-station-table: an inspect command that declares approval dec
       contractFor({
         cli: "x",
         commands: [approvedRead(() => undefined)],
+        state: inertState("x"),
+        installedAddons: ["state", "approval"],
+      }),
+    ),
+  ).toBe("admitted");
+});
+
+test("S3.approval-needs-state: contractFor refuses the approval add-on installed without the state add-on", () => {
+  const refusal =
+    "Approval requires the state add-on: list state in installedAddons and pass the add-on made by contractFor.stateAddon.";
+  expect(
+    refusalOf(() =>
+      contractFor({
+        cli: "x",
+        commands: [approvedRead(() => undefined)],
         installedAddons: ["approval"],
+      }),
+    ),
+  ).toBe(refusal);
+  expect(
+    refusalOf(() =>
+      contractFor({
+        cli: "x",
+        commands: [],
+        installedAddons: ["approval", "programs"],
+      }),
+    ),
+  ).toBe(refusal);
+  expect(
+    refusalOf(() =>
+      contractFor({
+        cli: "x",
+        commands: [approvedRead(() => undefined)],
+        state: inertState("x"),
+        installedAddons: ["state", "approval"],
       }),
     ),
   ).toBe("admitted");

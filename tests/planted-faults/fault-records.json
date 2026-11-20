@@ -3143,6 +3143,27 @@
     "source": "3c13f5b fix(state): refuse a capability qualification run whose checkout changed while its cases ran"
   },
   {
+    "id": "4fc11f9-probes.test",
+    "patch": "tests/planted-faults/patches/4fc11f9-probes.test.patch",
+    "testFile": "tests/kernel/locks/probe-folders.test.ts",
+    "title": "a locks probe run leaves no folder in the temp folder when its filter matches some of its tests or none",
+    "source": "4fc11f9 test(locks): write each probe fixture in the batch that compiles it"
+  },
+  {
+    "id": "16ca937-spawn-bounded.test",
+    "patch": "tests/planted-faults/patches/16ca937-spawn-bounded.test.patch",
+    "testFile": "tests/template/process-runner/spawn-bounded-folders.test.ts",
+    "title": "a spawn-bounded run leaves no empty PATH folder in the temp folder, whole or filtered to the no-ps case",
+    "source": "16ca937 test(process-runner): remove the empty PATH folder after the no-ps case"
+  },
+  {
+    "id": "cc81e74-index-approval-state",
+    "patch": "tests/planted-faults/patches/cc81e74-index-approval-state.patch",
+    "testFile": "tests/kernel/kernel-repair/swarm-declarations.test.ts",
+    "title": "^S3\\.approval-needs-state",
+    "source": "cc81e74 feat(kernel): refuse the approval add-on installed without the state add-on"
+  },
+  {
     "id": "3c9d78c-lint-rule-folder",
     "patch": "tests/planted-faults/patches/3c9d78c-lint-rule-folder.patch",
     "testFile": "tests/template/glossary/lint-rule-folder.test.ts",
