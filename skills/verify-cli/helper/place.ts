@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { at, parsedJson } from "./json.ts";
+import { at, parsedJson, readRegularFile } from "./json.ts";
 
 export const cli = "verify-cli";
 export const indexSchema = "verify-index/1";
@@ -220,29 +220,10 @@ export function indexText(rows: readonly (RunRow | StepRow)[]): string {
 
 const indexBytesLimit = 16_777_216;
 
-function readFailure(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 export function readIndex(place: VerificationRun): IndexRead {
-  let content: string;
-  try {
-    const stats = statSync(place.index);
-    if (!stats.isFile())
-      return {
-        kind: "unreadable",
-        reason: `${place.index} is not a regular file`,
-      };
-    if (stats.size > indexBytesLimit)
-      return {
-        kind: "unreadable",
-        reason: `${place.index} is ${String(stats.size)} bytes, over ${String(indexBytesLimit)}`,
-      };
-    content = readFileSync(place.index, "utf8");
-  } catch (error) {
-    if (at(error, "code") === "ENOENT") return { kind: "missing" };
-    return { kind: "unreadable", reason: readFailure(error) };
-  }
+  const file = readRegularFile(place.index, indexBytesLimit);
+  if (file.kind !== "read") return file;
+  const content = file.bytes.toString("utf8");
   const lines = content.split("\n");
   if (lines.pop() !== "")
     return {

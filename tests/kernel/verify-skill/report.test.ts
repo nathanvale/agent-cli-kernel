@@ -265,6 +265,11 @@ describe("what the report reads", () => {
       kind: "unreadable",
       reason: `${join(place.evidence, "f", "ended.json")} is missing`,
     });
+    mkdirSync(join(place.evidence, "f", "ended.json"));
+    expect(stepDetails(place, [row("ended", "met", null, null)])).toEqual({
+      kind: "unreadable",
+      reason: `${join(place.evidence, "f", "ended.json")} is not a regular file`,
+    });
   });
 });
 

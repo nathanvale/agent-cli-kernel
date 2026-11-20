@@ -1,7 +1,12 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import type { Subprocess } from "bun";
-import { at, listOf } from "./helper/json.ts";
+import {
+  at,
+  evidenceBytesLimit,
+  listOf,
+  readRegularFile,
+} from "./helper/json.ts";
 import {
   cli,
   probeResult,
@@ -405,20 +410,13 @@ export function evidenceFailures(place: VerificationRun): Failure[] {
   const failures: Failure[] = [];
   for (const row of read.steps) {
     const path = join(place.evidence, row.file);
-    let bytes: Uint8Array;
-    try {
-      bytes = readFileSync(path);
-    } catch (error) {
+    const file = readRegularFile(path, evidenceBytesLimit);
+    if (file.kind !== "read")
       failures.push({
         id: "evidence-mismatch",
-        detail:
-          at(error, "code") === "ENOENT"
-            ? `${path} is missing.`
-            : `${path} cannot be read: ${error instanceof Error ? firstLine(error.message) : String(error)}`,
+        detail: file.kind === "missing" ? `${path} is missing.` : file.reason,
       });
-      continue;
-    }
-    if (sha256(bytes) !== row.sha256)
+    else if (sha256(file.bytes) !== row.sha256)
       failures.push({
         id: "evidence-mismatch",
         detail: `${path} no longer matches the hash its index row recorded.`,

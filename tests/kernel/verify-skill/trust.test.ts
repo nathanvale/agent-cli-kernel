@@ -1,5 +1,11 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  truncateSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import {
   absoluteArgv,
@@ -31,6 +37,7 @@ import {
   targetLimits,
 } from "../../../skills/verify-cli/helper/place.ts";
 import { verificationRun } from "../../../skills/verify-cli/helper/place.ts";
+import { evidenceBytesLimit } from "../../../skills/verify-cli/helper/json.ts";
 import { spawnBounded } from "../kernel-repair/swarm-process.ts";
 import {
   causeOf,
@@ -38,8 +45,10 @@ import {
   field,
   fixtures,
   helper,
+  checkEntry,
   helperBound,
   installedCopy,
+  makeFifo,
   plantFault,
   rawFailIds,
   readOnlyScenario,
@@ -369,6 +378,49 @@ describe("evidence the check confirms", () => {
       });
     },
     watchdog(2, 1),
+  );
+
+  test(
+    "an evidence file that is a folder or too large is named as such, never read",
+    async () => {
+      const at = world();
+      const { run, file } = await driven(at);
+      const place = verificationRun(run);
+      rmSync(file);
+      mkdirSync(file);
+      expect(evidenceFailures(place)).toEqual([
+        { id: "evidence-mismatch", detail: `${file} is not a regular file` },
+      ]);
+      rmSync(file, { recursive: true });
+      writeFileSync(file, "");
+      truncateSync(file, evidenceBytesLimit + 1);
+      expect(evidenceFailures(place)).toEqual([
+        {
+          id: "evidence-mismatch",
+          detail: `${file} is ${String(evidenceBytesLimit + 1)} bytes, over ${String(evidenceBytesLimit)}`,
+        },
+      ]);
+    },
+    watchdog(2),
+  );
+
+  test(
+    "an evidence file swapped for a named pipe does not hold the check",
+    async () => {
+      const at = world();
+      const { run, file } = await driven(at);
+      rmSync(file);
+      await makeFifo(file);
+      const ran = await spawnBounded(
+        [process.execPath, checkEntry, "report", run],
+        { cwd: at.repo, env: at.env, boundMilliseconds: helperBound },
+      );
+      expect({ exit: ran.exit, ids: rawFailIds(ran.stderr) }).toEqual({
+        exit: 70,
+        ids: ["evidence-mismatch"],
+      });
+    },
+    watchdog(3),
   );
 
   test("each index row's file is confirmed by its hash, and an unlaunched folder has nothing to confirm", () => {
