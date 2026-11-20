@@ -1,6 +1,8 @@
 import { expect, test } from "bun:test";
 import { spawnBounded } from "../../support/process.ts";
-import { testFolder } from "../../support/test-folder.ts";
+import { ownedFolders } from "../../support/fixture-files.ts";
+
+const folder = ownedFolders();
 
 function failure(run: Promise<unknown>): Promise<string> {
   return run.then(
@@ -47,7 +49,7 @@ test("spawnBounded returns the output and exit code of a child inside its bound"
 
 test("spawnBounded still stops the child and says why when ps cannot start", async () => {
   const path = process.env.PATH;
-  process.env.PATH = testFolder("spawn-bounded-no-ps-");
+  process.env.PATH = folder("spawn-bounded-no-ps-");
   try {
     const outcome = await failure(
       spawnBounded(["/bin/sh", "-c", "/bin/sleep 33"], {
