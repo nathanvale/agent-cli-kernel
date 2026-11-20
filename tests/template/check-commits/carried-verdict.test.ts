@@ -300,6 +300,12 @@ describe("readToken", () => {
     });
   });
 
+  test("a token past its expiry still names its merge commit, because it proves what a past run executed", async () => {
+    expect(
+      await readToken(await token({ ...claims, exp: 1 }), published, expected),
+    ).toEqual({ merge });
+  });
+
   test("an audience given as a list holds when it names ours", async () => {
     expect(
       await readToken(
