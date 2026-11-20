@@ -146,7 +146,9 @@ argv, the limits, what was expected, what was observed (exit code,
 or the expected result keys, stderr, each expected file's content, and in
 `fileKinds` what stood at its path: `file`, `absent`, `folder`, `other`,
 `too-large` (over 1,048,576 bytes, not read) or `unreadable`), the `unmet`
-list, and the verdict. An expected file holds only as a regular file, and
+list, the verdict, and in `repository` the head commit and count of
+uncommitted paths when drive ran it, so a change made after launch shows
+against the run row. An expected file holds only as a regular file, and
 an absent one only when nothing stands at its path. `evidence/index.jsonl` lists each step with
 its verdict, the command and cause its envelope named, and the SHA-256 of
 its file. Evidence is never overwritten.

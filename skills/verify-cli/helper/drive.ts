@@ -31,6 +31,8 @@ import {
   targetLimits,
 } from "./place.ts";
 import type { VerificationRun, RunRow, StepRow } from "./place.ts";
+import { gitAsk, repositoryFacts } from "./launch.ts";
+import type { RepositoryFacts } from "./launch.ts";
 import { placedStep, readScenario } from "./scenario.ts";
 import type { Scenario, ScenarioStep } from "./scenario.ts";
 import { stationOf, stepFile } from "./verdict.ts";
@@ -107,6 +109,7 @@ export async function keptStep(
   feature: string,
   step: ScenarioStep,
   ran: ProgramResult,
+  repository: RepositoryFacts,
 ): Promise<Written> {
   const observed = stepRunOf(ran);
   const files = await Promise.all(
@@ -114,7 +117,7 @@ export async function keptStep(
   );
   const kept = stepFile(feature, step, observed, files);
   const file = join(feature, `${step.name}.json`);
-  const content = stepText(kept);
+  const content = stepText({ ...kept, repository });
   const credit = stationOf(step, observed.stdout);
   return {
     row: {
@@ -174,7 +177,11 @@ export function blockedEnding(
   return undefined;
 }
 
-export function driveCommand(state: State, bun: () => ParsedPath) {
+export function driveCommand(
+  state: State,
+  bun: () => ParsedPath,
+  git: () => ParsedPath | null,
+) {
   return changing({
     identity,
     route: ["drive"],
@@ -305,6 +312,10 @@ export function driveCommand(state: State, bun: () => ParsedPath) {
       const run = before.run;
       const places = { scratch: place.scratch, repository: run.repository };
       const steps = scenario.steps.map((step) => placedStep(step, places));
+      const repository = await repositoryFacts(
+        gitAsk(context.programs, git()),
+        run.repository,
+      );
       let blocked: Blocked;
       let failure = "";
       const written: Written[] = [];
@@ -359,6 +370,7 @@ export function driveCommand(state: State, bun: () => ParsedPath) {
                     scenario.feature,
                     step,
                     ran,
+                    repository,
                   );
                   await writeFile(
                     join(place.evidence, kept.row.file),

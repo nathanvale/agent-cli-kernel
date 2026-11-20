@@ -48,7 +48,7 @@ export function helperContract(
       sweepCommand(bun),
       findingsCommand(bun),
       launchCommand(state, git),
-      driveCommand(state, bun),
+      driveCommand(state, bun, git),
       reportCommand(bun),
       cleanupCommand(state),
       pendingCommand(state),

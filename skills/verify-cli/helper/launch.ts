@@ -142,8 +142,8 @@ export async function gitFacts(
   };
 }
 
-function gitAsk(
-  programs: ProgramsCapability,
+export function gitAsk(
+  programs: Pick<ProgramsCapability, "supplied">,
   git: ParsedPath | null,
 ): Ask | null {
   if (git === null) return null;
@@ -155,6 +155,26 @@ function gitAsk(
     });
     return { exitCode: ran.exitCode, stdout: ran.stdout, stderr: ran.stderr };
   };
+}
+
+export type RepositoryFacts = {
+  readonly headCommit: string | null;
+  readonly uncommittedPaths: number | null;
+  readonly gitFailure: string | null;
+};
+
+export async function repositoryFacts(
+  ask: Ask | null,
+  root: string,
+): Promise<RepositoryFacts> {
+  const facts = await gitFacts(ask, root);
+  return facts.kind === "facts"
+    ? {
+        headCommit: facts.headCommit,
+        uncommittedPaths: facts.uncommittedPaths,
+        gitFailure: null,
+      }
+    : { headCommit: null, uncommittedPaths: null, gitFailure: facts.reason };
 }
 
 export type LaunchRefused = {

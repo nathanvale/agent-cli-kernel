@@ -921,7 +921,11 @@ describe("how drive runs and keeps a step", () => {
   test("a kept step's index row names its file and the SHA-256 of its content", async () => {
     const at = world();
     const place = verificationRun(runFolder(at, "r1"));
-    const kept = await keptStep(place, "f", step, ran);
+    const kept = await keptStep(place, "f", step, ran, {
+      headCommit: null,
+      uncommittedPaths: null,
+      gitFailure: null,
+    });
     expect(kept.row).toEqual({
       row: "step",
       feature: "f",

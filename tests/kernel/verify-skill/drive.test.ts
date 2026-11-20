@@ -19,6 +19,7 @@ import {
   writePackage,
 } from "./harness.ts";
 import type { World } from "./harness.ts";
+import { git, initRepository } from "../../support/git-fixture.ts";
 
 afterAll(releaseWorlds);
 
@@ -445,6 +446,28 @@ describe("drive", () => {
       });
     },
     watchdog(3),
+  );
+
+  test(
+    "each evidence file records the repository's head commit and uncommitted paths when its step ran",
+    async () => {
+      const at = world();
+      writeFileSync(join(at.repo, ".gitignore"), "node_modules\n");
+      initRepository(at.repo);
+      git(at.repo, "add", "--all");
+      git(at.repo, "commit", "--quiet", "-m", "first");
+      const run = await launched(at, "r1");
+      writeFileSync(join(at.repo, "edited.txt"), "after launch\n");
+      await helper(at, ["drive", run, scenarioFile(at, readOnlyScenario)]);
+      const kept = stepFile(run, "read-only-command", "show-known-planet");
+      expect(field(kept, "repository")).toEqual({
+        headCommit: git(at.repo, "rev-parse", "HEAD"),
+        uncommittedPaths: 1,
+        gitFailure: null,
+      });
+      expect(field(indexRows(run)[0], "uncommittedPaths")).toBe(0);
+    },
+    watchdog(2),
   );
 });
 
