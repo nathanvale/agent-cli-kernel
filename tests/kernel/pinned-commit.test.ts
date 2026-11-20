@@ -27,6 +27,25 @@ const buildBound = 60_000;
 const setupBound = installBound + 2 * buildBound + 60_000;
 const runBound = 30_000;
 const testBound = runBound + 30_000;
+const stagingBound = 60_000;
+
+function gitStaging(cwd: string, ...args: string[]): string {
+  const result = Bun.spawnSync(["git", ...args], {
+    cwd,
+    env: environment,
+    stdout: "pipe",
+    stderr: "pipe",
+    timeout: stagingBound,
+    killSignal: "SIGKILL",
+  });
+  if (result.exitedDueToTimeout)
+    throw new Error(
+      `git ${args.join(" ")} did not exit within ${stagingBound} ms.`,
+    );
+  if (result.exitCode !== 0)
+    throw new Error(`git ${args.join(" ")}: ${result.stderr.toString()}`);
+  return result.stdout.toString();
+}
 
 function record(value: unknown): Readonly<Record<string, unknown>> {
   if (typeof value !== "object" || value === null || Array.isArray(value))
@@ -86,13 +105,13 @@ function workingTreeCommit(source: string, destination: string): string {
   }
   gitOutput(destination, "init", "--quiet", "--initial-branch=main");
   writeFileSync(join(destination, ".pathspec"), copied.join("\0"));
-  gitOutput(
+  gitStaging(
     destination,
     "add",
     "--pathspec-from-file=.pathspec",
     "--pathspec-file-nul",
   );
-  gitOutput(destination, "commit", "--quiet", "-m", "working tree");
+  gitStaging(destination, "commit", "--quiet", "-m", "working tree");
   return gitOutput(destination, "rev-parse", "HEAD").trim();
 }
 
