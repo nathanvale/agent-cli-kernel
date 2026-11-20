@@ -239,7 +239,11 @@ export async function readToken(
 
 const gitMilliseconds = 60_000;
 
-function git(root: string, args: readonly string[]) {
+function git(
+  root: string,
+  args: readonly string[],
+  encoding: "utf8" | "latin1" = "utf8",
+) {
   const result = Bun.spawnSync(["git", ...args], {
     cwd: root,
     env: withoutRepositoryLocation(process.env),
@@ -250,7 +254,7 @@ function git(root: string, args: readonly string[]) {
   });
   return {
     ok: result.exitCode === 0 && !result.exitedDueToTimeout,
-    stdout: result.stdout.toString(),
+    stdout: result.stdout.toString(encoding),
     stderr: result.stderr.toString().trim(),
   };
 }
@@ -263,9 +267,15 @@ function present(root: string, sha: string): boolean {
   );
 }
 
-// Interface: the checker tree of commit `sha` in the repository at `root`.
+// Interface: the checker tree of commit `sha` in the repository at `root`,
+// read byte for byte (latin1 maps each byte to one character), so paths
+// that are not UTF-8 stay distinct.
 export function treeOf(root: string, sha: string): string {
-  const listed = git(root, ["ls-tree", "-r", "-z", "--full-tree", sha]);
+  const listed = git(
+    root,
+    ["ls-tree", "-r", "-z", "--full-tree", sha],
+    "latin1",
+  );
   if (!listed.ok) throw new Error(listed.stderr);
   return checkerTree(listed.stdout);
 }
