@@ -1,0 +1,13 @@
+diff --git a/skills/verify-agent-cli/helper/launch.ts b/skills/verify-agent-cli/helper/launch.ts
+index 0d79f2a..77a59d1 100644
+--- a/skills/verify-agent-cli/helper/launch.ts
++++ b/skills/verify-agent-cli/helper/launch.ts
+@@ -141,7 +141,7 @@ export function launchCommand(state: State, root: string, cwd: string) {
+         },
+         async (transaction) => {
+           try {
+-            if (existsSync(place.folder)) {
++            if (existsSync(join(place.folder, "never"))) {
+               existed = true;
+               return;
+             }

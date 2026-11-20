@@ -1,0 +1,13 @@
+diff --git a/skills/verify-agent-cli/helper/drive.ts b/skills/verify-agent-cli/helper/drive.ts
+index fb3b9d5..6a01157 100644
+--- a/skills/verify-agent-cli/helper/drive.ts
++++ b/skills/verify-agent-cli/helper/drive.ts
+@@ -322,7 +322,7 @@ export function driveCommand(
+             blocked = "missing";
+             return;
+           }
+-          if (existsSync(file)) {
++          if (place.run === "") {
+             blocked = "step";
+             return;
+           }

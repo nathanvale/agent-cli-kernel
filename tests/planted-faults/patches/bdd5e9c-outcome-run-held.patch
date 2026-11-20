@@ -1,0 +1,13 @@
+diff --git a/skills/verify-agent-cli/helper/outcome.ts b/skills/verify-agent-cli/helper/outcome.ts
+index 37998f7..a3a30dd 100644
+--- a/skills/verify-agent-cli/helper/outcome.ts
++++ b/skills/verify-agent-cli/helper/outcome.ts
+@@ -21,7 +21,7 @@ export function refusalOf(
+       return undefined;
+     case "held-lock":
+       return {
+-        causeCode: "DOMAIN_VERIFY_RUN_HELD",
++        causeCode: "DOMAIN_VERIFY_STATE_UNAVAILABLE",
+         message: `Run ${run} is being changed by operation ${outcome.operationId}.`,
+       };
+     case "unresolved-case":

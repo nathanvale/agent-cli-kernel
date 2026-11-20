@@ -1,0 +1,12 @@
+diff --git a/skills/verify-agent-cli/helper/place.ts b/skills/verify-agent-cli/helper/place.ts
+index d2c3375..d6a4e5a 100644
+--- a/skills/verify-agent-cli/helper/place.ts
++++ b/skills/verify-agent-cli/helper/place.ts
+@@ -58,7 +58,6 @@ export function readRunRecord(place: RunPlace): RunRecord | undefined {
+   const entry = field(parsed, "entry");
+   const launchedAt = field(parsed, "launchedAt");
+   if (
+-    field(parsed, "run") !== place.run ||
+     repository === undefined ||
+     entry === undefined ||
+     launchedAt === undefined
