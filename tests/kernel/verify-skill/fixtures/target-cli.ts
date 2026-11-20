@@ -1,24 +1,10 @@
-import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, readFileSync } from "node:fs";
 import {
   command,
   commonCauses,
   contractFor,
   runProcess,
-  station,
 } from "agent-cli-kernel";
-import type { CauseTable } from "agent-cli-kernel";
-
-const causes = {
-  ...commonCauses,
-  DOMAIN_TARGET_UNKNOWN_NAME: {
-    outcome: "refused",
-    transactionState: "unchanged",
-    failureClass: "domain",
-    exitCode: 3,
-    retryable: false,
-    guidance: "next",
-  },
-} as const satisfies CauseTable;
 
 const noInput = {
   arguments: [],
@@ -34,12 +20,6 @@ const nothingChanged = {
   remaining: [],
   uncertain: [],
   inventoryComplete: true,
-} as const;
-
-const words = {
-  retryDelayPolicy: { kind: "none" },
-  reachability: "required",
-  unreachableRationale: null,
 } as const;
 
 const text = {
@@ -99,37 +79,22 @@ const hold = command({
   },
 });
 
-const touch = command({
-  identity: "target.touch",
-  route: ["touch"],
-  summary: "Write a file, though the command declares no change.",
-  input: {
-    ...noInput,
-    arguments: [
-      { name: "path", summary: "The file.", required: true, value: text },
-    ],
-  },
-  capabilities: {},
-  run: (input, context) => {
-    writeFileSync(input.path, "touched");
-    return context.result(
-      { commandIdentity: "target.touch", causeCode: "SUCCESS_UNCHANGED" },
-      { message: "Touched.", data: null, effects: nothingChanged },
-    );
-  },
-});
-
 const where = command({
   identity: "target.where",
   route: ["where"],
-  summary: "Print the folder the target runs in, and its HOME.",
-  input: noInput,
+  summary: "Print the folder the target runs in, then the word given.",
+  input: {
+    ...noInput,
+    arguments: [
+      { name: "word", summary: "Any word.", required: true, value: text },
+    ],
+  },
   capabilities: {},
-  run: (_input, context) =>
+  run: (input, context) =>
     context.result(
       { commandIdentity: "target.where", causeCode: "SUCCESS_UNCHANGED" },
       {
-        message: `${process.cwd()} ${process.env.HOME ?? ""}`,
+        message: `${process.cwd()} ${input.word}`,
         data: null,
         effects: nothingChanged,
       },
@@ -161,91 +126,10 @@ const orphan = command({
   },
 });
 
-const flood = command({
-  identity: "target.flood",
-  route: ["flood"],
-  summary: "Return more data than the helper keeps.",
-  input: {
-    ...noInput,
-    arguments: [
-      {
-        name: "confirm",
-        summary: "Any word; a sweep never supplies one.",
-        required: true,
-        value: text,
-      },
-    ],
-  },
-  capabilities: {},
-  run: (_input, context) =>
-    context.result(
-      { commandIdentity: "target.flood", causeCode: "SUCCESS_UNCHANGED" },
-      {
-        message: "Flooded.",
-        data: { text: "x".repeat(1_100_000) },
-        effects: nothingChanged,
-      },
-    ),
-});
-
-const name = command({
-  identity: "target.name",
-  route: ["name"],
-  summary: "Accept the name known and refuse any other.",
-  input: {
-    ...noInput,
-    arguments: [
-      { name: "name", summary: "A name.", required: true, value: text },
-    ],
-  },
-  capabilities: {},
-  stations: [
-    station(causes, {
-      ...words,
-      commandIdentity: "target.name",
-      causeCode: "SUCCESS_UNCHANGED",
-      trigger: "The name is known.",
-      repairAction: null,
-      guidance: { next: { kind: "done" } },
-      independentObservable: "target.name:known",
-    }),
-    station(causes, {
-      ...words,
-      commandIdentity: "target.name",
-      causeCode: "DOMAIN_TARGET_UNKNOWN_NAME",
-      trigger: "The name is not known.",
-      repairAction: "Use the name known.",
-      guidance: { next: { kind: "instruction", text: "Use the name known." } },
-      independentObservable: "target.name:unknown",
-    }),
-  ],
-  run: (input, context) =>
-    input.name === "known"
-      ? context.result(
-          { commandIdentity: "target.name", causeCode: "SUCCESS_UNCHANGED" },
-          {
-            message: "Known.",
-            data: { name: input.name },
-            effects: nothingChanged,
-          },
-        )
-      : context.result(
-          {
-            commandIdentity: "target.name",
-            causeCode: "DOMAIN_TARGET_UNKNOWN_NAME",
-          },
-          {
-            message: `No name ${input.name}.`,
-            data: null,
-            effects: nothingChanged,
-          },
-        ),
-});
-
 const contract = contractFor({
   cli: "target",
-  commands: [status, hold, touch, where, orphan, flood, name],
-  causes,
+  commands: [status, hold, where, orphan],
+  causes: commonCauses,
   installedAddons: [],
 });
 

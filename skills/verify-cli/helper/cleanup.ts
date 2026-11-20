@@ -3,12 +3,13 @@ import { rm } from "node:fs/promises";
 import { changing, station } from "agent-cli-kernel";
 import {
   causes,
+  completedSuccess,
+  missingRunStation,
   noInput,
   nothingChanged,
   runArgument,
   stateStations,
   stationWords,
-  completedSuccess,
 } from "./causes.ts";
 import { failureText, refusalOf, unfinishedChange } from "./outcome.ts";
 import type { State } from "./outcome.ts";
@@ -16,14 +17,14 @@ import { runPlace } from "./place.ts";
 
 const identity = "verify-cli.cleanup";
 
-export function cleanupCommand(state: State, root: string) {
+export function cleanupCommand(state: State) {
   return changing({
     identity,
     route: ["cleanup"],
     summary:
-      "Remove a run's scratch folder, and with it everything the target made there. The evidence folder stays.",
+      "Remove a run's scratch folder, and with it everything a step left there. The evidence and state folders stay.",
     input: { ...noInput, arguments: [runArgument] },
-    capabilities: {},
+    capabilities: { diagnostics: true },
     effectClass: "repository-local",
     effects: ["scratch.remove"],
     ifNoResult: state.descriptor.ifNoResult,
@@ -35,12 +36,12 @@ export function cleanupCommand(state: State, root: string) {
         commandIdentity: identity,
         causeCode: completedSuccess,
         trigger:
-          "The run's scratch folder was removed and its evidence remains.",
+          "The run's scratch folder was removed; its evidence and state remain.",
         repairAction: null,
         guidance: {
           next: {
             kind: "instruction",
-            text: "Run the evidence command with this run's name, and confirm every step's file is listed.",
+            text: "Run report with this run's folder; it reads the evidence that remains.",
           },
         },
         independentObservable: `${identity}:removed`,
@@ -50,38 +51,25 @@ export function cleanupCommand(state: State, root: string) {
         commandIdentity: identity,
         causeCode: "DOMAIN_VERIFY_RUN_CLEAN",
         trigger: "The run's scratch folder was already gone.",
-        repairAction: "Nothing to remove; read the run's evidence.",
+        repairAction: "Nothing to remove; read the run's report.",
         guidance: {
           next: {
             kind: "instruction",
-            text: "Run the evidence command with this run's name; its evidence is all there is.",
+            text: "Run report with this run's folder; its evidence is all there is.",
           },
         },
         independentObservable: `${identity}:already-clean`,
       }),
-      station(causes, {
-        ...stationWords,
-        commandIdentity: identity,
-        causeCode: "DOMAIN_VERIFY_RUN_MISSING",
-        trigger: "No run has this name.",
-        repairAction: "Name a run that launch made.",
-        guidance: {
-          next: {
-            kind: "instruction",
-            text: "List the run folders under the helper's runs folder and choose one.",
-          },
-        },
-        independentObservable: `${identity}:run-missing`,
-      }),
+      missingRunStation(identity),
       ...stateStations(identity),
     ],
     run: async (input, context) => {
-      const place = runPlace(root, input.run);
-      if (!existsSync(place.evidence))
+      const place = runPlace(input.run);
+      if (!existsSync(place.index))
         return context.result(
           { commandIdentity: identity, causeCode: "DOMAIN_VERIFY_RUN_MISSING" },
           {
-            message: `No run named ${input.run} under ${root}.`,
+            message: `${input.run} holds no run that launch made.`,
             data: null,
             effects: nothingChanged,
           },
@@ -108,36 +96,29 @@ export function cleanupCommand(state: State, root: string) {
             () => rm(place.scratch, { recursive: true, force: true }),
             () =>
               Promise.resolve(
-                !existsSync(place.scratch) && existsSync(place.record),
+                !existsSync(place.scratch) && existsSync(place.index),
               ),
           );
         },
       );
-      const refused = refusalOf(outcome, input.run);
-      if (refused !== undefined)
+      const blocked =
+        refusalOf(outcome, input.run) ??
+        (clean
+          ? {
+              causeCode: "DOMAIN_VERIFY_RUN_CLEAN" as const,
+              message: `${place.scratch} was already removed. Kept: ${place.evidence} and ${place.state}.`,
+            }
+          : undefined);
+      if (blocked !== undefined)
         return context.result(
-          { commandIdentity: identity, causeCode: refused.causeCode },
-          { message: refused.message, data: null, effects: nothingChanged },
-        );
-      const data = {
-        run: input.run,
-        removed: place.scratch,
-        evidence: place.evidence,
-      };
-      if (clean)
-        return context.result(
-          { commandIdentity: identity, causeCode: "DOMAIN_VERIFY_RUN_CLEAN" },
-          {
-            message: `Run ${input.run} was already clean. Evidence: ${place.evidence}.`,
-            data: null,
-            effects: nothingChanged,
-          },
+          { commandIdentity: identity, causeCode: blocked.causeCode },
+          { message: blocked.message, data: null, effects: nothingChanged },
         );
       if (outcome.proof.transactionState !== "completed") {
         const ending = unfinishedChange(
           outcome.proof.transactionState,
           `Cleanup failed before it removed anything: ${failure}`,
-          `Cleanup of run ${input.run} is unconfirmed: ${place.scratch} may be partly removed.`,
+          `Cleanup of ${input.run} is unconfirmed: ${place.scratch} may be partly removed.`,
         );
         return context.result(
           { commandIdentity: identity, causeCode: ending.causeCode },
@@ -147,8 +128,11 @@ export function cleanupCommand(state: State, root: string) {
       return context.result(
         { commandIdentity: identity, causeCode: completedSuccess },
         {
-          message: `Run ${input.run} is clean. Evidence: ${place.evidence}.`,
-          data,
+          message: `Removed ${place.scratch}. Kept: ${place.evidence} and ${place.state}.`,
+          data: {
+            removed: [place.scratch],
+            kept: [place.evidence, place.state],
+          },
           transaction: outcome.proof,
         },
       );

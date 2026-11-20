@@ -1,64 +1,60 @@
 # Feature map
 
-This folder is the maintained source for proving what a CLI built on
-agent-cli-kernel does for its user. Read this index, then use the matching
-feature file as the recipe. Add a file when your CLI gains a feature a user
-can reach; keep each file's four sections.
+The seed of a generated repository's own feature map. Copy this folder to
+`verify/features/` at your repository's root, and write each feature's
+scenario to `verify/scenarios/<feature>.json`. That `verify/` folder is
+your maintained verification source; this copy under `node_modules` is
+read-only, and changes whenever the pin names another commit.
 
 ## Baseline
 
-- Run every command from the repository root, once
-  `node_modules/agent-cli-kernel` is installed.
 - `verify.ts` below stands for
-  `bun node_modules/agent-cli-kernel/skills/verify-cli/verify.ts`.
-  Write the full command each time.
-- Launch a fresh run for each feature: `verify.ts launch <run>`, then
-  `verify.ts doctor --run <run>`. Both exit 0 before any step.
-- `status` is the command every generated repository starts with. Put your
-  own command's name and words where a file uses it.
+  `bun node_modules/agent-cli-kernel/skills/verify-cli/verify.ts`, run from
+  the repository root. Write the full command each time.
+- `ready src/cli.ts` exits 0 before any feature is driven.
+- Each feature gets its own run folder from `launch`, so a feature driven
+  twice never shares evidence.
+- The examples use the author skill's example CLI, `moons`. Put your own
+  command's words where a file uses it.
 
 ## Driving conventions
 
-- Each step is one `verify.ts drive <run> <step> '<argv>' <expectations>`.
-  The step name is new in its run; argv is a JSON array in single quotes.
 - Write each expectation from what the feature must do for its user. Never
   copy one from the CLI's discovery or from a run you have not judged.
-- A step that exits 3 with `DOMAIN_VERIFY_EXPECTATION_UNMET` is a failed
-  feature. Report it with its evidence file. Keep the journey as written,
-  and keep its expectations.
-- Report a step whose precondition the repository lacks (no changing
-  command, say) as not proved, with the reason. It is never a pass, and a
-  feature with a step not proved is not proved as a whole: report which
-  steps passed.
+- A step that is unmet is a failed feature. Report it with its evidence
+  file. Keep the scenario as written.
+- When a scenario cannot pass, its feature file's Gotchas says why, and
+  `report` shows the step unmet. The scenario is never weakened.
+- Format each scenario file as your repository formats JSON, so the check
+  command covers it.
 
 ## Proof and cleanup
 
-- Every step's evidence lands in the run's evidence folder, which
-  `verify.ts evidence <run>` lists.
+- `report <run folder>` after the last drive: each station of your
+  commands is swept, driven or owed.
 - Prove a change with a second, read-only step, never with the change's own
   message alone.
-- After the last step, run `verify.ts sweep --run <run>`: results the
-  feature reached leave the `owed` list.
-- Then finish with `verify.ts cleanup <run>` and `verify.ts evidence <run>`:
-  every step listed and `scratch: removed`.
+- Finish with `cleanup <run folder>`, then `report <run folder>` again: the
+  evidence outlives the scratch folder.
 
 ## Feature entry contract
 
 Each file starts with an H1 and one paragraph on the user-visible
 behaviour, then four H2 sections in order: `Sub-features` (short IDs, one
-line each), `How to get to it (user POV)`, `Driving it with verify.ts`
-(starts with `Preconditions:`, then one labelled bullet per step pairing the
-action, the exact command and the observable result), and `Gotchas`.
+line each), `How to get to it (user POV)`, `Driving it with verify-cli`
+(starts with `Preconditions:`, then the commands with their real output),
+and `Gotchas`.
 
 ## Features
 
 - [Help and usage errors](help-and-usage.md): help, a command's help, and
-  the refusals a user meets for a wrong word or a missing argument.
-- [A read-only command](read-only-command.md): a read in human and `--json`
-  form, with streams and exit code.
-- [A changing command](changing-command.md): a change, its read-back, a
-  second run, and an interrupted run.
-- [Approval without state](approval-without-state.md): a CLI that lists the
-  approval add-on without the state add-on refuses at start.
+  the refusals a user meets for a wrong word or a wrong option. Driven by
+  the sweep.
+- [A read-only command](read-only-command.md): a read in `--json` and human
+  form, with streams and exit code. Driven by a scenario.
+- [A changing command](changing-command.md): a change, a second run, and an
+  interrupted run. Driven by a scenario.
+- [Approval without state](approval-without-state.md): a CLI that selects
+  approval without the state add-on refuses at start. Driven by `ready`.
 - [The check command](check-command.md): `bun run check` passes in the
-  repository.
+  repository. Driven by a scenario.

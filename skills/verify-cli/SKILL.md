@@ -9,148 +9,181 @@ description: Prove that a CLI built on agent-cli-kernel really works, the way a 
 Your repository installs the kernel as the package `agent-cli-kernel`. This
 skill ships inside it, at `node_modules/agent-cli-kernel/skills/verify-cli/`,
 with its own helper: a small CLI built on the same kernel. It judges your
-CLI from outside, as a user would: it starts it as a separate process and
-reads the exit code, stdout, stderr, the `--json` envelope, and the files it
-leaves behind. It never imports your source.
+CLI, the target, from outside: it starts it as a separate process and reads
+the exit code, stdout, stderr, the `--json` envelope, and the files it
+leaves. It never imports your source.
 
-## The helper
+Two layers:
 
-Run every helper command from your repository's root, through its front
-door:
+- **Sweep**: every check the target's own discovery implies. It trusts the
+  declarations, so it cannot catch a wrong declaration or wrong data.
+- **Scenarios**: one JSON file per feature, each step with exact
+  expectations you wrote from what the feature must do. Never copy an
+  expectation from the CLI's discovery or from a run you have not judged.
 
-```text
-bun node_modules/agent-cli-kernel/skills/verify-cli/verify.ts <command> [arguments]
-```
-
-`verify.ts` is the kernel-free check: it does not go through the kernel. It loads the
-kernel, runs the helper as a child, and compares the exit code the helper's
-envelope claims with the exit code its process really had. On `doctor` it
-also runs your CLI twice by hand: an unknown command must exit 2 with one
-stderr line ending `[USAGE_UNKNOWN_COMMAND]`, and `--discover --json` must
-exit 0 with one envelope. Any mismatch prints `RAW FAIL` lines and exits 70.
-Each line names the check that failed: `kernel-*` for the installed kernel,
-`target-*` for your CLI, `helper-*` for the helper. A kernel fault can break
-the helper and your CLI together; exit 70 is how you see it. Treat exit 70
-as a failure to diagnose from those lines, never as a pass. Ctrl-C or
-SIGTERM to `verify.ts` reaches the helper, which stops its drive first; then
-`verify.ts` exits 130 or 143.
-
-| Command                                              | What it does                                                                |
-| ---------------------------------------------------- | --------------------------------------------------------------------------- |
-| `doctor [--run <run>] [--entry <file>]`              | Is the target worth driving: package, installed kernel, `--help`, discovery |
-| `sweep [--run <run>]`                                | Layer 1: every check your CLI's own discovery implies                       |
-| `findings [--run <run>]`                             | The same sweep as data, every finding listed                                |
-| `launch <run> [--entry <file>]`                      | Make a run: a scratch folder and an evidence folder                         |
-| `drive <run> <step> '<argv as JSON>' [expectations]` | Layer 2: run your CLI once and check what you expected                      |
-| `evidence <run>`                                     | List the run's evidence files                                               |
-| `cleanup <run>`                                      | Remove the run's scratch folder; keep its evidence                          |
-| `pending`                                            | List helper changes that never finished                                     |
-
-Add `--json` to any command for its envelope. `<command> --help` shows its
-options.
-
-## Two layers
-
-- **Sweep** reads your CLI's discovery and checks what the kernel promises
-  for every command: help exits 0, a usage refusal exits 2 with an empty
-  stdout and one stderr line, each `--json` envelope's exit code equals the
-  process's, and each result is a declared one. It also lists `owed`: the
-  declared results nothing has reached yet. The sweep trusts the
-  declarations, so it cannot catch a command declared wrongly, or one whose
-  result is the wrong one.
-- **Scenarios** are the steps in the [feature files](features/README.md):
-  exact argv and the exit code, cause, stdout and stderr you expect, written
-  by you from what the command must do. Take expectations from the
-  feature's purpose, never from the CLI's own discovery output.
-
-Run both. A feature is done when the results its steps reached leave
-`owed`; the CLI as a whole is done when `owed` is empty. Drive each owed
-result in a scenario, then run `sweep --run <run>` to see it counted. Only
-a step run with `--json` counts: without it there is no envelope to name
-the command.
+Every command below goes through `verify.ts`, the kernel-free check, shown
+in full under [Helpers](#helpers). Exit 70 means the run cannot be trusted:
+the installed kernel or the helper is broken. Each `RAW FAIL` line on
+stderr names the failure and its repair; stdout is empty. Treat exit 70 as
+a failure to diagnose, never as a pass. A target that misbehaves while the
+helper is honest is exit 3, never 70.
 
 ## Launch
 
 1. When `node_modules/agent-cli-kernel` is missing, run
    `bun install --frozen-lockfile` once.
-2. Pick a name for the verification run that no earlier run used, such as `status-2026-11-20`, and run
-   `launch <run>`. Pass `--entry <file>` when the CLI's entry is not
-   `src/cli.ts`.
-3. Done when `launch` exits 0 and prints the evidence folder.
+2. Choose a new folder for the run, outside every git work tree, such as
+   one under `$TMPDIR`. Run `launch <run folder> <target entry file>`.
+3. Done when `launch` exits 0. The run folder now holds `scratch/`, which a
+   run may fill and cleanup removes; `evidence/`, with the run's
+   `index.jsonl`; and `state/`, the helper's own state. The index's first
+   row binds the run to the target, the repository root, the pinned commit,
+   Bun, the platform, and the repository's head commit and count of
+   uncommitted paths.
 
-Each drive starts your CLI in the run's scratch folder, with `HOME` and the
-`XDG_*` folders inside it, so your real home is never touched. Two runs never
-share a scratch folder, so two agents can verify side by side.
+A target that keeps state takes its state folder from an argument or an
+environment variable. Point it under the run's `scratch/` folder: put
+`{scratch}` in the argument, or set the variable on the command line that
+runs `drive`, since every step inherits it.
 
 ## Doctor
 
-Run `doctor --run <run>` before driving and whenever anything looks off.
-Done when it exits 0. Repair each failure it names; drive nothing while it
-fails.
+Run `ready <target entry file>` before driving, and whenever anything looks
+off. It runs two probes, an undeclared option and `--discover --json`, and
+judges eight readiness checks: Bun matches the toolchain pin, the usage
+refusal exits 2 with one stderr line and nothing on stdout, and discovery
+exits 0 with one envelope that lists a command of your own.
+
+- Exit 0: `The target is ready: 8 readiness checks passed.`
+- Exit 3, `DOMAIN_VERIFY_TARGET_START`: the target did not start. The
+  message quotes its first error line, such as a missing entry file, an
+  error the CLI throws before its kernel runs, or `Approval requires the
+state add-on`.
+- Exit 3, `DOMAIN_VERIFY_FINDINGS`: the message names each failed check.
+  Repair them before driving anything.
+
+Then run `sweep <target entry file>`: `<n> checks passed. Stations owed:
+<n>.` Each owed result is a
+required station of your own commands the sweep cannot reach. Drive each
+one in a scenario. On exit 3, run `findings` with the same target for
+every failed check.
 
 ## Drive
 
-1. Open the feature file for what you are proving, in
-   [features/](features/README.md), and follow its steps in order.
-2. Each step is one `drive`: `drive <run> <step> '<argv>' --expect-exit <n>`
-   plus the expectations the step names. argv is one JSON array of strings,
-   in single quotes.
-3. A step passes when `drive` exits 0. Exit 3 with
-   `DOMAIN_VERIFY_EXPECTATION_UNMET` means the feature failed: report it with
-   the evidence file. Keep the expectation as written.
+1. Keep scenario files in your repository's `verify/scenarios/` folder,
+   and feature files in `verify/features/`. Copy the
+   [seed feature map](features/README.md) there first: this folder is
+   read-only under `node_modules`.
+2. Run `drive <run folder> <scenario file>`. It checks the whole file,
+   then runs every step in order, whatever the earlier verdicts.
+3. Exit 0 prints `<n> steps met.` Exit 3 with
+   `DOMAIN_VERIFY_EXPECTATION_UNMET` names the first unmet step and what it
+   missed: the feature failed. Report it with that step's evidence file.
+   Keep the scenario as written; never weaken it to pass.
 
-Every drive of your CLI also checks what the kernel promises every command,
-without being asked: an envelope's exit code is the process's; with
-`--json`, stdout holds one envelope and stderr is empty; without it, a run
-that fails prints nothing on stdout. A broken promise fails the step, and
-the evidence lists it under `contract`. A `--script` step, and a step its
-timeout stopped, skip these checks.
+A scenario file:
 
-Expectation options: `--expect-exit <n>`, `--expect-cause <code>` (read from
-the `--json` envelope, or from the one stderr line), `--expect-stdout <text>`,
-`--expect-stderr <text>` (each a substring, and each may repeat),
-`--expect-empty-stdout`, `--expect-empty-stderr`, and
-`--expect-file <text>` with `--read-file <path>`, which keeps a file's text
-after the step (a relative path is read from the run's scratch folder).
-Other options: `--stdin <text>`, `--timeout-ms <n>` (default 30000; the
-target is stopped when it runs out), and `--script`, which runs a
-`package.json` script in the repository root instead of your CLI: argv
-starts with the script's name.
+```json
+{
+  "schema": "verify-scenario/1",
+  "feature": "read-only-command",
+  "steps": [
+    {
+      "name": "show-known-planet",
+      "argv": ["show", "mars", "--json"],
+      "expect": {
+        "exitCode": 0,
+        "stderr": "",
+        "result": {
+          "commandIdentity": "moons.show",
+          "causeCode": "SUCCESS_UNCHANGED",
+          "data": { "planet": "mars", "moons": 2 }
+        }
+      }
+    }
+  ]
+}
+```
+
+- A step has `name`, `argv` and `expect`, and may have `runner`,
+  `timeoutMilliseconds` (default 20000) and `outputLimitBytes` (default
+  1048576 for each stream).
+- A step runs Bun on the bound target with its `argv`, in the repository
+  root. `"runner": "bun"` passes `argv` to Bun alone, such as
+  `["run", "check"]`.
+- `expect` needs `exitCode` and something more: exact `stdout` and
+  `stderr`; `result`, whose keys are fields of the envelope's result or
+  dotted paths into it, ending in `length` for a list's size; `files`, each
+  a `{scratch}/` path with exact `content` or `"absent": true`; `timedOut`;
+  and, on a `"runner": "bun"` step only, `stdoutIncludes` and
+  `stderrIncludes`, for output with timings.
+- `{scratch}` becomes the run's scratch folder and `{repository}` the
+  repository root, in every string of `argv` and `expect`.
+- A step that passes its time limit is unmet unless it expects
+  `"timedOut": true`. A cut output is always unmet.
+- On every target step that ended by itself, drive also checks what the
+  kernel promises: an envelope's exit code is the process's; with `--json`,
+  one envelope and an empty stderr; without it, a failed run prints nothing
+  on stdout. A broken promise is listed as `contract.<name>`.
+- A broken rule refuses the whole file with `DOMAIN_VERIFY_SCENARIO`,
+  naming the rule; nothing runs. A feature already driven in this run is
+  refused with `DOMAIN_VERIFY_ALREADY_DRIVEN`: launch a new run.
 
 ## Evidence
 
-Each step writes one JSON file to
-`${XDG_STATE_HOME:-$HOME/.local/state}/verify-cli/runs/<run>/evidence/<step>.json`:
-the argv, the full command, exit code, stdout, stderr, whether it timed out,
-the cause, the files the step added to or removed from the scratch folder
-(`scratchChanges`), and each expectation with what was seen. `run.json` beside it
-records the repository and entry. A step name is used once, so evidence is
-never overwritten.
+Each step writes `evidence/<feature>/<step>.json` in the run folder: the
+argv, the limits, what was expected, what was observed (exit code,
+`timedOut`, `outputTruncated`, `terminationConfirmed`, byte counts, stdout
+or the expected result keys, stderr, and each expected file's content), the
+`unmet` list, and the verdict. `evidence/index.jsonl` lists each step with
+its verdict, the command and cause its envelope named, and the SHA-256 of
+its file. Evidence is never overwritten.
 
-Proof standard: drive the real path a user takes, capture the action and the
-resulting state, and check side effects with a second, read-only step (the
-CLI's own read command, or `--read-file` on the step that made the change).
+Run `report <run folder>`: `Stations: <n> swept, <n> driven, <n> owed.
+Steps: <n> met, <n> unmet.` Its data gives each station of your commands
+one state, the step or check that gave it, each unmet step, and each step
+whose process end was not confirmed. Only a met target step run with
+`--json` drives a station.
 
 ## Cleanup
 
-Run `cleanup <run>`, then `evidence <run>`. Done when `evidence` lists every
-step and reports `scratch: removed`. Cleanup removes only the run's scratch
-folder, and with it what your CLI made there. A second cleanup of the same
-run is refused as `DOMAIN_VERIFY_RUN_CLEAN`, exit 3: nothing is left to
-remove. Every process a drive starts is stopped by that drive, so nothing is
-left running; the helper never stops a process by name.
+Run `cleanup <run folder>`. Done when it exits 0 and `report` still exits
+0: `scratch/` is gone, and `evidence/` and `state/` remain. A second
+cleanup is refused as `DOMAIN_VERIFY_RUN_CLEAN`, exit 3: nothing is left to
+remove. Each step's process group is ended before the step returns, so
+cleanup stops nothing.
 
-A helper stopped with Ctrl-C or SIGTERM through `verify.ts` stops its drive
-and leaves the run usable. A helper killed outright leaves the run refused as
-`DOMAIN_VERIFY_RUN_UNRESOLVED`: read `pending`, keep that run's evidence, and
-launch a new run under another name.
+A helper stopped with Ctrl-C or SIGTERM through `verify.ts` stops its
+children first, then `verify.ts` exits 130 or 143. A helper killed outright
+leaves its change unfinished: the next change to that run is refused as
+`DOMAIN_VERIFY_RUN_UNRESOLVED`. Read `pending <run folder>`, keep the run
+folder as evidence, and launch a new run.
 
-## What the helper cannot do yet
+## Helpers
 
-- Its programs add-on takes no working folder or environment, so the helper
-  starts your CLI as `env HOME=... bun --cwd=<folder> <entry>`, and a script
-  as `env HOME=... bun --cwd=<repository> run <script>`. Bun reads
-  `bun --cwd <folder> run <script>`, without the equals sign, as `bun run`
-  with no script: it prints its help and exits 0, having run nothing.
-- A program's stdin is closed after `--stdin`'s text, and its output is kept
-  as text, not bytes.
+Run from the repository root; relative paths are read from the folder you run in:
+
+```text
+bun node_modules/agent-cli-kernel/skills/verify-cli/verify.ts <command> <arguments> [--json]
+```
+
+| Command                              | What it does                                                    |
+| ------------------------------------ | --------------------------------------------------------------- |
+| `ready <target>`                     | Two probes and eight readiness checks                           |
+| `probe <target>`                     | What the helper observed for the two probes, unjudged           |
+| `sweep <target>`                     | Every check the target's discovery implies; the owed stations   |
+| `findings <target>`                  | The same sweep as data, every finding listed                    |
+| `launch <run folder> <target>`       | Make a run folder bound to one target                           |
+| `drive <run folder> <scenario file>` | Run one scenario; one evidence file and index row for each step |
+| `report <run folder>`                | Each station's state, unmet steps, unconfirmed process ends     |
+| `cleanup <run folder>`               | Remove the run's scratch folder; keep evidence and state        |
+| `pending <run folder>`               | The helper's unfinished changes to that run                     |
+
+`<target>` is the target's entry file, such as `src/cli.ts`. Add `--json`
+for the helper's envelope. `verify.ts <command> --help` shows one command.
+
+What the helper cannot do yet: a step cannot run in another folder or with
+its own environment, a compiled target cannot be started, and a target
+whose state folder is fixed inside the repository cannot be isolated. Its
+feature file says so under Gotchas; drive its change through its own
+read-only commands.

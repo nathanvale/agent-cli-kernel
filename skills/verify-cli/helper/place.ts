@@ -1,82 +1,241 @@
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
-import { isAbsolute, join } from "node:path";
-import { at } from "./json.ts";
+import { dirname, join } from "node:path";
+import { at, parsedJson } from "./json.ts";
 
 export const cli = "verify-cli";
+export const indexSchema = "verify-index/1";
+export const stepSchema = "verify-step/1";
+export const scenarioSchema = "verify-scenario/1";
 
-export type Environment = Readonly<Record<string, string | undefined>>;
+export const usageProbe: readonly string[] = ["--verify-cli-undeclared-option"];
+export const discoveryProbe: readonly string[] = ["--discover", "--json"];
+export const probeArgvs: readonly (readonly string[])[] = [
+  usageProbe,
+  discoveryProbe,
+];
 
-export function verificationFolder(environment: Environment): string {
-  const state = environment.XDG_STATE_HOME;
-  const home = environment.HOME;
-  if (state !== undefined && isAbsolute(state)) return join(state, cli);
-  if (home !== undefined && isAbsolute(home))
-    return join(home, ".local", "state", cli);
-  throw new Error(
-    `${cli} needs XDG_STATE_HOME or HOME as an absolute path, to place its runs. Repair: set HOME, or XDG_STATE_HOME, to an absolute folder.`,
-  );
+export function targetArgs(
+  entry: string,
+  argv: readonly string[],
+): readonly string[] {
+  return ["--no-install", entry, ...argv];
 }
 
-export type RunPlace = {
-  readonly run: string;
-  readonly folder: string;
-  readonly scratch: string;
-  readonly home: string;
-  readonly evidence: string;
-  readonly record: string;
+export type Observation = {
+  readonly argv: readonly string[];
+  readonly exitCode: number | null;
+  readonly stdoutBytes: number;
+  readonly stderrSha256: string;
 };
 
-export function runPlace(root: string, run: string): RunPlace {
-  const folder = join(root, "runs", run);
-  const scratch = join(folder, "scratch");
-  const evidence = join(folder, "evidence");
+export function sha256(text: string | Uint8Array): string {
+  return createHash("sha256").update(text).digest("hex");
+}
+
+export function observation(
+  argv: readonly string[],
+  ran: {
+    readonly exitCode: number | null;
+    readonly stdout: string;
+    readonly stderr: string;
+  },
+): Observation {
   return {
-    run,
-    folder,
-    scratch,
-    home: join(scratch, "home"),
-    evidence,
-    record: join(evidence, "run.json"),
+    argv: [...argv],
+    exitCode: ran.exitCode,
+    stdoutBytes: Buffer.byteLength(ran.stdout),
+    stderrSha256: sha256(ran.stderr),
   };
 }
 
-export type RunRecord = {
-  readonly run: string;
-  readonly repository: string;
-  readonly entry: string;
-  readonly launchedAt: string;
+export function repositoryRoot(path: string): string | undefined {
+  let folder = dirname(path);
+  for (;;) {
+    if (existsSync(join(folder, "package.json"))) return folder;
+    const parent = dirname(folder);
+    if (parent === folder) return undefined;
+    folder = parent;
+  }
+}
+
+export type RunPlace = {
+  readonly folder: string;
+  readonly scratch: string;
+  readonly evidence: string;
+  readonly index: string;
+  readonly state: string;
 };
 
-function field(value: unknown, name: string): string | undefined {
+export function runPlace(folder: string): RunPlace {
+  const evidence = join(folder, "evidence");
+  return {
+    folder,
+    scratch: join(folder, "scratch"),
+    evidence,
+    index: join(evidence, "index.jsonl"),
+    state: join(folder, "state"),
+  };
+}
+
+export type RunRow = {
+  readonly schema: string;
+  readonly row: "run";
+  readonly repository: string;
+  readonly target: string;
+  readonly pinnedCommit: string;
+  readonly bun: string;
+  readonly platform: string;
+  readonly headCommit: string | null;
+  readonly uncommittedPaths: number | null;
+};
+
+export type StepRow = {
+  readonly row: "step";
+  readonly feature: string;
+  readonly step: string;
+  readonly runner: "target" | "bun";
+  readonly verdict: "met" | "unmet";
+  readonly commandIdentity: string | null;
+  readonly causeCode: string | null;
+  readonly exitCode: number | null;
+  readonly file: string;
+  readonly sha256: string;
+};
+
+export type IndexRead =
+  | { readonly kind: "missing" }
+  | {
+      readonly kind: "read";
+      readonly run: RunRow;
+      readonly steps: readonly StepRow[];
+    }
+  | { readonly kind: "unreadable"; readonly reason: string };
+
+function text(value: unknown, name: string): string | undefined {
   const found = at(value, name);
   return typeof found === "string" ? found : undefined;
 }
 
-export function readRunRecord(place: RunPlace): RunRecord | undefined {
-  if (!existsSync(place.record)) return undefined;
-  const parsed: unknown = JSON.parse(readFileSync(place.record, "utf8"));
-  const repository = field(parsed, "repository");
-  const entry = field(parsed, "entry");
-  const launchedAt = field(parsed, "launchedAt");
-  if (
-    field(parsed, "run") !== place.run ||
-    repository === undefined ||
-    entry === undefined ||
-    launchedAt === undefined
-  )
-    throw new Error(
-      `${place.record} is not a run record this helper wrote. Repair: launch a new run under another name.`,
-    );
-  return { run: place.run, repository, entry, launchedAt };
+function textOrNull(value: unknown, name: string): string | null | undefined {
+  const found = at(value, name);
+  return typeof found === "string" || found === null ? found : undefined;
 }
 
-const defaultEntry = "src/cli.ts";
+function countOrNull(value: unknown, name: string): number | null | undefined {
+  const found = at(value, name);
+  return found === null ||
+    (typeof found === "number" && Number.isSafeInteger(found))
+    ? found
+    : undefined;
+}
 
-export function entryFor(
-  given: string | undefined,
-  record: RunRecord | undefined,
-  cwd: string,
-): string {
-  const entry = given ?? record?.entry ?? defaultEntry;
-  return isAbsolute(entry) ? entry : join(cwd, entry);
+export function runRowOf(value: unknown): RunRow | undefined {
+  const repository = text(value, "repository");
+  const target = text(value, "target");
+  const pinnedCommit = text(value, "pinnedCommit");
+  const bun = text(value, "bun");
+  const platform = text(value, "platform");
+  const headCommit = textOrNull(value, "headCommit");
+  const uncommittedPaths = countOrNull(value, "uncommittedPaths");
+  if (
+    text(value, "schema") !== indexSchema ||
+    text(value, "row") !== "run" ||
+    repository === undefined ||
+    target === undefined ||
+    pinnedCommit === undefined ||
+    bun === undefined ||
+    platform === undefined ||
+    headCommit === undefined ||
+    uncommittedPaths === undefined
+  )
+    return undefined;
+  return {
+    schema: indexSchema,
+    row: "run",
+    repository,
+    target,
+    pinnedCommit,
+    bun,
+    platform,
+    headCommit,
+    uncommittedPaths,
+  };
+}
+
+export function stepRowOf(value: unknown): StepRow | undefined {
+  const feature = text(value, "feature");
+  const step = text(value, "step");
+  const runner = text(value, "runner");
+  const verdict = text(value, "verdict");
+  const commandIdentity = textOrNull(value, "commandIdentity");
+  const causeCode = textOrNull(value, "causeCode");
+  const exitCode = countOrNull(value, "exitCode");
+  const file = text(value, "file");
+  const hash = text(value, "sha256");
+  if (
+    text(value, "row") !== "step" ||
+    feature === undefined ||
+    step === undefined ||
+    (runner !== "target" && runner !== "bun") ||
+    (verdict !== "met" && verdict !== "unmet") ||
+    commandIdentity === undefined ||
+    causeCode === undefined ||
+    exitCode === undefined ||
+    file === undefined ||
+    hash === undefined
+  )
+    return undefined;
+  return {
+    row: "step",
+    feature,
+    step,
+    runner,
+    verdict,
+    commandIdentity,
+    causeCode,
+    exitCode,
+    file,
+    sha256: hash,
+  };
+}
+
+export function indexText(rows: readonly (RunRow | StepRow)[]): string {
+  return rows.map((row) => `${JSON.stringify(row)}\n`).join("");
+}
+
+export function readIndex(place: RunPlace): IndexRead {
+  let content: string;
+  try {
+    content = readFileSync(place.index, "utf8");
+  } catch (error) {
+    if (at(error, "code") === "ENOENT") return { kind: "missing" };
+    return {
+      kind: "unreadable",
+      reason: error instanceof Error ? error.message : String(error),
+    };
+  }
+  const lines = content.split("\n");
+  if (lines.pop() !== "")
+    return {
+      kind: "unreadable",
+      reason: `${place.index} does not end with a line feed`,
+    };
+  const run = runRowOf(parsedJson(lines[0] ?? ""));
+  if (run === undefined)
+    return {
+      kind: "unreadable",
+      reason: `${place.index} does not start with a run row`,
+    };
+  const steps: StepRow[] = [];
+  for (const [number, line] of lines.slice(1).entries()) {
+    const row = stepRowOf(parsedJson(line));
+    if (row === undefined)
+      return {
+        kind: "unreadable",
+        reason: `line ${String(number + 2)} of ${place.index} is not a step row`,
+      };
+    steps.push(row);
+  }
+  return { kind: "read", run, steps };
 }

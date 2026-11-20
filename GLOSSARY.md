@@ -259,10 +259,12 @@ a user meets it.
 _Avoid_: verification skill (in a name)
 
 **Kernel-free check**:
-verify-cli's front door, `verify.ts`. It checks that the installed kernel
-loads, runs the target's raw exit codes, and compares the helper's envelope
-exit code with its process exit code, all without the kernel's code. A
-failure prints `RAW FAIL` lines and exits 70.
+verify-cli's front door, `verify.ts`, through which every command starts.
+No kernel code runs in its process: it imports the kernel in a child,
+probes the helper with a command it does not declare, compares the
+helper's probes of the target with raw runs, and confirms each evidence
+file against its hash. A run it cannot trust prints `RAW FAIL` lines and
+exits 70.
 _Avoid_: shell, wrapper (for the kernel-free check)
 
 **Helper**:
@@ -270,51 +272,57 @@ verify-cli's own CLI, built on the kernel, which the kernel-free check
 starts for every command.
 
 **Target**:
-The CLI that verify-cli judges. The helper starts it as a separate process
-and never imports it.
+The CLI that verify-cli judges, named by its entry file. The helper starts
+it as a separate process and never imports it.
 _Avoid_: app (for a target)
 
-**Verification folder**:
-The folder that holds verify-cli's state, runs and diagnostics:
-`verify-cli` under `XDG_STATE_HOME`, or under `HOME/.local/state`.
+**Probe**:
+One fixed run of the target, an undeclared option or `--discover --json`,
+that `ready` judges and the kernel-free check compares with a raw run.
 
 **Verification run**:
-One named set of steps against one target, made by `launch` and ended by
-`cleanup`. Its run record holds the repository and the target's entry file.
+One folder that `launch` makes, new or empty and outside every git work
+tree, bound to one target for its whole life. It holds the scratch folder,
+the evidence folder and the helper's own state.
 _Avoid_: session (for a verification run)
 
 **Scratch folder**:
-The folder a verification run's target runs in, with its own `HOME`.
-Cleanup removes it.
+The folder of a verification run that steps may fill, written `{scratch}`
+in a scenario. Cleanup removes it.
 
 **Evidence folder**:
-The folder that keeps one file per step of a verification run. Cleanup
-never removes it.
+The folder of a verification run that keeps one evidence file per step,
+and the run's index: a row binding the run to its target, then a row per
+step with its file's SHA-256 hash. Cleanup never removes it.
 _Avoid_: receipts (for the evidence folder)
 
 **Step**:
-One run of the target by `drive`, with the expectations the author gave and
-the contract checks, kept as one evidence file.
+One run of the target, or of Bun, in a scenario, with the expectations its
+author wrote. `drive` judges it met or unmet and keeps it as one evidence
+file.
 
 **Scenario**:
-The steps a feature file names, each with the expectations its author
-wrote from what the feature must do, never from the target's discovery.
+One feature's steps, in a scenario file, each with exact expectations its
+author wrote from what the feature must do, never from the target's
+discovery.
 
 **Sweep**:
 The checks the target's own discovery implies for every command: help,
 usage refusals, exit codes and streams. It trusts the declarations.
 
 **Finding**:
-One check of a sweep that failed, with what it expected and what it saw.
+One failed check of `ready` or of a sweep, with what it expected and what
+it saw.
 
 **Owed result**:
-A declared result of the target that neither the sweep nor a `--json` step
-of the verification run has reached.
+A required station of the target's own commands that neither the sweep nor
+a met `--json` step of the verification run has reached. A station the
+kernel adds is left out.
 
 **Contract check**:
-A check `drive` makes on every step of the target unasked: an envelope's
-exit code is the process's, `--json` prints one envelope and nothing on
-stderr, and a failed run prints nothing on stdout.
+A check `drive` makes unasked on every target step that ended by itself:
+an envelope's exit code is the process's, `--json` prints one envelope and
+nothing on stderr, and a failed run prints nothing on stdout.
 
 ### Tools and their messages
 

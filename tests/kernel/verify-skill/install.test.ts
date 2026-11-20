@@ -1,10 +1,11 @@
 import { afterAll, expect, test } from "bun:test";
-import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { gitEnv, inherited } from "../../support/git-fixture.ts";
 import { spawnBounded } from "../kernel-repair/swarm-process.ts";
 import { testFolder } from "../../support/test-folder.ts";
-import { field, readJson, repository, targetEntry } from "./harness.ts";
+import { exampleFiles } from "../author-guide/example-files.ts";
+import { field, readOnlyScenario, repository } from "./harness.ts";
 
 const installBound = 90_000;
 const stepBound = 30_000;
@@ -46,16 +47,24 @@ async function installedRepository(): Promise<string> {
     exit: installed.exit,
     output: installed.exit === 0 ? "" : installed.stdout + installed.stderr,
   }).toEqual({ exit: 0, output: "" });
-  mkdirSync(join(folder, "src"));
-  copyFileSync(targetEntry, join(folder, "src", "cli.ts"));
+  for (const [path, text] of exampleFiles()) {
+    mkdirSync(dirname(join(folder, path)), { recursive: true });
+    writeFileSync(join(folder, path), text);
+  }
+  mkdirSync(join(folder, "verify", "scenarios"), { recursive: true });
+  writeFileSync(
+    join(folder, "verify", "scenarios", "read-only-command.json"),
+    `${JSON.stringify(readOnlyScenario, null, 2)}\n`,
+  );
   return folder;
 }
 
 test(
-  "the skill's helper, installed from this checkout's HEAD by git ref, launches, drives, cleans up and keeps its evidence from node_modules",
+  "the package, installed from this checkout's HEAD by git ref, runs ready, and launches, drives, reports and cleans up a run, from node_modules",
   async () => {
     const folder = await installedRepository();
-    const state = join(folder, "state");
+    const run = join(testFolder("kernel-verify-skill-install-run-"), "run");
+    folders.push(dirname(run));
     const verify = (...argv: readonly string[]) =>
       spawnBounded(
         [
@@ -65,39 +74,33 @@ test(
         ],
         {
           cwd: folder,
-          env: { ...process.env, XDG_STATE_HOME: state },
+          env: { ...process.env, XDG_STATE_HOME: join(folder, "xdg-state") },
           boundMilliseconds: stepBound,
         },
       );
-    const doctor = await verify("doctor");
-    expect({ exit: doctor.exit, stderr: doctor.stderr }).toEqual({
+    const ready = await verify("ready", "src/cli.ts");
+    expect({ exit: ready.exit, stderr: ready.stderr }).toEqual({
       exit: 0,
       stderr: "",
     });
-    expect((await verify("launch", "r1")).exit).toBe(0);
+    expect(ready.stdout.split("\n")[0]).toBe(
+      "The target is ready: 8 readiness checks passed.",
+    );
+    expect((await verify("launch", run, "src/cli.ts")).exit).toBe(0);
     const drive = await verify(
       "drive",
-      "r1",
-      "status",
-      '["status","--json"]',
-      "--expect-exit",
-      "0",
-      "--expect-cause",
-      "SUCCESS_UNCHANGED",
+      run,
+      "verify/scenarios/read-only-command.json",
     );
-    expect({ exit: drive.exit, stderr: drive.stderr }).toEqual({
+    expect({ exit: drive.exit, first: drive.stdout.split("\n")[0] }).toEqual({
       exit: 0,
-      stderr: "",
+      first: "2 steps met.",
     });
-    expect((await verify("cleanup", "r1")).exit).toBe(0);
-    const listed = await verify("evidence", "r1", "--json");
-    expect(field(JSON.parse(listed.stdout), "result", "data")).toMatchObject({
-      scratch: "removed",
-      steps: [{ step: "status", exitCode: 0, unmet: 0 }],
-    });
-    expect(
-      readJson(join(state, "verify-cli/runs/r1/evidence/status.json")),
-    ).toMatchObject({ causeCode: "SUCCESS_UNCHANGED", oneEnvelope: true });
+    const report = await verify("report", run, "--json");
+    expect(field(JSON.parse(report.stdout), "message")).toBe(
+      "Stations: 1 swept, 1 driven, 1 owed. Steps: 2 met, 0 unmet.",
+    );
+    expect((await verify("cleanup", run)).exit).toBe(0);
   },
-  installBound + 7 * stepBound + 10_000,
+  installBound + 6 * stepBound + 10_000,
 );

@@ -1,12 +1,10 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { cpSync, mkdirSync, readFileSync, symlinkSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
-import { spawnBounded } from "../kernel-repair/swarm-process.ts";
 import {
-  environment,
-  field,
-  helperBound,
+  check,
   ownedFolder,
+  rawFailIds,
   releaseWorlds,
   repository,
   skill,
@@ -47,7 +45,26 @@ describe("the skill folder is self-contained", () => {
   });
 
   test(
-    "a copy of the folder runs from anywhere agent-cli-kernel resolves",
+    "a carried skill folder names a missing kernel",
+    async () => {
+      const at = world();
+      const nowhere = ownedFolder("kernel-verify-skill-nowhere-");
+      const copy = join(nowhere, "verify-cli");
+      cpSync(skill, copy, { recursive: true });
+      const ran = await check(at, ["ready", at.example], {
+        entry: join(copy, "verify.ts"),
+      });
+      expect({ exit: ran.exit, stdout: ran.stdout }).toEqual({
+        exit: 70,
+        stdout: "",
+      });
+      expect(rawFailIds(ran.stderr)).toContain("kernel-import");
+    },
+    watchdog(0, 1),
+  );
+
+  test(
+    "a carried skill folder runs beside an installed kernel",
     async () => {
       const at = world();
       const elsewhere = ownedFolder("kernel-verify-skill-elsewhere-");
@@ -58,24 +75,14 @@ describe("the skill folder is self-contained", () => {
       );
       const copy = join(elsewhere, "tools", "verify-cli");
       cpSync(skill, copy, { recursive: true });
-      const ran = await spawnBounded(
-        [
-          process.execPath,
-          "--no-install",
-          join(copy, "verify.ts"),
-          "pending",
-          "--json",
-        ],
-        { cwd: at.repo, env: environment(at), boundMilliseconds: helperBound },
-      );
+      const ran = await check(at, ["ready", at.example], {
+        entry: join(copy, "verify.ts"),
+      });
       expect({ exit: ran.exit, stderr: ran.stderr }).toEqual({
         exit: 0,
         stderr: "",
       });
-      expect(field(JSON.parse(ran.stdout), "result", "causeCode")).toBe(
-        "SUCCESS_UNCHANGED",
-      );
     },
-    watchdog(1),
+    watchdog(0, 1),
   );
 });

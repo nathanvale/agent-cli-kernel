@@ -1,48 +1,129 @@
 # A changing command
 
-A user runs a command that changes something, through the state add-on. The
-change lands and reads back, a second run behaves as the command promises,
-and a run stopped part way leaves an unfinished case that blocks the next
-change until someone looks at it.
+A user runs a command that changes something through the state add-on. The
+change lands, a second run behaves as the command promises, and a run
+stopped part way leaves an unfinished case that the CLI's report lists and
+that blocks the next change to the same thing.
 
 ## Sub-features
 
-- `change-first` makes the change: exit 0, `SUCCESS_COMPLETED`.
-- `change-read-back` shows the change through a second, read-only view.
-- `change-second` runs the same command again.
-- `change-interrupted` is stopped while its change is in progress.
-- `change-blocked` refuses the next change on that scope as unresolved.
-- `change-report` lists the unfinished case in the CLI's report command.
+- `first-run` makes the change: exit 0, `SUCCESS_COMPLETED`, the file
+  written.
+- `second-run` runs the same change again.
+- `nothing-pending` shows the report command lists nothing.
+- `interrupted-run` is stopped by its time limit while the change runs.
+- `interruption-blocks` refuses the same change as unresolved.
+- `interruption-is-listed` shows the report command lists one unfinished
+  change.
 
 ## How to get to it (user POV)
 
-- Any command whose `--help` first line ends `(repository-local)` or
+- A command whose `--help` first line ends `(repository-local)` or
   `(external)`, such as `save <path> --content <text>`.
-- The report command its discovery names under `ifNoResult`.
+- The report command its discovery names under `ifNoResult`, such as
+  `pending`.
 
-## Driving it with verify.ts
+## Driving it with verify-cli
 
-Preconditions:
+Preconditions: `verify.ts ready src/cli.ts` lists a command whose
+`effectClass` is not `inspect`, and a run folder from `launch`. The author
+skill has no guidance for a changing command yet; this scenario was run on
+a test CLI with a `save` command, a `pending` command, and its state folder
+in the variable `NOTES_STATE`.
 
-- `verify.ts doctor --run <run>` exits 0 and lists a command whose
-  `effectClass` is not `inspect`. A CLI with none fails this feature with
-  that reason.
-- The CLI keeps its state under the folder it runs in, or under `HOME`;
-  both are inside the run's scratch folder.
+```json
+{
+  "schema": "verify-scenario/1",
+  "feature": "changing-command",
+  "steps": [
+    {
+      "name": "first-run",
+      "argv": ["save", "{scratch}/note", "--content", "proof", "--json"],
+      "expect": {
+        "exitCode": 0,
+        "stderr": "",
+        "result": {
+          "commandIdentity": "notes.save",
+          "causeCode": "SUCCESS_COMPLETED",
+          "transactionState": "completed",
+          "effects.completed": ["note.write"]
+        },
+        "files": [{ "path": "{scratch}/note", "content": "proof" }]
+      }
+    },
+    {
+      "name": "second-run",
+      "argv": ["save", "{scratch}/note", "--content", "again", "--json"],
+      "expect": {
+        "exitCode": 0,
+        "stderr": "",
+        "result": { "causeCode": "SUCCESS_COMPLETED" },
+        "files": [{ "path": "{scratch}/note", "content": "again" }]
+      }
+    },
+    {
+      "name": "nothing-pending",
+      "argv": ["pending", "--json"],
+      "expect": {
+        "exitCode": 0,
+        "stderr": "",
+        "result": {
+          "causeCode": "SUCCESS_UNCHANGED",
+          "data.unfinished.length": 0
+        }
+      }
+    },
+    {
+      "name": "interrupted-run",
+      "timeoutMilliseconds": 3000,
+      "argv": ["save", "{scratch}/held", "--content", "hold", "--json"],
+      "expect": {
+        "exitCode": 143,
+        "timedOut": true,
+        "stdout": "",
+        "stderr": "",
+        "files": [{ "path": "{scratch}/held", "absent": true }]
+      }
+    },
+    {
+      "name": "interruption-blocks",
+      "argv": ["save", "{scratch}/held", "--content", "again", "--json"],
+      "expect": {
+        "exitCode": 3,
+        "stderr": "",
+        "result": { "causeCode": "DOMAIN_NOTES_UNRESOLVED" }
+      }
+    },
+    {
+      "name": "interruption-is-listed",
+      "argv": ["pending", "--json"],
+      "expect": {
+        "exitCode": 0,
+        "stderr": "",
+        "result": {
+          "causeCode": "SUCCESS_UNCHANGED",
+          "data.unfinished.length": 1,
+          "data.unfinished.0.commandIdentity": "notes.save"
+        }
+      }
+    }
+  ]
+}
+```
 
-- **First change.** Run `verify.ts drive <run> change-first '["save","note.txt","--content","one","--json"]' --read-file note.txt --expect-file one --expect-exit 0 --expect-cause SUCCESS_COMPLETED --expect-empty-stderr`. Exit 0; the evidence keeps the file's text beside what the CLI printed, and `scratchChanges.added` names `note.txt` and the CLI's state files.
-- **Read back.** Read the change through a second, read-only view: the CLI's own read command when it has one, such as `verify.ts drive <run> change-read-back '["show","note.txt","--json"]' --expect-stdout one`. A CLI with no read command for it reports this step as not proved, with that reason; the `--read-file` text above is then the only view.
-- **Second run.** Run `verify.ts drive <run> change-second '["save","note.txt","--content","two","--json"]' --read-file note.txt --expect-file two --expect-exit 0 --expect-cause SUCCESS_COMPLETED`. Exit 0.
-- **Interrupted run.** Make the change block for real: run `mkfifo <scratch>/blocked` with the `scratch` path from `launch`. Then run `verify.ts drive <run> change-interrupted '["save","blocked","--content","x","--json"]' --timeout-ms 3000 --expect-exit 143`. Exit 0; the evidence shows `"timedOut": true`.
-- **Blocked.** Run `verify.ts drive <run> change-blocked '["save","blocked","--content","y","--json"]' --timeout-ms 10000 --expect-exit 3 --expect-cause <the unresolved-case cause from save --help>`. Exit 0.
-- **Report.** Run `verify.ts drive <run> change-report '["pending","--json"]' --expect-exit 0 --expect-stdout save`. Exit 0; the evidence names the unfinished operation.
+```text
+$ NOTES_STATE=<run folder>/scratch/notes-state verify.ts drive <run folder> verify/scenarios/changing-command.json
+6 steps met.
+```
 
 ## Gotchas
 
-- A fast change finishes before any timeout. Stop it for real by making it
-  block, as the FIFO does; a short `--timeout-ms` alone proves nothing.
-- `--expect-exit 143` is the kernel's exit for SIGTERM. A CLI that does not
-  exit on SIGTERM shows `"exitCode": null` and a signal instead; report it.
-- After the interrupted step, that scope stays blocked in this run. Use a
-  new run for anything else on the same scope.
-- Relative paths in argv resolve in the run's scratch folder.
+- Keep the target's state under the run's `scratch/` folder, through its
+  argument or its environment variable, so cleanup removes it. A target
+  whose state folder is fixed inside the repository cannot be isolated yet;
+  judge its change through its own read-only commands, and say so here.
+- A fast change finishes before any time limit. The interrupted step needs
+  a change that waits, as the test CLI's `hold` content does.
+- `143` is the kernel's exit for SIGTERM, which the time limit sends.
+- After the interrupted step, that change stays blocked in this run's
+  target state. Use a new run folder for anything else on it.

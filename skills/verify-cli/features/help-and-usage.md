@@ -1,43 +1,45 @@
 # Help and usage errors
 
-A user asks the CLI what it can do, asks one command for its options, and
-gets a plain refusal, with exit code 2 and nothing on stdout, when they type
-a word the CLI does not know or leave out a required argument.
+A user asks for help, or types a word or an option the CLI does not know.
+Help prints usage on stdout and exits 0. A wrong word or option prints one
+line on stderr naming the cause, prints nothing on stdout, and exits 2.
 
 ## Sub-features
 
-- `help-root` lists every command with its identity, exit 0.
-- `help-command` shows one command's arguments, options and results, exit 0.
-- `usage-unknown` refuses an unknown command: exit 2, one stderr line.
-- `usage-missing` refuses a command with a required argument left out.
-- `usage-json` gives the same refusal as one envelope on stdout.
+- `help` prints `Usage: ` first, exits 0, with an empty stderr.
+- `command-help` prints one command's help and exits 0.
+- `unknown-command` refuses a word the CLI does not know.
+- `undeclared-option` refuses an option a command does not declare, as one
+  stderr line, or as one envelope with `--json`.
 
 ## How to get to it (user POV)
 
-- `bun run start -- --help`, or `bun src/cli.ts --help`.
-- `bun src/cli.ts <command> --help`.
-- Any mistyped command or missing argument.
+- `bun src/cli.ts --help`, and `bun src/cli.ts <command> --help`.
+- `bun src/cli.ts nope`: `moons: No declared command matches this
+invocation. [USAGE_UNKNOWN_COMMAND]`, exit 2.
 
-## Driving it with verify.ts
+## Driving it with verify-cli
 
-Preconditions:
+Preconditions: `verify.ts ready src/cli.ts` exits 0.
 
-- `verify.ts doctor --run <run>` exits 0.
-- You know one command with a required argument, from its `--help`. If the
-  CLI has none, `usage-missing` fails with that reason.
+The sweep drives this whole feature, for every command your discovery
+lists:
 
-- **Root help.** Run `verify.ts drive <run> help-root '["--help"]' --expect-exit 0 --expect-stdout "Usage: " --expect-stdout "status (" --expect-empty-stderr`, with a `--expect-stdout "<word> ("` for each of your commands. Exit 0.
-- **Command help.** Run `verify.ts drive <run> help-command '["status","--help"]' --expect-exit 0 --expect-stdout "Route: status" --expect-stdout "Options:" --expect-stdout "Possible results:" --expect-empty-stderr`. Exit 0.
-- **Unknown command.** Run `verify.ts drive <run> usage-unknown '["no-such-command"]' --expect-exit 2 --expect-cause USAGE_UNKNOWN_COMMAND --expect-empty-stdout`. Exit 0; the evidence file shows one stderr line ending in the cause.
-- **Missing argument.** For a command with a required argument, such as `save <path>`, run `verify.ts drive <run> usage-missing '["save"]' --expect-exit 2 --expect-cause USAGE_INVALID_INVOCATION --expect-stderr "is missing"`. Exit 0.
-- **Refusal as JSON.** Run `verify.ts drive <run> usage-json '["no-such-command","--json"]' --expect-exit 2 --expect-cause USAGE_UNKNOWN_COMMAND --expect-empty-stderr`. Exit 0; the evidence shows `"oneEnvelope": true`.
-- **Sweep.** Run `verify.ts sweep --run <run>`. Exit 0.
+```text
+$ verify.ts sweep src/cli.ts
+31 checks passed. Stations owed: 2.
+```
+
+On exit 3, list every failed check:
+
+```text
+$ verify.ts findings src/cli.ts
+0 findings from 31 checks.
+```
 
 ## Gotchas
 
-- `bun run start` echoes `$ bun run src/cli.ts` on stderr. The helper runs
-  the entry file directly, so its stderr is the CLI's own.
-- `<command> --help` answers with the command's discovery, not the root
-  help.
-- An option takes its value as the next word; `--name=value` is a usage
-  refusal.
+- A CLI whose own command has an empty route takes any word as that
+  command's argument, so the sweep skips the unknown-command checks there.
+- The sweep reads your declarations and trusts them. A refusal your command
+  should give but does not declare stays owed; drive it in a scenario.

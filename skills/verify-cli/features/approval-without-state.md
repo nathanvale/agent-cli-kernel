@@ -1,37 +1,32 @@
 # Approval without state
 
-An author who lists the approval add-on in `installedAddons` without the
-state add-on gets a CLI that refuses to start: every command, `--help`
-included, exits 1 and names the missing add-on on stderr. Nothing runs.
+A CLI that selects the approval add-on without the state add-on cannot
+start: the kernel refuses its contract. A user sees the kernel's sentence
+on stderr, whatever command they run.
 
 ## Sub-features
 
-- `approval-help` refuses at start on `--help`.
-- `approval-command` refuses at start on a command.
-- `approval-doctor` makes the doctor fail.
+- `refused-at-start` shows the kernel's sentence and a failed start.
 
 ## How to get to it (user POV)
 
-- `src/cli.ts` passes `installedAddons: ["approval"]` to `contractFor`,
-  without `"state"`.
+- Any command of a CLI whose `installedAddons` lists `approval` and not
+  `state`.
 
-## Driving it with verify.ts
+## Driving it with verify-cli
 
-Preconditions:
+Preconditions: none; `ready` is the driver.
 
-- A repository whose `contractFor` lists approval without state. Prove this
-  on a copy of the repository, never by breaking your working one.
-- `verify.ts launch <run>` exits 0.
+```text
+$ verify.ts ready src/cli.ts
+The target did not start: its usage probe exited 1, and its discovery probe wrote no envelope. Its first error: error: Approval requires the state add-on: list state in installedAddons and pass the add-on made by contractFor.stateAddon.
+```
 
-- **Help.** Run `verify.ts drive <run> approval-help '["--help"]' --expect-exit 1 --expect-stderr "Approval requires the state add-on"`. Exit 0; stdout is empty.
-- **Command.** Run `verify.ts drive <run> approval-command '["status"]' --expect-exit 1 --expect-empty-stdout --expect-stderr "Approval requires the state add-on"`. Exit 0; the evidence shows `"oneEnvelope": false`.
-- **Doctor.** Run `verify.ts doctor --run <run>`. Exit 70, with `RAW FAIL target-usage-exit`, `RAW FAIL target-usage-streams` and `RAW FAIL target-discovery` lines: the CLI never reaches its kernel's refusals.
+Exit 3, `DOMAIN_VERIFY_TARGET_START`. The exit is never 70: the helper is
+honest, and the target cannot start.
 
 ## Gotchas
 
-- The refusal is a start-up throw with a stack trace, not an envelope, so
-  `--expect-cause` has nothing to read. Match the stderr text.
-- Drive it without `--json`: with `--json`, the missing envelope breaks the
-  kernel's promise and the step fails, which is true but not this feature.
-- The repair is to list `"state"` too and pass the state add-on's
-  descriptor to `contractFor`.
+- `launch` still binds a run to such a target; `ready` is the check that
+  shows it cannot start. List `state` in `installedAddons` too, then run `ready`
+  again.
