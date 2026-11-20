@@ -1,0 +1,13 @@
+diff --git a/tests/template/glossary/term-table.json b/tests/template/glossary/term-table.json
+index 687614a..c51476d 100644
+--- a/tests/template/glossary/term-table.json
++++ b/tests/template/glossary/term-table.json
+@@ -235,7 +235,7 @@
+           "message": "Only a byte-for-byte copied file is stamped."
+         },
+         {
+-          "pattern": "\\bstamped kernel\\b|\\bstamped add-?ons?\\b",
++          "pattern": "\\bstamped descriptor\\b",
+           "surfaces": ["visible-text", "comment", "test-title", "doc"],
+           "message": "Retired: a generated repository's pin names its installed kernel (GLOSSARY.md, Pin)."
+         }

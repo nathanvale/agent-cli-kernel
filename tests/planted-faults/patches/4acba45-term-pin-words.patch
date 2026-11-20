@@ -1,0 +1,13 @@
+diff --git a/tests/template/glossary/term-table.json b/tests/template/glossary/term-table.json
+index 687614a..9a402c6 100644
+--- a/tests/template/glossary/term-table.json
++++ b/tests/template/glossary/term-table.json
+@@ -354,7 +354,7 @@
+       "allowed": ["pin", "pinned commit", "pin move", "pin move report"],
+       "avoid": [
+         {
+-          "pattern": "\\bpin (?:records?|versions?|locks?|pointers?|tags?|bumps?|updates?|upgrades?)\\b|\\bpinned (?:tag|branch|short hash)\\b|\\bpin move (?:diff|changelog)\\b|\\b(?:lock|bump|upgrade|update)(?:s|ed|ing)? (?:the|a) (?:kernel )?pin\\b",
++          "pattern": "\\bpin (?:versions?|locks?|pointers?|tags?|bumps?|updates?|upgrades?)\\b|\\bpinned (?:tag|branch|short hash)\\b|\\bpin move (?:diff|changelog)\\b|\\b(?:lock|bump|upgrade|update)(?:s|ed|ing)? (?:the|a) (?:kernel )?pin\\b",
+           "surfaces": ["visible-text", "comment", "test-title", "doc"],
+           "message": "Say pin, pinned commit, pin move or pin move report (GLOSSARY.md, Pins)."
+         }

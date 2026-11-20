@@ -1,0 +1,7 @@
+{
+  "id": "4acba45-doctor-hooks-fail",
+  "patch": "tests/planted-faults/patches/4acba45-doctor-hooks-fail.patch",
+  "testFile": "tests/template/doctor/doctor-hooks.test.ts",
+  "title": "^hooks fails when core.hooksPath is not set",
+  "source": "4acba45 fix(glossary): fail the doctor on an unset commit hook, retire the stamped phrases, read the skills and docs for Pin words"
+}

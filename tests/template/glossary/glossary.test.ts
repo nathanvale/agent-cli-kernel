@@ -618,6 +618,39 @@ describe("glossary check proof", () => {
     );
   });
 
+  test("the scope reads the skills and the docs", () => {
+    const files = filesInScope(table);
+    expect(files).toContain("docs/agents/README.md");
+    expect(files).toContain("skills/agent-cli-kernel/SKILL.md");
+    expect(files).toContain("skills/verify-cli/SKILL.md");
+  });
+
+  test.each([
+    ["stamped kernel", "Stamped source / doc"],
+    ["stamped add-on", "Stamped source / doc"],
+    ["a pin record", "Pin / doc"],
+    ["the pin version", "Pin / doc"],
+    ["bump the pin", "Pin / doc"],
+    ["a pinned tag", "Pin / doc"],
+    ["the pin move changelog", "Pin / doc"],
+  ])(
+    "the retired phrase %s turns the check red in a document",
+    (phrase, hit) => {
+      expect(terms("docs/agents/probe.md", `Use ${phrase} here.\n`)).toContain(
+        hit,
+      );
+    },
+  );
+
+  test("the Pin words the glossary defines do not fire", () => {
+    expect(
+      terms(
+        "docs/agents/probe.md",
+        "The pinned commit, the pin move and the pin move report name a pin.\nA stamped source is a copied file.\n",
+      ),
+    ).toEqual([]);
+  });
+
   test("quoted contract text does not fire", () => {
     expect(
       terms(

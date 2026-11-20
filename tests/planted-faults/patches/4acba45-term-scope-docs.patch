@@ -1,0 +1,13 @@
+diff --git a/tests/template/glossary/term-table.json b/tests/template/glossary/term-table.json
+index 687614a..7f0a6aa 100644
+--- a/tests/template/glossary/term-table.json
++++ b/tests/template/glossary/term-table.json
+@@ -7,7 +7,7 @@
+     "kernel/config/kernel/eslint.mjs",
+     "tests/kernel/**/*.{ts,mts,cts,md}",
+     "tests/kernel/**/*.ts.txt",
+-    "{docs,skills/agent-cli-kernel,skills/verify-cli}/**/*.md"
++    "skills/verify-cli/**/*.md"
+   ],
+   "exempt": [
+     "tests/kernel/state/cases.ts",

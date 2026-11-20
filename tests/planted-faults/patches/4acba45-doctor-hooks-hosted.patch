@@ -1,0 +1,13 @@
+diff --git a/scripts/doctor.ts b/scripts/doctor.ts
+index c8d5ecb..6c405fe 100644
+--- a/scripts/doctor.ts
++++ b/scripts/doctor.ts
+@@ -254,7 +254,7 @@ export function hooks(root: string): Finding {
+       detail: `core.hooksPath runs this checkout's ${hooksFolder}.`,
+     };
+   const detail = `core.hooksPath is ${value === "" ? "not set" : value}, so this checkout's pre-commit and pre-push hooks do not run. Repair: git config core.hooksPath ${hooksFolder}.`;
+-  if (process.env.CI === "true")
++  if (process.env.CI === "never")
+     return {
+       status: "ok",
+       check: "hooks",

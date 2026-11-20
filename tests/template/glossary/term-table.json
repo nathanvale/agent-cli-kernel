@@ -6,7 +6,8 @@
     "kernel/src/**/*.{ts,mts,cts,md}",
     "kernel/config/kernel/eslint.mjs",
     "tests/kernel/**/*.{ts,mts,cts,md}",
-    "tests/kernel/**/*.ts.txt"
+    "tests/kernel/**/*.ts.txt",
+    "{docs,skills/agent-cli-kernel,skills/verify-cli}/**/*.md"
   ],
   "exempt": [
     "tests/kernel/state/cases.ts",
@@ -226,12 +227,17 @@
     },
     {
       "term": "Stamped source",
-      "allowed": ["stamped kernel", "stamped add-on", "stamped source"],
+      "allowed": ["stamped source"],
       "avoid": [
         {
           "pattern": "\\bstamped descriptor\\b|\\bstamped-add-on authoring\\b",
           "surfaces": ["visible-text", "comment"],
           "message": "Only a byte-for-byte copied file is stamped."
+        },
+        {
+          "pattern": "\\bstamped kernel\\b|\\bstamped add-?ons?\\b",
+          "surfaces": ["visible-text", "comment", "test-title", "doc"],
+          "message": "Retired: a generated repository's pin names its installed kernel (GLOSSARY.md, Pin)."
         }
       ]
     },
@@ -340,6 +346,17 @@
           "surfaces": ["visible-text"],
           "unlessAllowedForm": true,
           "message": "Write 'file descriptor' in full, or 'state add-on descriptor' (accepted 16 November 2026)."
+        }
+      ]
+    },
+    {
+      "term": "Pin",
+      "allowed": ["pin", "pinned commit", "pin move", "pin move report"],
+      "avoid": [
+        {
+          "pattern": "\\bpin (?:records?|versions?|locks?|pointers?|tags?|bumps?|updates?|upgrades?)\\b|\\bpinned (?:tag|branch|short hash)\\b|\\bpin move (?:diff|changelog)\\b|\\b(?:lock|bump|upgrade|update)(?:s|ed|ing)? (?:the|a) (?:kernel )?pin\\b",
+          "surfaces": ["visible-text", "comment", "test-title", "doc"],
+          "message": "Say pin, pinned commit, pin move or pin move report (GLOSSARY.md, Pins)."
         }
       ]
     }
