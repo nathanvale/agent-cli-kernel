@@ -164,11 +164,10 @@ await runProcess(contract)(process.argv.slice(2));
 Its names are `"state"`, `"programs"`, `"approval"` and `"diagnostics"`. Leave
 it out and the CLI uses none.
 
-- Importing an add-on from `agent-cli-kernel/addons/<name>` selects nothing.
-- A command's `capabilities` never selects an add-on. One that names an
-  add-on `installedAddons` does not list is refused when the CLI starts.
-- Approval needs state. List `"state"` with `"approval"`, or the CLI throws at
-  start-up. See [stations](stations.md#start-up-throws).
+- Name an add-on in `installedAddons` to select it. Importing it, or naming
+  it in a command's `capabilities`, selects nothing.
+- List `"state"` with `"approval"`, since approval needs state. Without it the
+  CLI throws at start-up. See [stations](stations.md#start-up-throws).
 
 ## What the kernel adds
 

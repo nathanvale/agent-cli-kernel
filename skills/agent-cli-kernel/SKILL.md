@@ -25,7 +25,8 @@ to one commit. This skill ships inside that package, at
 - Move the pin as its own change. Replace the commit in the `agent-cli-kernel`
   dependency line of `package.json`, which reads
   `github:nathanvale/agent-cli-kernel#<full 40-character commit>`, then
-  install. The new commit needs a passed kernel trial. Upgrading from the
+  install. The new commit needs a passed kernel trial: a repository made from that
+  commit, with every add-on selected, whose check command passes. Upgrading from the
   template never moves it.
 
 ## Routes

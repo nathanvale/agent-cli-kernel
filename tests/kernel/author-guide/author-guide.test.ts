@@ -630,7 +630,7 @@ describe("kernel behaviour the author skill states in words", () => {
     ).toThrow(new Error("Malformed guidance template token."));
   });
 
-  test("commands.md and stations.md: add-ons are chosen only in installedAddons, and approval without state throws at start-up with the message the guide quotes", () => {
+  test("stations.md: approval listed without state throws from contractFor, before any command runs, with the message the guide quotes, and a contract with no installedAddons builds", () => {
     expect(() =>
       kernel.contractFor({
         cli: "guide",
