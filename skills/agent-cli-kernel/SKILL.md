@@ -34,6 +34,6 @@ to one commit. This skill ships inside that package, at
 - Testing a command: read [testing](references/testing.md).
 - Starting a CLI, or wanting whole files to copy: read
   [example](references/example.md).
-- Writing a command that changes anything, such as a file or a remote
-  system: it needs the state add-on, which owns that guidance. This skill
-  covers read-only commands.
+- Writing a command that changes a file or any other resource: that needs
+  the state add-on, which owns its own guidance. This skill covers
+  read-only commands.
