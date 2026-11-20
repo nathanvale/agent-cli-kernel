@@ -172,18 +172,37 @@ function hostLoad(): Finding {
 const hooksFolder = ".githooks";
 const gitMilliseconds = 4_000;
 
-function gitRead(root: string, args: readonly string[]) {
-  const result = Bun.spawnSync(["git", "-C", root, ...args], {
-    env: withoutRepositoryLocation(process.env),
-    stdout: "pipe",
-    stderr: "pipe",
-    timeout: gitMilliseconds,
-    killSignal: "SIGKILL",
-  });
+type GitRead =
+  | { readonly launched: false; readonly reason: string }
+  | {
+      readonly launched: true;
+      readonly timedOut: boolean;
+      readonly exitCode: number | null;
+      readonly value: string;
+      readonly reason: string;
+    };
+
+function gitRead(root: string, args: readonly string[]): GitRead {
+  let result;
+  try {
+    result = Bun.spawnSync(["git", "-C", root, ...args], {
+      env: withoutRepositoryLocation(process.env),
+      stdout: "pipe",
+      stderr: "pipe",
+      timeout: gitMilliseconds,
+      killSignal: "SIGKILL",
+    });
+  } catch (error) {
+    return {
+      launched: false,
+      reason: error instanceof Error ? error.message : String(error),
+    };
+  }
   return {
+    launched: true,
     timedOut: result.exitedDueToTimeout === true,
     exitCode: result.exitCode,
-    value: result.stdout.toString().trim(),
+    value: result.stdout.toString().replace(/\n$/, ""),
     reason: result.stderr.toString().trim(),
   };
 }
@@ -204,15 +223,23 @@ export function hooks(root: string): Finding {
       detail: `no ${hooksFolder} folder, so no repository hooks apply.`,
     };
   const checkout = gitRead(root, ["rev-parse", "--show-toplevel"]);
+  if (!checkout.launched)
+    return hooksUnread(`git could not start (${checkout.reason})`);
   if (checkout.timedOut)
     return hooksUnread(`git did not answer within ${gitMilliseconds} ms`);
-  if (checkout.exitCode !== 0)
+  if (checkout.exitCode !== 0 && /not a git repository/.test(checkout.reason))
     return {
       status: "ok",
       check: "hooks",
       detail: "not a git checkout, so no git hooks apply.",
     };
-  const read = gitRead(root, ["config", "--get", "core.hooksPath"]);
+  if (checkout.exitCode !== 0)
+    return hooksUnread(
+      `git rev-parse --show-toplevel exited ${String(checkout.exitCode)} (${checkout.reason})`,
+    );
+  const read = gitRead(root, ["config", "--path", "--get", "core.hooksPath"]);
+  if (!read.launched)
+    return hooksUnread(`git could not start (${read.reason})`);
   if (read.timedOut)
     return hooksUnread(`git did not answer within ${gitMilliseconds} ms`);
   if (read.exitCode !== 0 && read.exitCode !== 1)

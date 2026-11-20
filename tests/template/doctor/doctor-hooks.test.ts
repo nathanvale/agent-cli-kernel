@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { hooks } from "../../../scripts/doctor.ts";
 import { ownedFolders } from "../../support/fixture-files.ts";
 import { gitEnv, gitOutput } from "../../support/git-fixture.ts";
@@ -117,3 +117,40 @@ test("hooks stops a git that does not answer at its bound and warns", () => {
       "git did not answer within 4000 ms, so whether this checkout's hooks run is unknown. Repair: run git config --get core.hooksPath in the repository root to see why.",
   });
 }, 15_000);
+
+test("hooks warns when git cannot start, and does not throw", () => {
+  const root = checkout();
+  const emptyBin = folder("doctor-hooks-no-git-");
+  const finding = hooksOf(root, { PATH: emptyBin });
+  expect(finding.status).toBe("WARN");
+  expect(finding.detail).toStartWith("git could not start (");
+  expect(finding.detail).toEndWith(
+    "), so whether this checkout's hooks run is unknown. Repair: run git config --get core.hooksPath in the repository root to see why.",
+  );
+});
+
+test("hooks warns, with git's reason, when a checkout's configuration cannot be read", () => {
+  const root = checkout();
+  writeFileSync(join(root, ".git/config"), "[core\nbroken", { flag: "a" });
+  const finding = hooksOf(root);
+  expect(finding.status).toBe("WARN");
+  expect(finding.detail).toStartWith(
+    "git rev-parse --show-toplevel exited 128 (fatal: bad config line",
+  );
+});
+
+test("hooks reads core.hooksPath as git does: a home-relative path expands, and a trailing space is kept", () => {
+  const root = checkout();
+  gitOutput(root, "config", "core.hooksPath", `~/${basename(root)}/.githooks`);
+  expect(hooksOf(root, { HOME: dirname(root) })).toEqual({
+    status: "ok",
+    check: "hooks",
+    detail: "core.hooksPath runs this checkout's .githooks.",
+  });
+  gitOutput(root, "config", "core.hooksPath", ".githooks ");
+  expect(hooksOf(root)).toEqual({
+    status: "WARN",
+    check: "hooks",
+    detail: `core.hooksPath is .githooks , ${notRun}`,
+  });
+});
