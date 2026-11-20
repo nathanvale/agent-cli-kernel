@@ -10,7 +10,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, relative } from "node:path";
 import {
   commitIn,
   gitEnv,
@@ -28,6 +28,7 @@ const stagingBound = 60_000;
 const copyBound = 2 * stagingBound + 60_000;
 const setupBound = installBound + 2 * buildBound + copyBound;
 const runBound = 30_000;
+const lintBound = 120_000;
 const testBound = runBound + 30_000;
 
 function gitStaging(cwd: string, ...args: string[]): string {
@@ -189,6 +190,50 @@ const deep = await import("agent-cli-kernel/kernel/src/kernel/index.ts").then(
 console.log(JSON.stringify({ loaded, deep }));
 `;
 
+const consumerLintConfig = `import { kernelLint } from "agent-cli-kernel/lint";
+
+export default kernelLint({
+  rootDir: import.meta.dirname,
+  srcDir: "src",
+  testDirs: [],
+  addons: "all",
+});
+`;
+
+const applicationFiles = {
+  "src/app/cause.ts":
+    'export const needed = (codes: string[]) => codes.includes("DOMAIN_DEADLINE_UNKNOWN");',
+  "src/app/typed.ts": [
+    'import type { commonCauses } from "agent-cli-kernel";',
+    'export const needed = (codes: string[]) => codes.includes("DOMAIN_DEADLINE_UNKNOWN" satisfies keyof typeof commonCauses);',
+  ].join("\n"),
+};
+
+function writeConsumerLint(consumer: string): void {
+  writeFileSync(join(consumer, "eslint.config.mjs"), consumerLintConfig);
+  writeFileSync(
+    join(consumer, "tsconfig.json"),
+    `${JSON.stringify({
+      compilerOptions: {
+        target: "ESNext",
+        lib: ["ESNext"],
+        module: "Preserve",
+        moduleResolution: "bundler",
+        allowImportingTsExtensions: true,
+        noEmit: true,
+        strict: true,
+        skipLibCheck: true,
+        types: [],
+      },
+      include: ["src/**/*.ts"],
+    })}\n`,
+  );
+  for (const [path, source] of Object.entries(applicationFiles)) {
+    mkdirSync(dirname(join(consumer, path)), { recursive: true });
+    writeFileSync(join(consumer, path), `${source}\n`);
+  }
+}
+
 beforeAll(async () => {
   world.base = testFolder("pinned-commit-");
   world.kernel = join(world.base, "kernel");
@@ -220,6 +265,7 @@ beforeAll(async () => {
   );
   writeFileSync(join(world.consumer, "src/cli.ts"), noAddOnCli);
   writeFileSync(join(world.consumer, "src/imports.ts"), importEveryExport);
+  writeConsumerLint(world.consumer);
   const installed = await run(
     [process.execPath, "install"],
     world.consumer,
@@ -426,6 +472,60 @@ test(
     );
   },
   testBound,
+);
+
+let consumerLint: Promise<Ran> | undefined;
+
+async function consumerFindings() {
+  consumerLint ??= run(
+    [
+      process.execPath,
+      "node_modules/eslint/bin/eslint.js",
+      "--format",
+      "json",
+      "src/app",
+    ],
+    world.consumer,
+    lintBound,
+  );
+  const ran = await consumerLint;
+  if (ran.exit !== 0 && ran.exit !== 1)
+    throw new Error(`ESLint exited ${ran.exit}:\n${ran.stderr}`);
+  const results: unknown = JSON.parse(ran.stdout);
+  if (!Array.isArray(results)) throw new Error("Expected ESLint's results.");
+  return results
+    .flatMap((result) => {
+      const fields = record(result);
+      const messages: unknown = fields.messages;
+      if (!Array.isArray(messages)) throw new Error("Expected messages.");
+      return messages.map((each) => {
+        const message = record(each);
+        return {
+          file: relative(world.consumer, text(fields.filePath)),
+          ruleId: String(message.ruleId),
+          message: text(message.message),
+        };
+      });
+    })
+    .sort((a, b) =>
+      `${a.file} ${a.ruleId}` < `${b.file} ${b.ruleId}` ? -1 : 1,
+    );
+}
+
+test(
+  "the installed cause-literal-owner learns the codes from the installed kernel: it refuses a free known code and admits one checked against commonCauses",
+  async () => {
+    const found = (await consumerFindings()).filter(({ file }) =>
+      file.startsWith("src/app/"),
+    );
+    expect(found.map(({ file, ruleId }) => ({ file, ruleId }))).toEqual([
+      { file: "src/app/cause.ts", ruleId: "repository/cause-literal-owner" },
+    ]);
+    expect(found[0]?.message).toContain(
+      'Import the owner once: import type { commonCauses } from "agent-cli-kernel";',
+    );
+  },
+  lintBound,
 );
 
 test(

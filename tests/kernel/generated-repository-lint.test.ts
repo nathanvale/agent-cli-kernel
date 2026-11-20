@@ -180,6 +180,42 @@ describe("kernelLint in a host layout", () => {
   );
 });
 
+describe("cause-literal-owner's owner", () => {
+  for (const [kind, entry, refused] of [
+    ["is missing", undefined, "the kernel entry "],
+    [
+      "does not export commonCauses",
+      "export const causes = {};",
+      "does not export commonCauses",
+    ],
+    [
+      "exports a commonCauses that names no code",
+      "export const commonCauses = {};",
+      "names no cause code",
+    ],
+  ] as const)
+    test(
+      `a kernel entry that ${kind} fails loudly instead of passing every cause literal`,
+      async () => {
+        const tree = await hostTree(["state"], ["state"]);
+        const index = join(tree, "src/kernel/index.ts");
+        if (entry === undefined) await rm(index);
+        else await writeFile(index, `${entry}\n`);
+        let refusal = "";
+        try {
+          await findings(tree, tree, ["src/app/cause.ts"]);
+        } catch (error) {
+          refusal = String(error);
+        }
+        expect(refusal).toContain(
+          "repository/cause-literal-owner cannot learn the cause codes: ",
+        );
+        expect(refusal).toContain(refused);
+      },
+      lintBound,
+    );
+});
+
 describe("kernelLint settings", () => {
   const full = {
     rootDir: "import.meta.dirname",
