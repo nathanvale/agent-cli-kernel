@@ -15,6 +15,7 @@ async function spawnBoundedRun(filter?: string) {
     {
       cwd: root,
       env: { ...process.env, TMPDIR: temporary, STATE_TEST_DIR: undefined },
+      processGroup: true,
     },
   );
   return {
