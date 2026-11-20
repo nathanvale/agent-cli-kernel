@@ -5,9 +5,6 @@ then `Witnessed:` and its citation. When a second witness arrives, it moves
 to a row in the [rule table](../../CODING_STANDARDS.md#rule-table) and leaves
 this file.
 
-- Check what a protocol promises on every observation, not only what the
-  author asked for, so a step can fail on a broken promise its scenario did
-  not name. Witnessed: [0ab74b8].
 - Prove a child ran by an output only a run produces, never by its exit code
   alone. Witnessed: [67e7adc].
 - Give a list one order at both ends: a checker that requires it sorted
@@ -218,7 +215,6 @@ this file.
 [096c862]: https://github.com/nathanvale/agent-cli-kernel/commit/096c862356a1b827bdf10d860ec5d4bd33797c1d
 [4ca0141]: https://github.com/nathanvale/agent-cli-kernel/commit/4ca014175963a134a585af49006a56d374700e33
 [39d64c3]: https://github.com/nathanvale/agent-cli-kernel/commit/39d64c307e73a6153c572d6259df791e779efc4e
-[0ab74b8]: https://github.com/nathanvale/agent-cli-kernel/commit/0ab74b894857b6b741be277e2f2fd41764e96cd2
 [67e7adc]: https://github.com/nathanvale/agent-cli-kernel/commit/67e7adcdeda288d3199748178ef0723c212668c3
 [18894b0]: https://github.com/nathanvale/agent-cli-kernel/commit/18894b0852b26411e5583a7008f2feb54e459f3e
 [bdd5e9c]: https://github.com/nathanvale/agent-cli-kernel/commit/bdd5e9cf017ea99cd6d63d501e0ef06a0652ca7f

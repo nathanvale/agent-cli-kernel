@@ -90,7 +90,9 @@ boundary trusts the types.
   missing dependency), [0669e10] (it read an unreadable `package.json` as no
   toolchain pin, and every evidence read failure as a missing file),
   [480dec5] (git's "not a git repository" also names a broken work tree
-  pointer, so launch now decides absence by the `.git` entry).
+  pointer, so launch now decides absence by the `.git` entry), [a3fe92f]
+  (pending read a launched run's missing state store as no unfinished
+  changes).
 - Read a required input as present or refused, never as empty, so a missing
   input cannot pass for one with nothing in it. Witnessed: [r4609956011]
   (a missing patch file read as an empty patch, so replay reported that it
@@ -99,7 +101,9 @@ boundary trusts the types.
   a generated repository as no cause code, so every free cause literal
   passed), [911189b] (an old `fault-records.json` that a merge left in the
   tree was read by no reader, so its records never replayed and every gate
-  passed; Fable review of pull request 54).
+  passed; Fable review of pull request 54), [dc128f9] (report read an
+  evidence file holding JSON null as an empty unmet list, so the step
+  counted as met).
 
 [r4580070968]: https://github.com/nathanvale/bun-typescript-template/pull/6#discussion_r4580070968
 [r4580070979]: https://github.com/nathanvale/bun-typescript-template/pull/6#discussion_r4580070979
@@ -148,3 +152,5 @@ boundary trusts the types.
 [b2dcc8f]: https://github.com/nathanvale/agent-cli-kernel/commit/b2dcc8feba2b211d775f3cc22f1bb16a0ffc4a1c
 [02311f4]: https://github.com/nathanvale/agent-cli-kernel/commit/02311f4b282fa2c1fd75b6cee9b1f03a045d2df0
 [1c5a65d]: https://github.com/nathanvale/agent-cli-kernel/commit/1c5a65d1c58a0078562d00c583a687524ea59c39
+[a3fe92f]: https://github.com/nathanvale/agent-cli-kernel/commit/a3fe92f6f173e013629d486f8e3981367c28b0a0
+[dc128f9]: https://github.com/nathanvale/agent-cli-kernel/commit/dc128f9ae23ea8dc287690e5e7b8408aace93781

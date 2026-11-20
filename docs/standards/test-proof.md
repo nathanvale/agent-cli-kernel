@@ -57,7 +57,8 @@ is in the [test harness guide](test-harness.md).
 - Require a project's evidence list to exist and contain at least one entry.
   A check against an empty array can accept a missing field. Witnessed:
   [#91-projects], [0669e10] (an empty `result` counted as a step's expectation),
-  [77251da] (an empty string in an includes list did too).
+  [77251da] (an empty string in an includes list did too), [aa593d7]
+  (report gave a clean headline when the sweep reached no station).
 - Prove a resolution by a refusal only the right folder can give. A recorded
   hit or an empty result passes for a skipped check too, and a process
   folder with the same tail as the injected one passes for the wrong
@@ -207,3 +208,4 @@ is in the [test harness guide](test-harness.md).
 [0669e10]: https://github.com/nathanvale/agent-cli-kernel/commit/0669e10e32c420aa077e8491818f1d1417f1a1c9
 [77251da]: https://github.com/nathanvale/agent-cli-kernel/commit/77251da5e767409e3dd634a13fa836d45d4fc138
 [3779b5e]: https://github.com/nathanvale/agent-cli-kernel/commit/3779b5e0e4e5653217c14115c0025e6fd2197c30
+[aa593d7]: https://github.com/nathanvale/agent-cli-kernel/commit/aa593d77828f2f3a6270990ef9cadd38d9ed33cd
