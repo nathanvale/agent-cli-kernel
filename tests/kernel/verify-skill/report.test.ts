@@ -450,6 +450,21 @@ describe("the helper's own state, one folder for each run", () => {
   );
 
   test(
+    "pending on a launched run whose state folder is gone is refused, not reported as nothing unfinished",
+    async () => {
+      const at = world();
+      const run = await launched(at);
+      rmSync(join(run, "state"), { recursive: true });
+      const listed = await helper(at, ["pending", run]);
+      expect({ exit: listed.exit, cause: causeOf(listed) }).toEqual({
+        exit: 3,
+        cause: "DOMAIN_VERIFY_STATE_UNAVAILABLE",
+      });
+    },
+    watchdog(2),
+  );
+
+  test(
     "a scratch folder cleanup cannot remove makes cleanup DOMAIN_VERIFY_CHANGE_UNKNOWN",
     async () => {
       const at = world();

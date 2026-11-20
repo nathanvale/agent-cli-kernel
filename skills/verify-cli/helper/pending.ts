@@ -99,15 +99,6 @@ export function pendingCommand(state: State) {
             effects: nothingChanged,
           },
         );
-      if (report.reason === "missing")
-        return context.result(
-          { commandIdentity: identity, causeCode: unchangedSuccess },
-          {
-            message: "0 unfinished changes.",
-            data: { ok: true, unfinished: [] },
-            effects: nothingChanged,
-          },
-        );
       return context.result(
         {
           commandIdentity: identity,
