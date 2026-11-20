@@ -22,7 +22,7 @@ import {
   start,
   tree,
   waitForFile,
-  waitForLog,
+  waitForRecordBytes,
 } from "./harness.ts";
 import {
   expectAvailable,
@@ -60,7 +60,7 @@ async function heldRun(
     fault,
   });
   await waitForFile(ready);
-  await waitForLog(where.dir);
+  await waitForRecordBytes(where.dir);
   during(where);
   open(go);
   return { where, result: await launched.finished };

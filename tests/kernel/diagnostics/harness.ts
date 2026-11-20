@@ -335,13 +335,27 @@ export async function waitForFile(path: string, timeoutMilliseconds = 30_000) {
   }
 }
 
-export async function waitForLog(dir: string, timeoutMilliseconds = 30_000) {
+export async function waitForLog(
+  dir: string,
+  timeoutMilliseconds = 30_000,
+  minimumBytes = 0,
+) {
   const until = performance.now() + timeoutMilliseconds;
-  while (!observe(dir).files.some((entry) => entry.name.endsWith(".jsonl"))) {
+  while (
+    !observe(dir).files.some(
+      (entry) => entry.name.endsWith(".jsonl") && entry.size >= minimumBytes,
+    )
+  ) {
     if (performance.now() > until)
-      throw new Error(`No log appeared in ${dir}.`);
+      throw new Error(`No log with ${minimumBytes} bytes appeared in ${dir}.`);
     await Bun.sleep(2);
   }
+}
+
+const sinkHoldsItsFile = 1;
+
+export function waitForRecordBytes(dir: string, timeoutMilliseconds = 30_000) {
+  return waitForLog(dir, timeoutMilliseconds, sinkHoldsItsFile);
 }
 
 export function open(path: string): void {
