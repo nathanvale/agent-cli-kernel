@@ -728,6 +728,30 @@ describe("the check's own steps, in process", () => {
     ).toEqual(["observation-mismatch", "observation-mismatch"]);
   });
 
+  test("a target that runs past the helper's own limit on a probe is the helper's to judge, not a timeout of the check", async () => {
+    const empty =
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+    const stopped = {
+      exitCode: null,
+      stdoutBytes: 0,
+      stdoutSha256: empty,
+      stderrSha256: empty,
+    };
+    const { spawn } = fake((args) =>
+      args.includes("probe")
+        ? {
+            stdout: envelope(0, {
+              probes: [
+                { argv: ["--verify-cli-undeclared-option"], ...stopped },
+                { argv: ["--discover", "--json"], ...stopped },
+              ],
+            }),
+          }
+        : { exitCode: null, signal: "SIGTERM", timedOut: true },
+    );
+    expect(await probeFailures(spawn, "/t.ts", "/", defaultLimits)).toEqual([]);
+  });
+
   test("a target that is not repeatable exits 3, and any other failure with it exits 70", () => {
     const line = (id: FailureId) => failureLine({ id, detail: "d." });
     expect(line("target-not-repeatable")).toMatch(
