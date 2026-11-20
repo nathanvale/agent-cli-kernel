@@ -1,12 +1,12 @@
 diff --git a/scripts/doctor.ts b/scripts/doctor.ts
-index 115d6da..af7ba29 100644
+index b355d6b..1246155 100644
 --- a/scripts/doctor.ts
 +++ b/scripts/doctor.ts
-@@ -177,7 +177,6 @@ function gitRead(root: string, args: readonly string[]) {
-     env: withoutRepositoryLocation(process.env),
-     stdout: "pipe",
-     stderr: "pipe",
--    timeout: gitMilliseconds,
-     killSignal: "SIGKILL",
-   });
-   return {
+@@ -189,7 +189,6 @@ function gitRead(root: string, args: readonly string[]): GitRead {
+       env: withoutRepositoryLocation(process.env),
+       stdout: "pipe",
+       stderr: "pipe",
+-      timeout: gitMilliseconds,
+       killSignal: "SIGKILL",
+     });
+   } catch (error) {
