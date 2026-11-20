@@ -1,0 +1,13 @@
+diff --git a/kernel/config/kernel/eslint.mjs b/kernel/config/kernel/eslint.mjs
+index a94ba56..3a840d2 100644
+--- a/kernel/config/kernel/eslint.mjs
++++ b/kernel/config/kernel/eslint.mjs
+@@ -226,7 +226,7 @@ function settingsOf(options = {}) {
+ 
+ export function kernelLint(options) {
+   const { rootDir, srcDir, testDirs, addons, repository } = settingsOf(options);
+-  const own = holdsKernelSource(resolve(rootDir, srcDir));
++  const own = holdsKernelSource(resolve(rootDir, srcDir)) || true;
+   const selected = (name) => own && addons.includes(name);
+   const kernelOnly = (...blocks) => (own ? blocks : []);
+   const kernelPaths = (...paths) => (own ? paths : []);

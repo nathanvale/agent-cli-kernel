@@ -45,10 +45,6 @@ this file.
 - Trigger a compiler check when its configuration changes. Witnessed:
   [r4608935157] (a staged `tsconfig.base.json` could change compilation
   while the hook only looked for staged source edits).
-- Read a required input file as present or refused, never as empty, so a
-  missing file cannot pass for one with nothing in it. Witnessed:
-  [r4609956011] (a missing patch file read as an empty patch, so replay
-  reported that it held no hunk and `--changed-since` skipped its fault).
 - Locate a change by the text it changes, not by unchanged text beside it,
   so an edit to that other text cannot lose the change. Witnessed:
   [r4609956051] (a hunk with two changed regions was anchored on the
@@ -132,6 +128,17 @@ this file.
   since `node:fs` `globSync` lists folders too. Witnessed: [2c62768] (a
   glossary scope pattern that named only a folder would have passed the
   check that each pattern names something that exists).
+- Grant a lint allowance for a path only where that path holds what the
+  allowance is for; a repository that installs the kernel lints its own
+  `src/kernel/` as application code. Witnessed: [r4638567003], [096c862]
+  (`kernelLint` skipped the host rules for `src/kernel/**` and turned
+  `no-domain-output` off for `src/kernel/process-host.ts` in every
+  repository, so a generated repository's file there could write to
+  stdout).
+- Check the type of each field a test reads from a tool's JSON output instead
+  of coercing it, so an unexpected value cannot pass for an expected one.
+  Witnessed: [4ca0141] (`String(message.ruleId)` would have read any rule id
+  value as text, and a result with no messages skipped its path check).
 - Declare a script that people or a document run by path as a runtime root
   in `.fallowrc.json` `entry`, so a dead-code report on it reads as a
   missing root. Witnessed: [39d64c3] (the author guide's writer lost its root
@@ -153,7 +160,6 @@ this file.
 [bfc3a67]: https://github.com/nathanvale/bun-typescript-template/commit/bfc3a67b8aea06d0c630c2b9ef1ecd9f32a3266b
 [r4608771621]: https://github.com/nathanvale/bun-typescript-template/pull/99#discussion_r4608771621
 [r4608935157]: https://github.com/nathanvale/bun-typescript-template/pull/101#discussion_r4608935157
-[r4609956011]: https://github.com/nathanvale/bun-typescript-template/pull/109#discussion_r4609956011
 [r4609956051]: https://github.com/nathanvale/bun-typescript-template/pull/109#discussion_r4609956051
 [r4609890969]: https://github.com/nathanvale/bun-typescript-template/pull/108#discussion_r4609890969
 [r4623815208]: https://github.com/nathanvale/agent-cli-kernel/pull/9#discussion_r4623815208
@@ -181,5 +187,8 @@ this file.
 [kernel#49 r4637980677]: https://github.com/nathanvale/agent-cli-kernel/pull/49#discussion_r4637980677
 [7f15a16]: https://github.com/nathanvale/agent-cli-kernel/commit/7f15a164d817265cc6f82882ff6efa2b76a4556b
 [2c62768]: https://github.com/nathanvale/agent-cli-kernel/commit/2c62768ceddd1af9a7f3b4fabf1b9d32818acf2e
+[r4638567003]: https://github.com/nathanvale/bun-typescript-template/pull/116#discussion_r4638567003
+[096c862]: https://github.com/nathanvale/agent-cli-kernel/commit/096c862356a1b827bdf10d860ec5d4bd33797c1d
+[4ca0141]: https://github.com/nathanvale/agent-cli-kernel/commit/4ca014175963a134a585af49006a56d374700e33
 [39d64c3]: https://github.com/nathanvale/agent-cli-kernel/commit/39d64c307e73a6153c572d6259df791e779efc4e
 [8cbec55]: https://github.com/nathanvale/agent-cli-kernel/commit/8cbec55e65afbbba5650d447e00cac40ce0e01c3

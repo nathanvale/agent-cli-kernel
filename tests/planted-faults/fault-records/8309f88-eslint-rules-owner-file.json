@@ -1,0 +1,7 @@
+{
+  "id": "8309f88-eslint-rules-owner-file",
+  "patch": "tests/planted-faults/patches/8309f88-eslint-rules-owner-file.patch",
+  "testFile": "tests/kernel/pinned-commit.test.ts",
+  "title": "a repository that installs the kernel lints its src/kernel and src/addons files as its own source: no kernel path keeps an allowance",
+  "source": "8309f88 fix(lint): learn the cause codes from the kernel's exported commonCauses"
+}

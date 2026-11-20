@@ -10,7 +10,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, relative } from "node:path";
 import {
   commitIn,
   gitEnv,
@@ -28,6 +28,8 @@ const stagingBound = 60_000;
 const copyBound = 2 * stagingBound + 60_000;
 const setupBound = installBound + 2 * buildBound + copyBound;
 const runBound = 30_000;
+const lintBound = 120_000;
+const lintTestBound = lintBound + 30_000;
 const testBound = runBound + 30_000;
 
 function gitStaging(cwd: string, ...args: string[]): string {
@@ -189,6 +191,79 @@ const deep = await import("agent-cli-kernel/kernel/src/kernel/index.ts").then(
 console.log(JSON.stringify({ loaded, deep }));
 `;
 
+const consumerLintConfig = `import { kernelLint } from "agent-cli-kernel/lint";
+
+export default kernelLint({
+  rootDir: import.meta.dirname,
+  srcDir: "src",
+  testDirs: [],
+  addons: "all",
+});
+`;
+
+const templateLintConfig = `import { kernelLint } from "agent-cli-kernel/lint";
+import kernelRules from "agent-cli-kernel/lint-rules";
+
+const repository = { rules: { ...kernelRules.rules } };
+
+export default kernelLint({
+  rootDir: import.meta.dirname,
+  srcDir: "src",
+  testDirs: [],
+  addons: [],
+  plugin: repository,
+});
+`;
+
+const applicationFiles = {
+  "src/kernel/process-host.ts":
+    'export const out = () => process.stdout.write("x");',
+  "src/kernel/index.ts":
+    "export const load = (name: string): Promise<unknown> => import(name);",
+  "src/kernel/runtime.ts":
+    'import { createRequire } from "node:module";\nexport const load = createRequire(import.meta.url);',
+  "src/kernel/in.ts": 'export const has = (o: object) => "a" in o;',
+  "src/kernel/causes.ts": 'export const code = "DOMAIN_DEADLINE_UNKNOWN";',
+  "src/kernel/validation/brand.ts":
+    'export const isText = (v: unknown): v is string => typeof v === "string";',
+  "src/addons/programs/run.ts": "export const start = Bun.spawn;",
+  "src/addons/diagnostics/log.ts":
+    'export { getLogger } from "@logtape/logtape";',
+  "src/addons/state/linux-flock.ts": 'export { dlopen } from "bun:ffi";',
+  "src/app/cause.ts":
+    'export const needed = (codes: string[]) => codes.includes("DOMAIN_DEADLINE_UNKNOWN");',
+  "src/app/typed.ts": [
+    'import type { commonCauses } from "agent-cli-kernel";',
+    'export const needed = (codes: string[]) => codes.includes("DOMAIN_DEADLINE_UNKNOWN" satisfies keyof typeof commonCauses);',
+  ].join("\n"),
+};
+
+function writeConsumerLint(consumer: string): void {
+  writeFileSync(join(consumer, "eslint.config.mjs"), consumerLintConfig);
+  writeFileSync(join(consumer, "template.config.mjs"), templateLintConfig);
+  writeFileSync(
+    join(consumer, "tsconfig.json"),
+    `${JSON.stringify({
+      compilerOptions: {
+        target: "ESNext",
+        lib: ["ESNext"],
+        module: "Preserve",
+        moduleResolution: "bundler",
+        allowImportingTsExtensions: true,
+        noEmit: true,
+        strict: true,
+        skipLibCheck: true,
+        types: [],
+      },
+      include: ["src/**/*.ts"],
+    })}\n`,
+  );
+  for (const [path, source] of Object.entries(applicationFiles)) {
+    mkdirSync(dirname(join(consumer, path)), { recursive: true });
+    writeFileSync(join(consumer, path), `${source}\n`);
+  }
+}
+
 beforeAll(async () => {
   world.base = testFolder("pinned-commit-");
   world.kernel = join(world.base, "kernel");
@@ -220,6 +295,7 @@ beforeAll(async () => {
   );
   writeFileSync(join(world.consumer, "src/cli.ts"), noAddOnCli);
   writeFileSync(join(world.consumer, "src/imports.ts"), importEveryExport);
+  writeConsumerLint(world.consumer);
   const installed = await run(
     [process.execPath, "install"],
     world.consumer,
@@ -426,6 +502,136 @@ test(
     );
   },
   testBound,
+);
+
+const consumerLints = new Map<string, Promise<Ran>>();
+const untypedGlobal = (ruleId: string) =>
+  ruleId.startsWith("@typescript-eslint/no-unsafe-");
+
+async function consumerFindings(config = "eslint.config.mjs") {
+  const started =
+    consumerLints.get(config) ??
+    run(
+      [
+        process.execPath,
+        "node_modules/eslint/bin/eslint.js",
+        "--config",
+        config,
+        "--format",
+        "json",
+        ...["src/kernel", "src/addons", "src/app"],
+      ],
+      world.consumer,
+      lintBound,
+    );
+  consumerLints.set(config, started);
+  const ran = await started;
+  if (ran.exit !== 0 && ran.exit !== 1)
+    throw new Error(`ESLint exited ${ran.exit}:\n${ran.stderr}`);
+  const results: unknown = JSON.parse(ran.stdout);
+  if (!Array.isArray(results)) throw new Error("Expected ESLint's results.");
+  const linted = results.map((result) => {
+    const fields = record(result);
+    const file = relative(world.consumer, text(fields.filePath));
+    const messages: unknown = fields.messages;
+    if (!Array.isArray(messages)) throw new Error("Expected messages.");
+    return {
+      file,
+      messages: messages.map((each) => {
+        const message = record(each);
+        return {
+          file,
+          ruleId: text(message.ruleId),
+          message: text(message.message),
+        };
+      }),
+    };
+  });
+  return {
+    files: linted.map(({ file }) => file).toSorted(),
+    findings: linted
+      .flatMap(({ messages }) => messages)
+      .sort((a, b) =>
+        `${a.file} ${a.ruleId}` < `${b.file} ${b.ruleId}` ? -1 : 1,
+      ),
+  };
+}
+
+const kernelPathFindings = [
+  {
+    file: "src/addons/diagnostics/log.ts",
+    ruleId: "no-restricted-imports",
+  },
+  {
+    file: "src/addons/programs/run.ts",
+    ruleId: "no-restricted-properties",
+  },
+  {
+    file: "src/addons/state/linux-flock.ts",
+    ruleId: "no-restricted-imports",
+  },
+  {
+    file: "src/kernel/causes.ts",
+    ruleId: "repository/cause-literal-owner",
+  },
+  { file: "src/kernel/in.ts", ruleId: "repository/no-in-operator" },
+  { file: "src/kernel/index.ts", ruleId: "no-restricted-syntax" },
+  {
+    file: "src/kernel/process-host.ts",
+    ruleId: "repository/no-domain-output",
+  },
+  { file: "src/kernel/runtime.ts", ruleId: "no-restricted-imports" },
+  { file: "src/kernel/runtime.ts", ruleId: "no-restricted-syntax" },
+  {
+    file: "src/kernel/validation/brand.ts",
+    ruleId: "no-restricted-syntax",
+  },
+];
+
+async function kernelPathHits(config?: string) {
+  return (await consumerFindings(config)).findings
+    .filter(
+      ({ file, ruleId }) =>
+        !file.startsWith("src/app/") && !untypedGlobal(ruleId),
+    )
+    .map(({ file, ruleId }) => ({ file, ruleId }));
+}
+
+test(
+  "a repository that installs the kernel lints its src/kernel and src/addons files as its own source: no kernel path keeps an allowance",
+  async () => {
+    expect(await kernelPathHits()).toEqual(kernelPathFindings);
+  },
+  lintTestBound,
+);
+
+test(
+  "the template's kernelLint call, with no add-on and the kernel's rules spread into its plugin, refuses the same kernel paths",
+  async () => {
+    expect(await kernelPathHits("template.config.mjs")).toEqual(
+      kernelPathFindings,
+    );
+  },
+  lintTestBound,
+);
+
+test(
+  "the installed cause-literal-owner learns the codes from the installed kernel: it refuses a free known code and admits one checked against commonCauses",
+  async () => {
+    const { files, findings } = await consumerFindings();
+    expect(files.filter((file) => file.startsWith("src/app/"))).toEqual([
+      "src/app/cause.ts",
+      "src/app/typed.ts",
+    ]);
+    const found = findings.filter(({ file }) => file.startsWith("src/app/"));
+    expect(found.map(({ file, ruleId }) => ({ file, ruleId }))).toEqual([
+      { file: "src/app/cause.ts", ruleId: "repository/cause-literal-owner" },
+    ]);
+    expect(found[0]?.message).toContain(
+      'Import the owner once: import type { commonCauses } from "agent-cli-kernel";',
+    );
+  },
+  lintTestBound,
 );
 
 test(

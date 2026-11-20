@@ -1,4 +1,6 @@
+import { existsSync, realpathSync } from "node:fs";
 import { posix } from "node:path";
+import { fileURLToPath } from "node:url";
 import ts from "typescript";
 
 const localeNames = new Set(["localeCompare", "Collator"]);
@@ -104,25 +106,65 @@ function closedStrings(type) {
   );
 }
 
-function readCauseKeys(program, checker, path) {
-  const declaration = program
-    .getSourceFile(path)
-    ?.statements.filter(ts.isVariableStatement)
-    .flatMap((statement) => statement.declarationList.declarations)
-    .find(
-      (item) => ts.isIdentifier(item.name) && item.name.text === "commonCauses",
-    );
-  const properties = declaration
-    ? checker.getTypeAtLocation(declaration.name).getProperties()
-    : [];
-  return new Set(properties.map((property) => property.name));
+const kernelSource = fileURLToPath(new URL("../../src", import.meta.url));
+const kernelEntry = fileURLToPath(
+  new URL("../../src/kernel/index.ts", import.meta.url),
+);
+const kernelPackage = "agent-cli-kernel";
+const ownerOptions = {
+  noEmit: true,
+  allowImportingTsExtensions: true,
+  module: ts.ModuleKind.ESNext,
+  moduleResolution: ts.ModuleResolutionKind.Bundler,
+  target: ts.ScriptTarget.ESNext,
+  types: [],
+  lib: ["lib.es5.d.ts"],
+};
+
+export function holdsKernelSource(folder) {
+  return (
+    existsSync(folder) && realpathSync(folder) === realpathSync(kernelSource)
+  );
 }
 
-function commonCauseKeys(program, checker, path) {
-  const cache = ownerKeys.get(program) ?? new Map();
-  ownerKeys.set(program, cache);
-  if (!cache.has(path)) cache.set(path, readCauseKeys(program, checker, path));
-  return cache.get(path);
+function exportedCauseKeys(entry) {
+  const missing = (why) =>
+    new Error(
+      `repository/cause-literal-owner cannot learn the cause codes: ${why}. Repair: install ${kernelPackage} at its Pin again, so its entry exports commonCauses.`,
+    );
+  if (!existsSync(entry)) throw missing(`the kernel entry ${entry} is missing`);
+  const program = ts.createProgram({
+    rootNames: [entry],
+    options: ownerOptions,
+  });
+  const checker = program.getTypeChecker();
+  const source = program.getSourceFile(entry);
+  const module = source && checker.getSymbolAtLocation(source);
+  const exported = module
+    ? checker
+        .getExportsOfModule(module)
+        .find(({ name }) => name === "commonCauses")
+    : undefined;
+  if (exported === undefined)
+    throw missing(`${entry} does not export commonCauses`);
+  const owner =
+    exported.flags & ts.SymbolFlags.Alias
+      ? checker.getAliasedSymbol(exported)
+      : exported;
+  const keys = checker
+    .getTypeOfSymbol(owner)
+    .getProperties()
+    .map(({ name }) => name)
+    .filter((name) => causeShape.test(name));
+  if (keys.length === 0)
+    throw missing(`commonCauses in ${entry} names no cause code`);
+  return new Set(keys);
+}
+
+function commonCauseKeys(program) {
+  if (!ownerKeys.has(program))
+    ownerKeys.set(program, exportedCauseKeys(kernelEntry));
+  return ownerKeys.get(program);
 }
 
 const partners = {
@@ -134,14 +176,17 @@ const partners = {
     parent.test === node ? parent.parent.discriminant : undefined,
 };
 
-function ownerImport(context, file, root) {
+function ownerImport(context, file, root, installed) {
   const imported = context.sourceCode.scopeManager.scopes.some(
     (scope) => scope.type === "module" && scope.set.has("commonCauses"),
   );
   if (imported) return "";
+  const line = (from) =>
+    ` Import the owner once: import type { commonCauses } from "${from}";`;
+  if (installed) return line(kernelPackage);
   const owner = file.startsWith(`${root}/kernel/`) ? "causes.ts" : "index.ts";
   const from = posix.relative(posix.dirname(file), `${root}/kernel/${owner}`);
-  return ` Import the owner once: import type { commonCauses } from "${from.startsWith(".") ? from : `./${from}`}";`;
+  return line(from.startsWith(".") ? from : `./${from}`);
 }
 
 const causeShape =
@@ -288,14 +333,11 @@ export default {
           throw new Error(
             `repository/cause-literal-owner lints ${file}, outside ${root}. Run ESLint from the folder that holds eslint.config.mjs.`,
           );
+        const installed = !holdsKernelSource(root);
         const services = typeServices(context);
-        if (!services || causeOwners.test(file)) return {};
+        if (!services || (!installed && causeOwners.test(file))) return {};
         const checker = services.program.getTypeChecker();
-        const keys = commonCauseKeys(
-          services.program,
-          checker,
-          `${root}/kernel/causes.ts`,
-        );
+        const keys = commonCauseKeys(services.program);
         const ownerTyped = (type) =>
           type !== undefined &&
           closedStrings(type) &&
@@ -324,7 +366,7 @@ export default {
             ? code
             : undefined;
         };
-        const imports = ownerImport(context, file, root);
+        const imports = ownerImport(context, file, root, installed);
         const check = (node) => {
           const code = causeAt(node);
           if (code)

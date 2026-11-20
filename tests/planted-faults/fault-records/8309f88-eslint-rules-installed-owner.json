@@ -1,0 +1,7 @@
+{
+  "id": "8309f88-eslint-rules-installed-owner",
+  "patch": "tests/planted-faults/patches/8309f88-eslint-rules-installed-owner.patch",
+  "testFile": "tests/kernel/pinned-commit.test.ts",
+  "title": "the installed cause-literal-owner learns the codes from the installed kernel: it refuses a free known code and admits one checked against commonCauses",
+  "source": "8309f88 fix(lint): learn the cause codes from the kernel's exported commonCauses"
+}

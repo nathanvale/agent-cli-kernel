@@ -1,0 +1,13 @@
+diff --git a/kernel/config/kernel/eslint-rules.mjs b/kernel/config/kernel/eslint-rules.mjs
+index bd21f5a..5eb3903 100644
+--- a/kernel/config/kernel/eslint-rules.mjs
++++ b/kernel/config/kernel/eslint-rules.mjs
+@@ -132,7 +132,7 @@ function exportedCauseKeys(entry) {
+     new Error(
+       `repository/cause-literal-owner cannot learn the cause codes: ${why}. Repair: install ${kernelPackage} at its Pin again, so its entry exports commonCauses.`,
+     );
+-  if (!existsSync(entry)) throw missing(`the kernel entry ${entry} is missing`);
++  if (!existsSync(entry)) return new Set();
+   const program = ts.createProgram({
+     rootNames: [entry],
+     options: ownerOptions,
