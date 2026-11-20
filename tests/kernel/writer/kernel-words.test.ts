@@ -14,6 +14,7 @@ import {
   resource,
 } from "../../../kernel/src/kernel/validation/brands.ts";
 import { record } from "../../../kernel/src/kernel/validation/primitives.ts";
+import { inertState } from "../kernel-repair/shapes.ts";
 import { authorityDefaults } from "../lifecycle/checks.ts";
 
 const none = {
@@ -115,7 +116,8 @@ const owned = command({
 const contract = contractFor({
   cli: "grants",
   commands: [defaults, owned],
-  installedAddons: ["approval"],
+  state: inertState("grants"),
+  installedAddons: ["state", "approval"],
 });
 
 test("B3.01.default-words-exact", () => {
