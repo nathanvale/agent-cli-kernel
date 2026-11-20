@@ -1,0 +1,7 @@
+{
+  "id": "480dec5-git-asked-outside-work-tree",
+  "patch": "tests/planted-faults/patches/480dec5-git-asked-outside-work-tree.patch",
+  "testFile": "tests/kernel/verify-skill/launch.test.ts",
+  "title": "git facts are null without git or outside a work tree, counted inside one, and any git failure inside one is reported",
+  "source": "480dec5 fix(verify-skill): judge a run folder where it really is, and read git only inside a work tree"
+}

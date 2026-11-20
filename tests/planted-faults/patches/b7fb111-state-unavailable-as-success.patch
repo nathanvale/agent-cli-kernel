@@ -1,0 +1,12 @@
+diff --git a/skills/verify-cli/helper/outcome.ts b/skills/verify-cli/helper/outcome.ts
+index 37998f7..f1bde88 100644
+--- a/skills/verify-cli/helper/outcome.ts
++++ b/skills/verify-cli/helper/outcome.ts
+@@ -30,6 +30,7 @@ export function refusalOf(
+         message: `Run ${run} has an unfinished change, operation ${outcome.operationId}.`,
+       };
+     case "unavailable":
++      return undefined;
+       return {
+         causeCode: "DOMAIN_VERIFY_STATE_UNAVAILABLE",
+         message: `The helper's state is unavailable: ${outcome.reason}${outcome.detail === undefined ? "" : ` (${outcome.detail})`}.`,

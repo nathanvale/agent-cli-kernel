@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/report.ts b/skills/verify-cli/helper/report.ts
+index 4e96345..4e29411 100644
+--- a/skills/verify-cli/helper/report.ts
++++ b/skills/verify-cli/helper/report.ts
+@@ -111,7 +111,7 @@ export function reportCommand(bun: () => ParsedPath) {
+     run: async (input, context) => {
+       const place = verificationRun(input.run);
+       const read = readIndex(place);
+-      if (read.kind === "missing")
++      if (read.kind === "missing" && false)
+         return context.result(
+           { commandIdentity: identity, causeCode: "DOMAIN_VERIFY_RUN_MISSING" },
+           {

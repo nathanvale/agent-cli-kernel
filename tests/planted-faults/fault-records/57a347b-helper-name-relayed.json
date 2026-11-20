@@ -1,0 +1,7 @@
+{
+  "id": "57a347b-helper-name-relayed",
+  "patch": "tests/planted-faults/patches/57a347b-helper-name-relayed.patch",
+  "testFile": "tests/kernel/verify-skill/trust.test.ts",
+  "title": "a human message that names the helper's own name names the check's command instead",
+  "source": "57a347b fix(verify-skill): keep a run answerable after its repository moves, and pass words after -- untouched"
+}

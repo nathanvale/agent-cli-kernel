@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-sweep-passes-unknown-command-exit",
+  "patch": "tests/planted-faults/patches/b7fb111-sweep-passes-unknown-command-exit.patch",
+  "testFile": "tests/kernel/verify-skill/sweep.test.ts",
+  "title": "each check goes red on a CLI that breaks it: sweep's unknown-command-exit$",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

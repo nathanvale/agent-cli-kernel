@@ -1,0 +1,7 @@
+{
+  "id": "3306233-sweep-credits-after-failed-command-discovery",
+  "patch": "tests/planted-faults/patches/3306233-sweep-credits-after-failed-command-discovery.patch",
+  "testFile": "tests/kernel/verify-skill/report.test.ts",
+  "title": "a command whose own discovery fails has its stations owed, however its runs answer",
+  "source": "3306233 fix(verify-skill): check the sweep's discovery envelopes and the usage refusal's cause"
+}

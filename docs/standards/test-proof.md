@@ -36,7 +36,8 @@ is in the [test harness guide](test-harness.md).
   build check, or a neighbouring cap at the same limit, keeps the test green
   with the named guard removed. Witnessed: [640ba05], [96ab832], [c193c51],
   [f8ff37f] (an equals-sign option case used a required option, so a
-  missing-option refusal could also have failed it),
+  missing-option refusal could also have failed it), [0ab74b8] (a
+  lying fixture's wrong stderr hid a dropped exit-code check),
   [8cbec55] (a file that was not `<id>.json` also held bad JSON; the fix
   gives it a valid record; Sol 6.1 review).
 - Control each side of a boundary: the last admitted and the first refused
@@ -50,10 +51,14 @@ is in the [test harness guide](test-harness.md).
   kill still passed), [dbd196e] (a timeout message that reads the same
   constant stays green when the timer is changed, so measure the elapsed
   time), [#73-deadline] (a 2 s assertion accepted a missed 300 ms
-  deadline).
+  deadline), [0ab74b8] (the verification skill's stop case checked only
+  that the target timed out, so a 600 s timeout passed), [0669e10] (a SIGKILL
+  case allowed 5 s for a 500 ms escalation).
 - Require a project's evidence list to exist and contain at least one entry.
   A check against an empty array can accept a missing field. Witnessed:
-  [#91-projects].
+  [#91-projects], [0669e10] (an empty `result` counted as a step's expectation),
+  [77251da] (an empty string in an includes list did too), [aa593d7]
+  (report gave a clean headline when the sweep reached no station).
 - Prove a resolution by a refusal only the right folder can give. A recorded
   hit or an empty result passes for a skipped check too, and a process
   folder with the same tail as the injected one passes for the wrong
@@ -68,11 +73,15 @@ is in the [test harness guide](test-harness.md).
   checked only the first line), [0463f35] (its link case accepted a link to
   a folder), [3567a81] (its case titled "its own tests pass, in process and
   through its real entry file" counted results, and a pin for a sentence
-  naming two usage refusals checked one).
+  naming two usage refusals checked one), [0ab74b8] (three verification
+  skill cases checked a prefix, the arguments sent, or a stop request alone),
+  [0669e10] (a title promised placeholders in every string; file content kept them).
 - Prove that a fixture meant to lack something lacks it, and fail loudly
   when its location supplies it. `STATE_TEST_DIR` can place a test folder
   inside the checkout, where git finds the parent repository for a case that
-  expects none. Witnessed: [8946615].
+  expects none. Witnessed: [8946615], [0ab74b8] (the verification skill's
+  case for a kernel that does not load never checked that its copy could
+  not resolve the kernel).
 - Require one recorded process before checking that it exited. A missing
   process ledger lets an empty-result check pass. Witnessed: [#84-ledger].
 - Refuse a gate's scan that finds no file, so the gate cannot pass on
@@ -113,7 +122,8 @@ is in the [test harness guide](test-harness.md).
   too, from the test that imports its file, beside the process proof that
   spawns the entry. Coverage cannot see into a spawned process, so a
   function proved only that way reads as untested and its mutants never
-  run.
+  run. Witnessed: [0ab74b8] (three verification skill functions ran
+  only in spawned helpers).
 - Resolve each path from the environment a function is given, not from the
   process's own folder, so an in-process call runs on what the test injects.
   Witnessed: [244b63a].
@@ -128,38 +138,18 @@ is in the [test harness guide](test-harness.md).
   [9050fec], [b8664cf] (each recorded faults for refusals that had landed
   with no record), [86749b9] (so did the author skill's eight), [848b6de] (two
   gate checks ran only on the real documents, so a fault that dropped them
-  could not fail), [c5ce7de] (the fault record folder's readers added
+  could not fail), [25c2212] (the verification skill's missing-tool
+  refusal, help check, budgets, contract checks and stop forwarding landed
+  with no record), [c5ce7de] (the fault record folder's readers added
   five refusals with no record; Sol 6.1 review).
 - Replay affected fault records when you edit or move a test that catches
   a planted fault, or change the source its patch targets. Keep the patch
   and test selector current in the same commit and require `KILLED`.
   A split guard left a patch stale, and the original changed-file selector
   missed test-only edits. Witnessed: [#54-stale], [#77-test].
-- Treat a surviving fault as a missing test. Witnessed: [d72cd9e], [640ba05].
-
-## Lint rules
-
-- Prove a lint rule on each shape its matcher can meet, not only on the
-  cases of the rule it ports: a callback with more or fewer parameters, a
-  function nested inside the one it judges, a binding written more than
-  once, a type argument that repeats its alias, an alias whose parameter
-  shares a name with an outer one, a spread into call arguments, and a
-  member key written as a template literal. A port inherits its source's
-  gaps; the rule each port copies (oxc's `no_accumulating_spread` at
-  `oxlint_v1.93.0`, or the anti-slop source that
-  `config/anti-slop-rules.mjs` pins) shares each witnessed one.
-  Witnessed: [#102-parameters] (a reducer that also takes the index passed
-  `no-accumulating-spread`), [#102-alias] (`Identity<Identity<unknown>>`
-  passed `no-unknown-type-aliases`), [#102-nested] (a spread in a `map`
-  callback inside a reducer was reported against the reduce), [#102-reset]
-  (a plain reset before a loop hid the loop's spread), [#102-outer]
-  (`Wrap<T = unknown> = Fixed` lent its `T` to `Fixed`, so `Safe = Wrap` was
-  reported), [#102-arity] (a one-parameter reducer passed
-  `no-accumulating-spread`), [#102-arguments] (`consume(item, ...args)` was
-  reported as an accumulator copy), [#102-mock-key] (``vi[`mock`]`` passed
-  `no-module-mocking`), [#102-copy-key] (``all[`concat`]`` passed
-  `no-reduce-accumulator-copy`), [1b72951] (a `commonCauses` whose keys
-  were not cause codes passed `cause-literal-owner`'s no-code refusal).
+- Treat a surviving fault as a missing test. Witnessed: [d72cd9e], [640ba05],
+  [3779b5e] (eleven trust-check guards each changed alone left every test
+  green; Fable review of pull request 56).
 
 [#91-count]: https://github.com/nathanvale/bun-typescript-template/pull/91#discussion_r4607744321
 [185c90d]: https://github.com/nathanvale/bun-typescript-template/commit/185c90d11dd167ee4874e383ba26cd7d64a70964
@@ -192,15 +182,6 @@ is in the [test harness guide](test-harness.md).
 [#84-ledger]: https://github.com/nathanvale/bun-typescript-template/pull/84#discussion_r4607244520
 [#90-inventory]: https://github.com/nathanvale/bun-typescript-template/pull/90#discussion_r4607634930
 [#90-routes]: https://github.com/nathanvale/bun-typescript-template/pull/90#pullrequestreview-5948919460
-[#102-parameters]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4608976426
-[#102-alias]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609019138
-[#102-nested]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609019144
-[#102-reset]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609019149
-[#102-outer]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609659195
-[#102-arity]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609659202
-[#102-arguments]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609659207
-[#102-mock-key]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609902952
-[#102-copy-key]: https://github.com/nathanvale/bun-typescript-template/pull/102#discussion_r4609902960
 [r4622139095]: https://github.com/nathanvale/agent-cli-kernel/pull/2#discussion_r4622139095
 [f754f36]: https://github.com/nathanvale/agent-cli-kernel/commit/f754f3629123ca9632fba83361a4776109459e97
 [r4624230382]: https://github.com/nathanvale/agent-cli-kernel/pull/13#discussion_r4624230382
@@ -211,15 +192,20 @@ is in the [test harness guide](test-harness.md).
 [7a3c409]: https://github.com/nathanvale/agent-cli-kernel/commit/7a3c409920548ef30a9df2c89a0fac608d4704fd
 [b146440]: https://github.com/nathanvale/agent-cli-kernel/commit/b146440b8fd1075791ee997ca93c59f410b9e978
 [4ca0141]: https://github.com/nathanvale/agent-cli-kernel/commit/4ca014175963a134a585af49006a56d374700e33
-[1b72951]: https://github.com/nathanvale/agent-cli-kernel/commit/1b72951c42401d2567bec8327ab2726f3852fd95
 [f8ff37f]: https://github.com/nathanvale/agent-cli-kernel/commit/f8ff37f4e31d26ce34fcc4e5b0467a2a5ed013f3
 [ff0616c]: https://github.com/nathanvale/agent-cli-kernel/commit/ff0616cd9c3310bf1170e28308c3c748353fc57b
 [0463f35]: https://github.com/nathanvale/agent-cli-kernel/commit/0463f35b14fd6aadced45cab40b44436fb480b33
 [86749b9]: https://github.com/nathanvale/agent-cli-kernel/commit/86749b9a2dd7b2295a2405513d75299b14550db3
 [3567a81]: https://github.com/nathanvale/agent-cli-kernel/commit/3567a8125e36f43eb6b3f448a5f51fb122090536
 [848b6de]: https://github.com/nathanvale/agent-cli-kernel/commit/848b6de1e7b9bc0792a8ea70f6604f700a09229d
+[0ab74b8]: https://github.com/nathanvale/agent-cli-kernel/commit/0ab74b894857b6b741be277e2f2fd41764e96cd2
+[25c2212]: https://github.com/nathanvale/agent-cli-kernel/commit/25c2212794174aa8686028c0cb35a87515c9ca65
 [kernel#53 r4639172891]: https://github.com/nathanvale/agent-cli-kernel/pull/53#discussion_r4639172891
 [79431f5]: https://github.com/nathanvale/agent-cli-kernel/commit/79431f561abf1deecd55c9b1dcb91e8c1560f746
 [c5ce7de]: https://github.com/nathanvale/agent-cli-kernel/commit/c5ce7de4210286905ff472706c107b35e0ef42cb
 [8cbec55]: https://github.com/nathanvale/agent-cli-kernel/commit/8cbec55e65afbbba5650d447e00cac40ce0e01c3
 [911189b]: https://github.com/nathanvale/agent-cli-kernel/commit/911189bb75fa97d60acaacfba6034417522804aa
+[0669e10]: https://github.com/nathanvale/agent-cli-kernel/commit/0669e10e32c420aa077e8491818f1d1417f1a1c9
+[77251da]: https://github.com/nathanvale/agent-cli-kernel/commit/77251da5e767409e3dd634a13fa836d45d4fc138
+[3779b5e]: https://github.com/nathanvale/agent-cli-kernel/commit/3779b5e0e4e5653217c14115c0025e6fd2197c30
+[aa593d7]: https://github.com/nathanvale/agent-cli-kernel/commit/aa593d77828f2f3a6270990ef9cadd38d9ed33cd

@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-ready-passes-bun-matches-toolchain-pin",
+  "patch": "tests/planted-faults/patches/b7fb111-ready-passes-bun-matches-toolchain-pin.patch",
+  "testFile": "tests/kernel/verify-skill/ready.test.ts",
+  "title": "ready names a Bun that is not the toolchain pin",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

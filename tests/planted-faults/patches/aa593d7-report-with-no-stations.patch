@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/report.ts b/skills/verify-cli/helper/report.ts
+index c567446..0737006 100644
+--- a/skills/verify-cli/helper/report.ts
++++ b/skills/verify-cli/helper/report.ts
+@@ -173,7 +173,7 @@ export function reportCommand(bun: () => ParsedPath) {
+           join(read.run.repository, read.run.target),
+         ),
+       );
+-      if (found.required.length === 0)
++      if (found.required.length < 0)
+         return context.result(
+           { commandIdentity: identity, causeCode: "DOMAIN_VERIFY_FINDINGS" },
+           {

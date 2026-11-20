@@ -5,6 +5,15 @@ then `Witnessed:` and its citation. When a second witness arrives, it moves
 to a row in the [rule table](../../CODING_STANDARDS.md#rule-table) and leaves
 this file.
 
+- Prove a child ran by an output only a run produces, never by its exit code
+  alone. Witnessed: [67e7adc].
+- Give a list one order at both ends: a checker that requires it sorted
+  must read it from a producer that sorts it. Witnessed: [bdd5e9c].
+- Return a report as its owner gives it, every field kept. Witnessed:
+  [0669e10].
+- Turn off only the restriction an exception needs; a rule turned off for a
+  file drops every restriction it holds. Witnessed: [0669e10].
+- Keep the state a step leaves beside what it printed. Witnessed: [18894b0].
 - Make a guard against an empty gate count what the gate would run.
   Witnessed: [ac11ed9] (a test area whose tests sit only in subfolders was
   counted as empty).
@@ -82,15 +91,12 @@ this file.
 - Prove a compatibility claim with code committed in the tree, never with
   git history, which a shallow checkout or another folder lacks. Witnessed:
   [ff852e8], [e45050c] (J08.a and J08.c read version 1's store with
-  `git show` at a fixed commit, and hosted fault replay, [run 44456881408],
-  could not resolve the path; the fix adds a committed version 1 reader to
-  `tests/kernel/state/harness.ts`).
+  `git show`, which hosted fault replay, [run 44456881408], could not
+  resolve).
 - Before resting a safety claim on how a file format reads damage, sweep
   every cut point of each record, alone and with a complete record after
-  it. Witnessed: [6d4b46d] (the journal version 2 design said a torn tail
-  cannot hide a delegate start, yet a complete record appended straight
-  after torn bytes read as part of the torn tail at every cut but the three
-  just after a header's newline).
+  it. Witnessed: [6d4b46d] (a complete record appended after torn bytes read as part of the
+  torn tail at almost every cut).
 - Decide only on state read while holding what excludes its writer; a
   read taken before the lock is a stale snapshot. Witnessed:
   [kernel#18 r4625198714], [d37a77f] (a closer read the case journal,
@@ -131,8 +137,7 @@ this file.
 - Grant a lint allowance for a path only where that path holds what the
   allowance is for; a repository that installs the kernel lints its own
   `src/kernel/` as application code. Witnessed: [r4638567003], [096c862]
-  (`kernelLint` skipped the host rules for `src/kernel/**` and turned
-  `no-domain-output` off for `src/kernel/process-host.ts` in every
+  (`kernelLint` turned host rules off for `src/kernel/**` in every
   repository, so a generated repository's file there could write to
   stdout).
 - Check the type of each field a test reads from a tool's JSON output instead
@@ -153,6 +158,10 @@ this file.
   its name. Witnessed: [911189b] (the fault record reader skipped every
   dot-named file, so a record renamed `.x.json` was never replayed; Fable
   review of pull request 54).
+- Credit coverage only from a run whose checks all passed. Witnessed:
+  [044431e].
+- Observe both sides again before blaming the judge for a mismatch.
+  Witnessed: [0aeb3de].
 - Create a file the tool owns with exclusive create, not a check and then
   a write, so two writers of the same name cannot both succeed.
   Witnessed: [911189b] (two `planted-fault:add` runs for one id both
@@ -206,6 +215,12 @@ this file.
 [096c862]: https://github.com/nathanvale/agent-cli-kernel/commit/096c862356a1b827bdf10d860ec5d4bd33797c1d
 [4ca0141]: https://github.com/nathanvale/agent-cli-kernel/commit/4ca014175963a134a585af49006a56d374700e33
 [39d64c3]: https://github.com/nathanvale/agent-cli-kernel/commit/39d64c307e73a6153c572d6259df791e779efc4e
+[67e7adc]: https://github.com/nathanvale/agent-cli-kernel/commit/67e7adcdeda288d3199748178ef0723c212668c3
+[18894b0]: https://github.com/nathanvale/agent-cli-kernel/commit/18894b0852b26411e5583a7008f2feb54e459f3e
+[bdd5e9c]: https://github.com/nathanvale/agent-cli-kernel/commit/bdd5e9cf017ea99cd6d63d501e0ef06a0652ca7f
 [8cbec55]: https://github.com/nathanvale/agent-cli-kernel/commit/8cbec55e65afbbba5650d447e00cac40ce0e01c3
 [911189b]: https://github.com/nathanvale/agent-cli-kernel/commit/911189bb75fa97d60acaacfba6034417522804aa
+[0669e10]: https://github.com/nathanvale/agent-cli-kernel/commit/0669e10e32c420aa077e8491818f1d1417f1a1c9
+[044431e]: https://github.com/nathanvale/agent-cli-kernel/commit/044431e8b510ef9104ab7e4ade72f5d7ae980a69
+[0aeb3de]: https://github.com/nathanvale/agent-cli-kernel/commit/0aeb3de88a7ea51e3882ff3ac30f9c0dde64614b
 [973abac]: https://github.com/nathanvale/agent-cli-kernel/commit/973abac66b578259a73b21857f5a92090f249717

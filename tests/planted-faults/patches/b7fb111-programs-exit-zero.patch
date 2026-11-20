@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/programs/index.ts b/kernel/src/addons/programs/index.ts
+index 23147db..c871909 100644
+--- a/kernel/src/addons/programs/index.ts
++++ b/kernel/src/addons/programs/index.ts
+@@ -307,7 +307,7 @@ function attachPrograms(run: RunControl): AttachedAddon<ProgramsCapability> {
+     const result: ProgramResult = Object.freeze({
+       stdout: stdout.text,
+       stderr: stderr.text,
+-      exitCode: child.exitCode,
++      exitCode: 0,
+       terminationConfirmed: groupEmpty,
+       outputTruncated: stdout.truncated || stderr.truncated,
+     });

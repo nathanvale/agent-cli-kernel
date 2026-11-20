@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-scenario-skips-limit-range",
+  "patch": "tests/planted-faults/patches/b7fb111-scenario-skips-limit-range.patch",
+  "testFile": "tests/kernel/verify-skill/drive.test.ts",
+  "title": "drive refuses a scenario that breaks a rule: limit-out-of-range",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-ready-start-as-finding",
+  "patch": "tests/planted-faults/patches/b7fb111-ready-start-as-finding.patch",
+  "testFile": "tests/kernel/verify-skill/ready.test.ts",
+  "title": "ready refuses a target that (selects approval without state|throws at start)",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

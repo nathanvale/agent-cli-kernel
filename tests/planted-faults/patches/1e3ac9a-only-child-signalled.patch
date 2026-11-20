@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
+index ea4197f..a2f01b6 100644
+--- a/skills/verify-cli/verify.ts
++++ b/skills/verify-cli/verify.ts
+@@ -545,7 +545,7 @@ function afterDelay(milliseconds: number) {
+ 
+ function signalGroup(child: Subprocess, signal: NodeJS.Signals): void {
+   try {
+-    process.kill(-child.pid, signal);
++    child.kill(signal);
+   } catch {
+     child.kill(signal);
+   }

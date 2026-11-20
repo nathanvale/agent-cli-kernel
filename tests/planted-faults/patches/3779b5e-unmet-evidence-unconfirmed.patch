@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
+index ea4197f..beb6ce4 100644
+--- a/skills/verify-cli/verify.ts
++++ b/skills/verify-cli/verify.ts
+@@ -415,7 +415,7 @@ export function evidenceFailures(place: VerificationRun): Failure[] {
+         id: "evidence-mismatch",
+         detail: file.kind === "missing" ? `${path} is missing.` : file.reason,
+       });
+-    else if (sha256(file.bytes) !== row.sha256)
++    else if (sha256(file.bytes) !== row.sha256 && row.verdict === "met")
+       failures.push({
+         id: "evidence-mismatch",
+         detail: `${path} no longer matches the hash its index row recorded.`,

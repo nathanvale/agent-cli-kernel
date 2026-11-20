@@ -1,0 +1,7 @@
+{
+  "id": "0669e10-scenario-reads-folders",
+  "patch": "tests/planted-faults/patches/0669e10-scenario-reads-folders.patch",
+  "testFile": "tests/kernel/verify-skill/in-process.test.ts",
+  "title": "a scenario path that is missing, a folder, or not JSON names which",
+  "source": "0669e10 fix(verify-skill): settle the Sol 6.1 standards and spec reviews of the reconciled build"
+}

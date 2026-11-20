@@ -56,7 +56,9 @@ here.
   Witnessed: [3567a81] (the author guide's install case copied
   git-fixture's private 4 s git bound into its own timeout, and its
   `thrownMessage` repeated `messageOf`, where `toThrow(new Error(message))`
-  already compares the whole message).
+  already compares the whole message), [0ab74b8] (the verification skill's
+  front door resolved the target's entry its own way and ignored the entry
+  a run recorded, which its doctor read; both now use `entryFor`).
 
 [#91-git]: https://github.com/nathanvale/bun-typescript-template/pull/91#discussion_r4607744335
 [56aee86]: https://github.com/nathanvale/bun-typescript-template/commit/56aee86bf059fb2629819fa2b6a1664d776629d5
@@ -81,6 +83,7 @@ here.
 [ff0616c]: https://github.com/nathanvale/agent-cli-kernel/commit/ff0616cd9c3310bf1170e28308c3c748353fc57b
 [0463f35]: https://github.com/nathanvale/agent-cli-kernel/commit/0463f35b14fd6aadced45cab40b44436fb480b33
 [3567a81]: https://github.com/nathanvale/agent-cli-kernel/commit/3567a8125e36f43eb6b3f448a5f51fb122090536
+[0ab74b8]: https://github.com/nathanvale/agent-cli-kernel/commit/0ab74b894857b6b741be277e2f2fd41764e96cd2
 [04ef358]: https://github.com/nathanvale/agent-cli-kernel/commit/04ef3587677146fa53e4cf509bdb651997907298
 [911189b]: https://github.com/nathanvale/agent-cli-kernel/commit/911189bb75fa97d60acaacfba6034417522804aa
 [d899823]: https://github.com/nathanvale/agent-cli-kernel/commit/d899823343fdcf4557ba08f2d64ce84a8d9a2af4

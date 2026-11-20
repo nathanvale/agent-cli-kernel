@@ -1,0 +1,7 @@
+{
+  "id": "3ad9232-envelope-needs-only-result",
+  "patch": "tests/planted-faults/patches/3ad9232-envelope-needs-only-result.patch",
+  "testFile": "tests/kernel/verify-skill/in-process.test.ts",
+  "title": "the kernel's promises are checked on a target step that ended by itself",
+  "source": "3ad9232 fix(verify-skill): take a line as an envelope only when its result names its exit code, command and cause"
+}

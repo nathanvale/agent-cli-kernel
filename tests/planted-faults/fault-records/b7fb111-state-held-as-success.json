@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-state-held-as-success",
+  "patch": "tests/planted-faults/patches/b7fb111-state-held-as-success.patch",
+  "testFile": "tests/kernel/verify-skill/report.test.ts",
+  "title": "a drive that holds a run makes a cleanup of that run",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

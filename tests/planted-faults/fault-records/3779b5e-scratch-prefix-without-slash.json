@@ -1,0 +1,7 @@
+{
+  "id": "3779b5e-scratch-prefix-without-slash",
+  "patch": "tests/planted-faults/patches/3779b5e-scratch-prefix-without-slash.patch",
+  "testFile": "tests/kernel/verify-skill/in-process.test.ts",
+  "title": "a step needs more than an exit code, and its files stay under the scratch folder",
+  "source": "3779b5e test(verify-skill): prove the trust check's guards that no test failed without"
+}

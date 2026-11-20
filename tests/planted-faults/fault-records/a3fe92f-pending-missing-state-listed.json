@@ -1,0 +1,7 @@
+{
+  "id": "a3fe92f-pending-missing-state-listed",
+  "patch": "tests/planted-faults/patches/a3fe92f-pending-missing-state-listed.patch",
+  "testFile": "tests/kernel/verify-skill/report.test.ts",
+  "title": "pending on a launched run whose state folder is gone is refused, not reported as nothing unfinished",
+  "source": "a3fe92f fix(verify-skill): refuse pending on a launched run whose state folder is gone"
+}

@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
+index ea4197f..7d91fb4 100644
+--- a/skills/verify-cli/verify.ts
++++ b/skills/verify-cli/verify.ts
+@@ -391,7 +391,7 @@ export async function probeFailures(
+     if (found.length === 0) return [];
+     const helperSteady = steady(first.helper[index], second.helper[index]);
+     const rawSteady = steady(first.raw[index], second.raw[index]);
+-    if (helperSteady && rawSteady) return found;
++    if (helperSteady || !rawSteady || true) return found;
+     return [
+       {
+         id: "target-not-repeatable" as const,

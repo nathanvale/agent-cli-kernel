@@ -1,0 +1,7 @@
+{
+  "id": "0669e10-scenario-accepts-fractional-exit",
+  "patch": "tests/planted-faults/patches/0669e10-scenario-accepts-fractional-exit.patch",
+  "testFile": "tests/kernel/verify-skill/in-process.test.ts",
+  "title": "a field of the wrong type is a bad value",
+  "source": "0669e10 fix(verify-skill): settle the Sol 6.1 standards and spec reviews of the reconciled build"
+}

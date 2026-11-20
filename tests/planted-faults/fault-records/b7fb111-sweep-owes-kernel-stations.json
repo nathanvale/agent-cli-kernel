@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-sweep-owes-kernel-stations",
+  "patch": "tests/planted-faults/patches/b7fb111-sweep-owes-kernel-stations.patch",
+  "testFile": "tests/kernel/verify-skill/sweep.test.ts",
+  "title": "sweep owes the two stations of show that need input",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

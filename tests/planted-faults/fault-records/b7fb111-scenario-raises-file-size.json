@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-scenario-raises-file-size",
+  "patch": "tests/planted-faults/patches/b7fb111-scenario-raises-file-size.patch",
+  "testFile": "tests/kernel/verify-skill/in-process.test.ts",
+  "title": "a scenario file may be 1,048,576 bytes",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

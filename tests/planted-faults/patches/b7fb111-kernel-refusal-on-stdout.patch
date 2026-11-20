@@ -1,0 +1,13 @@
+diff --git a/kernel/src/kernel/human.ts b/kernel/src/kernel/human.ts
+index 820eeae..46d4e1d 100644
+--- a/kernel/src/kernel/human.ts
++++ b/kernel/src/kernel/human.ts
+@@ -159,7 +159,7 @@ function resultText(cli: string, envelope: Envelope): HumanWrite {
+   const result = envelope.result;
+   if (result.outcome !== "success")
+     return {
+-      stream: "stderr",
++      stream: "stdout",
+       text: `${oneLine(cli)}: ${oneLine(envelope.message)} [${result.causeCode}]\n`,
+     };
+   const lines =

@@ -1,0 +1,7 @@
+{
+  "id": "b2dcc8f-stdout-compared-by-length-only",
+  "patch": "tests/planted-faults/patches/b2dcc8f-stdout-compared-by-length-only.patch",
+  "testFile": "tests/kernel/verify-skill/trust.test.ts",
+  "title": "an observation is compared on its exit code, its stdout byte count and hash, and its stderr hash",
+  "source": "b2dcc8f fix(verify-skill): compare a hash of each probe's stdout, not only its length"
+}

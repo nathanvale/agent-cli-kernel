@@ -1,0 +1,7 @@
+{
+  "id": "aa593d7-report-with-no-stations",
+  "patch": "tests/planted-faults/patches/aa593d7-report-with-no-stations.patch",
+  "testFile": "tests/kernel/verify-skill/report.test.ts",
+  "title": "a target whose discovery yields no station gets no report, only its findings",
+  "source": "aa593d7 fix(verify-skill): refuse a report when the sweep reached no station"
+}

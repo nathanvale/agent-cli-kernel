@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/launch.ts b/skills/verify-cli/helper/launch.ts
+index 5e0c598..ef3929f 100644
+--- a/skills/verify-cli/helper/launch.ts
++++ b/skills/verify-cli/helper/launch.ts
+@@ -120,7 +120,7 @@ export async function gitFacts(
+   ask: Ask | null,
+   root: string,
+ ): Promise<GitFacts> {
+-  if (ask === null || workTreeAbove(root) === undefined)
++  if (ask === null)
+     return { kind: "facts", headCommit: null, uncommittedPaths: null };
+   const head = await ask(["-C", root, "rev-parse", "HEAD"]);
+   if (head.exitCode !== 0)

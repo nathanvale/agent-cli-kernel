@@ -4,6 +4,10 @@ Every run ends with exactly one valid envelope, or with the documented crash
 outcome. Review each new throw site, stream write, and early exit against this
 list. The lessons recur across pull requests #4, #5, and #6.
 
+- Wait for each stream write to finish before the process exits;
+  `process.exit` drops what a slow pipe has not yet taken. Witnessed:
+  [9214b48] (verify.ts cut a findings envelope at 65,536 bytes when stdout
+  was a pipe that read late; Fable review of pull request 56).
 - Register the stdout failure handler before any output, built-in inspection
   included. A failed write still ends in one result, with the repair on
   stderr. Witnessed: [#4 r4023874167], [#5 r4575438112].
@@ -26,6 +30,16 @@ list. The lessons recur across pull requests #4, #5, and #6.
   returned `no-envelope` when the result and the fallback both failed, and
   no case reached it).
 
+## Envelopes read from other programs
+
+- Check what a protocol promises on every observation, not only what the
+  author asked for, so a step can fail on a broken promise its scenario did
+  not name. Witnessed: [0ab74b8] (an envelope claimed exit 99 while its
+  process exited 0), [3306233] (the sweep took discovery envelopes whose exit
+  code was not the process's, and any declared cause from a usage refusal),
+  [3ad9232] (an envelope with no command or cause passed the contract
+  checks; CodeRabbit on pull request 56).
+
 [#4 r4023874167]: https://github.com/nathanvale/bun-typescript-template/pull/4#discussion_r4023874167
 [#4 r4024233462]: https://github.com/nathanvale/bun-typescript-template/pull/4#discussion_r4024233462
 [#5 r4575438112]: https://github.com/nathanvale/bun-typescript-template/pull/5#discussion_r4575438112
@@ -38,3 +52,7 @@ list. The lessons recur across pull requests #4, #5, and #6.
 [kernel#6 r4622774177]: https://github.com/nathanvale/agent-cli-kernel/pull/6#discussion_r4622774177
 [8cbec55]: https://github.com/nathanvale/agent-cli-kernel/commit/8cbec55e65afbbba5650d447e00cac40ce0e01c3
 [911189b]: https://github.com/nathanvale/agent-cli-kernel/commit/911189bb75fa97d60acaacfba6034417522804aa
+[9214b48]: https://github.com/nathanvale/agent-cli-kernel/commit/9214b48e3ee6ae2c133b52690235a98215e9bd86
+[0ab74b8]: https://github.com/nathanvale/agent-cli-kernel/commit/0ab74b894857b6b741be277e2f2fd41764e96cd2
+[3306233]: https://github.com/nathanvale/agent-cli-kernel/commit/3306233b2c96aaf5cbe754ac252df9f0da83a5b1
+[3ad9232]: https://github.com/nathanvale/agent-cli-kernel/commit/3ad9232a4c3b3f14e3a8e0240ff215c68d8a6784

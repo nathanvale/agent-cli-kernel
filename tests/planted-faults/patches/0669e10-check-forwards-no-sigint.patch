@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
+index 6e8de36..38e10e2 100644
+--- a/skills/verify-cli/verify.ts
++++ b/skills/verify-cli/verify.ts
+@@ -525,7 +525,7 @@ export function bunSpawn(
+ }
+ 
+ function forwardStops(): void {
+-  for (const signal of ["SIGTERM", "SIGINT"] as const)
++  for (const signal of ["SIGTERM"] as const)
+     process.on(signal, () => {
+       received ??= signal;
+       for (const child of running) child.kill("SIGTERM");

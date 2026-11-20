@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/scenario.ts b/skills/verify-cli/helper/scenario.ts
+index d3bf2c9..8a29bf8 100644
+--- a/skills/verify-cli/helper/scenario.ts
++++ b/skills/verify-cli/helper/scenario.ts
+@@ -240,7 +240,7 @@ function expectations(
+       "includes-on-target-step",
+       `${where} has stdoutIncludes or stderrIncludes on a target step, which must be exact`,
+     );
+-  if (given.timedOut !== undefined && typeof given.timedOut !== "boolean")
++  if (given.timedOut !== undefined && false)
+     fail("bad-value", `${where}.timedOut must be true or false`);
+   const result = resultExpectation(given.result, `${where}.result`);
+   const files = fileExpectations(given.files, `${where}.files`);

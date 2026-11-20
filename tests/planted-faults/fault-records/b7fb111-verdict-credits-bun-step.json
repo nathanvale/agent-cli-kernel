@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-verdict-credits-bun-step",
+  "patch": "tests/planted-faults/patches/b7fb111-verdict-credits-bun-step.patch",
+  "testFile": "tests/kernel/verify-skill/in-process.test.ts",
+  "title": "only a target step's envelope credits a station",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

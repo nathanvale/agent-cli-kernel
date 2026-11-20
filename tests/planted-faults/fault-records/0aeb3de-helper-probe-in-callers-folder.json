@@ -1,0 +1,7 @@
+{
+  "id": "0aeb3de-helper-probe-in-callers-folder",
+  "patch": "tests/planted-faults/patches/0aeb3de-helper-probe-in-callers-folder.patch",
+  "testFile": "tests/kernel/verify-skill/trust.test.ts",
+  "title": "the raw runs take the helper's own limits, and the helper starts in the repository root",
+  "source": "0aeb3de fix(verify-skill): tell a target that answers differently from a lying kernel"
+}

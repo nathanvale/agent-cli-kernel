@@ -1,0 +1,7 @@
+{
+  "id": "1c5a65d-every-run-id-blanked",
+  "patch": "tests/planted-faults/patches/1c5a65d-every-run-id-blanked.patch",
+  "testFile": "tests/kernel/verify-skill/trust.test.ts",
+  "title": "a target whose discovery changes only in a run id nested in its data is not repeatable, exit 3",
+  "source": "1c5a65d fix(verify-skill): blank only the envelope's own run id before hashing a probe's stdout"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "0669e10-verdict-ignores-stderr-includes",
+  "patch": "tests/planted-faults/patches/0669e10-verdict-ignores-stderr-includes.patch",
+  "testFile": "tests/kernel/verify-skill/in-process.test.ts",
+  "title": "each expectation that does not hold is listed by its name",
+  "source": "0669e10 fix(verify-skill): settle the Sol 6.1 standards and spec reviews of the reconciled build"
+}

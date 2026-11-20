@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-state-unresolved-as-success",
+  "patch": "tests/planted-faults/patches/b7fb111-state-unresolved-as-success.patch",
+  "testFile": "tests/kernel/verify-skill/report.test.ts",
+  "title": "an interrupted helper change is listed and holds its verification run",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/report.ts b/skills/verify-cli/helper/report.ts
+index ba33936..0af0a64 100644
+--- a/skills/verify-cli/helper/report.ts
++++ b/skills/verify-cli/helper/report.ts
+@@ -84,7 +84,7 @@ export function stepDetails(
+ }
+ 
+ function failedChecks(count: number): string {
+-  if (count === 0) return "";
++  if (count >= 0) return "";
+   return count === 1
+     ? " The sweep found 1 failed check; run findings to see it."
+     : ` The sweep found ${String(count)} failed checks; run findings to see them.`;

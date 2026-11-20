@@ -1,0 +1,7 @@
+{
+  "id": "044431e-sweep-credits-failed-run",
+  "patch": "tests/planted-faults/patches/044431e-sweep-credits-failed-run.patch",
+  "testFile": "tests/kernel/verify-skill/sweep.test.ts",
+  "title": "a station is swept only when every check on its run passed",
+  "source": "044431e fix(verify-skill): sweep a station only when every check on its run passed"
+}

@@ -1,0 +1,12 @@
+diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
+index 6e8de36..fa19db8 100644
+--- a/skills/verify-cli/verify.ts
++++ b/skills/verify-cli/verify.ts
+@@ -548,6 +548,7 @@ export async function main(
+   try {
+     checked = await kernelFreeCheck(argv, cwd, spawn, limits);
+   } catch (error) {
++    throw error;
+     checked = {
+       kind: "untrusted",
+       failures: [

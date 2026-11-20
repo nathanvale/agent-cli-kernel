@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-ready-no-quote-cut",
+  "patch": "tests/planted-faults/patches/b7fb111-ready-no-quote-cut.patch",
+  "testFile": "tests/kernel/verify-skill/ready.test.ts",
+  "title": "ready cuts a quoted error line at 300 characters",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

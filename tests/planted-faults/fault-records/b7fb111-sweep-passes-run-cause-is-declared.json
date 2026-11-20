@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-sweep-passes-run-cause-is-declared",
+  "patch": "tests/planted-faults/patches/b7fb111-sweep-passes-run-cause-is-declared.patch",
+  "testFile": "tests/kernel/verify-skill/sweep.test.ts",
+  "title": "each check goes red on a CLI that breaks it: sweep's run-cause-is-declared$",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

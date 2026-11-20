@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-scenario-raises-step-count",
+  "patch": "tests/planted-faults/patches/b7fb111-scenario-raises-step-count.patch",
+  "testFile": "tests/kernel/verify-skill/in-process.test.ts",
+  "title": "a scenario may have 1 to 200 steps",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

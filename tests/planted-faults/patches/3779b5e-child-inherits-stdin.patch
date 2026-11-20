@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
+index ea4197f..891e619 100644
+--- a/skills/verify-cli/verify.ts
++++ b/skills/verify-cli/verify.ts
+@@ -567,7 +567,7 @@ export function bunSpawn(
+     const child = Bun.spawn([process.execPath, ...args], {
+       cwd,
+       env: { ...env },
+-      stdin: "ignore",
++      stdin: "inherit",
+       stdout: "pipe",
+       stderr: "pipe",
+       detached: true,

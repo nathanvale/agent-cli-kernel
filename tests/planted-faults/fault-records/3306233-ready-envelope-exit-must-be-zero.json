@@ -1,0 +1,7 @@
+{
+  "id": "3306233-ready-envelope-exit-must-be-zero",
+  "patch": "tests/planted-faults/patches/3306233-ready-envelope-exit-must-be-zero.patch",
+  "testFile": "tests/kernel/verify-skill/sweep.test.ts",
+  "title": "each check goes red on a CLI that breaks it: ready's discovery-exit$",
+  "source": "3306233 fix(verify-skill): check the sweep's discovery envelopes and the usage refusal's cause"
+}

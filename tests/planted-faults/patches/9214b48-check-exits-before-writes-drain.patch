@@ -1,0 +1,12 @@
+diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
+index ea4197f..034cd9f 100644
+--- a/skills/verify-cli/verify.ts
++++ b/skills/verify-cli/verify.ts
+@@ -689,6 +689,6 @@ if (import.meta.main) {
+     process.cwd(),
+     bunSpawn(process.env),
+   );
+-  for (const write of writes) await written(write);
++  for (const write of writes) void written(write);
+   process.exit(exit);
+ }

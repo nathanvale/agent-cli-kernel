@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-report-credits-unmet-step",
+  "patch": "tests/planted-faults/patches/b7fb111-report-credits-unmet-step.patch",
+  "testFile": "tests/kernel/verify-skill/report.test.ts",
+  "title": "only a met target step whose envelope names the station drives it",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

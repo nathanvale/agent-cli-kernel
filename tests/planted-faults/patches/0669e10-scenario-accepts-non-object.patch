@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/scenario.ts b/skills/verify-cli/helper/scenario.ts
+index d3bf2c9..d5f05bc 100644
+--- a/skills/verify-cli/helper/scenario.ts
++++ b/skills/verify-cli/helper/scenario.ts
+@@ -61,7 +61,7 @@ function fail(rule: string, detail: string): never {
+ }
+ 
+ function record(value: unknown, where: string): object {
+-  if (typeof value !== "object" || value === null || Array.isArray(value))
++  if (value === null)
+     fail("bad-value", `${where} must be an object`);
+   return value;
+ }

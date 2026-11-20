@@ -18,7 +18,7 @@ boundary trusts the types.
   same copy. A second read of an accessor, or a read after an `await`, can
   differ. Witnessed: [75b4bc0], [r4580077763], [3088c03], [r4606886521],
   [r4606943307] (the `no-in-operator` repair read a member expression
-  twice).
+  twice), [0669e10] (a scenario reader read `stdoutIncludes` twice).
 - Validate the same object you pass on. A spread drops non-enumerable
   properties, and a hidden `toJSON` rewrites serialised data. Witnessed:
   [r4580070938], [r4580077749], [8cbec55] (the standards check spread a
@@ -38,6 +38,21 @@ boundary trusts the types.
   keys as equal and follows the runtime collation. Witnessed: [r4580077765],
   [57c8c8b].
 
+## Paths and outputs
+
+- Judge a path by where it really is: resolve symbolic links in the part
+  that exists, the path itself included, before walking its parents.
+  Witnessed: [480dec5] (a run folder reached through a link into a checkout
+  passed the work-tree rule), [02311f4] (a run folder that was itself a link
+  into another run's scratch walked from outside that run; Sol check of pull
+  request 55).
+- Compare another program's output by a hash of its bytes, not only its
+  length, blanking only a field drawn anew on every run. Witnessed:
+  [b2dcc8f] (same-length altered stdout passed the probe comparison;
+  CodeRabbit on pull request 55), [1c5a65d] (the blanking matched every
+  `runId`, so a run id nested in the target's own data hid a change; Sol
+  recheck of pull request 56).
+
 ## Bounds
 
 - Check `NaN` explicitly. `Math.max` and `Math.min` pass it through, and a
@@ -45,7 +60,15 @@ boundary trusts the types.
 - Arm a delay above 2,147,483,647 ms in steps. A runtime timer fires a longer
   delay after 1 ms. Witnessed: [f00dc2a].
 - Bound every wait, including the settle after a handler returns. Witnessed:
-  [b54d325], [1d03d99], [8de7e09] (a test's ledger poll had no bound).
+  [b54d325], [1d03d99], [8de7e09] (a test's ledger poll had no bound),
+  [0ab74b8] (the verification skill's front door gave `Bun.spawnSync` a
+  timeout that only sends SIGTERM, so a child that ignored it outlived the
+  bound, and its output had no cap), [0669e10] (the check read a run's index
+  before arming any watchdog, so a FIFO there could block it), [90162b3]
+  (drive read an expected file whole and threw on a folder there),
+  [6df13fd] (the check and report read evidence files the same unbounded
+  way), [1e3ac9a] (the check signalled only its child, so the target's own
+  child outlived it, and a stop waited out the whole limit).
 - State a complexity bound for each traversal and append. Witnessed:
   [r4580077771] (a shared subgraph cost about 2^35 visits), [d972ded]
   (quadratic append).
@@ -62,7 +85,14 @@ boundary trusts the types.
   `git rev-parse` failure as no checkout, so a malformed git configuration
   passed as ok), [5048d5e] (the pinned-commit test's working-tree copy
   skipped a tracked file on any `lstat` failure; it now skips only
-  `ENOENT`).
+  `ENOENT`), [0ab74b8] (the verification skill read an unreadable step file
+  as a clean step with no unmet check, and an unreadable `package.json` as a
+  missing dependency), [0669e10] (it read an unreadable `package.json` as no
+  toolchain pin, and every evidence read failure as a missing file),
+  [480dec5] (git's "not a git repository" also names a broken work tree
+  pointer, so launch now decides absence by the `.git` entry), [a3fe92f]
+  (pending read a launched run's missing state store as no unfinished
+  changes).
 - Read a required input as present or refused, never as empty, so a missing
   input cannot pass for one with nothing in it. Witnessed: [r4609956011]
   (a missing patch file read as an empty patch, so replay reported that it
@@ -71,7 +101,9 @@ boundary trusts the types.
   a generated repository as no cause code, so every free cause literal
   passed), [911189b] (an old `fault-records.json` that a merge left in the
   tree was read by no reader, so its records never replayed and every gate
-  passed; Fable review of pull request 54).
+  passed; Fable review of pull request 54), [dc128f9] (report read an
+  evidence file holding JSON null as an empty unmet list, so the step
+  counted as met).
 
 [r4580070968]: https://github.com/nathanvale/bun-typescript-template/pull/6#discussion_r4580070968
 [r4580070979]: https://github.com/nathanvale/bun-typescript-template/pull/6#discussion_r4580070979
@@ -106,8 +138,19 @@ boundary trusts the types.
 [69fc0bf]: https://github.com/nathanvale/agent-cli-kernel/commit/69fc0bf37518800b76c9e9b9e5b1cba6934172bd
 [5048d5e]: https://github.com/nathanvale/agent-cli-kernel/commit/5048d5e01932fa8ab9c177e351f33423cb507c1e
 [e766237]: https://github.com/nathanvale/agent-cli-kernel/commit/e76623703cff72cc32c30a97164243e2cc86f255
+[0ab74b8]: https://github.com/nathanvale/agent-cli-kernel/commit/0ab74b894857b6b741be277e2f2fd41764e96cd2
 [r4609956011]: https://github.com/nathanvale/bun-typescript-template/pull/109#discussion_r4609956011
 [r4638567056]: https://github.com/nathanvale/bun-typescript-template/pull/116#discussion_r4638567056
 [8309f88]: https://github.com/nathanvale/agent-cli-kernel/commit/8309f887aeabeedebd4f559e01ef319d78d39efa
 [8cbec55]: https://github.com/nathanvale/agent-cli-kernel/commit/8cbec55e65afbbba5650d447e00cac40ce0e01c3
 [911189b]: https://github.com/nathanvale/agent-cli-kernel/commit/911189bb75fa97d60acaacfba6034417522804aa
+[0669e10]: https://github.com/nathanvale/agent-cli-kernel/commit/0669e10e32c420aa077e8491818f1d1417f1a1c9
+[90162b3]: https://github.com/nathanvale/agent-cli-kernel/commit/90162b36d83506c2ea27fe67a08a10b358718ee6
+[6df13fd]: https://github.com/nathanvale/agent-cli-kernel/commit/6df13fd160de1b9236151991bfdf1d60011c0a99
+[1e3ac9a]: https://github.com/nathanvale/agent-cli-kernel/commit/1e3ac9add31562f55f160263790001e91357d626
+[480dec5]: https://github.com/nathanvale/agent-cli-kernel/commit/480dec562f5b95c329df84b3e3f69125e3b20131
+[b2dcc8f]: https://github.com/nathanvale/agent-cli-kernel/commit/b2dcc8feba2b211d775f3cc22f1bb16a0ffc4a1c
+[02311f4]: https://github.com/nathanvale/agent-cli-kernel/commit/02311f4b282fa2c1fd75b6cee9b1f03a045d2df0
+[1c5a65d]: https://github.com/nathanvale/agent-cli-kernel/commit/1c5a65d1c58a0078562d00c583a687524ea59c39
+[a3fe92f]: https://github.com/nathanvale/agent-cli-kernel/commit/a3fe92f6f173e013629d486f8e3981367c28b0a0
+[dc128f9]: https://github.com/nathanvale/agent-cli-kernel/commit/dc128f9ae23ea8dc287690e5e7b8408aace93781

@@ -1,0 +1,13 @@
+diff --git a/config/verify-skill-lint.mjs b/config/verify-skill-lint.mjs
+index ddb7841..78067ec 100644
+--- a/config/verify-skill-lint.mjs
++++ b/config/verify-skill-lint.mjs
+@@ -67,7 +67,7 @@ export default [
+       "no-restricted-properties": [
+         "error",
+         {
+-          property: "stateAddon",
++          property: "stateAddonNever",
+           message:
+             "Only the state add-on folder may author the state add-on factory.",
+         },
