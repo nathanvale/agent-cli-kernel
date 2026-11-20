@@ -89,5 +89,7 @@
   "383d361-capability-qualification-run-case-run-bound": 4.7,
   "383d361-capability-qualification-run-case-run-timeout-refusal": 1.2,
   "95c61a4-capability-qualification-run-git-bound-size": 3.6,
-  "79af2d6-capability-qualification-record-git-bound": 5.5
+  "79af2d6-capability-qualification-record-git-bound": 5.5,
+  "4fc11f9-probes.test": 3.7,
+  "16ca937-spawn-bounded.test": 3.1
 }
