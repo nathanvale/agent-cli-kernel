@@ -154,7 +154,8 @@ function exportedCauseKeys(entry) {
   const keys = checker
     .getTypeOfSymbol(owner)
     .getProperties()
-    .map(({ name }) => name);
+    .map(({ name }) => name)
+    .filter((name) => causeShape.test(name));
   if (keys.length === 0)
     throw missing(`commonCauses in ${entry} names no cause code`);
   return new Set(keys);

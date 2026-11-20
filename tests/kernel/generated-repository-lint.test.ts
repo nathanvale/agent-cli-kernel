@@ -193,6 +193,11 @@ describe("cause-literal-owner's owner", () => {
       "export const commonCauses = {};",
       "names no cause code",
     ],
+    [
+      "exports a commonCauses whose keys are not cause codes",
+      "export const commonCauses = { unrelated: 1 };",
+      "names no cause code",
+    ],
   ] as const)
     test(
       `a kernel entry that ${kind} fails loudly instead of passing every cause literal`,
