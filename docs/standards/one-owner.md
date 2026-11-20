@@ -38,6 +38,12 @@ here.
   Witnessed: [def3ec4] (the runner, and a bare `Bun.spawn` beside it, handed
   a hook's `GIT_DIR` to each child), [#109-git] (the fault tool's
   synchronous git reads kept it too).
+- List a test's files through `treeFiles` in
+  `tests/support/lint-rule-folder.ts`, the one scan helper, so every walk
+  skips the lint rule folders that other tests create and delete.
+  Witnessed: [9824b41] (the glossary test's frozen contract walk still used
+  `Bun.Glob` `scanSync`, so it could race with tests that make and remove
+  probe folders).
 
 [#91-git]: https://github.com/nathanvale/bun-typescript-template/pull/91#discussion_r4607744335
 [56aee86]: https://github.com/nathanvale/bun-typescript-template/commit/56aee86bf059fb2629819fa2b6a1664d776629d5
@@ -58,3 +64,4 @@ here.
 [7fb5649]: https://github.com/nathanvale/agent-cli-kernel/commit/7fb564900cff191397fdc8d1ba6f20e6807abdde
 [73cb18b]: https://github.com/nathanvale/agent-cli-kernel/commit/73cb18b9e96a5d549be88b007c194a90195aeae8
 [55e24d6]: https://github.com/nathanvale/agent-cli-kernel/commit/55e24d6fe702b002de8173e05b0c21907c315422
+[9824b41]: https://github.com/nathanvale/agent-cli-kernel/commit/9824b413ed3743656fef68d502086545fac6d130
