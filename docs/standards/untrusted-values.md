@@ -41,8 +41,11 @@ boundary trusts the types.
 ## Paths and outputs
 
 - Judge a path by where it really is: resolve symbolic links in the part
-  that exists before walking its parents. Witnessed: [480dec5] (a run folder
-  reached through a link into a checkout passed the work-tree rule).
+  that exists, the path itself included, before walking its parents.
+  Witnessed: [480dec5] (a run folder reached through a link into a checkout
+  passed the work-tree rule), [02311f4] (a run folder that was itself a link
+  into another run's scratch walked from outside that run; Sol check of pull
+  request 55).
 - Compare another program's output by a hash of its bytes, not only its
   length, blanking only a field drawn anew on every run. Witnessed:
   [b2dcc8f] (same-length altered stdout passed the probe comparison;
@@ -141,3 +144,4 @@ boundary trusts the types.
 [1e3ac9a]: https://github.com/nathanvale/agent-cli-kernel/commit/1e3ac9add31562f55f160263790001e91357d626
 [480dec5]: https://github.com/nathanvale/agent-cli-kernel/commit/480dec562f5b95c329df84b3e3f69125e3b20131
 [b2dcc8f]: https://github.com/nathanvale/agent-cli-kernel/commit/b2dcc8feba2b211d775f3cc22f1bb16a0ffc4a1c
+[02311f4]: https://github.com/nathanvale/agent-cli-kernel/commit/02311f4b282fa2c1fd75b6cee9b1f03a045d2df0
