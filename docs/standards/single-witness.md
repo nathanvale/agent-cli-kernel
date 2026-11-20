@@ -116,6 +116,10 @@ this file.
   [kernel#49 r4637980677], [7f15a16] (the glossary scan's
   `**/lint-rule-folder-*` exclude also skipped a file with that prefix, so
   the file escaped the glossary check).
+- Keep only files when a check asks whether a scan pattern names anything,
+  since `node:fs` `globSync` lists folders too. Witnessed: [2c62768] (a
+  glossary scope pattern that named only a folder would have passed the
+  check that each pattern names something that exists).
 
 [ac11ed9]: https://github.com/nathanvale/bun-typescript-template/commit/ac11ed98b7d538e8a304cac053aaefcaaf6b2cb3
 [cd2498b]: https://github.com/nathanvale/bun-typescript-template/commit/cd2498b7189a2d45d1906b9c870e8d13da6cd2dd
@@ -150,3 +154,4 @@ this file.
 [4f7712e]: https://github.com/nathanvale/agent-cli-kernel/commit/4f7712e80e9ea127b4bf43b7d9f69e8cd6a8954a
 [kernel#49 r4637980677]: https://github.com/nathanvale/agent-cli-kernel/pull/49#discussion_r4637980677
 [7f15a16]: https://github.com/nathanvale/agent-cli-kernel/commit/7f15a164d817265cc6f82882ff6efa2b76a4556b
+[2c62768]: https://github.com/nathanvale/agent-cli-kernel/commit/2c62768ceddd1af9a7f3b4fabf1b9d32818acf2e
