@@ -24,8 +24,7 @@
 - Scan every folder a retired word can live in, and keep the retired phrase
   out of the allowed list: a scanner scoped to source lets the word live on in
   the skills and docs. Witnessed: [4acba45] (the contract-word table allowed
-  "stamped kernel" and "stamped add-on" and read neither `skills/` nor
-  `docs/`).
+  two retired stamp phrases and read neither `skills/` nor `docs/`).
 
 How a gate, a script or a check reads a tool, its output and its inputs. A lesson seen once waits here as one bullet; the
 [single witness guide](single-witness.md) says how it leaves.

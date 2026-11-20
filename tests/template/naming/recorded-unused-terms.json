@@ -47,16 +47,6 @@
       "ticket": "MAG-114"
     },
     {
-      "term": "Pin move",
-      "reason": "MAG-126 builds the pin move.",
-      "ticket": "MAG-126"
-    },
-    {
-      "term": "Pin move report",
-      "reason": "A pin move produces it. MAG-126 builds the pin move.",
-      "ticket": "MAG-126"
-    },
-    {
       "term": "Add-on selection",
       "reason": "Nathan's 10:52 decision of 20 November 2026 on MAG-114 keeps a generated repository's add-on choice only in installedAddons, in the generated repository's own source. No tracked file here names a selection.",
       "ticket": "MAG-114"
