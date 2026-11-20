@@ -1,9 +1,9 @@
 diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
-index ea4197f..09f9a70 100644
+index 3e6bae5..3b991ac 100644
 --- a/skills/verify-cli/verify.ts
 +++ b/skills/verify-cli/verify.ts
-@@ -610,9 +610,6 @@ export function forwardStops(limits: Limits = defaultLimits): void {
-     process.on(signal, () => {
+@@ -610,9 +610,6 @@ export function forwardStops(
+     listen(signal, () => {
        received ??= signal;
        for (const child of running) signalGroup(child, "SIGTERM");
 -      setTimeout(() => {
