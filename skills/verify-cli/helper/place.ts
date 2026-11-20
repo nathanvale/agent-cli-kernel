@@ -40,10 +40,13 @@ export function sha256(text: string | Uint8Array): string {
   return createHash("sha256").update(text).digest("hex");
 }
 
-const envelopeRunId = /^(\{.*?"result":\{"runId":")[0-9a-f-]{36}"/;
-
 function withoutRunIds(stdout: string): string {
-  return stdout.replace(envelopeRunId, '$1"');
+  const runId = at(parsedJson(stdout.trimEnd()), "result", "runId");
+  if (typeof runId !== "string") return stdout;
+  const field = `"runId":${JSON.stringify(runId)}`;
+  return stdout.split(field).length === 2
+    ? stdout.replace(field, () => '"runId":""')
+    : stdout;
 }
 
 export function probeResult(

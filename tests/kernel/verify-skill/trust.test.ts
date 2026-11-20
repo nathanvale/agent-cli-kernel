@@ -686,6 +686,15 @@ describe("the check's own steps, in process", () => {
     expect(
       nested("91d19276-8b8b-43e8-9995-fcf3696fcf12").stdoutSha256,
     ).not.toBe(nested("e83ba2da-1b47-4d44-a97f-fb39399094d2").stdoutSha256);
+    const reordered = (runId: string) =>
+      probeResult([], {
+        exitCode: 0,
+        stdout: `{"contractVersion":"3.0.0","result":{"exitCode":0,"runId":"${runId}","data":{}}}\n`,
+        stderr: "",
+      });
+    expect(reordered("91d19276-8b8b-43e8-9995-fcf3696fcf12").stdoutSha256).toBe(
+      reordered("e83ba2da-1b47-4d44-a97f-fb39399094d2").stdoutSha256,
+    );
   });
 
   test("the helper's probe is compared with raw runs of the same two probes", async () => {
