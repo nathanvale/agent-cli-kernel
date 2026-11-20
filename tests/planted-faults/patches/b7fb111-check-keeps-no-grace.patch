@@ -1,12 +1,14 @@
 diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
-index 6e8de36..bb272a4 100644
+index 8db4702..82d2d7c 100644
 --- a/skills/verify-cli/verify.ts
 +++ b/skills/verify-cli/verify.ts
-@@ -502,7 +502,6 @@ export function bunSpawn(
+@@ -579,9 +579,6 @@ export function bunSpawn(
        timedOut = true;
-       child.kill("SIGTERM");
+       signalGroup(child, "SIGTERM");
      });
--    void kill.passed.then(() => child.kill("SIGKILL"));
+-    void kill.passed.then(() => {
+-      signalGroup(child, "SIGKILL");
+-    });
      const drain = child.exited.then(() => afterDelay(limits.graceMilliseconds));
      const drained = drain.then((delay) => delay.passed);
      const [stdout, stderr] = await Promise.all([

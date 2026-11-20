@@ -1,12 +1,12 @@
 diff --git a/skills/verify-cli/helper/sweep.ts b/skills/verify-cli/helper/sweep.ts
-index 486f368..a61aa73 100644
+index cde99eb..007ff01 100644
 --- a/skills/verify-cli/helper/sweep.ts
 +++ b/skills/verify-cli/helper/sweep.ts
 @@ -63,6 +63,7 @@ function expecter(tally: Tally) {
      saw: string,
    ) => {
      tally.checks += 1;
-+    if (check === "unknown-command-stdout-empty") return;
-     if (expected !== saw) tally.findings.push({ check, argv, expected, saw });
-   };
- }
++    if (check === "unknown-command-stdout-empty") return true;
+     if (expected === saw) return true;
+     tally.findings.push({ check, argv, expected, saw });
+     return false;

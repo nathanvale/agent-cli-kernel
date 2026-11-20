@@ -1,12 +1,15 @@
 diff --git a/skills/verify-cli/helper/verdict.ts b/skills/verify-cli/helper/verdict.ts
-index efa8c9a..28e4685 100644
+index 4885ea8..b27e075 100644
 --- a/skills/verify-cli/helper/verdict.ts
 +++ b/skills/verify-cli/helper/verdict.ts
-@@ -85,7 +85,7 @@ export function unmetOf(
+@@ -96,10 +96,7 @@ export function unmetOf(
      ),
      ...(expect.files ?? []).flatMap((file, index) => {
-       const seen = files[index]?.content ?? null;
--      const held = file.absent === true ? seen === null : seen === file.content;
+       const seen = files[index];
+-      const held =
+-        file.absent === true
+-          ? seen?.kind === "absent"
+-          : seen?.kind === "file" && seen.content === file.content;
 +      const held = true;
        return held ? [] : [`files.${String(index)}`];
      }),
