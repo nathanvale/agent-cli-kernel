@@ -130,7 +130,8 @@ is in the [test harness guide](test-harness.md).
   `no-accumulating-spread`), [#102-arguments] (`consume(item, ...args)` was
   reported as an accumulator copy), [#102-mock-key] (``vi[`mock`]`` passed
   `no-module-mocking`), [#102-copy-key] (``all[`concat`]`` passed
-  `no-reduce-accumulator-copy`).
+  `no-reduce-accumulator-copy`), [1b72951] (a `commonCauses` whose keys
+  were not cause codes passed `cause-literal-owner`'s no-code refusal).
 
 [#91-count]: https://github.com/nathanvale/bun-typescript-template/pull/91#discussion_r4607744321
 [185c90d]: https://github.com/nathanvale/bun-typescript-template/commit/185c90d11dd167ee4874e383ba26cd7d64a70964
@@ -182,3 +183,4 @@ is in the [test harness guide](test-harness.md).
 [7a3c409]: https://github.com/nathanvale/agent-cli-kernel/commit/7a3c409920548ef30a9df2c89a0fac608d4704fd
 [b146440]: https://github.com/nathanvale/agent-cli-kernel/commit/b146440b8fd1075791ee997ca93c59f410b9e978
 [4ca0141]: https://github.com/nathanvale/agent-cli-kernel/commit/4ca014175963a134a585af49006a56d374700e33
+[1b72951]: https://github.com/nathanvale/agent-cli-kernel/commit/1b72951c42401d2567bec8327ab2726f3852fd95
