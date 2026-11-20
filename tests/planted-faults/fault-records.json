@@ -3451,13 +3451,6 @@
     "source": "bdd5e9c feat(verify-skill): add the verify-agent-cli helper, built on the kernel, behind a kernel-free front door"
   },
   {
-    "id": "bdd5e9c-place-foreign-record",
-    "patch": "tests/planted-faults/patches/bdd5e9c-place-foreign-record.patch",
-    "testFile": "tests/kernel/verify-skill/in-process.test.ts",
-    "title": "a run record another run wrote is refused",
-    "source": "bdd5e9c feat(verify-skill): add the verify-agent-cli helper, built on the kernel, behind a kernel-free front door"
-  },
-  {
     "id": "bdd5e9c-place-relative-state",
     "patch": "tests/planted-faults/patches/bdd5e9c-place-relative-state.patch",
     "testFile": "tests/kernel/verify-skill/in-process.test.ts",
@@ -3500,17 +3493,24 @@
     "source": "bdd5e9c feat(verify-skill): add the verify-agent-cli helper, built on the kernel, behind a kernel-free front door"
   },
   {
-    "id": "bdd5e9c-verify-target-discovery",
-    "patch": "tests/planted-faults/patches/bdd5e9c-verify-target-discovery.patch",
-    "testFile": "tests/kernel/verify-skill/inspect.test.ts",
-    "title": "naming both raw target checks when the target throws",
-    "source": "bdd5e9c feat(verify-skill): add the verify-agent-cli helper, built on the kernel, behind a kernel-free front door"
-  },
-  {
     "id": "bdd5e9c-verify-kernel-import",
     "patch": "tests/planted-faults/patches/bdd5e9c-verify-kernel-import.patch",
     "testFile": "tests/kernel/verify-skill/inspect.test.ts",
     "title": "exits 70 with RAW FAIL kernel-import",
+    "source": "bdd5e9c feat(verify-skill): add the verify-agent-cli helper, built on the kernel, behind a kernel-free front door"
+  },
+  {
+    "id": "bdd5e9c-place-foreign-record",
+    "patch": "tests/planted-faults/patches/bdd5e9c-place-foreign-record.patch",
+    "testFile": "tests/kernel/verify-skill/in-process.test.ts",
+    "title": "a run record another run wrote is refused",
+    "source": "bdd5e9c feat(verify-skill): add the verify-agent-cli helper, built on the kernel, behind a kernel-free front door"
+  },
+  {
+    "id": "bdd5e9c-verify-target-discovery",
+    "patch": "tests/planted-faults/patches/bdd5e9c-verify-target-discovery.patch",
+    "testFile": "tests/kernel/verify-skill/inspect.test.ts",
+    "title": "naming both raw target checks when the target throws",
     "source": "bdd5e9c feat(verify-skill): add the verify-agent-cli helper, built on the kernel, behind a kernel-free front door"
   }
 ]

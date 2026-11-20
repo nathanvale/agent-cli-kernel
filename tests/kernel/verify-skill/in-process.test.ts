@@ -167,7 +167,15 @@ describe("where the helper keeps runs", () => {
     const place = runPlace(at.state, "r1");
     expect(readRunRecord(place)).toBe(undefined);
     const other = runPlace(at.state, "r2");
-    writeFileSync(join(at.state, "run.json"), '{"run":"r1"}');
+    writeFileSync(
+      join(at.state, "run.json"),
+      JSON.stringify({
+        run: "r1",
+        repository: at.repo,
+        entry: targetEntry,
+        launchedAt: "2026-11-20T00:00:00.000Z",
+      }),
+    );
     expect(() =>
       readRunRecord({ ...other, record: join(at.state, "run.json") }),
     ).toThrow(
