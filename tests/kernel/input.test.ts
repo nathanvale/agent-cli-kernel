@@ -6,6 +6,7 @@ import {
   station,
   contractFor,
 } from "../../kernel/src/kernel/index.ts";
+import { matchPattern } from "../../kernel/src/kernel/input.ts";
 import { unchanged } from "./kernel-repair/shapes.ts";
 import { readsUnchanged } from "./kernel-repair/handlers.ts";
 
@@ -132,6 +133,20 @@ test("untrusted patterns terminate within the reader budget and invalid declarat
     await contract.parse("items.hostile", [`${"a".repeat(100)}!`]),
   ).toMatchObject({ ok: false, reason: "pattern budget" });
   expect(performance.now() - start).toBeLessThan(2000);
+});
+
+test("one process runs every pattern check from the same worker source: match, mismatch, invalid and budget each come back, and a match after them", async () => {
+  const checks = [
+    ["[a-z]+", "abc"],
+    ["[a-z]+", "ABC"],
+    ["[", "a"],
+    ["(a+)+", `${"a".repeat(100)}!`],
+    ["[a-z]+", "xyz"],
+  ] as const;
+  const results = [];
+  for (const [pattern, value] of checks)
+    results.push(await matchPattern(pattern, value));
+  expect(results).toEqual(["match", "mismatch", "invalid", "budget", "match"]);
 });
 
 const admittedFutureRows = [
