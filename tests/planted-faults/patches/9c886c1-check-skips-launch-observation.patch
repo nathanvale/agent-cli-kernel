@@ -1,0 +1,12 @@
+diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
+index aa5fc9c..1b5004c 100644
+--- a/skills/verify-cli/verify.ts
++++ b/skills/verify-cli/verify.ts
+@@ -407,7 +407,6 @@ export async function check(
+       "probe",
+       "sweep",
+       "findings",
+-      "launch",
+       "drive",
+       "report",
+     ].includes(name)

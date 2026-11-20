@@ -1,0 +1,7 @@
+{
+  "id": "9c886c1-check-skips-launch-observation",
+  "patch": "tests/planted-faults/patches/9c886c1-check-skips-launch-observation.patch",
+  "testFile": "tests/kernel/verify-skill/trust.test.ts",
+  "title": "a programs add-on that drops stderr is reported as an observation mismatch, launch included",
+  "source": "9c886c1 fix(verify-skill): compare the helper's probes with raw runs before launch too"
+}
