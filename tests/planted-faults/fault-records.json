@@ -3148,5 +3148,12 @@
     "testFile": "tests/template/glossary/lint-rule-folder.test.ts",
     "title": "the glossary scan lists no file inside a lint rule folder",
     "source": "3c9d78c test(glossary): keep lint rule probes in folders the glossary scan never walks"
+  },
+  {
+    "id": "2c62768-lint-rule-folder",
+    "patch": "tests/planted-faults/patches/2c62768-lint-rule-folder.patch",
+    "testFile": "tests/template/glossary/lint-rule-folder.test.ts",
+    "title": "the glossary scan lists files, not folders, so a pattern that names only a folder still counts as naming nothing",
+    "source": "2c62768 test(glossary): list only files in the glossary scan, as Bun.Glob did"
   }
 ]
