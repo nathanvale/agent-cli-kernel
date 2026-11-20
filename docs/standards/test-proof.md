@@ -90,7 +90,8 @@ is in the [test harness guide](test-harness.md).
   `bun run planted-fault:add <fix sha> <source path> <test file> <title>`,
   then `bun run fault-replay <id>` until it prints `KILLED`. Witnessed:
   [9050fec], [b8664cf] (each recorded faults for refusals that had landed
-  with no record).
+  with no record), [c5ce7de] (the fault record folder's readers added five
+  refusals with no record; Sol 6.1 review).
 - Replay affected fault records when you edit or move a test that catches
   a planted fault, or change the source its patch targets. Keep the patch
   and test selector current in the same commit and require `KILLED`.
@@ -167,3 +168,4 @@ is in the [test harness guide](test-harness.md).
 [9086c3b]: https://github.com/nathanvale/agent-cli-kernel/commit/9086c3b8b14bcba376aa63027abdd817c1495e53
 [r4624964198]: https://github.com/nathanvale/agent-cli-kernel/pull/15#discussion_r4624964198
 [198f6ba]: https://github.com/nathanvale/agent-cli-kernel/commit/198f6ba61a79539d2c03a1fbfb70b61ecc26b3d0
+[c5ce7de]: https://github.com/nathanvale/agent-cli-kernel/commit/c5ce7de4210286905ff472706c107b35e0ef42cb
