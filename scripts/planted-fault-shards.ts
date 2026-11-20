@@ -61,8 +61,8 @@ export function readTimings(root: string): ReadonlyMap<string, number> {
   return new Map(
     readdirSync(folder)
       .filter((name) => !name.startsWith("."))
-      .toSorted()
-      .map((name) => readTiming(root, name)),
+      .map((name) => readTiming(root, name))
+      .toSorted(([left], [right]) => (left < right ? -1 : 1)),
   );
 }
 

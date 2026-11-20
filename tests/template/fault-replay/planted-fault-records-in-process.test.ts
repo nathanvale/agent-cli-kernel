@@ -41,13 +41,18 @@ describe("readRecords", () => {
   });
 
   test("reads every record file in the folder, in id order, with every field", () => {
+    const longer: Fault = { ...sample, id: `${sample.id}-longer` };
     const other: Fault = { ...sample, id: "000aaaa-other" };
     const root = recordsIn(
-      { [sampleFile]: text(sample), [recordFile(other.id)]: text(other) },
+      {
+        [recordFile(longer.id)]: text(longer),
+        [sampleFile]: text(sample),
+        [recordFile(other.id)]: text(other),
+      },
       ["tests/limit.test.ts"],
     );
 
-    expect(readRecords(root)).toEqual([other, sample]);
+    expect(readRecords(root)).toEqual([other, sample, longer]);
   });
 
   test("reads a record file added beside the others, with no list to update", () => {

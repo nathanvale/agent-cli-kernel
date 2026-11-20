@@ -163,8 +163,8 @@ export function readRecords(root: string): Fault[] {
   if (!existsSync(folder)) return [];
   return readdirSync(folder)
     .filter((name) => !name.startsWith("."))
-    .toSorted()
-    .map((name) => readRecord(root, name));
+    .map((name) => readRecord(root, name))
+    .toSorted((left, right) => (left.id < right.id ? -1 : 1));
 }
 
 function commitWorkingTreeInScratchIndex(root: string): string {

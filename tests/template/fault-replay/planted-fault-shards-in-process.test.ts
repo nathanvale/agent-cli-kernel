@@ -123,10 +123,12 @@ describe("readTimings", () => {
   test("reads each fault's measured seconds from its own file, in id order", () => {
     const root = rootWithTimings({
       [timingFile("b")]: "60\n",
+      [timingFile("a-b")]: "1.5\n",
       [timingFile("a")]: "2.5\n",
     });
     expect([...readTimings(root)]).toEqual([
       ["a", 2.5],
+      ["a-b", 1.5],
       ["b", 60],
     ]);
   });
