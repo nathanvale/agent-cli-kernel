@@ -1,0 +1,13 @@
+diff --git a/.github/workflows/kernel-trial.yml b/.github/workflows/kernel-trial.yml
+index 5012773..f3c77ac 100644
+--- a/.github/workflows/kernel-trial.yml
++++ b/.github/workflows/kernel-trial.yml
+@@ -44,7 +44,7 @@ jobs:
+       - name: Kernel trial
+         working-directory: bun-typescript-template
+         env:
+-          COMMIT: ${{ github.event.pull_request.head.sha }}
++          COMMIT: ${{ github.sha }}
+           KERNEL: ${{ github.workspace }}/agent-cli-kernel
+           BUN_INSTALL_CACHE_DIR: ${{ runner.temp }}/kernel-trial-bun-cache
+         run: bun run kernel-trial "$COMMIT" --kernel "$KERNEL"
