@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/scenario.ts b/skills/verify-cli/helper/scenario.ts
+index cb3d7f9..56f51b4 100644
+--- a/skills/verify-cli/helper/scenario.ts
++++ b/skills/verify-cli/helper/scenario.ts
+@@ -79,8 +79,6 @@ function onlyFields(
+ }
+ 
+ function strings(value: unknown, where: string): readonly string[] {
+-  if (!Array.isArray(value))
+-    fail("bad-value", `${where} must be a list of strings`);
+   const items = listOf(value);
+   if (!items.every((item) => typeof item === "string"))
+     fail("bad-value", `${where} must be a list of strings`);

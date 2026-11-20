@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/launch.ts b/skills/verify-cli/helper/launch.ts
+index 782478b..c754911 100644
+--- a/skills/verify-cli/helper/launch.ts
++++ b/skills/verify-cli/helper/launch.ts
+@@ -156,7 +156,7 @@ export function launchRefusal(
+     };
+   const root = repositoryRoot(target);
+   const pinnedCommit = root === undefined ? undefined : pinnedCommitOf(root);
+-  if (root === undefined || pinnedCommit === undefined)
++  if (root === undefined)
+     return {
+       kind: "refused",
+       causeCode: "DOMAIN_VERIFY_NO_PIN",

@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/causes.ts b/skills/verify-cli/helper/causes.ts
+index 374ec61..99372d0 100644
+--- a/skills/verify-cli/helper/causes.ts
++++ b/skills/verify-cli/helper/causes.ts
+@@ -88,7 +88,7 @@ const absolutePath = {
+   minLength: 2,
+   maxLength: 4096,
+   choices: null,
+-  pattern: "/.*",
++  pattern: ".*",
+ } as const;
+ 
+ export const runArgument = {

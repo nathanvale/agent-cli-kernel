@@ -1,0 +1,22 @@
+diff --git a/skills/verify-cli/helper/drive.ts b/skills/verify-cli/helper/drive.ts
+index ee52897..3865b85 100644
+--- a/skills/verify-cli/helper/drive.ts
++++ b/skills/verify-cli/helper/drive.ts
+@@ -286,7 +286,7 @@ export function driveCommand(state: State, bun: () => ParsedPath) {
+                 : "the index is gone";
+             throw new Error(failure);
+           }
+-          if (current.steps.some((row) => row.feature === scenario.feature)) {
++          if (current.steps.some((row) => row.feature === scenario.feature && false)) {
+             blocked = "driven";
+             return;
+           }
+@@ -320,7 +320,7 @@ export function driveCommand(state: State, bun: () => ParsedPath) {
+                   join(place.evidence, kept.row.file),
+                   kept.content,
+                   {
+-                    flag: "wx",
++                    flag: "w",
+                   },
+                 );
+                 await appendFile(place.index, indexText([kept.row]));

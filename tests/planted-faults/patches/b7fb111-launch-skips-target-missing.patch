@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/launch.ts b/skills/verify-cli/helper/launch.ts
+index 782478b..fcdac58 100644
+--- a/skills/verify-cli/helper/launch.ts
++++ b/skills/verify-cli/helper/launch.ts
+@@ -135,7 +135,7 @@ export function launchRefusal(
+       readonly root: string;
+       readonly pinnedCommit: string;
+     } {
+-  if (!existsSync(target))
++  if (!existsSync(target) && false)
+     return {
+       kind: "refused",
+       causeCode: "DOMAIN_VERIFY_TARGET_MISSING",

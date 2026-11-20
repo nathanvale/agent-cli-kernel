@@ -1,0 +1,10 @@
+diff --git a/kernel/src/kernel/index.ts b/kernel/src/kernel/index.ts
+index 29188c7..40e5c84 100644
+--- a/kernel/src/kernel/index.ts
++++ b/kernel/src/kernel/index.ts
+@@ -1,4 +1,5 @@
+ import { navigationData } from "./validation/discovery.ts";
++throw new Error("Planted kernel fault: the entry cannot be imported.");
+ import { resultPlan, resultMatches } from "./command-result.ts";
+ import type { CommandResult, Invocation } from "./command-result.ts";
+ import { withState } from "./validation/context.ts";

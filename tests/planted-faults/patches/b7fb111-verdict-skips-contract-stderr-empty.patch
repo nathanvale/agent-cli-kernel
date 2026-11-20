@@ -1,0 +1,12 @@
+diff --git a/skills/verify-cli/helper/verdict.ts b/skills/verify-cli/helper/verdict.ts
+index ad56b82..b0ab641 100644
+--- a/skills/verify-cli/helper/verdict.ts
++++ b/skills/verify-cli/helper/verdict.ts
+@@ -46,7 +46,6 @@ export function contractUnmet(
+   const json = asksForJson(step.argv);
+   return [
+     ...(json && envelope === null ? ["contract.json-one-envelope"] : []),
+-    ...(json && observed.stderr !== "" ? ["contract.json-stderr-empty"] : []),
+     ...(envelope !== null &&
+     at(envelope, "result", "exitCode") !== observed.exitCode
+       ? ["contract.envelope-exit-code"]

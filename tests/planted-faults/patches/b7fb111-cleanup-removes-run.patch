@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/cleanup.ts b/skills/verify-cli/helper/cleanup.ts
+index 4529aea..9bb7be3 100644
+--- a/skills/verify-cli/helper/cleanup.ts
++++ b/skills/verify-cli/helper/cleanup.ts
+@@ -93,7 +93,7 @@ export function cleanupCommand(state: State) {
+           if (clean) return;
+           await transaction.record(
+             "scratch.remove",
+-            () => rm(place.scratch, { recursive: true, force: true }),
++            () => rm(place.folder, { recursive: true, force: true }),
+             () =>
+               Promise.resolve(
+                 !existsSync(place.scratch) && existsSync(place.index),

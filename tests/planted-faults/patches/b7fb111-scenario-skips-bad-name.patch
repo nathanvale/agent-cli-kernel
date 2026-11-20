@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/scenario.ts b/skills/verify-cli/helper/scenario.ts
+index cb3d7f9..d4d78c6 100644
+--- a/skills/verify-cli/helper/scenario.ts
++++ b/skills/verify-cli/helper/scenario.ts
+@@ -111,7 +111,7 @@ function limit(
+ }
+ 
+ function name(value: unknown, where: string): string {
+-  if (typeof value !== "string" || !nameShape.test(value))
++  if (typeof value !== "string")
+     fail(
+       "bad-name",
+       `${where} must be 1 to 64 lower-case letters, digits and hyphens`,

@@ -1,0 +1,12 @@
+diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
+index 42290a3..b4efc5f 100644
+--- a/skills/verify-cli/verify.ts
++++ b/skills/verify-cli/verify.ts
+@@ -503,7 +503,6 @@ function forwardStops(): void {
+   for (const signal of ["SIGTERM", "SIGINT"] as const)
+     process.on(signal, () => {
+       received ??= signal;
+-      for (const child of running) child.kill("SIGTERM");
+     });
+ }
+ 

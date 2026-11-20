@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/drive.ts b/skills/verify-cli/helper/drive.ts
+index ee52897..57ef062 100644
+--- a/skills/verify-cli/helper/drive.ts
++++ b/skills/verify-cli/helper/drive.ts
+@@ -236,7 +236,7 @@ export function driveCommand(state: State, bun: () => ParsedPath) {
+     run: async (input, context) => {
+       const place = runPlace(input.run);
+       const before = readIndex(place);
+-      if (before.kind === "missing")
++      if (before.kind === "missing" && false)
+         return context.result(
+           { commandIdentity: identity, causeCode: "DOMAIN_VERIFY_RUN_MISSING" },
+           {

@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/launch.ts b/skills/verify-cli/helper/launch.ts
+index 782478b..2591f51 100644
+--- a/skills/verify-cli/helper/launch.ts
++++ b/skills/verify-cli/helper/launch.ts
+@@ -287,7 +287,7 @@ export function launchCommand(state: State, git: () => ParsedPath | null) {
+         gitAsk(context.programs, git()),
+         checked.root,
+       );
+-      if (facts.kind === "failed")
++      if (facts.kind === "failed" && false)
+         return context.result(
+           { commandIdentity: identity, causeCode: "DOMAIN_VERIFY_GIT_FAILED" },
+           { message: facts.reason, data: null, effects: nothingChanged },

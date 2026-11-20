@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/scenario.ts b/skills/verify-cli/helper/scenario.ts
+index cb3d7f9..37f9629 100644
+--- a/skills/verify-cli/helper/scenario.ts
++++ b/skills/verify-cli/helper/scenario.ts
+@@ -102,7 +102,7 @@ function limit(
+   if (value === undefined) return fallback;
+   if (typeof value !== "number" || !Number.isSafeInteger(value))
+     fail("bad-value", `${where} must be a whole number`);
+-  if (value < 1 || value > most)
++  if (value < 1 || value > most + 1)
+     fail(
+       "limit-out-of-range",
+       `${where} is ${String(value)}, outside 1 to ${String(most)}`,

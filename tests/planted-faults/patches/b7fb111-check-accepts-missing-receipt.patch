@@ -1,0 +1,12 @@
+diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
+index 42290a3..3e31285 100644
+--- a/skills/verify-cli/verify.ts
++++ b/skills/verify-cli/verify.ts
+@@ -345,7 +345,6 @@ export function evidenceFailures(place: RunPlace): Failure[] {
+     try {
+       bytes = readFileSync(path);
+     } catch {
+-      failures.push({ id: "evidence-mismatch", detail: `${path} is missing.` });
+       continue;
+     }
+     if (sha256(bytes) !== row.sha256)

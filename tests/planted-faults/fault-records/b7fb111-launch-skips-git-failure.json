@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-launch-skips-git-failure",
+  "patch": "tests/planted-faults/patches/b7fb111-launch-skips-git-failure.patch",
+  "testFile": "tests/kernel/verify-skill/launch.test.ts",
+  "title": "launch refuses a git failure it cannot read",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

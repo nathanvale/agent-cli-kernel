@@ -1,0 +1,12 @@
+diff --git a/skills/verify-cli/helper/outcome.ts b/skills/verify-cli/helper/outcome.ts
+index 37998f7..0d0e9c4 100644
+--- a/skills/verify-cli/helper/outcome.ts
++++ b/skills/verify-cli/helper/outcome.ts
+@@ -25,6 +25,7 @@ export function refusalOf(
+         message: `Run ${run} is being changed by operation ${outcome.operationId}.`,
+       };
+     case "unresolved-case":
++      return undefined;
+       return {
+         causeCode: "DOMAIN_VERIFY_RUN_UNRESOLVED",
+         message: `Run ${run} has an unfinished change, operation ${outcome.operationId}.`,

@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/scenario.ts b/skills/verify-cli/helper/scenario.ts
+index cb3d7f9..50e594a 100644
+--- a/skills/verify-cli/helper/scenario.ts
++++ b/skills/verify-cli/helper/scenario.ts
+@@ -289,7 +289,7 @@ export function scenarioOf(value: unknown): Scenario {
+   const listed = at(top, "steps");
+   if (!Array.isArray(listed)) fail("bad-value", "steps must be a list");
+   const items = listOf(listed);
+-  if (items.length === 0 || items.length > stepCountLimit)
++  if (items.length > stepCountLimit)
+     fail(
+       "step-count",
+       `the scenario has ${String(items.length)} steps; it needs 1 to ${String(stepCountLimit)}`,

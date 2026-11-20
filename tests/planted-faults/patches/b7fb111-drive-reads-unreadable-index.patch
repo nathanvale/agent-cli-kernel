@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/drive.ts b/skills/verify-cli/helper/drive.ts
+index ee52897..d210267 100644
+--- a/skills/verify-cli/helper/drive.ts
++++ b/skills/verify-cli/helper/drive.ts
+@@ -245,7 +245,7 @@ export function driveCommand(state: State, bun: () => ParsedPath) {
+             effects: nothingChanged,
+           },
+         );
+-      if (before.kind === "unreadable")
++      if (before.kind === "unreadable" && false)
+         return context.result(
+           {
+             commandIdentity: identity,

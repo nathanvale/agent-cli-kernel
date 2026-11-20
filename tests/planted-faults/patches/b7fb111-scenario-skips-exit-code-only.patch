@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/scenario.ts b/skills/verify-cli/helper/scenario.ts
+index cb3d7f9..ff9cbf8 100644
+--- a/skills/verify-cli/helper/scenario.ts
++++ b/skills/verify-cli/helper/scenario.ts
+@@ -172,7 +172,7 @@ function expectations(
+   onlyFields(entry, expectFields, where);
+   const exitCode = at(entry, "exitCode");
+   if (
+-    exitCode === undefined ||
++    exitCode === undefined &&
+     Object.keys(entry).every((key) => key === "exitCode" || key === "timedOut")
+   )
+     fail(

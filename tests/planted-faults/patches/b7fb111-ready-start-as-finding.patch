@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/ready.ts b/skills/verify-cli/helper/ready.ts
+index f5bb2d2..c5b2fe3 100644
+--- a/skills/verify-cli/helper/ready.ts
++++ b/skills/verify-cli/helper/ready.ts
+@@ -63,7 +63,7 @@ export function readiness(
+ ): Readiness {
+   const envelope = envelopeOf(discovery.stdout);
+   const usageAnswered = usageLine.test(usage.stderr);
+-  if (!usageAnswered && envelope === null)
++  if (!usageAnswered && envelope === null && false)
+     return {
+       kind: "not-started",
+       message: `The target did not start: its usage probe exited ${String(usage.exitCode)}, and its discovery probe wrote no envelope. Its first error: ${quotedLine(usage.stderr)}`,

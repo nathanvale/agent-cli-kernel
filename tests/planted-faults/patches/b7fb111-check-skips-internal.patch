@@ -1,0 +1,12 @@
+diff --git a/skills/verify-cli/verify.ts b/skills/verify-cli/verify.ts
+index 42290a3..98b386c 100644
+--- a/skills/verify-cli/verify.ts
++++ b/skills/verify-cli/verify.ts
+@@ -523,6 +523,7 @@ export async function main(
+   try {
+     checked = await check(argv, cwd, spawn, limits);
+   } catch (error) {
++    throw error;
+     checked = {
+       kind: "untrusted",
+       failures: [

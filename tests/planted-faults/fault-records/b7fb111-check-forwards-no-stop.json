@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-check-forwards-no-stop",
+  "patch": "tests/planted-faults/patches/b7fb111-check-forwards-no-stop.patch",
+  "testFile": "tests/kernel/verify-skill/report.test.ts",
+  "title": "the check stopped by SIGTERM in the middle of a drive",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

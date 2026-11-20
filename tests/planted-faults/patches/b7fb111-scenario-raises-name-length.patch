@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/scenario.ts b/skills/verify-cli/helper/scenario.ts
+index cb3d7f9..8f2fafe 100644
+--- a/skills/verify-cli/helper/scenario.ts
++++ b/skills/verify-cli/helper/scenario.ts
+@@ -9,7 +9,7 @@ const stepCountLimit = 200;
+ const stepTimeoutLimit = 600_000;
+ const stepOutputLimit = 8_388_608;
+ const scenarioTimeLimit = 3_600_000;
+-const nameShape = /^[a-z0-9-]{1,64}$/;
++const nameShape = /^[a-z0-9-]{1,65}$/;
+ 
+ export type FileExpectation = {
+   readonly path: string;

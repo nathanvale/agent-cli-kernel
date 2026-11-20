@@ -1,0 +1,18 @@
+diff --git a/skills/verify-cli/helper/target.ts b/skills/verify-cli/helper/target.ts
+index c4fb2bf..7afcc13 100644
+--- a/skills/verify-cli/helper/target.ts
++++ b/skills/verify-cli/helper/target.ts
+@@ -92,7 +92,12 @@ export function ownCommands(discovery: unknown): Commands {
+   const added = new Set(kernelCommands.map((name) => `${cli ?? ""}.${name}`));
+   return {
+     cli,
+-    own: cli === null ? [] : all.filter((entry) => !added.has(entry.identity)),
++    own:
++      cli === null
++        ? []
++        : all.filter(
++            (entry) => !added.has(entry.identity) && entry.route.length > 0,
++          ),
+   };
+ }
+ 

@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/verdict.ts b/skills/verify-cli/helper/verdict.ts
+index ad56b82..09d64ad 100644
+--- a/skills/verify-cli/helper/verdict.ts
++++ b/skills/verify-cli/helper/verdict.ts
+@@ -98,7 +98,7 @@ export type Credit = {
+ };
+ 
+ export function creditOf(step: ScenarioStep, stdout: string): Credit {
+-  const envelope = step.runner === "target" ? envelopeOf(stdout) : null;
++  const envelope = envelopeOf(stdout);
+   return {
+     commandIdentity: stringAt(envelope, "result", "commandIdentity"),
+     causeCode: stringAt(envelope, "result", "causeCode"),

@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/report.ts b/skills/verify-cli/helper/report.ts
+index 1255db5..cfe59e9 100644
+--- a/skills/verify-cli/helper/report.ts
++++ b/skills/verify-cli/helper/report.ts
+@@ -122,7 +122,7 @@ export function reportCommand(bun: () => ParsedPath) {
+         );
+       const details =
+         read.kind === "read" ? stepDetails(place, read.steps) : read;
+-      if (read.kind !== "read" || details.kind !== "read")
++      if (read.kind === "read" && details.kind !== "read")
+         return context.result(
+           {
+             commandIdentity: identity,

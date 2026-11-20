@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-drive-overwrites",
+  "patch": "tests/planted-faults/patches/b7fb111-drive-overwrites.patch",
+  "testFile": "tests/kernel/verify-skill/drive.test.ts",
+  "title": "drive never overwrites a receipt",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

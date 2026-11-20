@@ -1,0 +1,7 @@
+{
+  "id": "b7fb111-pending-skips-missing-folder",
+  "patch": "tests/planted-faults/patches/b7fb111-pending-skips-missing-folder.patch",
+  "testFile": "tests/kernel/verify-skill/report.test.ts",
+  "title": "pending names its missing run folder",
+  "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
+}

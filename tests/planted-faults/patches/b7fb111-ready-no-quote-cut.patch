@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/ready.ts b/skills/verify-cli/helper/ready.ts
+index f5bb2d2..ba65c31 100644
+--- a/skills/verify-cli/helper/ready.ts
++++ b/skills/verify-cli/helper/ready.ts
+@@ -33,7 +33,7 @@ export function quotedLine(stderr: string): string {
+     lines.find((entry) => entry.startsWith("error: ")) ??
+     lines.find((entry) => entry.trim() !== "") ??
+     "";
+-  return line.slice(0, quoteLimit);
++  return line;
+ }
+ 
+ export function toolchainBun(root: string | undefined): string | null {

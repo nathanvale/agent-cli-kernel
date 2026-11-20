@@ -1,0 +1,22 @@
+diff --git a/skills/verify-cli/helper/scenario.ts b/skills/verify-cli/helper/scenario.ts
+index cb3d7f9..7e133d3 100644
+--- a/skills/verify-cli/helper/scenario.ts
++++ b/skills/verify-cli/helper/scenario.ts
+@@ -316,7 +316,7 @@ export function readScenario(path: string): ScenarioRead {
+     try {
+       size = statSync(path).size;
+     } catch {
+-      return fail("unreadable", `${path} is missing or cannot be read`);
++      size = 0;
+     }
+     if (size > scenarioBytesLimit)
+       fail(
+@@ -327,7 +327,7 @@ export function readScenario(path: string): ScenarioRead {
+     try {
+       parsed = JSON.parse(readFileSync(path, "utf8"));
+     } catch {
+-      return fail("unreadable", `${path} is not JSON`);
++      parsed = {};
+     }
+     return { kind: "read", scenario: scenarioOf(parsed) };
+   } catch (error) {

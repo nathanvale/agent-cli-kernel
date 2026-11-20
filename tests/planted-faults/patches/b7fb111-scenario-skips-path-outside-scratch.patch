@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/scenario.ts b/skills/verify-cli/helper/scenario.ts
+index cb3d7f9..041a940 100644
+--- a/skills/verify-cli/helper/scenario.ts
++++ b/skills/verify-cli/helper/scenario.ts
+@@ -140,7 +140,7 @@ function fileExpectation(value: unknown, where: string): FileExpectation {
+   const entry = record(value, where);
+   onlyFields(entry, fileFields, where);
+   const path = optionalText(at(entry, "path"), `${where}.path`) ?? "";
+-  if (!path.startsWith("{scratch}/") || path.split("/").includes(".."))
++  if (!path.startsWith("{scratch}/"))
+     fail(
+       "path-outside-scratch",
+       `${where}.path ${JSON.stringify(path)} must start {scratch}/ and hold no .. segment`,
