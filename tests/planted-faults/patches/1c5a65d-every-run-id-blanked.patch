@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/helper/place.ts b/skills/verify-cli/helper/place.ts
+index 1b60c61..43e7fd3 100644
+--- a/skills/verify-cli/helper/place.ts
++++ b/skills/verify-cli/helper/place.ts
+@@ -43,7 +43,7 @@ export function sha256(text: string | Uint8Array): string {
+ const envelopeRunId = /^(\{.*?"result":\{"runId":")[0-9a-f-]{36}"/;
+ 
+ function withoutRunIds(stdout: string): string {
+-  return stdout.replace(envelopeRunId, '$1"');
++  return stdout.replaceAll(/"runId":"[0-9a-f-]{36}"/g, '"runId":""');
+ }
+ 
+ export function probeResult(
