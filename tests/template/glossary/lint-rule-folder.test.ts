@@ -20,3 +20,13 @@ test("the glossary scan lists files, not folders, so a pattern that names only a
   mkdirSync(join(tree, "kernel/src/addons"), { recursive: true });
   expect(treeFiles("kernel/src/**", tree)).toEqual([]);
 });
+
+test("the glossary scan still lists a file whose name starts like a lint rule folder", () => {
+  const tree = folder("glossary-tree-");
+  const source = join(tree, "kernel/src");
+  mkdirSync(source, { recursive: true });
+  writeFileSync(join(source, "lint-rule-folder-words.ts"), "export {};\n");
+  expect(treeFiles("kernel/src/**/*.ts", tree)).toEqual([
+    "kernel/src/lint-rule-folder-words.ts",
+  ]);
+});

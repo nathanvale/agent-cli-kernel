@@ -12,7 +12,7 @@ export function lintRuleFolder(parent: string): string {
 export function treeFiles(pattern: string, cwd: string): string[] {
   return globSync(pattern, {
     cwd,
-    exclude: [`**/${prefix}*`],
+    exclude: (entry) => entry.isDirectory() && entry.name.startsWith(prefix),
     withFileTypes: true,
   })
     .filter((entry) => entry.isFile())
