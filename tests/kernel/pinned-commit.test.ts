@@ -29,6 +29,7 @@ const copyBound = 2 * stagingBound + 60_000;
 const setupBound = installBound + 2 * buildBound + copyBound;
 const runBound = 30_000;
 const lintBound = 120_000;
+const lintTestBound = lintBound + 30_000;
 const testBound = runBound + 30_000;
 
 function gitStaging(cwd: string, ...args: string[]): string {
@@ -529,23 +530,31 @@ async function consumerFindings(config = "eslint.config.mjs") {
     throw new Error(`ESLint exited ${ran.exit}:\n${ran.stderr}`);
   const results: unknown = JSON.parse(ran.stdout);
   if (!Array.isArray(results)) throw new Error("Expected ESLint's results.");
-  return results
-    .flatMap((result) => {
-      const fields = record(result);
-      const messages: unknown = fields.messages;
-      if (!Array.isArray(messages)) throw new Error("Expected messages.");
-      return messages.map((each) => {
+  const linted = results.map((result) => {
+    const fields = record(result);
+    const file = relative(world.consumer, text(fields.filePath));
+    const messages: unknown = fields.messages;
+    if (!Array.isArray(messages)) throw new Error("Expected messages.");
+    return {
+      file,
+      messages: messages.map((each) => {
         const message = record(each);
         return {
-          file: relative(world.consumer, text(fields.filePath)),
-          ruleId: String(message.ruleId),
+          file,
+          ruleId: text(message.ruleId),
           message: text(message.message),
         };
-      });
-    })
-    .sort((a, b) =>
-      `${a.file} ${a.ruleId}` < `${b.file} ${b.ruleId}` ? -1 : 1,
-    );
+      }),
+    };
+  });
+  return {
+    files: linted.map(({ file }) => file).toSorted(),
+    findings: linted
+      .flatMap(({ messages }) => messages)
+      .sort((a, b) =>
+        `${a.file} ${a.ruleId}` < `${b.file} ${b.ruleId}` ? -1 : 1,
+      ),
+  };
 }
 
 const kernelPathFindings = [
@@ -580,7 +589,7 @@ const kernelPathFindings = [
 ];
 
 async function kernelPathHits(config?: string) {
-  return (await consumerFindings(config))
+  return (await consumerFindings(config)).findings
     .filter(
       ({ file, ruleId }) =>
         !file.startsWith("src/app/") && !untypedGlobal(ruleId),
@@ -593,7 +602,7 @@ test(
   async () => {
     expect(await kernelPathHits()).toEqual(kernelPathFindings);
   },
-  lintBound,
+  lintTestBound,
 );
 
 test(
@@ -603,15 +612,18 @@ test(
       kernelPathFindings,
     );
   },
-  lintBound,
+  lintTestBound,
 );
 
 test(
   "the installed cause-literal-owner learns the codes from the installed kernel: it refuses a free known code and admits one checked against commonCauses",
   async () => {
-    const found = (await consumerFindings()).filter(({ file }) =>
-      file.startsWith("src/app/"),
-    );
+    const { files, findings } = await consumerFindings();
+    expect(files.filter((file) => file.startsWith("src/app/"))).toEqual([
+      "src/app/cause.ts",
+      "src/app/typed.ts",
+    ]);
+    const found = findings.filter(({ file }) => file.startsWith("src/app/"));
     expect(found.map(({ file, ruleId }) => ({ file, ruleId }))).toEqual([
       { file: "src/app/cause.ts", ruleId: "repository/cause-literal-owner" },
     ]);
@@ -619,7 +631,7 @@ test(
       'Import the owner once: import type { commonCauses } from "agent-cli-kernel";',
     );
   },
-  lintBound,
+  lintTestBound,
 );
 
 test(
