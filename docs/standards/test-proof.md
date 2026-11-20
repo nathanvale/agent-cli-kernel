@@ -52,10 +52,11 @@ is in the [test harness guide](test-harness.md).
   constant stays green when the timer is changed, so measure the elapsed
   time), [#73-deadline] (a 2 s assertion accepted a missed 300 ms
   deadline), [0ab74b8] (the verification skill's stop case checked only
-  that the target timed out, so a 600 s timeout passed).
+  that the target timed out, so a 600 s timeout passed), [0669e10] (a SIGKILL
+  case allowed 5 s for a 500 ms escalation).
 - Require a project's evidence list to exist and contain at least one entry.
   A check against an empty array can accept a missing field. Witnessed:
-  [#91-projects].
+  [#91-projects], [0669e10] (an empty `result` counted as a step's expectation).
 - Prove a resolution by a refusal only the right folder can give. A recorded
   hit or an empty result passes for a skipped check too, and a process
   folder with the same tail as the injected one passes for the wrong
@@ -71,7 +72,8 @@ is in the [test harness guide](test-harness.md).
   a folder), [3567a81] (its case titled "its own tests pass, in process and
   through its real entry file" counted results, and a pin for a sentence
   naming two usage refusals checked one), [0ab74b8] (three verification
-  skill cases checked a prefix, the arguments sent, or a stop request alone).
+  skill cases checked a prefix, the arguments sent, or a stop request alone),
+  [0669e10] (a title promised placeholders in every string; file content kept them).
 - Prove that a fixture meant to lack something lacks it, and fail loudly
   when its location supplies it. `STATE_TEST_DIR` can place a test folder
   inside the checkout, where git finds the parent repository for a case that
@@ -199,3 +201,4 @@ is in the [test harness guide](test-harness.md).
 [c5ce7de]: https://github.com/nathanvale/agent-cli-kernel/commit/c5ce7de4210286905ff472706c107b35e0ef42cb
 [8cbec55]: https://github.com/nathanvale/agent-cli-kernel/commit/8cbec55e65afbbba5650d447e00cac40ce0e01c3
 [911189b]: https://github.com/nathanvale/agent-cli-kernel/commit/911189bb75fa97d60acaacfba6034417522804aa
+[0669e10]: https://github.com/nathanvale/agent-cli-kernel/commit/0669e10e32c420aa077e8491818f1d1417f1a1c9

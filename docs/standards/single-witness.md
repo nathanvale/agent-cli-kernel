@@ -18,6 +18,13 @@ this file.
   transaction proof refuses them unless sorted by name, so `drive`'s effects
   `target.run` then `evidence.write` failed every run until they were named
   `step.run` and `step.write`).
+- Return a report as its owner gives it, every field kept. Witnessed:
+  [0669e10] (verify-cli's pending rebuilt the state report and dropped each
+  run id).
+- Turn off only the restriction an exception needs; a rule turned off for a
+  file drops every restriction it holds. Witnessed: [0669e10] (the kernel-free
+  check's scoped exception turned off `no-restricted-properties`, and with it
+  the state factory ban).
 - Keep the state a step leaves beside what it printed. Witnessed: [18894b0]
   (a read-only proof could not show that its command wrote nothing).
 - Make a guard against an empty gate count what the gate would run.
@@ -222,3 +229,4 @@ this file.
 [bdd5e9c]: https://github.com/nathanvale/agent-cli-kernel/commit/bdd5e9cf017ea99cd6d63d501e0ef06a0652ca7f
 [8cbec55]: https://github.com/nathanvale/agent-cli-kernel/commit/8cbec55e65afbbba5650d447e00cac40ce0e01c3
 [911189b]: https://github.com/nathanvale/agent-cli-kernel/commit/911189bb75fa97d60acaacfba6034417522804aa
+[0669e10]: https://github.com/nathanvale/agent-cli-kernel/commit/0669e10e32c420aa077e8491818f1d1417f1a1c9

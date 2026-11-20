@@ -27,7 +27,9 @@ it, then list each guard that reads what the finish work removes.
   deleted the seam entry that `recordedEffect` read for its closed check, so
   a transaction left open after its run could record an effect), [b64db4a]
   (a record kept past its forgotten run and called outside the run's context
-  found no run and read it as open).
+  found no run and read it as open), [0669e10] (pending and cleanup read a run
+  with no index as never launched, though its state held an unfinished
+  change).
 - When the lookup's key can be reused, a missing entry is not the only miss:
   a guard that reads through the key can find the open entry of the run that
   reused it. Bind the guard to the entry its caller holds, such as the run
@@ -43,3 +45,4 @@ it, then list each guard that reads what the finish work removes.
 [c02caae]: https://github.com/nathanvale/agent-cli-kernel/commit/c02caae41a3100ab2c8d5272d21a60acb7a0b992
 [e766237]: https://github.com/nathanvale/agent-cli-kernel/commit/e76623703cff72cc32c30a97164243e2cc86f255
 [0ab74b8]: https://github.com/nathanvale/agent-cli-kernel/commit/0ab74b894857b6b741be277e2f2fd41764e96cd2
+[0669e10]: https://github.com/nathanvale/agent-cli-kernel/commit/0669e10e32c420aa077e8491818f1d1417f1a1c9

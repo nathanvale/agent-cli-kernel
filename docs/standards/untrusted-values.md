@@ -18,7 +18,7 @@ boundary trusts the types.
   same copy. A second read of an accessor, or a read after an `await`, can
   differ. Witnessed: [75b4bc0], [r4580077763], [3088c03], [r4606886521],
   [r4606943307] (the `no-in-operator` repair read a member expression
-  twice).
+  twice), [0669e10] (a scenario reader read `stdoutIncludes` twice).
 - Validate the same object you pass on. A spread drops non-enumerable
   properties, and a hidden `toJSON` rewrites serialised data. Witnessed:
   [r4580070938], [r4580077749], [8cbec55] (the standards check spread a
@@ -48,7 +48,8 @@ boundary trusts the types.
   [b54d325], [1d03d99], [8de7e09] (a test's ledger poll had no bound),
   [0ab74b8] (the verification skill's front door gave `Bun.spawnSync` a
   timeout that only sends SIGTERM, so a child that ignored it outlived the
-  bound, and its output had no cap).
+  bound, and its output had no cap), [0669e10] (the check read a run's index
+  before arming any watchdog, so a FIFO there could block it).
 - State a complexity bound for each traversal and append. Witnessed:
   [r4580077771] (a shared subgraph cost about 2^35 visits), [d972ded]
   (quadratic append).
@@ -67,7 +68,8 @@ boundary trusts the types.
   skipped a tracked file on any `lstat` failure; it now skips only
   `ENOENT`), [0ab74b8] (the verification skill read an unreadable step file
   as a clean step with no unmet check, and an unreadable `package.json` as a
-  missing dependency).
+  missing dependency), [0669e10] (it read an unreadable `package.json` as no
+  toolchain pin, and every evidence read failure as a missing file).
 - Read a required input as present or refused, never as empty, so a missing
   input cannot pass for one with nothing in it. Witnessed: [r4609956011]
   (a missing patch file read as an empty patch, so replay reported that it
@@ -117,3 +119,4 @@ boundary trusts the types.
 [8309f88]: https://github.com/nathanvale/agent-cli-kernel/commit/8309f887aeabeedebd4f559e01ef319d78d39efa
 [8cbec55]: https://github.com/nathanvale/agent-cli-kernel/commit/8cbec55e65afbbba5650d447e00cac40ce0e01c3
 [911189b]: https://github.com/nathanvale/agent-cli-kernel/commit/911189bb75fa97d60acaacfba6034417522804aa
+[0669e10]: https://github.com/nathanvale/agent-cli-kernel/commit/0669e10e32c420aa077e8491818f1d1417f1a1c9
