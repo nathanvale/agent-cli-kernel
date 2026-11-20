@@ -207,7 +207,21 @@ function fileExpectations(value: unknown, where: string) {
 }
 
 function includesExpectation(value: unknown, where: string) {
-  return value === undefined ? undefined : strings(value, where);
+  if (value === undefined) return undefined;
+  const items = strings(value, where);
+  if (items.includes(""))
+    fail("bad-value", `${where} holds an empty string, which observes nothing`);
+  return items;
+}
+
+function argvWords(value: unknown, where: string): readonly string[] {
+  const words = strings(value, where);
+  if (words.some((word) => word.includes("\0")))
+    fail(
+      "bad-value",
+      `${where} holds a word with a NUL, which no program can receive`,
+    );
+  return words;
 }
 
 function presentIf<const Key extends string, Value>(
@@ -308,7 +322,7 @@ function scenarioStep(value: unknown, index: number): ScenarioStep {
   return {
     name: name(at(entry, "name"), `${where}.name`),
     runner,
-    argv: strings(at(entry, "argv"), `${where}.argv`),
+    argv: argvWords(at(entry, "argv"), `${where}.argv`),
     timeoutMilliseconds: limit(
       at(entry, "timeoutMilliseconds"),
       targetLimits.timeoutMilliseconds,
@@ -406,8 +420,8 @@ export type Places = {
 
 function placed(text: string, places: Places): string {
   return text
-    .replaceAll("{scratch}", places.scratch)
-    .replaceAll("{repository}", places.repository);
+    .replaceAll("{scratch}", () => places.scratch)
+    .replaceAll("{repository}", () => places.repository);
 }
 
 function placedValue(value: JsonValue, places: Places): JsonValue {

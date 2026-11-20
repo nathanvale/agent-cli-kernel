@@ -380,6 +380,37 @@ describe("the bounds of a scenario, on both sides", () => {
     expect(rule({ exitCode: 0, stdoutIncludes: ["x"] }, "bun")).toBeNull();
   });
 
+  test("an empty string in an includes list observes nothing and is refused", () => {
+    const at = world();
+    const rule = (expectation: Record<string, unknown>) =>
+      brokenRule(
+        scenarioWith(at, {
+          ...base,
+          steps: [{ name: "s", runner: "bun", argv: [], expect: expectation }],
+        }),
+      );
+    expect(rule({ exitCode: 0, stdoutIncludes: [""] })).toBe("bad-value");
+    expect(rule({ exitCode: 0, stderrIncludes: ["x", ""] })).toBe("bad-value");
+  });
+
+  test("a word of argv that holds a NUL is refused before anything runs", () => {
+    const at = world();
+    expect(
+      brokenRule(
+        scenarioWith(at, {
+          ...base,
+          steps: [
+            {
+              name: "s",
+              argv: ["show", "ma\u0000rs"],
+              expect: { exitCode: 0, stderr: "" },
+            },
+          ],
+        }),
+      ),
+    ).toBe("bad-value");
+  });
+
   test("a scenario is read once, as frozen data", () => {
     let reads = 0;
     const expectation = { exitCode: 0, stdout: "" };
@@ -451,6 +482,23 @@ describe("the bounds of a scenario, on both sides", () => {
         stdoutIncludes: ["/s"],
         stderrIncludes: ["/r"],
       },
+    });
+  });
+
+  test("a placeholder's folder is put in as it is, dollar signs and all", () => {
+    const step: ScenarioStep = {
+      name: "s",
+      runner: "bun",
+      argv: ["{scratch}/out", "{repository}"],
+      timeoutMilliseconds: 1,
+      outputLimitBytes: 1,
+      expect: { exitCode: 0, stdout: "{scratch}" },
+    };
+    const places = { scratch: "/runs/pay$$roll$&$`$'", repository: "/r$1" };
+    expect(placedStep(step, places)).toEqual({
+      ...step,
+      argv: ["/runs/pay$$roll$&$`$'/out", "/r$1"],
+      expect: { exitCode: 0, stdout: "/runs/pay$$roll$&$`$'" },
     });
   });
 });

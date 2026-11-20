@@ -120,7 +120,8 @@ A scenario file:
   a `{scratch}/` path with exact `content` or `"absent": true`; and, on a
   `"runner": "bun"` step only, `stdoutIncludes` and `stderrIncludes`, for
   output with timings. An empty `result`, `files` or includes list does not
-  count. `timedOut` may be added to any of them.
+  count, and an empty string in an includes list is refused. `timedOut` may
+  be added to any of them. A word of `argv` may not hold a NUL.
 - `{scratch}` becomes the run's scratch folder and `{repository}` the
   repository root, in every string of `argv` and `expect`.
 - A step that passes its time limit is unmet unless it expects
