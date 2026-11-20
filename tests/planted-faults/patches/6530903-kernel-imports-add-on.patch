@@ -1,0 +1,10 @@
+diff --git a/kernel/src/kernel/index.ts b/kernel/src/kernel/index.ts
+index ae4574f..7b5c006 100644
+--- a/kernel/src/kernel/index.ts
++++ b/kernel/src/kernel/index.ts
+@@ -1,4 +1,5 @@
+ import { navigationData } from "./validation/discovery.ts";
++import "../addons/state/index.ts";
+ import { resultPlan, resultMatches } from "./command-result.ts";
+ import type { CommandResult, Invocation } from "./command-result.ts";
+ import { withState } from "./validation/context.ts";
