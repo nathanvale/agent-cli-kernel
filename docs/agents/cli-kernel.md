@@ -16,6 +16,11 @@ These sources define the command contract the CLI kernel implements.
   [citation convention](../standards/gate-coverage.md#comments) and consult
   the MAG-98 findings ledger under [Coordination context](#coordination-context).
 
+## The kernel trial on pull requests
+
+- For the advisory `kernel-trial` check on each pull request, read the
+  [kernel trial guide](kernel-trial.md).
+
 ## Coordination context
 
 These private planning records live outside this repository. Your task brief
