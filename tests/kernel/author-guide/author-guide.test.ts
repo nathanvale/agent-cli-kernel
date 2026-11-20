@@ -3,12 +3,18 @@ import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
 import { mkdir, readdir, symlink, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { ESLint } from "eslint";
+import * as kernel from "../../../kernel/src/kernel/index.ts";
 import { write } from "../../support/fixture-files.ts";
 import { gitEnv, gitOutput, inherited } from "../../support/git-fixture.ts";
 import { treeFiles } from "../../support/lint-rule-folder.ts";
 import { spawnBounded } from "../../support/process.ts";
 import { testFolder } from "../../support/test-folder.ts";
 import { typecheckTree } from "../kernel-repair/harness.ts";
+import {
+  emptyInput,
+  stationWords,
+  unchanged,
+} from "../kernel-repair/shapes.ts";
 import {
   exampleDocument,
   exampleDocumentPath,
@@ -425,5 +431,176 @@ describe("the author skill's documents, shipped in the kernel package", () => {
     expect(brokenLinks(folder)).toEqual([
       `SKILL.md -> ${join(folder, "references")}`,
     ]);
+  });
+});
+
+describe("kernel behaviour the author skill states in words", () => {
+  function readContract(
+    refusal = { repairAction: "Repair the input.", text: "Run it again." },
+    words = { trigger: "The read ran.", summary: "Read.", message: "Read." },
+  ) {
+    return kernel.contractFor({
+      cli: "guide",
+      commands: [
+        kernel.command({
+          identity: "guide.read",
+          route: ["read"],
+          summary: words.summary,
+          input: emptyInput,
+          capabilities: {},
+          stations: [
+            kernel.station(kernel.commonCauses, {
+              ...stationWords,
+              commandIdentity: "guide.read",
+              causeCode: "SUCCESS_UNCHANGED",
+              trigger: words.trigger,
+              repairAction: null,
+              guidance: { next: { kind: "done" } },
+              independentObservable: "guide.read:ran",
+            }),
+            kernel.station(kernel.commonCauses, {
+              ...stationWords,
+              commandIdentity: "guide.read",
+              causeCode: "DOMAIN_PRECONDITION_UNMET",
+              trigger: "The read was refused.",
+              repairAction: refusal.repairAction,
+              guidance: { next: { kind: "instruction", text: refusal.text } },
+              independentObservable: "guide.read:refused",
+            }),
+          ],
+          run: (_input, context) =>
+            context.result(
+              { commandIdentity: "guide.read", causeCode: "SUCCESS_UNCHANGED" },
+              { message: words.message, data: null, effects: unchanged },
+            ),
+        }),
+      ],
+    });
+  }
+
+  test("commands.md: the package exports no empty input", () => {
+    expect(Object.keys(kernel)).not.toContain("emptyInput");
+    expect(Object.keys(kernel)).toContain("commonCauses");
+  });
+
+  test("stations.md: a brace that is no template token, in a repair action or in guidance text, throws at start-up with exactly the message the guide quotes, which names no station", () => {
+    const placement =
+      "Invalid run binding placement or guidance template token.";
+    expect(
+      thrownMessage(() =>
+        readContract({ repairAction: "Pass {name}.", text: "Run it again." }),
+      ),
+    ).toBe(placement);
+    expect(
+      thrownMessage(() =>
+        readContract({ repairAction: "Pass a name.", text: "Send {name}." }),
+      ),
+    ).toBe(placement);
+    expect(
+      thrownMessage(() =>
+        readContract({
+          repairAction: "Close the } first.",
+          text: "Run it again.",
+        }),
+      ),
+    ).toBe("Malformed guidance template token.");
+  });
+
+  test("stations.md: a template token in a repair action, and a brace in a trigger, a summary or a message, are accepted", async () => {
+    const contract = readContract(
+      { repairAction: "Inspect run {runId}.", text: "Run it again." },
+      {
+        trigger: "The read ran {here}.",
+        summary: "Read {anything}.",
+        message: "Read {this}.",
+      },
+    );
+    expect(await kernel.runInProcess(contract)(["read"])).toMatchObject({
+      kind: "envelope",
+      exitCode: 0,
+      envelope: { message: "Read {this}." },
+    });
+  });
+
+  test("commands.md: <command> --help answers with exit code 0 and that command's discovery, as --discover-command does", async () => {
+    const run = kernel.runInProcess(readContract());
+    const help = await run(["read", "--help"]);
+    expect(help).toMatchObject({
+      kind: "envelope",
+      exitCode: 0,
+      envelope: {
+        result: {
+          commandIdentity: "guide.command-discovery",
+          causeCode: "SUCCESS_UNCHANGED",
+          data: {
+            command: { commandIdentity: "guide.read" },
+            input: emptyInput,
+          },
+        },
+      },
+    });
+    const discovered = await run(["--discover-command", "guide.read"]);
+    expect(help.kind === "envelope" && help.envelope.result.data).toEqual(
+      discovered.kind === "envelope" && discovered.envelope.result.data,
+    );
+  });
+
+  test("commands.md: a usage refusal is exit code 2 and its message names what was wrong", async () => {
+    const run = kernel.runInProcess(readContract());
+    expect(await run(["read", "--wat"])).toMatchObject({
+      kind: "envelope",
+      exitCode: 2,
+      envelope: {
+        message: "The invocation uses an option this command does not declare.",
+        result: { causeCode: "USAGE_INVALID_INVOCATION" },
+      },
+    });
+  });
+
+  test("commands.md: an option's value is the next word, and the same value after an equals sign is refused as an undeclared option", async () => {
+    const count = kernel.command({
+      identity: "guide.count",
+      route: ["count"],
+      summary: "Count.",
+      input: {
+        ...emptyInput,
+        options: [
+          {
+            name: "--to",
+            aliases: [],
+            summary: "Where to stop.",
+            required: false,
+            repeatable: false,
+            value: { kind: "integer", minimum: 0, maximum: 9 },
+          },
+        ],
+      },
+      capabilities: {},
+      run: (input, context) =>
+        context.result(
+          { commandIdentity: "guide.count", causeCode: "SUCCESS_UNCHANGED" },
+          {
+            message: "Counted.",
+            data: input["--to"] ?? null,
+            effects: unchanged,
+          },
+        ),
+    });
+    const run = kernel.runInProcess(
+      kernel.contractFor({ cli: "guide", commands: [count] }),
+    );
+    expect(await run(["count", "--to", "3"])).toMatchObject({
+      kind: "envelope",
+      exitCode: 0,
+      envelope: { result: { data: 3 } },
+    });
+    expect(await run(["count", "--to=3"])).toMatchObject({
+      kind: "envelope",
+      exitCode: 2,
+      envelope: {
+        message: "The invocation uses an option this command does not declare.",
+        result: { causeCode: "USAGE_INVALID_INVOCATION" },
+      },
+    });
   });
 });
