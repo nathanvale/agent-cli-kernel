@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { quoted } from "./planted-fault-patch.ts";
+import { idOrder, quoted } from "./planted-fault-patch.ts";
 
 export type Shard = { readonly part: number; readonly parts: number };
 export type Selection = Shard & { readonly toolingBase: string | undefined };
@@ -62,7 +62,7 @@ export function readTimings(root: string): ReadonlyMap<string, number> {
     readdirSync(folder)
       .filter((name) => !name.startsWith("."))
       .map((name) => readTiming(root, name))
-      .toSorted(([left], [right]) => (left < right ? -1 : 1)),
+      .toSorted(([left], [right]) => idOrder(left, right)),
   );
 }
 

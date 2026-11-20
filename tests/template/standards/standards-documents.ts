@@ -6,7 +6,8 @@ import {
   statSync,
 } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
-import { recordsPath } from "../../../scripts/planted-faults.ts";
+import { idOrder } from "../../../scripts/planted-fault-patch.ts";
+import { recordFile, recordsPath } from "../../../scripts/planted-faults.ts";
 import { readRepository } from "../../../scripts/repository.ts";
 import {
   type Ancestry,
@@ -204,12 +205,14 @@ export function faultRecords(
   if (!existsSync(folder)) return [];
   return readdirSync(folder)
     .filter((name) => name.endsWith(".json"))
-    .toSorted()
-    .map((name) => {
+    .map((name) => name.slice(0, -".json".length))
+    .toSorted(idOrder)
+    .map((stem) => {
+      const file = recordFile(stem);
       const { id, source } = JSON.parse(
-        readFileSync(join(folder, name), "utf8"),
+        readFileSync(join(repository, file), "utf8"),
       ) as { id?: string; source?: string };
-      return { file: `${recordsPath}/${name}`, id, source };
+      return { file, id, source };
     });
 }
 

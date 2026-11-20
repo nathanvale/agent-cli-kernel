@@ -99,6 +99,21 @@ test.each([
       `tests/planted-faults/fault-records/lost.json: record "lost" names source ${absent.slice(0, 7)}, which is not an ancestor of HEAD. Repair: cite a commit in this branch's history, or correct the SHA.`,
     ],
   ],
+  [
+    "two fault records whose ids differ by a suffix, listed in id order like replay,",
+    (files: Record<string, string>) => {
+      for (const id of ["abc1234-limit-longer", "abc1234-limit"])
+        files[recordFile(id)] = JSON.stringify({
+          id,
+          source: "fix: no commit",
+        });
+    },
+    () =>
+      ["abc1234-limit", "abc1234-limit-longer"].map(
+        (id) =>
+          `tests/planted-faults/fault-records/${id}.json: record "${id}" has source "fix: no commit", which does not start with its fix commit's SHA. Repair: write "<short sha> <subject>", as bun run planted-fault:add does.`,
+      ),
+  ],
 ])(
   "%s fails, naming the commit and the repair",
   async (_fault, change, expected) => {

@@ -11,6 +11,7 @@ import { constants, tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import {
   hunksOf,
+  idOrder,
   patchText,
   place,
   quoted,
@@ -165,7 +166,7 @@ export function readRecords(root: string): Fault[] {
   return readdirSync(folder)
     .filter((name) => !name.startsWith("."))
     .map((name) => readRecord(root, name))
-    .toSorted((left, right) => (left.id < right.id ? -1 : 1));
+    .toSorted((left, right) => idOrder(left.id, right.id));
 }
 
 function commitWorkingTreeInScratchIndex(root: string): string {
