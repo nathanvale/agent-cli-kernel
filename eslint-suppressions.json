@@ -245,11 +245,6 @@
       "count": 1
     }
   },
-  "tests/kernel/static-controls.test.ts": {
-    "repository/tests-use-test-folder": {
-      "count": 2
-    }
-  },
   "tests/kernel/writer/writer.test.ts": {
     "repository/require-to-throw-message": {
       "count": 1
