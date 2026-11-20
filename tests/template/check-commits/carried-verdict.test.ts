@@ -2,7 +2,13 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { ownedFolders } from "../../support/fixture-files.ts";
-import { commitIn, git, initRepository } from "../../support/git-fixture.ts";
+import {
+  commitIn,
+  git,
+  gitEnv,
+  inherited,
+  initRepository,
+} from "../../support/git-fixture.ts";
 import {
   carry,
   checkerTree,
@@ -10,6 +16,7 @@ import {
   judgedOnly,
   readToken,
   tokenFromHex,
+  treeOf,
   type Graph,
   type MergeFacts,
 } from "../../../scripts/carried-verdict.ts";
@@ -378,6 +385,33 @@ describe("readToken", () => {
 
 describe("carry", () => {
   const folder = ownedFolders();
+
+  test("checker trees whose paths differ only in bytes that are not UTF-8 never compare equal", () => {
+    const root = folder("carried-verdict-bytes-");
+    initRepository(root);
+    commitIn(root, "base", { "package.json": "{}" });
+    const blob = git(root, "rev-parse", "HEAD:package.json");
+    const withPath = (byte: number) => {
+      git(root, "read-tree", "--empty");
+      const record = Buffer.concat([
+        Buffer.from(`100644 blob ${blob}\tscripts/bad`),
+        Buffer.from([byte, 0]),
+      ]);
+      const added = Bun.spawnSync(
+        ["git", "update-index", "-z", "--index-info"],
+        {
+          cwd: root,
+          env: { ...inherited(), ...gitEnv },
+          stdin: record,
+        },
+      );
+      expect(added.exitCode).toBe(0);
+      return git(root, "commit-tree", git(root, "write-tree"), "-m", "path");
+    };
+
+    expect(treeOf(root, withPath(0xff))).not.toBe(treeOf(root, withPath(0xfe)));
+  });
+
   const workflow = ".github/workflows/ci.yml";
 
   function repositoryWithTwoRuns(carriedWorkflow = "jobs: commits") {

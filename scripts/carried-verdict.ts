@@ -263,7 +263,8 @@ function present(root: string, sha: string): boolean {
   );
 }
 
-function treeOf(root: string, sha: string): string {
+// Interface: the checker tree of commit `sha` in the repository at `root`.
+export function treeOf(root: string, sha: string): string {
   const listed = git(root, ["ls-tree", "-r", "-z", "--full-tree", sha]);
   if (!listed.ok) throw new Error(listed.stderr);
   return checkerTree(listed.stdout);
