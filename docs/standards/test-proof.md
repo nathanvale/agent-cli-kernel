@@ -28,7 +28,9 @@ is in the [test harness guide](test-harness.md).
   build check, or a neighbouring cap at the same limit, keeps the test green
   with the named guard removed. Witnessed: [640ba05], [96ab832], [c193c51],
   [f8ff37f] (an equals-sign option case used a required option, so a
-  missing-option refusal could also have failed it).
+  missing-option refusal could also have failed it), [0ab74b8] (the
+  verification skill's lying fixture also printed the wrong stderr, so the
+  exit-code check could go with no case failing).
 - Control each side of a boundary: the last admitted and the first refused
   value or case. Checks further out stay green under an off-by-one limit.
   Witnessed: [e07d962], [d72cd9e], [3567a81] (the author guide's example
@@ -40,7 +42,8 @@ is in the [test harness guide](test-harness.md).
   kill still passed), [dbd196e] (a timeout message that reads the same
   constant stays green when the timer is changed, so measure the elapsed
   time), [#73-deadline] (a 2 s assertion accepted a missed 300 ms
-  deadline).
+  deadline), [0ab74b8] (the verification skill's stop case checked only
+  that the target timed out, so a 600 s timeout passed).
 - Require a project's evidence list to exist and contain at least one entry.
   A check against an empty array can accept a missing field. Witnessed:
   [#91-projects].
@@ -55,11 +58,16 @@ is in the [test harness guide](test-harness.md).
   checked only the first line), [0463f35] (its link case accepted a link to
   a folder), [3567a81] (its case titled "its own tests pass, in process and
   through its real entry file" counted results, and a pin for a sentence
-  naming two usage refusals checked one).
+  naming two usage refusals checked one), [0ab74b8] (the verification
+  skill's relay case checked a prefix, its folder case checked the
+  arguments it passed rather than what the target saw, and its SIGTERM case
+  never checked that the target stopped).
 - Prove that a fixture meant to lack something lacks it, and fail loudly
   when its location supplies it. `STATE_TEST_DIR` can place a test folder
   inside the checkout, where git finds the parent repository for a case that
-  expects none. Witnessed: [8946615].
+  expects none. Witnessed: [8946615], [0ab74b8] (the verification skill's
+  case for a kernel that does not load never checked that its copy could
+  not resolve the kernel).
 - Require one recorded process before checking that it exited. A missing
   process ledger lets an empty-result check pass. Witnessed: [#84-ledger].
 - Refuse a gate's scan that finds no file, so the gate cannot pass on
@@ -94,7 +102,9 @@ is in the [test harness guide](test-harness.md).
   too, from the test that imports its file, beside the process proof that
   spawns the entry. Coverage cannot see into a spawned process, so a
   function proved only that way reads as untested and its mutants never
-  run.
+  run. Witnessed: [0ab74b8] (the verification skill's file read-back,
+  evidence reader and unfinished-change mapping ran only in spawned
+  helpers).
 - Resolve each path from the environment a function is given, not from the
   process's own folder, so an in-process call runs on what the test injects.
   Witnessed: [244b63a].
@@ -109,7 +119,9 @@ is in the [test harness guide](test-harness.md).
   [9050fec], [b8664cf] (each recorded faults for refusals that had landed
   with no record), [86749b9] (so did the author skill's eight), [848b6de] (two
   gate checks ran only on the real documents, so a fault that dropped them
-  could not fail).
+  could not fail), [25c2212] (the verification skill's missing-tool
+  refusal, help check, budgets, contract checks and stop forwarding landed
+  with no record).
 - Replay affected fault records when you edit or move a test that catches
   a planted fault, or change the source its patch targets. Keep the patch
   and test selector current in the same commit and require `KILLED`.
@@ -194,3 +206,5 @@ is in the [test harness guide](test-harness.md).
 [86749b9]: https://github.com/nathanvale/agent-cli-kernel/commit/86749b9a2dd7b2295a2405513d75299b14550db3
 [3567a81]: https://github.com/nathanvale/agent-cli-kernel/commit/3567a8125e36f43eb6b3f448a5f51fb122090536
 [848b6de]: https://github.com/nathanvale/agent-cli-kernel/commit/848b6de1e7b9bc0792a8ea70f6604f700a09229d
+[0ab74b8]: https://github.com/nathanvale/agent-cli-kernel/commit/0ab74b894857b6b741be277e2f2fd41764e96cd2
+[25c2212]: https://github.com/nathanvale/agent-cli-kernel/commit/25c2212794174aa8686028c0cb35a87515c9ca65

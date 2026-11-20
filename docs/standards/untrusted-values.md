@@ -43,7 +43,10 @@ boundary trusts the types.
 - Arm a delay above 2,147,483,647 ms in steps. A runtime timer fires a longer
   delay after 1 ms. Witnessed: [f00dc2a].
 - Bound every wait, including the settle after a handler returns. Witnessed:
-  [b54d325], [1d03d99], [8de7e09] (a test's ledger poll had no bound).
+  [b54d325], [1d03d99], [8de7e09] (a test's ledger poll had no bound),
+  [0ab74b8] (the verification skill's front door gave `Bun.spawnSync` a
+  timeout that only sends SIGTERM, so a child that ignored it outlived the
+  bound, and its output had no cap).
 - State a complexity bound for each traversal and append. Witnessed:
   [r4580077771] (a shared subgraph cost about 2^35 visits), [d972ded]
   (quadratic append).
@@ -60,7 +63,9 @@ boundary trusts the types.
   `git rev-parse` failure as no checkout, so a malformed git configuration
   passed as ok), [5048d5e] (the pinned-commit test's working-tree copy
   skipped a tracked file on any `lstat` failure; it now skips only
-  `ENOENT`).
+  `ENOENT`), [0ab74b8] (the verification skill read an unreadable step file
+  as a clean step with no unmet check, and an unreadable `package.json` as a
+  missing dependency).
 
 [r4580070968]: https://github.com/nathanvale/bun-typescript-template/pull/6#discussion_r4580070968
 [r4580070979]: https://github.com/nathanvale/bun-typescript-template/pull/6#discussion_r4580070979
@@ -95,3 +100,4 @@ boundary trusts the types.
 [69fc0bf]: https://github.com/nathanvale/agent-cli-kernel/commit/69fc0bf37518800b76c9e9b9e5b1cba6934172bd
 [5048d5e]: https://github.com/nathanvale/agent-cli-kernel/commit/5048d5e01932fa8ab9c177e351f33423cb507c1e
 [e766237]: https://github.com/nathanvale/agent-cli-kernel/commit/e76623703cff72cc32c30a97164243e2cc86f255
+[0ab74b8]: https://github.com/nathanvale/agent-cli-kernel/commit/0ab74b894857b6b741be277e2f2fd41764e96cd2

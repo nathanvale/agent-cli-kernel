@@ -5,6 +5,15 @@ then `Witnessed:` and its citation. When a second witness arrives, it moves
 to a row in the [rule table](../../CODING_STANDARDS.md#rule-table) and leaves
 this file.
 
+- Check what a protocol promises on every observation, not only what the
+  author asked for, so a step can fail on a broken promise its scenario did
+  not name. Witnessed: [0ab74b8] (a target whose envelope claimed exit 99
+  while the process exited 0 passed every scenario and the sweep).
+- Prove a child ran by an output only a run produces, never by its exit code
+  alone. Witnessed: [67e7adc] (`bun --cwd <repository> run check` printed
+  bun's help and exited 0, having run nothing).
+- Keep the state a step leaves beside what it printed. Witnessed: [18894b0]
+  (a read-only proof could not show that its command wrote nothing).
 - Make a guard against an empty gate count what the gate would run.
   Witnessed: [ac11ed9] (a test area whose tests sit only in subfolders was
   counted as empty).
@@ -177,3 +186,6 @@ this file.
 [7f15a16]: https://github.com/nathanvale/agent-cli-kernel/commit/7f15a164d817265cc6f82882ff6efa2b76a4556b
 [2c62768]: https://github.com/nathanvale/agent-cli-kernel/commit/2c62768ceddd1af9a7f3b4fabf1b9d32818acf2e
 [39d64c3]: https://github.com/nathanvale/agent-cli-kernel/commit/39d64c307e73a6153c572d6259df791e779efc4e
+[0ab74b8]: https://github.com/nathanvale/agent-cli-kernel/commit/0ab74b894857b6b741be277e2f2fd41764e96cd2
+[67e7adc]: https://github.com/nathanvale/agent-cli-kernel/commit/67e7adcdeda288d3199748178ef0723c212668c3
+[18894b0]: https://github.com/nathanvale/agent-cli-kernel/commit/18894b0852b26411e5583a7008f2feb54e459f3e

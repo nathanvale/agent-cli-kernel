@@ -14,7 +14,9 @@ it, then list each guard that reads what the finish work removes.
   Witnessed: [7fb5649], [ef76011], [e766237] (a pattern worker's blob URL
   was released when the worker answered, failed or ran out of time, but
   not when it failed to start; the fix makes one URL per process, so no
-  way to finish has release work).
+  way to finish has release work), [0ab74b8] (the verification skill's
+  front door stopped on SIGTERM without passing it on, so its helper and
+  the target ran on, holding the run).
 
 ## Forgotten entries
 
@@ -40,3 +42,4 @@ it, then list each guard that reads what the finish work removes.
 [b64db4a]: https://github.com/nathanvale/agent-cli-kernel/commit/b64db4ae25a19db89890590acfc91f933a0f4a36
 [c02caae]: https://github.com/nathanvale/agent-cli-kernel/commit/c02caae41a3100ab2c8d5272d21a60acb7a0b992
 [e766237]: https://github.com/nathanvale/agent-cli-kernel/commit/e76623703cff72cc32c30a97164243e2cc86f255
+[0ab74b8]: https://github.com/nathanvale/agent-cli-kernel/commit/0ab74b894857b6b741be277e2f2fd41764e96cd2
