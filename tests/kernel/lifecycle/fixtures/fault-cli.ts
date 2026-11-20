@@ -43,7 +43,7 @@ import {
 import { record } from "../../../../kernel/src/kernel/validation/primitives.ts";
 import { ledger, ledgerPath, sleep } from "../ledger.ts";
 import { programStopRow, programStopStation } from "../program-stop.ts";
-import { abortWithoutCoreDump } from "../../../support/abort.ts";
+import { abortWithoutCoreDump } from "../../fixtures/abort.ts";
 
 const streamProbe = new URL(
   "../../programs/fixtures/stream-probe.sh",

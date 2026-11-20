@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { join } from "node:path";
-import { spawnBounded } from "../../kernel/kernel-repair/swarm-process.ts";
+import { spawnBounded } from "./kernel-repair/swarm-process.ts";
 
 const fixture = join(import.meta.dir, "fixtures", "core-limit.ts");
 

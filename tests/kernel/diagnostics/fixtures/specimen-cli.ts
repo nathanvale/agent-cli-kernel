@@ -18,7 +18,7 @@ import type { StatusAddon } from "../../../../kernel/src/addons/diagnostics/inde
 import { programsAddon } from "../../../../kernel/src/addons/programs/index.ts";
 import { createDiagnostics } from "../../../../kernel/src/addons/diagnostics/run.ts";
 import { faultIo } from "./fault-io.ts";
-import { abortWithoutCoreDump } from "../../../support/abort.ts";
+import { abortWithoutCoreDump } from "../../fixtures/abort.ts";
 
 type Script = {
   readonly records?: number | undefined;

@@ -48,7 +48,7 @@ import { approval } from "../../../../kernel/src/addons/approval/index.ts";
 import { own } from "../capability-qualification-record.ts";
 import { encodeRecord } from "../../../../kernel/src/addons/state/framing.ts";
 import { programsAddon } from "../../../../kernel/src/addons/programs/index.ts";
-import { abortWithoutCoreDump } from "../../../support/abort.ts";
+import { abortWithoutCoreDump } from "../../fixtures/abort.ts";
 
 const root = process.env.SX_ROOT ?? "";
 const world = process.env.SX_WORLD ?? "";

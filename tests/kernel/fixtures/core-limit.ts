@@ -1,4 +1,4 @@
-import { turnCoreDumpsOff } from "../../../support/abort.ts";
+import { turnCoreDumpsOff } from "./abort.ts";
 
 if (process.argv[2] === "off") turnCoreDumpsOff();
 const read = Bun.spawnSync(["sh", "-c", "ulimit -c"]);

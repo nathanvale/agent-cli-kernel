@@ -97,7 +97,7 @@
     "tests/kernel/lifecycle/fixtures/declining-host.ts",
     "tests/kernel/state/fixtures/specimen.ts",
     "tests/kernel/state/fixtures/in-process-specimen.ts",
-    "tests/template/test-helpers/fixtures/core-limit.ts",
+    "tests/kernel/fixtures/core-limit.ts",
     "tests/kernel/state/fixtures/probe-folder-ledger.ts",
     "tests/kernel/state/capability-qualification-run.ts",
     "kernel/src/addons/state/index.ts",
