@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/diagnostics/run.ts b/kernel/src/addons/diagnostics/run.ts
+index 0a258359..8b03995f 100644
+--- a/kernel/src/addons/diagnostics/run.ts
++++ b/kernel/src/addons/diagnostics/run.ts
+@@ -196,7 +196,7 @@ function session(
+       queuedBytes + charge > limits.bufferBytes
+     )
+       dropped += 1;
+-    else if (reservedBytes + line.bytes.length > limits.runBytes) {
++    else if (false) {
+       full = true;
+       fail("capacity");
+       dropped += 1;

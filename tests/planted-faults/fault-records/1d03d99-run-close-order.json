@@ -1,0 +1,7 @@
+{
+  "id": "1d03d99-run-close-order",
+  "patch": "tests/planted-faults/patches/1d03d99-run-close-order.patch",
+  "testFile": "tests/kernel/diagnostics/custody.test.ts",
+  "title": "D02\\.reported-file-is-inode: the reported path names the inode holding this run's records$",
+  "source": "1d03d99 fix(contract3): diagnostics repair round 1 in the add-on"
+}

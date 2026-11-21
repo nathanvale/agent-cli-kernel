@@ -22,6 +22,7 @@ import {
   start,
   tree,
   waitForFile,
+  waitForLog,
   waitForRecordBytes,
 } from "./harness.ts";
 import {
@@ -245,3 +246,56 @@ describe("D17 finalisation freeze", () => {
     timeout,
   );
 });
+
+test(
+  "finishWork drains a record queued while the previous drain is finishing",
+  async () => {
+    const where = tree();
+    let firstWrite:
+      | {
+          readonly descriptor: number;
+          readonly bytes: Uint8Array;
+          readonly resolve: (count: number) => void;
+        }
+      | undefined;
+    let writes = 0;
+    const io: DiagnosticsIo = {
+      ...nodeIo,
+      write: (descriptor, bytes) => {
+        writes += 1;
+        if (writes === 1)
+          return new Promise<number>((resolve) => {
+            firstWrite = { descriptor, bytes, resolve };
+          });
+        return nodeIo.write(descriptor, bytes);
+      },
+    };
+    const attached = createDiagnostics(
+      { cli: "dxs", environment: { XDG_STATE_HOME: where.state } },
+      io,
+    ).attach({
+      runId: crypto.randomUUID(),
+      commandIdentity: "dxs.read",
+      summary: "Finish loop.",
+      signal: new AbortController().signal,
+    });
+    attached.capability.record("first", { index: 0 });
+    await waitForLog(where.dir);
+    while (firstWrite === undefined)
+      await new Promise((resolve) => setImmediate(resolve));
+    const written = await nodeIo.write(firstWrite.descriptor, firstWrite.bytes);
+    firstWrite.resolve(written);
+    await Promise.resolve();
+    await Promise.resolve();
+    attached.capability.record("second", { index: 1 });
+    const frozen = await attached.freeze(500);
+    expect(get(frozen, "sinkFailure")).toBeNull();
+    expect(get(frozen, "unflushedRecords")).toBe(0);
+    expect(get(frozen, "droppedRecords")).toBe(0);
+    expect(get(frozen, "closed")).toBe(true);
+    expect(
+      lines(onlyLog(where.dir).path).map((entry) => get(entry, "event")),
+    ).toEqual(["first", "second"]);
+  },
+  timeout,
+);

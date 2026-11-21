@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/diagnostics/custody.ts b/kernel/src/addons/diagnostics/custody.ts
+index bbaf28c2..3db3fc2d 100644
+--- a/kernel/src/addons/diagnostics/custody.ts
++++ b/kernel/src/addons/diagnostics/custody.ts
+@@ -206,7 +206,7 @@ function ownerProvenGone(lock: Stats, entries: readonly string[]): boolean {
+   if (!match) return false;
+   const pid = Number(match[1]);
+   if (match[2] !== host)
+-    return Date.now() - lock.mtimeMs > limits.foreignLockStaleMilliseconds;
++    return true;
+   return pid !== process.pid && !alive(pid);
+ }
+ 

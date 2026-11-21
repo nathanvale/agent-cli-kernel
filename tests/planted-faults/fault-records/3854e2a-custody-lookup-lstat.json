@@ -1,0 +1,7 @@
+{
+  "id": "3854e2a-custody-lookup-lstat",
+  "patch": "tests/planted-faults/patches/3854e2a-custody-lookup-lstat.patch",
+  "testFile": "tests/kernel/diagnostics/custody.test.ts",
+  "title": "D03\\.symlink-directory: a symlinked diagnostics directory is never followed$",
+  "source": "3854e2a feat(contract3): bounded private diagnostics add-on with custody and limit cases"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "1d03d99-records-size-cut",
+  "patch": "tests/planted-faults/patches/1d03d99-records-size-cut.patch",
+  "testFile": "tests/kernel/diagnostics/limits.test.ts",
+  "title": "D05\\.record-over-64000-truncated: an oversize record is kept truncated, visibly, and counted$",
+  "source": "1d03d99 fix(contract3): diagnostics repair round 1 in the add-on"
+}

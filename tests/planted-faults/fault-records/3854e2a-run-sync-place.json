@@ -1,0 +1,7 @@
+{
+  "id": "3854e2a-run-sync-place",
+  "patch": "tests/planted-faults/patches/3854e2a-run-sync-place.patch",
+  "testFile": "tests/kernel/diagnostics/custody.test.ts",
+  "title": "^unusable diagnostics folder drops first-turn records and leaves none unflushed$",
+  "source": "3854e2a feat(contract3): bounded private diagnostics add-on with custody and limit cases"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "30c8251-records-conceal-scalar",
+  "patch": "tests/planted-faults/patches/30c8251-records-conceal-scalar.patch",
+  "testFile": "tests/kernel/diagnostics/repair.test.ts",
+  "title": "R2\\.non-string-secrets-concealed: a secret recorded as a number, nested or as a numeric string never appears$",
+  "source": "30c8251 fix(contract3): diagnostics repair round 2 in the add-on"
+}

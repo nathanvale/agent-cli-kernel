@@ -1,0 +1,7 @@
+{
+  "id": "1d03d99-custody-foreign-lock-age",
+  "patch": "tests/planted-faults/patches/1d03d99-custody-foreign-lock-age.patch",
+  "testFile": "tests/kernel/diagnostics/repair.test.ts",
+  "title": "R2\\.foreign-lock-boundary-held: a foreign-host lock 59 s old is still treated as held$",
+  "source": "1d03d99 fix(contract3): diagnostics repair round 1 in the add-on"
+}

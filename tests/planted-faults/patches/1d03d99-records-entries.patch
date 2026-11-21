@@ -1,0 +1,22 @@
+diff --git a/kernel/src/addons/diagnostics/records.ts b/kernel/src/addons/diagnostics/records.ts
+index 2340d9bb..c8991ad6 100644
+--- a/kernel/src/addons/diagnostics/records.ts
++++ b/kernel/src/addons/diagnostics/records.ts
+@@ -85,7 +85,7 @@ function boundedObject(
+     return lost(cut, markers.unserialisable);
+   const result: Record<string, unknown> = {};
+   const keys = Object.keys(value);
+-  for (const key of keys.slice(0, limits.entries))
++  for (const key of keys)
+     result[conceal(key, secretForms)] = bounded(
+       Reflect.get(value, key),
+       secretForms,
+@@ -93,7 +93,7 @@ function boundedObject(
+       cut,
+       seen,
+     );
+-  if (keys.length > limits.entries)
++  if (false)
+     result["[truncated]"] = lost(
+       cut,
+       `${keys.length - limits.entries} more keys`,

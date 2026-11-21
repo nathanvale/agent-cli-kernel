@@ -1,0 +1,28 @@
+diff --git a/kernel/src/addons/diagnostics/custody.ts b/kernel/src/addons/diagnostics/custody.ts
+index bbaf28c2..d0da92be 100644
+--- a/kernel/src/addons/diagnostics/custody.ts
++++ b/kernel/src/addons/diagnostics/custody.ts
+@@ -354,7 +354,7 @@ function prune(directory: string, now: number): boolean {
+     bytes + limits.runBytes <= limits.aggregateBytes &&
+     files + 1 <= limits.files;
+   const closed = entries
+-    .filter((entry) => entry.marker !== undefined)
++    .filter((entry) => entry.info.isFile())
+     .sort((a, b) => a.info.mtimeMs - b.info.mtimeMs);
+   for (const entry of closed) {
+     const old = now - entry.info.mtimeMs > limits.pruneAgeMilliseconds;
+@@ -364,12 +364,11 @@ function prune(directory: string, now: number): boolean {
+       !current ||
+       current.dev !== entry.info.dev ||
+       current.ino !== entry.info.ino ||
+-      current.size !== entry.info.size ||
+-      entry.marker === undefined
++      current.size !== entry.info.size
+     )
+       continue;
+     unlinkSync(entry.path);
+-    rmdirSync(entry.marker);
++    if (entry.marker !== undefined) rmdirSync(entry.marker);
+     bytes -= entry.charge;
+     files -= 1;
+   }

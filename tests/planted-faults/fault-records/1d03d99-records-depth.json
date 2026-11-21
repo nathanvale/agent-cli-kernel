@@ -1,0 +1,7 @@
+{
+  "id": "1d03d99-records-depth",
+  "patch": "tests/planted-faults/patches/1d03d99-records-depth.patch",
+  "testFile": "tests/kernel/diagnostics/limits.test.ts",
+  "title": "D05\\.over-depth-payload-marker: over-depth facts carry a visible marker$",
+  "source": "1d03d99 fix(contract3): diagnostics repair round 1 in the add-on"
+}

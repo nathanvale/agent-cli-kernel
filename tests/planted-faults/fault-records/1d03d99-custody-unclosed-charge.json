@@ -1,0 +1,7 @@
+{
+  "id": "1d03d99-custody-unclosed-charge",
+  "patch": "tests/planted-faults/patches/1d03d99-custody-unclosed-charge.patch",
+  "testFile": "tests/kernel/diagnostics/limits.test.ts",
+  "title": "D06\\.no-safe-capacity: with no prunable room diagnostics stop and disclose; the result is unchanged$",
+  "source": "1d03d99 fix(contract3): diagnostics repair round 1 in the add-on"
+}
