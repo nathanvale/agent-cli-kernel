@@ -1,0 +1,19 @@
+diff --git a/kernel/src/addons/menu/index.ts b/kernel/src/addons/menu/index.ts
+--- a/kernel/src/addons/menu/index.ts
++++ b/kernel/src/addons/menu/index.ts
+@@ -195,6 +195,7 @@ function attachMenu(run: RunControl): AttachedAddon<MenuCapability> {
+     const terminal = terminalForShow();
+     const session = { state: createMenuState(checked.lines, checked.rows) };
+     const showController = new AbortController();
++    const timer = setTimeout(() => showController.abort(), 60_000);
+     const onRunAbort = () => {
+       showController.abort();
+     };
+@@ -223,6 +224,7 @@ function attachMenu(run: RunControl): AttachedAddon<MenuCapability> {
+       redraw();
+       return await readLoop(terminal, session, showController.signal, redraw);
+     } finally {
++      clearTimeout(timer);
+       run.signal.removeEventListener("abort", onRunAbort);
+       showController.abort();
+       restore();

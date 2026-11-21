@@ -1,0 +1,7 @@
+{
+  "id": "385c984-menu-abort-deadline",
+  "patch": "tests/planted-faults/patches/385c984-menu-abort-deadline.patch",
+  "testFile": "tests/kernel/menu/menu.test.ts",
+  "title": "restores the terminal and returns DOMAIN_DEADLINE_UNCHANGED on --deadline-ms",
+  "source": "385c984 feat(kernel): add the menu add-on and the not-interactive refusal"
+}

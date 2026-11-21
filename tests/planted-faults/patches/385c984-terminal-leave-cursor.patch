@@ -1,0 +1,15 @@
+diff --git a/kernel/src/kernel/process-host.ts b/kernel/src/kernel/process-host.ts
+--- a/kernel/src/kernel/process-host.ts
++++ b/kernel/src/kernel/process-host.ts
+@@ -52,11 +52,6 @@ export function ttyTerminalFor(io: TtyTerminalIo): TerminalAdapter {
+     } catch {
+       // Platform: Terminal restoration ignores a closed or revoked controlling tty.
+     }
+-    try {
+-      if (wasEntered) io.write(encoder.encode("\x1b[?25h"));
+-    } catch {
+-      // Platform: Cursor restoration ignores a closed or revoked controlling tty.
+-    }
+     try {
+       // Platform: Reusing one paused, unref'd ReadStream across menus avoids
+       // Bun 1.4.4's closeSync deadlock after destroy() and second-ReadStream

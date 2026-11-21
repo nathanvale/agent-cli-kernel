@@ -1,0 +1,14 @@
+diff --git a/kernel/src/kernel/declaration-checks.ts b/kernel/src/kernel/declaration-checks.ts
+--- a/kernel/src/kernel/declaration-checks.ts
++++ b/kernel/src/kernel/declaration-checks.ts
+@@ -220,10 +220,6 @@ function refuseRawWhereConstructorNeeded(command: CommandDeclaration): void {
+     throw new Error(
+       "A command that runs programs and supports a deadline must be built with command().",
+     );
+-  if (command.capabilities.menu === true)
+-    throw new Error(
+-      "A command that declares menu must be built with command() or changing().",
+-    );
+ }
+ function validateStepVectors(
+   cli: string,

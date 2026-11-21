@@ -1,0 +1,7 @@
+{
+  "id": "385c984-terminal-cancel-queued-keys",
+  "patch": "tests/planted-faults/patches/385c984-terminal-cancel-queued-keys.patch",
+  "testFile": "tests/kernel/menu/terminal.test.ts",
+  "title": "does not deliver queued keys after abort or iterator cancel",
+  "source": "385c984 feat(kernel): add the menu add-on and the not-interactive refusal"
+}

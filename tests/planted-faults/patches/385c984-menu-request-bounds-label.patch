@@ -1,0 +1,14 @@
+diff --git a/kernel/src/addons/menu/index.ts b/kernel/src/addons/menu/index.ts
+--- a/kernel/src/addons/menu/index.ts
++++ b/kernel/src/addons/menu/index.ts
+@@ -60,10 +60,6 @@ function readRow<Value>(entry: MenuRow<Value> | undefined): MenuRow<Value> {
+     : undefined;
+   if (typeof label !== "string")
+     throw new Error("Each menu row must carry a string label and a value.");
+-  if (label.length > maxLabelLength)
+-    throw new Error(
+-      `A menu row label is at most ${String(maxLabelLength)} characters.`,
+-    );
+   return Object.freeze({ label, value: entry.value });
+ }
+ 

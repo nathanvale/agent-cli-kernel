@@ -1,0 +1,7 @@
+{
+  "id": "385c984-terminal-leave-raw-mode",
+  "patch": "tests/planted-faults/patches/385c984-terminal-leave-raw-mode.patch",
+  "testFile": "tests/kernel/menu/terminal.test.ts",
+  "title": "restores raw mode, cursor, and stream ref state on leave, and is safe to call twice",
+  "source": "385c984 feat(kernel): add the menu add-on and the not-interactive refusal"
+}

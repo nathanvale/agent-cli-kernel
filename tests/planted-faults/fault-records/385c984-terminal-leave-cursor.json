@@ -1,0 +1,7 @@
+{
+  "id": "385c984-terminal-leave-cursor",
+  "patch": "tests/planted-faults/patches/385c984-terminal-leave-cursor.patch",
+  "testFile": "tests/kernel/menu/terminal.test.ts",
+  "title": "pick and Esc cancel work in a real PTY and restore canonical mode and echo",
+  "source": "385c984 feat(kernel): add the menu add-on and the not-interactive refusal"
+}

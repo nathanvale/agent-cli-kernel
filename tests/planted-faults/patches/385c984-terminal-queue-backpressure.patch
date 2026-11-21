@@ -1,0 +1,29 @@
+diff --git a/kernel/src/kernel/process-host.ts b/kernel/src/kernel/process-host.ts
+--- a/kernel/src/kernel/process-host.ts
++++ b/kernel/src/kernel/process-host.ts
+@@ -121,25 +121,8 @@ export function ttyTerminalFor(io: TtyTerminalIo): TerminalAdapter {
+               waiter({ done: false, value: bytes });
+               return;
+             }
+-            if (
+-              queued.length >= maxQueuedChunks ||
+-              queuedBytes + bytes.byteLength > maxQueuedBytes
+-            ) {
+-              if (!backpressured) {
+-                backpressured = true;
+-                stream.pause();
+-              }
+-              return;
+-            }
+             queued.push(bytes);
+             queuedBytes += bytes.byteLength;
+-            if (
+-              queued.length >= maxQueuedChunks ||
+-              queuedBytes >= maxQueuedBytes
+-            ) {
+-              backpressured = true;
+-              stream.pause();
+-            }
+           };
+ 
+           if (!closed) {

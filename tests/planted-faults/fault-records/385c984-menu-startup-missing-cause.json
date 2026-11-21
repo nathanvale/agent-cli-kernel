@@ -1,0 +1,7 @@
+{
+  "id": "385c984-menu-startup-missing-cause",
+  "patch": "tests/planted-faults/patches/385c984-menu-startup-missing-cause.patch",
+  "testFile": "tests/kernel/menu/startup.test.ts",
+  "title": "refuses a command declaring menu without notInteractiveCause",
+  "source": "385c984 feat(kernel): add the menu add-on and the not-interactive refusal"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "385c984-menu-startup-without-menu",
+  "patch": "tests/planted-faults/patches/385c984-menu-startup-without-menu.patch",
+  "testFile": "tests/kernel/menu/startup.test.ts",
+  "title": "refuses notInteractiveCause without capabilities.menu and refuses menu without installedAddons",
+  "source": "385c984 feat(kernel): add the menu add-on and the not-interactive refusal"
+}
