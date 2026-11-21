@@ -1,13 +1,14 @@
 diff --git a/kernel/src/addons/menu/index.ts b/kernel/src/addons/menu/index.ts
 --- a/kernel/src/addons/menu/index.ts
 +++ b/kernel/src/addons/menu/index.ts
-@@ -173,9 +173,7 @@ function attachMenu(run: RunControl): AttachedAddon<MenuCapability> {
-       const applied = applyKeyChunk(session.state, chunk, run.signal);
-       session.state = applied.state;
-       if (applied.result !== undefined) {
--        if (applied.result.kind === "interrupt")
--          return await interruptMenu(restore, run.signal);
-+        if (applied.result.kind === "interrupt") return { kind: "cancelled" };
-         return applied.result;
-       }
-       if (run.signal.aborted) break;
+@@ -192,10 +192,9 @@ function attachMenu(run: RunControl): AttachedAddon<MenuCapability> {
+   async function resolveStep<Value>(
+     result: MenuStepResult<Value>,
+   ): Promise<MenuResult<Value>> {
+-    if (result.kind === "interrupt")
+-      return await interruptMenu(restore, run.signal);
++    if (result.kind === "interrupt") return { kind: "cancelled" };
+     return result;
+   }
+ 
+   async function readLoop<Value>(

@@ -1,29 +1,22 @@
 diff --git a/kernel/src/kernel/process-host.ts b/kernel/src/kernel/process-host.ts
 --- a/kernel/src/kernel/process-host.ts
 +++ b/kernel/src/kernel/process-host.ts
-@@ -121,25 +121,8 @@ export function ttyTerminalFor(io: TtyTerminalIo): TerminalAdapter {
-               waiter({ done: false, value: bytes });
-               return;
-             }
--            if (
--              queued.length >= maxQueuedChunks ||
--              queuedBytes + bytes.byteLength > maxQueuedBytes
--            ) {
--              if (!backpressured) {
--                backpressured = true;
--                stream.pause();
--              }
--              return;
--            }
-             queued.push(bytes);
-             queuedBytes += bytes.byteLength;
--            if (
--              queued.length >= maxQueuedChunks ||
--              queuedBytes >= maxQueuedBytes
--            ) {
--              backpressured = true;
--              stream.pause();
--            }
+@@ -123,16 +123,8 @@ export function ttyTerminalFor(io: TtyTerminalIo): TerminalAdapter {
            };
  
-           if (!closed) {
+           const enqueue = (bytes: Uint8Array) => {
+-            const available = maxQueuedBytes - queuedBytes;
+-            if (queued.length < maxQueuedChunks && available > 0) {
+-              const accepted =
+-                bytes.byteLength <= available
+-                  ? bytes
+-                  : bytes.subarray(0, available);
+-              queued.push(accepted);
+-              queuedBytes += accepted.byteLength;
+-            }
+-            pauseIfFull();
++            queued.push(bytes);
++            queuedBytes += bytes.byteLength;
+           };
+ 
+           const onData = (chunk: Buffer | string) => {

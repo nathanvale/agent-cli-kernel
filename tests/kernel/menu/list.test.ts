@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import type { MenuRow } from "../../../kernel/src/addons/menu/index.ts";
 import {
+  clipToWidth,
+  createKeyByteParser,
   createMenuState,
   parseKeyBytes,
   renderMenu,
@@ -162,5 +164,52 @@ describe("menu list pure state machine", () => {
     const scrolled = renderMenu(state, { columns: 12, rows: 5 });
     expect(scrolled).toHaveLength(5);
     expect(scrolled.some((line) => line.startsWith("> Item-06"))).toBe(true);
+  });
+
+  test("clamps NaN and non-finite dimensions instead of bypassing clipping", () => {
+    expect(clipToWidth("abcdef", Number.NaN)).toBe("a");
+    expect(clipToWidth("abcdef", Number.POSITIVE_INFINITY)).toBe("a");
+    expect(clipToWidth("abcdef", Number.NEGATIVE_INFINITY)).toBe("a");
+
+    const longLabel = "x".repeat(120);
+    const state = createMenuState(
+      ["h".repeat(120)],
+      [{ label: longLabel, value: 1 }],
+    );
+    const nanScreen = renderMenu(state, {
+      columns: Number.NaN,
+      rows: Number.NaN,
+    });
+    expect(nanScreen).toHaveLength(3);
+    for (const line of nanScreen)
+      expect([...line].length).toBeLessThanOrEqual(80);
+
+    const infScreen = renderMenu(state, {
+      columns: Number.POSITIVE_INFINITY,
+      rows: Number.POSITIVE_INFINITY,
+    });
+    expect(infScreen).toHaveLength(3);
+    for (const line of infScreen)
+      expect([...line].length).toBeLessThanOrEqual(80);
+  });
+
+  test("keeps escape sequence and UTF-8 parser state across split chunks", () => {
+    const parser = createKeyByteParser();
+    expect(parser.push(encode("\x1b"))).toEqual([]);
+    expect(parser.hasPendingEscape()).toBe(true);
+    expect(parser.push(encode("[B"))).toEqual([{ kind: "down" }]);
+    expect(parser.hasPendingEscape()).toBe(false);
+    expect(parser.push(encode("\x1b"))).toEqual([]);
+    expect(parser.push(encode("O"))).toEqual([]);
+    expect(parser.hasPendingEscape()).toBe(false);
+    expect(parser.push(encode("A"))).toEqual([{ kind: "up" }]);
+    expect(parser.push(encode("\x1b[1;"))).toEqual([]);
+    expect(parser.push(encode("5A"))).toEqual([]);
+    expect(parser.push(new Uint8Array([0xe7, 0x95]))).toEqual([]);
+    expect(parser.push(new Uint8Array([0x8c]))).toEqual([
+      { kind: "text", value: "\u754c" },
+    ]);
+    expect(parser.push(encode("\x1b"))).toEqual([]);
+    expect(parser.flush()).toEqual([{ kind: "cancel" }]);
   });
 });

@@ -1,4 +1,5 @@
 import { describe, expect, jest, test } from "bun:test";
+import { EventEmitter } from "node:events";
 import {
   command,
   contractFor,
@@ -6,6 +7,8 @@ import {
   scriptedTerminal,
 } from "../../../kernel/src/kernel/index.ts";
 import type { TerminalAdapter } from "../../../kernel/src/kernel/index.ts";
+import { ttyTerminalFor } from "../../../kernel/src/kernel/process-host.ts";
+import type { TtyStream } from "../../../kernel/src/kernel/process-host.ts";
 import { menuAddon } from "../../../kernel/src/addons/menu/index.ts";
 import { emptyInput, unchanged } from "../kernel-repair/shapes.ts";
 import {
@@ -332,6 +335,43 @@ describe("menu in-process behaviour with scriptedTerminal", () => {
     });
     expect(showRejected).toBe(true);
     expect(waiting.events).toEqual(["enter", "leave"]);
+
+    let directSignal: AbortSignal | undefined;
+    const directWaiting = waitingTerminal();
+    const directAdapter: TerminalAdapter = {
+      ...directWaiting.adapter,
+      keys(signal) {
+        directSignal = signal;
+        return directWaiting.adapter.keys(signal);
+      },
+    };
+    const directController = new AbortController();
+    const directAttached = menuAddon().attach({
+      runId: "r-run-abort",
+      commandIdentity: "doorway.menu",
+      summary: "Show a menu.",
+      signal: directController.signal,
+      terminal: directAdapter,
+    });
+    const directShow = directAttached.capability.show({
+      lines: ["Open what?"],
+      rows: [{ label: "alpha", value: "a" }],
+    });
+    try {
+      await directWaiting.opened;
+      directController.abort();
+      expect(directSignal?.aborted).toBe(true);
+      let abortError = "";
+      try {
+        await directShow;
+      } catch (error) {
+        abortError = error instanceof Error ? error.message : String(error);
+      }
+      expect(abortError).toBe("The menu was aborted.");
+      expect(directWaiting.events).toEqual(["enter", "leave"]);
+    } finally {
+      await directAttached.settle();
+    }
   });
 
   test("does not attach listeners to process.stdin", async () => {
@@ -358,19 +398,32 @@ describe("menu in-process behaviour with scriptedTerminal", () => {
       lines: ["Open what?"],
       rows: [{ label: "alpha", value: "a" }],
     });
-    await waiting.opened;
-    let reentrantError = "";
     try {
-      await attached.capability.show({
+      await waiting.opened;
+      const second = attached.capability.show({
         lines: ["Second?"],
         rows: [{ label: "beta", value: "b" }],
       });
-    } catch (error) {
-      reentrantError = error instanceof Error ? error.message : String(error);
+      const secondOutcome = await Promise.race([
+        second.then(
+          () => ({ kind: "resolved" as const }),
+          (error: unknown) => ({
+            kind: "rejected" as const,
+            message: error instanceof Error ? error.message : String(error),
+          }),
+        ),
+        Promise.resolve().then(() => ({ kind: "pending" as const })),
+      ]);
+      expect(secondOutcome).toEqual({
+        kind: "rejected",
+        message: "A menu is already open for this run.",
+      });
+      waiting.send("\r");
+      expect(await first).toEqual({ kind: "picked", value: "a", index: 0 });
+    } finally {
+      controller.abort();
+      await attached.settle();
     }
-    expect(reentrantError).toContain("already open");
-    waiting.send("\r");
-    expect(await first).toEqual({ kind: "picked", value: "a", index: 0 });
 
     controller.abort();
     const afterAbort = trackingTerminal(["\r"]);
@@ -474,5 +527,177 @@ describe("menu in-process behaviour with scriptedTerminal", () => {
     })(["menu"]);
     expect(failRun).toMatchObject({ kind: "envelope", exitCode: 1 });
     expect(failEvents).toEqual(["enter", "leave"]);
+  });
+
+  test("closes showController and detaches tty listeners on settle, killNow, and draw failure", async () => {
+    function openableTty(failAfterDraws?: number) {
+      class StubTtyStream extends EventEmitter implements TtyStream {
+        rawModes: boolean[] = [];
+        setRawMode(mode: boolean) {
+          this.rawModes.push(mode);
+        }
+        pause() {}
+        resume() {}
+        ref() {}
+        unref() {}
+      }
+      const stream = new StubTtyStream();
+      const base = ttyTerminalFor({
+        size: () => ({ columns: 80, rows: 24 }),
+        openStream: () => stream,
+        write: () => {},
+      });
+      const events: string[] = [];
+      let drawCount = 0;
+      let capturedSignal: AbortSignal | undefined;
+      let listeningResolve: (() => void) | undefined;
+      const listening = new Promise<void>((resolve) => {
+        listeningResolve = resolve;
+      });
+      const adapter: TerminalAdapter = {
+        size: () => base.size(),
+        enter() {
+          events.push("enter");
+          base.enter();
+        },
+        leave() {
+          events.push("leave");
+          base.leave();
+        },
+        draw(lines) {
+          drawCount += 1;
+          if (failAfterDraws !== undefined && drawCount >= failAfterDraws)
+            throw new Error("draw failed");
+          base.draw(lines);
+        },
+        keys(signal) {
+          capturedSignal = signal;
+          const iterable = base.keys(signal);
+          return {
+            [Symbol.asyncIterator]() {
+              const iterator = iterable[Symbol.asyncIterator]();
+              listeningResolve?.();
+              return iterator;
+            },
+          };
+        },
+      };
+      return {
+        adapter,
+        stream,
+        events,
+        listening,
+        signal: () => capturedSignal,
+      };
+    }
+
+    const settleTty = openableTty();
+    const settleAttached = menuAddon().attach({
+      runId: "r-settle-close",
+      commandIdentity: "doorway.menu",
+      summary: "Show a menu.",
+      signal: new AbortController().signal,
+      terminal: settleTty.adapter,
+    });
+    const settleShow = settleAttached.capability.show({
+      lines: ["Open what?"],
+      rows: [{ label: "alpha", value: "a" }],
+    });
+    await settleTty.listening;
+    expect(settleTty.stream.listenerCount("data")).toBe(1);
+    expect(settleTty.signal()?.aborted).toBe(false);
+    expect(await settleAttached.settle()).toBe(true);
+    expect(settleTty.signal()?.aborted).toBe(true);
+    expect(settleTty.stream.listenerCount("data")).toBe(0);
+    expect(settleTty.events).toEqual(["enter", "leave"]);
+    expect(await settleShow).toEqual({ kind: "cancelled" });
+
+    const killTty = openableTty();
+    const killAttached = menuAddon().attach({
+      runId: "r-kill-close",
+      commandIdentity: "doorway.menu",
+      summary: "Show a menu.",
+      signal: new AbortController().signal,
+      terminal: killTty.adapter,
+    });
+    const killShow = killAttached.capability.show({
+      lines: ["Open what?"],
+      rows: [{ label: "alpha", value: "a" }],
+    });
+    await killTty.listening;
+    expect(killTty.stream.listenerCount("data")).toBe(1);
+    expect(killTty.signal()?.aborted).toBe(false);
+    killAttached.killNow();
+    expect(killTty.signal()?.aborted).toBe(true);
+    expect(killTty.stream.listenerCount("data")).toBe(0);
+    expect(killTty.events).toEqual(["enter", "leave"]);
+    expect(await killShow).toEqual({ kind: "cancelled" });
+
+    const redrawFailTty = openableTty(2);
+    const redrawAttached = menuAddon().attach({
+      runId: "r-draw-fail",
+      commandIdentity: "doorway.menu",
+      summary: "Show a menu.",
+      signal: new AbortController().signal,
+      terminal: redrawFailTty.adapter,
+    });
+    const redrawShow = redrawAttached.capability.show({
+      lines: ["Open what?"],
+      rows: [{ label: "alpha", value: "a" }],
+    });
+    await redrawFailTty.listening;
+    redrawFailTty.stream.emit("data", "a");
+    let caught = "";
+    try {
+      await redrawShow;
+    } catch (error) {
+      caught = error instanceof Error ? error.message : String(error);
+    }
+    expect(caught).toBe("draw failed");
+    expect(redrawFailTty.signal()?.aborted).toBe(true);
+    expect(redrawFailTty.stream.listenerCount("data")).toBe(0);
+    expect(redrawFailTty.events).toEqual(["enter", "leave"]);
+  });
+
+  test("handles split arrow sequences and split UTF-8 bytes across chunks", async () => {
+    const splitArrow = trackingTerminal(["\x1b", "[B", "\r"]);
+    const arrowRan = await runInProcess(singlePickContract(), {
+      addons: { menu: menuAddon() },
+      terminal: splitArrow.adapter,
+    })(["menu"]);
+    expect(arrowRan).toMatchObject({
+      kind: "envelope",
+      exitCode: 0,
+      envelope: {
+        result: {
+          causeCode: "SUCCESS_UNCHANGED",
+          data: { value: "val-beta", index: 1 },
+        },
+      },
+    });
+
+    const splitUtf8 = trackingTerminal([
+      new Uint8Array([0xc3]),
+      new Uint8Array([0xa9]),
+      "\r",
+    ]);
+    const utf8Contract = singlePickContract(undefined, [
+      { label: "alpha", value: "val-alpha" },
+      { label: "caf\u00e9", value: "val-cafe" },
+    ]);
+    const utf8Ran = await runInProcess(utf8Contract, {
+      addons: { menu: menuAddon() },
+      terminal: splitUtf8.adapter,
+    })(["menu"]);
+    expect(utf8Ran).toMatchObject({
+      kind: "envelope",
+      exitCode: 0,
+      envelope: {
+        result: {
+          causeCode: "SUCCESS_UNCHANGED",
+          data: { value: "val-cafe", index: 1 },
+        },
+      },
+    });
   });
 });

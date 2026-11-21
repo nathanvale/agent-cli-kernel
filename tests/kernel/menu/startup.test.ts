@@ -399,4 +399,54 @@ describe("menu start-up checks", () => {
       },
     });
   });
+
+  test("refuses a retryable notInteractiveCause at start-up", () => {
+    const retryableCauses = {
+      ...allCauses,
+      DOMAIN_DOORWAY_RETRYABLE: {
+        outcome: "refused",
+        transactionState: "unchanged",
+        failureClass: "transient",
+        exitCode: 75,
+        retryable: true,
+        guidance: "next",
+      },
+    } as const;
+    const retryableStations = [
+      ...baseStations("doorway.menu"),
+      station(retryableCauses, {
+        ...stationWords,
+        commandIdentity: "doorway.menu",
+        causeCode: "DOMAIN_DOORWAY_RETRYABLE",
+        trigger: "A terminal is required to show the menu.",
+        repairAction: "Run in an interactive terminal.",
+        guidance: { next: { kind: "retry" } },
+        retryDelayPolicy: {
+          kind: "bounded",
+          minimumMilliseconds: 100,
+          maximumMilliseconds: 500,
+        },
+        independentObservable: "doorway.menu:retryable",
+      }),
+    ] as const;
+
+    expect(() =>
+      command({
+        identity: "doorway.menu",
+        route: ["menu"],
+        summary: "Show a menu.",
+        input: emptyInput,
+        capabilities: { menu: true },
+        notInteractiveCause: "DOMAIN_DOORWAY_RETRYABLE",
+        stations: retryableStations,
+        run: (_input, context) =>
+          context.result(
+            { commandIdentity: "doorway.menu", causeCode: "SUCCESS_UNCHANGED" },
+            { message: "Done.", data: null, effects: unchanged },
+          ),
+      }),
+    ).toThrow(
+      "doorway.menu's not-interactive station DOMAIN_DOORWAY_RETRYABLE cannot be retryable.",
+    );
+  });
 });

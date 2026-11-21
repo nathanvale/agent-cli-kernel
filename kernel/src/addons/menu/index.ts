@@ -8,13 +8,18 @@ import type {
   TerminalAdapter,
 } from "../../kernel/index.ts";
 import {
+  createKeyByteParser,
   createMenuState,
-  parseKeyBytes,
   renderMenu,
   stepMenu,
   waitForAbort,
 } from "./list.ts";
-import type { MenuState, MenuStepResult } from "./list.ts";
+import type {
+  KeyByteParser,
+  MenuKey,
+  MenuState,
+  MenuStepResult,
+} from "./list.ts";
 
 export type {
   MenuCapability,
@@ -25,6 +30,7 @@ export type {
 const maxLines = 3;
 const maxRows = 1000;
 const maxLabelLength = 200;
+const escapeFlushMilliseconds = 50;
 
 type CheckedMenuRequest<Value> = {
   readonly lines: readonly string[];
@@ -96,22 +102,79 @@ function checkedRequest<Value>(request: {
   return Object.freeze({ lines, rows });
 }
 
-function applyKeyChunk<Value>(
+function applyKeys<Value>(
   initial: MenuState<Value>,
-  chunk: Uint8Array,
+  keys: readonly MenuKey[],
   signal: AbortSignal,
 ): {
   readonly state: MenuState<Value>;
   readonly result?: MenuStepResult<Value>;
 } {
   let state = initial;
-  for (const key of parseKeyBytes(chunk)) {
+  for (const key of keys) {
     if (signal.aborted) break;
     const stepped = stepMenu(state, key);
     state = stepped.state;
     if (stepped.result !== undefined) return { state, result: stepped.result };
   }
   return { state };
+}
+
+type ReadEvent =
+  | { readonly kind: "chunk"; readonly next: IteratorResult<Uint8Array> }
+  | { readonly kind: "flush" };
+
+async function nextWithEscapeFlush(
+  pending: Promise<IteratorResult<Uint8Array>>,
+  armEscapeTimer: boolean,
+): Promise<ReadEvent> {
+  const chunkEvent = pending.then(
+    (next): ReadEvent => ({ kind: "chunk", next }),
+  );
+  if (!armEscapeTimer) return await chunkEvent;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const flushEvent = new Promise<ReadEvent>((resolve) => {
+    timer = setTimeout(
+      () => resolve({ kind: "flush" }),
+      escapeFlushMilliseconds,
+    );
+  });
+  try {
+    return await Promise.race([chunkEvent, flushEvent]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function* keyBatches(
+  terminal: TerminalAdapter,
+  signal: AbortSignal,
+  parser: KeyByteParser,
+): AsyncIterable<{
+  readonly keys: readonly MenuKey[];
+  readonly redraw: boolean;
+}> {
+  const iterator = terminal.keys(signal)[Symbol.asyncIterator]();
+  let pending: Promise<IteratorResult<Uint8Array>> | undefined;
+  try {
+    for (;;) {
+      pending ??= iterator.next();
+      const event = await nextWithEscapeFlush(
+        pending,
+        parser.hasPendingEscape(),
+      );
+      if (event.kind === "flush") {
+        yield { keys: parser.flush(), redraw: false };
+        continue;
+      }
+      pending = undefined;
+      if (event.next.done) return;
+      const keys = parser.push(event.next.value);
+      yield { keys, redraw: keys.length > 0 };
+    }
+  } finally {
+    await iterator.return?.();
+  }
 }
 
 async function interruptMenu(
@@ -128,6 +191,13 @@ function attachMenu(run: RunControl): AttachedAddon<MenuCapability> {
   let active = false;
   let drew = false;
   let resizeListener: (() => void) | undefined;
+  let activeShowController: AbortController | undefined;
+
+  function abortActiveShow(): void {
+    const controller = activeShowController;
+    activeShowController = undefined;
+    controller?.abort();
+  }
 
   function restore(): void {
     if (!active) return;
@@ -163,25 +233,42 @@ function attachMenu(run: RunControl): AttachedAddon<MenuCapability> {
     return terminal;
   }
 
+  async function resolveStep<Value>(
+    result: MenuStepResult<Value>,
+  ): Promise<MenuResult<Value>> {
+    if (result.kind === "interrupt")
+      return await interruptMenu(restore, run.signal);
+    return result;
+  }
+
+  async function consumeKeys<Value>(
+    session: { state: MenuState<Value> },
+    keys: readonly MenuKey[],
+  ): Promise<MenuResult<Value> | undefined> {
+    const applied = applyKeys(session.state, keys, run.signal);
+    session.state = applied.state;
+    return applied.result === undefined
+      ? undefined
+      : await resolveStep(applied.result);
+  }
+
   async function readLoop<Value>(
     terminal: TerminalAdapter,
     session: { state: MenuState<Value> },
     signal: AbortSignal,
     redraw: () => void,
   ): Promise<MenuResult<Value>> {
-    for await (const chunk of terminal.keys(signal)) {
-      const applied = applyKeyChunk(session.state, chunk, run.signal);
-      session.state = applied.state;
-      if (applied.result !== undefined) {
-        if (applied.result.kind === "interrupt")
-          return await interruptMenu(restore, run.signal);
-        return applied.result;
-      }
+    const parser = createKeyByteParser();
+    for await (const batch of keyBatches(terminal, signal, parser)) {
+      const finished = await consumeKeys(session, batch.keys);
+      if (finished !== undefined) return finished;
       if (run.signal.aborted) break;
-      redraw();
+      if (batch.redraw) redraw();
     }
     if (run.signal.aborted) throw new Error("The menu was aborted.");
-    return { kind: "cancelled" };
+    return (
+      (await consumeKeys(session, parser.flush())) ?? { kind: "cancelled" }
+    );
   }
 
   // Accepted decision (Nathan, 21 November 2026, 11:42; MAG-138 decision 21):
@@ -195,6 +282,7 @@ function attachMenu(run: RunControl): AttachedAddon<MenuCapability> {
     const terminal = terminalForShow();
     const session = { state: createMenuState(checked.lines, checked.rows) };
     const showController = new AbortController();
+    activeShowController = showController;
     const onRunAbort = () => {
       showController.abort();
     };
@@ -224,6 +312,8 @@ function attachMenu(run: RunControl): AttachedAddon<MenuCapability> {
       return await readLoop(terminal, session, showController.signal, redraw);
     } finally {
       run.signal.removeEventListener("abort", onRunAbort);
+      if (activeShowController === showController)
+        activeShowController = undefined;
       showController.abort();
       restore();
     }
@@ -234,10 +324,12 @@ function attachMenu(run: RunControl): AttachedAddon<MenuCapability> {
   return {
     capability,
     settle() {
+      abortActiveShow();
       restore();
       return Promise.resolve(true);
     },
     killNow() {
+      abortActiveShow();
       restore();
     },
   };

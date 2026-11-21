@@ -1,3 +1,4 @@
+import { renameSync, writeFileSync } from "node:fs";
 import {
   command,
   commonCauses,
@@ -233,6 +234,13 @@ const contract = contractFor({
   causes,
   installedAddons: ["menu"],
 });
+
+const pidFile = process.env.MENU_CLI_PID_FILE;
+if (pidFile) {
+  const tmpFile = `${pidFile}.${String(process.pid)}.tmp`;
+  writeFileSync(tmpFile, String(process.pid), "utf8");
+  renameSync(tmpFile, pidFile);
+}
 
 await runProcess(contract, { addons: { menu: menuAddon() } })(
   process.argv.slice(2),

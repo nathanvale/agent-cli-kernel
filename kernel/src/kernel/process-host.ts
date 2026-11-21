@@ -110,29 +110,8 @@ export function ttyTerminalFor(io: TtyTerminalIo): TerminalAdapter {
             }
           };
 
-          const onData = (chunk: Buffer | string) => {
-            if (closed) return;
-            const bytes =
-              typeof chunk === "string"
-                ? encoder.encode(chunk)
-                : new Uint8Array(chunk);
-            const waiter = waiters.shift();
-            if (waiter) {
-              waiter({ done: false, value: bytes });
-              return;
-            }
-            if (
-              queued.length >= maxQueuedChunks ||
-              queuedBytes + bytes.byteLength > maxQueuedBytes
-            ) {
-              if (!backpressured) {
-                backpressured = true;
-                stream.pause();
-              }
-              return;
-            }
-            queued.push(bytes);
-            queuedBytes += bytes.byteLength;
+          const pauseIfFull = () => {
+            if (backpressured) return;
             if (
               queued.length >= maxQueuedChunks ||
               queuedBytes >= maxQueuedBytes
@@ -140,6 +119,34 @@ export function ttyTerminalFor(io: TtyTerminalIo): TerminalAdapter {
               backpressured = true;
               stream.pause();
             }
+          };
+
+          const enqueue = (bytes: Uint8Array) => {
+            const available = maxQueuedBytes - queuedBytes;
+            if (queued.length < maxQueuedChunks && available > 0) {
+              const accepted =
+                bytes.byteLength <= available
+                  ? bytes
+                  : bytes.subarray(0, available);
+              queued.push(accepted);
+              queuedBytes += accepted.byteLength;
+            }
+            pauseIfFull();
+          };
+
+          const onData = (chunk: Buffer | string) => {
+            if (closed) return;
+            const bytes =
+              typeof chunk === "string"
+                ? encoder.encode(chunk)
+                : new Uint8Array(chunk);
+            if (bytes.byteLength === 0) return;
+            const waiter = waiters.shift();
+            if (waiter) {
+              waiter({ done: false, value: bytes });
+              return;
+            }
+            enqueue(bytes);
           };
 
           if (!closed) {

@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { ttyTerminalFor } from "../../../kernel/src/kernel/process-host.ts";
 import type { TtyStream } from "../../../kernel/src/kernel/process-host.ts";
 import { ownedFolders } from "../../support/fixture-files.ts";
+import { signalGroupIfPresent } from "../../support/signal.ts";
 import {
   processWatchdog,
   spawnBounded,
@@ -13,6 +14,91 @@ import { normalizeRunId } from "./menu-helpers.ts";
 
 const menuCli = join(import.meta.dir, "fixtures/menu-cli.ts");
 const folder = ownedFolders();
+const ptyBoundMilliseconds = 30_000;
+const killedExitBound = 3_000;
+const groupGoneCodes = new Set<unknown>(["ESRCH", "EPERM"]);
+
+function groupAlive(group: number): boolean {
+  try {
+    process.kill(-group, 0);
+    return true;
+  } catch (error) {
+    if (groupGoneCodes.has(Reflect.get(Object(error), "code"))) return false;
+    throw error;
+  }
+}
+
+async function settledWithin<T>(
+  work: Promise<T>,
+  milliseconds: number,
+): Promise<T | "expired"> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expired = new Promise<"expired">((resolve) => {
+    timer = setTimeout(() => resolve("expired"), milliseconds);
+  });
+  try {
+    return await Promise.race([work, expired]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function waitGroupGone(group: number, milliseconds: number): Promise<boolean> {
+  if (!groupAlive(group)) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const finish = (gone: boolean) => {
+      clearInterval(poll);
+      clearTimeout(timer);
+      resolve(gone);
+    };
+    const poll = setInterval(() => {
+      if (!groupAlive(group)) finish(true);
+    }, 5);
+    const timer = setTimeout(() => finish(!groupAlive(group)), milliseconds);
+  });
+}
+
+async function stopPtyGroup(
+  child: Bun.Subprocess,
+  label: string,
+): Promise<void> {
+  signalGroupIfPresent(child.pid, "SIGKILL");
+  if (child.exitCode === null && child.signalCode === null)
+    child.kill("SIGKILL");
+  const exited = await settledWithin(child.exited, killedExitBound);
+  const gone = await waitGroupGone(child.pid, killedExitBound);
+  if (exited === "expired" || !gone)
+    throw new Error(
+      `PTY process group ${String(child.pid)} (${label}) did not exit within ${String(killedExitBound)} ms of SIGKILL.`,
+    );
+}
+
+function readPidFile(pidFile: string): number {
+  const pid = Number(readFileSync(pidFile, "utf8").trim());
+  if (!Number.isSafeInteger(pid) || pid <= 0)
+    throw new Error(`Invalid CLI pid in ${pidFile}: ${String(pid)}.`);
+  return pid;
+}
+
+async function settleFour<A, B, C, D>(
+  runs: readonly [Promise<A>, Promise<B>, Promise<C>, Promise<D>],
+): Promise<readonly [A, B, C, D]> {
+  const [a, b, c, d] = await Promise.allSettled(runs);
+  if (a.status === "rejected") throw a.reason;
+  if (b.status === "rejected") throw b.reason;
+  if (c.status === "rejected") throw c.reason;
+  if (d.status === "rejected") throw d.reason;
+  return [a.value, b.value, c.value, d.value];
+}
+
+function pidAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function canonicalAndEchoRestored(sttyOutput: string): {
   readonly canonical: boolean;
@@ -30,47 +116,73 @@ function canonicalAndEchoRestored(sttyOutput: string): {
 
 async function runPtyScenario(options: {
   readonly argv: readonly string[];
+  readonly env?: Readonly<Record<string, string | undefined>>;
   readonly onOutput?: (
     allOutput: string,
     terminal: NonNullable<Bun.Subprocess["terminal"]>,
   ) => void;
   readonly boundMilliseconds?: number;
 }): Promise<{ readonly exitCode: number; readonly output: string }> {
-  const bound = options.boundMilliseconds ?? 15_000;
+  const bound = options.boundMilliseconds ?? ptyBoundMilliseconds;
+  const label = options.argv.join(" ");
   const chunks: Uint8Array[] = [];
   const decoder = new TextDecoder();
   let combined = "";
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const child = Bun.spawn([...options.argv], {
+  let callbackError: unknown;
+  let markFailed: (() => void) | undefined;
+  const failed = new Promise<"failed">((resolve) => {
+    markFailed = () => resolve("failed");
+  });
+  const spawnOptions = {
+    ...(options.env === undefined ? {} : { env: { ...options.env } }),
     terminal: {
       cols: 80,
       rows: 24,
-      data(terminal, data) {
+      data(
+        terminal: NonNullable<Bun.Subprocess["terminal"]>,
+        data: Uint8Array,
+      ) {
         const copy = new Uint8Array(data);
         chunks.push(copy);
         combined += decoder.decode(copy, { stream: true });
-        options.onOutput?.(combined, terminal);
+        if (callbackError !== undefined) return;
+        try {
+          options.onOutput?.(combined, terminal);
+        } catch (error) {
+          callbackError = error;
+          markFailed?.();
+        }
       },
     },
-  });
-  const expired = new Promise<"expired">((resolve) => {
-    timer = setTimeout(() => resolve("expired"), bound);
-  });
+  };
+  const child = Bun.spawn([...options.argv], spawnOptions);
   try {
-    const outcome = await Promise.race([child.exited, expired]);
+    const outcome = await settledWithin(
+      Promise.race([child.exited, failed]),
+      bound,
+    );
+    if (outcome === "failed") {
+      await stopPtyGroup(child, label);
+      throw callbackError;
+    }
     if (outcome === "expired") {
-      child.kill("SIGKILL");
-      await child.exited;
+      await stopPtyGroup(child, label);
       throw new Error(
-        `PTY child ${options.argv.join(" ")} did not exit within ${String(bound)} ms.`,
+        `PTY child ${label} did not exit within ${String(bound)} ms.`,
       );
     }
+    const gone = await waitGroupGone(child.pid, killedExitBound);
+    if (!gone) await stopPtyGroup(child, label);
     return {
       exitCode: outcome,
       output: new TextDecoder().decode(Buffer.concat(chunks)),
     };
   } finally {
-    clearTimeout(timer);
+    if (
+      (child.exitCode === null && child.signalCode === null) ||
+      groupAlive(child.pid)
+    )
+      await stopPtyGroup(child, label);
     child.terminal?.close();
   }
 }
@@ -176,6 +288,40 @@ describe("process-host tty terminal input bounds and cancellation", () => {
     const pending = iterator.next();
     controller.abort();
     expect(await pending).toEqual({ done: true, value: undefined });
+  });
+
+  test("accepts and resumes after a single chunk larger than the byte cap on an empty queue", async () => {
+    const tty = fakeTty();
+    const controller = new AbortController();
+    const iterable = tty.terminal.keys(controller.signal);
+    const iterator = iterable[Symbol.asyncIterator]();
+    expect(tty.stats().resumes).toBe(1);
+
+    tty.emit(Buffer.alloc(70_000, 0x61));
+    expect(tty.stats().pauses).toBe(1);
+
+    const firstOutcome = await Promise.race([
+      iterator.next(),
+      Promise.resolve().then(() => "stalled" as const),
+    ]);
+    expect(firstOutcome).not.toBe("stalled");
+    if (firstOutcome === "stalled") return;
+    expect(firstOutcome.done).toBe(false);
+    if (!firstOutcome.done) expect(firstOutcome.value.byteLength).toBe(65_536);
+    expect(tty.stats().resumes).toBe(2);
+
+    tty.emit("ok");
+    const secondOutcome = await Promise.race([
+      iterator.next(),
+      Promise.resolve().then(() => "stalled" as const),
+    ]);
+    expect(secondOutcome).not.toBe("stalled");
+    if (secondOutcome === "stalled") return;
+    expect(secondOutcome.done).toBe(false);
+    if (!secondOutcome.done)
+      expect(new TextDecoder().decode(secondOutcome.value)).toBe("ok");
+
+    controller.abort();
   });
 
   test("does not deliver queued keys after abort or iterator cancel", async () => {
@@ -321,13 +467,13 @@ describe("menu real-process PTY proofs", () => {
         argv: [
           "/bin/sh",
           "-c",
-          `"${process.execPath}" "${menuCli}" menu <&0 & pid=$!; printf '%d' "$pid" > "${pidFile}"; wait "$pid"; rc=$?; printf '\nRC=%d\n' "$rc"; stty -a; exit $rc`,
+          `"${process.execPath}" "${menuCli}" menu; rc=$?; printf '\nRC=%d\n' "$rc"; stty -a; exit $rc`,
         ],
+        env: { ...process.env, MENU_CLI_PID_FILE: pidFile },
         onOutput(output) {
           if (!sentTerm && output.includes("Open what?")) {
             sentTerm = true;
-            const pid = Number(readFileSync(pidFile, "utf8").trim());
-            process.kill(pid, "SIGTERM");
+            process.kill(readPidFile(pidFile), "SIGTERM");
           }
         },
       });
@@ -375,13 +521,13 @@ describe("menu real-process PTY proofs", () => {
         argv: [
           "/bin/sh",
           "-c",
-          `"${process.execPath}" "${menuCli}" crash <&0 & pid=$!; printf '%d' "$pid" > "${pidFile}"; wait "$pid"; rc=$?; printf '\nRC=%d\n' "$rc"; stty -a; exit $rc`,
+          `"${process.execPath}" "${menuCli}" crash; rc=$?; printf '\nRC=%d\n' "$rc"; stty -a; exit $rc`,
         ],
+        env: { ...process.env, MENU_CLI_PID_FILE: pidFile },
         onOutput(output) {
           if (!sentCrash && output.includes("Open what?")) {
             sentCrash = true;
-            const pid = Number(readFileSync(pidFile, "utf8").trim());
-            process.kill(pid, "SIGUSR1");
+            process.kill(readPidFile(pidFile), "SIGUSR1");
           }
         },
       });
@@ -424,7 +570,7 @@ describe("menu real-process PTY proofs", () => {
   test(
     "not-interactive refusal is byte-identical for piped agents and --json in a PTY",
     async () => {
-      const [pipedHuman, pipedJson, ptyJson, stdoutPiped] = await Promise.all([
+      const [pipedHuman, pipedJson, ptyJson, stdoutPiped] = await settleFour([
         spawnBounded([process.execPath, menuCli, "menu"]),
         spawnBounded([process.execPath, menuCli, "menu", "--json"]),
         runPtyScenario({
@@ -455,6 +601,37 @@ describe("menu real-process PTY proofs", () => {
       expect(normalizeRunId(pipedJson.stdout.trim())).toBe(
         normalizeRunId(ptyJson.output.trim()),
       );
+    },
+    timeout,
+  );
+
+  test(
+    "stops and confirms the whole PTY process group when onOutput throws",
+    async () => {
+      const work = folder("menu-pty-cleanup-");
+      const pidFile = join(work, "child.pid");
+      let childPid = 0;
+      let caught = "";
+      try {
+        await runPtyScenario({
+          argv: [
+            "/bin/sh",
+            "-c",
+            `sleep 30 & pid=$!; printf '%d' "$pid" > "${pidFile}.tmp"; mv "${pidFile}.tmp" "${pidFile}"; printf 'READY\n'; wait "$pid"`,
+          ],
+          onOutput(output) {
+            if (output.includes("READY")) {
+              childPid = readPidFile(pidFile);
+              throw new Error("stop-pty-group");
+            }
+          },
+        });
+      } catch (error) {
+        caught = error instanceof Error ? error.message : String(error);
+      }
+      expect(caught).toBe("stop-pty-group");
+      expect(childPid).toBeGreaterThan(0);
+      expect(pidAlive(childPid)).toBe(false);
     },
     timeout,
   );

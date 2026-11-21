@@ -30,6 +30,14 @@ export type MenuState<Value> = {
 };
 
 const maxFilterLength = 200;
+const defaultColumns = 80;
+const defaultRows = 24;
+const maxEscapeBytes = 64;
+
+function boundedDimension(value: number, fallback: number): number {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.max(1, Math.floor(value));
+}
 
 export function waitForAbort(signal: AbortSignal): Promise<void> {
   if (signal.aborted) return Promise.resolve();
@@ -102,7 +110,7 @@ export function sanitizeText(text: string): string {
 }
 
 export function clipToWidth(text: string, columns: number): string {
-  const limit = Math.max(1, Math.floor(columns));
+  const limit = boundedDimension(columns, 1);
   let count = 0;
   let out = "";
   for (const ch of text) {
@@ -112,10 +120,6 @@ export function clipToWidth(text: string, columns: number): string {
   }
   return out;
 }
-
-const decoder = new TextDecoder();
-
-type ParsedKey = { readonly next: number; readonly key?: MenuKey };
 
 const arrowKeys = new Map<number, MenuKey>([
   [0x41, { kind: "up" }],
@@ -132,68 +136,147 @@ const controlKeys = new Map<number, MenuKey>([
   [0x7f, { kind: "backspace" }],
 ]);
 
-function parseCsiKey(bytes: Uint8Array, start: number): ParsedKey {
-  let index = start + 2;
-  while (index < bytes.length) {
-    const byte = bytes[index];
-    if (byte === undefined) break;
-    index += 1;
-    if (byte >= 0x40 && byte <= 0x7e) {
-      const key = index === start + 3 ? arrowKeys.get(byte) : undefined;
-      return key ? { next: index, key } : { next: index };
+export type KeyByteParser = {
+  readonly push: (bytes: Uint8Array) => readonly MenuKey[];
+  readonly flush: () => readonly MenuKey[];
+  readonly hasPendingEscape: () => boolean;
+};
+
+function stepCsiByte(
+  pending: number[],
+  byte: number,
+  keys: MenuKey[],
+): boolean {
+  if (byte >= 0x40 && byte <= 0x7e) {
+    if (pending.length === 2) {
+      const key = arrowKeys.get(byte);
+      if (key) keys.push(key);
     }
+    pending.length = 0;
+    return true;
   }
-  return { next: index };
+  if (byte >= 0x20 && byte <= 0x3f) {
+    if (pending.length < maxEscapeBytes) pending.push(byte);
+    else pending.length = 0;
+    return true;
+  }
+  pending.length = 0;
+  return false;
 }
 
-function parseSs3Key(bytes: Uint8Array, start: number): ParsedKey {
-  const final = bytes[start + 2];
-  const key = final === undefined ? undefined : arrowKeys.get(final);
-  return key
-    ? { next: start + 3, key }
-    : { next: Math.min(bytes.length, start + 3) };
+function stepPendingEscape(
+  pending: number[],
+  byte: number,
+  keys: MenuKey[],
+): boolean {
+  if (pending.length === 1) {
+    if (byte === 0x5b || byte === 0x4f) {
+      pending.push(byte);
+      return true;
+    }
+    if (byte === 0x1b) {
+      keys.push({ kind: "cancel" });
+      pending.length = 0;
+      return false;
+    }
+    pending.length = 0;
+    return true;
+  }
+  if (pending[1] === 0x4f) {
+    pending.length = 0;
+    if (byte < 0x20 || byte === 0x7f) return false;
+    const key = arrowKeys.get(byte);
+    if (key) keys.push(key);
+    return true;
+  }
+  return stepCsiByte(pending, byte, keys);
 }
 
-function parseEscapeSequence(bytes: Uint8Array, start: number): ParsedKey {
-  const after = bytes[start + 1];
-  if (after === undefined) return { next: start + 1, key: { kind: "cancel" } };
-  if (after === 0x5b) return parseCsiKey(bytes, start);
-  if (after === 0x4f) return parseSs3Key(bytes, start);
-  return { next: Math.min(bytes.length, start + 2) };
-}
-
-function parseTextSpan(bytes: Uint8Array, start: number): ParsedKey {
+function textSpanEnd(bytes: Uint8Array, start: number): number {
   let end = start + 1;
   while (end < bytes.length) {
     const nextByte = bytes[end];
     if (nextByte === undefined || nextByte < 0x20 || nextByte === 0x7f) break;
     end += 1;
   }
-  const clean = sanitizeText(decoder.decode(bytes.subarray(start, end)));
-  return clean.length > 0
-    ? { next: end, key: { kind: "text", value: clean } }
-    : { next: end };
+  return end;
 }
 
-function parseNextKey(bytes: Uint8Array, index: number): ParsedKey {
-  const byte = bytes[index];
-  if (byte === undefined) return { next: bytes.length };
-  const mapped = controlKeys.get(byte);
-  if (mapped) return { next: index + 1, key: mapped };
-  if (byte === 0x1b) return parseEscapeSequence(bytes, index);
-  if (byte < 0x20) return { next: index + 1 };
-  return parseTextSpan(bytes, index);
+export function createKeyByteParser(): KeyByteParser {
+  const pendingEscape: number[] = [];
+  const textDecoder = new TextDecoder();
+  let pendingText = false;
+
+  const pushText = (text: string, keys: MenuKey[]): void => {
+    const clean = sanitizeText(text);
+    if (clean.length > 0) keys.push({ kind: "text", value: clean });
+  };
+
+  const flushText = (keys: MenuKey[]): void => {
+    if (!pendingText) return;
+    pendingText = false;
+    pushText(textDecoder.decode(), keys);
+  };
+
+  return {
+    push(bytes) {
+      const keys: MenuKey[] = [];
+      let index = 0;
+      while (index < bytes.length) {
+        const byte = bytes[index];
+        if (byte === undefined) break;
+        if (
+          pendingEscape.length > 0 &&
+          stepPendingEscape(pendingEscape, byte, keys)
+        ) {
+          index += 1;
+          continue;
+        }
+        const mapped = controlKeys.get(byte);
+        if (mapped) {
+          flushText(keys);
+          keys.push(mapped);
+          index += 1;
+          continue;
+        }
+        if (byte === 0x1b) {
+          flushText(keys);
+          pendingEscape.push(0x1b);
+          index += 1;
+          continue;
+        }
+        if (byte < 0x20) {
+          flushText(keys);
+          index += 1;
+          continue;
+        }
+        const end = textSpanEnd(bytes, index);
+        pendingText = true;
+        pushText(
+          textDecoder.decode(bytes.subarray(index, end), { stream: true }),
+          keys,
+        );
+        index = end;
+      }
+      return keys;
+    },
+    flush() {
+      const keys: MenuKey[] = [];
+      flushText(keys);
+      if (pendingEscape.length === 1 && pendingEscape[0] === 0x1b)
+        keys.push({ kind: "cancel" });
+      pendingEscape.length = 0;
+      return keys;
+    },
+    hasPendingEscape() {
+      return pendingEscape.length === 1 && pendingEscape[0] === 0x1b;
+    },
+  };
 }
 
 export function parseKeyBytes(bytes: Uint8Array): readonly MenuKey[] {
-  const keys: MenuKey[] = [];
-  let index = 0;
-  while (index < bytes.length) {
-    const parsed = parseNextKey(bytes, index);
-    if (parsed.key) keys.push(parsed.key);
-    index = parsed.next;
-  }
-  return keys;
+  const parser = createKeyByteParser();
+  return [...parser.push(bytes), ...parser.flush()];
 }
 
 export function createMenuState<Value>(
@@ -286,8 +369,8 @@ export function renderMenu<Value>(
   state: MenuState<Value>,
   size: { readonly columns: number; readonly rows: number },
 ): readonly string[] {
-  const columns = Math.max(1, Math.floor(size.columns));
-  const height = Math.max(1, Math.floor(size.rows));
+  const columns = boundedDimension(size.columns, defaultColumns);
+  const height = boundedDimension(size.rows, defaultRows);
   const header = state.lines.map((line) => clipToWidth(line, columns));
   const filterLine = clipToWidth(`Filter: ${state.filter}`, columns);
   const visibleRows = Math.max(1, height - header.length - 1);

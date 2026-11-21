@@ -139,6 +139,10 @@ export function validateNotInteractiveCause(
     throw new Error(
       `${declaration.commandIdentity}'s not-interactive station ${station.causeCode} must be refused and unchanged.`,
     );
+  if (station.row.retryable)
+    throw new Error(
+      `${declaration.commandIdentity}'s not-interactive station ${station.causeCode} cannot be retryable.`,
+    );
   if (bindingNames(station).length > 0)
     throw new Error(
       `${declaration.commandIdentity}'s not-interactive station ${station.causeCode} cannot require run bindings.`,
