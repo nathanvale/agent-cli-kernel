@@ -1,0 +1,7 @@
+{
+  "id": "013d632-example-pending-done",
+  "patch": "tests/planted-faults/patches/013d632-example-pending-done.patch",
+  "testFile": "tests/kernel/author-guide/author-guide.test.ts",
+  "title": "its own tests all pass, each by name, in process and through its real entry file",
+  "source": "013d632 feat(author-guide): grow the moons example with visit and pending"
+}

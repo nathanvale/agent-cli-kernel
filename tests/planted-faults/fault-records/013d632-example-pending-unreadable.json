@@ -1,0 +1,7 @@
+{
+  "id": "013d632-example-pending-unreadable",
+  "patch": "tests/planted-faults/patches/013d632-example-pending-unreadable.patch",
+  "testFile": "tests/kernel/author-guide/author-guide.test.ts",
+  "title": "the example's pending lists nothing for a home never visited, and refuses a state folder it cannot read",
+  "source": "013d632 feat(author-guide): grow the moons example with visit and pending"
+}

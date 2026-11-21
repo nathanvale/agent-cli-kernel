@@ -1,0 +1,13 @@
+diff --git a/tests/kernel/author-guide/example/src/commands.ts.txt b/tests/kernel/author-guide/example/src/commands.ts.txt
+--- a/tests/kernel/author-guide/example/src/commands.ts.txt
++++ b/tests/kernel/author-guide/example/src/commands.ts.txt
+@@ -382,8 +382,7 @@ export function moonsCli(home: string, opener: string) {
+                 !context.signal.aborted &&
+                   result.exitCode !== null &&
+                   result.terminationConfirmed &&
+-                  details !== undefined &&
+-                  !details.timedOut,
++                  details !== undefined,
+               );
+             },
+           );

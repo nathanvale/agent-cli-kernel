@@ -1,0 +1,7 @@
+{
+  "id": "ee0593d-example-launch-timed-out",
+  "patch": "tests/planted-faults/patches/ee0593d-example-launch-timed-out.patch",
+  "testFile": "tests/kernel/author-guide/author-guide.test.ts",
+  "title": "the example's visit leaves a timed-out opener that traps SIGTERM and exits 0 unconfirmed and listed by pending",
+  "source": "ee0593d fix(author-guide): reject timed-out or unconfirmed viewer launches"
+}

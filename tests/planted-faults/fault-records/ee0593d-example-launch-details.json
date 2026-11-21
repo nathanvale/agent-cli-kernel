@@ -1,0 +1,7 @@
+{
+  "id": "ee0593d-example-launch-details",
+  "patch": "tests/planted-faults/patches/ee0593d-example-launch-details.patch",
+  "testFile": "tests/kernel/author-guide/author-guide.test.ts",
+  "title": "the example's visit treats missing programDetails as an unconfirmed launch",
+  "source": "ee0593d fix(author-guide): reject timed-out or unconfirmed viewer launches"
+}

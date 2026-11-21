@@ -44,7 +44,9 @@ describe("ready", () => {
         contractVersion: "3.0.0",
         commands: [
           { commandIdentity: "moons.list", effectClass: "inspect" },
+          { commandIdentity: "moons.pending", effectClass: "inspect" },
           { commandIdentity: "moons.show", effectClass: "inspect" },
+          { commandIdentity: "moons.visit", effectClass: "external" },
         ],
       });
     },

@@ -1,0 +1,7 @@
+{
+  "id": "ee0593d-example-launch-exit-code",
+  "patch": "tests/planted-faults/patches/ee0593d-example-launch-exit-code.patch",
+  "testFile": "tests/kernel/author-guide/author-guide.test.ts",
+  "title": "the example's visit leaves a signal-killed opener unconfirmed and listed by pending",
+  "source": "ee0593d fix(author-guide): reject timed-out or unconfirmed viewer launches"
+}
