@@ -73,8 +73,9 @@ What the gates of the test rows refuse and where, what stays with the reviewer, 
   `tests/**/*.test.ts` file has a non-negative finite duration in
   `tests/test-timings.json` and that no stale key remains after a suite moves
   or is removed.
-- Fault `996a685-test-timings` drops one entry from `tests/test-timings.json`;
-  the parity test kills it.
+- Fault `996a685-test-timings` drops one entry from `tests/test-timings.json`
+  and fault `996a685-test-timings-stale` adds a stale key for a moved suite;
+  the parity test kills both.
 - Review only: refreshing recorded durations when an existing suite's runtime
   changes materially, and keeping `tests/planted-faults/fault-timings/` in
   step with `fault-replay` durations.

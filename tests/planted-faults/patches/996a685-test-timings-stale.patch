@@ -1,0 +1,11 @@
+diff --git a/tests/test-timings.json b/tests/test-timings.json
+--- a/tests/test-timings.json
++++ b/tests/test-timings.json
+@@ -137,6 +137,7 @@
+     "tests/kernel/menu/startup.test.ts": 45,
+     "tests/kernel/stations.test.ts": 29,
+     "tests/template/test-helpers/git-fixture.test.ts": 28,
++    "tests/template/moved/stale-suite.test.ts": 27,
+     "tests/kernel/contract.test.ts": 26,
+     "tests/kernel/navigation-data.test.ts": 24,
+     "tests/kernel/state-seam.test.ts": 20,
