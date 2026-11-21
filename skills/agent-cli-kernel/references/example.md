@@ -327,10 +327,8 @@ export function moonsCli(home: string, opener: string) {
                 outputLimitBytes: 4_096,
                 shutdownMilliseconds: 1_000,
               }),
-            (opened) =>
-              Promise.resolve(
-                opened.exitCode === 0 && opened.terminationConfirmed,
-              ),
+            ({ exitCode, terminationConfirmed }) =>
+              Promise.resolve(exitCode === 0 && terminationConfirmed),
           );
         },
       );

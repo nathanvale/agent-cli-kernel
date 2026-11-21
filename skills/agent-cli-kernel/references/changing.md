@@ -181,16 +181,11 @@ editor:
   (`viewer.open-request`), never "the viewer showed it". An editor's
   window can appear seconds after its opener returns.
 - Start the opener through the programs add-on, inside the record:
-  `context.programs.domain(recorded).start(request)`. The executable is an
-  absolute path. Check it once the contract is built, so a relative path
-  throws `Expected absolute path.` when the CLI starts:
-
-```ts
-const viewer = contract.boundary.path(opener);
-```
-
+  `context.programs.domain(recorded).start(request)`.
 - Read back from the opener's own result: exit code 0 and
   `terminationConfirmed`.
+
+The record:
 
 ```ts
 await transaction.record(
@@ -203,9 +198,17 @@ await transaction.record(
       outputLimitBytes: 4_096,
       shutdownMilliseconds: 1_000,
     }),
-  (opened) =>
-    Promise.resolve(opened.exitCode === 0 && opened.terminationConfirmed),
+  ({ exitCode, terminationConfirmed }) =>
+    Promise.resolve(exitCode === 0 && terminationConfirmed),
 );
+```
+
+The executable is an absolute path. `moonsCli` checks it once the contract
+is built, so a relative path throws `Expected absolute path.` when the CLI
+starts:
+
+```ts
+const viewer = contract.boundary.path(opener);
 ```
 
 Keep the record and the request as two effects. When the opener fails, the
