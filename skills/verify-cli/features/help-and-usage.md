@@ -7,7 +7,8 @@ line on stderr naming the cause, prints nothing on stdout, and exits 2.
 ## Sub-features
 
 - `help` prints `Usage: ` first, exits 0, with an empty stderr.
-- `command-help` prints one command's help and exits 0.
+- `command-help` prints `<commandIdentity> (<effectClass>)` first and exits 0
+  (the sweep checks exit 0).
 - `unknown-command` refuses a word the CLI does not know.
 - `undeclared-option` refuses an option a command does not declare, as one
   stderr line, or as one envelope with `--json`.
@@ -23,14 +24,16 @@ invocation. [USAGE_UNKNOWN_COMMAND]`, exit 2.
 Preconditions: `verify.ts ready src/cli.ts` exits 0.
 
 The sweep drives this whole feature, for every command your discovery
-lists:
+lists. Without `--json`, each successful command prints its summary line
+followed by indented JSON data:
 
 ```text
 $ verify.ts sweep src/cli.ts
 36 checks passed. Stations owed: 2.
 ```
 
-On exit 3, list every failed check:
+On exit 3, run `findings` to list every failed check (or `0 findings` when
+the sweep is clean):
 
 ```text
 $ verify.ts findings src/cli.ts
@@ -42,4 +45,6 @@ $ verify.ts findings src/cli.ts
 - A CLI whose own command has an empty route takes any word as that
   command's argument, so the sweep skips the unknown-command checks there.
 - The sweep reads your declarations and trusts them. A refusal your command
-  should give but does not declare stays owed; drive it in a scenario.
+  declares as a required non-kernel station stays owed until a met `--json`
+  step drives it; a refusal your command should give but does not declare is
+  invisible to the sweep. Drive both in scenarios.

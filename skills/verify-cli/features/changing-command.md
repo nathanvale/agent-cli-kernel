@@ -20,7 +20,8 @@ that blocks the next change to the same thing.
 
 - A command whose `--help` first line ends `(repository-local)` or
   `(external)`, such as `save <path> --content <text>`.
-- The report command its discovery names under `ifNoResult`, such as
+- The report command named under `result.data.ifNoResult` in
+  `bun src/cli.ts --discover-command <commandIdentity> --json`, such as
   `pending`.
 
 ## Driving it with verify-cli
@@ -111,9 +112,18 @@ in the variable `NOTES_STATE`.
 }
 ```
 
+Without `--json`, each successful command prints its summary line followed
+by indented JSON data:
+
 ```text
 $ NOTES_STATE=<run folder>/scratch/notes-state verify.ts drive <run folder> verify/scenarios/changing-command.json
 6 steps met.
+$ verify.ts report <run folder>
+Stations: 0 swept, 3 driven, 2 owed. Steps: 6 met, 0 unmet.
+$ verify.ts cleanup <run folder>
+Removed <run folder>/scratch. Kept: <run folder>/evidence and <run folder>/state.
+$ verify.ts report <run folder>
+Stations: 0 swept, 3 driven, 2 owed. Steps: 6 met, 0 unmet.
 ```
 
 ## Gotchas

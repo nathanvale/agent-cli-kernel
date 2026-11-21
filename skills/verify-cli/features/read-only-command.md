@@ -2,9 +2,10 @@
 
 A user runs a command that only reads. With `--json` it prints one envelope
 naming the command and its cause; without it, the message on stdout,
-followed on a success by the result's data as indented JSON. A refusal
-prints one stderr line and exits 3. Nothing changes: a `--json` envelope
-says `transactionState` `unchanged`, with empty effects.
+followed on a success by the result's data as indented JSON when `data` is
+not `null`. A domain refusal prints one stderr line and exits 3 (a usage
+refusal exits 2). Nothing changes: a `--json` envelope says
+`transactionState` `unchanged`, with empty effects.
 
 ## Sub-features
 
@@ -52,6 +53,9 @@ Preconditions: `verify.ts ready src/cli.ts` exits 0, and a run folder from
   ]
 }
 ```
+
+Without `--json`, each successful command prints its summary line followed
+by indented JSON data:
 
 ```text
 $ verify.ts drive <run folder> verify/scenarios/read-only-command.json
