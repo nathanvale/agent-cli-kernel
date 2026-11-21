@@ -290,12 +290,6 @@ expected and observed), an unconfirmed process end, a sweep with no check,
 a report with nothing driven, and any station or count that differs from
 the record.
 
-**Model check**:
-An exhaustive TLA+/TLC state-space check of a kernel concurrency or
-crash-recovery protocol against its implementation-independent contract
-invariants, kept in `.agents/skills/kernel-model-check/`.
-_Avoid_: formal verification skill (in a name)
-
 ### Fault replay timings
 
 **Fault timing**:

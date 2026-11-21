@@ -43,9 +43,6 @@ diff.
    Any such change alters the capability qualification row's `sourceHash`, so
    `Q03.a` fails until a new capability qualification record, with Nathan's
    countersignature, lands in the same change.
-6. Before and after changing `kernel/src/kernel/lifecycle.ts`, `state-seam.ts`,
-   `writer.ts`, the state add-on or diagnostics custody, run the
-   [kernel-model-check](../kernel-model-check/SKILL.md) skill.
 
 Done when each item holds at the pushed head:
 
