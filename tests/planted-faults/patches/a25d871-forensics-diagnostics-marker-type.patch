@@ -1,0 +1,12 @@
+diff --git a/skills/verify-cli/forensics/addons.ts b/skills/verify-cli/forensics/addons.ts
+--- a/skills/verify-cli/forensics/addons.ts
++++ b/skills/verify-cli/forensics/addons.ts
+@@ -267,7 +267,7 @@ function summarizeDiagnosticsFile(
+     };
+   const expected = `${name}.closed-${String(read.stats.dev)}-${String(read.stats.ino)}-${String(read.stats.size)}`;
+   const closedMarker: DiagnosticsFileReport["closedMarker"] =
+-    markers.includes(expected) && isOwnPrivateMarker(folder, expected)
++    markers.includes(expected)
+       ? "matched"
+       : markers.length > 0
+         ? "mismatched"

@@ -237,6 +237,18 @@ function scanDiagnosticsLines(bytes: Uint8Array) {
   };
 }
 
+function isOwnPrivateMarker(folder: string, name: string): boolean {
+  const stat = lstatSafe(join(folder, name));
+  if (stat.kind !== "ok") return false;
+  const uidOk = currentUid === -1 || stat.stats.uid === currentUid;
+  return (
+    stat.stats.isDirectory() &&
+    !stat.stats.isSymbolicLink() &&
+    uidOk &&
+    (stat.stats.mode & 0o7777) === 0o700
+  );
+}
+
 function summarizeDiagnosticsFile(
   folder: string,
   name: string,
@@ -254,17 +266,18 @@ function summarizeDiagnosticsFile(
       ],
     };
   const expected = `${name}.closed-${String(read.stats.dev)}-${String(read.stats.ino)}-${String(read.stats.size)}`;
-  const closedMarker: DiagnosticsFileReport["closedMarker"] = markers.includes(
-    expected,
-  )
-    ? "matched"
-    : markers.length > 0
-      ? "mismatched"
-      : "absent";
+  const closedMarker: DiagnosticsFileReport["closedMarker"] =
+    markers.includes(expected) && isOwnPrivateMarker(folder, expected)
+      ? "matched"
+      : markers.length > 0
+        ? "mismatched"
+        : "absent";
   const scanned = scanDiagnosticsLines(read.bytes);
   const problems = [
     ...(closedMarker === "mismatched"
-      ? [`${name}: closed marker does not match current dev/ino/size`]
+      ? [
+          `${name}: closed marker does not match current dev/ino/size or is not an owned 0o0700 directory`,
+        ]
       : []),
     ...(scanned.invalidJsonLines > 0
       ? [`${name}: ${String(scanned.invalidJsonLines)} invalid JSON line(s)`]

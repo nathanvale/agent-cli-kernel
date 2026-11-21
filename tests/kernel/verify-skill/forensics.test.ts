@@ -411,6 +411,61 @@ describe("kernel-free forensics in-process", () => {
     expect(overChecked.report.status).toBe("issues");
   });
 
+  test("rejects diagnostics closed markers that are not owned 0700 directories", () => {
+    const setupFile = (prefix: string) => {
+      const dir = ownedFolder(prefix);
+      chmodSync(dir, 0o700);
+      const file = join(dir, "run.jsonl");
+      writeFileSync(file, `${JSON.stringify({ event: "finished" })}\n`);
+      const stats = lstatSync(file);
+      const marker = join(
+        dir,
+        `run.jsonl.closed-${String(stats.dev)}-${String(stats.ino)}-${String(stats.size)}`,
+      );
+      return { dir, marker };
+    };
+
+    const fileMarkerCase = setupFile("forensics-diag-file-marker-");
+    writeFileSync(fileMarkerCase.marker, "");
+    const fileMarkerReport = inspectDiagnosticsFolder(fileMarkerCase.dir);
+    expect(fileMarkerReport.ok).toBe(true);
+    if (fileMarkerReport.ok) {
+      expect(fileMarkerReport.report.status).toBe("issues");
+      expect(fileMarkerReport.report.files[0]?.closedMarker).toBe("mismatched");
+    }
+
+    const modeMarkerCase = setupFile("forensics-diag-mode-marker-");
+    mkdirSync(modeMarkerCase.marker, { mode: 0o755 });
+    chmodSync(modeMarkerCase.marker, 0o755);
+    const modeMarkerReport = inspectDiagnosticsFolder(modeMarkerCase.dir);
+    expect(modeMarkerReport.ok).toBe(true);
+    if (modeMarkerReport.ok) {
+      expect(modeMarkerReport.report.status).toBe("issues");
+      expect(modeMarkerReport.report.files[0]?.closedMarker).toBe("mismatched");
+    }
+
+    const linkMarkerCase = setupFile("forensics-diag-link-marker-");
+    const targetDir = ownedFolder("forensics-diag-link-target-");
+    chmodSync(targetDir, 0o700);
+    symlinkSync(targetDir, linkMarkerCase.marker);
+    const linkMarkerReport = inspectDiagnosticsFolder(linkMarkerCase.dir);
+    expect(linkMarkerReport.ok).toBe(true);
+    if (linkMarkerReport.ok) {
+      expect(linkMarkerReport.report.status).toBe("issues");
+      expect(linkMarkerReport.report.files[0]?.closedMarker).toBe("mismatched");
+    }
+
+    const validMarkerCase = setupFile("forensics-diag-valid-marker-");
+    mkdirSync(validMarkerCase.marker, { mode: 0o700 });
+    chmodSync(validMarkerCase.marker, 0o700);
+    const validMarkerReport = inspectDiagnosticsFolder(validMarkerCase.dir);
+    expect(validMarkerReport.ok).toBe(true);
+    if (validMarkerReport.ok) {
+      expect(validMarkerReport.report.status).toBe("clean");
+      expect(validMarkerReport.report.files[0]?.closedMarker).toBe("matched");
+    }
+  });
+
   test("decodes approval consumed markers, valid and expired grants, prototype keys, and malformed entries", () => {
     const dir = ownedFolder("forensics-approval-");
     const key = "a".repeat(64);
