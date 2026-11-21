@@ -1,4 +1,4 @@
-import { join, resolve } from "node:path";
+import { isAbsolute, join, relative, resolve } from "node:path";
 import { at, evidenceBytesLimit, listOf, parsedJson } from "../helper/json.ts";
 import {
   cli,
@@ -15,6 +15,7 @@ import {
   lenientDecoder,
   lstatSafe,
   openListedDirectory,
+  openRealDirectory,
   readBytesNoFollow,
 } from "./io.ts";
 import { inspectStateRoot } from "./state.ts";
@@ -129,12 +130,50 @@ function stepDocProblems(
   ];
 }
 
+function containedStepPath(
+  evidenceDir: string,
+  file: string,
+):
+  | { readonly ok: true; readonly path: string }
+  | { readonly ok: false; readonly reason: string } {
+  if (file.length === 0 || isAbsolute(file) || file.includes("\\"))
+    return { ok: false, reason: "step path must be relative inside evidence/" };
+  const segments = file.split("/");
+  if (segments.some((part) => part === "" || part === "." || part === ".."))
+    return {
+      ok: false,
+      reason: "step path contains traversal or empty segments",
+    };
+  let current = evidenceDir;
+  for (const part of segments.slice(0, -1)) {
+    current = join(current, part);
+    const stat = lstatSafe(current);
+    if (stat.kind === "missing") continue;
+    const checked = openRealDirectory("Evidence subdirectory", current);
+    if (!checked.ok) return checked;
+  }
+  const candidate = resolve(evidenceDir, file);
+  const rel = relative(evidenceDir, candidate);
+  if (rel.length === 0 || isAbsolute(rel) || rel.startsWith(".."))
+    return { ok: false, reason: "step path resolves outside evidence/" };
+  return { ok: true, path: candidate };
+}
+
 function inspectStepEvidence(
   evidenceDir: string,
   run: RunRow,
   row: StepRow,
 ): { readonly step: RunStepForensics; readonly problems: readonly string[] } {
-  const checked = readStepOnce(join(evidenceDir, row.file), row);
+  const target = containedStepPath(evidenceDir, row.file);
+  const checked = target.ok
+    ? readStepOnce(target.path, row)
+    : {
+        hashMatches: false,
+        doc: undefined,
+        problems: [
+          `evidence file escapes run folder (${row.file}): ${target.reason}`,
+        ],
+      };
   const { doc } = checked;
   const unmet = listOf(at(doc, "unmet")).flatMap((item) =>
     typeof item === "string" ? [item] : [],
@@ -204,6 +243,80 @@ function readIndexNoFollow(indexPath: string): IndexRead {
   return { kind: "read", run, steps };
 }
 
+function inspectEvidencePart(
+  evidenceDir: string,
+  indexPath: string,
+): {
+  readonly runMeta: RunForensicsReport["run"];
+  readonly steps: readonly RunStepForensics[];
+  readonly problems: readonly string[];
+} {
+  const evidenceStat = lstatSafe(evidenceDir);
+  if (evidenceStat.kind === "missing")
+    return {
+      runMeta: null,
+      steps: [],
+      problems: [`evidence index is missing at ${indexPath}`],
+    };
+  const openedEvidence = openRealDirectory("Evidence folder", evidenceDir);
+  if (!openedEvidence.ok)
+    return {
+      runMeta: null,
+      steps: [],
+      problems: [`evidence folder invalid: ${openedEvidence.reason}`],
+    };
+  const index = readIndexNoFollow(indexPath);
+  if (index.kind === "missing")
+    return {
+      runMeta: null,
+      steps: [],
+      problems: [`evidence index is missing at ${indexPath}`],
+    };
+  if (index.kind === "unreadable")
+    return {
+      runMeta: null,
+      steps: [],
+      problems: [`evidence index unreadable: ${index.reason}`],
+    };
+  const runMeta: RunForensicsReport["run"] = {
+    repository: index.run.repository,
+    target: index.run.target,
+    pinnedCommit: index.run.pinnedCommit,
+    bun: index.run.bun,
+    platform: index.run.platform,
+    headCommit: index.run.headCommit,
+    uncommittedPaths: index.run.uncommittedPaths,
+  };
+  const steps: RunStepForensics[] = [];
+  const problems: string[] = [];
+  for (const row of index.steps) {
+    const checked = inspectStepEvidence(evidenceDir, index.run, row);
+    steps.push(checked.step);
+    problems.push(...checked.problems);
+  }
+  return { runMeta, steps, problems };
+}
+
+function collectHelperStateProblems(
+  stateInspect: ReturnType<typeof inspectStateRoot>,
+): readonly string[] {
+  if (!stateInspect.ok)
+    return [`helper state unavailable: ${stateInspect.reason}`];
+  const problems = stateInspect.report.problems.map(
+    (issue) => `helper state: ${issue}`,
+  );
+  const unresolved = stateInspect.report.cases.filter(
+    (entry) => entry.status === "unresolved",
+  ).length;
+  if (unresolved === 0) return problems;
+  const next = stateInspect.report.nextAction;
+  const suffix = next === null ? "" : ` Next: ${next}`;
+  return [
+    ...problems,
+    `helper state has ${String(unresolved)} unresolved case(s).${suffix}`,
+  ];
+}
+
 export function inspectRunFolder(
   folder: string,
 ):
@@ -215,47 +328,29 @@ export function inspectRunFolder(
   const place = verificationRun(folder);
   const scratchStat = lstatSafe(place.scratch);
   const scratchPresent = scratchStat.kind === "ok";
-  const problems: string[] =
-    scratchStat.kind === "error"
-      ? [`scratch folder unreadable: ${scratchStat.reason}`]
-      : [];
-
-  const index = readIndexNoFollow(place.index);
-  let runMeta: RunForensicsReport["run"] = null;
-  const steps: RunStepForensics[] = [];
-
-  if (index.kind === "missing") {
-    problems.push(`evidence index is missing at ${place.index}`);
-  } else if (index.kind === "unreadable") {
-    problems.push(`evidence index unreadable: ${index.reason}`);
-  } else {
-    runMeta = {
-      repository: index.run.repository,
-      target: index.run.target,
-      pinnedCommit: index.run.pinnedCommit,
-      bun: index.run.bun,
-      platform: index.run.platform,
-      headCommit: index.run.headCommit,
-      uncommittedPaths: index.run.uncommittedPaths,
-    };
-    for (const row of index.steps) {
-      const checked = inspectStepEvidence(place.evidence, index.run, row);
-      steps.push(checked.step);
-      problems.push(...checked.problems);
-    }
-  }
-
+  const evidence = inspectEvidencePart(place.evidence, place.index);
   const stateInspect = inspectStateRoot(place.state);
   const helperState = stateInspect.ok ? stateInspect.report : null;
-  if (!stateInspect.ok)
-    problems.push(`helper state unavailable: ${stateInspect.reason}`);
-  else
-    for (const issue of stateInspect.report.problems)
-      problems.push(`helper state: ${issue}`);
+  const problems = [
+    ...(scratchStat.kind === "error"
+      ? [`scratch folder unreadable: ${scratchStat.reason}`]
+      : []),
+    ...evidence.problems,
+    ...collectHelperStateProblems(stateInspect),
+  ];
 
-  const unmetCount = steps.filter((step) => step.verdict === "unmet").length;
-  const status = problems.length === 0 ? "clean" : "issues";
-  const summary = `Verification run (${scratchPresent ? "scratch present" : "scratch removed"}): ${String(steps.length)} step(s) (${String(unmetCount)} unmet), ${String(problems.length)} problem(s).`;
+  const unmetCount = evidence.steps.filter(
+    (step) => step.verdict === "unmet",
+  ).length;
+  const status =
+    problems.length === 0 &&
+    (helperState === null || helperState.status === "clean")
+      ? "clean"
+      : "issues";
+  const summaryBase = `Verification run (${scratchPresent ? "scratch present" : "scratch removed"}): ${String(evidence.steps.length)} step(s) (${String(unmetCount)} unmet), ${String(problems.length)} problem(s).`;
+  const helperNext = helperState?.nextAction ?? null;
+  const summary =
+    helperNext === null ? summaryBase : `${summaryBase} Next: ${helperNext}`;
 
   return {
     ok: true,
@@ -266,8 +361,8 @@ export function inspectRunFolder(
       status,
       summary,
       scratchPresent,
-      run: runMeta,
-      steps,
+      run: evidence.runMeta,
+      steps: evidence.steps,
       helperState,
       problems,
     },

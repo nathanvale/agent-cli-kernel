@@ -23,7 +23,7 @@ export const forensicsLimits = {
 const headerPattern = /^C3S1 ([a-z-]{1,24}) (\d{10}) ([0-9a-f]{64})$/;
 const nextRecordPattern = /(?:^|\n)C3S1 [a-z-]{1,24} \d{10} [0-9a-f]{64}\n/;
 const midLinePattern = /[^\n]C3S1 [a-z-]{1,24} \d{10} [0-9a-f]{64}\n/;
-const fatalUtf8 = new TextDecoder("utf-8", { fatal: true });
+export const fatalUtf8 = new TextDecoder("utf-8", { fatal: true });
 export const lenientDecoder = new TextDecoder();
 export const currentUid = process.getuid?.() ?? -1;
 

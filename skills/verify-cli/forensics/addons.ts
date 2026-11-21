@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { at, parsedJson } from "../helper/json.ts";
 import {
   currentUid,
+  fatalUtf8,
   forensicsLimits,
   forensicsSchema,
   formatMode,
@@ -317,15 +318,9 @@ export function inspectDiagnosticsFolder(
   const unclosed = files.filter(
     (item) => item.closedMarker !== "matched",
   ).length;
-  const unclosedProblems = lockInfo.lock.present
-    ? []
-    : files.flatMap((item) =>
-        item.closedMarker === "absent"
-          ? [
-              `${item.file}: no closed marker (no active custody lock; run may still be open or crashed before closing)`,
-            ]
-          : [],
-      );
+  const absentMarkers = files.filter(
+    (item) => item.closedMarker === "absent",
+  ).length;
   const truncated =
     opened.truncated ||
     lockInfo.truncated ||
@@ -335,11 +330,14 @@ export function inspectDiagnosticsFolder(
     ...lockInfo.problems,
     ...parts.problems,
     ...summaries.flatMap((item) => item.problems),
-    ...unclosedProblems,
     ...(truncated
       ? ["diagnostics listing or file lines were truncated at forensics limits"]
       : []),
   ];
+  const unclosedLabel =
+    absentMarkers > 0
+      ? `${String(unclosed)} unclosed: may still be running or may have crashed before closing; allocation lock is released on open`
+      : `${String(unclosed)} unclosed`;
   return {
     ok: true,
     report: {
@@ -347,7 +345,7 @@ export function inspectDiagnosticsFolder(
       target: "diagnostics",
       path: folder,
       status: problems.length === 0 ? "clean" : "issues",
-      summary: `Diagnostics folder (${mode}): ${String(files.length)} file(s) (${String(unclosed)} unclosed), lock ${lockInfo.lock.present ? "present" : "absent"}, ${String(parts.residue.length)} residue, ${String(problems.length)} problems.`,
+      summary: `Diagnostics folder (${mode}): ${String(files.length)} file(s) (${unclosedLabel}), lock ${lockInfo.lock.present ? "present" : "absent"}, ${String(parts.residue.length)} residue, ${String(problems.length)} problems.`,
       mode,
       trustedAncestors: ancestors.trusted,
       lock: lockInfo.lock,
@@ -513,12 +511,31 @@ function classifyApprovalKind(
   return approvalFormatKinds[format] ?? "malformed";
 }
 
+const approvalLimitBytes = 16 * 1024;
+const approvalDepthLimit = 8;
+
+function withinApprovalDepth(value: unknown, depth: number): boolean {
+  if (typeof value !== "object" || value === null) return true;
+  if (depth >= approvalDepthLimit) return false;
+  const items: unknown[] = Array.isArray(value) ? value : Object.values(value);
+  return items.every((item) => withinApprovalDepth(item, depth + 1));
+}
+
+function decodeApprovalJson(bytes: Uint8Array): unknown {
+  try {
+    const parsed = parsedJson(fatalUtf8.decode(bytes));
+    return withinApprovalDepth(parsed, 0) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function inspectApprovalJson(
   name: string,
   bytes: Uint8Array,
   now: number,
 ): ApprovalEntryReport {
-  const parsed = parsedJson(lenientDecoder.decode(bytes));
+  const parsed = decodeApprovalJson(bytes);
   const operation = textField(at(parsed, "operation"));
   const expiresRaw = at(parsed, "expiresAt");
   const expiresAt =
@@ -562,11 +579,15 @@ function inspectApprovalEntry(
   name: string,
   now: number,
 ): ApprovalEntryReport {
-  const read = readBytesNoFollow(join(folder, name));
+  const isJson = name.endsWith(".json");
+  const read = readBytesNoFollow(
+    join(folder, name),
+    isJson ? approvalLimitBytes : forensicsLimits.maxFileBytes,
+  );
   if (read.kind !== "read")
     return {
       file: name,
-      kind: "other",
+      kind: isJson ? "malformed" : "other",
       keyHash: null,
       operation: null,
       expiresAt: null,
@@ -591,7 +612,19 @@ function inspectApprovalEntry(
       problems,
     };
   }
-  if (name.endsWith(".json")) return inspectApprovalJson(name, read.bytes, now);
+  if (isJson) {
+    if (read.stats.nlink !== 1)
+      return {
+        file: name,
+        kind: "malformed",
+        keyHash: null,
+        operation: null,
+        expiresAt: null,
+        expired: null,
+        problems: ["approval record has multiple hard links"],
+      };
+    return inspectApprovalJson(name, read.bytes, now);
+  }
   return {
     file: name,
     kind: "other",

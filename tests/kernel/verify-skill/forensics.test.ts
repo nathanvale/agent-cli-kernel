@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import {
   chmodSync,
   cpSync,
+  linkSync,
   lstatSync,
   mkdirSync,
   readFileSync,
@@ -363,13 +364,12 @@ describe("kernel-free forensics in-process", () => {
     const unclosedChecked = inspectDiagnosticsFolder(unclosedDir);
     expect(unclosedChecked.ok).toBe(true);
     if (unclosedChecked.ok) {
-      expect(unclosedChecked.report.status).toBe("issues");
-      expect(unclosedChecked.report.summary).toContain("(1 unclosed)");
-      expect(
-        unclosedChecked.report.problems.some((p) =>
-          p.includes("orphan.jsonl: no closed marker"),
-        ),
-      ).toBe(true);
+      expect(unclosedChecked.report.status).toBe("clean");
+      expect(unclosedChecked.report.problems).toEqual([]);
+      expect(unclosedChecked.report.files[0]?.closedMarker).toBe("absent");
+      expect(unclosedChecked.report.summary).toContain(
+        "(1 unclosed: may still be running or may have crashed before closing; allocation lock is released on open)",
+      );
     }
 
     const boundedDir = ownedFolder("forensics-diag-lines-");
@@ -518,6 +518,223 @@ describe("kernel-free forensics in-process", () => {
     expect(
       inspected.report.entries.find((e) => e.file === "broken.json")?.kind,
     ).toBe("malformed");
+  });
+
+  test("refuses approval records the kernel rejects (hard links, invalid UTF-8, size bound)", () => {
+    const dir = ownedFolder("forensics-approval-admit-");
+    const sibling = ownedFolder("forensics-approval-outside-");
+    const validGrant = JSON.stringify({
+      format: "contract3.approval-grant",
+      version: 1,
+      operation: "op-admit",
+      preview: "preview-hash",
+      authority: "operator",
+      resource: "note-1",
+      resourceRevision: "rev-1",
+      effects: ["note.write"],
+      expiresAt: 5000,
+    });
+    const externalSource = join(sibling, "source.json");
+    writeFileSync(externalSource, validGrant);
+    linkSync(externalSource, join(dir, "grant-hardlink.json"));
+
+    const prefix = new TextEncoder().encode(validGrant.slice(0, 120));
+    const suffix = new TextEncoder().encode(validGrant.slice(120));
+    writeFileSync(
+      join(dir, "grant-bad-utf8.json"),
+      concatBytes(prefix, Uint8Array.from([0xff]), suffix),
+    );
+
+    const exactPad = 16 * 1024 - Buffer.byteLength(validGrant);
+    writeFileSync(
+      join(dir, "grant-exact-limit.json"),
+      `${validGrant}${" ".repeat(exactPad)}`,
+    );
+    writeFileSync(
+      join(dir, "grant-over-limit.json"),
+      `${validGrant}${" ".repeat(exactPad + 1)}`,
+    );
+
+    const inspected = inspectApprovalFolder(dir, 2000);
+    expect(inspected.ok).toBe(true);
+    if (!inspected.ok) return;
+    expect(inspected.report.status).toBe("issues");
+    expect(
+      inspected.report.entries.find((e) => e.file === "grant-hardlink.json"),
+    ).toMatchObject({
+      kind: "malformed",
+      problems: ["approval record has multiple hard links"],
+    });
+    expect(
+      inspected.report.entries.find((e) => e.file === "grant-bad-utf8.json"),
+    ).toMatchObject({
+      kind: "malformed",
+      problems: ["unrecognised or malformed approval JSON record"],
+    });
+    expect(
+      inspected.report.entries.find((e) => e.file === "grant-exact-limit.json"),
+    ).toMatchObject({
+      kind: "grant",
+      expired: false,
+      problems: [],
+    });
+    const over = inspected.report.entries.find(
+      (e) => e.file === "grant-over-limit.json",
+    );
+    expect(over?.kind).toBe("malformed");
+    expect(over?.problems.some((p) => p.includes("over 16384"))).toBe(true);
+  });
+
+  test("refuses run evidence outside the run folder and propagates helper state issues", () => {
+    const base = ownedFolder("forensics-run-bounds-");
+    const runRow = JSON.stringify({
+      schema: "verify-index/1",
+      row: "run",
+      repository: "/repo",
+      target: "example",
+      pinnedCommit: "abc123",
+      bun: "1.3.0",
+      platform: "darwin",
+      headCommit: "abc123",
+      uncommittedPaths: 0,
+    });
+    const stepBody = JSON.stringify({
+      schema: "verify-step/1",
+      unmet: [],
+      observed: {
+        timedOut: false,
+        outputTruncated: false,
+        terminationConfirmed: true,
+      },
+      repository: { headCommit: "abc123", uncommittedPaths: 0 },
+    });
+    const stepHash = createHash("sha256").update(stepBody).digest("hex");
+    const stepRowFor = (file: string) =>
+      JSON.stringify({
+        row: "step",
+        feature: "read-only",
+        step: "check",
+        runner: "target",
+        verdict: "met",
+        commandIdentity: null,
+        causeCode: null,
+        exitCode: 0,
+        file,
+        sha256: stepHash,
+      });
+
+    const outsideDir = join(base, "outside");
+    mkdirSync(outsideDir, { mode: 0o700 });
+    writeFileSync(join(outsideDir, "outside-step.json"), stepBody);
+    writeFileSync(
+      join(outsideDir, "index.jsonl"),
+      `${runRow}\n${stepRowFor("outside-step.json")}\n`,
+    );
+
+    const makeCleanState = (target: string) => {
+      mkdirSync(target, { mode: 0o700 });
+      mkdirSync(join(target, "coordination"), { mode: 0o700 });
+      mkdirSync(join(target, "operations"), { mode: 0o700 });
+      mkdirSync(join(target, "staging"), { mode: 0o700 });
+      mkdirSync(join(target, "settled"), { mode: 0o700 });
+      writeFileSync(
+        join(target, "format"),
+        encodeC3s1("format", { journal: "contract3.state.2" }),
+      );
+    };
+
+    const linkedRun = join(base, "linked-run");
+    mkdirSync(linkedRun, { mode: 0o700 });
+    makeCleanState(join(linkedRun, "state"));
+    symlinkSync(outsideDir, join(linkedRun, "evidence"));
+    const linkedReport = inspectRunFolder(linkedRun);
+    expect(linkedReport.ok).toBe(true);
+    if (linkedReport.ok) {
+      expect(linkedReport.report.status).toBe("issues");
+      expect(linkedReport.report.steps).toEqual([]);
+      expect(
+        linkedReport.report.problems.some((p) =>
+          p.includes("not a real directory"),
+        ),
+      ).toBe(true);
+    }
+
+    const escapeRun = join(base, "escape-run");
+    mkdirSync(join(escapeRun, "evidence"), { recursive: true, mode: 0o700 });
+    makeCleanState(join(escapeRun, "state"));
+    symlinkSync(outsideDir, join(escapeRun, "evidence", "sub"));
+    writeFileSync(
+      join(escapeRun, "evidence", "index.jsonl"),
+      `${runRow}\n${stepRowFor("../../outside/outside-step.json")}\n${stepRowFor("sub/outside-step.json")}\n`,
+    );
+    const escapeReport = inspectRunFolder(escapeRun);
+    expect(escapeReport.ok).toBe(true);
+    if (escapeReport.ok) {
+      expect(escapeReport.report.status).toBe("issues");
+      expect(escapeReport.report.steps.map((s) => s.hashMatches)).toEqual([
+        false,
+        false,
+      ]);
+      expect(
+        escapeReport.report.problems.some((p) =>
+          p.includes(
+            "evidence file escapes run folder (../../outside/outside-step.json)",
+          ),
+        ),
+      ).toBe(true);
+      expect(
+        escapeReport.report.problems.some((p) =>
+          p.includes(
+            "evidence file escapes run folder (sub/outside-step.json)",
+          ),
+        ),
+      ).toBe(true);
+    }
+
+    const unresolvedRun = join(base, "unresolved-run");
+    mkdirSync(join(unresolvedRun, "evidence"), {
+      recursive: true,
+      mode: 0o700,
+    });
+    writeFileSync(
+      join(unresolvedRun, "evidence", "index.jsonl"),
+      `${runRow}\n`,
+    );
+    const stateDir = join(unresolvedRun, "state");
+    makeCleanState(stateDir);
+    const opId = "op-0000000000000000000000000000000f";
+    const opDir = join(stateDir, "operations", opId);
+    mkdirSync(opDir, { mode: 0o700 });
+    writeFileSync(
+      join(opDir, "intent"),
+      encodeC3s1("intent", {
+        operationId: opId,
+        commandIdentity: "notes.save",
+        runId: "run-unresolved",
+        effects: ["note.write"],
+        scope: { resources: [], invariants: [], unknown: false, keys: ["k1"] },
+        revisions: {},
+        owner: { lease: "owner.lease", pid: 4242, startedAt: 1000 },
+        coordination: [],
+        approval: null,
+        closes: null,
+      }),
+    );
+    writeFileSync(join(opDir, "events"), new Uint8Array(0));
+
+    const unresolvedReport = inspectRunFolder(unresolvedRun);
+    expect(unresolvedReport.ok).toBe(true);
+    if (unresolvedReport.ok) {
+      expect(unresolvedReport.report.helperState?.status).toBe("issues");
+      expect(unresolvedReport.report.helperState?.problems).toEqual([]);
+      expect(unresolvedReport.report.status).toBe("issues");
+      expect(
+        unresolvedReport.report.problems.some((p) =>
+          p.includes("helper state has 1 unresolved case(s)"),
+        ),
+      ).toBe(true);
+      expect(unresolvedReport.report.summary).toContain("Next:");
+    }
   });
 
   test("enforces usage refusals (exit 2), missing or symlinked target refusals (exit 3), and bounded directory scans", () => {

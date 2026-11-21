@@ -19,11 +19,14 @@ and without writing, locking, or mutating any file.
   for unresolved cases, and closure `journalRevision` matches.
 - `forensics-diagnostics` checks directory permissions and trusted
   ancestors, `.allocation-lock` owner PID/host, `.pending`/`.retiring`
-  residue, `.closed-*` marker matches or orphans, unclosed file counts and
-  unclosed files with no active lock, and bounded JSONL line summaries.
+  residue, `.closed-*` marker matches or orphans, unclosed file counts (noting
+  in the summary that an absent marker with no lock may be a live run or a
+  crashed run, since the allocation lock is released on open), and bounded
+  JSONL line summaries.
 - `forensics-approval` decodes `*.consumed` markers and grant, closure, or
-  stop JSON records against exact kernel shapes, flagging expired or
-  malformed entries.
+  stop JSON records against kernel admission and shape rules (strict UTF-8,
+  single link, 16 KiB limit, exact keys), flagging expired or malformed
+  entries.
 
 ## How to get to it (user POV)
 
