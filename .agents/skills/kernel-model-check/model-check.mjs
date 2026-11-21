@@ -1,11 +1,11 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const skillDir = dirname(fileURLToPath(import.meta.url));
-const repoRoot = resolve(skillDir, "../../..");
+const defaultRepoRoot = resolve(skillDir, "../../..");
 const tlcTool =
   "github:tlaplus/tlaplus[asset_pattern=tla2tools.jar,checksum=sha256:936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88]@1.7.4";
 const javaTool = "java@temurin-25";
@@ -90,10 +90,10 @@ function locateTlc() {
   return { ok: true, java, jar };
 }
 
-function staleFiles(covered) {
+function staleFiles(covered, targetRepo) {
   const result = spawnSync(
     "git",
-    ["-C", repoRoot, "diff", "--name-only", syncCommit, "--", ...covered],
+    ["-C", targetRepo, "diff", "--name-only", syncCommit, "--", ...covered],
     { encoding: "utf8", timeout: timeouts.gitMs, killSignal: "SIGKILL" },
   );
   if (result.error) return { ok: false, reason: result.error.message };
@@ -112,8 +112,8 @@ function staleFiles(covered) {
   };
 }
 
-function runOne(tlc, model) {
-  const stale = staleFiles(model.covered);
+function runOne(tlc, model, targetRepo) {
+  const stale = staleFiles(model.covered, targetRepo);
   if (!stale.ok)
     process.stderr.write(
       `WARN ${model.id}: could not verify staleness against ${syncCommit}: ${stale.reason}\n`,
@@ -175,32 +175,67 @@ function runOne(tlc, model) {
   }
 }
 
-const isEntry =
-  process.argv[1] !== undefined &&
-  resolve(process.argv[1]) === fileURLToPath(import.meta.url);
-
-if (isEntry) {
-  const requested = process.argv.slice(2);
+function parseCliArgs(argv) {
+  let targetRepo = defaultRepoRoot;
+  const requested = [];
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === "--repo") {
+      const next = argv[i + 1];
+      if (!next || next.startsWith("-")) {
+        return { ok: false, error: "--repo requires a directory path." };
+      }
+      targetRepo = resolve(next);
+      i += 1;
+    } else if (arg.startsWith("--repo=")) {
+      const value = arg.slice("--repo=".length);
+      if (!value) {
+        return { ok: false, error: "--repo requires a directory path." };
+      }
+      targetRepo = resolve(value);
+    } else {
+      requested.push(arg);
+    }
+  }
+  if (!existsSync(targetRepo) || !statSync(targetRepo).isDirectory()) {
+    return {
+      ok: false,
+      error: `--repo path must be an existing directory: ${targetRepo}`,
+    };
+  }
   const validIds = new Set(["all", ...models.map((m) => m.id)]);
   const unknown = requested.filter((arg) => !validIds.has(arg));
   if (unknown.length > 0) {
-    process.stderr.write(
-      `Unknown model(s): ${unknown.join(", ")}. Expected one of: all, ${models.map((m) => m.id).join(", ")}.\n`,
-    );
-    process.exit(2);
+    return {
+      ok: false,
+      error: `Unknown model(s): ${unknown.join(", ")}. Expected one of: all, ${models.map((m) => m.id).join(", ")}.`,
+    };
   }
   const selected =
     requested.length === 0 || requested.includes("all")
       ? models
       : models.filter((entry) => requested.includes(entry.id));
+  return { ok: true, targetRepo, selected };
+}
+
+const isEntry =
+  process.argv[1] !== undefined &&
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isEntry) {
+  const parsed = parseCliArgs(process.argv.slice(2));
+  if (!parsed.ok) {
+    process.stderr.write(`${parsed.error}\n`);
+    process.exit(2);
+  }
   const tlc = locateTlc();
   if (!tlc.ok) {
     process.stderr.write(`${tlc.error}\n`);
     process.exit(1);
   }
   let allPassed = true;
-  for (const model of selected) {
-    if (!runOne(tlc, model)) allPassed = false;
+  for (const model of parsed.selected) {
+    if (!runOne(tlc, model, parsed.targetRepo)) allPassed = false;
   }
   process.exit(allPassed ? 0 : 1);
 }

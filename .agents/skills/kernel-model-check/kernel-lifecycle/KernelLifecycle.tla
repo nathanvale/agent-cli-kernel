@@ -217,9 +217,11 @@ SingleEnvelope ==
 NoLateStateMutationAfterClose ==
   ~lateStateAccepted
 
-\* A live run or a run with an open transaction keeps its runId reserved and rejects duplicates.
+\* A live run, an unfinished handler, or an open transaction keeps its runId reserved and rejects duplicates.
 NoDuplicateRunIdWhileLiveOrOpenTx ==
-  /\ ((phase \in {"attached", "handlerEntered", "afterHandler", "afterDeadline"} \/ txOpen) => runInMap)
+  /\ ((phase \in {"attached", "handlerEntered", "afterHandler", "afterDeadline"}
+       \/ (handlerEntered /\ ~handlerReturned)
+       \/ txOpen) => runInMap)
   /\ ~duplicateAccepted
 
 \* A revoked proof is never accepted as valid.
