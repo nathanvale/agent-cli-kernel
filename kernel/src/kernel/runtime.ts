@@ -36,7 +36,10 @@ export type ContractRuntime = {
   readonly cli: string;
   readonly commands: readonly CommandDeclaration[];
   readonly stations: ReadonlyMap<string, readonly DeclaredStation[]>;
-  readonly resolve: (argv: unknown) => Promise<Resolution>;
+  readonly resolve: (
+    argv: unknown,
+    facts?: { readonly interactive?: boolean },
+  ) => Promise<Resolution>;
   readonly navigation: {
     readonly help: () => JsonValue;
     readonly discover: () => JsonValue;

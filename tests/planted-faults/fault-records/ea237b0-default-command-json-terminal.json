@@ -1,0 +1,7 @@
+{
+  "id": "ea237b0-default-command-json-terminal",
+  "patch": "tests/planted-faults/patches/ea237b0-default-command-json-terminal.patch",
+  "testFile": "tests/kernel/default-command.test.ts",
+  "title": "RunControl.terminal is settled before routing: present in an interactive run, absent with --json or without a terminal",
+  "source": "ea237b0 feat(kernel): run a CLI's default command when nothing is typed in an interactive run"
+}
