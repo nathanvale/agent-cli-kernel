@@ -15,6 +15,41 @@
         "command": "moons.show",
         "cause": "DOMAIN_MOONS_UNKNOWN_PLANET",
         "state": "owed"
+      },
+      {
+        "command": "moons.visit",
+        "cause": "SUCCESS_COMPLETED",
+        "state": "driven"
+      },
+      {
+        "command": "moons.visit",
+        "cause": "DOMAIN_MOONS_VISIT_UNCONFIRMED",
+        "state": "owed"
+      },
+      {
+        "command": "moons.visit",
+        "cause": "DOMAIN_MOONS_VISIT_HELD",
+        "state": "owed"
+      },
+      {
+        "command": "moons.visit",
+        "cause": "DOMAIN_MOONS_VISIT_UNRESOLVED",
+        "state": "driven"
+      },
+      {
+        "command": "moons.visit",
+        "cause": "DOMAIN_MOONS_VISIT_UNAVAILABLE",
+        "state": "owed"
+      },
+      {
+        "command": "moons.pending",
+        "cause": "SUCCESS_UNCHANGED",
+        "state": "driven"
+      },
+      {
+        "command": "moons.pending",
+        "cause": "DOMAIN_PRECONDITION_UNMET",
+        "state": "owed"
       }
     ]
   },

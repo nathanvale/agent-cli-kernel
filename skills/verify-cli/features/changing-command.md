@@ -15,21 +15,24 @@ that blocks the next change to the same thing.
 - `interruption-blocks` refuses the same change as unresolved.
 - `interruption-is-listed` shows the report command lists one unfinished
   change.
+- `interruption-is-narrow` makes the same change to another thing: the
+  block covers only the interrupted change's scope.
 
 ## How to get to it (user POV)
 
 - A command whose `--help` first line ends `(repository-local)` or
-  `(external)`, such as `save <path> --content <text>`.
+  `(external)`, such as `visit <planet>`.
 - The report command its discovery names under `ifNoResult`, such as
   `pending`.
 
 ## Driving it with verify-cli
 
 Preconditions: `verify.ts ready src/cli.ts` lists a command whose
-`effectClass` is not `inspect`, and a run folder from `launch`. The author
-skill has no guidance for a changing command yet; this scenario was run on
-a test CLI with a `save` command, a `pending` command, and its state folder
-in the variable `NOTES_STATE`.
+`effectClass` is not `inspect`, and a run folder from `launch`. The scenario
+below drives the author skill's example, `moons`: `visit <planet>` writes
+the planet's page under `MOONS_HOME`, then starts the program `MOONS_OPENER`
+names with that page. Here `MOONS_OPENER` names a test opener that exits 0
+at once, except for venus's page, where it waits.
 
 ```json
 {
@@ -38,27 +41,39 @@ in the variable `NOTES_STATE`.
   "steps": [
     {
       "name": "first-run",
-      "argv": ["save", "{scratch}/note", "--content", "proof", "--json"],
+      "argv": ["visit", "mars", "--json"],
       "expect": {
         "exitCode": 0,
         "stderr": "",
         "result": {
-          "commandIdentity": "notes.save",
+          "commandIdentity": "moons.visit",
           "causeCode": "SUCCESS_COMPLETED",
           "transactionState": "completed",
-          "effects.completed": ["note.write"]
+          "effects.completed": ["planet.record", "viewer.open-request"]
         },
-        "files": [{ "path": "{scratch}/note", "content": "proof" }]
+        "files": [
+          {
+            "path": "{scratch}/moons/visits/mars.txt",
+            "content": "mars has 2 moons.\n"
+          }
+        ]
       }
     },
     {
       "name": "second-run",
-      "argv": ["save", "{scratch}/note", "--content", "again", "--json"],
+      "argv": ["visit", "mars", "--json"],
       "expect": {
         "exitCode": 0,
         "stderr": "",
-        "result": { "causeCode": "SUCCESS_COMPLETED" },
-        "files": [{ "path": "{scratch}/note", "content": "again" }]
+        "result": {
+          "causeCode": "SUCCESS_COMPLETED"
+        },
+        "files": [
+          {
+            "path": "{scratch}/moons/visits/mars.txt",
+            "content": "mars has 2 moons.\n"
+          }
+        ]
       }
     },
     {
@@ -76,22 +91,29 @@ in the variable `NOTES_STATE`.
     {
       "name": "interrupted-run",
       "timeoutMilliseconds": 3000,
-      "argv": ["save", "{scratch}/held", "--content", "hold", "--json"],
+      "argv": ["visit", "venus", "--json"],
       "expect": {
         "exitCode": 143,
         "timedOut": true,
         "stdout": "",
         "stderr": "",
-        "files": [{ "path": "{scratch}/held", "absent": true }]
+        "files": [
+          {
+            "path": "{scratch}/moons/visits/venus.txt",
+            "content": "venus has 0 moons.\n"
+          }
+        ]
       }
     },
     {
       "name": "interruption-blocks",
-      "argv": ["save", "{scratch}/held", "--content", "again", "--json"],
+      "argv": ["visit", "venus", "--json"],
       "expect": {
         "exitCode": 3,
         "stderr": "",
-        "result": { "causeCode": "DOMAIN_NOTES_UNRESOLVED" }
+        "result": {
+          "causeCode": "DOMAIN_MOONS_VISIT_UNRESOLVED"
+        }
       }
     },
     {
@@ -103,7 +125,18 @@ in the variable `NOTES_STATE`.
         "result": {
           "causeCode": "SUCCESS_UNCHANGED",
           "data.unfinished.length": 1,
-          "data.unfinished.0.commandIdentity": "notes.save"
+          "data.unfinished.0.effects": ["planet.record", "viewer.open-request"]
+        }
+      }
+    },
+    {
+      "name": "interruption-is-narrow",
+      "argv": ["visit", "earth", "--json"],
+      "expect": {
+        "exitCode": 0,
+        "stderr": "",
+        "result": {
+          "causeCode": "SUCCESS_COMPLETED"
         }
       }
     }
@@ -112,8 +145,8 @@ in the variable `NOTES_STATE`.
 ```
 
 ```text
-$ NOTES_STATE=<run folder>/scratch/notes-state verify.ts drive <run folder> verify/scenarios/changing-command.json
-6 steps met.
+$ MOONS_HOME=<run folder>/scratch/moons MOONS_OPENER=<test opener> verify.ts drive <run folder> verify/scenarios/changing-command.json
+7 steps met.
 ```
 
 ## Gotchas
@@ -123,7 +156,7 @@ $ NOTES_STATE=<run folder>/scratch/notes-state verify.ts drive <run folder> veri
   whose state folder is fixed inside the repository cannot be isolated yet;
   judge its change through its own read-only commands, and say so here.
 - A fast change finishes before any time limit. The interrupted step needs
-  a change that waits, as the test CLI's `hold` content does.
+  a change that waits, as the test opener does for venus.
 - `143` is the kernel's exit for SIGTERM, which the time limit sends.
 - After the interrupted step, that change stays blocked in this run's
   target state. Use a new run folder for anything else on it.
