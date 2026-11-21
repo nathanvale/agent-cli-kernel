@@ -12,7 +12,8 @@ import {
 } from "../../../skills/verify-cli/forensics.ts";
 import { closeArgs, framed, makeWorld } from "./harness.ts";
 
-const world = makeWorld({ qualification: "fixture" });
+const childBound = 20_000;
+const world = makeWorld({ qualification: "fixture", childBound });
 afterAll(() => world.dispose());
 const apply = (name: string) => ["apply", name, "--content", "x", "--json"];
 
@@ -116,84 +117,99 @@ function existingFolder(id: string): string {
   ]) {
     try {
       if (statSync(candidate).isDirectory()) return candidate;
-    } catch {
-      continue;
+    } catch (error) {
+      if (Reflect.get(Object(error), "code") === "ENOENT") continue;
+      throw error;
     }
   }
-  return "";
+  throw new Error(`fixture case ${id} not found in operations/ or settled/`);
 }
 
-test("forensics and the kernel reader agree on every case the kernel wrote", async () => {
-  await world.run(apply("done"));
-  await world.killAt(apply("lost"), "effect");
-  await world.killAt(apply("closed"), "effect");
-  await world.killAt(apply("torn"), "effect");
-  await world.killAt(apply("hidden"), "effect");
-  const byNote = new Map(
-    world
-      .cases()
-      .map((entry) => [JSON.stringify(entry.intent.scope), entry.id]),
-  );
-  const idOf = (note: string) =>
-    [...byNote].find(([scope]) => scope.includes(`note:${note}"`))?.[1] ?? "";
-  const closedId = idOf("closed");
-  expect(
-    (await world.run(closeArgs(closedId, await world.revision(closedId)))).exit,
-  ).toBe(0);
-  const tornEvents = join(world.root, "operations", idOf("torn"), "events");
-  truncateSync(tornEvents, statSync(tornEvents).size - 9);
-  appendFileSync(
-    join(world.root, "operations", idOf("hidden"), "events"),
-    `C3S1 torn${framed("completion", { completed: [] })}`,
-  );
-  const ids = world.cases().map((entry) => entry.id);
-  expect(ids.length).toBeGreaterThanOrEqual(5);
-  for (const id of ids)
-    expect({ id, ...forensicView(id) }).toEqual({ id, ...kernelView(id) });
-  const statuses = ids.map((id) => kernelView(id).status).sort();
-  expect(new Set(statuses)).toEqual(
-    new Set(["closed", "completed", "unresolved"]),
-  );
-}, 120_000);
+test(
+  "forensics and the kernel reader agree on every case the kernel wrote",
+  async () => {
+    await world.run(apply("done"));
+    await world.killAt(apply("lost"), "effect");
+    await world.killAt(apply("closed"), "effect");
+    await world.killAt(apply("torn"), "effect");
+    await world.killAt(apply("hidden"), "effect");
+    const byNote = new Map(
+      world
+        .cases()
+        .map((entry) => [JSON.stringify(entry.intent.scope), entry.id]),
+    );
+    const idOf = (note: string) =>
+      [...byNote].find(([scope]) => scope.includes(`note:${note}"`))?.[1] ?? "";
+    const closedId = idOf("closed");
+    expect(
+      (await world.run(closeArgs(closedId, await world.revision(closedId))))
+        .exit,
+    ).toBe(0);
+    const tornEvents = join(world.root, "operations", idOf("torn"), "events");
+    truncateSync(tornEvents, statSync(tornEvents).size - 9);
+    appendFileSync(
+      join(world.root, "operations", idOf("hidden"), "events"),
+      `C3S1 torn${framed("completion", { completed: [] })}`,
+    );
+    const ids = world.cases().map((entry) => entry.id);
+    expect(ids.length).toBeGreaterThanOrEqual(5);
+    for (const id of ids)
+      expect({ id, ...forensicView(id) }).toEqual({ id, ...kernelView(id) });
+    const statuses = ids.map((id) => kernelView(id).status).sort();
+    expect(new Set(statuses)).toEqual(
+      new Set(["closed", "completed", "unresolved"]),
+    );
+  },
+  7 * childBound + 20_000,
+);
 
-test("both framing parsers agree on 3000 damaged copies of a real events file", () => {
-  const sample = world
-    .cases()
-    .find((entry) => entry.events.records.length >= 3);
-  if (!sample) throw new Error("no completed case to sample");
-  const folder = existingFolder(sample.id);
-  const original = new Uint8Array(readFileSync(join(folder, "events")));
-  const extra = new TextEncoder().encode(
-    framed("effect-confirmed", { effect: "note.write" }),
-  );
-  let seed = 0x2f6e2b1;
-  const next = (bound: number) => {
-    seed = (Math.imul(seed, 1103515245) + 12345) >>> 0;
-    return seed % bound;
-  };
-  const disagreements: string[] = [];
-  for (let round = 0; round < 3000; round += 1) {
-    const bytes = mutateBytes(original, extra, next);
-    const kernel = parseRecords(bytes);
-    const forensic = parseC3s1Records(bytes);
-    const k = kernel.ok
-      ? {
-          ok: true,
-          torn: kernel.tornTail,
-          hidden: kernel.tornTail && recordStartsMidLine(bytes),
-          records: JSON.stringify(kernel.records),
-        }
-      : { ok: false };
-    const f = forensic.ok
-      ? {
-          ok: true,
-          torn: forensic.tornTail,
-          hidden: forensic.recordHiddenInTornTail,
-          records: JSON.stringify(forensic.records),
-        }
-      : { ok: false };
-    if (JSON.stringify(k) !== JSON.stringify(f))
-      disagreements.push(`round ${String(round)}`);
-  }
-  expect(disagreements).toEqual([]);
-}, 120_000);
+test(
+  "both framing parsers agree on 3000 damaged copies of a real events file",
+  async () => {
+    expect((await world.run(apply("framing-sample"))).exit).toBe(0);
+    const sample = world
+      .cases()
+      .find(
+        (entry) =>
+          JSON.stringify(entry.intent.scope).includes('note:framing-sample"') &&
+          entry.events.records.length >= 3,
+      );
+    if (!sample) throw new Error("no completed framing-sample case to sample");
+    const folder = existingFolder(sample.id);
+    const original = new Uint8Array(readFileSync(join(folder, "events")));
+    const extra = new TextEncoder().encode(
+      framed("effect-confirmed", { effect: "note.write" }),
+    );
+    let seed = 0x2f6e2b1;
+    const next = (bound: number) => {
+      seed = (Math.imul(seed, 1103515245) + 12345) >>> 0;
+      return seed % bound;
+    };
+    const disagreements: string[] = [];
+    for (let round = 0; round < 3000; round += 1) {
+      const bytes = mutateBytes(original, extra, next);
+      const kernel = parseRecords(bytes);
+      const forensic = parseC3s1Records(bytes);
+      const k = kernel.ok
+        ? {
+            ok: true,
+            torn: kernel.tornTail,
+            hidden: kernel.tornTail && recordStartsMidLine(bytes),
+            records: JSON.stringify(kernel.records),
+          }
+        : { ok: false };
+      const f = forensic.ok
+        ? {
+            ok: true,
+            torn: forensic.tornTail,
+            hidden: forensic.recordHiddenInTornTail,
+            records: JSON.stringify(forensic.records),
+          }
+        : { ok: false };
+      if (JSON.stringify(k) !== JSON.stringify(f))
+        disagreements.push(`round ${String(round)}`);
+    }
+    expect(disagreements).toEqual([]);
+  },
+  childBound + 20_000,
+);

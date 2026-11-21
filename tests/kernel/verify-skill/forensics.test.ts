@@ -297,14 +297,126 @@ describe("kernel-free forensics in-process", () => {
     expect(cCase?.closure.state).toBe("damaged");
     expect(cCase?.status).toBe("unresolved");
     expect(cCase?.problems).toContain("closure record is damaged");
-    expect(
-      badInspected.report.cases.find((c) => c.operationId === opBadEvent)
-        ?.status,
-    ).toBe("corrupt");
-    expect(
-      badInspected.report.cases.find((c) => c.operationId === opBadIntent)
-        ?.status,
-    ).toBe("corrupt");
+    const dCase = badInspected.report.cases.find(
+      (c) => c.operationId === opBadEvent,
+    );
+    expect(dCase?.status).toBe("corrupt");
+    expect(dCase?.problems).toContain(
+      "events file contains unknown event kind unknown-kind",
+    );
+    const eCase = badInspected.report.cases.find(
+      (c) => c.operationId === opBadIntent,
+    );
+    expect(eCase?.status).toBe("corrupt");
+    expect(eCase?.problems).toContain(
+      "intent record is corrupt or mismatches operationId",
+    );
+  });
+
+  test("distinguishes real closure journalRevision mismatches from concurrent event updates", () => {
+    const root = createStateTree("contract3.state.2");
+    const opMismatch = "op-0000000000000000000000000000001a";
+    const opMismatchDir = join(root, "operations", opMismatch);
+    mkdirSync(opMismatchDir, { mode: 0o700 });
+    const intentMismatch = encodeC3s1("intent", {
+      operationId: opMismatch,
+      commandIdentity: "notes.save",
+      runId: "run-mismatch",
+      effects: ["note.write"],
+      scope: { resources: [], invariants: [], unknown: false, keys: ["k1"] },
+      revisions: {},
+      owner: { lease: "owner.lease", pid: 4242, startedAt: 1000 },
+      coordination: [],
+      approval: null,
+      closes: null,
+    });
+    const eventsInitial = encodeC3s1("effect-started", {
+      effect: "note.write",
+    });
+    writeFileSync(join(opMismatchDir, "intent"), intentMismatch);
+    writeFileSync(join(opMismatchDir, "events"), eventsInitial);
+    writeFileSync(
+      join(opMismatchDir, "closure"),
+      encodeC3s1("closure", {
+        operationId: opMismatch,
+        closureId: "c-mismatch",
+        disposition: "completed",
+        reason: "verified",
+        evidence: [],
+        journalRevision: `r-${"0".repeat(64)}`,
+        qualification: "linux-7-btrfs",
+        recoveryRunId: "rec-1",
+      }),
+    );
+
+    const stable = inspectStateRoot(root);
+    expect(stable.ok).toBe(true);
+    if (stable.ok) {
+      const entry = stable.report.cases.find(
+        (c) => c.operationId === opMismatch,
+      );
+      expect(entry?.closure.journalRevisionMatches).toBe(false);
+      expect(entry?.problems).toContain(
+        "closure journalRevision does not match intent+events",
+      );
+    }
+
+    const opConcurrent = "op-0000000000000000000000000000001b";
+    const opConcurrentDir = join(root, "operations", opConcurrent);
+    mkdirSync(opConcurrentDir, { mode: 0o700 });
+    const intentConcurrent = encodeC3s1("intent", {
+      operationId: opConcurrent,
+      commandIdentity: "notes.save",
+      runId: "run-concurrent",
+      effects: ["note.write"],
+      scope: { resources: [], invariants: [], unknown: false, keys: ["k2"] },
+      revisions: {},
+      owner: { lease: "owner.lease", pid: 4242, startedAt: 1000 },
+      coordination: [],
+      approval: null,
+      closes: null,
+    });
+    const eventsAfter = concatBytes(
+      eventsInitial,
+      encodeC3s1("completion", { settledAt: 2000 }),
+    );
+    const revAfter = `r-${createHash("sha256").update(intentConcurrent).update("\n").update(eventsAfter).digest("hex")}`;
+    writeFileSync(join(opConcurrentDir, "intent"), intentConcurrent);
+    writeFileSync(join(opConcurrentDir, "events"), eventsInitial);
+    writeFileSync(
+      join(opConcurrentDir, "closure"),
+      encodeC3s1("closure", {
+        operationId: opConcurrent,
+        closureId: "c-concurrent",
+        disposition: "completed",
+        reason: "verified",
+        evidence: [],
+        journalRevision: revAfter,
+        qualification: "linux-7-btrfs",
+        recoveryRunId: "rec-2",
+      }),
+    );
+
+    const concurrentClosurePath = join(opConcurrentDir, "closure");
+    const concurrentEventsPath = join(opConcurrentDir, "events");
+    const racing = inspectStateRoot(root, (path, maxBytes) => {
+      if (path === concurrentClosurePath)
+        writeFileSync(concurrentEventsPath, eventsAfter);
+      return readBytesNoFollow(path, maxBytes);
+    });
+    expect(racing.ok).toBe(true);
+    if (racing.ok) {
+      const entry = racing.report.cases.find(
+        (c) => c.operationId === opConcurrent,
+      );
+      expect(entry?.closure.journalRevisionMatches).toBeNull();
+      expect(entry?.problems).toContain(
+        "case changed during inspection (events updated while reading closure)",
+      );
+      expect(entry?.problems).not.toContain(
+        "closure journalRevision does not match intent+events",
+      );
+    }
   });
 
   test("decodes diagnostics custody locks, residue, markers, and JSONL summaries", () => {
@@ -476,7 +588,7 @@ describe("kernel-free forensics in-process", () => {
         join(skill, "forensics.ts"),
         validMarkerCase.dir,
       ],
-      { stdout: "pipe", stderr: "pipe" },
+      { stdout: "pipe", stderr: "pipe", timeout: 5_000, killSignal: "SIGKILL" },
     );
     expect(noUidProbe.exitCode).toBe(0);
     expect(parsed(noUidProbe.stdout.toString())).toMatchObject({
@@ -486,7 +598,7 @@ describe("kernel-free forensics in-process", () => {
         files: [{ closedMarker: "mismatched" }],
       },
     });
-  });
+  }, 15_000);
 
   test("reports unknown for a live open diagnostics run, clean after finish, and issues beside a real problem", async () => {
     const xdgRoot = ownedFolder("forensics-diag-live-");
@@ -502,12 +614,15 @@ describe("kernel-free forensics in-process", () => {
       "fixtures",
       "specimen-cli.ts",
     );
+    const baseEnv = Object.fromEntries(
+      Object.entries(process.env).filter(([key]) => key !== "DXS_FAULT"),
+    );
     const child = Bun.spawn(
       [process.execPath, "--no-install", specimen, "read", "--json"],
       {
         cwd: repository,
         env: {
-          ...process.env,
+          ...baseEnv,
           XDG_STATE_HOME: xdgRoot,
           DXS_SCRIPT: JSON.stringify({
             records: 1,
@@ -519,8 +634,8 @@ describe("kernel-free forensics in-process", () => {
       },
     );
     try {
-      await waitForFile(readyFile);
-      await waitForRecordBytes(diagDir);
+      await waitForFile(readyFile, 15_000);
+      await waitForRecordBytes(diagDir, 15_000);
       const liveCli = runForensics(
         ["diagnostics", diagDir, "--json"],
         repository,
@@ -544,7 +659,12 @@ describe("kernel-free forensics in-process", () => {
       }
     } finally {
       writeFileSync(goFile, "go");
-      await child.exited;
+      const stopTimer = setTimeout(() => child.kill("SIGKILL"), 5_000);
+      try {
+        await child.exited;
+      } finally {
+        clearTimeout(stopTimer);
+      }
     }
 
     const finishedReport = inspectDiagnosticsFolder(diagDir);
@@ -572,7 +692,7 @@ describe("kernel-free forensics in-process", () => {
         "ghost.jsonl.closed-1-2-3",
       ]);
     }
-  });
+  }, 45_000);
 
   test("decodes approval consumed markers, valid and expired grants, prototype keys, and malformed entries", () => {
     const dir = ownedFolder("forensics-approval-");
@@ -904,11 +1024,19 @@ describe("kernel-free forensics in-process", () => {
       expect(unresolvedReport.report.helperState?.problems).toEqual([]);
       expect(unresolvedReport.report.status).toBe("issues");
       expect(
-        unresolvedReport.report.problems.some((p) =>
-          p.includes("helper state has 1 unresolved case(s)"),
+        unresolvedReport.report.problems.some(
+          (p) =>
+            p.includes("helper state has 1 unresolved case(s)") &&
+            p.includes(`verify.ts pending ${unresolvedRun}`) &&
+            !p.includes("ifNoResult") &&
+            !p.includes("close command"),
         ),
       ).toBe(true);
-      expect(unresolvedReport.report.summary).toContain("Next:");
+      expect(unresolvedReport.report.summary).toContain(
+        `Next: Run verify.ts pending ${unresolvedRun}`,
+      );
+      expect(unresolvedReport.report.summary).toContain("launch a new run");
+      expect(unresolvedReport.report.summary).not.toContain("close command");
     }
   });
 

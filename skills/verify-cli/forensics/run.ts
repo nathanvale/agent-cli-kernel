@@ -297,8 +297,13 @@ function inspectEvidencePart(
   return { runMeta, steps, problems };
 }
 
+function helperUnresolvedNextAction(folder: string): string {
+  return `Run verify.ts pending ${folder} to inspect the helper's unfinished change, keep this run folder as evidence, and launch a new run.`;
+}
+
 function collectHelperStateProblems(
   stateInspect: ReturnType<typeof inspectStateRoot>,
+  folder: string,
 ): readonly string[] {
   if (!stateInspect.ok)
     return [`helper state unavailable: ${stateInspect.reason}`];
@@ -309,11 +314,9 @@ function collectHelperStateProblems(
     (entry) => entry.status === "unresolved",
   ).length;
   if (unresolved === 0) return problems;
-  const next = stateInspect.report.nextAction;
-  const suffix = next === null ? "" : ` Next: ${next}`;
   return [
     ...problems,
-    `helper state has ${String(unresolved)} unresolved case(s).${suffix}`,
+    `helper state has ${String(unresolved)} unresolved case(s). Next: ${helperUnresolvedNextAction(folder)}`,
   ];
 }
 
@@ -336,7 +339,7 @@ export function inspectRunFolder(
       ? [`scratch folder unreadable: ${scratchStat.reason}`]
       : []),
     ...evidence.problems,
-    ...collectHelperStateProblems(stateInspect),
+    ...collectHelperStateProblems(stateInspect, folder),
   ];
 
   const unmetCount = evidence.steps.filter(
@@ -348,9 +351,11 @@ export function inspectRunFolder(
       ? "clean"
       : "issues";
   const summaryBase = `Verification run (${scratchPresent ? "scratch present" : "scratch removed"}): ${String(evidence.steps.length)} step(s) (${String(unmetCount)} unmet), ${String(problems.length)} problem(s).`;
-  const helperNext = helperState?.nextAction ?? null;
-  const summary =
-    helperNext === null ? summaryBase : `${summaryBase} Next: ${helperNext}`;
+  const hasUnresolvedHelper =
+    helperState?.cases.some((entry) => entry.status === "unresolved") ?? false;
+  const summary = hasUnresolvedHelper
+    ? `${summaryBase} Next: ${helperUnresolvedNextAction(folder)}`
+    : summaryBase;
 
   return {
     ok: true,

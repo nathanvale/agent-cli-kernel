@@ -15,155 +15,15 @@ import {
   stringList,
   textField,
 } from "./io.ts";
+import {
+  invalidEventReason,
+  validClosurePayload,
+  validIntentPayload,
+} from "./state-shape.ts";
 
 const operationPattern = /^op-[0-9a-f]{32}$/;
-const validEventKinds = new Set([
-  "effect-started",
-  "delegate-admitted",
-  "effect-confirmed",
-  "effect-unconfirmed",
-  "completion",
-  "not-applied",
-  "outcome",
-  "emergency",
-]);
-const effectEventKinds = new Set([
-  "effect-started",
-  "delegate-admitted",
-  "effect-confirmed",
-  "effect-unconfirmed",
-]);
-const validDispositions = new Set([
-  "completed",
-  "not-applied",
-  "outcome-unknown",
-]);
 const unresolvedNextAction =
   "Run the target CLI's ifNoResult command to see the operation and its scope, then check the affected resource by hand. Close the case only if the CLI offers a close command on a host qualified for it; otherwise the case stays unresolved.";
-
-function exactStringList(value: unknown): readonly string[] | undefined {
-  if (!Array.isArray(value)) return undefined;
-  const out: string[] = [];
-  for (const entry of value) {
-    const item = textField(entry);
-    if (item === null) return undefined;
-    out.push(item);
-  }
-  return out;
-}
-
-function sortedUniqueStrings(value: readonly string[]): boolean {
-  return value.every(
-    (entry, index) => index === 0 || (value[index - 1] ?? "") < entry,
-  );
-}
-
-function validScopeResource(entry: unknown): boolean {
-  const item = plainRecord(entry);
-  if (
-    !item ||
-    textField(item.resource) === null ||
-    exactStringList(item.keys) === undefined
-  )
-    return false;
-  const hasPath = textField(item.path) !== null;
-  const hasKey = textField(item.key) !== null;
-  return hasPath !== hasKey;
-}
-
-function validScopePayload(value: unknown): boolean {
-  const scope = plainRecord(value);
-  if (
-    !scope ||
-    typeof scope.unknown !== "boolean" ||
-    exactStringList(scope.keys) === undefined ||
-    exactStringList(scope.invariants) === undefined ||
-    !Array.isArray(scope.resources)
-  )
-    return false;
-  return scope.resources.every(validScopeResource);
-}
-
-function validRevisionsPayload(value: unknown): boolean {
-  const revisions = plainRecord(value);
-  return (
-    revisions !== undefined &&
-    Object.values(revisions).every((entry) => textField(entry) !== null)
-  );
-}
-
-function validApprovalField(value: unknown): boolean {
-  if (value === null) return true;
-  const approval = plainRecord(value);
-  return approval?.kind === "preview" && textField(approval.reference) !== null;
-}
-
-function validOwnerField(value: unknown): boolean {
-  const owner = plainRecord(value);
-  return (
-    owner?.lease === "owner.lease" &&
-    typeof owner.pid === "number" &&
-    typeof owner.startedAt === "number"
-  );
-}
-
-function hasTextFields(
-  payload: Readonly<Record<string, unknown>>,
-  keys: readonly string[],
-): boolean {
-  return keys.every((key) => textField(payload[key]) !== null);
-}
-
-function validIntentPayload(
-  payload: Readonly<Record<string, unknown>> | undefined,
-  operationId: string,
-): boolean {
-  if (!payload || payload.operationId !== operationId) return false;
-  const effects = exactStringList(payload.effects);
-  if (
-    !hasTextFields(payload, ["commandIdentity", "runId"]) ||
-    effects === undefined ||
-    effects.length === 0 ||
-    !sortedUniqueStrings(effects)
-  )
-    return false;
-  return (
-    validScopePayload(payload.scope) &&
-    validRevisionsPayload(payload.revisions) &&
-    validOwnerField(payload.owner) &&
-    exactStringList(payload.coordination) !== undefined &&
-    validApprovalField(payload.approval) &&
-    (payload.closes === null || textField(payload.closes) !== null)
-  );
-}
-
-function validClosureEvidence(value: unknown): boolean {
-  if (!Array.isArray(value)) return false;
-  return value.every((entry: unknown) => {
-    const item = plainRecord(entry);
-    return item !== undefined && hasTextFields(item, ["effect", "observation"]);
-  });
-}
-
-function validClosurePayload(
-  payload: Readonly<Record<string, unknown>> | undefined,
-  operationId: string,
-): boolean {
-  if (!payload || payload.operationId !== operationId) return false;
-  const disposition = textField(payload.disposition);
-  return (
-    disposition !== null &&
-    validDispositions.has(disposition) &&
-    hasTextFields(payload, [
-      "closureId",
-      "reason",
-      "journalRevision",
-      "qualification",
-      "recoveryRunId",
-    ]) &&
-    validClosureEvidence(payload.evidence)
-  );
-}
 
 function journalRevisionOf(
   intentBytes: Uint8Array,
@@ -215,8 +75,21 @@ export type StateCaseReport = {
   readonly problems: readonly string[];
 };
 
-function readIntentPart(directory: string, operationId: string) {
-  const read = readBytesNoFollow(join(directory, "intent"));
+type StateFileReader = typeof readBytesNoFollow;
+
+function sameBytes(left: Uint8Array, right: Uint8Array): boolean {
+  return (
+    left.byteLength === right.byteLength &&
+    left.every((byte, index) => byte === right[index])
+  );
+}
+
+function readIntentPart(
+  directory: string,
+  operationId: string,
+  readFile: StateFileReader,
+) {
+  const read = readFile(join(directory, "intent"));
   if (read.kind !== "read")
     return {
       payload: undefined,
@@ -264,33 +137,12 @@ function failedEvents(
   };
 }
 
-function invalidEventReason(
-  records: readonly {
-    readonly kind: string;
-    readonly payload: Readonly<Record<string, unknown>>;
-  }[],
-  declaredEffects: readonly string[] | undefined,
-): string | undefined {
-  for (const record of records) {
-    if (!validEventKinds.has(record.kind))
-      return `events file contains unknown event kind ${record.kind}`;
-    if (effectEventKinds.has(record.kind)) {
-      const effect = textField(record.payload.effect);
-      if (
-        effect === null ||
-        (declaredEffects !== undefined && !declaredEffects.includes(effect))
-      )
-        return `events file contains undeclared or invalid effect on ${record.kind}`;
-    }
-  }
-  return undefined;
-}
-
 function readEventsPart(
   directory: string,
   declaredEffects: readonly string[] | undefined,
+  readFile: StateFileReader,
 ): EventsPart {
-  const read = readBytesNoFollow(join(directory, "events"));
+  const read = readFile(join(directory, "events"));
   if (read.kind !== "read")
     return failedEvents(
       undefined,
@@ -338,12 +190,44 @@ function emptyClosure(state: "absent" | "damaged" | "unreadable") {
   };
 }
 
+function verifyClosureRevision(
+  directory: string,
+  eventsBytes: Uint8Array | undefined,
+  revision: string | null,
+  recorded: string | null,
+  readFile: StateFileReader,
+): {
+  readonly matches: boolean | null;
+  readonly problem: string | undefined;
+} {
+  if (revision === null || recorded === null)
+    return { matches: null, problem: undefined };
+  if (recorded === revision) return { matches: true, problem: undefined };
+  const afterEvents = readFile(join(directory, "events"));
+  const changed =
+    eventsBytes === undefined ||
+    afterEvents.kind !== "read" ||
+    !sameBytes(eventsBytes, afterEvents.bytes);
+  if (changed)
+    return {
+      matches: null,
+      problem:
+        "case changed during inspection (events updated while reading closure)",
+    };
+  return {
+    matches: false,
+    problem: "closure journalRevision does not match intent+events",
+  };
+}
+
 function readClosurePart(
   directory: string,
   operationId: string,
+  eventsBytes: Uint8Array | undefined,
   revision: string | null,
+  readFile: StateFileReader,
 ) {
-  const read = readBytesNoFollow(join(directory, "closure"));
+  const read = readFile(join(directory, "closure"));
   if (read.kind === "missing")
     return { closure: emptyClosure("absent"), problem: undefined };
   if (read.kind === "unreadable")
@@ -357,20 +241,21 @@ function readClosurePart(
       closure: emptyClosure("damaged"),
       problem: "closure record is damaged",
     };
-  const recorded = textField(payload.journalRevision);
-  const matches =
-    revision !== null && recorded !== null ? recorded === revision : null;
+  const checked = verifyClosureRevision(
+    directory,
+    eventsBytes,
+    revision,
+    textField(payload.journalRevision),
+    readFile,
+  );
   return {
     closure: {
       state: "valid" as const,
       disposition: textField(payload.disposition),
       qualification: textField(payload.qualification),
-      journalRevisionMatches: matches,
+      journalRevisionMatches: checked.matches,
     },
-    problem:
-      matches === false
-        ? "closure journalRevision does not match intent+events"
-        : undefined,
+    problem: checked.problem,
   };
 }
 
@@ -407,19 +292,26 @@ function inspectStateCase(
   folder: "operations" | "settled",
   directory: string,
   operationId: string,
+  readFile: StateFileReader,
 ): StateCaseReport {
   const leaseStat = lstatSafe(join(directory, "owner.lease"));
-  const intent = readIntentPart(directory, operationId);
+  const intent = readIntentPart(directory, operationId, readFile);
   const declaredEffects =
     intent.payload === undefined
       ? undefined
       : stringList(intent.payload.effects);
-  const events = readEventsPart(directory, declaredEffects);
+  const events = readEventsPart(directory, declaredEffects, readFile);
   const revision =
     intent.bytes !== undefined && events.bytes !== undefined
       ? journalRevisionOf(intent.bytes, events.bytes)
       : null;
-  const closed = readClosurePart(directory, operationId, revision);
+  const closed = readClosurePart(
+    directory,
+    operationId,
+    events.bytes,
+    revision,
+    readFile,
+  );
   const status = deriveCaseStatus(
     intent.payload !== undefined,
     events.valid,
@@ -523,6 +415,7 @@ function scanCaseEntry(
   folder: "operations" | "settled",
   dirPath: string,
   name: string,
+  readFile: StateFileReader,
 ): {
   readonly report: StateCaseReport | undefined;
   readonly problems: readonly string[];
@@ -539,7 +432,7 @@ function scanCaseEntry(
       report: undefined,
       problems: [`${folder}/${name}: ${openedCase.reason}`],
     };
-  const report = inspectStateCase(folder, caseDir, name);
+  const report = inspectStateCase(folder, caseDir, name, readFile);
   return {
     report,
     problems: report.problems.map((issue) => `${folder}/${name}: ${issue}`),
@@ -550,6 +443,7 @@ function scanCaseBucket(
   root: string,
   folder: "operations" | "settled",
   required: boolean,
+  readFile: StateFileReader,
 ): {
   readonly cases: readonly StateCaseReport[];
   readonly truncated: boolean;
@@ -570,7 +464,7 @@ function scanCaseBucket(
       problems: [`${folder}/ unreadable: ${listed.reason}`],
     };
   const entries = listed.names.map((name) =>
-    scanCaseEntry(folder, dirPath, name),
+    scanCaseEntry(folder, dirPath, name, readFile),
   );
   const modeProblem = !privateModeOk(listed.stats)
     ? [
@@ -649,6 +543,7 @@ function collectRootProblems(
 
 export function inspectStateRoot(
   root: string,
+  readFile: typeof readBytesNoFollow = readBytesNoFollow,
 ):
   | { readonly ok: true; readonly report: StateForensicsReport }
   | { readonly ok: false; readonly reason: string } {
@@ -658,11 +553,12 @@ export function inspectStateRoot(
   const fmt = readFormatJournal(root);
   const coord = listSubdir(root, "coordination");
   const staging = listSubdir(root, "staging");
-  const ops = scanCaseBucket(root, "operations", true);
+  const ops = scanCaseBucket(root, "operations", true, readFile);
   const settled = scanCaseBucket(
     root,
     "settled",
     fmt.journal === "contract3.state.2",
+    readFile,
   );
   const truncated =
     coord.truncated || staging.truncated || ops.truncated || settled.truncated;
