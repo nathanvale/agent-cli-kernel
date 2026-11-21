@@ -13,7 +13,9 @@ import type {
   RunInProcess,
   RunSetup,
   StopSignal,
+  TerminalAdapter,
 } from "./process-types.ts";
+import { asksMachineOutput } from "./routing.ts";
 import { runtimeOf } from "./runtime.ts";
 import type { ContractKey } from "./runtime.ts";
 import type { Attach, ContractRuntime, Enter, Resolution } from "./runtime.ts";
@@ -168,7 +170,10 @@ export function runProcessOn(
   host: () => ProcessHost,
 ): RunProcess {
   const prepared = prepare(contract, setup, "runProcess");
-  return (argv) => runInvocation(newRun(prepared, host()), argv);
+  return (argv) => {
+    const current = host();
+    return runInvocation(newRun(prepared, current, current.terminal()), argv);
+  };
 }
 
 let sharedHost: ProcessHost | undefined;
@@ -191,7 +196,8 @@ export function runInProcessOn(
 ): RunInProcess {
   const prepared = prepare(contract, setup, "runInProcess");
   const listener = setup.onCrash;
-  return (argv) => runAndReturn(newRun(prepared, host()), argv, listener);
+  return (argv) =>
+    runAndReturn(newRun(prepared, host(), setup.terminal), argv, listener);
 }
 
 type Run = {
@@ -211,6 +217,7 @@ type Run = {
   handler: EnteredHandler | undefined;
   enter: Enter | undefined;
   execution: Promise<Execution> | undefined;
+  terminal: TerminalAdapter | undefined;
 };
 type EnteredHandler = { returned: boolean; readonly returning: Promise<void> };
 type Delivery =
@@ -441,6 +448,7 @@ function control(run: Run, command: CommandDeclaration): RunControl {
     commandIdentity: command.commandIdentity,
     summary: command.summary,
     signal: run.controller.signal,
+    ...(run.terminal === undefined ? {} : { terminal: run.terminal }),
   };
 }
 
@@ -798,7 +806,11 @@ async function route(run: Run, resolution: Resolution): Promise<Delivery> {
   );
 }
 
-function newRun(prepared: Prepared, host: ProcessHost): Run {
+function newRun(
+  prepared: Prepared,
+  host: ProcessHost,
+  terminal: TerminalAdapter | undefined = undefined,
+): Run {
   return {
     ...prepared,
     host,
@@ -814,6 +826,7 @@ function newRun(prepared: Prepared, host: ProcessHost): Run {
     handler: undefined,
     enter: undefined,
     execution: undefined,
+    terminal,
   };
 }
 
@@ -827,7 +840,9 @@ async function deliver(
   argv: unknown,
   output: Output,
 ): Promise<number | undefined> {
-  const resolution = await run.runtime.resolve(argv);
+  const interactive = run.terminal !== undefined && !asksMachineOutput(argv);
+  if (!interactive) run.terminal = undefined;
+  const resolution = await run.runtime.resolve(argv, { interactive });
   const asked = resolution.ok ? resolution.value.machine : resolution.machine;
   const writer = createWriter({
     host: output.host,

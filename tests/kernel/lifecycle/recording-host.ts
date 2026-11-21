@@ -66,6 +66,7 @@ export function recordingHost() {
       crashListener = next;
     },
     now: () => performance.now(),
+    terminal: () => undefined,
   };
   return {
     host,

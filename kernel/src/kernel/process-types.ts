@@ -4,6 +4,17 @@ import type { CapabilityAddonName } from "./validation/context.ts";
 
 export type StopSignal = "SIGINT" | "SIGTERM";
 
+// Interface: Seam for reading keys from and drawing on a terminal. `enter`
+// switches to raw mode and hides the cursor; `leave` restores synchronously
+// and is safe to call twice; `draw` replaces the last drawing.
+export type TerminalAdapter = {
+  readonly size: () => { readonly columns: number; readonly rows: number };
+  readonly enter: () => void;
+  readonly leave: () => void;
+  readonly keys: (signal: AbortSignal) => AsyncIterable<Uint8Array>;
+  readonly draw: (lines: readonly string[]) => void;
+};
+
 export type ProcessHost = {
   readonly write: (
     stream: "stdout" | "stderr",
@@ -13,15 +24,18 @@ export type ProcessHost = {
   readonly onSignal: (listener: (signal: StopSignal) => void) => void;
   readonly onCrash: (listener: (error: unknown) => void) => void;
   readonly now: () => number;
+  readonly terminal: () => TerminalAdapter | undefined;
 };
 
 // Interface: What an add-on learns about the run it serves. `signal` aborts at the first
-// stop request or at the deadline: no new work may start after that.
+// stop request or at the deadline: no new work may start after that. `terminal` is
+// present only in an interactive run.
 export type RunControl = {
   readonly runId: string;
   readonly commandIdentity: string;
   readonly summary: string;
   readonly signal: AbortSignal;
+  readonly terminal?: TerminalAdapter;
 };
 
 export type AttachedAddon<Capability> = {
@@ -115,4 +129,5 @@ export type RunSetup = {
 // own uncaughtException handler, where the kernel cannot catch it.
 export type InProcessSetup = RunSetup & {
   readonly onCrash?: (error: unknown) => void | Promise<void>;
+  readonly terminal?: TerminalAdapter;
 };

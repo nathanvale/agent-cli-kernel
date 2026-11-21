@@ -38,6 +38,13 @@ export function carriesGlobalSwitch(argv: readonly unknown[]): boolean {
   const { machine, navigation } = globalSwitches(argv);
   return machine || navigation.length > 0;
 }
+export function asksMachineOutput(argv: unknown): boolean {
+  return (
+    Array.isArray(argv) &&
+    argv.every((token: unknown) => typeof token === "string") &&
+    globalSwitches(argv).machine
+  );
+}
 async function resolveBuiltin(
   cli: string,
   commands: readonly CommandDeclaration[],
@@ -141,10 +148,15 @@ export function routedIdentity(
   if (!deadline.ok || navigation.length > 0) return undefined;
   return selectCommand(cli, commands, deadline.value.tokens)?.commandIdentity;
 }
+export type ResolveFacts = {
+  readonly interactive?: boolean;
+  readonly defaultCommand?: CommandDeclaration;
+};
 export async function resolveInvocation(
   cli: string,
   commands: readonly CommandDeclaration[],
   argv: unknown,
+  facts?: ResolveFacts,
 ) {
   if (
     !Array.isArray(argv) ||
@@ -155,7 +167,21 @@ export async function resolveInvocation(
   const deadline = splitDeadline(globalTokens);
   if (!deadline.ok) return refused(cli, { kind: "deadline" }, machine);
   const { tokens, deadlineMilliseconds } = deadline.value;
-  if (!tokens.length) return refused(cli, { kind: "no-command" }, machine);
+  // Accepted decisions (Nathan, 21 November 2026, 11:39 and 11:42; MAG-138
+  // decisions 21 and 22): in an interactive run an empty argv runs the
+  // default command instead of the <cli>.dispatch refusal, bending frozen
+  // Command Contract 3 A10, DISC-1, DISC-4 (last clause) and LIFE-2a only
+  // in an interactive run; non-interactive and --json runs stay unchanged.
+  if (!tokens.length) {
+    if (
+      facts?.interactive === true &&
+      !machine &&
+      deadlineMilliseconds === undefined &&
+      facts.defaultCommand
+    )
+      return resolveCommand(cli, facts.defaultCommand, [], false);
+    return refused(cli, { kind: "no-command" }, machine);
+  }
   if (navigation.length > 1)
     return refused(cli, { kind: "navigation-conflict" }, machine);
   if (navigation.length === 1) {
