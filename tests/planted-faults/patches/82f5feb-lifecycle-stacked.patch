@@ -1,21 +1,28 @@
 diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
-index 696430c..88537aa 100644
 --- a/kernel/src/kernel/lifecycle.ts
 +++ b/kernel/src/kernel/lifecycle.ts
-@@ -321,10 +321,14 @@ function installHooks(run: Run) {
-     run.stopped = signal;
+@@ -856,11 +856,19 @@ function stopEvery(inFlight: InFlight, host: ProcessHost, signal: StopSignal) {
      run.controller.abort();
-     void within(
--      settledAfterStopRequest(run),
-+      settleAll(run, settleLimitMilliseconds),
-       stopBoundMilliseconds,
-       run.host.now,
--    ).then(() => run.host.exit(code));
+   }
+   void within(
+-    Promise.all(runs.map(settledAfterStopRequest)),
++    Promise.all(runs.map((run) => settleAll(run, settleLimitMilliseconds))),
+     stopBoundMilliseconds,
+     host.now,
+-  ).then(() => {
+-    if (inFlight.crash === "none") host.exit(code);
+-  });
++  )
++    .then(() =>
++      within(
++        Promise.all(runs.map((run) => run.execution)),
++        stopBoundMilliseconds,
++        host.now,
++      ),
 +    )
-+      .then(() =>
-+        within(Promise.all([run.execution]), stopBoundMilliseconds, run.host.now),
-+      )
-+      .then(() => run.host.exit(code));
-   });
-   run.host.onCrash(() => {
-     killAll(run);
++    .then(() => {
++      if (inFlight.crash === "none") host.exit(code);
++    });
+ }
+ 
+ function inFlightOn(host: ProcessHost): InFlight {

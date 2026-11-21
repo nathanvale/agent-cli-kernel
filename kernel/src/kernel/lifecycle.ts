@@ -341,28 +341,6 @@ function stopCode(signal: StopSignal): number {
   return signal === "SIGINT" ? 130 : 143;
 }
 
-function installHooks(run: Run) {
-  run.host.onSignal((signal) => {
-    const code = stopCode(signal);
-    if (run.stopped || run.phase === "drained") {
-      killAll(run);
-      run.host.exit(code);
-      return;
-    }
-    run.stopped = signal;
-    run.controller.abort();
-    void within(
-      settledAfterStopRequest(run),
-      stopBoundMilliseconds,
-      run.host.now,
-    ).then(() => run.host.exit(code));
-  });
-  run.host.onCrash(() => {
-    crashRun(run);
-    run.host.exit(1);
-  });
-}
-
 function trustedRun(
   run: Run,
   identity: string,
@@ -834,7 +812,8 @@ async function deliver(
 }
 
 async function runInvocation(run: Run, argv: unknown): Promise<number> {
-  installHooks(run);
+  const inFlight = inFlightOn(run.host);
+  inFlight.runs.add(run);
   const code = await deliver(run, argv, {
     host: run.host,
     machine: "as-asked",
@@ -864,7 +843,9 @@ function stopEvery(inFlight: InFlight, host: ProcessHost, signal: StopSignal) {
     host.exit(1);
     return;
   }
-  if (inFlight.stopped) {
+  const allDrained =
+    runs.length > 0 && runs.every((run) => run.phase === "drained");
+  if (inFlight.stopped || allDrained) {
     for (const run of runs) killAll(run);
     host.exit(code);
     return;
