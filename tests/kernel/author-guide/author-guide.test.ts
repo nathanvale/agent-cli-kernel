@@ -937,6 +937,7 @@ describe("kernel behaviour changing.md states in words", () => {
       text: "Look.",
     },
     input: kernel.InputSchema = emptyInput,
+    readsFrom?: ReturnType<typeof stateIn>,
   ) {
     return kernel.command({
       identity: "guide.pending",
@@ -955,11 +956,17 @@ describe("kernel behaviour changing.md states in words", () => {
           independentObservable: "guide.pending:read",
         }),
       ],
-      run: (_input, context) =>
-        context.result(
+      run: (_input, context) => {
+        const report = readsFrom?.report();
+        return context.result(
           { commandIdentity: "guide.pending", causeCode: "SUCCESS_UNCHANGED" },
-          { message: "Read.", data: null, effects: unchanged },
-        ),
+          {
+            message: "Read.",
+            data: { unfinished: report?.ok ? report.unfinished : [] },
+            effects: unchanged,
+          },
+        );
+      },
     });
   }
 
@@ -1109,7 +1116,10 @@ describe("kernel behaviour changing.md states in words", () => {
     const failing = kernel.runInProcess(
       kernel.contractFor({
         ...stateful(state),
-        commands: [change(state, { readBack: false }), pending()],
+        commands: [
+          change(state, { readBack: false }),
+          pending(undefined, undefined, state),
+        ],
       }),
       { emergencyRecord: state.emergencyRecord },
     );
@@ -1124,10 +1134,12 @@ describe("kernel behaviour changing.md states in words", () => {
         },
       },
     });
-    const report = state.report();
-    expect(
-      report.ok && report.unfinished.map((entry) => entry.effects),
-    ).toEqual([["guide.write"]]);
+    expect(await failing(["pending"])).toMatchObject({
+      kind: "envelope",
+      envelope: {
+        result: { data: { unfinished: [{ effects: ["guide.write"] }] } },
+      },
+    });
     expect(await failing(["change"])).toMatchObject({
       envelope: { message: "unresolved-case" },
     });
