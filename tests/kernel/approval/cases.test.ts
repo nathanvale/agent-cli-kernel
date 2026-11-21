@@ -19,7 +19,7 @@ test("the frozen T4 case table keeps its admitted identities and counts", () => 
 
 test("every executable case is exercised and no pending case is claimed", async () => {
   const sources = await Promise.all(
-    ["component.test.ts", "process.test.ts"].map((name) =>
+    ["approval-addon.test.ts", "process.test.ts"].map((name) =>
       Bun.file(new URL(name, import.meta.url)).text(),
     ),
   );
@@ -49,7 +49,7 @@ test("every executable case reaches a passing expectCase comparison", async () =
       [
         process.execPath,
         "test",
-        "tests/kernel/approval/component.test.ts",
+        "tests/kernel/approval/approval-addon.test.ts",
         "tests/kernel/approval/process.test.ts",
       ],
       {

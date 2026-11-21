@@ -14,7 +14,7 @@ import {
 } from "./declarations.ts";
 import type { JsonValue } from "../../../../kernel/src/kernel/index.ts";
 import { diagnosticsAddon } from "../../../../kernel/src/addons/diagnostics/index.ts";
-import type { StatusAddon } from "../../../../kernel/src/addons/diagnostics/index.ts";
+import type { DiagnosticsAddon } from "../../../../kernel/src/addons/diagnostics/index.ts";
 import { programsAddon } from "../../../../kernel/src/addons/programs/index.ts";
 import { createDiagnostics } from "../../../../kernel/src/addons/diagnostics/run.ts";
 import { faultIo } from "./fault-io.ts";
@@ -258,7 +258,7 @@ const options = {
   },
 } as const;
 const fault = process.env.DXS_FAULT;
-const addon: StatusAddon =
+const addon: DiagnosticsAddon =
   fault === undefined
     ? diagnosticsAddon(options)
     : createDiagnostics(options, faultIo(fault));

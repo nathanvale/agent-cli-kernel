@@ -1,20 +1,4 @@
 {
   "about": "Names that used an Avoid word or an unqualified word from GLOSSARY.md when the names check landed (17 November 2026). The check fails on any hit not listed here, and on any listed hit that no longer occurs: remove an entry in the change that renames its path.",
-  "hits": [
-    {
-      "path": "tests/kernel/locks/probes.test.ts",
-      "word": "probe",
-      "reason": "Kernel file for lock probes. Probe is a qualified word, and this glossary defines Probe for verify-cli, which is a different thing. This path keeps its exception until a naming decision renames it or qualifies it."
-    },
-    {
-      "path": "tests/kernel/locks/probes.ts",
-      "word": "probe",
-      "reason": "Kernel file for lock probes. Probe is a qualified word, and this glossary defines Probe for verify-cli, which is a different thing. This path keeps its exception until a naming decision renames it or qualifies it."
-    },
-    {
-      "path": "tests/template/glossary/known-hits.json",
-      "word": "known hit",
-      "reason": "The file's name uses \"known hit\", which this glossary lists under Avoid for Recorded hit. It holds the contract-word scanner's hits and predates the word. This path keeps its exception until a naming decision renames it."
-    }
-  ]
+  "hits": []
 }

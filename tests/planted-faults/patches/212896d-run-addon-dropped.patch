@@ -1,0 +1,12 @@
+diff --git a/kernel/src/addons/diagnostics/run.ts b/kernel/src/addons/diagnostics/run.ts
+index 0a25835..4048723 100644
+--- a/kernel/src/addons/diagnostics/run.ts
++++ b/kernel/src/addons/diagnostics/run.ts
+@@ -57,7 +57,6 @@ export type DiagnosticsAddon = {
+ /** @deprecated Use DiagnosticsAttached; accepted decision N11 keeps this alias. */
+ export type StatusAttached = DiagnosticsAttached;
+ /** @deprecated Use DiagnosticsAddon; accepted decision N11 keeps this alias. */
+-export type StatusAddon = DiagnosticsAddon;
+ 
+ const listedLevels: Readonly<Record<DiagnosticsLevel, true>> = {
+   trace: true,

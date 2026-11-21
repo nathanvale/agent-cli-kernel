@@ -9,7 +9,7 @@ What the gates of the repository rows refuse and where, what stays with the revi
 - State `caseTest` and `supportingTest` cases can go unproved off their
   platform; only the in-process ones are pinned, as Platform Parity says
   (fault `a0d17cc-in-process-control`).
-- `tests/kernel/approval/component.test.ts` still reports unproved cases
+- `tests/kernel/approval/approval-addon.test.ts` still reports unproved cases
   through `test.skip`.
 - `.github/workflows/macos-nightly.yml` runs on schedule once it reaches
   `main`.
@@ -28,7 +28,7 @@ What the gates of the repository rows refuse and where, what stays with the revi
 
 ## Glossary
 
-- `tests/template/glossary/glossary.test.ts`, with its shrinking `known-hits.json`,
+- `tests/template/glossary/glossary.test.ts`, with its shrinking `recorded-hits.json`,
   checks the `scope` listed in `tests/template/glossary/term-table.json`.
 - That scope is kernel source, kernel tests, and the kernel's lint config.
   `src/` and docs are review only.

@@ -106,6 +106,31 @@ The kernel repository's own statement, read at one commit, of its kernel and
 add-on folders and of the add-ons each add-on requires.
 _Avoid_: manifest (for a kernel declaration), hand-kept list
 
+### Internal kernel names
+
+**Names check result**:
+The names check's `NamesCheckResult`: stderr text and a numeric process exit
+code. It is a script result, separate from Command Contract 3's Outcome.
+
+**Validate inspect shape**:
+`validateInspectShape` checks an inspect command declaration's fields before
+construction or registration. It does not admit a command for a run.
+
+**Validate changing shape**:
+`validateChangingShape` checks a changing command declaration's fields before
+construction or registration. It does not admit a command for a run.
+
+**Lock probe**:
+A compiler input used by the kernel's lock tests to check a type constraint
+with the native and lint-view compilers. `lock-probes.ts` owns their batch
+runner. This is separate from verify-cli's Probe of a target CLI.
+
+**Diagnostics add-on**:
+The optional diagnostics capability. `DiagnosticsAddon` is its public type;
+`DiagnosticsAttached` is the attachment to one run, including its bounded
+`freeze` operation. `StatusAddon` and `StatusAttached` remain exported as
+deprecated aliases of those types under accepted decision N11.
+
 ### Verifying a CLI
 
 **verify-cli**:

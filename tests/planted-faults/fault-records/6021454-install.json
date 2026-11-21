@@ -1,7 +1,7 @@
 {
   "id": "6021454-install",
   "patch": "tests/planted-faults/patches/6021454-install.patch",
-  "testFile": "tests/kernel/state/component.test.ts",
+  "testFile": "tests/kernel/state/state-addon.test.ts",
   "title": "^NW\\.[ab] ",
   "source": "6021454 fix(state): refuse a wait limit that is not a number"
 }

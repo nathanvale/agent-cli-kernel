@@ -1,7 +1,7 @@
 {
   "id": "93dd83e-store-replaced-unsaid",
   "patch": "tests/planted-faults/patches/93dd83e-store-replaced-unsaid.patch",
-  "testFile": "tests/kernel/state/component.test.ts",
+  "testFile": "tests/kernel/state/state-addon.test.ts",
   "title": "^X23 supporting: a failure after the format rename",
   "source": "93dd83e fix(state): keep a failed upgrade, report or closure read from spreading"
 }

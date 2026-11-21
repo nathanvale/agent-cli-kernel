@@ -1,7 +1,7 @@
-diff --git a/tests/kernel/locks/probes.test.ts b/tests/kernel/locks/probes.test.ts
+diff --git a/tests/kernel/locks/lock-probes.test.ts b/tests/kernel/locks/lock-probes.test.ts
 index 1039911..9c4be0b 100644
---- a/tests/kernel/locks/probes.test.ts
-+++ b/tests/kernel/locks/probes.test.ts
+--- a/tests/kernel/locks/lock-probes.test.ts
++++ b/tests/kernel/locks/lock-probes.test.ts
 @@ -1,5 +1,8 @@
 -import { expect, test } from "bun:test";
 -import { basename, resolve } from "node:path";
@@ -10,7 +10,7 @@ index 1039911..9c4be0b 100644
 +import { rm } from "node:fs/promises";
 +import { basename, join, resolve } from "node:path";
 +import { testFolder } from "../../support/test-folder.ts";
- import { probeBatch, readRun } from "./probes.ts";
+ import { probeBatch, readRun } from "./lock-probes.ts";
  
  const root = resolve(import.meta.dir, "../../..");
 @@ -83,6 +86,8 @@ for (const leak of leaks)

@@ -6,9 +6,9 @@ import {
 import { builtins } from "./navigation.ts";
 import type { CommandDeclaration } from "./declarations.ts";
 import {
-  admitChangingShape,
+  validateChangingShape,
   validateCommandIdentity,
-  admitInspectShape,
+  validateInspectShape,
   preparerOf,
   validateRootOperation,
   validateRouteTokens,
@@ -182,8 +182,8 @@ function admitCommand(
   { host }: { readonly host: boolean },
 ): void {
   if (host)
-    if (command.effectClass === "inspect") admitInspectShape(command);
-    else admitChangingShape(command);
+    if (command.effectClass === "inspect") validateInspectShape(command);
+    else validateChangingShape(command);
   validateCommandIdentity(command.commandIdentity);
   validateHostInput(command.input);
   if (command.commandIdentity !== `${cli}.dispatch`)

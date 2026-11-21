@@ -3,7 +3,7 @@ import { resolve, join } from "node:path";
 import { locks, exhaustiveness, boundaries } from "./locks/cases.ts";
 import ts from "typescript";
 
-import { probeBatch } from "./locks/probes.ts";
+import { probeBatch } from "./locks/lock-probes.ts";
 import { reviewSpecimens } from "./locks/review-specimens.ts";
 
 const root = resolve(import.meta.dir, "../..");

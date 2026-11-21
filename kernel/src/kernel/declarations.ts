@@ -52,7 +52,7 @@ export type CommandDeclaration<Identity extends string = string> =
       registration?: InputTable,
     ) => Promise<Validation<CommandResult<Identity>>>;
   };
-export function admitInspectShape(declaration: {
+export function validateInspectShape(declaration: {
   readonly summary: unknown;
   readonly ifNoResult?: unknown;
   readonly capabilities: CapabilitySelection;
@@ -91,7 +91,7 @@ function requireProgramStopStation(declaration: CommandDeclaration): void {
       `${declaration.commandIdentity}'s program-stop station ${station.causeCode} must be failed and unchanged, with a handoff.`,
     );
 }
-export function admitChangingShape(declaration: {
+export function validateChangingShape(declaration: {
   readonly effectClass: unknown;
   readonly effects?: readonly unknown[];
   readonly heldLockCause?: unknown;
@@ -304,7 +304,7 @@ export function command<
   } & ApprovalFor<C, I>,
 ) {
   admitSpecification(spec);
-  admitInspectShape({
+  validateInspectShape({
     summary: spec.summary,
     capabilities: spec.capabilities,
     stations: spec.stations ?? [],
@@ -397,7 +397,7 @@ export function changing<
   admitSpecification(spec);
   if (!isIssuedIfNoResult(spec.ifNoResult))
     throw new Error("ifNoResult must come from the state add-on descriptor.");
-  admitChangingShape(spec);
+  validateChangingShape(spec);
   const prepare: Prepare<Identity> = async (
     argv,
     context,

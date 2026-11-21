@@ -1,6 +1,6 @@
 import { expect } from "bun:test";
 import { join, resolve } from "node:path";
-import { probeBatch } from "../locks/probes.ts";
+import { probeBatch } from "../locks/lock-probes.ts";
 import { runFamily } from "./harness.ts";
 
 const root = resolve(import.meta.dir, "../../..");
