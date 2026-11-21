@@ -37,7 +37,6 @@ const settleLimitMilliseconds = 300;
 const stopBoundMilliseconds = 450;
 const cancellationMilliseconds = 500;
 const flushMilliseconds = 500;
-const statusOnPreHandlerRefusal = false;
 
 const messages = {
   USAGE_INVALID_INVOCATION:
@@ -404,16 +403,6 @@ async function kernelResult(
       options.summary,
     ),
   };
-}
-
-async function reporterFor(run: Run, trusted: TrustedRun) {
-  if (trusted.handlerEntered) return run.reporter;
-  if (!statusOnPreHandlerRefusal) return undefined;
-  const plan = run.plans.get(trusted.commandIdentity);
-  const entry = plan?.addons.find((item) => item.addon.reportsStatus === true);
-  if (plan && entry && !run.reporter)
-    run.reporter = await attachReporter(run, plan.command, entry);
-  return run.reporter;
 }
 
 function builtin(run: Run, value: Resolved) {
@@ -837,7 +826,7 @@ async function deliver(
   });
   const delivery = await route(run, resolution);
   if (!delivery) return 1;
-  const reporter = await reporterFor(run, delivery.trusted);
+  const reporter = delivery.trusted.handlerEntered ? run.reporter : undefined;
   const report =
     reporter && !run.stopped ? await freezeStatus(run, reporter) : undefined;
   run.phase = "emitting";

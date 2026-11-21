@@ -44,10 +44,7 @@ function held(
   state: StateAddonDescriptor,
 ): boolean {
   return (
-    issuedScope(coordination, runId, state) &&
-    coordination.isActive() === true &&
-    coordination.runId === runId &&
-    coordination.scope === scope
+    issuedScope(coordination, runId, state) && coordination.scope === scope
   );
 }
 
