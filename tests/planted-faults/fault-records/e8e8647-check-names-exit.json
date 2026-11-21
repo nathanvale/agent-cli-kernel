@@ -1,7 +1,7 @@
 {
   "id": "e8e8647-check-names-exit",
   "patch": "tests/planted-faults/patches/e8e8647-check-names-exit.patch",
-  "testFile": "tests/template/naming/check-names.test.ts",
+  "testFile": "tests/template/names-check/check-names.test.ts",
   "title": "^CN\\.e ",
   "source": "e8e8647 feat(naming): exit 2 when check:names is misused or cannot run"
 }

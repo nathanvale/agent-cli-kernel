@@ -1,0 +1,33 @@
+{
+  "about": "Names that use an Avoid word or an unqualified word from GLOSSARY.md. File and folder hits name a path; public declaration hits also name their declaration independently of line numbers. The names check refuses any unrecorded hit and any stale recorded hit. Public API fields kept by the Symbol gate (kernel) pull request carry its approval and their compatibility reason.",
+  "hits": [
+    {
+      "path": "kernel/src/addons/approval/records.ts",
+      "declaration": "StopItem.owner",
+      "word": "owner",
+      "reason": "Public add-on input field. It mirrors the contract3.stop-attestation record, so a rename would change that record. Preserve the Approval add-on API.",
+      "approved": "Symbol gate (kernel) pull request: Public add-on input field. It mirrors the contract3.stop-attestation record, so a rename would change that record. Preserve the Approval add-on API."
+    },
+    {
+      "path": "kernel/src/addons/state/install.ts",
+      "declaration": "TransactionResult.proof",
+      "word": "proof",
+      "reason": "Public add-on result field. Preserve the State add-on API.",
+      "approved": "Symbol gate (kernel) pull request: Public add-on result field. Preserve the State add-on API."
+    },
+    {
+      "path": "kernel/src/addons/state/install.ts",
+      "declaration": "CloseResult.proof",
+      "word": "proof",
+      "reason": "Public add-on result field. Preserve the State add-on API.",
+      "approved": "Symbol gate (kernel) pull request: Public add-on result field. Preserve the State add-on API."
+    },
+    {
+      "path": "kernel/src/kernel/types.ts",
+      "declaration": "Handoff.owner",
+      "word": "owner",
+      "reason": "Command Contract 3 envelope field. The frozen Handoff contract prevents a rename.",
+      "approved": "Symbol gate (kernel) pull request: Command Contract 3 envelope field. The frozen Handoff contract prevents a rename."
+    }
+  ]
+}

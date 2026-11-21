@@ -1,7 +1,7 @@
 {
   "id": "7623343-glossary",
   "patch": "tests/planted-faults/patches/7623343-glossary.patch",
-  "testFile": "tests/template/naming/names-check-in-process.test.ts",
+  "testFile": "tests/template/names-check/names-check-in-process.test.ts",
   "title": "^in process: --staged with a git that never answers",
   "source": "7623343 fix(glossary): bound the staged git readers and the fixture's git calls"
 }

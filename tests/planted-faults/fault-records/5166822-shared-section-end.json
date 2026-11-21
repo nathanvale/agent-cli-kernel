@@ -1,7 +1,7 @@
 {
   "id": "5166822-shared-section-end",
   "patch": "tests/planted-faults/patches/5166822-shared-section-end.patch",
-  "testFile": "tests/template/naming/shared-tool-words.test.ts",
+  "testFile": "tests/template/names-check/shared-tool-words.test.ts",
   "title": "^SA\\.b ",
   "source": "5166822 feat(glossary): accept the template's transfer and own the kernel's words"
 }

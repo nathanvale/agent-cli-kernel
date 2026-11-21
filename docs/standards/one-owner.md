@@ -34,7 +34,7 @@ here.
   changed what the staged readers listed. Witnessed: [f929eb7], [7a62deb],
   [#84-git] (a local copy left runtime configuration in the replay fixture),
   [#90-git] (the bootstrap fixture inherited a signing requirement),
-  [#101-git] (the naming fixture inherited a setting that disabled its hook),
+  [#101-git] (the names check fixture inherited a setting that disabled its hook),
   [73cb18b] (a commit's background maintenance still changed `.git` while a
   test removed the folder, on macOS), [55e24d6] (a caller's sha256 default
   made fixture repositories sha256).

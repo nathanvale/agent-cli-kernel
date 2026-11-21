@@ -1,14 +1,14 @@
 import { lstatSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 
-export const recordedHitsFile = "tests/template/naming/recorded-hits.json";
+export const recordedHitsFile = "tests/template/names-check/recorded-hits.json";
 export const recordedUnusedTermsFile =
-  "tests/template/naming/recorded-unused-terms.json";
+  "tests/template/names-check/recorded-unused-terms.json";
 const notReadAsUse = new Set([
   "GLOSSARY.md",
   "GLOSSARY-MAP.md",
   recordedUnusedTermsFile,
-  "tests/template/naming/shared-tool-words.txt",
+  "tests/template/names-check/shared-tool-words.txt",
   "glossary-ownership.json",
 ]);
 const avoidLabel = "_Avoid_:";
@@ -25,6 +25,7 @@ export type RecordedHit = {
   readonly path: string;
   readonly word: string;
   readonly reason: string;
+  readonly declaration?: string;
 };
 
 export type RecordedUnusedTerm = {
@@ -33,10 +34,11 @@ export type RecordedUnusedTerm = {
   readonly ticket: string;
 };
 
-type NameHit = {
+export type NameHit = {
   readonly path: string;
   readonly word: string;
   readonly problem: string;
+  readonly rule: "Avoid" | "Qualify";
 };
 
 function wordsIn(list: string): string[] {
@@ -125,11 +127,22 @@ function recordedFields(
 }
 
 export function readRecordedHits(text: string): RecordedHit[] {
+  const declarations = recordedEntries(recordedHitsFile, text, "hits").map(
+    (entry) => entry.get("declaration"),
+  );
   return recordedFields(recordedHitsFile, text, "hits", [
     "path",
     "word",
     "reason",
-  ]).map(([path = "", word = "", reason = ""]) => ({ path, word, reason }));
+  ]).map(([path = "", word = "", reason = ""], index) => {
+    const declaration = declarations[index];
+    if (declaration === undefined) return { path, word, reason };
+    if (typeof declaration !== "string" || declaration.trim() === "")
+      throw new Error(
+        `${recordedHitsFile}: declaration needs a non-empty string. Repair: name the public declaration, or omit declaration for a file or folder hit.`,
+      );
+    return { path, word, reason, declaration };
+  });
 }
 
 export function readRecordedUnusedTerms(text: string): RecordedUnusedTerm[] {
@@ -158,8 +171,13 @@ function holdsPhrase(words: readonly string[], phrase: readonly string[]) {
   );
 }
 
-function hitsIn(path: string, glossary: Glossary): NameHit[] {
-  const name = (path.split("/").at(-1) ?? path).replace(/^\.+/, "");
+export function hitsIn(
+  path: string,
+  glossary: Glossary,
+  declarationName?: string,
+): NameHit[] {
+  const name =
+    declarationName ?? (path.split("/").at(-1) ?? path).replace(/^\.+/, "");
   const words = wordsOf(name);
   const base = wordsOf(name.split(".")[0] ?? "");
   const avoided = glossary.terms.flatMap((term) =>
@@ -169,6 +187,7 @@ function hitsIn(path: string, glossary: Glossary): NameHit[] {
             {
               path,
               word,
+              rule: "Avoid" as const,
               problem: `, which GLOSSARY.md lists under Avoid for "${term.name}". Repair: rename it with the glossary word.`,
             },
           ]
@@ -181,6 +200,7 @@ function hitsIn(path: string, glossary: Glossary): NameHit[] {
           {
             path,
             word,
+            rule: "Qualify" as const,
             problem: ` with no qualifier. Repair: add a word that says which ${word} it is.`,
           },
         ]
@@ -194,6 +214,7 @@ function problemsByKind(
   glossary: Glossary,
   recorded: readonly RecordedHit[],
 ): { fresh: string[]; stale: string[] } {
+  recorded = recorded.filter((entry) => entry.declaration === undefined);
   const hits = paths.flatMap((path) => hitsIn(path, glossary));
   const same = (one: NameHit | RecordedHit, other: NameHit | RecordedHit) =>
     one.path === other.path && one.word === other.word;
@@ -298,7 +319,28 @@ export function mergeBaseOf(root: string, revision: string): string {
 }
 
 export function textAt(root: string, revision: string, path: string): string {
-  const shown = git(root, ["show", `${revision}:${path}`]);
+  let shown = git(root, ["show", `${revision}:${path}`]);
+  if (shown.exitCode !== 0) {
+    const tree = new Set(
+      gitPaths(root, [
+        "ls-tree",
+        "-r",
+        "--name-only",
+        revision,
+        dirname(dirname(path)),
+      ]),
+    );
+    const lists = [recordedHitsFile, recordedUnusedTermsFile];
+    const earlier = [...tree]
+      .filter((file) => basename(file) === basename(path))
+      .filter(
+        (file) =>
+          !lists.includes(path) ||
+          lists.every((list) => tree.has(join(dirname(file), basename(list)))),
+      );
+    if (earlier.length === 1)
+      shown = git(root, ["show", `${revision}:${earlier[0]}`]);
+  }
   if (shown.exitCode !== 0)
     throw new Error(
       `git has no ${path} at ${revision}, so the names check cannot compare it with this branch. Repair: give a revision that holds ${path}.`,
