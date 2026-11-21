@@ -1,0 +1,14 @@
+diff --git a/skills/verify-cli/forensics/io.ts b/skills/verify-cli/forensics/io.ts
+--- a/skills/verify-cli/forensics/io.ts
++++ b/skills/verify-cli/forensics/io.ts
+@@ -165,9 +165,9 @@ export function readBytesNoFollow(
+   try {
+     const stats = fstatSync(descriptor);
+-    const problem = statUnreadable(stats, path, limit);
++    const problem = statUnreadable(stats, path, Number.MAX_SAFE_INTEGER);
+     if (problem !== undefined) return { kind: "unreadable", reason: problem };
+-    const loaded = readBounded(descriptor, path, stats.size, limit);
++    const loaded = readBounded(descriptor, path, stats.size, Number.MAX_SAFE_INTEGER);
+     if (!loaded.ok) return { kind: "unreadable", reason: loaded.reason };
+     return { kind: "read", bytes: loaded.bytes, stats };
+   } catch (error) {

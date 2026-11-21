@@ -67,6 +67,12 @@ describe("the lint on the skill folder", () => {
   test("the forensic command passes lint cleanly", async () => {
     expect(await ruleIds(join(skill, "forensics.ts"), "")).toEqual([]);
     expect(await ruleIds(join(skill, "forensics", "run.ts"), "")).toEqual([]);
+    expect(
+      await ruleIds(
+        join(skill, "forensics", "run.ts"),
+        'void Bun.spawn(["true"]);',
+      ),
+    ).toContain("no-restricted-properties");
   }, 60_000);
 
   test("the lint's recorded hits hold no file under the skill folder", () => {

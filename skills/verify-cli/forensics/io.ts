@@ -6,7 +6,7 @@ import {
   lstatSync,
   openSync,
   readdirSync,
-  readFileSync,
+  readSync,
 } from "node:fs";
 import type { Stats } from "node:fs";
 import { at, parsedJson } from "../helper/json.ts";
@@ -102,6 +102,53 @@ function statUnreadable(
     : undefined;
 }
 
+function readBounded(
+  descriptor: number,
+  path: string,
+  expectedSize: number,
+  limit: number,
+):
+  | { readonly ok: true; readonly bytes: Uint8Array }
+  | { readonly ok: false; readonly reason: string } {
+  const cap = limit + 1;
+  const target = Math.min(Math.max(expectedSize, 0) + 1, cap);
+  const buffer = Buffer.alloc(target);
+  let filled = 0;
+  for (;;) {
+    if (filled > limit)
+      return {
+        ok: false,
+        reason: `${path} exceeded ${String(limit)} bytes while reading`,
+      };
+    if (filled === buffer.byteLength) {
+      const extra = Buffer.alloc(cap - filled);
+      const got = readSync(descriptor, extra, 0, extra.byteLength, null);
+      if (got === 0) return { ok: true, bytes: buffer.subarray(0, filled) };
+      if (filled + got > limit)
+        return {
+          ok: false,
+          reason: `${path} exceeded ${String(limit)} bytes while reading`,
+        };
+      return {
+        ok: true,
+        bytes: Buffer.concat([
+          buffer.subarray(0, filled),
+          extra.subarray(0, got),
+        ]),
+      };
+    }
+    const got = readSync(
+      descriptor,
+      buffer,
+      filled,
+      buffer.byteLength - filled,
+      null,
+    );
+    if (got === 0) return { ok: true, bytes: buffer.subarray(0, filled) };
+    filled += got;
+  }
+}
+
 export function readBytesNoFollow(
   path: string,
   limit: number = forensicsLimits.maxFileBytes,
@@ -127,13 +174,9 @@ export function readBytesNoFollow(
     const stats = fstatSync(descriptor);
     const problem = statUnreadable(stats, path, limit);
     if (problem !== undefined) return { kind: "unreadable", reason: problem };
-    const bytes = readFileSync(descriptor);
-    if (bytes.byteLength > limit)
-      return {
-        kind: "unreadable",
-        reason: `${path} exceeded ${String(limit)} bytes while reading`,
-      };
-    return { kind: "read", bytes, stats };
+    const loaded = readBounded(descriptor, path, stats.size, limit);
+    if (!loaded.ok) return { kind: "unreadable", reason: loaded.reason };
+    return { kind: "read", bytes: loaded.bytes, stats };
   } catch (error) {
     return { kind: "unreadable", reason: errorText(error) };
   } finally {

@@ -124,17 +124,20 @@ function readCustodyLock(
   present: boolean,
 ): {
   readonly lock: DiagnosticsForensicsReport["lock"];
+  readonly truncated: boolean;
   readonly problems: readonly string[];
 } {
   if (!present)
     return {
       lock: { present: false, ownerPid: null, ownerHost: null, entries: [] },
+      truncated: false,
       problems: [],
     };
   const listed = openListedDirectory("Custody lock", join(folder, lockName));
   if (!listed.ok)
     return {
       lock: { present: true, ownerPid: null, ownerHost: null, entries: [] },
+      truncated: false,
       problems: [`.allocation-lock unreadable: ${listed.reason}`],
     };
   const entries = [...listed.names];
@@ -148,7 +151,11 @@ function readCustodyLock(
       : [
           `.allocation-lock is present (owner pid ${String(ownerPid)}, host ${String(ownerHost)})`,
         ];
-  return { lock: { present: true, ownerPid, ownerHost, entries }, problems };
+  return {
+    lock: { present: true, ownerPid, ownerHost, entries },
+    truncated: listed.truncated,
+    problems,
+  };
 }
 
 function parseResidue(name: string): DiagnosticsResidue | undefined {
@@ -308,7 +315,9 @@ export function inspectDiagnosticsFolder(
     item.report === undefined ? [] : [item.report],
   );
   const truncated =
-    opened.truncated || files.some((item) => item.linesTruncated);
+    opened.truncated ||
+    lockInfo.truncated ||
+    files.some((item) => item.linesTruncated);
   const problems = [
     ...directoryPermissionProblems(opened.stats, mode, ancestors.reason),
     ...lockInfo.problems,
@@ -365,6 +374,39 @@ export type ApprovalForensicsReport = {
   readonly problems: readonly string[];
 };
 
+function nonEmptyStringArray(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every((item: unknown) => textField(item) !== null)
+  );
+}
+
+function hasApprovalPayloadFields(
+  kind: "grant" | "closure" | "stop",
+  parsed: unknown,
+): boolean {
+  if (kind === "grant")
+    return (
+      textField(at(parsed, "preview")) !== null &&
+      textField(at(parsed, "authority")) !== null &&
+      textField(at(parsed, "resource")) !== null &&
+      textField(at(parsed, "resourceRevision")) !== null &&
+      nonEmptyStringArray(at(parsed, "effects"))
+    );
+  if (kind === "closure")
+    return (
+      at(parsed, "disposition") === "outcome-unknown" &&
+      textField(at(parsed, "evidence")) !== null &&
+      textField(at(parsed, "scope")) !== null
+    );
+  return (
+    textField(at(parsed, "owner")) !== null &&
+    textField(at(parsed, "scope")) !== null &&
+    nonEmptyStringArray(at(parsed, "writers"))
+  );
+}
+
 function classifyApprovalKind(
   format: string | null,
   version: unknown,
@@ -391,16 +433,24 @@ function inspectApprovalJson(
   const operation = textField(at(parsed, "operation"));
   const expiresRaw = at(parsed, "expiresAt");
   const expiresAt =
-    typeof expiresRaw === "number" && Number.isSafeInteger(expiresRaw)
+    typeof expiresRaw === "number" &&
+    Number.isSafeInteger(expiresRaw) &&
+    expiresRaw > 0
       ? expiresRaw
       : null;
   const expired = expiresAt === null ? null : expiresAt <= now;
-  const kind = classifyApprovalKind(
+  const baseKind = classifyApprovalKind(
     textField(at(parsed, "format")),
     at(parsed, "version"),
     operation,
     expiresAt,
   );
+  const kind =
+    baseKind === "grant" || baseKind === "closure" || baseKind === "stop"
+      ? hasApprovalPayloadFields(baseKind, parsed)
+        ? baseKind
+        : "malformed"
+      : baseKind;
   const problems = [
     ...(kind === "malformed"
       ? ["unrecognised or malformed approval JSON record"]

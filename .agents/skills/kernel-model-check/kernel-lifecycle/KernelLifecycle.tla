@@ -24,7 +24,7 @@ VARIABLES
   handlerEntered,    \* BOOLEAN                      (lifecycle.ts:660,987)
   handlerReturned,   \* BOOLEAN                      (lifecycle.ts:718-726,987)
   stopped,           \* BOOLEAN                      (lifecycle.ts:353,885)
-  emittedAfterStop,  \* BOOLEAN                      (writer.ts:69)
+  emittedAfterStop,  \* BOOLEAN                      (writer.ts:72,112)
   duplicateAccepted, \* BOOLEAN                      (state-seam.ts:392-396)
   lateStateAccepted, \* BOOLEAN                      (state-seam.ts:208-209,411-412)
   revokedProofUsed   \* BOOLEAN                      (state-seam.ts:122)
@@ -132,7 +132,7 @@ HandlerFinishesLateAfterDeadline ==
 
 EmitEnvelopeWithProof ==
   /\ phase \in {"afterHandler", "afterDeadline"}
-  /\ ~stopped                \* writer.ts:69 checks stopping() before writing
+  /\ ~stopped                \* writer.ts:72,112 checks stopping() before writing
   /\ envelopesEmitted = 0
   /\ proofIssued
   /\ ~seamRevoked            \* state-seam.ts:122 rejects revoked proof
@@ -145,7 +145,7 @@ EmitEnvelopeWithProof ==
 
 EmitEnvelopeFallback ==
   /\ phase \in {"afterHandler", "afterDeadline"}
-  /\ ~stopped                \* writer.ts:69 checks stopping() before writing
+  /\ ~stopped                \* writer.ts:72,112 checks stopping() before writing
   /\ envelopesEmitted = 0
   /\ (~proofIssued \/ seamRevoked) \* fallback path never trusts revoked proof
   /\ phase' = "emitting"     \* lifecycle.ts:843

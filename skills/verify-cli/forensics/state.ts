@@ -424,7 +424,7 @@ export function inspectStateRoot(
 ):
   | { readonly ok: true; readonly report: StateForensicsReport }
   | { readonly ok: false; readonly reason: string } {
-  const opened = openRealDirectory("State root", root);
+  const opened = openListedDirectory("State root", root);
   if (!opened.ok) return opened;
   const rootMode = formatMode(opened.stats);
   const fmt = readFormatJournal(root);

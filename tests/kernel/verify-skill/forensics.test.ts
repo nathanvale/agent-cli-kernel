@@ -18,6 +18,7 @@ import {
   inspectRunFolder,
   inspectStateRoot,
   parseC3s1Records,
+  readBytesNoFollow,
   runForensics,
 } from "../../../skills/verify-cli/forensics.ts";
 import {
@@ -285,6 +286,15 @@ describe("kernel-free forensics in-process", () => {
   test("decodes approval consumed markers, valid and expired grants, prototype keys, and malformed entries", () => {
     const dir = ownedFolder("forensics-approval-");
     const key = "a".repeat(64);
+    const validGrantBase = {
+      format: "contract3.approval-grant",
+      version: 1,
+      preview: "preview-hash",
+      authority: "operator",
+      resource: "note-1",
+      resourceRevision: "rev-1",
+      effects: ["note.write"],
+    };
     writeFileSync(
       join(dir, `${key}.consumed`),
       JSON.stringify({ kind: "approval", runId: "run-1", consumedAt: 1000 }),
@@ -292,8 +302,7 @@ describe("kernel-free forensics in-process", () => {
     writeFileSync(
       join(dir, "grant-valid.json"),
       JSON.stringify({
-        format: "contract3.approval-grant",
-        version: 1,
+        ...validGrantBase,
         operation: "op-2",
         expiresAt: 5000,
       }),
@@ -301,10 +310,18 @@ describe("kernel-free forensics in-process", () => {
     writeFileSync(
       join(dir, "grant-expired.json"),
       JSON.stringify({
-        format: "contract3.approval-grant",
-        version: 1,
+        ...validGrantBase,
         operation: "op-3",
         expiresAt: 1000,
+      }),
+    );
+    writeFileSync(
+      join(dir, "grant-missing-fields.json"),
+      JSON.stringify({
+        format: "contract3.approval-grant",
+        version: 1,
+        operation: "op-shallow",
+        expiresAt: 5000,
       }),
     );
     writeFileSync(
@@ -331,6 +348,14 @@ describe("kernel-free forensics in-process", () => {
     expect(
       inspected.report.entries.find((e) => e.file === "grant-expired.json"),
     ).toMatchObject({ kind: "grant", expired: true });
+    expect(
+      inspected.report.entries.find(
+        (e) => e.file === "grant-missing-fields.json",
+      ),
+    ).toMatchObject({
+      kind: "malformed",
+      problems: ["unrecognised or malformed approval JSON record"],
+    });
     expect(
       inspected.report.entries.find((e) => e.file === "proto-key.json"),
     ).toMatchObject({
@@ -390,10 +415,12 @@ describe("kernel-free forensics in-process", () => {
       "verify.ts",
     );
     expect(missingOut.exit).toBe(3);
-    expect(parsed(missingOut.writes[0]?.text ?? "")).toMatchObject({
+    expect(parsed(missingOut.writes[0]?.text ?? "")).toEqual({
       schema: forensicsSchema,
       ok: false,
       kind: "unreadable",
+      message: `State root ${absent} does not exist.`,
+      repair: "Pass an existing, readable directory for that forensic target.",
     });
 
     const realDir = join(missing, "real");
@@ -410,12 +437,69 @@ describe("kernel-free forensics in-process", () => {
       "verify.ts",
     );
     expect(linkRun.exit).toBe(3);
-    expect(parsed(linkRun.writes[0]?.text ?? "")).toMatchObject({
+    expect(parsed(linkRun.writes[0]?.text ?? "")).toEqual({
       schema: forensicsSchema,
       ok: false,
       kind: "unreadable",
+      message: `Run folder ${linkDir} is not a real directory.`,
+      repair: "Pass an existing, readable directory for that forensic target.",
     });
-    expect(linkRun.writes[0]?.text).toContain("is not a real directory");
+
+    const regularFile = join(realDir, "sample.txt");
+    writeFileSync(regularFile, "a".repeat(64));
+    const exactBytes = readBytesNoFollow(regularFile, 64);
+    expect(exactBytes.kind).toBe("read");
+    const overBytes = readBytesNoFollow(regularFile, 63);
+    expect(overBytes).toEqual({
+      kind: "unreadable",
+      reason: `${regularFile} is 64 bytes, over 63`,
+    });
+
+    const linkedFile = join(realDir, "sample.link");
+    symlinkSync(regularFile, linkedFile);
+    expect(readBytesNoFollow(linkedFile)).toEqual({
+      kind: "unreadable",
+      reason: `${linkedFile} is a symbolic link`,
+    });
+
+    const runWithLinkedIndex = ownedFolder("forensics-linked-index-");
+    mkdirSync(join(runWithLinkedIndex, "evidence"), { mode: 0o700 });
+    symlinkSync(
+      regularFile,
+      join(runWithLinkedIndex, "evidence", "index.jsonl"),
+    );
+    const linkedRunReport = inspectRunFolder(runWithLinkedIndex);
+    expect(linkedRunReport.ok).toBe(true);
+    if (linkedRunReport.ok) {
+      expect(
+        linkedRunReport.report.problems.some((problem) =>
+          problem.includes("is a symbolic link"),
+        ),
+      ).toBe(true);
+    }
+
+    if (process.getuid?.() !== 0) {
+      const locked = join(missing, "locked");
+      mkdirSync(locked, { mode: 0o000 });
+      try {
+        expect(
+          runForensics(["run", locked, "--json"], missing, "verify.ts").exit,
+        ).toBe(3);
+        expect(
+          runForensics(["state", locked, "--json"], missing, "verify.ts").exit,
+        ).toBe(3);
+        expect(
+          runForensics(["diagnostics", locked, "--json"], missing, "verify.ts")
+            .exit,
+        ).toBe(3);
+        expect(
+          runForensics(["approval", locked, "--json"], missing, "verify.ts")
+            .exit,
+        ).toBe(3);
+      } finally {
+        chmodSync(locked, 0o700);
+      }
+    }
 
     const crowded = ownedFolder("forensics-crowded-");
     for (let index = 0; index < forensicsLimits.maxEntries; index += 1)
@@ -442,8 +526,21 @@ describe("kernel-free forensics in-process", () => {
     expect(bounded.report.truncated).toBe(true);
     expect(bounded.report.entries).toHaveLength(forensicsLimits.maxEntries);
 
+    const payloadOverhead = Buffer.byteLength(
+      JSON.stringify({ note: "", format: 1, kind: "effect-started" }),
+    );
+    const exactPayload = encodeC3s1("effect-started", {
+      note: "x".repeat(forensicsLimits.maxPayloadBytes - payloadOverhead),
+    });
+    const exactParsed = parseC3s1Records(exactPayload);
+    expect(exactParsed.ok).toBe(true);
+    if (exactParsed.ok) {
+      expect(exactParsed.records).toHaveLength(1);
+      expect(exactParsed.tornTail).toBe(false);
+    }
+
     const oversized = encodeC3s1("effect-started", {
-      note: "x".repeat(forensicsLimits.maxPayloadBytes),
+      note: "x".repeat(forensicsLimits.maxPayloadBytes - payloadOverhead + 1),
     });
     const overParsed = parseC3s1Records(oversized);
     expect(overParsed.ok).toBe(true);

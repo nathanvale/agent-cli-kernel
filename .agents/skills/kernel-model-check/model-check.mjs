@@ -1,11 +1,23 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync, statSync } from "node:fs";
+import { mkdtempSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const skillDir = dirname(fileURLToPath(import.meta.url));
 const defaultRepoRoot = resolve(skillDir, "../../..");
+
+function statPath(path) {
+  try {
+    return { kind: "ok", stats: statSync(path) };
+  } catch (error) {
+    if (error && typeof error === "object" && error.code === "ENOENT") {
+      return { kind: "missing" };
+    }
+    const reason = error instanceof Error ? error.message : String(error);
+    return { kind: "error", reason };
+  }
+}
 const tlcTool =
   "github:tlaplus/tlaplus[asset_pattern=tla2tools.jar,checksum=sha256:936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88]@1.7.4";
 const javaTool = "java@temurin-25";
@@ -70,8 +82,16 @@ function locateTlc() {
   const envJar = process.env.TLA2TOOLS;
   const envJava = process.env.JAVA;
   if (envJar) {
-    if (!existsSync(envJar))
+    const stat = statPath(envJar);
+    if (stat.kind === "missing")
       return { ok: false, error: `TLA2TOOLS does not exist: ${envJar}` };
+    if (stat.kind === "error")
+      return {
+        ok: false,
+        error: `Cannot stat TLA2TOOLS (${envJar}): ${stat.reason}`,
+      };
+    if (!stat.stats.isFile())
+      return { ok: false, error: `TLA2TOOLS is not a file: ${envJar}` };
     return { ok: true, java: envJava || "java", jar: envJar };
   }
   const tlcRes = miseQuery(["where", tlcTool]);
@@ -80,7 +100,14 @@ function locateTlc() {
     ? { stdout: envJava, stderr: "" }
     : miseQuery(["which", "java", "--tool", javaTool]);
   const java = javaRes.stdout;
-  if (!jar || !existsSync(jar) || !java) {
+  const jarStat = jar ? statPath(jar) : { kind: "missing" };
+  if (jarStat.kind === "error") {
+    return {
+      ok: false,
+      error: `Cannot stat TLC jar (${jar}): ${jarStat.reason}`,
+    };
+  }
+  if (!jar || jarStat.kind !== "ok" || !jarStat.stats.isFile() || !java) {
     const detail = [tlcRes.stderr, javaRes.stderr].filter(Boolean).join(" | ");
     return {
       ok: false,
@@ -197,7 +224,14 @@ function parseCliArgs(argv) {
       requested.push(arg);
     }
   }
-  if (!existsSync(targetRepo) || !statSync(targetRepo).isDirectory()) {
+  const repoStat = statPath(targetRepo);
+  if (repoStat.kind === "error") {
+    return {
+      ok: false,
+      error: `Cannot stat --repo path (${targetRepo}): ${repoStat.reason}`,
+    };
+  }
+  if (repoStat.kind !== "ok" || !repoStat.stats.isDirectory()) {
     return {
       ok: false,
       error: `--repo path must be an existing directory: ${targetRepo}`,
@@ -218,24 +252,28 @@ function parseCliArgs(argv) {
   return { ok: true, targetRepo, selected };
 }
 
-const isEntry =
-  process.argv[1] !== undefined &&
-  resolve(process.argv[1]) === fileURLToPath(import.meta.url);
-
-if (isEntry) {
-  const parsed = parseCliArgs(process.argv.slice(2));
+function main(argv) {
+  const parsed = parseCliArgs(argv);
   if (!parsed.ok) {
     process.stderr.write(`${parsed.error}\n`);
-    process.exit(2);
+    return 2;
   }
   const tlc = locateTlc();
   if (!tlc.ok) {
     process.stderr.write(`${tlc.error}\n`);
-    process.exit(1);
+    return 1;
   }
   let allPassed = true;
   for (const model of parsed.selected) {
     if (!runOne(tlc, model, parsed.targetRepo)) allPassed = false;
   }
-  process.exit(allPassed ? 0 : 1);
+  return allPassed ? 0 : 1;
+}
+
+const isEntry =
+  process.argv[1] !== undefined &&
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isEntry) {
+  process.exitCode = main(process.argv.slice(2));
 }

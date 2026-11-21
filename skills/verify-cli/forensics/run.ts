@@ -2,18 +2,19 @@ import { join, resolve } from "node:path";
 import { at, evidenceBytesLimit, listOf, parsedJson } from "../helper/json.ts";
 import {
   cli,
-  readIndex,
+  runRowOf,
   sha256,
+  stepRowOf,
   stepSchema,
   verificationRun,
 } from "../helper/place.ts";
-import type { RunRow, StepRow } from "../helper/place.ts";
+import type { IndexRead, RunRow, StepRow } from "../helper/place.ts";
 import { inspectApprovalFolder, inspectDiagnosticsFolder } from "./addons.ts";
 import {
   forensicsSchema,
   lenientDecoder,
   lstatSafe,
-  openRealDirectory,
+  openListedDirectory,
   readBytesNoFollow,
 } from "./io.ts";
 import { inspectStateRoot } from "./state.ts";
@@ -175,12 +176,40 @@ function inspectStepEvidence(
   };
 }
 
+function readIndexNoFollow(indexPath: string): IndexRead {
+  const file = readBytesNoFollow(indexPath);
+  if (file.kind !== "read") return file;
+  const lines = lenientDecoder.decode(file.bytes).split("\n");
+  if (lines.pop() !== "")
+    return {
+      kind: "unreadable",
+      reason: `${indexPath} does not end with a line feed`,
+    };
+  const run = runRowOf(parsedJson(lines[0] ?? ""));
+  if (run === undefined)
+    return {
+      kind: "unreadable",
+      reason: `${indexPath} does not start with a run row`,
+    };
+  const steps: StepRow[] = [];
+  for (const [number, line] of lines.slice(1).entries()) {
+    const row = stepRowOf(parsedJson(line));
+    if (row === undefined)
+      return {
+        kind: "unreadable",
+        reason: `line ${String(number + 2)} of ${indexPath} is not a step row`,
+      };
+    steps.push(row);
+  }
+  return { kind: "read", run, steps };
+}
+
 export function inspectRunFolder(
   folder: string,
 ):
   | { readonly ok: true; readonly report: RunForensicsReport }
   | { readonly ok: false; readonly reason: string } {
-  const opened = openRealDirectory("Run folder", folder);
+  const opened = openListedDirectory("Run folder", folder);
   if (!opened.ok) return opened;
 
   const place = verificationRun(folder);
@@ -191,7 +220,7 @@ export function inspectRunFolder(
       ? [`scratch folder unreadable: ${scratchStat.reason}`]
       : [];
 
-  const index = readIndex(place);
+  const index = readIndexNoFollow(place.index);
   let runMeta: RunForensicsReport["run"] = null;
   const steps: RunStepForensics[] = [];
 

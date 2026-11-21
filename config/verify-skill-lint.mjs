@@ -68,6 +68,12 @@ export default [
     files: [kernelFreeCheck, ...kernelFreeForensics],
     plugins: { "kernel-free": kernelFreeRules },
     rules: {
+      "kernel-free/no-kernel-import": "error",
+    },
+  },
+  {
+    files: [kernelFreeCheck],
+    rules: {
       "no-restricted-properties": [
         "error",
         {
@@ -76,12 +82,6 @@ export default [
             "Only the state add-on folder may author the state add-on factory.",
         },
       ],
-      "kernel-free/no-kernel-import": "error",
-    },
-  },
-  {
-    files: [kernelFreeCheck],
-    rules: {
       "repository/no-domain-output": "off",
     },
   },
