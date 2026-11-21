@@ -10,7 +10,13 @@ const tlcTool =
   "github:tlaplus/tlaplus[asset_pattern=tla2tools.jar,checksum=sha256:936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88]@1.7.4";
 const javaTool = "java@temurin-25";
 
-export const syncCommit = "0b7a26f";
+const timeouts = {
+  miseMs: 30_000,
+  gitMs: 15_000,
+  tlcMs: 120_000,
+};
+
+export const syncCommit = "4edc43c";
 
 export const models = [
   {
@@ -49,10 +55,14 @@ function miseQuery(args) {
   const result = spawnSync("mise", args, {
     cwd: skillDir,
     encoding: "utf8",
+    timeout: timeouts.miseMs,
+    killSignal: "SIGKILL",
   });
+  const err = result.error ? result.error.message : "";
+  const stderr = [err, (result.stderr ?? "").trim()].filter(Boolean).join("; ");
   return {
-    stdout: result.status === 0 ? result.stdout.trim() : "",
-    stderr: (result.stderr ?? "").trim(),
+    stdout: !result.error && result.status === 0 ? result.stdout.trim() : "",
+    stderr,
   };
 }
 
@@ -61,8 +71,8 @@ function locateTlc() {
   const envJava = process.env.JAVA;
   if (envJar) {
     if (!existsSync(envJar))
-      return { error: `TLA2TOOLS does not exist: ${envJar}` };
-    return { java: envJava || "java", jar: envJar };
+      return { ok: false, error: `TLA2TOOLS does not exist: ${envJar}` };
+    return { ok: true, java: envJava || "java", jar: envJar };
   }
   const tlcRes = miseQuery(["where", tlcTool]);
   const jar = tlcRes.stdout ? join(tlcRes.stdout, "tla2tools.jar") : "";
@@ -73,38 +83,44 @@ function locateTlc() {
   if (!jar || !existsSync(jar) || !java) {
     const detail = [tlcRes.stderr, javaRes.stderr].filter(Boolean).join(" | ");
     return {
+      ok: false,
       error: `TLC 1.7.4 or Java not found.${detail ? ` (${detail})` : ""} Repair: run (cd ${skillDir} && mise install) or set TLA2TOOLS and JAVA.`,
     };
   }
-  return { java, jar };
+  return { ok: true, java, jar };
 }
 
 function staleFiles(covered) {
   const result = spawnSync(
     "git",
-    [
-      "-C",
-      repoRoot,
-      "diff",
-      "--name-only",
-      `${syncCommit}..HEAD`,
-      "--",
-      ...covered,
-    ],
-    { encoding: "utf8" },
+    ["-C", repoRoot, "diff", "--name-only", syncCommit, "--", ...covered],
+    { encoding: "utf8", timeout: timeouts.gitMs, killSignal: "SIGKILL" },
   );
-  if (result.status !== 0) return [];
-  return result.stdout
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
+  if (result.error) return { ok: false, reason: result.error.message };
+  if (result.status !== 0)
+    return {
+      ok: false,
+      reason:
+        (result.stderr ?? "").trim() || `git exited ${String(result.status)}`,
+    };
+  return {
+    ok: true,
+    files: result.stdout
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0),
+  };
 }
 
 function runOne(tlc, model) {
   const stale = staleFiles(model.covered);
-  if (stale.length > 0)
+  if (!stale.ok)
     process.stderr.write(
-      `WARN ${model.id}: covered files changed since ${syncCommit}: ${stale.join(", ")}\n`,
+      `WARN ${model.id}: could not verify staleness against ${syncCommit}: ${stale.reason}\n`,
+    );
+  else if (stale.files.length > 0)
+    process.stderr.write(
+      `WARN ${model.id}: covered files changed since ${syncCommit}: ${stale.files.join(", ")}\n`,
     );
   const work = mkdtempSync(join(tmpdir(), `kernel-model-check-${model.id}-`));
   try {
@@ -126,9 +142,15 @@ function runOne(tlc, model) {
         cfgPath,
         specPath,
       ],
-      { cwd: join(skillDir, model.id), encoding: "utf8" },
+      {
+        cwd: join(skillDir, model.id),
+        encoding: "utf8",
+        timeout: timeouts.tlcMs,
+        killSignal: "SIGKILL",
+      },
     );
-    const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+    const spawnErr = result.error ? `${result.error.message}\n` : "";
+    const output = `${spawnErr}${result.stdout ?? ""}${result.stderr ?? ""}`;
     const summary =
       output
         .split("\n")
@@ -137,8 +159,12 @@ function runOne(tlc, model) {
             line,
           ),
         )
-        .join(" | ") || `exit ${String(result.status)}`;
-    if (result.status === 0) {
+        .join(" | ") || `exit ${String(result.status ?? result.signal)}`;
+    const verifiedClean =
+      !result.error &&
+      result.status === 0 &&
+      /Model checking completed\. No error has been found\./.test(output);
+    if (verifiedClean) {
       process.stdout.write(`PASS ${model.id}: ${summary}\n`);
       return true;
     }
@@ -155,21 +181,26 @@ const isEntry =
 
 if (isEntry) {
   const requested = process.argv.slice(2);
+  const validIds = new Set(["all", ...models.map((m) => m.id)]);
+  const unknown = requested.filter((arg) => !validIds.has(arg));
+  if (unknown.length > 0) {
+    process.stderr.write(
+      `Unknown model(s): ${unknown.join(", ")}. Expected one of: all, ${models.map((m) => m.id).join(", ")}.\n`,
+    );
+    process.exit(2);
+  }
   const selected =
     requested.length === 0 || requested.includes("all")
       ? models
       : models.filter((entry) => requested.includes(entry.id));
-  if (selected.length === 0) {
-    process.stderr.write(
-      `Unknown model(s): ${requested.join(", ")}. Expected one of: all, ${models.map((m) => m.id).join(", ")}.\n`,
-    );
-    process.exit(2);
-  }
   const tlc = locateTlc();
-  if ("error" in tlc) {
+  if (!tlc.ok) {
     process.stderr.write(`${tlc.error}\n`);
     process.exit(1);
   }
-  const ok = selected.every((model) => runOne(tlc, model));
-  process.exit(ok ? 0 : 1);
+  let allPassed = true;
+  for (const model of selected) {
+    if (!runOne(tlc, model)) allPassed = false;
+  }
+  process.exit(allPassed ? 0 : 1);
 }

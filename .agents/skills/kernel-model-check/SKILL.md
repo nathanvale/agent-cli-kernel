@@ -10,7 +10,7 @@ Exhaustive TLA+/TLC model checks for the three concurrency and crash-recovery pr
 
 ## Coverage and sync commit
 
-Last confirmed in sync at commit **`0b7a26f`** (kernel source unchanged from `main` at `491e41d`).
+Last confirmed in sync at commit **`4edc43c`** (`origin/main`, kernel source unchanged from `491e41d`).
 
 | Model                 | Spec & config                                         | Covered files                                                                                                                                             | Contract invariants (plain English)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | --------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -22,9 +22,9 @@ Last confirmed in sync at commit **`0b7a26f`** (kernel source unchanged from `ma
 
 ## Bounds and what is left out
 
-- **`state-journal`**: 1 case, 1 writer, 1 closer, 1 lockless reader, 2 boots (`boot1`/`boot2`), `MaxRev = 3`. Leaves out OS kernel bugs in `flock`/`O_EXLOCK`, filesystem corruption outside the durability boundary, and the 64/128 mover batch caps (covered by `tests/kernel/state/`).
-- **`diagnostics-custody`**: 2 processes (`P1`, `P2`), `MaxFiles = 1`. Leaves out cross-host stale-lock timeout clocks and LogTape redaction internals.
-- **`kernel-lifecycle`**: 1 primary run + duplicate `runId` collision probe + stop signal + deadline. Leaves out multi-run `inFlight` interleavings and OS signal delivery internals.
+- **`state-journal`**: 1 case, 1 writer, 1 closer, 1 lockless reader, 2 boots (`boot1`/`boot2`), `MaxRev = 5`. Leaves out OS kernel bugs in `flock`/`O_EXLOCK`, filesystem corruption outside the durability boundary, and the 64/128 mover batch caps (covered by `tests/kernel/state/`).
+- **`diagnostics-custody`**: 3 processes (`P1`, `P2`, `P3`), `MaxFiles = 1`. Leaves out cross-host stale-lock timeout clocks and LogTape redaction internals.
+- **`kernel-lifecycle`**: 1 primary run + duplicate `runId` collision/attach probes + stop signal (including during `emitting`) + deadline. Leaves out multi-run `inFlight` interleavings and OS signal delivery internals.
 
 A passing model check proves the invariants across every interleaving within these bounds, not for unmodeled OS or runtime behavior.
 

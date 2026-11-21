@@ -146,8 +146,19 @@ WriterTornAppend ==
   /\ ownerLease = "writer"
   /\ ~tornTail                 \* store.ts:723 partial write leaves torn tail
   /\ tornTail' = TRUE
-  /\ UNCHANGED <<storeVars, lockVars, caseVars, writerPc, effectInFlight, hiddenInTornTail,
-                 delegateBoot, currentBoot, closerVars, readerVars>>
+  /\ journalRev' = NextRev     \* store.ts:468-473 hashes raw bytes including torn tail
+  /\ UNCHANGED <<storeVars, lockVars, caseLocation, closureState, settled, writerPc,
+                 effectInFlight, hiddenInTornTail, delegateBoot, currentBoot, closerVars, readerVars>>
+
+WriterTornAppendHidden ==
+  /\ writerPc = "effectStarted"
+  /\ ownerLease = "writer"
+  /\ ~tornTail                 \* framing.ts:121-126 mid-line record hidden in torn tail
+  /\ tornTail' = TRUE
+  /\ hiddenInTornTail' = TRUE
+  /\ journalRev' = NextRev
+  /\ UNCHANGED <<storeVars, lockVars, caseLocation, closureState, settled, writerPc,
+                 effectInFlight, delegateBoot, currentBoot, closerVars, readerVars>>
 
 WriterWorkReturns ==
   /\ writerPc = "effectStarted"
@@ -185,7 +196,7 @@ WriterReleaseLease ==
                  hiddenInTornTail, delegateBoot, currentBoot, closerVars, readerVars>>
 
 WriterCrash ==
-  /\ writerPc \in {"admitted", "published", "effectStarted", "workEnded"}
+  /\ writerPc \in {"admitted", "published", "effectStarted", "workEnded", "finalAppended"}
   /\ writerPc' = "crashed"
   /\ effectInFlight' = FALSE   \* OS process death releases descriptors and stops JS
   /\ ownerLease' = IF ownerLease = "writer" THEN "free" ELSE ownerLease
@@ -240,9 +251,10 @@ CloserAcquireLeaseAndRecheck ==
   /\ ~settled                  \* install.ts:472,504 caseRead under lease
   /\ journalRev = closerReqRev \* install.ts:471 stale-revision check under lease
   /\ ownerLease' = "closer"
+  /\ admissionLock' = "none"   \* install.ts:909,1330,1369 open() releases admissionLock before publishClosure
   /\ closerLeaseRev' = journalRev
   /\ closerPc' = "leaseHeld"
-  /\ UNCHANGED <<storeVars, admissionLock, caseLock, caseVars, writerVars, closerReqRev, readerVars>>
+  /\ UNCHANGED <<storeVars, caseLock, caseVars, writerVars, closerReqRev, readerVars>>
 
 CloserVerifyStoppedOwner ==
   /\ closerPc = "leaseHeld"
@@ -261,9 +273,8 @@ CloserPublishClosure ==
   /\ settled' = TRUE
   /\ ownerLease' = "free"      \* install.ts:1298
   /\ caseLock' = "free"        \* install.ts:1299
-  /\ admissionLock' = "none"
   /\ closerPc' = "closed"
-  /\ UNCHANGED <<storeVars, caseLocation, journalRev, writerVars, closerReqRev, closerLeaseRev, readerVars>>
+  /\ UNCHANGED <<storeVars, admissionLock, caseLocation, journalRev, writerVars, closerReqRev, closerLeaseRev, readerVars>>
 
 \* --- Lockless history reader racing MoveSettledCase (store.ts:555-582) ---
 
@@ -291,7 +302,7 @@ ReaderCheckSettled ==
 
 Next ==
   \/ WriterAdmit \/ UpgradeCreateSettled \/ UpgradeSwapFormat
-  \/ WriterPublish \/ WriterStartEffect \/ WriterAdmitDelegate \/ WriterTornAppend
+  \/ WriterPublish \/ WriterStartEffect \/ WriterAdmitDelegate \/ WriterTornAppend \/ WriterTornAppendHidden
   \/ WriterWorkReturns \/ WriterEffectSettles \/ WriterAppendFinal \/ WriterReleaseLease
   \/ WriterCrash \/ HostReboot \/ MoveSettledCase
   \/ CloserReadPreLease \/ CloserAdmit \/ CloserAcquireLeaseAndRecheck
