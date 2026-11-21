@@ -3,11 +3,13 @@ import { createHash } from "node:crypto";
 import {
   chmodSync,
   cpSync,
+  existsSync,
   linkSync,
   lstatSync,
   mkdirSync,
   readFileSync,
   symlinkSync,
+  watch,
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
@@ -27,6 +29,7 @@ import {
   parsed,
   readOnlyScenario,
   releaseWorlds,
+  repository,
   runFolder,
   scenarioFile,
   skill,
@@ -65,6 +68,27 @@ function concatBytes(...chunks: Uint8Array[]): Uint8Array {
     offset += chunk.byteLength;
   }
   return out;
+}
+
+function waitForFile(directory: string, file: string): Promise<void> {
+  if (existsSync(file)) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const watcher = watch(directory, () => {
+      if (!existsSync(file)) return;
+      clearTimeout(timer);
+      watcher.close();
+      resolve();
+    });
+    const timer = setTimeout(() => {
+      watcher.close();
+      reject(new Error(`timed out waiting for ${file}`));
+    }, 15_000);
+    if (existsSync(file)) {
+      clearTimeout(timer);
+      watcher.close();
+      resolve();
+    }
+  });
 }
 
 function createStateTree(journal: "contract3.state" | "contract3.state.2") {
@@ -369,7 +393,7 @@ describe("kernel-free forensics in-process", () => {
     const unclosedChecked = inspectDiagnosticsFolder(unclosedDir);
     expect(unclosedChecked.ok).toBe(true);
     if (unclosedChecked.ok) {
-      expect(unclosedChecked.report.status).toBe("clean");
+      expect(unclosedChecked.report.status).toBe("unknown");
       expect(unclosedChecked.report.problems).toEqual([]);
       expect(unclosedChecked.report.files[0]?.closedMarker).toBe("absent");
       expect(unclosedChecked.report.summary).toContain(
@@ -463,6 +487,111 @@ describe("kernel-free forensics in-process", () => {
     if (validMarkerReport.ok) {
       expect(validMarkerReport.report.status).toBe("clean");
       expect(validMarkerReport.report.files[0]?.closedMarker).toBe("matched");
+    }
+
+    const noUidProbe = Bun.spawnSync(
+      [
+        process.execPath,
+        "--no-install",
+        "-e",
+        'Reflect.deleteProperty(process, "getuid"); const { inspectDiagnosticsFolder } = await import(process.argv[1]); console.log(JSON.stringify(inspectDiagnosticsFolder(process.argv[2])));',
+        join(skill, "forensics.ts"),
+        validMarkerCase.dir,
+      ],
+      { stdout: "pipe", stderr: "pipe" },
+    );
+    expect(noUidProbe.exitCode).toBe(0);
+    expect(parsed(noUidProbe.stdout.toString())).toMatchObject({
+      ok: true,
+      report: {
+        status: "issues",
+        files: [{ closedMarker: "mismatched" }],
+      },
+    });
+  });
+
+  test("reports unknown for a live open diagnostics run, clean after finish, and issues beside a real problem", async () => {
+    const xdgRoot = ownedFolder("forensics-diag-live-");
+    const barrierDir = ownedFolder("forensics-diag-barrier-");
+    const readyFile = join(barrierDir, "ready");
+    const goFile = join(barrierDir, "go");
+    const diagDir = join(xdgRoot, "dxs", "diagnostics");
+    const specimen = join(
+      repository,
+      "tests",
+      "kernel",
+      "diagnostics",
+      "fixtures",
+      "specimen-cli.ts",
+    );
+    const child = Bun.spawn(
+      [process.execPath, "--no-install", specimen, "read", "--json"],
+      {
+        cwd: repository,
+        env: {
+          ...process.env,
+          XDG_STATE_HOME: xdgRoot,
+          DXS_SCRIPT: JSON.stringify({
+            records: 1,
+            hold: { after: 1, ready: readyFile, go: goFile },
+          }),
+        },
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    );
+    try {
+      await waitForFile(barrierDir, readyFile);
+      const liveCli = runForensics(
+        ["diagnostics", diagDir, "--json"],
+        repository,
+        "verify.ts",
+      );
+      expect(liveCli.exit).toBe(0);
+      expect(parsed(liveCli.writes[0]?.text ?? "")).toMatchObject({
+        target: "diagnostics",
+        status: "unknown",
+        problems: [],
+        files: [{ closedMarker: "absent" }],
+      });
+      const liveReport = inspectDiagnosticsFolder(diagDir);
+      expect(liveReport.ok).toBe(true);
+      if (liveReport.ok) {
+        expect(liveReport.report.status).toBe("unknown");
+        expect(liveReport.report.problems).toEqual([]);
+        expect(liveReport.report.summary).toContain(
+          "(1 unclosed: may still be running or may have crashed before closing; allocation lock is released on open)",
+        );
+      }
+    } finally {
+      writeFileSync(goFile, "go");
+      await child.exited;
+    }
+
+    const finishedReport = inspectDiagnosticsFolder(diagDir);
+    expect(finishedReport.ok).toBe(true);
+    if (finishedReport.ok) {
+      expect(finishedReport.report.status).toBe("clean");
+      expect(finishedReport.report.problems).toEqual([]);
+      expect(finishedReport.report.files[0]?.closedMarker).toBe("matched");
+      expect(finishedReport.report.summary).toContain("(0 unclosed)");
+    }
+
+    const mixedDir = ownedFolder("forensics-diag-mixed-");
+    chmodSync(mixedDir, 0o700);
+    writeFileSync(
+      join(mixedDir, "open.jsonl"),
+      `${JSON.stringify({ event: "started" })}\n`,
+    );
+    mkdirSync(join(mixedDir, "ghost.jsonl.closed-1-2-3"), { mode: 0o700 });
+    const mixedReport = inspectDiagnosticsFolder(mixedDir);
+    expect(mixedReport.ok).toBe(true);
+    if (mixedReport.ok) {
+      expect(mixedReport.report.status).toBe("issues");
+      expect(mixedReport.report.files[0]?.closedMarker).toBe("absent");
+      expect(mixedReport.report.orphanMarkers).toEqual([
+        "ghost.jsonl.closed-1-2-3",
+      ]);
     }
   });
 

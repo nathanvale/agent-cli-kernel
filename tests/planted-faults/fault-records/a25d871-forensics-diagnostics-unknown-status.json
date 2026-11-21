@@ -1,0 +1,7 @@
+{
+  "id": "a25d871-forensics-diagnostics-unknown-status",
+  "patch": "tests/planted-faults/patches/a25d871-forensics-diagnostics-unknown-status.patch",
+  "testFile": "tests/kernel/verify-skill/forensics.test.ts",
+  "title": "reports unknown for a live open diagnostics run, clean after finish, and issues beside a real problem$",
+  "source": "a25d871 feat(verify-cli): add kernel-free forensics command for raw artifact inspection"
+}

@@ -52,7 +52,7 @@ export type DiagnosticsForensicsReport = {
   readonly schema: typeof forensicsSchema;
   readonly target: "diagnostics";
   readonly path: string;
-  readonly status: "clean" | "issues";
+  readonly status: "clean" | "issues" | "unknown";
   readonly summary: string;
   readonly mode: string;
   readonly trustedAncestors: boolean;
@@ -240,11 +240,10 @@ function scanDiagnosticsLines(bytes: Uint8Array) {
 function isOwnPrivateMarker(folder: string, name: string): boolean {
   const stat = lstatSafe(join(folder, name));
   if (stat.kind !== "ok") return false;
-  const uidOk = currentUid === -1 || stat.stats.uid === currentUid;
   return (
     stat.stats.isDirectory() &&
     !stat.stats.isSymbolicLink() &&
-    uidOk &&
+    stat.stats.uid === currentUid &&
     (stat.stats.mode & 0o7777) === 0o700
   );
 }
@@ -351,13 +350,15 @@ export function inspectDiagnosticsFolder(
     absentMarkers > 0
       ? `${String(unclosed)} unclosed: may still be running or may have crashed before closing; allocation lock is released on open`
       : `${String(unclosed)} unclosed`;
+  const status: DiagnosticsForensicsReport["status"] =
+    problems.length > 0 ? "issues" : unclosed > 0 ? "unknown" : "clean";
   return {
     ok: true,
     report: {
       schema: forensicsSchema,
       target: "diagnostics",
       path: folder,
-      status: problems.length === 0 ? "clean" : "issues",
+      status,
       summary: `Diagnostics folder (${mode}): ${String(files.length)} file(s) (${unclosedLabel}), lock ${lockInfo.lock.present ? "present" : "absent"}, ${String(parts.residue.length)} residue, ${String(problems.length)} problems.`,
       mode,
       trustedAncestors: ancestors.trusted,

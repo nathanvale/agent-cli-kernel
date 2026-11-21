@@ -19,10 +19,11 @@ and without writing, locking, or mutating any file.
   for unresolved cases, and closure `journalRevision` matches.
 - `forensics-diagnostics` checks directory permissions and trusted
   ancestors, `.allocation-lock` owner PID/host, `.pending`/`.retiring`
-  residue, `.closed-*` marker matches or orphans, unclosed file counts (noting
-  in the summary that an absent marker with no lock may be a live run or a
-  crashed run, since the allocation lock is released on open), and bounded
-  JSONL line summaries.
+  residue, `.closed-*` marker matches or orphans, unclosed file counts, and
+  bounded JSONL line summaries. Status precedence is `"issues"` (any
+  problem), then `"unknown"` (no problems, but at least one unclosed file
+  whose run may still be alive or may have crashed before closing, since
+  the allocation lock is released on open), then `"clean"`.
 - `forensics-approval` decodes `*.consumed` markers and grant, closure, or
   stop JSON records against kernel admission and shape rules (strict UTF-8,
   single link, 16 KiB limit, exact keys), flagging expired or malformed
@@ -51,10 +52,13 @@ $ bun node_modules/agent-cli-kernel/skills/verify-cli/verify.ts forensics state 
 {"schema":"verify-forensics/1","target":"state",...}
 ```
 
-A readable target exits 0 even when `"status"` is `"issues"` (like `findings`,
-read `problems` and `status` in the output). Usage errors (missing kind,
-unknown kind, extra arguments, unknown option) exit 2; a missing, symlinked,
-or unreadable target path exits 3.
+A readable target exits 0 even when `"status"` is `"issues"` or `"unknown"`
+(like `findings`, read `problems` and `status` in the output). For
+`diagnostics`, `"status": "unknown"` leaves `problems` empty and means at
+least one log file has no closed marker: check whether the run is still
+alive before treating it as a crash. Usage errors (missing kind, unknown
+kind, extra arguments, unknown option) exit 2; a missing, symlinked, or
+unreadable target path exits 3.
 
 ## Gotchas
 
