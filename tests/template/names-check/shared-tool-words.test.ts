@@ -124,7 +124,7 @@ test("SA.e an export that does not match its recorded hash is refused", () => {
   const text = entry("Gate");
   expect(exportProblems(text, accepted([], hash(text)))).toEqual([]);
   expect(exportProblems(`${text}x`, accepted([], hash(text)))).toEqual([
-    "tests/template/naming/shared-tool-words.txt does not match the exportSha256 recorded in glossary-ownership.json. Repair: copy the export again from the template commit named there, and record its hash and commit together.",
+    "tests/template/names-check/shared-tool-words.txt does not match the exportSha256 recorded in glossary-ownership.json. Repair: copy the export again from the template commit named there, and record its hash and commit together.",
   ]);
 });
 

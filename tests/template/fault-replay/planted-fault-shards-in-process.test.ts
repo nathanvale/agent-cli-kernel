@@ -198,7 +198,7 @@ describe("faultsInShard", () => {
   });
   const tooling = (id: string) => ({
     id,
-    testFile: `tests/template/naming/${id}.test.ts`,
+    testFile: `tests/template/names-check/${id}.test.ts`,
   });
   const mixed = [kernel("k1"), tooling("t1"), kernel("k2"), tooling("t2")];
 
