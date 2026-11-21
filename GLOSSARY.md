@@ -17,7 +17,7 @@ An `_Avoid_` line lists words not to use for its term. A note in parentheses
 says when: it covers the words before it, back to the previous note or
 semicolon. The writer and the reviewer hold those words, because the names
 check cannot tell what a name means. The names check refuses a word with no note
-after it in every file and folder name. It refuses a word noted
+after it in every file and folder name and public declaration name. It refuses a word noted
 `(unqualified)` as a whole name only when
 [Words that need a qualifier](#words-that-need-a-qualifier) also lists it.
 
