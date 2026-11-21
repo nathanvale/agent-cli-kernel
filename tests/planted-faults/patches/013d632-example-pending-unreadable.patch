@@ -1,0 +1,24 @@
+diff --git a/tests/kernel/author-guide/example/src/commands.ts.txt b/tests/kernel/author-guide/example/src/commands.ts.txt
+index 98ce108..fbb3629 100644
+--- a/tests/kernel/author-guide/example/src/commands.ts.txt
++++ b/tests/kernel/author-guide/example/src/commands.ts.txt
+@@ -501,19 +501,6 @@ export function moonsCli(home: string, opener: string) {
+     ],
+     run: async (_input, context) => {
+       const report = state.report();
+-      if (!report.ok && report.reason !== "missing")
+-        return context.result(
+-          {
+-            commandIdentity: "moons.pending",
+-            causeCode:
+-              "DOMAIN_PRECONDITION_UNMET" satisfies keyof typeof commonCauses,
+-          },
+-          {
+-            message: `The visits' state is ${report.reason}.`,
+-            data: null,
+-            effects: nothingChanged,
+-          },
+-        );
+       const unfinished = report.ok
+         ? await Promise.all(
+             report.unfinished.map(async (entry) => {

@@ -8,6 +8,8 @@ import {
 } from "./station-record.ts";
 
 export const featurePath = "skills/verify-cli/features/read-only-command.md";
+export const changingFeaturePath =
+  "skills/verify-cli/features/changing-command.md";
 export const checkLine = "bun skills/verify-cli/verify.ts";
 const quoteLimit = 1_500;
 
@@ -39,11 +41,14 @@ function quoted(value: unknown): string {
 const plural = (count: number, word: string) =>
   `${String(count)} ${word}${count === 1 ? "" : "s"}`;
 
-export function featureScenario(markdown: string): unknown {
+export function featureScenario(
+  markdown: string,
+  path: string = featurePath,
+): unknown {
   const blocks = [...markdown.matchAll(/```json\n([\s\S]*?)```/g)];
   if (blocks.length !== 1)
     throw new Error(
-      `${featurePath} shows ${String(blocks.length)} scenario blocks. Repair: keep exactly one json block there, the scenario self-verification drives.`,
+      `${path} shows ${String(blocks.length)} scenario blocks. Repair: keep exactly one json block there, the scenario self-verification drives.`,
     );
   return parsed(blocks[0]?.[1] ?? "");
 }
@@ -155,7 +160,7 @@ function unmetLines(own: OwnCli, listed: readonly unknown[]): string[] {
       evidence === undefined
         ? "its evidence file could not be read"
         : `expected ${quoted(field(evidence, "expected"))}, observed ${quoted(field(evidence, "observed"))}`;
-    return `${own.name}: step ${name} is unmet at ${listOf(keys).join(", ")}: ${shown}. Repair: make the target do what the step expects. Change the scenario in ${featurePath} only when the example's documented output changed on purpose; ${own.repair}`;
+    return `${own.name}: step ${name} is unmet at ${listOf(keys).join(", ")}: ${shown}. Repair: make the target do what the step expects. Change the scenario in ${name.startsWith("changing-command/") ? changingFeaturePath : featurePath} only when the example's documented output changed on purpose; ${own.repair}`;
   });
 }
 

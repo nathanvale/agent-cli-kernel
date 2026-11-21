@@ -1,0 +1,11 @@
+diff --git a/tests/kernel/author-guide/example/src/commands.ts.txt b/tests/kernel/author-guide/example/src/commands.ts.txt
+--- a/tests/kernel/author-guide/example/src/commands.ts.txt
++++ b/tests/kernel/author-guide/example/src/commands.ts.txt
+@@ -365,7 +365,6 @@ export function moonsCli(home: string, opener: string) {
+               return pageConfirmed;
+             },
+           );
+-          if (!pageConfirmed) return;
+           const launched = await transaction.record(
+             "viewer.launch",
+             (recorded) =>

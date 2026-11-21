@@ -1,0 +1,18 @@
+diff --git a/tests/kernel/author-guide/example/src/commands.ts.txt b/tests/kernel/author-guide/example/src/commands.ts.txt
+index 98ce108..044ac92 100644
+--- a/tests/kernel/author-guide/example/src/commands.ts.txt
++++ b/tests/kernel/author-guide/example/src/commands.ts.txt
+@@ -370,12 +370,7 @@ export function moonsCli(home: string, opener: string) {
+         causeCode: "SUCCESS_UNCHANGED" satisfies keyof typeof commonCauses,
+         trigger: "The visits' state was read.",
+         repairAction: null,
+-        guidance: {
+-          next: {
+-            kind: "instruction",
+-            text: "Check each unfinished visit before that planet is visited again.",
+-          },
+-        },
++        guidance: { next: { kind: "done" } },
+         independentObservable: "moons.pending:read",
+       }),
+       station(causes, {

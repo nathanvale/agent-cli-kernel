@@ -27,14 +27,14 @@ lists:
 
 ```text
 $ verify.ts sweep src/cli.ts
-36 checks passed. Stations owed: 2.
+62 checks passed. Stations owed: 8.
 ```
 
 On exit 3, list every failed check:
 
 ```text
 $ verify.ts findings src/cli.ts
-0 findings from 36 checks.
+0 findings from 62 checks.
 ```
 
 ## Gotchas

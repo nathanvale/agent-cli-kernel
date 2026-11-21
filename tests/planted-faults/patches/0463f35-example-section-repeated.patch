@@ -2,12 +2,12 @@ diff --git a/tests/kernel/author-guide/example-document.ts b/tests/kernel/author
 index b6f4a75..68ccfa1 100644
 --- a/tests/kernel/author-guide/example-document.ts
 +++ b/tests/kernel/author-guide/example-document.ts
-@@ -30,7 +30,7 @@ export function exampleDocument(
+@@ -34,7 +34,7 @@ export function exampleDocument(
      return `## \`${path}\`\n\n${fence}ts\n${text.trimEnd()}\n${fence}`;
    });
    const expected = [...files.keys()];
 -  if (JSON.stringify([...shown].sort(byCodeUnit)) !== JSON.stringify(expected))
 +  if (JSON.stringify([...new Set(shown)].sort(byCodeUnit)) !== JSON.stringify(expected))
      throw new Error(
-       `references/example.md shows ${shown.join(", ") || "no example file"}. Repair: give it exactly one section for each of ${expected.join(", ")}. A section is a heading of the form ## \`<path>\`, a blank line, then a ts code block.`,
+       `${document} shows ${shown.join(", ") || "no example file"}. Repair: give it exactly one section for each of ${expected.join(", ")}. A section is a heading of the form ## \`<path>\`, a blank line, then a ts code block.`,
      );

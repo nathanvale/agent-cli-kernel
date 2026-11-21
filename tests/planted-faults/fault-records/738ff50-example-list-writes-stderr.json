@@ -2,6 +2,6 @@
   "id": "738ff50-example-list-writes-stderr",
   "patch": "tests/planted-faults/patches/738ff50-example-list-writes-stderr.patch",
   "testFile": "tests/kernel/self-verification/self-verification.test.ts",
-  "title": "the author skill's example passes the sweep, meets its read-only scenario, and reaches only the stations the record lists$",
+  "title": "the author skill's example passes the sweep, meets its read-only and changing scenarios, and reaches only the stations the record lists$",
   "source": "738ff50 test(self-verification): sweep the kernel's own CLIs with verify-cli on every change (K8)"
 }
