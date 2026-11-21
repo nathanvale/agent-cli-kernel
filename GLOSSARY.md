@@ -266,12 +266,6 @@ The seconds one planted fault took to replay, kept in its own file beside
 the fault records. Fault replay's shard planner balances its parts by them,
 and counts a fault with no timing as a short one.
 
-### Template test areas
-
-**Names check area**:
-The template's test area for the names check and its glossary records, held in
-`tests/template/names-check/` and run with `bun run test:area names-check`.
-
 ### Shared tool words
 
 **Toolchain pin**:
