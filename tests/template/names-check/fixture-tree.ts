@@ -16,6 +16,7 @@ import { write } from "../../support/fixture-files.ts";
 import { gitEnv, inherited } from "../../support/git-fixture.ts";
 import { spawnBounded } from "../../support/process.ts";
 import { testFolder } from "../../support/test-folder.ts";
+import { publicSurfaceFile } from "../../../scripts/public-surface.ts";
 
 export const repository = join(import.meta.dir, "../../..");
 
@@ -35,7 +36,7 @@ export const fileSizeRecordedHitsPath = "scripts/file-size-recorded-hits.json";
 export const fileSizeHits = {
   standing: "tests/planted-faults/fault-records.json",
   glossary: "tests/template/glossary/glossary.test.ts",
-  integration: "starters/complex/tests/integration/integration.test.ts",
+  integration: "tests/template/integration/integration.test.ts",
 } as const;
 const fileSizeRecordedHits = JSON.stringify({
   [fileSizeHits.standing]: {
@@ -56,6 +57,10 @@ const sources = [
   "scripts/check-file-size.ts",
   "scripts/glossary.ts",
   "scripts/glossary-additions.ts",
+  "scripts/public-surface.ts",
+  "scripts/public-declarations.ts",
+  "scripts/staged-texts.ts",
+  "scripts/surface-match.ts",
   "scripts/glossary-map.ts",
   "scripts/repository.ts",
   ".claude/settings.json",
@@ -96,6 +101,11 @@ export function fixtureTree(recorded: readonly RecordedHit[] = []): string {
   write(root, "GLOSSARY.md", glossary);
   write(root, fileSizeRecordedHitsPath, fileSizeRecordedHits);
   writeRecordedHits(root, recorded);
+  write(
+    root,
+    publicSurfaceFile,
+    JSON.stringify({ exports: [], consumedExports: [], importers: [] }),
+  );
   write(
     root,
     "package.json",
@@ -149,6 +159,7 @@ export async function fixtureRepository(
     "GLOSSARY.md",
     recordedHitsFile,
     fileSizeRecordedHitsPath,
+    publicSurfaceFile,
   );
   await runFixtureGit(root, "commit", "--quiet", "-m", "rules");
   return root;

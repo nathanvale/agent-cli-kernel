@@ -52,8 +52,8 @@ test("every entry glossary-ownership.json accepts is defined here, outside the s
   ).toEqual([]);
 });
 
-test("the shared tool words are 29 entries", () => {
-  expect(entryNames(read(sharedExportFile))).toHaveLength(29);
+test("the shared tool words are 32 entries", () => {
+  expect(entryNames(read(sharedExportFile))).toHaveLength(32);
 });
 
 test("the export and glossary-ownership.json are not read as uses of a term", () => {
