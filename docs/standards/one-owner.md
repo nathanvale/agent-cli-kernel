@@ -49,11 +49,11 @@ here.
   skips the lint rule folders that other tests create and delete.
   Witnessed: [9824b41] (the glossary test's frozen contract walk still used
   `Bun.Glob` `scanSync`, so it could race with tests that make and remove
-  probe folders), [ff0616c] (the author guide's example reader walked its
+  probe folders), [ff0616c] (the author skill's example reader walked its
   folder with its own recursion), [0463f35] (so did its document scan).
 - Use the owner's constant, helper or matcher, or own the value outright,
   instead of a copy, which stops matching when its owner changes.
-  Witnessed: [3567a81] (the author guide's install case copied
+  Witnessed: [3567a81] (the author skill's install case copied
   git-fixture's private 4 s git bound into its own timeout, and its
   `thrownMessage` repeated `messageOf`, where `toThrow(new Error(message))`
   already compares the whole message), [0ab74b8] (the verification skill's

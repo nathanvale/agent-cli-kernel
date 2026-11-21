@@ -22,8 +22,8 @@ async function resultOf(argv: readonly string[]) {
 
 - `kind` is `envelope` for a run that produced a result. Narrow on it first.
 - `envelope` is the validated envelope that `--json` would write.
-  `envelope.result` holds `causeCode`, `outcome`, `exitCode`, `data` and the
-  `next` or `handoff` guidance.
+  `envelope.result` holds `causeCode`, `outcome`, `exitCode`, `data`, the
+  `repairAction` repair action and the `next` or `handoff` guidance.
 - Assert the cause, the exit code and the data of each result:
 
 ```ts

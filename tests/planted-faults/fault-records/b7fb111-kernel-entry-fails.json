@@ -2,6 +2,6 @@
   "id": "b7fb111-kernel-entry-fails",
   "patch": "tests/planted-faults/patches/b7fb111-kernel-entry-fails.patch",
   "testFile": "tests/kernel/verify-skill/ready.test.ts",
-  "title": "^ready ready passes the author guide's example$",
+  "title": "^ready ready passes the author skill's example$",
   "source": "b7fb111 feat(verify-skill): reconcile verify-cli with its revised specification"
 }

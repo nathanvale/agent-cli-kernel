@@ -19,7 +19,7 @@ is in the [test harness guide](test-harness.md).
   still expected `ENOENT`, so another read failure failed it and a refusal
   that also named the filesystem passed; the fix expects the reason the test
   observed, and the boot identity as the only field that differs),
-  [f8ff37f] (the author guide's brace case matched its error by substring
+  [f8ff37f] (the author skill's brace case matched its error by substring
   with `toThrow`, and searched its own expected string for a station name),
   [kernel#53 r4639172891], [79431f5] (the cause owner refusal cases checked
   a prefix and one fragment, so a refusal without its repair or naming
@@ -42,7 +42,7 @@ is in the [test harness guide](test-harness.md).
   gives it a valid record; Sol 6.1 review).
 - Control each side of a boundary: the last admitted and the first refused
   value or case. Checks further out stay green under an off-by-one limit.
-  Witnessed: [e07d962], [d72cd9e], [3567a81] (the author guide's example
+  Witnessed: [e07d962], [d72cd9e], [3567a81] (the author skill's example
   document case refused a document with no section, and not one that
   showed one file of two or repeated one).
 - Pin a bound with a tolerance tighter than the fault it must catch. A
@@ -69,7 +69,7 @@ is in the [test harness guide](test-harness.md).
   asserts both files were linted).
 - Assert all of what the title names. A prefix of the output passes with the
   rest missing, and a path that exists passes for a folder where the title
-  says file. Witnessed: [ff0616c] (the author guide's plain-text case
+  says file. Witnessed: [ff0616c] (the author skill's plain-text case
   checked only the first line), [0463f35] (its link case accepted a link to
   a folder), [3567a81] (its case titled "its own tests pass, in process and
   through its real entry file" counted results, and a pin for a sentence

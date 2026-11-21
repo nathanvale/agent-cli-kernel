@@ -221,7 +221,7 @@ function xmlText(text: string): string {
     .replaceAll("&amp;", "&");
 }
 
-describe("the author guide's example, laid out as a repository that depends on the kernel package", () => {
+describe("the author skill's example, laid out as a repository that depends on the kernel package", () => {
   test(
     "it compiles under the repository's compiler settings",
     async () => {

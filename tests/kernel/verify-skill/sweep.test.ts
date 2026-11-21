@@ -63,7 +63,7 @@ function lying(at: World, lie: string) {
 
 describe("sweep", () => {
   test(
-    "sweep passes the author guide's example and counts its checks",
+    "sweep passes the author skill's example and counts its checks",
     async () => {
       const at = world();
       const ran = await viaKernelFreeCheck(at, ["sweep", at.example]);

@@ -17,6 +17,9 @@ import type { CauseTable } from "agent-cli-kernel";
   [stations](stations.md).
 - `contractFor({ cli, commands, causes })` checks every declaration when the
   CLI starts, and throws on the first fault.
+- `contractFor().boundary` is the contract boundary. Its `authority`, `resource`
+  and `path` constructors validate authority identities, resource identities
+  and absolute paths.
 - `runProcess(contract)(argv)` is the entry. It parses, routes, runs the
   handler, writes the result and exits the process.
 - `runInProcess(contract)(argv)` returns the result instead of writing it.
@@ -166,8 +169,9 @@ it out and the CLI uses none.
 
 - Name an add-on in `installedAddons` to select it. Importing it, or naming
   it in a command's `capabilities`, selects nothing.
-- List `"state"` with `"approval"`, since approval needs state. Without it the
-  CLI throws at start-up. See [stations](stations.md#start-up-throws).
+- State is a required add-on of approval. List `"state"` with `"approval"`;
+  without it the CLI throws at start-up. See
+  [stations](stations.md#start-up-throws).
 
 ## What the kernel adds
 
