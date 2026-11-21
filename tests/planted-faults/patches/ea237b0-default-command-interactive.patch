@@ -1,0 +1,16 @@
+diff --git a/kernel/src/kernel/routing.ts b/kernel/src/kernel/routing.ts
+--- a/kernel/src/kernel/routing.ts
++++ b/kernel/src/kernel/routing.ts
+@@ -174,12 +174,7 @@ export async function resolveInvocation(
+   // in an interactive run; non-interactive and --json runs stay unchanged.
+   if (!tokens.length) {
+-    if (
+-      facts?.interactive === true &&
+-      !machine &&
+-      deadlineMilliseconds === undefined &&
+-      facts.defaultCommand
+-    )
++    if (!machine && deadlineMilliseconds === undefined && facts?.defaultCommand)
+       return resolveCommand(cli, facts.defaultCommand, [], false);
+     return refused(cli, { kind: "no-command" }, machine);
+   }

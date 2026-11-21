@@ -1,0 +1,19 @@
+diff --git a/kernel/src/addons/diagnostics/run.ts b/kernel/src/addons/diagnostics/run.ts
+index 0a258359..df5bdf47 100644
+--- a/kernel/src/addons/diagnostics/run.ts
++++ b/kernel/src/addons/diagnostics/run.ts
+@@ -341,13 +341,13 @@ function session(
+ 
+   function closeSink() {
+     if (!opened) return;
+-    const size = checkedSize(opened.descriptor);
+     try {
+       io.close(opened.descriptor);
+       closed = true;
+     } catch {
+       fail("close");
+     }
++    const size = checkedSize(opened.descriptor);
+     if (closed && size !== undefined) confirmClosed(opened, size);
+   }
+ 

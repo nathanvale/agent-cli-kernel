@@ -1,0 +1,7 @@
+{
+  "id": "3854e2a-run-size-unavailable",
+  "patch": "tests/planted-faults/patches/3854e2a-run-size-unavailable.patch",
+  "testFile": "tests/kernel/diagnostics/faults.test.ts",
+  "title": "D11\\.status-unavailable: unobtainable accounting is status-unavailable and claims no sink failure$",
+  "source": "3854e2a feat(contract3): bounded private diagnostics add-on with custody and limit cases"
+}

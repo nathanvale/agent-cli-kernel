@@ -1540,6 +1540,7 @@ function faultHost(host: ProcessHost): ProcessHost {
         ? clockStart + clockJump + (real - clockStart)
         : real;
     },
+    terminal: () => host.terminal(),
   };
 }
 

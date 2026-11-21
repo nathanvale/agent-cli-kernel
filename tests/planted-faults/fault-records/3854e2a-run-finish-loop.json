@@ -1,0 +1,7 @@
+{
+  "id": "3854e2a-run-finish-loop",
+  "patch": "tests/planted-faults/patches/3854e2a-run-finish-loop.patch",
+  "testFile": "tests/kernel/diagnostics/finalisation.test.ts",
+  "title": "^finishWork drains a record queued while the previous drain is finishing$",
+  "source": "3854e2a feat(contract3): bounded private diagnostics add-on with custody and limit cases"
+}

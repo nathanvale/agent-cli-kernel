@@ -1,4 +1,5 @@
 import { afterAll, describe, expect, jest, test } from "bun:test";
+import { createHash } from "node:crypto";
 import {
   chmodSync,
   closeSync,
@@ -7,8 +8,10 @@ import {
   readFileSync,
   renameSync,
   symlinkSync,
+  utimesSync,
   writeFileSync,
 } from "node:fs";
+import { hostname } from "node:os";
 import { join } from "node:path";
 import {
   allocate,
@@ -641,4 +644,94 @@ test("the allocation lock wait tries the lock once even when its limit has passe
   if (typeof allocation !== "object")
     throw new Error(`The free lock was not taken: ${allocation}.`);
   closeSync(allocation.descriptor);
+});
+
+const localHost = createHash("sha256")
+  .update(hostname())
+  .digest("hex")
+  .slice(0, 16);
+const foreignHost =
+  localHost === "0000000000000000" ? "1111111111111111" : "0000000000000000";
+
+test(
+  "unusable diagnostics folder drops first-turn records and leaves none unflushed",
+  async () => {
+    const unset = await run({
+      argv: read,
+      tree: tree(),
+      script: { records: 3 },
+      xdg: false,
+      home: false,
+    });
+    expectSuccess(unset);
+    expect(statusOf(unset)).toEqual({
+      status: "available",
+      file: null,
+      sinkFailure: "setup",
+      droppedRecords: 3,
+      unflushedRecords: 0,
+      truncatedRecords: 0,
+      countsComplete: true,
+      closed: false,
+    });
+
+    const where = tree();
+    privateParents(where);
+    mkdirSync(where.dir);
+    chmodSync(where.dir, 0o755);
+    const wide = await run({
+      argv: read,
+      tree: where,
+      script: { records: 3 },
+    });
+    expectSuccess(wide);
+    expect(statusOf(wide)).toEqual({
+      status: "available",
+      file: null,
+      sinkFailure: "setup",
+      droppedRecords: 3,
+      unflushedRecords: 0,
+      truncatedRecords: 0,
+      countsComplete: true,
+      closed: false,
+    });
+  },
+  timeout,
+);
+
+test("removeIfPresent rethrows non-ENOENT cleanup errors so allocation reports setup", async () => {
+  const place = freePlace();
+  const exited = Bun.spawn([process.execPath, "-e", ""], {
+    stdin: "ignore",
+    stdout: "ignore",
+    stderr: "ignore",
+  });
+  await exited.exited;
+  const residue = join(
+    place.directory,
+    `.allocation-lock.pending-${exited.pid}-${localHost}-0000000000000000`,
+  );
+  mkdirSync(join(residue, "nested"), { recursive: true, mode: 0o700 });
+  const allocation = await allocate(
+    place,
+    "residue-error",
+    nodeIo,
+    () => false,
+  );
+  if (typeof allocation === "object") closeSync(allocation.descriptor);
+  expect(allocation).toBe("setup");
+});
+
+test("unlinkIfPresent returns false on non-ENOENT lock-entry errors so allocation reports capacity", async () => {
+  const place = freePlace();
+  const lock = join(place.directory, ".allocation-lock");
+  mkdirSync(join(lock, `owner-99999-${foreignHost}`), {
+    recursive: true,
+    mode: 0o700,
+  });
+  const stale = new Date(Date.now() - 10 * 60 * 1000);
+  utimesSync(lock, stale, stale);
+  const { allocation } = await waitForLock(place, () => 0);
+  if (typeof allocation === "object") closeSync(allocation.descriptor);
+  expect(allocation).toBe("capacity");
 });

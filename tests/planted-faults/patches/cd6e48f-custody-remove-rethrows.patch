@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/diagnostics/custody.ts b/kernel/src/addons/diagnostics/custody.ts
+index bbaf28c2..3e0e1e83 100644
+--- a/kernel/src/addons/diagnostics/custody.ts
++++ b/kernel/src/addons/diagnostics/custody.ts
+@@ -173,7 +173,7 @@ function removeIfPresent(remove: () => void): void {
+   try {
+     remove();
+   } catch (error) {
+-    if (errorCode(error) !== "ENOENT") throw error;
++    void errorCode(error);
+   }
+ }
+ 

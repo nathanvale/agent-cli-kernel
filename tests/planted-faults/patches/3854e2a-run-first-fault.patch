@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/diagnostics/run.ts b/kernel/src/addons/diagnostics/run.ts
+index 0a258359..2f01dd03 100644
+--- a/kernel/src/addons/diagnostics/run.ts
++++ b/kernel/src/addons/diagnostics/run.ts
+@@ -185,7 +185,7 @@ function session(
+   let selfReports = 0;
+ 
+   function fail(kind: SinkFailure) {
+-    failure ??= kind;
++    failure = kind;
+   }
+ 
+   function admit(line: Line) {

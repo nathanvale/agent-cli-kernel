@@ -37,9 +37,12 @@ import { classifyVersion } from "./validation/version.ts";
 import { validateEnvelope } from "./validation/envelope.ts";
 import { renderGuidance } from "./guidance.ts";
 import { wireResult } from "./validation/result.ts";
+import { stepVectorProblem } from "./step-vector.ts";
+import { record } from "./validation/primitives.ts";
 
 export { command, changing } from "./declarations.ts";
 export { runInProcess, runProcess } from "./lifecycle.ts";
+export { scriptedTerminal } from "./terminal.ts";
 export type {
   AttachedAddon,
   EmergencyFacts,
@@ -49,16 +52,45 @@ export type {
   RunAddon,
   RunControl,
   RunSetup,
+  TerminalAdapter,
 } from "./process-types.ts";
 export { station } from "./stations.ts";
 export { issuedScope } from "./state-seam.ts";
 export { commonCauses } from "./causes.ts";
+export const defaultCommandDisclosure =
+  "Runs when the CLI's name is typed alone in a terminal.";
+function validateDefaultCommand(
+  cli: string,
+  hostCommands: readonly CommandDeclaration[],
+  candidate: CommandDeclaration,
+): CommandDeclaration {
+  const builtinIdentities = builtins(cli).map((item) => item.commandIdentity);
+  const identity =
+    record(candidate) && typeof candidate.commandIdentity === "string"
+      ? candidate.commandIdentity
+      : undefined;
+  if (identity !== undefined && builtinIdentities.includes(identity))
+    throw new Error(`defaultCommand cannot name built-in command ${identity}.`);
+  if (!hostCommands.includes(candidate))
+    throw new Error("defaultCommand must be one of the declared commands.");
+  const problem = stepVectorProblem(candidate, [], true);
+  if (problem)
+    throw new Error(
+      `defaultCommand ${candidate.commandIdentity} cannot run with no arguments: ${problem}.`,
+    );
+  if (!candidate.summary.includes(defaultCommandDisclosure))
+    throw new Error(
+      `defaultCommand ${candidate.commandIdentity} summary must include "${defaultCommandDisclosure}".`,
+    );
+  return candidate;
+}
 export function contractFor<
   const Cli extends string,
   const D extends readonly CommandDeclaration[],
 >(spec: {
   readonly cli: Cli;
   readonly commands: D & ValidatedCommands<D, Cli>;
+  readonly defaultCommand?: NoInfer<D[number]>;
   readonly state?: StateAddonDescriptor;
   readonly causes?: CauseTable;
   readonly installedAddons?: readonly AddonName[];
@@ -97,6 +129,10 @@ export function contractFor<
     ...builtins(spec.cli),
   ].sort((a, b) => (a.commandIdentity < b.commandIdentity ? -1 : 1));
   validateCommands(spec.cli, commands, causes, installed);
+  const defaultCommand =
+    spec.defaultCommand === undefined
+      ? undefined
+      : validateDefaultCommand(spec.cli, hostCommands, spec.defaultCommand);
   if (
     spec.state &&
     commands.some(
@@ -417,8 +453,11 @@ export function contractFor<
     cli: spec.cli,
     commands,
     stations: stationMap,
-    async resolve(argv: unknown) {
-      const resolved = await resolveInvocation(spec.cli, commands, argv);
+    async resolve(argv: unknown, facts) {
+      const resolved = await resolveInvocation(spec.cli, commands, argv, {
+        interactive: facts?.interactive === true,
+        ...(defaultCommand === undefined ? {} : { defaultCommand }),
+      });
       if (!resolved.ok) return resolved;
       const raw: readonly unknown[] = Array.isArray(argv) ? argv : [];
       const selected = commands.find(

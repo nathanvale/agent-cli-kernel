@@ -1,0 +1,7 @@
+{
+  "id": "1d03d99-run-finish-frozen-close",
+  "patch": "tests/planted-faults/patches/1d03d99-run-finish-frozen-close.patch",
+  "testFile": "tests/kernel/diagnostics/faults.test.ts",
+  "title": "D10\\.late-completion-ignored \\(component layer; the process row is R2\\.late-completion-observed\\): a write that completes after the freeze changes nothing and writes nothing$",
+  "source": "1d03d99 fix(contract3): diagnostics repair round 1 in the add-on"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "3854e2a-run-first-fault",
+  "patch": "tests/planted-faults/patches/3854e2a-run-first-fault.patch",
+  "testFile": "tests/kernel/diagnostics/faults.test.ts",
+  "title": "D10\\.first-fault-in-time: the first fault is reported and later loss still counted$",
+  "source": "3854e2a feat(contract3): bounded private diagnostics add-on with custody and limit cases"
+}

@@ -1,0 +1,15 @@
+diff --git a/kernel/src/addons/diagnostics/custody.ts b/kernel/src/addons/diagnostics/custody.ts
+index bbaf28c2..69a6dc82 100644
+--- a/kernel/src/addons/diagnostics/custody.ts
++++ b/kernel/src/addons/diagnostics/custody.ts
+@@ -397,9 +397,7 @@ function custodyHolds(
+     (held.mode & 0o7777) === 0o600 &&
+     named?.dev === held.dev &&
+     named.ino === held.ino &&
+-    directory?.isDirectory() === true &&
+-    directory.dev === place.dev &&
+-    directory.ino === place.ino
++    directory !== undefined
+   );
+ }
+ 

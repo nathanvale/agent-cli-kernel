@@ -141,6 +141,22 @@ A station the kernel adds to a command without an author declaration, covering
 usage refusals and internal failures.
 _Avoid_: built-in station (for a kernel station)
 
+### Interactive runs
+
+**Default command**:
+The one ordinary command a CLI names, with `defaultCommand`, to run when no
+words are typed after its name in an interactive run.
+_Avoid_: bare-name command; root command (a root operation is Command Contract 3's route-`[]` command, which this is not); front door (in a name)
+
+**Interactive run**:
+A run that has a terminal adapter (in a process: both stdin and stdout are
+terminals) and whose typed words hold no `--json`.
+_Avoid_: terminal run
+
+**Terminal adapter**:
+The kernel's seam for reading keys from and drawing on a terminal: the
+`/dev/tty` adapter in a process, or `scriptedTerminal` in tests.
+
 ### Internal kernel names
 
 **Contract boundary**:

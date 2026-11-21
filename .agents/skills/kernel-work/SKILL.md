@@ -19,6 +19,9 @@ each pointer rather than a copy:
   gates, and the review routine.
 - [docs/standards/](../../../docs/standards/): the judgement guide each rule
   row links.
+- [tests/kernel/diagnostics/design.md](../../../tests/kernel/diagnostics/design.md):
+  diagnostics add-on custody, sink-fault seam, accounting rules and accepted
+  rulings.
 
 Take **Build** when you write or repair code, **Review** when you judge a
 diff.

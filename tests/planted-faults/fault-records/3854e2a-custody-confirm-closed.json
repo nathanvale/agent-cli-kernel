@@ -1,0 +1,7 @@
+{
+  "id": "3854e2a-custody-confirm-closed",
+  "patch": "tests/planted-faults/patches/3854e2a-custody-confirm-closed.patch",
+  "testFile": "tests/kernel/diagnostics/limits.test.ts",
+  "title": "D07\\.old-closed-pruned-first: a closed log older than seven days goes even when room exists$",
+  "source": "3854e2a feat(contract3): bounded private diagnostics add-on with custody and limit cases"
+}
