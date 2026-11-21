@@ -190,7 +190,12 @@ describe("kernel-free forensics in-process", () => {
     expect(caseA?.delegateBoots).toEqual(["boot-alpha"]);
     expect(caseA?.tornTail).toBe(true);
     expect(caseA?.recordHiddenInTornTail).toBe(true);
-    expect(caseA?.leasePresent).toBe(true);
+    expect(caseA?.leaseFilePresent).toBe(true);
+    expect(caseA?.nextAction).toContain("report command (ifNoResult)");
+    expect(inspected.report.nextAction).toContain(
+      "report command (ifNoResult)",
+    );
+    expect(inspected.report.summary).toContain("Next:");
     expect(caseA?.problems.some((p) => p.includes("mid-line"))).toBe(true);
 
     const caseB = inspected.report.cases.find((c) => c.operationId === opB);
@@ -198,7 +203,100 @@ describe("kernel-free forensics in-process", () => {
     expect(caseB?.status).toBe("closed");
     expect(caseB?.closure.state).toBe("valid");
     expect(caseB?.closure.journalRevisionMatches).toBe(true);
+    expect(caseB?.nextAction).toBeNull();
     expect(caseB?.problems).toEqual([]);
+  });
+
+  test("flags non-private state subfolders and records the kernel rejects", () => {
+    const modeRoot = createStateTree("contract3.state.2");
+    for (const sub of ["operations", "coordination", "staging"] as const) {
+      chmodSync(join(modeRoot, sub), 0o777);
+      const checked = inspectStateRoot(modeRoot);
+      expect(checked.ok).toBe(true);
+      if (checked.ok) {
+        expect(checked.report.status).toBe("issues");
+        expect(
+          checked.report.problems.some((p) =>
+            p.includes(`${sub}/ permissions/ownership failed private check`),
+          ),
+        ).toBe(true);
+      }
+      chmodSync(join(modeRoot, sub), 0o700);
+    }
+    const restored = inspectStateRoot(modeRoot);
+    expect(restored.ok).toBe(true);
+    if (restored.ok) expect(restored.report.status).toBe("clean");
+
+    const badRoot = createStateTree("contract3.state.2");
+    const opBadClosure = "op-0000000000000000000000000000000c";
+    const opBadClosureDir = join(badRoot, "operations", opBadClosure);
+    mkdirSync(opBadClosureDir, { mode: 0o700 });
+    const goodIntent = (id: string) =>
+      encodeC3s1("intent", {
+        operationId: id,
+        commandIdentity: "notes.save",
+        runId: `run-${id}`,
+        effects: ["note.write"],
+        scope: { resources: [], invariants: [], unknown: false, keys: ["k1"] },
+        revisions: {},
+        owner: { lease: "owner.lease", pid: 4242, startedAt: 1000 },
+        coordination: [],
+        approval: null,
+        closes: null,
+      });
+    const intentC = goodIntent(opBadClosure);
+    const eventsC = encodeC3s1("effect-started", { effect: "note.write" });
+    const revC = `r-${createHash("sha256").update(intentC).update("\n").update(eventsC).digest("hex")}`;
+    writeFileSync(join(opBadClosureDir, "intent"), intentC);
+    writeFileSync(join(opBadClosureDir, "events"), eventsC);
+    writeFileSync(
+      join(opBadClosureDir, "closure"),
+      encodeC3s1("closure", {
+        operationId: opBadClosure,
+        closureId: "c-missing-run",
+        disposition: "completed",
+        reason: "verified",
+        evidence: [],
+        journalRevision: revC,
+        qualification: "linux-7-btrfs",
+      }),
+    );
+
+    const opBadEvent = "op-0000000000000000000000000000000d";
+    const opBadEventDir = join(badRoot, "operations", opBadEvent);
+    mkdirSync(opBadEventDir, { mode: 0o700 });
+    writeFileSync(join(opBadEventDir, "intent"), goodIntent(opBadEvent));
+    writeFileSync(
+      join(opBadEventDir, "events"),
+      encodeC3s1("unknown-kind", { note: "bad" }),
+    );
+
+    const opBadIntent = "op-0000000000000000000000000000000e";
+    const opBadIntentDir = join(badRoot, "operations", opBadIntent);
+    mkdirSync(opBadIntentDir, { mode: 0o700 });
+    writeFileSync(
+      join(opBadIntentDir, "intent"),
+      encodeC3s1("intent", { operationId: opBadIntent }),
+    );
+    writeFileSync(join(opBadIntentDir, "events"), new Uint8Array(0));
+
+    const badInspected = inspectStateRoot(badRoot);
+    expect(badInspected.ok).toBe(true);
+    if (!badInspected.ok) return;
+    const cCase = badInspected.report.cases.find(
+      (c) => c.operationId === opBadClosure,
+    );
+    expect(cCase?.closure.state).toBe("damaged");
+    expect(cCase?.status).toBe("unresolved");
+    expect(cCase?.problems).toContain("closure record is damaged");
+    expect(
+      badInspected.report.cases.find((c) => c.operationId === opBadEvent)
+        ?.status,
+    ).toBe("corrupt");
+    expect(
+      badInspected.report.cases.find((c) => c.operationId === opBadIntent)
+        ?.status,
+    ).toBe("corrupt");
   });
 
   test("decodes diagnostics custody locks, residue, markers, and JSONL summaries", () => {
@@ -256,6 +354,24 @@ describe("kernel-free forensics in-process", () => {
       closedMarker: "matched",
     });
 
+    const unclosedDir = ownedFolder("forensics-diag-unclosed-");
+    chmodSync(unclosedDir, 0o700);
+    writeFileSync(
+      join(unclosedDir, "orphan.jsonl"),
+      `${JSON.stringify({ event: "started" })}\n`,
+    );
+    const unclosedChecked = inspectDiagnosticsFolder(unclosedDir);
+    expect(unclosedChecked.ok).toBe(true);
+    if (unclosedChecked.ok) {
+      expect(unclosedChecked.report.status).toBe("issues");
+      expect(unclosedChecked.report.summary).toContain("(1 unclosed)");
+      expect(
+        unclosedChecked.report.problems.some((p) =>
+          p.includes("orphan.jsonl: no closed marker"),
+        ),
+      ).toBe(true);
+    }
+
     const boundedDir = ownedFolder("forensics-diag-lines-");
     chmodSync(boundedDir, 0o700);
     const exactLines = Array.from(
@@ -264,12 +380,19 @@ describe("kernel-free forensics in-process", () => {
     ).join("\n");
     const exactFile = join(boundedDir, "exact.jsonl");
     writeFileSync(exactFile, `${exactLines}\n`);
+    const exactStats = lstatSync(exactFile);
+    const exactMarker = join(
+      boundedDir,
+      `exact.jsonl.closed-${String(exactStats.dev)}-${String(exactStats.ino)}-${String(exactStats.size)}`,
+    );
+    mkdirSync(exactMarker, { mode: 0o700 });
     const exactChecked = inspectDiagnosticsFolder(boundedDir);
     expect(exactChecked.ok).toBe(true);
     if (!exactChecked.ok) return;
     expect(exactChecked.report.files[0]?.linesTruncated).toBe(false);
     expect(exactChecked.report.truncated).toBe(false);
     expect(exactChecked.report.status).toBe("clean");
+    expect(exactChecked.report.summary).toContain("(0 unclosed)");
 
     writeFileSync(
       exactFile,
@@ -325,6 +448,24 @@ describe("kernel-free forensics in-process", () => {
       }),
     );
     writeFileSync(
+      join(dir, "grant-extra-key.json"),
+      JSON.stringify({
+        ...validGrantBase,
+        operation: "op-extra",
+        expiresAt: 5000,
+        unexpected: true,
+      }),
+    );
+    writeFileSync(
+      join(dir, "grant-dup-effects.json"),
+      JSON.stringify({
+        ...validGrantBase,
+        operation: "op-dup",
+        effects: ["note.write", "note.write"],
+        expiresAt: 5000,
+      }),
+    );
+    writeFileSync(
       join(dir, "proto-key.json"),
       JSON.stringify({
         format: "toString",
@@ -352,6 +493,18 @@ describe("kernel-free forensics in-process", () => {
       inspected.report.entries.find(
         (e) => e.file === "grant-missing-fields.json",
       ),
+    ).toMatchObject({
+      kind: "malformed",
+      problems: ["unrecognised or malformed approval JSON record"],
+    });
+    expect(
+      inspected.report.entries.find((e) => e.file === "grant-extra-key.json"),
+    ).toMatchObject({
+      kind: "malformed",
+      problems: ["unrecognised or malformed approval JSON record"],
+    });
+    expect(
+      inspected.report.entries.find((e) => e.file === "grant-dup-effects.json"),
     ).toMatchObject({
       kind: "malformed",
       problems: ["unrecognised or malformed approval JSON record"],

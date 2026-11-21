@@ -11,16 +11,19 @@ and without writing, locking, or mutating any file.
   unmet steps, `contract.*` failures, repository drift, scratch presence,
   and the helper's `state/` folder.
 - `forensics-state` decodes a v1 or v2 `C3S1` state journal (`format`,
-  `coordination/`, `staging/`, `operations/`, `settled/`), torn tails and
-  their byte offsets, mid-line records hidden in torn tails,
-  `delegate-admitted` boot identities, and closure `journalRevision`
-  matches.
+  `coordination/`, `staging/`, `operations/`, `settled/`), checks private
+  permissions on the root and all subfolders, validates record shapes,
+  reports torn tails and their byte offsets, mid-line records hidden in torn
+  tails, `delegate-admitted` boot identities, `leaseFilePresent` (file
+  existence only; forensics never acquires or probes locks), `nextAction`
+  for unresolved cases, and closure `journalRevision` matches.
 - `forensics-diagnostics` checks directory permissions and trusted
   ancestors, `.allocation-lock` owner PID/host, `.pending`/`.retiring`
-  residue, `.closed-*` marker matches or orphans, and bounded JSONL line
-  summaries.
+  residue, `.closed-*` marker matches or orphans, unclosed file counts and
+  unclosed files with no active lock, and bounded JSONL line summaries.
 - `forensics-approval` decodes `*.consumed` markers and grant, closure, or
-  stop JSON records, flagging expired or malformed entries.
+  stop JSON records against exact kernel shapes, flagging expired or
+  malformed entries.
 
 ## How to get to it (user POV)
 

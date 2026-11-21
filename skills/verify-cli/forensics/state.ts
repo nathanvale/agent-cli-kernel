@@ -17,6 +17,153 @@ import {
 } from "./io.ts";
 
 const operationPattern = /^op-[0-9a-f]{32}$/;
+const validEventKinds = new Set([
+  "effect-started",
+  "delegate-admitted",
+  "effect-confirmed",
+  "effect-unconfirmed",
+  "completion",
+  "not-applied",
+  "outcome",
+  "emergency",
+]);
+const effectEventKinds = new Set([
+  "effect-started",
+  "delegate-admitted",
+  "effect-confirmed",
+  "effect-unconfirmed",
+]);
+const validDispositions = new Set([
+  "completed",
+  "not-applied",
+  "outcome-unknown",
+]);
+const unresolvedNextAction =
+  "Run the target CLI's report command (ifNoResult) to check live locks, then resolve with its recovery/close command.";
+
+function exactStringList(value: unknown): readonly string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const out: string[] = [];
+  for (const entry of value) {
+    const item = textField(entry);
+    if (item === null) return undefined;
+    out.push(item);
+  }
+  return out;
+}
+
+function sortedUniqueStrings(value: readonly string[]): boolean {
+  return value.every(
+    (entry, index) => index === 0 || (value[index - 1] ?? "") < entry,
+  );
+}
+
+function validScopeResource(entry: unknown): boolean {
+  const item = plainRecord(entry);
+  if (
+    !item ||
+    textField(item.resource) === null ||
+    exactStringList(item.keys) === undefined
+  )
+    return false;
+  const hasPath = textField(item.path) !== null;
+  const hasKey = textField(item.key) !== null;
+  return hasPath !== hasKey;
+}
+
+function validScopePayload(value: unknown): boolean {
+  const scope = plainRecord(value);
+  if (
+    !scope ||
+    typeof scope.unknown !== "boolean" ||
+    exactStringList(scope.keys) === undefined ||
+    exactStringList(scope.invariants) === undefined ||
+    !Array.isArray(scope.resources)
+  )
+    return false;
+  return scope.resources.every(validScopeResource);
+}
+
+function validRevisionsPayload(value: unknown): boolean {
+  const revisions = plainRecord(value);
+  return (
+    revisions !== undefined &&
+    Object.values(revisions).every((entry) => textField(entry) !== null)
+  );
+}
+
+function validApprovalField(value: unknown): boolean {
+  if (value === null) return true;
+  const approval = plainRecord(value);
+  return approval?.kind === "preview" && textField(approval.reference) !== null;
+}
+
+function validOwnerField(value: unknown): boolean {
+  const owner = plainRecord(value);
+  return (
+    owner?.lease === "owner.lease" &&
+    typeof owner.pid === "number" &&
+    typeof owner.startedAt === "number"
+  );
+}
+
+function hasTextFields(
+  payload: Readonly<Record<string, unknown>>,
+  keys: readonly string[],
+): boolean {
+  return keys.every((key) => textField(payload[key]) !== null);
+}
+
+function validIntentPayload(
+  payload: Readonly<Record<string, unknown>> | undefined,
+  operationId: string,
+): boolean {
+  if (!payload || payload.operationId !== operationId) return false;
+  const effects = exactStringList(payload.effects);
+  if (
+    !hasTextFields(payload, ["commandIdentity", "runId"]) ||
+    effects === undefined ||
+    effects.length === 0 ||
+    !sortedUniqueStrings(effects)
+  )
+    return false;
+  return (
+    validScopePayload(payload.scope) &&
+    validRevisionsPayload(payload.revisions) &&
+    validOwnerField(payload.owner) &&
+    exactStringList(payload.coordination) !== undefined &&
+    validApprovalField(payload.approval) &&
+    (payload.closes === null || textField(payload.closes) !== null)
+  );
+}
+
+function validClosureEvidence(value: unknown): boolean {
+  if (!Array.isArray(value)) return false;
+  return value.every((entry: unknown) => {
+    const item = plainRecord(entry);
+    return item !== undefined && hasTextFields(item, ["effect", "observation"]);
+  });
+}
+
+function validClosurePayload(
+  payload: Readonly<Record<string, unknown>> | undefined,
+  operationId: string,
+): boolean {
+  if (!payload || payload.operationId !== operationId) return false;
+  const disposition = textField(payload.disposition);
+  return (
+    disposition !== null &&
+    validDispositions.has(disposition) &&
+    hasTextFields(payload, [
+      "closureId",
+      "reason",
+      "journalRevision",
+      "qualification",
+      "recoveryRunId",
+    ]) &&
+    validClosureEvidence(payload.evidence)
+  );
+}
 
 function journalRevisionOf(
   intentBytes: Uint8Array,
@@ -49,7 +196,7 @@ export type StateCaseReport = {
   readonly runId: string | null;
   readonly effects: readonly string[];
   readonly ownerPid: number | null;
-  readonly leasePresent: boolean;
+  readonly leaseFilePresent: boolean;
   readonly closes: string | null;
   readonly scopeUnknown: boolean | null;
   readonly eventKinds: readonly string[];
@@ -64,6 +211,7 @@ export type StateCaseReport = {
     readonly journalRevisionMatches: boolean | null;
   };
   readonly revision: string | null;
+  readonly nextAction: string | null;
   readonly problems: readonly string[];
 };
 
@@ -79,7 +227,7 @@ function readIntentPart(directory: string, operationId: string) {
           : `intent unreadable: ${read.reason}`,
     };
   const payload = singleC3s1Record(read.bytes, "intent");
-  const valid = payload !== undefined && payload.operationId === operationId;
+  const valid = validIntentPayload(payload, operationId);
   return {
     payload: valid ? payload : undefined,
     bytes: read.bytes,
@@ -116,7 +264,32 @@ function failedEvents(
   };
 }
 
-function readEventsPart(directory: string): EventsPart {
+function invalidEventReason(
+  records: readonly {
+    readonly kind: string;
+    readonly payload: Readonly<Record<string, unknown>>;
+  }[],
+  declaredEffects: readonly string[] | undefined,
+): string | undefined {
+  for (const record of records) {
+    if (!validEventKinds.has(record.kind))
+      return `events file contains unknown event kind ${record.kind}`;
+    if (effectEventKinds.has(record.kind)) {
+      const effect = textField(record.payload.effect);
+      if (
+        effect === null ||
+        (declaredEffects !== undefined && !declaredEffects.includes(effect))
+      )
+        return `events file contains undeclared or invalid effect on ${record.kind}`;
+    }
+  }
+  return undefined;
+}
+
+function readEventsPart(
+  directory: string,
+  declaredEffects: readonly string[] | undefined,
+): EventsPart {
   const read = readBytesNoFollow(join(directory, "events"));
   if (read.kind !== "read")
     return failedEvents(
@@ -131,6 +304,8 @@ function readEventsPart(directory: string): EventsPart {
       read.bytes,
       `events file has corrupt framing at byte ${String(parsed.failureOffset)}`,
     );
+  const eventProblem = invalidEventReason(parsed.records, declaredEffects);
+  if (eventProblem !== undefined) return failedEvents(read.bytes, eventProblem);
   const problems: string[] = [];
   if (parsed.tornTail)
     problems.push(
@@ -177,7 +352,7 @@ function readClosurePart(
       problem: `closure unreadable: ${read.reason}`,
     };
   const payload = singleC3s1Record(read.bytes, "closure");
-  if (payload === undefined || payload.operationId !== operationId)
+  if (!validClosurePayload(payload, operationId) || payload === undefined)
     return {
       closure: emptyClosure("damaged"),
       problem: "closure record is damaged",
@@ -235,7 +410,11 @@ function inspectStateCase(
 ): StateCaseReport {
   const leaseStat = lstatSafe(join(directory, "owner.lease"));
   const intent = readIntentPart(directory, operationId);
-  const events = readEventsPart(directory);
+  const declaredEffects =
+    intent.payload === undefined
+      ? undefined
+      : stringList(intent.payload.effects);
+  const events = readEventsPart(directory, declaredEffects);
   const revision =
     intent.bytes !== undefined && events.bytes !== undefined
       ? journalRevisionOf(intent.bytes, events.bytes)
@@ -263,7 +442,7 @@ function inspectStateCase(
     operationId,
     status,
     ...intentFields(intent.payload),
-    leasePresent: leaseStat.kind === "ok",
+    leaseFilePresent: leaseStat.kind === "ok",
     eventKinds: events.eventKinds,
     delegateBoots: events.delegateBoots,
     tornTail: events.tornTail,
@@ -271,6 +450,7 @@ function inspectStateCase(
     recordHiddenInTornTail: events.recordHiddenInTornTail,
     closure: closed.closure,
     revision,
+    nextAction: status === "unresolved" ? unresolvedNextAction : null,
     problems,
   };
 }
@@ -308,6 +488,7 @@ function listSubdir(
   readonly total: number;
   readonly truncated: boolean;
   readonly problem: string | undefined;
+  readonly modeProblem: string | undefined;
 } {
   const dirPath = join(root, name);
   if (lstatSafe(dirPath).kind === "missing")
@@ -316,6 +497,7 @@ function listSubdir(
       total: 0,
       truncated: false,
       problem: `${name}/ directory is missing`,
+      modeProblem: undefined,
     };
   const listed = openListedDirectory(`${name}/`, dirPath);
   if (!listed.ok)
@@ -324,12 +506,16 @@ function listSubdir(
       total: 0,
       truncated: false,
       problem: `${name}/ unreadable: ${listed.reason}`,
+      modeProblem: undefined,
     };
   return {
     names: [...listed.names],
     total: listed.total,
     truncated: listed.truncated,
     problem: undefined,
+    modeProblem: privateModeOk(listed.stats)
+      ? undefined
+      : `${name}/ permissions/ownership failed private check (${formatMode(listed.stats)})`,
   };
 }
 
@@ -386,21 +572,17 @@ function scanCaseBucket(
   const entries = listed.names.map((name) =>
     scanCaseEntry(folder, dirPath, name),
   );
-  const settledProblem =
-    folder === "settled" && !privateModeOk(listed.stats)
-      ? [
-          `settled/ permissions/ownership failed private check (${formatMode(listed.stats)})`,
-        ]
-      : [];
+  const modeProblem = !privateModeOk(listed.stats)
+    ? [
+        `${folder}/ permissions/ownership failed private check (${formatMode(listed.stats)})`,
+      ]
+    : [];
   return {
     cases: entries.flatMap((entry) =>
       entry.report === undefined ? [] : [entry.report],
     ),
     truncated: listed.truncated,
-    problems: [
-      ...settledProblem,
-      ...entries.flatMap((entry) => entry.problems),
-    ],
+    problems: [...modeProblem, ...entries.flatMap((entry) => entry.problems)],
   };
 }
 
@@ -416,8 +598,54 @@ export type StateForensicsReport = {
   readonly stagingEntries: readonly string[];
   readonly cases: readonly StateCaseReport[];
   readonly truncated: boolean;
+  readonly nextAction: string | null;
   readonly problems: readonly string[];
 };
+
+function optionalProblem(value: string | undefined): readonly string[] {
+  return value === undefined ? [] : [value];
+}
+
+function stagingProblems(
+  staging: ReturnType<typeof listSubdir>,
+): readonly string[] {
+  if (staging.problem !== undefined) return [staging.problem];
+  const leftover =
+    staging.names.length > 0
+      ? [
+          `staging/ holds ${String(staging.total)} leftover entr${staging.total === 1 ? "y" : "ies"}`,
+        ]
+      : [];
+  return [...leftover, ...optionalProblem(staging.modeProblem)];
+}
+
+function collectRootProblems(
+  rootStats: Stats,
+  rootMode: string,
+  fmt: ReturnType<typeof readFormatJournal>,
+  coord: ReturnType<typeof listSubdir>,
+  staging: ReturnType<typeof listSubdir>,
+  ops: ReturnType<typeof scanCaseBucket>,
+  settled: ReturnType<typeof scanCaseBucket>,
+  truncated: boolean,
+): readonly string[] {
+  return [
+    ...(privateModeOk(rootStats)
+      ? []
+      : [
+          `state root permissions/ownership failed private check (${rootMode})`,
+        ]),
+    ...optionalProblem(fmt.problem),
+    ...optionalProblem(coord.problem),
+    ...optionalProblem(coord.modeProblem),
+    ...stagingProblems(staging),
+    ...ops.problems,
+    ...settled.problems,
+    ...(truncated
+      ? ["state journal listing was truncated at forensics limits"]
+      : []),
+  ];
+}
 
 export function inspectStateRoot(
   root: string,
@@ -438,32 +666,23 @@ export function inspectStateRoot(
   );
   const truncated =
     coord.truncated || staging.truncated || ops.truncated || settled.truncated;
-  const problems = [
-    ...(privateModeOk(opened.stats)
-      ? []
-      : [
-          `state root permissions/ownership failed private check (${rootMode})`,
-        ]),
-    ...(fmt.problem === undefined ? [] : [fmt.problem]),
-    ...(coord.problem === undefined ? [] : [coord.problem]),
-    ...(staging.problem === undefined
-      ? staging.names.length > 0
-        ? [
-            `staging/ holds ${String(staging.total)} leftover entr${staging.total === 1 ? "y" : "ies"}`,
-          ]
-        : []
-      : [staging.problem]),
-    ...ops.problems,
-    ...settled.problems,
-    ...(truncated
-      ? ["state journal listing was truncated at forensics limits"]
-      : []),
-  ];
+  const problems = collectRootProblems(
+    opened.stats,
+    rootMode,
+    fmt,
+    coord,
+    staging,
+    ops,
+    settled,
+    truncated,
+  );
   const cases = [...ops.cases, ...settled.cases];
   const unresolved = cases.filter(
     (entry) => entry.status === "unresolved",
   ).length;
   const corrupt = cases.filter((entry) => entry.status === "corrupt").length;
+  const nextAction = unresolved > 0 ? unresolvedNextAction : null;
+  const summaryBase = `State journal ${fmt.journal ?? "unknown"}: ${String(cases.length)} cases (${String(unresolved)} unresolved, ${String(corrupt)} corrupt), ${String(staging.names.length)} staged, ${String(problems.length)} problems.`;
   return {
     ok: true,
     report: {
@@ -471,13 +690,17 @@ export function inspectStateRoot(
       target: "state",
       path: root,
       status: problems.length === 0 && unresolved === 0 ? "clean" : "issues",
-      summary: `State journal ${fmt.journal ?? "unknown"}: ${String(cases.length)} cases (${String(unresolved)} unresolved, ${String(corrupt)} corrupt), ${String(staging.names.length)} staged, ${String(problems.length)} problems.`,
+      summary:
+        nextAction === null
+          ? summaryBase
+          : `${summaryBase} Next: ${nextAction}`,
       rootMode,
       journal: fmt.journal,
       coordinationLocks: coord.names,
       stagingEntries: staging.names,
       cases,
       truncated,
+      nextAction,
       problems,
     },
   };

@@ -314,6 +314,18 @@ export function inspectDiagnosticsFolder(
   const files = summaries.flatMap((item) =>
     item.report === undefined ? [] : [item.report],
   );
+  const unclosed = files.filter(
+    (item) => item.closedMarker !== "matched",
+  ).length;
+  const unclosedProblems = lockInfo.lock.present
+    ? []
+    : files.flatMap((item) =>
+        item.closedMarker === "absent"
+          ? [
+              `${item.file}: no closed marker (no active custody lock; run may still be open or crashed before closing)`,
+            ]
+          : [],
+      );
   const truncated =
     opened.truncated ||
     lockInfo.truncated ||
@@ -323,6 +335,7 @@ export function inspectDiagnosticsFolder(
     ...lockInfo.problems,
     ...parts.problems,
     ...summaries.flatMap((item) => item.problems),
+    ...unclosedProblems,
     ...(truncated
       ? ["diagnostics listing or file lines were truncated at forensics limits"]
       : []),
@@ -334,7 +347,7 @@ export function inspectDiagnosticsFolder(
       target: "diagnostics",
       path: folder,
       status: problems.length === 0 ? "clean" : "issues",
-      summary: `Diagnostics folder (${mode}): ${String(files.length)} file(s), lock ${lockInfo.lock.present ? "present" : "absent"}, ${String(parts.residue.length)} residue, ${String(problems.length)} problems.`,
+      summary: `Diagnostics folder (${mode}): ${String(files.length)} file(s) (${String(unclosed)} unclosed), lock ${lockInfo.lock.present ? "present" : "absent"}, ${String(parts.residue.length)} residue, ${String(problems.length)} problems.`,
       mode,
       trustedAncestors: ancestors.trusted,
       lock: lockInfo.lock,
@@ -374,11 +387,83 @@ export type ApprovalForensicsReport = {
   readonly problems: readonly string[];
 };
 
-function nonEmptyStringArray(value: unknown): boolean {
-  return (
-    Array.isArray(value) &&
+const approvalIdentityEncoder = new TextEncoder();
+const approvalControlPattern = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u;
+const approvalExpectedKeys: Readonly<
+  Record<"grant" | "closure" | "stop", readonly string[]>
+> = {
+  grant: [
+    "authority",
+    "effects",
+    "expiresAt",
+    "format",
+    "operation",
+    "preview",
+    "resource",
+    "resourceRevision",
+    "version",
+  ],
+  closure: [
+    "disposition",
+    "evidence",
+    "expiresAt",
+    "format",
+    "operation",
+    "scope",
+    "version",
+  ],
+  stop: [
+    "expiresAt",
+    "format",
+    "operation",
+    "owner",
+    "scope",
+    "version",
+    "writers",
+  ],
+};
+
+function validApprovalIdentity(value: unknown): string | undefined {
+  return typeof value === "string" &&
     value.length > 0 &&
-    value.every((item: unknown) => textField(item) !== null)
+    approvalIdentityEncoder.encode(value).byteLength <= 256 &&
+    !approvalControlPattern.test(value)
+    ? value
+    : undefined;
+}
+
+function validApprovalIdentitySet(value: unknown): boolean {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 64)
+    return false;
+  const seen = new Set<string>();
+  for (const item of value) {
+    const checked = validApprovalIdentity(item);
+    if (checked === undefined || seen.has(checked)) return false;
+    seen.add(checked);
+  }
+  return true;
+}
+
+function hasExactApprovalKeys(
+  kind: "grant" | "closure" | "stop",
+  parsed: unknown,
+): boolean {
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed))
+    return false;
+  const expected = approvalExpectedKeys[kind];
+  const actual = Object.keys(parsed).sort();
+  return (
+    actual.length === expected.length &&
+    actual.every((key, index) => key === expected[index])
+  );
+}
+
+function hasApprovalIdentities(
+  parsed: unknown,
+  keys: readonly string[],
+): boolean {
+  return keys.every(
+    (key) => validApprovalIdentity(at(parsed, key)) !== undefined,
   );
 }
 
@@ -386,24 +471,28 @@ function hasApprovalPayloadFields(
   kind: "grant" | "closure" | "stop",
   parsed: unknown,
 ): boolean {
+  if (
+    !hasExactApprovalKeys(kind, parsed) ||
+    validApprovalIdentity(at(parsed, "operation")) === undefined
+  )
+    return false;
   if (kind === "grant")
     return (
-      textField(at(parsed, "preview")) !== null &&
-      textField(at(parsed, "authority")) !== null &&
-      textField(at(parsed, "resource")) !== null &&
-      textField(at(parsed, "resourceRevision")) !== null &&
-      nonEmptyStringArray(at(parsed, "effects"))
+      hasApprovalIdentities(parsed, [
+        "preview",
+        "authority",
+        "resource",
+        "resourceRevision",
+      ]) && validApprovalIdentitySet(at(parsed, "effects"))
     );
   if (kind === "closure")
     return (
       at(parsed, "disposition") === "outcome-unknown" &&
-      textField(at(parsed, "evidence")) !== null &&
-      textField(at(parsed, "scope")) !== null
+      hasApprovalIdentities(parsed, ["evidence", "scope"])
     );
   return (
-    textField(at(parsed, "owner")) !== null &&
-    textField(at(parsed, "scope")) !== null &&
-    nonEmptyStringArray(at(parsed, "writers"))
+    hasApprovalIdentities(parsed, ["owner", "scope"]) &&
+    validApprovalIdentitySet(at(parsed, "writers"))
   );
 }
 
