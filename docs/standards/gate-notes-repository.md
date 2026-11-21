@@ -32,10 +32,12 @@ What the gates of the repository rows refuse and where, what stays with the revi
   checks the `scope` listed in `tests/template/glossary/term-table.json`.
 - That scope is kernel source, kernel tests, and the kernel's lint config.
   `src/` and docs are review only.
-- The symbol gate (`scripts/public-declarations.ts`) applies the same rules to
-  the public declarations of the kernel's seven `package.json` entry points,
-  listed in `tests/template/names-check/public-surface.json`: exports, and one
-  level of members and parameters deep. Locals and comments stay review only.
+- The symbol gate (`scripts/public-declarations.ts`) applies the GLOSSARY.md
+  Avoid and Qualify rules to the public declarations reached from the kernel's
+  seven `package.json` entry points, listed in
+  `tests/template/names-check/public-surface.json`, following re-exports:
+  exports, and one level of members, parameter keys and return properties
+  deep. Locals and comments stay review only.
 - Witnessed: [2784de0], [356cce9].
 
 ## Untrusted values
