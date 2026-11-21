@@ -2,7 +2,7 @@
 
 Status: accepted
 
-`verify-cli` now includes a read-only `forensics` command (`verify.ts forensics <run|state|diagnostics|approval> <path>`) that decodes verification runs, `C3S1` state journals, diagnostics custody folders, and approval stores. We placed `forensics` on the **kernel-free** side of `verify.ts` (enforced by `kernel-free/no-kernel-import` in `config/verify-skill-lint.mjs`), dispatching before `kernelImport` and `helperProbe`, rather than implementing it as a Helper command on `agent-cli-kernel`.
+`verify-cli` now includes a read-only `forensics` command (`verify.ts forensics <run|state|diagnostics|approval> <path>`) that decodes verification runs, `C3S1` state journals, diagnostics custody folders, and approval stores. We placed `forensics` on the **kernel-free** side of `verify.ts` (enforced by `kernel-free/no-kernel-import` in `config/verify-skill-lint.mjs`), routing before `kernelImport` and `helperProbe`, rather than implementing it as a Helper command on `agent-cli-kernel`.
 
 ## Considered Options
 
