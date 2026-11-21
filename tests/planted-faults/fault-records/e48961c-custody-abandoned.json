@@ -1,0 +1,7 @@
+{
+  "id": "e48961c-custody-abandoned",
+  "patch": "tests/planted-faults/patches/e48961c-custody-abandoned.patch",
+  "testFile": "tests/kernel/diagnostics/custody.test.ts",
+  "title": "^an abandoned run ends the allocation lock wait before its limit$",
+  "source": "e48961c fix(diagnostics): end the allocation lock wait at its limit by the clock"
+}

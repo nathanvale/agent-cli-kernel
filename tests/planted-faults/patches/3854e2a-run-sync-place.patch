@@ -1,0 +1,12 @@
+diff --git a/kernel/src/addons/diagnostics/run.ts b/kernel/src/addons/diagnostics/run.ts
+index 0a258359..1f2d366d 100644
+--- a/kernel/src/addons/diagnostics/run.ts
++++ b/kernel/src/addons/diagnostics/run.ts
+@@ -246,6 +246,7 @@ function session(
+   }
+ 
+   async function prepareSink() {
++    await Promise.resolve();
+     const directory = locate(options.environment, options.cli);
+     const place = directory === undefined ? undefined : prepare(directory);
+     if (!place) {

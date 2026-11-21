@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/diagnostics/custody.ts b/kernel/src/addons/diagnostics/custody.ts
+index bbaf28c2..e1b8b2f9 100644
+--- a/kernel/src/addons/diagnostics/custody.ts
++++ b/kernel/src/addons/diagnostics/custody.ts
+@@ -481,7 +481,7 @@ export function confirmClosed(opened: Opened, size: number): void {
+       current.ino === opened.ino &&
+       current.size === size
+     )
+-      createPrivate(markerFor(opened.file, current));
++      void current;
+   } catch {
+     return;
+   }

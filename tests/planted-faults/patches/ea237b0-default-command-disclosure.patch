@@ -1,0 +1,14 @@
+diff --git a/kernel/src/kernel/index.ts b/kernel/src/kernel/index.ts
+--- a/kernel/src/kernel/index.ts
++++ b/kernel/src/kernel/index.ts
+@@ -78,10 +78,6 @@ function validateDefaultCommand(
+     throw new Error(
+       `defaultCommand ${candidate.commandIdentity} cannot run with no arguments: ${problem}.`,
+     );
+-  if (!candidate.summary.includes(defaultCommandDisclosure))
+-    throw new Error(
+-      `defaultCommand ${candidate.commandIdentity} summary must include "${defaultCommandDisclosure}".`,
+-    );
+   return candidate;
+ }
+ export function contractFor<

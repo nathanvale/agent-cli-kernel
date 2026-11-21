@@ -1,0 +1,14 @@
+diff --git a/kernel/src/addons/diagnostics/custody.ts b/kernel/src/addons/diagnostics/custody.ts
+index bbaf28c2..70be66b2 100644
+--- a/kernel/src/addons/diagnostics/custody.ts
++++ b/kernel/src/addons/diagnostics/custody.ts
+@@ -74,8 +74,7 @@ function trustedAncestor(info: Stats): boolean {
+   return (
+     info.isDirectory() &&
+     (info.uid === uid || info.uid === 0) &&
+-    ((info.mode & 0o022) === 0 ||
+-      (info.uid === 0 && (info.mode & 0o1000) !== 0))
++    true
+   );
+ }
+ 

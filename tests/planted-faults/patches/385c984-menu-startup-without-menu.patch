@@ -1,0 +1,14 @@
+diff --git a/kernel/src/kernel/declarations.ts b/kernel/src/kernel/declarations.ts
+--- a/kernel/src/kernel/declarations.ts
++++ b/kernel/src/kernel/declarations.ts
+@@ -111,11 +111,7 @@ export function validateNotInteractiveCause(
+ ): void {
+   const cause = notInteractiveCauseOf(declaration);
+   if (declaration.capabilities.menu !== true) {
+-    if (cause !== undefined)
+-      throw new Error(
+-        `${declaration.commandIdentity}: notInteractiveCause requires capabilities.menu.`,
+-      );
+     return;
+   }
+   if (!text(cause))

@@ -1,23 +1,40 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
-import { mkdir, readdir, symlink, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readdir, symlink, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { ESLint } from "eslint";
 import * as kernel from "../../../kernel/src/kernel/index.ts";
+import { menuAddon } from "../../../kernel/src/addons/menu/index.ts";
+import { runInProcessOn } from "../../../kernel/src/kernel/lifecycle.ts";
+import { createStateAddon } from "../../../kernel/src/kernel/state-seam.ts";
+import {
+  programDetails,
+  programsAddon,
+} from "../../../kernel/src/addons/programs/index.ts";
+import { stateAddon } from "../../../kernel/src/addons/state/index.ts";
 import { write } from "../../support/fixture-files.ts";
 import { gitEnv, inherited } from "../../support/git-fixture.ts";
 import { treeFiles } from "../../support/lint-rule-folder.ts";
+import { signalGroupIfPresent } from "../../support/signal.ts";
 import { testFolder } from "../../support/test-folder.ts";
 import { typecheckTree } from "../kernel-repair/harness.ts";
-import { spawnBounded } from "../kernel-repair/swarm-process.ts";
+import {
+  processWatchdog,
+  spawnBounded,
+} from "../kernel-repair/swarm-process.ts";
 import {
   emptyInput,
+  refusedHandoff,
   stationWords,
   unchanged,
 } from "../kernel-repair/shapes.ts";
+import { goneWithin } from "../lifecycle/harness.ts";
+import { recordingHost } from "../lifecycle/recording-host.ts";
 import {
   exampleDocument,
   exampleDocumentPath,
+  exampleDocuments,
+  exampleFilesFor,
   skillFolder,
   writeCommand,
 } from "./example-document.ts";
@@ -318,6 +335,394 @@ describe("the author skill's example, laid out as a repository that depends on t
     },
     exampleBound,
   );
+  test(
+    "the example's pending lists nothing for a home never visited, and refuses a state folder it cannot read",
+    async () => {
+      const tree = await exampleTree();
+      const home = ownedFolder("kernel-author-guide-pending-");
+      const env = {
+        ...process.env,
+        MOONS_HOME: home,
+        MOONS_OPENER: "/usr/bin/true",
+      };
+      const run = (...argv: string[]) =>
+        spawnBounded([process.execPath, "src/cli.ts", ...argv, "--json"], {
+          cwd: tree,
+          env,
+        });
+      const resultOf = (text: string): unknown =>
+        Reflect.get(Object(JSON.parse(text)), "result");
+      const fresh = await run("pending");
+      expect(fresh.exit).toBe(0);
+      expect(resultOf(fresh.stdout)).toMatchObject({
+        causeCode: "SUCCESS_UNCHANGED",
+        data: { unfinished: [] },
+      });
+      expect((await run("visit", "mars")).exit).toBe(0);
+      await mkdir(join(home, "state", "operations", "not-a-case"));
+      const refused = await run("pending");
+      expect(refused.exit).toBe(3);
+      expect(resultOf(refused.stdout)).toMatchObject({
+        outcome: "refused",
+        causeCode: "DOMAIN_PRECONDITION_UNMET",
+        data: null,
+      });
+      expect(JSON.parse(refused.stdout)).toMatchObject({
+        message: "The visits' state is corrupt.",
+      });
+    },
+    processWatchdog(3),
+  );
+
+  async function writeStub(
+    folder: string,
+    name: string,
+    body: string,
+  ): Promise<string> {
+    const script = join(folder, name);
+    await writeFile(script, body);
+    await chmod(script, 0o755);
+    return script;
+  }
+
+  function parsedResult(stdout: string): unknown {
+    return Reflect.get(Object(JSON.parse(stdout)), "result");
+  }
+
+  test(
+    "the example's visit leaves a timed-out opener that traps SIGTERM and exits 0 unconfirmed and listed by pending",
+    async () => {
+      const tree = await exampleTree();
+      const home = ownedFolder("kernel-author-guide-timeout-zero-");
+      const opener = await writeStub(
+        home,
+        "timeout-zero.sh",
+        [
+          "#!/bin/sh",
+          "trap 'kill \"$pid\" 2>/dev/null; exit 0' TERM",
+          "sleep 60 &",
+          "pid=$!",
+          'wait "$pid"',
+          "",
+        ].join("\n"),
+      );
+      const runWith = (program: string, ...argv: string[]) =>
+        spawnBounded([process.execPath, "src/cli.ts", ...argv, "--json"], {
+          cwd: tree,
+          env: { ...process.env, MOONS_HOME: home, MOONS_OPENER: program },
+        });
+      const timedOut = await runWith(opener, "visit", "venus");
+      expect(timedOut.exit).toBe(3);
+      expect(parsedResult(timedOut.stdout)).toMatchObject({
+        outcome: "failed",
+        causeCode: "DOMAIN_MOONS_VISIT_UNCONFIRMED",
+        transactionState: "unknown",
+        effects: {
+          completed: ["planet.record"],
+          remaining: [],
+          uncertain: ["viewer.launch"],
+        },
+      });
+      const listed = await runWith("/usr/bin/true", "pending");
+      expect(listed.exit).toBe(0);
+      expect(parsedResult(listed.stdout)).toMatchObject({
+        causeCode: "SUCCESS_UNCHANGED",
+        data: {
+          unfinished: [
+            { planet: "venus", effects: ["planet.record", "viewer.launch"] },
+          ],
+        },
+      });
+      const blocked = await runWith("/usr/bin/true", "visit", "venus");
+      expect(blocked.exit).toBe(3);
+      expect(parsedResult(blocked.stdout)).toMatchObject({
+        outcome: "refused",
+        causeCode: "DOMAIN_MOONS_VISIT_UNRESOLVED",
+        transactionState: "unchanged",
+      });
+    },
+    processWatchdog(3),
+  );
+
+  test(
+    "the example's visit leaves an opener stopped by mid-launch SIGTERM unconfirmed even if it traps SIGTERM and exits 0",
+    async () => {
+      const tree = await exampleTree();
+      const home = ownedFolder("kernel-author-guide-mid-launch-trap-");
+      const ready = join(home, "ready");
+      const opener = await writeStub(
+        home,
+        "trap-zero.sh",
+        [
+          "#!/bin/sh",
+          "trap 'kill \"$pid\" 2>/dev/null; exit 0' TERM",
+          'printf "ready\\n" > "$MOONS_READY"',
+          "sleep 60 &",
+          "pid=$!",
+          'wait "$pid"',
+          "",
+        ].join("\n"),
+      );
+      const stopped = await spawnBounded(
+        [process.execPath, "src/cli.ts", "visit", "venus", "--json"],
+        {
+          cwd: tree,
+          env: {
+            ...process.env,
+            MOONS_HOME: home,
+            MOONS_OPENER: opener,
+            MOONS_READY: ready,
+          },
+          signalAt: { ledger: ready, line: "ready", signal: "SIGTERM" },
+        },
+      );
+      expect({
+        ready: existsSync(ready),
+        exit: stopped.exit,
+        stdout: stopped.stdout,
+        stderr: stopped.stderr,
+      }).toEqual({ ready: true, exit: 143, stdout: "", stderr: "" });
+      const checkEnv = {
+        ...process.env,
+        MOONS_HOME: home,
+        MOONS_OPENER: "/usr/bin/true",
+      };
+      const listed = await spawnBounded(
+        [process.execPath, "src/cli.ts", "pending", "--json"],
+        { cwd: tree, env: checkEnv },
+      );
+      expect(listed.exit).toBe(0);
+      expect(parsedResult(listed.stdout)).toMatchObject({
+        causeCode: "SUCCESS_UNCHANGED",
+        data: {
+          unfinished: [
+            { planet: "venus", effects: ["planet.record", "viewer.launch"] },
+          ],
+        },
+      });
+      const blocked = await spawnBounded(
+        [process.execPath, "src/cli.ts", "visit", "venus", "--json"],
+        { cwd: tree, env: checkEnv },
+      );
+      expect(blocked.exit).toBe(3);
+      expect(parsedResult(blocked.stdout)).toMatchObject({
+        outcome: "refused",
+        causeCode: "DOMAIN_MOONS_VISIT_UNRESOLVED",
+        transactionState: "unchanged",
+      });
+    },
+    processWatchdog(3),
+  );
+
+  test(
+    "the example's visit leaves a signal-killed opener unconfirmed and listed by pending",
+    async () => {
+      const tree = await exampleTree();
+      const home = ownedFolder("kernel-author-guide-signal-opener-");
+      const opener = await writeStub(
+        home,
+        "self-kill.sh",
+        ["#!/bin/sh", "kill -TERM $$", ""].join("\n"),
+      );
+      const runWith = (program: string, ...argv: string[]) =>
+        spawnBounded([process.execPath, "src/cli.ts", ...argv, "--json"], {
+          cwd: tree,
+          env: { ...process.env, MOONS_HOME: home, MOONS_OPENER: program },
+        });
+      const killed = await runWith(opener, "visit", "venus");
+      expect(killed.exit).toBe(3);
+      expect(parsedResult(killed.stdout)).toMatchObject({
+        outcome: "failed",
+        causeCode: "DOMAIN_MOONS_VISIT_UNCONFIRMED",
+        transactionState: "unknown",
+        effects: {
+          completed: ["planet.record"],
+          remaining: [],
+          uncertain: ["viewer.launch"],
+        },
+      });
+      const listed = await runWith("/usr/bin/true", "pending");
+      expect(listed.exit).toBe(0);
+      expect(parsedResult(listed.stdout)).toMatchObject({
+        causeCode: "SUCCESS_UNCHANGED",
+        data: {
+          unfinished: [
+            { planet: "venus", effects: ["planet.record", "viewer.launch"] },
+          ],
+        },
+      });
+    },
+    processWatchdog(2),
+  );
+
+  test(
+    "the example's visit leaves an opener whose termination is not confirmed unconfirmed and listed by pending",
+    async () => {
+      const tree = await exampleTree();
+      const home = ownedFolder("kernel-author-guide-unconfirmed-stop-");
+      const probe = join(home, "probe.ts");
+      await writeFile(
+        probe,
+        [
+          `import { runInProcess } from ${JSON.stringify(join(tree, "node_modules", packageName, "kernel/src/kernel/index.ts"))};`,
+          `import { programsAddon } from ${JSON.stringify(join(tree, "node_modules", packageName, "kernel/src/addons/programs/index.ts"))};`,
+          `import { moonsCli } from ${JSON.stringify(join(tree, "src/commands.ts"))};`,
+          `const cli = moonsCli(${JSON.stringify(home)}, "/usr/bin/true");`,
+          "const realKill = process.kill.bind(process);",
+          "const fakeKill: typeof process.kill = (pid, signal) => {",
+          "  if (pid < 0 && signal === 0) return true;",
+          "  return realKill(pid, signal);",
+          "};",
+          "const base = programsAddon();",
+          "const wrapped = {",
+          "  attach(run: Parameters<typeof base.attach>[0]) {",
+          "    const attached = base.attach(run);",
+          "    return {",
+          "      ...attached,",
+          "      settle(limit?: number) {",
+          "        process.kill = realKill;",
+          "        return attached.settle(limit);",
+          "      },",
+          "    };",
+          "  },",
+          "};",
+          "const run = runInProcess(cli.contract, { emergencyRecord: cli.setup.emergencyRecord, addons: { programs: wrapped } });",
+          "process.kill = fakeKill;",
+          "try {",
+          '  const visit = await run(["visit", "venus"]);',
+          '  const pending = await run(["pending"]);',
+          "  process.stdout.write(JSON.stringify({ visit, pending }));",
+          "} finally {",
+          "  process.kill = realKill;",
+          "}",
+          "",
+        ].join("\n"),
+      );
+      const ran = await spawnBounded([process.execPath, probe], { cwd: tree });
+      expect({ exit: ran.exit, stderr: ran.stderr }).toEqual({
+        exit: 0,
+        stderr: "",
+      });
+      const observed: unknown = JSON.parse(ran.stdout);
+      expect(observed).toMatchObject({
+        visit: {
+          kind: "envelope",
+          exitCode: 3,
+          envelope: {
+            result: {
+              outcome: "failed",
+              causeCode: "DOMAIN_MOONS_VISIT_UNCONFIRMED",
+              transactionState: "unknown",
+              effects: {
+                completed: ["planet.record"],
+                remaining: [],
+                uncertain: ["viewer.launch"],
+              },
+            },
+          },
+        },
+        pending: {
+          kind: "envelope",
+          exitCode: 0,
+          envelope: {
+            result: {
+              data: {
+                unfinished: [
+                  {
+                    planet: "venus",
+                    effects: ["planet.record", "viewer.launch"],
+                  },
+                ],
+              },
+            },
+          },
+        },
+      });
+    },
+    processWatchdog(1),
+  );
+
+  test(
+    "the example's visit treats missing programDetails as an unconfirmed launch",
+    async () => {
+      const tree = await exampleTree();
+      const home = ownedFolder("kernel-author-guide-missing-details-");
+      const probe = join(home, "probe.ts");
+      await writeFile(
+        probe,
+        [
+          `import { runInProcess } from ${JSON.stringify(join(tree, "node_modules", packageName, "kernel/src/kernel/index.ts"))};`,
+          `import { moonsCli } from ${JSON.stringify(join(tree, "src/commands.ts"))};`,
+          `const cli = moonsCli(${JSON.stringify(home)}, "/usr/bin/true");`,
+          "const unrecorded = {",
+          "  attach(run: { readonly runId: string }) {",
+          "    const plain = () => Promise.resolve({ stdout: '', stderr: '', exitCode: 0, terminationConfirmed: true, outputTruncated: false });",
+          "    return {",
+          "      capability: {",
+          "        inspect: plain,",
+          "        supplied: plain,",
+          "        domain(recorded: { readonly effect: string; readonly admitStart: (runId: string, effect: string, fn: () => Promise<unknown>) => Promise<unknown> }) {",
+          "          return {",
+          "            effect: recorded.effect,",
+          "            start: () => recorded.admitStart(run.runId, recorded.effect, plain),",
+          "          };",
+          "        },",
+          "      },",
+          "      settle: () => Promise.resolve(true),",
+          "      killNow: () => undefined,",
+          "    };",
+          "  },",
+          "};",
+          "const run = runInProcess(cli.contract, { emergencyRecord: cli.setup.emergencyRecord, addons: { programs: unrecorded } });",
+          'const visit = await run(["visit", "venus"]);',
+          'const pending = await run(["pending"]);',
+          "process.stdout.write(JSON.stringify({ visit, pending }));",
+          "",
+        ].join("\n"),
+      );
+      const ran = await spawnBounded([process.execPath, probe], { cwd: tree });
+      expect({ exit: ran.exit, stderr: ran.stderr }).toEqual({
+        exit: 0,
+        stderr: "",
+      });
+      const observed: unknown = JSON.parse(ran.stdout);
+      expect(observed).toMatchObject({
+        visit: {
+          kind: "envelope",
+          exitCode: 3,
+          envelope: {
+            result: {
+              outcome: "failed",
+              causeCode: "DOMAIN_MOONS_VISIT_UNCONFIRMED",
+              transactionState: "unknown",
+              effects: {
+                completed: ["planet.record"],
+                remaining: [],
+                uncertain: ["viewer.launch"],
+              },
+            },
+          },
+        },
+        pending: {
+          kind: "envelope",
+          exitCode: 0,
+          envelope: {
+            result: {
+              data: {
+                unfinished: [
+                  {
+                    planet: "venus",
+                    effects: ["planet.record", "viewer.launch"],
+                  },
+                ],
+              },
+            },
+          },
+        },
+      });
+    },
+    processWatchdog(1),
+  );
 });
 
 describe("the kernel package, installed by git ref", () => {
@@ -387,9 +792,15 @@ describe("the kernel package, installed by git ref", () => {
 });
 
 describe("the author skill's documents, shipped in the kernel package", () => {
-  test(`references/example.md shows each example file whole, as ${writeCommand} writes it`, () => {
-    const current = readFileSync(exampleDocumentPath, "utf8");
-    expect(current).toBe(exampleDocument(current, example));
+  test(`references/example.md and references/example-tests.md show each example file whole, as ${writeCommand} writes them`, () => {
+    const covered: string[] = [];
+    for (const entry of exampleDocuments) {
+      const subset = exampleFilesFor(example, entry.prefix);
+      const current = readFileSync(entry.path, "utf8");
+      expect(current).toBe(exampleDocument(current, subset, entry.document));
+      covered.push(...subset.keys());
+    }
+    expect(covered.sort()).toEqual([...example.keys()].sort());
   });
 
   test("references/example.md is refused when it has a section for a file the example lacks, misses one it has, or repeats one", () => {
@@ -540,8 +951,11 @@ describe("the author skill's documents, shipped in the kernel package", () => {
         .sort(),
     ).toEqual([
       "SKILL.md",
+      "references/changing.md",
       "references/commands.md",
+      "references/example-tests.md",
       "references/example.md",
+      "references/menu.md",
       "references/stations.md",
       "references/testing.md",
     ]);
@@ -776,4 +1190,1307 @@ describe("kernel behaviour the author skill states in words", () => {
       ),
     );
   });
+
+  test("menu.md: a menu command requires notInteractiveCause, refuses before handler entry when not interactive, and picks or cancels with scriptedTerminal", async () => {
+    const causes = {
+      ...kernel.commonCauses,
+      DOMAIN_GUIDE_NEEDS_TERMINAL: {
+        outcome: "refused",
+        transactionState: "unchanged",
+        failureClass: "domain",
+        exitCode: 3,
+        retryable: false,
+        guidance: "next",
+      },
+      DOMAIN_GUIDE_NOTHING_CHOSEN: {
+        outcome: "refused",
+        transactionState: "unchanged",
+        failureClass: "domain",
+        exitCode: 3,
+        retryable: false,
+        guidance: "next",
+      },
+    } as const satisfies kernel.CauseTable;
+    const stations = [
+      kernel.station(causes, {
+        ...stationWords,
+        commandIdentity: "guide.choose",
+        causeCode: "SUCCESS_UNCHANGED",
+        trigger: "Picked.",
+        repairAction: null,
+        guidance: { next: { kind: "done" } },
+        independentObservable: "guide.choose:picked",
+      }),
+      kernel.station(causes, {
+        ...stationWords,
+        commandIdentity: "guide.choose",
+        causeCode: "DOMAIN_GUIDE_NEEDS_TERMINAL",
+        trigger: "Needs an interactive terminal.",
+        repairAction: "Run in a terminal.",
+        guidance: { next: { kind: "instruction", text: "Run interactively." } },
+        independentObservable: "guide.choose:needs-terminal",
+      }),
+      kernel.station(causes, {
+        ...stationWords,
+        commandIdentity: "guide.choose",
+        causeCode: "DOMAIN_GUIDE_NOTHING_CHOSEN",
+        trigger: "Cancelled at the menu.",
+        repairAction: "Run again to choose.",
+        guidance: { next: { kind: "instruction", text: "Choose an item." } },
+        independentObservable: "guide.choose:cancelled",
+      }),
+    ] as const;
+    expect(() =>
+      kernel.command({
+        identity: "guide.choose",
+        route: ["choose"],
+        summary: "Choose.",
+        input: emptyInput,
+        capabilities: { menu: true },
+        stations,
+        run: (_input, context) =>
+          context.result(
+            { commandIdentity: "guide.choose", causeCode: "SUCCESS_UNCHANGED" },
+            { message: "Done.", data: null, effects: unchanged },
+          ),
+      }),
+    ).toThrow("notInteractiveCause");
+
+    let calls = 0;
+    const choose = kernel.command({
+      identity: "guide.choose",
+      route: ["choose"],
+      summary: "Choose.",
+      input: emptyInput,
+      capabilities: { menu: true },
+      notInteractiveCause: "DOMAIN_GUIDE_NEEDS_TERMINAL",
+      stations,
+      run: async (_input, context) => {
+        calls += 1;
+        const picked = await context.menu.show({
+          lines: ["Choose one:"],
+          rows: [{ label: "first", value: "first" }],
+        });
+        if (picked.kind === "cancelled")
+          return context.result(
+            {
+              commandIdentity: "guide.choose",
+              causeCode: "DOMAIN_GUIDE_NOTHING_CHOSEN",
+            },
+            { message: "Nothing was opened.", data: null, effects: unchanged },
+          );
+        return context.result(
+          { commandIdentity: "guide.choose", causeCode: "SUCCESS_UNCHANGED" },
+          { message: picked.value, data: picked.value, effects: unchanged },
+        );
+      },
+    });
+    const contract = kernel.contractFor({
+      cli: "guide",
+      commands: [choose],
+      causes,
+      installedAddons: ["menu"],
+    });
+    expect(
+      await kernel.runInProcess(contract, { addons: { menu: menuAddon() } })([
+        "choose",
+      ]),
+    ).toMatchObject({
+      kind: "envelope",
+      exitCode: 3,
+      envelope: { result: { causeCode: "DOMAIN_GUIDE_NEEDS_TERMINAL" } },
+    });
+    expect(calls).toBe(0);
+    expect(
+      await kernel.runInProcess(contract, {
+        addons: { menu: menuAddon() },
+        terminal: kernel.scriptedTerminal(["\x1b"]),
+      })(["choose"]),
+    ).toMatchObject({
+      kind: "envelope",
+      exitCode: 3,
+      envelope: { result: { causeCode: "DOMAIN_GUIDE_NOTHING_CHOSEN" } },
+    });
+    expect(
+      await kernel.runInProcess(contract, {
+        addons: { menu: menuAddon() },
+        terminal: kernel.scriptedTerminal(["\r"]),
+      })(["choose"]),
+    ).toMatchObject({
+      kind: "envelope",
+      exitCode: 0,
+      envelope: { result: { data: "first" } },
+    });
+  });
+});
+
+describe("kernel behaviour changing.md states in words", () => {
+  const causes = {
+    ...kernel.commonCauses,
+    DOMAIN_GUIDE_HELD: refusedHandoff,
+    DOMAIN_GUIDE_UNRESOLVED: refusedHandoff,
+    DOMAIN_GUIDE_NEXT: { ...refusedHandoff, guidance: "next" },
+    DOMAIN_GUIDE_NOT_OPENED: {
+      ...refusedHandoff,
+      outcome: "failed",
+      transactionState: "completed",
+    },
+    DOMAIN_GUIDE_PARTIAL: {
+      ...refusedHandoff,
+      outcome: "failed",
+      transactionState: "partially-completed",
+    },
+    DOMAIN_GUIDE_UNKNOWN: {
+      ...refusedHandoff,
+      outcome: "failed",
+      transactionState: "unknown",
+    },
+  } as const;
+  const look = {
+    owner: "human",
+    reason: "Look.",
+    inspect: [{ kind: "command", command: "guide.pending", args: [] }],
+  } as const;
+  type Refusal =
+    | "DOMAIN_GUIDE_HELD"
+    | "DOMAIN_GUIDE_UNRESOLVED"
+    | "DOMAIN_GUIDE_NOT_OPENED"
+    | "DOMAIN_GUIDE_PARTIAL"
+    | "DOMAIN_GUIDE_UNKNOWN"
+    | "DOMAIN_AUTHORITY_REQUIRED";
+  const refusalWords = {
+    ...stationWords,
+    commandIdentity: "guide.change",
+    trigger: "The change was refused or not confirmed.",
+    repairAction: "Ask a person.",
+    guidance: { handoff: look },
+  } as const;
+  const refusals = [
+    kernel.station(causes, {
+      ...refusalWords,
+      causeCode: "DOMAIN_GUIDE_HELD",
+      independentObservable: "guide.change:held",
+    }),
+    kernel.station(causes, {
+      ...refusalWords,
+      causeCode: "DOMAIN_GUIDE_UNRESOLVED",
+      independentObservable: "guide.change:unresolved",
+    }),
+    kernel.station(causes, {
+      ...refusalWords,
+      causeCode: "DOMAIN_GUIDE_NOT_OPENED",
+      independentObservable: "guide.change:not-opened",
+    }),
+    kernel.station(causes, {
+      ...refusalWords,
+      causeCode: "DOMAIN_GUIDE_PARTIAL",
+      independentObservable: "guide.change:partial",
+    }),
+    kernel.station(causes, {
+      ...refusalWords,
+      causeCode: "DOMAIN_GUIDE_UNKNOWN",
+      independentObservable: "guide.change:unknown",
+    }),
+    kernel.station(causes, {
+      ...refusalWords,
+      causeCode: "DOMAIN_AUTHORITY_REQUIRED",
+      independentObservable: "guide.change:authority",
+    }),
+  ] as const;
+  const nextRefusal = kernel.station(causes, {
+    ...stationWords,
+    commandIdentity: "guide.change",
+    causeCode: "DOMAIN_GUIDE_NEXT",
+    trigger: "Refused with a next step.",
+    repairAction: "Run it again.",
+    guidance: { next: { kind: "instruction", text: "Run it again." } },
+    independentObservable: "guide.change:next",
+  });
+  const succeeded = kernel.station(causes, {
+    ...stationWords,
+    commandIdentity: "guide.change",
+    causeCode: "SUCCESS_COMPLETED",
+    trigger: "The change was made.",
+    repairAction: null,
+    guidance: { next: { kind: "done" } },
+    independentObservable: "guide.change:done",
+  });
+
+  function stateIn(report = "guide.pending") {
+    const root = join(ownedFolder("kernel-author-guide-state-"), "state");
+    return stateAddon({ root, report });
+  }
+
+  function change(
+    state: ReturnType<typeof stateIn>,
+    words: {
+      readonly effects?: readonly [string, ...string[]];
+      readonly held?: Refusal;
+      readonly unresolved?: Refusal | "DOMAIN_GUIDE_NEXT";
+      readonly readBack?: boolean | (() => Promise<boolean>);
+      readonly ifNoResult?: kernel.IfNoResult;
+      readonly deadlineSupported?: boolean;
+      readonly beforeTransaction?: (signal: AbortSignal) => Promise<void>;
+    } = {},
+  ) {
+    return kernel.changing({
+      identity: "guide.change",
+      route: ["change"],
+      summary: "Change one thing.",
+      input: {
+        ...emptyInput,
+        deadlineSupported: words.deadlineSupported ?? false,
+      },
+      capabilities: {},
+      effectClass: "repository-local",
+      effects: words.effects ?? ["guide.write"],
+      ifNoResult: words.ifNoResult ?? state.descriptor.ifNoResult,
+      heldLockCause: words.held ?? "DOMAIN_GUIDE_HELD",
+      unresolvedCaseCause: words.unresolved ?? "DOMAIN_GUIDE_UNRESOLVED",
+      stations: [succeeded, nextRefusal, ...refusals],
+      run: async (_input, context) => {
+        await words.beforeTransaction?.(context.signal);
+        const outcome = await state.transaction(
+          context.state,
+          {
+            command: "guide.change",
+            scope: { resources: [{ resource: "guide", key: "one" }] },
+          },
+          async (transaction) => {
+            const readBack = words.readBack;
+            await transaction.record(
+              "guide.write",
+              () => Promise.resolve(),
+              typeof readBack === "function"
+                ? readBack
+                : () => Promise.resolve(readBack ?? true),
+            );
+          },
+        );
+        if (outcome.kind !== "ran")
+          return context.result(
+            {
+              commandIdentity: "guide.change",
+              causeCode: "DOMAIN_GUIDE_UNRESOLVED",
+            },
+            { message: outcome.kind, data: null, effects: unchanged },
+          );
+        return outcome.proof.transactionState === "completed"
+          ? context.result(
+              {
+                commandIdentity: "guide.change",
+                causeCode: "SUCCESS_COMPLETED",
+              },
+              { message: "Changed.", data: null, transaction: outcome.proof },
+            )
+          : context.result(
+              {
+                commandIdentity: "guide.change",
+                causeCode: "DOMAIN_GUIDE_UNKNOWN",
+              },
+              {
+                message: "Unconfirmed.",
+                data: null,
+                transaction: outcome.proof,
+              },
+            );
+      },
+    });
+  }
+
+  function pending(
+    next:
+      | { readonly kind: "done" }
+      | { readonly kind: "instruction"; readonly text: string } = {
+      kind: "instruction",
+      text: "Look.",
+    },
+    input: kernel.InputSchema = emptyInput,
+    readsFrom?: ReturnType<typeof stateIn>,
+  ) {
+    return kernel.command({
+      identity: "guide.pending",
+      route: ["pending"],
+      summary: "List unfinished changes.",
+      input,
+      capabilities: {},
+      stations: [
+        kernel.station(causes, {
+          ...stationWords,
+          commandIdentity: "guide.pending",
+          causeCode: "SUCCESS_UNCHANGED",
+          trigger: "Read.",
+          repairAction: null,
+          guidance: { next },
+          independentObservable: "guide.pending:read",
+        }),
+      ],
+      run: (_input, context) => {
+        const report = readsFrom?.report();
+        return context.result(
+          { commandIdentity: "guide.pending", causeCode: "SUCCESS_UNCHANGED" },
+          {
+            message: "Read.",
+            data: { unfinished: report?.ok ? report.unfinished : [] },
+            effects: unchanged,
+          },
+        );
+      },
+    });
+  }
+
+  const stateful = (state: ReturnType<typeof stateIn>) =>
+    ({
+      cli: "guide",
+      causes,
+      state: state.descriptor,
+      installedAddons: ["state"],
+    }) as const;
+
+  test("changing.md: a contract with a changing command and its pending command builds", () => {
+    const state = stateIn();
+    expect(
+      kernel.contractFor({
+        ...stateful(state),
+        commands: [change(state), pending()],
+      }).cli,
+    ).toBe("guide");
+  });
+
+  test("changing.md: empty effects or a repeated effect throws Invalid changing declaration.", () => {
+    const state = stateIn();
+    expect(() => {
+      Reflect.apply(kernel.changing, undefined, [
+        {
+          identity: "guide.change",
+          route: ["change"],
+          summary: "Change one thing.",
+          input: emptyInput,
+          capabilities: {},
+          effectClass: "repository-local",
+          effects: [],
+          ifNoResult: state.descriptor.ifNoResult,
+          heldLockCause: "DOMAIN_GUIDE_HELD",
+          unresolvedCaseCause: "DOMAIN_GUIDE_UNRESOLVED",
+          stations: [succeeded, ...refusals],
+          run: () => Promise.reject(new Error("never runs")),
+        },
+      ]);
+    }).toThrow(new Error("Invalid changing declaration."));
+    expect(() =>
+      change(state, { effects: ["guide.write", "guide.write"] }),
+    ).toThrow(new Error("Invalid changing declaration."));
+  });
+
+  test("changing.md: a changing command without the state add-on throws Changing commands require the state add-on.", () => {
+    const state = stateIn();
+    expect(() =>
+      kernel.contractFor({
+        cli: "guide",
+        causes,
+        commands: [change(state), pending()],
+      }),
+    ).toThrow(new Error("Changing commands require the state add-on."));
+  });
+
+  test("changing.md: an ifNoResult that the state add-on did not make throws when changing() runs", () => {
+    const state = stateIn();
+    const other = stateIn();
+    expect(() =>
+      change(state, {
+        ifNoResult: structuredClone(other.descriptor.ifNoResult),
+      }),
+    ).toThrow(
+      new Error("ifNoResult must come from the state add-on descriptor."),
+    );
+  });
+
+  test("changing.md: a report command that commands does not hold throws ifNoResult must name a declared inspect command.", () => {
+    const state = stateIn("guide.report");
+    expect(() =>
+      kernel.contractFor({
+        ...stateful(state),
+        commands: [change(state), pending()],
+      }),
+    ).toThrow(new Error("ifNoResult must name a declared inspect command."));
+  });
+
+  test("changing.md: a declared report command that is not inspect throws ifNoResult must name a declared inspect command.", () => {
+    const state = stateIn("guide.change");
+    expect(() =>
+      kernel.contractFor({
+        ...stateful(state),
+        commands: [change(state), pending()],
+      }),
+    ).toThrow(new Error("ifNoResult must name a declared inspect command."));
+  });
+
+  test("changing.md: a pending command whose success guidance is done throws ifNoResult needs explicit further inspection guidance.", () => {
+    const state = stateIn();
+    expect(() =>
+      kernel.contractFor({
+        ...stateful(state),
+        commands: [change(state), pending({ kind: "done" })],
+      }),
+    ).toThrow(
+      new Error("ifNoResult needs explicit further inspection guidance."),
+    );
+  });
+
+  test("changing.md: a pending command with a required argument throws, because its ifNoResult step can never parse", () => {
+    const state = stateIn();
+    expect(() =>
+      kernel.contractFor({
+        ...stateful(state),
+        commands: [
+          change(state),
+          pending(undefined, {
+            ...emptyInput,
+            arguments: [
+              {
+                name: "id",
+                summary: "An id.",
+                required: true,
+                value: {
+                  kind: "string",
+                  minLength: 1,
+                  maxLength: 9,
+                  choices: null,
+                  pattern: null,
+                },
+              },
+            ],
+          }),
+        ],
+      }),
+    ).toThrow(
+      new Error(
+        "ifNoResult step guide.pending [] can never parse: required id is absent.",
+      ),
+    );
+  });
+
+  test("changing.md: an ifNoResult step carrying a global switch before -- throws at start-up", () => {
+    const descriptor = createStateAddon((issuer) => ({
+      ifNoResult: issuer.ifNoResult({
+        kind: "command",
+        command: "guide.pending",
+        args: ["--json"],
+      }),
+      attach: () => ({
+        transaction: () => Promise.reject(new Error("never runs")),
+      }),
+    }));
+    const state = stateIn();
+    expect(() =>
+      kernel.contractFor({
+        cli: "guide",
+        causes,
+        state: descriptor,
+        installedAddons: ["state"],
+        commands: [
+          change(state, { ifNoResult: descriptor.ifNoResult }),
+          pending(),
+        ],
+      }),
+    ).toThrow(
+      new Error(
+        'ifNoResult step guide.pending ["--json"] carries a global switch before --.',
+      ),
+    );
+  });
+
+  test("changing.md: an ifNoResult step that routes to another command throws at start-up", () => {
+    const descriptor = createStateAddon((issuer) => ({
+      ifNoResult: issuer.ifNoResult({
+        kind: "command",
+        command: "guide.pending",
+        args: ["all"],
+      }),
+      attach: () => ({
+        transaction: () => Promise.reject(new Error("never runs")),
+      }),
+    }));
+    const state = stateIn();
+    const pendingWithArg = pending(undefined, {
+      ...emptyInput,
+      arguments: [
+        {
+          name: "scope",
+          summary: "Optional scope.",
+          required: false,
+          value: {
+            kind: "string",
+            minLength: 1,
+            maxLength: 9,
+            choices: null,
+            pattern: null,
+          },
+        },
+      ],
+    });
+    const pendingAll = kernel.command({
+      identity: "guide.pending-all",
+      route: ["pending", "all"],
+      summary: "List all unfinished changes.",
+      input: emptyInput,
+      capabilities: {},
+      run: (_input, context) =>
+        context.result(
+          {
+            commandIdentity: "guide.pending-all",
+            causeCode: "SUCCESS_UNCHANGED",
+          },
+          { message: "Read.", data: null, effects: unchanged },
+        ),
+    });
+    expect(() =>
+      kernel.contractFor({
+        cli: "guide",
+        causes,
+        state: descriptor,
+        installedAddons: ["state"],
+        commands: [
+          change(state, { ifNoResult: descriptor.ifNoResult }),
+          pendingWithArg,
+          pendingAll,
+        ],
+      }),
+    ).toThrow(
+      new Error(
+        'ifNoResult step guide.pending ["all"] routes to guide.pending-all.',
+      ),
+    );
+  });
+
+  test("changing.md: one cause for both coordination refusals, or an undeclared coordination cause, throws Changing commands need distinct coordination refusal stations.", () => {
+    const state = stateIn();
+    expect(() =>
+      change(state, {
+        held: "DOMAIN_GUIDE_UNRESOLVED",
+        unresolved: "DOMAIN_GUIDE_UNRESOLVED",
+      }),
+    ).toThrow(
+      new Error(
+        "Changing commands need distinct coordination refusal stations.",
+      ),
+    );
+    expect(() =>
+      kernel.changing({
+        identity: "guide.change",
+        route: ["change"],
+        summary: "Change one thing.",
+        input: emptyInput,
+        capabilities: {},
+        effectClass: "repository-local",
+        effects: ["guide.write"],
+        ifNoResult: state.descriptor.ifNoResult,
+        heldLockCause: "DOMAIN_GUIDE_UNDECLARED",
+        unresolvedCaseCause: "DOMAIN_GUIDE_UNRESOLVED",
+        stations: [succeeded, ...refusals],
+        run: () => Promise.reject(new Error("never runs")),
+      }),
+    ).toThrow(
+      new Error(
+        "Changing commands need distinct coordination refusal stations.",
+      ),
+    );
+  });
+
+  test("changing.md: a kernel cause as a coordination refusal throws Coordination refusal causes are host-owned.", () => {
+    const state = stateIn();
+    expect(() =>
+      kernel.contractFor({
+        ...stateful(state),
+        commands: [
+          change(state, { held: "DOMAIN_AUTHORITY_REQUIRED" }),
+          pending(),
+        ],
+      }),
+    ).toThrow(new Error("Coordination refusal causes are host-owned."));
+  });
+
+  test("changing.md: a coordination refusal with a next step throws Coordination refusal requires an unchanged handoff.", () => {
+    const state = stateIn();
+    expect(() =>
+      kernel.contractFor({
+        ...stateful(state),
+        commands: [
+          change(state, { unresolved: "DOMAIN_GUIDE_NEXT" }),
+          pending(),
+        ],
+      }),
+    ).toThrow(new Error("Coordination refusal requires an unchanged handoff."));
+  });
+
+  test("changing.md: a read-back that returns false or throws leaves a case pending lists, and the next change to that scope is refused as unresolved", async () => {
+    for (const readBack of [
+      false,
+      () => Promise.reject(new Error("read failed")),
+    ] as const) {
+      const state = stateIn();
+      const failing = kernel.runInProcess(
+        kernel.contractFor({
+          ...stateful(state),
+          commands: [
+            change(state, { readBack }),
+            pending(undefined, undefined, state),
+          ],
+        }),
+        { emergencyRecord: state.emergencyRecord },
+      );
+      expect(await failing(["change"])).toMatchObject({
+        kind: "envelope",
+        exitCode: 3,
+        envelope: {
+          result: {
+            causeCode: "DOMAIN_GUIDE_UNKNOWN",
+            transactionState: "unknown",
+            effects: { uncertain: ["guide.write"] },
+          },
+        },
+      });
+      expect(await failing(["pending"])).toMatchObject({
+        kind: "envelope",
+        envelope: {
+          result: { data: { unfinished: [{ effects: ["guide.write"] }] } },
+        },
+      });
+      expect(await failing(["change"])).toMatchObject({
+        kind: "envelope",
+        envelope: {
+          message: "unresolved-case",
+          result: {
+            exitCode: 3,
+            causeCode: "DOMAIN_GUIDE_UNRESOLVED",
+            transactionState: "unchanged",
+            effects: unchanged,
+          },
+        },
+      });
+    }
+  });
+
+  test("changing.md: a partially-completed proof requires a cause whose declared transaction state is partially-completed", async () => {
+    const runPartial = (
+      selectedCause: "DOMAIN_GUIDE_UNKNOWN" | "DOMAIN_GUIDE_PARTIAL",
+    ) => {
+      const state = stateIn();
+      const partialCommand = kernel.changing({
+        identity: "guide.change",
+        route: ["change"],
+        summary: "Change two things.",
+        input: emptyInput,
+        capabilities: {},
+        effectClass: "repository-local",
+        effects: ["guide.first", "guide.second"],
+        ifNoResult: state.descriptor.ifNoResult,
+        heldLockCause: "DOMAIN_GUIDE_HELD",
+        unresolvedCaseCause: "DOMAIN_GUIDE_UNRESOLVED",
+        stations: [succeeded, ...refusals],
+        run: async (_input, context) => {
+          const outcome = await state.transaction(
+            context.state,
+            {
+              command: "guide.change",
+              scope: { resources: [{ resource: "guide", key: "one" }] },
+            },
+            async (transaction) => {
+              await transaction.record(
+                "guide.first",
+                () => Promise.resolve(),
+                () => Promise.resolve(true),
+              );
+            },
+          );
+          if (outcome.kind !== "ran")
+            return context.result(
+              {
+                commandIdentity: "guide.change",
+                causeCode: "DOMAIN_GUIDE_UNRESOLVED",
+              },
+              { message: outcome.kind, data: null, effects: unchanged },
+            );
+          return context.result(
+            { commandIdentity: "guide.change", causeCode: selectedCause },
+            {
+              message: "Partial.",
+              data: null,
+              transaction: outcome.proof,
+            },
+          );
+        },
+      });
+      return kernel.runInProcess(
+        kernel.contractFor({
+          ...stateful(state),
+          commands: [partialCommand, pending(undefined, undefined, state)],
+        }),
+        { emergencyRecord: state.emergencyRecord },
+      )(["change"]);
+    };
+    expect(await runPartial("DOMAIN_GUIDE_UNKNOWN")).toMatchObject({
+      kind: "envelope",
+      exitCode: 1,
+      envelope: {
+        result: {
+          causeCode: "INTERNAL_RESULT_PARTIAL",
+          transactionState: "partially-completed",
+          effects: { completed: ["guide.first"], remaining: ["guide.second"] },
+        },
+      },
+    });
+    expect(await runPartial("DOMAIN_GUIDE_PARTIAL")).toMatchObject({
+      kind: "envelope",
+      exitCode: 3,
+      envelope: {
+        result: {
+          outcome: "failed",
+          causeCode: "DOMAIN_GUIDE_PARTIAL",
+          transactionState: "partially-completed",
+          effects: { completed: ["guide.first"], remaining: ["guide.second"] },
+        },
+      },
+    });
+  });
+
+  test(
+    "changing.md: a launch read back from terminationConfirmed ends failed and completed on a non-zero exit and leaves nothing pending, so the next change runs",
+    async () => {
+      const state = stateIn();
+      const runWith = (opener: string) => {
+        const launch = kernel.changing({
+          identity: "guide.change",
+          route: ["change"],
+          summary: "Launch one program.",
+          input: emptyInput,
+          capabilities: { programs: true },
+          effectClass: "external",
+          effects: ["viewer.launch"],
+          ifNoResult: state.descriptor.ifNoResult,
+          heldLockCause: "DOMAIN_GUIDE_HELD",
+          unresolvedCaseCause: "DOMAIN_GUIDE_UNRESOLVED",
+          stations: [succeeded, ...refusals],
+          run: async (_input, context) => {
+            let exitCode: number | null = null;
+            const outcome = await state.transaction(
+              context.state,
+              {
+                command: "guide.change",
+                scope: { resources: [{ resource: "guide", key: "one" }] },
+              },
+              async (transaction) => {
+                const launched = await transaction.record(
+                  "viewer.launch",
+                  (recorded) =>
+                    context.programs.domain(recorded).start({
+                      executable: viewer,
+                      args: [],
+                      timeoutMilliseconds: 10_000,
+                      outputLimitBytes: 4_096,
+                      shutdownMilliseconds: 1_000,
+                    }),
+                  (result) => {
+                    const details = programDetails(result);
+                    return Promise.resolve(
+                      !context.signal.aborted &&
+                        result.exitCode !== null &&
+                        result.terminationConfirmed &&
+                        details !== undefined &&
+                        !details.timedOut,
+                    );
+                  },
+                );
+                exitCode = launched.exitCode;
+              },
+            );
+            if (outcome.kind !== "ran")
+              return context.result(
+                {
+                  commandIdentity: "guide.change",
+                  causeCode: "DOMAIN_GUIDE_UNRESOLVED",
+                },
+                { message: outcome.kind, data: null, effects: unchanged },
+              );
+            if (outcome.proof.transactionState !== "completed")
+              return context.result(
+                {
+                  commandIdentity: "guide.change",
+                  causeCode: "DOMAIN_GUIDE_UNKNOWN",
+                },
+                {
+                  message: "Unconfirmed.",
+                  data: null,
+                  transaction: outcome.proof,
+                },
+              );
+            return exitCode === 0
+              ? context.result(
+                  {
+                    commandIdentity: "guide.change",
+                    causeCode: "SUCCESS_COMPLETED",
+                  },
+                  {
+                    message: "Launched.",
+                    data: null,
+                    transaction: outcome.proof,
+                  },
+                )
+              : context.result(
+                  {
+                    commandIdentity: "guide.change",
+                    causeCode: "DOMAIN_GUIDE_NOT_OPENED",
+                  },
+                  {
+                    message: `Opener exited ${String(exitCode)}.`,
+                    data: null,
+                    transaction: outcome.proof,
+                  },
+                );
+          },
+        });
+        const contract = kernel.contractFor({
+          cli: "guide",
+          causes,
+          state: state.descriptor,
+          installedAddons: ["state", "programs"],
+          commands: [launch, pending(undefined, undefined, state)],
+        });
+        const viewer = contract.boundary.path(opener);
+        return kernel.runInProcess(contract, {
+          addons: { programs: programsAddon() },
+          emergencyRecord: state.emergencyRecord,
+        });
+      };
+      const failing = runWith("/usr/bin/false");
+      expect(await failing(["change"])).toMatchObject({
+        kind: "envelope",
+        exitCode: 3,
+        envelope: {
+          result: {
+            outcome: "failed",
+            causeCode: "DOMAIN_GUIDE_NOT_OPENED",
+            transactionState: "completed",
+            effects: { completed: ["viewer.launch"] },
+            handoff: { owner: "human" },
+          },
+        },
+      });
+      expect(await failing(["pending"])).toMatchObject({
+        kind: "envelope",
+        envelope: { result: { data: { unfinished: [] } } },
+      });
+      expect(await runWith("/usr/bin/true")(["change"])).toMatchObject({
+        kind: "envelope",
+        exitCode: 0,
+        envelope: {
+          result: {
+            causeCode: "SUCCESS_COMPLETED",
+            transactionState: "completed",
+          },
+        },
+      });
+    },
+    processWatchdog(2),
+  );
+
+  test("changing.md: a deadline before the transaction opens closes the state capability, answers DOMAIN_DEADLINE_UNCHANGED, and leaves nothing pending", async () => {
+    const state = stateIn();
+    let transactionError = "";
+    const deadlineCommand = kernel.changing({
+      identity: "guide.change",
+      route: ["change"],
+      summary: "Change one thing.",
+      input: { ...emptyInput, deadlineSupported: true },
+      capabilities: {},
+      effectClass: "repository-local",
+      effects: ["guide.write"],
+      ifNoResult: state.descriptor.ifNoResult,
+      heldLockCause: "DOMAIN_GUIDE_HELD",
+      unresolvedCaseCause: "DOMAIN_GUIDE_UNRESOLVED",
+      stations: [succeeded, ...refusals],
+      run: async (_input, context) => {
+        await new Promise<void>((resolve) => {
+          if (context.signal.aborted) {
+            resolve();
+            return;
+          }
+          context.signal.addEventListener("abort", () => resolve(), {
+            once: true,
+          });
+        });
+        try {
+          await state.transaction(
+            context.state,
+            {
+              command: "guide.change",
+              scope: { resources: [{ resource: "guide", key: "one" }] },
+            },
+            async (transaction) => {
+              await transaction.record(
+                "guide.write",
+                () => Promise.resolve(),
+                () => Promise.resolve(true),
+              );
+            },
+          );
+        } catch (error) {
+          transactionError =
+            error instanceof Error ? error.message : String(error);
+        }
+        return context.result(
+          {
+            commandIdentity: "guide.change",
+            causeCode: "DOMAIN_GUIDE_UNRESOLVED",
+          },
+          { message: "Stopped.", data: null, effects: unchanged },
+        );
+      },
+    });
+    const run = kernel.runInProcess(
+      kernel.contractFor({
+        ...stateful(state),
+        commands: [deadlineCommand, pending(undefined, undefined, state)],
+      }),
+      { emergencyRecord: state.emergencyRecord },
+    );
+    const expired = await run(["change", "--deadline-ms", "25"]);
+    expect(expired).toMatchObject({
+      kind: "envelope",
+      exitCode: 3,
+      envelope: {
+        result: {
+          outcome: "failed",
+          causeCode: "DOMAIN_DEADLINE_UNCHANGED",
+          transactionState: "unchanged",
+        },
+      },
+    });
+    expect(transactionError).toBe(
+      "The state capability closed at the deadline.",
+    );
+    expect(await run(["pending"])).toMatchObject({
+      kind: "envelope",
+      envelope: { result: { data: { unfinished: [] } } },
+    });
+  });
+
+  test("changing.md: a deadline before handler entry answers DOMAIN_DEADLINE_BEFORE_START and leaves nothing pending", async () => {
+    const state = stateIn();
+    let entered = 0;
+    const deadlineCommand = kernel.changing({
+      identity: "guide.change",
+      route: ["change"],
+      summary: "Change one thing.",
+      input: { ...emptyInput, deadlineSupported: true },
+      capabilities: {},
+      effectClass: "repository-local",
+      effects: ["guide.write"],
+      ifNoResult: state.descriptor.ifNoResult,
+      heldLockCause: "DOMAIN_GUIDE_HELD",
+      unresolvedCaseCause: "DOMAIN_GUIDE_UNRESOLVED",
+      stations: [succeeded, ...refusals],
+      run: (_input, context) => {
+        entered += 1;
+        return Promise.resolve(
+          context.result(
+            {
+              commandIdentity: "guide.change",
+              causeCode: "DOMAIN_GUIDE_UNRESOLVED",
+            },
+            { message: "Entered.", data: null, effects: unchanged },
+          ),
+        );
+      },
+    });
+    const contract = kernel.contractFor({
+      ...stateful(state),
+      commands: [deadlineCommand, pending(undefined, undefined, state)],
+    });
+    let ticks = 0;
+    const recorder = recordingHost();
+    const expired = await runInProcessOn(
+      contract,
+      { emergencyRecord: state.emergencyRecord },
+      () => ({
+        ...recorder.host,
+        now: () => (ticks++ === 0 ? 0 : 1_000),
+      }),
+    )(["change", "--deadline-ms", "10"]);
+    expect(entered).toBe(0);
+    expect(expired).toMatchObject({
+      kind: "envelope",
+      exitCode: 3,
+      envelope: {
+        result: {
+          outcome: "refused",
+          causeCode: "DOMAIN_DEADLINE_BEFORE_START",
+          transactionState: "unchanged",
+        },
+      },
+    });
+    expect(
+      await kernel.runInProcess(contract, {
+        emergencyRecord: state.emergencyRecord,
+      })(["pending"]),
+    ).toMatchObject({
+      kind: "envelope",
+      envelope: { result: { data: { unfinished: [] } } },
+    });
+  });
+
+  test("changing.md: on macOS, state.capabilities reports stoppedOwnerProof unavailable and state.close returns stopped-owner-proof-unqualified", async () => {
+    const state = stateIn();
+    const contract = kernel.contractFor({
+      ...stateful(state),
+      commands: [
+        change(state, { readBack: false }),
+        pending(undefined, undefined, state),
+      ],
+    });
+    const run = kernel.runInProcess(contract, {
+      emergencyRecord: state.emergencyRecord,
+    });
+    expect(await run(["change"])).toMatchObject({
+      kind: "envelope",
+      exitCode: 3,
+      envelope: { result: { causeCode: "DOMAIN_GUIDE_UNKNOWN" } },
+    });
+    const listed = state.report();
+    expect(listed.ok).toBe(true);
+    const operationId = listed.ok
+      ? (listed.unfinished[0]?.operationId ?? "")
+      : "";
+    const history = await state.history(operationId);
+    expect(history.ok).toBe(true);
+    const revision = history.ok ? history.history.journal.revision : "";
+    const capabilities = state.capabilities();
+    let closeResult: unknown;
+    const closer = kernel.changing({
+      identity: "guide.close",
+      route: ["close"],
+      summary: "Close a case.",
+      input: emptyInput,
+      capabilities: {},
+      effectClass: "repository-local",
+      effects: ["guide.close"],
+      ifNoResult: state.descriptor.ifNoResult,
+      heldLockCause: "DOMAIN_GUIDE_HELD",
+      unresolvedCaseCause: "DOMAIN_GUIDE_UNRESOLVED",
+      stations: [
+        kernel.station(causes, {
+          ...stationWords,
+          commandIdentity: "guide.close",
+          causeCode: "SUCCESS_COMPLETED",
+          trigger: "Closed.",
+          repairAction: null,
+          guidance: { next: { kind: "done" } },
+          independentObservable: "guide.close:done",
+        }),
+        kernel.station(causes, {
+          ...refusalWords,
+          commandIdentity: "guide.close",
+          causeCode: "DOMAIN_GUIDE_HELD",
+          independentObservable: "guide.close:held",
+        }),
+        kernel.station(causes, {
+          ...refusalWords,
+          commandIdentity: "guide.close",
+          causeCode: "DOMAIN_GUIDE_UNRESOLVED",
+          independentObservable: "guide.close:unresolved",
+        }),
+      ],
+      run: async (_input, context) => {
+        closeResult = await state.close(context.state, {
+          command: "guide.close",
+          effect: "guide.close",
+          operationId,
+          closureId: "close-1",
+          disposition: "completed",
+          revision,
+          reason: "Check close availability.",
+        });
+        return context.result(
+          {
+            commandIdentity: "guide.close",
+            causeCode: "DOMAIN_GUIDE_UNRESOLVED",
+          },
+          { message: "Checked.", data: null, effects: unchanged },
+        );
+      },
+    });
+    const runClose = kernel.runInProcess(
+      kernel.contractFor({
+        ...stateful(state),
+        commands: [closer, pending(undefined, undefined, state)],
+      }),
+      { emergencyRecord: state.emergencyRecord },
+    );
+    await runClose(["close"]);
+    if (process.platform === "darwin") {
+      expect(capabilities.stoppedOwnerProof).toBe("unavailable");
+      expect(closeResult).toMatchObject({
+        kind: "unavailable",
+        reason: "stopped-owner-proof-unqualified",
+      });
+    } else {
+      expect(["available", "unavailable", "fixture-only"]).toContain(
+        capabilities.stoppedOwnerProof,
+      );
+    }
+  });
+
+  const stopScript = (root: string) =>
+    [
+      `import * as kernel from ${JSON.stringify(join(repository, "kernel/src/kernel/index.ts"))};`,
+      `import { stateAddon } from ${JSON.stringify(join(repository, "kernel/src/addons/state/index.ts"))};`,
+      `const state = stateAddon({ root: ${JSON.stringify(root)}, report: "guide.pending" });`,
+      'const look = { owner: "human", reason: "Look.", inspect: [{ kind: "command", command: "guide.pending", args: [] }] };',
+      'const row = { outcome: "refused", transactionState: "unchanged", failureClass: "domain", exitCode: 3, retryable: false, guidance: "handoff" };',
+      "const causes = { ...kernel.commonCauses, DOMAIN_GUIDE_HELD: row, DOMAIN_GUIDE_UNRESOLVED: row };",
+      'const words = { retryDelayPolicy: { kind: "none" }, reachability: "required", unreachableRationale: null };',
+      "const input = { arguments: [], options: [], constraints: [], deadlineSupported: false, additionalArguments: false, additionalOptions: false };",
+      'const station = (causeCode, guidance) => kernel.station(causes, { ...words, commandIdentity: "guide.change", causeCode, trigger: causeCode, repairAction: guidance.next ? null : "Ask.", guidance, independentObservable: causeCode });',
+      'const change = kernel.changing({ identity: "guide.change", route: ["change"], summary: "Change.", input, capabilities: {}, effectClass: "repository-local", effects: ["guide.write"], ifNoResult: state.descriptor.ifNoResult, heldLockCause: "DOMAIN_GUIDE_HELD", unresolvedCaseCause: "DOMAIN_GUIDE_UNRESOLVED",',
+      '  stations: [station("SUCCESS_COMPLETED", { next: { kind: "done" } }), station("DOMAIN_GUIDE_HELD", { handoff: look }), station("DOMAIN_GUIDE_UNRESOLVED", { handoff: look })],',
+      "  run: async (_input, context) => {",
+      '    if (process.env.GUIDE_READY) { await Bun.write(process.env.GUIDE_READY, "ready\\n"); await new Promise(() => setInterval(() => undefined, 1000)); }',
+      '    const outcome = await state.transaction(context.state, { command: "guide.change", scope: { resources: [{ resource: "guide", key: "one" }] } }, (t) => t.record("guide.write", () => Promise.resolve(), () => Promise.resolve(true)).then(() => undefined));',
+      '    return context.result({ commandIdentity: "guide.change", causeCode: "SUCCESS_COMPLETED" }, { message: "Changed.", data: null, transaction: outcome.proof });',
+      "  } });",
+      'const pending = kernel.command({ identity: "guide.pending", route: ["pending"], summary: "Pending.", input, capabilities: {}, stations: [kernel.station(causes, { ...words, commandIdentity: "guide.pending", causeCode: "SUCCESS_UNCHANGED", trigger: "Read.", repairAction: null, guidance: { next: { kind: "instruction", text: "Look." } }, independentObservable: "read" })], run: (_input, context) => context.result({ commandIdentity: "guide.pending", causeCode: "SUCCESS_UNCHANGED" }, { message: "Read.", data: null, effects: { completed: [], remaining: [], uncertain: [], inventoryComplete: true } }) });',
+      'await kernel.runProcess(kernel.contractFor({ cli: "guide", commands: [change, pending], causes, state: state.descriptor, installedAddons: ["state"] }), { emergencyRecord: state.emergencyRecord })(process.argv.slice(2));',
+      "",
+    ].join("\n");
+
+  test(
+    "changing.md: a stop before the transaction leaves nothing pending, and exits 143 for SIGTERM or 130 for Ctrl-C with nothing printed",
+    async () => {
+      const folder = ownedFolder("kernel-author-guide-stop-");
+      const root = join(folder, "state");
+      const script = join(folder, "guide.ts");
+      write(folder, "guide.ts", stopScript(root));
+      const env = Object.fromEntries(
+        Object.entries(process.env).filter(([name]) => name !== "GUIDE_READY"),
+      );
+      const first = await spawnBounded(
+        [process.execPath, script, "change", "--json"],
+        { cwd: folder, env },
+      );
+      expect(first.exit).toBe(0);
+      const stopped = [];
+      for (const signal of ["SIGTERM", "SIGINT"] as const) {
+        const ready = join(folder, `${signal}.ready`);
+        const run = await spawnBounded(
+          [process.execPath, script, "change", "--json"],
+          {
+            cwd: folder,
+            env: { ...env, GUIDE_READY: ready },
+            signalAt: { ledger: ready, line: "ready", signal },
+          },
+        );
+        stopped.push({
+          signal,
+          ready: existsSync(ready),
+          exit: run.exit,
+          stdout: run.stdout,
+          stderr: run.stderr,
+        });
+      }
+      expect(stopped).toEqual([
+        { signal: "SIGTERM", ready: true, exit: 143, stdout: "", stderr: "" },
+        { signal: "SIGINT", ready: true, exit: 130, stdout: "", stderr: "" },
+      ]);
+      const report = stateAddon({ root, report: "guide.pending" }).report();
+      expect(report).toEqual({ ok: true, unfinished: [] });
+    },
+    processWatchdog(3),
+  );
+
+  test(
+    "changing.md: a stop inside the transaction during launch exits 143 with nothing printed, stops the launched program, leaves a case pending lists, and refuses the next change to that scope",
+    async () => {
+      const tree = await exampleTree();
+      const home = ownedFolder("kernel-author-guide-mid-launch-stop-");
+      const ledger = join(home, "ledger");
+      const opener = join(home, "wait-opener.sh");
+      await writeFile(
+        opener,
+        [
+          "#!/bin/sh",
+          'printf "pid %s\\nready\\n" "$$" > "$MOONS_LEDGER"',
+          "sleep 60 &",
+          "pid=$!",
+          'wait "$pid"',
+          "",
+        ].join("\n"),
+      );
+      await chmod(opener, 0o755);
+      let openerPid: number | undefined;
+      try {
+        const stopped = await spawnBounded(
+          [process.execPath, "src/cli.ts", "visit", "venus", "--json"],
+          {
+            cwd: tree,
+            env: {
+              ...process.env,
+              MOONS_HOME: home,
+              MOONS_OPENER: opener,
+              MOONS_LEDGER: ledger,
+            },
+            signalAt: { ledger, line: "ready", signal: "SIGTERM" },
+          },
+        );
+        expect({
+          exit: stopped.exit,
+          stdout: stopped.stdout,
+          stderr: stopped.stderr,
+        }).toEqual({ exit: 143, stdout: "", stderr: "" });
+        const pidLine = readFileSync(ledger, "utf8")
+          .split("\n")
+          .find((line) => line.startsWith("pid "));
+        openerPid = pidLine ? Number(pidLine.slice(4)) : undefined;
+        expect(Number.isSafeInteger(openerPid) && (openerPid ?? 0) > 0).toBe(
+          true,
+        );
+        expect(await goneWithin(openerPid ?? -1, 2_000)).toBe(true);
+        const checkEnv = {
+          ...process.env,
+          MOONS_HOME: home,
+          MOONS_OPENER: "/usr/bin/true",
+        };
+        const listed = await spawnBounded(
+          [process.execPath, "src/cli.ts", "pending", "--json"],
+          { cwd: tree, env: checkEnv },
+        );
+        expect(listed.exit).toBe(0);
+        expect(
+          Reflect.get(Object(JSON.parse(listed.stdout)), "result"),
+        ).toMatchObject({
+          causeCode: "SUCCESS_UNCHANGED",
+          data: {
+            unfinished: [
+              { planet: "venus", effects: ["planet.record", "viewer.launch"] },
+            ],
+          },
+        });
+        const blocked = await spawnBounded(
+          [process.execPath, "src/cli.ts", "visit", "venus", "--json"],
+          { cwd: tree, env: checkEnv },
+        );
+        expect(blocked.exit).toBe(3);
+        expect(
+          Reflect.get(Object(JSON.parse(blocked.stdout)), "result"),
+        ).toMatchObject({
+          outcome: "refused",
+          causeCode: "DOMAIN_MOONS_VISIT_UNRESOLVED",
+          transactionState: "unchanged",
+        });
+      } finally {
+        if (openerPid !== undefined && openerPid > 0)
+          signalGroupIfPresent(openerPid, "SIGKILL");
+      }
+    },
+    processWatchdog(3),
+  );
 });

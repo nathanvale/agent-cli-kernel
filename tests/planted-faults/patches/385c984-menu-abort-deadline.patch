@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/menu/index.ts b/kernel/src/addons/menu/index.ts
+--- a/kernel/src/addons/menu/index.ts
++++ b/kernel/src/addons/menu/index.ts
+@@ -140,9 +140,7 @@ function attachMenu(run: RunControl): AttachedAddon<MenuCapability> {
+     let state = createMenuState(checked.lines, checked.rows);
+     const showController = new AbortController();
+-    const onRunAbort = () => {
+-      showController.abort();
+-    };
++    const onRunAbort = () => undefined;
+     run.signal.addEventListener("abort", onRunAbort, { once: true });
+ 
+     const redraw = () => {

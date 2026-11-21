@@ -61,7 +61,7 @@ by indented JSON data:
 $ verify.ts drive <run folder> verify/scenarios/read-only-command.json
 2 steps met.
 $ verify.ts report <run folder>
-Stations: 1 swept, 1 driven, 1 owed. Steps: 2 met, 0 unmet.
+Stations: 2 swept, 1 driven, 7 owed. Steps: 2 met, 0 unmet.
 ```
 
 ## Gotchas

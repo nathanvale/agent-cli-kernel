@@ -1,0 +1,32 @@
+diff --git a/kernel/src/kernel/process-host.ts b/kernel/src/kernel/process-host.ts
+--- a/kernel/src/kernel/process-host.ts
++++ b/kernel/src/kernel/process-host.ts
+@@ -92,8 +92,6 @@ export function ttyTerminalFor(io: TtyTerminalIo): TerminalAdapter {
+           const finish = () => {
+             if (closed) return;
+             closed = true;
+-            queued.length = 0;
+-            queuedBytes = 0;
+             backpressured = false;
+             stream.off("data", onData);
+             stream.off("end", finish);
+@@ -152,10 +150,6 @@ export function ttyTerminalFor(io: TtyTerminalIo): TerminalAdapter {
+ 
+           return {
+             next() {
+-              if (closed || signal.aborted) {
+-                finish();
+-                return Promise.resolve({ done: true, value: undefined });
+-              }
+               const next = queued.shift();
+               if (next !== undefined) {
+                 queuedBytes -= next.byteLength;
+@@ -169,6 +163,8 @@ export function ttyTerminalFor(io: TtyTerminalIo): TerminalAdapter {
+                 }
+                 return Promise.resolve({ done: false, value: next });
+               }
++              if (closed)
++                return Promise.resolve({ done: true, value: undefined });
+               return new Promise<IteratorResult<Uint8Array>>((resolve) => {
+                 waiters.push(resolve);
+               });

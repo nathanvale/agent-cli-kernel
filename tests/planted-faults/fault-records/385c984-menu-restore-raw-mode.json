@@ -1,0 +1,7 @@
+{
+  "id": "385c984-menu-restore-raw-mode",
+  "patch": "tests/planted-faults/patches/385c984-menu-restore-raw-mode.patch",
+  "testFile": "tests/kernel/menu/terminal.test.ts",
+  "title": "SIGTERM with the menu open restores the terminal, exits 143, and prints no envelope",
+  "source": "385c984 feat(kernel): add the menu add-on and the not-interactive refusal"
+}

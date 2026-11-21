@@ -1,0 +1,12 @@
+diff --git a/kernel/src/addons/diagnostics/run.ts b/kernel/src/addons/diagnostics/run.ts
+index 0a258359..dd849529 100644
+--- a/kernel/src/addons/diagnostics/run.ts
++++ b/kernel/src/addons/diagnostics/run.ts
+@@ -332,7 +332,6 @@ function session(
+     try {
+       size = io.size(descriptor);
+     } catch {
+-      accounting = "unavailable";
+       return undefined;
+     }
+     if (size !== writtenBytes && accounting === "ok") accounting = "invalid";

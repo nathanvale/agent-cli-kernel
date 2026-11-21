@@ -1,0 +1,7 @@
+{
+  "id": "cd6e48f-custody-remove-rethrows",
+  "patch": "tests/planted-faults/patches/cd6e48f-custody-remove-rethrows.patch",
+  "testFile": "tests/kernel/diagnostics/custody.test.ts",
+  "title": "^removeIfPresent rethrows non-ENOENT cleanup errors so allocation reports setup$",
+  "source": "cd6e48f fix(contract3): lock races between concurrent runs no longer read as setup"
+}

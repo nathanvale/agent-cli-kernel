@@ -1,7 +1,7 @@
 ---
 
 name: agent-cli-kernel
-description: Write commands on the agent-cli-kernel package. Use when code imports agent-cli-kernel to declare a command or its input, declare a result it can produce (a station), build the contract with contractFor, test a command, or read a throw from contractFor when the CLI starts.
+description: Write commands on the agent-cli-kernel package. Use when code imports agent-cli-kernel to declare a command or its input, write a command that changes something, declare a result it can produce (a station), build the contract with contractFor, test a command, or read a throw from contractFor when the CLI starts.
 ---
 
 # Writing commands on agent-cli-kernel
@@ -37,8 +37,12 @@ to one commit. This skill ships inside that package, at
 - Declaring a result a command can produce, such as a refusal, or reading a
   throw when the CLI starts: read [stations](references/stations.md).
 - Testing a command: read [testing](references/testing.md).
-- Starting a CLI, or wanting whole files to copy: read
+- Showing a list of rows for a person to choose from in an interactive run:
+  read [menu](references/menu.md).
+- Starting a CLI, or wanting whole source files to copy: read
   [example](references/example.md).
-- Writing a command that changes a file or any other resource: that needs
-  the state add-on. This skill covers read-only commands only, and the state
-  add-on's guidance is not written yet.
+- Reading the example's whole test files: read
+  [example tests](references/example-tests.md).
+- Writing a command that changes a file or any other resource, its state
+  add-on, its report command, or a case it leaves unfinished: read
+  [changing](references/changing.md).

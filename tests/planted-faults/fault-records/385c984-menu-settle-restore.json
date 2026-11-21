@@ -1,0 +1,7 @@
+{
+  "id": "385c984-menu-settle-restore",
+  "patch": "tests/planted-faults/patches/385c984-menu-settle-restore.patch",
+  "testFile": "tests/kernel/menu/menu.test.ts",
+  "title": "restores the terminal on settle when keys ignore abort and on handler draw failure",
+  "source": "385c984 feat(kernel): add the menu add-on and the not-interactive refusal"
+}

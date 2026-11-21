@@ -1,0 +1,7 @@
+{
+  "id": "ee0593d-example-launch-termination",
+  "patch": "tests/planted-faults/patches/ee0593d-example-launch-termination.patch",
+  "testFile": "tests/kernel/author-guide/author-guide.test.ts",
+  "title": "the example's visit leaves an opener whose termination is not confirmed unconfirmed and listed by pending",
+  "source": "ee0593d fix(author-guide): reject timed-out or unconfirmed viewer launches"
+}

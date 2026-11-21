@@ -1,0 +1,7 @@
+{
+  "id": "3854e2a-custody-retain-unclosed",
+  "patch": "tests/planted-faults/patches/3854e2a-custody-retain-unclosed.patch",
+  "testFile": "tests/kernel/diagnostics/limits.test.ts",
+  "title": "D07\\.ambiguous-survives: files not confirmed closed are never pruned by age$",
+  "source": "3854e2a feat(contract3): bounded private diagnostics add-on with custody and limit cases"
+}

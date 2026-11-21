@@ -1,0 +1,7 @@
+{
+  "id": "385c984-menu-aborted-before-show",
+  "patch": "tests/planted-faults/patches/385c984-menu-aborted-before-show.patch",
+  "testFile": "tests/kernel/menu/menu.test.ts",
+  "title": "refuses concurrent show calls, aborted runs before show, and missing terminal on direct attach",
+  "source": "385c984 feat(kernel): add the menu add-on and the not-interactive refusal"
+}

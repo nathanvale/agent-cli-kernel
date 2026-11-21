@@ -1,0 +1,7 @@
+{
+  "id": "385c984-terminal-queue-backpressure",
+  "patch": "tests/planted-faults/patches/385c984-terminal-queue-backpressure.patch",
+  "testFile": "tests/kernel/menu/terminal.test.ts",
+  "title": "caps queued terminal input with backpressure and resumes once drained",
+  "source": "385c984 feat(kernel): add the menu add-on and the not-interactive refusal"
+}

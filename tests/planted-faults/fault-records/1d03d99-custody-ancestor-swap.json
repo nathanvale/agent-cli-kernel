@@ -1,0 +1,7 @@
+{
+  "id": "1d03d99-custody-ancestor-swap",
+  "patch": "tests/planted-faults/patches/1d03d99-custody-ancestor-swap.patch",
+  "testFile": "tests/kernel/diagnostics/custody.test.ts",
+  "title": "D04\\.ancestor-swap-unsupported-destination: a directory swapped before open is refused, nothing written$",
+  "source": "1d03d99 fix(contract3): diagnostics repair round 1 in the add-on"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "3854e2a-custody-create-excl",
+  "patch": "tests/planted-faults/patches/3854e2a-custody-create-excl.patch",
+  "testFile": "tests/kernel/diagnostics/custody.test.ts",
+  "title": "D03\\.existing-final-file: an existing file at the final name is never truncated or appended$",
+  "source": "3854e2a feat(contract3): bounded private diagnostics add-on with custody and limit cases"
+}

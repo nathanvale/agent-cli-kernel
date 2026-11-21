@@ -1,0 +1,7 @@
+{
+  "id": "3854e2a-custody-own-private",
+  "patch": "tests/planted-faults/patches/3854e2a-custody-own-private.patch",
+  "testFile": "tests/kernel/diagnostics/custody.test.ts",
+  "title": "D02\\.wide-existing-directory: an existing 0755 directory is refused, never written into$",
+  "source": "3854e2a feat(contract3): bounded private diagnostics add-on with custody and limit cases"
+}

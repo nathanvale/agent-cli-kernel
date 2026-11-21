@@ -1,0 +1,12 @@
+diff --git a/kernel/src/addons/menu/index.ts b/kernel/src/addons/menu/index.ts
+--- a/kernel/src/addons/menu/index.ts
++++ b/kernel/src/addons/menu/index.ts
+@@ -165,7 +165,7 @@ async function* keyBatches(
+       }
+       pending = undefined;
+       if (event.next.done) return;
+-      const keys = parser.push(event.next.value);
++      const keys = [...parser.push(event.next.value), ...parser.flush()];
+       yield { keys, redraw: keys.length > 0 };
+     }
+   } finally {

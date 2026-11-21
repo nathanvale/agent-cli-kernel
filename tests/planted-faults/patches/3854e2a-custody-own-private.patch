@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/diagnostics/custody.ts b/kernel/src/addons/diagnostics/custody.ts
+index bbaf28c2..d51b9c44 100644
+--- a/kernel/src/addons/diagnostics/custody.ts
++++ b/kernel/src/addons/diagnostics/custody.ts
+@@ -84,7 +84,7 @@ function ownPrivate(info: Stats | undefined): boolean {
+     info !== undefined &&
+     info.isDirectory() &&
+     info.uid === uid &&
+-    (info.mode & 0o7777) === 0o700
++    (info.mode & 0o700) === 0o700
+   );
+ }
+ 

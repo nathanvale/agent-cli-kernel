@@ -1,0 +1,7 @@
+{
+  "id": "fc4edee-example-page-gate",
+  "patch": "tests/planted-faults/patches/fc4edee-example-page-gate.patch",
+  "testFile": "tests/kernel/author-guide/author-guide.test.ts",
+  "title": "its own tests all pass, each by name, in process and through its real entry file",
+  "source": "fc4edee docs(author-guide): teach the retry-safe launch and answer the review findings"
+}

@@ -84,8 +84,8 @@ _Avoid_: author guide (for the shipped guidance)
 **Add-on**:
 An optional capability that uses the kernel's public interface without
 importing or patching another add-on, and may have a required add-on that must
-be selected alongside it. The four are the state, programs, approval and
-diagnostics add-ons.
+be selected alongside it. The five are the state, programs, approval,
+diagnostics and menu add-ons.
 
 **State add-on**:
 The add-on that owns the journal and the state a changing command works in.
@@ -106,6 +106,15 @@ _Avoid_: refusal (for every ApprovalRejection, since some follow consumption)
 
 **Diagnostics add-on**:
 The add-on that owns the diagnostic records of a run and their custody.
+
+**Menu**:
+The add-on ability to show rows on a terminal in an interactive run and hand
+back the one a person picks, or `"cancelled"`. Separate from a CLI's own
+command routed as `menu`.
+_Avoid_: pick list, picker, chooser, prompt (for a menu)
+
+**Menu add-on**:
+The add-on that owns the menu and restoring the terminal.
 
 **Add-on selection**:
 The add-ons one consuming repository uses. The kernel is always used and is not
@@ -140,6 +149,22 @@ _Avoid_: Repair (for a station's guidance; Repair names a tool message's Repair:
 A station the kernel adds to a command without an author declaration, covering
 usage refusals and internal failures.
 _Avoid_: built-in station (for a kernel station)
+
+### Interactive runs
+
+**Default command**:
+The one ordinary command a CLI names, with `defaultCommand`, to run when no
+words are typed after its name in an interactive run.
+_Avoid_: bare-name command; root command (a root operation is Command Contract 3's route-`[]` command, which this is not); front door (in a name)
+
+**Interactive run**:
+A run that has a terminal adapter (in a process: both stdin and stdout are
+terminals) and whose typed words hold no `--json`.
+_Avoid_: terminal run
+
+**Terminal adapter**:
+The kernel's seam for reading keys from and drawing on a terminal: the
+`/dev/tty` adapter in a process, or `scriptedTerminal` in tests.
 
 ### Internal kernel names
 

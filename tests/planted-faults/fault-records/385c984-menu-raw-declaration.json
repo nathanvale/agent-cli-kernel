@@ -1,0 +1,7 @@
+{
+  "id": "385c984-menu-raw-declaration",
+  "patch": "tests/planted-faults/patches/385c984-menu-raw-declaration.patch",
+  "testFile": "tests/kernel/menu/startup.test.ts",
+  "title": "refuses an undeclared notInteractiveCause station, a station requiring run bindings, and a raw menu declaration",
+  "source": "385c984 feat(kernel): add the menu add-on and the not-interactive refusal"
+}

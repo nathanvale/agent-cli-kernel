@@ -1,0 +1,7 @@
+{
+  "id": "385c984-menu-request-bounds-label",
+  "patch": "tests/planted-faults/patches/385c984-menu-request-bounds-label.patch",
+  "testFile": "tests/kernel/menu/menu.test.ts",
+  "title": "refuses invalid request bounds before entering or drawing on the terminal",
+  "source": "385c984 feat(kernel): add the menu add-on and the not-interactive refusal"
+}

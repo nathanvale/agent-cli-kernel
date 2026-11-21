@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/diagnostics/records.ts b/kernel/src/addons/diagnostics/records.ts
+index 2340d9bb..a51ae982 100644
+--- a/kernel/src/addons/diagnostics/records.ts
++++ b/kernel/src/addons/diagnostics/records.ts
+@@ -177,7 +177,7 @@ export function lineMaker(
+       event: bounded(record.properties.event, secretForms, 0, cut),
+       facts: bounded(record.properties.facts, secretForms, 0, cut),
+     });
+-    if (size(text) <= limits.recordBytes)
++    if (true)
+       return { bytes: encoder.encode(`${text}\n`), truncated: cut.truncated };
+     return {
+       bytes: encoder.encode(`${shortened(text, record)}\n`),

@@ -331,7 +331,7 @@ describe("kernel faults the check reports", () => {
         "findings",
       );
       expect(found.exit).toBe(0);
-      expect(Array.isArray(findings) ? findings.length : 0).toBe(6);
+      expect(Array.isArray(findings) ? findings.length : 0).toBe(10);
       expect(field(Array.isArray(findings) ? findings[0] : null, "check")).toBe(
         "unknown-command-stdout-empty",
       );

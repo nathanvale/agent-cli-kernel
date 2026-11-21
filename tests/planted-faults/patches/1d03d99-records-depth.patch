@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/diagnostics/records.ts b/kernel/src/addons/diagnostics/records.ts
+index 2340d9bb..2e56e726 100644
+--- a/kernel/src/addons/diagnostics/records.ts
++++ b/kernel/src/addons/diagnostics/records.ts
+@@ -124,7 +124,7 @@ function bounded(
+   if (typeof value !== "object" || value === null)
+     return boundedScalar(value, secretForms, cut);
+   if (seen.has(value)) return lost(cut, markers.cycle);
+-  if (level >= limits.depth) return lost(cut, markers.depth);
++  if (level >= 100) return lost(cut, markers.depth);
+   seen.add(value);
+   try {
+     return boundedObject(value, secretForms, level, cut, seen);

@@ -1,0 +1,7 @@
+{
+  "id": "3854e2a-custody-trusted-ancestor",
+  "patch": "tests/planted-faults/patches/3854e2a-custody-trusted-ancestor.patch",
+  "testFile": "tests/kernel/diagnostics/custody.test.ts",
+  "title": "D03\\.untrusted-ancestor-writable: a world-writable ancestor without the sticky bit is refused$",
+  "source": "3854e2a feat(contract3): bounded private diagnostics add-on with custody and limit cases"
+}

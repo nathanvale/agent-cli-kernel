@@ -2,8 +2,8 @@ diff --git a/tests/kernel/author-guide/example-document.ts b/tests/kernel/author
 index b6f4a75..2cfacda 100644
 --- a/tests/kernel/author-guide/example-document.ts
 +++ b/tests/kernel/author-guide/example-document.ts
-@@ -27,6 +27,7 @@ export function exampleDocument(
-         `references/example.md has a section for ${path}, which is no example file. Repair: name one of ${[...files.keys()].join(", ")}, or delete the section.`,
+@@ -31,6 +31,7 @@ export function exampleDocument(
+         `${document} has a section for ${path}, which is no example file. Repair: name one of ${[...files.keys()].join(", ")}, or delete the section.`,
        );
      shown.push(path);
 +    if (path !== "") return _whole;

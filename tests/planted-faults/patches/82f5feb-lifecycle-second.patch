@@ -1,17 +1,18 @@
 diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
-index 50bcdef..91d23aa 100644
 --- a/kernel/src/kernel/lifecycle.ts
 +++ b/kernel/src/kernel/lifecycle.ts
-@@ -362,7 +362,11 @@ function installHooks(run: Run) {
-     const code = stopCode(signal);
-     if (run.stopped || run.phase === "drained") {
-       killAll(run);
--      run.host.exit(code);
-+      void within(
-+        settledAfterStopRequest(run),
-+        stopBoundMilliseconds,
-+        run.host.now,
-+      ).then(() => run.host.exit(code));
-       return;
-     }
-     run.stopped = signal;
+@@ -847,7 +847,13 @@ function stopEvery(inFlight: InFlight, host: ProcessHost, signal: StopSignal) {
+     runs.length > 0 && runs.every((run) => run.phase === "drained");
+   if (inFlight.stopped || allDrained) {
+     for (const run of runs) killAll(run);
+-    host.exit(code);
++    void within(
++      Promise.all(runs.map(settledAfterStopRequest)),
++      stopBoundMilliseconds,
++      host.now,
++    ).then(() => {
++      if (inFlight.crash === "none") host.exit(code);
++    });
+     return;
+   }
+   inFlight.stopped = signal;

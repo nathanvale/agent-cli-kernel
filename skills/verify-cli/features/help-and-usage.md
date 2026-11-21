@@ -29,7 +29,7 @@ followed by indented JSON data:
 
 ```text
 $ verify.ts sweep src/cli.ts
-36 checks passed. Stations owed: 2.
+62 checks passed. Stations owed: 8.
 ```
 
 On exit 3, run `findings` to list every failed check (or `0 findings` when
@@ -37,7 +37,7 @@ the sweep is clean):
 
 ```text
 $ verify.ts findings src/cli.ts
-0 findings from 36 checks.
+0 findings from 62 checks.
 ```
 
 ## Gotchas

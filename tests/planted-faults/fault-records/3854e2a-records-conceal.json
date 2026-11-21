@@ -1,0 +1,7 @@
+{
+  "id": "3854e2a-records-conceal",
+  "patch": "tests/planted-faults/patches/3854e2a-records-conceal.patch",
+  "testFile": "tests/kernel/diagnostics/secrets.test.ts",
+  "title": "D15\\.argv-marker: a secret option value never reaches output or the log$",
+  "source": "3854e2a feat(contract3): bounded private diagnostics add-on with custody and limit cases"
+}

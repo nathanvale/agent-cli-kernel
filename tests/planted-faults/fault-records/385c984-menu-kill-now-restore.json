@@ -1,0 +1,7 @@
+{
+  "id": "385c984-menu-kill-now-restore",
+  "patch": "tests/planted-faults/patches/385c984-menu-kill-now-restore.patch",
+  "testFile": "tests/kernel/menu/terminal.test.ts",
+  "title": "uncaught crash with the menu open restores the terminal through killNow and exits 1",
+  "source": "385c984 feat(kernel): add the menu add-on and the not-interactive refusal"
+}

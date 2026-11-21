@@ -13,12 +13,15 @@ import type {
   RunInProcess,
   RunSetup,
   StopSignal,
+  TerminalAdapter,
 } from "./process-types.ts";
+import { asksMachineOutput } from "./routing.ts";
 import { runtimeOf } from "./runtime.ts";
 import type { ContractKey } from "./runtime.ts";
 import type { Attach, ContractRuntime, Enter, Resolution } from "./runtime.ts";
 import type { CommandResult } from "./command-result.ts";
 import type { CommandDeclaration } from "./declarations.ts";
+import { notInteractiveCauseOf } from "./declarations.ts";
 import { programStopOf } from "./program-stop.ts";
 import type { StateObservation } from "./state-seam.ts";
 import {
@@ -37,7 +40,6 @@ const settleLimitMilliseconds = 300;
 const stopBoundMilliseconds = 450;
 const cancellationMilliseconds = 500;
 const flushMilliseconds = 500;
-const statusOnPreHandlerRefusal = false;
 
 const messages = {
   USAGE_INVALID_INVOCATION:
@@ -168,7 +170,10 @@ export function runProcessOn(
   host: () => ProcessHost,
 ): RunProcess {
   const prepared = prepare(contract, setup, "runProcess");
-  return (argv) => runInvocation(newRun(prepared, host()), argv);
+  return (argv) => {
+    const current = host();
+    return runInvocation(newRun(prepared, current, current.terminal()), argv);
+  };
 }
 
 let sharedHost: ProcessHost | undefined;
@@ -191,7 +196,8 @@ export function runInProcessOn(
 ): RunInProcess {
   const prepared = prepare(contract, setup, "runInProcess");
   const listener = setup.onCrash;
-  return (argv) => runAndReturn(newRun(prepared, host()), argv, listener);
+  return (argv) =>
+    runAndReturn(newRun(prepared, host(), setup.terminal), argv, listener);
 }
 
 type Run = {
@@ -211,6 +217,7 @@ type Run = {
   handler: EnteredHandler | undefined;
   enter: Enter | undefined;
   execution: Promise<Execution> | undefined;
+  terminal: TerminalAdapter | undefined;
 };
 type EnteredHandler = { returned: boolean; readonly returning: Promise<void> };
 type Delivery =
@@ -342,28 +349,6 @@ function stopCode(signal: StopSignal): number {
   return signal === "SIGINT" ? 130 : 143;
 }
 
-function installHooks(run: Run) {
-  run.host.onSignal((signal) => {
-    const code = stopCode(signal);
-    if (run.stopped || run.phase === "drained") {
-      killAll(run);
-      run.host.exit(code);
-      return;
-    }
-    run.stopped = signal;
-    run.controller.abort();
-    void within(
-      settledAfterStopRequest(run),
-      stopBoundMilliseconds,
-      run.host.now,
-    ).then(() => run.host.exit(code));
-  });
-  run.host.onCrash(() => {
-    crashRun(run);
-    run.host.exit(1);
-  });
-}
-
 function trustedRun(
   run: Run,
   identity: string,
@@ -406,16 +391,6 @@ async function kernelResult(
   };
 }
 
-async function reporterFor(run: Run, trusted: TrustedRun) {
-  if (trusted.handlerEntered) return run.reporter;
-  if (!statusOnPreHandlerRefusal) return undefined;
-  const plan = run.plans.get(trusted.commandIdentity);
-  const entry = plan?.addons.find((item) => item.addon.reportsStatus === true);
-  if (plan && entry && !run.reporter)
-    run.reporter = await attachReporter(run, plan.command, entry);
-  return run.reporter;
-}
-
 function builtin(run: Run, value: Resolved) {
   const { cli, navigation } = run.runtime;
   switch (value.commandIdentity) {
@@ -441,6 +416,7 @@ function control(run: Run, command: CommandDeclaration): RunControl {
     commandIdentity: command.commandIdentity,
     summary: command.summary,
     signal: run.controller.signal,
+    ...(run.terminal === undefined ? {} : { terminal: run.terminal }),
   };
 }
 
@@ -627,6 +603,36 @@ async function afterHandler(
   };
 }
 
+function notInteractiveRefusal(
+  run: Run,
+  plan: CommandPlan,
+  identity: string,
+): Promise<Delivery> | undefined {
+  if (plan.command.capabilities.menu !== true || run.terminal !== undefined)
+    return undefined;
+  const cause = notInteractiveCauseOf(plan.command);
+  const station = plan.command.stations.find(
+    (item) => item.causeCode === cause,
+  );
+  if (!cause || !station) return preparationFault(run, identity);
+  return kernelResult(run, identity, cause, station.trigger);
+}
+
+async function prepared(
+  run: Run,
+  plan: CommandPlan,
+  identity: string,
+): Promise<
+  | { readonly context: NonNullable<Awaited<ReturnType<typeof capabilities>>> }
+  | { readonly delivery: Delivery }
+> {
+  const refusal = notInteractiveRefusal(run, plan, identity);
+  if (refusal) return { delivery: await refusal };
+  const context = await capabilities(run, plan);
+  if (!context) return { delivery: await preparationFault(run, identity) };
+  return { context };
+}
+
 async function runDeclaredCommand(
   run: Run,
   value: Resolved,
@@ -643,8 +649,9 @@ async function runDeclaredCommand(
       messages.DOMAIN_DEADLINE_BEFORE_START,
     );
   if (run.stopped) return undefined;
-  const context = await capabilities(run, plan);
-  if (!context) return preparationFault(run, identity);
+  const ready = await prepared(run, plan, identity);
+  if ("delivery" in ready) return ready.delivery;
+  const context = ready.context;
   const deadlineAt =
     deadline === undefined ? undefined : run.startedAt + deadline;
   const checked = await checkPhase(run, value, context, deadlineAt);
@@ -798,7 +805,11 @@ async function route(run: Run, resolution: Resolution): Promise<Delivery> {
   );
 }
 
-function newRun(prepared: Prepared, host: ProcessHost): Run {
+function newRun(
+  prepared: Prepared,
+  host: ProcessHost,
+  terminal: TerminalAdapter | undefined = undefined,
+): Run {
   return {
     ...prepared,
     host,
@@ -814,6 +825,7 @@ function newRun(prepared: Prepared, host: ProcessHost): Run {
     handler: undefined,
     enter: undefined,
     execution: undefined,
+    terminal,
   };
 }
 
@@ -827,7 +839,9 @@ async function deliver(
   argv: unknown,
   output: Output,
 ): Promise<number | undefined> {
-  const resolution = await run.runtime.resolve(argv);
+  const interactive = run.terminal !== undefined && !asksMachineOutput(argv);
+  if (!interactive) run.terminal = undefined;
+  const resolution = await run.runtime.resolve(argv, { interactive });
   const asked = resolution.ok ? resolution.value.machine : resolution.machine;
   const writer = createWriter({
     host: output.host,
@@ -837,7 +851,7 @@ async function deliver(
   });
   const delivery = await route(run, resolution);
   if (!delivery) return 1;
-  const reporter = await reporterFor(run, delivery.trusted);
+  const reporter = delivery.trusted.handlerEntered ? run.reporter : undefined;
   const report =
     reporter && !run.stopped ? await freezeStatus(run, reporter) : undefined;
   run.phase = "emitting";
@@ -845,7 +859,8 @@ async function deliver(
 }
 
 async function runInvocation(run: Run, argv: unknown): Promise<number> {
-  installHooks(run);
+  const inFlight = inFlightOn(run.host);
+  inFlight.runs.add(run);
   const code = await deliver(run, argv, {
     host: run.host,
     machine: "as-asked",
@@ -875,7 +890,9 @@ function stopEvery(inFlight: InFlight, host: ProcessHost, signal: StopSignal) {
     host.exit(1);
     return;
   }
-  if (inFlight.stopped) {
+  const allDrained =
+    runs.length > 0 && runs.every((run) => run.phase === "drained");
+  if (inFlight.stopped || allDrained) {
     for (const run of runs) killAll(run);
     host.exit(code);
     return;

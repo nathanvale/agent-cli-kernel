@@ -1,0 +1,7 @@
+{
+  "id": "385c984-menu-startup-common-cause",
+  "patch": "tests/planted-faults/patches/385c984-menu-startup-common-cause.patch",
+  "testFile": "tests/kernel/menu/startup.test.ts",
+  "title": "refuses a command whose notInteractiveCause is not a command-owned refused unchanged station",
+  "source": "385c984 feat(kernel): add the menu add-on and the not-interactive refusal"
+}

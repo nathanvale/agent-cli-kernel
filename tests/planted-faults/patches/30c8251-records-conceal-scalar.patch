@@ -1,0 +1,16 @@
+diff --git a/kernel/src/addons/diagnostics/records.ts b/kernel/src/addons/diagnostics/records.ts
+index 2340d9bb..1c6d20a8 100644
+--- a/kernel/src/addons/diagnostics/records.ts
++++ b/kernel/src/addons/diagnostics/records.ts
+@@ -41,9 +41,8 @@ function concealScalar(
+   secretForms: readonly string[],
+ ): number | boolean | null | string {
+   const text = JSON.stringify(value);
+-  return secretForms.some((form) => text.includes(form))
+-    ? markers.redacted
+-    : value;
++  void text;
++  return value;
+ }
+ 
+ function lost(cut: Cut, marker: string): string {

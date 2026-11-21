@@ -34,7 +34,7 @@ export class BoundPassed extends Error {
 
 const killedExitBound = 3_000;
 
-async function settledWithin<T>(
+export async function settledWithin<T>(
   work: Promise<T>,
   milliseconds: number,
 ): Promise<T | "expired"> {

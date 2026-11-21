@@ -1,0 +1,12 @@
+diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
+--- a/kernel/src/kernel/lifecycle.ts
++++ b/kernel/src/kernel/lifecycle.ts
+@@ -648,8 +648,6 @@ async function prepared(
+   | { readonly context: NonNullable<Awaited<ReturnType<typeof capabilities>>> }
+   | { readonly delivery: Delivery }
+ > {
+-  const refusal = notInteractiveRefusal(run, plan, identity);
+-  if (refusal) return { delivery: await refusal };
+   const context = await capabilities(run, plan);
+   if (!context) return { delivery: await preparationFault(run, identity) };
+   return { context };

@@ -72,20 +72,28 @@ describe("sweep", () => {
         stderr: "",
       });
       expect(ran.stdout.split("\n")[0]).toBe(
-        "36 checks passed. Stations owed: 2.",
+        "62 checks passed. Stations owed: 10.",
       );
     },
     watchdog(0, 1),
   );
 
   test(
-    "sweep owes the two stations of show that need input",
+    "sweep owes each station that needs input or a change it cannot make",
     async () => {
       const at = world();
       const ran = await viaKernelFreeCheck(at, ["sweep", at.example, "--json"]);
       expect(field(envelopeIn(ran), "result", "data", "owed")).toEqual([
+        { command: "moons.pending", cause: "DOMAIN_PRECONDITION_UNMET" },
         { command: "moons.show", cause: "SUCCESS_UNCHANGED" },
         { command: "moons.show", cause: "DOMAIN_MOONS_UNKNOWN_PLANET" },
+        { command: "moons.visit", cause: "SUCCESS_COMPLETED" },
+        { command: "moons.visit", cause: "DOMAIN_MOONS_VISIT_NOT_OPENED" },
+        { command: "moons.visit", cause: "DOMAIN_MOONS_VISIT_PARTIAL" },
+        { command: "moons.visit", cause: "DOMAIN_MOONS_VISIT_UNCONFIRMED" },
+        { command: "moons.visit", cause: "DOMAIN_MOONS_VISIT_HELD" },
+        { command: "moons.visit", cause: "DOMAIN_MOONS_VISIT_UNRESOLVED" },
+        { command: "moons.visit", cause: "DOMAIN_MOONS_VISIT_UNAVAILABLE" },
       ]);
     },
     watchdog(0, 1),

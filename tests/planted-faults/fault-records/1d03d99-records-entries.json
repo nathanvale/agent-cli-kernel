@@ -1,0 +1,7 @@
+{
+  "id": "1d03d99-records-entries",
+  "patch": "tests/planted-faults/patches/1d03d99-records-entries.patch",
+  "testFile": "tests/kernel/diagnostics/limits.test.ts",
+  "title": "D05\\.oversized-payload-marker: facts with too many entries carry a visible marker$",
+  "source": "1d03d99 fix(contract3): diagnostics repair round 1 in the add-on"
+}

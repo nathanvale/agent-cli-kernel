@@ -9,6 +9,7 @@ import {
   validateChangingShape,
   validateCommandIdentity,
   validateInspectShape,
+  validateNotInteractiveCause,
   preparerOf,
   validateRootOperation,
   validateRouteTokens,
@@ -21,7 +22,12 @@ import { validateHostInput } from "./host-input.ts";
 import { carriesGlobalSwitch, routedIdentity } from "./routing.ts";
 import { stepVectorProblem } from "./step-vector.ts";
 import { keys, record, text } from "./validation/primitives.ts";
-export type AddonName = "state" | "programs" | "approval" | "diagnostics";
+export type AddonName =
+  | "state"
+  | "programs"
+  | "approval"
+  | "diagnostics"
+  | "menu";
 export function validateCauses(causes: CauseTable): void {
   for (const [code, row] of Object.entries(causes)) {
     if (!text(code) || !causeRow(row)) throw new Error("Invalid cause row.");
@@ -195,6 +201,7 @@ function admitCommand(
     throw new Error("Changing commands require the state add-on.");
   validateStationSet(command, causes);
   validateIfNoResult(cli, command, commands);
+  validateNotInteractiveCause(command);
   validateGuidance(command, commands);
   validateStepVectors(cli, command, commands);
   if (host && typeof command.execute !== "function")
@@ -212,6 +219,10 @@ function refuseRawWhereConstructorNeeded(command: CommandDeclaration): void {
   if (command.capabilities.programs === true && command.input.deadlineSupported)
     throw new Error(
       "A command that runs programs and supports a deadline must be built with command().",
+    );
+  if (command.capabilities.menu === true)
+    throw new Error(
+      "A command that declares menu must be built with command() or changing().",
     );
 }
 function validateStepVectors(

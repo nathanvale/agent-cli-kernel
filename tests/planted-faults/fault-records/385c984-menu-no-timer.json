@@ -1,0 +1,7 @@
+{
+  "id": "385c984-menu-no-timer",
+  "patch": "tests/planted-faults/patches/385c984-menu-no-timer.patch",
+  "testFile": "tests/kernel/menu/menu.test.ts",
+  "title": "keeps the menu open with no timer while a fake clock advances one hour",
+  "source": "385c984 feat(kernel): add the menu add-on and the not-interactive refusal"
+}

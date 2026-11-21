@@ -1,0 +1,12 @@
+diff --git a/kernel/src/kernel/process-host.ts b/kernel/src/kernel/process-host.ts
+--- a/kernel/src/kernel/process-host.ts
++++ b/kernel/src/kernel/process-host.ts
+@@ -184,7 +184,7 @@ export function processHost(): ProcessHost {
+     },
+     now: () => performance.now(),
+     terminal() {
+-      return process.stdin.isTTY === true && process.stdout.isTTY === true
++      return process.stdin.isTTY === true || process.stdout.isTTY === true
+         ? ttyTerminal()
+         : undefined;
+     },

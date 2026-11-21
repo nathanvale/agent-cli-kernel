@@ -1,0 +1,11 @@
+diff --git a/kernel/src/addons/menu/index.ts b/kernel/src/addons/menu/index.ts
+--- a/kernel/src/addons/menu/index.ts
++++ b/kernel/src/addons/menu/index.ts
+@@ -139,7 +139,6 @@ function attachMenu(run: RunControl): AttachedAddon<MenuCapability> {
+       throw new Error("The menu add-on requires an interactive run.");
+     if (run.signal.aborted)
+       throw new Error("The run is stopping; no menu opens.");
+-    if (active) throw new Error("A menu is already open for this run.");
+ 
+     let state = createMenuState(checked.lines, checked.rows);
+     const showController = new AbortController();

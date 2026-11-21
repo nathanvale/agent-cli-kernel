@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { existsSync, readFileSync } from "node:fs";
+import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   field,
@@ -15,6 +15,7 @@ import {
 } from "../verify-skill/harness.ts";
 import type { World } from "../verify-skill/harness.ts";
 import {
+  changingFeaturePath,
   checkLine,
   featurePath,
   featureScenario,
@@ -59,32 +60,55 @@ async function judged(
 
 describe("self-verification: verify-cli on the kernel's own CLIs", () => {
   test(
-    "the author skill's example passes the sweep, meets its read-only scenario, and reaches only the stations the record lists",
+    "the author skill's example passes the sweep, meets its read-only and changing scenarios, and reaches only the stations the record lists",
     async () => {
       const at = world();
       const run = runFolder(at, "example");
-      const scenario = featureScenario(
-        readFileSync(join(repository, featurePath), "utf8"),
+      const scenarios = [featurePath, changingFeaturePath].map((path) =>
+        featureScenario(readFileSync(join(repository, path), "utf8"), path),
       );
+      const opener = join(at.folder, "opener");
+      writeFileSync(
+        opener,
+        '#!/bin/sh\ncase "$1" in */venus.txt) exec sleep 60 ;; esac\n',
+      );
+      chmodSync(opener, 0o755);
+      const env = {
+        ...at.env,
+        MOONS_HOME: join(run, "scratch", "moons"),
+        MOONS_OPENER: opener,
+      };
       const runs: OwnCliRun[] = [];
       for (const [command, ...argv] of [
         ["launch", run, at.example],
-        ["drive", run, scenarioFile(at, scenario)],
+        ...scenarios.map((scenario) => [
+          "drive",
+          run,
+          scenarioFile(at, scenario),
+        ]),
         ["report", run],
-      ] as const)
+      ])
         runs.push({
-          command,
-          ran: await viaKernelFreeCheck(at, [command, ...argv, "--json"]),
+          command: command ?? "",
+          ran: await viaKernelFreeCheck(
+            at,
+            [command ?? "", ...argv, "--json"],
+            {
+              env,
+            },
+          ),
         });
       const own = {
         name: "example",
         repair: exampleRepair,
         runs,
-        evidence: stepEvidence(run, scenario),
+        evidence: new Map(
+          scenarios.flatMap((scenario) => [...stepEvidence(run, scenario)]),
+        ),
       };
       expect(await judged(at, own, at.example)).toEqual([]);
     },
-    watchdog(0, 4),
+    watchdog(0, 5),
   );
 
   test(
