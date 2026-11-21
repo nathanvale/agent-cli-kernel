@@ -23,6 +23,16 @@
       },
       {
         "command": "moons.visit",
+        "cause": "DOMAIN_MOONS_VISIT_NOT_OPENED",
+        "state": "owed"
+      },
+      {
+        "command": "moons.visit",
+        "cause": "DOMAIN_MOONS_VISIT_PARTIAL",
+        "state": "owed"
+      },
+      {
+        "command": "moons.visit",
         "cause": "DOMAIN_MOONS_VISIT_UNCONFIRMED",
         "state": "owed"
       },

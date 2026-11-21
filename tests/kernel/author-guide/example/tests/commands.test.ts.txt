@@ -1,5 +1,11 @@
 import { afterAll, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runInProcess } from "agent-cli-kernel";
@@ -59,14 +65,14 @@ test("show refuses a planet it does not know and points at list", async () => {
   });
 });
 
-test("visit writes the planet's page and asks the opener to show it", async () => {
+test("visit writes the planet's page and launches the opener", async () => {
   const home = newHome();
   expect(await moonsIn(home, "/usr/bin/true")(["visit", "mars"])).toMatchObject(
     {
       exitCode: 0,
       causeCode: "SUCCESS_COMPLETED",
       transactionState: "completed",
-      effects: { completed: ["planet.record", "viewer.open-request"] },
+      effects: { completed: ["planet.record", "viewer.launch"] },
     },
   );
   expect(readFileSync(join(home, "visits", "mars.txt"), "utf8")).toBe(
@@ -74,30 +80,56 @@ test("visit writes the planet's page and asks the opener to show it", async () =
   );
 });
 
-test("a failed open leaves a case that pending lists and that blocks only that planet", async () => {
+test("a non-zero opener fails with a handoff and leaves nothing pending, so the next visit runs", async () => {
   const home = newHome();
   const failing = moonsIn(home, "/usr/bin/false");
   expect(await failing(["visit", "earth"])).toMatchObject({
     exitCode: 3,
     outcome: "failed",
-    causeCode: "DOMAIN_MOONS_VISIT_UNCONFIRMED",
-    effects: {
-      completed: ["planet.record"],
-      uncertain: ["viewer.open-request"],
-    },
+    causeCode: "DOMAIN_MOONS_VISIT_NOT_OPENED",
+    transactionState: "completed",
+    effects: { completed: ["planet.record", "viewer.launch"] },
+    handoff: { owner: "human" },
   });
   expect(await failing(["pending"])).toMatchObject({
-    data: {
-      unfinished: [{ effects: ["planet.record", "viewer.open-request"] }],
+    data: { unfinished: [] },
+  });
+  expect(
+    await moonsIn(home, "/usr/bin/true")(["visit", "earth"]),
+  ).toMatchObject({
+    causeCode: "SUCCESS_COMPLETED",
+  });
+});
+
+test("an unconfirmed page skips the opener, leaves a case pending names by planet, and blocks only that planet", async () => {
+  const home = newHome();
+  mkdirSync(join(home, "visits"), { recursive: true });
+  symlinkSync("/dev/null", join(home, "visits", "earth.txt"));
+  const run = moonsIn(home, "/usr/bin/true");
+  expect(await run(["visit", "earth"])).toMatchObject({
+    exitCode: 3,
+    outcome: "failed",
+    causeCode: "DOMAIN_MOONS_VISIT_UNCONFIRMED",
+    transactionState: "unknown",
+    effects: {
+      completed: [],
+      remaining: ["viewer.launch"],
+      uncertain: ["planet.record"],
     },
   });
-  const working = moonsIn(home, "/usr/bin/true");
-  expect(await working(["visit", "earth"])).toMatchObject({
+  expect(await run(["pending"])).toMatchObject({
+    data: {
+      unfinished: [
+        { planet: "earth", effects: ["planet.record", "viewer.launch"] },
+      ],
+    },
+  });
+  expect(await run(["visit", "earth"])).toMatchObject({
     exitCode: 3,
     outcome: "refused",
     causeCode: "DOMAIN_MOONS_VISIT_UNRESOLVED",
   });
-  expect(await working(["visit", "mars"])).toMatchObject({
+  expect(await run(["visit", "mars"])).toMatchObject({
     causeCode: "SUCCESS_COMPLETED",
   });
 });

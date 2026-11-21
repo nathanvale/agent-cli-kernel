@@ -3,7 +3,7 @@
 `moons` is a CLI with four commands. `list` has one option and no declared
 station. `show` has one argument, a success station and a refusal. `visit`
 is a [changing command](changing.md), and `pending` is its `ifNoResult`
-command.
+command. Its tests live in [example tests](example-tests.md).
 
 The kernel repository lays these files out as a repository that depends on
 the `agent-cli-kernel` package, then compiles them, runs the kernel's lint
@@ -56,6 +56,16 @@ const causes = {
   DOMAIN_MOONS_VISIT_HELD: handoffRow,
   DOMAIN_MOONS_VISIT_UNRESOLVED: handoffRow,
   DOMAIN_MOONS_VISIT_UNAVAILABLE: handoffRow,
+  DOMAIN_MOONS_VISIT_NOT_OPENED: {
+    ...handoffRow,
+    outcome: "failed",
+    transactionState: "completed",
+  },
+  DOMAIN_MOONS_VISIT_PARTIAL: {
+    ...handoffRow,
+    outcome: "failed",
+    transactionState: "partially-completed",
+  },
   DOMAIN_MOONS_VISIT_UNCONFIRMED: {
     ...handoffRow,
     outcome: "failed",
@@ -194,8 +204,8 @@ const show = command({
   },
 });
 
-const handRepair =
-  "Read pending. With no visit running, check the planet by hand, then move its case folder out of state/operations in the moons home and keep it.";
+const unresolvedRepair =
+  "Run pending to see the planet and operation id, then check that planet's page and viewer by hand. That planet stays blocked until a qualified close exists.";
 
 const pendingStep = {
   kind: "command",
@@ -232,7 +242,7 @@ export function moonsCli(home: string, opener: string) {
     },
     capabilities: { programs: true },
     effectClass: "external",
-    effects: ["planet.record", "viewer.open-request"],
+    effects: ["planet.record", "viewer.launch"],
     ifNoResult: state.descriptor.ifNoResult,
     heldLockCause: "DOMAIN_MOONS_VISIT_HELD",
     unresolvedCaseCause: "DOMAIN_MOONS_VISIT_UNRESOLVED",
@@ -241,7 +251,7 @@ export function moonsCli(home: string, opener: string) {
         ...stationWords,
         commandIdentity: "moons.visit",
         causeCode: "SUCCESS_COMPLETED" satisfies keyof typeof commonCauses,
-        trigger: "The page was written and the opener took it.",
+        trigger: "The page was written and the opener exited 0.",
         repairAction: null,
         guidance: { next: { kind: "done" } },
         independentObservable: "moons.visit:shown",
@@ -249,9 +259,45 @@ export function moonsCli(home: string, opener: string) {
       station(causes, {
         ...stationWords,
         commandIdentity: "moons.visit",
+        causeCode: "DOMAIN_MOONS_VISIT_NOT_OPENED",
+        trigger: "The page was written and the opener exited non-zero.",
+        repairAction:
+          "Check the opener and the planet's page, then visit the planet again.",
+        guidance: {
+          handoff: {
+            owner: "human",
+            reason: "The opener exited non-zero.",
+            inspect: [
+              {
+                kind: "instruction",
+                text: "Check the opener and the planet's page, then visit the planet again.",
+              },
+            ],
+          },
+        },
+        independentObservable: "moons.visit:not-opened",
+      }),
+      station(causes, {
+        ...stationWords,
+        commandIdentity: "moons.visit",
+        causeCode: "DOMAIN_MOONS_VISIT_PARTIAL",
+        trigger: "The page was written, and the launch did not start.",
+        repairAction: unresolvedRepair,
+        guidance: {
+          handoff: {
+            owner: "human",
+            reason: "The visit stopped before the launch started.",
+            inspect: [pendingStep],
+          },
+        },
+        independentObservable: "moons.visit:partial",
+      }),
+      station(causes, {
+        ...stationWords,
+        commandIdentity: "moons.visit",
         causeCode: "DOMAIN_MOONS_VISIT_UNCONFIRMED",
-        trigger: "The page or the open request is not confirmed.",
-        repairAction: handRepair,
+        trigger: "The page or the launch is not confirmed.",
+        repairAction: unresolvedRepair,
         guidance: {
           handoff: {
             owner: "human",
@@ -261,46 +307,58 @@ export function moonsCli(home: string, opener: string) {
         },
         independentObservable: "moons.visit:unconfirmed",
       }),
-      ...(
-        [
-          [
-            "DOMAIN_MOONS_VISIT_HELD",
-            "Another visit to this planet is running.",
-            "Wait for that visit to end, then visit again.",
-          ],
-          [
-            "DOMAIN_MOONS_VISIT_UNRESOLVED",
-            "An earlier visit to this planet never finished.",
-            handRepair,
-          ],
-          [
-            "DOMAIN_MOONS_VISIT_UNAVAILABLE",
-            "The visits' state cannot take a change.",
-            "Read the message, then repair the state folder in the moons home.",
-          ],
-        ] as const
-      ).map(([causeCode, trigger, repairAction]) =>
-        station(causes, {
-          ...stationWords,
-          commandIdentity: "moons.visit",
-          causeCode,
-          trigger,
-          repairAction,
-          guidance: {
-            handoff: {
-              owner: "human",
-              reason: trigger,
-              inspect: [pendingStep],
-            },
+      station(causes, {
+        ...stationWords,
+        commandIdentity: "moons.visit",
+        causeCode: "DOMAIN_MOONS_VISIT_HELD",
+        trigger: "Another visit to this planet is running.",
+        repairAction: "Wait for that visit to end, then visit again.",
+        guidance: {
+          handoff: {
+            owner: "human",
+            reason: "Another visit to this planet is running.",
+            inspect: [pendingStep],
           },
-          independentObservable: `moons.visit:${causeCode}`,
-        }),
-      ),
+        },
+        independentObservable: "moons.visit:held",
+      }),
+      station(causes, {
+        ...stationWords,
+        commandIdentity: "moons.visit",
+        causeCode: "DOMAIN_MOONS_VISIT_UNRESOLVED",
+        trigger: "An earlier visit to this planet never finished.",
+        repairAction: unresolvedRepair,
+        guidance: {
+          handoff: {
+            owner: "human",
+            reason: "An earlier visit to this planet never finished.",
+            inspect: [pendingStep],
+          },
+        },
+        independentObservable: "moons.visit:unresolved",
+      }),
+      station(causes, {
+        ...stationWords,
+        commandIdentity: "moons.visit",
+        causeCode: "DOMAIN_MOONS_VISIT_UNAVAILABLE",
+        trigger: "The visits' state cannot take a change.",
+        repairAction:
+          "Read the message, then repair the state folder in the moons home.",
+        guidance: {
+          handoff: {
+            owner: "human",
+            reason: "The visits' state cannot take a change.",
+            inspect: [pendingStep],
+          },
+        },
+        independentObservable: "moons.visit:unavailable",
+      }),
     ],
     run: async (input, context) => {
       const count = moons.get(input.planet) ?? 0;
       const page = join(home, "visits", `${input.planet}.txt`);
       const text = `${input.planet} has ${String(count)} moons.\n`;
+      let exitCode: number | null = null;
       const outcome = await state.transaction(
         context.state,
         {
@@ -309,16 +367,21 @@ export function moonsCli(home: string, opener: string) {
           facts: { planet: input.planet },
         },
         async (transaction) => {
+          let pageConfirmed = false;
           await transaction.record(
             "planet.record",
             async () => {
               await mkdir(join(home, "visits"), { recursive: true });
               await writeFile(page, text);
             },
-            async () => (await readFile(page, "utf8")) === text,
+            async () => {
+              pageConfirmed = (await readFile(page, "utf8")) === text;
+              return pageConfirmed;
+            },
           );
-          await transaction.record(
-            "viewer.open-request",
+          if (!pageConfirmed) return;
+          const launched = await transaction.record(
+            "viewer.launch",
             (recorded) =>
               context.programs.domain(recorded).start({
                 executable: viewer,
@@ -327,9 +390,12 @@ export function moonsCli(home: string, opener: string) {
                 outputLimitBytes: 4_096,
                 shutdownMilliseconds: 1_000,
               }),
-            ({ exitCode, terminationConfirmed }) =>
-              Promise.resolve(exitCode === 0 && terminationConfirmed),
+            ({ exitCode: code, terminationConfirmed }) => {
+              const exited = !context.signal.aborted && code !== null;
+              return Promise.resolve(exited && terminationConfirmed);
+            },
           );
+          exitCode = launched.exitCode;
         },
       );
       if (outcome.kind !== "ran") {
@@ -348,6 +414,30 @@ export function moonsCli(home: string, opener: string) {
           },
         );
       }
+      if (outcome.proof.transactionState === "unchanged")
+        return context.result(
+          {
+            commandIdentity: "moons.visit",
+            causeCode: "DOMAIN_MOONS_VISIT_UNAVAILABLE",
+          },
+          {
+            message: `Nothing was visited for ${input.planet}.`,
+            data: null,
+            effects: nothingChanged,
+          },
+        );
+      if (outcome.proof.transactionState === "partially-completed")
+        return context.result(
+          {
+            commandIdentity: "moons.visit",
+            causeCode: "DOMAIN_MOONS_VISIT_PARTIAL",
+          },
+          {
+            message: `The visit to ${input.planet} wrote the page, then stopped before launch.`,
+            data: null,
+            transaction: outcome.proof,
+          },
+        );
       if (outcome.proof.transactionState !== "completed")
         return context.result(
           {
@@ -356,6 +446,18 @@ export function moonsCli(home: string, opener: string) {
           },
           {
             message: `The visit to ${input.planet} is not confirmed.`,
+            data: null,
+            transaction: outcome.proof,
+          },
+        );
+      if (exitCode !== 0)
+        return context.result(
+          {
+            commandIdentity: "moons.visit",
+            causeCode: "DOMAIN_MOONS_VISIT_NOT_OPENED",
+          },
+          {
+            message: `The opener exited ${String(exitCode)} for ${input.planet}.`,
             data: null,
             transaction: outcome.proof,
           },
@@ -401,7 +503,8 @@ export function moonsCli(home: string, opener: string) {
         causeCode:
           "DOMAIN_PRECONDITION_UNMET" satisfies keyof typeof commonCauses,
         trigger: "The visits' state cannot be read.",
-        repairAction: "Repair or move the state folder in the moons home.",
+        repairAction:
+          "Read the message and repair the state folder in the moons home.",
         guidance: {
           next: {
             kind: "instruction",
@@ -411,7 +514,7 @@ export function moonsCli(home: string, opener: string) {
         independentObservable: "moons.pending:unreadable",
       }),
     ],
-    run: (_input, context) => {
+    run: async (_input, context) => {
       const report = state.report();
       if (!report.ok && report.reason !== "missing")
         return context.result(
@@ -427,10 +530,21 @@ export function moonsCli(home: string, opener: string) {
           },
         );
       const unfinished = report.ok
-        ? report.unfinished.map((entry) => ({
-            operationId: entry.operationId,
-            effects: entry.effects,
-          }))
+        ? await Promise.all(
+            report.unfinished.map(async (entry) => {
+              const record = await state.history(entry.operationId);
+              const key = record.ok
+                ? record.history.scope.resources.find(
+                    (item) => item.resource === "planet",
+                  )?.keys[0]
+                : undefined;
+              return {
+                operationId: entry.operationId,
+                planet: key?.startsWith("key:") ? key.slice(4) : null,
+                effects: entry.effects,
+              };
+            }),
+          )
         : [];
       return context.result(
         {
@@ -478,184 +592,6 @@ const { contract, setup } = moonsCli(
 );
 
 await runProcess(contract, setup)(process.argv.slice(2));
-```
-
-## `tests/commands.test.ts`
-
-```ts
-import { afterAll, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { runInProcess } from "agent-cli-kernel";
-import { moonsCli } from "../src/commands.ts";
-
-const homes: string[] = [];
-
-afterAll(() => {
-  for (const home of homes) rmSync(home, { recursive: true, force: true });
-});
-
-function moonsIn(home: string, opener: string) {
-  const cli = moonsCli(home, opener);
-  const run = runInProcess(cli.contract, cli.setup);
-  return async (argv: readonly string[]) => {
-    const ran = await run(argv);
-    if (ran.kind !== "envelope")
-      throw new Error(`Expected an envelope, got ${ran.kind}.`);
-    return ran.envelope.result;
-  };
-}
-
-function newHome() {
-  const home = mkdtempSync(join(tmpdir(), "moons-"));
-  homes.push(home);
-  return home;
-}
-
-const resultOf = moonsIn(newHome(), "/usr/bin/true");
-
-test("list returns every planet, or only those with enough moons", async () => {
-  expect(await resultOf(["list"])).toMatchObject({
-    exitCode: 0,
-    causeCode: "SUCCESS_UNCHANGED",
-    data: { planets: ["venus", "earth", "mars"] },
-  });
-  expect(await resultOf(["list", "--at-least", "2"])).toMatchObject({
-    data: { planets: ["mars"] },
-  });
-});
-
-test("show returns a known planet's moons", async () => {
-  expect(await resultOf(["show", "mars"])).toMatchObject({
-    exitCode: 0,
-    causeCode: "SUCCESS_UNCHANGED",
-    data: { planet: "mars", moons: 2 },
-  });
-});
-
-test("show refuses a planet it does not know and points at list", async () => {
-  expect(await resultOf(["show", "pluto"])).toMatchObject({
-    exitCode: 3,
-    outcome: "refused",
-    causeCode: "DOMAIN_MOONS_UNKNOWN_PLANET",
-    data: null,
-    next: { kind: "command", command: "moons.list", args: [] },
-  });
-});
-
-test("visit writes the planet's page and asks the opener to show it", async () => {
-  const home = newHome();
-  expect(await moonsIn(home, "/usr/bin/true")(["visit", "mars"])).toMatchObject(
-    {
-      exitCode: 0,
-      causeCode: "SUCCESS_COMPLETED",
-      transactionState: "completed",
-      effects: { completed: ["planet.record", "viewer.open-request"] },
-    },
-  );
-  expect(readFileSync(join(home, "visits", "mars.txt"), "utf8")).toBe(
-    "mars has 2 moons.\n",
-  );
-});
-
-test("a failed open leaves a case that pending lists and that blocks only that planet", async () => {
-  const home = newHome();
-  const failing = moonsIn(home, "/usr/bin/false");
-  expect(await failing(["visit", "earth"])).toMatchObject({
-    exitCode: 3,
-    outcome: "failed",
-    causeCode: "DOMAIN_MOONS_VISIT_UNCONFIRMED",
-    effects: {
-      completed: ["planet.record"],
-      uncertain: ["viewer.open-request"],
-    },
-  });
-  expect(await failing(["pending"])).toMatchObject({
-    data: {
-      unfinished: [{ effects: ["planet.record", "viewer.open-request"] }],
-    },
-  });
-  const working = moonsIn(home, "/usr/bin/true");
-  expect(await working(["visit", "earth"])).toMatchObject({
-    exitCode: 3,
-    outcome: "refused",
-    causeCode: "DOMAIN_MOONS_VISIT_UNRESOLVED",
-  });
-  expect(await working(["visit", "mars"])).toMatchObject({
-    causeCode: "SUCCESS_COMPLETED",
-  });
-});
-```
-
-## `tests/cli.test.ts`
-
-```ts
-import { expect, setDefaultTimeout, test } from "bun:test";
-import { join } from "node:path";
-
-const cli = join(import.meta.dir, "../src/cli.ts");
-
-setDefaultTimeout(30_000);
-
-function invoke(...argv: string[]) {
-  const ran = Bun.spawnSync([process.execPath, cli, ...argv], {
-    timeout: 20_000,
-  });
-  return {
-    exitCode: ran.exitCode,
-    stdout: ran.stdout.toString(),
-    stderr: ran.stderr.toString(),
-  };
-}
-
-test("show --json writes one envelope to stdout and exits 0", () => {
-  const ran = invoke("show", "mars", "--json");
-  const envelope: unknown = JSON.parse(ran.stdout);
-  expect(ran.exitCode).toBe(0);
-  expect(ran.stderr).toBe("");
-  expect(envelope).toMatchObject({
-    contractVersion: "3.0.0",
-    result: {
-      commandIdentity: "moons.show",
-      causeCode: "SUCCESS_UNCHANGED",
-      data: { planet: "mars", moons: 2 },
-    },
-  });
-});
-
-test("show without --json prints the message, then the data", () => {
-  const ran = invoke("show", "mars");
-  expect(ran.exitCode).toBe(0);
-  expect(ran.stdout).toBe(
-    [
-      "mars has 2 moons.",
-      "{",
-      '  "planet": "mars",',
-      '  "moons": 2',
-      "}",
-      "",
-    ].join("\n"),
-  );
-});
-
-test("a refusal exits with its cause's code and writes one line to stderr", () => {
-  const ran = invoke("show", "pluto");
-  expect(ran.exitCode).toBe(3);
-  expect(ran.stdout).toBe("");
-  expect(ran.stderr).toBe(
-    "moons: No planet named pluto. [DOMAIN_MOONS_UNKNOWN_PLANET]\n",
-  );
-});
-
-test("list runs through the real entry", () => {
-  const ran = invoke("list", "--at-least", "1", "--json");
-  const envelope: unknown = JSON.parse(ran.stdout);
-  expect(ran.exitCode).toBe(0);
-  expect(envelope).toMatchObject({
-    result: { data: { planets: ["earth", "mars"] } },
-  });
-});
 ```
 
 ## Try it

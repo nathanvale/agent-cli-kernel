@@ -1,9 +1,9 @@
 # Writing a changing command
 
 Paths are from the root of your repository. The code is from the
-[example](example.md): `visit <planet>` writes the planet's page, then asks
-an opener program to show it, and `pending` lists the visits that never
-finished.
+[example](example.md) and its [example tests](example-tests.md):
+`visit <planet>` writes the planet's page, then launches an opener program
+to show it, and `pending` lists the visits that never finished.
 
 ## When a command is changing
 
@@ -40,7 +40,7 @@ run's scratch folder.
 ```ts
     capabilities: { programs: true },
     effectClass: "external",
-    effects: ["planet.record", "viewer.open-request"],
+    effects: ["planet.record", "viewer.launch"],
     ifNoResult: state.descriptor.ifNoResult,
     heldLockCause: "DOMAIN_MOONS_VISIT_HELD",
     unresolvedCaseCause: "DOMAIN_MOONS_VISIT_UNRESOLVED",
@@ -70,17 +70,19 @@ Give each run the add-ons' run setup, and pass it to `runProcess` and
 
 `changing` and `contractFor` throw these when the CLI starts.
 
-| Message                                                          | Cause                                                                                |
-| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `Invalid changing declaration.`                                  | `effects` repeats an identifier.                                                     |
-| `Changing commands require the state add-on.`                    | `installedAddons` does not list `"state"`.                                           |
-| `ifNoResult must come from the state add-on descriptor.`         | `ifNoResult` is a copy, not the value `state.descriptor` holds.                      |
-| `ifNoResult must name a declared inspect command.`               | `report` names a command that `commands` does not hold.                              |
-| `ifNoResult needs explicit further inspection guidance.`         | The `report` command's success guidance is `{ kind: "done" }`.                       |
-| `ifNoResult step <identity> [] can never parse: ...`             | The `report` command requires an argument or option. It is run with none.            |
-| `Changing commands need distinct coordination refusal stations.` | `heldLockCause` and `unresolvedCaseCause` are one cause.                             |
-| `Coordination refusal causes are host-owned.`                    | Either names a kernel cause, such as `DOMAIN_AUTHORITY_REQUIRED`. Add your own rows. |
-| `Coordination refusal requires an unchanged handoff.`            | Either station is not refused and unchanged with a `handoff`.                        |
+| Message                                                                | Cause                                                                                                               |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `Invalid changing declaration.`                                        | `effects` is empty or repeats an identifier.                                                                        |
+| `Changing commands require the state add-on.`                          | `installedAddons` does not list `"state"`.                                                                          |
+| `ifNoResult must come from the state add-on descriptor.`               | `ifNoResult` is a copy, not the value `state.descriptor` holds.                                                     |
+| `ifNoResult must name a declared inspect command.`                     | `report` names a command that `commands` does not hold, or one that is not `inspect`.                               |
+| `ifNoResult step <identity> <args> carries a global switch before --.` | The `ifNoResult` step passes `--json`, `--help`, `--discover` or `--discover-command` before `--`.                  |
+| `ifNoResult step <identity> [] can never parse: ...`                   | The `report` command requires an argument or option. It is run with none.                                           |
+| `ifNoResult step <identity> <args> routes to <other>.`                 | The `report` command's route plus its `ifNoResult` arguments match another command instead of the `report` command. |
+| `ifNoResult needs explicit further inspection guidance.`               | The `report` command's success guidance is `{ kind: "done" }`.                                                      |
+| `Changing commands need distinct coordination refusal stations.`       | `heldLockCause` and `unresolvedCaseCause` are one cause, or either is not one of the command's declared stations.   |
+| `Coordination refusal causes are host-owned.`                          | Either names a kernel cause, such as `DOMAIN_AUTHORITY_REQUIRED`. Add your own rows.                                |
+| `Coordination refusal requires an unchanged handoff.`                  | Either station is not refused and unchanged with a `handoff`.                                                       |
 
 The `report` command's success guidance tells the caller what to do with
 the list:
@@ -97,7 +99,8 @@ the list:
 ## The report command
 
 `pending` is an ordinary read-only command. It reads `state.report()`,
-which never creates the state folder:
+which never creates the state folder, and `state.history(operationId)` so
+each entry names the planet from its scope:
 
 ```ts
       const report = state.report();
@@ -106,6 +109,9 @@ which never creates the state folder:
 
 - `report.ok` is true with `report.unfinished`: one entry for each
   unresolved case, with its `operationId`, `commandIdentity` and `effects`.
+  Read `state.history(entry.operationId)` to include the scope's resource
+  key (here `planet`), so a caller with two unfinished visits can tell them
+  apart.
 - `report.reason` is `"missing"` before the first change makes the state
   folder. Answer it as an empty list. Refuse `"unreadable"` and `"corrupt"`
   with a station of the command's own.
@@ -114,9 +120,15 @@ which never creates the state folder:
 
 **Look and ask first, change last.** Every look-up and every question to
 the caller happens before the transaction opens, because the transaction
-holds a lock on its scope until its work returns. A reviewer refuses a
-handler that looks something up or waits for a person inside the work; no
-check can see it.
+holds a coordination lock on its scope until its work returns. A reviewer
+refuses a handler that looks something up or waits for a person inside the
+work; no check can see it.
+
+If the command sets `deadlineSupported: true` and `--deadline-ms` expires
+before `state.transaction` opens, the kernel closes the state capability so
+no transaction can start, answers `DOMAIN_DEADLINE_BEFORE_START` (before
+handler entry) or `DOMAIN_DEADLINE_UNCHANGED` (after handler entry, exit
+code 3), and leaves nothing pending.
 
 ```ts
       const outcome = await state.transaction(
@@ -149,47 +161,75 @@ check can see it.
 
 A refusal changed nothing, so its facts carry `effects: nothingChanged`.
 After a run, select by `outcome.proof.transactionState` and pass
-`transaction: outcome.proof` as the facts' effects. `completed` selects the
-success `SUCCESS_COMPLETED`. Anything else selects a failed station whose
-row has that transaction state; `visit` declares one row with
-`transactionState: "unknown"`, `DOMAIN_MOONS_VISIT_UNCONFIRMED`.
+`transaction: outcome.proof` on every non-refused station. The kernel
+requires the proof's `transactionState` to match the selected cause row's
+declared `transactionState`, or it refuses the result:
+
+- `completed`: `SUCCESS_COMPLETED` when the opener exited 0, or a
+  `failed`, `completed` station with a handoff
+  (`DOMAIN_MOONS_VISIT_NOT_OPENED`) when it exited non-zero. Neither leaves
+  an unresolved case, so the next visit simply runs.
+- `partially-completed`: a `failed`, `partially-completed` station with a
+  handoff (`DOMAIN_MOONS_VISIT_PARTIAL`), for when an earlier effect
+  confirmed and a later effect never started.
+- `unknown`: a `failed`, `unknown` station with a handoff
+  (`DOMAIN_MOONS_VISIT_UNCONFIRMED`), for when an effect started and was
+  not confirmed.
+- `unchanged`: a refused, unchanged station with `effects: nothingChanged`
+  (`DOMAIN_MOONS_VISIT_UNAVAILABLE`), for when the work stopped before any
+  effect started.
 
 ## Read-back
 
 A read-back answers "is the change there now?" from the real resource. A
-read-back that returns false leaves its effect uncertain: the run fails with transaction state `unknown`, and the case stays unresolved for
-its scope. The `report` command lists it, and the next change to that scope
-is refused with the unresolved-case station.
+read-back that returns `false` or throws leaves its effect uncertain:
+`transaction.record` does not rethrow a read-back error, the run fails with
+transaction state `unknown`, and the case stays unresolved for its scope.
+The `report` command lists it, and the next change to that scope is refused
+with the unresolved-case station.
 
-A file: read it back and compare.
+A file: read it back and compare, and gate the next effect on that
+confirmation so the opener never runs on an unconfirmed page:
 
 ```ts
-await transaction.record(
-  "planet.record",
-  async () => {
-    await mkdir(join(home, "visits"), { recursive: true });
-    await writeFile(page, text);
-  },
-  async () => (await readFile(page, "utf8")) === text,
-);
+          let pageConfirmed = false;
+          await transaction.record(
+            "planet.record",
+            async () => {
+              await mkdir(join(home, "visits"), { recursive: true });
+              await writeFile(page, text);
+            },
+            async () => {
+              pageConfirmed = (await readFile(page, "utf8")) === text;
+              return pageConfirmed;
+            },
+          );
+          if (!pageConfirmed) return;
 ```
 
 An action you start and do not wait for, such as opening a page or an
 editor:
 
-- Name the effect for what you can confirm: the request was delivered
-  (`viewer.open-request`), never "the viewer showed it". An editor's
-  window can appear seconds after its opener returns.
+- Record the **launch** (`viewer.launch`), never "the viewer showed it". An
+  editor's window can appear seconds after its opener returns.
 - Start the opener through the programs add-on, inside the record:
   `context.programs.domain(recorded).start(request)`.
-- Read back from the opener's own result: exit code 0 and
-  `terminationConfirmed`.
+- Read back from whether the launcher exited on its own and stopped cleanly
+  (`!context.signal.aborted && code !== null && terminationConfirmed`),
+  observed by the programs add-on. Then pick the station from
+  `launched.exitCode`: exit 0 is `SUCCESS_COMPLETED`; any non-zero exit
+  returns `DOMAIN_MOONS_VISIT_NOT_OPENED` (`failed`, `completed`, with a
+  handoff) and leaves no unresolved case, so the next visit simply runs.
+- An unresolved case is left for `viewer.launch` only if the launcher
+  cannot be seen to stop (`terminationConfirmed` is false), is killed by a
+  signal (`code === null`), or the run is stopped in mid-launch
+  (`context.signal.aborted`).
 
 The record:
 
 ```ts
-await transaction.record(
-  "viewer.open-request",
+const launched = await transaction.record(
+  "viewer.launch",
   (recorded) =>
     context.programs.domain(recorded).start({
       executable: viewer,
@@ -198,9 +238,12 @@ await transaction.record(
       outputLimitBytes: 4_096,
       shutdownMilliseconds: 1_000,
     }),
-  ({ exitCode, terminationConfirmed }) =>
-    Promise.resolve(exitCode === 0 && terminationConfirmed),
+  ({ exitCode: code, terminationConfirmed }) => {
+    const exited = !context.signal.aborted && code !== null;
+    return Promise.resolve(exited && terminationConfirmed);
+  },
 );
+exitCode = launched.exitCode;
 ```
 
 The executable is an absolute path. `moonsCli` checks it once the contract
@@ -211,20 +254,27 @@ starts:
 const viewer = contract.boundary.path(opener);
 ```
 
-Keep the record and the request as two effects. When the opener fails, the
-result then says the page was written (`completed`) and the request is
-uncertain.
+Keep the page write and the launch as two effects. If the page is not
+confirmed, the opener never runs and the result says `planet.record` is
+uncertain while `viewer.launch` is remaining.
 
 ## Stops: what is left behind
 
 - Stopped before the transaction opens, by Ctrl-C or SIGTERM: the process
   exits 130 or 143, prints nothing, and leaves nothing pending.
+- Deadline before the transaction opens: the process exits 3 with
+  `DOMAIN_DEADLINE_BEFORE_START` or `DOMAIN_DEADLINE_UNCHANGED` and leaves
+  nothing pending.
 - Stopped inside the transaction, as by SIGTERM: the process exits 143 and
   prints nothing. The programs add-on stops a program the record started.
-  The case stays unresolved: the `report` command lists it, and the next change
-  to that scope is refused with the unresolved-case station.
+  The case stays unresolved: the `report` command lists it, and the next
+  change to that scope is refused with the unresolved-case station.
 
 ## A case no command can close
+
+Because a non-zero opener exit ends `failed` and `completed`, an unresolved
+case is a rare last resort: a stop in mid-launch, a launcher that cannot be
+seen to stop, or an unconfirmed page write.
 
 On macOS the state add-on cannot close an unresolved case. A host's close
 command, `state.close(context.state, request)`, returns `unavailable` with
@@ -233,55 +283,67 @@ reports `stoppedOwnerProof` as `unavailable`. So:
 
 - Keep each scope narrow. A stuck case then blocks one destination, not the
   tool.
-- Name the hand repair in the unresolved-case and unconfirmed stations'
-  repair action. A person checks the effect by hand, then, with no change
-  running, moves the case folder `operations/<operationId>` out of the state
-  folder and keeps it. The `report` command lists that `operationId`, and
-  the next change to the scope runs.
+- Never advise moving or deleting state files to get round the protocol
+  (Command Contract 3 REC-7: "A person is not advised to bypass this
+  protocol by deleting files").
+- In the unresolved-case, partial and unconfirmed stations' repair action,
+  name the command that reports the case (`pending`, which lists each
+  case's `operationId`, `planet` and `effects`), say what the person checks
+  by hand (that planet's page and viewer), and state that the case stays
+  until a qualified close exists:
 
 ```ts
-const handRepair =
-  "Read pending. With no visit running, check the planet by hand, then move its case folder out of state/operations in the moons home and keep it.";
+const unresolvedRepair =
+  "Run pending to see the planet and operation id, then check that planet's page and viewer by hand. That planet stays blocked until a qualified close exists.";
 ```
 
 ## Choosing the scope
 
-A scope is what one unresolved case blocks, and what the lock holds while
-the work runs.
+A scope is what one unresolved case blocks, and what the coordination lock
+holds while the work runs.
 
 - Scope a destination's commands to that destination, never to the whole
   tool. `visit` scopes to the planet: an interrupted visit to venus blocks
   venus, and a visit to earth still runs.
 - Keep every resource the work writes inside the scope. Give each
-  destination its own record, as `visit` writes `visits/<planet>.txt`. A
+  destination its own page, as `visit` writes `visits/<planet>.txt`. A
   record every destination shares belongs to every scope, and would widen
   the scope to the whole tool.
 
 ## Testing
 
 Build the contract in a function, as [testing](testing.md#in-process)
-shows, so each test passes its own state folder and opener. Reach a failed
-read-back with an opener that exits non-zero, then assert the case it
-leaves:
+shows, so each test passes its own state folder and opener. Prove that a
+non-zero opener fails with a handoff, leaves nothing pending, and lets the
+next visit to that planet run:
 
 ```ts
-test("a failed open leaves a case that pending lists and that blocks only that planet", async () => {
+test("a non-zero opener fails with a handoff and leaves nothing pending, so the next visit runs", async () => {
   const home = newHome();
   const failing = moonsIn(home, "/usr/bin/false");
   expect(await failing(["visit", "earth"])).toMatchObject({
     exitCode: 3,
     outcome: "failed",
-    causeCode: "DOMAIN_MOONS_VISIT_UNCONFIRMED",
-    effects: {
-      completed: ["planet.record"],
-      uncertain: ["viewer.open-request"],
-    },
+    causeCode: "DOMAIN_MOONS_VISIT_NOT_OPENED",
+    transactionState: "completed",
+    effects: { completed: ["planet.record", "viewer.launch"] },
+    handoff: { owner: "human" },
   });
+  expect(await failing(["pending"])).toMatchObject({
+    data: { unfinished: [] },
+  });
+  expect(
+    await moonsIn(home, "/usr/bin/true")(["visit", "earth"]),
+  ).toMatchObject({
+    causeCode: "SUCCESS_COMPLETED",
+  });
+});
 ```
 
-The same test then shows `pending` listing the case, a second visit to
-earth refused as unresolved with a working opener, and a visit to mars
-that succeeds.
+A second test in [example tests](example-tests.md) symlinks `earth.txt` to
+`/dev/null` so the page read-back returns false: the opener does not run,
+`pending` lists `earth` by planet, a second visit to `earth` is refused as
+unresolved, and a visit to `mars` succeeds.
 
 Then drive the real CLI with verify-cli's changing-command feature, in
 `node_modules/agent-cli-kernel/skills/verify-cli/features/changing-command.md`.

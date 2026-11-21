@@ -2,9 +2,9 @@ diff --git a/tests/kernel/author-guide/example/src/commands.ts.txt b/tests/kerne
 index 98ce108..fbb3629 100644
 --- a/tests/kernel/author-guide/example/src/commands.ts.txt
 +++ b/tests/kernel/author-guide/example/src/commands.ts.txt
-@@ -396,19 +396,6 @@ export function moonsCli(home: string, opener: string) {
+@@ -501,19 +501,6 @@ export function moonsCli(home: string, opener: string) {
      ],
-     run: (_input, context) => {
+     run: async (_input, context) => {
        const report = state.report();
 -      if (!report.ok && report.reason !== "missing")
 -        return context.result(
@@ -20,5 +20,5 @@ index 98ce108..fbb3629 100644
 -          },
 -        );
        const unfinished = report.ok
-         ? report.unfinished.map((entry) => ({
-             operationId: entry.operationId,
+         ? await Promise.all(
+             report.unfinished.map(async (entry) => {

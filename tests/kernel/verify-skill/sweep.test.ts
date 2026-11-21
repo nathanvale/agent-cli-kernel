@@ -72,7 +72,7 @@ describe("sweep", () => {
         stderr: "",
       });
       expect(ran.stdout.split("\n")[0]).toBe(
-        "62 checks passed. Stations owed: 8.",
+        "62 checks passed. Stations owed: 10.",
       );
     },
     watchdog(0, 1),
@@ -88,6 +88,8 @@ describe("sweep", () => {
         { command: "moons.show", cause: "SUCCESS_UNCHANGED" },
         { command: "moons.show", cause: "DOMAIN_MOONS_UNKNOWN_PLANET" },
         { command: "moons.visit", cause: "SUCCESS_COMPLETED" },
+        { command: "moons.visit", cause: "DOMAIN_MOONS_VISIT_NOT_OPENED" },
+        { command: "moons.visit", cause: "DOMAIN_MOONS_VISIT_PARTIAL" },
         { command: "moons.visit", cause: "DOMAIN_MOONS_VISIT_UNCONFIRMED" },
         { command: "moons.visit", cause: "DOMAIN_MOONS_VISIT_HELD" },
         { command: "moons.visit", cause: "DOMAIN_MOONS_VISIT_UNRESOLVED" },

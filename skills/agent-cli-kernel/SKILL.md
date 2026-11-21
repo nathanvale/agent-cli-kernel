@@ -37,8 +37,10 @@ to one commit. This skill ships inside that package, at
 - Declaring a result a command can produce, such as a refusal, or reading a
   throw when the CLI starts: read [stations](references/stations.md).
 - Testing a command: read [testing](references/testing.md).
-- Starting a CLI, or wanting whole files to copy: read
+- Starting a CLI, or wanting whole source files to copy: read
   [example](references/example.md).
+- Reading the example's whole test files: read
+  [example tests](references/example-tests.md).
 - Writing a command that changes a file or any other resource, its state
   add-on, its report command, or a case it leaves unfinished: read
   [changing](references/changing.md).

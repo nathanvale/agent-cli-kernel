@@ -72,7 +72,7 @@ describe("report and cleanup", () => {
       });
       const envelope: unknown = JSON.parse(ran.stdout);
       expect(field(envelope, "message")).toBe(
-        "Stations: 2 swept, 1 driven, 7 owed. Steps: 2 met, 0 unmet.",
+        "Stations: 2 swept, 1 driven, 9 owed. Steps: 2 met, 0 unmet.",
       );
       expect(field(envelope, "result", "data", "stations")).toEqual([
         {
@@ -108,6 +108,18 @@ describe("report and cleanup", () => {
         {
           command: "moons.visit",
           cause: "SUCCESS_COMPLETED",
+          state: "owed",
+          by: null,
+        },
+        {
+          command: "moons.visit",
+          cause: "DOMAIN_MOONS_VISIT_NOT_OPENED",
+          state: "owed",
+          by: null,
+        },
+        {
+          command: "moons.visit",
+          cause: "DOMAIN_MOONS_VISIT_PARTIAL",
           state: "owed",
           by: null,
         },

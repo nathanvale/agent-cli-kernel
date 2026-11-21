@@ -49,7 +49,7 @@ at once, except for venus's page, where it waits.
           "commandIdentity": "moons.visit",
           "causeCode": "SUCCESS_COMPLETED",
           "transactionState": "completed",
-          "effects.completed": ["planet.record", "viewer.open-request"]
+          "effects.completed": ["planet.record", "viewer.launch"]
         },
         "files": [
           {
@@ -125,7 +125,8 @@ at once, except for venus's page, where it waits.
         "result": {
           "causeCode": "SUCCESS_UNCHANGED",
           "data.unfinished.length": 1,
-          "data.unfinished.0.effects": ["planet.record", "viewer.open-request"]
+          "data.unfinished.0.planet": "venus",
+          "data.unfinished.0.effects": ["planet.record", "viewer.launch"]
         }
       }
     },

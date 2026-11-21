@@ -1,7 +1,7 @@
 # Testing a command
 
 A command needs two kinds of test. The code is from the
-[example](example.md).
+[example tests](example-tests.md).
 
 ## In process
 
@@ -22,6 +22,14 @@ function moonsIn(home: string, opener: string) {
     return ran.envelope.result;
   };
 }
+
+function newHome() {
+  const home = mkdtempSync(join(tmpdir(), "moons-"));
+  homes.push(home);
+  return home;
+}
+
+const resultOf = moonsIn(newHome(), "/usr/bin/true");
 ```
 
 - `kind` is `envelope` for a run that produced a result. Narrow on it first.
