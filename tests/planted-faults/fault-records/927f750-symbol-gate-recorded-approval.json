@@ -1,0 +1,7 @@
+{
+  "id": "927f750-symbol-gate-recorded-approval",
+  "patch": "tests/planted-faults/patches/927f750-symbol-gate-recorded-approval.patch",
+  "testFile": "tests/template/names-check/symbol-gate.test.ts",
+  "title": "^symbol gate requires approval for a new declaration record at an already recorded path$",
+  "source": "927f750 feat(names-check): apply the Avoid and Qualify rules to public declaration names"
+}
