@@ -67,6 +67,19 @@ What the gates of the test rows refuse and where, what stays with the reviewer, 
 - Review only: other guards, and a missing entry whose key no run reused.
 - Witnessed: [7fb5649], [c02caae].
 
+## Timings
+
+- `tests/template/standards/test-timings.test.ts` checks that every
+  `tests/**/*.test.ts` file has a non-negative finite duration in
+  `tests/test-timings.json` and that no stale key remains after a suite moves
+  or is removed.
+- Fault `996a685-test-timings` drops one entry from `tests/test-timings.json`;
+  the parity test kills it.
+- Review only: refreshing recorded durations when an existing suite's runtime
+  changes materially, and keeping `tests/planted-faults/fault-timings/` in
+  step with `fault-replay` durations.
+- Witnessed: [#91-timings], [#99-timings], [#99-shards].
+
 [185c90d]: https://github.com/nathanvale/bun-typescript-template/commit/185c90d11dd167ee4874e383ba26cd7d64a70964
 [d72cd9e]: https://github.com/nathanvale/bun-typescript-template/commit/d72cd9e28a0e7d7d0ec1fc4f67ebc030e387c914
 [640ba05]: https://github.com/nathanvale/bun-typescript-template/commit/640ba05881da2694fbdfad9b1d124bd85d36c0e4
@@ -76,3 +89,6 @@ What the gates of the test rows refuse and where, what stays with the reviewer, 
 [7fb5649]: https://github.com/nathanvale/agent-cli-kernel/commit/7fb564900cff191397fdc8d1ba6f20e6807abdde
 [ef76011]: https://github.com/nathanvale/agent-cli-kernel/commit/ef76011bdde8d36064b73bd85550d8efc7fb15a6
 [c02caae]: https://github.com/nathanvale/agent-cli-kernel/commit/c02caae41a3100ab2c8d5272d21a60acb7a0b992
+[#91-timings]: https://github.com/nathanvale/bun-typescript-template/pull/91#discussion_r4607696012
+[#99-timings]: https://github.com/nathanvale/bun-typescript-template/pull/99#discussion_r4608746456
+[#99-shards]: https://github.com/nathanvale/bun-typescript-template/pull/99#discussion_r4608771631
