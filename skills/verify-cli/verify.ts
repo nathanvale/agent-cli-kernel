@@ -7,6 +7,7 @@ import {
   listOf,
   readRegularFile,
 } from "./helper/json.ts";
+import { runForensics } from "./forensics.ts";
 import {
   cli,
   probeResult,
@@ -125,6 +126,12 @@ export type Bound = {
   readonly run: VerificationRun | undefined;
 };
 
+const emptyBound: Bound = {
+  root: undefined,
+  target: undefined,
+  run: undefined,
+};
+
 export function bound(argv: readonly string[]): Bound {
   const name = argv[0] ?? "";
   const first = positional(argv, 1);
@@ -132,22 +139,13 @@ export function bound(argv: readonly string[]): Bound {
     return { root: repositoryRoot(first), target: first, run: undefined };
   if (name === "launch") {
     const target = positional(argv, 2);
-    return {
-      root: target === undefined ? undefined : repositoryRoot(target),
-      target,
-      run: undefined,
-    };
+    return { root: target && repositoryRoot(target), target, run: undefined };
   }
-  if (!runCommands.includes(name) || first === undefined)
-    return { root: undefined, target: undefined, run: undefined };
+  if (!runCommands.includes(name) || first === undefined) return emptyBound;
   const place = verificationRun(first);
   const read = readIndex(place);
   if (read.kind !== "read")
-    return {
-      root: undefined,
-      target: undefined,
-      run: existsSync(place.index) ? place : undefined,
-    };
+    return { ...emptyBound, run: existsSync(place.index) ? place : undefined };
   return {
     root: existsSync(read.run.repository) ? read.run.repository : undefined,
     target: ["drive", "report"].includes(name)
@@ -172,6 +170,8 @@ function oneJsonLine(text: string): unknown {
   }
 }
 
+const fail = (id: FailureId, detail: string): Failure => ({ id, detail });
+
 export function timeoutFailure(
   ran: Ran,
   what: string,
@@ -179,10 +179,10 @@ export function timeoutFailure(
 ): Failure[] {
   return ran.timedOut
     ? [
-        {
-          id: "child-timeout",
-          detail: `${what} ran past its limit of ${String(milliseconds)} ms and was stopped.`,
-        },
+        fail(
+          "child-timeout",
+          `${what} ran past its limit of ${String(milliseconds)} ms and was stopped.`,
+        ),
       ]
     : [];
 }
@@ -206,10 +206,10 @@ export async function kernelImport(
   return ran.exitCode === 0
     ? []
     : [
-        {
-          id: "kernel-import",
-          detail: `importing agent-cli-kernel from ${skillFolder} exited ${String(ran.exitCode)}: ${firstLine(ran.stderr)}`,
-        },
+        fail(
+          "kernel-import",
+          `importing agent-cli-kernel from ${skillFolder} exited ${String(ran.exitCode)}: ${firstLine(ran.stderr)}`,
+        ),
       ];
 }
 
@@ -222,20 +222,20 @@ export function envelopeFailures(
   if (envelope === undefined || typeof said !== "number")
     return {
       failures: [
-        {
-          id: "helper-no-envelope",
-          detail: `${what} exited ${String(ran.exitCode)} without exactly one envelope on stdout. stderr: ${firstLine(ran.stderr)}`,
-        },
+        fail(
+          "helper-no-envelope",
+          `${what} exited ${String(ran.exitCode)} without exactly one envelope on stdout. stderr: ${firstLine(ran.stderr)}`,
+        ),
       ],
       envelope,
     };
   if (said !== ran.exitCode)
     return {
       failures: [
-        {
-          id: "helper-exit-mismatch",
-          detail: `${what}'s envelope says exit ${String(said)}, but its process exited ${String(ran.exitCode)}.`,
-        },
+        fail(
+          "helper-exit-mismatch",
+          `${what}'s envelope says exit ${String(said)}, but its process exited ${String(ran.exitCode)}.`,
+        ),
       ],
       envelope,
     };
@@ -264,10 +264,10 @@ export async function helperProbe(
   return ran.exitCode === 2
     ? []
     : [
-        {
-          id: "helper-usage-exit",
-          detail: `the helper answered a command it does not declare with exit ${String(ran.exitCode)}, not 2.`,
-        },
+        fail(
+          "helper-usage-exit",
+          `the helper answered a command it does not declare with exit ${String(ran.exitCode)}, not 2.`,
+        ),
       ];
 }
 
@@ -299,10 +299,10 @@ export function compared(
   const where = JSON.stringify(raw.argv);
   if (helper === undefined)
     return [
-      {
-        id: "observation-mismatch",
-        detail: `the helper's probe returned no observation for ${where}.`,
-      },
+      fail(
+        "observation-mismatch",
+        `the helper's probe returned no observation for ${where}.`,
+      ),
     ];
   const fields = [
     ["exit code", helper.exitCode, raw.exitCode],
@@ -312,10 +312,12 @@ export function compared(
   ] as const;
   return fields
     .filter(([, seen, actual]) => seen !== actual)
-    .map(([field, seen, actual]) => ({
-      id: "observation-mismatch",
-      detail: `for ${where} the helper saw ${field} ${String(seen)}, and a raw run saw ${String(actual)}.`,
-    }));
+    .map(([field, seen, actual]) =>
+      fail(
+        "observation-mismatch",
+        `for ${where} the helper saw ${field} ${String(seen)}, and a raw run saw ${String(actual)}.`,
+      ),
+    );
 }
 
 type Round =
@@ -405,21 +407,25 @@ export function evidenceFailures(place: VerificationRun): Failure[] {
   const read = readIndex(place);
   if (read.kind === "missing") return [];
   if (read.kind === "unreadable")
-    return [{ id: "evidence-mismatch", detail: read.reason }];
+    return [fail("evidence-mismatch", read.reason)];
   const failures: Failure[] = [];
   for (const row of read.steps) {
     const path = join(place.evidence, row.file);
     const file = readRegularFile(path, evidenceBytesLimit);
     if (file.kind !== "read")
-      failures.push({
-        id: "evidence-mismatch",
-        detail: file.kind === "missing" ? `${path} is missing.` : file.reason,
-      });
+      failures.push(
+        fail(
+          "evidence-mismatch",
+          file.kind === "missing" ? `${path} is missing.` : file.reason,
+        ),
+      );
     else if (sha256(file.bytes) !== row.sha256)
-      failures.push({
-        id: "evidence-mismatch",
-        detail: `${path} no longer matches the hash its index row recorded.`,
-      });
+      failures.push(
+        fail(
+          "evidence-mismatch",
+          `${path} no longer matches the hash its index row recorded.`,
+        ),
+      );
   }
   return failures;
 }
@@ -462,12 +468,9 @@ export async function kernelFreeCheck(
   spawn: Spawn,
   limits: Limits = defaultLimits,
 ): Promise<Checked> {
-  const argv = absoluteArgv(
-    beforeLiteral(given)
-      .filter((word) => word !== "--json")
-      .concat(beforeLiteral(given, true)),
-    cwd,
-  );
+  const head = beforeLiteral(given).filter((word) => word !== "--json");
+  const tail = beforeLiteral(given, true);
+  const argv = absoluteArgv(head.concat(tail), cwd);
   const found = bound(argv);
   const root = found.root ?? cwd;
   const first = [
@@ -484,7 +487,7 @@ export async function kernelFreeCheck(
     failures.push(...(await probeFailures(spawn, found.target, root, limits)));
   if (found.run !== undefined) failures.push(...evidenceFailures(found.run));
   if (failures.length > 0) return { kind: "untrusted", failures };
-  const milliseconds =
+  const ms =
     name === "drive" ? limits.driveMilliseconds : limits.commandMilliseconds;
   const helper = await spawn(
     [
@@ -495,10 +498,10 @@ export async function kernelFreeCheck(
       ...beforeLiteral(argv, true),
     ],
     root,
-    milliseconds,
+    ms,
   );
   failures.push(
-    ...judgedRun(helper, `the helper's ${name} command`, milliseconds).failures,
+    ...judgedRun(helper, `the helper's ${name} command`, ms).failures,
   );
   if (found.run !== undefined && ["drive", "cleanup"].includes(name))
     failures.push(...evidenceFailures(found.run));
@@ -545,19 +548,20 @@ function signalGroup(child: Subprocess, signal: NodeJS.Signals): void {
   }
 }
 
+const emptyRan: Ran = {
+  exitCode: null,
+  signal: null,
+  stdout: "",
+  stderr: "",
+  timedOut: false,
+};
+
 export function bunSpawn(
   env: Readonly<Record<string, string | undefined>>,
   limits: Limits = defaultLimits,
 ): Spawn {
-  return async (args, cwd, milliseconds, outputBytes) => {
-    if (received !== undefined)
-      return {
-        exitCode: null,
-        signal: null,
-        stdout: "",
-        stderr: "",
-        timedOut: false,
-      };
+  return async (args, cwd, ms, outputBytes) => {
+    if (received !== undefined) return emptyRan;
     const child = Bun.spawn([process.execPath, ...args], {
       cwd,
       env: { ...env },
@@ -568,15 +572,13 @@ export function bunSpawn(
     });
     running.add(child);
     let timedOut = false;
-    const term = afterDelay(milliseconds);
-    const kill = afterDelay(milliseconds + limits.graceMilliseconds);
+    const term = afterDelay(ms);
+    const kill = afterDelay(ms + limits.graceMilliseconds);
     void term.passed.then(() => {
       timedOut = true;
       signalGroup(child, "SIGTERM");
     });
-    void kill.passed.then(() => {
-      signalGroup(child, "SIGKILL");
-    });
+    void kill.passed.then(() => signalGroup(child, "SIGKILL"));
     const drain = child.exited.then(() => afterDelay(limits.graceMilliseconds));
     const drained = drain.then((delay) => delay.passed);
     const [stdout, stderr] = await Promise.all([
@@ -617,9 +619,7 @@ export function forwardStops(
 }
 
 export function stopExit(): number | undefined {
-  if (received === "SIGTERM") return 143;
-  if (received === "SIGINT") return 130;
-  return undefined;
+  return received === "SIGTERM" ? 143 : received === "SIGINT" ? 130 : undefined;
 }
 
 export async function main(
@@ -628,6 +628,8 @@ export async function main(
   spawn: Spawn,
   limits: Limits = defaultLimits,
 ): Promise<{ readonly exit: number; readonly writes: readonly Relayed[] }> {
+  const self = `bun ${relative(cwd, import.meta.path)}`;
+  if (argv[0] === "forensics") return runForensics(argv.slice(1), cwd, self);
   let checked: Checked;
   try {
     checked = await kernelFreeCheck(argv, cwd, spawn, limits);
@@ -635,10 +637,10 @@ export async function main(
     checked = {
       kind: "untrusted",
       failures: [
-        {
-          id: "check-internal",
-          detail: `the check threw: ${error instanceof Error ? firstLine(error.message) : String(error)}`,
-        },
+        fail(
+          "check-internal",
+          `the check threw: ${error instanceof Error ? firstLine(error.message) : String(error)}`,
+        ),
       ],
     };
   }
@@ -656,30 +658,17 @@ export async function main(
   if (checked.kind === "untrusted")
     return {
       exit: untrustedExit(checked.failures),
-      writes: checked.failures.map((failure) => ({
+      writes: checked.failures.map((f) => ({
         stream: "stderr",
-        text: failureLine(failure),
+        text: failureLine(f),
       })),
     };
   return {
     exit: checked.helper.exitCode ?? kernelFaultExit,
     writes: [
-      relayed(
-        checked.helper,
-        beforeLiteral(argv).includes("--json"),
-        `bun ${relative(cwd, import.meta.path)}`,
-      ),
+      relayed(checked.helper, beforeLiteral(argv).includes("--json"), self),
     ],
   };
-}
-
-function written(write: Relayed): Promise<void> {
-  const stream = write.stream === "stdout" ? process.stdout : process.stderr;
-  return new Promise((done) => {
-    stream.write(write.text, () => {
-      done();
-    });
-  });
 }
 
 if (import.meta.main) {
@@ -689,6 +678,12 @@ if (import.meta.main) {
     process.cwd(),
     bunSpawn(process.env),
   );
-  for (const write of writes) await written(write);
+  for (const write of writes)
+    await new Promise<void>((done) => {
+      (write.stream === "stdout" ? process.stdout : process.stderr).write(
+        write.text,
+        () => done(),
+      );
+    });
   process.exit(exit);
 }

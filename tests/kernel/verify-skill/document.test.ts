@@ -14,6 +14,7 @@ const commands = [
   "report",
   "cleanup",
   "pending",
+  "forensics",
 ];
 
 function text(path: string): string {
@@ -51,6 +52,7 @@ describe("the skill document", () => {
       "changing-command.md",
       "approval-without-state.md",
       "check-command.md",
+      "forensics.md",
     ]);
     for (const file of featureFiles()) {
       const feature = text(join("features", file));

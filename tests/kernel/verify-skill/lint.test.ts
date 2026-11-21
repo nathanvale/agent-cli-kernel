@@ -47,12 +47,23 @@ describe("the lint on the skill folder", () => {
     ["a dynamic import", 'void import("agent-cli-kernel/addons/programs");'],
     ["a re-export", 'export { command } from "agent-cli-kernel";'],
     ["an export of everything", 'export * from "agent-cli-kernel";'],
-  ] as const)
+  ] as const) {
     test(`the kernel-free check may not import the kernel: ${shape}`, async () => {
       expect(await ruleIds(checkEntry, line)).toContain(
         "kernel-free/no-kernel-import",
       );
     }, 60_000);
+
+    test(`the forensic command may not import the kernel: ${shape}`, async () => {
+      expect(await ruleIds(join(skill, "forensics.ts"), line)).toContain(
+        "kernel-free/no-kernel-import",
+      );
+    }, 60_000);
+  }
+
+  test("the forensic command passes lint cleanly", async () => {
+    expect(await ruleIds(join(skill, "forensics.ts"), "")).toEqual([]);
+  }, 60_000);
 
   test("the lint's recorded hits hold no file under the skill folder", () => {
     const recorded = parsed(

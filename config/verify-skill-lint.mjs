@@ -4,6 +4,10 @@ import platformRules from "./platform-rules.mjs";
 
 const skill = "skills/verify-cli";
 const kernelFreeCheck = `${skill}/verify.ts`;
+const kernelFreeForensics = [
+  `${skill}/forensics.ts`,
+  `${skill}/forensics/**/*.ts`,
+];
 const kernelPackage = /^agent-cli-kernel(\/|$)/;
 const kernelFreeReason =
   "The kernel-free check judges the installed kernel from outside, so no kernel code may run in its process: it imports agent-cli-kernel in a child, and starts its children and writes its own streams directly.";
@@ -61,7 +65,7 @@ export default [
     },
   },
   {
-    files: [kernelFreeCheck],
+    files: [kernelFreeCheck, ...kernelFreeForensics],
     plugins: { "kernel-free": kernelFreeRules },
     rules: {
       "no-restricted-properties": [
@@ -72,8 +76,13 @@ export default [
             "Only the state add-on folder may author the state add-on factory.",
         },
       ],
-      "repository/no-domain-output": "off",
       "kernel-free/no-kernel-import": "error",
+    },
+  },
+  {
+    files: [kernelFreeCheck],
+    rules: {
+      "repository/no-domain-output": "off",
     },
   },
 ];

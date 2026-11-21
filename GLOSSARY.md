@@ -189,6 +189,12 @@ exits 70; a target that answers its probes differently on every run
 prints `TARGET FAIL` lines and exits 3.
 _Avoid_: shell, wrapper (for the kernel-free check)
 
+**Forensic command**:
+The kernel-free, read-only `forensics` command on `verify.ts` that decodes a
+verification run, a state add-on journal, a diagnostics custody folder, or an
+approval store without importing `agent-cli-kernel` and without mutating any
+file or lock.
+
 **Helper**:
 verify-cli's own CLI, built on the kernel, which the kernel-free check
 starts for every command.

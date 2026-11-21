@@ -193,17 +193,26 @@ Run from the repository root; relative paths are read from the folder you run in
 bun node_modules/agent-cli-kernel/skills/verify-cli/verify.ts <command> <arguments> [--json]
 ```
 
-| Command                              | What it does                                                    |
-| ------------------------------------ | --------------------------------------------------------------- |
-| `ready <target>`                     | Two probes and eight readiness checks                           |
-| `probe <target>`                     | What the helper observed for the two probes, unjudged           |
-| `sweep <target>`                     | Every check the target's discovery implies; the owed results    |
-| `findings <target>`                  | The same sweep as data, every finding listed                    |
-| `launch <run folder> <target>`       | Make a run folder bound to one target                           |
-| `drive <run folder> <scenario file>` | Run one scenario; one evidence file and index row for each step |
-| `report <run folder>`                | Each station's state, unmet steps, unconfirmed process ends     |
-| `cleanup <run folder>`               | Remove the run's scratch folder; keep evidence and state        |
-| `pending <run folder>`               | The helper's unfinished changes to that run                     |
+| Command                              | What it does                                                                     |
+| ------------------------------------ | -------------------------------------------------------------------------------- |
+| `ready <target>`                     | Two probes and eight readiness checks                                            |
+| `probe <target>`                     | What the helper observed for the two probes, unjudged                            |
+| `sweep <target>`                     | Every check the target's discovery implies; the owed results                     |
+| `findings <target>`                  | The same sweep as data, every finding listed                                     |
+| `launch <run folder> <target>`       | Make a run folder bound to one target                                            |
+| `drive <run folder> <scenario file>` | Run one scenario; one evidence file and index row for each step                  |
+| `report <run folder>`                | Each station's state, unmet steps, unconfirmed process ends                      |
+| `cleanup <run folder>`               | Remove the run's scratch folder; keep evidence and state                         |
+| `pending <run folder>`               | The helper's unfinished changes to that run                                      |
+| `forensics <kind> <path>`            | Kernel-free read-only inspection of `run`, `state`, `diagnostics`, or `approval` |
+
+`forensics` is the forensic command on `verify.ts`: it runs before kernel
+import or helper probes, never imports `agent-cli-kernel`, and never creates,
+locks, or modifies files. Reach for it whenever a run exits 70 (`RAW FAIL`),
+refuses as `DOMAIN_VERIFY_RUN_UNRESOLVED`, leaves an unmet step, or wedges a
+state journal, diagnostics custody folder, or approval store. Add `--json`
+for one `verify-forensics/1` JSON line on stdout; `verify.ts forensics --help`
+prints its targets.
 
 `<target>` is the target's entry file, such as `src/cli.ts`. Add `--json`
 for the helper's envelope, before any `--`. `verify.ts <command> --help`
