@@ -1,0 +1,7 @@
+{
+  "id": "2e7bba2-menu-draw-failure-restore",
+  "patch": "tests/planted-faults/patches/2e7bba2-menu-draw-failure-restore.patch",
+  "testFile": "tests/kernel/menu/menu.test.ts",
+  "title": "closes showController and detaches tty listeners on settle, killNow, and draw failure",
+  "source": "2e7bba2 fix(kernel): harden the menu's finish paths, bounds, input parsing and terminal tests"
+}

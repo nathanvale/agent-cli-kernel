@@ -1,0 +1,7 @@
+{
+  "id": "2e7bba2-menu-split-input",
+  "patch": "tests/planted-faults/patches/2e7bba2-menu-split-input.patch",
+  "testFile": "tests/kernel/menu/menu.test.ts",
+  "title": "handles split arrow sequences and split UTF-8 bytes across chunks",
+  "source": "2e7bba2 fix(kernel): harden the menu's finish paths, bounds, input parsing and terminal tests"
+}
