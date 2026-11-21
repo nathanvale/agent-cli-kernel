@@ -31,7 +31,7 @@
   },
   "kernel/src/kernel/lifecycle.ts": {
     "repository/cause-literal-owner": {
-      "count": 6
+      "count": 7
     }
   },
   "kernel/src/kernel/navigation.ts": {

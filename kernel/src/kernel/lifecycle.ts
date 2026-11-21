@@ -624,12 +624,18 @@ async function runDeclaredCommand(
   const plan = run.plans.get(identity);
   if (!plan) return preparationFault(run, identity);
   const deadline = value.deadlineMilliseconds;
-  const deadlineAt =
-    deadline === undefined ? undefined : run.startedAt + deadline;
-  if (expired(run, deadlineAt)) return beforeStart(run, identity);
+  if (deadline !== undefined && run.host.now() - run.startedAt >= deadline)
+    return await kernelResult(
+      run,
+      identity,
+      "DOMAIN_DEADLINE_BEFORE_START",
+      messages.DOMAIN_DEADLINE_BEFORE_START,
+    );
   if (run.stopped) return undefined;
   const context = await capabilities(run, plan);
   if (!context) return preparationFault(run, identity);
+  const deadlineAt =
+    deadline === undefined ? undefined : run.startedAt + deadline;
   const checked = await checkPhase(run, value, context, deadlineAt);
   if (run.stopped) return undefined;
   if (checked.kind === "deadline" || expired(run, deadlineAt))
