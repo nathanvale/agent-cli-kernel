@@ -18,8 +18,8 @@
   ],
   "sharedSource": {
     "repository": "nathanvale/bun-typescript-template",
-    "commit": "032f905f502825e8b855eb051813821e31c1ca23",
-    "export": "tests/template/naming/shared-tool-words.txt",
+    "commit": "fb878087b10bacdad7348af8141253d3660549df",
+    "export": "tests/template/names-check/shared-tool-words.txt",
     "exportSha256": "c7fa7ddcbac8335d12321a031c70ff59c62c0b25a11d09bf0e0d83d1ae6fbd46",
     "rewrittenHere": []
   }

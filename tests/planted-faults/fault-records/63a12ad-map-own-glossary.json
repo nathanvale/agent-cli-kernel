@@ -1,7 +1,7 @@
 {
   "id": "63a12ad-map-own-glossary",
   "patch": "tests/planted-faults/patches/63a12ad-map-own-glossary.patch",
-  "testFile": "tests/template/naming/glossary-files.test.ts",
+  "testFile": "tests/template/names-check/glossary-files.test.ts",
   "title": "^GM.l a map that links no GLOSSARY.md of this repository fails",
   "source": "63a12ad fix(glossary): refuse a map that links no GLOSSARY.md of its own repository"
 }

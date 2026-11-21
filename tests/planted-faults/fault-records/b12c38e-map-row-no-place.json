@@ -1,7 +1,7 @@
 {
   "id": "b12c38e-map-row-no-place",
   "patch": "tests/planted-faults/patches/b12c38e-map-row-no-place.patch",
-  "testFile": "tests/template/naming/glossary-files.test.ts",
+  "testFile": "tests/template/names-check/glossary-files.test.ts",
   "title": "^GM.m a row that owns words but gives them no place fails",
   "source": "b12c38e fix(glossary): refuse a map row that owns words and gives them no place"
 }

@@ -1,7 +1,7 @@
 {
   "id": "dbd74b7-glossary-note-parenthesis",
   "patch": "tests/planted-faults/patches/dbd74b7-glossary-note-parenthesis.patch",
-  "testFile": "tests/template/naming/names.test.ts",
+  "testFile": "tests/template/names-check/names.test.ts",
   "title": "^NM\\.e ",
   "source": "dbd74b7 feat(naming): leave an Avoid word that a note covers to the reviewer"
 }

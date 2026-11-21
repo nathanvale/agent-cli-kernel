@@ -38,6 +38,9 @@ none has a slot, and the Contract 3 scope issue, [MAG-98], omits them.
 gate exists, and that each row's guide or gate note cites two distinct
 witnesses.
 
+The names check area, `tests/template/names-check/`, runs with
+`bun run test:area names-check`.
+
 ## Rule table
 
 | Rule                                                        | Today       | Gates                                                                                                                                                                                             | Planned (parked)                           | Guide                                                                                       |

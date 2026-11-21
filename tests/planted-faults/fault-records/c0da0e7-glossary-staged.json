@@ -1,7 +1,7 @@
 {
   "id": "c0da0e7-glossary-staged",
   "patch": "tests/planted-faults/patches/c0da0e7-glossary-staged.patch",
-  "testFile": "tests/template/naming/check-names.test.ts",
+  "testFile": "tests/template/names-check/check-names.test.ts",
   "title": "^CN\\.c ",
   "source": "c0da0e7 feat(naming): judge the names git has staged as new with --staged"
 }

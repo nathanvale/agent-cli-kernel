@@ -1,7 +1,7 @@
 {
   "id": "0382660-hook-broken-check",
   "patch": "tests/planted-faults/patches/0382660-hook-broken-check.patch",
-  "testFile": "tests/template/naming/names-check-hook.test.ts",
+  "testFile": "tests/template/names-check/names-check-hook.test.ts",
   "title": "^NG.i a malformed tool call payload stops the Write with exit 2",
   "source": "0382660 fix(glossary): check a link by its own name, stop a call when this repository's check is broken, refuse list growth, read the map's owners"
 }

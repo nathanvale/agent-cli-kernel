@@ -1,7 +1,7 @@
 {
   "id": "0382660-recorded-growth",
   "patch": "tests/planted-faults/patches/0382660-recorded-growth.patch",
-  "testFile": "tests/template/naming/names-check-growth.test.ts",
+  "testFile": "tests/template/names-check/names-check-growth.test.ts",
   "title": "^--against refuses a recorded hit the base revision does not list",
   "source": "0382660 fix(glossary): check a link by its own name, stop a call when this repository's check is broken, refuse list growth, read the map's owners"
 }

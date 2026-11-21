@@ -1,7 +1,7 @@
 {
   "id": "61a758a-names-gate-exit",
   "patch": "tests/planted-faults/patches/61a758a-names-gate-exit.patch",
-  "testFile": "tests/template/naming/names-check-hook.test.ts",
+  "testFile": "tests/template/names-check/names-check-hook.test.ts",
   "title": "^NG\\.e ",
   "source": "61a758a feat(naming): refuse a badly named new file before Codex applies its patch"
 }

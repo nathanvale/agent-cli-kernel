@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
 
 export const ownershipFile = "glossary-ownership.json";
-export const sharedExportFile = "tests/template/naming/shared-tool-words.txt";
+export const sharedExportFile =
+  "tests/template/names-check/shared-tool-words.txt";
 
 const sharedHeading = "### Shared tool words\n";
 const termLine = /^\*\*(.+)\*\*:$/gm;

@@ -19,11 +19,10 @@ needs is added here and never to the template's glossary.
 ## Shared tool words
 
 The tool words that both repositories carry (names check, recorded hit, gate and the rest of the section "Shared tool words") belong to the template. This
-repository holds a copy, recorded in `tests/template/naming/shared-tool-words.txt` and
+repository holds a copy, recorded in `tests/template/names-check/shared-tool-words.txt` and
 named by `glossary-ownership.json` with the template commit it came from. A test fails when
 the section in `GLOSSARY.md` differs from that copy. Fault replay and Gate
-note are worded here for both repositories; the template adopts them in its own
-cleanup, and until then `glossary-ownership.json` lists them as rewritten here.
+note use the template's text; `glossary-ownership.json` lists neither as rewritten here.
 
 ## Accepted transfer
 
