@@ -84,8 +84,8 @@ _Avoid_: author guide (for the shipped guidance)
 **Add-on**:
 An optional capability that uses the kernel's public interface without
 importing or patching another add-on, and may have a required add-on that must
-be selected alongside it. The four are the state, programs, approval and
-diagnostics add-ons.
+be selected alongside it. The five are the state, programs, approval,
+diagnostics and menu add-ons.
 
 **State add-on**:
 The add-on that owns the journal and the state a changing command works in.
@@ -106,6 +106,15 @@ _Avoid_: refusal (for every ApprovalRejection, since some follow consumption)
 
 **Diagnostics add-on**:
 The add-on that owns the diagnostic records of a run and their custody.
+
+**Menu**:
+The add-on ability to show rows on a terminal in an interactive run and hand
+back the one a person picks, or `"cancelled"`. Separate from a CLI's own
+command routed as `menu`.
+_Avoid_: pick list, picker, chooser, prompt (for a menu)
+
+**Menu add-on**:
+The add-on that owns the menu and restoring the terminal.
 
 **Add-on selection**:
 The add-ons one consuming repository uses. The kernel is always used and is not

@@ -21,6 +21,12 @@
       },
       "deadCodeEntries": ["src/addons/diagnostics/index.ts"]
     },
+    "menu": {
+      "root": "src/addons/menu",
+      "requires": [],
+      "packages": {},
+      "deadCodeEntries": ["src/addons/menu/index.ts"]
+    },
     "programs": {
       "root": "src/addons/programs",
       "requires": [],

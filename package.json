@@ -7,6 +7,7 @@
     ".": "./kernel/src/kernel/index.ts",
     "./addons/approval": "./kernel/src/addons/approval/index.ts",
     "./addons/diagnostics": "./kernel/src/addons/diagnostics/index.ts",
+    "./addons/menu": "./kernel/src/addons/menu/index.ts",
     "./addons/programs": "./kernel/src/addons/programs/index.ts",
     "./addons/state": "./kernel/src/addons/state/index.ts",
     "./lint": "./kernel/config/kernel/eslint.mjs",

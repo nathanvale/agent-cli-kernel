@@ -4,6 +4,7 @@ import { mkdir, readdir, symlink, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { ESLint } from "eslint";
 import * as kernel from "../../../kernel/src/kernel/index.ts";
+import { menuAddon } from "../../../kernel/src/addons/menu/index.ts";
 import { write } from "../../support/fixture-files.ts";
 import { gitEnv, inherited } from "../../support/git-fixture.ts";
 import { treeFiles } from "../../support/lint-rule-folder.ts";
@@ -542,6 +543,7 @@ describe("the author skill's documents, shipped in the kernel package", () => {
       "SKILL.md",
       "references/commands.md",
       "references/example.md",
+      "references/menu.md",
       "references/stations.md",
       "references/testing.md",
     ]);
@@ -775,5 +777,137 @@ describe("kernel behaviour the author skill states in words", () => {
         "The invocation uses an option this command does not declare.",
       ),
     );
+  });
+
+  test("menu.md: a menu command requires notInteractiveCause, refuses before handler entry when not interactive, and picks or cancels with scriptedTerminal", async () => {
+    const causes = {
+      ...kernel.commonCauses,
+      DOMAIN_GUIDE_NEEDS_TERMINAL: {
+        outcome: "refused",
+        transactionState: "unchanged",
+        failureClass: "domain",
+        exitCode: 3,
+        retryable: false,
+        guidance: "next",
+      },
+      DOMAIN_GUIDE_NOTHING_CHOSEN: {
+        outcome: "refused",
+        transactionState: "unchanged",
+        failureClass: "domain",
+        exitCode: 3,
+        retryable: false,
+        guidance: "next",
+      },
+    } as const satisfies kernel.CauseTable;
+    const stations = [
+      kernel.station(causes, {
+        ...stationWords,
+        commandIdentity: "guide.choose",
+        causeCode: "SUCCESS_UNCHANGED",
+        trigger: "Picked.",
+        repairAction: null,
+        guidance: { next: { kind: "done" } },
+        independentObservable: "guide.choose:picked",
+      }),
+      kernel.station(causes, {
+        ...stationWords,
+        commandIdentity: "guide.choose",
+        causeCode: "DOMAIN_GUIDE_NEEDS_TERMINAL",
+        trigger: "Needs an interactive terminal.",
+        repairAction: "Run in a terminal.",
+        guidance: { next: { kind: "instruction", text: "Run interactively." } },
+        independentObservable: "guide.choose:needs-terminal",
+      }),
+      kernel.station(causes, {
+        ...stationWords,
+        commandIdentity: "guide.choose",
+        causeCode: "DOMAIN_GUIDE_NOTHING_CHOSEN",
+        trigger: "Cancelled at the menu.",
+        repairAction: "Run again to choose.",
+        guidance: { next: { kind: "instruction", text: "Choose an item." } },
+        independentObservable: "guide.choose:cancelled",
+      }),
+    ] as const;
+    expect(() =>
+      kernel.command({
+        identity: "guide.choose",
+        route: ["choose"],
+        summary: "Choose.",
+        input: emptyInput,
+        capabilities: { menu: true },
+        stations,
+        run: (_input, context) =>
+          context.result(
+            { commandIdentity: "guide.choose", causeCode: "SUCCESS_UNCHANGED" },
+            { message: "Done.", data: null, effects: unchanged },
+          ),
+      }),
+    ).toThrow("notInteractiveCause");
+
+    let calls = 0;
+    const choose = kernel.command({
+      identity: "guide.choose",
+      route: ["choose"],
+      summary: "Choose.",
+      input: emptyInput,
+      capabilities: { menu: true },
+      notInteractiveCause: "DOMAIN_GUIDE_NEEDS_TERMINAL",
+      stations,
+      run: async (_input, context) => {
+        calls += 1;
+        const picked = await context.menu.show({
+          lines: ["Choose one:"],
+          rows: [{ label: "first", value: "first" }],
+        });
+        if (picked.kind === "cancelled")
+          return context.result(
+            {
+              commandIdentity: "guide.choose",
+              causeCode: "DOMAIN_GUIDE_NOTHING_CHOSEN",
+            },
+            { message: "Nothing was opened.", data: null, effects: unchanged },
+          );
+        return context.result(
+          { commandIdentity: "guide.choose", causeCode: "SUCCESS_UNCHANGED" },
+          { message: picked.value, data: picked.value, effects: unchanged },
+        );
+      },
+    });
+    const contract = kernel.contractFor({
+      cli: "guide",
+      commands: [choose],
+      causes,
+      installedAddons: ["menu"],
+    });
+    expect(
+      await kernel.runInProcess(contract, { addons: { menu: menuAddon() } })([
+        "choose",
+      ]),
+    ).toMatchObject({
+      kind: "envelope",
+      exitCode: 3,
+      envelope: { result: { causeCode: "DOMAIN_GUIDE_NEEDS_TERMINAL" } },
+    });
+    expect(calls).toBe(0);
+    expect(
+      await kernel.runInProcess(contract, {
+        addons: { menu: menuAddon() },
+        terminal: kernel.scriptedTerminal(["\x1b"]),
+      })(["choose"]),
+    ).toMatchObject({
+      kind: "envelope",
+      exitCode: 3,
+      envelope: { result: { causeCode: "DOMAIN_GUIDE_NOTHING_CHOSEN" } },
+    });
+    expect(
+      await kernel.runInProcess(contract, {
+        addons: { menu: menuAddon() },
+        terminal: kernel.scriptedTerminal(["\r"]),
+      })(["choose"]),
+    ).toMatchObject({
+      kind: "envelope",
+      exitCode: 0,
+      envelope: { result: { data: "first" } },
+    });
   });
 });

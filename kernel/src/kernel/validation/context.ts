@@ -4,6 +4,7 @@ export const capabilityMethods = {
   programs: ["inspect", "supplied", "domain"],
   approval: ["check"],
   diagnostics: ["record"],
+  menu: ["show"],
 } as const satisfies Record<keyof CapabilitySelection, readonly string[]>;
 export type CapabilityAddonName = keyof typeof capabilityMethods;
 export function capabilityAddonName(key: string): key is CapabilityAddonName {

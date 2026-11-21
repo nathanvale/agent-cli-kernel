@@ -1,3 +1,5 @@
+import { commonCauses } from "./causes.ts";
+import { bindingNames } from "./guidance.ts";
 import { programStopOf, recordProgramStop } from "./program-stop.ts";
 import type { InputTable } from "./future-input.ts";
 import { resultContext, checkedResult } from "./command-result.ts";
@@ -44,6 +46,7 @@ export type CommandDeclaration<Identity extends string = string> =
     readonly ifNoResult?: IfNoResult;
     readonly heldLockCause?: string;
     readonly unresolvedCaseCause?: string;
+    readonly notInteractiveCause?: string;
     readonly execute?: (
       argv: unknown,
       context: unknown,
@@ -89,6 +92,56 @@ function requireProgramStopStation(declaration: CommandDeclaration): void {
   )
     throw new Error(
       `${declaration.commandIdentity}'s program-stop station ${station.causeCode} must be failed and unchanged, with a handoff.`,
+    );
+}
+const notInteractiveCauses = new WeakMap<CommandDeclaration, string>();
+function recordNotInteractiveCause(
+  declaration: CommandDeclaration,
+  cause: string,
+): void {
+  notInteractiveCauses.set(declaration, cause);
+}
+export function notInteractiveCauseOf(
+  declaration: CommandDeclaration,
+): string | undefined {
+  return (
+    declaration.notInteractiveCause ?? notInteractiveCauses.get(declaration)
+  );
+}
+export function validateNotInteractiveCause(
+  declaration: CommandDeclaration,
+): void {
+  const cause = notInteractiveCauseOf(declaration);
+  if (declaration.capabilities.menu !== true) {
+    if (cause !== undefined)
+      throw new Error(
+        `${declaration.commandIdentity}: notInteractiveCause requires capabilities.menu.`,
+      );
+    return;
+  }
+  if (!text(cause))
+    throw new Error(
+      `${declaration.commandIdentity} declares menu, so it must declare its not-interactive station (notInteractiveCause).`,
+    );
+  if (Object.hasOwn(commonCauses, cause))
+    throw new Error(
+      `${declaration.commandIdentity}'s notInteractiveCause ${cause} must be a command-owned cause, not a common cause.`,
+    );
+  const station = declaration.stations.find((item) => item.causeCode === cause);
+  if (!station)
+    throw new Error(
+      `${declaration.commandIdentity} declares menu, so it must declare its not-interactive station (notInteractiveCause).`,
+    );
+  if (
+    station.row.outcome !== "refused" ||
+    station.row.transactionState !== "unchanged"
+  )
+    throw new Error(
+      `${declaration.commandIdentity}'s not-interactive station ${station.causeCode} must be refused and unchanged.`,
+    );
+  if (bindingNames(station).length > 0)
+    throw new Error(
+      `${declaration.commandIdentity}'s not-interactive station ${station.causeCode} cannot require run bindings.`,
     );
 }
 export function validateChangingShape(declaration: {
@@ -295,6 +348,7 @@ export function command<
     readonly capabilities: C;
     readonly stations?: S;
     readonly programStopCause?: P;
+    readonly notInteractiveCause?: string;
     readonly run: (
       input: ParsedInput<I>,
       context: HandlerContext<C> &
@@ -359,7 +413,10 @@ export function command<
   });
   if (spec.programStopCause !== undefined)
     recordProgramStop(declaration, spec.programStopCause);
+  if (spec.notInteractiveCause !== undefined)
+    recordNotInteractiveCause(declaration, spec.notInteractiveCause);
   requireProgramStopStation(declaration);
+  validateNotInteractiveCause(declaration);
   return register(declaration, prepare);
 }
 
@@ -384,6 +441,7 @@ export function changing<
     readonly ifNoResult: IfNoResult;
     readonly heldLockCause: string;
     readonly unresolvedCaseCause: string;
+    readonly notInteractiveCause?: string;
     readonly stations: S;
     readonly run: (
       input: ParsedInput<I>,
@@ -452,5 +510,8 @@ export function changing<
     capabilities: spec.capabilities ?? {},
     execute: executeVia(prepare),
   });
+  if (spec.notInteractiveCause !== undefined)
+    recordNotInteractiveCause(declaration, spec.notInteractiveCause);
+  validateNotInteractiveCause(declaration);
   return register(declaration, prepare);
 }

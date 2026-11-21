@@ -338,7 +338,7 @@ afterAll(() => {
   if (world.base !== "") rmSync(world.base, { recursive: true, force: true });
 });
 
-test("the kernel repository's manifest names agent-cli-kernel, is a module with no version or prepare, and exports the kernel, four add-ons, lint, lint rules, the declaration and itself", () => {
+test("the kernel repository's manifest names agent-cli-kernel, is a module with no version or prepare, and exports the kernel, five add-ons, lint, lint rules, the declaration and itself", () => {
   expect(manifest.name).toBe("agent-cli-kernel");
   expect(manifest.type).toBe("module");
   expect(Object.hasOwn(manifest, "version")).toBe(false);
@@ -347,6 +347,7 @@ test("the kernel repository's manifest names agent-cli-kernel, is a module with 
     ".",
     "./addons/approval",
     "./addons/diagnostics",
+    "./addons/menu",
     "./addons/programs",
     "./addons/state",
     "./lint",

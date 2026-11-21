@@ -21,6 +21,7 @@ import type { ContractKey } from "./runtime.ts";
 import type { Attach, ContractRuntime, Enter, Resolution } from "./runtime.ts";
 import type { CommandResult } from "./command-result.ts";
 import type { CommandDeclaration } from "./declarations.ts";
+import { notInteractiveCauseOf } from "./declarations.ts";
 import { programStopOf } from "./program-stop.ts";
 import type { StateObservation } from "./state-seam.ts";
 import {
@@ -624,6 +625,36 @@ async function afterHandler(
   };
 }
 
+function notInteractiveRefusal(
+  run: Run,
+  plan: CommandPlan,
+  identity: string,
+): Promise<Delivery> | undefined {
+  if (plan.command.capabilities.menu !== true || run.terminal !== undefined)
+    return undefined;
+  const cause = notInteractiveCauseOf(plan.command);
+  const station = plan.command.stations.find(
+    (item) => item.causeCode === cause,
+  );
+  if (!cause || !station) return preparationFault(run, identity);
+  return kernelResult(run, identity, cause, station.trigger);
+}
+
+async function prepared(
+  run: Run,
+  plan: CommandPlan,
+  identity: string,
+): Promise<
+  | { readonly context: NonNullable<Awaited<ReturnType<typeof capabilities>>> }
+  | { readonly delivery: Delivery }
+> {
+  const refusal = notInteractiveRefusal(run, plan, identity);
+  if (refusal) return { delivery: await refusal };
+  const context = await capabilities(run, plan);
+  if (!context) return { delivery: await preparationFault(run, identity) };
+  return { context };
+}
+
 async function runDeclaredCommand(
   run: Run,
   value: Resolved,
@@ -640,8 +671,9 @@ async function runDeclaredCommand(
       messages.DOMAIN_DEADLINE_BEFORE_START,
     );
   if (run.stopped) return undefined;
-  const context = await capabilities(run, plan);
-  if (!context) return preparationFault(run, identity);
+  const ready = await prepared(run, plan, identity);
+  if ("delivery" in ready) return ready.delivery;
+  const context = ready.context;
   const deadlineAt =
     deadline === undefined ? undefined : run.startedAt + deadline;
   const checked = await checkPhase(run, value, context, deadlineAt);

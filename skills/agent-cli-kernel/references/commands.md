@@ -164,7 +164,8 @@ await runProcess(contract)(process.argv.slice(2));
 ## Choose add-ons
 
 `installedAddons` on `contractFor` is the one place a CLI chooses add-ons.
-Its names are `"state"`, `"programs"`, `"approval"` and `"diagnostics"`. Leave
+Its names are `"state"`, `"programs"`, `"approval"`, `"diagnostics"` and
+`"menu"`. Leave
 it out and the CLI uses none.
 
 - Name an add-on in `installedAddons` to select it. Importing it, or naming

@@ -84,10 +84,28 @@ export type DiagnosticsCapability = {
     level?: DiagnosticsLevel,
   ) => void;
 };
+export type MenuRow<Value> = {
+  readonly label: string;
+  readonly value: Value;
+};
+export type MenuResult<Value> =
+  | {
+      readonly kind: "picked";
+      readonly value: Value;
+      readonly index: number;
+    }
+  | { readonly kind: "cancelled" };
+export type MenuCapability = {
+  readonly show: <Value>(request: {
+    readonly lines?: readonly string[];
+    readonly rows: readonly MenuRow<Value>[];
+  }) => Promise<MenuResult<Value>>;
+};
 export type CapabilitySelection = {
   readonly programs?: true;
   readonly approval?: true;
   readonly diagnostics?: true;
+  readonly menu?: true;
 };
 export type HandlerContext<C extends CapabilitySelection> = (C extends {
   programs: true;
@@ -99,7 +117,8 @@ export type HandlerContext<C extends CapabilitySelection> = (C extends {
     : object) &
   (C extends { diagnostics: true }
     ? { readonly diagnostics: DiagnosticsCapability }
-    : object);
+    : object) &
+  (C extends { menu: true } ? { readonly menu: MenuCapability } : object);
 // Interface: A handler built by command() or changing() holds its run's abort
 // signal. It aborts at the first stop request or at the deadline: start no new
 // work after that. A run entered with no stop source holds a signal that never
