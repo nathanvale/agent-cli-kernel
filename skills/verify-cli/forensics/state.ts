@@ -4,8 +4,9 @@ import { join } from "node:path";
 import {
   currentUid,
   forensicsSchema,
-  listDirectoryBounded,
+  formatMode,
   lstatSafe,
+  openListedDirectory,
   openRealDirectory,
   parseC3s1Records,
   plainRecord,
@@ -206,8 +207,11 @@ function deriveCaseStatus(
 ): StateCaseReport["status"] {
   if (!hasIntent || !eventsValid) return "corrupt";
   if (closureValid) return "closed";
-  if (eventKinds.includes("completion")) return "completed";
-  if (eventKinds.includes("not-applied")) return "not-applied";
+  const firstFinal = eventKinds.find(
+    (kind) => kind === "completion" || kind === "not-applied",
+  );
+  if (firstFinal === "completion") return "completed";
+  if (firstFinal === "not-applied") return "not-applied";
   return "unresolved";
 }
 
@@ -305,22 +309,54 @@ function listSubdir(
   readonly truncated: boolean;
   readonly problem: string | undefined;
 } {
-  const listed = listDirectoryBounded(join(root, name));
-  if (listed.kind !== "ok")
+  const dirPath = join(root, name);
+  if (lstatSafe(dirPath).kind === "missing")
     return {
       names: [],
       total: 0,
       truncated: false,
-      problem:
-        listed.kind === "missing"
-          ? `${name}/ directory is missing`
-          : `${name}/ unreadable: ${listed.reason}`,
+      problem: `${name}/ directory is missing`,
+    };
+  const listed = openListedDirectory(`${name}/`, dirPath);
+  if (!listed.ok)
+    return {
+      names: [],
+      total: 0,
+      truncated: false,
+      problem: `${name}/ unreadable: ${listed.reason}`,
     };
   return {
     names: [...listed.names],
     total: listed.total,
     truncated: listed.truncated,
     problem: undefined,
+  };
+}
+
+function scanCaseEntry(
+  folder: "operations" | "settled",
+  dirPath: string,
+  name: string,
+): {
+  readonly report: StateCaseReport | undefined;
+  readonly problems: readonly string[];
+} {
+  if (!operationPattern.test(name))
+    return {
+      report: undefined,
+      problems: [`${folder}/ contains unexpected entry ${name}`],
+    };
+  const caseDir = join(dirPath, name);
+  const openedCase = openRealDirectory(`${folder}/${name}`, caseDir);
+  if (!openedCase.ok)
+    return {
+      report: undefined,
+      problems: [`${folder}/${name}: ${openedCase.reason}`],
+    };
+  const report = inspectStateCase(folder, caseDir, name);
+  return {
+    report,
+    problems: report.problems.map((issue) => `${folder}/${name}: ${issue}`),
   };
 }
 
@@ -334,31 +370,38 @@ function scanCaseBucket(
   readonly problems: readonly string[];
 } {
   const dirPath = join(root, folder);
-  const listed = listDirectoryBounded(dirPath);
-  if (listed.kind !== "ok")
+  if (lstatSafe(dirPath).kind === "missing")
     return {
       cases: [],
       truncated: false,
-      problems:
-        listed.kind === "missing"
-          ? required
-            ? [`${folder}/ directory is missing`]
-            : []
-          : [`${folder}/ unreadable: ${listed.reason}`],
+      problems: required ? [`${folder}/ directory is missing`] : [],
     };
-  const cases: StateCaseReport[] = [];
-  const problems: string[] = [];
-  for (const name of listed.names) {
-    if (!operationPattern.test(name)) {
-      problems.push(`${folder}/ contains unexpected entry ${name}`);
-      continue;
-    }
-    const report = inspectStateCase(folder, join(dirPath, name), name);
-    cases.push(report);
-    for (const issue of report.problems)
-      problems.push(`${folder}/${name}: ${issue}`);
-  }
-  return { cases, truncated: listed.truncated, problems };
+  const listed = openListedDirectory(`${folder}/`, dirPath);
+  if (!listed.ok)
+    return {
+      cases: [],
+      truncated: false,
+      problems: [`${folder}/ unreadable: ${listed.reason}`],
+    };
+  const entries = listed.names.map((name) =>
+    scanCaseEntry(folder, dirPath, name),
+  );
+  const settledProblem =
+    folder === "settled" && !privateModeOk(listed.stats)
+      ? [
+          `settled/ permissions/ownership failed private check (${formatMode(listed.stats)})`,
+        ]
+      : [];
+  return {
+    cases: entries.flatMap((entry) =>
+      entry.report === undefined ? [] : [entry.report],
+    ),
+    truncated: listed.truncated,
+    problems: [
+      ...settledProblem,
+      ...entries.flatMap((entry) => entry.problems),
+    ],
+  };
 }
 
 export type StateForensicsReport = {
@@ -383,7 +426,7 @@ export function inspectStateRoot(
   | { readonly ok: false; readonly reason: string } {
   const opened = openRealDirectory("State root", root);
   if (!opened.ok) return opened;
-  const rootMode = `0o${(opened.stats.mode & 0o7777).toString(8).padStart(4, "0")}`;
+  const rootMode = formatMode(opened.stats);
   const fmt = readFormatJournal(root);
   const coord = listSubdir(root, "coordination");
   const staging = listSubdir(root, "staging");
@@ -393,6 +436,8 @@ export function inspectStateRoot(
     "settled",
     fmt.journal === "contract3.state.2",
   );
+  const truncated =
+    coord.truncated || staging.truncated || ops.truncated || settled.truncated;
   const problems = [
     ...(privateModeOk(opened.stats)
       ? []
@@ -410,6 +455,9 @@ export function inspectStateRoot(
       : [staging.problem]),
     ...ops.problems,
     ...settled.problems,
+    ...(truncated
+      ? ["state journal listing was truncated at forensics limits"]
+      : []),
   ];
   const cases = [...ops.cases, ...settled.cases];
   const unresolved = cases.filter(
@@ -429,11 +477,7 @@ export function inspectStateRoot(
       coordinationLocks: coord.names,
       stagingEntries: staging.names,
       cases,
-      truncated:
-        coord.truncated ||
-        staging.truncated ||
-        ops.truncated ||
-        settled.truncated,
+      truncated,
       problems,
     },
   };

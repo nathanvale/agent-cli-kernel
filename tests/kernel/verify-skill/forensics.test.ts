@@ -235,6 +235,7 @@ describe("kernel-free forensics in-process", () => {
     const inspected = inspectDiagnosticsFolder(dir);
     expect(inspected.ok).toBe(true);
     if (!inspected.ok) return;
+    expect(inspected.report.trustedAncestors).toBe(true);
     expect(inspected.report.lock.present).toBe(true);
     expect(inspected.report.lock.ownerPid).toBe(9876);
     expect(inspected.report.lock.ownerHost).toBe("0123456789abcdef");
@@ -253,14 +254,40 @@ describe("kernel-free forensics in-process", () => {
       lastEvent: "finished",
       closedMarker: "matched",
     });
+
+    const boundedDir = ownedFolder("forensics-diag-lines-");
+    chmodSync(boundedDir, 0o700);
+    const exactLines = Array.from(
+      { length: forensicsLimits.maxDiagnosticsLines },
+      () => JSON.stringify({ event: "tick" }),
+    ).join("\n");
+    const exactFile = join(boundedDir, "exact.jsonl");
+    writeFileSync(exactFile, `${exactLines}\n`);
+    const exactChecked = inspectDiagnosticsFolder(boundedDir);
+    expect(exactChecked.ok).toBe(true);
+    if (!exactChecked.ok) return;
+    expect(exactChecked.report.files[0]?.linesTruncated).toBe(false);
+    expect(exactChecked.report.truncated).toBe(false);
+    expect(exactChecked.report.status).toBe("clean");
+
+    writeFileSync(
+      exactFile,
+      `${exactLines}\n${JSON.stringify({ event: "over" })}\n`,
+    );
+    const overChecked = inspectDiagnosticsFolder(boundedDir);
+    expect(overChecked.ok).toBe(true);
+    if (!overChecked.ok) return;
+    expect(overChecked.report.files[0]?.linesTruncated).toBe(true);
+    expect(overChecked.report.truncated).toBe(true);
+    expect(overChecked.report.status).toBe("issues");
   });
 
-  test("decodes approval consumed markers, valid and expired grants, and malformed entries", () => {
+  test("decodes approval consumed markers, valid and expired grants, prototype keys, and malformed entries", () => {
     const dir = ownedFolder("forensics-approval-");
     const key = "a".repeat(64);
     writeFileSync(
       join(dir, `${key}.consumed`),
-      JSON.stringify({ operation: "op-1" }),
+      JSON.stringify({ kind: "approval", runId: "run-1", consumedAt: 1000 }),
     );
     writeFileSync(
       join(dir, "grant-valid.json"),
@@ -280,6 +307,15 @@ describe("kernel-free forensics in-process", () => {
         expiresAt: 1000,
       }),
     );
+    writeFileSync(
+      join(dir, "proto-key.json"),
+      JSON.stringify({
+        format: "toString",
+        version: 1,
+        operation: "op-4",
+        expiresAt: 5000,
+      }),
+    );
     writeFileSync(join(dir, "broken.json"), "{not-json");
 
     const inspected = inspectApprovalFolder(dir, 2000);
@@ -288,13 +324,19 @@ describe("kernel-free forensics in-process", () => {
     expect(inspected.report.status).toBe("issues");
     expect(
       inspected.report.entries.find((e) => e.file === `${key}.consumed`),
-    ).toMatchObject({ kind: "consumed", keyHash: key, operation: "op-1" });
+    ).toMatchObject({ kind: "consumed", keyHash: key, operation: "run-1" });
     expect(
       inspected.report.entries.find((e) => e.file === "grant-valid.json"),
     ).toMatchObject({ kind: "grant", expired: false, problems: [] });
     expect(
       inspected.report.entries.find((e) => e.file === "grant-expired.json"),
     ).toMatchObject({ kind: "grant", expired: true });
+    expect(
+      inspected.report.entries.find((e) => e.file === "proto-key.json"),
+    ).toMatchObject({
+      kind: "malformed",
+      problems: ["unrecognised or malformed approval JSON record"],
+    });
     expect(
       inspected.report.entries.find((e) => e.file === "broken.json")?.kind,
     ).toBe("malformed");
@@ -306,6 +348,26 @@ describe("kernel-free forensics in-process", () => {
 
     const badKind = runForensics(["unknown", absent], missing, "verify.ts");
     expect(badKind.exit).toBe(2);
+    expect(badKind.writes[0]?.stream).toBe("stderr");
+    expect(badKind.writes[0]?.text).toContain(
+      "forensics requires a target kind",
+    );
+
+    const missingKind = runForensics([], missing, "verify.ts");
+    expect(missingKind.exit).toBe(2);
+    expect(missingKind.writes[0]?.text).toContain(
+      "forensics requires a target kind",
+    );
+
+    const extraArgs = runForensics(
+      ["state", absent, "extra"],
+      missing,
+      "verify.ts",
+    );
+    expect(extraArgs.exit).toBe(2);
+    expect(extraArgs.writes[0]?.text).toContain(
+      "forensics requires a target kind",
+    );
 
     const badOption = runForensics(
       ["state", absent, "--nope"],
@@ -313,6 +375,8 @@ describe("kernel-free forensics in-process", () => {
       "verify.ts",
     );
     expect(badOption.exit).toBe(2);
+    expect(badOption.writes[0]?.stream).toBe("stderr");
+    expect(badOption.writes[0]?.text).toContain("Unknown option --nope");
 
     const help = runForensics(["--help"], missing, "verify.ts");
     expect(help.exit).toBe(0);
@@ -336,19 +400,64 @@ describe("kernel-free forensics in-process", () => {
     const linkDir = join(missing, "link");
     mkdirSync(realDir, { mode: 0o700 });
     symlinkSync(realDir, linkDir);
-    expect(inspectRunFolder(linkDir).ok).toBe(false);
+    expect(inspectRunFolder(linkDir)).toEqual({
+      ok: false,
+      reason: `Run folder ${linkDir} is not a real directory.`,
+    });
+    const linkRun = runForensics(
+      ["run", linkDir, "--json"],
+      missing,
+      "verify.ts",
+    );
+    expect(linkRun.exit).toBe(3);
+    expect(parsed(linkRun.writes[0]?.text ?? "")).toMatchObject({
+      schema: forensicsSchema,
+      ok: false,
+      kind: "unreadable",
+    });
+    expect(linkRun.writes[0]?.text).toContain("is not a real directory");
 
     const crowded = ownedFolder("forensics-crowded-");
-    for (let index = 0; index <= forensicsLimits.maxEntries; index += 1)
+    for (let index = 0; index < forensicsLimits.maxEntries; index += 1)
       writeFileSync(
         join(crowded, `${String(index).padStart(4, "0")}.txt`),
         "x",
       );
+    const exact = inspectApprovalFolder(crowded);
+    expect(exact.ok).toBe(true);
+    if (!exact.ok) return;
+    expect(exact.report.truncated).toBe(false);
+    expect(exact.report.entries).toHaveLength(forensicsLimits.maxEntries);
+
+    writeFileSync(
+      join(
+        crowded,
+        `${String(forensicsLimits.maxEntries).padStart(4, "0")}.txt`,
+      ),
+      "x",
+    );
     const bounded = inspectApprovalFolder(crowded);
     expect(bounded.ok).toBe(true);
     if (!bounded.ok) return;
     expect(bounded.report.truncated).toBe(true);
     expect(bounded.report.entries).toHaveLength(forensicsLimits.maxEntries);
+
+    const oversized = encodeC3s1("effect-started", {
+      note: "x".repeat(forensicsLimits.maxPayloadBytes),
+    });
+    const overParsed = parseC3s1Records(oversized);
+    expect(overParsed.ok).toBe(true);
+    if (overParsed.ok) {
+      expect(overParsed.records).toEqual([]);
+      expect(overParsed.tornTail).toBe(true);
+    }
+
+    const corruptBody = concatBytes(
+      new TextEncoder().encode("not-a-header\n"),
+      encodeC3s1("completion", { settledAt: 1 }),
+    );
+    const corruptParsed = parseC3s1Records(corruptBody);
+    expect(corruptParsed.ok).toBe(false);
   });
 });
 
@@ -408,6 +517,7 @@ describe("kernel-free forensics through verify.ts", () => {
         { entry: carriedEntry },
       );
       expect(readyWithoutKernel.exit).toBe(70);
+      expect(readyWithoutKernel.stderr).toContain("RAW FAIL kernel-import");
 
       const forensicsWithoutKernel = await viaKernelFreeCheck(
         at,
@@ -424,6 +534,6 @@ describe("kernel-free forensics through verify.ts", () => {
         status: "clean",
       });
     },
-    watchdog(0, 5),
+    watchdog(0, 6),
   );
 });

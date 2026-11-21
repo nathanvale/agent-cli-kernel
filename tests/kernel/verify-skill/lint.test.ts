@@ -58,11 +58,15 @@ describe("the lint on the skill folder", () => {
       expect(await ruleIds(join(skill, "forensics.ts"), line)).toContain(
         "kernel-free/no-kernel-import",
       );
+      expect(await ruleIds(join(skill, "forensics", "run.ts"), line)).toContain(
+        "kernel-free/no-kernel-import",
+      );
     }, 60_000);
   }
 
   test("the forensic command passes lint cleanly", async () => {
     expect(await ruleIds(join(skill, "forensics.ts"), "")).toEqual([]);
+    expect(await ruleIds(join(skill, "forensics", "run.ts"), "")).toEqual([]);
   }, 60_000);
 
   test("the lint's recorded hits hold no file under the skill folder", () => {

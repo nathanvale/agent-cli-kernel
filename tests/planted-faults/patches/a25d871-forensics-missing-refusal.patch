@@ -1,21 +1,23 @@
 diff --git a/skills/verify-cli/forensics/run.ts b/skills/verify-cli/forensics/run.ts
 --- a/skills/verify-cli/forensics/run.ts
 +++ b/skills/verify-cli/forensics/run.ts
-@@ -323,12 +323,9 @@ export function runForensics(
-   if (parsed.done) return parsed.outcome;
-   const inspected = dispatchTarget(parsed.kind, resolve(cwd, parsed.targetPath));
-   if (!inspected.ok)
--    return errorOutput(
--      parsed.json,
--      3,
--      "unreadable",
--      inspected.reason,
--      "Pass an existing, readable directory for that forensic target.",
--    );
-+    return {
-+      exit: 0,
-+      writes: [{ stream: "stdout", text: "{}\n" }],
-+    };
-   const text = parsed.json
-     ? `${JSON.stringify(inspected.report)}\n`
-     : `${inspected.report.summary}\n${JSON.stringify(inspected.report, null, 2)}\n`;
+@@ -355,15 +355,12 @@ export function runForensics(
+     const inspected = dispatchTarget(
+       parsed.kind,
+       resolve(cwd, parsed.targetPath),
+     );
+     if (!inspected.ok)
+-      return errorOutput(
+-        parsed.json,
+-        3,
+-        "unreadable",
+-        inspected.reason,
+-        "Pass an existing, readable directory for that forensic target.",
+-      );
++      return {
++        exit: 0,
++        writes: [{ stream: "stdout", text: "{}\n" }],
++      };
+     const text = parsed.json
+       ? `${JSON.stringify(inspected.report)}\n`
+       : `${inspected.report.summary}\n${JSON.stringify(inspected.report, null, 2)}\n`;

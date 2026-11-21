@@ -1,0 +1,7 @@
+{
+  "id": "a25d871-forensics-prototype-format",
+  "patch": "tests/planted-faults/patches/a25d871-forensics-prototype-format.patch",
+  "testFile": "tests/kernel/verify-skill/forensics.test.ts",
+  "title": "decodes approval consumed markers, valid and expired grants, prototype keys, and malformed entries$",
+  "source": "a25d871 feat(verify-cli): add kernel-free forensics command for raw artifact inspection"
+}

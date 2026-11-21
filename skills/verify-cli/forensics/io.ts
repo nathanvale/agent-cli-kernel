@@ -1,7 +1,15 @@
 import { createHash } from "node:crypto";
-import { lstatSync, readdirSync } from "node:fs";
+import {
+  closeSync,
+  constants,
+  fstatSync,
+  lstatSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+} from "node:fs";
 import type { Stats } from "node:fs";
-import { at, parsedJson, readRegularFile } from "../helper/json.ts";
+import { at, parsedJson } from "../helper/json.ts";
 
 export const forensicsSchema = "verify-forensics/1";
 
@@ -54,7 +62,7 @@ export function openRealDirectory(
   return { ok: true, stats: stat.stats };
 }
 
-export function listDirectoryBounded(path: string):
+function listDirectoryBounded(path: string):
   | {
       readonly kind: "ok";
       readonly names: readonly string[];
@@ -79,21 +87,58 @@ export function listDirectoryBounded(path: string):
   }
 }
 
+export function formatMode(stats: Stats): string {
+  return `0o${(stats.mode & 0o7777).toString(8).padStart(4, "0")}`;
+}
+
+function statUnreadable(
+  stats: Stats,
+  path: string,
+  limit: number,
+): string | undefined {
+  if (!stats.isFile()) return `${path} is not a regular file`;
+  return stats.size > limit
+    ? `${path} is ${String(stats.size)} bytes, over ${String(limit)}`
+    : undefined;
+}
+
 export function readBytesNoFollow(
   path: string,
-  limit = forensicsLimits.maxFileBytes,
+  limit: number = forensicsLimits.maxFileBytes,
 ):
   | { readonly kind: "read"; readonly bytes: Uint8Array; readonly stats: Stats }
   | { readonly kind: "missing" }
   | { readonly kind: "unreadable"; readonly reason: string } {
-  const stat = lstatSafe(path);
-  if (stat.kind === "missing") return { kind: "missing" };
-  if (stat.kind === "error") return { kind: "unreadable", reason: stat.reason };
-  if (stat.stats.isSymbolicLink())
-    return { kind: "unreadable", reason: `${path} is a symbolic link` };
-  const file = readRegularFile(path, limit);
-  if (file.kind !== "read") return file;
-  return { kind: "read", bytes: file.bytes, stats: stat.stats };
+  const noFollow = constants.O_NOFOLLOW ?? 0;
+  let descriptor: number;
+  try {
+    descriptor = openSync(
+      path,
+      constants.O_RDONLY | constants.O_NONBLOCK | noFollow,
+    );
+  } catch (error) {
+    const code = at(error, "code");
+    if (code === "ENOENT") return { kind: "missing" };
+    if (code === "ELOOP")
+      return { kind: "unreadable", reason: `${path} is a symbolic link` };
+    return { kind: "unreadable", reason: errorText(error) };
+  }
+  try {
+    const stats = fstatSync(descriptor);
+    const problem = statUnreadable(stats, path, limit);
+    if (problem !== undefined) return { kind: "unreadable", reason: problem };
+    const bytes = readFileSync(descriptor);
+    if (bytes.byteLength > limit)
+      return {
+        kind: "unreadable",
+        reason: `${path} exceeded ${String(limit)} bytes while reading`,
+      };
+    return { kind: "read", bytes, stats };
+  } catch (error) {
+    return { kind: "unreadable", reason: errorText(error) };
+  } finally {
+    closeSync(descriptor);
+  }
 }
 
 export function openListedDirectory(

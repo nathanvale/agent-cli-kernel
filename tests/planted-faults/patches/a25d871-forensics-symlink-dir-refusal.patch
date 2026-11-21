@@ -1,0 +1,11 @@
+diff --git a/skills/verify-cli/forensics/io.ts b/skills/verify-cli/forensics/io.ts
+--- a/skills/verify-cli/forensics/io.ts
++++ b/skills/verify-cli/forensics/io.ts
+@@ -56,7 +56,7 @@ export function openRealDirectory(
+   if (stat.kind === "error")
+     return { ok: false, reason: `Cannot stat ${folder}: ${stat.reason}` };
+-  if (stat.stats.isSymbolicLink() || !stat.stats.isDirectory())
++  if (!stat.stats.isSymbolicLink() && !stat.stats.isDirectory())
+     return { ok: false, reason: `${label} ${folder} is not a real directory.` };
+   return { ok: true, stats: stat.stats };
+ }

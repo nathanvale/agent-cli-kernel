@@ -1,11 +1,5 @@
 import { join, resolve } from "node:path";
-import {
-  at,
-  evidenceBytesLimit,
-  listOf,
-  readJsonFile,
-  readRegularFile,
-} from "../helper/json.ts";
+import { at, evidenceBytesLimit, listOf, parsedJson } from "../helper/json.ts";
 import {
   cli,
   readIndex,
@@ -15,7 +9,13 @@ import {
 } from "../helper/place.ts";
 import type { RunRow, StepRow } from "../helper/place.ts";
 import { inspectApprovalFolder, inspectDiagnosticsFolder } from "./addons.ts";
-import { forensicsSchema, lstatSafe, openRealDirectory } from "./io.ts";
+import {
+  forensicsSchema,
+  lenientDecoder,
+  lstatSafe,
+  openRealDirectory,
+  readBytesNoFollow,
+} from "./io.ts";
 import { inspectStateRoot } from "./state.ts";
 import type { StateForensicsReport } from "./state.ts";
 
@@ -27,7 +27,7 @@ export type ForensicsWrite = {
   readonly text: string;
 };
 
-export type ForensicsOutcome = {
+export type ForensicsResult = {
   readonly exit: number;
   readonly writes: readonly ForensicsWrite[];
 };
@@ -73,22 +73,33 @@ function boolOrNull(value: unknown): boolean | null {
   return typeof value === "boolean" ? value : null;
 }
 
-function checkStepHash(stepPath: string, row: StepRow) {
-  const raw = readRegularFile(stepPath, evidenceBytesLimit);
+function readStepOnce(stepPath: string, row: StepRow) {
+  const raw = readBytesNoFollow(stepPath, evidenceBytesLimit);
   if (raw.kind !== "read")
     return {
       hashMatches: false,
-      problem:
+      doc: undefined,
+      problems: [
         raw.kind === "missing"
           ? `evidence file missing: ${row.file}`
           : `evidence file unreadable (${row.file}): ${raw.reason}`,
+      ],
     };
   const hashMatches = sha256(raw.bytes) === row.sha256;
+  const doc = parsedJson(lenientDecoder.decode(raw.bytes));
   return {
     hashMatches,
-    problem: hashMatches
-      ? undefined
-      : `evidence hash mismatch on ${row.file}: file was altered after drive`,
+    doc,
+    problems: [
+      ...(hashMatches
+        ? []
+        : [
+            `evidence hash mismatch on ${row.file}: file was altered after drive`,
+          ]),
+      ...(doc === undefined
+        ? [`evidence file ${row.file} is not valid JSON`]
+        : []),
+    ],
   };
 }
 
@@ -122,10 +133,8 @@ function inspectStepEvidence(
   run: RunRow,
   row: StepRow,
 ): { readonly step: RunStepForensics; readonly problems: readonly string[] } {
-  const stepPath = join(evidenceDir, row.file);
-  const checked = checkStepHash(stepPath, row);
-  const json = readJsonFile(stepPath, evidenceBytesLimit);
-  const doc = json.kind === "read" ? json.value : undefined;
+  const checked = readStepOnce(join(evidenceDir, row.file), row);
+  const { doc } = checked;
   const unmet = listOf(at(doc, "unmet")).flatMap((item) =>
     typeof item === "string" ? [item] : [],
   );
@@ -137,7 +146,7 @@ function inspectStepEvidence(
     (at(doc, "repository", "headCommit") !== run.headCommit ||
       at(doc, "repository", "uncommittedPaths") !== run.uncommittedPaths);
   const problems = [
-    ...(checked.problem === undefined ? [] : [checked.problem]),
+    ...checked.problems,
     ...stepDocProblems(
       row,
       doc,
@@ -175,8 +184,12 @@ export function inspectRunFolder(
   if (!opened.ok) return opened;
 
   const place = verificationRun(folder);
-  const scratchPresent = lstatSafe(place.scratch).kind === "ok";
-  const problems: string[] = [];
+  const scratchStat = lstatSafe(place.scratch);
+  const scratchPresent = scratchStat.kind === "ok";
+  const problems: string[] =
+    scratchStat.kind === "error"
+      ? [`scratch folder unreadable: ${scratchStat.reason}`]
+      : [];
 
   const index = readIndex(place);
   let runMeta: RunForensicsReport["run"] = null;
@@ -253,7 +266,7 @@ function errorOutput(
   kind: "usage" | "unreadable",
   message: string,
   repair: string,
-): ForensicsOutcome {
+): ForensicsResult {
   if (json)
     return {
       exit,
@@ -295,7 +308,7 @@ function parseForensicsArgs(args: readonly string[], self: string) {
   if (badOption !== undefined)
     return {
       done: true as const,
-      outcome: errorOutput(
+      result: errorOutput(
         json,
         2,
         "usage",
@@ -306,7 +319,7 @@ function parseForensicsArgs(args: readonly string[], self: string) {
   if (help)
     return {
       done: true as const,
-      outcome: {
+      result: {
         exit: 0,
         writes: [{ stream: "stdout" as const, text: `${usageHelp(self)}\n` }],
       },
@@ -323,7 +336,7 @@ function parseForensicsArgs(args: readonly string[], self: string) {
   )
     return {
       done: true as const,
-      outcome: errorOutput(
+      result: errorOutput(
         json,
         2,
         "usage",
@@ -338,23 +351,34 @@ export function runForensics(
   args: readonly string[],
   cwd: string,
   self: string,
-): ForensicsOutcome {
+): ForensicsResult {
   const parsed = parseForensicsArgs(args, self);
-  if (parsed.done) return parsed.outcome;
-  const inspected = dispatchTarget(
-    parsed.kind,
-    resolve(cwd, parsed.targetPath),
-  );
-  if (!inspected.ok)
+  if (parsed.done) return parsed.result;
+  try {
+    const inspected = dispatchTarget(
+      parsed.kind,
+      resolve(cwd, parsed.targetPath),
+    );
+    if (!inspected.ok)
+      return errorOutput(
+        parsed.json,
+        3,
+        "unreadable",
+        inspected.reason,
+        "Pass an existing, readable directory for that forensic target.",
+      );
+    const text = parsed.json
+      ? `${JSON.stringify(inspected.report)}\n`
+      : `${inspected.report.summary}\n${JSON.stringify(inspected.report, null, 2)}\n`;
+    return { exit: 0, writes: [{ stream: "stdout", text }] };
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
     return errorOutput(
       parsed.json,
       3,
       "unreadable",
-      inspected.reason,
+      `Forensics threw while inspecting ${parsed.targetPath}: ${reason}`,
       "Pass an existing, readable directory for that forensic target.",
     );
-  const text = parsed.json
-    ? `${JSON.stringify(inspected.report)}\n`
-    : `${inspected.report.summary}\n${JSON.stringify(inspected.report, null, 2)}\n`;
-  return { exit: 0, writes: [{ stream: "stdout", text }] };
+  }
 }

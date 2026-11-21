@@ -5,6 +5,7 @@ import {
   at,
   evidenceBytesLimit,
   listOf,
+  parsedJson,
   readRegularFile,
 } from "./helper/json.ts";
 import { runForensics } from "./forensics.ts";
@@ -139,7 +140,11 @@ export function bound(argv: readonly string[]): Bound {
     return { root: repositoryRoot(first), target: first, run: undefined };
   if (name === "launch") {
     const target = positional(argv, 2);
-    return { root: target && repositoryRoot(target), target, run: undefined };
+    return {
+      root: target === undefined ? undefined : repositoryRoot(target),
+      target,
+      run: undefined,
+    };
   }
   if (!runCommands.includes(name) || first === undefined) return emptyBound;
   const place = verificationRun(first);
@@ -155,19 +160,15 @@ export function bound(argv: readonly string[]): Bound {
   };
 }
 
-function firstLine(text: string): string {
+function firstLine(text: string) {
   return text.split("\n").find((line) => line.trim() !== "") ?? "";
 }
 
-function oneJsonLine(text: string): unknown {
+function oneJsonLine(text: string) {
   const lines = text.split("\n");
-  if (lines.length !== 2 || lines[1] !== "") return undefined;
-  try {
-    const value: unknown = JSON.parse(lines[0] ?? "");
-    return value;
-  } catch {
-    return undefined;
-  }
+  return lines.length === 2 && lines[1] === ""
+    ? parsedJson(lines[0] ?? "")
+    : undefined;
 }
 
 const fail = (id: FailureId, detail: string): Failure => ({ id, detail });
@@ -321,11 +322,11 @@ export function compared(
 }
 
 type Round =
-  | { readonly kind: "failed"; readonly failures: Failure[] }
+  | { kind: "failed"; failures: Failure[] }
   | {
-      readonly kind: "seen";
-      readonly helper: readonly (ProbeResult | undefined)[];
-      readonly raw: readonly ProbeResult[];
+      kind: "seen";
+      helper: readonly (ProbeResult | undefined)[];
+      raw: readonly ProbeResult[];
     };
 
 async function probeRound(
@@ -517,7 +518,7 @@ async function capped(
   stream: ReadableStream<Uint8Array>,
   limit: number,
   done: Promise<unknown>,
-): Promise<string> {
+) {
   const reader = stream.getReader();
   const kept: Uint8Array[] = [];
   let size = 0;
@@ -578,7 +579,9 @@ export function bunSpawn(
       timedOut = true;
       signalGroup(child, "SIGTERM");
     });
-    void kill.passed.then(() => signalGroup(child, "SIGKILL"));
+    void kill.passed.then(() => {
+      signalGroup(child, "SIGKILL");
+    });
     const drain = child.exited.then(() => afterDelay(limits.graceMilliseconds));
     const drained = drain.then((delay) => delay.passed);
     const [stdout, stderr] = await Promise.all([
@@ -671,6 +674,15 @@ export async function main(
   };
 }
 
+function written(write: Relayed) {
+  return new Promise<void>((done) => {
+    (write.stream === "stdout" ? process.stdout : process.stderr).write(
+      write.text,
+      () => done(),
+    );
+  });
+}
+
 if (import.meta.main) {
   forwardStops();
   const { exit, writes } = await main(
@@ -678,12 +690,6 @@ if (import.meta.main) {
     process.cwd(),
     bunSpawn(process.env),
   );
-  for (const write of writes)
-    await new Promise<void>((done) => {
-      (write.stream === "stdout" ? process.stdout : process.stderr).write(
-        write.text,
-        () => done(),
-      );
-    });
+  for (const write of writes) await written(write);
   process.exit(exit);
 }

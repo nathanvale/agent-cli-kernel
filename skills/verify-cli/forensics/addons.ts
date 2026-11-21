@@ -1,3 +1,4 @@
+import { realpathSync } from "node:fs";
 import type { Stats } from "node:fs";
 import { dirname, join } from "node:path";
 import { at, parsedJson } from "../helper/json.ts";
@@ -5,8 +6,8 @@ import {
   currentUid,
   forensicsLimits,
   forensicsSchema,
+  formatMode,
   lenientDecoder,
-  listDirectoryBounded,
   lstatSafe,
   openListedDirectory,
   readBytesNoFollow,
@@ -74,13 +75,37 @@ function isTrustedDirectory(info: Stats): boolean {
   return info.isDirectory() && uidOk && modeOk;
 }
 
-function checkTrustedAncestors(folder: string): boolean {
-  let current = folder;
+function checkTrustedAncestors(folder: string): {
+  readonly trusted: boolean;
+  readonly reason: string | undefined;
+} {
+  let current: string;
+  try {
+    current = realpathSync(folder);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    return {
+      trusted: false,
+      reason: `cannot resolve real path for ancestors: ${reason}`,
+    };
+  }
   for (;;) {
     const stat = lstatSafe(current);
-    if (stat.kind !== "ok" || !isTrustedDirectory(stat.stats)) return false;
+    if (stat.kind !== "ok")
+      return {
+        trusted: false,
+        reason:
+          stat.kind === "missing"
+            ? `ancestor ${current} is missing`
+            : `cannot stat ancestor ${current}: ${stat.reason}`,
+      };
+    if (!isTrustedDirectory(stat.stats))
+      return {
+        trusted: false,
+        reason: `ancestor ${current} fails the trusted-ancestor permission check`,
+      };
     const parent = dirname(current);
-    if (parent === current) return true;
+    if (parent === current) return { trusted: true, reason: undefined };
     current = parent;
   }
 }
@@ -106,11 +131,11 @@ function readCustodyLock(
       lock: { present: false, ownerPid: null, ownerHost: null, entries: [] },
       problems: [],
     };
-  const listed = listDirectoryBounded(join(folder, lockName));
-  if (listed.kind !== "ok")
+  const listed = openListedDirectory("Custody lock", join(folder, lockName));
+  if (!listed.ok)
     return {
       lock: { present: true, ownerPid: null, ownerHost: null, entries: [] },
-      problems: [".allocation-lock could not be read as a directory"],
+      problems: [`.allocation-lock unreadable: ${listed.reason}`],
     };
   const entries = [...listed.names];
   const { ownerPid, ownerHost } = parseLockOwner(entries);
@@ -251,7 +276,7 @@ function summarizeDiagnosticsFile(
 function directoryPermissionProblems(
   stats: Stats,
   mode: string,
-  trustedAncestors: boolean,
+  ancestorReason: string | undefined,
 ): readonly string[] {
   const modeBits = stats.mode & 0o7777;
   return [
@@ -261,9 +286,7 @@ function directoryPermissionProblems(
     ...(currentUid !== -1 && stats.uid !== currentUid
       ? ["diagnostics directory uid does not match current user"]
       : []),
-    ...(trustedAncestors
-      ? []
-      : ["an ancestor directory fails the trusted-ancestor permission check"]),
+    ...(ancestorReason === undefined ? [] : [ancestorReason]),
   ];
 }
 
@@ -274,8 +297,8 @@ export function inspectDiagnosticsFolder(
   | { readonly ok: false; readonly reason: string } {
   const opened = openListedDirectory("Diagnostics folder", folder);
   if (!opened.ok) return opened;
-  const mode = `0o${(opened.stats.mode & 0o7777).toString(8).padStart(4, "0")}`;
-  const trustedAncestors = checkTrustedAncestors(folder);
+  const mode = formatMode(opened.stats);
+  const ancestors = checkTrustedAncestors(folder);
   const parts = partitionDiagnosticsEntries(opened.names);
   const lockInfo = readCustodyLock(folder, parts.lockPresent);
   const summaries = parts.dataNames.map((name) =>
@@ -284,14 +307,17 @@ export function inspectDiagnosticsFolder(
   const files = summaries.flatMap((item) =>
     item.report === undefined ? [] : [item.report],
   );
+  const truncated =
+    opened.truncated || files.some((item) => item.linesTruncated);
   const problems = [
-    ...directoryPermissionProblems(opened.stats, mode, trustedAncestors),
+    ...directoryPermissionProblems(opened.stats, mode, ancestors.reason),
     ...lockInfo.problems,
     ...parts.problems,
     ...summaries.flatMap((item) => item.problems),
+    ...(truncated
+      ? ["diagnostics listing or file lines were truncated at forensics limits"]
+      : []),
   ];
-  const truncated =
-    opened.truncated || files.some((item) => item.linesTruncated);
   return {
     ok: true,
     report: {
@@ -301,7 +327,7 @@ export function inspectDiagnosticsFolder(
       status: problems.length === 0 ? "clean" : "issues",
       summary: `Diagnostics folder (${mode}): ${String(files.length)} file(s), lock ${lockInfo.lock.present ? "present" : "absent"}, ${String(parts.residue.length)} residue, ${String(problems.length)} problems.`,
       mode,
-      trustedAncestors,
+      trustedAncestors: ancestors.trusted,
       lock: lockInfo.lock,
       residue: parts.residue,
       orphanMarkers: parts.orphanMarkers,
@@ -349,7 +375,8 @@ function classifyApprovalKind(
     format === null ||
     version !== 1 ||
     operation === null ||
-    expiresAt === null
+    expiresAt === null ||
+    !Object.hasOwn(approvalFormatKinds, format)
   )
     return "malformed";
   return approvalFormatKinds[format] ?? "malformed";
@@ -418,7 +445,8 @@ function inspectApprovalEntry(
       file: name,
       kind: "consumed",
       keyHash,
-      operation: textField(at(parsed, "operation")),
+      operation:
+        textField(at(parsed, "runId")) ?? textField(at(parsed, "operation")),
       expiresAt: null,
       expired: null,
       problems,
@@ -447,9 +475,14 @@ export function inspectApprovalFolder(
   const entries = opened.names.map((name) =>
     inspectApprovalEntry(folder, name, now),
   );
-  const problems = entries.flatMap((entry) =>
-    entry.problems.map((issue) => `${entry.file}: ${issue}`),
-  );
+  const problems = [
+    ...entries.flatMap((entry) =>
+      entry.problems.map((issue) => `${entry.file}: ${issue}`),
+    ),
+    ...(opened.truncated
+      ? ["approval folder listing was truncated at forensics limits"]
+      : []),
+  ];
   const consumed = entries.filter((entry) => entry.kind === "consumed").length;
   return {
     ok: true,
