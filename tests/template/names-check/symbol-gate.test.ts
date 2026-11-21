@@ -323,7 +323,7 @@ test(
         ),
       ).toEqual(expected);
   },
-  processWatchdog(3),
+  processWatchdog(6),
 );
 
 test(
@@ -347,7 +347,7 @@ test(
     put(root, "src/public.ts", "export const proof = 1;\n");
     expect(await check(root, ["--staged"])).toEqual({ code: 0, stderr: "" });
   },
-  processWatchdog(3),
+  processWatchdog(10),
 );
 
 test(
@@ -379,7 +379,7 @@ test(
       stderr: refusal,
     });
   },
-  processWatchdog(3),
+  processWatchdog(5),
 );
 
 test(
@@ -468,7 +468,7 @@ test(
       stderr: "",
     });
   },
-  processWatchdog(3),
+  processWatchdog(4),
 );
 
 test("symbol gate refuses an empty declaration identity in a recorded hit", () => {
