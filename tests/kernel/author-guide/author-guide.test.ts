@@ -1179,7 +1179,16 @@ describe("kernel behaviour changing.md states in words", () => {
       },
     });
     expect(await failing(["change"])).toMatchObject({
-      envelope: { message: "unresolved-case" },
+      kind: "envelope",
+      envelope: {
+        message: "unresolved-case",
+        result: {
+          exitCode: 3,
+          causeCode: "DOMAIN_GUIDE_UNRESOLVED",
+          transactionState: "unchanged",
+          effects: unchanged,
+        },
+      },
     });
   });
 
@@ -1213,9 +1222,12 @@ describe("kernel behaviour changing.md states in words", () => {
       const root = join(folder, "state");
       const script = join(folder, "guide.ts");
       write(folder, "guide.ts", stopScript(root));
+      const env = Object.fromEntries(
+        Object.entries(process.env).filter(([name]) => name !== "GUIDE_READY"),
+      );
       const first = await spawnBounded(
         [process.execPath, script, "change", "--json"],
-        { cwd: folder },
+        { cwd: folder, env },
       );
       expect(first.exit).toBe(0);
       const stopped = [];
@@ -1225,7 +1237,7 @@ describe("kernel behaviour changing.md states in words", () => {
           [process.execPath, script, "change", "--json"],
           {
             cwd: folder,
-            env: { ...process.env, GUIDE_READY: ready },
+            env: { ...env, GUIDE_READY: ready },
             signalAt: { ledger: ready, line: "ready", signal },
           },
         );
