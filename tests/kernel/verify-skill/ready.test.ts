@@ -24,7 +24,7 @@ afterAll(releaseWorlds);
 
 describe("ready", () => {
   test(
-    "ready passes the author guide's example",
+    "ready passes the author skill's example",
     async () => {
       const at = world();
       const plain = await viaKernelFreeCheck(at, ["ready", at.example]);
