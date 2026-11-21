@@ -7,7 +7,7 @@
   [kernel-work](.agents/skills/kernel-work/SKILL.md).
 - For the author skill that ships in the package, `skills/agent-cli-kernel/`,
   or a red `author-guide` test, use the
-  [author guide upkeep](docs/agents/author-guide.md).
+  [author skill upkeep](docs/agents/author-guide.md).
 - Use the [repo gardener](.agents/skills/repo-gardener/SKILL.md) skill for
   an operator correction, review finding, rule row that needs a gate,
   unused guidance, or a name the names check refuses.

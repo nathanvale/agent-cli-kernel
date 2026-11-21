@@ -26,13 +26,13 @@ runs each test file. What a test must prove is in the
   started their CLI children with no time limit; the state test harness
   now gives every `world.start` a 60 s default bound), [4ca0141] (the
   installed-kernel lint process and its cases shared one 120 s bound),
-  [ff0616c] (the author guide's example bounded its process child at 20 s
+  [ff0616c] (the author skill's example bounded its process child at 20 s
   under Bun's 5 s test timeout).
 - Give a test or a setup hook a timeout that covers the sum of the bounds of
   every child it runs in sequence, not only the largest one. Witnessed:
   [kernel#48 review 5987095580], [fdfa794] (setup reserved 60 s for a copy
   that ran two git staging calls bounded at 60 s each, and the copy test ran
-  on the default timeout), [308d494] (the author guide's install case
+  on the default timeout), [308d494] (the author skill's install case
   allowed 120 s for a 110 s install and up to seven 4 s git calls),
   [0ab74b8] (the verification skill's cases ran up to six 30 s helpers
   under a 60 s timeout).
@@ -49,7 +49,7 @@ runs each test file. What a test must prove is in the
   [#91-cleanup], [5533cd6], [e766237] (the pinned-commit binary case joined
   its CLI runs with `Promise.all`, so one run passing its bound could fail
   the case and let teardown remove the folder while another still ran; it
-  now waits for every run to settle), [ff0616c] (the author guide's gate
+  now waits for every run to settle), [ff0616c] (the author skill's gate
   lost its temporary folder when the build that made it failed, since
   teardown read the path from the failed build).
 - At teardown, send SIGKILL, and only to a pid still in its ledgered process

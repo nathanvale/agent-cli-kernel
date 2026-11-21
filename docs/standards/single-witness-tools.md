@@ -80,7 +80,7 @@ How a gate, a script or a check reads a tool, its output and its inputs. A lesso
   check that each pattern names something that exists).
 - Declare a script that people or a document run by path as a runtime root
   in `.fallowrc.json` `entry`, so a dead-code report on it reads as a
-  missing root. Witnessed: [39d64c3] (the author guide's writer lost its root
+  missing root. Witnessed: [39d64c3] (the author skill's writer lost its root
   when its `package.json` script was dropped).
 - Skip only the named files a tool leaves, such as `.DS_Store`, and refuse
   every other unexpected entry, so a record cannot leave a gate through

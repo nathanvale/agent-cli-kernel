@@ -12,7 +12,7 @@ helper, started through its kernel-free check, as a process, in a generated
 repository that has the kernel installed by its Pin. Decided by Nathan.
 
 - In the kernel repository's own tests, that repository is laid out the way
-  the author guide's gate lays out its example: a scratch tree whose
+  the author skill's gate lays out its example: a scratch tree whose
   `node_modules/agent-cli-kernel` is this checkout.
 - One test installs the package from the checkout's head by git ref, and from
   that real install runs `ready`, then launches, drives, reports and cleans up
@@ -72,7 +72,7 @@ Kernel fault classes. Each has two things.
 
 | Class      | Fault record: the patch, and the test it must turn red                                                                     | Report test                                                                                    |
 | ---------- | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| KF1 to KF7 | The patch makes that break in the kernel's source. The test is the healthy case: `ready` passes the author guide's example | A test makes the same break in a copy of the installed kernel and asserts the report I18 gives |
+| KF1 to KF7 | The patch makes that break in the kernel's source. The test is the healthy case: `ready` passes the author skill's example | A test makes the same break in a copy of the installed kernel and asserts the report I18 gives |
 
 The helper's own refusals and bounds. One fault record for each row; where a
 row names a list, one for each member.
@@ -123,7 +123,7 @@ row names a list, one for each member.
 
 **TD6. Prior art in the kernel repository.**
 
-- The author guide's gate, `tests/kernel/author-guide/author-guide.test.ts`:
+- The author skill's gate, `tests/kernel/author-guide/author-guide.test.ts`:
   it lays out a consuming repository, links the kernel, compiles, lints and
   tests it, and installs the package by git ref.
 - Fault replay and its records, one file each under

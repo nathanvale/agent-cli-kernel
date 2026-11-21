@@ -65,8 +65,8 @@ station(causes, {
 ```
 
 - `trigger` says when the result happens.
-- `repairAction` is `null` on a success. On any other station it tells the
-  caller what to repair.
+- `repairAction` is the station's repair action: `null` on a success, otherwise
+  the fixed guidance explaining the repair or the named handoff.
 - `guidance` is `{ next }` or `{ handoff }`, as the row says.
 - `independentObservable` names the evidence that the result happened.
   Discovery does not print it.
@@ -117,7 +117,7 @@ handoff's `reason`, its resource `kind` and `id`, and its `inspect` steps.
 - Any other brace makes `contractFor` throw when the CLI starts, with
   `Invalid run binding placement or guidance template token.` or
   `Malformed guidance template token.` The message names no station, so
-  search your repair and guidance text for a brace.
+  search your repair action and guidance text for a brace.
 - Describe a JSON shape in words there.
 - `trigger`, `summary` and a result's `message` are plain text. Braces are
   safe in them.
@@ -129,11 +129,11 @@ handoff's `reason`, its resource `kind` and `id`, and its `inspect` steps.
 for a result that cannot happen. Unreachable means impossible, not
 untested. A result that is hard to reach stays `required`. See [testing](testing.md#reach-every-station).
 
-## Stations the kernel adds
+## Kernel stations
 
-The kernel adds stations to every command, such as the usage refusal and the
-internal failures. `--discover-command <identity>` lists them after yours.
-They need no declaration.
+Kernel stations are the stations the kernel adds to every command, such as the
+usage refusal and the internal failures. `--discover-command <identity>` lists
+them after yours. They need no declaration.
 
 ## Start-up throws
 
@@ -141,7 +141,7 @@ They need no declaration.
 
 | Message                                                                   | Cause                                                                                                                                                                                                                                                |
 | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Invalid run binding placement or guidance template token.`               | A brace in repair or guidance text. See [Braces](#braces).                                                                                                                                                                                           |
+| `Invalid run binding placement or guidance template token.`               | A brace in repair action or guidance text. See [Braces](#braces).                                                                                                                                                                                    |
 | `Station identity is undeclared, duplicated or bound to another command.` | Two stations of one command share a cause, or a station's cause is missing from the table `contractFor` got.                                                                                                                                         |
 | `Station disagrees with the CLI cause owner.`                             | The station's cause row differs from the row for that cause in the table `contractFor` got.                                                                                                                                                          |
 | `Done requires success.`                                                  | `{ kind: "done" }` on a station that is not a success.                                                                                                                                                                                               |

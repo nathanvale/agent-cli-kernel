@@ -1,6 +1,6 @@
-# Author Guide
+# Author skill
 
-The author guide is the skill `skills/agent-cli-kernel/`: `SKILL.md` and
+The author skill is the skill `skills/agent-cli-kernel/`: `SKILL.md` and
 its `references/`. It ships in the `agent-cli-kernel` package at that path,
 so a repository that installs the kernel by its pin finds it at
 `node_modules/agent-cli-kernel/skills/agent-cli-kernel/SKILL.md`. Its reader
