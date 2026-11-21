@@ -323,6 +323,44 @@ describe("the author skill's example, laid out as a repository that depends on t
     },
     exampleBound,
   );
+  test(
+    "the example's pending lists nothing for a home never visited, and refuses a state folder it cannot read",
+    async () => {
+      const tree = await exampleTree();
+      const home = ownedFolder("kernel-author-guide-pending-");
+      const env = {
+        ...process.env,
+        MOONS_HOME: home,
+        MOONS_OPENER: "/usr/bin/true",
+      };
+      const run = (...argv: string[]) =>
+        spawnBounded([process.execPath, "src/cli.ts", ...argv, "--json"], {
+          cwd: tree,
+          env,
+        });
+      const resultOf = (text: string): unknown =>
+        Reflect.get(Object(JSON.parse(text)), "result");
+      const fresh = await run("pending");
+      expect(fresh.exit).toBe(0);
+      expect(resultOf(fresh.stdout)).toMatchObject({
+        causeCode: "SUCCESS_UNCHANGED",
+        data: { unfinished: [] },
+      });
+      expect((await run("visit", "mars")).exit).toBe(0);
+      await mkdir(join(home, "state", "operations", "not-a-case"));
+      const refused = await run("pending");
+      expect(refused.exit).toBe(3);
+      expect(resultOf(refused.stdout)).toMatchObject({
+        outcome: "refused",
+        causeCode: "DOMAIN_PRECONDITION_UNMET",
+        data: null,
+      });
+      expect(JSON.parse(refused.stdout)).toMatchObject({
+        message: "The visits' state is corrupt.",
+      });
+    },
+    processWatchdog(3),
+  );
 });
 
 describe("the kernel package, installed by git ref", () => {
