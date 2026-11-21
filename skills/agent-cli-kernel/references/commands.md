@@ -5,14 +5,21 @@ Paths are from the root of your repository. The code is from the
 
 ## The parts
 
-One import brings everything a read-only command needs:
+One import brings everything a command needs:
 
 ```ts
-import { command, commonCauses, contractFor, station } from "agent-cli-kernel";
+import {
+  changing,
+  command,
+  commonCauses,
+  contractFor,
+  station,
+} from "agent-cli-kernel";
 import type { CauseTable } from "agent-cli-kernel";
 ```
 
-- `command({...})` declares a read-only command.
+- `command({...})` declares a read-only command, and `changing({...})` a
+  command that changes something.
 - `station(causes, {...})` declares one result a command can produce. See
   [stations](stations.md).
 - `contractFor({ cli, commands, causes })` checks every declaration when the
@@ -20,10 +27,11 @@ import type { CauseTable } from "agent-cli-kernel";
 - `contractFor().boundary` is the contract boundary. Its `authority`, `resource`
   and `path` constructors validate authority identities, resource identities
   and absolute paths.
-- `runProcess(contract)(argv)` is the entry. It parses, routes, runs the
-  handler, writes the result and exits the process.
-- `runInProcess(contract)(argv)` returns the result instead of writing it.
-  See [testing](testing.md).
+- `runProcess(contract, setup)(argv)` is the entry. It parses, routes, runs
+  the handler, writes the result and exits the process. `setup` is optional;
+  it gives a run its add-ons.
+- `runInProcess(contract, setup)(argv)` returns the result instead of
+  writing it. See [testing](testing.md).
 
 ## Declare a command
 
@@ -142,24 +150,39 @@ const nothingChanged = {
 
 Declare each command in its own `const`, then list them. A command with no
 `stations` that is written inline in the `commands` array does not compile.
-`src/commands.ts` ends by building the contract:
+`src/commands.ts` builds the contract in a function, `moonsCli(home, opener)`,
+because `visit` needs a folder and a program from outside the process. The
+function builds the contract:
 
 ```ts
-export const contract = contractFor({
+const contract = contractFor({
   cli: "moons",
-  commands: [list, show],
+  commands: [list, show, visit, pending],
   causes,
+  state: state.descriptor,
+  installedAddons: ["state", "programs"],
 });
 ```
 
-`src/cli.ts` is the whole entry file:
+`src/cli.ts` is the whole entry file. It reads the folder and the program
+from the environment:
 
 ```ts
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { runProcess } from "agent-cli-kernel";
-import { contract } from "./commands.ts";
+import { moonsCli } from "./commands.ts";
 
-await runProcess(contract)(process.argv.slice(2));
+const { contract, setup } = moonsCli(
+  process.env.MOONS_HOME ?? join(homedir(), ".moons"),
+  process.env.MOONS_OPENER ?? "/usr/bin/open",
+);
+
+await runProcess(contract, setup)(process.argv.slice(2));
 ```
+
+A CLI of read-only commands needs neither: it exports
+`contractFor({ cli, commands, causes })` and runs `runProcess(contract)`.
 
 ## Choose add-ons
 

@@ -5,18 +5,22 @@ A command needs two kinds of test. The code is from the
 
 ## In process
 
-`runInProcess(contract)` returns a function that runs one invocation inside
-the test and returns its result. Nothing is printed. A command that uses the
-programs add-on still starts the programs it declares.
+`runInProcess(contract, setup)` returns a function that runs one invocation
+inside the test and returns its result. Nothing is printed. A command that
+uses the programs add-on still starts the programs it declares. The example
+builds its contract in a function, so each test can pass its own folder and
+opener:
 
 ```ts
-const run = runInProcess(contract);
-
-async function resultOf(argv: readonly string[]) {
-  const ran = await run(argv);
-  if (ran.kind !== "envelope")
-    throw new Error(`Expected an envelope, got ${ran.kind}.`);
-  return ran.envelope.result;
+function moonsIn(home: string, opener: string) {
+  const cli = moonsCli(home, opener);
+  const run = runInProcess(cli.contract, cli.setup);
+  return async (argv: readonly string[]) => {
+    const ran = await run(argv);
+    if (ran.kind !== "envelope")
+      throw new Error(`Expected an envelope, got ${ran.kind}.`);
+    return ran.envelope.result;
+  };
 }
 ```
 
