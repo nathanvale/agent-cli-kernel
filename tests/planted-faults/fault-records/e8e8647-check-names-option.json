@@ -1,7 +1,7 @@
 {
   "id": "e8e8647-check-names-option",
   "patch": "tests/planted-faults/patches/e8e8647-check-names-option.patch",
-  "testFile": "tests/template/naming/check-names.test.ts",
+  "testFile": "tests/template/names-check/check-names.test.ts",
   "title": "^CN\\.d an option ",
   "source": "e8e8647 feat(naming): exit 2 when check:names is misused or cannot run"
 }

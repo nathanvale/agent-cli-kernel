@@ -1,7 +1,7 @@
 {
   "id": "beed83c-pre-commit",
   "patch": "tests/planted-faults/patches/beed83c-pre-commit.patch",
-  "testFile": "tests/template/naming/pre-commit.test.ts",
+  "testFile": "tests/template/names-check/pre-commit.test.ts",
   "title": "^PC[.][de] ",
   "source": "beed83c fix(hooks): check staged compiler config and deletions"
 }

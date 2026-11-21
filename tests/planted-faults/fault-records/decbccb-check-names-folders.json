@@ -1,7 +1,7 @@
 {
   "id": "decbccb-check-names-folders",
   "patch": "tests/planted-faults/patches/decbccb-check-names-folders.patch",
-  "testFile": "tests/template/naming/check-names.test.ts",
+  "testFile": "tests/template/names-check/check-names.test.ts",
   "title": "^CN\\.b ",
   "source": "decbccb feat(naming): judge each folder on a path given to check:names"
 }
