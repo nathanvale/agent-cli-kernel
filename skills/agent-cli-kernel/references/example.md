@@ -25,7 +25,10 @@ import {
   station,
 } from "agent-cli-kernel";
 import type { CauseTable } from "agent-cli-kernel";
-import { programsAddon } from "agent-cli-kernel/addons/programs";
+import {
+  programDetails,
+  programsAddon,
+} from "agent-cli-kernel/addons/programs";
 import { stateAddon } from "agent-cli-kernel/addons/state";
 
 const moons = new Map([
@@ -390,9 +393,15 @@ export function moonsCli(home: string, opener: string) {
                 outputLimitBytes: 4_096,
                 shutdownMilliseconds: 1_000,
               }),
-            ({ exitCode: code, terminationConfirmed }) => {
-              const exited = !context.signal.aborted && code !== null;
-              return Promise.resolve(exited && terminationConfirmed);
+            (result) => {
+              const details = programDetails(result);
+              return Promise.resolve(
+                !context.signal.aborted &&
+                  result.exitCode !== null &&
+                  result.terminationConfirmed &&
+                  details !== undefined &&
+                  !details.timedOut,
+              );
             },
           );
           exitCode = launched.exitCode;

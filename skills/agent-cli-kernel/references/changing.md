@@ -20,7 +20,10 @@ It needs three things:
 - The declaration from `changing({...})`.
 
 ```ts
-import { programsAddon } from "agent-cli-kernel/addons/programs";
+import {
+  programDetails,
+  programsAddon,
+} from "agent-cli-kernel/addons/programs";
 import { stateAddon } from "agent-cli-kernel/addons/state";
 ```
 
@@ -214,16 +217,20 @@ editor:
   editor's window can appear seconds after its opener returns.
 - Start the opener through the programs add-on, inside the record:
   `context.programs.domain(recorded).start(request)`.
-- Read back from whether the launcher exited on its own and stopped cleanly
-  (`!context.signal.aborted && code !== null && terminationConfirmed`),
-  observed by the programs add-on. Then pick the station from
-  `launched.exitCode`: exit 0 is `SUCCESS_COMPLETED`; any non-zero exit
+- Read back from whether the launcher exited on its own without timing out
+  and stopped cleanly (`!context.signal.aborted`, `result.exitCode !== null`,
+  `result.terminationConfirmed`, and `programDetails(result)` defined with
+  `!details.timedOut`), observed by the programs add-on. A timed-out launch
+  is not a clean stop even when the opener traps the timeout's SIGTERM and
+  exits 0, and `undefined` details are not confirmed. Then pick the station
+  from `launched.exitCode`: exit 0 is `SUCCESS_COMPLETED`; any non-zero exit
   returns `DOMAIN_MOONS_VISIT_NOT_OPENED` (`failed`, `completed`, with a
   handoff) and leaves no unresolved case, so the next visit simply runs.
 - An unresolved case is left for `viewer.launch` only if the launcher
   cannot be seen to stop (`terminationConfirmed` is false), is killed by a
-  signal (`code === null`), or the run is stopped in mid-launch
-  (`context.signal.aborted`).
+  signal (`result.exitCode === null`), times out (`details.timedOut` is true,
+  or `programDetails(result)` is `undefined`), or the run is stopped in
+  mid-launch (`context.signal.aborted`).
 
 The record:
 
@@ -238,9 +245,15 @@ const launched = await transaction.record(
       outputLimitBytes: 4_096,
       shutdownMilliseconds: 1_000,
     }),
-  ({ exitCode: code, terminationConfirmed }) => {
-    const exited = !context.signal.aborted && code !== null;
-    return Promise.resolve(exited && terminationConfirmed);
+  (result) => {
+    const details = programDetails(result);
+    return Promise.resolve(
+      !context.signal.aborted &&
+        result.exitCode !== null &&
+        result.terminationConfirmed &&
+        details !== undefined &&
+        !details.timedOut,
+    );
   },
 );
 exitCode = launched.exitCode;
@@ -272,9 +285,10 @@ uncertain while `viewer.launch` is remaining.
 
 ## A case no command can close
 
-Because a non-zero opener exit ends `failed` and `completed`, an unresolved
-case is a rare last resort: a stop in mid-launch, a launcher that cannot be
-seen to stop, or an unconfirmed page write.
+Because a clean non-zero opener exit ends `failed` and `completed`, an
+unresolved case is a rare last resort: a stop in mid-launch, a timed-out
+launch, a launcher killed by a signal or not seen to stop, or an unconfirmed
+page write.
 
 On macOS the state add-on cannot close an unresolved case. A host's close
 command, `state.close(context.state, request)`, returns `unavailable` with

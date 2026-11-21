@@ -1,15 +1,20 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
-import { mkdir, readdir, symlink, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readdir, symlink, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { ESLint } from "eslint";
 import * as kernel from "../../../kernel/src/kernel/index.ts";
+import { runInProcessOn } from "../../../kernel/src/kernel/lifecycle.ts";
 import { createStateAddon } from "../../../kernel/src/kernel/state-seam.ts";
-import { programsAddon } from "../../../kernel/src/addons/programs/index.ts";
+import {
+  programDetails,
+  programsAddon,
+} from "../../../kernel/src/addons/programs/index.ts";
 import { stateAddon } from "../../../kernel/src/addons/state/index.ts";
 import { write } from "../../support/fixture-files.ts";
 import { gitEnv, inherited } from "../../support/git-fixture.ts";
 import { treeFiles } from "../../support/lint-rule-folder.ts";
+import { signalGroupIfPresent } from "../../support/signal.ts";
 import { testFolder } from "../../support/test-folder.ts";
 import { typecheckTree } from "../kernel-repair/harness.ts";
 import {
@@ -22,6 +27,8 @@ import {
   stationWords,
   unchanged,
 } from "../kernel-repair/shapes.ts";
+import { goneWithin } from "../lifecycle/harness.ts";
+import { recordingHost } from "../lifecycle/recording-host.ts";
 import {
   exampleDocument,
   exampleDocumentPath,
@@ -364,6 +371,356 @@ describe("the author skill's example, laid out as a repository that depends on t
       });
     },
     processWatchdog(3),
+  );
+
+  async function writeStub(
+    folder: string,
+    name: string,
+    body: string,
+  ): Promise<string> {
+    const script = join(folder, name);
+    await writeFile(script, body);
+    await chmod(script, 0o755);
+    return script;
+  }
+
+  function parsedResult(stdout: string): unknown {
+    return Reflect.get(Object(JSON.parse(stdout)), "result");
+  }
+
+  test(
+    "the example's visit leaves a timed-out opener that traps SIGTERM and exits 0 unconfirmed and listed by pending",
+    async () => {
+      const tree = await exampleTree();
+      const home = ownedFolder("kernel-author-guide-timeout-zero-");
+      const opener = await writeStub(
+        home,
+        "timeout-zero.sh",
+        [
+          "#!/bin/sh",
+          "trap 'kill \"$pid\" 2>/dev/null; exit 0' TERM",
+          "sleep 60 &",
+          "pid=$!",
+          'wait "$pid"',
+          "",
+        ].join("\n"),
+      );
+      const runWith = (program: string, ...argv: string[]) =>
+        spawnBounded([process.execPath, "src/cli.ts", ...argv, "--json"], {
+          cwd: tree,
+          env: { ...process.env, MOONS_HOME: home, MOONS_OPENER: program },
+        });
+      const timedOut = await runWith(opener, "visit", "venus");
+      expect(timedOut.exit).toBe(3);
+      expect(parsedResult(timedOut.stdout)).toMatchObject({
+        outcome: "failed",
+        causeCode: "DOMAIN_MOONS_VISIT_UNCONFIRMED",
+        transactionState: "unknown",
+        effects: {
+          completed: ["planet.record"],
+          remaining: [],
+          uncertain: ["viewer.launch"],
+        },
+      });
+      const listed = await runWith("/usr/bin/true", "pending");
+      expect(listed.exit).toBe(0);
+      expect(parsedResult(listed.stdout)).toMatchObject({
+        causeCode: "SUCCESS_UNCHANGED",
+        data: {
+          unfinished: [
+            { planet: "venus", effects: ["planet.record", "viewer.launch"] },
+          ],
+        },
+      });
+      const blocked = await runWith("/usr/bin/true", "visit", "venus");
+      expect(blocked.exit).toBe(3);
+      expect(parsedResult(blocked.stdout)).toMatchObject({
+        outcome: "refused",
+        causeCode: "DOMAIN_MOONS_VISIT_UNRESOLVED",
+        transactionState: "unchanged",
+      });
+    },
+    processWatchdog(3),
+  );
+
+  test(
+    "the example's visit leaves an opener stopped by mid-launch SIGTERM unconfirmed even if it traps SIGTERM and exits 0",
+    async () => {
+      const tree = await exampleTree();
+      const home = ownedFolder("kernel-author-guide-mid-launch-trap-");
+      const ready = join(home, "ready");
+      const opener = await writeStub(
+        home,
+        "trap-zero.sh",
+        [
+          "#!/bin/sh",
+          "trap 'kill \"$pid\" 2>/dev/null; exit 0' TERM",
+          'printf "ready\\n" > "$MOONS_READY"',
+          "sleep 60 &",
+          "pid=$!",
+          'wait "$pid"',
+          "",
+        ].join("\n"),
+      );
+      const stopped = await spawnBounded(
+        [process.execPath, "src/cli.ts", "visit", "venus", "--json"],
+        {
+          cwd: tree,
+          env: {
+            ...process.env,
+            MOONS_HOME: home,
+            MOONS_OPENER: opener,
+            MOONS_READY: ready,
+          },
+          signalAt: { ledger: ready, line: "ready", signal: "SIGTERM" },
+        },
+      );
+      expect({
+        ready: existsSync(ready),
+        exit: stopped.exit,
+        stdout: stopped.stdout,
+        stderr: stopped.stderr,
+      }).toEqual({ ready: true, exit: 143, stdout: "", stderr: "" });
+      const checkEnv = {
+        ...process.env,
+        MOONS_HOME: home,
+        MOONS_OPENER: "/usr/bin/true",
+      };
+      const listed = await spawnBounded(
+        [process.execPath, "src/cli.ts", "pending", "--json"],
+        { cwd: tree, env: checkEnv },
+      );
+      expect(listed.exit).toBe(0);
+      expect(parsedResult(listed.stdout)).toMatchObject({
+        causeCode: "SUCCESS_UNCHANGED",
+        data: {
+          unfinished: [
+            { planet: "venus", effects: ["planet.record", "viewer.launch"] },
+          ],
+        },
+      });
+      const blocked = await spawnBounded(
+        [process.execPath, "src/cli.ts", "visit", "venus", "--json"],
+        { cwd: tree, env: checkEnv },
+      );
+      expect(blocked.exit).toBe(3);
+      expect(parsedResult(blocked.stdout)).toMatchObject({
+        outcome: "refused",
+        causeCode: "DOMAIN_MOONS_VISIT_UNRESOLVED",
+        transactionState: "unchanged",
+      });
+    },
+    processWatchdog(3),
+  );
+
+  test(
+    "the example's visit leaves a signal-killed opener unconfirmed and listed by pending",
+    async () => {
+      const tree = await exampleTree();
+      const home = ownedFolder("kernel-author-guide-signal-opener-");
+      const opener = await writeStub(
+        home,
+        "self-kill.sh",
+        ["#!/bin/sh", "kill -TERM $$", ""].join("\n"),
+      );
+      const runWith = (program: string, ...argv: string[]) =>
+        spawnBounded([process.execPath, "src/cli.ts", ...argv, "--json"], {
+          cwd: tree,
+          env: { ...process.env, MOONS_HOME: home, MOONS_OPENER: program },
+        });
+      const killed = await runWith(opener, "visit", "venus");
+      expect(killed.exit).toBe(3);
+      expect(parsedResult(killed.stdout)).toMatchObject({
+        outcome: "failed",
+        causeCode: "DOMAIN_MOONS_VISIT_UNCONFIRMED",
+        transactionState: "unknown",
+        effects: {
+          completed: ["planet.record"],
+          remaining: [],
+          uncertain: ["viewer.launch"],
+        },
+      });
+      const listed = await runWith("/usr/bin/true", "pending");
+      expect(listed.exit).toBe(0);
+      expect(parsedResult(listed.stdout)).toMatchObject({
+        causeCode: "SUCCESS_UNCHANGED",
+        data: {
+          unfinished: [
+            { planet: "venus", effects: ["planet.record", "viewer.launch"] },
+          ],
+        },
+      });
+    },
+    processWatchdog(2),
+  );
+
+  test(
+    "the example's visit leaves an opener whose termination is not confirmed unconfirmed and listed by pending",
+    async () => {
+      const tree = await exampleTree();
+      const home = ownedFolder("kernel-author-guide-unconfirmed-stop-");
+      const probe = join(home, "probe.ts");
+      await writeFile(
+        probe,
+        [
+          `import { runInProcess } from ${JSON.stringify(join(tree, "node_modules", packageName, "kernel/src/kernel/index.ts"))};`,
+          `import { programsAddon } from ${JSON.stringify(join(tree, "node_modules", packageName, "kernel/src/addons/programs/index.ts"))};`,
+          `import { moonsCli } from ${JSON.stringify(join(tree, "src/commands.ts"))};`,
+          `const cli = moonsCli(${JSON.stringify(home)}, "/usr/bin/true");`,
+          "const realKill = process.kill.bind(process);",
+          "const fakeKill: typeof process.kill = (pid, signal) => {",
+          "  if (pid < 0 && signal === 0) return true;",
+          "  return realKill(pid, signal);",
+          "};",
+          "const base = programsAddon();",
+          "const wrapped = {",
+          "  attach(run: Parameters<typeof base.attach>[0]) {",
+          "    const attached = base.attach(run);",
+          "    return {",
+          "      ...attached,",
+          "      settle(limit?: number) {",
+          "        process.kill = realKill;",
+          "        return attached.settle(limit);",
+          "      },",
+          "    };",
+          "  },",
+          "};",
+          "const run = runInProcess(cli.contract, { emergencyRecord: cli.setup.emergencyRecord, addons: { programs: wrapped } });",
+          "process.kill = fakeKill;",
+          "try {",
+          '  const visit = await run(["visit", "venus"]);',
+          '  const pending = await run(["pending"]);',
+          "  process.stdout.write(JSON.stringify({ visit, pending }));",
+          "} finally {",
+          "  process.kill = realKill;",
+          "}",
+          "",
+        ].join("\n"),
+      );
+      const ran = await spawnBounded([process.execPath, probe], { cwd: tree });
+      expect({ exit: ran.exit, stderr: ran.stderr }).toEqual({
+        exit: 0,
+        stderr: "",
+      });
+      const observed: unknown = JSON.parse(ran.stdout);
+      expect(observed).toMatchObject({
+        visit: {
+          kind: "envelope",
+          exitCode: 3,
+          envelope: {
+            result: {
+              outcome: "failed",
+              causeCode: "DOMAIN_MOONS_VISIT_UNCONFIRMED",
+              transactionState: "unknown",
+              effects: {
+                completed: ["planet.record"],
+                remaining: [],
+                uncertain: ["viewer.launch"],
+              },
+            },
+          },
+        },
+        pending: {
+          kind: "envelope",
+          exitCode: 0,
+          envelope: {
+            result: {
+              data: {
+                unfinished: [
+                  {
+                    planet: "venus",
+                    effects: ["planet.record", "viewer.launch"],
+                  },
+                ],
+              },
+            },
+          },
+        },
+      });
+    },
+    processWatchdog(1),
+  );
+
+  test(
+    "the example's visit treats missing programDetails as an unconfirmed launch",
+    async () => {
+      const tree = await exampleTree();
+      const home = ownedFolder("kernel-author-guide-missing-details-");
+      const probe = join(home, "probe.ts");
+      await writeFile(
+        probe,
+        [
+          `import { runInProcess } from ${JSON.stringify(join(tree, "node_modules", packageName, "kernel/src/kernel/index.ts"))};`,
+          `import { moonsCli } from ${JSON.stringify(join(tree, "src/commands.ts"))};`,
+          `const cli = moonsCli(${JSON.stringify(home)}, "/usr/bin/true");`,
+          "const unrecorded = {",
+          "  attach(run: { readonly runId: string }) {",
+          "    const plain = () => Promise.resolve({ stdout: '', stderr: '', exitCode: 0, terminationConfirmed: true, outputTruncated: false });",
+          "    return {",
+          "      capability: {",
+          "        inspect: plain,",
+          "        supplied: plain,",
+          "        domain(recorded: { readonly effect: string; readonly admitStart: (runId: string, effect: string, fn: () => Promise<unknown>) => Promise<unknown> }) {",
+          "          return {",
+          "            effect: recorded.effect,",
+          "            start: () => recorded.admitStart(run.runId, recorded.effect, plain),",
+          "          };",
+          "        },",
+          "      },",
+          "      settle: () => Promise.resolve(true),",
+          "      killNow: () => undefined,",
+          "    };",
+          "  },",
+          "};",
+          "const run = runInProcess(cli.contract, { emergencyRecord: cli.setup.emergencyRecord, addons: { programs: unrecorded } });",
+          'const visit = await run(["visit", "venus"]);',
+          'const pending = await run(["pending"]);',
+          "process.stdout.write(JSON.stringify({ visit, pending }));",
+          "",
+        ].join("\n"),
+      );
+      const ran = await spawnBounded([process.execPath, probe], { cwd: tree });
+      expect({ exit: ran.exit, stderr: ran.stderr }).toEqual({
+        exit: 0,
+        stderr: "",
+      });
+      const observed: unknown = JSON.parse(ran.stdout);
+      expect(observed).toMatchObject({
+        visit: {
+          kind: "envelope",
+          exitCode: 3,
+          envelope: {
+            result: {
+              outcome: "failed",
+              causeCode: "DOMAIN_MOONS_VISIT_UNCONFIRMED",
+              transactionState: "unknown",
+              effects: {
+                completed: ["planet.record"],
+                remaining: [],
+                uncertain: ["viewer.launch"],
+              },
+            },
+          },
+        },
+        pending: {
+          kind: "envelope",
+          exitCode: 0,
+          envelope: {
+            result: {
+              data: {
+                unfinished: [
+                  {
+                    planet: "venus",
+                    effects: ["planet.record", "viewer.launch"],
+                  },
+                ],
+              },
+            },
+          },
+        },
+      });
+    },
+    processWatchdog(1),
   );
 });
 
@@ -1124,6 +1481,16 @@ describe("kernel behaviour changing.md states in words", () => {
     ).toThrow(new Error("ifNoResult must name a declared inspect command."));
   });
 
+  test("changing.md: a declared report command that is not inspect throws ifNoResult must name a declared inspect command.", () => {
+    const state = stateIn("guide.change");
+    expect(() =>
+      kernel.contractFor({
+        ...stateful(state),
+        commands: [change(state), pending()],
+      }),
+    ).toThrow(new Error("ifNoResult must name a declared inspect command."));
+  });
+
   test("changing.md: a pending command whose success guidance is done throws ifNoResult needs explicit further inspection guidance.", () => {
     const state = stateIn();
     expect(() =>
@@ -1453,125 +1820,145 @@ describe("kernel behaviour changing.md states in words", () => {
     });
   });
 
-  test("changing.md: a launch read back from terminationConfirmed ends failed and completed on a non-zero exit and leaves nothing pending, so the next change runs", async () => {
-    const state = stateIn();
-    const runWith = (opener: string) => {
-      const launch = kernel.changing({
-        identity: "guide.change",
-        route: ["change"],
-        summary: "Launch one program.",
-        input: emptyInput,
-        capabilities: { programs: true },
-        effectClass: "external",
-        effects: ["viewer.launch"],
-        ifNoResult: state.descriptor.ifNoResult,
-        heldLockCause: "DOMAIN_GUIDE_HELD",
-        unresolvedCaseCause: "DOMAIN_GUIDE_UNRESOLVED",
-        stations: [succeeded, ...refusals],
-        run: async (_input, context) => {
-          let exitCode: number | null = null;
-          const outcome = await state.transaction(
-            context.state,
-            {
-              command: "guide.change",
-              scope: { resources: [{ resource: "guide", key: "one" }] },
-            },
-            async (transaction) => {
-              const launched = await transaction.record(
-                "viewer.launch",
-                (recorded) =>
-                  context.programs.domain(recorded).start({
-                    executable: viewer,
-                    args: [],
-                    timeoutMilliseconds: 10_000,
-                    outputLimitBytes: 4_096,
-                    shutdownMilliseconds: 1_000,
-                  }),
-                ({ exitCode: code, terminationConfirmed }) =>
-                  Promise.resolve(
-                    !context.signal.aborted &&
-                      code !== null &&
-                      terminationConfirmed,
-                  ),
-              );
-              exitCode = launched.exitCode;
-            },
-          );
-          if (outcome.kind !== "ran")
-            return context.result(
+  test(
+    "changing.md: a launch read back from terminationConfirmed ends failed and completed on a non-zero exit and leaves nothing pending, so the next change runs",
+    async () => {
+      const state = stateIn();
+      const runWith = (opener: string) => {
+        const launch = kernel.changing({
+          identity: "guide.change",
+          route: ["change"],
+          summary: "Launch one program.",
+          input: emptyInput,
+          capabilities: { programs: true },
+          effectClass: "external",
+          effects: ["viewer.launch"],
+          ifNoResult: state.descriptor.ifNoResult,
+          heldLockCause: "DOMAIN_GUIDE_HELD",
+          unresolvedCaseCause: "DOMAIN_GUIDE_UNRESOLVED",
+          stations: [succeeded, ...refusals],
+          run: async (_input, context) => {
+            let exitCode: number | null = null;
+            const outcome = await state.transaction(
+              context.state,
               {
-                commandIdentity: "guide.change",
-                causeCode: "DOMAIN_GUIDE_UNRESOLVED",
+                command: "guide.change",
+                scope: { resources: [{ resource: "guide", key: "one" }] },
               },
-              { message: outcome.kind, data: null, effects: unchanged },
+              async (transaction) => {
+                const launched = await transaction.record(
+                  "viewer.launch",
+                  (recorded) =>
+                    context.programs.domain(recorded).start({
+                      executable: viewer,
+                      args: [],
+                      timeoutMilliseconds: 10_000,
+                      outputLimitBytes: 4_096,
+                      shutdownMilliseconds: 1_000,
+                    }),
+                  (result) => {
+                    const details = programDetails(result);
+                    return Promise.resolve(
+                      !context.signal.aborted &&
+                        result.exitCode !== null &&
+                        result.terminationConfirmed &&
+                        details !== undefined &&
+                        !details.timedOut,
+                    );
+                  },
+                );
+                exitCode = launched.exitCode;
+              },
             );
-          return exitCode === 0
-            ? context.result(
+            if (outcome.kind !== "ran")
+              return context.result(
                 {
                   commandIdentity: "guide.change",
-                  causeCode: "SUCCESS_COMPLETED",
+                  causeCode: "DOMAIN_GUIDE_UNRESOLVED",
                 },
-                {
-                  message: "Launched.",
-                  data: null,
-                  transaction: outcome.proof,
-                },
-              )
-            : context.result(
+                { message: outcome.kind, data: null, effects: unchanged },
+              );
+            if (outcome.proof.transactionState !== "completed")
+              return context.result(
                 {
                   commandIdentity: "guide.change",
-                  causeCode: "DOMAIN_GUIDE_NOT_OPENED",
+                  causeCode: "DOMAIN_GUIDE_UNKNOWN",
                 },
                 {
-                  message: `Opener exited ${String(exitCode)}.`,
+                  message: "Unconfirmed.",
                   data: null,
                   transaction: outcome.proof,
                 },
               );
+            return exitCode === 0
+              ? context.result(
+                  {
+                    commandIdentity: "guide.change",
+                    causeCode: "SUCCESS_COMPLETED",
+                  },
+                  {
+                    message: "Launched.",
+                    data: null,
+                    transaction: outcome.proof,
+                  },
+                )
+              : context.result(
+                  {
+                    commandIdentity: "guide.change",
+                    causeCode: "DOMAIN_GUIDE_NOT_OPENED",
+                  },
+                  {
+                    message: `Opener exited ${String(exitCode)}.`,
+                    data: null,
+                    transaction: outcome.proof,
+                  },
+                );
+          },
+        });
+        const contract = kernel.contractFor({
+          cli: "guide",
+          causes,
+          state: state.descriptor,
+          installedAddons: ["state", "programs"],
+          commands: [launch, pending(undefined, undefined, state)],
+        });
+        const viewer = contract.boundary.path(opener);
+        return kernel.runInProcess(contract, {
+          addons: { programs: programsAddon() },
+          emergencyRecord: state.emergencyRecord,
+        });
+      };
+      const failing = runWith("/usr/bin/false");
+      expect(await failing(["change"])).toMatchObject({
+        kind: "envelope",
+        exitCode: 3,
+        envelope: {
+          result: {
+            outcome: "failed",
+            causeCode: "DOMAIN_GUIDE_NOT_OPENED",
+            transactionState: "completed",
+            effects: { completed: ["viewer.launch"] },
+            handoff: { owner: "human" },
+          },
         },
       });
-      const contract = kernel.contractFor({
-        cli: "guide",
-        causes,
-        state: state.descriptor,
-        installedAddons: ["state", "programs"],
-        commands: [launch, pending(undefined, undefined, state)],
+      expect(await failing(["pending"])).toMatchObject({
+        kind: "envelope",
+        envelope: { result: { data: { unfinished: [] } } },
       });
-      const viewer = contract.boundary.path(opener);
-      return kernel.runInProcess(contract, {
-        addons: { programs: programsAddon() },
-        emergencyRecord: state.emergencyRecord,
+      expect(await runWith("/usr/bin/true")(["change"])).toMatchObject({
+        kind: "envelope",
+        exitCode: 0,
+        envelope: {
+          result: {
+            causeCode: "SUCCESS_COMPLETED",
+            transactionState: "completed",
+          },
+        },
       });
-    };
-    const failing = runWith("/usr/bin/false");
-    expect(await failing(["change"])).toMatchObject({
-      kind: "envelope",
-      exitCode: 3,
-      envelope: {
-        result: {
-          outcome: "failed",
-          causeCode: "DOMAIN_GUIDE_NOT_OPENED",
-          transactionState: "completed",
-          effects: { completed: ["viewer.launch"] },
-          handoff: { owner: "human" },
-        },
-      },
-    });
-    expect(await failing(["pending"])).toMatchObject({
-      kind: "envelope",
-      envelope: { result: { data: { unfinished: [] } } },
-    });
-    expect(await runWith("/usr/bin/true")(["change"])).toMatchObject({
-      kind: "envelope",
-      exitCode: 0,
-      envelope: {
-        result: {
-          causeCode: "SUCCESS_COMPLETED",
-          transactionState: "completed",
-        },
-      },
-    });
-  });
+    },
+    processWatchdog(2),
+  );
 
   test("changing.md: a deadline before the transaction opens closes the state capability, answers DOMAIN_DEADLINE_UNCHANGED, and leaves nothing pending", async () => {
     const state = stateIn();
@@ -1649,6 +2036,70 @@ describe("kernel behaviour changing.md states in words", () => {
       "The state capability closed at the deadline.",
     );
     expect(await run(["pending"])).toMatchObject({
+      kind: "envelope",
+      envelope: { result: { data: { unfinished: [] } } },
+    });
+  });
+
+  test("changing.md: a deadline before handler entry answers DOMAIN_DEADLINE_BEFORE_START and leaves nothing pending", async () => {
+    const state = stateIn();
+    let entered = 0;
+    const deadlineCommand = kernel.changing({
+      identity: "guide.change",
+      route: ["change"],
+      summary: "Change one thing.",
+      input: { ...emptyInput, deadlineSupported: true },
+      capabilities: {},
+      effectClass: "repository-local",
+      effects: ["guide.write"],
+      ifNoResult: state.descriptor.ifNoResult,
+      heldLockCause: "DOMAIN_GUIDE_HELD",
+      unresolvedCaseCause: "DOMAIN_GUIDE_UNRESOLVED",
+      stations: [succeeded, ...refusals],
+      run: (_input, context) => {
+        entered += 1;
+        return Promise.resolve(
+          context.result(
+            {
+              commandIdentity: "guide.change",
+              causeCode: "DOMAIN_GUIDE_UNRESOLVED",
+            },
+            { message: "Entered.", data: null, effects: unchanged },
+          ),
+        );
+      },
+    });
+    const contract = kernel.contractFor({
+      ...stateful(state),
+      commands: [deadlineCommand, pending(undefined, undefined, state)],
+    });
+    let ticks = 0;
+    const recorder = recordingHost();
+    const expired = await runInProcessOn(
+      contract,
+      { emergencyRecord: state.emergencyRecord },
+      () => ({
+        ...recorder.host,
+        now: () => (ticks++ === 0 ? 0 : 1_000),
+      }),
+    )(["change", "--deadline-ms", "10"]);
+    expect(entered).toBe(0);
+    expect(expired).toMatchObject({
+      kind: "envelope",
+      exitCode: 3,
+      envelope: {
+        result: {
+          outcome: "refused",
+          causeCode: "DOMAIN_DEADLINE_BEFORE_START",
+          transactionState: "unchanged",
+        },
+      },
+    });
+    expect(
+      await kernel.runInProcess(contract, {
+        emergencyRecord: state.emergencyRecord,
+      })(["pending"]),
+    ).toMatchObject({
       kind: "envelope",
       envelope: { result: { data: { unfinished: [] } } },
     });
@@ -1818,6 +2269,93 @@ describe("kernel behaviour changing.md states in words", () => {
       ]);
       const report = stateAddon({ root, report: "guide.pending" }).report();
       expect(report).toEqual({ ok: true, unfinished: [] });
+    },
+    processWatchdog(3),
+  );
+
+  test(
+    "changing.md: a stop inside the transaction during launch exits 143 with nothing printed, stops the launched program, leaves a case pending lists, and refuses the next change to that scope",
+    async () => {
+      const tree = await exampleTree();
+      const home = ownedFolder("kernel-author-guide-mid-launch-stop-");
+      const ledger = join(home, "ledger");
+      const opener = join(home, "wait-opener.sh");
+      await writeFile(
+        opener,
+        [
+          "#!/bin/sh",
+          'printf "pid %s\\nready\\n" "$$" > "$MOONS_LEDGER"',
+          "sleep 60 &",
+          "pid=$!",
+          'wait "$pid"',
+          "",
+        ].join("\n"),
+      );
+      await chmod(opener, 0o755);
+      let openerPid: number | undefined;
+      try {
+        const stopped = await spawnBounded(
+          [process.execPath, "src/cli.ts", "visit", "venus", "--json"],
+          {
+            cwd: tree,
+            env: {
+              ...process.env,
+              MOONS_HOME: home,
+              MOONS_OPENER: opener,
+              MOONS_LEDGER: ledger,
+            },
+            signalAt: { ledger, line: "ready", signal: "SIGTERM" },
+          },
+        );
+        expect({
+          exit: stopped.exit,
+          stdout: stopped.stdout,
+          stderr: stopped.stderr,
+        }).toEqual({ exit: 143, stdout: "", stderr: "" });
+        const pidLine = readFileSync(ledger, "utf8")
+          .split("\n")
+          .find((line) => line.startsWith("pid "));
+        openerPid = pidLine ? Number(pidLine.slice(4)) : undefined;
+        expect(Number.isSafeInteger(openerPid) && (openerPid ?? 0) > 0).toBe(
+          true,
+        );
+        expect(await goneWithin(openerPid ?? -1, 2_000)).toBe(true);
+        const checkEnv = {
+          ...process.env,
+          MOONS_HOME: home,
+          MOONS_OPENER: "/usr/bin/true",
+        };
+        const listed = await spawnBounded(
+          [process.execPath, "src/cli.ts", "pending", "--json"],
+          { cwd: tree, env: checkEnv },
+        );
+        expect(listed.exit).toBe(0);
+        expect(
+          Reflect.get(Object(JSON.parse(listed.stdout)), "result"),
+        ).toMatchObject({
+          causeCode: "SUCCESS_UNCHANGED",
+          data: {
+            unfinished: [
+              { planet: "venus", effects: ["planet.record", "viewer.launch"] },
+            ],
+          },
+        });
+        const blocked = await spawnBounded(
+          [process.execPath, "src/cli.ts", "visit", "venus", "--json"],
+          { cwd: tree, env: checkEnv },
+        );
+        expect(blocked.exit).toBe(3);
+        expect(
+          Reflect.get(Object(JSON.parse(blocked.stdout)), "result"),
+        ).toMatchObject({
+          outcome: "refused",
+          causeCode: "DOMAIN_MOONS_VISIT_UNRESOLVED",
+          transactionState: "unchanged",
+        });
+      } finally {
+        if (openerPid !== undefined && openerPid > 0)
+          signalGroupIfPresent(openerPid, "SIGKILL");
+      }
     },
     processWatchdog(3),
   );
