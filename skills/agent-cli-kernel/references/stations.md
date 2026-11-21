@@ -32,9 +32,20 @@ const causes = {
     retryable: false,
     guidance: "next",
   },
+  DOMAIN_MOONS_VISIT_HELD: handoffRow,
+  DOMAIN_MOONS_VISIT_UNRESOLVED: handoffRow,
+  DOMAIN_MOONS_VISIT_UNAVAILABLE: handoffRow,
+  DOMAIN_MOONS_VISIT_UNCONFIRMED: {
+    ...handoffRow,
+    outcome: "failed",
+    transactionState: "unknown",
+  },
 } as const satisfies CauseTable;
 ```
 
+- The `DOMAIN_MOONS_VISIT_` rows belong to `visit`, a changing command.
+  `handoffRow` is a refused, unchanged, domain row with exit code 3 and
+  guidance `handoff`.
 - `outcome` is `success`, `refused` or `failed`. A refusal comes before any
   attempted change.
 - `transactionState` is `unchanged` on every row of a read-only command.
