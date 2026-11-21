@@ -1,0 +1,7 @@
+{
+  "id": "ea237b0-default-command-deadline",
+  "patch": "tests/planted-faults/patches/ea237b0-default-command-deadline.patch",
+  "testFile": "tests/kernel/default-command.test.ts",
+  "title": "with --deadline-ms alone in a terminal, refuses instead of running the default command",
+  "source": "ea237b0 feat(kernel): run a CLI's default command when nothing is typed in an interactive run"
+}

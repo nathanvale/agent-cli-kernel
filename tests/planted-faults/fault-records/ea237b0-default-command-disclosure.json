@@ -1,0 +1,7 @@
+{
+  "id": "ea237b0-default-command-disclosure",
+  "patch": "tests/planted-faults/patches/ea237b0-default-command-disclosure.patch",
+  "testFile": "tests/kernel/default-command.test.ts",
+  "title": "refuses a default command whose summary lacks defaultCommandDisclosure",
+  "source": "ea237b0 feat(kernel): run a CLI's default command when nothing is typed in an interactive run"
+}

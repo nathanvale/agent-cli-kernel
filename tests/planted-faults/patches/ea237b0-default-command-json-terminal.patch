@@ -1,0 +1,12 @@
+diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
+--- a/kernel/src/kernel/lifecycle.ts
++++ b/kernel/src/kernel/lifecycle.ts
+@@ -840,7 +840,7 @@ async function deliver(
+   argv: unknown,
+   output: Output,
+ ): Promise<number | undefined> {
+-  const interactive = run.terminal !== undefined && !asksMachineOutput(argv);
++  const interactive = run.terminal !== undefined;
+   if (!interactive) run.terminal = undefined;
+   const resolution = await run.runtime.resolve(argv, { interactive });
+   const asked = resolution.ok ? resolution.value.machine : resolution.machine;
