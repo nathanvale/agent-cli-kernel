@@ -10,6 +10,7 @@ import type {
   CommandResult,
   JsonValue,
   MenuCapability,
+  MenuResult,
   MenuRow,
   ResultContext,
   TerminalAdapter,
@@ -208,6 +209,7 @@ export async function pickFromMenu<const Identity extends string, Value>(
       value: Value,
       index: number,
     ) => { readonly message: string; readonly data: JsonValue };
+    readonly onResult?: (result: MenuResult<Value>) => void;
   },
 ): Promise<CommandResult<Identity>> {
   const picked = await context.menu.show(
@@ -215,6 +217,7 @@ export async function pickFromMenu<const Identity extends string, Value>(
       ? { rows: options.rows }
       : { lines: options.lines, rows: options.rows },
   );
+  options.onResult?.(picked);
   if (picked.kind === "cancelled")
     return context.result(
       {
@@ -241,6 +244,7 @@ export function singlePickContract(
     { label: "gamma", value: "val-gamma" },
   ],
   lines: readonly string[] = ["Notice.", "Open what?"],
+  onResult?: (result: MenuResult<string>) => void,
 ) {
   const cmd = command({
     identity: "doorway.menu",
@@ -260,6 +264,7 @@ export function singlePickContract(
           message: `Picked ${value}.`,
           data: { value, index },
         }),
+        ...(onResult === undefined ? {} : { onResult }),
       });
     },
   });

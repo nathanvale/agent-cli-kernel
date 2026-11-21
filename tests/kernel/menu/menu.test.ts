@@ -6,11 +6,15 @@ import {
   runInProcess,
   scriptedTerminal,
 } from "../../../kernel/src/kernel/index.ts";
-import type { TerminalAdapter } from "../../../kernel/src/kernel/index.ts";
+import type {
+  MenuResult,
+  TerminalAdapter,
+} from "../../../kernel/src/kernel/index.ts";
 import { ttyTerminalFor } from "../../../kernel/src/kernel/process-host.ts";
 import type { TtyStream } from "../../../kernel/src/kernel/process-host.ts";
 import { menuAddon } from "../../../kernel/src/addons/menu/index.ts";
 import { emptyInput, unchanged } from "../kernel-repair/shapes.ts";
+import { settledWithin } from "../kernel-repair/swarm-process.ts";
 import {
   baseStations,
   menuCauses,
@@ -699,5 +703,69 @@ describe("menu in-process behaviour with scriptedTerminal", () => {
         },
       },
     });
+  });
+
+  test("cancels on Esc and restores the terminal within a bound for an async-generator adapter", async () => {
+    const events: string[] = [];
+    let releaseWait: (() => void) | undefined;
+    let menuResult: MenuResult<string> | undefined;
+    const adapter: TerminalAdapter = {
+      size: () => ({ columns: 80, rows: 24 }),
+      enter() {
+        events.push("enter");
+      },
+      leave() {
+        events.push("leave");
+      },
+      draw() {},
+      async *keys(signal) {
+        yield new TextEncoder().encode("\x1b");
+        await new Promise<void>((resolve) => {
+          if (signal.aborted) {
+            resolve();
+            return;
+          }
+          const finish = () => {
+            signal.removeEventListener("abort", finish);
+            resolve();
+          };
+          releaseWait = finish;
+          signal.addEventListener("abort", finish, { once: true });
+        });
+      },
+    };
+    const pending = runInProcess(
+      singlePickContract(undefined, undefined, undefined, (result) => {
+        menuResult = result;
+      }),
+      {
+        addons: { menu: menuAddon() },
+        terminal: adapter,
+      },
+    )(["menu"]);
+    try {
+      const outcome = await settledWithin(pending, 500);
+      expect(outcome).not.toBe("expired");
+      if (outcome === "expired") return;
+      expect(outcome).toMatchObject({
+        kind: "envelope",
+        exitCode: 3,
+        envelope: {
+          message: "Nothing was opened.",
+          result: {
+            commandIdentity: "doorway.menu",
+            causeCode: "DOMAIN_DOORWAY_NOTHING_CHOSEN",
+            outcome: "refused",
+            transactionState: "unchanged",
+            data: null,
+          },
+        },
+      });
+      expect(menuResult).toEqual({ kind: "cancelled" });
+      expect(events).toEqual(["enter", "leave"]);
+    } finally {
+      releaseWait?.();
+      await settledWithin(pending, 500);
+    }
   });
 });

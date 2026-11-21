@@ -8,6 +8,7 @@ import { ownedFolders } from "../../support/fixture-files.ts";
 import { signalGroupIfPresent } from "../../support/signal.ts";
 import {
   processWatchdog,
+  settledWithin,
   spawnBounded,
 } from "../kernel-repair/swarm-process.ts";
 import { normalizeRunId } from "./menu-helpers.ts";
@@ -25,21 +26,6 @@ function groupAlive(group: number): boolean {
   } catch (error) {
     if (groupGoneCodes.has(Reflect.get(Object(error), "code"))) return false;
     throw error;
-  }
-}
-
-async function settledWithin<T>(
-  work: Promise<T>,
-  milliseconds: number,
-): Promise<T | "expired"> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const expired = new Promise<"expired">((resolve) => {
-    timer = setTimeout(() => resolve("expired"), milliseconds);
-  });
-  try {
-    return await Promise.race([work, expired]);
-  } finally {
-    clearTimeout(timer);
   }
 }
 

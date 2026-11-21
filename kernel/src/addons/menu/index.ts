@@ -31,6 +31,7 @@ const maxLines = 3;
 const maxRows = 1000;
 const maxLabelLength = 200;
 const escapeFlushMilliseconds = 50;
+const iteratorCloseMilliseconds = 1_000;
 
 type CheckedMenuRequest<Value> = {
   readonly lines: readonly string[];
@@ -124,6 +125,22 @@ type ReadEvent =
   | { readonly kind: "chunk"; readonly next: IteratorResult<Uint8Array> }
   | { readonly kind: "flush" };
 
+async function raceTimeout<Result>(
+  work: Promise<Result>,
+  milliseconds: number,
+  fallback: Result,
+): Promise<Result> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expired = new Promise<Result>((resolve) => {
+    timer = setTimeout(() => resolve(fallback), milliseconds);
+  });
+  try {
+    return await Promise.race([work, expired]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function nextWithEscapeFlush(
   pending: Promise<IteratorResult<Uint8Array>>,
   armEscapeTimer: boolean,
@@ -132,24 +149,39 @@ async function nextWithEscapeFlush(
     (next): ReadEvent => ({ kind: "chunk", next }),
   );
   if (!armEscapeTimer) return await chunkEvent;
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const flushEvent = new Promise<ReadEvent>((resolve) => {
-    timer = setTimeout(
-      () => resolve({ kind: "flush" }),
-      escapeFlushMilliseconds,
-    );
+  return await raceTimeout(chunkEvent, escapeFlushMilliseconds, {
+    kind: "flush",
   });
+}
+
+function startIteratorReturn(
+  iterator: AsyncIterator<Uint8Array>,
+): Promise<void> | undefined {
   try {
-    return await Promise.race([chunkEvent, flushEvent]);
-  } finally {
-    clearTimeout(timer);
+    const closing = iterator.return?.();
+    if (closing === undefined) return undefined;
+    return Promise.resolve(closing).then(
+      () => undefined,
+      () => undefined,
+    );
+  } catch {
+    return undefined;
   }
+}
+
+async function closeIterator(
+  iterator: AsyncIterator<Uint8Array>,
+): Promise<void> {
+  const settled = startIteratorReturn(iterator);
+  if (settled === undefined) return;
+  await raceTimeout(settled, iteratorCloseMilliseconds, undefined);
 }
 
 async function* keyBatches(
   terminal: TerminalAdapter,
   signal: AbortSignal,
   parser: KeyByteParser,
+  abortShow: () => void,
 ): AsyncIterable<{
   readonly keys: readonly MenuKey[];
   readonly redraw: boolean;
@@ -173,7 +205,9 @@ async function* keyBatches(
       yield { keys, redraw: keys.length > 0 };
     }
   } finally {
-    await iterator.return?.();
+    void pending?.catch(() => undefined);
+    abortShow();
+    await closeIterator(iterator);
   }
 }
 
@@ -259,7 +293,12 @@ function attachMenu(run: RunControl): AttachedAddon<MenuCapability> {
     redraw: () => void,
   ): Promise<MenuResult<Value>> {
     const parser = createKeyByteParser();
-    for await (const batch of keyBatches(terminal, signal, parser)) {
+    for await (const batch of keyBatches(
+      terminal,
+      signal,
+      parser,
+      abortActiveShow,
+    )) {
       const finished = await consumeKeys(session, batch.keys);
       if (finished !== undefined) return finished;
       if (run.signal.aborted) break;
