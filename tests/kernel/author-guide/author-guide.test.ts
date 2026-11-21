@@ -1,9 +1,10 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, statSync, watch } from "node:fs";
 import { mkdir, readdir, symlink, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { ESLint } from "eslint";
 import * as kernel from "../../../kernel/src/kernel/index.ts";
+import { stateAddon } from "../../../kernel/src/addons/state/index.ts";
 import { write } from "../../support/fixture-files.ts";
 import { gitEnv, inherited } from "../../support/git-fixture.ts";
 import { treeFiles } from "../../support/lint-rule-folder.ts";
@@ -12,6 +13,7 @@ import { typecheckTree } from "../kernel-repair/harness.ts";
 import { spawnBounded } from "../kernel-repair/swarm-process.ts";
 import {
   emptyInput,
+  refusedHandoff,
   stationWords,
   unchanged,
 } from "../kernel-repair/shapes.ts";
@@ -776,4 +778,441 @@ describe("kernel behaviour the author skill states in words", () => {
       ),
     );
   });
+});
+
+describe("kernel behaviour changing.md states in words", () => {
+  const causes = {
+    ...kernel.commonCauses,
+    DOMAIN_GUIDE_HELD: refusedHandoff,
+    DOMAIN_GUIDE_UNRESOLVED: refusedHandoff,
+    DOMAIN_GUIDE_NEXT: { ...refusedHandoff, guidance: "next" },
+    DOMAIN_GUIDE_UNKNOWN: {
+      ...refusedHandoff,
+      outcome: "failed",
+      transactionState: "unknown",
+    },
+  } as const;
+  const look = {
+    owner: "human",
+    reason: "Look.",
+    inspect: [{ kind: "command", command: "guide.pending", args: [] }],
+  } as const;
+  type Refusal =
+    | "DOMAIN_GUIDE_HELD"
+    | "DOMAIN_GUIDE_UNRESOLVED"
+    | "DOMAIN_GUIDE_UNKNOWN"
+    | "DOMAIN_AUTHORITY_REQUIRED";
+  const refusalWords = {
+    ...stationWords,
+    commandIdentity: "guide.change",
+    trigger: "The change was refused or not confirmed.",
+    repairAction: "Ask a person.",
+    guidance: { handoff: look },
+  } as const;
+  const refusals = [
+    kernel.station(causes, {
+      ...refusalWords,
+      causeCode: "DOMAIN_GUIDE_HELD",
+      independentObservable: "guide.change:held",
+    }),
+    kernel.station(causes, {
+      ...refusalWords,
+      causeCode: "DOMAIN_GUIDE_UNRESOLVED",
+      independentObservable: "guide.change:unresolved",
+    }),
+    kernel.station(causes, {
+      ...refusalWords,
+      causeCode: "DOMAIN_GUIDE_UNKNOWN",
+      independentObservable: "guide.change:unknown",
+    }),
+    kernel.station(causes, {
+      ...refusalWords,
+      causeCode: "DOMAIN_AUTHORITY_REQUIRED",
+      independentObservable: "guide.change:authority",
+    }),
+  ] as const;
+  const nextRefusal = kernel.station(causes, {
+    ...stationWords,
+    commandIdentity: "guide.change",
+    causeCode: "DOMAIN_GUIDE_NEXT",
+    trigger: "Refused with a next step.",
+    repairAction: "Run it again.",
+    guidance: { next: { kind: "instruction", text: "Run it again." } },
+    independentObservable: "guide.change:next",
+  });
+  const succeeded = kernel.station(causes, {
+    ...stationWords,
+    commandIdentity: "guide.change",
+    causeCode: "SUCCESS_COMPLETED",
+    trigger: "The change was made.",
+    repairAction: null,
+    guidance: { next: { kind: "done" } },
+    independentObservable: "guide.change:done",
+  });
+
+  function stateIn(report = "guide.pending") {
+    const root = join(ownedFolder("kernel-author-guide-state-"), "state");
+    return stateAddon({ root, report });
+  }
+
+  function change(
+    state: ReturnType<typeof stateIn>,
+    words: {
+      readonly effects?: readonly [string, ...string[]];
+      readonly held?: Refusal;
+      readonly unresolved?: Refusal | "DOMAIN_GUIDE_NEXT";
+      readonly readBack?: boolean;
+      readonly ifNoResult?: kernel.IfNoResult;
+      readonly beforeTransaction?: () => Promise<void>;
+    } = {},
+  ) {
+    return kernel.changing({
+      identity: "guide.change",
+      route: ["change"],
+      summary: "Change one thing.",
+      input: emptyInput,
+      capabilities: {},
+      effectClass: "repository-local",
+      effects: words.effects ?? ["guide.write"],
+      ifNoResult: words.ifNoResult ?? state.descriptor.ifNoResult,
+      heldLockCause: words.held ?? "DOMAIN_GUIDE_HELD",
+      unresolvedCaseCause: words.unresolved ?? "DOMAIN_GUIDE_UNRESOLVED",
+      stations: [succeeded, nextRefusal, ...refusals],
+      run: async (_input, context) => {
+        await words.beforeTransaction?.();
+        const outcome = await state.transaction(
+          context.state,
+          {
+            command: "guide.change",
+            scope: { resources: [{ resource: "guide", key: "one" }] },
+          },
+          async (transaction) => {
+            await transaction.record(
+              "guide.write",
+              () => Promise.resolve(),
+              () => Promise.resolve(words.readBack ?? true),
+            );
+          },
+        );
+        if (outcome.kind !== "ran")
+          return context.result(
+            {
+              commandIdentity: "guide.change",
+              causeCode: "DOMAIN_GUIDE_UNRESOLVED",
+            },
+            { message: outcome.kind, data: null, effects: unchanged },
+          );
+        return outcome.proof.transactionState === "completed"
+          ? context.result(
+              {
+                commandIdentity: "guide.change",
+                causeCode: "SUCCESS_COMPLETED",
+              },
+              { message: "Changed.", data: null, transaction: outcome.proof },
+            )
+          : context.result(
+              {
+                commandIdentity: "guide.change",
+                causeCode: "DOMAIN_GUIDE_UNKNOWN",
+              },
+              {
+                message: "Unconfirmed.",
+                data: null,
+                transaction: outcome.proof,
+              },
+            );
+      },
+    });
+  }
+
+  function pending(
+    next:
+      | { readonly kind: "done" }
+      | { readonly kind: "instruction"; readonly text: string } = {
+      kind: "instruction",
+      text: "Look.",
+    },
+    input: kernel.InputSchema = emptyInput,
+  ) {
+    return kernel.command({
+      identity: "guide.pending",
+      route: ["pending"],
+      summary: "List unfinished changes.",
+      input,
+      capabilities: {},
+      stations: [
+        kernel.station(causes, {
+          ...stationWords,
+          commandIdentity: "guide.pending",
+          causeCode: "SUCCESS_UNCHANGED",
+          trigger: "Read.",
+          repairAction: null,
+          guidance: { next },
+          independentObservable: "guide.pending:read",
+        }),
+      ],
+      run: (_input, context) =>
+        context.result(
+          { commandIdentity: "guide.pending", causeCode: "SUCCESS_UNCHANGED" },
+          { message: "Read.", data: null, effects: unchanged },
+        ),
+    });
+  }
+
+  const stateful = (state: ReturnType<typeof stateIn>) =>
+    ({
+      cli: "guide",
+      causes,
+      state: state.descriptor,
+      installedAddons: ["state"],
+    }) as const;
+
+  test("changing.md: a contract with a changing command and its pending command builds", () => {
+    const state = stateIn();
+    expect(
+      kernel.contractFor({
+        ...stateful(state),
+        commands: [change(state), pending()],
+      }).cli,
+    ).toBe("guide");
+  });
+
+  test("changing.md: a repeated effect throws Invalid changing declaration.", () => {
+    expect(() =>
+      change(stateIn(), { effects: ["guide.write", "guide.write"] }),
+    ).toThrow(new Error("Invalid changing declaration."));
+  });
+
+  test("changing.md: a changing command without the state add-on throws Changing commands require the state add-on.", () => {
+    const state = stateIn();
+    expect(() =>
+      kernel.contractFor({
+        cli: "guide",
+        causes,
+        commands: [change(state), pending()],
+      }),
+    ).toThrow(new Error("Changing commands require the state add-on."));
+  });
+
+  test("changing.md: an ifNoResult that the state add-on did not make throws when changing() runs", () => {
+    const state = stateIn();
+    const other = stateIn();
+    expect(() =>
+      change(state, {
+        ifNoResult: structuredClone(other.descriptor.ifNoResult),
+      }),
+    ).toThrow(
+      new Error("ifNoResult must come from the state add-on descriptor."),
+    );
+  });
+
+  test("changing.md: a report command that commands does not hold throws ifNoResult must name a declared inspect command.", () => {
+    const state = stateIn("guide.report");
+    expect(() =>
+      kernel.contractFor({
+        ...stateful(state),
+        commands: [change(state), pending()],
+      }),
+    ).toThrow(new Error("ifNoResult must name a declared inspect command."));
+  });
+
+  test("changing.md: a pending command whose success guidance is done throws ifNoResult needs explicit further inspection guidance.", () => {
+    const state = stateIn();
+    expect(() =>
+      kernel.contractFor({
+        ...stateful(state),
+        commands: [change(state), pending({ kind: "done" })],
+      }),
+    ).toThrow(
+      new Error("ifNoResult needs explicit further inspection guidance."),
+    );
+  });
+
+  test("changing.md: a pending command with a required argument throws, because its ifNoResult step can never parse", () => {
+    const state = stateIn();
+    expect(() =>
+      kernel.contractFor({
+        ...stateful(state),
+        commands: [
+          change(state),
+          pending(undefined, {
+            ...emptyInput,
+            arguments: [
+              {
+                name: "id",
+                summary: "An id.",
+                required: true,
+                value: {
+                  kind: "string",
+                  minLength: 1,
+                  maxLength: 9,
+                  choices: null,
+                  pattern: null,
+                },
+              },
+            ],
+          }),
+        ],
+      }),
+    ).toThrow(
+      new Error(
+        "ifNoResult step guide.pending [] can never parse: required id is absent.",
+      ),
+    );
+  });
+
+  test("changing.md: one cause for both coordination refusals throws Changing commands need distinct coordination refusal stations.", () => {
+    expect(() =>
+      change(stateIn(), {
+        held: "DOMAIN_GUIDE_UNRESOLVED",
+        unresolved: "DOMAIN_GUIDE_UNRESOLVED",
+      }),
+    ).toThrow(
+      new Error(
+        "Changing commands need distinct coordination refusal stations.",
+      ),
+    );
+  });
+
+  test("changing.md: a kernel cause as a coordination refusal throws Coordination refusal causes are host-owned.", () => {
+    const state = stateIn();
+    expect(() =>
+      kernel.contractFor({
+        ...stateful(state),
+        commands: [
+          change(state, { held: "DOMAIN_AUTHORITY_REQUIRED" }),
+          pending(),
+        ],
+      }),
+    ).toThrow(new Error("Coordination refusal causes are host-owned."));
+  });
+
+  test("changing.md: a coordination refusal with a next step throws Coordination refusal requires an unchanged handoff.", () => {
+    const state = stateIn();
+    expect(() =>
+      kernel.contractFor({
+        ...stateful(state),
+        commands: [
+          change(state, { unresolved: "DOMAIN_GUIDE_NEXT" }),
+          pending(),
+        ],
+      }),
+    ).toThrow(new Error("Coordination refusal requires an unchanged handoff."));
+  });
+
+  test("changing.md: read-back false leaves a case pending lists, and the next change to that scope is refused as unresolved", async () => {
+    const state = stateIn();
+    const failing = kernel.runInProcess(
+      kernel.contractFor({
+        ...stateful(state),
+        commands: [change(state, { readBack: false }), pending()],
+      }),
+      { emergencyRecord: state.emergencyRecord },
+    );
+    expect(await failing(["change"])).toMatchObject({
+      kind: "envelope",
+      exitCode: 3,
+      envelope: {
+        result: {
+          causeCode: "DOMAIN_GUIDE_UNKNOWN",
+          transactionState: "unknown",
+          effects: { uncertain: ["guide.write"] },
+        },
+      },
+    });
+    const report = state.report();
+    expect(
+      report.ok && report.unfinished.map((entry) => entry.effects),
+    ).toEqual([["guide.write"]]);
+    expect(await failing(["change"])).toMatchObject({
+      envelope: { message: "unresolved-case" },
+    });
+  });
+
+  function fileAppears(path: string, bound: number): Promise<void> {
+    return new Promise((resolve) => {
+      let open = true;
+      const settle = () => {
+        if (!open) return;
+        open = false;
+        watcher.close();
+        clearTimeout(timer);
+        resolve();
+      };
+      const watcher = watch(dirname(path), () => {
+        if (existsSync(path)) settle();
+      });
+      const timer = setTimeout(settle, bound);
+      if (existsSync(path)) settle();
+    });
+  }
+
+  const stopScript = (root: string) =>
+    [
+      `import * as kernel from ${JSON.stringify(join(repository, "kernel/src/kernel/index.ts"))};`,
+      `import { stateAddon } from ${JSON.stringify(join(repository, "kernel/src/addons/state/index.ts"))};`,
+      `const state = stateAddon({ root: ${JSON.stringify(root)}, report: "guide.pending" });`,
+      'const look = { owner: "human", reason: "Look.", inspect: [{ kind: "command", command: "guide.pending", args: [] }] };',
+      'const row = { outcome: "refused", transactionState: "unchanged", failureClass: "domain", exitCode: 3, retryable: false, guidance: "handoff" };',
+      "const causes = { ...kernel.commonCauses, DOMAIN_GUIDE_HELD: row, DOMAIN_GUIDE_UNRESOLVED: row };",
+      'const words = { retryDelayPolicy: { kind: "none" }, reachability: "required", unreachableRationale: null };',
+      "const input = { arguments: [], options: [], constraints: [], deadlineSupported: false, additionalArguments: false, additionalOptions: false };",
+      'const station = (causeCode, guidance) => kernel.station(causes, { ...words, commandIdentity: "guide.change", causeCode, trigger: causeCode, repairAction: guidance.next ? null : "Ask.", guidance, independentObservable: causeCode });',
+      'const change = kernel.changing({ identity: "guide.change", route: ["change"], summary: "Change.", input, capabilities: {}, effectClass: "repository-local", effects: ["guide.write"], ifNoResult: state.descriptor.ifNoResult, heldLockCause: "DOMAIN_GUIDE_HELD", unresolvedCaseCause: "DOMAIN_GUIDE_UNRESOLVED",',
+      '  stations: [station("SUCCESS_COMPLETED", { next: { kind: "done" } }), station("DOMAIN_GUIDE_HELD", { handoff: look }), station("DOMAIN_GUIDE_UNRESOLVED", { handoff: look })],',
+      "  run: async (_input, context) => {",
+      '    if (process.env.GUIDE_READY) { await Bun.write(process.env.GUIDE_READY, ""); await new Promise(() => setInterval(() => undefined, 1000)); }',
+      '    const outcome = await state.transaction(context.state, { command: "guide.change", scope: { resources: [{ resource: "guide", key: "one" }] } }, (t) => t.record("guide.write", () => Promise.resolve(), () => Promise.resolve(true)).then(() => undefined));',
+      '    return context.result({ commandIdentity: "guide.change", causeCode: "SUCCESS_COMPLETED" }, { message: "Changed.", data: null, transaction: outcome.proof });',
+      "  } });",
+      'const pending = kernel.command({ identity: "guide.pending", route: ["pending"], summary: "Pending.", input, capabilities: {}, stations: [kernel.station(causes, { ...words, commandIdentity: "guide.pending", causeCode: "SUCCESS_UNCHANGED", trigger: "Read.", repairAction: null, guidance: { next: { kind: "instruction", text: "Look." } }, independentObservable: "read" })], run: (_input, context) => context.result({ commandIdentity: "guide.pending", causeCode: "SUCCESS_UNCHANGED" }, { message: "Read.", data: null, effects: { completed: [], remaining: [], uncertain: [], inventoryComplete: true } }) });',
+      'await kernel.runProcess(kernel.contractFor({ cli: "guide", commands: [change, pending], causes, state: state.descriptor, installedAddons: ["state"] }), { emergencyRecord: state.emergencyRecord })(process.argv.slice(2));',
+      "",
+    ].join("\n");
+
+  test(
+    "changing.md: a stop before the transaction leaves nothing pending, and exits 143 for SIGTERM or 130 for Ctrl-C with nothing printed",
+    async () => {
+      const folder = ownedFolder("kernel-author-guide-stop-");
+      const root = join(folder, "state");
+      const script = join(folder, "guide.ts");
+      write(folder, "guide.ts", stopScript(root));
+      const first = await spawnBounded(
+        [process.execPath, script, "change", "--json"],
+        { cwd: folder },
+      );
+      expect(first.exit).toBe(0);
+      const stopped = [];
+      for (const signal of ["SIGTERM", "SIGINT"] as const) {
+        const ready = join(folder, `${signal}.ready`);
+        const child = Bun.spawn(
+          [process.execPath, script, "change", "--json"],
+          {
+            cwd: folder,
+            env: { ...process.env, GUIDE_READY: ready },
+            stdout: "pipe",
+            stderr: "pipe",
+            timeout: 20_000,
+          },
+        );
+        await fileAppears(ready, 15_000);
+        child.kill(signal);
+        const exit = await child.exited;
+        stopped.push({
+          signal,
+          ready: existsSync(ready),
+          exit,
+          stdout: await new Response(child.stdout).text(),
+          stderr: await new Response(child.stderr).text(),
+        });
+      }
+      expect(stopped).toEqual([
+        { signal: "SIGTERM", ready: true, exit: 143, stdout: "", stderr: "" },
+        { signal: "SIGINT", ready: true, exit: 130, stdout: "", stderr: "" },
+      ]);
+      const report = stateAddon({ root, report: "guide.pending" }).report();
+      expect(report).toEqual({ ok: true, unfinished: [] });
+    },
+    3 * 20_000 + 10_000,
+  );
 });
