@@ -536,10 +536,7 @@ test("the kernel public surface follows package.json TypeScript and JavaScript e
   expect(entryPoints).toHaveLength(7);
   expect(actual.exports.toSorted()).toEqual(entryPoints);
   expect(actual.consumedExports).toEqual([]);
-  expect(actual.importers).toEqual([
-    "kernel/src/**/*.ts",
-    "kernel/config/kernel/*.mjs",
-  ]);
+  expect(actual.importers).toEqual([]);
   const declared = [...texts.keys()]
     .filter((path) =>
       actual.exports.some((pattern) => new Bun.Glob(pattern).match(path)),

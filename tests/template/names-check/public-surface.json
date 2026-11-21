@@ -9,5 +9,5 @@
     "kernel/config/kernel/eslint-rules.mjs"
   ],
   "consumedExports": [],
-  "importers": ["kernel/src/**/*.ts", "kernel/config/kernel/*.mjs"]
+  "importers": []
 }
