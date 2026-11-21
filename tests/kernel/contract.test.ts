@@ -1,6 +1,13 @@
 import expected from "./common-causes.json";
 import { expect, test } from "bun:test";
-import { contractFor, versionReader } from "../../kernel/src/kernel/index.ts";
+import {
+  command,
+  commonCauses,
+  contractFor,
+  station,
+  versionReader,
+} from "../../kernel/src/kernel/index.ts";
+import { emptyInput, stationWords, unchanged } from "./kernel-repair/shapes.ts";
 
 test("the contract preserves every independently specified common cause correlation", () => {
   const contract = contractFor({ cli: "specimen", commands: [] });
@@ -188,4 +195,83 @@ test("admitted cause rows cannot be changed through discovery or the original in
     false,
   );
   expect(contract.causes.READ_COMPLETE?.exitCode).toBe(0);
+});
+
+test("build ignores prototype-inherited run facts and reads own facts once", async () => {
+  const inspectStation = station(commonCauses, {
+    commandIdentity: "specimen.inspect",
+    causeCode: "SUCCESS_UNCHANGED",
+    trigger: "Inspection completed.",
+    guidance: { next: { kind: "done" } },
+    repairAction: null,
+    independentObservable: "Reported data.",
+    ...stationWords,
+  });
+  const inspectCommand = command({
+    identity: "specimen.inspect",
+    route: ["inspect"],
+    summary: "Inspect specimen state.",
+    input: emptyInput,
+    capabilities: {},
+    stations: [inspectStation],
+    run: (_input, context) =>
+      context.result(inspectStation, {
+        message: "Inspected.",
+        data: { ok: true },
+        effects: unchanged,
+      }),
+  });
+  const contract = contractFor({
+    cli: "specimen",
+    commands: [inspectCommand],
+  });
+
+  class InheritedDataFacts {
+    readonly runId = "run-1";
+    readonly effects = unchanged;
+    get data() {
+      return { leaked: true };
+    }
+    get message() {
+      return "Inherited message.";
+    }
+  }
+  const built = await contract.build(inspectStation, new InheritedDataFacts());
+  expect(built).toMatchObject({
+    ok: false,
+    path: "facts",
+    reason: "invalid run facts",
+  });
+
+  class InheritedMessageFacts {
+    readonly runId = "run-1";
+    readonly data = { ok: true };
+    readonly effects = unchanged;
+    get message() {
+      return "Inherited message.";
+    }
+  }
+  const withInheritedMessage = await contract.build(
+    inspectStation,
+    new InheritedMessageFacts(),
+  );
+  expect(withInheritedMessage).toMatchObject({
+    ok: false,
+    path: "$",
+    reason: "not plain bounded JSON",
+  });
+
+  let runIdReads = 0;
+  const getterFacts = {
+    data: { ok: true },
+    message: "Own message.",
+    effects: unchanged,
+    get runId(): string {
+      runIdReads += 1;
+      return runIdReads === 1 ? "run-1" : "run-mutated";
+    },
+  };
+  const once = await contract.build(inspectStation, getterFacts);
+  expect(once.ok).toBe(true);
+  expect(runIdReads).toBe(1);
 });

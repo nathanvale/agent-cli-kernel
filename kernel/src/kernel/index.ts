@@ -247,15 +247,18 @@ export function contractFor<
       "idempotencyKey",
       "bindings",
     ])
-      if (key in facts) runFacts[key] = Reflect.get(facts, key);
+      if (Object.hasOwn(facts, key)) runFacts[key] = Reflect.get(facts, key);
+    const runId = runFacts.runId;
     if (
       command.effectClass !== "inspect" &&
       station.row.outcome !== "refused"
     ) {
-      const proof = facts.transaction;
+      const proof = Object.hasOwn(facts, "transaction")
+        ? Reflect.get(facts, "transaction")
+        : undefined;
       if (
-        typeof facts.runId !== "string" ||
-        !proofValue(proof, facts.runId, spec.state) ||
+        typeof runId !== "string" ||
+        !proofValue(proof, runId, spec.state) ||
         proof.transactionState !== station.row.transactionState
       )
         return {
@@ -266,15 +269,18 @@ export function contractFor<
       runFacts.effects = proof.effects;
     } else if (
       command.effectClass !== "inspect" &&
-      typeof facts.runId === "string" &&
-      !proofFreeResultAllowed(facts.runId, spec.state)
+      typeof runId === "string" &&
+      !proofFreeResultAllowed(runId, spec.state)
     )
       return {
         ok: false,
         path: "transaction",
         reason: "a transaction on this run requires its proof",
       } as const;
-    return assemble(command, station, runFacts, facts.message);
+    const message = Object.hasOwn(facts, "message")
+      ? Reflect.get(facts, "message")
+      : undefined;
+    return assemble(command, station, runFacts, message);
   }
 
   async function buildKernelStation(
