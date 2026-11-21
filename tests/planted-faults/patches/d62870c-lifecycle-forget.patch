@@ -1,11 +1,11 @@
 diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
-index 7577d22..7951a4c 100644
+index 5ef0886..40f9142 100644
 --- a/kernel/src/kernel/lifecycle.ts
 +++ b/kernel/src/kernel/lifecycle.ts
-@@ -953,6 +953,5 @@ async function runAndReturn(run: Run, argv: unknown): Promise<InProcessResult> {
+@@ -1010,6 +1010,5 @@ async function runAndReturn(
      throw error;
    } finally {
      if (!run.stopped) inFlight.runs.delete(run);
--    forgetWhenReturned(run);
+-    run.attachment?.forgetWhenSettled();
    }
  }

@@ -23,8 +23,13 @@ export type Resolution =
       };
     };
 
-export type Enter = () => Promise<Validation<CommandResult>>;
-export type Attach = () => Validation<Enter>;
+export type AttachedExecution = {
+  readonly enter: () => Promise<Validation<CommandResult>>;
+  readonly closeAtDeadline: () => boolean | undefined;
+  readonly trustedSummary: () => StateObservation | undefined;
+  readonly forgetWhenSettled: () => void;
+};
+export type Attach = () => Validation<AttachedExecution>;
 
 export type KernelFacts = {
   readonly runId: string;
@@ -61,9 +66,6 @@ export type ContractRuntime = {
   ) => Promise<Validation<unknown>>;
   readonly buildResult: (result: CommandResult) => Promise<Validation<unknown>>;
   readonly validate: (value: unknown) => Promise<Validation<Envelope>>;
-  readonly trustedSummary: (runId: string) => StateObservation | undefined;
-  readonly closeStateAtDeadline: (runId: string) => boolean | undefined;
-  readonly forgetState: (enter: Enter) => void;
 };
 
 export type ContractKey = { readonly cli?: string };

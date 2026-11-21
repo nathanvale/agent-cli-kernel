@@ -1,8 +1,8 @@
 diff --git a/kernel/src/kernel/index.ts b/kernel/src/kernel/index.ts
-index c622cfd..38a9e53 100644
+index 2992725..4b244d5 100644
 --- a/kernel/src/kernel/index.ts
 +++ b/kernel/src/kernel/index.ts
-@@ -288,17 +288,17 @@ export function contractFor<
+@@ -295,17 +295,18 @@ export function contractFor<
            reason: "handler entry already used",
          };
        used = true;
@@ -16,8 +16,9 @@ index c622cfd..38a9e53 100644
 -          path: "runId",
 -          reason: "run identity already attached",
 -        };
-       const enter: Enter = async () => {
-+        const attached =
++      let attached: ReturnType<typeof attachState<string>>;
+       const handle = async () => {
++        attached =
 +          changingCommand && spec.state
 +            ? attachState(spec.state, runId, selected.effects ?? [])
 +            : undefined;
@@ -26,7 +27,7 @@ index c622cfd..38a9e53 100644
 +            ok: false,
 +            path: "runId",
 +            reason: "run identity already attached",
-+          };
++          } as const;
          const outcome = await (ready
            ? ready.value(attached?.capability)
            : execute(

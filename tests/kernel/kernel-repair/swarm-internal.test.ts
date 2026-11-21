@@ -129,7 +129,7 @@ test("F2.one-shot-entry: the handler entry a check phase returns runs once", asy
   if (!prepared.ok) throw new Error("Expected a handler entry.");
   const attached = prepared.value();
   if (!attached.ok) throw new Error("Expected the attach to succeed.");
-  expect(await attached.value()).toMatchObject({ ok: true });
+  expect(await attached.value.enter()).toMatchObject({ ok: true });
   expect(prepared.value()).toEqual({
     ok: false,
     path: "entry",

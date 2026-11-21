@@ -1,12 +1,26 @@
 diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
-index fdbfd58..80c0f38 100644
+index 5ef0886..b701839 100644
 --- a/kernel/src/kernel/lifecycle.ts
 +++ b/kernel/src/kernel/lifecycle.ts
-@@ -235,6 +235,7 @@ function killAll(run: Run) {
+@@ -233,6 +233,7 @@ function killAll(run: Run) {
  function crashRun(run: Run): void {
    killAll(run);
    attemptEmergencyRecord(run);
-+  if (run.enter) run.runtime.forgetState(run.enter);
++  run.attachment?.forgetWhenSettled();
  }
  
  function attemptEmergencyRecord(run: Run): void {
+diff --git a/kernel/src/kernel/index.ts b/kernel/src/kernel/index.ts
+index 2992725..33a6e81 100644
+--- a/kernel/src/kernel/index.ts
++++ b/kernel/src/kernel/index.ts
+@@ -335,8 +335,7 @@ export function contractFor<
+         trustedSummary: () => issuedProof(runId, spec.state),
+         forgetWhenSettled: () => {
+           if (!attached) return;
+-          if (!returning || returned) attached.forget();
+-          else void returning.then(attached.forget);
++          attached.forget();
+         },
+       };
+       return { ok: true, value: execution };

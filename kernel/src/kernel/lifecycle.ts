@@ -16,7 +16,12 @@ import type {
 } from "./process-types.ts";
 import { runtimeOf } from "./runtime.ts";
 import type { ContractKey } from "./runtime.ts";
-import type { Attach, ContractRuntime, Enter, Resolution } from "./runtime.ts";
+import type {
+  Attach,
+  AttachedExecution,
+  ContractRuntime,
+  Resolution,
+} from "./runtime.ts";
 import type { CommandResult } from "./command-result.ts";
 import type { CommandDeclaration } from "./declarations.ts";
 import { programStopOf } from "./program-stop.ts";
@@ -208,11 +213,9 @@ type Run = {
   commandIdentity: string | null;
   stopped: StopSignal | undefined;
   emergencyAttempted: boolean;
-  handler: EnteredHandler | undefined;
-  enter: Enter | undefined;
+  attachment: AttachedExecution | undefined;
   execution: Promise<Execution> | undefined;
 };
-type EnteredHandler = { returned: boolean; readonly returning: Promise<void> };
 type Delivery =
   | { readonly candidate: Validation<unknown>; readonly trusted: TrustedRun }
   | undefined;
@@ -545,10 +548,11 @@ async function capabilities(
 async function afterDeadline(
   run: Run,
   command: CommandDeclaration,
+  attachment: AttachedExecution,
   execution: Promise<Execution>,
 ): Promise<Delivery> {
   run.controller.abort();
-  const started = run.runtime.closeStateAtDeadline(run.runId);
+  const started = attachment.closeAtDeadline();
   const [, stopped] = await Promise.all([
     within(execution, cancellationMilliseconds, run.host.now),
     within(
@@ -558,7 +562,7 @@ async function afterDeadline(
     ),
   ]);
   const issued =
-    run.runtime.trustedSummary(run.runId) ??
+    attachment.trustedSummary() ??
     (started === false ? noneStarted(command) : undefined);
   const summary = stopped === true ? issued : unconfirmedSummary(issued);
   const programStop =
@@ -589,14 +593,15 @@ async function afterDeadline(
 async function afterHandler(
   run: Run,
   command: CommandDeclaration,
+  attachment: AttachedExecution,
   execution: Execution,
   deadlineAt: number | undefined,
 ): Promise<Delivery> {
   const identity = command.commandIdentity;
   const clean = await settleOwned(run, deadlineAt);
   if (clean === undefined)
-    return afterDeadline(run, command, Promise.resolve(execution));
-  const issued = run.runtime.trustedSummary(run.runId);
+    return afterDeadline(run, command, attachment, Promise.resolve(execution));
+  const issued = attachment.trustedSummary();
   const trusted = trustedRun(
     run,
     identity,
@@ -654,22 +659,25 @@ async function runDeclaredCommand(
   if (checked.kind === "refused") return checked.delivery;
   const attached = await attachState(run, identity, checked.attach);
   if ("delivery" in attached) return attached.delivery;
-  run.enter = attached.enter;
+  const attachment = attached.attachment;
+  run.attachment = attachment;
   if (run.stopped) return undefined;
   if (expired(run, deadlineAt)) return beforeStart(run, identity);
   run.phase = "handler-entered";
-  const execution = enterHandler(run, attached.enter);
-  run.handler = handlerOf(execution);
+  const execution = enterHandler(run, attachment.enter);
   const first =
     deadlineAt === undefined
       ? await execution
       : await within(execution, deadlineAt - run.host.now(), run.host.now);
   return first === undefined
-    ? afterDeadline(run, plan.command, execution)
-    : afterHandler(run, plan.command, first, deadlineAt);
+    ? afterDeadline(run, plan.command, attachment, execution)
+    : afterHandler(run, plan.command, attachment, first, deadlineAt);
 }
 
-function enterHandler(run: Run, enter: Enter): Promise<Execution> {
+function enterHandler(
+  run: Run,
+  enter: AttachedExecution["enter"],
+): Promise<Execution> {
   let resolveExecution: (execution: Promise<Execution>) => void = () =>
     undefined;
   run.execution = new Promise<Execution>((resolve) => {
@@ -715,16 +723,6 @@ async function checkPhase(
   };
 }
 
-function handlerOf(execution: Promise<Execution>): EnteredHandler {
-  const handler: EnteredHandler = {
-    returned: false,
-    returning: execution.then(() => {
-      handler.returned = true;
-    }),
-  };
-  return handler;
-}
-
 function expired(run: Run, deadlineAt: number | undefined): boolean {
   return deadlineAt !== undefined && run.host.now() >= deadlineAt;
 }
@@ -762,15 +760,17 @@ async function attachState(
   run: Run,
   identity: string,
   attach: Attach,
-): Promise<{ readonly enter: Enter } | { readonly delivery: Delivery }> {
-  let entry: Validation<Enter>;
+): Promise<
+  { readonly attachment: AttachedExecution } | { readonly delivery: Delivery }
+> {
+  let entry: Validation<AttachedExecution>;
   try {
     entry = attach();
   } catch {
     return { delivery: await preparationFault(run, identity) };
   }
   return entry.ok
-    ? { enter: entry.value }
+    ? { attachment: entry.value }
     : { delivery: await refusal(run, identity, entry.path) };
 }
 
@@ -811,8 +811,7 @@ function newRun(prepared: Prepared, host: ProcessHost): Run {
     commandIdentity: null,
     stopped: undefined,
     emergencyAttempted: false,
-    handler: undefined,
-    enter: undefined,
+    attachment: undefined,
     execution: undefined,
   };
 }
@@ -980,14 +979,6 @@ async function returnedResult(
     : { kind: "no-envelope", runId: run.runId, exitCode: 1 };
 }
 
-function forgetWhenReturned(run: Run): void {
-  const enter = run.enter;
-  if (!enter) return;
-  const forget = () => run.runtime.forgetState(enter);
-  if (!run.handler || run.handler.returned) forget();
-  else void run.handler.returning.then(forget);
-}
-
 async function runAndReturn(
   run: Run,
   argv: unknown,
@@ -1019,6 +1010,6 @@ async function runAndReturn(
     throw error;
   } finally {
     if (!run.stopped) inFlight.runs.delete(run);
-    forgetWhenReturned(run);
+    run.attachment?.forgetWhenSettled();
   }
 }

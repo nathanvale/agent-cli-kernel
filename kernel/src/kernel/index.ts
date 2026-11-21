@@ -23,7 +23,7 @@ import type { CauseTable, Effects, Validation } from "./types.ts";
 import { proofValue } from "./validation/state.ts";
 import { invocationTokens, refused, resolveInvocation } from "./routing.ts";
 import { recordRuntime } from "./runtime.ts";
-import type { Attach, Enter, KernelFacts } from "./runtime.ts";
+import type { Attach, AttachedExecution, KernelFacts } from "./runtime.ts";
 import { authority, resource, path } from "./validation/brands.ts";
 import type { CommandDeclaration } from "./declarations.ts";
 import { preparerOf } from "./declarations.ts";
@@ -117,7 +117,6 @@ export function contractFor<
     ]),
   );
   const acceptedResults = new WeakSet<object>();
-  const forgetters = new WeakMap<Enter, () => void>();
   const navigation = navigationData(spec.cli, commands, stationMap);
   async function validate(value: unknown) {
     const checked = await validateEnvelope(
@@ -306,7 +305,7 @@ export function contractFor<
           path: "runId",
           reason: "run identity already attached",
         };
-      const enter: Enter = async () => {
+      const handle = async () => {
         const outcome = await (ready
           ? ready.value(attached?.capability)
           : execute(
@@ -321,8 +320,26 @@ export function contractFor<
         ).finally(() => attached?.close());
         return accepted(outcome, identity, runId, invocation, parsed);
       };
-      if (attached) forgetters.set(enter, attached.forget);
-      return { ok: true, value: enter };
+      let returning: Promise<void> | undefined;
+      let returned = false;
+      const execution: AttachedExecution = {
+        enter: () => {
+          const outcome = handle();
+          const mark = () => {
+            returned = true;
+          };
+          returning = outcome.then(mark, mark);
+          return outcome;
+        },
+        closeAtDeadline: () => closeAtDeadline(runId, spec.state),
+        trustedSummary: () => issuedProof(runId, spec.state),
+        forgetWhenSettled: () => {
+          if (!attached) return;
+          if (!returning || returned) attached.forget();
+          else void returning.then(attached.forget);
+        },
+      };
+      return { ok: true, value: execution };
     };
     return { ok: true, value: attach };
   }
@@ -356,7 +373,7 @@ export function contractFor<
     const prepared = await prepareCommand(identity, argv, runId, context);
     if (!prepared.ok) return prepared;
     const entry = prepared.value();
-    return entry.ok ? entry.value() : entry;
+    return entry.ok ? entry.value.enter() : entry;
   }
 
   const contract = {
@@ -457,9 +474,6 @@ export function contractFor<
     buildKernelStation,
     buildResult: (result) => contract.buildResult(result),
     validate,
-    trustedSummary: (runId) => issuedProof(runId, spec.state),
-    closeStateAtDeadline: (runId) => closeAtDeadline(runId, spec.state),
-    forgetState: (enter) => forgetters.get(enter)?.(),
   });
   return contract;
 }
