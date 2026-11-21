@@ -3,13 +3,11 @@ import { createHash } from "node:crypto";
 import {
   chmodSync,
   cpSync,
-  existsSync,
   linkSync,
   lstatSync,
   mkdirSync,
   readFileSync,
   symlinkSync,
-  watch,
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
@@ -24,6 +22,7 @@ import {
   readBytesNoFollow,
   runForensics,
 } from "../../../skills/verify-cli/forensics.ts";
+import { waitForFile, waitForRecordBytes } from "../diagnostics/harness.ts";
 import {
   ownedFolder,
   parsed,
@@ -68,27 +67,6 @@ function concatBytes(...chunks: Uint8Array[]): Uint8Array {
     offset += chunk.byteLength;
   }
   return out;
-}
-
-function waitForFile(directory: string, file: string): Promise<void> {
-  if (existsSync(file)) return Promise.resolve();
-  return new Promise((resolve, reject) => {
-    const watcher = watch(directory, () => {
-      if (!existsSync(file)) return;
-      clearTimeout(timer);
-      watcher.close();
-      resolve();
-    });
-    const timer = setTimeout(() => {
-      watcher.close();
-      reject(new Error(`timed out waiting for ${file}`));
-    }, 15_000);
-    if (existsSync(file)) {
-      clearTimeout(timer);
-      watcher.close();
-      resolve();
-    }
-  });
 }
 
 function createStateTree(journal: "contract3.state" | "contract3.state.2") {
@@ -541,7 +519,8 @@ describe("kernel-free forensics in-process", () => {
       },
     );
     try {
-      await waitForFile(barrierDir, readyFile);
+      await waitForFile(readyFile);
+      await waitForRecordBytes(diagDir);
       const liveCli = runForensics(
         ["diagnostics", diagDir, "--json"],
         repository,
