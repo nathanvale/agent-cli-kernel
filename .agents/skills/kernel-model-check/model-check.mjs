@@ -56,6 +56,7 @@ export const models = [
     spec: "kernel-lifecycle/KernelLifecycle.tla",
     cfg: "kernel-lifecycle/KernelLifecycle.cfg",
     covered: [
+      "kernel/src/kernel/index.ts",
       "kernel/src/kernel/lifecycle.ts",
       "kernel/src/kernel/state-seam.ts",
       "kernel/src/kernel/writer.ts",

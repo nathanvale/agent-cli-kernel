@@ -1,6 +1,7 @@
 --------------------------- MODULE KernelLifecycle ---------------------------
 (*
   Formal model of the Kernel run lifecycle and state seam:
+    - kernel/src/kernel/index.ts
     - kernel/src/kernel/lifecycle.ts
     - kernel/src/kernel/state-seam.ts
     - kernel/src/kernel/writer.ts
@@ -15,7 +16,7 @@ EXTENDS Naturals
 VARIABLES
   phase,             \* "preparing" | "attached" | "handlerEntered" | "afterHandler" | "afterDeadline" | "emitting" | "drained" | "stopped"
   envelopesEmitted,  \* 0..2                         (writer.ts: createWriter() -> emit(), lifecycle.ts: deliver())
-  seamClosed,        \* "none" | "returned" | "deadline" (state-seam.ts: AttachedRun.closed, closeAtDeadline(), attachState() -> close())
+  seamClosed,        \* "none" | "returned" | "deadline" (state-seam.ts: AttachedRun.closed, closeAtDeadline(), attachState() -> close(); index.ts: prepareCommand() -> enter() .finally(() => attached?.close()))
   seamRevoked,       \* BOOLEAN                      (state-seam.ts: AttachedRun.revoked, revokeIssued(), attachState())
   txStarted,         \* BOOLEAN                      (state-seam.ts: AttachedRun.transactionStarted, attachState() -> capability.transaction())
   txOpen,            \* BOOLEAN                      (state-seam.ts: AttachedRun.openTransaction, attachState() -> capability.transaction())
@@ -110,7 +111,7 @@ HandlerReturns ==
   /\ phase = "handlerEntered"
   /\ ~handlerReturned
   /\ handlerReturned' = TRUE \* lifecycle.ts: handlerOf()
-  /\ seamClosed' = IF seamClosed = "none" THEN "returned" ELSE seamClosed \* state-seam.ts: attachState() -> close()
+  /\ seamClosed' = IF seamClosed = "none" THEN "returned" ELSE seamClosed \* index.ts: prepareCommand() -> enter() .finally(() => attached?.close()), state-seam.ts: attachState() -> close()
   /\ phase' = "afterHandler" \* lifecycle.ts: runDeclaredCommand(), afterHandler()
   /\ UNCHANGED <<envelopesEmitted, seamRevoked, txStarted, txOpen, proofIssued,
                  runInMap, handlerEntered, stopped, auditVars>>
