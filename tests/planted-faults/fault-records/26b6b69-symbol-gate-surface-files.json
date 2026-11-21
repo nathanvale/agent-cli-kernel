@@ -1,0 +1,7 @@
+{
+  "id": "26b6b69-symbol-gate-surface-files",
+  "patch": "tests/planted-faults/patches/26b6b69-symbol-gate-surface-files.patch",
+  "testFile": "tests/template/names-check/symbol-gate.test.ts",
+  "title": "^symbol gate refuses missing surface files and malformed surface records$",
+  "source": "26b6b69 feat(names-check): apply the Avoid and Qualify rules to public declaration names"
+}

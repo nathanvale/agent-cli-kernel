@@ -1,0 +1,7 @@
+{
+  "id": "26b6b69-symbol-gate-async-return",
+  "patch": "tests/planted-faults/patches/26b6b69-symbol-gate-async-return.patch",
+  "testFile": "tests/template/names-check/symbol-gate.test.ts",
+  "title": "^symbol gate judges immediate properties in explicit and inferred async returns$",
+  "source": "26b6b69 feat(names-check): apply the Avoid and Qualify rules to public declaration names"
+}
