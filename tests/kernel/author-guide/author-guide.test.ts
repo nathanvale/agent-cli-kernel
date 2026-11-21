@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { existsSync, readFileSync, rmSync, statSync, watch } from "node:fs";
+import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
 import { mkdir, readdir, symlink, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { ESLint } from "eslint";
@@ -10,7 +10,10 @@ import { gitEnv, inherited } from "../../support/git-fixture.ts";
 import { treeFiles } from "../../support/lint-rule-folder.ts";
 import { testFolder } from "../../support/test-folder.ts";
 import { typecheckTree } from "../kernel-repair/harness.ts";
-import { spawnBounded } from "../kernel-repair/swarm-process.ts";
+import {
+  processWatchdog,
+  spawnBounded,
+} from "../kernel-repair/swarm-process.ts";
 import {
   emptyInput,
   refusedHandoff,
@@ -1130,24 +1133,6 @@ describe("kernel behaviour changing.md states in words", () => {
     });
   });
 
-  function fileAppears(path: string, bound: number): Promise<void> {
-    return new Promise((resolve) => {
-      let open = true;
-      const settle = () => {
-        if (!open) return;
-        open = false;
-        watcher.close();
-        clearTimeout(timer);
-        resolve();
-      };
-      const watcher = watch(dirname(path), () => {
-        if (existsSync(path)) settle();
-      });
-      const timer = setTimeout(settle, bound);
-      if (existsSync(path)) settle();
-    });
-  }
-
   const stopScript = (root: string) =>
     [
       `import * as kernel from ${JSON.stringify(join(repository, "kernel/src/kernel/index.ts"))};`,
@@ -1162,7 +1147,7 @@ describe("kernel behaviour changing.md states in words", () => {
       'const change = kernel.changing({ identity: "guide.change", route: ["change"], summary: "Change.", input, capabilities: {}, effectClass: "repository-local", effects: ["guide.write"], ifNoResult: state.descriptor.ifNoResult, heldLockCause: "DOMAIN_GUIDE_HELD", unresolvedCaseCause: "DOMAIN_GUIDE_UNRESOLVED",',
       '  stations: [station("SUCCESS_COMPLETED", { next: { kind: "done" } }), station("DOMAIN_GUIDE_HELD", { handoff: look }), station("DOMAIN_GUIDE_UNRESOLVED", { handoff: look })],',
       "  run: async (_input, context) => {",
-      '    if (process.env.GUIDE_READY) { await Bun.write(process.env.GUIDE_READY, ""); await new Promise(() => setInterval(() => undefined, 1000)); }',
+      '    if (process.env.GUIDE_READY) { await Bun.write(process.env.GUIDE_READY, "ready\\n"); await new Promise(() => setInterval(() => undefined, 1000)); }',
       '    const outcome = await state.transaction(context.state, { command: "guide.change", scope: { resources: [{ resource: "guide", key: "one" }] } }, (t) => t.record("guide.write", () => Promise.resolve(), () => Promise.resolve(true)).then(() => undefined));',
       '    return context.result({ commandIdentity: "guide.change", causeCode: "SUCCESS_COMPLETED" }, { message: "Changed.", data: null, transaction: outcome.proof });',
       "  } });",
@@ -1186,25 +1171,20 @@ describe("kernel behaviour changing.md states in words", () => {
       const stopped = [];
       for (const signal of ["SIGTERM", "SIGINT"] as const) {
         const ready = join(folder, `${signal}.ready`);
-        const child = Bun.spawn(
+        const run = await spawnBounded(
           [process.execPath, script, "change", "--json"],
           {
             cwd: folder,
             env: { ...process.env, GUIDE_READY: ready },
-            stdout: "pipe",
-            stderr: "pipe",
-            timeout: 20_000,
+            signalAt: { ledger: ready, line: "ready", signal },
           },
         );
-        await fileAppears(ready, 15_000);
-        child.kill(signal);
-        const exit = await child.exited;
         stopped.push({
           signal,
           ready: existsSync(ready),
-          exit,
-          stdout: await new Response(child.stdout).text(),
-          stderr: await new Response(child.stderr).text(),
+          exit: run.exit,
+          stdout: run.stdout,
+          stderr: run.stderr,
         });
       }
       expect(stopped).toEqual([
@@ -1214,6 +1194,6 @@ describe("kernel behaviour changing.md states in words", () => {
       const report = stateAddon({ root, report: "guide.pending" }).report();
       expect(report).toEqual({ ok: true, unfinished: [] });
     },
-    3 * 20_000 + 10_000,
+    processWatchdog(3),
   );
 });
