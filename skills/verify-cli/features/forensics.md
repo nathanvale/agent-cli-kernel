@@ -45,8 +45,10 @@ $ verify.ts forensics state <run folder>/state --json
 {"schema":"verify-forensics/1","target":"state",...}
 ```
 
-Usage errors (missing kind, unknown kind, extra arguments, unknown option)
-exit 2; a missing, symlinked, or unreadable target path exits 3.
+A readable target exits 0 even when `"status"` is `"issues"` (like `findings`,
+read `problems` and `status` in the output). Usage errors (missing kind,
+unknown kind, extra arguments, unknown option) exit 2; a missing, symlinked,
+or unreadable target path exits 3.
 
 ## Gotchas
 

@@ -45,12 +45,15 @@ export const models = [
   },
 ];
 
-function miseOutput(args) {
+function miseQuery(args) {
   const result = spawnSync("mise", args, {
     cwd: skillDir,
     encoding: "utf8",
   });
-  return result.status === 0 ? result.stdout.trim() : "";
+  return {
+    stdout: result.status === 0 ? result.stdout.trim() : "",
+    stderr: (result.stderr ?? "").trim(),
+  };
 }
 
 function locateTlc() {
@@ -58,16 +61,21 @@ function locateTlc() {
   const envJava = process.env.JAVA;
   if (envJar) {
     if (!existsSync(envJar))
-      throw new Error(`TLA2TOOLS does not exist: ${envJar}`);
+      return { error: `TLA2TOOLS does not exist: ${envJar}` };
     return { java: envJava || "java", jar: envJar };
   }
-  const home = miseOutput(["where", tlcTool]);
-  const jar = home ? join(home, "tla2tools.jar") : "";
-  const java = envJava || miseOutput(["which", "java", "--tool", javaTool]);
-  if (!jar || !existsSync(jar) || !java)
-    throw new Error(
-      `TLC 1.7.4 or Java not found. Run: (cd ${skillDir} && mise install) or set TLA2TOOLS and JAVA.`,
-    );
+  const tlcRes = miseQuery(["where", tlcTool]);
+  const jar = tlcRes.stdout ? join(tlcRes.stdout, "tla2tools.jar") : "";
+  const javaRes = envJava
+    ? { stdout: envJava, stderr: "" }
+    : miseQuery(["which", "java", "--tool", javaTool]);
+  const java = javaRes.stdout;
+  if (!jar || !existsSync(jar) || !java) {
+    const detail = [tlcRes.stderr, javaRes.stderr].filter(Boolean).join(" | ");
+    return {
+      error: `TLC 1.7.4 or Java not found.${detail ? ` (${detail})` : ""} Repair: run (cd ${skillDir} && mise install) or set TLA2TOOLS and JAVA.`,
+    };
+  }
   return { java, jar };
 }
 
@@ -158,6 +166,10 @@ if (isEntry) {
     process.exit(2);
   }
   const tlc = locateTlc();
+  if ("error" in tlc) {
+    process.stderr.write(`${tlc.error}\n`);
+    process.exit(1);
+  }
   const ok = selected.every((model) => runOne(tlc, model));
   process.exit(ok ? 0 : 1);
 }
