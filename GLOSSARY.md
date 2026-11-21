@@ -189,6 +189,12 @@ exits 70; a target that answers its probes differently on every run
 prints `TARGET FAIL` lines and exits 3.
 _Avoid_: shell, wrapper (for the kernel-free check)
 
+**Forensic command**:
+The kernel-free, read-only `forensics` command on `verify.ts` that decodes a
+verification run, a state add-on journal, a diagnostics custody folder, or an
+approval store without importing `agent-cli-kernel` and without mutating any
+file or lock.
+
 **Helper**:
 verify-cli's own CLI, built on the kernel, which the kernel-free check
 starts for every command.
@@ -258,6 +264,12 @@ a finding (quoting each failed check), an unmet step (quoting what was
 expected and observed), an unconfirmed process end, a sweep with no check,
 a report with nothing driven, and any station or count that differs from
 the record.
+
+**Model check**:
+An exhaustive TLA+/TLC state-space check of a kernel concurrency or
+crash-recovery protocol against its implementation-independent contract
+invariants, kept in `.agents/skills/kernel-model-check/`.
+_Avoid_: formal verification skill (in a name)
 
 ### Fault replay timings
 

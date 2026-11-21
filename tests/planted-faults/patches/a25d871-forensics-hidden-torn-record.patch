@@ -1,0 +1,12 @@
+diff --git a/skills/verify-cli/forensics/io.ts b/skills/verify-cli/forensics/io.ts
+--- a/skills/verify-cli/forensics/io.ts
++++ b/skills/verify-cli/forensics/io.ts
+@@ -220,7 +220,7 @@ export function parseC3s1Records(bytes: Uint8Array): C3s1Parse {
+       records,
+       tornTail: true,
+       tornOffset: cursor,
+-      recordHiddenInTornTail: midLinePattern.test(lenientDecoder.decode(bytes)),
++      recordHiddenInTornTail: false,
+     };
+   }
+   return {

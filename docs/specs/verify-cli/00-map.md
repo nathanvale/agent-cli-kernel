@@ -25,6 +25,11 @@ Once accepted, code follows this specification, never the reverse.
    expected result.
 7. The build passed its own instructions end to end on Linux and macOS, and
    its 218 tests on macOS.
+8. Addendum (21 November 2026): `verify.ts` also exposes a kernel-free
+   **Forensic command** (`forensics <run|state|diagnostics|approval> <path>`)
+   in `skills/verify-cli/forensics.ts` so operators can decode raw artifacts
+   even when the kernel fails to start or exits 70 (see
+   `docs/adr/0001-kernel-free-forensics.md`).
 
 ## Where the inputs and the code disagreed
 
