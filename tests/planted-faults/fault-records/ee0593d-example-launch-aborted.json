@@ -1,0 +1,7 @@
+{
+  "id": "ee0593d-example-launch-aborted",
+  "patch": "tests/planted-faults/patches/ee0593d-example-launch-aborted.patch",
+  "testFile": "tests/kernel/author-guide/author-guide.test.ts",
+  "title": "the example's visit leaves an opener stopped by mid-launch SIGTERM unconfirmed even if it traps SIGTERM and exits 0",
+  "source": "ee0593d fix(author-guide): reject timed-out or unconfirmed viewer launches"
+}
