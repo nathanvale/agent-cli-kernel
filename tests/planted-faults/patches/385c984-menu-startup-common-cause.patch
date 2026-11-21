@@ -1,0 +1,14 @@
+diff --git a/kernel/src/kernel/declarations.ts b/kernel/src/kernel/declarations.ts
+--- a/kernel/src/kernel/declarations.ts
++++ b/kernel/src/kernel/declarations.ts
+@@ -109,10 +109,6 @@ export function validateNotInteractiveCause(
+     throw new Error(
+       `${declaration.commandIdentity} declares menu, so it must declare its not-interactive station (notInteractiveCause).`,
+     );
+-  if (Object.hasOwn(commonCauses, cause))
+-    throw new Error(
+-      `${declaration.commandIdentity}'s notInteractiveCause ${cause} must be a command-owned cause, not a common cause.`,
+-    );
+   const station = declaration.stations.find((item) => item.causeCode === cause);
+   if (!station)
+     throw new Error(

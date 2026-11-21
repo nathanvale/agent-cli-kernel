@@ -94,18 +94,7 @@ export function recordingHost() {
   };
 }
 
-export function aborted(signal: AbortSignal): Promise<void> {
-  if (signal.aborted) return Promise.resolve();
-  return new Promise((resolve) => {
-    signal.addEventListener(
-      "abort",
-      () => {
-        resolve();
-      },
-      { once: true },
-    );
-  });
-}
+export { waitForAbort as aborted } from "../../../kernel/src/addons/menu/list.ts";
 
 export function deferred() {
   let resolve: () => void = () => undefined;

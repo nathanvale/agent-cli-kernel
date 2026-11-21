@@ -1,0 +1,12 @@
+diff --git a/kernel/src/addons/menu/index.ts b/kernel/src/addons/menu/index.ts
+--- a/kernel/src/addons/menu/index.ts
++++ b/kernel/src/addons/menu/index.ts
+@@ -33,8 +33,6 @@ function readLines(raw: unknown): readonly string[] {
+   if (!Array.isArray(raw))
+     throw new Error("A menu's lines must be an array of at most 3 strings.");
+   const length = raw.length;
+-  if (length > maxLines)
+-    throw new Error(`A menu accepts at most ${String(maxLines)} header lines.`);
+   const snapshot: string[] = [];
+   for (let index = 0; index < length; index += 1) {
+     const item: unknown = raw[index];

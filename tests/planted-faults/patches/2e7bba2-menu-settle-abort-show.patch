@@ -1,0 +1,11 @@
+diff --git a/kernel/src/addons/menu/index.ts b/kernel/src/addons/menu/index.ts
+--- a/kernel/src/addons/menu/index.ts
++++ b/kernel/src/addons/menu/index.ts
+@@ -290,7 +290,6 @@ function attachMenu(run: RunControl): AttachedAddon<MenuCapability> {
+   return {
+     capability,
+     settle() {
+-      abortActiveShow();
+       restore();
+       return Promise.resolve(true);
+     },

@@ -1,0 +1,7 @@
+{
+  "id": "2e7bba2-menu-dimension-bounds",
+  "patch": "tests/planted-faults/patches/2e7bba2-menu-dimension-bounds.patch",
+  "testFile": "tests/kernel/menu/list.test.ts",
+  "title": "clamps NaN and non-finite dimensions instead of bypassing clipping",
+  "source": "2e7bba2 fix(kernel): harden the menu's finish paths, bounds, input parsing and terminal tests"
+}

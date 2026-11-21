@@ -1,0 +1,14 @@
+diff --git a/kernel/src/addons/menu/index.ts b/kernel/src/addons/menu/index.ts
+--- a/kernel/src/addons/menu/index.ts
++++ b/kernel/src/addons/menu/index.ts
+@@ -200,8 +200,8 @@ async function* keyBatches(
+     }
+   } finally {
+     void pending?.catch(() => undefined);
+-    abortShow();
+-    await closeIterator(iterator);
++    await closeIterator(iterator);
++    abortShow();
+   }
+ }
+ 

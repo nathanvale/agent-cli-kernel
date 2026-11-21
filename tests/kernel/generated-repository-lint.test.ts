@@ -114,8 +114,8 @@ describe("kernelLint in a host layout", () => {
     "every add-on selected: each planted violation is reported once, and stamped source has no finding",
     async () => {
       const tree = await hostTree(
-        ["approval", "diagnostics", "programs", "state"],
-        ["approval", "diagnostics", "programs", "state"],
+        ["approval", "diagnostics", "menu", "programs", "state"],
+        ["approval", "diagnostics", "menu", "programs", "state"],
       );
       expect(await findings(tree)).toEqual(plantedFindings);
     },

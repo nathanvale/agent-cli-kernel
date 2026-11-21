@@ -1,0 +1,7 @@
+{
+  "id": "385c984-menu-sanitize-control",
+  "patch": "tests/planted-faults/patches/385c984-menu-sanitize-control.patch",
+  "testFile": "tests/kernel/menu/menu.test.ts",
+  "title": "strips control characters and bidirectional overrides from labels and lines before drawing",
+  "source": "385c984 feat(kernel): add the menu add-on and the not-interactive refusal"
+}

@@ -1,0 +1,32 @@
+diff --git a/kernel/src/addons/menu/index.ts b/kernel/src/addons/menu/index.ts
+--- a/kernel/src/addons/menu/index.ts
++++ b/kernel/src/addons/menu/index.ts
+@@ -273,16 +273,15 @@ function attachMenu(run: RunControl): AttachedAddon<MenuCapability> {
+     active = true;
+     drew = false;
+     resizeListener = onResize;
+-    try {
+-      terminal.enter();
+-      process.on("SIGWINCH", onResize);
+-      redraw();
+-      return await readLoop(terminal, session, showController.signal, redraw);
+-    } finally {
+-      run.signal.removeEventListener("abort", onRunAbort);
+-      if (activeShowController === showController)
+-        activeShowController = undefined;
+-      showController.abort();
+-      restore();
+-    }
++    terminal.enter();
++    process.on("SIGWINCH", onResize);
++    redraw();
++    const result = await readLoop(terminal, session, showController.signal, redraw);
++    run.signal.removeEventListener("abort", onRunAbort);
++    if (activeShowController === showController)
++      activeShowController = undefined;
++    showController.abort();
++    restore();
++    return result;
+   }
+ 
+   const capability: MenuCapability = Object.freeze({ show });

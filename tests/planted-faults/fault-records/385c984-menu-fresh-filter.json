@@ -1,0 +1,7 @@
+{
+  "id": "385c984-menu-fresh-filter",
+  "patch": "tests/planted-faults/patches/385c984-menu-fresh-filter.patch",
+  "testFile": "tests/kernel/menu/menu.test.ts",
+  "title": "runs two picks in one command with other work between, restoring the terminal and clearing the filter between calls",
+  "source": "385c984 feat(kernel): add the menu add-on and the not-interactive refusal"
+}

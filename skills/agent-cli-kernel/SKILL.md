@@ -37,6 +37,8 @@ to one commit. This skill ships inside that package, at
 - Declaring a result a command can produce, such as a refusal, or reading a
   throw when the CLI starts: read [stations](references/stations.md).
 - Testing a command: read [testing](references/testing.md).
+- Showing a list of rows for a person to choose from in an interactive run:
+  read [menu](references/menu.md).
 - Starting a CLI, or wanting whole source files to copy: read
   [example](references/example.md).
 - Reading the example's whole test files: read

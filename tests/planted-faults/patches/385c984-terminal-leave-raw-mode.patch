@@ -1,0 +1,15 @@
+diff --git a/kernel/src/kernel/process-host.ts b/kernel/src/kernel/process-host.ts
+--- a/kernel/src/kernel/process-host.ts
++++ b/kernel/src/kernel/process-host.ts
+@@ -48,11 +48,6 @@ export function ttyTerminalFor(io: TtyTerminalIo): TerminalAdapter {
+     entered = false;
+     lastLines = 0;
+     try {
+-      if (wasEntered) activeReader?.setRawMode(false);
+-    } catch {
+-      // Platform: Terminal restoration ignores a closed or revoked controlling tty.
+-    }
+-    try {
+       if (wasEntered) io.write(encoder.encode("\x1b[?25h"));
+     } catch {
+       // Platform: Cursor restoration ignores a closed or revoked controlling tty.

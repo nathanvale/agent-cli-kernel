@@ -99,6 +99,7 @@
     "kernel/src/kernel/index.ts",
     "kernel/src/addons/programs/index.ts",
     "kernel/src/addons/diagnostics/index.ts",
+    "kernel/src/addons/menu/index.ts",
     "tests/kernel/**/fixtures/*-cli.ts",
     "tests/kernel/**/fixtures/*-worker.ts",
     "tests/kernel/lifecycle/fixtures/declining-host.ts",

@@ -1,0 +1,7 @@
+{
+  "id": "385c984-menu-ctrl-c-interrupt",
+  "patch": "tests/planted-faults/patches/385c984-menu-ctrl-c-interrupt.patch",
+  "testFile": "tests/kernel/menu/terminal.test.ts",
+  "title": "Ctrl-C at the menu restores the terminal, exits 130, and prints no envelope",
+  "source": "385c984 feat(kernel): add the menu add-on and the not-interactive refusal"
+}

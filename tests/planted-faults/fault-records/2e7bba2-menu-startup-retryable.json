@@ -1,0 +1,7 @@
+{
+  "id": "2e7bba2-menu-startup-retryable",
+  "patch": "tests/planted-faults/patches/2e7bba2-menu-startup-retryable.patch",
+  "testFile": "tests/kernel/menu/startup.test.ts",
+  "title": "refuses a retryable notInteractiveCause at start-up",
+  "source": "2e7bba2 fix(kernel): harden the menu's finish paths, bounds, input parsing and terminal tests"
+}

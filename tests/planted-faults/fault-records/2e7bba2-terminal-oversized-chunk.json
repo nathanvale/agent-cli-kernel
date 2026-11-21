@@ -1,0 +1,7 @@
+{
+  "id": "2e7bba2-terminal-oversized-chunk",
+  "patch": "tests/planted-faults/patches/2e7bba2-terminal-oversized-chunk.patch",
+  "testFile": "tests/kernel/menu/terminal.test.ts",
+  "title": "accepts and resumes after a single chunk larger than the byte cap on an empty queue",
+  "source": "2e7bba2 fix(kernel): harden the menu's finish paths, bounds, input parsing and terminal tests"
+}

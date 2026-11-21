@@ -3,6 +3,7 @@
     "kernel/src/kernel/index.ts",
     "kernel/src/addons/approval/index.ts",
     "kernel/src/addons/diagnostics/index.ts",
+    "kernel/src/addons/menu/index.ts",
     "kernel/src/addons/programs/index.ts",
     "kernel/src/addons/state/index.ts",
     "kernel/config/kernel/eslint.mjs",

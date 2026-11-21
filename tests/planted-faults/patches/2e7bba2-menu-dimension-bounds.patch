@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/menu/list.ts b/kernel/src/addons/menu/list.ts
+--- a/kernel/src/addons/menu/list.ts
++++ b/kernel/src/addons/menu/list.ts
+@@ -34,8 +34,7 @@ const defaultColumns = 80;
+ const defaultRows = 24;
+ const maxEscapeBytes = 64;
+ 
+-function boundedDimension(value: number, fallback: number): number {
+-  if (!Number.isFinite(value)) return fallback;
++function boundedDimension(value: number, _fallback: number): number {
+   return Math.max(1, Math.floor(value));
+ }
+ 

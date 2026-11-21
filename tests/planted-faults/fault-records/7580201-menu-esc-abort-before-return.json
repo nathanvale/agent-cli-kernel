@@ -1,0 +1,7 @@
+{
+  "id": "7580201-menu-esc-abort-before-return",
+  "patch": "tests/planted-faults/patches/7580201-menu-esc-abort-before-return.patch",
+  "testFile": "tests/kernel/menu/menu.test.ts",
+  "title": "cancels on Esc and restores the terminal within a bound for an async-generator adapter",
+  "source": "7580201 fix(kernel): abort the menu's show signal before waiting for the key reader"
+}

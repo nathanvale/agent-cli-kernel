@@ -1,0 +1,12 @@
+diff --git a/kernel/src/addons/menu/index.ts b/kernel/src/addons/menu/index.ts
+--- a/kernel/src/addons/menu/index.ts
++++ b/kernel/src/addons/menu/index.ts
+@@ -55,8 +55,6 @@ function readRows<Value>(
+   if (!isArrayValue(raw))
+     throw new Error(`A menu requires between 1 and ${String(maxRows)} rows.`);
+   const length = raw.length;
+-  if (length === 0 || length > maxRows)
+-    throw new Error(`A menu requires between 1 and ${String(maxRows)} rows.`);
+   const snapshot: MenuRow<Value>[] = [];
+   for (let index = 0; index < length; index += 1) {
+     const entry = raw[index];
