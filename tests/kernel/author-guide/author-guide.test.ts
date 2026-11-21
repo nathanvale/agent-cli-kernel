@@ -542,6 +542,7 @@ describe("the author skill's documents, shipped in the kernel package", () => {
         .sort(),
     ).toEqual([
       "SKILL.md",
+      "references/changing.md",
       "references/commands.md",
       "references/example.md",
       "references/stations.md",

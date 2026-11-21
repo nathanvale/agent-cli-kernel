@@ -2,7 +2,8 @@
 
 `moons` is a CLI with four commands. `list` has one option and no declared
 station. `show` has one argument, a success station and a refusal. `visit`
-is a changing command, and `pending` is its `ifNoResult` command.
+is a [changing command](changing.md), and `pending` is its `ifNoResult`
+command.
 
 The kernel repository lays these files out as a repository that depends on
 the `agent-cli-kernel` package, then compiles them, runs the kernel's lint

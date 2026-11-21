@@ -19,7 +19,7 @@ import type { CauseTable } from "agent-cli-kernel";
 ```
 
 - `command({...})` declares a read-only command, and `changing({...})` a
-  command that changes something.
+  command that changes something. See [changing](changing.md).
 - `station(causes, {...})` declares one result a command can produce. See
   [stations](stations.md).
 - `contractFor({ cli, commands, causes })` checks every declaration when the
