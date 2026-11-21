@@ -543,8 +543,12 @@ describe("kernel-free forensics in-process", () => {
     writeFileSync(externalSource, validGrant);
     linkSync(externalSource, join(dir, "grant-hardlink.json"));
 
-    const prefix = new TextEncoder().encode(validGrant.slice(0, 120));
-    const suffix = new TextEncoder().encode(validGrant.slice(120));
+    const authorityField = '"authority":"operator"';
+    const authorityAt = validGrant.indexOf(authorityField);
+    expect(authorityAt).toBeGreaterThan(-1);
+    const splitAt = authorityAt + '"authority":"oper'.length;
+    const prefix = new TextEncoder().encode(validGrant.slice(0, splitAt));
+    const suffix = new TextEncoder().encode(validGrant.slice(splitAt));
     writeFileSync(
       join(dir, "grant-bad-utf8.json"),
       concatBytes(prefix, Uint8Array.from([0xff]), suffix),
@@ -668,9 +672,12 @@ describe("kernel-free forensics in-process", () => {
     mkdirSync(join(escapeRun, "evidence"), { recursive: true, mode: 0o700 });
     makeCleanState(join(escapeRun, "state"));
     symlinkSync(outsideDir, join(escapeRun, "evidence", "sub"));
+    const backslashFile = "part\\step.json";
+    writeFileSync(join(escapeRun, "evidence", backslashFile), stepBody);
+    const absoluteOutsideStep = join(outsideDir, "outside-step.json");
     writeFileSync(
       join(escapeRun, "evidence", "index.jsonl"),
-      `${runRow}\n${stepRowFor("../../outside/outside-step.json")}\n${stepRowFor("sub/outside-step.json")}\n`,
+      `${runRow}\n${stepRowFor("../../outside/outside-step.json")}\n${stepRowFor("sub/outside-step.json")}\n${stepRowFor(backslashFile)}\n${stepRowFor(absoluteOutsideStep)}\n`,
     );
     const escapeReport = inspectRunFolder(escapeRun);
     expect(escapeReport.ok).toBe(true);
@@ -679,21 +686,21 @@ describe("kernel-free forensics in-process", () => {
       expect(escapeReport.report.steps.map((s) => s.hashMatches)).toEqual([
         false,
         false,
+        false,
+        false,
       ]);
-      expect(
-        escapeReport.report.problems.some((p) =>
-          p.includes(
-            "evidence file escapes run folder (../../outside/outside-step.json)",
+      for (const badFile of [
+        "../../outside/outside-step.json",
+        "sub/outside-step.json",
+        backslashFile,
+        absoluteOutsideStep,
+      ]) {
+        expect(
+          escapeReport.report.problems.some((p) =>
+            p.includes(`evidence file escapes run folder (${badFile})`),
           ),
-        ),
-      ).toBe(true);
-      expect(
-        escapeReport.report.problems.some((p) =>
-          p.includes(
-            "evidence file escapes run folder (sub/outside-step.json)",
-          ),
-        ),
-      ).toBe(true);
+        ).toBe(true);
+      }
     }
 
     const unresolvedRun = join(base, "unresolved-run");

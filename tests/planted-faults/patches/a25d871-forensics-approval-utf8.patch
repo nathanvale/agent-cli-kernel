@@ -1,0 +1,12 @@
+diff --git a/skills/verify-cli/forensics/addons.ts b/skills/verify-cli/forensics/addons.ts
+--- a/skills/verify-cli/forensics/addons.ts
++++ b/skills/verify-cli/forensics/addons.ts
+@@ -523,7 +523,7 @@ function withinApprovalDepth(value: unknown, depth: number): boolean {
+ 
+ function decodeApprovalJson(bytes: Uint8Array): unknown {
+   try {
+-    const parsed = parsedJson(fatalUtf8.decode(bytes));
++    const parsed = parsedJson(lenientDecoder.decode(bytes));
+     return withinApprovalDepth(parsed, 0) ? parsed : undefined;
+   } catch {
+     return undefined;
