@@ -5,8 +5,8 @@
       "path": "kernel/src/addons/approval/records.ts",
       "declaration": "StopItem.owner",
       "word": "owner",
-      "reason": "Public add-on result field. Preserve the Approval add-on API.",
-      "approved": "Symbol gate (kernel) pull request: Public add-on result field. Preserve the Approval add-on API."
+      "reason": "Public add-on input field. It mirrors the contract3.stop-attestation record, so a rename would change that record. Preserve the Approval add-on API.",
+      "approved": "Symbol gate (kernel) pull request: Public add-on input field. It mirrors the contract3.stop-attestation record, so a rename would change that record. Preserve the Approval add-on API."
     },
     {
       "path": "kernel/src/addons/state/install.ts",
