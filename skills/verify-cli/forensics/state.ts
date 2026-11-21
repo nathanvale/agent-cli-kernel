@@ -39,7 +39,7 @@ const validDispositions = new Set([
   "outcome-unknown",
 ]);
 const unresolvedNextAction =
-  "Run the target CLI's report command (ifNoResult) to check live locks, then resolve with its recovery/close command.";
+  "Run the target CLI's ifNoResult command to see the operation and its scope, then check the affected resource by hand. Close the case only if the CLI offers a close command on a host qualified for it; otherwise the case stays unresolved.";
 
 function exactStringList(value: unknown): readonly string[] | undefined {
   if (!Array.isArray(value)) return undefined;

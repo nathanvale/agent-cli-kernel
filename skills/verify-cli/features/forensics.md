@@ -30,10 +30,10 @@ and without writing, locking, or mutating any file.
 
 ## How to get to it (user POV)
 
-- `verify.ts forensics run <run folder> [--json]`
-- `verify.ts forensics state <state root> [--json]`
-- `verify.ts forensics diagnostics <diagnostics folder> [--json]`
-- `verify.ts forensics approval <approval folder> [--json]`
+- `bun node_modules/agent-cli-kernel/skills/verify-cli/verify.ts forensics run <run folder> [--json]`
+- `bun node_modules/agent-cli-kernel/skills/verify-cli/verify.ts forensics state <state root> [--json]`
+- `bun node_modules/agent-cli-kernel/skills/verify-cli/verify.ts forensics diagnostics <diagnostics folder> [--json]`
+- `bun node_modules/agent-cli-kernel/skills/verify-cli/verify.ts forensics approval <approval folder> [--json]`
 
 ## Driving it with verify-cli
 
@@ -45,9 +45,9 @@ Without `--json`, each successful command prints its summary line followed
 by indented `verify-forensics/1` JSON:
 
 ```text
-$ verify.ts forensics run <run folder>
+$ bun node_modules/agent-cli-kernel/skills/verify-cli/verify.ts forensics run <run folder>
 Verification run (scratch removed): 2 step(s) (0 unmet), 0 problem(s).
-$ verify.ts forensics state <run folder>/state --json
+$ bun node_modules/agent-cli-kernel/skills/verify-cli/verify.ts forensics state <run folder>/state --json
 {"schema":"verify-forensics/1","target":"state",...}
 ```
 

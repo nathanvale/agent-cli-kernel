@@ -96,4 +96,12 @@ describe("the skill document", () => {
     expect(agents).toContain("skills/verify-cli/verify.ts forensics");
     expect(agents).toContain("skills/verify-cli/features/forensics.md");
   });
+
+  test("forensics feature page uses the full copy-pasteable bun invocation", () => {
+    const doc = text("features/forensics.md");
+    expect(doc).toContain(
+      "bun node_modules/agent-cli-kernel/skills/verify-cli/verify.ts forensics run",
+    );
+    expect(doc).not.toMatch(/(?:^[-$] |`)verify\.ts forensics/m);
+  });
 });

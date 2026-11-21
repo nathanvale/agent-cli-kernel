@@ -192,10 +192,15 @@ describe("kernel-free forensics in-process", () => {
     expect(caseA?.tornTail).toBe(true);
     expect(caseA?.recordHiddenInTornTail).toBe(true);
     expect(caseA?.leaseFilePresent).toBe(true);
-    expect(caseA?.nextAction).toContain("report command (ifNoResult)");
-    expect(inspected.report.nextAction).toContain(
-      "report command (ifNoResult)",
+    expect(caseA?.nextAction).toContain("ifNoResult");
+    expect(caseA?.nextAction).toContain("operation and its scope");
+    expect(caseA?.nextAction).toContain("check the affected resource by hand");
+    expect(caseA?.nextAction).toContain(
+      "only if the CLI offers a close command on a host qualified for it",
     );
+    expect(caseA?.nextAction).toContain("otherwise the case stays unresolved");
+    expect(caseA?.nextAction).not.toContain("live locks");
+    expect(inspected.report.nextAction).toBe(caseA?.nextAction ?? null);
     expect(inspected.report.summary).toContain("Next:");
     expect(caseA?.problems.some((p) => p.includes("mid-line"))).toBe(true);
 
