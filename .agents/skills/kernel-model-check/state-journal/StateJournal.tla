@@ -9,33 +9,33 @@
   Structure:
     1. Implementation-independent Contract Invariants (what any simpler rebuild
        must still preserve).
-    2. Current-implementation state machine with every guard cited to file:line.
+    2. Current-implementation state machine with every guard cited to file and symbol.
 *)
 EXTENDS Naturals
 
 CONSTANTS MaxRev
 
 VARIABLES
-  storeVersion,        \* "v1" | "v2"  (store.ts:122-163)
-  settledDirReady,     \* BOOLEAN      (store.ts:148-150)
-  admissionLock,       \* "none" | "writer" | "closer"  (install.ts:558-562)
-  caseLocation,        \* "absent" | "staging" | "operations" | "settled" (store.ts:623-678)
-  ownerLease,          \* "free" | "writer" | "closer"  (install.ts:494,794,1019)
-  caseLock,            \* "free" | "closer"             (install.ts:951,1265)
+  storeVersion,        \* "v1" | "v2"  (store.ts: journals, upgradeStore())
+  settledDirReady,     \* BOOLEAN      (store.ts: upgradeStore())
+  admissionLock,       \* "none" | "writer" | "closer"  (install.ts: acquire())
+  caseLocation,        \* "absent" | "staging" | "operations" | "settled" (store.ts: moveSettledCase(), publishOperation())
+  ownerLease,          \* "free" | "writer" | "closer"  (install.ts: caseUnderLease(), begin(), runRecorded())
+  caseLock,            \* "free" | "closer"             (install.ts: movable(), admitClosure())
   writerPc,            \* "idle" | "admitted" | "published" | "effectStarted" | "workEnded" | "finalAppended" | "done" | "crashed"
-  effectInFlight,      \* BOOLEAN      (install.ts:999,1010,1201-1204)
-  tornTail,            \* BOOLEAN      (framing.ts:94-112, store.ts:712-715)
-  hiddenInTornTail,    \* BOOLEAN      (framing.ts:121-126, install.ts:453)
-  delegateBoot,        \* "none" | "boot1" | "boot2"    (store.ts:226-245)
-  currentBoot,         \* "boot1" | "boot2"             (install.ts:449-460)
-  closureState,        \* "absent" | "valid"            (store.ts:731-753)
-  settled,             \* BOOLEAN      (store.ts:511-524)
-  journalRev,          \* 0..MaxRev    (store.ts:468-473)
+  effectInFlight,      \* BOOLEAN      (install.ts: runRecorded(), recorder())
+  tornTail,            \* BOOLEAN      (framing.ts: parseRecords(), store.ts: appendEvent())
+  hiddenInTornTail,    \* BOOLEAN      (framing.ts: recordStartsMidLine(), install.ts: stoppedOwnerProblem())
+  delegateBoot,        \* "none" | "boot1" | "boot2"    (store.ts: appendDelegateStart(), delegateBoot())
+  currentBoot,         \* "boot1" | "boot2"             (install.ts: stoppedOwnerProblem())
+  closureState,        \* "absent" | "valid"            (store.ts: publishClosure())
+  settled,             \* BOOLEAN      (store.ts: statusOf())
+  journalRev,          \* 0..MaxRev    (store.ts: revisionOf())
   closerPc,            \* "idle" | "readPreLease" | "admitted" | "leaseHeld" | "verified" | "closed"
-  closerReqRev,        \* 0..MaxRev    (install.ts:471,1319)
-  closerLeaseRev,      \* 0..MaxRev    (install.ts:481-510)
-  readerPc,            \* "idle" | "readOps" | "readSettled" | "done" (store.ts:555-565)
-  readerSawOps,        \* BOOLEAN      (store.ts:560-562)
+  closerReqRev,        \* 0..MaxRev    (install.ts: caseRead(), closeCase())
+  closerLeaseRev,      \* 0..MaxRev    (install.ts: caseUnderLease())
+  readerPc,            \* "idle" | "readOps" | "readSettled" | "done" (store.ts: fromCaseFolders())
+  readerSawOps,        \* BOOLEAN      (store.ts: fromCaseFolders())
   readerResult         \* "none" | "found" | "not-found"
 
 storeVars  == <<storeVersion, settledDirReady>>
@@ -80,27 +80,27 @@ Init ==
   /\ closerPc = "idle" /\ closerReqRev = 0 /\ closerLeaseRev = 0
   /\ readerPc = "idle" /\ readerSawOps = FALSE /\ readerResult = "none"
 
-\* --- Store v1 -> v2 upgrade under admission lock (store.ts:138-163) ---
+\* --- Store v1 -> v2 upgrade under admission lock (store.ts: upgradeStore()) ---
 
 WriterAdmit ==
   /\ writerPc = "idle"
-  /\ admissionLock = "none" \* install.ts:558-562
+  /\ admissionLock = "none" \* install.ts: acquire()
   /\ admissionLock' = "writer"
   /\ writerPc' = "admitted"
   /\ UNCHANGED <<storeVars, ownerLease, caseLock, caseVars, effectInFlight, tornTail,
                  hiddenInTornTail, delegateBoot, currentBoot, closerVars, readerVars>>
 
 UpgradeCreateSettled ==
-  /\ admissionLock /= "none" \* install.ts:840
-  /\ storeVersion = "v1"     \* store.ts:147
-  /\ ~settledDirReady        \* store.ts:148
+  /\ admissionLock /= "none" \* install.ts: coordinate()
+  /\ storeVersion = "v1"     \* store.ts: upgradeStore()
+  /\ ~settledDirReady        \* store.ts: upgradeStore()
   /\ settledDirReady' = TRUE
   /\ UNCHANGED <<storeVersion, lockVars, caseVars, writerVars, closerVars, readerVars>>
 
 UpgradeSwapFormat ==
-  /\ admissionLock /= "none" \* install.ts:840
-  /\ storeVersion = "v1"     \* store.ts:147
-  /\ settledDirReady         \* store.ts:148-153
+  /\ admissionLock /= "none" \* install.ts: coordinate()
+  /\ storeVersion = "v1"     \* store.ts: upgradeStore()
+  /\ settledDirReady         \* store.ts: upgradeStore()
   /\ storeVersion' = "v2"
   /\ UNCHANGED <<settledDirReady, lockVars, caseVars, writerVars, closerVars, readerVars>>
 
@@ -109,12 +109,12 @@ UpgradeSwapFormat ==
 WriterPublish ==
   /\ writerPc = "admitted"
   /\ admissionLock = "writer"
-  /\ storeVersion = "v2"       \* install.ts:840 completes upgrade before open
+  /\ storeVersion = "v2"       \* install.ts: coordinate() completes upgrade before open()
   /\ caseLocation = "absent"
-  /\ ownerLease = "free"       \* store.ts:657
-  /\ caseLocation' = "operations" \* store.ts:667
+  /\ ownerLease = "free"       \* store.ts: publishOperation()
+  /\ caseLocation' = "operations" \* store.ts: publishOperation()
   /\ ownerLease' = "writer"
-  /\ admissionLock' = "none"   \* install.ts:909
+  /\ admissionLock' = "none"   \* install.ts: open()
   /\ writerPc' = "published"
   /\ journalRev' = NextRev
   /\ UNCHANGED <<storeVars, caseLock, closureState, settled, effectInFlight, tornTail,
@@ -123,9 +123,9 @@ WriterPublish ==
 WriterStartEffect ==
   /\ writerPc = "published"
   /\ ownerLease = "writer"
-  /\ ~tornTail                 \* store.ts:712 endsOnWholeRecord guard
+  /\ ~tornTail                 \* store.ts: appendEvent() -> endsOnWholeRecord() guard
   /\ writerPc' = "effectStarted"
-  /\ effectInFlight' = TRUE    \* install.ts:1201-1204 tracked in-flight record
+  /\ effectInFlight' = TRUE    \* install.ts: recorder() tracked in-flight record
   /\ journalRev' = NextRev
   /\ UNCHANGED <<storeVars, lockVars, caseLocation, closureState, settled, tornTail,
                  hiddenInTornTail, delegateBoot, currentBoot, closerVars, readerVars>>
@@ -135,8 +135,8 @@ WriterAdmitDelegate ==
   /\ effectInFlight
   /\ ownerLease = "writer"
   /\ delegateBoot = "none"
-  /\ ~tornTail                 \* store.ts:712 refuses append after torn tail
-  /\ delegateBoot' = currentBoot \* install.ts:1147-1151
+  /\ ~tornTail                 \* store.ts: appendEvent() refuses append after torn tail
+  /\ delegateBoot' = currentBoot \* install.ts: recorder() -> admitStart()
   /\ journalRev' = NextRev
   /\ UNCHANGED <<storeVars, lockVars, caseLocation, closureState, settled, writerPc,
                  effectInFlight, tornTail, hiddenInTornTail, currentBoot, closerVars, readerVars>>
@@ -144,16 +144,16 @@ WriterAdmitDelegate ==
 WriterTornAppend ==
   /\ writerPc = "effectStarted"
   /\ ownerLease = "writer"
-  /\ ~tornTail                 \* store.ts:723 partial write leaves torn tail
+  /\ ~tornTail                 \* store.ts: appendEvent() partial write leaves torn tail
   /\ tornTail' = TRUE
-  /\ journalRev' = NextRev     \* store.ts:468-473 hashes raw bytes including torn tail
+  /\ journalRev' = NextRev     \* store.ts: revisionOf() hashes raw bytes including torn tail
   /\ UNCHANGED <<storeVars, lockVars, caseLocation, closureState, settled, writerPc,
                  effectInFlight, hiddenInTornTail, delegateBoot, currentBoot, closerVars, readerVars>>
 
 WriterTornAppendHidden ==
   /\ writerPc = "effectStarted"
   /\ ownerLease = "writer"
-  /\ ~tornTail                 \* framing.ts:121-126 mid-line record hidden in torn tail
+  /\ ~tornTail                 \* framing.ts: recordStartsMidLine() mid-line record hidden in torn tail
   /\ tornTail' = TRUE
   /\ hiddenInTornTail' = TRUE
   /\ journalRev' = NextRev
@@ -163,23 +163,23 @@ WriterTornAppendHidden ==
 WriterWorkReturns ==
   /\ writerPc = "effectStarted"
   /\ ownerLease = "writer"
-  /\ writerPc' = "workEnded"   \* install.ts:1009 recording.ended = true
+  /\ writerPc' = "workEnded"   \* install.ts: runRecorded() sets recording.ended = true
   /\ UNCHANGED <<storeVars, lockVars, caseVars, effectInFlight, tornTail, hiddenInTornTail,
                  delegateBoot, currentBoot, closerVars, readerVars>>
 
 WriterEffectSettles ==
   /\ writerPc \in {"effectStarted", "workEnded"}
   /\ effectInFlight
-  /\ effectInFlight' = FALSE   \* install.ts:1010 awaits settled(recording.records)
+  /\ effectInFlight' = FALSE   \* install.ts: runRecorded() awaits settled(recording.records)
   /\ UNCHANGED <<storeVars, lockVars, caseVars, writerPc, tornTail, hiddenInTornTail,
                  delegateBoot, currentBoot, closerVars, readerVars>>
 
 WriterAppendFinal ==
   /\ writerPc = "workEnded"
-  /\ ~effectInFlight           \* install.ts:1010 waits for started effects first
+  /\ ~effectInFlight           \* install.ts: runRecorded() waits for started effects first
   /\ ownerLease = "writer"
-  /\ ~tornTail                 \* store.ts:712 endsOnWholeRecord
-  /\ settled' = TRUE           \* install.ts:1016,1089-1096
+  /\ ~tornTail                 \* store.ts: appendEvent() -> endsOnWholeRecord()
+  /\ settled' = TRUE           \* install.ts: runRecorded(), finish()
   /\ writerPc' = "finalAppended"
   /\ journalRev' = NextRev
   /\ UNCHANGED <<storeVars, lockVars, caseLocation, closureState, effectInFlight, tornTail,
@@ -187,10 +187,10 @@ WriterAppendFinal ==
 
 WriterReleaseLease ==
   /\ writerPc \in {"finalAppended", "workEnded"}
-  /\ ~effectInFlight           \* install.ts:1010-1019 lease held until effects settle
-  /\ (writerPc = "finalAppended" \/ tornTail) \* install.ts:1104-1106 failed append still ends
+  /\ ~effectInFlight           \* install.ts: runRecorded() lease held until effects settle
+  /\ (writerPc = "finalAppended" \/ tornTail) \* install.ts: finish() catches failed append so runRecorded() still ends
   /\ ownerLease = "writer"
-  /\ ownerLease' = "free"      \* install.ts:1019
+  /\ ownerLease' = "free"      \* install.ts: runRecorded() -> held.releaseLease()
   /\ writerPc' = "done"
   /\ UNCHANGED <<storeVars, admissionLock, caseLock, caseVars, effectInFlight, tornTail,
                  hiddenInTornTail, delegateBoot, currentBoot, closerVars, readerVars>>
@@ -207,38 +207,38 @@ WriterCrash ==
 HostReboot ==
   /\ currentBoot = "boot1"
   /\ ownerLease = "free" /\ admissionLock = "none" /\ caseLock = "free"
-  /\ currentBoot' = "boot2"    \* boot_id changes on machine restart (install.ts:446-458)
+  /\ currentBoot' = "boot2"    \* boot_id changes on machine restart (install.ts: stoppedOwnerProblem())
   /\ UNCHANGED <<storeVars, lockVars, caseVars, writerPc, effectInFlight, tornTail,
                  hiddenInTornTail, delegateBoot, closerVars, readerVars>>
 
 \* --- Mover renames settled case operations/ -> settled/ under admission lock ---
 
 MoveSettledCase ==
-  /\ storeVersion = "v2"       \* install.ts:918 settledIsPrivate
+  /\ storeVersion = "v2"       \* install.ts: moveSettled() -> settledIsPrivate()
   /\ settledDirReady
   /\ admissionLock = "none"
   /\ caseLocation = "operations"
-  /\ settled                   \* install.ts:914-916 status /= "unresolved"
-  /\ ownerLease = "free"       \* install.ts:950 lockFree(owner.lease)
-  /\ caseLock = "free"         \* install.ts:951 lockFree(case:<id>)
-  /\ caseLocation' = "settled" \* store.ts:633 renameSync
+  /\ settled                   \* install.ts: moveSettled() status /= "unresolved"
+  /\ ownerLease = "free"       \* install.ts: movable() -> lockFree(owner.lease)
+  /\ caseLock = "free"         \* install.ts: movable() -> lockFree(case:<id>)
+  /\ caseLocation' = "settled" \* store.ts: moveSettledCase() renameSync
   /\ UNCHANGED <<storeVars, lockVars, closureState, settled, journalRev,
                  writerVars, closerVars, readerVars>>
 
-\* --- Closer protocol (install.ts:449-510, 1209-1388) ---
+\* --- Closer protocol (install.ts: stoppedOwnerProblem(), caseUnderLease(), closureDecision(), admitClosure(), closeCase()) ---
 
 CloserReadPreLease ==
   /\ closerPc = "idle"
   /\ caseLocation = "operations"
-  /\ ~settled                  \* install.ts:430,1319
+  /\ ~settled                  \* install.ts: settledCheck(), closeCase() -> caseRead()
   /\ closerPc' = "readPreLease"
   /\ closerReqRev' = journalRev
   /\ UNCHANGED <<storeVars, lockVars, caseVars, writerVars, closerLeaseRev, readerVars>>
 
 CloserAdmit ==
   /\ closerPc = "readPreLease"
-  /\ admissionLock = "none"    \* install.ts:1263
-  /\ caseLock = "free"         \* install.ts:1265
+  /\ admissionLock = "none"    \* install.ts: admitClosure() -> coordinate()
+  /\ caseLock = "free"         \* install.ts: admitClosure() -> coordinate()
   /\ caseLocation = "operations"
   /\ admissionLock' = "closer"
   /\ caseLock' = "closer"
@@ -247,11 +247,11 @@ CloserAdmit ==
 
 CloserAcquireLeaseAndRecheck ==
   /\ closerPc = "admitted"
-  /\ ownerLease = "free"       \* install.ts:494-498 tryLock(owner.lease)
-  /\ ~settled                  \* install.ts:472,504 caseRead under lease
-  /\ journalRev = closerReqRev \* install.ts:471 stale-revision check under lease
+  /\ ownerLease = "free"       \* install.ts: caseUnderLease() tryLock(owner.lease)
+  /\ ~settled                  \* install.ts: caseUnderLease() -> caseRead() under lease
+  /\ journalRev = closerReqRev \* install.ts: caseRead() stale-revision check under lease
   /\ ownerLease' = "closer"
-  /\ admissionLock' = "none"   \* install.ts:909,1330,1369 open() releases admissionLock before publishClosure
+  /\ admissionLock' = "none"   \* install.ts: open(), closeCase() releases admissionLock before publishClosure()
   /\ closerLeaseRev' = journalRev
   /\ closerPc' = "leaseHeld"
   /\ UNCHANGED <<storeVars, caseLock, caseVars, writerVars, closerReqRev, readerVars>>
@@ -259,8 +259,8 @@ CloserAcquireLeaseAndRecheck ==
 CloserVerifyStoppedOwner ==
   /\ closerPc = "leaseHeld"
   /\ ownerLease = "closer"
-  /\ ~hiddenInTornTail         \* install.ts:453 recordHiddenInTornTail
-  /\ (delegateBoot = "none" \/ delegateBoot /= currentBoot) \* install.ts:454-459
+  /\ ~hiddenInTornTail         \* install.ts: stoppedOwnerProblem() recordHiddenInTornTail
+  /\ (delegateBoot = "none" \/ delegateBoot /= currentBoot) \* install.ts: stoppedOwnerProblem() delegateBoot
   /\ closerPc' = "verified"
   /\ UNCHANGED <<storeVars, lockVars, caseVars, writerVars, closerReqRev, closerLeaseRev, readerVars>>
 
@@ -268,26 +268,26 @@ CloserPublishClosure ==
   /\ closerPc = "verified"
   /\ ownerLease = "closer"
   /\ caseLocation = "operations"
-  /\ closureState = "absent"   \* store.ts:743 linkSync exclusive
+  /\ closureState = "absent"   \* store.ts: publishClosure() linkSync exclusive
   /\ closureState' = "valid"
   /\ settled' = TRUE
-  /\ ownerLease' = "free"      \* install.ts:1298
-  /\ caseLock' = "free"        \* install.ts:1299
+  /\ ownerLease' = "free"      \* install.ts: admitClosure() -> release()
+  /\ caseLock' = "free"        \* install.ts: admitClosure() -> release()
   /\ closerPc' = "closed"
   /\ UNCHANGED <<storeVars, admissionLock, caseLocation, journalRev, writerVars, closerReqRev, closerLeaseRev, readerVars>>
 
-\* --- Lockless history reader racing MoveSettledCase (store.ts:555-582) ---
+\* --- Lockless history reader racing MoveSettledCase (store.ts: fromCaseFolders(), readCase()) ---
 
 ReaderStart ==
   /\ readerPc = "idle"
   /\ caseLocation \in {"operations", "settled"} \* target case was published
   /\ readerPc' = "readOps"
-  /\ readerSawOps' = (caseLocation = "operations") \* store.ts:560 reads operations/<id>
+  /\ readerSawOps' = (caseLocation = "operations") \* store.ts: fromCaseFolders() reads operations/<id>
   /\ UNCHANGED <<storeVars, lockVars, caseVars, writerVars, closerVars, readerResult>>
 
 ReaderCheckOpsRemains ==
   /\ readerPc = "readOps"
-  /\ IF caseLocation = "operations" \* store.ts:562 folderRemains(operations/<id>)
+  /\ IF caseLocation = "operations" \* store.ts: fromCaseFolders() -> folderRemains()
      THEN /\ readerResult' = IF readerSawOps THEN "found" ELSE "not-found"
           /\ readerPc' = "done"
      ELSE /\ readerPc' = "readSettled" \* moved during read -> check settled/<id>
@@ -296,7 +296,7 @@ ReaderCheckOpsRemains ==
 
 ReaderCheckSettled ==
   /\ readerPc = "readSettled"
-  /\ readerResult' = IF caseLocation = "settled" THEN "found" ELSE "not-found" \* store.ts:560-563
+  /\ readerResult' = IF caseLocation = "settled" THEN "found" ELSE "not-found" \* store.ts: fromCaseFolders()
   /\ readerPc' = "done"
   /\ UNCHANGED <<storeVars, lockVars, caseVars, writerVars, closerVars, readerSawOps>>
 

@@ -8,26 +8,26 @@
   Structure:
     1. Implementation-independent Contract Invariants (what any simpler rebuild
        must preserve across runProcess and runInProcess).
-    2. Current-implementation state machine with every guard cited to file:line.
+    2. Current-implementation state machine with every guard cited to file and symbol.
 *)
 EXTENDS Naturals
 
 VARIABLES
   phase,             \* "preparing" | "attached" | "handlerEntered" | "afterHandler" | "afterDeadline" | "emitting" | "drained" | "stopped"
-  envelopesEmitted,  \* 0..2                         (writer.ts:66-69, lifecycle.ts:825-857)
-  seamClosed,        \* "none" | "returned" | "deadline" (state-seam.ts:69,86,430)
-  seamRevoked,       \* BOOLEAN                      (state-seam.ts:70,371-374,394)
-  txStarted,         \* BOOLEAN                      (state-seam.ts:67,415)
-  txOpen,            \* BOOLEAN                      (state-seam.ts:71,419-422)
-  proofIssued,       \* BOOLEAN                      (state-seam.ts:249)
-  runInMap,          \* BOOLEAN                      (state-seam.ts:339-352,406)
-  handlerEntered,    \* BOOLEAN                      (lifecycle.ts:660,987)
-  handlerReturned,   \* BOOLEAN                      (lifecycle.ts:718-726,987)
-  stopped,           \* BOOLEAN                      (lifecycle.ts:353,885)
-  emittedAfterStop,  \* BOOLEAN                      (writer.ts:72,112)
-  duplicateAccepted, \* BOOLEAN                      (state-seam.ts:392-396)
-  lateStateAccepted, \* BOOLEAN                      (state-seam.ts:208-209,411-412)
-  revokedProofUsed   \* BOOLEAN                      (state-seam.ts:122)
+  envelopesEmitted,  \* 0..2                         (writer.ts: createWriter() -> emit(), lifecycle.ts: deliver())
+  seamClosed,        \* "none" | "returned" | "deadline" (state-seam.ts: AttachedRun.closed, closeAtDeadline(), attachState() -> close())
+  seamRevoked,       \* BOOLEAN                      (state-seam.ts: AttachedRun.revoked, revokeIssued(), attachState())
+  txStarted,         \* BOOLEAN                      (state-seam.ts: AttachedRun.transactionStarted, attachState() -> capability.transaction())
+  txOpen,            \* BOOLEAN                      (state-seam.ts: AttachedRun.openTransaction, attachState() -> capability.transaction())
+  proofIssued,       \* BOOLEAN                      (state-seam.ts: stateIssuer() -> transactionProof())
+  runInMap,          \* BOOLEAN                      (state-seam.ts: forgetAttachment(), attachState())
+  handlerEntered,    \* BOOLEAN                      (lifecycle.ts: runDeclaredCommand(), forgetWhenReturned())
+  handlerReturned,   \* BOOLEAN                      (lifecycle.ts: handlerOf(), forgetWhenReturned())
+  stopped,           \* BOOLEAN                      (lifecycle.ts: stopEvery(), runInvocation(), runAndReturn())
+  emittedAfterStop,  \* BOOLEAN                      (writer.ts: createWriter() -> write(), emit())
+  duplicateAccepted, \* BOOLEAN                      (state-seam.ts: attachState())
+  lateStateAccepted, \* BOOLEAN                      (state-seam.ts: stateIssuer() -> recordedEffect(), attachState() -> capability.transaction())
+  revokedProofUsed   \* BOOLEAN                      (state-seam.ts: knownProof())
 
 coreVars  == <<phase, envelopesEmitted, seamClosed, seamRevoked, txStarted, txOpen, proofIssued>>
 runVars   == <<runInMap, handlerEntered, handlerReturned, stopped>>
@@ -60,7 +60,7 @@ Init ==
 
 AttachState ==
   /\ phase = "preparing"
-  /\ ~runInMap               \* state-seam.ts:392-406
+  /\ ~runInMap               \* state-seam.ts: attachState()
   /\ phase' = "attached"
   /\ runInMap' = TRUE
   /\ duplicateAccepted' = (duplicateAccepted \/ runInMap)
@@ -70,31 +70,31 @@ AttachState ==
 
 EnterHandler ==
   /\ phase = "attached"
-  /\ ~stopped                \* lifecycle.ts:658
-  /\ phase' = "handlerEntered" \* lifecycle.ts:660
+  /\ ~stopped                \* lifecycle.ts: runDeclaredCommand()
+  /\ phase' = "handlerEntered" \* lifecycle.ts: runDeclaredCommand(), enterHandler()
   /\ handlerEntered' = TRUE
   /\ UNCHANGED <<envelopesEmitted, seamClosed, seamRevoked, txStarted, txOpen,
                  proofIssued, runInMap, handlerReturned, stopped, auditVars>>
 
 StartTransaction ==
   /\ phase \in {"handlerEntered", "afterHandler", "afterDeadline"}
-  /\ seamClosed = "none"     \* state-seam.ts:411 refuses once closed
-  /\ ~txStarted              \* state-seam.ts:413
+  /\ seamClosed = "none"     \* state-seam.ts: attachState() -> capability.transaction() refuses once closed
+  /\ ~txStarted              \* state-seam.ts: attachState() -> capability.transaction()
   /\ txStarted' = TRUE
-  /\ txOpen' = TRUE          \* state-seam.ts:422 openTransaction
+  /\ txOpen' = TRUE          \* state-seam.ts: attachState() -> openTransaction
   /\ lateStateAccepted' = (lateStateAccepted \/ seamClosed /= "none")
   /\ UNCHANGED <<phase, envelopesEmitted, seamClosed, seamRevoked, proofIssued,
                  runVars, emittedAfterStop, duplicateAccepted, revokedProofUsed>>
 
 FinishTransaction ==
   /\ txOpen
-  /\ txOpen' = FALSE         \* state-seam.ts:419-421
-  /\ proofIssued' = TRUE     \* state-seam.ts:249
+  /\ txOpen' = FALSE         \* state-seam.ts: attachState() -> capability.transaction() ended()
+  /\ proofIssued' = TRUE     \* state-seam.ts: stateIssuer() -> transactionProof()
   /\ UNCHANGED <<phase, envelopesEmitted, seamClosed, seamRevoked, txStarted,
                  runVars, auditVars>>
 
 AttemptDuplicateRunId ==
-  /\ runInMap                \* state-seam.ts:392-396 live collision revokes & refuses
+  /\ runInMap                \* state-seam.ts: attachState(), revokeIssued() live collision revokes & refuses
   /\ ~seamRevoked
   /\ seamRevoked' = TRUE
   /\ UNCHANGED <<phase, envelopesEmitted, seamClosed, txStarted, txOpen, proofIssued,
@@ -102,24 +102,24 @@ AttemptDuplicateRunId ==
 
 AttemptDuplicateAttach ==
   /\ phase \in {"attached", "handlerEntered", "afterHandler", "afterDeadline", "emitting", "drained", "stopped"}
-  /\ ~runInMap               \* state-seam.ts:392-396 refuses while runInMap
+  /\ ~runInMap               \* state-seam.ts: attachState() refuses while runInMap
   /\ duplicateAccepted' = (duplicateAccepted \/ runInMap)
   /\ UNCHANGED <<coreVars, runVars, emittedAfterStop, lateStateAccepted, revokedProofUsed>>
 
 HandlerReturns ==
   /\ phase = "handlerEntered"
   /\ ~handlerReturned
-  /\ handlerReturned' = TRUE \* lifecycle.ts:722
-  /\ seamClosed' = IF seamClosed = "none" THEN "returned" ELSE seamClosed \* state-seam.ts:430
-  /\ phase' = "afterHandler" \* lifecycle.ts:669
+  /\ handlerReturned' = TRUE \* lifecycle.ts: handlerOf()
+  /\ seamClosed' = IF seamClosed = "none" THEN "returned" ELSE seamClosed \* state-seam.ts: attachState() -> close()
+  /\ phase' = "afterHandler" \* lifecycle.ts: runDeclaredCommand(), afterHandler()
   /\ UNCHANGED <<envelopesEmitted, seamRevoked, txStarted, txOpen, proofIssued,
                  runInMap, handlerEntered, stopped, auditVars>>
 
 DeadlineFires ==
   /\ phase = "handlerEntered"
   /\ ~stopped
-  /\ seamClosed' = IF seamClosed = "none" THEN "deadline" ELSE seamClosed \* lifecycle.ts:551, state-seam.ts:86
-  /\ phase' = "afterDeadline" \* lifecycle.ts:668
+  /\ seamClosed' = IF seamClosed = "none" THEN "deadline" ELSE seamClosed \* lifecycle.ts: afterDeadline(), state-seam.ts: closeAtDeadline()
+  /\ phase' = "afterDeadline" \* lifecycle.ts: runDeclaredCommand(), afterDeadline()
   /\ UNCHANGED <<envelopesEmitted, seamRevoked, txStarted, txOpen, proofIssued,
                  runVars, auditVars>>
 
@@ -127,17 +127,17 @@ HandlerFinishesLateAfterDeadline ==
   /\ phase \in {"afterDeadline", "emitting", "drained", "stopped"}
   /\ handlerEntered
   /\ ~handlerReturned
-  /\ handlerReturned' = TRUE \* lifecycle.ts:721-723
+  /\ handlerReturned' = TRUE \* lifecycle.ts: handlerOf()
   /\ UNCHANGED <<coreVars, runInMap, handlerEntered, stopped, auditVars>>
 
 EmitEnvelopeWithProof ==
   /\ phase \in {"afterHandler", "afterDeadline"}
-  /\ ~stopped                \* writer.ts:72,112 checks stopping() before writing
+  /\ ~stopped                \* writer.ts: createWriter() -> write(), emit() checks stopping() before writing
   /\ envelopesEmitted = 0
   /\ proofIssued
-  /\ ~seamRevoked            \* state-seam.ts:122 rejects revoked proof
-  /\ phase' = "emitting"     \* lifecycle.ts:843
-  /\ envelopesEmitted' = envelopesEmitted + 1 \* lifecycle.ts:844
+  /\ ~seamRevoked            \* state-seam.ts: knownProof() rejects revoked proof
+  /\ phase' = "emitting"     \* lifecycle.ts: deliver()
+  /\ envelopesEmitted' = envelopesEmitted + 1 \* lifecycle.ts: deliver() -> writer.emit()
   /\ emittedAfterStop' = (emittedAfterStop \/ stopped)
   /\ revokedProofUsed' = (revokedProofUsed \/ seamRevoked)
   /\ UNCHANGED <<seamClosed, seamRevoked, txStarted, txOpen, proofIssued,
@@ -145,25 +145,25 @@ EmitEnvelopeWithProof ==
 
 EmitEnvelopeFallback ==
   /\ phase \in {"afterHandler", "afterDeadline"}
-  /\ ~stopped                \* writer.ts:72,112 checks stopping() before writing
+  /\ ~stopped                \* writer.ts: createWriter() -> write(), emit() checks stopping() before writing
   /\ envelopesEmitted = 0
-  /\ (~proofIssued \/ seamRevoked) \* fallback path never trusts revoked proof
-  /\ phase' = "emitting"     \* lifecycle.ts:843
-  /\ envelopesEmitted' = envelopesEmitted + 1
+  /\ (~proofIssued \/ seamRevoked) \* writer.ts: createWriter() -> fallback() never trusts revoked proof
+  /\ phase' = "emitting"     \* lifecycle.ts: deliver()
+  /\ envelopesEmitted' = envelopesEmitted + 1 \* lifecycle.ts: deliver() -> writer.emit()
   /\ emittedAfterStop' = (emittedAfterStop \/ stopped)
   /\ UNCHANGED <<seamClosed, seamRevoked, txStarted, txOpen, proofIssued,
                  runVars, duplicateAccepted, lateStateAccepted, revokedProofUsed>>
 
 DrainRun ==
   /\ phase = "emitting"
-  /\ phase' = "drained"      \* lifecycle.ts:854
+  /\ phase' = "drained"      \* lifecycle.ts: runInvocation()
   /\ UNCHANGED <<envelopesEmitted, seamClosed, seamRevoked, txStarted, txOpen, proofIssued,
                  runVars, auditVars>>
 
 ReceiveStopSignal ==
   /\ phase \in {"preparing", "attached", "handlerEntered", "afterHandler", "afterDeadline", "emitting"}
   /\ ~stopped
-  /\ stopped' = TRUE         \* lifecycle.ts:345-353,885 sets stopping flag asynchronously
+  /\ stopped' = TRUE         \* lifecycle.ts: inFlightOn(), stopEvery() sets stopping flag asynchronously
   /\ UNCHANGED <<phase, envelopesEmitted, seamClosed, seamRevoked, txStarted, txOpen, proofIssued,
                  runInMap, handlerEntered, handlerReturned, auditVars>>
 
@@ -171,15 +171,15 @@ SettleStoppedRun ==
   /\ stopped
   /\ phase \in {"preparing", "attached", "handlerEntered", "afterHandler", "afterDeadline"}
   /\ envelopesEmitted = 0
-  /\ phase' = "stopped"      \* lifecycle.ts:885 settles silently without emitting
+  /\ phase' = "stopped"      \* lifecycle.ts: stopEvery(), runInvocation(), runAndReturn() settles silently without emitting
   /\ UNCHANGED <<envelopesEmitted, seamClosed, seamRevoked, txStarted, txOpen, proofIssued,
                  runVars, auditVars>>
 
 ForgetRunAfterFinish ==
-  /\ phase \in {"drained", "stopped"} \* lifecycle.ts:983-989,1022
+  /\ phase \in {"drained", "stopped"} \* lifecycle.ts: forgetWhenReturned(), runAndReturn()
   /\ runInMap
-  /\ (~handlerEntered \/ handlerReturned) \* lifecycle.ts:986-988 forgets immediately when handler never ran
-  /\ ~txOpen                 \* state-seam.ts:344-351 waits until openTransaction settles
+  /\ (~handlerEntered \/ handlerReturned) \* lifecycle.ts: forgetWhenReturned() forgets immediately when handler never ran
+  /\ ~txOpen                 \* state-seam.ts: forgetAttachment() waits until openTransaction settles
   /\ runInMap' = FALSE
   /\ UNCHANGED <<coreVars, handlerEntered, handlerReturned, stopped, auditVars>>
 

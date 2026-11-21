@@ -15,10 +15,10 @@ EXTENDS FiniteSets, Naturals
 CONSTANTS Procs, MaxFiles
 
 VARIABLES
-  lockDir,          \* "absent" | "empty" | p \in Procs  (custody.ts:25,240-284)
-  alive,            \* [Procs -> BOOLEAN]                (custody.ts:153-161)
+  lockDir,          \* "absent" | "empty" | p \in Procs  (custody.ts: lockName, moveOnto(), tryLock())
+  alive,            \* [Procs -> BOOLEAN]                (custody.ts: alive())
   procPc,           \* [Procs -> {"idle", "staging", "holding", "opened", "done", "crashed"}]
-  inCritical,       \* SUBSET Procs                      (custody.ts:463-472)
+  inCritical,       \* SUBSET Procs                      (custody.ts: allocate())
   fileState,        \* [Procs -> {"absent", "open", "closedMatched", "closedMismatched", "pruned"}]
   badPrune          \* BOOLEAN                           (tracks pruning any non-closedMatched file)
 
@@ -42,49 +42,49 @@ Init ==
   /\ fileState = [p \in Procs |-> "absent"]
   /\ badPrune = FALSE
 
-\* --- Lock acquisition: stage pending dir with owner file, then atomic rename (custody.ts:249-284) ---
+\* --- Lock acquisition: stage pending dir with owner file, then atomic rename (custody.ts: tryLock()) ---
 
 StageLock(p) ==
   /\ alive[p]
   /\ procPc[p] = "idle"
-  /\ procPc' = [procPc EXCEPT ![p] = "staging"] \* custody.ts:256-266
+  /\ procPc' = [procPc EXCEPT ![p] = "staging"] \* custody.ts: tryLock()
   /\ UNCHANGED <<lockDir, alive, inCritical, fileState, badPrune>>
 
 AcquireViaRename(p) ==
   /\ alive[p]
   /\ procPc[p] = "staging"
-  /\ lockDir \in {"absent", "empty"} \* custody.ts:238-247 rename replaces only absent or empty dir
+  /\ lockDir \in {"absent", "empty"} \* custody.ts: moveOnto() rename replaces only absent or empty dir
   /\ lockDir' = p
   /\ procPc' = [procPc EXCEPT ![p] = "holding"]
   /\ inCritical' = inCritical \cup {p}
   /\ UNCHANGED <<alive, fileState, badPrune>>
 
-\* --- Stale lock removal: only when owner is proven dead (custody.ts:202-236) ---
+\* --- Stale lock removal: only when owner is proven dead (custody.ts: ownerProvenGone(), removeStaleLock()) ---
 
 UnlinkStaleOwner(p) ==
   /\ alive[p]
   /\ procPc[p] = "staging"
   /\ lockDir \in Procs
-  /\ lockDir /= p           \* custody.ts:210 pid !== process.pid
-  /\ ~alive[lockDir]        \* custody.ts:210 !alive(pid)
-  /\ lockDir' = "empty"     \* custody.ts:229 unlinks owner-* inside .allocation-lock
+  /\ lockDir /= p           \* custody.ts: ownerProvenGone() pid !== process.pid
+  /\ ~alive[lockDir]        \* custody.ts: ownerProvenGone() !alive(pid)
+  /\ lockDir' = "empty"     \* custody.ts: removeStaleLock() unlinks owner-* inside .allocation-lock
   /\ UNCHANGED <<alive, procPc, inCritical, fileState, badPrune>>
 
 RmdirEmptyLock(p) ==
   /\ alive[p]
   /\ procPc[p] = "staging"
-  /\ lockDir = "empty"      \* custody.ts:231 rmdirSync(.allocation-lock)
+  /\ lockDir = "empty"      \* custody.ts: removeStaleLock() rmdirSync(.allocation-lock)
   /\ lockDir' = "absent"
   /\ UNCHANGED <<alive, procPc, inCritical, fileState, badPrune>>
 
-\* --- Prune closed-matched files and open new run file under lock (custody.ts:346-422) ---
+\* --- Prune closed-matched files and open new run file under lock (custody.ts: prune(), open()) ---
 
 PruneOneClosed(p, q) ==
   /\ alive[p]
   /\ procPc[p] = "holding"
   /\ p \in inCritical
   /\ fileState[q] \in {"open", "closedMatched", "closedMismatched"}
-  /\ fileState[q] = "closedMatched" \* custody.ts:319-327,356-374 only confirmed closed files
+  /\ fileState[q] = "closedMatched" \* custody.ts: classify(), prune() only confirmed closed files
   /\ fileState' = [fileState EXCEPT ![q] = "pruned"]
   /\ badPrune' = (badPrune \/ fileState[q] /= "closedMatched")
   /\ UNCHANGED <<lockDir, alive, procPc, inCritical>>
@@ -94,14 +94,14 @@ FinishPruneAndOpen(p) ==
   /\ procPc[p] = "holding"
   /\ p \in inCritical
   /\ fileState[p] = "absent"
-  /\ Cardinality(LiveFiles) + 1 <= MaxFiles \* custody.ts:353-355 capacity bound
-  /\ fileState' = [fileState EXCEPT ![p] = "open"] \* custody.ts:411-421 O_CREAT|O_EXCL
+  /\ Cardinality(LiveFiles) + 1 <= MaxFiles \* custody.ts: prune() -> room() capacity bound
+  /\ fileState' = [fileState EXCEPT ![p] = "open"] \* custody.ts: open() O_CREAT|O_EXCL
   /\ procPc' = [procPc EXCEPT ![p] = "opened"]
   /\ UNCHANGED <<lockDir, alive, inCritical, badPrune>>
 
 ReleaseLock(p) ==
   /\ alive[p]
-  /\ procPc[p] \in {"holding", "opened"} \* custody.ts:276-283 rename(lock, retiring) + discard
+  /\ procPc[p] \in {"holding", "opened"} \* custody.ts: tryLock() release renames lock to retiring and calls discard()
   /\ p \in inCritical
   /\ lockDir = p
   /\ lockDir' = "absent"
@@ -115,7 +115,7 @@ ConfirmClosedMatched(p) ==
   /\ alive[p]
   /\ procPc[p] = "done"
   /\ fileState[p] = "open"
-  /\ fileState' = [fileState EXCEPT ![p] = "closedMatched"] \* custody.ts:475-488
+  /\ fileState' = [fileState EXCEPT ![p] = "closedMatched"] \* custody.ts: confirmClosed()
   /\ UNCHANGED <<lockDir, alive, procPc, inCritical, badPrune>>
 
 ExternalTamperAfterClose(p) ==

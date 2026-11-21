@@ -28,7 +28,7 @@ const timeouts = {
   tlcMs: 120_000,
 };
 
-export const syncCommit = "4edc43c";
+export const syncCommit = "426e5db";
 
 export const models = [
   {
