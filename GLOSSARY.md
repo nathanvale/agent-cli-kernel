@@ -76,10 +76,16 @@ _Avoid_: vendored kernel, kernel copy (for the installed kernel)
 What a consuming repository installs at a pin: the kernel, its add-ons, the
 kernel's lint and the skills it ships. It is named `agent-cli-kernel`.
 
+**Author skill**:
+The guidance the kernel package ships for an agent writing and testing
+commands on the kernel.
+_Avoid_: author guide (for the shipped guidance)
+
 **Add-on**:
 An optional capability that uses the kernel's public interface without
-importing or patching another add-on, and may require another add-on to be
-selected. The four are the state, programs, approval and diagnostics add-ons.
+importing or patching another add-on, and may have a required add-on that must
+be selected alongside it. The four are the state, programs, approval and
+diagnostics add-ons.
 
 **State add-on**:
 The add-on that owns the journal and the state a changing command works in.
@@ -90,6 +96,13 @@ The add-on that owns starting and stopping the programs a command runs.
 **Approval add-on**:
 The add-on that checks authority before a command attempts its approved
 effects.
+
+**ApprovalRejection**:
+The approval add-on's public error when authority storage, exclusive
+coordination or confirmation of durable consumption prevents an approved effect
+from starting. Its `reason` identifies the error and `consumed` distinguishes
+an unconsumed refusal from a failure after grant consumption.
+_Avoid_: refusal (for every ApprovalRejection, since some follow consumption)
 
 **Diagnostics add-on**:
 The add-on that owns the diagnostic records of a run and their custody.
@@ -105,12 +118,35 @@ ordinary dependency. The diagnostics add-on's logging packages are add-on
 requirements.
 _Avoid_: optional peer (for an add-on requirement); dependency (unqualified)
 
+**Required add-on**:
+An add-on that another selected add-on needs alongside it. The state add-on
+is a required add-on of the approval add-on.
+_Avoid_: add-on prerequisite; add-on requirement (for another add-on, rather than a package)
+
 **Kernel declaration**:
 The kernel repository's own statement, read at one commit, of its kernel and
 add-on folders and of the add-ons each add-on requires.
 _Avoid_: manifest (for a kernel declaration), hand-kept list
 
+### Command results
+
+**Repair action**:
+The fixed repair guidance a station declares for Command Contract 3's
+`repairAction` field. It is `null` on success and otherwise explains the
+repair or the named handoff.
+_Avoid_: Repair (for a station's guidance; Repair names a tool message's Repair: line)
+
+**Kernel station**:
+A station the kernel adds to a command without an author declaration, covering
+usage refusals and internal failures.
+_Avoid_: built-in station (for a kernel station)
+
 ### Internal kernel names
+
+**Contract boundary**:
+The public set of authority identity, resource identity and absolute path
+constructors exposed as `contractFor().boundary`. Their values carry the
+kernel's validated identity and path types into a command's code.
 
 **Names check result**:
 The names check's `NamesCheckResult`: stderr text and a numeric process exit
