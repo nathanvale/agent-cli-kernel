@@ -1,0 +1,7 @@
+{
+  "id": "3854e2a-run-finish-setup",
+  "patch": "tests/planted-faults/patches/3854e2a-run-finish-setup.patch",
+  "testFile": "tests/kernel/diagnostics/finalisation.test.ts",
+  "title": "D17\\.no-change-after-freeze \\(component layer; the process row is UNPROVED\\): after the freeze no record is admitted and the log never changes$",
+  "source": "3854e2a feat(contract3): bounded private diagnostics add-on with custody and limit cases"
+}

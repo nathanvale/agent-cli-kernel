@@ -1,0 +1,12 @@
+diff --git a/kernel/src/addons/diagnostics/custody.ts b/kernel/src/addons/diagnostics/custody.ts
+index bbaf28c2..bcecf7b5 100644
+--- a/kernel/src/addons/diagnostics/custody.ts
++++ b/kernel/src/addons/diagnostics/custody.ts
+@@ -379,7 +379,6 @@ function prune(directory: string, now: number): boolean {
+ const createFlags =
+   constants.O_WRONLY |
+   constants.O_CREAT |
+-  constants.O_EXCL |
+   constants.O_NOFOLLOW |
+   constants.O_NONBLOCK |
+   constants.O_APPEND;

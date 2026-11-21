@@ -1,0 +1,7 @@
+{
+  "id": "1d03d99-run-buffer-records",
+  "patch": "tests/planted-faults/patches/1d03d99-run-buffer-records.patch",
+  "testFile": "tests/kernel/diagnostics/limits.test.ts",
+  "title": "D05\\.buffer-256-records: records beyond 256 queued are rejected before the buffer and counted$",
+  "source": "1d03d99 fix(contract3): diagnostics repair round 1 in the add-on"
+}

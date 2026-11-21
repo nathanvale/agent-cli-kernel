@@ -1,0 +1,21 @@
+diff --git a/kernel/src/addons/diagnostics/custody.ts b/kernel/src/addons/diagnostics/custody.ts
+index bbaf28c2..a84523e8 100644
+--- a/kernel/src/addons/diagnostics/custody.ts
++++ b/kernel/src/addons/diagnostics/custody.ts
+@@ -12,6 +12,7 @@ import {
+   realpathSync,
+   renameSync,
+   rmdirSync,
++  statSync,
+   unlinkSync,
+ } from "node:fs";
+ import type { Stats } from "node:fs";
+@@ -63,7 +64,7 @@ export function locate(
+ 
+ function lookup(path: string): Stats | undefined {
+   try {
+-    return lstatSync(path);
++    return statSync(path);
+   } catch (error) {
+     if (errorCode(error) === "ENOENT") return undefined;
+     throw error;

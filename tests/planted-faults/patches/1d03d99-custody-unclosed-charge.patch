@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/diagnostics/custody.ts b/kernel/src/addons/diagnostics/custody.ts
+index bbaf28c2..8deb28e9 100644
+--- a/kernel/src/addons/diagnostics/custody.ts
++++ b/kernel/src/addons/diagnostics/custody.ts
+@@ -325,7 +325,7 @@ function classify(directory: string, name: string): Entry | undefined {
+     path,
+     info,
+     marker: confirmed ? markerFor(path, info) : undefined,
+-    charge: confirmed ? info.size : Math.max(info.size, limits.runBytes),
++    charge: info.size,
+   };
+ }
+ 

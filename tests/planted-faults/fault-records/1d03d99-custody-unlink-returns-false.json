@@ -1,0 +1,7 @@
+{
+  "id": "1d03d99-custody-unlink-returns-false",
+  "patch": "tests/planted-faults/patches/1d03d99-custody-unlink-returns-false.patch",
+  "testFile": "tests/kernel/diagnostics/custody.test.ts",
+  "title": "^unlinkIfPresent returns false on non-ENOENT lock-entry errors so allocation reports capacity$",
+  "source": "1d03d99 fix(contract3): diagnostics repair round 1 in the add-on"
+}
