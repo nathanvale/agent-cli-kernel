@@ -29,7 +29,7 @@ describe("the kernel trial workflow", () => {
     expect(workflowOf("kernel-trial.yml").on).toEqual({ pull_request: null });
   });
 
-  test("its one check, kernel-trial, shares its name with no job in ci.yml, where the required checks run, so it cannot stand in for one", () => {
+  test("its one check, kernel-trial, shares its name with no job in Hosted check, where the required checks run, so it cannot stand in for one", () => {
     expect([
       checkNames("kernel-trial.yml"),
       checkNames("ci.yml").includes("kernel-trial"),
@@ -99,11 +99,15 @@ describe("the kernel trial's result", () => {
 });
 
 describe("required checks and path filters", () => {
-  test("ci.yml, where the required checks run, has no path filter", () => {
+  test("the workflow that runs the required checks is named Hosted check", () => {
+    expect(workflowOf("ci.yml").name).toBe("Hosted check");
+  });
+
+  test("Hosted check, where the required checks run, has no path filter", () => {
     expect(pathFiltered("ci.yml")).toBe(false);
   });
 
-  test("no workflow that has a path filter names a check as ci.yml does, because a required check that a path filter skips never reports and blocks merging", () => {
+  test("no workflow that has a path filter names a check as Hosted check does, because a required check that a path filter skips never reports and blocks merging", () => {
     const required = new Set(checkNames("ci.yml"));
     const filtered = workflowFiles().filter(pathFiltered);
     expect(filtered).toContain("linux-nightly.yml");

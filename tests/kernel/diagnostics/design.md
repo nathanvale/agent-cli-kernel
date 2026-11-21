@@ -121,7 +121,7 @@ Each needs `kernel/lifecycle.ts`, which this unit may not edit.
   D07, D08 and D10.
 - Every case has a valid twin and a named RED perturbation in
   `t5-cases.json`; each RED is shown failing and the restored code passing.
-- Platform: Darwin arm64 here; `ubuntu-latest` in hosted CI. A
+- Platform: Darwin arm64 here; `ubuntu-latest` in Hosted check. A
   platform-bound case fails with an explicit `UNPROVED on this host` reason;
   none is skipped.
 
