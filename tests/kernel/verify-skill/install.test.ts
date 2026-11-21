@@ -98,7 +98,7 @@ test(
     });
     const report = await verify("report", run, "--json");
     expect(field(JSON.parse(report.stdout), "message")).toBe(
-      "Stations: 1 swept, 1 driven, 1 owed. Steps: 2 met, 0 unmet.",
+      "Stations: 2 swept, 1 driven, 7 owed. Steps: 2 met, 0 unmet.",
     );
     expect((await verify("cleanup", run)).exit).toBe(0);
   },

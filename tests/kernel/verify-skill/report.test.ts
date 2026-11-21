@@ -72,7 +72,7 @@ describe("report and cleanup", () => {
       });
       const envelope: unknown = JSON.parse(ran.stdout);
       expect(field(envelope, "message")).toBe(
-        "Stations: 1 swept, 1 driven, 1 owed. Steps: 2 met, 0 unmet.",
+        "Stations: 2 swept, 1 driven, 7 owed. Steps: 2 met, 0 unmet.",
       );
       expect(field(envelope, "result", "data", "stations")).toEqual([
         {
@@ -80,6 +80,18 @@ describe("report and cleanup", () => {
           cause: "SUCCESS_UNCHANGED",
           state: "swept",
           by: "run-names-its-command",
+        },
+        {
+          command: "moons.pending",
+          cause: "SUCCESS_UNCHANGED",
+          state: "swept",
+          by: "run-names-its-command",
+        },
+        {
+          command: "moons.pending",
+          cause: "DOMAIN_PRECONDITION_UNMET",
+          state: "owed",
+          by: null,
         },
         {
           command: "moons.show",
@@ -90,6 +102,36 @@ describe("report and cleanup", () => {
         {
           command: "moons.show",
           cause: "DOMAIN_MOONS_UNKNOWN_PLANET",
+          state: "owed",
+          by: null,
+        },
+        {
+          command: "moons.visit",
+          cause: "SUCCESS_COMPLETED",
+          state: "owed",
+          by: null,
+        },
+        {
+          command: "moons.visit",
+          cause: "DOMAIN_MOONS_VISIT_UNCONFIRMED",
+          state: "owed",
+          by: null,
+        },
+        {
+          command: "moons.visit",
+          cause: "DOMAIN_MOONS_VISIT_HELD",
+          state: "owed",
+          by: null,
+        },
+        {
+          command: "moons.visit",
+          cause: "DOMAIN_MOONS_VISIT_UNRESOLVED",
+          state: "owed",
+          by: null,
+        },
+        {
+          command: "moons.visit",
+          cause: "DOMAIN_MOONS_VISIT_UNAVAILABLE",
           state: "owed",
           by: null,
         },
