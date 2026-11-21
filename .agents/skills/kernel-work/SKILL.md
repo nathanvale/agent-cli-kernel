@@ -48,7 +48,7 @@ Done when each item holds at the pushed head:
 - Every new refusal or bound meets the planted-fault guide.
 - A change to the qualified source carries its new capability qualification
   record.
-- Hosted CI is green, or each case it did not run is reported **unproved**.
+- The Hosted check workflow is green, or each case it did not run is reported **unproved**.
   An unproved case is never reported as a pass.
 
 ## Review

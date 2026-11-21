@@ -7,6 +7,10 @@ carried from, and how a CLI built on the kernel is verified. The template's
 that owns every other word. The shared tool words are the template's, copied
 here from a recorded revision.
 
+The kernel repository's workflow at `.github/workflows/ci.yml` is named
+**Hosted check**. Its job names provide the required status checks. In
+`package.json`, `format:check` checks formatting and `format` writes it.
+
 ## Language
 
 An `_Avoid_` line lists words not to use for its term. A note in parentheses

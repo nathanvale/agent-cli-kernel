@@ -467,7 +467,7 @@ describe("check:commits", () => {
     processWatchdog(2),
   );
 
-  test("the CI commits-shard jobs run each commit's steps with no stored git token", async () => {
+  test("the Hosted check commits-shard jobs run each commit's steps with no stored git token", async () => {
     const workflow = Bun.YAML.parse(
       await Bun.file(join(repository, ".github/workflows/ci.yml")).text(),
     ) as {

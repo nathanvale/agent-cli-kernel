@@ -4,7 +4,7 @@ What the gates of the repository rows refuse and where, what stays with the revi
 
 ## Linux and macOS
 
-- `.github/workflows/ci.yml` runs on every pull request.
+- Hosted check (`.github/workflows/ci.yml`) runs on every pull request.
 - `R1.platform-outcomes-pinned` pins unproved diagnostics rows only.
 - State `caseTest` and `supportingTest` cases can go unproved off their
   platform; only the in-process ones are pinned, as Platform Parity says

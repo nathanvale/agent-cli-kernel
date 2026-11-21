@@ -1,6 +1,6 @@
 # Platform Parity
 
-Hosted Linux CI runs on every pull request; the macOS nightly covers the Mac
+Hosted check runs on Linux on every pull request; the macOS nightly covers the Mac
 route once it reaches `main`. A case that cannot run on a host is **unproved**
 there, and its title says so.
 

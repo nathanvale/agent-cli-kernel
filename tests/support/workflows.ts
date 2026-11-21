@@ -20,6 +20,7 @@ export type Job = {
 };
 
 export type Workflow = {
+  readonly name: string;
   readonly on: Record<string, unknown>;
   readonly permissions?: Record<string, string>;
   readonly jobs: Record<string, Job>;

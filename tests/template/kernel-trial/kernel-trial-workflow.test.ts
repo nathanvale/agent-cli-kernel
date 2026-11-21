@@ -99,6 +99,10 @@ describe("the kernel trial's result", () => {
 });
 
 describe("required checks and path filters", () => {
+  test("the workflow that runs the required checks is named Hosted check", () => {
+    expect(workflowOf("ci.yml").name).toBe("Hosted check");
+  });
+
   test("ci.yml, where the required checks run, has no path filter", () => {
     expect(pathFiltered("ci.yml")).toBe(false);
   });

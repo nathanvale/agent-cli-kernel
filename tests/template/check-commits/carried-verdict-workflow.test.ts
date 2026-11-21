@@ -5,7 +5,7 @@ import { type Job, jobOf, workflowOf } from "../../support/workflows.ts";
 const workflow = workflowOf("ci.yml");
 const job = (name: string): Job => jobOf("ci.yml", name);
 
-describe("the carried verdict in ci.yml", () => {
+describe("the carried verdict in Hosted check", () => {
   test("only commits-token can mint an OIDC token", () => {
     const minting = Object.entries(workflow.jobs)
       .filter(([, each]) => each.permissions?.["id-token"] !== undefined)
