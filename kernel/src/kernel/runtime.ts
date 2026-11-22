@@ -66,6 +66,7 @@ export type ContractRuntime = {
   readonly buildResult: (result: CommandResult) => Promise<Validation<unknown>>;
   readonly validate: (value: unknown) => Promise<Validation<Envelope>>;
   readonly trustedSummary: (runId: string) => StateObservation | undefined;
+  readonly trustedSuperseded: (runId: string) => readonly string[] | undefined;
   readonly closeStateAtDeadline: (runId: string) => boolean | undefined;
   readonly forgetState: (enter: Enter) => void;
 };

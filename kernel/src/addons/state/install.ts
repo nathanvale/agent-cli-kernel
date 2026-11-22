@@ -755,8 +755,121 @@ function blocking(
 
 function rejectionConsumed(error: unknown): boolean | undefined {
   if (typeof error !== "object" || error === null) return undefined;
-  const consumed: unknown = Reflect.get(error, "consumed");
-  return typeof consumed === "boolean" ? consumed : undefined;
+  try {
+    const consumed: unknown = Reflect.get(error, "consumed");
+    return typeof consumed === "boolean" ? consumed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+type ApprovalSnapshot = {
+  readonly runtime: ApprovalRuntime;
+  readonly request: ApprovalRequest;
+  readonly resource: string;
+  readonly preview: string | undefined;
+};
+
+type DeclarationSnapshot = {
+  readonly command: string;
+  readonly scope: CanonicalScope;
+  readonly revisions: Readonly<Record<string, string>>;
+  readonly facts: unknown;
+  readonly supersedeUnresolved: boolean;
+  readonly approval: ApprovalSnapshot | undefined;
+};
+
+function ownProperty(source: object, key: string): unknown {
+  return Object.hasOwn(source, key) ? Reflect.get(source, key) : undefined;
+}
+
+function snapshotRevisions(
+  raw: unknown,
+): Readonly<Record<string, string>> | undefined {
+  if (raw === undefined) return Object.freeze({});
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw))
+    return undefined;
+  const out: Record<string, string> = {};
+  for (const key of Object.keys(raw)) {
+    const value = ownProperty(raw, key);
+    if (typeof value !== "string") return undefined;
+    out[key] = value;
+  }
+  return Object.freeze(out);
+}
+
+function snapshotApproval(
+  declaration: Declaration,
+): ApprovalSnapshot | undefined {
+  if (!Object.hasOwn(declaration, "approval")) return undefined;
+  const approval = declaration.approval;
+  if (!approval) return undefined;
+  const runtime = approval.runtime;
+  const rawRequest = approval.request;
+  const authority = rawRequest.authority;
+  const resource = rawRequest.resource;
+  const resourceRevision = rawRequest.resourceRevision;
+  const effects = Object.freeze([...rawRequest.effects]);
+  const rawPreview = Object.hasOwn(rawRequest, "preview")
+    ? rawRequest.preview
+    : undefined;
+  const preview = typeof rawPreview === "string" ? rawPreview : undefined;
+  const request: ApprovalRequest = Object.freeze({
+    authority,
+    resource,
+    resourceRevision,
+    effects,
+    ...(preview === undefined ? {} : { preview }),
+  });
+  return Object.freeze({
+    runtime,
+    request,
+    resource: String(resource),
+    preview,
+  });
+}
+
+function snapshotDeclaration(
+  declaration: Declaration,
+): DeclarationSnapshot | undefined {
+  const command = ownProperty(declaration, "command");
+  if (typeof command !== "string" || command.length === 0) return undefined;
+  if (!Object.hasOwn(declaration, "scope")) return undefined;
+  const scope = canonicalise(declaration.scope);
+  const revisions = snapshotRevisions(ownProperty(declaration, "revisions"));
+  if (revisions === undefined) return undefined;
+  const rawFacts = ownProperty(declaration, "facts");
+  const facts: unknown =
+    rawFacts === undefined ? null : structuredClone(rawFacts);
+  const supersedeUnresolved =
+    ownProperty(declaration, "supersedeUnresolved") === true;
+  const approval = snapshotApproval(declaration);
+  return Object.freeze({
+    command,
+    scope,
+    revisions,
+    facts,
+    supersedeUnresolved,
+    approval,
+  });
+}
+
+function intentOf(
+  snapshot: DeclarationSnapshot,
+  declared: readonly string[],
+  approval: Intent["approval"],
+  coordination: readonly string[],
+): Omit<Intent, "operationId" | "runId" | "owner"> {
+  return {
+    commandIdentity: snapshot.command,
+    effects: [...new Set<string>(declared)].sort(),
+    scope: snapshot.scope,
+    revisions: snapshot.revisions,
+    facts: snapshot.facts,
+    approval,
+    closes: null,
+    coordination,
+  };
 }
 
 export type Seams = {
@@ -838,9 +951,16 @@ export function install(options: StateOptions, seams: Seams) {
         "Open state transactions through the state add-on's transaction() or close().",
       );
     slots.delete(work);
-    const refuse = (refusal: Refusal) => {
+    const refuse = (
+      refusal: Refusal,
+      superseded?: readonly string[],
+    ): TransactionProof<Effect> => {
       slot.outcome = refusal;
-      return issuer.transactionProof(runId, unchangedObservation<Effect>([]));
+      const observation = unchangedObservation<Effect>([]);
+      return issuer.transactionProof(
+        runId,
+        superseded === undefined ? observation : { ...observation, superseded },
+      );
     };
     if (!route.available)
       return refuse({
@@ -947,26 +1067,30 @@ export function install(options: StateOptions, seams: Seams) {
   async function consumeApproval(
     issuer: StateIssuer,
     runId: string,
-    declaration: Declaration,
-    scope: CanonicalScope,
+    snapshot: DeclarationSnapshot,
     isActive: () => boolean,
   ): Promise<Refusal | Intent["approval"]> {
-    if (!declaration.approval) return null;
-    const { runtime, request } = declaration.approval;
-    const resource = String(request.resource);
+    const approval = snapshot.approval;
+    if (!approval) return null;
     if (
-      typeof request.preview !== "string" ||
-      !scope.resources.some((item) => item.resource === resource)
+      approval.preview === undefined ||
+      !snapshot.scope.resources.some(
+        (item) => item.resource === approval.resource,
+      )
     )
       return { kind: "unavailable", reason: "approval-resource-undeclared" };
-    const coordination = issuer.exclusiveScope(runId, resource, isActive);
+    const coordination = issuer.exclusiveScope(
+      runId,
+      approval.resource,
+      isActive,
+    );
     try {
-      const { consumed } = await runtime.revalidateAndConsume(
-        request,
+      const { consumed } = await approval.runtime.revalidateAndConsume(
+        approval.request,
         coordination,
       );
       return consumed
-        ? { kind: "preview", reference: request.preview }
+        ? { kind: "preview", reference: approval.preview }
         : { kind: "denied" };
     } catch (error) {
       return rejectionConsumed(error) === true
@@ -1197,15 +1321,20 @@ export function install(options: StateOptions, seams: Seams) {
         },
       };
     const leased: LeasedTarget[] = [];
-    for (const candidate of candidates) {
-      const acquired = await leaseSupersedeTarget(candidate, rule);
-      if (!acquired.ok) {
-        releaseAll(leased);
-        return acquired;
+    try {
+      for (const candidate of candidates) {
+        const acquired = await leaseSupersedeTarget(candidate, rule);
+        if (!acquired.ok) {
+          releaseAll(leased);
+          return acquired;
+        }
+        leased.push(acquired.leased);
       }
-      leased.push(acquired.leased);
+      return { ok: true, targets: leased };
+    } catch (error) {
+      releaseAll(leased);
+      throw error;
     }
-    return { ok: true, targets: leased };
   }
 
   function supersededClosureFor(target: Operation, runId: string): Closure {
@@ -1249,33 +1378,41 @@ export function install(options: StateOptions, seams: Seams) {
   async function publishSupersedeClosures(
     targets: readonly LeasedTarget[],
     runId: string,
+    onClosed: (id: string) => void,
   ): Promise<
-    | { readonly ok: false; readonly refusal: Refusal }
+    | {
+        readonly ok: false;
+        readonly refusal: Refusal;
+        readonly ids: readonly string[];
+      }
     | { readonly ok: true; readonly ids: readonly string[] }
   > {
     const ids: string[] = [];
-    for (let index = 0; index < targets.length; index += 1) {
-      const entry = targets[index];
-      if (!entry) continue;
-      const problem = await publishOneSupersedeClosure(entry, runId);
-      if (problem) {
-        releaseAll(targets.slice(index + 1));
-        return { ok: false, refusal: problem };
+    try {
+      for (let index = 0; index < targets.length; index += 1) {
+        const entry = targets[index];
+        if (!entry) continue;
+        const problem = await publishOneSupersedeClosure(entry, runId);
+        if (problem) {
+          releaseAll(targets.slice(index + 1));
+          return { ok: false, refusal: problem, ids };
+        }
+        const id = entry.target.intent.operationId;
+        ids.push(id);
+        onClosed(id);
       }
-      ids.push(entry.target.intent.operationId);
+      return { ok: true, ids };
+    } catch (error) {
+      releaseAll(targets);
+      throw error;
     }
-    return { ok: true, ids };
   }
 
-  async function coordinateTransaction(
-    declaration: Declaration,
-    scope: CanonicalScope,
-  ) {
-    const keys = scope.unknown ? undefined : scope.keys;
-    const supersede: SupersedeRule | undefined =
-      declaration.supersedeUnresolved === true
-        ? { command: declaration.command, keys }
-        : undefined;
+  async function coordinateTransaction(snapshot: DeclarationSnapshot) {
+    const keys = snapshot.scope.unknown ? undefined : snapshot.scope.keys;
+    const supersede: SupersedeRule | undefined = snapshot.supersedeUnresolved
+      ? { command: snapshot.command, keys }
+      : undefined;
     const admitted = await coordinate(keys, keys ?? [], {
       liveOnly: false,
       ...(supersede === undefined ? {} : { supersede }),
@@ -1286,8 +1423,7 @@ export function install(options: StateOptions, seams: Seams) {
   async function prepareTransaction(
     issuer: StateIssuer,
     runId: string,
-    declaration: Declaration,
-    scope: CanonicalScope,
+    snapshot: DeclarationSnapshot,
     admitted: {
       readonly operations: readonly Operation[];
       readonly isActive: () => boolean;
@@ -1303,21 +1439,26 @@ export function install(options: StateOptions, seams: Seams) {
   > {
     const leased = await leaseSupersedeTargets(admitted.operations, supersede);
     if (!leased.ok) return leased;
-    const approval = await consumeApproval(
-      issuer,
-      runId,
-      declaration,
-      scope,
-      admitted.isActive,
-    );
-    if (approval !== null && approval.kind !== "preview") {
+    try {
+      const approval = await consumeApproval(
+        issuer,
+        runId,
+        snapshot,
+        admitted.isActive,
+      );
+      if (approval !== null && approval.kind !== "preview") {
+        releaseAll(leased.targets);
+        return { ok: false, refusal: approval };
+      }
+      return { ok: true, targets: leased.targets, approval };
+    } catch (error) {
       releaseAll(leased.targets);
-      return { ok: false, refusal: approval };
+      throw error;
     }
-    return { ok: true, targets: leased.targets, approval };
   }
 
   async function openTransaction(
+    issuer: StateIssuer,
     runId: string,
     declared: readonly string[],
     intent: Omit<Intent, "operationId" | "runId" | "owner">,
@@ -1327,7 +1468,11 @@ export function install(options: StateOptions, seams: Seams) {
     },
     targets: readonly LeasedTarget[],
   ): Promise<
-    | { readonly ok: false; readonly refusal: Refusal }
+    | {
+        readonly ok: false;
+        readonly refusal: Refusal;
+        readonly superseded: readonly string[] | undefined;
+      }
     | {
         readonly ok: true;
         readonly opened: NonNullable<Awaited<ReturnType<typeof begin>>>;
@@ -1346,21 +1491,33 @@ export function install(options: StateOptions, seams: Seams) {
       return {
         ok: false,
         refusal: { kind: "unavailable", reason: "store-publication" },
+        superseded: undefined,
       };
     }
-    const closed = await publishSupersedeClosures(targets, runId);
+    let closed: Awaited<ReturnType<typeof publishSupersedeClosures>>;
+    try {
+      closed = await publishSupersedeClosures(targets, runId, (id) => {
+        issuer.superseded(runId, id);
+      });
+    } catch (error) {
+      finish(opened.events, unchangedObservation(declared));
+      active.delete(runId);
+      opened.releaseLease();
+      admitted.held.admission.release();
+      throw error;
+    }
+    const superseded =
+      closed.ids.length > 0 ? Object.freeze([...closed.ids].sort()) : undefined;
     if (!closed.ok) {
       finish(opened.events, unchangedObservation(declared));
       active.delete(runId);
       opened.releaseLease();
       admitted.held.admission.release();
-      return closed;
+      return { ok: false, refusal: closed.refusal, superseded };
     }
     const refreshed = closed.ids.length > 0 ? readStore(paths) : undefined;
     moveSettled(refreshed?.ok ? refreshed.operations : admitted.operations);
     admitted.held.admission.release();
-    const superseded =
-      closed.ids.length > 0 ? Object.freeze([...closed.ids].sort()) : undefined;
     return { ok: true, opened, superseded };
   }
 
@@ -1391,71 +1548,73 @@ export function install(options: StateOptions, seams: Seams) {
     declared: readonly Effect[],
     work: (transaction: EffectTransaction<Effect>) => Promise<void>,
     slot: Extract<Slot, { kind: "transaction" }>,
-    refuse: (refusal: Refusal) => TransactionProof<Effect>,
+    refuse: (
+      refusal: Refusal,
+      superseded?: readonly string[],
+    ) => TransactionProof<Effect>,
   ): Promise<TransactionProof<Effect>> {
-    const declaration = slot.declaration;
-    if (declared.length === 0 || declaration.command.length === 0)
+    if (declared.length === 0)
       return refuse({ kind: "unavailable", reason: "declaration" });
-    const scope: CanonicalScope = canonicalise(declaration.scope);
-    const { admitted, supersede } = await coordinateTransaction(
-      declaration,
-      scope,
-    );
+    const snapshot = snapshotDeclaration(slot.declaration);
+    if (!snapshot)
+      return refuse({ kind: "unavailable", reason: "declaration" });
+    const { admitted, supersede } = await coordinateTransaction(snapshot);
     if (!admitted.ok) return refuse(admitted.refusal);
-    const prepared = await prepareTransaction(
-      issuer,
-      runId,
-      declaration,
-      scope,
-      admitted,
-      supersede,
-    );
-    if (!prepared.ok) {
-      admitted.release();
-      return refuse(prepared.refusal);
+    let targets: readonly LeasedTarget[] = [];
+    let handedToRun = false;
+    try {
+      const prepared = await prepareTransaction(
+        issuer,
+        runId,
+        snapshot,
+        admitted,
+        supersede,
+      );
+      if (!prepared.ok) return refuse(prepared.refusal);
+      targets = prepared.targets;
+      const intent = intentOf(
+        snapshot,
+        declared,
+        prepared.approval,
+        admitted.held.order,
+      );
+      const opened = await openTransaction(
+        issuer,
+        runId,
+        declared,
+        intent,
+        admitted,
+        targets,
+      );
+      targets = [];
+      if (!opened.ok) return refuse(opened.refusal, opened.superseded);
+      slot.operationId = opened.opened.operationId;
+      if (opened.superseded !== undefined) slot.superseded = opened.superseded;
+      handedToRun = true;
+      const { observation, workFailed } = await runRecorded(
+        issuer,
+        runId,
+        declared,
+        {
+          events: opened.opened.events,
+          releaseKeyLocks: admitted.release,
+          releaseLease: opened.opened.releaseLease,
+        },
+        work,
+      );
+      return finishTransaction(
+        issuer,
+        runId,
+        slot,
+        opened.opened.operationId,
+        opened.superseded,
+        observation,
+        workFailed,
+      );
+    } finally {
+      releaseAll(targets);
+      if (!handedToRun) admitted.release();
     }
-    const opened = await openTransaction(
-      runId,
-      declared,
-      {
-        commandIdentity: declaration.command,
-        effects: [...new Set<string>(declared)].sort(),
-        scope,
-        revisions: { ...declaration.revisions },
-        facts: declaration.facts ?? null,
-        approval: prepared.approval,
-        closes: null,
-        coordination: admitted.held.order,
-      },
-      admitted,
-      prepared.targets,
-    );
-    if (!opened.ok) {
-      admitted.release();
-      return refuse(opened.refusal);
-    }
-    slot.operationId = opened.opened.operationId;
-    if (opened.superseded !== undefined) slot.superseded = opened.superseded;
-    const { observation, workFailed } = await runRecorded(
-      issuer,
-      runId,
-      declared,
-      {
-        events: opened.opened.events,
-        releaseKeyLocks: admitted.release,
-        releaseLease: opened.opened.releaseLease,
-      },
-      work,
-    );
-    return finishTransaction(
-      issuer,
-      runId,
-      slot,
-      opened.opened.operationId,
-      opened.superseded,
-      observation,
-      workFailed,
-    );
   }
 
   function finish<Effect extends string>(

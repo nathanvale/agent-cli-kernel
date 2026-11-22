@@ -16,6 +16,7 @@ import {
   attachState,
   closeAtDeadline,
   issuedProof,
+  issuedSuperseded,
   proofFreeResultAllowed,
 } from "./state-seam.ts";
 import type { StateAddonDescriptor } from "./state-seam.ts";
@@ -277,14 +278,17 @@ export function contractFor<
       if (problem) return problem;
     } else if (
       command.effectClass !== "inspect" &&
-      typeof facts.runId === "string" &&
-      !proofFreeResultAllowed(facts.runId, spec.state)
-    )
-      return {
-        ok: false,
-        path: "transaction",
-        reason: "a transaction on this run requires its proof",
-      } as const;
+      typeof facts.runId === "string"
+    ) {
+      if (!proofFreeResultAllowed(facts.runId, spec.state))
+        return {
+          ok: false,
+          path: "transaction",
+          reason: "a transaction on this run requires its proof",
+        } as const;
+      const superseded = issuedSuperseded(facts.runId, spec.state);
+      if (superseded !== undefined) runFacts.superseded = superseded;
+    }
     return assemble(command, station, runFacts, facts.message);
   }
 
@@ -515,6 +519,7 @@ export function contractFor<
     buildResult: (result) => contract.buildResult(result),
     validate,
     trustedSummary: (runId) => issuedProof(runId, spec.state),
+    trustedSuperseded: (runId) => issuedSuperseded(runId, spec.state),
     closeStateAtDeadline: (runId) => closeAtDeadline(runId, spec.state),
     forgetState: (enter) => forgetters.get(enter)?.(),
   });

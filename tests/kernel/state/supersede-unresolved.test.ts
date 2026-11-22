@@ -4,6 +4,7 @@ import {
   existsSync,
   readFileSync,
   rmSync,
+  statfsSync,
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
@@ -16,9 +17,12 @@ import {
   station,
 } from "../../../kernel/src/kernel/index.ts";
 import type {
+  ApprovalRuntime,
   CauseTable,
   EffectTransaction,
   Envelope,
+  ProgramsCapability,
+  RunAddon,
 } from "../../../kernel/src/kernel/index.ts";
 import {
   stateAddon,
@@ -26,6 +30,7 @@ import {
   supersedeFilesystemReason,
 } from "../../../kernel/src/addons/state/index.ts";
 import type {
+  Declaration,
   PublishedOperation,
   ScopeDeclaration,
   TransactionResult,
@@ -1364,15 +1369,19 @@ supportingTest(
 );
 
 supportingTest(
-  "SU14.unsupported-filesystem-refuses-with-no-closure: NFS, overlay, CIFS, unreadable filesystem, and cross-device folders refuse with no closure",
+  "SU14.unsupported-filesystem-refuses-with-no-closure: NFS, overlay, CIFS, FUSE, unknown, macOS mismatch, unreadable filesystem, and cross-device folders refuse with no closure",
   async () => {
-    const cases: readonly FactOverrides[] = [
+    const cases: FactOverrides[] = [
       { filesystem: 0x6969 },
       { filesystem: 0x794c7630 },
       { filesystem: 0xff534d42 },
+      { filesystem: 0x65735546 },
+      { filesystem: 0x12345678 },
       { filesystem: null },
       { devices: { operations: 999_999 } },
     ];
+    if (process.platform === "darwin")
+      cases.push({ filesystem: statfsSync("/").type + 1 });
     for (const factOverrides of cases) {
       const root = stateRoot();
       const oldId = await seedUnresolved(root);
@@ -1417,8 +1426,12 @@ supportingTest(
     expect(healingRun.outcome.kind).toBe("ran");
     expect(healingRun.envelope.result.superseded).toEqual([oldId]);
     expect(healingRun.published?.superseded).toEqual([oldId]);
-    if (healingRun.outcome.kind === "ran")
+    expect(Object.isFrozen(healingRun.outcome.proof.superseded)).toBe(true);
+    expect(Object.isFrozen(healingRun.published?.superseded)).toBe(true);
+    if (healingRun.outcome.kind === "ran") {
       expect(healingRun.outcome.superseded).toEqual([oldId]);
+      expect(Object.isFrozen(healingRun.outcome.superseded)).toBe(true);
+    }
     const history = await healingRun.state.history(oldId);
     expect(history).toMatchObject({
       ok: true,
@@ -1436,14 +1449,23 @@ supportingTest(
       );
 
     expect((await healingRun.validate(healingRun.envelope)).ok).toBe(true);
-    expect(
-      (
-        await healingRun.validate({
-          ...healingRun.envelope,
-          result: { ...healingRun.envelope.result, superseded: [] },
-        })
-      ).ok,
-    ).toBe(false);
+    const invalidLists: readonly (readonly string[])[] = [
+      [],
+      [
+        "op-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "op-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      ],
+      [oldId, oldId],
+    ];
+    for (const invalid of invalidLists)
+      expect(
+        (
+          await healingRun.validate({
+            ...healingRun.envelope,
+            result: { ...healingRun.envelope.result, superseded: invalid },
+          })
+        ).ok,
+      ).toBe(false);
     const pendingEnvelope = await healingRun.runPending();
     expect((await healingRun.validate(pendingEnvelope)).ok).toBe(true);
     expect(
@@ -1454,5 +1476,693 @@ supportingTest(
         })
       ).ok,
     ).toBe(false);
+  },
+);
+
+type CustomRunOptions = {
+  readonly root: string;
+  readonly phase?: (name: Phase) => Promise<void>;
+  readonly argv?: readonly string[];
+  readonly deadlineSupported?: boolean;
+  readonly programsAddon?: RunAddon<ProgramsCapability>;
+  readonly declaration: (boundary: {
+    readonly authority: ReturnType<typeof contractFor>["boundary"]["authority"];
+    readonly resource: ReturnType<typeof contractFor>["boundary"]["resource"];
+  }) => Declaration;
+  readonly work?: (
+    transaction: EffectTransaction<Effects>,
+    published: PublishedOperation,
+  ) => Promise<void>;
+  readonly afterTransaction?: (outcome: TransactionResult<Effects>) => void;
+  readonly catchTransaction?: (error: unknown) => void;
+};
+
+async function runCustomHost(options: CustomRunOptions): Promise<{
+  readonly state: ReturnType<typeof stateAddon>;
+  readonly outcome: TransactionResult<Effects> | undefined;
+  readonly envelope: Envelope;
+}> {
+  const state = makeStateForHost({
+    root: options.root,
+    ...(options.phase === undefined ? {} : { phase: options.phase }),
+  });
+  let captured: TransactionResult<Effects> | undefined;
+  const composed: {
+    boundary?: ReturnType<typeof contractFor>["boundary"];
+  } = {};
+  const work =
+    options.work ??
+    (async (transaction: EffectTransaction<Effects>) => {
+      for (const effect of defaultEffects)
+        await transaction.record(
+          effect,
+          () => Promise.resolve(),
+          () => Promise.resolve(true),
+        );
+    });
+  const pending = command({
+    identity: "su.pending",
+    route: ["pending"],
+    summary: "Report unfinished runs.",
+    input: emptyInput,
+    capabilities: {},
+    stations: [
+      station(allCauses, {
+        ...stationWords,
+        commandIdentity: "su.pending",
+        causeCode: "SUCCESS_UNCHANGED",
+        trigger: "Read.",
+        repairAction: null,
+        guidance: {
+          next: { kind: "instruction", text: "Inspect unfinished cases." },
+        },
+        independentObservable: "su.pending:read",
+      }),
+    ],
+    run: (_input, context) =>
+      context.result(
+        { commandIdentity: "su.pending", causeCode: "SUCCESS_UNCHANGED" },
+        { message: "Read.", data: null, effects: unchanged },
+      ),
+  });
+  const actorInput =
+    options.deadlineSupported === true
+      ? { ...emptyInput, deadlineSupported: true as const }
+      : emptyInput;
+  const actor = changing({
+    identity: "su.open",
+    route: ["open"],
+    summary: "Run a changing command.",
+    input: actorInput,
+    capabilities:
+      options.programsAddon === undefined ? {} : { programs: true as const },
+    effectClass: "repository-local",
+    effects: defaultEffects,
+    ifNoResult: state.descriptor.ifNoResult,
+    heldLockCause: "DOMAIN_SU_LOCK_HELD",
+    unresolvedCaseCause: "DOMAIN_SU_UNRESOLVED",
+    stations: [
+      station(allCauses, {
+        ...stationWords,
+        commandIdentity: "su.open",
+        causeCode: "SUCCESS_COMPLETED",
+        trigger: "Completed.",
+        repairAction: null,
+        guidance: { next: { kind: "done" } },
+        independentObservable: "su.open:done",
+      }),
+      station(allCauses, {
+        ...stationWords,
+        commandIdentity: "su.open",
+        causeCode: "DOMAIN_SU_LOCK_HELD",
+        trigger: "Held.",
+        repairAction: "Wait for the live run.",
+        guidance: handoff,
+        independentObservable: "su.open:held",
+      }),
+      station(allCauses, {
+        ...stationWords,
+        commandIdentity: "su.open",
+        causeCode: "DOMAIN_SU_UNRESOLVED",
+        trigger: "Unresolved.",
+        repairAction: "Inspect unfinished cases.",
+        guidance: handoff,
+        independentObservable: "su.open:unresolved",
+      }),
+      station(allCauses, {
+        ...stationWords,
+        commandIdentity: "su.open",
+        causeCode: "DOMAIN_SU_UNAVAILABLE",
+        trigger: "Unavailable.",
+        repairAction: "Inspect state.",
+        guidance: handoff,
+        independentObservable: "su.open:unavailable",
+      }),
+    ],
+    run: async (_input, context) => {
+      const boundary = composed.boundary;
+      if (!boundary) throw new Error("Boundary expected.");
+      if ("programs" in context && context.programs !== undefined)
+        await context.programs.inspect({
+          executable: boundary.path(process.execPath),
+          args: [],
+          timeoutMilliseconds: 100,
+          outputLimitBytes: 64,
+          shutdownMilliseconds: 50,
+        });
+      let outcome: TransactionResult<Effects>;
+      try {
+        outcome = await state.transaction(
+          context.state,
+          options.declaration(boundary),
+          (transaction, info) => work(transaction, info),
+        );
+      } catch (error) {
+        if (options.catchTransaction) {
+          options.catchTransaction(error);
+          return context.result(
+            { commandIdentity: "su.open", causeCode: "DOMAIN_SU_UNAVAILABLE" },
+            { message: "threw", data: null, effects: unchanged },
+          );
+        }
+        throw error;
+      }
+      captured = outcome;
+      options.afterTransaction?.(outcome);
+      if (outcome.kind !== "ran") {
+        const causeCode =
+          outcome.kind === "held-lock"
+            ? "DOMAIN_SU_LOCK_HELD"
+            : outcome.kind === "unresolved-case"
+              ? "DOMAIN_SU_UNRESOLVED"
+              : "DOMAIN_SU_UNAVAILABLE";
+        return context.result(
+          { commandIdentity: "su.open", causeCode },
+          { message: outcome.kind, data: null, effects: unchanged },
+        );
+      }
+      if (outcome.proof.transactionState === "unchanged")
+        return context.result(
+          { commandIdentity: "su.open", causeCode: "DOMAIN_SU_UNAVAILABLE" },
+          { message: "unchanged", data: null, effects: unchanged },
+        );
+      return context.result(
+        { commandIdentity: "su.open", causeCode: "SUCCESS_COMPLETED" },
+        {
+          message: outcome.proof.transactionState,
+          data: null,
+          transaction: outcome.proof,
+        },
+      );
+    },
+  });
+  const contract = contractFor({
+    cli: "su",
+    commands: [pending, actor],
+    causes: allCauses,
+    state: state.descriptor,
+    installedAddons:
+      options.programsAddon === undefined ? ["state"] : ["state", "programs"],
+  });
+  composed.boundary = contract.boundary;
+  const run = runInProcess(contract, {
+    emergencyRecord: state.emergencyRecord,
+    ...(options.programsAddon === undefined
+      ? {}
+      : { addons: { programs: options.programsAddon } }),
+  });
+  const ran = await run(options.argv ?? ["open"]);
+  if (ran.kind !== "envelope") throw new Error("Expected envelope.");
+  return { state, outcome: captured, envelope: ran.envelope };
+}
+
+supportingTest(
+  "SU16.mutable-declaration-snapshot-before-admission: mutating declaration command or fields after admission cannot close another command's case or alter the published intent",
+  async () => {
+    const rootA = stateRoot();
+    const oldOpen = await seedUnresolved(rootA, { command: "su.open" });
+    const revisions: Record<string, string> = { version: "v1" };
+    const facts: Record<string, string> = { note: "before" };
+    let mutableA:
+      | {
+          command: string;
+          scope: ScopeDeclaration;
+          revisions: Record<string, string>;
+          facts: Record<string, string>;
+          supersedeUnresolved: boolean;
+          approval: NonNullable<Declaration["approval"]>;
+        }
+      | undefined;
+    const runtimeA: ApprovalRuntime = {
+      check: () => Promise.resolve(true),
+      revalidateAndConsume: () => {
+        if (mutableA) {
+          mutableA.command = "su.other";
+          mutableA.supersedeUnresolved = false;
+        }
+        revisions.version = "v2";
+        facts.note = "after";
+        return Promise.resolve({ consumed: true });
+      },
+    };
+    const healed = await runCustomHost({
+      root: rootA,
+      declaration: (boundary) => {
+        mutableA = {
+          command: "su.open",
+          scope: { resources: [{ resource: "doc", key: "alpha" }] },
+          revisions,
+          facts,
+          supersedeUnresolved: true,
+          approval: {
+            runtime: runtimeA,
+            request: {
+              authority: boundary.authority("operator"),
+              resource: boundary.resource("doc"),
+              resourceRevision: "v1",
+              effects: defaultEffects,
+              preview: "preview-1",
+            },
+          },
+        };
+        return mutableA;
+      },
+    });
+    expect(healed.outcome?.kind).toBe("ran");
+    if (healed.outcome?.kind !== "ran") throw new Error("Expected ran.");
+    const publishedCase = readCase(layout(rootA), healed.outcome.operationId);
+    if (typeof publishedCase === "string")
+      throw new Error(`Expected new case, got ${publishedCase}.`);
+    expect(publishedCase.intent.commandIdentity).toBe("su.open");
+    expect(publishedCase.intent.revisions).toEqual({ version: "v1" });
+    expect(publishedCase.intent.facts).toEqual({ note: "before" });
+    expect(healed.envelope.result.superseded).toEqual([oldOpen]);
+
+    const rootB = stateRoot();
+    const oldOther = await seedUnresolved(rootB, { command: "su.other" });
+    const mutableB: {
+      command: string;
+      scope: ScopeDeclaration;
+      supersedeUnresolved: boolean;
+    } = {
+      command: "su.open",
+      scope: { resources: [{ resource: "doc", key: "alpha" }] },
+      supersedeUnresolved: true,
+    };
+    const blocked = await runCustomHost({
+      root: rootB,
+      phase: (name) => {
+        if (name === "admission-wait") mutableB.command = "su.other";
+        return Promise.resolve();
+      },
+      declaration: () => mutableB,
+    });
+    expect(blocked.outcome).toMatchObject({
+      kind: "unresolved-case",
+      operationId: oldOther,
+    });
+    expect(existsSync(join(rootB, "operations", oldOther, "closure"))).toBe(
+      false,
+    );
+    expect(blocked.state.report()).toMatchObject({
+      ok: true,
+      unfinished: [{ operationId: oldOther }],
+    });
+  },
+);
+
+supportingTest(
+  "SU17a.throwing-getter-during-intent-construction-releases-locks: a getter that throws during intent construction writes no closure and leaves no lock busy for the next run",
+  async () => {
+    const root = stateRoot();
+    const oldId = await seedUnresolved(root);
+    const throwingRevisions: Record<string, string> = {};
+    Object.defineProperty(throwingRevisions, "version", {
+      enumerable: true,
+      get() {
+        throw new Error("revisions getter failed");
+      },
+    });
+    let thrown: unknown;
+    await runCustomHost({
+      root,
+      declaration: () => ({
+        command: "su.open",
+        scope: { resources: [{ resource: "doc", key: "alpha" }] },
+        revisions: throwingRevisions,
+        supersedeUnresolved: true,
+      }),
+      catchTransaction: (error) => {
+        thrown = error;
+      },
+    });
+    expect(thrown).toBeInstanceOf(Error);
+    expect(thrown instanceof Error ? thrown.message : "").toBe(
+      "revisions getter failed",
+    );
+    expect(existsSync(join(root, "operations", oldId, "closure"))).toBe(false);
+
+    const retry = await runHost({ root, supersedeUnresolved: true });
+    expect(retry.outcome.kind).toBe("ran");
+    expect(retry.causeCode).toBe("SUCCESS_COMPLETED");
+    expect(retry.envelope.result.superseded).toEqual([oldId]);
+  },
+);
+
+supportingTest(
+  "SU17b.exception-after-supersede-leases-releases-all-locks: an exception after acquiring supersede owner leases releases every target lease, scope lock, and admission lock",
+  async () => {
+    const root = stateRoot();
+    const scopeAlpha: ScopeDeclaration = {
+      resources: [{ resource: "doc", key: "alpha" }],
+    };
+    const scopeBeta: ScopeDeclaration = {
+      resources: [{ resource: "doc", key: "beta" }],
+    };
+    const scopeBoth: ScopeDeclaration = {
+      resources: [
+        { resource: "doc", key: "alpha" },
+        { resource: "doc", key: "beta" },
+      ],
+    };
+    const oldA = await seedUnresolved(root, { scope: scopeAlpha });
+    const oldB = await seedUnresolved(root, { scope: scopeBeta });
+
+    let reads = 0;
+    let thrown: unknown;
+    await runCustomHost({
+      root,
+      phase: (name) => {
+        if (name === "closure-read") {
+          reads += 1;
+          if (reads === 2)
+            return Promise.reject(new Error("boom after first target lease"));
+        }
+        return Promise.resolve();
+      },
+      declaration: () => ({
+        command: "su.open",
+        scope: scopeBoth,
+        supersedeUnresolved: true,
+      }),
+      catchTransaction: (error) => {
+        thrown = error;
+      },
+    });
+    expect(thrown instanceof Error ? thrown.message : "").toBe(
+      "boom after first target lease",
+    );
+    expect(existsSync(join(root, "operations", oldA, "closure"))).toBe(false);
+    expect(existsSync(join(root, "operations", oldB, "closure"))).toBe(false);
+
+    const route = resolveCoordination();
+    if (!route.available) throw new Error("Coordination expected.");
+    for (const id of [oldA, oldB]) {
+      const check = route.tryLock(
+        join(root, "operations", id, "owner.lease"),
+        false,
+      );
+      expect(check.kind).toBe("held");
+      if (check.kind === "held") check.release();
+    }
+
+    const retry = await runHost({
+      root,
+      scope: scopeBoth,
+      supersedeUnresolved: true,
+    });
+    expect(retry.outcome.kind).toBe("ran");
+    expect(retry.causeCode).toBe("SUCCESS_COMPLETED");
+    expect(retry.envelope.result.superseded).toEqual([oldA, oldB].sort());
+  },
+);
+
+supportingTest(
+  "SU17c.refusal-after-target-lease-releases-owner-lease: approval refusal and later target busy release earlier leases, while publication holds the target lease",
+  async () => {
+    const route = resolveCoordination();
+    if (!route.available) throw new Error("Coordination expected.");
+
+    const rootA = stateRoot();
+    const oldApproved = await seedUnresolved(rootA);
+    const deniedRuntime: ApprovalRuntime = {
+      check: () => Promise.resolve(false),
+      revalidateAndConsume: () => Promise.resolve({ consumed: false }),
+    };
+    const denied = await runCustomHost({
+      root: rootA,
+      declaration: (boundary) => ({
+        command: "su.open",
+        scope: { resources: [{ resource: "doc", key: "alpha" }] },
+        supersedeUnresolved: true,
+        approval: {
+          runtime: deniedRuntime,
+          request: {
+            authority: boundary.authority("operator"),
+            resource: boundary.resource("doc"),
+            resourceRevision: "v1",
+            effects: defaultEffects,
+            preview: "preview-deny",
+          },
+        },
+      }),
+    });
+    expect(denied.outcome).toMatchObject({ kind: "denied" });
+    expect(existsSync(join(rootA, "operations", oldApproved, "closure"))).toBe(
+      false,
+    );
+    const probeAfterDeny = route.tryLock(
+      join(rootA, "operations", oldApproved, "owner.lease"),
+      false,
+    );
+    expect(probeAfterDeny.kind).toBe("held");
+    if (probeAfterDeny.kind === "held") probeAfterDeny.release();
+
+    let leaseBusyAtStaged: boolean | undefined;
+    const healedAfterDeny = await runHost({
+      root: rootA,
+      supersedeUnresolved: true,
+      phase: (name) => {
+        if (name === "closure-staged") {
+          const probe = route.tryLock(
+            join(rootA, "operations", oldApproved, "owner.lease"),
+            false,
+          );
+          leaseBusyAtStaged = probe.kind === "busy";
+          if (probe.kind === "held") probe.release();
+        }
+        return Promise.resolve();
+      },
+    });
+    expect(leaseBusyAtStaged).toBe(true);
+    expect(healedAfterDeny.outcome.kind).toBe("ran");
+    expect(healedAfterDeny.envelope.result.superseded).toEqual([oldApproved]);
+
+    const rootB = stateRoot();
+    const scopeAlpha: ScopeDeclaration = {
+      resources: [{ resource: "doc", key: "alpha" }],
+    };
+    const scopeBeta: ScopeDeclaration = {
+      resources: [{ resource: "doc", key: "beta" }],
+    };
+    const scopeBoth: ScopeDeclaration = {
+      resources: [
+        { resource: "doc", key: "alpha" },
+        { resource: "doc", key: "beta" },
+      ],
+    };
+    const oldOne = await seedUnresolved(rootB, { scope: scopeAlpha });
+    const oldTwo = await seedUnresolved(rootB, { scope: scopeBeta });
+    let readCount = 0;
+    let releaseBusy: (() => void) | undefined;
+    try {
+      const partialBusy = await runHost({
+        root: rootB,
+        scope: scopeBoth,
+        supersedeUnresolved: true,
+        phase: (name) => {
+          if (name === "closure-read") {
+            readCount += 1;
+            if (readCount === 2) {
+              for (const id of [oldOne, oldTwo]) {
+                const attempt = route.tryLock(
+                  join(rootB, "operations", id, "owner.lease"),
+                  false,
+                );
+                if (attempt.kind === "held") {
+                  releaseBusy = attempt.release;
+                  break;
+                }
+              }
+            }
+          }
+          return Promise.resolve();
+        },
+      });
+      expect(partialBusy.outcome.kind).toBe("held-lock");
+    } finally {
+      releaseBusy?.();
+    }
+    const healedBoth = await runHost({
+      root: rootB,
+      scope: scopeBoth,
+      supersedeUnresolved: true,
+    });
+    expect(healedBoth.outcome.kind).toBe("ran");
+    expect(healedBoth.envelope.result.superseded).toEqual(
+      [oldOne, oldTwo].sort(),
+    );
+  },
+);
+
+supportingTest(
+  "SU18a.unchanged-refusal-reports-superseded: an unchanged refusal after healing forwards closed operation ids in result.superseded",
+  async () => {
+    const root = stateRoot();
+    const oldId = await seedUnresolved(root);
+    const refused = await runHost({
+      root,
+      supersedeUnresolved: true,
+      work: () => Promise.resolve(),
+    });
+    expect(refused.outcome.kind).toBe("ran");
+    expect(refused.outcome.proof.transactionState).toBe("unchanged");
+    expect(refused.outcome.proof.superseded).toEqual([oldId]);
+    expect(refused.envelope.result.outcome).toBe("refused");
+    expect(refused.causeCode).toBe("DOMAIN_SU_UNAVAILABLE");
+    expect(refused.envelope.result.superseded).toEqual([oldId]);
+  },
+);
+
+supportingTest(
+  "SU18b.partial-closure-publication-reports-closed-ids: when the first supersede closure publishes and a later one fails, the result reports the already closed id",
+  async () => {
+    const root = stateRoot();
+    const scopeAlpha: ScopeDeclaration = {
+      resources: [{ resource: "doc", key: "alpha" }],
+    };
+    const scopeBeta: ScopeDeclaration = {
+      resources: [{ resource: "doc", key: "beta" }],
+    };
+    const scopeBoth: ScopeDeclaration = {
+      resources: [
+        { resource: "doc", key: "alpha" },
+        { resource: "doc", key: "beta" },
+      ],
+    };
+    const oldA = await seedUnresolved(root, { scope: scopeAlpha });
+    const oldB = await seedUnresolved(root, { scope: scopeBeta });
+    let stagedCount = 0;
+    let firstClosedId: string | undefined;
+    let secondFailedId: string | undefined;
+
+    const partial = await runHost({
+      root,
+      scope: scopeBoth,
+      supersedeUnresolved: true,
+      phase: (name) => {
+        if (name === "closure-staged") {
+          stagedCount += 1;
+          if (stagedCount === 2) {
+            const aClosed = existsSync(
+              join(root, "operations", oldA, "closure"),
+            );
+            firstClosedId = aClosed ? oldA : oldB;
+            secondFailedId = aClosed ? oldB : oldA;
+            const secondRead = readCase(layout(root), secondFailedId);
+            if (typeof secondRead === "string")
+              throw new Error(`Expected second case, got ${secondRead}.`);
+            writePriorClosure(root, secondFailedId, secondRead.revision);
+          }
+        }
+        return Promise.resolve();
+      },
+    });
+    if (!firstClosedId || !secondFailedId)
+      throw new Error("Expected two closure-staged phases.");
+    expect(partial.outcome).toMatchObject({
+      kind: "unresolved-case",
+      operationId: secondFailedId,
+    });
+    expect(partial.outcome.proof.superseded).toEqual([firstClosedId]);
+    expect(partial.envelope.result.outcome).toBe("refused");
+    expect(partial.envelope.result.superseded).toEqual([firstClosedId]);
+  },
+);
+
+supportingTest(
+  "SU18c.deadline-while-open-reports-superseded: a deadline expiring while the new transaction is still open reports closed ids in result.superseded",
+  async () => {
+    const root = stateRoot();
+    const oldId = await seedUnresolved(root);
+    const gate = deferred();
+    const entered = deferred();
+    try {
+      const timedOut = await runCustomHost({
+        root,
+        argv: ["open", "--deadline-ms", "60"],
+        deadlineSupported: true,
+        declaration: () => ({
+          command: "su.open",
+          scope: { resources: [{ resource: "doc", key: "alpha" }] },
+          supersedeUnresolved: true,
+        }),
+        work: async () => {
+          entered.resolve();
+          await gate.promise;
+        },
+      });
+      await entered.promise;
+      expect(timedOut.outcome).toBeUndefined();
+      expect(timedOut.envelope.result.causeCode).toBe(
+        "DOMAIN_DEADLINE_UNKNOWN",
+      );
+      expect(timedOut.envelope.result.superseded).toEqual([oldId]);
+    } finally {
+      gate.resolve();
+    }
+  },
+);
+
+supportingTest(
+  "SU18d.unconfirmed-settlement-reports-superseded: an owned program surviving settlement preserves closed ids in the unknown result",
+  async () => {
+    const root = stateRoot();
+    const oldId = await seedUnresolved(root);
+    const survivingProgram: RunAddon<ProgramsCapability> = {
+      attach: () => ({
+        capability: Object.freeze({
+          inspect: () =>
+            Promise.resolve({
+              stdout: "",
+              stderr: "",
+              exitCode: 0,
+              terminationConfirmed: true,
+              outputTruncated: false,
+            }),
+          supplied: () => Promise.reject(new Error("unused")),
+          domain: () => {
+            throw new Error("unused");
+          },
+        }),
+        settle: () => Promise.resolve(false),
+        killNow: () => undefined,
+      }),
+    };
+    const survived = await runCustomHost({
+      root,
+      programsAddon: survivingProgram,
+      declaration: () => ({
+        command: "su.open",
+        scope: { resources: [{ resource: "doc", key: "alpha" }] },
+        supersedeUnresolved: true,
+      }),
+    });
+    expect(survived.outcome?.kind).toBe("ran");
+    expect(survived.envelope.result.causeCode).toBe("INTERNAL_RESULT_UNKNOWN");
+    expect(survived.envelope.result.effects.inventoryComplete).toBe(false);
+    expect(survived.envelope.result.superseded).toEqual([oldId]);
+  },
+);
+
+supportingTest(
+  "SU18e.fallback-after-heal-reports-superseded: a handler throwing after healing preserves closed ids on the fallback envelope",
+  async () => {
+    const root = stateRoot();
+    const oldId = await seedUnresolved(root);
+    const crashed = await runCustomHost({
+      root,
+      declaration: () => ({
+        command: "su.open",
+        scope: { resources: [{ resource: "doc", key: "alpha" }] },
+        supersedeUnresolved: true,
+      }),
+      afterTransaction: () => {
+        throw new Error("handler crashed after heal");
+      },
+    });
+    expect(crashed.outcome?.kind).toBe("ran");
+    expect(crashed.envelope.result.causeCode).toBe("INTERNAL_RESULT_COMPLETED");
+    expect(crashed.envelope.result.superseded).toEqual([oldId]);
   },
 );

@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { CommandStep, StateEffects, TransactionState } from "./types.ts";
-import { sortedStrings } from "./validation/primitives.ts";
+import { sortedStrings, text } from "./validation/primitives.ts";
 import {
   effects as validEffects,
   transactionEffects,
@@ -63,11 +63,13 @@ export type StateIssuer = {
     scope: string,
     isActive: () => boolean,
   ) => ExclusiveScope;
+  readonly superseded: (runId: string, operationId: string) => void;
 };
 const routes = new WeakSet<object>();
 type AttachedRun = {
   transactionStarted: boolean;
   proof: TransactionProof | undefined;
+  readonly superseded: Set<string>;
   closed: "returned" | "deadline" | undefined;
   revoked: boolean;
   openTransaction: Promise<void> | undefined;
@@ -148,6 +150,19 @@ export function issuedProof(
     ? registrations.get(descriptor)?.runs.get(runId)
     : undefined;
   return run ? attachedRuns.get(run)?.proof : undefined;
+}
+export function issuedSuperseded(
+  runId: string,
+  descriptor: StateAddonDescriptor | undefined,
+): readonly string[] | undefined {
+  const run = descriptor
+    ? registrations.get(descriptor)?.runs.get(runId)
+    : undefined;
+  const attached = run ? attachedRuns.get(run) : undefined;
+  if (!attached) return undefined;
+  const ids = new Set<string>(attached.superseded);
+  for (const id of attached.proof?.superseded ?? []) ids.add(id);
+  return ids.size > 0 ? Object.freeze([...ids].sort()) : undefined;
 }
 // Interface: Runtime counterpart of the ExclusiveScope brand (K2): true only for the
 // kernel-issued object itself, issued by `descriptor`'s state add-on instance for the
@@ -279,6 +294,21 @@ function stateIssuer(
       });
       scopes.set(issued, { runId, stateInstance, run, isActive });
       return issued;
+    },
+    superseded(runId: string, operationId: string): void {
+      const execution = active.getStore();
+      if (!execution || execution.runId !== runId)
+        throw new Error(
+          "Recording a superseded operation requires the active attached run.",
+        );
+      if (!text(operationId))
+        throw new Error("Invalid superseded operation id.");
+      const attached = attachedRuns.get(execution.run);
+      if (!attached)
+        throw new Error(
+          "Recording a superseded operation requires the active attached run.",
+        );
+      attached.superseded.add(operationId);
     },
   });
 }
@@ -413,6 +443,7 @@ export function attachState<Effect extends string>(
   const status: AttachedRun = {
     transactionStarted: false,
     proof: undefined,
+    superseded: new Set<string>(),
     closed: undefined,
     revoked: false,
     openTransaction: undefined,

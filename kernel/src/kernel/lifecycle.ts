@@ -295,21 +295,24 @@ function noneStarted(command: CommandDeclaration): StateObservation {
 
 function unconfirmedSummary(
   summary: StateObservation | undefined,
+  superseded?: readonly string[],
 ): StateObservation {
-  if (!summary)
-    return {
-      transactionState: "unknown",
-      effects: {
-        completed: [],
-        remaining: [],
-        uncertain: [],
-        inventoryComplete: false,
-      },
-    };
-  return {
-    transactionState: "unknown",
-    effects: { ...summary.effects, inventoryComplete: false },
-  };
+  const ids = summary?.superseded ?? superseded;
+  const base: StateObservation = summary
+    ? {
+        transactionState: "unknown",
+        effects: { ...summary.effects, inventoryComplete: false },
+      }
+    : {
+        transactionState: "unknown",
+        effects: {
+          completed: [],
+          remaining: [],
+          uncertain: [],
+          inventoryComplete: false,
+        },
+      };
+  return ids === undefined ? base : { ...base, superseded: ids };
 }
 
 function settleOwned(run: Run, deadlineAt: number | undefined) {
@@ -354,13 +357,16 @@ function trustedRun(
   identity: string,
   handlerEntered: boolean,
   summary?: StateObservation,
+  superseded?: readonly string[],
 ): TrustedRun {
-  const trusted: TrustedRun = {
+  const ids = summary !== undefined ? summary.superseded : superseded;
+  return {
     runId: run.runId,
     commandIdentity: identity,
     handlerEntered,
+    ...(summary === undefined ? {} : { summary }),
+    ...(ids === undefined ? {} : { superseded: ids }),
   };
-  return summary ? { ...trusted, summary } : trusted;
 }
 
 async function kernelResult(
@@ -375,15 +381,17 @@ async function kernelResult(
     readonly summary?: StateObservation | undefined;
   } = {},
 ): Promise<Delivery> {
+  const superseded =
+    options.summary !== undefined
+      ? options.summary.superseded
+      : run.runtime.trustedSuperseded(run.runId);
   const candidate = await run.runtime.buildKernelStation(
     { commandIdentity: identity, causeCode },
     {
       runId: run.runId,
       message,
       data: options.data ?? null,
-      ...(options.summary?.superseded === undefined
-        ? {}
-        : { superseded: options.summary.superseded }),
+      ...(superseded === undefined ? {} : { superseded }),
     },
     options.effects ?? unchangedEffects,
   );
@@ -394,6 +402,7 @@ async function kernelResult(
       identity,
       options.handlerEntered ?? false,
       options.summary,
+      superseded,
     ),
   };
 }
@@ -543,7 +552,9 @@ async function afterDeadline(
   const issued =
     run.runtime.trustedSummary(run.runId) ??
     (started === false ? noneStarted(command) : undefined);
-  const summary = stopped === true ? issued : unconfirmedSummary(issued);
+  const superseded = run.runtime.trustedSuperseded(run.runId);
+  const summary =
+    stopped === true ? issued : unconfirmedSummary(issued, superseded);
   const programStop =
     command.effectClass === "inspect" && stopped !== true
       ? programStopOf(command)
@@ -565,7 +576,11 @@ async function afterDeadline(
     command.commandIdentity,
     selected.causeCode,
     programStop ? messages.programStop : messages.deadline,
-    { handlerEntered: true, effects: selected.effects, summary },
+    {
+      handlerEntered: true,
+      effects: selected.effects,
+      summary,
+    },
   );
 }
 
@@ -580,11 +595,14 @@ async function afterHandler(
   if (clean === undefined)
     return afterDeadline(run, command, Promise.resolve(execution));
   const issued = run.runtime.trustedSummary(run.runId);
+  const superseded = run.runtime.trustedSuperseded(run.runId);
+  const summary = clean ? issued : unconfirmedSummary(issued, superseded);
   const trusted = trustedRun(
     run,
     identity,
     true,
-    clean ? issued : unconfirmedSummary(issued),
+    summary,
+    summary === undefined ? superseded : undefined,
   );
   if (execution.kind === "threw")
     return {
