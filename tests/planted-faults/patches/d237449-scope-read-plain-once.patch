@@ -1,0 +1,14 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -986,9 +986,7 @@ function readFlaggedDeclaration(
+   if (typeof declaredCommand !== "string" || declaredCommand.length === 0)
+     return undefined;
+   if (!Object.hasOwn(declaration, "scope")) return undefined;
+-  const scope = canonicalisePlain(
+-    readPlainScope(ownProperty(declaration, "scope")),
+-  );
++  const scope = canonicalise(declaration.scope);
+   const revisions = snapshotRevisions(ownProperty(declaration, "revisions"));
+   if (revisions === undefined) return undefined;
+   const rawFacts = ownProperty(declaration, "facts");

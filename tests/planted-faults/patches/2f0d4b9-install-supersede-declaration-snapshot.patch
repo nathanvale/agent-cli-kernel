@@ -1,19 +1,17 @@
 diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
 --- a/kernel/src/addons/state/install.ts
 +++ b/kernel/src/addons/state/install.ts
-@@ -1572,11 +1572,14 @@
-       if (!prepared.ok) return refuse(prepared.refusal);
-       targets = prepared.targets;
-       const intent = intentOf(
--        snapshot,
-+        {
-+          ...snapshot,
-+          command: slot.declaration.command,
-+        },
-         declared,
-         prepared.approval,
-         admitted.held.order,
-       );
-       const opened = await openTransaction(
-         issuer,
-         runId,
+@@ -1699,7 +1699,12 @@ export function install(options: StateOptions, seams: Seams) {
+     );
+     if (approval !== null && approval.kind !== "preview")
+       return { ok: false as const, refusal: approval };
+-    const intent = intentOf(snapshot, declared, approval, acquired.order);
++    const intent = intentOf(
++      { ...snapshot, revisions: { ...snapshot.revisions, version: "mutated" } },
++      declared,
++      approval,
++      acquired.order,
++    );
+     return openFlaggedTransaction(
+       owner,
+       issuer,

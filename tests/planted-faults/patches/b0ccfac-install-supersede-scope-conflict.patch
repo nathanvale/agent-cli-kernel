@@ -1,11 +1,14 @@
 diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
 --- a/kernel/src/addons/state/install.ts
 +++ b/kernel/src/addons/state/install.ts
-@@ -690,7 +690,6 @@
-   return (
-     rule !== undefined &&
-     operation.intent.commandIdentity === rule.command &&
--    covers(rule.keys, currentKeys(operation.intent.scope)) &&
-     !operation.recordHiddenInTornTail &&
-     !operation.closureDamaged
-   );
+@@ -1429,9 +1429,7 @@ export function install(options: StateOptions, seams: Seams) {
+         refusal: { kind: "unavailable", reason: `store-${store.reason}` },
+       };
+     const conflicting = store.operations.filter(
+-      (operation) =>
+-        operation.status === "unresolved" &&
+-        conflicts(keys, currentKeys(operation.intent.scope)),
++      (operation) => operation.status === "unresolved",
+     );
+     return { ok: true, operations: store.operations, conflicting };
+   }

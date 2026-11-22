@@ -1,0 +1,12 @@
+diff --git a/kernel/src/kernel/state-seam.ts b/kernel/src/kernel/state-seam.ts
+--- a/kernel/src/kernel/state-seam.ts
++++ b/kernel/src/kernel/state-seam.ts
+@@ -392,7 +392,7 @@ function attachOwned<Effect extends string>(
+   commandIdentity: string,
+ ): import("./capabilities.ts").StateCapability<Effect> {
+   try {
+-    return state.registration.attach(runId, effects, commandIdentity);
++    return state.registration.attach(runId, effects, "");
+   } catch (error) {
+     forgetAttachment(state.runs, runId, run);
+     throw error;

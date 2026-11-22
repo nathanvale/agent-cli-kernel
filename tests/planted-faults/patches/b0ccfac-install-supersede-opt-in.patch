@@ -1,19 +1,12 @@
 diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
 --- a/kernel/src/addons/state/install.ts
 +++ b/kernel/src/addons/state/install.ts
-@@ -1410,11 +1410,12 @@
- 
-   async function coordinateTransaction(snapshot: DeclarationSnapshot) {
-     const keys = snapshot.scope.unknown ? undefined : snapshot.scope.keys;
--    const supersede: SupersedeRule | undefined = snapshot.supersedeUnresolved
--      ? { command: snapshot.command, keys }
--      : undefined;
-+    const supersede: SupersedeRule | undefined = {
-+      command: snapshot.command,
-+      keys,
-+    };
-     const admitted = await coordinate(keys, keys ?? [], {
-       liveOnly: false,
-       ...(supersede === undefined ? {} : { supersede }),
-     });
-     return { admitted, supersede };
+@@ -1768,7 +1768,7 @@ export function install(options: StateOptions, seams: Seams) {
+     slot: Extract<Slot, { kind: "transaction" }>,
+     refuse: (refusal: Refusal) => TransactionProof<Effect>,
+   ): Promise<TransactionProof<Effect>> {
+-    if (isFlaggedDeclaration(slot.declaration))
++    if (true)
+       return transactFlagged(
+         issuer,
+         runId,

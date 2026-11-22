@@ -1,7 +1,0 @@
-{
-  "id": "2f0d4b9-install-supersede-partial-closure-superseded",
-  "patch": "tests/planted-faults/patches/2f0d4b9-install-supersede-partial-closure-superseded.patch",
-  "testFile": "tests/kernel/state/supersede-unresolved.test.ts",
-  "title": "^SU18b\\.partial-closure-publication-reports-closed-ids:",
-  "source": "2f0d4b9 fix(state): read the declaration once and report every superseded case on every path"
-}

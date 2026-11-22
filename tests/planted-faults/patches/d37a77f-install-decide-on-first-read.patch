@@ -1,8 +1,7 @@
 diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
-index 23ac92a..42fe5d3 100644
 --- a/kernel/src/addons/state/install.ts
 +++ b/kernel/src/addons/state/install.ts
-@@ -466,10 +466,7 @@ function caseRead(
+@@ -486,10 +486,7 @@ function caseRead(
    | { readonly ok: true; readonly target: Operation } {
    const read = readCase(paths, request.operationId);
    if (typeof read === "string") return { ok: false, stop: readProblem(read) };
@@ -14,12 +13,13 @@ index 23ac92a..42fe5d3 100644
    return stop ? { ok: false, stop } : { ok: true, target: read };
  }
  
-@@ -1288,7 +1285,7 @@ export function install(options: StateOptions, seams: Seams) {
-       ok: true,
-       held: admitted.held,
-       operations: admitted.operations,
--      target: leased.target,
-+      target,
-       release: () => {
-         leased.release();
-         admitted.release();
+@@ -2002,7 +1999,8 @@ export function install(options: StateOptions, seams: Seams) {
+             ? { kind: "owner-live" }
+             : { kind: "unavailable", reason: "lease-unreadable" },
+       };
+-    return caseRead(paths, request);
++    const read = caseRead(paths, request);
++    return read.ok ? { ok: true, target: found } : read;
+   }
+ 
+   async function admitClosure(

@@ -1,21 +1,20 @@
 diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
-index 18e87ed..a353c80 100644
 --- a/kernel/src/addons/state/install.ts
 +++ b/kernel/src/addons/state/install.ts
-@@ -490,6 +490,7 @@ async function caseUnderLease(
-       readonly release: () => void;
+@@ -1991,6 +1991,7 @@ export function install(options: StateOptions, seams: Seams) {
+       const moved = caseRead(paths, request);
+       return { ok: false, stop: moved.ok ? { kind: "not-found" } : moved.stop };
      }
- > {
-+  const cached = caseRead(paths, request);
-   await beforeLease();
-   const lease = paths.tryLock(
-     join(paths.operation(request.operationId), "owner.lease"),
-@@ -501,7 +502,7 @@ async function caseUnderLease(
-       ok: false,
-       stop: { kind: "unavailable", reason: "lease-unreadable" },
-     };
--  const read = caseRead(paths, request);
-+  const read = cached;
-   if (!read.ok) {
-     lease.release();
-     return read;
++    const cached = caseRead(paths, request);
+     const leased = await acquireTargetLease(owner, paths, id, () =>
+       phase("closure-read"),
+     );
+@@ -2002,7 +2003,7 @@ export function install(options: StateOptions, seams: Seams) {
+             ? { kind: "owner-live" }
+             : { kind: "unavailable", reason: "lease-unreadable" },
+       };
+-    return caseRead(paths, request);
++    return cached;
+   }
+ 
+   async function admitClosure(

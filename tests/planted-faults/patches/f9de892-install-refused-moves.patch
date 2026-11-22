@@ -1,12 +1,11 @@
 diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
-index 30bb3d7..25b4198 100644
 --- a/kernel/src/addons/state/install.ts
 +++ b/kernel/src/addons/state/install.ts
-@@ -772,6 +772,7 @@ export function install(options: StateOptions, seams: Seams) {
-     };
-     const upgradeProblem = await upgradeStore(paths, phase);
-     const store = readStore(paths);
-+    if (store.ok) moveSettled(store.operations);
-     const refusal: Refusal | undefined = upgradeProblem
-       ? { kind: "unavailable", reason: upgradeProblem }
-       : !store.ok
+@@ -1186,6 +1186,7 @@ export function install(options: StateOptions, seams: Seams) {
+       if (!held.ok) return held;
+       const upgradeProblem = await upgradeStore(paths, phase);
+       const store = readStore(paths);
++      if (store.ok) moveSettled(store.operations);
+       const refusal: Refusal | undefined = upgradeProblem
+         ? { kind: "unavailable", reason: upgradeProblem }
+         : !store.ok

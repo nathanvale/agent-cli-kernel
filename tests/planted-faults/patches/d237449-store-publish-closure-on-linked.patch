@@ -1,0 +1,19 @@
+diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
+--- a/kernel/src/addons/state/store.ts
++++ b/kernel/src/addons/state/store.ts
+@@ -748,13 +748,10 @@ export function publishClosure(
+       if (Reflect.get(Object(error), "code") === "EEXIST") return "exists";
+       throw error;
+     } finally {
+-      try {
+-        if (linked) onLinked?.();
+-      } finally {
+-        rmSync(staged, { force: true });
+-      }
++      rmSync(staged, { force: true });
+     }
+     flushDirectory(paths.operation(closure.operationId));
++    if (linked) onLinked?.();
+     return "published";
+   });
+ }

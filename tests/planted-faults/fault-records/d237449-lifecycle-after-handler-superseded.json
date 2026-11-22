@@ -1,0 +1,7 @@
+{
+  "id": "d237449-lifecycle-after-handler-superseded",
+  "patch": "tests/planted-faults/patches/d237449-lifecycle-after-handler-superseded.patch",
+  "testFile": "tests/kernel/state/supersede-unresolved.test.ts",
+  "title": "^SU18d\\.unconfirmed-settlement-reports-superseded:",
+  "source": "d237449 fix(state): rebuild the supersedeUnresolved admission on one owner and one read"
+}

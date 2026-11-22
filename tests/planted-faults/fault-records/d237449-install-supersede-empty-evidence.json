@@ -1,0 +1,7 @@
+{
+  "id": "d237449-install-supersede-empty-evidence",
+  "patch": "tests/planted-faults/patches/d237449-install-supersede-empty-evidence.patch",
+  "testFile": "tests/kernel/state/supersede-unresolved.test.ts",
+  "title": "^SU06\\.free-lease-heals-and-moves-to-settled:",
+  "source": "d237449 fix(state): rebuild the supersedeUnresolved admission on one owner and one read"
+}

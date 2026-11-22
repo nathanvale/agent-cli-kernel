@@ -1,11 +1,11 @@
 diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
 --- a/kernel/src/addons/state/install.ts
 +++ b/kernel/src/addons/state/install.ts
-@@ -1131,7 +1131,6 @@
+@@ -1453,7 +1453,6 @@ export function install(options: StateOptions, seams: Seams) {
              : { kind: "unavailable", reason: `store-${fresh}` },
        };
-     if (
--      fresh.status !== "unresolved" ||
-       fresh.revision !== target.revision ||
-       !canSupersede(fresh, rule)
-     )
+     const eligible =
+-      fresh.status === "unresolved" &&
+       fresh.revision === candidate.revision &&
+       !fresh.recordHiddenInTornTail &&
+       !fresh.closureDamaged &&

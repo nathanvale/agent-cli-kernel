@@ -1,13 +1,12 @@
 diff --git a/kernel/src/kernel/index.ts b/kernel/src/kernel/index.ts
-index 7e5ce1e1..9df02be8 100644
 --- a/kernel/src/kernel/index.ts
 +++ b/kernel/src/kernel/index.ts
-@@ -287,8 +287,6 @@ export function contractFor<
-           path: "transaction",
-           reason: "a transaction on this run requires its proof",
-         } as const;
--      const superseded = issuedSuperseded(runId, spec.state);
--      if (superseded !== undefined) runFacts.superseded = superseded;
+@@ -274,7 +274,7 @@ export function contractFor<
+         path: "transaction",
+         reason: "a transaction on this run requires its proof",
+       } as const;
+-    if (typeof runId === "string") {
++    if (station.row.outcome !== "refused" && typeof runId === "string") {
+       const superseded = issuedSuperseded(runId, spec.state);
+       if (superseded !== undefined) runFacts.superseded = superseded;
      }
-     const message = Object.hasOwn(facts, "message")
-       ? Reflect.get(facts, "message")

@@ -1,15 +1,12 @@
 diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
 --- a/kernel/src/kernel/lifecycle.ts
 +++ b/kernel/src/kernel/lifecycle.ts
-@@ -382,10 +382,7 @@
+@@ -377,7 +377,7 @@ async function kernelResult(
      readonly summary?: StateObservation | undefined;
    } = {},
  ): Promise<Delivery> {
--  const superseded =
--    options.summary !== undefined
--      ? options.summary.superseded
--      : run.runtime.trustedSuperseded(run.runId);
-+  const superseded = options.summary?.superseded;
+-  const superseded = run.runtime.trustedSuperseded(run.runId);
++  const superseded: readonly string[] | undefined = undefined;
    const candidate = await run.runtime.buildKernelStation(
      { commandIdentity: identity, causeCode },
      {

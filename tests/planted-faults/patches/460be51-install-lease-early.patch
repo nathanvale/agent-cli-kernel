@@ -1,16 +1,17 @@
 diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
-index d50d835..dad6a2b 100644
 --- a/kernel/src/addons/state/install.ts
 +++ b/kernel/src/addons/state/install.ts
-@@ -836,10 +836,10 @@ export function install(options: StateOptions, seams: Seams) {
-       recording.confirmed,
-       recording.started,
-     );
-+    held.releaseLease();
-     finish(held.events, observation);
-     active.delete(runId);
-     held.releaseKeyLocks();
--    held.releaseLease();
-     return { observation, workFailed };
+@@ -1399,12 +1399,12 @@ export function install(options: StateOptions, seams: Seams) {
+         recording.confirmed,
+         recording.started,
+       );
++      held.releaseLease();
+       finish(held.events, observation);
+       return { observation, workFailed };
+     } finally {
+       active.delete(runId);
+       held.releaseKeyLocks();
+-      held.releaseLease();
+     }
    }
  

@@ -1,25 +1,21 @@
 diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
-index 18e87ed..ba5065c 100644
 --- a/kernel/src/addons/state/install.ts
 +++ b/kernel/src/addons/state/install.ts
-@@ -490,6 +490,8 @@ async function caseUnderLease(
-       readonly release: () => void;
+@@ -1991,6 +1991,8 @@ export function install(options: StateOptions, seams: Seams) {
+       const moved = caseRead(paths, request);
+       return { ok: false, stop: moved.ok ? { kind: "not-found" } : moved.stop };
      }
- > {
-+  const read = caseRead(paths, request);
-+  if (!read.ok) return read;
-   await beforeLease();
-   const lease = paths.tryLock(
-     join(paths.operation(request.operationId), "owner.lease"),
-@@ -501,11 +503,6 @@ async function caseUnderLease(
-       ok: false,
-       stop: { kind: "unavailable", reason: "lease-unreadable" },
-     };
--  const read = caseRead(paths, request);
--  if (!read.ok) {
--    lease.release();
--    return read;
--  }
-   return { ok: true, target: read.target, release: lease.release };
- }
++    const read = caseRead(paths, request);
++    if (!read.ok) return read;
+     const leased = await acquireTargetLease(owner, paths, id, () =>
+       phase("closure-read"),
+     );
+@@ -2002,7 +2004,7 @@ export function install(options: StateOptions, seams: Seams) {
+             ? { kind: "owner-live" }
+             : { kind: "unavailable", reason: "lease-unreadable" },
+       };
+-    return caseRead(paths, request);
++    return read;
+   }
  
+   async function admitClosure(

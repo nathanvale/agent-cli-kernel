@@ -1,5 +1,4 @@
 diff --git a/kernel/src/kernel/index.ts b/kernel/src/kernel/index.ts
-index 7e5ce1e1..e18d4ea4 100644
 --- a/kernel/src/kernel/index.ts
 +++ b/kernel/src/kernel/index.ts
 @@ -241,8 +241,8 @@ export function contractFor<
@@ -13,17 +12,14 @@ index 7e5ce1e1..e18d4ea4 100644
        proof.transactionState !== station.row.transactionState
      )
        return {
-@@ -280,8 +280,11 @@ export function contractFor<
-     ) {
+@@ -266,8 +266,8 @@ export function contractFor<
        const problem = applyTransactionProof(runFacts, facts, runId, station);
        if (problem) return problem;
--    } else if (command.effectClass !== "inspect" && typeof runId === "string") {
--      if (!proofFreeResultAllowed(runId, spec.state))
-+    } else if (
-+      command.effectClass !== "inspect" &&
-+      typeof facts.runId === "string"
-+    ) {
-+      if (!proofFreeResultAllowed(facts.runId, spec.state))
-         return {
-           ok: false,
-           path: "transaction",
+     } else if (
+-      typeof runId === "string" &&
+-      !proofFreeResultAllowed(runId, spec.state)
++      typeof facts.runId === "string" &&
++      !proofFreeResultAllowed(facts.runId, spec.state)
+     )
+       return {
+         ok: false,

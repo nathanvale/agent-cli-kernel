@@ -1,0 +1,12 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -513,7 +513,7 @@ async function acquireTargetLease(
+   );
+   switch (attempt.kind) {
+     case "held":
+-      return { ok: true, release: owner.holdTargetLease(attempt.release) };
++      return { ok: true, release: attempt.release };
+     case "busy":
+       return { ok: false, kind: "busy" };
+     case "failed":

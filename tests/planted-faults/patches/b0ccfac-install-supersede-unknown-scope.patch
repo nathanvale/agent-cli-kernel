@@ -1,14 +1,12 @@
 diff --git a/kernel/src/addons/state/scope.ts b/kernel/src/addons/state/scope.ts
 --- a/kernel/src/addons/state/scope.ts
 +++ b/kernel/src/addons/state/scope.ts
-@@ -183,8 +183,8 @@
-   superset: readonly string[] | undefined,
-   subset: readonly string[] | undefined,
+@@ -334,7 +334,7 @@ export function coversDeclaredResources(
  ): boolean {
--  if (superset === undefined || subset === undefined || subset.length === 0)
--    return false;
-+  if (superset === undefined || subset === undefined) return true;
-+  if (subset.length === 0) return false;
-   const set = new Set(superset);
-   return subset.every((key) => set.has(key));
+   const wider = declaredScopeTokens(superset);
+   const narrower = declaredScopeTokens(subset);
+-  if (!wider || !narrower || narrower.size === 0) return false;
++  if (!wider || !narrower || narrower.size === 0) return true;
+   for (const token of narrower) if (!wider.has(token)) return false;
+   return true;
  }

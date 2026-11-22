@@ -1,7 +1,0 @@
-{
-  "id": "2f0d4b9-state-seam-superseded-freeze",
-  "patch": "tests/planted-faults/patches/2f0d4b9-state-seam-superseded-freeze.patch",
-  "testFile": "tests/kernel/state-seam.test.ts",
-  "title": "^transactionProof freezes superseded and rejects empty, unsorted, or duplicate superseded lists$",
-  "source": "2f0d4b9 fix(state): read the declaration once and report every superseded case on every path"
-}

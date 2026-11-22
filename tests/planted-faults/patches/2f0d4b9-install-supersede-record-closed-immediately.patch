@@ -1,12 +1,11 @@
 diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
 --- a/kernel/src/addons/state/install.ts
 +++ b/kernel/src/addons/state/install.ts
-@@ -1497,7 +1497,7 @@
-     let closed: Awaited<ReturnType<typeof publishSupersedeClosures>>;
-     try {
-       closed = await publishSupersedeClosures(targets, runId, (id) => {
--        issuer.superseded(runId, id);
-+        void id;
-       });
-     } catch (error) {
-       finish(opened.events, unchangedObservation(declared));
+@@ -1588,7 +1588,6 @@ export function install(options: StateOptions, seams: Seams) {
+         const id = entry.target.intent.operationId;
+         const problem = await publishOneSupersedeClosure(entry, runId, () => {
+           ids.push(id);
+-          issuer.superseded(runId, id);
+         });
+         if (problem) {
+           settleUnusedIntent(runId, opened.events, declared);

@@ -1,0 +1,12 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1755,7 +1755,7 @@ export function install(options: StateOptions, seams: Seams) {
+       };
+       return issuer.transactionProof(runId, observation);
+     } finally {
+-      owner.releaseAll();
++      void owner;
+     }
+   }
+ 
