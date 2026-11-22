@@ -1,0 +1,7 @@
+{
+  "id": "e7f7d94-scope-once-reader-own",
+  "patch": "tests/planted-faults/patches/e7f7d94-scope-once-reader-own.patch",
+  "testFile": "tests/kernel/state/supersede-admission.test.ts",
+  "title": "^SU20\\.proxy-read-count-once:",
+  "source": "e7f7d94 fix(state): read each distinct caller object once across flagged snapshots"
+}

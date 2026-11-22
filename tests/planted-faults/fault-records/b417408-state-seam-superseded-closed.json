@@ -1,0 +1,7 @@
+{
+  "id": "b417408-state-seam-superseded-closed",
+  "patch": "tests/planted-faults/patches/b417408-state-seam-superseded-closed.patch",
+  "testFile": "tests/kernel/state/supersede-admission.test.ts",
+  "title": "^SU25\\.deadline-sweep-no-closure-after-answer:",
+  "source": "b417408 fix(state): refuse supersede closure links once the run answer is committed"
+}
