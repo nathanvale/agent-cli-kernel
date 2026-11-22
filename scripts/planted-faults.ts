@@ -18,6 +18,7 @@ import {
 } from "./planted-fault-patch.ts";
 import { recordFiles, type RecordEntry } from "./planted-fault-folders.ts";
 import { faultsInShard } from "./planted-fault-shards.ts";
+import { snapshotWorkingTree } from "./planted-fault-snapshot.ts";
 import {
   runWithOwnTools,
   startChild,
@@ -51,12 +52,6 @@ const active: { stop?: () => void; stoppedBy?: (typeof signals)[number] } = {};
 const stepLimitVariable = "FAULT_REPLAY_STEP_SECONDS";
 const defaultStepLimitSeconds = 300;
 const gitMilliseconds = 4_000;
-const snapshotAuthor = {
-  GIT_AUTHOR_NAME: "fault-replay",
-  GIT_AUTHOR_EMAIL: "fault-replay@localhost",
-  GIT_COMMITTER_NAME: "fault-replay",
-  GIT_COMMITTER_EMAIL: "fault-replay@localhost",
-};
 
 function print(line: string): void {
   process.stdout.write(`${line}\n`);
@@ -144,23 +139,8 @@ export function readRecords(root: string): Fault[] {
   );
 }
 
-function commitWorkingTreeInScratchIndex(root: string): string {
-  const folder = mkdtempSync(join(tmpdir(), "fault-replay-index-"));
-  try {
-    const env = { GIT_INDEX_FILE: join(folder, "index") };
-    gitOrThrow(root, ["read-tree", "HEAD"], env);
-    gitOrThrow(root, ["add", "--all"], env);
-    const tree = gitOrThrow(root, ["write-tree"], env).trim();
-    if (tree === gitOrThrow(root, ["rev-parse", "HEAD^{tree}"]).trim())
-      return gitOrThrow(root, ["rev-parse", "HEAD"]).trim();
-    return gitOrThrow(
-      root,
-      ["commit-tree", tree, "-p", "HEAD", "-m", "fault-replay: working tree"],
-      snapshotAuthor,
-    ).trim();
-  } finally {
-    rmSync(folder, { recursive: true, force: true });
-  }
+export function commitWorkingTreeInScratchIndex(root: string): string {
+  return snapshotWorkingTree(root, gitOrThrow);
 }
 
 export function stepLimitMilliseconds(

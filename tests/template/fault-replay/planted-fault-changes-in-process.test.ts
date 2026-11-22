@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  commitWorkingTreeInScratchIndex,
   type Fault,
   faultsTouchedSince,
 } from "../../../scripts/planted-faults.ts";
@@ -214,6 +215,73 @@ deleted file mode 100644
       await rejection(isolated(() => faultsTouchedSince(root, "no-such-base"))),
     ).toBe(
       "no-such-base is not a commit in this repository. Repair: pass a commit or branch, such as origin/main.",
+    );
+  });
+});
+
+describe("commitWorkingTreeInScratchIndex", () => {
+  test("returns HEAD on a clean working tree without running git add or read-tree", () => {
+    const { root } = planted();
+    if (gitOutput(root, "status", "--porcelain=v1") !== "") {
+      gitOutput(root, "add", "--all");
+      gitOutput(root, "commit", "--quiet", "-m", "record fixture");
+    }
+    expect(gitOutput(root, "status", "--porcelain=v1")).toBe("");
+    const expected = headOf(root);
+    const real = Bun.which("git");
+    if (real === null) throw new Error("No git on PATH.");
+    const tools = folder("planted-faults-clean-snapshot-");
+    writeFileSync(
+      join(tools, "git"),
+      `#!/bin/sh\nif [ "$1" = add ] || [ "$1" = read-tree ]; then echo "unexpected git $1 on clean tree" >&2; exit 99; fi\nexec '${real}' "$@"\n`,
+      { mode: 0o755 },
+    );
+    const path = process.env.PATH;
+    process.env.PATH = `${tools}:${path}`;
+    try {
+      expect(commitWorkingTreeInScratchIndex(root)).toBe(expected);
+    } finally {
+      process.env.PATH = path;
+    }
+  });
+
+  test("snapshots dirty and untracked files using the stat-cached index without mutating the caller index", () => {
+    const { root } = planted();
+    const base = headOf(root);
+    write(root, "src/limit.ts", "export const limit = 99;\n");
+    write(root, "untracked.txt", "hello\n");
+    const statusBefore = gitOutput(
+      root,
+      "status",
+      "--porcelain=v1",
+      "--untracked-files=all",
+    );
+
+    const snapshot = commitWorkingTreeInScratchIndex(root);
+    expect(snapshot).not.toBe(base);
+    expect(gitOutput(root, "show", `${snapshot}:src/limit.ts`)).toBe(
+      "export const limit = 99;\n",
+    );
+    expect(gitOutput(root, "show", `${snapshot}:untracked.txt`)).toBe(
+      "hello\n",
+    );
+    expect(
+      gitOutput(root, "status", "--porcelain=v1", "--untracked-files=all"),
+    ).toBe(statusBefore);
+  });
+
+  test("falls back to read-tree HEAD when the index file is absent", () => {
+    const { root } = planted();
+    const indexPath = join(
+      root,
+      gitOutput(root, "rev-parse", "--git-path", "index").trim(),
+    );
+    rmSync(indexPath);
+    write(root, "untracked.txt", "from-missing-index\n");
+
+    const snapshot = commitWorkingTreeInScratchIndex(root);
+    expect(gitOutput(root, "show", `${snapshot}:untracked.txt`)).toBe(
+      "from-missing-index\n",
     );
   });
 });
