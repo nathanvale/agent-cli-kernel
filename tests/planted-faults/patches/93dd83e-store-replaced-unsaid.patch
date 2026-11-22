@@ -1,12 +1,12 @@
-diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
-index a056567..0e37b32 100644
---- a/kernel/src/addons/state/store.ts
-+++ b/kernel/src/addons/state/store.ts
-@@ -149,7 +149,6 @@ export async function upgradeStore(
-     await phase("upgraded");
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1236,7 +1236,7 @@ export function install(options: StateOptions, seams: Seams) {
+     try {
+       await phase("upgraded");
+     } catch {
+-      return "store-upgrade-unconfirmed";
++      return "store-upgrade";
+     }
      return undefined;
-   } catch {
--    if (replaced) return "store-upgrade-unconfirmed";
-     removeStaged(staged);
-     return "store-upgrade";
    }
