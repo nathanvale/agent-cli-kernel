@@ -60,6 +60,21 @@ gates and their witnesses.
   and a file fallow does not count as runtime, because no entry point
   reaches it or `.fallowrc.json` ignores it.
 
+## Process lint
+
+- Lint `repository/tests-use-bounded-runner` refuses `Bun.spawn`,
+  `Bun.spawnSync`, and `node:child_process` (`spawn`, `spawnSync`, `exec`,
+  `execSync`, `execFile`, `execFileSync`, `fork`) in `tests/`, outside the
+  three bounded runner owners: `tests/support/process.ts`,
+  `tests/kernel/kernel-repair/swarm-process.ts` and
+  `tests/kernel/lifecycle/harness.ts`.
+- It traces each callee through named, renamed, default and namespace imports,
+  `require()`, `import()`, destructuring, aliases, computed string keys and
+  type wrappers.
+- Review only: test timeouts covering the sum of sequential child bounds,
+  teardown release order, process-group `SIGKILL`, and calls reached through
+  dynamic keys or helper wrappers passed as parameters.
+
 ## Timer lint
 
 - Lint `repository/tests-no-sleep` refuses, in `tests/`: `Bun.sleep` and
@@ -85,6 +100,25 @@ gates and their witnesses.
   resolves another way (`r.bind(null)`, `() => void r()`, `(r(), 0)`, a
   body of more than one statement), and a timer reached through `window`,
   `Bun.setTimeout` or a computed key.
+
+## Fake-tool lint
+
+- Lint `repository/tests-stub-tools` refuses `symlink`, `symlinkSync`,
+  `link`, `linkSync`, `copyFile` and `copyFileSync` from `node:fs`, `fs`,
+  `node:fs/promises`, `fs/promises`, or `fs.promises` in
+  `tests/**/*.{ts,mts,cts}` (both template and kernel test suites) when the
+  first argument folds to a static POSIX path under `/bin/`, `/usr/bin/`,
+  `/usr/local/bin/`, `/sbin/`, `/usr/sbin/` or `/usr/local/sbin/` (after
+  `path.posix.normalize`).
+- The rule traces named, renamed, default or namespace imports,
+  `fs.promises` / `import { promises } from "node:fs"`, destructuring
+  (including `{ default: fs }`), `require()`, `import()`, static string /
+  template-literal / `const`-identifier computed keys, and static `+` /
+  interpolated template / `const` string targets.
+- Review only: `.mjs` and `.js` test files, target paths built at run time
+  or passed through helper parameters (`path.join(...)`, `new URL("file:...")`),
+  `.call`/`.apply`/`.bind` invocations, and shell `ln`/`cp` commands inside
+  child processes.
 
 ## Untrusted-value lints
 
@@ -165,5 +199,5 @@ file extensions in those directories.
   `config/kernel-repository-lint.mjs`.
 - `kernel/config/kernel/` reaches generated repositories in the installed
   kernel, so it holds only the rules `kernelLint` turns on. The kernel
-  repository's own lint rules, `no-comments` and the three test lint rules,
+  repository's own lint rules, `no-comments` and the test lint rules,
   live in `config/kernel-repository-rules.mjs`.

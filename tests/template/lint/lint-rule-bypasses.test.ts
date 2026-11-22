@@ -268,6 +268,61 @@ const bypasses = [
   ],
   ["no-host-path-literal", 'const stub = "#!/bin/sh\\nexit 0\\n";', undefined],
   ["no-host-path-literal", 'const page = "/homepage";', undefined],
+  [
+    "tests-use-bounded-runner",
+    'Bun.spawn(["git", "status"]);',
+    "Bun.spawn() starts a child process outside a bounded runner",
+  ],
+  [
+    "tests-use-bounded-runner",
+    'Bun["spawnSync"](["git", "status"]);',
+    "Bun.spawnSync() starts a child process outside a bounded runner",
+  ],
+  [
+    "tests-use-bounded-runner",
+    'Bun[`spawn`](["git", "status"]);',
+    "Bun.spawn() starts a child process outside a bounded runner",
+  ],
+  [
+    "tests-use-bounded-runner",
+    'const { [`spawn`]: run } = Bun;\nrun(["git", "status"]);',
+    "Bun.spawn() starts a child process outside a bounded runner",
+  ],
+  [
+    "tests-use-bounded-runner",
+    'globalThis.Bun.spawn(["git", "status"]);',
+    "Bun.spawn() starts a child process outside a bounded runner",
+  ],
+  [
+    "tests-use-bounded-runner",
+    'const { Bun: runtime } = globalThis;\nruntime.spawnSync(["git", "status"]);',
+    "Bun.spawnSync() starts a child process outside a bounded runner",
+  ],
+  [
+    "tests-use-bounded-runner",
+    'import { spawnSync as run } from "node:child_process";\nrun("git");',
+    "child_process.spawnSync() starts a child process outside a bounded runner",
+  ],
+  [
+    "tests-use-bounded-runner",
+    'import { default as cp } from "node:child_process";\ncp.exec("git");',
+    "child_process.exec() starts a child process outside a bounded runner",
+  ],
+  [
+    "tests-use-bounded-runner",
+    'const { default: cp } = await import("node:child_process");\ncp.spawn("git");',
+    "child_process.spawn() starts a child process outside a bounded runner",
+  ],
+  [
+    "tests-use-bounded-runner",
+    'const { fork } = require("child_process");\nfork("worker.js");',
+    "child_process.fork() starts a child process outside a bounded runner",
+  ],
+  [
+    "tests-use-bounded-runner",
+    'const Bun = { spawn: (cmd: string[]) => cmd };\nBun.spawn(["git"]);',
+    undefined,
+  ],
 ] as const;
 
 for (const [rule, code, fix] of bypasses)
@@ -360,6 +415,18 @@ test("tests-use-test-folder admits the folder calls inside its owner module", as
       "tests/support/test-folder.ts",
       await Bun.file(
         resolve(import.meta.dir, "../../support/test-folder.ts"),
+      ).text(),
+    ),
+  ).toEqual([]);
+});
+
+test("tests-use-bounded-runner admits child spawns inside its template owner module", async () => {
+  expect(
+    await hits(
+      "tests-use-bounded-runner",
+      "tests/support/process.ts",
+      await Bun.file(
+        resolve(import.meta.dir, "../../support/process.ts"),
       ).text(),
     ),
   ).toEqual([]);

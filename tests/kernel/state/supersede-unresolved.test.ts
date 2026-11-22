@@ -59,6 +59,7 @@ import {
   unchanged,
 } from "../kernel-repair/shapes.ts";
 import { testFolder } from "../../support/test-folder.ts";
+import { spawnBounded } from "../kernel-repair/swarm-process.ts";
 import { readOperations, supportingTest } from "./harness.ts";
 
 const causes = {
@@ -930,10 +931,10 @@ function testCandidateRow(
   };
 }
 
-function runCrashChild(
+async function runCrashChild(
   root: string,
   crashPhase: "staged" | "closure-staged",
-): number {
+): Promise<number> {
   const script = `
     import { changing, command, commonCauses, contractFor, runInProcess, station } from "./kernel/src/kernel/index.ts";
     import { stateAddonWithTestSeams } from "./kernel/src/addons/state/fixture.ts";
@@ -979,17 +980,11 @@ function runCrashChild(
     const contract = contractFor({ cli: "su", commands: [pending, actor], causes, state: state.descriptor, installedAddons: ["state"] });
     await runInProcess(contract, { emergencyRecord: state.emergencyRecord })(["open"]);
   `;
-  const ran = Bun.spawnSync(
+  const ran = await spawnBounded(
     [process.execPath, "--no-install", "-e", script, root, crashPhase],
-    {
-      cwd: process.cwd(),
-      stdout: "pipe",
-      stderr: "pipe",
-      timeout: 10_000,
-      killSignal: "SIGKILL",
-    },
+    { cwd: process.cwd(), boundMilliseconds: 10_000 },
   );
-  return ran.exitCode;
+  return ran.exit;
 }
 
 supportingTest(
@@ -1173,7 +1168,7 @@ supportingTest(
     const root = stateRoot();
     const oldId = await seedUnresolved(root);
 
-    expect(runCrashChild(root, "staged")).toBe(99);
+    expect(await runCrashChild(root, "staged")).toBe(99);
     expect(existsSync(join(root, "operations", oldId, "closure"))).toBe(false);
     const blockedAfterStaged = await runHost({ root });
     expect(blockedAfterStaged.outcome).toMatchObject({
@@ -1181,7 +1176,7 @@ supportingTest(
       operationId: oldId,
     });
 
-    expect(runCrashChild(root, "closure-staged")).toBe(99);
+    expect(await runCrashChild(root, "closure-staged")).toBe(99);
     expect(existsSync(join(root, "operations", oldId, "closure"))).toBe(false);
     const afterCrash = stateAddon({ root, report: "su.pending" }).report();
     expect(afterCrash.ok).toBe(true);

@@ -52,6 +52,7 @@ import {
 } from "../kernel-repair/shapes.ts";
 import { testFolder } from "../../support/test-folder.ts";
 import { supportingTest } from "./harness.ts";
+import { spawnBounded } from "../kernel-repair/swarm-process.ts";
 
 const causes = {
   DOMAIN_SU_LOCK_HELD: refusedHandoff,
@@ -1143,11 +1144,11 @@ supportingTest(
   },
 );
 
-function killSupersedeChild(
+async function killSupersedeChild(
   root: string,
   targetPhase: "closure-staged" | "closure-published" | "before-first-effect",
   nth: number,
-): number | null {
+): Promise<number | null> {
   const script = `
     import { changing, command, commonCauses, contractFor, runInProcess, station } from "./kernel/src/kernel/index.ts";
     import { stateAddonWithTestSeams } from "./kernel/src/addons/state/fixture.ts";
@@ -1198,7 +1199,7 @@ function killSupersedeChild(
     const contract = contractFor({ cli: "su", commands: [pending, actor], causes, state: state.descriptor, installedAddons: ["state"] });
     await runInProcess(contract, { emergencyRecord: state.emergencyRecord })(["open"]);
   `;
-  const ran = Bun.spawnSync(
+  const ran = await spawnBounded(
     [
       process.execPath,
       "--no-install",
@@ -1208,15 +1209,9 @@ function killSupersedeChild(
       targetPhase,
       String(nth),
     ],
-    {
-      cwd: process.cwd(),
-      stdout: "pipe",
-      stderr: "pipe",
-      timeout: 10_000,
-      killSignal: "SIGKILL",
-    },
+    { cwd: process.cwd(), boundMilliseconds: 10_000 },
   );
-  return ran.exitCode;
+  return ran.signal === undefined ? ran.exit : null;
 }
 
 supportingTest(
@@ -1248,7 +1243,11 @@ supportingTest(
     for (const boundary of boundaries) {
       const root = stateRoot();
       const seeded = await seedTwoUnresolved(root);
-      const exitCode = killSupersedeChild(root, boundary.phase, boundary.nth);
+      const exitCode = await killSupersedeChild(
+        root,
+        boundary.phase,
+        boundary.nth,
+      );
       expect({ label: boundary.label, nonZero: exitCode !== 0 }).toEqual({
         label: boundary.label,
         nonZero: true,

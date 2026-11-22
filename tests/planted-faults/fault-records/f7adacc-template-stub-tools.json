@@ -1,0 +1,7 @@
+{
+  "id": "f7adacc-template-stub-tools",
+  "patch": "tests/planted-faults/patches/f7adacc-template-stub-tools.patch",
+  "testFile": "tests/template/lint/lint-rules.test.ts",
+  "title": "tests-stub-tools refuses the 3729f36 shape in tests/template/doctor/doctor.test.ts and names the fix",
+  "source": "f7adacc feat(lint): enforce repository/tests-stub-tools in template and kernel tests"
+}
