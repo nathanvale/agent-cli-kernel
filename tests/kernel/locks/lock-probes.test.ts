@@ -170,7 +170,7 @@ test(
 
 // Platform: The lint-view parser overflows its stack on the deep nesting in this
 // imported file and exits at once, while the sibling still instantiates a
-// 999-element tuple chain. Declaring global gives the crasher its own program.
+// 999-element tuple chain.
 const deep = {
   "deep.ts": `export const deep = ${"(".repeat(50_000)}1${")".repeat(50_000)};\n`,
 };

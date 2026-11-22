@@ -44,7 +44,6 @@ export type AttachedAddon<Capability> = {
   // declared budget. Resolves true only when every owned resource was observed
   // stopped; an attempt is never reported as termination.
   readonly settle: (limitMilliseconds?: number) => Promise<boolean>;
-  // Interface: Synchronous forced termination attempt with no waiting.
   readonly killNow: () => void;
   // Interface: Status seam (LIFE-7 step 1, DIAG-14). Offered only by an add-on whose
   // RunAddon sets `reportsStatus`. Called at most once, after the domain
@@ -69,12 +68,6 @@ export type EmergencyFacts = {
   readonly phase: "preparing" | "handler-entered" | "emitting" | "drained";
 };
 
-// Interface: What one in-process run returns instead of writing it. `envelope` is the
-// one validated envelope machine mode would write, `no-envelope` is a run whose
-// fallback also failed, and `stopped` is a run a stop signal ended or a call
-// made after one, which never ran. A run that fails inside the kernel rejects
-// instead, after it is aborted and its owned programs and emergency record are
-// attempted.
 export type InProcessResult =
   | {
       readonly kind: "envelope";
@@ -99,34 +92,9 @@ export type RunSetup = {
   readonly addons?: {
     readonly [K in CapabilityAddonName]?: RunAddon<CapabilityFor[K]>;
   };
-  // Interface: At most one bounded synchronous recording attempt on a catchable crash
-  // (LIFE-6a). The state add-on supplies it; without one nothing is written.
   readonly emergencyRecord?: (facts: EmergencyFacts) => void;
 };
 
-// Interface: Accepted decision (Nathan, 19 November 2026, 12:15 and 13:57
-// AEDT): after an uncaught error or unhandled rejection the kernel attempts to
-// kill every run's owned programs and writes its emergency records, then calls
-// `onCrash` once with the error, then exits 1 as soon as it settles or 450 ms
-// after the call. A throw or rejection changes nothing, a second crash during
-// the wait exits at once, and the kernel prints nothing.
-// Interface: Provisional reading, for Nathan: the 450 ms counts from before
-// the first `onCrash` call, and `onCrash` must not block, because the kernel
-// cannot interrupt synchronous work inside it. Each entry's `onCrash` is
-// called once, from that entry's first call on, and exit waits for all of
-// them; the host keeps one per distinct function, so reuse one function across
-// entries. The kernel stops programs and writes records inside the host's
-// crash handler, then aborts runs in flight, stops any program started since,
-// and calls every `onCrash` once that handler has returned. An error or stop signal that reaches the kernel
-// while it stops programs, writes records, aborts runs or calls `onCrash`
-// belongs to the first crash: it skips no record, no `onCrash` call and no
-// part of the wait. Once that wait has begun, a second crash or a stop signal
-// exits 1 at once. A crash decides the exit: a stop's own exit no longer
-// fires, and a call made during the wait never starts a run and stays pending
-// until exit. On Bun, an add-on's `killNow` or an emergency record that makes
-// an event listener throw on an uncaught error ends the process with a
-// printed error before `onCrash`, because Bun reports that error inside its
-// own uncaughtException handler, where the kernel cannot catch it.
 export type InProcessSetup = RunSetup & {
   readonly onCrash?: (error: unknown) => void | Promise<void>;
   readonly terminal?: TerminalAdapter;
