@@ -48,6 +48,21 @@ What the gates of the repository rows refuse and where, what stays with the revi
 - Witnessed: [b456208], [5cbff3a], [r4580070968], [r4580070979],
   [r4580077776], [r4606943328].
 
+## Failed reads
+
+- Shared script read predicates live in `scripts/read-file.ts`
+  (`errorCode`, `isAbsentError`, `isMissingDirectoryError`,
+  `readOptionalUtf8`, `readOptionalDirectory`), used by
+  `scripts/check-file-size.ts`, `scripts/planted-fault-folders.ts`, and
+  `scripts/planted-fault-patch.ts`.
+- Fault `a84ba6f-read-file-absent` treats every file-read error as absent;
+  fault `a84ba6f-read-file-missing-dir` treats every directory-read error as
+  absent; fault `a84ba6f-read-file-own-code` reads inherited prototype `code`
+  values. `tests/template/read-file/read-file.test.ts` kills all three.
+- Review only: readers outside those scripts (including `kernel/` and
+  `skills/`), git command exit-code checks, and required-input reads.
+- Witnessed: [ff852e8], [5048d5e], [0ab74b8].
+
 ## One owner
 
 - Lint `repository/tests-use-test-folder` refuses `tmpdir()`, `mkdtemp()`
@@ -103,3 +118,6 @@ when adding, fixing, or pruning a lint hit.
 [r4580070979]: https://github.com/nathanvale/bun-typescript-template/pull/6#discussion_r4580070979
 [r4580077776]: https://github.com/nathanvale/bun-typescript-template/pull/6#discussion_r4580077776
 [r4606943328]: https://github.com/nathanvale/bun-typescript-template/pull/80#discussion_r4606943328
+[ff852e8]: https://github.com/nathanvale/agent-cli-kernel/commit/ff852e8f0daed7dc23fc8b092043ab2ddff68c8d
+[5048d5e]: https://github.com/nathanvale/agent-cli-kernel/commit/5048d5e01932fa8ab9c177e351f33423cb507c1e
+[0ab74b8]: https://github.com/nathanvale/agent-cli-kernel/commit/0ab74b894857b6b741be277e2f2fd41764e96cd2

@@ -1,0 +1,7 @@
+{
+  "id": "a84ba6f-read-file-absent",
+  "patch": "tests/planted-faults/patches/a84ba6f-read-file-absent.patch",
+  "testFile": "tests/template/read-file/read-file.test.ts",
+  "title": "readOptionalUtf8 returns undefined only on absence and rethrows EISDIR and EACCES",
+  "source": "a84ba6f fix(scripts): share failed-read predicates and refuse non-absent read errors (GREEN)"
+}

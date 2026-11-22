@@ -1,0 +1,7 @@
+{
+  "id": "a84ba6f-read-file-missing-dir",
+  "patch": "tests/planted-faults/patches/a84ba6f-read-file-missing-dir.patch",
+  "testFile": "tests/template/read-file/read-file.test.ts",
+  "title": "readOptionalDirectory returns undefined only on ENOENT and rethrows ENOTDIR and EACCES",
+  "source": "a84ba6f fix(scripts): share failed-read predicates and refuse non-absent read errors (GREEN)"
+}
