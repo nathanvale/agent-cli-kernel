@@ -101,6 +101,7 @@
     "tests/kernel/state/transient.test.ts": 2181,
     "tests/kernel/static-controls.test.ts": 7886,
     "tests/kernel/stations.test.ts": 29,
+    "tests/kernel/strict-checks.test.ts": 1130,
     "tests/kernel/usage.test.ts": 2949,
     "tests/kernel/verify-skill/check-bounds.test.ts": 3119,
     "tests/kernel/verify-skill/document.test.ts": 15,

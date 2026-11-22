@@ -117,4 +117,13 @@ export default defineConfig(
   },
   ...kernel.map(withChainedTypeAssertions),
   ...verifySkill,
+  {
+    files: ["**/*.{ts,mts,cts}"],
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { args: "all", argsIgnorePattern: "^_" },
+      ],
+    },
+  },
 );

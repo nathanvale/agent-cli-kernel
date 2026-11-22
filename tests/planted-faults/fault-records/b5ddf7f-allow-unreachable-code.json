@@ -1,0 +1,7 @@
+{
+  "id": "b5ddf7f-allow-unreachable-code",
+  "patch": "tests/planted-faults/patches/b5ddf7f-allow-unreachable-code.patch",
+  "testFile": "tests/kernel/strict-checks.test.ts",
+  "title": "^allowUnreachableCode false refuses unreachable code after return under both compilers and admits reachable code$",
+  "source": "b5ddf7f chore(strict-checks): enforce allowUnreachableCode and underscore-prefixed unused parameters"
+}
