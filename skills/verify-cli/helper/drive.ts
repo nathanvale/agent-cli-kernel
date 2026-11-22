@@ -105,7 +105,6 @@ function stepText(value: unknown): string {
 export type Written = { readonly row: StepRow; readonly content: string };
 
 export async function keptStep(
-  place: VerificationRun,
   feature: string,
   step: ScenarioStep,
   ran: ProgramResult,
@@ -366,7 +365,6 @@ export function driveCommand(
                     terminationConfirmed: ran.terminationConfirmed,
                   });
                   const kept = await keptStep(
-                    place,
                     scenario.feature,
                     step,
                     ran,
