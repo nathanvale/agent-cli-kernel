@@ -42,6 +42,21 @@ What the gates of the test rows refuse and where, what stays with the reviewer, 
   record whose test title matches more tests than the planted fault reaches.
 - Witnessed: [d72cd9e], [640ba05].
 
+## Processes
+
+- Lint `repository/tests-use-bounded-runner` refuses direct `Bun.spawn`,
+  `Bun.spawnSync` and `child_process` process calls in `tests/`, outside the
+  three bounded runner owners (`tests/support/process.ts`,
+  `tests/kernel/kernel-repair/swarm-process.ts` and
+  `tests/kernel/lifecycle/harness.ts`). See
+  [the gate's coverage](gate-coverage.md#process-lint).
+- Fault `d7109e2-template-bounded-runner` drops `spawn` from the template
+  rule's `bunSpawns` set, and fault `d7109e2-kernel-bounded-runner` drops it
+  from the kernel rule's copy; each owner's lint case kills its fault.
+- Review only: test timeouts covering the sum of sequential child bounds,
+  teardown order, and process-group `SIGKILL`.
+- Witnessed: [9086c3b], [0ab74b8].
+
 ## Time
 
 - The lint catches delay-only waits. Review the timing controls
@@ -90,6 +105,8 @@ What the gates of the test rows refuse and where, what stays with the reviewer, 
 [7fb5649]: https://github.com/nathanvale/agent-cli-kernel/commit/7fb564900cff191397fdc8d1ba6f20e6807abdde
 [ef76011]: https://github.com/nathanvale/agent-cli-kernel/commit/ef76011bdde8d36064b73bd85550d8efc7fb15a6
 [c02caae]: https://github.com/nathanvale/agent-cli-kernel/commit/c02caae41a3100ab2c8d5272d21a60acb7a0b992
+[9086c3b]: https://github.com/nathanvale/agent-cli-kernel/commit/9086c3b8b14bcba376aa63027abdd817c1495e53
+[0ab74b8]: https://github.com/nathanvale/agent-cli-kernel/commit/0ab74b894857b6b741be277e2f2fd41764e96cd2
 [#91-timings]: https://github.com/nathanvale/bun-typescript-template/pull/91#discussion_r4607696012
 [#99-timings]: https://github.com/nathanvale/bun-typescript-template/pull/99#discussion_r4608746456
 [#99-shards]: https://github.com/nathanvale/bun-typescript-template/pull/99#discussion_r4608771631
