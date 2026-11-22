@@ -1,0 +1,18 @@
+diff --git a/scripts/planted-fault-snapshot.ts b/scripts/planted-fault-snapshot.ts
+--- a/scripts/planted-fault-snapshot.ts
++++ b/scripts/planted-fault-snapshot.ts
+@@ -40,14 +40,6 @@ function seedScratchIndex(
+ }
+ 
+ export function snapshotWorkingTree(root: string, gitOrThrow: RunGit): string {
+-  if (
+-    gitOrThrow(root, [
+-      "status",
+-      "--porcelain=v1",
+-      "--untracked-files=normal",
+-    ]) === ""
+-  )
+-    return gitOrThrow(root, ["rev-parse", "HEAD"]).trim();
+   const folder = mkdtempSync(join(tmpdir(), "fault-replay-index-"));
+   try {
+     const scratchIndex = join(folder, "index");
