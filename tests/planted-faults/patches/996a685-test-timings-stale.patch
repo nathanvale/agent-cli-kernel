@@ -1,0 +1,10 @@
+diff --git a/tests/test-timings.json b/tests/test-timings.json
+--- a/tests/test-timings.json
++++ b/tests/test-timings.json
+@@ -1,4 +1,5 @@
+ {
+   "version": 1,
+-  "files": {
++  "files": {
++    "tests/template/moved/stale-suite.test.ts": 27,
+     "tests/kernel/abort-core-dump.test.ts": 47,

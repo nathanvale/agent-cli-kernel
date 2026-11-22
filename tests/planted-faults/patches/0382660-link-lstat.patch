@@ -1,5 +1,4 @@
 diff --git a/scripts/glossary.ts b/scripts/glossary.ts
-index ee4bc7b..cf95356 100644
 --- a/scripts/glossary.ts
 +++ b/scripts/glossary.ts
 @@ -1,4 +1,4 @@
@@ -8,13 +7,13 @@ index ee4bc7b..cf95356 100644
  import { basename, dirname, join } from "node:path";
  
  export const recordedHitsFile = "tests/template/names-check/recorded-hits.json";
-@@ -263,8 +263,7 @@ function gitPaths(root: string, command: readonly string[]): string[] {
- // target is missing; lstatSync reads the link itself.
- function gitFiles(root: string): string[] {
-   return gitPaths(root, ["ls-files"]).filter(
--    (path) =>
--      lstatSync(join(root, path), { throwIfNoEntry: false }) !== undefined,
-+    (path) => existsSync(join(root, path)),
-   );
+@@ -282,8 +282,8 @@ function gitPaths(root: string, command: readonly string[]): string[] {
+     .filter((path) => path !== "");
  }
  
+ function trackedEntryExists(path: string): boolean {
+-  return lstatSync(path, { throwIfNoEntry: false }) !== undefined;
++  return existsSync(path);
+ }
+ 
+ function gitFiles(root: string): string[] {

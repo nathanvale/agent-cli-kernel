@@ -30,11 +30,7 @@ runFamily("R15", {
   "R15.member-order": () => expect(pairs().order).toBe(true),
   "R15.value-change": () => expect(pairs().changed).toBe(false),
   "R15.locale-independent": async () => {
-    // Platform: N2: Bun 1.4.4 keeps its default collation locale (en-US) whatever
-    // LC_ALL and LANG say, so varying them alone proves nothing. Each child
-    // therefore also replaces the runtime's collation with named locales, and
-    // asserts the replacement is in effect: a host without that locale data
-    // fails here instead of passing silently.
+    // Platform: Bun 1.4.4 keeps its default en-US collation locale regardless of LC_ALL or LANG.
     const module = resolve(
       import.meta.dir,
       "../../../kernel/src/kernel/validation/json-equality.ts",

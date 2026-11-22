@@ -282,12 +282,13 @@ function gitPaths(root: string, command: readonly string[]): string[] {
     .filter((path) => path !== "");
 }
 
-// Platform: existsSync follows a symlink, so it drops a tracked link whose
-// target is missing; lstatSync reads the link itself.
+function trackedEntryExists(path: string): boolean {
+  return lstatSync(path, { throwIfNoEntry: false }) !== undefined;
+}
+
 function gitFiles(root: string): string[] {
-  return gitPaths(root, ["ls-files"]).filter(
-    (path) =>
-      lstatSync(join(root, path), { throwIfNoEntry: false }) !== undefined,
+  return gitPaths(root, ["ls-files"]).filter((path) =>
+    trackedEntryExists(join(root, path)),
   );
 }
 

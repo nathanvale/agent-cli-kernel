@@ -1,0 +1,7 @@
+{
+  "id": "996a685-test-timings",
+  "patch": "tests/planted-faults/patches/996a685-test-timings.patch",
+  "testFile": "tests/template/standards/test-timings.test.ts",
+  "title": "^every test file has a timing entry in tests/test-timings\\.json and no stale timing key remains$",
+  "source": "996a685 test(standards): refresh tests/test-timings.json and gate timing key parity"
+}

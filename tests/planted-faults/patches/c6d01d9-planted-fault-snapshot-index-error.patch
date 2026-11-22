@@ -1,0 +1,11 @@
+diff --git a/scripts/planted-fault-snapshot.ts b/scripts/planted-fault-snapshot.ts
+--- a/scripts/planted-fault-snapshot.ts
++++ b/scripts/planted-fault-snapshot.ts
+@@ -34,7 +34,6 @@ function seedScratchIndex(
+   try {
+     copyFileSync(existing, scratchIndex);
+   } catch (error) {
+-    if (!isMissingEntryError(error)) throw error;
+     gitOrThrow(root, ["read-tree", "HEAD"], env);
+   }
+ }

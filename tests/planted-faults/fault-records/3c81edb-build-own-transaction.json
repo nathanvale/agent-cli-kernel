@@ -1,0 +1,7 @@
+{
+  "id": "3c81edb-build-own-transaction",
+  "patch": "tests/planted-faults/patches/3c81edb-build-own-transaction.patch",
+  "testFile": "tests/kernel/contract.test.ts",
+  "title": "^build ignores prototype-inherited run facts and reads own facts once$",
+  "source": "3c81edb fix(kernel): read run facts once as own properties in contract.build"
+}

@@ -42,30 +42,32 @@ export function ttyTerminalFor(io: TtyTerminalIo): TerminalAdapter {
     io.write(encoder.encode(text));
   }
 
+  function ignoreClosedTerminal(action: () => void): void {
+    try {
+      action();
+    } catch {
+      return;
+    }
+  }
+
   function leave(): void {
     const activeReader = reader;
     const wasEntered = entered;
     entered = false;
     lastLines = 0;
-    try {
+    ignoreClosedTerminal(() => {
       if (wasEntered) activeReader?.setRawMode(false);
-    } catch {
-      // Platform: Terminal restoration ignores a closed or revoked controlling tty.
-    }
-    try {
+    });
+    ignoreClosedTerminal(() => {
       if (wasEntered) io.write(encoder.encode("\x1b[?25h"));
-    } catch {
-      // Platform: Cursor restoration ignores a closed or revoked controlling tty.
-    }
-    try {
+    });
+    ignoreClosedTerminal(() => {
       // Platform: Reusing one paused, unref'd ReadStream across menus avoids
       // Bun 1.4.4's closeSync deadlock after destroy() and second-ReadStream
       // read starvation on /dev/tty.
       activeReader?.pause();
       activeReader?.unref();
-    } catch {
-      // Platform: Pausing a closed tty stream can fail after detach.
-    }
+    });
   }
 
   return {
@@ -99,11 +101,9 @@ export function ttyTerminalFor(io: TtyTerminalIo): TerminalAdapter {
             stream.off("end", finish);
             stream.off("close", finish);
             signal.removeEventListener("abort", finish);
-            try {
+            ignoreClosedTerminal(() => {
               stream.pause();
-            } catch {
-              // Platform: Pausing a closed tty stream can fail after detach.
-            }
+            });
             while (waiters.length > 0) {
               const resolve = waiters.shift();
               resolve?.({ done: true, value: undefined });

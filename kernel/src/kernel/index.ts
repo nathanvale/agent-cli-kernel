@@ -234,12 +234,15 @@ export function contractFor<
   function applyTransactionProof(
     runFacts: Record<string, unknown>,
     facts: Readonly<Record<string, unknown>>,
+    runId: unknown,
     station: DeclaredStation,
   ) {
-    const proof = facts.transaction;
+    const proof = Object.hasOwn(facts, "transaction")
+      ? Reflect.get(facts, "transaction")
+      : undefined;
     if (
-      typeof facts.runId !== "string" ||
-      !proofValue(proof, facts.runId, spec.state) ||
+      typeof runId !== "string" ||
+      !proofValue(proof, runId, spec.state) ||
       proof.transactionState !== station.row.transactionState
     )
       return {
@@ -269,27 +272,28 @@ export function contractFor<
       "idempotencyKey",
       "bindings",
     ])
-      if (key in facts) runFacts[key] = Reflect.get(facts, key);
+      if (Object.hasOwn(facts, key)) runFacts[key] = Reflect.get(facts, key);
+    const runId = runFacts.runId;
     if (
       command.effectClass !== "inspect" &&
       station.row.outcome !== "refused"
     ) {
-      const problem = applyTransactionProof(runFacts, facts, station);
+      const problem = applyTransactionProof(runFacts, facts, runId, station);
       if (problem) return problem;
-    } else if (
-      command.effectClass !== "inspect" &&
-      typeof facts.runId === "string"
-    ) {
-      if (!proofFreeResultAllowed(facts.runId, spec.state))
+    } else if (command.effectClass !== "inspect" && typeof runId === "string") {
+      if (!proofFreeResultAllowed(runId, spec.state))
         return {
           ok: false,
           path: "transaction",
           reason: "a transaction on this run requires its proof",
         } as const;
-      const superseded = issuedSuperseded(facts.runId, spec.state);
+      const superseded = issuedSuperseded(runId, spec.state);
       if (superseded !== undefined) runFacts.superseded = superseded;
     }
-    return assemble(command, station, runFacts, facts.message);
+    const message = Object.hasOwn(facts, "message")
+      ? Reflect.get(facts, "message")
+      : undefined;
+    return assemble(command, station, runFacts, message);
   }
 
   async function buildKernelStation(

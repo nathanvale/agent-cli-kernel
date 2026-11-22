@@ -44,7 +44,6 @@ export type AttachedAddon<Capability> = {
   // declared budget. Resolves true only when every owned resource was observed
   // stopped; an attempt is never reported as termination.
   readonly settle: (limitMilliseconds?: number) => Promise<boolean>;
-  // Interface: Synchronous forced termination attempt with no waiting.
   readonly killNow: () => void;
   // Interface: Status seam (LIFE-7 step 1, DIAG-14). Offered only by an add-on whose
   // RunAddon sets `reportsStatus`. Called at most once, after the domain

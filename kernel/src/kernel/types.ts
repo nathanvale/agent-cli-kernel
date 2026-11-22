@@ -159,10 +159,6 @@ export type RowGuidance<
           : CommandStep<Identity> | InstructionStep;
       readonly handoff?: never;
     };
-// Platform: RowResult distributes over its naked row parameter and then over the row's
-// transaction state, so a widened cause table (the CauseRow union, whose
-// success member allows two states) still yields one correlated result per
-// row and state (F14).
 export type RowResult<
   R extends CauseRow,
   K extends string,
