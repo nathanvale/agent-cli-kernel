@@ -31,6 +31,9 @@ Preconditions: a run folder from `launch`.
 }
 ```
 
+Without `--json`, `drive` prints its summary line followed by indented JSON
+data:
+
 ```text
 $ verify.ts drive <run folder> verify/scenarios/check-command.json
 1 steps met.

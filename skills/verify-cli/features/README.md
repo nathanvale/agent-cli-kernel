@@ -58,3 +58,6 @@ and `Gotchas`.
   approval without the state add-on refuses at start. Driven by `ready`.
 - [The check command](check-command.md): `bun run check` passes in the
   repository. Driven by a scenario.
+- [Kernel-free forensics](forensics.md): read-only inspection of a
+  verification run, state journal, diagnostics custody folder, or approval
+  store, even when the kernel cannot start. Driven by `forensics`.

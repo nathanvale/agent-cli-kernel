@@ -1,0 +1,12 @@
+diff --git a/skills/verify-cli/forensics/run.ts b/skills/verify-cli/forensics/run.ts
+--- a/skills/verify-cli/forensics/run.ts
++++ b/skills/verify-cli/forensics/run.ts
+@@ -136,7 +136,7 @@ function containedStepPath(
+ ):
+   | { readonly ok: true; readonly path: string }
+   | { readonly ok: false; readonly reason: string } {
+-  if (file.length === 0 || isAbsolute(file) || file.includes("\\"))
++  if (file.length === 0 || isAbsolute(file))
+     return { ok: false, reason: "step path must be relative inside evidence/" };
+   const segments = file.split("/");
+   if (segments.some((part) => part === "" || part === "." || part === ".."))

@@ -1,0 +1,16 @@
+diff --git a/skills/verify-cli/forensics/state.ts b/skills/verify-cli/forensics/state.ts
+--- a/skills/verify-cli/forensics/state.ts
++++ b/skills/verify-cli/forensics/state.ts
+@@ -466,11 +466,7 @@ function scanCaseBucket(
+   const entries = listed.names.map((name) =>
+     scanCaseEntry(folder, dirPath, name, readFile),
+   );
+-  const modeProblem = !privateModeOk(listed.stats)
+-    ? [
+-        `${folder}/ permissions/ownership failed private check (${formatMode(listed.stats)})`,
+-      ]
+-    : [];
++  const modeProblem: readonly string[] = [];
+   return {
+     cases: entries.flatMap((entry) =>
+       entry.report === undefined ? [] : [entry.report],
