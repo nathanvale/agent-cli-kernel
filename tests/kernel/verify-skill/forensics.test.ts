@@ -200,6 +200,8 @@ describe("kernel-free forensics in-process", () => {
     expect(caseA?.nextAction).toContain(
       "If the command declares supersedeUnresolved, its next run closes this case as outcome unknown",
     );
+    expect(caseA?.nextAction).toContain("supported local filesystem");
+    expect(caseA?.nextAction).toContain("unsupported filesystem refuses");
     expect(caseA?.nextAction).toContain(
       "only if the CLI offers a close command on a host qualified for it",
     );

@@ -23,7 +23,7 @@ import {
 
 const operationPattern = /^op-[0-9a-f]{32}$/;
 const unresolvedNextAction =
-  "Run the target CLI's ifNoResult command to see the operation and its scope, then check the affected resource by hand. If the command declares supersedeUnresolved, its next run closes this case as outcome unknown when the owner lease is free, the case is intact, and the new scope covers its conflict keys; otherwise close the case only if the CLI offers a close command on a host qualified for it, or it stays unresolved.";
+  "Run the target CLI's ifNoResult command to see the operation and its scope, then check the affected resource by hand. If the command declares supersedeUnresolved, its next run closes this case as outcome unknown when the state root sits on a supported local filesystem (an unsupported filesystem refuses), the owner lease is free, the case is intact, and the new scope covers its conflict keys; otherwise close the case only if the CLI offers a close command on a host qualified for it, or it stays unresolved.";
 
 function journalRevisionOf(
   intentBytes: Uint8Array,
