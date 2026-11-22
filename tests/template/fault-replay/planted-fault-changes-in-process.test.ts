@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  readFileSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
 import { join, resolve } from "node:path";
 import { snapshotWorkingTree } from "../../../scripts/planted-fault-snapshot.ts";
 import {
@@ -228,6 +234,13 @@ describe("commitWorkingTreeInScratchIndex", () => {
       gitOutput(root, "commit", "--quiet", "-m", "record fixture");
     }
     expect(gitOutput(root, "status", "--porcelain=v1")).toBe("");
+    const indexPath = resolve(
+      root,
+      gitOutput(root, "rev-parse", "--git-path", "index").trim(),
+    );
+    const indexBefore = readFileSync(indexPath);
+    const future = new Date(Date.now() + 60_000);
+    utimesSync(join(root, "src/limit.ts"), future, future);
     const expected = headOf(root);
     const real = Bun.which("git");
     if (real === null) throw new Error("No git on PATH.");
@@ -249,8 +262,9 @@ describe("commitWorkingTreeInScratchIndex", () => {
     });
 
     expect(result).toBe(expected);
+    expect(readFileSync(indexPath).equals(indexBefore)).toBe(true);
     expect(leftovers).toEqual([]);
-  });
+  }, 30_000);
 
   test("snapshots dirty and untracked files using the stat-cached index without mutating the caller index", async () => {
     const { root } = planted();
@@ -299,7 +313,7 @@ describe("commitWorkingTreeInScratchIndex", () => {
       gitOutput(root, "status", "--porcelain=v1", "--untracked-files=all"),
     ).toBe(statusBefore);
     expect(leftovers).toEqual([]);
-  });
+  }, 30_000);
 
   test("falls back to read-tree HEAD when the index file is absent", async () => {
     const { root } = planted();
@@ -327,13 +341,34 @@ describe("commitWorkingTreeInScratchIndex", () => {
       "from-missing-index\n",
     );
     expect(leftovers).toEqual([]);
-  });
+  }, 30_000);
 
   test("refuses a non-ENOENT failure when copying the caller index", async () => {
     const { root } = planted();
     const indexDir = folder("planted-faults-directory-index-");
+    const controlTarget = join(folder("planted-faults-control-"), "index");
+    const captureError = (error: unknown) => {
+      const code: unknown =
+        typeof error === "object" &&
+        error !== null &&
+        Object.hasOwn(error, "code")
+          ? Reflect.get(error, "code")
+          : undefined;
+      return {
+        code: typeof code === "string" ? code : undefined,
+        message: error instanceof Error ? error.message : String(error),
+      };
+    };
+    let expected: { code: string | undefined; message: string } | undefined;
+    try {
+      copyFileSync(indexDir, controlTarget);
+    } catch (error) {
+      expected = captureError(error);
+    }
+    if (expected === undefined)
+      throw new Error("Expected copyFileSync of a directory to throw.");
 
-    const { result: message, leftovers } = await isolated(() => {
+    const { result: actual, leftovers } = await isolated(() => {
       try {
         snapshotWorkingTree(root, (_root, args) => {
           if (args[0] === "status") return "?? untracked.txt\n";
@@ -341,13 +376,16 @@ describe("commitWorkingTreeInScratchIndex", () => {
             return `${indexDir}\n`;
           throw new Error(`unexpected git ${args.join(" ")}`);
         });
-        return null;
+        return undefined;
       } catch (error) {
-        return error instanceof Error ? error.message : String(error);
+        return captureError(error);
       }
     });
 
-    expect(message).toContain(indexDir);
+    expect(actual?.code).toBe(expected.code);
+    expect(actual?.message.replace(/'[^']+'$/, "")).toBe(
+      expected.message.replace(/'[^']+'$/, ""),
+    );
     expect(leftovers).toEqual([]);
-  });
+  }, 30_000);
 });

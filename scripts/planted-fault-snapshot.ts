@@ -41,11 +41,9 @@ function seedScratchIndex(
 
 export function snapshotWorkingTree(root: string, gitOrThrow: RunGit): string {
   if (
-    gitOrThrow(root, [
-      "status",
-      "--porcelain=v1",
-      "--untracked-files=normal",
-    ]) === ""
+    gitOrThrow(root, ["status", "--porcelain=v1", "--untracked-files=normal"], {
+      GIT_OPTIONAL_LOCKS: "0",
+    }) === ""
   )
     return gitOrThrow(root, ["rev-parse", "HEAD"]).trim();
   const folder = mkdtempSync(join(tmpdir(), "fault-replay-index-"));
