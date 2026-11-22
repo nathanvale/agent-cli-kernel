@@ -82,8 +82,8 @@ export function pathKeys(
 ): readonly string[] | undefined {
   if (!isAbsolute(path) || depth > 32 || path.includes("\0")) return undefined;
   const target = resolve(path);
-  const real = attempt(() => realpathSync.native(target));
-  if (real.kind === "ok") return existingKeys(real.value);
+  const real = attempt(() => existingKeys(realpathSync.native(target)));
+  if (real.kind === "ok") return real.value;
   if (real.kind === "failed") return undefined;
   const link = linkTarget(target);
   if (link.kind === "failed") return undefined;
@@ -156,6 +156,130 @@ export function canonicalise(declaration: ScopeDeclaration): CanonicalScope {
   };
 }
 
+export type PlainResource =
+  | { readonly kind: "path"; readonly resource: string; readonly path: string }
+  | { readonly kind: "key"; readonly resource: string; readonly key: string };
+
+export type PlainScope =
+  | { readonly unknown: true }
+  | {
+      readonly unknown: false;
+      readonly resources: readonly PlainResource[];
+      readonly invariants: readonly string[];
+    };
+
+const plainUnknownScope: PlainScope = Object.freeze({ unknown: true });
+const emptyStrings: readonly string[] = Object.freeze([]);
+
+function ownField(source: object, key: string): unknown {
+  return Object.hasOwn(source, key) ? Reflect.get(source, key) : undefined;
+}
+
+function readPlainResource(raw: unknown): PlainResource | undefined {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw))
+    return undefined;
+  const resource = ownField(raw, "resource");
+  if (typeof resource !== "string") return undefined;
+  const hasPath = Object.hasOwn(raw, "path");
+  const hasKey = Object.hasOwn(raw, "key");
+  if (hasPath === hasKey) return undefined;
+  if (hasPath) {
+    const path = ownField(raw, "path");
+    return typeof path === "string"
+      ? Object.freeze({ kind: "path", resource, path })
+      : undefined;
+  }
+  const key = ownField(raw, "key");
+  return typeof key === "string"
+    ? Object.freeze({ kind: "key", resource, key })
+    : undefined;
+}
+
+function readPlainStrings(raw: unknown): readonly string[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: string[] = [];
+  const length = raw.length;
+  for (let index = 0; index < length; index += 1) {
+    const item = ownField(raw, String(index));
+    if (typeof item !== "string") return undefined;
+    out.push(item);
+  }
+  return Object.freeze(out);
+}
+
+export function readPlainScope(raw: unknown): PlainScope {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw))
+    return plainUnknownScope;
+  if (Object.hasOwn(raw, "unknown") && ownField(raw, "unknown") === true)
+    return plainUnknownScope;
+  const rawResources = ownField(raw, "resources");
+  if (!Array.isArray(rawResources) || rawResources.length === 0)
+    return plainUnknownScope;
+  const resources: PlainResource[] = [];
+  const length = rawResources.length;
+  for (let index = 0; index < length; index += 1) {
+    const item = readPlainResource(ownField(rawResources, String(index)));
+    if (!item) return plainUnknownScope;
+    resources.push(item);
+  }
+  const rawInvariants = ownField(raw, "invariants");
+  const invariants =
+    rawInvariants === undefined
+      ? emptyStrings
+      : readPlainStrings(rawInvariants);
+  if (invariants === undefined) return plainUnknownScope;
+  return Object.freeze({
+    unknown: false,
+    resources: Object.freeze(resources),
+    invariants,
+  });
+}
+
+function plainResourceKeys(
+  item: PlainResource,
+): CanonicalScope["resources"][number] | undefined {
+  if (!textPattern.test(item.resource)) return undefined;
+  if (item.kind === "path") {
+    const keys = pathKeys(item.path);
+    return keys
+      ? Object.freeze({
+          resource: item.resource,
+          path: item.path,
+          keys: Object.freeze([...keys]),
+        })
+      : undefined;
+  }
+  return textPattern.test(item.key)
+    ? Object.freeze({
+        resource: item.resource,
+        key: item.key,
+        keys: Object.freeze([`key:${item.key}`]),
+      })
+    : undefined;
+}
+
+export function canonicalisePlain(plain: PlainScope): CanonicalScope {
+  if (plain.unknown || plain.resources.length === 0) return unknownScope;
+  const resources = plain.resources.map(plainResourceKeys);
+  const invariants = Object.freeze([...new Set(plain.invariants)].sort());
+  const known = resources.flatMap((item) => (item ? [item] : []));
+  if (
+    known.length !== resources.length ||
+    !invariants.every((name) => textPattern.test(name))
+  )
+    return unknownScope;
+  const all = new Set([
+    ...known.flatMap((item) => item.keys),
+    ...invariants.map((name) => `invariant:${name}`),
+  ]);
+  return Object.freeze({
+    resources: Object.freeze(known),
+    invariants,
+    unknown: false,
+    keys: Object.freeze([...all].sort()),
+  });
+}
+
 export function currentKeys(
   scope: CanonicalScope,
 ): readonly string[] | undefined {
@@ -179,12 +303,38 @@ export function conflicts(
   return right.some((key) => set.has(key));
 }
 
-export function covers(
-  superset: readonly string[] | undefined,
-  subset: readonly string[] | undefined,
+function declaredResourceToken(
+  item: CanonicalScope["resources"][number],
+): string | undefined {
+  if (item.key !== undefined && item.path === undefined)
+    return JSON.stringify(["key", item.resource, item.key]);
+  if (item.path !== undefined && item.key === undefined)
+    return JSON.stringify(["path", item.resource, resolve(item.path)]);
+  return undefined;
+}
+
+function declaredScopeTokens(
+  scope: CanonicalScope,
+): ReadonlySet<string> | undefined {
+  if (scope.unknown || scope.resources.length === 0) return undefined;
+  const tokens = new Set<string>();
+  for (const item of scope.resources) {
+    const token = declaredResourceToken(item);
+    if (token === undefined) return undefined;
+    tokens.add(token);
+  }
+  for (const invariant of scope.invariants)
+    tokens.add(JSON.stringify(["invariant", invariant]));
+  return tokens;
+}
+
+export function coversDeclaredResources(
+  superset: CanonicalScope,
+  subset: CanonicalScope,
 ): boolean {
-  if (superset === undefined || subset === undefined || subset.length === 0)
-    return false;
-  const set = new Set(superset);
-  return subset.every((key) => set.has(key));
+  const wider = declaredScopeTokens(superset);
+  const narrower = declaredScopeTokens(subset);
+  if (!wider || !narrower || narrower.size === 0) return false;
+  for (const token of narrower) if (!wider.has(token)) return false;
+  return true;
 }

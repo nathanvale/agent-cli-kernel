@@ -16,7 +16,14 @@ import type {
 import { waitLock } from "./coordination.ts";
 import type { CoordinationRoute, LockAttempt } from "./coordination.ts";
 import type { CapabilityReport, Qualification } from "./qualification.ts";
-import { canonicalise, conflicts, covers, currentKeys } from "./scope.ts";
+import {
+  canonicalise,
+  canonicalisePlain,
+  conflicts,
+  coversDeclaredResources,
+  currentKeys,
+  readPlainScope,
+} from "./scope.ts";
 import type { CanonicalScope, ScopeDeclaration } from "./scope.ts";
 import {
   appendDelegateStart,
@@ -409,11 +416,6 @@ async function classify(
   return classes;
 }
 
-type Acquired = Extract<
-  Awaited<ReturnType<typeof acquire>>,
-  { readonly ok: true }
->;
-
 function closeRequestProblem(
   request: CloseRequest<string>,
   effect: string | undefined,
@@ -495,35 +497,28 @@ function caseRead(
 // reads the case again once it holds the owner lease and decides only on
 // that read, which no owner can append to, and refuses when it differs
 // from the revision the request names.
-async function caseUnderLease(
+async function acquireTargetLease(
+  owner: LockOwner,
   paths: Locked,
-  request: CloseRequest<string>,
+  operationId: string,
   beforeLease: () => Promise<void>,
 ): Promise<
-  | { readonly ok: false; readonly stop: CloseResultBody }
-  | {
-      readonly ok: true;
-      readonly target: Operation;
-      readonly release: () => void;
-    }
+  | { readonly ok: true; readonly release: () => void }
+  | { readonly ok: false; readonly kind: "busy" | "failed" }
 > {
   await beforeLease();
-  const lease = paths.tryLock(
-    join(paths.operation(request.operationId), "owner.lease"),
+  const attempt = paths.tryLock(
+    join(paths.operation(operationId), "owner.lease"),
     false,
   );
-  if (lease.kind === "busy") return { ok: false, stop: { kind: "owner-live" } };
-  if (lease.kind === "failed")
-    return {
-      ok: false,
-      stop: { kind: "unavailable", reason: "lease-unreadable" },
-    };
-  const read = caseRead(paths, request);
-  if (!read.ok) {
-    lease.release();
-    return read;
+  switch (attempt.kind) {
+    case "held":
+      return { ok: true, release: owner.holdTargetLease(attempt.release) };
+    case "busy":
+      return { ok: false, kind: "busy" };
+    case "failed":
+      return { ok: false, kind: "failed" };
   }
-  return { ok: true, target: read.target, release: lease.release };
 }
 
 function closureMatches(
@@ -551,24 +546,122 @@ function closureObservation(paths: Layout, operation: Operation): Observation {
     : "excluded";
 }
 
-type Held = { readonly release: () => void };
-
 type Locked = Layout & {
   readonly tryLock: (path: string, create?: boolean) => LockAttempt;
 };
 
-async function acquire(
+type LockOwner = {
+  readonly isActive: () => boolean;
+  readonly holdAdmission: (release: () => void) => void;
+  readonly releaseAdmission: () => void;
+  readonly holdKeyLock: (release: () => void) => void;
+  readonly releaseKeyLocks: () => void;
+  readonly holdTargetLease: (release: () => void) => () => void;
+  readonly holdRunLease: (release: () => void) => void;
+  readonly transferToRun: () => {
+    readonly releaseKeyLocks: () => void;
+    readonly releaseLease: () => void;
+  };
+  readonly releaseAll: () => void;
+};
+
+function releaseEach(releases: readonly (() => void)[]): void {
+  for (const release of releases) {
+    try {
+      release();
+    } catch {
+      continue;
+    }
+  }
+}
+
+function createLockOwner(): LockOwner {
+  let active = true;
+  let admission: (() => void) | undefined;
+  let keyLocks: (() => void)[] = [];
+  const targetLeases = new Set<() => void>();
+  let runLease: (() => void) | undefined;
+
+  const releaseAdmission = () => {
+    const release = admission;
+    admission = undefined;
+    if (release) releaseEach([release]);
+  };
+  const releaseKeyLocks = () => {
+    active = false;
+    const held = keyLocks.splice(0).reverse();
+    releaseEach(held);
+  };
+  const holdTargetLease = (release: () => void) => {
+    targetLeases.add(release);
+    return () => {
+      if (!targetLeases.delete(release)) return;
+      releaseEach([release]);
+    };
+  };
+  const releaseAll = () => {
+    active = false;
+    const targets = [...targetLeases].reverse();
+    targetLeases.clear();
+    const lease = runLease;
+    runLease = undefined;
+    const keys = keyLocks.splice(0).reverse();
+    const admit = admission;
+    admission = undefined;
+    releaseEach([
+      ...targets,
+      ...(lease ? [lease] : []),
+      ...keys,
+      ...(admit ? [admit] : []),
+    ]);
+  };
+  const transferToRun = () => {
+    const transferredKeys = keyLocks;
+    keyLocks = [];
+    const transferredTargets = [...targetLeases];
+    targetLeases.clear();
+    const transferredLease = runLease;
+    runLease = undefined;
+    return {
+      releaseKeyLocks: () => {
+        active = false;
+        releaseEach([
+          ...transferredTargets.reverse(),
+          ...transferredKeys.reverse(),
+        ]);
+      },
+      releaseLease: () => {
+        if (transferredLease) releaseEach([transferredLease]);
+      },
+    };
+  };
+  return {
+    isActive: () => active,
+    holdAdmission: (release) => {
+      admission = release;
+    },
+    releaseAdmission,
+    holdKeyLock: (release) => {
+      keyLocks.push(release);
+    },
+    releaseKeyLocks,
+    holdTargetLease,
+    holdRunLease: (release) => {
+      runLease = release;
+    },
+    transferToRun,
+    releaseAll,
+  };
+}
+
+async function acquireInto(
+  owner: LockOwner,
   paths: Locked,
   keys: readonly string[],
   boundMilliseconds: number,
   beforeWait: () => Promise<void>,
 ): Promise<
-  | {
-      readonly ok: true;
-      readonly admission: Held;
-      readonly keys: Held;
-      readonly order: readonly string[];
-    }
+  | { readonly ok: true; readonly order: readonly string[] }
   | { readonly ok: false; readonly refusal: Refusal }
 > {
   await beforeWait();
@@ -588,21 +681,17 @@ async function acquire(
         detail: `admission.lock: ${admission.code}`,
       },
     };
+  owner.holdAdmission(admission.release);
   const files = [...new Set(keys.map(paths.keyLock))].sort();
-  const held: (() => void)[] = [];
-  const releaseKeys = () => {
-    for (const release of held.reverse()) release();
-    held.length = 0;
-  };
   for (const file of files) {
     const attempt = paths.tryLock(file);
     if (attempt.kind === "held") {
-      held.push(attempt.release);
+      owner.holdKeyLock(attempt.release);
       continue;
     }
-    releaseKeys();
-    const owner = attempt.kind === "busy" ? liveHolder(paths, keys) : undefined;
-    admission.release();
+    owner.releaseKeyLocks();
+    const holder =
+      attempt.kind === "busy" ? liveHolder(paths, keys) : undefined;
     return {
       ok: false,
       refusal:
@@ -612,15 +701,13 @@ async function acquire(
               reason: "coordination-failed",
               detail: `${file.slice(file.lastIndexOf("/") + 1)}: ${attempt.code}`,
             }
-          : owner === undefined
+          : holder === undefined
             ? { kind: "busy" }
-            : { kind: "held-lock", operationId: owner },
+            : { kind: "held-lock", operationId: holder },
     };
   }
   return {
     ok: true,
-    admission,
-    keys: { release: releaseKeys },
     order: files.map((file) => file.slice(file.lastIndexOf("/") + 1)),
   };
 }
@@ -657,21 +744,12 @@ function liveClosers(
   return closers;
 }
 
-type SupersedeRule = {
-  readonly command: string;
-  readonly keys: readonly string[] | undefined;
-};
-
 type LeasedTarget = {
   readonly target: Operation;
   readonly release: () => void;
 };
 
-function releaseAll(leased: readonly LeasedTarget[]): void {
-  for (const entry of leased) entry.release();
-}
-
-function probeLease(paths: Locked, id: string): "live" | "free" | "failed" {
+function probeLease(paths: Locked, id: string): "live" | "free" {
   const attempt = paths.tryLock(
     join(paths.operation(id), "owner.lease"),
     false,
@@ -680,73 +758,24 @@ function probeLease(paths: Locked, id: string): "live" | "free" | "failed" {
     attempt.release();
     return "free";
   }
-  return attempt.kind === "busy" ? "live" : "failed";
-}
-
-function canSupersede(
-  operation: Operation,
-  rule: SupersedeRule | undefined,
-): boolean {
-  return (
-    rule !== undefined &&
-    operation.intent.commandIdentity === rule.command &&
-    covers(rule.keys, currentKeys(operation.intent.scope)) &&
-    !operation.recordHiddenInTornTail &&
-    !operation.closureDamaged
-  );
-}
-
-function unresolvedVerdict(
-  paths: Locked,
-  operation: Operation,
-  closers: ReadonlyMap<string, string>,
-  supersede: SupersedeRule | undefined,
-): Refusal | "skip" | "unresolved" {
-  const id = operation.intent.operationId;
-  const lease = probeLease(paths, id);
-  if (lease === "live")
-    return { kind: "held-lock", operationId: closers.get(id) ?? id };
-  if (supersede === undefined) return "unresolved";
-  if (lease === "failed")
-    return { kind: "unavailable", reason: "lease-unreadable" };
-  return canSupersede(operation, supersede) ? "skip" : "unresolved";
-}
-
-function isConflictingUnresolved(
-  operation: Operation,
-  keys: readonly string[] | undefined,
-  except: string | undefined,
-): boolean {
-  return (
-    operation.status === "unresolved" &&
-    operation.intent.operationId !== except &&
-    conflicts(keys, currentKeys(operation.intent.scope))
-  );
+  return attempt.kind === "busy" ? "live" : "free";
 }
 
 function blocking(
   paths: Locked,
   operations: readonly Operation[],
   keys: readonly string[] | undefined,
-  options: {
-    readonly liveOnly: boolean;
-    readonly except?: string;
-    readonly supersede?: SupersedeRule;
-  },
+  options: { readonly liveOnly: boolean; readonly except?: string },
 ): Refusal | undefined {
   const closers = liveClosers(paths, operations);
   let unresolved: string | undefined;
   for (const operation of operations) {
-    if (!isConflictingUnresolved(operation, keys, options.except)) continue;
-    const verdict = unresolvedVerdict(
-      paths,
-      operation,
-      closers,
-      options.supersede,
-    );
-    if (verdict === "skip") continue;
-    if (verdict === "unresolved") unresolved ??= operation.intent.operationId;
-    else return verdict;
+    const id = operation.intent.operationId;
+    if (operation.status !== "unresolved" || id === options.except) continue;
+    if (!conflicts(keys, currentKeys(operation.intent.scope))) continue;
+    if (probeLease(paths, id) === "live")
+      return { kind: "held-lock", operationId: closers.get(id) ?? id };
+    unresolved ??= id;
   }
   return unresolved === undefined || options.liveOnly
     ? undefined
@@ -775,12 +804,86 @@ type DeclarationSnapshot = {
   readonly scope: CanonicalScope;
   readonly revisions: Readonly<Record<string, string>>;
   readonly facts: unknown;
-  readonly supersedeUnresolved: boolean;
   readonly approval: ApprovalSnapshot | undefined;
 };
 
 function ownProperty(source: object, key: string): unknown {
   return Object.hasOwn(source, key) ? Reflect.get(source, key) : undefined;
+}
+
+function isFlaggedDeclaration(declaration: Declaration): boolean {
+  return (
+    typeof declaration === "object" &&
+    declaration !== null &&
+    ownProperty(declaration, "supersedeUnresolved") === true
+  );
+}
+
+const snapshotDepthLimit = 64;
+
+function snapshotArray(
+  source: readonly unknown[],
+  depth: number,
+  seen: Set<object>,
+): readonly unknown[] {
+  const out: unknown[] = [];
+  const length = source.length;
+  for (let index = 0; index < length; index += 1) {
+    const copy = snapshotValue(
+      ownProperty(source, String(index)),
+      depth + 1,
+      seen,
+    );
+    out.push(copy === undefined ? null : copy);
+  }
+  return Object.freeze(out);
+}
+
+function snapshotObject(
+  source: object,
+  depth: number,
+  seen: Set<object>,
+): Readonly<Record<string, unknown>> {
+  const out: Record<string, unknown> = {};
+  for (const key of Object.keys(source)) {
+    const copy = snapshotValue(ownProperty(source, key), depth + 1, seen);
+    if (copy === undefined) continue;
+    Object.defineProperty(out, key, {
+      value: copy,
+      enumerable: true,
+      writable: false,
+      configurable: false,
+    });
+  }
+  return Object.freeze(out);
+}
+
+function snapshotValue(
+  value: unknown,
+  depth: number,
+  seen: Set<object>,
+): unknown {
+  if (
+    value === null ||
+    typeof value === "boolean" ||
+    typeof value === "number" ||
+    typeof value === "string"
+  )
+    return value;
+  if (
+    typeof value !== "object" ||
+    depth > snapshotDepthLimit ||
+    seen.has(value)
+  )
+    return undefined;
+  seen.add(value);
+  try {
+    return Array.isArray(value)
+      ? snapshotArray(value, depth, seen)
+      : snapshotObject(value, depth, seen);
+  } finally {
+    seen.delete(value);
+  }
 }
 
 function snapshotRevisions(
@@ -793,26 +896,54 @@ function snapshotRevisions(
   for (const key of Object.keys(raw)) {
     const value = ownProperty(raw, key);
     if (typeof value !== "string") return undefined;
-    out[key] = value;
+    Object.defineProperty(out, key, {
+      value,
+      enumerable: true,
+      writable: false,
+      configurable: false,
+    });
   }
   return Object.freeze(out);
 }
 
-function snapshotApproval(
-  declaration: Declaration,
-): ApprovalSnapshot | undefined {
-  if (!Object.hasOwn(declaration, "approval")) return undefined;
-  const approval = declaration.approval;
-  if (!approval) return undefined;
-  const runtime = approval.runtime;
-  const rawRequest = approval.request;
-  const authority = rawRequest.authority;
-  const resource = rawRequest.resource;
-  const resourceRevision = rawRequest.resourceRevision;
-  const effects = Object.freeze([...rawRequest.effects]);
-  const rawPreview = Object.hasOwn(rawRequest, "preview")
-    ? rawRequest.preview
-    : undefined;
+function snapshotEffects(raw: unknown): readonly string[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: string[] = [];
+  const length = raw.length;
+  for (let index = 0; index < length; index += 1) {
+    const item = ownProperty(raw, String(index));
+    if (typeof item !== "string") return undefined;
+    out.push(item);
+  }
+  return Object.freeze(out);
+}
+
+function ownField<T extends object, K extends keyof T>(
+  source: T,
+  key: K,
+): T[K] | undefined {
+  return Object.hasOwn(source, key) ? source[key] : undefined;
+}
+
+function snapshotApprovalRequest(rawRequest: ApprovalRequest):
+  | {
+      readonly request: ApprovalRequest;
+      readonly resource: string;
+      readonly preview: string | undefined;
+    }
+  | undefined {
+  const authority = ownField(rawRequest, "authority");
+  const resource = ownField(rawRequest, "resource");
+  const resourceRevision = ownField(rawRequest, "resourceRevision");
+  const effects = snapshotEffects(ownField(rawRequest, "effects"));
+  const rawPreview = ownField(rawRequest, "preview");
+  if (
+    typeof authority !== "string" ||
+    typeof resource !== "string" ||
+    typeof resourceRevision !== "string" ||
+    effects === undefined
+  )
+    return undefined;
   const preview = typeof rawPreview === "string" ? rawPreview : undefined;
   const request: ApprovalRequest = Object.freeze({
     authority,
@@ -821,35 +952,57 @@ function snapshotApproval(
     effects,
     ...(preview === undefined ? {} : { preview }),
   });
-  return Object.freeze({
-    runtime,
-    request,
-    resource: String(resource),
-    preview,
-  });
+  return { request, resource, preview };
 }
 
-function snapshotDeclaration(
+function snapshotApproval(
   declaration: Declaration,
+): ApprovalSnapshot | undefined | "invalid" {
+  if (!Object.hasOwn(declaration, "approval")) return undefined;
+  const approval = ownField(declaration, "approval");
+  if (approval === undefined) return undefined;
+  if (typeof approval !== "object" || approval === null) return "invalid";
+  const runtime = ownField(approval, "runtime");
+  const rawRequest = ownField(approval, "request");
+  if (
+    typeof runtime !== "object" ||
+    runtime === null ||
+    typeof rawRequest !== "object" ||
+    rawRequest === null
+  )
+    return "invalid";
+  const parsed = snapshotApprovalRequest(rawRequest);
+  return parsed === undefined
+    ? "invalid"
+    : Object.freeze({ runtime, ...parsed });
+}
+
+function readFlaggedDeclaration(
+  declaration: Declaration,
+  commandIdentity: string,
 ): DeclarationSnapshot | undefined {
-  const command = ownProperty(declaration, "command");
-  if (typeof command !== "string" || command.length === 0) return undefined;
+  if (commandIdentity.length === 0) return undefined;
+  const declaredCommand = ownProperty(declaration, "command");
+  if (typeof declaredCommand !== "string" || declaredCommand.length === 0)
+    return undefined;
   if (!Object.hasOwn(declaration, "scope")) return undefined;
-  const scope = canonicalise(declaration.scope);
+  const scope = canonicalisePlain(
+    readPlainScope(ownProperty(declaration, "scope")),
+  );
   const revisions = snapshotRevisions(ownProperty(declaration, "revisions"));
   if (revisions === undefined) return undefined;
   const rawFacts = ownProperty(declaration, "facts");
-  const facts: unknown =
-    rawFacts === undefined ? null : structuredClone(rawFacts);
-  const supersedeUnresolved =
-    ownProperty(declaration, "supersedeUnresolved") === true;
+  const facts =
+    rawFacts === undefined
+      ? null
+      : (snapshotValue(rawFacts, 0, new Set()) ?? null);
   const approval = snapshotApproval(declaration);
+  if (approval === "invalid") return undefined;
   return Object.freeze({
-    command,
+    command: commandIdentity,
     scope,
     revisions,
     facts,
-    supersedeUnresolved,
     approval,
   });
 }
@@ -931,9 +1084,11 @@ export function install(options: StateOptions, seams: Seams) {
       attach<Effect extends string>(
         runId: string,
         effects: readonly Effect[],
+        commandIdentity: string,
       ): StateCapability<Effect> {
         return {
-          transaction: (work) => run(issuer, runId, effects, work),
+          transaction: (work) =>
+            run(issuer, runId, commandIdentity, effects, work),
         };
       },
     };
@@ -942,6 +1097,7 @@ export function install(options: StateOptions, seams: Seams) {
   async function run<Effect extends string>(
     issuer: StateIssuer,
     runId: string,
+    commandIdentity: string,
     declared: readonly Effect[],
     work: (transaction: EffectTransaction<Effect>) => Promise<void>,
   ): Promise<TransactionProof<Effect>> {
@@ -951,16 +1107,9 @@ export function install(options: StateOptions, seams: Seams) {
         "Open state transactions through the state add-on's transaction() or close().",
       );
     slots.delete(work);
-    const refuse = (
-      refusal: Refusal,
-      superseded?: readonly string[],
-    ): TransactionProof<Effect> => {
+    const refuse = (refusal: Refusal): TransactionProof<Effect> => {
       slot.outcome = refusal;
-      const observation = unchangedObservation<Effect>([]);
-      return issuer.transactionProof(
-        runId,
-        superseded === undefined ? observation : { ...observation, superseded },
-      );
+      return issuer.transactionProof(runId, unchangedObservation<Effect>([]));
     };
     if (!route.available)
       return refuse({
@@ -971,7 +1120,7 @@ export function install(options: StateOptions, seams: Seams) {
     if (!ensureStore(paths))
       return refuse({ kind: "unavailable", reason: "store" });
     return slot.kind === "transaction"
-      ? transact(issuer, runId, declared, work, slot, refuse)
+      ? transact(issuer, runId, commandIdentity, declared, work, slot, refuse)
       : closeCase(issuer, runId, declared, slot);
   }
 
@@ -1016,55 +1165,83 @@ export function install(options: StateOptions, seams: Seams) {
   async function coordinate(
     keys: readonly string[] | undefined,
     lockKeys: readonly string[],
-    check: {
-      readonly liveOnly: boolean;
-      readonly except?: string;
-      readonly supersede?: SupersedeRule;
-    },
+    check: { readonly liveOnly: boolean; readonly except?: string },
   ): Promise<
     | { readonly ok: false; readonly refusal: Refusal }
     | {
         readonly ok: true;
-        readonly held: Acquired;
+        readonly order: readonly string[];
         readonly operations: readonly Operation[];
         readonly release: () => void;
+        readonly releaseAdmission: () => void;
         readonly isActive: () => boolean;
       }
   > {
-    const held = await acquire(paths, lockKeys, bound, () =>
-      phase("admission-wait"),
-    );
-    if (!held.ok) return held;
-    let current = true;
-    const release = () => {
-      current = false;
-      held.keys.release();
-      held.admission.release();
-    };
-    const upgradeProblem = await upgradeStore(paths, phase);
-    const store = readStore(paths);
-    const refusal: Refusal | undefined = upgradeProblem
-      ? { kind: "unavailable", reason: upgradeProblem }
-      : !store.ok
-        ? { kind: "unavailable", reason: `store-${store.reason}` }
-        : blocking(paths, store.operations, keys, check);
-    if (refusal || !store.ok) {
-      release();
+    const owner = createLockOwner();
+    let kept = false;
+    try {
+      const held = await acquireInto(owner, paths, lockKeys, bound, () =>
+        phase("admission-wait"),
+      );
+      if (!held.ok) return held;
+      const upgradeProblem = await upgradeStore(paths, phase);
+      const store = readStore(paths);
+      const refusal: Refusal | undefined = upgradeProblem
+        ? { kind: "unavailable", reason: upgradeProblem }
+        : !store.ok
+          ? { kind: "unavailable", reason: `store-${store.reason}` }
+          : blocking(paths, store.operations, keys, check);
+      if (refusal || !store.ok)
+        return {
+          ok: false,
+          refusal: refusal ?? { kind: "unavailable", reason: "store" },
+        };
+      kept = true;
       return {
-        ok: false,
-        refusal: refusal ?? { kind: "unavailable", reason: "store" },
+        ok: true,
+        order: held.order,
+        operations: store.operations,
+        release: owner.releaseAll,
+        releaseAdmission: owner.releaseAdmission,
+        isActive: owner.isActive,
       };
+    } finally {
+      if (!kept) owner.releaseAll();
     }
-    return {
-      ok: true,
-      held,
-      operations: store.operations,
-      release,
-      isActive: () => current,
-    };
   }
 
-  async function consumeApproval(
+  async function consumeApprovalUnflagged(
+    issuer: StateIssuer,
+    runId: string,
+    declaration: Declaration,
+    scope: CanonicalScope,
+    isActive: () => boolean,
+  ): Promise<Refusal | Intent["approval"]> {
+    if (!declaration.approval) return null;
+    const { runtime, request } = declaration.approval;
+    const resource = String(request.resource);
+    if (
+      typeof request.preview !== "string" ||
+      !scope.resources.some((item) => item.resource === resource)
+    )
+      return { kind: "unavailable", reason: "approval-resource-undeclared" };
+    const coordination = issuer.exclusiveScope(runId, resource, isActive);
+    try {
+      const { consumed } = await runtime.revalidateAndConsume(
+        request,
+        coordination,
+      );
+      return consumed
+        ? { kind: "preview", reference: request.preview }
+        : { kind: "denied" };
+    } catch (error) {
+      return rejectionConsumed(error) === true
+        ? { kind: "approval-lost" }
+        : { kind: "approval-unavailable" };
+    }
+  }
+
+  async function consumeFlaggedApproval(
     issuer: StateIssuer,
     runId: string,
     snapshot: DeclarationSnapshot,
@@ -1103,7 +1280,7 @@ export function install(options: StateOptions, seams: Seams) {
     runId: string,
     intent: Omit<Intent, "operationId" | "runId" | "owner">,
     admitted: {
-      readonly held: Acquired;
+      readonly releaseAdmission: () => void;
       readonly operations: readonly Operation[];
     },
   ) {
@@ -1114,7 +1291,7 @@ export function install(options: StateOptions, seams: Seams) {
       opened = undefined;
     }
     if (opened) moveSettled(admitted.operations);
-    admitted.held.admission.release();
+    admitted.releaseAdmission();
     return opened;
   }
 
@@ -1210,41 +1387,62 @@ export function install(options: StateOptions, seams: Seams) {
     };
     let workFailed = false;
     try {
-      await work(recorder(issuer, runId, declared, held.events, recording));
-    } catch {
-      workFailed = true;
+      try {
+        await work(recorder(issuer, runId, declared, held.events, recording));
+      } catch {
+        workFailed = true;
+      }
+      recording.ended = true;
+      await settled(recording.records);
+      const observation = observationOf(
+        declared,
+        recording.confirmed,
+        recording.started,
+      );
+      finish(held.events, observation);
+      return { observation, workFailed };
+    } finally {
+      active.delete(runId);
+      held.releaseKeyLocks();
+      held.releaseLease();
     }
-    recording.ended = true;
-    await settled(recording.records);
-    const observation = observationOf(
-      declared,
-      recording.confirmed,
-      recording.started,
-    );
-    finish(held.events, observation);
-    active.delete(runId);
-    held.releaseKeyLocks();
-    held.releaseLease();
-    return { observation, workFailed };
   }
 
-  function supersedeCandidates(
-    operations: readonly Operation[],
-    rule: SupersedeRule,
-  ): readonly Operation[] {
-    return operations.filter(
+  async function scanFlaggedStore(keys: readonly string[] | undefined): Promise<
+    | { readonly ok: false; readonly refusal: Refusal }
+    | {
+        readonly ok: true;
+        readonly operations: readonly Operation[];
+        readonly conflicting: readonly Operation[];
+      }
+  > {
+    const upgradeProblem = await upgradeStore(paths, phase);
+    if (upgradeProblem)
+      return {
+        ok: false,
+        refusal: { kind: "unavailable", reason: upgradeProblem },
+      };
+    const store = readStore(paths);
+    if (!store.ok)
+      return {
+        ok: false,
+        refusal: { kind: "unavailable", reason: `store-${store.reason}` },
+      };
+    const conflicting = store.operations.filter(
       (operation) =>
-        operation.status === "unresolved" && canSupersede(operation, rule),
+        operation.status === "unresolved" &&
+        conflicts(keys, currentKeys(operation.intent.scope)),
     );
+    return { ok: true, operations: store.operations, conflicting };
   }
 
-  function rereadForSupersede(
-    target: Operation,
-    rule: SupersedeRule,
+  function verifyTargetUnderLease(
+    candidate: Operation,
+    snapshot: DeclarationSnapshot,
   ):
     | { readonly ok: false; readonly refusal: Refusal }
     | { readonly ok: true; readonly target: Operation } {
-    const id = target.intent.operationId;
+    const id = candidate.intent.operationId;
     const fresh = readCase(paths, id);
     if (typeof fresh === "string")
       return {
@@ -1254,59 +1452,27 @@ export function install(options: StateOptions, seams: Seams) {
             ? { kind: "unresolved-case", operationId: id }
             : { kind: "unavailable", reason: `store-${fresh}` },
       };
-    if (
-      fresh.status !== "unresolved" ||
-      fresh.revision !== target.revision ||
-      !canSupersede(fresh, rule)
-    )
-      return {
-        ok: false,
-        refusal: { kind: "unresolved-case", operationId: id },
-      };
-    return { ok: true, target: fresh };
+    const eligible =
+      fresh.status === "unresolved" &&
+      fresh.revision === candidate.revision &&
+      !fresh.recordHiddenInTornTail &&
+      !fresh.closureDamaged &&
+      fresh.intent.commandIdentity === snapshot.command &&
+      coversDeclaredResources(snapshot.scope, fresh.intent.scope);
+    return eligible
+      ? { ok: true, target: fresh }
+      : { ok: false, refusal: { kind: "unresolved-case", operationId: id } };
   }
 
-  async function leaseSupersedeTarget(
-    target: Operation,
-    rule: SupersedeRule,
-  ): Promise<
-    | { readonly ok: false; readonly refusal: Refusal }
-    | { readonly ok: true; readonly leased: LeasedTarget }
-  > {
-    const id = target.intent.operationId;
-    await phase("closure-read");
-    const lease = paths.tryLock(
-      join(paths.operation(id), "owner.lease"),
-      false,
-    );
-    if (lease.kind === "busy")
-      return { ok: false, refusal: { kind: "held-lock", operationId: id } };
-    if (lease.kind === "failed")
-      return {
-        ok: false,
-        refusal: { kind: "unavailable", reason: "lease-unreadable" },
-      };
-    const fresh = rereadForSupersede(target, rule);
-    if (!fresh.ok) {
-      lease.release();
-      return fresh;
-    }
-    return {
-      ok: true,
-      leased: { target: fresh.target, release: lease.release },
-    };
-  }
-
-  async function leaseSupersedeTargets(
-    operations: readonly Operation[],
-    rule: SupersedeRule | undefined,
+  async function leaseConflictingTargets(
+    owner: LockOwner,
+    conflicting: readonly Operation[],
+    snapshot: DeclarationSnapshot,
   ): Promise<
     | { readonly ok: false; readonly refusal: Refusal }
     | { readonly ok: true; readonly targets: readonly LeasedTarget[] }
   > {
-    if (rule === undefined) return { ok: true, targets: [] };
-    const candidates = supersedeCandidates(operations, rule);
-    if (candidates.length === 0) return { ok: true, targets: [] };
+    if (conflicting.length === 0) return { ok: true, targets: [] };
     const fsCheck = seams.qualification.localFilesystem(
       paths.root,
       route.available ? route.route : undefined,
@@ -1320,21 +1486,25 @@ export function install(options: StateOptions, seams: Seams) {
           detail: fsCheck.detail,
         },
       };
-    const leased: LeasedTarget[] = [];
-    try {
-      for (const candidate of candidates) {
-        const acquired = await leaseSupersedeTarget(candidate, rule);
-        if (!acquired.ok) {
-          releaseAll(leased);
-          return acquired;
-        }
-        leased.push(acquired.leased);
-      }
-      return { ok: true, targets: leased };
-    } catch (error) {
-      releaseAll(leased);
-      throw error;
+    const targets: LeasedTarget[] = [];
+    for (const candidate of conflicting) {
+      const id = candidate.intent.operationId;
+      const leased = await acquireTargetLease(owner, paths, id, () =>
+        phase("closure-read"),
+      );
+      if (!leased.ok)
+        return {
+          ok: false,
+          refusal:
+            leased.kind === "busy"
+              ? { kind: "held-lock", operationId: id }
+              : { kind: "unavailable", reason: "lease-unreadable" },
+        };
+      const verified = verifyTargetUnderLease(candidate, snapshot);
+      if (!verified.ok) return verified;
+      targets.push({ target: verified.target, release: leased.release });
     }
+    return { ok: true, targets };
   }
 
   function supersededClosureFor(target: Operation, runId: string): Closure {
@@ -1343,10 +1513,7 @@ export function install(options: StateOptions, seams: Seams) {
       closureId: `superseded-${hex32().slice(0, 16)}`,
       disposition: "outcome-unknown",
       reason: "superseded by later run of the same command",
-      evidence: target.intent.effects.map((effect) => ({
-        effect,
-        observation: supersededQualification,
-      })),
+      evidence: [],
       authority: null,
       journalRevision: target.revision,
       qualification: supersededQualification,
@@ -1357,6 +1524,7 @@ export function install(options: StateOptions, seams: Seams) {
   async function publishOneSupersedeClosure(
     entry: LeasedTarget,
     runId: string,
+    onLinked: () => void,
   ): Promise<Refusal | undefined> {
     const id = entry.target.intent.operationId;
     try {
@@ -1364,6 +1532,7 @@ export function install(options: StateOptions, seams: Seams) {
         paths,
         supersededClosureFor(entry.target, runId),
         () => phase("closure-staged"),
+        onLinked,
       );
       return published === "published"
         ? undefined
@@ -1375,107 +1544,29 @@ export function install(options: StateOptions, seams: Seams) {
     }
   }
 
-  async function publishSupersedeClosures(
-    targets: readonly LeasedTarget[],
+  function settleUnusedIntent(
     runId: string,
-    onClosed: (id: string) => void,
-  ): Promise<
-    | {
-        readonly ok: false;
-        readonly refusal: Refusal;
-        readonly ids: readonly string[];
-      }
-    | { readonly ok: true; readonly ids: readonly string[] }
-  > {
-    const ids: string[] = [];
-    try {
-      for (let index = 0; index < targets.length; index += 1) {
-        const entry = targets[index];
-        if (!entry) continue;
-        const problem = await publishOneSupersedeClosure(entry, runId);
-        if (problem) {
-          releaseAll(targets.slice(index + 1));
-          return { ok: false, refusal: problem, ids };
-        }
-        const id = entry.target.intent.operationId;
-        ids.push(id);
-        onClosed(id);
-      }
-      return { ok: true, ids };
-    } catch (error) {
-      releaseAll(targets);
-      throw error;
-    }
+    events: string,
+    declared: readonly string[],
+  ): void {
+    finish(events, unchangedObservation(declared));
+    active.delete(runId);
   }
 
-  async function coordinateTransaction(snapshot: DeclarationSnapshot) {
-    const keys = snapshot.scope.unknown ? undefined : snapshot.scope.keys;
-    const supersede: SupersedeRule | undefined = snapshot.supersedeUnresolved
-      ? { command: snapshot.command, keys }
-      : undefined;
-    const admitted = await coordinate(keys, keys ?? [], {
-      liveOnly: false,
-      ...(supersede === undefined ? {} : { supersede }),
-    });
-    return { admitted, supersede };
-  }
-
-  async function prepareTransaction(
-    issuer: StateIssuer,
-    runId: string,
-    snapshot: DeclarationSnapshot,
-    admitted: {
-      readonly operations: readonly Operation[];
-      readonly isActive: () => boolean;
-    },
-    supersede: SupersedeRule | undefined,
-  ): Promise<
-    | { readonly ok: false; readonly refusal: Refusal }
-    | {
-        readonly ok: true;
-        readonly targets: readonly LeasedTarget[];
-        readonly approval: Intent["approval"];
-      }
-  > {
-    const leased = await leaseSupersedeTargets(admitted.operations, supersede);
-    if (!leased.ok) return leased;
-    try {
-      const approval = await consumeApproval(
-        issuer,
-        runId,
-        snapshot,
-        admitted.isActive,
-      );
-      if (approval !== null && approval.kind !== "preview") {
-        releaseAll(leased.targets);
-        return { ok: false, refusal: approval };
-      }
-      return { ok: true, targets: leased.targets, approval };
-    } catch (error) {
-      releaseAll(leased.targets);
-      throw error;
-    }
-  }
-
-  async function openTransaction(
+  async function openFlaggedTransaction(
+    owner: LockOwner,
     issuer: StateIssuer,
     runId: string,
     declared: readonly string[],
     intent: Omit<Intent, "operationId" | "runId" | "owner">,
-    admitted: {
-      readonly held: Acquired;
-      readonly operations: readonly Operation[];
-    },
+    operations: readonly Operation[],
     targets: readonly LeasedTarget[],
   ): Promise<
-    | {
-        readonly ok: false;
-        readonly refusal: Refusal;
-        readonly superseded: readonly string[] | undefined;
-      }
+    | { readonly ok: false; readonly refusal: Refusal }
     | {
         readonly ok: true;
-        readonly opened: NonNullable<Awaited<ReturnType<typeof begin>>>;
+        readonly operationId: string;
+        readonly events: string;
         readonly superseded: readonly string[] | undefined;
       }
   > {
@@ -1485,136 +1576,209 @@ export function install(options: StateOptions, seams: Seams) {
     } catch {
       opened = undefined;
     }
-    if (!opened) {
-      releaseAll(targets);
-      admitted.held.admission.release();
+    if (!opened)
       return {
         ok: false,
         refusal: { kind: "unavailable", reason: "store-publication" },
-        superseded: undefined,
       };
-    }
-    let closed: Awaited<ReturnType<typeof publishSupersedeClosures>>;
+    owner.holdRunLease(opened.releaseLease);
+    const ids: string[] = [];
     try {
-      closed = await publishSupersedeClosures(targets, runId, (id) => {
-        issuer.superseded(runId, id);
-      });
+      for (const entry of targets) {
+        const id = entry.target.intent.operationId;
+        const problem = await publishOneSupersedeClosure(entry, runId, () => {
+          ids.push(id);
+          issuer.superseded(runId, id);
+        });
+        if (problem) {
+          settleUnusedIntent(runId, opened.events, declared);
+          return { ok: false, refusal: problem };
+        }
+        await phase("closure-published");
+      }
     } catch (error) {
-      finish(opened.events, unchangedObservation(declared));
-      active.delete(runId);
-      opened.releaseLease();
-      admitted.held.admission.release();
+      settleUnusedIntent(runId, opened.events, declared);
       throw error;
     }
-    const superseded =
-      closed.ids.length > 0 ? Object.freeze([...closed.ids].sort()) : undefined;
-    if (!closed.ok) {
-      finish(opened.events, unchangedObservation(declared));
-      active.delete(runId);
-      opened.releaseLease();
-      admitted.held.admission.release();
-      return { ok: false, refusal: closed.refusal, superseded };
-    }
-    const refreshed = closed.ids.length > 0 ? readStore(paths) : undefined;
-    moveSettled(refreshed?.ok ? refreshed.operations : admitted.operations);
-    admitted.held.admission.release();
-    return { ok: true, opened, superseded };
-  }
-
-  function finishTransaction<Effect extends string>(
-    issuer: StateIssuer,
-    runId: string,
-    slot: Extract<Slot, { kind: "transaction" }>,
-    operationId: string,
-    superseded: readonly string[] | undefined,
-    observation: StateObservation<Effect>,
-    workFailed: boolean,
-  ): TransactionProof<Effect> {
-    slot.outcome = {
-      kind: "ran",
-      operationId,
-      workFailed,
-      ...(superseded === undefined ? {} : { superseded }),
+    const refreshed = ids.length > 0 ? readStore(paths) : undefined;
+    moveSettled(refreshed?.ok ? refreshed.operations : operations);
+    owner.releaseAdmission();
+    return {
+      ok: true,
+      operationId: opened.operationId,
+      events: opened.events,
+      superseded: ids.length > 0 ? Object.freeze([...ids].sort()) : undefined,
     };
-    return issuer.transactionProof(
-      runId,
-      superseded === undefined ? observation : { ...observation, superseded },
-    );
   }
 
-  async function transact<Effect extends string>(
+  async function transactUnflagged<Effect extends string>(
     issuer: StateIssuer,
     runId: string,
     declared: readonly Effect[],
     work: (transaction: EffectTransaction<Effect>) => Promise<void>,
     slot: Extract<Slot, { kind: "transaction" }>,
-    refuse: (
-      refusal: Refusal,
-      superseded?: readonly string[],
-    ) => TransactionProof<Effect>,
+    refuse: (refusal: Refusal) => TransactionProof<Effect>,
   ): Promise<TransactionProof<Effect>> {
-    if (declared.length === 0)
+    const declaration = slot.declaration;
+    if (declared.length === 0 || declaration.command.length === 0)
       return refuse({ kind: "unavailable", reason: "declaration" });
-    const snapshot = snapshotDeclaration(slot.declaration);
+    const scope: CanonicalScope = canonicalise(declaration.scope);
+    const keys = scope.unknown ? undefined : scope.keys;
+    const admitted = await coordinate(keys, keys ?? [], { liveOnly: false });
+    if (!admitted.ok) return refuse(admitted.refusal);
+    const approval = await consumeApprovalUnflagged(
+      issuer,
+      runId,
+      declaration,
+      scope,
+      admitted.isActive,
+    );
+    if (approval !== null && approval.kind !== "preview") {
+      admitted.release();
+      return refuse(approval);
+    }
+    const opened = await open(
+      runId,
+      {
+        commandIdentity: declaration.command,
+        effects: [...new Set<string>(declared)].sort(),
+        scope,
+        revisions: { ...declaration.revisions },
+        facts: declaration.facts ?? null,
+        approval,
+        closes: null,
+        coordination: admitted.order,
+      },
+      admitted,
+    );
+    if (!opened) {
+      admitted.release();
+      return refuse({ kind: "unavailable", reason: "store-publication" });
+    }
+    slot.operationId = opened.operationId;
+    const { observation, workFailed } = await runRecorded(
+      issuer,
+      runId,
+      declared,
+      {
+        events: opened.events,
+        releaseKeyLocks: admitted.release,
+        releaseLease: opened.releaseLease,
+      },
+      work,
+    );
+    slot.outcome = { kind: "ran", operationId: opened.operationId, workFailed };
+    return issuer.transactionProof(runId, observation);
+  }
+
+  async function admitAndOpenFlagged(
+    owner: LockOwner,
+    issuer: StateIssuer,
+    runId: string,
+    declared: readonly string[],
+    snapshot: DeclarationSnapshot,
+  ) {
+    const keys = snapshot.scope.unknown ? undefined : snapshot.scope.keys;
+    const acquired = await acquireInto(owner, paths, keys ?? [], bound, () =>
+      phase("admission-wait"),
+    );
+    if (!acquired.ok) return acquired;
+    const scanned = await scanFlaggedStore(keys);
+    if (!scanned.ok) return scanned;
+    const leased = await leaseConflictingTargets(
+      owner,
+      scanned.conflicting,
+      snapshot,
+    );
+    if (!leased.ok) return leased;
+    const approval = await consumeFlaggedApproval(
+      issuer,
+      runId,
+      snapshot,
+      owner.isActive,
+    );
+    if (approval !== null && approval.kind !== "preview")
+      return { ok: false as const, refusal: approval };
+    const intent = intentOf(snapshot, declared, approval, acquired.order);
+    return openFlaggedTransaction(
+      owner,
+      issuer,
+      runId,
+      declared,
+      intent,
+      scanned.operations,
+      leased.targets,
+    );
+  }
+
+  async function transactFlagged<Effect extends string>(
+    issuer: StateIssuer,
+    runId: string,
+    commandIdentity: string,
+    declared: readonly Effect[],
+    work: (transaction: EffectTransaction<Effect>) => Promise<void>,
+    slot: Extract<Slot, { kind: "transaction" }>,
+    refuse: (refusal: Refusal) => TransactionProof<Effect>,
+  ): Promise<TransactionProof<Effect>> {
+    if (declared.length === 0 || commandIdentity.length === 0)
+      return refuse({ kind: "unavailable", reason: "declaration" });
+    const snapshot = readFlaggedDeclaration(slot.declaration, commandIdentity);
     if (!snapshot)
       return refuse({ kind: "unavailable", reason: "declaration" });
-    const { admitted, supersede } = await coordinateTransaction(snapshot);
-    if (!admitted.ok) return refuse(admitted.refusal);
-    let targets: readonly LeasedTarget[] = [];
-    let handedToRun = false;
+    const owner = createLockOwner();
     try {
-      const prepared = await prepareTransaction(
-        issuer,
-        runId,
-        snapshot,
-        admitted,
-        supersede,
-      );
-      if (!prepared.ok) return refuse(prepared.refusal);
-      targets = prepared.targets;
-      const intent = intentOf(
-        snapshot,
-        declared,
-        prepared.approval,
-        admitted.held.order,
-      );
-      const opened = await openTransaction(
+      const opened = await admitAndOpenFlagged(
+        owner,
         issuer,
         runId,
         declared,
-        intent,
-        admitted,
-        targets,
+        snapshot,
       );
-      targets = [];
-      if (!opened.ok) return refuse(opened.refusal, opened.superseded);
-      slot.operationId = opened.opened.operationId;
+      if (!opened.ok) return refuse(opened.refusal);
+      slot.operationId = opened.operationId;
       if (opened.superseded !== undefined) slot.superseded = opened.superseded;
-      handedToRun = true;
+      const transferred = owner.transferToRun();
       const { observation, workFailed } = await runRecorded(
         issuer,
         runId,
         declared,
-        {
-          events: opened.opened.events,
-          releaseKeyLocks: admitted.release,
-          releaseLease: opened.opened.releaseLease,
-        },
+        { events: opened.events, ...transferred },
         work,
       );
-      return finishTransaction(
+      slot.outcome = {
+        kind: "ran",
+        operationId: opened.operationId,
+        workFailed,
+        ...(opened.superseded === undefined
+          ? {}
+          : { superseded: opened.superseded }),
+      };
+      return issuer.transactionProof(runId, observation);
+    } finally {
+      owner.releaseAll();
+    }
+  }
+
+  async function transact<Effect extends string>(
+    issuer: StateIssuer,
+    runId: string,
+    commandIdentity: string,
+    declared: readonly Effect[],
+    work: (transaction: EffectTransaction<Effect>) => Promise<void>,
+    slot: Extract<Slot, { kind: "transaction" }>,
+    refuse: (refusal: Refusal) => TransactionProof<Effect>,
+  ): Promise<TransactionProof<Effect>> {
+    if (isFlaggedDeclaration(slot.declaration))
+      return transactFlagged(
         issuer,
         runId,
+        commandIdentity,
+        declared,
+        work,
         slot,
-        opened.opened.operationId,
-        opened.superseded,
-        observation,
-        workFailed,
+        refuse,
       );
-    } finally {
-      releaseAll(targets);
-      if (!handedToRun) admitted.release();
-    }
+    return transactUnflagged(issuer, runId, declared, work, slot, refuse);
   }
 
   function finish<Effect extends string>(
@@ -1783,121 +1947,149 @@ export function install(options: StateOptions, seams: Seams) {
     };
   }
 
+  async function scanClosureStore(
+    targetKeys: readonly string[] | undefined,
+    id: string,
+  ): Promise<
+    | { readonly ok: false; readonly stop: CloseResultBody }
+    | { readonly ok: true; readonly operations: readonly Operation[] }
+  > {
+    const upgradeProblem = await upgradeStore(paths, phase);
+    if (upgradeProblem)
+      return {
+        ok: false,
+        stop: { kind: "unavailable", reason: upgradeProblem },
+      };
+    const store = readStore(paths);
+    if (!store.ok)
+      return {
+        ok: false,
+        stop: { kind: "unavailable", reason: `store-${store.reason}` },
+      };
+    const refusal = blocking(paths, store.operations, targetKeys, {
+      liveOnly: true,
+      except: id,
+    });
+    return refusal
+      ? { ok: false, stop: refusal }
+      : { ok: true, operations: store.operations };
+  }
+
+  async function leaseClosureTarget(
+    owner: LockOwner,
+    request: CloseRequest<string>,
+    operations: readonly Operation[],
+  ): Promise<
+    | { readonly ok: false; readonly stop: CloseResultBody }
+    | { readonly ok: true; readonly target: Operation }
+  > {
+    const id = request.operationId;
+    const found = operations.find(
+      (operation) => operation.intent.operationId === id,
+    );
+    if (!found) {
+      const moved = caseRead(paths, request);
+      return { ok: false, stop: moved.ok ? { kind: "not-found" } : moved.stop };
+    }
+    const leased = await acquireTargetLease(owner, paths, id, () =>
+      phase("closure-read"),
+    );
+    if (!leased.ok)
+      return {
+        ok: false,
+        stop:
+          leased.kind === "busy"
+            ? { kind: "owner-live" }
+            : { kind: "unavailable", reason: "lease-unreadable" },
+      };
+    return caseRead(paths, request);
+  }
+
   async function admitClosure(
+    owner: LockOwner,
     request: CloseRequest<string>,
     targetKeys: readonly string[] | undefined,
   ): Promise<
     | { readonly ok: false; readonly stop: CloseResultBody }
     | {
         readonly ok: true;
-        readonly held: Acquired;
+        readonly order: readonly string[];
         readonly operations: readonly Operation[];
         readonly target: Operation;
-        readonly release: () => void;
       }
   > {
     const id = request.operationId;
-    const admitted = await coordinate(
-      targetKeys,
+    const acquired = await acquireInto(
+      owner,
+      paths,
       [...(targetKeys ?? []), `case:${id}`],
-      { liveOnly: true, except: id },
+      bound,
+      () => phase("admission-wait"),
     );
-    if (!admitted.ok)
+    if (!acquired.ok)
       return {
         ok: false,
         stop:
-          admitted.refusal.kind === "held-lock" &&
-          admitted.refusal.operationId === id
+          acquired.refusal.kind === "held-lock" &&
+          acquired.refusal.operationId === id
             ? { kind: "owner-live" }
-            : admitted.refusal,
+            : acquired.refusal,
       };
-    const target = admitted.operations.find(
-      (operation) => operation.intent.operationId === id,
-    );
-    if (!target) {
-      admitted.release();
-      const moved = caseRead(paths, request);
-      return { ok: false, stop: moved.ok ? { kind: "not-found" } : moved.stop };
-    }
-    const leased = await caseUnderLease(paths, request, () =>
-      phase("closure-read"),
-    );
-    if (!leased.ok) {
-      admitted.release();
-      return leased;
-    }
+    const scanned = await scanClosureStore(targetKeys, id);
+    if (!scanned.ok) return scanned;
+    const read = await leaseClosureTarget(owner, request, scanned.operations);
+    if (!read.ok) return read;
     return {
       ok: true,
-      held: admitted.held,
-      operations: admitted.operations,
-      target: leased.target,
-      release: () => {
-        leased.release();
-        admitted.release();
-      },
+      order: acquired.order,
+      operations: scanned.operations,
+      target: read.target,
     };
   }
 
-  async function closeCase<Effect extends string>(
+  function closureIntentOf(
+    request: CloseRequest<string>,
+    effect: string,
+    target: Operation,
+    targetKeys: readonly string[] | undefined,
+    order: readonly string[],
+  ): Omit<Intent, "operationId" | "runId" | "owner"> {
+    const caseKey = `case:${request.operationId}`;
+    return {
+      commandIdentity: request.command,
+      effects: [effect],
+      scope: {
+        resources: [
+          { resource: caseKey, key: caseKey, keys: [`key:${caseKey}`] },
+        ],
+        invariants: [],
+        unknown: false,
+        keys: [...new Set([...(targetKeys ?? []), `key:${caseKey}`])].sort(),
+      },
+      revisions: { [caseKey]: target.revision },
+      facts: { closes: request.operationId, closureId: request.closureId },
+      approval: null,
+      closes: request.operationId,
+      coordination: order,
+    };
+  }
+
+  async function runClosingRecord<Effect extends string>(
+    owner: LockOwner,
     issuer: StateIssuer,
     runId: string,
     declared: readonly Effect[],
+    effect: Effect,
+    decision: Closure,
+    opened: NonNullable<Awaited<ReturnType<typeof open>>>,
     slot: Extract<Slot, { kind: "close" }>,
   ): Promise<TransactionProof<Effect>> {
-    const request = slot.request;
-    const stop = (outcome: CloseResultBody) => {
-      slot.outcome = outcome;
-      return issuer.transactionProof(runId, unchangedObservation<Effect>([]));
-    };
-    const effect = declared.find((entry) => entry === request.effect);
-    const problem = closeRequestProblem(request, effect);
-    if (problem || !effect)
-      return stop(problem ?? { kind: "unavailable", reason: "declaration" });
-    const first = caseRead(paths, request);
-    if (!first.ok) return stop(first.stop);
-    const targetKeys = currentKeys(first.target.intent.scope);
-    const admitted = await admitClosure(request, targetKeys);
-    if (!admitted.ok) return stop(admitted.stop);
-    const decision = await closureDecision(admitted.target, request, runId);
-    if (!("closureId" in decision)) {
-      admitted.release();
-      return stop(decision);
-    }
-    const caseKey = `case:${request.operationId}`;
-    const opened = await open(
-      runId,
-      {
-        commandIdentity: request.command,
-        effects: [effect],
-        scope: {
-          resources: [
-            { resource: caseKey, key: caseKey, keys: [`key:${caseKey}`] },
-          ],
-          invariants: [],
-          unknown: false,
-          keys: [...new Set([...(targetKeys ?? []), `key:${caseKey}`])].sort(),
-        },
-        revisions: { [caseKey]: admitted.target.revision },
-        facts: { closes: request.operationId, closureId: request.closureId },
-        approval: null,
-        closes: request.operationId,
-        coordination: admitted.held.order,
-      },
-      admitted,
-    );
-    if (!opened) {
-      admitted.release();
-      return stop({ kind: "unavailable", reason: "store-publication" });
-    }
+    owner.holdRunLease(opened.releaseLease);
     const { observation } = await runRecorded(
       issuer,
       runId,
       declared,
-      {
-        events: opened.events,
-        releaseKeyLocks: admitted.release,
-        releaseLease: opened.releaseLease,
-      },
+      { events: opened.events, ...owner.transferToRun() },
       (transaction) =>
         transaction
           .record(
@@ -1922,6 +2114,58 @@ export function install(options: StateOptions, seams: Seams) {
           }
         : { kind: "recovery-failed", recoveryOperationId: opened.operationId };
     return issuer.transactionProof(runId, observation);
+  }
+
+  async function closeCase<Effect extends string>(
+    issuer: StateIssuer,
+    runId: string,
+    declared: readonly Effect[],
+    slot: Extract<Slot, { kind: "close" }>,
+  ): Promise<TransactionProof<Effect>> {
+    const request = slot.request;
+    const stop = (outcome: CloseResultBody) => {
+      slot.outcome = outcome;
+      return issuer.transactionProof(runId, unchangedObservation<Effect>([]));
+    };
+    const effect = declared.find((entry) => entry === request.effect);
+    const problem = closeRequestProblem(request, effect);
+    if (problem || !effect)
+      return stop(problem ?? { kind: "unavailable", reason: "declaration" });
+    const first = caseRead(paths, request);
+    if (!first.ok) return stop(first.stop);
+    const targetKeys = currentKeys(first.target.intent.scope);
+    const owner = createLockOwner();
+    try {
+      const admitted = await admitClosure(owner, request, targetKeys);
+      if (!admitted.ok) return stop(admitted.stop);
+      const decision = await closureDecision(admitted.target, request, runId);
+      if (!("closureId" in decision)) return stop(decision);
+      const intent = closureIntentOf(
+        request,
+        effect,
+        admitted.target,
+        targetKeys,
+        admitted.order,
+      );
+      const opened = await open(runId, intent, {
+        releaseAdmission: owner.releaseAdmission,
+        operations: admitted.operations,
+      });
+      if (!opened)
+        return stop({ kind: "unavailable", reason: "store-publication" });
+      return await runClosingRecord(
+        owner,
+        issuer,
+        runId,
+        declared,
+        effect,
+        decision,
+        opened,
+        slot,
+      );
+    } finally {
+      owner.releaseAll();
+    }
   }
 
   async function transaction<Effect extends string>(

@@ -251,7 +251,33 @@ export function contractFor<
         reason: "state-issued transaction proof required",
       } as const;
     runFacts.effects = proof.effects;
-    if (proof.superseded !== undefined) runFacts.superseded = proof.superseded;
+    return undefined;
+  }
+
+  function applyChangingState(
+    command: CommandDeclaration,
+    station: DeclaredStation,
+    runFacts: Record<string, unknown>,
+    facts: Readonly<Record<string, unknown>>,
+    runId: unknown,
+  ) {
+    if (command.effectClass === "inspect") return undefined;
+    if (station.row.outcome !== "refused") {
+      const problem = applyTransactionProof(runFacts, facts, runId, station);
+      if (problem) return problem;
+    } else if (
+      typeof runId === "string" &&
+      !proofFreeResultAllowed(runId, spec.state)
+    )
+      return {
+        ok: false,
+        path: "transaction",
+        reason: "a transaction on this run requires its proof",
+      } as const;
+    if (typeof runId === "string") {
+      const superseded = issuedSuperseded(runId, spec.state);
+      if (superseded !== undefined) runFacts.superseded = superseded;
+    }
     return undefined;
   }
 
@@ -273,23 +299,14 @@ export function contractFor<
       "bindings",
     ])
       if (Object.hasOwn(facts, key)) runFacts[key] = Reflect.get(facts, key);
-    const runId = runFacts.runId;
-    if (
-      command.effectClass !== "inspect" &&
-      station.row.outcome !== "refused"
-    ) {
-      const problem = applyTransactionProof(runFacts, facts, runId, station);
-      if (problem) return problem;
-    } else if (command.effectClass !== "inspect" && typeof runId === "string") {
-      if (!proofFreeResultAllowed(runId, spec.state))
-        return {
-          ok: false,
-          path: "transaction",
-          reason: "a transaction on this run requires its proof",
-        } as const;
-      const superseded = issuedSuperseded(runId, spec.state);
-      if (superseded !== undefined) runFacts.superseded = superseded;
-    }
+    const problem = applyChangingState(
+      command,
+      station,
+      runFacts,
+      facts,
+      runFacts.runId,
+    );
+    if (problem) return problem;
     const message = Object.hasOwn(facts, "message")
       ? Reflect.get(facts, "message")
       : undefined;
@@ -360,7 +377,12 @@ export function contractFor<
       used = true;
       const attached =
         changingCommand && spec.state
-          ? attachState(spec.state, runId, selected.effects ?? [])
+          ? attachState(
+              spec.state,
+              runId,
+              selected.effects ?? [],
+              selected.commandIdentity,
+            )
           : undefined;
       if (changingCommand && spec.state && !attached)
         return {

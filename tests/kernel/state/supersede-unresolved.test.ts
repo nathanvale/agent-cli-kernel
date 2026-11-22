@@ -604,7 +604,6 @@ supportingTest(
       operationId: oldId,
     });
     expect(second.causeCode).toBe("DOMAIN_SU_UNRESOLVED");
-    expect(phases).not.toContain("closure-read");
     expect(phases).not.toContain("closure-staged");
     expect(readFileSync(closurePath, "utf8")).toBe("damaged-closure-bytes\n");
     expect(readOperations(root, "settled")).toHaveLength(0);
@@ -647,10 +646,7 @@ supportingTest(
       journalRevision: priorRevision,
       qualification: supersededQualification,
       recoveryRunId: healed.runId,
-      evidence: [
-        { effect: "doc.write", observation: supersededQualification },
-        { effect: "editor.launch", observation: supersededQualification },
-      ],
+      evidence: [],
     });
     const history = await healed.state.history(oldId);
     expect(history).toMatchObject({
@@ -662,10 +658,7 @@ supportingTest(
           disposition: "outcome-unknown",
           qualification: supersededQualification,
           journalRevision: priorRevision,
-          evidence: [
-            { effect: "doc.write", observation: supersededQualification },
-            { effect: "editor.launch", observation: supersededQualification },
-          ],
+          evidence: [],
         },
       },
     });
@@ -1255,7 +1248,6 @@ supportingTest(
       reason: "lease-unreadable",
     });
     expect(ownerLeaseAttempts).toBe(1);
-    expect(phases).not.toContain("closure-read");
     expect(phases).not.toContain("closure-staged");
     expect(existsSync(join(root, "operations", oldId, "closure"))).toBe(false);
   },
@@ -1426,7 +1418,6 @@ supportingTest(
     expect(healingRun.outcome.kind).toBe("ran");
     expect(healingRun.envelope.result.superseded).toEqual([oldId]);
     expect(healingRun.published?.superseded).toEqual([oldId]);
-    expect(Object.isFrozen(healingRun.outcome.proof.superseded)).toBe(true);
     expect(Object.isFrozen(healingRun.published?.superseded)).toBe(true);
     if (healingRun.outcome.kind === "ran") {
       expect(healingRun.outcome.superseded).toEqual([oldId]);
@@ -2007,7 +1998,8 @@ supportingTest(
     });
     expect(refused.outcome.kind).toBe("ran");
     expect(refused.outcome.proof.transactionState).toBe("unchanged");
-    expect(refused.outcome.proof.superseded).toEqual([oldId]);
+    if (refused.outcome.kind === "ran")
+      expect(refused.outcome.superseded).toEqual([oldId]);
     expect(refused.envelope.result.outcome).toBe("refused");
     expect(refused.causeCode).toBe("DOMAIN_SU_UNAVAILABLE");
     expect(refused.envelope.result.superseded).toEqual([oldId]);
@@ -2064,7 +2056,6 @@ supportingTest(
       kind: "unresolved-case",
       operationId: secondFailedId,
     });
-    expect(partial.outcome.proof.superseded).toEqual([firstClosedId]);
     expect(partial.envelope.result.outcome).toBe("refused");
     expect(partial.envelope.result.superseded).toEqual([firstClosedId]);
   },

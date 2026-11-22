@@ -282,59 +282,25 @@ test("an attachment's forget never removes a later attachment of the same identi
   expect(attachedRunCount(descriptor)).toBe(1);
 });
 
-test("transactionProof freezes superseded and rejects empty, unsorted, or duplicate superseded lists", async () => {
-  const invalidCases: readonly (readonly string[])[] = [
-    [],
-    ["op-b", "op-a"],
-    ["op-a", "op-a"],
-  ];
-  for (const bad of invalidCases) {
-    const descriptor = createStateAddon((issuer) => ({
-      ifNoResult: issuer.ifNoResult({
-        kind: "command",
-        command: "specimen.pending",
-        args: [],
-      }),
-      attach: (runId) => ({
-        transaction: () =>
-          Promise.resolve().then(() =>
-            issuer.transactionProof(runId, {
-              transactionState: "unchanged",
-              effects: unchanged,
-              superseded: bad,
-            }),
-          ),
-      }),
-    }));
-    const attached = attachState(descriptor, "run-bad", ["specimen.note"]);
-    if (!attached) throw new Error("The state did not attach.");
-    expect(
-      await messageOf(attached.capability.transaction(() => Promise.resolve())),
-    ).toBe("Invalid superseded operation ids.");
-  }
-
+test("attachState passes the kernel command identity to the state add-on", () => {
+  let seenCommand: string | undefined;
   const descriptor = createStateAddon((issuer) => ({
     ifNoResult: issuer.ifNoResult({
       kind: "command",
       command: "specimen.pending",
       args: [],
     }),
-    attach: (runId) => ({
-      transaction: () =>
-        Promise.resolve(
-          issuer.transactionProof(runId, {
-            transactionState: "unchanged",
-            effects: unchanged,
-            superseded: ["op-a", "op-b"],
-          }),
-        ),
-    }),
+    attach: (_runId, _effects, commandIdentity) => {
+      seenCommand = commandIdentity;
+      return {
+        transaction: () => Promise.reject(new Error("unused")),
+      };
+    },
   }));
-  const attached = attachState(descriptor, "run-ok", ["specimen.note"]);
-  if (!attached) throw new Error("The state did not attach.");
-  const proof = await attached.capability.transaction(() => Promise.resolve());
-  expect(proof.superseded).toEqual(["op-a", "op-b"]);
-  expect(Object.isFrozen(proof.superseded)).toBe(true);
+  expect(
+    attachState(descriptor, "run-id", ["specimen.note"], "specimen.write"),
+  ).toBeDefined();
+  expect(seenCommand).toBe("specimen.write");
 });
 
 test("superseded records closed operation ids immediately and requires the active attached run", async () => {

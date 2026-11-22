@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { CommandStep, StateEffects, TransactionState } from "./types.ts";
-import { sortedStrings, text } from "./validation/primitives.ts";
+import { text } from "./validation/primitives.ts";
 import {
   effects as validEffects,
   transactionEffects,
@@ -31,7 +31,6 @@ export type StateObservation<Effect extends string = string> = {
       readonly remaining: readonly Effect[];
       readonly uncertain: readonly Effect[];
     };
-    readonly superseded?: readonly string[];
   };
 }[TransactionState];
 export type TransactionProof<Effect extends string = string> =
@@ -159,10 +158,8 @@ export function issuedSuperseded(
     ? registrations.get(descriptor)?.runs.get(runId)
     : undefined;
   const attached = run ? attachedRuns.get(run) : undefined;
-  if (!attached) return undefined;
-  const ids = new Set<string>(attached.superseded);
-  for (const id of attached.proof?.superseded ?? []) ids.add(id);
-  return ids.size > 0 ? Object.freeze([...ids].sort()) : undefined;
+  if (!attached || attached.superseded.size === 0) return undefined;
+  return Object.freeze([...attached.superseded].sort());
 }
 // Interface: Runtime counterpart of the ExclusiveScope brand (K2): true only for the
 // kernel-issued object itself, issued by `descriptor`'s state add-on instance for the
@@ -192,32 +189,6 @@ export function issuedScope(
     return false;
   }
 }
-function validateObservation<Effect extends string>(
-  snapshot: StateObservation<Effect>,
-): void {
-  if (
-    !validEffects(snapshot.effects) ||
-    !transactionEffects(snapshot.transactionState, snapshot.effects, "failed")
-  )
-    throw new Error("Invalid transaction effects.");
-  if (
-    snapshot.superseded !== undefined &&
-    (!sortedStrings(snapshot.superseded) || snapshot.superseded.length === 0)
-  )
-    throw new Error("Invalid superseded operation ids.");
-}
-
-function freezeProof<Effect extends string>(
-  proof: TransactionProof<Effect>,
-): TransactionProof<Effect> {
-  Object.freeze(proof.effects.completed);
-  Object.freeze(proof.effects.remaining);
-  Object.freeze(proof.effects.uncertain);
-  Object.freeze(proof.effects);
-  if (proof.superseded !== undefined) Object.freeze(proof.superseded);
-  return Object.freeze(proof);
-}
-
 function stateIssuer(
   stateInstance: StateInstance,
   active: AsyncLocalStorage<{ readonly runId: string; readonly run: object }>,
@@ -262,7 +233,15 @@ function stateIssuer(
       observation: StateObservation<Effect>,
     ): TransactionProof<Effect> {
       const snapshot = structuredClone(observation);
-      validateObservation(snapshot);
+      if (
+        !validEffects(snapshot.effects) ||
+        !transactionEffects(
+          snapshot.transactionState,
+          snapshot.effects,
+          "failed",
+        )
+      )
+        throw new Error("Invalid transaction effects.");
       const execution = active.getStore();
       if (!execution || execution.runId !== runId)
         throw new Error("Transaction proof requires the active attached run.");
@@ -270,11 +249,16 @@ function stateIssuer(
       const attached = attachedRuns.get(run);
       if (!attached || attached.proof !== undefined)
         throw new Error("One transaction proof per attached run.");
-      const proof = freezeProof<Effect>({
+      const proof: TransactionProof<Effect> = {
         ...snapshot,
         [transactionProof]: true,
         runId,
-      });
+      };
+      Object.freeze(proof.effects.completed);
+      Object.freeze(proof.effects.remaining);
+      Object.freeze(proof.effects.uncertain);
+      Object.freeze(proof.effects);
+      Object.freeze(proof);
       proofs.set(proof, { runId, stateInstance, run });
       attached.proof = proof;
       return proof;
@@ -319,6 +303,7 @@ export type StateFactoryResult = {
   readonly attach: <Effect extends string>(
     runId: string,
     effects: readonly Effect[],
+    commandIdentity: string,
   ) => import("./capabilities.ts").StateCapability<Effect>;
 };
 export type StateAddonDescriptor = {
@@ -404,9 +389,10 @@ function attachOwned<Effect extends string>(
   runId: string,
   run: object,
   effects: readonly Effect[],
+  commandIdentity: string,
 ): import("./capabilities.ts").StateCapability<Effect> {
   try {
-    return state.registration.attach(runId, effects);
+    return state.registration.attach(runId, effects, commandIdentity);
   } catch (error) {
     forgetAttachment(state.runs, runId, run);
     throw error;
@@ -422,6 +408,7 @@ export function attachState<Effect extends string>(
   descriptor: StateAddonDescriptor,
   runId: string,
   effects: readonly Effect[],
+  commandIdentity = "",
 ):
   | {
       readonly capability: import("./capabilities.ts").StateCapability<Effect>;
@@ -450,7 +437,7 @@ export function attachState<Effect extends string>(
   };
   attachedRuns.set(run, status);
   state.runs.set(runId, run);
-  const attached = attachOwned(state, runId, run, effects);
+  const attached = attachOwned(state, runId, run, effects, commandIdentity);
   const capability: import("./capabilities.ts").StateCapability<Effect> =
     Object.freeze({
       transaction(work) {

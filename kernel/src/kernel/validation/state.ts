@@ -1,7 +1,7 @@
 import { knownProof, knownCapability } from "../state-seam.ts";
 import type { TransactionProof, StateAddonDescriptor } from "../state-seam.ts";
 import { effects } from "./result.ts";
-import { record, sortedStrings, text } from "./primitives.ts";
+import { record, text } from "./primitives.ts";
 export function proofValue(
   value: unknown,
   runId: string,
@@ -12,11 +12,6 @@ export function proofValue(
     !text(value.runId) ||
     !effects(value.effects) ||
     !knownProof(value, runId, descriptor)
-  )
-    return false;
-  if (
-    value.superseded !== undefined &&
-    (!sortedStrings(value.superseded) || value.superseded.length === 0)
   )
     return false;
   return (

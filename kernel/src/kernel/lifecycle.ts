@@ -295,10 +295,8 @@ function noneStarted(command: CommandDeclaration): StateObservation {
 
 function unconfirmedSummary(
   summary: StateObservation | undefined,
-  superseded?: readonly string[],
 ): StateObservation {
-  const ids = summary?.superseded ?? superseded;
-  const base: StateObservation = summary
+  return summary
     ? {
         transactionState: "unknown",
         effects: { ...summary.effects, inventoryComplete: false },
@@ -312,7 +310,6 @@ function unconfirmedSummary(
           inventoryComplete: false,
         },
       };
-  return ids === undefined ? base : { ...base, superseded: ids };
 }
 
 function settleOwned(run: Run, deadlineAt: number | undefined) {
@@ -359,13 +356,12 @@ function trustedRun(
   summary?: StateObservation,
   superseded?: readonly string[],
 ): TrustedRun {
-  const ids = summary !== undefined ? summary.superseded : superseded;
   return {
     runId: run.runId,
     commandIdentity: identity,
     handlerEntered,
     ...(summary === undefined ? {} : { summary }),
-    ...(ids === undefined ? {} : { superseded: ids }),
+    ...(superseded === undefined ? {} : { superseded }),
   };
 }
 
@@ -381,10 +377,7 @@ async function kernelResult(
     readonly summary?: StateObservation | undefined;
   } = {},
 ): Promise<Delivery> {
-  const superseded =
-    options.summary !== undefined
-      ? options.summary.superseded
-      : run.runtime.trustedSuperseded(run.runId);
+  const superseded = run.runtime.trustedSuperseded(run.runId);
   const candidate = await run.runtime.buildKernelStation(
     { commandIdentity: identity, causeCode },
     {
@@ -552,9 +545,7 @@ async function afterDeadline(
   const issued =
     run.runtime.trustedSummary(run.runId) ??
     (started === false ? noneStarted(command) : undefined);
-  const superseded = run.runtime.trustedSuperseded(run.runId);
-  const summary =
-    stopped === true ? issued : unconfirmedSummary(issued, superseded);
+  const summary = stopped === true ? issued : unconfirmedSummary(issued);
   const programStop =
     command.effectClass === "inspect" && stopped !== true
       ? programStopOf(command)
@@ -595,14 +586,13 @@ async function afterHandler(
   if (clean === undefined)
     return afterDeadline(run, command, Promise.resolve(execution));
   const issued = run.runtime.trustedSummary(run.runId);
-  const superseded = run.runtime.trustedSuperseded(run.runId);
-  const summary = clean ? issued : unconfirmedSummary(issued, superseded);
+  const summary = clean ? issued : unconfirmedSummary(issued);
   const trusted = trustedRun(
     run,
     identity,
     true,
     summary,
-    summary === undefined ? superseded : undefined,
+    run.runtime.trustedSuperseded(run.runId),
   );
   if (execution.kind === "threw")
     return {

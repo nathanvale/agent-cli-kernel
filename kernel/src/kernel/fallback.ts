@@ -76,11 +76,7 @@ function construct(
     ?.find((item) => item.causeCode === selected.causeCode);
   if (!command || !station) return undefined;
   const superseded =
-    command.effectClass === "inspect"
-      ? undefined
-      : trusted.summary !== undefined
-        ? trusted.summary.superseded
-        : trusted.superseded;
+    command.effectClass === "inspect" ? undefined : trusted.superseded;
   const envelope = {
     contractVersion: "3.0.0",
     message: fallbackMessage,

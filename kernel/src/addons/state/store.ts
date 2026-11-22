@@ -732,6 +732,7 @@ export function publishClosure(
   paths: Layout,
   closure: Closure,
   beforeLink: () => Promise<void>,
+  onLinked?: () => void,
 ): Promise<"published" | "exists"> {
   const staged = join(paths.staging, `closure-${crypto.randomUUID()}`);
   writeDurable(
@@ -739,13 +740,19 @@ export function publishClosure(
     encodeRecord(recordKinds.closure, { ...closure, settledAt: Date.now() }),
   );
   return beforeLink().then(() => {
+    let linked = false;
     try {
       linkSync(staged, join(paths.operation(closure.operationId), "closure"));
+      linked = true;
     } catch (error) {
       if (Reflect.get(Object(error), "code") === "EEXIST") return "exists";
       throw error;
     } finally {
-      rmSync(staged, { force: true });
+      try {
+        if (linked) onLinked?.();
+      } finally {
+        rmSync(staged, { force: true });
+      }
     }
     flushDirectory(paths.operation(closure.operationId));
     return "published";

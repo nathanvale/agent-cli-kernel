@@ -96,6 +96,7 @@
     "tests/kernel/state/route.test.ts": 613,
     "tests/kernel/state/seams.test.ts": 10947,
     "tests/kernel/state/state-addon.test.ts": 280,
+    "tests/kernel/state/supersede-admission.test.ts": 750,
     "tests/kernel/state/supersede-unresolved.test.ts": 924,
     "tests/kernel/state/transient.test.ts": 2181,
     "tests/kernel/static-controls.test.ts": 7886,
