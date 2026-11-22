@@ -167,18 +167,18 @@ itself to the row's capability qualification record. A row has two:
 
 Capability qualification record fields:
 
-| Field                      | Content                                                                                                                                                                                                                                                                                                                     |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `schema`                   | `capability-qualification-record/1`                                                                                                                                                                                                                                                                                         |
-| `row`                      | the candidate row id                                                                                                                                                                                                                                                                                                        |
-| `runs`                     | one entry for each capability qualification run, in order: `{ entry, commit, sourceHash, started, ended, cases }`. `entry` is the test entry or `index.ts`; `commit` is the full commit that run used (the second is the row's commit); `sourceHash` is computed at that commit; `started` and `ended` are wall clock times |
-| `sourceHash` (in each run) | SHA-256 over each qualified file in sorted path order, each entered as its path, a newline, its byte length, a newline and its bytes as committed. The files: `kernel/src/addons/state/*.ts` except `capability-qualification-table.ts`; `kernel/src/addons/programs/*.ts`; `kernel/src/kernel/state-seam.ts`               |
-| `platform`                 | `os`, exact `release`, `majorRelease`, architecture, runtime version, distribution, C library, and whether it ran in a container                                                                                                                                                                                            |
-| `filesystem`               | the state root's observed filesystem facts only; no path, user name or machine name                                                                                                                                                                                                                                         |
-| `primitive`                | the active coordination route                                                                                                                                                                                                                                                                                               |
-| `bootIdentitySource`       | the source, and whether it was readable; never the value                                                                                                                                                                                                                                                                    |
-| `cases` (in each run)      | `[{ id, result, detail }]`, result `pass`, `fail` or `unproved`; or `{ id, result: "not-runnable", reason }` for a covered case the case table runs only through the other entry, its `reason` copied from the case table (decided by Nathan, 19 November 2026, 17:45 AEDT)                                                 |
-| `factSource`               | `observed`: every fact above was read from the machine, with no override. The command writes no other value                                                                                                                                                                                                                 |
+| Field                      | Content                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schema`                   | `capability-qualification-record/1`                                                                                                                                                                                                                                                                                                                                                                                     |
+| `row`                      | the candidate row id                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `runs`                     | one entry for each capability qualification run, in order: `{ entry, commit, sourceHash, started, ended, cases }`. `entry` is the test entry or `index.ts`; `commit` is the full commit that run used (the second is the row's commit); `sourceHash` is computed at that commit; `started` and `ended` are wall clock times                                                                                             |
+| `sourceHash` (in each run) | SHA-256 over each qualified file in sorted path order, each entered as its path relative to the kernel source root (`addons/state/install.ts`, `kernel/state-seam.ts`), a newline, its byte length, a newline and its bytes as committed. The files, under the kernel source root (`kernel/src/` today): `addons/state/*.ts` except `capability-qualification-table.ts`; `addons/programs/*.ts`; `kernel/state-seam.ts` |
+| `platform`                 | `os`, exact `release`, `majorRelease`, architecture, runtime version, distribution, C library, and whether it ran in a container                                                                                                                                                                                                                                                                                        |
+| `filesystem`               | the state root's observed filesystem facts only; no path, user name or machine name                                                                                                                                                                                                                                                                                                                                     |
+| `primitive`                | the active coordination route                                                                                                                                                                                                                                                                                                                                                                                           |
+| `bootIdentitySource`       | the source, and whether it was readable; never the value                                                                                                                                                                                                                                                                                                                                                                |
+| `cases` (in each run)      | `[{ id, result, detail }]`, result `pass`, `fail` or `unproved`; or `{ id, result: "not-runnable", reason }` for a covered case the case table runs only through the other entry, its `reason` copied from the case table (decided by Nathan, 19 November 2026, 17:45 AEDT)                                                                                                                                             |
+| `factSource`               | `observed`: every fact above was read from the machine, with no override. The command writes no other value                                                                                                                                                                                                                                                                                                             |
 
 A capability qualification run covers the cases that run on observed facts:
 the executable closure and stopped-owner cases (families K02, K03, K06, K07,
@@ -357,3 +357,41 @@ proof.
 | Closing after a torn tail                              | Included (section 4).                                                                                                                       |
 | Closing after `delegate-admitted`                      | Included, only after the container machine restarts (section 5).                                                                            |
 | Human takeover and `outcome-unknown` closure           | Not included. Both need a qualified authority source, and case K05.b is still pending. Their refusals and capability reports do not change. |
+
+### REC-5 and REC-7a exception: opt-in same-command superseding closure
+
+`state.close` continues to refuse `outcome-unknown` without a qualified
+authority source (`human-closure-unqualified`), continues to refuse same-boot
+`delegate-admitted` records (`delegate-recorded`), and human takeover stays
+unavailable. Under the REC-5 and REC-7a exception (decided by Nathan, 22
+November 2026; see [DESIGN.md](DESIGN.md) section 10), a changing command whose
+author sets `supersedeUnresolved: true` on its state declaration promises that
+the command is safe to run again even alongside a leftover copy of the program
+an earlier run started. The kernel never tries to stop that leftover program.
+
+When `supersedeUnresolved: true` is set, the declaration is read once into
+frozen plain data and the command identity comes from the kernel (the attached
+command, not `declaration.command`). The store is read once to list conflicting
+unresolved cases, and nothing filters that list again. The next run may close
+those earlier unresolved case(s), even when a same-boot `delegate-admitted`
+record exists, with `disposition: "outcome-unknown"`, `authority: null`, empty
+`evidence: []` (nothing was observed), and working qualification label
+`superseded-owner-lease-free`, only when the coordination route is available and
+the local-lock filesystem gate passes (same device across all state folders and
+a local lock-honouring filesystem: Linux local filesystems refusing NFS,
+SMB/CIFS, overlay, FUSE, 9p and unknown types; macOS local APFS matching the
+root volume's `statfsSync("/").type`, refusing network volumes; refuses
+`supersede-filesystem-unsupported` otherwise), taking `owner.lease` succeeds
+(no probe and no skip verdict; busy refuses `held-lock`, failed refuses
+`lease-unreadable`), the case re-read under that held lease is still unresolved,
+intact, unchanged in revision, recorded under the same kernel command identity,
+and covered by the new declaration's declared resources (the dead case's
+recorded declared resources and invariants are a subset of the new declaration's
+declared resources and invariants, without fresh filesystem resolution; unknown
+scope on either side refuses), and the new run publishes its own intent before
+linking any dead case's closure, recording each closed id at the link commit
+point. The closure states plainly that the outcome is unknown and never claims
+completion (REC-4 holds: the case is closed, not completed, and remains in
+history), and every result path reads the kernel's superseded set so the new
+run's envelope names every cleared operation id in `result.superseded` (working
+field name).

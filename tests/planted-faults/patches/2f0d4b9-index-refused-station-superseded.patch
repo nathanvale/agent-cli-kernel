@@ -1,0 +1,12 @@
+diff --git a/kernel/src/kernel/index.ts b/kernel/src/kernel/index.ts
+--- a/kernel/src/kernel/index.ts
++++ b/kernel/src/kernel/index.ts
+@@ -274,7 +274,7 @@ export function contractFor<
+         path: "transaction",
+         reason: "a transaction on this run requires its proof",
+       } as const;
+-    if (typeof runId === "string") {
++    if (station.row.outcome !== "refused" && typeof runId === "string") {
+       const superseded = issuedSuperseded(runId, spec.state);
+       if (superseded !== undefined) runFacts.superseded = superseded;
+     }

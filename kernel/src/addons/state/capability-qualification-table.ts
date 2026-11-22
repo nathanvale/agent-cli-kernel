@@ -49,9 +49,9 @@ export const capabilityQualificationTable: readonly CapabilityQualificationRow[]
         record:
           "tests/kernel/state/capability-qualification/linux-7-btrfs.json",
         review: {
-          session: "local_6613a802-3afb-42b7-8df7-2c9c698e49a1",
+          session: "local_53bccc9d-ec76-4ea2-b1e4-b495caa37fca",
           countersignature: "Nathan Vale",
-          date: "2026-11-20",
+          date: "2026-11-22",
         },
       },
     },

@@ -1,0 +1,16 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1620,11 +1620,7 @@ export function install(options: StateOptions, seams: Seams) {
+     for (const entry of targets) {
+       const id = entry.target.intent.operationId;
+       const problem = await publishOneSupersedeClosure(entry, runId, (link) => {
+-        issuer.superseded(runId, id, () => {
+-          if (!link()) return false;
+-          ids.push(id);
+-          return true;
+-        });
++        if (link()) ids.push(id);
+       });
+       if (problem) return { ok: false, refusal: problem };
+       await phase("closure-published");

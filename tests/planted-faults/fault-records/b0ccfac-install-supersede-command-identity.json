@@ -1,0 +1,7 @@
+{
+  "id": "b0ccfac-install-supersede-command-identity",
+  "patch": "tests/planted-faults/patches/b0ccfac-install-supersede-command-identity.patch",
+  "testFile": "tests/kernel/state/supersede-unresolved.test.ts",
+  "title": "^SU03\\.different-command-refuses-unresolved-case:",
+  "source": "b0ccfac feat(state): heal a same-command unresolved case when supersedeUnresolved is set"
+}

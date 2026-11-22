@@ -1,0 +1,7 @@
+{
+  "id": "d237449-install-flagged-kernel-command-identity",
+  "patch": "tests/planted-faults/patches/d237449-install-flagged-kernel-command-identity.patch",
+  "testFile": "tests/kernel/state/supersede-admission.test.ts",
+  "title": "^SU24\\.kernel-command-identity-authority:",
+  "source": "d237449 fix(state): rebuild the supersedeUnresolved admission on one owner and one read"
+}

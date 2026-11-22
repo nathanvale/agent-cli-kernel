@@ -1,0 +1,18 @@
+diff --git a/kernel/src/addons/state/scope.ts b/kernel/src/addons/state/scope.ts
+--- a/kernel/src/addons/state/scope.ts
++++ b/kernel/src/addons/state/scope.ts
+@@ -332,9 +332,9 @@ export function coversDeclaredResources(
+   superset: CanonicalScope,
+   subset: CanonicalScope,
+ ): boolean {
+-  const wider = declaredScopeTokens(superset);
+-  const narrower = declaredScopeTokens(subset);
+-  if (!wider || !narrower || narrower.size === 0) return false;
+-  for (const token of narrower) if (!wider.has(token)) return false;
+-  return true;
++  const wider = superset.unknown ? undefined : superset.keys;
++  const narrower = currentKeys(subset);
++  if (!wider || !narrower || narrower.length === 0) return false;
++  const set = new Set(wider);
++  return narrower.every((key) => set.has(key));
+ }

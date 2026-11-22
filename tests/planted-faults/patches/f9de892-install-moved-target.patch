@@ -1,13 +1,12 @@
 diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
-index 30bb3d7..88eb26b 100644
 --- a/kernel/src/addons/state/install.ts
 +++ b/kernel/src/addons/state/install.ts
-@@ -1201,7 +1201,7 @@ export function install(options: StateOptions, seams: Seams) {
-     const target = admitted.operations.find(
+@@ -1987,7 +1987,7 @@ export function install(options: StateOptions, seams: Seams) {
+     const found = operations.find(
        (operation) => operation.intent.operationId === id,
      );
--    if (!target) {
-+    if (!target && Date.now() < 0) {
-       admitted.release();
-       const moved = readCase(paths, id);
-       return {
+-    if (!found) {
++    if (!found && Date.now() < 0) {
+       const moved = caseRead(paths, request);
+       return { ok: false, stop: moved.ok ? { kind: "not-found" } : moved.stop };
+     }

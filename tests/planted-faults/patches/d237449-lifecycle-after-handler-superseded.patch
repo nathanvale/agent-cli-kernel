@@ -1,0 +1,18 @@
+diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
+--- a/kernel/src/kernel/lifecycle.ts
++++ b/kernel/src/kernel/lifecycle.ts
+@@ -587,13 +587,7 @@ async function afterHandler(
+     return afterDeadline(run, command, Promise.resolve(execution));
+   const issued = run.runtime.trustedSummary(run.runId);
+   const summary = clean ? issued : unconfirmedSummary(issued);
+-  const trusted = trustedRun(
+-    run,
+-    identity,
+-    true,
+-    summary,
+-    run.runtime.trustedSuperseded(run.runId),
+-  );
++  const trusted = trustedRun(run, identity, true, summary, undefined);
+   if (execution.kind === "threw")
+     return {
+       candidate: { ok: false, path: "handler", reason: "handler threw" },

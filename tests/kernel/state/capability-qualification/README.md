@@ -16,6 +16,11 @@ hand.
   production row whose record is missing, made with an overridden fact, for
   another platform or for changed source, short of a run or a passed required
   case, or whose row names no review.
+- Each run's `sourceHash` hashes the qualified files under the kernel source
+  root (`addons/programs/*.ts`, `addons/state/*.ts` except
+  `capability-qualification-table.ts`, and `kernel/state-seam.ts`) under each
+  file's path relative to the kernel source root, so moving the kernel source
+  root without changing those bytes keeps the same hash.
 - A record from the hosted runner is not evidence (decision T, Nathan,
   19 November 2026). There is no macOS row.
 

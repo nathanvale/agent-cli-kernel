@@ -1,0 +1,12 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -999,7 +999,7 @@ function readFlaggedDeclaration(
+   const approval = snapshotApproval(declaration);
+   if (approval === "invalid") return undefined;
+   return Object.freeze({
+-    command: commandIdentity,
++    command: declaredCommand,
+     scope,
+     revisions,
+     facts,

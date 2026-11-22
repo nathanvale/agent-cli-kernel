@@ -38,6 +38,7 @@ const resultKeys = [
   "bindings",
   "idempotencyKey",
   "attemptedEffect",
+  "superseded",
 ];
 const effectKeys = ["completed", "remaining", "uncertain", "inventoryComplete"];
 const handoffKeys = ["owner", "reason", "inspect", "resource"];

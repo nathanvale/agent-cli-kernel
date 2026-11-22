@@ -1,0 +1,12 @@
+diff --git a/kernel/src/addons/state/scope.ts b/kernel/src/addons/state/scope.ts
+--- a/kernel/src/addons/state/scope.ts
++++ b/kernel/src/addons/state/scope.ts
+@@ -215,8 +215,6 @@ export function createOnceReader(): OnceReader {
+     own,
+     field: (source, key) => own(source, key).value,
+     length: (source) => {
+-      const cached = lengths.get(source);
+-      if (cached !== undefined) return cached;
+       const value = source.length;
+       lengths.set(source, value);
+       return value;

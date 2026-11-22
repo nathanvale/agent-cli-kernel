@@ -1,6 +1,24 @@
 import { afterAll, expect, test } from "bun:test";
-import { appendFileSync, readFileSync, statSync, truncateSync } from "node:fs";
+import {
+  appendFileSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  truncateSync,
+} from "node:fs";
 import { join } from "node:path";
+import {
+  changing,
+  command,
+  commonCauses,
+  contractFor,
+  runInProcess,
+  station,
+} from "../../../kernel/src/kernel/index.ts";
+import {
+  stateAddon,
+  supersededQualification,
+} from "../../../kernel/src/addons/state/index.ts";
 import {
   parseRecords,
   recordStartsMidLine,
@@ -10,6 +28,13 @@ import {
   inspectStateRoot,
   parseC3s1Records,
 } from "../../../skills/verify-cli/forensics.ts";
+import {
+  emptyInput,
+  refusedHandoff,
+  stationWords,
+  unchanged,
+} from "../kernel-repair/shapes.ts";
+import { testFolder } from "../../support/test-folder.ts";
 import { closeArgs, framed, makeWorld } from "./harness.ts";
 
 const childBound = 20_000;
@@ -32,8 +57,8 @@ type CaseSummary =
       readonly ownerPid: number | null;
     };
 
-function kernelView(id: string): CaseSummary {
-  const read = readCase(layout(world.root), id);
+function kernelViewIn(root: string, id: string): CaseSummary {
+  const read = readCase(layout(root), id);
   if (typeof read === "string") return { status: read };
   return {
     status: read.status,
@@ -53,8 +78,12 @@ function kernelView(id: string): CaseSummary {
   };
 }
 
-function forensicView(id: string): CaseSummary {
-  const inspected = inspectStateRoot(world.root);
+function kernelView(id: string): CaseSummary {
+  return kernelViewIn(world.root, id);
+}
+
+function forensicViewIn(root: string, id: string): CaseSummary {
+  const inspected = inspectStateRoot(root);
   if (!inspected.ok) throw new Error(inspected.reason);
   const found = inspected.report.cases.filter(
     (entry) => entry.operationId === id,
@@ -74,6 +103,10 @@ function forensicView(id: string): CaseSummary {
     effects: entry.effects,
     ownerPid: entry.ownerPid,
   };
+}
+
+function forensicView(id: string): CaseSummary {
+  return forensicViewIn(world.root, id);
 }
 
 function mutateBytes(
@@ -213,3 +246,184 @@ test(
   },
   childBound + 20_000,
 );
+
+test("forensics and the kernel reader agree on a case closed by a supersedeUnresolved healing run", async () => {
+  const folder = testFolder("c3-forensics-supersede-");
+  const root = join(folder, "state");
+  try {
+    const state = stateAddon({ root, report: "fc.pending" });
+    const causes = {
+      ...commonCauses,
+      DOMAIN_FC_HELD: refusedHandoff,
+      DOMAIN_FC_UNRESOLVED: refusedHandoff,
+      DOMAIN_FC_UNKNOWN: {
+        ...refusedHandoff,
+        outcome: "failed",
+        transactionState: "unknown",
+      },
+    } as const;
+    const pendingStep = {
+      kind: "command",
+      command: "fc.pending",
+      args: [],
+    } as const;
+    const handoff = {
+      handoff: {
+        owner: "operator",
+        reason: "Check pending.",
+        inspect: [pendingStep],
+      },
+    } as const;
+    let confirm = false;
+    const pending = command({
+      identity: "fc.pending",
+      route: ["pending"],
+      summary: "Pending.",
+      input: emptyInput,
+      capabilities: {},
+      stations: [
+        station(causes, {
+          ...stationWords,
+          commandIdentity: "fc.pending",
+          causeCode: "SUCCESS_UNCHANGED",
+          trigger: "Read.",
+          repairAction: null,
+          guidance: { next: { kind: "instruction", text: "Inspect." } },
+          independentObservable: "fc.pending:read",
+        }),
+      ],
+      run: (_input, context) =>
+        context.result(
+          { commandIdentity: "fc.pending", causeCode: "SUCCESS_UNCHANGED" },
+          { message: "Read.", data: null, effects: unchanged },
+        ),
+    });
+    const heal = changing({
+      identity: "fc.heal",
+      route: ["heal"],
+      summary: "Heal.",
+      input: emptyInput,
+      capabilities: {},
+      effectClass: "repository-local",
+      effects: ["doc.write"],
+      ifNoResult: state.descriptor.ifNoResult,
+      heldLockCause: "DOMAIN_FC_HELD",
+      unresolvedCaseCause: "DOMAIN_FC_UNRESOLVED",
+      stations: [
+        station(causes, {
+          ...stationWords,
+          commandIdentity: "fc.heal",
+          causeCode: "SUCCESS_COMPLETED",
+          trigger: "Done.",
+          repairAction: null,
+          guidance: { next: { kind: "done" } },
+          independentObservable: "fc.heal:done",
+        }),
+        station(causes, {
+          ...stationWords,
+          commandIdentity: "fc.heal",
+          causeCode: "DOMAIN_FC_HELD",
+          trigger: "Held.",
+          repairAction: "Wait.",
+          guidance: handoff,
+          independentObservable: "fc.heal:held",
+        }),
+        station(causes, {
+          ...stationWords,
+          commandIdentity: "fc.heal",
+          causeCode: "DOMAIN_FC_UNRESOLVED",
+          trigger: "Unresolved.",
+          repairAction: "Inspect.",
+          guidance: handoff,
+          independentObservable: "fc.heal:unresolved",
+        }),
+        station(causes, {
+          ...stationWords,
+          commandIdentity: "fc.heal",
+          causeCode: "DOMAIN_FC_UNKNOWN",
+          trigger: "Unknown.",
+          repairAction: "Inspect.",
+          guidance: handoff,
+          independentObservable: "fc.heal:unknown",
+        }),
+      ],
+      run: async (_input, context) => {
+        const outcome = await state.transaction(
+          context.state,
+          {
+            command: "fc.heal",
+            scope: { resources: [{ resource: "doc", key: "alpha" }] },
+            supersedeUnresolved: true,
+          },
+          async (transaction) => {
+            await transaction.record(
+              "doc.write",
+              () => Promise.resolve(),
+              () => Promise.resolve(confirm),
+            );
+          },
+        );
+        if (outcome.kind !== "ran")
+          return context.result(
+            { commandIdentity: "fc.heal", causeCode: "DOMAIN_FC_UNRESOLVED" },
+            { message: outcome.kind, data: null, effects: unchanged },
+          );
+        const causeCode =
+          outcome.proof.transactionState === "completed"
+            ? "SUCCESS_COMPLETED"
+            : "DOMAIN_FC_UNKNOWN";
+        return context.result(
+          { commandIdentity: "fc.heal", causeCode },
+          {
+            message: outcome.proof.transactionState,
+            data: null,
+            transaction: outcome.proof,
+          },
+        );
+      },
+    });
+    const contract = contractFor({
+      cli: "fc",
+      commands: [pending, heal],
+      causes,
+      state: state.descriptor,
+      installedAddons: ["state"],
+    });
+    const run = runInProcess(contract, {
+      emergencyRecord: state.emergencyRecord,
+    });
+    await run(["heal"]);
+    const report = state.report();
+    if (!report.ok || report.unfinished.length !== 1)
+      throw new Error("Expected one unresolved case.");
+    const deadId = report.unfinished[0]?.operationId ?? "";
+    confirm = true;
+    const healed = await run(["heal"]);
+    expect(healed).toMatchObject({
+      kind: "envelope",
+      exitCode: 0,
+      envelope: { result: { superseded: [deadId] } },
+    });
+    expect(forensicViewIn(root, deadId)).toEqual(kernelViewIn(root, deadId));
+    const inspected = inspectStateRoot(root);
+    expect(inspected.ok).toBe(true);
+    if (!inspected.ok) return;
+    const closedEntry = inspected.report.cases.find(
+      (entry) => entry.operationId === deadId,
+    );
+    expect(closedEntry).toMatchObject({
+      folder: "settled",
+      status: "closed",
+      closure: {
+        state: "valid",
+        disposition: "outcome-unknown",
+        qualification: supersededQualification,
+        journalRevisionMatches: true,
+      },
+      nextAction: null,
+      problems: [],
+    });
+  } finally {
+    rmSync(folder, { recursive: true, force: true });
+  }
+});

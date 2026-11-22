@@ -1,0 +1,7 @@
+{
+  "id": "d237449-install-lock-owner-hold-on-acquire",
+  "patch": "tests/planted-faults/patches/d237449-install-lock-owner-hold-on-acquire.patch",
+  "testFile": "tests/kernel/state/supersede-admission.test.ts",
+  "title": "^SU21\\.throw-at-step-k-sweep:",
+  "source": "d237449 fix(state): rebuild the supersedeUnresolved admission on one owner and one read"
+}

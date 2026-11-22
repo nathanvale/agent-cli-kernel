@@ -1,24 +1,23 @@
 diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
-index d50d835..e8921c9 100644
 --- a/kernel/src/addons/state/install.ts
 +++ b/kernel/src/addons/state/install.ts
-@@ -829,14 +829,13 @@ export function install(options: StateOptions, seams: Seams) {
-     } catch {
-       workFailed = true;
-     }
--    recording.ended = true;
-     await settled(recording.records);
-     const observation = observationOf(
-       declared,
-       recording.confirmed,
-       recording.started,
-     );
--    finish(held.events, observation);
-+    recording.ended = finish(held.events, observation);
-     active.delete(runId);
-     held.releaseKeyLocks();
-     held.releaseLease();
-@@ -925,8 +924,9 @@ export function install(options: StateOptions, seams: Seams) {
+@@ -1392,14 +1392,13 @@ export function install(options: StateOptions, seams: Seams) {
+       } catch {
+         workFailed = true;
+       }
+-      recording.ended = true;
+       await settled(recording.records);
+       const observation = observationOf(
+         declared,
+         recording.confirmed,
+         recording.started,
+       );
+-      finish(held.events, observation);
++      recording.ended = finish(held.events, observation);
+       return { observation, workFailed };
+     } finally {
+       active.delete(runId);
+@@ -1803,8 +1802,9 @@ export function install(options: StateOptions, seams: Seams) {
            uncertain: [...effects.uncertain],
          });
      } catch {

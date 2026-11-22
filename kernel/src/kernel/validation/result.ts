@@ -193,7 +193,11 @@ export function handoff(value: unknown): value is Handoff {
       text(value.resource.id))
   );
 }
-function optionalResult(value: Record<string, unknown>): boolean {
+function validSuperseded(value: Record<string, unknown>): boolean {
+  if (!Object.hasOwn(value, "superseded")) return true;
+  return sortedStrings(value.superseded) && value.superseded.length > 0;
+}
+function optionalScalars(value: Record<string, unknown>): boolean {
   if (
     "retryDelayMilliseconds" in value &&
     (!integer(value.retryDelayMilliseconds) || value.retryDelayMilliseconds < 1)
@@ -205,6 +209,10 @@ function optionalResult(value: Record<string, unknown>): boolean {
     (value.outcome !== "failed" || !text(value.attemptedEffect))
   )
     return false;
+  return validSuperseded(value);
+}
+function optionalResult(value: Record<string, unknown>): boolean {
+  if (!optionalScalars(value)) return false;
   if (
     "bindings" in value &&
     (!record(value.bindings) ||
@@ -272,20 +280,14 @@ export function wireResult(value: unknown): value is WireResult {
         "bindings",
         "idempotencyKey",
         "attemptedEffect",
+        "superseded",
       ],
     )
   )
     return false;
   return optionalResult(value) && scalarResult(value);
 }
-export function resultCorrelations(value: WireResult): boolean {
-  if (
-    !effectState(value) ||
-    value.retryable !== (value.retryDelayMilliseconds !== undefined)
-  )
-    return false;
-  if (value.retryable !== (value.next?.kind === "retry")) return false;
-  if (value.next?.kind === "done" && value.outcome !== "success") return false;
+function validAttemptedEffect(value: WireResult): boolean {
   return (
     value.attemptedEffect === undefined ||
     [
@@ -294,6 +296,19 @@ export function resultCorrelations(value: WireResult): boolean {
       ...value.effects.uncertain,
     ].includes(value.attemptedEffect)
   );
+}
+function validRetry(value: WireResult): boolean {
+  return (
+    value.retryable === (value.retryDelayMilliseconds !== undefined) &&
+    value.retryable === (value.next?.kind === "retry")
+  );
+}
+export function resultCorrelations(value: WireResult): boolean {
+  if (!effectState(value) || !validRetry(value)) return false;
+  if (value.next?.kind === "done" && value.outcome !== "success") return false;
+  if (value.superseded !== undefined && value.effectClass === "inspect")
+    return false;
+  return validAttemptedEffect(value);
 }
 export function typedResult<C extends CauseTable>(
   value: unknown,

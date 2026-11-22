@@ -23,10 +23,10 @@
   "runs": [
     {
       "entry": "fixture.ts",
-      "commit": "02179527e58dbf390d3402dc16f62e339aaf1f23",
-      "sourceHash": "e85117dfc5c26446d5a373deb72c404279179362d6ed1292f48a861a81c9e309",
-      "started": "2026-11-19T12:21:07.417Z",
-      "ended": "2026-11-19T12:21:12.533Z",
+      "commit": "9f5b55cf7286d25cd29d8acb06ccdba89801bed8",
+      "sourceHash": "d0a6b785772b26b210edddaf5ea0955f9d763d447d562bffae2a524fcdc57265",
+      "started": "2026-11-22T11:06:05.013Z",
+      "ended": "2026-11-22T11:06:10.544Z",
       "cases": [
         {
           "id": "K02.a-kill-after-effect-two-later-changes",
@@ -141,7 +141,7 @@
         {
           "id": "O07.b-reclaim-race",
           "result": "unproved",
-          "detail": "pending: Needs a reviewed qualification row (REC-7b). The foundation table is empty, so the expected foundation outcome is O10 and Q01."
+          "detail": "pending: Needs a reviewed capability qualification row that enables reclaim or takeover (REC-7b). Journal version 2 rows enable closure only, so the expected outcome is still O10 and Q01."
         },
         {
           "id": "O09.a-reclaim-is-coordination-only",
@@ -172,10 +172,10 @@
     },
     {
       "entry": "index.ts",
-      "commit": "c298f2b8349dca741e5c81b70ccbabff3c8a351f",
-      "sourceHash": "e85117dfc5c26446d5a373deb72c404279179362d6ed1292f48a861a81c9e309",
-      "started": "2026-11-19T12:43:56.959Z",
-      "ended": "2026-11-19T12:44:01.759Z",
+      "commit": "f973299dfdb3441a8dbdbe6b6c9ce7cb0406a1ac",
+      "sourceHash": "d0a6b785772b26b210edddaf5ea0955f9d763d447d562bffae2a524fcdc57265",
+      "started": "2026-11-22T11:06:12.110Z",
+      "ended": "2026-11-22T11:06:17.073Z",
       "cases": [
         {
           "id": "K02.a-kill-after-effect-two-later-changes",

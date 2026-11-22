@@ -1,0 +1,15 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1649,11 +1649,6 @@ export function install(options: StateOptions, seams: Seams) {
+         readonly superseded: readonly string[] | undefined;
+       }
+   > {
+-    if (!runOpenForSupersede(issuer, runId, targets))
+-      return {
+-        ok: false,
+-        refusal: { kind: "unavailable", reason: "closure-publication" },
+-      };
+     const opened = await begin(runId, intent).catch(() => undefined);
+     if (!opened)
+       return {

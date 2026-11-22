@@ -1,0 +1,15 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1513,7 +1513,10 @@ export function install(options: StateOptions, seams: Seams) {
+       closureId: `superseded-${hex32().slice(0, 16)}`,
+       disposition: "outcome-unknown",
+       reason: "superseded by later run of the same command",
+-      evidence: [],
++      evidence: target.intent.effects.map((effect) => ({
++        effect,
++        observation: supersededQualification,
++      })),
+       authority: null,
+       journalRevision: target.revision,
+       qualification: supersededQualification,

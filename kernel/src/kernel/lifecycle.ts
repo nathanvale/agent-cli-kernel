@@ -296,20 +296,20 @@ function noneStarted(command: CommandDeclaration): StateObservation {
 function unconfirmedSummary(
   summary: StateObservation | undefined,
 ): StateObservation {
-  if (!summary)
-    return {
-      transactionState: "unknown",
-      effects: {
-        completed: [],
-        remaining: [],
-        uncertain: [],
-        inventoryComplete: false,
-      },
-    };
-  return {
-    transactionState: "unknown",
-    effects: { ...summary.effects, inventoryComplete: false },
-  };
+  return summary
+    ? {
+        transactionState: "unknown",
+        effects: { ...summary.effects, inventoryComplete: false },
+      }
+    : {
+        transactionState: "unknown",
+        effects: {
+          completed: [],
+          remaining: [],
+          uncertain: [],
+          inventoryComplete: false,
+        },
+      };
 }
 
 function settleOwned(run: Run, deadlineAt: number | undefined) {
@@ -354,13 +354,15 @@ function trustedRun(
   identity: string,
   handlerEntered: boolean,
   summary?: StateObservation,
+  superseded?: readonly string[],
 ): TrustedRun {
-  const trusted: TrustedRun = {
+  return {
     runId: run.runId,
     commandIdentity: identity,
     handlerEntered,
+    ...(summary === undefined ? {} : { summary }),
+    ...(superseded === undefined ? {} : { superseded }),
   };
-  return summary ? { ...trusted, summary } : trusted;
 }
 
 async function kernelResult(
@@ -375,9 +377,15 @@ async function kernelResult(
     readonly summary?: StateObservation | undefined;
   } = {},
 ): Promise<Delivery> {
+  const superseded = run.runtime.trustedSuperseded(run.runId);
   const candidate = await run.runtime.buildKernelStation(
     { commandIdentity: identity, causeCode },
-    { runId: run.runId, message, data: options.data ?? null },
+    {
+      runId: run.runId,
+      message,
+      data: options.data ?? null,
+      ...(superseded === undefined ? {} : { superseded }),
+    },
     options.effects ?? unchangedEffects,
   );
   return {
@@ -387,6 +395,7 @@ async function kernelResult(
       identity,
       options.handlerEntered ?? false,
       options.summary,
+      superseded,
     ),
   };
 }
@@ -558,7 +567,11 @@ async function afterDeadline(
     command.commandIdentity,
     selected.causeCode,
     programStop ? messages.programStop : messages.deadline,
-    { handlerEntered: true, effects: selected.effects, summary },
+    {
+      handlerEntered: true,
+      effects: selected.effects,
+      summary,
+    },
   );
 }
 
@@ -573,11 +586,13 @@ async function afterHandler(
   if (clean === undefined)
     return afterDeadline(run, command, Promise.resolve(execution));
   const issued = run.runtime.trustedSummary(run.runId);
+  const summary = clean ? issued : unconfirmedSummary(issued);
   const trusted = trustedRun(
     run,
     identity,
     true,
-    clean ? issued : unconfirmedSummary(issued),
+    summary,
+    run.runtime.trustedSuperseded(run.runId),
   );
   if (execution.kind === "threw")
     return {

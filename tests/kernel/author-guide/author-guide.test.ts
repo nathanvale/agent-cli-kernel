@@ -11,7 +11,10 @@ import {
   programDetails,
   programsAddon,
 } from "../../../kernel/src/addons/programs/index.ts";
-import { stateAddon } from "../../../kernel/src/addons/state/index.ts";
+import {
+  stateAddon,
+  supersededQualification,
+} from "../../../kernel/src/addons/state/index.ts";
 import { write } from "../../support/fixture-files.ts";
 import { gitEnv, inherited } from "../../support/git-fixture.ts";
 import { treeFiles } from "../../support/lint-rule-folder.ts";
@@ -2494,4 +2497,190 @@ describe("kernel behaviour changing.md states in words", () => {
     },
     processWatchdog(3),
   );
+
+  test("changing.md: supersedeUnresolved closes an earlier unresolved case of the same command on the next run with outcome-unknown", async () => {
+    const root = join(ownedFolder("kernel-author-guide-supersede-"), "state");
+    const state = stateAddon({ root, report: "ag.pending" });
+    const causes = {
+      ...kernel.commonCauses,
+      DOMAIN_AG_HELD: refusedHandoff,
+      DOMAIN_AG_UNRESOLVED: refusedHandoff,
+      DOMAIN_AG_UNKNOWN: {
+        ...refusedHandoff,
+        outcome: "failed",
+        transactionState: "unknown",
+      },
+    } as const;
+    const pendingStep = {
+      kind: "command",
+      command: "ag.pending",
+      args: [],
+    } as const;
+    const handoff = {
+      handoff: {
+        owner: "human",
+        reason: "Check pending.",
+        inspect: [pendingStep],
+      },
+    } as const;
+    let confirm = false;
+    const pending = kernel.command({
+      identity: "ag.pending",
+      route: ["pending"],
+      summary: "List unfinished runs.",
+      input: emptyInput,
+      capabilities: {},
+      stations: [
+        kernel.station(causes, {
+          ...stationWords,
+          commandIdentity: "ag.pending",
+          causeCode: "SUCCESS_UNCHANGED",
+          trigger: "Read.",
+          repairAction: null,
+          guidance: {
+            next: { kind: "instruction", text: "Inspect unfinished cases." },
+          },
+          independentObservable: "ag.pending:read",
+        }),
+      ],
+      run: (_input, context) =>
+        context.result(
+          { commandIdentity: "ag.pending", causeCode: "SUCCESS_UNCHANGED" },
+          { message: "Read.", data: null, effects: unchanged },
+        ),
+    });
+    const open = kernel.changing({
+      identity: "ag.open",
+      route: ["open"],
+      summary: "Open a planet page.",
+      input: emptyInput,
+      capabilities: {},
+      effectClass: "repository-local",
+      effects: ["page.open"],
+      ifNoResult: state.descriptor.ifNoResult,
+      heldLockCause: "DOMAIN_AG_HELD",
+      unresolvedCaseCause: "DOMAIN_AG_UNRESOLVED",
+      stations: [
+        kernel.station(causes, {
+          ...stationWords,
+          commandIdentity: "ag.open",
+          causeCode: "SUCCESS_COMPLETED",
+          trigger: "Opened.",
+          repairAction: null,
+          guidance: { next: { kind: "done" } },
+          independentObservable: "ag.open:done",
+        }),
+        kernel.station(causes, {
+          ...stationWords,
+          commandIdentity: "ag.open",
+          causeCode: "DOMAIN_AG_HELD",
+          trigger: "Held.",
+          repairAction: "Wait.",
+          guidance: handoff,
+          independentObservable: "ag.open:held",
+        }),
+        kernel.station(causes, {
+          ...stationWords,
+          commandIdentity: "ag.open",
+          causeCode: "DOMAIN_AG_UNRESOLVED",
+          trigger: "Unresolved.",
+          repairAction: "Inspect pending.",
+          guidance: handoff,
+          independentObservable: "ag.open:unresolved",
+        }),
+        kernel.station(causes, {
+          ...stationWords,
+          commandIdentity: "ag.open",
+          causeCode: "DOMAIN_AG_UNKNOWN",
+          trigger: "Unknown.",
+          repairAction: "Inspect pending.",
+          guidance: handoff,
+          independentObservable: "ag.open:unknown",
+        }),
+      ],
+      run: async (_input, context) => {
+        const outcome = await state.transaction(
+          context.state,
+          {
+            command: "ag.open",
+            scope: { resources: [{ resource: "planet", key: "earth" }] },
+            supersedeUnresolved: true,
+          },
+          async (transaction) => {
+            await transaction.record(
+              "page.open",
+              () => Promise.resolve(),
+              () => Promise.resolve(confirm),
+            );
+          },
+        );
+        if (outcome.kind !== "ran")
+          return context.result(
+            { commandIdentity: "ag.open", causeCode: "DOMAIN_AG_UNRESOLVED" },
+            { message: outcome.kind, data: null, effects: unchanged },
+          );
+        if (outcome.proof.transactionState === "completed")
+          return context.result(
+            { commandIdentity: "ag.open", causeCode: "SUCCESS_COMPLETED" },
+            {
+              message: outcome.proof.transactionState,
+              data: { operationId: outcome.operationId },
+              transaction: outcome.proof,
+            },
+          );
+        return context.result(
+          { commandIdentity: "ag.open", causeCode: "DOMAIN_AG_UNKNOWN" },
+          {
+            message: outcome.proof.transactionState,
+            data: null,
+            transaction: outcome.proof,
+          },
+        );
+      },
+    });
+    const contract = kernel.contractFor({
+      cli: "ag",
+      commands: [pending, open],
+      causes,
+      state: state.descriptor,
+      installedAddons: ["state"],
+    });
+    const run = kernel.runInProcess(contract, {
+      emergencyRecord: state.emergencyRecord,
+    });
+    const first = await run(["open"]);
+    expect(first).toMatchObject({
+      kind: "envelope",
+      exitCode: 3,
+      envelope: { result: { causeCode: "DOMAIN_AG_UNKNOWN" } },
+    });
+    const listed = state.report();
+    expect(listed.ok).toBe(true);
+    const oldId = listed.ok ? listed.unfinished[0]?.operationId : undefined;
+    expect(oldId).toBeDefined();
+    confirm = true;
+    const second = await run(["open"]);
+    expect(second).toMatchObject({
+      kind: "envelope",
+      exitCode: 0,
+      envelope: {
+        result: {
+          causeCode: "SUCCESS_COMPLETED",
+          ...(oldId === undefined ? {} : { superseded: [oldId] }),
+        },
+      },
+    });
+    expect(state.report()).toEqual({ ok: true, unfinished: [] });
+    if (oldId !== undefined)
+      expect(await state.history(oldId)).toMatchObject({
+        ok: true,
+        history: {
+          status: "closed",
+          closure: {
+            disposition: "outcome-unknown",
+            qualification: supersededQualification,
+          },
+        },
+      });
+  });
 });

@@ -1,0 +1,24 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1473,19 +1473,7 @@ export function install(options: StateOptions, seams: Seams) {
+     | { readonly ok: true; readonly targets: readonly LeasedTarget[] }
+   > {
+     if (conflicting.length === 0) return { ok: true, targets: [] };
+-    const fsCheck = seams.qualification.localFilesystem(
+-      paths.root,
+-      route.available ? route.route : undefined,
+-    );
+-    if (!fsCheck.allowed)
+-      return {
+-        ok: false,
+-        refusal: {
+-          kind: "unavailable",
+-          reason: supersedeFilesystemReason,
+-          detail: fsCheck.detail,
+-        },
+-      };
++    void seams.qualification.localFilesystem;
+     const targets: LeasedTarget[] = [];
+     for (const candidate of conflicting) {
+       const id = candidate.intent.operationId;

@@ -32,6 +32,7 @@ export type TrustedRun = {
   readonly commandIdentity: string;
   readonly handlerEntered: boolean;
   readonly summary?: StateObservation;
+  readonly superseded?: readonly string[];
   readonly diagnostics?: Diagnostics;
 };
 
@@ -74,6 +75,8 @@ function construct(
     .get(trusted.commandIdentity)
     ?.find((item) => item.causeCode === selected.causeCode);
   if (!command || !station) return undefined;
+  const superseded =
+    command.effectClass === "inspect" ? undefined : trusted.superseded;
   const envelope = {
     contractVersion: "3.0.0",
     message: fallbackMessage,
@@ -91,6 +94,7 @@ function construct(
       retryable: false,
       repairAction: station.repairAction,
       effects: selected.effects,
+      ...(superseded === undefined ? {} : { superseded: [...superseded] }),
       ...station.guidance,
     },
   };

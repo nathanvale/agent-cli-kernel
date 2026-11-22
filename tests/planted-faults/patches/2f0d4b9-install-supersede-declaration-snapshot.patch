@@ -1,0 +1,17 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1699,7 +1699,12 @@ export function install(options: StateOptions, seams: Seams) {
+     );
+     if (approval !== null && approval.kind !== "preview")
+       return { ok: false as const, refusal: approval };
+-    const intent = intentOf(snapshot, declared, approval, acquired.order);
++    const intent = intentOf(
++      { ...snapshot, revisions: { ...snapshot.revisions, version: "mutated" } },
++      declared,
++      approval,
++      acquired.order,
++    );
+     return openFlaggedTransaction(
+       owner,
+       issuer,

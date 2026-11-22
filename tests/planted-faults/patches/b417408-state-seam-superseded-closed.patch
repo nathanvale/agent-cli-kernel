@@ -1,0 +1,11 @@
+diff --git a/kernel/src/kernel/state-seam.ts b/kernel/src/kernel/state-seam.ts
+--- a/kernel/src/kernel/state-seam.ts
++++ b/kernel/src/kernel/state-seam.ts
+@@ -300,7 +300,6 @@ function stateIssuer(
+         throw new Error(
+           "Recording a superseded operation requires the active attached run.",
+         );
+-      if (attached.closed) throw new Error(closedReason[attached.closed]);
+       if (commit === undefined) {
+         attached.superseded.add(operationId);
+         return;

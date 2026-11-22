@@ -82,8 +82,8 @@ export function pathKeys(
 ): readonly string[] | undefined {
   if (!isAbsolute(path) || depth > 32 || path.includes("\0")) return undefined;
   const target = resolve(path);
-  const real = attempt(() => realpathSync.native(target));
-  if (real.kind === "ok") return existingKeys(real.value);
+  const real = attempt(() => existingKeys(realpathSync.native(target)));
+  if (real.kind === "ok") return real.value;
   if (real.kind === "failed") return undefined;
   const link = linkTarget(target);
   if (link.kind === "failed") return undefined;
@@ -156,6 +156,222 @@ export function canonicalise(declaration: ScopeDeclaration): CanonicalScope {
   };
 }
 
+export type PlainResource =
+  | { readonly kind: "path"; readonly resource: string; readonly path: string }
+  | { readonly kind: "key"; readonly resource: string; readonly key: string };
+
+export type PlainScope =
+  | { readonly unknown: true }
+  | {
+      readonly unknown: false;
+      readonly resources: readonly PlainResource[];
+      readonly invariants: readonly string[];
+    };
+
+const plainUnknownScope: PlainScope = Object.freeze({ unknown: true });
+const emptyStrings: readonly string[] = Object.freeze([]);
+
+type OwnRead = { readonly present: boolean; readonly value: unknown };
+
+export type OnceReader = {
+  readonly own: (
+    source: object,
+    key: string,
+  ) => { readonly present: boolean; readonly value: unknown };
+  readonly field: (source: object, key: string) => unknown;
+  readonly length: (source: readonly unknown[]) => number;
+  readonly keys: (source: object) => readonly string[];
+  readonly recordOwn: (
+    source: object,
+    key: string,
+    present: boolean,
+    value: unknown,
+  ) => void;
+};
+
+export function createOnceReader(): OnceReader {
+  const fields = new Map<object, Map<string, OwnRead>>();
+  const lengths = new Map<object, number>();
+  const keyLists = new Map<object, readonly string[]>();
+
+  const slot = (source: object): Map<string, OwnRead> => {
+    let table = fields.get(source);
+    if (!table) {
+      table = new Map<string, OwnRead>();
+      fields.set(source, table);
+    }
+    return table;
+  };
+
+  const own = (source: object, key: string): OwnRead => {
+    const table = slot(source);
+    const cached = table.get(key);
+    if (cached) return cached;
+    const entry: OwnRead = Object.hasOwn(source, key)
+      ? { present: true, value: Reflect.get(source, key) }
+      : { present: false, value: undefined };
+    table.set(key, entry);
+    return entry;
+  };
+
+  return {
+    own,
+    field: (source, key) => own(source, key).value,
+    length: (source) => {
+      const cached = lengths.get(source);
+      if (cached !== undefined) return cached;
+      const value = source.length;
+      lengths.set(source, value);
+      return value;
+    },
+    keys: (source) => {
+      const cached = keyLists.get(source);
+      if (cached) return cached;
+      const value = Object.keys(source);
+      keyLists.set(source, value);
+      return value;
+    },
+    recordOwn: (source, key, present, value) => {
+      slot(source).set(key, { present, value });
+    },
+  };
+}
+
+function parsePlainResource(
+  raw: object,
+  reader: OnceReader,
+): PlainResource | undefined {
+  const resource = reader.field(raw, "resource");
+  if (typeof resource !== "string") return undefined;
+  const pathEntry = reader.own(raw, "path");
+  const keyEntry = reader.own(raw, "key");
+  if (pathEntry.present === keyEntry.present) return undefined;
+  if (pathEntry.present) {
+    return typeof pathEntry.value === "string"
+      ? Object.freeze({ kind: "path", resource, path: pathEntry.value })
+      : undefined;
+  }
+  return typeof keyEntry.value === "string"
+    ? Object.freeze({ kind: "key", resource, key: keyEntry.value })
+    : undefined;
+}
+
+function readPlainResource(
+  raw: unknown,
+  reader: OnceReader,
+  cache: Map<object, PlainResource | undefined>,
+): PlainResource | undefined {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw))
+    return undefined;
+  if (cache.has(raw)) return cache.get(raw);
+  const parsed = parsePlainResource(raw, reader);
+  cache.set(raw, parsed);
+  return parsed;
+}
+
+function readPlainResources(
+  rawResources: unknown,
+  reader: OnceReader,
+): readonly PlainResource[] | undefined {
+  if (!Array.isArray(rawResources)) return undefined;
+  const length = reader.length(rawResources);
+  if (length === 0) return undefined;
+  const cache = new Map<object, PlainResource | undefined>();
+  const resources: PlainResource[] = [];
+  for (let index = 0; index < length; index += 1) {
+    const item = readPlainResource(
+      reader.field(rawResources, String(index)),
+      reader,
+      cache,
+    );
+    if (!item) return undefined;
+    resources.push(item);
+  }
+  return Object.freeze(resources);
+}
+
+export function readPlainStrings(
+  raw: unknown,
+  reader: OnceReader,
+): readonly string[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: string[] = [];
+  const length = reader.length(raw);
+  for (let index = 0; index < length; index += 1) {
+    const item = reader.field(raw, String(index));
+    if (typeof item !== "string") return undefined;
+    out.push(item);
+  }
+  return Object.freeze(out);
+}
+
+export function readPlainScope(
+  raw: unknown,
+  reader: OnceReader = createOnceReader(),
+): PlainScope {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw))
+    return plainUnknownScope;
+  if (reader.field(raw, "unknown") === true) return plainUnknownScope;
+  const resources = readPlainResources(reader.field(raw, "resources"), reader);
+  if (!resources) return plainUnknownScope;
+  const rawInvariants = reader.field(raw, "invariants");
+  const invariants =
+    rawInvariants === undefined
+      ? emptyStrings
+      : readPlainStrings(rawInvariants, reader);
+  if (invariants === undefined) return plainUnknownScope;
+  return Object.freeze({
+    unknown: false,
+    resources,
+    invariants,
+  });
+}
+
+function plainResourceKeys(
+  item: PlainResource,
+): CanonicalScope["resources"][number] | undefined {
+  if (!textPattern.test(item.resource)) return undefined;
+  if (item.kind === "path") {
+    const keys = pathKeys(item.path);
+    return keys
+      ? Object.freeze({
+          resource: item.resource,
+          path: item.path,
+          keys: Object.freeze([...keys]),
+        })
+      : undefined;
+  }
+  return textPattern.test(item.key)
+    ? Object.freeze({
+        resource: item.resource,
+        key: item.key,
+        keys: Object.freeze([`key:${item.key}`]),
+      })
+    : undefined;
+}
+
+export function canonicalisePlain(plain: PlainScope): CanonicalScope {
+  if (plain.unknown || plain.resources.length === 0) return unknownScope;
+  const resources = plain.resources.map(plainResourceKeys);
+  const invariants = Object.freeze([...new Set(plain.invariants)].sort());
+  const known = resources.flatMap((item) => (item ? [item] : []));
+  if (
+    known.length !== resources.length ||
+    !invariants.every((name) => textPattern.test(name))
+  )
+    return unknownScope;
+  const all = new Set([
+    ...known.flatMap((item) => item.keys),
+    ...invariants.map((name) => `invariant:${name}`),
+  ]);
+  return Object.freeze({
+    resources: Object.freeze(known),
+    invariants,
+    unknown: false,
+    keys: Object.freeze([...all].sort()),
+  });
+}
+
 export function currentKeys(
   scope: CanonicalScope,
 ): readonly string[] | undefined {
@@ -177,4 +393,40 @@ export function conflicts(
   if (left === undefined || right === undefined) return true;
   const set = new Set(left);
   return right.some((key) => set.has(key));
+}
+
+function declaredResourceToken(
+  item: CanonicalScope["resources"][number],
+): string | undefined {
+  if (item.key !== undefined && item.path === undefined)
+    return JSON.stringify(["key", item.resource, item.key]);
+  if (item.path !== undefined && item.key === undefined)
+    return JSON.stringify(["path", item.resource, resolve(item.path)]);
+  return undefined;
+}
+
+function declaredScopeTokens(
+  scope: CanonicalScope,
+): ReadonlySet<string> | undefined {
+  if (scope.unknown || scope.resources.length === 0) return undefined;
+  const tokens = new Set<string>();
+  for (const item of scope.resources) {
+    const token = declaredResourceToken(item);
+    if (token === undefined) return undefined;
+    tokens.add(token);
+  }
+  for (const invariant of scope.invariants)
+    tokens.add(JSON.stringify(["invariant", invariant]));
+  return tokens;
+}
+
+export function coversDeclaredResources(
+  superset: CanonicalScope,
+  subset: CanonicalScope,
+): boolean {
+  const wider = declaredScopeTokens(superset);
+  const narrower = declaredScopeTokens(subset);
+  if (!wider || !narrower || narrower.size === 0) return false;
+  for (const token of narrower) if (!wider.has(token)) return false;
+  return true;
 }

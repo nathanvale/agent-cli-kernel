@@ -1,0 +1,19 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1122,14 +1122,7 @@
+     | { readonly ok: true; readonly target: Operation } {
+     const id = target.intent.operationId;
+     const fresh = readCase(paths, id);
+-    if (typeof fresh === "string")
+-      return {
+-        ok: false,
+-        refusal:
+-          fresh === "not-found"
+-            ? { kind: "unresolved-case", operationId: id }
+-            : { kind: "unavailable", reason: `store-${fresh}` },
+-      };
++    if (typeof fresh === "string") return { ok: true, target };
+     if (
+       fresh.status !== "unresolved" ||
+       fresh.revision !== target.revision ||

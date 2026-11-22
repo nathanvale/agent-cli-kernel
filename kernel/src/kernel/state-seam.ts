@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { CommandStep, StateEffects, TransactionState } from "./types.ts";
+import { text } from "./validation/primitives.ts";
 import {
   effects as validEffects,
   transactionEffects,
@@ -61,11 +62,17 @@ export type StateIssuer = {
     scope: string,
     isActive: () => boolean,
   ) => ExclusiveScope;
+  readonly superseded: (
+    runId: string,
+    operationId: string,
+    commit?: () => boolean,
+  ) => void;
 };
 const routes = new WeakSet<object>();
 type AttachedRun = {
   transactionStarted: boolean;
   proof: TransactionProof | undefined;
+  readonly superseded: Set<string>;
   closed: "returned" | "deadline" | undefined;
   revoked: boolean;
   openTransaction: Promise<void> | undefined;
@@ -146,6 +153,17 @@ export function issuedProof(
     ? registrations.get(descriptor)?.runs.get(runId)
     : undefined;
   return run ? attachedRuns.get(run)?.proof : undefined;
+}
+export function issuedSuperseded(
+  runId: string,
+  descriptor: StateAddonDescriptor | undefined,
+): readonly string[] | undefined {
+  const run = descriptor
+    ? registrations.get(descriptor)?.runs.get(runId)
+    : undefined;
+  const attached = run ? attachedRuns.get(run) : undefined;
+  if (!attached || attached.superseded.size === 0) return undefined;
+  return Object.freeze([...attached.superseded].sort());
 }
 // Interface: Runtime counterpart of the ExclusiveScope brand (K2): true only for the
 // kernel-issued object itself, issued by `descriptor`'s state add-on instance for the
@@ -265,6 +283,30 @@ function stateIssuer(
       scopes.set(issued, { runId, stateInstance, run, isActive });
       return issued;
     },
+    superseded(
+      runId: string,
+      operationId: string,
+      commit?: () => boolean,
+    ): void {
+      const execution = active.getStore();
+      if (!execution || execution.runId !== runId)
+        throw new Error(
+          "Recording a superseded operation requires the active attached run.",
+        );
+      if (!text(operationId))
+        throw new Error("Invalid superseded operation id.");
+      const attached = attachedRuns.get(execution.run);
+      if (!attached)
+        throw new Error(
+          "Recording a superseded operation requires the active attached run.",
+        );
+      if (attached.closed) throw new Error(closedReason[attached.closed]);
+      if (commit === undefined) {
+        attached.superseded.add(operationId);
+        return;
+      }
+      if (commit()) attached.superseded.add(operationId);
+    },
   });
 }
 
@@ -274,6 +316,7 @@ export type StateFactoryResult = {
   readonly attach: <Effect extends string>(
     runId: string,
     effects: readonly Effect[],
+    commandIdentity: string,
   ) => import("./capabilities.ts").StateCapability<Effect>;
 };
 export type StateAddonDescriptor = {
@@ -359,9 +402,10 @@ function attachOwned<Effect extends string>(
   runId: string,
   run: object,
   effects: readonly Effect[],
+  commandIdentity: string,
 ): import("./capabilities.ts").StateCapability<Effect> {
   try {
-    return state.registration.attach(runId, effects);
+    return state.registration.attach(runId, effects, commandIdentity);
   } catch (error) {
     forgetAttachment(state.runs, runId, run);
     throw error;
@@ -377,6 +421,7 @@ export function attachState<Effect extends string>(
   descriptor: StateAddonDescriptor,
   runId: string,
   effects: readonly Effect[],
+  commandIdentity = "",
 ):
   | {
       readonly capability: import("./capabilities.ts").StateCapability<Effect>;
@@ -398,13 +443,14 @@ export function attachState<Effect extends string>(
   const status: AttachedRun = {
     transactionStarted: false,
     proof: undefined,
+    superseded: new Set<string>(),
     closed: undefined,
     revoked: false,
     openTransaction: undefined,
   };
   attachedRuns.set(run, status);
   state.runs.set(runId, run);
-  const attached = attachOwned(state, runId, run, effects);
+  const attached = attachOwned(state, runId, run, effects, commandIdentity);
   const capability: import("./capabilities.ts").StateCapability<Effect> =
     Object.freeze({
       transaction(work) {

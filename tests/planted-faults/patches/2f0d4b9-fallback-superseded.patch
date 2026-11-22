@@ -1,0 +1,12 @@
+diff --git a/kernel/src/kernel/fallback.ts b/kernel/src/kernel/fallback.ts
+--- a/kernel/src/kernel/fallback.ts
++++ b/kernel/src/kernel/fallback.ts
+@@ -98,7 +98,7 @@
+       retryable: false,
+       repairAction: station.repairAction,
+       effects: selected.effects,
+-      ...(superseded === undefined ? {} : { superseded: [...superseded] }),
++      ...(superseded === undefined ? {} : {}),
+       ...station.guidance,
+     },
+   };

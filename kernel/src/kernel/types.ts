@@ -183,6 +183,7 @@ export type StateResult<
       readonly repairAction: R["outcome"] extends "success" ? null : string;
       readonly bindings?: Readonly<Record<string, string>>;
       readonly idempotencyKey?: string;
+      readonly superseded?: readonly string[];
     } & RowGuidance<R, Identity, InspectIdentity> &
       (R extends { retryable: true }
         ? { readonly retryDelayMilliseconds: number }
@@ -226,6 +227,7 @@ export type WireResult = {
   readonly bindings?: Readonly<Record<string, string>>;
   readonly idempotencyKey?: string;
   readonly attemptedEffect?: string;
+  readonly superseded?: readonly string[];
 };
 export type DiagnosticFacts = {
   readonly file: string | null;

@@ -1,14 +1,11 @@
 diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
-index 23ac92a..ef1f611 100644
 --- a/kernel/src/addons/state/install.ts
 +++ b/kernel/src/addons/state/install.ts
-@@ -502,7 +502,8 @@ function caseUnderLease(
-     lease.release();
-     return read;
+@@ -2002,6 +2002,7 @@ export function install(options: StateOptions, seams: Seams) {
+             ? { kind: "owner-live" }
+             : { kind: "unavailable", reason: "lease-unreadable" },
+       };
++    leased.release();
+     return caseRead(paths, request);
    }
--  return { ok: true, target: read.target, release: lease.release };
-+  lease.release();
-+  return { ok: true, target: read.target, release: () => undefined };
- }
  
- function closureMatches(

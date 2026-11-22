@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1457,8 +1457,7 @@ export function install(options: StateOptions, seams: Seams) {
+       fresh.revision === candidate.revision &&
+       !fresh.recordHiddenInTornTail &&
+       !fresh.closureDamaged &&
+-      fresh.intent.commandIdentity === snapshot.command &&
+-      coversDeclaredResources(snapshot.scope, fresh.intent.scope);
++      fresh.intent.commandIdentity === snapshot.command;
+     return eligible
+       ? { ok: true, target: fresh }
+       : { ok: false, refusal: { kind: "unresolved-case", operationId: id } };

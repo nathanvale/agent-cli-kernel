@@ -728,27 +728,45 @@ export function appendEvent(
   }
 }
 
+function linkStagedClosure(staged: string, target: string): boolean {
+  try {
+    linkSync(staged, target);
+    return true;
+  } catch (error) {
+    if (Reflect.get(Object(error), "code") === "EEXIST") return false;
+    throw error;
+  }
+}
+
 export function publishClosure(
   paths: Layout,
   closure: Closure,
   beforeLink: () => Promise<void>,
+  commitLink?: (link: () => boolean) => void,
 ): Promise<"published" | "exists"> {
+  commitLink?.(() => false);
   const staged = join(paths.staging, `closure-${crypto.randomUUID()}`);
   writeDurable(
     staged,
     encodeRecord(recordKinds.closure, { ...closure, settledAt: Date.now() }),
   );
   return beforeLink().then(() => {
+    const state: { outcome: "published" | "exists" } = { outcome: "exists" };
+    const target = join(paths.operation(closure.operationId), "closure");
+    const link = () => {
+      const linked = linkStagedClosure(staged, target);
+      if (linked) state.outcome = "published";
+      return linked;
+    };
     try {
-      linkSync(staged, join(paths.operation(closure.operationId), "closure"));
-    } catch (error) {
-      if (Reflect.get(Object(error), "code") === "EEXIST") return "exists";
-      throw error;
+      if (commitLink) commitLink(link);
+      else link();
     } finally {
       rmSync(staged, { force: true });
     }
-    flushDirectory(paths.operation(closure.operationId));
-    return "published";
+    if (state.outcome === "published")
+      flushDirectory(paths.operation(closure.operationId));
+    return state.outcome;
   });
 }
 

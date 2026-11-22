@@ -5,8 +5,10 @@ import type { EffectTransaction } from "../../kernel/src/kernel/index.ts";
 import {
   attachState,
   attachedRunCount,
+  closeAtDeadline,
   createStateAddon,
   issuedProof,
+  issuedSuperseded,
   knownProof,
 } from "../../kernel/src/kernel/state-seam.ts";
 import { deferred, until } from "./lifecycle/recording-host.ts";
@@ -279,4 +281,134 @@ test("an attachment's forget never removes a later attachment of the same identi
   expect(later).toBeDefined();
   attached.forget();
   expect(attachedRunCount(descriptor)).toBe(1);
+});
+
+test("attachState passes the kernel command identity to the state add-on", () => {
+  let seenCommand: string | undefined;
+  const descriptor = createStateAddon((issuer) => ({
+    ifNoResult: issuer.ifNoResult({
+      kind: "command",
+      command: "specimen.pending",
+      args: [],
+    }),
+    attach: (_runId, _effects, commandIdentity) => {
+      seenCommand = commandIdentity;
+      return {
+        transaction: () => Promise.reject(new Error("unused")),
+      };
+    },
+  }));
+  expect(
+    attachState(descriptor, "run-id", ["specimen.note"], "specimen.write"),
+  ).toBeDefined();
+  expect(seenCommand).toBe("specimen.write");
+});
+
+test("superseded records closed operation ids immediately and requires the active attached run", async () => {
+  let leakedIssuer:
+    | Parameters<Parameters<typeof createStateAddon>[0]>[0]
+    | undefined;
+  let seenDuringWork: readonly string[] | undefined;
+  const descriptor = createStateAddon((issuer) => {
+    leakedIssuer = issuer;
+    return {
+      ifNoResult: issuer.ifNoResult({
+        kind: "command",
+        command: "specimen.pending",
+        args: [],
+      }),
+      attach: (runId) => ({
+        transaction: async (work) => {
+          expect(() => issuer.superseded(runId, "")).toThrow(
+            "Invalid superseded operation id.",
+          );
+          issuer.superseded(runId, "op-b");
+          issuer.superseded(runId, "op-a");
+          seenDuringWork = issuedSuperseded(runId, descriptor);
+          await work({
+            record: () => Promise.reject(new Error("Not recorded here.")),
+          });
+          return issuer.transactionProof(runId, {
+            transactionState: "unchanged",
+            effects: unchanged,
+          });
+        },
+      }),
+    };
+  });
+  const attached = attachState(descriptor, "run-sup", ["specimen.note"]);
+  if (!attached) throw new Error("The state did not attach.");
+  expect(() => leakedIssuer?.superseded("run-sup", "op-a")).toThrow(
+    "Recording a superseded operation requires the active attached run.",
+  );
+  await attached.capability.transaction(() => Promise.resolve());
+  expect(seenDuringWork).toEqual(["op-a", "op-b"]);
+  expect(Object.isFrozen(seenDuringWork)).toBe(true);
+});
+
+function catchMessage(call: () => void): string {
+  try {
+    call();
+    return "no-error";
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+}
+
+test("superseded refuses once the attachment is closed and never runs its commit callback", async () => {
+  const closedErrors: string[] = [];
+  let commitCalls = 0;
+  let recordedWhenFalse: readonly string[] | undefined;
+  let recordedWhenTrue: readonly string[] | undefined;
+  const gate = deferred();
+  const descriptor = createStateAddon((issuer) => ({
+    ifNoResult: issuer.ifNoResult({
+      kind: "command",
+      command: "specimen.pending",
+      args: [],
+    }),
+    attach: (runId) => ({
+      transaction: async (work) => {
+        issuer.superseded(runId, "op-skip", () => false);
+        recordedWhenFalse = issuedSuperseded(runId, descriptor);
+        issuer.superseded(runId, "op-kept", () => true);
+        recordedWhenTrue = issuedSuperseded(runId, descriptor);
+        await gate.promise;
+        closedErrors.push(
+          catchMessage(() => issuer.superseded(runId, "op-late")),
+          catchMessage(() =>
+            issuer.superseded(runId, "op-late-commit", () => {
+              commitCalls += 1;
+              return true;
+            }),
+          ),
+        );
+        await work({
+          record: () => Promise.reject(new Error("Not recorded here.")),
+        });
+        return issuer.transactionProof(runId, {
+          transactionState: "unchanged",
+          effects: unchanged,
+        });
+      },
+    }),
+  }));
+
+  const deadlineAttached = attachState(descriptor, "run-dl", ["specimen.note"]);
+  if (!deadlineAttached) throw new Error("The state did not attach.");
+  const running = deadlineAttached.capability.transaction(() =>
+    Promise.resolve(),
+  );
+  expect(closeAtDeadline("run-dl", descriptor)).toBe(true);
+  gate.resolve();
+  await running;
+  expect(recordedWhenFalse).toBeUndefined();
+  expect(recordedWhenTrue).toEqual(["op-kept"]);
+  expect(commitCalls).toBe(0);
+  expect(closedErrors).toEqual([
+    "The state capability closed at the deadline.",
+    "The state capability closed at the deadline.",
+  ]);
+  expect(issuedSuperseded("run-dl", descriptor)).toEqual(["op-kept"]);
+  deadlineAttached.forget();
 });

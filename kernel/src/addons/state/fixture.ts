@@ -43,10 +43,12 @@ function fixtureQualification(seams: QualificationSeams): Qualification {
     label: `fixture:${label}`,
     bootIdentity: machineBootIdentity(),
   });
+  const production = resolveQualification();
   return Object.freeze({
     source: "fixture",
     match: matched,
     bootIdentity: machineBootIdentity,
+    localFilesystem: production.localFilesystem,
   });
 }
 

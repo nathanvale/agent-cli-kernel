@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1778,6 +1778,9 @@ export function install(options: StateOptions, seams: Seams) {
+         slot,
+         refuse,
+       );
++    const snapshot = readFlaggedDeclaration(slot.declaration, commandIdentity);
++    if (!snapshot)
++      return refuse({ kind: "unavailable", reason: "declaration" });
+     return transactUnflagged(issuer, runId, declared, work, slot, refuse);
+   }
+ 

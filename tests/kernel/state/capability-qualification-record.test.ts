@@ -749,23 +749,37 @@ function layout(root: string, files: Readonly<Record<string, string>>): void {
   }
 }
 
-const scratchSource = {
-  "kernel/src/addons/state/install.ts": "install\n",
-  "kernel/src/addons/state/capability-qualification-table.ts": "table\n",
-  "kernel/src/addons/state/DESIGN.md": "design\n",
-  "kernel/src/addons/programs/index.ts": "programs\n",
-  "kernel/src/kernel/state-seam.ts": "seam\n",
-  "kernel/src/kernel/index.ts": "kernel\n",
-};
+const relativeSource = {
+  "addons/state/install.ts": "install\n",
+  "addons/state/capability-qualification-table.ts": "table\n",
+  "addons/state/DESIGN.md": "design\n",
+  "addons/programs/index.ts": "programs\n",
+  "kernel/state-seam.ts": "seam\n",
+  "kernel/index.ts": "kernel\n",
+} as const;
+
+function sourceTreeUnder(
+  sourceFolder: string,
+  files: Readonly<Record<string, string>>,
+): Readonly<Record<string, string>> {
+  return Object.fromEntries(
+    Object.entries(files).map(([path, text]) => [
+      `${sourceFolder}/${path}`,
+      text,
+    ]),
+  );
+}
+
+const scratchSource = sourceTreeUnder("kernel/src", relativeSource);
 
 test("sourceHash covers the state and programs add-on files and the state seam, and leaves out the capability qualification table", () => {
   const root = folder("c3-source-");
   layout(root, scratchSource);
   const files = qualifiedSourceFiles(root);
   expect(files.map((file) => file.path)).toEqual([
-    "kernel/src/addons/programs/index.ts",
-    "kernel/src/addons/state/install.ts",
-    "kernel/src/kernel/state-seam.ts",
+    "addons/programs/index.ts",
+    "addons/state/install.ts",
+    "kernel/state-seam.ts",
   ]);
   const expected = createHash("sha256");
   for (const file of files) {
@@ -773,6 +787,45 @@ test("sourceHash covers the state and programs add-on files and the state seam, 
     expected.update(file.bytes);
   }
   expect(sourceHash(files)).toBe(expected.digest("hex"));
+});
+
+test("sourceHash takes each file path from the kernel source folder, not the repository root", () => {
+  const underKernelSrc = folder("c3-source-");
+  layout(underKernelSrc, sourceTreeUnder("kernel/src", relativeSource));
+  const underSrc = folder("c3-source-");
+  layout(underSrc, sourceTreeUnder("src", relativeSource));
+
+  const fromKernelSrc = qualifiedSourceFiles(underKernelSrc);
+  const fromSrc = qualifiedSourceFiles(underSrc, "src");
+  expect(fromKernelSrc.map((file) => file.path)).toEqual([
+    "addons/programs/index.ts",
+    "addons/state/install.ts",
+    "kernel/state-seam.ts",
+  ]);
+  expect(fromSrc.map((file) => file.path)).toEqual(
+    fromKernelSrc.map((file) => file.path),
+  );
+  const before = sourceHash(fromKernelSrc);
+  expect(sourceHash(fromSrc)).toBe(before);
+
+  const byteEdits = [
+    ["src/addons/state/install.ts", "instalm\n"],
+    ["src/addons/programs/index.ts", "programz\n"],
+    ["src/kernel/state-seam.ts", "seak\n"],
+  ] as const;
+  for (const [path, text] of byteEdits) {
+    const edited = folder("c3-source-");
+    layout(edited, { ...sourceTreeUnder("src", relativeSource), [path]: text });
+    expect(sourceHash(qualifiedSourceFiles(edited, "src"))).not.toBe(before);
+  }
+
+  const renamed = folder("c3-source-");
+  const { "addons/state/install.ts": installBytes, ...rest } = relativeSource;
+  layout(
+    renamed,
+    sourceTreeUnder("src", { ...rest, "addons/state/other.ts": installBytes }),
+  );
+  expect(sourceHash(qualifiedSourceFiles(renamed, "src"))).not.toBe(before);
 });
 
 test("sourceHash changes when a qualified file changes by one byte", () => {
@@ -801,8 +854,8 @@ test("sourceHash is stable across file listing order", () => {
 });
 
 test("sourceHash frames each file by its path and length", () => {
-  const seam = "kernel/src/kernel/state-seam.ts";
-  const neighbour = "kernel/src/kernel/state-seam.tt";
+  const seam = "kernel/state-seam.ts";
+  const neighbour = "kernel/state-seam.tt";
   const split = [
     { path: seam, bytes: Buffer.from("a") },
     { path: neighbour, bytes: Buffer.from("b") },

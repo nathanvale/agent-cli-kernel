@@ -1,14 +1,18 @@
 diff --git a/kernel/src/kernel/index.ts b/kernel/src/kernel/index.ts
-index c622cfd..38a9e53 100644
 --- a/kernel/src/kernel/index.ts
 +++ b/kernel/src/kernel/index.ts
-@@ -288,17 +288,17 @@ export function contractFor<
+@@ -375,22 +375,22 @@ export function contractFor<
            reason: "handler entry already used",
          };
        used = true;
 -      const attached =
 -        changingCommand && spec.state
--          ? attachState(spec.state, runId, selected.effects ?? [])
+-          ? attachState(
+-              spec.state,
+-              runId,
+-              selected.effects ?? [],
+-              selected.commandIdentity,
+-            )
 -          : undefined;
 -      if (changingCommand && spec.state && !attached)
 -        return {
@@ -19,7 +23,12 @@ index c622cfd..38a9e53 100644
        const enter: Enter = async () => {
 +        const attached =
 +          changingCommand && spec.state
-+            ? attachState(spec.state, runId, selected.effects ?? [])
++            ? attachState(
++                spec.state,
++                runId,
++                selected.effects ?? [],
++                selected.commandIdentity,
++              )
 +            : undefined;
 +        if (changingCommand && spec.state && !attached)
 +          return {

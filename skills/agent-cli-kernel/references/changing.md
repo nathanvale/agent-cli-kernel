@@ -311,6 +311,61 @@ const unresolvedRepair =
   "Run pending to see the planet and operation id, then check that planet's page and viewer by hand. That planet stays blocked until a qualified close exists.";
 ```
 
+## Healing an unresolved case on the next run
+
+By default, an unresolved case blocks the next run on a conflicting scope until
+a qualified close runs. When a command is safe to run again even alongside a
+leftover copy of a program an earlier run started, its author may opt in by
+setting `supersedeUnresolved: true` on the state declaration passed to
+`state.transaction`:
+
+```ts
+const declaration: Declaration = {
+  command: "moons.visit",
+  scope: { resources: [{ resource: "planet", key: "earth" }] },
+  facts: { planet: "earth" },
+  supersedeUnresolved: true,
+};
+```
+
+Setting `supersedeUnresolved: true` is a strong promise by the command's
+author: the command is safe to run again even alongside a leftover copy of the
+program the earlier run started, because the effect is idempotent or a
+duplicate is visible and acceptable to the person (for example, opening a
+second editor window). The kernel never tries to stop that leftover program.
+An effect that creates something new is safe to repeat only when its name or
+key comes from the inputs, not from the fresh `operationId`; a request the
+earlier run already sent can still arrive after the new run's, so only the
+remote side can deduplicate it using an input-derived key.
+
+When set, the declaration is read once into plain data and the command identity
+comes from the kernel (the attached command, not `declaration.command`). The
+store is scanned once for conflicting unresolved cases. When any conflict, the
+next run checks that the state root sits on a local filesystem whose lock is
+honoured, takes and holds each prior case's `owner.lease` directly with no
+probe (a live run refuses with the held-lock station and an unreadable lease
+refuses `lease-unreadable`), confirms on re-read under that lease that the case
+is still unresolved, intact, unchanged, recorded under the same kernel command
+identity, and covered by the new declaration's declared resources (the dead
+case's recorded declared resources and invariants are a subset of the new
+declaration's; unknown scope on either side refuses), consumes approval,
+publishes the new run's own intent first, and only then links an
+`outcome-unknown` closure with no authority, empty evidence, and working
+qualification label `superseded-owner-lease-free` (never claiming completion),
+recording each closed id at the link commit point, moves settled cases to
+`settled`, and carries on. The cleared run stays in history as
+`outcome-unknown`, and every result path of the new run lists every cleared
+operation id in `result.superseded` (omitted on runs that cleared nothing). A
+same-boot `delegate-admitted` record is allowed to clear on this flagged path;
+unflagged commands and `state.close` keep their existing paths and refusals
+unchanged.
+
+Never set `supersedeUnresolved: true` on a command that is not safe to run
+again alongside a leftover earlier program. After a kill, the next run repeats
+the effect without anyone checking (a second payment, a second push, or a
+second deletion), and the journal can only record that the earlier run's
+outcome was unknown.
+
 ## Choosing the scope
 
 A scope is what one unresolved case blocks, and what the coordination lock

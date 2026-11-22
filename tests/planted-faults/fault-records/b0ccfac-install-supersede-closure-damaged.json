@@ -1,0 +1,7 @@
+{
+  "id": "b0ccfac-install-supersede-closure-damaged",
+  "patch": "tests/planted-faults/patches/b0ccfac-install-supersede-closure-damaged.patch",
+  "testFile": "tests/kernel/state/supersede-unresolved.test.ts",
+  "title": "^SU05\\.damaged-closure-refuses:",
+  "source": "b0ccfac feat(state): heal a same-command unresolved case when supersedeUnresolved is set"
+}

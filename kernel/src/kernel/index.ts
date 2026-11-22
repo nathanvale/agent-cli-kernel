@@ -16,6 +16,7 @@ import {
   attachState,
   closeAtDeadline,
   issuedProof,
+  issuedSuperseded,
   proofFreeResultAllowed,
 } from "./state-seam.ts";
 import type { StateAddonDescriptor } from "./state-seam.ts";
@@ -230,6 +231,56 @@ export function contractFor<
     reason: "undeclared station",
   } as const;
 
+  function applyTransactionProof(
+    runFacts: Record<string, unknown>,
+    facts: Readonly<Record<string, unknown>>,
+    runId: unknown,
+    station: DeclaredStation,
+  ) {
+    const proof = Object.hasOwn(facts, "transaction")
+      ? Reflect.get(facts, "transaction")
+      : undefined;
+    if (
+      typeof runId !== "string" ||
+      !proofValue(proof, runId, spec.state) ||
+      proof.transactionState !== station.row.transactionState
+    )
+      return {
+        ok: false,
+        path: "transaction",
+        reason: "state-issued transaction proof required",
+      } as const;
+    runFacts.effects = proof.effects;
+    return undefined;
+  }
+
+  function applyChangingState(
+    command: CommandDeclaration,
+    station: DeclaredStation,
+    runFacts: Record<string, unknown>,
+    facts: Readonly<Record<string, unknown>>,
+    runId: unknown,
+  ) {
+    if (command.effectClass === "inspect") return undefined;
+    if (station.row.outcome !== "refused") {
+      const problem = applyTransactionProof(runFacts, facts, runId, station);
+      if (problem) return problem;
+    } else if (
+      typeof runId === "string" &&
+      !proofFreeResultAllowed(runId, spec.state)
+    )
+      return {
+        ok: false,
+        path: "transaction",
+        reason: "a transaction on this run requires its proof",
+      } as const;
+    if (typeof runId === "string") {
+      const superseded = issuedSuperseded(runId, spec.state);
+      if (superseded !== undefined) runFacts.superseded = superseded;
+    }
+    return undefined;
+  }
+
   async function buildRegistered(
     selected: { readonly commandIdentity: string; readonly causeCode: string },
     facts: Readonly<Record<string, unknown>>,
@@ -248,35 +299,14 @@ export function contractFor<
       "bindings",
     ])
       if (Object.hasOwn(facts, key)) runFacts[key] = Reflect.get(facts, key);
-    const runId = runFacts.runId;
-    if (
-      command.effectClass !== "inspect" &&
-      station.row.outcome !== "refused"
-    ) {
-      const proof = Object.hasOwn(facts, "transaction")
-        ? Reflect.get(facts, "transaction")
-        : undefined;
-      if (
-        typeof runId !== "string" ||
-        !proofValue(proof, runId, spec.state) ||
-        proof.transactionState !== station.row.transactionState
-      )
-        return {
-          ok: false,
-          path: "transaction",
-          reason: "state-issued transaction proof required",
-        } as const;
-      runFacts.effects = proof.effects;
-    } else if (
-      command.effectClass !== "inspect" &&
-      typeof runId === "string" &&
-      !proofFreeResultAllowed(runId, spec.state)
-    )
-      return {
-        ok: false,
-        path: "transaction",
-        reason: "a transaction on this run requires its proof",
-      } as const;
+    const problem = applyChangingState(
+      command,
+      station,
+      runFacts,
+      facts,
+      runFacts.runId,
+    );
+    if (problem) return problem;
     const message = Object.hasOwn(facts, "message")
       ? Reflect.get(facts, "message")
       : undefined;
@@ -293,7 +323,14 @@ export function contractFor<
     return assemble(
       found.command,
       found.station,
-      { runId: facts.runId, data: facts.data, effects },
+      {
+        runId: facts.runId,
+        data: facts.data,
+        effects,
+        ...(facts.superseded === undefined
+          ? {}
+          : { superseded: facts.superseded }),
+      },
       facts.message,
     );
   }
@@ -340,7 +377,12 @@ export function contractFor<
       used = true;
       const attached =
         changingCommand && spec.state
-          ? attachState(spec.state, runId, selected.effects ?? [])
+          ? attachState(
+              spec.state,
+              runId,
+              selected.effects ?? [],
+              selected.commandIdentity,
+            )
           : undefined;
       if (changingCommand && spec.state && !attached)
         return {
@@ -503,6 +545,7 @@ export function contractFor<
     buildResult: (result) => contract.buildResult(result),
     validate,
     trustedSummary: (runId) => issuedProof(runId, spec.state),
+    trustedSuperseded: (runId) => issuedSuperseded(runId, spec.state),
     closeStateAtDeadline: (runId) => closeAtDeadline(runId, spec.state),
     forgetState: (enter) => forgetters.get(enter)?.(),
   });

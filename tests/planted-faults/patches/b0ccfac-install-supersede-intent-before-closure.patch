@@ -1,0 +1,30 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1654,6 +1654,8 @@ export function install(options: StateOptions, seams: Seams) {
+         ok: false,
+         refusal: { kind: "unavailable", reason: "closure-publication" },
+       };
++    const closed = await publishSupersedeClosures(issuer, runId, targets);
++    if (!closed.ok) return closed;
+     const opened = await begin(runId, intent).catch(() => undefined);
+     if (!opened)
+       return {
+@@ -1661,17 +1663,6 @@ export function install(options: StateOptions, seams: Seams) {
+         refusal: { kind: "unavailable", reason: "store-publication" },
+       };
+     owner.holdRunLease(opened.releaseLease);
+-    let closed: Awaited<ReturnType<typeof publishSupersedeClosures>>;
+-    try {
+-      closed = await publishSupersedeClosures(issuer, runId, targets);
+-    } catch (error) {
+-      settleUnusedIntent(runId, opened.events, declared);
+-      throw error;
+-    }
+-    if (!closed.ok) {
+-      settleUnusedIntent(runId, opened.events, declared);
+-      return closed;
+-    }
+     const refreshed = closed.ids.length > 0 ? readStore(paths) : undefined;
+     moveSettled(refreshed?.ok ? refreshed.operations : operations);
+     owner.releaseAdmission();

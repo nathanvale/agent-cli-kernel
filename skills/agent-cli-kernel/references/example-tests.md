@@ -20,6 +20,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runInProcess } from "agent-cli-kernel";
+import type { Declaration } from "agent-cli-kernel/addons/state";
 import { moonsCli } from "../src/commands.ts";
 
 const homes: string[] = [];
@@ -143,6 +144,16 @@ test("an unconfirmed page skips the opener, leaves a case pending names by plane
   expect(await run(["visit", "mars"])).toMatchObject({
     causeCode: "SUCCESS_COMPLETED",
   });
+});
+
+test("a state declaration may set supersedeUnresolved for a command safe to run again", () => {
+  const declaration: Declaration = {
+    command: "moons.visit",
+    scope: { resources: [{ resource: "planet", key: "earth" }] },
+    facts: { planet: "earth" },
+    supersedeUnresolved: true,
+  };
+  expect(declaration.supersedeUnresolved).toBe(true);
 });
 ```
 

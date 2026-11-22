@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1749,9 +1749,6 @@ export function install(options: StateOptions, seams: Seams) {
+         kind: "ran",
+         operationId: opened.operationId,
+         workFailed,
+-        ...(opened.superseded === undefined
+-          ? {}
+-          : { superseded: opened.superseded }),
+       };
+       return issuer.transactionProof(runId, observation);
+     } finally {

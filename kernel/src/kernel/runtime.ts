@@ -30,6 +30,7 @@ export type KernelFacts = {
   readonly runId: string;
   readonly message: string;
   readonly data: JsonValue;
+  readonly superseded?: readonly string[];
 };
 
 export type ContractRuntime = {
@@ -65,6 +66,7 @@ export type ContractRuntime = {
   readonly buildResult: (result: CommandResult) => Promise<Validation<unknown>>;
   readonly validate: (value: unknown) => Promise<Validation<Envelope>>;
   readonly trustedSummary: (runId: string) => StateObservation | undefined;
+  readonly trustedSuperseded: (runId: string) => readonly string[] | undefined;
   readonly closeStateAtDeadline: (runId: string) => boolean | undefined;
   readonly forgetState: (enter: Enter) => void;
 };

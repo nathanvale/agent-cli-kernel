@@ -1,0 +1,7 @@
+{
+  "id": "3492567-result-superseded-inspect",
+  "patch": "tests/planted-faults/patches/3492567-result-superseded-inspect.patch",
+  "testFile": "tests/kernel/state/supersede-unresolved.test.ts",
+  "title": "^SU15\\.envelope-reports-superseded-only-when-healing:",
+  "source": "3492567 feat(kernel): report the operations a healing run superseded in its result"
+}

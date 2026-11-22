@@ -1,0 +1,13 @@
+diff --git a/kernel/src/kernel/validation/result.ts b/kernel/src/kernel/validation/result.ts
+--- a/kernel/src/kernel/validation/result.ts
++++ b/kernel/src/kernel/validation/result.ts
+@@ -306,8 +306,7 @@
+ export function resultCorrelations(value: WireResult): boolean {
+   if (!effectState(value) || !validRetry(value)) return false;
+   if (value.next?.kind === "done" && value.outcome !== "success") return false;
+-  if (value.superseded !== undefined && value.effectClass === "inspect")
+-    return false;
++
+   return validAttemptedEffect(value);
+ }
+ export function typedResult<C extends CauseTable>(

@@ -1,0 +1,7 @@
+{
+  "id": "2f0d4b9-index-refused-station-superseded",
+  "patch": "tests/planted-faults/patches/2f0d4b9-index-refused-station-superseded.patch",
+  "testFile": "tests/kernel/state/supersede-unresolved.test.ts",
+  "title": "^SU18a\\.unchanged-refusal-reports-superseded:",
+  "source": "2f0d4b9 fix(state): read the declaration once and report every superseded case on every path"
+}
