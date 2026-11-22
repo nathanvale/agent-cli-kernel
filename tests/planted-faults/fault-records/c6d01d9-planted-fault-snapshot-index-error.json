@@ -1,0 +1,7 @@
+{
+  "id": "c6d01d9-planted-fault-snapshot-index-error",
+  "patch": "tests/planted-faults/patches/c6d01d9-planted-fault-snapshot-index-error.patch",
+  "testFile": "tests/template/fault-replay/planted-fault-changes-in-process.test.ts",
+  "title": "commitWorkingTreeInScratchIndex refuses a non-ENOENT failure when copying the caller index",
+  "source": "c6d01d9 fix(faults): skip full index rehash on clean trees and reuse stat-cached index when dirty"
+}

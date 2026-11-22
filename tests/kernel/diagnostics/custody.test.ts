@@ -414,8 +414,7 @@ describe("D04 handle custody", () => {
       const result = await launched.finished;
       expectSuccess(result);
       expectSetupRefusal(statusOf(result));
-      // Platform: Real open behaviour may create the file through the swapped ancestor;
-      // the sink refuses it and writes nothing there.
+      // Platform: open(O_CREAT | O_NOFOLLOW) follows a swapped ancestor and may create a 0-byte file.
       for (const entry of observe(elsewhere).files) expect(entry.size).toBe(0);
       expect(observe(`${where.dir}.orig`).files).toHaveLength(0);
       await expectTwinEqual(result, { argv: read, script: afterFault });

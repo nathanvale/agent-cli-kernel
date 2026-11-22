@@ -1,0 +1,7 @@
+{
+  "id": "a84ba6f-read-file-own-code",
+  "patch": "tests/planted-faults/patches/a84ba6f-read-file-own-code.patch",
+  "testFile": "tests/template/read-file/read-file.test.ts",
+  "title": "errorCode reads own string codes and absence predicates accept only ENOENT and ENOTDIR for files and ENOENT for directories",
+  "source": "a84ba6f fix(scripts): share failed-read predicates and refuse non-absent read errors (GREEN)"
+}

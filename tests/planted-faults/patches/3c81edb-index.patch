@@ -1,0 +1,12 @@
+diff --git a/kernel/src/kernel/index.ts b/kernel/src/kernel/index.ts
+--- a/kernel/src/kernel/index.ts
++++ b/kernel/src/kernel/index.ts
+@@ -247,7 +247,7 @@ export function contractFor<
+       "idempotencyKey",
+       "bindings",
+     ])
+-      if (Object.hasOwn(facts, key)) runFacts[key] = Reflect.get(facts, key);
++      if (key in facts) runFacts[key] = Reflect.get(facts, key);
+     const runId = runFacts.runId;
+     if (
+       command.effectClass !== "inspect" &&

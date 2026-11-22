@@ -42,8 +42,7 @@ runs each test file. What a test must prove is in the
   (`tests/kernel/kernel-repair/swarm-process.ts`) or `exitWithin`
   (`tests/kernel/lifecycle/harness.ts`). Witnessed: [308d494] (the author
   guide's gate, a kernel test, used the template's `spawnBounded`),
-  [0ab74b8] (so did the verification skill's tests, and one started its
-  helper with no limit at all).
+  [0ab74b8] (so did the verification skill's tests).
 - In `finally` or per-case teardown, release the CLI, its ledgered children,
   then its temporary folders. Witnessed: [d592b6d], [70c7280], [#84-cleanup],
   [#91-cleanup], [5533cd6], [e766237] (the pinned-commit binary case joined
@@ -87,13 +86,8 @@ runs each test file. What a test must prove is in the
 
 ## Timings
 
-- Refresh the moved suites' entries in `tests/test-timings.json` from the
-  hosted timing artifacts when a slow suite moves, and drop the keys of the
-  paths it left. Witnessed: [#91-timings] (the original estimate stayed on
-  the smallest suite, and all five moved suites ran on one shard),
-  [#99-timings], [#99-shards] (the timings kept the old
-  `tests/check-commits.test.ts` key, and every moved template suite ran on
-  shard 3).
+- Refresh recorded durations in `tests/test-timings.json` from the hosted
+  timing artifacts when a suite's runtime changes materially.
 - `bun run fault-replay --shard <part>/<parts>` splits the fault records by
   the seconds in `tests/planted-faults/fault-timings/<id>.json`, heaviest
   first, and counts a fault with no timing file as 0.35 s. When a hosted
@@ -127,9 +121,6 @@ runs each test file. What a test must prove is in the
 [#84-probe]: https://github.com/nathanvale/bun-typescript-template/pull/84#discussion_r4607244511
 [#84-cleanup]: https://github.com/nathanvale/bun-typescript-template/pull/84#discussion_r4607244525
 [#90-process]: https://github.com/nathanvale/bun-typescript-template/pull/90#discussion_r4607634935
-[#91-timings]: https://github.com/nathanvale/bun-typescript-template/pull/91#discussion_r4607696012
-[#99-timings]: https://github.com/nathanvale/bun-typescript-template/pull/99#discussion_r4608746456
-[#99-shards]: https://github.com/nathanvale/bun-typescript-template/pull/99#discussion_r4608771631
 [#109-bound]: https://github.com/nathanvale/bun-typescript-template/pull/109#discussion_r4610027050
 [kernel#12-turns]: https://github.com/nathanvale/agent-cli-kernel/pull/12#pullrequestreview-5968899725
 [kernel#13-readers]: https://github.com/nathanvale/agent-cli-kernel/pull/13#discussion_r4624230342

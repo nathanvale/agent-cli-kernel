@@ -80,6 +80,21 @@ function outermost(context, node) {
 }
 
 const testFolderOwner = "/tests/support/test-folder.ts";
+const boundedRunnerOwners = [
+  "/tests/support/process.ts",
+  "/tests/kernel/kernel-repair/swarm-process.ts",
+  "/tests/kernel/lifecycle/harness.ts",
+];
+const bunSpawns = new Set(["spawn", "spawnSync"]);
+const childProcessSpawns = new Set([
+  "spawn",
+  "spawnSync",
+  "exec",
+  "execSync",
+  "execFile",
+  "execFileSync",
+  "fork",
+]);
 const folderCalls = new Set(["tmpdir", "mkdtemp", "mkdtempSync"]);
 const timerPromises = new Set(["node:timers/promises", "timers/promises"]);
 const bunSleeps = new Set(["sleep", "sleepSync"]);
@@ -105,12 +120,18 @@ const onlyCall = ({ body }) => {
       : body;
   return expression?.type === "CallExpression" ? expression : undefined;
 };
-const propertyName = (node) =>
-  node.computed
-    ? typeof node.property.value === "string"
-      ? node.property.value
-      : undefined
-    : node.property.name;
+const staticKey = (node, computed) => {
+  if (node?.type === "Literal" && typeof node.value === "string")
+    return node.value;
+  if (
+    computed &&
+    node?.type === "TemplateLiteral" &&
+    node.expressions.length === 0
+  )
+    return node.quasis[0]?.value.cooked;
+  return computed ? undefined : node?.name;
+};
+const propertyName = (node) => staticKey(node.property, node.computed);
 const lookup = (context, node) => {
   for (
     let scope = context.sourceCode.getScope(node);
@@ -123,18 +144,25 @@ const moduleObject = (source) =>
   typeof source?.value === "string"
     ? { module: source.value.replace(/^node:/, "") }
     : undefined;
-const memberOf = (base, name) =>
-  base?.module && base.name === undefined
-    ? { module: base.module, name }
-    : { name };
+const memberOf = (base, name) => {
+  if (base?.module && base.name === undefined) {
+    if (base.module === "global" && name === "Bun") return { module: "bun" };
+    if (name === "default") return { module: base.module };
+    return { module: base.module, name };
+  }
+  return { name };
+};
 const definitionTracers = {
-  ImportBinding: (def) => ({
-    module: def.parent.source.value.replace(/^node:/, ""),
-    name:
+  ImportBinding: (def) => {
+    const imported =
       def.node.type === "ImportSpecifier"
         ? (def.node.imported.name ?? def.node.imported.value)
-        : undefined,
-  }),
+        : undefined;
+    return {
+      module: def.parent.source.value.replace(/^node:/, ""),
+      name: imported === "default" ? undefined : imported,
+    };
+  },
   Variable: (def, node, next) => {
     const { id, init } = def.node;
     if (id === def.name) return next(init) ?? { name: node.name };
@@ -143,11 +171,7 @@ const definitionTracers = {
         type === "Property" && (value.left ?? value) === def.name,
     );
     if (!property) return { name: node.name };
-    const { key, computed } = property;
-    return memberOf(
-      next(init),
-      key.type === "Literal" ? key.value : computed ? undefined : key.name,
-    );
+    return memberOf(next(init), staticKey(property.key, property.computed));
   },
 };
 const traceIdentifier = (node, next, context) => {
@@ -455,6 +479,40 @@ export default {
               delays(context, node)
             )
               report(node, "A promise that setTimeout only resolves");
+          },
+        };
+      },
+    },
+    "tests-use-bounded-runner": {
+      meta: {
+        type: "problem",
+        schema: [],
+        messages: {
+          unbounded:
+            "{{what}} starts a child process outside a bounded runner, so a hung child can stall the suite or outlive teardown. Repair: run children through spawnBounded from tests/support/process.ts (template tests) or tests/kernel/kernel-repair/swarm-process.ts, or exitWithin from tests/kernel/lifecycle/harness.ts (kernel tests).",
+        },
+      },
+      create(context) {
+        const normalized = context.filename.replaceAll("\\", "/");
+        if (boundedRunnerOwners.some((owner) => normalized.endsWith(owner)))
+          return {};
+        return {
+          CallExpression({ callee }) {
+            const traced = origin(context, callee);
+            const what =
+              traced?.module === "bun" && bunSpawns.has(traced.name)
+                ? `Bun.${traced.name}()`
+                : traced?.module === "child_process" &&
+                    childProcessSpawns.has(traced.name)
+                  ? `child_process.${traced.name}()`
+                  : undefined;
+            if (what !== undefined)
+              context.report({
+                node:
+                  callee.type === "MemberExpression" ? callee.property : callee,
+                messageId: "unbounded",
+                data: { what },
+              });
           },
         };
       },
