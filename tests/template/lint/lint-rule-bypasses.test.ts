@@ -269,103 +269,58 @@ const bypasses = [
   ["no-host-path-literal", 'const stub = "#!/bin/sh\\nexit 0\\n";', undefined],
   ["no-host-path-literal", 'const page = "/homepage";', undefined],
   [
-    "tests-stub-tools",
-    'import { symlinkSync } from "node:fs";\nsymlinkSync("/bin/sh", "node_modules/.bin/fallow");',
-    'fs.symlinkSync() links or copies system binary "/bin/sh"',
+    "tests-use-bounded-runner",
+    'Bun.spawn(["git", "status"]);',
+    "Bun.spawn() starts a child process outside a bounded runner",
   ],
   [
-    "tests-stub-tools",
-    'import { symlink as makeLink } from "node:fs/promises";\nawait makeLink("/usr/bin/env", "node_modules/.bin/tsc");',
-    'fs/promises.symlink() links or copies system binary "/usr/bin/env"',
+    "tests-use-bounded-runner",
+    'Bun["spawnSync"](["git", "status"]);',
+    "Bun.spawnSync() starts a child process outside a bounded runner",
   ],
   [
-    "tests-stub-tools",
-    'import * as fs from "fs";\nfs["copyFileSync"]("/bin/echo", "node_modules/.bin/tsc");',
-    'fs.copyFileSync() links or copies system binary "/bin/echo"',
+    "tests-use-bounded-runner",
+    'Bun[`spawn`](["git", "status"]);',
+    "Bun.spawn() starts a child process outside a bounded runner",
   ],
   [
-    "tests-stub-tools",
-    'import { linkSync } from "node:fs";\nconst target = `/usr/local/bin/tool`;\nlinkSync(target, "node_modules/.bin/tool");',
-    'fs.linkSync() links or copies system binary "/usr/local/bin/tool"',
+    "tests-use-bounded-runner",
+    'const { [`spawn`]: run } = Bun;\nrun(["git", "status"]);',
+    "Bun.spawn() starts a child process outside a bounded runner",
   ],
   [
-    "tests-stub-tools",
-    'const { symlinkSync } = require("node:fs");\nsymlinkSync("/sbin/nologin", "bin/tool");',
-    'fs.symlinkSync() links or copies system binary "/sbin/nologin"',
+    "tests-use-bounded-runner",
+    'globalThis.Bun.spawn(["git", "status"]);',
+    "Bun.spawn() starts a child process outside a bounded runner",
   ],
   [
-    "tests-stub-tools",
-    'const { copyFile } = await import("fs/promises");\nawait copyFile("/bin/sh", "bin/tool");',
-    'fs/promises.copyFile() links or copies system binary "/bin/sh"',
+    "tests-use-bounded-runner",
+    'const { Bun: runtime } = globalThis;\nruntime.spawnSync(["git", "status"]);',
+    "Bun.spawnSync() starts a child process outside a bounded runner",
   ],
   [
-    "tests-stub-tools",
-    'import fs from "node:fs";\nfs.symlinkSync("/usr/sbin/tool", "bin/tool");',
-    'fs.symlinkSync() links or copies system binary "/usr/sbin/tool"',
+    "tests-use-bounded-runner",
+    'import { spawnSync as run } from "node:child_process";\nrun("git");',
+    "child_process.spawnSync() starts a child process outside a bounded runner",
   ],
   [
-    "tests-stub-tools",
-    'import fs from "node:fs";\nconst { symlinkSync } = fs;\nsymlinkSync("/usr/local/sbin/tool", "bin/tool");',
-    'fs.symlinkSync() links or copies system binary "/usr/local/sbin/tool"',
+    "tests-use-bounded-runner",
+    'import { default as cp } from "node:child_process";\ncp.exec("git");',
+    "child_process.exec() starts a child process outside a bounded runner",
   ],
   [
-    "tests-stub-tools",
-    'import fs from "node:fs";\nawait fs.promises.symlink("/bin/sh", "bin/tool");',
-    'fs/promises.symlink() links or copies system binary "/bin/sh"',
+    "tests-use-bounded-runner",
+    'const { default: cp } = await import("node:child_process");\ncp.spawn("git");',
+    "child_process.spawn() starts a child process outside a bounded runner",
   ],
   [
-    "tests-stub-tools",
-    'import { promises as fsp } from "node:fs";\nawait fsp.link("/bin/sh", "bin/tool");',
-    'fs/promises.link() links or copies system binary "/bin/sh"',
+    "tests-use-bounded-runner",
+    'const { fork } = require("child_process");\nfork("worker.js");',
+    "child_process.fork() starts a child process outside a bounded runner",
   ],
   [
-    "tests-stub-tools",
-    'const { default: fs } = await import("node:fs");\nfs.symlinkSync("/bin/sh", "bin/tool");',
-    'fs.symlinkSync() links or copies system binary "/bin/sh"',
-  ],
-  [
-    "tests-stub-tools",
-    'import * as fs from "fs";\nfs[`copyFileSync`]("/bin/echo", "bin/tool");',
-    'fs.copyFileSync() links or copies system binary "/bin/echo"',
-  ],
-  [
-    "tests-stub-tools",
-    'import * as fs from "fs";\nconst method = "copyFileSync";\nfs[method]("/bin/echo", "bin/tool");',
-    'fs.copyFileSync() links or copies system binary "/bin/echo"',
-  ],
-  [
-    "tests-stub-tools",
-    'import * as fs from "fs";\nconst { [`symlinkSync`]: s } = fs;\ns("/bin/sh", "bin/tool");',
-    'fs.symlinkSync() links or copies system binary "/bin/sh"',
-  ],
-  [
-    "tests-stub-tools",
-    'const { symlinkSync } = require(`node:fs`);\nsymlinkSync("/bin/" + "sh", "bin/tool");',
-    'fs.symlinkSync() links or copies system binary "/bin/sh"',
-  ],
-  [
-    "tests-stub-tools",
-    'const { copyFile } = await import(`fs/promises`);\nconst dir = "/usr/bin";\nawait copyFile(`${dir}/env`, "bin/tool");',
-    'fs/promises.copyFile() links or copies system binary "/usr/bin/env"',
-  ],
-  [
-    "tests-stub-tools",
-    'import { symlinkSync } from "node:fs";\nsymlinkSync("//usr/./bin/env", "bin/tool");',
-    'fs.symlinkSync() links or copies system binary "//usr/./bin/env"',
-  ],
-  [
-    "tests-stub-tools",
-    'import { symlinkSync } from "node:fs";\nsymlinkSync("./fixture.sh", "node_modules/.bin/tool");',
-    undefined,
-  ],
-  [
-    "tests-stub-tools",
-    'import { symlinkSync } from "node:fs";\n{ const symlinkSync = (src: string, dst: string) => [src, dst]; symlinkSync("/bin/sh", "bin/tool"); }',
-    undefined,
-  ],
-  [
-    "tests-stub-tools",
-    'import { symlinkSync } from "node:fs";\nconst target = "/bin/sh";\nexport const run = (target: string) => symlinkSync(target, "bin/tool");',
+    "tests-use-bounded-runner",
+    'const Bun = { spawn: (cmd: string[]) => cmd };\nBun.spawn(["git"]);',
     undefined,
   ],
 ] as const;
@@ -460,6 +415,18 @@ test("tests-use-test-folder admits the folder calls inside its owner module", as
       "tests/support/test-folder.ts",
       await Bun.file(
         resolve(import.meta.dir, "../../support/test-folder.ts"),
+      ).text(),
+    ),
+  ).toEqual([]);
+});
+
+test("tests-use-bounded-runner admits child spawns inside its template owner module", async () => {
+  expect(
+    await hits(
+      "tests-use-bounded-runner",
+      "tests/support/process.ts",
+      await Bun.file(
+        resolve(import.meta.dir, "../../support/process.ts"),
       ).text(),
     ),
   ).toEqual([]);

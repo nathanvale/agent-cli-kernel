@@ -42,6 +42,21 @@ What the gates of the test rows refuse and where, what stays with the reviewer, 
   record whose test title matches more tests than the planted fault reaches.
 - Witnessed: [d72cd9e], [640ba05].
 
+## Processes
+
+- Lint `repository/tests-use-bounded-runner` refuses direct `Bun.spawn`,
+  `Bun.spawnSync` and `child_process` process calls in `tests/`, outside the
+  three bounded runner owners (`tests/support/process.ts`,
+  `tests/kernel/kernel-repair/swarm-process.ts` and
+  `tests/kernel/lifecycle/harness.ts`). See
+  [the gate's coverage](gate-coverage.md#process-lint).
+- Fault `d7109e2-template-bounded-runner` drops `spawn` from the template
+  rule's `bunSpawns` set, and fault `d7109e2-kernel-bounded-runner` drops it
+  from the kernel rule's copy; each owner's lint case kills its fault.
+- Review only: test timeouts covering the sum of sequential child bounds,
+  teardown order, and process-group `SIGKILL`.
+- Witnessed: [9086c3b], [0ab74b8].
+
 ## Fake tools
 
 - The lint catches `symlink`, `symlinkSync`, `link`, `linkSync`, `copyFile`,
@@ -59,7 +74,6 @@ What the gates of the test rows refuse and where, what stays with the reviewer, 
   helper parameters, shell commands that link system binaries, and stub
   scripts that still delegate to an unrelated host binary.
 - Witnessed: [3729f36], [5f0c1d9].
-
 ## Time
 
 - The lint catches delay-only waits. Review the timing controls
@@ -85,6 +99,20 @@ What the gates of the test rows refuse and where, what stays with the reviewer, 
 - Review only: other guards, and a missing entry whose key no run reused.
 - Witnessed: [7fb5649], [c02caae].
 
+## Timings
+
+- `tests/template/standards/test-timings.test.ts` checks that every
+  `tests/**/*.test.ts` file has a non-negative finite duration in
+  `tests/test-timings.json` and that no stale key remains after a suite moves
+  or is removed.
+- Fault `996a685-test-timings` drops one entry from `tests/test-timings.json`
+  and fault `996a685-test-timings-stale` adds a stale key for a moved suite;
+  the parity test kills both.
+- Review only: refreshing recorded durations when an existing suite's runtime
+  changes materially, and keeping `tests/planted-faults/fault-timings/` in
+  step with `fault-replay` durations.
+- Witnessed: [#91-timings], [#99-timings], [#99-shards].
+
 [185c90d]: https://github.com/nathanvale/bun-typescript-template/commit/185c90d11dd167ee4874e383ba26cd7d64a70964
 [d72cd9e]: https://github.com/nathanvale/bun-typescript-template/commit/d72cd9e28a0e7d7d0ec1fc4f67ebc030e387c914
 [640ba05]: https://github.com/nathanvale/bun-typescript-template/commit/640ba05881da2694fbdfad9b1d124bd85d36c0e4
@@ -94,5 +122,10 @@ What the gates of the test rows refuse and where, what stays with the reviewer, 
 [7fb5649]: https://github.com/nathanvale/agent-cli-kernel/commit/7fb564900cff191397fdc8d1ba6f20e6807abdde
 [ef76011]: https://github.com/nathanvale/agent-cli-kernel/commit/ef76011bdde8d36064b73bd85550d8efc7fb15a6
 [c02caae]: https://github.com/nathanvale/agent-cli-kernel/commit/c02caae41a3100ab2c8d5272d21a60acb7a0b992
+[9086c3b]: https://github.com/nathanvale/agent-cli-kernel/commit/9086c3b8b14bcba376aa63027abdd817c1495e53
+[0ab74b8]: https://github.com/nathanvale/agent-cli-kernel/commit/0ab74b894857b6b741be277e2f2fd41764e96cd2
+[#91-timings]: https://github.com/nathanvale/bun-typescript-template/pull/91#discussion_r4607696012
+[#99-timings]: https://github.com/nathanvale/bun-typescript-template/pull/99#discussion_r4608746456
+[#99-shards]: https://github.com/nathanvale/bun-typescript-template/pull/99#discussion_r4608771631
 [3729f36]: https://github.com/nathanvale/bun-typescript-template/commit/3729f3644cb30ea5decc9c085bc6b9c4304eaae4
 [5f0c1d9]: https://github.com/nathanvale/bun-typescript-template/commit/5f0c1d99741751de14f5cb92618eda3bd92e8887

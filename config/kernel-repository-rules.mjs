@@ -16,6 +16,21 @@ const castOwners = new Set([
   "VariableDeclaration",
 ]);
 const testFolderOwner = "/tests/support/test-folder.ts";
+const boundedRunnerOwners = [
+  "/tests/support/process.ts",
+  "/tests/kernel/kernel-repair/swarm-process.ts",
+  "/tests/kernel/lifecycle/harness.ts",
+];
+const bunSpawns = new Set(["spawn", "spawnSync"]);
+const childProcessSpawns = new Set([
+  "spawn",
+  "spawnSync",
+  "exec",
+  "execSync",
+  "execFile",
+  "execFileSync",
+  "fork",
+]);
 const folderCalls = new Set(["tmpdir", "mkdtemp", "mkdtempSync"]);
 const linkOrCopyCalls = new Set([
   "symlink",
@@ -50,13 +65,17 @@ const onlyCall = ({ body }) => {
       : body;
   return expression?.type === "CallExpression" ? expression : undefined;
 };
+const literalKey = (node) =>
+  node?.type === "Literal" && typeof node.value === "string"
+    ? node.value
+    : node?.type === "TemplateLiteral" && node.expressions.length === 0
+      ? node.quasis[0]?.value.cooked
+      : undefined;
 const propertyName = (node, context) =>
   node.computed
     ? context
       ? staticString(context, node.property)
-      : typeof node.property.value === "string"
-        ? node.property.value
-        : undefined
+      : literalKey(node.property)
     : node.property.name;
 const lookup = (context, node) => {
   for (
@@ -74,6 +93,7 @@ const moduleObject = (context, source) => {
 };
 const memberOf = (base, name) => {
   if (base?.module && base.name === undefined) {
+    if (base.module === "global" && name === "Bun") return { module: "bun" };
     if (base.module === "fs" && name === "promises")
       return { module: "fs/promises" };
     if (name === "default") return { module: base.module };
@@ -426,6 +446,40 @@ export default {
               delays(context, node)
             )
               report(node, "A promise that setTimeout only resolves");
+          },
+        };
+      },
+    },
+    "tests-use-bounded-runner": {
+      meta: {
+        type: "problem",
+        schema: [],
+        messages: {
+          unbounded:
+            "{{what}} starts a child process outside a bounded runner, so a hung child can stall the suite or outlive teardown. Repair: run children through spawnBounded from tests/support/process.ts (template tests) or tests/kernel/kernel-repair/swarm-process.ts, or exitWithin from tests/kernel/lifecycle/harness.ts (kernel tests).",
+        },
+      },
+      create(context) {
+        const normalized = context.filename.replaceAll("\\", "/");
+        if (boundedRunnerOwners.some((owner) => normalized.endsWith(owner)))
+          return {};
+        return {
+          CallExpression({ callee }) {
+            const traced = origin(context, callee);
+            const what =
+              traced?.module === "bun" && bunSpawns.has(traced.name)
+                ? `Bun.${traced.name}()`
+                : traced?.module === "child_process" &&
+                    childProcessSpawns.has(traced.name)
+                  ? `child_process.${traced.name}()`
+                  : undefined;
+            if (what !== undefined)
+              context.report({
+                node:
+                  callee.type === "MemberExpression" ? callee.property : callee,
+                messageId: "unbounded",
+                data: { what },
+              });
           },
         };
       },

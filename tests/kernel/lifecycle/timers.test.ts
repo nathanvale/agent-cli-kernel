@@ -1,8 +1,5 @@
-// Platform: Time control (P4, proposed for review): Bun 1.4.4's fake timers clamp a raw
-// delay above 2,147,483,647 ms to 1 ms exactly like real timers, so they cannot
-// hold such a delay. They do advance performance.now(), which the kernel's
-// clock reads, so a timer that arms at most the limit and re-reads the clock
-// can be driven past the limit here with no production seam.
+// Platform: Bun 1.4.4 fake timers clamp a raw delay above 2,147,483,647 ms to
+// 1 ms while still advancing performance.now().
 import { afterEach, describe, expect, jest, test } from "bun:test";
 import { programsAddon } from "../../../kernel/src/addons/programs/index.ts";
 import type {

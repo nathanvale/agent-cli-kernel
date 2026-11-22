@@ -499,14 +499,13 @@ describe("host argument limits (supporting H1)", () => {
   test(
     "H1s.long-operand-shortened-and-reported-under-a-small-budget",
     async () => {
-      // Platform: Nine 100 KB variables leave Darwin about 150 KB of its 1 MB total
-      // and stay inside Linux's per-string and total limits, so the frozen
-      // 200,000-byte operand is refused on both and the case is shortened.
+      const darwinArgMaxEnvPadCount = 9;
+      const envPadBytes = 100_000;
       const entry = caseById("L12.long-operand");
       const pad = Object.fromEntries(
-        Array.from({ length: 9 }, (_unused, index) => [
+        Array.from({ length: darwinArgMaxEnvPadCount }, (_unused, index) => [
           `FX_PAD_${index}`,
-          "p".repeat(100_000),
+          "p".repeat(envPadBytes),
         ]),
       );
       const launched = await launchCase(entry, { fitOperand: 1, env: pad });
@@ -531,13 +530,15 @@ describe("host argument limits (supporting H1)", () => {
   test(
     "H1s.spawnable-length-probe-finds-the-host-limit",
     () => {
-      // Platform: 4 MB exceeds Darwin's total ARG_MAX and Linux's 131,072-byte limit on
-      // one argument, so every supported host takes the shortening path.
       const env = { PATH: "/usr/bin:/bin" };
       const build = (length: number) => ["probe", "L".repeat(length)];
-      const wanted = 4_000_000;
-      const fits = spawnableLength(build, env, wanted);
-      expect(fits).toBeLessThan(wanted);
+      const exceedsDarwinArgMaxAndLinuxArgStrlen = 4_000_000;
+      const fits = spawnableLength(
+        build,
+        env,
+        exceedsDarwinArgMaxAndLinuxArgStrlen,
+      );
+      expect(fits).toBeLessThan(exceedsDarwinArgMaxAndLinuxArgStrlen);
       expect(fits).toBeGreaterThanOrEqual(65_537);
       const spawn = (length: number) =>
         Bun.spawnSync(["/bin/sh", "-c", ":", ...build(length)], {

@@ -1,0 +1,13 @@
+diff --git a/scripts/read-file.ts b/scripts/read-file.ts
+--- a/scripts/read-file.ts
++++ b/scripts/read-file.ts
+@@ -7,8 +7,7 @@ export function errorCode(error: unknown): string | undefined {
+ }
+ 
+ export function isAbsentError(error: unknown): boolean {
+-  const code = errorCode(error);
+-  return code === "ENOENT" || code === "ENOTDIR";
++  return error !== undefined;
+ }
+ 
+ export function isMissingDirectoryError(error: unknown): boolean {

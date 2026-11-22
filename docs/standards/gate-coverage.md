@@ -60,6 +60,21 @@ gates and their witnesses.
   and a file fallow does not count as runtime, because no entry point
   reaches it or `.fallowrc.json` ignores it.
 
+## Process lint
+
+- Lint `repository/tests-use-bounded-runner` refuses `Bun.spawn`,
+  `Bun.spawnSync`, and `node:child_process` (`spawn`, `spawnSync`, `exec`,
+  `execSync`, `execFile`, `execFileSync`, `fork`) in `tests/`, outside the
+  three bounded runner owners: `tests/support/process.ts`,
+  `tests/kernel/kernel-repair/swarm-process.ts` and
+  `tests/kernel/lifecycle/harness.ts`.
+- It traces each callee through named, renamed, default and namespace imports,
+  `require()`, `import()`, destructuring, aliases, computed string keys and
+  type wrappers.
+- Review only: test timeouts covering the sum of sequential child bounds,
+  teardown release order, process-group `SIGKILL`, and calls reached through
+  dynamic keys or helper wrappers passed as parameters.
+
 ## Timer lint
 
 - Lint `repository/tests-no-sleep` refuses, in `tests/`: `Bun.sleep` and

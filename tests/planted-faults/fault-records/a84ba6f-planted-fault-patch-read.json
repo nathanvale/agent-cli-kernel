@@ -1,0 +1,7 @@
+{
+  "id": "a84ba6f-planted-fault-patch-read",
+  "patch": "tests/planted-faults/patches/a84ba6f-planted-fault-patch-read.patch",
+  "testFile": "tests/template/read-file/read-file.test.ts",
+  "title": "patchText refuses a directory or symlink loop instead of reporting a missing patch",
+  "source": "a84ba6f fix(scripts): share failed-read predicates and refuse non-absent read errors (GREEN)"
+}

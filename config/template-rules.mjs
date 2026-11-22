@@ -20,7 +20,8 @@ const castOwners = new Set([
 
 function constantText(context, node, depth = 0) {
   if (!node || depth > 8) return undefined;
-  return folders[node.type]?.(context, node, depth + 1);
+  const inner = bare(node);
+  return folders[inner?.type]?.(context, inner, depth + 1);
 }
 
 function foldAll(context, nodes, depth) {
@@ -28,18 +29,12 @@ function foldAll(context, nodes, depth) {
   return parts.includes(undefined) ? undefined : parts;
 }
 
-function findVariable(scope, name) {
-  for (let current = scope; current; current = current.upper) {
-    const variable = current.set.get(name);
-    if (variable) return variable;
-  }
-  return undefined;
-}
-
 const folders = {
   Literal: (context, node) =>
     typeof node.value === "string" ? node.value : undefined,
   TemplateLiteral(context, node, depth) {
+    if (node.quasis.some((quasi) => typeof quasi.value.cooked !== "string"))
+      return undefined;
     const parts = foldAll(context, node.expressions, depth);
     return parts
       ?.map((part, index) => node.quasis[index].value.cooked + part)
@@ -61,12 +56,10 @@ const folders = {
     return parts?.slice(args.length + 1).join(parts[0]);
   },
   Identifier(context, node, depth) {
-    const definition = findVariable(
-      context.sourceCode.getScope(node),
-      node.name,
-    )?.defs[0];
+    const definition = lookup(context, node)?.defs[0];
     const simple =
-      definition?.parent?.kind === "const" &&
+      definition?.type === "Variable" &&
+      definition.parent?.kind === "const" &&
       definition.node.id === definition.name;
     return simple
       ? constantText(context, definition.node.init, depth)
@@ -82,6 +75,21 @@ function outermost(context, node) {
 }
 
 const testFolderOwner = "/tests/support/test-folder.ts";
+const boundedRunnerOwners = [
+  "/tests/support/process.ts",
+  "/tests/kernel/kernel-repair/swarm-process.ts",
+  "/tests/kernel/lifecycle/harness.ts",
+];
+const bunSpawns = new Set(["spawn", "spawnSync"]);
+const childProcessSpawns = new Set([
+  "spawn",
+  "spawnSync",
+  "exec",
+  "execSync",
+  "execFile",
+  "execFileSync",
+  "fork",
+]);
 const folderCalls = new Set(["tmpdir", "mkdtemp", "mkdtempSync"]);
 const linkOrCopyCalls = new Set([
   "symlink",
@@ -116,13 +124,17 @@ const onlyCall = ({ body }) => {
       : body;
   return expression?.type === "CallExpression" ? expression : undefined;
 };
+const literalKey = (node) =>
+  node?.type === "Literal" && typeof node.value === "string"
+    ? node.value
+    : node?.type === "TemplateLiteral" && node.expressions.length === 0
+      ? node.quasis[0]?.value.cooked
+      : undefined;
 const propertyName = (node, context) =>
   node.computed
     ? context
       ? staticString(context, node.property)
-      : typeof node.property.value === "string"
-        ? node.property.value
-        : undefined
+      : literalKey(node.property)
     : node.property.name;
 const lookup = (context, node) => {
   for (
@@ -140,6 +152,7 @@ const moduleObject = (context, source) => {
 };
 const memberOf = (base, name) => {
   if (base?.module && base.name === undefined) {
+    if (base.module === "global" && name === "Bun") return { module: "bun" };
     if (base.module === "fs" && name === "promises")
       return { module: "fs/promises" };
     if (name === "default") return { module: base.module };
@@ -219,43 +232,7 @@ const origin = (context, node, depth = 0) => {
       )
     : undefined;
 };
-const staticTemplate = (context, node, depth) => {
-  const head = node.quasis[0]?.value.cooked;
-  if (typeof head !== "string") return undefined;
-  let out = head;
-  for (let index = 0; index < node.expressions.length; index++) {
-    const part = staticString(context, node.expressions[index], depth + 1);
-    const tail = node.quasis[index + 1]?.value.cooked;
-    if (part === undefined || typeof tail !== "string") return undefined;
-    out += part + tail;
-  }
-  return out;
-};
-const staticFolders = {
-  Literal: (_context, node) =>
-    typeof node.value === "string" ? node.value : undefined,
-  TemplateLiteral: staticTemplate,
-  BinaryExpression: (context, node, depth) => {
-    if (node.operator !== "+") return undefined;
-    const left = staticString(context, node.left, depth + 1);
-    const right = staticString(context, node.right, depth + 1);
-    return left !== undefined && right !== undefined ? left + right : undefined;
-  },
-  Identifier: (context, node, depth) => {
-    const def = lookup(context, node)?.defs[0];
-    return def?.type === "Variable" &&
-      def.parent?.kind === "const" &&
-      def.node.id === def.name
-      ? staticString(context, def.node.init, depth + 1)
-      : undefined;
-  },
-};
-const staticString = (context, node, depth = 0) => {
-  const inner = bare(node);
-  return inner && depth < 8
-    ? staticFolders[inner.type]?.(context, inner, depth)
-    : undefined;
-};
+const staticString = constantText;
 const isTimer = (traced, name) =>
   traced?.name === name &&
   (traced.module === "global" || traced.module === "timers");
@@ -524,6 +501,40 @@ export default {
               delays(context, node)
             )
               report(node, "A promise that setTimeout only resolves");
+          },
+        };
+      },
+    },
+    "tests-use-bounded-runner": {
+      meta: {
+        type: "problem",
+        schema: [],
+        messages: {
+          unbounded:
+            "{{what}} starts a child process outside a bounded runner, so a hung child can stall the suite or outlive teardown. Repair: run children through spawnBounded from tests/support/process.ts (template tests) or tests/kernel/kernel-repair/swarm-process.ts, or exitWithin from tests/kernel/lifecycle/harness.ts (kernel tests).",
+        },
+      },
+      create(context) {
+        const normalized = context.filename.replaceAll("\\", "/");
+        if (boundedRunnerOwners.some((owner) => normalized.endsWith(owner)))
+          return {};
+        return {
+          CallExpression({ callee }) {
+            const traced = origin(context, callee);
+            const what =
+              traced?.module === "bun" && bunSpawns.has(traced.name)
+                ? `Bun.${traced.name}()`
+                : traced?.module === "child_process" &&
+                    childProcessSpawns.has(traced.name)
+                  ? `child_process.${traced.name}()`
+                  : undefined;
+            if (what !== undefined)
+              context.report({
+                node:
+                  callee.type === "MemberExpression" ? callee.property : callee,
+                messageId: "unbounded",
+                data: { what },
+              });
           },
         };
       },

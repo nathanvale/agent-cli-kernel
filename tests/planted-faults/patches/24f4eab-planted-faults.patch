@@ -1,13 +1,15 @@
 diff --git a/scripts/planted-fault-patch.ts b/scripts/planted-fault-patch.ts
 --- a/scripts/planted-fault-patch.ts
 +++ b/scripts/planted-fault-patch.ts
-@@ -224,8 +224,5 @@
+@@ -227,10 +227,7 @@ export function replantRepair(fault: FaultPatch): string {
+ 
  export function patchText(root: string, fault: FaultPatch): string {
-   const path = join(root, fault.patch);
--  if (!existsSync(path))
+   const text = readOptionalUtf8(join(root, fault.patch));
+-  if (text === undefined)
 -    throw new Error(
 -      `${fault.patch} does not exist, so ${fault.id} has no planted fault to apply. ${replantRepair(fault)}`,
 -    );
-+  if (!existsSync(path)) return "";
-   return readFileSync(path, "utf8");
++  if (text === undefined) return "";
+   return text;
  }
+ 

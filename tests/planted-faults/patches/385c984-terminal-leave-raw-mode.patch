@@ -1,15 +1,13 @@
 diff --git a/kernel/src/kernel/process-host.ts b/kernel/src/kernel/process-host.ts
 --- a/kernel/src/kernel/process-host.ts
 +++ b/kernel/src/kernel/process-host.ts
-@@ -48,11 +48,6 @@ export function ttyTerminalFor(io: TtyTerminalIo): TerminalAdapter {
+@@ -55,9 +55,6 @@ export function ttyTerminalFor(io: TtyTerminalIo): TerminalAdapter {
+     const wasEntered = entered;
      entered = false;
      lastLines = 0;
-     try {
+-    ignoreClosedTerminal(() => {
 -      if (wasEntered) activeReader?.setRawMode(false);
--    } catch {
--      // Platform: Terminal restoration ignores a closed or revoked controlling tty.
--    }
--    try {
+-    });
+     ignoreClosedTerminal(() => {
        if (wasEntered) io.write(encoder.encode("\x1b[?25h"));
-     } catch {
-       // Platform: Cursor restoration ignores a closed or revoked controlling tty.
+     });

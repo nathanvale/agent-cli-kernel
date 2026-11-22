@@ -150,7 +150,6 @@ export type AuthoritySource = {
   // the caller create one here?), then with the opened record's descriptor
   // facts (could the caller have created or altered this one?). True only
   // when the calling process cannot, with its own credentials.
-  // fileSeparation is the add-on's own probe.
   readonly separated: (record?: RecordFacts) => Promise<boolean>;
 };
 
@@ -358,7 +357,6 @@ function stopMatches(record: unknown, item: StopItem, now: number): boolean {
   );
 }
 
-// Interface: consume() rejects with ApprovalRejection exactly as revalidateAndConsume.
 export function authorityVerifier(options: {
   readonly runId: string;
   readonly consumed: string;

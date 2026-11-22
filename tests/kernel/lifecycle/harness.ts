@@ -363,11 +363,8 @@ export async function cleanup(observed: { readonly dir: string }) {
 
 const toolBound = 5_000;
 
-// Platform: H1: whether the host will start a process with this exact argv and
-// environment. Linux refuses any single argument of 131,072 bytes or more
-// (MAX_ARG_STRLEN, terminator included); Darwin limits only the total
-// (ARG_MAX). The probe runs /bin/sh with the same arguments and environment
-// plus three short tokens, so a length that fits here fits the real spawn.
+// Platform: Linux limits each argv entry to MAX_ARG_STRLEN (131,072 bytes
+// including the NUL terminator); Darwin limits total ARG_MAX.
 function spawns(
   argv: readonly string[],
   env: Readonly<Record<string, string>>,
@@ -569,11 +566,8 @@ export async function listing(dir: string): Promise<readonly string[]> {
   return existsSync(dir) ? (await readdir(dir)).sort() : [];
 }
 
-// Platform: C5: a consumer that takes 4 KiB per read with a real pause between reads.
-// The CLI's stdout feeds a Perl relay (sysread of 4,096 bytes, then 2 ms);
-// the CLI's own exit status and the relay's read count go to the ledger.
-// Bun's subprocess streams offer no BYOB reader, and node:child_process in
-// paused mode drops buffered data at child exit on Bun 1.4.4.
+// Platform: Bun 1.4.4 subprocess streams offer no BYOB reader, and
+// node:child_process in paused mode drops buffered data at child exit.
 const relay =
   "$|=1; my $n=0; while (my $r = sysread(STDIN, my $b, 4096)) { syswrite(STDOUT, $b); $n++; select(undef, undef, undef, 0.002); } open(my $f, '>>', $ENV{FX_LEDGER}); print $f \"relay-reads $n\\n\";";
 function quoted(token: string): string {
