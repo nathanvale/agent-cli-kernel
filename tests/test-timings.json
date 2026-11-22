@@ -157,6 +157,7 @@
     "tests/template/process-runner/process-runner.test.ts": 6087,
     "tests/template/process-runner/spawn-bounded-folders.test.ts": 1304,
     "tests/template/process-runner/spawn-bounded.test.ts": 942,
+    "tests/template/read-file/read-file.test.ts": 25,
     "tests/template/repository/repository.test.ts": 9,
     "tests/template/standards/commit-links.test.ts": 5,
     "tests/template/standards/coverage-gaps.test.ts": 583,

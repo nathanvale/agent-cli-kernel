@@ -75,10 +75,11 @@ boundary trusts the types.
 
 ## Failed reads
 
-- Read a failure as absence only when it says so, such as `ENOENT` or git's
-  "not a git repository", and report every other failure with its reason on
-  every read. A record or checkout that exists but cannot be read is the
-  reader's problem, never a missing one. Witnessed: [kernel#13 r4624230310],
+- Outside the gated `scripts/read-file.ts` helpers and their faulted
+  callers, read a failure as absence only when it says so, such as `ENOENT`
+  or git's "not a git repository", and report every other failure with its
+  reason on every read. A record or checkout that exists but cannot be read
+  is the reader's problem, never a missing one. Witnessed: [kernel#13 r4624230310],
   [ff852e8] (a closer whose moved target was unreadable or corrupt would
   have reported a missing case; the fix shares `readProblem` with the first
   read), [kernel#48 r4637879772], [69fc0bf] (the doctor read every
