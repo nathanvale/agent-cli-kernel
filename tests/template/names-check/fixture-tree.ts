@@ -55,6 +55,7 @@ const fileSizeRecordedHits = JSON.stringify({
 const sources = [
   "scripts/check-names.ts",
   "scripts/check-file-size.ts",
+  "scripts/read-file.ts",
   "scripts/glossary.ts",
   "scripts/glossary-additions.ts",
   "scripts/public-surface.ts",

@@ -1,5 +1,6 @@
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { readOptionalUtf8 } from "./read-file.ts";
 
 export type FaultPatch = { id: string; patch: string };
 
@@ -227,12 +228,12 @@ export function replantRepair(fault: FaultPatch): string {
 }
 
 export function patchText(root: string, fault: FaultPatch): string {
-  const path = join(root, fault.patch);
-  if (!existsSync(path))
+  const text = readOptionalUtf8(join(root, fault.patch));
+  if (text === undefined)
     throw new Error(
       `${fault.patch} does not exist, so ${fault.id} has no planted fault to apply. ${replantRepair(fault)}`,
     );
-  return readFileSync(path, "utf8");
+  return text;
 }
 
 export function sourceIn(dir: string, tracked: ReadonlySet<string>): Source {

@@ -82,6 +82,8 @@ export default defineConfig(
       "repository/require-to-throw-message": "error",
       "repository/tests-use-test-folder": "error",
       "repository/tests-no-sleep": "error",
+      "repository/tests-use-bounded-runner": "error",
+      "repository/tests-stub-tools": "error",
     },
   },
   {

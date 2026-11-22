@@ -1,0 +1,15 @@
+diff --git a/scripts/planted-fault-folders.ts b/scripts/planted-fault-folders.ts
+--- a/scripts/planted-fault-folders.ts
++++ b/scripts/planted-fault-folders.ts
+@@ -24,8 +24,9 @@ export function folderFiles(
+     throw new Error(
+       `${list} is the old single list of each ${kind}, which nothing reads any more. Repair: move each entry in it to its own file, ${folder}/<id>${fileExtension}, then delete ${list}.`,
+     );
+-  const entries = readOptionalDirectory(join(root, folder));
+-  if (entries === undefined) return [];
++  const path = join(root, folder);
++  if (!existsSync(path)) return [];
++  const entries = readOptionalDirectory(path) ?? [];
+   return entries
+     .filter((entry) => entry.name !== systemNoise)
+     .map((entry) => {

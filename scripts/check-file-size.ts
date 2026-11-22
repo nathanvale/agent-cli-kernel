@@ -1,6 +1,7 @@
 import { lstatSync, readFileSync, realpathSync } from "node:fs";
 import { basename, join } from "node:path";
 import { get_encoding } from "tiktoken";
+import { isAbsentError } from "./read-file.ts";
 
 const limit = 5_000;
 const check = "check:file-size";
@@ -97,8 +98,7 @@ function workingBytes(file: string): Uint8Array | undefined {
     if (lstatSync(file).isFile() && realpathSync(file) === file)
       return readFileSync(file);
   } catch (error) {
-    const code: unknown = Reflect.get(Object(error), "code");
-    if (code !== "ENOENT" && code !== "ENOTDIR") throw error;
+    if (!isAbsentError(error)) throw error;
   }
   return undefined;
 }
