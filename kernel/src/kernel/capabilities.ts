@@ -13,6 +13,7 @@ import type {
 } from "./state-seam.ts";
 export type {
   IfNoResult,
+  OpenWrite,
   RecordedEffect,
   TransactionProof,
   StateIssuer,

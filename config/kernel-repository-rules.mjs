@@ -313,8 +313,81 @@ function isAdmitted(source, block, placed) {
   );
 }
 
+const fsModulePattern = /^(?:node:)?fs(?:\/promises)?$/;
+const isFsSpecifier = (value) =>
+  typeof value === "string" && fsModulePattern.test(value);
+const isRequireCall = (node) =>
+  (node.callee.type === "Identifier" && node.callee.name === "require") ||
+  (node.callee.type === "MemberExpression" &&
+    node.callee.object.type === "MetaProperty" &&
+    propertyName(node.callee) === "require") ||
+  (node.callee.type === "MemberExpression" &&
+    node.callee.object.type === "Identifier" &&
+    node.callee.object.name === "process" &&
+    propertyName(node.callee) === "getBuiltinModule");
+
 export default {
   rules: {
+    "state-no-fs-import": {
+      meta: {
+        type: "problem",
+        schema: [],
+        messages: {
+          fsImport:
+            "Files in kernel/src/addons/state outside store.ts and coordination.ts must not import filesystem module {{specifier}}. Repair: route filesystem access through store.ts (using WriteGate for writes) or coordination.ts.",
+          dynamicImport:
+            "Files in kernel/src/addons/state outside store.ts and coordination.ts must not use a non-static dynamic import that could load a filesystem module. Repair: use a static import of a non-filesystem module, or route filesystem access through store.ts or coordination.ts.",
+        },
+      },
+      create(context) {
+        const checkSource = (node, source) => {
+          if (!source) return;
+          const value = staticString(context, source);
+          if (isFsSpecifier(value))
+            context.report({
+              node,
+              messageId: "fsImport",
+              data: { specifier: JSON.stringify(value) },
+            });
+        };
+        return {
+          ImportDeclaration(node) {
+            checkSource(node, node.source);
+          },
+          ExportNamedDeclaration(node) {
+            checkSource(node, node.source);
+          },
+          ExportAllDeclaration(node) {
+            checkSource(node, node.source);
+          },
+          ImportExpression(node) {
+            const value = staticString(context, node.source);
+            if (value === undefined)
+              context.report({ node, messageId: "dynamicImport" });
+            else if (isFsSpecifier(value))
+              context.report({
+                node,
+                messageId: "fsImport",
+                data: { specifier: JSON.stringify(value) },
+              });
+          },
+          CallExpression(node) {
+            if (!isRequireCall(node)) return;
+            const [first] = node.arguments;
+            if (!first) return;
+            const value = staticString(context, first);
+            if (value === undefined)
+              context.report({ node, messageId: "dynamicImport" });
+            else if (isFsSpecifier(value))
+              context.report({
+                node,
+                messageId: "fsImport",
+                data: { specifier: JSON.stringify(value) },
+              });
+          },
+        };
+      },
+    },
     "no-comments": {
       meta: {
         type: "problem",

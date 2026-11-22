@@ -6,6 +6,7 @@ import type {
   ApprovalRuntime,
   EffectTransaction,
   EmergencyFacts,
+  ExclusiveScope,
   RecordedEffect,
   StateAddonDescriptor,
   StateCapability,
@@ -29,21 +30,29 @@ import {
 import type { CanonicalScope, OnceReader, ScopeDeclaration } from "./scope.ts";
 import {
   appendDelegateStart,
-  appendEvent,
+  appendSettlingEvent,
+  appendStartedEvent,
+  commitClosure,
+  commitOperation,
   delegateBoot,
+  discardStagedFile,
+  discardStagedOperation,
   ensureStore,
   flushMoves,
   layout,
   moveSettledCase,
+  openRunWriteGate,
   operationPattern,
-  publishClosure,
-  publishOperation,
+  publishStoreUpgrade,
   readCase,
   readClosure,
   readStore,
   settledIsPrivate,
+  stageClosure,
+  stageOperation,
+  stageStoreUpgrade,
   storeProblem,
-  upgradeStore,
+  unflaggedWriteGate,
 } from "./store.ts";
 import type {
   Closure,
@@ -52,6 +61,8 @@ import type {
   Layout,
   Operation,
   UpgradePhase,
+  UpgradeProblem,
+  WriteGate,
 } from "./store.ts";
 
 export type { ScopeDeclaration } from "./scope.ts";
@@ -794,8 +805,65 @@ function rejectionConsumed(error: unknown): boolean | undefined {
   }
 }
 
+function rejectionConsumedOnce(
+  error: unknown,
+  consumedOf: (value: unknown) => unknown,
+): boolean | undefined {
+  try {
+    const consumed = consumedOf(error);
+    return typeof consumed === "boolean" ? consumed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+type SettledOnce =
+  | { readonly ok: true; readonly value: unknown }
+  | { readonly ok: false; readonly reason: unknown };
+
+function settleOnce(
+  value: unknown,
+  thenOf: (target: object) => unknown,
+): Promise<SettledOnce> {
+  if (
+    (typeof value !== "object" || value === null) &&
+    typeof value !== "function"
+  )
+    return Promise.resolve({ ok: true, value });
+  let then: unknown;
+  try {
+    then = thenOf(value);
+  } catch (reason) {
+    return Promise.resolve({ ok: false, reason });
+  }
+  if (typeof then !== "function") return Promise.resolve({ ok: true, value });
+  return new Promise<SettledOnce>((resolve) => {
+    let settled = false;
+    const done = (outcome: SettledOnce) => {
+      if (settled) return;
+      settled = true;
+      resolve(outcome);
+    };
+    try {
+      Reflect.apply(then, value, [
+        (resolved: unknown) => {
+          void settleOnce(resolved, thenOf).then(done);
+        },
+        (reason: unknown) => done({ ok: false, reason }),
+      ]);
+    } catch (reason) {
+      done({ ok: false, reason });
+    }
+  });
+}
+
 type ApprovalSnapshot = {
-  readonly runtime: ApprovalRuntime;
+  readonly consume: (
+    request: ApprovalRequest,
+    coordination: ExclusiveScope,
+  ) => unknown;
+  readonly thenOf: (value: object) => unknown;
+  readonly consumedOf: (value: unknown) => unknown;
   readonly request: ApprovalRequest;
   readonly resource: string;
   readonly preview: string | undefined;
@@ -926,19 +994,13 @@ function snapshotRevisions(
   return Object.freeze(out);
 }
 
-function readOwnTyped<T extends object, K extends keyof T & string>(
-  source: T,
-  key: K,
-  reader: OnceReader,
-): T[K] | undefined {
-  const present = Object.hasOwn(source, key);
-  const value = present ? source[key] : undefined;
-  reader.recordOwn(source, key, present, value);
-  return value;
-}
+const approvalBoundary = contractFor({
+  cli: "state-approval",
+  commands: [],
+}).boundary;
 
 function snapshotApprovalRequest(
-  rawRequest: ApprovalRequest,
+  rawRequest: object,
   reader: OnceReader,
 ):
   | {
@@ -947,21 +1009,26 @@ function snapshotApprovalRequest(
       readonly preview: string | undefined;
     }
   | undefined {
-  const authority = readOwnTyped(rawRequest, "authority", reader);
-  const resource = readOwnTyped(rawRequest, "resource", reader);
-  const resourceRevision = readOwnTyped(rawRequest, "resourceRevision", reader);
-  const effects = readPlainStrings(
-    readOwnTyped(rawRequest, "effects", reader),
-    reader,
-  );
-  const rawPreview = readOwnTyped(rawRequest, "preview", reader);
+  const authorityText = reader.field(rawRequest, "authority");
+  const resourceText = reader.field(rawRequest, "resource");
+  const resourceRevision = reader.field(rawRequest, "resourceRevision");
+  const effects = readPlainStrings(reader.field(rawRequest, "effects"), reader);
+  const rawPreview = reader.field(rawRequest, "preview");
   if (
-    typeof authority !== "string" ||
-    typeof resource !== "string" ||
+    typeof authorityText !== "string" ||
+    typeof resourceText !== "string" ||
     typeof resourceRevision !== "string" ||
     effects === undefined
   )
     return undefined;
+  let authority: ApprovalRequest["authority"];
+  let resource: ApprovalRequest["resource"];
+  try {
+    authority = approvalBoundary.authority(authorityText);
+    resource = approvalBoundary.resource(resourceText);
+  } catch {
+    return undefined;
+  }
   const preview = typeof rawPreview === "string" ? rawPreview : undefined;
   const request: ApprovalRequest = Object.freeze({
     authority,
@@ -977,11 +1044,11 @@ function snapshotApproval(
   declaration: Declaration,
   reader: OnceReader,
 ): ApprovalSnapshot | undefined | "invalid" {
-  const approval = readOwnTyped(declaration, "approval", reader);
+  const approval = reader.field(declaration, "approval");
   if (approval === undefined) return undefined;
   if (typeof approval !== "object" || approval === null) return "invalid";
-  const runtime = readOwnTyped(approval, "runtime", reader);
-  const rawRequest = readOwnTyped(approval, "request", reader);
+  const runtime = reader.field(approval, "runtime");
+  const rawRequest = reader.field(approval, "request");
   if (
     typeof runtime !== "object" ||
     runtime === null ||
@@ -989,10 +1056,20 @@ function snapshotApproval(
     rawRequest === null
   )
     return "invalid";
+  const method = reader.anyOnce(runtime, "revalidateAndConsume");
+  if (typeof method !== "function") return "invalid";
   const parsed = snapshotApprovalRequest(rawRequest, reader);
-  return parsed === undefined
-    ? "invalid"
-    : Object.freeze({ runtime, ...parsed });
+  if (parsed === undefined) return "invalid";
+  const consume = (
+    request: ApprovalRequest,
+    coordination: ExclusiveScope,
+  ): unknown => Reflect.apply(method, runtime, [request, coordination]);
+  const thenOf = (value: object): unknown => reader.anyOnce(value, "then");
+  const consumedOf = (value: unknown): unknown =>
+    typeof value === "object" && value !== null
+      ? reader.anyOnce(value, "consumed")
+      : undefined;
+  return Object.freeze({ consume, thenOf, consumedOf, ...parsed });
 }
 
 function readFlaggedDeclaration(
@@ -1093,10 +1170,7 @@ export function install(options: StateOptions, seams: Seams) {
       route.available ? route.route : undefined,
     );
   const phase = seams.phase;
-  const bound = Math.min(
-    Math.max(options.admissionWaitMilliseconds ?? 2_000, 1),
-    10_000,
-  );
+  const bound = Math.min(Math.max(wait ?? 2_000, 1), 10_000);
   const slots = new WeakMap<object, Slot>();
   const active = new Map<string, ActiveRun>();
 
@@ -1150,9 +1224,33 @@ export function install(options: StateOptions, seams: Seams) {
       : closeCase(issuer, runId, declared, slot);
   }
 
+  async function runStoreUpgrade(
+    gate: WriteGate,
+  ): Promise<UpgradeProblem | undefined> {
+    const staged = stageStoreUpgrade(gate, paths);
+    if (staged.kind === "current") return undefined;
+    if (staged.kind === "failed") return "store-upgrade";
+    try {
+      await phase("upgrade-staged");
+    } catch {
+      discardStagedFile(staged.staged);
+      return "store-upgrade";
+    }
+    const problem = publishStoreUpgrade(gate, paths, staged.staged);
+    if (problem) return problem;
+    try {
+      await phase("upgraded");
+    } catch {
+      return "store-upgrade-unconfirmed";
+    }
+    return undefined;
+  }
+
   async function begin(
+    gate: WriteGate,
     runId: string,
     intent: Omit<Intent, "operationId" | "runId" | "owner">,
+    removeOnFailure: boolean,
   ) {
     const operationId = `op-${hex32()}`;
     const full: Intent = {
@@ -1161,34 +1259,41 @@ export function install(options: StateOptions, seams: Seams) {
       runId,
       owner: { lease: "owner.lease", pid: process.pid, startedAt: Date.now() },
     };
-    let ready = false;
-    const published = await publishOperation(
+    const staged = stageOperation(
+      gate,
       paths,
       full,
       (lease) => {
         const attempt = paths.tryLock(lease);
         return attempt.kind === "held" ? attempt.release : undefined;
       },
-      async () => {
-        await phase("staged");
-        ready = true;
-      },
+      removeOnFailure,
     );
-    if (!published.ok || !ready) return undefined;
+    if (!staged.ok) return undefined;
+    let events: string;
+    try {
+      await phase("staged");
+      events = commitOperation(gate, paths, operationId, staged.staged);
+    } catch (error) {
+      staged.releaseLease();
+      if (removeOnFailure) discardStagedOperation(staged.staged);
+      throw error;
+    }
     const handle: ActiveRun = {
-      events: published.events,
+      events,
       emergencyWritten: false,
     };
     active.set(runId, handle);
     return {
       operationId,
-      events: published.events,
-      releaseLease: published.releaseLease,
+      events,
+      releaseLease: staged.releaseLease,
       handle,
     };
   }
 
   async function coordinate(
+    gate: WriteGate,
     keys: readonly string[] | undefined,
     lockKeys: readonly string[],
     check: { readonly liveOnly: boolean; readonly except?: string },
@@ -1210,7 +1315,7 @@ export function install(options: StateOptions, seams: Seams) {
         phase("admission-wait"),
       );
       if (!held.ok) return held;
-      const upgradeProblem = await upgradeStore(paths, phase);
+      const upgradeProblem = await runStoreUpgrade(gate);
       const store = readStore(paths);
       const refusal: Refusal | undefined = upgradeProblem
         ? { kind: "unavailable", reason: upgradeProblem }
@@ -1282,27 +1387,47 @@ export function install(options: StateOptions, seams: Seams) {
       )
     )
       return { kind: "unavailable", reason: "approval-resource-undeclared" };
+    const heldAndOpen = (): boolean => {
+      try {
+        return issuer.ifOpen(runId, (done) => done(isActive()));
+      } catch {
+        return false;
+      }
+    };
     const coordination = issuer.exclusiveScope(
       runId,
       approval.resource,
-      isActive,
+      heldAndOpen,
     );
+    let rawResult: unknown;
     try {
-      const { consumed } = await approval.runtime.revalidateAndConsume(
-        approval.request,
-        coordination,
-      );
-      return consumed
-        ? { kind: "preview", reference: approval.preview }
-        : { kind: "denied" };
+      rawResult = approval.consume(approval.request, coordination);
     } catch (error) {
-      return rejectionConsumed(error) === true
+      return rejectionConsumedOnce(error, approval.consumedOf) === true
         ? { kind: "approval-lost" }
         : { kind: "approval-unavailable" };
     }
+    const settledResult = await settleOnce(rawResult, approval.thenOf);
+    if (!settledResult.ok)
+      return rejectionConsumedOnce(
+        settledResult.reason,
+        approval.consumedOf,
+      ) === true
+        ? { kind: "approval-lost" }
+        : { kind: "approval-unavailable" };
+    let consumed: unknown;
+    try {
+      consumed = approval.consumedOf(settledResult.value);
+    } catch {
+      return { kind: "approval-unavailable" };
+    }
+    return consumed
+      ? { kind: "preview", reference: approval.preview }
+      : { kind: "denied" };
   }
 
   async function open(
+    gate: WriteGate,
     runId: string,
     intent: Omit<Intent, "operationId" | "runId" | "owner">,
     admitted: {
@@ -1312,16 +1437,16 @@ export function install(options: StateOptions, seams: Seams) {
   ) {
     let opened: Awaited<ReturnType<typeof begin>>;
     try {
-      opened = await begin(runId, intent);
+      opened = await begin(gate, runId, intent, false);
     } catch {
       opened = undefined;
     }
-    if (opened) moveSettled(admitted.operations);
+    if (opened) moveSettled(gate, admitted.operations);
     admitted.releaseAdmission();
     return opened;
   }
 
-  function moveSettled(read: readonly Operation[]): void {
+  function moveSettled(gate: WriteGate, read: readonly Operation[]): void {
     const candidates = read.filter(
       (operation) => operation.status !== "unresolved",
     );
@@ -1342,7 +1467,7 @@ export function install(options: StateOptions, seams: Seams) {
         if (
           candidate &&
           movable(candidate) &&
-          moveSettledCase(paths, candidate.intent.operationId) === "moved"
+          moveSettledCase(gate, paths, candidate.intent.operationId) === "moved"
         )
           tally.moved += 1;
       }
@@ -1399,6 +1524,7 @@ export function install(options: StateOptions, seams: Seams) {
   // time limit. A record that never settles keeps the lease until it settles or
   // the process ends; runProcess ends the process at a run's deadline.
   async function runRecorded<Effect extends string>(
+    gate: WriteGate,
     issuer: StateIssuer,
     runId: string,
     declared: readonly Effect[],
@@ -1414,7 +1540,9 @@ export function install(options: StateOptions, seams: Seams) {
     let workFailed = false;
     try {
       try {
-        await work(recorder(issuer, runId, declared, held.events, recording));
+        await work(
+          recorder(gate, issuer, runId, declared, held.events, recording),
+        );
       } catch {
         workFailed = true;
       }
@@ -1434,7 +1562,10 @@ export function install(options: StateOptions, seams: Seams) {
     }
   }
 
-  async function scanFlaggedStore(keys: readonly string[] | undefined): Promise<
+  async function scanFlaggedStore(
+    gate: WriteGate,
+    keys: readonly string[] | undefined,
+  ): Promise<
     | { readonly ok: false; readonly refusal: Refusal }
     | {
         readonly ok: true;
@@ -1442,7 +1573,7 @@ export function install(options: StateOptions, seams: Seams) {
         readonly conflicting: readonly Operation[];
       }
   > {
-    const upgradeProblem = await upgradeStore(paths, phase);
+    const upgradeProblem = await runStoreUpgrade(gate);
     if (upgradeProblem)
       return {
         ok: false,
@@ -1548,18 +1679,25 @@ export function install(options: StateOptions, seams: Seams) {
   }
 
   async function publishOneSupersedeClosure(
+    gate: WriteGate,
     entry: LeasedTarget,
     runId: string,
     commitLink: (link: () => boolean) => void,
   ): Promise<Refusal | undefined> {
     const id = entry.target.intent.operationId;
     try {
-      const published = await publishClosure(
+      const staged = stageClosure(
+        gate,
         paths,
         supersededClosureFor(entry.target, runId),
-        () => phase("closure-staged"),
-        commitLink,
       );
+      try {
+        await phase("closure-staged");
+      } catch (error) {
+        discardStagedFile(staged);
+        throw error;
+      }
+      const published = commitClosure(gate, paths, id, staged, commitLink);
       return published === "published"
         ? undefined
         : { kind: "unresolved-case", operationId: id };
@@ -1579,22 +1717,16 @@ export function install(options: StateOptions, seams: Seams) {
     active.delete(runId);
   }
 
-  function runOpenForSupersede(
-    issuer: StateIssuer,
-    runId: string,
-    targets: readonly LeasedTarget[],
-  ): boolean {
-    const first = targets[0];
-    if (!first) return true;
+  function runOpenForSupersede(issuer: StateIssuer, runId: string): boolean {
     try {
-      issuer.superseded(runId, first.target.intent.operationId, () => false);
-      return true;
+      return issuer.ifOpen(runId, (done) => done(true));
     } catch {
       return false;
     }
   }
 
   async function publishSupersedeClosures(
+    gate: WriteGate,
     issuer: StateIssuer,
     runId: string,
     targets: readonly LeasedTarget[],
@@ -1605,20 +1737,42 @@ export function install(options: StateOptions, seams: Seams) {
     const ids: string[] = [];
     for (const entry of targets) {
       const id = entry.target.intent.operationId;
-      const problem = await publishOneSupersedeClosure(entry, runId, (link) => {
-        issuer.superseded(runId, id, () => {
-          if (!link()) return false;
-          ids.push(id);
-          return true;
-        });
-      });
+      const problem = await publishOneSupersedeClosure(
+        gate,
+        entry,
+        runId,
+        (link) => {
+          issuer.superseded(runId, id, () => {
+            if (!link()) return false;
+            ids.push(id);
+            return true;
+          });
+        },
+      );
       if (problem) return { ok: false, refusal: problem };
       await phase("closure-published");
     }
     return { ok: true, ids };
   }
 
+  function moveSettledIfOpen(
+    gate: WriteGate,
+    operations: readonly Operation[],
+    refresh: boolean,
+  ): void {
+    try {
+      gate((done) => {
+        const refreshed = refresh ? readStore(paths) : undefined;
+        moveSettled(gate, refreshed?.ok ? refreshed.operations : operations);
+        return done(undefined);
+      });
+    } catch {
+      return;
+    }
+  }
+
   async function openFlaggedTransaction(
+    gate: WriteGate,
     owner: LockOwner,
     issuer: StateIssuer,
     runId: string,
@@ -1635,12 +1789,14 @@ export function install(options: StateOptions, seams: Seams) {
         readonly superseded: readonly string[] | undefined;
       }
   > {
-    if (!runOpenForSupersede(issuer, runId, targets))
+    if (!runOpenForSupersede(issuer, runId))
       return {
         ok: false,
         refusal: { kind: "unavailable", reason: "closure-publication" },
       };
-    const opened = await begin(runId, intent).catch(() => undefined);
+    const opened = await begin(gate, runId, intent, true).catch(
+      () => undefined,
+    );
     if (!opened)
       return {
         ok: false,
@@ -1649,7 +1805,7 @@ export function install(options: StateOptions, seams: Seams) {
     owner.holdRunLease(opened.releaseLease);
     let closed: Awaited<ReturnType<typeof publishSupersedeClosures>>;
     try {
-      closed = await publishSupersedeClosures(issuer, runId, targets);
+      closed = await publishSupersedeClosures(gate, issuer, runId, targets);
     } catch (error) {
       settleUnusedIntent(runId, opened.events, declared);
       throw error;
@@ -1658,8 +1814,7 @@ export function install(options: StateOptions, seams: Seams) {
       settleUnusedIntent(runId, opened.events, declared);
       return closed;
     }
-    const refreshed = closed.ids.length > 0 ? readStore(paths) : undefined;
-    moveSettled(refreshed?.ok ? refreshed.operations : operations);
+    moveSettledIfOpen(gate, operations, closed.ids.length > 0);
     owner.releaseAdmission();
     return {
       ok: true,
@@ -1680,12 +1835,15 @@ export function install(options: StateOptions, seams: Seams) {
     slot: Extract<Slot, { kind: "transaction" }>,
     refuse: (refusal: Refusal) => TransactionProof<Effect>,
   ): Promise<TransactionProof<Effect>> {
+    const gate = unflaggedWriteGate();
     const declaration = slot.declaration;
     if (declared.length === 0 || declaration.command.length === 0)
       return refuse({ kind: "unavailable", reason: "declaration" });
     const scope: CanonicalScope = canonicalise(declaration.scope);
     const keys = scope.unknown ? undefined : scope.keys;
-    const admitted = await coordinate(keys, keys ?? [], { liveOnly: false });
+    const admitted = await coordinate(gate, keys, keys ?? [], {
+      liveOnly: false,
+    });
     if (!admitted.ok) return refuse(admitted.refusal);
     const approval = await consumeApprovalUnflagged(
       issuer,
@@ -1699,6 +1857,7 @@ export function install(options: StateOptions, seams: Seams) {
       return refuse(approval);
     }
     const opened = await open(
+      gate,
       runId,
       {
         commandIdentity: declaration.command,
@@ -1718,6 +1877,7 @@ export function install(options: StateOptions, seams: Seams) {
     }
     slot.operationId = opened.operationId;
     const { observation, workFailed } = await runRecorded(
+      gate,
       issuer,
       runId,
       declared,
@@ -1733,6 +1893,7 @@ export function install(options: StateOptions, seams: Seams) {
   }
 
   async function admitAndOpenFlagged(
+    gate: WriteGate,
     owner: LockOwner,
     issuer: StateIssuer,
     runId: string,
@@ -1744,7 +1905,7 @@ export function install(options: StateOptions, seams: Seams) {
       phase("admission-wait"),
     );
     if (!acquired.ok) return acquired;
-    const scanned = await scanFlaggedStore(keys);
+    const scanned = await scanFlaggedStore(gate, keys);
     if (!scanned.ok) return scanned;
     const leased = await leaseConflictingTargets(
       owner,
@@ -1762,6 +1923,7 @@ export function install(options: StateOptions, seams: Seams) {
       return { ok: false as const, refusal: approval };
     const intent = intentOf(snapshot, declared, approval, acquired.order);
     return openFlaggedTransaction(
+      gate,
       owner,
       issuer,
       runId,
@@ -1786,9 +1948,11 @@ export function install(options: StateOptions, seams: Seams) {
     const snapshot = readFlaggedDeclaration(slot.declaration, commandIdentity);
     if (!snapshot)
       return refuse({ kind: "unavailable", reason: "declaration" });
+    const gate = openRunWriteGate(issuer.ifOpen, runId);
     const owner = createLockOwner();
     try {
       const opened = await admitAndOpenFlagged(
+        gate,
         owner,
         issuer,
         runId,
@@ -1796,10 +1960,15 @@ export function install(options: StateOptions, seams: Seams) {
         snapshot,
       );
       if (!opened.ok) return refuse(opened.refusal);
+      if (!runOpenForSupersede(issuer, runId)) {
+        settleUnusedIntent(runId, opened.events, declared);
+        return refuse({ kind: "unavailable", reason: "closure-publication" });
+      }
       slot.operationId = opened.operationId;
       if (opened.superseded !== undefined) slot.superseded = opened.superseded;
       const transferred = owner.transferToRun();
       const { observation, workFailed } = await runRecorded(
+        gate,
         issuer,
         runId,
         declared,
@@ -1849,15 +2018,15 @@ export function install(options: StateOptions, seams: Seams) {
     const effects = observation.effects;
     try {
       if (observation.transactionState === "completed")
-        appendEvent(events, "completion", {
+        appendSettlingEvent(events, "completion", {
           completed: [...effects.completed],
         });
       else if (observation.transactionState === "unchanged")
-        appendEvent(events, "not-applied", {
+        appendSettlingEvent(events, "not-applied", {
           remaining: [...effects.remaining],
         });
       else
-        appendEvent(events, "outcome", {
+        appendSettlingEvent(events, "outcome", {
           transactionState: observation.transactionState,
           completed: [...effects.completed],
           remaining: [...effects.remaining],
@@ -1869,6 +2038,7 @@ export function install(options: StateOptions, seams: Seams) {
   }
 
   function recorder<Effect extends string>(
+    gate: WriteGate,
     issuer: StateIssuer,
     runId: string,
     declared: readonly Effect[],
@@ -1884,7 +2054,7 @@ export function install(options: StateOptions, seams: Seams) {
       ): Promise<T> {
         if (!declared.includes(effect) || started.includes(effect))
           throw new Error("Undeclared or already recorded effect.");
-        appendEvent(events, "effect-started", { effect });
+        appendStartedEvent(gate, events, "effect-started", { effect });
         started.push(effect);
         const lifetime: {
           state: "active" | "closing";
@@ -1907,6 +2077,7 @@ export function install(options: StateOptions, seams: Seams) {
             );
           try {
             appendDelegateStart(
+              gate,
               events,
               effect,
               seams.qualification.bootIdentity(),
@@ -1935,7 +2106,7 @@ export function install(options: StateOptions, seams: Seams) {
         } catch (error) {
           lifetime.state = "closing";
           await settled(lifetime.starts);
-          appendEvent(events, "effect-unconfirmed", {
+          appendSettlingEvent(events, "effect-unconfirmed", {
             effect,
             reason: "operation-failed",
           });
@@ -1951,9 +2122,10 @@ export function install(options: StateOptions, seams: Seams) {
           reason = "read-back-failed";
         }
         if (present) {
-          appendEvent(events, "effect-confirmed", { effect });
+          appendSettlingEvent(events, "effect-confirmed", { effect });
           confirmed.push(effect);
-        } else appendEvent(events, "effect-unconfirmed", { effect, reason });
+        } else
+          appendSettlingEvent(events, "effect-unconfirmed", { effect, reason });
         return result;
       },
     };
@@ -2009,13 +2181,14 @@ export function install(options: StateOptions, seams: Seams) {
   }
 
   async function scanClosureStore(
+    gate: WriteGate,
     targetKeys: readonly string[] | undefined,
     id: string,
   ): Promise<
     | { readonly ok: false; readonly stop: CloseResultBody }
     | { readonly ok: true; readonly operations: readonly Operation[] }
   > {
-    const upgradeProblem = await upgradeStore(paths, phase);
+    const upgradeProblem = await runStoreUpgrade(gate);
     if (upgradeProblem)
       return {
         ok: false,
@@ -2067,6 +2240,7 @@ export function install(options: StateOptions, seams: Seams) {
   }
 
   async function admitClosure(
+    gate: WriteGate,
     owner: LockOwner,
     request: CloseRequest<string>,
     targetKeys: readonly string[] | undefined,
@@ -2096,7 +2270,7 @@ export function install(options: StateOptions, seams: Seams) {
             ? { kind: "owner-live" }
             : acquired.refusal,
       };
-    const scanned = await scanClosureStore(targetKeys, id);
+    const scanned = await scanClosureStore(gate, targetKeys, id);
     if (!scanned.ok) return scanned;
     const read = await leaseClosureTarget(owner, request, scanned.operations);
     if (!read.ok) return read;
@@ -2136,6 +2310,7 @@ export function install(options: StateOptions, seams: Seams) {
   }
 
   async function runClosingRecord<Effect extends string>(
+    gate: WriteGate,
     owner: LockOwner,
     issuer: StateIssuer,
     runId: string,
@@ -2147,6 +2322,7 @@ export function install(options: StateOptions, seams: Seams) {
   ): Promise<TransactionProof<Effect>> {
     owner.holdRunLease(opened.releaseLease);
     const { observation } = await runRecorded(
+      gate,
       issuer,
       runId,
       declared,
@@ -2156,8 +2332,18 @@ export function install(options: StateOptions, seams: Seams) {
           .record(
             effect,
             async () => {
-              const published = await publishClosure(paths, decision, () =>
-                phase("closure-staged"),
+              const staged = stageClosure(gate, paths, decision);
+              try {
+                await phase("closure-staged");
+              } catch (error) {
+                discardStagedFile(staged);
+                throw error;
+              }
+              const published = commitClosure(
+                gate,
+                paths,
+                decision.operationId,
+                staged,
               );
               await phase("closure-published");
               return published;
@@ -2183,6 +2369,7 @@ export function install(options: StateOptions, seams: Seams) {
     declared: readonly Effect[],
     slot: Extract<Slot, { kind: "close" }>,
   ): Promise<TransactionProof<Effect>> {
+    const gate = unflaggedWriteGate();
     const request = slot.request;
     const stop = (outcome: CloseResultBody) => {
       slot.outcome = outcome;
@@ -2197,7 +2384,7 @@ export function install(options: StateOptions, seams: Seams) {
     const targetKeys = currentKeys(first.target.intent.scope);
     const owner = createLockOwner();
     try {
-      const admitted = await admitClosure(owner, request, targetKeys);
+      const admitted = await admitClosure(gate, owner, request, targetKeys);
       if (!admitted.ok) return stop(admitted.stop);
       const decision = await closureDecision(admitted.target, request, runId);
       if (!("closureId" in decision)) return stop(decision);
@@ -2208,13 +2395,14 @@ export function install(options: StateOptions, seams: Seams) {
         targetKeys,
         admitted.order,
       );
-      const opened = await open(runId, intent, {
+      const opened = await open(gate, runId, intent, {
         releaseAdmission: owner.releaseAdmission,
         operations: admitted.operations,
       });
       if (!opened)
         return stop({ kind: "unavailable", reason: "store-publication" });
       return await runClosingRecord(
+        gate,
         owner,
         issuer,
         runId,
@@ -2350,7 +2538,7 @@ export function install(options: StateOptions, seams: Seams) {
     if (!run || run.emergencyWritten) return;
     run.emergencyWritten = true;
     try {
-      appendEvent(run.events, "emergency", { phase: facts.phase });
+      appendSettlingEvent(run.events, "emergency", { phase: facts.phase });
     } catch {
       return;
     }

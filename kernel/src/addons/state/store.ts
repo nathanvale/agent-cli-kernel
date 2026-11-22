@@ -10,12 +10,17 @@ import {
   readFileSync,
   readSync,
   readdirSync,
+  readlinkSync,
+  realpathSync,
   renameSync,
   rmSync,
+  statSync,
+  statfsSync,
   writeSync,
 } from "node:fs";
 import { createHash } from "node:crypto";
 import { isAbsolute, join } from "node:path";
+import type { StateIssuer } from "../../kernel/index.ts";
 import { errorCode } from "./coordination.ts";
 import {
   encodeRecord,
@@ -25,6 +30,15 @@ import {
 } from "./framing.ts";
 import type { ParsedRecord } from "./framing.ts";
 import type { CanonicalScope } from "./scope.ts";
+
+export {
+  lstatSync as readLinkStats,
+  readFileSync as readStoreFile,
+  readlinkSync as readLinkTarget,
+  realpathSync as resolveRealPath,
+  statSync as readPathStats,
+  statfsSync as readFilesystemStats,
+};
 
 export const operationPattern = /^op-[0-9a-f]{32}$/;
 
@@ -135,36 +149,99 @@ export type UpgradePhase = "upgrade-staged" | "upgraded";
 
 export type UpgradeProblem = "store-upgrade" | "store-upgrade-unconfirmed";
 
-export async function upgradeStore(
+const writeReceipt = Symbol("state.writeReceipt");
+const writeReceipts = new WeakSet<object>();
+export type WriteReceipt<T> = {
+  readonly [writeReceipt]: true;
+  readonly value: T;
+};
+function finishWrite<V>(value: V): WriteReceipt<V> {
+  const receipt = Object.freeze({ [writeReceipt]: true as const, value });
+  writeReceipts.add(receipt);
+  return receipt;
+}
+function unwrapWrite<T>(receipt: WriteReceipt<T>): T {
+  if (!writeReceipts.has(receipt))
+    throw new Error("A store write must return a synchronous write receipt.");
+  writeReceipts.delete(receipt);
+  return receipt.value;
+}
+export type WriteGate = <T>(
+  write: (done: <V>(value: V) => WriteReceipt<V>) => WriteReceipt<T>,
+) => T;
+
+export function openRunWriteGate(
+  ifOpen: StateIssuer["ifOpen"],
+  runId: string,
+): WriteGate {
+  return (write) =>
+    ifOpen(runId, (done) => done(unwrapWrite(write(finishWrite))));
+}
+
+export function unflaggedWriteGate(): WriteGate {
+  return (write) => unwrapWrite(write(finishWrite));
+}
+
+export type StagedUpgrade =
+  | { readonly kind: "current" }
+  | { readonly kind: "failed" }
+  | { readonly kind: "staged"; readonly staged: string };
+
+export function stageStoreUpgrade(
+  gate: WriteGate,
   paths: Layout,
-  phase: (name: UpgradePhase) => Promise<void>,
-): Promise<UpgradeProblem | undefined> {
+): StagedUpgrade {
   const staged = join(paths.staging, `format-${crypto.randomUUID()}`);
-  let replaced = false;
   try {
     const journal = journalOf(paths);
-    if (journal === journals.two) return undefined;
-    if (journal !== journals.one) return "store-upgrade";
-    mkdirSync(paths.settled, { recursive: true, mode: 0o700 });
-    if (!privateDirectory(paths.settled)) return "store-upgrade";
-    flushDirectory(paths.root);
-    writeDurable(staged, encodeRecord("format", { journal: journals.two }));
-    await phase("upgrade-staged");
-    renameSync(staged, paths.format);
-    replaced = true;
-    flushDirectory(paths.root);
-    await phase("upgraded");
+    if (journal === journals.two) return { kind: "current" };
+    if (journal !== journals.one) return { kind: "failed" };
+    const prepared = gate((done) => {
+      mkdirSync(paths.settled, { recursive: true, mode: 0o700 });
+      if (!privateDirectory(paths.settled)) return done(false);
+      flushDirectory(paths.root);
+      writeDurable(staged, encodeRecord("format", { journal: journals.two }));
+      return done(true);
+    });
+    return prepared ? { kind: "staged", staged } : { kind: "failed" };
+  } catch {
+    discardStagedFile(staged);
+    return { kind: "failed" };
+  }
+}
+
+export function publishStoreUpgrade(
+  gate: WriteGate,
+  paths: Layout,
+  staged: string,
+): UpgradeProblem | undefined {
+  let replaced = false;
+  try {
+    gate((done) => {
+      renameSync(staged, paths.format);
+      replaced = true;
+      flushDirectory(paths.root);
+      return done(undefined);
+    });
     return undefined;
   } catch {
     if (replaced) return "store-upgrade-unconfirmed";
-    removeStaged(staged);
+    discardStagedFile(staged);
     return "store-upgrade";
   }
 }
 
-function removeStaged(staged: string): void {
+export function discardStagedFile(staged: string): void {
   try {
     rmSync(staged, { force: true });
+  } catch {
+    return;
+  }
+}
+
+export function discardStagedOperation(staged: string): void {
+  try {
+    rmSync(staged, { recursive: true, force: true });
   } catch {
     return;
   }
@@ -200,9 +277,8 @@ export type Intent = {
 };
 
 export const recordKinds = { intent: "intent", closure: "closure" } as const;
-const eventKinds = [
-  "effect-started",
-  "delegate-admitted",
+const startingEventKinds = ["effect-started", "delegate-admitted"] as const;
+const settlingEventKinds = [
   "effect-confirmed",
   "effect-unconfirmed",
   "completion",
@@ -210,6 +286,9 @@ const eventKinds = [
   "outcome",
   "emergency",
 ] as const;
+const eventKinds = [...startingEventKinds, ...settlingEventKinds] as const;
+export type StartingEventKind = (typeof startingEventKinds)[number];
+export type SettlingEventKind = (typeof settlingEventKinds)[number];
 export type EventKind = (typeof eventKinds)[number];
 const effectEvents: readonly EventKind[] = [
   "effect-started",
@@ -224,11 +303,13 @@ export type JournalEvent = {
 };
 
 export function appendDelegateStart(
+  gate: WriteGate,
   eventsPath: string,
   effect: string,
   boot: string | undefined,
 ): void {
-  appendEvent(
+  appendStartedEvent(
+    gate,
     eventsPath,
     "delegate-admitted",
     boot === undefined ? { effect } : { effect, boot },
@@ -621,6 +702,7 @@ export function readStore(paths: Layout): ReadResult {
 }
 
 export function moveSettledCase(
+  gate: WriteGate,
   paths: Layout,
   id: string,
 ): "moved" | "occupied" {
@@ -630,8 +712,10 @@ export function moveSettledCase(
   } catch (error) {
     if (errorCode(error) !== "ENOENT") throw error;
   }
-  renameSync(paths.operation(id), paths.settledCase(id));
-  return "moved";
+  return gate((done) => {
+    renameSync(paths.operation(id), paths.settledCase(id));
+    return done("moved");
+  });
 }
 
 export function flushMoves(paths: Layout): void {
@@ -639,42 +723,54 @@ export function flushMoves(paths: Layout): void {
   flushDirectory(paths.settled);
 }
 
-export async function publishOperation(
+export type StagedOperation =
+  | {
+      readonly ok: true;
+      readonly staged: string;
+      readonly releaseLease: () => void;
+    }
+  | { readonly ok: false };
+
+export function stageOperation(
+  gate: WriteGate,
   paths: Layout,
   intent: Intent,
   lockLease: (path: string) => (() => void) | undefined,
-  beforePublish: () => Promise<void>,
-): Promise<
-  | {
-      readonly ok: true;
-      readonly releaseLease: () => void;
-      readonly events: string;
-    }
-  | { readonly ok: false }
-> {
+  removeOnFailure: boolean,
+): StagedOperation {
   const staged = join(paths.staging, intent.operationId);
-  mkdirSync(staged, { mode: 0o700 });
-  const releaseLease = lockLease(join(staged, "owner.lease"));
-  if (!releaseLease) return { ok: false };
-  try {
-    writeDurable(
-      join(staged, "intent"),
-      encodeRecord(recordKinds.intent, intent),
-    );
-    writeDurable(join(staged, "events"), new Uint8Array(0));
-    flushDirectory(staged);
-    await beforePublish();
-    renameSync(staged, paths.operation(intent.operationId));
+  return gate<StagedOperation>((done) => {
+    mkdirSync(staged, { mode: 0o700 });
+    const releaseLease = lockLease(join(staged, "owner.lease"));
+    if (!releaseLease) return done<StagedOperation>({ ok: false });
+    try {
+      writeDurable(
+        join(staged, "intent"),
+        encodeRecord(recordKinds.intent, intent),
+      );
+      writeDurable(join(staged, "events"), new Uint8Array(0));
+      flushDirectory(staged);
+    } catch (error) {
+      releaseLease();
+      if (removeOnFailure) discardStagedOperation(staged);
+      throw error;
+    }
+    return done<StagedOperation>({ ok: true, staged, releaseLease });
+  });
+}
+
+export function commitOperation(
+  gate: WriteGate,
+  paths: Layout,
+  operationId: string,
+  staged: string,
+): string {
+  gate((done) => {
+    renameSync(staged, paths.operation(operationId));
     flushDirectory(paths.operations);
-  } catch (error) {
-    releaseLease();
-    throw error;
-  }
-  return {
-    ok: true,
-    releaseLease,
-    events: join(paths.operation(intent.operationId), "events"),
-  };
+    return done(undefined);
+  });
+  return join(paths.operation(operationId), "events");
 }
 
 const settlingEvents: readonly EventKind[] = ["completion", "not-applied"];
@@ -699,7 +795,7 @@ function endsOnWholeRecord(descriptor: number): boolean {
 // costs time linear in the records already written and a case's appends
 // cost time quadratic in its records: three per declared effect, one per
 // delegate start, and the final and emergency events.
-export function appendEvent(
+function writeEventRecord(
   eventsPath: string,
   kind: EventKind,
   payload: Readonly<Record<string, unknown>>,
@@ -728,6 +824,26 @@ export function appendEvent(
   }
 }
 
+export function appendStartedEvent(
+  gate: WriteGate,
+  eventsPath: string,
+  kind: StartingEventKind,
+  payload: Readonly<Record<string, unknown>>,
+): void {
+  gate((done) => {
+    writeEventRecord(eventsPath, kind, payload);
+    return done(undefined);
+  });
+}
+
+export function appendSettlingEvent(
+  eventsPath: string,
+  kind: SettlingEventKind,
+  payload: Readonly<Record<string, unknown>>,
+): void {
+  writeEventRecord(eventsPath, kind, payload);
+}
+
 function linkStagedClosure(staged: string, target: string): boolean {
   try {
     linkSync(staged, target);
@@ -738,36 +854,47 @@ function linkStagedClosure(staged: string, target: string): boolean {
   }
 }
 
-export function publishClosure(
+export function stageClosure(
+  gate: WriteGate,
   paths: Layout,
   closure: Closure,
-  beforeLink: () => Promise<void>,
-  commitLink?: (link: () => boolean) => void,
-): Promise<"published" | "exists"> {
-  commitLink?.(() => false);
+): string {
   const staged = join(paths.staging, `closure-${crypto.randomUUID()}`);
-  writeDurable(
-    staged,
-    encodeRecord(recordKinds.closure, { ...closure, settledAt: Date.now() }),
-  );
-  return beforeLink().then(() => {
-    const state: { outcome: "published" | "exists" } = { outcome: "exists" };
-    const target = join(paths.operation(closure.operationId), "closure");
-    const link = () => {
-      const linked = linkStagedClosure(staged, target);
-      if (linked) state.outcome = "published";
-      return linked;
-    };
-    try {
+  return gate((done) => {
+    writeDurable(
+      staged,
+      encodeRecord(recordKinds.closure, { ...closure, settledAt: Date.now() }),
+    );
+    return done(staged);
+  });
+}
+
+export function commitClosure(
+  gate: WriteGate,
+  paths: Layout,
+  operationId: string,
+  staged: string,
+  commitLink?: (link: () => boolean) => void,
+): "published" | "exists" {
+  const state: { outcome: "published" | "exists" } = { outcome: "exists" };
+  const target = join(paths.operation(operationId), "closure");
+  const link = () => {
+    const linked = linkStagedClosure(staged, target);
+    if (linked) state.outcome = "published";
+    return linked;
+  };
+  try {
+    gate((done) => {
       if (commitLink) commitLink(link);
       else link();
-    } finally {
-      rmSync(staged, { force: true });
-    }
-    if (state.outcome === "published")
-      flushDirectory(paths.operation(closure.operationId));
-    return state.outcome;
-  });
+      return done(undefined);
+    });
+  } finally {
+    rmSync(staged, { force: true });
+  }
+  if (state.outcome === "published")
+    flushDirectory(paths.operation(operationId));
+  return state.outcome;
 }
 
 export type ClosureRead = Closure | "damaged" | "unreadable" | undefined;

@@ -9,6 +9,17 @@ const ifNoResultStep = Symbol("state.ifNoResult");
 const recordedEffect = Symbol("state.recordedEffect");
 const transactionProof = Symbol("state.transactionProof");
 const exclusiveScope = Symbol("state.exclusiveScope");
+const openWrite = Symbol("state.openWrite");
+const openWrites = new WeakSet<object>();
+export type OpenWrite<T> = {
+  readonly [openWrite]: true;
+  readonly value: T;
+};
+function finishOpenWrite<V>(value: V): OpenWrite<V> {
+  const receipt = Object.freeze({ [openWrite]: true as const, value });
+  openWrites.add(receipt);
+  return receipt;
+}
 export type IfNoResult<Identity extends string = string> = {
   readonly [ifNoResultStep]: true;
   readonly step: CommandStep<Identity>;
@@ -67,6 +78,10 @@ export type StateIssuer = {
     operationId: string,
     commit?: () => boolean,
   ) => void;
+  readonly ifOpen: <T>(
+    runId: string,
+    commit: (done: <V>(value: V) => OpenWrite<V>) => OpenWrite<T>,
+  ) => T;
 };
 const routes = new WeakSet<object>();
 type AttachedRun = {
@@ -306,6 +321,25 @@ function stateIssuer(
         return;
       }
       if (commit()) attached.superseded.add(operationId);
+    },
+    ifOpen<T>(
+      runId: string,
+      commit: (done: <V>(value: V) => OpenWrite<V>) => OpenWrite<T>,
+    ): T {
+      const execution = active.getStore();
+      if (!execution || execution.runId !== runId)
+        throw new Error("A durable commit requires the active attached run.");
+      const attached = attachedRuns.get(execution.run);
+      if (!attached)
+        throw new Error("A durable commit requires the active attached run.");
+      if (attached.closed) throw new Error(closedReason[attached.closed]);
+      const receipt = commit(finishOpenWrite);
+      if (!openWrites.has(receipt))
+        throw new Error(
+          "A durable commit must return a synchronous open write.",
+        );
+      openWrites.delete(receipt);
+      return receipt.value;
     },
   });
 }

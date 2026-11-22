@@ -61,10 +61,12 @@ import {
 } from "../../../kernel/src/addons/state/framing.ts";
 import {
   appendDelegateStart,
-  appendEvent,
+  appendSettlingEvent,
+  appendStartedEvent,
   delegateBoot,
   layout,
   readCase,
+  unflaggedWriteGate,
 } from "../../../kernel/src/addons/state/store.ts";
 import { stoppedOwnerProblem } from "../../../kernel/src/addons/state/install.ts";
 import {
@@ -884,10 +886,11 @@ test(`X28 supporting: in process, the boot identity honours a test entry's overr
 });
 
 test("X28 supporting: in process, appendDelegateStart writes boot only when there is one", () => {
+  const gate = unflaggedWriteGate();
   const path = join(temporaryRoot("c3-state-delegate-"), "events");
   writeFileSync(path, "");
-  appendDelegateStart(path, "e", "boot-one");
-  appendDelegateStart(path, "e", undefined);
+  appendDelegateStart(gate, path, "e", "boot-one");
+  appendDelegateStart(gate, path, "e", undefined);
   expect(
     readFramed(readFileSync(path)).records.map((record) => record.payload),
   ).toEqual([
@@ -897,10 +900,11 @@ test("X28 supporting: in process, appendDelegateStart writes boot only when ther
 });
 
 test("K11.g supporting: in process, appendEvent appends after a whole record and refuses after torn or corrupt bytes", () => {
+  const gate = unflaggedWriteGate();
   const path = join(temporaryRoot("c3-state-append-"), "events");
   writeFileSync(path, "");
-  appendEvent(path, "effect-started", { effect: "e" });
-  appendEvent(path, "effect-confirmed", { effect: "e" });
+  appendStartedEvent(gate, path, "effect-started", { effect: "e" });
+  appendSettlingEvent(path, "effect-confirmed", { effect: "e" });
   const whole = readFileSync(path);
   expect(readFramed(whole).records.map((record) => record.kind)).toEqual([
     "effect-started",
@@ -917,7 +921,10 @@ test("K11.g supporting: in process, appendEvent appends after a whole record and
     writeFileSync(path, Buffer.concat([whole, Buffer.from(tail)]));
     const before = readFileSync(path);
     expect(() => {
-      appendEvent(path, "delegate-admitted", { effect: "e", boot: "b" });
+      appendStartedEvent(gate, path, "delegate-admitted", {
+        effect: "e",
+        boot: "b",
+      });
     }).toThrow(noAppendAfterDamage);
     expect(readFileSync(path)).toEqual(before);
   }
@@ -1645,5 +1652,21 @@ test("NW.f a finite wait limit inside the range is accepted", () => {
   expect(() =>
     stateAddon({ root, report: "cx.pending", admissionWaitMilliseconds: 250 }),
   ).not.toThrow();
+  expect(existsSync(root)).toBe(false);
+});
+
+test("NW.g a getter for admissionWaitMilliseconds is read once at construction", () => {
+  const root = join(temporaryRoot("c3-state-wait-"), "state");
+  let reads = 0;
+  const options = {
+    root,
+    report: "cx.pending",
+    get admissionWaitMilliseconds() {
+      reads += 1;
+      return reads === 1 ? 5 : Number.NaN;
+    },
+  };
+  expect(() => stateAddon(options)).not.toThrow();
+  expect(reads).toBe(1);
   expect(existsSync(root)).toBe(false);
 });

@@ -412,3 +412,64 @@ test("superseded refuses once the attachment is closed and never runs its commit
   expect(issuedSuperseded("run-dl", descriptor)).toEqual(["op-kept"]);
   deadlineAttached.forget();
 });
+
+test("ifOpen runs a synchronous commit while open, refuses once closed, and refuses an unbranded return", async () => {
+  const closedErrors: string[] = [];
+  let commitCalls = 0;
+  let openResult: string | undefined;
+  let unbrandedError = "none";
+  const gate = deferred();
+  const descriptor = createStateAddon((issuer) => ({
+    ifNoResult: issuer.ifNoResult({
+      kind: "command",
+      command: "specimen.pending",
+      args: [],
+    }),
+    attach: (runId) => ({
+      transaction: async (work) => {
+        openResult = issuer.ifOpen(runId, (done) => done("committed"));
+        try {
+          Reflect.apply(issuer.ifOpen, issuer, [
+            runId,
+            () => Promise.resolve("async"),
+          ]);
+        } catch (error) {
+          unbrandedError =
+            error instanceof Error ? error.message : String(error);
+        }
+        await gate.promise;
+        closedErrors.push(
+          catchMessage(() =>
+            issuer.ifOpen(runId, (done) => {
+              commitCalls += 1;
+              return done("late");
+            }),
+          ),
+        );
+        await work({
+          record: () => Promise.reject(new Error("Not recorded here.")),
+        });
+        return issuer.transactionProof(runId, {
+          transactionState: "unchanged",
+          effects: unchanged,
+        });
+      },
+    }),
+  }));
+
+  const attached = attachState(descriptor, "run-open", ["specimen.note"]);
+  if (!attached) throw new Error("The state did not attach.");
+  const running = attached.capability.transaction(() => Promise.resolve());
+  expect(closeAtDeadline("run-open", descriptor)).toBe(true);
+  gate.resolve();
+  await running;
+  expect(openResult).toBe("committed");
+  expect(unbrandedError).toBe(
+    "A durable commit must return a synchronous open write.",
+  );
+  expect(commitCalls).toBe(0);
+  expect(closedErrors).toEqual([
+    "The state capability closed at the deadline.",
+  ]);
+  attached.forget();
+});
