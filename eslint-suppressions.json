@@ -371,6 +371,11 @@
       "count": 1
     }
   },
+  "tests/kernel/verify-skill/forensics.test.ts": {
+    "repository/tests-use-bounded-runner": {
+      "count": 2
+    }
+  },
   "tests/kernel/writer/writer.test.ts": {
     "repository/require-to-throw-message": {
       "count": 1
