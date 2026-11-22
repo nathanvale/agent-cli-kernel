@@ -1,3 +1,5 @@
+// Platform: Bun 1.4.4 fake timers clamp a raw delay above 2,147,483,647 ms to
+// 1 ms while still advancing performance.now().
 import { afterEach, describe, expect, jest, test } from "bun:test";
 import { programsAddon } from "../../../kernel/src/addons/programs/index.ts";
 import type {

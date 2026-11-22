@@ -561,6 +561,9 @@ export type {
   RetryDelayPolicy,
 } from "./stations.ts";
 
+// Interface: State add-on factory seam. Source rules permit references only in the
+// exact pinned state add-on; ordinary host wiring passes its
+// opaque descriptor. This is not a same-process isolation guarantee.
 contractFor.stateAddon = createStateAddon;
 export type {
   StateAddonDescriptor,

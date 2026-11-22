@@ -308,6 +308,9 @@ function attachMenu(run: RunControl): AttachedAddon<MenuCapability> {
     }
   }
 
+  // Accepted decision (Nathan, 21 November 2026, 11:42; MAG-138 decision 21):
+  // "Menus only" departs from LIFE-2a's first sentence solely in an interactive
+  // run; LIFE-2a's second sentence (never prompt without a terminal) holds.
   async function show<Value>(request: {
     readonly lines?: readonly string[];
     readonly rows: readonly MenuRow<Value>[];

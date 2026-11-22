@@ -167,6 +167,11 @@ export async function resolveInvocation(
   const deadline = splitDeadline(globalTokens);
   if (!deadline.ok) return refused(cli, { kind: "deadline" }, machine);
   const { tokens, deadlineMilliseconds } = deadline.value;
+  // Accepted decisions (Nathan, 21 November 2026, 11:39 and 11:42; MAG-138
+  // decisions 21 and 22): in an interactive run an empty argv runs the
+  // default command instead of the <cli>.dispatch refusal, bending frozen
+  // Command Contract 3 A10, DISC-1, DISC-4 (last clause) and LIFE-2a only
+  // in an interactive run; non-interactive and --json runs stay unchanged.
   if (!tokens.length) {
     if (
       facts?.interactive === true &&
