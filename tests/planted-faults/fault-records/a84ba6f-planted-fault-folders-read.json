@@ -1,0 +1,7 @@
+{
+  "id": "a84ba6f-planted-fault-folders-read",
+  "patch": "tests/planted-faults/patches/a84ba6f-planted-fault-folders-read.patch",
+  "testFile": "tests/template/read-file/read-file.test.ts",
+  "title": "folderFiles refuses a regular file or symlink loop instead of reading it as empty",
+  "source": "a84ba6f fix(scripts): share failed-read predicates and refuse non-absent read errors (GREEN)"
+}
