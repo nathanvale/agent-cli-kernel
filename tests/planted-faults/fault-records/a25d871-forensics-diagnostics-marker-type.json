@@ -1,0 +1,7 @@
+{
+  "id": "a25d871-forensics-diagnostics-marker-type",
+  "patch": "tests/planted-faults/patches/a25d871-forensics-diagnostics-marker-type.patch",
+  "testFile": "tests/kernel/verify-skill/forensics.test.ts",
+  "title": "rejects diagnostics closed markers that are not owned 0700 directories$",
+  "source": "a25d871 feat(verify-cli): add kernel-free forensics command for raw artifact inspection"
+}

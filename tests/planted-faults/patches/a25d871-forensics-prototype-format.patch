@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/forensics/addons.ts b/skills/verify-cli/forensics/addons.ts
+--- a/skills/verify-cli/forensics/addons.ts
++++ b/skills/verify-cli/forensics/addons.ts
+@@ -369,8 +369,7 @@ function classifyApprovalKind(
+     format === null ||
+     version !== 1 ||
+     operation === null ||
+-    expiresAt === null ||
+-    !Object.hasOwn(approvalFormatKinds, format)
++    expiresAt === null
+   )
+     return "malformed";
+   return approvalFormatKinds[format] ?? "malformed";

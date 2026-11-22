@@ -45,8 +45,8 @@ exits 3, since the helper's probes of it cannot be confirmed.
    row binds the run to the target, the repository root, the pinned commit,
    Bun, the platform, and the repository's head commit and count of
    uncommitted paths, untracked files included. Both are null when the
-   repository has no `.git` at or above it; any other git failure refuses
-   the launch as `DOMAIN_VERIFY_GIT_FAILED`.
+   repository has no `.git` at or above it or `git` is unavailable; any
+   other git failure refuses the launch as `DOMAIN_VERIFY_GIT_FAILED`.
 
 A target that keeps state takes its state folder from an argument or an
 environment variable. Point it under the run's `scratch/` folder: put
@@ -83,7 +83,9 @@ every failed check.
    read-only under `node_modules`.
 2. Run `drive <run folder> <scenario file>`. It checks the whole file,
    then runs every step in order, whatever the earlier verdicts.
-3. Exit 0 prints `<n> steps met.` Exit 3 with
+3. Exit 0 prints `<n> steps met.` followed by indented JSON data (without
+   `--json`, every successful helper command prints its message line
+   followed by pretty-printed `data` when `data` is non-null). Exit 3 with
    `DOMAIN_VERIFY_EXPECTATION_UNMET` names the first unmet step and what it
    missed: the feature failed. Report it with that step's evidence file.
    Keep the scenario as written; never weaken it to pass.
@@ -119,13 +121,17 @@ A scenario file:
   root. `"runner": "bun"` passes `argv` to Bun alone, such as
   `["run", "check"]`.
 - `expect` needs `exitCode` and at least one of: exact `stdout` or
-  `stderr`; `result`, whose keys are fields of the envelope's result or
-  dotted paths into it, ending in `length` for a list's size; `files`, each
-  a `{scratch}/` path with exact `content` or `"absent": true`; and, on a
-  `"runner": "bun"` step only, `stdoutIncludes` and `stderrIncludes`, for
-  output with timings. An empty `result`, `files` or includes list does not
-  count, and an empty string in an includes list is refused. `timedOut` may
-  be added to any of them. A word of `argv` may not hold a NUL.
+  `stderr`; `result`, whose keys are fields of the envelope's result
+  (`commandIdentity`, `causeCode`, `exitCode`, `outcome`,
+  `transactionState`, `failureClass`, `retryable`, `effectClass`,
+  `effects`, `data`, `repairAction`, `next`, `runId`) or dotted paths into
+  them, including numeric list indices such as `data.unfinished.0.commandIdentity`
+  and `length` for a list's size; `files`, each a `{scratch}/` path with exact
+  `content` or `"absent": true`; and, on a `"runner": "bun"` step only,
+  `stdoutIncludes` and `stderrIncludes`, for output with timings. An empty
+  `result`, `files` or includes list does not count, and an empty string in
+  an includes list is refused. `timedOut` may be added to any of them. A
+  word of `argv` may not hold a NUL.
 - `{scratch}` becomes the run's scratch folder and `{repository}` the
   repository root, in every string of `argv` and `expect`.
 - A step that passes its time limit is unmet unless it expects
@@ -187,17 +193,26 @@ Run from the repository root; relative paths are read from the folder you run in
 bun node_modules/agent-cli-kernel/skills/verify-cli/verify.ts <command> <arguments> [--json]
 ```
 
-| Command                              | What it does                                                    |
-| ------------------------------------ | --------------------------------------------------------------- |
-| `ready <target>`                     | Two probes and eight readiness checks                           |
-| `probe <target>`                     | What the helper observed for the two probes, unjudged           |
-| `sweep <target>`                     | Every check the target's discovery implies; the owed results    |
-| `findings <target>`                  | The same sweep as data, every finding listed                    |
-| `launch <run folder> <target>`       | Make a run folder bound to one target                           |
-| `drive <run folder> <scenario file>` | Run one scenario; one evidence file and index row for each step |
-| `report <run folder>`                | Each station's state, unmet steps, unconfirmed process ends     |
-| `cleanup <run folder>`               | Remove the run's scratch folder; keep evidence and state        |
-| `pending <run folder>`               | The helper's unfinished changes to that run                     |
+| Command                              | What it does                                                                     |
+| ------------------------------------ | -------------------------------------------------------------------------------- |
+| `ready <target>`                     | Two probes and eight readiness checks                                            |
+| `probe <target>`                     | What the helper observed for the two probes, unjudged                            |
+| `sweep <target>`                     | Every check the target's discovery implies; the owed results                     |
+| `findings <target>`                  | The same sweep as data, every finding listed                                     |
+| `launch <run folder> <target>`       | Make a run folder bound to one target                                            |
+| `drive <run folder> <scenario file>` | Run one scenario; one evidence file and index row for each step                  |
+| `report <run folder>`                | Each station's state, unmet steps, unconfirmed process ends                      |
+| `cleanup <run folder>`               | Remove the run's scratch folder; keep evidence and state                         |
+| `pending <run folder>`               | The helper's unfinished changes to that run                                      |
+| `forensics <kind> <path>`            | Kernel-free read-only inspection of `run`, `state`, `diagnostics`, or `approval` |
+
+`forensics` is the forensic command on `verify.ts`: it runs before kernel
+import or helper probes, never imports `agent-cli-kernel`, and never creates,
+locks, or modifies files. Reach for it whenever a run exits 70 (`RAW FAIL`),
+refuses as `DOMAIN_VERIFY_RUN_UNRESOLVED`, leaves an unmet step, or wedges a
+state journal, diagnostics custody folder, or approval store. Add `--json`
+for one `verify-forensics/1` JSON line on stdout; `verify.ts forensics --help`
+prints its targets.
 
 `<target>` is the target's entry file, such as `src/cli.ts`. Add `--json`
 for the helper's envelope, before any `--`. `verify.ts <command> --help`

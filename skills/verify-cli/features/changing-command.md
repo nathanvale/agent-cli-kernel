@@ -22,7 +22,8 @@ that blocks the next change to the same thing.
 
 - A command whose `--help` first line ends `(repository-local)` or
   `(external)`, such as `visit <planet>`.
-- The report command its discovery names under `ifNoResult`, such as
+- The report command named under `result.data.ifNoResult` in
+  `bun src/cli.ts --discover-command <commandIdentity> --json`, such as
   `pending`.
 
 ## Driving it with verify-cli
@@ -144,6 +145,9 @@ at once, except for venus's page, where it waits.
   ]
 }
 ```
+
+Without `--json`, each successful command prints its summary line followed
+by indented JSON data:
 
 ```text
 $ MOONS_HOME=<run folder>/scratch/moons MOONS_OPENER=<test opener> verify.ts drive <run folder> verify/scenarios/changing-command.json

@@ -1,0 +1,20 @@
+diff --git a/skills/verify-cli/forensics/addons.ts b/skills/verify-cli/forensics/addons.ts
+--- a/skills/verify-cli/forensics/addons.ts
++++ b/skills/verify-cli/forensics/addons.ts
+@@ -613,16 +613,6 @@ function inspectApprovalEntry(
+     };
+   }
+   if (isJson) {
+-    if (read.stats.nlink !== 1)
+-      return {
+-        file: name,
+-        kind: "malformed",
+-        keyHash: null,
+-        operation: null,
+-        expiresAt: null,
+-        expired: null,
+-        problems: ["approval record has multiple hard links"],
+-      };
+     return inspectApprovalJson(name, read.bytes, now);
+   }
+   return {
