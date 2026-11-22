@@ -1,12 +1,14 @@
 diff --git a/kernel/src/addons/menu/index.ts b/kernel/src/addons/menu/index.ts
 --- a/kernel/src/addons/menu/index.ts
 +++ b/kernel/src/addons/menu/index.ts
-@@ -116,7 +116,7 @@ function attachMenu(run: RunControl): AttachedAddon<MenuCapability> {
-       }
-     }
-     try {
--      terminal.leave();
+@@ -244,7 +244,9 @@ function attachMenu(run: RunControl): AttachedAddon<MenuCapability> {
+     const hadDrawing = drew;
+     drew = false;
+     if (hadDrawing) ignoreClosedTerminal(() => terminal.draw([]));
+-    ignoreClosedTerminal(() => terminal.leave());
++    ignoreClosedTerminal(() => {
 +      if (!run.signal.aborted) terminal.leave();
-     } catch {
-       // Platform: Terminal restoration ignores a closed or revoked controlling tty.
-     }
++    });
+   }
+ 
+   function terminalForShow(): TerminalAdapter {
