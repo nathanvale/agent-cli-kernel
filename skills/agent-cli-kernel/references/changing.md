@@ -338,20 +338,27 @@ key comes from the inputs, not from the fresh `operationId`; a request the
 earlier run already sent can still arrive after the new run's, so only the
 remote side can deduplicate it using an input-derived key.
 
-When set, the next run of the same command identity whose scope covers every
-conflict key of the dead case (a superset; unknown scope on either side
-refuses) checks that the state root sits on a local filesystem whose lock is
-honoured, acquires and holds the prior case's owner lease (never deciding on a
-probe; a live run refuses with the held-lock station and an unreadable lease
-refuses `lease-unreadable`), confirms on re-read that the case is still
-unresolved, intact, and unchanged, publishes the new run's own intent first,
-and only then writes an `outcome-unknown` closure with no authority and working
+When set, the declaration is read once into plain data and the command identity
+comes from the kernel (the attached command, not `declaration.command`). The
+store is scanned once for conflicting unresolved cases. When any conflict, the
+next run checks that the state root sits on a local filesystem whose lock is
+honoured, takes and holds each prior case's `owner.lease` directly with no
+probe (a live run refuses with the held-lock station and an unreadable lease
+refuses `lease-unreadable`), confirms on re-read under that lease that the case
+is still unresolved, intact, unchanged, recorded under the same kernel command
+identity, and covered by the new declaration's declared resources (the dead
+case's recorded declared resources and invariants are a subset of the new
+declaration's; unknown scope on either side refuses), consumes approval,
+publishes the new run's own intent first, and only then links an
+`outcome-unknown` closure with no authority, empty evidence, and working
 qualification label `superseded-owner-lease-free` (never claiming completion),
-moves the closed case to `settled`, and carries on. The cleared run stays in
-history as `outcome-unknown`, and the new run's envelope lists every cleared
+recording each closed id at the link commit point, moves settled cases to
+`settled`, and carries on. The cleared run stays in history as
+`outcome-unknown`, and every result path of the new run lists every cleared
 operation id in `result.superseded` (omitted on runs that cleared nothing). A
 same-boot `delegate-admitted` record is allowed to clear on this flagged path;
-unflagged commands and `state.close` keep their existing refusals unchanged.
+unflagged commands and `state.close` keep their existing paths and refusals
+unchanged.
 
 Never set `supersedeUnresolved: true` on a command that is not safe to run
 again alongside a leftover earlier program. After a kill, the next run repeats

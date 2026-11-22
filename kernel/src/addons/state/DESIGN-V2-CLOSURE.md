@@ -369,21 +369,29 @@ author sets `supersedeUnresolved: true` on its state declaration promises that
 the command is safe to run again even alongside a leftover copy of the program
 an earlier run started. The kernel never tries to stop that leftover program.
 
-When `supersedeUnresolved: true` is set, the next run may close its own earlier
-unresolved case(s), even when a same-boot `delegate-admitted` record exists,
-with `disposition: "outcome-unknown"`, `authority: null`, evidence for each
-recorded effect, and working qualification label `superseded-owner-lease-free`,
-only when the new run's scope covers every conflict key of the dead case
-(unknown scope on either side refuses), the coordination route is available and
+When `supersedeUnresolved: true` is set, the declaration is read once into
+frozen plain data and the command identity comes from the kernel (the attached
+command, not `declaration.command`). The store is read once to list conflicting
+unresolved cases, and nothing filters that list again. The next run may close
+those earlier unresolved case(s), even when a same-boot `delegate-admitted`
+record exists, with `disposition: "outcome-unknown"`, `authority: null`, empty
+`evidence: []` (nothing was observed), and working qualification label
+`superseded-owner-lease-free`, only when the coordination route is available and
 the local-lock filesystem gate passes (same device across all state folders and
 a local lock-honouring filesystem: Linux local filesystems refusing NFS,
 SMB/CIFS, overlay, FUSE, 9p and unknown types; macOS local APFS matching the
 root volume's `statfsSync("/").type`, refusing network volumes; refuses
-`supersede-filesystem-unsupported` otherwise),
-the decision is made under the held `owner.lease` (never on a probe; busy
-refuses `held-lock`, failed refuses `lease-unreadable`), the case is intact and
-unchanged on re-read, and the new run publishes its own intent before writing
-the dead case's closure. The closure states plainly that the outcome is unknown
-and never claims completion (REC-4 holds: the case is closed, not completed,
-and remains in history), and the new run's envelope names every cleared
-operation id in `result.superseded` (working field name).
+`supersede-filesystem-unsupported` otherwise), taking `owner.lease` succeeds
+(no probe and no skip verdict; busy refuses `held-lock`, failed refuses
+`lease-unreadable`), the case re-read under that held lease is still unresolved,
+intact, unchanged in revision, recorded under the same kernel command identity,
+and covered by the new declaration's declared resources (the dead case's
+recorded declared resources and invariants are a subset of the new declaration's
+declared resources and invariants, without fresh filesystem resolution; unknown
+scope on either side refuses), and the new run publishes its own intent before
+linking any dead case's closure, recording each closed id at the link commit
+point. The closure states plainly that the outcome is unknown and never claims
+completion (REC-4 holds: the case is closed, not completed, and remains in
+history), and every result path reads the kernel's superseded set so the new
+run's envelope names every cleared operation id in `result.superseded` (working
+field name).
