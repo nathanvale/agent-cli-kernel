@@ -242,7 +242,7 @@ export type HistoryData = {
   readonly closureDamaged: boolean;
 };
 
-type TransactionOutcome = (
+type TransactionResultBody = (
   | Refusal
   | {
       readonly kind: "ran";
@@ -257,7 +257,7 @@ type Slot =
       readonly declaration: Declaration;
       operationId?: string;
       superseded?: readonly string[];
-      outcome?: TransactionOutcome;
+      outcome?: TransactionResultBody;
     }
   | {
       readonly kind: "close";
