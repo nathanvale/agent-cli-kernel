@@ -56,8 +56,9 @@ What the gates of the repository rows refuse and where, what stays with the revi
   - `b7fb111-check-skips-exit-mismatch` and `b7fb111-check-skips-usage-exit`
     (`skills/verify-cli/verify.ts`): skip checking envelope vs process exit
     code and the helper probe exit code `2`; `trust.test.ts` kills each.
-- Review only: protocol checks on envelopes read outside `skills/verify-cli/`
-  and protocol fields not covered by these five faults.
+- Review only: protocol checks on envelopes read outside `skills/verify-cli/`,
+  and other envelope-reading call sites or protocol fields inside
+  `skills/verify-cli/` not covered by these five faults.
 - Witnessed: [0ab74b8], [3306233], [3ad9232].
 
 ## Paths and outputs
@@ -65,16 +66,17 @@ What the gates of the repository rows refuse and where, what stays with the revi
 - Four planted faults cover physical path resolution and output hashing in
   `skills/verify-cli/`:
   - `480dec5-work-tree-walk-lexical` and `02311f4-run-walk-from-alias-parent`
-    (`skills/verify-cli/helper/launch.ts`): walk parent directories lexically
-    instead of resolving symbolic links with `physical(folder)` first;
-    `launch.test.ts` kills each.
+    (`skills/verify-cli/helper/launch.ts`): skip resolving symbolic links with
+    `physical(folder)` before walking parent directories (`nearestAbove`) or
+    taking the parent (`runAbove`); `launch.test.ts` kills each.
   - `b2dcc8f-stdout-compared-by-length-only` (`skills/verify-cli/verify.ts`):
     drops the `stdoutSha256` comparison in `compared`; `trust.test.ts` kills it.
   - `1c5a65d-every-run-id-blanked` (`skills/verify-cli/helper/place.ts`):
     blanks every `runId` UUID in stdout instead of only `result.runId`;
     `trust.test.ts` kills it.
 - Review only: symbolic-link resolution and program output comparisons outside
-  `skills/verify-cli/`.
+  `skills/verify-cli/`, and other path-resolution or output-comparison sites
+  inside `skills/verify-cli/` not covered by these four faults.
 - Witnessed: [480dec5], [02311f4], [b2dcc8f], [1c5a65d].
 
 ## Untrusted values
