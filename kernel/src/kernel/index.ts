@@ -230,6 +230,27 @@ export function contractFor<
     reason: "undeclared station",
   } as const;
 
+  function applyTransactionProof(
+    runFacts: Record<string, unknown>,
+    facts: Readonly<Record<string, unknown>>,
+    station: DeclaredStation,
+  ) {
+    const proof = facts.transaction;
+    if (
+      typeof facts.runId !== "string" ||
+      !proofValue(proof, facts.runId, spec.state) ||
+      proof.transactionState !== station.row.transactionState
+    )
+      return {
+        ok: false,
+        path: "transaction",
+        reason: "state-issued transaction proof required",
+      } as const;
+    runFacts.effects = proof.effects;
+    if (proof.superseded !== undefined) runFacts.superseded = proof.superseded;
+    return undefined;
+  }
+
   async function buildRegistered(
     selected: { readonly commandIdentity: string; readonly causeCode: string },
     facts: Readonly<Record<string, unknown>>,
@@ -252,18 +273,8 @@ export function contractFor<
       command.effectClass !== "inspect" &&
       station.row.outcome !== "refused"
     ) {
-      const proof = facts.transaction;
-      if (
-        typeof facts.runId !== "string" ||
-        !proofValue(proof, facts.runId, spec.state) ||
-        proof.transactionState !== station.row.transactionState
-      )
-        return {
-          ok: false,
-          path: "transaction",
-          reason: "state-issued transaction proof required",
-        } as const;
-      runFacts.effects = proof.effects;
+      const problem = applyTransactionProof(runFacts, facts, station);
+      if (problem) return problem;
     } else if (
       command.effectClass !== "inspect" &&
       typeof facts.runId === "string" &&
@@ -287,7 +298,14 @@ export function contractFor<
     return assemble(
       found.command,
       found.station,
-      { runId: facts.runId, data: facts.data, effects },
+      {
+        runId: facts.runId,
+        data: facts.data,
+        effects,
+        ...(facts.superseded === undefined
+          ? {}
+          : { superseded: facts.superseded }),
+      },
       facts.message,
     );
   }

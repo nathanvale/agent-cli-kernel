@@ -91,6 +91,9 @@ function construct(
       retryable: false,
       repairAction: station.repairAction,
       effects: selected.effects,
+      ...(trusted.summary?.superseded === undefined
+        ? {}
+        : { superseded: [...trusted.summary.superseded] }),
       ...station.guidance,
     },
   };

@@ -377,7 +377,14 @@ async function kernelResult(
 ): Promise<Delivery> {
   const candidate = await run.runtime.buildKernelStation(
     { commandIdentity: identity, causeCode },
-    { runId: run.runId, message, data: options.data ?? null },
+    {
+      runId: run.runId,
+      message,
+      data: options.data ?? null,
+      ...(options.summary?.superseded === undefined
+        ? {}
+        : { superseded: options.summary.superseded }),
+    },
     options.effects ?? unchangedEffects,
   );
   return {

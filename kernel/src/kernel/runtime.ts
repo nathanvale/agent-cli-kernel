@@ -30,6 +30,7 @@ export type KernelFacts = {
   readonly runId: string;
   readonly message: string;
   readonly data: JsonValue;
+  readonly superseded?: readonly string[];
 };
 
 export type ContractRuntime = {
