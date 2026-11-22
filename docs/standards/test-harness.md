@@ -42,8 +42,7 @@ runs each test file. What a test must prove is in the
   (`tests/kernel/kernel-repair/swarm-process.ts`) or `exitWithin`
   (`tests/kernel/lifecycle/harness.ts`). Witnessed: [308d494] (the author
   guide's gate, a kernel test, used the template's `spawnBounded`),
-  [0ab74b8] (so did the verification skill's tests, and one started its
-  helper with no limit at all).
+  [0ab74b8] (so did the verification skill's tests).
 - In `finally` or per-case teardown, release the CLI, its ledgered children,
   then its temporary folders. Witnessed: [d592b6d], [70c7280], [#84-cleanup],
   [#91-cleanup], [5533cd6], [e766237] (the pinned-commit binary case joined

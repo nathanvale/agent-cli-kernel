@@ -55,12 +55,18 @@ const onlyCall = ({ body }) => {
       : body;
   return expression?.type === "CallExpression" ? expression : undefined;
 };
-const propertyName = (node) =>
-  node.computed
-    ? typeof node.property.value === "string"
-      ? node.property.value
-      : undefined
-    : node.property.name;
+const staticKey = (node, computed) => {
+  if (node?.type === "Literal" && typeof node.value === "string")
+    return node.value;
+  if (
+    computed &&
+    node?.type === "TemplateLiteral" &&
+    node.expressions.length === 0
+  )
+    return node.quasis[0]?.value.cooked;
+  return computed ? undefined : node?.name;
+};
+const propertyName = (node) => staticKey(node.property, node.computed);
 const lookup = (context, node) => {
   for (
     let scope = context.sourceCode.getScope(node);
@@ -73,18 +79,25 @@ const moduleObject = (source) =>
   typeof source?.value === "string"
     ? { module: source.value.replace(/^node:/, "") }
     : undefined;
-const memberOf = (base, name) =>
-  base?.module && base.name === undefined
-    ? { module: base.module, name }
-    : { name };
+const memberOf = (base, name) => {
+  if (base?.module && base.name === undefined) {
+    if (base.module === "global" && name === "Bun") return { module: "bun" };
+    if (name === "default") return { module: base.module };
+    return { module: base.module, name };
+  }
+  return { name };
+};
 const definitionTracers = {
-  ImportBinding: (def) => ({
-    module: def.parent.source.value.replace(/^node:/, ""),
-    name:
+  ImportBinding: (def) => {
+    const imported =
       def.node.type === "ImportSpecifier"
         ? (def.node.imported.name ?? def.node.imported.value)
-        : undefined,
-  }),
+        : undefined;
+    return {
+      module: def.parent.source.value.replace(/^node:/, ""),
+      name: imported === "default" ? undefined : imported,
+    };
+  },
   Variable: (def, node, next) => {
     const { id, init } = def.node;
     if (id === def.name) return next(init) ?? { name: node.name };
@@ -93,11 +106,7 @@ const definitionTracers = {
         type === "Property" && (value.left ?? value) === def.name,
     );
     if (!property) return { name: node.name };
-    const { key, computed } = property;
-    return memberOf(
-      next(init),
-      key.type === "Literal" ? key.value : computed ? undefined : key.name,
-    );
+    return memberOf(next(init), staticKey(property.key, property.computed));
   },
 };
 const traceIdentifier = (node, next, context) => {

@@ -511,7 +511,7 @@ const cases = [
       'export const run = () => spawnBounded([process.execPath, "reader.ts"]);',
     ],
     line: 1,
-    fix: "Repair: run children through spawnBounded from tests/support/process.ts",
+    fix: "Repair: run children through spawnBounded from tests/support/process.ts (template tests) or tests/kernel/kernel-repair/swarm-process.ts, or exitWithin from tests/kernel/lifecycle/harness.ts (kernel tests).",
   },
 ];
 
@@ -771,6 +771,36 @@ const bypasses = [
     "tests-use-bounded-runner",
     'Bun["spawn"](["git", "status"]);',
     "Bun.spawn() starts a child process outside a bounded runner",
+  ],
+  [
+    "tests-use-bounded-runner",
+    'Bun[`spawn`](["git", "status"]);',
+    "Bun.spawn() starts a child process outside a bounded runner",
+  ],
+  [
+    "tests-use-bounded-runner",
+    'const { [`spawn`]: run } = Bun;\nrun(["git", "status"]);',
+    "Bun.spawn() starts a child process outside a bounded runner",
+  ],
+  [
+    "tests-use-bounded-runner",
+    'globalThis.Bun.spawn(["git", "status"]);',
+    "Bun.spawn() starts a child process outside a bounded runner",
+  ],
+  [
+    "tests-use-bounded-runner",
+    'const { Bun: runtime } = globalThis;\nruntime.spawnSync(["git", "status"]);',
+    "Bun.spawnSync() starts a child process outside a bounded runner",
+  ],
+  [
+    "tests-use-bounded-runner",
+    'import { default as cp } from "node:child_process";\ncp.exec("git");',
+    "child_process.exec() starts a child process outside a bounded runner",
+  ],
+  [
+    "tests-use-bounded-runner",
+    'const { default: cp } = await import("node:child_process");\ncp.spawn("git");',
+    "child_process.spawn() starts a child process outside a bounded runner",
   ],
   [
     "tests-use-bounded-runner",
