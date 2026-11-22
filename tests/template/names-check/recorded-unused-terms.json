@@ -29,17 +29,20 @@
     {
       "term": "Test surface",
       "reason": "Used only in the verify-cli specs, which moved to Linear MAG-132 as one document per file on 22 November 2026 (Nathan: \"there should be no specs in the repo, move this to the Linear task it belongs to\"). No tracked file uses it until a change brings it back.",
-      "ticket": "MAG-132"
+      "ticket": "MAG-132",
+      "approved": "Nathan, 22 November 2026, 12:33, \"Yes to all four\" on the kernel clean-up plan (section 9: the specs go to MAG-132 and the terms used only there are recorded as unused); kernel pull request 93."
     },
     {
       "term": "Negative control",
       "reason": "Used only in the verify-cli specs, which moved to Linear MAG-132 as one document per file on 22 November 2026 (Nathan: \"there should be no specs in the repo, move this to the Linear task it belongs to\"). No tracked file uses it until a change brings it back.",
-      "ticket": "MAG-132"
+      "ticket": "MAG-132",
+      "approved": "Nathan, 22 November 2026, 12:33, \"Yes to all four\" on the kernel clean-up plan (section 9: the specs go to MAG-132 and the terms used only there are recorded as unused); kernel pull request 93."
     },
     {
       "term": "Claim tag",
       "reason": "Used only in the verify-cli specs, which moved to Linear MAG-132 as one document per file on 22 November 2026 (Nathan: \"there should be no specs in the repo, move this to the Linear task it belongs to\"). No tracked file uses it until a change brings it back.",
-      "ticket": "MAG-132"
+      "ticket": "MAG-132",
+      "approved": "Nathan, 22 November 2026, 12:33, \"Yes to all four\" on the kernel clean-up plan (section 9: the specs go to MAG-132 and the terms used only there are recorded as unused); kernel pull request 93."
     }
   ]
 }
