@@ -268,6 +268,46 @@ const bypasses = [
   ],
   ["no-host-path-literal", 'const stub = "#!/bin/sh\\nexit 0\\n";', undefined],
   ["no-host-path-literal", 'const page = "/homepage";', undefined],
+  [
+    "tests-stub-tools",
+    'import { symlinkSync } from "node:fs";\nsymlinkSync("/bin/sh", "node_modules/.bin/fallow");',
+    'fs.symlinkSync() links or copies system binary "/bin/sh"',
+  ],
+  [
+    "tests-stub-tools",
+    'import { symlink as makeLink } from "node:fs/promises";\nawait makeLink("/usr/bin/env", "node_modules/.bin/tsc");',
+    'fs/promises.symlink() links or copies system binary "/usr/bin/env"',
+  ],
+  [
+    "tests-stub-tools",
+    'import * as fs from "fs";\nfs["copyFileSync"]("/bin/echo", "node_modules/.bin/tsc");',
+    'fs.copyFileSync() links or copies system binary "/bin/echo"',
+  ],
+  [
+    "tests-stub-tools",
+    'import { linkSync } from "node:fs";\nconst target = `/usr/local/bin/tool`;\nlinkSync(target, "node_modules/.bin/tool");',
+    'fs.linkSync() links or copies system binary "/usr/local/bin/tool"',
+  ],
+  [
+    "tests-stub-tools",
+    'const { symlinkSync } = require("node:fs");\nsymlinkSync("/sbin/nologin", "bin/tool");',
+    'fs.symlinkSync() links or copies system binary "/sbin/nologin"',
+  ],
+  [
+    "tests-stub-tools",
+    'const { copyFile } = await import("fs/promises");\nawait copyFile("/bin/sh", "bin/tool");',
+    'fs/promises.copyFile() links or copies system binary "/bin/sh"',
+  ],
+  [
+    "tests-stub-tools",
+    'import { symlinkSync } from "node:fs";\nsymlinkSync("./fixture.sh", "node_modules/.bin/tool");',
+    undefined,
+  ],
+  [
+    "tests-stub-tools",
+    'const symlinkSync = (src: string, dst: string) => [src, dst];\nsymlinkSync("/bin/sh", "bin/tool");',
+    undefined,
+  ],
 ] as const;
 
 for (const [rule, code, fix] of bypasses)

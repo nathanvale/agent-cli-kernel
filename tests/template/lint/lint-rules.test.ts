@@ -291,6 +291,21 @@ const cases = [
     fix: "Repair: wait on the event the test is about",
   },
   {
+    rule: "tests-stub-tools",
+    witness: "3729f36",
+    filePath: "tests/template/doctor/doctor.test.ts",
+    failing: [
+      'import { symlinkSync } from "node:fs";',
+      'export const fake = (path: string) => symlinkSync("/bin/echo", path);',
+    ],
+    passing: [
+      'import { writeFileSync } from "node:fs";',
+      "export const fake = (path: string) => writeFileSync(path, \"#!/bin/sh\\nprintf 'not a document'\\n\", { mode: 0o755 });",
+    ],
+    line: 2,
+    fix: "Repair: write an executable #!/bin/sh stub script with writeFileSync(..., { mode: 0o755 }) instead.",
+  },
+  {
     rule: "no-host-path-literal",
     witness: "ff5fffe",
     filePath: "tests/template/doctor/doctor.test.ts",

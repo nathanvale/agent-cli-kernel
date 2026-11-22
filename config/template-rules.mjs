@@ -81,6 +81,15 @@ function outermost(context, node) {
 
 const testFolderOwner = "/tests/support/test-folder.ts";
 const folderCalls = new Set(["tmpdir", "mkdtemp", "mkdtempSync"]);
+const linkOrCopyCalls = new Set([
+  "symlink",
+  "symlinkSync",
+  "link",
+  "linkSync",
+  "copyFile",
+  "copyFileSync",
+]);
+const systemBinaryPath = /^\/(?:usr\/(?:local\/)?)?s?bin\/.+/;
 const timerPromises = new Set(["node:timers/promises", "timers/promises"]);
 const bunSleeps = new Set(["sleep", "sleepSync"]);
 const typeWrappers = new Set([
@@ -186,6 +195,24 @@ const origin = (context, node, depth = 0) => {
         context,
       )
     : undefined;
+};
+const staticString = (context, node, depth = 0) => {
+  const inner = bare(node);
+  if (!inner || depth >= 8) return undefined;
+  if (inner.type === "Literal" && typeof inner.value === "string")
+    return inner.value;
+  if (inner.type === "TemplateLiteral" && inner.expressions.length === 0)
+    return inner.quasis[0]?.value.cooked;
+  if (inner.type === "Identifier") {
+    const def = lookup(context, inner)?.defs[0];
+    if (
+      def?.type === "Variable" &&
+      def.parent?.kind === "const" &&
+      def.node.id === def.name
+    )
+      return staticString(context, def.node.init, depth + 1);
+  }
+  return undefined;
 };
 const isTimer = (traced, name) =>
   traced?.name === name &&
@@ -455,6 +482,38 @@ export default {
               delays(context, node)
             )
               report(node, "A promise that setTimeout only resolves");
+          },
+        };
+      },
+    },
+    "tests-stub-tools": {
+      meta: {
+        type: "problem",
+        schema: [],
+        messages: {
+          systemBinary:
+            "{{what}} links or copies system binary {{target}} as a fake tool, whose behaviour depends on how the host binary reads argv[0]. Repair: write an executable #!/bin/sh stub script with writeFileSync(..., { mode: 0o755 }) instead.",
+        },
+      },
+      create(context) {
+        return {
+          CallExpression({ callee, arguments: args }) {
+            const traced = origin(context, callee);
+            if (
+              (traced?.module !== "fs" && traced?.module !== "fs/promises") ||
+              !linkOrCopyCalls.has(traced.name)
+            )
+              return;
+            const target = staticString(context, args[0]);
+            if (target === undefined || !systemBinaryPath.test(target)) return;
+            context.report({
+              node: args[0],
+              messageId: "systemBinary",
+              data: {
+                what: `${traced.module}.${traced.name}()`,
+                target: JSON.stringify(target),
+              },
+            });
           },
         };
       },

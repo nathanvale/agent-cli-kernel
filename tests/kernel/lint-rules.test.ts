@@ -499,6 +499,21 @@ const cases = [
     line: 4,
     fix: "Repair: wait on the event the test is about",
   },
+  {
+    rule: "tests-stub-tools",
+    witness: "5f0c1d9",
+    filePath: "tests/kernel/state/state-addon.test.ts",
+    failing: [
+      'import { symlinkSync } from "node:fs";',
+      'export const fake = (path: string) => symlinkSync("/bin/sh", path);',
+    ],
+    passing: [
+      'import { writeFileSync } from "node:fs";',
+      'export const fake = (path: string) => writeFileSync(path, "#!/bin/sh\\nexit 0\\n", { mode: 0o755 });',
+    ],
+    line: 2,
+    fix: "Repair: write an executable #!/bin/sh stub script with writeFileSync(..., { mode: 0o755 }) instead.",
+  },
 ];
 
 for (const item of cases)
@@ -747,6 +762,46 @@ const bypasses = [
     "require-to-throw-message",
     "expect(fn).toThrow(void 0);",
     "toThrow(void 0) names no message",
+  ],
+  [
+    "tests-stub-tools",
+    'import { symlinkSync } from "node:fs";\nsymlinkSync("/bin/sh", "node_modules/.bin/fallow");',
+    'fs.symlinkSync() links or copies system binary "/bin/sh"',
+  ],
+  [
+    "tests-stub-tools",
+    'import { symlink as makeLink } from "node:fs/promises";\nawait makeLink("/usr/bin/env", "node_modules/.bin/tsc");',
+    'fs/promises.symlink() links or copies system binary "/usr/bin/env"',
+  ],
+  [
+    "tests-stub-tools",
+    'import * as fs from "fs";\nfs["copyFileSync"]("/bin/echo", "node_modules/.bin/tsc");',
+    'fs.copyFileSync() links or copies system binary "/bin/echo"',
+  ],
+  [
+    "tests-stub-tools",
+    'import { linkSync } from "node:fs";\nconst target = `/usr/local/bin/tool`;\nlinkSync(target, "node_modules/.bin/tool");',
+    'fs.linkSync() links or copies system binary "/usr/local/bin/tool"',
+  ],
+  [
+    "tests-stub-tools",
+    'const { symlinkSync } = require("node:fs");\nsymlinkSync("/sbin/nologin", "bin/tool");',
+    'fs.symlinkSync() links or copies system binary "/sbin/nologin"',
+  ],
+  [
+    "tests-stub-tools",
+    'const { copyFile } = await import("fs/promises");\nawait copyFile("/bin/sh", "bin/tool");',
+    'fs/promises.copyFile() links or copies system binary "/bin/sh"',
+  ],
+  [
+    "tests-stub-tools",
+    'import { symlinkSync } from "node:fs";\nsymlinkSync("./fixture.sh", "node_modules/.bin/tool");',
+    undefined,
+  ],
+  [
+    "tests-stub-tools",
+    'const symlinkSync = (src: string, dst: string) => [src, dst];\nsymlinkSync("/bin/sh", "bin/tool");',
+    undefined,
   ],
 ] as const;
 
