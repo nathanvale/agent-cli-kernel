@@ -1,0 +1,15 @@
+diff --git a/kernel/src/kernel/index.ts b/kernel/src/kernel/index.ts
+--- a/kernel/src/kernel/index.ts
++++ b/kernel/src/kernel/index.ts
+@@ -276,9 +276,6 @@ export function contractFor<
+         path: "transaction",
+         reason: "a transaction on this run requires its proof",
+       } as const;
+-    const message = Object.hasOwn(facts, "message")
+-      ? Reflect.get(facts, "message")
+-      : undefined;
+-    return assemble(command, station, runFacts, message);
++    return assemble(command, station, runFacts, facts.message);
+   }
+ 
+   async function buildKernelStation(

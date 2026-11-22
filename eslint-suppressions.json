@@ -24,11 +24,6 @@
       "count": 1
     }
   },
-  "kernel/src/kernel/index.ts": {
-    "repository/no-in-operator": {
-      "count": 1
-    }
-  },
   "kernel/src/kernel/lifecycle.ts": {
     "repository/cause-literal-owner": {
       "count": 7
