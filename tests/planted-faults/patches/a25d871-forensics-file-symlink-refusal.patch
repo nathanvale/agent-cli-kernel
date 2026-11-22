@@ -1,0 +1,12 @@
+diff --git a/skills/verify-cli/forensics/io.ts b/skills/verify-cli/forensics/io.ts
+--- a/skills/verify-cli/forensics/io.ts
++++ b/skills/verify-cli/forensics/io.ts
+@@ -146,7 +146,7 @@ export function readBytesNoFollow(
+   | { readonly kind: "read"; readonly bytes: Uint8Array; readonly stats: Stats }
+   | { readonly kind: "missing" }
+   | { readonly kind: "unreadable"; readonly reason: string } {
+-  const noFollow = constants.O_NOFOLLOW ?? 0;
++  const noFollow = 0;
+   let descriptor: number;
+   try {
+     descriptor = openSync(

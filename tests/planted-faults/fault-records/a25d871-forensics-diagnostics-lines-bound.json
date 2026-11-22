@@ -1,0 +1,7 @@
+{
+  "id": "a25d871-forensics-diagnostics-lines-bound",
+  "patch": "tests/planted-faults/patches/a25d871-forensics-diagnostics-lines-bound.patch",
+  "testFile": "tests/kernel/verify-skill/forensics.test.ts",
+  "title": "decodes diagnostics custody locks, residue, markers, and JSONL summaries$",
+  "source": "a25d871 feat(verify-cli): add kernel-free forensics command for raw artifact inspection"
+}

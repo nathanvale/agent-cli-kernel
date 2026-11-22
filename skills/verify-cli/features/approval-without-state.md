@@ -28,5 +28,6 @@ honest, and the target cannot start.
 ## Gotchas
 
 - `launch` still binds a run to such a target; `ready` is the check that
-  shows it cannot start. List `state` in `installedAddons` too, then run `ready`
+  shows it cannot start. List `state` in `installedAddons` and pass the
+  `state` descriptor created by `contractFor.stateAddon`, then run `ready`
   again.
