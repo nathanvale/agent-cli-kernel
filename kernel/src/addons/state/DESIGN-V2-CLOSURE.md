@@ -357,3 +357,33 @@ proof.
 | Closing after a torn tail                              | Included (section 4).                                                                                                                       |
 | Closing after `delegate-admitted`                      | Included, only after the container machine restarts (section 5).                                                                            |
 | Human takeover and `outcome-unknown` closure           | Not included. Both need a qualified authority source, and case K05.b is still pending. Their refusals and capability reports do not change. |
+
+### REC-5 and REC-7a exception: opt-in same-command superseding closure
+
+`state.close` continues to refuse `outcome-unknown` without a qualified
+authority source (`human-closure-unqualified`), continues to refuse same-boot
+`delegate-admitted` records (`delegate-recorded`), and human takeover stays
+unavailable. Under the REC-5 and REC-7a exception (decided by Nathan, 22
+November 2026; see [DESIGN.md](DESIGN.md) section 10), a changing command whose
+author sets `supersedeUnresolved: true` on its state declaration promises that
+the command is safe to run again even alongside a leftover copy of the program
+an earlier run started. The kernel never tries to stop that leftover program.
+
+When `supersedeUnresolved: true` is set, the next run may close its own earlier
+unresolved case(s) — even when a same-boot `delegate-admitted` record exists —
+with `disposition: "outcome-unknown"`, `authority: null`, evidence for each
+recorded effect, and working qualification label `superseded-owner-lease-free`,
+only when the new run's scope covers every conflict key of the dead case
+(unknown scope on either side refuses), the coordination route is available and
+the local-lock filesystem gate passes (same device across all state folders and
+a local lock-honouring filesystem: Linux local filesystems refusing NFS,
+SMB/CIFS, overlay, FUSE, 9p and unknown types; macOS local APFS matching the
+root volume's `statfsSync("/").type`, refusing network volumes; refuses
+`supersede-filesystem-unsupported` otherwise),
+the decision is made under the held `owner.lease` (never on a probe; busy
+refuses `held-lock`, failed refuses `lease-unreadable`), the case is intact and
+unchanged on re-read, and the new run publishes its own intent before writing
+the dead case's closure. The closure states plainly that the outcome is unknown
+and never claims completion (REC-4 holds: the case is closed, not completed,
+and remains in history), and the new run's envelope names every cleared
+operation id in `result.superseded` (working field name).

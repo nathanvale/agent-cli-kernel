@@ -158,7 +158,9 @@ content refuses every route (persisted-state schema refusal).
   revision this closure closes (REC-4).
 - `qualification` names the qualification row, or `fixture:<label>` when a
   test fixture supplied the stopped-owner condition. A fixture label never
-  appears in a production closure (Q01).
+  appears in a production closure (Q01). An opt-in same-command superseding
+  closure under the REC-5 and REC-7a exception (section 10) carries the working
+  label `superseded-owner-lease-free`.
 - `authority.item` holds the bound item fields only (operation,
   disposition, evidence, scope), never grant bytes.
 
@@ -322,6 +324,20 @@ route per platform, behind one interface (`coordination.ts`):
    A recovery command applies only the live-owner half of this check: other
    unresolved cases never block a closure, because closure performs no domain
    effect, and two overlapping crashed cases must each remain closable.
+   Under the REC-5 and REC-7a exception (section 10), a changing command whose
+   state declaration sets `supersedeUnresolved: true` may supersede its own
+   earlier unresolved case(s) whose conflict keys are all covered by the new
+   run's scope (unknown scope on either side refuses). A probe that returns
+   `failed` refuses `lease-unreadable` immediately and never leads to a clear.
+   Before step 5, the add-on checks the local-lock filesystem gate and acquires
+   each target's `owner.lease` (busy refuses `held-lock`, failed refuses
+   `lease-unreadable`), re-reading each target under its held lease to confirm
+   it is still unresolved, intact (no record hidden in a torn tail, no damaged
+   closure), same command, scope-covered, and unchanged. Target leases stay
+   held across step 5 and step 6: the new run publishes its own intent in step 6
+   BEFORE writing each target's `outcome-unknown` closure, then releases the
+   target leases, moves settled cases, and releases `admission.lock` in step 7.
+   A live owner still refuses `held-lock`.
 5. For an approved effect: issue the kernel `ExclusiveScope` for the
    approval resource, which must be one of the declared resources, and call
    `revalidateAndConsume` (CMD-9 step 7). Denial, consumed-then-lost and
@@ -431,6 +447,56 @@ foundation table is empty. Capabilities:
 | Automatic reclaim                                       | unavailable, handoff (no reclaim step exists)             |
 | Human-assisted takeover (REC-7a)                        | unavailable, handoff                                      |
 | Human `outcome-unknown` closure                         | unavailable without a qualified authority source, handoff |
+
+### REC-5 and REC-7a exception: opt-in same-command superseding closure
+
+An `outcome-unknown` closure normally requires an authority the caller cannot
+forge (REC-5), and taking over while a program started by an earlier run may
+still be running normally requires a qualified stopped-owner proof across a
+reboot or human takeover (REC-7a). `state.close` continues to refuse
+`outcome-unknown` without a qualified authority source
+(`human-closure-unqualified`) and continues to refuse same-boot
+`delegate-admitted` records (`delegate-recorded`), and human takeover stays
+unavailable.
+
+**Exception (decided by Nathan, 22 November 2026)**: a changing command whose
+author sets `supersedeUnresolved: true` on its state declaration makes a
+stronger promise: the command is safe to run again even alongside a leftover
+copy of the program an earlier run started. The kernel never tries to stop that
+leftover program. Under `supersedeUnresolved: true`, the next run may close its
+own earlier unresolved case(s) — including cases carrying a same-boot
+`delegate-admitted` record — with `disposition: "outcome-unknown"`,
+`authority: null`, evidence for each recorded effect, the healing run's
+`recoveryRunId`, and the working qualification label
+`superseded-owner-lease-free`, only when all hold:
+
+1. the prior unresolved case was recorded by the same command identity and the
+   new run's scope covers every conflict key of the dead case (superset; unknown
+   scope on either side refuses `unresolved-case`);
+2. the coordination route is available and the local-lock filesystem gate passes
+   (even when no capability qualification row matches): all five state folders
+   lie on the same device and `statfsSync(root).type` is a local filesystem
+   whose lock is honoured (Linux: `btrfs`, `ext2/3/4`, `xfs`, `tmpfs`, `zfs`,
+   `f2fs`, `bcachefs`, refusing NFS, SMB/CIFS, overlay, FUSE, 9p, and unknown
+   types; macOS: local APFS matching the root volume's `statfsSync("/").type`,
+   refusing network volumes and unknown types). Otherwise admission refuses
+   `supersede-filesystem-unsupported` with no closure;
+3. the decision is made only under the held `owner.lease`, never on a probe (a
+   live owner refuses `held-lock`, any failed lease probe or open refuses
+   `lease-unreadable`);
+4. re-read while holding `owner.lease`, the case is still unresolved, intact
+   (no record hidden in a torn tail and no damaged closure), same command,
+   scope-covered, and unchanged; and
+5. the new run publishes its own intent BEFORE writing the dead case's closure,
+   so a crash between the two leaves both cases unresolved and the scope
+   blocked.
+
+The closure records plainly that the outcome is unknown and never claims
+completion (REC-4 holds: the case is closed, not completed, and the original
+intent and event history remain readable). The new run's envelope names every
+cleared operation id in `result.superseded` (working field name; omitted when
+no case was cleared). Every other conflicting unresolved case — and every
+command without `supersedeUnresolved: true` — continues to refuse as before.
 
 A labelled test-only fixture module may supply a fixture qualification to a
 test host. It never alters the production table; any closure it enables is

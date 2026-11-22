@@ -90,6 +90,19 @@ diagnostics and menu add-ons.
 **State add-on**:
 The add-on that owns the journal and the state a changing command works in.
 
+**supersedeUnresolved**:
+The opt-in flag on a state declaration by which a changing command's author
+promises that the command is safe to run again even alongside a leftover copy
+of the program an earlier run started. When set, the next run of the same
+command identity whose scope covers every conflict key of the dead case
+(unknown scope on either side refuses) checks the local-lock filesystem gate,
+decides under the held owner lease (never on a probe) that the case is still
+unresolved, intact and unchanged, publishes its own intent first, and then
+closes the dead case — even with a same-boot `delegate-admitted` record — with
+disposition `outcome-unknown`, no authority and working qualification label
+`superseded-owner-lease-free`, leaving it in history and naming the cleared
+operation ids in the new run's envelope (`superseded`, working field name).
+
 **Programs add-on**:
 The add-on that owns starting and stopping the programs a command runs.
 
