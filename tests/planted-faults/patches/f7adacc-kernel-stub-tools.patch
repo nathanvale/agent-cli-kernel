@@ -1,0 +1,14 @@
+diff --git a/config/kernel-repository-rules.mjs b/config/kernel-repository-rules.mjs
+--- a/config/kernel-repository-rules.mjs
++++ b/config/kernel-repository-rules.mjs
+@@ -439,9 +439,9 @@ export default {
+             const target = staticString(context, args[0]);
+             if (
+               target === undefined ||
+-              !systemBinaryPath.test(posix.normalize(target))
++              systemBinaryPath.test(posix.normalize(target))
+             )
+               return;
+             context.report({
+               node: args[0],
+               messageId: "systemBinary",

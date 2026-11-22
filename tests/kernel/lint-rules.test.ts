@@ -513,6 +513,21 @@ const cases = [
     line: 1,
     fix: "Repair: run children through spawnBounded from tests/support/process.ts (template tests) or tests/kernel/kernel-repair/swarm-process.ts, or exitWithin from tests/kernel/lifecycle/harness.ts (kernel tests).",
   },
+  {
+    rule: "tests-stub-tools",
+    witness: "5f0c1d9",
+    filePath: "tests/kernel/state/state-addon.test.ts",
+    failing: [
+      'import { symlinkSync } from "node:fs";',
+      'export const fake = (path: string) => symlinkSync("/bin/sh", path);',
+    ],
+    passing: [
+      'import { writeFileSync } from "node:fs";',
+      'export const fake = (path: string) => writeFileSync(path, "#!/bin/sh\\nexit 0\\n", { mode: 0o755 });',
+    ],
+    line: 2,
+    fix: "Repair: write an executable #!/bin/sh stub script with writeFileSync(..., { mode: 0o755 }) instead.",
+  },
 ];
 
 for (const item of cases)
@@ -835,6 +850,106 @@ const bypasses = [
   [
     "tests-use-bounded-runner",
     'const spawn = (args: string[]) => args;\nspawn(["git"]);',
+    undefined,
+  ],
+  [
+    "tests-stub-tools",
+    'import { symlinkSync } from "node:fs";\nsymlinkSync("/bin/sh", "node_modules/.bin/fallow");',
+    'fs.symlinkSync() links or copies system binary "/bin/sh"',
+  ],
+  [
+    "tests-stub-tools",
+    'import { symlink as makeLink } from "node:fs/promises";\nawait makeLink("/usr/bin/env", "node_modules/.bin/tsc");',
+    'fs/promises.symlink() links or copies system binary "/usr/bin/env"',
+  ],
+  [
+    "tests-stub-tools",
+    'import * as fs from "fs";\nfs["copyFileSync"]("/bin/echo", "node_modules/.bin/tsc");',
+    'fs.copyFileSync() links or copies system binary "/bin/echo"',
+  ],
+  [
+    "tests-stub-tools",
+    'import { linkSync } from "node:fs";\nconst target = `/usr/local/bin/tool`;\nlinkSync(target, "node_modules/.bin/tool");',
+    'fs.linkSync() links or copies system binary "/usr/local/bin/tool"',
+  ],
+  [
+    "tests-stub-tools",
+    'const { symlinkSync } = require("node:fs");\nsymlinkSync("/sbin/nologin", "bin/tool");',
+    'fs.symlinkSync() links or copies system binary "/sbin/nologin"',
+  ],
+  [
+    "tests-stub-tools",
+    'const { copyFile } = await import("fs/promises");\nawait copyFile("/bin/sh", "bin/tool");',
+    'fs/promises.copyFile() links or copies system binary "/bin/sh"',
+  ],
+  [
+    "tests-stub-tools",
+    'import fs from "node:fs";\nfs.symlinkSync("/usr/sbin/tool", "bin/tool");',
+    'fs.symlinkSync() links or copies system binary "/usr/sbin/tool"',
+  ],
+  [
+    "tests-stub-tools",
+    'import fs from "node:fs";\nconst { symlinkSync } = fs;\nsymlinkSync("/usr/local/sbin/tool", "bin/tool");',
+    'fs.symlinkSync() links or copies system binary "/usr/local/sbin/tool"',
+  ],
+  [
+    "tests-stub-tools",
+    'import fs from "node:fs";\nawait fs.promises.symlink("/bin/sh", "bin/tool");',
+    'fs/promises.symlink() links or copies system binary "/bin/sh"',
+  ],
+  [
+    "tests-stub-tools",
+    'import { promises as fsp } from "node:fs";\nawait fsp.link("/bin/sh", "bin/tool");',
+    'fs/promises.link() links or copies system binary "/bin/sh"',
+  ],
+  [
+    "tests-stub-tools",
+    'const { default: fs } = await import("node:fs");\nfs.symlinkSync("/bin/sh", "bin/tool");',
+    'fs.symlinkSync() links or copies system binary "/bin/sh"',
+  ],
+  [
+    "tests-stub-tools",
+    'import * as fs from "fs";\nfs[`copyFileSync`]("/bin/echo", "bin/tool");',
+    'fs.copyFileSync() links or copies system binary "/bin/echo"',
+  ],
+  [
+    "tests-stub-tools",
+    'import * as fs from "fs";\nconst method = "copyFileSync";\nfs[method]("/bin/echo", "bin/tool");',
+    'fs.copyFileSync() links or copies system binary "/bin/echo"',
+  ],
+  [
+    "tests-stub-tools",
+    'import * as fs from "fs";\nconst { [`symlinkSync`]: s } = fs;\ns("/bin/sh", "bin/tool");',
+    'fs.symlinkSync() links or copies system binary "/bin/sh"',
+  ],
+  [
+    "tests-stub-tools",
+    'const { symlinkSync } = require(`node:fs`);\nsymlinkSync("/bin/" + "sh", "bin/tool");',
+    'fs.symlinkSync() links or copies system binary "/bin/sh"',
+  ],
+  [
+    "tests-stub-tools",
+    'const { copyFile } = await import(`fs/promises`);\nconst dir = "/usr/bin";\nawait copyFile(`${dir}/env`, "bin/tool");',
+    'fs/promises.copyFile() links or copies system binary "/usr/bin/env"',
+  ],
+  [
+    "tests-stub-tools",
+    'import { symlinkSync } from "node:fs";\nsymlinkSync("//usr/./bin/env", "bin/tool");',
+    'fs.symlinkSync() links or copies system binary "//usr/./bin/env"',
+  ],
+  [
+    "tests-stub-tools",
+    'import { symlinkSync } from "node:fs";\nsymlinkSync("./fixture.sh", "node_modules/.bin/tool");',
+    undefined,
+  ],
+  [
+    "tests-stub-tools",
+    'import { symlinkSync } from "node:fs";\n{ const symlinkSync = (src: string, dst: string) => [src, dst]; symlinkSync("/bin/sh", "bin/tool"); }',
+    undefined,
+  ],
+  [
+    "tests-stub-tools",
+    'import { symlinkSync } from "node:fs";\nconst target = "/bin/sh";\nexport const run = (target: string) => symlinkSync(target, "bin/tool");',
     undefined,
   ],
 ] as const;

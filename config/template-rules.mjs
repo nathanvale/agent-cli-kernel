@@ -1,3 +1,5 @@
+import { posix } from "node:path";
+
 const localeNames = new Set(["localeCompare", "Collator"]);
 const folding = new Set(["TemplateLiteral", "BinaryExpression"]);
 const comma = { type: "Literal", value: "," };
@@ -18,7 +20,8 @@ const castOwners = new Set([
 
 function constantText(context, node, depth = 0) {
   if (!node || depth > 8) return undefined;
-  return folders[node.type]?.(context, node, depth + 1);
+  const inner = bare(node);
+  return folders[inner?.type]?.(context, inner, depth + 1);
 }
 
 function foldAll(context, nodes, depth) {
@@ -26,18 +29,12 @@ function foldAll(context, nodes, depth) {
   return parts.includes(undefined) ? undefined : parts;
 }
 
-function findVariable(scope, name) {
-  for (let current = scope; current; current = current.upper) {
-    const variable = current.set.get(name);
-    if (variable) return variable;
-  }
-  return undefined;
-}
-
 const folders = {
   Literal: (context, node) =>
     typeof node.value === "string" ? node.value : undefined,
   TemplateLiteral(context, node, depth) {
+    if (node.quasis.some((quasi) => typeof quasi.value.cooked !== "string"))
+      return undefined;
     const parts = foldAll(context, node.expressions, depth);
     return parts
       ?.map((part, index) => node.quasis[index].value.cooked + part)
@@ -59,12 +56,10 @@ const folders = {
     return parts?.slice(args.length + 1).join(parts[0]);
   },
   Identifier(context, node, depth) {
-    const definition = findVariable(
-      context.sourceCode.getScope(node),
-      node.name,
-    )?.defs[0];
+    const definition = lookup(context, node)?.defs[0];
     const simple =
-      definition?.parent?.kind === "const" &&
+      definition?.type === "Variable" &&
+      definition.parent?.kind === "const" &&
       definition.node.id === definition.name;
     return simple
       ? constantText(context, definition.node.init, depth)
@@ -96,6 +91,15 @@ const childProcessSpawns = new Set([
   "fork",
 ]);
 const folderCalls = new Set(["tmpdir", "mkdtemp", "mkdtempSync"]);
+const linkOrCopyCalls = new Set([
+  "symlink",
+  "symlinkSync",
+  "link",
+  "linkSync",
+  "copyFile",
+  "copyFileSync",
+]);
+const systemBinaryPath = /^\/(?:usr\/(?:local\/)?)?s?bin\/.+/;
 const timerPromises = new Set(["node:timers/promises", "timers/promises"]);
 const bunSleeps = new Set(["sleep", "sleepSync"]);
 const typeWrappers = new Set([
@@ -120,18 +124,18 @@ const onlyCall = ({ body }) => {
       : body;
   return expression?.type === "CallExpression" ? expression : undefined;
 };
-const staticKey = (node, computed) => {
-  if (node?.type === "Literal" && typeof node.value === "string")
-    return node.value;
-  if (
-    computed &&
-    node?.type === "TemplateLiteral" &&
-    node.expressions.length === 0
-  )
-    return node.quasis[0]?.value.cooked;
-  return computed ? undefined : node?.name;
-};
-const propertyName = (node) => staticKey(node.property, node.computed);
+const literalKey = (node) =>
+  node?.type === "Literal" && typeof node.value === "string"
+    ? node.value
+    : node?.type === "TemplateLiteral" && node.expressions.length === 0
+      ? node.quasis[0]?.value.cooked
+      : undefined;
+const propertyName = (node, context) =>
+  node.computed
+    ? context
+      ? staticString(context, node.property)
+      : literalKey(node.property)
+    : node.property.name;
 const lookup = (context, node) => {
   for (
     let scope = context.sourceCode.getScope(node);
@@ -140,13 +144,17 @@ const lookup = (context, node) => {
   )
     if (scope.set.has(node.name)) return scope.set.get(node.name);
 };
-const moduleObject = (source) =>
-  typeof source?.value === "string"
-    ? { module: source.value.replace(/^node:/, "") }
-    : undefined;
+const moduleObject = (context, source) => {
+  const value = staticString(context, source);
+  return value === undefined
+    ? undefined
+    : { module: value.replace(/^node:/, "") };
+};
 const memberOf = (base, name) => {
   if (base?.module && base.name === undefined) {
     if (base.module === "global" && name === "Bun") return { module: "bun" };
+    if (base.module === "fs" && name === "promises")
+      return { module: "fs/promises" };
     if (name === "default") return { module: base.module };
     return { module: base.module, name };
   }
@@ -154,16 +162,16 @@ const memberOf = (base, name) => {
 };
 const definitionTracers = {
   ImportBinding: (def) => {
-    const imported =
+    const mod = def.parent.source.value.replace(/^node:/, "");
+    const name =
       def.node.type === "ImportSpecifier"
         ? (def.node.imported.name ?? def.node.imported.value)
         : undefined;
-    return {
-      module: def.parent.source.value.replace(/^node:/, ""),
-      name: imported === "default" ? undefined : imported,
-    };
+    if (mod === "fs" && name === "promises") return { module: "fs/promises" };
+    if (name === "default") return { module: mod };
+    return { module: mod, name };
   },
-  Variable: (def, node, next) => {
+  Variable: (def, node, next, context) => {
     const { id, init } = def.node;
     if (id === def.name) return next(init) ?? { name: node.name };
     const property = id.properties?.find(
@@ -171,7 +179,15 @@ const definitionTracers = {
         type === "Property" && (value.left ?? value) === def.name,
     );
     if (!property) return { name: node.name };
-    return memberOf(next(init), staticKey(property.key, property.computed));
+    const { key, computed } = property;
+    return memberOf(
+      next(init),
+      computed
+        ? staticString(context, key)
+        : key.type === "Literal"
+          ? key.value
+          : key.name,
+    );
   },
 };
 const traceIdentifier = (node, next, context) => {
@@ -182,21 +198,26 @@ const traceIdentifier = (node, next, context) => {
       : node.name === "Bun"
         ? { module: "bun" }
         : { module: "global", name: node.name };
-  return definitionTracers[def.type]?.(def, node, next) ?? { name: node.name };
+  return (
+    definitionTracers[def.type]?.(def, node, next, context) ?? {
+      name: node.name,
+    }
+  );
 };
 const tracers = {
   Identifier: traceIdentifier,
-  MemberExpression: (node, next) => {
-    const name = propertyName(node);
+  MemberExpression: (node, next, context) => {
+    const name = propertyName(node, context);
     return typeof name === "string"
       ? memberOf(next(node.object), name)
       : undefined;
   },
-  CallExpression: (node) =>
+  CallExpression: (node, _next, context) =>
     node.callee.type === "Identifier" && node.callee.name === "require"
-      ? moduleObject(node.arguments[0])
+      ? moduleObject(context, node.arguments[0])
       : undefined,
-  ImportExpression: (node) => moduleObject(node.source),
+  ImportExpression: (node, _next, context) =>
+    moduleObject(context, node.source),
   AwaitExpression: (node, next) => next(node.argument),
   ChainExpression: (node, next) => next(node.expression),
   SequenceExpression: (node, next) => next(node.expressions.at(-1)),
@@ -211,6 +232,7 @@ const origin = (context, node, depth = 0) => {
       )
     : undefined;
 };
+const staticString = constantText;
 const isTimer = (traced, name) =>
   traced?.name === name &&
   (traced.module === "global" || traced.module === "timers");
@@ -513,6 +535,42 @@ export default {
                 messageId: "unbounded",
                 data: { what },
               });
+          },
+        };
+      },
+    },
+    "tests-stub-tools": {
+      meta: {
+        type: "problem",
+        schema: [],
+        messages: {
+          systemBinary:
+            "{{what}} links or copies system binary {{target}} as a fake tool, whose behaviour depends on how the host binary reads argv[0]. Repair: write an executable #!/bin/sh stub script with writeFileSync(..., { mode: 0o755 }) instead.",
+        },
+      },
+      create(context) {
+        return {
+          CallExpression({ callee, arguments: args }) {
+            const traced = origin(context, callee);
+            if (
+              (traced?.module !== "fs" && traced?.module !== "fs/promises") ||
+              !linkOrCopyCalls.has(traced.name)
+            )
+              return;
+            const target = staticString(context, args[0]);
+            if (
+              target === undefined ||
+              !systemBinaryPath.test(posix.normalize(target))
+            )
+              return;
+            context.report({
+              node: args[0],
+              messageId: "systemBinary",
+              data: {
+                what: `${traced.module}.${traced.name}()`,
+                target: JSON.stringify(target),
+              },
+            });
           },
         };
       },

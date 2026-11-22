@@ -143,6 +143,7 @@
     "tests/template/lint/lint-comments.test.ts": 4097,
     "tests/template/lint/lint-rule-bypasses.test.ts": 6821,
     "tests/template/lint/lint-rules.test.ts": 10181,
+    "tests/template/lint/lint-stub-tools-bypasses.test.ts": 1500,
     "tests/template/names-check/check-names.test.ts": 793,
     "tests/template/names-check/glossary-files.test.ts": 155,
     "tests/template/names-check/names-check-growth.test.ts": 510,

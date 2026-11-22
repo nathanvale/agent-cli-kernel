@@ -57,6 +57,23 @@ What the gates of the test rows refuse and where, what stays with the reviewer, 
   teardown order, and process-group `SIGKILL`.
 - Witnessed: [9086c3b], [0ab74b8].
 
+## Fake tools
+
+- The lint catches `symlink`, `symlinkSync`, `link`, `linkSync`, `copyFile`,
+  and `copyFileSync` from `node:fs`, `node:fs/promises`, or `fs.promises`
+  (including aliased, default, namespace, and destructured bindings, plus
+  static string, `+`, template-literal, and `const` targets) pointing at a
+  system binary path (`/bin/*`, `/usr/bin/*`, `/usr/local/bin/*`, `/sbin/*`,
+  `/usr/sbin/*`, `/usr/local/sbin/*`) in template and kernel tests. See
+  [the gate's coverage](gate-coverage.md#fake-tool-lint).
+- Faults `f7adacc-template-stub-tools` and `f7adacc-kernel-stub-tools` invert
+  the system-binary path guard in `config/template-rules.mjs` and
+  `config/kernel-repository-rules.mjs`; the `tests-stub-tools` witness tests
+  kill each.
+- Review only: dynamic target paths computed at runtime or passed through
+  helper parameters, shell commands that link system binaries, and stub
+  scripts that still delegate to an unrelated host binary.
+- Witnessed: [3729f36], [5f0c1d9].
 ## Time
 
 - The lint catches delay-only waits. Review the timing controls
@@ -110,3 +127,5 @@ What the gates of the test rows refuse and where, what stays with the reviewer, 
 [#91-timings]: https://github.com/nathanvale/bun-typescript-template/pull/91#discussion_r4607696012
 [#99-timings]: https://github.com/nathanvale/bun-typescript-template/pull/99#discussion_r4608746456
 [#99-shards]: https://github.com/nathanvale/bun-typescript-template/pull/99#discussion_r4608771631
+[3729f36]: https://github.com/nathanvale/bun-typescript-template/commit/3729f3644cb30ea5decc9c085bc6b9c4304eaae4
+[5f0c1d9]: https://github.com/nathanvale/bun-typescript-template/commit/5f0c1d99741751de14f5cb92618eda3bd92e8887

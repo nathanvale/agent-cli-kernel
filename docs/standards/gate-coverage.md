@@ -101,6 +101,25 @@ gates and their witnesses.
   body of more than one statement), and a timer reached through `window`,
   `Bun.setTimeout` or a computed key.
 
+## Fake-tool lint
+
+- Lint `repository/tests-stub-tools` refuses `symlink`, `symlinkSync`,
+  `link`, `linkSync`, `copyFile` and `copyFileSync` from `node:fs`, `fs`,
+  `node:fs/promises`, `fs/promises`, or `fs.promises` in
+  `tests/**/*.{ts,mts,cts}` (both template and kernel test suites) when the
+  first argument folds to a static POSIX path under `/bin/`, `/usr/bin/`,
+  `/usr/local/bin/`, `/sbin/`, `/usr/sbin/` or `/usr/local/sbin/` (after
+  `path.posix.normalize`).
+- The rule traces named, renamed, default or namespace imports,
+  `fs.promises` / `import { promises } from "node:fs"`, destructuring
+  (including `{ default: fs }`), `require()`, `import()`, static string /
+  template-literal / `const`-identifier computed keys, and static `+` /
+  interpolated template / `const` string targets.
+- Review only: `.mjs` and `.js` test files, target paths built at run time
+  or passed through helper parameters (`path.join(...)`, `new URL("file:...")`),
+  `.call`/`.apply`/`.bind` invocations, and shell `ln`/`cp` commands inside
+  child processes.
+
 ## Untrusted-value lints
 
 Both rules run on `.ts` files under `src/` and `scripts/`. Review other
@@ -180,5 +199,5 @@ file extensions in those directories.
   `config/kernel-repository-lint.mjs`.
 - `kernel/config/kernel/` reaches generated repositories in the installed
   kernel, so it holds only the rules `kernelLint` turns on. The kernel
-  repository's own lint rules, `no-comments` and the three test lint rules,
+  repository's own lint rules, `no-comments` and the test lint rules,
   live in `config/kernel-repository-rules.mjs`.
