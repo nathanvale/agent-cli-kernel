@@ -1,0 +1,7 @@
+{
+  "id": "59f4800-capability-qualification-record-source-folder-path",
+  "patch": "tests/planted-faults/patches/59f4800-capability-qualification-record-source-folder-path.patch",
+  "testFile": "tests/kernel/state/capability-qualification-record.test.ts",
+  "title": "^sourceHash takes each file path from the kernel source folder, not the repository root$",
+  "source": "59f4800 fix(state): hash qualified source by its path from the kernel source folder"
+}
