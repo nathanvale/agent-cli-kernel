@@ -1,7 +1,7 @@
 diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
 --- a/kernel/src/addons/state/install.ts
 +++ b/kernel/src/addons/state/install.ts
-@@ -1155,8 +1155,6 @@
+@@ -1278,19 +1278,18 @@
        join(paths.operation(id), "owner.lease"),
        false,
      );
@@ -10,3 +10,18 @@ diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/instal
      if (lease.kind === "failed")
        return {
          ok: false,
+         refusal: { kind: "unavailable", reason: "lease-unreadable" },
+       };
++    const release = lease.kind === "held" ? lease.release : () => {};
+     const fresh = rereadForSupersede(target, rule);
+     if (!fresh.ok) {
+-      lease.release();
++      release();
+       return fresh;
+     }
+     return {
+       ok: true,
+-      leased: { target: fresh.target, release: lease.release },
++      leased: { target: fresh.target, release },
+     };
+   }

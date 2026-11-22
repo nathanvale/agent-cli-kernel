@@ -1,0 +1,20 @@
+diff --git a/kernel/src/kernel/state-seam.ts b/kernel/src/kernel/state-seam.ts
+--- a/kernel/src/kernel/state-seam.ts
++++ b/kernel/src/kernel/state-seam.ts
+@@ -297,10 +297,8 @@
+     },
+     superseded(runId: string, operationId: string): void {
+       const execution = active.getStore();
+-      if (!execution || execution.runId !== runId)
+-        throw new Error(
+-          "Recording a superseded operation requires the active attached run.",
+-        );
++      const fallbackRun = runs.get(runId);
++      const run = execution?.run ?? fallbackRun;
+       if (!text(operationId))
+         throw new Error("Invalid superseded operation id.");
+-      const attached = attachedRuns.get(execution.run);
++      const attached = run ? attachedRuns.get(run) : undefined;
+       if (!attached)
+         throw new Error(
+           "Recording a superseded operation requires the active attached run.",

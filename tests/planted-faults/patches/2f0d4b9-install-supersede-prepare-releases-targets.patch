@@ -1,0 +1,11 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1447,7 +1447,6 @@
+         admitted.isActive,
+       );
+       if (approval !== null && approval.kind !== "preview") {
+-        releaseAll(leased.targets);
+         return { ok: false, refusal: approval };
+       }
+       return { ok: true, targets: leased.targets, approval };

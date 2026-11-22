@@ -1,0 +1,7 @@
+{
+  "id": "2f0d4b9-install-supersede-declaration-snapshot",
+  "patch": "tests/planted-faults/patches/2f0d4b9-install-supersede-declaration-snapshot.patch",
+  "testFile": "tests/kernel/state/supersede-unresolved.test.ts",
+  "title": "^SU16\\.mutable-declaration-snapshot-before-admission:",
+  "source": "2f0d4b9 fix(state): read the declaration once and report every superseded case on every path"
+}

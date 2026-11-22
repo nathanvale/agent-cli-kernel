@@ -1,0 +1,11 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1611,7 +1611,6 @@
+       );
+     } finally {
+       releaseAll(targets);
+-      if (!handedToRun) admitted.release();
+     }
+   }
+ 

@@ -1,0 +1,12 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1497,7 +1497,7 @@
+     let closed: Awaited<ReturnType<typeof publishSupersedeClosures>>;
+     try {
+       closed = await publishSupersedeClosures(targets, runId, (id) => {
+-        issuer.superseded(runId, id);
++        void id;
+       });
+     } catch (error) {
+       finish(opened.events, unchangedObservation(declared));

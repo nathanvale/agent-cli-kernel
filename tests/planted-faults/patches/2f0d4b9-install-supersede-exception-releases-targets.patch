@@ -1,0 +1,11 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1332,7 +1332,6 @@
+       }
+       return { ok: true, targets: leased };
+     } catch (error) {
+-      releaseAll(leased);
+       throw error;
+     }
+   }

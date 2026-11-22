@@ -1,19 +1,23 @@
 diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
 --- a/kernel/src/addons/state/install.ts
 +++ b/kernel/src/addons/state/install.ts
-@@ -1334,6 +1334,11 @@
+@@ -1478,6 +1478,19 @@
          readonly superseded: readonly string[] | undefined;
        }
    > {
-+    const closed = await publishSupersedeClosures(targets, runId);
++    const closed = await publishSupersedeClosures(targets, runId, (id) => {
++      issuer.superseded(runId, id);
++    });
++    const superseded =
++      closed.ids.length > 0 ? Object.freeze([...closed.ids].sort()) : undefined;
 +    if (!closed.ok) {
 +      admitted.held.admission.release();
-+      return closed;
++      return { ok: false, refusal: closed.refusal, superseded };
 +    }
      let opened: Awaited<ReturnType<typeof begin>>;
      try {
        opened = await begin(runId, intent);
-@@ -1341,20 +1346,11 @@
+@@ -1485,34 +1498,12 @@
        opened = undefined;
      }
      if (!opened) {
@@ -22,15 +26,31 @@ diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/instal
        return {
          ok: false,
          refusal: { kind: "unavailable", reason: "store-publication" },
+-        superseded: undefined,
++        superseded,
        };
+     }
+-    let closed: Awaited<ReturnType<typeof publishSupersedeClosures>>;
+-    try {
+-      closed = await publishSupersedeClosures(targets, runId, (id) => {
+-        issuer.superseded(runId, id);
+-      });
+-    } catch (error) {
+-      finish(opened.events, unchangedObservation(declared));
+-      active.delete(runId);
+-      opened.releaseLease();
+-      admitted.held.admission.release();
+-      throw error;
 -    }
--    const closed = await publishSupersedeClosures(targets, runId);
+-    const superseded =
+-      closed.ids.length > 0 ? Object.freeze([...closed.ids].sort()) : undefined;
 -    if (!closed.ok) {
 -      finish(opened.events, unchangedObservation(declared));
 -      active.delete(runId);
 -      opened.releaseLease();
 -      admitted.held.admission.release();
--      return closed;
-     }
+-      return { ok: false, refusal: closed.refusal, superseded };
+-    }
      const refreshed = closed.ids.length > 0 ? readStore(paths) : undefined;
      moveSettled(refreshed?.ok ? refreshed.operations : admitted.operations);
+     admitted.held.admission.release();

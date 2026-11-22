@@ -1,0 +1,11 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1360,6 +1360,7 @@
+   ): Promise<Refusal | undefined> {
+     const id = entry.target.intent.operationId;
+     try {
++      entry.release();
+       const published = await publishClosure(
+         paths,
+         supersededClosureFor(entry.target, runId),

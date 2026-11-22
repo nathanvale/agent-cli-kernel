@@ -1,0 +1,7 @@
+{
+  "id": "7fdbed4-forensics-state-next-action-filesystem",
+  "patch": "tests/planted-faults/patches/7fdbed4-forensics-state-next-action-filesystem.patch",
+  "testFile": "tests/kernel/verify-skill/forensics.test.ts",
+  "title": "decodes a v2 state journal with torn tails",
+  "source": "7fdbed4 fix(verify-cli): name the filesystem condition in the forensics nextAction"
+}

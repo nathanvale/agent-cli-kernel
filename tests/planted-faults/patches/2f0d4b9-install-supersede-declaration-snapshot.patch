@@ -1,0 +1,19 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1572,11 +1572,14 @@
+       if (!prepared.ok) return refuse(prepared.refusal);
+       targets = prepared.targets;
+       const intent = intentOf(
+-        snapshot,
++        {
++          ...snapshot,
++          command: slot.declaration.command,
++        },
+         declared,
+         prepared.approval,
+         admitted.held.order,
+       );
+       const opened = await openTransaction(
+         issuer,
+         runId,

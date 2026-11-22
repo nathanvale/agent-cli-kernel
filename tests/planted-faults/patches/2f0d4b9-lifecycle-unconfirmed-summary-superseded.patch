@@ -1,0 +1,13 @@
+diff --git a/kernel/src/kernel/lifecycle.ts b/kernel/src/kernel/lifecycle.ts
+--- a/kernel/src/kernel/lifecycle.ts
++++ b/kernel/src/kernel/lifecycle.ts
+@@ -312,7 +312,8 @@
+           inventoryComplete: false,
+         },
+       };
+-  return ids === undefined ? base : { ...base, superseded: ids };
++  void ids;
++  return base;
+ }
+ 
+ function settleOwned(run: Run, deadlineAt: number | undefined) {

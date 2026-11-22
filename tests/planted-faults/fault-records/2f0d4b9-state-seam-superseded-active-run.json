@@ -1,0 +1,7 @@
+{
+  "id": "2f0d4b9-state-seam-superseded-active-run",
+  "patch": "tests/planted-faults/patches/2f0d4b9-state-seam-superseded-active-run.patch",
+  "testFile": "tests/kernel/state-seam.test.ts",
+  "title": "^superseded records closed operation ids immediately and requires the active attached run$",
+  "source": "2f0d4b9 fix(state): read the declaration once and report every superseded case on every path"
+}
