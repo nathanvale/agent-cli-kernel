@@ -291,6 +291,20 @@ const cases = [
     fix: "Repair: wait on the event the test is about",
   },
   {
+    rule: "tests-use-bounded-runner",
+    witness: "0ab74b8",
+    filePath: "tests/template/doctor/doctor.test.ts",
+    failing: [
+      'export const run = () => Bun.spawn(["git", "status"], { stdout: "pipe" });',
+    ],
+    passing: [
+      'import { spawnBounded } from "../../support/process.ts";',
+      'export const run = () => spawnBounded(["git", "status"]);',
+    ],
+    line: 1,
+    fix: "Repair: run children through spawnBounded from tests/support/process.ts",
+  },
+  {
     rule: "no-host-path-literal",
     witness: "ff5fffe",
     filePath: "tests/template/doctor/doctor.test.ts",
