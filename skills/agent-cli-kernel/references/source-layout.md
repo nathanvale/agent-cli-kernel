@@ -25,7 +25,8 @@ and turn on the Fallow boundary gate in the same change.
 - Put cause tables, settings, file writes, program adapters and the types
   they share in **shared edges** under `src/shared/`. A shared edge imports
   other shared edges and `rules.ts`, never a command or entry file
-  (`subject/shared` refuses those).
+  (`subject/shared` refuses those). The folder name `shared` is reserved: name
+  no subject `shared`, or its commands become importable by every subject.
 
 ## Tests
 
@@ -36,6 +37,10 @@ and turn on the Fallow boundary gate in the same change.
 ## Boundary gate
 
 Add to `.fallowrc.json` when moving (`"rules": { "boundary-violation": "error" }` plus `"boundaries"`):
+
+A file belongs to the first zone that matches it. Put these zones before any
+existing zone that matches `src/**`, and remove or narrow that zone, or it
+takes every file and the gate refuses nothing.
 
 - `zones`: `{ "name": "entry", "patterns": ["src/cli.ts", "src/commands.ts"] }`, `{ "name": "rules", "patterns": ["src/**/rules.ts"] }`, `{ "name": "subject", "autoDiscover": ["src"] }`.
 - `rules`: `{ "from": "entry", "allow": ["entry", "rules", "subject"] }`, `{ "from": "rules", "allow": ["rules"] }`, `{ "from": "subject", "allow": ["rules", "subject/shared"] }`, `{ "from": "subject/shared", "allow": ["rules"] }`.
