@@ -90,15 +90,20 @@ gates and their witnesses.
 
 - Lint `repository/tests-stub-tools` refuses `symlink`, `symlinkSync`,
   `link`, `linkSync`, `copyFile` and `copyFileSync` from `node:fs`, `fs`,
-  `node:fs/promises` or `fs/promises` in `tests/**/*.{ts,mts,cts}` (both
-  template and kernel test suites) when the first argument resolves to a
-  static string or `const` variable starting with `/bin/`, `/usr/bin/`,
-  `/usr/local/bin/`, `/sbin/` or `/usr/sbin/`.
+  `node:fs/promises`, `fs/promises`, or `fs.promises` in
+  `tests/**/*.{ts,mts,cts}` (both template and kernel test suites) when the
+  first argument folds to a static POSIX path under `/bin/`, `/usr/bin/`,
+  `/usr/local/bin/`, `/sbin/`, `/usr/sbin/` or `/usr/local/sbin/` (after
+  `path.posix.normalize`).
 - The rule traces named, renamed, default or namespace imports,
-  destructuring, `require()`, `import()`, and static computed string keys.
+  `fs.promises` / `import { promises } from "node:fs"`, destructuring
+  (including `{ default: fs }`), `require()`, `import()`, static string /
+  template-literal / `const`-identifier computed keys, and static `+` /
+  interpolated template / `const` string targets.
 - Review only: `.mjs` and `.js` test files, target paths built at run time
-  or passed through helper parameters, `.call`/`.apply`/`.bind` invocations,
-  and shell `ln`/`cp` commands inside child processes.
+  or passed through helper parameters (`path.join(...)`, `new URL("file:...")`),
+  `.call`/`.apply`/`.bind` invocations, and shell `ln`/`cp` commands inside
+  child processes.
 
 ## Untrusted-value lints
 

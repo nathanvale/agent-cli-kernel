@@ -45,18 +45,19 @@ What the gates of the test rows refuse and where, what stays with the reviewer, 
 ## Fake tools
 
 - The lint catches `symlink`, `symlinkSync`, `link`, `linkSync`, `copyFile`,
-  and `copyFileSync` from `node:fs` or `node:fs/promises` (including aliased
-  and destructured imports, and `const` string or template-literal targets)
-  pointing at a system binary path (`/bin/*`, `/usr/bin/*`, `/usr/local/bin/*`,
-  `/sbin/*`, `/usr/sbin/*`) in template and kernel tests. See
+  and `copyFileSync` from `node:fs`, `node:fs/promises`, or `fs.promises`
+  (including aliased, default, namespace, and destructured bindings, plus
+  static string, `+`, template-literal, and `const` targets) pointing at a
+  system binary path (`/bin/*`, `/usr/bin/*`, `/usr/local/bin/*`, `/sbin/*`,
+  `/usr/sbin/*`, `/usr/local/sbin/*`) in template and kernel tests. See
   [the gate's coverage](gate-coverage.md#fake-tool-lint).
-- Faults `f7adacc-template-stub-tools` and `f7adacc-kernel-stub-tools` skip
+- Faults `f7adacc-template-stub-tools` and `f7adacc-kernel-stub-tools` invert
   the system-binary path guard in `config/template-rules.mjs` and
   `config/kernel-repository-rules.mjs`; the `tests-stub-tools` witness tests
   kill each.
-- Review only: dynamic target paths computed at runtime, shell commands that
-  link system binaries, and stub scripts that still delegate to an unrelated
-  host binary.
+- Review only: dynamic target paths computed at runtime or passed through
+  helper parameters, shell commands that link system binaries, and stub
+  scripts that still delegate to an unrelated host binary.
 - Witnessed: [3729f36], [5f0c1d9].
 
 ## Time

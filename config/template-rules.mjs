@@ -1,3 +1,5 @@
+import { posix } from "node:path";
+
 const localeNames = new Set(["localeCompare", "Collator"]);
 const folding = new Set(["TemplateLiteral", "BinaryExpression"]);
 const comma = { type: "Literal", value: "," };
@@ -114,11 +116,13 @@ const onlyCall = ({ body }) => {
       : body;
   return expression?.type === "CallExpression" ? expression : undefined;
 };
-const propertyName = (node) =>
+const propertyName = (node, context) =>
   node.computed
-    ? typeof node.property.value === "string"
-      ? node.property.value
-      : undefined
+    ? context
+      ? staticString(context, node.property)
+      : typeof node.property.value === "string"
+        ? node.property.value
+        : undefined
     : node.property.name;
 const lookup = (context, node) => {
   for (
@@ -128,23 +132,33 @@ const lookup = (context, node) => {
   )
     if (scope.set.has(node.name)) return scope.set.get(node.name);
 };
-const moduleObject = (source) =>
-  typeof source?.value === "string"
-    ? { module: source.value.replace(/^node:/, "") }
-    : undefined;
-const memberOf = (base, name) =>
-  base?.module && base.name === undefined
-    ? { module: base.module, name }
-    : { name };
+const moduleObject = (context, source) => {
+  const value = staticString(context, source);
+  return value === undefined
+    ? undefined
+    : { module: value.replace(/^node:/, "") };
+};
+const memberOf = (base, name) => {
+  if (base?.module && base.name === undefined) {
+    if (base.module === "fs" && name === "promises")
+      return { module: "fs/promises" };
+    if (name === "default") return { module: base.module };
+    return { module: base.module, name };
+  }
+  return { name };
+};
 const definitionTracers = {
-  ImportBinding: (def) => ({
-    module: def.parent.source.value.replace(/^node:/, ""),
-    name:
+  ImportBinding: (def) => {
+    const mod = def.parent.source.value.replace(/^node:/, "");
+    const name =
       def.node.type === "ImportSpecifier"
         ? (def.node.imported.name ?? def.node.imported.value)
-        : undefined,
-  }),
-  Variable: (def, node, next) => {
+        : undefined;
+    if (mod === "fs" && name === "promises") return { module: "fs/promises" };
+    if (name === "default") return { module: mod };
+    return { module: mod, name };
+  },
+  Variable: (def, node, next, context) => {
     const { id, init } = def.node;
     if (id === def.name) return next(init) ?? { name: node.name };
     const property = id.properties?.find(
@@ -155,7 +169,11 @@ const definitionTracers = {
     const { key, computed } = property;
     return memberOf(
       next(init),
-      key.type === "Literal" ? key.value : computed ? undefined : key.name,
+      computed
+        ? staticString(context, key)
+        : key.type === "Literal"
+          ? key.value
+          : key.name,
     );
   },
 };
@@ -167,21 +185,26 @@ const traceIdentifier = (node, next, context) => {
       : node.name === "Bun"
         ? { module: "bun" }
         : { module: "global", name: node.name };
-  return definitionTracers[def.type]?.(def, node, next) ?? { name: node.name };
+  return (
+    definitionTracers[def.type]?.(def, node, next, context) ?? {
+      name: node.name,
+    }
+  );
 };
 const tracers = {
   Identifier: traceIdentifier,
-  MemberExpression: (node, next) => {
-    const name = propertyName(node);
+  MemberExpression: (node, next, context) => {
+    const name = propertyName(node, context);
     return typeof name === "string"
       ? memberOf(next(node.object), name)
       : undefined;
   },
-  CallExpression: (node) =>
+  CallExpression: (node, _next, context) =>
     node.callee.type === "Identifier" && node.callee.name === "require"
-      ? moduleObject(node.arguments[0])
+      ? moduleObject(context, node.arguments[0])
       : undefined,
-  ImportExpression: (node) => moduleObject(node.source),
+  ImportExpression: (node, _next, context) =>
+    moduleObject(context, node.source),
   AwaitExpression: (node, next) => next(node.argument),
   ChainExpression: (node, next) => next(node.expression),
   SequenceExpression: (node, next) => next(node.expressions.at(-1)),
@@ -196,23 +219,42 @@ const origin = (context, node, depth = 0) => {
       )
     : undefined;
 };
-const staticString = (context, node, depth = 0) => {
-  const inner = bare(node);
-  if (!inner || depth >= 8) return undefined;
-  if (inner.type === "Literal" && typeof inner.value === "string")
-    return inner.value;
-  if (inner.type === "TemplateLiteral" && inner.expressions.length === 0)
-    return inner.quasis[0]?.value.cooked;
-  if (inner.type === "Identifier") {
-    const def = lookup(context, inner)?.defs[0];
-    if (
-      def?.type === "Variable" &&
+const staticTemplate = (context, node, depth) => {
+  const head = node.quasis[0]?.value.cooked;
+  if (typeof head !== "string") return undefined;
+  let out = head;
+  for (let index = 0; index < node.expressions.length; index++) {
+    const part = staticString(context, node.expressions[index], depth + 1);
+    const tail = node.quasis[index + 1]?.value.cooked;
+    if (part === undefined || typeof tail !== "string") return undefined;
+    out += part + tail;
+  }
+  return out;
+};
+const staticFolders = {
+  Literal: (_context, node) =>
+    typeof node.value === "string" ? node.value : undefined,
+  TemplateLiteral: staticTemplate,
+  BinaryExpression: (context, node, depth) => {
+    if (node.operator !== "+") return undefined;
+    const left = staticString(context, node.left, depth + 1);
+    const right = staticString(context, node.right, depth + 1);
+    return left !== undefined && right !== undefined ? left + right : undefined;
+  },
+  Identifier: (context, node, depth) => {
+    const def = lookup(context, node)?.defs[0];
+    return def?.type === "Variable" &&
       def.parent?.kind === "const" &&
       def.node.id === def.name
-    )
-      return staticString(context, def.node.init, depth + 1);
-  }
-  return undefined;
+      ? staticString(context, def.node.init, depth + 1)
+      : undefined;
+  },
+};
+const staticString = (context, node, depth = 0) => {
+  const inner = bare(node);
+  return inner && depth < 8
+    ? staticFolders[inner.type]?.(context, inner, depth)
+    : undefined;
 };
 const isTimer = (traced, name) =>
   traced?.name === name &&
@@ -505,7 +547,11 @@ export default {
             )
               return;
             const target = staticString(context, args[0]);
-            if (target === undefined || !systemBinaryPath.test(target)) return;
+            if (
+              target === undefined ||
+              !systemBinaryPath.test(posix.normalize(target))
+            )
+              return;
             context.report({
               node: args[0],
               messageId: "systemBinary",
