@@ -109,9 +109,8 @@ test(
   "CE.b a stop that the child ignores escalates to SIGKILL for the whole group after the grace",
   async () => {
     const graceMilliseconds = 1_000;
-    // Platform: a timer counts from the event loop's cached clock, which can
-    // trail Date.now() by a few milliseconds, and Date.now() rounds to whole
-    // milliseconds. A SIGKILL sent at once ends the run in a few milliseconds.
+    // Platform: A timer counts from the event loop's cached clock, which can
+    // trail Date.now() by a few milliseconds, and Date.now() rounds to whole ms.
     const clockSlack = 100;
     await released(
       (root) =>
