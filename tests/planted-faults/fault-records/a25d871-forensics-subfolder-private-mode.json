@@ -1,0 +1,7 @@
+{
+  "id": "a25d871-forensics-subfolder-private-mode",
+  "patch": "tests/planted-faults/patches/a25d871-forensics-subfolder-private-mode.patch",
+  "testFile": "tests/kernel/verify-skill/forensics.test.ts",
+  "title": "flags non-private state subfolders and records the kernel rejects$",
+  "source": "a25d871 feat(verify-cli): add kernel-free forensics command for raw artifact inspection"
+}

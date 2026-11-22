@@ -1,0 +1,7 @@
+{
+  "id": "a25d871-forensics-evidence-containment",
+  "patch": "tests/planted-faults/patches/a25d871-forensics-evidence-containment.patch",
+  "testFile": "tests/kernel/verify-skill/forensics.test.ts",
+  "title": "refuses run evidence outside the run folder and propagates helper state issues$",
+  "source": "a25d871 feat(verify-cli): add kernel-free forensics command for raw artifact inspection"
+}

@@ -1,0 +1,12 @@
+diff --git a/skills/verify-cli/forensics/addons.ts b/skills/verify-cli/forensics/addons.ts
+--- a/skills/verify-cli/forensics/addons.ts
++++ b/skills/verify-cli/forensics/addons.ts
+@@ -200,7 +200,7 @@ function scanDiagnosticsLines(bytes: Uint8Array) {
+     .decode(bytes)
+     .split("\n")
+     .filter((line) => line.length > 0);
+-  const linesTruncated = rawLines.length > forensicsLimits.maxDiagnosticsLines;
++  const linesTruncated = false;
+   const scanned = linesTruncated
+     ? rawLines.slice(0, forensicsLimits.maxDiagnosticsLines)
+     : rawLines;

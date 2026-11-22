@@ -1,0 +1,17 @@
+diff --git a/skills/verify-cli/forensics/io.ts b/skills/verify-cli/forensics/io.ts
+--- a/skills/verify-cli/forensics/io.ts
++++ b/skills/verify-cli/forensics/io.ts
+@@ -63,11 +63,10 @@ export function listDirectoryBounded(path: string):
+   | { readonly kind: "error"; readonly reason: string } {
+   try {
+     const all = readdirSync(path).sort();
+-    const truncated = all.length > forensicsLimits.maxEntries;
+     return {
+       kind: "ok",
+-      names: truncated ? all.slice(0, forensicsLimits.maxEntries) : all,
++      names: all,
+       total: all.length,
+-      truncated,
++      truncated: false,
+     };
+   } catch (error) {

@@ -1,0 +1,12 @@
+diff --git a/skills/verify-cli/forensics/addons.ts b/skills/verify-cli/forensics/addons.ts
+--- a/skills/verify-cli/forensics/addons.ts
++++ b/skills/verify-cli/forensics/addons.ts
+@@ -351,7 +351,7 @@ export function inspectDiagnosticsFolder(
+       ? `${String(unclosed)} unclosed: may still be running or may have crashed before closing; allocation lock is released on open`
+       : `${String(unclosed)} unclosed`;
+   const status: DiagnosticsForensicsReport["status"] =
+-    problems.length > 0 ? "issues" : unclosed > 0 ? "unknown" : "clean";
++    problems.length > 0 ? "issues" : "clean";
+   return {
+     ok: true,
+     report: {

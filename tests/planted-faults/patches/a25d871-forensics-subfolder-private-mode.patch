@@ -1,0 +1,13 @@
+diff --git a/skills/verify-cli/forensics/state.ts b/skills/verify-cli/forensics/state.ts
+--- a/skills/verify-cli/forensics/state.ts
++++ b/skills/verify-cli/forensics/state.ts
+@@ -510,9 +510,7 @@ function listSubdir(
+     total: listed.total,
+     truncated: listed.truncated,
+     problem: undefined,
+-    modeProblem: privateModeOk(listed.stats)
+-      ? undefined
+-      : `${name}/ permissions/ownership failed private check (${formatMode(listed.stats)})`,
++    modeProblem: undefined,
+   };
+ }

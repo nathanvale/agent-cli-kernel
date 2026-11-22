@@ -29,6 +29,10 @@
 - For a test area, the full suite, timing-sensitive tests, or a failed
   hosted check, use the [test and hosted check guidance](docs/agents/README.md#checks).
 - Review a diff using the [review routine](CODING_STANDARDS.md#review-routine).
+- To inspect a stuck state journal, diagnostics folder, approval folder, or
+  verification run without starting the kernel, run
+  `bun skills/verify-cli/verify.ts forensics <run|state|diagnostics|approval> <path>`
+  ([forensics](skills/verify-cli/features/forensics.md)).
 
 ## Pull requests
 

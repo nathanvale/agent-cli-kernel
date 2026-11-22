@@ -1,0 +1,7 @@
+{
+  "id": "a25d871-forensics-file-size-bound",
+  "patch": "tests/planted-faults/patches/a25d871-forensics-file-size-bound.patch",
+  "testFile": "tests/kernel/verify-skill/forensics.test.ts",
+  "title": "enforces usage refusals \\(exit 2\\), missing or symlinked target refusals \\(exit 3\\), and bounded directory scans$",
+  "source": "a25d871 feat(verify-cli): add kernel-free forensics command for raw artifact inspection"
+}
