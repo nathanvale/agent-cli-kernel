@@ -1,7 +1,7 @@
 diff --git a/scripts/planted-faults.ts b/scripts/planted-faults.ts
 --- a/scripts/planted-faults.ts
 +++ b/scripts/planted-faults.ts
-@@ -22,11 +22,7 @@ import { faultsInShard } from "./planted-fault-shards.ts";
+@@ -21,9 +21,5 @@ import { faultsInShard } from "./planted-fault-shards.ts";
  import { snapshotWorkingTree } from "./planted-fault-snapshot.ts";
 -import {
 -  runWithOwnTools,
