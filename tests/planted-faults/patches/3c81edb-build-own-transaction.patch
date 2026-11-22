@@ -1,0 +1,14 @@
+diff --git a/kernel/src/kernel/index.ts b/kernel/src/kernel/index.ts
+--- a/kernel/src/kernel/index.ts
++++ b/kernel/src/kernel/index.ts
+@@ -253,9 +253,7 @@ export function contractFor<
+       command.effectClass !== "inspect" &&
+       station.row.outcome !== "refused"
+     ) {
+-      const proof = Object.hasOwn(facts, "transaction")
+-        ? Reflect.get(facts, "transaction")
+-        : undefined;
++      const proof = facts.transaction;
+       if (
+         typeof runId !== "string" ||
+         !proofValue(proof, runId, spec.state) ||
