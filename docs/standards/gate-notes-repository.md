@@ -40,6 +40,45 @@ What the gates of the repository rows refuse and where, what stays with the revi
   deep. Locals and comments stay review only.
 - Witnessed: [2784de0], [356cce9].
 
+## Envelopes read from other programs
+
+- Five planted faults cover protocol checks on envelopes read by
+  `skills/verify-cli/`:
+  - `3306233-ready-envelope-exit-must-be-zero` (`skills/verify-cli/helper/ready.ts`):
+    compares discovery envelope `result.exitCode` against `0` instead of the
+    process exit code; `sweep.test.ts` kills it.
+  - `3306233-sweep-credits-any-usage-cause` (`skills/verify-cli/helper/sweep.ts`):
+    accepts any declared refusal cause on a usage probe instead of
+    `invalidInvocation`; `sweep.test.ts` kills it.
+  - `3ad9232-envelope-needs-only-result` (`skills/verify-cli/helper/target.ts`):
+    drops the `result.commandIdentity` and `result.causeCode` checks in
+    `envelopeOf`; `in-process.test.ts` kills it.
+  - `b7fb111-check-skips-exit-mismatch` and `b7fb111-check-skips-usage-exit`
+    (`skills/verify-cli/verify.ts`): skip checking envelope vs process exit
+    code and the helper probe exit code `2`; `trust.test.ts` kills each.
+- Review only: protocol checks on envelopes read outside `skills/verify-cli/`,
+  and other envelope-reading call sites or protocol fields inside
+  `skills/verify-cli/` not covered by these five faults.
+- Witnessed: [0ab74b8], [3306233], [3ad9232].
+
+## Paths and outputs
+
+- Four planted faults cover physical path resolution and output hashing in
+  `skills/verify-cli/`:
+  - `480dec5-work-tree-walk-lexical` and `02311f4-run-walk-from-alias-parent`
+    (`skills/verify-cli/helper/launch.ts`): skip resolving symbolic links with
+    `physical(folder)` before walking parent directories (`nearestAbove`) or
+    taking the parent (`runAbove`); `launch.test.ts` kills each.
+  - `b2dcc8f-stdout-compared-by-length-only` (`skills/verify-cli/verify.ts`):
+    drops the `stdoutSha256` comparison in `compared`; `trust.test.ts` kills it.
+  - `1c5a65d-every-run-id-blanked` (`skills/verify-cli/helper/place.ts`):
+    blanks every `runId` UUID in stdout instead of only `result.runId`;
+    `trust.test.ts` kills it.
+- Review only: symbolic-link resolution and program output comparisons outside
+  `skills/verify-cli/`, and other path-resolution or output-comparison sites
+  inside `skills/verify-cli/` not covered by these four faults.
+- Witnessed: [480dec5], [02311f4], [b2dcc8f], [1c5a65d].
+
 ## Untrusted values
 
 - Review scopes and exceptions in [Untrusted-value lints](gate-coverage.md#untrusted-value-lints).
@@ -127,3 +166,9 @@ when adding, fixing, or pruning a lint hit.
 [ff852e8]: https://github.com/nathanvale/agent-cli-kernel/commit/ff852e8f0daed7dc23fc8b092043ab2ddff68c8d
 [5048d5e]: https://github.com/nathanvale/agent-cli-kernel/commit/5048d5e01932fa8ab9c177e351f33423cb507c1e
 [0ab74b8]: https://github.com/nathanvale/agent-cli-kernel/commit/0ab74b894857b6b741be277e2f2fd41764e96cd2
+[3306233]: https://github.com/nathanvale/agent-cli-kernel/commit/3306233b2c96aaf5cbe754ac252df9f0da83a5b1
+[3ad9232]: https://github.com/nathanvale/agent-cli-kernel/commit/3ad9232a4c3b3f14e3a8e0240ff215c68d8a6784
+[480dec5]: https://github.com/nathanvale/agent-cli-kernel/commit/480dec562f5b95c329df84b3e3f69125e3b20131
+[02311f4]: https://github.com/nathanvale/agent-cli-kernel/commit/02311f4b282fa2c1fd75b6cee9b1f03a045d2df0
+[b2dcc8f]: https://github.com/nathanvale/agent-cli-kernel/commit/b2dcc8feba2b211d775f3cc22f1bb16a0ffc4a1c
+[1c5a65d]: https://github.com/nathanvale/agent-cli-kernel/commit/1c5a65d1c58a0078562d00c583a687524ea59c39
