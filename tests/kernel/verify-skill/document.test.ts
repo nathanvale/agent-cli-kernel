@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { scenarioOf } from "../../../skills/verify-cli/helper/scenario.ts";
-import { skill } from "./harness.ts";
+import { repository, skill } from "./harness.ts";
 
 const commands = [
   "ready",
@@ -14,6 +14,7 @@ const commands = [
   "report",
   "cleanup",
   "pending",
+  "forensics",
 ];
 
 function text(path: string): string {
@@ -51,6 +52,7 @@ describe("the skill document", () => {
       "changing-command.md",
       "approval-without-state.md",
       "check-command.md",
+      "forensics.md",
     ]);
     for (const file of featureFiles()) {
       const feature = text(join("features", file));
@@ -87,5 +89,24 @@ describe("the skill document", () => {
     expect(blocks).toHaveLength(3);
     for (const block of blocks)
       expect(() => scenarioOf(JSON.parse(block))).not.toThrow();
+  });
+
+  test("AGENTS.md points agents to the forensics command under Checks", () => {
+    const agents = readFileSync(join(repository, "AGENTS.md"), "utf8");
+    expect(agents).toContain("skills/verify-cli/verify.ts forensics");
+    expect(agents).toContain("skills/verify-cli/features/forensics.md");
+  });
+
+  test("forensics feature page uses the full copy-pasteable bun invocation", () => {
+    const doc = text("features/forensics.md");
+    const full =
+      "bun node_modules/agent-cli-kernel/skills/verify-cli/verify.ts forensics";
+    for (const target of ["run", "state", "diagnostics", "approval"])
+      expect(doc).toContain(`${full} ${target}`);
+    const commandLines = doc
+      .split("\n")
+      .filter((line) => line.includes("verify.ts forensics"));
+    expect(commandLines.length).toBeGreaterThanOrEqual(6);
+    for (const line of commandLines) expect(line).toContain(full);
   });
 });

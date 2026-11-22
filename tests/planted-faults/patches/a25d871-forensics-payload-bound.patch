@@ -1,0 +1,10 @@
+diff --git a/skills/verify-cli/forensics/io.ts b/skills/verify-cli/forensics/io.ts
+--- a/skills/verify-cli/forensics/io.ts
++++ b/skills/verify-cli/forensics/io.ts
+@@ -236,7 +236,6 @@ function decodeHeader(bytes: Uint8Array, offset: number): FrameHeader | null {
+   const match = headerPattern.exec(line);
+   if (!match?.[1] || !match[2] || !match[3]) return null;
+   const length = Number(match[2]);
+-  if (length > forensicsLimits.maxPayloadBytes) return null;
+   return { kind: match[1], length, digest: match[3], bodyStart: nl + 1 };
+ }

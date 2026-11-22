@@ -1,0 +1,11 @@
+diff --git a/skills/verify-cli/forensics/addons.ts b/skills/verify-cli/forensics/addons.ts
+--- a/skills/verify-cli/forensics/addons.ts
++++ b/skills/verify-cli/forensics/addons.ts
+@@ -453,7 +453,6 @@ function hasApprovalPayloadFields(
+   parsed: unknown,
+ ): boolean {
+   if (
+-    !hasExactApprovalKeys(kind, parsed) ||
+     validApprovalIdentity(at(parsed, "operation")) === undefined
+   )
+     return false;
