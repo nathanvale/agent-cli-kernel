@@ -1,6 +1,7 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { idOrder } from "./planted-fault-patch.ts";
+import { readOptionalDirectory } from "./read-file.ts";
 
 export type RecordEntry = { readonly file: string; readonly entry: unknown };
 
@@ -23,8 +24,9 @@ export function folderFiles(
     throw new Error(
       `${list} is the old single list of each ${kind}, which nothing reads any more. Repair: move each entry in it to its own file, ${folder}/<id>${fileExtension}, then delete ${list}.`,
     );
-  if (!existsSync(join(root, folder))) return [];
-  return readdirSync(join(root, folder), { withFileTypes: true })
+  const entries = readOptionalDirectory(join(root, folder));
+  if (entries === undefined) return [];
+  return entries
     .filter((entry) => entry.name !== systemNoise)
     .map((entry) => {
       const file = `${folder}/${entry.name}`;
