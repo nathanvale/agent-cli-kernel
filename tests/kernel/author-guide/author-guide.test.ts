@@ -959,6 +959,7 @@ describe("the author skill's documents, shipped in the kernel package", () => {
       "references/example-tests.md",
       "references/example.md",
       "references/menu.md",
+      "references/source-layout.md",
       "references/stations.md",
       "references/testing.md",
     ]);
