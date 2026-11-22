@@ -1,0 +1,12 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1155,8 +1155,6 @@
+       join(paths.operation(id), "owner.lease"),
+       false,
+     );
+-    if (lease.kind === "busy")
+-      return { ok: false, refusal: { kind: "held-lock", operationId: id } };
+     if (lease.kind === "failed")
+       return {
+         ok: false,

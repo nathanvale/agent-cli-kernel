@@ -1,0 +1,11 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -690,7 +690,6 @@
+   return (
+     rule !== undefined &&
+     operation.intent.commandIdentity === rule.command &&
+-    covers(rule.keys, currentKeys(operation.intent.scope)) &&
+     !operation.recordHiddenInTornTail &&
+     !operation.closureDamaged
+   );

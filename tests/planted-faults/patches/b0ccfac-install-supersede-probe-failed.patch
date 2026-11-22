@@ -1,0 +1,12 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -707,8 +707,6 @@
+   if (lease === "live")
+     return { kind: "held-lock", operationId: closers.get(id) ?? id };
+   if (supersede === undefined) return "unresolved";
+-  if (lease === "failed")
+-    return { kind: "unavailable", reason: "lease-unreadable" };
+   return canSupersede(operation, supersede) ? "skip" : "unresolved";
+ }
+ 

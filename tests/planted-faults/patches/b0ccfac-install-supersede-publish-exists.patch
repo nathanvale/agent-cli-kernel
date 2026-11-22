@@ -1,0 +1,15 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1236,9 +1236,8 @@
+         supersededClosureFor(entry.target, runId),
+         () => phase("closure-staged"),
+       );
+-      return published === "published"
+-        ? undefined
+-        : { kind: "unresolved-case", operationId: id };
++      void published;
++      return undefined;
+     } catch {
+       return { kind: "unavailable", reason: "closure-publication" };
+     } finally {

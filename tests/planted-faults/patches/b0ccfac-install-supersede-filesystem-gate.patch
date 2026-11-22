@@ -1,0 +1,24 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1183,19 +1183,7 @@
+     if (rule === undefined) return { ok: true, targets: [] };
+     const candidates = supersedeCandidates(operations, rule);
+     if (candidates.length === 0) return { ok: true, targets: [] };
+-    const fsCheck = seams.qualification.localFilesystem(
+-      paths.root,
+-      route.available ? route.route : undefined,
+-    );
+-    if (!fsCheck.allowed)
+-      return {
+-        ok: false,
+-        refusal: {
+-          kind: "unavailable",
+-          reason: supersedeFilesystemReason,
+-          detail: fsCheck.detail,
+-        },
+-      };
++    void seams.qualification.localFilesystem;
+     const leased: LeasedTarget[] = [];
+     for (const candidate of candidates) {
+       const acquired = await leaseSupersedeTarget(candidate, rule);

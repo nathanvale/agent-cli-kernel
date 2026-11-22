@@ -1,0 +1,11 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1131,7 +1131,6 @@
+             : { kind: "unavailable", reason: `store-${fresh}` },
+       };
+     if (
+-      fresh.status !== "unresolved" ||
+       fresh.revision !== target.revision ||
+       !canSupersede(fresh, rule)
+     )

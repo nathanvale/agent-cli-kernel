@@ -1,0 +1,36 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1334,6 +1334,11 @@
+         readonly superseded: readonly string[] | undefined;
+       }
+   > {
++    const closed = await publishSupersedeClosures(targets, runId);
++    if (!closed.ok) {
++      admitted.held.admission.release();
++      return closed;
++    }
+     let opened: Awaited<ReturnType<typeof begin>>;
+     try {
+       opened = await begin(runId, intent);
+@@ -1341,20 +1346,11 @@
+       opened = undefined;
+     }
+     if (!opened) {
+-      releaseAll(targets);
+       admitted.held.admission.release();
+       return {
+         ok: false,
+         refusal: { kind: "unavailable", reason: "store-publication" },
+       };
+-    }
+-    const closed = await publishSupersedeClosures(targets, runId);
+-    if (!closed.ok) {
+-      finish(opened.events, unchangedObservation(declared));
+-      active.delete(runId);
+-      opened.releaseLease();
+-      admitted.held.admission.release();
+-      return closed;
+     }
+     const refreshed = closed.ids.length > 0 ? readStore(paths) : undefined;
+     moveSettled(refreshed?.ok ? refreshed.operations : admitted.operations);

@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1132,8 +1132,7 @@
+       };
+     if (
+       fresh.status !== "unresolved" ||
+-      fresh.revision !== target.revision ||
+-      !canSupersede(fresh, rule)
++      fresh.revision !== target.revision
+     )
+       return {
+         ok: false,

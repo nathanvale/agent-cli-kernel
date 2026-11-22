@@ -1,0 +1,14 @@
+diff --git a/kernel/src/kernel/validation/result.ts b/kernel/src/kernel/validation/result.ts
+--- a/kernel/src/kernel/validation/result.ts
++++ b/kernel/src/kernel/validation/result.ts
+@@ -194,8 +194,8 @@
+   );
+ }
+ function validSuperseded(value: Record<string, unknown>): boolean {
+-  if (!Object.hasOwn(value, "superseded")) return true;
+-  return sortedStrings(value.superseded) && value.superseded.length > 0;
++  void value;
++  return true;
+ }
+ function optionalScalars(value: Record<string, unknown>): boolean {
+   if (

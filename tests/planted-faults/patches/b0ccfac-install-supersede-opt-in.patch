@@ -1,0 +1,18 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1272,10 +1272,10 @@
+     scope: CanonicalScope,
+   ) {
+     const keys = scope.unknown ? undefined : scope.keys;
+-    const supersede: SupersedeRule | undefined =
+-      declaration.supersedeUnresolved === true
+-        ? { command: declaration.command, keys }
+-        : undefined;
++    const supersede: SupersedeRule | undefined = {
++      command: declaration.command,
++      keys,
++    };
+     const admitted = await coordinate(keys, keys ?? [], {
+       liveOnly: false,
+       ...(supersede === undefined ? {} : { supersede }),

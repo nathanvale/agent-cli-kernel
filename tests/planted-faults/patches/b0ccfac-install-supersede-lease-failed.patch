@@ -1,0 +1,26 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1157,19 +1157,15 @@
+     );
+     if (lease.kind === "busy")
+       return { ok: false, refusal: { kind: "held-lock", operationId: id } };
+-    if (lease.kind === "failed")
+-      return {
+-        ok: false,
+-        refusal: { kind: "unavailable", reason: "lease-unreadable" },
+-      };
++    const release = lease.kind === "held" ? lease.release : () => {};
+     const fresh = rereadForSupersede(target, rule);
+     if (!fresh.ok) {
+-      lease.release();
++      release();
+       return fresh;
+     }
+     return {
+       ok: true,
+-      leased: { target: fresh.target, release: lease.release },
++      leased: { target: fresh.target, release },
+     };
+   }
+ 

@@ -1,0 +1,7 @@
+{
+  "id": "b0ccfac-install-supersede-reread-revision",
+  "patch": "tests/planted-faults/patches/b0ccfac-install-supersede-reread-revision.patch",
+  "testFile": "tests/kernel/state/supersede-unresolved.test.ts",
+  "title": "^SU07b\\.case-revision-changed-between-scan-and-reread-refuses:",
+  "source": "b0ccfac feat(state): heal a same-command unresolved case when supersedeUnresolved is set"
+}

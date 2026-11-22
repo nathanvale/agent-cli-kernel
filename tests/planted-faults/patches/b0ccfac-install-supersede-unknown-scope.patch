@@ -1,0 +1,14 @@
+diff --git a/kernel/src/addons/state/scope.ts b/kernel/src/addons/state/scope.ts
+--- a/kernel/src/addons/state/scope.ts
++++ b/kernel/src/addons/state/scope.ts
+@@ -183,8 +183,8 @@
+   superset: readonly string[] | undefined,
+   subset: readonly string[] | undefined,
+ ): boolean {
+-  if (superset === undefined || subset === undefined || subset.length === 0)
+-    return false;
++  if (superset === undefined || subset === undefined) return true;
++  if (subset.length === 0) return false;
+   const set = new Set(superset);
+   return subset.every((key) => set.has(key));
+ }
