@@ -46,3 +46,6 @@ to one commit. This skill ships inside that package, at
 - Writing a command that changes a file or any other resource, its state
   add-on, its report command, or a case it leaves unfinished: read
   [changing](references/changing.md).
+- Adding a second subject to a CLI, placing a command, rule or shared edge
+  file, or repairing a boundary violation: read
+  [source layout](references/source-layout.md).

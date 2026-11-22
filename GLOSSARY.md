@@ -166,6 +166,18 @@ _Avoid_: terminal run
 The kernel's seam for reading keys from and drawing on a terminal: the
 `/dev/tty` adapter in a process, or `scriptedTerminal` in tests.
 
+### CLI source layout
+
+**Subject**:
+The domain noun a group of commands acts on, named by the first word of their
+route.
+_Avoid_: feature (for a subject), resource (a resource is a state add-on coordination lock target), domain (for a subject), slice, topic
+
+**Shared edge**:
+A module used across subjects that touches external state, settings, child
+programs or the CLI's shared cause table.
+_Avoid_: util, helper, common, core (for a shared edge)
+
 ### Internal kernel names
 
 **Contract boundary**:
