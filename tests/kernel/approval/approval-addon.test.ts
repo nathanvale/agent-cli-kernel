@@ -236,14 +236,13 @@ for (const [id, setup] of hostile)
   });
 
 test("A04.h-invalid-utf8", async () => {
-  // Platform: The request names U+FFFD, so lossy decoding of the 0xff byte would
-  // otherwise turn the invalid bytes into a matching authority.
+  const replacementCharAuthority = "owner-\uFFFD";
   const text = JSON.stringify({ ...grant, authority: "owner-?" });
   const bytes = Buffer.from(text, "utf8");
   bytes[bytes.indexOf("?")] = 0xff;
   const outcome = await observed(
     () => writeFile(grantPath(world, grant.preview), bytes),
-    () => preflight({ authority: "owner-\uFFFD" }),
+    () => preflight({ authority: replacementCharAuthority }),
   );
   expectCase("A04.h-invalid-utf8", outcome);
 });

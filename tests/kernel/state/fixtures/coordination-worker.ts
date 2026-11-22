@@ -82,9 +82,7 @@ function spawnChild(fd: number | null): number {
   return child.pid;
 }
 
-// system() starts the shell with every descriptor that is not close-on-exec,
-// so this child holds the lock unless the route set the flag itself
-// (accepted decision BN-03, 17 November 2026).
+// Platform: POSIX system(3) passes non-CLOEXEC descriptors to the child shell.
 function spawnNativeChild(): number {
   const pidFile = `${report}.child`;
   const quoted = `'${pidFile.replaceAll("'", "'\\''")}'`;

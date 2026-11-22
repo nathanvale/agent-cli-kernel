@@ -305,6 +305,10 @@ export function createPlantedFaultFixture() {
         join(repository, "scripts/planted-fault-folders.ts"),
         "utf8",
       ),
+      "scripts/planted-fault-snapshot.ts": readFileSync(
+        join(repository, "scripts/planted-fault-snapshot.ts"),
+        "utf8",
+      ),
       "scripts/read-file.ts": readFileSync(
         join(repository, "scripts/read-file.ts"),
         "utf8",

@@ -243,18 +243,8 @@ function attachMenu(run: RunControl): AttachedAddon<MenuCapability> {
     if (!terminal) return;
     const hadDrawing = drew;
     drew = false;
-    if (hadDrawing) {
-      try {
-        terminal.draw([]);
-      } catch {
-        // Platform: Clearing a revoked controlling tty on teardown is ignored.
-      }
-    }
-    try {
-      terminal.leave();
-    } catch {
-      // Platform: Terminal restoration ignores a closed or revoked controlling tty.
-    }
+    if (hadDrawing) ignoreClosedTerminal(() => terminal.draw([]));
+    ignoreClosedTerminal(() => terminal.leave());
   }
 
   function terminalForShow(): TerminalAdapter {
@@ -310,6 +300,14 @@ function attachMenu(run: RunControl): AttachedAddon<MenuCapability> {
     );
   }
 
+  function ignoreClosedTerminal(action: () => void): void {
+    try {
+      action();
+    } catch {
+      return;
+    }
+  }
+
   // Accepted decision (Nathan, 21 November 2026, 11:42; MAG-138 decision 21):
   // "Menus only" departs from LIFE-2a's first sentence solely in an interactive
   // run; LIFE-2a's second sentence (never prompt without a terminal) holds.
@@ -334,11 +332,7 @@ function attachMenu(run: RunControl): AttachedAddon<MenuCapability> {
     };
 
     const onResize = () => {
-      try {
-        redraw();
-      } catch {
-        // Platform: Resize redraw ignores a closed or revoked controlling tty.
-      }
+      ignoreClosedTerminal(redraw);
     };
 
     active = true;
