@@ -499,6 +499,20 @@ const cases = [
     line: 4,
     fix: "Repair: wait on the event the test is about",
   },
+  {
+    rule: "tests-use-bounded-runner",
+    witness: "9086c3b",
+    filePath: "tests/kernel/state/journal.test.ts",
+    failing: [
+      'export const run = () => Bun.spawn([process.execPath, "reader.ts"], { stdout: "pipe" });',
+    ],
+    passing: [
+      'import { spawnBounded } from "../kernel-repair/swarm-process.ts";',
+      'export const run = () => spawnBounded([process.execPath, "reader.ts"]);',
+    ],
+    line: 1,
+    fix: "Repair: run children through spawnBounded from tests/support/process.ts",
+  },
 ];
 
 for (const item of cases)
@@ -748,6 +762,51 @@ const bypasses = [
     "expect(fn).toThrow(void 0);",
     "toThrow(void 0) names no message",
   ],
+  [
+    "tests-use-bounded-runner",
+    'Bun.spawnSync(["git", "status"]);',
+    "Bun.spawnSync() starts a child process outside a bounded runner",
+  ],
+  [
+    "tests-use-bounded-runner",
+    'Bun["spawn"](["git", "status"]);',
+    "Bun.spawn() starts a child process outside a bounded runner",
+  ],
+  [
+    "tests-use-bounded-runner",
+    'const { spawn: run } = Bun;\nrun(["git", "status"]);',
+    "Bun.spawn() starts a child process outside a bounded runner",
+  ],
+  [
+    "tests-use-bounded-runner",
+    'import { execFileSync as run } from "node:child_process";\nrun("git", ["status"]);',
+    "child_process.execFileSync() starts a child process outside a bounded runner",
+  ],
+  [
+    "tests-use-bounded-runner",
+    'import * as cp from "child_process";\ncp["spawn"]("git", ["status"]);',
+    "child_process.spawn() starts a child process outside a bounded runner",
+  ],
+  [
+    "tests-use-bounded-runner",
+    'const { execSync: run } = await import("node:child_process");\nrun("git status");',
+    "child_process.execSync() starts a child process outside a bounded runner",
+  ],
+  [
+    "tests-use-bounded-runner",
+    'const { fork } = require("child_process");\nfork("worker.js");',
+    "child_process.fork() starts a child process outside a bounded runner",
+  ],
+  [
+    "tests-use-bounded-runner",
+    'const Bun = { spawn: (args: string[]) => args };\nBun.spawn(["git"]);',
+    undefined,
+  ],
+  [
+    "tests-use-bounded-runner",
+    'const spawn = (args: string[]) => args;\nspawn(["git"]);',
+    undefined,
+  ],
 ] as const;
 
 for (const [rule, code, fix] of bypasses)
@@ -771,6 +830,23 @@ test("tests-use-test-folder admits the folder calls inside its owner module", as
     ),
   ).toEqual([]);
 });
+
+test.each([
+  "tests/support/process.ts",
+  "tests/kernel/kernel-repair/swarm-process.ts",
+  "tests/kernel/lifecycle/harness.ts",
+])(
+  "tests-use-bounded-runner admits direct spawns inside owner module %s",
+  async (owner) => {
+    expect(
+      await hits(
+        "tests-use-bounded-runner",
+        owner,
+        await Bun.file(resolve(root, owner)).text(),
+      ),
+    ).toEqual([]);
+  },
+);
 
 test("tests-no-sleep admits the spawnBounded watchdog, which resolves a named value", async () => {
   expect(
