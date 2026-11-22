@@ -50,6 +50,9 @@ What the gates of the test rows refuse and where, what stays with the reviewer, 
   `tests/kernel/kernel-repair/swarm-process.ts` and
   `tests/kernel/lifecycle/harness.ts`). See
   [the gate's coverage](gate-coverage.md#process-lint).
+- Fault `c0fe160-template-bounded-runner` drops `spawn` from the template
+  rule's `bunSpawns` set, and fault `c0fe160-kernel-bounded-runner` drops it
+  from the kernel rule's copy; each owner's lint case kills its fault.
 - Review only: test timeouts covering the sum of sequential child bounds,
   teardown order, and process-group `SIGKILL`.
 - Witnessed: [9086c3b], [0ab74b8].
