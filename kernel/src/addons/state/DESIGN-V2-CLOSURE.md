@@ -370,7 +370,7 @@ the command is safe to run again even alongside a leftover copy of the program
 an earlier run started. The kernel never tries to stop that leftover program.
 
 When `supersedeUnresolved: true` is set, the next run may close its own earlier
-unresolved case(s) — even when a same-boot `delegate-admitted` record exists —
+unresolved case(s), even when a same-boot `delegate-admitted` record exists,
 with `disposition: "outcome-unknown"`, `authority: null`, evidence for each
 recorded effect, and working qualification label `superseded-owner-lease-free`,
 only when the new run's scope covers every conflict key of the dead case

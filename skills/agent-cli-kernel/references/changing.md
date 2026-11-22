@@ -355,8 +355,8 @@ unflagged commands and `state.close` keep their existing refusals unchanged.
 
 Never set `supersedeUnresolved: true` on a command that is not safe to run
 again alongside a leftover earlier program. After a kill, the next run repeats
-the effect without anyone checking — a second payment, a second push, or a
-second deletion — and the journal can only record that the earlier run's
+the effect without anyone checking (a second payment, a second push, or a
+second deletion), and the journal can only record that the earlier run's
 outcome was unknown.
 
 ## Choosing the scope

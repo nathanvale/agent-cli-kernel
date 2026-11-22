@@ -464,8 +464,8 @@ author sets `supersedeUnresolved: true` on its state declaration makes a
 stronger promise: the command is safe to run again even alongside a leftover
 copy of the program an earlier run started. The kernel never tries to stop that
 leftover program. Under `supersedeUnresolved: true`, the next run may close its
-own earlier unresolved case(s) — including cases carrying a same-boot
-`delegate-admitted` record — with `disposition: "outcome-unknown"`,
+own earlier unresolved case(s) (including cases carrying a same-boot
+`delegate-admitted` record) with `disposition: "outcome-unknown"`,
 `authority: null`, evidence for each recorded effect, the healing run's
 `recoveryRunId`, and the working qualification label
 `superseded-owner-lease-free`, only when all hold:
@@ -495,8 +495,8 @@ The closure records plainly that the outcome is unknown and never claims
 completion (REC-4 holds: the case is closed, not completed, and the original
 intent and event history remain readable). The new run's envelope names every
 cleared operation id in `result.superseded` (working field name; omitted when
-no case was cleared). Every other conflicting unresolved case — and every
-command without `supersedeUnresolved: true` — continues to refuse as before.
+no case was cleared). Every other conflicting unresolved case, and every
+command without `supersedeUnresolved: true`, continues to refuse as before.
 
 A labelled test-only fixture module may supply a fixture qualification to a
 test host. It never alters the production table; any closure it enables is
