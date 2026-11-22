@@ -171,66 +171,158 @@ export type PlainScope =
 const plainUnknownScope: PlainScope = Object.freeze({ unknown: true });
 const emptyStrings: readonly string[] = Object.freeze([]);
 
-function ownField(source: object, key: string): unknown {
-  return Object.hasOwn(source, key) ? Reflect.get(source, key) : undefined;
+type OwnRead = { readonly present: boolean; readonly value: unknown };
+
+export type OnceReader = {
+  readonly own: (
+    source: object,
+    key: string,
+  ) => { readonly present: boolean; readonly value: unknown };
+  readonly field: (source: object, key: string) => unknown;
+  readonly length: (source: readonly unknown[]) => number;
+  readonly keys: (source: object) => readonly string[];
+  readonly recordOwn: (
+    source: object,
+    key: string,
+    present: boolean,
+    value: unknown,
+  ) => void;
+};
+
+export function createOnceReader(): OnceReader {
+  const fields = new Map<object, Map<string, OwnRead>>();
+  const lengths = new Map<object, number>();
+  const keyLists = new Map<object, readonly string[]>();
+
+  const slot = (source: object): Map<string, OwnRead> => {
+    let table = fields.get(source);
+    if (!table) {
+      table = new Map<string, OwnRead>();
+      fields.set(source, table);
+    }
+    return table;
+  };
+
+  const own = (source: object, key: string): OwnRead => {
+    const table = slot(source);
+    const cached = table.get(key);
+    if (cached) return cached;
+    const entry: OwnRead = Object.hasOwn(source, key)
+      ? { present: true, value: Reflect.get(source, key) }
+      : { present: false, value: undefined };
+    table.set(key, entry);
+    return entry;
+  };
+
+  return {
+    own,
+    field: (source, key) => own(source, key).value,
+    length: (source) => {
+      const cached = lengths.get(source);
+      if (cached !== undefined) return cached;
+      const value = source.length;
+      lengths.set(source, value);
+      return value;
+    },
+    keys: (source) => {
+      const cached = keyLists.get(source);
+      if (cached) return cached;
+      const value = Object.keys(source);
+      keyLists.set(source, value);
+      return value;
+    },
+    recordOwn: (source, key, present, value) => {
+      slot(source).set(key, { present, value });
+    },
+  };
 }
 
-function readPlainResource(raw: unknown): PlainResource | undefined {
-  if (typeof raw !== "object" || raw === null || Array.isArray(raw))
-    return undefined;
-  const resource = ownField(raw, "resource");
+function parsePlainResource(
+  raw: object,
+  reader: OnceReader,
+): PlainResource | undefined {
+  const resource = reader.field(raw, "resource");
   if (typeof resource !== "string") return undefined;
-  const hasPath = Object.hasOwn(raw, "path");
-  const hasKey = Object.hasOwn(raw, "key");
-  if (hasPath === hasKey) return undefined;
-  if (hasPath) {
-    const path = ownField(raw, "path");
-    return typeof path === "string"
-      ? Object.freeze({ kind: "path", resource, path })
+  const pathEntry = reader.own(raw, "path");
+  const keyEntry = reader.own(raw, "key");
+  if (pathEntry.present === keyEntry.present) return undefined;
+  if (pathEntry.present) {
+    return typeof pathEntry.value === "string"
+      ? Object.freeze({ kind: "path", resource, path: pathEntry.value })
       : undefined;
   }
-  const key = ownField(raw, "key");
-  return typeof key === "string"
-    ? Object.freeze({ kind: "key", resource, key })
+  return typeof keyEntry.value === "string"
+    ? Object.freeze({ kind: "key", resource, key: keyEntry.value })
     : undefined;
 }
 
-function readPlainStrings(raw: unknown): readonly string[] | undefined {
+function readPlainResource(
+  raw: unknown,
+  reader: OnceReader,
+  cache: Map<object, PlainResource | undefined>,
+): PlainResource | undefined {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw))
+    return undefined;
+  if (cache.has(raw)) return cache.get(raw);
+  const parsed = parsePlainResource(raw, reader);
+  cache.set(raw, parsed);
+  return parsed;
+}
+
+function readPlainResources(
+  rawResources: unknown,
+  reader: OnceReader,
+): readonly PlainResource[] | undefined {
+  if (!Array.isArray(rawResources)) return undefined;
+  const length = reader.length(rawResources);
+  if (length === 0) return undefined;
+  const cache = new Map<object, PlainResource | undefined>();
+  const resources: PlainResource[] = [];
+  for (let index = 0; index < length; index += 1) {
+    const item = readPlainResource(
+      reader.field(rawResources, String(index)),
+      reader,
+      cache,
+    );
+    if (!item) return undefined;
+    resources.push(item);
+  }
+  return Object.freeze(resources);
+}
+
+export function readPlainStrings(
+  raw: unknown,
+  reader: OnceReader,
+): readonly string[] | undefined {
   if (!Array.isArray(raw)) return undefined;
   const out: string[] = [];
-  const length = raw.length;
+  const length = reader.length(raw);
   for (let index = 0; index < length; index += 1) {
-    const item = ownField(raw, String(index));
+    const item = reader.field(raw, String(index));
     if (typeof item !== "string") return undefined;
     out.push(item);
   }
   return Object.freeze(out);
 }
 
-export function readPlainScope(raw: unknown): PlainScope {
+export function readPlainScope(
+  raw: unknown,
+  reader: OnceReader = createOnceReader(),
+): PlainScope {
   if (typeof raw !== "object" || raw === null || Array.isArray(raw))
     return plainUnknownScope;
-  if (Object.hasOwn(raw, "unknown") && ownField(raw, "unknown") === true)
-    return plainUnknownScope;
-  const rawResources = ownField(raw, "resources");
-  if (!Array.isArray(rawResources) || rawResources.length === 0)
-    return plainUnknownScope;
-  const resources: PlainResource[] = [];
-  const length = rawResources.length;
-  for (let index = 0; index < length; index += 1) {
-    const item = readPlainResource(ownField(rawResources, String(index)));
-    if (!item) return plainUnknownScope;
-    resources.push(item);
-  }
-  const rawInvariants = ownField(raw, "invariants");
+  if (reader.field(raw, "unknown") === true) return plainUnknownScope;
+  const resources = readPlainResources(reader.field(raw, "resources"), reader);
+  if (!resources) return plainUnknownScope;
+  const rawInvariants = reader.field(raw, "invariants");
   const invariants =
     rawInvariants === undefined
       ? emptyStrings
-      : readPlainStrings(rawInvariants);
+      : readPlainStrings(rawInvariants, reader);
   if (invariants === undefined) return plainUnknownScope;
   return Object.freeze({
     unknown: false,
-    resources: Object.freeze(resources),
+    resources,
     invariants,
   });
 }

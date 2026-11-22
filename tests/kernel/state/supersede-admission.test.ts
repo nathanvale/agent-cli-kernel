@@ -604,6 +604,61 @@ function defineOneShot<T>(
   });
 }
 
+function countingArrayProxy<T>(
+  items: readonly T[],
+  counts: Map<string, number>,
+  prefix: string,
+): readonly T[] {
+  return new Proxy([...items], {
+    get(target, prop, receiver): unknown {
+      if (
+        typeof prop === "string" &&
+        (prop === "length" || /^\d+$/.test(prop))
+      ) {
+        const label = `${prefix}.${prop}`;
+        const seen = (counts.get(label) ?? 0) + 1;
+        counts.set(label, seen);
+        if (seen > 1) throw new Error(`second read on ${label}`);
+      }
+      const value: unknown = Reflect.get(target, prop, receiver);
+      return value;
+    },
+  });
+}
+
+function buildSharedFacts(
+  resourceItem: object,
+  resources: readonly unknown[],
+  invariants: readonly string[],
+  counts: Map<string, number>,
+): Readonly<Record<string, unknown>> {
+  const leaf: Record<string, unknown> = {};
+  defineOneShot(leaf, "label", counts, "leaf.label", "leaf-1", () => "leaf-2");
+  const nested: Record<string, unknown> = {};
+  defineOneShot(nested, "tag", counts, "nested.tag", "first-tag", () => "bad");
+  defineOneShot(nested, "child", counts, "nested.child", leaf);
+  const facts: Record<string, unknown> = {};
+  defineOneShot(facts, "note", counts, "facts.note", "first-read");
+  defineOneShot(facts, "direct", counts, "facts.direct", resourceItem);
+  defineOneShot(facts, "pair", counts, "facts.pair", [
+    resourceItem,
+    resourceItem,
+  ]);
+  defineOneShot(facts, "nested", counts, "facts.nested", {
+    twice: [nested, nested],
+    deep: { copy: nested, leaf },
+  });
+  defineOneShot(facts, "resourcesRef", counts, "facts.resourcesRef", resources);
+  defineOneShot(
+    facts,
+    "invariantsRef",
+    counts,
+    "facts.invariantsRef",
+    invariants,
+  );
+  return facts;
+}
+
 function buildOneShotKeyDeclaration(
   boundary: Boundary,
   counts: Map<string, number>,
@@ -611,20 +666,23 @@ function buildOneShotKeyDeclaration(
   const resourceItem = { resource: "", key: "" };
   defineOneShot(resourceItem, "resource", counts, "res.resource", "doc");
   defineOneShot(resourceItem, "key", counts, "res.key", "alpha", () => "beta");
-  const resources = [resourceItem];
-  defineOneShot(resources, "0", counts, "res[0]", resourceItem);
-  const invariants = ["inv-a"];
-  defineOneShot(invariants, "0", counts, "inv[0]", "inv-a");
+  const resources = countingArrayProxy(
+    [resourceItem, resourceItem],
+    counts,
+    "res",
+  );
+  const invariants = countingArrayProxy(["inv-a"], counts, "inv");
   const scope: ScopeDeclaration = { resources, invariants };
   defineOneShot(scope, "resources", counts, "scope.resources", resources);
   defineOneShot(scope, "invariants", counts, "scope.invariants", invariants);
   const revisions: Record<string, string> = {};
   defineOneShot(revisions, "version", counts, "rev.version", "v1");
-  const facts: Record<string, string> = {};
-  defineOneShot(facts, "note", counts, "facts.note", "first-read");
-  const requestEffects = ["doc.write", "editor.launch"];
-  defineOneShot(requestEffects, "0", counts, "req.effects[0]", "doc.write");
-  defineOneShot(requestEffects, "1", counts, "req.effects[1]", "editor.launch");
+  const facts = buildSharedFacts(resourceItem, resources, invariants, counts);
+  const requestEffects = countingArrayProxy(
+    ["doc.write", "editor.launch"],
+    counts,
+    "req.effects",
+  );
   const request = {
     authority: boundary.authority("operator"),
     resource: boundary.resource("doc"),
@@ -674,14 +732,14 @@ function buildOneShotKeyDeclaration(
 }
 
 function buildOneShotPathDeclaration(
-  file: string,
+  fileA: string,
+  fileB: string,
   counts: Map<string, number>,
 ): Declaration {
   const item = { resource: "", path: "" };
   defineOneShot(item, "resource", counts, "p.resource", "cfg");
-  defineOneShot(item, "path", counts, "p.path", file);
-  const resources = [item];
-  defineOneShot(resources, "0", counts, "p.resources[0]", item);
+  defineOneShot(item, "path", counts, "p.path", fileA, () => fileB);
+  const resources = countingArrayProxy([item, item], counts, "p.resources");
   const scope: ScopeDeclaration = { resources };
   defineOneShot(scope, "resources", counts, "p.resources", resources);
   const decl: Declaration = { command: "", scope, supersedeUnresolved: false };
@@ -691,57 +749,87 @@ function buildOneShotPathDeclaration(
   return decl;
 }
 
-supportingTest(
-  "SU20.proxy-read-count-once: flagged runs read every property of declaration and scope once and act on the first read",
-  async () => {
-    const root = stateRoot();
-    const alphaId = await seedUnresolved(root, {
-      scope: {
-        resources: [{ resource: "doc", key: "alpha" }],
-        invariants: ["inv-a"],
-      },
-    });
-    const betaId = await seedUnresolved(root, {
-      scope: { resources: [{ resource: "doc", key: "beta" }] },
-    });
-    const counts = new Map<string, number>();
-    const healed = await runHost({
-      root,
-      declaration: (boundary) => buildOneShotKeyDeclaration(boundary, counts),
-    });
-    expect(healed.outcome?.kind).toBe("ran");
-    expect(healed.envelope.result.causeCode).toBe("SUCCESS_COMPLETED");
-    expect(healed.envelope.result.superseded).toEqual([alphaId]);
-    expect(existsSync(join(root, "operations", betaId, "closure"))).toBe(false);
-    expect(existsSync(join(root, "settled", betaId))).toBe(false);
-    for (const [label, seen] of counts)
-      expect({ label, seen }).toEqual({ label, seen: 1 });
-    expect(counts.size).toBeGreaterThanOrEqual(18);
-    if (healed.outcome?.kind === "ran") {
-      const stored = readCase(layout(root), healed.outcome.operationId);
-      if (typeof stored === "string") throw new Error("Expected new case.");
-      expect(stored.intent.scope.resources[0]?.key).toBe("alpha");
-      expect(stored.intent.facts).toEqual({ note: "first-read" });
-      expect(stored.intent.revisions).toEqual({ version: "v1" });
-    }
+async function checkKeyOneShotDeclaration(): Promise<void> {
+  const root = stateRoot();
+  const alphaId = await seedUnresolved(root, {
+    scope: {
+      resources: [{ resource: "doc", key: "alpha" }],
+      invariants: ["inv-a"],
+    },
+  });
+  const betaId = await seedUnresolved(root, {
+    scope: { resources: [{ resource: "doc", key: "beta" }] },
+  });
+  const counts = new Map<string, number>();
+  const healed = await runHost({
+    root,
+    declaration: (boundary) => buildOneShotKeyDeclaration(boundary, counts),
+  });
+  expect(healed.outcome?.kind).toBe("ran");
+  expect(healed.envelope.result.causeCode).toBe("SUCCESS_COMPLETED");
+  expect(healed.envelope.result.superseded).toEqual([alphaId]);
+  expect(existsSync(join(root, "operations", betaId, "closure"))).toBe(false);
+  expect(existsSync(join(root, "settled", betaId))).toBe(false);
+  for (const [label, seen] of counts)
+    expect({ label, seen }).toEqual({ label, seen: 1 });
+  expect(counts.size).toBeGreaterThanOrEqual(28);
+  if (healed.outcome?.kind !== "ran") return;
+  const stored = readCase(layout(root), healed.outcome.operationId);
+  if (typeof stored === "string") throw new Error("Expected new case.");
+  expect(stored.intent.scope.resources.map((item) => item.key)).toEqual([
+    "alpha",
+    "alpha",
+  ]);
+  const expectedItem = { resource: "doc", key: "alpha" };
+  const expectedNested = { tag: "first-tag", child: { label: "leaf-1" } };
+  expect(stored.intent.facts).toEqual({
+    note: "first-read",
+    direct: expectedItem,
+    pair: [expectedItem, expectedItem],
+    nested: {
+      twice: [expectedNested, expectedNested],
+      deep: { copy: expectedNested, leaf: { label: "leaf-1" } },
+    },
+    resourcesRef: [expectedItem, expectedItem],
+    invariantsRef: ["inv-a"],
+  });
+  expect(stored.intent.revisions).toEqual({ version: "v1" });
+}
 
-    const pathRoot = stateRoot();
-    const workDir = join(pathRoot, "..", "work");
-    mkdirSync(workDir, { recursive: true });
-    const file = join(workDir, "target.txt");
-    writeFileSync(file, "v1");
-    const pathOldId = await seedUnresolved(pathRoot, {
-      scope: { resources: [{ resource: "cfg", path: file }] },
-    });
-    const pathCounts = new Map<string, number>();
-    const pathHealed = await runHost({
-      root: pathRoot,
-      declaration: () => buildOneShotPathDeclaration(file, pathCounts),
-    });
-    expect(pathHealed.outcome?.kind).toBe("ran");
-    expect(pathHealed.envelope.result.superseded).toEqual([pathOldId]);
-    for (const [label, seen] of pathCounts)
-      expect({ label, seen }).toEqual({ label, seen: 1 });
+async function checkPathOneShotDeclaration(): Promise<void> {
+  const pathRoot = stateRoot();
+  const workDir = join(pathRoot, "..", "work");
+  mkdirSync(workDir, { recursive: true });
+  const fileA = join(workDir, "target-a.txt");
+  const fileB = join(workDir, "target-b.txt");
+  writeFileSync(fileA, "v1");
+  writeFileSync(fileB, "v1");
+  const pathOldA = await seedUnresolved(pathRoot, {
+    scope: { resources: [{ resource: "cfg", path: fileA }] },
+  });
+  const pathOldB = await seedUnresolved(pathRoot, {
+    scope: { resources: [{ resource: "cfg", path: fileB }] },
+  });
+  const pathCounts = new Map<string, number>();
+  const pathHealed = await runHost({
+    root: pathRoot,
+    declaration: () => buildOneShotPathDeclaration(fileA, fileB, pathCounts),
+  });
+  expect(pathHealed.outcome?.kind).toBe("ran");
+  expect(pathHealed.envelope.result.superseded).toEqual([pathOldA]);
+  expect(existsSync(join(pathRoot, "operations", pathOldB, "closure"))).toBe(
+    false,
+  );
+  expect(existsSync(join(pathRoot, "settled", pathOldB))).toBe(false);
+  for (const [label, seen] of pathCounts)
+    expect({ label, seen }).toEqual({ label, seen: 1 });
+}
+
+supportingTest(
+  "SU20.proxy-read-count-once: flagged runs read each distinct caller object and array length once, reusing the first read for repeated and shared references",
+  async () => {
+    await checkKeyOneShotDeclaration();
+    await checkPathOneShotDeclaration();
   },
 );
 

@@ -21,10 +21,12 @@ import {
   canonicalisePlain,
   conflicts,
   coversDeclaredResources,
+  createOnceReader,
   currentKeys,
   readPlainScope,
+  readPlainStrings,
 } from "./scope.ts";
-import type { CanonicalScope, ScopeDeclaration } from "./scope.ts";
+import type { CanonicalScope, OnceReader, ScopeDeclaration } from "./scope.ts";
 import {
   appendDelegateStart,
   appendEvent,
@@ -821,18 +823,24 @@ function isFlaggedDeclaration(declaration: Declaration): boolean {
 
 const snapshotDepthLimit = 64;
 
+type SnapshotState = {
+  readonly reader: OnceReader;
+  readonly visiting: Set<object>;
+  readonly copies: Map<object, unknown>;
+};
+
 function snapshotArray(
   source: readonly unknown[],
   depth: number,
-  seen: Set<object>,
+  state: SnapshotState,
 ): readonly unknown[] {
   const out: unknown[] = [];
-  const length = source.length;
+  const length = state.reader.length(source);
   for (let index = 0; index < length; index += 1) {
     const copy = snapshotValue(
-      ownProperty(source, String(index)),
+      state.reader.field(source, String(index)),
       depth + 1,
-      seen,
+      state,
     );
     out.push(copy === undefined ? null : copy);
   }
@@ -842,11 +850,15 @@ function snapshotArray(
 function snapshotObject(
   source: object,
   depth: number,
-  seen: Set<object>,
+  state: SnapshotState,
 ): Readonly<Record<string, unknown>> {
   const out: Record<string, unknown> = {};
-  for (const key of Object.keys(source)) {
-    const copy = snapshotValue(ownProperty(source, key), depth + 1, seen);
+  for (const key of state.reader.keys(source)) {
+    const copy = snapshotValue(
+      state.reader.field(source, key),
+      depth + 1,
+      state,
+    );
     if (copy === undefined) continue;
     Object.defineProperty(out, key, {
       value: copy,
@@ -858,43 +870,51 @@ function snapshotObject(
   return Object.freeze(out);
 }
 
-function snapshotValue(
-  value: unknown,
-  depth: number,
-  seen: Set<object>,
-): unknown {
-  if (
+function isPrimitiveJson(value: unknown): boolean {
+  return (
     value === null ||
     typeof value === "boolean" ||
     typeof value === "number" ||
     typeof value === "string"
-  )
-    return value;
+  );
+}
+
+function snapshotValue(
+  value: unknown,
+  depth: number,
+  state: SnapshotState,
+): unknown {
+  if (isPrimitiveJson(value)) return value;
   if (
     typeof value !== "object" ||
+    value === null ||
     depth > snapshotDepthLimit ||
-    seen.has(value)
+    state.visiting.has(value)
   )
     return undefined;
-  seen.add(value);
+  if (state.copies.has(value)) return state.copies.get(value);
+  state.visiting.add(value);
   try {
-    return Array.isArray(value)
-      ? snapshotArray(value, depth, seen)
-      : snapshotObject(value, depth, seen);
+    const copy = Array.isArray(value)
+      ? snapshotArray(value, depth, state)
+      : snapshotObject(value, depth, state);
+    state.copies.set(value, copy);
+    return copy;
   } finally {
-    seen.delete(value);
+    state.visiting.delete(value);
   }
 }
 
 function snapshotRevisions(
   raw: unknown,
+  reader: OnceReader,
 ): Readonly<Record<string, string>> | undefined {
   if (raw === undefined) return Object.freeze({});
   if (typeof raw !== "object" || raw === null || Array.isArray(raw))
     return undefined;
   const out: Record<string, string> = {};
-  for (const key of Object.keys(raw)) {
-    const value = ownProperty(raw, key);
+  for (const key of reader.keys(raw)) {
+    const value = reader.field(raw, key);
     if (typeof value !== "string") return undefined;
     Object.defineProperty(out, key, {
       value,
@@ -906,37 +926,35 @@ function snapshotRevisions(
   return Object.freeze(out);
 }
 
-function snapshotEffects(raw: unknown): readonly string[] | undefined {
-  if (!Array.isArray(raw)) return undefined;
-  const out: string[] = [];
-  const length = raw.length;
-  for (let index = 0; index < length; index += 1) {
-    const item = ownProperty(raw, String(index));
-    if (typeof item !== "string") return undefined;
-    out.push(item);
-  }
-  return Object.freeze(out);
-}
-
-function ownField<T extends object, K extends keyof T>(
+function readOwnTyped<T extends object, K extends keyof T & string>(
   source: T,
   key: K,
+  reader: OnceReader,
 ): T[K] | undefined {
-  return Object.hasOwn(source, key) ? source[key] : undefined;
+  const present = Object.hasOwn(source, key);
+  const value = present ? source[key] : undefined;
+  reader.recordOwn(source, key, present, value);
+  return value;
 }
 
-function snapshotApprovalRequest(rawRequest: ApprovalRequest):
+function snapshotApprovalRequest(
+  rawRequest: ApprovalRequest,
+  reader: OnceReader,
+):
   | {
       readonly request: ApprovalRequest;
       readonly resource: string;
       readonly preview: string | undefined;
     }
   | undefined {
-  const authority = ownField(rawRequest, "authority");
-  const resource = ownField(rawRequest, "resource");
-  const resourceRevision = ownField(rawRequest, "resourceRevision");
-  const effects = snapshotEffects(ownField(rawRequest, "effects"));
-  const rawPreview = ownField(rawRequest, "preview");
+  const authority = readOwnTyped(rawRequest, "authority", reader);
+  const resource = readOwnTyped(rawRequest, "resource", reader);
+  const resourceRevision = readOwnTyped(rawRequest, "resourceRevision", reader);
+  const effects = readPlainStrings(
+    readOwnTyped(rawRequest, "effects", reader),
+    reader,
+  );
+  const rawPreview = readOwnTyped(rawRequest, "preview", reader);
   if (
     typeof authority !== "string" ||
     typeof resource !== "string" ||
@@ -957,13 +975,13 @@ function snapshotApprovalRequest(rawRequest: ApprovalRequest):
 
 function snapshotApproval(
   declaration: Declaration,
+  reader: OnceReader,
 ): ApprovalSnapshot | undefined | "invalid" {
-  if (!Object.hasOwn(declaration, "approval")) return undefined;
-  const approval = ownField(declaration, "approval");
+  const approval = readOwnTyped(declaration, "approval", reader);
   if (approval === undefined) return undefined;
   if (typeof approval !== "object" || approval === null) return "invalid";
-  const runtime = ownField(approval, "runtime");
-  const rawRequest = ownField(approval, "request");
+  const runtime = readOwnTyped(approval, "runtime", reader);
+  const rawRequest = readOwnTyped(approval, "request", reader);
   if (
     typeof runtime !== "object" ||
     runtime === null ||
@@ -971,7 +989,7 @@ function snapshotApproval(
     rawRequest === null
   )
     return "invalid";
-  const parsed = snapshotApprovalRequest(rawRequest);
+  const parsed = snapshotApprovalRequest(rawRequest, reader);
   return parsed === undefined
     ? "invalid"
     : Object.freeze({ runtime, ...parsed });
@@ -982,22 +1000,30 @@ function readFlaggedDeclaration(
   commandIdentity: string,
 ): DeclarationSnapshot | undefined {
   if (commandIdentity.length === 0) return undefined;
-  const declaredCommand = ownProperty(declaration, "command");
+  const reader = createOnceReader();
+  reader.recordOwn(declaration, "supersedeUnresolved", true, true);
+  const declaredCommand = reader.field(declaration, "command");
   if (typeof declaredCommand !== "string" || declaredCommand.length === 0)
     return undefined;
-  if (!Object.hasOwn(declaration, "scope")) return undefined;
-  const scope = canonicalisePlain(
-    readPlainScope(ownProperty(declaration, "scope")),
+  const scopeEntry = reader.own(declaration, "scope");
+  if (!scopeEntry.present) return undefined;
+  const approval = snapshotApproval(declaration, reader);
+  if (approval === "invalid") return undefined;
+  const scope = canonicalisePlain(readPlainScope(scopeEntry.value, reader));
+  const revisions = snapshotRevisions(
+    reader.field(declaration, "revisions"),
+    reader,
   );
-  const revisions = snapshotRevisions(ownProperty(declaration, "revisions"));
   if (revisions === undefined) return undefined;
-  const rawFacts = ownProperty(declaration, "facts");
+  const rawFacts = reader.field(declaration, "facts");
   const facts =
     rawFacts === undefined
       ? null
-      : (snapshotValue(rawFacts, 0, new Set()) ?? null);
-  const approval = snapshotApproval(declaration);
-  if (approval === "invalid") return undefined;
+      : (snapshotValue(rawFacts, 0, {
+          reader,
+          visiting: new Set<object>([declaration]),
+          copies: new Map<object, unknown>(),
+        }) ?? null);
   return Object.freeze({
     command: commandIdentity,
     scope,
