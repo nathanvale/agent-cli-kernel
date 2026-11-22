@@ -1,25 +1,29 @@
 diff --git a/kernel/src/kernel/index.ts b/kernel/src/kernel/index.ts
+index 7e5ce1e1..e18d4ea4 100644
 --- a/kernel/src/kernel/index.ts
 +++ b/kernel/src/kernel/index.ts
-@@ -257,8 +257,8 @@ export function contractFor<
-         ? Reflect.get(facts, "transaction")
-         : undefined;
-       if (
--        typeof runId !== "string" ||
--        !proofValue(proof, runId, spec.state) ||
-+        typeof facts.runId !== "string" ||
-+        !proofValue(proof, facts.runId, spec.state) ||
-         proof.transactionState !== station.row.transactionState
-       )
-         return {
-@@ -269,8 +269,8 @@ export function contractFor<
-       runFacts.effects = proof.effects;
-     } else if (
-       command.effectClass !== "inspect" &&
--      typeof runId === "string" &&
--      !proofFreeResultAllowed(runId, spec.state)
-+      typeof facts.runId === "string" &&
-+      !proofFreeResultAllowed(facts.runId, spec.state)
+@@ -241,8 +241,8 @@ export function contractFor<
+       ? Reflect.get(facts, "transaction")
+       : undefined;
+     if (
+-      typeof runId !== "string" ||
+-      !proofValue(proof, runId, spec.state) ||
++      typeof facts.runId !== "string" ||
++      !proofValue(proof, facts.runId, spec.state) ||
+       proof.transactionState !== station.row.transactionState
      )
        return {
-         ok: false,
+@@ -280,8 +280,11 @@ export function contractFor<
+     ) {
+       const problem = applyTransactionProof(runFacts, facts, runId, station);
+       if (problem) return problem;
+-    } else if (command.effectClass !== "inspect" && typeof runId === "string") {
+-      if (!proofFreeResultAllowed(runId, spec.state))
++    } else if (
++      command.effectClass !== "inspect" &&
++      typeof facts.runId === "string"
++    ) {
++      if (!proofFreeResultAllowed(facts.runId, spec.state))
+         return {
+           ok: false,
+           path: "transaction",
