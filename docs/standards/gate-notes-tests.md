@@ -42,6 +42,23 @@ What the gates of the test rows refuse and where, what stays with the reviewer, 
   record whose test title matches more tests than the planted fault reaches.
 - Witnessed: [d72cd9e], [640ba05].
 
+## Fake tools
+
+- The lint catches `symlink`, `symlinkSync`, `link`, `linkSync`, `copyFile`,
+  and `copyFileSync` from `node:fs` or `node:fs/promises` (including aliased
+  and destructured imports, and `const` string or template-literal targets)
+  pointing at a system binary path (`/bin/*`, `/usr/bin/*`, `/usr/local/bin/*`,
+  `/sbin/*`, `/usr/sbin/*`) in template and kernel tests. See
+  [the gate's coverage](gate-coverage.md#fake-tool-lint).
+- Faults `f7adacc-template-stub-tools` and `f7adacc-kernel-stub-tools` skip
+  the system-binary path guard in `config/template-rules.mjs` and
+  `config/kernel-repository-rules.mjs`; the `tests-stub-tools` witness tests
+  kill each.
+- Review only: dynamic target paths computed at runtime, shell commands that
+  link system binaries, and stub scripts that still delegate to an unrelated
+  host binary.
+- Witnessed: [3729f36], [5f0c1d9].
+
 ## Time
 
 - The lint catches delay-only waits. Review the timing controls
@@ -76,3 +93,5 @@ What the gates of the test rows refuse and where, what stays with the reviewer, 
 [7fb5649]: https://github.com/nathanvale/agent-cli-kernel/commit/7fb564900cff191397fdc8d1ba6f20e6807abdde
 [ef76011]: https://github.com/nathanvale/agent-cli-kernel/commit/ef76011bdde8d36064b73bd85550d8efc7fb15a6
 [c02caae]: https://github.com/nathanvale/agent-cli-kernel/commit/c02caae41a3100ab2c8d5272d21a60acb7a0b992
+[3729f36]: https://github.com/nathanvale/bun-typescript-template/commit/3729f3644cb30ea5decc9c085bc6b9c4304eaae4
+[5f0c1d9]: https://github.com/nathanvale/bun-typescript-template/commit/5f0c1d99741751de14f5cb92618eda3bd92e8887

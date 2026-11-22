@@ -61,8 +61,10 @@ runs each test file. What a test must prove is in the
   system binary linked under the tool's name. A linked `/bin/echo` named
   `tsc` exited non-zero on GitHub's Linux runner, and a linked `/bin/sh`
   named `fallow` leaned on a file named `list` to become the script.
-  Witnessed: [3729f36], [5f0c1d9] (Copilot review thread on the same pull
-  request).
+  Lint `repository/tests-stub-tools` refuses static links or copies from
+  system binary directories; review dynamic paths, shell commands, and
+  stubs that still call an unrelated host binary. Witnessed: [3729f36],
+  [5f0c1d9] (Copilot review thread on the same pull request).
 
 ## Time
 

@@ -1,0 +1,12 @@
+diff --git a/config/kernel-repository-rules.mjs b/config/kernel-repository-rules.mjs
+--- a/config/kernel-repository-rules.mjs
++++ b/config/kernel-repository-rules.mjs
+@@ -408,7 +408,7 @@ export const kernelRepositoryPlugin = {
+             )
+               return;
+             const target = staticString(context, args[0]);
+-            if (target === undefined || !systemBinaryPath.test(target)) return;
++            if (target === undefined || systemBinaryPath.test(target)) return;
+             context.report({
+               node: args[0],
+               messageId: "systemBinary",

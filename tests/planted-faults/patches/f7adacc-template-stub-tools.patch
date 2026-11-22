@@ -1,0 +1,12 @@
+diff --git a/config/template-rules.mjs b/config/template-rules.mjs
+--- a/config/template-rules.mjs
++++ b/config/template-rules.mjs
+@@ -505,7 +505,7 @@ export const templatePlugin = {
+             )
+               return;
+             const target = staticString(context, args[0]);
+-            if (target === undefined || !systemBinaryPath.test(target)) return;
++            if (target === undefined || systemBinaryPath.test(target)) return;
+             context.report({
+               node: args[0],
+               messageId: "systemBinary",
