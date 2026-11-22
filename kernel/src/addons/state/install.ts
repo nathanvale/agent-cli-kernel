@@ -139,12 +139,12 @@ export type PublishedOperation = {
 
 export type TransactionResult<Effect extends string> = {
   readonly proof: TransactionProof<Effect>;
+  readonly superseded?: readonly string[];
 } & (
   | {
       readonly kind: "ran";
       readonly operationId: string;
       readonly workFailed: boolean;
-      readonly superseded?: readonly string[];
     }
   | Refusal
 );
@@ -242,20 +242,22 @@ export type HistoryData = {
   readonly closureDamaged: boolean;
 };
 
+type TransactionOutcome = (
+  | Refusal
+  | {
+      readonly kind: "ran";
+      readonly operationId: string;
+      readonly workFailed: boolean;
+    }
+) & { readonly superseded?: readonly string[] };
+
 type Slot =
   | {
       readonly kind: "transaction";
       readonly declaration: Declaration;
       operationId?: string;
       superseded?: readonly string[];
-      outcome?:
-        | Refusal
-        | {
-            readonly kind: "ran";
-            readonly operationId: string;
-            readonly workFailed: boolean;
-            readonly superseded?: readonly string[];
-          };
+      outcome?: TransactionOutcome;
     }
   | {
       readonly kind: "close";
@@ -1207,8 +1209,12 @@ export function install(options: StateOptions, seams: Seams) {
         "Open state transactions through the state add-on's transaction() or close().",
       );
     slots.delete(work);
-    const refuse = (refusal: Refusal): TransactionProof<Effect> => {
-      slot.outcome = refusal;
+    const refuse = (
+      refusal: Refusal,
+      superseded?: readonly string[],
+    ): TransactionProof<Effect> => {
+      slot.outcome =
+        superseded === undefined ? refusal : { ...refusal, superseded };
       return issuer.transactionProof(runId, unchangedObservation<Effect>([]));
     };
     if (!route.available)
@@ -1725,13 +1731,23 @@ export function install(options: StateOptions, seams: Seams) {
     }
   }
 
+  function frozenSuperseded(
+    ids: readonly string[],
+  ): readonly string[] | undefined {
+    return ids.length > 0 ? Object.freeze([...ids].sort()) : undefined;
+  }
+
   async function publishSupersedeClosures(
     gate: WriteGate,
     issuer: StateIssuer,
     runId: string,
     targets: readonly LeasedTarget[],
   ): Promise<
-    | { readonly ok: false; readonly refusal: Refusal }
+    | {
+        readonly ok: false;
+        readonly refusal: Refusal;
+        readonly superseded?: readonly string[];
+      }
     | { readonly ok: true; readonly ids: readonly string[] }
   > {
     const ids: string[] = [];
@@ -1749,7 +1765,12 @@ export function install(options: StateOptions, seams: Seams) {
           });
         },
       );
-      if (problem) return { ok: false, refusal: problem };
+      if (problem) {
+        const superseded = frozenSuperseded(ids);
+        return superseded === undefined
+          ? { ok: false, refusal: problem }
+          : { ok: false, refusal: problem, superseded };
+      }
       await phase("closure-published");
     }
     return { ok: true, ids };
@@ -1781,7 +1802,11 @@ export function install(options: StateOptions, seams: Seams) {
     operations: readonly Operation[],
     targets: readonly LeasedTarget[],
   ): Promise<
-    | { readonly ok: false; readonly refusal: Refusal }
+    | {
+        readonly ok: false;
+        readonly refusal: Refusal;
+        readonly superseded?: readonly string[];
+      }
     | {
         readonly ok: true;
         readonly operationId: string;
@@ -1820,10 +1845,7 @@ export function install(options: StateOptions, seams: Seams) {
       ok: true,
       operationId: opened.operationId,
       events: opened.events,
-      superseded:
-        closed.ids.length > 0
-          ? Object.freeze([...closed.ids].sort())
-          : undefined,
+      superseded: frozenSuperseded(closed.ids),
     };
   }
 
@@ -1899,7 +1921,19 @@ export function install(options: StateOptions, seams: Seams) {
     runId: string,
     declared: readonly string[],
     snapshot: DeclarationSnapshot,
-  ) {
+  ): Promise<
+    | {
+        readonly ok: false;
+        readonly refusal: Refusal;
+        readonly superseded?: readonly string[];
+      }
+    | {
+        readonly ok: true;
+        readonly operationId: string;
+        readonly events: string;
+        readonly superseded: readonly string[] | undefined;
+      }
+  > {
     const keys = snapshot.scope.unknown ? undefined : snapshot.scope.keys;
     const acquired = await acquireInto(owner, paths, keys ?? [], bound, () =>
       phase("admission-wait"),
@@ -1941,7 +1975,10 @@ export function install(options: StateOptions, seams: Seams) {
     declared: readonly Effect[],
     work: (transaction: EffectTransaction<Effect>) => Promise<void>,
     slot: Extract<Slot, { kind: "transaction" }>,
-    refuse: (refusal: Refusal) => TransactionProof<Effect>,
+    refuse: (
+      refusal: Refusal,
+      superseded?: readonly string[],
+    ) => TransactionProof<Effect>,
   ): Promise<TransactionProof<Effect>> {
     if (declared.length === 0 || commandIdentity.length === 0)
       return refuse({ kind: "unavailable", reason: "declaration" });
@@ -1959,10 +1996,13 @@ export function install(options: StateOptions, seams: Seams) {
         declared,
         snapshot,
       );
-      if (!opened.ok) return refuse(opened.refusal);
+      if (!opened.ok) return refuse(opened.refusal, opened.superseded);
       if (!runOpenForSupersede(issuer, runId)) {
         settleUnusedIntent(runId, opened.events, declared);
-        return refuse({ kind: "unavailable", reason: "closure-publication" });
+        return refuse(
+          { kind: "unavailable", reason: "closure-publication" },
+          opened.superseded,
+        );
       }
       slot.operationId = opened.operationId;
       if (opened.superseded !== undefined) slot.superseded = opened.superseded;
@@ -1996,7 +2036,10 @@ export function install(options: StateOptions, seams: Seams) {
     declared: readonly Effect[],
     work: (transaction: EffectTransaction<Effect>) => Promise<void>,
     slot: Extract<Slot, { kind: "transaction" }>,
-    refuse: (refusal: Refusal) => TransactionProof<Effect>,
+    refuse: (
+      refusal: Refusal,
+      superseded?: readonly string[],
+    ) => TransactionProof<Effect>,
   ): Promise<TransactionProof<Effect>> {
     if (isFlaggedDeclaration(slot.declaration))
       return transactFlagged(
