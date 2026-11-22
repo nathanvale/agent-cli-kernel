@@ -53,6 +53,7 @@ import {
 import { testFolder } from "../../support/test-folder.ts";
 import { supportingTest } from "./harness.ts";
 import { spawnBounded } from "../kernel-repair/swarm-process.ts";
+import { deferred } from "../lifecycle/recording-host.ts";
 
 const causes = {
   DOMAIN_SU_LOCK_HELD: refusedHandoff,
@@ -131,7 +132,7 @@ function makeState(options: HostOptions): ReturnType<typeof stateAddon> {
   return stateAddon(stateOptions);
 }
 
-function actorStations(commandId: "su.open" | "su.other") {
+function actorStations<const Id extends "su.open" | "su.other">(commandId: Id) {
   return [
     station(allCauses, {
       ...stationWords,
@@ -1437,4 +1438,374 @@ supportingTest(
       expect(stored.intent.commandIdentity).toBe("su.open");
     }
   },
+);
+
+type AdmissionStop =
+  | {
+      readonly label: string;
+      readonly kind: "phase";
+      readonly phase: Phase;
+      readonly nth: number;
+      readonly expectedClosed: number;
+      readonly beforeIntent: boolean;
+    }
+  | {
+      readonly label: string;
+      readonly kind: "approval";
+      readonly expectedClosed: number;
+      readonly beforeIntent: boolean;
+    };
+
+const deadlineAdmissionStops: readonly AdmissionStop[] = [
+  {
+    label: "admission-wait#1",
+    kind: "phase",
+    phase: "admission-wait",
+    nth: 1,
+    expectedClosed: 0,
+    beforeIntent: true,
+  },
+  {
+    label: "closure-read#1",
+    kind: "phase",
+    phase: "closure-read",
+    nth: 1,
+    expectedClosed: 0,
+    beforeIntent: true,
+  },
+  {
+    label: "closure-read#2",
+    kind: "phase",
+    phase: "closure-read",
+    nth: 2,
+    expectedClosed: 0,
+    beforeIntent: true,
+  },
+  {
+    label: "approval",
+    kind: "approval",
+    expectedClosed: 0,
+    beforeIntent: true,
+  },
+  {
+    label: "staged#1",
+    kind: "phase",
+    phase: "staged",
+    nth: 1,
+    expectedClosed: 0,
+    beforeIntent: false,
+  },
+  {
+    label: "closure-staged#1",
+    kind: "phase",
+    phase: "closure-staged",
+    nth: 1,
+    expectedClosed: 0,
+    beforeIntent: false,
+  },
+  {
+    label: "closure-published#1",
+    kind: "phase",
+    phase: "closure-published",
+    nth: 1,
+    expectedClosed: 1,
+    beforeIntent: false,
+  },
+  {
+    label: "closure-staged#2",
+    kind: "phase",
+    phase: "closure-staged",
+    nth: 2,
+    expectedClosed: 1,
+    beforeIntent: false,
+  },
+  {
+    label: "closure-published#2",
+    kind: "phase",
+    phase: "closure-published",
+    nth: 2,
+    expectedClosed: 2,
+    beforeIntent: false,
+  },
+];
+
+function pendingInspectCommand() {
+  return command({
+    identity: "su.pending",
+    route: ["pending"],
+    summary: "Pending.",
+    input: emptyInput,
+    capabilities: {},
+    stations: [
+      station(allCauses, {
+        ...stationWords,
+        commandIdentity: "su.pending",
+        causeCode: "SUCCESS_UNCHANGED",
+        trigger: "Read.",
+        repairAction: null,
+        guidance: { next: { kind: "instruction", text: "Inspect." } },
+        independentObservable: "su.pending:read",
+      }),
+    ],
+    run: (_input, context) =>
+      context.result(
+        { commandIdentity: "su.pending", causeCode: "SUCCESS_UNCHANGED" },
+        { message: "Read.", data: null, effects: unchanged },
+      ),
+  });
+}
+
+function buildDeadlineContract(
+  state: ReturnType<typeof stateAddon>,
+  runTransaction: (
+    boundary: Boundary,
+    stateCapability: Parameters<typeof state.transaction<Effects>>[0],
+  ) => Promise<TransactionResult<Effects> | undefined>,
+) {
+  const holder: { boundary?: Boundary } = {};
+  const actor = changing({
+    identity: "su.open",
+    route: ["open"],
+    summary: "Run changing command.",
+    input: { ...emptyInput, deadlineSupported: true as const },
+    capabilities: {},
+    effectClass: "repository-local",
+    effects: defaultEffects,
+    ifNoResult: state.descriptor.ifNoResult,
+    heldLockCause: "DOMAIN_SU_LOCK_HELD",
+    unresolvedCaseCause: "DOMAIN_SU_UNRESOLVED",
+    stations: actorStations("su.open"),
+    run: async (_input, context) => {
+      const boundary = holder.boundary;
+      if (!boundary) throw new Error("Boundary expected.");
+      const outcome = await runTransaction(boundary, context.state);
+      if (outcome === undefined || outcome.kind !== "ran")
+        return context.result(
+          {
+            commandIdentity: "su.open",
+            causeCode:
+              outcome === undefined
+                ? "DOMAIN_SU_UNAVAILABLE"
+                : refusalCause(outcome.kind),
+          },
+          {
+            message: outcome === undefined ? "early-return" : outcome.kind,
+            data: null,
+            effects: unchanged,
+          },
+        );
+      if (outcome.proof.transactionState === "unchanged")
+        return context.result(
+          { commandIdentity: "su.open", causeCode: "DOMAIN_SU_UNAVAILABLE" },
+          { message: "unchanged", data: null, effects: unchanged },
+        );
+      return context.result(
+        {
+          commandIdentity: "su.open",
+          causeCode: ranCause(outcome.proof.transactionState),
+        },
+        {
+          message: outcome.proof.transactionState,
+          data: null,
+          transaction: outcome.proof,
+        },
+      );
+    },
+  });
+  const contract = contractFor({
+    cli: "su",
+    commands: [pendingInspectCommand(), actor],
+    causes: allCauses,
+    state: state.descriptor,
+    installedAddons: ["state"],
+  });
+  holder.boundary = contract.boundary;
+  return contract;
+}
+
+function declarationWithApproval(
+  boundary: Boundary,
+  scope: ScopeDeclaration,
+  onApproval: () => Promise<void>,
+): Declaration {
+  return {
+    command: "su.open",
+    scope,
+    supersedeUnresolved: true,
+    approval: {
+      runtime: {
+        check: () => Promise.resolve(true),
+        revalidateAndConsume: async () => {
+          await onApproval();
+          return { consumed: true };
+        },
+      },
+      request: {
+        authority: boundary.authority("operator"),
+        resource: boundary.resource("doc"),
+        resourceRevision: "v1",
+        effects: [...defaultEffects],
+        preview: "preview-dl",
+      },
+    },
+  };
+}
+
+async function assertCleanRecovery(
+  root: string,
+  scopeBoth: ScopeDeclaration,
+): Promise<void> {
+  const retry = await runHost({
+    root,
+    declaration: () => ({
+      command: "su.open",
+      scope: scopeBoth,
+      supersedeUnresolved: true,
+    }),
+  });
+  expect(retry.outcome?.kind).toBe("ran");
+  expect(retry.state.report()).toEqual({ ok: true, unfinished: [] });
+}
+
+async function runOneDeadlineStop(
+  base: Extract<CoordinationRoute, { readonly available: true }>,
+  stop: AdmissionStop,
+): Promise<void> {
+  const root = stateRoot();
+  const seeded = await seedTwoUnresolved(root);
+  const counter = countingRoute(base);
+  const gate = deferred();
+  const settled = deferred();
+  let seen = 0;
+  const state = stateAddonWithTestSeams(
+    { root, report: "su.pending" },
+    {
+      coordination: counter.route,
+      phase: async (name) => {
+        if (stop.kind === "phase" && name === stop.phase) {
+          seen += 1;
+          if (seen === stop.nth) await gate.promise;
+        }
+      },
+    },
+  );
+  const contract = buildDeadlineContract(state, (boundary, cap) => {
+    const decl = declarationWithApproval(
+      boundary,
+      seeded.scopeBoth,
+      async () => {
+        if (stop.kind === "approval") await gate.promise;
+      },
+    );
+    return state
+      .transaction(cap, decl, async (transaction) => {
+        for (const effect of defaultEffects)
+          await transaction.record(
+            effect,
+            () => Promise.resolve(),
+            () => Promise.resolve(true),
+          );
+      })
+      .finally(() => settled.resolve());
+  });
+  let ran: Awaited<ReturnType<ReturnType<typeof runInProcess>>>;
+  try {
+    ran = await runInProcess(contract, {
+      emergencyRecord: state.emergencyRecord,
+    })(["open", "--deadline-ms", "20"]);
+    if (ran.kind !== "envelope")
+      throw new Error(`Expected envelope for ${stop.label}, got ${ran.kind}.`);
+    const reported = ran.envelope.result.superseded ?? [];
+    expect({
+      label: stop.label,
+      cause: ran.envelope.result.causeCode,
+      count: reported.length,
+      atAnswer: closuresOnDiskByRun(root, ran.runId),
+    }).toEqual({
+      label: stop.label,
+      cause: "DOMAIN_DEADLINE_UNKNOWN",
+      count: stop.expectedClosed,
+      atAnswer: reported,
+    });
+  } finally {
+    gate.resolve();
+  }
+  await settled.promise;
+  expect({
+    label: stop.label,
+    held: counter.held.size,
+    afterSettle: closuresOnDiskByRun(root, ran.runId),
+    ...(stop.beforeIntent
+      ? { operationsCount: readdirSync(layout(root).operations).length }
+      : {}),
+  }).toEqual({
+    label: stop.label,
+    held: 0,
+    afterSettle: ran.envelope.result.superseded ?? [],
+    ...(stop.beforeIntent ? { operationsCount: 2 } : {}),
+  });
+  await assertCleanRecovery(root, seeded.scopeBoth);
+}
+
+async function runEarlyReturnCase(
+  base: Extract<CoordinationRoute, { readonly available: true }>,
+): Promise<void> {
+  const root = stateRoot();
+  const seeded = await seedTwoUnresolved(root);
+  const counter = countingRoute(base);
+  const paused = deferred();
+  const gate = deferred();
+  const settled = deferred();
+  const state = stateAddonWithTestSeams(
+    { root, report: "su.pending" },
+    {
+      coordination: counter.route,
+      phase: async (name) => {
+        if (name === "closure-staged") {
+          paused.resolve();
+          await gate.promise;
+        }
+      },
+    },
+  );
+  const contract = buildDeadlineContract(state, async (boundary, cap) => {
+    const decl = declarationWithApproval(boundary, seeded.scopeBoth, () =>
+      Promise.resolve(),
+    );
+    void state
+      .transaction(cap, decl, () => Promise.resolve())
+      .catch(() => undefined)
+      .finally(() => settled.resolve());
+    await paused.promise;
+    return undefined;
+  });
+  let ran: Awaited<ReturnType<ReturnType<typeof runInProcess>>>;
+  try {
+    ran = await runInProcess(contract, {
+      emergencyRecord: state.emergencyRecord,
+    })(["open"]);
+    if (ran.kind !== "envelope")
+      throw new Error(`Expected envelope, got ${ran.kind}.`);
+    expect(ran.envelope.result.superseded ?? []).toEqual([]);
+    expect(closuresOnDiskByRun(root, ran.runId)).toEqual([]);
+  } finally {
+    gate.resolve();
+  }
+  await settled.promise;
+  expect(closuresOnDiskByRun(root, ran.runId)).toEqual([]);
+  expect(counter.held.size).toBe(0);
+  await assertCleanRecovery(root, seeded.scopeBoth);
+}
+
+supportingTest(
+  "SU25.deadline-sweep-no-closure-after-answer: deadline or early answer at every admission step names every closure on disk and writes none after",
+  async () => {
+    const base = resolveCoordination();
+    if (!base.available) throw new Error("Coordination expected.");
+    await Promise.all(
+      deadlineAdmissionStops.map((stop) => runOneDeadlineStop(base, stop)),
+    );
+    await runEarlyReturnCase(base);
+  },
+  30_000,
 );

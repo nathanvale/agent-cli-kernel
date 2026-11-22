@@ -1,45 +1,30 @@
 diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
 --- a/kernel/src/addons/state/install.ts
 +++ b/kernel/src/addons/state/install.ts
-@@ -1570,6 +1570,16 @@ export function install(options: StateOptions, seams: Seams) {
-         readonly superseded: readonly string[] | undefined;
-       }
-   > {
-+    const ids: string[] = [];
-+    for (const entry of targets) {
-+      const id = entry.target.intent.operationId;
-+      const problem = await publishOneSupersedeClosure(entry, runId, () => {
-+        ids.push(id);
-+        issuer.superseded(runId, id);
-+      });
-+      if (problem) return { ok: false, refusal: problem };
-+      await phase("closure-published");
-+    }
-     let opened: Awaited<ReturnType<typeof begin>>;
-     try {
-       opened = await begin(runId, intent);
-@@ -1582,24 +1592,6 @@ export function install(options: StateOptions, seams: Seams) {
+@@ -1654,6 +1654,8 @@ export function install(options: StateOptions, seams: Seams) {
+         ok: false,
+         refusal: { kind: "unavailable", reason: "closure-publication" },
+       };
++    const closed = await publishSupersedeClosures(issuer, runId, targets);
++    if (!closed.ok) return closed;
+     const opened = await begin(runId, intent).catch(() => undefined);
+     if (!opened)
+       return {
+@@ -1661,17 +1663,6 @@ export function install(options: StateOptions, seams: Seams) {
          refusal: { kind: "unavailable", reason: "store-publication" },
        };
      owner.holdRunLease(opened.releaseLease);
--    const ids: string[] = [];
+-    let closed: Awaited<ReturnType<typeof publishSupersedeClosures>>;
 -    try {
--      for (const entry of targets) {
--        const id = entry.target.intent.operationId;
--        const problem = await publishOneSupersedeClosure(entry, runId, () => {
--          ids.push(id);
--          issuer.superseded(runId, id);
--        });
--        if (problem) {
--          settleUnusedIntent(runId, opened.events, declared);
--          return { ok: false, refusal: problem };
--        }
--        await phase("closure-published");
--      }
+-      closed = await publishSupersedeClosures(issuer, runId, targets);
 -    } catch (error) {
 -      settleUnusedIntent(runId, opened.events, declared);
 -      throw error;
 -    }
-     const refreshed = ids.length > 0 ? readStore(paths) : undefined;
+-    if (!closed.ok) {
+-      settleUnusedIntent(runId, opened.events, declared);
+-      return closed;
+-    }
+     const refreshed = closed.ids.length > 0 ? readStore(paths) : undefined;
      moveSettled(refreshed?.ok ? refreshed.operations : operations);
      owner.releaseAdmission();

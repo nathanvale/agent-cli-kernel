@@ -62,7 +62,11 @@ export type StateIssuer = {
     scope: string,
     isActive: () => boolean,
   ) => ExclusiveScope;
-  readonly superseded: (runId: string, operationId: string) => void;
+  readonly superseded: (
+    runId: string,
+    operationId: string,
+    commit?: () => boolean,
+  ) => void;
 };
 const routes = new WeakSet<object>();
 type AttachedRun = {
@@ -279,7 +283,11 @@ function stateIssuer(
       scopes.set(issued, { runId, stateInstance, run, isActive });
       return issued;
     },
-    superseded(runId: string, operationId: string): void {
+    superseded(
+      runId: string,
+      operationId: string,
+      commit?: () => boolean,
+    ): void {
       const execution = active.getStore();
       if (!execution || execution.runId !== runId)
         throw new Error(
@@ -292,7 +300,12 @@ function stateIssuer(
         throw new Error(
           "Recording a superseded operation requires the active attached run.",
         );
-      attached.superseded.add(operationId);
+      if (attached.closed) throw new Error(closedReason[attached.closed]);
+      if (commit === undefined) {
+        attached.superseded.add(operationId);
+        return;
+      }
+      if (commit()) attached.superseded.add(operationId);
     },
   });
 }

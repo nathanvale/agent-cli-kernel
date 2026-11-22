@@ -1550,7 +1550,7 @@ export function install(options: StateOptions, seams: Seams) {
   async function publishOneSupersedeClosure(
     entry: LeasedTarget,
     runId: string,
-    onLinked: () => void,
+    commitLink: (link: () => boolean) => void,
   ): Promise<Refusal | undefined> {
     const id = entry.target.intent.operationId;
     try {
@@ -1558,7 +1558,7 @@ export function install(options: StateOptions, seams: Seams) {
         paths,
         supersededClosureFor(entry.target, runId),
         () => phase("closure-staged"),
-        onLinked,
+        commitLink,
       );
       return published === "published"
         ? undefined
@@ -1579,6 +1579,45 @@ export function install(options: StateOptions, seams: Seams) {
     active.delete(runId);
   }
 
+  function runOpenForSupersede(
+    issuer: StateIssuer,
+    runId: string,
+    targets: readonly LeasedTarget[],
+  ): boolean {
+    const first = targets[0];
+    if (!first) return true;
+    try {
+      issuer.superseded(runId, first.target.intent.operationId, () => false);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async function publishSupersedeClosures(
+    issuer: StateIssuer,
+    runId: string,
+    targets: readonly LeasedTarget[],
+  ): Promise<
+    | { readonly ok: false; readonly refusal: Refusal }
+    | { readonly ok: true; readonly ids: readonly string[] }
+  > {
+    const ids: string[] = [];
+    for (const entry of targets) {
+      const id = entry.target.intent.operationId;
+      const problem = await publishOneSupersedeClosure(entry, runId, (link) => {
+        issuer.superseded(runId, id, () => {
+          if (!link()) return false;
+          ids.push(id);
+          return true;
+        });
+      });
+      if (problem) return { ok: false, refusal: problem };
+      await phase("closure-published");
+    }
+    return { ok: true, ids };
+  }
+
   async function openFlaggedTransaction(
     owner: LockOwner,
     issuer: StateIssuer,
@@ -1596,44 +1635,40 @@ export function install(options: StateOptions, seams: Seams) {
         readonly superseded: readonly string[] | undefined;
       }
   > {
-    let opened: Awaited<ReturnType<typeof begin>>;
-    try {
-      opened = await begin(runId, intent);
-    } catch {
-      opened = undefined;
-    }
+    if (!runOpenForSupersede(issuer, runId, targets))
+      return {
+        ok: false,
+        refusal: { kind: "unavailable", reason: "closure-publication" },
+      };
+    const opened = await begin(runId, intent).catch(() => undefined);
     if (!opened)
       return {
         ok: false,
         refusal: { kind: "unavailable", reason: "store-publication" },
       };
     owner.holdRunLease(opened.releaseLease);
-    const ids: string[] = [];
+    let closed: Awaited<ReturnType<typeof publishSupersedeClosures>>;
     try {
-      for (const entry of targets) {
-        const id = entry.target.intent.operationId;
-        const problem = await publishOneSupersedeClosure(entry, runId, () => {
-          ids.push(id);
-          issuer.superseded(runId, id);
-        });
-        if (problem) {
-          settleUnusedIntent(runId, opened.events, declared);
-          return { ok: false, refusal: problem };
-        }
-        await phase("closure-published");
-      }
+      closed = await publishSupersedeClosures(issuer, runId, targets);
     } catch (error) {
       settleUnusedIntent(runId, opened.events, declared);
       throw error;
     }
-    const refreshed = ids.length > 0 ? readStore(paths) : undefined;
+    if (!closed.ok) {
+      settleUnusedIntent(runId, opened.events, declared);
+      return closed;
+    }
+    const refreshed = closed.ids.length > 0 ? readStore(paths) : undefined;
     moveSettled(refreshed?.ok ? refreshed.operations : operations);
     owner.releaseAdmission();
     return {
       ok: true,
       operationId: opened.operationId,
       events: opened.events,
-      superseded: ids.length > 0 ? Object.freeze([...ids].sort()) : undefined,
+      superseded:
+        closed.ids.length > 0
+          ? Object.freeze([...closed.ids].sort())
+          : undefined,
     };
   }
 
