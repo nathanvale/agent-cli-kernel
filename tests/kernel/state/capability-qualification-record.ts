@@ -114,12 +114,10 @@ export function requiredCaseIds(
 
 export type SourceFile = { readonly path: string; readonly bytes: Uint8Array };
 
-const qualifiedFolders = [
-  "kernel/src/addons/programs",
-  "kernel/src/addons/state",
-] as const;
-const stateSeam = "kernel/src/kernel/state-seam.ts";
-const tableFile = "kernel/src/addons/state/capability-qualification-table.ts";
+const kernelSourceFolder = "kernel/src";
+const qualifiedFolders = ["addons/programs", "addons/state"] as const;
+const stateSeam = "kernel/state-seam.ts";
+const tableFile = "addons/state/capability-qualification-table.ts";
 
 export function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -130,17 +128,21 @@ function byPath(left: SourceFile, right: SourceFile): number {
   return left.path < right.path ? -1 : 1;
 }
 
-export function qualifiedSourceFiles(root: string): readonly SourceFile[] {
+export function qualifiedSourceFiles(
+  root: string,
+  sourceFolder: string = kernelSourceFolder,
+): readonly SourceFile[] {
+  const sourceRoot = join(root, sourceFolder);
   const paths = [
     ...qualifiedFolders.flatMap((folder) =>
-      readdirSync(join(root, folder), { withFileTypes: true })
+      readdirSync(join(sourceRoot, folder), { withFileTypes: true })
         .filter((entry) => entry.isFile() && entry.name.endsWith(".ts"))
         .map((entry) => `${folder}/${entry.name}`),
     ),
     stateSeam,
   ].filter((path) => path !== tableFile);
   return paths
-    .map((path) => ({ path, bytes: readFileSync(join(root, path)) }))
+    .map((path) => ({ path, bytes: readFileSync(join(sourceRoot, path)) }))
     .sort(byPath);
 }
 
