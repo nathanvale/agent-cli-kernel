@@ -1,0 +1,17 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1063,7 +1063,12 @@ function snapshotApproval(
+   const consume = (
+     request: ApprovalRequest,
+     coordination: ExclusiveScope,
+-  ): unknown => Reflect.apply(method, runtime, [request, coordination]);
++  ): unknown => {
++    const live: unknown = Reflect.get(runtime, "revalidateAndConsume");
++    return typeof live === "function"
++      ? Reflect.apply(live, runtime, [request, coordination])
++      : undefined;
++  };
+   const thenOf = (value: object): unknown => reader.anyOnce(value, "then");
+   const consumedOf = (value: unknown): unknown =>
+     typeof value === "object" && value !== null

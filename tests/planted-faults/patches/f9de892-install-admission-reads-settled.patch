@@ -7,10 +7,10 @@ diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/instal
  import { join } from "node:path";
  import { contractFor } from "../../kernel/index.ts";
  import type {
-@@ -1185,6 +1186,7 @@ export function install(options: StateOptions, seams: Seams) {
+@@ -1316,6 +1317,7 @@ export function install(options: StateOptions, seams: Seams) {
        );
        if (!held.ok) return held;
-       const upgradeProblem = await upgradeStore(paths, phase);
+       const upgradeProblem = await runStoreUpgrade(gate);
 +      readdirSync(paths.settled);
        const store = readStore(paths);
        const refusal: Refusal | undefined = upgradeProblem

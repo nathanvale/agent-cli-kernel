@@ -1,15 +1,17 @@
 diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
 --- a/kernel/src/addons/state/install.ts
 +++ b/kernel/src/addons/state/install.ts
-@@ -1649,11 +1649,6 @@ export function install(options: StateOptions, seams: Seams) {
+@@ -1789,12 +1789,7 @@ export function install(options: StateOptions, seams: Seams) {
          readonly superseded: readonly string[] | undefined;
        }
    > {
--    if (!runOpenForSupersede(issuer, runId, targets))
+-    if (!runOpenForSupersede(issuer, runId))
 -      return {
 -        ok: false,
 -        refusal: { kind: "unavailable", reason: "closure-publication" },
 -      };
-     const opened = await begin(runId, intent).catch(() => undefined);
+-    const opened = await begin(gate, runId, intent, true).catch(
++    const opened = await begin(unflaggedWriteGate(), runId, intent, true).catch(
+       () => undefined,
+     );
      if (!opened)
-       return {

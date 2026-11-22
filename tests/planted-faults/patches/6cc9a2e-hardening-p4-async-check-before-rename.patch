@@ -1,0 +1,19 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1272,8 +1272,14 @@ export function install(options: StateOptions, seams: Seams) {
+     if (!staged.ok) return undefined;
+     let events: string;
+     try {
++      gate((done) => done(undefined));
+       await phase("staged");
+-      events = commitOperation(gate, paths, operationId, staged.staged);
++      events = commitOperation(
++        unflaggedWriteGate(),
++        paths,
++        operationId,
++        staged.staged,
++      );
+     } catch (error) {
+       staged.releaseLease();
+       if (removeOnFailure) discardStagedOperation(staged.staged);

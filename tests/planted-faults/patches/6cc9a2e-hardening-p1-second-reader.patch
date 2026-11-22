@@ -1,0 +1,14 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1086,7 +1086,9 @@ function readFlaggedDeclaration(
+   if (!scopeEntry.present) return undefined;
+   const approval = snapshotApproval(declaration, reader);
+   if (approval === "invalid") return undefined;
+-  const scope = canonicalisePlain(readPlainScope(scopeEntry.value, reader));
++  const scope = canonicalisePlain(
++    readPlainScope(scopeEntry.value, createOnceReader()),
++  );
+   const revisions = snapshotRevisions(
+     reader.field(declaration, "revisions"),
+     reader,

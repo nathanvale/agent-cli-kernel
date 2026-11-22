@@ -1,22 +1,31 @@
 diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
-index 18e87ed..c68eb33 100644
 --- a/kernel/src/addons/state/install.ts
 +++ b/kernel/src/addons/state/install.ts
-@@ -1358,7 +1358,7 @@ export function install(options: StateOptions, seams: Seams) {
+@@ -2321,12 +2321,17 @@ export function install(options: StateOptions, seams: Seams) {
+     slot: Extract<Slot, { kind: "close" }>,
+   ): Promise<TransactionProof<Effect>> {
+     owner.holdRunLease(opened.releaseLease);
++    const transferred = owner.transferToRun();
+     const { observation } = await runRecorded(
+       gate,
+       issuer,
+       runId,
        declared,
-       {
-         events: opened.events,
--        releaseKeyLocks: admitted.release,
+-      { events: opened.events, ...owner.transferToRun() },
++      {
++        events: opened.events,
 +        releaseKeyLocks: () => undefined,
-         releaseLease: opened.releaseLease,
-       },
++        releaseLease: transferred.releaseLease,
++      },
        (transaction) =>
-@@ -1367,7 +1367,7 @@ export function install(options: StateOptions, seams: Seams) {
-             effect,
+         transaction
+           .record(
+@@ -2334,7 +2339,7 @@ export function install(options: StateOptions, seams: Seams) {
              async () => {
-               const published = await publishClosure(paths, decision, () =>
--                phase("closure-staged"),
-+                phase("closure-staged").then(admitted.release),
-               );
-               await phase("closure-published");
-               return published;
+               const staged = stageClosure(gate, paths, decision);
+               try {
+-                await phase("closure-staged");
++                await phase("closure-staged").then(transferred.releaseKeyLocks);
+               } catch (error) {
+                 discardStagedFile(staged);
+                 throw error;

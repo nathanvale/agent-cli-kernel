@@ -1,0 +1,12 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1794,7 +1794,7 @@ export function install(options: StateOptions, seams: Seams) {
+         ok: false,
+         refusal: { kind: "unavailable", reason: "closure-publication" },
+       };
+-    const opened = await begin(gate, runId, intent, true).catch(
++    const opened = await begin(unflaggedWriteGate(), runId, intent, true).catch(
+       () => undefined,
+     );
+     if (!opened)

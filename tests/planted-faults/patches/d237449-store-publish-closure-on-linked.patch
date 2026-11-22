@@ -1,19 +1,22 @@
 diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
 --- a/kernel/src/addons/state/store.ts
 +++ b/kernel/src/addons/state/store.ts
-@@ -759,13 +759,13 @@ export function publishClosure(
-       return linked;
-     };
-     try {
+@@ -884,16 +884,13 @@ export function commitClosure(
+     return linked;
+   };
+   try {
+-    gate((done) => {
 -      if (commitLink) commitLink(link);
 -      else link();
-+      link();
-     } finally {
-       rmSync(staged, { force: true });
-     }
-     if (state.outcome === "published")
-       flushDirectory(paths.operation(closure.operationId));
-+    if (state.outcome === "published") commitLink?.(() => true);
-     return state.outcome;
-   });
+-      return done(undefined);
+-    });
++    link();
+   } finally {
+     rmSync(staged, { force: true });
+   }
+   if (state.outcome === "published")
+     flushDirectory(paths.operation(operationId));
++  if (state.outcome === "published") commitLink?.(() => true);
+   return state.outcome;
  }
+ 

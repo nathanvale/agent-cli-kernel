@@ -1,22 +1,17 @@
 diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
 --- a/kernel/src/addons/state/store.ts
 +++ b/kernel/src/addons/state/store.ts
-@@ -744,7 +744,6 @@ export function publishClosure(
-   beforeLink: () => Promise<void>,
-   commitLink?: (link: () => boolean) => void,
- ): Promise<"published" | "exists"> {
--  commitLink?.(() => false);
-   const staged = join(paths.staging, `closure-${crypto.randomUUID()}`);
-   writeDurable(
-     staged,
-@@ -759,8 +758,8 @@ export function publishClosure(
-       return linked;
-     };
-     try {
+@@ -884,11 +884,8 @@ export function commitClosure(
+     return linked;
+   };
+   try {
+-    gate((done) => {
 -      if (commitLink) commitLink(link);
 -      else link();
-+      const linked = link();
-+      if (linked) commitLink?.(() => true);
-     } finally {
-       rmSync(staged, { force: true });
-     }
+-      return done(undefined);
+-    });
++    const linked = link();
++    if (linked) commitLink?.(() => true);
+   } finally {
+     rmSync(staged, { force: true });
+   }
