@@ -198,9 +198,12 @@ describe("kernel-free forensics in-process", () => {
     expect(caseA?.nextAction).toContain("operation and its scope");
     expect(caseA?.nextAction).toContain("check the affected resource by hand");
     expect(caseA?.nextAction).toContain(
+      "If the command declares supersedeUnresolved, its next run closes this case as outcome unknown",
+    );
+    expect(caseA?.nextAction).toContain(
       "only if the CLI offers a close command on a host qualified for it",
     );
-    expect(caseA?.nextAction).toContain("otherwise the case stays unresolved");
+    expect(caseA?.nextAction).toContain("or it stays unresolved");
     expect(caseA?.nextAction).not.toContain("live locks");
     expect(inspected.report.nextAction).toBe(caseA?.nextAction ?? null);
     expect(inspected.report.summary).toContain("Next:");
