@@ -58,13 +58,22 @@ export type Match =
     }
   | { readonly matched: false; readonly detail: string };
 
+export type LocalFilesystemCheck =
+  | { readonly allowed: true }
+  | { readonly allowed: false; readonly detail: string };
+
 // Interface: `bootIdentity` reads the boot identity now, with a test entry's
 // override, and is undefined when it cannot be read or is empty. A matched
-// Match carries the boot identity that same match read.
+// Match carries the boot identity that same match read. `localFilesystem` checks
+// whether the state root sits on a local filesystem whose lock is honoured.
 export type Qualification = {
   readonly source: "production" | "fixture";
   readonly match: (root: string, primitive: string | undefined) => Match;
   readonly bootIdentity: () => string | undefined;
+  readonly localFilesystem: (
+    root: string,
+    primitive: string | undefined,
+  ) => LocalFilesystemCheck;
 };
 
 function attempt<T>(read: () => T): Fact<T> {
@@ -251,6 +260,55 @@ function matchFacts(
   };
 }
 
+// Platform: Linux <linux/magic.h> f_type values for local filesystems that
+// honour flock(2): btrfs, ext2/3/4, xfs, tmpfs, zfs, f2fs, and bcachefs.
+// Refuses NFS (0x6969), SMB/CIFS (0x517B, 0xFE534D42, 0xFF534D42), overlay
+// (0x794C7630), FUSE (0x65735546), 9p (0x01021997), and unknown types.
+const linuxLocalFilesystems: ReadonlySet<number> = new Set([
+  0x9123683e, 0xef53, 0x58465342, 0x01021994, 0x2fc12fc1, 0xf2f52010,
+  0xca451a4e,
+]);
+
+// Platform: Darwin assigns statfs f_type numbers per boot by VFS registration
+// order, while the root volume "/" is always mounted on the local APFS boot
+// filesystem. Matching the root volume's observed f_type accepts local APFS
+// volumes across macOS releases while rejecting network mounts (NFS, SMB, AFP,
+// WebDAV) and unknown filesystems without needing FFI or subprocesses.
+function darwinLocalFilesystemType(): number | undefined {
+  try {
+    return statfsSync("/").type;
+  } catch {
+    return undefined;
+  }
+}
+
+function localFilesystemAllowed(os: string, type: number): boolean {
+  if (os === "linux") return linuxLocalFilesystems.has(type);
+  if (os === "darwin") return type === darwinLocalFilesystemType();
+  return false;
+}
+
+function checkLocalFilesystem(facts: EnvironmentFacts): LocalFilesystemCheck {
+  if (!facts.primitive.read)
+    return {
+      allowed: false,
+      detail: `coordination route ${facts.primitive.why}`,
+    };
+  const devices = deviceProblem(facts);
+  if (devices !== undefined) return { allowed: false, detail: devices };
+  if (!facts.filesystem.read)
+    return {
+      allowed: false,
+      detail: `filesystem unreadable (${facts.filesystem.why})`,
+    };
+  if (localFilesystemAllowed(facts.os, facts.filesystem.value))
+    return { allowed: true };
+  return {
+    allowed: false,
+    detail: `os ${facts.os}, filesystem ${hex(facts.filesystem.value)} is not a supported local filesystem for coordination locks`,
+  };
+}
+
 function qualificationOver(
   source: Qualification["source"],
   rows: readonly CapabilityQualificationRow[],
@@ -262,6 +320,8 @@ function qualificationOver(
     match: (root: string, primitive: string | undefined) =>
       matchFacts(rows, readFacts(root, primitive, overrides), label),
     bootIdentity: () => bootIdentityOf(overrides),
+    localFilesystem: (root: string, primitive: string | undefined) =>
+      checkLocalFilesystem(readFacts(root, primitive, overrides)),
   });
 }
 

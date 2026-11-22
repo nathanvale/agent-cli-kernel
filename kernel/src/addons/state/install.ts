@@ -16,7 +16,7 @@ import type {
 import { waitLock } from "./coordination.ts";
 import type { CoordinationRoute, LockAttempt } from "./coordination.ts";
 import type { CapabilityReport, Qualification } from "./qualification.ts";
-import { canonicalise, conflicts, currentKeys } from "./scope.ts";
+import { canonicalise, conflicts, covers, currentKeys } from "./scope.ts";
 import type { CanonicalScope, ScopeDeclaration } from "./scope.ts";
 import {
   appendDelegateStart,
@@ -74,11 +74,21 @@ export type StateOptions = {
   readonly admissionWaitMilliseconds?: number;
 };
 
+export const supersededQualification = "superseded-owner-lease-free";
+export const supersedeFilesystemReason = "supersede-filesystem-unsupported";
+
 export type Declaration = {
   readonly command: string;
   readonly scope: ScopeDeclaration;
   readonly revisions?: Readonly<Record<string, string>>;
   readonly facts?: unknown;
+  // Interface: Opt-in declaration that this changing command is safe to run
+  // again even alongside a leftover copy of the program an earlier run started.
+  // An effect that creates something new is safe to repeat only if its name or
+  // key comes from the inputs, not from the fresh operationId; a request the
+  // earlier run already sent can still land after the new run's, so only the
+  // remote side can deduplicate it with an input-derived key.
+  readonly supersedeUnresolved?: boolean;
   readonly approval?: {
     readonly runtime: ApprovalRuntime;
     readonly request: ApprovalRequest;
@@ -101,7 +111,11 @@ export type Refusal =
 // Interface: What the work function learns about its published operation before any
 // effect runs. `operationId` is the identity an Observer is later handed, so a
 // host can label an outside object with it and find that label as evidence.
-export type PublishedOperation = { readonly operationId: string };
+// `superseded`, when present, lists the earlier operation ids closed by this run.
+export type PublishedOperation = {
+  readonly operationId: string;
+  readonly superseded?: readonly string[];
+};
 
 export type TransactionResult<Effect extends string> = {
   readonly proof: TransactionProof<Effect>;
@@ -110,6 +124,7 @@ export type TransactionResult<Effect extends string> = {
       readonly kind: "ran";
       readonly operationId: string;
       readonly workFailed: boolean;
+      readonly superseded?: readonly string[];
     }
   | Refusal
 );
@@ -212,12 +227,14 @@ type Slot =
       readonly kind: "transaction";
       readonly declaration: Declaration;
       operationId?: string;
+      superseded?: readonly string[];
       outcome?:
         | Refusal
         | {
             readonly kind: "ran";
             readonly operationId: string;
             readonly workFailed: boolean;
+            readonly superseded?: readonly string[];
           };
     }
   | {
@@ -640,7 +657,21 @@ function liveClosers(
   return closers;
 }
 
-function probeLease(paths: Locked, id: string): "live" | "free" {
+type SupersedeRule = {
+  readonly command: string;
+  readonly keys: readonly string[] | undefined;
+};
+
+type LeasedTarget = {
+  readonly target: Operation;
+  readonly release: () => void;
+};
+
+function releaseAll(leased: readonly LeasedTarget[]): void {
+  for (const entry of leased) entry.release();
+}
+
+function probeLease(paths: Locked, id: string): "live" | "free" | "failed" {
   const attempt = paths.tryLock(
     join(paths.operation(id), "owner.lease"),
     false,
@@ -649,24 +680,73 @@ function probeLease(paths: Locked, id: string): "live" | "free" {
     attempt.release();
     return "free";
   }
-  return attempt.kind === "busy" ? "live" : "free";
+  return attempt.kind === "busy" ? "live" : "failed";
+}
+
+function canSupersede(
+  operation: Operation,
+  rule: SupersedeRule | undefined,
+): boolean {
+  return (
+    rule !== undefined &&
+    operation.intent.commandIdentity === rule.command &&
+    covers(rule.keys, currentKeys(operation.intent.scope)) &&
+    !operation.recordHiddenInTornTail &&
+    !operation.closureDamaged
+  );
+}
+
+function unresolvedVerdict(
+  paths: Locked,
+  operation: Operation,
+  closers: ReadonlyMap<string, string>,
+  supersede: SupersedeRule | undefined,
+): Refusal | "skip" | "unresolved" {
+  const id = operation.intent.operationId;
+  const lease = probeLease(paths, id);
+  if (lease === "live")
+    return { kind: "held-lock", operationId: closers.get(id) ?? id };
+  if (supersede === undefined) return "unresolved";
+  if (lease === "failed")
+    return { kind: "unavailable", reason: "lease-unreadable" };
+  return canSupersede(operation, supersede) ? "skip" : "unresolved";
+}
+
+function isConflictingUnresolved(
+  operation: Operation,
+  keys: readonly string[] | undefined,
+  except: string | undefined,
+): boolean {
+  return (
+    operation.status === "unresolved" &&
+    operation.intent.operationId !== except &&
+    conflicts(keys, currentKeys(operation.intent.scope))
+  );
 }
 
 function blocking(
   paths: Locked,
   operations: readonly Operation[],
   keys: readonly string[] | undefined,
-  options: { readonly liveOnly: boolean; readonly except?: string },
+  options: {
+    readonly liveOnly: boolean;
+    readonly except?: string;
+    readonly supersede?: SupersedeRule;
+  },
 ): Refusal | undefined {
   const closers = liveClosers(paths, operations);
   let unresolved: string | undefined;
   for (const operation of operations) {
-    const id = operation.intent.operationId;
-    if (operation.status !== "unresolved" || id === options.except) continue;
-    if (!conflicts(keys, currentKeys(operation.intent.scope))) continue;
-    if (probeLease(paths, id) === "live")
-      return { kind: "held-lock", operationId: closers.get(id) ?? id };
-    unresolved ??= id;
+    if (!isConflictingUnresolved(operation, keys, options.except)) continue;
+    const verdict = unresolvedVerdict(
+      paths,
+      operation,
+      closers,
+      options.supersede,
+    );
+    if (verdict === "skip") continue;
+    if (verdict === "unresolved") unresolved ??= operation.intent.operationId;
+    else return verdict;
   }
   return unresolved === undefined || options.liveOnly
     ? undefined
@@ -816,7 +896,11 @@ export function install(options: StateOptions, seams: Seams) {
   async function coordinate(
     keys: readonly string[] | undefined,
     lockKeys: readonly string[],
-    check: { readonly liveOnly: boolean; readonly except?: string },
+    check: {
+      readonly liveOnly: boolean;
+      readonly except?: string;
+      readonly supersede?: SupersedeRule;
+    },
   ): Promise<
     | { readonly ok: false; readonly refusal: Refusal }
     | {
@@ -1020,6 +1104,287 @@ export function install(options: StateOptions, seams: Seams) {
     return { observation, workFailed };
   }
 
+  function supersedeCandidates(
+    operations: readonly Operation[],
+    rule: SupersedeRule,
+  ): readonly Operation[] {
+    return operations.filter(
+      (operation) =>
+        operation.status === "unresolved" && canSupersede(operation, rule),
+    );
+  }
+
+  function rereadForSupersede(
+    target: Operation,
+    rule: SupersedeRule,
+  ):
+    | { readonly ok: false; readonly refusal: Refusal }
+    | { readonly ok: true; readonly target: Operation } {
+    const id = target.intent.operationId;
+    const fresh = readCase(paths, id);
+    if (typeof fresh === "string")
+      return {
+        ok: false,
+        refusal:
+          fresh === "not-found"
+            ? { kind: "unresolved-case", operationId: id }
+            : { kind: "unavailable", reason: `store-${fresh}` },
+      };
+    if (
+      fresh.status !== "unresolved" ||
+      fresh.revision !== target.revision ||
+      !canSupersede(fresh, rule)
+    )
+      return {
+        ok: false,
+        refusal: { kind: "unresolved-case", operationId: id },
+      };
+    return { ok: true, target: fresh };
+  }
+
+  async function leaseSupersedeTarget(
+    target: Operation,
+    rule: SupersedeRule,
+  ): Promise<
+    | { readonly ok: false; readonly refusal: Refusal }
+    | { readonly ok: true; readonly leased: LeasedTarget }
+  > {
+    const id = target.intent.operationId;
+    await phase("closure-read");
+    const lease = paths.tryLock(
+      join(paths.operation(id), "owner.lease"),
+      false,
+    );
+    if (lease.kind === "busy")
+      return { ok: false, refusal: { kind: "held-lock", operationId: id } };
+    if (lease.kind === "failed")
+      return {
+        ok: false,
+        refusal: { kind: "unavailable", reason: "lease-unreadable" },
+      };
+    const fresh = rereadForSupersede(target, rule);
+    if (!fresh.ok) {
+      lease.release();
+      return fresh;
+    }
+    return {
+      ok: true,
+      leased: { target: fresh.target, release: lease.release },
+    };
+  }
+
+  async function leaseSupersedeTargets(
+    operations: readonly Operation[],
+    rule: SupersedeRule | undefined,
+  ): Promise<
+    | { readonly ok: false; readonly refusal: Refusal }
+    | { readonly ok: true; readonly targets: readonly LeasedTarget[] }
+  > {
+    if (rule === undefined) return { ok: true, targets: [] };
+    const candidates = supersedeCandidates(operations, rule);
+    if (candidates.length === 0) return { ok: true, targets: [] };
+    const fsCheck = seams.qualification.localFilesystem(
+      paths.root,
+      route.available ? route.route : undefined,
+    );
+    if (!fsCheck.allowed)
+      return {
+        ok: false,
+        refusal: {
+          kind: "unavailable",
+          reason: supersedeFilesystemReason,
+          detail: fsCheck.detail,
+        },
+      };
+    const leased: LeasedTarget[] = [];
+    for (const candidate of candidates) {
+      const acquired = await leaseSupersedeTarget(candidate, rule);
+      if (!acquired.ok) {
+        releaseAll(leased);
+        return acquired;
+      }
+      leased.push(acquired.leased);
+    }
+    return { ok: true, targets: leased };
+  }
+
+  function supersededClosureFor(target: Operation, runId: string): Closure {
+    return {
+      operationId: target.intent.operationId,
+      closureId: `superseded-${hex32().slice(0, 16)}`,
+      disposition: "outcome-unknown",
+      reason: "superseded by later run of the same command",
+      evidence: target.intent.effects.map((effect) => ({
+        effect,
+        observation: supersededQualification,
+      })),
+      authority: null,
+      journalRevision: target.revision,
+      qualification: supersededQualification,
+      recoveryRunId: runId,
+    };
+  }
+
+  async function publishOneSupersedeClosure(
+    entry: LeasedTarget,
+    runId: string,
+  ): Promise<Refusal | undefined> {
+    const id = entry.target.intent.operationId;
+    try {
+      const published = await publishClosure(
+        paths,
+        supersededClosureFor(entry.target, runId),
+        () => phase("closure-staged"),
+      );
+      return published === "published"
+        ? undefined
+        : { kind: "unresolved-case", operationId: id };
+    } catch {
+      return { kind: "unavailable", reason: "closure-publication" };
+    } finally {
+      entry.release();
+    }
+  }
+
+  async function publishSupersedeClosures(
+    targets: readonly LeasedTarget[],
+    runId: string,
+  ): Promise<
+    | { readonly ok: false; readonly refusal: Refusal }
+    | { readonly ok: true; readonly ids: readonly string[] }
+  > {
+    const ids: string[] = [];
+    for (let index = 0; index < targets.length; index += 1) {
+      const entry = targets[index];
+      if (!entry) continue;
+      const problem = await publishOneSupersedeClosure(entry, runId);
+      if (problem) {
+        releaseAll(targets.slice(index + 1));
+        return { ok: false, refusal: problem };
+      }
+      ids.push(entry.target.intent.operationId);
+    }
+    return { ok: true, ids };
+  }
+
+  async function coordinateTransaction(
+    declaration: Declaration,
+    scope: CanonicalScope,
+  ) {
+    const keys = scope.unknown ? undefined : scope.keys;
+    const supersede: SupersedeRule | undefined =
+      declaration.supersedeUnresolved === true
+        ? { command: declaration.command, keys }
+        : undefined;
+    const admitted = await coordinate(keys, keys ?? [], {
+      liveOnly: false,
+      ...(supersede === undefined ? {} : { supersede }),
+    });
+    return { admitted, supersede };
+  }
+
+  async function prepareTransaction(
+    issuer: StateIssuer,
+    runId: string,
+    declaration: Declaration,
+    scope: CanonicalScope,
+    admitted: {
+      readonly operations: readonly Operation[];
+      readonly isActive: () => boolean;
+    },
+    supersede: SupersedeRule | undefined,
+  ): Promise<
+    | { readonly ok: false; readonly refusal: Refusal }
+    | {
+        readonly ok: true;
+        readonly targets: readonly LeasedTarget[];
+        readonly approval: Intent["approval"];
+      }
+  > {
+    const leased = await leaseSupersedeTargets(admitted.operations, supersede);
+    if (!leased.ok) return leased;
+    const approval = await consumeApproval(
+      issuer,
+      runId,
+      declaration,
+      scope,
+      admitted.isActive,
+    );
+    if (approval !== null && approval.kind !== "preview") {
+      releaseAll(leased.targets);
+      return { ok: false, refusal: approval };
+    }
+    return { ok: true, targets: leased.targets, approval };
+  }
+
+  async function openTransaction(
+    runId: string,
+    declared: readonly string[],
+    intent: Omit<Intent, "operationId" | "runId" | "owner">,
+    admitted: {
+      readonly held: Acquired;
+      readonly operations: readonly Operation[];
+    },
+    targets: readonly LeasedTarget[],
+  ): Promise<
+    | { readonly ok: false; readonly refusal: Refusal }
+    | {
+        readonly ok: true;
+        readonly opened: NonNullable<Awaited<ReturnType<typeof begin>>>;
+        readonly superseded: readonly string[] | undefined;
+      }
+  > {
+    let opened: Awaited<ReturnType<typeof begin>>;
+    try {
+      opened = await begin(runId, intent);
+    } catch {
+      opened = undefined;
+    }
+    if (!opened) {
+      releaseAll(targets);
+      admitted.held.admission.release();
+      return {
+        ok: false,
+        refusal: { kind: "unavailable", reason: "store-publication" },
+      };
+    }
+    const closed = await publishSupersedeClosures(targets, runId);
+    if (!closed.ok) {
+      finish(opened.events, unchangedObservation(declared));
+      active.delete(runId);
+      opened.releaseLease();
+      admitted.held.admission.release();
+      return closed;
+    }
+    const refreshed = closed.ids.length > 0 ? readStore(paths) : undefined;
+    moveSettled(refreshed?.ok ? refreshed.operations : admitted.operations);
+    admitted.held.admission.release();
+    const superseded =
+      closed.ids.length > 0 ? Object.freeze([...closed.ids].sort()) : undefined;
+    return { ok: true, opened, superseded };
+  }
+
+  function finishTransaction<Effect extends string>(
+    issuer: StateIssuer,
+    runId: string,
+    slot: Extract<Slot, { kind: "transaction" }>,
+    operationId: string,
+    superseded: readonly string[] | undefined,
+    observation: StateObservation<Effect>,
+    workFailed: boolean,
+  ): TransactionProof<Effect> {
+    slot.outcome = {
+      kind: "ran",
+      operationId,
+      workFailed,
+      ...(superseded === undefined ? {} : { superseded }),
+    };
+    return issuer.transactionProof(
+      runId,
+      superseded === undefined ? observation : { ...observation, superseded },
+    );
+  }
+
   async function transact<Effect extends string>(
     issuer: StateIssuer,
     runId: string,
@@ -1032,52 +1397,65 @@ export function install(options: StateOptions, seams: Seams) {
     if (declared.length === 0 || declaration.command.length === 0)
       return refuse({ kind: "unavailable", reason: "declaration" });
     const scope: CanonicalScope = canonicalise(declaration.scope);
-    const keys = scope.unknown ? undefined : scope.keys;
-    const admitted = await coordinate(keys, keys ?? [], { liveOnly: false });
+    const { admitted, supersede } = await coordinateTransaction(
+      declaration,
+      scope,
+    );
     if (!admitted.ok) return refuse(admitted.refusal);
-    const approval = await consumeApproval(
+    const prepared = await prepareTransaction(
       issuer,
       runId,
       declaration,
       scope,
-      admitted.isActive,
+      admitted,
+      supersede,
     );
-    if (approval !== null && approval.kind !== "preview") {
+    if (!prepared.ok) {
       admitted.release();
-      return refuse(approval);
+      return refuse(prepared.refusal);
     }
-    const opened = await open(
+    const opened = await openTransaction(
       runId,
+      declared,
       {
         commandIdentity: declaration.command,
         effects: [...new Set<string>(declared)].sort(),
         scope,
         revisions: { ...declaration.revisions },
         facts: declaration.facts ?? null,
-        approval,
+        approval: prepared.approval,
         closes: null,
         coordination: admitted.held.order,
       },
       admitted,
+      prepared.targets,
     );
-    if (!opened) {
+    if (!opened.ok) {
       admitted.release();
-      return refuse({ kind: "unavailable", reason: "store-publication" });
+      return refuse(opened.refusal);
     }
-    slot.operationId = opened.operationId;
+    slot.operationId = opened.opened.operationId;
+    if (opened.superseded !== undefined) slot.superseded = opened.superseded;
     const { observation, workFailed } = await runRecorded(
       issuer,
       runId,
       declared,
       {
-        events: opened.events,
+        events: opened.opened.events,
         releaseKeyLocks: admitted.release,
-        releaseLease: opened.releaseLease,
+        releaseLease: opened.opened.releaseLease,
       },
       work,
     );
-    slot.outcome = { kind: "ran", operationId: opened.operationId, workFailed };
-    return issuer.transactionProof(runId, observation);
+    return finishTransaction(
+      issuer,
+      runId,
+      slot,
+      opened.opened.operationId,
+      opened.superseded,
+      observation,
+      workFailed,
+    );
   }
 
   function finish<Effect extends string>(
@@ -1406,7 +1784,15 @@ export function install(options: StateOptions, seams: Seams) {
               "Work runs only after the state add-on publishes its operation.",
             ),
           )
-        : work(inner, Object.freeze({ operationId: slot.operationId }));
+        : work(
+            inner,
+            Object.freeze({
+              operationId: slot.operationId,
+              ...(slot.superseded === undefined
+                ? {}
+                : { superseded: slot.superseded }),
+            }),
+          );
     slots.set(marker, slot);
     const proof = await capability.transaction(marker);
     const outcome = slot.outcome;

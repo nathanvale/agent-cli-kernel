@@ -178,3 +178,13 @@ export function conflicts(
   const set = new Set(left);
   return right.some((key) => set.has(key));
 }
+
+export function covers(
+  superset: readonly string[] | undefined,
+  subset: readonly string[] | undefined,
+): boolean {
+  if (superset === undefined || subset === undefined || subset.length === 0)
+    return false;
+  const set = new Set(superset);
+  return subset.every((key) => set.has(key));
+}

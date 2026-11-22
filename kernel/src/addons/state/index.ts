@@ -19,10 +19,16 @@
 //   before a version 2 program first runs a changing command there; replacing
 //   the installed programs is not enough. The add-on cannot detect such a
 //   process (journal version 2 design part 1 section 3).
-import { install } from "./install.ts";
+import {
+  install,
+  supersededQualification,
+  supersedeFilesystemReason,
+} from "./install.ts";
 import type { StateOptions } from "./install.ts";
 import { resolveCoordination } from "./coordination.ts";
 import { resolveQualification } from "./qualification.ts";
+
+export { supersededQualification, supersedeFilesystemReason };
 
 export type {
   CloseResult,
