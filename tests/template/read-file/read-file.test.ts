@@ -31,6 +31,29 @@ function scratch(): string {
   return dir;
 }
 
+function expectThrownCode(run: () => unknown, expected: string): void {
+  let caught: unknown;
+  try {
+    run();
+  } catch (error) {
+    caught = error;
+  }
+  expect(errorCode(caught)).toBe(expected);
+}
+
+function withLockedPath(
+  path: string,
+  restoreMode: number,
+  check: () => void,
+): void {
+  chmodSync(path, 0o000);
+  try {
+    check();
+  } finally {
+    chmodSync(path, restoreMode);
+  }
+}
+
 afterEach(() => {
   while (folders.length > 0) {
     const dir = folders.pop();
@@ -58,7 +81,7 @@ test("errorCode reads own string codes and absence predicates accept only ENOENT
   expect(isMissingDirectoryError({ code: "EACCES" })).toBe(false);
 });
 
-test("readOptionalUtf8 returns undefined only on absence and rethrows EISDIR and EACCES", () => {
+test("readOptionalUtf8 returns undefined only on absence and rethrows EISDIR", () => {
   const dir = scratch();
   const present = join(dir, "present.txt");
   const missing = join(dir, "missing.txt");
@@ -70,21 +93,22 @@ test("readOptionalUtf8 returns undefined only on absence and rethrows EISDIR and
   expect(readOptionalUtf8(present)).toBe("hello\n");
   expect(readOptionalUtf8(missing)).toBeUndefined();
   expect(readOptionalUtf8(throughFile)).toBeUndefined();
-  expect(() => readOptionalUtf8(subfolder)).toThrow(/EISDIR|directory/i);
-
-  if (process.getuid?.() !== 0) {
-    const locked = join(dir, "locked.txt");
-    writeFileSync(locked, "secret");
-    chmodSync(locked, 0o000);
-    try {
-      expect(() => readOptionalUtf8(locked)).toThrow(/EACCES|permission/i);
-    } finally {
-      chmodSync(locked, 0o600);
-    }
-  }
+  expectThrownCode(() => readOptionalUtf8(subfolder), "EISDIR");
 });
 
-test("readOptionalDirectory returns undefined only on ENOENT and rethrows ENOTDIR and EACCES", () => {
+test.skipIf(process.getuid?.() === 0)(
+  "readOptionalUtf8 rethrows EACCES on an unreadable file",
+  () => {
+    const dir = scratch();
+    const locked = join(dir, "locked.txt");
+    writeFileSync(locked, "secret");
+    withLockedPath(locked, 0o600, () => {
+      expectThrownCode(() => readOptionalUtf8(locked), "EACCES");
+    });
+  },
+);
+
+test("readOptionalDirectory returns undefined only on ENOENT and rethrows ENOTDIR", () => {
   const dir = scratch();
   const folder = join(dir, "items");
   const file = join(dir, "plain.txt");
@@ -96,50 +120,50 @@ test("readOptionalDirectory returns undefined only on ENOENT and rethrows ENOTDI
   expect(readOptionalDirectory(folder)?.map((entry) => entry.name)).toEqual([
     "a.json",
   ]);
-  expect(() => readOptionalDirectory(file)).toThrow(/ENOTDIR|not a directory/i);
+  expectThrownCode(() => readOptionalDirectory(file), "ENOTDIR");
+});
 
-  if (process.getuid?.() !== 0) {
+test.skipIf(process.getuid?.() === 0)(
+  "readOptionalDirectory rethrows EACCES on an unreadable directory",
+  () => {
+    const dir = scratch();
     const lockedDir = join(dir, "locked-dir");
     mkdirSync(lockedDir);
-    chmodSync(lockedDir, 0o000);
-    try {
-      expect(() => readOptionalDirectory(lockedDir)).toThrow(
-        /EACCES|permission/i,
-      );
-    } finally {
-      chmodSync(lockedDir, 0o700);
-    }
-  }
-});
+    withLockedPath(lockedDir, 0o700, () => {
+      expectThrownCode(() => readOptionalDirectory(lockedDir), "EACCES");
+    });
+  },
+);
 
 test("folderFiles refuses a regular file or symlink loop instead of reading it as empty", () => {
   const dir = scratch();
   writeFileSync(join(dir, "records"), "not a folder");
-  expect(() => folderFiles(dir, "records", "fault record")).toThrow(
-    /ENOTDIR|not a directory/i,
+  expectThrownCode(
+    () => folderFiles(dir, "records", "fault record"),
+    "ENOTDIR",
   );
 
   const loopA = join(dir, "loop-a");
   const loopB = join(dir, "loop-b");
   symlinkSync(loopB, loopA);
   symlinkSync(loopA, loopB);
-  expect(() => folderFiles(dir, "loop-a", "fault record")).toThrow(
-    /ELOOP|symbolic links/i,
-  );
+  expectThrownCode(() => folderFiles(dir, "loop-a", "fault record"), "ELOOP");
 });
 
 test("patchText refuses a directory or symlink loop instead of reporting a missing patch", () => {
   const dir = scratch();
   mkdirSync(join(dir, "as-folder.patch"));
-  expect(() =>
-    patchText(dir, { id: "demo", patch: "as-folder.patch" }),
-  ).toThrow(/EISDIR|directory/i);
+  expectThrownCode(
+    () => patchText(dir, { id: "demo", patch: "as-folder.patch" }),
+    "EISDIR",
+  );
 
   const loopA = join(dir, "loop-a.patch");
   const loopB = join(dir, "loop-b.patch");
   symlinkSync(loopB, loopA);
   symlinkSync(loopA, loopB);
-  expect(() => patchText(dir, { id: "demo", patch: "loop-a.patch" })).toThrow(
-    /ELOOP|symbolic links/i,
+  expectThrownCode(
+    () => patchText(dir, { id: "demo", patch: "loop-a.patch" }),
+    "ELOOP",
   );
 });

@@ -58,10 +58,15 @@ What the gates of the repository rows refuse and where, what stays with the revi
 - Fault `a84ba6f-read-file-absent` treats every file-read error as absent;
   fault `a84ba6f-read-file-missing-dir` treats every directory-read error as
   absent; fault `a84ba6f-read-file-own-code` reads inherited prototype `code`
-  values. `tests/template/read-file/read-file.test.ts` kills all three.
-- Review only: readers outside those scripts (including `kernel/` and
-  `skills/`), git command exit-code checks, and required-input reads.
-- Witnessed: [ff852e8], [5048d5e], [0ab74b8].
+  values; fault `a84ba6f-planted-fault-folders-read` reverts `folderFiles`
+  to `existsSync`; fault `a84ba6f-planted-fault-patch-read` reverts
+  `patchText` to `existsSync`. `tests/template/read-file/read-file.test.ts`
+  kills all five.
+- Review only: readers outside those faulted paths (including
+  `scripts/planted-fault-folders.ts`'s legacy-list check, other scripts,
+  `kernel/`, and `skills/`), git command exit-code checks, and
+  required-input reads.
+- Witnessed: [a84ba6f], [ff852e8], [5048d5e], [0ab74b8].
 
 ## One owner
 
@@ -118,6 +123,7 @@ when adding, fixing, or pruning a lint hit.
 [r4580070979]: https://github.com/nathanvale/bun-typescript-template/pull/6#discussion_r4580070979
 [r4580077776]: https://github.com/nathanvale/bun-typescript-template/pull/6#discussion_r4580077776
 [r4606943328]: https://github.com/nathanvale/bun-typescript-template/pull/80#discussion_r4606943328
+[a84ba6f]: https://github.com/nathanvale/agent-cli-kernel/commit/a84ba6f3d4575ae99f51f79845f29403b9bb04a7
 [ff852e8]: https://github.com/nathanvale/agent-cli-kernel/commit/ff852e8f0daed7dc23fc8b092043ab2ddff68c8d
 [5048d5e]: https://github.com/nathanvale/agent-cli-kernel/commit/5048d5e01932fa8ab9c177e351f33423cb507c1e
 [0ab74b8]: https://github.com/nathanvale/agent-cli-kernel/commit/0ab74b894857b6b741be277e2f2fd41764e96cd2
