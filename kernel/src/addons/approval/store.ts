@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import { constants } from "node:fs";
-import { lstat, open } from "node:fs/promises";
+import { closeSync, constants, fsyncSync, openSync, writeSync } from "node:fs";
+import { lstat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { errorCode } from "./read.ts";
 import { ApprovalRejection } from "./rejection.ts";
@@ -23,13 +23,10 @@ export async function isConsumed(path: string): Promise<boolean> {
   }
 }
 
-export async function consumeOnce(
-  path: string,
-  record: string,
-): Promise<boolean> {
-  let handle;
+export function consumeOnceSync(path: string, record: string): boolean {
+  let descriptor: number;
   try {
-    handle = await open(
+    descriptor = openSync(
       path,
       constants.O_WRONLY |
         constants.O_CREAT |
@@ -43,29 +40,32 @@ export async function consumeOnce(
   }
   let failure: { readonly error: unknown } | undefined;
   try {
-    await handle.writeFile(record);
-    await handle.sync();
+    const bytes = Buffer.from(record, "utf8");
+    let offset = 0;
+    while (offset < bytes.byteLength)
+      offset += writeSync(descriptor, bytes, offset);
+    fsyncSync(descriptor);
   } catch (error) {
     failure = { error };
   }
   try {
-    await handle.close();
+    closeSync(descriptor);
   } catch (error) {
     failure ??= { error };
   }
   if (failure)
     throw new ApprovalRejection("durability-unconfirmed", failure.error);
-  await syncDirectory(dirname(path));
+  syncDirectorySync(dirname(path));
   return true;
 }
 
-async function syncDirectory(directory: string): Promise<void> {
+function syncDirectorySync(directory: string): void {
   try {
-    const handle = await open(directory, constants.O_RDONLY);
+    const descriptor = openSync(directory, constants.O_RDONLY);
     try {
-      await handle.sync();
+      fsyncSync(descriptor);
     } finally {
-      await handle.close();
+      closeSync(descriptor);
     }
   } catch (error) {
     throw new ApprovalRejection("durability-unconfirmed", error);

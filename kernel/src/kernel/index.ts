@@ -556,6 +556,7 @@ export type {
   ResourceId,
   ParsedPath,
   IfNoResult,
+  OpenWrite,
   RecordedEffect,
   TransactionProof,
   EffectTransaction,

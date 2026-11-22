@@ -48,9 +48,10 @@ import { encodeRecord } from "../../../kernel/src/addons/state/framing.ts";
 import { stoppedOwnerProblem } from "../../../kernel/src/addons/state/install.ts";
 import {
   appendDelegateStart,
-  appendEvent,
+  appendStartedEvent,
   layout,
   readCase,
+  unflaggedWriteGate,
 } from "../../../kernel/src/addons/state/store.ts";
 import {
   emptyInput,
@@ -617,6 +618,7 @@ supportingTest(
     const root = stateRoot();
     const oldId = await seedUnresolved(root);
     appendDelegateStart(
+      unflaggedWriteGate(),
       join(root, "operations", oldId, "events"),
       "editor.launch",
       "same-boot-id",
@@ -717,7 +719,8 @@ supportingTest(
       phase: (name) => {
         phases.push(name);
         if (name === "closure-read")
-          appendEvent(
+          appendStartedEvent(
+            unflaggedWriteGate(),
             join(root, "operations", oldId, "events"),
             "effect-started",
             { effect: "editor.launch" },
@@ -993,6 +996,7 @@ supportingTest(
     const root = stateRoot();
     const oldId = await seedUnresolved(root);
     appendDelegateStart(
+      unflaggedWriteGate(),
       join(root, "operations", oldId, "events"),
       "editor.launch",
       "boot-current",
@@ -1029,6 +1033,7 @@ supportingTest(
     const root = stateRoot();
     const oldId = await seedUnresolved(root);
     appendDelegateStart(
+      unflaggedWriteGate(),
       join(root, "operations", oldId, "events"),
       "editor.launch",
       "boot-current",

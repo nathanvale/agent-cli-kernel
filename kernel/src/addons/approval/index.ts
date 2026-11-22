@@ -10,7 +10,7 @@ import type {
   Handoff,
   StateAddonDescriptor,
 } from "../../kernel/index.ts";
-import { consumeOnce, isConsumed, itemKey, markerPath } from "./store.ts";
+import { consumeOnceSync, isConsumed, itemKey, markerPath } from "./store.ts";
 import { readUntrusted } from "./read.ts";
 import type { RecordFacts } from "./read.ts";
 import { parseClosure, parseGrant, parseStop, sameSet } from "./records.ts";
@@ -57,7 +57,7 @@ async function consumeHeld(
   const marker = await current();
   if (marker === undefined) return false;
   if (!stillHeld()) throw new ApprovalRejection("coordination-not-held");
-  const consumed = await consumeOnce(marker, record());
+  const consumed = consumeOnceSync(marker, record());
   if (consumed && !stillHeld())
     throw new ApprovalRejection("coordination-lost");
   return consumed;

@@ -1493,7 +1493,7 @@ const deadlineAdmissionStops: readonly AdmissionStop[] = [
     phase: "staged",
     nth: 1,
     expectedClosed: 0,
-    beforeIntent: false,
+    beforeIntent: true,
   },
   {
     label: "closure-staged#1",

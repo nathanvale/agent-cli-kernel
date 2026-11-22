@@ -1,13 +1,15 @@
 diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
-index a056567..48aa8ba 100644
 --- a/kernel/src/addons/state/store.ts
 +++ b/kernel/src/addons/state/store.ts
-@@ -681,7 +681,7 @@ export function publishClosure(
+@@ -861,10 +861,7 @@ export function stageClosure(
+ ): string {
    const staged = join(paths.staging, `closure-${crypto.randomUUID()}`);
-   writeDurable(
-     staged,
--    encodeRecord(recordKinds.closure, { ...closure, settledAt: Date.now() }),
-+    encodeRecord(recordKinds.closure, closure),
-   );
-   return beforeLink().then(() => {
-     try {
+   return gate((done) => {
+-    writeDurable(
+-      staged,
+-      encodeRecord(recordKinds.closure, { ...closure, settledAt: Date.now() }),
+-    );
++    writeDurable(staged, encodeRecord(recordKinds.closure, closure));
+     return done(staged);
+   });
+ }

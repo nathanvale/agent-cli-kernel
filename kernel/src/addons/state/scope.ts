@@ -1,5 +1,10 @@
-import { lstatSync, readlinkSync, realpathSync, statSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path";
+import {
+  readLinkStats as lstatSync,
+  readLinkTarget as readlinkSync,
+  readPathStats as statSync,
+  resolveRealPath as realpathSync,
+} from "./store.ts";
 
 export type ResourceDeclaration =
   | { readonly resource: string; readonly path: string }
@@ -173,12 +178,20 @@ const emptyStrings: readonly string[] = Object.freeze([]);
 
 type OwnRead = { readonly present: boolean; readonly value: unknown };
 
+type CachedRead = {
+  ownPresent?: boolean;
+  ownValue?: unknown;
+  anyResolved?: boolean;
+  anyValue?: unknown;
+};
+
 export type OnceReader = {
   readonly own: (
     source: object,
     key: string,
   ) => { readonly present: boolean; readonly value: unknown };
   readonly field: (source: object, key: string) => unknown;
+  readonly anyOnce: (source: object, key: string) => unknown;
   readonly length: (source: readonly unknown[]) => number;
   readonly keys: (source: object) => readonly string[];
   readonly recordOwn: (
@@ -190,14 +203,14 @@ export type OnceReader = {
 };
 
 export function createOnceReader(): OnceReader {
-  const fields = new Map<object, Map<string, OwnRead>>();
+  const fields = new Map<object, Map<string, CachedRead>>();
   const lengths = new Map<object, number>();
   const keyLists = new Map<object, readonly string[]>();
 
-  const slot = (source: object): Map<string, OwnRead> => {
+  const slot = (source: object): Map<string, CachedRead> => {
     let table = fields.get(source);
     if (!table) {
-      table = new Map<string, OwnRead>();
+      table = new Map<string, CachedRead>();
       fields.set(source, table);
     }
     return table;
@@ -206,17 +219,43 @@ export function createOnceReader(): OnceReader {
   const own = (source: object, key: string): OwnRead => {
     const table = slot(source);
     const cached = table.get(key);
-    if (cached) return cached;
-    const entry: OwnRead = Object.hasOwn(source, key)
-      ? { present: true, value: Reflect.get(source, key) }
-      : { present: false, value: undefined };
-    table.set(key, entry);
-    return entry;
+    if (cached?.ownPresent !== undefined)
+      return { present: cached.ownPresent, value: cached.ownValue };
+    if (Object.hasOwn(source, key)) {
+      const value: unknown = cached?.anyResolved
+        ? cached.anyValue
+        : Reflect.get(source, key);
+      table.set(key, {
+        ownPresent: true,
+        ownValue: value,
+        anyResolved: true,
+        anyValue: value,
+      });
+      return { present: true, value };
+    }
+    const next: CachedRead = cached
+      ? { ...cached, ownPresent: false, ownValue: undefined }
+      : { ownPresent: false, ownValue: undefined };
+    table.set(key, next);
+    return { present: false, value: undefined };
+  };
+
+  const anyOnce = (source: object, key: string): unknown => {
+    const table = slot(source);
+    const cached = table.get(key);
+    if (cached?.anyResolved) return cached.anyValue;
+    const value: unknown = Reflect.get(source, key);
+    const next: CachedRead = cached
+      ? { ...cached, anyResolved: true, anyValue: value }
+      : { anyResolved: true, anyValue: value };
+    table.set(key, next);
+    return value;
   };
 
   return {
     own,
     field: (source, key) => own(source, key).value,
+    anyOnce,
     length: (source) => {
       const cached = lengths.get(source);
       if (cached !== undefined) return cached;
@@ -232,7 +271,21 @@ export function createOnceReader(): OnceReader {
       return value;
     },
     recordOwn: (source, key, present, value) => {
-      slot(source).set(key, { present, value });
+      const table = slot(source);
+      const cached = table.get(key);
+      table.set(
+        key,
+        present
+          ? {
+              ownPresent: true,
+              ownValue: value,
+              anyResolved: true,
+              anyValue: value,
+            }
+          : cached
+            ? { ...cached, ownPresent: false, ownValue: undefined }
+            : { ownPresent: false, ownValue: undefined },
+      );
     },
   };
 }
@@ -305,10 +358,7 @@ export function readPlainStrings(
   return Object.freeze(out);
 }
 
-export function readPlainScope(
-  raw: unknown,
-  reader: OnceReader = createOnceReader(),
-): PlainScope {
+export function readPlainScope(raw: unknown, reader: OnceReader): PlainScope {
   if (typeof raw !== "object" || raw === null || Array.isArray(raw))
     return plainUnknownScope;
   if (reader.field(raw, "unknown") === true) return plainUnknownScope;

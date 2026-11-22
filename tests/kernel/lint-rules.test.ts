@@ -1161,3 +1161,82 @@ for (const [filePath, code, lines] of commentCases)
         "Repair: say this in code (a clearer name, a type, a test title, or a lint rule whose message states the constraint), then delete the comment.",
       );
   });
+
+const stateFsCases = [
+  [
+    "kernel/src/addons/state/install.ts",
+    'import { mkdirSync } from "node:fs"; export const a = mkdirSync;',
+    [1],
+  ],
+  [
+    "kernel/src/addons/state/install.ts",
+    'import { readFile } from "node:fs/promises"; export const a = readFile;',
+    [1],
+  ],
+  [
+    "kernel/src/addons/state/scope.ts",
+    'import fs from "fs"; export const a = fs;',
+    [1],
+  ],
+  [
+    "kernel/src/addons/state/qualification.ts",
+    'import * as fsp from "fs/promises"; export const a = fsp;',
+    [1],
+  ],
+  [
+    "kernel/src/addons/state/install.ts",
+    'export { mkdirSync } from "node:fs";',
+    [1],
+  ],
+  [
+    "kernel/src/addons/state/install.ts",
+    'export * from "node:fs/promises";',
+    [1],
+  ],
+  [
+    "kernel/src/addons/state/install.ts",
+    'export const a = () => import("node:fs");',
+    [1],
+  ],
+  [
+    "kernel/src/addons/state/install.ts",
+    "export const a = () => import(`node:fs/promises`);",
+    [1],
+  ],
+  [
+    "kernel/src/addons/state/install.ts",
+    'const name = "node:" + "fs"; export const a = () => import(name);',
+    [1],
+  ],
+  [
+    "kernel/src/addons/state/install.ts",
+    "export const a = (name: string) => import(name);",
+    [1],
+  ],
+  [
+    "kernel/src/addons/state/install.ts",
+    'export const a = () => process.getBuiltinModule("node:fs");',
+    [1],
+  ],
+  [
+    "kernel/src/addons/state/store.ts",
+    'import { mkdirSync } from "node:fs"; export const a = mkdirSync;',
+    [],
+  ],
+  [
+    "kernel/src/addons/state/coordination.ts",
+    'import { openSync } from "node:fs"; export const a = openSync;',
+    [],
+  ],
+  [
+    "kernel/src/addons/state/install.ts",
+    'import { join } from "node:path"; export const a = join;',
+    [],
+  ],
+] as const;
+
+for (const [filePath, code, lines] of stateFsCases)
+  test(`state-no-fs-import ${lines.length > 0 ? "refuses" : "admits"} ${JSON.stringify(code)} in ${filePath}`, async () => {
+    const found = await hits("state-no-fs-import", filePath, code);
+    expect(found.map(({ line }) => line)).toEqual([...lines]);
+  });

@@ -51,7 +51,7 @@ export const capabilityQualificationTable: readonly CapabilityQualificationRow[]
         review: {
           session: "local_53bccc9d-ec76-4ea2-b1e4-b495caa37fca",
           countersignature: "Nathan Vale",
-          date: "2026-11-22",
+          date: "2026-11-23",
         },
       },
     },

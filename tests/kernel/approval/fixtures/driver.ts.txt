@@ -1,3 +1,5 @@
+import { mock } from "bun:test";
+import * as nodeFs from "node:fs";
 import {
   appendFileSync,
   closeSync,
@@ -7,7 +9,6 @@ import {
   readFileSync,
   writeSync,
 } from "node:fs";
-import { open, unlink } from "node:fs/promises";
 import { createInterface } from "node:readline";
 import {
   changing,
@@ -225,25 +226,23 @@ async function untyped(
   return fields(result);
 }
 
-async function failCloseAfter(marker: string): Promise<void> {
-  const sample = await open(marker.concat(".probe"), "w");
-  const prototype: unknown = Object.getPrototypeOf(sample);
-  await sample.close();
-  await unlink(marker.concat(".probe"));
-  if (typeof prototype !== "object" || prototype === null)
-    throw new Error("No FileHandle prototype.");
-  const original: unknown = Reflect.get(prototype, "close");
-  if (typeof original !== "function") throw new Error("No close method.");
+function failCloseAfter(marker: string): void {
+  const original = { ...nodeFs };
   let armed = true;
-  Reflect.set(prototype, "close", async function (this: unknown) {
-    await Reflect.apply(original, this, []);
-    if (armed && existsSync(marker)) {
-      armed = false;
-      const failure = new Error("Injected close failure.");
-      Reflect.set(failure, "code", "EIO");
-      throw failure;
-    }
-  });
+  const wrapped: Record<string, unknown> = {
+    ...original,
+    closeSync(descriptor: number): void {
+      original.closeSync(descriptor);
+      if (armed && original.existsSync(marker)) {
+        armed = false;
+        const failure = new Error("Injected close failure.");
+        Reflect.set(failure, "code", "EIO");
+        throw failure;
+      }
+    },
+  };
+  wrapped.default = wrapped;
+  void mock.module("node:fs", () => wrapped);
 }
 
 async function apply(map: Fields): Promise<void> {
@@ -280,7 +279,7 @@ async function apply(map: Fields): Promise<void> {
   if (!held) return emit({ phase: "lock-refused" });
   emit({ phase: "acquired" });
   await barrier("after-acquire", settings.barriers);
-  if (closeFailure) await failCloseAfter(closeFailure);
+  if (closeFailure) failCloseAfter(closeFailure);
   let consumed: boolean;
   try {
     const current = request(revision(place), !dropPreview);

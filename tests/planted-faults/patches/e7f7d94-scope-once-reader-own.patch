@@ -1,16 +1,21 @@
 diff --git a/kernel/src/addons/state/scope.ts b/kernel/src/addons/state/scope.ts
 --- a/kernel/src/addons/state/scope.ts
 +++ b/kernel/src/addons/state/scope.ts
-@@ -202,8 +202,6 @@ export function createOnceReader(): OnceReader {
- 
+@@ -219,12 +219,8 @@ export function createOnceReader(): OnceReader {
    const own = (source: object, key: string): OwnRead => {
      const table = slot(source);
--    const cached = table.get(key);
--    if (cached) return cached;
-     const entry: OwnRead = Object.hasOwn(source, key)
-       ? { present: true, value: Reflect.get(source, key) }
-       : { present: false, value: undefined };
-@@ -260,7 +258,6 @@ function readPlainResource(
+     const cached = table.get(key);
+-    if (cached?.ownPresent !== undefined)
+-      return { present: cached.ownPresent, value: cached.ownValue };
+     if (Object.hasOwn(source, key)) {
+-      const value: unknown = cached?.anyResolved
+-        ? cached.anyValue
+-        : Reflect.get(source, key);
++      const value: unknown = Reflect.get(source, key);
+       table.set(key, {
+         ownPresent: true,
+         ownValue: value,
+@@ -316,7 +312,6 @@ function readPlainResource(
  ): PlainResource | undefined {
    if (typeof raw !== "object" || raw === null || Array.isArray(raw))
      return undefined;

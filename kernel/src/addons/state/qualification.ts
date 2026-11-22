@@ -1,9 +1,13 @@
-import { lstatSync, readFileSync, statfsSync } from "node:fs";
 import { release } from "node:os";
 import { capabilityQualificationTable } from "./capability-qualification-table.ts";
 import type { CapabilityQualificationRow } from "./capability-qualification-table.ts";
 import { errorCode } from "./coordination.ts";
-import { layout } from "./store.ts";
+import {
+  layout,
+  readFilesystemStats as statfsSync,
+  readLinkStats as lstatSync,
+  readStoreFile as readFileSync,
+} from "./store.ts";
 
 // Interface: the capability qualification run command uses these two, so a
 // capability qualification record carries the add-on's own values: the boot

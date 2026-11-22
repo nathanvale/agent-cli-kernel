@@ -1,0 +1,14 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -2054,7 +2054,9 @@ export function install(options: StateOptions, seams: Seams) {
+       ): Promise<T> {
+         if (!declared.includes(effect) || started.includes(effect))
+           throw new Error("Undeclared or already recorded effect.");
+-        appendStartedEvent(gate, events, "effect-started", { effect });
++        appendStartedEvent(unflaggedWriteGate(), events, "effect-started", {
++          effect,
++        });
+         started.push(effect);
+         const lifetime: {
+           state: "active" | "closing";

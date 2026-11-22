@@ -1,0 +1,7 @@
+{
+  "id": "6cc9a2e-hardening-p4-async-check-before-rename",
+  "patch": "tests/planted-faults/patches/6cc9a2e-hardening-p4-async-check-before-rename.patch",
+  "testFile": "tests/kernel/state/supersede-class-detector.test.ts",
+  "title": "^SU28\\.class-detector:",
+  "source": "6cc9a2e feat(state): enforce synchronous write gate and single-read entry on flagged path"
+}

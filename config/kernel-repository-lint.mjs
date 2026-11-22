@@ -22,6 +22,17 @@ export default [
     },
   },
   {
+    files: ["kernel/src/addons/state/**/*.{ts,mts,cts}"],
+    ignores: [
+      "kernel/src/addons/state/store.ts",
+      "kernel/src/addons/state/coordination.ts",
+    ],
+    plugins: { repository },
+    rules: {
+      "repository/state-no-fs-import": "error",
+    },
+  },
+  {
     files: ["tests/kernel/**/*.{ts,mts,cts}"],
     plugins: { repository },
     rules: {
