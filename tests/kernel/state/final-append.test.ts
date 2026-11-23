@@ -10,6 +10,13 @@ import {
 import type { Json, SettlingAppendFault, World } from "./harness.ts";
 
 const apply = ["apply", "a", "--content", "v1", "--json"];
+const childBound = 15_000;
+const harnessBarrierBound = 60_000;
+const runsPerCheck = 14;
+const killsPerCheck = 6;
+const checkBound =
+  runsPerCheck * childBound +
+  killsPerCheck * (harnessBarrierBound + childBound);
 
 type Route = {
   readonly name: string;
@@ -66,6 +73,18 @@ const routesWithFinalAppend: readonly Route[] = [
     },
   },
   {
+    name: "unused-intent refusal after the deadline",
+    kind: "not-applied",
+    run: async (world, fault) => {
+      await seedUnresolved(world);
+      return rawResult(world, [...apply, "--deadline-ms", "3000"], {
+        ...fault,
+        SX_SUPERSEDE: "1",
+        SX_FAULT: "deadline-after-closure",
+      });
+    },
+  },
+  {
     name: "close",
     kind: "completion",
     run: async (world, fault) => {
@@ -97,7 +116,7 @@ supportingTest(
       for (const step of ["write", "flush"] as const) {
         const label = `${route.name} ${step}`;
         const fault: SettlingAppendFault = `${route.kind}-${step}-fails`;
-        const world = makeWorld({ qualification: "fixture" });
+        const world = makeWorld({ qualification: "fixture", childBound });
         try {
           observed[label] = answer(
             await route.run(world, settlingAppendFault(fault)),
@@ -109,5 +128,5 @@ supportingTest(
       }
     expect(observed).toEqual(wanted);
   },
-  120_000,
+  checkBound,
 );

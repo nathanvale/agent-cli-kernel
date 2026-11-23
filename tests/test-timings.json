@@ -88,7 +88,7 @@
     "tests/kernel/state/capability-qualification-run.test.ts": 11751,
     "tests/kernel/state/cases.test.ts": 16,
     "tests/kernel/state/coordination.test.ts": 7230,
-    "tests/kernel/state/final-append.test.ts": 620,
+    "tests/kernel/state/final-append.test.ts": 6740,
     "tests/kernel/state/forensics-contract.test.ts": 806,
     "tests/kernel/state/in-process.test.ts": 1556,
     "tests/kernel/state/journal.test.ts": 14140,
