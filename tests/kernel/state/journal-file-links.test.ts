@@ -3,13 +3,13 @@ import {
   lstatSync,
   mkdirSync,
   readFileSync,
-  readdirSync,
   rmSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
-import { basename, join, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 import ts from "typescript";
+import { treeFiles } from "../../support/lint-rule-folder.ts";
 import {
   closeArgs,
   expectCompleted,
@@ -128,9 +128,9 @@ function fsDeclared(declaration: ts.Declaration | undefined): boolean {
 }
 
 function fileReadCalls(): string[] {
-  const files = readdirSync(stateSource)
-    .filter((name) => name.endsWith(".ts"))
-    .map((name) => join(stateSource, name));
+  const files = treeFiles("**/*.ts", stateSource).map((name) =>
+    join(stateSource, name),
+  );
   const program = ts.createProgram(files, {
     module: ts.ModuleKind.ESNext,
     moduleResolution: ts.ModuleResolutionKind.Bundler,
@@ -153,14 +153,14 @@ function fileReadCalls(): string[] {
             : undefined;
         if (name && fileReaders.has(name) && fsDeclared(declaration))
           found.push(
-            `${basename(path)}: ${node.getText(source).replace(/\s+/g, " ")}`,
+            `${relative(stateSource, path)}: ${node.getText(source).replace(/\s+/g, " ")}`,
           );
       }
       ts.forEachChild(node, visit);
     };
     visit(source);
   }
-  return found;
+  return found.sort();
 }
 
 test("journal file links: every file read in the state add-on reads an open descriptor, except the host boot identity", () => {
