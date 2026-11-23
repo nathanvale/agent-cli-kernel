@@ -1,0 +1,7 @@
+{
+  "id": "a7e39088-custody-dojo-level-unchecked",
+  "patch": "tests/planted-faults/patches/a7e39088-custody-dojo-level-unchecked.patch",
+  "testFile": "tests/kernel/diagnostics/repair.test.ts",
+  "title": "R2\\.cli-directory-symlink-refused: a my-agent-dojo directory redirected by a symlink is refused, nothing written there$",
+  "source": "a7e39088 feat(diagnostics): write the log under my-agent-dojo/<cli>/diagnostics"
+}
