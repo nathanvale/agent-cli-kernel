@@ -28,12 +28,16 @@ and turn on the Fallow boundary gate in the same change.
   `src/shared/` imports (Fallow's `rules` zone refuses project imports outside
   `rules`; the kernel's lint refuses process spawns; a direct `node:fs` import
   is left to review). The name `rules.ts` is reserved: give a command whose
-  verb is `rules` another file name.
+  verb is `rules` another file name. Pure logic that one subject owns and
+  other subjects read, such as a table, goes in that subject's `rules.ts`.
 - Put cause tables, settings, file writes, program adapters and the types
-  they share in **shared edges** under `src/shared/`. A shared edge imports
-  other shared edges and `rules.ts`, never a command or entry file
-  (`subject/shared` refuses those). The folder name `shared` is reserved: name
-  no subject `shared`, or its commands become importable by every subject.
+  they share in **shared edges** under `src/shared/`. Logic two or more
+  subjects use goes there too when it cannot be a `rules.ts`: it imports a
+  shared edge, no one subject owns it, or it would push that `rules.ts` past
+  the file size check. A shared edge imports other shared edges and
+  `rules.ts`, never a command or entry file (Fallow's `shared` zone refuses
+  those). The folder name `shared` is reserved: name no subject `shared`, or
+  its commands become importable by every subject.
 
 ## Tests
 
@@ -49,8 +53,9 @@ A file belongs to the first zone that matches it. Put these zones before any
 existing zone that matches `src/**`, and remove or narrow that zone, or it
 takes every file and the gate refuses nothing.
 
-- `zones`: `{ "name": "entry", "patterns": ["src/cli.ts", "src/commands.ts", "src/commands/**"] }`, `{ "name": "rules", "patterns": ["src/**/rules.ts"] }`, `{ "name": "subject", "autoDiscover": ["src"] }`.
-- `rules`: `{ "from": "entry", "allow": ["entry", "rules", "subject"] }`, `{ "from": "rules", "allow": ["rules"] }`, `{ "from": "subject", "allow": ["rules", "subject/shared"] }`, `{ "from": "subject/shared", "allow": ["rules"] }`.
+- `zones`: `{ "name": "entry", "patterns": ["src/cli.ts", "src/commands.ts", "src/commands/**"] }`, `{ "name": "rules", "patterns": ["src/**/rules.ts"] }`, `{ "name": "shared", "patterns": ["src/shared/**"] }`, `{ "name": "subject", "patterns": ["src/*/**"], "autoDiscover": ["src"] }`.
+- `rules`: `{ "from": "entry", "allow": ["entry", "rules", "shared", "subject"] }`, `{ "from": "rules", "allow": ["rules"] }`, `{ "from": "shared", "allow": ["rules"] }`, `{ "from": "subject", "allow": ["rules", "shared"] }`.
+- The `shared` zone is named by pattern, so these settings load before `src/shared/` exists.
 - `coverage`: `{ "requireAllFiles": true, "allowUnmatched": ["tests/**", "config/**", "eslint.config.mjs"] }`.
 
 Check a file's allowed imports before editing with `node_modules/.bin/fallow guard <file>`, and verify seams with `node_modules/.bin/fallow architecture --boundaries --fail-on-issues` (run by `bun run check` when its Fallow step uses these settings).
