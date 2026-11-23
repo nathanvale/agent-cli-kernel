@@ -25,6 +25,7 @@ import { nodeIo } from "../../../kernel/src/addons/diagnostics/io.ts";
 import { turns } from "../lifecycle/recording-host.ts";
 import {
   cleanTrees,
+  dojo,
   get,
   lines,
   observe,
@@ -75,14 +76,15 @@ function mkfifo(path: string) {
 }
 
 function privateParents(where: Tree) {
-  mkdirSync(join(where.state, "dxs"), { recursive: true, mode: 0o700 });
+  mkdirSync(join(where.state, dojo, "dxs"), { recursive: true, mode: 0o700 });
   chmodSync(where.state, 0o700);
-  chmodSync(join(where.state, "dxs"), 0o700);
+  chmodSync(join(where.state, dojo), 0o700);
+  chmodSync(join(where.state, dojo, "dxs"), 0o700);
 }
 
 describe("D02 private location and modes", () => {
   test(
-    "D02.xdg-location: the log is under $XDG_STATE_HOME/dxs/diagnostics",
+    "D02.xdg-location: the log is under $XDG_STATE_HOME/my-agent-dojo/dxs/diagnostics",
     async () => {
       const where = tree();
       const result = await run({
@@ -93,26 +95,22 @@ describe("D02 private location and modes", () => {
       expectSuccess(result);
       const file = onlyLog(where.dir);
       expect(get(statusOf(result), "file")).toBe(file.path);
+      expect(observe(join(where.state, "dxs")).exists).toBe(false);
       expect(observe(join(where.home, ".local")).exists).toBe(false);
     },
     timeout,
   );
 
   test(
-    "D02.home-fallback-location: without XDG_STATE_HOME the log is under $HOME/.local/state/dxs/diagnostics",
+    "D02.home-fallback-location: without XDG_STATE_HOME the log is under $HOME/.local/state/my-agent-dojo/dxs/diagnostics",
     async () => {
       const where = tree();
       const result = await run({ argv: read, tree: where, xdg: false });
       expectSuccess(result);
-      const fallback = join(
-        where.home,
-        ".local",
-        "state",
-        "dxs",
-        "diagnostics",
-      );
-      const file = onlyLog(fallback);
+      const stateRoot = join(where.home, ".local", "state");
+      const file = onlyLog(join(stateRoot, dojo, "dxs", "diagnostics"));
       expect(get(statusOf(result), "file")).toBe(file.path);
+      expect(observe(join(stateRoot, "dxs")).exists).toBe(false);
       expect(observe(where.state).exists).toBe(false);
     },
     timeout,
@@ -131,7 +129,8 @@ describe("D02 private location and modes", () => {
         const view = observe(where.dir);
         expect(view.mode).toBe(0o700);
         expect(onlyLog(where.dir).mode).toBe(0o600);
-        expect(observe(join(where.state, "dxs")).mode).toBe(0o700);
+        expect(observe(join(where.state, dojo, "dxs")).mode).toBe(0o700);
+        expect(observe(join(where.state, dojo)).mode).toBe(0o700);
         expect(observe(where.state).mode).toBe(0o700);
       },
       timeout,
@@ -360,6 +359,22 @@ describe("D03 hostile final components", () => {
     },
     timeout,
   );
+
+  test(
+    "D03.untrusted-ancestor-writable: a group-writable my-agent-dojo folder is refused, nothing written there",
+    async () => {
+      const where = tree();
+      mkdirSync(join(where.state, dojo), { recursive: true, mode: 0o700 });
+      chmodSync(where.state, 0o700);
+      chmodSync(join(where.state, dojo), 0o770);
+      const result = await run({ argv: read, tree: where, script: afterFault });
+      expectSuccess(result);
+      expectSetupRefusal(statusOf(result));
+      expect(observe(join(where.state, dojo)).entries).toHaveLength(0);
+      await expectTwinEqual(result, { argv: read, script: afterFault });
+    },
+    timeout,
+  );
 });
 
 describe("D04 handle custody", () => {
@@ -508,21 +523,20 @@ describe("D09 setup faults", () => {
           );
         try {
           const state = join(mount, "state");
-          mkdirSync(join(state, "dxs", "diagnostics"), {
-            recursive: true,
-            mode: 0o700,
-          });
+          const dir = join(state, dojo, "dxs", "diagnostics");
+          mkdirSync(dir, { recursive: true, mode: 0o700 });
           for (const path of [
             state,
-            join(state, "dxs"),
-            join(state, "dxs", "diagnostics"),
+            join(state, dojo),
+            join(state, dojo, "dxs"),
+            dir,
           ])
             chmodSync(path, 0o700);
           const filler = join(mount, "filler");
           Bun.spawnSync(["/bin/dd", "if=/dev/zero", `of=${filler}`, "bs=64k"]);
           const result = await run({
             argv: read,
-            tree: { ...where, state, dir: join(state, "dxs", "diagnostics") },
+            tree: { ...where, state, dir },
             script: { records: 20, size: 4000 },
           });
           expectSuccess(result);

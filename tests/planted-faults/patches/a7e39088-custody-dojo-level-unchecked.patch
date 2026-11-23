@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/diagnostics/custody.ts b/kernel/src/addons/diagnostics/custody.ts
+index 1e2c2dcd..ae8aa372 100644
+--- a/kernel/src/addons/diagnostics/custody.ts
++++ b/kernel/src/addons/diagnostics/custody.ts
+@@ -143,7 +143,7 @@ export function prepare(directory: string): Place | undefined {
+     const base = prepareBase(dirname(dojoDirectory));
+     if (base === undefined) return undefined;
+     const dojoLevel = join(base, basename(dojoDirectory));
+-    if (!ownedLevel(dojoLevel)) return undefined;
++    createPrivate(dojoLevel);
+     const cli = join(dojoLevel, basename(cliDirectory));
+     if (!ownedLevel(cli)) return undefined;
+     const target = join(cli, "diagnostics");

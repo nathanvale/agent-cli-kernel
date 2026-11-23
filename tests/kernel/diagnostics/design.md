@@ -26,9 +26,10 @@ add-on.
   environment toggle exists. A run that never reached handler entry for a declaring command
   (routing refusal, usage refusal, deadline before start) is not triggered
   and carries no key.
-- Location: `$XDG_STATE_HOME/<cli>/diagnostics` when `XDG_STATE_HOME` is an
-  absolute path, otherwise `$HOME/.local/state/<cli>/diagnostics`. Nothing
-  else moves it.
+- Location: `$XDG_STATE_HOME/my-agent-dojo/<cli>/diagnostics` when
+  `XDG_STATE_HOME` is an absolute path, otherwise
+  `$HOME/.local/state/my-agent-dojo/<cli>/diagnostics`. Nothing else moves
+  it. See "Corrections, 24 November 2026" for the `my-agent-dojo` level.
 - Raw program stream retention stays disabled. No destination other than the
   one private file.
 - Dependencies: `@logtape/logtape` and `@logtape/redaction` at exactly
@@ -178,3 +179,18 @@ LogTape's process-wide configuration and gives each run its own pipeline.
   with async disposables still active) can no longer stop a run's
   diagnostics with `sinkFailure: "setup"`, because the add-on never calls it.
   Setup failure still comes from secret collection and the sink's custody.
+
+## Corrections, 24 November 2026 (my-agent-dojo location)
+
+Nathan's rule of 24 November 2026, 08:52: any folder that code writes under a
+per-user base goes under `<base>/my-agent-dojo/<tool>/`.
+
+- The log moves from `<base>/<cli>/diagnostics` to
+  `<base>/my-agent-dojo/<cli>/diagnostics`. `<base>` is still
+  `$XDG_STATE_HOME` when it is absolute, otherwise `$HOME/.local/state`.
+- The `my-agent-dojo` folder gets the checks the `<cli>` folder gets. When it
+  is missing, custody creates it at `0700`. When it exists, it must be a real
+  directory, not a symlink, owned by the current user, and not group or world
+  writable. Other tools may share it, so custody does not require `0700`.
+- Logs are disposable. Custody neither reads, moves, nor removes logs in the
+  old folder, so a tool's old log folders stay where they were.

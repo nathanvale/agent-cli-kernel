@@ -9,6 +9,7 @@ import {
 import { join } from "node:path";
 import {
   cleanTrees,
+  dojo,
   get,
   limits,
   lines,
@@ -280,7 +281,12 @@ describe("D06 per-run and aggregate allocation", () => {
     async () => {
       const where = tree();
       mkdirSync(where.dir, { recursive: true, mode: 0o700 });
-      for (const path of [where.state, join(where.state, "dxs"), where.dir])
+      for (const path of [
+        where.state,
+        join(where.state, dojo),
+        join(where.state, dojo, "dxs"),
+        where.dir,
+      ])
         chmodSync(path, 0o700);
       for (let index = 0; index < 10; index += 1)
         writeFileSync(join(where.dir, `ambiguous-${index}.jsonl`), "x", {

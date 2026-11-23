@@ -611,7 +611,7 @@ describe("kernel-free forensics in-process", () => {
     const barrierDir = ownedFolder("forensics-diag-barrier-");
     const readyFile = join(barrierDir, "ready");
     const goFile = join(barrierDir, "go");
-    const diagDir = join(xdgRoot, "dxs", "diagnostics");
+    const diagDir = join(xdgRoot, "my-agent-dojo", "dxs", "diagnostics");
     const specimen = join(
       repository,
       "tests",

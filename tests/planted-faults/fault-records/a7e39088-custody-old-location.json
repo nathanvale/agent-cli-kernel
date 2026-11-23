@@ -1,0 +1,7 @@
+{
+  "id": "a7e39088-custody-old-location",
+  "patch": "tests/planted-faults/patches/a7e39088-custody-old-location.patch",
+  "testFile": "tests/kernel/diagnostics/custody.test.ts",
+  "title": "D02\\.xdg-location: the log is under \\$XDG_STATE_HOME/my-agent-dojo/dxs/diagnostics$",
+  "source": "a7e39088 feat(diagnostics): write the log under my-agent-dojo/<cli>/diagnostics"
+}
