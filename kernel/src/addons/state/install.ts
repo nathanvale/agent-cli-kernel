@@ -1554,12 +1554,10 @@ export function install(options: StateOptions, seams: Seams) {
       }
       recording.ended = true;
       await settled(recording.records);
-      const observation = observationOf(
-        declared,
-        recording.confirmed,
-        recording.started,
+      const observation = finish(
+        held.events,
+        observationOf(declared, recording.confirmed, recording.started),
       );
-      finish(held.events, observation);
       return { observation, workFailed };
     } finally {
       active.delete(runId);
@@ -2057,7 +2055,7 @@ export function install(options: StateOptions, seams: Seams) {
   function finish<Effect extends string>(
     events: string,
     observation: StateObservation<Effect>,
-  ) {
+  ): StateObservation<Effect> {
     const effects = observation.effects;
     try {
       if (observation.transactionState === "completed")
@@ -2076,8 +2074,16 @@ export function install(options: StateOptions, seams: Seams) {
           uncertain: [...effects.uncertain],
         });
     } catch {
-      return;
+      if (
+        observation.transactionState === "completed" ||
+        observation.transactionState === "unchanged"
+      )
+        return {
+          transactionState: "unknown",
+          effects: { ...effects, inventoryComplete: false },
+        };
     }
+    return observation;
   }
 
   function recorder<Effect extends string>(
