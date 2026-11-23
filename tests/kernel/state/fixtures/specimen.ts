@@ -105,14 +105,13 @@ function factText(facts: unknown, key: string): string {
 }
 
 const observers: Readonly<Record<string, Observer>> = {
-  "note.write": ({ facts }) => {
+  "note.write": async ({ facts }) => {
+    if (fault === "close-request-changed") await barrier("observer");
     const path = factText(facts, "path");
     const content = factText(facts, "content");
-    return Promise.resolve(
-      existsSync(path) && readFileSync(path, "utf8") === content
-        ? "present"
-        : "absent",
-    );
+    return existsSync(path) && readFileSync(path, "utf8") === content
+      ? "present"
+      : "absent";
   },
   "note.stamp": ({ facts }) => {
     const path = `${factText(facts, "path")}.stamp`;
@@ -1670,12 +1669,19 @@ const close = changing({
       revision: input["--revision"],
       reason: input["--reason"],
     } as const;
-    const outcome = await state.close(
-      context.state,
+    const request =
       input["--attestation"] === undefined
-        ? closure
-        : { ...closure, attestation: true },
-    );
+        ? { ...closure }
+        : { ...closure, attestation: true };
+    if (fault === "close-request-changed")
+      barrierReached.addEventListener("observer", () => {
+        Reflect.set(
+          request,
+          "operationId",
+          process.env.SX_CHANGED_OPERATION ?? "",
+        );
+      });
+    const outcome = await state.close(context.state, request);
     if (outcome.kind === "already-closed")
       return context.result(
         { commandIdentity: "sx.close", causeCode: "SUCCESS_UNCHANGED" },
