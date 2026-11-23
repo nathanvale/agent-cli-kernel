@@ -2273,3 +2273,46 @@ supportingTest(
   90_000,
   true,
 );
+
+supportingTest(
+  "SU31.closure-fault-with-not-applied-append-denied-proof: a flagged run whose supersede closure fails and whose own not-applied record cannot be appended returns a proof that is unknown with an incomplete inventory",
+  async () => {
+    const root = stateRoot();
+    const oldId = await seedUnresolved(root);
+    const unused: string[] = [];
+    try {
+      const refused = await runHost({
+        root,
+        supersedeUnresolved: true,
+        phase: (name) => {
+          if (name !== "closure-staged") return Promise.resolve();
+          for (const id of readdirSync(join(root, "operations")))
+            if (id !== oldId) {
+              unused.push(id);
+              chmodSync(join(root, "operations", id, "events"), 0o400);
+            }
+          return Promise.reject(new Error("planted closure publication fault"));
+        },
+      });
+      expect(refused.outcome).toMatchObject({
+        kind: "unavailable",
+        reason: "closure-publication",
+      });
+      const listed = stateAddon({ root, report: "su.pending" }).report();
+      expect(
+        listed.ok
+          ? listed.unfinished.map((entry) => entry.operationId).sort()
+          : listed,
+      ).toEqual([oldId, ...unused].sort());
+      expect({
+        transactionState: refused.outcome.proof.transactionState,
+        inventoryComplete: refused.outcome.proof.effects.inventoryComplete,
+      }).toEqual({ transactionState: "unknown", inventoryComplete: false });
+    } finally {
+      for (const id of unused)
+        chmodSync(join(root, "operations", id, "events"), 0o600);
+    }
+  },
+  90_000,
+  true,
+);
