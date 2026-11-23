@@ -591,12 +591,15 @@ export function moonsCli(home: string, opener: string) {
 
 ```ts
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 import { runProcess } from "agent-cli-kernel";
 import { moonsCli } from "./commands.ts";
 
+const xdg = process.env.XDG_STATE_HOME;
+const base = xdg && isAbsolute(xdg) ? xdg : join(homedir(), ".local", "state");
+
 const { contract, setup } = moonsCli(
-  process.env.MOONS_HOME ?? join(homedir(), ".moons"),
+  process.env.MOONS_HOME ?? join(base, "my-agent-dojo", "moons"),
   process.env.MOONS_OPENER ?? "/usr/bin/open",
 );
 
