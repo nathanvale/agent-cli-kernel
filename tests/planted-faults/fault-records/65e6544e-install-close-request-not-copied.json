@@ -1,0 +1,7 @@
+{
+  "id": "65e6544e-install-close-request-not-copied",
+  "patch": "tests/planted-faults/patches/65e6544e-install-close-request-not-copied.patch",
+  "testFile": "tests/kernel/state/supersede-class-detector.test.ts",
+  "title": "^SU28\\.class-detector:",
+  "source": "65e6544e fix(state): close only the case the request named when close() was called"
+}
