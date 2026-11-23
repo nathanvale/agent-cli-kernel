@@ -12,6 +12,7 @@ import { nodeIo } from "../../../kernel/src/addons/diagnostics/io.ts";
 import type { DiagnosticsIo } from "../../../kernel/src/addons/diagnostics/io.ts";
 import {
   cleanTrees,
+  dojo,
   crashTimeout,
   get,
   lines,
@@ -74,7 +75,7 @@ describe("D13 result noninterference", () => {
     "D13.directory-deleted-mid-run: deleting the diagnostics tree mid-run changes nothing in the result",
     async () => {
       const { where, result } = await heldRun(script, (tree) =>
-        rmSync(join(tree.state, "dxs"), { recursive: true }),
+        rmSync(join(tree.state, dojo), { recursive: true }),
       );
       expectSuccess(result);
       await expectTwinEqual(result, { argv: read, script });

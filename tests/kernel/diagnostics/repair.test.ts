@@ -14,6 +14,7 @@ import { hostname } from "node:os";
 import { join } from "node:path";
 import {
   cleanTrees,
+  dojo,
   get,
   lines,
   observe,
@@ -51,7 +52,12 @@ function everyFile(root: string): string[] {
 
 function privateDirectory(where: Tree) {
   mkdirSync(where.dir, { recursive: true, mode: 0o700 });
-  for (const path of [where.state, join(where.state, "dxs"), where.dir])
+  for (const path of [
+    where.state,
+    join(where.state, dojo),
+    join(where.state, dojo, "dxs"),
+    where.dir,
+  ])
     chmodSync(path, 0o700);
 }
 
@@ -383,13 +389,14 @@ describe("Repair round 2: non-string secrets, an observed late completion, a sym
     "R2.cli-directory-symlink-refused: a <cli> directory redirected by a symlink is refused, nothing written there",
     async () => {
       const where = tree();
-      mkdirSync(where.state, { mode: 0o700 });
+      mkdirSync(join(where.state, dojo), { recursive: true, mode: 0o700 });
       chmodSync(where.state, 0o700);
+      chmodSync(join(where.state, dojo), 0o700);
       const target = join(where.root, "redirected");
       mkdirSync(join(target, "diagnostics"), { recursive: true, mode: 0o700 });
       chmodSync(target, 0o700);
       chmodSync(join(target, "diagnostics"), 0o700);
-      symlinkSync(target, join(where.state, "dxs"));
+      symlinkSync(target, join(where.state, dojo, "dxs"));
       const script = { records: 3, pace: true };
       const result = await run({ argv: read, tree: where, script });
       expectSuccess(result);
@@ -399,6 +406,31 @@ describe("Repair round 2: non-string secrets, an observed late completion, a sym
       expect(get(status, "sinkFailure")).toBe("setup");
       expect(get(status, "file")).toBeNull();
       expect(observe(join(target, "diagnostics")).entries).toHaveLength(0);
+    },
+    timeout,
+  );
+
+  test(
+    "R2.cli-directory-symlink-refused: a my-agent-dojo directory redirected by a symlink is refused, nothing written there",
+    async () => {
+      const where = tree();
+      mkdirSync(where.state, { mode: 0o700 });
+      chmodSync(where.state, 0o700);
+      const target = join(where.root, "redirected");
+      const redirected = join(target, "dxs", "diagnostics");
+      mkdirSync(redirected, { recursive: true, mode: 0o700 });
+      for (const path of [target, join(target, "dxs"), redirected])
+        chmodSync(path, 0o700);
+      symlinkSync(target, join(where.state, dojo));
+      const script = { records: 3, pace: true };
+      const result = await run({ argv: read, tree: where, script });
+      expectSuccess(result);
+      await expectTwinEqual(result, { argv: read, script });
+      const status = statusOf(result);
+      expectAvailable(status);
+      expect(get(status, "sinkFailure")).toBe("setup");
+      expect(get(status, "file")).toBeNull();
+      expect(observe(redirected).entries).toHaveLength(0);
     },
     timeout,
   );

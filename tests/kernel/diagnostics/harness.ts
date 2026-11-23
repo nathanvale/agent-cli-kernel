@@ -17,6 +17,7 @@ const here = import.meta.dir;
 const specimenCli = join(here, "fixtures/specimen-cli.ts");
 const bareCli = join(here, "fixtures/bare-cli.ts");
 const cli = "dxs";
+export const dojo = "my-agent-dojo";
 
 const frozen: unknown = JSON.parse(
   readFileSync(join(here, "t5-cases.json"), "utf8"),
@@ -61,7 +62,7 @@ export function tree(): Tree {
   const home = join(root, "home");
   mkdirSync(home, { mode: 0o700 });
   const state = join(root, "state");
-  return { root, home, state, dir: join(state, cli, "diagnostics") };
+  return { root, home, state, dir: join(state, dojo, cli, "diagnostics") };
 }
 
 const children: {
