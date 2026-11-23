@@ -182,8 +182,9 @@ route.
 _Avoid_: feature (for a subject), resource (a resource is a state add-on coordination lock target), domain (for a subject), slice, topic
 
 **Shared edge**:
-A module used across subjects that touches external state, settings, child
-programs or the CLI's shared cause table.
+A module in `src/shared/` used across subjects that touches external state,
+settings, child programs or the CLI's shared cause table, or holds logic those
+subjects share that cannot live in one subject's `rules.ts`.
 _Avoid_: util, helper, common, core (for a shared edge)
 
 ### Internal kernel names
