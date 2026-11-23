@@ -91,6 +91,7 @@
     "tests/kernel/state/coordination.test.ts": 7230,
     "tests/kernel/state/forensics-contract.test.ts": 806,
     "tests/kernel/state/in-process.test.ts": 1556,
+    "tests/kernel/state/journal-file-links.test.ts": 5640,
     "tests/kernel/state/journal.test.ts": 14140,
     "tests/kernel/state/linux-coordination-probe-folders.test.ts": 75,
     "tests/kernel/state/linux-coordination.probe.test.ts": 27907,

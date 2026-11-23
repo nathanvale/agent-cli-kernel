@@ -1,0 +1,7 @@
+{
+  "id": "b5db46dc-store-format-read-by-path",
+  "patch": "tests/planted-faults/patches/b5db46dc-store-format-read-by-path.patch",
+  "testFile": "tests/kernel/state/journal-file-links.test.ts",
+  "title": "every file read in the state add-on reads an open descriptor",
+  "source": "b5db46dc fix(state): open journal files without following a link"
+}
