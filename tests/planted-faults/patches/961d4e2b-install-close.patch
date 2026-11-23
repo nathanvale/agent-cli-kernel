@@ -1,0 +1,32 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index 51793044..a2126867 100644
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -2407,15 +2407,18 @@ export function install(options: StateOptions, seams: Seams) {
+           )
+           .then(() => undefined),
+     );
+-    slot.outcome =
+-      observation.transactionState === "completed"
+-        ? {
+-            kind: "closed",
+-            closure: decision,
+-            recoveryOperationId: opened.operationId,
+-          }
+-        : { kind: "recovery-failed", recoveryOperationId: opened.operationId };
+-    return issuer.transactionProof(runId, observation);
++    const linked = closureMatches(paths, decision, runId);
++    slot.outcome = linked
++      ? {
++          kind: "closed",
++          closure: decision,
++          recoveryOperationId: opened.operationId,
++        }
++      : { kind: "recovery-failed", recoveryOperationId: opened.operationId };
++    return issuer.transactionProof(
++      runId,
++      linked ? observationOf(declared, [effect], [effect]) : observation,
++    );
+   }
+ 
+   async function closeCase<Effect extends string>(

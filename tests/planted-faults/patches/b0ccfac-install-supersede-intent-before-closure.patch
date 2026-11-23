@@ -1,7 +1,8 @@
 diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index 51793044..0054c308 100644
 --- a/kernel/src/addons/state/install.ts
 +++ b/kernel/src/addons/state/install.ts
-@@ -1794,6 +1794,8 @@ export function install(options: StateOptions, seams: Seams) {
+@@ -1824,6 +1824,8 @@ export function install(options: StateOptions, seams: Seams) {
          ok: false,
          refusal: { kind: "unavailable", reason: "closure-publication" },
        };
@@ -10,7 +11,7 @@ diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/instal
      const opened = await begin(gate, runId, intent, true).catch(
        () => undefined,
      );
-@@ -1803,17 +1805,6 @@ export function install(options: StateOptions, seams: Seams) {
+@@ -1833,18 +1835,6 @@ export function install(options: StateOptions, seams: Seams) {
          refusal: { kind: "unavailable", reason: "store-publication" },
        };
      owner.holdRunLease(opened.releaseLease);
@@ -21,10 +22,11 @@ diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/instal
 -      settleUnusedIntent(runId, opened.events, declared);
 -      throw error;
 -    }
--    if (!closed.ok) {
--      settleUnusedIntent(runId, opened.events, declared);
--      return closed;
--    }
+-    if (!closed.ok)
+-      return {
+-        ...closed,
+-        settled: settleUnusedIntent(runId, opened.events, declared),
+-      };
      moveSettledIfOpen(gate, operations, closed.ids.length > 0);
      owner.releaseAdmission();
      return {

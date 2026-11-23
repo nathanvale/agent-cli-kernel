@@ -1,10 +1,11 @@
 diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index 51793044..1d060fd9 100644
 --- a/kernel/src/addons/state/install.ts
 +++ b/kernel/src/addons/state/install.ts
-@@ -1814,6 +1814,9 @@ export function install(options: StateOptions, seams: Seams) {
-       settleUnusedIntent(runId, opened.events, declared);
-       return closed;
-     }
+@@ -1845,6 +1845,9 @@ export function install(options: StateOptions, seams: Seams) {
+         ...closed,
+         settled: settleUnusedIntent(runId, opened.events, declared),
+       };
 +    (await import("node:fs")).mkdirSync(
 +      join(paths.staging, `healed-${opened.operationId}`),
 +    );

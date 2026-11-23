@@ -1,0 +1,151 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index 51793044..f17b409e 100644
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -300,13 +300,6 @@ type Recording<Effect extends string> = {
+   readonly confirmed: Effect[];
+ };
+ 
+-type OpenRefusal<Effect extends string> = {
+-  readonly ok: false;
+-  readonly refusal: Refusal;
+-  readonly superseded?: readonly string[];
+-  readonly settled?: StateObservation<Effect>;
+-};
+-
+ type TransactionHold = {
+   readonly events: string;
+   readonly releaseKeyLocks: () => void;
+@@ -1219,11 +1212,10 @@ export function install(options: StateOptions, seams: Seams) {
+     const refuse = (
+       refusal: Refusal,
+       superseded?: readonly string[],
+-      settled: StateObservation<Effect> = unchangedObservation<Effect>([]),
+     ): TransactionProof<Effect> => {
+       slot.outcome =
+         superseded === undefined ? refusal : { ...refusal, superseded };
+-      return issuer.transactionProof(runId, settled);
++      return issuer.transactionProof(runId, unchangedObservation<Effect>([]));
+     };
+     if (!route.available)
+       return refuse({
+@@ -1720,16 +1712,13 @@ export function install(options: StateOptions, seams: Seams) {
+     }
+   }
+ 
+-  function settleUnusedIntent<Effect extends string>(
++  function settleUnusedIntent(
+     runId: string,
+     events: string,
+-    declared: readonly Effect[],
+-  ): StateObservation<Effect> {
+-    const settled = finish(events, unchangedObservation(declared));
++    declared: readonly string[],
++  ): void {
++    finish(events, unchangedObservation(declared));
+     active.delete(runId);
+-    return settled.transactionState === "unchanged"
+-      ? unchangedObservation([])
+-      : settled;
+   }
+ 
+   function runOpenForSupersede(issuer: StateIssuer, runId: string): boolean {
+@@ -1801,17 +1790,21 @@ export function install(options: StateOptions, seams: Seams) {
+     }
+   }
+ 
+-  async function openFlaggedTransaction<Effect extends string>(
++  async function openFlaggedTransaction(
+     gate: WriteGate,
+     owner: LockOwner,
+     issuer: StateIssuer,
+     runId: string,
+-    declared: readonly Effect[],
++    declared: readonly string[],
+     intent: Omit<Intent, "operationId" | "runId" | "owner">,
+     operations: readonly Operation[],
+     targets: readonly LeasedTarget[],
+   ): Promise<
+-    | OpenRefusal<Effect>
++    | {
++        readonly ok: false;
++        readonly refusal: Refusal;
++        readonly superseded?: readonly string[];
++      }
+     | {
+         readonly ok: true;
+         readonly operationId: string;
+@@ -1840,11 +1833,10 @@ export function install(options: StateOptions, seams: Seams) {
+       settleUnusedIntent(runId, opened.events, declared);
+       throw error;
+     }
+-    if (!closed.ok)
+-      return {
+-        ...closed,
+-        settled: settleUnusedIntent(runId, opened.events, declared),
+-      };
++    if (!closed.ok) {
++      settleUnusedIntent(runId, opened.events, declared);
++      return closed;
++    }
+     moveSettledIfOpen(gate, operations, closed.ids.length > 0);
+     owner.releaseAdmission();
+     return {
+@@ -1920,15 +1912,19 @@ export function install(options: StateOptions, seams: Seams) {
+     return issuer.transactionProof(runId, observation);
+   }
+ 
+-  async function admitAndOpenFlagged<Effect extends string>(
++  async function admitAndOpenFlagged(
+     gate: WriteGate,
+     owner: LockOwner,
+     issuer: StateIssuer,
+     runId: string,
+-    declared: readonly Effect[],
++    declared: readonly string[],
+     snapshot: DeclarationSnapshot,
+   ): Promise<
+-    | OpenRefusal<Effect>
++    | {
++        readonly ok: false;
++        readonly refusal: Refusal;
++        readonly superseded?: readonly string[];
++      }
+     | {
+         readonly ok: true;
+         readonly operationId: string;
+@@ -1980,7 +1976,6 @@ export function install(options: StateOptions, seams: Seams) {
+     refuse: (
+       refusal: Refusal,
+       superseded?: readonly string[],
+-      settled?: StateObservation<Effect>,
+     ) => TransactionProof<Effect>,
+   ): Promise<TransactionProof<Effect>> {
+     if (declared.length === 0 || commandIdentity.length === 0)
+@@ -1999,14 +1994,14 @@ export function install(options: StateOptions, seams: Seams) {
+         declared,
+         snapshot,
+       );
+-      if (!opened.ok)
+-        return refuse(opened.refusal, opened.superseded, opened.settled);
+-      if (!runOpenForSupersede(issuer, runId))
++      if (!opened.ok) return refuse(opened.refusal, opened.superseded);
++      if (!runOpenForSupersede(issuer, runId)) {
++        settleUnusedIntent(runId, opened.events, declared);
+         return refuse(
+           { kind: "unavailable", reason: "closure-publication" },
+           opened.superseded,
+-          settleUnusedIntent(runId, opened.events, declared),
+         );
++      }
+       slot.operationId = opened.operationId;
+       if (opened.superseded !== undefined) slot.superseded = opened.superseded;
+       const transferred = owner.transferToRun();
+@@ -2042,7 +2037,6 @@ export function install(options: StateOptions, seams: Seams) {
+     refuse: (
+       refusal: Refusal,
+       superseded?: readonly string[],
+-      settled?: StateObservation<Effect>,
+     ) => TransactionProof<Effect>,
+   ): Promise<TransactionProof<Effect>> {
+     if (isFlaggedDeclaration(slot.declaration))
