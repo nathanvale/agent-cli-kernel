@@ -16,12 +16,13 @@ import {
 } from "node:fs";
 import type { Stats } from "node:fs";
 import { hostname } from "node:os";
-import { dirname, isAbsolute, join, normalize } from "node:path";
+import { basename, dirname, isAbsolute, join, normalize } from "node:path";
 import { errorCode } from "./io.ts";
 import { limits } from "./limits.ts";
 import type { DiagnosticsIo } from "./io.ts";
 
 const segment = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+const dojo = "my-agent-dojo";
 const lockName = ".allocation-lock";
 const host = createHash("sha256").update(hostname()).digest("hex").slice(0, 16);
 const ownerPattern = /^owner-([1-9][0-9]{0,9})-([0-9a-f]{16})$/;
@@ -58,7 +59,7 @@ export function locate(
         : undefined;
   return base === undefined
     ? undefined
-    : join(normalize(base), cli, "diagnostics");
+    : join(normalize(base), dojo, cli, "diagnostics");
 }
 
 function lookup(path: string): Stats | undefined {
@@ -129,16 +130,22 @@ function prepareBase(base: string): string | undefined {
   return real;
 }
 
+function ownedLevel(path: string): boolean {
+  if (!lookup(path)) createPrivate(path);
+  const info = lookup(path);
+  return info !== undefined && trustedAncestor(info) && info.uid === uid;
+}
+
 export function prepare(directory: string): Place | undefined {
   try {
     const cliDirectory = dirname(directory);
-    const base = prepareBase(dirname(cliDirectory));
+    const dojoDirectory = dirname(cliDirectory);
+    const base = prepareBase(dirname(dojoDirectory));
     if (base === undefined) return undefined;
-    const cli = join(base, cliDirectory.slice(dirname(cliDirectory).length));
-    if (!lookup(cli)) createPrivate(cli);
-    const cliInfo = lookup(cli);
-    if (!cliInfo || !trustedAncestor(cliInfo) || cliInfo.uid !== uid)
-      return undefined;
+    const dojoLevel = join(base, basename(dojoDirectory));
+    if (!ownedLevel(dojoLevel)) return undefined;
+    const cli = join(dojoLevel, basename(cliDirectory));
+    if (!ownedLevel(cli)) return undefined;
     const target = join(cli, "diagnostics");
     if (!lookup(target)) createPrivate(target);
     const info = lookup(target);
