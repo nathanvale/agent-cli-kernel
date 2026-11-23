@@ -1,0 +1,174 @@
+{
+  "schema": "capability-qualification-record/1",
+  "row": "linux-7-btrfs",
+  "factSource": "observed",
+  "platform": {
+    "os": "linux",
+    "release": "7.2.12-orbstack-00394-gbecdd6130068",
+    "majorRelease": "7",
+    "architecture": "arm64",
+    "runtime": "bun 1.4.4",
+    "distribution": "ubuntu 24.04",
+    "cLibrary": "glibc 2.39",
+    "container": true
+  },
+  "filesystem": {
+    "type": 2435016766
+  },
+  "primitive": "linux flock(LOCK_EX|LOCK_NB) through libc.so.6",
+  "bootIdentitySource": {
+    "source": "/proc/sys/kernel/random/boot_id",
+    "readable": true
+  },
+  "runs": [
+    {
+      "entry": "fixture.ts",
+      "commit": "3ebd17c33bbad9571048bb43968f2603ccc909a1",
+      "sourceHash": "8679ed57f675299d5c4a5c695c6e49c68bdb0c5a025033093120887a1d83fcd6",
+      "started": "2026-11-23T06:24:14.293Z",
+      "ended": "2026-11-23T06:24:19.611Z",
+      "cases": [
+        {
+          "id": "K02.a-kill-after-effect-two-later-changes",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K03.a-absence-is-not-not-applied",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K03.b-exclusion-permits-not-applied",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K06.a-closure-retry-same-identity",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K06.b-conflicting-closure-refused",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K06.c-stale-revision-refused",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K06.d-closure-record-fields",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K06.e-kill-before-closure-publication",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K07.a-closed-stays-closed",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K08.a-live-writer-blocks-closure",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K08.b-recorded-delegate-blocks-closure",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K08.c-surviving-delegate-process",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K11.a-delegate-same-boot-refused",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K11.c-torn-tail-closes",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K11.d-corrupt-events-still-refuses",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K11.f-record-hidden-in-torn-tail-refuses",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K11.g-no-append-after-torn-tail",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K11.e-transaction-waits-for-started-effects",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "O04.a-age-is-not-proof",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "O04.b-stopped-process-still-owner",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "O05.a-pid-not-consulted",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "O07.a-two-closers",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "O07.b-reclaim-race",
+          "result": "unproved",
+          "detail": "pending: Needs a reviewed capability qualification row that enables reclaim or takeover (REC-7b). Journal version 2 rows enable closure only, so the expected outcome is still O10 and Q01."
+        },
+        {
+          "id": "O09.a-reclaim-is-coordination-only",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "Q02.e-production-row-closes",
+          "result": "not-runnable",
+          "reason": "Needs the row in the production capability qualification table, which only an index.ts run on the row's own branch has (decided by Nathan, 19 November 2026, 17:45 AEDT)."
+        },
+        {
+          "id": "K06.f-same-identity-different-content",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K06.g-unknown-operation-not-found",
+          "result": "pass",
+          "detail": "passed"
+        },
+        {
+          "id": "K06.h-unreadable-case-unavailable",
+          "result": "pass",
+          "detail": "passed"
+        }
+      ]
+    }
+  ]
+}
