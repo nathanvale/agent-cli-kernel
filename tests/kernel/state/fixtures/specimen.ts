@@ -181,7 +181,12 @@ function factOverrides(source: unknown): FactOverrides {
 }
 
 const waitBound = Number(process.env.SX_ADMISSION_WAIT ?? "2000");
-const phased = { phase: (name: Phase) => barrier(name) };
+const phased = {
+  phase: (name: Phase) =>
+    fault === "closure-publication-fails" && name === "closure-staged"
+      ? Promise.reject(new Error("Planted closure publication fault."))
+      : barrier(name),
+};
 const candidate = process.env.SX_CANDIDATE_ROW;
 const labelled =
   candidate !== undefined
@@ -827,6 +832,9 @@ function noteDeclaration(command: string, input: NoteInput) {
       scope: input["--unknown-scope"] ? ({ unknown: true } as const) : scoped,
       revisions: { [`note:${name}`]: "observed" },
       facts: { path, content: input["--content"] },
+      ...(process.env.SX_SUPERSEDE === "1"
+        ? { supersedeUnresolved: true }
+        : {}),
     },
   };
 }

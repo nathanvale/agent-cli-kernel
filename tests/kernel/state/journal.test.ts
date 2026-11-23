@@ -21,7 +21,7 @@ import {
   at,
   caseTest,
   closeArgs,
-  completionAppendFault,
+  settlingAppendFault,
   eventsPath,
   expectCompleted,
   expectRefusedUnchanged,
@@ -214,7 +214,7 @@ supportingTest(
   plain(async (world) => {
     const run = await world.run(
       apply("a"),
-      completionAppendFault("completion-flush-fails"),
+      settlingAppendFault("completion-flush-fails"),
     );
     expect(run.stderr).toBe("");
     expect(run.result.causeCode).toBe("DOMAIN_SX_CHANGE_UNKNOWN");

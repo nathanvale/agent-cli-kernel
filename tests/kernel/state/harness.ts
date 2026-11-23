@@ -515,11 +515,14 @@ const completionAppendPreload = join(
   "completion-append-preload.ts",
 );
 
-export function completionAppendFault(
-  fault: "completion-write-fails" | "completion-flush-fails",
+export type SettlingAppendFault =
+  `${"completion" | "not-applied" | "outcome"}-${"write" | "flush"}-fails`;
+
+export function settlingAppendFault(
+  fault: SettlingAppendFault,
 ): Readonly<Record<string, string>> {
   return {
-    SX_FAULT: fault,
+    SX_APPEND_FAULT: fault,
     BUN_OPTIONS: `--preload ${completionAppendPreload}`,
   };
 }

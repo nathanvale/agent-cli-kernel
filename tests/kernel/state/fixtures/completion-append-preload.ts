@@ -2,14 +2,17 @@ import { mock } from "bun:test";
 import * as fs from "node:fs";
 
 const orig: typeof fs = { ...fs };
-const fault = process.env.SX_FAULT ?? "";
-const completionHeader = new TextEncoder().encode("C3S1 completion ");
+const fault = /^(completion|not-applied|outcome)-(write|flush)-fails$/.exec(
+  process.env.SX_APPEND_FAULT ?? "",
+);
+const frameHeader = new TextEncoder().encode(`C3S1 ${fault?.[1] ?? ""} `);
 const flushPending = new Set<number>();
 
-function isCompletionFrame(buffer: unknown): boolean {
+function isFaultedFrame(buffer: unknown): boolean {
   return (
+    fault !== null &&
     buffer instanceof Uint8Array &&
-    completionHeader.every((byte, index) => buffer[index] === byte)
+    frameHeader.every((byte, index) => buffer[index] === byte)
   );
 }
 
@@ -23,9 +26,9 @@ function plantedIoError(call: string): Error {
 
 function writeSync(...args: Parameters<typeof fs.writeSync>): number {
   const [descriptor, buffer] = args;
-  if (isCompletionFrame(buffer)) {
-    if (fault === "completion-write-fails") throw plantedIoError("write");
-    if (fault === "completion-flush-fails") flushPending.add(descriptor);
+  if (isFaultedFrame(buffer)) {
+    if (fault?.[2] === "write") throw plantedIoError("write");
+    flushPending.add(descriptor);
   }
   return Reflect.apply(orig.writeSync, orig, args);
 }
