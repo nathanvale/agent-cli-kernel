@@ -1,0 +1,7 @@
+{
+  "id": "3c836ae-install-refusal-superseded",
+  "patch": "tests/planted-faults/patches/3c836ae-install-refusal-superseded.patch",
+  "testFile": "tests/kernel/state/supersede-window.test.ts",
+  "title": "^SU26e\\.refusal-after-closure-reports-superseded:",
+  "source": "3c836ae feat(state): report superseded operation ids on refused transactions"
+}

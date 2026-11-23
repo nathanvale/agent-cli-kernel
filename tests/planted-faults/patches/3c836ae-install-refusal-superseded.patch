@@ -1,0 +1,16 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1209,10 +1209,9 @@ export function install(options: StateOptions, seams: Seams) {
+     slots.delete(work);
+     const refuse = (
+       refusal: Refusal,
+-      superseded?: readonly string[],
++      _superseded?: readonly string[],
+     ): TransactionProof<Effect> => {
+-      slot.outcome =
+-        superseded === undefined ? refusal : { ...refusal, superseded };
++      slot.outcome = refusal;
+       return issuer.transactionProof(runId, unchangedObservation<Effect>([]));
+     };
+     if (!route.available)

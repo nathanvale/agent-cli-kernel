@@ -1,5 +1,11 @@
 import { afterEach, expect } from "bun:test";
-import { mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdirSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import {
   changing,
@@ -572,6 +578,243 @@ supportingTest(
       op.events.map((e) => e.kind),
     );
     expect(allEvents).not.toContain("delegate-admitted");
+  },
+  15_000,
+);
+
+const bothKeyScope = {
+  resources: [
+    { resource: "doc", key: "alpha" },
+    { resource: "doc", key: "beta" },
+  ],
+} as const;
+
+async function seedUnresolvedCase(root: string, key: string): Promise<string> {
+  const state = stateAddonWithTestSeams({ root, report: "sw.pending" }, {});
+  let operationId: string | undefined;
+  const contract = buildContract(state, (_boundary, cap) =>
+    state.transaction(
+      cap,
+      { command: "sw.open", scope: { resources: [{ resource: "doc", key }] } },
+      async (tx, published) => {
+        operationId = published.operationId;
+        await tx.record(
+          "doc.write",
+          () => Promise.reject(new Error("seed unresolved")),
+          () => Promise.resolve(false),
+        );
+      },
+    ),
+  );
+  await runInProcess(contract, { emergencyRecord: state.emergencyRecord })([
+    "open",
+  ]);
+  if (!operationId) throw new Error("Expected seeded operation id.");
+  return operationId;
+}
+
+async function runCapturingTransaction(
+  root: string,
+  declaration: Declaration,
+  phase?: (name: Phase) => Promise<void>,
+  argv: readonly string[] = ["open"],
+): Promise<{
+  readonly outcome: TransactionResult<Effects> | undefined;
+  readonly settled: Promise<void>;
+}> {
+  const settled = deferred();
+  let outcome: TransactionResult<Effects> | undefined;
+  const state = stateAddonWithTestSeams(
+    { root, report: "sw.pending" },
+    phase ? { phase } : {},
+  );
+  const contract = buildContract(state, (_boundary, cap) =>
+    state
+      .transaction(cap, declaration, async () => {})
+      .then((result) => {
+        outcome = result;
+        return result;
+      })
+      .finally(() => settled.resolve()),
+  );
+  await runInProcess(contract, { emergencyRecord: state.emergencyRecord })([
+    ...argv,
+  ]);
+  return { outcome, settled: settled.promise };
+}
+
+async function assertUnresolvedCaseRefusalReportsSuperseded(): Promise<void> {
+  const root = stateRoot();
+  const firstId = await seedUnresolvedCase(root, "alpha");
+  const secondId = await seedUnresolvedCase(root, "beta");
+  const ordered = [firstId, secondId].sort();
+  const expectedClosed = ordered[0];
+  const expectedConflicted = ordered[1];
+  if (!expectedClosed || !expectedConflicted)
+    throw new Error("Expected two seeded ids.");
+  let stagedSeen = 0;
+  const { outcome } = await runCapturingTransaction(
+    root,
+    { command: "sw.open", scope: bothKeyScope, supersedeUnresolved: true },
+    (name) => {
+      if (name === "closure-staged") {
+        stagedSeen += 1;
+        if (stagedSeen === 2)
+          writeFileSync(
+            join(layout(root).operation(expectedConflicted), "closure"),
+            "competing\n",
+          );
+      }
+      return Promise.resolve();
+    },
+  );
+  expect(outcome?.kind).toBe("unresolved-case");
+  if (outcome?.kind === "unresolved-case") {
+    expect(outcome.operationId).toBe(expectedConflicted);
+    expect(outcome.superseded).toEqual([expectedClosed]);
+    expect(Object.isFrozen(outcome.superseded)).toBe(true);
+  }
+}
+
+async function assertSecondClosureFaultReportsSuperseded(): Promise<void> {
+  const root = stateRoot();
+  const firstId = await seedUnresolvedCase(root, "alpha");
+  const secondId = await seedUnresolvedCase(root, "beta");
+  const expectedClosed = [firstId, secondId].sort()[0];
+  if (!expectedClosed) throw new Error("Expected seeded id.");
+  let stagedSeen = 0;
+  const { outcome } = await runCapturingTransaction(
+    root,
+    { command: "sw.open", scope: bothKeyScope, supersedeUnresolved: true },
+    (name) => {
+      if (name === "closure-staged") {
+        stagedSeen += 1;
+        if (stagedSeen === 2)
+          return Promise.reject(new Error("second closure staged fault"));
+      }
+      return Promise.resolve();
+    },
+  );
+  expect(outcome?.kind).toBe("unavailable");
+  if (outcome?.kind === "unavailable") {
+    expect(outcome.reason).toBe("closure-publication");
+    expect(outcome.superseded).toEqual([expectedClosed]);
+    expect(Object.isFrozen(outcome.superseded)).toBe(true);
+  }
+}
+
+async function assertPostLinkCleanupFaultReportsSuperseded(): Promise<void> {
+  const root = stateRoot();
+  const alphaId = await seedUnresolvedCase(root, "alpha");
+  const stagingDir = layout(root).staging;
+  let captured: TransactionResult<Effects> | undefined;
+  try {
+    const result = await runCapturingTransaction(
+      root,
+      { command: "sw.open", scope: keyScope, supersedeUnresolved: true },
+      (name) => {
+        if (name === "closure-staged") chmodSync(stagingDir, 0o500);
+        return Promise.resolve();
+      },
+    );
+    captured = result.outcome;
+  } finally {
+    chmodSync(stagingDir, 0o700);
+  }
+  expect(captured?.kind).toBe("unavailable");
+  if (captured?.kind === "unavailable") {
+    expect(captured.reason).toBe("closure-publication");
+    expect(captured.superseded).toEqual([alphaId]);
+    expect(Object.isFrozen(captured.superseded)).toBe(true);
+  }
+}
+
+async function assertPostClosureDeadlineRefusalReportsSuperseded(): Promise<void> {
+  const root = stateRoot();
+  const firstId = await seedUnresolvedCase(root, "alpha");
+  const secondId = await seedUnresolvedCase(root, "beta");
+  const expected = [firstId, secondId].sort();
+  const gate = deferred();
+  const settled = deferred();
+  let publishedSeen = 0;
+  let captured: TransactionResult<Effects> | undefined;
+  const state = stateAddonWithTestSeams(
+    { root, report: "sw.pending" },
+    {
+      phase: async (name: Phase) => {
+        if (name === "closure-published") {
+          publishedSeen += 1;
+          if (publishedSeen === 2) await gate.promise;
+        }
+      },
+    },
+  );
+  const contract = buildContract(state, (_boundary, cap) =>
+    state
+      .transaction(
+        cap,
+        { command: "sw.open", scope: bothKeyScope, supersedeUnresolved: true },
+        async () => {},
+      )
+      .then((result) => {
+        captured = result;
+        return result;
+      })
+      .finally(() => settled.resolve()),
+  );
+  try {
+    const ran = await runInProcess(contract, {
+      emergencyRecord: state.emergencyRecord,
+    })(["open", "--deadline-ms", "20"]);
+    expect(ran.kind).toBe("envelope");
+  } finally {
+    gate.resolve();
+  }
+  await settled.promise;
+  expect(captured?.kind).toBe("unavailable");
+  if (captured?.kind === "unavailable") {
+    expect(captured.reason).toBe("closure-publication");
+    expect(captured.superseded).toEqual(expected);
+    expect(Object.isFrozen(captured.superseded)).toBe(true);
+  }
+}
+
+async function assertEarlierAndUnflaggedRefusalsOmitSuperseded(): Promise<void> {
+  const root = stateRoot();
+  await seedUnresolvedCase(root, "alpha");
+  const { outcome: beforeClosure } = await runCapturingTransaction(
+    root,
+    { command: "sw.open", scope: keyScope, supersedeUnresolved: true },
+    (name) =>
+      name === "closure-staged"
+        ? Promise.reject(new Error("first closure staged fault"))
+        : Promise.resolve(),
+  );
+  expect(beforeClosure?.kind).toBe("unavailable");
+  expect(beforeClosure?.superseded).toBeUndefined();
+  expect(
+    beforeClosure !== undefined && Object.hasOwn(beforeClosure, "superseded"),
+  ).toBe(false);
+
+  const { outcome: unflagged } = await runCapturingTransaction(root, {
+    command: "sw.open",
+    scope: keyScope,
+  });
+  expect(unflagged?.kind).toBe("unresolved-case");
+  expect(unflagged?.superseded).toBeUndefined();
+  expect(
+    unflagged !== undefined && Object.hasOwn(unflagged, "superseded"),
+  ).toBe(false);
+}
+
+supportingTest(
+  "SU26e.refusal-after-closure-reports-superseded: every refusal after a published closure carries frozen sorted superseded ids, and earlier/unflagged refusals omit it",
+  async () => {
+    await assertUnresolvedCaseRefusalReportsSuperseded();
+    await assertSecondClosureFaultReportsSuperseded();
+    await assertPostLinkCleanupFaultReportsSuperseded();
+    await assertPostClosureDeadlineRefusalReportsSuperseded();
+    await assertEarlierAndUnflaggedRefusalsOmitSuperseded();
   },
   15_000,
 );
