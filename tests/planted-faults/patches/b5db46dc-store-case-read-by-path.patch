@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/state/store.ts b/kernel/src/addons/state/store.ts
+index 6d6a31a1..f68b8a06 100644
+--- a/kernel/src/addons/state/store.ts
++++ b/kernel/src/addons/state/store.ts
+@@ -548,7 +548,7 @@ export type ReadResult =
+ 
+ function readOptional(path: string): Uint8Array | undefined {
+   try {
+-    return readJournalFile(path);
++    return readFileSync(path);
+   } catch (error) {
+     if (Reflect.get(Object(error), "code") === "ENOENT") return undefined;
+     throw error;

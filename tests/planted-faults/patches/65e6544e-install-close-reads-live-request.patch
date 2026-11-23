@@ -1,0 +1,76 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index 68c4073d..f17b409e 100644
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -431,31 +431,6 @@ async function classify(
+   return classes;
+ }
+ 
+-function closeRequestCopy<Effect extends string>(
+-  request: CloseRequest<Effect>,
+-): CloseRequest<Effect> {
+-  const {
+-    command,
+-    effect,
+-    operationId,
+-    closureId,
+-    disposition,
+-    revision,
+-    reason,
+-    attestation,
+-  } = request;
+-  return Object.freeze({
+-    command,
+-    effect,
+-    operationId,
+-    closureId,
+-    disposition,
+-    revision,
+-    reason,
+-    ...(attestation === undefined ? {} : { attestation }),
+-  });
+-}
+-
+ function closeRequestProblem(
+   request: CloseRequest<string>,
+   effect: string | undefined,
+@@ -2236,7 +2211,7 @@ export function install(options: StateOptions, seams: Seams) {
+     if (Object.values(classes).some((value) => value !== wanted))
+       return { kind: "evidence-insufficient", classes };
+     return {
+-      operationId: target.intent.operationId,
++      operationId: request.operationId,
+       closureId: request.closureId,
+       disposition: request.disposition,
+       reason: request.reason,
+@@ -2363,8 +2338,7 @@ export function install(options: StateOptions, seams: Seams) {
+     targetKeys: readonly string[] | undefined,
+     order: readonly string[],
+   ): Omit<Intent, "operationId" | "runId" | "owner"> {
+-    const closes = target.intent.operationId;
+-    const caseKey = `case:${closes}`;
++    const caseKey = `case:${request.operationId}`;
+     return {
+       commandIdentity: request.command,
+       effects: [effect],
+@@ -2377,9 +2351,9 @@ export function install(options: StateOptions, seams: Seams) {
+         keys: [...new Set([...(targetKeys ?? []), `key:${caseKey}`])].sort(),
+       },
+       revisions: { [caseKey]: target.revision },
+-      facts: { closes, closureId: request.closureId },
++      facts: { closes: request.operationId, closureId: request.closureId },
+       approval: null,
+-      closes,
++      closes: request.operationId,
+       coordination: order,
+     };
+   }
+@@ -2532,7 +2506,7 @@ export function install(options: StateOptions, seams: Seams) {
+     request: CloseRequest<Effect>,
+   ): Promise<CloseResult<Effect>> {
+     const marker = () => Promise.resolve();
+-    const slot: Slot = { kind: "close", request: closeRequestCopy(request) };
++    const slot: Slot = { kind: "close", request };
+     slots.set(marker, slot);
+     const proof = await capability.transaction(marker);
+     const outcome = slot.outcome;

@@ -1,0 +1,13 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index 68c4073d..6303959b 100644
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -2532,7 +2532,7 @@ export function install(options: StateOptions, seams: Seams) {
+     request: CloseRequest<Effect>,
+   ): Promise<CloseResult<Effect>> {
+     const marker = () => Promise.resolve();
+-    const slot: Slot = { kind: "close", request: closeRequestCopy(request) };
++    const slot: Slot = { kind: "close", request };
+     slots.set(marker, slot);
+     const proof = await capability.transaction(marker);
+     const outcome = slot.outcome;
