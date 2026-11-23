@@ -1,30 +1,23 @@
 diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index f17b409e..79dfc7b6 100644
 --- a/kernel/src/addons/state/install.ts
 +++ b/kernel/src/addons/state/install.ts
-@@ -1392,14 +1392,13 @@ export function install(options: StateOptions, seams: Seams) {
+@@ -1552,12 +1552,14 @@ export function install(options: StateOptions, seams: Seams) {
        } catch {
          workFailed = true;
        }
 -      recording.ended = true;
        await settled(recording.records);
-       const observation = observationOf(
-         declared,
-         recording.confirmed,
-         recording.started,
+-      const observation = finish(
+-        held.events,
+-        observationOf(declared, recording.confirmed, recording.started),
++      const observed = observationOf(
++        declared,
++        recording.confirmed,
++        recording.started,
        );
--      finish(held.events, observation);
-+      recording.ended = finish(held.events, observation);
++      const observation = finish(held.events, observed);
++      recording.ended = observation === observed;
        return { observation, workFailed };
      } finally {
        active.delete(runId);
-@@ -1803,8 +1802,9 @@ export function install(options: StateOptions, seams: Seams) {
-           uncertain: [...effects.uncertain],
-         });
-     } catch {
--      return;
-+      return false;
-     }
-+    return true;
-   }
- 
-   function recorder<Effect extends string>(
