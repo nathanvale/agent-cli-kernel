@@ -20,6 +20,7 @@ import {
   caseTest,
   closeArgs,
   closureLabel,
+  completionAppendFault,
   expectCompleted,
   eventsPath,
   expectRefusedUnchanged,
@@ -381,6 +382,44 @@ caseTest(
       "state.closure": "completed",
     });
     expect(world.noteLedger("a")).toBe(1);
+  }),
+);
+
+supportingTest(
+  "K10.a supporting: a closer whose own completion record fails reports unknown, never closed; its case stays pending and a retried closure returns the prior disposition",
+  fixture(async (world) => {
+    await world.killAt(apply("a"), "effect");
+    const id = only(world);
+    const revision = await world.revision(id);
+    const closing = await world.run(
+      closeArgs(id, revision),
+      completionAppendFault("completion-write-fails"),
+    );
+    expect(closing.stderr).toBe("");
+    expect(closing.result.causeCode).toBe("DOMAIN_SX_CHANGE_UNKNOWN");
+    expect(closing.result.transactionState).toBe("unknown");
+    expect(closing.result.retryable).toBe(false);
+    expect(at(closing.result.raw, "effects")).toEqual({
+      completed: ["state.closure"],
+      remaining: [],
+      uncertain: [],
+      inventoryComplete: false,
+    });
+    const closer = only(world, "sx.close");
+    expect(
+      world
+        .operations()
+        .find((entry) => entry.id === closer)
+        ?.events.records.map((record) => record.kind),
+    ).toEqual(["effect-started", "effect-confirmed"]);
+    expect(await world.pendingIds()).toEqual([closer]);
+    const bytes = readFileSync(closurePath(world, id));
+    const again = await world.run(closeArgs(id, revision));
+    expect(again.exit).toBe(0);
+    expect(again.result.causeCode).toBe("SUCCESS_UNCHANGED");
+    expect(at(again.result.raw, "data", "disposition")).toBe("completed");
+    expect(readFileSync(closurePath(world, id))).toEqual(bytes);
+    expect(await world.pendingIds()).toEqual([closer]);
   }),
 );
 

@@ -936,6 +936,15 @@ async function startAfterFailedWrite(
   }
 }
 
+const settlingAppendFaults: readonly string[] = [
+  "completion-append-fails",
+  "outcome-append-fails",
+];
+
+function denySettlingAppend(operationId: string): void {
+  chmodSync(join(root, "operations", operationId, "events"), 0o400);
+}
+
 function noteWork(
   path: string,
   content: string,
@@ -947,6 +956,12 @@ function noteWork(
   ) => {
     await barrier("pre-effect");
     if (fault === "transient-after-intent") return;
+    if (fault === "not-applied-append-fails") {
+      denySettlingAppend(published.operationId);
+      return;
+    }
+    const readBackContent =
+      fault === "outcome-append-fails" ? `${content}!` : content;
     await transaction.record(
       "note.write",
       async (recorded) => {
@@ -961,9 +976,11 @@ function noteWork(
       },
       async (written) => {
         await barrier("effect");
-        return readNote(written, content);
+        return readNote(written, readBackContent);
       },
     );
+    if (settlingAppendFaults.includes(fault))
+      denySettlingAppend(published.operationId);
   };
 }
 

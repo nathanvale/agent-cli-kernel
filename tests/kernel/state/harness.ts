@@ -509,6 +509,21 @@ export function eventsPath(world: World, id: string): string {
   return join(world.root, "operations", id, "events");
 }
 
+const completionAppendPreload = join(
+  import.meta.dir,
+  "fixtures",
+  "completion-append-preload.ts",
+);
+
+export function completionAppendFault(
+  fault: "completion-write-fails" | "completion-flush-fails",
+): Readonly<Record<string, string>> {
+  return {
+    SX_FAULT: fault,
+    BUN_OPTIONS: `--preload ${completionAppendPreload}`,
+  };
+}
+
 const defaultChildBound = 60_000;
 
 export function makeWorld(

@@ -21,6 +21,7 @@ import {
   at,
   caseTest,
   closeArgs,
+  completionAppendFault,
   eventsPath,
   expectCompleted,
   expectRefusedUnchanged,
@@ -163,6 +164,152 @@ caseTest(
     expect(readFileSync(world.note("a"), "utf8")).toBe("v1");
     expect(world.noteLedger("a")).toBe(1);
   }),
+);
+
+async function runWithSettlingAppendDenied(
+  world: World,
+  fault: string,
+  name: string,
+) {
+  const run = await world.run(apply(name), { SX_FAULT: fault });
+  const [operation, ...rest] = world.operations();
+  if (!operation) throw new Error("No operation.");
+  chmodSync(eventsPath(world, operation.id), 0o600);
+  expect(rest).toEqual([]);
+  expect(run.stderr).toBe("");
+  return { run, operation };
+}
+
+supportingTest(
+  "J02.b supporting: a completion record that cannot be appended is never reported completed, and the case stays pending",
+  plain(async (world) => {
+    const { run, operation } = await runWithSettlingAppendDenied(
+      world,
+      "completion-append-fails",
+      "a",
+    );
+    expect(run.result.causeCode).toBe("DOMAIN_SX_CHANGE_UNKNOWN");
+    expect(run.result.outcome).toBe("failed");
+    expect(run.result.transactionState).toBe("unknown");
+    expect(run.result.retryable).toBe(false);
+    expect(at(run.result.raw, "effects")).toEqual({
+      completed: ["note.write"],
+      remaining: [],
+      uncertain: [],
+      inventoryComplete: false,
+    });
+    expect(eventKinds(world, operation.id)).toEqual([
+      "effect-started",
+      "effect-confirmed",
+    ]);
+    expect(world.noteLedger("a")).toBe(1);
+    expect(await world.pendingIds()).toEqual([operation.id]);
+  }),
+  90_000,
+  true,
+);
+
+supportingTest(
+  "J02.b supporting: a completion record whose flush fails is reported unknown, never completed, though the record landed and pending is empty",
+  plain(async (world) => {
+    const run = await world.run(
+      apply("a"),
+      completionAppendFault("completion-flush-fails"),
+    );
+    expect(run.stderr).toBe("");
+    expect(run.result.causeCode).toBe("DOMAIN_SX_CHANGE_UNKNOWN");
+    expect(run.result.outcome).toBe("failed");
+    expect(run.result.transactionState).toBe("unknown");
+    expect(run.result.retryable).toBe(false);
+    expect(at(run.result.raw, "effects")).toEqual({
+      completed: ["note.write"],
+      remaining: [],
+      uncertain: [],
+      inventoryComplete: false,
+    });
+    const [operation, ...rest] = world.operations();
+    if (!operation) throw new Error("No operation.");
+    expect(rest).toEqual([]);
+    expect(eventKinds(world, operation.id)).toEqual([
+      "effect-started",
+      "effect-confirmed",
+      "completion",
+    ]);
+    expect(await world.pendingIds()).toEqual([]);
+    await expectHistory(world, operation.id, "completed");
+  }),
+);
+
+supportingTest(
+  "T02.a supporting: a not-applied record that cannot be appended is never reported as a retryable unchanged attempt, and the case stays pending",
+  plain(async (world) => {
+    const { run, operation } = await runWithSettlingAppendDenied(
+      world,
+      "not-applied-append-fails",
+      "a",
+    );
+    expect(run.result.causeCode).toBe("DOMAIN_SX_CHANGE_UNKNOWN");
+    expect(run.result.outcome).toBe("failed");
+    expect(run.result.transactionState).toBe("unknown");
+    expect(run.result.retryable).toBe(false);
+    expect(at(run.result.raw, "effects")).toEqual({
+      completed: [],
+      remaining: ["note.write"],
+      uncertain: [],
+      inventoryComplete: false,
+    });
+    expect(eventKinds(world, operation.id)).toEqual([]);
+    expect(world.ledger()).toEqual([]);
+    expect(await world.pendingIds()).toEqual([operation.id]);
+  }),
+  90_000,
+  true,
+);
+
+supportingTest(
+  "J02.a supporting: an outcome record that cannot be appended leaves the answer as it is when the record lands, and the case pending either way",
+  plain(async (world) => {
+    const { run, operation } = await runWithSettlingAppendDenied(
+      world,
+      "outcome-append-fails",
+      "a",
+    );
+    expect(eventKinds(world, operation.id)).toEqual([
+      "effect-started",
+      "effect-unconfirmed",
+    ]);
+    expect(await world.pendingIds()).toEqual([operation.id]);
+    const landed = await world.run(apply("b"), { SX_FAULT: "wrong-content" });
+    const twin = world.operations().find((entry) => entry.id !== operation.id);
+    if (!twin) throw new Error("No twin operation.");
+    expect(eventKinds(world, twin.id)).toEqual([
+      "effect-started",
+      "effect-unconfirmed",
+      "outcome",
+    ]);
+    expect([...(await world.pendingIds())].sort()).toEqual(
+      [operation.id, twin.id].sort(),
+    );
+    for (const field of [
+      "causeCode",
+      "outcome",
+      "transactionState",
+      "retryable",
+    ] as const)
+      expect(run.result[field]).toBe(landed.result[field]);
+    expect(run.result.transactionState).toBe("unknown");
+    expect(at(run.result.raw, "effects")).toEqual({
+      completed: [],
+      remaining: [],
+      uncertain: ["note.write"],
+      inventoryComplete: true,
+    });
+    expect(at(run.result.raw, "effects")).toEqual(
+      at(landed.result.raw, "effects"),
+    );
+  }),
+  90_000,
+  true,
 );
 
 caseTest(

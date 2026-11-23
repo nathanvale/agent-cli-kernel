@@ -1,8 +1,10 @@
 import { afterEach, expect } from "bun:test";
 import {
   appendFileSync,
+  chmodSync,
   existsSync,
   readFileSync,
+  readdirSync,
   rmSync,
   statfsSync,
   writeFileSync,
@@ -2156,4 +2158,118 @@ supportingTest(
     expect(crashed.envelope.result.causeCode).toBe("INTERNAL_RESULT_COMPLETED");
     expect(crashed.envelope.result.superseded).toEqual([oldId]);
   },
+);
+
+supportingTest(
+  "SU29.completion-append-fails-not-completed: a flagged run whose completion record cannot be appended reports unknown with an incomplete inventory, and the case stays unfinished",
+  async () => {
+    const root = stateRoot();
+    let events = "";
+    try {
+      const ran = await runHost({
+        root,
+        supersedeUnresolved: true,
+        work: async (transaction, published) => {
+          for (const effect of defaultEffects)
+            await transaction.record(
+              effect,
+              () => Promise.resolve(),
+              () => Promise.resolve(true),
+            );
+          events = join(root, "operations", published.operationId, "events");
+          chmodSync(events, 0o400);
+        },
+      });
+      if (ran.outcome.kind !== "ran") throw new Error("Expected ran outcome.");
+      expect(ran.causeCode).toBe("DOMAIN_SU_UNKNOWN");
+      expect(ran.envelope.result.transactionState).toBe("unknown");
+      expect(ran.envelope.result.effects).toEqual({
+        completed: [...defaultEffects],
+        remaining: [],
+        uncertain: [],
+        inventoryComplete: false,
+      });
+      const [operation, ...rest] = readOperations(root);
+      expect(rest).toEqual([]);
+      expect(operation?.events.records.map((record) => record.kind)).toEqual([
+        "effect-started",
+        "effect-confirmed",
+        "effect-started",
+        "effect-confirmed",
+      ]);
+      expect(ran.state.report()).toEqual({
+        ok: true,
+        unfinished: [
+          {
+            operationId: ran.outcome.operationId,
+            commandIdentity: "su.open",
+            runId: ran.runId,
+            effects: [...defaultEffects].sort(),
+          },
+        ],
+      });
+    } finally {
+      if (events !== "") chmodSync(events, 0o600);
+    }
+  },
+  90_000,
+  true,
+);
+
+supportingTest(
+  "SU30.unused-intent-not-applied-append-fails: a refused flagged run whose not-applied record cannot be appended claims no effect, leaves its unused intent pending, and the next flagged run supersedes it",
+  async () => {
+    const root = stateRoot();
+    const oldId = await seedUnresolved(root);
+    const before = await stateAddon({
+      root,
+      report: "su.pending",
+    }).history(oldId);
+    if (!before.ok) throw new Error("Expected history.");
+    const unused: string[] = [];
+    try {
+      const refused = await runHost({
+        root,
+        supersedeUnresolved: true,
+        phase: (name) => {
+          if (name !== "closure-staged") return Promise.resolve();
+          writePriorClosure(root, oldId, before.history.journal.revision);
+          for (const id of readdirSync(join(root, "operations")))
+            if (id !== oldId) {
+              unused.push(id);
+              chmodSync(join(root, "operations", id, "events"), 0o400);
+            }
+          return Promise.resolve();
+        },
+      });
+      expect(refused.outcome).toMatchObject({
+        kind: "unresolved-case",
+        operationId: oldId,
+      });
+      expect(refused.causeCode).toBe("DOMAIN_SU_UNRESOLVED");
+      expect(refused.envelope.result.transactionState).toBe("unchanged");
+      expect(refused.envelope.result.effects.completed).toEqual([]);
+    } finally {
+      for (const id of unused)
+        chmodSync(join(root, "operations", id, "events"), 0o600);
+    }
+    const [unusedId, ...others] = unused;
+    if (unusedId === undefined) throw new Error("No unused intent.");
+    expect(others).toEqual([]);
+    expect(
+      readOperations(root)
+        .find((entry) => entry.id === unusedId)
+        ?.events.records.map((record) => record.kind),
+    ).toEqual([]);
+    const listed = stateAddon({ root, report: "su.pending" }).report();
+    expect(
+      listed.ok ? listed.unfinished.map((entry) => entry.operationId) : listed,
+    ).toEqual([unusedId]);
+    const next = await runHost({ root, supersedeUnresolved: true });
+    expect(next.causeCode).toBe("SUCCESS_COMPLETED");
+    expect(next.envelope.result.superseded).toEqual([unusedId]);
+    expect(next.state.report()).toEqual({ ok: true, unfinished: [] });
+  },
+  90_000,
+  true,
 );

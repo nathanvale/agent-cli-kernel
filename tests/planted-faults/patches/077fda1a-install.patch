@@ -1,0 +1,47 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index f17b409e..199c6aa6 100644
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -1554,10 +1554,12 @@ export function install(options: StateOptions, seams: Seams) {
+       }
+       recording.ended = true;
+       await settled(recording.records);
+-      const observation = finish(
+-        held.events,
+-        observationOf(declared, recording.confirmed, recording.started),
++      const observation = observationOf(
++        declared,
++        recording.confirmed,
++        recording.started,
+       );
++      finish(held.events, observation);
+       return { observation, workFailed };
+     } finally {
+       active.delete(runId);
+@@ -2055,7 +2057,7 @@ export function install(options: StateOptions, seams: Seams) {
+   function finish<Effect extends string>(
+     events: string,
+     observation: StateObservation<Effect>,
+-  ): StateObservation<Effect> {
++  ) {
+     const effects = observation.effects;
+     try {
+       if (observation.transactionState === "completed")
+@@ -2074,16 +2076,8 @@ export function install(options: StateOptions, seams: Seams) {
+           uncertain: [...effects.uncertain],
+         });
+     } catch {
+-      if (
+-        observation.transactionState === "completed" ||
+-        observation.transactionState === "unchanged"
+-      )
+-        return {
+-          transactionState: "unknown",
+-          effects: { ...effects, inventoryComplete: false },
+-        };
++      return;
+     }
+-    return observation;
+   }
+ 
+   function recorder<Effect extends string>(
