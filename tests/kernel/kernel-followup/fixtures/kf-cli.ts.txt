@@ -663,11 +663,6 @@ function programsApply(state: StateAddonDescriptor) {
     },
   });
 }
-// The program-stop station (accepted decisions of 17:06 and 17:24, form H):
-// kf.watch declares it in its own station table, with the ruled words; the
-// kernel selects it. KF_WATCH_STATION varies the declaration for KF3.f:
-// `ruled` (default), `missing`, `wrong-arm`, `wrong-outcome`, `other-name`,
-// and the twins `no-deadline` and `no-programs`.
 const programStop = "DOMAIN_KF_DEADLINE_PROGRAM_STOP_UNCONFIRMED";
 const watchVariant = env.KF_WATCH_STATION ?? "ruled";
 const programStopRow = {

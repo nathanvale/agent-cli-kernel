@@ -93,7 +93,8 @@ export async function materialize(): Promise<{
 }
 
 export async function createWorld(): Promise<World> {
-  // Platform: Resolved, so fileSeparation judges real directories, not /var's symlink.
+  // Platform: macOS reaches its temporary folders, under /var and /tmp, through
+  // symlinks into /private.
   const root = await mkdtemp(
     join(await realpath(tmpdir()), "kernel-approval-world-"),
   );

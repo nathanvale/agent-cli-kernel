@@ -83,7 +83,7 @@ function spawnChild(fd: number | null): number {
 }
 
 // Platform: POSIX system(3) passes non-CLOEXEC descriptors to the child shell.
-function spawnNativeChild(): number {
+function spawnChildThroughSystem(): number {
   const pidFile = `${report}.child`;
   const quoted = `'${pidFile.replaceAll("'", "'\\''")}'`;
   const { symbols } = dlopen(library, {
@@ -113,7 +113,7 @@ function hold(): void {
     : option === "child"
       ? spawnChild(taken.outcome.fd)
       : option === "native-child"
-        ? spawnNativeChild()
+        ? spawnChildThroughSystem()
         : null;
   writeReport({ ...taken.outcome, child });
   stayAlive();
