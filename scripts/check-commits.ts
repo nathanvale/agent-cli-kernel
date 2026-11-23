@@ -81,8 +81,12 @@ function pointsBackTo(admin: string, dir: string): boolean {
   );
 }
 
-// Platform: Deleting this one worktree's admin folder is what `git worktree prune`
-// does for it, without pruning anyone else's worktree.
+// Platform: `git worktree prune` unregisters a worktree whose folder is gone by
+// deleting its administrative folder.
+function pruneOnlyThisWorktree(admin: string): void {
+  rmSync(admin, { recursive: true, force: true });
+}
+
 export function release(
   run: Run,
   dir: string,
@@ -92,7 +96,7 @@ export function release(
   const removed = git(run, ["worktree", "remove", "--force", dir]).ok;
   rmSync(dir, { recursive: true, force: true });
   if (removed || admin === undefined || !existsSync(admin)) return;
-  if (owned) rmSync(admin, { recursive: true, force: true });
+  if (owned) pruneOnlyThisWorktree(admin);
   else
     process.stderr.write(
       `git worktree remove failed for ${dir}, and ${admin} no longer names it, so that registration stays. Repair: git worktree prune\n`,

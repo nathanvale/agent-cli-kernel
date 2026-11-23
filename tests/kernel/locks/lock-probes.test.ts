@@ -168,7 +168,8 @@ test(
   probe.timeout(),
 );
 
-// Platform: The lint-view parser overflows its stack on deep nesting and exits at once.
+// Platform: TypeScript 6's parser, which the lint-view compiler runs, overflows its
+// stack on deep nesting and exits at once.
 const deep = {
   "deep.ts": `export const deep = ${"(".repeat(50_000)}1${")".repeat(50_000)};\n`,
 };
