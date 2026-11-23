@@ -2217,7 +2217,7 @@ supportingTest(
 );
 
 supportingTest(
-  "SU30.unused-intent-not-applied-append-fails: a refused flagged run whose not-applied record cannot be appended claims no effect, leaves its unused intent pending, and the next flagged run supersedes it",
+  "SU30.unused-intent-not-applied-append-fails: a refused flagged run whose not-applied record cannot be appended claims no effect, reports unknown with an incomplete inventory, leaves its unused intent pending, and the next flagged run supersedes it",
   async () => {
     const root = stateRoot();
     const oldId = await seedUnresolved(root);
@@ -2246,9 +2246,14 @@ supportingTest(
         kind: "unresolved-case",
         operationId: oldId,
       });
-      expect(refused.causeCode).toBe("DOMAIN_SU_UNRESOLVED");
-      expect(refused.envelope.result.transactionState).toBe("unchanged");
-      expect(refused.envelope.result.effects.completed).toEqual([]);
+      expect(refused.causeCode).toBe("INTERNAL_RESULT_UNKNOWN");
+      expect(refused.envelope.result.transactionState).toBe("unknown");
+      expect(refused.envelope.result.effects).toEqual({
+        completed: [],
+        remaining: [...defaultEffects],
+        uncertain: [],
+        inventoryComplete: false,
+      });
     } finally {
       for (const id of unused)
         chmodSync(join(root, "operations", id, "events"), 0o600);
