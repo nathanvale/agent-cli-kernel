@@ -525,6 +525,48 @@ async function runClass1(scenario: Class1Scenario) {
   };
 }
 
+async function runClass1Close() {
+  const folder = testFolder("c94-c1-close-");
+  const root = join(folder, "state");
+  await seed(root, "alpha", true);
+  const paths = layout(root);
+  const [operationId = ""] = fs.readdirSync(paths.operations);
+  const target = readCase(paths, operationId);
+  if (typeof target === "string")
+    throw new Error(`close seed unreadable: ${target}`);
+  const watch = createWatcher();
+  const { ran } = await runHost({
+    root,
+    phase: () => {
+      watch.status.admitted = true;
+      return Promise.resolve();
+    },
+    handler: async ({ state, capability }) => {
+      const request = watch.watch(
+        {
+          command: "su.open",
+          effect: "doc.write" as const,
+          operationId,
+          closureId: "c1-close",
+          disposition: "completed" as const,
+          revision: target.revision,
+          reason: "class one close route",
+        },
+        "close.request",
+        true,
+      );
+      await state.close(capability, request);
+      return undefined;
+    },
+  });
+  fs.rmSync(folder, { recursive: true, force: true });
+  return {
+    name: "close/unresolved-case",
+    answer: ran.kind === "envelope" ? ran.envelope.result.causeCode : ran.kind,
+    findings: watch.findings(),
+  };
+}
+
 type WorkStopPoint =
   | "entry"
   | "operation"
@@ -1158,6 +1200,7 @@ async function main(): Promise<void> {
   const class1: Awaited<ReturnType<typeof runClass1>>[] = [];
   for (const scenario of class1Scenarios)
     class1.push(await runClass1(scenario));
+  class1.push(await runClass1Close());
   const unflagged = await runClass1({
     name: "unflagged/T0/approval-resolves (information only)",
     targets: 0,
