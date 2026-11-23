@@ -1,0 +1,21 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index 51793044..f5ae42f4 100644
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -2001,12 +2001,14 @@ export function install(options: StateOptions, seams: Seams) {
+       );
+       if (!opened.ok)
+         return refuse(opened.refusal, opened.superseded, opened.settled);
+-      if (!runOpenForSupersede(issuer, runId))
++      if (!runOpenForSupersede(issuer, runId)) {
++        settleUnusedIntent(runId, opened.events, declared);
+         return refuse(
+           { kind: "unavailable", reason: "closure-publication" },
+           opened.superseded,
+-          settleUnusedIntent(runId, opened.events, declared),
++          undefined,
+         );
++      }
+       slot.operationId = opened.operationId;
+       if (opened.superseded !== undefined) slot.superseded = opened.superseded;
+       const transferred = owner.transferToRun();

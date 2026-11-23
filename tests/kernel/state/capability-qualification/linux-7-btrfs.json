@@ -23,10 +23,10 @@
   "runs": [
     {
       "entry": "fixture.ts",
-      "commit": "6aa8c12ffd8e3a460d751132da3e95e46daac8b9",
-      "sourceHash": "845f4443329916a97827367d8a52f516096e2abdaeb3b53c65896f2232281bad",
-      "started": "2026-11-23T11:44:14.179Z",
-      "ended": "2026-11-23T11:44:19.480Z",
+      "commit": "374f98b5018f042c14c12b635ed681c8d60d56f7",
+      "sourceHash": "33a06aa124169546b14046c61356b8c889b79e62da7aa4d9680b5d6e1c85da5e",
+      "started": "2026-11-23T12:04:54.052Z",
+      "ended": "2026-11-23T12:04:59.369Z",
       "cases": [
         {
           "id": "K02.a-kill-after-effect-two-later-changes",
@@ -172,10 +172,10 @@
     },
     {
       "entry": "index.ts",
-      "commit": "d9df8fafa0d1e125ae2fbd1eb8454b917cc1a07e",
-      "sourceHash": "845f4443329916a97827367d8a52f516096e2abdaeb3b53c65896f2232281bad",
-      "started": "2026-11-23T11:44:28.309Z",
-      "ended": "2026-11-23T11:44:33.049Z",
+      "commit": "496d0aa1b1d12fda284b5b99353e686fba46419e",
+      "sourceHash": "33a06aa124169546b14046c61356b8c889b79e62da7aa4d9680b5d6e1c85da5e",
+      "started": "2026-11-23T12:05:07.438Z",
+      "ended": "2026-11-23T12:05:12.101Z",
       "cases": [
         {
           "id": "K02.a-kill-after-effect-two-later-changes",

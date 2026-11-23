@@ -1,0 +1,7 @@
+{
+  "id": "961d4e2b-install",
+  "patch": "tests/planted-faults/patches/961d4e2b-install.patch",
+  "testFile": "tests/kernel/state/final-append.test.ts",
+  "title": "^FA01\\.",
+  "source": "961d4e2b fix(state): report a failed unused-intent settlement as unknown"
+}

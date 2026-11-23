@@ -1,0 +1,14 @@
+diff --git a/kernel/src/addons/state/install.ts b/kernel/src/addons/state/install.ts
+index 51793044..c765aa71 100644
+--- a/kernel/src/addons/state/install.ts
++++ b/kernel/src/addons/state/install.ts
+@@ -2081,8 +2081,7 @@ export function install(options: StateOptions, seams: Seams) {
+         });
+     } catch {
+       if (
+-        observation.transactionState === "completed" ||
+-        observation.transactionState === "unchanged"
++        observation.transactionState === "completed"
+       )
+         return {
+           transactionState: "unknown",

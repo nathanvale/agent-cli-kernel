@@ -20,7 +20,7 @@ import {
   caseTest,
   closeArgs,
   closureLabel,
-  completionAppendFault,
+  settlingAppendFault,
   expectCompleted,
   eventsPath,
   expectRefusedUnchanged,
@@ -393,7 +393,7 @@ supportingTest(
     const revision = await world.revision(id);
     const closing = await world.run(
       closeArgs(id, revision),
-      completionAppendFault("completion-write-fails"),
+      settlingAppendFault("completion-write-fails"),
     );
     expect(closing.stderr).toBe("");
     expect(closing.result.causeCode).toBe("DOMAIN_SX_CHANGE_UNKNOWN");

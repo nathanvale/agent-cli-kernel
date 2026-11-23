@@ -2217,7 +2217,7 @@ supportingTest(
 );
 
 supportingTest(
-  "SU30.unused-intent-not-applied-append-fails: a refused flagged run whose not-applied record cannot be appended claims no effect, leaves its unused intent pending, and the next flagged run supersedes it",
+  "SU30.unused-intent-not-applied-append-fails: a refused flagged run whose not-applied record cannot be appended claims no effect, reports unknown with an incomplete inventory, leaves its unused intent pending, and the next flagged run supersedes it",
   async () => {
     const root = stateRoot();
     const oldId = await seedUnresolved(root);
@@ -2246,9 +2246,14 @@ supportingTest(
         kind: "unresolved-case",
         operationId: oldId,
       });
-      expect(refused.causeCode).toBe("DOMAIN_SU_UNRESOLVED");
-      expect(refused.envelope.result.transactionState).toBe("unchanged");
-      expect(refused.envelope.result.effects.completed).toEqual([]);
+      expect(refused.causeCode).toBe("INTERNAL_RESULT_UNKNOWN");
+      expect(refused.envelope.result.transactionState).toBe("unknown");
+      expect(refused.envelope.result.effects).toEqual({
+        completed: [],
+        remaining: [...defaultEffects],
+        uncertain: [],
+        inventoryComplete: false,
+      });
     } finally {
       for (const id of unused)
         chmodSync(join(root, "operations", id, "events"), 0o600);
@@ -2269,6 +2274,49 @@ supportingTest(
     expect(next.causeCode).toBe("SUCCESS_COMPLETED");
     expect(next.envelope.result.superseded).toEqual([unusedId]);
     expect(next.state.report()).toEqual({ ok: true, unfinished: [] });
+  },
+  90_000,
+  true,
+);
+
+supportingTest(
+  "SU31.closure-fault-with-not-applied-append-denied-proof: a flagged run whose supersede closure fails and whose own not-applied record cannot be appended returns a proof that is unknown with an incomplete inventory",
+  async () => {
+    const root = stateRoot();
+    const oldId = await seedUnresolved(root);
+    const unused: string[] = [];
+    try {
+      const refused = await runHost({
+        root,
+        supersedeUnresolved: true,
+        phase: (name) => {
+          if (name !== "closure-staged") return Promise.resolve();
+          for (const id of readdirSync(join(root, "operations")))
+            if (id !== oldId) {
+              unused.push(id);
+              chmodSync(join(root, "operations", id, "events"), 0o400);
+            }
+          return Promise.reject(new Error("planted closure publication fault"));
+        },
+      });
+      expect(refused.outcome).toMatchObject({
+        kind: "unavailable",
+        reason: "closure-publication",
+      });
+      const listed = stateAddon({ root, report: "su.pending" }).report();
+      expect(
+        listed.ok
+          ? listed.unfinished.map((entry) => entry.operationId).sort()
+          : listed,
+      ).toEqual([oldId, ...unused].sort());
+      expect({
+        transactionState: refused.outcome.proof.transactionState,
+        inventoryComplete: refused.outcome.proof.effects.inventoryComplete,
+      }).toEqual({ transactionState: "unknown", inventoryComplete: false });
+    } finally {
+      for (const id of unused)
+        chmodSync(join(root, "operations", id, "events"), 0o600);
+    }
   },
   90_000,
   true,
