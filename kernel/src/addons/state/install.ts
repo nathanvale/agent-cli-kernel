@@ -431,6 +431,31 @@ async function classify(
   return classes;
 }
 
+function closeRequestCopy<Effect extends string>(
+  request: CloseRequest<Effect>,
+): CloseRequest<Effect> {
+  const {
+    command,
+    effect,
+    operationId,
+    closureId,
+    disposition,
+    revision,
+    reason,
+    attestation,
+  } = request;
+  return Object.freeze({
+    command,
+    effect,
+    operationId,
+    closureId,
+    disposition,
+    revision,
+    reason,
+    ...(attestation === undefined ? {} : { attestation }),
+  });
+}
+
 function closeRequestProblem(
   request: CloseRequest<string>,
   effect: string | undefined,
@@ -2211,7 +2236,7 @@ export function install(options: StateOptions, seams: Seams) {
     if (Object.values(classes).some((value) => value !== wanted))
       return { kind: "evidence-insufficient", classes };
     return {
-      operationId: request.operationId,
+      operationId: target.intent.operationId,
       closureId: request.closureId,
       disposition: request.disposition,
       reason: request.reason,
@@ -2338,7 +2363,8 @@ export function install(options: StateOptions, seams: Seams) {
     targetKeys: readonly string[] | undefined,
     order: readonly string[],
   ): Omit<Intent, "operationId" | "runId" | "owner"> {
-    const caseKey = `case:${request.operationId}`;
+    const closes = target.intent.operationId;
+    const caseKey = `case:${closes}`;
     return {
       commandIdentity: request.command,
       effects: [effect],
@@ -2351,9 +2377,9 @@ export function install(options: StateOptions, seams: Seams) {
         keys: [...new Set([...(targetKeys ?? []), `key:${caseKey}`])].sort(),
       },
       revisions: { [caseKey]: target.revision },
-      facts: { closes: request.operationId, closureId: request.closureId },
+      facts: { closes, closureId: request.closureId },
       approval: null,
-      closes: request.operationId,
+      closes,
       coordination: order,
     };
   }
@@ -2506,7 +2532,7 @@ export function install(options: StateOptions, seams: Seams) {
     request: CloseRequest<Effect>,
   ): Promise<CloseResult<Effect>> {
     const marker = () => Promise.resolve();
-    const slot: Slot = { kind: "close", request };
+    const slot: Slot = { kind: "close", request: closeRequestCopy(request) };
     slots.set(marker, slot);
     const proof = await capability.transaction(marker);
     const outcome = slot.outcome;
