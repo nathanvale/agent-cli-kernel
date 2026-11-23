@@ -8,9 +8,16 @@ and turn on the Fallow boundary gate in the same change.
 ## Folder shape and imports
 
 - Keep only `src/cli.ts` and `src/commands.ts` at `src/` root; put every other
-  file in a subject or `shared/` folder, including a single-word command that
-  has its own file, at `src/<command>/<command>.ts`
+  file in a subject, `shared/` or `commands/` folder, including a single-word
+  command that has its own file, at `src/<command>/<command>.ts`
   (`coverage.requireAllFiles` refuses unzoned files).
+- To split the contract built in `src/commands.ts` across files, put the
+  extra files in `src/commands/`; command files stay in their subject folders.
+  Fallow's `entry` zone holds `src/cli.ts`, `src/commands.ts` and
+  `src/commands/**`: an entry file may import other entry files, subjects,
+  `src/shared/` and `rules.ts`, and only an entry file may import an entry
+  file. The folder name `commands` is reserved: name no subject `commands`,
+  or its files become entry files that may import every subject.
 - Put one command per file in `src/<subject>/<verb>.ts` for route
   `[<subject>, <verb>]`, keeping `input` and `stations` beside `run`.
 - Extract I/O shared by commands in one subject to a sibling file in that
@@ -42,7 +49,7 @@ A file belongs to the first zone that matches it. Put these zones before any
 existing zone that matches `src/**`, and remove or narrow that zone, or it
 takes every file and the gate refuses nothing.
 
-- `zones`: `{ "name": "entry", "patterns": ["src/cli.ts", "src/commands.ts"] }`, `{ "name": "rules", "patterns": ["src/**/rules.ts"] }`, `{ "name": "subject", "autoDiscover": ["src"] }`.
+- `zones`: `{ "name": "entry", "patterns": ["src/cli.ts", "src/commands.ts", "src/commands/**"] }`, `{ "name": "rules", "patterns": ["src/**/rules.ts"] }`, `{ "name": "subject", "autoDiscover": ["src"] }`.
 - `rules`: `{ "from": "entry", "allow": ["entry", "rules", "subject"] }`, `{ "from": "rules", "allow": ["rules"] }`, `{ "from": "subject", "allow": ["rules", "subject/shared"] }`, `{ "from": "subject/shared", "allow": ["rules"] }`.
 - `coverage`: `{ "requireAllFiles": true, "allowUnmatched": ["tests/**", "config/**", "eslint.config.mjs"] }`.
 
