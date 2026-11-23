@@ -1,13 +1,15 @@
-import { expect } from "bun:test";
+import { expect, test } from "bun:test";
 import {
   lstatSync,
   mkdirSync,
   readFileSync,
+  readdirSync,
   rmSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
+import { basename, join, resolve } from "node:path";
+import ts from "typescript";
 import {
   closeArgs,
   expectCompleted,
@@ -113,3 +115,57 @@ for (const leaf of leaves) {
       }),
   );
 }
+
+const stateSource = resolve(
+  import.meta.dir,
+  "../../../kernel/src/addons/state",
+);
+const fileReaders = new Set(["readFileSync", "readFile", "createReadStream"]);
+
+function fsDeclared(declaration: ts.Declaration | undefined): boolean {
+  const file = declaration?.getSourceFile().fileName ?? "";
+  return /\/node_modules\/(@types\/node|bun-types)\/.*fs/.test(file);
+}
+
+function fileReadCalls(): string[] {
+  const files = readdirSync(stateSource)
+    .filter((name) => name.endsWith(".ts"))
+    .map((name) => join(stateSource, name));
+  const program = ts.createProgram(files, {
+    module: ts.ModuleKind.ESNext,
+    moduleResolution: ts.ModuleResolutionKind.Bundler,
+    target: ts.ScriptTarget.ESNext,
+    allowImportingTsExtensions: true,
+    noEmit: true,
+    types: ["bun"],
+  });
+  const checker = program.getTypeChecker();
+  const found: string[] = [];
+  for (const path of files) {
+    const source = program.getSourceFile(path);
+    if (!source) throw new Error(`The compiler did not load ${path}.`);
+    const visit = (node: ts.Node): void => {
+      if (ts.isCallExpression(node)) {
+        const declaration = checker.getResolvedSignature(node)?.declaration;
+        const name =
+          declaration && ts.isFunctionDeclaration(declaration)
+            ? declaration.name?.text
+            : undefined;
+        if (name && fileReaders.has(name) && fsDeclared(declaration))
+          found.push(
+            `${basename(path)}: ${node.getText(source).replace(/\s+/g, " ")}`,
+          );
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(source);
+  }
+  return found;
+}
+
+test("journal file links: every file read in the state add-on reads an open descriptor, except the host boot identity", () => {
+  expect(fileReadCalls()).toEqual([
+    'qualification.ts: readFileSync(bootIdentitySource, "utf8")',
+    "store.ts: readFileSync(descriptor)",
+  ]);
+});

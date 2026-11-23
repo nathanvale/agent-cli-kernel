@@ -72,6 +72,15 @@ function flushDirectory(path: string): void {
   }
 }
 
+function readJournalFile(path: string): Uint8Array {
+  const descriptor = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+  try {
+    return readFileSync(descriptor);
+  } finally {
+    closeSync(descriptor);
+  }
+}
+
 function writeDurable(path: string, bytes: Uint8Array, exclusive = true): void {
   const descriptor = openSync(
     path,
@@ -137,7 +146,7 @@ const journals = { one: "contract3.state", two: "contract3.state.2" } as const;
 type Journal = (typeof journals)[keyof typeof journals];
 
 function journalOf(paths: Layout): Journal | undefined {
-  const parsed = parseRecords(readFileSync(paths.format));
+  const parsed = parseRecords(readJournalFile(paths.format));
   const record = parsed.ok && !parsed.tornTail ? parsed.records : [];
   const journal = record[0]?.payload.journal;
   return record.length === 1 && record[0]?.kind === "format"
@@ -539,7 +548,7 @@ export type ReadResult =
 
 function readOptional(path: string): Uint8Array | undefined {
   try {
-    return readFileSync(path);
+    return readJournalFile(path);
   } catch (error) {
     if (Reflect.get(Object(error), "code") === "ENOENT") return undefined;
     throw error;
