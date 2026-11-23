@@ -1,0 +1,7 @@
+{
+  "id": "65e6544e-install-close-reads-live-request",
+  "patch": "tests/planted-faults/patches/65e6544e-install-close-reads-live-request.patch",
+  "testFile": "tests/kernel/state/close-request-changed.test.ts",
+  "title": "^CR01\\.close-request-changed-while-observer-held:",
+  "source": "65e6544e fix(state): close only the case the request named when close() was called"
+}
